@@ -1,2 +1,1 @@
-# stratum
-stratum
+# STRATUM
