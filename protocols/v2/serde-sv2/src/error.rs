@@ -18,25 +18,6 @@ pub enum Error {
     // field is missing.
     Message(String),
 
-    // Zero or more variants that can be created directly by the Serializer and
-    // Deserializer without going through `ser::Error` and `de::Error`. These
-    // are specific to the format, in this case JSON.
-    Eof,
-    Syntax,
-    ExpectedBoolean,
-    ExpectedInteger,
-    ExpectedString,
-    ExpectedNull,
-    ExpectedArray,
-    ExpectedArrayComma,
-    ExpectedArrayEnd,
-    ExpectedMap,
-    ExpectedMapColon,
-    ExpectedMapComma,
-    ExpectedMapEnd,
-    ExpectedEnum,
-    TrailingCharacters,
-
     StringLenBiggerThan256,
     InvalidUTF8,
     LenBiggerThan16M,
@@ -63,9 +44,9 @@ impl Display for Error {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Error::Message(msg) => formatter.write_str(msg),
-            Error::Eof => formatter.write_str("unexpected end of input"),
+            Error::WriteError => formatter.write_str("write error"),
+            Error::ReadError => formatter.write_str("read error"),
             _ => panic!(),
-            /* and so forth */
         }
     }
 }

@@ -146,36 +146,6 @@ impl<'de> Deserializer<'de> {
         Ok(self.get_slice(len as usize)?)
     }
 
-    //// TODO REMOVE!! /////
-
-    // Signature is parsed as Signature rather then [u8; 4] or [u8] as Signature in Sv2 rapresent
-    // a big int and not an array of bytes
-    // fn parse_signature(&'de self) -> Result<Signature> {
-    //     let signature: &[u8; 64] = self.get_slice(32)?.try_into().unwrap();
-    //     Ok(Signature(signature))
-    // }
-
-    // fn parse_b0255(&'de self) -> Result<&'de [u8]> {
-    //     let len = self.parse_u8()?;
-    //     Ok(self.get_slice(len as usize)?)
-    // }
-
-    // fn parse_b064k(&'de self) -> Result<&'de [u8]> {
-    //     let len = self.parse_u16()?;
-    //     Ok(self.get_slice(len as usize)?)
-    // }
-
-
-    // fn parse_bytes(&'de self, len: usize) -> Result<&'de [u8]> {
-    //     Ok(self.get_slice(len as usize)?)
-    // }
-
-    // // Pubkey is parsed as Pubkey and not as [u8; 4] or [u8] as Pubkey in Sv2 rapresent a big int and
-    // // not an array of bytes
-    // fn parse_pubkey(&'de self) -> Result<Pubkey> {
-    //     let pk: &[u8; 32] = self.get_slice(32)?.try_into().unwrap();
-    //     Ok(U256(pk))
-    // }
 }
 
 impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
