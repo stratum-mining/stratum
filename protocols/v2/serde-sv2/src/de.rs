@@ -135,6 +135,11 @@ impl<'de> Deserializer<'de> {
         Ok(u256)
     }
 
+    fn parse_signature(&'de self) -> Result<&'de [u8; 64]> {
+        let signature: &[u8; 64] = self.get_slice(64)?.try_into().unwrap();
+        Ok(signature)
+    }
+
     fn parse_string(&'de self) -> Result<&'de str> {
         let len = self.parse_u8()?;
         let str_ = self.get_slice(len as usize)?;
@@ -146,36 +151,6 @@ impl<'de> Deserializer<'de> {
         Ok(self.get_slice(len as usize)?)
     }
 
-    //// TODO REMOVE!! /////
-
-    // Signature is parsed as Signature rather then [u8; 4] or [u8] as Signature in Sv2 rapresent
-    // a big int and not an array of bytes
-    // fn parse_signature(&'de self) -> Result<Signature> {
-    //     let signature: &[u8; 64] = self.get_slice(32)?.try_into().unwrap();
-    //     Ok(Signature(signature))
-    // }
-
-    // fn parse_b0255(&'de self) -> Result<&'de [u8]> {
-    //     let len = self.parse_u8()?;
-    //     Ok(self.get_slice(len as usize)?)
-    // }
-
-    // fn parse_b064k(&'de self) -> Result<&'de [u8]> {
-    //     let len = self.parse_u16()?;
-    //     Ok(self.get_slice(len as usize)?)
-    // }
-
-
-    // fn parse_bytes(&'de self, len: usize) -> Result<&'de [u8]> {
-    //     Ok(self.get_slice(len as usize)?)
-    // }
-
-    // // Pubkey is parsed as Pubkey and not as [u8; 4] or [u8] as Pubkey in Sv2 rapresent a big int and
-    // // not an array of bytes
-    // fn parse_pubkey(&'de self) -> Result<Pubkey> {
-    //     let pk: &[u8; 32] = self.get_slice(32)?.try_into().unwrap();
-    //     Ok(U256(pk))
-    // }
 }
 
 impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
@@ -253,6 +228,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         match _name {
             "U24" => visitor.visit_u32(self.parse_u24()?),
             "U256" => visitor.visit_bytes(self.parse_u256()?),
+            "Signature" => visitor.visit_bytes(self.parse_signature()?),
             "B016M" => visitor.visit_bytes(self.parse_b016m()?),
             "Seq0255" => Ok(visitor.visit_seq(Seq::new(&mut self, Sv2Seq::S255)?)?),
             "Seq064K" => Ok(visitor.visit_seq(Seq::new(&mut self, Sv2Seq::S64k)?)?),
@@ -499,6 +475,111 @@ fn test_struct() {
         a: 456,
         b: 9,
         c: 67.into(),
+    };
+
+    let mut bytes = crate::ser::to_bytes(&expected).unwrap();
+    let deserialized: Test = from_bytes(&mut bytes[..]).unwrap();
+
+    assert_eq!(deserialized, expected);
+}
+
+#[test]
+fn test_u256() {
+    use serde::Serialize;
+
+    let u256: crate::sv2_primitives::U256 = [6; 32].into();
+
+    #[derive(Deserialize, Serialize, PartialEq, Debug)]
+    struct Test {
+        a: crate::sv2_primitives::U256,
+    }
+
+    let expected = Test {
+        a: u256,
+    };
+
+    let mut bytes = crate::ser::to_bytes(&expected).unwrap();
+    let deserialized: Test = from_bytes(&mut bytes[..]).unwrap();
+
+    assert_eq!(deserialized, expected);
+}
+
+#[test]
+fn test_signature() {
+    use serde::Serialize;
+
+    let s: crate::sv2_primitives::Signature = [6; 64].into();
+
+    #[derive(Deserialize, Serialize, PartialEq, Debug)]
+    struct Test {
+        a: crate::sv2_primitives::Signature,
+    }
+
+    let expected = Test {
+        a: s,
+    };
+
+    let mut bytes = crate::ser::to_bytes(&expected).unwrap();
+    let deserialized: Test = from_bytes(&mut bytes[..]).unwrap();
+
+    assert_eq!(deserialized, expected);
+}
+
+#[test]
+fn test_b016m() {
+    use serde::Serialize;
+
+    let b: crate::sv2_primitives::B016M = vec![6; 3].try_into().unwrap();
+
+    #[derive(Deserialize, Serialize, PartialEq, Debug)]
+    struct Test {
+        a: crate::sv2_primitives::B016M,
+    }
+
+    let expected = Test {
+        a: b,
+    };
+
+    let mut bytes = crate::ser::to_bytes(&expected).unwrap();
+    let deserialized: Test = from_bytes(&mut bytes[..]).unwrap();
+
+    assert_eq!(deserialized, expected);
+}
+
+#[test]
+fn test_seq0255() {
+    use serde::Serialize;
+
+    let s: crate::sv2_primitives::Seq0255<bool> = vec![true; 3].try_into().unwrap();
+
+    #[derive(Deserialize, Serialize, PartialEq, Debug)]
+    struct Test {
+        a: crate::sv2_primitives::Seq0255<bool>,
+    }
+
+    let expected = Test {
+        a: s,
+    };
+
+    let mut bytes = crate::ser::to_bytes(&expected).unwrap();
+    let deserialized: Test = from_bytes(&mut bytes[..]).unwrap();
+
+    assert_eq!(deserialized, expected);
+}
+
+#[test]
+fn test_seq064k() {
+    use serde::Serialize;
+
+    let s: crate::sv2_primitives::Seq0255<u8> = vec![9; 3].try_into().unwrap();
+
+    #[derive(Deserialize, Serialize, PartialEq, Debug)]
+    struct Test {
+        a: crate::sv2_primitives::Seq0255<u8>,
+    }
+
+    let expected = Test {
+        a: s,
     };
 
     let mut bytes = crate::ser::to_bytes(&expected).unwrap();

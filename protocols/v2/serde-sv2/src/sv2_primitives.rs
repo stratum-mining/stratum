@@ -4,7 +4,7 @@
 //!
 use crate::error::Error;
 use serde::{ser, ser::SerializeTuple, Serialize, de::Visitor, Deserialize, Deserializer};
-use std::convert::TryFrom;
+use std::convert::{TryInto, TryFrom};
 
 #[derive(Debug, PartialEq)]
 pub struct U24(u32);
@@ -54,53 +54,104 @@ impl<'de> Deserialize<'de> for U24 {
     }
 }
 
-pub struct U256<'u256>(pub(crate) &'u256 [u8; 32]);
-pub type Pubkey<'pk> = U256<'pk>;
+#[derive(Debug, PartialEq)]
+pub struct U256([u8; 32]);
+pub type Pubkey = U256;
 
-impl<'u256> From<&'u256 [u8; 32]> for U256<'u256> {
-    fn from(v: &'u256 [u8; 32]) -> Self {
+impl From<[u8; 32]> for U256 {
+    fn from(v: [u8; 32]) -> Self {
         Self(v)
     }
 }
 
-impl<'u256> From<U256<'u256>> for [u8; 32] {
+impl From<U256> for [u8; 32] {
     fn from(v: U256) -> Self {
-        *v.0
+        v.0
     }
 }
 
-impl<'u256> Serialize for U256<'u256> {
+impl Serialize for U256 {
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
         S: ser::Serializer,
     {
-        serializer.serialize_bytes(self.0)
+        serializer.serialize_bytes(&self.0)
     }
 }
 
-pub struct Signature<'sign>(pub(crate) &'sign [u8; 64]);
+struct U256Visitor;
 
-impl<'sign> From<&'sign [u8; 64]> for Signature<'sign> {
-    fn from(v: &'sign [u8; 64]) -> Self {
+impl<'de> Visitor<'de> for U256Visitor {
+    type Value = U256;
+
+    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        formatter.write_str("a 32 bytes unsigned le int")
+    }
+
+    fn visit_bytes<E>(self, value: &[u8]) -> Result<Self::Value, E> {
+        let u256: [u8; 32] = value.try_into().unwrap();
+        Ok(u256.into())
+    }
+}
+
+impl<'de> Deserialize<'de> for U256 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_newtype_struct("U256", U256Visitor)
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct Signature([u8; 64]);
+
+impl From<[u8; 64]> for Signature {
+    fn from(v:[u8; 64]) -> Self {
         Self(v)
     }
 }
 
-impl<'sign> From<Signature<'sign>> for [u8; 64] {
+impl From<Signature> for [u8; 64] {
     fn from(v: Signature) -> Self {
-        *v.0
+        v.0
     }
 }
 
-impl<'sign> Serialize for Signature<'sign> {
+impl Serialize for Signature {
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
         S: ser::Serializer,
     {
-        serializer.serialize_bytes(self.0)
+        serializer.serialize_bytes(&self.0)
     }
 }
 
+struct SignatureVisitor;
+
+impl<'de> Visitor<'de> for SignatureVisitor {
+    type Value = Signature;
+
+    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        formatter.write_str("a 64 bytes unsigned le int")
+    }
+
+    fn visit_bytes<E>(self, value: &[u8]) -> Result<Self::Value, E> {
+        let u256: [u8; 64] = value.try_into().unwrap();
+        Ok(u256.into())
+    }
+}
+
+impl<'de> Deserialize<'de> for Signature {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_newtype_struct("Signature", SignatureVisitor)
+    }
+}
+
+#[derive(Debug, PartialEq)]
 pub struct B016M(Vec<u8>);
 
 impl TryFrom<Vec<u8>> for B016M {
@@ -125,7 +176,7 @@ impl Serialize for B016M {
     where
         S: ser::Serializer,
     {
-        let tuple = (self.0.len().to_le_bytes(), &self.0[..]);
+        let tuple = (&self.0.len().to_le_bytes()[0..=2], &self.0[..]);
         let mut seq = serializer.serialize_tuple(2)?;
         seq.serialize_element(&tuple.0)?;
         seq.serialize_element(tuple.1)?;
@@ -133,6 +184,31 @@ impl Serialize for B016M {
     }
 }
 
+struct B016MVisitor;
+
+impl<'de> Visitor<'de> for B016MVisitor {
+    type Value = B016M;
+
+    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        formatter.write_str("a byte array shorter than 16M")
+    }
+
+    fn visit_bytes<E>(self, value: &[u8]) -> Result<Self::Value, E> {
+        let b0: Vec<u8> = value.into();
+        Ok(b0.try_into().unwrap())
+    }
+}
+
+impl<'de> Deserialize<'de> for B016M {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_newtype_struct("B016M", B016MVisitor)
+    }
+}
+
+#[derive(Debug, PartialEq)]
 pub struct Seq0255<T: Serialize>(Vec<T>);
 pub type B0255 = Seq0255<u8>;
 
@@ -166,7 +242,45 @@ impl<T: Serialize> Serialize for Seq0255<T> {
     }
 }
 
-#[derive(Debug)]
+struct Seq0255Visitor<T>{
+    _a: std::marker::PhantomData<T>
+}
+
+impl<'de, T: Serialize + Deserialize<'de>> Visitor<'de> for Seq0255Visitor<T> {
+    type Value = Seq0255<T>;
+
+    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        formatter.write_str("a general array shorter than 255")
+    }
+
+    fn visit_seq<A: serde::de::SeqAccess<'de>>(self, mut access: A) -> Result<Self::Value, A::Error> {
+        let mut s: Vec<T> = vec![];
+        let mut i = 0;
+        while let Some(value) = access.next_element()? {
+            // TODO 
+            // if i > 255 {
+            //     return Err(Error::LenBiggerThan255)
+            // }
+            if i > 255 {
+                panic!()
+            }
+            s.push(value);
+            i += 1;
+        };
+        Ok(s.try_into().unwrap())
+    }
+}
+
+impl<'de, T: Serialize + Deserialize<'de>> Deserialize<'de> for Seq0255<T> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_newtype_struct("Seq0255", Seq0255Visitor {_a: std::marker::PhantomData})
+    }
+}
+
+#[derive(Debug, PartialEq)]
 pub struct Seq064K<T: Serialize>(Vec<T>);
 pub type B064K = Seq064K<u8>;
 
@@ -197,6 +311,44 @@ impl<T: Serialize> Serialize for Seq064K<T> {
         seq.serialize_element(&tuple.0)?;
         seq.serialize_element(tuple.1)?;
         seq.end()
+    }
+}
+
+struct Seq064KVisitor<T>{
+    _a: std::marker::PhantomData<T>
+}
+
+impl<'de, T: Serialize + Deserialize<'de>> Visitor<'de> for Seq064KVisitor<T> {
+    type Value = Seq064K<T>;
+
+    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        formatter.write_str("a general array shorter than 64K")
+    }
+
+    fn visit_seq<A: serde::de::SeqAccess<'de>>(self, mut access: A) -> Result<Self::Value, A::Error> {
+        let mut s: Vec<T> = vec![];
+        let mut i = 0;
+        while let Some(value) = access.next_element()? {
+            // TODO 
+            // if i > 255 {
+            //     return Err(Error::LenBiggerThan255)
+            // }
+            if i > (2_u32.pow(16)) - 1 {
+                panic!()
+            }
+            s.push(value);
+            i += 1;
+        };
+        Ok(s.try_into().unwrap())
+    }
+}
+
+impl<'de, T: Serialize + Deserialize<'de>> Deserialize<'de> for Seq064K<T> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_newtype_struct("Seq064K", Seq064KVisitor {_a: std::marker::PhantomData})
     }
 }
 
@@ -249,4 +401,17 @@ fn test_b0_64k_3() {
         Ok(_) => assert!(false, "vector bigger than 64K should return an error"),
         Err(_) => assert!(true),
     }
+}
+
+#[test]
+fn test_b0_16m() {
+    use crate::ser::to_bytes;
+    use std::convert::TryInto;
+
+    let test: B016M = vec![1, 2, 9]
+        .try_into()
+        .expect("vector smaller than 64K should not fail");
+
+    let expected = vec![3, 0, 0, 1, 2, 9];
+    assert_eq!(to_bytes(&test).unwrap(), expected);
 }
