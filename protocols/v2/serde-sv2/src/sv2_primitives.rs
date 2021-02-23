@@ -3,8 +3,8 @@
 //! [Sv2]: https://docs.google.com/document/d/1FadCWj-57dvhxsnFM_7X806qyvhR0u3i85607bGHxvg/edit
 //!
 use crate::error::Error;
-use serde::{ser, ser::SerializeTuple, Serialize, de::Visitor, Deserialize, Deserializer};
-use std::convert::{TryInto, TryFrom};
+use serde::{de::Visitor, ser, ser::SerializeTuple, Deserialize, Deserializer, Serialize};
+use std::convert::{TryFrom, TryInto};
 
 #[derive(Debug, PartialEq)]
 pub struct U24(u32);
@@ -28,7 +28,6 @@ impl Serialize for U24 {
     {
         serializer.serialize_bytes(&self.0.to_le_bytes()[0..=3])
     }
-
 }
 
 struct U24Visitor;
@@ -107,7 +106,7 @@ impl<'de> Deserialize<'de> for U256 {
 pub struct Signature([u8; 64]);
 
 impl From<[u8; 64]> for Signature {
-    fn from(v:[u8; 64]) -> Self {
+    fn from(v: [u8; 64]) -> Self {
         Self(v)
     }
 }
@@ -242,8 +241,8 @@ impl<T: Serialize> Serialize for Seq0255<T> {
     }
 }
 
-struct Seq0255Visitor<T>{
-    _a: std::marker::PhantomData<T>
+struct Seq0255Visitor<T> {
+    _a: std::marker::PhantomData<T>,
 }
 
 impl<'de, T: Serialize + Deserialize<'de>> Visitor<'de> for Seq0255Visitor<T> {
@@ -253,11 +252,14 @@ impl<'de, T: Serialize + Deserialize<'de>> Visitor<'de> for Seq0255Visitor<T> {
         formatter.write_str("a general array shorter than 255")
     }
 
-    fn visit_seq<A: serde::de::SeqAccess<'de>>(self, mut access: A) -> Result<Self::Value, A::Error> {
+    fn visit_seq<A: serde::de::SeqAccess<'de>>(
+        self,
+        mut access: A,
+    ) -> Result<Self::Value, A::Error> {
         let mut s: Vec<T> = vec![];
         let mut i = 0;
         while let Some(value) = access.next_element()? {
-            // TODO 
+            // TODO
             // if i > 255 {
             //     return Err(Error::LenBiggerThan255)
             // }
@@ -266,7 +268,7 @@ impl<'de, T: Serialize + Deserialize<'de>> Visitor<'de> for Seq0255Visitor<T> {
             }
             s.push(value);
             i += 1;
-        };
+        }
         Ok(s.try_into().unwrap())
     }
 }
@@ -276,7 +278,12 @@ impl<'de, T: Serialize + Deserialize<'de>> Deserialize<'de> for Seq0255<T> {
     where
         D: Deserializer<'de>,
     {
-        deserializer.deserialize_newtype_struct("Seq0255", Seq0255Visitor {_a: std::marker::PhantomData})
+        deserializer.deserialize_newtype_struct(
+            "Seq0255",
+            Seq0255Visitor {
+                _a: std::marker::PhantomData,
+            },
+        )
     }
 }
 
@@ -314,8 +321,8 @@ impl<T: Serialize> Serialize for Seq064K<T> {
     }
 }
 
-struct Seq064KVisitor<T>{
-    _a: std::marker::PhantomData<T>
+struct Seq064KVisitor<T> {
+    _a: std::marker::PhantomData<T>,
 }
 
 impl<'de, T: Serialize + Deserialize<'de>> Visitor<'de> for Seq064KVisitor<T> {
@@ -325,11 +332,14 @@ impl<'de, T: Serialize + Deserialize<'de>> Visitor<'de> for Seq064KVisitor<T> {
         formatter.write_str("a general array shorter than 64K")
     }
 
-    fn visit_seq<A: serde::de::SeqAccess<'de>>(self, mut access: A) -> Result<Self::Value, A::Error> {
+    fn visit_seq<A: serde::de::SeqAccess<'de>>(
+        self,
+        mut access: A,
+    ) -> Result<Self::Value, A::Error> {
         let mut s: Vec<T> = vec![];
         let mut i = 0;
         while let Some(value) = access.next_element()? {
-            // TODO 
+            // TODO
             // if i > 255 {
             //     return Err(Error::LenBiggerThan255)
             // }
@@ -338,7 +348,7 @@ impl<'de, T: Serialize + Deserialize<'de>> Visitor<'de> for Seq064KVisitor<T> {
             }
             s.push(value);
             i += 1;
-        };
+        }
         Ok(s.try_into().unwrap())
     }
 }
@@ -348,7 +358,12 @@ impl<'de, T: Serialize + Deserialize<'de>> Deserialize<'de> for Seq064K<T> {
     where
         D: Deserializer<'de>,
     {
-        deserializer.deserialize_newtype_struct("Seq064K", Seq064KVisitor {_a: std::marker::PhantomData})
+        deserializer.deserialize_newtype_struct(
+            "Seq064K",
+            Seq064KVisitor {
+                _a: std::marker::PhantomData,
+            },
+        )
     }
 }
 
