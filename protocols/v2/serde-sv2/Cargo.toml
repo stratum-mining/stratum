@@ -3,6 +3,9 @@ name = "serde_v2"
 version = "0.1.0"
 authors = ["fi3 <email@email.org>"]
 edition = "2018"
+license = "license"
+description = "description"
+
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
