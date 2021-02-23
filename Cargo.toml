@@ -1,8 +1,8 @@
 [workspace]
 
 members = [
-    # "protocols/v1",
-    # "protocols/v1/examples/client-and-server",
+    "protocols/v1",
+    "protocols/v1/examples/client-and-server",
     "protocols/v2/serde-sv2",
 ]
 

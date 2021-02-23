@@ -27,9 +27,6 @@
 //! * result: any json-encoded result object (number, string, list, array, …)
 //! * error: null or list (error code, error message)
 //!
-//! TODO dire qlks sul fatto che configure non e' tarttata come parte estensibile del protocollo
-//! perche bla bla bla
-//!
 //! References:
 //! [https://docs.google.com/document/d/17zHy1SUlhgtCMbypO8cHgpWH73V5iUQKk_0rWvMqSNs/edit?hl=en_US#]
 //! [https://braiins.com/stratum-v1/docs]
@@ -52,13 +49,6 @@ pub use methods::server_to_client;
 pub use methods::MethodError;
 use utils::{HexBytes, HexU32Be};
 
-// pub trait Handler {
-//     fn respond(request: methods::Message) -> Option<methods::Message>;
-// }
-
-/// Trait implemented by a startum v1 server (proxy or pool)
-/// bla bla bla TODO
-///
 /// json_rpc Response are not handled cause startum v1 do not have any request from a server to a
 /// client
 ///
@@ -356,13 +346,10 @@ pub trait IsClient {
     /// Check if the client sent a Submit request with the given id
     fn id_is_submit(&mut self, id: &str) -> bool;
 
-    //// TODO qui error si deve poter espandere ... /////
     fn handle_notify(&mut self, notify: server_to_client::Notify) -> Result<(), Error>;
 
-    //// TODO qui error si deve poter espandere ... /////
     fn handle_configure(&self, conf: &mut server_to_client::Configure) -> Result<(), Error>;
 
-    //// TODO qui error si deve poter espandere ... /////
     fn handle_subscribe(&mut self, subscribe: &server_to_client::Subscribe) -> Result<(), Error>;
 
     fn set_extranonce1(&mut self, extranonce1: HexBytes);
