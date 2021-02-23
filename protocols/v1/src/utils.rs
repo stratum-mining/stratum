@@ -53,7 +53,6 @@ impl From<HexBytes> for String {
     }
 }
 
-
 /// Big-endian alternative of the HexU32
 /// TODO: find out how to consolidate/parametrize it with generic parameters
 #[derive(Clone, Debug, PartialEq)]
@@ -134,7 +133,6 @@ impl From<PrevHash> for Value {
         Into::<String>::into(ph).into()
     }
 }
-
 
 /// Helper Serializer that peforms the reverse process of converting the prev hash into stratum V1
 /// ordering

@@ -23,10 +23,7 @@
 //!
 use std::convert::TryInto;
 
-use serde::de::{
-    self, DeserializeSeed, SeqAccess,
-    Visitor,
-};
+use serde::de::{self, DeserializeSeed, SeqAccess, Visitor};
 use serde::Deserialize;
 
 use crate::error::{Error, Result};
@@ -52,7 +49,6 @@ enum Sv2Seq {
 //    Pubkey,
 //}
 
-/// TODO implementare Deserializer from_reader
 pub struct Deserializer<'de> {
     input: &'de mut [u8],
     cursor_: usize,
@@ -150,7 +146,6 @@ impl<'de> Deserializer<'de> {
         let len = self.parse_u24()?;
         Ok(self.get_slice(len as usize)?)
     }
-
 }
 
 impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
@@ -272,7 +267,6 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     {
         unimplemented!()
     }
-
 
     fn deserialize_i8<V>(self, _visitor: V) -> Result<V::Value>
     where
@@ -494,9 +488,7 @@ fn test_u256() {
         a: crate::sv2_primitives::U256,
     }
 
-    let expected = Test {
-        a: u256,
-    };
+    let expected = Test { a: u256 };
 
     let mut bytes = crate::ser::to_bytes(&expected).unwrap();
     let deserialized: Test = from_bytes(&mut bytes[..]).unwrap();
@@ -515,9 +507,7 @@ fn test_signature() {
         a: crate::sv2_primitives::Signature,
     }
 
-    let expected = Test {
-        a: s,
-    };
+    let expected = Test { a: s };
 
     let mut bytes = crate::ser::to_bytes(&expected).unwrap();
     let deserialized: Test = from_bytes(&mut bytes[..]).unwrap();
@@ -536,9 +526,7 @@ fn test_b016m() {
         a: crate::sv2_primitives::B016M,
     }
 
-    let expected = Test {
-        a: b,
-    };
+    let expected = Test { a: b };
 
     let mut bytes = crate::ser::to_bytes(&expected).unwrap();
     let deserialized: Test = from_bytes(&mut bytes[..]).unwrap();
@@ -557,9 +545,7 @@ fn test_seq0255() {
         a: crate::sv2_primitives::Seq0255<bool>,
     }
 
-    let expected = Test {
-        a: s,
-    };
+    let expected = Test { a: s };
 
     let mut bytes = crate::ser::to_bytes(&expected).unwrap();
     let deserialized: Test = from_bytes(&mut bytes[..]).unwrap();
@@ -578,9 +564,7 @@ fn test_seq064k() {
         a: crate::sv2_primitives::Seq0255<u8>,
     }
 
-    let expected = Test {
-        a: s,
-    };
+    let expected = Test { a: s };
 
     let mut bytes = crate::ser::to_bytes(&expected).unwrap();
     let deserialized: Test = from_bytes(&mut bytes[..]).unwrap();

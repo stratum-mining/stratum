@@ -228,7 +228,7 @@ impl Arbitrary for Submit {
         }
     }
 }
- 
+
 #[cfg(test)]
 #[quickcheck_macros::quickcheck]
 fn submit_from_to_json_rpc(submit: Submit) -> bool {
@@ -239,7 +239,6 @@ fn submit_from_to_json_rpc(submit: Submit) -> bool {
     };
     submit == TryInto::<Submit>::try_into(request).unwrap()
 }
-
 
 /// _mining.subscribe("user agent/version", "extranonce1")_
 ///
