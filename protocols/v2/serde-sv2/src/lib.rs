@@ -24,10 +24,11 @@
 //!
 //!
 
-mod de;
-mod error;
+pub mod de;
+pub mod error;
 mod ser;
 pub mod sv2_primitives;
 
 pub use error::{Error, Result};
 pub use ser::{to_bytes, to_writer, Serializer};
+pub use de::{from_bytes, Deserializer};
