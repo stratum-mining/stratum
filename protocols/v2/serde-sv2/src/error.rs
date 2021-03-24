@@ -5,10 +5,9 @@ use serde::{de, ser};
 
 pub type Result<T> = std::result::Result<T, Error>;
 
-// This is a bare-bones implementation. A real library would provide additional
-// information in its error type, for example the line and column at which the
-// error occurred, the byte offset into the input, or the current key being
-// processed.
+// TODO provode additional information in the error type:
+// 1. byte offset into the input
+// 2. ??
 #[derive(Clone, Debug, PartialEq)]
 pub enum Error {
     // One or more variants that can be created by data structures through the
@@ -25,7 +24,13 @@ pub enum Error {
     LenBiggerThan64K,
     WriteError,
     ReadError,
-    InvalidBool,
+    InvalidBoolSize(usize),
+    InvalidBool(u8),
+    InvalidU256(usize),
+    InvalidSignatureSize(usize),
+    InvalidU16Size(usize),
+    InvalidU24Size(usize),
+    InvalidU32Size(usize),
 }
 
 impl ser::Error for Error {
@@ -46,7 +51,7 @@ impl Display for Error {
             Error::Message(msg) => formatter.write_str(msg),
             Error::WriteError => formatter.write_str("write error"),
             Error::ReadError => formatter.write_str("read error"),
-            _ => panic!(),
+            _ => formatter.write_str("TODO display not implemented"),
         }
     }
 }

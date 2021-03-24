@@ -50,6 +50,7 @@ impl<'a, W: std::io::Write> ser::Serializer for &'a mut Serializer<W> {
     type SerializeStructVariant = Self;
 
     // TODO check endianess
+    #[inline]
     fn serialize_bool(self, v: bool) -> Result<()> {
         match v {
             true => self.output.write_all(&[1]).map_err(|_| Error::WriteError)?,
@@ -58,16 +59,19 @@ impl<'a, W: std::io::Write> ser::Serializer for &'a mut Serializer<W> {
         Ok(())
     }
 
+    #[inline]
     fn serialize_u8(self, v: u8) -> Result<()> {
         self.output.write_all(&[v]).map_err(|_| Error::WriteError)
     }
 
+    #[inline]
     fn serialize_u16(self, v: u16) -> Result<()> {
         self.output
             .write_all(&v.to_le_bytes())
             .map_err(|_| Error::WriteError)
     }
 
+    #[inline]
     fn serialize_u32(self, v: u32) -> Result<()> {
         self.output
             .write_all(&v.to_le_bytes())
@@ -75,6 +79,7 @@ impl<'a, W: std::io::Write> ser::Serializer for &'a mut Serializer<W> {
     }
 
     // Serialize string to STR0_255
+    #[inline]
     fn serialize_str(self, v: &str) -> Result<()> {
         match v.len() {
             l @ 0..=255 => {
@@ -89,12 +94,12 @@ impl<'a, W: std::io::Write> ser::Serializer for &'a mut Serializer<W> {
             .map_err(|_| Error::WriteError)
     }
 
+    #[inline]
     fn serialize_bytes(self, v: &[u8]) -> Result<()> {
         self.output.write_all(v).map_err(|_| Error::WriteError)
     }
 
-    // As is done here, serializers are encouraged to treat newtype structs as
-    // insignificant wrappers around the data they contain.
+    #[inline]
     fn serialize_newtype_struct<T>(self, _name: &'static str, value: &T) -> Result<()>
     where
         T: ?Sized + Serialize,
@@ -104,14 +109,17 @@ impl<'a, W: std::io::Write> ser::Serializer for &'a mut Serializer<W> {
 
     // serialize_struct should preserve field order TODO verify it
     // https://users.rust-lang.org/t/order-of-fields-in-serde-json-to-string/48928/3?u=fi3
+    #[inline]
     fn serialize_struct(self, _name: &'static str, _len: usize) -> Result<Self::SerializeStruct> {
         Ok(self)
     }
 
+    #[inline]
     fn serialize_seq(self, _len: Option<usize>) -> Result<Self::SerializeSeq> {
         Ok(self)
     }
 
+    #[inline]
     fn serialize_tuple(self, _len: usize) -> Result<Self::SerializeTuple> {
         Ok(self)
     }
@@ -119,54 +127,54 @@ impl<'a, W: std::io::Write> ser::Serializer for &'a mut Serializer<W> {
     ///// UNIMPLEMENTED /////
 
     fn serialize_i8(self, _v: i8) -> Result<()> {
-        todo!()
+        unimplemented!()
     }
 
     fn serialize_i16(self, _v: i16) -> Result<()> {
-        todo!()
+        unimplemented!()
     }
 
     fn serialize_i32(self, _v: i32) -> Result<()> {
-        todo!()
+        unimplemented!()
     }
 
     fn serialize_i64(self, _v: i64) -> Result<()> {
-        todo!()
+        unimplemented!()
     }
 
     fn serialize_u64(self, _v: u64) -> Result<()> {
-        todo!()
+        unimplemented!()
     }
 
     fn serialize_f32(self, _v: f32) -> Result<()> {
-        todo!()
+        unimplemented!()
     }
 
     fn serialize_f64(self, _v: f64) -> Result<()> {
-        todo!()
+        unimplemented!()
     }
 
     fn serialize_char(self, _v: char) -> Result<()> {
-        todo!()
+        unimplemented!()
     }
 
     fn serialize_none(self) -> Result<()> {
-        todo!()
+        unimplemented!()
     }
 
     fn serialize_some<T>(self, _value: &T) -> Result<()>
     where
         T: ?Sized + Serialize,
     {
-        todo!()
+        unimplemented!()
     }
 
     fn serialize_unit(self) -> Result<()> {
-        todo!()
+        unimplemented!()
     }
 
     fn serialize_unit_struct(self, _name: &'static str) -> Result<()> {
-        todo!()
+        unimplemented!()
     }
 
     fn serialize_unit_variant(
@@ -175,7 +183,7 @@ impl<'a, W: std::io::Write> ser::Serializer for &'a mut Serializer<W> {
         _variant_index: u32,
         _variant: &'static str,
     ) -> Result<()> {
-        todo!()
+        unimplemented!()
     }
 
     fn serialize_newtype_variant<T>(
@@ -188,7 +196,7 @@ impl<'a, W: std::io::Write> ser::Serializer for &'a mut Serializer<W> {
     where
         T: ?Sized + Serialize,
     {
-        todo!()
+        unimplemented!()
     }
 
     fn serialize_tuple_struct(
@@ -196,7 +204,7 @@ impl<'a, W: std::io::Write> ser::Serializer for &'a mut Serializer<W> {
         _name: &'static str,
         _len: usize,
     ) -> Result<Self::SerializeTupleStruct> {
-        todo!()
+        unimplemented!()
     }
 
     fn serialize_tuple_variant(
@@ -206,11 +214,11 @@ impl<'a, W: std::io::Write> ser::Serializer for &'a mut Serializer<W> {
         _variant: &'static str,
         _len: usize,
     ) -> Result<Self::SerializeTupleVariant> {
-        todo!()
+        unimplemented!()
     }
 
     fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap> {
-        todo!()
+        unimplemented!()
     }
 
     fn serialize_struct_variant(
@@ -228,6 +236,7 @@ impl<'a, W: std::io::Write> ser::SerializeStruct for &'a mut Serializer<W> {
     type Ok = ();
     type Error = Error;
 
+    #[inline]
     fn serialize_field<T>(&mut self, _key: &'static str, value: &T) -> Result<()>
     where
         T: ?Sized + Serialize,
@@ -235,16 +244,17 @@ impl<'a, W: std::io::Write> ser::SerializeStruct for &'a mut Serializer<W> {
         value.serialize(&mut **self)
     }
 
+    #[inline]
     fn end(self) -> Result<()> {
         Ok(())
     }
 }
 
-// TODO check if usefull and in case disimplement it!
 impl<'a, W: std::io::Write> ser::SerializeSeq for &'a mut Serializer<W> {
     type Ok = ();
     type Error = Error;
 
+    #[inline]
     fn serialize_element<T>(&mut self, value: &T) -> Result<()>
     where
         T: ?Sized + Serialize,
@@ -252,6 +262,7 @@ impl<'a, W: std::io::Write> ser::SerializeSeq for &'a mut Serializer<W> {
         value.serialize(&mut **self)
     }
 
+    #[inline]
     fn end(self) -> Result<()> {
         Ok(())
     }
@@ -261,6 +272,7 @@ impl<'a, W: std::io::Write> ser::SerializeTuple for &'a mut Serializer<W> {
     type Ok = ();
     type Error = Error;
 
+    #[inline]
     fn serialize_element<T>(&mut self, value: &T) -> Result<()>
     where
         T: ?Sized + Serialize,
@@ -268,6 +280,7 @@ impl<'a, W: std::io::Write> ser::SerializeTuple for &'a mut Serializer<W> {
         value.serialize(&mut **self)
     }
 
+    #[inline]
     fn end(self) -> Result<()> {
         Ok(())
     }
@@ -283,11 +296,11 @@ impl<'a, W: std::io::Write> ser::SerializeTupleStruct for &'a mut Serializer<W> 
     where
         T: ?Sized + Serialize,
     {
-        todo!()
+        unimplemented!()
     }
 
     fn end(self) -> Result<()> {
-        todo!()
+        unimplemented!()
     }
 }
 
@@ -299,11 +312,11 @@ impl<'a, W: std::io::Write> ser::SerializeTupleVariant for &'a mut Serializer<W>
     where
         T: ?Sized + Serialize,
     {
-        todo!()
+        unimplemented!()
     }
 
     fn end(self) -> Result<()> {
-        todo!()
+        unimplemented!()
     }
 }
 
@@ -315,18 +328,18 @@ impl<'a, W: std::io::Write> ser::SerializeMap for &'a mut Serializer<W> {
     where
         T: ?Sized + Serialize,
     {
-        todo!()
+        unimplemented!()
     }
 
     fn serialize_value<T>(&mut self, _value: &T) -> Result<()>
     where
         T: ?Sized + Serialize,
     {
-        todo!()
+        unimplemented!()
     }
 
     fn end(self) -> Result<()> {
-        todo!()
+        unimplemented!()
     }
 }
 
@@ -338,11 +351,11 @@ impl<'a, W: std::io::Write> ser::SerializeStructVariant for &'a mut Serializer<W
     where
         T: ?Sized + Serialize,
     {
-        todo!()
+        unimplemented!()
     }
 
     fn end(self) -> Result<()> {
-        todo!()
+        unimplemented!()
     }
 }
 
