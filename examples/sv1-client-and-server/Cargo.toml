@@ -7,7 +7,8 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-v1={path="../.."}
+# TODO change it!
+v1={path="../../protocols/v1"}
 async-std="1.8.0"
 serde = { version = "1.0.89", features = ["derive"] }
 serde_json = "1.0.39"

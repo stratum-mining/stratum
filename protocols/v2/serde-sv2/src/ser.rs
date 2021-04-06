@@ -124,6 +124,20 @@ impl<'a, W: std::io::Write> ser::Serializer for &'a mut Serializer<W> {
         Ok(self)
     }
 
+    #[inline]
+    fn serialize_newtype_variant<T>(
+        self,
+        _name: &'static str,
+        _variant_index: u32,
+        _variant: &'static str,
+        value: &T,
+    ) -> Result<()>
+    where
+        T: ?Sized + Serialize,
+    {
+        value.serialize(self)
+    }
+
     ///// UNIMPLEMENTED /////
 
     fn serialize_i8(self, _v: i8) -> Result<()> {
@@ -183,19 +197,6 @@ impl<'a, W: std::io::Write> ser::Serializer for &'a mut Serializer<W> {
         _variant_index: u32,
         _variant: &'static str,
     ) -> Result<()> {
-        unimplemented!()
-    }
-
-    fn serialize_newtype_variant<T>(
-        self,
-        _name: &'static str,
-        _variant_index: u32,
-        _variant: &'static str,
-        _value: &T,
-    ) -> Result<()>
-    where
-        T: ?Sized + Serialize,
-    {
         unimplemented!()
     }
 

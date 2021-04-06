@@ -31,6 +31,7 @@ pub enum Error {
     InvalidU16Size(usize),
     InvalidU24Size(usize),
     InvalidU32Size(usize),
+    U24TooBig(u32),
 }
 
 impl ser::Error for Error {

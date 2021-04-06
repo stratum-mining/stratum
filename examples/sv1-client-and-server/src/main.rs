@@ -335,15 +335,15 @@ impl Client {
         self.send_message(subscribe).await;
     }
 
-    pub async fn restore_subscribe(&mut self) {
-        let id = time::SystemTime::now()
-            .duration_since(time::SystemTime::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos()
-            .to_string();
-        let subscribe = self.subscribe(id, Some(self.extranonce1.clone())).unwrap();
-        self.send_message(subscribe).await;
-    }
+    //pub async fn restore_subscribe(&mut self) {
+    //    let id = time::SystemTime::now()
+    //        .duration_since(time::SystemTime::UNIX_EPOCH)
+    //        .unwrap()
+    //        .as_nanos()
+    //        .to_string();
+    //    let subscribe = self.subscribe(id, Some(self.extranonce1.clone())).unwrap();
+    //    self.send_message(subscribe).await;
+    //}
 
     pub async fn send_authorize(&mut self) {
         let id = time::SystemTime::now()

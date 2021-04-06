@@ -1,19 +1,58 @@
+use crate::primitives::FixedSize;
 use serde::{de::Visitor, ser, Deserialize, Deserializer, Serialize};
+use std::convert::TryFrom;
 
-#[derive(Debug, PartialEq)]
-pub struct U24(pub u32);
+#[derive(Debug, PartialEq, Copy, Clone)]
+pub struct U24(pub(crate) u32);
 
-impl From<u32> for U24 {
-    #[inline]
-    fn from(v: u32) -> Self {
-        Self(v)
-    }
+impl U24 {
+    const MAX: u32 = 16777215;
 }
 
 impl From<U24> for u32 {
     #[inline]
     fn from(v: U24) -> Self {
         v.0
+    }
+}
+
+impl From<&U24> for u32 {
+    #[inline]
+    fn from(v: &U24) -> Self {
+        v.0
+    }
+}
+
+impl TryFrom<u32> for U24 {
+    type Error = crate::Error;
+
+    fn try_from(v: u32) -> Result<Self, Self::Error> {
+        match v {
+            0..=Self::MAX => Ok(Self(v)),
+            _ => Err(crate::Error::U24TooBig(v)),
+        }
+    }
+}
+
+use std::convert::TryInto;
+
+impl TryFrom<usize> for U24 {
+    type Error = crate::Error;
+
+    fn try_from(v: usize) -> Result<Self, Self::Error> {
+        let v: u32 = v
+            .try_into()
+            .map_err(|_| crate::Error::U24TooBig(u32::MAX))?;
+        match v {
+            0..=Self::MAX => Ok(Self(v)),
+            _ => Err(crate::Error::U24TooBig(v)),
+        }
+    }
+}
+
+impl From<U24> for usize {
+    fn from(v: U24) -> Self {
+        v.0 as usize
     }
 }
 
@@ -38,7 +77,9 @@ impl<'de> Visitor<'de> for U24Visitor {
 
     #[inline]
     fn visit_u32<E>(self, value: u32) -> Result<Self::Value, E> {
-        Ok(value.into())
+        // This is safe as this struct is deserialized using parse_u24 that can never return a
+        // value bigger than U24::MAX
+        Ok(U24(value))
     }
 }
 
@@ -50,4 +91,8 @@ impl<'de> Deserialize<'de> for U24 {
     {
         deserializer.deserialize_newtype_struct("U24", U24Visitor)
     }
+}
+
+impl FixedSize for U24 {
+    const FIXED_SIZE: usize = 3;
 }
