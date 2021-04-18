@@ -40,11 +40,15 @@ where
 }
 
 impl<'de> Deserializer<'de> {
+    fn as_vec(&self) -> Vec<u8> {
+        self.input.to_vec()
+    }
+
     #[inline]
     fn get_slice(&mut self, len: usize) -> Result<&'de [u8]> {
         if self.input.len() < len {
             return Err(Error::ReadError);
-        }
+        };
 
         let (sl, rem) = &self.input.split_at(len);
         self.input = rem;
@@ -55,14 +59,14 @@ impl<'de> Deserializer<'de> {
     #[inline]
     fn parse_seq0255(&mut self, element_size: u8) -> Result<&'de [u8]> {
         let len = self.parse_u8()?;
-        let len = len * element_size;
+        let len = len as usize * element_size as usize;
         self.get_slice(len as usize)
     }
 
     #[inline]
     fn parse_seq064k(&mut self, element_size: u8) -> Result<&'de [u8]> {
         let len = self.parse_u16()?;
-        let len = len * element_size as u16;
+        let len = len as usize * element_size as usize;
         self.get_slice(len as usize)
     }
 
@@ -171,20 +175,18 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         self.deserialize_str(visitor)
     }
 
-    #[inline]
-    fn deserialize_bytes<V>(self, _visitor: V) -> Result<V::Value>
+    fn deserialize_bytes<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
-        todo!()
+        self.deserialize_byte_buf(visitor)
     }
 
-    #[inline]
-    fn deserialize_byte_buf<V>(self, _visitor: V) -> Result<V::Value>
+    fn deserialize_byte_buf<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
-        todo!()
+        visitor.visit_byte_buf(self.as_vec())
     }
 
     #[inline]
@@ -328,7 +330,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        unimplemented!()
+        todo!()
     }
 
     fn deserialize_tuple<V>(self, _len: usize, _visitor: V) -> Result<V::Value>
@@ -464,7 +466,7 @@ fn test_struct() {
     let expected = Test {
         a: 456,
         b: 9,
-        c: 67.into(),
+        c: 67_u32.try_into().unwrap(),
     };
 
     let mut bytes = crate::ser::to_bytes(&expected).unwrap();
@@ -588,8 +590,8 @@ fn test_seq0255_u256() {
     let u256_2: crate::primitives::U256 = (&[5; 32][..]).try_into().unwrap();
     let u256_3: crate::primitives::U256 = (&[0; 32][..]).try_into().unwrap();
 
-    let val = [u256_1, u256_2, u256_3];
-    let s = Seq0255::new(&val[..]).unwrap();
+    let val = vec![u256_1, u256_2, u256_3];
+    let s = Seq0255::new(val).unwrap();
 
     #[derive(Deserialize, Serialize, PartialEq, Debug)]
     struct Test<'a> {
@@ -613,7 +615,7 @@ fn test_seq0255_bool() {
     use crate::primitives::Seq0255;
     use serde::Serialize;
 
-    let s: crate::primitives::Seq0255<bool> = Seq0255::new(&[true, false, true][..]).unwrap();
+    let s: crate::primitives::Seq0255<bool> = Seq0255::new(vec![true, false, true]).unwrap();
 
     #[derive(Deserialize, Serialize, PartialEq, Debug)]
     struct Test<'a> {
@@ -635,7 +637,7 @@ fn test_seq0255_u16() {
     use crate::primitives::U16;
     use serde::Serialize;
 
-    let s: crate::primitives::Seq0255<U16> = Seq0255::new(&[10, 43, 89][..]).unwrap();
+    let s: crate::primitives::Seq0255<U16> = Seq0255::new(vec![10, 43, 89]).unwrap();
 
     #[derive(Deserialize, Serialize, PartialEq, Debug)]
     struct Test<'a> {
@@ -661,8 +663,8 @@ fn test_seq0255_u24() {
     let u24_2 = U24(59);
     let u24_3 = U24(70999);
 
-    let val = [u24_1, u24_2, u24_3];
-    let s: crate::primitives::Seq0255<U24> = Seq0255::new(&val[..]).unwrap();
+    let val = vec![u24_1, u24_2, u24_3];
+    let s: crate::primitives::Seq0255<U24> = Seq0255::new(val).unwrap();
 
     #[derive(Deserialize, Serialize, PartialEq, Debug)]
     struct Test<'a> {
@@ -684,7 +686,7 @@ fn test_seq0255_u32() {
     use crate::primitives::Seq0255;
     use serde::Serialize;
 
-    let s: crate::primitives::Seq0255<u32> = Seq0255::new(&[546, 99999, 87, 32][..]).unwrap();
+    let s: crate::primitives::Seq0255<u32> = Seq0255::new(vec![546, 99999, 87, 32]).unwrap();
 
     #[derive(Deserialize, Serialize, PartialEq, Debug)]
     struct Test<'a> {
@@ -707,12 +709,12 @@ fn test_seq0255_signature() {
     use crate::primitives::Signature;
     use serde::Serialize;
 
-    let siganture_1 = Signature(&[88; 64][..]);
-    let siganture_2 = Signature(&[99; 64][..]);
-    let siganture_3 = Signature(&[220; 64][..]);
+    let siganture_1: Signature = (&[88; 64][..]).try_into().unwrap();
+    let siganture_2: Signature = (&[99; 64][..]).try_into().unwrap();
+    let siganture_3: Signature = (&[220; 64][..]).try_into().unwrap();
 
-    let val = [siganture_1, siganture_2, siganture_3];
-    let s: crate::primitives::Seq0255<Signature> = Seq0255::new(&val[..]).unwrap();
+    let val = vec![siganture_1, siganture_2, siganture_3];
+    let s: crate::primitives::Seq0255<Signature> = Seq0255::new(val).unwrap();
 
     #[derive(Deserialize, Serialize, PartialEq, Debug)]
     struct Test<'a> {
@@ -739,8 +741,8 @@ fn test_seq064k_u256() {
     let u256_2: crate::primitives::U256 = (&[5; 32][..]).try_into().unwrap();
     let u256_3: crate::primitives::U256 = (&[0; 32][..]).try_into().unwrap();
 
-    let val = [u256_1, u256_2, u256_3];
-    let s = Seq064K::new(&val[..]).unwrap();
+    let val = vec![u256_1, u256_2, u256_3];
+    let s = Seq064K::new(val).unwrap();
 
     #[derive(Deserialize, Serialize, PartialEq, Debug)]
     struct Test<'a> {
@@ -764,8 +766,8 @@ fn test_seq064k_bool() {
     use crate::primitives::Seq064K;
     use serde::Serialize;
 
-    let s: Seq064K<bool> = Seq064K::new(&[true, false, true][..]).unwrap();
-    let s2: Seq064K<bool> = Seq064K::new(&[true; 64000][..]).unwrap();
+    let s: Seq064K<bool> = Seq064K::new(vec![true, false, true]).unwrap();
+    let s2: Seq064K<bool> = Seq064K::new(vec![true; 64000]).unwrap();
 
     #[derive(Deserialize, Serialize, PartialEq, Debug)]
     struct Test<'a> {
@@ -792,7 +794,7 @@ fn test_seq064k_u16() {
     use crate::primitives::U16;
     use serde::Serialize;
 
-    let s: Seq064K<U16> = Seq064K::new(&[10, 43, 89][..]).unwrap();
+    let s: Seq064K<U16> = Seq064K::new(vec![10, 43, 89]).unwrap();
 
     #[derive(Deserialize, Serialize, PartialEq, Debug)]
     struct Test<'a> {
@@ -818,8 +820,8 @@ fn test_seq064k_u24() {
     let u24_2 = U24(59);
     let u24_3 = U24(70999);
 
-    let val = [u24_1, u24_2, u24_3];
-    let s: Seq064K<U24> = Seq064K::new(&val[..]).unwrap();
+    let val = vec![u24_1, u24_2, u24_3];
+    let s: Seq064K<U24> = Seq064K::new(val).unwrap();
 
     #[derive(Deserialize, Serialize, PartialEq, Debug)]
     struct Test<'a> {
@@ -841,7 +843,7 @@ fn test_seq064k_u32() {
     use crate::primitives::Seq064K;
     use serde::Serialize;
 
-    let s: Seq064K<u32> = Seq064K::new(&[546, 99999, 87, 32][..]).unwrap();
+    let s: Seq064K<u32> = Seq064K::new(vec![546, 99999, 87, 32]).unwrap();
 
     #[derive(Deserialize, Serialize, PartialEq, Debug)]
     struct Test<'a> {
@@ -864,12 +866,12 @@ fn test_seq064k_signature() {
     use crate::primitives::Signature;
     use serde::Serialize;
 
-    let siganture_1 = Signature(&[88; 64][..]);
-    let siganture_2 = Signature(&[99; 64][..]);
-    let siganture_3 = Signature(&[220; 64][..]);
+    let siganture_1: Signature = (&[88_u8; 64][..]).try_into().unwrap();
+    let siganture_2: Signature = (&[99_u8; 64][..]).try_into().unwrap();
+    let siganture_3: Signature = (&[220_u8; 64][..]).try_into().unwrap();
 
-    let val = [siganture_1, siganture_2, siganture_3];
-    let s: Seq064K<Signature> = Seq064K::new(&val[..]).unwrap();
+    let val = vec![siganture_1, siganture_2, siganture_3];
+    let s: Seq064K<Signature> = Seq064K::new(val).unwrap();
 
     #[derive(Deserialize, Serialize, PartialEq, Debug)]
     struct Test<'a> {

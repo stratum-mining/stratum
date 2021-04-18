@@ -1,8 +1,16 @@
 [workspace]
 
+#"utils/codec-sv2",
 members = [
     "protocols/v1",
-    "protocols/v1/examples/client-and-server",
     "protocols/v2/serde-sv2",
+    "protocols/v2/noise-sv2",
+    "protocols/v2/framing-sv2",
+    "protocols/v2/codec-sv2",
+    "protocols/v2/const-sv2",
+    "utils/network-helpers",
+    "examples/sv1-client-and-server",
+    "examples/ping-pong-with-noise",
+    "examples/ping-pong-without-noise",
 ]
 

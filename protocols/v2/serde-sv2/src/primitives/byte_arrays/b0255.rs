@@ -1,9 +1,35 @@
 use crate::error::Error;
+use crate::primitives::GetLen;
 use serde::{de::Visitor, ser, ser::SerializeTuple, Deserialize, Deserializer, Serialize};
 use std::convert::TryFrom;
 
 #[derive(Debug, PartialEq)]
-pub struct B0255<'b>(&'b [u8]);
+enum Inner<'a> {
+    Ref(&'a [u8]),
+    Owned(Vec<u8>),
+}
+
+impl<'a> Inner<'a> {
+    #[inline]
+    pub fn len(&self) -> [u8; 1] {
+        let l = match self {
+            Self::Ref(v) => v.len().to_le_bytes(),
+            Self::Owned(v) => v.len().to_le_bytes(),
+        };
+        [l[0]]
+    }
+
+    #[inline]
+    pub fn as_ref(&'a self) -> &'a [u8] {
+        match self {
+            Self::Ref(v) => v,
+            Self::Owned(v) => &v[..],
+        }
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct B0255<'b>(Inner<'b>);
 
 impl<'b> TryFrom<&'b [u8]> for B0255<'b> {
     type Error = Error;
@@ -11,8 +37,19 @@ impl<'b> TryFrom<&'b [u8]> for B0255<'b> {
     #[inline]
     fn try_from(v: &'b [u8]) -> std::result::Result<Self, Self::Error> {
         match v.len() {
-            0..=255 => Ok(Self(v)),
+            0..=255 => Ok(Self(Inner::Ref(v))),
             _ => Err(Error::LenBiggerThan255),
+        }
+    }
+}
+
+impl<'b> TryFrom<Vec<u8>> for B0255<'b> {
+    type Error = Error;
+
+    fn try_from(v: Vec<u8>) -> std::result::Result<Self, Self::Error> {
+        match v.len() {
+            0..=255 => Ok(Self(Inner::Owned(v))),
+            _ => Err(Error::LenBiggerThan16M),
         }
     }
 }
@@ -23,8 +60,11 @@ impl<'b> Serialize for B0255<'b> {
     where
         S: ser::Serializer,
     {
+        let len = self.0.len();
+        let inner = self.0.as_ref();
+
         // tuple is: (byte array len, byte array)
-        let tuple = (&self.0.len().to_le_bytes()[0], &self.0[..]);
+        let tuple = (len, &inner);
 
         let tuple_len = 2;
         let mut seq = serializer.serialize_tuple(tuple_len)?;
@@ -46,7 +86,7 @@ impl<'a> Visitor<'a> for B0255Visitor {
 
     #[inline]
     fn visit_borrowed_bytes<E>(self, value: &'a [u8]) -> Result<Self::Value, E> {
-        Ok(B0255(value))
+        Ok(B0255(Inner::Ref(value)))
     }
 }
 
@@ -57,5 +97,14 @@ impl<'de: 'a, 'a> Deserialize<'de> for B0255<'a> {
         D: Deserializer<'de>,
     {
         deserializer.deserialize_newtype_struct("B0255", B0255Visitor)
+    }
+}
+
+impl<'a> GetLen for B0255<'a> {
+    fn get_len(&self) -> usize {
+        match &self.0 {
+            Inner::Ref(v) => v.len() + 1,
+            Inner::Owned(v) => v.len() + 1,
+        }
     }
 }

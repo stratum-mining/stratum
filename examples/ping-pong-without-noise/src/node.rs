@@ -1,0 +1,174 @@
+use crate::messages::{Message, Ping, Pong};
+use rand::Rng;
+use serde_sv2::{from_bytes, U256};
+
+use async_channel::{bounded, Receiver, Sender};
+use async_std::net::TcpStream;
+use async_std::prelude::*;
+use async_std::sync::{Arc, Mutex};
+use async_std::task;
+
+use serde::Serialize;
+use serde_sv2::GetLen;
+
+use codec_sv2::{StandardDecoder, Encoder, StandardSv2Frame};
+use framing_sv2::framing2::{Frame as F_};
+
+#[derive(Debug)]
+enum Expected {
+    Ping,
+    Pong,
+}
+
+#[derive(Debug)]
+pub struct Node {
+    name: String,
+    last_id: u32,
+    connection: Arc<Mutex<Connection>>,
+    expected: Expected,
+    receiver: Receiver<StandardSv2Frame<Message<'static>>>,
+    sender: Sender<StandardSv2Frame<Message<'static>>>,
+}
+
+impl Node {
+    pub fn new(name: String, socket: TcpStream) -> Arc<Mutex<Self>> {
+        let (connection, receiver, sender) = Connection::new(socket);
+
+        let node = Arc::new(Mutex::new(Node {
+            last_id: 0,
+            name,
+            connection,
+            expected: Expected::Ping,
+            receiver,
+            sender,
+        }));
+        let cloned = node.clone();
+
+        task::spawn(async move {
+            loop {
+                match cloned.try_lock() {
+                    Some(mut node) => {
+                        let incoming = node.receiver.recv().await.unwrap();
+                        node.respond(incoming).await;
+                    }
+                    _ => (),
+                }
+            }
+        });
+
+        node
+    }
+
+    pub async fn send_ping(&mut self) {
+        self.expected = Expected::Pong;
+        let message = Message::Ping(Ping::new(self.last_id.clone()));
+        let frame = StandardSv2Frame::<Message<'static>>::from_message(message).unwrap();
+        self.sender.send(frame).await.unwrap();
+        self.last_id += 1;
+    }
+
+    async fn respond(&mut self, frame: StandardSv2Frame<Message<'static>>) {
+        let response = self.handle_message(frame);
+        let frame = StandardSv2Frame::<Message<'static>>::from_message(response).unwrap();
+        self.sender.send(frame).await.unwrap();
+        self.last_id += 1;
+    }
+
+    fn handle_message(&mut self, mut frame: StandardSv2Frame<Message<'static>>) -> Message<'static> {
+        match self.expected {
+            Expected::Ping => {
+                let ping: Result<Ping, _> = from_bytes(frame.payload());
+                match ping {
+                    Ok(ping) => {
+                        println!("Node {} recived:", self.name);
+                        println!("{:#?}\n", ping);
+                        let mut seq: Vec<U256> = vec![];
+                        for _ in 0..100 {
+                            let random_bytes = rand::thread_rng().gen::<[u8; 32]>();
+                            let u256: U256 = random_bytes.into();
+                            seq.push(u256);
+                        }
+                        Message::Pong(Pong::new(self.last_id.clone(), seq))
+                    }
+                    Err(e) => {
+                        println!("{:#?}", e);
+                        todo!()
+                    }
+                }
+            }
+            Expected::Pong => {
+                let pong: Result<Pong, _> = from_bytes(frame.payload());
+                match pong {
+                    Ok(pong) => {
+                        println!("Node {} recived:", self.name);
+                        println!("Pong, id: {:#?}\n", pong.get_id());
+                        Message::Ping(Ping::new(self.last_id.clone()))
+                    }
+                    Err(_) => panic!(),
+                }
+            }
+        }
+    }
+}
+
+#[derive(Debug)]
+struct Connection {}
+
+use std::time;
+impl Connection {
+    fn new(
+        stream: TcpStream,
+    ) -> (
+        Arc<Mutex<Self>>,
+        Receiver<StandardSv2Frame<Message<'static>>>,
+        Sender<StandardSv2Frame<Message<'static>>>,
+    ) {
+        let (mut reader, writer) = (stream.clone(), stream.clone());
+
+        let (sender_incoming, receiver_incoming): (
+            Sender<StandardSv2Frame<Message<'static>>>,
+            Receiver<StandardSv2Frame<Message<'static>>>,
+        ) = bounded(10);
+        let (sender_outgoing, receiver_outgoing): (
+            Sender<StandardSv2Frame<Message<'static>>>,
+            Receiver<StandardSv2Frame<Message<'static>>>,
+        ) = bounded(10);
+
+        // Receive and parse incoming messages from TCP stream
+        task::spawn(async move {
+            let mut decoder = StandardDecoder::new();
+
+            loop {
+                let writable = decoder.writable();
+                let _r = reader.read_exact(writable).await.unwrap();
+                match decoder.next_frame() {
+                    Ok(x) => sender_incoming.send(x).await.unwrap(),
+                    Err(_) => (),
+                }
+                task::sleep(time::Duration::from_millis(500)).await;
+            }
+
+        });
+
+        // Encode and send incoming messages to TCP stream
+        task::spawn(async move {
+            let mut encoder = codec_sv2::Encoder::<crate::messages::Message>::new();
+
+            loop {
+                let received = receiver_outgoing.recv().await;
+
+                match received {
+                    Ok(frame) => {
+                        let b = encoder.encode(frame).unwrap();
+                        (&writer).write_all(b).await.unwrap();
+                    }
+                    Err(_) => (),
+                }
+            }
+        });
+
+        let connection = Arc::new(Mutex::new(Self {}));
+
+        (connection, receiver_incoming, sender_outgoing)
+    }
+}

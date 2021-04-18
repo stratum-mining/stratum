@@ -1,6 +1,7 @@
 pub mod b016m;
 pub mod b0255;
 pub mod b064k;
+pub mod bytes;
 
 #[test]
 fn test_b0_64k() {

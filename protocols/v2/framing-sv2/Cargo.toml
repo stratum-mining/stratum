@@ -1,0 +1,17 @@
+[package]
+name = "framing_sv2"
+version = "0.1.0"
+authors = ["fi3 <email@email.org>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+bytes = "1.0.1"
+serde = { version = "1.0.89", default-features = false }
+# TODO change it!
+serde_sv2 = { path = "../../../protocols/v2/serde-sv2" }
+# TODO change it!
+noise_sv2 = { path = "../../../protocols/v2/noise-sv2", optional=true}
+# TODO change it!
+const_sv2 = { path = "../../../protocols/v2/const-sv2"}

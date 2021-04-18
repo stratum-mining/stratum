@@ -1,0 +1,18 @@
+[package]
+name = "noise_sv2"
+version = "0.1.0"
+authors = ["fi3 <email@email.org>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+snow = "0.7.2"
+#snow = {path = "/home/user/src/snow"}
+ed25519-dalek = { version = "1.0.1", features = ["serde"] }
+bs58 = { version ="0.4.0", features = ["check"] }
+serde_json = "1.0.39"
+bytes = "1.0.1"
+serde = { version = "1.0.89", features = ["derive"], default-features = false }
+rand = "0.7.3" 
+const_sv2 = { path = "../../../protocols/v2/const-sv2"}

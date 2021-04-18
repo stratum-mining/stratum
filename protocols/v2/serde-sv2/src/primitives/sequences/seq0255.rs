@@ -1,12 +1,14 @@
 use super::super::{Signature, U24, U256};
 use super::{Seq, SeqMaxLen, SeqVisitor, TryFromBSlice};
+use crate::primitives::FixedSize;
+use crate::primitives::GetLen;
 use crate::Error;
 use serde::{ser, ser::SerializeTuple, Deserialize, Deserializer, Serialize};
 
 #[derive(Debug)]
 pub struct Seq0255<'s, T: Serialize + TryFromBSlice<'s>> {
     seq: Option<Seq<'s, T>>,
-    data: Option<&'s [T]>,
+    data: Option<Vec<T>>,
 }
 
 impl<'s, T: Serialize + TryFromBSlice<'s> + std::cmp::PartialEq> PartialEq for Seq0255<'s, T> {
@@ -21,7 +23,7 @@ impl<'s, T: Serialize + TryFromBSlice<'s> + std::cmp::PartialEq> PartialEq for S
 
 impl<'s, T: Serialize + TryFromBSlice<'s>> Seq0255<'s, T> {
     #[inline]
-    pub fn new(data: &'s [T]) -> Result<Self, Error> {
+    pub fn new(data: Vec<T>) -> Result<Self, Error> {
         if data.len() > 255 {
             Err(Error::LenBiggerThan255)
         } else {
@@ -181,5 +183,15 @@ impl<'de: 'a, 'a> Deserialize<'de> for Seq0255<'a, Signature<'a>> {
                 },
             )
             .map(|x| x.into())
+    }
+}
+
+impl<'a, T: FixedSize + Serialize + TryFromBSlice<'a>> GetLen for Seq0255<'a, T> {
+    fn get_len(&self) -> usize {
+        if self.data.is_some() {
+            (self.data.as_ref().unwrap().len() * T::FIXED_SIZE) + 1
+        } else {
+            self.seq.as_ref().unwrap().data.len() + 1
+        }
     }
 }
