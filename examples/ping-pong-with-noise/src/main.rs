@@ -3,7 +3,7 @@ mod node;
 use async_std::net::{TcpListener, TcpStream};
 use async_std::prelude::*;
 use async_std::task;
-use codec_sv2::{HandshakeRole, noise_sv2::random_keypair, Initiator, Responder};
+use codec_sv2::{noise_sv2::random_keypair, HandshakeRole, Initiator, Responder};
 use std::time;
 
 const ADDR: &str = "127.0.0.1:34254";
@@ -43,12 +43,7 @@ async fn server_pool() {
 async fn new_client(name: String) {
     let stream = TcpStream::connect(ADDR).await.unwrap();
     let initiator = Initiator::from_raw_k(AUTHORITY_PUBLIC_K);
-    let client = node::Node::new(
-        name,
-        stream,
-        HandshakeRole::Initiator(initiator),
-    )
-    .await;
+    let client = node::Node::new(name, stream, HandshakeRole::Initiator(initiator)).await;
 
     task::block_on(async move {
         loop {

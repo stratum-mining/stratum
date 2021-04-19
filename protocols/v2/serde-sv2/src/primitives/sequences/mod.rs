@@ -1,4 +1,4 @@
-use super::{Signature, U24, U256};
+use super::{Signature, B016M, B0255, B064K, U24, U256};
 use crate::Error;
 use serde::{de::Visitor, Serialize};
 use std::convert::TryInto;
@@ -19,27 +19,6 @@ struct Seq<'s, T: Serialize + TryFromBSlice<'s>> {
     size: u8,
     max_len: SeqMaxLen,
     _a: std::marker::PhantomData<T>,
-}
-
-impl<'a, T: TryFromBSlice<'a> + Serialize> Iterator for Seq<'a, T> {
-    type Item = T;
-
-    #[inline]
-    fn next(&mut self) -> Option<Self::Item> {
-        let start = self.cursor;
-        self.cursor += self.size as usize;
-        let end = self.cursor;
-        if end >= self.data.len() {
-            None
-        } else {
-            // The below should be always valid as there is no way to construct invalid sequences
-            // TODO check it
-            match T::try_from_slice(&self.data[start..end]) {
-                Ok(x) => Some(x),
-                Err(_) => None,
-            }
-        }
-    }
 }
 
 struct SeqVisitor<T> {
@@ -154,3 +133,51 @@ impl<'a> TryFromBSlice<'a> for Signature<'a> {
         val.try_into()
     }
 }
+
+impl<'a> TryFromBSlice<'a> for B016M<'a> {
+    type Error = Error;
+
+    #[inline]
+    fn try_from_slice(val: &'a [u8]) -> Result<Self, Error> {
+        val.try_into()
+    }
+}
+
+impl<'a> TryFromBSlice<'a> for B064K<'a> {
+    type Error = Error;
+
+    #[inline]
+    fn try_from_slice(val: &'a [u8]) -> Result<Self, Error> {
+        val.try_into()
+    }
+}
+
+impl<'a> TryFromBSlice<'a> for B0255<'a> {
+    type Error = Error;
+
+    #[inline]
+    fn try_from_slice(val: &'a [u8]) -> Result<Self, Error> {
+        val.try_into()
+    }
+}
+
+//impl<'a, T: TryFromBSlice<'a> + Serialize> Iterator for Seq<'a, T> {
+//    type Item = T;
+//
+//    #[inline]
+//    fn next(&mut self) -> Option<Self::Item> {
+//        let start = self.cursor;
+//        self.cursor += self.size as usize;
+//        let end = self.cursor;
+//        if end >= self.data.len() {
+//            None
+//        } else {
+//            // The below should be always valid as there is no way to construct invalid sequences
+//            // TODO check it
+//            match T::try_from_slice(&self.data[start..end]) {
+//                Ok(x) => Some(x),
+//                Err(_) => None,
+//            }
+//        }
+//    }
+//}

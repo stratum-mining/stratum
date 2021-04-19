@@ -1,5 +1,5 @@
 [package]
-name = "common_messages"
+name = "template-distribution"
 version = "0.1.0"
 authors = ["fi3 <email@email.org>"]
 edition = "2018"

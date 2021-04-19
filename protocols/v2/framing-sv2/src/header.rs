@@ -51,7 +51,6 @@ impl Header {
             msg_length: len.try_into().unwrap(),
         })
     }
-
 }
 
 pub struct NoiseHeader {}

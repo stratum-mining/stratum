@@ -1,8 +1,8 @@
 use crate::header::Header;
+use crate::header::NoiseHeader;
 use core::convert::TryFrom;
 use serde::{Deserialize, Serialize};
 use serde_sv2::{from_bytes, to_writer, Bytes as Sv2Bytes, GetLen, U16, U24, U8};
-use crate::header::NoiseHeader;
 
 const NOISE_MAX_LEN: usize = const_sv2::NOISE_FRAME_MAX_SIZE;
 
@@ -148,7 +148,6 @@ impl<'a, T: Serialize + GetLen, B: AsMut<[u8]>> Frame<'a, T> for Sv2Frame<T, B> 
         }
     }
 }
-
 
 #[inline]
 pub fn build_noise_frame_header(frame: &mut Vec<u8>, len: u16) {

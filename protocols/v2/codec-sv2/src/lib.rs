@@ -16,13 +16,12 @@ pub use encoder::Encoder;
 #[cfg(feature = "noise_sv2")]
 pub use encoder::NoiseEncoder;
 
+pub use framing_sv2::framing2::{Frame, Sv2Frame};
 #[cfg(feature = "noise_sv2")]
 pub use framing_sv2::framing2::{HandShakeFrame, NoiseFrame};
-pub use framing_sv2::framing2::{Frame, Sv2Frame};
 
 #[cfg(feature = "noise_sv2")]
-pub use noise_sv2::{self, Initiator, Responder, handshake::Step, TransportMode};
-
+pub use noise_sv2::{self, handshake::Step, Initiator, Responder, TransportMode};
 
 #[cfg(feature = "noise_sv2")]
 #[derive(Debug)]
@@ -35,7 +34,6 @@ pub enum State {
     /// as able to perform encryption and decryption resp.
     Transport(TransportMode),
 }
-
 
 #[cfg(feature = "noise_sv2")]
 #[derive(Debug)]
@@ -51,7 +49,7 @@ impl HandshakeRole {
             Self::Initiator(stepper) => {
                 let message = stepper.step(in_msg).map_err(|_| ())?.inner();
                 Ok(HandShakeFrame::from_message(message).ok_or(())?)
-            },
+            }
 
             Self::Responder(stepper) => {
                 let message = stepper.step(in_msg).map_err(|_| ())?.inner();
@@ -60,7 +58,7 @@ impl HandshakeRole {
         }
     }
 
-    pub fn into_transport(self) -> Result<TransportMode,()> {
+    pub fn into_transport(self) -> Result<TransportMode, ()> {
         match self {
             Self::Initiator(stepper) => {
                 let tp = stepper
@@ -68,7 +66,7 @@ impl HandshakeRole {
                     .into_transport_mode()
                     .map_err(|_| ())?;
                 Ok(TransportMode::new(tp))
-            },
+            }
 
             Self::Responder(stepper) => {
                 let tp = stepper
@@ -100,12 +98,10 @@ impl State {
             Self::Transport(_) => false,
         }
     }
-
 }
 
 #[cfg(feature = "noise_sv2")]
 impl State {
-
     pub fn take(&mut self) -> Self {
         let mut new_me = Self::NotInitialized;
         core::mem::swap(&mut new_me, self);
@@ -128,9 +124,7 @@ impl State {
         match self {
             Self::NotInitialized => Err(()),
             Self::HandShake(stepper) => stepper.step(in_msg),
-            Self::Transport(_) => {
-                Err(())
-            },
+            Self::Transport(_) => Err(()),
         }
     }
 
@@ -141,7 +135,7 @@ impl State {
                 let tp = stepper.into_transport()?;
 
                 Ok(Self::with_transport_mode(tp))
-            },
+            }
             Self::Transport(_) => Ok(self),
         }
     }

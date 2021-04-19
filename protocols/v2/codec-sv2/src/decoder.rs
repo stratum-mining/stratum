@@ -1,9 +1,9 @@
 use framing_sv2::framing2::{EitherFrame, Frame as F_, Sv2Frame};
 #[cfg(feature = "noise_sv2")]
 use framing_sv2::framing2::{HandShakeFrame, NoiseFrame};
+use framing_sv2::header::Header;
 #[cfg(feature = "noise_sv2")]
 use framing_sv2::header::NoiseHeader;
-use framing_sv2::header::Header;
 #[cfg(feature = "noise_sv2")]
 use serde::Deserialize;
 use serde::Serialize;
@@ -34,7 +34,6 @@ pub struct WithNoise<B: Buffer, T: Serialize + serde_sv2::GetLen> {
 impl<'a, T: Serialize + GetLen + Deserialize<'a>, B: Buffer> WithNoise<B, T> {
     #[inline]
     pub fn next_frame(&mut self, state: &mut State) -> Result<EitherFrame<T, B::Slice>> {
-
         let len = self.noise_buffer.len();
         let src = self.noise_buffer.get_data_by_ref(len);
         let hint = NoiseFrame::size_hint(src) as usize;
@@ -116,7 +115,6 @@ impl<'a, T: Serialize + GetLen + Deserialize<'a>, B: Buffer> WithNoise<B, T> {
 
         // IF IS THE FIRST FRAGMETN JUST SET THE MISSING SV2 AND NOISE BYTES
         } else {
-
             let len = self.sv2_buffer.len();
             let src = self.sv2_buffer.get_data_by_ref(len);
             let size = Sv2Frame::<T, B::Slice>::size_hint(src);
@@ -165,7 +163,6 @@ pub struct WithoutNoise<B: Buffer, T: Serialize + serde_sv2::GetLen> {
 impl<T: Serialize + serde_sv2::GetLen, B: Buffer> WithoutNoise<B, T> {
     #[inline]
     pub fn next_frame(&mut self) -> Result<Sv2Frame<T, B::Slice>> {
-
         let len = self.buffer.len();
         let src = self.buffer.get_data_by_ref(len);
         let hint = Sv2Frame::<T, B::Slice>::size_hint(src) as usize;
