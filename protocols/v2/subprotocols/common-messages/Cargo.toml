@@ -9,6 +9,6 @@ edition = "2018"
 [dependencies]
 serde = { version = "1.0.89", default-features = false }
 # TODO change it!
-serde_sv2 = { path = "../../../protocols/v2/serde-sv2" }
+serde_sv2 = { path = "../../../../protocols/v2/serde-sv2" }
 # TODO change it!
-const_sv2 = { path = "../../../protocols/v2/const-sv2"}
+const_sv2 = { path = "../../../../protocols/v2/const-sv2"}
