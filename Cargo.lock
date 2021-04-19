@@ -336,6 +336,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "common_messages"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_sv2",
+]
+
+[[package]]
 name = "concurrent-queue"
 version = "1.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
