@@ -8,6 +8,7 @@ members = [
     "protocols/v2/framing-sv2",
     "protocols/v2/codec-sv2",
     "protocols/v2/const-sv2",
+    "protocols/v2/common-messages",
     "utils/network-helpers",
     "examples/sv1-client-and-server",
     "examples/ping-pong-with-noise",
