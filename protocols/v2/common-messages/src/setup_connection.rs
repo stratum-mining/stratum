@@ -1,5 +1,9 @@
-use serde::{Serialize, Deserialize};
-use serde_sv2::{U8, U16, U32, Str0255};
+use const_sv2::{
+    SV2_JOB_DISTR_PROTOCOL_DISCRIMINANT, SV2_JOB_NEG_PROTOCOL_DISCRIMINANT,
+    SV2_MINING_PROTOCOL_DISCRIMINANT, SV2_TEMPLATE_DISTR_PROTOCOL_DISCRIMINANT,
+};
+use serde::{Deserialize, Serialize};
+use serde_sv2::{Str0255, U16, U32, U8};
 
 /// ## SetupConnection (Client -> Server)
 /// Initiates the connection. This MUST be the first message sent by the client on the newly
@@ -12,11 +16,8 @@ use serde_sv2::{U8, U16, U32, Str0255};
 ///
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SetupConnection {
-    /// 0 = Mining Protocol
-    /// 1 = Job Negotiation Protocol
-    /// 2 = Template Distribution Protocol
-    /// 3 = Job Distribution Protocol
-    prtocol: U8,
+    /// [`Protocol`]
+    prtocol: Protocol,
     /// The minimum protocol version the client supports (currently must be 2).
     min_version: U16,
     /// The maximum protocol version the client supports (currently must be 2).
@@ -35,7 +36,6 @@ pub struct SetupConnection {
     device_id: Str0255,
 }
 
-
 /// ## SetupConnection.Success (Server -> Client)
 /// Response to [`SetupConnection`] message if the server accepts the connection. The client is
 /// required to verify the set of feature flags that the server supports and act accordingly.
@@ -46,7 +46,7 @@ pub struct SetupConnectionSuccess {
     /// of its life.
     used_version: U16,
     /// Flags indicating optional protocol features the server supports. Each
-    /// protocol from [protocol](TODO) field has its own values/flags.
+    /// protocol from [`Protocol`] field has its own values/flags.
     flags: U32,
 }
 
@@ -71,4 +71,17 @@ pub struct SetupConnectionError {
     /// * ‘unsupported-protocol’
     /// * ‘protocol-version-mismatch’
     error_code: Str0255,
+}
+
+/// MiningProtocol = [`SV2_MINING_PROTOCOL_DISCRIMINANT`],
+/// JobNegotiationProtocol = [`SV2_JOB_NEG_PROTOCOL_DISCRIMINANT`],
+/// TemplateDistributionProtocol = [`SV2_TEMPLATE_DISTR_PROTOCOL_DISCRIMINANT`],
+/// JobDistributionProtocol = [`SV2_JOB_DISTR_PROTOCOL_DISCRIMINANT`],
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[repr(u8)]
+enum Protocol {
+    MiningProtocol = SV2_MINING_PROTOCOL_DISCRIMINANT,
+    JobNegotiationProtocol = SV2_JOB_NEG_PROTOCOL_DISCRIMINANT,
+    TemplateDistributionProtocol = SV2_TEMPLATE_DISTR_PROTOCOL_DISCRIMINANT,
+    JobDistributionProtocol = SV2_JOB_DISTR_PROTOCOL_DISCRIMINANT,
 }

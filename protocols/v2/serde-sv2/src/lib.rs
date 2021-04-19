@@ -7,6 +7,7 @@
 //! u16      <-> U16
 //! U24      <-> U24
 //! u32      <-> u32
+//! u64      <-> u64 // TODO not in the spec but used
 //! U256     <-> U256
 //! String   <-> STRO_255
 //! Signature<-> SIGNATURE
@@ -77,6 +78,6 @@ pub use de::{from_bytes, Deserializer};
 pub use error::{Error, Result};
 pub use primitives::{
     Bool, Bytes, GetLen, Pubkey, Seq0255, Seq064K, Signature, Str0255, B016M, B0255, B064K, U16,
-    U24, U256, U32, U8,
+    U24, U256, U32, U64, U8,
 };
 pub use ser::{to_bytes, to_writer, Serializer};

@@ -1,12 +1,10 @@
 #[cfg(feature = "noise_sv2")]
 use core::convert::TryInto;
 #[cfg(feature = "noise_sv2")]
-use framing_sv2::framing2::{
-    build_noise_frame_header, EitherFrame, HandShakeFrame
-};
+use framing_sv2::framing2::{build_noise_frame_header, EitherFrame, HandShakeFrame};
+use framing_sv2::framing2::{Frame as F_, Sv2Frame};
 #[cfg(feature = "noise_sv2")]
 use framing_sv2::header::NoiseHeader;
-use framing_sv2::framing2::{Frame as F_, Sv2Frame};
 use serde::Serialize;
 use serde_sv2::GetLen;
 
@@ -35,7 +33,6 @@ impl<T: Serialize + GetLen> NoiseEncoder<T> {
         item: EitherFrame<T, Vec<u8>>,
         state: &mut State,
     ) -> Result<&[u8], ()> {
-
         let len = item.encoded_length();
 
         // RESERVE ENAUGH SPACE TO ENCODE THE SV2 FRAME

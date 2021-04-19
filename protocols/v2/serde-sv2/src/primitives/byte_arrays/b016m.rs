@@ -108,3 +108,18 @@ impl<'a> GetLen for B016M<'a> {
         }
     }
 }
+
+impl<'a> B016M<'a> {
+    pub fn get_elements_number_in_array(a: &[u8]) -> usize {
+        let total_len = a.len();
+        let mut next_element_index: usize = 0;
+        let mut elements_number: usize = 0;
+        while next_element_index < total_len {
+            let len = &a[next_element_index..next_element_index + 3];
+            let len = u32::from_le_bytes([len[0], len[1], len[2], 0]);
+            next_element_index += len as usize + 3;
+            elements_number += 1;
+        }
+        elements_number
+    }
+}

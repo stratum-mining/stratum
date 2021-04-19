@@ -339,6 +339,7 @@ dependencies = [
 name = "common_messages"
 version = "0.1.0"
 dependencies = [
+ "const_sv2",
  "serde",
  "serde_sv2",
 ]
@@ -1105,6 +1106,15 @@ dependencies = [
  "quote",
  "syn",
  "unicode-xid",
+]
+
+[[package]]
+name = "template-distribution"
+version = "0.1.0"
+dependencies = [
+ "const_sv2",
+ "serde",
+ "serde_sv2",
 ]
 
 [[package]]

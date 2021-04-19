@@ -6,7 +6,6 @@ use crate::error::Result;
 /// Handshake message
 pub type Message = Vec<u8>;
 
-
 /// Describes the step result what the relevant party should do after sending out the
 /// provided message (if any)
 #[derive(Debug, PartialEq)]

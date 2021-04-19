@@ -9,8 +9,11 @@ use async_std::sync::{Arc, Mutex};
 use async_std::task;
 use core::convert::TryInto;
 
-use codec_sv2::{Step, Initiator, Responder, StandardEitherFrame, StandardNoiseDecoder, StandardSv2Frame, HandshakeRole};
 use codec_sv2::{Frame, HandShakeFrame, NoiseFrame, Sv2Frame};
+use codec_sv2::{
+    HandshakeRole, Initiator, Responder, StandardEitherFrame, StandardNoiseDecoder,
+    StandardSv2Frame, Step,
+};
 
 use std::time;
 
@@ -22,7 +25,6 @@ enum Expected {
     Pong,
 }
 
-
 #[derive(Debug)]
 pub struct Node {
     name: String,
@@ -33,11 +35,7 @@ pub struct Node {
 }
 
 impl Node {
-    pub async fn new(
-        name: String,
-        socket: TcpStream,
-        role: HandshakeRole,
-    ) -> Arc<Mutex<Self>> {
+    pub async fn new(name: String, socket: TcpStream, role: HandshakeRole) -> Arc<Mutex<Self>> {
         let (receiver, sender) = Connection::new(socket, role).await;
 
         let node = Arc::new(Mutex::new(Node {

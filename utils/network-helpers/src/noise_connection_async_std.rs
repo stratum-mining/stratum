@@ -3,10 +3,12 @@ use async_std::net::TcpStream;
 use async_std::prelude::*;
 use async_std::sync::{Arc, Mutex};
 use async_std::task;
-use serde::{Deserialize, Serialize};
 use core::convert::TryInto;
+use serde::{Deserialize, Serialize};
 
-use codec_sv2::{StandardEitherFrame, StandardNoiseDecoder, HandshakeRole, Step, Frame, HandShakeFrame};
+use codec_sv2::{
+    Frame, HandShakeFrame, HandshakeRole, StandardEitherFrame, StandardNoiseDecoder, Step,
+};
 use serde_sv2::GetLen;
 
 #[derive(Debug)]
@@ -15,8 +17,7 @@ pub struct Connection {
 }
 
 impl Connection {
-
-    pub async fn new<'a, Message: Serialize + Deserialize<'a> + GetLen + Send + 'static> (
+    pub async fn new<'a, Message: Serialize + Deserialize<'a> + GetLen + Send + 'static>(
         stream: TcpStream,
         role: HandshakeRole,
     ) -> (
@@ -46,7 +47,6 @@ impl Connection {
             let mut decoder = StandardNoiseDecoder::<Message>::new();
 
             loop {
-
                 let writable = decoder.writable();
 
                 let _r = reader.read_exact(writable).await.unwrap();
@@ -56,11 +56,9 @@ impl Connection {
                         Some(mut connection) => match decoder.next_frame(&mut connection.state) {
                             Ok(x) => {
                                 sender_incoming.send(x.into()).await.unwrap();
-                                break
+                                break;
                             }
-                            Err(_) => {
-                                break
-                            }
+                            Err(_) => break,
                         },
                         None => (),
                     }
@@ -78,18 +76,16 @@ impl Connection {
                 let received = receiver_outgoing.recv().await;
 
                 match received {
-                    Ok(frame) => {
-                        loop {
-                          match cloned2.try_lock() {
-                              Some(mut connection) => {
-                                  let b = encoder.encode(frame, &mut connection.state).unwrap();
-                                  (&writer).write_all(b).await.unwrap();
-                                  break
-                              }
-                              None => (),
-                          }
+                    Ok(frame) => loop {
+                        match cloned2.try_lock() {
+                            Some(mut connection) => {
+                                let b = encoder.encode(frame, &mut connection.state).unwrap();
+                                (&writer).write_all(b).await.unwrap();
+                                break;
+                            }
+                            None => (),
                         }
-                    }
+                    },
                     Err(_) => (),
                 }
             }
@@ -134,13 +130,10 @@ impl Connection {
     }
 
     async fn initialize_as_downstream<'a, Message: Serialize + Deserialize<'a> + GetLen>(
-
         role: HandshakeRole,
         sender_outgoing: Sender<StandardEitherFrame<Message>>,
         receiver_incoming: Receiver<StandardEitherFrame<Message>>,
-
-    ) -> codec_sv2::State  {
-
+    ) -> codec_sv2::State {
         let mut state = codec_sv2::State::initialize(role);
 
         let first_message = state.step(None).unwrap();
@@ -155,18 +148,14 @@ impl Connection {
         let tp = state.into_transport_mode().unwrap();
 
         tp
-
     }
 
     async fn initialize_as_upstream<'a, Message: Serialize + Deserialize<'a> + GetLen>(
-
         role: HandshakeRole,
         sender_outgoing: Sender<StandardEitherFrame<Message>>,
         sender_incoming: Receiver<StandardEitherFrame<Message>>,
         receiver_incoming: Receiver<StandardEitherFrame<Message>>,
-
     ) -> codec_sv2::State {
-
         let mut state = codec_sv2::State::initialize(role);
 
         let mut first_message: HandShakeFrame =
@@ -186,6 +175,5 @@ impl Connection {
 
         let tp = state.into_transport_mode().unwrap();
         tp
-
     }
 }

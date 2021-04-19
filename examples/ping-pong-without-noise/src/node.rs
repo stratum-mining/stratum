@@ -11,8 +11,8 @@ use async_std::task;
 use serde::Serialize;
 use serde_sv2::GetLen;
 
-use codec_sv2::{StandardDecoder, Encoder, StandardSv2Frame};
-use framing_sv2::framing2::{Frame as F_};
+use codec_sv2::{Encoder, StandardDecoder, StandardSv2Frame};
+use framing_sv2::framing2::Frame as F_;
 
 #[derive(Debug)]
 enum Expected {
@@ -74,7 +74,10 @@ impl Node {
         self.last_id += 1;
     }
 
-    fn handle_message(&mut self, mut frame: StandardSv2Frame<Message<'static>>) -> Message<'static> {
+    fn handle_message(
+        &mut self,
+        mut frame: StandardSv2Frame<Message<'static>>,
+    ) -> Message<'static> {
         match self.expected {
             Expected::Ping => {
                 let ping: Result<Ping, _> = from_bytes(frame.payload());
@@ -147,7 +150,6 @@ impl Connection {
                 }
                 task::sleep(time::Duration::from_millis(500)).await;
             }
-
         });
 
         // Encode and send incoming messages to TCP stream

@@ -71,6 +71,24 @@ impl<'de> Deserializer<'de> {
     }
 
     #[inline]
+    fn parse_seq064k_variable(&mut self, element_size: u8) -> Result<&'de [u8]> {
+        let element_size = element_size as usize;
+        let len = self.parse_u16()?;
+        let mut next_element_index: usize = 0;
+        for _ in 0..len {
+            let len = &self.input[next_element_index..next_element_index + element_size];
+            let len = match element_size {
+                1 => len[0] as u32,
+                2 => u32::from_le_bytes([len[0], len[1], 0, 0]),
+                3 => u32::from_le_bytes([len[0], len[1], len[2], 0]),
+                _ => unreachable!(),
+            };
+            next_element_index += len as usize + element_size;
+        }
+        self.get_slice(next_element_index)
+    }
+
+    #[inline]
     fn parse_bool(&mut self) -> Result<bool> {
         let bool_ = self.get_slice(1)?;
         match bool_ {
@@ -128,6 +146,18 @@ impl<'de> Deserializer<'de> {
     #[inline]
     fn parse_b016m(&mut self) -> Result<&'de [u8]> {
         let len = self.parse_u24()?;
+        Ok(self.get_slice(len as usize)?)
+    }
+
+    #[inline]
+    fn parse_b064k(&mut self) -> Result<&'de [u8]> {
+        let len = self.parse_u16()?;
+        Ok(self.get_slice(len as usize)?)
+    }
+
+    #[inline]
+    fn parse_b0255(&mut self) -> Result<&'de [u8]> {
+        let len = self.parse_u8()?;
         Ok(self.get_slice(len as usize)?)
     }
 }
@@ -212,8 +242,8 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
             "U256" => visitor.visit_borrowed_bytes(self.parse_u256()?),
             "Signature" => visitor.visit_borrowed_bytes(self.parse_signature()?),
             "B016M" => visitor.visit_borrowed_bytes(self.parse_b016m()?),
-            "B064K" => visitor.visit_borrowed_bytes(self.parse_seq064k(1)?),
-            "B0255" => visitor.visit_borrowed_bytes(self.parse_seq0255(1)?),
+            "B064K" => visitor.visit_borrowed_bytes(self.parse_b064k()?),
+            "B0255" => visitor.visit_borrowed_bytes(self.parse_b0255()?),
             "Seq_0255_U256" => visitor.visit_borrowed_bytes(self.parse_seq0255(32)?),
             "Seq_0255_Bool" => visitor.visit_borrowed_bytes(self.parse_seq0255(1)?),
             "Seq_0255_U16" => visitor.visit_borrowed_bytes(self.parse_seq0255(2)?),
@@ -226,6 +256,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
             "Seq_064K_U24" => visitor.visit_borrowed_bytes(self.parse_seq064k(3)?),
             "Seq_064K_U32" => visitor.visit_borrowed_bytes(self.parse_seq064k(4)?),
             "Seq_064K_Signature" => visitor.visit_borrowed_bytes(self.parse_seq064k(64)?),
+            "Seq_064K_B016M" => visitor.visit_borrowed_bytes(self.parse_seq064k_variable(3)?),
             _ => unreachable!("Invalid type"),
             //_ => visitor.visit_newtype_struct(self),
         }
@@ -877,6 +908,34 @@ fn test_seq064k_signature() {
     struct Test<'a> {
         #[serde(borrow)]
         a: Seq064K<'a, Signature<'a>>,
+    }
+
+    let expected = Test { a: s };
+
+    let mut bytes = crate::ser::to_bytes(&expected).unwrap();
+
+    let deserialized: Test = from_bytes(&mut bytes[..]).unwrap();
+
+    assert_eq!(deserialized, expected);
+}
+
+#[test]
+fn test_seq064k_b016m() {
+    use crate::primitives::Seq064K;
+    use crate::primitives::B016M;
+    use serde::Serialize;
+
+    let bytes_1: B016M = (&[88_u8; 64][..]).try_into().unwrap();
+    let bytes_2: B016M = (&[99_u8; 64][..]).try_into().unwrap();
+    let bytes_3: B016M = (&[220_u8; 64][..]).try_into().unwrap();
+
+    let val = vec![bytes_1, bytes_2, bytes_3];
+    let s: Seq064K<B016M> = Seq064K::new(val).unwrap();
+
+    #[derive(Deserialize, Serialize, PartialEq, Debug)]
+    struct Test<'a> {
+        #[serde(borrow)]
+        a: Seq064K<'a, B016M<'a>>,
     }
 
     let expected = Test { a: s };

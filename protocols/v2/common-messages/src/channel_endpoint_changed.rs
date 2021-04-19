@@ -1,4 +1,4 @@
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use serde_sv2::U32;
 
 /// ## ChannelEndpointChanged (Server -> Client)
@@ -13,4 +13,3 @@ pub struct ChannelEndpointChanged {
     /// The channel which has changed endpoint.
     channel_id: U32,
 }
-
