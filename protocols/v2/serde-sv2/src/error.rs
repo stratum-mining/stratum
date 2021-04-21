@@ -1,4 +1,3 @@
-use std;
 use std::fmt::{self, Display};
 
 use serde::{de, ser};
@@ -18,7 +17,7 @@ pub enum Error {
     Message(String),
 
     StringLenBiggerThan256,
-    InvalidUTF8,
+    InvalidUtf8,
     LenBiggerThan16M,
     LenBiggerThan255,
     LenBiggerThan64K,

@@ -140,25 +140,25 @@ impl<'de> Deserializer<'de> {
     fn parse_string(&mut self) -> Result<&'de str> {
         let len = self.parse_u8()?;
         let str_ = self.get_slice(len as usize)?;
-        Ok(std::str::from_utf8(&str_).map_err(|_| Error::InvalidUTF8)?)
+        std::str::from_utf8(&str_).map_err(|_| Error::InvalidUtf8)
     }
 
     #[inline]
     fn parse_b016m(&mut self) -> Result<&'de [u8]> {
         let len = self.parse_u24()?;
-        Ok(self.get_slice(len as usize)?)
+        self.get_slice(len as usize)
     }
 
     #[inline]
     fn parse_b064k(&mut self) -> Result<&'de [u8]> {
         let len = self.parse_u16()?;
-        Ok(self.get_slice(len as usize)?)
+        self.get_slice(len as usize)
     }
 
     #[inline]
     fn parse_b0255(&mut self) -> Result<&'de [u8]> {
         let len = self.parse_u8()?;
-        Ok(self.get_slice(len as usize)?)
+        self.get_slice(len as usize)
     }
 }
 
@@ -229,7 +229,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        Ok(visitor.visit_seq(Struct::new(self, fields.len())?)?)
+        visitor.visit_seq(Struct::new(self, fields.len()))
     }
 
     // Each Sv2 primitive type is implemented as a new type struct.
@@ -457,8 +457,8 @@ struct Struct<'de, 'a> {
 }
 
 impl<'de, 'a> Struct<'de, 'a> {
-    fn new(de: &'a mut Deserializer<'de>, len: usize) -> std::result::Result<Self, Error> {
-        Ok(Self { de, len })
+    fn new(de: &'a mut Deserializer<'de>, len: usize) -> Self {
+        Self { de, len }
     }
 }
 

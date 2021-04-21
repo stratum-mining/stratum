@@ -32,7 +32,7 @@ impl<T: Serialize + GetLen> NoiseEncoder<T> {
         &mut self,
         item: EitherFrame<T, Vec<u8>>,
         state: &mut State,
-    ) -> Result<&[u8], ()> {
+    ) -> Result<&[u8], crate::Error> {
         let len = item.encoded_length();
 
         // RESERVE ENAUGH SPACE TO ENCODE THE SV2 FRAME
@@ -129,7 +129,7 @@ impl<T: Serialize + GetLen> NoiseEncoder<T> {
             // ENCRYPT THE SV2 FRAGMENT
             transport_mode
                 .write(
-                    &buf[..],
+                    buf,
                     &mut self.noise_buffer
                         [last_len + NoiseHeader::SIZE..last_len + NoiseHeader::SIZE + len],
                 )
@@ -170,6 +170,13 @@ impl<T: Serialize + serde_sv2::GetLen> NoiseEncoder<T> {
     }
 }
 
+#[cfg(feature = "noise_sv2")]
+impl<T: Serialize + GetLen> Default for NoiseEncoder<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[derive(Debug)]
 pub struct Encoder<T> {
     buffer: Vec<u8>,
@@ -177,7 +184,7 @@ pub struct Encoder<T> {
 }
 
 impl<T: Serialize + GetLen> Encoder<T> {
-    pub fn encode(&mut self, item: Sv2Frame<T, Vec<u8>>) -> Result<&[u8], ()> {
+    pub fn encode(&mut self, item: Sv2Frame<T, Vec<u8>>) -> Result<&[u8], crate::Error> {
         let len = item.encoded_length();
 
         let to_reserve = if self.buffer.len() > len {
@@ -203,5 +210,11 @@ impl<T: Serialize + GetLen> Encoder<T> {
             buffer: Vec::with_capacity(512),
             frame: core::marker::PhantomData,
         }
+    }
+}
+
+impl<T: Serialize + GetLen> Default for Encoder<T> {
+    fn default() -> Self {
+        Self::new()
     }
 }

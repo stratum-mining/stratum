@@ -24,6 +24,12 @@ impl SlowAndCorrect {
     }
 }
 
+impl Default for SlowAndCorrect {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Buffer for SlowAndCorrect {
     type Slice = Vec<u8>;
 

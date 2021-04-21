@@ -66,7 +66,7 @@ impl<'s, T: FixedSize + Serialize + TryFromBSlice<'s>> Serialize for Seq064K<'s,
         match (&self.seq, &self.data) {
             (Some(seq), None) => {
                 let len = seq.data.len() / seq.size as usize;
-                let tuple = (len as u16, &seq.data[..]);
+                let tuple = (len as u16, seq.data);
                 let mut seq = serializer.serialize_tuple(2)?;
                 seq.serialize_element(&tuple.0)?;
                 seq.serialize_element(tuple.1)?;
@@ -93,7 +93,7 @@ impl<'s> Serialize for Seq064K<'s, B016M<'s>> {
         match (&self.seq, &self.data) {
             (Some(seq), None) => {
                 let len = B016M::get_elements_number_in_array(seq.data);
-                let tuple = (len as u16, &seq.data[..]);
+                let tuple = (len as u16, seq.data);
                 let mut seq = serializer.serialize_tuple(2)?;
                 seq.serialize_element(&tuple.0)?;
                 seq.serialize_element(tuple.1)?;

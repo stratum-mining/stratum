@@ -3,7 +3,7 @@ mod node;
 use async_std::net::{TcpListener, TcpStream};
 use async_std::prelude::*;
 use async_std::task;
-use codec_sv2::{noise_sv2::random_keypair, HandshakeRole, Initiator, Responder};
+use codec_sv2::{HandshakeRole, Initiator, Responder};
 use std::time;
 
 const ADDR: &str = "127.0.0.1:34254";
@@ -47,11 +47,10 @@ async fn new_client(name: String) {
 
     task::block_on(async move {
         loop {
-            let client = client.try_lock();
-            if client.is_some() {
-                client.unwrap().send_ping().await;
+            if let Some(mut client) = client.try_lock() {
+                client.send_pong().await;
                 break;
-            };
+            }
         }
     });
 }

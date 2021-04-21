@@ -1,19 +1,16 @@
 use crate::messages::{Message, Ping, Pong};
 use rand::Rng;
-use serde_sv2::{from_bytes, to_bytes, GetLen, U256};
+use serde_sv2::{from_bytes, GetLen, U256};
 
-use async_channel::{bounded, Receiver, Sender};
+use async_channel::{Receiver, Sender};
 use async_std::net::TcpStream;
-use async_std::prelude::*;
+
 use async_std::sync::{Arc, Mutex};
 use async_std::task;
 use core::convert::TryInto;
 
-use codec_sv2::{Frame, HandShakeFrame, NoiseFrame, Sv2Frame};
-use codec_sv2::{
-    HandshakeRole, Initiator, Responder, StandardEitherFrame, StandardNoiseDecoder,
-    StandardSv2Frame, Step,
-};
+use codec_sv2::Frame;
+use codec_sv2::{HandshakeRole, StandardEitherFrame, StandardSv2Frame};
 
 use std::time;
 
@@ -41,7 +38,7 @@ impl Node {
         let node = Arc::new(Mutex::new(Node {
             last_id: 0,
             name,
-            expected: Expected::Ping,
+            expected: Expected::Pong,
             receiver,
             sender,
         }));
@@ -50,13 +47,10 @@ impl Node {
         task::spawn(async move {
             loop {
                 task::sleep(time::Duration::from_millis(500)).await;
-                match cloned.try_lock() {
-                    Some(mut node) => {
-                        let incoming: StandardSv2Frame<Message<'static>> =
-                            node.receiver.recv().await.unwrap().try_into().unwrap();
-                        node.respond(incoming).await;
-                    }
-                    _ => (),
+                if let Some(mut node) = cloned.try_lock() {
+                    let incoming: StandardSv2Frame<Message<'static>> =
+                        node.receiver.recv().await.unwrap().try_into().unwrap();
+                    node.respond(incoming).await;
                 }
             }
         });
@@ -64,23 +58,15 @@ impl Node {
         node
     }
 
-    pub async fn send_ping(&mut self) {
-        self.expected = Expected::Pong;
-        let message = Message::Ping(Ping::new(self.last_id.clone()));
-        let frame = StandardSv2Frame::<Message<'static>>::from_message(message).unwrap();
-        self.sender.send(frame.into()).await.unwrap();
-        self.last_id += 1;
-    }
     pub async fn send_pong(&mut self) {
         self.expected = Expected::Ping;
-        let message = Message::Ping(Ping::new(self.last_id.clone()));
         let mut seq: Vec<U256> = vec![];
         for _ in 0..10 {
             let random_bytes = rand::thread_rng().gen::<[u8; 32]>();
             let u256: U256 = random_bytes.into();
             seq.push(u256);
         }
-        let message = Message::Pong(Pong::new(self.last_id.clone(), seq));
+        let message = Message::Pong(Pong::new(self.last_id, seq));
         let frame = StandardSv2Frame::<Message<'static>>::from_message(message).unwrap();
         self.sender.send(frame.into()).await.unwrap();
         self.last_id += 1;
@@ -110,7 +96,7 @@ impl Node {
                             let u256: U256 = random_bytes.into();
                             seq.push(u256);
                         }
-                        Message::Pong(Pong::new(self.last_id.clone(), seq))
+                        Message::Pong(Pong::new(self.last_id, seq))
                     }
                     Err(_) => {
                         panic!();
@@ -127,7 +113,7 @@ impl Node {
                             pong.get_id(),
                             pong.get_len()
                         );
-                        Message::Ping(Ping::new(self.last_id.clone()))
+                        Message::Ping(Ping::new(self.last_id))
                     }
                     Err(_) => panic!(),
                 }

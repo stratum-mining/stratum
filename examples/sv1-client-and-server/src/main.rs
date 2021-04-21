@@ -1,5 +1,4 @@
 use async_std::net::{TcpListener, TcpStream};
-use serde_json;
 use std::convert::TryInto;
 
 use async_channel::{bounded, Receiver, Sender};
@@ -56,7 +55,7 @@ impl Server {
     pub async fn new(stream: TcpStream) -> Arc<Mutex<Self>> {
         let stream = std::sync::Arc::new(stream);
 
-        let (reader, writer) = (stream.clone(), stream.clone());
+        let (reader, writer) = (stream.clone(), stream);
 
         let (sender_incoming, receiver_incoming) = bounded(10);
         let (sender_outgoing, receiver_outgoing) = bounded(10);
@@ -92,28 +91,22 @@ impl Server {
         let cloned = server.clone();
         task::spawn(async move {
             loop {
-                match cloned.try_lock() {
-                    Some(mut self_) => {
-                        let incoming = self_.receiver_incoming.try_recv();
-                        self_.parse_message(incoming).await;
-                        drop(self_);
-                    }
-                    None => (),
-                }
+                if let Some(mut self_) = cloned.try_lock() {
+                    let incoming = self_.receiver_incoming.try_recv();
+                    self_.parse_message(incoming).await;
+                    drop(self_);
+                };
             }
         });
 
         let cloned = server.clone();
         task::spawn(async move {
             loop {
-                match cloned.try_lock() {
-                    Some(mut self_) => {
-                        self_.send_notify().await;
-                        drop(self_);
-                        task::sleep(time::Duration::from_secs(5)).await;
-                    }
-                    None => (),
-                }
+                if let Some(mut self_) = cloned.try_lock() {
+                    self_.send_notify().await;
+                    drop(self_);
+                    task::sleep(time::Duration::from_secs(5)).await;
+                };
             }
         });
 
@@ -124,18 +117,15 @@ impl Server {
         &mut self,
         incoming_message: Result<String, async_channel::TryRecvError>,
     ) {
-        match incoming_message {
-            Ok(line) => {
-                println!("SERVER - message: {}", line);
-                let message: json_rpc::Message = serde_json::from_str(&line).unwrap();
-                let response = self.handle_message(message).unwrap();
-                if response.is_some() {
-                    self.send_message(json_rpc::Message::Response(response.unwrap()))
-                        .await;
-                }
+        if let Ok(line) = incoming_message {
+            println!("SERVER - message: {}", line);
+            let message: json_rpc::Message = serde_json::from_str(&line).unwrap();
+            let response = self.handle_message(message).unwrap();
+            if response.is_some() {
+                self.send_message(json_rpc::Message::Response(response.unwrap()))
+                    .await;
             }
-            Err(_) => (),
-        }
+        };
     }
 
     async fn send_message(&mut self, msg: json_rpc::Message) {
@@ -157,11 +147,11 @@ impl IsServer for Server {
         self.version_rolling_mask = self
             .version_rolling_mask
             .clone()
-            .map_or(Some(new_version_rolling_mask()), |x| Some(x));
+            .map_or(Some(new_version_rolling_mask()), Some);
         self.version_rolling_min_bit = self
             .version_rolling_mask
             .clone()
-            .map_or(Some(new_version_rolling_min()), |x| Some(x));
+            .map_or(Some(new_version_rolling_min()), Some);
         (
             Some(server_to_client::VersionRollingParams::new(
                 self.version_rolling_mask.clone().unwrap(),
@@ -184,9 +174,7 @@ impl IsServer for Server {
     }
 
     /// Indicates to the server that the client supports the mining.set_extranonce method.
-    fn handle_extranonce_subscribe(&self) {
-        ()
-    }
+    fn handle_extranonce_subscribe(&self) {}
 
     fn is_authorized(&self, _name: &str) -> bool {
         true
@@ -198,7 +186,7 @@ impl IsServer for Server {
 
     /// Set extranonce1 to extranonce1 if provided. If not create a new one and set it.
     fn set_extranonce1(&mut self, extranonce1: Option<HexBytes>) -> HexBytes {
-        self.extranonce1 = extranonce1.unwrap_or(new_extranonce());
+        self.extranonce1 = extranonce1.unwrap_or_else(new_extranonce);
         self.extranonce1.clone()
     }
 
@@ -208,7 +196,7 @@ impl IsServer for Server {
 
     /// Set extranonce2_size to extranonce2_size if provided. If not create a new one and set it.
     fn set_extranonce2_size(&mut self, extra_nonce2_size: Option<usize>) -> usize {
-        self.extranonce2_size = extra_nonce2_size.unwrap_or(new_extranonce2_size());
+        self.extranonce2_size = extra_nonce2_size.unwrap_or_else(new_extranonce2_size);
         self.extranonce2_size
     }
 
@@ -246,7 +234,7 @@ struct Client {
 impl Client {
     pub async fn new(client_id: u32) -> Arc<Mutex<Self>> {
         let stream = std::sync::Arc::new(TcpStream::connect(ADDR).await.unwrap());
-        let (reader, writer) = (stream.clone(), stream.clone());
+        let (reader, writer) = (stream.clone(), stream);
 
         let (sender_incoming, receiver_incoming) = bounded(10);
         let (sender_outgoing, receiver_outgoing) = bounded(10);
@@ -287,12 +275,9 @@ impl Client {
 
         task::spawn(async move {
             loop {
-                match cloned.try_lock() {
-                    Some(mut self_) => {
-                        let incoming = self_.receiver_incoming.try_recv();
-                        self_.parse_message(incoming).await;
-                    }
-                    None => (),
+                if let Some(mut self_) = cloned.try_lock() {
+                    let incoming = self_.receiver_incoming.try_recv();
+                    self_.parse_message(incoming).await;
                 }
             }
         });
@@ -304,14 +289,11 @@ impl Client {
         &mut self,
         incoming_message: Result<String, async_channel::TryRecvError>,
     ) {
-        match incoming_message {
-            Ok(line) => {
-                println!("CIENT {} - message: {}", self.client_id, line);
-                let message: json_rpc::Message = serde_json::from_str(&line).unwrap();
-                self.handle_message(message).unwrap();
-            }
-            Err(_) => (),
-        }
+        if let Ok(line) = incoming_message {
+            println!("CIENT {} - message: {}", self.client_id, line);
+            let message: json_rpc::Message = serde_json::from_str(&line).unwrap();
+            self.handle_message(message).unwrap();
+        };
     }
 
     async fn send_message(&mut self, msg: json_rpc::Message) {
@@ -321,9 +303,8 @@ impl Client {
 
     pub async fn send_subscribe(&mut self) {
         loop {
-            match self.status {
-                ClientStatus::Configured => break,
-                _ => (),
+            if let ClientStatus::Configured = self.status {
+                break;
             }
         }
         let id = time::SystemTime::now()

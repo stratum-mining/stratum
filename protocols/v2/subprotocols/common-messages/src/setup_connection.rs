@@ -3,7 +3,7 @@ use const_sv2::{
     SV2_MINING_PROTOCOL_DISCRIMINANT, SV2_TEMPLATE_DISTR_PROTOCOL_DISCRIMINANT,
 };
 use serde::{Deserialize, Serialize};
-use serde_sv2::{Str0255, U16, U32, U8};
+use serde_sv2::{Str0255, U16, U32};
 
 /// ## SetupConnection (Client -> Server)
 /// Initiates the connection. This MUST be the first message sent by the client on the newly
@@ -79,6 +79,7 @@ pub struct SetupConnectionError {
 /// JobDistributionProtocol = [`SV2_JOB_DISTR_PROTOCOL_DISCRIMINANT`],
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[repr(u8)]
+#[allow(clippy::enum_variant_names)]
 enum Protocol {
     MiningProtocol = SV2_MINING_PROTOCOL_DISCRIMINANT,
     JobNegotiationProtocol = SV2_JOB_NEG_PROTOCOL_DISCRIMINANT,

@@ -89,8 +89,8 @@ impl<'a, T: Serialize + GetLen + Deserialize<'a>, B: Buffer> WithNoise<B, T> {
                 self.handle_fragmented().ok_or(())?;
                 Err(Error::MissingBytes(self.missing_noise_b))
             }
-            State::HandShake(_) => self.while_handshaking(),
-            State::NotInitialized => self.while_handshaking(),
+            State::HandShake(_) => Ok(self.while_handshaking()),
+            State::NotInitialized => Ok(self.while_handshaking()),
         }
     }
 
@@ -110,7 +110,7 @@ impl<'a, T: Serialize + GetLen + Deserialize<'a>, B: Buffer> WithNoise<B, T> {
                 Some(frame.into())
             } else {
                 self.missing_noise_b = NoiseHeader::SIZE;
-                return None;
+                None
             }
 
         // IF IS THE FIRST FRAGMETN JUST SET THE MISSING SV2 AND NOISE BYTES
@@ -122,17 +122,17 @@ impl<'a, T: Serialize + GetLen + Deserialize<'a>, B: Buffer> WithNoise<B, T> {
             self.sv2_frame_size = size as usize;
             self.missing_noise_b = NoiseHeader::SIZE;
 
-            return None;
+            None
         }
     }
 
-    fn while_handshaking(&mut self) -> Result<EitherFrame<T, B::Slice>> {
+    fn while_handshaking(&mut self) -> EitherFrame<T, B::Slice> {
         let src = self.noise_buffer.get_data_owned().as_mut().to_vec();
 
         // below is inffalible as noise frame lenght has been already checked
         let frame = HandShakeFrame::from_bytes_unchecked(src);
 
-        Ok(frame.into())
+        frame.into()
     }
 
     #[inline]
@@ -154,6 +154,13 @@ impl<T: Serialize + serde_sv2::GetLen> WithNoise<SlowAndCorrect, T> {
     }
 }
 
+#[cfg(feature = "noise_sv2")]
+impl<T: Serialize + serde_sv2::GetLen> Default for WithNoise<SlowAndCorrect, T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 pub struct WithoutNoise<B: Buffer, T: Serialize + serde_sv2::GetLen> {
     frame: std::marker::PhantomData<T>,
     missing_b: usize,
@@ -172,7 +179,7 @@ impl<T: Serialize + serde_sv2::GetLen, B: Buffer> WithoutNoise<B, T> {
                 self.missing_b = Header::SIZE;
                 let src = self.buffer.get_data_owned();
                 let frame = Sv2Frame::<T, B::Slice>::from_bytes_unchecked(src);
-                return Ok(frame.into());
+                Ok(frame)
             }
             _ => {
                 self.missing_b = hint;
@@ -193,5 +200,11 @@ impl<T: Serialize + serde_sv2::GetLen> WithoutNoise<SlowAndCorrect, T> {
             missing_b: Header::SIZE,
             buffer: SlowAndCorrect::new(),
         }
+    }
+}
+
+impl<T: Serialize + serde_sv2::GetLen> Default for WithoutNoise<SlowAndCorrect, T> {
+    fn default() -> Self {
+        Self::new()
     }
 }

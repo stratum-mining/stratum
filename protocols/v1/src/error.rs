@@ -6,6 +6,7 @@ pub enum Error {
     Method(MethodError),
     InvalidJsonRpcMessageKind,
     InvalidSubmission,
+    #[allow(clippy::upper_case_acronyms)]
     UnknownID,
 }
 
@@ -17,8 +18,6 @@ impl From<MethodError> for Error {
 
 impl std::fmt::Display for Error {
     fn fmt(&self, _f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match *self {
-            _ => todo!(),
-        }
+        todo!()
     }
 }
