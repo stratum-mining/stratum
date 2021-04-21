@@ -1,6 +1,5 @@
 //! https://www.jsonrpc.org/specification#response_object
 use serde::{Deserialize, Serialize};
-use serde_json;
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 #[serde(untagged)]
@@ -12,10 +11,7 @@ pub enum Message {
 
 impl Message {
     pub fn is_response(&self) -> bool {
-        match self {
-            Message::Response(_) => true,
-            _ => false,
-        }
+        matches!(self, Message::Response(_))
     }
 
     pub fn error(&self) -> Option<JsonRpcError> {

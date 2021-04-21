@@ -1,8 +1,8 @@
 use crate::header::Header;
 use crate::header::NoiseHeader;
 use core::convert::TryFrom;
-use serde::{Deserialize, Serialize};
-use serde_sv2::{from_bytes, to_writer, Bytes as Sv2Bytes, GetLen, U16, U24, U8};
+use serde::Serialize;
+use serde_sv2::{to_writer, GetLen};
 
 const NOISE_MAX_LEN: usize = const_sv2::NOISE_FRAME_MAX_SIZE;
 
@@ -59,16 +59,13 @@ impl<'a, T: Serialize + GetLen, B: AsMut<[u8]>> Frame<'a, T> for Sv2Frame<T, B> 
     /// Serialize the frame into dst if the frame is already serialized it just swap dst with
     /// itself
     #[inline]
-    fn serialize(mut self, dst: &mut Self::Buffer) -> Result<(), serde_sv2::Error> {
+    fn serialize(self, dst: &mut Self::Buffer) -> Result<(), serde_sv2::Error> {
         if self.serialized.is_some() {
             *dst = self.serialized.unwrap();
             Ok(())
         } else {
-            to_writer(&mut self.header, dst.as_mut())?;
-            to_writer(
-                &mut self.payload.unwrap(),
-                &mut dst.as_mut()[Header::SIZE..],
-            )?;
+            to_writer(&self.header, dst.as_mut())?;
+            to_writer(&self.payload.unwrap(), &mut dst.as_mut()[Header::SIZE..])?;
             Ok(())
         }
     }
@@ -164,8 +161,8 @@ impl<'a> Frame<'a, Vec<u8>> for NoiseFrame {
     /// Serialize the frame into dst if the frame is already serialized it just swap dst with
     /// itself
     #[inline]
-    fn serialize(mut self, dst: &mut Self::Buffer) -> Result<(), serde_sv2::Error> {
-        *dst = self.payload.into();
+    fn serialize(self, dst: &mut Self::Buffer) -> Result<(), serde_sv2::Error> {
+        *dst = self.payload;
         Ok(())
     }
 
@@ -183,7 +180,7 @@ impl<'a> Frame<'a, Vec<u8>> for NoiseFrame {
     /// It return the frame or the number of the bytes needed to complete the frame
     /// The resulting frame is just a header plus a payload with the right number of bytes nothing
     /// is said about the correctness of the payload
-    fn from_bytes(bytes: Self::Buffer) -> Result<Self, isize> {
+    fn from_bytes(_bytes: Self::Buffer) -> Result<Self, isize> {
         unimplemented!()
     }
 

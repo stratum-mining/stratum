@@ -1,3 +1,4 @@
+#![allow(clippy::result_unit_err)]
 //! Startum V1 application protocol: TODO
 //! json-rpc has two types of messages: **request** and **response**.
 //! A request message can be either a **notification** or a **standard message**.
@@ -207,21 +208,22 @@ pub trait IsServer {
     ) -> Result<json_rpc::Message, ()> {
         self.set_extranonce1(Some(extra_nonce1.clone()));
         self.set_extranonce2_size(Some(extra_nonce2_size));
-        Ok((server_to_client::SetExtranonce {
+        (server_to_client::SetExtranonce {
             extra_nonce1,
             extra_nonce2_size,
         })
         .try_into()
-        .map_err(|_| ())?)
+        .map_err(|_| ())
     }
     // {"params":["00003000"], "id":null, "method": "mining.set_version_mask"}
     // TODO fn update_version_rolling_mask
 
+    #[allow(clippy::needless_question_mark)]
     fn notify(&mut self) -> Result<json_rpc::Message, ()> {
         // TODO
         Ok(server_to_client::Notify {
             job_id: "ciao".to_string(),
-            prev_hash: utils::PrevHash(vec![3 as u8, 4, 5, 6]),
+            prev_hash: utils::PrevHash(vec![3_u8, 4, 5, 6]),
             coin_base1: "ffff".try_into().unwrap(),
             coin_base2: "ffff".try_into().unwrap(),
             merkle_branch: vec!["fff".try_into().unwrap()],
@@ -377,6 +379,7 @@ pub trait IsClient {
     fn last_notify(&self) -> Option<server_to_client::Notify>;
 
     /// Check if the given user_name has been authorized by the server
+    #[allow(clippy::ptr_arg)]
     fn is_authorized(&self, name: &String) -> bool;
 
     /// Register the given user_name has authorized by the server

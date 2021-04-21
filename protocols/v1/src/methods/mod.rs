@@ -46,6 +46,7 @@ impl From<BTCHashError> for MethodError {
 #[derive(Debug)]
 pub enum ParsingMethodError {
     HexError(Box<FromHexError>),
+    #[allow(clippy::upper_case_acronyms)]
     BTCHashError(Box<BTCHashError>),
     ValueNotAnArray(Box<serde_json::Value>),
     WrongArgs(Box<serde_json::Value>),

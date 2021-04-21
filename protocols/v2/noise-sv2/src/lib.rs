@@ -3,9 +3,8 @@ mod error;
 mod formats;
 pub mod handshake;
 
-use bytes::{Bytes, BytesMut};
+use bytes::Bytes;
 use error::{Error, Result};
-use rand;
 use snow::{params::NoiseParams, Builder, HandshakeState, TransportState};
 use std::convert::TryFrom;
 use std::time::Duration;
@@ -22,7 +21,7 @@ pub type StaticPublicKey = Vec<u8>;
 /// Snow doesn't have a dedicated secret key type, we will need it for authentication
 pub type StaticSecretKey = Vec<u8>;
 
-const PARAMS: &'static str = const_sv2::NOISE_PARAMS;
+const PARAMS: &str = const_sv2::NOISE_PARAMS;
 
 /// version: u16
 /// valid_from: u32
@@ -309,11 +308,10 @@ impl TransportMode {
     ///
     /// TODO check if decrypt msg len is always encrypted msg len - TAG_LEN
     #[inline(always)]
-    pub fn read(&mut self, encrypted_msg: &[u8], mut decrypted_msg: &mut [u8]) -> Result<()> {
-        let msg_len = self
+    pub fn read(&mut self, encrypted_msg: &[u8], decrypted_msg: &mut [u8]) -> Result<()> {
+        let _msg_len = self
             .inner
             .read_message(encrypted_msg, decrypted_msg)
-            //.unwrap();
             .map_err(|_| Error {})?;
 
         Ok(())
@@ -345,9 +343,9 @@ impl TransportMode {
         //encrypted_msg[0] = len.to_le_bytes()[0];
         //encrypted_msg[1] = len.to_be_bytes()[1];
 
-        let msg_len = self
+        let _msg_len = self
             .inner
-            .write_message(&plain_msg[..], &mut encrypted_msg[..])
+            .write_message(plain_msg, encrypted_msg)
             .map_err(|_| Error {})?;
 
         Ok(())
@@ -357,6 +355,7 @@ impl TransportMode {
 #[cfg(test)]
 pub(crate) mod test {
     use super::*;
+    use bytes::BytesMut;
     use handshake::Step as _;
 
     /// Helper that builds:

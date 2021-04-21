@@ -8,10 +8,7 @@ use async_std::prelude::*;
 use async_std::sync::{Arc, Mutex};
 use async_std::task;
 
-use serde::Serialize;
-use serde_sv2::GetLen;
-
-use codec_sv2::{Encoder, StandardDecoder, StandardSv2Frame};
+use codec_sv2::{StandardDecoder, StandardSv2Frame};
 use framing_sv2::framing2::Frame as F_;
 
 #[derive(Debug)]
@@ -46,12 +43,9 @@ impl Node {
 
         task::spawn(async move {
             loop {
-                match cloned.try_lock() {
-                    Some(mut node) => {
-                        let incoming = node.receiver.recv().await.unwrap();
-                        node.respond(incoming).await;
-                    }
-                    _ => (),
+                if let Some(mut node) = cloned.try_lock() {
+                    let incoming = node.receiver.recv().await.unwrap();
+                    node.respond(incoming).await;
                 }
             }
         });
@@ -61,7 +55,7 @@ impl Node {
 
     pub async fn send_ping(&mut self) {
         self.expected = Expected::Pong;
-        let message = Message::Ping(Ping::new(self.last_id.clone()));
+        let message = Message::Ping(Ping::new(self.last_id));
         let frame = StandardSv2Frame::<Message<'static>>::from_message(message).unwrap();
         self.sender.send(frame).await.unwrap();
         self.last_id += 1;
@@ -91,7 +85,7 @@ impl Node {
                             let u256: U256 = random_bytes.into();
                             seq.push(u256);
                         }
-                        Message::Pong(Pong::new(self.last_id.clone(), seq))
+                        Message::Pong(Pong::new(self.last_id, seq))
                     }
                     Err(e) => {
                         println!("{:#?}", e);
@@ -105,7 +99,7 @@ impl Node {
                     Ok(pong) => {
                         println!("Node {} recived:", self.name);
                         println!("Pong, id: {:#?}\n", pong.get_id());
-                        Message::Ping(Ping::new(self.last_id.clone()))
+                        Message::Ping(Ping::new(self.last_id))
                     }
                     Err(_) => panic!(),
                 }
@@ -119,6 +113,7 @@ struct Connection {}
 
 use std::time;
 impl Connection {
+    #[allow(clippy::type_complexity)]
     fn new(
         stream: TcpStream,
     ) -> (
@@ -126,7 +121,7 @@ impl Connection {
         Receiver<StandardSv2Frame<Message<'static>>>,
         Sender<StandardSv2Frame<Message<'static>>>,
     ) {
-        let (mut reader, writer) = (stream.clone(), stream.clone());
+        let (mut reader, writer) = (stream.clone(), stream);
 
         let (sender_incoming, receiver_incoming): (
             Sender<StandardSv2Frame<Message<'static>>>,
@@ -144,9 +139,8 @@ impl Connection {
             loop {
                 let writable = decoder.writable();
                 let _r = reader.read_exact(writable).await.unwrap();
-                match decoder.next_frame() {
-                    Ok(x) => sender_incoming.send(x).await.unwrap(),
-                    Err(_) => (),
+                if let Ok(x) = decoder.next_frame() {
+                    sender_incoming.send(x).await.unwrap();
                 }
                 task::sleep(time::Duration::from_millis(500)).await;
             }
@@ -157,14 +151,9 @@ impl Connection {
             let mut encoder = codec_sv2::Encoder::<crate::messages::Message>::new();
 
             loop {
-                let received = receiver_outgoing.recv().await;
-
-                match received {
-                    Ok(frame) => {
-                        let b = encoder.encode(frame).unwrap();
-                        (&writer).write_all(b).await.unwrap();
-                    }
-                    Err(_) => (),
+                if let Ok(frame) = receiver_outgoing.recv().await {
+                    let b = encoder.encode(frame).unwrap();
+                    (&writer).write_all(b).await.unwrap();
                 }
             }
         });

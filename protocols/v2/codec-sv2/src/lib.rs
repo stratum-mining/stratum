@@ -29,7 +29,7 @@ pub enum State {
     /// Not yet initialized
     NotInitialized,
     /// Handshake mode where codec is negotiating keys
-    HandShake(HandshakeRole),
+    HandShake(Box<HandshakeRole>),
     /// Transport mode where AEAD is fully operational. The `TransportMode` object in this variant
     /// as able to perform encryption and decryption resp.
     Transport(TransportMode),
@@ -44,7 +44,7 @@ pub enum HandshakeRole {
 
 #[cfg(feature = "noise_sv2")]
 impl HandshakeRole {
-    pub fn step(&mut self, in_msg: Option<Vec<u8>>) -> Result<HandShakeFrame, ()> {
+    pub fn step(&mut self, in_msg: Option<Vec<u8>>) -> Result<HandShakeFrame, crate::Error> {
         match self {
             Self::Initiator(stepper) => {
                 let message = stepper.step(in_msg).map_err(|_| ())?.inner();
@@ -58,7 +58,7 @@ impl HandshakeRole {
         }
     }
 
-    pub fn into_transport(self) -> Result<TransportMode, ()> {
+    pub fn into_transport(self) -> Result<TransportMode, crate::Error> {
         match self {
             Self::Initiator(stepper) => {
                 let tp = stepper
@@ -113,24 +113,24 @@ impl State {
     }
 
     pub fn initialize(inner: HandshakeRole) -> Self {
-        Self::HandShake(inner)
+        Self::HandShake(Box::new(inner))
     }
 
     pub fn with_transport_mode(tm: TransportMode) -> Self {
         Self::Transport(tm)
     }
 
-    pub fn step(&mut self, in_msg: Option<Vec<u8>>) -> Result<HandShakeFrame, ()> {
+    pub fn step(&mut self, in_msg: Option<Vec<u8>>) -> Result<HandShakeFrame, crate::Error> {
         match self {
-            Self::NotInitialized => Err(()),
+            Self::NotInitialized => Err(Error::Todo),
             Self::HandShake(stepper) => stepper.step(in_msg),
-            Self::Transport(_) => Err(()),
+            Self::Transport(_) => Err(Error::Todo),
         }
     }
 
-    pub fn into_transport_mode(self) -> Result<Self, ()> {
+    pub fn into_transport_mode(self) -> Result<Self, Error> {
         match self {
-            Self::NotInitialized => Err(()),
+            Self::NotInitialized => Err(Error::Todo),
             Self::HandShake(stepper) => {
                 let tp = stepper.into_transport()?;
 
@@ -138,5 +138,12 @@ impl State {
             }
             Self::Transport(_) => Ok(self),
         }
+    }
+}
+
+#[cfg(feature = "noise_sv2")]
+impl Default for State {
+    fn default() -> Self {
+        Self::new()
     }
 }

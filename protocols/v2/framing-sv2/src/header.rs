@@ -1,7 +1,6 @@
 use serde::{Deserialize, Serialize};
-use serde_sv2::{from_bytes, to_writer, Bytes as Sv2Bytes, GetLen, U16, U24, U8};
-use std::convert::{TryFrom, TryInto};
-use std::io::Write;
+use serde_sv2::{U16, U24, U8};
+use std::convert::TryInto;
 
 #[derive(Debug, Serialize, Deserialize, Copy, Clone)]
 pub struct Header {
@@ -40,6 +39,10 @@ impl Header {
     pub fn len(&self) -> usize {
         let inner: u32 = self.msg_length.into();
         inner as usize
+    }
+
+    pub fn is_empty(&self) -> bool {
+        unimplemented!()
     }
 
     #[inline]

@@ -14,6 +14,9 @@ impl HexBytes {
     pub fn len(&self) -> usize {
         self.0.len()
     }
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
 }
 
 impl From<HexBytes> for Value {
@@ -80,9 +83,9 @@ impl TryFrom<&str> for HexU32Be {
 }
 
 /// Helper Serializer
-impl Into<String> for HexU32Be {
-    fn into(self) -> String {
-        self.0.to_be_bytes().to_hex()
+impl From<HexU32Be> for String {
+    fn from(v: HexU32Be) -> Self {
+        v.0.to_be_bytes().to_hex()
     }
 }
 
@@ -137,11 +140,11 @@ impl From<PrevHash> for Value {
 /// Helper Serializer that peforms the reverse process of converting the prev hash into stratum V1
 /// ordering
 /// TODO: implement unit test
-impl Into<String> for PrevHash {
-    fn into(self) -> String {
+impl From<PrevHash> for String {
+    fn from(v: PrevHash) -> Self {
         let mut prev_hash_stratum_cursor = std::io::Cursor::new(Vec::new());
         // swap every u32 from little endian to big endian
-        for chunk in self.0.chunks(size_of::<u32>()) {
+        for chunk in v.0.chunks(size_of::<u32>()) {
             let prev_hash_word = LittleEndian::read_u32(chunk);
             prev_hash_stratum_cursor
                 .write_u32::<BigEndian>(prev_hash_word)

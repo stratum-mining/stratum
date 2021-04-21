@@ -6,9 +6,7 @@ use async_std::task;
 use core::convert::TryInto;
 use serde::{Deserialize, Serialize};
 
-use codec_sv2::{
-    Frame, HandShakeFrame, HandshakeRole, StandardEitherFrame, StandardNoiseDecoder, Step,
-};
+use codec_sv2::{Frame, HandShakeFrame, HandshakeRole, StandardEitherFrame, StandardNoiseDecoder};
 use serde_sv2::GetLen;
 
 #[derive(Debug)]
@@ -17,6 +15,7 @@ pub struct Connection {
 }
 
 impl Connection {
+    #[allow(clippy::new_ret_no_self)]
     pub async fn new<'a, Message: Serialize + Deserialize<'a> + GetLen + Send + 'static>(
         stream: TcpStream,
         role: HandshakeRole,
@@ -29,11 +28,11 @@ impl Connection {
         let (sender_incoming, receiver_incoming): (
             Sender<StandardEitherFrame<Message>>,
             Receiver<StandardEitherFrame<Message>>,
-        ) = bounded(10);
+        ) = bounded(10); // TODO caller should provide this param
         let (sender_outgoing, receiver_outgoing): (
             Sender<StandardEitherFrame<Message>>,
             Receiver<StandardEitherFrame<Message>>,
-        ) = bounded(10);
+        ) = bounded(10); // TODO caller should provide this param
 
         let state = codec_sv2::State::new();
 
@@ -52,15 +51,14 @@ impl Connection {
                 let _r = reader.read_exact(writable).await.unwrap();
 
                 loop {
-                    match cloned1.try_lock() {
-                        Some(mut connection) => match decoder.next_frame(&mut connection.state) {
+                    if let Some(mut connection) = cloned1.try_lock() {
+                        match decoder.next_frame(&mut connection.state) {
                             Ok(x) => {
-                                sender_incoming.send(x.into()).await.unwrap();
+                                sender_incoming.send(x).await.unwrap();
                                 break;
                             }
                             Err(_) => break,
-                        },
-                        None => (),
+                        }
                     }
                 }
             }
@@ -75,19 +73,15 @@ impl Connection {
             loop {
                 let received = receiver_outgoing.recv().await;
 
-                match received {
-                    Ok(frame) => loop {
-                        match cloned2.try_lock() {
-                            Some(mut connection) => {
-                                let b = encoder.encode(frame, &mut connection.state).unwrap();
-                                (&writer).write_all(b).await.unwrap();
-                                break;
-                            }
-                            None => (),
+                if let Ok(frame) = received {
+                    loop {
+                        if let Some(mut connection) = cloned2.try_lock() {
+                            let b = encoder.encode(frame, &mut connection.state).unwrap();
+                            (&writer).write_all(b).await.unwrap();
+                            break;
                         }
-                    },
-                    Err(_) => (),
-                }
+                    }
+                };
             }
         });
 
@@ -119,12 +113,9 @@ impl Connection {
 
     async fn set_state(self_: Arc<Mutex<Self>>, state: codec_sv2::State) {
         loop {
-            match self_.try_lock() {
-                Some(mut connection) => {
-                    connection.state = state;
-                    break;
-                }
-                None => (),
+            if let Some(mut connection) = self_.try_lock() {
+                connection.state = state;
+                break;
             };
         }
     }
@@ -145,9 +136,7 @@ impl Connection {
 
         state.step(Some(second_message)).unwrap();
 
-        let tp = state.into_transport_mode().unwrap();
-
-        tp
+        state.into_transport_mode().unwrap()
     }
 
     async fn initialize_as_upstream<'a, Message: Serialize + Deserialize<'a> + GetLen>(
@@ -173,7 +162,6 @@ impl Connection {
             }
         }
 
-        let tp = state.into_transport_mode().unwrap();
-        tp
+        state.into_transport_mode().unwrap()
     }
 }

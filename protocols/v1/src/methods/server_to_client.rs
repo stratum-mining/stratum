@@ -85,6 +85,7 @@ impl TryFrom<Notify> for Message {
 impl TryFrom<Notification> for Notify {
     type Error = MethodError;
 
+    #[allow(clippy::many_single_char_names)]
     fn try_from(msg: Notification) -> Result<Self, Self::Error> {
         let params = msg
             .parameters
@@ -270,10 +271,7 @@ pub struct Authorize(pub crate::json_rpc::Response, pub String);
 
 impl Authorize {
     pub fn is_ok(&self) -> bool {
-        match self.0.result.as_bool() {
-            Some(a) => a,
-            None => false,
-        }
+        self.0.result.as_bool().unwrap_or(false)
     }
 
     pub fn user_name(self) -> String {
@@ -286,10 +284,7 @@ pub struct Submit(pub crate::json_rpc::Response);
 
 impl Submit {
     pub fn is_ok(&self) -> bool {
-        match self.0.result.as_bool() {
-            Some(a) => a,
-            None => false,
-        }
+        self.0.result.as_bool().unwrap_or(false)
     }
 }
 

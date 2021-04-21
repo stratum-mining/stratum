@@ -146,12 +146,9 @@ impl From<Submit> for Message {
             submit.time.into(),
             submit.nonce.into(),
         ];
-        match submit.version_bits {
-            Some(a) => {
-                let a: String = a.try_into().unwrap(); // TODO check if unwrap is ok here
-                parameters.push(a.into());
-            }
-            _ => (),
+        if let Some(a) = submit.version_bits {
+            let a: String = a.try_into().unwrap(); // TODO check if unwrap is ok here
+            parameters.push(a.into());
         };
         Message::StandardRequest(StandardRequest {
             id: submit.id,
@@ -164,6 +161,7 @@ impl From<Submit> for Message {
 impl TryFrom<StandardRequest> for Submit {
     type Error = MethodError;
 
+    #[allow(clippy::many_single_char_names)]
     fn try_from(msg: StandardRequest) -> Result<Self, Self::Error> {
         match msg.parameters.as_array() {
             Some(params) => {
@@ -363,12 +361,9 @@ impl Configure {
     pub fn version_rolling_mask(&self) -> Option<HexU32Be> {
         let mut res = None;
         for ext in &self.extensions {
-            match ext {
-                ConfigureExtension::VersionRolling(p) => {
-                    res = Some(p.mask.clone().unwrap_or(HexU32Be(0xffffffff)));
-                }
-                _ => (),
-            }
+            if let ConfigureExtension::VersionRolling(p) = ext {
+                res = Some(p.mask.clone().unwrap_or(HexU32Be(0xffffffff)));
+            };
         }
         res
     }
@@ -376,13 +371,10 @@ impl Configure {
     pub fn version_rolling_min_bit_count(&self) -> Option<HexU32Be> {
         let mut res = None;
         for ext in &self.extensions {
-            match ext {
-                ConfigureExtension::VersionRolling(p) => {
-                    // TODO check if 0 is the right default value
-                    res = Some(p.min_bit_count.clone().unwrap_or(HexU32Be(0)));
-                }
-                _ => (),
-            }
+            if let ConfigureExtension::VersionRolling(p) = ext {
+                // TODO check if 0 is the right default value
+                res = Some(p.min_bit_count.clone().unwrap_or(HexU32Be(0)));
+            };
         }
         res
     }
@@ -426,13 +418,14 @@ pub enum ConfigureExtension {
     Info(InfoParams),
 }
 
+#[allow(clippy::unnecessary_unwrap)]
 impl ConfigureExtension {
     pub fn from_value(val: &Value) -> Result<Vec<ConfigureExtension>, MethodError> {
         let mut res = vec![];
         let root = val
             .as_array()
             .ok_or_else(|| ParsingMethodError::not_array_from_value(val.clone()))?;
-        if root.len() < 1 {
+        if root.is_empty() {
             return Err(ParsingMethodError::Todo.into());
         };
         let version_rolling_mask = val.pointer("1/version-rolling.mask");
@@ -482,14 +475,14 @@ impl ConfigureExtension {
             res.push(ConfigureExtension::VersionRolling(params));
         };
 
-        if minimum_difficulty_value.is_some() {
-            let min_diff = match minimum_difficulty_value.unwrap() {
+        if let Some(minimum_difficulty_value) = minimum_difficulty_value {
+            let min_diff = match minimum_difficulty_value {
                 JNumber(a) => a
                     .as_u64()
                     .ok_or_else(|| ParsingMethodError::not_unsigned_from_value(a.clone()))?,
                 _ => {
                     return Err(ParsingMethodError::unexpected_value_from_value(
-                        minimum_difficulty_value.unwrap().clone(),
+                        minimum_difficulty_value.clone(),
                     )
                     .into())
                 }
@@ -620,7 +613,7 @@ impl From<InfoParams> for serde_json::Map<String, Value> {
                 info.connection_url.unwrap().into(),
             );
         }
-        params.into()
+        params
     }
 }
 

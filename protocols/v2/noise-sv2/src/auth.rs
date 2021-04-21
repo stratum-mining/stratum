@@ -139,7 +139,7 @@ impl SignedPart {
         }
     }
 
-    fn serialize_to_buf(&self) -> Result<BytesMut> {
+    fn serialize_to_buf(&self) -> BytesMut {
         let mut signed_part_writer = BytesMut::new().writer();
         let version = &self.header.version.to_le_bytes()[..];
         let valid_from = &self.header.valid_from.to_le_bytes()[..];
@@ -148,7 +148,7 @@ impl SignedPart {
         signed_part_writer
             .write_all(&[version, valid_from, not_valid_after, pub_k].concat()[..])
             .unwrap();
-        Ok(signed_part_writer.into_inner())
+        signed_part_writer.into_inner()
     }
 
     /// Generates the actual ed25519_dalek::Signature that is ready to be embedded into the certificate
@@ -162,13 +162,13 @@ impl SignedPart {
             EncodedEd25519PublicKey::new(self.authority_public_key)
         );
 
-        let signed_part_buf = self.serialize_to_buf()?;
+        let signed_part_buf = self.serialize_to_buf();
         Ok(keypair.sign(&signed_part_buf[..]))
     }
 
     /// Verifies the specifed `signature` against this signed part
     pub(crate) fn verify(&self, signature: &ed25519_dalek::Signature) -> Result<()> {
-        let signed_part_buf = self.serialize_to_buf()?;
+        let signed_part_buf = self.serialize_to_buf();
         self.authority_public_key
             .verify_strict(&signed_part_buf[..], signature)
             .map_err(|_| Error {})?;
@@ -217,7 +217,7 @@ impl SignatureNoiseMessage {
             .expect("BUG: cannot prepare certificate header");
         let signed_part = SignedPart::new(
             header.clone(),
-            to_be_signed_keypair.public.clone(),
+            to_be_signed_keypair.public,
             authority_keypair.public,
         );
         let signature = signed_part

@@ -54,7 +54,7 @@ impl<'s, T: Serialize + TryFromBSlice<'s>> Serialize for Seq0255<'s, T> {
         match (&self.seq, &self.data) {
             (Some(seq), None) => {
                 let len = seq.data.len() / seq.size as usize;
-                let tuple = (len as u8, &seq.data[..]);
+                let tuple = (len as u8, seq.data);
                 let mut seq = serializer.serialize_tuple(2)?;
                 seq.serialize_element(&tuple.0)?;
                 seq.serialize_element(tuple.1)?;
