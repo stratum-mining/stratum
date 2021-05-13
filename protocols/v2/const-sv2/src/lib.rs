@@ -1,4 +1,5 @@
 //! Central repository for all the sv2 constants
+#![no_std]
 
 pub const SV2_FRAME_HEADER_SIZE: usize = 6;
 pub const SV2_FRAME_HEADER_LEN_OFFSET: usize = 3;

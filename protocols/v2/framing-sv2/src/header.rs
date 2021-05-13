@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use serde_sv2::{U16, U24, U8};
-use std::convert::TryInto;
+use core::convert::TryInto;
 
 #[derive(Debug, Serialize, Deserialize, Copy, Clone)]
 pub struct Header {

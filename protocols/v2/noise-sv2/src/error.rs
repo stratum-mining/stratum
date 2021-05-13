@@ -1,15 +1,15 @@
 #[derive(Debug)]
 pub struct Error {}
-pub type Result<T> = std::result::Result<T, Error>;
+pub type Result<T> = core::result::Result<T, Error>;
 
-impl From<std::io::Error> for Error {
-    fn from(_: std::io::Error) -> Self {
-        Error {}
-    }
-}
+//impl From<core::io::Error> for Error {
+//    fn from(_: core::io::Error) -> Self {
+//        Error {}
+//    }
+//}
 
-impl std::fmt::Display for Error {
-    fn fmt(&self, _: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
+impl core::fmt::Display for Error {
+    fn fmt(&self, _: &mut core::fmt::Formatter<'_>) -> core::result::Result<(), core::fmt::Error> {
         Ok(())
     }
 }

@@ -7,6 +7,10 @@ use framing_sv2::framing2::{Frame as F_, Sv2Frame};
 use framing_sv2::header::NoiseHeader;
 use serde::Serialize;
 use serde_sv2::GetLen;
+use core::marker::PhantomData;
+#[cfg(feature = "noise_sv2")]
+use core::cmp::min;
+use alloc::vec::Vec;
 
 #[cfg(feature = "noise_sv2")]
 use crate::{State, TransportMode};
@@ -22,7 +26,7 @@ const M: usize = MAX_M_L - TAGLEN;
 pub struct NoiseEncoder<T: Serialize + serde_sv2::GetLen> {
     noise_buffer: Vec<u8>,
     sv2_buffer: Vec<u8>,
-    frame: std::marker::PhantomData<T>,
+    frame: PhantomData<T>,
 }
 
 #[cfg(feature = "noise_sv2")]
@@ -33,24 +37,12 @@ impl<T: Serialize + GetLen> NoiseEncoder<T> {
         item: EitherFrame<T, Vec<u8>>,
         state: &mut State,
     ) -> Result<&[u8], crate::Error> {
-        let len = item.encoded_length();
 
-        // RESERVE ENAUGH SPACE TO ENCODE THE SV2 FRAME
-        let to_reserve = if self.sv2_buffer.len() > len {
-            0
-        } else {
-            len - self.sv2_buffer.len()
-        };
-        self.sv2_buffer.reserve(to_reserve);
-
-        // CLEAR THE OLD DATA FROM THE PREVIOUS ENCODED FRAME
-        self.sv2_buffer.clear();
 
         match state {
             State::Transport(transport_mode) => {
-                unsafe {
-                    self.sv2_buffer.set_len(len);
-                }
+                let len = item.encoded_length();
+                self.sv2_buffer.resize(len, 0);
 
                 // ENCODE THE SV2 FRAME
                 let i: Sv2Frame<T, Vec<u8>> = item.try_into().map_err(|_| ())?;
@@ -91,9 +83,7 @@ impl<T: Serialize + GetLen> NoiseEncoder<T> {
         build_noise_frame_header(&mut self.noise_buffer, len as u16);
 
         // RESIZE THE BUFFER SO TRANSPORT MODE CAN WRITE IN IT
-        unsafe {
-            self.noise_buffer.set_len(len_with_header);
-        }
+        self.noise_buffer.resize(len_with_header, 0);
 
         // ENCRYPT THE SV2 FRAME AND ENCODE THE NOISE FRAME
         transport_mode
@@ -115,7 +105,7 @@ impl<T: Serialize + GetLen> NoiseEncoder<T> {
         loop {
             let last_len = self.noise_buffer.len();
 
-            end = std::cmp::min(end, buffer_len);
+            end = min(end, buffer_len);
 
             let buf = &self.sv2_buffer[start..end];
 
@@ -180,24 +170,14 @@ impl<T: Serialize + GetLen> Default for NoiseEncoder<T> {
 #[derive(Debug)]
 pub struct Encoder<T> {
     buffer: Vec<u8>,
-    frame: std::marker::PhantomData<T>,
+    frame: PhantomData<T>,
 }
 
 impl<T: Serialize + GetLen> Encoder<T> {
     pub fn encode(&mut self, item: Sv2Frame<T, Vec<u8>>) -> Result<&[u8], crate::Error> {
         let len = item.encoded_length();
 
-        let to_reserve = if self.buffer.len() > len {
-            0
-        } else {
-            len - self.buffer.len()
-        };
-
-        self.buffer.reserve(to_reserve);
-
-        unsafe {
-            self.buffer.set_len(len);
-        }
+        self.buffer.resize(len, 0);
 
         item.serialize(&mut self.buffer).map_err(|_| ())?;
 

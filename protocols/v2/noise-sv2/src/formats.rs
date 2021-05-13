@@ -1,7 +1,9 @@
 use serde::{Deserialize, Serialize};
-use std::convert::TryFrom;
-use std::fmt;
+use core::convert::TryFrom;
+use core::fmt;
 use std::time::SystemTime;
+use alloc::string::String;
+
 
 use crate::auth::{SignatureNoiseMessage, SignedPart, SignedPartHeader};
 use crate::error::{Error, Result};

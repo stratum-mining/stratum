@@ -1,3 +1,5 @@
+#![no_std]
+
 //! # Template Distribution Protocol
 //! The Template Distribution protocol is used to receive updates of the block template to use in
 //! mining the next block. It effectively replaces BIPs [22](TODO) and [23](TODO) (getblocktemplate) and provides

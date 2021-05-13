@@ -2,7 +2,8 @@
 //!
 //! [Sv2]: https://docs.google.com/document/d/1FadCWj-57dvhxsnFM_7X806qyvhR0u3i85607bGHxvg/edit
 //! [tutorial]: https://serde.rs/data-format.html
-use std::convert::TryInto;
+use core::convert::TryInto;
+use alloc::vec::Vec;
 
 use serde::de::{self, DeserializeSeed, SeqAccess, Visitor};
 use serde::Deserialize;
@@ -140,7 +141,7 @@ impl<'de> Deserializer<'de> {
     fn parse_string(&mut self) -> Result<&'de str> {
         let len = self.parse_u8()?;
         let str_ = self.get_slice(len as usize)?;
-        std::str::from_utf8(&str_).map_err(|_| Error::InvalidUtf8)
+        core::str::from_utf8(&str_).map_err(|_| Error::InvalidUtf8)
     }
 
     #[inline]
@@ -590,7 +591,7 @@ fn test_b016m() {
 #[test]
 fn test_b064k() {
     use serde::Serialize;
-    use std::convert::TryInto;
+    use core::convert::TryInto;
 
     let b: crate::primitives::B064K = (&[1, 2, 9][..])
         .try_into()

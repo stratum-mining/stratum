@@ -1,8 +1,9 @@
-use std::fmt::{self, Display};
+use core::fmt::{self, Display};
+use alloc::string::String;
 
 use serde::{de, ser};
 
-pub type Result<T> = std::result::Result<T, Error>;
+pub type Result<T> = core::result::Result<T, Error>;
 
 // TODO provode additional information in the error type:
 // 1. byte offset into the input
@@ -35,13 +36,13 @@ pub enum Error {
 
 impl ser::Error for Error {
     fn custom<T: Display>(msg: T) -> Self {
-        Error::Message(msg.to_string())
+        Error::Message(format!("{}", msg))
     }
 }
 
 impl de::Error for Error {
     fn custom<T: Display>(msg: T) -> Self {
-        Error::Message(msg.to_string())
+        Error::Message(format!("{}", msg))
     }
 }
 
@@ -56,4 +57,4 @@ impl Display for Error {
     }
 }
 
-impl std::error::Error for Error {}
+// impl core::error::Error for Error {}
