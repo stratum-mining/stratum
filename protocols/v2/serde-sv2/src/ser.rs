@@ -7,9 +7,9 @@
 //! [tutorial]: https://serde.rs/data-format.html
 //!
 use crate::error::{Error, Result};
-use serde::{ser, Serialize};
 use alloc::vec::Vec;
 use buffer::Write;
+use serde::{ser, Serialize};
 
 pub struct Serializer<W: Write> {
     output: W,

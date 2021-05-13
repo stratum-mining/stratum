@@ -1,8 +1,8 @@
 use crate::error::Error;
 use crate::primitives::FixedSize;
-use serde::{de::Visitor, ser, Deserialize, Deserializer, Serialize};
-use core::convert::TryFrom;
 use alloc::boxed::Box;
+use core::convert::TryFrom;
+use serde::{de::Visitor, ser, Deserialize, Deserializer, Serialize};
 
 #[derive(Debug, PartialEq)]
 enum Inner<'a> {

@@ -2,8 +2,8 @@
 //!
 //! [Sv2]: https://docs.google.com/document/d/1FadCWj-57dvhxsnFM_7X806qyvhR0u3i85607bGHxvg/edit
 //! [tutorial]: https://serde.rs/data-format.html
-use core::convert::TryInto;
 use alloc::vec::Vec;
+use core::convert::TryInto;
 
 use serde::de::{self, DeserializeSeed, SeqAccess, Visitor};
 use serde::Deserialize;
@@ -590,8 +590,8 @@ fn test_b016m() {
 
 #[test]
 fn test_b064k() {
-    use serde::Serialize;
     use core::convert::TryInto;
+    use serde::Serialize;
 
     let b: crate::primitives::B064K = (&[1, 2, 9][..])
         .try_into()

@@ -5,12 +5,12 @@ mod error;
 mod formats;
 pub mod handshake;
 
+use alloc::vec::Vec;
 use bytes::Bytes;
-use error::{Error, Result};
-use snow::{params::NoiseParams, Builder, HandshakeState, TransportState};
 use core::convert::TryFrom;
 use core::time::Duration;
-use alloc::vec::Vec;
+use error::{Error, Result};
+use snow::{params::NoiseParams, Builder, HandshakeState, TransportState};
 
 pub use auth::SignatureNoiseMessage;
 pub use auth::SignedPartHeader;

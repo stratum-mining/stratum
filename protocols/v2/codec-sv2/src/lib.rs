@@ -2,7 +2,7 @@
 
 extern crate alloc;
 
-use alloc::{vec::Vec, boxed::Box};
+use alloc::{boxed::Box, vec::Vec};
 
 mod buffer;
 mod decoder;
