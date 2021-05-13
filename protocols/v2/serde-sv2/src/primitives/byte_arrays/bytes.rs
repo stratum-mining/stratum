@@ -1,5 +1,6 @@
 use crate::primitives::GetLen;
 use serde::{de::Visitor, ser, Deserialize, Deserializer, Serialize};
+use alloc::vec::Vec;
 
 #[derive(Debug, PartialEq)]
 pub struct Bytes(pub Vec<u8>);
@@ -22,7 +23,7 @@ impl From<Vec<u8>> for Bytes {
 
 impl Serialize for Bytes {
     #[inline]
-    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    fn serialize<S>(&self, serializer: S) -> core::result::Result<S::Ok, S::Error>
     where
         S: ser::Serializer,
     {
@@ -37,7 +38,7 @@ struct BytesVisitor;
 impl Visitor<'_> for BytesVisitor {
     type Value = Bytes;
 
-    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+    fn expecting(&self, formatter: &mut core::fmt::Formatter) -> core::fmt::Result {
         formatter.write_str("a byte array with no encoded length")
     }
 

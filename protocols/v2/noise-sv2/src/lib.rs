@@ -1,3 +1,5 @@
+extern crate alloc;
+
 mod auth;
 mod error;
 mod formats;
@@ -6,8 +8,9 @@ pub mod handshake;
 use bytes::Bytes;
 use error::{Error, Result};
 use snow::{params::NoiseParams, Builder, HandshakeState, TransportState};
-use std::convert::TryFrom;
-use std::time::Duration;
+use core::convert::TryFrom;
+use core::time::Duration;
+use alloc::vec::Vec;
 
 pub use auth::SignatureNoiseMessage;
 pub use auth::SignedPartHeader;
@@ -232,7 +235,7 @@ impl Responder {
 
     /// Create a Responder from authority pub_k and priv_k (32 bytes keys)
     /// Usefull if there is no central pool authority and the Responder can certify itself
-    pub fn from_authority_kp(pub_k: &[u8], priv_k: &[u8], duration: std::time::Duration) -> Self {
+    pub fn from_authority_kp(pub_k: &[u8], priv_k: &[u8], duration: core::time::Duration) -> Self {
         let authority = Authority::from_raw_k(pub_k, priv_k);
 
         let static_keypair = generate_keypair().unwrap();

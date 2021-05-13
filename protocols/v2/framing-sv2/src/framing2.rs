@@ -3,6 +3,7 @@ use crate::header::NoiseHeader;
 use core::convert::TryFrom;
 use serde::Serialize;
 use serde_sv2::{to_writer, GetLen};
+use alloc::vec::Vec;
 
 const NOISE_MAX_LEN: usize = const_sv2::NOISE_FRAME_MAX_SIZE;
 
@@ -14,7 +15,7 @@ pub trait Frame<'a, T: Serialize + GetLen>: Sized {
     /// itself
     fn serialize(self, dst: &mut Self::Buffer) -> Result<(), serde_sv2::Error>;
 
-    //fn deserialize(&'a mut self) -> Result<Self::Deserialized, serde_sv2::Error>;
+    ///fn deserialize(&'a mut self) -> Result<Self::Deserialized, serde_sv2::Error>;
     fn payload(&'a mut self) -> &'a mut [u8];
 
     /// If is an Sv2 frame return the Some(header) if it is a noise frame return None

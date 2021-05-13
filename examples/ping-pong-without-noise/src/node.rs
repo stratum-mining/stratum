@@ -8,8 +8,7 @@ use async_std::prelude::*;
 use async_std::sync::{Arc, Mutex};
 use async_std::task;
 
-use codec_sv2::{StandardDecoder, StandardSv2Frame};
-use framing_sv2::framing2::Frame as F_;
+use codec_sv2::{StandardDecoder, StandardSv2Frame, Frame};
 
 #[derive(Debug)]
 enum Expected {

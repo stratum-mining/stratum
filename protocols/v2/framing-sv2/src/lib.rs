@@ -1,3 +1,6 @@
+#![no_std]
+extern crate alloc;
+
 ///
 /// Sv2 messages are framed as
 /// ```txt

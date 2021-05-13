@@ -9,6 +9,7 @@ use serde::Deserialize;
 use serde::Serialize;
 #[cfg(feature = "noise_sv2")]
 use serde_sv2::GetLen;
+use core::marker::PhantomData;
 
 use crate::buffer::{Buffer, SlowAndCorrect};
 use crate::error::{Error, Result};
@@ -23,7 +24,7 @@ pub type StandardDecoder<T> = WithoutNoise<SlowAndCorrect, T>;
 
 #[cfg(feature = "noise_sv2")]
 pub struct WithNoise<B: Buffer, T: Serialize + serde_sv2::GetLen> {
-    frame: std::marker::PhantomData<T>,
+    frame: PhantomData<T>,
     missing_noise_b: usize,
     noise_buffer: B,
     sv2_buffer: B,
@@ -145,7 +146,7 @@ impl<'a, T: Serialize + GetLen + Deserialize<'a>, B: Buffer> WithNoise<B, T> {
 impl<T: Serialize + serde_sv2::GetLen> WithNoise<SlowAndCorrect, T> {
     pub fn new() -> Self {
         Self {
-            frame: std::marker::PhantomData,
+            frame: PhantomData,
             missing_noise_b: 0,
             noise_buffer: SlowAndCorrect::new(),
             sv2_buffer: SlowAndCorrect::new(),
@@ -162,7 +163,7 @@ impl<T: Serialize + serde_sv2::GetLen> Default for WithNoise<SlowAndCorrect, T> 
 }
 
 pub struct WithoutNoise<B: Buffer, T: Serialize + serde_sv2::GetLen> {
-    frame: std::marker::PhantomData<T>,
+    frame: PhantomData<T>,
     missing_b: usize,
     buffer: B,
 }
@@ -196,7 +197,7 @@ impl<T: Serialize + serde_sv2::GetLen, B: Buffer> WithoutNoise<B, T> {
 impl<T: Serialize + serde_sv2::GetLen> WithoutNoise<SlowAndCorrect, T> {
     pub fn new() -> Self {
         Self {
-            frame: std::marker::PhantomData,
+            frame: PhantomData,
             missing_b: Header::SIZE,
             buffer: SlowAndCorrect::new(),
         }

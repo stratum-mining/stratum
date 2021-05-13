@@ -1,7 +1,7 @@
 use super::{Signature, B016M, B0255, B064K, U24, U256};
 use crate::Error;
 use serde::{de::Visitor, Serialize};
-use std::convert::TryInto;
+use core::convert::TryInto;
 
 pub mod seq0255;
 pub mod seq064k;
@@ -18,19 +18,19 @@ struct Seq<'s, T: Serialize + TryFromBSlice<'s>> {
     cursor: usize,
     size: u8,
     max_len: SeqMaxLen,
-    _a: std::marker::PhantomData<T>,
+    _a: core::marker::PhantomData<T>,
 }
 
 struct SeqVisitor<T> {
     inner_type_size: u8,
     max_len: SeqMaxLen,
-    _a: std::marker::PhantomData<T>,
+    _a: core::marker::PhantomData<T>,
 }
 
 impl<'a, T: Serialize + TryFromBSlice<'a>> Visitor<'a> for SeqVisitor<T> {
     type Value = Seq<'a, T>;
 
-    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+    fn expecting(&self, formatter: &mut core::fmt::Formatter) -> core::fmt::Result {
         let max_len = match self.max_len {
             SeqMaxLen::_1B => "255",
             SeqMaxLen::_2B => "64K",
@@ -51,7 +51,7 @@ impl<'a, T: Serialize + TryFromBSlice<'a>> Visitor<'a> for SeqVisitor<T> {
             cursor: 0,
             max_len: self.max_len,
             size: self.inner_type_size,
-            _a: std::marker::PhantomData,
+            _a: core::marker::PhantomData,
         })
     }
 }
@@ -61,7 +61,7 @@ pub trait TryFromBSlice<'a> {
 
     fn try_from_slice(val: &'a [u8]) -> Result<Self, Error>
     where
-        Self: std::marker::Sized;
+        Self: core::marker::Sized;
 }
 
 impl<'a> TryFromBSlice<'a> for bool {

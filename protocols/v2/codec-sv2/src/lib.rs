@@ -1,3 +1,9 @@
+#![no_std]
+
+extern crate alloc;
+
+use alloc::{vec::Vec, boxed::Box};
+
 mod buffer;
 mod decoder;
 mod encoder;

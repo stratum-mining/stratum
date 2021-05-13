@@ -1,7 +1,8 @@
 use crate::error::Error;
 use crate::primitives::GetLen;
 use serde::{de::Visitor, ser, ser::SerializeTuple, Deserialize, Deserializer, Serialize};
-use std::convert::TryFrom;
+use core::convert::TryFrom;
+use alloc::vec::Vec;
 
 #[derive(Debug, PartialEq)]
 enum Inner<'a> {
@@ -35,7 +36,7 @@ impl<'b> TryFrom<&'b [u8]> for B064K<'b> {
     type Error = Error;
 
     #[inline]
-    fn try_from(v: &'b [u8]) -> std::result::Result<Self, Self::Error> {
+    fn try_from(v: &'b [u8]) -> core::result::Result<Self, Self::Error> {
         match v.len() {
             0..=65535 => Ok(Self(Inner::Ref(v))),
             _ => Err(Error::LenBiggerThan16M),
@@ -46,7 +47,7 @@ impl<'b> TryFrom<&'b [u8]> for B064K<'b> {
 impl<'b> TryFrom<Vec<u8>> for B064K<'b> {
     type Error = Error;
 
-    fn try_from(v: Vec<u8>) -> std::result::Result<Self, Self::Error> {
+    fn try_from(v: Vec<u8>) -> core::result::Result<Self, Self::Error> {
         match v.len() {
             0..=65535 => Ok(Self(Inner::Owned(v))),
             _ => Err(Error::LenBiggerThan16M),
@@ -56,7 +57,7 @@ impl<'b> TryFrom<Vec<u8>> for B064K<'b> {
 
 impl<'b> Serialize for B064K<'b> {
     #[inline]
-    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    fn serialize<S>(&self, serializer: S) -> core::result::Result<S::Ok, S::Error>
     where
         S: ser::Serializer,
     {
@@ -80,7 +81,7 @@ struct B064KVisitor;
 impl<'a> Visitor<'a> for B064KVisitor {
     type Value = B064K<'a>;
 
-    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+    fn expecting(&self, formatter: &mut core::fmt::Formatter) -> core::fmt::Result {
         formatter.write_str("a byte array shorter than 64K")
     }
 

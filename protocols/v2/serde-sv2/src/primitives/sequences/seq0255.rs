@@ -4,6 +4,7 @@ use crate::primitives::FixedSize;
 use crate::primitives::GetLen;
 use crate::Error;
 use serde::{ser, ser::SerializeTuple, Deserialize, Deserializer, Serialize};
+use alloc::vec::Vec;
 
 #[derive(Debug)]
 pub struct Seq0255<'s, T: Serialize + TryFromBSlice<'s>> {
@@ -11,7 +12,7 @@ pub struct Seq0255<'s, T: Serialize + TryFromBSlice<'s>> {
     data: Option<Vec<T>>,
 }
 
-impl<'s, T: Serialize + TryFromBSlice<'s> + std::cmp::PartialEq> PartialEq for Seq0255<'s, T> {
+impl<'s, T: Serialize + TryFromBSlice<'s> + core::cmp::PartialEq> PartialEq for Seq0255<'s, T> {
     fn eq(&self, other: &Self) -> bool {
         match (&self.seq, &self.data, &other.seq, &other.data) {
             (Some(seq1), _, Some(seq2), _) => seq1 == seq2,
@@ -47,7 +48,7 @@ impl<'s, T: Serialize + TryFromBSlice<'s>> From<Seq<'s, T>> for Seq0255<'s, T> {
 
 impl<'s, T: Serialize + TryFromBSlice<'s>> Serialize for Seq0255<'s, T> {
     #[inline]
-    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    fn serialize<S>(&self, serializer: S) -> core::result::Result<S::Ok, S::Error>
     where
         S: ser::Serializer,
     {
@@ -84,7 +85,7 @@ impl<'de: 'a, 'a> Deserialize<'de> for Seq0255<'a, U256<'a>> {
                 SeqVisitor {
                     inner_type_size: 32,
                     max_len: SeqMaxLen::_1B,
-                    _a: std::marker::PhantomData,
+                    _a: core::marker::PhantomData,
                 },
             )
             .map(|x| x.into())
@@ -103,7 +104,7 @@ impl<'de: 'a, 'a> Deserialize<'de> for Seq0255<'a, bool> {
                 SeqVisitor {
                     inner_type_size: 1,
                     max_len: SeqMaxLen::_1B,
-                    _a: std::marker::PhantomData,
+                    _a: core::marker::PhantomData,
                 },
             )
             .map(|x| x.into())
@@ -122,7 +123,7 @@ impl<'de: 'a, 'a> Deserialize<'de> for Seq0255<'a, u16> {
                 SeqVisitor {
                     inner_type_size: 2,
                     max_len: SeqMaxLen::_1B,
-                    _a: std::marker::PhantomData,
+                    _a: core::marker::PhantomData,
                 },
             )
             .map(|x| x.into())
@@ -141,7 +142,7 @@ impl<'de: 'a, 'a> Deserialize<'de> for Seq0255<'a, U24> {
                 SeqVisitor {
                     inner_type_size: 3,
                     max_len: SeqMaxLen::_1B,
-                    _a: std::marker::PhantomData,
+                    _a: core::marker::PhantomData,
                 },
             )
             .map(|x| x.into())
@@ -160,7 +161,7 @@ impl<'de: 'a, 'a> Deserialize<'de> for Seq0255<'a, u32> {
                 SeqVisitor {
                     inner_type_size: 4,
                     max_len: SeqMaxLen::_1B,
-                    _a: std::marker::PhantomData,
+                    _a: core::marker::PhantomData,
                 },
             )
             .map(|x| x.into())
@@ -179,7 +180,7 @@ impl<'de: 'a, 'a> Deserialize<'de> for Seq0255<'a, Signature<'a>> {
                 SeqVisitor {
                     inner_type_size: 64,
                     max_len: SeqMaxLen::_1B,
-                    _a: std::marker::PhantomData,
+                    _a: core::marker::PhantomData,
                 },
             )
             .map(|x| x.into())

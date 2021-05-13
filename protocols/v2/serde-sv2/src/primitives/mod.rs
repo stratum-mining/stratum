@@ -1,3 +1,4 @@
+use alloc::{string::String, vec::Vec};
 mod byte_arrays;
 mod sequences;
 mod signature;

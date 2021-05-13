@@ -1,6 +1,6 @@
 use crate::primitives::FixedSize;
 use serde::{de::Visitor, ser, Deserialize, Deserializer, Serialize};
-use std::convert::TryFrom;
+use core::convert::TryFrom;
 
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub struct U24(pub(crate) u32);
@@ -34,7 +34,7 @@ impl TryFrom<u32> for U24 {
     }
 }
 
-use std::convert::TryInto;
+use core::convert::TryInto;
 
 impl TryFrom<usize> for U24 {
     type Error = crate::Error;
@@ -58,7 +58,7 @@ impl From<U24> for usize {
 
 impl Serialize for U24 {
     #[inline]
-    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    fn serialize<S>(&self, serializer: S) -> core::result::Result<S::Ok, S::Error>
     where
         S: ser::Serializer,
     {
@@ -71,7 +71,7 @@ struct U24Visitor;
 impl<'de> Visitor<'de> for U24Visitor {
     type Value = U24;
 
-    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+    fn expecting(&self, formatter: &mut core::fmt::Formatter) -> core::fmt::Result {
         formatter.write_str("an integer between 0 and 2^24 3 bytes le")
     }
 

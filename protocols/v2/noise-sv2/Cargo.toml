@@ -8,11 +8,12 @@ edition = "2018"
 
 [dependencies]
 snow = "0.7.2"
-#snow = {path = "/home/user/src/snow"}
-ed25519-dalek = { version = "1.0.1", features = ["serde"] }
+#ed25519-dalek = { version = "1.0.1", features = ["rand", "serde"], default-features = false }
+ed25519-dalek = { path = "../../../vendor/ed25519-dalek", features = ["rand", "serde", "alloc"], default-features = false }
 bs58 = { version ="0.4.0", features = ["check"] }
-serde_json = "1.0.39"
+serde_json = { version = "1.0.64", default-features = false, features = ["alloc"] }
 bytes = "1.0.1"
 serde = { version = "1.0.89", features = ["derive"], default-features = false }
 rand = "0.7.3" 
 const_sv2 = { path = "../../../protocols/v2/const-sv2"}
+buffer = { path = "../../../utils/buffer"}

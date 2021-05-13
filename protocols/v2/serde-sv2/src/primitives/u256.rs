@@ -1,7 +1,8 @@
 use crate::error::Error;
 use crate::primitives::FixedSize;
 use serde::{de::Visitor, ser, Deserialize, Deserializer, Serialize};
-use std::convert::TryFrom;
+use core::convert::TryFrom;
+use alloc::boxed::Box;
 
 #[derive(Debug, PartialEq)]
 enum Inner<'a> {
@@ -16,7 +17,7 @@ impl<'u> TryFrom<&'u [u8]> for U256<'u> {
     type Error = Error;
 
     #[inline]
-    fn try_from(v: &'u [u8]) -> std::result::Result<Self, Error> {
+    fn try_from(v: &'u [u8]) -> core::result::Result<Self, Error> {
         if v.len() == 32 {
             Ok(Self(Inner::Ref(v)))
         } else {
@@ -43,7 +44,7 @@ impl<'u> From<&'u U256<'u>> for &'u [u8] {
 
 impl<'u> Serialize for U256<'u> {
     #[inline]
-    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    fn serialize<S>(&self, serializer: S) -> core::result::Result<S::Ok, S::Error>
     where
         S: ser::Serializer,
     {
@@ -56,7 +57,7 @@ struct U256Visitor;
 impl<'a> Visitor<'a> for U256Visitor {
     type Value = U256<'a>;
 
-    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+    fn expecting(&self, formatter: &mut core::fmt::Formatter) -> core::fmt::Result {
         formatter.write_str("a 32 bytes unsigned le int")
     }
 

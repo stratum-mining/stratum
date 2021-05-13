@@ -8,8 +8,10 @@
 //!
 use crate::error::{Error, Result};
 use serde::{ser, Serialize};
+use alloc::vec::Vec;
+use buffer::Write;
 
-pub struct Serializer<W: std::io::Write> {
+pub struct Serializer<W: Write> {
     output: W,
 }
 
@@ -23,7 +25,7 @@ where
     Ok(serializer.output)
 }
 
-pub fn to_writer<T, W: std::io::Write>(value: &T, writer: W) -> Result<()>
+pub fn to_writer<T, W: Write>(value: &T, writer: W) -> Result<()>
 where
     T: Serialize,
 {
@@ -32,7 +34,7 @@ where
     Ok(())
 }
 
-impl<'a, W: std::io::Write> ser::Serializer for &'a mut Serializer<W> {
+impl<'a, W: Write> ser::Serializer for &'a mut Serializer<W> {
     type Ok = ();
 
     type Error = Error;
@@ -233,7 +235,7 @@ impl<'a, W: std::io::Write> ser::Serializer for &'a mut Serializer<W> {
     }
 }
 
-impl<'a, W: std::io::Write> ser::SerializeStruct for &'a mut Serializer<W> {
+impl<'a, W: Write> ser::SerializeStruct for &'a mut Serializer<W> {
     type Ok = ();
     type Error = Error;
 
@@ -251,7 +253,7 @@ impl<'a, W: std::io::Write> ser::SerializeStruct for &'a mut Serializer<W> {
     }
 }
 
-impl<'a, W: std::io::Write> ser::SerializeSeq for &'a mut Serializer<W> {
+impl<'a, W: Write> ser::SerializeSeq for &'a mut Serializer<W> {
     type Ok = ();
     type Error = Error;
 
@@ -269,7 +271,7 @@ impl<'a, W: std::io::Write> ser::SerializeSeq for &'a mut Serializer<W> {
     }
 }
 
-impl<'a, W: std::io::Write> ser::SerializeTuple for &'a mut Serializer<W> {
+impl<'a, W: Write> ser::SerializeTuple for &'a mut Serializer<W> {
     type Ok = ();
     type Error = Error;
 
@@ -289,7 +291,7 @@ impl<'a, W: std::io::Write> ser::SerializeTuple for &'a mut Serializer<W> {
 
 ///// UNIMPLEMENTED /////
 
-impl<'a, W: std::io::Write> ser::SerializeTupleStruct for &'a mut Serializer<W> {
+impl<'a, W: Write> ser::SerializeTupleStruct for &'a mut Serializer<W> {
     type Ok = ();
     type Error = Error;
 
@@ -305,7 +307,7 @@ impl<'a, W: std::io::Write> ser::SerializeTupleStruct for &'a mut Serializer<W> 
     }
 }
 
-impl<'a, W: std::io::Write> ser::SerializeTupleVariant for &'a mut Serializer<W> {
+impl<'a, W: Write> ser::SerializeTupleVariant for &'a mut Serializer<W> {
     type Ok = ();
     type Error = Error;
 
@@ -321,7 +323,7 @@ impl<'a, W: std::io::Write> ser::SerializeTupleVariant for &'a mut Serializer<W>
     }
 }
 
-impl<'a, W: std::io::Write> ser::SerializeMap for &'a mut Serializer<W> {
+impl<'a, W: Write> ser::SerializeMap for &'a mut Serializer<W> {
     type Ok = ();
     type Error = Error;
 
@@ -344,7 +346,7 @@ impl<'a, W: std::io::Write> ser::SerializeMap for &'a mut Serializer<W> {
     }
 }
 
-impl<'a, W: std::io::Write> ser::SerializeStructVariant for &'a mut Serializer<W> {
+impl<'a, W: Write> ser::SerializeStructVariant for &'a mut Serializer<W> {
     type Ok = ();
     type Error = Error;
 

@@ -1,7 +1,8 @@
 use bytes::{BufMut, BytesMut};
 use serde::{Deserialize, Serialize};
-use std::convert::{TryFrom, TryInto};
-use std::time::{Duration, SystemTime};
+use core::convert::{TryFrom, TryInto};
+use core::time::Duration;
+use std::time::SystemTime;
 
 use crate::StaticPublicKey;
 use crate::{Error, Result};
@@ -11,6 +12,7 @@ use ed25519_dalek::Signer;
 pub use crate::formats::*;
 
 use std::io::Write;
+
 
 /// Header of the `SignedPart` that will also be part of the `Certificate`
 #[derive(Serialize, Deserialize, PartialEq, Clone, Debug)]
@@ -25,7 +27,7 @@ pub struct SignedPartHeader {
 impl SignedPartHeader {
     const VERSION: u16 = 0;
 
-    pub fn serialize_to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<()> {
+    pub fn serialize_to_writer<T: Write>(&self, writer: &mut T) -> Result<()> {
         let version = self.version.to_le_bytes();
         let valid_from = self.valid_from.to_le_bytes();
         let not_valid_after = self.not_valid_after.to_le_bytes();
@@ -189,7 +191,7 @@ pub struct SignatureNoiseMessage {
 }
 
 impl SignatureNoiseMessage {
-    pub fn serialize_to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<()> {
+    pub fn serialize_to_writer<T: Write>(&self, writer: &mut T) -> Result<()> {
         // TODO
         // v2::serialization::to_writer(writer, self)?;
         self.header.serialize_to_writer(writer).unwrap();
@@ -208,7 +210,7 @@ impl SignatureNoiseMessage {
         Ok(serialized_signature_noise_message)
     }
 
-    pub fn with_duration(pub_k: &[u8], priv_k: &[u8], duration: std::time::Duration) -> Self {
+    pub fn with_duration(pub_k: &[u8], priv_k: &[u8], duration: core::time::Duration) -> Self {
         let to_be_signed_keypair =
             crate::generate_keypair().expect("BUG: cannot generate noise static keypair");
         let authority_keypair = ed25519_dalek::Keypair::from_bytes(&[priv_k, pub_k].concat())

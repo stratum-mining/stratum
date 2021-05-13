@@ -6,7 +6,7 @@ pub mod bytes;
 #[test]
 fn test_b0_64k() {
     use crate::ser::to_bytes;
-    use std::convert::TryInto;
+    use core::convert::TryInto;
 
     let test: b064k::B064K = (&[1, 2, 9][..])
         .try_into()
@@ -19,7 +19,7 @@ fn test_b0_64k() {
 #[test]
 fn test_b0_64k_2() {
     use crate::ser::to_bytes;
-    use std::convert::TryInto;
+    use core::convert::TryInto;
 
     let test: b064k::B064K = (&[10; 754][..])
         .try_into()
@@ -34,7 +34,7 @@ fn test_b0_64k_2() {
 #[test]
 fn test_b0_64k_3() {
     use crate::error::Error;
-    use std::convert::TryInto;
+    use core::convert::TryInto;
 
     let test: Result<b064k::B064K, Error> = (&[10; 70000][..]).try_into();
 
@@ -47,7 +47,7 @@ fn test_b0_64k_3() {
 #[test]
 fn test_b0_16m() {
     use crate::ser::to_bytes;
-    use std::convert::TryInto;
+    use core::convert::TryInto;
 
     let test: b016m::B016M = (&[1 as u8, 2, 9][..])
         .try_into()
