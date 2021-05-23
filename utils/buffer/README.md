@@ -65,7 +65,9 @@ It returns `Slice`: something that implements `AsMut[u8]` and `Send`, and sets t
 ## BufferFromSystemMemory
 Is the simplest implementation of a `Buffer`: each time that a new buffer is needed it create a new
 `Vec<u8>`.
+
 `get_writable(..)` returns mutable references to the inner vector.
+
 `get_data_owned(..)` returns the inner vector.
 
 
@@ -171,14 +173,17 @@ both completely broken, useful only as references for the benchmarks.
 The benchmarks are:
 
 #### Single thread
+```
 for 0..1000:
   add random bytes to the buffer
   get the buffer
   add random bytes to the buffer
   get the buffer
   drop the 2 buffer
+  ```
 
 #### Multi threads (this is the most similar to the actual use case IMHO)
+```
 for 0..1000:
   add random bytes to the buffer
   get the buffer
@@ -186,8 +191,10 @@ for 0..1000:
   add random bytes to the buffer
   get the buffer
   send the buffer to another thread   -> wait 1 ms and then drop it
+  ```
 
 #### Multi threads 2
+```
 for 0..1000:
   add random bytes to the buffer
   get the buffer
@@ -196,11 +203,13 @@ for 0..1000:
   get the buffer
   send the buffer to another thread   -> wait 1 ms and then drop it
   wait for the 2 buffer to be dropped
+  ```
 
 #### Test
 Some failing cases from fuzz.
 
-From the benchmark in BENCHES.md executed for 2000 samples:
+#### From the benchmark in BENCHES.md executed for 2000 samples:
+```
 * single thread with  `BufferPool`: ---------------------------------- 7.5006 ms
 * single thread with  `BufferFromSystemMemory`: ---------------------- 10.274 ms
 * single thread with  `PPoll`: --------------------------------------- 32.593 ms
@@ -213,6 +222,7 @@ From the benchmark in BENCHES.md executed for 2000 samples:
 * multi-thread 2 with `BufferFromSystemMemory`: ---------------------- 192.24 ms
 * multi-thread 2 with `PPoll`: --------------------------------------- 101.75 ms
 * multi-thread 2 with `MaxEfficeincy`: ------------------------------- 66.972 ms
+```
 
 From the above numbers, it results that `BufferPool` always outperform the hashmap buffer pool and
 the solution without a pool:
