@@ -1,22 +1,30 @@
-#![no_std]
+#![cfg_attr(not(feature = "debug"), no_std)]
+//#![feature(backtrace)]
+
+mod buffer;
+mod buffer_pool;
+mod slice;
+#[cfg(test)]
+mod test;
 
 extern crate alloc;
 use alloc::vec::Vec;
 
+pub use crate::buffer::BufferFromSystemMemory;
+pub use buffer_pool::BufferPool;
+pub use slice::Slice;
+
 pub enum WriteError {
-    WriteZero
+    WriteZero,
 }
 
 pub trait Write {
-
     fn write(&mut self, buf: &[u8]) -> Result<usize, WriteError>;
 
     fn write_all(&mut self, buf: &[u8]) -> Result<(), WriteError>;
-
 }
 
 impl Write for Vec<u8> {
-
     #[inline]
     fn write(&mut self, buf: &[u8]) -> Result<usize, WriteError> {
         self.extend_from_slice(buf);
@@ -31,7 +39,6 @@ impl Write for Vec<u8> {
 }
 
 impl Write for &mut [u8] {
-
     #[inline]
     fn write(&mut self, data: &[u8]) -> Result<usize, WriteError> {
         let amt = core::cmp::min(data.len(), self.len());
@@ -48,5 +55,25 @@ impl Write for &mut [u8] {
         } else {
             Err(WriteError::WriteZero)
         }
+    }
+}
+
+pub trait Buffer {
+    type Slice: AsMut<[u8]> + Into<Slice>;
+
+    // Caller need to borrow a buffer to write some date
+    fn get_writable(&mut self, len: usize) -> &mut [u8];
+
+    // Caller need to get the previously written buffer and should own it
+    fn get_data_owned(&mut self) -> Self::Slice;
+
+    // Caller need a view in the written part of the buffer
+    fn get_data_by_ref(&mut self, len: usize) -> &mut [u8];
+
+    // Return the size of the written part of the buffer that is still owned by the Buffer
+    fn len(&self) -> usize;
+
+    fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 }
