@@ -1,6 +1,6 @@
 use crate::primitives::FixedSize;
-use serde::{de::Visitor, ser, Deserialize, Deserializer, Serialize};
 use core::convert::TryFrom;
+use serde::{de::Visitor, ser, Deserialize, Deserializer, Serialize};
 
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub struct U24(pub(crate) u32);

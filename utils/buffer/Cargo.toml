@@ -4,6 +4,22 @@ version = "0.1.0"
 authors = ["fi3 <email@email.org>"]
 edition = "2018"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
+criterion = {version = "0.3", optional = true}
+
+[dev-dependencies]
+rand = "0.8.3"
+iai = "0.1"
+
+
+#[[bench]]
+#name = "pool_benchmark"
+#harness = false
+
+[[bench]]
+name = "pool_iai"
+harness = false
+
+[features]
+debug = []
+fuzz = []

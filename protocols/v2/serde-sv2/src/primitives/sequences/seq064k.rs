@@ -3,8 +3,8 @@ use super::{Seq, SeqMaxLen, SeqVisitor, TryFromBSlice};
 use crate::primitives::FixedSize;
 use crate::primitives::GetLen;
 use crate::Error;
-use serde::{ser, ser::SerializeTuple, Deserialize, Deserializer, Serialize};
 use alloc::vec::Vec;
+use serde::{ser, ser::SerializeTuple, Deserialize, Deserializer, Serialize};
 
 #[derive(Debug)]
 pub struct Seq064K<'s, T: Serialize + TryFromBSlice<'s>> {

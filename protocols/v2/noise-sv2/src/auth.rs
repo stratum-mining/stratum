@@ -1,7 +1,7 @@
 use bytes::{BufMut, BytesMut};
-use serde::{Deserialize, Serialize};
 use core::convert::{TryFrom, TryInto};
 use core::time::Duration;
+use serde::{Deserialize, Serialize};
 use std::time::SystemTime;
 
 use crate::StaticPublicKey;
@@ -12,7 +12,6 @@ use ed25519_dalek::Signer;
 pub use crate::formats::*;
 
 use std::io::Write;
-
 
 /// Header of the `SignedPart` that will also be part of the `Certificate`
 #[derive(Serialize, Deserialize, PartialEq, Clone, Debug)]

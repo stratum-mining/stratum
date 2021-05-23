@@ -1,3 +1,4 @@
+use core::marker::PhantomData;
 use framing_sv2::framing2::{EitherFrame, Frame as F_, Sv2Frame};
 #[cfg(feature = "noise_sv2")]
 use framing_sv2::framing2::{HandShakeFrame, NoiseFrame};
@@ -9,7 +10,6 @@ use serde::Deserialize;
 use serde::Serialize;
 #[cfg(feature = "noise_sv2")]
 use serde_sv2::GetLen;
-use core::marker::PhantomData;
 
 use crate::buffer::{Buffer, SlowAndCorrect};
 use crate::error::{Error, Result};

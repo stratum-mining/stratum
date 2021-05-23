@@ -1,8 +1,8 @@
 use crate::error::Error;
 use crate::primitives::GetLen;
-use serde::{de::Visitor, ser, ser::SerializeTuple, Deserialize, Deserializer, Serialize};
-use core::convert::TryFrom;
 use alloc::vec::Vec;
+use core::convert::TryFrom;
+use serde::{de::Visitor, ser, ser::SerializeTuple, Deserialize, Deserializer, Serialize};
 
 #[derive(Debug, PartialEq)]
 enum Inner<'a> {

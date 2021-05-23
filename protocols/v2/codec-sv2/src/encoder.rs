@@ -1,5 +1,9 @@
+use alloc::vec::Vec;
+#[cfg(feature = "noise_sv2")]
+use core::cmp::min;
 #[cfg(feature = "noise_sv2")]
 use core::convert::TryInto;
+use core::marker::PhantomData;
 #[cfg(feature = "noise_sv2")]
 use framing_sv2::framing2::{build_noise_frame_header, EitherFrame, HandShakeFrame};
 use framing_sv2::framing2::{Frame as F_, Sv2Frame};
@@ -7,10 +11,6 @@ use framing_sv2::framing2::{Frame as F_, Sv2Frame};
 use framing_sv2::header::NoiseHeader;
 use serde::Serialize;
 use serde_sv2::GetLen;
-use core::marker::PhantomData;
-#[cfg(feature = "noise_sv2")]
-use core::cmp::min;
-use alloc::vec::Vec;
 
 #[cfg(feature = "noise_sv2")]
 use crate::{State, TransportMode};
@@ -37,8 +37,6 @@ impl<T: Serialize + GetLen> NoiseEncoder<T> {
         item: EitherFrame<T, Vec<u8>>,
         state: &mut State,
     ) -> Result<&[u8], crate::Error> {
-
-
         match state {
             State::Transport(transport_mode) => {
                 let len = item.encoded_length();

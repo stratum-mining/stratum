@@ -1,6 +1,6 @@
 use crate::primitives::GetLen;
-use serde::{de::Visitor, ser, Deserialize, Deserializer, Serialize};
 use alloc::vec::Vec;
+use serde::{de::Visitor, ser, Deserialize, Deserializer, Serialize};
 
 #[derive(Debug, PartialEq)]
 pub struct Bytes(pub Vec<u8>);

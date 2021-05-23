@@ -1,7 +1,7 @@
 use super::{Signature, B016M, B0255, B064K, U24, U256};
 use crate::Error;
-use serde::{de::Visitor, Serialize};
 use core::convert::TryInto;
+use serde::{de::Visitor, Serialize};
 
 pub mod seq0255;
 pub mod seq064k;

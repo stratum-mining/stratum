@@ -1,9 +1,9 @@
 use crate::header::Header;
 use crate::header::NoiseHeader;
+use alloc::vec::Vec;
 use core::convert::TryFrom;
 use serde::Serialize;
 use serde_sv2::{to_writer, GetLen};
-use alloc::vec::Vec;
 
 const NOISE_MAX_LEN: usize = const_sv2::NOISE_FRAME_MAX_SIZE;
 
