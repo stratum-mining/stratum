@@ -24,15 +24,13 @@ dropped a bit is set to 0.
 
 ## Use case
 `BufferPool` has been developed to be used in proxies with thousand of connection, each connection
-must parse a particular data format via a `Codec` each codec use 1 or 2 `Buffer` for each received
+must parse a particular data format via a `Decoder` each decoder use 1 or 2 `Buffer` for each received
 message. With `BufferPool` each connection can be instantiated with its own `BufferPool` and reuse
 the space freed by old messages for new ones.
 
 ## Unsafe
 There are 5 unsafes:
-buffer_pool/mod.rs 225
-buffer_pool/mod.rs 275
-buffer_pool/mod.rs 593
+buffer_pool/mod.rs 550
 slice.rs 8
 slice.rs 27
 
@@ -248,11 +246,5 @@ hours without crashes.
 
 The test must be run with `-rss_limit_mb=5000000000` cause they check `BufferPool` with capacities
 from 0 to 2^32.
-
-The function `InnerMemory::move_raw_at_front(&mut self)` is slightly different when fuzzed cause
-sometimes do memcpy with overlapping slices of memory. This should be safe(1) as the destination is before the
-source. The address sanitizer btw it complains, in the modified version when there are overlapping
-slices just copy everything.
-The same happens for `InnerMemory::move_raw_at_offset_unchecked(&mut self, offset: usize)`
 
 (1) TODO check if is always true

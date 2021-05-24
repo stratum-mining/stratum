@@ -205,28 +205,9 @@ impl InnerMemory {
 
     #[inline(always)]
     fn move_raw_at_front(&mut self) {
-        //println!("A {} {}", self.raw_offset, self.raw_len);
-        // If self.raw_len > self.raw_offset memcpy overlap but it is safe as data is always copied
-        // backward btw the address sanitizer complain so will skip when fuzzing
-        #[cfg(feature = "fuzz")]
-        if self.raw_len > self.raw_offset && self.raw_offset > 0 {
-            let mut pool = self.pool.clone();
-            for i in 0..self.len {
-                pool[i] = self.pool[self.raw_offset + i];
-            }
-            self.pool = pool;
-            return;
-        }
         match self.raw_len {
             0 => self.raw_offset = 0,
             _ => {
-                let src_offset =
-                    (&self.pool[self.raw_offset..self.raw_offset + self.raw_len]).as_ptr();
-                let dest = &mut self.pool[0..self.raw_len];
-                unsafe {
-                    let src = core::slice::from_raw_parts(src_offset, self.raw_len);
-                    dest.copy_from_slice(src);
-                };
                 self.raw_offset = 0;
             }
         }
@@ -248,36 +229,10 @@ impl InnerMemory {
 
     #[inline(always)]
     fn move_raw_at_offset_unchecked(&mut self, offset: usize) {
-        #[cfg(feature = "fuzz")]
-        let is_dst_offset_contained_in_src =
-            self.raw_offset <= offset && offset < self.raw_offset + self.raw_len;
-        #[cfg(feature = "fuzz")]
-        let is_src_offset_contained_in_dst =
-            offset <= self.raw_offset && self.raw_offset <= offset + self.raw_len;
-        #[cfg(feature = "fuzz")]
-        assert!(!is_dst_offset_contained_in_src || self.raw_offset == offset || self.raw_len == 0);
-        #[cfg(feature = "fuzz")]
-        if is_src_offset_contained_in_dst {
-            if self.raw_offset == offset || self.raw_len == 0 {
-                return;
-            }
-            let mut pool = self.pool.clone();
-            for i in 0..self.len {
-                pool[i] = self.pool[self.raw_offset + i];
-            }
-            self.pool = pool;
-            return;
-        }
         match self.raw_len {
             0 => self.raw_offset = offset,
             _ => {
-                let src_offset =
-                    (&self.pool[self.raw_offset..self.raw_offset + self.raw_len]).as_ptr();
-                let dest = &mut self.pool[offset..offset + self.raw_len];
-                unsafe {
-                    let src = core::slice::from_raw_parts(src_offset, self.raw_len);
-                    dest.copy_from_slice(src);
-                };
+                self.pool.copy_within(self.raw_offset..self.raw_offset+self.raw_len, offset);
                 self.raw_offset = offset;
             }
         }

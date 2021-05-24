@@ -264,7 +264,7 @@ fn criterion_benchmark(c: &mut Criterion) {
 
     let mut c = c.benchmark_group("sample-size-example");
 
-    c.sample_size(2000);
+    c.sample_size(500);
     //c.bench_function("with pool threaded test", |b| {
     //    b.iter(|| with_pool_trreaded_test_1(&input[..]))
     //});
