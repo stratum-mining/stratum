@@ -12,9 +12,9 @@ rand = "0.8.3"
 iai = "0.1"
 
 
-#[[bench]]
-#name = "pool_benchmark"
-#harness = false
+[[bench]]
+name = "pool_benchmark"
+harness = false
 
 [[bench]]
 name = "pool_iai"
