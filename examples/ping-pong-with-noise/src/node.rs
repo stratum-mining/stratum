@@ -1,6 +1,6 @@
 use crate::messages::{Message, Ping, Pong};
+use binary_sv2::{from_bytes, GetSize, U256};
 use rand::Rng;
-use serde_sv2::{from_bytes, GetLen, U256};
 
 use async_channel::{Receiver, Sender};
 use async_std::net::TcpStream;
@@ -111,7 +111,7 @@ impl Node {
                         println!(
                             "Pong, id: {:#?}, message len: {} \n",
                             pong.get_id(),
-                            pong.get_len()
+                            pong.get_size()
                         );
                         Message::Ping(Ping::new(self.last_id))
                     }

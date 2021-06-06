@@ -58,6 +58,11 @@ impl<'de> Deserializer<'de> {
     }
 
     #[inline]
+    fn parse_bytes(&mut self) -> &'de [u8] {
+        self.input
+    }
+
+    #[inline]
     fn parse_seq0255(&mut self, element_size: u8) -> Result<&'de [u8]> {
         let len = self.parse_u8()?;
         let len = len as usize * element_size as usize;
@@ -258,6 +263,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
             "Seq_064K_U32" => visitor.visit_borrowed_bytes(self.parse_seq064k(4)?),
             "Seq_064K_Signature" => visitor.visit_borrowed_bytes(self.parse_seq064k(64)?),
             "Seq_064K_B016M" => visitor.visit_borrowed_bytes(self.parse_seq064k_variable(3)?),
+            "Bytes" => visitor.visit_borrowed_bytes(self.parse_bytes()),
             _ => unreachable!("Invalid type"),
             //_ => visitor.visit_newtype_struct(self),
         }

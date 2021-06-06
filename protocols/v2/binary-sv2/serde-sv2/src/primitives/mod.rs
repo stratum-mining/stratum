@@ -24,18 +24,18 @@ pub type U64 = u64;
 pub type Pubkey<'u> = U256<'u>;
 // TODO rust string are valid UTF-8 Sv2 string (STR0255) are raw bytes. So there are Sv2 string not
 // representable as Str0255. I suggest to define Sv2 STR0255 as 1 byte len + a valid UTF-8 string.
-pub type Str0255 = String;
+pub type Str0255<'a> = B0255<'a>;
 
-pub trait GetLen {
-    fn get_len(&self) -> usize;
+pub trait GetSize {
+    fn get_size(&self) -> usize;
 }
 
 pub trait FixedSize {
     const FIXED_SIZE: usize;
 }
 
-impl<T: FixedSize> GetLen for T {
-    fn get_len(&self) -> usize {
+impl<T: FixedSize> GetSize for T {
+    fn get_size(&self) -> usize {
         T::FIXED_SIZE
     }
 }
@@ -60,21 +60,21 @@ impl FixedSize for u64 {
     const FIXED_SIZE: usize = 8;
 }
 
-impl GetLen for [u8] {
-    fn get_len(&self) -> usize {
+impl GetSize for [u8] {
+    fn get_size(&self) -> usize {
         self.len()
     }
 }
 
-impl GetLen for String {
-    fn get_len(&self) -> usize {
+impl GetSize for String {
+    fn get_size(&self) -> usize {
         // String is Str0255 1 byte len + x bytes
         self.len() + 1
     }
 }
 
-impl GetLen for Vec<u8> {
-    fn get_len(&self) -> usize {
+impl GetSize for Vec<u8> {
+    fn get_size(&self) -> usize {
         self.len()
     }
 }

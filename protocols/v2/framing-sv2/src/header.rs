@@ -1,11 +1,14 @@
+use alloc::vec::Vec;
+#[cfg(not(feature = "with_serde"))]
+use binary_sv2::codec;
+use binary_sv2::U24;
+use binary_sv2::{Deserialize, Serialize};
 use core::convert::TryInto;
-use serde::{Deserialize, Serialize};
-use serde_sv2::{U16, U24, U8};
 
 #[derive(Debug, Serialize, Deserialize, Copy, Clone)]
 pub struct Header {
-    extesion_type: U16, // TODO use specific type?
-    msg_type: U8,       // TODO use specific type?
+    extesion_type: u16, // TODO use specific type?
+    msg_type: u8,       // TODO use specific type?
     msg_length: U24,
 }
 

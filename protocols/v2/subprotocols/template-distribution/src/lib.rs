@@ -18,13 +18,14 @@
 //! a new block.
 //! Template Providers MUST attempt to broadcast blocks which are mined using work they
 //! provided, and thus MUST track the work which they provided to clients.
+extern crate alloc;
 
 mod coinbase_output_data_size;
 mod new_template;
 mod request_transaction_data;
 mod set_new_prev_hash;
 mod submit_solution;
-
+//
 pub use coinbase_output_data_size::CoinbaseOutputDataSize;
 pub use new_template::NewTemplate;
 pub use request_transaction_data::{

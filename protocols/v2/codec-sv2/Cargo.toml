@@ -7,8 +7,11 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-serde = { version = "1.0.89", default-features = false }
+serde = { version = "1.0.89", default-features = false, optional = true }
 framing_sv2 = { path = "../../../protocols/v2/framing-sv2" }
 noise_sv2 = { path = "../../../protocols/v2/noise-sv2", optional=true}
-serde_sv2 = { path = "../../../protocols/v2/serde-sv2" }
+binary_sv2 = { path = "../../../protocols/v2/binary-sv2/binary-sv2" }
 const_sv2 = { path = "../../../protocols/v2/const-sv2"}
+
+[features]
+with_serde = ["binary_sv2/with_serde", "serde", "framing_sv2/with_serde"]

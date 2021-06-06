@@ -1,6 +1,6 @@
 use crate::messages::{Message, Ping, Pong};
+use binary_sv2::{from_bytes, U256};
 use rand::Rng;
-use serde_sv2::{from_bytes, U256};
 
 use async_channel::{bounded, Receiver, Sender};
 use async_std::net::TcpStream;

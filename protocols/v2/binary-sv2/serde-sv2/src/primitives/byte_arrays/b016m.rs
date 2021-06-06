@@ -1,5 +1,5 @@
 use crate::error::Error;
-use crate::primitives::GetLen;
+use crate::primitives::GetSize;
 use alloc::vec::Vec;
 use core::convert::TryFrom;
 use serde::{de::Visitor, ser, ser::SerializeTuple, Deserialize, Deserializer, Serialize};
@@ -37,6 +37,17 @@ impl<'b> TryFrom<&'b [u8]> for B016M<'b> {
 
     #[inline]
     fn try_from(v: &'b [u8]) -> core::result::Result<Self, Self::Error> {
+        match v.len() {
+            0..=16777215 => Ok(Self(Inner::Ref(v))),
+            _ => Err(Error::LenBiggerThan16M),
+        }
+    }
+}
+impl<'b> TryFrom<&'b mut [u8]> for B016M<'b> {
+    type Error = Error;
+
+    #[inline]
+    fn try_from(v: &'b mut [u8]) -> core::result::Result<Self, Self::Error> {
         match v.len() {
             0..=16777215 => Ok(Self(Inner::Ref(v))),
             _ => Err(Error::LenBiggerThan16M),
@@ -101,8 +112,8 @@ impl<'de: 'a, 'a> Deserialize<'de> for B016M<'a> {
     }
 }
 
-impl<'a> GetLen for B016M<'a> {
-    fn get_len(&self) -> usize {
+impl<'a> GetSize for B016M<'a> {
+    fn get_size(&self) -> usize {
         match &self.0 {
             Inner::Ref(v) => v.len() + 3,
             Inner::Owned(v) => v.len() + 3,

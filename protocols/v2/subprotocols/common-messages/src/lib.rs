@@ -2,6 +2,7 @@
 
 //! Common messages for [stratum v2][Sv2]
 //! The following protocol messages are common across all of the sv2 (sub)protocols.
+extern crate alloc;
 mod channel_endpoint_changed;
 mod setup_connection;
 

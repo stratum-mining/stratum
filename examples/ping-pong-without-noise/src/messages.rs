@@ -1,35 +1,53 @@
+use binary_sv2::GetSize;
+#[cfg(not(feature = "with_serde"))]
+use binary_sv2::{codec, decodable::DecodableField, decodable::FieldMarker};
+use binary_sv2::{Bytes as Sv2Bytes, Seq064K, Str0255, U24, U256};
+use binary_sv2::{Deserialize, Serialize};
 use rand::{distributions::Alphanumeric, Rng};
-use serde::{Deserialize, Serialize};
-use serde_sv2::GetLen;
-use serde_sv2::{Seq0255, Str0255, U24, U256};
 use std::convert::TryInto;
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct Ping {
-    message: Str0255,
+pub struct Ping<'decoder> {
+    #[cfg_attr(feature = "with_serde", serde(borrow))]
+    message: Str0255<'decoder>,
     id: U24,
 }
 
-impl GetLen for Ping {
-    fn get_len(&self) -> usize {
-        self.message.get_len() + self.id.get_len()
+#[cfg(feature = "with_serde")]
+impl<'decoder> GetSize for Ping<'decoder> {
+    fn get_size(&self) -> usize {
+        self.message.get_size() + self.id.get_size()
     }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct Pong<'a> {
-    #[serde(borrow)]
-    message: Seq0255<'a, U256<'a>>,
+pub struct Pong<'decoder> {
+    #[cfg_attr(feature = "with_serde", serde(borrow))]
+    message: Seq064K<'decoder, U256<'decoder>>,
     id: U24,
 }
 
-impl GetLen for Pong<'_> {
-    fn get_len(&self) -> usize {
-        self.message.get_len() + self.id.get_len()
+#[cfg(feature = "with_serde")]
+impl GetSize for Pong<'_> {
+    fn get_size(&self) -> usize {
+        self.message.get_size() + self.id.get_size()
     }
 }
 
-impl Ping {
+#[derive(Debug, Serialize, Deserialize)]
+pub struct NoiseHandShake<'decoder> {
+    #[cfg_attr(feature = "with_serde", serde(borrow))]
+    payload: Sv2Bytes<'decoder>,
+}
+
+#[cfg(feature = "with_serde")]
+impl<'decoder> GetSize for NoiseHandShake<'decoder> {
+    fn get_size(&self) -> usize {
+        self.payload.get_size()
+    }
+}
+
+impl<'decoder> Ping<'decoder> {
     pub fn new(id: u32) -> Self {
         let message: String = rand::thread_rng()
             .sample_iter(&Alphanumeric)
@@ -37,52 +55,82 @@ impl Ping {
             .map(char::from)
             .collect();
         Self {
-            message,
+            message: message.into_bytes().try_into().unwrap(),
             id: id.try_into().unwrap(),
         }
     }
 }
 
-impl<'a> Pong<'a> {
-    pub fn new(id: u32, seq: Vec<U256<'a>>) -> Self {
+impl<'decoder> Pong<'decoder> {
+    pub fn new(id: u32, seq: Vec<U256<'decoder>>) -> Self {
         Self {
-            message: Seq0255::new(seq).unwrap(),
+            message: Seq064K::new(seq).unwrap(),
             id: id.try_into().unwrap(),
         }
     }
 
     pub fn get_id(&self) -> u32 {
+        //self.id.0
         self.id.into()
     }
 }
 
-// TODO impl serialize and deserialize for enum in serde sv2
-#[derive(Debug, Serialize)]
-pub enum Message<'a> {
-    Ping(Ping),
-    Pong(Pong<'a>),
+//#[derive(Debug, Serialize, Deserialize)]
+pub enum Message<'decoder> {
+    Ping(Ping<'decoder>),
+    Pong(Pong<'decoder>),
 }
 
-//impl Message<'_> {
-//    #[inline]
-//    pub fn to_bytes(self, buffer: &mut BytesMut) {
-//        match self {
-//            Self::Ping(ping) => {
-//                let encodable = Frame::from(ping);
-//                encodable.to_bytes(buffer);
-//            }
-//            Self::Pong(pong) => {
-//                let encodable = Frame::from(pong);
-//                encodable.to_bytes(buffer);
-//            }
-//        }
-//    }
-//}
-impl GetLen for Message<'_> {
-    fn get_len(&self) -> usize {
+#[cfg(feature = "with_serde")]
+impl<'decoder> binary_sv2::Serialize for Message<'decoder> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: binary_sv2::serde::Serializer,
+    {
         match self {
-            Self::Ping(ping) => ping.get_len(),
-            Self::Pong(pong) => pong.get_len(),
+            Message::Ping(p) => p.serialize(serializer),
+            Message::Pong(p) => p.serialize(serializer),
+        }
+    }
+}
+
+#[cfg(feature = "with_serde")]
+impl<'decoder> binary_sv2::Deserialize<'decoder> for Message<'decoder> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: binary_sv2::serde::Deserializer<'decoder>,
+    {
+        todo!()
+    }
+}
+
+#[cfg(not(feature = "with_serde"))]
+impl<'decoder> From<Message<'decoder>> for binary_sv2::encodable::EncodableField<'decoder> {
+    fn from(m: Message<'decoder>) -> Self {
+        match m {
+            Message::Ping(p) => p.into(),
+            Message::Pong(p) => p.into(),
+        }
+    }
+}
+
+#[cfg(not(feature = "with_serde"))]
+impl<'decoder> Deserialize<'decoder> for Message<'decoder> {
+    fn get_structure(_v: &[u8]) -> std::result::Result<Vec<FieldMarker>, binary_sv2::Error> {
+        unimplemented!()
+    }
+    fn from_decoded_fields(
+        _v: Vec<DecodableField<'decoder>>,
+    ) -> std::result::Result<Self, binary_sv2::Error> {
+        unimplemented!()
+    }
+}
+
+impl GetSize for Message<'_> {
+    fn get_size(&self) -> usize {
+        match self {
+            Self::Ping(ping) => ping.get_size(),
+            Self::Pong(pong) => pong.get_size(),
         }
     }
 }

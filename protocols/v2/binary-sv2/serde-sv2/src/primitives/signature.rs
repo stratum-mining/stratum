@@ -25,6 +25,18 @@ impl<'u> TryFrom<&'u [u8]> for Signature<'u> {
         }
     }
 }
+impl<'u> TryFrom<&'u mut [u8]> for Signature<'u> {
+    type Error = Error;
+
+    #[inline]
+    fn try_from(v: &'u mut [u8]) -> core::result::Result<Self, Error> {
+        if v.len() == 64 {
+            Ok(Self(Inner::Ref(v)))
+        } else {
+            Err(Error::InvalidSignatureSize(v.len()))
+        }
+    }
+}
 
 impl<'u> From<[u8; 64]> for Signature<'u> {
     fn from(v: [u8; 64]) -> Self {
