@@ -16,23 +16,21 @@ use criterion::Criterion;
 
 mod ed25519_benches {
     use super::*;
+    use ed25519_dalek::verify_batch;
     use ed25519_dalek::ExpandedSecretKey;
     use ed25519_dalek::Keypair;
     use ed25519_dalek::PublicKey;
     use ed25519_dalek::Signature;
     use ed25519_dalek::Signer;
-    use ed25519_dalek::verify_batch;
-    use rand::thread_rng;
     use rand::prelude::ThreadRng;
+    use rand::thread_rng;
 
     fn sign(c: &mut Criterion) {
         let mut csprng: ThreadRng = thread_rng();
         let keypair: Keypair = Keypair::generate(&mut csprng);
         let msg: &[u8] = b"";
 
-        c.bench_function("Ed25519 signing", move |b| {
-                         b.iter(| | keypair.sign(msg))
-        });
+        c.bench_function("Ed25519 signing", move |b| b.iter(|| keypair.sign(msg)));
     }
 
     fn sign_expanded_key(c: &mut Criterion) {
@@ -40,9 +38,9 @@ mod ed25519_benches {
         let keypair: Keypair = Keypair::generate(&mut csprng);
         let expanded: ExpandedSecretKey = (&keypair.secret).into();
         let msg: &[u8] = b"";
-        
+
         c.bench_function("Ed25519 signing with an expanded secret key", move |b| {
-                         b.iter(| | expanded.sign(msg, &keypair.public))
+            b.iter(|| expanded.sign(msg, &keypair.public))
         });
     }
 
@@ -51,9 +49,9 @@ mod ed25519_benches {
         let keypair: Keypair = Keypair::generate(&mut csprng);
         let msg: &[u8] = b"";
         let sig: Signature = keypair.sign(msg);
-        
+
         c.bench_function("Ed25519 signature verification", move |b| {
-                         b.iter(| | keypair.verify(msg, &sig))
+            b.iter(|| keypair.verify(msg, &sig))
         });
     }
 
@@ -64,7 +62,7 @@ mod ed25519_benches {
         let sig: Signature = keypair.sign(msg);
 
         c.bench_function("Ed25519 strict signature verification", move |b| {
-                         b.iter(| | keypair.verify_strict(msg, &sig))
+            b.iter(|| keypair.verify_strict(msg, &sig))
         });
     }
 
@@ -75,10 +73,12 @@ mod ed25519_benches {
             "Ed25519 batch signature verification",
             |b, &&size| {
                 let mut csprng: ThreadRng = thread_rng();
-                let keypairs: Vec<Keypair> = (0..size).map(|_| Keypair::generate(&mut csprng)).collect();
+                let keypairs: Vec<Keypair> =
+                    (0..size).map(|_| Keypair::generate(&mut csprng)).collect();
                 let msg: &[u8] = b"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
                 let messages: Vec<&[u8]> = (0..size).map(|_| msg).collect();
-                let signatures:  Vec<Signature> = keypairs.iter().map(|key| key.sign(&msg)).collect();
+                let signatures: Vec<Signature> =
+                    keypairs.iter().map(|key| key.sign(&msg)).collect();
                 let public_keys: Vec<PublicKey> = keypairs.iter().map(|key| key.public).collect();
 
                 b.iter(|| verify_batch(&messages[..], &signatures[..], &public_keys[..]));
@@ -91,11 +91,11 @@ mod ed25519_benches {
         let mut csprng: ThreadRng = thread_rng();
 
         c.bench_function("Ed25519 keypair generation", move |b| {
-                         b.iter(| | Keypair::generate(&mut csprng))
+            b.iter(|| Keypair::generate(&mut csprng))
         });
     }
 
-    criterion_group!{
+    criterion_group! {
         name = ed25519_benches;
         config = Criterion::default();
         targets =
@@ -108,6 +108,4 @@ mod ed25519_benches {
     }
 }
 
-criterion_main!(
-    ed25519_benches::ed25519_benches,
-);
+criterion_main!(ed25519_benches::ed25519_benches,);

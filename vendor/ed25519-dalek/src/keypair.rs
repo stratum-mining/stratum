@@ -17,7 +17,7 @@ use serde::de::Error as SerdeError;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 #[cfg(feature = "serde")]
-use serde_bytes::{Bytes as SerdeBytes, ByteBuf as SerdeByteBuf};
+use serde_bytes::{ByteBuf as SerdeByteBuf, Bytes as SerdeBytes};
 
 pub use sha2::Sha512;
 
@@ -82,12 +82,16 @@ impl Keypair {
             return Err(InternalError::BytesLengthError {
                 name: "Keypair",
                 length: KEYPAIR_LENGTH,
-            }.into());
+            }
+            .into());
         }
         let secret = SecretKey::from_bytes(&bytes[..SECRET_KEY_LENGTH])?;
         let public = PublicKey::from_bytes(&bytes[SECRET_KEY_LENGTH..])?;
 
-        Ok(Keypair{ secret: secret, public: public })
+        Ok(Keypair {
+            secret: secret,
+            public: public,
+        })
     }
 
     /// Generate an ed25519 keypair.
@@ -131,7 +135,10 @@ impl Keypair {
         let sk: SecretKey = SecretKey::generate(csprng);
         let pk: PublicKey = (&sk).into();
 
-        Keypair{ public: pk, secret: sk }
+        Keypair {
+            public: pk,
+            secret: sk,
+        }
     }
 
     /// Sign a `prehashed_message` with this `Keypair` using the
@@ -244,16 +251,17 @@ impl Keypair {
     {
         let expanded: ExpandedSecretKey = (&self.secret).into(); // xxx thanks i hate this
 
-        expanded.sign_prehashed(prehashed_message, &self.public, context).into()
+        expanded
+            .sign_prehashed(prehashed_message, &self.public, context)
+            .into()
     }
 
     /// Verify a signature on a message with this keypair's public key.
     pub fn verify(
         &self,
         message: &[u8],
-        signature: &ed25519::Signature
-    ) -> Result<(), SignatureError>
-    {
+        signature: &ed25519::Signature,
+    ) -> Result<(), SignatureError> {
         self.public.verify(message, signature)
     }
 
@@ -329,7 +337,8 @@ impl Keypair {
     where
         D: Digest<OutputSize = U64>,
     {
-        self.public.verify_prehashed(prehashed_message, context, signature)
+        self.public
+            .verify_prehashed(prehashed_message, context, signature)
     }
 
     /// Strictly verify a signature on a message with this keypair's public key.
@@ -399,8 +408,7 @@ impl Keypair {
         &self,
         message: &[u8],
         signature: &ed25519::Signature,
-    ) -> Result<(), SignatureError>
-    {
+    ) -> Result<(), SignatureError> {
         self.public.verify_strict(message, signature)
     }
 }

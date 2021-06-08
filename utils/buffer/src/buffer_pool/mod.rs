@@ -232,7 +232,8 @@ impl InnerMemory {
         match self.raw_len {
             0 => self.raw_offset = offset,
             _ => {
-                self.pool.copy_within(self.raw_offset..self.raw_offset+self.raw_len, offset);
+                self.pool
+                    .copy_within(self.raw_offset..self.raw_offset + self.raw_len, offset);
                 self.raw_offset = offset;
             }
         }
