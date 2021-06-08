@@ -2,6 +2,7 @@
 
 extern crate alloc;
 
+#[cfg(feature = "noise_sv2")]
 use alloc::{boxed::Box, vec::Vec};
 
 mod buffer;
