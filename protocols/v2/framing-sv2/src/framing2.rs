@@ -136,14 +136,11 @@ impl<'a, T: Serialize + GetLen, B: AsMut<[u8]>> Frame<'a, T> for Sv2Frame<T, B> 
     /// It return a Frame if the size of the payload fit in the frame, if not it return None
     fn from_message(message: T) -> Option<Self> {
         let len = message.get_len() as u32; // TODO check if can be converted
-        match Header::from_len(len) {
-            Some(header) => Some(Self {
-                header,
-                payload: Some(message),
-                serialized: None,
-            }),
-            None => None,
-        }
+        Header::from_len(len).map(|header| Self {
+            header,
+            payload: Some(message),
+            serialized: None,
+        })
     }
 }
 
