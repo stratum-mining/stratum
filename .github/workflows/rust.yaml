@@ -16,14 +16,11 @@ jobs:
         os: 
           - macos-latest
           - ubuntu-latest
-          - windows-latest
         include:
           - os: macos-latest
             TARGET: x86_64-apple-darwin
           - os: ubuntu-latest
             target: x86_64-unknown-linux-musl
-          - os: windows-latest
-            target: x86_64-pc-windows-msvc
 
     steps:
       - name: Install stable toolchain & components
