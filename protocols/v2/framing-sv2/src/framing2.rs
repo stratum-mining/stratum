@@ -1,19 +1,19 @@
 use crate::header::Header;
 use crate::header::NoiseHeader;
 use alloc::vec::Vec;
+use binary_sv2::Serialize;
+use binary_sv2::{to_writer, GetSize};
 use core::convert::TryFrom;
-use serde::Serialize;
-use serde_sv2::{to_writer, GetLen};
 
 const NOISE_MAX_LEN: usize = const_sv2::NOISE_FRAME_MAX_SIZE;
 
-pub trait Frame<'a, T: Serialize + GetLen>: Sized {
+pub trait Frame<'a, T: Serialize + GetSize>: Sized {
     type Buffer: AsMut<[u8]>;
     type Deserialized;
 
     /// Serialize the frame into dst if the frame is already serialized it just swap dst with
     /// itself
-    fn serialize(self, dst: &mut Self::Buffer) -> Result<(), serde_sv2::Error>;
+    fn serialize(self, dst: &mut Self::Buffer) -> Result<(), binary_sv2::Error>;
 
     ///fn deserialize(&'a mut self) -> Result<Self::Deserialized, serde_sv2::Error>;
     fn payload(&'a mut self) -> &'a mut [u8];
@@ -53,19 +53,25 @@ pub struct NoiseFrame {
 
 pub type HandShakeFrame = NoiseFrame;
 
-impl<'a, T: Serialize + GetLen, B: AsMut<[u8]>> Frame<'a, T> for Sv2Frame<T, B> {
+impl<'a, T: Serialize + GetSize, B: AsMut<[u8]>> Frame<'a, T> for Sv2Frame<T, B> {
     type Buffer = B;
     type Deserialized = B;
 
     /// Serialize the frame into dst if the frame is already serialized it just swap dst with
     /// itself
     #[inline]
-    fn serialize(self, dst: &mut Self::Buffer) -> Result<(), serde_sv2::Error> {
+    fn serialize(self, dst: &mut Self::Buffer) -> Result<(), binary_sv2::Error> {
         if self.serialized.is_some() {
             *dst = self.serialized.unwrap();
             Ok(())
         } else {
+            #[cfg(not(feature = "with_serde"))]
+            to_writer(self.header, dst.as_mut())?;
+            #[cfg(not(feature = "with_serde"))]
+            to_writer(self.payload.unwrap(), &mut dst.as_mut()[Header::SIZE..])?;
+            #[cfg(feature = "with_serde")]
             to_writer(&self.header, dst.as_mut())?;
+            #[cfg(feature = "with_serde")]
             to_writer(&self.payload.unwrap(), &mut dst.as_mut()[Header::SIZE..])?;
             Ok(())
         }
@@ -128,19 +134,22 @@ impl<'a, T: Serialize + GetLen, B: AsMut<[u8]>> Frame<'a, T> for Sv2Frame<T, B> 
         if self.serialized.is_some() {
             unimplemented!()
         } else {
-            self.payload.as_ref().unwrap().get_len() + Header::SIZE
+            self.payload.as_ref().unwrap().get_size() + Header::SIZE
         }
     }
 
     /// Try to build an Frame frame from a serializable payload.
     /// It return a Frame if the size of the payload fit in the frame, if not it return None
     fn from_message(message: T) -> Option<Self> {
-        let len = message.get_len() as u32; // TODO check if can be converted
-        Header::from_len(len).map(|header| Self {
-            header,
-            payload: Some(message),
-            serialized: None,
-        })
+        let len = message.get_size() as u32; // TODO check if can be converted
+        match Header::from_len(len) {
+            Some(header) => Some(Self {
+                header,
+                payload: Some(message),
+                serialized: None,
+            }),
+            None => None,
+        }
     }
 }
 
@@ -151,7 +160,7 @@ pub fn build_noise_frame_header(frame: &mut Vec<u8>, len: u16) {
 }
 
 impl<'a> Frame<'a, Vec<u8>> for NoiseFrame {
-    //impl<T: Serialize + GetLen> Frame<T> for NoiseFrame {
+    //impl<T: Serialize + GetSize> Frame<T> for NoiseFrame {
 
     type Buffer = Vec<u8>;
     type Deserialized = &'a mut [u8];
@@ -159,7 +168,7 @@ impl<'a> Frame<'a, Vec<u8>> for NoiseFrame {
     /// Serialize the frame into dst if the frame is already serialized it just swap dst with
     /// itself
     #[inline]
-    fn serialize(self, dst: &mut Self::Buffer) -> Result<(), serde_sv2::Error> {
+    fn serialize(self, dst: &mut Self::Buffer) -> Result<(), binary_sv2::Error> {
         *dst = self.payload;
         Ok(())
     }
@@ -239,7 +248,7 @@ pub enum EitherFrame<T, B> {
     Sv2(Sv2Frame<T, B>),
 }
 
-impl<T: Serialize + GetLen, B: AsMut<[u8]>> EitherFrame<T, B> {
+impl<T: Serialize + GetSize, B: AsMut<[u8]>> EitherFrame<T, B> {
     //pub fn serialize(mut self, dst: &mut B) -> Result<(), serde_sv2::Error> {
     //    match self {
     //        Self::HandShake(frame) => todo!(),

@@ -1,3 +1,8 @@
+#[cfg(feature = "noise_sv2")]
+use binary_sv2::Deserialize;
+#[cfg(feature = "noise_sv2")]
+use binary_sv2::GetSize;
+use binary_sv2::Serialize;
 use core::marker::PhantomData;
 use framing_sv2::framing2::{EitherFrame, Frame as F_, Sv2Frame};
 #[cfg(feature = "noise_sv2")]
@@ -5,11 +10,6 @@ use framing_sv2::framing2::{HandShakeFrame, NoiseFrame};
 use framing_sv2::header::Header;
 #[cfg(feature = "noise_sv2")]
 use framing_sv2::header::NoiseHeader;
-#[cfg(feature = "noise_sv2")]
-use serde::Deserialize;
-use serde::Serialize;
-#[cfg(feature = "noise_sv2")]
-use serde_sv2::GetLen;
 
 use crate::buffer::{Buffer, SlowAndCorrect};
 use crate::error::{Error, Result};
@@ -23,7 +23,7 @@ pub type StandardSv2Frame<T> = Sv2Frame<T, <SlowAndCorrect as Buffer>::Slice>;
 pub type StandardDecoder<T> = WithoutNoise<SlowAndCorrect, T>;
 
 #[cfg(feature = "noise_sv2")]
-pub struct WithNoise<B: Buffer, T: Serialize + serde_sv2::GetLen> {
+pub struct WithNoise<B: Buffer, T: Serialize + binary_sv2::GetSize> {
     frame: PhantomData<T>,
     missing_noise_b: usize,
     noise_buffer: B,
@@ -32,7 +32,7 @@ pub struct WithNoise<B: Buffer, T: Serialize + serde_sv2::GetLen> {
 }
 
 #[cfg(feature = "noise_sv2")]
-impl<'a, T: Serialize + GetLen + Deserialize<'a>, B: Buffer> WithNoise<B, T> {
+impl<'a, T: Serialize + GetSize + Deserialize<'a>, B: Buffer> WithNoise<B, T> {
     #[inline]
     pub fn next_frame(&mut self, state: &mut State) -> Result<EitherFrame<T, B::Slice>> {
         let len = self.noise_buffer.len();
@@ -45,7 +45,6 @@ impl<'a, T: Serialize + GetLen + Deserialize<'a>, B: Buffer> WithNoise<B, T> {
                 self.decode_noise_frame(state)
             }
             _ => {
-                //println!("GIMME MORE, {}", hint);
                 self.missing_noise_b = hint;
                 Err(Error::MissingBytes(hint))
             }
@@ -143,7 +142,7 @@ impl<'a, T: Serialize + GetLen + Deserialize<'a>, B: Buffer> WithNoise<B, T> {
 }
 
 #[cfg(feature = "noise_sv2")]
-impl<T: Serialize + serde_sv2::GetLen> WithNoise<SlowAndCorrect, T> {
+impl<T: Serialize + binary_sv2::GetSize> WithNoise<SlowAndCorrect, T> {
     pub fn new() -> Self {
         Self {
             frame: PhantomData,
@@ -156,19 +155,19 @@ impl<T: Serialize + serde_sv2::GetLen> WithNoise<SlowAndCorrect, T> {
 }
 
 #[cfg(feature = "noise_sv2")]
-impl<T: Serialize + serde_sv2::GetLen> Default for WithNoise<SlowAndCorrect, T> {
+impl<T: Serialize + binary_sv2::GetSize> Default for WithNoise<SlowAndCorrect, T> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-pub struct WithoutNoise<B: Buffer, T: Serialize + serde_sv2::GetLen> {
+pub struct WithoutNoise<B: Buffer, T: Serialize + binary_sv2::GetSize> {
     frame: PhantomData<T>,
     missing_b: usize,
     buffer: B,
 }
 
-impl<T: Serialize + serde_sv2::GetLen, B: Buffer> WithoutNoise<B, T> {
+impl<T: Serialize + binary_sv2::GetSize, B: Buffer> WithoutNoise<B, T> {
     #[inline]
     pub fn next_frame(&mut self) -> Result<Sv2Frame<T, B::Slice>> {
         let len = self.buffer.len();
@@ -194,7 +193,7 @@ impl<T: Serialize + serde_sv2::GetLen, B: Buffer> WithoutNoise<B, T> {
     }
 }
 
-impl<T: Serialize + serde_sv2::GetLen> WithoutNoise<SlowAndCorrect, T> {
+impl<T: Serialize + binary_sv2::GetSize> WithoutNoise<SlowAndCorrect, T> {
     pub fn new() -> Self {
         Self {
             frame: PhantomData,
@@ -204,7 +203,7 @@ impl<T: Serialize + serde_sv2::GetLen> WithoutNoise<SlowAndCorrect, T> {
     }
 }
 
-impl<T: Serialize + serde_sv2::GetLen> Default for WithoutNoise<SlowAndCorrect, T> {
+impl<T: Serialize + binary_sv2::GetSize> Default for WithoutNoise<SlowAndCorrect, T> {
     fn default() -> Self {
         Self::new()
     }

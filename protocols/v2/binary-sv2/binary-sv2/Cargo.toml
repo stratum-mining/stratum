@@ -1,0 +1,18 @@
+[package]
+name = "binary_sv2"
+version = "0.1.0"
+authors = ["fi3 <email@email.org>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+serde_sv2 = {path = "../serde-sv2", optional = true}
+serde = { version = "1.0.89", features = ["derive", "alloc"], default-features = false, optional = true }
+codec = {path = "../no-serde-sv2/codec", optional = true}
+derive_codec = {path = "../no-serde-sv2/derive_codec", optional = true}
+
+[features]
+default = ["core"]
+core = ["codec", "derive_codec"]
+with_serde = ["serde_sv2", "serde"]

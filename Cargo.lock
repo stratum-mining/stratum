@@ -199,6 +199,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cdb031dd78e28731d87d56cc8ffef4a8f36ca26c38fe2de700543e627f8a464a"
 
 [[package]]
+name = "binary_sv2"
+version = "0.1.0"
+dependencies = [
+ "codec",
+ "derive_codec",
+ "serde",
+ "serde_sv2",
+]
+
+[[package]]
 name = "bitcoin_hashes"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -377,23 +387,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "codec"
+version = "0.1.0"
+
+[[package]]
 name = "codec_sv2"
 version = "0.1.0"
 dependencies = [
+ "binary_sv2",
  "const_sv2",
  "framing_sv2",
  "noise_sv2",
  "serde",
- "serde_sv2",
 ]
 
 [[package]]
 name = "common_messages"
 version = "0.1.0"
 dependencies = [
+ "binary_sv2",
  "const_sv2",
  "serde",
- "serde_sv2",
 ]
 
 [[package]]
@@ -561,6 +575,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "derive_codec"
+version = "0.1.0"
+dependencies = [
+ "codec",
+]
+
+[[package]]
 name = "digest"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -627,10 +648,10 @@ dependencies = [
 name = "framing_sv2"
 version = "0.1.0"
 dependencies = [
+ "binary_sv2",
  "bytes",
  "const_sv2",
  "serde",
- "serde_sv2",
 ]
 
 [[package]]
@@ -845,9 +866,9 @@ version = "0.1.0"
 dependencies = [
  "async-channel",
  "async-std",
+ "binary_sv2",
  "codec_sv2",
  "serde",
- "serde_sv2",
 ]
 
 [[package]]
@@ -935,12 +956,12 @@ version = "0.1.0"
 dependencies = [
  "async-channel",
  "async-std",
+ "binary_sv2",
  "bytes",
  "codec_sv2",
  "network_helpers",
  "rand 0.8.3",
  "serde",
- "serde_sv2",
 ]
 
 [[package]]
@@ -949,11 +970,11 @@ version = "0.1.0"
 dependencies = [
  "async-channel",
  "async-std",
+ "binary_sv2",
  "bytes",
  "codec_sv2",
  "rand 0.8.3",
  "serde",
- "serde_sv2",
 ]
 
 [[package]]
@@ -1421,9 +1442,9 @@ dependencies = [
 name = "template_distribution"
 version = "0.1.0"
 dependencies = [
+ "binary_sv2",
  "const_sv2",
  "serde",
- "serde_sv2",
 ]
 
 [[package]]

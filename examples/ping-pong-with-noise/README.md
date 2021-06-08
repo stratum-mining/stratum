@@ -8,4 +8,6 @@ Try with:
 
 ```
 cargo run
+
+cargo run --features with_serde
 ```

@@ -1,5 +1,5 @@
 use crate::error::Error;
-use crate::primitives::GetLen;
+use crate::primitives::GetSize;
 use alloc::vec::Vec;
 use core::convert::TryFrom;
 use serde::{de::Visitor, ser, ser::SerializeTuple, Deserialize, Deserializer, Serialize};
@@ -12,12 +12,12 @@ enum Inner<'a> {
 
 impl<'a> Inner<'a> {
     #[inline]
-    pub fn len(&self) -> [u8; 1] {
+    pub fn len(&self) -> [u8; 2] {
         let l = match self {
             Self::Ref(v) => v.len().to_le_bytes(),
             Self::Owned(v) => v.len().to_le_bytes(),
         };
-        [l[0]]
+        [l[0], l[1]]
     }
 
     #[inline]
@@ -30,32 +30,44 @@ impl<'a> Inner<'a> {
 }
 
 #[derive(Debug, PartialEq)]
-pub struct B0255<'b>(Inner<'b>);
+pub struct B064K<'b>(Inner<'b>);
 
-impl<'b> TryFrom<&'b [u8]> for B0255<'b> {
+impl<'b> TryFrom<&'b [u8]> for B064K<'b> {
     type Error = Error;
 
     #[inline]
     fn try_from(v: &'b [u8]) -> core::result::Result<Self, Self::Error> {
         match v.len() {
-            0..=255 => Ok(Self(Inner::Ref(v))),
-            _ => Err(Error::LenBiggerThan255),
-        }
-    }
-}
-
-impl<'b> TryFrom<Vec<u8>> for B0255<'b> {
-    type Error = Error;
-
-    fn try_from(v: Vec<u8>) -> core::result::Result<Self, Self::Error> {
-        match v.len() {
-            0..=255 => Ok(Self(Inner::Owned(v))),
+            0..=65535 => Ok(Self(Inner::Ref(v))),
             _ => Err(Error::LenBiggerThan16M),
         }
     }
 }
 
-impl<'b> Serialize for B0255<'b> {
+impl<'b> TryFrom<&'b mut [u8]> for B064K<'b> {
+    type Error = Error;
+
+    #[inline]
+    fn try_from(v: &'b mut [u8]) -> core::result::Result<Self, Self::Error> {
+        match v.len() {
+            0..=65535 => Ok(Self(Inner::Ref(v))),
+            _ => Err(Error::LenBiggerThan16M),
+        }
+    }
+}
+
+impl<'b> TryFrom<Vec<u8>> for B064K<'b> {
+    type Error = Error;
+
+    fn try_from(v: Vec<u8>) -> core::result::Result<Self, Self::Error> {
+        match v.len() {
+            0..=65535 => Ok(Self(Inner::Owned(v))),
+            _ => Err(Error::LenBiggerThan16M),
+        }
+    }
+}
+
+impl<'b> Serialize for B064K<'b> {
     #[inline]
     fn serialize<S>(&self, serializer: S) -> core::result::Result<S::Ok, S::Error>
     where
@@ -76,36 +88,36 @@ impl<'b> Serialize for B0255<'b> {
     }
 }
 
-struct B0255Visitor;
+struct B064KVisitor;
 
-impl<'a> Visitor<'a> for B0255Visitor {
-    type Value = B0255<'a>;
+impl<'a> Visitor<'a> for B064KVisitor {
+    type Value = B064K<'a>;
 
     fn expecting(&self, formatter: &mut core::fmt::Formatter) -> core::fmt::Result {
-        formatter.write_str("a byte array shorter than 255")
+        formatter.write_str("a byte array shorter than 64K")
     }
 
     #[inline]
     fn visit_borrowed_bytes<E>(self, value: &'a [u8]) -> Result<Self::Value, E> {
-        Ok(B0255(Inner::Ref(value)))
+        Ok(B064K(Inner::Ref(value)))
     }
 }
 
-impl<'de: 'a, 'a> Deserialize<'de> for B0255<'a> {
+impl<'de: 'a, 'a> Deserialize<'de> for B064K<'a> {
     #[inline]
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
-        deserializer.deserialize_newtype_struct("B0255", B0255Visitor)
+        deserializer.deserialize_newtype_struct("B064K", B064KVisitor)
     }
 }
 
-impl<'a> GetLen for B0255<'a> {
-    fn get_len(&self) -> usize {
+impl<'a> GetSize for B064K<'a> {
+    fn get_size(&self) -> usize {
         match &self.0 {
-            Inner::Ref(v) => v.len() + 1,
-            Inner::Owned(v) => v.len() + 1,
+            Inner::Ref(v) => v.len() + 2,
+            Inner::Owned(v) => v.len() + 2,
         }
     }
 }

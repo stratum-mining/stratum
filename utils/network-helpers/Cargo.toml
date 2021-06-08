@@ -9,11 +9,10 @@ edition = "2018"
 [dependencies]
 async-std = { version = "1.8.0", optional = true }
 async-channel = { version = "1.5.1", optional = true }
-# TODO change it!
-serde_sv2 = { path = "../../protocols/v2/serde-sv2", optional = true }
-# TODO change it!
+binary_sv2 = { path = "../../protocols/v2/binary-sv2/binary-sv2", optional = true }
 codec_sv2 = { path = "../../protocols/v2/codec-sv2", features=["noise_sv2"], optional = true }
 serde = { version = "1.0.89", features = ["derive"], default-features = false, optional = true }
 
 [features]
-async_std = ["async-std", "async-channel", "serde_sv2", "codec_sv2", "serde"]
+async_std = ["async-std", "async-channel", "binary_sv2", "codec_sv2", "serde"]
+with_serde = ["binary_sv2/with_serde", "serde", "codec_sv2/with_serde"]

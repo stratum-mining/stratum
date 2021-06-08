@@ -1,4 +1,6 @@
 use alloc::vec::Vec;
+use binary_sv2::GetSize;
+use binary_sv2::Serialize;
 #[cfg(feature = "noise_sv2")]
 use core::cmp::min;
 #[cfg(feature = "noise_sv2")]
@@ -9,8 +11,6 @@ use framing_sv2::framing2::{build_noise_frame_header, EitherFrame, HandShakeFram
 use framing_sv2::framing2::{Frame as F_, Sv2Frame};
 #[cfg(feature = "noise_sv2")]
 use framing_sv2::header::NoiseHeader;
-use serde::Serialize;
-use serde_sv2::GetLen;
 
 #[cfg(feature = "noise_sv2")]
 use crate::{State, TransportMode};
@@ -23,14 +23,14 @@ const MAX_M_L: usize = const_sv2::NOISE_FRAME_MAX_SIZE;
 const M: usize = MAX_M_L - TAGLEN;
 
 #[cfg(feature = "noise_sv2")]
-pub struct NoiseEncoder<T: Serialize + serde_sv2::GetLen> {
+pub struct NoiseEncoder<T: Serialize + binary_sv2::GetSize> {
     noise_buffer: Vec<u8>,
     sv2_buffer: Vec<u8>,
     frame: PhantomData<T>,
 }
 
 #[cfg(feature = "noise_sv2")]
-impl<T: Serialize + GetLen> NoiseEncoder<T> {
+impl<T: Serialize + GetSize> NoiseEncoder<T> {
     #[inline]
     pub fn encode(
         &mut self,
@@ -147,7 +147,7 @@ impl<T: Serialize + GetLen> NoiseEncoder<T> {
 }
 
 #[cfg(feature = "noise_sv2")]
-impl<T: Serialize + serde_sv2::GetLen> NoiseEncoder<T> {
+impl<T: Serialize + binary_sv2::GetSize> NoiseEncoder<T> {
     pub fn new() -> Self {
         Self {
             // TODO which capacity??
@@ -159,7 +159,7 @@ impl<T: Serialize + serde_sv2::GetLen> NoiseEncoder<T> {
 }
 
 #[cfg(feature = "noise_sv2")]
-impl<T: Serialize + GetLen> Default for NoiseEncoder<T> {
+impl<T: Serialize + GetSize> Default for NoiseEncoder<T> {
     fn default() -> Self {
         Self::new()
     }
@@ -171,7 +171,7 @@ pub struct Encoder<T> {
     frame: PhantomData<T>,
 }
 
-impl<T: Serialize + GetLen> Encoder<T> {
+impl<T: Serialize + GetSize> Encoder<T> {
     pub fn encode(&mut self, item: Sv2Frame<T, Vec<u8>>) -> Result<&[u8], crate::Error> {
         let len = item.encoded_length();
 
@@ -191,7 +191,7 @@ impl<T: Serialize + GetLen> Encoder<T> {
     }
 }
 
-impl<T: Serialize + GetLen> Default for Encoder<T> {
+impl<T: Serialize + GetSize> Default for Encoder<T> {
     fn default() -> Self {
         Self::new()
     }

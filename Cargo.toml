@@ -2,7 +2,11 @@
 
 members = [
     "protocols/v1",
-    "protocols/v2/serde-sv2",
+    # "protocols/v2/serde-sv2",
+    "protocols/v2/binary-sv2/serde-sv2",
+    "protocols/v2/binary-sv2/no-serde-sv2/codec",
+    "protocols/v2/binary-sv2/no-serde-sv2/derive_codec",
+    "protocols/v2/binary-sv2/binary-sv2",
     "protocols/v2/noise-sv2",
     "protocols/v2/framing-sv2",
     "protocols/v2/codec-sv2",

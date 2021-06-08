@@ -1,7 +1,7 @@
 use super::super::{Signature, U24, U256};
 use super::{Seq, SeqMaxLen, SeqVisitor, TryFromBSlice};
 use crate::primitives::FixedSize;
-use crate::primitives::GetLen;
+use crate::primitives::GetSize;
 use crate::Error;
 use alloc::vec::Vec;
 use serde::{ser, ser::SerializeTuple, Deserialize, Deserializer, Serialize};
@@ -187,8 +187,8 @@ impl<'de: 'a, 'a> Deserialize<'de> for Seq0255<'a, Signature<'a>> {
     }
 }
 
-impl<'a, T: FixedSize + Serialize + TryFromBSlice<'a>> GetLen for Seq0255<'a, T> {
-    fn get_len(&self) -> usize {
+impl<'a, T: FixedSize + Serialize + TryFromBSlice<'a>> GetSize for Seq0255<'a, T> {
+    fn get_size(&self) -> usize {
         if self.data.is_some() {
             (self.data.as_ref().unwrap().len() * T::FIXED_SIZE) + 1
         } else {

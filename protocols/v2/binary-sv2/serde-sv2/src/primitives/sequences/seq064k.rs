@@ -1,7 +1,7 @@
 use super::super::{Signature, B016M, U24, U256};
 use super::{Seq, SeqMaxLen, SeqVisitor, TryFromBSlice};
 use crate::primitives::FixedSize;
-use crate::primitives::GetLen;
+use crate::primitives::GetSize;
 use crate::Error;
 use alloc::vec::Vec;
 use serde::{ser, ser::SerializeTuple, Deserialize, Deserializer, Serialize};
@@ -245,8 +245,8 @@ impl<'de: 'a, 'a> Deserialize<'de> for Seq064K<'a, B016M<'a>> {
     }
 }
 
-impl<'a, T: FixedSize + Serialize + TryFromBSlice<'a>> GetLen for Seq064K<'a, T> {
-    fn get_len(&self) -> usize {
+impl<'a, T: FixedSize + Serialize + TryFromBSlice<'a>> GetSize for Seq064K<'a, T> {
+    fn get_size(&self) -> usize {
         if self.data.is_some() {
             (self.data.as_ref().unwrap().len() * T::FIXED_SIZE) + 2
         } else {
@@ -255,15 +255,15 @@ impl<'a, T: FixedSize + Serialize + TryFromBSlice<'a>> GetLen for Seq064K<'a, T>
     }
 }
 
-impl<'a> GetLen for Seq064K<'a, B016M<'a>> {
-    fn get_len(&self) -> usize {
+impl<'a> GetSize for Seq064K<'a, B016M<'a>> {
+    fn get_size(&self) -> usize {
         if self.data.is_some() {
             (self
                 .data
                 .as_ref()
                 .unwrap()
                 .iter()
-                .fold(0, |acc, x| acc + x.get_len()))
+                .fold(0, |acc, x| acc + x.get_size()))
                 + 2
         } else {
             self.seq.as_ref().unwrap().data.len() + 2

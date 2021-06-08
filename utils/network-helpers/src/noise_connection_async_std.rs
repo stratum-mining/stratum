@@ -3,11 +3,11 @@ use async_std::net::TcpStream;
 use async_std::prelude::*;
 use async_std::sync::{Arc, Mutex};
 use async_std::task;
+use binary_sv2::{Deserialize, Serialize};
 use core::convert::TryInto;
-use serde::{Deserialize, Serialize};
 
+use binary_sv2::GetSize;
 use codec_sv2::{Frame, HandShakeFrame, HandshakeRole, StandardEitherFrame, StandardNoiseDecoder};
-use serde_sv2::GetLen;
 
 #[derive(Debug)]
 pub struct Connection {
@@ -16,7 +16,7 @@ pub struct Connection {
 
 impl Connection {
     #[allow(clippy::new_ret_no_self)]
-    pub async fn new<'a, Message: Serialize + Deserialize<'a> + GetLen + Send + 'static>(
+    pub async fn new<'a, Message: Serialize + Deserialize<'a> + GetSize + Send + 'static>(
         stream: TcpStream,
         role: HandshakeRole,
     ) -> (
@@ -120,7 +120,7 @@ impl Connection {
         }
     }
 
-    async fn initialize_as_downstream<'a, Message: Serialize + Deserialize<'a> + GetLen>(
+    async fn initialize_as_downstream<'a, Message: Serialize + Deserialize<'a> + GetSize>(
         role: HandshakeRole,
         sender_outgoing: Sender<StandardEitherFrame<Message>>,
         receiver_incoming: Receiver<StandardEitherFrame<Message>>,
@@ -139,7 +139,7 @@ impl Connection {
         state.into_transport_mode().unwrap()
     }
 
-    async fn initialize_as_upstream<'a, Message: Serialize + Deserialize<'a> + GetLen>(
+    async fn initialize_as_upstream<'a, Message: Serialize + Deserialize<'a> + GetSize>(
         role: HandshakeRole,
         sender_outgoing: Sender<StandardEitherFrame<Message>>,
         sender_incoming: Receiver<StandardEitherFrame<Message>>,
