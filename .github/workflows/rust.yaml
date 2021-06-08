@@ -26,27 +26,32 @@ jobs:
             target: x86_64-pc-windows-msvc
 
     steps:
-      - uses: actions/checkout@v2
+      - name: Install stable toolchain & components
+        uses: actions/checkout@v2
         with:
           profile: minimal
           toolchain: stable
           override: true
           components: rustfmt, clippy
 
-      - uses: actions-rs/cargo@v1
+      - name: Build
+        uses: actions-rs/cargo@v1
         with:
           command: build
 
-      - uses: actions-rs/cargo@v1
+      - name: Test
+        uses: actions-rs/cargo@v1
         with:
           command: test
 
-      - uses: actions-rs/cargo@v1
+      - name: Rust fmt lint
+        uses: actions-rs/cargo@v1
         with:
           command: fmt
           args: --all -- --check
 
-      - uses: actions-rs/cargo@v1
+      - name: Cargo clippy lint
+        uses: actions-rs/cargo@v1
         with:
           command: clippy
           args: -- -D warnings
