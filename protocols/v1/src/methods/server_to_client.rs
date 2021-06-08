@@ -309,10 +309,10 @@ impl Submit {
 ///
 #[derive(Debug)]
 pub struct Subscribe {
-    pub subscriptions: Vec<(String, String)>,
+    pub id: String,
     pub extra_nonce1: HexBytes,
     pub extra_nonce2_size: usize,
-    pub id: String,
+    pub subscriptions: Vec<(String, String)>,
 }
 
 impl TryFrom<Subscribe> for Message {
@@ -372,9 +372,9 @@ impl TryFrom<&Response> for Subscribe {
 
 #[derive(Debug)]
 pub struct Configure {
+    pub id: String,
     pub version_rolling: Option<VersionRollingParams>,
     pub minimum_difficulty: Option<bool>,
-    pub id: String,
 }
 
 impl Configure {

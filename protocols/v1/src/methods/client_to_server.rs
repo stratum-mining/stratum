@@ -23,9 +23,9 @@ use quickcheck_macros;
 ///
 #[derive(Debug, Clone, PartialEq)]
 pub struct Authorize {
+    pub id: String,
     pub name: String,
     pub password: String,
-    pub id: String,
 }
 
 impl Authorize {
@@ -62,7 +62,7 @@ impl TryFrom<StandardRequest> for Authorize {
                     }
                 };
                 let id = msg.id;
-                Ok(Self { name, password, id })
+                Ok(Self { id, name, password })
             }
             None => Err(ParsingMethodError::not_array_from_value(msg.parameters).into()),
         }
@@ -308,10 +308,10 @@ impl TryFrom<StandardRequest> for Subscribe {
                     }
                 };
                 let id = msg.id;
-                let res = crate::client_to_server::Subscribe {
+                let res = Subscribe {
+                    id,
                     agent_signature,
                     extranonce1,
-                    id,
                 };
                 Ok(res)
             }
@@ -599,9 +599,9 @@ impl From<VersionRollingParams> for serde_json::Map<String, Value> {
 #[derive(Debug)]
 pub struct InfoParams {
     connection_url: Option<String>,
+    hw_id: Option<String>,
     hw_version: Option<String>,
     sw_version: Option<String>,
-    hw_id: Option<String>,
 }
 
 impl From<InfoParams> for serde_json::Map<String, Value> {
