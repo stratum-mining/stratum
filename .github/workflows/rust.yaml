@@ -18,7 +18,7 @@ jobs:
           - ubuntu-latest
         include:
           - os: macos-latest
-            TARGET: x86_64-apple-darwin
+            target: x86_64-apple-darwin
           - os: ubuntu-latest
             target: x86_64-unknown-linux-musl
 
@@ -40,6 +40,24 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: test
+
+      - name: Build ping-pong-with-noise example
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --manifest-path examples/ping-pong-with-noise/Cargo.toml
+
+      - name: Build ping-pong-without-noise example
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --manifest-path examples/ping-pong-without-noise/Cargo.toml
+
+      - name: Build sv1-client-and-server example
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --manifest-path examples/sv1-client-and-server/Cargo.toml
 
       - name: Rust fmt lint
         uses: actions-rs/cargo@v1
