@@ -3,3 +3,5 @@
 /ignore
 /vendor/ed25519-dalek/target
 /utils/buffer/target
+*.sw[op]
+.DS_Store

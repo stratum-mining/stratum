@@ -70,3 +70,21 @@ jobs:
         with:
           command: clippy
           args: -- -D warnings
+
+      - name: Cargo clippy lint ping-pong-with-noise example
+        uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: --manifest-path examples/ping-pong-with-noise/Cargo.toml -- -D warnings
+
+      - name: Cargo clippy lint ping-pong-without-noise example
+        uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: --manifest-path examples/ping-pong-without-noise/Cargo.toml -- -D warnings
+
+      - name: Cargo clippy lint sv1-client-and-server example
+        uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: --manifest-path examples/sv1-client-and-server/Cargo.toml -- -D warnings
