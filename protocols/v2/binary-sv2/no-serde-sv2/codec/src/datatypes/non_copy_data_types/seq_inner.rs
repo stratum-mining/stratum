@@ -10,8 +10,9 @@ use core::marker::PhantomData;
 use std::io::Read;
 
 /// The liftime is here only for type compatibility with serde-sv2
+#[repr(C)]
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct Seq0255<'a, T>(Vec<T>, PhantomData<&'a T>);
+pub struct Seq0255<'a, T>(pub(crate) Vec<T>, PhantomData<&'a T>);
 
 impl<'a, T: 'a> Seq0255<'a, T> {
     const HEADERSIZE: usize = 1;
@@ -46,7 +47,7 @@ impl<'a, T: GetSize> GetSize for Seq0255<'a, T> {
 
 /// The liftime is here only for type compatibility with serde-sv2
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct Seq064K<'a, T>(Vec<T>, PhantomData<&'a T>);
+pub struct Seq064K<'a, T>(pub(crate) Vec<T>, PhantomData<&'a T>);
 
 impl<'a, T: 'a> Seq064K<'a, T> {
     const HEADERSIZE: usize = 2;

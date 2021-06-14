@@ -34,12 +34,14 @@ pub use crate::codec::encodable::{Encodable, EncodableField};
 pub use crate::codec::GetSize;
 pub use crate::codec::SizeHint;
 
-pub fn to_bytes<'a, T: Encodable + GetSize>(src: T) -> Result<Vec<u8>, Error> {
+#[allow(clippy::wrong_self_convention)]
+pub fn to_bytes<T: Encodable + GetSize>(src: T) -> Result<Vec<u8>, Error> {
     let mut result = vec![0_u8; src.get_size()];
     src.to_bytes(&mut result)?;
     Ok(result)
 }
 
+#[allow(clippy::wrong_self_convention)]
 pub fn to_writer<T: Encodable>(src: T, dst: &mut [u8]) -> Result<(), Error> {
     src.to_bytes(dst)?;
     Ok(())
@@ -112,3 +114,88 @@ impl<'a> From<Vec<u8>> for EncodableField<'a> {
         )
     }
 }
+
+#[repr(C)]
+#[derive(Debug, Clone)]
+pub struct CVec {
+    data: *mut u8,
+    len: usize,
+}
+
+#[repr(C)]
+#[derive(Debug, Clone)]
+pub struct CVec2 {
+    data: *mut CVec,
+    len: usize,
+}
+
+#[no_mangle]
+pub extern "C" fn free_vec(buf: &mut CVec) {
+    let s = unsafe { std::slice::from_raw_parts_mut(buf.data, buf.len) };
+    let s = s.as_mut_ptr();
+    unsafe {
+        alloc::boxed::Box::from_raw(s);
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn free_vec_2(buf: &mut CVec2) {
+    let s_ = unsafe { std::slice::from_raw_parts_mut(buf.data, buf.len) };
+    let s = s_.as_mut_ptr();
+    unsafe {
+        alloc::boxed::Box::from_raw(s);
+    };
+    for s in s_ {
+        free_vec(s)
+    }
+}
+
+impl<'a, const A: bool, const B: usize, const C: usize, const D: usize>
+    From<datatypes::Inner<'a, A, B, C, D>> for CVec
+{
+    fn from(v: datatypes::Inner<'a, A, B, C, D>) -> Self {
+        let (ptr, len) = match v {
+            datatypes::Inner::Ref(inner) => {
+                let val = (inner.as_mut_ptr(), inner.len());
+                core::mem::forget(inner);
+                val
+            }
+            datatypes::Inner::Owned(mut inner) => {
+                let val = (inner.as_mut_ptr(), inner.len());
+                core::mem::forget(inner);
+                val
+            }
+        };
+        Self { data: ptr, len }
+    }
+}
+
+impl<'a, T: Into<CVec>> From<Seq0255<'a, T>> for CVec2 {
+    fn from(v: Seq0255<'a, T>) -> Self {
+        let mut v: Vec<CVec> = v.0.into_iter().map(|x| x.into()).collect();
+        let data = v.as_mut_ptr();
+        let len = v.len();
+        std::mem::forget(v);
+        Self { data, len }
+    }
+}
+impl<'a, T: Into<CVec>> From<Seq064K<'a, T>> for CVec2 {
+    fn from(v: Seq064K<'a, T>) -> Self {
+        let mut v: Vec<CVec> = v.0.into_iter().map(|x| x.into()).collect();
+        let data = v.as_mut_ptr();
+        let len = v.len();
+        std::mem::forget(v);
+        Self { data, len }
+    }
+}
+
+impl From<&mut [u8]> for CVec {
+    fn from(v: &mut [u8]) -> Self {
+        let (data, len) = (v.as_mut_ptr(), v.len());
+        core::mem::forget(v);
+        Self { data, len }
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn _c_export_u24(_a: U24) {}

@@ -199,11 +199,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cdb031dd78e28731d87d56cc8ffef4a8f36ca26c38fe2de700543e627f8a464a"
 
 [[package]]
+name = "binary_codec_sv2"
+version = "0.1.0"
+
+[[package]]
 name = "binary_sv2"
 version = "0.1.0"
 dependencies = [
- "codec",
- "derive_codec",
+ "binary_codec_sv2",
+ "derive_codec_sv2",
  "serde",
  "serde_sv2",
 ]
@@ -288,7 +292,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "buffer"
+name = "buffer_sv2"
 version = "0.1.0"
 dependencies = [
  "criterion",
@@ -298,9 +302,9 @@ dependencies = [
 
 [[package]]
 name = "bumpalo"
-version = "3.6.1"
+version = "3.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "63396b8a4b9de3f4fdfb320ab6080762242f66a8ef174c49d8e19b674db4cdbe"
+checksum = "9c59e7af012c713f529e7a3ee57ce9b31ddd858d4b512923602f74608b009631"
 
 [[package]]
 name = "byteorder"
@@ -331,9 +335,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.0.67"
+version = "1.0.68"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e3c69b077ad434294d3ce9f1f6143a2a4b89a8a2d54ef813d85003a4fd1137fd"
+checksum = "4a72c244c1ff497a746a7e1fb3d14bd08420ecda70c8f25c7112f2781652d787"
 
 [[package]]
 name = "cfg-if"
@@ -387,10 +391,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "codec"
-version = "0.1.0"
-
-[[package]]
 name = "codec_sv2"
 version = "0.1.0"
 dependencies = [
@@ -402,7 +402,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "common_messages"
+name = "common_messages_sv2"
 version = "0.1.0"
 dependencies = [
  "binary_sv2",
@@ -449,7 +449,7 @@ dependencies = [
  "clap",
  "criterion-plot",
  "csv",
- "itertools 0.10.0",
+ "itertools 0.10.1",
  "lazy_static",
  "num-traits",
  "oorandom",
@@ -497,9 +497,9 @@ dependencies = [
 
 [[package]]
 name = "crossbeam-epoch"
-version = "0.9.4"
+version = "0.9.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "52fb27eab85b17fbb9f6fd667089e07d6a2eb8743d02639ee7f6a7a7729c9c94"
+checksum = "4ec02e091aa634e2c3ada4a392989e7c3116673ef0ac5b72232439094d73b7fd"
 dependencies = [
  "cfg-if",
  "crossbeam-utils",
@@ -510,11 +510,10 @@ dependencies = [
 
 [[package]]
 name = "crossbeam-utils"
-version = "0.8.4"
+version = "0.8.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4feb231f0d4d6af81aed15928e58ecf5816aa62a2393e2c82f46973e92a9a278"
+checksum = "d82cfc11ce7f2c3faef78d8a684447b40d503d9681acebed6cb728d45940c4db"
 dependencies = [
- "autocfg",
  "cfg-if",
  "lazy_static",
 ]
@@ -575,10 +574,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "derive_codec"
+name = "derive_codec_sv2"
 version = "0.1.0"
 dependencies = [
- "codec",
+ "binary_codec_sv2",
 ]
 
 [[package]]
@@ -621,9 +620,9 @@ checksum = "e78d4f1cc4ae33bbfc157ed5d5a5ef3bc29227303d595861deb238fcec4e9457"
 
 [[package]]
 name = "env_logger"
-version = "0.8.3"
+version = "0.8.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "17392a012ea30ef05a610aa97dfb49496e71c9f676b27879922ea5bdf60d9d3f"
+checksum = "a19187fea3ac7e84da7dacf48de0c45d63c6a76f9490dae389aead16c243fce3"
 dependencies = [
  "log",
  "regex",
@@ -649,7 +648,6 @@ name = "framing_sv2"
 version = "0.1.0"
 dependencies = [
  "binary_sv2",
- "bytes",
  "const_sv2",
  "serde",
 ]
@@ -677,9 +675,9 @@ checksum = "acc499defb3b348f8d8f3f66415835a9131856ff7714bf10dadfc4ec4bdb29a1"
 
 [[package]]
 name = "futures-lite"
-version = "1.11.3"
+version = "1.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b4481d0cd0de1d204a4fa55e7d45f07b1d958abcb06714b3446438e2eff695fb"
+checksum = "7694489acd39452c77daa48516b894c153f192c3578d5a839b62c58099fcbf48"
 dependencies = [
  "fastrand",
  "futures-core",
@@ -782,6 +780,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "interop-cpp"
+version = "0.1.0"
+dependencies = [
+ "binary_sv2",
+ "codec_sv2",
+ "common_messages_sv2",
+ "const_sv2",
+ "template_distribution_sv2",
+]
+
+[[package]]
 name = "itertools"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -792,9 +801,9 @@ dependencies = [
 
 [[package]]
 name = "itertools"
-version = "0.10.0"
+version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "37d572918e350e82412fe766d24b15e6682fb2ed2bbe018280caa810397cb319"
+checksum = "69ddb889f9d0d08a67338271fa9b62996bc788c7796a5c18cf057420aaed5eaf"
 dependencies = [
  "either",
 ]
@@ -853,9 +862,9 @@ checksum = "b16bd47d9e329435e309c58469fe0791c2d0d1ba96ec0954152a5ae2b04387dc"
 
 [[package]]
 name = "memoffset"
-version = "0.6.3"
+version = "0.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f83fb6581e8ed1f85fd45c116db8405483899489e38406156c25eb743554361d"
+checksum = "59accc507f1338036a0477ef61afdae33cde60840f4dfe481319ce3ad116ddf9"
 dependencies = [
  "autocfg",
 ]
@@ -876,7 +885,7 @@ name = "noise_sv2"
 version = "0.1.0"
 dependencies = [
  "bs58",
- "buffer",
+ "buffer_sv2",
  "bytes",
  "const_sv2",
  "ed25519-dalek",
@@ -907,9 +916,9 @@ dependencies = [
 
 [[package]]
 name = "once_cell"
-version = "1.7.2"
+version = "1.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "af8b08b04175473088b46763e51ee54da5f9a164bc162f615b91bc179dbf15a3"
+checksum = "692fcb63b64b1758029e0a96ee63e049ce8c5948587f2f7208df04625e5f6b56"
 
 [[package]]
 name = "oorandom"
@@ -979,9 +988,9 @@ dependencies = [
 
 [[package]]
 name = "plotters"
-version = "0.3.0"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "45ca0ae5f169d0917a7c7f5a9c1a3d3d9598f18f529dd2b8373ed988efea307a"
+checksum = "32a3fd9ec30b9749ce28cd91f255d569591cdf937fe280c312143e3c4bad6f2a"
 dependencies = [
  "num-traits",
  "plotters-backend",
@@ -1204,12 +1213,9 @@ dependencies = [
 
 [[package]]
 name = "regex-automata"
-version = "0.1.9"
+version = "0.1.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ae1ded71d66a4a97f5e961fd0cb25a5f366a42a41570d16a763a69c092c26ae4"
-dependencies = [
- "byteorder",
-]
+checksum = "6c230d73fb8d8c1b9c0b3135c5142a8acee3a0558fb8db5cf1cb65f8d7862132"
 
 [[package]]
 name = "regex-syntax"
@@ -1343,7 +1349,7 @@ dependencies = [
 name = "serde_sv2"
 version = "0.1.0"
 dependencies = [
- "buffer",
+ "buffer_sv2",
  "serde",
 ]
 
@@ -1416,6 +1422,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1e81da0851ada1f3e9d4312c704aa4f8806f0f9d69faaf8df2f3464b4a9437c2"
 
 [[package]]
+name = "sv2_ffi"
+version = "0.1.0"
+dependencies = [
+ "binary_sv2",
+ "codec_sv2",
+ "common_messages_sv2",
+ "const_sv2",
+ "template_distribution_sv2",
+]
+
+[[package]]
 name = "syn"
 version = "1.0.72"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1439,7 +1456,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "template_distribution"
+name = "template_distribution_sv2"
 version = "0.1.0"
 dependencies = [
  "binary_sv2",

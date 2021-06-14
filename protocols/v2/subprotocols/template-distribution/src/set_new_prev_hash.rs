@@ -1,7 +1,7 @@
 #[cfg(not(feature = "with_serde"))]
 use alloc::vec::Vec;
 #[cfg(not(feature = "with_serde"))]
-use binary_sv2::codec;
+use binary_sv2::binary_codec_sv2::{self, free_vec, CVec};
 use binary_sv2::U256;
 use binary_sv2::{Deserialize, Serialize};
 
@@ -13,21 +13,57 @@ use binary_sv2::{Deserialize, Serialize};
 ///// indicating the client MUST begin mining on that template as soon as possible.
 ///// TODO: Define how many previous works the client has to track (2? 3?), and require that the
 ///// server reference one of those in SetNewPrevHash.
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SetNewPrevHash<'decoder> {
     /// template_id referenced in a previous NewTemplate message.
-    template_id: u64,
+    pub template_id: u64,
     /// Previous block’s hash, as it must appear in the next block’s header.
     #[cfg_attr(feature = "with_serde", serde(borrow))]
-    prev_hash: U256<'decoder>,
+    pub prev_hash: U256<'decoder>,
     /// The nTime field in the block header at which the client should start
     /// (usually current time). This is NOT the minimum valid nTime value.
-    header_timestamp: u32,
+    pub header_timestamp: u32,
     /// Block header field.
-    n_bits: u32,
+    pub n_bits: u32,
     /// The maximum double-SHA256 hash value which would represent a valid
     /// block. Note that this may be lower than the target implied by nBits in
     /// several cases, including weak-block based block propagation.
     #[cfg_attr(feature = "with_serde", serde(borrow))]
-    target: U256<'decoder>,
+    pub target: U256<'decoder>,
+}
+
+#[cfg(not(feature = "with_serde"))]
+#[repr(C)]
+pub struct CSetNewPrevHash {
+    template_id: u64,
+    prev_hash: CVec,
+    header_timestamp: u32,
+    n_bits: u32,
+    target: CVec,
+}
+
+#[no_mangle]
+#[cfg(not(feature = "with_serde"))]
+pub extern "C" fn free_set_new_prev_hash(s: CSetNewPrevHash) {
+    drop(s)
+}
+
+#[cfg(not(feature = "with_serde"))]
+impl Drop for CSetNewPrevHash {
+    fn drop(&mut self) {
+        free_vec(&mut self.target);
+    }
+}
+
+#[cfg(not(feature = "with_serde"))]
+impl<'a> From<SetNewPrevHash<'a>> for CSetNewPrevHash {
+    fn from(v: SetNewPrevHash<'a>) -> Self {
+        Self {
+            template_id: v.template_id,
+            prev_hash: v.prev_hash.into(),
+            header_timestamp: v.header_timestamp,
+            n_bits: v.n_bits,
+            target: v.target.into(),
+        }
+    }
 }

@@ -1,6 +1,6 @@
 use alloc::vec::Vec;
 #[cfg(not(feature = "with_serde"))]
-use binary_sv2::codec;
+use binary_sv2::binary_codec_sv2;
 use binary_sv2::U24;
 use binary_sv2::{Deserialize, Serialize};
 use core::convert::TryInto;
@@ -10,6 +10,16 @@ pub struct Header {
     extesion_type: u16, // TODO use specific type?
     msg_type: u8,       // TODO use specific type?
     msg_length: U24,
+}
+
+impl Default for Header {
+    fn default() -> Self {
+        Header {
+            extesion_type: 0,
+            msg_type: 0,
+            msg_length: 0_u32.try_into().unwrap(),
+        }
+    }
 }
 
 impl Header {
@@ -49,13 +59,16 @@ impl Header {
     }
 
     #[inline]
-    pub fn from_len(len: u32) -> Option<Header> {
+    pub fn from_len(len: u32, message_type: u8, extension_type: u16) -> Option<Header> {
         Some(Self {
-            extesion_type: 7, //TODO
-            msg_type: 9,      // TODO
-            // TODO
+            extesion_type: extension_type,
+            msg_type: message_type,
             msg_length: len.try_into().unwrap(),
         })
+    }
+
+    pub fn msg_type(&self) -> u8 {
+        self.msg_type
     }
 }
 

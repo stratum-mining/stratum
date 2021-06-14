@@ -1,7 +1,7 @@
 #[cfg(not(feature = "with_serde"))]
 use alloc::vec::Vec;
 #[cfg(not(feature = "with_serde"))]
-use binary_sv2::codec;
+use binary_sv2::binary_codec_sv2::{self, free_vec, free_vec_2, CVec, CVec2};
 use binary_sv2::{Deserialize, Serialize};
 use binary_sv2::{Seq064K, Str0255, B016M, B064K};
 
@@ -9,10 +9,11 @@ use binary_sv2::{Seq064K, Str0255, B016M, B064K};
 //// A request sent by the Job Negotiator to the Template Provider which requests the set of
 //// transaction data for all transactions (excluding the coinbase transaction) included in a block, as
 //// well as any additional data which may be required by the Pool to validate the work.
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[repr(C)]
 pub struct RequestTransactionData {
     /// The template_id corresponding to a NewTemplate message.
-    template_id: u64,
+    pub template_id: u64,
 }
 
 //// ## RequestTransactionData.Success (Server->Client)
@@ -42,25 +43,88 @@ pub struct RequestTransactionData {
 //// code-release to activation (as any sane fork would have to have) and there being some
 //// in-Template Negotiation Protocol signaling of support for the new fork (e.g. for soft-forks
 //// activated using [BIP 9](TODO link)).
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RequestTransactionDataSuccess<'decoder> {
     /// The template_id corresponding to a NewTemplate/RequestTransactionData message.
-    template_id: u64,
+    pub template_id: u64,
     /// Extra data which the Pool may require to validate the work.
     #[cfg_attr(feature = "with_serde", serde(borrow))]
-    excess_data: B064K<'decoder>,
+    pub excess_data: B064K<'decoder>,
     /// The transaction data, serialized as a series of B0_16M byte arrays.
     #[cfg_attr(feature = "with_serde", serde(borrow))]
-    transaction_list: Seq064K<'decoder, B016M<'decoder>>,
+    pub transaction_list: Seq064K<'decoder, B016M<'decoder>>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[repr(C)]
+#[cfg(not(feature = "with_serde"))]
+pub struct CRequestTransactionDataSuccess {
+    template_id: u64,
+    excess_data: CVec,
+    transaction_list: CVec2,
+}
+
+#[no_mangle]
+#[cfg(not(feature = "with_serde"))]
+pub extern "C" fn free_request_tx_data_success(s: CRequestTransactionDataSuccess) {
+    drop(s)
+}
+
+#[cfg(not(feature = "with_serde"))]
+impl Drop for CRequestTransactionDataSuccess {
+    fn drop(&mut self) {
+        free_vec(&mut self.excess_data);
+        free_vec_2(&mut self.transaction_list);
+    }
+}
+
+#[cfg(not(feature = "with_serde"))]
+impl<'a> From<RequestTransactionDataSuccess<'a>> for CRequestTransactionDataSuccess {
+    fn from(v: RequestTransactionDataSuccess<'a>) -> Self {
+        Self {
+            template_id: v.template_id,
+            excess_data: v.excess_data.into(),
+            transaction_list: v.transaction_list.into(),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RequestTransactionDataError<'decoder> {
     /// The template_id corresponding to a NewTemplate/RequestTransactionData message.
-    template_id: u64,
+    pub template_id: u64,
     /// Reason why no transaction data has been provided
     /// Possible error codes:
     /// * template-id-not-found
     #[cfg_attr(feature = "with_serde", serde(borrow))]
-    error_code: Str0255<'decoder>,
+    pub error_code: Str0255<'decoder>,
+}
+
+#[repr(C)]
+#[cfg(not(feature = "with_serde"))]
+pub struct CRequestTransactionDataError {
+    template_id: u64,
+    error_code: CVec,
+}
+
+#[no_mangle]
+#[cfg(not(feature = "with_serde"))]
+pub extern "C" fn free_request_tx_data_error(s: CRequestTransactionDataError) {
+    drop(s)
+}
+
+#[cfg(not(feature = "with_serde"))]
+impl Drop for CRequestTransactionDataError {
+    fn drop(&mut self) {
+        free_vec(&mut self.error_code);
+    }
+}
+
+#[cfg(not(feature = "with_serde"))]
+impl<'a> From<RequestTransactionDataError<'a>> for CRequestTransactionDataError {
+    fn from(v: RequestTransactionDataError<'a>) -> Self {
+        Self {
+            template_id: v.template_id,
+            error_code: v.error_code.into(),
+        }
+    }
 }

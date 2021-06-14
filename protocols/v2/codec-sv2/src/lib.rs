@@ -2,6 +2,7 @@
 
 extern crate alloc;
 
+#[cfg(feature = "noise_sv2")]
 use alloc::{boxed::Box, vec::Vec};
 
 mod buffer;
@@ -54,12 +55,12 @@ impl HandshakeRole {
         match self {
             Self::Initiator(stepper) => {
                 let message = stepper.step(in_msg).map_err(|_| ())?.inner();
-                Ok(HandShakeFrame::from_message(message).ok_or(())?)
+                Ok(HandShakeFrame::from_message(message, 0, 0).ok_or(())?)
             }
 
             Self::Responder(stepper) => {
                 let message = stepper.step(in_msg).map_err(|_| ())?.inner();
-                Ok(HandShakeFrame::from_message(message).ok_or(())?)
+                Ok(HandShakeFrame::from_message(message, 0, 0).ok_or(())?)
             }
         }
     }

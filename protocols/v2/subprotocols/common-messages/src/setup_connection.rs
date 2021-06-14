@@ -2,7 +2,10 @@
 use alloc::vec::Vec;
 use binary_sv2::Str0255;
 #[cfg(not(feature = "with_serde"))]
-use binary_sv2::{codec, decodable::DecodableField, decodable::FieldMarker, GetSize};
+use binary_sv2::{
+    binary_codec_sv2, binary_codec_sv2::CVec, decodable::DecodableField, decodable::FieldMarker,
+    free_vec, GetSize,
+};
 use binary_sv2::{Deserialize, Serialize};
 use const_sv2::{
     SV2_JOB_DISTR_PROTOCOL_DISCRIMINANT, SV2_JOB_NEG_PROTOCOL_DISCRIMINANT,
@@ -22,42 +25,94 @@ use core::convert::{TryFrom, TryInto};
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SetupConnection<'decoder> {
     /// [`Protocol`]
-    prtocol: Protocol,
+    pub protocol: Protocol,
     /// The minimum protocol version the client supports (currently must be 2).
-    min_version: u16,
+    pub min_version: u16,
     /// The maximum protocol version the client supports (currently must be 2).
-    max_version: u16,
+    pub max_version: u16,
     /// Flags indicating optional protocol features the client supports. Each
     /// protocol from [`SetupConnection.protocol`] field has its own values/flags.
-    flags: u32,
+    pub flags: u32,
     /// ASCII text indicating the hostname or IP address.
     #[cfg_attr(feature = "with_serde", serde(borrow))]
-    endpoint_host: Str0255<'decoder>,
+    pub endpoint_host: Str0255<'decoder>,
     /// Connecting port value
-    endpoint_port: u16,
+    pub endpoint_port: u16,
     //-- DEVICE INFORMATION --//
     #[cfg_attr(feature = "with_serde", serde(borrow))]
-    vendor: Str0255<'decoder>,
+    pub vendor: Str0255<'decoder>,
     #[cfg_attr(feature = "with_serde", serde(borrow))]
-    hardware_version: Str0255<'decoder>,
+    pub hardware_version: Str0255<'decoder>,
     #[cfg_attr(feature = "with_serde", serde(borrow))]
-    firmware: Str0255<'decoder>,
+    pub firmware: Str0255<'decoder>,
     #[cfg_attr(feature = "with_serde", serde(borrow))]
-    device_id: Str0255<'decoder>,
+    pub device_id: Str0255<'decoder>,
+}
+
+#[repr(C)]
+#[cfg(not(feature = "with_serde"))]
+#[derive(Debug, Clone)]
+pub struct CSetupConnection {
+    protocol: Protocol,
+    min_version: u16,
+    max_version: u16,
+    flags: u32,
+    endpoint_host: CVec,
+    endpoint_port: u16,
+    vendor: CVec,
+    hardware_version: CVec,
+    firmware: CVec,
+    device_id: CVec,
+}
+
+#[no_mangle]
+#[cfg(not(feature = "with_serde"))]
+pub extern "C" fn free_setup_connection(s: CSetupConnection) {
+    drop(s)
+}
+
+#[cfg(not(feature = "with_serde"))]
+impl Drop for CSetupConnection {
+    fn drop(&mut self) {
+        free_vec(&mut self.endpoint_host);
+        free_vec(&mut self.vendor);
+        free_vec(&mut self.hardware_version);
+        free_vec(&mut self.firmware);
+        free_vec(&mut self.device_id);
+    }
+}
+
+#[cfg(not(feature = "with_serde"))]
+impl<'a> From<SetupConnection<'a>> for CSetupConnection {
+    fn from(v: SetupConnection) -> Self {
+        Self {
+            protocol: v.protocol,
+            min_version: v.min_version,
+            max_version: v.max_version,
+            flags: v.flags,
+            endpoint_host: v.endpoint_host.into(),
+            endpoint_port: v.endpoint_port,
+            vendor: v.vendor.into(),
+            hardware_version: v.hardware_version.into(),
+            firmware: v.firmware.into(),
+            device_id: v.device_id.into(),
+        }
+    }
 }
 
 ///// ## SetupConnection.Success (Server -> Client)
 ///// Response to [`SetupConnection`] message if the server accepts the connection. The client is
 ///// required to verify the set of feature flags that the server supports and act accordingly.
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[repr(C)]
 pub struct SetupConnectionSuccess {
     /// Selected version proposed by the connecting node that the upstream
     /// node supports. This version will be used on the connection for the rest
     /// of its life.
-    used_version: u16,
+    pub used_version: u16,
     /// Flags indicating optional protocol features the server supports. Each
     /// protocol from [`Protocol`] field has its own values/flags.
-    flags: u32,
+    pub flags: u32,
 }
 
 ///// ## SetupConnection.Error (Server -> Client)
@@ -74,14 +129,45 @@ pub struct SetupConnectionSuccess {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SetupConnectionError<'decoder> {
     /// Flags indicating features causing an error.
-    flags: u32,
+    pub flags: u32,
     /// Human-readable error code(s). See Error Codes section, [link](TODO).
     /// ### Possible error codes:
     /// * ‘unsupported-feature-flags’
     /// * ‘unsupported-protocol’
     /// * ‘protocol-version-mismatch’
     #[cfg_attr(feature = "with_serde", serde(borrow))]
-    error_code: Str0255<'decoder>,
+    pub error_code: Str0255<'decoder>,
+}
+
+#[repr(C)]
+#[cfg(not(feature = "with_serde"))]
+#[derive(Debug, Clone)]
+pub struct CSetupConnectionError {
+    flags: u32,
+    error_code: CVec,
+}
+
+#[no_mangle]
+#[cfg(not(feature = "with_serde"))]
+pub extern "C" fn free_setup_connection_error(s: CSetupConnectionError) {
+    drop(s)
+}
+
+#[cfg(not(feature = "with_serde"))]
+impl Drop for CSetupConnectionError {
+    fn drop(&mut self) {
+        free_vec(&mut self.error_code);
+    }
+}
+
+#[cfg(not(feature = "with_serde"))]
+impl<'a> From<SetupConnectionError<'a>> for CSetupConnectionError {
+    fn from(v: SetupConnectionError<'a>) -> Self {
+        Self {
+            flags: v.flags,
+            error_code: v.error_code.into(),
+        }
+    }
 }
 
 /// MiningProtocol = [`SV2_MINING_PROTOCOL_DISCRIMINANT`],
@@ -92,7 +178,7 @@ pub struct SetupConnectionError<'decoder> {
 #[derive(Debug, Clone)]
 #[repr(u8)]
 #[allow(clippy::enum_variant_names)]
-enum Protocol {
+pub enum Protocol {
     MiningProtocol = SV2_MINING_PROTOCOL_DISCRIMINANT,
     JobNegotiationProtocol = SV2_JOB_NEG_PROTOCOL_DISCRIMINANT,
     TemplateDistributionProtocol = SV2_TEMPLATE_DISTR_PROTOCOL_DISCRIMINANT,

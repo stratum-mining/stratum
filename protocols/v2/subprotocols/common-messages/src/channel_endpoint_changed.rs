@@ -1,7 +1,7 @@
 #[cfg(not(feature = "with_serde"))]
 use alloc::vec::Vec;
 #[cfg(not(feature = "with_serde"))]
-use binary_sv2::codec;
+use binary_sv2::binary_codec_sv2;
 use binary_sv2::{Deserialize, Serialize};
 
 ///// ## ChannelEndpointChanged (Server -> Client)
@@ -11,8 +11,9 @@ use binary_sv2::{Deserialize, Serialize};
 ///// (including version negotiation and the presence of support for a given extension) MUST be
 ///// reset and version/presence negotiation must begin again.
 /////
+#[repr(C)]
 #[derive(Serialize, Deserialize, Debug, Copy, Clone)]
 pub struct ChannelEndpointChanged {
     /// The channel which has changed endpoint.
-    channel_id: u32,
+    pub channel_id: u32,
 }

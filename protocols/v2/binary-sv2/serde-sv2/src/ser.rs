@@ -8,7 +8,7 @@
 //!
 use crate::error::{Error, Result};
 use alloc::vec::Vec;
-use buffer::Write;
+use buffer_sv2::Write;
 use serde::{ser, Serialize};
 
 pub struct Serializer<W: Write> {

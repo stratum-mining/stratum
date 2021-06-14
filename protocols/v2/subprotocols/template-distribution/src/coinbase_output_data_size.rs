@@ -1,7 +1,7 @@
 #[cfg(not(feature = "with_serde"))]
 use alloc::vec::Vec;
 #[cfg(not(feature = "with_serde"))]
-use binary_sv2::codec;
+use binary_sv2::binary_codec_sv2;
 use binary_sv2::{Deserialize, Serialize};
 
 //// ## CoinbaseOutputDataSize (Client -> Server)
@@ -19,8 +19,9 @@ use binary_sv2::{Deserialize, Serialize};
 //// the Template Provider MUST consider the maximum additional bytes required in the output
 //// count variable-length integer in the coinbase transaction when complying with the size limits.
 #[derive(Serialize, Deserialize, Copy, Clone, Debug)]
+#[repr(C)]
 pub struct CoinbaseOutputDataSize {
     /// The maximum additional serialized bytes which the pool will add in
     /// coinbase transaction outputs.
-    coinbase_output_max_additional_size: u32,
+    pub coinbase_output_max_additional_size: u32,
 }

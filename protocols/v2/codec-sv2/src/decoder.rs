@@ -161,6 +161,7 @@ impl<T: Serialize + binary_sv2::GetSize> Default for WithNoise<SlowAndCorrect, T
     }
 }
 
+#[derive(Debug)]
 pub struct WithoutNoise<B: Buffer, T: Serialize + binary_sv2::GetSize> {
     frame: PhantomData<T>,
     missing_b: usize,
