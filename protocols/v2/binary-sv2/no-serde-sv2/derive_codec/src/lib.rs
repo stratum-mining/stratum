@@ -3,11 +3,11 @@ use core::iter::FromIterator;
 use proc_macro::{Group, TokenStream, TokenTree};
 
 fn remove_attributes(item: TokenStream) -> TokenStream {
-    let mut stream = item.into_iter();
+    let stream = item.into_iter();
     let mut is_attribute = false;
     let mut result = Vec::new();
 
-    while let Some(next) = stream.next() {
+    for next in stream {
         match next.clone() {
             TokenTree::Punct(p) => {
                 if p.to_string() == "#" {

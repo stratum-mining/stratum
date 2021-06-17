@@ -156,14 +156,12 @@ impl<'a, const A: bool, const B: usize, const C: usize, const D: usize>
     fn from(v: datatypes::Inner<'a, A, B, C, D>) -> Self {
         let (ptr, len) = match v {
             datatypes::Inner::Ref(inner) => {
-                let val = (inner.as_mut_ptr(), inner.len());
-                core::mem::forget(inner);
-                val
+                (inner.as_mut_ptr(), inner.len())
+                //core::mem::forget(inner);
             }
             datatypes::Inner::Owned(mut inner) => {
-                let val = (inner.as_mut_ptr(), inner.len());
-                core::mem::forget(inner);
-                val
+                (inner.as_mut_ptr(), inner.len())
+                //core::mem::forget(inner);
             }
         };
         Self { data: ptr, len }
@@ -192,7 +190,7 @@ impl<'a, T: Into<CVec>> From<Seq064K<'a, T>> for CVec2 {
 impl From<&mut [u8]> for CVec {
     fn from(v: &mut [u8]) -> Self {
         let (data, len) = (v.as_mut_ptr(), v.len());
-        core::mem::forget(v);
+        //core::mem::forget(v);
         Self { data, len }
     }
 }

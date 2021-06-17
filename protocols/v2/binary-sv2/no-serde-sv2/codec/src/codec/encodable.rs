@@ -6,20 +6,24 @@ use alloc::vec::Vec;
 use std::io::{Error as E, Write};
 
 pub trait Encodable {
+    #[allow(clippy::wrong_self_convention)]
     fn to_bytes(self, dst: &mut [u8]) -> Result<usize, Error>;
 
     #[cfg(not(feature = "no_std"))]
+    #[allow(clippy::wrong_self_convention)]
     fn to_writer(self, dst: &mut impl Write) -> Result<(), E>;
 }
 
 //
 impl<'a, T: Into<EncodableField<'a>>> Encodable for T {
+    #[allow(clippy::wrong_self_convention)]
     fn to_bytes(self, dst: &mut [u8]) -> Result<usize, Error> {
         let encoded_field = self.into();
         encoded_field.encode(dst, 0)
     }
 
     #[cfg(not(feature = "no_std"))]
+    #[allow(clippy::wrong_self_convention)]
     fn to_writer(self, dst: &mut impl Write) -> Result<(), E> {
         let encoded_field = self.into();
         encoded_field.to_writer(dst)
