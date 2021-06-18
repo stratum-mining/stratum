@@ -10,6 +10,30 @@
 using namespace std;
 #define PORT 8080
 
+void on_success(CSv2Message message) {
+    cout << message.setup_connection._0.min_version;
+    cout << "\n";
+    switch (message.setup_connection._0.protocol) {
+            case Protocol::MiningProtocol:
+                    cout << "MiningProtocol \n";
+                    break;
+            case Protocol::TemplateDistributionProtocol:
+                    cout << "JDP \n";
+                    break;
+    }
+}
+
+void on_error(Sv2Error error) {
+        switch (error) {
+                case Sv2Error::MissingBytes:
+                        cout << "Waiting for the remaining part of the frame \n";
+                        break;
+                case Sv2Error::Unknown:
+                        cout << "An unkwon error occured \n";
+                        break;
+        }
+}
+
 int main()
 {
     int server_fd, new_socket, valread;
@@ -74,10 +98,17 @@ int main()
 
             }
             byte_read = 0;
-            CResult<CSv2Message, VoidError> frame = next_frame(decoder);
-            //cout << frame.ok._0.setup_connection._0.protocol;
-            //cout << "\n";
+            CResult<CSv2Message, Sv2Error> frame = next_frame(decoder);
+            switch (frame.tag) {
+                    case CResult<CSv2Message, Sv2Error>::Tag::Ok:
+                            on_success(frame.ok._0);
+                            break;
+                    case CResult<CSv2Message, Sv2Error>::Tag::Err:
+                            on_error(frame.err._0);
+                            break;
+            };
     } 
 
     return 0;
 }
+

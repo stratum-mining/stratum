@@ -202,7 +202,19 @@ pub enum CResult<T, E> {
 }
 
 #[repr(C)]
-pub struct VoidError(bool);
+pub enum Sv2Error<> {
+    MissingBytes,
+    Unknown
+}
+
+#[no_mangle]
+pub extern "C" fn is_ok(cresult: & CResult<CSv2Message, Sv2Error>) -> bool {
+    match cresult {
+        CResult::Ok(_) => true,
+        CResult::Err(_) => false,
+    }
+}
+
 
 impl<T, E> From<Result<T, E>> for CResult<T, E> {
     fn from(v: Result<T, E>) -> Self {
@@ -234,7 +246,7 @@ pub extern "C" fn get_writable(decoder: *mut DecoderWrapper) -> CVec {
 
 #[no_mangle]
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
-pub extern "C" fn next_frame(decoder: *mut DecoderWrapper) -> CResult<CSv2Message, VoidError> {
+pub extern "C" fn next_frame(decoder: *mut DecoderWrapper) -> CResult<CSv2Message, Sv2Error> {
     let mut decoder = unsafe { Box::from_raw(decoder) };
 
     match decoder.0.next_frame() {
@@ -248,12 +260,12 @@ pub extern "C" fn next_frame(decoder: *mut DecoderWrapper) -> CResult<CSv2Messag
             (msg_type, payload)
                 .try_into()
                 .map(|x: Sv2Message| x.into())
-                .map_err(|_| VoidError(false))
+                .map_err(|_| Sv2Error::Unknown)
                 .into()
         }
         Err(_) => {
             Box::into_raw(decoder);
-            CResult::Err(VoidError(false))
+            CResult::Err(Sv2Error::MissingBytes)
         }
     }
 }

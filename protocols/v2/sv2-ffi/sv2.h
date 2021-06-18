@@ -220,6 +220,11 @@ void free_submit_solution(CSubmitSolution s);
 #include <ostream>
 #include <new>
 
+enum class Sv2Error {
+  MissingBytes,
+  Unknown,
+};
+
 struct DecoderWrapper;
 
 struct CSv2Message {
@@ -297,10 +302,6 @@ struct CSv2Message {
   };
 };
 
-struct VoidError {
-  bool _0;
-};
-
 template<typename T, typename E>
 struct CResult {
   enum class Tag {
@@ -327,10 +328,12 @@ extern "C" {
 
 void drop_sv2_message(CSv2Message s);
 
+bool is_ok(const CResult<CSv2Message, Sv2Error> *cresult);
+
 DecoderWrapper *new_decoder();
 
 CVec get_writable(DecoderWrapper *decoder);
 
-CResult<CSv2Message, VoidError> next_frame(DecoderWrapper *decoder);
+CResult<CSv2Message, Sv2Error> next_frame(DecoderWrapper *decoder);
 
 } // extern "C"
