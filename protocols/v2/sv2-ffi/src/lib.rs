@@ -202,19 +202,18 @@ pub enum CResult<T, E> {
 }
 
 #[repr(C)]
-pub enum Sv2Error<> {
+pub enum Sv2Error {
     MissingBytes,
-    Unknown
+    Unknown,
 }
 
 #[no_mangle]
-pub extern "C" fn is_ok(cresult: & CResult<CSv2Message, Sv2Error>) -> bool {
+pub extern "C" fn is_ok(cresult: &CResult<CSv2Message, Sv2Error>) -> bool {
     match cresult {
         CResult::Ok(_) => true,
         CResult::Err(_) => false,
     }
 }
-
 
 impl<T, E> From<Result<T, E>> for CResult<T, E> {
     fn from(v: Result<T, E>) -> Self {

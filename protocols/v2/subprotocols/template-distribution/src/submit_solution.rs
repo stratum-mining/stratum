@@ -5,11 +5,11 @@ use binary_sv2::binary_codec_sv2::{self, free_vec, CVec};
 use binary_sv2::B064K;
 use binary_sv2::{Deserialize, Serialize};
 
-//// ## SubmitSolution (Client -> Server)
-//// Upon finding a coinbase transaction/nonce pair which double-SHA256 hashes at or below
-//// [`crate::SetNewPrevHash.target`], the client MUST immediately send this message, and the server
-//// MUST then immediately construct the corresponding full block and attempt to propagate it to
-//// the Bitcoin network.
+/// ## SubmitSolution (Client -> Server)
+/// Upon finding a coinbase transaction/nonce pair which double-SHA256 hashes at or below
+/// [`crate::SetNewPrevHash.target`], the client MUST immediately send this message, and the server
+/// MUST then immediately construct the corresponding full block and attempt to propagate it to
+/// the Bitcoin network.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SubmitSolution<'decoder> {
     /// The template_id field as it appeared in NewTemplate.

@@ -5,9 +5,9 @@ use binary_sv2::binary_codec_sv2::{self, free_vec, free_vec_2, CVec, CVec2};
 use binary_sv2::{Deserialize, Serialize};
 use binary_sv2::{Seq0255, B0255, B064K, U256};
 
-///// ## NewTemplate (Server -> Client)
-///// The primary template-providing function. Note that the coinbase_tx_outputs bytes will appear
-///// as is at the end of the coinbase transaction.
+/// ## NewTemplate (Server -> Client)
+/// The primary template-providing function. Note that the coinbase_tx_outputs bytes will appear
+/// as is at the end of the coinbase transaction.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct NewTemplate<'decoder> {
     /// Server’s identification of the template. Strictly increasing, the
