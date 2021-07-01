@@ -1,19 +1,24 @@
 # C++ interop
 
-This carate provide an example of how to use the Sv2 Decoder and Encoder from C++. The example can
-be run via `./run.sh`. The example is composed by a rust "downstream node" that keep sending a
+This crate provide an example of how to use the rust Sv2 `Decoder` and `Encoder` from C++. 
+
+To run the example: `./run.sh`.
+
+The example is composed by a rust "downstream node" that keep sending a
 [`common_messages_sv2::SetupConnection`] message to a C++ "upstream node" that receive the message
 and keep answering with a [`common_messages_sv2::SetupConnectionError`].
 
-The C++ side use the `sv2-ffi` crate in order to decode and encode the Sv2 messages.
+The rust codec is exported as a C static library by the crate [sv2-ffi](../../protocols/v2/sv2-ffi).
 
-This crate also provide an example of how to build the `sv2-ffi` as a static library using guix.
+This crate also provide an [example](./template-provider/example-of-guix-build) of how to build
+the `sv2-ffi` as a static library using guix.
 
 ## Intro
 
 ### Header file
 
-The [header file](./sv2.h) is automatically generated with `cbindgen`
+The [header file](../../../protocols/v2/sv2-ffi/sv2.h) is generated with `cbindgen`.
+
 Rust enums definition are transformed by `cbingen` in:
 ```c
 struct [rust_enum_name] {
@@ -82,10 +87,12 @@ struct CResult {
 
 ### Conventions
 
-All the memory used by the rust defined Sv2 messages (also when borrowed) is allocated by rust.
+#### Memory
+All the memory used shared struct/enums (also when borrowed) is allocated by rust.
 
 When C++ take ownership of a Sv2 message the message must be manually dropped.
 
+#### Enums
 In order to pattern match against a rust defined enum from C++:
 ```c
 CResult < CSv2Message, Sv2Error > frame = next_frame(decoder);
@@ -106,38 +113,38 @@ case CResult < CSv2Message, Sv2Error > ::Tag::Err:
 ```
 
 ### CVec
-In order to share bytes buffer between rust and C++ is used [`binary_sv2::binary_codec_sv2::CVec`]
-That is just a pointer to an `u8` a length and a capacity.
+[`binary_sv2::binary_codec_sv2::CVec`] is used to share bytes buffers between rust and C++.
 
-A `CVec` can be constructed by:
-1. [`binary_sv2::binary_codec_sv2::CVec::as_shared_buffer`]: used when we need to fill a rust
-   allocated bytes buffer from C++, this method do not guarantee anything about the pointed memory
-   and the user must manually enforce that the rust side do not free the pointed memory while the
-   C++ part is using it. A CVec constructed with this method must not be freed by C++ (this is
-   enforced by the fact that the function used to free the CVec is not exported in the C library)
-2. `&[u8].into::<CVec>()`: it create copy the content of the buffer in a vector and the it forget that
-   vector, is used for construct structs that will be part of Sv2 message created in rust and passed
-   to C++, they must be dropped from C++ via [`sv2_ffi::drop_sv2_message`]
-3. [`binary_sv2::binary_codec_sv2::cvec_from_buffer`]: used when a CVec must be created by a C++,
-   they must be used to construct an [`sv2_ffi::CSv2Message`] that will be dropped as usual with
+A `CVec` can be either "borrowed" or "owned" if is on or the other depend by the method that we
+use to construct it.
+
+* (borrowed) [`binary_sv2::binary_codec_sv2::CVec::as_shared_buffer`]: used when we need to fill a rust
+   allocated buffer from C++. This method do not guarantee anything about the pointed memory
+   and the user must enforce that the rust side do not free the pointed memory while the
+   C++ part is using it.
+   A CVec constructed with this method must not be freed by C++ (this is enforced by the fact that 
+   the function used to free the CVec is not exported in the C library)
+* (owned) `&[u8].into::<CVec>()`: it copy the content of the `&[u8]` in a CVec. 
+   It must be dropped from C++ via [`sv2_ffi::drop_sv2_message`]
+* (owned) [`binary_sv2::binary_codec_sv2::cvec_from_buffer`]: used when a CVec must be created in C++,
+   is used to construct a [`sv2_ffi::CSv2Message`] that will be dropped as usual with
    [`sv2_ffi::drop_sv2_message`]
-4. `CVec2.into::<Vec<CVec>>()`, see CVec2 section
-5. `Inner.into::<CVec>()`: as `&[u8].into::<CVec>()`
+* (owned) `CVec2.into::<Vec<CVec>>()`, see CVec2 section
+* (owned) `Inner.into::<CVec>()`: same as `&[u8].into::<CVec>()`
 
 ### CVec2
-Is just a vector of byte buffer always allocated in rust and only used in Sv2 messages. It is
+Is just a vector of CVec. Always allocated in rust. Is only used as field of Sv2 messages. It is
 dropped when the Sv2 message get dropped.
 
 ## Memory management
 
 ### Decoder
 
-[`sv2_ffi::DecoderWrapper`] is instantiated in C++ via [`sv2_ffi::new_decoder`] that is a rust
-function that create a `DecoderWrapper` and put it in the heap then forget about it and return a
-pointer, there is no need to drop it as it will live for the entire life of the program.
+[`sv2_ffi::DecoderWrapper`] is instantiated in C++ via [`sv2_ffi::new_decoder`].
+There is no need to drop it as it will live for the entire life of the program.
 
-[`sv2_ffi::get_writable`] return a CVec, some rust allocated memory than C++ can fill with the
-socket content. The returned CVec is "borrowed" (`&[u8].into::<CVec>()`) so it will be automatically
+[`sv2_ffi::get_writable`] return a CVec. Is rust allocated memory that C++ can fill with the
+socket content. The CVec is "borrowed" (`&[u8].into::<CVec>()`) so it will be automatically
 dropped by rust.
 
 [`sv2_ffi::next_frame`] if a complete Sv2 frame is available it return a [`sv2_ffi::CSv2Message`]
@@ -147,21 +154,20 @@ the message could contain one or more "owned" CVec so it must be manually droppe
 
 ### Encoder
 
-[`sv2_ffi::EncoderWrapper`] is instantiated in C++ via [`sv2_ffi::new_encoder`] that is a rust
-function that create am `EncoderWrapper` and put it in the heap then forget about it and return a
-pointer, there is no need to drop it as it will live for the entire life of the program.
+[`sv2_ffi::EncoderWrapper`] is instantiated in C++ via [`sv2_ffi::new_encoder`].
+There is no need to drop it as it will live for the entire life of the program.
 
-[`sv2_ffi::CSv2Message`] can be constructed in C++ [here an example](./template-provider/template-provider.cpp#67)
+A [`sv2_ffi::CSv2Message`] can be constructed in C++ [here an example](./template-provider/template-provider.cpp#67)
 if the message contains one ore more CVec the content of the CVec must be copied in a rust allocated
 CVec with [`binary_sv2::binary_codec_sv2::cvec_from_buffer`]. The message must be dropped with 
 [`sv2_ffi::drop_sv2_message`]
 
 [`sv2_ffi::encode`] encode a [`sv2_ffi::CSv2Message`] as an encoded Sv2 frame in a buffer internal
-to the [`sv2_ffi::EncoderWrapper`]. The content of the buffer is returned as "borrowed" CVec, after
-that C++ has copied the bytes in the buffer to the socket it must free the encoder with
-[`sv2_ffi::free_encoder`], this is necessary because the encoder will reuse the internal buffer to
+to [`sv2_ffi::EncoderWrapper`]. The content of the buffer is returned as a "borrowed" CVec, after
+that C++ do have copied it where needed it must free the encoder with [`sv2_ffi::free_encoder`],
+this is necessary because the encoder will reuse the internal buffer to
 encode the next message, with [`sv2_ffi::free_encoder`] we let the encoder know that the content of
-the internal buffer has been copied and can be safely overwritten. 
+the internal buffer has been copied and can be overwritten. 
 
 
 ## Decode Sv2 messages in C++
