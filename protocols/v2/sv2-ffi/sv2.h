@@ -58,24 +58,33 @@ static const uint8_t MESSAGE_TYPE_SUBMIT_SOLUTION = 76;
 struct CVec {
   uint8_t *data;
   uintptr_t len;
-};
-
-struct CVec2 {
-  CVec *data;
-  uintptr_t len;
+  uintptr_t capacity;
 };
 
 struct U24 {
   uint32_t _0;
 };
 
+struct CVec2 {
+  CVec *data;
+  uintptr_t len;
+  uintptr_t capacity;
+};
+
 extern "C" {
 
-void free_vec(CVec *buf);
-
-void free_vec_2(CVec2 *buf);
+/// Given a C allocated buffer return a rust allocated CVec
+///
+/// # Safety
+///
+/// TODO
+CVec cvec_from_buffer(const uint8_t *data, uintptr_t len);
 
 void _c_export_u24(U24 _a);
+
+void _c_export_cvec(CVec _a);
+
+void _c_export_cvec2(CVec2 _a);
 
 } // extern "C"
 #include <cstdarg>
@@ -95,11 +104,21 @@ enum class Protocol : uint8_t {
   JobDistributionProtocol = SV2_JOB_DISTR_PROTOCOL_DISCRIMINANT,
 };
 
+/// ## ChannelEndpointChanged (Server -> Client)
+/// When a channel’s upstream or downstream endpoint changes and that channel had previously
+/// sent messages with [channel_msg](TODO) bitset of unknown extension_type, the intermediate proxy
+/// MUST send a [`ChannelEndpointChanged`] message. Upon receipt thereof, any extension state
+/// (including version negotiation and the presence of support for a given extension) MUST be
+/// reset and version/presence negotiation must begin again.
+///
 struct ChannelEndpointChanged {
   /// The channel which has changed endpoint.
   uint32_t channel_id;
 };
 
+/// ## SetupConnection.Success (Server -> Client)
+/// Response to [`SetupConnection`] message if the server accepts the connection. The client is
+/// required to verify the set of feature flags that the server supports and act accordingly.
 struct SetupConnectionSuccess {
   /// Selected version proposed by the connecting node that the upstream
   /// node supports. This version will be used on the connection for the rest
@@ -145,12 +164,30 @@ void free_setup_connection_error(CSetupConnectionError s);
 #include <ostream>
 #include <new>
 
+/// ## CoinbaseOutputDataSize (Client -> Server)
+/// Ultimately, the pool is responsible for adding coinbase transaction outputs for payouts and
+/// other uses, and thus the Template Provider will need to consider this additional block size
+/// when selecting transactions for inclusion in a block (to not create an invalid, oversized block).
+/// Thus, this message is used to indicate that some additional space in the block/coinbase
+/// transaction be reserved for the pool’s use (while always assuming the pool will use the entirety
+/// of available coinbase space).
+/// The Job Negotiator MUST discover the maximum serialized size of the additional outputs which
+/// will be added by the pool(s) it intends to use this work. It then MUST communicate the
+/// maximum such size to the Template Provider via this message. The Template Provider MUST
+/// NOT provide NewWork messages which would represent consensus-invalid blocks once this
+/// additional size — along with a maximally-sized (100 byte) coinbase field — is added. Further,
+/// the Template Provider MUST consider the maximum additional bytes required in the output
+/// count variable-length integer in the coinbase transaction when complying with the size limits.
 struct CoinbaseOutputDataSize {
   /// The maximum additional serialized bytes which the pool will add in
   /// coinbase transaction outputs.
   uint32_t coinbase_output_max_additional_size;
 };
 
+/// ## RequestTransactionData (Client -> Server)
+/// A request sent by the Job Negotiator to the Template Provider which requests the set of
+/// transaction data for all transactions (excluding the coinbase transaction) included in a block, as
+/// well as any additional data which may be required by the Pool to validate the work.
 struct RequestTransactionData {
   /// The template_id corresponding to a NewTemplate message.
   uint64_t template_id;
@@ -222,10 +259,14 @@ void free_submit_solution(CSubmitSolution s);
 
 enum class Sv2Error {
   MissingBytes,
+  EncoderBusy,
+  Todo,
   Unknown,
 };
 
 struct DecoderWrapper;
+
+struct EncoderWrapper;
 
 struct CSv2Message {
   enum class Tag {
@@ -329,6 +370,12 @@ extern "C" {
 void drop_sv2_message(CSv2Message s);
 
 bool is_ok(const CResult<CSv2Message, Sv2Error> *cresult);
+
+EncoderWrapper *new_encoder();
+
+void free_encoder(EncoderWrapper *encoder);
+
+CResult<CVec, Sv2Error> encode(CSv2Message *message, EncoderWrapper *encoder);
 
 DecoderWrapper *new_decoder();
 

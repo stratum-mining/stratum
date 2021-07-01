@@ -1,4 +1,4 @@
-use codec_sv2::{Frame, StandardDecoder};
+use codec_sv2::{Encoder, Frame, StandardDecoder, StandardSv2Frame};
 use common_messages_sv2::{
     CSetupConnection, CSetupConnectionError, ChannelEndpointChanged, SetupConnection,
     SetupConnectionError, SetupConnectionSuccess,
@@ -39,6 +39,28 @@ pub enum Sv2Message<'a> {
     SetupConnectionSuccess(SetupConnectionSuccess),
 }
 
+impl<'a> Sv2Message<'a> {
+    pub fn message_type(&self) -> u8 {
+        match self {
+            Sv2Message::CoinbaseOutputDataSize(_) => MESSAGE_TYPE_COINBASE_OUTPUT_DATA_SIZE,
+            Sv2Message::NewTemplate(_) => MESSAGE_TYPE_NEW_TEMPLATE,
+            Sv2Message::RequestTransactionData(_) => MESSAGE_TYPE_REQUEST_TRANSACTION_DATA,
+            Sv2Message::RequestTransactionDataError(_) => {
+                MESSAGE_TYPE_REQUEST_TRANSACTION_DATA_ERROR
+            }
+            Sv2Message::RequestTransactionDataSuccess(_) => {
+                MESSAGE_TYPE_REQUEST_TRANSACTION_DATA_SUCCESS
+            }
+            Sv2Message::SetNewPrevHash(_) => MESSAGE_TYPE_SET_NEW_PREV_HASH,
+            Sv2Message::SubmitSolution(_) => MESSAGE_TYPE_SUBMIT_SOLUTION,
+            Sv2Message::ChannelEndpointChanged(_) => MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGES,
+            Sv2Message::SetupConnection(_) => MESSAGE_TYPE_SETUP_CONNECTION,
+            Sv2Message::SetupConnectionError(_) => MESSAGE_TYPE_SETUP_CONNECTION_ERROR,
+            Sv2Message::SetupConnectionSuccess(_) => MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS,
+        }
+    }
+}
+
 #[repr(C)]
 pub enum CSv2Message {
     CoinbaseOutputDataSize(CoinbaseOutputDataSize),
@@ -65,7 +87,7 @@ pub extern "C" fn drop_sv2_message(s: CSv2Message) {
         CSv2Message::SetNewPrevHash(a) => drop(a),
         CSv2Message::SubmitSolution(a) => drop(a),
         CSv2Message::ChannelEndpointChanged(_) => (),
-        CSv2Message::SetupConnection(a) => drop(a),
+        CSv2Message::SetupConnection(_) => (),
         CSv2Message::SetupConnectionError(a) => drop(a),
         CSv2Message::SetupConnectionSuccess(a) => drop(a),
     }
@@ -89,6 +111,30 @@ impl<'a> From<Sv2Message<'a>> for CSv2Message {
             Sv2Message::SetupConnection(a) => Self::SetupConnection(a.into()),
             Sv2Message::SetupConnectionError(a) => Self::SetupConnectionError(a.into()),
             Sv2Message::SetupConnectionSuccess(a) => Self::SetupConnectionSuccess(a),
+        }
+    }
+}
+
+impl<'a> CSv2Message {
+    #[cfg(not(feature = "with_serde"))]
+    pub fn to_rust_rep_mut(&'a mut self) -> Result<Sv2Message<'a>, Error> {
+        match self {
+            //CSv2Message::CoinbaseOutputDataSize(v) => {Ok(Sv2Message::CoinbaseOutputDataSize(*v))}
+            CSv2Message::NewTemplate(v) => Ok(Sv2Message::NewTemplate(v.to_rust_rep_mut()?)),
+            //CSv2Message::RequestTransactionData(v) => {Ok(Sv2Message::RequestTransactionData(*v))}
+            //CSv2Message::RequestTransactionDataError(mut v) => {Ok(Sv2Message::RequestTransactionDataError(v.to_rust_rep_mut()?))}
+            //CSv2Message::RequestTransactionDataSuccess(mut v) => {Ok(Sv2Message::RequestTransactionDataSuccess(v.to_rust_rep_mut()?))}
+            CSv2Message::SetNewPrevHash(v) => Ok(Sv2Message::SetNewPrevHash(v.to_rust_rep_mut()?)),
+            CSv2Message::SubmitSolution(v) => Ok(Sv2Message::SubmitSolution(v.to_rust_rep_mut()?)),
+            //CSv2Message::ChannelEndpointChanged(v) => {Ok(Sv2Message::ChannelEndpointChanged(*v))}
+            CSv2Message::SetupConnection(v) => {
+                Ok(Sv2Message::SetupConnection(v.to_rust_rep_mut()?))
+            }
+            CSv2Message::SetupConnectionError(v) => {
+                Ok(Sv2Message::SetupConnectionError(v.to_rust_rep_mut()?))
+            }
+            //CSv2Message::SetupConnectionSuccess(v) => {Ok(Sv2Message::SetupConnectionSuccess(*v))}
+            _ => todo!(),
         }
     }
 }
@@ -204,6 +250,8 @@ pub enum CResult<T, E> {
 #[repr(C)]
 pub enum Sv2Error {
     MissingBytes,
+    EncoderBusy,
+    Todo,
     Unknown,
 }
 
@@ -225,6 +273,63 @@ impl<T, E> From<Result<T, E>> for CResult<T, E> {
 }
 
 #[derive(Debug)]
+pub struct EncoderWrapper {
+    encoder: Encoder<Sv2Message<'static>>,
+    free: bool,
+}
+
+#[no_mangle]
+pub extern "C" fn new_encoder() -> *mut EncoderWrapper {
+    let encoder: Encoder<Sv2Message<'static>> = Encoder::new();
+    let s = Box::new(EncoderWrapper {
+        encoder,
+        free: true,
+    });
+    Box::into_raw(s)
+}
+
+#[no_mangle]
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+pub extern "C" fn free_encoder(encoder: *mut EncoderWrapper) {
+    let mut encoder = unsafe { Box::from_raw(encoder) };
+    encoder.free = true;
+    Box::into_raw(encoder);
+}
+
+fn encode_(message: &'static mut CSv2Message, encoder: &mut EncoderWrapper) -> Result<CVec, Error> {
+    let message: Sv2Message = message.to_rust_rep_mut()?;
+    let m_type = message.message_type();
+    let frame = StandardSv2Frame::<Sv2Message<'static>>::from_message(message, m_type, 0)
+        .ok_or(Error::Todo)?;
+    encoder
+        .encoder
+        .encode(frame)
+        .map_err(|_| Error::Todo)
+        .map(|x| x.into())
+}
+
+/// # Safety
+///
+/// TODO
+#[no_mangle]
+pub unsafe extern "C" fn encode(
+    message: &'static mut CSv2Message,
+    encoder: *mut EncoderWrapper,
+) -> CResult<CVec, Sv2Error> {
+    let mut encoder = Box::from_raw(encoder);
+    if encoder.free {
+        let result = encode_(message, &mut encoder)
+            .map_err(|_| Sv2Error::Todo)
+            .into();
+        encoder.free = false;
+        Box::into_raw(encoder);
+        result
+    } else {
+        CResult::Err(Sv2Error::EncoderBusy)
+    }
+}
+
+#[derive(Debug)]
 pub struct DecoderWrapper(StandardDecoder<Sv2Message<'static>>);
 
 #[no_mangle]
@@ -238,7 +343,7 @@ pub extern "C" fn new_decoder() -> *mut DecoderWrapper {
 pub extern "C" fn get_writable(decoder: *mut DecoderWrapper) -> CVec {
     let mut decoder = unsafe { Box::from_raw(decoder) };
     let writable = decoder.0.writable();
-    let res = writable.into();
+    let res = CVec::as_shared_buffer(writable);
     Box::into_raw(decoder);
     res
 }

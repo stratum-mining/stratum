@@ -2,8 +2,9 @@
 use alloc::vec::Vec;
 #[cfg(not(feature = "with_serde"))]
 use binary_sv2::binary_codec_sv2::{self, free_vec, CVec};
-use binary_sv2::U256;
 use binary_sv2::{Deserialize, Serialize};
+use binary_sv2::{Error, U256};
+use core::convert::TryInto;
 
 /// ## SetNewPrevHash (Server -> Client)
 /// Upon successful validation of a new best block, the server MUST immediately provide a
@@ -40,6 +41,22 @@ pub struct CSetNewPrevHash {
     header_timestamp: u32,
     n_bits: u32,
     target: CVec,
+}
+
+impl<'a> CSetNewPrevHash {
+    #[cfg(not(feature = "with_serde"))]
+    pub fn to_rust_rep_mut(&'a mut self) -> Result<SetNewPrevHash<'a>, Error> {
+        let prev_hash: U256 = self.prev_hash.as_mut_slice().try_into()?;
+        let target: U256 = self.target.as_mut_slice().try_into()?;
+
+        Ok(SetNewPrevHash {
+            template_id: self.template_id,
+            prev_hash,
+            header_timestamp: self.header_timestamp,
+            n_bits: self.n_bits,
+            target,
+        })
+    }
 }
 
 #[no_mangle]

@@ -2,8 +2,9 @@
 use alloc::vec::Vec;
 #[cfg(not(feature = "with_serde"))]
 use binary_sv2::binary_codec_sv2::{self, free_vec, CVec};
-use binary_sv2::B064K;
 use binary_sv2::{Deserialize, Serialize};
+use binary_sv2::{Error, B064K};
+use core::convert::TryInto;
 
 /// ## SubmitSolution (Client -> Server)
 /// Upon finding a coinbase transaction/nonce pair which double-SHA256 hashes at or below
@@ -39,6 +40,21 @@ pub struct CSubmitSolution {
     header_timestamp: u32,
     header_nonce: u32,
     coinbase_tx: CVec,
+}
+
+impl<'a> CSubmitSolution {
+    #[cfg(not(feature = "with_serde"))]
+    pub fn to_rust_rep_mut(&'a mut self) -> Result<SubmitSolution<'a>, Error> {
+        let coinbase_tx: B064K = self.coinbase_tx.as_mut_slice().try_into()?;
+
+        Ok(SubmitSolution {
+            template_id: self.template_id,
+            version: self.version,
+            header_timestamp: self.header_timestamp,
+            header_nonce: self.header_nonce,
+            coinbase_tx,
+        })
+    }
 }
 
 #[no_mangle]

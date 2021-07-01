@@ -116,37 +116,104 @@ impl<'a> From<Vec<u8>> for EncodableField<'a> {
 }
 
 #[repr(C)]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct CVec {
     data: *mut u8,
     len: usize,
+    capacity: usize,
 }
 
-#[repr(C)]
-#[derive(Debug, Clone)]
-pub struct CVec2 {
-    data: *mut CVec,
-    len: usize,
-}
+impl CVec {
+    pub fn as_mut_slice(&mut self) -> &mut [u8] {
+        unsafe { core::slice::from_raw_parts_mut(self.data, self.len) }
+    }
 
-#[no_mangle]
-pub extern "C" fn free_vec(buf: &mut CVec) {
-    let s = unsafe { std::slice::from_raw_parts_mut(buf.data, buf.len) };
-    let s = s.as_mut_ptr();
-    unsafe {
-        alloc::boxed::Box::from_raw(s);
+    /// Used when we need to fill a buffer allocated in rust from C.
+    ///
+    /// # Safety
+    ///
+    /// This function construct a CVec without taking ownership of the pointed buffer so if the
+    /// owner drop them the CVec will point to garbage.
+    #[allow(clippy::wrong_self_convention)]
+    pub fn as_shared_buffer(v: &mut [u8]) -> Self {
+        let (data, len) = (v.as_mut_ptr(), v.len());
+        Self {
+            data,
+            len,
+            capacity: len,
+        }
     }
 }
 
+impl From<&[u8]> for CVec {
+    fn from(v: &[u8]) -> Self {
+        let mut buffer: Vec<u8> = vec![0; v.len()];
+        buffer.copy_from_slice(v);
+
+        // Get the length, first, then the pointer (doing it the other way around **currently** doesn't cause UB, but it may be unsound due to unclear (to me, at least) guarantees of the std lib)
+        let len = buffer.len();
+        let ptr = buffer.as_mut_ptr();
+        std::mem::forget(buffer);
+
+        CVec {
+            data: ptr,
+            len,
+            capacity: len,
+        }
+    }
+}
+
+/// Given a C allocated buffer return a rust allocated CVec
+///
+/// # Safety
+///
+/// TODO
 #[no_mangle]
-pub extern "C" fn free_vec_2(buf: &mut CVec2) {
-    let s_ = unsafe { std::slice::from_raw_parts_mut(buf.data, buf.len) };
-    let s = s_.as_mut_ptr();
-    unsafe {
-        alloc::boxed::Box::from_raw(s);
-    };
-    for s in s_ {
-        free_vec(s)
+pub unsafe extern "C" fn cvec_from_buffer(data: *const u8, len: usize) -> CVec {
+    let input = std::slice::from_raw_parts(data, len);
+
+    let mut buffer: Vec<u8> = vec![0; len];
+    buffer.copy_from_slice(input);
+
+    // Get the length, first, then the pointer (doing it the other way around **currently** doesn't cause UB, but it may be unsound due to unclear (to me, at least) guarantees of the std lib)
+    let len = buffer.len();
+    let ptr = buffer.as_mut_ptr();
+    std::mem::forget(buffer);
+
+    CVec {
+        data: ptr,
+        len,
+        capacity: len,
+    }
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub struct CVec2 {
+    data: *mut CVec,
+    len: usize,
+    capacity: usize,
+}
+
+impl CVec2 {
+    pub fn as_mut_slice(&mut self) -> &mut [CVec] {
+        unsafe { core::slice::from_raw_parts_mut(self.data, self.len) }
+    }
+}
+impl From<CVec2> for Vec<CVec> {
+    fn from(v: CVec2) -> Self {
+        unsafe { Vec::from_raw_parts(v.data, v.len, v.capacity) }
+    }
+}
+
+pub fn free_vec(buf: &mut CVec) {
+    let _: Vec<u8> = unsafe { Vec::from_raw_parts(buf.data, buf.len, buf.capacity) };
+}
+
+pub fn free_vec_2(buf: &mut CVec2) {
+    let vs: Vec<CVec> = unsafe { Vec::from_raw_parts(buf.data, buf.len, buf.capacity) };
+    for mut s in vs {
+        free_vec(&mut s)
     }
 }
 
@@ -154,46 +221,72 @@ impl<'a, const A: bool, const B: usize, const C: usize, const D: usize>
     From<datatypes::Inner<'a, A, B, C, D>> for CVec
 {
     fn from(v: datatypes::Inner<'a, A, B, C, D>) -> Self {
-        let (ptr, len) = match v {
+        let (ptr, len, cap): (*mut u8, usize, usize) = match v {
             datatypes::Inner::Ref(inner) => {
-                (inner.as_mut_ptr(), inner.len())
-                //core::mem::forget(inner);
+                // Data is copied in a vector that then will be forgetted from the allocator,
+                // cause the owner of the data is going to be dropped by rust
+                let mut inner: Vec<u8> = inner.into();
+
+                // Get the length, first, then the pointer (doing it the other way around **currently** doesn't cause UB, but it may be unsound due to unclear (to me, at least) guarantees of the std lib)
+                let len = inner.len();
+                let cap = inner.capacity();
+                let ptr = inner.as_mut_ptr();
+                std::mem::forget(inner);
+
+                (ptr, len, cap)
             }
             datatypes::Inner::Owned(mut inner) => {
-                (inner.as_mut_ptr(), inner.len())
-                //core::mem::forget(inner);
+                // Get the length, first, then the pointer (doing it the other way around **currently** doesn't cause UB, but it may be unsound due to unclear (to me, at least) guarantees of the std lib)
+                let len = inner.len();
+                let cap = inner.capacity();
+                let ptr = inner.as_mut_ptr();
+                std::mem::forget(inner);
+
+                (ptr, len, cap)
             }
         };
-        Self { data: ptr, len }
+        Self {
+            data: ptr,
+            len,
+            capacity: cap,
+        }
     }
 }
 
 impl<'a, T: Into<CVec>> From<Seq0255<'a, T>> for CVec2 {
     fn from(v: Seq0255<'a, T>) -> Self {
         let mut v: Vec<CVec> = v.0.into_iter().map(|x| x.into()).collect();
-        let data = v.as_mut_ptr();
+        // Get the length, first, then the pointer (doing it the other way around **currently** doesn't cause UB, but it may be unsound due to unclear (to me, at least) guarantees of the std lib)
         let len = v.len();
+        let capacity = v.capacity();
+        let data = v.as_mut_ptr();
         std::mem::forget(v);
-        Self { data, len }
+        Self {
+            data,
+            len,
+            capacity,
+        }
     }
 }
 impl<'a, T: Into<CVec>> From<Seq064K<'a, T>> for CVec2 {
     fn from(v: Seq064K<'a, T>) -> Self {
         let mut v: Vec<CVec> = v.0.into_iter().map(|x| x.into()).collect();
-        let data = v.as_mut_ptr();
+        // Get the length, first, then the pointer (doing it the other way around **currently** doesn't cause UB, but it may be unsound due to unclear (to me, at least) guarantees of the std lib)
         let len = v.len();
+        let capacity = v.capacity();
+        let data = v.as_mut_ptr();
         std::mem::forget(v);
-        Self { data, len }
-    }
-}
-
-impl From<&mut [u8]> for CVec {
-    fn from(v: &mut [u8]) -> Self {
-        let (data, len) = (v.as_mut_ptr(), v.len());
-        //core::mem::forget(v);
-        Self { data, len }
+        Self {
+            data,
+            len,
+            capacity,
+        }
     }
 }
 
 #[no_mangle]
 pub extern "C" fn _c_export_u24(_a: U24) {}
+#[no_mangle]
+pub extern "C" fn _c_export_cvec(_a: CVec) {}
+#[no_mangle]
+pub extern "C" fn _c_export_cvec2(_a: CVec2) {}

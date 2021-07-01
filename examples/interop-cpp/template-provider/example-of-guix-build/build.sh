@@ -16,9 +16,4 @@ guix environment \
         --pure \
         --no-cwd \
         --share=../=/example \
-        -- g++ \
-            -I /gnu/store/h4d3d5gdba9dfkqglngf2x75cy0wwa8v-rust-sv2_ffi-0.1.0 \
-             /example/template-provider.cpp /gnu/store/h4d3d5gdba9dfkqglngf2x75cy0wwa8v-rust-sv2_ffi-0.1.0/libsv2_ffi.a \
-            -lpthread \
-            -ldl \
-            -o /example/example-of-guix-build/a.out
+        -- /example/in_container_build.sh

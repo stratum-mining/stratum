@@ -3,7 +3,8 @@ use alloc::vec::Vec;
 #[cfg(not(feature = "with_serde"))]
 use binary_sv2::binary_codec_sv2::{self, free_vec, free_vec_2, CVec, CVec2};
 use binary_sv2::{Deserialize, Serialize};
-use binary_sv2::{Seq0255, B0255, B064K, U256};
+use binary_sv2::{Error, Seq0255, B0255, B064K, U256};
+use core::convert::TryInto;
 
 /// ## NewTemplate (Server -> Client)
 /// The primary template-providing function. Note that the coinbase_tx_outputs bytes will appear
@@ -96,5 +97,34 @@ impl<'a> From<NewTemplate<'a>> for CNewTemplate {
             coinbase_tx_locktime: v.coinbase_tx_locktime,
             merkle_path: v.merkle_path.into(),
         }
+    }
+}
+
+impl<'a> CNewTemplate {
+    #[cfg(not(feature = "with_serde"))]
+    pub fn to_rust_rep_mut(&'a mut self) -> Result<NewTemplate<'a>, Error> {
+        let coinbase_prefix: B0255 = self.coinbase_prefix.as_mut_slice().try_into()?;
+        let coinbase_tx_outputs: B064K = self.coinbase_tx_outputs.as_mut_slice().try_into()?;
+
+        let merkle_path_ = self.merkle_path.as_mut_slice();
+        let mut merkle_path: Vec<U256> = Vec::new();
+        for cvec in merkle_path_ {
+            merkle_path.push(cvec.as_mut_slice().try_into()?);
+        }
+
+        let merkle_path = Seq0255::new(merkle_path)?;
+        Ok(NewTemplate {
+            template_id: self.template_id,
+            future_template: self.future_template,
+            version: self.version,
+            coinbase_tx_version: self.coinbase_tx_version,
+            coinbase_prefix,
+            coinbase_tx_input_sequence: self.coinbase_tx_input_sequence,
+            coinbase_tx_value_remaining: self.coinbase_tx_value_remaining,
+            coinbase_tx_outputs_count: self.coinbase_tx_outputs_count,
+            coinbase_tx_outputs,
+            coinbase_tx_locktime: self.coinbase_tx_locktime,
+            merkle_path,
+        })
     }
 }

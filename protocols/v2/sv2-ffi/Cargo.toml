@@ -1,6 +1,6 @@
 [package]
 name = "sv2_ffi"
-version = "0.1.0"
+version = "0.1.3"
 authors = ["fi3 <email@email.org>"]
 edition = "2018"
 
@@ -8,8 +8,8 @@ edition = "2018"
 crate-type = ["staticlib"]
 
 [dependencies]
-codec_sv2 = { path = "../../../protocols/v2/codec-sv2", version = "0.1.0" }
+codec_sv2 = { path = "../../../protocols/v2/codec-sv2", version = "0.1.3" }
 const_sv2 = { path = "../../../protocols/v2/const-sv2", version = "0.1.0" }
-binary_sv2 = { path = "../../../protocols/v2/binary-sv2/binary-sv2", version = "0.1.0" }
-common_messages_sv2 = { path = "../../../protocols/v2/subprotocols/common-messages", version = "0.1.0" }
-template_distribution_sv2 = { path = "../../../protocols/v2/subprotocols/template-distribution", version = "0.1.0"}
+binary_sv2 = { path = "../../../protocols/v2/binary-sv2/binary-sv2", version = "0.1.3" }
+common_messages_sv2 = { path = "../../../protocols/v2/subprotocols/common-messages", version = "0.1.3" }
+template_distribution_sv2 = { path = "../../../protocols/v2/subprotocols/template-distribution", version = "0.1.3"}

@@ -33,6 +33,18 @@ impl<'a, T: 'a> Seq0255<'a, T> {
             Err(Error::Todo)
         }
     }
+
+    //pub fn try_from_slice(inner: &'a mut [T]) -> Result<Self, Error> {
+    //    if inner.len() <= 255 {
+    //        let inner_: Vec<T> = vec![];
+    //        for v in inner {
+    //            inner_.push(v);
+    //        }
+    //        Ok(Self(inner_, PhantomData))
+    //    } else {
+    //        Err(Error::Todo)
+    //    }
+    //}
 }
 
 impl<'a, T: GetSize> GetSize for Seq0255<'a, T> {
@@ -209,6 +221,7 @@ impl<'a, T> From<Seq0255<'a, T>> for Vec<T> {
         v.0
     }
 }
+
 impl<'a, T> From<Seq064K<'a, T>> for Vec<T> {
     fn from(v: Seq064K<'a, T>) -> Self {
         v.0

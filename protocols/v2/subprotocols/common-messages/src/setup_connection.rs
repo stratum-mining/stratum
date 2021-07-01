@@ -4,7 +4,7 @@ use binary_sv2::Str0255;
 #[cfg(not(feature = "with_serde"))]
 use binary_sv2::{
     binary_codec_sv2, binary_codec_sv2::CVec, decodable::DecodableField, decodable::FieldMarker,
-    free_vec, GetSize,
+    free_vec, Error, GetSize,
 };
 use binary_sv2::{Deserialize, Serialize};
 use const_sv2::{
@@ -53,16 +53,40 @@ pub struct SetupConnection<'decoder> {
 #[cfg(not(feature = "with_serde"))]
 #[derive(Debug, Clone)]
 pub struct CSetupConnection {
-    protocol: Protocol,
-    min_version: u16,
-    max_version: u16,
-    flags: u32,
-    endpoint_host: CVec,
-    endpoint_port: u16,
-    vendor: CVec,
-    hardware_version: CVec,
-    firmware: CVec,
-    device_id: CVec,
+    pub protocol: Protocol,
+    pub min_version: u16,
+    pub max_version: u16,
+    pub flags: u32,
+    pub endpoint_host: CVec,
+    pub endpoint_port: u16,
+    pub vendor: CVec,
+    pub hardware_version: CVec,
+    pub firmware: CVec,
+    pub device_id: CVec,
+}
+
+impl<'a> CSetupConnection {
+    #[cfg(not(feature = "with_serde"))]
+    pub fn to_rust_rep_mut(&'a mut self) -> Result<SetupConnection<'a>, Error> {
+        let endpoint_host: Str0255 = self.endpoint_host.as_mut_slice().try_into()?;
+        let vendor: Str0255 = self.vendor.as_mut_slice().try_into()?;
+        let hardware_version: Str0255 = self.hardware_version.as_mut_slice().try_into()?;
+        let firmware: Str0255 = self.firmware.as_mut_slice().try_into()?;
+        let device_id: Str0255 = self.device_id.as_mut_slice().try_into()?;
+
+        Ok(SetupConnection {
+            protocol: self.protocol,
+            min_version: self.min_version,
+            max_version: self.max_version,
+            flags: self.flags,
+            endpoint_host,
+            endpoint_port: self.endpoint_port,
+            vendor,
+            hardware_version,
+            firmware,
+            device_id,
+        })
+    }
 }
 
 #[no_mangle]
@@ -147,6 +171,18 @@ pub struct CSetupConnectionError {
     error_code: CVec,
 }
 
+impl<'a> CSetupConnectionError {
+    #[cfg(not(feature = "with_serde"))]
+    pub fn to_rust_rep_mut(&'a mut self) -> Result<SetupConnectionError<'a>, Error> {
+        let error_code: Str0255 = self.error_code.as_mut_slice().try_into()?;
+
+        Ok(SetupConnectionError {
+            flags: self.flags,
+            error_code,
+        })
+    }
+}
+
 #[no_mangle]
 #[cfg(not(feature = "with_serde"))]
 pub extern "C" fn free_setup_connection_error(s: CSetupConnectionError) {
@@ -175,7 +211,7 @@ impl<'a> From<SetupConnectionError<'a>> for CSetupConnectionError {
 /// TemplateDistributionProtocol = [`SV2_TEMPLATE_DISTR_PROTOCOL_DISCRIMINANT`],
 /// JobDistributionProtocol = [`SV2_JOB_DISTR_PROTOCOL_DISCRIMINANT`],
 #[cfg_attr(feature = "with_serde", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 #[repr(u8)]
 #[allow(clippy::enum_variant_names)]
 pub enum Protocol {

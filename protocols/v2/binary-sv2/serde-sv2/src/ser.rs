@@ -92,7 +92,7 @@ impl<'a, W: Write> ser::Serializer for &'a mut Serializer<W> {
             _ => return Err(Error::StringLenBiggerThan256),
         };
         self.output
-            .write_all(&v.as_bytes())
+            .write_all(v.as_bytes())
             .map_err(|_| Error::WriteError)
     }
 

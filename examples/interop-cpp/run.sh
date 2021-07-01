@@ -1,5 +1,8 @@
 #! /bin/sh
 
+touch libsv2_ffi.a
+touch a.out
+
 # CLEAN
 rm libsv2_ffi.a
 rm a.out

@@ -3,7 +3,8 @@ use alloc::vec::Vec;
 #[cfg(not(feature = "with_serde"))]
 use binary_sv2::binary_codec_sv2::{self, free_vec, free_vec_2, CVec, CVec2};
 use binary_sv2::{Deserialize, Serialize};
-use binary_sv2::{Seq064K, Str0255, B016M, B064K};
+use binary_sv2::{Error, Seq064K, Str0255, B016M, B064K};
+use core::convert::TryInto;
 
 /// ## RequestTransactionData (Client -> Server)
 /// A request sent by the Job Negotiator to the Template Provider which requests the set of
@@ -63,6 +64,24 @@ pub struct CRequestTransactionDataSuccess {
     transaction_list: CVec2,
 }
 
+impl<'a> CRequestTransactionDataSuccess {
+    #[cfg(not(feature = "with_serde"))]
+    pub fn to_rust_rep_mut(&'a mut self) -> Result<RequestTransactionDataSuccess<'a>, Error> {
+        let excess_data: B064K = self.excess_data.as_mut_slice().try_into()?;
+        let transaction_list_ = self.transaction_list.as_mut_slice();
+        let mut transaction_list: Vec<B016M> = Vec::new();
+        for cvec in transaction_list_ {
+            transaction_list.push(cvec.as_mut_slice().try_into()?);
+        }
+        let transaction_list = Seq064K::new(transaction_list)?;
+        Ok(RequestTransactionDataSuccess {
+            template_id: self.template_id,
+            excess_data,
+            transaction_list,
+        })
+    }
+}
+
 #[no_mangle]
 #[cfg(not(feature = "with_serde"))]
 pub extern "C" fn free_request_tx_data_success(s: CRequestTransactionDataSuccess) {
@@ -104,6 +123,17 @@ pub struct RequestTransactionDataError<'decoder> {
 pub struct CRequestTransactionDataError {
     template_id: u64,
     error_code: CVec,
+}
+
+impl<'a> CRequestTransactionDataError {
+    #[cfg(not(feature = "with_serde"))]
+    pub fn to_rust_rep_mut(&'a mut self) -> Result<RequestTransactionDataError<'a>, Error> {
+        let error_code: Str0255 = self.error_code.as_mut_slice().try_into()?;
+        Ok(RequestTransactionDataError {
+            template_id: self.template_id,
+            error_code,
+        })
+    }
 }
 
 #[no_mangle]
