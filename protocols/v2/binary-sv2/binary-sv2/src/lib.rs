@@ -6,9 +6,9 @@ pub use serde::{self, Deserialize, Serialize};
 pub use serde_sv2::*;
 
 #[cfg(not(feature = "with_serde"))]
-pub use codec::{self, Decodable as Deserialize, Encodable as Serialize, *};
+pub use binary_codec_sv2::{self, Decodable as Deserialize, Encodable as Serialize, *};
 #[cfg(not(feature = "with_serde"))]
-pub use derive_codec::{Decodable as Deserialize, Encodable as Serialize};
+pub use derive_codec_sv2::{Decodable as Deserialize, Encodable as Serialize};
 
 #[cfg(test)]
 mod test {

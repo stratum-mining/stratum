@@ -55,14 +55,14 @@ impl Node {
     pub async fn send_ping(&mut self) {
         self.expected = Expected::Pong;
         let message = Message::Ping(Ping::new(self.last_id));
-        let frame = StandardSv2Frame::<Message<'static>>::from_message(message).unwrap();
+        let frame = StandardSv2Frame::<Message<'static>>::from_message(message, 0, 0).unwrap();
         self.sender.send(frame).await.unwrap();
         self.last_id += 1;
     }
 
     async fn respond(&mut self, frame: StandardSv2Frame<Message<'static>>) {
         let response = self.handle_message(frame);
-        let frame = StandardSv2Frame::<Message<'static>>::from_message(response).unwrap();
+        let frame = StandardSv2Frame::<Message<'static>>::from_message(response, 0, 0).unwrap();
         self.sender.send(frame).await.unwrap();
         self.last_id += 1;
     }

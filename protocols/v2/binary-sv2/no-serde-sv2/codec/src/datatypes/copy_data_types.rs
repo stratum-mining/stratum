@@ -128,6 +128,7 @@ impl_sv2_for_unsigned!(u16);
 impl_sv2_for_unsigned!(u32);
 impl_sv2_for_unsigned!(u64);
 
+#[repr(C)]
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct U24(pub(crate) u32);
 
