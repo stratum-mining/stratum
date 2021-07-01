@@ -4,9 +4,9 @@ touch libsv2_ffi.a
 touch a.out
 
 # CLEAN
-rm libsv2_ffi.a
-rm a.out
-rm sv2.h
+rm -f libsv2_ffi.a
+rm -f a.out
+rm -f sv2.h
 
 cargo build --release -p sv2_ffi && cp ../../target/release/libsv2_ffi.a ./
 ../../build_header.sh

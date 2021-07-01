@@ -210,3 +210,9 @@ in the container (they are installed in `/gnu/store/[hash]-rust-sv2_ffi-[version
 The manifest it expect to find `sv2.h` in the `sv2_ffi` package, as `sv2.h` is created manually with
 `/build_header.sh` is very easy to commit code with a not updated header file, for that will be
 added an action in github action to check if the header file is updated.
+
+## Install cbindgen
+
+```
+$ cargo install cbindgen --force bts
+```
