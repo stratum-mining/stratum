@@ -7,10 +7,12 @@
 //! u16      <-> U16
 //! U24      <-> U24
 //! u32      <-> u32
+//! f32      <-> f32 // todo not in the spec but used
 //! u64      <-> u64 // TODO not in the spec but used
 //! U256     <-> U256
 //! String   <-> STRO_255
 //! Signature<-> SIGNATURE
+//! U256     <-> B0_32 // todo not in the spec but used
 //! B0255    <-> B0_255
 //! B064K    <-> B0_64K
 //! B016M    <-> B0_16M
@@ -86,3 +88,4 @@ pub use primitives::{
     U24, U256, U32, U64, U8,
 };
 pub use ser::{to_bytes, to_writer, Serializer};
+pub type B032<'a> = U256<'a>;

@@ -10,6 +10,7 @@
 //! U256     <-> U256
 //! String   <-> STRO_255
 //! Signature<-> SIGNATURE
+//! U256     <-> B0_32 // todo not in the spec but used
 //! B0255    <-> B0_255
 //! B064K    <-> B0_64K
 //! B016M    <-> B0_16M
@@ -34,6 +35,8 @@ pub use crate::codec::decodable::Decodable;
 pub use crate::codec::encodable::{Encodable, EncodableField};
 pub use crate::codec::GetSize;
 pub use crate::codec::SizeHint;
+
+pub type B032<'a> = U256<'a>;
 
 #[allow(clippy::wrong_self_convention)]
 pub fn to_bytes<T: Encodable + GetSize>(src: T) -> Result<Vec<u8>, Error> {
