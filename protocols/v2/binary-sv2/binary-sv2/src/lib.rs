@@ -63,6 +63,32 @@ mod test {
         }
     }
 
+    mod test_f32 {
+        use super::*;
+        use core::convert::TryInto;
+
+        #[derive(Clone, Deserialize, Serialize, PartialEq, Debug)]
+        struct Test {
+            a: u8,
+            b: U24,
+            c: f32,
+        }
+
+        #[test]
+        fn test_struct() {
+            let expected = Test {
+                c: 0.345,
+                a: 9,
+                b: 67_u32.try_into().unwrap(),
+            };
+
+            let mut bytes = to_bytes(expected.clone()).unwrap();
+            let deserialized: Test = from_bytes(&mut bytes[..]).unwrap();
+
+            assert_eq!(deserialized, expected);
+        }
+    }
+
     mod test_b0255 {
         use super::*;
         use core::convert::TryInto;

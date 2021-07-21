@@ -5,7 +5,8 @@
 //! u16      <-> U16
 //! U24      <-> U24
 //! u32      <-> u32
-//! u64      <-> u64 // TODO not in the spec but used
+//! f32      <-> f32 // todo not in the spec but used
+//! u64      <-> u64 // todo not in the spec but used
 //! U256     <-> U256
 //! String   <-> STRO_255
 //! Signature<-> SIGNATURE
