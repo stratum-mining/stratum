@@ -64,6 +64,7 @@ pub struct CRequestTransactionDataSuccess {
     transaction_list: CVec2,
 }
 
+#[cfg(not(feature = "with_serde"))]
 impl<'a> CRequestTransactionDataSuccess {
     #[cfg(not(feature = "with_serde"))]
     pub fn to_rust_rep_mut(&'a mut self) -> Result<RequestTransactionDataSuccess<'a>, Error> {
@@ -125,6 +126,7 @@ pub struct CRequestTransactionDataError {
     error_code: CVec,
 }
 
+#[cfg(not(feature = "with_serde"))]
 impl<'a> CRequestTransactionDataError {
     #[cfg(not(feature = "with_serde"))]
     pub fn to_rust_rep_mut(&'a mut self) -> Result<RequestTransactionDataError<'a>, Error> {

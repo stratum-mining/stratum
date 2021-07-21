@@ -65,6 +65,7 @@ pub struct CSetupConnection {
     pub device_id: CVec,
 }
 
+#[cfg(not(feature = "with_serde"))]
 impl<'a> CSetupConnection {
     #[cfg(not(feature = "with_serde"))]
     pub fn to_rust_rep_mut(&'a mut self) -> Result<SetupConnection<'a>, Error> {
@@ -171,6 +172,7 @@ pub struct CSetupConnectionError {
     error_code: CVec,
 }
 
+#[cfg(not(feature = "with_serde"))]
 impl<'a> CSetupConnectionError {
     #[cfg(not(feature = "with_serde"))]
     pub fn to_rust_rep_mut(&'a mut self) -> Result<SetupConnectionError<'a>, Error> {

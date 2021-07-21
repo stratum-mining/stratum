@@ -43,6 +43,7 @@ pub struct CSetNewPrevHash {
     target: CVec,
 }
 
+#[cfg(not(feature = "with_serde"))]
 impl<'a> CSetNewPrevHash {
     #[cfg(not(feature = "with_serde"))]
     pub fn to_rust_rep_mut(&'a mut self) -> Result<SetNewPrevHash<'a>, Error> {

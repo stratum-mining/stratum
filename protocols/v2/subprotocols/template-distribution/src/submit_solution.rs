@@ -42,6 +42,7 @@ pub struct CSubmitSolution {
     coinbase_tx: CVec,
 }
 
+#[cfg(not(feature = "with_serde"))]
 impl<'a> CSubmitSolution {
     #[cfg(not(feature = "with_serde"))]
     pub fn to_rust_rep_mut(&'a mut self) -> Result<SubmitSolution<'a>, Error> {

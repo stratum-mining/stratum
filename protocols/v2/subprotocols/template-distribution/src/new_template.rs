@@ -100,6 +100,7 @@ impl<'a> From<NewTemplate<'a>> for CNewTemplate {
     }
 }
 
+#[cfg(not(feature = "with_serde"))]
 impl<'a> CNewTemplate {
     #[cfg(not(feature = "with_serde"))]
     pub fn to_rust_rep_mut(&'a mut self) -> Result<NewTemplate<'a>, Error> {
