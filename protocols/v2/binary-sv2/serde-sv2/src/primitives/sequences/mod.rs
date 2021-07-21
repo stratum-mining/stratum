@@ -6,14 +6,14 @@ use serde::{de::Visitor, Serialize};
 pub mod seq0255;
 pub mod seq064k;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 enum SeqMaxLen {
     _1B,
     _2B,
 }
 
-#[derive(Debug, PartialEq)]
-struct Seq<'s, T: Serialize + TryFromBSlice<'s>> {
+#[derive(Debug, PartialEq, Clone)]
+struct Seq<'s, T: Clone + Serialize + TryFromBSlice<'s>> {
     data: &'s [u8],
     cursor: usize,
     size: u8,
@@ -27,7 +27,7 @@ struct SeqVisitor<T> {
     _a: core::marker::PhantomData<T>,
 }
 
-impl<'a, T: Serialize + TryFromBSlice<'a>> Visitor<'a> for SeqVisitor<T> {
+impl<'a, T: Clone + Serialize + TryFromBSlice<'a>> Visitor<'a> for SeqVisitor<T> {
     type Value = Seq<'a, T>;
 
     fn expecting(&self, formatter: &mut core::fmt::Formatter) -> core::fmt::Result {

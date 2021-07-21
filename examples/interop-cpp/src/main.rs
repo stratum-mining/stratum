@@ -1,3 +1,5 @@
+#![cfg(not(feature = "with_serde"))]
+
 use codec_sv2::{Encoder, Frame, StandardDecoder, StandardSv2Frame};
 use common_messages_sv2::{Protocol, SetupConnection, SetupConnectionError};
 use const_sv2::MESSAGE_TYPE_SETUP_CONNECTION;

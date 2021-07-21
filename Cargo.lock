@@ -872,6 +872,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "mining"
+version = "0.1.0"
+dependencies = [
+ "binary_sv2",
+ "const_sv2",
+ "serde",
+]
+
+[[package]]
 name = "network_helpers"
 version = "0.1.0"
 dependencies = [

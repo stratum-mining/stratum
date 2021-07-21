@@ -12,6 +12,7 @@ members = [
     "protocols/v2/const-sv2",
     "protocols/v2/subprotocols/common-messages",
     "protocols/v2/subprotocols/template-distribution",
+    "protocols/v2/subprotocols/mining",
     "protocols/v2/sv2-ffi",
     "utils/network-helpers",
     "utils/buffer",

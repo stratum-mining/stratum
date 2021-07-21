@@ -6,13 +6,13 @@ use crate::Error;
 use alloc::vec::Vec;
 use serde::{ser, ser::SerializeTuple, Deserialize, Deserializer, Serialize};
 
-#[derive(Debug)]
-pub struct Seq064K<'s, T: Serialize + TryFromBSlice<'s>> {
+#[derive(Debug, Clone)]
+pub struct Seq064K<'s, T: Clone + Serialize + TryFromBSlice<'s>> {
     seq: Option<Seq<'s, T>>,
     data: Option<Vec<T>>,
 }
 
-impl<'s, T: FixedSize + Serialize + TryFromBSlice<'s> + core::cmp::PartialEq> PartialEq
+impl<'s, T: Clone + FixedSize + Serialize + TryFromBSlice<'s> + core::cmp::PartialEq> PartialEq
     for Seq064K<'s, T>
 {
     fn eq(&self, other: &Self) -> bool {
@@ -34,7 +34,7 @@ impl<'s> PartialEq for Seq064K<'s, B016M<'s>> {
     }
 }
 
-impl<'s, T: Serialize + TryFromBSlice<'s>> Seq064K<'s, T> {
+impl<'s, T: Clone + Serialize + TryFromBSlice<'s>> Seq064K<'s, T> {
     #[inline]
     pub fn new(data: Vec<T>) -> Result<Self, Error> {
         if data.len() > 65536 {
@@ -48,7 +48,7 @@ impl<'s, T: Serialize + TryFromBSlice<'s>> Seq064K<'s, T> {
     }
 }
 
-impl<'s, T: Serialize + TryFromBSlice<'s>> From<Seq<'s, T>> for Seq064K<'s, T> {
+impl<'s, T: Clone + Serialize + TryFromBSlice<'s>> From<Seq<'s, T>> for Seq064K<'s, T> {
     #[inline]
     fn from(val: Seq<'s, T>) -> Self {
         Self {
@@ -58,7 +58,7 @@ impl<'s, T: Serialize + TryFromBSlice<'s>> From<Seq<'s, T>> for Seq064K<'s, T> {
     }
 }
 
-impl<'s, T: FixedSize + Serialize + TryFromBSlice<'s>> Serialize for Seq064K<'s, T> {
+impl<'s, T: Clone + FixedSize + Serialize + TryFromBSlice<'s>> Serialize for Seq064K<'s, T> {
     #[inline]
     fn serialize<S>(&self, serializer: S) -> core::result::Result<S::Ok, S::Error>
     where
@@ -245,7 +245,7 @@ impl<'de: 'a, 'a> Deserialize<'de> for Seq064K<'a, B016M<'a>> {
     }
 }
 
-impl<'a, T: FixedSize + Serialize + TryFromBSlice<'a>> GetSize for Seq064K<'a, T> {
+impl<'a, T: Clone + FixedSize + Serialize + TryFromBSlice<'a>> GetSize for Seq064K<'a, T> {
     fn get_size(&self) -> usize {
         if self.data.is_some() {
             (self.data.as_ref().unwrap().len() * T::FIXED_SIZE) + 2

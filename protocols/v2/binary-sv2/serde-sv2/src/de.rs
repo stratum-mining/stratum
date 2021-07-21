@@ -129,6 +129,12 @@ impl<'de> Deserializer<'de> {
     }
 
     #[inline]
+    fn parse_f32(&mut self) -> Result<f32> {
+        let f32_ = self.get_slice(4)?;
+        Ok(f32::from_le_bytes([f32_[0], f32_[1], f32_[2], f32_[3]]))
+    }
+
+    #[inline]
     fn parse_u256(&mut self) -> Result<&'de [u8; 32]> {
         // slice is 32 bytes so unwrap never called
         let u256: &[u8; 32] = self.get_slice(32)?.try_into().unwrap();
@@ -342,11 +348,11 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         unimplemented!()
     }
 
-    fn deserialize_f32<V>(self, _visitor: V) -> Result<V::Value>
+    fn deserialize_f32<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
-        unimplemented!()
+        visitor.visit_f32(self.parse_f32()?)
     }
 
     // Float parsing is stupidly hard.
