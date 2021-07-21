@@ -101,6 +101,34 @@ mod test {
         }
     }
 
+    mod test_str032 {
+        use super::*;
+        use core::convert::TryInto;
+
+        #[derive(Clone, Deserialize, Serialize, PartialEq, Debug)]
+        struct Test<'decoder> {
+            #[cfg_attr(feature = "with_serde", serde(borrow))]
+            a: Str032<'decoder>,
+        }
+
+        #[test]
+        fn test_stro32() {
+            let mut stro32 = format!("error-code").into_bytes();
+            let stro32: Str032 = (&mut stro32[..]).try_into().unwrap();
+
+            let expected = Test { a: stro32 };
+
+            #[cfg(not(feature = "with_serde"))]
+            let mut bytes = to_bytes(expected.clone()).unwrap();
+            #[cfg(feature = "with_serde")]
+            let mut bytes = to_bytes(&expected.clone()).unwrap();
+
+            let deserialized: Test = from_bytes(&mut bytes[..]).unwrap();
+
+            assert_eq!(deserialized, expected);
+        }
+    }
+
     mod test_b0255 {
         use super::*;
         use core::convert::TryInto;
@@ -281,8 +309,6 @@ mod test {
             let bytes_2 = to_bytes(deserialized.clone()).unwrap();
             #[cfg(feature = "with_serde")]
             let mut bytes_2 = to_bytes(&deserialized.clone()).unwrap();
-
-
 
             assert_eq!(bytes, bytes_2);
         }

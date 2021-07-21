@@ -6,7 +6,8 @@ mod copy_data_types;
 use crate::codec::decodable::FieldMarker;
 pub use copy_data_types::U24;
 pub use non_copy_data_types::{
-    Bytes, Inner, PubKey, Seq0255, Seq064K, Signature, Str0255, B016M, B0255, B064K, U256,
+    Bytes, Inner, PubKey, Seq0255, Seq064K, Signature, Str0255, Str032, B016M, B0255, B032, B064K,
+    U256,
 };
 
 #[cfg(not(feature = "no_std"))]

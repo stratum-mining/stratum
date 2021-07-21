@@ -21,6 +21,7 @@ pub enum Error {
     InvalidUtf8,
     LenBiggerThan16M,
     LenBiggerThan255,
+    LenBiggerThan32,
     LenBiggerThan64K,
     WriteError,
     ReadError,

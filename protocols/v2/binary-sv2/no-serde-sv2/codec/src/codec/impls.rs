@@ -7,42 +7,6 @@ use crate::Error;
 use alloc::vec::Vec;
 use core::convert::{TryFrom, TryInto};
 
-// IMPL ENCODABLE FOR PRIMITIVES
-//impl Encodable for bool {}
-//impl Encodable for u8 {}
-//impl Encodable for u16 {}
-//impl Encodable for U24 {}
-//impl Encodable for u32 {}
-//impl Encodable for u64 {}
-//impl<'a> Encodable for U256<'a> {}
-//impl<'a> Encodable for Signature<'a> {}
-//impl<'a> Encodable for B0255<'a> {}
-//impl<'a> Encodable for B064K<'a> {}
-//impl<'a> Encodable for B016M<'a> {}
-//impl<'a> Encodable for Bytes<'a> {}
-//impl<'a> Encodable for Seq0255<'a, bool> {}
-//impl<'a> Encodable for Seq0255<'a, u8> {}
-//impl<'a> Encodable for Seq0255<'a, u16> {}
-//impl<'a> Encodable for Seq0255<'a, U24> {}
-//impl<'a> Encodable for Seq0255<'a, u32> {}
-//impl<'a> Encodable for Seq0255<'a, u64> {}
-//impl<'a> Encodable for Seq0255<'a, U256<'a>> {}
-//impl<'a> Encodable for Seq0255<'a, Signature<'a>> {}
-//impl<'a> Encodable for Seq0255<'a, B0255<'a>> {}
-//impl<'a> Encodable for Seq0255<'a, B064K<'a>> {}
-//impl<'a> Encodable for Seq0255<'a, B016M<'a>> {}
-//impl<'a> Encodable for Seq064K<'a, bool> {}
-//impl<'a> Encodable for Seq064K<'a, u8> {}
-//impl<'a> Encodable for Seq064K<'a, u16> {}
-//impl<'a> Encodable for Seq064K<'a, U24> {}
-//impl<'a> Encodable for Seq064K<'a, u32> {}
-//impl<'a> Encodable for Seq064K<'a, u64> {}
-//impl<'a> Encodable for Seq064K<'a, U256<'a>> {}
-//impl<'a> Encodable for Seq064K<'a, Signature<'a>> {}
-//impl<'a> Encodable for Seq064K<'a, B0255<'a>> {}
-//impl<'a> Encodable for Seq064K<'a, B064K<'a>> {}
-//impl<'a> Encodable for Seq064K<'a, B016M<'a>> {}
-
 // IMPL GET MARKER FOR PRIMITIVES
 impl GetMarker for bool {
     fn get_marker() -> FieldMarker {
@@ -87,6 +51,11 @@ impl<'a> GetMarker for U256<'a> {
 impl<'a> GetMarker for Signature<'a> {
     fn get_marker() -> FieldMarker {
         FieldMarker::Primitive(PrimitiveMarker::Signature)
+    }
+}
+impl<'a> GetMarker for B032<'a> {
+    fn get_marker() -> FieldMarker {
+        FieldMarker::Primitive(PrimitiveMarker::B032)
     }
 }
 impl<'a> GetMarker for B0255<'a> {
@@ -187,6 +156,15 @@ impl<'a> Decodable<'a> for U256<'a> {
 impl<'a> Decodable<'a> for Signature<'a> {
     fn get_structure(_: &[u8]) -> Result<Vec<FieldMarker>, Error> {
         Ok(vec![PrimitiveMarker::Signature.into()])
+    }
+
+    fn from_decoded_fields(mut data: Vec<DecodableField<'a>>) -> Result<Self, Error> {
+        data.pop().unwrap().try_into()
+    }
+}
+impl<'a> Decodable<'a> for B032<'a> {
+    fn get_structure(_: &[u8]) -> Result<Vec<FieldMarker>, Error> {
+        Ok(vec![PrimitiveMarker::B032.into()])
     }
 
     fn from_decoded_fields(mut data: Vec<DecodableField<'a>>) -> Result<Self, Error> {
@@ -324,6 +302,16 @@ impl<'a> TryFrom<DecodablePrimitive<'a>> for Signature<'a> {
         }
     }
 }
+impl<'a> TryFrom<DecodablePrimitive<'a>> for B032<'a> {
+    type Error = Error;
+
+    fn try_from(value: DecodablePrimitive<'a>) -> Result<Self, Self::Error> {
+        match value {
+            DecodablePrimitive::B032(val) => Ok(val),
+            _ => Err(Error::PrimitiveConversionError),
+        }
+    }
+}
 impl<'a> TryFrom<DecodablePrimitive<'a>> for B0255<'a> {
     type Error = Error;
 
@@ -364,16 +352,6 @@ impl<'a> TryFrom<DecodablePrimitive<'a>> for Bytes<'a> {
         }
     }
 }
-//impl<'a> TryFrom<DecodablePrimitive<'a>> for Seq0255<'a, U24> {
-//    type Error = Error;
-//
-//    fn try_from(value: DecodablePrimitive<'a>) -> Result<Self, Self::Error> {
-//        match value {
-//            DecodablePrimitive::Seq0255u24(val) => Ok(val),
-//            _ => Err(Error::PrimitiveConversionError),
-//        }
-//    }
-//}
 
 // IMPL TRY_FROM DECODEC FIELD FOR PRIMITIVES
 
@@ -458,6 +436,16 @@ impl<'a> TryFrom<DecodableField<'a>> for U256<'a> {
     }
 }
 impl<'a> TryFrom<DecodableField<'a>> for Signature<'a> {
+    type Error = Error;
+
+    fn try_from(value: DecodableField<'a>) -> Result<Self, Self::Error> {
+        match value {
+            DecodableField::Primitive(p) => p.try_into(),
+            _ => Err(Error::DecodableConversionError),
+        }
+    }
+}
+impl<'a> TryFrom<DecodableField<'a>> for B032<'a> {
     type Error = Error;
 
     fn try_from(value: DecodableField<'a>) -> Result<Self, Self::Error> {
@@ -645,9 +633,24 @@ impl<'a> TryFrom<EncodableField<'a>> for Signature<'a> {
         }
     }
 }
+impl<'a> From<B032<'a>> for EncodableField<'a> {
+    fn from(v: B032<'a>) -> Self {
+        EncodableField::Primitive(EncodablePrimitive::B032(v))
+    }
+}
 impl<'a> From<B0255<'a>> for EncodableField<'a> {
     fn from(v: B0255<'a>) -> Self {
         EncodableField::Primitive(EncodablePrimitive::B0255(v))
+    }
+}
+impl<'a> TryFrom<EncodableField<'a>> for B032<'a> {
+    type Error = Error;
+
+    fn try_from(value: EncodableField<'a>) -> Result<Self, Self::Error> {
+        match value {
+            EncodableField::Primitive(EncodablePrimitive::B032(v)) => Ok(v),
+            _ => Err(Error::Todo),
+        }
     }
 }
 impl<'a> TryFrom<EncodableField<'a>> for B0255<'a> {
@@ -765,6 +768,12 @@ impl<'a> From<Inner<'a, true, 64, 0, 0>> for FieldMarker {
     }
 }
 
+impl<'a> From<B032<'a>> for FieldMarker {
+    fn from(_: B032<'a>) -> Self {
+        FieldMarker::Primitive(PrimitiveMarker::B032)
+    }
+}
+
 impl<'a> From<Inner<'a, false, 1, 1, 255>> for FieldMarker {
     fn from(_: Inner<'a, false, 1, 1, 255>) -> Self {
         FieldMarker::Primitive(PrimitiveMarker::B0255)
@@ -787,35 +796,3 @@ impl<'a> From<Bytes<'a>> for FieldMarker {
         FieldMarker::Primitive(PrimitiveMarker::Bytes)
     }
 }
-
-// TODO remove
-//impl<'a, T> From<Seq0255<'a, T>> for FieldMarker {
-//    fn from(_: Seq0255<'a, T>) -> Self {
-//        FieldMarker::Primitive(PrimitiveMarker::B016M)
-//    }
-//}
-
-//// IMPL FIXED FOR FIXED PRIMITIVE
-//impl Fixed for bool {
-//    const SIZE: usize = 1;
-//}
-//
-//impl Fixed for u8 {
-//    const SIZE: usize = 1;
-//}
-//
-//impl Fixed for u16 {
-//    const SIZE: usize = 2;
-//}
-//
-//impl Fixed for u32 {
-//    const SIZE: usize = 4;
-//}
-//
-//impl Fixed for u64 {
-//    const SIZE: usize = 8;
-//}
-//impl Fixed for U24 {
-//    const SIZE: usize = 3;
-//}
-//

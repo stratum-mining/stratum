@@ -12,7 +12,9 @@ pub struct Seq0255<'s, T: Serialize + TryFromBSlice<'s> + Clone> {
     data: Option<Vec<T>>,
 }
 
-impl<'s, T: Clone + Serialize + TryFromBSlice<'s> + core::cmp::PartialEq> PartialEq for Seq0255<'s, T> {
+impl<'s, T: Clone + Serialize + TryFromBSlice<'s> + core::cmp::PartialEq> PartialEq
+    for Seq0255<'s, T>
+{
     fn eq(&self, other: &Self) -> bool {
         match (&self.seq, &self.data, &other.seq, &other.data) {
             (Some(seq1), _, Some(seq2), _) => seq1 == seq2,

@@ -12,7 +12,8 @@
 //! U256     <-> U256
 //! String   <-> STRO_255
 //! Signature<-> SIGNATURE
-//! U256     <-> B0_32 // todo not in the spec but used
+//! B032     <-> B0_32 // todo not in the spec but used
+//! B032     <-> STR0_32 // todo not in the spec but used
 //! B0255    <-> B0_255
 //! B064K    <-> B0_64K
 //! B016M    <-> B0_16M
@@ -84,8 +85,8 @@ mod ser;
 pub use de::{from_bytes, Deserializer};
 pub use error::{Error, Result};
 pub use primitives::{
-    Bool, Bytes, GetSize, Pubkey, Seq0255, Seq064K, Signature, Str0255, B016M, B0255, B064K, U16,
-    U24, U256, U32, U64, U8,
+    Bool, Bytes, GetSize, Pubkey, Seq0255, Seq064K, Signature, Str0255, B016M, B0255, B032, B064K,
+    U16, U24, U256, U32, U64, U8,
 };
 pub use ser::{to_bytes, to_writer, Serializer};
-pub type B032<'a> = U256<'a>;
+pub type Str032<'a> = B032<'a>;

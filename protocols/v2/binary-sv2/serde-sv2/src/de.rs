@@ -172,6 +172,11 @@ impl<'de> Deserializer<'de> {
         let len = self.parse_u8()?;
         self.get_slice(len as usize)
     }
+    #[inline]
+    fn parse_b032(&mut self) -> Result<&'de [u8]> {
+        let len = self.parse_u8()?;
+        self.get_slice(len as usize)
+    }
 }
 
 impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
@@ -256,6 +261,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
             "B016M" => visitor.visit_borrowed_bytes(self.parse_b016m()?),
             "B064K" => visitor.visit_borrowed_bytes(self.parse_b064k()?),
             "B0255" => visitor.visit_borrowed_bytes(self.parse_b0255()?),
+            "B032" => visitor.visit_borrowed_bytes(self.parse_b032()?),
             "Seq_0255_U256" => visitor.visit_borrowed_bytes(self.parse_seq0255(32)?),
             "Seq_0255_Bool" => visitor.visit_borrowed_bytes(self.parse_seq0255(1)?),
             "Seq_0255_U16" => visitor.visit_borrowed_bytes(self.parse_seq0255(2)?),

@@ -1,5 +1,5 @@
 use crate::codec::GetSize;
-use crate::datatypes::{Bytes, Signature, Sv2DataType, B016M, B0255, B064K, U24, U256};
+use crate::datatypes::{Bytes, Signature, Sv2DataType, B016M, B0255, B032, B064K, U24, U256};
 use crate::Error;
 use alloc::vec::Vec;
 #[cfg(not(feature = "no_std"))]
@@ -42,6 +42,7 @@ pub enum EncodablePrimitive<'a> {
     U32(u32),
     F32(f32),
     U64(u64),
+    B032(B032<'a>),
     B0255(B0255<'a>),
     B064K(B064K<'a>),
     B016M(B016M<'a>),
@@ -61,6 +62,7 @@ impl<'a> EncodablePrimitive<'a> {
             Self::U32(v) => v.to_slice(dst),
             Self::F32(v) => v.to_slice(dst),
             Self::U64(v) => v.to_slice(dst),
+            Self::B032(v) => v.to_slice(dst),
             Self::B0255(v) => v.to_slice(dst),
             Self::B064K(v) => v.to_slice(dst),
             Self::B016M(v) => v.to_slice(dst),
@@ -81,6 +83,7 @@ impl<'a> EncodablePrimitive<'a> {
             Self::U32(v) => v.to_writer_(writer),
             Self::F32(v) => v.to_writer_(writer),
             Self::U64(v) => v.to_writer_(writer),
+            Self::B032(v) => v.to_writer_(writer),
             Self::B0255(v) => v.to_writer_(writer),
             Self::B064K(v) => v.to_writer_(writer),
             Self::B016M(v) => v.to_writer_(writer),
@@ -102,6 +105,7 @@ impl<'a> GetSize for EncodablePrimitive<'a> {
             Self::U32(v) => v.get_size(),
             Self::F32(v) => v.get_size(),
             Self::U64(v) => v.get_size(),
+            Self::B032(v) => v.get_size(),
             Self::B0255(v) => v.get_size(),
             Self::B064K(v) => v.get_size(),
             Self::B016M(v) => v.get_size(),
