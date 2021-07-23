@@ -14,5 +14,10 @@ binary_sv2 = { path = "../../../protocols/v2/binary-sv2/binary-sv2", version = "
 common_messages_sv2 = { path = "../../../protocols/v2/subprotocols/common-messages", version = "0.1.3" }
 template_distribution_sv2 = { path = "../../../protocols/v2/subprotocols/template-distribution", version = "0.1.3"}
 
+[dev-dependencies]
+quickcheck = "1.0.3"
+quickcheck_macros = "1"
+
 [features]
 with_serde = []
+prop_test = ["binary_sv2/prop_test"]

@@ -375,3 +375,102 @@ pub extern "C" fn next_frame(decoder: *mut DecoderWrapper) -> CResult<CSv2Messag
         }
     }
 }
+#[cfg(test)]
+#[cfg(feature = "prop_test")]
+mod tests {
+    use super::*;
+    use binary_sv2::{B0255, B064K, U256, Seq0255};
+    use common_messages_sv2::Protocol;
+    use core::convert::TryInto;
+
+    use quickcheck::{Arbitrary, Gen, empty_shrinker};
+
+    use quickcheck_macros;
+
+    #[derive(Clone, Debug)]
+    struct CompletlyRandomNewTemplate(NewTemplate<'static>);
+
+    impl Arbitrary for CompletlyRandomNewTemplate {
+        fn arbitrary(g: &mut Gen) -> Self {
+            //let mut coinbase_prefix_generator = Gen::new(255);
+            //let mut coinbase_tx_generator = Gen::new(65535);
+            //let coinbase_prefix: B0255 = Vec::<u8>::arbitrary(&mut coinbase_prefix_generator).try_into().unwrap();
+            //let coinbase_tx_outputs: B064K = Vec::<u8>::arbitrary(&mut coinbase_tx_generator).try_into().unwrap();
+            let coinbase_prefix: B0255 = Vec::<u8>::arbitrary(g).try_into().unwrap();
+            let coinbase_tx_outputs: B064K = Vec::<u8>::arbitrary(g).try_into().unwrap();
+
+            let merkle_path_inner = U256::from_random(g);
+            let merkle_path: Seq0255<U256> = vec![merkle_path_inner].into();
+            CompletlyRandomNewTemplate(NewTemplate {
+                template_id: u64::arbitrary(g),
+                future_template: bool::arbitrary(g),
+                version: u32::arbitrary(g),
+                coinbase_tx_version: u32::arbitrary(g),
+                coinbase_prefix,
+                coinbase_tx_input_sequence: u32::arbitrary(g),
+                coinbase_tx_value_remaining: u64::arbitrary(g),
+                coinbase_tx_outputs_count: u32::arbitrary(g),
+                coinbase_tx_outputs,
+                coinbase_tx_locktime: u32::arbitrary(g),
+                merkle_path,
+            })
+        }
+
+        //fn shrink(&self) -> Box<dyn Iterator<Item = Self>> {
+        //    let value = self.clone().0;
+        //    match value.template_id {
+        //        0 => empty_shrinker(),
+        //        _ => {
+        //            let mut shrinked_ids: Vec<NewTemplate> = vec![];
+        //            for id in 0..value.template_id {
+        //                let mut shrinked_value = value.clone();
+        //                shrinked_value.template_id = id;
+        //                shrinked_ids.push(shrinked_value);
+        //            };
+        //            Box::new(shrinked_ids.into_iter().map(|x| CompletlyRandomNewTemplate(x)))
+        //        }
+        //    }
+        //}
+    }
+
+    #[quickcheck_macros::quickcheck]
+    fn encode_with_c_new_template_id(message: CompletlyRandomNewTemplate) -> bool {
+        let expected = message.clone().0;
+
+        let mut encoder = Encoder::<NewTemplate>::new();
+        let mut decoder = StandardDecoder::<Sv2Message<'static>>::new();
+
+        let frame =
+        StandardSv2Frame::from_message(message.0, MESSAGE_TYPE_NEW_TEMPLATE, 0).unwrap();
+        let encoded_frame = encoder.encode(frame).unwrap();
+
+        let buffer = decoder.writable();
+        for i in 0..buffer.len() {
+            buffer[i] = encoded_frame[i]
+        }
+        decoder.next_frame();
+
+        let buffer = decoder.writable();
+        for i in 0..buffer.len() {
+            buffer[i] = encoded_frame[i + 6]
+        }
+
+        let mut decoded = decoder.next_frame().unwrap();
+
+        let msg_type = decoded.get_header().unwrap().msg_type();
+        let payload = decoded.payload();
+        let decoded_message: Sv2Message = (msg_type, payload).try_into().unwrap();
+        let decoded_message = match decoded_message {
+            Sv2Message::NewTemplate(m) => m,
+            _ => panic!(),
+        };
+        println!("{:#?}", decoded_message.merkle_path);
+        println!("{:#?}", expected.merkle_path);
+
+
+        decoded_message.merkle_path == expected.merkle_path
+
+    }
+
+
+}

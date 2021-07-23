@@ -120,7 +120,7 @@ impl<'a> From<Vec<u8>> for EncodableField<'a> {
 }
 
 #[repr(C)]
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct CVec {
     data: *mut u8,
     len: usize,
@@ -192,7 +192,7 @@ pub unsafe extern "C" fn cvec_from_buffer(data: *const u8, len: usize) -> CVec {
 }
 
 #[repr(C)]
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct CVec2 {
     data: *mut CVec,
     len: usize,
@@ -214,6 +214,7 @@ pub fn free_vec(buf: &mut CVec) {
     let _: Vec<u8> = unsafe { Vec::from_raw_parts(buf.data, buf.len, buf.capacity) };
 }
 
+// Must be cfg test or FFI code will double free
 pub fn free_vec_2(buf: &mut CVec2) {
     let vs: Vec<CVec> = unsafe { Vec::from_raw_parts(buf.data, buf.len, buf.capacity) };
     for mut s in vs {

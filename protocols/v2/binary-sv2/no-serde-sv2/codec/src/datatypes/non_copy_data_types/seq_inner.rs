@@ -227,3 +227,15 @@ impl<'a, T> From<Seq064K<'a, T>> for Vec<T> {
         v.0
     }
 }
+
+impl<'a, T> From<Vec<T>> for Seq0255<'a, T> {
+    fn from(v: Vec<T>) -> Self {
+        Seq0255(v, PhantomData)
+    }
+}
+
+impl<'a, T> From<Vec<T>> for Seq064K<'a, T> {
+    fn from(v: Vec<T>) -> Self {
+        Seq064K(v, PhantomData)
+    }
+}
