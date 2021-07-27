@@ -11,7 +11,9 @@ use const_sv2::{
     SV2_JOB_DISTR_PROTOCOL_DISCRIMINANT, SV2_JOB_NEG_PROTOCOL_DISCRIMINANT,
     SV2_MINING_PROTOCOL_DISCRIMINANT, SV2_TEMPLATE_DISTR_PROTOCOL_DISCRIMINANT,
 };
-use core::convert::{TryFrom, TryInto};
+use core::convert::TryFrom;
+#[cfg(not(feature = "with_serde"))]
+use core::convert::TryInto;
 
 /// ## SetupConnection (Client -> Server)
 /// Initiates the connection. This MUST be the first message sent by the client on the newly

@@ -96,7 +96,7 @@ impl<'decoder> binary_sv2::Serialize for Message<'decoder> {
 
 #[cfg(feature = "with_serde")]
 impl<'decoder> binary_sv2::Deserialize<'decoder> for Message<'decoder> {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    fn deserialize<D>(_deserializer: D) -> Result<Self, D::Error>
     where
         D: binary_sv2::serde::Deserializer<'decoder>,
     {

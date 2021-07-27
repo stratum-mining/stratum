@@ -308,7 +308,7 @@ mod test {
             #[cfg(not(feature = "with_serde"))]
             let bytes_2 = to_bytes(deserialized.clone()).unwrap();
             #[cfg(feature = "with_serde")]
-            let mut bytes_2 = to_bytes(&deserialized.clone()).unwrap();
+            let bytes_2 = to_bytes(&deserialized.clone()).unwrap();
 
             assert_eq!(bytes, bytes_2);
         }
@@ -493,7 +493,7 @@ mod test {
             #[cfg(not(feature = "with_serde"))]
             let bytes_2 = to_bytes(deserialized.clone()).unwrap();
             #[cfg(feature = "with_serde")]
-            let mut bytes_2 = to_bytes(&deserialized.clone()).unwrap();
+            let bytes_2 = to_bytes(&deserialized.clone()).unwrap();
 
             assert_eq!(bytes, bytes_2);
         }
