@@ -116,6 +116,20 @@ impl<'a> TryFromBSlice<'a> for u32 {
     }
 }
 
+impl<'a> TryFromBSlice<'a> for u64 {
+    type Error = Error;
+
+    #[inline]
+    fn try_from_slice(val: &'a [u8]) -> Result<Self, Error> {
+        if val.len() != 8 {
+            return Err(Error::InvalidU64Size(val.len()));
+        }
+        Ok(u64::from_le_bytes([
+            val[0], val[1], val[2], val[3], val[4], val[5], val[6], val[7],
+        ]))
+    }
+}
+
 impl<'a> TryFromBSlice<'a> for U256<'a> {
     type Error = Error;
 
