@@ -128,6 +128,14 @@ impl_sv2_for_unsigned!(u16);
 impl_sv2_for_unsigned!(u32);
 impl_sv2_for_unsigned!(u64);
 
+// Impl f32 as a primitives
+
+impl Fixed for f32 {
+    const SIZE: usize = 4;
+}
+
+impl_sv2_for_unsigned!(f32);
+
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct U24(pub(crate) u32);

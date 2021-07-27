@@ -5,10 +5,13 @@
 //! u16      <-> U16
 //! U24      <-> U24
 //! u32      <-> u32
-//! u64      <-> u64 // TODO not in the spec but used
+//! f32      <-> f32 // todo not in the spec but used
+//! u64      <-> u64 // todo not in the spec but used
 //! U256     <-> U256
-//! String   <-> STRO_255
+//! Str0255  <-> STRO_255
+//! Str032   <-> STRO_32 // todo not in the spec but used
 //! Signature<-> SIGNATURE
+//! B032     <-> B0_32 // todo not in the spec but used
 //! B0255    <-> B0_255
 //! B064K    <-> B0_64K
 //! B016M    <-> B0_16M
@@ -26,7 +29,8 @@ use std::io::{Error as E, ErrorKind};
 mod codec;
 mod datatypes;
 pub use datatypes::{
-    Bytes, PubKey, Seq0255, Seq064K, Signature, Str0255, B016M, B0255, B064K, U24, U256,
+    Bytes, PubKey, Seq0255, Seq064K, Signature, Str0255, Str032, B016M, B0255, B032, B064K, U24,
+    U256,
 };
 
 pub use crate::codec::decodable::Decodable;

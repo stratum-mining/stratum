@@ -4,7 +4,7 @@ use alloc::vec::Vec;
 use core::convert::TryFrom;
 use serde::{de::Visitor, ser, ser::SerializeTuple, Deserialize, Deserializer, Serialize};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 enum Inner<'a> {
     Ref(&'a [u8]),
     Owned(Vec<u8>),
@@ -29,7 +29,7 @@ impl<'a> Inner<'a> {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct B016M<'b>(Inner<'b>);
 
 impl<'b> TryFrom<&'b [u8]> for B016M<'b> {

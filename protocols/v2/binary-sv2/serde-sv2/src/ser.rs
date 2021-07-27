@@ -162,8 +162,10 @@ impl<'a, W: Write> ser::Serializer for &'a mut Serializer<W> {
         unimplemented!()
     }
 
-    fn serialize_f32(self, _v: f32) -> Result<()> {
-        unimplemented!()
+    fn serialize_f32(self, v: f32) -> Result<()> {
+        self.output
+            .write_all(&v.to_le_bytes())
+            .map_err(|_| Error::WriteError)
     }
 
     fn serialize_f64(self, _v: f64) -> Result<()> {

@@ -1,5 +1,5 @@
 use crate::codec::{GetSize, SizeHint};
-use crate::datatypes::{Bytes, Signature, Sv2DataType, B016M, B0255, B064K, U24, U256};
+use crate::datatypes::{Bytes, Signature, Sv2DataType, B016M, B0255, B032, B064K, U24, U256};
 use crate::Error;
 use alloc::vec::Vec;
 #[cfg(not(feature = "no_std"))]
@@ -53,12 +53,13 @@ pub enum PrimitiveMarker {
     U256,
     Signature,
     U32,
+    F32,
     U64,
+    B032,
     B0255,
     B064K,
     B016M,
     Bytes,
-    //Seq0255u24,
 }
 
 /// Passed to a decoder to define the structure of the data to be decoded
@@ -81,12 +82,13 @@ pub enum DecodablePrimitive<'a> {
     U256(U256<'a>),
     Signature(Signature<'a>),
     U32(u32),
+    F32(f32),
     U64(u64),
+    B032(B032<'a>),
     B0255(B0255<'a>),
     B064K(B064K<'a>),
     B016M(B016M<'a>),
     Bytes(Bytes<'a>),
-    //Seq0255u24(Seq0255<'a, U24>),
 }
 
 /// Used to contrustuct messages is returned by the decoder
@@ -110,12 +112,13 @@ impl SizeHint for PrimitiveMarker {
             Self::U256 => U256::size_hint(data, offset),
             Self::Signature => Signature::size_hint(data, offset),
             Self::U32 => u32::size_hint(data, offset),
+            Self::F32 => f32::size_hint(data, offset),
             Self::U64 => u64::size_hint(data, offset),
+            Self::B032 => B032::size_hint(data, offset),
             Self::B0255 => B0255::size_hint(data, offset),
             Self::B064K => B064K::size_hint(data, offset),
             Self::B016M => B016M::size_hint(data, offset),
             Self::Bytes => Bytes::size_hint(data, offset),
-            //Self::Seq0255u24 => Seq0255::<'static, U24>::size_hint(data, offset),
         }
     }
 }
@@ -191,7 +194,9 @@ impl PrimitiveMarker {
                 DecodablePrimitive::Signature(Signature::from_bytes_unchecked(&mut data[offset..]))
             }
             Self::U32 => DecodablePrimitive::U32(u32::from_bytes_unchecked(&mut data[offset..])),
+            Self::F32 => DecodablePrimitive::F32(f32::from_bytes_unchecked(&mut data[offset..])),
             Self::U64 => DecodablePrimitive::U64(u64::from_bytes_unchecked(&mut data[offset..])),
+            Self::B032 => DecodablePrimitive::B032(B032::from_bytes_unchecked(&mut data[offset..])),
             Self::B0255 => {
                 DecodablePrimitive::B0255(B0255::from_bytes_unchecked(&mut data[offset..]))
             }
@@ -204,9 +209,6 @@ impl PrimitiveMarker {
             Self::Bytes => {
                 DecodablePrimitive::Bytes(Bytes::from_bytes_unchecked(&mut data[offset..]))
             }
-            //Self::Seq0255u24 => DecodablePrimitive::Seq0255u24(
-                //Seq0255::<'a, U24>::from_bytes_unchecked(&mut data[offset..]),
-            //),
         }
     }
 
@@ -222,14 +224,13 @@ impl PrimitiveMarker {
                 reader,
             )?)),
             Self::U32 => Ok(DecodablePrimitive::U32(u32::from_reader_(reader)?)),
+            Self::F32 => Ok(DecodablePrimitive::F32(f32::from_reader_(reader)?)),
             Self::U64 => Ok(DecodablePrimitive::U64(u64::from_reader_(reader)?)),
+            Self::B032 => Ok(DecodablePrimitive::B032(B032::from_reader_(reader)?)),
             Self::B0255 => Ok(DecodablePrimitive::B0255(B0255::from_reader_(reader)?)),
             Self::B064K => Ok(DecodablePrimitive::B064K(B064K::from_reader_(reader)?)),
             Self::B016M => Ok(DecodablePrimitive::B016M(B016M::from_reader_(reader)?)),
             Self::Bytes => Ok(DecodablePrimitive::Bytes(Bytes::from_reader_(reader)?)),
-            //Self::Seq0255u24 => Ok(DecodablePrimitive::Seq0255u24(
-            //Seq0255::<'a, U24>::from_reader_(reader)?,
-            //)),
         }
     }
 }
@@ -244,12 +245,13 @@ impl<'a> GetSize for DecodablePrimitive<'a> {
             DecodablePrimitive::U256(v) => v.get_size(),
             DecodablePrimitive::Signature(v) => v.get_size(),
             DecodablePrimitive::U32(v) => v.get_size(),
+            DecodablePrimitive::F32(v) => v.get_size(),
             DecodablePrimitive::U64(v) => v.get_size(),
+            DecodablePrimitive::B032(v) => v.get_size(),
             DecodablePrimitive::B0255(v) => v.get_size(),
             DecodablePrimitive::B064K(v) => v.get_size(),
             DecodablePrimitive::B016M(v) => v.get_size(),
             DecodablePrimitive::Bytes(v) => v.get_size(),
-            //DecodablePrimitive::Seq0255u24(v) => v.get_size(),
         }
     }
 }

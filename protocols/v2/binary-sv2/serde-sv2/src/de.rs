@@ -129,6 +129,12 @@ impl<'de> Deserializer<'de> {
     }
 
     #[inline]
+    fn parse_f32(&mut self) -> Result<f32> {
+        let f32_ = self.get_slice(4)?;
+        Ok(f32::from_le_bytes([f32_[0], f32_[1], f32_[2], f32_[3]]))
+    }
+
+    #[inline]
     fn parse_u256(&mut self) -> Result<&'de [u8; 32]> {
         // slice is 32 bytes so unwrap never called
         let u256: &[u8; 32] = self.get_slice(32)?.try_into().unwrap();
@@ -163,6 +169,11 @@ impl<'de> Deserializer<'de> {
 
     #[inline]
     fn parse_b0255(&mut self) -> Result<&'de [u8]> {
+        let len = self.parse_u8()?;
+        self.get_slice(len as usize)
+    }
+    #[inline]
+    fn parse_b032(&mut self) -> Result<&'de [u8]> {
         let len = self.parse_u8()?;
         self.get_slice(len as usize)
     }
@@ -250,6 +261,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
             "B016M" => visitor.visit_borrowed_bytes(self.parse_b016m()?),
             "B064K" => visitor.visit_borrowed_bytes(self.parse_b064k()?),
             "B0255" => visitor.visit_borrowed_bytes(self.parse_b0255()?),
+            "B032" => visitor.visit_borrowed_bytes(self.parse_b032()?),
             "Seq_0255_U256" => visitor.visit_borrowed_bytes(self.parse_seq0255(32)?),
             "Seq_0255_Bool" => visitor.visit_borrowed_bytes(self.parse_seq0255(1)?),
             "Seq_0255_U16" => visitor.visit_borrowed_bytes(self.parse_seq0255(2)?),
@@ -261,7 +273,9 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
             "Seq_064K_U16" => visitor.visit_borrowed_bytes(self.parse_seq064k(2)?),
             "Seq_064K_U24" => visitor.visit_borrowed_bytes(self.parse_seq064k(3)?),
             "Seq_064K_U32" => visitor.visit_borrowed_bytes(self.parse_seq064k(4)?),
+            "Seq_064K_U64" => visitor.visit_borrowed_bytes(self.parse_seq064k(8)?),
             "Seq_064K_Signature" => visitor.visit_borrowed_bytes(self.parse_seq064k(64)?),
+            "Seq_064K_B064K" => visitor.visit_borrowed_bytes(self.parse_seq064k_variable(2)?),
             "Seq_064K_B016M" => visitor.visit_borrowed_bytes(self.parse_seq064k_variable(3)?),
             "Bytes" => visitor.visit_borrowed_bytes(self.parse_bytes()),
             _ => unreachable!("Invalid type"),
@@ -342,11 +356,11 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         unimplemented!()
     }
 
-    fn deserialize_f32<V>(self, _visitor: V) -> Result<V::Value>
+    fn deserialize_f32<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
-        unimplemented!()
+        visitor.visit_f32(self.parse_f32()?)
     }
 
     // Float parsing is stupidly hard.

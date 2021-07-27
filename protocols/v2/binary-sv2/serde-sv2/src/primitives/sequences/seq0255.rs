@@ -6,13 +6,15 @@ use crate::Error;
 use alloc::vec::Vec;
 use serde::{ser, ser::SerializeTuple, Deserialize, Deserializer, Serialize};
 
-#[derive(Debug)]
-pub struct Seq0255<'s, T: Serialize + TryFromBSlice<'s>> {
+#[derive(Debug, Clone)]
+pub struct Seq0255<'s, T: Serialize + TryFromBSlice<'s> + Clone> {
     seq: Option<Seq<'s, T>>,
     data: Option<Vec<T>>,
 }
 
-impl<'s, T: Serialize + TryFromBSlice<'s> + core::cmp::PartialEq> PartialEq for Seq0255<'s, T> {
+impl<'s, T: Clone + Serialize + TryFromBSlice<'s> + core::cmp::PartialEq> PartialEq
+    for Seq0255<'s, T>
+{
     fn eq(&self, other: &Self) -> bool {
         match (&self.seq, &self.data, &other.seq, &other.data) {
             (Some(seq1), _, Some(seq2), _) => seq1 == seq2,
@@ -22,7 +24,7 @@ impl<'s, T: Serialize + TryFromBSlice<'s> + core::cmp::PartialEq> PartialEq for 
     }
 }
 
-impl<'s, T: Serialize + TryFromBSlice<'s>> Seq0255<'s, T> {
+impl<'s, T: Clone + Serialize + TryFromBSlice<'s>> Seq0255<'s, T> {
     #[inline]
     pub fn new(data: Vec<T>) -> Result<Self, Error> {
         if data.len() > 255 {
@@ -36,7 +38,7 @@ impl<'s, T: Serialize + TryFromBSlice<'s>> Seq0255<'s, T> {
     }
 }
 
-impl<'s, T: Serialize + TryFromBSlice<'s>> From<Seq<'s, T>> for Seq0255<'s, T> {
+impl<'s, T: Clone + Serialize + TryFromBSlice<'s>> From<Seq<'s, T>> for Seq0255<'s, T> {
     #[inline]
     fn from(val: Seq<'s, T>) -> Self {
         Self {
@@ -46,7 +48,7 @@ impl<'s, T: Serialize + TryFromBSlice<'s>> From<Seq<'s, T>> for Seq0255<'s, T> {
     }
 }
 
-impl<'s, T: Serialize + TryFromBSlice<'s>> Serialize for Seq0255<'s, T> {
+impl<'s, T: Clone + Serialize + TryFromBSlice<'s>> Serialize for Seq0255<'s, T> {
     #[inline]
     fn serialize<S>(&self, serializer: S) -> core::result::Result<S::Ok, S::Error>
     where
@@ -187,7 +189,7 @@ impl<'de: 'a, 'a> Deserialize<'de> for Seq0255<'a, Signature<'a>> {
     }
 }
 
-impl<'a, T: FixedSize + Serialize + TryFromBSlice<'a>> GetSize for Seq0255<'a, T> {
+impl<'a, T: Clone + FixedSize + Serialize + TryFromBSlice<'a>> GetSize for Seq0255<'a, T> {
     fn get_size(&self) -> usize {
         if self.data.is_some() {
             (self.data.as_ref().unwrap().len() * T::FIXED_SIZE) + 1

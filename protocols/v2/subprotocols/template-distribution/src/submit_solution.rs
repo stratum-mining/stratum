@@ -2,8 +2,11 @@
 use alloc::vec::Vec;
 #[cfg(not(feature = "with_serde"))]
 use binary_sv2::binary_codec_sv2::{self, free_vec, CVec};
+#[cfg(not(feature = "with_serde"))]
+use binary_sv2::Error;
+use binary_sv2::B064K;
 use binary_sv2::{Deserialize, Serialize};
-use binary_sv2::{Error, B064K};
+#[cfg(not(feature = "with_serde"))]
 use core::convert::TryInto;
 
 /// ## SubmitSolution (Client -> Server)
@@ -42,6 +45,7 @@ pub struct CSubmitSolution {
     coinbase_tx: CVec,
 }
 
+#[cfg(not(feature = "with_serde"))]
 impl<'a> CSubmitSolution {
     #[cfg(not(feature = "with_serde"))]
     pub fn to_rust_rep_mut(&'a mut self) -> Result<SubmitSolution<'a>, Error> {

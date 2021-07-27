@@ -2,7 +2,7 @@ use crate::primitives::GetSize;
 use alloc::vec::Vec;
 use serde::{de::Visitor, ser, Deserialize, Deserializer, Serialize};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 enum Inner<'a> {
     Ref(&'a [u8]),
     #[allow(dead_code)]
@@ -19,7 +19,7 @@ impl<'a> Inner<'a> {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Bytes<'b>(Inner<'b>);
 
 impl<'b> From<&'b [u8]> for Bytes<'b> {

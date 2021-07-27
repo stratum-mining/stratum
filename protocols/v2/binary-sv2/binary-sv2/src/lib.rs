@@ -30,7 +30,11 @@ mod test {
             let a: Bytes = (&mut bytes[..]).try_into().unwrap();
             let expected = Test { a };
 
+            #[cfg(not(feature = "with_serde"))]
             let mut bytes = to_bytes(expected.clone()).unwrap();
+            #[cfg(feature = "with_serde")]
+            let mut bytes = to_bytes(&expected.clone()).unwrap();
+
             let deserialized: Test = from_bytes(&mut bytes[..]).unwrap();
 
             assert_eq!(deserialized, expected);
@@ -56,7 +60,69 @@ mod test {
                 c: 67_u32.try_into().unwrap(),
             };
 
+            #[cfg(not(feature = "with_serde"))]
             let mut bytes = to_bytes(expected.clone()).unwrap();
+            #[cfg(feature = "with_serde")]
+            let mut bytes = to_bytes(&expected.clone()).unwrap();
+
+            let deserialized: Test = from_bytes(&mut bytes[..]).unwrap();
+
+            assert_eq!(deserialized, expected);
+        }
+    }
+
+    mod test_f32 {
+        use super::*;
+        use core::convert::TryInto;
+
+        #[derive(Clone, Deserialize, Serialize, PartialEq, Debug)]
+        struct Test {
+            a: u8,
+            b: U24,
+            c: f32,
+        }
+
+        #[test]
+        fn test_struct() {
+            let expected = Test {
+                c: 0.345,
+                a: 9,
+                b: 67_u32.try_into().unwrap(),
+            };
+
+            #[cfg(not(feature = "with_serde"))]
+            let mut bytes = to_bytes(expected.clone()).unwrap();
+            #[cfg(feature = "with_serde")]
+            let mut bytes = to_bytes(&expected.clone()).unwrap();
+
+            let deserialized: Test = from_bytes(&mut bytes[..]).unwrap();
+
+            assert_eq!(deserialized, expected);
+        }
+    }
+
+    mod test_str032 {
+        use super::*;
+        use core::convert::TryInto;
+
+        #[derive(Clone, Deserialize, Serialize, PartialEq, Debug)]
+        struct Test<'decoder> {
+            #[cfg_attr(feature = "with_serde", serde(borrow))]
+            a: Str032<'decoder>,
+        }
+
+        #[test]
+        fn test_stro32() {
+            let mut stro32 = format!("error-code").into_bytes();
+            let stro32: Str032 = (&mut stro32[..]).try_into().unwrap();
+
+            let expected = Test { a: stro32 };
+
+            #[cfg(not(feature = "with_serde"))]
+            let mut bytes = to_bytes(expected.clone()).unwrap();
+            #[cfg(feature = "with_serde")]
+            let mut bytes = to_bytes(&expected.clone()).unwrap();
+
             let deserialized: Test = from_bytes(&mut bytes[..]).unwrap();
 
             assert_eq!(deserialized, expected);
@@ -80,7 +146,11 @@ mod test {
 
             let expected = Test { a: b0255 };
 
+            #[cfg(not(feature = "with_serde"))]
             let mut bytes = to_bytes(expected.clone()).unwrap();
+            #[cfg(feature = "with_serde")]
+            let mut bytes = to_bytes(&expected.clone()).unwrap();
+
             let deserialized: Test = from_bytes(&mut bytes[..]).unwrap();
 
             assert_eq!(deserialized, expected);
@@ -104,7 +174,11 @@ mod test {
 
             let expected = Test { a: u256 };
 
+            #[cfg(not(feature = "with_serde"))]
             let mut bytes = to_bytes(expected.clone()).unwrap();
+            #[cfg(feature = "with_serde")]
+            let mut bytes = to_bytes(&expected.clone()).unwrap();
+
             let deserialized: Test = from_bytes(&mut bytes[..]).unwrap();
 
             assert_eq!(deserialized, expected);
@@ -128,7 +202,11 @@ mod test {
 
             let expected = Test { a: s };
 
+            #[cfg(not(feature = "with_serde"))]
             let mut bytes = to_bytes(expected.clone()).unwrap();
+            #[cfg(feature = "with_serde")]
+            let mut bytes = to_bytes(&expected.clone()).unwrap();
+
             let deserialized: Test = from_bytes(&mut bytes[..]).unwrap();
 
             assert_eq!(deserialized, expected);
@@ -154,7 +232,11 @@ mod test {
 
             let expected = Test { a: b, b: true };
 
+            #[cfg(not(feature = "with_serde"))]
             let mut bytes = to_bytes(expected.clone()).unwrap();
+            #[cfg(feature = "with_serde")]
+            let mut bytes = to_bytes(&expected.clone()).unwrap();
+
             let deserialized: Test = from_bytes(&mut bytes[..]).unwrap();
 
             assert_eq!(deserialized, expected);
@@ -181,7 +263,11 @@ mod test {
 
             let expected = Test { a: b, b: true };
 
+            #[cfg(not(feature = "with_serde"))]
             let mut bytes = to_bytes(expected.clone()).unwrap();
+            #[cfg(feature = "with_serde")]
+            let mut bytes = to_bytes(&expected.clone()).unwrap();
+
             let deserialized: Test = from_bytes(&mut bytes[..]).unwrap();
 
             assert_eq!(deserialized, expected);
@@ -212,11 +298,17 @@ mod test {
 
             let test = Test { a: s };
 
+            #[cfg(not(feature = "with_serde"))]
             let mut bytes = to_bytes(test.clone()).unwrap();
+            #[cfg(feature = "with_serde")]
+            let mut bytes = to_bytes(&test.clone()).unwrap();
 
             let deserialized: Test = from_bytes(&mut bytes[..]).unwrap();
 
+            #[cfg(not(feature = "with_serde"))]
             let bytes_2 = to_bytes(deserialized.clone()).unwrap();
+            #[cfg(feature = "with_serde")]
+            let bytes_2 = to_bytes(&deserialized.clone()).unwrap();
 
             assert_eq!(bytes, bytes_2);
         }
@@ -237,7 +329,11 @@ mod test {
 
             let expected = Test { a: s };
 
+            #[cfg(not(feature = "with_serde"))]
             let mut bytes = to_bytes(expected.clone()).unwrap();
+            #[cfg(feature = "with_serde")]
+            let mut bytes = to_bytes(&expected.clone()).unwrap();
+
             let deserialized: Test = from_bytes(&mut bytes[..]).unwrap();
 
             assert_eq!(deserialized, expected);
@@ -259,7 +355,11 @@ mod test {
 
             let expected = Test { a: s };
 
+            #[cfg(not(feature = "with_serde"))]
             let mut bytes = to_bytes(expected.clone()).unwrap();
+            #[cfg(feature = "with_serde")]
+            let mut bytes = to_bytes(&expected.clone()).unwrap();
+
             let deserialized: Test = from_bytes(&mut bytes[..]).unwrap();
 
             assert_eq!(deserialized, expected);
@@ -287,7 +387,10 @@ mod test {
 
             let expected = Test { a: s };
 
+            #[cfg(not(feature = "with_serde"))]
             let mut bytes = to_bytes(expected.clone()).unwrap();
+            #[cfg(feature = "with_serde")]
+            let mut bytes = to_bytes(&expected.clone()).unwrap();
 
             let deserialized: Test = from_bytes(&mut bytes[..]).unwrap();
 
@@ -310,7 +413,10 @@ mod test {
 
             let expected = Test { a: s };
 
+            #[cfg(not(feature = "with_serde"))]
             let mut bytes = to_bytes(expected.clone()).unwrap();
+            #[cfg(feature = "with_serde")]
+            let mut bytes = to_bytes(&expected.clone()).unwrap();
 
             let deserialized: Test = from_bytes(&mut bytes[..]).unwrap();
 
@@ -342,7 +448,10 @@ mod test {
 
             let expected = Test { a: s };
 
+            #[cfg(not(feature = "with_serde"))]
             let mut bytes = to_bytes(expected.clone()).unwrap();
+            #[cfg(feature = "with_serde")]
+            let mut bytes = to_bytes(&expected.clone()).unwrap();
 
             let deserialized: Test = from_bytes(&mut bytes[..]).unwrap();
 
@@ -374,11 +483,17 @@ mod test {
 
             let test = Test { a: s };
 
+            #[cfg(not(feature = "with_serde"))]
             let mut bytes = to_bytes(test.clone()).unwrap();
+            #[cfg(feature = "with_serde")]
+            let mut bytes = to_bytes(&test.clone()).unwrap();
 
             let deserialized: Test = from_bytes(&mut bytes[..]).unwrap();
 
+            #[cfg(not(feature = "with_serde"))]
             let bytes_2 = to_bytes(deserialized.clone()).unwrap();
+            #[cfg(feature = "with_serde")]
+            let bytes_2 = to_bytes(&deserialized.clone()).unwrap();
 
             assert_eq!(bytes, bytes_2);
         }
@@ -401,8 +516,14 @@ mod test {
             let expected = Test { a: s };
             let expected2 = Test { a: s2 };
 
+            #[cfg(not(feature = "with_serde"))]
             let mut bytes = to_bytes(expected.clone()).unwrap();
+            #[cfg(feature = "with_serde")]
+            let mut bytes = to_bytes(&expected.clone()).unwrap();
+            #[cfg(not(feature = "with_serde"))]
             let mut bytes2 = to_bytes(expected2.clone()).unwrap();
+            #[cfg(feature = "with_serde")]
+            let mut bytes2 = to_bytes(&expected2.clone()).unwrap();
 
             let deserialized: Test = from_bytes(&mut bytes[..]).unwrap();
             let deserialized2: Test = from_bytes(&mut bytes2[..]).unwrap();
@@ -427,7 +548,11 @@ mod test {
 
             let expected = Test { a: s };
 
+            #[cfg(not(feature = "with_serde"))]
             let mut bytes = to_bytes(expected.clone()).unwrap();
+            #[cfg(feature = "with_serde")]
+            let mut bytes = to_bytes(&expected.clone()).unwrap();
+
             let deserialized: Test = from_bytes(&mut bytes[..]).unwrap();
 
             assert_eq!(deserialized, expected);
@@ -455,7 +580,10 @@ mod test {
 
             let expected = Test { a: s };
 
+            #[cfg(not(feature = "with_serde"))]
             let mut bytes = to_bytes(expected.clone()).unwrap();
+            #[cfg(feature = "with_serde")]
+            let mut bytes = to_bytes(&expected.clone()).unwrap();
 
             let deserialized: Test = from_bytes(&mut bytes[..]).unwrap();
 
@@ -478,7 +606,10 @@ mod test {
 
             let expected = Test { a: s };
 
+            #[cfg(not(feature = "with_serde"))]
             let mut bytes = to_bytes(expected.clone()).unwrap();
+            #[cfg(feature = "with_serde")]
+            let mut bytes = to_bytes(&expected.clone()).unwrap();
 
             let deserialized: Test = from_bytes(&mut bytes[..]).unwrap();
 
@@ -509,7 +640,10 @@ mod test {
 
             let expected = Test { a: s };
 
+            #[cfg(not(feature = "with_serde"))]
             let mut bytes = to_bytes(expected.clone()).unwrap();
+            #[cfg(feature = "with_serde")]
+            let mut bytes = to_bytes(&expected.clone()).unwrap();
 
             let deserialized: Test = from_bytes(&mut bytes[..]).unwrap();
 
@@ -540,7 +674,10 @@ mod test {
 
             let expected = Test { a: s };
 
+            #[cfg(not(feature = "with_serde"))]
             let mut bytes = to_bytes(expected.clone()).unwrap();
+            #[cfg(feature = "with_serde")]
+            let mut bytes = to_bytes(&expected.clone()).unwrap();
 
             let deserialized: Test = from_bytes(&mut bytes[..]).unwrap();
 

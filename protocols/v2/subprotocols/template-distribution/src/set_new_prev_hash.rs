@@ -2,8 +2,11 @@
 use alloc::vec::Vec;
 #[cfg(not(feature = "with_serde"))]
 use binary_sv2::binary_codec_sv2::{self, free_vec, CVec};
+#[cfg(not(feature = "with_serde"))]
+use binary_sv2::Error;
+use binary_sv2::U256;
 use binary_sv2::{Deserialize, Serialize};
-use binary_sv2::{Error, U256};
+#[cfg(not(feature = "with_serde"))]
 use core::convert::TryInto;
 
 /// ## SetNewPrevHash (Server -> Client)
@@ -43,6 +46,7 @@ pub struct CSetNewPrevHash {
     target: CVec,
 }
 
+#[cfg(not(feature = "with_serde"))]
 impl<'a> CSetNewPrevHash {
     #[cfg(not(feature = "with_serde"))]
     pub fn to_rust_rep_mut(&'a mut self) -> Result<SetNewPrevHash<'a>, Error> {
