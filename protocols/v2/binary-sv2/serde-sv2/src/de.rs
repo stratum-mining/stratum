@@ -146,7 +146,7 @@ impl<'de> Deserializer<'de> {
     fn parse_string(&mut self) -> Result<&'de str> {
         let len = self.parse_u8()?;
         let str_ = self.get_slice(len as usize)?;
-        core::str::from_utf8(&str_).map_err(|_| Error::InvalidUtf8)
+        core::str::from_utf8(str_).map_err(|_| Error::InvalidUtf8)
     }
 
     #[inline]

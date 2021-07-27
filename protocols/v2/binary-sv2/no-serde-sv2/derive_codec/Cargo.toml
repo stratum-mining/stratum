@@ -1,13 +1,15 @@
 [package]
-name = "derive_codec"
-version = "0.1.0"
+name = "derive_codec_sv2"
+version = "0.1.1"
 authors = ["fi3 <email@email.org>"]
 edition = "2018"
+description = "Derive macro for Sv2 binary format serializer and deserializer"
+license = "MIT"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-codec = {path="../codec"}
+binary_codec_sv2 = {version = "0.1.1", path="../codec"}
 
 [lib]
 proc-macro = true

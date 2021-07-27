@@ -7,6 +7,7 @@ use core::convert::TryFrom;
 #[cfg(not(feature = "no_std"))]
 use std::io::{Error as E, Read, Write};
 
+#[repr(C)]
 #[derive(Debug, Eq, PartialEq)]
 pub enum Inner<
     'a,
@@ -191,11 +192,11 @@ where
         match self {
             Inner::Ref(data) => {
                 let dst = &mut dst[0..size];
-                dst[HEADERSIZE..].copy_from_slice(&data);
+                dst[HEADERSIZE..].copy_from_slice(data);
             }
             Inner::Owned(data) => {
                 let dst = &mut dst[0..size];
-                dst[HEADERSIZE..].copy_from_slice(&data);
+                dst[HEADERSIZE..].copy_from_slice(data);
             }
         }
     }
@@ -239,6 +240,17 @@ impl<'a, const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const 
                 Self::Owned(v)
             }
             Inner::Owned(data) => Inner::Owned(data.clone()),
+        }
+    }
+}
+
+impl<'a, const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize>
+    AsRef<[u8]> for Inner<'a, ISFIXED, SIZE, HEADERSIZE, MAXSIZE>
+{
+    fn as_ref(&self) -> &[u8] {
+        match self {
+            Inner::Ref(r) => &r[..],
+            Inner::Owned(r) => &r[..],
         }
     }
 }

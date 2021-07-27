@@ -8,7 +8,7 @@
 //!
 use crate::error::{Error, Result};
 use alloc::vec::Vec;
-use buffer::Write;
+use buffer_sv2::Write;
 use serde::{ser, Serialize};
 
 pub struct Serializer<W: Write> {
@@ -92,7 +92,7 @@ impl<'a, W: Write> ser::Serializer for &'a mut Serializer<W> {
             _ => return Err(Error::StringLenBiggerThan256),
         };
         self.output
-            .write_all(&v.as_bytes())
+            .write_all(v.as_bytes())
             .map_err(|_| Error::WriteError)
     }
 

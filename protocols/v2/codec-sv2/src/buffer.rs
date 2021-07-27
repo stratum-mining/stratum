@@ -12,6 +12,7 @@ pub trait Buffer {
     fn len(&self) -> usize;
 }
 
+#[derive(Debug)]
 pub struct SlowAndCorrect {
     inner: Vec<u8>,
     cursor: usize,

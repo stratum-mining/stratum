@@ -1,4 +1,4 @@
-#![no_std]
+//#![no_std]
 
 //! Common messages for [stratum v2][Sv2]
 //! The following protocol messages are common across all of the sv2 (sub)protocols.
@@ -7,4 +7,15 @@ mod channel_endpoint_changed;
 mod setup_connection;
 
 pub use channel_endpoint_changed::ChannelEndpointChanged;
-pub use setup_connection::SetupConnection;
+pub use setup_connection::{
+    CSetupConnection, CSetupConnectionError, Protocol, SetupConnection, SetupConnectionError,
+    SetupConnectionSuccess,
+};
+
+#[cfg(not(feature = "with_serde"))]
+#[no_mangle]
+pub extern "C" fn _c_export_channel_endpoint_changed(_a: ChannelEndpointChanged) {}
+
+#[cfg(not(feature = "with_serde"))]
+#[no_mangle]
+pub extern "C" fn _c_export_setup_conn_succ(_a: SetupConnectionSuccess) {}

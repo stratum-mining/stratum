@@ -9,13 +9,13 @@ pub mod decodable;
 pub mod encodable;
 mod impls;
 
-/// Return the encoded byte size od a Decodable
+/// Return the encoded byte size or a `Decodable`
 pub trait SizeHint {
     fn size_hint(data: &[u8], offset: usize) -> Result<usize, Error>;
     fn size_hint_(&self, data: &[u8], offset: usize) -> Result<usize, Error>;
 }
 
-/// Return the encodec byte size of an Encodable coommprensive of the header if any
+/// Return the encoded byte size of an `Encodable` comprehensive of the header, if any
 pub trait GetSize {
     fn get_size(&self) -> usize;
 }

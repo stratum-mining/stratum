@@ -27,9 +27,16 @@ mod set_new_prev_hash;
 mod submit_solution;
 //
 pub use coinbase_output_data_size::CoinbaseOutputDataSize;
-pub use new_template::NewTemplate;
+pub use new_template::{CNewTemplate, NewTemplate};
 pub use request_transaction_data::{
-    RequestTransactionData, RequestTransactionDataError, RequestTransactionDataSuccess,
+    CRequestTransactionDataError, CRequestTransactionDataSuccess, RequestTransactionData,
+    RequestTransactionDataError, RequestTransactionDataSuccess,
 };
-pub use set_new_prev_hash::SetNewPrevHash;
-pub use submit_solution::SubmitSolution;
+pub use set_new_prev_hash::{CSetNewPrevHash, SetNewPrevHash};
+pub use submit_solution::{CSubmitSolution, SubmitSolution};
+
+#[no_mangle]
+pub extern "C" fn _c_export_coinbase_out(_a: CoinbaseOutputDataSize) {}
+
+#[no_mangle]
+pub extern "C" fn _c_export_req_tx_data(_a: RequestTransactionData) {}

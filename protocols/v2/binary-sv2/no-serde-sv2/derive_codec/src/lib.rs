@@ -3,16 +3,11 @@ use core::iter::FromIterator;
 use proc_macro::{Group, TokenStream, TokenTree};
 
 fn remove_attributes(item: TokenStream) -> TokenStream {
-    let mut stream = item.into_iter();
+    let stream = item.into_iter();
     let mut is_attribute = false;
     let mut result = Vec::new();
 
-    loop {
-        let next = match stream.next() {
-            Some(n) => n,
-            None => break,
-        };
-
+    for next in stream {
         match next.clone() {
             TokenTree::Punct(p) => {
                 if p.to_string() == "#" {
@@ -32,6 +27,7 @@ fn remove_attributes(item: TokenStream) -> TokenStream {
                 }
             }
             _ => {
+                is_attribute = false;
                 result.push(next.clone());
             }
         }
@@ -270,7 +266,7 @@ pub fn decodable(item: TokenStream) -> TokenStream {
     let result = format!(
         "mod impl_parse_decodable_{} {{
 
-    use super::codec::{{decodable::DecodableField, decodable::FieldMarker, Decodable, Error, SizeHint}};
+    use super::binary_codec_sv2::{{decodable::DecodableField, decodable::FieldMarker, Decodable, Error, SizeHint}};
     use super::*;
 
     impl{} Decodable<'decoder> for {}{} {{
@@ -341,7 +337,7 @@ pub fn encodable(item: TokenStream) -> TokenStream {
     let result = format!(
         "mod impl_parse_encodable_{} {{
 
-    use super::codec::{{encodable::EncodableField, GetSize}};
+    use super::binary_codec_sv2::{{encodable::EncodableField, GetSize}};
     use super::{};
     extern crate alloc;
     use alloc::vec::Vec;
