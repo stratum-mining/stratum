@@ -17,6 +17,12 @@ use binary_sv2::{
 };
 
 use const_sv2::{
+    CHANNEL_BIT_CHANNEL_ENDPOINT_CHANGES, CHANNEL_BIT_COINBASE_OUTPUT_DATA_SIZE,
+    CHANNEL_BIT_NEW_TEMPLATE, CHANNEL_BIT_REQUEST_TRANSACTION_DATA,
+    CHANNEL_BIT_REQUEST_TRANSACTION_DATA_ERROR, CHANNEL_BIT_REQUEST_TRANSACTION_DATA_SUCCESS,
+    CHANNEL_BIT_SETUP_CONNECTION, CHANNEL_BIT_SETUP_CONNECTION_ERROR,
+    CHANNEL_BIT_SETUP_CONNECTION_SUCCESS, CHANNEL_BIT_SET_NEW_PREV_HASH,
+    CHANNEL_BIT_SUBMIT_SOLUTION, EXTENSION_TYPE_NO_EXTENSION,
     MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGES, MESSAGE_TYPE_COINBASE_OUTPUT_DATA_SIZE,
     MESSAGE_TYPE_NEW_TEMPLATE, MESSAGE_TYPE_REQUEST_TRANSACTION_DATA,
     MESSAGE_TYPE_REQUEST_TRANSACTION_DATA_ERROR, MESSAGE_TYPE_REQUEST_TRANSACTION_DATA_SUCCESS,
@@ -59,6 +65,26 @@ impl<'a> Sv2Message<'a> {
             Sv2Message::SetupConnection(_) => MESSAGE_TYPE_SETUP_CONNECTION,
             Sv2Message::SetupConnectionError(_) => MESSAGE_TYPE_SETUP_CONNECTION_ERROR,
             Sv2Message::SetupConnectionSuccess(_) => MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS,
+        }
+    }
+
+    pub fn channel_bit(&self) -> bool {
+        match self {
+            Sv2Message::CoinbaseOutputDataSize(_) => CHANNEL_BIT_COINBASE_OUTPUT_DATA_SIZE,
+            Sv2Message::NewTemplate(_) => CHANNEL_BIT_NEW_TEMPLATE,
+            Sv2Message::RequestTransactionData(_) => CHANNEL_BIT_REQUEST_TRANSACTION_DATA,
+            Sv2Message::RequestTransactionDataError(_) => {
+                CHANNEL_BIT_REQUEST_TRANSACTION_DATA_ERROR
+            }
+            Sv2Message::RequestTransactionDataSuccess(_) => {
+                CHANNEL_BIT_REQUEST_TRANSACTION_DATA_SUCCESS
+            }
+            Sv2Message::SetNewPrevHash(_) => CHANNEL_BIT_SET_NEW_PREV_HASH,
+            Sv2Message::SubmitSolution(_) => CHANNEL_BIT_SUBMIT_SOLUTION,
+            Sv2Message::ChannelEndpointChanged(_) => CHANNEL_BIT_CHANNEL_ENDPOINT_CHANGES,
+            Sv2Message::SetupConnection(_) => CHANNEL_BIT_SETUP_CONNECTION,
+            Sv2Message::SetupConnectionError(_) => CHANNEL_BIT_SETUP_CONNECTION_ERROR,
+            Sv2Message::SetupConnectionSuccess(_) => CHANNEL_BIT_SETUP_CONNECTION_SUCCESS,
         }
     }
 }
@@ -118,7 +144,6 @@ impl<'a> From<Sv2Message<'a>> for CSv2Message {
 }
 
 impl<'a> CSv2Message {
-    #[cfg(not(feature = "with_serde"))]
     pub fn to_rust_rep_mut(&'a mut self) -> Result<Sv2Message<'a>, Error> {
         match self {
             //CSv2Message::CoinbaseOutputDataSize(v) => {Ok(Sv2Message::CoinbaseOutputDataSize(*v))}
@@ -301,8 +326,14 @@ pub extern "C" fn free_encoder(encoder: *mut EncoderWrapper) {
 fn encode_(message: &'static mut CSv2Message, encoder: &mut EncoderWrapper) -> Result<CVec, Error> {
     let message: Sv2Message = message.to_rust_rep_mut()?;
     let m_type = message.message_type();
-    let frame = StandardSv2Frame::<Sv2Message<'static>>::from_message(message, m_type, 0)
-        .ok_or(Error::Todo)?;
+    let c_bit = message.channel_bit();
+    let frame = StandardSv2Frame::<Sv2Message<'static>>::from_message(
+        message,
+        m_type,
+        EXTENSION_TYPE_NO_EXTENSION,
+        c_bit,
+    )
+    .ok_or(Error::Todo)?;
     encoder
         .encoder
         .encode(frame)

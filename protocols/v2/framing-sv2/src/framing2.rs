@@ -35,7 +35,12 @@ pub trait Frame<'a, T: Serialize + GetSize>: Sized {
 
     /// Try to build an Frame frame from a serializable payload.
     /// It return a Frame if the size of the payload fit in the frame, if not it return None
-    fn from_message(message: T, message_type: u8, extension_type: u16) -> Option<Self>;
+    fn from_message(
+        message: T,
+        message_type: u8,
+        extension_type: u16,
+        channel_msg: bool,
+    ) -> Option<Self>;
 }
 
 #[derive(Debug)]
@@ -150,7 +155,13 @@ impl<'a, T: Serialize + GetSize, B: AsMut<[u8]>> Frame<'a, T> for Sv2Frame<T, B>
 
     /// Try to build an Frame frame from a serializable payload.
     /// It returns a Frame if the size of the payload fits in the frame, if not it returns None
-    fn from_message(message: T, message_type: u8, extension_type: u16) -> Option<Self> {
+    fn from_message(
+        message: T,
+        message_type: u8,
+        extension_type: u16,
+        channel_msg: bool,
+    ) -> Option<Self> {
+        let extension_type = update_extension_type(extension_type, channel_msg);
         let len = message.get_size() as u32;
         Header::from_len(len, message_type, extension_type).map(|header| Self {
             header,
@@ -233,7 +244,12 @@ impl<'a> Frame<'a, Vec<u8>> for NoiseFrame {
     /// Try to build a `Frame` frame from a serializable payload.
     /// It returns a Frame if the size of the payload fits in the frame, if not it returns None
     /// Inneficient should be used only to build `HandShakeFrames`
-    fn from_message(message: Vec<u8>, _message_type: u8, _extension_type: u16) -> Option<Self> {
+    fn from_message(
+        message: Vec<u8>,
+        _message_type: u8,
+        _extension_type: u16,
+        _channel_msg: bool,
+    ) -> Option<Self> {
         if message.len() <= NOISE_MAX_LEN {
             let header = message.len() as u16;
             let payload = [&header.to_le_bytes()[..], &message[..]].concat();
@@ -241,6 +257,16 @@ impl<'a> Frame<'a, Vec<u8>> for NoiseFrame {
         } else {
             None
         }
+    }
+}
+
+fn update_extension_type(extension_type: u16, channel_msg: bool) -> u16 {
+    if channel_msg {
+        let mask = 0b0000_0000_0000_0001;
+        extension_type | mask
+    } else {
+        let mask = 0b1111_1111_1111_1110;
+        extension_type & mask
     }
 }
 
