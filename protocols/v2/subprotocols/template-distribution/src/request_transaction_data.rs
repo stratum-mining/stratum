@@ -111,7 +111,7 @@ impl<'a> From<RequestTransactionDataSuccess<'a>> for CRequestTransactionDataSucc
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct RequestTransactionDataError<'decoder> {
     /// The template_id corresponding to a NewTemplate/RequestTransactionData message.
     pub template_id: u64,
