@@ -753,4 +753,56 @@ mod tests {
 
         decoded_message == expected
     }
+
+    #[derive(Clone, Debug)]
+    pub struct CompletelyRandomSubmitSolution(pub SubmitSolution<'static>);
+
+    #[cfg(feature = "prop_test")]
+    impl Arbitrary for CompletelyRandomSubmitSolution {
+        fn arbitrary(g: &mut Gen) -> Self {
+            let coinbase_tx: B064K = Vec::<u8>::arbitrary(g).try_into().unwrap();
+            CompletelyRandomSubmitSolution(SubmitSolution {
+                template_id: u64::arbitrary(g).try_into().unwrap(),
+                version: u32::arbitrary(g).try_into().unwrap(),
+                header_timestamp: u32::arbitrary(g).try_into().unwrap(),
+                header_nonce: u32::arbitrary(g).try_into().unwrap(),
+                coinbase_tx,
+            })
+        }
+    }
+
+    #[quickcheck_macros::quickcheck]
+    fn encode_with_c_submit_solution(message: CompletelyRandomSubmitSolution) -> bool {
+        let expected = message.clone().0;
+
+        let mut encoder = Encoder::<SubmitSolution>::new();
+        let mut decoder = StandardDecoder::<Sv2Message<'static>>::new();
+
+        let frame =
+            StandardSv2Frame::from_message(message.0, MESSAGE_TYPE_SUBMIT_SOLUTION, 0).unwrap();
+        let encoded_frame = encoder.encode(frame).unwrap();
+
+        let buffer = decoder.writable();
+        for i in 0..buffer.len() {
+            buffer[i] = encoded_frame[i]
+        }
+        decoder.next_frame();
+
+        let buffer = decoder.writable();
+        for i in 0..buffer.len() {
+            buffer[i] = encoded_frame[i + 6]
+        }
+
+        let mut decoded = decoder.next_frame().unwrap();
+
+        let msg_type = decoded.get_header().unwrap().msg_type();
+        let payload = decoded.payload();
+        let decoded_message: Sv2Message = (msg_type, payload).try_into().unwrap();
+        let decoded_message = match decoded_message {
+            Sv2Message::SubmitSolution(m) => m,
+            _ => panic!(),
+        };
+
+        decoded_message == expected
+    }
 }

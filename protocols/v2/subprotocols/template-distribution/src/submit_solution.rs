@@ -14,7 +14,7 @@ use core::convert::TryInto;
 /// [`crate::SetNewPrevHash.target`], the client MUST immediately send this message, and the server
 /// MUST then immediately construct the corresponding full block and attempt to propagate it to
 /// the Bitcoin network.
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct SubmitSolution<'decoder> {
     /// The template_id field as it appeared in NewTemplate.
     pub template_id: u64,
