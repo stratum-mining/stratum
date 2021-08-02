@@ -18,7 +18,7 @@ use binary_sv2::{Deserialize, Serialize};
 /// additional size — along with a maximally-sized (100 byte) coinbase field — is added. Further,
 /// the Template Provider MUST consider the maximum additional bytes required in the output
 /// count variable-length integer in the coinbase transaction when complying with the size limits.
-#[derive(Serialize, Deserialize, Copy, Clone, Debug)]
+#[derive(Serialize, Deserialize, Copy, Clone, Debug, PartialEq, Eq)]
 #[repr(C)]
 pub struct CoinbaseOutputDataSize {
     /// The maximum additional serialized bytes which the pool will add in
