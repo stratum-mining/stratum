@@ -379,7 +379,7 @@ pub extern "C" fn next_frame(decoder: *mut DecoderWrapper) -> CResult<CSv2Messag
 #[cfg(feature = "prop_test")]
 mod tests {
     use super::*;
-    use binary_sv2::{Seq0255, Str0255, B0255, B064K, U256};
+    use binary_sv2::{Seq0255, Seq064K, Str0255, B016M, B0255, B064K, U256};
     use common_messages_sv2::Protocol;
     use core::convert::TryInto;
 
@@ -634,6 +634,67 @@ mod tests {
         let decoded_message: Sv2Message = (msg_type, payload).try_into().unwrap();
         let decoded_message = match decoded_message {
             Sv2Message::RequestTransactionDataError(m) => m,
+            _ => panic!(),
+        };
+
+        decoded_message == expected
+    }
+
+    #[derive(Clone, Debug)]
+    pub struct CompletelyRandomRequestTransactionDataSuccess(
+        pub RequestTransactionDataSuccess<'static>,
+    );
+
+    #[cfg(feature = "prop_test")]
+    impl Arbitrary for CompletelyRandomRequestTransactionDataSuccess {
+        fn arbitrary(g: &mut Gen) -> Self {
+            let excess_data: B064K = Vec::<u8>::arbitrary(g).try_into().unwrap();
+            let transaction_list_inner = B016M::from_random(g);
+            let transaction_list: Seq064K<B016M> = vec![transaction_list_inner].into();
+
+            CompletelyRandomRequestTransactionDataSuccess(RequestTransactionDataSuccess {
+                template_id: u64::arbitrary(g).try_into().unwrap(),
+                excess_data,
+                transaction_list,
+            })
+        }
+    }
+
+    #[quickcheck_macros::quickcheck]
+    fn encode_with_c_request_transaction_data_success(
+        message: CompletelyRandomRequestTransactionDataSuccess,
+    ) -> bool {
+        let expected = message.clone().0;
+
+        let mut encoder = Encoder::<RequestTransactionDataSuccess>::new();
+        let mut decoder = StandardDecoder::<Sv2Message<'static>>::new();
+
+        let frame = StandardSv2Frame::from_message(
+            message.0,
+            MESSAGE_TYPE_REQUEST_TRANSACTION_DATA_SUCCESS,
+            0,
+        )
+        .unwrap();
+        let encoded_frame = encoder.encode(frame).unwrap();
+
+        let buffer = decoder.writable();
+        for i in 0..buffer.len() {
+            buffer[i] = encoded_frame[i]
+        }
+        decoder.next_frame();
+
+        let buffer = decoder.writable();
+        for i in 0..buffer.len() {
+            buffer[i] = encoded_frame[i + 6]
+        }
+
+        let mut decoded = decoder.next_frame().unwrap();
+
+        let msg_type = decoded.get_header().unwrap().msg_type();
+        let payload = decoded.payload();
+        let decoded_message: Sv2Message = (msg_type, payload).try_into().unwrap();
+        let decoded_message = match decoded_message {
+            Sv2Message::RequestTransactionDataSuccess(m) => m,
             _ => panic!(),
         };
 

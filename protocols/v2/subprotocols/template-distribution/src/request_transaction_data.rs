@@ -47,7 +47,7 @@ pub struct RequestTransactionData {
 /// code-release to activation (as any sane fork would have to have) and there being some
 /// in-Template Negotiation Protocol signaling of support for the new fork (e.g. for soft-forks
 /// activated using [BIP 9](TODO link)).
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct RequestTransactionDataSuccess<'decoder> {
     /// The template_id corresponding to a NewTemplate/RequestTransactionData message.
     pub template_id: u64,

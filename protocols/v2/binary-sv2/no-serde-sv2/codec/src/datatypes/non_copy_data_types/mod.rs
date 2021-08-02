@@ -1,7 +1,7 @@
 #[cfg(feature = "prop_test")]
-use quickcheck::{Arbitrary, Gen};
-#[cfg(feature = "prop_test")]
 use core::convert::TryInto;
+#[cfg(feature = "prop_test")]
+use quickcheck::{Arbitrary, Gen};
 
 mod inner;
 mod seq_inner;
@@ -35,7 +35,14 @@ impl<'a> U256<'a> {
     pub fn from_random(g: &mut Gen) -> Self {
         let mut inner = Vec::<u8>::arbitrary(g);
         inner.resize(32, 0);
-        let inner: [u8;32] = inner.try_into().unwrap();
+        let inner: [u8; 32] = inner.try_into().unwrap();
         inner.into()
+    }
+}
+
+#[cfg(feature = "prop_test")]
+impl<'a> B016M<'a> {
+    pub fn from_random(g: &mut Gen) -> Self {
+        Vec::<u8>::arbitrary(g).try_into().unwrap()
     }
 }
