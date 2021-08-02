@@ -387,9 +387,21 @@ mod tests {
 
     use quickcheck_macros;
 
+    #[derive(Clone, Debug)]
+    pub struct CompletelyRandomCoinbaseOutputDataSize(pub CoinbaseOutputDataSize);
+
+    #[cfg(feature = "prop_test")]
+    impl Arbitrary for CompletelyRandomCoinbaseOutputDataSize {
+        fn arbitrary(g: &mut Gen) -> Self {
+            CompletelyRandomCoinbaseOutputDataSize(CoinbaseOutputDataSize {
+                coinbase_output_max_additional_size: u32::arbitrary(g).try_into().unwrap(),
+            })
+        }
+    }
+
     #[quickcheck_macros::quickcheck]
     fn encode_with_c_coinbase_output_data_size(
-        message: template_distribution_sv2::CompletelyRandomCoinbaseOutputDataSize,
+        message: CompletelyRandomCoinbaseOutputDataSize,
     ) -> bool {
         let expected = message.clone().0;
 
@@ -513,6 +525,56 @@ mod tests {
         };
         println!("{:#?}", decoded_message.merkle_path);
         println!("{:#?}", expected.merkle_path);
+
+        decoded_message == expected
+    }
+
+    #[derive(Clone, Debug)]
+    pub struct CompletelyRandomRequestTransactionData(pub RequestTransactionData);
+
+    #[cfg(feature = "prop_test")]
+    impl Arbitrary for CompletelyRandomRequestTransactionData {
+        fn arbitrary(g: &mut Gen) -> Self {
+            CompletelyRandomRequestTransactionData(RequestTransactionData {
+                template_id: u64::arbitrary(g).try_into().unwrap(),
+            })
+        }
+    }
+
+    #[quickcheck_macros::quickcheck]
+    fn encode_with_c_request_transaction_data(
+        message: CompletelyRandomRequestTransactionData,
+    ) -> bool {
+        let expected = message.clone().0;
+
+        let mut encoder = Encoder::<RequestTransactionData>::new();
+        let mut decoder = StandardDecoder::<Sv2Message<'static>>::new();
+
+        let frame =
+            StandardSv2Frame::from_message(message.0, MESSAGE_TYPE_REQUEST_TRANSACTION_DATA, 0)
+                .unwrap();
+        let encoded_frame = encoder.encode(frame).unwrap();
+
+        let buffer = decoder.writable();
+        for i in 0..buffer.len() {
+            buffer[i] = encoded_frame[i]
+        }
+        decoder.next_frame();
+
+        let buffer = decoder.writable();
+        for i in 0..buffer.len() {
+            buffer[i] = encoded_frame[i + 6]
+        }
+
+        let mut decoded = decoder.next_frame().unwrap();
+
+        let msg_type = decoded.get_header().unwrap().msg_type();
+        let payload = decoded.payload();
+        let decoded_message: Sv2Message = (msg_type, payload).try_into().unwrap();
+        let decoded_message = match decoded_message {
+            Sv2Message::RequestTransactionData(m) => m,
+            _ => panic!(),
+        };
 
         decoded_message == expected
     }

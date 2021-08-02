@@ -20,11 +20,6 @@
 //! provided, and thus MUST track the work which they provided to clients.
 extern crate alloc;
 
-#[cfg(feature = "prop_test")]
-use core::convert::TryInto;
-#[cfg(feature = "prop_test")]
-use quickcheck::{Arbitrary, Gen};
-
 mod coinbase_output_data_size;
 mod new_template;
 mod request_transaction_data;
@@ -52,16 +47,3 @@ pub extern "C" fn _c_export_coinbase_out(_a: CoinbaseOutputDataSize) {}
 
 #[no_mangle]
 pub extern "C" fn _c_export_req_tx_data(_a: RequestTransactionData) {}
-
-// #[cfg(feature = "prop_test")]
-#[derive(Clone, Debug)]
-pub struct CompletelyRandomCoinbaseOutputDataSize(pub CoinbaseOutputDataSize);
-
-#[cfg(feature = "prop_test")]
-impl Arbitrary for CompletelyRandomCoinbaseOutputDataSize {
-    fn arbitrary(g: &mut Gen) -> Self {
-        CompletelyRandomCoinbaseOutputDataSize(coinbase_output_data_size::CoinbaseOutputDataSize {
-            coinbase_output_max_additional_size: u32::arbitrary(g).try_into().unwrap(),
-        })
-    }
-}
