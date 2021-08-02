@@ -387,20 +387,9 @@ mod tests {
 
     use quickcheck_macros;
 
-    #[derive(Clone, Debug)]
-    struct CompletelyRandomCoinbaseOutputDataSize(CoinbaseOutputDataSize);
-
-    impl Arbitrary for CompletelyRandomCoinbaseOutputDataSize {
-        fn arbitrary(g: &mut Gen) -> Self {
-            CompletelyRandomCoinbaseOutputDataSize(CoinbaseOutputDataSize {
-                coinbase_output_max_additional_size: u32::arbitrary(g).try_into().unwrap(),
-            })
-        }
-    }
-
     #[quickcheck_macros::quickcheck]
     fn encode_with_c_coinbase_output_data_size(
-        message: CompletelyRandomCoinbaseOutputDataSize,
+        message: template_distribution_sv2::CompletelyRandomCoinbaseOutputDataSize,
     ) -> bool {
         let expected = message.clone().0;
 
