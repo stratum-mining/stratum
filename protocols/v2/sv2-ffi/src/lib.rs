@@ -700,4 +700,57 @@ mod tests {
 
         decoded_message == expected
     }
+
+    #[derive(Clone, Debug)]
+    pub struct CompletelyRandomSetNewPrevHash(pub SetNewPrevHash<'static>);
+
+    #[cfg(feature = "prop_test")]
+    impl Arbitrary for CompletelyRandomSetNewPrevHash {
+        fn arbitrary(g: &mut Gen) -> Self {
+            let prev_hash = U256::from_random(g);
+            let target = U256::from_random(g);
+            CompletelyRandomSetNewPrevHash(SetNewPrevHash {
+                template_id: u64::arbitrary(g).try_into().unwrap(),
+                prev_hash,
+                header_timestamp: u32::arbitrary(g).try_into().unwrap(),
+                n_bits: u32::arbitrary(g).try_into().unwrap(),
+                target,
+            })
+        }
+    }
+
+    #[quickcheck_macros::quickcheck]
+    fn encode_with_c_set_new_prev_hash(message: CompletelyRandomSetNewPrevHash) -> bool {
+        let expected = message.clone().0;
+
+        let mut encoder = Encoder::<SetNewPrevHash>::new();
+        let mut decoder = StandardDecoder::<Sv2Message<'static>>::new();
+
+        let frame =
+            StandardSv2Frame::from_message(message.0, MESSAGE_TYPE_SET_NEW_PREV_HASH, 0).unwrap();
+        let encoded_frame = encoder.encode(frame).unwrap();
+
+        let buffer = decoder.writable();
+        for i in 0..buffer.len() {
+            buffer[i] = encoded_frame[i]
+        }
+        decoder.next_frame();
+
+        let buffer = decoder.writable();
+        for i in 0..buffer.len() {
+            buffer[i] = encoded_frame[i + 6]
+        }
+
+        let mut decoded = decoder.next_frame().unwrap();
+
+        let msg_type = decoded.get_header().unwrap().msg_type();
+        let payload = decoded.payload();
+        let decoded_message: Sv2Message = (msg_type, payload).try_into().unwrap();
+        let decoded_message = match decoded_message {
+            Sv2Message::SetNewPrevHash(m) => m,
+            _ => panic!(),
+        };
+
+        decoded_message == expected
+    }
 }
