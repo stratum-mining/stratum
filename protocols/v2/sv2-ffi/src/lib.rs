@@ -379,11 +379,11 @@ pub extern "C" fn next_frame(decoder: *mut DecoderWrapper) -> CResult<CSv2Messag
 #[cfg(feature = "prop_test")]
 mod tests {
     use super::*;
-    use binary_sv2::{B0255, B064K, U256, Seq0255};
+    use binary_sv2::{Seq0255, B0255, B064K, U256};
     use common_messages_sv2::Protocol;
     use core::convert::TryInto;
 
-    use quickcheck::{Arbitrary, Gen, empty_shrinker};
+    use quickcheck::{empty_shrinker, Arbitrary, Gen};
 
     use quickcheck_macros;
 
@@ -440,14 +440,21 @@ mod tests {
         let mut encoder = Encoder::<NewTemplate>::new();
         let mut decoder = StandardDecoder::<Sv2Message<'static>>::new();
 
+        // Create frame
         let frame =
-        StandardSv2Frame::from_message(message.0, MESSAGE_TYPE_NEW_TEMPLATE, 0).unwrap();
+            StandardSv2Frame::from_message(message.0, MESSAGE_TYPE_NEW_TEMPLATE, 0).unwrap();
+        // Encode frame
         let encoded_frame = encoder.encode(frame).unwrap();
 
+        // Decode encoded frame
         let buffer = decoder.writable();
         for i in 0..buffer.len() {
             buffer[i] = encoded_frame[i]
         }
+        // Puts decoder in the next state (next 6 bytes). If frame is incomplete, returns an error
+        // prompting to add more bytes to decode the frame
+        // Required between two writes because of how this is intended to use the decoder in a loop
+        // read from a stream.
         decoder.next_frame();
 
         let buffer = decoder.writable();
@@ -455,8 +462,10 @@ mod tests {
             buffer[i] = encoded_frame[i + 6]
         }
 
+        // Decoded frame, complete frame is filled
         let mut decoded = decoder.next_frame().unwrap();
 
+        // Extract payload of the frame which is the NewTemplate message
         let msg_type = decoded.get_header().unwrap().msg_type();
         let payload = decoded.payload();
         let decoded_message: Sv2Message = (msg_type, payload).try_into().unwrap();
@@ -467,10 +476,6 @@ mod tests {
         println!("{:#?}", decoded_message.merkle_path);
         println!("{:#?}", expected.merkle_path);
 
-
-        decoded_message.merkle_path == expected.merkle_path
-
+        decoded_message == expected
     }
-
-
 }

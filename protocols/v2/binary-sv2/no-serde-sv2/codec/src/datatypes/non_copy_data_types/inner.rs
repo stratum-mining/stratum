@@ -7,9 +7,8 @@ use core::convert::TryFrom;
 #[cfg(not(feature = "no_std"))]
 use std::io::{Error as E, Read, Write};
 
-
 #[repr(C)]
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug)]
 pub enum Inner<
     'a,
     const ISFIXED: bool,
@@ -19,6 +18,22 @@ pub enum Inner<
 > {
     Ref(&'a mut [u8]),
     Owned(Vec<u8>),
+}
+
+impl<'a, const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize>
+    PartialEq for Inner<'a, ISFIXED, SIZE, HEADERSIZE, MAXSIZE>
+{
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Inner::Ref(b), Inner::Owned(a)) => *b == &a[..],
+            _ => self == other,
+        }
+    }
+}
+
+impl<'a, const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize> Eq
+    for Inner<'a, ISFIXED, SIZE, HEADERSIZE, MAXSIZE>
+{
 }
 
 impl<'a, const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize>
