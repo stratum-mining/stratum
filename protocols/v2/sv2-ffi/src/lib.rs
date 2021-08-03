@@ -17,13 +17,13 @@ use binary_sv2::{
 };
 
 use const_sv2::{
-    CHANNEL_BIT_CHANNEL_ENDPOINT_CHANGES, CHANNEL_BIT_COINBASE_OUTPUT_DATA_SIZE,
+    CHANNEL_BIT_CHANNEL_ENDPOINT_CHANGED, CHANNEL_BIT_COINBASE_OUTPUT_DATA_SIZE,
     CHANNEL_BIT_NEW_TEMPLATE, CHANNEL_BIT_REQUEST_TRANSACTION_DATA,
     CHANNEL_BIT_REQUEST_TRANSACTION_DATA_ERROR, CHANNEL_BIT_REQUEST_TRANSACTION_DATA_SUCCESS,
     CHANNEL_BIT_SETUP_CONNECTION, CHANNEL_BIT_SETUP_CONNECTION_ERROR,
     CHANNEL_BIT_SETUP_CONNECTION_SUCCESS, CHANNEL_BIT_SET_NEW_PREV_HASH,
     CHANNEL_BIT_SUBMIT_SOLUTION, EXTENSION_TYPE_NO_EXTENSION,
-    MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGES, MESSAGE_TYPE_COINBASE_OUTPUT_DATA_SIZE,
+    MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED, MESSAGE_TYPE_COINBASE_OUTPUT_DATA_SIZE,
     MESSAGE_TYPE_NEW_TEMPLATE, MESSAGE_TYPE_REQUEST_TRANSACTION_DATA,
     MESSAGE_TYPE_REQUEST_TRANSACTION_DATA_ERROR, MESSAGE_TYPE_REQUEST_TRANSACTION_DATA_SUCCESS,
     MESSAGE_TYPE_SETUP_CONNECTION, MESSAGE_TYPE_SETUP_CONNECTION_ERROR,
@@ -61,7 +61,7 @@ impl<'a> Sv2Message<'a> {
             }
             Sv2Message::SetNewPrevHash(_) => MESSAGE_TYPE_SET_NEW_PREV_HASH,
             Sv2Message::SubmitSolution(_) => MESSAGE_TYPE_SUBMIT_SOLUTION,
-            Sv2Message::ChannelEndpointChanged(_) => MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGES,
+            Sv2Message::ChannelEndpointChanged(_) => MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED,
             Sv2Message::SetupConnection(_) => MESSAGE_TYPE_SETUP_CONNECTION,
             Sv2Message::SetupConnectionError(_) => MESSAGE_TYPE_SETUP_CONNECTION_ERROR,
             Sv2Message::SetupConnectionSuccess(_) => MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS,
@@ -81,7 +81,7 @@ impl<'a> Sv2Message<'a> {
             }
             Sv2Message::SetNewPrevHash(_) => CHANNEL_BIT_SET_NEW_PREV_HASH,
             Sv2Message::SubmitSolution(_) => CHANNEL_BIT_SUBMIT_SOLUTION,
-            Sv2Message::ChannelEndpointChanged(_) => CHANNEL_BIT_CHANNEL_ENDPOINT_CHANGES,
+            Sv2Message::ChannelEndpointChanged(_) => CHANNEL_BIT_CHANNEL_ENDPOINT_CHANGED,
             Sv2Message::SetupConnection(_) => CHANNEL_BIT_SETUP_CONNECTION,
             Sv2Message::SetupConnectionError(_) => CHANNEL_BIT_SETUP_CONNECTION_ERROR,
             Sv2Message::SetupConnectionSuccess(_) => CHANNEL_BIT_SETUP_CONNECTION_SUCCESS,
@@ -231,7 +231,7 @@ impl<'a> TryFrom<(u8, &'a mut [u8])> for Sv2Message<'a> {
                 let message: SetupConnectionError<'a> = from_bytes(v.1)?;
                 Ok(Sv2Message::SetupConnectionError(message))
             }
-            MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGES => {
+            MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED => {
                 let message: ChannelEndpointChanged = from_bytes(v.1)?;
                 Ok(Sv2Message::ChannelEndpointChanged(message))
             }

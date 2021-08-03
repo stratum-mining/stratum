@@ -24,7 +24,7 @@ impl From<BinarySv2Error> for Error {
 
 use const_sv2::{
     CHANNEL_BIT_ALLOCATE_MINING_JOB_SUCCESS, CHANNEL_BIT_ALLOCATE_MINING_JOB_TOKEN,
-    CHANNEL_BIT_CHANNEL_ENDPOINT_CHANGES, CHANNEL_BIT_CLOSE_CHANNEL,
+    CHANNEL_BIT_CHANNEL_ENDPOINT_CHANGED, CHANNEL_BIT_CLOSE_CHANNEL,
     CHANNEL_BIT_COINBASE_OUTPUT_DATA_SIZE, CHANNEL_BIT_COMMIT_MINING_JOB,
     CHANNEL_BIT_COMMIT_MINING_JOB_ERROR, CHANNEL_BIT_COMMIT_MINING_JOB_SUCCESS,
     CHANNEL_BIT_IDENTIFY_TRANSACTIONS, CHANNEL_BIT_IDENTIFY_TRANSACTIONS_SUCCESS,
@@ -43,7 +43,7 @@ use const_sv2::{
     CHANNEL_BIT_SUBMIT_SHARES_EXTENDED, CHANNEL_BIT_SUBMIT_SHARES_STANDARD,
     CHANNEL_BIT_SUBMIT_SHARES_SUCCESS, CHANNEL_BIT_SUBMIT_SOLUTION, CHANNEL_BIT_UPDATE_CHANNEL,
     CHANNEL_BIT_UPDATE_CHANNEL_ERROR, MESSAGE_TYPE_ALLOCATE_MINING_JOB_SUCCESS,
-    MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN, MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGES,
+    MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN, MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED,
     MESSAGE_TYPE_CLOSE_CHANNEL, MESSAGE_TYPE_COINBASE_OUTPUT_DATA_SIZE,
     MESSAGE_TYPE_COMMIT_MINING_JOB, MESSAGE_TYPE_COMMIT_MINING_JOB_ERROR,
     MESSAGE_TYPE_COMMIT_MINING_JOB_SUCCESS, MESSAGE_TYPE_IDENTIFY_TRANSACTIONS,
@@ -190,7 +190,7 @@ pub enum Mining<'a> {
 impl<'a> CommonMessages<'a> {
     pub fn message_type(&self) -> u8 {
         match self {
-            Self::ChannelEndpointChanged(_) => MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGES,
+            Self::ChannelEndpointChanged(_) => MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED,
             Self::SetupConnection(_) => MESSAGE_TYPE_SETUP_CONNECTION,
             Self::SetupConnectionError(_) => MESSAGE_TYPE_SETUP_CONNECTION_ERROR,
             Self::SetupConnectionSuccess(_) => MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS,
@@ -198,7 +198,7 @@ impl<'a> CommonMessages<'a> {
     }
     pub fn channel_bit(&self) -> bool {
         match self {
-            Self::ChannelEndpointChanged(_) => CHANNEL_BIT_CHANNEL_ENDPOINT_CHANGES,
+            Self::ChannelEndpointChanged(_) => CHANNEL_BIT_CHANNEL_ENDPOINT_CHANGED,
             Self::SetupConnection(_) => CHANNEL_BIT_SETUP_CONNECTION,
             Self::SetupConnectionError(_) => CHANNEL_BIT_SETUP_CONNECTION_ERROR,
             Self::SetupConnectionSuccess(_) => CHANNEL_BIT_SETUP_CONNECTION_SUCCESS,
@@ -520,7 +520,7 @@ pub enum CommonMessageTypes {
     SetupConnection = MESSAGE_TYPE_SETUP_CONNECTION,
     SetupConnectionSuccess = MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS,
     SetupConnectionError = MESSAGE_TYPE_SETUP_CONNECTION_ERROR,
-    ChannelEndpointChanged = MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGES,
+    ChannelEndpointChanged = MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED,
 }
 
 impl TryFrom<u8> for CommonMessageTypes {
@@ -531,7 +531,7 @@ impl TryFrom<u8> for CommonMessageTypes {
             MESSAGE_TYPE_SETUP_CONNECTION => Ok(CommonMessageTypes::SetupConnection),
             MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS => Ok(CommonMessageTypes::SetupConnectionSuccess),
             MESSAGE_TYPE_SETUP_CONNECTION_ERROR => Ok(CommonMessageTypes::SetupConnectionError),
-            MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGES => Ok(CommonMessageTypes::ChannelEndpointChanged),
+            MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED => Ok(CommonMessageTypes::ChannelEndpointChanged),
             _ => Err(Error::WrongCommonMessageMessageType(v)),
         }
     }
