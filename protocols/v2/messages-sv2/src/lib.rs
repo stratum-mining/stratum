@@ -1,3 +1,5 @@
+mod common;
+
 #[cfg(not(feature = "with_serde"))]
 use binary_sv2::{
     decodable::DecodableField, decodable::FieldMarker, encodable::EncodableField, GetSize,
@@ -14,6 +16,7 @@ pub enum Error {
     WrongTemplateDistributionMessageType(u8),
     WrongJobNegotiationMessageType(u8),
     WrongMiningMessageType(u8),
+    UnexpectedMessage,
 }
 
 impl From<BinarySv2Error> for Error {
