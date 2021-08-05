@@ -28,6 +28,7 @@ pub extern "C" fn _c_export_channel_endpoint_changed(_a: ChannelEndpointChanged)
 #[no_mangle]
 pub extern "C" fn _c_export_setup_conn_succ(_a: SetupConnectionSuccess) {}
 
+#[cfg(feature = "prop_test")]
 #[derive(Clone, Debug)]
 pub struct CompletelyRandomChannelEndpointChanged(pub ChannelEndpointChanged);
 
@@ -36,6 +37,20 @@ impl Arbitrary for CompletelyRandomChannelEndpointChanged {
     fn arbitrary(g: &mut Gen) -> Self {
         CompletelyRandomChannelEndpointChanged(ChannelEndpointChanged {
             channel_id: u32::arbitrary(g).try_into().unwrap(),
+        })
+    }
+}
+
+#[cfg(feature = "prop_test")]
+#[derive(Clone, Debug)]
+pub struct CompletelyRandomSetupConnectionSuccess(pub SetupConnectionSuccess);
+
+#[cfg(feature = "prop_test")]
+impl Arbitrary for CompletelyRandomSetupConnectionSuccess {
+    fn arbitrary(g: &mut Gen) -> Self {
+        CompletelyRandomSetupConnectionSuccess(SetupConnectionSuccess {
+            used_version: u16::arbitrary(g).try_into().unwrap(),
+            flags: u32::arbitrary(g).try_into().unwrap(),
         })
     }
 }
