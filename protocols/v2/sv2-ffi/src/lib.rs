@@ -665,21 +665,9 @@ mod tests {
         decoded_message == expected
     }
 
-    #[derive(Clone, Debug)]
-    pub struct CompletelyRandomChannelEndpointChanged(pub ChannelEndpointChanged);
-
-    #[cfg(feature = "prop_test")]
-    impl Arbitrary for CompletelyRandomChannelEndpointChanged {
-        fn arbitrary(g: &mut Gen) -> Self {
-            CompletelyRandomChannelEndpointChanged(ChannelEndpointChanged {
-                channel_id: u32::arbitrary(g).try_into().unwrap(),
-            })
-        }
-    }
-
     #[quickcheck_macros::quickcheck]
     fn encode_with_c_channel_endpoint_changed(
-        message: CompletelyRandomChannelEndpointChanged,
+        message: common_messages_sv2::CompletelyRandomChannelEndpointChanged,
     ) -> bool {
         let expected = message.clone().0;
 

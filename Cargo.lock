@@ -412,6 +412,8 @@ version = "0.1.3"
 dependencies = [
  "binary_sv2",
  "const_sv2",
+ "quickcheck",
+ "quickcheck_macros",
  "serde",
 ]
 
