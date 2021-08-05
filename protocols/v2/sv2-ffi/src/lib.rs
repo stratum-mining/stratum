@@ -573,9 +573,17 @@ mod tests {
         decoded_message == expected
     }
 
+    #[derive(Clone, Debug)]
+    pub struct RandomRequestTransactionDataSuccess(pub RequestTransactionDataSuccess<'static>);
+
+    impl Arbitrary for RandomRequestTransactionDataSuccess {
+        fn arbitrary(g: &mut Gen) -> Self {
+            RandomRequestTransactionDataSuccess(RequestTransactionDataSuccess::from_random(g))
+        }
+    }
     #[quickcheck_macros::quickcheck]
     fn encode_with_c_request_transaction_data_success(
-        message: template_distribution_sv2::CompletelyRandomRequestTransactionDataSuccess,
+        message: RandomRequestTransactionDataSuccess,
     ) -> bool {
         let expected = message.clone().0;
 
