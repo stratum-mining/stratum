@@ -380,11 +380,22 @@ pub extern "C" fn next_frame(decoder: *mut DecoderWrapper) -> CResult<CSv2Messag
 mod tests {
     use super::*;
     use core::convert::TryInto;
+    use quickcheck::{Arbitrary, Gen};
     use quickcheck_macros;
+
+    #[derive(Clone, Debug)]
+    pub struct CompletelyRandomCoinbaseOutputDataSize(pub CoinbaseOutputDataSize);
+
+    #[cfg(feature = "prop_test")]
+    impl Arbitrary for CompletelyRandomCoinbaseOutputDataSize {
+        fn arbitrary(g: &mut Gen) -> Self {
+            CompletelyRandomCoinbaseOutputDataSize(CoinbaseOutputDataSize::from_random(g))
+        }
+    }
 
     #[quickcheck_macros::quickcheck]
     fn encode_with_c_coinbase_output_data_size(
-        message: template_distribution_sv2::CompletelyRandomCoinbaseOutputDataSize,
+        message: CompletelyRandomCoinbaseOutputDataSize,
     ) -> bool {
         let expected = message.clone().0;
 
