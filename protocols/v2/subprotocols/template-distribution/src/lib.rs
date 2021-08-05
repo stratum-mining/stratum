@@ -129,21 +129,17 @@ impl RequestTransactionDataSuccess<'static> {
 }
 
 #[cfg(feature = "prop_test")]
-#[derive(Clone, Debug)]
-pub struct CompletelyRandomSetNewPrevHash(pub SetNewPrevHash<'static>);
-
-#[cfg(feature = "prop_test")]
-impl Arbitrary for CompletelyRandomSetNewPrevHash {
-    fn arbitrary(g: &mut Gen) -> Self {
+impl SetNewPrevHash<'static> {
+    pub fn from_random(g: &mut Gen) -> Self {
         let prev_hash = binary_sv2::U256::from_random(g);
         let target = binary_sv2::U256::from_random(g);
-        CompletelyRandomSetNewPrevHash(SetNewPrevHash {
+        SetNewPrevHash {
             template_id: u64::arbitrary(g).try_into().unwrap(),
             prev_hash,
             header_timestamp: u32::arbitrary(g).try_into().unwrap(),
             n_bits: u32::arbitrary(g).try_into().unwrap(),
             target,
-        })
+        }
     }
 }
 

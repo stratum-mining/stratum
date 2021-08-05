@@ -622,10 +622,17 @@ mod tests {
         decoded_message == expected
     }
 
+    #[derive(Clone, Debug)]
+    pub struct RandomSetNewPrevHash(pub SetNewPrevHash<'static>);
+
+    impl Arbitrary for RandomSetNewPrevHash {
+        fn arbitrary(g: &mut Gen) -> Self {
+            RandomSetNewPrevHash(SetNewPrevHash::from_random(g))
+        }
+    }
+
     #[quickcheck_macros::quickcheck]
-    fn encode_with_c_set_new_prev_hash(
-        message: template_distribution_sv2::CompletelyRandomSetNewPrevHash,
-    ) -> bool {
+    fn encode_with_c_set_new_prev_hash(message: RandomSetNewPrevHash) -> bool {
         let expected = message.clone().0;
 
         let mut encoder = Encoder::<SetNewPrevHash>::new();
