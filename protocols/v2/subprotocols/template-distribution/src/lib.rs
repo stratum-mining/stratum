@@ -83,3 +83,16 @@ impl Arbitrary for CompletelyRandomNewTemplate {
         })
     }
 }
+
+#[cfg(feature = "prop_test")]
+#[derive(Clone, Debug)]
+pub struct CompletelyRandomCoinbaseOutputDataSize(pub CoinbaseOutputDataSize);
+
+#[cfg(feature = "prop_test")]
+impl Arbitrary for CompletelyRandomCoinbaseOutputDataSize {
+    fn arbitrary(g: &mut Gen) -> Self {
+        CompletelyRandomCoinbaseOutputDataSize(coinbase_output_data_size::CoinbaseOutputDataSize {
+            coinbase_output_max_additional_size: u32::arbitrary(g).try_into().unwrap(),
+        })
+    }
+}
