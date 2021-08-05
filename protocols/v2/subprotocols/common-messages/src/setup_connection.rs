@@ -24,7 +24,7 @@ use core::convert::TryInto;
 /// always set hardware_version to a string describing, at least, the particular hardware/software
 /// package in use.
 ///
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct SetupConnection<'decoder> {
     /// [`Protocol`]
     pub protocol: Protocol,
@@ -215,7 +215,7 @@ impl<'a> From<SetupConnectionError<'a>> for CSetupConnectionError {
 /// TemplateDistributionProtocol = [`SV2_TEMPLATE_DISTR_PROTOCOL_DISCRIMINANT`],
 /// JobDistributionProtocol = [`SV2_JOB_DISTR_PROTOCOL_DISCRIMINANT`],
 #[cfg_attr(feature = "with_serde", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
 #[allow(clippy::enum_variant_names)]
 pub enum Protocol {

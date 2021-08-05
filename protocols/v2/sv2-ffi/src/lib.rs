@@ -380,9 +380,6 @@ pub extern "C" fn next_frame(decoder: *mut DecoderWrapper) -> CResult<CSv2Messag
 mod tests {
     use super::*;
     use core::convert::TryInto;
-
-    use quickcheck::{Arbitrary, Gen};
-
     use quickcheck_macros;
 
     #[quickcheck_macros::quickcheck]
@@ -701,63 +698,42 @@ mod tests {
         decoded_message == expected
     }
 
-    // RR TODO
-    // #[derive(Clone, Debug)]
-    // pub struct CompletelyRandomSetupConnection(pub SetupConnection);
-    //
-    // #[cfg(feature = "prop_test")]
-    // impl Arbitrary for CompletelyRandomSetupConnection {
-    //     fn arbitrary(g: &mut Gen) -> Self {
-    //         // let protocol =
-    //         CompletelyRandomSetupConnection(SetupConnection {
-    //             protocol,
-    //             min_version: u16::arbitrary(g).try_into().unwrap(),
-    //             max_version: u16::arbitrary(g).try_into().unwrap(),
-    //             flags: u32::arbitrary(g).try_into().unwrap(),
-    //             endpoint_host,
-    //             vendor,
-    //             hardware_version,
-    //             firmware,
-    //             device_id,
-    //         })
-    //     }
-    // }
-    //
-    //     #[quickcheck_macros::quickcheck]
-    //     fn encode_with_c_setup_connection(message: CompletelyRandomSetupConnection) -> bool {
-    //         let expected = message.clone().0;
-    //
-    //         let mut encoder = Encoder::<SetupConnection>::new();
-    //         let mut decoder = StandardDecoder::<Sv2Message<'static>>::new();
-    //
-    //         let frame =
-    //             StandardSv2Frame::from_message(message.0, MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGES, 0)
-    //                 .unwrap();
-    //         let encoded_frame = encoder.encode(frame).unwrap();
-    //
-    //         let buffer = decoder.writable();
-    //         for i in 0..buffer.len() {
-    //             buffer[i] = encoded_frame[i]
-    //         }
-    //         decoder.next_frame();
-    //
-    //         let buffer = decoder.writable();
-    //         for i in 0..buffer.len() {
-    //             buffer[i] = encoded_frame[i + 6]
-    //         }
-    //
-    //         let mut decoded = decoder.next_frame().unwrap();
-    //
-    //         let msg_type = decoded.get_header().unwrap().msg_type();
-    //         let payload = decoded.payload();
-    //         let decoded_message: Sv2Message = (msg_type, payload).try_into().unwrap();
-    //         let decoded_message = match decoded_message {
-    //             Sv2Message::SetupConnection(m) => m,
-    //             _ => panic!(),
-    //         };
-    //
-    //         decoded_message == expected
-    //     }
+    #[quickcheck_macros::quickcheck]
+    fn encode_with_c_setup_connection(
+        message: common_messages_sv2::CompletelyRandomSetupConnection,
+    ) -> bool {
+        let expected = message.clone().0;
+
+        let mut encoder = Encoder::<SetupConnection>::new();
+        let mut decoder = StandardDecoder::<Sv2Message<'static>>::new();
+
+        let frame =
+            StandardSv2Frame::from_message(message.0, MESSAGE_TYPE_SETUP_CONNECTION, 0).unwrap();
+        let encoded_frame = encoder.encode(frame).unwrap();
+
+        let buffer = decoder.writable();
+        for i in 0..buffer.len() {
+            buffer[i] = encoded_frame[i]
+        }
+        decoder.next_frame();
+
+        let buffer = decoder.writable();
+        for i in 0..buffer.len() {
+            buffer[i] = encoded_frame[i + 6]
+        }
+
+        let mut decoded = decoder.next_frame().unwrap();
+
+        let msg_type = decoded.get_header().unwrap().msg_type();
+        let payload = decoded.payload();
+        let decoded_message: Sv2Message = (msg_type, payload).try_into().unwrap();
+        let decoded_message = match decoded_message {
+            Sv2Message::SetupConnection(m) => m,
+            _ => panic!(),
+        };
+
+        decoded_message == expected
+    }
 
     #[quickcheck_macros::quickcheck]
     fn encode_with_c_setup_connection_error(

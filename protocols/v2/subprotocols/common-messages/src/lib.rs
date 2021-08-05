@@ -43,6 +43,51 @@ impl Arbitrary for CompletelyRandomChannelEndpointChanged {
 
 #[cfg(feature = "prop_test")]
 #[derive(Clone, Debug)]
+pub struct CompletelyRandomSetupConnection(pub SetupConnection<'static>);
+
+#[cfg(feature = "prop_test")]
+impl Arbitrary for CompletelyRandomSetupConnection {
+    fn arbitrary(g: &mut Gen) -> Self {
+        let protocol = setup_connection::Protocol::MiningProtocol;
+        // let protocol = setup_connection::Protocol::JobDistributionProtocol;
+        // let protocol = setup_connection::Protocol::TemplateDistributionProtocol;
+        // let protocol = setup_connection::Protocol::JobNegotiationProtocol;
+        let mut endpoint_host = Gen::new(255);
+        let endpoint_host: binary_sv2::Str0255 = vec::Vec::<u8>::arbitrary(&mut endpoint_host)
+            .try_into()
+            .unwrap();
+        let mut vendor = Gen::new(255);
+        let vendor: binary_sv2::Str0255 =
+            vec::Vec::<u8>::arbitrary(&mut vendor).try_into().unwrap();
+        let mut hardware_version = Gen::new(255);
+        let hardware_version: binary_sv2::Str0255 =
+            vec::Vec::<u8>::arbitrary(&mut hardware_version)
+                .try_into()
+                .unwrap();
+        let mut firmware = Gen::new(255);
+        let firmware: binary_sv2::Str0255 =
+            vec::Vec::<u8>::arbitrary(&mut firmware).try_into().unwrap();
+        let mut device_id = Gen::new(255);
+        let device_id: binary_sv2::Str0255 = vec::Vec::<u8>::arbitrary(&mut device_id)
+            .try_into()
+            .unwrap();
+        CompletelyRandomSetupConnection(SetupConnection {
+            protocol,
+            min_version: u16::arbitrary(g).try_into().unwrap(),
+            max_version: u16::arbitrary(g).try_into().unwrap(),
+            flags: u32::arbitrary(g).try_into().unwrap(),
+            endpoint_host,
+            endpoint_port: u16::arbitrary(g).try_into().unwrap(),
+            vendor,
+            hardware_version,
+            firmware,
+            device_id,
+        })
+    }
+}
+
+#[cfg(feature = "prop_test")]
+#[derive(Clone, Debug)]
 pub struct CompletelyRandomSetupConnectionError(pub SetupConnectionError<'static>);
 
 #[cfg(feature = "prop_test")]
