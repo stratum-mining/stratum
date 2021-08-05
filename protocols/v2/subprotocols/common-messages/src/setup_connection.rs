@@ -153,7 +153,7 @@ pub struct SetupConnectionSuccess {
 /// the full set of flags which it does not support in each [`SetupConnectionError`] message and
 /// MUST consistently support the same set of flags across all servers on the same hostname and
 /// port number. If flags is 0, the error is a result of some condition aside from unsupported flags.
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct SetupConnectionError<'decoder> {
     /// Flags indicating features causing an error.
     pub flags: u32,
