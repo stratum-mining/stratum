@@ -384,19 +384,16 @@ mod tests {
     use quickcheck_macros;
 
     #[derive(Clone, Debug)]
-    pub struct CompletelyRandomCoinbaseOutputDataSize(pub CoinbaseOutputDataSize);
+    pub struct RandomCoinbaseOutputDataSize(pub CoinbaseOutputDataSize);
 
-    #[cfg(feature = "prop_test")]
-    impl Arbitrary for CompletelyRandomCoinbaseOutputDataSize {
+    impl Arbitrary for RandomCoinbaseOutputDataSize {
         fn arbitrary(g: &mut Gen) -> Self {
-            CompletelyRandomCoinbaseOutputDataSize(CoinbaseOutputDataSize::from_random(g))
+            RandomCoinbaseOutputDataSize(CoinbaseOutputDataSize::from_random(g))
         }
     }
 
     #[quickcheck_macros::quickcheck]
-    fn encode_with_c_coinbase_output_data_size(
-        message: CompletelyRandomCoinbaseOutputDataSize,
-    ) -> bool {
+    fn encode_with_c_coinbase_output_data_size(message: RandomCoinbaseOutputDataSize) -> bool {
         let expected = message.clone().0;
 
         let mut encoder = Encoder::<CoinbaseOutputDataSize>::new();
@@ -431,10 +428,16 @@ mod tests {
         decoded_message == expected
     }
 
+    #[derive(Clone, Debug)]
+    pub struct RandomNewTemplate(pub NewTemplate<'static>);
+    impl Arbitrary for RandomNewTemplate {
+        fn arbitrary(g: &mut Gen) -> Self {
+            RandomNewTemplate(NewTemplate::from_random(g))
+        }
+    }
+
     #[quickcheck_macros::quickcheck]
-    fn encode_with_c_new_template_id(
-        message: template_distribution_sv2::CompletelyRandomNewTemplate,
-    ) -> bool {
+    fn encode_with_c_new_template_id(message: RandomNewTemplate) -> bool {
         let expected = message.clone().0;
 
         let mut encoder = Encoder::<NewTemplate>::new();

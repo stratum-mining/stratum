@@ -56,19 +56,15 @@ pub extern "C" fn _c_export_coinbase_out(_a: CoinbaseOutputDataSize) {}
 pub extern "C" fn _c_export_req_tx_data(_a: RequestTransactionData) {}
 
 #[cfg(feature = "prop_test")]
-#[derive(Clone, Debug)]
-pub struct CompletelyRandomNewTemplate(pub NewTemplate<'static>);
-
-#[cfg(feature = "prop_test")]
-impl Arbitrary for CompletelyRandomNewTemplate {
-    fn arbitrary(g: &mut Gen) -> Self {
+impl NewTemplate<'static> {
+    pub fn from_random(g: &mut Gen) -> Self {
         let coinbase_prefix: binary_sv2::B0255 = vec::Vec::<u8>::arbitrary(g).try_into().unwrap();
         let coinbase_tx_outputs: binary_sv2::B064K =
             vec::Vec::<u8>::arbitrary(g).try_into().unwrap();
 
         let merkle_path_inner = binary_sv2::U256::from_random(g);
         let merkle_path: binary_sv2::Seq0255<binary_sv2::U256> = vec![merkle_path_inner].into();
-        CompletelyRandomNewTemplate(NewTemplate {
+        NewTemplate {
             template_id: u64::arbitrary(g),
             future_template: bool::arbitrary(g),
             version: u32::arbitrary(g),
@@ -80,7 +76,7 @@ impl Arbitrary for CompletelyRandomNewTemplate {
             coinbase_tx_outputs,
             coinbase_tx_locktime: u32::arbitrary(g),
             merkle_path,
-        })
+        }
     }
 }
 #[cfg(feature = "prop_test")]
@@ -91,19 +87,6 @@ impl CoinbaseOutputDataSize {
         }
     }
 }
-
-// #[cfg(feature = "prop_test")]
-// #[derive(Clone, Debug)]
-// pub struct CompletelyRandomCoinbaseOutputDataSize(pub CoinbaseOutputDataSize);
-//
-// #[cfg(feature = "prop_test")]
-// impl Arbitrary for CompletelyRandomCoinbaseOutputDataSize {
-//     fn arbitrary(g: &mut Gen) -> Self {
-//         CompletelyRandomCoinbaseOutputDataSize(coinbase_output_data_size::CoinbaseOutputDataSize {
-//             coinbase_output_max_additional_size: u32::arbitrary(g).try_into().unwrap(),
-//         })
-//     }
-// }
 
 #[cfg(feature = "prop_test")]
 #[derive(Clone, Debug)]
