@@ -628,25 +628,10 @@ mod tests {
         decoded_message == expected
     }
 
-    #[derive(Clone, Debug)]
-    pub struct CompletelyRandomSubmitSolution(pub SubmitSolution<'static>);
-
-    #[cfg(feature = "prop_test")]
-    impl Arbitrary for CompletelyRandomSubmitSolution {
-        fn arbitrary(g: &mut Gen) -> Self {
-            let coinbase_tx: B064K = Vec::<u8>::arbitrary(g).try_into().unwrap();
-            CompletelyRandomSubmitSolution(SubmitSolution {
-                template_id: u64::arbitrary(g).try_into().unwrap(),
-                version: u32::arbitrary(g).try_into().unwrap(),
-                header_timestamp: u32::arbitrary(g).try_into().unwrap(),
-                header_nonce: u32::arbitrary(g).try_into().unwrap(),
-                coinbase_tx,
-            })
-        }
-    }
-
     #[quickcheck_macros::quickcheck]
-    fn encode_with_c_submit_solution(message: CompletelyRandomSubmitSolution) -> bool {
+    fn encode_with_c_submit_solution(
+        message: template_distribution_sv2::CompletelyRandomSubmitSolution,
+    ) -> bool {
         let expected = message.clone().0;
 
         let mut encoder = Encoder::<SubmitSolution>::new();

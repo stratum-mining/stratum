@@ -167,3 +167,20 @@ impl Arbitrary for CompletelyRandomSetNewPrevHash {
         })
     }
 }
+
+#[derive(Clone, Debug)]
+pub struct CompletelyRandomSubmitSolution(pub SubmitSolution<'static>);
+
+#[cfg(feature = "prop_test")]
+impl Arbitrary for CompletelyRandomSubmitSolution {
+    fn arbitrary(g: &mut Gen) -> Self {
+        let coinbase_tx: binary_sv2::B064K = vec::Vec::<u8>::arbitrary(g).try_into().unwrap();
+        CompletelyRandomSubmitSolution(SubmitSolution {
+            template_id: u64::arbitrary(g).try_into().unwrap(),
+            version: u32::arbitrary(g).try_into().unwrap(),
+            header_timestamp: u32::arbitrary(g).try_into().unwrap(),
+            header_nonce: u32::arbitrary(g).try_into().unwrap(),
+            coinbase_tx,
+        })
+    }
+}
