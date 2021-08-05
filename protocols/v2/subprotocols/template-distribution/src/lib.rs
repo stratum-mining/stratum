@@ -55,7 +55,7 @@ pub extern "C" fn _c_export_req_tx_data(_a: RequestTransactionData) {}
 
 #[cfg(feature = "prop_test")]
 #[derive(Clone, Debug)]
-pub struct CompletelyRandomNewTemplate(pub new_template::NewTemplate<'static>);
+pub struct CompletelyRandomNewTemplate(pub NewTemplate<'static>);
 
 #[cfg(feature = "prop_test")]
 impl Arbitrary for CompletelyRandomNewTemplate {
@@ -68,7 +68,7 @@ impl Arbitrary for CompletelyRandomNewTemplate {
         let merkle_path_inner = binary_sv2::U256::from_random(g);
         let merkle_path: binary_sv2::Seq0255<binary_sv2::U256> =
             alloc::vec![merkle_path_inner].into();
-        CompletelyRandomNewTemplate(new_template::NewTemplate {
+        CompletelyRandomNewTemplate(NewTemplate {
             template_id: u64::arbitrary(g),
             future_template: bool::arbitrary(g),
             version: u32::arbitrary(g),
@@ -93,6 +93,19 @@ impl Arbitrary for CompletelyRandomCoinbaseOutputDataSize {
     fn arbitrary(g: &mut Gen) -> Self {
         CompletelyRandomCoinbaseOutputDataSize(coinbase_output_data_size::CoinbaseOutputDataSize {
             coinbase_output_max_additional_size: u32::arbitrary(g).try_into().unwrap(),
+        })
+    }
+}
+
+#[cfg(feature = "prop_test")]
+#[derive(Clone, Debug)]
+pub struct CompletelyRandomRequestTransactionData(pub RequestTransactionData);
+
+#[cfg(feature = "prop_test")]
+impl Arbitrary for CompletelyRandomRequestTransactionData {
+    fn arbitrary(g: &mut Gen) -> Self {
+        CompletelyRandomRequestTransactionData(RequestTransactionData {
+            template_id: u64::arbitrary(g).try_into().unwrap(),
         })
     }
 }

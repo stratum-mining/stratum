@@ -471,21 +471,9 @@ mod tests {
         decoded_message == expected
     }
 
-    #[derive(Clone, Debug)]
-    pub struct CompletelyRandomRequestTransactionData(pub RequestTransactionData);
-
-    #[cfg(feature = "prop_test")]
-    impl Arbitrary for CompletelyRandomRequestTransactionData {
-        fn arbitrary(g: &mut Gen) -> Self {
-            CompletelyRandomRequestTransactionData(RequestTransactionData {
-                template_id: u64::arbitrary(g).try_into().unwrap(),
-            })
-        }
-    }
-
     #[quickcheck_macros::quickcheck]
     fn encode_with_c_request_transaction_data(
-        message: CompletelyRandomRequestTransactionData,
+        message: template_distribution_sv2::CompletelyRandomRequestTransactionData,
     ) -> bool {
         let expected = message.clone().0;
 
