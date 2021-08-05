@@ -21,6 +21,8 @@
 extern crate alloc;
 
 #[cfg(feature = "prop_test")]
+use alloc::vec;
+#[cfg(feature = "prop_test")]
 use core::convert::TryInto;
 #[cfg(feature = "prop_test")]
 use quickcheck::{Arbitrary, Gen};
@@ -60,14 +62,12 @@ pub struct CompletelyRandomNewTemplate(pub NewTemplate<'static>);
 #[cfg(feature = "prop_test")]
 impl Arbitrary for CompletelyRandomNewTemplate {
     fn arbitrary(g: &mut Gen) -> Self {
-        let coinbase_prefix: binary_sv2::B0255 =
-            alloc::vec::Vec::<u8>::arbitrary(g).try_into().unwrap();
+        let coinbase_prefix: binary_sv2::B0255 = vec::Vec::<u8>::arbitrary(g).try_into().unwrap();
         let coinbase_tx_outputs: binary_sv2::B064K =
-            alloc::vec::Vec::<u8>::arbitrary(g).try_into().unwrap();
+            vec::Vec::<u8>::arbitrary(g).try_into().unwrap();
 
         let merkle_path_inner = binary_sv2::U256::from_random(g);
-        let merkle_path: binary_sv2::Seq0255<binary_sv2::U256> =
-            alloc::vec![merkle_path_inner].into();
+        let merkle_path: binary_sv2::Seq0255<binary_sv2::U256> = vec![merkle_path_inner].into();
         CompletelyRandomNewTemplate(NewTemplate {
             template_id: u64::arbitrary(g),
             future_template: bool::arbitrary(g),
@@ -106,6 +106,25 @@ impl Arbitrary for CompletelyRandomRequestTransactionData {
     fn arbitrary(g: &mut Gen) -> Self {
         CompletelyRandomRequestTransactionData(RequestTransactionData {
             template_id: u64::arbitrary(g).try_into().unwrap(),
+        })
+    }
+}
+
+#[cfg(feature = "prop_test")]
+#[derive(Clone, Debug)]
+pub struct CompletelyRandomRequestTransactionDataError(pub RequestTransactionDataError<'static>);
+
+#[cfg(feature = "prop_test")]
+impl Arbitrary for CompletelyRandomRequestTransactionDataError {
+    fn arbitrary(g: &mut Gen) -> Self {
+        let mut error_code_generator = Gen::new(255);
+        let error_code: binary_sv2::Str0255 = vec::Vec::<u8>::arbitrary(&mut error_code_generator)
+            .try_into()
+            .unwrap();
+
+        CompletelyRandomRequestTransactionDataError(RequestTransactionDataError {
+            template_id: u64::arbitrary(g).try_into().unwrap(),
+            error_code,
         })
     }
 }

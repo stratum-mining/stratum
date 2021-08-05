@@ -509,29 +509,9 @@ mod tests {
         decoded_message == expected
     }
 
-    #[derive(Clone, Debug)]
-    pub struct CompletelyRandomRequestTransactionDataError(
-        pub RequestTransactionDataError<'static>,
-    );
-
-    #[cfg(feature = "prop_test")]
-    impl Arbitrary for CompletelyRandomRequestTransactionDataError {
-        fn arbitrary(g: &mut Gen) -> Self {
-            let mut error_code_generator = Gen::new(255);
-            let error_code: Str0255 = Vec::<u8>::arbitrary(&mut error_code_generator)
-                .try_into()
-                .unwrap();
-
-            CompletelyRandomRequestTransactionDataError(RequestTransactionDataError {
-                template_id: u64::arbitrary(g).try_into().unwrap(),
-                error_code,
-            })
-        }
-    }
-
     #[quickcheck_macros::quickcheck]
     fn encode_with_c_request_transaction_data_error(
-        message: CompletelyRandomRequestTransactionDataError,
+        message: template_distribution_sv2::CompletelyRandomRequestTransactionDataError,
     ) -> bool {
         let expected = message.clone().0;
 
