@@ -128,3 +128,24 @@ impl Arbitrary for CompletelyRandomRequestTransactionDataError {
         })
     }
 }
+
+#[derive(Clone, Debug)]
+pub struct CompletelyRandomRequestTransactionDataSuccess(
+    pub RequestTransactionDataSuccess<'static>,
+);
+
+#[cfg(feature = "prop_test")]
+impl Arbitrary for CompletelyRandomRequestTransactionDataSuccess {
+    fn arbitrary(g: &mut Gen) -> Self {
+        let excess_data: binary_sv2::B064K = vec::Vec::<u8>::arbitrary(g).try_into().unwrap();
+        let transaction_list_inner = binary_sv2::B016M::from_random(g);
+        let transaction_list: binary_sv2::Seq064K<binary_sv2::B016M> =
+            vec![transaction_list_inner].into();
+
+        CompletelyRandomRequestTransactionDataSuccess(RequestTransactionDataSuccess {
+            template_id: u64::arbitrary(g).try_into().unwrap(),
+            excess_data,
+            transaction_list,
+        })
+    }
+}

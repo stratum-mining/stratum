@@ -550,29 +550,9 @@ mod tests {
         decoded_message == expected
     }
 
-    #[derive(Clone, Debug)]
-    pub struct CompletelyRandomRequestTransactionDataSuccess(
-        pub RequestTransactionDataSuccess<'static>,
-    );
-
-    #[cfg(feature = "prop_test")]
-    impl Arbitrary for CompletelyRandomRequestTransactionDataSuccess {
-        fn arbitrary(g: &mut Gen) -> Self {
-            let excess_data: B064K = Vec::<u8>::arbitrary(g).try_into().unwrap();
-            let transaction_list_inner = B016M::from_random(g);
-            let transaction_list: Seq064K<B016M> = vec![transaction_list_inner].into();
-
-            CompletelyRandomRequestTransactionDataSuccess(RequestTransactionDataSuccess {
-                template_id: u64::arbitrary(g).try_into().unwrap(),
-                excess_data,
-                transaction_list,
-            })
-        }
-    }
-
     #[quickcheck_macros::quickcheck]
     fn encode_with_c_request_transaction_data_success(
-        message: CompletelyRandomRequestTransactionDataSuccess,
+        message: template_distribution_sv2::CompletelyRandomRequestTransactionDataSuccess,
     ) -> bool {
         let expected = message.clone().0;
 
