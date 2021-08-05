@@ -480,10 +480,16 @@ mod tests {
         decoded_message == expected
     }
 
+    #[derive(Clone, Debug)]
+    pub struct RandomRequestTransactionData(pub RequestTransactionData);
+    impl Arbitrary for RandomRequestTransactionData {
+        fn arbitrary(g: &mut Gen) -> Self {
+            RandomRequestTransactionData(RequestTransactionData::from_random(g))
+        }
+    }
+
     #[quickcheck_macros::quickcheck]
-    fn encode_with_c_request_transaction_data(
-        message: template_distribution_sv2::CompletelyRandomRequestTransactionData,
-    ) -> bool {
+    fn encode_with_c_request_transaction_data(message: RandomRequestTransactionData) -> bool {
         let expected = message.clone().0;
 
         let mut encoder = Encoder::<RequestTransactionData>::new();

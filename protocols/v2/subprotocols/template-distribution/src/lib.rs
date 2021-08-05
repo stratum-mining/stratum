@@ -89,15 +89,11 @@ impl CoinbaseOutputDataSize {
 }
 
 #[cfg(feature = "prop_test")]
-#[derive(Clone, Debug)]
-pub struct CompletelyRandomRequestTransactionData(pub RequestTransactionData);
-
-#[cfg(feature = "prop_test")]
-impl Arbitrary for CompletelyRandomRequestTransactionData {
-    fn arbitrary(g: &mut Gen) -> Self {
-        CompletelyRandomRequestTransactionData(RequestTransactionData {
+impl RequestTransactionData {
+    pub fn from_random(g: &mut Gen) -> Self {
+        RequestTransactionData {
             template_id: u64::arbitrary(g).try_into().unwrap(),
-        })
+        }
     }
 }
 
