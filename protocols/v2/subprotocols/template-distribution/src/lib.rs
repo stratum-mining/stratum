@@ -98,21 +98,17 @@ impl RequestTransactionData {
 }
 
 #[cfg(feature = "prop_test")]
-#[derive(Clone, Debug)]
-pub struct CompletelyRandomRequestTransactionDataError(pub RequestTransactionDataError<'static>);
-
-#[cfg(feature = "prop_test")]
-impl Arbitrary for CompletelyRandomRequestTransactionDataError {
-    fn arbitrary(g: &mut Gen) -> Self {
+impl RequestTransactionDataError<'static> {
+    pub fn from_random(g: &mut Gen) -> Self {
         let mut error_code_generator = Gen::new(255);
         let error_code: binary_sv2::Str0255 = vec::Vec::<u8>::arbitrary(&mut error_code_generator)
             .try_into()
             .unwrap();
 
-        CompletelyRandomRequestTransactionDataError(RequestTransactionDataError {
+        RequestTransactionDataError {
             template_id: u64::arbitrary(g).try_into().unwrap(),
             error_code,
-        })
+        }
     }
 }
 
