@@ -129,6 +129,7 @@ impl Arbitrary for CompletelyRandomRequestTransactionDataError {
     }
 }
 
+#[cfg(feature = "prop_test")]
 #[derive(Clone, Debug)]
 pub struct CompletelyRandomRequestTransactionDataSuccess(
     pub RequestTransactionDataSuccess<'static>,
@@ -150,6 +151,7 @@ impl Arbitrary for CompletelyRandomRequestTransactionDataSuccess {
     }
 }
 
+#[cfg(feature = "prop_test")]
 #[derive(Clone, Debug)]
 pub struct CompletelyRandomSetNewPrevHash(pub SetNewPrevHash<'static>);
 
@@ -168,6 +170,7 @@ impl Arbitrary for CompletelyRandomSetNewPrevHash {
     }
 }
 
+#[cfg(feature = "prop_test")]
 #[derive(Clone, Debug)]
 pub struct CompletelyRandomSubmitSolution(pub SubmitSolution<'static>);
 
