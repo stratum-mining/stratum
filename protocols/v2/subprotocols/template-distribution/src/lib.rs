@@ -20,6 +20,11 @@
 //! provided, and thus MUST track the work which they provided to clients.
 extern crate alloc;
 
+#[cfg(feature = "prop_test")]
+use core::convert::TryInto;
+#[cfg(feature = "prop_test")]
+use quickcheck::{Arbitrary, Gen};
+
 mod coinbase_output_data_size;
 mod new_template;
 mod request_transaction_data;
@@ -47,3 +52,34 @@ pub extern "C" fn _c_export_coinbase_out(_a: CoinbaseOutputDataSize) {}
 
 #[no_mangle]
 pub extern "C" fn _c_export_req_tx_data(_a: RequestTransactionData) {}
+
+#[cfg(feature = "prop_test")]
+#[derive(Clone, Debug)]
+pub struct CompletelyRandomNewTemplate(pub new_template::NewTemplate<'static>);
+
+#[cfg(feature = "prop_test")]
+impl Arbitrary for CompletelyRandomNewTemplate {
+    fn arbitrary(g: &mut Gen) -> Self {
+        let coinbase_prefix: binary_sv2::B0255 =
+            alloc::vec::Vec::<u8>::arbitrary(g).try_into().unwrap();
+        let coinbase_tx_outputs: binary_sv2::B064K =
+            alloc::vec::Vec::<u8>::arbitrary(g).try_into().unwrap();
+
+        let merkle_path_inner = binary_sv2::U256::from_random(g);
+        let merkle_path: binary_sv2::Seq0255<binary_sv2::U256> =
+            alloc::vec![merkle_path_inner].into();
+        CompletelyRandomNewTemplate(new_template::NewTemplate {
+            template_id: u64::arbitrary(g),
+            future_template: bool::arbitrary(g),
+            version: u32::arbitrary(g),
+            coinbase_tx_version: u32::arbitrary(g),
+            coinbase_prefix,
+            coinbase_tx_input_sequence: u32::arbitrary(g),
+            coinbase_tx_value_remaining: u64::arbitrary(g),
+            coinbase_tx_outputs_count: u32::arbitrary(g),
+            coinbase_tx_outputs,
+            coinbase_tx_locktime: u32::arbitrary(g),
+            merkle_path,
+        })
+    }
+}
