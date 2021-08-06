@@ -719,10 +719,17 @@ mod tests {
         }
     }
 
+    #[derive(Clone, Debug)]
+    pub struct RandomChannelEndpointChanged(pub ChannelEndpointChanged);
+
+    impl Arbitrary for RandomChannelEndpointChanged {
+        fn arbitrary(g: &mut Gen) -> Self {
+            RandomChannelEndpointChanged(ChannelEndpointChanged::from_random(g))
+        }
+    }
+
     #[quickcheck_macros::quickcheck]
-    fn encode_with_c_channel_endpoint_changed(
-        message: common_messages_sv2::CompletelyRandomChannelEndpointChanged,
-    ) -> bool {
+    fn encode_with_c_channel_endpoint_changed(message: RandomChannelEndpointChanged) -> bool {
         let expected = message.clone().0;
 
         let mut encoder = Encoder::<ChannelEndpointChanged>::new();
