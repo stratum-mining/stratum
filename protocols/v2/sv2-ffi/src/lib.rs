@@ -710,6 +710,15 @@ mod tests {
         decoded_message == expected
     }
 
+    #[derive(Clone, Debug)]
+    pub struct RandomSetupConnection(pub SetupConnection<'static>);
+
+    impl Arbitrary for RandomSetupConnection {
+        fn arbitrary(g: &mut Gen) -> Self {
+            RandomSetupConnection(SetupConnection::from_random(g))
+        }
+    }
+
     #[quickcheck_macros::quickcheck]
     fn encode_with_c_channel_endpoint_changed(
         message: common_messages_sv2::CompletelyRandomChannelEndpointChanged,
@@ -749,9 +758,7 @@ mod tests {
     }
 
     #[quickcheck_macros::quickcheck]
-    fn encode_with_c_setup_connection(
-        message: common_messages_sv2::CompletelyRandomSetupConnection,
-    ) -> bool {
+    fn encode_with_c_setup_connection(message: RandomSetupConnection) -> bool {
         let expected = message.clone().0;
 
         let mut encoder = Encoder::<SetupConnection>::new();

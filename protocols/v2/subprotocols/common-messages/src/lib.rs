@@ -42,12 +42,8 @@ impl Arbitrary for CompletelyRandomChannelEndpointChanged {
 }
 
 #[cfg(feature = "prop_test")]
-#[derive(Clone, Debug)]
-pub struct CompletelyRandomSetupConnection(pub SetupConnection<'static>);
-
-#[cfg(feature = "prop_test")]
-impl Arbitrary for CompletelyRandomSetupConnection {
-    fn arbitrary(g: &mut Gen) -> Self {
+impl SetupConnection<'static> {
+    pub fn from_random(g: &mut Gen) -> Self {
         let protocol = setup_connection::Protocol::MiningProtocol;
         // let protocol = setup_connection::Protocol::JobDistributionProtocol;
         // let protocol = setup_connection::Protocol::TemplateDistributionProtocol;
@@ -71,7 +67,7 @@ impl Arbitrary for CompletelyRandomSetupConnection {
         let device_id: binary_sv2::Str0255 = vec::Vec::<u8>::arbitrary(&mut device_id)
             .try_into()
             .unwrap();
-        CompletelyRandomSetupConnection(SetupConnection {
+        SetupConnection {
             protocol,
             min_version: u16::arbitrary(g).try_into().unwrap(),
             max_version: u16::arbitrary(g).try_into().unwrap(),
@@ -82,7 +78,7 @@ impl Arbitrary for CompletelyRandomSetupConnection {
             hardware_version,
             firmware,
             device_id,
-        })
+        }
     }
 }
 
