@@ -666,10 +666,17 @@ mod tests {
         decoded_message == expected
     }
 
+    #[derive(Clone, Debug)]
+    pub struct RandomSubmitSolution(pub SubmitSolution<'static>);
+
+    impl Arbitrary for RandomSubmitSolution {
+        fn arbitrary(g: &mut Gen) -> Self {
+            RandomSubmitSolution(SubmitSolution::from_random(g))
+        }
+    }
+
     #[quickcheck_macros::quickcheck]
-    fn encode_with_c_submit_solution(
-        message: template_distribution_sv2::CompletelyRandomSubmitSolution,
-    ) -> bool {
+    fn encode_with_c_submit_solution(message: RandomSubmitSolution) -> bool {
         let expected = message.clone().0;
 
         let mut encoder = Encoder::<SubmitSolution>::new();
