@@ -799,10 +799,17 @@ mod tests {
         decoded_message == expected
     }
 
+    #[derive(Clone, Debug)]
+    pub struct RandomSetupConnectionError(pub SetupConnectionError<'static>);
+
+    impl Arbitrary for RandomSetupConnectionError {
+        fn arbitrary(g: &mut Gen) -> Self {
+            RandomSetupConnectionError(SetupConnectionError::from_random(g))
+        }
+    }
+
     #[quickcheck_macros::quickcheck]
-    fn encode_with_c_setup_connection_error(
-        message: common_messages_sv2::CompletelyRandomSetupConnectionError,
-    ) -> bool {
+    fn encode_with_c_setup_connection_error(message: RandomSetupConnectionError) -> bool {
         let expected = message.clone().0;
 
         let mut encoder = Encoder::<SetupConnectionError>::new();
