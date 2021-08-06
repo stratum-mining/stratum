@@ -93,15 +93,11 @@ impl SetupConnectionError<'static> {
 }
 
 #[cfg(feature = "prop_test")]
-#[derive(Clone, Debug)]
-pub struct CompletelyRandomSetupConnectionSuccess(pub SetupConnectionSuccess);
-
-#[cfg(feature = "prop_test")]
-impl Arbitrary for CompletelyRandomSetupConnectionSuccess {
-    fn arbitrary(g: &mut Gen) -> Self {
-        CompletelyRandomSetupConnectionSuccess(SetupConnectionSuccess {
+impl SetupConnectionSuccess {
+    pub fn from_random(g: &mut Gen) -> Self {
+        SetupConnectionSuccess {
             used_version: u16::arbitrary(g).try_into().unwrap(),
             flags: u32::arbitrary(g).try_into().unwrap(),
-        })
+        }
     }
 }

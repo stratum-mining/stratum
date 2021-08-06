@@ -844,10 +844,17 @@ mod tests {
         decoded_message.flags == expected.flags
     }
 
+    #[derive(Clone, Debug)]
+    pub struct RandomSetupConnectionSuccess(pub SetupConnectionSuccess);
+
+    #[cfg(feature = "prop_test")]
+    impl Arbitrary for RandomSetupConnectionSuccess {
+        fn arbitrary(g: &mut Gen) -> Self {
+            RandomSetupConnectionSuccess(SetupConnectionSuccess::from_random(g))
+        }
+    }
     #[quickcheck_macros::quickcheck]
-    fn encode_with_c_setup_connection_success(
-        message: common_messages_sv2::CompletelyRandomSetupConnectionSuccess,
-    ) -> bool {
+    fn encode_with_c_setup_connection_success(message: RandomSetupConnectionSuccess) -> bool {
         let expected = message.clone().0;
 
         let mut encoder = Encoder::<SetupConnectionSuccess>::new();
