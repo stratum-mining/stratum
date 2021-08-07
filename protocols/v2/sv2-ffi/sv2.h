@@ -4,6 +4,8 @@
 #include <ostream>
 #include <new>
 
+static const uint16_t EXTENSION_TYPE_NO_EXTENSION = 0;
+
 static const uintptr_t SV2_FRAME_HEADER_SIZE = 6;
 
 static const uintptr_t SV2_FRAME_HEADER_LEN_OFFSET = 3;
@@ -34,21 +36,169 @@ static const uint8_t MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS = 1;
 
 static const uint8_t MESSAGE_TYPE_SETUP_CONNECTION_ERROR = 2;
 
-static const uint8_t MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGES = 3;
+static const uint8_t MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED = 3;
 
-static const uint8_t MESSAGE_TYPE_COINBASE_OUTPUT_DATA_SIZE = 70;
+static const uint8_t MESSAGE_TYPE_COINBASE_OUTPUT_DATA_SIZE = 112;
 
-static const uint8_t MESSAGE_TYPE_NEW_TEMPLATE = 71;
+static const uint8_t MESSAGE_TYPE_NEW_TEMPLATE = 113;
 
-static const uint8_t MESSAGE_TYPE_SET_NEW_PREV_HASH = 72;
+static const uint8_t MESSAGE_TYPE_SET_NEW_PREV_HASH = 114;
 
-static const uint8_t MESSAGE_TYPE_REQUEST_TRANSACTION_DATA = 73;
+static const uint8_t MESSAGE_TYPE_REQUEST_TRANSACTION_DATA = 115;
 
-static const uint8_t MESSAGE_TYPE_REQUEST_TRANSACTION_DATA_SUCCESS = 74;
+static const uint8_t MESSAGE_TYPE_REQUEST_TRANSACTION_DATA_SUCCESS = 116;
 
-static const uint8_t MESSAGE_TYPE_REQUEST_TRANSACTION_DATA_ERROR = 75;
+static const uint8_t MESSAGE_TYPE_REQUEST_TRANSACTION_DATA_ERROR = 117;
 
-static const uint8_t MESSAGE_TYPE_SUBMIT_SOLUTION = 76;
+static const uint8_t MESSAGE_TYPE_SUBMIT_SOLUTION = 118;
+
+static const uint8_t MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN = 80;
+
+static const uint8_t MESSAGE_TYPE_ALLOCATE_MINING_JOB_SUCCESS = 81;
+
+static const uint8_t MESSAGE_TYPE_IDENTIFY_TRANSACTIONS = 83;
+
+static const uint8_t MESSAGE_TYPE_IDENTIFY_TRANSACTIONS_SUCCESS = 84;
+
+static const uint8_t MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTION = 85;
+
+static const uint8_t MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTION_SUCCESS = 86;
+
+static const uint8_t MESSAGE_TYPE_COMMIT_MINING_JOB = 87;
+
+static const uint8_t MESSAGE_TYPE_COMMIT_MINING_JOB_SUCCESS = 88;
+
+static const uint8_t MESSAGE_TYPE_COMMIT_MINING_JOB_ERROR = 89;
+
+static const uint8_t MESSAGE_TYPE_CLOSE_CHANNEL = 24;
+
+static const uint8_t MESSAGE_TYPE_NEW_EXTENDED_MINING_JOB = 31;
+
+static const uint8_t MESSAGE_TYPE_NEW_MINING_JOB = 30;
+
+static const uint8_t MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL = 19;
+
+static const uint8_t MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL_SUCCES = 20;
+
+static const uint8_t MESSAGE_TYPE_OPEN_MINING_CHANNEL_ERROR = 18;
+
+static const uint8_t MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL = 16;
+
+static const uint8_t MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL_SUCCESS = 17;
+
+static const uint8_t MESSAGE_TYPE_RECONNECT = 37;
+
+static const uint8_t MESSAGE_TYPE_SET_CUSTOM_MINING_JOB = 34;
+
+static const uint8_t MESSAGE_TYPE_SET_CUSTOM_MINING_JOB_ERROR = 36;
+
+static const uint8_t MESSAGE_TYPE_SET_CUSTOM_MINING_JOB_SUCCESS = 35;
+
+static const uint8_t MESSAGE_TYPE_SET_EXTRANONCE_PREFIX = 25;
+
+static const uint8_t MESSAGE_TYPE_SET_GROUP_CHANNEL = 38;
+
+static const uint8_t MESSAGE_TYPE_MINING_SET_NEW_PREV_HASH = 32;
+
+static const uint8_t MESSAGE_TYPE_SET_TARGET = 33;
+
+static const uint8_t MESSAGE_TYPE_SUBMIT_SHARES_ERROR = 29;
+
+static const uint8_t MESSAGE_TYPE_SUBMIT_SHARES_EXTENDED = 27;
+
+static const uint8_t MESSAGE_TYPE_SUBMIT_SHARES_STANDARD = 26;
+
+static const uint8_t MESSAGE_TYPE_SUBMIT_SHARES_SUCCESS = 28;
+
+static const uint8_t MESSAGE_TYPE_UPDATE_CHANNEL = 22;
+
+static const uint8_t MESSAGE_TYPE_UPDATE_CHANNEL_ERROR = 23;
+
+static const bool CHANNEL_BIT_SETUP_CONNECTION = false;
+
+static const bool CHANNEL_BIT_SETUP_CONNECTION_SUCCESS = false;
+
+static const bool CHANNEL_BIT_SETUP_CONNECTION_ERROR = false;
+
+static const bool CHANNEL_BIT_CHANNEL_ENDPOINT_CHANGED = true;
+
+static const bool CHANNEL_BIT_COINBASE_OUTPUT_DATA_SIZE = false;
+
+static const bool CHANNEL_BIT_NEW_TEMPLATE = false;
+
+static const bool CHANNEL_BIT_SET_NEW_PREV_HASH = false;
+
+static const bool CHANNEL_BIT_REQUEST_TRANSACTION_DATA = false;
+
+static const bool CHANNEL_BIT_REQUEST_TRANSACTION_DATA_SUCCESS = false;
+
+static const bool CHANNEL_BIT_REQUEST_TRANSACTION_DATA_ERROR = false;
+
+static const bool CHANNEL_BIT_SUBMIT_SOLUTION = false;
+
+static const bool CHANNEL_BIT_ALLOCATE_MINING_JOB_TOKEN = false;
+
+static const bool CHANNEL_BIT_ALLOCATE_MINING_JOB_SUCCESS = false;
+
+static const bool CHANNEL_BIT_ALLOCATE_MINING_JOB_ERROR = false;
+
+static const bool CHANNEL_BIT_IDENTIFY_TRANSACTIONS = false;
+
+static const bool CHANNEL_BIT_IDENTIFY_TRANSACTIONS_SUCCESS = false;
+
+static const bool CHANNEL_BIT_PROVIDE_MISSING_TRANSACTION = false;
+
+static const bool CHANNEL_BIT_PROVIDE_MISSING_TRANSACTION_SUCCESS = false;
+
+static const bool CHANNEL_BIT_COMMIT_MINING_JOB = false;
+
+static const bool CHANNEL_BIT_COMMIT_MINING_JOB_SUCCESS = false;
+
+static const bool CHANNEL_BIT_COMMIT_MINING_JOB_ERROR = false;
+
+static const bool CHANNEL_BIT_CLOSE_CHANNEL = true;
+
+static const bool CHANNEL_BIT_NEW_EXTENDED_MINING_JOB = true;
+
+static const bool CHANNEL_BIT_NEW_MINING_JOB = true;
+
+static const bool CHANNEL_BIT_OPEN_EXTENDED_MINING_CHANNEL = false;
+
+static const bool CHANNEL_BIT_OPEN_EXTENDED_MINING_CHANNEL_SUCCES = false;
+
+static const bool CHANNEL_BIT_OPEN_MINING_CHANNEL_ERROR = false;
+
+static const bool CHANNEL_BIT_OPEN_STANDARD_MINING_CHANNEL = false;
+
+static const bool CHANNEL_BIT_OPEN_STANDARD_MINING_CHANNEL_SUCCESS = false;
+
+static const bool CHANNEL_BIT_RECONNECT = false;
+
+static const bool CHANNEL_BIT_SET_CUSTOM_MINING_JOB = false;
+
+static const bool CHANNEL_BIT_SET_CUSTOM_MINING_JOB_ERROR = false;
+
+static const bool CHANNEL_BIT_SET_CUSTOM_MINING_JOB_SUCCESS = false;
+
+static const bool CHANNEL_BIT_SET_EXTRANONCE_PREFIX = true;
+
+static const bool CHANNEL_BIT_SET_GROUP_CHANNEL = false;
+
+static const bool CHANNEL_BIT_MINING_SET_NEW_PREV_HASH = true;
+
+static const bool CHANNEL_BIT_SET_TARGET = true;
+
+static const bool CHANNEL_BIT_SUBMIT_SHARES_ERROR = true;
+
+static const bool CHANNEL_BIT_SUBMIT_SHARES_EXTENDED = true;
+
+static const bool CHANNEL_BIT_SUBMIT_SHARES_STANDARD = true;
+
+static const bool CHANNEL_BIT_SUBMIT_SHARES_SUCCESS = true;
+
+static const bool CHANNEL_BIT_UPDATE_CHANNEL = true;
+
+static const bool CHANNEL_BIT_UPDATE_CHANNEL_ERROR = true;
 #include <cstdarg>
 #include <cstdint>
 #include <cstdlib>

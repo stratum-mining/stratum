@@ -1,4 +1,6 @@
 // TODO unify errors from serde_sv2 and no-serde-sv2
+//
+use core::convert::TryInto;
 
 #[cfg(feature = "with_serde")]
 pub use serde::{self, Deserialize, Serialize};
@@ -9,6 +11,20 @@ pub use serde_sv2::*;
 pub use binary_codec_sv2::{self, Decodable as Deserialize, Encodable as Serialize, *};
 #[cfg(not(feature = "with_serde"))]
 pub use derive_codec_sv2::{Decodable as Deserialize, Encodable as Serialize};
+
+pub fn clone_message<T: Serialize>(_: T) -> T {
+    todo!()
+}
+
+pub fn u256_from_int<V: Into<u64>>(value: V) -> U256<'static> {
+    let mut u256 = vec![0_u8; 24];
+    let val: u64 = value.into();
+    for v in val.to_le_bytes() {
+        u256.push(v)
+    }
+    let u256: U256 = u256.try_into().unwrap();
+    u256
+}
 
 #[cfg(test)]
 mod test {

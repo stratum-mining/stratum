@@ -1,7 +1,7 @@
 use alloc::vec::Vec;
 
 pub trait Buffer {
-    type Slice: AsMut<[u8]>;
+    type Slice: AsMut<[u8]> + AsRef<[u8]>;
 
     fn get_writable(&mut self, len: usize) -> &mut [u8];
 

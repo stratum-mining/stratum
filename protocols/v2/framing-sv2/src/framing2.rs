@@ -15,7 +15,8 @@ pub trait Frame<'a, T: Serialize + GetSize>: Sized {
     /// itself
     fn serialize(self, dst: &mut Self::Buffer) -> Result<(), binary_sv2::Error>;
 
-    ///fn deserialize(&'a mut self) -> Result<Self::Deserialized, serde_sv2::Error>;
+    //fn deserialize(&'a mut self) -> Result<Self::Deserialized, serde_sv2::Error>;
+
     fn payload(&'a mut self) -> &'a mut [u8];
 
     /// If is an Sv2 frame return the Some(header) if it is a noise frame return None
@@ -68,7 +69,42 @@ pub struct NoiseFrame {
 
 pub type HandShakeFrame = NoiseFrame;
 
-impl<'a, T: Serialize + GetSize, B: AsMut<[u8]>> Frame<'a, T> for Sv2Frame<T, B> {
+impl<T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> Sv2Frame<T, B> {
+    fn owned_serialized(self) -> Option<<Sv2Frame<T, B> as Frame<'static, T>>::Buffer> {
+        if self.payload.is_some() {
+            None
+        } else {
+            Some(self.serialized.unwrap())
+        }
+    }
+
+    /// Used when a proxy need to relay the reCived message as it is up or downstream
+    /// This method do not alloc
+    pub fn relay(self) -> Option<Self> {
+        let header = self.get_header()?;
+        let serialized = self.owned_serialized()?;
+        Some(Sv2Frame {
+            header,
+            serialized: Some(serialized),
+            payload: None,
+        })
+    }
+
+    /// Same as relay but return a different type. T and G must have the same internal
+    /// rapresantation (beeing the same Sv2 message) as the raw messages' bytes stay untouched.
+    /// If not using this method do not make any senze just create a new message and a new frame.
+    pub fn relay_as<G: Serialize + GetSize>(self, _: fn(T) -> G) -> Option<Sv2Frame<G, B>> {
+        let header = self.get_header()?;
+        let serialized = self.owned_serialized()?;
+        Some(Sv2Frame {
+            header,
+            serialized: Some(serialized),
+            payload: None,
+        })
+    }
+}
+
+impl<'a, T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> Frame<'a, T> for Sv2Frame<T, B> {
     type Buffer = B;
     type Deserialized = B;
 
@@ -147,7 +183,7 @@ impl<'a, T: Serialize + GetSize, B: AsMut<[u8]>> Frame<'a, T> for Sv2Frame<T, B>
     #[inline]
     fn encoded_length(&self) -> usize {
         if self.serialized.is_some() {
-            unimplemented!()
+            self.serialized.as_ref().unwrap().as_ref().len()
         } else {
             self.payload.as_ref().unwrap().get_size() + Header::SIZE
         }
@@ -281,7 +317,9 @@ pub enum EitherFrame<T, B> {
     Sv2(Sv2Frame<T, B>),
 }
 
-impl<T: Serialize + GetSize, B: AsMut<[u8]>> EitherFrame<T, B> {
+//impl
+
+impl<T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> EitherFrame<T, B> {
     //pub fn serialize(mut self, dst: &mut B) -> Result<(), serde_sv2::Error> {
     //    match self {
     //        Self::HandShake(frame) => todo!(),
