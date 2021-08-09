@@ -26,7 +26,9 @@ impl<'a, const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const 
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Inner::Ref(b), Inner::Owned(a)) => *b == &a[..],
-            _ => self == other,
+            (Inner::Owned(b), Inner::Ref(a)) => *a == &b[..],
+            (Inner::Owned(b), Inner::Owned(a)) => b == a,
+            (Inner::Ref(b), Inner::Ref(a)) => b == a,
         }
     }
 }
