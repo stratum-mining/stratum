@@ -1,8 +1,6 @@
 #[cfg(not(feature = "with_serde"))]
 use alloc::vec::Vec;
 #[cfg(not(feature = "with_serde"))]
-use alloc::vec;
-#[cfg(not(feature = "with_serde"))]
 use binary_sv2::binary_codec_sv2::{self, free_vec, free_vec_2, CVec, CVec2};
 #[cfg(not(feature = "with_serde"))]
 use binary_sv2::Error;
@@ -35,7 +33,8 @@ pub struct NewTemplate<'decoder> {
     /// Up to 8 bytes (not including the length byte) which are to be placed
     /// at the beginning of the coinbase field in the coinbase transaction.
     #[cfg_attr(feature = "with_serde", serde(borrow))]
-    pub coinbase_prefix: B0255<'decoder>, ///bug
+    pub coinbase_prefix: B0255<'decoder>,
+    ///bug
     /// The coinbase transaction input’s nSequence field.
     pub coinbase_tx_input_sequence: u32,
     /// The value, in satoshis, available for spending in coinbase outputs
@@ -55,10 +54,8 @@ pub struct NewTemplate<'decoder> {
     pub merkle_path: Seq0255<'decoder, U256<'decoder>>,
 }
 
-
 #[repr(C)]
 #[cfg(not(feature = "with_serde"))]
-#[derive(Clone, Debug)]
 pub struct CNewTemplate {
     template_id: u64,
     future_template: bool,
@@ -71,36 +68,6 @@ pub struct CNewTemplate {
     coinbase_tx_outputs: CVec,
     coinbase_tx_locktime: u32,
     merkle_path: CVec2,
-}
-
-impl CNewTemplate {
-    pub fn new(
-        template_id: u64,
-        future_template: bool,
-        version: u32,
-        coinbase_tx_version: u32,
-        coinbase_prefix: CVec,
-        coinbase_tx_input_sequence: u32,
-        coinbase_tx_value_remaining: u64,
-        coinbase_tx_outputs_count: u32,
-        coinbase_tx_outputs: CVec,
-        coinbase_tx_locktime: u32,
-        merkle_path: CVec2,
-        ) -> Self {
-           CNewTemplate {
-               template_id,
-               future_template,
-               version,
-               coinbase_tx_version,
-               coinbase_prefix,
-               coinbase_tx_input_sequence,
-               coinbase_tx_value_remaining,
-               coinbase_tx_outputs_count,
-               coinbase_tx_outputs,
-               coinbase_tx_locktime,
-               merkle_path,
-           }
-    }
 }
 
 #[no_mangle]

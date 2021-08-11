@@ -30,6 +30,7 @@ impl<'decoder> From<[u8; 32]> for U256<'decoder> {
     }
 }
 
+#[cfg(not(feature = "with_serde"))]
 #[cfg(feature = "prop_test")]
 impl<'a> U256<'a> {
     pub fn from_random(g: &mut Gen) -> Self {
@@ -40,6 +41,7 @@ impl<'a> U256<'a> {
     }
 }
 
+#[cfg(not(feature = "with_serde"))]
 #[cfg(feature = "prop_test")]
 impl<'a> B016M<'a> {
     pub fn from_random(g: &mut Gen) -> Self {

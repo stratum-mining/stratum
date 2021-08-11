@@ -55,6 +55,7 @@ pub extern "C" fn _c_export_coinbase_out(_a: CoinbaseOutputDataSize) {}
 #[no_mangle]
 pub extern "C" fn _c_export_req_tx_data(_a: RequestTransactionData) {}
 
+#[cfg(not(feature = "with_serde"))]
 #[cfg(feature = "prop_test")]
 impl NewTemplate<'static> {
     pub fn from_random(g: &mut Gen) -> Self {
@@ -112,6 +113,7 @@ impl RequestTransactionDataError<'static> {
     }
 }
 
+#[cfg(not(feature = "with_serde"))]
 #[cfg(feature = "prop_test")]
 impl RequestTransactionDataSuccess<'static> {
     pub fn from_random(g: &mut Gen) -> Self {
@@ -128,6 +130,7 @@ impl RequestTransactionDataSuccess<'static> {
     }
 }
 
+#[cfg(not(feature = "with_serde"))]
 #[cfg(feature = "prop_test")]
 impl SetNewPrevHash<'static> {
     pub fn from_random(g: &mut Gen) -> Self {

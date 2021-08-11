@@ -11,7 +11,6 @@ pub struct Seq0255<'s, T: Serialize + TryFromBSlice<'s> + Clone> {
     seq: Option<Seq<'s, T>>,
     data: Option<Vec<T>>,
 }
-// impl<'s> Eq for Seq064K<'s, B016M<'s>> {}
 
 impl<'s, T: Clone + Serialize + TryFromBSlice<'s> + core::cmp::Eq> Eq for Seq0255<'s, T> {}
 impl<'s, T: Clone + Serialize + TryFromBSlice<'s> + core::cmp::PartialEq> PartialEq
