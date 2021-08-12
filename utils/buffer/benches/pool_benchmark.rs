@@ -40,10 +40,10 @@ fn with_pool_trreaded_1(data: &[u8]) {
     let mut rng = rand::thread_rng();
     let d = Duration::from_micros(10);
     for i in 0..1000 {
-        let message_lenght = 2_usize.pow(14) - rng.gen_range(0..12000);
-        add_random_bytes(message_lenght, &mut pool, &data[i..]);
+        let message_length = 2_usize.pow(14) - rng.gen_range(0..12000);
+        add_random_bytes(message_length, &mut pool, &data[i..]);
         keep_slice(pool.get_data_owned(), d);
-        add_random_bytes(message_lenght, &mut pool, &data[i..]);
+        add_random_bytes(message_length, &mut pool, &data[i..]);
         keep_slice(pool.get_data_owned(), d);
     }
 }
@@ -55,10 +55,10 @@ fn with_pool_trreaded_2(data: &[u8]) {
     let mut rng = rand::thread_rng();
     let d = Duration::from_nanos(10);
     for i in 0..1000 {
-        let message_lenght = 2_usize.pow(14) - rng.gen_range(0..12000);
-        add_random_bytes(message_lenght, &mut pool, &data[i..]);
+        let message_length = 2_usize.pow(14) - rng.gen_range(0..12000);
+        add_random_bytes(message_length, &mut pool, &data[i..]);
         keep_slice(pool.get_data_owned(), d);
-        add_random_bytes(message_lenght, &mut pool, &data[i..]);
+        add_random_bytes(message_length, &mut pool, &data[i..]);
         keep_slice(pool.get_data_owned(), d);
         std::thread::sleep(d);
     }
@@ -71,10 +71,10 @@ fn without_pool_threaded_1(data: &[u8]) {
     let mut rng = rand::thread_rng();
     let d = Duration::from_micros(10);
     for i in 0..1000 {
-        let message_lenght = 2_usize.pow(16) - rng.gen_range(0..12000);
-        add_random_bytes(message_lenght, &mut pool, &data[i..]);
+        let message_length = 2_usize.pow(16) - rng.gen_range(0..12000);
+        add_random_bytes(message_length, &mut pool, &data[i..]);
         keep_slice(buffer.get_data_owned(), d);
-        add_random_bytes(message_lenght, &mut pool, &data[i..]);
+        add_random_bytes(message_length, &mut pool, &data[i..]);
         keep_slice(buffer.get_data_owned(), d);
     }
 }
@@ -87,10 +87,10 @@ fn without_pool_threaded_2(data: &[u8]) {
     let mut rng = rand::thread_rng();
     let d = Duration::from_nanos(10);
     for i in 0..1000 {
-        let message_lenght = 2_usize.pow(16) - rng.gen_range(0..12000);
-        add_random_bytes(message_lenght, &mut pool, &data[i..]);
+        let message_length = 2_usize.pow(16) - rng.gen_range(0..12000);
+        add_random_bytes(message_length, &mut pool, &data[i..]);
         keep_slice(buffer.get_data_owned(), d);
-        add_random_bytes(message_lenght, &mut pool, &data[i..]);
+        add_random_bytes(message_length, &mut pool, &data[i..]);
         keep_slice(buffer.get_data_owned(), d);
         std::thread::sleep(d);
     }
@@ -102,10 +102,10 @@ fn with_control_threaded(data: &[u8]) {
     let mut rng = rand::thread_rng();
     let d = Duration::from_micros(10);
     for i in 0..1000 {
-        let message_lenght = 2_usize.pow(14) - rng.gen_range(0..12000);
-        add_random_bytes(message_lenght, &mut pool, &data[i..]);
+        let message_length = 2_usize.pow(14) - rng.gen_range(0..12000);
+        add_random_bytes(message_length, &mut pool, &data[i..]);
         keep_slice(pool.get_data_owned(), d);
-        add_random_bytes(message_lenght, &mut pool, &data[i..]);
+        add_random_bytes(message_length, &mut pool, &data[i..]);
         keep_slice(pool.get_data_owned(), d);
     }
 }
@@ -116,10 +116,10 @@ fn with_control_threaded_2(data: &[u8]) {
     let mut rng = rand::thread_rng();
     let d = Duration::from_nanos(10);
     for i in 0..1000 {
-        let message_lenght = 2_usize.pow(14) - rng.gen_range(0..12000);
-        add_random_bytes(message_lenght, &mut pool, &data[i..]);
+        let message_length = 2_usize.pow(14) - rng.gen_range(0..12000);
+        add_random_bytes(message_length, &mut pool, &data[i..]);
         keep_slice(pool.get_data_owned(), d);
-        add_random_bytes(message_lenght, &mut pool, &data[i..]);
+        add_random_bytes(message_length, &mut pool, &data[i..]);
         keep_slice(pool.get_data_owned(), d);
         std::thread::sleep(d);
     }
@@ -131,10 +131,10 @@ fn with_control_max_threaded(data: &[u8]) {
     let mut rng = rand::thread_rng();
     let d = Duration::from_micros(10);
     for i in 0..1000 {
-        let message_lenght = 2_usize.pow(14) - rng.gen_range(0..12000);
-        add_random_bytes(message_lenght, &mut pool, &data[i..]);
+        let message_length = 2_usize.pow(14) - rng.gen_range(0..12000);
+        add_random_bytes(message_length, &mut pool, &data[i..]);
         keep_slice(pool.get_data_owned(), d);
-        add_random_bytes(message_lenght, &mut pool, &data[i..]);
+        add_random_bytes(message_length, &mut pool, &data[i..]);
         keep_slice(pool.get_data_owned(), d);
     }
 }
@@ -145,10 +145,10 @@ fn with_control_max_threaded_2(data: &[u8]) {
     let mut rng = rand::thread_rng();
     let d = Duration::from_nanos(10);
     for i in 0..1000 {
-        let message_lenght = 2_usize.pow(14) - rng.gen_range(0..12000);
-        add_random_bytes(message_lenght, &mut pool, &data[i..]);
+        let message_length = 2_usize.pow(14) - rng.gen_range(0..12000);
+        add_random_bytes(message_length, &mut pool, &data[i..]);
         keep_slice(pool.get_data_owned(), d);
-        add_random_bytes(message_lenght, &mut pool, &data[i..]);
+        add_random_bytes(message_length, &mut pool, &data[i..]);
         keep_slice(pool.get_data_owned(), d);
         std::thread::sleep(d);
     }
@@ -220,7 +220,7 @@ fn keep_slice_test_p(mut slice: Slice, mut control: Vec<u8>, ms: u64) {
     });
 }
 
-const MESSAGE_LENGHT: usize = 2_usize.pow(14);
+const MESSAGE_LENGTH: usize = 2_usize.pow(14);
 
 fn with_pool_trreaded_test_1(data: &[u8]) {
     let w_lens = vec![10];
@@ -230,7 +230,7 @@ fn with_pool_trreaded_test_1(data: &[u8]) {
 
     for i in 0..1000 {
         let ms = micros[(micros.len() - 1) % (i + 1)] as u64;
-        let control = add_random_bytes_test(MESSAGE_LENGHT, &mut pool, &data[i..], w_lens.clone());
+        let control = add_random_bytes_test(MESSAGE_LENGTH, &mut pool, &data[i..], w_lens.clone());
         let mut slice = pool.get_data_owned();
         if slice.as_mut() != control {
             println!("{:?} {:?}", &slice.as_mut()[..20], &control[..20]);
@@ -249,7 +249,7 @@ fn with_pool_trreaded_test_2(data: &[u8]) {
 
     for i in 0..1000 {
         let ms = micros[(micros.len() - 1) % (i + 1)] as u64;
-        let control = add_random_bytes_test(MESSAGE_LENGHT, &mut pool, &data[i..], w_lens.clone());
+        let control = add_random_bytes_test(MESSAGE_LENGTH, &mut pool, &data[i..], w_lens.clone());
         let mut slice = pool.get_data_owned();
         if slice.as_mut() != control {
             println!("{:?} {:?}", &slice.as_mut()[..20], &control[..20]);

@@ -29,7 +29,7 @@
 //! no copy is needed to deserialize raw bytes.
 //!
 //! ## Non fixed legth primitives
-//! Non fixed lenght primitives can be diveded in strings, byte sequences and general sequences.
+//! Non fixed length primitives can be diveded in strings, byte sequences and general sequences.
 //!
 //! ### Strings
 //! Strings are automatically handled by Serde
@@ -47,9 +47,9 @@
 //! transmute.
 //!
 //! ### Bytes sequences
-//! Byte sequences can be limited lenght sequences or unlimited length sequences, the latter are
+//! Byte sequences can be limited length sequences or unlimited length sequences, the latter are
 //! automatically handled by Serde.
-//! Limited lenght byte sequences are not implemented as a specific new type of generic sequences cause:
+//! Limited length byte sequences are not implemented as a specific new type of generic sequences cause:
 //! * For the rust type system a serialized byte array and a deserialized byte array are the same
 //!   thing, that is not true for generic sequences.
 //! * In order to not copy data around generic sequences need to be implemented as struct containing

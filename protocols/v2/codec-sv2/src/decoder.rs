@@ -124,7 +124,7 @@ impl<'a, T: Serialize + GetSize + Deserialize<'a>, B: Buffer> WithNoise<B, T> {
     fn while_handshaking(&mut self) -> EitherFrame<T, B::Slice> {
         let src = self.noise_buffer.get_data_owned().as_mut().to_vec();
 
-        // below is inffalible as noise frame lenght has been already checked
+        // below is inffalible as noise frame length has been already checked
         let frame = HandShakeFrame::from_bytes_unchecked(src);
 
         frame.into()
