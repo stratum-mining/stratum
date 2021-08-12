@@ -641,7 +641,7 @@ mod tests {
         for i in 0..buffer.len() {
             buffer[i] = encoded_frame[i]
         }
-        decoder.next_frame();
+        let _ = decoder.next_frame();
 
         let buffer = decoder.writable();
         for i in 0..buffer.len() {
@@ -691,7 +691,7 @@ mod tests {
         // prompting to add more bytes to decode the frame
         // Required between two writes because of how this is intended to use the decoder in a loop
         // read from a stream.
-        decoder.next_frame();
+        let _ = decoder.next_frame();
 
         let buffer = decoder.writable();
         for i in 0..buffer.len() {
@@ -737,7 +737,7 @@ mod tests {
         for i in 0..buffer.len() {
             buffer[i] = encoded_frame[i]
         }
-        decoder.next_frame();
+        let _ = decoder.next_frame();
 
         let buffer = decoder.writable();
         for i in 0..buffer.len() {
@@ -786,7 +786,7 @@ mod tests {
         for i in 0..buffer.len() {
             buffer[i] = encoded_frame[i]
         }
-        decoder.next_frame();
+        let _ = decoder.next_frame();
 
         let buffer = decoder.writable();
         for i in 0..buffer.len() {
@@ -835,7 +835,7 @@ mod tests {
         for i in 0..buffer.len() {
             buffer[i] = encoded_frame[i]
         }
-        decoder.next_frame();
+        let _ = decoder.next_frame();
 
         let buffer = decoder.writable();
         for i in 0..buffer.len() {
@@ -879,7 +879,7 @@ mod tests {
         for i in 0..buffer.len() {
             buffer[i] = encoded_frame[i]
         }
-        decoder.next_frame();
+        let _ = decoder.next_frame();
 
         let buffer = decoder.writable();
         for i in 0..buffer.len() {
@@ -923,7 +923,7 @@ mod tests {
         for i in 0..buffer.len() {
             buffer[i] = encoded_frame[i]
         }
-        decoder.next_frame();
+        let _ = decoder.next_frame();
 
         let buffer = decoder.writable();
         for i in 0..buffer.len() {
@@ -977,7 +977,7 @@ mod tests {
         for i in 0..buffer.len() {
             buffer[i] = encoded_frame[i]
         }
-        decoder.next_frame();
+        let _ = decoder.next_frame();
 
         let buffer = decoder.writable();
         for i in 0..buffer.len() {
@@ -1012,7 +1012,7 @@ mod tests {
         for i in 0..buffer.len() {
             buffer[i] = encoded_frame[i]
         }
-        decoder.next_frame();
+        let _ = decoder.next_frame();
 
         let buffer = decoder.writable();
         for i in 0..buffer.len() {
@@ -1057,7 +1057,7 @@ mod tests {
         for i in 0..buffer.len() {
             buffer[i] = encoded_frame[i]
         }
-        decoder.next_frame();
+        let _ = decoder.next_frame();
 
         let buffer = decoder.writable();
         for i in 0..buffer.len() {
@@ -1102,7 +1102,7 @@ mod tests {
         for i in 0..buffer.len() {
             buffer[i] = encoded_frame[i]
         }
-        decoder.next_frame();
+        let _ = decoder.next_frame();
 
         let buffer = decoder.writable();
         for i in 0..buffer.len() {
