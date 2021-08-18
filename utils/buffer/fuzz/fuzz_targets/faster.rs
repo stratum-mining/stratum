@@ -54,7 +54,7 @@ fn keep_slice_test(mut slice: Slice, mut control: Vec<u8>, ms: u64, t_pool: &mut
     })
 }
 
-const MESSAGE_LENGHT: usize = 2_usize.pow(14);
+const MESSAGE_LENGTH: usize = 2_usize.pow(14);
 
 #[derive(Arbitrary, Debug)]
 struct Input {
@@ -77,7 +77,7 @@ fuzz_target!(|data: Input| {
 
     for i in 0..1000 {
         let ms = data.micros[(data.micros.len() - 1) % (i + 1)] as u64;
-        let control = add_random_bytes_test(MESSAGE_LENGHT, &mut pool, &input[i..i + 10]);
+        let control = add_random_bytes_test(MESSAGE_LENGTH, &mut pool, &input[i..i + 10]);
         keep_slice_test(pool.get_data_owned(), control, ms, &mut t_pool);
     }
 

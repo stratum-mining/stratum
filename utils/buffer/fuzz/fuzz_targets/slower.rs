@@ -73,7 +73,7 @@ fn keep_slice_test(
     });
 }
 
-const MESSAGE_LENGHT: u32 = 2_u32.pow(14); // - rng.gen_range(0..12000);
+const MESSAGE_LENGTH: u32 = 2_u32.pow(14); // - rng.gen_range(0..12000);
 const MAX_MESSAGE_LEN: usize = 9_000_000;
 
 #[derive(Arbitrary, Debug)]
@@ -98,7 +98,7 @@ fuzz_target!(|data: Input| {
     }
 
     if data.m_len.is_empty() {
-        data.m_len.push(MESSAGE_LENGHT)
+        data.m_len.push(MESSAGE_LENGTH)
     }
 
     if data.w_len.is_empty() {

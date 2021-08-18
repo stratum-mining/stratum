@@ -49,12 +49,12 @@ pub fn keep_slice(mut slice: impl Load + Send + 'static, d: Duration) {
 pub fn bench_no_thread(mut pool: impl Buffer, data: &[u8]) {
     let mut rng = rand::thread_rng();
     for i in 0..1000 {
-        let message_lenght = 2_usize.pow(14) - rng.gen_range(0..12000);
-        add_random_bytes(message_lenght, &mut pool, &data[i..]);
+        let message_length = 2_usize.pow(14) - rng.gen_range(0..12000);
+        add_random_bytes(message_length, &mut pool, &data[i..]);
 
         pool.get_data_owned();
 
-        add_random_bytes(message_lenght, &mut pool, &data[i..]);
+        add_random_bytes(message_length, &mut pool, &data[i..]);
 
         pool.get_data_owned();
     }

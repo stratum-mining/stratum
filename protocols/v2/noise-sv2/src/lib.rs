@@ -338,7 +338,7 @@ impl TransportMode {
     }
 
     /// Encrypt a message specified in `plain_msg` and write the encrypted message into a encrypted
-    /// It also encode the lenght of the encrypted message as the first 2 bytes
+    /// It also encode the length of the encrypted message as the first 2 bytes
     ///
     #[inline(always)]
     pub fn write(&mut self, plain_msg: &[u8], encrypted_msg: &mut [u8]) -> Result<()> {
