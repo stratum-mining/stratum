@@ -29,14 +29,19 @@ const PARAMS: &str = const_sv2::NOISE_PARAMS;
 /// version: u16
 /// valid_from: u32
 /// not_valid_after: u32
+/// siganture len: u16 (64 little endian)
 /// siganture: 64 bytes
-pub const SIGNATURE_MESSAGE_LEN: usize = 74;
+pub const SIGNATURE_MESSAGE_LEN: usize = 76;
 
 /// Private snow constants redefined here
 pub const MAX_MESSAGE_SIZE: usize = const_sv2::NOISE_FRAME_MAX_SIZE;
 pub const SNOW_PSKLEN: usize = const_sv2::SNOW_PSKLEN;
 pub const SNOW_TAGLEN: usize = const_sv2::SNOW_TAGLEN;
 pub const HEADER_SIZE: usize = const_sv2::NOISE_FRAME_HEADER_SIZE;
+
+const BUFFER_LEN: usize =
+    SNOW_PSKLEN + SNOW_PSKLEN + SNOW_TAGLEN + SNOW_TAGLEN + SIGNATURE_MESSAGE_LEN;
+const SIGNATURE_INDEX: usize = SNOW_PSKLEN + SNOW_PSKLEN + SNOW_TAGLEN + SNOW_TAGLEN - 1;
 
 /// Generates noise specific static keypair specific for the current params
 pub fn generate_keypair() -> Result<StaticKeypair> {
@@ -135,19 +140,22 @@ impl handshake::Step for Initiator {
                 // Receive responder message
                 // <- e, ee, s, es, SIGNATURE_NOISE_MESSAGE
                 //
-                let in_msg = in_msg.ok_or(Error {})?;
+                let mut in_msg = in_msg.ok_or(Error {})?;
 
-                let buffer_len = SIGNATURE_MESSAGE_LEN;
-                noise_bytes.resize(buffer_len, 0);
+                let signature: Vec<u8> = in_msg[SIGNATURE_INDEX + 2..].into();
+                in_msg.truncate(BUFFER_LEN - 2);
+                (&mut in_msg[SIGNATURE_INDEX..]).copy_from_slice(&signature);
+
+                noise_bytes.resize(SIGNATURE_MESSAGE_LEN - 2, 0);
 
                 let signature_len = self
                     .handshake_state
-                    .read_message(&in_msg, &mut noise_bytes)
+                    .read_message(&in_msg[..], &mut noise_bytes)
                     .map_err(|_| Error {})?;
 
-                noise_bytes.truncate(signature_len);
+                debug_assert!(SIGNATURE_MESSAGE_LEN == signature_len + 2);
 
-                self.verify_remote_static_key_signature(noise_bytes)?;
+                self.verify_remote_static_key_signature(noise_bytes.to_vec())?;
 
                 handshake::StepResult::Done
             }
@@ -264,8 +272,7 @@ impl handshake::Step for Responder {
                 //
                 let in_msg = in_msg.ok_or(Error {})?;
 
-                let buffer_len =
-                    SNOW_PSKLEN + SNOW_PSKLEN + SNOW_TAGLEN + SNOW_TAGLEN + SIGNATURE_MESSAGE_LEN;
+                let buffer_len = BUFFER_LEN;
 
                 noise_bytes.resize(buffer_len, 0);
 
@@ -281,7 +288,14 @@ impl handshake::Step for Responder {
                     .write_message(&self.signature_noise_message, &mut noise_bytes)
                     .map_err(|_| Error {})?;
 
-                noise_bytes.truncate(len_written);
+                debug_assert!(buffer_len == len_written + 2);
+
+                let signature_index = SIGNATURE_INDEX;
+
+                (&mut noise_bytes[..])
+                    .copy_within(signature_index..buffer_len - 2, signature_index + 2);
+                noise_bytes[signature_index] = 64;
+                noise_bytes[signature_index + 1] = 0;
 
                 handshake::StepResult::NoMoreReply(noise_bytes)
             }
