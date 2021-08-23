@@ -59,11 +59,21 @@ pub extern "C" fn _c_export_req_tx_data(_a: RequestTransactionData) {}
 #[cfg(feature = "prop_test")]
 impl NewTemplate<'static> {
     pub fn from_gen(g: &mut Gen) -> Self {
-        let coinbase_prefix: binary_sv2::B0255 = vec::Vec::<u8>::arbitrary(g).try_into().unwrap();
-        let coinbase_tx_outputs: binary_sv2::B064K =
-            vec::Vec::<u8>::arbitrary(g).try_into().unwrap();
+        let mut coinbase_prefix_gen = Gen::new(255);
+        let mut coinbase_prefix: vec::Vec<u8> = vec::Vec::new();
+        coinbase_prefix.resize_with(255, || u8::arbitrary(&mut coinbase_prefix_gen));
+        let mut coinbase_prefix: binary_sv2::B0255 = coinbase_prefix.try_into().unwrap();
 
-        let merkle_path_inner = binary_sv2::U256::from_gen(g);
+        let mut coinbase_tx_outputs_gen = Gen::new(64);
+        let mut coinbase_tx_outputs: vec::Vec<u8> = vec::Vec::new();
+        coinbase_tx_outputs.resize_with(64, || u8::arbitrary(&mut coinbase_tx_outputs_gen));
+        let mut coinbase_tx_outputs: binary_sv2::B064K = coinbase_tx_outputs.try_into().unwrap();
+
+        let mut merkle_path_inner_gen = Gen::new(256);
+        let mut merkle_path_inner: vec::Vec<u8> = vec::Vec::new();
+        merkle_path_inner.resize_with(256, || u8::arbitrary(&mut merkle_path_inner_gen));
+        let mut merkle_path_inner: binary_sv2::U256 = merkle_path_inner.try_into().unwrap();
+
         let merkle_path: binary_sv2::Seq0255<binary_sv2::U256> = vec![merkle_path_inner].into();
         NewTemplate {
             template_id: u64::arbitrary(g),
@@ -101,10 +111,10 @@ impl RequestTransactionData {
 #[cfg(feature = "prop_test")]
 impl RequestTransactionDataError<'static> {
     pub fn from_gen(g: &mut Gen) -> Self {
-        let mut error_code_generator = Gen::new(255);
-        let error_code: binary_sv2::Str0255 = vec::Vec::<u8>::arbitrary(&mut error_code_generator)
-            .try_into()
-            .unwrap();
+        let mut error_code_gen = Gen::new(255);
+        let mut error_code: vec::Vec<u8> = vec::Vec::new();
+        error_code.resize_with(255, || u8::arbitrary(&mut error_code_gen));
+        let error_code: binary_sv2::Str0255 = error_code.try_into().unwrap();
 
         RequestTransactionDataError {
             template_id: u64::arbitrary(g).try_into().unwrap(),

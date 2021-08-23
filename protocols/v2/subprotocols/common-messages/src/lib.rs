@@ -41,28 +41,36 @@ impl ChannelEndpointChanged {
 impl SetupConnection<'static> {
     pub fn from_gen(g: &mut Gen) -> Self {
         let protocol = setup_connection::Protocol::MiningProtocol;
+        // TODO: test each Protocol variant
         // let protocol = setup_connection::Protocol::JobDistributionProtocol;
         // let protocol = setup_connection::Protocol::TemplateDistributionProtocol;
         // let protocol = setup_connection::Protocol::JobNegotiationProtocol;
-        let mut endpoint_host = Gen::new(255);
-        let endpoint_host: binary_sv2::Str0255 = vec::Vec::<u8>::arbitrary(&mut endpoint_host)
-            .try_into()
-            .unwrap();
-        let mut vendor = Gen::new(255);
-        let vendor: binary_sv2::Str0255 =
-            vec::Vec::<u8>::arbitrary(&mut vendor).try_into().unwrap();
-        let mut hardware_version = Gen::new(255);
-        let hardware_version: binary_sv2::Str0255 =
-            vec::Vec::<u8>::arbitrary(&mut hardware_version)
-                .try_into()
-                .unwrap();
-        let mut firmware = Gen::new(255);
-        let firmware: binary_sv2::Str0255 =
-            vec::Vec::<u8>::arbitrary(&mut firmware).try_into().unwrap();
-        let mut device_id = Gen::new(255);
-        let device_id: binary_sv2::Str0255 = vec::Vec::<u8>::arbitrary(&mut device_id)
-            .try_into()
-            .unwrap();
+
+        let mut endpoint_host_gen = Gen::new(255);
+        let mut endpoint_host: vec::Vec<u8> = vec::Vec::new();
+        endpoint_host.resize_with(255, || u8::arbitrary(&mut endpoint_host_gen));
+        let endpoint_host: binary_sv2::Str0255 = endpoint_host.try_into().unwrap();
+
+        let mut vendor_gen = Gen::new(255);
+        let mut vendor: vec::Vec<u8> = vec::Vec::new();
+        vendor.resize_with(255, || u8::arbitrary(&mut vendor_gen));
+        let vendor: binary_sv2::Str0255 = vendor.try_into().unwrap();
+
+        let mut hardware_version_gen = Gen::new(255);
+        let mut hardware_version: vec::Vec<u8> = vec::Vec::new();
+        hardware_version.resize_with(255, || u8::arbitrary(&mut hardware_version_gen));
+        let hardware_version: binary_sv2::Str0255 = hardware_version.try_into().unwrap();
+
+        let mut firmware_gen = Gen::new(255);
+        let mut firmware: vec::Vec<u8> = vec::Vec::new();
+        firmware.resize_with(255, || u8::arbitrary(&mut firmware_gen));
+        let firmware: binary_sv2::Str0255 = firmware.try_into().unwrap();
+
+        let mut device_id_gen = Gen::new(255);
+        let mut device_id: vec::Vec<u8> = vec::Vec::new();
+        device_id.resize_with(255, || u8::arbitrary(&mut device_id_gen));
+        let device_id: binary_sv2::Str0255 = device_id.try_into().unwrap();
+
         SetupConnection {
             protocol,
             min_version: u16::arbitrary(g).try_into().unwrap(),
@@ -81,10 +89,11 @@ impl SetupConnection<'static> {
 #[cfg(feature = "prop_test")]
 impl SetupConnectionError<'static> {
     pub fn from_gen(g: &mut Gen) -> Self {
-        let mut error_code_generator = Gen::new(255);
-        let error_code: binary_sv2::Str0255 = vec::Vec::<u8>::arbitrary(&mut error_code_generator)
-            .try_into()
-            .unwrap();
+        let mut error_code_gen = Gen::new(255);
+        let mut error_code: vec::Vec<u8> = vec::Vec::new();
+        error_code.resize_with(255, || u8::arbitrary(&mut error_code_gen));
+        let error_code: binary_sv2::Str0255 = error_code.try_into().unwrap();
+
         SetupConnectionError {
             flags: u32::arbitrary(g).try_into().unwrap(),
             error_code,
