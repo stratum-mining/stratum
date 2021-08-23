@@ -23,6 +23,11 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
+      - name: Run ls command
+        run: |
+          echo Here is what is in the folder
+          ls -a
+
       - name: Run equality check
         run: |
           echo Running equality check on header file
