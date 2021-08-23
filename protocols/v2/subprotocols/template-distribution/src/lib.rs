@@ -58,12 +58,12 @@ pub extern "C" fn _c_export_req_tx_data(_a: RequestTransactionData) {}
 #[cfg(not(feature = "with_serde"))]
 #[cfg(feature = "prop_test")]
 impl NewTemplate<'static> {
-    pub fn from_random(g: &mut Gen) -> Self {
+    pub fn from_gen(g: &mut Gen) -> Self {
         let coinbase_prefix: binary_sv2::B0255 = vec::Vec::<u8>::arbitrary(g).try_into().unwrap();
         let coinbase_tx_outputs: binary_sv2::B064K =
             vec::Vec::<u8>::arbitrary(g).try_into().unwrap();
 
-        let merkle_path_inner = binary_sv2::U256::from_random(g);
+        let merkle_path_inner = binary_sv2::U256::from_gen(g);
         let merkle_path: binary_sv2::Seq0255<binary_sv2::U256> = vec![merkle_path_inner].into();
         NewTemplate {
             template_id: u64::arbitrary(g),
@@ -82,7 +82,7 @@ impl NewTemplate<'static> {
 }
 #[cfg(feature = "prop_test")]
 impl CoinbaseOutputDataSize {
-    pub fn from_random(g: &mut Gen) -> Self {
+    pub fn from_gen(g: &mut Gen) -> Self {
         coinbase_output_data_size::CoinbaseOutputDataSize {
             coinbase_output_max_additional_size: u32::arbitrary(g).try_into().unwrap(),
         }
@@ -91,7 +91,7 @@ impl CoinbaseOutputDataSize {
 
 #[cfg(feature = "prop_test")]
 impl RequestTransactionData {
-    pub fn from_random(g: &mut Gen) -> Self {
+    pub fn from_gen(g: &mut Gen) -> Self {
         RequestTransactionData {
             template_id: u64::arbitrary(g).try_into().unwrap(),
         }
@@ -100,7 +100,7 @@ impl RequestTransactionData {
 
 #[cfg(feature = "prop_test")]
 impl RequestTransactionDataError<'static> {
-    pub fn from_random(g: &mut Gen) -> Self {
+    pub fn from_gen(g: &mut Gen) -> Self {
         let mut error_code_generator = Gen::new(255);
         let error_code: binary_sv2::Str0255 = vec::Vec::<u8>::arbitrary(&mut error_code_generator)
             .try_into()
@@ -116,9 +116,9 @@ impl RequestTransactionDataError<'static> {
 #[cfg(not(feature = "with_serde"))]
 #[cfg(feature = "prop_test")]
 impl RequestTransactionDataSuccess<'static> {
-    pub fn from_random(g: &mut Gen) -> Self {
+    pub fn from_gen(g: &mut Gen) -> Self {
         let excess_data: binary_sv2::B064K = vec::Vec::<u8>::arbitrary(g).try_into().unwrap();
-        let transaction_list_inner = binary_sv2::B016M::from_random(g);
+        let transaction_list_inner = binary_sv2::B016M::from_gen(g);
         let transaction_list: binary_sv2::Seq064K<binary_sv2::B016M> =
             vec![transaction_list_inner].into();
 
@@ -133,9 +133,9 @@ impl RequestTransactionDataSuccess<'static> {
 #[cfg(not(feature = "with_serde"))]
 #[cfg(feature = "prop_test")]
 impl SetNewPrevHash<'static> {
-    pub fn from_random(g: &mut Gen) -> Self {
-        let prev_hash = binary_sv2::U256::from_random(g);
-        let target = binary_sv2::U256::from_random(g);
+    pub fn from_gen(g: &mut Gen) -> Self {
+        let prev_hash = binary_sv2::U256::from_gen(g);
+        let target = binary_sv2::U256::from_gen(g);
         SetNewPrevHash {
             template_id: u64::arbitrary(g).try_into().unwrap(),
             prev_hash,
@@ -148,7 +148,7 @@ impl SetNewPrevHash<'static> {
 
 #[cfg(feature = "prop_test")]
 impl SubmitSolution<'static> {
-    pub fn from_random(g: &mut Gen) -> Self {
+    pub fn from_gen(g: &mut Gen) -> Self {
         let coinbase_tx: binary_sv2::B064K = vec::Vec::<u8>::arbitrary(g).try_into().unwrap();
         SubmitSolution {
             template_id: u64::arbitrary(g).try_into().unwrap(),

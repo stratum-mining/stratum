@@ -388,7 +388,7 @@ mod tests {
 
     impl Arbitrary for RandomCoinbaseOutputDataSize {
         fn arbitrary(g: &mut Gen) -> Self {
-            RandomCoinbaseOutputDataSize(CoinbaseOutputDataSize::from_random(g))
+            RandomCoinbaseOutputDataSize(CoinbaseOutputDataSize::from_gen(g))
         }
     }
 
@@ -665,7 +665,7 @@ mod tests {
     pub struct RandomNewTemplate(pub NewTemplate<'static>);
     impl Arbitrary for RandomNewTemplate {
         fn arbitrary(g: &mut Gen) -> Self {
-            RandomNewTemplate(NewTemplate::from_random(g))
+            RandomNewTemplate(NewTemplate::from_gen(g))
         }
     }
 
@@ -717,7 +717,7 @@ mod tests {
     pub struct RandomRequestTransactionData(pub RequestTransactionData);
     impl Arbitrary for RandomRequestTransactionData {
         fn arbitrary(g: &mut Gen) -> Self {
-            RandomRequestTransactionData(RequestTransactionData::from_random(g))
+            RandomRequestTransactionData(RequestTransactionData::from_gen(g))
         }
     }
 
@@ -762,7 +762,7 @@ mod tests {
 
     impl Arbitrary for RandomRequestTransactionDataError {
         fn arbitrary(g: &mut Gen) -> Self {
-            RandomRequestTransactionDataError(RequestTransactionDataError::from_random(g))
+            RandomRequestTransactionDataError(RequestTransactionDataError::from_gen(g))
         }
     }
     #[quickcheck_macros::quickcheck]
@@ -811,7 +811,7 @@ mod tests {
 
     impl Arbitrary for RandomRequestTransactionDataSuccess {
         fn arbitrary(g: &mut Gen) -> Self {
-            RandomRequestTransactionDataSuccess(RequestTransactionDataSuccess::from_random(g))
+            RandomRequestTransactionDataSuccess(RequestTransactionDataSuccess::from_gen(g))
         }
     }
     #[quickcheck_macros::quickcheck]
@@ -860,7 +860,7 @@ mod tests {
 
     impl Arbitrary for RandomSetNewPrevHash {
         fn arbitrary(g: &mut Gen) -> Self {
-            RandomSetNewPrevHash(SetNewPrevHash::from_random(g))
+            RandomSetNewPrevHash(SetNewPrevHash::from_gen(g))
         }
     }
 
@@ -904,7 +904,7 @@ mod tests {
 
     impl Arbitrary for RandomSubmitSolution {
         fn arbitrary(g: &mut Gen) -> Self {
-            RandomSubmitSolution(SubmitSolution::from_random(g))
+            RandomSubmitSolution(SubmitSolution::from_gen(g))
         }
     }
 
@@ -948,7 +948,7 @@ mod tests {
 
     impl Arbitrary for RandomSetupConnection {
         fn arbitrary(g: &mut Gen) -> Self {
-            RandomSetupConnection(SetupConnection::from_random(g))
+            RandomSetupConnection(SetupConnection::from_gen(g))
         }
     }
 
@@ -957,7 +957,7 @@ mod tests {
 
     impl Arbitrary for RandomChannelEndpointChanged {
         fn arbitrary(g: &mut Gen) -> Self {
-            RandomChannelEndpointChanged(ChannelEndpointChanged::from_random(g))
+            RandomChannelEndpointChanged(ChannelEndpointChanged::from_gen(g))
         }
     }
 
@@ -1037,7 +1037,7 @@ mod tests {
 
     impl Arbitrary for RandomSetupConnectionError {
         fn arbitrary(g: &mut Gen) -> Self {
-            RandomSetupConnectionError(SetupConnectionError::from_random(g))
+            RandomSetupConnectionError(SetupConnectionError::from_gen(g))
         }
     }
 
@@ -1083,7 +1083,7 @@ mod tests {
     #[cfg(feature = "prop_test")]
     impl Arbitrary for RandomSetupConnectionSuccess {
         fn arbitrary(g: &mut Gen) -> Self {
-            RandomSetupConnectionSuccess(SetupConnectionSuccess::from_random(g))
+            RandomSetupConnectionSuccess(SetupConnectionSuccess::from_gen(g))
         }
     }
     #[quickcheck_macros::quickcheck]

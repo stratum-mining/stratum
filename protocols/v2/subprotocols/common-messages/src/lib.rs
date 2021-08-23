@@ -30,7 +30,7 @@ pub extern "C" fn _c_export_setup_conn_succ(_a: SetupConnectionSuccess) {}
 
 #[cfg(feature = "prop_test")]
 impl ChannelEndpointChanged {
-    pub fn from_random(g: &mut Gen) -> Self {
+    pub fn from_gen(g: &mut Gen) -> Self {
         ChannelEndpointChanged {
             channel_id: u32::arbitrary(g).try_into().unwrap(),
         }
@@ -39,7 +39,7 @@ impl ChannelEndpointChanged {
 
 #[cfg(feature = "prop_test")]
 impl SetupConnection<'static> {
-    pub fn from_random(g: &mut Gen) -> Self {
+    pub fn from_gen(g: &mut Gen) -> Self {
         let protocol = setup_connection::Protocol::MiningProtocol;
         // let protocol = setup_connection::Protocol::JobDistributionProtocol;
         // let protocol = setup_connection::Protocol::TemplateDistributionProtocol;
@@ -80,7 +80,7 @@ impl SetupConnection<'static> {
 
 #[cfg(feature = "prop_test")]
 impl SetupConnectionError<'static> {
-    pub fn from_random(g: &mut Gen) -> Self {
+    pub fn from_gen(g: &mut Gen) -> Self {
         let mut error_code_generator = Gen::new(255);
         let error_code: binary_sv2::Str0255 = vec::Vec::<u8>::arbitrary(&mut error_code_generator)
             .try_into()
@@ -94,7 +94,7 @@ impl SetupConnectionError<'static> {
 
 #[cfg(feature = "prop_test")]
 impl SetupConnectionSuccess {
-    pub fn from_random(g: &mut Gen) -> Self {
+    pub fn from_gen(g: &mut Gen) -> Self {
         SetupConnectionSuccess {
             used_version: u16::arbitrary(g).try_into().unwrap(),
             flags: u32::arbitrary(g).try_into().unwrap(),
