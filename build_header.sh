@@ -1,7 +1,6 @@
 #! /bin/sh 
 
-touch ./sv2.h
-rm ./sv2.h
+rm -f ./sv2.h
 touch ./sv2.h
 
 cbindgen --crate const_sv2 >> ./sv2.h
