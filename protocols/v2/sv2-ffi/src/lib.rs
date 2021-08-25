@@ -310,9 +310,6 @@ fn encode_(message: &'static mut CSv2Message, encoder: &mut EncoderWrapper) -> R
         .map(|x| x.into())
 }
 
-/// # Safety
-///
-/// TODO
 #[no_mangle]
 pub unsafe extern "C" fn encode(
     message: &'static mut CSv2Message,
