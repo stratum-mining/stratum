@@ -23,11 +23,6 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-      - name: Run ls command
-        run: |
-          echo Here is what is in the folder
-          ls -a
-
       - name: Check sv2 header file is up to date with commit
         run: |
           echo Check sv2 header file is up to date with commit
