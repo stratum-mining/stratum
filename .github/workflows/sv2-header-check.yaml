@@ -28,7 +28,7 @@ jobs:
           echo Here is what is in the folder
           ls -a
 
-      - name: Run equality check
+      - name: Check sv2 header file is up to date with commit
         run: |
-          echo Running equality check on header file
-          sh ./equality.sh
+          echo Check sv2 header file is up to date with commit
+          sh ./sv2-header-check.sh
