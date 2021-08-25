@@ -1,4 +1,4 @@
-# set -e
+set -e
 cargo install cbindgen --force bts
 cbindgen -V
 
