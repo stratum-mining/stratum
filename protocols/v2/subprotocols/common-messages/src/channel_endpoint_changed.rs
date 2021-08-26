@@ -12,7 +12,7 @@ use binary_sv2::{Deserialize, Serialize};
 /// reset and version/presence negotiation must begin again.
 ///
 #[repr(C)]
-#[derive(Serialize, Deserialize, Debug, Copy, Clone)]
+#[derive(Serialize, Deserialize, Debug, Copy, Clone, PartialEq, Eq)]
 pub struct ChannelEndpointChanged {
     /// The channel which has changed endpoint.
     pub channel_id: u32,

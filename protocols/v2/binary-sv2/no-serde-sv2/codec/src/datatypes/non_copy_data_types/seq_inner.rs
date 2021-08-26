@@ -216,14 +216,38 @@ impl_into_encodable_field_for_seq!(B0255<'a>);
 impl_into_encodable_field_for_seq!(B064K<'a>);
 impl_into_encodable_field_for_seq!(B016M<'a>);
 
-impl<'a, T> From<Seq0255<'a, T>> for Vec<T> {
-    fn from(v: Seq0255<'a, T>) -> Self {
-        v.0
+#[cfg(feature = "prop_test")]
+impl<'a, T> std::convert::TryFrom<Seq0255<'a, T>> for Vec<T> {
+    type Error = &'static str;
+    fn try_from(v: Seq0255<'a, T>) -> Result<Self, Self::Error> {
+        if v.0.len() > 255 {
+            Ok(v.0)
+        } else {
+            Err("Incorrect length, expected 225")
+        }
     }
 }
 
-impl<'a, T> From<Seq064K<'a, T>> for Vec<T> {
-    fn from(v: Seq064K<'a, T>) -> Self {
-        v.0
+#[cfg(feature = "prop_test")]
+impl<'a, T> std::convert::TryFrom<Seq064K<'a, T>> for Vec<T> {
+    type Error = &'static str;
+    fn try_from(v: Seq064K<'a, T>) -> Result<Self, Self::Error> {
+        if v.0.len() > 64 {
+            Ok(v.0)
+        } else {
+            Err("Incorrect length, expected 64")
+        }
+    }
+}
+
+impl<'a, T> From<Vec<T>> for Seq0255<'a, T> {
+    fn from(v: Vec<T>) -> Self {
+        Seq0255(v, PhantomData)
+    }
+}
+
+impl<'a, T> From<Vec<T>> for Seq064K<'a, T> {
+    fn from(v: Vec<T>) -> Self {
+        Seq064K(v, PhantomData)
     }
 }

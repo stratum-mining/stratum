@@ -23,6 +23,7 @@ impl<'s, T: Clone + FixedSize + Serialize + TryFromBSlice<'s> + core::cmp::Parti
         }
     }
 }
+impl<'s> Eq for Seq064K<'s, B016M<'s>> {}
 
 impl<'s> PartialEq for Seq064K<'s, B016M<'s>> {
     fn eq(&self, other: &Self) -> bool {

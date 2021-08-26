@@ -17,7 +17,7 @@ use core::convert::TryInto;
 /// indicating the client MUST begin mining on that template as soon as possible.
 /// TODO: Define how many previous works the client has to track (2? 3?), and require that the
 /// server reference one of those in SetNewPrevHash.
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct SetNewPrevHash<'decoder> {
     /// template_id referenced in a previous NewTemplate message.
     pub template_id: u64,

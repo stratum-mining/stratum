@@ -12,7 +12,7 @@ use core::convert::TryInto;
 /// ## NewTemplate (Server -> Client)
 /// The primary template-providing function. Note that the coinbase_tx_outputs bytes will appear
 /// as is at the end of the coinbase transaction.
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct NewTemplate<'decoder> {
     /// Server’s identification of the template. Strictly increasing, the
     /// current UNIX time may be used in place of an ID.
@@ -34,6 +34,7 @@ pub struct NewTemplate<'decoder> {
     /// at the beginning of the coinbase field in the coinbase transaction.
     #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub coinbase_prefix: B0255<'decoder>,
+    ///bug
     /// The coinbase transaction input’s nSequence field.
     pub coinbase_tx_input_sequence: u32,
     /// The value, in satoshis, available for spending in coinbase outputs
@@ -45,7 +46,7 @@ pub struct NewTemplate<'decoder> {
     /// Bitcoin transaction outputs to be included as the last outputs in the
     /// coinbase transaction.
     #[cfg_attr(feature = "with_serde", serde(borrow))]
-    pub coinbase_tx_outputs: B064K<'decoder>,
+    pub coinbase_tx_outputs: B064K<'decoder>, //bug
     /// The locktime field in the coinbase transaction.
     pub coinbase_tx_locktime: u32,
     /// Merkle path hashes ordered from deepest.

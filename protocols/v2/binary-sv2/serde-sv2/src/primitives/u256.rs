@@ -4,13 +4,13 @@ use alloc::boxed::Box;
 use core::convert::TryFrom;
 use serde::{de::Visitor, ser, Deserialize, Deserializer, Serialize};
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 enum Inner<'a> {
     Ref(&'a [u8]),
     Owned(Box<[u8; 32]>),
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct U256<'u>(Inner<'u>);
 
 impl<'u> TryFrom<&'u [u8]> for U256<'u> {

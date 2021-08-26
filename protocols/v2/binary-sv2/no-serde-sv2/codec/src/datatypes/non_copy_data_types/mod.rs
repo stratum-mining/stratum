@@ -1,3 +1,8 @@
+#[cfg(feature = "prop_test")]
+use core::convert::TryInto;
+#[cfg(feature = "prop_test")]
+use quickcheck::{Arbitrary, Gen};
+
 mod inner;
 mod seq_inner;
 
@@ -22,5 +27,24 @@ pub type Bytes<'a> = Inner<'a, false, 0, 0, { usize::MAX }>;
 impl<'decoder> From<[u8; 32]> for U256<'decoder> {
     fn from(v: [u8; 32]) -> Self {
         Inner::Owned(v.into())
+    }
+}
+
+#[cfg(not(feature = "with_serde"))]
+#[cfg(feature = "prop_test")]
+impl<'a> U256<'a> {
+    pub fn from_gen(g: &mut Gen) -> Self {
+        let mut inner = Vec::<u8>::arbitrary(g);
+        inner.resize(32, 0);
+        let inner: [u8; 32] = inner.try_into().unwrap();
+        inner.into()
+    }
+}
+
+#[cfg(not(feature = "with_serde"))]
+#[cfg(feature = "prop_test")]
+impl<'a> B016M<'a> {
+    pub fn from_gen(g: &mut Gen) -> Self {
+        Vec::<u8>::arbitrary(g).try_into().unwrap()
     }
 }
