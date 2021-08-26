@@ -375,6 +375,9 @@ EncoderWrapper *new_encoder();
 
 void free_encoder(EncoderWrapper *encoder);
 
+/// # Safety
+///
+/// TODO
 CResult<CVec, Sv2Error> encode(CSv2Message *message, EncoderWrapper *encoder);
 
 DecoderWrapper *new_decoder();
