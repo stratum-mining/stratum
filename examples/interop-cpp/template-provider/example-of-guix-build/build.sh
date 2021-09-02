@@ -9,6 +9,8 @@ cargo package --manifest-path ../../../../protocols/v2/const-sv2/Cargo.toml --al
 cargo package --manifest-path ../../../../protocols/v2/codec-sv2/Cargo.toml --allow-dirty
 cargo package --manifest-path ../../../../protocols/v2/subprotocols/common-messages/Cargo.toml --allow-dirty
 cargo package --manifest-path ../../../../protocols/v2/subprotocols/template-distribution/Cargo.toml --allow-dirty
+cargo package --manifest-path ./quickcheck/Cargo.toml --allow-dirty
+cargo package --manifest-path ./quickcheck_macros/Cargo.toml --allow-dirty
 
 guix environment \
         -m ./example.scm \

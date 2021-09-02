@@ -21,6 +21,8 @@ members = [
     "examples/ping-pong-with-noise",
     "examples/ping-pong-without-noise",
     "examples/interop-cpp",
+    "examples/interop-cpp/template-provider/example-of-guix-build/quickcheck",
+    "examples/interop-cpp/template-provider/example-of-guix-build/quickcheck_macros",
 ]
 
 exclude = ["vendor/ed25519-dalek"]

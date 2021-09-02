@@ -276,17 +276,18 @@ any dependent crates. This can be a benefits:
   (gnu packages pkg-config))
 
 
-
-(define-public rust-binary_codec_sv2-0.1.1
+;; facke quickcheck needed by cargo build in order to create a lock file
+;; https://github.com/rust-lang/cargo/issues/4544
+(define-public rust-quickcheck-1.0.3
     (package
-      (name "rust-binary_codec_sv2")
-      (version "0.1.0")
+      (name "quickcheck")
+      (version "1.0.3")
       (source
        (origin
          (method url-fetch)
-         (uri "../../../../target/package/binary_codec_sv2-0.1.1.crate")
+         (uri "../../../../target/package/quickcheck-1.0.3.crate")
          (sha256
-          (base32 "1d9nacfmb6ljp49690q63227l8k87j1h3y9hhb99bw5ispz8idbx"))))
+          (base32 "0xzi3zldq1j9b45339w28d8snmri42fcdsgszni512nqxq8qj81k"))))
       (build-system cargo-build-system)
 
       (home-page "..")
@@ -296,21 +297,42 @@ any dependent crates. This can be a benefits:
       (license gpl3+))
     )
 
-(define-public rust-derive_codec_sv2-0.1.1
+;; facke quickcheck_macros needed by cargo build in order to create a lock file
+;; https://github.com/rust-lang/cargo/issues/4544
+(define-public rust-quickcheck_macros-1.0.0
     (package
-      (name "rust-derive_codec_sv2")
-      (version "0.1.0")
+      (name "quickcheck_macros")
+      (version "1.0.0")
       (source
        (origin
          (method url-fetch)
-         (uri "../../../../target/package/derive_codec_sv2-0.1.1.crate")
+         (uri "../../../../target/package/quickcheck_macros-1.0.0.crate")
          (sha256
-          (base32 "0vjy4dv7nvydf6i2nnaiwfvnsfrmkw1vbnmxc75rkp41syp76yqx"))))
+          (base32 "048zmv6grqy8xasivsbzrbilwyjzxwakaws0i8j9yp74x2aim2k1"))))
+      (build-system cargo-build-system)
+
+      (home-page "..")
+      (synopsis "..")
+      (description
+       "..")
+      (license gpl3+))
+    )
+
+(define-public rust-binary_codec_sv2-0.1.2
+    (package
+      (name "rust-binary_codec_sv2")
+      (version "0.1.2")
+      (source
+       (origin
+         (method url-fetch)
+         (uri "../../../../target/package/binary_codec_sv2-0.1.2.crate")
+         (sha256
+          (base32 "127i53c8zyh9wxy568zn1rh80k4lblvswjpfvj7dvjbaqm4fzlpc"))))
       (build-system cargo-build-system)
         (arguments
          `(
            #:cargo-inputs
-           (("binary_codec_sv2" , rust-binary_codec_sv2-0.1.1)
+           (("quickcheck" , rust-quickcheck-1.0.3)
             )))
 
       (home-page "..")
@@ -319,25 +341,48 @@ any dependent crates. This can be a benefits:
        "..")
       (license gpl3+))
     )
-(define-public rust-binary_sv2-0.1.3
+
+(define-public rust-derive_codec_sv2-0.1.2
     (package
-      (name "rust-binary_sv2")
-      (version "0.1.0")
+      (name "rust-derive_codec_sv2")
+      (version "0.1.2")
       (source
        (origin
          (method url-fetch)
-         (uri "../../../../target/package/binary_sv2-0.1.3.crate")
+         (uri "../../../../target/package/derive_codec_sv2-0.1.2.crate")
          (sha256
-          (base32 "0nx6y8lsgmq14z9r43vw2paprn3xk1aq81zw1wwkgw9y13q426if"))))
+          (base32 "0sb9zqa7l4mmkkslpygmir8cisjkm6mf09rr53vsq33ykj3009a5"))))
+      (build-system cargo-build-system)
+        (arguments
+         `(
+           #:cargo-inputs
+           (("binary_codec_sv2" , rust-binary_codec_sv2-0.1.2)
+            )))
+
+      (home-page "..")
+      (synopsis "..")
+      (description
+       "..")
+      (license gpl3+))
+    )
+(define-public rust-binary_sv2-0.1.4
+    (package
+      (name "rust-binary_sv2")
+      (version "0.1.4")
+      (source
+       (origin
+         (method url-fetch)
+         (uri "../../../../target/package/binary_sv2-0.1.4.crate")
+         (sha256
+          (base32 "087hlqkfnijmna1nic1dmxmvidabnkyr4nyad0h226jkjjslhvhp"))))
       (build-system cargo-build-system)
         (arguments
          `(
            #:skip-build? #t
            #:cargo-inputs
            (
-            ("binary_codec_sv2" , rust-binary_codec_sv2-0.1.1)
-            ("derive_codec_sv2" , rust-derive_codec_sv2-0.1.1)
-            ("rust-derive_codec_sv2", rust-derive_codec_sv2-0.1.1 )
+            ("binary_codec_sv2" , rust-binary_codec_sv2-0.1.2)
+            ("derive_codec_sv2" , rust-derive_codec_sv2-0.1.2)
             )))
 
       (home-page "..")
@@ -366,7 +411,7 @@ any dependent crates. This can be a benefits:
 (define-public rust-framing_sv2-0.1.3
     (package
       (name "rust-framing_sv2")
-      (version "0.1.0")
+      (version "0.1.3")
       (source
        (origin
          (method url-fetch)
@@ -379,7 +424,7 @@ any dependent crates. This can be a benefits:
            #:skip-build? #t
            #:cargo-inputs
            (
-            ("binary_sv2" , rust-binary_sv2-0.1.3)
+            ("binary_sv2" , rust-binary_sv2-0.1.4)
             ("const_sv2" , rust-const_sv2-0.1.0)
             )))
 
@@ -389,23 +434,23 @@ any dependent crates. This can be a benefits:
        "..")
       (license gpl3+))
     )
-(define-public rust-codec_sv2-0.1.3
+(define-public rust-codec_sv2-0.1.4
     (package
       (name "rust-codec_sv2")
-      (version "0.1.0")
+      (version "0.1.4")
       (source
        (origin
          (method url-fetch)
-         (uri "../../../../target/package/codec_sv2-0.1.3.crate")
+         (uri "../../../../target/package/codec_sv2-0.1.4.crate")
          (sha256
-          (base32 "0c10bnpkh96k1m92yjmzxa3qhkpc2wc6kmpgv44v1zfkk016nxyp"))))
+          (base32 "1nb3v4p50g6r88i9649sgbil4x8ahlhzzxf2inaisxqpwq84f1vh"))))
       (build-system cargo-build-system)
         (arguments
          `(
            #:skip-build? #t
            #:cargo-inputs
            (
-            ("binary_sv2" , rust-binary_sv2-0.1.3)
+            ("binary_sv2" , rust-binary_sv2-0.1.4)
             ("const_sv2" , rust-const_sv2-0.1.0)
             ("framing-sv2" , rust-framing_sv2-0.1.3)
             )))
@@ -416,24 +461,26 @@ any dependent crates. This can be a benefits:
        "..")
       (license gpl3+))
     )
-(define-public rust-common_messages_sv2-0.1.3
+(define-public rust-common_messages_sv2-0.1.4
     (package
       (name "rust-common_messages_sv2")
-      (version "0.1.0")
+      (version "0.1.4")
       (source
        (origin
          (method url-fetch)
-         (uri "../../../../target/package/common_messages_sv2-0.1.3.crate")
+         (uri "../../../../target/package/common_messages_sv2-0.1.4.crate")
          (sha256
-          (base32 "1wsyy44h3pirrb08brz9gr9g4mshxcpf37i557dxyz79c0gkl3lj"))))
+          (base32 "0f1ddwifc2vk0144dsnkayrf4rfc4hcg19gjf0f38j562w7vidyy"))))
       (build-system cargo-build-system)
         (arguments
          `(
            #:skip-build? #t
            #:cargo-inputs
            (
-            ("binary_sv2" , rust-binary_sv2-0.1.3)
+            ("binary_sv2" , rust-binary_sv2-0.1.4)
             ("const_sv2" , rust-const_sv2-0.1.0)
+            ("quickcheck" , rust-quickcheck-1.0.3)
+            ("quickcheck_macros" , rust-quickcheck_macros-1.0.0)
             )))
 
       (home-page "..")
@@ -442,24 +489,27 @@ any dependent crates. This can be a benefits:
        "..")
       (license gpl3+))
     )
-(define-public rust-template_distribution_sv2-0.1.3
+
+(define-public rust-template_distribution_sv2-0.1.4
     (package
       (name "rust-template_distribution_sv2")
-      (version "0.1.0")
+      (version "0.1.4")
       (source
        (origin
          (method url-fetch)
-         (uri "../../../../target/package/template_distribution_sv2-0.1.3.crate")
+         (uri "../../../../target/package/template_distribution_sv2-0.1.4.crate")
          (sha256
-          (base32 "05dm5si3h09pz05vk7zlg0w0vrkiq5yh9gr043i472rny101x5ki"))))
+          (base32 "0ic0ix5sbliv3kg4ai16lc0p87vjlndyhwgv9vhn38w1h6f4wc3z"))))
       (build-system cargo-build-system)
         (arguments
          `(
            #:skip-build? #t
            #:cargo-inputs
            (
-            ("binary_sv2" , rust-binary_sv2-0.1.3)
+            ("binary_sv2" , rust-binary_sv2-0.1.4)
             ("const_sv2" , rust-const_sv2-0.1.0)
+            ("quickcheck" , rust-quickcheck-1.0.3)
+            ("quickcheck_macros" , rust-quickcheck_macros-1.0.0)
             )))
 
       (home-page "..")
@@ -472,23 +522,25 @@ any dependent crates. This can be a benefits:
 (define-public rust-sv2_ffi-0.1.3
     (package
       (name "rust-sv2_ffi")
-      (version "0.1.0")
+      (version "0.1.3")
       (source
        (origin
          (method url-fetch)
          (uri "../../../../target/package/sv2_ffi-0.1.3.crate")
          (sha256
-          (base32 "01a6lj49hv9flxjqnjk01zza0664gj4mm4hh74wi2jch2mfi1yh5"))))
+          (base32 "10j6396f3wa5x2zs65zdgzmaxvcwka59masrm0p235zl5i973zmf"))))
       (build-system cargo-build-system)
       (arguments
        `(
          #:cargo-inputs
          (
-          ("binary_sv2" , rust-binary_sv2-0.1.3)
-          ("codec_sv2" , rust-codec_sv2-0.1.3)
+          ("binary_sv2" , rust-binary_sv2-0.1.4)
+          ("quickcheck" , rust-quickcheck-1.0.3)
+          ("quickcheck_macros" , rust-quickcheck_macros-1.0.0)
+          ("codec_sv2" , rust-codec_sv2-0.1.4)
           ("const_sv2" , rust-const_sv2-0.1.0)
-          ("common-messages_sv2" , rust-common_messages_sv2-0.1.3)
-          ("template-distribution_sv2" , rust-template_distribution_sv2-0.1.3)
+          ("common-messages_sv2" , rust-common_messages_sv2-0.1.4)
+          ("template-distribution_sv2" , rust-template_distribution_sv2-0.1.4)
           )
          #:phases
          (modify-phases %standard-phases
@@ -538,14 +590,16 @@ any dependent crates. This can be a benefits:
         automake
         pkg-config
         ;rust-sv2_example
-        rust-binary_codec_sv2-0.1.1
-        rust-derive_codec_sv2-0.1.1
-        rust-binary_sv2-0.1.3
+        rust-quickcheck-1.0.3
+        rust-quickcheck_macros-1.0.0
+        rust-binary_codec_sv2-0.1.2
+        rust-derive_codec_sv2-0.1.2
+        rust-binary_sv2-0.1.4
         rust-const_sv2-0.1.0
         rust-framing_sv2-0.1.3
-        rust-codec_sv2-0.1.3
-        rust-common_messages_sv2-0.1.3
-        rust-template_distribution_sv2-0.1.3
+        rust-codec_sv2-0.1.4
+        rust-common_messages_sv2-0.1.4
+        rust-template_distribution_sv2-0.1.4
         rust-sv2_ffi-0.1.3
         gcc
   )))
