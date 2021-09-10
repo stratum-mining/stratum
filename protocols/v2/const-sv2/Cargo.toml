@@ -12,3 +12,7 @@ license = "MIT"
 
 #[dev-dependencies]
 #cbindgen = "0.16.0"
+
+[profile.release]
+panic = 'unwind'
+overflow-checks = true

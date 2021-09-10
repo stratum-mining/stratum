@@ -13,3 +13,7 @@ const_sv2 = {version = "0.1.0", path = "../../../../protocols/v2/const-sv2"}
 
 [features]
 with_serde = ["binary_sv2/with_serde", "serde"]
+
+[profile.release]
+panic = 'unwind'
+overflow-checks = true
