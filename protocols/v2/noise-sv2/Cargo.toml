@@ -10,8 +10,8 @@ license = "MIT"
 
 [dependencies]
 snow = "0.8"
-#ed25519-dalek = { version = "1.0.1", features = ["rand", "serde"], default-features = false }
-ed25519-dalek = { version = "1.0.1", path = "../../../vendor/ed25519-dalek", features = ["rand", "serde", "alloc"], default-features = false }
+# TODO use crates.io repo as soon as a new version is issued
+ed25519-dalek = { git = "https://github.com/dalek-cryptography/ed25519-dalek", branch = "develop",features = ["rand", "serde", "alloc"], default-features = false }
 bs58 = { version ="0.4.0", features = ["check"] }
 serde_json = { version = "1.0.64", default-features = false, features = ["alloc"] }
 bytes = "1.0.1"

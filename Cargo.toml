@@ -24,5 +24,3 @@ members = [
     "examples/interop-cpp/template-provider/example-of-guix-build/quickcheck",
     "examples/interop-cpp/template-provider/example-of-guix-build/quickcheck_macros",
 ]
-
-exclude = ["vendor/ed25519-dalek"]
