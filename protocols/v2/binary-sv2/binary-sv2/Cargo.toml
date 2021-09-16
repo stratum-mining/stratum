@@ -19,7 +19,3 @@ default = ["core"]
 core = ["binary_codec_sv2", "derive_codec_sv2"]
 with_serde = ["serde_sv2", "serde"]
 prop_test = ["binary_codec_sv2/prop_test", "derive_codec_sv2"]
-
-[profile.release]
-panic = 'unwind'
-overflow-checks = true

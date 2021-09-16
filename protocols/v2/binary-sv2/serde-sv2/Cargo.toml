@@ -12,7 +12,3 @@ license = "MIT"
 [dependencies]
 serde = { version = "1.0.89", features = ["derive", "alloc"], default-features = false }
 buffer_sv2 = {version = "0.1.0",  path = "../../../../utils/buffer"}
-
-[profile.release]
-panic = 'unwind'
-overflow-checks = true
