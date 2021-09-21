@@ -1,6 +1,1 @@
 /target
-/protocols/guix-example/guix-example.h
-/ignore
-/vendor/ed25519-dalek/target
-/utils/buffer/target
-/sv2.h

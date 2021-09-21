@@ -1,1 +1,0 @@
-# Stratum V1
