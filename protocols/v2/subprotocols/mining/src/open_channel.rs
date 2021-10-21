@@ -40,6 +40,20 @@ pub struct OpenStandardMiningChannel<'decoder> {
     pub max_target: U256<'decoder>,
 }
 
+/// TODO
+impl<'decoder> OpenStandardMiningChannel<'decoder> {
+    pub fn into_static_self(
+        s: OpenStandardMiningChannel<'decoder>,
+    ) -> OpenStandardMiningChannel<'static> {
+        OpenStandardMiningChannel {
+            request_id: s.request_id,
+            user_identity: s.user_identity.into_static(),
+            nominal_hash_rate: s.nominal_hash_rate,
+            max_target: s.max_target.into_static(),
+        }
+    }
+}
+
 /// # OpenStandardMiningChannel.Success (Server -> Client)
 /// Sent as a response for opening a standard channel, if successful.
 #[derive(Serialize, Deserialize, Debug, Clone)]

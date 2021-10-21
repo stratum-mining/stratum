@@ -1,13 +1,17 @@
 use async_channel::{bounded, Receiver, Sender};
-use async_std::net::TcpStream;
+use async_std::net::{TcpListener, TcpStream};
 use async_std::prelude::*;
 use async_std::sync::{Arc, Mutex};
 use async_std::task;
 use binary_sv2::{Deserialize, Serialize};
 use core::convert::TryInto;
+use std::time::Duration;
 
 use binary_sv2::GetSize;
-use codec_sv2::{Frame, HandShakeFrame, HandshakeRole, StandardEitherFrame, StandardNoiseDecoder};
+use codec_sv2::{
+    Frame, HandShakeFrame, HandshakeRole, Initiator, Responder, StandardEitherFrame,
+    StandardNoiseDecoder,
+};
 
 #[derive(Debug)]
 pub struct Connection {
@@ -47,18 +51,17 @@ impl Connection {
 
             loop {
                 let writable = decoder.writable();
+                match reader.read_exact(writable).await {
+                    Ok(_) => {
+                        let mut connection = cloned1.lock().await;
 
-                let _r = reader.read_exact(writable).await.unwrap();
-
-                loop {
-                    if let Some(mut connection) = cloned1.try_lock() {
-                        match decoder.next_frame(&mut connection.state) {
-                            Ok(x) => {
-                                sender_incoming.send(x).await.unwrap();
-                                break;
-                            }
-                            Err(_) => break,
+                        if let Ok(x) = decoder.next_frame(&mut connection.state) {
+                            sender_incoming.send(x).await.unwrap();
                         }
+                    }
+                    Err(_) => {
+                        let _ = reader.shutdown(async_std::net::Shutdown::Both);
+                        break;
                     }
                 }
             }
@@ -72,14 +75,21 @@ impl Connection {
 
             loop {
                 let received = receiver_outgoing.recv().await;
+                match received {
+                    Ok(frame) => {
+                        let mut connection = cloned2.lock().await;
+                        let b = encoder.encode(frame, &mut connection.state).unwrap();
 
-                if let Ok(frame) = received {
-                    loop {
-                        if let Some(mut connection) = cloned2.try_lock() {
-                            let b = encoder.encode(frame, &mut connection.state).unwrap();
-                            (&writer).write_all(b).await.unwrap();
-                            break;
+                        match (&writer).write_all(b).await {
+                            Ok(_) => (),
+                            Err(_) => {
+                                let _ = writer.shutdown(async_std::net::Shutdown::Both);
+                            }
                         }
+                    }
+                    Err(_) => {
+                        let _ = writer.shutdown(async_std::net::Shutdown::Both);
+                        break;
                     }
                 };
             }
@@ -164,4 +174,34 @@ impl Connection {
 
         state.into_transport_mode().unwrap()
     }
+}
+
+pub async fn listen(
+    address: &str,
+    authority_public_key: [u8; 32],
+    authority_private_key: [u8; 32],
+    cert_validity: Duration,
+    sender: Sender<(TcpStream, HandshakeRole)>,
+) {
+    let listner = TcpListener::bind(address).await.unwrap();
+    let mut incoming = listner.incoming();
+    while let Some(stream) = incoming.next().await {
+        let stream = stream.unwrap();
+        let responder = Responder::from_authority_kp(
+            &authority_public_key[..],
+            &authority_private_key[..],
+            cert_validity,
+        );
+        let role = HandshakeRole::Responder(responder);
+        let _ = sender.send((stream, role)).await;
+    }
+}
+pub async fn connect(
+    address: &str,
+    authority_public_key: [u8; 32],
+) -> Result<(TcpStream, HandshakeRole), ()> {
+    let stream = TcpStream::connect(address).await.map_err(|_| ())?;
+    let initiator = Initiator::from_raw_k(authority_public_key);
+    let role = HandshakeRole::Initiator(initiator);
+    Ok((stream, role))
 }

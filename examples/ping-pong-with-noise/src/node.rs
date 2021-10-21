@@ -67,14 +67,16 @@ impl Node {
             seq.push(u256);
         }
         let message = Message::Pong(Pong::new(self.last_id, seq));
-        let frame = StandardSv2Frame::<Message<'static>>::from_message(message, 0, 0).unwrap();
+        let frame =
+            StandardSv2Frame::<Message<'static>>::from_message(message, 0, 0, false).unwrap();
         self.sender.send(frame.into()).await.unwrap();
         self.last_id += 1;
     }
 
     async fn respond(&mut self, frame: StandardSv2Frame<Message<'static>>) {
         let response = self.handle_message(frame);
-        let frame = StandardSv2Frame::<Message<'static>>::from_message(response, 0, 0).unwrap();
+        let frame =
+            StandardSv2Frame::<Message<'static>>::from_message(response, 0, 0, false).unwrap();
         self.sender.send(frame.into()).await.unwrap();
         self.last_id += 1;
     }

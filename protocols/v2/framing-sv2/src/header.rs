@@ -71,6 +71,11 @@ impl Header {
     pub fn msg_type(&self) -> u8 {
         self.msg_type
     }
+
+    pub fn channel_msg(&self) -> bool {
+        let mask = 0b0000_0000_0000_0001;
+        self.extesion_type & mask == self.extesion_type
+    }
 }
 
 pub struct NoiseHeader {}

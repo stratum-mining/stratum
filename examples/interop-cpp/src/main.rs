@@ -14,6 +14,7 @@ mod main_ {
 mod main_ {
     use codec_sv2::{Encoder, Frame, StandardDecoder, StandardSv2Frame};
     use common_messages_sv2::{Protocol, SetupConnection, SetupConnectionError};
+    use const_sv2::CHANNEL_BIT_SETUP_CONNECTION;
     use const_sv2::MESSAGE_TYPE_SETUP_CONNECTION;
     use const_sv2::MESSAGE_TYPE_SETUP_CONNECTION_ERROR;
     use std::convert::TryFrom;
@@ -96,9 +97,13 @@ mod main_ {
             device_id: "89567".to_string().into_bytes().try_into().unwrap(),
         };
 
-        let setup_connection =
-            StandardSv2Frame::from_message(setup_connection, MESSAGE_TYPE_SETUP_CONNECTION, 0)
-                .unwrap();
+        let setup_connection = StandardSv2Frame::from_message(
+            setup_connection,
+            MESSAGE_TYPE_SETUP_CONNECTION,
+            0,
+            CHANNEL_BIT_SETUP_CONNECTION,
+        )
+        .unwrap();
         let setup_connection = encoder.encode(setup_connection).unwrap();
 
         #[allow(deprecated)]

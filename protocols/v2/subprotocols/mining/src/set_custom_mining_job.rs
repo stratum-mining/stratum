@@ -2,14 +2,7 @@
 use alloc::vec::Vec;
 #[cfg(not(feature = "with_serde"))]
 use binary_sv2::binary_codec_sv2;
-#[cfg(not(feature = "with_serde"))]
 use binary_sv2::{Deserialize, Seq0255, Seq064K, Serialize, Str032, B0255, B064K, U256};
-#[cfg(feature = "with_serde")]
-use binary_sv2::{Deserialize, Serialize, Str032, B064K};
-
-/// TODO fix it!!!
-#[cfg(feature = "with_serde")]
-pub struct SetCustomMiningJob {}
 
 /// # SetCustomMiningJob (Client -> Server)
 ///
@@ -18,7 +11,7 @@ pub struct SetCustomMiningJob {}
 /// The downstream node has a custom job negotiated by a trusted external Job Negotiator. The
 /// mining_job_token provides the information for the pool to authorize the custom job that has
 /// been or will be negotiated between the Job Negotiator and Pool.
-#[cfg(not(feature = "with_serde"))]
+///
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SetCustomMiningJob<'decoder> {
     /// Extended channel identifier.

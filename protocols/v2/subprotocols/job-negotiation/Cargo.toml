@@ -1,5 +1,5 @@
 [package]
-name = "job-negotiation"
+name = "job_negotiation_sv2"
 version = "0.1.0"
 authors = ["fi3 <email@email.org>"]
 edition = "2018"

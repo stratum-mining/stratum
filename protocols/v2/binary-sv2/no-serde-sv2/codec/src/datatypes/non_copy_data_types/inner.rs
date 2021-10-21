@@ -248,14 +248,29 @@ impl<'a, const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const 
 }
 
 impl<'a, const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize>
-    Clone for Inner<'a, ISFIXED, SIZE, HEADERSIZE, MAXSIZE>
+    Inner<'a, ISFIXED, SIZE, HEADERSIZE, MAXSIZE>
 {
-    fn clone(&self) -> Self {
+    pub fn into_static(self) -> Inner<'static, ISFIXED, SIZE, HEADERSIZE, MAXSIZE> {
         match self {
             Inner::Ref(data) => {
                 let mut v = Vec::with_capacity(data.len());
                 v.extend_from_slice(data);
-                Self::Owned(v)
+                Inner::Owned(v)
+            }
+            Inner::Owned(data) => Inner::Owned(data),
+        }
+    }
+}
+
+impl<'a, const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize>
+    Clone for Inner<'a, ISFIXED, SIZE, HEADERSIZE, MAXSIZE>
+{
+    fn clone(&self) -> Inner<'static, ISFIXED, SIZE, HEADERSIZE, MAXSIZE> {
+        match self {
+            Inner::Ref(data) => {
+                let mut v = Vec::with_capacity(data.len());
+                v.extend_from_slice(data);
+                Inner::Owned(v)
             }
             Inner::Owned(data) => Inner::Owned(data.clone()),
         }
