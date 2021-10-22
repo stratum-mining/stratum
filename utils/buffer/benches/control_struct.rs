@@ -1,4 +1,4 @@
-use buffer::{Buffer, Slice};
+use buffer_sv2::{Buffer, Slice};
 use std::sync::{Arc, Mutex};
 
 use core::sync::atomic::Ordering;
