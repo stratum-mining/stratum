@@ -1,9 +1,9 @@
 use core::sync::atomic::Ordering;
 use iai::{black_box, main};
 
-use buffer::BufferFromSystemMemory as BufferFromMemory;
-use buffer::BufferPool as Pool;
-use buffer::{Buffer, Slice};
+use buffer_sv2::BufferFromSystemMemory as BufferFromMemory;
+use buffer_sv2::BufferPool as Pool;
+use buffer_sv2::{Buffer, Slice};
 use core::time::Duration;
 use rand::Rng;
 
