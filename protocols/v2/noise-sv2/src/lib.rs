@@ -41,7 +41,6 @@ pub const HEADER_SIZE: usize = const_sv2::NOISE_FRAME_HEADER_SIZE;
 
 const BUFFER_LEN: usize =
     SNOW_PSKLEN + SNOW_PSKLEN + SNOW_TAGLEN + SNOW_TAGLEN + SIGNATURE_MESSAGE_LEN;
-const SIGNATURE_INDEX: usize = SNOW_PSKLEN + SNOW_PSKLEN + SNOW_TAGLEN + SNOW_TAGLEN - 1;
 
 /// Generates noise specific static keypair specific for the current params
 pub fn generate_keypair() -> Result<StaticKeypair> {
@@ -140,22 +139,18 @@ impl handshake::Step for Initiator {
                 // Receive responder message
                 // <- e, ee, s, es, SIGNATURE_NOISE_MESSAGE
                 //
-                let mut in_msg = in_msg.ok_or(Error {})?;
+                let in_msg = in_msg.ok_or(Error {})?;
 
-                let signature: Vec<u8> = in_msg[SIGNATURE_INDEX + 2..].into();
-                in_msg.truncate(BUFFER_LEN - 2);
-                (&mut in_msg[SIGNATURE_INDEX..]).copy_from_slice(&signature);
-
-                noise_bytes.resize(SIGNATURE_MESSAGE_LEN - 2, 0);
+                noise_bytes.resize(BUFFER_LEN, 0);
 
                 let signature_len = self
                     .handshake_state
                     .read_message(&in_msg[..], &mut noise_bytes)
                     .map_err(|_| Error {})?;
 
-                debug_assert!(SIGNATURE_MESSAGE_LEN == signature_len + 2);
+                debug_assert!(SIGNATURE_MESSAGE_LEN == signature_len);
 
-                self.verify_remote_static_key_signature(noise_bytes.to_vec())?;
+                self.verify_remote_static_key_signature(noise_bytes[..signature_len].to_vec())?;
 
                 handshake::StepResult::Done
             }
@@ -288,15 +283,7 @@ impl handshake::Step for Responder {
                     .write_message(&self.signature_noise_message, &mut noise_bytes)
                     .map_err(|_| Error {})?;
 
-                debug_assert!(buffer_len == len_written + 2);
-
-                let signature_index = SIGNATURE_INDEX;
-
-                (&mut noise_bytes[..])
-                    .copy_within(signature_index..buffer_len - 2, signature_index + 2);
-                noise_bytes[signature_index] = 64;
-                noise_bytes[signature_index + 1] = 0;
-
+                debug_assert!(buffer_len == len_written);
                 handshake::StepResult::NoMoreReply(noise_bytes)
             }
             1 => handshake::StepResult::Done,

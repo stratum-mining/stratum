@@ -144,10 +144,23 @@ impl SignedPart {
         let mut signed_part_writer = BytesMut::new().writer();
         let version = &self.header.version.to_le_bytes()[..];
         let valid_from = &self.header.valid_from.to_le_bytes()[..];
-        let not_valid_after = &self.header.not_valid_after.to_be_bytes()[..];
+        let not_valid_after = &self.header.not_valid_after.to_le_bytes()[..];
+        let pub_k_len = [32, 0];
         let pub_k = &self.pubkey[..];
+        let auth_pub_k = &self.authority_public_key.as_bytes()[..];
         signed_part_writer
-            .write_all(&[version, valid_from, not_valid_after, pub_k].concat()[..])
+            .write_all(
+                &[
+                    version,
+                    valid_from,
+                    not_valid_after,
+                    &pub_k_len,
+                    pub_k,
+                    &pub_k_len,
+                    auth_pub_k,
+                ]
+                .concat()[..],
+            )
             .unwrap();
         signed_part_writer.into_inner()
     }
@@ -193,7 +206,9 @@ impl SignatureNoiseMessage {
     pub fn serialize_to_writer<T: Write>(&self, writer: &mut T) -> Result<()> {
         // TODO
         // v2::serialization::to_writer(writer, self)?;
+        let sign_len = [74, 0];
         self.header.serialize_to_writer(writer).unwrap();
+        writer.write_all(&sign_len).unwrap();
         writer.write_all(&self.signature.to_bytes()[..]).unwrap();
         Ok(())
     }
@@ -233,9 +248,9 @@ impl TryFrom<&[u8]> for SignatureNoiseMessage {
     type Error = Error;
 
     fn try_from(data: &[u8]) -> Result<Self> {
-        debug_assert!(data.len() == 74);
+        debug_assert!(data.len() == 76);
         let header = &data[0..10];
-        let siganture = &data[10..74];
+        let siganture = &data[12..76];
         let header = SignedPartHeader::from_bytes(header);
         let signature = ed25519_dalek::Signature::new(siganture.try_into().unwrap());
         Ok(SignatureNoiseMessage { header, signature })
