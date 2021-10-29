@@ -59,7 +59,8 @@ impl Connection {
                             sender_incoming.send(x).await.unwrap();
                         }
                     }
-                    Err(_) => {
+                    Err(e) => {
+                        println!("{:?}", e);
                         let _ = reader.shutdown(async_std::net::Shutdown::Both);
                         break;
                     }
@@ -140,8 +141,8 @@ impl Connection {
         let first_message = state.step(None).unwrap();
         sender_outgoing.send(first_message.into()).await.unwrap();
 
-        let mut second_message: HandShakeFrame =
-            receiver_incoming.recv().await.unwrap().try_into().unwrap();
+        let second_message = receiver_incoming.recv().await.unwrap();
+        let mut second_message: HandShakeFrame = second_message.try_into().unwrap();
         let second_message = second_message.payload().to_vec();
 
         state.step(Some(second_message)).unwrap();
