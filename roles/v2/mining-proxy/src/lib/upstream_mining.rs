@@ -318,3 +318,11 @@ impl UpstreamMiningNodes {
         Err(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn test_one() {
+        assert_eq!(1, 1);
+    }
+}
