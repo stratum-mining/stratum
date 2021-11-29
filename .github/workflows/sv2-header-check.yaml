@@ -4,7 +4,8 @@ on:
   pull_request:
     brances: [ main ]
 
-name: Check sv2.h file is up to date with commit
+# Check sv2.h file is up to date with commit
+name: sv2.h Header Check
 
 jobs:
   sv2_header_check:
