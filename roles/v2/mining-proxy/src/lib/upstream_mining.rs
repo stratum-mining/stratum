@@ -838,3 +838,33 @@ fn jobs_to_relay(
     }
     messages
 }
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::net::{IpAddr, Ipv4Addr};
+
+    #[test]
+    fn new_upstream_minining_node() {
+        let address = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8080);
+        let authority_public_key = [
+            215, 11, 47, 78, 34, 232, 25, 192, 195, 168, 170, 209, 95, 181, 40, 114, 154, 226, 176,
+            190, 90, 169, 238, 89, 191, 183, 97, 63, 194, 119, 11, 31,
+        ];
+        let actual = UpstreamMiningNode::new(address, authority_public_key);
+
+        match actual.connection {
+            Some(_) => assert!(false),
+            None => assert!(true),
+        }
+
+        match actual.sv2_connection {
+            Some(_) => assert!(false),
+            None => assert!(true),
+        }
+
+        assert_eq!(actual.address, address);
+        assert_eq!(actual.downstreams.len(), 0);
+        assert_eq!(actual.authority_public_key, authority_public_key);
+        assert_eq!(actual.group_channels_id, Vec::<u32>::new());
+    }
+}
