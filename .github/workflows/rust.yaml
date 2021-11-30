@@ -6,7 +6,7 @@ on:
     branches:
       - main
 
-name: Stratum V2
+name: Test & Lint
 
 jobs:
   ci:
