@@ -166,3 +166,16 @@ async fn main() {
     );
     crate::lib::downstream_mining::listen_for_downstream_mining(socket).await
 }
+
+// #[cfg(test)]
+// mod tests {
+//     use super::*;
+//
+//     #[async_std::test]
+//     async fn test_main() {
+//         let config_file = std::fs::read_to_string("proxy-config.toml").unwrap();
+//         let config: Config = toml::from_str(&config_file).unwrap();
+//         let upstreams = config.upstreams;
+//
+//     }
+// }
