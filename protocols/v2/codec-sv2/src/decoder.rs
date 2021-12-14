@@ -63,8 +63,8 @@ impl<'a, T: Serialize + GetSize + Deserialize<'a>, B: Buffer> WithNoise<B, T> {
 
                 // DECRYPT THE ENCRYPTED PAYLOAD
                 let len = TransportMode::size_hint_decrypt(src.len());
-                let mut decrypted = self.sv2_buffer.get_writable(len);
-                transport_mode.read(src, &mut decrypted).map_err(|_| ())?;
+                let decrypted = self.sv2_buffer.get_writable(len);
+                transport_mode.read(src, decrypted).map_err(|_| ())?;
 
                 // IF THE DECODER IS RECEIVING A FRAGMENTED FRAME ADD THE DECRYPTED DATA TO THE
                 // PARTIAL FRAME AND CHECK IF READY
