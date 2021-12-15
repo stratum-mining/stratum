@@ -1,17 +1,11 @@
-use std::{
-    fmt::{self, Display, Formatter},
-    path::PathBuf,
-};
+use std::fmt::{self, Display, Formatter};
+
+pub(crate) type Result<T, E = Error> = std::result::Result<T, E>;
 
 #[derive(Debug)]
 pub enum Error {
-    IoError {
-        io_error: std::io::Error,
-        path: PathBuf,
-    },
-    TomlError {
-        toml_error: toml::de::Error,
-    },
+    IoError(std::io::Error),
+    TomlError(toml::de::Error),
 }
 
 impl Display for Error {
@@ -19,12 +13,20 @@ impl Display for Error {
         use Error::*;
 
         match self {
-            IoError { io_error, path } => {
-                write!(f, "I/O error at `{}: {}", path.display(), io_error)
-            }
-            TomlError { toml_error } => {
-                write!(f, "Failed to parse toml file: `{}`", toml_error)
-            }
+            IoError(error) => write!(f, "I/O error: `{}`", error),
+            TomlError(error) => write!(f, "Toml read error: `{}`", error),
         }
+    }
+}
+
+impl From<std::io::Error> for Error {
+    fn from(error: std::io::Error) -> Self {
+        Error::IoError(error)
+    }
+}
+
+impl From<toml::de::Error> for Error {
+    fn from(error: toml::de::Error) -> Self {
+        Error::TomlError(error)
     }
 }
