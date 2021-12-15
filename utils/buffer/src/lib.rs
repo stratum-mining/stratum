@@ -42,7 +42,8 @@ impl Write for &mut [u8] {
     #[inline]
     fn write(&mut self, data: &[u8]) -> Result<usize, WriteError> {
         let amt = core::cmp::min(data.len(), self.len());
-        let (a, b) = core::mem::replace(self, &mut []).split_at_mut(amt);
+        let res = core::mem::take(self);
+        let (a, b) = res.split_at_mut(amt);
         a.copy_from_slice(&data[..amt]);
         *self = b;
         Ok(amt)

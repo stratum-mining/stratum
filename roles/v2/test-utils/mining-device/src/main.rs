@@ -44,10 +44,10 @@ impl SetupConnectionHandler {
     }
     fn get_setup_connection_message(address: SocketAddr) -> SetupConnection<'static> {
         let endpoint_host = address.ip().to_string().into_bytes().try_into().unwrap();
-        let vendor = format!("").try_into().unwrap();
-        let hardware_version = format!("").try_into().unwrap();
-        let firmware = format!("").try_into().unwrap();
-        let device_id = format!("").try_into().unwrap();
+        let vendor = String::new().try_into().unwrap();
+        let hardware_version = String::new().try_into().unwrap();
+        let firmware = String::new().try_into().unwrap();
+        let device_id = String::new().try_into().unwrap();
         SetupConnection {
             protocol: Protocol::MiningProtocol,
             min_version: 2,

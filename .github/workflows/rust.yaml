@@ -27,7 +27,7 @@ jobs:
         uses: actions/checkout@v2
         with:
           profile: minimal
-          toolchain: stable
+          toolchain: 1.53.0
           override: true
           components: rustfmt, clippy
 
@@ -69,4 +69,4 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: clippy
-          args: -- -D warnings
+          args: -- -D warnings -A dead-code
