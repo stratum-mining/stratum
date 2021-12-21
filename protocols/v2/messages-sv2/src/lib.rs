@@ -981,11 +981,13 @@ pub enum PoolMessages<'a> {
     JobNegotiation(JobNegotiation<'a>),
 }
 
-impl<'a> MiningDeviceMessages<'a> {
-    pub fn into_pool_messages(s: Self) -> PoolMessages<'a> {
-        match s {
-            MiningDeviceMessages::Common(_) => panic!(),
-            MiningDeviceMessages::Mining(m) => PoolMessages::Mining(m),
+impl<'a> TryFrom<MiningDeviceMessages<'a>> for PoolMessages<'a> {
+    type Error = ();
+
+    fn try_from(value: MiningDeviceMessages<'a>) -> Result<Self, Self::Error> {
+        match value {
+            MiningDeviceMessages::Common(_) => Err(()),
+            MiningDeviceMessages::Mining(m) => Ok(PoolMessages::Mining(m)),
         }
     }
 }
@@ -1118,13 +1120,14 @@ impl<'decoder, B: AsMut<[u8]> + AsRef<[u8]>> TryFrom<MiningDeviceMessages<'decod
     }
 }
 
-//impl<'decoder, B: AsMut<[u8]>> TryFrom<Mining<'decoder>> for Sv2Frame<Mining<'decoder>, B> {
-//    type Error = ();
-//
-//    fn try_from(v: Mining<'decoder>) -> Result<Self, ()> {
-//        let extension_type = 0;
-//        let channel_bit = v.channel_bit();
-//        let message_type = v.message_type();
-//        Sv2Frame::from_message(v, message_type, extension_type, channel_bit).ok_or(())
-//    }
-//}
+impl<'a> TryFrom<PoolMessages<'a>> for MiningDeviceMessages<'a> {
+    type Error = ();
+
+    fn try_from(value: PoolMessages<'a>) -> Result<Self, Self::Error> {
+        match value {
+            PoolMessages::Common(message) => Ok(Self::Common(message)),
+            PoolMessages::Mining(message) => Ok(Self::Mining(message)),
+            PoolMessages::JobNegotiation(_) => Err(()),
+        }
+    }
+}

@@ -62,7 +62,8 @@ use binary_sv2::{u256_from_int, B032};
 use codec_sv2::{Frame, StandardEitherFrame, StandardSv2Frame};
 use messages_sv2::handlers::common::{SetupConnectionSuccess, UpstreamCommon};
 use messages_sv2::handlers::mining::{
-    ChannelType, Mining, OpenStandardMiningChannelSuccess, SendTo, UpstreamMining,
+    ChannelType, DownstreamSelector, Mining, OpenStandardMiningChannelSuccess, SendTo,
+    UpstreamMining,
 };
 use messages_sv2::PoolMessages;
 use std::convert::TryInto;
@@ -70,6 +71,16 @@ use std::convert::TryInto;
 pub type Message = PoolMessages<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;
 pub type EitherFrame = StandardEitherFrame<Message>;
+
+struct Selector {}
+
+impl DownstreamSelector<()> for Selector {
+    fn on_request(&mut self, _request_id: u32, _dowstream: ()) {
+    }
+
+    fn get_dowstream(&mut self, _dowstream: u32){
+    }
+}
 
 pub struct Id {
     state: u32,
@@ -192,7 +203,9 @@ impl Downstream {
     pub async fn next(&mut self, mut incoming: StdFrame) {
         let message_type = incoming.get_header().unwrap().msg_type();
         let payload = incoming.payload();
-        let next_message_to_send = UpstreamMining::handle_message(self, message_type, payload);
+        let selector = std::sync::Arc::new(std::sync::Mutex::new(Selector {}));
+        let next_message_to_send =
+            UpstreamMining::handle_message(self, message_type, payload, selector, (), None);
         match next_message_to_send {
             Ok(SendTo::Downstream(message)) => {
                 let sv2_frame: StdFrame = PoolMessages::Mining(message).try_into().unwrap();
@@ -229,7 +242,7 @@ fn get_random_extranonce() -> B032<'static> {
     val.try_into().unwrap()
 }
 
-impl UpstreamMining for Downstream {
+impl UpstreamMining<(), Selector> for Downstream {
     fn get_channel_type(&self) -> ChannelType {
         ChannelType::Group
     }
@@ -249,8 +262,8 @@ impl UpstreamMining for Downstream {
                 let channel_id = channel_id_generator.next();
                 self.channels_id.push(channel_id);
                 println!(
-                    "POOL: channel opened channel id is {} group id is {}",
-                    channel_id, group_channel_id
+                    "POOL: channel opened channel id is {} group id is {} request id is {}",
+                    channel_id, group_channel_id, request_id,
                 );
                 OpenStandardMiningChannelSuccess {
                     request_id,
@@ -269,8 +282,8 @@ impl UpstreamMining for Downstream {
                 self.group_id = Some(group_channel_id);
                 println!("POOL: created group channel with id: {}", group_channel_id);
                 println!(
-                    "POOL: channel opened channel id is {} group id is {}",
-                    channel_id, group_channel_id
+                    "POOL: channel opened channel id is {} group id is {} request id is {}",
+                    channel_id, group_channel_id, request_id,
                 );
                 OpenStandardMiningChannelSuccess {
                     request_id,

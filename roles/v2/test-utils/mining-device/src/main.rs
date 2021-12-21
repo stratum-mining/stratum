@@ -115,6 +115,8 @@ pub struct Device {
 
 fn open_channel() -> OpenStandardMiningChannel<'static> {
     let user_identity = "ABC".to_string().try_into().unwrap();
+    let id = 10;
+    println!("MINING DEVICE: send open channel with request id {}", id);
     OpenStandardMiningChannel {
         request_id: 10,
         user_identity,
@@ -145,7 +147,7 @@ impl Device {
             let mut incoming: StdFrame = self_.receiver.recv().await.unwrap().try_into().unwrap();
             let message_type = incoming.get_header().unwrap().msg_type();
             let payload = incoming.payload();
-            let next = self_.handle_message(message_type, payload).unwrap();
+            let next = self_.handle_message(message_type, payload, None).unwrap();
             match next {
                 SendTo::Upstream(m) => {
                     let sv2_frame: StdFrame = MiningDeviceMessages::Mining(m).try_into().unwrap();

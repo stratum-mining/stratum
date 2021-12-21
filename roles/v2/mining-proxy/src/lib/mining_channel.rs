@@ -25,10 +25,12 @@ pub struct Channel {
 #[derive(Debug, Copy, Clone)]
 pub struct ExtendedChannel {}
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Clone)]
 struct GroupChannelIds {
     upstream_id: u32,
-    downstream_id: u32,
+    // Header only Downstream can have only one downstream id
+    // but non header only Downstream can have more than one downstream id
+    downstream_id: Vec<u32>,
 }
 
 #[derive(Debug, Copy, Clone)]

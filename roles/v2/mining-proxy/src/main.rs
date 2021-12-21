@@ -1,4 +1,30 @@
-/// Configurable Sv2 it support extended and group channel
+//! Configurable Sv2 it support extended and group channel
+//! Upstream means another proxy or a pool
+//! Downstream means another proxy or a mining device
+//!
+//! ## From messages_sv2
+//! UpstreamMining is the (sub)protocol that a proxy must implement in order to
+//! understant Downstream mining messages.
+//!
+//! DownstreamMining is the (sub)protocol that a proxy must implement in order to
+//! understand Upstream mining messages
+//!
+//! Same thing for DownstreamCommon and UpstreamCommon
+//!
+//! ## Internal
+//! DownstreamMiningNode rapresent the Downstream as defined above as the proxy need to understand
+//! some message (TODO which one?) from downstream it DownstreamMiningNode it implement
+//! UpstreamMining. DownstreamMiningNode implement UpstreamCommon in order to setup a connection
+//! with the downstream node.
+//!
+//! UpstreamMiningNode rapresent the upstream as defined above as the proxy only need to relay
+//! downstream messages coming from downstream UpstreamMiningNode do not (for now) implement
+//! DownstreamMining. UpstreamMiningNode implement DownstreamCommon (TODO) in order to setup a
+//! connection with with the upstream node.
+//!
+//! A Downstream that signal the capacity to handle group channels can open more than one channel.
+//! A Downstream that signal the incapacity to handle group channels can open only one channel.
+//!
 mod lib;
 use std::net::{IpAddr, SocketAddr};
 
@@ -11,6 +37,7 @@ use std::str::FromStr;
 pub const MAX_SUPPORTED_VERSION: u16 = 2;
 pub const MIN_SUPPORTED_VERSION: u16 = 2;
 
+#[derive(Debug)]
 pub struct Id {
     state: u32,
 }
@@ -56,7 +83,6 @@ pub struct Config {
 ///    itself in it
 /// 7. normal operation between the paired downstream_mining::DownstreamMiningNode and
 ///    upstream_mining::UpstreamMiningNode begin
-///
 #[async_std::main]
 async fn main() {
     // Scan all the upstreams and map them
