@@ -32,7 +32,8 @@ enum DownstreamMiningNodeStatus {
     Paired(Arc<Mutex<UpstreamMiningNode>>, Channel),
 }
 
-use async_std::sync::{Arc, Mutex};
+use crate::Mutex;
+use async_std::sync::Arc;
 use async_std::task;
 use core::convert::TryInto;
 
@@ -57,33 +58,34 @@ impl DownstreamMiningNode {
     /// Send SetupConnectionSuccess to donwstream and start processing new messages coming from
     /// downstream
     pub async fn initialize(
-        self_: Arc<Mutex<Self>>,
+        self_mutex: Arc<Mutex<Self>>,
         setup_connection_success: SetupConnectionSuccess,
         channel: Channel,
         upstream: Arc<Mutex<UpstreamMiningNode>>,
     ) {
-        let status = self_.lock().await.status.clone();
+        let status = self_mutex.safe_lock(|self_| self_.status.clone()).await;
 
         match status {
             DownstreamMiningNodeStatus::Initializing => {
-                drop(status);
-                let mut mining_device = self_.lock().await;
                 let setup_connection_success: MiningDeviceMessages =
                     setup_connection_success.into();
-                mining_device
-                    .send(setup_connection_success.try_into().unwrap())
-                    .await
-                    .unwrap();
-                mining_device.status = DownstreamMiningNodeStatus::Paired(upstream, channel);
-                drop(mining_device);
+
+                {
+                    let mut mining_device = self_mutex.lock().await;
+                    mining_device
+                        .send(setup_connection_success.try_into().unwrap())
+                        .await
+                        .unwrap();
+                    mining_device.status = DownstreamMiningNodeStatus::Paired(upstream, channel);
+                    drop(mining_device);
+                }
 
                 task::spawn(async move {
                     loop {
-                        let mining_device = self_.lock().await;
-                        if let Ok(message) = mining_device.receiver.try_recv() {
+                        let receiver = self_mutex.safe_lock(|self_| self_.receiver.clone()).await;
+                        if let Ok(message) = receiver.try_recv() {
                             let incoming: StdFrame = message.try_into().unwrap();
-                            drop(mining_device);
-                            Self::next(self_.clone(), incoming).await
+                            Self::next(self_mutex.clone(), incoming).await
                         }
                     }
                 });
@@ -94,37 +96,40 @@ impl DownstreamMiningNode {
 
     /// Parse the received message and relay it to the right upstream
     pub async fn next(self_mutex: Arc<Mutex<Self>>, mut incoming: StdFrame) {
-        let mut self_ = self_mutex.lock().await;
         let message_type = incoming.get_header().unwrap().msg_type();
         let payload = incoming.payload();
 
         // New upstream connection-wide unique request id
-        let upstream = self_.get_upstream().await;
-        let mut upstream = upstream.lock().await;
-        let selector = Some(upstream.downstream_selector.clone());
-        let mapper = upstream.request_id_mapper.as_mut();
+        let upstream_mutex = self_mutex.safe_lock(|self_| self_.get_upstream()).await;
+        let (selector, mapper) = upstream_mutex
+            .safe_lock(|upstream| {
+                (
+                    Some(upstream.downstream_selector.clone()),
+                    upstream.request_id_mapper.clone(),
+                )
+            })
+            .await;
 
-        let next_message_to_send = self_.handle_message(
-            message_type,
-            payload,
-            // handle_message will lock selector and then drop and never clone it;
-            selector,
-            // TODO possible deadlock
-            // an Arc<Mutex<Self>> is inserted in a HashMap (request_id => Arc<Mutex<Self>> and it
-            // will be used to respond to this message so the value should be freed when the mutex
-            // need to be locked. Double check if it is ok
-            self_mutex.clone(),
-            mapper,
-        );
-        drop(upstream);
+        let next_message_to_send = self_mutex
+            .safe_lock(|self_| {
+                self_.handle_message(
+                    message_type,
+                    payload,
+                    selector,
+                    self_mutex.clone(),
+                    Some(mapper),
+                )
+            })
+            .await;
 
         match next_message_to_send {
             Ok(SendTo::Relay(_)) => {
                 let sv2_frame: codec_sv2::Sv2Frame<messages_sv2::PoolMessages, Vec<u8>> =
                     incoming.map(|payload| payload.try_into().unwrap());
-                let upstream = self_.get_upstream().await;
-                drop(self_);
-                UpstreamMiningNode::send(upstream, sv2_frame).await.unwrap();
+                let upstream_mutex = self_mutex.safe_lock(|self_| self_.get_upstream()).await;
+                UpstreamMiningNode::send(upstream_mutex, sv2_frame)
+                    .await
+                    .unwrap();
             }
             Ok(_) => todo!(),
             Err(messages_sv2::Error::UnexpectedMessage) => todo!(),
@@ -132,7 +137,7 @@ impl DownstreamMiningNode {
         }
     }
 
-    async fn get_upstream(&mut self) -> Arc<Mutex<UpstreamMiningNode>> {
+    fn get_upstream(&mut self) -> Arc<Mutex<UpstreamMiningNode>> {
         match &mut self.status {
             DownstreamMiningNodeStatus::Initializing => panic!(),
             DownstreamMiningNodeStatus::Paired(upstream, _) => upstream.clone(),
@@ -267,9 +272,10 @@ async fn set_requires_standard_job(
     node: Arc<Mutex<DownstreamMiningNode>>,
     require_standard_job: bool,
 ) {
-    let mut node = node.lock().await;
-    node.requires_standard_jobs = require_standard_job;
-    drop(node)
+    node.safe_lock(|node| {
+        node.requires_standard_jobs = require_standard_job;
+    })
+    .await;
 }
 
 use async_std::net::TcpListener;
@@ -291,18 +297,16 @@ pub async fn listen_for_downstream_mining(
             PlainConnection::new(stream).await;
         let node = DownstreamMiningNode::new(receiver, sender, true, false, false);
 
-        // TODO explain why it is safe
         let upstream_nodes = upstream_nodes.clone();
 
-        let mut id_generator = id_generator.lock().await;
-        let next_id = id_generator.next();
-        drop(id_generator);
+        let next_id = id_generator
+            .safe_lock(|id_generatot| id_generatot.next())
+            .await;
 
         task::spawn(async move {
             let mut incoming: StdFrame = node.receiver.recv().await.unwrap().try_into().unwrap();
             let message_type = incoming.get_header().unwrap().msg_type();
             let payload = incoming.payload();
-
 
             if let Ok(setup_connection) = DownstreamMiningNode::parse_message(message_type, payload)
             {

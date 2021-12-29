@@ -4,7 +4,8 @@
 /// downstream
 use super::downstream_mining::DownstreamMiningNode;
 use crate::lib::upstream_mining::UpstreamMiningNodes;
-use async_std::sync::{Arc, Mutex};
+use crate::Mutex;
+use async_std::sync::Arc;
 use messages_sv2::handlers::{common::Protocol, common::SetupConnectionSuccess};
 
 #[derive(Debug, Copy, Clone)]
@@ -58,14 +59,13 @@ impl GroupChannel {
         min_v: u16,
         max_v: u16,
         flags: u32,
-        upstream_nodes: Arc<Mutex<UpstreamMiningNodes>>,
+        upstream_nodes_mutex: Arc<Mutex<UpstreamMiningNodes>>,
         downstream: Arc<Mutex<DownstreamMiningNode>>,
         downstream_id: u32,
     ) -> Result<Channel, ()> {
-        let mut upstream_nodes = upstream_nodes.lock().await;
-
         // Find an upstream that support downstream and if there is one pair them
-        let (upstream, used_version) = upstream_nodes
+        let mut upstream_nodes = upstream_nodes_mutex.lock().await;
+        let (upstream_mutex, used_version) = upstream_nodes
             .pair_downstream(
                 protocol,
                 min_v,
@@ -75,11 +75,13 @@ impl GroupChannel {
                 downstream_id,
             )
             .await?;
+        drop(upstream_nodes);
 
         // If upstream already have an opened group channel use it if not create new one
-        let upstream_ = upstream.clone();
-        let upstream_ = upstream_.lock().await;
-        let group_channel = match upstream_.get_group_channel_id() {
+        let group_channel_id = upstream_mutex
+            .safe_lock(|upstream| upstream.get_group_channel_id())
+            .await;
+        let group_channel = match group_channel_id {
             Some(id) => GroupChannel::OnlyUpOpened(id),
             None => GroupChannel::Close,
         };
@@ -98,13 +100,10 @@ impl GroupChannel {
             downstream.clone(),
             setup_connection_success,
             channel,
-            upstream,
+            upstream_mutex,
         )
         .await;
 
         Ok(channel)
     }
-
-    //pub async fn open(&mut self, upstream: Arc<Mutex<UpstreamMiningNodes>>) -> Result<u32,()> {
-    //}
 }

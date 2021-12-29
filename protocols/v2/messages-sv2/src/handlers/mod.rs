@@ -17,6 +17,8 @@
 //! right now, following the above convection and using RequestIdMapper and RemotoSelector, the
 //! scenario where a proxy split a downstream connection in two upstream connection is not
 //! supported
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex as Mutex_, MutexGuard, PoisonError};
 pub mod common;
 pub mod mining;
 
@@ -60,4 +62,69 @@ pub trait RemoteSelector<T> {
     fn get_remotes_in_channel(&self, channel_id: u32) -> Vec<T>;
 
     fn remote_from_request_id(&mut self, request_id: u32) -> T;
+
+    fn new() -> Self;
+
+    fn new_as_mutex() -> Arc<Mutex<Self>>
+    where
+        Self: Sized,
+    {
+        Arc::new(Mutex::new(Self::new()))
+    }
+}
+
+/// Proxyies likely need to change the request ids of downsteam's messages. They also need to
+/// remeber original id to patch the upstream's response with it
+#[derive(Debug)]
+pub struct RequestIdMapper {
+    // upstream id -> downstream id
+    request_ids_map: HashMap<u32, u32>,
+    next_id: u32,
+}
+
+impl RequestIdMapper {
+    pub fn new_as_mutex() -> Arc<Mutex<Self>> {
+        Arc::new(Mutex::new(Self {
+            request_ids_map: HashMap::new(),
+            next_id: 0,
+        }))
+    }
+
+    pub fn on_open_channel(&mut self, id: u32) -> u32 {
+        let new_id = self.next_id;
+        self.next_id += 1;
+
+        //let mut inner = self.request_ids_map.lock().unwrap();
+        self.request_ids_map.insert(new_id, id);
+        new_id
+    }
+
+    pub fn remove(&mut self, upstream_id: u32) -> u32 {
+        //let mut inner = self.request_ids_map.lock().unwrap();
+        self.request_ids_map.remove(&upstream_id).unwrap()
+    }
+}
+
+#[derive(Debug)]
+pub struct Mutex<T>(Mutex_<T>);
+
+impl<T> Mutex<T> {
+    fn safe_lock<F, Ret>(&self, thunk: F) -> Result<Ret, PoisonError<MutexGuard<'_, T>>>
+    where
+        F: FnOnce(&mut T) -> Ret,
+    {
+        let mut lock = self.0.lock()?;
+        let return_value = thunk(&mut *lock);
+        drop(lock);
+        Ok(return_value)
+    }
+
+    fn new(v: T) -> Self {
+        Mutex(Mutex_::new(v))
+    }
+
+    #[allow(dead_code)]
+    fn lock(&self) -> Result<MutexGuard<'_, T>, PoisonError<MutexGuard<'_, T>>> {
+        self.0.lock()
+    }
 }

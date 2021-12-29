@@ -162,7 +162,6 @@ mod test {
         }
     }
 
-
     mod test_b0255 {
         use super::*;
         use core::convert::TryInto;

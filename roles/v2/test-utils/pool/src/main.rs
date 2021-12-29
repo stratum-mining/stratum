@@ -83,6 +83,10 @@ impl RemoteSelector<()> for Selector {
     }
 
     fn remote_from_request_id(&mut self, _request_id: u32) {}
+
+    fn new() -> Self {
+        todo!()
+    }
 }
 
 pub struct Id {

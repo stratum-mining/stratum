@@ -1,3 +1,4 @@
+pub use crate::handlers::RequestIdMapper;
 use crate::Error;
 pub use crate::Mining;
 use core::convert::TryInto;
@@ -11,7 +12,6 @@ pub use mining_sv2::{
 };
 
 pub use super::RemoteSelector;
-use std::collections::HashMap;
 
 use super::SendTo_;
 pub type SendTo<Remote> = SendTo_<crate::Mining<'static>, Remote>;
@@ -22,44 +22,6 @@ pub enum ChannelType {
     Group,
     // Non header only connection can have both group and extended channels.
     GroupAndExtended,
-}
-
-/// Proxyies likely need to change the request ids of downsteam's messages. They also need to
-/// remeber original id to patch the upstream's response with it
-#[derive(Debug)]
-pub struct RequestIdMapper {
-    // upstream id -> downstream id
-    request_ids_map: Arc<Mutex<HashMap<u32, u32>>>,
-    next_id: u32,
-}
-
-impl Default for RequestIdMapper {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl RequestIdMapper {
-    pub fn new() -> Self {
-        Self {
-            request_ids_map: Arc::new(Mutex::new(HashMap::new())),
-            next_id: 0,
-        }
-    }
-
-    pub fn on_open_channel(&mut self, id: u32) -> u32 {
-        let new_id = self.next_id;
-        self.next_id += 1;
-
-        let mut inner = self.request_ids_map.lock().unwrap();
-        inner.insert(new_id, id);
-        new_id
-    }
-
-    pub fn remove(&mut self, upstream_id: u32) -> u32 {
-        let mut inner = self.request_ids_map.lock().unwrap();
-        inner.remove(&upstream_id).unwrap()
-    }
 }
 
 /// WARNING this function assume that request id are the first 2 bytes of the
@@ -81,7 +43,8 @@ fn get_request_id(payload: &mut [u8]) -> u32 {
     u32::from_le_bytes(bytes)
 }
 
-use std::sync::{Arc, Mutex};
+pub use crate::handlers::Mutex;
+use std::sync::Arc;
 
 /// Connection-wide downtream's messages parser implemented by an upstream.
 pub trait UpstreamMining<Remote, Selector: RemoteSelector<Remote>> {
@@ -96,35 +59,42 @@ pub trait UpstreamMining<Remote, Selector: RemoteSelector<Remote>> {
         payload: &mut [u8],
         selector: Option<Arc<Mutex<Selector>>>,
         downstream_connection: Remote,
-        mapper: Option<&mut RequestIdMapper>,
+        mapper: Option<Arc<Mutex<RequestIdMapper>>>,
     ) -> Result<SendTo<Remote>, Error> {
         // Update request ids
-        if let Some(id_map) = mapper {
-            match message_type {
-                const_sv2::MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL => {
-                    let old_id = get_request_id(payload);
-                    let new_req_id = id_map.on_open_channel(old_id);
-                    update_request_id(payload, new_req_id);
-                }
-                const_sv2::MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL => {
-                    let old_id = get_request_id(payload);
-                    let new_req_id = id_map.on_open_channel(old_id);
-                    update_request_id(payload, new_req_id);
-                }
-                const_sv2::MESSAGE_TYPE_SET_CUSTOM_MINING_JOB => {
-                    let old_id = get_request_id(payload);
-                    let new_req_id = id_map.on_open_channel(old_id);
-                    update_request_id(payload, new_req_id);
-                }
-                _ => (),
-            }
+        if let Some(id_map_mutex) = mapper {
+            id_map_mutex
+                .safe_lock(|id_map| match message_type {
+                    const_sv2::MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL => {
+                        let old_id = get_request_id(payload);
+                        let new_req_id = id_map.on_open_channel(old_id);
+                        update_request_id(payload, new_req_id);
+                    }
+                    const_sv2::MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL => {
+                        let old_id = get_request_id(payload);
+                        let new_req_id = id_map.on_open_channel(old_id);
+                        update_request_id(payload, new_req_id);
+                    }
+                    const_sv2::MESSAGE_TYPE_SET_CUSTOM_MINING_JOB => {
+                        let old_id = get_request_id(payload);
+                        let new_req_id = id_map.on_open_channel(old_id);
+                        update_request_id(payload, new_req_id);
+                    }
+                    _ => (),
+                })
+                .unwrap();
         }
         match (message_type, payload).try_into() {
             Ok(Mining::OpenStandardMiningChannel(m)) => {
-                if let Some(selector) = selector {
-                    let mut selector = selector.lock().unwrap();
-                    selector.on_open_standard_channel_request(m.request_id, downstream_connection);
-                    drop(selector);
+                if let Some(selector_mutex) = selector {
+                    selector_mutex
+                        .safe_lock(|selector| {
+                            selector.on_open_standard_channel_request(
+                                m.request_id,
+                                downstream_connection,
+                            );
+                        })
+                        .unwrap();
                 }
                 match self.get_channel_type() {
                     ChannelType::Standard => self.handle_open_standard_mining_channel(m),
@@ -203,7 +173,7 @@ pub trait UpstreamMining<Remote, Selector: RemoteSelector<Remote>> {
 pub trait DownstreamMining<Remote, Selector: RemoteSelector<Remote>> {
     fn get_channel_type(&self) -> ChannelType;
 
-    fn get_request_id_mapper(&mut self) -> Option<&mut RequestIdMapper> {
+    fn get_request_id_mapper(&mut self) -> Option<Arc<Mutex<RequestIdMapper>>> {
         None
     }
 
@@ -220,51 +190,56 @@ pub trait DownstreamMining<Remote, Selector: RemoteSelector<Remote>> {
         // Update request ids with original requests ids.
         let mut request_id_mapper = self.get_request_id_mapper();
         let mut original_request_id = 0;
-        if let Some(id_map) = request_id_mapper.as_mut() {
-            match message_type {
-                const_sv2::MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL_SUCCESS => {
-                    let upstream_id = get_request_id(payload);
-                    original_request_id = upstream_id;
-                    let downstream_id = id_map.remove(upstream_id);
-                    update_request_id(payload, downstream_id);
-                }
-                const_sv2::MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL_SUCCES => {
-                    let upstream_id = get_request_id(payload);
-                    original_request_id = upstream_id;
-                    let downstream_id = id_map.remove(upstream_id);
-                    update_request_id(payload, downstream_id);
-                }
-                const_sv2::MESSAGE_TYPE_OPEN_MINING_CHANNEL_ERROR => {
-                    let upstream_id = get_request_id(payload);
-                    original_request_id = upstream_id;
-                    let downstream_id = id_map.remove(upstream_id);
-                    update_request_id(payload, downstream_id);
-                }
-                const_sv2::MESSAGE_TYPE_SET_CUSTOM_MINING_JOB_SUCCESS => {
-                    let upstream_id = get_request_id(payload);
-                    original_request_id = upstream_id;
-                    let downstream_id = id_map.remove(upstream_id);
-                    update_request_id(payload, downstream_id);
-                }
-                const_sv2::MESSAGE_TYPE_SET_CUSTOM_MINING_JOB_ERROR => {
-                    let upstream_id = get_request_id(payload);
-                    original_request_id = upstream_id;
-                    let downstream_id = id_map.remove(upstream_id);
-                    update_request_id(payload, downstream_id);
-                }
-                _ => (),
-            }
+        if let Some(id_map_mutex) = request_id_mapper.as_mut() {
+            id_map_mutex
+                .safe_lock(|id_map| match message_type {
+                    const_sv2::MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL_SUCCESS => {
+                        let upstream_id = get_request_id(payload);
+                        original_request_id = upstream_id;
+                        let downstream_id = id_map.remove(upstream_id);
+                        update_request_id(payload, downstream_id);
+                    }
+                    const_sv2::MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL_SUCCES => {
+                        let upstream_id = get_request_id(payload);
+                        original_request_id = upstream_id;
+                        let downstream_id = id_map.remove(upstream_id);
+                        update_request_id(payload, downstream_id);
+                    }
+                    const_sv2::MESSAGE_TYPE_OPEN_MINING_CHANNEL_ERROR => {
+                        let upstream_id = get_request_id(payload);
+                        original_request_id = upstream_id;
+                        let downstream_id = id_map.remove(upstream_id);
+                        update_request_id(payload, downstream_id);
+                    }
+                    const_sv2::MESSAGE_TYPE_SET_CUSTOM_MINING_JOB_SUCCESS => {
+                        let upstream_id = get_request_id(payload);
+                        original_request_id = upstream_id;
+                        let downstream_id = id_map.remove(upstream_id);
+                        update_request_id(payload, downstream_id);
+                    }
+                    const_sv2::MESSAGE_TYPE_SET_CUSTOM_MINING_JOB_ERROR => {
+                        let upstream_id = get_request_id(payload);
+                        original_request_id = upstream_id;
+                        let downstream_id = id_map.remove(upstream_id);
+                        update_request_id(payload, downstream_id);
+                    }
+                    _ => (),
+                })
+                .unwrap();
         }
         match (message_type, payload).try_into() {
             Ok(Mining::OpenStandardMiningChannelSuccess(m)) => {
                 let remote = match selector {
-                    Some(selector) => {
+                    Some(selector_mutex) => {
                         let mut remote = Vec::with_capacity(1);
-                        let mut selector = selector.lock().unwrap();
-                        remote.push(selector.on_open_standard_channel_success(
-                            original_request_id,
-                            m.group_channel_id,
-                        ));
+                        selector_mutex
+                            .safe_lock(|selector| {
+                                remote.push(selector.on_open_standard_channel_success(
+                                    original_request_id,
+                                    m.group_channel_id,
+                                ))
+                            })
+                            .unwrap();
                         remote
                     }
                     None => Vec::with_capacity(0),
