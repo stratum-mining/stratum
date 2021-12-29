@@ -6,7 +6,9 @@ use async_std::sync::{Arc, Mutex};
 use async_std::task;
 use codec_sv2::{Frame, HandshakeRole, Initiator, StandardEitherFrame, StandardSv2Frame};
 use messages_sv2::handlers::common::{CommonMessages, Protocol, SetupConnection};
-use messages_sv2::handlers::mining::{DownstreamSelector, RemoteSelector, RequestIdMapper};
+use messages_sv2::handlers::mining::{
+    ChannelType, DownstreamMining, RemoteSelector, RequestIdMapper, SendTo,
+};
 use messages_sv2::PoolMessages;
 use network_helpers::Connection;
 use std::collections::HashMap;
@@ -27,10 +29,6 @@ struct UpstreamMiningConnection {
 }
 
 impl UpstreamMiningConnection {
-    //async fn new(receiver: Receiver<EitherFrame>, sender: Sender<EitherFrame>) -> Self {
-    //    Self { receiver, sender }
-    //}
-
     async fn send(&mut self, sv2_frame: StdFrame) -> Result<(), SendError<EitherFrame>> {
         let either_frame = sv2_frame.into();
         match self.sender.send(either_frame).await {
@@ -81,7 +79,7 @@ pub struct UpstreamMiningNode {
     /// Each relayd message that have a request_id field must have a unique request_id number
     /// connection-wise.
     /// request_id from downstream is not garanted to be uniquie so must be changed
-    pub request_id_mapper: ArcSync<MutexSync<RequestIdMapper>>,
+    pub request_id_mapper: Option<RequestIdMapper>,
     pub downstream_selector: ArcSync<MutexSync<Selector>>,
 }
 
@@ -93,7 +91,7 @@ use std::net::SocketAddr;
 /// It assume that endpoint NEVER change flags and version! TODO add test for it
 impl UpstreamMiningNode {
     pub fn new(address: SocketAddr, authority_public_key: [u8; 32]) -> Self {
-        let request_id_mapper = ArcSync::new(MutexSync::new(RequestIdMapper::new()));
+        let request_id_mapper = Some(RequestIdMapper::new());
         let downstream_selector = ArcSync::new(MutexSync::new(Selector::new()));
         Self {
             address,
@@ -114,15 +112,21 @@ impl UpstreamMiningNode {
     /// If the node is not connected it try to connect and send the message and everything is ok
     ///     the upstream is marked as connected and Ok(()) is returned if not an error is returned.
     ///     TODO verify and test the above statements
-    pub async fn send(&mut self, sv2_frame: StdFrame) -> Result<(), SendError<EitherFrame>> {
-        match (self.connection.as_mut(), self.sv2_connection) {
-            (Some(connection), Some(_sv2_connection)) => match connection.send(sv2_frame).await {
+    pub async fn send(
+        self_mutex: Arc<Mutex<Self>>,
+        sv2_frame: StdFrame,
+    ) -> Result<(), SendError<EitherFrame>> {
+        let mut self_ = self_mutex.lock().await;
+        let has_sv2_connetcion = self_.sv2_connection.is_some();
+        match (self_.connection.as_mut(), has_sv2_connetcion) {
+            (Some(connection), true) => match connection.send(sv2_frame).await {
                 Ok(_) => Ok(()),
                 Err(_e) => {
-                    self.connect().await.unwrap();
+                    self_.connect().await.unwrap();
+                    drop(self_);
                     // It assume that enpoint NEVER change flags and version! TODO add test for
                     // that
-                    match self.setup_connection().await {
+                    match Self::setup_connection(self_mutex).await {
                         Ok(()) => Ok(()),
                         Err(()) => panic!(),
                     }
@@ -132,9 +136,10 @@ impl UpstreamMiningNode {
             // initialized. This assumption is enforced by the fact that
             // UpstreamMiningNode::pair only pair downstream noder with already
             // initialized upstream nodes! TODO add test for that
-            (Some(connection), None) => match connection.send(sv2_frame).await {
+            (Some(connection), false) => match connection.send(sv2_frame).await {
                 Ok(_) => Ok(()),
                 Err(e) => {
+                    drop(self_);
                     //self.connect().await;
                     //// It assume that enpoint NEVER change flags and version!
                     //self.setup_flag_and_version(None).await;
@@ -142,11 +147,18 @@ impl UpstreamMiningNode {
                 }
             },
             (None, _) => {
-                self.connect().await.unwrap();
-                match self.connection.as_mut().unwrap().send(sv2_frame).await {
-                    Ok(_) => Ok(()),
+                self_.connect().await.unwrap();
+                match self_.connection.as_mut().unwrap().send(sv2_frame).await {
+                    Ok(_) => {
+                        drop(self_);
+                        match Self::setup_connection(self_mutex).await {
+                            Ok(()) => Ok(()),
+                            Err(()) => panic!(),
+                        }
+                    }
                     Err(e) => {
-                        self.connect().await.unwrap();
+                        self_.connect().await.unwrap();
+                        drop(self_);
                         Err(e)
                     }
                 }
@@ -188,21 +200,27 @@ impl UpstreamMiningNode {
     }
 
     #[async_recursion]
-    async fn setup_connection(&mut self) -> Result<(), ()> {
-        match self.sv2_connection {
-            None => self.setup_flag_and_version(None).await,
+    async fn setup_connection(self_mutex: Arc<Mutex<Self>>) -> Result<(), ()> {
+        let self_ = self_mutex.lock().await;
+        match self_.sv2_connection {
+            None => Ok(()),
             Some(sv2_connection) => {
                 let flags = sv2_connection.mining_flags;
                 let version = sv2_connection.version;
-                let frame = self.new_setup_connection_frame(flags, version, version);
-                self.send(frame).await.map_err(|_| ())?;
-                let response = &mut self.receive().await?;
+                let frame = self_.new_setup_connection_frame(flags, version, version);
+                drop(self_);
+                Self::send(self_mutex.clone(), frame).await.map_err(|_| ())?;
+                let mut self_ = self_mutex.lock().await;
+                let response = &mut self_.receive().await?;
                 let message_type = response.get_header().unwrap().msg_type();
                 let payload = response.payload();
                 match (message_type, payload).try_into() {
                     Ok(CommonMessages::SetupConnectionSuccess(_)) => {
-                        //let receiver = self.connection.clone().unwrap().receiver;
-                        //Self::relay_incoming_messages(self.downstreams.clone(), receiver);
+                        let receiver = self_.connection.clone().unwrap().receiver;
+                        let selector = self_.downstream_selector.clone();
+                        let downstreams = self_.downstreams.clone();
+                        drop(self_);
+                        Self::relay_incoming_messages(self_mutex, downstreams, receiver, selector);
                         Ok(())
                     }
                     _ => panic!(),
@@ -211,88 +229,102 @@ impl UpstreamMiningNode {
         }
     }
 
-    //fn relay_incoming_messages(
-    //    downstreams: HashMap<u32, Downstream>,
-    //    receiver: Receiver<EitherFrame>,
-    //) {
-    //    task::spawn(async move {
-    //        loop {
-    //            // lock the receiver and try wait for a message
-    //            // when message lock ? and send down the message
-    //            //let self_ = self_.lock();
-    //            let incoming: StdFrame = receiver.recv().await.unwrap().try_into().unwrap();
+    fn relay_incoming_messages(
+        self_: Arc<Mutex<Self>>,
+        _downstreams: HashMap<u32, Downstream>,
+        receiver: Receiver<EitherFrame>,
+        selector: ArcSync<MutexSync<Selector>>,
+    ) {
+        task::spawn(async move {
+            loop {
+                if let Ok(message) = receiver.try_recv() {
+                    let incoming: StdFrame = message.try_into().unwrap();
+                    Self::next(self_.clone(), incoming, selector.clone()).await;
+                }
+            }
+        });
+    }
 
-    //            //self.next(incoming, todo!()).await;
-
-    //            //let downstream = downstreams.get(&1).unwrap();
-    //            //let mut downstream = downstream.downstream.lock().await;
-    //            //// TODO when implement JobNegotiation try_into can fail cause the pool can send
-    //            //// a JobNegotiation message and this kind of message can not be transformed into a
-    //            //// MiningDeviceMessages so the below try_into will fail.
-    //            //downstream
-    //            //    .send(incoming.map(|x| x.try_into().unwrap()))
-    //            //    .await
-    //            //    .unwrap();
-    //        }
-    //    });
-    //}
-
-    //pub async fn next(
-    //    &mut self,
-    //    mut incoming: StdFrame,
-    //    downstream_selector: &'static mut Option<ChannelIdToDownstreamId>,
-    //) {
-    //    let message_type = incoming.get_header().unwrap().msg_type();
-    //    let payload = incoming.payload();
-    //    let next_message_to_send = DownstreamMining::handle_message(
-    //        self,
-    //        message_type,
-    //        payload,
-    //        Some(self.request_id_mapper.clone()),
-    //    );
-    //    match next_message_to_send {
-    //        Ok(SendTo::Relay(downstream_id)) => {
-    //            let downstream = self.downstreams.get(&downstream_id.unwrap()).unwrap();
-    //            let mut downstream = downstream.downstream.lock().await;
-    //            // TODO when implement JobNegotiation try_into can fail cause the pool can send
-    //            // a JobNegotiation message and this kind of message can not be transformed into a
-    //            // MiningDeviceMessages so the below try_into will fail.
-    //            let sv2_frame: codec_sv2::Sv2Frame<messages_sv2::MiningDeviceMessages, Vec<u8>> =
-    //                incoming.map(|payload| payload.try_into().unwrap());
-    //            downstream.send(sv2_frame).await.unwrap();
-    //        }
-    //        Ok(_) => todo!(),
-    //        Err(messages_sv2::Error::UnexpectedMessage) => todo!(),
-    //        Err(_) => todo!(),
-    //    }
-    //}
+    pub async fn next(
+        self_mutex: Arc<Mutex<Self>>,
+        mut incoming: StdFrame,
+        _downstream_selector: ArcSync<MutexSync<Selector>>,
+    ) {
+        let mut self_ = self_mutex.lock().await;
+        let message_type = incoming.get_header().unwrap().msg_type();
+        let payload = incoming.payload();
+        let selecto = Some(self_.downstream_selector.clone());
+        let next_message_to_send = self_.handle_message(message_type, payload, selecto);
+        drop(self_);
+        match next_message_to_send {
+            Ok(SendTo::Relay(downstreams)) => {
+                match downstreams.len() {
+                    0 => panic!(),
+                    1 => {
+                        let mut downstream = downstreams[0].lock().await;
+                        // TODO when implement JobNegotiation try_into can fail cause the pool can send
+                        // a JobNegotiation message and this kind of message can not be transformed into a
+                        // MiningDeviceMessages so the below try_into will fail.
+                        let sv2_frame: codec_sv2::Sv2Frame<
+                            messages_sv2::MiningDeviceMessages,
+                            Vec<u8>,
+                        > = incoming.map(|payload| payload.try_into().unwrap());
+                        downstream.send(sv2_frame).await.unwrap();
+                        drop(downstream);
+                    }
+                    _ => {
+                        for _downstream in downstreams {
+                            todo!()
+                            //let mut downstream = downstream.lock().await;
+                            //let sv2_frame: codec_sv2::Sv2Frame<messages_sv2::MiningDeviceMessages, Vec<u8>> =
+                            //    incoming.map(|payload| payload.try_into().unwrap());
+                            //downstream.send(sv2_frame).await.unwrap();
+                        }
+                    }
+                }
+            }
+            Ok(_) => todo!(),
+            Err(messages_sv2::Error::UnexpectedMessage) => todo!(),
+            Err(_) => todo!(),
+        }
+    }
 
     #[async_recursion]
-    async fn setup_flag_and_version(&mut self, flags: Option<u32>) -> Result<(), ()> {
+    async fn setup_flag_and_version(self_mutex: Arc<Mutex<Self>>, flags: Option<u32>) -> Result<(), ()> {
+        let self_ = self_mutex.lock().await;
         let flags = flags.unwrap_or(0b0111_0000_0000_0000_0000_0000_0000_0000);
         let min_version = MIN_SUPPORTED_VERSION;
         let max_version = MAX_SUPPORTED_VERSION;
-        let frame = self.new_setup_connection_frame(flags, min_version, max_version);
-        self.send(frame).await.map_err(|_| ())?;
-        let response = &mut self.receive().await?;
+        let frame = self_.new_setup_connection_frame(flags, min_version, max_version);
+        drop(self_);
+        Self::send(self_mutex.clone(), frame).await.map_err(|_| ())?;
+        let mut self_ = self_mutex.lock().await;
+        let response = &mut self_.receive().await?;
         let message_type = response.get_header().unwrap().msg_type();
         let payload = response.payload();
         match (message_type, payload).try_into() {
             Ok(CommonMessages::SetupConnectionSuccess(m)) => {
-                self.sv2_connection = Some(Sv2MiningConnection {
+                let receiver = self_.connection.clone().unwrap().receiver;
+                let selector = self_.downstream_selector.clone();
+                let downstreams = self_.downstreams.clone();
+                self_.sv2_connection = Some(Sv2MiningConnection {
                     version: m.used_version,
                     mining_flags: m.flags,
                 });
+                drop(self_);
+                Self::relay_incoming_messages(self_mutex, downstreams, receiver, selector);
                 Ok(())
             }
             Ok(CommonMessages::SetupConnectionError(m)) => {
                 if m.flags != 0 {
                     let flags = flags ^ m.flags;
+                    drop(self_);
                     // We need to send SetupConnection again as we do not yet know the version of
                     // upstream
                     // TODO debounce this?
-                    self.setup_flag_and_version(Some(flags)).await
+                    Self::setup_flag_and_version(self_mutex, Some(flags)).await
                 } else {
+                    drop(self_);
                     Err(())
                 }
             }
@@ -359,180 +391,215 @@ impl UpstreamMiningNode {
     // }
 }
 
-//impl DownstreamMining for UpstreamMiningNode {
-//    fn get_channel_type(&self) -> ChannelType {
-//        todo!()
-//    }
-//
-//    fn is_work_selection_enabled(&self) -> bool {
-//        todo!()
-//    }
-//
-//    fn handle_open_standard_mining_channel_success(
-//        &mut self,
-//        m: messages_sv2::handlers::mining::OpenStandardMiningChannelSuccess,
-//    ) -> Result<messages_sv2::handlers::mining::SendTo, messages_sv2::Error> {
-//        todo!()
-//    }
-//
-//    fn handle_open_extended_mining_channel_success(
-//        &mut self,
-//        m: messages_sv2::handlers::mining::OpenExtendedMiningChannelSuccess,
-//    ) -> Result<messages_sv2::handlers::mining::SendTo, messages_sv2::Error> {
-//        todo!()
-//    }
-//
-//    fn handle_open_mining_channel_error(
-//        &mut self,
-//        m: messages_sv2::handlers::mining::OpenMiningChannelError,
-//    ) -> Result<messages_sv2::handlers::mining::SendTo, messages_sv2::Error> {
-//        todo!()
-//    }
-//
-//    fn handle_update_channel_error(
-//        &mut self,
-//        m: messages_sv2::handlers::mining::UpdateChannelError,
-//    ) -> Result<messages_sv2::handlers::mining::SendTo, messages_sv2::Error> {
-//        todo!()
-//    }
-//
-//    fn handle_close_channel(
-//        &mut self,
-//        m: messages_sv2::handlers::mining::CloseChannel,
-//    ) -> Result<messages_sv2::handlers::mining::SendTo, messages_sv2::Error> {
-//        todo!()
-//    }
-//
-//    fn handle_set_extranonce_prefix(
-//        &mut self,
-//        m: messages_sv2::handlers::mining::SetExtranoncePrefix,
-//    ) -> Result<messages_sv2::handlers::mining::SendTo, messages_sv2::Error> {
-//        todo!()
-//    }
-//
-//    fn handle_submit_shares_success(
-//        &mut self,
-//        m: messages_sv2::handlers::mining::SubmitSharesSuccess,
-//    ) -> Result<messages_sv2::handlers::mining::SendTo, messages_sv2::Error> {
-//        todo!()
-//    }
-//
-//    fn handle_submit_shares_error(
-//        &mut self,
-//        m: messages_sv2::handlers::mining::SubmitSharesError,
-//    ) -> Result<messages_sv2::handlers::mining::SendTo, messages_sv2::Error> {
-//        todo!()
-//    }
-//
-//    fn handle_new_mining_job(
-//        &mut self,
-//        m: messages_sv2::handlers::mining::NewMiningJob,
-//    ) -> Result<messages_sv2::handlers::mining::SendTo, messages_sv2::Error> {
-//        todo!()
-//    }
-//
-//    fn handle_new_extended_mining_job(
-//        &mut self,
-//        m: messages_sv2::handlers::mining::NewExtendedMiningJob,
-//    ) -> Result<messages_sv2::handlers::mining::SendTo, messages_sv2::Error> {
-//        todo!()
-//    }
-//
-//    fn handle_set_new_prev_hash(
-//        &mut self,
-//        m: messages_sv2::handlers::mining::SetNewPrevHash,
-//    ) -> Result<messages_sv2::handlers::mining::SendTo, messages_sv2::Error> {
-//        todo!()
-//    }
-//
-//    fn handle_set_custom_mining_job_success(
-//        &mut self,
-//        m: messages_sv2::handlers::mining::SetCustomMiningJobSuccess,
-//    ) -> Result<messages_sv2::handlers::mining::SendTo, messages_sv2::Error> {
-//        todo!()
-//    }
-//
-//    fn handle_set_custom_mining_job_error(
-//        &mut self,
-//        m: messages_sv2::handlers::mining::SetCustomMiningJobError,
-//    ) -> Result<messages_sv2::handlers::mining::SendTo, messages_sv2::Error> {
-//        todo!()
-//    }
-//
-//    fn handle_set_target(
-//        &mut self,
-//        m: messages_sv2::handlers::mining::SetTarget,
-//    ) -> Result<messages_sv2::handlers::mining::SendTo, messages_sv2::Error> {
-//        todo!()
-//    }
-//
-//    fn handle_reconnect(
-//        &mut self,
-//        m: messages_sv2::handlers::mining::Reconnect,
-//    ) -> Result<messages_sv2::handlers::mining::SendTo, messages_sv2::Error> {
-//        todo!()
-//    }
-//}
-
-/// HashMap: channel id/request id -> downstream id
-/// maps the channel id to the respective Downstream
-/// channel_links is surjective:
-///   An header only Downstream will be punted by only one channel
-///   A non header only Downstream can be punted by more than one channel
-///
-/// When a Downstrem send OpenStandardChannel is registred in the map as
-///   OpenStandardChannel.request_id -> downstream id
-///
-/// When OpenStandardChannelSucces is received by Upstream the Downstream is registered as
-///   channel id -> downstream id
-#[derive(Debug)]
-pub struct ChannelIdToDownstreamId {
-    channel_links: HashMap<u32, u32>,
-    request_links: HashMap<u32, u32>,
-}
-
-impl RemoteSelector<u32> for ChannelIdToDownstreamId {
-    fn on_open_standard_channel_request(&mut self, request_id: u32, downstream_id: u32) {
-        self.request_links
-            .insert(request_id, downstream_id)
-            .unwrap();
+impl DownstreamMining<Arc<Mutex<DownstreamMiningNode>>, Selector> for UpstreamMiningNode {
+    fn get_channel_type(&self) -> ChannelType {
+        ChannelType::Group
     }
 
-    fn on_open_standard_channel_success(&mut self, request_id: u32, channel_id: u32) {
-        let downstream_id = self.request_links.remove(&request_id);
-        debug_assert!(downstream_id.is_some());
-        self.channel_links
-            .insert(channel_id, downstream_id.unwrap())
-            .unwrap();
+    fn get_request_id_mapper(&mut self) -> Option<&mut RequestIdMapper> {
+        self.request_id_mapper.as_mut()
     }
 
-    fn get_remote_id(&self, channel_id: u32) -> Option<u32> {
-        self.channel_links
-            .get(&channel_id)
-            .copied()
+    fn is_work_selection_enabled(&self) -> bool {
+        false
+    }
+
+    fn handle_open_standard_mining_channel_success(
+        &mut self,
+        _m: messages_sv2::handlers::mining::OpenStandardMiningChannelSuccess,
+        remote: Vec<Arc<Mutex<DownstreamMiningNode>>>,
+    ) -> Result<
+        messages_sv2::handlers::mining::SendTo<Arc<Mutex<DownstreamMiningNode>>>,
+        messages_sv2::Error,
+    > {
+        Ok(SendTo::Relay(remote))
+    }
+
+    fn handle_open_extended_mining_channel_success(
+        &mut self,
+        _m: messages_sv2::handlers::mining::OpenExtendedMiningChannelSuccess,
+    ) -> Result<
+        messages_sv2::handlers::mining::SendTo<Arc<Mutex<DownstreamMiningNode>>>,
+        messages_sv2::Error,
+    > {
+        todo!()
+    }
+
+    fn handle_open_mining_channel_error(
+        &mut self,
+        _m: messages_sv2::handlers::mining::OpenMiningChannelError,
+    ) -> Result<
+        messages_sv2::handlers::mining::SendTo<Arc<Mutex<DownstreamMiningNode>>>,
+        messages_sv2::Error,
+    > {
+        todo!()
+    }
+
+    fn handle_update_channel_error(
+        &mut self,
+        _m: messages_sv2::handlers::mining::UpdateChannelError,
+    ) -> Result<
+        messages_sv2::handlers::mining::SendTo<Arc<Mutex<DownstreamMiningNode>>>,
+        messages_sv2::Error,
+    > {
+        todo!()
+    }
+
+    fn handle_close_channel(
+        &mut self,
+        _m: messages_sv2::handlers::mining::CloseChannel,
+    ) -> Result<
+        messages_sv2::handlers::mining::SendTo<Arc<Mutex<DownstreamMiningNode>>>,
+        messages_sv2::Error,
+    > {
+        todo!()
+    }
+
+    fn handle_set_extranonce_prefix(
+        &mut self,
+        _m: messages_sv2::handlers::mining::SetExtranoncePrefix,
+    ) -> Result<
+        messages_sv2::handlers::mining::SendTo<Arc<Mutex<DownstreamMiningNode>>>,
+        messages_sv2::Error,
+    > {
+        todo!()
+    }
+
+    fn handle_submit_shares_success(
+        &mut self,
+        _m: messages_sv2::handlers::mining::SubmitSharesSuccess,
+    ) -> Result<
+        messages_sv2::handlers::mining::SendTo<Arc<Mutex<DownstreamMiningNode>>>,
+        messages_sv2::Error,
+    > {
+        todo!()
+    }
+
+    fn handle_submit_shares_error(
+        &mut self,
+        _m: messages_sv2::handlers::mining::SubmitSharesError,
+    ) -> Result<
+        messages_sv2::handlers::mining::SendTo<Arc<Mutex<DownstreamMiningNode>>>,
+        messages_sv2::Error,
+    > {
+        todo!()
+    }
+
+    fn handle_new_mining_job(
+        &mut self,
+        _m: messages_sv2::handlers::mining::NewMiningJob,
+    ) -> Result<
+        messages_sv2::handlers::mining::SendTo<Arc<Mutex<DownstreamMiningNode>>>,
+        messages_sv2::Error,
+    > {
+        todo!()
+    }
+
+    fn handle_new_extended_mining_job(
+        &mut self,
+        _m: messages_sv2::handlers::mining::NewExtendedMiningJob,
+    ) -> Result<
+        messages_sv2::handlers::mining::SendTo<Arc<Mutex<DownstreamMiningNode>>>,
+        messages_sv2::Error,
+    > {
+        todo!()
+    }
+
+    fn handle_set_new_prev_hash(
+        &mut self,
+        _m: messages_sv2::handlers::mining::SetNewPrevHash,
+    ) -> Result<
+        messages_sv2::handlers::mining::SendTo<Arc<Mutex<DownstreamMiningNode>>>,
+        messages_sv2::Error,
+    > {
+        todo!()
+    }
+
+    fn handle_set_custom_mining_job_success(
+        &mut self,
+        _m: messages_sv2::handlers::mining::SetCustomMiningJobSuccess,
+    ) -> Result<
+        messages_sv2::handlers::mining::SendTo<Arc<Mutex<DownstreamMiningNode>>>,
+        messages_sv2::Error,
+    > {
+        todo!()
+    }
+
+    fn handle_set_custom_mining_job_error(
+        &mut self,
+        _m: messages_sv2::handlers::mining::SetCustomMiningJobError,
+    ) -> Result<
+        messages_sv2::handlers::mining::SendTo<Arc<Mutex<DownstreamMiningNode>>>,
+        messages_sv2::Error,
+    > {
+        todo!()
+    }
+
+    fn handle_set_target(
+        &mut self,
+        _m: messages_sv2::handlers::mining::SetTarget,
+    ) -> Result<
+        messages_sv2::handlers::mining::SendTo<Arc<Mutex<DownstreamMiningNode>>>,
+        messages_sv2::Error,
+    > {
+        todo!()
+    }
+
+    fn handle_reconnect(
+        &mut self,
+        _m: messages_sv2::handlers::mining::Reconnect,
+    ) -> Result<
+        messages_sv2::handlers::mining::SendTo<Arc<Mutex<DownstreamMiningNode>>>,
+        messages_sv2::Error,
+    > {
+        todo!()
     }
 }
 
 #[derive(Debug)]
 pub struct Selector {
-    inner: HashMap<u32, Arc<Mutex<DownstreamMiningNode>>>,
+    request_id: HashMap<u32, Arc<Mutex<DownstreamMiningNode>>>,
+    group_channel_id: HashMap<u32, Arc<Mutex<DownstreamMiningNode>>>,
 }
 
 impl Selector {
     pub fn new() -> Self {
         Selector {
-            inner: HashMap::new(),
+            request_id: HashMap::new(),
+            group_channel_id: HashMap::new(),
         }
     }
 }
 
-impl DownstreamSelector<Arc<Mutex<DownstreamMiningNode>>> for Selector {
-    fn on_request(&mut self, request_id: u32, downstream: Arc<Mutex<DownstreamMiningNode>>) {
-        self.inner.insert(request_id, downstream);
+impl RemoteSelector<Arc<Mutex<DownstreamMiningNode>>> for Selector {
+    fn on_open_standard_channel_request(
+        &mut self,
+        request_id: u32,
+        remote: Arc<Mutex<DownstreamMiningNode>>,
+    ) {
+        self.request_id.insert(request_id, remote);
     }
 
-    fn get_dowstream(&mut self, downstream_id: u32) -> Arc<Mutex<DownstreamMiningNode>> {
-        self.inner.remove(&downstream_id).unwrap()
+    fn on_open_standard_channel_success(
+        &mut self,
+        request_id: u32,
+        group_channel_id: u32,
+    ) -> Arc<Mutex<DownstreamMiningNode>> {
+        let remote = self.request_id.remove(&request_id).unwrap();
+        self.group_channel_id
+            .insert(group_channel_id, remote.clone());
+        remote
+    }
+
+    fn get_remotes_in_channel(
+        &self,
+        _group_channel_id: u32,
+    ) -> Vec<Arc<Mutex<DownstreamMiningNode>>> {
+        todo!()
+    }
+
+    fn remote_from_request_id(&mut self, _request_id: u32) -> Arc<Mutex<DownstreamMiningNode>> {
+        todo!()
     }
 }
 
@@ -550,8 +617,9 @@ impl UpstreamMiningNodes {
             .map(|node| {
                 let node = node.clone();
                 task::spawn(async move {
-                    let mut node = node.lock().await;
-                    node.setup_flag_and_version(None).await.unwrap();
+                    UpstreamMiningNode::setup_flag_and_version(node, None)
+                        .await
+                        .unwrap();
                 })
             })
             .collect();
@@ -583,6 +651,7 @@ impl UpstreamMiningNodes {
             {
                 let downstream = Downstream::new(downstream.clone());
                 node.downstreams.insert(downstream_id, downstream);
+                drop(node);
                 return Ok((node_.clone(), upstream_version));
             }
         }

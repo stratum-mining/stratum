@@ -5,7 +5,7 @@ pub use common_messages_sv2::{
     ChannelEndpointChanged, Protocol, SetupConnection, SetupConnectionError, SetupConnectionSuccess,
 };
 use core::convert::TryInto;
-pub type SendTo = SendTo_<CommonMessages<'static>>;
+pub type SendTo = SendTo_<CommonMessages<'static>, ()>;
 
 /// DownstreamCommon should be implemented by:
 /// * mining device: is a downstream for a proxy or for a pool
@@ -19,7 +19,11 @@ pub type SendTo = SendTo_<CommonMessages<'static>>;
 /// ```
 ///
 pub trait DownstreamCommon {
-    fn handle_message(&mut self, message_type: u8, payload: &mut [u8]) -> Result<SendTo, Error> {
+    fn handle_message_common(
+        &mut self,
+        message_type: u8,
+        payload: &mut [u8],
+    ) -> Result<SendTo, Error> {
         match (message_type, payload).try_into() {
             Ok(CommonMessages::SetupConnectionSuccess(m)) => {
                 self.handle_setup_connection_success(m)
@@ -62,7 +66,11 @@ pub trait UpstreamCommon {
         }
     }
 
-    fn handle_message(&mut self, message_type: u8, payload: &mut [u8]) -> Result<SendTo, Error> {
+    fn handle_message_common(
+        &mut self,
+        message_type: u8,
+        payload: &mut [u8],
+    ) -> Result<SendTo, Error> {
         match (message_type, payload).try_into() {
             Ok(CommonMessages::SetupConnection(m)) => self.handle_setup_connection(m),
             Ok(CommonMessages::SetupConnectionSuccess(_)) => Err(Error::UnexpectedMessage),

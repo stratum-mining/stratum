@@ -27,7 +27,7 @@ use messages_sv2::handlers::common::{
 };
 use messages_sv2::handlers::mining::{
     ChannelType, DownstreamMining, OpenStandardMiningChannel, OpenStandardMiningChannelSuccess,
-    SendTo,
+    RemoteSelector, SendTo,
 };
 use messages_sv2::{Mining, MiningDeviceMessages};
 
@@ -37,6 +37,20 @@ pub type EitherFrame = StandardEitherFrame<Message>;
 
 struct SetupConnectionHandler {}
 use std::convert::TryInto;
+
+struct Selector {}
+
+impl RemoteSelector<()> for Selector {
+    fn on_open_standard_channel_request(&mut self, _request_id: u32, _remote_id: ()) {}
+
+    fn on_open_standard_channel_success(&mut self, _request_id: u32, _channel_id: u32) {}
+
+    fn get_remotes_in_channel(&self, _channel_id: u32) -> Vec<()> {
+        Vec::new()
+    }
+
+    fn remote_from_request_id(&mut self, _request_id: u32) {}
+}
 
 impl SetupConnectionHandler {
     pub fn new() -> Self {
@@ -78,7 +92,7 @@ impl SetupConnectionHandler {
         let mut incoming: StdFrame = receiver.recv().await.unwrap().try_into().unwrap();
         let message_type = incoming.get_header().unwrap().msg_type();
         let payload = incoming.payload();
-        self.handle_message(message_type, payload).unwrap();
+        self.handle_message_common(message_type, payload).unwrap();
     }
 }
 
@@ -161,7 +175,7 @@ impl Device {
     }
 }
 
-impl DownstreamMining for Device {
+impl DownstreamMining<(), Selector> for Device {
     fn get_channel_type(&self) -> ChannelType {
         ChannelType::Standard
     }
@@ -172,107 +186,112 @@ impl DownstreamMining for Device {
 
     fn handle_open_standard_mining_channel_success(
         &mut self,
-        _: OpenStandardMiningChannelSuccess,
-    ) -> Result<SendTo, messages_sv2::Error> {
+        m: OpenStandardMiningChannelSuccess,
+        _: Vec<()>,
+    ) -> Result<SendTo<()>, messages_sv2::Error> {
         self.channel_opened = true;
+        println!(
+            "MINING DEVICE: channel opened with: group id {}, channel id {}, request id {}",
+            m.group_channel_id, m.channel_id, m.request_id
+        );
         Ok(SendTo::None)
     }
 
     fn handle_open_extended_mining_channel_success(
         &mut self,
         _: messages_sv2::handlers::mining::OpenExtendedMiningChannelSuccess,
-    ) -> Result<SendTo, messages_sv2::Error> {
+    ) -> Result<SendTo<()>, messages_sv2::Error> {
         unreachable!()
     }
 
     fn handle_open_mining_channel_error(
         &mut self,
         _: messages_sv2::handlers::mining::OpenMiningChannelError,
-    ) -> Result<SendTo, messages_sv2::Error> {
+    ) -> Result<SendTo<()>, messages_sv2::Error> {
         todo!()
     }
 
     fn handle_update_channel_error(
         &mut self,
         _: messages_sv2::handlers::mining::UpdateChannelError,
-    ) -> Result<SendTo, messages_sv2::Error> {
+    ) -> Result<SendTo<()>, messages_sv2::Error> {
         todo!()
     }
 
     fn handle_close_channel(
         &mut self,
         _: messages_sv2::handlers::mining::CloseChannel,
-    ) -> Result<SendTo, messages_sv2::Error> {
+    ) -> Result<SendTo<()>, messages_sv2::Error> {
         todo!()
     }
 
     fn handle_set_extranonce_prefix(
         &mut self,
         _: messages_sv2::handlers::mining::SetExtranoncePrefix,
-    ) -> Result<SendTo, messages_sv2::Error> {
+    ) -> Result<SendTo<()>, messages_sv2::Error> {
         todo!()
     }
 
     fn handle_submit_shares_success(
         &mut self,
         _: messages_sv2::handlers::mining::SubmitSharesSuccess,
-    ) -> Result<SendTo, messages_sv2::Error> {
+    ) -> Result<SendTo<()>, messages_sv2::Error> {
         todo!()
     }
 
     fn handle_submit_shares_error(
         &mut self,
         _: messages_sv2::handlers::mining::SubmitSharesError,
-    ) -> Result<SendTo, messages_sv2::Error> {
+    ) -> Result<SendTo<()>, messages_sv2::Error> {
         todo!()
     }
 
     fn handle_new_mining_job(
         &mut self,
         _: messages_sv2::handlers::mining::NewMiningJob,
-    ) -> Result<SendTo, messages_sv2::Error> {
+    ) -> Result<SendTo<()>, messages_sv2::Error> {
         todo!()
     }
 
     fn handle_new_extended_mining_job(
         &mut self,
         _: messages_sv2::handlers::mining::NewExtendedMiningJob,
-    ) -> Result<SendTo, messages_sv2::Error> {
+    ) -> Result<SendTo<()>, messages_sv2::Error> {
         todo!()
     }
 
     fn handle_set_new_prev_hash(
         &mut self,
         _: messages_sv2::handlers::mining::SetNewPrevHash,
-    ) -> Result<SendTo, messages_sv2::Error> {
+    ) -> Result<SendTo<()>, messages_sv2::Error> {
         todo!()
     }
 
     fn handle_set_custom_mining_job_success(
         &mut self,
         _: messages_sv2::handlers::mining::SetCustomMiningJobSuccess,
-    ) -> Result<SendTo, messages_sv2::Error> {
+    ) -> Result<SendTo<()>, messages_sv2::Error> {
         todo!()
     }
 
     fn handle_set_custom_mining_job_error(
         &mut self,
         _: messages_sv2::handlers::mining::SetCustomMiningJobError,
-    ) -> Result<SendTo, messages_sv2::Error> {
+    ) -> Result<SendTo<()>, messages_sv2::Error> {
         todo!()
     }
 
     fn handle_set_target(
         &mut self,
         _: messages_sv2::handlers::mining::SetTarget,
-    ) -> Result<SendTo, messages_sv2::Error> {
+    ) -> Result<SendTo<()>, messages_sv2::Error> {
         todo!()
     }
 
     fn handle_reconnect(
         &mut self,
         _: messages_sv2::handlers::mining::Reconnect,
-    ) -> Result<SendTo, messages_sv2::Error> {
+    ) -> Result<SendTo<()>, messages_sv2::Error> {
         todo!()
     }
 }

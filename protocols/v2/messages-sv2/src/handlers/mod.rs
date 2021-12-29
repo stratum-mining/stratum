@@ -1,19 +1,37 @@
+//! RequestIdMapper when present map the downstream's request_id with a newly and connection-wide
+//! unique upstream's request_id
+//!
+//! RemoteSelector associate a channel_id and/or a request_id to a remote a remote is whatever
+//! type the implementation is using to rapresents remote nodes.
+//!
+//! RequestIdMapper is used by proxies to change the request_id field in the message in order to:
+//! 1. have connection-wide unique ids with upstream
+//! 2. map the connection-wide unique id from upstream to the originale request id.
+//!
+//! RemoteSelector is used by proxies and TODO in order to know where messages should be realyed.
+//!
+//! Both RemotoSelector and RequestIdMapper in proxies are created for every upstream connection.
+//! There is an 1 to 1 relation upstream connection <-> (RemotoSelector, RequestIdMapper)
+//!
+//! TODO
+//! right now, following the above convection and using RequestIdMapper and RemotoSelector, the
+//! scenario where a proxy split a downstream connection in two upstream connection is not
+//! supported
 pub mod common;
 pub mod mining;
 
-pub enum SendTo_<T> {
-    Upstream(T),
-    Downstream(T),
-    /// ID of the node that must receive the relayed message
-    /// that is not something defined in Sv2 protocol but is an helpful thing that can be used by
-    /// the implementors of the Sv2 (sub)protocols
-    /// TODO remove it is end up not beeing used
-    Relay(Option<u32>),
+/// SubProtocol is the Sv2 (sub)protocol that the implementor is implementing (eg: mining, common,
+/// ...)
+/// Remote is wathever type the implementor use to represent remote connection
+pub enum SendTo_<SubProtocol, Remote> {
+    Upstream(SubProtocol),
+    Downstream(SubProtocol),
+    Relay(Vec<Remote>),
     None,
 }
 
-impl<T> SendTo_<T> {
-    pub fn into_inner(self) -> Option<T> {
+impl<SubProtocol, Remote> SendTo_<SubProtocol, Remote> {
+    pub fn into_message(self) -> Option<SubProtocol> {
         match self {
             Self::Upstream(t) => Some(t),
             Self::Downstream(t) => Some(t),
@@ -21,31 +39,25 @@ impl<T> SendTo_<T> {
             Self::None => None,
         }
     }
+    pub fn into_remote(self) -> Option<Vec<Remote>> {
+        match self {
+            Self::Upstream(_) => None,
+            Self::Downstream(_) => None,
+            Self::Relay(t) => Some(t),
+            Self::None => None,
+        }
+    }
 }
 
-/// Associate a channle id with a remote id where remote id is whathever the implementation use
-/// to identify Downstreams or/and Upstreams
-///
-/// # Downstream
-/// 1 -> opens channel req id (req id == upstream id) using on_open_standard_channel_request
-/// 4 <- open channel success (channel id == upstream id) using on_open_standard_channel_success
-///
-/// # Upstream
-/// 2 <- opens channel req id (req id == downstream id) using on_open_standard_channel_request
-/// 3 -> open channel success (channel id == downstream id) using on_open_standard_channel_success
-///
-/// # Proxy
-/// will use two RemoteSelectro in order to register both Downstram and Upstream remotes
+/// Associate a channle id with a remote where remote is whathever type the implementation use
+/// to represent Downstreams or/and Upstreams
 pub trait RemoteSelector<T> {
-    fn on_open_standard_channel_request(&mut self, request_id: u32, remote_id: T);
+    /// This get the connection-wide updated request_id
+    fn on_open_standard_channel_request(&mut self, request_id: u32, remote: T);
 
-    fn on_open_standard_channel_success(&mut self, request_id: u32, channel_id: u32);
+    fn on_open_standard_channel_success(&mut self, request_id: u32, channel_id: u32) -> T;
 
-    fn get_remote_id(&self, channel_id: u32) -> Option<u32>;
-}
+    fn get_remotes_in_channel(&self, channel_id: u32) -> Vec<T>;
 
-pub trait DownstreamSelector<T> {
-    fn on_request(&mut self, request_id: u32, downstream: T);
-
-    fn get_dowstream(&mut self, dowstream_id: u32) -> T;
+    fn remote_from_request_id(&mut self, request_id: u32) -> T;
 }

@@ -62,8 +62,7 @@ use binary_sv2::{u256_from_int, B032};
 use codec_sv2::{Frame, StandardEitherFrame, StandardSv2Frame};
 use messages_sv2::handlers::common::{SetupConnectionSuccess, UpstreamCommon};
 use messages_sv2::handlers::mining::{
-    ChannelType, DownstreamSelector, Mining, OpenStandardMiningChannelSuccess, SendTo,
-    UpstreamMining,
+    ChannelType, Mining, OpenStandardMiningChannelSuccess, RemoteSelector, SendTo, UpstreamMining,
 };
 use messages_sv2::PoolMessages;
 use std::convert::TryInto;
@@ -74,12 +73,16 @@ pub type EitherFrame = StandardEitherFrame<Message>;
 
 struct Selector {}
 
-impl DownstreamSelector<()> for Selector {
-    fn on_request(&mut self, _request_id: u32, _dowstream: ()) {
+impl RemoteSelector<()> for Selector {
+    fn on_open_standard_channel_request(&mut self, _request_id: u32, _remote_id: ()) {}
+
+    fn on_open_standard_channel_success(&mut self, _request_id: u32, _channel_id: u32) {}
+
+    fn get_remotes_in_channel(&self, _channel_id: u32) -> Vec<()> {
+        Vec::new()
     }
 
-    fn get_dowstream(&mut self, _dowstream: u32){
-    }
+    fn remote_from_request_id(&mut self, _request_id: u32) {}
 }
 
 pub struct Id {
@@ -119,8 +122,8 @@ impl SetupConnectionHandler {
         let mut incoming: StdFrame = receiver.recv().await.unwrap().try_into().unwrap();
         let message_type = incoming.get_header().unwrap().msg_type();
         let payload = incoming.payload();
-        let response = self.handle_message(message_type, payload).unwrap();
-        let sv2_frame: StdFrame = PoolMessages::Common(response.into_inner().unwrap())
+        let response = self.handle_message_common(message_type, payload).unwrap();
+        let sv2_frame: StdFrame = PoolMessages::Common(response.into_message().unwrap())
             .try_into()
             .unwrap();
         let sv2_frame = sv2_frame.into();
@@ -203,9 +206,8 @@ impl Downstream {
     pub async fn next(&mut self, mut incoming: StdFrame) {
         let message_type = incoming.get_header().unwrap().msg_type();
         let payload = incoming.payload();
-        let selector = std::sync::Arc::new(std::sync::Mutex::new(Selector {}));
         let next_message_to_send =
-            UpstreamMining::handle_message(self, message_type, payload, selector, (), None);
+            UpstreamMining::handle_message(self, message_type, payload, None, (), None);
         match next_message_to_send {
             Ok(SendTo::Downstream(message)) => {
                 let sv2_frame: StdFrame = PoolMessages::Mining(message).try_into().unwrap();
@@ -254,7 +256,7 @@ impl UpstreamMining<(), Selector> for Downstream {
     fn handle_open_standard_mining_channel(
         &mut self,
         incoming: messages_sv2::handlers::mining::OpenStandardMiningChannel,
-    ) -> Result<SendTo, messages_sv2::Error> {
+    ) -> Result<SendTo<()>, messages_sv2::Error> {
         let request_id = incoming.request_id;
         let message = match (self.is_header_only, self.group_id) {
             (false, Some(group_channel_id)) => {
@@ -262,7 +264,7 @@ impl UpstreamMining<(), Selector> for Downstream {
                 let channel_id = channel_id_generator.next();
                 self.channels_id.push(channel_id);
                 println!(
-                    "POOL: channel opened channel id is {} group id is {} request id is {}",
+                    "POOL: channel opened: channel id is {}, group id is {}, request id is {}",
                     channel_id, group_channel_id, request_id,
                 );
                 OpenStandardMiningChannelSuccess {
@@ -282,7 +284,7 @@ impl UpstreamMining<(), Selector> for Downstream {
                 self.group_id = Some(group_channel_id);
                 println!("POOL: created group channel with id: {}", group_channel_id);
                 println!(
-                    "POOL: channel opened channel id is {} group id is {} request id is {}",
+                    "POOL: channel opened: channel id is {}, group id is {}, request id is {}",
                     channel_id, group_channel_id, request_id,
                 );
                 OpenStandardMiningChannelSuccess {
@@ -306,35 +308,35 @@ impl UpstreamMining<(), Selector> for Downstream {
     fn handle_open_extended_mining_channel(
         &mut self,
         _: messages_sv2::handlers::mining::OpenExtendedMiningChannel,
-    ) -> Result<SendTo, messages_sv2::Error> {
+    ) -> Result<SendTo<()>, messages_sv2::Error> {
         todo!()
     }
 
     fn handle_update_channel(
         &mut self,
         _: messages_sv2::handlers::mining::UpdateChannel,
-    ) -> Result<SendTo, messages_sv2::Error> {
+    ) -> Result<SendTo<()>, messages_sv2::Error> {
         todo!()
     }
 
     fn handle_submit_shares_standard(
         &mut self,
         _: messages_sv2::handlers::mining::SubmitSharesStandard,
-    ) -> Result<SendTo, messages_sv2::Error> {
+    ) -> Result<SendTo<()>, messages_sv2::Error> {
         todo!()
     }
 
     fn handle_submit_shares_extended(
         &mut self,
         _: messages_sv2::handlers::mining::SubmitSharesExtended,
-    ) -> Result<SendTo, messages_sv2::Error> {
+    ) -> Result<SendTo<()>, messages_sv2::Error> {
         todo!()
     }
 
     fn handle_set_custom_mining_job(
         &mut self,
         _: messages_sv2::handlers::mining::SetCustomMiningJob,
-    ) -> Result<SendTo, messages_sv2::Error> {
+    ) -> Result<SendTo<()>, messages_sv2::Error> {
         todo!()
     }
 }
