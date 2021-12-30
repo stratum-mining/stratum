@@ -54,16 +54,6 @@ struct Downstream {
     extended: Option<u32>,
 }
 
-impl Downstream {
-    pub fn new(downstream: Arc<Mutex<DownstreamMiningNode>>) -> Self {
-        Self {
-            downstream,
-            group: None,
-            extended: None,
-        }
-    }
-}
-
 /// Can be either a mining pool or another proxy
 #[derive(Debug)]
 pub struct UpstreamMiningNode {
@@ -71,7 +61,6 @@ pub struct UpstreamMiningNode {
     //port: u32,
     connection: Option<UpstreamMiningConnection>,
     sv2_connection: Option<Sv2MiningConnection>,
-    downstreams: HashMap<u32, Downstream>,
     authority_public_key: [u8; 32],
     /// List of all group channels opened with upstream (as today only one group channel per
     /// upstream is supported) TODO
@@ -97,7 +86,6 @@ impl UpstreamMiningNode {
             address,
             connection: None,
             sv2_connection: None,
-            downstreams: HashMap::new(),
             authority_public_key,
             group_channels_id: Vec::new(),
             request_id_mapper,
@@ -163,11 +151,6 @@ impl UpstreamMiningNode {
         }
     }
 
-    /// Get the id of the first created group channel
-    pub fn get_group_channel_id(&self) -> Option<u32> {
-        self.group_channels_id.get(0).copied()
-    }
-
     async fn receive(&mut self) -> Result<StdFrame, ()> {
         match self.connection.as_mut() {
             Some(connection) => match connection.receiver.recv().await {
@@ -220,16 +203,15 @@ impl UpstreamMiningNode {
                 let payload = response.payload();
                 match (message_type, payload).try_into() {
                     Ok(CommonMessages::SetupConnectionSuccess(_)) => {
-                        let (receiver, selector, downstreams) = self_mutex
+                        let (receiver, selector) = self_mutex
                             .safe_lock(|self_| {
                                 (
                                     self_.connection.clone().unwrap().receiver,
                                     self_.downstream_selector.clone(),
-                                    self_.downstreams.clone(),
                                 )
                             })
                             .await;
-                        Self::relay_incoming_messages(self_mutex, downstreams, receiver, selector);
+                        Self::relay_incoming_messages(self_mutex, receiver, selector);
                         Ok(())
                     }
                     _ => panic!(),
@@ -240,7 +222,7 @@ impl UpstreamMiningNode {
 
     fn relay_incoming_messages(
         self_: Arc<Mutex<Self>>,
-        _downstreams: HashMap<u32, Downstream>,
+        //_downstreams: HashMap<u32, Downstream>,
         receiver: Receiver<EitherFrame>,
         selector: Arc<MutexSync<Selector>>,
     ) {
@@ -324,7 +306,7 @@ impl UpstreamMiningNode {
         let payload = response.payload();
         match (message_type, payload).try_into() {
             Ok(CommonMessages::SetupConnectionSuccess(m)) => {
-                let (receiver, selector, downstreams) = self_mutex
+                let (receiver, selector) = self_mutex
                     .safe_lock(|self_| {
                         self_.sv2_connection = Some(Sv2MiningConnection {
                             version: m.used_version,
@@ -333,11 +315,10 @@ impl UpstreamMiningNode {
                         (
                             self_.connection.clone().unwrap().receiver,
                             self_.downstream_selector.clone(),
-                            self_.downstreams.clone(),
                         )
                     })
                     .await;
-                Self::relay_incoming_messages(self_mutex, downstreams, receiver, selector);
+                Self::relay_incoming_messages(self_mutex, receiver, selector);
                 Ok(())
             }
             Ok(CommonMessages::SetupConnectionError(m)) => {
@@ -657,8 +638,6 @@ impl UpstreamMiningNodes {
         min_v: u16,
         max_v: u16,
         flags: u32,
-        downstream: Arc<Mutex<DownstreamMiningNode>>,
-        downstream_id: u32,
     ) -> Result<(Arc<Mutex<UpstreamMiningNode>>, u16), ()> {
         for node_ in &self.nodes {
             let node = node_
@@ -673,8 +652,8 @@ impl UpstreamMiningNodes {
                             sv2_connection.mining_flags,
                         )
                     {
-                        let downstream = Downstream::new(downstream.clone());
-                        node.downstreams.insert(downstream_id, downstream);
+                        //let downstream = Downstream::new(downstream.clone());
+                        //node.downstreams.insert(downstream_id, downstream);
                         Ok((node_.clone(), upstream_version))
                     } else {
                         Err(())
