@@ -6,7 +6,7 @@ use async_std::task;
 use codec_sv2::{Frame, HandshakeRole, Initiator, StandardEitherFrame, StandardSv2Frame};
 use messages_sv2::handlers::common::{CommonMessages, Protocol, SetupConnection};
 use messages_sv2::handlers::mining::{
-    ChannelType, DownstreamMining, Mutex as MutexSync, RemoteSelector, RequestIdMapper, SendTo,
+    ChannelType, DownstreamMining, RemoteSelector, RequestIdMapper, SendTo,
 };
 use messages_sv2::PoolMessages;
 use network_helpers::Connection;
@@ -68,8 +68,8 @@ pub struct UpstreamMiningNode {
     /// Each relayd message that have a request_id field must have a unique request_id number
     /// connection-wise.
     /// request_id from downstream is not garanted to be uniquie so must be changed
-    pub request_id_mapper: Arc<MutexSync<RequestIdMapper>>,
-    pub downstream_selector: Arc<MutexSync<Selector>>,
+    pub request_id_mapper: Arc<Mutex<RequestIdMapper>>,
+    pub downstream_selector: Arc<Mutex<Selector>>,
 }
 
 use crate::MAX_SUPPORTED_VERSION;
@@ -104,14 +104,16 @@ impl UpstreamMiningNode {
         self_mutex: Arc<Mutex<Self>>,
         sv2_frame: StdFrame,
     ) -> Result<(), SendError<EitherFrame>> {
-        let mut self_ = self_mutex.lock().await;
-        let has_sv2_connetcion = self_.sv2_connection.is_some();
-        match (self_.connection.as_mut(), has_sv2_connetcion) {
+        let (has_sv2_connetcion, mut connection) = self_mutex
+            .safe_lock(|self_| (self_.sv2_connection.is_some(), self_.connection.clone()))
+            .unwrap();
+        //let mut self_ = self_mutex.lock().await;
+
+        match (connection.as_mut(), has_sv2_connetcion) {
             (Some(connection), true) => match connection.send(sv2_frame).await {
                 Ok(_) => Ok(()),
                 Err(_e) => {
-                    self_.connect().await.unwrap();
-                    drop(self_);
+                    Self::connect(self_mutex.clone()).await.unwrap();
                     // It assume that enpoint NEVER change flags and version! TODO add test for
                     // that
                     match Self::setup_connection(self_mutex).await {
@@ -126,24 +128,20 @@ impl UpstreamMiningNode {
             // initialized upstream nodes! TODO add test for that
             (Some(connection), false) => match connection.send(sv2_frame).await {
                 Ok(_) => Ok(()),
-                Err(e) => {
-                    drop(self_);
-                    Err(e)
-                }
+                Err(e) => Err(e),
             },
             (None, _) => {
-                self_.connect().await.unwrap();
-                match self_.connection.as_mut().unwrap().send(sv2_frame).await {
-                    Ok(_) => {
-                        drop(self_);
-                        match Self::setup_connection(self_mutex).await {
-                            Ok(()) => Ok(()),
-                            Err(()) => panic!(),
-                        }
-                    }
+                Self::connect(self_mutex.clone()).await.unwrap();
+                let mut connection = self_mutex
+                    .safe_lock(|self_| self_.connection.clone())
+                    .unwrap();
+                match connection.as_mut().unwrap().send(sv2_frame).await {
+                    Ok(_) => match Self::setup_connection(self_mutex).await {
+                        Ok(()) => Ok(()),
+                        Err(()) => panic!(),
+                    },
                     Err(e) => {
-                        self_.connect().await.unwrap();
-                        drop(self_);
+                        //Self::connect(self_mutex.clone()).await.unwrap();
                         Err(e)
                     }
                 }
@@ -151,12 +149,15 @@ impl UpstreamMiningNode {
         }
     }
 
-    async fn receive(&mut self) -> Result<StdFrame, ()> {
-        match self.connection.as_mut() {
+    async fn receive(self_mutex: Arc<Mutex<Self>>) -> Result<StdFrame, ()> {
+        let mut connection = self_mutex
+            .safe_lock(|self_| self_.connection.clone())
+            .unwrap();
+        match connection.as_mut() {
             Some(connection) => match connection.receiver.recv().await {
                 Ok(m) => Ok(m.try_into()?),
                 Err(_) => {
-                    self.connect().await?;
+                    Self::connect(self_mutex).await?;
                     Err(())
                 }
             },
@@ -164,16 +165,26 @@ impl UpstreamMiningNode {
         }
     }
 
-    async fn connect(&mut self) -> Result<(), ()> {
-        match self.connection {
-            Some(_) => Ok(()),
-            None => {
-                let socket = TcpStream::connect(self.address).await.map_err(|_| ())?;
-                let initiator = Initiator::from_raw_k(self.authority_public_key);
+    async fn connect(self_mutex: Arc<Mutex<Self>>) -> Result<(), ()> {
+        let has_connection = self_mutex
+            .safe_lock(|self_| self_.connection.is_some())
+            .unwrap();
+        match has_connection {
+            true => Ok(()),
+            false => {
+                let (address, authority_public_key) = self_mutex
+                    .safe_lock(|self_| (self_.address, self_.authority_public_key))
+                    .unwrap();
+                let socket = TcpStream::connect(address).await.map_err(|_| ())?;
+                let initiator = Initiator::from_raw_k(authority_public_key);
                 let (receiver, sender) =
                     Connection::new(socket, HandshakeRole::Initiator(initiator)).await;
                 let connection = UpstreamMiningConnection { receiver, sender };
-                self.connection = Some(connection);
+                self_mutex
+                    .safe_lock(|self_| {
+                        self_.connection = Some(connection);
+                    })
+                    .unwrap();
                 Ok(())
             }
         }
@@ -181,7 +192,7 @@ impl UpstreamMiningNode {
 
     #[async_recursion]
     async fn setup_connection(self_mutex: Arc<Mutex<Self>>) -> Result<(), ()> {
-        let sv2_connection = self_mutex.safe_lock(|self_| self_.sv2_connection).await;
+        let sv2_connection = self_mutex.safe_lock(|self_| self_.sv2_connection).unwrap();
 
         match sv2_connection {
             None => Ok(()),
@@ -190,14 +201,13 @@ impl UpstreamMiningNode {
                 let version = sv2_connection.version;
                 let frame = self_mutex
                     .safe_lock(|self_| self_.new_setup_connection_frame(flags, version, version))
-                    .await;
+                    .unwrap();
                 Self::send(self_mutex.clone(), frame)
                     .await
                     .map_err(|_| ())?;
 
-                let mut self_ = self_mutex.lock().await;
-                let mut response = self_.receive().await?;
-                drop(self_);
+                let cloned = self_mutex.clone();
+                let mut response = task::spawn(async { Self::receive(cloned).await }).await?;
 
                 let message_type = response.get_header().unwrap().msg_type();
                 let payload = response.payload();
@@ -210,7 +220,7 @@ impl UpstreamMiningNode {
                                     self_.downstream_selector.clone(),
                                 )
                             })
-                            .await;
+                            .unwrap();
                         Self::relay_incoming_messages(self_mutex, receiver, selector);
                         Ok(())
                     }
@@ -224,14 +234,13 @@ impl UpstreamMiningNode {
         self_: Arc<Mutex<Self>>,
         //_downstreams: HashMap<u32, Downstream>,
         receiver: Receiver<EitherFrame>,
-        selector: Arc<MutexSync<Selector>>,
+        selector: Arc<Mutex<Selector>>,
     ) {
         task::spawn(async move {
             loop {
-                if let Ok(message) = receiver.try_recv() {
-                    let incoming: StdFrame = message.try_into().unwrap();
-                    Self::next(self_.clone(), incoming, selector.clone()).await;
-                }
+                let message = receiver.recv().await.unwrap();
+                let incoming: StdFrame = message.try_into().unwrap();
+                Self::next(self_.clone(), incoming, selector.clone()).await;
             }
         });
     }
@@ -239,7 +248,7 @@ impl UpstreamMiningNode {
     pub async fn next(
         self_mutex: Arc<Mutex<Self>>,
         mut incoming: StdFrame,
-        _downstream_selector: Arc<MutexSync<Selector>>,
+        _downstream_selector: Arc<Mutex<Selector>>,
     ) {
         let message_type = incoming.get_header().unwrap().msg_type();
         let payload = incoming.payload();
@@ -248,7 +257,7 @@ impl UpstreamMiningNode {
                 let selecto = Some(self_.downstream_selector.clone());
                 self_.handle_message(message_type, payload, selecto)
             })
-            .await;
+            .unwrap();
         match next_message_to_send {
             Ok(SendTo::Relay(downstreams)) => {
                 match downstreams.len() {
@@ -262,9 +271,9 @@ impl UpstreamMiningNode {
                             Vec<u8>,
                         > = incoming.map(|payload| payload.try_into().unwrap());
 
-                        let mut downstream = downstreams[0].lock().await;
-                        downstream.send(sv2_frame).await.unwrap();
-                        drop(downstream);
+                        DownstreamMiningNode::send(downstreams[0].clone(), sv2_frame)
+                            .await
+                            .unwrap();
                     }
                     _ => {
                         for _downstream in downstreams {
@@ -293,14 +302,13 @@ impl UpstreamMiningNode {
         let max_version = MAX_SUPPORTED_VERSION;
         let frame = self_mutex
             .safe_lock(|self_| self_.new_setup_connection_frame(flags, min_version, max_version))
-            .await;
+            .unwrap();
         Self::send(self_mutex.clone(), frame)
             .await
             .map_err(|_| ())?;
 
-        let mut self_ = self_mutex.lock().await;
-        let response = &mut self_.receive().await?;
-        drop(self_);
+        let cloned = self_mutex.clone();
+        let mut response = task::spawn(async { Self::receive(cloned).await }).await?;
 
         let message_type = response.get_header().unwrap().msg_type();
         let payload = response.payload();
@@ -317,7 +325,7 @@ impl UpstreamMiningNode {
                             self_.downstream_selector.clone(),
                         )
                     })
-                    .await;
+                    .unwrap();
                 Self::relay_incoming_messages(self_mutex, receiver, selector);
                 Ok(())
             }
@@ -400,7 +408,7 @@ impl DownstreamMining<Arc<Mutex<DownstreamMiningNode>>, Selector> for UpstreamMi
         ChannelType::Group
     }
 
-    fn get_request_id_mapper(&mut self) -> Option<Arc<MutexSync<RequestIdMapper>>> {
+    fn get_request_id_mapper(&mut self) -> Option<Arc<Mutex<RequestIdMapper>>> {
         Some(self.request_id_mapper.clone())
     }
 
@@ -633,38 +641,43 @@ impl UpstreamMiningNodes {
     /// When the proxy receive SetupConnection from a downstream with protocol = Mining Protocol it
     /// check all the upstream and if it find one compatible it pair them.
     pub async fn pair_downstream(
-        &mut self,
+        self_mutex: Arc<Mutex<Self>>,
         protocol: Protocol,
         min_v: u16,
         max_v: u16,
         flags: u32,
     ) -> Result<(Arc<Mutex<UpstreamMiningNode>>, u16), ()> {
-        for node_ in &self.nodes {
-            let node = node_
-                .safe_lock(|node| {
-                    let sv2_connection = node.sv2_connection.unwrap();
-                    let upstream_version = sv2_connection.version;
-                    let check_version = upstream_version >= min_v && upstream_version <= max_v;
-                    if check_version
-                        && SetupConnection::check_flags(
-                            protocol,
-                            flags,
-                            sv2_connection.mining_flags,
-                        )
-                    {
-                        //let downstream = Downstream::new(downstream.clone());
-                        //node.downstreams.insert(downstream_id, downstream);
-                        Ok((node_.clone(), upstream_version))
-                    } else {
-                        Err(())
-                    }
-                })
-                .await;
+        self_mutex
+            .safe_lock(|upstream_nodes| {
+                for node_ in &upstream_nodes.nodes {
+                    let node = node_
+                        .safe_lock(|node| {
+                            let sv2_connection = node.sv2_connection.unwrap();
+                            let upstream_version = sv2_connection.version;
+                            let check_version =
+                                upstream_version >= min_v && upstream_version <= max_v;
+                            if check_version
+                                && SetupConnection::check_flags(
+                                    protocol,
+                                    flags,
+                                    sv2_connection.mining_flags,
+                                )
+                            {
+                                //let downstream = Downstream::new(downstream.clone());
+                                //node.downstreams.insert(downstream_id, downstream);
+                                Ok((node_.clone(), upstream_version))
+                            } else {
+                                Err(())
+                            }
+                        })
+                        .unwrap();
 
-            if node.is_ok() {
-                return node;
-            }
-        }
-        Err(())
+                    if node.is_ok() {
+                        return node;
+                    }
+                }
+                Err(())
+            })
+            .unwrap()
     }
 }

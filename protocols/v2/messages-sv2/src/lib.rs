@@ -1,4 +1,5 @@
 pub mod handlers;
+pub use crate::handlers::Mutex;
 
 #[cfg(not(feature = "with_serde"))]
 use binary_sv2::{

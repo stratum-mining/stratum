@@ -28,7 +28,6 @@
 mod lib;
 use std::net::{IpAddr, SocketAddr};
 
-use async_std::sync::{Arc, Mutex as Mutex_, MutexGuard};
 use lib::upstream_mining::{UpstreamMiningNode, UpstreamMiningNodes};
 use serde::Deserialize;
 use std::str::FromStr;
@@ -36,29 +35,8 @@ use std::str::FromStr;
 // TODO make them configurable via flags or config file
 pub const MAX_SUPPORTED_VERSION: u16 = 2;
 pub const MIN_SUPPORTED_VERSION: u16 = 2;
-
-#[derive(Debug)]
-pub struct Mutex<T>(Mutex_<T>);
-
-impl<T> Mutex<T> {
-    async fn safe_lock<F, Ret>(&self, thunk: F) -> Ret
-    where
-        F: FnOnce(&mut T) -> Ret,
-    {
-        let mut lock = self.0.lock().await;
-        let return_value = thunk(&mut *lock);
-        drop(lock);
-        return_value
-    }
-
-    fn new(v: T) -> Self {
-        Mutex(Mutex_::new(v))
-    }
-
-    async fn lock(&self) -> MutexGuard<'_, T> {
-        self.0.lock().await
-    }
-}
+pub use messages_sv2::Mutex;
+use std::sync::Arc;
 
 #[derive(Debug)]
 pub struct Id {

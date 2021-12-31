@@ -109,7 +109,7 @@ impl RequestIdMapper {
 pub struct Mutex<T>(Mutex_<T>);
 
 impl<T> Mutex<T> {
-    fn safe_lock<F, Ret>(&self, thunk: F) -> Result<Ret, PoisonError<MutexGuard<'_, T>>>
+    pub fn safe_lock<F, Ret>(&self, thunk: F) -> Result<Ret, PoisonError<MutexGuard<'_, T>>>
     where
         F: FnOnce(&mut T) -> Ret,
     {
@@ -119,12 +119,56 @@ impl<T> Mutex<T> {
         Ok(return_value)
     }
 
-    fn new(v: T) -> Self {
+    pub fn new(v: T) -> Self {
         Mutex(Mutex_::new(v))
     }
-
-    #[allow(dead_code)]
-    fn lock(&self) -> Result<MutexGuard<'_, T>, PoisonError<MutexGuard<'_, T>>> {
-        self.0.lock()
-    }
 }
+//pub trait RemoteSelector<Downstream, Up: IsUpstream> {
+//
+//    /// This get the connection-wide updated request_id
+//    fn on_open_standard_channel_request(
+//        &mut self,
+//        request_id: u32,
+//        downstream: Downstream,
+//        //upstream: Upstream,
+//    );
+//
+//    fn on_open_standard_channel_success(&mut self, request_id: u32, channel_id: u32) -> Downstream;
+//
+//    fn get_downstreams_in_channel(&self, channel_id: u32) -> Vec<Downstream>;
+//
+//    fn get_upstreams_in_channel(&self, channel_id: u32) -> Vec<Arc<Mutex<Up>>>;
+//
+//    fn remote_from_request_id(&mut self, request_id: u32) -> Downstream;
+//
+//    fn new(upstreams: Vec<Up>) -> Self;
+//
+//    fn new_as_mutex(upstreams: Vec<Up>) -> Arc<Mutex<Self>>
+//    where
+//        Self: Sized,
+//    {
+//        Arc::new(Mutex::new(Self::new(upstreams)))
+//    }
+//
+//    fn on_setup_connection(&self, pair_settings: PairSettings) -> Arc<Mutex<Up>>;
+//}
+//#[derive(Debug, Copy, Clone)]
+//pub struct PairSettings {
+//    pub protocol: crate::handlers::common::Protocol,
+//    pub min_v: u16,
+//    pub max_v: u16,
+//    pub flags: u32,
+//}
+//
+//pub struct UpstreamData<T> {
+//    upstream: T,
+//    version: u16,
+//    flags: u32,
+//    supported_protocols: Vec<crate::handlers::common::Protocol>,
+//}
+//
+//pub trait IsUpstream {
+//    fn get_version(&self) -> u16;
+//    fn get_flags(&self) -> u32;
+//    fn get_supported_protocols(&self) -> Vec<crate::handlers::common::Protocol>;
+//}

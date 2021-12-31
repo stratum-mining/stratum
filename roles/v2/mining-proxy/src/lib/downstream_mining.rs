@@ -7,6 +7,8 @@ use messages_sv2::MiningDeviceMessages;
 use codec_sv2::Frame;
 use codec_sv2::{StandardEitherFrame, StandardSv2Frame};
 
+use crate::Mutex;
+
 pub type Message = MiningDeviceMessages<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;
 pub type EitherFrame = StandardEitherFrame<Message>;
@@ -31,7 +33,6 @@ enum DownstreamMiningNodeStatus {
     Paired(Arc<Mutex<UpstreamMiningNode>>),
 }
 
-use crate::Mutex;
 use async_std::sync::Arc;
 use async_std::task;
 use core::convert::TryInto;
@@ -62,7 +63,7 @@ impl DownstreamMiningNode {
         //channel: Channel,
         upstream: Arc<Mutex<UpstreamMiningNode>>,
     ) {
-        let status = self_mutex.safe_lock(|self_| self_.status.clone()).await;
+        let status = self_mutex.safe_lock(|self_| self_.status.clone()).unwrap();
 
         match status {
             DownstreamMiningNodeStatus::Initializing => {
@@ -70,22 +71,27 @@ impl DownstreamMiningNode {
                     setup_connection_success.into();
 
                 {
-                    let mut mining_device = self_mutex.lock().await;
-                    mining_device
-                        .send(setup_connection_success.try_into().unwrap())
-                        .await
+                    DownstreamMiningNode::send(
+                        self_mutex.clone(),
+                        setup_connection_success.try_into().unwrap(),
+                    )
+                    .await
+                    .unwrap();
+                    self_mutex
+                        .safe_lock(|self_| {
+                            self_.status = DownstreamMiningNodeStatus::Paired(upstream);
+                        })
                         .unwrap();
-                    mining_device.status = DownstreamMiningNodeStatus::Paired(upstream);
-                    drop(mining_device);
                 }
 
                 task::spawn(async move {
                     loop {
-                        let receiver = self_mutex.safe_lock(|self_| self_.receiver.clone()).await;
-                        if let Ok(message) = receiver.try_recv() {
-                            let incoming: StdFrame = message.try_into().unwrap();
-                            Self::next(self_mutex.clone(), incoming).await
-                        }
+                        let receiver = self_mutex
+                            .safe_lock(|self_| self_.receiver.clone())
+                            .unwrap();
+                        let message = receiver.recv().await.unwrap();
+                        let incoming: StdFrame = message.try_into().unwrap();
+                        Self::next(self_mutex.clone(), incoming).await
                     }
                 });
             }
@@ -99,7 +105,7 @@ impl DownstreamMiningNode {
         let payload = incoming.payload();
 
         // New upstream connection-wide unique request id
-        let upstream_mutex = self_mutex.safe_lock(|self_| self_.get_upstream()).await;
+        let upstream_mutex = self_mutex.safe_lock(|self_| self_.get_upstream()).unwrap();
         let (selector, mapper) = upstream_mutex
             .safe_lock(|upstream| {
                 (
@@ -107,7 +113,7 @@ impl DownstreamMiningNode {
                     upstream.request_id_mapper.clone(),
                 )
             })
-            .await;
+            .unwrap();
 
         let next_message_to_send = self_mutex
             .safe_lock(|self_| {
@@ -119,13 +125,13 @@ impl DownstreamMiningNode {
                     Some(mapper),
                 )
             })
-            .await;
+            .unwrap();
 
         match next_message_to_send {
             Ok(SendTo::Relay(_)) => {
                 let sv2_frame: codec_sv2::Sv2Frame<messages_sv2::PoolMessages, Vec<u8>> =
                     incoming.map(|payload| payload.try_into().unwrap());
-                let upstream_mutex = self_mutex.safe_lock(|self_| self_.get_upstream()).await;
+                let upstream_mutex = self_mutex.safe_lock(|self_| self_.get_upstream()).unwrap();
                 UpstreamMiningNode::send(upstream_mutex, sv2_frame)
                     .await
                     .unwrap();
@@ -144,9 +150,13 @@ impl DownstreamMiningNode {
     }
 
     /// Send a message downstream
-    pub async fn send(&mut self, sv2_frame: StdFrame) -> Result<(), SendError<StdFrame>> {
+    pub async fn send(
+        self_mutex: Arc<Mutex<Self>>,
+        sv2_frame: StdFrame,
+    ) -> Result<(), SendError<StdFrame>> {
         let either_frame = sv2_frame.into();
-        match self.sender.send(either_frame).await {
+        let sender = self_mutex.safe_lock(|self_| self_.sender.clone()).unwrap();
+        match sender.send(either_frame).await {
             Ok(_) => Ok(()),
             Err(_) => {
                 todo!()
@@ -230,7 +240,7 @@ async fn set_requires_standard_job(
     node.safe_lock(|node| {
         node.requires_standard_jobs = require_standard_job;
     })
-    .await;
+    .unwrap();
 }
 
 use async_std::net::TcpListener;
@@ -293,11 +303,10 @@ async fn pair_upstream_for_header_only_connection(
     upstream_nodes_mutex: Arc<Mutex<UpstreamMiningNodes>>,
     downstream: Arc<Mutex<DownstreamMiningNode>>,
 ) -> Result<(), ()> {
-    let mut upstream_nodes = upstream_nodes_mutex.lock().await;
-    let (upstream_mutex, used_version) = upstream_nodes
-        .pair_downstream(protocol, min_v, max_v, flags)
-        .await?;
-    drop(upstream_nodes);
+    //let mut upstream_nodes = upstream_nodes_mutex.lock().await;
+    let (upstream_mutex, used_version) =
+        UpstreamMiningNodes::pair_downstream(upstream_nodes_mutex, protocol, min_v, max_v, flags)
+            .await?;
 
     let setup_connection_success = SetupConnectionSuccess {
         used_version,
