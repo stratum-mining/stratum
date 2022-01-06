@@ -18,7 +18,7 @@ pub type SendTo = SendTo_<CommonMessages<'static>, ()>;
 /// downstream -> /                \ -> proxy downstreamcommoin  -> pool 2
 /// ```
 ///
-pub trait DownstreamCommon {
+pub trait ParseUpstreamCommonMessages {
     fn handle_message_common(
         &mut self,
         message_type: u8,
@@ -55,7 +55,7 @@ pub trait DownstreamCommon {
 /// * pool: is an upstream for proxies and mining devices
 /// * template provider: is an upstream for proxies
 ///
-pub trait UpstreamCommon {
+pub trait ParseDownstreamCommonMessages {
     fn parse_message(message_type: u8, payload: &mut [u8]) -> Result<SetupConnection, Error> {
         match (message_type, payload).try_into() {
             Ok(CommonMessages::SetupConnection(m)) => Ok(m),

@@ -18,6 +18,8 @@ pub enum Error {
     BinarySv2Error(BinarySv2Error),
     WrongMessageType(u8),
     UnexpectedMessage,
+    // min_v max_v all falgs supported
+    NoPairableUpstream((u16, u16, u32)),
 }
 
 impl From<BinarySv2Error> for Error {

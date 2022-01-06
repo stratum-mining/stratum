@@ -23,12 +23,13 @@ use async_channel::{Receiver, Sender};
 use binary_sv2::u256_from_int;
 use codec_sv2::{Frame, StandardEitherFrame, StandardSv2Frame};
 use messages_sv2::handlers::common::{
-    DownstreamCommon, Protocol, SetupConnection, SetupConnectionSuccess,
+    ParseUpstreamCommonMessages, Protocol, SetupConnection, SetupConnectionSuccess,
 };
 use messages_sv2::handlers::mining::{
-    ChannelType, DownstreamMining, OpenStandardMiningChannel, OpenStandardMiningChannelSuccess,
-    RemoteSelector, SendTo,
+    ChannelType, IsUpstream, OpenStandardMiningChannel, OpenStandardMiningChannelSuccess,
+    ParseUpstreamMiningMessages, SendTo,
 };
+use messages_sv2::handlers::{Mutex, NoRoutingLogic, NullSelector};
 use messages_sv2::{Mining, MiningDeviceMessages};
 
 pub type Message = MiningDeviceMessages<'static>;
@@ -37,24 +38,6 @@ pub type EitherFrame = StandardEitherFrame<Message>;
 
 struct SetupConnectionHandler {}
 use std::convert::TryInto;
-
-struct Selector {}
-
-impl RemoteSelector<()> for Selector {
-    fn on_open_standard_channel_request(&mut self, _request_id: u32, _remote_id: ()) {}
-
-    fn on_open_standard_channel_success(&mut self, _request_id: u32, _channel_id: u32) {}
-
-    fn get_remotes_in_channel(&self, _channel_id: u32) -> Vec<()> {
-        Vec::new()
-    }
-
-    fn remote_from_request_id(&mut self, _request_id: u32) {}
-
-    fn new() -> Self {
-        todo!()
-    }
-}
 
 impl SetupConnectionHandler {
     pub fn new() -> Self {
@@ -100,7 +83,7 @@ impl SetupConnectionHandler {
     }
 }
 
-impl DownstreamCommon for SetupConnectionHandler {
+impl ParseUpstreamCommonMessages for SetupConnectionHandler {
     fn handle_setup_connection_success(
         &mut self,
         _: SetupConnectionSuccess,
@@ -124,6 +107,7 @@ impl DownstreamCommon for SetupConnectionHandler {
     }
 }
 
+#[derive(Debug)]
 pub struct Device {
     receiver: Receiver<EitherFrame>,
     sender: Sender<EitherFrame>,
@@ -152,25 +136,32 @@ impl Device {
         SetupConnectionHandler::new()
             .setup(&mut receiver, &mut sender, addr)
             .await;
-        let mut self_ = Self {
+        let self_ = Self {
             channel_opened: false,
-            receiver,
-            sender,
+            receiver: receiver.clone(),
+            sender: sender.clone(),
         };
         let open_channel =
             MiningDeviceMessages::Mining(Mining::OpenStandardMiningChannel(open_channel()));
         let frame: StdFrame = open_channel.try_into().unwrap();
         self_.sender.send(frame.into()).await.unwrap();
+        let self_mutex = std::sync::Arc::new(Mutex::new(self_));
         loop {
-            let mut incoming: StdFrame = self_.receiver.recv().await.unwrap().try_into().unwrap();
+            let mut incoming: StdFrame = receiver.recv().await.unwrap().try_into().unwrap();
             let message_type = incoming.get_header().unwrap().msg_type();
             let payload = incoming.payload();
-            let next = self_.handle_message(message_type, payload, None).unwrap();
+            let next = Device::handle_message(
+                self_mutex.clone(),
+                message_type,
+                payload,
+                NoRoutingLogic::new(),
+            )
+            .unwrap();
             match next {
                 SendTo::Upstream(m) => {
                     let sv2_frame: StdFrame = MiningDeviceMessages::Mining(m).try_into().unwrap();
                     let either_frame: EitherFrame = sv2_frame.into();
-                    self_.sender.send(either_frame).await.unwrap();
+                    sender.send(either_frame).await.unwrap();
                 }
                 SendTo::None => (),
                 _ => panic!(),
@@ -179,7 +170,41 @@ impl Device {
     }
 }
 
-impl DownstreamMining<(), Selector> for Device {
+impl IsUpstream<(), NullSelector> for Device {
+    fn get_version(&self) -> u16 {
+        todo!()
+    }
+
+    fn get_flags(&self) -> u32 {
+        todo!()
+    }
+
+    fn get_supported_protocols(&self) -> Vec<messages_sv2::handlers::common::Protocol> {
+        todo!()
+    }
+
+    fn get_id(&self) -> u32 {
+        todo!()
+    }
+
+    fn total_hash_rate(&self) -> u64 {
+        todo!()
+    }
+
+    fn add_hash_rate(&mut self, _to_add: u64) {
+        todo!()
+    }
+
+    fn get_mapper(&mut self) -> &mut messages_sv2::handlers::RequestIdMapper {
+        todo!()
+    }
+
+    fn get_remote_selector(&mut self) -> &mut NullSelector {
+        todo!()
+    }
+}
+
+impl ParseUpstreamMiningMessages<(), NullSelector> for Device {
     fn get_channel_type(&self) -> ChannelType {
         ChannelType::Standard
     }
@@ -191,7 +216,7 @@ impl DownstreamMining<(), Selector> for Device {
     fn handle_open_standard_mining_channel_success(
         &mut self,
         m: OpenStandardMiningChannelSuccess,
-        _: Vec<()>,
+        _: Option<std::sync::Arc<Mutex<()>>>,
     ) -> Result<SendTo<()>, messages_sv2::Error> {
         self.channel_opened = true;
         println!(

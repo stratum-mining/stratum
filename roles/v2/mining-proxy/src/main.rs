@@ -28,35 +28,29 @@
 mod lib;
 use std::net::{IpAddr, SocketAddr};
 
-use lib::upstream_mining::{UpstreamMiningNode, UpstreamMiningNodes};
+use lib::upstream_mining::UpstreamMiningNode;
 use serde::Deserialize;
 use std::str::FromStr;
 
 // TODO make them configurable via flags or config file
 pub const MAX_SUPPORTED_VERSION: u16 = 2;
 pub const MIN_SUPPORTED_VERSION: u16 = 2;
+pub use messages_sv2::handlers::{Id, ProxyRemoteSelector, ProxyRoutingLogic};
 pub use messages_sv2::Mutex;
 use std::sync::Arc;
 
-#[derive(Debug)]
-pub struct Id {
-    state: u32,
-}
+type RLogic = ProxyRoutingLogic<
+    crate::lib::downstream_mining::DownstreamMiningNode,
+    crate::lib::upstream_mining::UpstreamMiningNode,
+    crate::lib::upstream_mining::ProxyRemoteSelector,
+>;
 
-impl Id {
-    pub fn new() -> Self {
-        Self { state: 0 }
-    }
-    #[allow(clippy::should_implement_trait)]
-    pub fn next(&mut self) -> u32 {
-        self.state += 1;
-        self.state
-    }
-}
+static mut ROUTING_LOGIC: Option<Arc<Mutex<RLogic>>> = None;
 
-impl Default for Id {
-    fn default() -> Self {
-        Self::new()
+pub fn get_routing_logic() -> Arc<Mutex<RLogic>> {
+    unsafe {
+        let cloned = ROUTING_LOGIC.clone();
+        cloned.unwrap()
     }
 }
 
@@ -74,6 +68,8 @@ pub struct Config {
     listen_mining_port: u16,
 }
 
+use messages_sv2::handlers::UpstreamSelector;
+
 /// 1. the proxy scan all the upstreams and map them
 /// 2. donwstream open a connetcion with proxy
 /// 3. downstream send SetupConnection
@@ -90,26 +86,34 @@ async fn main() {
     let config_file = std::fs::read_to_string("proxy-config.toml").unwrap();
     let config: Config = toml::from_str(&config_file).unwrap();
     let upstreams = config.upstreams;
-    let upstream_mining_nodes = upstreams
+    let upstream_mining_nodes: Vec<Arc<Mutex<UpstreamMiningNode>>> = upstreams
         .iter()
-        .map(|upstream| {
+        .enumerate()
+        .map(|(index, upstream)| {
             let socket =
                 SocketAddr::new(IpAddr::from_str(&upstream.address).unwrap(), upstream.port);
             Arc::new(Mutex::new(UpstreamMiningNode::new(
+                index as u32,
                 socket,
                 upstream.pub_key,
             )))
         })
         .collect();
-    let mut upsteam_mining_nodes = UpstreamMiningNodes {
-        nodes: upstream_mining_nodes,
+    crate::lib::upstream_mining::scan(upstream_mining_nodes.clone()).await;
+    let upstream_selector = UpstreamSelector::new(upstream_mining_nodes);
+    let routing_logic = ProxyRoutingLogic {
+        upstream_selector,
+        downstream_id_generator: Id::new(),
+        downstream_to_upstream_map: std::collections::HashMap::new(),
     };
-    upsteam_mining_nodes.scan().await;
+    unsafe {
+        ROUTING_LOGIC = Some(Arc::new(Mutex::new(routing_logic)));
+    }
 
     // Wait for downstream connection
     let socket = SocketAddr::new(
         IpAddr::from_str(&config.listen_address).unwrap(),
         config.listen_mining_port,
     );
-    crate::lib::downstream_mining::listen_for_downstream_mining(socket, upsteam_mining_nodes).await
+    crate::lib::downstream_mining::listen_for_downstream_mining(socket).await
 }

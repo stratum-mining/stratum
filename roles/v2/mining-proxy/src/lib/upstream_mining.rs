@@ -6,16 +6,19 @@ use async_std::task;
 use codec_sv2::{Frame, HandshakeRole, Initiator, StandardEitherFrame, StandardSv2Frame};
 use messages_sv2::handlers::common::{CommonMessages, Protocol, SetupConnection};
 use messages_sv2::handlers::mining::{
-    ChannelType, DownstreamMining, RemoteSelector, RequestIdMapper, SendTo,
+    ChannelType, ParseUpstreamMiningMessages, RequestIdMapper, SendTo,
+};
+use messages_sv2::handlers::{
+    IsUpstream, ProxyRemoteSelector as Prs, RemoteSelector, RoutingLogic,
 };
 use messages_sv2::PoolMessages;
 use network_helpers::Connection;
-use std::collections::HashMap;
 use std::sync::Arc;
 
 pub type Message = PoolMessages<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;
 pub type EitherFrame = StandardEitherFrame<Message>;
+pub type ProxyRemoteSelector = Prs<DownstreamMiningNode>;
 use crate::Mutex;
 
 /// 1 to 1 connection with a pool
@@ -57,6 +60,8 @@ struct Downstream {
 /// Can be either a mining pool or another proxy
 #[derive(Debug)]
 pub struct UpstreamMiningNode {
+    id: u32,
+    total_hash_rate: u64,
     address: SocketAddr,
     //port: u32,
     connection: Option<UpstreamMiningConnection>,
@@ -68,8 +73,8 @@ pub struct UpstreamMiningNode {
     /// Each relayd message that have a request_id field must have a unique request_id number
     /// connection-wise.
     /// request_id from downstream is not garanted to be uniquie so must be changed
-    pub request_id_mapper: Arc<Mutex<RequestIdMapper>>,
-    pub downstream_selector: Arc<Mutex<Selector>>,
+    request_id_mapper: RequestIdMapper,
+    downstream_selector: ProxyRemoteSelector,
 }
 
 use crate::MAX_SUPPORTED_VERSION;
@@ -79,10 +84,12 @@ use std::net::SocketAddr;
 
 /// It assume that endpoint NEVER change flags and version! TODO add test for it
 impl UpstreamMiningNode {
-    pub fn new(address: SocketAddr, authority_public_key: [u8; 32]) -> Self {
-        let request_id_mapper = RequestIdMapper::new_as_mutex();
-        let downstream_selector = Selector::new_as_mutex();
+    pub fn new(id: u32, address: SocketAddr, authority_public_key: [u8; 32]) -> Self {
+        let request_id_mapper = RequestIdMapper::new();
+        let downstream_selector = ProxyRemoteSelector::new();
         Self {
+            id,
+            total_hash_rate: 0,
             address,
             connection: None,
             sv2_connection: None,
@@ -161,7 +168,7 @@ impl UpstreamMiningNode {
                     Err(())
                 }
             },
-            None => todo!(),
+            None => todo!("177"),
         }
     }
 
@@ -213,15 +220,10 @@ impl UpstreamMiningNode {
                 let payload = response.payload();
                 match (message_type, payload).try_into() {
                     Ok(CommonMessages::SetupConnectionSuccess(_)) => {
-                        let (receiver, selector) = self_mutex
-                            .safe_lock(|self_| {
-                                (
-                                    self_.connection.clone().unwrap().receiver,
-                                    self_.downstream_selector.clone(),
-                                )
-                            })
+                        let receiver = self_mutex
+                            .safe_lock(|self_| self_.connection.clone().unwrap().receiver)
                             .unwrap();
-                        Self::relay_incoming_messages(self_mutex, receiver, selector);
+                        Self::relay_incoming_messages(self_mutex, receiver);
                         Ok(())
                     }
                     _ => panic!(),
@@ -234,30 +236,24 @@ impl UpstreamMiningNode {
         self_: Arc<Mutex<Self>>,
         //_downstreams: HashMap<u32, Downstream>,
         receiver: Receiver<EitherFrame>,
-        selector: Arc<Mutex<Selector>>,
     ) {
         task::spawn(async move {
             loop {
                 let message = receiver.recv().await.unwrap();
                 let incoming: StdFrame = message.try_into().unwrap();
-                Self::next(self_.clone(), incoming, selector.clone()).await;
+                Self::next(self_.clone(), incoming).await;
             }
         });
     }
 
-    pub async fn next(
-        self_mutex: Arc<Mutex<Self>>,
-        mut incoming: StdFrame,
-        _downstream_selector: Arc<Mutex<Selector>>,
-    ) {
+    pub async fn next(self_mutex: Arc<Mutex<Self>>, mut incoming: StdFrame) {
         let message_type = incoming.get_header().unwrap().msg_type();
         let payload = incoming.payload();
-        let next_message_to_send = self_mutex
-            .safe_lock(|self_| {
-                let selecto = Some(self_.downstream_selector.clone());
-                self_.handle_message(message_type, payload, selecto)
-            })
-            .unwrap();
+
+        let routing_logic = RoutingLogic::Proxy(crate::get_routing_logic());
+
+        let next_message_to_send =
+            UpstreamMiningNode::handle_message(self_mutex, message_type, payload, routing_logic);
         match next_message_to_send {
             Ok(SendTo::Relay(downstreams)) => {
                 match downstreams.len() {
@@ -277,7 +273,7 @@ impl UpstreamMiningNode {
                     }
                     _ => {
                         for _downstream in downstreams {
-                            todo!()
+                            todo!("293")
                             //let mut downstream = downstream.lock().await;
                             //let sv2_frame: codec_sv2::Sv2Frame<messages_sv2::MiningDeviceMessages, Vec<u8>> =
                             //    incoming.map(|payload| payload.try_into().unwrap());
@@ -286,9 +282,9 @@ impl UpstreamMiningNode {
                     }
                 }
             }
-            Ok(_) => todo!(),
-            Err(messages_sv2::Error::UnexpectedMessage) => todo!(),
-            Err(_) => todo!(),
+            Ok(_) => todo!("302"),
+            Err(messages_sv2::Error::UnexpectedMessage) => todo!("303"),
+            Err(_) => todo!("304"),
         }
     }
 
@@ -314,19 +310,16 @@ impl UpstreamMiningNode {
         let payload = response.payload();
         match (message_type, payload).try_into() {
             Ok(CommonMessages::SetupConnectionSuccess(m)) => {
-                let (receiver, selector) = self_mutex
+                let receiver = self_mutex
                     .safe_lock(|self_| {
                         self_.sv2_connection = Some(Sv2MiningConnection {
                             version: m.used_version,
                             mining_flags: m.flags,
                         });
-                        (
-                            self_.connection.clone().unwrap().receiver,
-                            self_.downstream_selector.clone(),
-                        )
+                        self_.connection.clone().unwrap().receiver
                     })
                     .unwrap();
-                Self::relay_incoming_messages(self_mutex, receiver, selector);
+                Self::relay_incoming_messages(self_mutex, receiver);
                 Ok(())
             }
             Ok(CommonMessages::SetupConnectionError(m)) => {
@@ -340,8 +333,8 @@ impl UpstreamMiningNode {
                     Err(())
                 }
             }
-            Ok(_) => todo!(),
-            Err(_) => todo!(),
+            Ok(_) => todo!("356"),
+            Err(_) => todo!("357"),
         }
     }
 
@@ -403,13 +396,9 @@ impl UpstreamMiningNode {
     // }
 }
 
-impl DownstreamMining<Arc<Mutex<DownstreamMiningNode>>, Selector> for UpstreamMiningNode {
+impl ParseUpstreamMiningMessages<DownstreamMiningNode, ProxyRemoteSelector> for UpstreamMiningNode {
     fn get_channel_type(&self) -> ChannelType {
         ChannelType::Group
-    }
-
-    fn get_request_id_mapper(&mut self) -> Option<Arc<Mutex<RequestIdMapper>>> {
-        Some(self.request_id_mapper.clone())
     }
 
     fn is_work_selection_enabled(&self) -> bool {
@@ -419,265 +408,172 @@ impl DownstreamMining<Arc<Mutex<DownstreamMiningNode>>, Selector> for UpstreamMi
     fn handle_open_standard_mining_channel_success(
         &mut self,
         _m: messages_sv2::handlers::mining::OpenStandardMiningChannelSuccess,
-        remote: Vec<Arc<Mutex<DownstreamMiningNode>>>,
-    ) -> Result<
-        messages_sv2::handlers::mining::SendTo<Arc<Mutex<DownstreamMiningNode>>>,
-        messages_sv2::Error,
-    > {
-        Ok(SendTo::Relay(remote))
+        remote: Option<Arc<Mutex<DownstreamMiningNode>>>,
+    ) -> Result<messages_sv2::handlers::mining::SendTo<DownstreamMiningNode>, messages_sv2::Error>
+    {
+        Ok(SendTo::Relay(vec![remote.unwrap()]))
     }
 
     fn handle_open_extended_mining_channel_success(
         &mut self,
         _m: messages_sv2::handlers::mining::OpenExtendedMiningChannelSuccess,
-    ) -> Result<
-        messages_sv2::handlers::mining::SendTo<Arc<Mutex<DownstreamMiningNode>>>,
-        messages_sv2::Error,
-    > {
-        todo!()
+    ) -> Result<messages_sv2::handlers::mining::SendTo<DownstreamMiningNode>, messages_sv2::Error>
+    {
+        todo!("450")
     }
 
     fn handle_open_mining_channel_error(
         &mut self,
         _m: messages_sv2::handlers::mining::OpenMiningChannelError,
-    ) -> Result<
-        messages_sv2::handlers::mining::SendTo<Arc<Mutex<DownstreamMiningNode>>>,
-        messages_sv2::Error,
-    > {
-        todo!()
+    ) -> Result<messages_sv2::handlers::mining::SendTo<DownstreamMiningNode>, messages_sv2::Error>
+    {
+        todo!("460")
     }
 
     fn handle_update_channel_error(
         &mut self,
         _m: messages_sv2::handlers::mining::UpdateChannelError,
-    ) -> Result<
-        messages_sv2::handlers::mining::SendTo<Arc<Mutex<DownstreamMiningNode>>>,
-        messages_sv2::Error,
-    > {
-        todo!()
+    ) -> Result<messages_sv2::handlers::mining::SendTo<DownstreamMiningNode>, messages_sv2::Error>
+    {
+        todo!("470")
     }
 
     fn handle_close_channel(
         &mut self,
         _m: messages_sv2::handlers::mining::CloseChannel,
-    ) -> Result<
-        messages_sv2::handlers::mining::SendTo<Arc<Mutex<DownstreamMiningNode>>>,
-        messages_sv2::Error,
-    > {
-        todo!()
+    ) -> Result<messages_sv2::handlers::mining::SendTo<DownstreamMiningNode>, messages_sv2::Error>
+    {
+        todo!("480")
     }
 
     fn handle_set_extranonce_prefix(
         &mut self,
         _m: messages_sv2::handlers::mining::SetExtranoncePrefix,
-    ) -> Result<
-        messages_sv2::handlers::mining::SendTo<Arc<Mutex<DownstreamMiningNode>>>,
-        messages_sv2::Error,
-    > {
-        todo!()
+    ) -> Result<messages_sv2::handlers::mining::SendTo<DownstreamMiningNode>, messages_sv2::Error>
+    {
+        todo!("490")
     }
 
     fn handle_submit_shares_success(
         &mut self,
         _m: messages_sv2::handlers::mining::SubmitSharesSuccess,
-    ) -> Result<
-        messages_sv2::handlers::mining::SendTo<Arc<Mutex<DownstreamMiningNode>>>,
-        messages_sv2::Error,
-    > {
-        todo!()
+    ) -> Result<messages_sv2::handlers::mining::SendTo<DownstreamMiningNode>, messages_sv2::Error>
+    {
+        todo!("500")
     }
 
     fn handle_submit_shares_error(
         &mut self,
         _m: messages_sv2::handlers::mining::SubmitSharesError,
-    ) -> Result<
-        messages_sv2::handlers::mining::SendTo<Arc<Mutex<DownstreamMiningNode>>>,
-        messages_sv2::Error,
-    > {
-        todo!()
+    ) -> Result<messages_sv2::handlers::mining::SendTo<DownstreamMiningNode>, messages_sv2::Error>
+    {
+        todo!("510")
     }
 
     fn handle_new_mining_job(
         &mut self,
         _m: messages_sv2::handlers::mining::NewMiningJob,
-    ) -> Result<
-        messages_sv2::handlers::mining::SendTo<Arc<Mutex<DownstreamMiningNode>>>,
-        messages_sv2::Error,
-    > {
-        todo!()
+    ) -> Result<messages_sv2::handlers::mining::SendTo<DownstreamMiningNode>, messages_sv2::Error>
+    {
+        todo!("520")
     }
 
     fn handle_new_extended_mining_job(
         &mut self,
         _m: messages_sv2::handlers::mining::NewExtendedMiningJob,
-    ) -> Result<
-        messages_sv2::handlers::mining::SendTo<Arc<Mutex<DownstreamMiningNode>>>,
-        messages_sv2::Error,
-    > {
-        todo!()
+    ) -> Result<messages_sv2::handlers::mining::SendTo<DownstreamMiningNode>, messages_sv2::Error>
+    {
+        todo!("530")
     }
 
     fn handle_set_new_prev_hash(
         &mut self,
         _m: messages_sv2::handlers::mining::SetNewPrevHash,
-    ) -> Result<
-        messages_sv2::handlers::mining::SendTo<Arc<Mutex<DownstreamMiningNode>>>,
-        messages_sv2::Error,
-    > {
-        todo!()
+    ) -> Result<messages_sv2::handlers::mining::SendTo<DownstreamMiningNode>, messages_sv2::Error>
+    {
+        todo!("540")
     }
 
     fn handle_set_custom_mining_job_success(
         &mut self,
         _m: messages_sv2::handlers::mining::SetCustomMiningJobSuccess,
-    ) -> Result<
-        messages_sv2::handlers::mining::SendTo<Arc<Mutex<DownstreamMiningNode>>>,
-        messages_sv2::Error,
-    > {
-        todo!()
+    ) -> Result<messages_sv2::handlers::mining::SendTo<DownstreamMiningNode>, messages_sv2::Error>
+    {
+        todo!("550")
     }
 
     fn handle_set_custom_mining_job_error(
         &mut self,
         _m: messages_sv2::handlers::mining::SetCustomMiningJobError,
-    ) -> Result<
-        messages_sv2::handlers::mining::SendTo<Arc<Mutex<DownstreamMiningNode>>>,
-        messages_sv2::Error,
-    > {
-        todo!()
+    ) -> Result<messages_sv2::handlers::mining::SendTo<DownstreamMiningNode>, messages_sv2::Error>
+    {
+        todo!("560")
     }
 
     fn handle_set_target(
         &mut self,
         _m: messages_sv2::handlers::mining::SetTarget,
-    ) -> Result<
-        messages_sv2::handlers::mining::SendTo<Arc<Mutex<DownstreamMiningNode>>>,
-        messages_sv2::Error,
-    > {
-        todo!()
+    ) -> Result<messages_sv2::handlers::mining::SendTo<DownstreamMiningNode>, messages_sv2::Error>
+    {
+        todo!("570")
     }
 
     fn handle_reconnect(
         &mut self,
         _m: messages_sv2::handlers::mining::Reconnect,
-    ) -> Result<
-        messages_sv2::handlers::mining::SendTo<Arc<Mutex<DownstreamMiningNode>>>,
-        messages_sv2::Error,
-    > {
-        todo!()
+    ) -> Result<messages_sv2::handlers::mining::SendTo<DownstreamMiningNode>, messages_sv2::Error>
+    {
+        todo!("580")
     }
 }
 
-#[derive(Debug)]
-pub struct Selector {
-    request_id: HashMap<u32, Arc<Mutex<DownstreamMiningNode>>>,
-    group_channel_id: HashMap<u32, Arc<Mutex<DownstreamMiningNode>>>,
-}
-
-impl RemoteSelector<Arc<Mutex<DownstreamMiningNode>>> for Selector {
-    fn on_open_standard_channel_request(
-        &mut self,
-        request_id: u32,
-        remote: Arc<Mutex<DownstreamMiningNode>>,
-    ) {
-        self.request_id.insert(request_id, remote);
-    }
-
-    fn on_open_standard_channel_success(
-        &mut self,
-        request_id: u32,
-        group_channel_id: u32,
-    ) -> Arc<Mutex<DownstreamMiningNode>> {
-        let remote = self.request_id.remove(&request_id).unwrap();
-        self.group_channel_id
-            .insert(group_channel_id, remote.clone());
-        remote
-    }
-
-    fn get_remotes_in_channel(
-        &self,
-        _group_channel_id: u32,
-    ) -> Vec<Arc<Mutex<DownstreamMiningNode>>> {
-        todo!()
-    }
-
-    fn remote_from_request_id(&mut self, _request_id: u32) -> Arc<Mutex<DownstreamMiningNode>> {
-        todo!()
-    }
-
-    fn new() -> Self {
-        Selector {
-            request_id: HashMap::new(),
-            group_channel_id: HashMap::new(),
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct UpstreamMiningNodes {
-    pub nodes: Vec<Arc<Mutex<UpstreamMiningNode>>>,
-}
-
-impl UpstreamMiningNodes {
-    /// Scan all the upstreams and initialize them
-    pub async fn scan(&mut self) {
-        let spawn_tasks: Vec<task::JoinHandle<()>> = self
-            .nodes
-            .iter()
-            .map(|node| {
-                let node = node.clone();
-                task::spawn(async move {
-                    UpstreamMiningNode::setup_flag_and_version(node, None)
-                        .await
-                        .unwrap();
-                })
+pub async fn scan(nodes: Vec<Arc<Mutex<UpstreamMiningNode>>>) {
+    let spawn_tasks: Vec<task::JoinHandle<()>> = nodes
+        .iter()
+        .map(|node| {
+            let node = node.clone();
+            task::spawn(async move {
+                UpstreamMiningNode::setup_flag_and_version(node, None)
+                    .await
+                    .unwrap();
             })
-            .collect();
-        for task in spawn_tasks {
-            task.await
-        }
+        })
+        .collect();
+    for task in spawn_tasks {
+        task.await
+    }
+}
+
+impl IsUpstream<DownstreamMiningNode, ProxyRemoteSelector> for UpstreamMiningNode {
+    fn get_version(&self) -> u16 {
+        self.sv2_connection.unwrap().version
     }
 
-    /// When the proxy receive SetupConnection from a downstream with protocol = Mining Protocol it
-    /// check all the upstream and if it find one compatible it pair them.
-    pub async fn pair_downstream(
-        self_mutex: Arc<Mutex<Self>>,
-        protocol: Protocol,
-        min_v: u16,
-        max_v: u16,
-        flags: u32,
-    ) -> Result<(Arc<Mutex<UpstreamMiningNode>>, u16), ()> {
-        self_mutex
-            .safe_lock(|upstream_nodes| {
-                for node_ in &upstream_nodes.nodes {
-                    let node = node_
-                        .safe_lock(|node| {
-                            let sv2_connection = node.sv2_connection.unwrap();
-                            let upstream_version = sv2_connection.version;
-                            let check_version =
-                                upstream_version >= min_v && upstream_version <= max_v;
-                            if check_version
-                                && SetupConnection::check_flags(
-                                    protocol,
-                                    flags,
-                                    sv2_connection.mining_flags,
-                                )
-                            {
-                                //let downstream = Downstream::new(downstream.clone());
-                                //node.downstreams.insert(downstream_id, downstream);
-                                Ok((node_.clone(), upstream_version))
-                            } else {
-                                Err(())
-                            }
-                        })
-                        .unwrap();
+    fn get_flags(&self) -> u32 {
+        self.sv2_connection.unwrap().mining_flags
+    }
 
-                    if node.is_ok() {
-                        return node;
-                    }
-                }
-                Err(())
-            })
-            .unwrap()
+    fn get_supported_protocols(&self) -> Vec<messages_sv2::handlers::common::Protocol> {
+        vec![Protocol::MiningProtocol]
+    }
+
+    fn get_id(&self) -> u32 {
+        self.id
+    }
+
+    fn total_hash_rate(&self) -> u64 {
+        self.total_hash_rate
+    }
+
+    fn add_hash_rate(&mut self, to_add: u64) {
+        self.total_hash_rate += to_add;
+    }
+
+    fn get_mapper(&mut self) -> &mut RequestIdMapper {
+        &mut self.request_id_mapper
+    }
+
+    fn get_remote_selector(&mut self) -> &mut ProxyRemoteSelector {
+        &mut self.downstream_selector
     }
 }

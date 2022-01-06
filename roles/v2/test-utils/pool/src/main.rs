@@ -3,7 +3,7 @@ use async_std::prelude::*;
 use async_std::task;
 use codec_sv2::{HandshakeRole, Responder};
 use network_helpers::Connection;
-use std::sync::{Arc as SArc, Mutex as SMutex};
+use std::sync::Arc as SArc;
 
 const ADDR: &str = "127.0.0.1:34254";
 
@@ -22,8 +22,8 @@ const CERT_VALIDITY: std::time::Duration = std::time::Duration::from_secs(3600);
 async fn server_pool() {
     let listner = TcpListener::bind(ADDR).await.unwrap();
     let mut incoming = listner.incoming();
-    let group_id_generator = SArc::new(SMutex::new(Id::new()));
-    let channel_id_generator = SArc::new(SMutex::new(Id::new()));
+    let group_id_generator = SArc::new(MyMutex::new(Id::new()));
+    let channel_id_generator = SArc::new(MyMutex::new(Id::new()));
     let mut pool = Pool {
         downstreams: vec![],
     };
@@ -56,14 +56,16 @@ async fn main() {
     server_pool().await;
 }
 
-use async_channel::{Receiver, SendError, Sender};
-use async_std::sync::{Arc, Mutex};
+use async_channel::{Receiver, Sender};
+use async_std::sync::Arc;
 use binary_sv2::{u256_from_int, B032};
 use codec_sv2::{Frame, StandardEitherFrame, StandardSv2Frame};
-use messages_sv2::handlers::common::{SetupConnectionSuccess, UpstreamCommon};
+use messages_sv2::handlers::common::{ParseDownstreamCommonMessages, SetupConnectionSuccess};
 use messages_sv2::handlers::mining::{
-    ChannelType, Mining, OpenStandardMiningChannelSuccess, RemoteSelector, SendTo, UpstreamMining,
+    ChannelType, IsDownstream, Mining, OpenStandardMiningChannelSuccess,
+    ParseDownstreamMiningMessages, SendTo,
 };
+use messages_sv2::handlers::{Mutex as MyMutex, NoRoutingLogic, NullSelector};
 use messages_sv2::PoolMessages;
 use std::convert::TryInto;
 
@@ -71,24 +73,7 @@ pub type Message = PoolMessages<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;
 pub type EitherFrame = StandardEitherFrame<Message>;
 
-struct Selector {}
-
-impl RemoteSelector<()> for Selector {
-    fn on_open_standard_channel_request(&mut self, _request_id: u32, _remote_id: ()) {}
-
-    fn on_open_standard_channel_success(&mut self, _request_id: u32, _channel_id: u32) {}
-
-    fn get_remotes_in_channel(&self, _channel_id: u32) -> Vec<()> {
-        Vec::new()
-    }
-
-    fn remote_from_request_id(&mut self, _request_id: u32) {}
-
-    fn new() -> Self {
-        todo!()
-    }
-}
-
+#[derive(Debug)]
 pub struct Id {
     state: u32,
 }
@@ -136,7 +121,7 @@ impl SetupConnectionHandler {
     }
 }
 
-impl UpstreamCommon for SetupConnectionHandler {
+impl ParseDownstreamCommonMessages for SetupConnectionHandler {
     fn handle_setup_connection(
         &mut self,
         incoming: messages_sv2::handlers::common::SetupConnection,
@@ -155,33 +140,34 @@ impl UpstreamCommon for SetupConnectionHandler {
     }
 }
 
+#[derive(Debug)]
 struct Downstream {
     receiver: Receiver<EitherFrame>,
     sender: Sender<EitherFrame>,
-    channel_id_generator: SArc<SMutex<Id>>,
-    group_id_generator: SArc<SMutex<Id>>,
+    channel_id_generator: SArc<MyMutex<Id>>,
+    group_id_generator: SArc<MyMutex<Id>>,
     group_id: Option<u32>,
     is_header_only: bool,
     channels_id: Vec<u32>,
 }
 
 struct Pool {
-    downstreams: Vec<Arc<Mutex<Downstream>>>,
+    downstreams: Vec<Arc<MyMutex<Downstream>>>,
 }
 
 impl Downstream {
     pub async fn new(
         mut receiver: Receiver<EitherFrame>,
         mut sender: Sender<EitherFrame>,
-        group_id_generator: SArc<SMutex<Id>>,
-        channel_id_generator: SArc<SMutex<Id>>,
-    ) -> Arc<Mutex<Self>> {
+        group_id_generator: SArc<MyMutex<Id>>,
+        channel_id_generator: SArc<MyMutex<Id>>,
+    ) -> Arc<MyMutex<Self>> {
         let is_header_only = SetupConnectionHandler::new()
             .setup(&mut receiver, &mut sender)
             .await;
         let group_id = None;
         let channels_id = vec![];
-        let self_ = Arc::new(Mutex::new(Downstream {
+        let self_ = Arc::new(MyMutex::new(Downstream {
             receiver,
             sender,
             channel_id_generator,
@@ -193,29 +179,29 @@ impl Downstream {
         let cloned = self_.clone();
         task::spawn(async move {
             loop {
-                let mut downstream = cloned.lock().await;
-                let incoming: StdFrame = downstream
-                    .receiver
-                    .recv()
-                    .await
-                    .unwrap()
-                    .try_into()
-                    .unwrap();
-                downstream.next(incoming).await
+                let receiver = cloned.safe_lock(|d| d.receiver.clone()).unwrap();
+                let incoming: StdFrame = receiver.recv().await.unwrap().try_into().unwrap();
+                Downstream::next(cloned.clone(), incoming).await
             }
         });
         self_
     }
 
-    pub async fn next(&mut self, mut incoming: StdFrame) {
+    pub async fn next(self_mutex: Arc<MyMutex<Self>>, mut incoming: StdFrame) {
         let message_type = incoming.get_header().unwrap().msg_type();
         let payload = incoming.payload();
-        let next_message_to_send =
-            UpstreamMining::handle_message(self, message_type, payload, None, (), None);
+        let next_message_to_send = ParseDownstreamMiningMessages::handle_message(
+            self_mutex.clone(),
+            message_type,
+            payload,
+            NoRoutingLogic::new(),
+        );
         match next_message_to_send {
             Ok(SendTo::Downstream(message)) => {
                 let sv2_frame: StdFrame = PoolMessages::Mining(message).try_into().unwrap();
-                self.send(sv2_frame).await.unwrap();
+                let sender = self_mutex.safe_lock(|self_| self_.sender.clone()).unwrap();
+                sender.send(sv2_frame.into()).await.unwrap();
+                //self.send(sv2_frame).await.unwrap();
             }
             Ok(_) => panic!(),
             Err(messages_sv2::Error::UnexpectedMessage) => todo!(),
@@ -223,16 +209,6 @@ impl Downstream {
         }
 
         //TODO
-    }
-
-    async fn send(&mut self, sv2_frame: StdFrame) -> Result<(), SendError<StdFrame>> {
-        let either_frame = sv2_frame.into();
-        match self.sender.send(either_frame).await {
-            Ok(_) => Ok(()),
-            Err(_) => {
-                todo!()
-            }
-        }
     }
 }
 
@@ -248,7 +224,18 @@ fn get_random_extranonce() -> B032<'static> {
     val.try_into().unwrap()
 }
 
-impl UpstreamMining<(), Selector> for Downstream {
+impl IsDownstream for Downstream {
+    fn get_downstream_mining_data(&self) -> messages_sv2::handlers::MiningDownstreamData {
+        messages_sv2::handlers::MiningDownstreamData {
+            id: 0,
+            header_only: false,
+            work_selection: false,
+            version_rolling: false,
+        }
+    }
+}
+
+impl ParseDownstreamMiningMessages<(), NullSelector> for Downstream {
     fn get_channel_type(&self) -> ChannelType {
         ChannelType::Group
     }
@@ -260,12 +247,12 @@ impl UpstreamMining<(), Selector> for Downstream {
     fn handle_open_standard_mining_channel(
         &mut self,
         incoming: messages_sv2::handlers::mining::OpenStandardMiningChannel,
+        _m: Option<Arc<MyMutex<()>>>,
     ) -> Result<SendTo<()>, messages_sv2::Error> {
         let request_id = incoming.request_id;
         let message = match (self.is_header_only, self.group_id) {
             (false, Some(group_channel_id)) => {
-                let mut channel_id_generator = self.channel_id_generator.lock().unwrap();
-                let channel_id = channel_id_generator.next();
+                let channel_id = self.channel_id_generator.safe_lock(|x| x.next()).unwrap();
                 self.channels_id.push(channel_id);
                 println!(
                     "POOL: channel opened: channel id is {}, group id is {}, request id is {}",
@@ -280,10 +267,8 @@ impl UpstreamMining<(), Selector> for Downstream {
                 }
             }
             (false, None) => {
-                let mut channel_id_generator = self.channel_id_generator.lock().unwrap();
-                let mut group_id_generator = self.group_id_generator.lock().unwrap();
-                let channel_id = channel_id_generator.next();
-                let group_channel_id = group_id_generator.next();
+                let channel_id = self.channel_id_generator.safe_lock(|x| x.next()).unwrap();
+                let group_channel_id = self.group_id_generator.safe_lock(|x| x.next()).unwrap();
                 self.channels_id.push(channel_id);
                 self.group_id = Some(group_channel_id);
                 println!("POOL: created group channel with id: {}", group_channel_id);
