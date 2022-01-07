@@ -2,6 +2,7 @@ use async_std::net::TcpStream;
 use async_std::task;
 use network_helpers::PlainConnection;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::sync::Arc;
 
 async fn connect(address: SocketAddr) {
     let stream = TcpStream::connect(address).await.unwrap();
@@ -22,15 +23,21 @@ async fn main() {
 use async_channel::{Receiver, Sender};
 use binary_sv2::u256_from_int;
 use codec_sv2::{Frame, StandardEitherFrame, StandardSv2Frame};
-use messages_sv2::handlers::common::{
-    ParseUpstreamCommonMessages, Protocol, SetupConnection, SetupConnectionSuccess,
-};
+use messages_sv2::handlers::common::
+    ParseUpstreamCommonMessages
+;
 use messages_sv2::handlers::mining::{
-    ChannelType, IsUpstream, OpenStandardMiningChannel, OpenStandardMiningChannelSuccess,
+    ChannelType,
     ParseUpstreamMiningMessages, SendTo,
 };
-use messages_sv2::handlers::{Mutex, NoRoutingLogic, NullSelector};
-use messages_sv2::{Mining, MiningDeviceMessages};
+use messages_sv2::parsers::{Mining, MiningDeviceMessages};
+use messages_sv2::common_messages_sv2::{Protocol,SetupConnection,SetupConnectionSuccess};
+use messages_sv2::mining_sv2::*;
+use messages_sv2::common_properties::{IsUpstream,IsMiningUpstream};
+use messages_sv2::utils::Mutex;
+use messages_sv2::routing_logic::{MiningRoutingLogic,NoRouting,CommonRoutingLogic};
+use messages_sv2::selectors::NullDownstreamMiningSelector;
+use messages_sv2::errors::Error;
 
 pub type Message = MiningDeviceMessages<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;
@@ -63,7 +70,7 @@ impl SetupConnectionHandler {
         }
     }
     pub async fn setup(
-        &mut self,
+        self_: Arc<Mutex<Self>>,
         receiver: &mut Receiver<EitherFrame>,
         sender: &mut Sender<EitherFrame>,
         address: SocketAddr,
@@ -79,30 +86,27 @@ impl SetupConnectionHandler {
         let mut incoming: StdFrame = receiver.recv().await.unwrap().try_into().unwrap();
         let message_type = incoming.get_header().unwrap().msg_type();
         let payload = incoming.payload();
-        self.handle_message_common(message_type, payload).unwrap();
+        ParseUpstreamCommonMessages::handle_message_common(self_, message_type, payload,CommonRoutingLogic::None).unwrap();
     }
 }
 
-impl ParseUpstreamCommonMessages for SetupConnectionHandler {
+impl ParseUpstreamCommonMessages<NoRouting> for SetupConnectionHandler {
     fn handle_setup_connection_success(
         &mut self,
         _: SetupConnectionSuccess,
-    ) -> Result<messages_sv2::handlers::common::SendTo, messages_sv2::Error> {
+    ) -> Result<messages_sv2::handlers::common::SendTo, messages_sv2::errors::Error> {
         use messages_sv2::handlers::common::SendTo;
         Ok(SendTo::None)
     }
 
-    fn handle_setup_connection_error(
-        &mut self,
-        _: messages_sv2::handlers::common::SetupConnectionError,
-    ) -> Result<messages_sv2::handlers::common::SendTo, messages_sv2::Error> {
+    fn handle_setup_connection_error(&mut self, _: messages_sv2::common_messages_sv2::SetupConnectionError) -> Result<messages_sv2::handlers::common::SendTo, messages_sv2::errors::Error> {
         todo!()
     }
 
     fn handle_channel_endpoint_changed(
         &mut self,
-        _: messages_sv2::handlers::common::ChannelEndpointChanged,
-    ) -> Result<messages_sv2::handlers::common::SendTo, messages_sv2::Error> {
+        _: messages_sv2::common_messages_sv2::ChannelEndpointChanged,
+    ) -> Result<messages_sv2::handlers::common::SendTo, messages_sv2::errors::Error> {
         todo!()
     }
 }
@@ -133,9 +137,8 @@ impl Device {
         mut sender: Sender<EitherFrame>,
         addr: SocketAddr,
     ) {
-        SetupConnectionHandler::new()
-            .setup(&mut receiver, &mut sender, addr)
-            .await;
+        let setup_connection_handler = Arc::new(Mutex::new(SetupConnectionHandler::new()));
+        SetupConnectionHandler::setup(setup_connection_handler,&mut receiver, &mut sender, addr).await;
         let self_ = Self {
             channel_opened: false,
             receiver: receiver.clone(),
@@ -150,11 +153,11 @@ impl Device {
             let mut incoming: StdFrame = receiver.recv().await.unwrap().try_into().unwrap();
             let message_type = incoming.get_header().unwrap().msg_type();
             let payload = incoming.payload();
-            let next = Device::handle_message(
+            let next = Device::handle_message_mining(
                 self_mutex.clone(),
                 message_type,
                 payload,
-                NoRoutingLogic::new(),
+                MiningRoutingLogic::None,
             )
             .unwrap();
             match next {
@@ -170,7 +173,7 @@ impl Device {
     }
 }
 
-impl IsUpstream<(), NullSelector> for Device {
+impl IsUpstream<(), NullDownstreamMiningSelector> for Device {
     fn get_version(&self) -> u16 {
         todo!()
     }
@@ -179,7 +182,7 @@ impl IsUpstream<(), NullSelector> for Device {
         todo!()
     }
 
-    fn get_supported_protocols(&self) -> Vec<messages_sv2::handlers::common::Protocol> {
+    fn get_supported_protocols(&self) -> Vec<Protocol> {
         todo!()
     }
 
@@ -187,6 +190,17 @@ impl IsUpstream<(), NullSelector> for Device {
         todo!()
     }
 
+    fn get_mapper(&mut self) -> Option<&mut messages_sv2::common_properties::RequestIdMapper> {
+        todo!()
+    }
+
+    fn get_remote_selector(&mut self) -> &mut NullDownstreamMiningSelector {
+        todo!()
+    }
+
+}
+
+impl IsMiningUpstream<(),NullDownstreamMiningSelector> for Device {
     fn total_hash_rate(&self) -> u64 {
         todo!()
     }
@@ -194,17 +208,9 @@ impl IsUpstream<(), NullSelector> for Device {
     fn add_hash_rate(&mut self, _to_add: u64) {
         todo!()
     }
-
-    fn get_mapper(&mut self) -> &mut messages_sv2::handlers::RequestIdMapper {
-        todo!()
-    }
-
-    fn get_remote_selector(&mut self) -> &mut NullSelector {
-        todo!()
-    }
 }
 
-impl ParseUpstreamMiningMessages<(), NullSelector> for Device {
+impl ParseUpstreamMiningMessages<(), NullDownstreamMiningSelector,NoRouting> for Device {
     fn get_channel_type(&self) -> ChannelType {
         ChannelType::Standard
     }
@@ -217,7 +223,7 @@ impl ParseUpstreamMiningMessages<(), NullSelector> for Device {
         &mut self,
         m: OpenStandardMiningChannelSuccess,
         _: Option<std::sync::Arc<Mutex<()>>>,
-    ) -> Result<SendTo<()>, messages_sv2::Error> {
+    ) -> Result<SendTo<()>, Error> {
         self.channel_opened = true;
         println!(
             "MINING DEVICE: channel opened with: group id {}, channel id {}, request id {}",
@@ -228,99 +234,99 @@ impl ParseUpstreamMiningMessages<(), NullSelector> for Device {
 
     fn handle_open_extended_mining_channel_success(
         &mut self,
-        _: messages_sv2::handlers::mining::OpenExtendedMiningChannelSuccess,
-    ) -> Result<SendTo<()>, messages_sv2::Error> {
+        _: OpenExtendedMiningChannelSuccess,
+    ) -> Result<SendTo<()>, Error> {
         unreachable!()
     }
 
     fn handle_open_mining_channel_error(
         &mut self,
-        _: messages_sv2::handlers::mining::OpenMiningChannelError,
-    ) -> Result<SendTo<()>, messages_sv2::Error> {
+        _: OpenMiningChannelError,
+    ) -> Result<SendTo<()>, Error> {
         todo!()
     }
 
     fn handle_update_channel_error(
         &mut self,
-        _: messages_sv2::handlers::mining::UpdateChannelError,
-    ) -> Result<SendTo<()>, messages_sv2::Error> {
+        _: UpdateChannelError,
+    ) -> Result<SendTo<()>, Error> {
         todo!()
     }
 
     fn handle_close_channel(
         &mut self,
-        _: messages_sv2::handlers::mining::CloseChannel,
-    ) -> Result<SendTo<()>, messages_sv2::Error> {
+        _: CloseChannel,
+    ) -> Result<SendTo<()>, Error> {
         todo!()
     }
 
     fn handle_set_extranonce_prefix(
         &mut self,
-        _: messages_sv2::handlers::mining::SetExtranoncePrefix,
-    ) -> Result<SendTo<()>, messages_sv2::Error> {
+        _: SetExtranoncePrefix,
+    ) -> Result<SendTo<()>, Error> {
         todo!()
     }
 
     fn handle_submit_shares_success(
         &mut self,
-        _: messages_sv2::handlers::mining::SubmitSharesSuccess,
-    ) -> Result<SendTo<()>, messages_sv2::Error> {
+        _: SubmitSharesSuccess,
+    ) -> Result<SendTo<()>, Error> {
         todo!()
     }
 
     fn handle_submit_shares_error(
         &mut self,
-        _: messages_sv2::handlers::mining::SubmitSharesError,
-    ) -> Result<SendTo<()>, messages_sv2::Error> {
+        _: SubmitSharesError,
+    ) -> Result<SendTo<()>, Error> {
         todo!()
     }
 
     fn handle_new_mining_job(
         &mut self,
-        _: messages_sv2::handlers::mining::NewMiningJob,
-    ) -> Result<SendTo<()>, messages_sv2::Error> {
+        _: NewMiningJob,
+    ) -> Result<SendTo<()>, Error> {
         todo!()
     }
 
     fn handle_new_extended_mining_job(
         &mut self,
-        _: messages_sv2::handlers::mining::NewExtendedMiningJob,
-    ) -> Result<SendTo<()>, messages_sv2::Error> {
+        _: NewExtendedMiningJob,
+    ) -> Result<SendTo<()>, Error> {
         todo!()
     }
 
     fn handle_set_new_prev_hash(
         &mut self,
-        _: messages_sv2::handlers::mining::SetNewPrevHash,
-    ) -> Result<SendTo<()>, messages_sv2::Error> {
+        _: SetNewPrevHash,
+    ) -> Result<SendTo<()>, Error> {
         todo!()
     }
 
     fn handle_set_custom_mining_job_success(
         &mut self,
-        _: messages_sv2::handlers::mining::SetCustomMiningJobSuccess,
-    ) -> Result<SendTo<()>, messages_sv2::Error> {
+        _: SetCustomMiningJobSuccess,
+    ) -> Result<SendTo<()>, Error> {
         todo!()
     }
 
     fn handle_set_custom_mining_job_error(
         &mut self,
-        _: messages_sv2::handlers::mining::SetCustomMiningJobError,
-    ) -> Result<SendTo<()>, messages_sv2::Error> {
+        _: SetCustomMiningJobError,
+    ) -> Result<SendTo<()>, Error> {
         todo!()
     }
 
     fn handle_set_target(
         &mut self,
-        _: messages_sv2::handlers::mining::SetTarget,
-    ) -> Result<SendTo<()>, messages_sv2::Error> {
+        _: SetTarget,
+    ) -> Result<SendTo<()>, Error> {
         todo!()
     }
 
     fn handle_reconnect(
         &mut self,
-        _: messages_sv2::handlers::mining::Reconnect,
-    ) -> Result<SendTo<()>, messages_sv2::Error> {
+        _: Reconnect,
+    ) -> Result<SendTo<()>, Error> {
         todo!()
     }
 }

@@ -35,11 +35,12 @@ use std::str::FromStr;
 // TODO make them configurable via flags or config file
 pub const MAX_SUPPORTED_VERSION: u16 = 2;
 pub const MIN_SUPPORTED_VERSION: u16 = 2;
-pub use messages_sv2::handlers::{Id, ProxyRemoteSelector, ProxyRoutingLogic};
-pub use messages_sv2::Mutex;
+use messages_sv2::utils::{Id,Mutex};
+use messages_sv2::selectors::GeneralMiningSelector;
+use messages_sv2::routing_logic::MiningProxyRoutingLogic;
 use std::sync::Arc;
 
-type RLogic = ProxyRoutingLogic<
+type RLogic = MiningProxyRoutingLogic<
     crate::lib::downstream_mining::DownstreamMiningNode,
     crate::lib::upstream_mining::UpstreamMiningNode,
     crate::lib::upstream_mining::ProxyRemoteSelector,
@@ -67,8 +68,6 @@ pub struct Config {
     listen_address: String,
     listen_mining_port: u16,
 }
-
-use messages_sv2::handlers::UpstreamSelector;
 
 /// 1. the proxy scan all the upstreams and map them
 /// 2. donwstream open a connetcion with proxy
@@ -100,8 +99,8 @@ async fn main() {
         })
         .collect();
     crate::lib::upstream_mining::scan(upstream_mining_nodes.clone()).await;
-    let upstream_selector = UpstreamSelector::new(upstream_mining_nodes);
-    let routing_logic = ProxyRoutingLogic {
+    let upstream_selector = GeneralMiningSelector::new(upstream_mining_nodes);
+    let routing_logic = MiningProxyRoutingLogic {
         upstream_selector,
         downstream_id_generator: Id::new(),
         downstream_to_upstream_map: std::collections::HashMap::new(),

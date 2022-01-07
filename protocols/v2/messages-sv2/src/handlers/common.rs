@@ -1,37 +1,37 @@
 use super::SendTo_;
-pub use crate::CommonMessages;
-use crate::Error;
-pub use common_messages_sv2::{
-    ChannelEndpointChanged, Protocol, SetupConnection, SetupConnectionError, SetupConnectionSuccess,
+use crate::common_properties::CommonDownstreamData;
+use crate::errors::Error;
+use crate::parsers::CommonMessages;
+use crate::routing_logic::{CommonRouter, CommonRoutingLogic};
+use crate::utils::Mutex;
+use common_messages_sv2::{
+    ChannelEndpointChanged, SetupConnection, SetupConnectionError, SetupConnectionSuccess,
 };
 use core::convert::TryInto;
+use std::sync::Arc;
+
 pub type SendTo = SendTo_<CommonMessages<'static>, ()>;
 
-/// DownstreamCommon should be implemented by:
-/// * mining device: is a downstream for a proxy or for a pool
-/// * proxy: is a downstram for a proxy or for a pool or for a template provider
-///
-/// ## Example:
-/// ```txt
-/// downstream -> \                / -> proxy downstreamcommoin \ _ pool 1
-/// downstream ->  > proxy server  > -> proxy downstreamcommoin /
-/// downstream -> /                \ -> proxy downstreamcommoin  -> pool 2
-/// ```
-///
-pub trait ParseUpstreamCommonMessages {
+pub trait ParseUpstreamCommonMessages<Router: CommonRouter>
+where
+    Self: Sized,
+{
     fn handle_message_common(
-        &mut self,
+        self_: Arc<Mutex<Self>>,
         message_type: u8,
         payload: &mut [u8],
+        _routing_logic: CommonRoutingLogic<Router>,
     ) -> Result<SendTo, Error> {
         match (message_type, payload).try_into() {
-            Ok(CommonMessages::SetupConnectionSuccess(m)) => {
-                self.handle_setup_connection_success(m)
-            }
-            Ok(CommonMessages::SetupConnectionError(m)) => self.handle_setup_connection_error(m),
-            Ok(CommonMessages::ChannelEndpointChanged(m)) => {
-                self.handle_channel_endpoint_changed(m)
-            }
+            Ok(CommonMessages::SetupConnectionSuccess(m)) => self_
+                .safe_lock(|x| x.handle_setup_connection_success(m))
+                .unwrap(),
+            Ok(CommonMessages::SetupConnectionError(m)) => self_
+                .safe_lock(|x| x.handle_setup_connection_error(m))
+                .unwrap(),
+            Ok(CommonMessages::ChannelEndpointChanged(m)) => self_
+                .safe_lock(|x| x.handle_channel_endpoint_changed(m))
+                .unwrap(),
             Ok(CommonMessages::SetupConnection(_)) => Err(Error::UnexpectedMessage),
             Err(e) => Err(e),
         }
@@ -50,12 +50,10 @@ pub trait ParseUpstreamCommonMessages {
     ) -> Result<SendTo, Error>;
 }
 
-/// UpstreamCommon should be implemented by:
-/// * proxy: is an upstream for mining devices and other proxies
-/// * pool: is an upstream for proxies and mining devices
-/// * template provider: is an upstream for proxies
-///
-pub trait ParseDownstreamCommonMessages {
+pub trait ParseDownstreamCommonMessages<Router: CommonRouter>
+where
+    Self: Sized,
+{
     fn parse_message(message_type: u8, payload: &mut [u8]) -> Result<SetupConnection, Error> {
         match (message_type, payload).try_into() {
             Ok(CommonMessages::SetupConnection(m)) => Ok(m),
@@ -67,12 +65,25 @@ pub trait ParseDownstreamCommonMessages {
     }
 
     fn handle_message_common(
-        &mut self,
+        self_: Arc<Mutex<Self>>,
         message_type: u8,
         payload: &mut [u8],
+        routing_logic: CommonRoutingLogic<Router>,
     ) -> Result<SendTo, Error> {
         match (message_type, payload).try_into() {
-            Ok(CommonMessages::SetupConnection(m)) => self.handle_setup_connection(m),
+            Ok(CommonMessages::SetupConnection(m)) => match routing_logic {
+                CommonRoutingLogic::Proxy(r_logic) => {
+                    let result = r_logic
+                        .safe_lock(|r_logic| r_logic.on_setup_connection(&m))
+                        .unwrap();
+                    self_
+                        .safe_lock(|x| x.handle_setup_connection(m, Some(result)))
+                        .unwrap()
+                }
+                CommonRoutingLogic::None => self_
+                    .safe_lock(|x| x.handle_setup_connection(m, None))
+                    .unwrap(),
+            },
             Ok(CommonMessages::SetupConnectionSuccess(_)) => Err(Error::UnexpectedMessage),
             Ok(CommonMessages::SetupConnectionError(_)) => Err(Error::UnexpectedMessage),
             Ok(CommonMessages::ChannelEndpointChanged(_)) => Err(Error::UnexpectedMessage),
@@ -80,5 +91,9 @@ pub trait ParseDownstreamCommonMessages {
         }
     }
 
-    fn handle_setup_connection(&mut self, m: SetupConnection) -> Result<SendTo, Error>;
+    fn handle_setup_connection(
+        &mut self,
+        m: SetupConnection,
+        result: Option<Result<(CommonDownstreamData, SetupConnectionSuccess), Error>>,
+    ) -> Result<SendTo, Error>;
 }

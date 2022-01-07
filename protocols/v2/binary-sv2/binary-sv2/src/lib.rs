@@ -16,6 +16,7 @@ pub fn clone_message<T: Serialize>(_: T) -> T {
     todo!()
 }
 
+#[cfg(not(feature = "with_serde"))]
 pub fn u256_from_int<V: Into<u64>>(value: V) -> U256<'static> {
     let mut u256 = vec![0_u8; 24];
     let val: u64 = value.into();
