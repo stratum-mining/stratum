@@ -11,14 +11,16 @@ use std::sync::Arc;
 #[derive(Debug, Clone, Default)]
 pub struct ProxyDownstreamMiningSelector<Down: IsDownstream> {
     request_id_to_remotes: HashMap<u32, Arc<Mutex<Down>>>,
-    group_channel_id_to_downstreams: HashMap<u32, Vec<Arc<Mutex<Down>>>>,
+    channel_id_to_downstreams: HashMap<u32, Vec<Arc<Mutex<Down>>>>,
+    channel_id_to_downstream: HashMap<u32, Arc<Mutex<Down>>>,
 }
 
 impl<Down: IsDownstream> ProxyDownstreamMiningSelector<Down> {
     pub fn new() -> Self {
         Self {
             request_id_to_remotes: HashMap::new(),
-            group_channel_id_to_downstreams: HashMap::new(),
+            channel_id_to_downstreams: HashMap::new(),
+            channel_id_to_downstream: HashMap::new(),
         }
     }
     pub fn new_as_mutex() -> Arc<Mutex<Self>>
@@ -40,11 +42,14 @@ impl<Down: IsMiningDownstream> DownstreamMiningSelector<Down>
         &mut self,
         request_id: u32,
         g_channel_id: u32,
+        channel_id: u32,
     ) -> Arc<Mutex<Down>> {
         let downstream = self.request_id_to_remotes.remove(&request_id).unwrap();
-        match self.group_channel_id_to_downstreams.get_mut(&g_channel_id) {
+        self.channel_id_to_downstream
+            .insert(channel_id, downstream.clone());
+        match self.channel_id_to_downstreams.get_mut(&g_channel_id) {
             None => {
-                self.group_channel_id_to_downstreams
+                self.channel_id_to_downstreams
                     .insert(g_channel_id, vec![downstream.clone()]);
             }
             Some(x) => x.push(downstream.clone()),
@@ -52,12 +57,16 @@ impl<Down: IsMiningDownstream> DownstreamMiningSelector<Down>
         downstream
     }
 
-    fn get_downstreams_in_channel(&self, _channel_id: u32) -> Vec<Arc<Mutex<Down>>> {
-        todo!()
+    fn get_downstreams_in_channel(&self, channel_id: u32) -> &Vec<Arc<Mutex<Down>>> {
+        self.channel_id_to_downstreams.get(&channel_id).unwrap()
     }
 
     fn remote_from_request_id(&mut self, _request_id: u32) -> Arc<Mutex<Down>> {
         todo!()
+    }
+
+    fn downstream_from_channel_id(&self, channel_id: u32) -> Option<Arc<Mutex<Down>>> {
+        self.channel_id_to_downstream.get(&channel_id).cloned()
     }
 }
 
@@ -78,9 +87,15 @@ pub trait DownstreamMiningSelector<Downstream: IsMiningDownstream>:
         &mut self,
         request_id: u32,
         g_channel_id: u32,
+        channel_id: u32,
     ) -> Arc<Mutex<Downstream>>;
 
-    fn get_downstreams_in_channel(&self, channel_id: u32) -> Vec<Arc<Mutex<Downstream>>>;
+    // group / standard naming is terrible channel_id in this case can be  either the channel_id
+    // or the group_channel_id
+    fn get_downstreams_in_channel(&self, channel_id: u32) -> &Vec<Arc<Mutex<Downstream>>>;
+
+    // only for standard
+    fn downstream_from_channel_id(&self, channel_id: u32) -> Option<Arc<Mutex<Downstream>>>;
 
     fn remote_from_request_id(&mut self, request_id: u32) -> Arc<Mutex<Downstream>>;
 }
@@ -118,16 +133,21 @@ impl<Down: IsMiningDownstream + D> DownstreamMiningSelector<Down> for NullDownst
         &mut self,
         _request_id: u32,
         _channel_id: u32,
+        _channel_id_2: u32,
     ) -> Arc<Mutex<Down>> {
         unreachable!("on_open_standard_channel_success")
     }
 
-    fn get_downstreams_in_channel(&self, _channel_id: u32) -> Vec<Arc<Mutex<Down>>> {
+    fn get_downstreams_in_channel(&self, _channel_id: u32) -> &Vec<Arc<Mutex<Down>>> {
         unreachable!("get_downstreams_in_channel")
     }
 
     fn remote_from_request_id(&mut self, _request_id: u32) -> Arc<Mutex<Down>> {
         unreachable!("remote_from_request_id")
+    }
+
+    fn downstream_from_channel_id(&self, _channel_id: u32) -> Option<Arc<Mutex<Down>>> {
+        unreachable!("downstream_from_channel_id")
     }
 }
 
@@ -135,7 +155,19 @@ impl<Down: IsDownstream + D> DownstreamSelector<Down> for NullDownstreamMiningSe
 
 pub trait UpstreamSelector {}
 
-pub trait UpstreamMiningSelctor: UpstreamSelector {}
+pub trait UpstreamMiningSelctor<
+    Down: IsMiningDownstream,
+    Up: IsMiningUpstream<Down, Sel>,
+    Sel: DownstreamMiningSelector<Down>,
+>: UpstreamSelector
+{
+    #[allow(clippy::type_complexity)]
+    fn on_setup_connection(
+        &mut self,
+        pair_settings: &PairSettings,
+    ) -> Result<(Vec<Arc<Mutex<Up>>>, u32), Error>;
+    fn get_upstream(&self, upstream_id: u32) -> Option<Arc<Mutex<Up>>>;
+}
 
 /// Upstream selector is used to chose between a set of known mining upstream nodes which one/ones
 /// can accept messages from a specific mining downstream node
@@ -146,6 +178,7 @@ pub struct GeneralMiningSelector<
     Up: IsMiningUpstream<Down, Sel>,
 > {
     upstreams: Vec<Arc<Mutex<Up>>>,
+    id_to_upstream: HashMap<u32, Arc<Mutex<Up>>>,
     sel: std::marker::PhantomData<Sel>,
     down: std::marker::PhantomData<Down>,
 }
@@ -156,10 +189,37 @@ impl<
         Down: IsMiningDownstream,
     > GeneralMiningSelector<Sel, Down, Up>
 {
+    pub fn new(upstreams: Vec<Arc<Mutex<Up>>>) -> Self {
+        let mut id_to_upstream = HashMap::new();
+        for up in &upstreams {
+            id_to_upstream.insert(up.safe_lock(|u| u.get_id()).unwrap(), up.clone());
+        }
+        Self {
+            upstreams,
+            id_to_upstream,
+            sel: std::marker::PhantomData,
+            down: std::marker::PhantomData,
+        }
+    }
+}
+impl<
+        Sel: DownstreamMiningSelector<Down>,
+        Down: IsMiningDownstream,
+        Up: IsMiningUpstream<Down, Sel>,
+    > UpstreamSelector for GeneralMiningSelector<Sel, Down, Up>
+{
+}
+
+impl<
+        Sel: DownstreamMiningSelector<Down>,
+        Down: IsMiningDownstream,
+        Up: IsMiningUpstream<Down, Sel>,
+    > UpstreamMiningSelctor<Down, Up, Sel> for GeneralMiningSelector<Sel, Down, Up>
+{
     /// Return the set of mining upstream nodes that can accept messages from a downstream withe
     /// the passed PairSettings and the sum of all the accepted flags
     #[allow(clippy::type_complexity)]
-    pub fn on_setup_connection(
+    fn on_setup_connection(
         &mut self,
         pair_settings: &PairSettings,
     ) -> Result<(Vec<Arc<Mutex<Up>>>, u32), Error> {
@@ -183,26 +243,7 @@ impl<
         Err(Error::NoPairableUpstream((2, 2, 0)))
     }
 
-    pub fn new(upstreams: Vec<Arc<Mutex<Up>>>) -> Self {
-        Self {
-            upstreams,
-            sel: std::marker::PhantomData,
-            down: std::marker::PhantomData,
-        }
+    fn get_upstream(&self, upstream_id: u32) -> Option<Arc<Mutex<Up>>> {
+        self.id_to_upstream.get(&upstream_id).cloned()
     }
-}
-impl<
-        Sel: DownstreamMiningSelector<Down>,
-        Down: IsMiningDownstream,
-        Up: IsMiningUpstream<Down, Sel>,
-    > UpstreamSelector for GeneralMiningSelector<Sel, Down, Up>
-{
-}
-
-impl<
-        Sel: DownstreamMiningSelector<Down>,
-        Down: IsMiningDownstream,
-        Up: IsMiningUpstream<Down, Sel>,
-    > UpstreamMiningSelctor for GeneralMiningSelector<Sel, Down, Up>
-{
 }

@@ -35,9 +35,10 @@ use std::str::FromStr;
 // TODO make them configurable via flags or config file
 pub const MAX_SUPPORTED_VERSION: u16 = 2;
 pub const MIN_SUPPORTED_VERSION: u16 = 2;
-use messages_sv2::utils::{Id,Mutex};
-use messages_sv2::selectors::GeneralMiningSelector;
 use messages_sv2::routing_logic::MiningProxyRoutingLogic;
+use messages_sv2::selectors::{GeneralMiningSelector, UpstreamMiningSelctor};
+use messages_sv2::utils::{Id, Mutex};
+use std::collections::HashMap;
 use std::sync::Arc;
 
 type RLogic = MiningProxyRoutingLogic<
@@ -47,11 +48,36 @@ type RLogic = MiningProxyRoutingLogic<
 >;
 
 static mut ROUTING_LOGIC: Option<Arc<Mutex<RLogic>>> = None;
+static mut JOB_ID_TO_UPSTREAM_ID: Option<Arc<Mutex<HashMap<u32, u32>>>> = None;
 
 pub fn get_routing_logic() -> Arc<Mutex<RLogic>> {
     unsafe {
         let cloned = ROUTING_LOGIC.clone();
         cloned.unwrap()
+    }
+}
+
+pub fn upstream_from_job_id(job_id: u32) -> Option<Arc<Mutex<UpstreamMiningNode>>> {
+    let upstream_id: u32;
+    unsafe {
+        upstream_id = JOB_ID_TO_UPSTREAM_ID
+            .clone()
+            .unwrap()
+            .safe_lock(|x| x.remove(&job_id).unwrap())
+            .unwrap();
+    }
+    get_routing_logic()
+        .safe_lock(|r| r.upstream_selector.get_upstream(upstream_id))
+        .unwrap()
+}
+
+pub fn add_job_id(job_id: u32, up_id: u32) {
+    unsafe {
+        JOB_ID_TO_UPSTREAM_ID
+            .clone()
+            .unwrap()
+            .safe_lock(|x| x.insert(job_id, up_id))
+            .unwrap();
     }
 }
 
@@ -85,6 +111,7 @@ async fn main() {
     let config_file = std::fs::read_to_string("proxy-config.toml").unwrap();
     let config: Config = toml::from_str(&config_file).unwrap();
     let upstreams = config.upstreams;
+    let job_ids = Arc::new(Mutex::new(Id::new()));
     let upstream_mining_nodes: Vec<Arc<Mutex<UpstreamMiningNode>>> = upstreams
         .iter()
         .enumerate()
@@ -95,6 +122,7 @@ async fn main() {
                 index as u32,
                 socket,
                 upstream.pub_key,
+                job_ids.clone(),
             )))
         })
         .collect();

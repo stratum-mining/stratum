@@ -1069,6 +1069,22 @@ impl<'a> From<SetupConnectionError<'a>> for CommonMessages<'a> {
     }
 }
 
+impl<'a> From<OpenStandardMiningChannel<'a>> for Mining<'a> {
+    fn from(v: OpenStandardMiningChannel<'a>) -> Self {
+        Mining::OpenStandardMiningChannel(v)
+    }
+}
+impl<'a> From<UpdateChannel<'a>> for Mining<'a> {
+    fn from(v: UpdateChannel<'a>) -> Self {
+        Mining::UpdateChannel(v)
+    }
+}
+impl<'a> From<OpenStandardMiningChannelSuccess<'a>> for Mining<'a> {
+    fn from(v: OpenStandardMiningChannelSuccess<'a>) -> Self {
+        Mining::OpenStandardMiningChannelSuccess(v)
+    }
+}
+
 impl<'a, T: Into<CommonMessages<'a>>> From<T> for PoolMessages<'a> {
     fn from(v: T) -> Self {
         PoolMessages::Common(v.into())

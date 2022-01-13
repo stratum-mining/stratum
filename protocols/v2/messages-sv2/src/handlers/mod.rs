@@ -28,26 +28,35 @@ use std::sync::Arc;
 /// ...)
 /// Remote is wathever type the implementor use to represent remote connection
 pub enum SendTo_<SubProtocol, Remote> {
-    Upstream(SubProtocol),
-    Downstream(SubProtocol),
-    Relay(Vec<Arc<Mutex<Remote>>>),
+    /// Used by proxyies to realy messages. It allocate a new message.
+    RelayNewMessage(Arc<Mutex<Remote>>, SubProtocol),
+    /// Used by proxyies to relay messages. It do not allocate a new message and use the received
+    /// one.
+    RelaySameMessage(Arc<Mutex<Remote>>),
+    /// Used by proxyies and other roles to directly respond.
+    Respond(SubProtocol),
+    /// Used when multiple type of SendTo are needed
+    Multiple(Vec<SendTo_<SubProtocol, Remote>>),
+    /// Used by proxyies and other roles when no messages need to be sent.
     None,
 }
 
 impl<SubProtocol, Remote> SendTo_<SubProtocol, Remote> {
     pub fn into_message(self) -> Option<SubProtocol> {
         match self {
-            Self::Upstream(t) => Some(t),
-            Self::Downstream(t) => Some(t),
-            Self::Relay(_) => None,
+            Self::RelayNewMessage(_, m) => Some(m),
+            Self::RelaySameMessage(_) => None,
+            Self::Respond(m) => Some(m),
+            Self::Multiple(_) => None,
             Self::None => None,
         }
     }
-    pub fn into_remote(self) -> Option<Vec<Arc<Mutex<Remote>>>> {
+    pub fn into_remote(self) -> Option<Arc<Mutex<Remote>>> {
         match self {
-            Self::Upstream(_) => None,
-            Self::Downstream(_) => None,
-            Self::Relay(t) => Some(t),
+            Self::RelayNewMessage(r, _) => Some(r),
+            Self::RelaySameMessage(r) => Some(r),
+            Self::Respond(_) => None,
+            Self::Multiple(_) => None,
             Self::None => None,
         }
     }

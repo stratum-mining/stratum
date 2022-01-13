@@ -32,7 +32,9 @@
 //! downstream/upstrem realy/send they use selectors in order to do that.
 pub mod common_properties;
 pub mod errors;
+pub mod group_channel_logic;
 pub mod handlers;
+pub mod job_dispatcher;
 pub mod parsers;
 pub mod routing_logic;
 pub mod selectors;

@@ -23,21 +23,16 @@ async fn main() {
 use async_channel::{Receiver, Sender};
 use binary_sv2::u256_from_int;
 use codec_sv2::{Frame, StandardEitherFrame, StandardSv2Frame};
-use messages_sv2::handlers::common::
-    ParseUpstreamCommonMessages
-;
-use messages_sv2::handlers::mining::{
-    ChannelType,
-    ParseUpstreamMiningMessages, SendTo,
-};
-use messages_sv2::parsers::{Mining, MiningDeviceMessages};
-use messages_sv2::common_messages_sv2::{Protocol,SetupConnection,SetupConnectionSuccess};
-use messages_sv2::mining_sv2::*;
-use messages_sv2::common_properties::{IsUpstream,IsMiningUpstream};
-use messages_sv2::utils::Mutex;
-use messages_sv2::routing_logic::{MiningRoutingLogic,NoRouting,CommonRoutingLogic};
-use messages_sv2::selectors::NullDownstreamMiningSelector;
+use messages_sv2::common_messages_sv2::{Protocol, SetupConnection, SetupConnectionSuccess};
+use messages_sv2::common_properties::{IsMiningUpstream, IsUpstream};
 use messages_sv2::errors::Error;
+use messages_sv2::handlers::common::ParseUpstreamCommonMessages;
+use messages_sv2::handlers::mining::{ChannelType, ParseUpstreamMiningMessages, SendTo};
+use messages_sv2::mining_sv2::*;
+use messages_sv2::parsers::{Mining, MiningDeviceMessages};
+use messages_sv2::routing_logic::{CommonRoutingLogic, MiningRoutingLogic, NoRouting};
+use messages_sv2::selectors::NullDownstreamMiningSelector;
+use messages_sv2::utils::Mutex;
 
 pub type Message = MiningDeviceMessages<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;
@@ -60,7 +55,7 @@ impl SetupConnectionHandler {
             protocol: Protocol::MiningProtocol,
             min_version: 2,
             max_version: 2,
-            flags: 0b0000_0000_0000_0000_0000,
+            flags: 0b1000_0000_0000_0000_0000_0000_0000_0000,
             endpoint_host,
             endpoint_port: address.port(),
             vendor,
@@ -86,7 +81,13 @@ impl SetupConnectionHandler {
         let mut incoming: StdFrame = receiver.recv().await.unwrap().try_into().unwrap();
         let message_type = incoming.get_header().unwrap().msg_type();
         let payload = incoming.payload();
-        ParseUpstreamCommonMessages::handle_message_common(self_, message_type, payload,CommonRoutingLogic::None).unwrap();
+        ParseUpstreamCommonMessages::handle_message_common(
+            self_,
+            message_type,
+            payload,
+            CommonRoutingLogic::None,
+        )
+        .unwrap();
     }
 }
 
@@ -99,7 +100,10 @@ impl ParseUpstreamCommonMessages<NoRouting> for SetupConnectionHandler {
         Ok(SendTo::None)
     }
 
-    fn handle_setup_connection_error(&mut self, _: messages_sv2::common_messages_sv2::SetupConnectionError) -> Result<messages_sv2::handlers::common::SendTo, messages_sv2::errors::Error> {
+    fn handle_setup_connection_error(
+        &mut self,
+        _: messages_sv2::common_messages_sv2::SetupConnectionError,
+    ) -> Result<messages_sv2::handlers::common::SendTo, messages_sv2::errors::Error> {
         todo!()
     }
 
@@ -138,7 +142,8 @@ impl Device {
         addr: SocketAddr,
     ) {
         let setup_connection_handler = Arc::new(Mutex::new(SetupConnectionHandler::new()));
-        SetupConnectionHandler::setup(setup_connection_handler,&mut receiver, &mut sender, addr).await;
+        SetupConnectionHandler::setup(setup_connection_handler, &mut receiver, &mut sender, addr)
+            .await;
         let self_ = Self {
             channel_opened: false,
             receiver: receiver.clone(),
@@ -161,7 +166,7 @@ impl Device {
             )
             .unwrap();
             match next {
-                SendTo::Upstream(m) => {
+                SendTo::RelayNewMessage(_, m) => {
                     let sv2_frame: StdFrame = MiningDeviceMessages::Mining(m).try_into().unwrap();
                     let either_frame: EitherFrame = sv2_frame.into();
                     sender.send(either_frame).await.unwrap();
@@ -197,10 +202,9 @@ impl IsUpstream<(), NullDownstreamMiningSelector> for Device {
     fn get_remote_selector(&mut self) -> &mut NullDownstreamMiningSelector {
         todo!()
     }
-
 }
 
-impl IsMiningUpstream<(),NullDownstreamMiningSelector> for Device {
+impl IsMiningUpstream<(), NullDownstreamMiningSelector> for Device {
     fn total_hash_rate(&self) -> u64 {
         todo!()
     }
@@ -208,9 +212,18 @@ impl IsMiningUpstream<(),NullDownstreamMiningSelector> for Device {
     fn add_hash_rate(&mut self, _to_add: u64) {
         todo!()
     }
+    fn get_opened_channels(
+        &mut self,
+    ) -> &mut Vec<messages_sv2::common_properties::UpstreamChannel> {
+        todo!()
+    }
+
+    fn update_channels(&mut self, _: messages_sv2::common_properties::UpstreamChannel) {
+        todo!()
+    }
 }
 
-impl ParseUpstreamMiningMessages<(), NullDownstreamMiningSelector,NoRouting> for Device {
+impl ParseUpstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> for Device {
     fn get_channel_type(&self) -> ChannelType {
         ChannelType::Standard
     }
@@ -246,17 +259,11 @@ impl ParseUpstreamMiningMessages<(), NullDownstreamMiningSelector,NoRouting> for
         todo!()
     }
 
-    fn handle_update_channel_error(
-        &mut self,
-        _: UpdateChannelError,
-    ) -> Result<SendTo<()>, Error> {
+    fn handle_update_channel_error(&mut self, _: UpdateChannelError) -> Result<SendTo<()>, Error> {
         todo!()
     }
 
-    fn handle_close_channel(
-        &mut self,
-        _: CloseChannel,
-    ) -> Result<SendTo<()>, Error> {
+    fn handle_close_channel(&mut self, _: CloseChannel) -> Result<SendTo<()>, Error> {
         todo!()
     }
 
@@ -274,17 +281,11 @@ impl ParseUpstreamMiningMessages<(), NullDownstreamMiningSelector,NoRouting> for
         todo!()
     }
 
-    fn handle_submit_shares_error(
-        &mut self,
-        _: SubmitSharesError,
-    ) -> Result<SendTo<()>, Error> {
+    fn handle_submit_shares_error(&mut self, _: SubmitSharesError) -> Result<SendTo<()>, Error> {
         todo!()
     }
 
-    fn handle_new_mining_job(
-        &mut self,
-        _: NewMiningJob,
-    ) -> Result<SendTo<()>, Error> {
+    fn handle_new_mining_job(&mut self, _: NewMiningJob) -> Result<SendTo<()>, Error> {
         todo!()
     }
 
@@ -295,10 +296,7 @@ impl ParseUpstreamMiningMessages<(), NullDownstreamMiningSelector,NoRouting> for
         todo!()
     }
 
-    fn handle_set_new_prev_hash(
-        &mut self,
-        _: SetNewPrevHash,
-    ) -> Result<SendTo<()>, Error> {
+    fn handle_set_new_prev_hash(&mut self, _: SetNewPrevHash) -> Result<SendTo<()>, Error> {
         todo!()
     }
 
@@ -316,17 +314,11 @@ impl ParseUpstreamMiningMessages<(), NullDownstreamMiningSelector,NoRouting> for
         todo!()
     }
 
-    fn handle_set_target(
-        &mut self,
-        _: SetTarget,
-    ) -> Result<SendTo<()>, Error> {
+    fn handle_set_target(&mut self, _: SetTarget) -> Result<SendTo<()>, Error> {
         todo!()
     }
 
-    fn handle_reconnect(
-        &mut self,
-        _: Reconnect,
-    ) -> Result<SendTo<()>, Error> {
+    fn handle_reconnect(&mut self, _: Reconnect) -> Result<SendTo<()>, Error> {
         todo!()
     }
 }

@@ -16,9 +16,9 @@ use binary_sv2::{Deserialize, Serialize, Str032, U256};
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct UpdateChannel<'decoder> {
     /// Channel identification.
-    channel_id: u32,
+    pub channel_id: u32,
     /// See Open*Channel for details.
-    nominal_hash_rate: f32,
+    pub nominal_hash_rate: f32,
     /// Maximum target is changed by server by sending SetTarget. This
     /// field is understood as device’s request. There can be some delay
     /// between UpdateChannel and corresponding SetTarget messages,
@@ -27,7 +27,7 @@ pub struct UpdateChannel<'decoder> {
     /// When maximum_target is smaller than currently used maximum target for the channel,
     /// upstream node MUST reflect the client’s request (and send appropriate SetTarget message).
     #[cfg_attr(feature = "with_serde", serde(borrow))]
-    maximum_target: U256<'decoder>,
+    pub maximum_target: U256<'decoder>,
 }
 
 /// # Update.Error (Server -> Client)

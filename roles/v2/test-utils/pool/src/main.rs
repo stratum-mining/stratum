@@ -9,21 +9,18 @@ use async_channel::{Receiver, Sender};
 use async_std::sync::Arc;
 use binary_sv2::{u256_from_int, B032};
 use codec_sv2::{Frame, StandardEitherFrame, StandardSv2Frame};
-use messages_sv2::handlers::common::ParseDownstreamCommonMessages;
-use messages_sv2::handlers::mining::{
-    ChannelType,
-    ParseDownstreamMiningMessages, SendTo,
-};
-use messages_sv2::parsers::{CommonMessages,PoolMessages};
-use std::convert::TryInto;
-use messages_sv2::common_messages_sv2::{SetupConnection,SetupConnectionSuccess};
-use messages_sv2::common_properties::{CommonDownstreamData,IsDownstream, IsMiningDownstream};
-use messages_sv2::parsers::Mining;
-use messages_sv2::utils::Mutex;
-use messages_sv2::routing_logic::{CommonRoutingLogic,NoRouting,MiningRoutingLogic};
-use messages_sv2::selectors::NullDownstreamMiningSelector;
-use messages_sv2::mining_sv2::*;
+use messages_sv2::common_messages_sv2::{SetupConnection, SetupConnectionSuccess};
+use messages_sv2::common_properties::{CommonDownstreamData, IsDownstream, IsMiningDownstream};
 use messages_sv2::errors::Error;
+use messages_sv2::handlers::common::ParseDownstreamCommonMessages;
+use messages_sv2::handlers::mining::{ChannelType, ParseDownstreamMiningMessages, SendTo};
+use messages_sv2::mining_sv2::*;
+use messages_sv2::parsers::Mining;
+use messages_sv2::parsers::{CommonMessages, PoolMessages};
+use messages_sv2::routing_logic::{CommonRoutingLogic, MiningRoutingLogic, NoRouting};
+use messages_sv2::selectors::NullDownstreamMiningSelector;
+use messages_sv2::utils::Mutex;
+use std::convert::TryInto;
 
 pub type Message = PoolMessages<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;
@@ -79,7 +76,6 @@ async fn main() {
     server_pool().await;
 }
 
-
 #[derive(Debug)]
 pub struct Id {
     state: u32,
@@ -118,7 +114,13 @@ impl SetupConnectionHandler {
         let mut incoming: StdFrame = receiver.recv().await.unwrap().try_into().unwrap();
         let message_type = incoming.get_header().unwrap().msg_type();
         let payload = incoming.payload();
-        let response = ParseDownstreamCommonMessages::handle_message_common(self_.clone(),message_type, payload,CommonRoutingLogic::None).unwrap();
+        let response = ParseDownstreamCommonMessages::handle_message_common(
+            self_.clone(),
+            message_type,
+            payload,
+            CommonRoutingLogic::None,
+        )
+        .unwrap();
         let sv2_frame: StdFrame = PoolMessages::Common(response.into_message().unwrap())
             .try_into()
             .unwrap();
@@ -139,7 +141,8 @@ impl ParseDownstreamCommonMessages<NoRouting> for SetupConnectionHandler {
         self.header_only = Some(header_only);
         println!("POOL: setup connection");
         println!("POOL: connection require_std_job: {}", header_only);
-        Ok(SendTo::Downstream(
+        Ok(SendTo::RelayNewMessage(
+            Arc::new(Mutex::new(())),
             CommonMessages::SetupConnectionSuccess(SetupConnectionSuccess {
                 flags: incoming.flags,
                 used_version: 2,
@@ -171,7 +174,8 @@ impl Downstream {
         channel_id_generator: SArc<Mutex<Id>>,
     ) -> Arc<Mutex<Self>> {
         let setup_connection = Arc::new(Mutex::new(SetupConnectionHandler::new()));
-        let is_header_only = SetupConnectionHandler::setup(setup_connection, &mut receiver, &mut sender).await;
+        let is_header_only =
+            SetupConnectionHandler::setup(setup_connection, &mut receiver, &mut sender).await;
         let group_id = None;
         let channels_id = vec![];
         let self_ = Arc::new(Mutex::new(Downstream {
@@ -204,7 +208,7 @@ impl Downstream {
             MiningRoutingLogic::None,
         );
         match next_message_to_send {
-            Ok(SendTo::Downstream(message)) => {
+            Ok(SendTo::RelayNewMessage(_, message)) => {
                 let sv2_frame: StdFrame = PoolMessages::Mining(message).try_into().unwrap();
                 let sender = self_mutex.safe_lock(|self_| self_.sender.clone()).unwrap();
                 sender.send(sv2_frame.into()).await.unwrap();
@@ -226,7 +230,7 @@ fn get_random_extranonce() -> B032<'static> {
     let mut val = vec![];
     for _ in 0..32 {
         let n: u8 = rng.gen();
-        val.push(n)
+        val.push(n);
     }
     val.try_into().unwrap()
 }
@@ -242,10 +246,9 @@ impl IsDownstream for Downstream {
     }
 }
 
-impl IsMiningDownstream for Downstream {
-}
+impl IsMiningDownstream for Downstream {}
 
-impl ParseDownstreamMiningMessages<(),NullDownstreamMiningSelector,NoRouting> for Downstream {
+impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> for Downstream {
     fn get_channel_type(&self) -> ChannelType {
         ChannelType::Group
     }
@@ -258,7 +261,7 @@ impl ParseDownstreamMiningMessages<(),NullDownstreamMiningSelector,NoRouting> fo
         &mut self,
         incoming: OpenStandardMiningChannel,
         _m: Option<Arc<Mutex<()>>>,
-    ) -> Result<SendTo<()>,Error> {
+    ) -> Result<SendTo<()>, Error> {
         let request_id = incoming.request_id;
         let message = match (self.is_header_only, self.group_id) {
             (false, Some(group_channel_id)) => {
@@ -299,7 +302,8 @@ impl ParseDownstreamMiningMessages<(),NullDownstreamMiningSelector,NoRouting> fo
             }
             (true, Some(_)) => panic!(),
         };
-        Ok(SendTo::Downstream(
+        Ok(SendTo::RelayNewMessage(
+            Arc::new(Mutex::new(())),
             Mining::OpenStandardMiningChannelSuccess(message),
         ))
     }
@@ -311,10 +315,7 @@ impl ParseDownstreamMiningMessages<(),NullDownstreamMiningSelector,NoRouting> fo
         todo!()
     }
 
-    fn handle_update_channel(
-        &mut self,
-        _: UpdateChannel,
-    ) -> Result<SendTo<()>, Error> {
+    fn handle_update_channel(&mut self, _: UpdateChannel) -> Result<SendTo<()>, Error> {
         todo!()
     }
 
@@ -332,10 +333,7 @@ impl ParseDownstreamMiningMessages<(),NullDownstreamMiningSelector,NoRouting> fo
         todo!()
     }
 
-    fn handle_set_custom_mining_job(
-        &mut self,
-        _: SetCustomMiningJob,
-    ) -> Result<SendTo<()>, Error> {
+    fn handle_set_custom_mining_job(&mut self, _: SetCustomMiningJob) -> Result<SendTo<()>, Error> {
         todo!()
     }
 }

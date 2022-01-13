@@ -69,7 +69,7 @@ pub trait ParseDownstreamMiningMessages<
                     .unwrap();
             }
             MiningRoutingLogic::_P(_) => panic!(),
-        }
+        };
         match (message_type, payload).try_into() {
             Ok(Mining::OpenStandardMiningChannel(m)) => {
                 let upstream = match routing_logic {

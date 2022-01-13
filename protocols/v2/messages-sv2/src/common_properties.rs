@@ -2,6 +2,7 @@
 use crate::selectors::{
     DownstreamMiningSelector, DownstreamSelector, NullDownstreamMiningSelector,
 };
+use common_messages_sv2::has_requires_std_job;
 use common_messages_sv2::{Protocol, SetupConnection};
 use std::collections::HashMap;
 use std::fmt::Debug as D;
@@ -43,12 +44,61 @@ pub trait IsUpstream<Down: IsDownstream, Sel: DownstreamSelector<Down> + ?Sized>
     fn get_remote_selector(&mut self) -> &mut Sel;
 }
 
+/// Channel opened with upsrtream
+#[derive(Debug, Clone, Copy)]
+pub enum UpstreamChannel {
+    // nominal hash rate
+    Standard(f32),
+    Group,
+    Extended,
+}
+
+/// Channel opened with downstream
+#[derive(Debug, Clone)]
+pub enum DownstreamChannel {
+    // channel id, target, extranonce prefix, group channel id
+    Standard(StandardChannel),
+    Group(u32),
+    Extended,
+}
+
+impl DownstreamChannel {
+    pub fn group_id(&self) -> u32 {
+        match self {
+            DownstreamChannel::Standard(s) => s.group_id,
+            DownstreamChannel::Group(id) => *id,
+            DownstreamChannel::Extended => todo!(),
+        }
+    }
+    pub fn channel_id(&self) -> u32 {
+        match self {
+            DownstreamChannel::Standard(s) => s.channel_id,
+            DownstreamChannel::Group(id) => *id,
+            DownstreamChannel::Extended => todo!(),
+        }
+    }
+}
+use mining_sv2::{Extranonce, Target};
+
+#[derive(Debug, Clone)]
+pub struct StandardChannel {
+    pub channel_id: u32,
+    pub group_id: u32,
+    pub target: Target,
+    pub extranonce: Extranonce,
+}
+
 /// General propoerties that each mining upstream that implement the Sv2 protocol should have
 pub trait IsMiningUpstream<Down: IsMiningDownstream, Sel: DownstreamMiningSelector<Down> + ?Sized>:
     IsUpstream<Down, Sel>
 {
     fn total_hash_rate(&self) -> u64;
     fn add_hash_rate(&mut self, to_add: u64);
+    fn get_opened_channels(&mut self) -> &mut Vec<UpstreamChannel>;
+    fn update_channels(&mut self, c: UpstreamChannel);
+    fn is_header_only(&self) -> bool {
+        has_requires_std_job(self.get_flags())
+    }
 }
 
 /// General propoerties that each downstream that implement the Sv2 protocol should have
@@ -56,7 +106,11 @@ pub trait IsDownstream {
     fn get_downstream_mining_data(&self) -> CommonDownstreamData;
 }
 
-pub trait IsMiningDownstream: IsDownstream {}
+pub trait IsMiningDownstream: IsDownstream {
+    fn is_header_only(&self) -> bool {
+        self.get_downstream_mining_data().header_only
+    }
+}
 
 /// Implemented for the NullDownstreamMiningSelector
 impl<Down: IsDownstream + D> IsUpstream<Down, NullDownstreamMiningSelector> for () {
@@ -90,6 +144,13 @@ impl<Down: IsMiningDownstream + D> IsMiningUpstream<Down, NullDownstreamMiningSe
     }
 
     fn add_hash_rate(&mut self, _to_add: u64) {
+        todo!()
+    }
+    fn get_opened_channels(&mut self) -> &mut Vec<UpstreamChannel> {
+        todo!()
+    }
+
+    fn update_channels(&mut self, _: UpstreamChannel) {
         todo!()
     }
 }

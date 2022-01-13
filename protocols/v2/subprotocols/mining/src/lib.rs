@@ -104,6 +104,9 @@
 //!
 //! This protocol explicitly expects that upstream server software is able to manage the size of the
 //! hashing space correctly for its clients and can provide new jobs quickly enough.
+use binary_sv2::{B032, U256};
+use core::cmp::{Ord, PartialOrd};
+use core::convert::TryInto;
 
 extern crate alloc;
 mod close_channel;
@@ -136,3 +139,155 @@ pub use submit_shares::SubmitSharesExtended;
 pub use submit_shares::SubmitSharesStandard;
 pub use submit_shares::{SubmitSharesError, SubmitSharesSuccess};
 pub use update_channel::{UpdateChannel, UpdateChannelError};
+
+pub fn target_from_hr(_hr: f32) -> U256<'static> {
+    // TODO
+    ([
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0b_0001_0000,
+        0_u8,
+    ])
+    .try_into()
+    .unwrap()
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Target {
+    head: u128,
+    tail: u128,
+}
+
+impl From<[u8; 32]> for Target {
+    fn from(mut v: [u8; 32]) -> Self {
+        v.reverse();
+        let head = u128::from_le_bytes(v[0..16].try_into().unwrap());
+        let tail = u128::from_le_bytes(v[16..32].try_into().unwrap());
+        Self { head, tail }
+    }
+}
+
+impl From<Extranonce> for alloc::vec::Vec<u8> {
+    fn from(v: Extranonce) -> Self {
+        let head: [u8; 16] = v.head.to_le_bytes();
+        let tail: [u8; 16] = v.tail.to_le_bytes();
+        [head, tail].concat()
+    }
+}
+
+impl<'a> From<U256<'a>> for Target {
+    fn from(v: U256<'a>) -> Self {
+        let inner = v.inner_as_ref();
+        let head = u128::from_le_bytes(inner[0..16].try_into().unwrap());
+        let tail = u128::from_le_bytes(inner[16..32].try_into().unwrap());
+        Self { head, tail }
+    }
+}
+
+impl From<Target> for U256<'static> {
+    fn from(v: Target) -> Self {
+        let mut inner = v.head.to_le_bytes().to_vec();
+        inner.extend_from_slice(&v.tail.to_le_bytes());
+        inner.try_into().unwrap()
+    }
+}
+
+impl PartialOrd for Target {
+    fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for Target {
+    fn cmp(&self, other: &Self) -> core::cmp::Ordering {
+        if self.tail == other.tail && self.head == other.head {
+            core::cmp::Ordering::Equal
+        } else if self.head != other.head {
+            self.head.cmp(&other.head)
+        } else {
+            self.tail.cmp(&other.tail)
+        }
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct Extranonce {
+    head: u128,
+    tail: u128,
+}
+
+impl<'a> From<U256<'a>> for Extranonce {
+    fn from(v: U256<'a>) -> Self {
+        let inner = v.inner_as_ref();
+        let head = u128::from_le_bytes(inner[..16].try_into().unwrap());
+        let tail = u128::from_le_bytes(inner[16..].try_into().unwrap());
+        Self { head, tail }
+    }
+}
+
+impl<'a> From<Extranonce> for U256<'a> {
+    fn from(v: Extranonce) -> Self {
+        let mut inner = v.head.to_le_bytes().to_vec();
+        inner.extend_from_slice(&v.tail.to_le_bytes());
+        inner.try_into().unwrap()
+    }
+}
+
+impl<'a> From<B032<'a>> for Extranonce {
+    fn from(v: B032<'a>) -> Self {
+        let inner = v.inner_as_ref();
+        let head = u128::from_le_bytes(inner[..16].try_into().unwrap());
+        let tail = u128::from_le_bytes(inner[16..].try_into().unwrap());
+        Self { head, tail }
+    }
+}
+
+impl Extranonce {
+    pub fn new() -> Self {
+        Self { head: 0, tail: 0 }
+    }
+
+    #[allow(clippy::should_implement_trait)]
+    pub fn next(&mut self) -> B032 {
+        match (self.tail, self.head) {
+            (u128::MAX, u128::MAX) => panic!(),
+            (u128::MAX, head) => {
+                self.head = head + 1;
+            }
+            (tail, _) => {
+                self.tail = tail + 1;
+            }
+        };
+        let mut extranonce = self.tail.to_le_bytes().to_vec();
+        extranonce.append(&mut self.head.to_le_bytes().to_vec());
+        extranonce.try_into().unwrap()
+    }
+}

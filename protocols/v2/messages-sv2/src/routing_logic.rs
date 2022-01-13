@@ -22,15 +22,20 @@
 use crate::common_properties::{
     CommonDownstreamData, IsMiningDownstream, IsMiningUpstream, PairSettings,
 };
-use crate::selectors::{DownstreamMiningSelector,GeneralMiningSelector,NullDownstreamMiningSelector};
+use crate::errors::Error;
+use crate::selectors::{
+    DownstreamMiningSelector, GeneralMiningSelector, NullDownstreamMiningSelector,
+    UpstreamMiningSelctor,
+};
 use crate::utils::{Id, Mutex};
+use common_messages_sv2::{
+    has_requires_std_job, Protocol, SetupConnection, SetupConnectionSuccess,
+};
+use mining_sv2::{OpenStandardMiningChannel, OpenStandardMiningChannelSuccess};
 use std::collections::HashMap;
 use std::fmt::Debug as D;
-use std::sync::Arc;
-use crate::errors::Error;
-use common_messages_sv2::{Protocol, SetupConnection, SetupConnectionSuccess};
-use mining_sv2::{OpenStandardMiningChannel, OpenStandardMiningChannelSuccess};
 use std::marker::PhantomData;
+use std::sync::Arc;
 
 /// CommonRouter trait it define a router needed by
 /// crate::handlers::common::ParseUpstreamCommonMessages and
@@ -56,7 +61,7 @@ pub trait MiningRouter<
         message_type: u8,
         payload: &mut [u8],
         downstream_mining_data: &CommonDownstreamData,
-    );
+    ) -> u32;
 
     fn update_id_upstream(
         &mut self,
@@ -81,7 +86,6 @@ pub trait MiningRouter<
     ) -> Result<Arc<Mutex<Down>>, ()>;
 }
 
-
 /// NoRoutiung Router used when RoutingLogic::None and MiningRoutingLogic::None are needed
 /// It implementnt both CommonRouter and MiningRouter. It panic if used as an actual router the
 /// only pourpose of NoRouting is a marker trait for when RoutingLogic::None and MiningRoutingLogic::None
@@ -96,13 +100,17 @@ impl CommonRouter for NoRouting {
         unreachable!()
     }
 }
-impl<Down: IsMiningDownstream + D, Up: IsMiningUpstream<Down,NullDownstreamMiningSelector> + D> MiningRouter<Down,Up,NullDownstreamMiningSelector> for NoRouting {
+impl<
+        Down: IsMiningDownstream + D,
+        Up: IsMiningUpstream<Down, NullDownstreamMiningSelector> + D,
+    > MiningRouter<Down, Up, NullDownstreamMiningSelector> for NoRouting
+{
     fn update_id_downstream(
         &mut self,
         _message_type: u8,
         _payload: &mut [u8],
         _downstream_mining_data: &CommonDownstreamData,
-    ) {
+    ) -> u32 {
         unreachable!()
     }
 
@@ -131,7 +139,6 @@ impl<Down: IsMiningDownstream + D, Up: IsMiningUpstream<Down,NullDownstreamMinin
     ) -> Result<Arc<Mutex<Down>>, ()> {
         unreachable!()
     }
-
 }
 
 /// Enum that contains the possibles routing logic is usually contructed before calling
@@ -201,8 +208,11 @@ impl<
             max_v,
             flags,
         };
-        match protocol {
-            Protocol::MiningProtocol => self.on_setup_connection_mining_header_only(&pair_settings),
+        let header_only = has_requires_std_job(pair_settings.flags);
+        match (protocol, header_only) {
+            (Protocol::MiningProtocol, true) => {
+                self.on_setup_connection_mining_header_only(&pair_settings)
+            }
             _ => panic!(),
         }
     }
@@ -228,25 +238,24 @@ impl<
         message_type: u8,
         payload: &mut [u8],
         downstream_mining_data: &CommonDownstreamData,
-    ) {
+    ) -> u32 {
         let upstreams = self
             .downstream_to_upstream_map
             .get(&downstream_mining_data)
             .unwrap();
         // TODO the upstream selection logic should be specified by the caller
-        let upstream = Self::minor_total_hr_upstream(upstreams.to_vec());
+        let upstream = Self::select_upstreams(&mut upstreams.to_vec());
+        let old_id = get_request_id(payload);
         upstream
             .safe_lock(|u| {
                 let id_map = u.get_mapper();
                 match message_type {
                     // REQUESTS
                     const_sv2::MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL => {
-                        let old_id = get_request_id(payload);
                         let new_req_id = id_map.unwrap().on_open_channel(old_id);
                         update_request_id(payload, new_req_id);
                     }
                     const_sv2::MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL => {
-                        let old_id = get_request_id(payload);
                         let new_req_id = id_map.unwrap().on_open_channel(old_id);
                         update_request_id(payload, new_req_id);
                     }
@@ -257,6 +266,7 @@ impl<
                 }
             })
             .unwrap();
+        old_id
     }
 
     /// TODO as above
@@ -314,13 +324,18 @@ impl<
         let downstreams = upstream
             .safe_lock(|u| {
                 let selector = u.get_remote_selector();
-                selector
-                    .on_open_standard_channel_success(upstream_request_id, request.group_channel_id)
+                selector.on_open_standard_channel_success(
+                    upstream_request_id,
+                    request.group_channel_id,
+                    request.channel_id,
+                )
             })
             .unwrap();
         Ok(downstreams)
     }
 
+    /// At this point the Sv2 connection with downstream is initialized that means that
+    /// routing_logic has already preselected a set of upstreams pairable with downstream.
     fn on_open_standard_channel(
         &mut self,
         downstream: Arc<Mutex<Down>>,
@@ -355,6 +370,55 @@ pub struct MiningProxyRoutingLogic<
 //        todo!()
 //    }
 //}
+fn minor_total_hr_upstream<Down, Up, Sel>(ups: &mut Vec<Arc<Mutex<Up>>>) -> Arc<Mutex<Up>>
+where
+    Down: IsMiningDownstream + D,
+    Up: IsMiningUpstream<Down, Sel> + D,
+    Sel: DownstreamMiningSelector<Down> + D,
+{
+    ups.iter_mut()
+        .reduce(|acc, item| {
+            if acc.safe_lock(|x| x.total_hash_rate()).unwrap()
+                < item.safe_lock(|x| x.total_hash_rate()).unwrap()
+            {
+                acc
+            } else {
+                item
+            }
+        })
+        .unwrap()
+        .clone()
+}
+
+fn filter_header_only<Down, Up, Sel>(ups: &mut Vec<Arc<Mutex<Up>>>) -> Vec<Arc<Mutex<Up>>>
+where
+    Down: IsMiningDownstream + D,
+    Up: IsMiningUpstream<Down, Sel> + D,
+    Sel: DownstreamMiningSelector<Down> + D,
+{
+    ups.iter()
+        .filter(|up_mutex| up_mutex.safe_lock(|up| !up.is_header_only()).unwrap())
+        .cloned()
+        .collect()
+}
+
+/// If only one upstream is avaiable return it
+/// Try to return an upstream that is not header only
+/// Return the upstream that have got less hash rate from downstreams
+fn select_upstream<Down, Up, Sel>(ups: &mut Vec<Arc<Mutex<Up>>>) -> Arc<Mutex<Up>>
+where
+    Down: IsMiningDownstream + D,
+    Up: IsMiningUpstream<Down, Sel> + D,
+    Sel: DownstreamMiningSelector<Down> + D,
+{
+    if ups.len() == 1 {
+        ups[0].clone()
+    } else if !filter_header_only(ups).is_empty() {
+        minor_total_hr_upstream(&mut filter_header_only(ups))
+    } else {
+        minor_total_hr_upstream(ups)
+    }
+}
 
 impl<
         Down: IsMiningDownstream + D,
@@ -364,26 +428,13 @@ impl<
 {
     /// TODO this should stay in a enum UpstreamSelectionLogic that get passed from the caller to
     /// the several methods
-    fn minor_total_hr_upstream(ups: Vec<Arc<Mutex<Up>>>) -> Arc<Mutex<Up>> {
-        ups.into_iter()
-            .reduce(|acc, item| {
-                if acc.safe_lock(|x| x.total_hash_rate()).unwrap()
-                    < item.safe_lock(|x| x.total_hash_rate()).unwrap()
-                {
-                    acc
-                } else {
-                    item
-                }
-            })
-            .unwrap()
+    fn select_upstreams(ups: &mut Vec<Arc<Mutex<Up>>>) -> Arc<Mutex<Up>> {
+        select_upstream(ups)
     }
 
     /// On setup conection the proxy find all the upstreams that support the downstream connection
     /// create a downstream message parser that points to all the possible upstreams and then respond
     /// with suppported flags.
-    /// If the setup connection is header only, the created downstream node must point only to one
-    /// upstream.
-    /// If there are no upstreams that support downstream connection TODO
     ///
     /// The upstream with min total_hash_rate is selected (TODO a method to let the caller wich
     /// upstream select from the possible ones should be added
@@ -395,13 +446,13 @@ impl<
         &mut self,
         pair_settings: &PairSettings,
     ) -> Result<(CommonDownstreamData, SetupConnectionSuccess), Error> {
-        let upstreams = self.upstream_selector.on_setup_connection(pair_settings)?;
+        let mut upstreams = self.upstream_selector.on_setup_connection(pair_settings)?;
         // TODO the upstream selection logic should be specified by the caller
-        let upstream = Self::minor_total_hr_upstream(upstreams.0);
+        let upstream = Self::select_upstreams(&mut upstreams.0);
         let id = self.downstream_id_generator.next();
         let downstream_data = CommonDownstreamData {
             id,
-            header_only: false,
+            header_only: true,
             work_selection: false,
             version_rolling: false,
         };

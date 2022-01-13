@@ -20,6 +20,39 @@ pub enum Inner<
     Owned(Vec<u8>),
 }
 
+// TODO add test for that implement also with serde!!!!
+impl<'a, const SIZE: usize> Inner<'a, true, SIZE, 0, 0> {
+    pub fn to_vec(&self) -> Vec<u8> {
+        match self {
+            Inner::Ref(ref_) => ref_.to_vec(),
+            Inner::Owned(v) => v.clone(),
+        }
+    }
+    pub fn inner_as_ref(&self) -> &[u8] {
+        match self {
+            Inner::Ref(ref_) => ref_,
+            Inner::Owned(v) => &v,
+        }
+    }
+}
+// TODO add test for that implement also with serde!!!!
+impl<'a, const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize>
+    Inner<'a, false, SIZE, HEADERSIZE, MAXSIZE>
+{
+    pub fn to_vec(&self) -> Vec<u8> {
+        match self {
+            Inner::Ref(ref_) => ref_[..].to_vec(),
+            Inner::Owned(v) => v[..].to_vec(),
+        }
+    }
+    pub fn inner_as_ref(&self) -> &[u8] {
+        match self {
+            Inner::Ref(ref_) => &ref_[..],
+            Inner::Owned(v) => &v[..],
+        }
+    }
+}
+
 impl<'a, const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize>
     PartialEq for Inner<'a, ISFIXED, SIZE, HEADERSIZE, MAXSIZE>
 {
