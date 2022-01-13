@@ -7,6 +7,19 @@ use core::convert::TryFrom;
 
 const NOISE_MAX_LEN: usize = const_sv2::NOISE_FRAME_MAX_SIZE;
 
+impl<A, B> Sv2Frame<A, B> {
+    pub fn map<C>(self, fun: fn(A) -> C) -> Sv2Frame<C, B> {
+        let serialized = self.serialized;
+        let header = self.header;
+        let payload = self.payload.map(fun);
+        Sv2Frame {
+            header,
+            payload,
+            serialized,
+        }
+    }
+}
+
 pub trait Frame<'a, T: Serialize + GetSize>: Sized {
     type Buffer: AsMut<[u8]>;
     type Deserialized;
@@ -48,6 +61,7 @@ pub trait Frame<'a, T: Serialize + GetSize>: Sized {
 pub struct Sv2Frame<T, B> {
     header: Header,
     payload: Option<T>,
+    /// Serializsed header + payload (TODO check if this is correct)
     serialized: Option<B>,
 }
 
@@ -68,41 +82,6 @@ pub struct NoiseFrame {
 }
 
 pub type HandShakeFrame = NoiseFrame;
-
-impl<T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> Sv2Frame<T, B> {
-    fn owned_serialized(self) -> Option<<Sv2Frame<T, B> as Frame<'static, T>>::Buffer> {
-        if self.payload.is_some() {
-            None
-        } else {
-            Some(self.serialized.unwrap())
-        }
-    }
-
-    /// Used when a proxy need to relay the reCived message as it is up or downstream
-    /// This method do not alloc
-    pub fn relay(self) -> Option<Self> {
-        let header = self.get_header()?;
-        let serialized = self.owned_serialized()?;
-        Some(Sv2Frame {
-            header,
-            serialized: Some(serialized),
-            payload: None,
-        })
-    }
-
-    /// Same as relay but return a different type. T and G must have the same internal
-    /// rapresantation (beeing the same Sv2 message) as the raw messages' bytes stay untouched.
-    /// If not using this method do not make any senze just create a new message and a new frame.
-    pub fn relay_as<G: Serialize + GetSize>(self, _: fn(T) -> G) -> Option<Sv2Frame<G, B>> {
-        let header = self.get_header()?;
-        let serialized = self.owned_serialized()?;
-        Some(Sv2Frame {
-            header,
-            serialized: Some(serialized),
-            payload: None,
-        })
-    }
-}
 
 impl<'a, T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> Frame<'a, T> for Sv2Frame<T, B> {
     type Buffer = B;
@@ -128,6 +107,11 @@ impl<'a, T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> Frame<'a, T> for 
         }
     }
 
+    // self can be either serialized (it cointain an AsMut<[u8]> with the serialized data or
+    // deserialized it contain the rust type that represant the Sv2 message. If the type is
+    // deserialized self.paylos.is_some() is true. To get the serialized payload the inner type
+    // should be serialized and this function should never be used, cause is intended as a fast
+    // function that return a reference to an already serialized payload. For that for now is a todo.
     fn payload(&'a mut self) -> &'a mut [u8] {
         if self.payload.is_some() {
             todo!()

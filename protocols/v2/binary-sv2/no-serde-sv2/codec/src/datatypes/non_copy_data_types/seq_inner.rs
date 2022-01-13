@@ -6,6 +6,28 @@ use crate::datatypes::*;
 use crate::Error;
 use core::marker::PhantomData;
 
+// TODO add test for that implement also with serde!!!!
+impl<'a, const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize>
+    Seq0255<'a, super::inner::Inner<'a, false, SIZE, HEADERSIZE, MAXSIZE>>
+{
+    pub fn to_vec(&self) -> Vec<Vec<u8>> {
+        self.0.iter().map(|x| x.to_vec()).collect()
+    }
+    pub fn inner_as_ref(&self) -> Vec<&[u8]> {
+        self.0.iter().map(|x| x.inner_as_ref()).collect()
+    }
+}
+
+// TODO add test for that implement also with serde!!!!
+impl<'a, const SIZE: usize> Seq0255<'a, super::inner::Inner<'a, true, SIZE, 0, 0>> {
+    pub fn to_vec(&self) -> Vec<Vec<u8>> {
+        self.0.iter().map(|x| x.to_vec()).collect()
+    }
+    pub fn inner_as_ref(&self) -> Vec<&[u8]> {
+        self.0.iter().map(|x| x.inner_as_ref()).collect()
+    }
+}
+
 #[cfg(not(feature = "no_std"))]
 use std::io::Read;
 

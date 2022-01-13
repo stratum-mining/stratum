@@ -10,12 +10,15 @@ use binary_sv2::{Deserialize, Serialize, Str032, U256};
 /// device/connection aggregation (i.e. it is a proxy), it MUST send this message when downstream
 /// channels change. This update can be debounced so that it is not sent more often than once in a
 /// second (for a very busy proxy).
+/// TODO add the below to the specifications:
+/// This message is an extended channel only message. Using it in other kind if channels should
+/// raise an error
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct UpdateChannel<'decoder> {
     /// Channel identification.
-    channel_id: u32,
+    pub channel_id: u32,
     /// See Open*Channel for details.
-    nominal_hash_rate: f32,
+    pub nominal_hash_rate: f32,
     /// Maximum target is changed by server by sending SetTarget. This
     /// field is understood as device’s request. There can be some delay
     /// between UpdateChannel and corresponding SetTarget messages,
@@ -24,7 +27,7 @@ pub struct UpdateChannel<'decoder> {
     /// When maximum_target is smaller than currently used maximum target for the channel,
     /// upstream node MUST reflect the client’s request (and send appropriate SetTarget message).
     #[cfg_attr(feature = "with_serde", serde(borrow))]
-    maximum_target: U256<'decoder>,
+    pub maximum_target: U256<'decoder>,
 }
 
 /// # Update.Error (Server -> Client)

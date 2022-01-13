@@ -91,9 +91,13 @@ impl<'decoder> SetupConnection<'decoder> {
     }
 
     pub fn requires_standard_job(&self) -> bool {
-        let flag = self.flags >> 31;
-        flag != 0
+        has_requires_std_job(self.flags)
     }
+}
+
+pub fn has_requires_std_job(flags: u32) -> bool {
+    let flag = flags >> 31;
+    flag != 0
 }
 
 #[repr(C)]
