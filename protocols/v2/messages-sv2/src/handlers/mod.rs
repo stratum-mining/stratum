@@ -21,6 +21,7 @@
 //! A Result<SendTo_, Error> is returned and is duty of the implementor to send the message
 pub mod common;
 pub mod mining;
+pub mod template_distribution;
 use crate::utils::Mutex;
 use std::sync::Arc;
 
