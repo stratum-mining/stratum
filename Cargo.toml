@@ -17,6 +17,7 @@ members = [
     "protocols/v2/sv2-ffi",
     "protocols/v2/messages-sv2",
     "roles/v2/mining-proxy",
+    "roles/v2/pool",
     "roles/v2/test-utils/mining-device",
     "roles/v2/test-utils/pool",
     "utils/network-helpers",
@@ -27,4 +28,5 @@ members = [
     "examples/interop-cpp",
     "examples/interop-cpp/template-provider/example-of-guix-build/quickcheck",
     "examples/interop-cpp/template-provider/example-of-guix-build/quickcheck_macros",
+    "experimental/coinbase-negotiator",
 ]
