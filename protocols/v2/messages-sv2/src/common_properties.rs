@@ -44,7 +44,7 @@ pub trait IsUpstream<Down: IsDownstream, Sel: DownstreamSelector<Down> + ?Sized>
     fn get_remote_selector(&mut self) -> &mut Sel;
 }
 
-/// Channel opened with upsrtream
+/// Channel to be opened with the upstream nodes.
 #[derive(Debug, Clone, Copy)]
 pub enum UpstreamChannel {
     // nominal hash rate
@@ -53,7 +53,7 @@ pub enum UpstreamChannel {
     Extended,
 }
 
-/// Channel opened with downstream
+/// Channel to be opened with the downstream nodes.
 #[derive(Debug, Clone)]
 pub enum DownstreamChannel {
     // channel id, target, extranonce prefix, group channel id
@@ -63,6 +63,7 @@ pub enum DownstreamChannel {
 }
 
 impl DownstreamChannel {
+    /// Returns the group id for a given Standard, Group, or Extended (TODO) channel.
     pub fn group_id(&self) -> u32 {
         match self {
             DownstreamChannel::Standard(s) => s.group_id,
@@ -70,6 +71,8 @@ impl DownstreamChannel {
             DownstreamChannel::Extended => todo!(),
         }
     }
+
+    /// Returns the channel id for a given Standard, Group, or Extended (TODO) channel.
     pub fn channel_id(&self) -> u32 {
         match self {
             DownstreamChannel::Standard(s) => s.channel_id,
@@ -80,14 +83,21 @@ impl DownstreamChannel {
 }
 
 #[derive(Debug, Clone)]
+/// Standard channels are intended to be used by end mining devices.
 pub struct StandardChannel {
+    /// Newly assigned identifier of the channel, stable for the whole lifetime of the connection.
+    /// e.g. it is used for broadcasting new jobs by `NewExtendedMiningJob`
     pub channel_id: u32,
+    /// Identifier of the group where the standard channel belongs
     pub group_id: u32,
+    /// Initial target for the mining channel
     pub target: Target,
+    /// Extranonce bytes which need to be added to the coinbase to form a fully valid submission:
+    /// (full coinbase = coinbase_tx_prefix + extranonce_prefix + extranonce + coinbase_tx_suffix).
     pub extranonce: Extranonce,
 }
 
-/// General propoerties that each mining upstream that implement the Sv2 protocol should have
+/// General properties that every Sv2 compatible mining upstream nodes must implement.
 pub trait IsMiningUpstream<Down: IsMiningDownstream, Sel: DownstreamMiningSelector<Down> + ?Sized>:
     IsUpstream<Down, Sel>
 {
@@ -100,7 +110,7 @@ pub trait IsMiningUpstream<Down: IsMiningDownstream, Sel: DownstreamMiningSelect
     }
 }
 
-/// General propoerties that each downstream that implement the Sv2 protocol should have
+/// General properties that every Sv2 compatible mining downstream nodes must implement.
 pub trait IsDownstream {
     fn get_downstream_mining_data(&self) -> CommonDownstreamData;
 }
