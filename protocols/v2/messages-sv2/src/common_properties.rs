@@ -4,6 +4,7 @@ use crate::selectors::{
 };
 use common_messages_sv2::has_requires_std_job;
 use common_messages_sv2::{Protocol, SetupConnection};
+use mining_sv2::{Extranonce, Target};
 use std::collections::HashMap;
 use std::fmt::Debug as D;
 
@@ -77,7 +78,6 @@ impl DownstreamChannel {
         }
     }
 }
-use mining_sv2::{Extranonce, Target};
 
 #[derive(Debug, Clone)]
 pub struct StandardChannel {
@@ -200,6 +200,7 @@ impl RequestIdMapper {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use binary_sv2::u256_from_int;
 
     #[test]
     fn builds_request_id_mapper() {
@@ -237,5 +238,81 @@ mod tests {
 
         request_id_mapper.remove(0);
         assert!(request_id_mapper.request_ids_map.is_empty());
+    }
+
+    #[test]
+    fn downstream_channel_returns_group_id_on_receiving_standard_channel() {
+        let expect = 0;
+
+        let channel = DownstreamChannel::Standard(StandardChannel {
+            channel_id: 0,
+            group_id: 0,
+            target: u256_from_int(45_u32).into(),
+            extranonce: mining_sv2::Extranonce::new(),
+        });
+        let actual = channel.group_id();
+
+        assert_eq!(expect, actual);
+    }
+
+    #[test]
+    fn downstream_channel_returns_group_id_on_receiving_group_channel() {
+        let id = 0;
+        let expect = id;
+
+        let channel = DownstreamChannel::Group(id);
+        let actual = channel.group_id();
+
+        assert_eq!(expect, actual);
+    }
+
+    #[ignore]
+    #[test]
+    fn downstream_channel_returns_group_id_on_receiving_extended_channel() {
+        todo!();
+
+        // let expect = TODO;
+        // let channel = DownstreamChannel::Extended;
+        // let actual = channel.group_id();
+        //
+        // assert_eq!(expect, actual);
+    }
+
+    #[test]
+    fn downstream_channel_returns_channel_id_on_receiving_standard_channel() {
+        let expect = 0;
+
+        let channel = DownstreamChannel::Standard(StandardChannel {
+            channel_id: 0,
+            group_id: 0,
+            target: u256_from_int(45_u32).into(),
+            extranonce: mining_sv2::Extranonce::new(),
+        });
+        let actual = channel.channel_id();
+
+        assert_eq!(expect, actual);
+    }
+
+    #[test]
+    fn downstream_channel_returns_channel_id_on_receiving_group_channel() {
+        let id = 0;
+        let expect = id;
+
+        let channel = DownstreamChannel::Group(id);
+        let actual = channel.channel_id();
+
+        assert_eq!(expect, actual);
+    }
+
+    #[ignore]
+    #[test]
+    fn downstream_channel_returns_channel_id_on_receiving_extended_channel() {
+        todo!();
+
+        // let expect = TODO;
+        // let channel = DownstreamChannel::Extended;
+        // let actual = channel.channel_id();
+        //
+        // assert_eq!(expect, actual);
     }
 }
