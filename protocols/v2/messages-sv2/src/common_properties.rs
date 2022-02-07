@@ -163,16 +163,18 @@ impl IsDownstream for () {
 
 impl IsMiningDownstream for () {}
 
-/// Proxyies likely need to change the request ids of downsteam's messages. They also need to
-/// remeber original id to patch the upstream's response with it
-#[derive(Debug, Default)]
+/// Proxies likely need to change the request ids of the downsteam's messages. They also need to
+/// remember the original id to patch the upstream's response with it.
+#[derive(Debug, Default, PartialEq)]
 pub struct RequestIdMapper {
-    // upstream id -> downstream id
+    /// Mapping of upstream id -> downstream ids
     request_ids_map: HashMap<u32, u32>,
     next_id: u32,
 }
 
 impl RequestIdMapper {
+    /// Builds a new `RequestIdMapper` initialized with an empty hashmap and initializes `next_id`
+    /// to `0`.
     pub fn new() -> Self {
         Self {
             request_ids_map: HashMap::new(),
@@ -180,17 +182,60 @@ impl RequestIdMapper {
         }
     }
 
+    /// Updates the `RequestIdMapper` with a new upstream/downstream mapping.
     pub fn on_open_channel(&mut self, id: u32) -> u32 {
         let new_id = self.next_id;
         self.next_id += 1;
 
-        //let mut inner = self.request_ids_map.lock().unwrap();
         self.request_ids_map.insert(new_id, id);
         new_id
     }
 
+    /// Removes a upstream/downstream mapping from the `RequsetIdMapper`.
     pub fn remove(&mut self, upstream_id: u32) -> u32 {
-        //let mut inner = self.request_ids_map.lock().unwrap();
         self.request_ids_map.remove(&upstream_id).unwrap()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn builds_request_id_mapper() {
+        let expect = RequestIdMapper {
+            request_ids_map: HashMap::<u32, u32>::new(),
+            next_id: 0,
+        };
+        let actual = RequestIdMapper::new();
+
+        assert_eq!(expect, actual);
+    }
+
+    #[test]
+    fn updates_request_id_mapper_on_open_channel() {
+        let id = 0;
+        let mut expect = RequestIdMapper {
+            request_ids_map: HashMap::<u32, u32>::new(),
+            next_id: id,
+        };
+        let new_id = expect.next_id;
+        expect.next_id += 1;
+        expect.request_ids_map.insert(new_id, id);
+
+        let mut actual = RequestIdMapper::new();
+        actual.on_open_channel(0);
+
+        assert_eq!(expect, actual);
+    }
+
+    #[test]
+    fn removes_id_from_request_id_mapper() {
+        let mut request_id_mapper = RequestIdMapper::new();
+        request_id_mapper.on_open_channel(0);
+        assert!(!request_id_mapper.request_ids_map.is_empty());
+
+        request_id_mapper.remove(0);
+        assert!(request_id_mapper.request_ids_map.is_empty());
     }
 }
