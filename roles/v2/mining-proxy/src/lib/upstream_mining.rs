@@ -11,7 +11,7 @@ use messages_sv2::common_properties::{
 };
 use messages_sv2::errors::Error;
 use messages_sv2::handlers::mining::{ChannelType, ParseUpstreamMiningMessages, SendTo};
-use messages_sv2::job_dispatcher::GourpChannelJobDispatcher;
+use messages_sv2::job_dispatcher::GroupChannelJobDispatcher;
 use messages_sv2::mining_sv2::*;
 use messages_sv2::parsers::{CommonMessages, Mining, MiningDeviceMessages, PoolMessages};
 use messages_sv2::routing_logic::{MiningProxyRoutingLogic, MiningRoutingLogic};
@@ -54,7 +54,7 @@ pub struct Sv2MiningConnection {
 
 #[derive(Debug)]
 pub enum JobDispatcher {
-    Group(GourpChannelJobDispatcher),
+    Group(GroupChannelJobDispatcher),
     None,
 }
 
@@ -466,7 +466,7 @@ impl
                     .get_mut(&m.group_channel_id)
                     .is_none()
                 {
-                    let dispatcher = GourpChannelJobDispatcher::new(self.job_ids.clone());
+                    let dispatcher = GroupChannelJobDispatcher::new(self.job_ids.clone());
                     self.channel_id_to_job_dispatcher
                         .insert(m.group_channel_id, JobDispatcher::Group(dispatcher));
                 }

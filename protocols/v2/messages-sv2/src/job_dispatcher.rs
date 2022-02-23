@@ -118,7 +118,7 @@ struct ExtendedJobs {
 }
 
 #[derive(Debug)]
-pub struct GourpChannelJobDispatcher {
+pub struct GroupChannelJobDispatcher {
     //channels: Vec<StandardChannel>,
     target: Target,
     prev_hash: Vec<u8>,
@@ -136,7 +136,7 @@ pub enum SendSharesResponse {
     Invalid(SubmitSharesError<'static>),
 }
 
-impl GourpChannelJobDispatcher {
+impl GroupChannelJobDispatcher {
     pub fn new(ids: Arc<Mutex<Id>>) -> Self {
         Self {
             target: [0_u8; 32].into(),
