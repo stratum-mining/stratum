@@ -217,3 +217,31 @@ impl GroupChannelJobDispatcher {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn builds_group_channel_job_dispatcher() {
+        let expect = GroupChannelJobDispatcher {
+            target: [0_u8; 32].into(),
+            prev_hash: Vec::new(),
+            future_jobs: HashMap::new(),
+            jobs: HashMap::new(),
+            ids: Arc::new(Mutex::new(Id::new())),
+            nbits: 0,
+        };
+
+        let ids = Arc::new(Mutex::new(Id::new()));
+        let actual = GroupChannelJobDispatcher::new(ids);
+
+        assert_eq!(expect.target, actual.target);
+        assert_eq!(expect.prev_hash, actual.prev_hash);
+        assert_eq!(expect.nbits, actual.nbits);
+        assert!(actual.future_jobs.is_empty());
+        assert!(actual.jobs.is_empty());
+        // TODO: check actual.ids, but idk how to properly test arc
+        // assert_eq!(expect.ids, actual.ids);
+    }
+}
