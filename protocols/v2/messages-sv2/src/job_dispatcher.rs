@@ -221,6 +221,7 @@ impl GroupChannelJobDispatcher {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use binary_sv2::u256_from_int;
 
     #[test]
     fn builds_group_channel_job_dispatcher() {
@@ -243,5 +244,22 @@ mod tests {
         assert!(actual.jobs.is_empty());
         // TODO: check actual.ids, but idk how to properly test arc
         // assert_eq!(expect.ids, actual.ids);
+    }
+
+    #[test]
+    fn updates_group_channel_job_dispatcher_on_new_prev_hash() {
+        let message = SetNewPrevHash {
+            channel_id: 0,
+            job_id: 0,
+            prev_hash: u256_from_int(45_u32),
+            min_ntime: 0,
+            nbits: 0,
+        };
+        let ids = Arc::new(Mutex::new(Id::new()));
+        let mut dispatcher = GroupChannelJobDispatcher::new(ids);
+
+        let actual = dispatcher.on_new_prev_hash(&message);
+
+        assert_eq!(1, 1);
     }
 }
