@@ -10,7 +10,6 @@ use std::fmt::Debug as D;
 /// What define a mining downstream node at the very basic
 #[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
 pub struct CommonDownstreamData {
-    pub id: u32,
     pub header_only: bool,
     pub work_selection: bool,
     pub version_rolling: bool,

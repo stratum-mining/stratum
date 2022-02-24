@@ -1,5 +1,5 @@
 use crate::utils::{Id, Mutex};
-use bitcoin_hashes::{sha256d, Hash, HashEngine};
+use bitcoin::hashes::{sha256d, Hash, HashEngine};
 use mining_sv2::{
     NewExtendedMiningJob, NewMiningJob, SetNewPrevHash, SubmitSharesError, SubmitSharesStandard,
     Target,

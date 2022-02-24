@@ -238,7 +238,6 @@ fn get_random_extranonce() -> B032<'static> {
 impl IsDownstream for Downstream {
     fn get_downstream_mining_data(&self) -> CommonDownstreamData {
         CommonDownstreamData {
-            id: 0,
             header_only: false,
             work_selection: false,
             version_rolling: false,

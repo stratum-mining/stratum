@@ -64,16 +64,20 @@ where
             Ok(TemplateDistribution::CoinbaseOutputDataSize(m)) => self_
                 .safe_lock(|x| x.handle_coinbase_out_data_size(m))
                 .unwrap(),
-            Ok(TemplateDistribution::RequestTransactionData(m)) => self_
-                .safe_lock(|x| x.handle_request_tx_data(m))
-                .unwrap(),
+            Ok(TemplateDistribution::RequestTransactionData(m)) => {
+                self_.safe_lock(|x| x.handle_request_tx_data(m)).unwrap()
+            }
             Ok(TemplateDistribution::SubmitSolution(m)) => self_
                 .safe_lock(|x| x.handle_request_submit_solution(m))
                 .unwrap(),
             Ok(TemplateDistribution::NewTemplate(_)) => Err(Error::UnexpectedMessage),
             Ok(TemplateDistribution::SetNewPrevHash(_)) => Err(Error::UnexpectedMessage),
-            Ok(TemplateDistribution::RequestTransactionDataSuccess(_)) => Err(Error::UnexpectedMessage),
-            Ok(TemplateDistribution::RequestTransactionDataError(_)) => Err(Error::UnexpectedMessage),
+            Ok(TemplateDistribution::RequestTransactionDataSuccess(_)) => {
+                Err(Error::UnexpectedMessage)
+            }
+            Ok(TemplateDistribution::RequestTransactionDataError(_)) => {
+                Err(Error::UnexpectedMessage)
+            }
             Err(e) => Err(e),
         }
     }

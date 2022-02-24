@@ -34,6 +34,7 @@ pub mod common_properties;
 pub mod errors;
 pub mod group_channel_logic;
 pub mod handlers;
+pub mod job_creator;
 pub mod job_dispatcher;
 pub mod parsers;
 pub mod routing_logic;

@@ -300,7 +300,7 @@ impl UpstreamMiningNode {
                     }
                 }
             }
-            Ok(SendTo::None) => (),
+            Ok(SendTo::None(_)) => (),
             Err(Error::UnexpectedMessage) => todo!("303"),
             Err(_) => todo!("304"),
         }
