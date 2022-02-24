@@ -99,6 +99,16 @@ pub fn has_requires_std_job(flags: u32) -> bool {
     let flag = flags >> 31;
     flag != 0
 }
+pub fn has_version_rolling(flags: u32) -> bool {
+    let flags = flags << 1;
+    let flag = flags >> 31;
+    flag != 0
+}
+pub fn has_work_selection(flags: u32) -> bool {
+    let flags = flags << 2;
+    let flag = flags >> 31;
+    flag != 0
+}
 
 #[repr(C)]
 #[cfg(not(feature = "with_serde"))]
