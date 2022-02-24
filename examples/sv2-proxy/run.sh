@@ -1,5 +1,5 @@
 #! /bin/sh
-cargo run --bin pool &
+cargo run --bin test-pool &
 pool_pid=$!
 sleep 2
 cargo run --bin mining-proxy &
