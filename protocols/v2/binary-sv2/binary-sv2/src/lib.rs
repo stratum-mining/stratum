@@ -753,4 +753,30 @@ mod test {
             assert_eq!(deserialized, expected);
         }
     }
+    mod test_seq_0255_in_struct {
+        use super::*;
+
+        #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
+        struct Test<'decoder> {
+            #[cfg_attr(feature = "with_serde", serde(borrow))]
+            a: u8,
+            b: Seq0255<'decoder, u8>,
+            c: u32,
+        }
+
+        #[test]
+        fn test_seq_0255_in_struct() {
+            let expected = Test {
+                a: 89,
+                b: Seq0255::new(vec![]).unwrap(),
+                c: 32,
+            };
+            let len = expected.get_size();
+            let mut buffer = Vec::new();
+            buffer.resize(len,0);
+            to_writer(expected.clone(), &mut buffer).unwrap();
+            let deserialized: Test = from_bytes(&mut buffer[..]).unwrap();
+            assert_eq!(deserialized, expected);
+        }
+    }
 }

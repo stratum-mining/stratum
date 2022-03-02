@@ -125,13 +125,17 @@ impl<'a> EncodableField<'a> {
         match (self, dst.len() >= offset) {
             (Self::Primitive(p), true) => p.encode(&mut dst[offset..]),
             (Self::Struct(ps), true) => {
+                let mut result = 0;
                 for p in ps {
                     let encoded_bytes = p.encode(dst, offset)?;
                     offset += encoded_bytes;
+                    result += encoded_bytes;
                 }
-                Ok(offset)
+                Ok(result)
             }
-            _ => Err(Error::WriteError(offset, dst.len())),
+            (_,false) => {
+                Err(Error::WriteError(offset, dst.len()))
+            },
         }
     }
 
