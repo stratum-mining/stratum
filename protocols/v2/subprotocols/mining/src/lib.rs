@@ -216,7 +216,7 @@ impl From<Target> for U256<'static> {
     fn from(v: Target) -> Self {
         let mut inner = v.head.to_le_bytes().to_vec();
         inner.extend_from_slice(&v.tail.to_le_bytes());
-        inner.try_into().unwrap()
+        (inner[..]).try_into().unwrap()
     }
 }
 
@@ -257,7 +257,7 @@ impl<'a> From<Extranonce> for U256<'a> {
     fn from(v: Extranonce) -> Self {
         let mut inner = v.head.to_le_bytes().to_vec();
         inner.extend_from_slice(&v.tail.to_le_bytes());
-        inner.try_into().unwrap()
+        inner[..].try_into().unwrap()
     }
 }
 
