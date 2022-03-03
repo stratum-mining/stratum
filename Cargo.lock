@@ -1668,6 +1668,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "template-provider-test"
+version = "0.1.0"
+dependencies = [
+ "async-channel",
+ "async-std",
+ "codec_sv2",
+ "messages_sv2",
+]
+
+[[package]]
 name = "template_distribution_sv2"
 version = "0.1.4"
 dependencies = [

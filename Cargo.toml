@@ -28,5 +28,6 @@ members = [
     "examples/interop-cpp",
     "examples/interop-cpp/template-provider/example-of-guix-build/quickcheck",
     "examples/interop-cpp/template-provider/example-of-guix-build/quickcheck_macros",
+    "examples/template-provider-test",
     "experimental/coinbase-negotiator",
 ]
