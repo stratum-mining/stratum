@@ -25,7 +25,7 @@ impl JobCreator {
     pub fn new_extended_job(
         &mut self,
         new_template: &mut NewTemplate,
-        coinbase_outputs: &Vec<TxOut>,
+        coinbase_outputs: &[TxOut],
     ) -> NewExtendedMiningJob<'static> {
         // TODO not supported yet
         if new_template.coinbase_tx_outputs_count != 0 {
@@ -119,7 +119,7 @@ impl JobCreator {
         version: i32,
         lock_time: u32,
         sequence: u32,
-        coinbase_outputs: &Vec<TxOut>,
+        coinbase_outputs: &[TxOut],
     ) -> Transaction {
         //coinbase_tx_input_script_prefix.extend_from_slice(&[0;ETRANONCE_LEN]);
         let tx_in = TxIn {
@@ -132,7 +132,7 @@ impl JobCreator {
             version,
             lock_time,
             input: vec![tx_in],
-            output: coinbase_outputs.clone(),
+            output: coinbase_outputs.to_vec(),
         }
     }
 }
