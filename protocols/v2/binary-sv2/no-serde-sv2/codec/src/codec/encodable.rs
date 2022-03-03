@@ -133,9 +133,7 @@ impl<'a> EncodableField<'a> {
                 }
                 Ok(result)
             }
-            (_,false) => {
-                Err(Error::WriteError(offset, dst.len()))
-            },
+            (_, false) => Err(Error::WriteError(offset, dst.len())),
         }
     }
 

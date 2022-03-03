@@ -77,7 +77,8 @@ impl JobCreator {
         let tx_version_byte_len = 4;
         let prev_out_len = 38;
         // add 1 cause the script header (len of script) is 1 byte
-        encoded[0..tx_version_byte_len + coinbase_tx_input_script_prefix_byte_len + prev_out_len + 1]
+        encoded
+            [0..tx_version_byte_len + coinbase_tx_input_script_prefix_byte_len + prev_out_len + 1]
             .to_vec()
             .try_into()
             .unwrap()
