@@ -286,7 +286,7 @@ impl ParseUpstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> fo
     }
 
     fn handle_new_mining_job(&mut self, _: NewMiningJob) -> Result<SendTo<()>, Error> {
-        todo!()
+        Ok(SendTo::None(None))
     }
 
     fn handle_new_extended_mining_job(
@@ -297,7 +297,7 @@ impl ParseUpstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> fo
     }
 
     fn handle_set_new_prev_hash(&mut self, _: SetNewPrevHash) -> Result<SendTo<()>, Error> {
-        todo!()
+        Ok(SendTo::None(None))
     }
 
     fn handle_set_custom_mining_job_success(
