@@ -1,0 +1,12 @@
+[package]
+name = "template-provider-test"
+version = "0.1.0"
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+codec_sv2 = { path = "../../protocols/v2/codec-sv2", features=["noise_sv2"] }
+messages_sv2 = { path = "../../protocols/v2/messages-sv2" }
+async-channel = "1.5.1"
+async-std={version = "1.8.0", features = ["attributes"]}
