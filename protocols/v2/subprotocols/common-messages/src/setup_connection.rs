@@ -179,7 +179,7 @@ impl<'a> From<SetupConnection<'a>> for CSetupConnection {
 /// ## SetupConnection.Success (Server -> Client)
 /// Response to [`SetupConnection`] message if the server accepts the connection. The client is
 /// required to verify the set of feature flags that the server supports and act accordingly.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(C)]
 pub struct SetupConnectionSuccess {
     /// Selected version proposed by the connecting node that the upstream
