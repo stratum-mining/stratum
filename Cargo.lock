@@ -1675,6 +1675,7 @@ dependencies = [
  "async-std",
  "codec_sv2",
  "messages_sv2",
+ "network_helpers",
 ]
 
 [[package]]
