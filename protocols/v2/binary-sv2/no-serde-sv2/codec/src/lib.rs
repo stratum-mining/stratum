@@ -257,6 +257,9 @@ impl<'a, const A: bool, const B: usize, const C: usize, const D: usize>
     }
 }
 
+/// # Safety
+///
+/// TODO
 #[no_mangle]
 pub unsafe extern "C" fn init_cvec2() -> CVec2 {
     let mut buffer = Vec::<CVec>::new();
@@ -275,6 +278,9 @@ pub unsafe extern "C" fn init_cvec2() -> CVec2 {
 
 /// The caller is reponsible for NOT adding duplicate cvecs to the cvec2 structure,
 /// as this can lead to double free errors when the message is dropped.
+/// # Safety
+///
+/// TODO
 #[no_mangle]
 pub unsafe extern "C" fn cvec2_push(cvec2: &mut CVec2, cvec: CVec) {
     let mut buffer: Vec<CVec> = Vec::from_raw_parts(cvec2.data, cvec2.len, cvec2.capacity);
