@@ -59,17 +59,13 @@ fn parse_struct_fields(group: Vec<TokenTree>) -> Vec<ParsedField> {
                 field_.type_ = i.to_string();
             }
             (TokenTree::Ident(i), ParserState::Generics(_)) => {
-                field_.generics = format!("{}{}", field_.generics, i.to_string());
+                field_.generics = format!("{}{}", field_.generics, i);
             }
             (TokenTree::Punct(p), ParserState::Name) => {
                 if p.to_string() == ":" {
                     field_parser_state = ParserState::Type
                 } else {
-                    panic!(
-                        "Unexpected token '{}' in parsing {:#?}",
-                        p.to_string(),
-                        field_
-                    );
+                    panic!("Unexpected token '{}' in parsing {:#?}", p, field_);
                 }
             }
             (TokenTree::Punct(p), ParserState::Type) => match p.to_string().as_ref() {
@@ -82,23 +78,19 @@ fn parse_struct_fields(group: Vec<TokenTree>) -> Vec<ParsedField> {
                     field_.generics = "<".to_string();
                     field_parser_state = ParserState::Generics(0);
                 }
-                _ => panic!(
-                    "Unexpected token '{}' in parsing {:#?}",
-                    p.to_string(),
-                    field_
-                ),
+                _ => panic!("Unexpected token '{}' in parsing {:#?}", p, field_),
             },
             (TokenTree::Punct(p), ParserState::Generics(open_brackets)) => {
                 match p.to_string().as_ref() {
                     "'" => {
-                        field_.generics = format!("{}{}", field_.generics, p.to_string());
+                        field_.generics = format!("{}{}", field_.generics, p);
                     }
                     "<" => {
-                        field_.generics = format!("{}{}", field_.generics, p.to_string());
+                        field_.generics = format!("{}{}", field_.generics, p);
                         field_parser_state = ParserState::Generics(open_brackets + 1);
                     }
                     ">" => {
-                        field_.generics = format!("{}{}", field_.generics, p.to_string());
+                        field_.generics = format!("{}{}", field_.generics, p);
                         if open_brackets == &0 {
                             field_parser_state = ParserState::Type
                         } else {
@@ -106,7 +98,7 @@ fn parse_struct_fields(group: Vec<TokenTree>) -> Vec<ParsedField> {
                         }
                     }
                     _ => {
-                        field_.generics = format!("{}{}", field_.generics, p.to_string());
+                        field_.generics = format!("{}{}", field_.generics, p);
                     }
                 }
             }
@@ -194,10 +186,10 @@ fn get_struct_properties(item: TokenStream) -> ParsedStruct {
                 break;
             }
             TokenTree::Punct(p) => {
-                struct_generics = format!("{}{}", struct_generics, p.to_string());
+                struct_generics = format!("{}{}", struct_generics, p);
             }
             TokenTree::Ident(i) => {
-                struct_generics = format!("{}{}", struct_generics, i.to_string());
+                struct_generics = format!("{}{}", struct_generics, i);
             }
             _ => panic!("Struct {} has no fields", struct_name),
         };
