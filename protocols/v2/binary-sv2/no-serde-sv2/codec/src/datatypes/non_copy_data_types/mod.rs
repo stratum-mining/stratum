@@ -48,3 +48,21 @@ impl<'a> B016M<'a> {
         Vec::<u8>::arbitrary(g).try_into().unwrap()
     }
 }
+
+use core::convert::{TryFrom, TryInto};
+
+impl<'a> TryFrom<String> for Str0255<'a> {
+    type Error = crate::Error;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        value.into_bytes().try_into()
+    }
+}
+
+impl<'a> TryFrom<String> for Str032<'a> {
+    type Error = crate::Error;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        value.into_bytes().try_into()
+    }
+}

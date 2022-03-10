@@ -14,11 +14,12 @@ use core::convert::TryInto;
 use quickcheck::{Arbitrary, Gen};
 
 pub use channel_endpoint_changed::ChannelEndpointChanged;
+pub use setup_connection::{
+    has_requires_std_job, has_version_rolling, has_work_selection, Protocol, SetupConnection,
+    SetupConnectionError, SetupConnectionSuccess,
+};
 #[cfg(not(feature = "with_serde"))]
 pub use setup_connection::{CSetupConnection, CSetupConnectionError};
-pub use setup_connection::{
-    Protocol, SetupConnection, SetupConnectionError, SetupConnectionSuccess,
-};
 
 #[cfg(not(feature = "with_serde"))]
 #[no_mangle]
