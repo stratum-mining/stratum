@@ -6,6 +6,6 @@ special procedure when we need to update this branch with new code in the master
 
 # Update
 When changes from master needs to be merged into sv2-tp-crates
-1. do git checkout main ``find ./protocols -name \*.*  | grep -v "target" | grep -v "toml" | grep -v "lock"` ``
+1. do ``git checkout main `find ./protocols -name \*.*  | grep -v "target" | grep -v "toml" | grep -v "lock"` ``
 2. do `./test.sh`
 3. manually fix errors if any

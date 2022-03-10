@@ -257,6 +257,44 @@ impl<'a, const A: bool, const B: usize, const C: usize, const D: usize>
     }
 }
 
+/// # Safety
+///
+/// TODO
+#[no_mangle]
+pub unsafe extern "C" fn init_cvec2() -> CVec2 {
+    let mut buffer = Vec::<CVec>::new();
+
+    // Get the length, first, then the pointer (doing it the other way around **currently** doesn't cause UB, but it may be unsound due to unclear (to me, at least) guarantees of the std lib)
+    let len = buffer.len();
+    let ptr = buffer.as_mut_ptr();
+    std::mem::forget(buffer);
+
+    CVec2 {
+        data: ptr,
+        len,
+        capacity: len,
+    }
+}
+
+/// The caller is reponsible for NOT adding duplicate cvecs to the cvec2 structure,
+/// as this can lead to double free errors when the message is dropped.
+/// # Safety
+///
+/// TODO
+#[no_mangle]
+pub unsafe extern "C" fn cvec2_push(cvec2: &mut CVec2, cvec: CVec) {
+    let mut buffer: Vec<CVec> = Vec::from_raw_parts(cvec2.data, cvec2.len, cvec2.capacity);
+    buffer.push(cvec);
+
+    let len = buffer.len();
+    let ptr = buffer.as_mut_ptr();
+    std::mem::forget(buffer);
+
+    cvec2.data = ptr;
+    cvec2.len = len;
+    cvec2.capacity = len;
+}
+
 impl<'a, T: Into<CVec>> From<Seq0255<'a, T>> for CVec2 {
     fn from(v: Seq0255<'a, T>) -> Self {
         let mut v: Vec<CVec> = v.0.into_iter().map(|x| x.into()).collect();
