@@ -211,14 +211,14 @@ struct CVec {
   uintptr_t capacity;
 };
 
-struct U24 {
-  uint32_t _0;
-};
-
 struct CVec2 {
   CVec *data;
   uintptr_t len;
   uintptr_t capacity;
+};
+
+struct U24 {
+  uint32_t _0;
 };
 
 extern "C" {
@@ -229,6 +229,12 @@ extern "C" {
 ///
 /// TODO
 CVec cvec_from_buffer(const uint8_t *data, uintptr_t len);
+
+CVec2 init_cvec2();
+
+/// The caller is reponsible for NOT adding duplicate cvecs to the cvec2 structure,
+/// as this can lead to double free errors when the message is dropped.
+void cvec2_push(CVec2 *cvec2, CVec cvec);
 
 void _c_export_u24(U24 _a);
 
@@ -524,6 +530,8 @@ bool is_ok(const CResult<CSv2Message, Sv2Error> *cresult);
 EncoderWrapper *new_encoder();
 
 void free_encoder(EncoderWrapper *encoder);
+
+void free_decoder(DecoderWrapper *decoder);
 
 /// # Safety
 ///
