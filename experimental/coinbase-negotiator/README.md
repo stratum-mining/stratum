@@ -3,16 +3,22 @@
 ## Add new Sv2 sub(protocol) coinbase negotiation as an Sv2 extension
 
 ### Why
-Schnorr signatures + presigned txs (today) and CTV (maybe in the near future) make it easier the
-implementation of noncustodial pool. In Sv2 there is the possibility to add extensions.
-I think that negotiating a coinbase tx between pool and downstreams could be a good use case for an
-extension. It also make sense for coinbase negotiators to use the already available Sv2 data format,
-framing, handshake, authorization and encryption layer.
+Schnorr signatures + presigned transactions (today) and CHECKTEMPLATEVERIFY (CTV) (perhaps in the 
+near future) along with SV2’s support of mining extensions, make the implementation of all
+noncustodial pool possible for the first time.
 
-### Why I would like to add it to the POC:
-1. make Sv2 more interesting so is one more reason to push for adoption
-2. in order to do the POC we need to deploy a pool, using a non custodial pool and not having to
-   worry about custody bitcoin will make things a lot easier for us.
+A non-custodial pool would require the negotiation of a coinbase transaction between the upstream 
+Pool Service and the downstream nodes. This is a good use case for an SV2 extension as the coinbase
+negotiation process can use the already available data format, framing, handshake, authorization,
+and encryption layer as defined by the SV2 protocol.
+
+
+### POC Rationale:
+1. Makes Sv2 more interesting giving one more reason to push for Sv2 adoption.
+2. A non-custodial Pool Service relieves a substantial amount of custodial-related overhead format
+   Pool Service operators.
+3. A non-custodial pool may help reduce pool skimming. Today, there is no mechanism is in place to
+   protect miner against this attack vector.
 
 ### Goals:
 1. start exploring possible ways to have non custodial pools
@@ -138,9 +144,12 @@ msg_type: 0x7A
 ```
 
 
-When downstream will start to mine a new block it will use the new coinbase tx if it know a valid tx
-that spend bitcoin from the coinbase output to the downstream's controlled address, and if the sum
-of all the bitcoin spent by the tx signed via NewTxToSign do not exceed the coinbase input
+
+When the downstream nodes (clients) start to mine a new block, they will each use the new coinbase
+transaction if:
+1. the coinbase output yields bitcoin spendable by the miner provided address, or
+2. if the sum of the bitcoin spent by the transaction signed via NewTxToSign does not exceed the
+   coinbase input.
 ```
 Server -> Client
 NewCoinbase:
@@ -152,7 +161,7 @@ msg_type: 0x7B
 
 
 ### Note 1 possible implementation
-Let say that a miner want to start to mine with a pool:
+Consider the scenario when a miner wants to commence mining with an non-custodial pool:
 1. miner will send a NewPubKeyPair to the pool.
 2. pool will not send a NewCoinbaseTx and the miner should start to mine whatever job is provided
    by the pool.
@@ -163,6 +172,21 @@ Let say that a miner want to start to mine with a pool:
    that pay the miner.
 5. from this point the pool will keep sending NewTxToSign for every NewPrevHash
 6. when miner want to exit it just stop mine new jobs and  wait until the pool find a new block. If the miner go offline pool will stop to put the miner reward in the coinbase tx but as soon as the miner will be online the miner will restart to put miner reward in coinbase.
+
+
+
+1. The miner will send a NewPubKeyPair to the pool.
+2. The pool will now send a NewCoinbaseTx to the miner who should start mining on the job provided
+   by the pool.
+3. The pool and the miner will register all the valid shares provided by the Mining Devices.
+   [Sum(valid shares for job n), Sum(valid shares for job n+1, ...]
+4. On a NewPrevHash, the pool sends a NewTxToSign where it pays to the miner all the provided
+   shares.
+5. From this point the pool will keep sending NewTxToSign’s for every NewPrevHash.
+6. As soon as the pool finds a block, if miner stop accepting jobs it will be net pair with the
+   pool.
+
+
 
 Fair price:
 The miner still trust the pool that the shares are payed a fair price.
