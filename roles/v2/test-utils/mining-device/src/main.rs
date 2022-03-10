@@ -97,7 +97,7 @@ impl ParseUpstreamCommonMessages<NoRouting> for SetupConnectionHandler {
         _: SetupConnectionSuccess,
     ) -> Result<messages_sv2::handlers::common::SendTo, messages_sv2::errors::Error> {
         use messages_sv2::handlers::common::SendTo;
-        Ok(SendTo::None)
+        Ok(SendTo::None(None))
     }
 
     fn handle_setup_connection_error(
@@ -171,7 +171,7 @@ impl Device {
                     let either_frame: EitherFrame = sv2_frame.into();
                     sender.send(either_frame).await.unwrap();
                 }
-                SendTo::None => (),
+                SendTo::None(_) => (),
                 _ => panic!(),
             }
         }
@@ -242,7 +242,7 @@ impl ParseUpstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> fo
             "MINING DEVICE: channel opened with: group id {}, channel id {}, request id {}",
             m.group_channel_id, m.channel_id, m.request_id
         );
-        Ok(SendTo::None)
+        Ok(SendTo::None(None))
     }
 
     fn handle_open_extended_mining_channel_success(
@@ -286,7 +286,7 @@ impl ParseUpstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> fo
     }
 
     fn handle_new_mining_job(&mut self, _: NewMiningJob) -> Result<SendTo<()>, Error> {
-        todo!()
+        Ok(SendTo::None(None))
     }
 
     fn handle_new_extended_mining_job(
@@ -297,7 +297,7 @@ impl ParseUpstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> fo
     }
 
     fn handle_set_new_prev_hash(&mut self, _: SetNewPrevHash) -> Result<SendTo<()>, Error> {
-        todo!()
+        Ok(SendTo::None(None))
     }
 
     fn handle_set_custom_mining_job_success(

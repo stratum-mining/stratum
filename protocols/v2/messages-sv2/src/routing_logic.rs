@@ -449,9 +449,7 @@ impl<
         let mut upstreams = self.upstream_selector.on_setup_connection(pair_settings)?;
         // TODO the upstream selection logic should be specified by the caller
         let upstream = Self::select_upstreams(&mut upstreams.0);
-        let id = self.downstream_id_generator.next();
         let downstream_data = CommonDownstreamData {
-            id,
             header_only: true,
             work_selection: false,
             version_rolling: false,

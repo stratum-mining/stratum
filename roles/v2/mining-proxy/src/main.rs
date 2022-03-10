@@ -135,6 +135,7 @@ async fn main() {
     };
     unsafe {
         ROUTING_LOGIC = Some(Arc::new(Mutex::new(routing_logic)));
+        JOB_ID_TO_UPSTREAM_ID = Some(Arc::new(Mutex::new(HashMap::new())));
     }
 
     // Wait for downstream connection

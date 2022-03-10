@@ -99,6 +99,16 @@ pub fn has_requires_std_job(flags: u32) -> bool {
     let flag = flags >> 31;
     flag != 0
 }
+pub fn has_version_rolling(flags: u32) -> bool {
+    let flags = flags << 1;
+    let flag = flags >> 31;
+    flag != 0
+}
+pub fn has_work_selection(flags: u32) -> bool {
+    let flags = flags << 2;
+    let flag = flags >> 31;
+    flag != 0
+}
 
 #[repr(C)]
 #[cfg(not(feature = "with_serde"))]
@@ -179,7 +189,7 @@ impl<'a> From<SetupConnection<'a>> for CSetupConnection {
 /// ## SetupConnection.Success (Server -> Client)
 /// Response to [`SetupConnection`] message if the server accepts the connection. The client is
 /// required to verify the set of feature flags that the server supports and act accordingly.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Copy)]
 #[repr(C)]
 pub struct SetupConnectionSuccess {
     /// Selected version proposed by the connecting node that the upstream

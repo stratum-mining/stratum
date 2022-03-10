@@ -1123,6 +1123,19 @@ impl<'decoder, B: AsMut<[u8]> + AsRef<[u8]>> TryFrom<MiningDeviceMessages<'decod
     }
 }
 
+impl<'decoder, B: AsMut<[u8]> + AsRef<[u8]>> TryFrom<TemplateDistribution<'decoder>>
+    for Sv2Frame<TemplateDistribution<'decoder>, B>
+{
+    type Error = ();
+
+    fn try_from(v: TemplateDistribution<'decoder>) -> Result<Self, ()> {
+        let extension_type = 0;
+        let channel_bit = v.channel_bit();
+        let message_type = v.message_type();
+        Sv2Frame::from_message(v, message_type, extension_type, channel_bit).ok_or(())
+    }
+}
+
 impl<'a> TryFrom<PoolMessages<'a>> for MiningDeviceMessages<'a> {
     type Error = ();
 

@@ -175,7 +175,7 @@ impl DownstreamMiningNode {
             Ok(SendTo::Multiple(_sends_to)) => {
                 todo!();
             }
-            Ok(SendTo::None) => (),
+            Ok(SendTo::None(_)) => (),
             Err(Error::UnexpectedMessage) => todo!("148"),
             Err(_) => todo!("149"),
         }

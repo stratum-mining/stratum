@@ -21,6 +21,7 @@
 //! A Result<SendTo_, Error> is returned and is duty of the implementor to send the message
 pub mod common;
 pub mod mining;
+pub mod template_distribution;
 use crate::utils::Mutex;
 use std::sync::Arc;
 
@@ -38,7 +39,7 @@ pub enum SendTo_<SubProtocol, Remote> {
     /// Used when multiple type of SendTo are needed
     Multiple(Vec<SendTo_<SubProtocol, Remote>>),
     /// Used by proxyies and other roles when no messages need to be sent.
-    None,
+    None(Option<SubProtocol>),
 }
 
 impl<SubProtocol, Remote> SendTo_<SubProtocol, Remote> {
@@ -48,7 +49,7 @@ impl<SubProtocol, Remote> SendTo_<SubProtocol, Remote> {
             Self::RelaySameMessage(_) => None,
             Self::Respond(m) => Some(m),
             Self::Multiple(_) => None,
-            Self::None => None,
+            Self::None(m) => m,
         }
     }
     pub fn into_remote(self) -> Option<Arc<Mutex<Remote>>> {
@@ -57,7 +58,7 @@ impl<SubProtocol, Remote> SendTo_<SubProtocol, Remote> {
             Self::RelaySameMessage(r) => Some(r),
             Self::Respond(_) => None,
             Self::Multiple(_) => None,
-            Self::None => None,
+            Self::None(_) => None,
         }
     }
 }

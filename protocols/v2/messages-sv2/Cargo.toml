@@ -14,7 +14,7 @@ template_distribution_sv2 = { path = "../../../protocols/v2/subprotocols/templat
 job_negotiation_sv2 = { path = "../../../protocols/v2/subprotocols/job-negotiation", version = "0.1.0"}
 const_sv2 = { version = "0.1.0", path = "../../../protocols/v2/const-sv2"}
 framing_sv2 = { path = "../../../protocols/v2/framing-sv2" }
-bitcoin_hashes = "0.10.0"
+bitcoin = "0.27.1"
 
 [features]
 with_serde = [ "serde",

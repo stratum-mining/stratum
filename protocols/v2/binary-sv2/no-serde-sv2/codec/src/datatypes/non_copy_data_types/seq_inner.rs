@@ -1,5 +1,6 @@
 use crate::codec::decodable::{Decodable, DecodableField, FieldMarker, GetMarker, PrimitiveMarker};
 use crate::codec::encodable::{EncodableField, EncodablePrimitive};
+use crate::codec::Fixed;
 use crate::codec::GetSize;
 use crate::datatypes::Sv2DataType;
 use crate::datatypes::*;
@@ -271,5 +272,45 @@ impl<'a, T> From<Vec<T>> for Seq0255<'a, T> {
 impl<'a, T> From<Vec<T>> for Seq064K<'a, T> {
     fn from(v: Vec<T>) -> Self {
         Seq064K(v, PhantomData)
+    }
+}
+
+impl<'a, T: Fixed> Seq0255<'a, T> {
+    pub fn into_static(self) -> Seq0255<'static, T> {
+        // Safe unwrap cause the initial value is a valid Seq0255
+        Seq0255::new(self.0).unwrap()
+    }
+}
+
+impl<'a, const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize>
+    Seq0255<'a, Inner<'a, ISFIXED, SIZE, HEADERSIZE, MAXSIZE>>
+{
+    pub fn into_static(
+        self,
+    ) -> Seq0255<'static, Inner<'static, ISFIXED, SIZE, HEADERSIZE, MAXSIZE>> {
+        let seq = self.0;
+        let static_seq = seq.into_iter().map(|x| x.into_static()).collect();
+        // Safe unwrap cause the initial value is a valid Seq0255
+        Seq0255::new(static_seq).unwrap()
+    }
+}
+
+impl<'a, T: Fixed> Seq064K<'a, T> {
+    pub fn into_static(self) -> Seq064K<'static, T> {
+        // Safe unwrap cause the initial value is a valid Seq064K
+        Seq064K::new(self.0).unwrap()
+    }
+}
+
+impl<'a, const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize>
+    Seq064K<'a, Inner<'a, ISFIXED, SIZE, HEADERSIZE, MAXSIZE>>
+{
+    pub fn into_static(
+        self,
+    ) -> Seq064K<'static, Inner<'static, ISFIXED, SIZE, HEADERSIZE, MAXSIZE>> {
+        let seq = self.0;
+        let static_seq = seq.into_iter().map(|x| x.into_static()).collect();
+        // Safe unwrap cause the initial value is a valid Seq064K
+        Seq064K::new(static_seq).unwrap()
     }
 }

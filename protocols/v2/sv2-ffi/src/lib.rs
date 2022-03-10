@@ -115,9 +115,9 @@ pub extern "C" fn drop_sv2_message(s: CSv2Message) {
         CSv2Message::SetNewPrevHash(a) => drop(a),
         CSv2Message::SubmitSolution(a) => drop(a),
         CSv2Message::ChannelEndpointChanged(_) => (),
-        CSv2Message::SetupConnection(_) => (),
+        CSv2Message::SetupConnection(a) => drop(a),
         CSv2Message::SetupConnectionError(a) => drop(a),
-        CSv2Message::SetupConnectionSuccess(a) => drop(a),
+        CSv2Message::SetupConnectionSuccess(_) => (),
     }
 }
 
