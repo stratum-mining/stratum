@@ -80,9 +80,9 @@ async fn test_1() {
     let extension_type = 0;
     let channel_bit = submit_solution.channel_bit();
     // Below is the right message type
-    let _message_type = submit_solution.message_type();
+    let message_type = submit_solution.message_type();
     // But I use 76 cause code on core is old version
-    let message_type = 76;
+    // let message_type = 76;
     let frame: StdFrame =
         Sv2Frame::from_message(submit_solution, message_type, extension_type, channel_bit).unwrap();
     let frame: EitherFrame = frame.try_into().unwrap();
