@@ -230,10 +230,16 @@ extern "C" {
 /// TODO
 CVec cvec_from_buffer(const uint8_t *data, uintptr_t len);
 
+/// # Safety
+///
+/// TODO
 CVec2 init_cvec2();
 
 /// The caller is reponsible for NOT adding duplicate cvecs to the cvec2 structure,
 /// as this can lead to double free errors when the message is dropped.
+/// # Safety
+///
+/// TODO
 void cvec2_push(CVec2 *cvec2, CVec cvec);
 
 void _c_export_u24(U24 _a);
