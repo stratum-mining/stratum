@@ -152,7 +152,7 @@ impl<'a> CSv2Message {
             CSv2Message::SetupConnectionError(v) => {
                 Ok(Sv2Message::SetupConnectionError(v.to_rust_rep_mut()?))
             }
-            CSv2Message::SetupConnectionSuccess(v) => {Ok(Sv2Message::SetupConnectionSuccess(*v))}
+            CSv2Message::SetupConnectionSuccess(v) => Ok(Sv2Message::SetupConnectionSuccess(*v)),
             _ => todo!(),
         }
     }
