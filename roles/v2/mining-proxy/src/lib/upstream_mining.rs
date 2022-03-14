@@ -300,8 +300,9 @@ impl UpstreamMiningNode {
                 }
             }
             Ok(SendTo::None(_)) => (),
-            Err(Error::UnexpectedMessage) => todo!("303"),
-            Err(_) => todo!("304"),
+            Err(Error::NoDownstreamsConnected) => (),
+            Err(Error::UnexpectedMessage) => todo!(),
+            Err(_) => todo!(),
         }
     }
 
@@ -551,11 +552,16 @@ impl
         m: NewMiningJob,
     ) -> Result<SendTo<DownstreamMiningNode>, Error> {
         // One and only one downstream cause the message is not extended
-        let downstream = &self
+        match &self
             .downstream_selector
-            .get_downstreams_in_channel(m.channel_id)[0];
-        crate::add_job_id(m.job_id, self.id);
-        Ok(SendTo::RelaySameMessage(downstream.clone()))
+            .get_downstreams_in_channel(m.channel_id) {
+              Some(downstreams) => {
+                  let downstream = &downstreams[0];
+                  crate::add_job_id(m.job_id, self.id);
+                  Ok(SendTo::RelaySameMessage(downstream.clone()))
+              },
+              None => Err(Error::NoDownstreamsConnected)
+            }
     }
 
     fn handle_new_extended_mining_job(
@@ -565,7 +571,8 @@ impl
         let id = self.id;
         let downstreams = self
             .downstream_selector
-            .get_downstreams_in_channel(m.channel_id);
+            .get_downstreams_in_channel(m.channel_id).ok_or(Error::NoDownstreamsConnected)?;
+
         let dispacther = self
             .channel_id_to_job_dispatcher
             .get_mut(&m.channel_id)
@@ -611,7 +618,7 @@ impl
             (true, None) => {
                 let downstreams = self
                     .downstream_selector
-                    .get_downstreams_in_channel(m.channel_id);
+                    .get_downstreams_in_channel(m.channel_id).ok_or(Error::NoDownstreamsConnected)?;
                 // If upstream is header only one and only one downstream is in channel
                 Ok(SendTo::RelaySameMessage(downstreams[0].clone()))
             }
@@ -619,7 +626,7 @@ impl
                 dispatcher.on_new_prev_hash(&m)?;
                 let downstreams = self
                     .downstream_selector
-                    .get_downstreams_in_channel(m.channel_id);
+                    .get_downstreams_in_channel(m.channel_id).ok_or(Error::NoDownstreamsConnected)?;
                 let mut messages: Vec<SendTo<DownstreamMiningNode>> =
                     Vec::with_capacity(downstreams.len());
                 for downstream in downstreams {

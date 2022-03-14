@@ -57,8 +57,8 @@ impl<Down: IsMiningDownstream> DownstreamMiningSelector<Down>
         downstream
     }
 
-    fn get_downstreams_in_channel(&self, channel_id: u32) -> &Vec<Arc<Mutex<Down>>> {
-        self.channel_id_to_downstreams.get(&channel_id).unwrap()
+    fn get_downstreams_in_channel(&self, channel_id: u32) -> Option<&Vec<Arc<Mutex<Down>>>> {
+        self.channel_id_to_downstreams.get(&channel_id)
     }
 
     fn remote_from_request_id(&mut self, _request_id: u32) -> Arc<Mutex<Down>> {
@@ -92,7 +92,7 @@ pub trait DownstreamMiningSelector<Downstream: IsMiningDownstream>:
 
     // group / standard naming is terrible channel_id in this case can be  either the channel_id
     // or the group_channel_id
-    fn get_downstreams_in_channel(&self, channel_id: u32) -> &Vec<Arc<Mutex<Downstream>>>;
+    fn get_downstreams_in_channel(&self, channel_id: u32) -> Option<&Vec<Arc<Mutex<Downstream>>>>;
 
     // only for standard
     fn downstream_from_channel_id(&self, channel_id: u32) -> Option<Arc<Mutex<Downstream>>>;
@@ -138,7 +138,7 @@ impl<Down: IsMiningDownstream + D> DownstreamMiningSelector<Down> for NullDownst
         unreachable!("on_open_standard_channel_success")
     }
 
-    fn get_downstreams_in_channel(&self, _channel_id: u32) -> &Vec<Arc<Mutex<Down>>> {
+    fn get_downstreams_in_channel(&self, _channel_id: u32) -> Option<&Vec<Arc<Mutex<Down>>>> {
         unreachable!("get_downstreams_in_channel")
     }
 
