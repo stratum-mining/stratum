@@ -238,7 +238,7 @@ impl Ord for Target {
     }
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq)]
 /// Extranonce bytes which need to be added to the coinbase to form a fully valid submission:
 /// (full coinbase = coinbase_tx_prefix + extranonce_prefix + extranonce + coinbase_tx_suffix).
 /// The size of the provided extranonce MUST be equal to the negotiated extranonce size from

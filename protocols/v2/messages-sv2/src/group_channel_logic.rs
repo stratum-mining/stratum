@@ -39,3 +39,23 @@ impl UpstreamWithGroups {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn builds_upstream_with_groups() {
+        let expect = UpstreamWithGroups {
+            groups: HashMap::new(),
+            ids: Id::new(),
+            extranonces: Extranonce::new(),
+        };
+
+        let actual = UpstreamWithGroups::new();
+
+        assert!(actual.groups.is_empty());
+        assert_eq!(expect.ids, actual.ids);
+        assert_eq!(expect.extranonces, actual.extranonces);
+    }
+}
