@@ -26,13 +26,13 @@ ROOT=$(git rev-parse --show-toplevel)
 # Loop through each crate and execute the tests
 # Each crate path is found by searching for a Cargo.toml file
 for cargo_dir in $(find . -type f -name 'Cargo.toml' | sed -r 's|/[^/]+$||'); do
-    echo "Running tests in: $cargo_dir"
-    pushd "$cargo_dir"
+    echo Running tests in: $cargo_dir
+    cd $cargo_dir
     # Compile the tests, but do not execute
     RUST_BACKTRACE=0 $CARGO_BIN test --no-run
     # Execute tests and print any outputs to stdout
     RUST_BACKTRACE=1 $CARGO_BIN test -- --nocapture
-    popd
+    cd $ROOT
 done
 
 rm ./protocols/v2/binary-sv2/binary-sv2/Cargo.lock
