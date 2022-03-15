@@ -37,19 +37,19 @@ done
 
 rm -f ./protocols/v2/binary-sv2/binary-sv2/Cargo.lock
 rm -rf ./protocols/v2/binary-sv2/binary-sv2/target/
-rm -f./protocols/v2/binary-sv2/no-serde-sv2/codec/Cargo.lock
+rm -f ./protocols/v2/binary-sv2/no-serde-sv2/codec/Cargo.lock
 rm -rf ./protocols/v2/binary-sv2/no-serde-sv2/codec/target/
-rm -f./protocols/v2/binary-sv2/no-serde-sv2/derive_codec/Cargo.lock
+rm -f ./protocols/v2/binary-sv2/no-serde-sv2/derive_codec/Cargo.lock
 rm -rf ./protocols/v2/binary-sv2/no-serde-sv2/derive_codec/target/
-rm -f./protocols/v2/codec-sv2/Cargo.lock
+rm -f ./protocols/v2/codec-sv2/Cargo.lock
 rm -rf ./protocols/v2/codec-sv2/target/
-rm -f./protocols/v2/const-sv2/Cargo.lock
+rm -f ./protocols/v2/const-sv2/Cargo.lock
 rm -rf ./protocols/v2/const-sv2/target/
-rm -f./protocols/v2/framing-sv2/Cargo.lock
+rm -f ./protocols/v2/framing-sv2/Cargo.lock
 rm -rf ./protocols/v2/framing-sv2/target/
-rm -f./protocols/v2/subprotocols/common-messages/Cargo.lock
+rm -f ./protocols/v2/subprotocols/common-messages/Cargo.lock
 rm -rf ./protocols/v2/subprotocols/common-messages/target/
-rm -f./protocols/v2/subprotocols/template-distribution/Cargo.lock
+rm -f ./protocols/v2/subprotocols/template-distribution/Cargo.lock
 rm -rf ./protocols/v2/subprotocols/template-distribution/target/
-rm -f./protocols/v2/sv2-ffi/Cargo.lock
+rm -f ./protocols/v2/sv2-ffi/Cargo.lock
 rm -rf ./protocols/v2/sv2-ffi/target/
