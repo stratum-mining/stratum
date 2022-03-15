@@ -1,0 +1,25 @@
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    brances: [ main ]
+
+# Run all tests by executing the ./test.sh script
+name: Test
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: 
+          - ubuntu-latest
+          - osx-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Run tests for all crates by executing ./test.sh
+        run: |
+          echo Run tests for all crates by executing ./test.sh
+          sh ./test.sh
