@@ -15,24 +15,32 @@ error() {
 trap 'error ${LINENO}' ERR
 # done with trap
 
-# support cargo command override
+# Support cargo command override
 if [[ -z $CARGO_BIN ]]; then
     CARGO_BIN=cargo
 fi
 
-# toplevel git repo
+# Top level of this git repository
 ROOT=$(git rev-parse --show-toplevel)
 
-for cargo_dir in $(find "$ROOT" -name Cargo.toml -printf '%h\n'); do
+# Loop through each crate and execute the tests
+# Each crate path is found by searching for a Cargo.toml file
+for cargo_dir in $(find . -type f -name 'Cargo.toml' | sed -r 's|/[^/]+$||'); do
     echo "Running tests in: $cargo_dir"
     pushd "$cargo_dir"
+    # Compile the tests, but do not execute
     RUST_BACKTRACE=0 $CARGO_BIN test --no-run
+    # Execute tests and print any outputs to stdout
     RUST_BACKTRACE=1 $CARGO_BIN test -- --nocapture
     popd
 done
 
 rm ./protocols/v2/binary-sv2/binary-sv2/Cargo.lock
 rm -r ./protocols/v2/binary-sv2/binary-sv2/target/
+rm ./protocols/v2/binary-sv2/no-serde-sv2/codec/Cargo.lock
+rm -r ./protocols/v2/binary-sv2/no-serde-sv2/codec/target/
+rm ./protocols/v2/binary-sv2/no-serde-sv2/derive_codec/Cargo.lock
+rm -r ./protocols/v2/binary-sv2/no-serde-sv2/derive_codec/target/
 rm ./protocols/v2/codec-sv2/Cargo.lock
 rm -r ./protocols/v2/codec-sv2/target/
 rm ./protocols/v2/const-sv2/Cargo.lock
