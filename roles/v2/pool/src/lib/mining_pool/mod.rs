@@ -43,6 +43,7 @@ pub struct Pool {
     hom_ids: Arc<Mutex<Id>>,
     group_ids: Arc<Mutex<Id>>,
     job_creators: Arc<Mutex<JobsCreators>>,
+    last_new_prev_hash: Option<SetNewPrevHash<'static>>,
 }
 
 impl Downstream {
@@ -65,7 +66,7 @@ impl Downstream {
                 panic!("Downstream standard channel not supported");
             }
         };
-        job_creators
+        let extended_jobs = job_creators
             .safe_lock(|j| j.new_group_channel(id, downstream_data.version_rolling))
             .unwrap();
         let self_ = Arc::new(Mutex::new(Downstream {
@@ -75,6 +76,14 @@ impl Downstream {
             downstream_data,
             channel_ids: Id::new(),
         }));
+        for job in extended_jobs {
+            Self::send(
+                self_.clone(),
+                messages_sv2::parsers::Mining::NewExtendedMiningJob(job),
+            )
+            .await
+            .unwrap();
+        }
         let cloned = self_.clone();
         task::spawn(async move {
             loop {
@@ -97,9 +106,7 @@ impl Downstream {
         );
         match next_message_to_send {
             Ok(SendTo::RelayNewMessage(_, message)) => {
-                let sv2_frame: StdFrame = PoolMessages::Mining(message).try_into().unwrap();
-                let sender = self_mutex.safe_lock(|self_| self_.sender.clone()).unwrap();
-                sender.send(sv2_frame.into()).await.unwrap();
+                Self::send(self_mutex, message).await.unwrap();
             }
             Ok(_) => panic!(),
             Err(Error::UnexpectedMessage) => todo!(),
@@ -107,6 +114,16 @@ impl Downstream {
         }
 
         //TODO
+    }
+
+    pub async fn send(
+        self_mutex: Arc<Mutex<Self>>,
+        message: messages_sv2::parsers::Mining<'static>,
+    ) -> Result<(), ()> {
+        let sv2_frame: StdFrame = PoolMessages::Mining(message).try_into().unwrap();
+        let sender = self_mutex.safe_lock(|self_| self_.sender.clone()).unwrap();
+        sender.send(sv2_frame.into()).await.map_err(|_| ())?;
+        Ok(())
     }
 
     pub async fn on_new_prev_hash(
@@ -160,15 +177,40 @@ impl Pool {
             let job_creators = self_.safe_lock(|s| s.job_creators.clone()).unwrap();
             let downstream =
                 Downstream::new(receiver, sender, group_ids, hom_ids, job_creators).await;
-            let (is_header_only, id) = downstream
+
+            let last_new_prev_hash = self_.safe_lock(|x| x.last_new_prev_hash.clone()).unwrap();
+
+            let (is_header_only, channel_id) = downstream
                 .safe_lock(|d| (d.downstream_data.header_only, d.id))
                 .unwrap();
+
+            if let Some(new_prev_hash) = last_new_prev_hash {
+                let job_id = self_
+                    .safe_lock(|s| {
+                        s.job_creators
+                            .safe_lock(|j| {
+                                j.job_id_from_template(new_prev_hash.template_id, channel_id)
+                            })
+                            .unwrap()
+                    })
+                    .unwrap();
+                let message = NewPrevHash {
+                    channel_id,
+                    job_id: job_id.unwrap(),
+                    prev_hash: new_prev_hash.prev_hash.clone(),
+                    min_ntime: 0,
+                    nbits: new_prev_hash.n_bits,
+                };
+                Downstream::send(downstream.clone(), Mining::SetNewPrevHash(message))
+                    .await
+                    .unwrap();
+            };
             self_
                 .safe_lock(|p| {
                     if is_header_only {
-                        p.hom_downstreams.insert(id, downstream);
+                        p.hom_downstreams.insert(channel_id, downstream);
                     } else {
-                        p.group_downstreams.insert(id, downstream);
+                        p.group_downstreams.insert(channel_id, downstream);
                     }
                 })
                 .unwrap();
@@ -177,6 +219,9 @@ impl Pool {
 
     async fn on_new_prev_hash(self_: Arc<Mutex<Self>>, rx: Receiver<SetNewPrevHash<'static>>) {
         while let Ok(new_prev_hash) = rx.recv().await {
+            self_
+                .safe_lock(|s| s.last_new_prev_hash = Some(new_prev_hash.clone()))
+                .unwrap();
             let hom_downstreams: Vec<Arc<Mutex<Downstream>>> = self_
                 .safe_lock(|s| s.hom_downstreams.iter().map(|d| d.1.clone()).collect())
                 .unwrap();
@@ -184,9 +229,19 @@ impl Pool {
                 .safe_lock(|s| s.group_downstreams.iter().map(|d| d.1.clone()).collect())
                 .unwrap();
             for downstream in [&hom_downstreams[..], &group_downstreams[..]].concat() {
+                let channel_id = downstream.safe_lock(|d| d.id).unwrap();
+                let job_id = self_
+                    .safe_lock(|s| {
+                        s.job_creators
+                            .safe_lock(|j| {
+                                j.job_id_from_template(new_prev_hash.template_id, channel_id)
+                            })
+                            .unwrap()
+                    })
+                    .unwrap();
                 let message = NewPrevHash {
-                    channel_id: 0,
-                    job_id: 0,
+                    channel_id,
+                    job_id: job_id.unwrap(),
                     prev_hash: new_prev_hash.prev_hash.clone(),
                     min_ntime: 0,
                     nbits: new_prev_hash.n_bits,
@@ -232,6 +287,7 @@ impl Pool {
                 crate::BLOCK_REWARD,
                 crate::new_pub_key(),
             ))),
+            last_new_prev_hash: None,
         }));
 
         let cloned = pool.clone();

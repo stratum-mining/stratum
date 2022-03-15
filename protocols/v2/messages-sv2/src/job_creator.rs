@@ -22,6 +22,7 @@ pub struct JobCreator {
     group_channel_id: u32,
     job_ids: Id,
     version_rolling_allowed: bool,
+    template_id_to_job_id: HashMap<u64, u32>,
 }
 
 // const ETRANONCE_LEN: usize = 100;
@@ -39,7 +40,7 @@ impl JobCreator {
         let script_prefix = new_template.coinbase_prefix.to_vec();
         let script_prefix_len = script_prefix.len();
         if Self::extranonce_len(&script_prefix) != 100 {
-            panic!("")
+            panic!("{}", Self::extranonce_len(&script_prefix))
         }
         let coinbase = self.coinbase(
             script_prefix,
@@ -61,7 +62,13 @@ impl JobCreator {
             coinbase_tx_prefix: Self::coinbase_tx_prefix(&coinbase, script_prefix_len),
             coinbase_tx_suffix: Self::coinbase_tx_suffix(&coinbase, script_prefix_len),
         };
+        self.template_id_to_job_id
+            .insert(new_template.template_id, new_extended_mining_job.job_id);
         new_extended_mining_job
+    }
+
+    pub fn get_job_id(&self, template_id: u64) -> Option<u32> {
+        self.template_id_to_job_id.get(&template_id).copied()
     }
 
     /// Return the len of the script without the block hight (bip34) part
@@ -152,6 +159,8 @@ pub struct JobsCreators {
     coinbase_outputs: Vec<TxOut>,
     block_reward_staoshi: u64,
     pub_key: PublicKey,
+    lasts_new_template: Vec<NewTemplate<'static>>,
+    //last_prev_hash: Pr
 }
 
 impl JobsCreators {
@@ -161,6 +170,7 @@ impl JobsCreators {
             coinbase_outputs: Self::new_outputs(block_reward_staoshi, pub_key),
             block_reward_staoshi,
             pub_key,
+            lasts_new_template: Vec::new(),
         }
     }
 
@@ -181,23 +191,46 @@ impl JobsCreators {
             self.coinbase_outputs =
                 Self::new_outputs(template.coinbase_tx_value_remaining, self.pub_key);
         }
-        let coinbase_output = self.coinbase_outputs.clone();
 
         let mut new_extended_jobs = HashMap::new();
         for creator in &mut self.jobs_creators {
-            let job = creator.new_extended_job(template, &coinbase_output);
+            let job = creator.new_extended_job(template, &self.coinbase_outputs);
             new_extended_jobs.insert(job.channel_id, job);
+        }
+        if !template.future_template {
+            self.lasts_new_template = vec![template.as_static()];
+        } else {
+            self.lasts_new_template.push(template.as_static());
         }
 
         new_extended_jobs
     }
 
-    pub fn new_group_channel(&mut self, group_channel_id: u32, version_rolling_allowed: bool) {
-        let jc = JobCreator {
+    pub fn new_group_channel(
+        &mut self,
+        group_channel_id: u32,
+        version_rolling_allowed: bool,
+    ) -> Vec<NewExtendedMiningJob<'static>> {
+        let mut jc = JobCreator {
             group_channel_id,
             job_ids: Id::new(),
             version_rolling_allowed,
+            template_id_to_job_id: HashMap::new(),
         };
+        let mut res = Vec::new();
+        for mut template in self.lasts_new_template.clone() {
+            res.push(jc.new_extended_job(&mut template, &self.coinbase_outputs));
+        }
         self.jobs_creators.push(jc);
+        res
+    }
+
+    pub fn job_id_from_template(&self, template_id: u64, group_id: u32) -> Option<u32> {
+        for jc in &self.jobs_creators {
+            if jc.group_channel_id == group_id {
+                return jc.get_job_id(template_id);
+            }
+        }
+        None
     }
 }

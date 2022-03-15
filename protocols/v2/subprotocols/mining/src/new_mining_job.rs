@@ -85,3 +85,18 @@ pub struct NewExtendedMiningJob<'decoder> {
     /// Suffix part of the coinbase transaction.
     pub coinbase_tx_suffix: B064K<'decoder>,
 }
+
+impl<'a> NewExtendedMiningJob<'a> {
+    pub fn as_static(&self) -> NewExtendedMiningJob<'static> {
+        NewExtendedMiningJob {
+            channel_id: self.channel_id,
+            job_id: self.job_id,
+            future_job: self.future_job,
+            version: self.version,
+            version_rolling_allowed: self.version_rolling_allowed,
+            merkle_path: self.merkle_path.clone().into_static(),
+            coinbase_tx_prefix: self.coinbase_tx_prefix.clone().into_static(),
+            coinbase_tx_suffix: self.coinbase_tx_suffix.clone().into_static(),
+        }
+    }
+}

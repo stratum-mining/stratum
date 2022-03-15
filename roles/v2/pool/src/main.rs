@@ -14,6 +14,7 @@ pub type StdFrame = StandardSv2Frame<Message>;
 pub type EitherFrame = StandardEitherFrame<Message>;
 
 const ADDR: &str = "127.0.0.1:34254";
+const TP_ADDR: &str = "127.0.0.1:8442";
 const HOM_GROUP_ID: u32 = u32::MAX;
 
 const PRIVATE_KEY_BTC: [u8; 32] = [34; 32];
@@ -48,7 +49,7 @@ async fn main() {
         crate::lib::template_receiver::test_template::TestTemplateRx::start(s_new_t, s_prev_hash)
             .await;
     } else {
-        TemplateRx::connect(ADDR.parse().unwrap(), s_new_t, s_prev_hash).await;
+        TemplateRx::connect(TP_ADDR.parse().unwrap(), s_new_t, s_prev_hash).await;
     }
     Pool::start(r_new_t, r_prev_hash).await;
 }
