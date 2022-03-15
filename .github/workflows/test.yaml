@@ -1,8 +1,8 @@
 on:
   push:
-    branches: [ main ]
+    branches: [ sv2-tp-crates ]
   pull_request:
-    brances: [ main ]
+    brances: [ sv2-tp-crates ]
 
 # Run all tests by executing the ./test.sh script
 name: Test
