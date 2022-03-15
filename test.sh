@@ -1,4 +1,12 @@
-#!/bin/bash
+#! /bin/bash
+#
+# This program executes the test for each crate in the sv2-tp-crates branch of
+# the stratum-mining repository.
+#
+# This script is called by the `.github/workflows/test.yaml` on every PR to the
+# sv2-tp-crates branch.
+# This script can be run locally as well.
+#
 
 # exit on first error, see: http://stackoverflow.com/a/185900/432509
 error() {
