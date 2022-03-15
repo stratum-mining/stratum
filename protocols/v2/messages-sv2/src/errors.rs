@@ -23,7 +23,7 @@ impl Display for Error {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         use Error::*;
         match self {
-            BinarySv2Error(v) => write!(f, "BinarySv2Error: TODO better description"),
+            BinarySv2Error(v) => write!(f, "BinarySv2Error: TODO better description: {:?}", v),
             WrongMessageType(m) => write!(f, "Wrong message type: {}", m),
             UnexpectedMessage => write!(f, "Error: Unexpected message received"),
             NoPairableUpstream(a) => {
