@@ -100,3 +100,15 @@ impl<'a> NewExtendedMiningJob<'a> {
         }
     }
 }
+
+impl<'a> NewMiningJob<'a> {
+    pub fn as_static(&self) -> NewMiningJob<'static> {
+        NewMiningJob {
+            channel_id: self.channel_id,
+            job_id: self.job_id,
+            future_job: self.future_job,
+            version: self.version,
+            merkle_root: self.merkle_root.clone().into_static(),
+        }
+    }
+}

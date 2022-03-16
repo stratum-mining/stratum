@@ -5,8 +5,8 @@ use async_std::{net::TcpStream, task};
 use codec_sv2::Frame;
 use messages_sv2::{
     handlers::template_distribution::ParseServerTemplateDistributionMessages,
-    parsers::TemplateDistribution,
-    template_distribution_sv2::{NewTemplate, SetNewPrevHash},
+    parsers::{PoolMessages, TemplateDistribution},
+    template_distribution_sv2::{NewTemplate, SetNewPrevHash, SubmitSolution},
     utils::Mutex,
 };
 use network_helpers::PlainConnection;
@@ -29,6 +29,7 @@ impl TemplateRx {
         address: SocketAddr,
         templ_sender: Sender<NewTemplate<'static>>,
         prev_h_sender: Sender<SetNewPrevHash<'static>>,
+        solution_receiver: Receiver<SubmitSolution<'static>>,
     ) {
         let stream = TcpStream::connect(address).await.unwrap();
 
@@ -45,8 +46,10 @@ impl TemplateRx {
             new_template_sender: templ_sender,
             new_prev_hash_sender: prev_h_sender,
         }));
+        let cloned = self_.clone();
 
-        task::spawn(async { Self::start(self_).await });
+        task::spawn(async { Self::start(cloned).await });
+        task::spawn(async { Self::on_new_solution(self_, solution_receiver).await });
     }
 
     pub async fn start(self_: Arc<Mutex<Self>>) {
@@ -85,7 +88,6 @@ impl TemplateRx {
         }
     }
 
-    #[allow(unused)]
     pub async fn send(self_: Arc<Mutex<Self>>, sv2_frame: StdFrame) -> Result<(), ()> {
         let either_frame = sv2_frame.into();
         let sender = self_.safe_lock(|self_| self_.sender.clone()).unwrap();
@@ -94,6 +96,16 @@ impl TemplateRx {
             Err(_) => {
                 todo!()
             }
+        }
+    }
+
+    async fn on_new_solution(self_: Arc<Mutex<Self>>, rx: Receiver<SubmitSolution<'static>>) {
+        while let Ok(solution) = rx.recv().await {
+            let sv2_frame: StdFrame =
+                PoolMessages::TemplateDistribution(TemplateDistribution::SubmitSolution(solution))
+                    .try_into()
+                    .unwrap();
+            Self::send(self_.clone(), sv2_frame).await.unwrap();
         }
     }
 }

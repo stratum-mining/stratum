@@ -260,7 +260,7 @@ impl UpstreamMiningNode {
         let message_type = incoming.get_header().unwrap().msg_type();
         let payload = incoming.payload();
 
-        let routing_logic = MiningRoutingLogic::Proxy(crate::get_routing_logic());
+        let routing_logic = MiningRoutingLogic::Proxy(crate::get_routing_logic().await);
 
         let next_message_to_send = UpstreamMiningNode::handle_message_mining(
             self_mutex.clone(),
@@ -299,7 +299,22 @@ impl UpstreamMiningNode {
                                 .await
                                 .unwrap();
                         }
-                        _ => todo!(),
+                        SendTo::RelaySameMessage(downstream_mutex) => {
+                            let frame: codec_sv2::Sv2Frame<MiningDeviceMessages, Vec<u8>> =
+                                incoming.clone().map(|payload| payload.try_into().unwrap());
+                            DownstreamMiningNode::send(downstream_mutex, frame)
+                                .await
+                                .unwrap();
+                        }
+                        SendTo::Respond(message) => {
+                            let message = PoolMessages::Mining(message);
+                            let frame: StdFrame = message.try_into().unwrap();
+                            UpstreamMiningNode::send(self_mutex.clone(), frame)
+                                .await
+                                .unwrap();
+                        }
+                        SendTo::None(_) => (),
+                        SendTo::Multiple(_) => panic!("Nested SendTo::Multiple not supported"),
                     }
                 }
             }
@@ -515,12 +530,9 @@ impl
                 responses.push(SendTo::RelayNewMessage(remote.unwrap(), new_prev_hash));
                 for job in &self.last_extended_jobs {
                     // TODO the below unwrap is not safe
-                    for job in jobs_to_relay(
-                        m.channel_id,
-                        &job,
-                        &downstream,
-                        dispatcher.as_mut().unwrap(),
-                    ) {
+                    for job in
+                        jobs_to_relay(self.id, &job, &downstream, dispatcher.as_mut().unwrap())
+                    {
                         responses.push(job)
                     }
                 }
@@ -583,7 +595,8 @@ impl
         &mut self,
         _m: SubmitSharesError,
     ) -> Result<SendTo<DownstreamMiningNode>, Error> {
-        todo!("510")
+        // TODO
+        Ok(SendTo::None(None))
     }
 
     fn handle_new_mining_job(
@@ -597,7 +610,11 @@ impl
         {
             Some(downstreams) => {
                 let downstream = &downstreams[0];
-                crate::add_job_id(m.job_id, self.id);
+                crate::add_job_id(
+                    m.job_id,
+                    self.id,
+                    downstream.safe_lock(|d| d.prev_job_id).unwrap(),
+                );
                 Ok(SendTo::RelaySameMessage(downstream.clone()))
             }
             None => Err(Error::NoDownstreamsConnected),
@@ -619,6 +636,13 @@ impl
             .channel_id_to_job_dispatcher
             .get_mut(&m.channel_id)
             .unwrap();
+
+        match dispacther {
+            JobDispatcher::Group(d) => {
+                d.on_new_extended_mining_job_pre(&m);
+            }
+            JobDispatcher::None => (),
+        };
 
         let messages = jobs_to_relay(id, &m, downstreams, dispacther);
 
@@ -649,7 +673,7 @@ impl
                 Ok(SendTo::RelaySameMessage(downstreams[0].clone()))
             }
             (false, Some(JobDispatcher::Group(dispatcher))) => {
-                dispatcher.on_new_prev_hash(&m)?;
+                let mut channel_id_to_job_id = dispatcher.on_new_prev_hash(&m);
                 let downstreams = self
                     .downstream_selector
                     .get_downstreams_in_channel(m.channel_id)
@@ -666,7 +690,9 @@ impl
                                     DownstreamChannel::Standard(channel) => {
                                         let new_prev_hash = SetNewPrevHash {
                                             channel_id: channel.channel_id,
-                                            job_id: m.job_id,
+                                            job_id: channel_id_to_job_id
+                                                .remove(&channel.channel_id)
+                                                .unwrap_or(m.job_id),
                                             prev_hash: m.prev_hash.clone().into_static(),
                                             min_ntime: m.min_ntime,
                                             nbits: m.nbits,
@@ -783,17 +809,18 @@ fn jobs_to_relay(
     for downstream in downstreams {
         downstream
             .safe_lock(|d| {
+                let prev_id = d.prev_job_id;
                 for channel in d.status.get_channels().get_mut(&m.channel_id).unwrap() {
                     match channel {
                         DownstreamChannel::Extended => todo!(),
                         DownstreamChannel::Group(_) => {
-                            crate::add_job_id(m.job_id, id);
+                            crate::add_job_id(m.job_id, id, prev_id);
                             messages.push(SendTo::RelaySameMessage(downstream.clone()))
                         }
                         DownstreamChannel::Standard(channel) => {
                             if let JobDispatcher::Group(d) = dispacther {
                                 let job = d.on_new_extended_mining_job(&m, channel);
-                                crate::add_job_id(job.job_id, id);
+                                crate::add_job_id(job.job_id, id, prev_id);
                                 let message = Mining::NewMiningJob(job);
                                 messages.push(SendTo::RelayNewMessage(downstream.clone(), message));
                             } else {

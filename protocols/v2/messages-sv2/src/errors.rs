@@ -38,7 +38,7 @@ impl Display for Error {
                 write!(f, "No pairable upstream node: {:?}", a)
             }
             NoFutureJobs => write!(f, "GroupChannelJobDispatcher does not have any future jobs"),
-            NoDownstreamsConnected => write!(f,"NoDownstreamsConnected"),
+            NoDownstreamsConnected => write!(f, "NoDownstreamsConnected"),
         }
     }
 }

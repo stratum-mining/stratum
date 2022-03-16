@@ -1,8 +1,8 @@
 use crate::{
     common_properties::StandardChannel,
-    errors::Error,
-    utils::{merkle_root_from_path, new_header, new_header_hash, Id, Mutex},
+    utils::{merkle_root_from_path, Id, Mutex},
 };
+use bitcoin::hashes::{sha256d, Hash, HashEngine};
 use mining_sv2::{
     NewExtendedMiningJob, NewMiningJob, SetNewPrevHash, SubmitSharesError, SubmitSharesStandard,
     Target,
@@ -17,8 +17,8 @@ fn extended_to_standard_job_for_group_channel<'a>(
 ) -> NewMiningJob<'a> {
     let merkle_root = merkle_root_from_path(
         extended.coinbase_tx_prefix.inner_as_ref(),
-        coinbase_script,
         extended.coinbase_tx_suffix.inner_as_ref(),
+        coinbase_script,
         &extended.merkle_path.inner_as_ref(),
     );
 
@@ -30,6 +30,30 @@ fn extended_to_standard_job_for_group_channel<'a>(
         merkle_root: merkle_root.try_into().unwrap(),
     }
 }
+#[allow(dead_code)]
+struct BlockHeader<'a> {
+    version: u32,
+    prev_hash: &'a [u8],
+    merkle_root: &'a [u8],
+    timestamp: u32,
+    nbits: u32,
+    nonce: u32,
+}
+
+impl<'a> BlockHeader<'a> {
+    #[allow(dead_code)]
+    pub fn hash(&self) -> Target {
+        let mut engine = sha256d::Hash::engine();
+        engine.input(&self.version.to_le_bytes());
+        engine.input(&self.prev_hash);
+        engine.input(&self.merkle_root);
+        engine.input(&self.timestamp.to_be_bytes());
+        engine.input(&self.nbits.to_be_bytes());
+        engine.input(&self.nonce.to_be_bytes());
+        let hashed = sha256d::Hash::from_engine(engine).into_inner();
+        hashed.into()
+    }
+}
 
 #[allow(dead_code)]
 fn target_from_shares(
@@ -38,25 +62,16 @@ fn target_from_shares(
     nbits: u32,
     share: &SubmitSharesStandard,
 ) -> Target {
-    let header = new_header(
-        share.version as i32,
+    let header = BlockHeader {
+        version: share.version,
         prev_hash,
-        &job.merkle_root,
-        share.ntime,
+        merkle_root: &job.merkle_root,
+        timestamp: share.ntime,
         nbits,
-        share.nonce,
-    )
-    .unwrap();
-
-    new_header_hash(header).try_into().unwrap()
+        nonce: share.nonce,
+    };
+    header.hash()
 }
-
-// #[derive(Debug)]
-// pub struct StandardChannel {
-//     target: Target,
-//     extranonce: Extranonce,
-//     id: u32,
-// }
 
 #[derive(Debug)]
 struct DownstreamJob {
@@ -79,6 +94,8 @@ pub struct GroupChannelJobDispatcher {
     // standard_job_id -> standard_job
     jobs: HashMap<u32, DownstreamJob>,
     ids: Arc<Mutex<Id>>,
+    // extended_id -> channel_id -> stanrd_id
+    extended_id_to_job_id: HashMap<u32, HashMap<u32, u32>>,
     nbits: u32,
 }
 
@@ -97,52 +114,72 @@ impl GroupChannelJobDispatcher {
             jobs: HashMap::new(),
             ids,
             nbits: 0,
+            extended_id_to_job_id: HashMap::new(),
         }
     }
 
+    pub fn on_new_extended_mining_job_pre(&mut self, extended: &NewExtendedMiningJob) {
+        if extended.future_job {
+            self.future_jobs.insert(extended.job_id, HashMap::new());
+            self.extended_id_to_job_id
+                .insert(extended.job_id, HashMap::new());
+        }
+    }
+
+    // Alway call on_new_extended_mining_job_pre before
+    #[allow(clippy::option_map_unit_fn)]
     pub fn on_new_extended_mining_job(
         &mut self,
         extended: &NewExtendedMiningJob,
         channel: &StandardChannel,
     ) -> NewMiningJob<'static> {
-        if extended.future_job {
-            self.future_jobs.insert(extended.job_id, HashMap::new());
-        };
+        let standard_job_id = self.ids.safe_lock(|ids| ids.next()).unwrap();
+
         let extranonce: Vec<u8> = channel.extranonce.clone().into();
         let new_mining_job_message = extended_to_standard_job_for_group_channel(
             &extended,
             &extranonce,
             channel.channel_id,
-            self.ids.safe_lock(|ids| ids.next()).unwrap(),
+            standard_job_id,
         );
         let job = DownstreamJob {
             merkle_root: new_mining_job_message.merkle_root.to_vec(),
             extended_job_id: extended.job_id,
         };
         if extended.future_job {
-            let future_jobs = self.future_jobs.get_mut(&extended.job_id).unwrap();
-            future_jobs.insert(new_mining_job_message.job_id, job);
+            self.future_jobs
+                .get_mut(&extended.job_id)
+                .map(|future_jobs| {
+                    future_jobs.insert(standard_job_id, job);
+                });
+
+            let channel_id_to_standard_id = self
+                .extended_id_to_job_id
+                .get_mut(&extended.job_id)
+                .unwrap();
+            channel_id_to_standard_id.insert(channel.channel_id, standard_job_id);
         } else {
             self.jobs.insert(new_mining_job_message.job_id, job);
         };
         new_mining_job_message
     }
 
-    pub fn on_new_prev_hash(&mut self, message: &SetNewPrevHash) -> Result<(), Error> {
-        if self.future_jobs.is_empty() {
-            return Err(Error::NoFutureJobs);
-        }
-        let jobs = match self.future_jobs.get_mut(&message.job_id) {
-            Some(j) => j,
-            // TODO: What error would exist here? Is there a scenario where a value of
-            // message.job_id would cause an error?
-            _ => panic!("TODO: What is the appropriate error here?"),
-        };
+    pub fn on_new_prev_hash(&mut self, message: &SetNewPrevHash) -> HashMap<u32, u32> {
+        let jobs = self.future_jobs.get_mut(&message.job_id).unwrap();
         std::mem::swap(&mut self.jobs, jobs);
         self.prev_hash = message.prev_hash.to_vec();
         self.nbits = message.nbits;
         self.future_jobs.clear();
-        Ok(())
+        match self.extended_id_to_job_id.remove(&message.job_id) {
+            Some(map) => {
+                self.extended_id_to_job_id.clear();
+                map
+            }
+            None => {
+                self.extended_id_to_job_id.clear();
+                HashMap::new()
+            }
+        }
     }
 
     // (response, upstream id)
@@ -182,26 +219,11 @@ impl GroupChannelJobDispatcher {
 #[cfg(test)]
 mod tests {
     use super::*;
-    #[cfg(feature = "serde")]
-    use binary_sv2::B032;
     use binary_sv2::{u256_from_int, Seq0255, B064K, U256};
-    #[cfg(feature = "serde")]
-    use mining_sv2::Extranonce;
     #[cfg(feature = "serde")]
     use serde::Deserialize;
 
-    #[cfg(feature = "serde")]
-    use std::convert::TryInto;
-    #[cfg(feature = "serde")]
-    use std::num::ParseIntError;
-
-    #[cfg(feature = "serde")]
-    fn decode_hex(s: &str) -> Result<Vec<u8>, ParseIntError> {
-        (0..s.len())
-            .step_by(2)
-            .map(|i| u8::from_str_radix(&s[i..i + 2], 16))
-            .collect()
-    }
+    use crate::errors::Error;
 
     #[cfg(feature = "serde")]
     #[derive(Debug, Deserialize)]
@@ -308,6 +330,21 @@ mod tests {
         }
     }
 
+    #[test]
+    #[cfg(feature = "serde")]
+    fn gets_merkle_root_from_path() {
+        let block = get_test_block();
+        let expect: Vec<u8> = block.merkle_root;
+
+        let actual = merkle_root_from_path(
+            block.coinbase_tx_prefix.inner_as_ref(),
+            &block.coinbase_script,
+            block.coinbase_tx_suffix.inner_as_ref(),
+            &block.path.inner_as_ref(),
+        );
+        assert_eq!(expect, actual);
+    }
+
     #[cfg(feature = "serde")]
     #[test]
     fn success_extended_to_standard_job_for_group_channel() {
@@ -344,6 +381,47 @@ mod tests {
         );
 
         assert_eq!(actual, expect);
+    }
+
+    #[test]
+    #[cfg(feature = "serde")]
+    fn gets_new_header() -> Result<(), Error> {
+        let block = get_test_block();
+
+        if !block.prev_hash.len() == 32 {
+            return Err(Error::ExpectedLen32(block.prev_hash.len()));
+        }
+        if !block.merkle_root.len() == 32 {
+            return Err(Error::ExpectedLen32(block.merkle_root.len()));
+        }
+        let mut prev_hash_arr = [0u8; 32];
+        prev_hash_arr.copy_from_slice(&block.prev_hash);
+        let prev_hash = DHash::from_inner(prev_hash_arr);
+
+        let mut merkle_root_arr = [0u8; 32];
+        merkle_root_arr.copy_from_slice(&block.merkle_root);
+        let merkle_root = DHash::from_inner(merkle_root_arr);
+
+        let expect = BlockHeader {
+            version: block.version as i32,
+            prev_blockhash: BlockHash::from_hash(prev_hash),
+            merkle_root: TxMerkleNode::from_hash(merkle_root),
+            time: block.time,
+            bits: block.nbits,
+            nonce: block.nonce,
+        };
+
+        let actual_block = get_test_block();
+        let actual = new_header(
+            block.version as i32,
+            &actual_block.prev_hash,
+            &actual_block.merkle_root,
+            block.time,
+            block.nbits,
+            block.nonce,
+        )?;
+        assert_eq!(actual, expect);
+        Ok(())
     }
 
     #[test]
@@ -388,6 +466,30 @@ mod tests {
 
     #[test]
     #[cfg(feature = "serde")]
+    fn gets_new_header_hash() {
+        let block = get_test_block();
+        let expect = block.block_hash;
+        let block = get_test_block();
+        let prev_hash: [u8; 32] = block.prev_hash.to_vec().try_into().unwrap();
+        let prev_hash = DHash::from_inner(prev_hash);
+        let merkle_root: [u8; 32] = block.merkle_root.to_vec().try_into().unwrap();
+        let merkle_root = DHash::from_inner(merkle_root);
+        let header = BlockHeader {
+            version: block.version as i32,
+            prev_blockhash: BlockHash::from_hash(prev_hash),
+            merkle_root: TxMerkleNode::from_hash(merkle_root),
+            time: block.time,
+            bits: block.nbits,
+            nonce: block.nonce,
+        };
+
+        let actual = new_header_hash(header);
+
+        assert_eq!(actual, expect);
+    }
+
+    #[test]
+    #[cfg(feature = "serde")]
     fn gets_target_from_shares() {
         let block = get_test_block();
         let expect: Target = block.block_hash.try_into().unwrap();
@@ -419,6 +521,7 @@ mod tests {
             jobs: HashMap::new(),
             ids: Arc::new(Mutex::new(Id::new())),
             nbits: 0,
+            extended_id_to_job_id: HashMap::new(),
         };
 
         let ids = Arc::new(Mutex::new(Id::new()));
@@ -530,7 +633,7 @@ mod tests {
         let mut dispatcher = GroupChannelJobDispatcher::new(ids);
 
         // TODO: fails on self.future_jobs unwrap in the first line of the on_new_prev_hash fn
-        let _actual = dispatcher.on_new_prev_hash(&message)?;
+        let _actual = dispatcher.on_new_prev_hash(&message);
         // let actual_prev_hash: U256<'static> = u256_from_int(tt);
         let expect_prev_hash: Vec<u8> = dispatcher.prev_hash.to_vec();
         // assert_eq!(expect_prev_hash, dispatcher.prev_hash);
@@ -540,22 +643,23 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn fails_to_update_group_channel_job_dispatcher_on_new_prev_hash_if_no_future_jobs() {
-        let message = SetNewPrevHash {
-            channel_id: 0,
-            job_id: 0,
-            prev_hash: u256_from_int(45_u32),
-            min_ntime: 0,
-            nbits: 0,
-        };
-        let ids = Arc::new(Mutex::new(Id::new()));
-        let mut dispatcher = GroupChannelJobDispatcher::new(ids);
+    // TODO updated  test
+    //#[test]
+    //fn fails_to_update_group_channel_job_dispatcher_on_new_prev_hash_if_no_future_jobs() {
+    //    let message = SetNewPrevHash {
+    //        channel_id: 0,
+    //        job_id: 0,
+    //        prev_hash: u256_from_int(45_u32),
+    //        min_ntime: 0,
+    //        nbits: 0,
+    //    };
+    //    let ids = Arc::new(Mutex::new(Id::new()));
+    //    let mut dispatcher = GroupChannelJobDispatcher::new(ids);
 
-        let err = dispatcher.on_new_prev_hash(&message).unwrap_err();
-        assert_eq!(
-            err.to_string(),
-            "GroupChannelJobDispatcher does not have any future jobs"
-        );
-    }
+    //    let err = dispatcher.on_new_prev_hash(&message).unwrap_err();
+    //    assert_eq!(
+    //        err.to_string(),
+    //        "GroupChannelJobDispatcher does not have any future jobs"
+    //    );
+    //}
 }
