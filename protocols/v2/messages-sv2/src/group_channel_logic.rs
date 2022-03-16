@@ -24,6 +24,10 @@ impl UpstreamWithGroups {
         g_id
     }
 
+    /// `downstream_hr` [H/s] is the expected hash rate of the device (or cumulative hashrate on
+    /// the channel if multiple devices are connected downstream). Depending on server’s target
+    /// setting policy, this value can be used for setting a reasonable target for the channel.
+    /// Proxy MUST send 0.0f when there are no mining devices connected yet.
     pub fn new_standard_channel(
         &mut self,
         request_id: u32,
