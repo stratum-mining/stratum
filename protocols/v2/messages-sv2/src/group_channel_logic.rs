@@ -47,6 +47,7 @@ impl UpstreamWithGroups {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use binary_sv2::B032;
 
     #[test]
     fn builds_upstream_with_groups() {
@@ -140,5 +141,36 @@ mod tests {
         assert!(&groups_hashmap.contains_key(&2));
         let actual_value = (&groups_hashmap).get(&2).unwrap();
         assert_eq!(expect_value, *actual_value);
+    }
+
+    #[test]
+    fn adds_a_new_standard_channel_to_upstream_with_groups() {
+        let group_id = 0;
+        let group_channel_id = 0;
+        let request_id = 0;
+        let channel_id = 0;
+        let downstream_hr = 1_000_000_000_000.0; // 1 TH/s
+        let mut extranonce_prefix_vec: Vec<u8> = vec![
+            0x01, 0x00, 0x00, 0x00, 0x00, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00,
+        ];
+        let extranonce_prefix: B032 = extranonce_prefix_vec.try_into().unwrap();
+
+        let expect = OpenStandardMiningChannelSuccess {
+            request_id,
+            channel_id,
+            target: target_from_hr(downstream_hr),
+            extranonce_prefix,
+            group_channel_id,
+        };
+
+        let mut upstream_with_groups = UpstreamWithGroups {
+            groups: HashMap::new(),
+            ids: Id::new(),
+            extranonces: Extranonce::new(),
+        };
+
+        let actual = upstream_with_groups.new_standard_channel(request_id, downstream_hr, group_id);
     }
 }
