@@ -1,4 +1,4 @@
-use crate::utils::Id;
+use crate::{errors::Error, utils::Id};
 use mining_sv2::{target_from_hr, Extranonce, OpenStandardMiningChannelSuccess};
 use std::collections::HashMap;
 
@@ -33,14 +33,20 @@ impl UpstreamWithGroups {
         request_id: u32,
         downstream_hr: f32,
         group_id: u32,
-    ) -> OpenStandardMiningChannelSuccess {
-        OpenStandardMiningChannelSuccess {
+    ) -> Result<OpenStandardMiningChannelSuccess, Error> {
+        // Return error if self.groups hashmap is empty
+        let channel_id = match self.groups.get_mut(&group_id) {
+            Some(cid) => cid.next(),
+            None => return Err(Error::NoGroupsFound),
+        };
+
+        Ok(OpenStandardMiningChannelSuccess {
             request_id,
-            channel_id: self.groups.get_mut(&group_id).unwrap().next(),
+            channel_id,
             target: target_from_hr(downstream_hr),
             extranonce_prefix: self.extranonces.next(),
             group_channel_id: group_id,
-        }
+        })
     }
 }
 

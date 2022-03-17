@@ -5,6 +5,7 @@ use std::fmt::{self, Display, Formatter};
 pub enum Error {
     // TODO: what is this error used for? A general catch all?
     BinarySv2Error(BinarySv2Error),
+    NoGroupsFound,
     WrongMessageType(u8),
     UnexpectedMessage,
     // min_v max_v all falgs supported
@@ -24,6 +25,10 @@ impl Display for Error {
         use Error::*;
         match self {
             BinarySv2Error(v) => write!(f, "BinarySv2Error: TODO better description: {:?}", v),
+            NoGroupsFound => write!(
+                f,
+                "A channel was attempted to be added to an Upstream, but no groups are specified"
+            ),
             WrongMessageType(m) => write!(f, "Wrong message type: {}", m),
             UnexpectedMessage => write!(f, "Error: Unexpected message received"),
             NoPairableUpstream(a) => {
