@@ -54,6 +54,7 @@ impl UpstreamWithGroups {
 mod tests {
     use super::*;
     use binary_sv2::B032;
+    use std::convert::TryInto;
 
     #[test]
     fn builds_upstream_with_groups() {
@@ -150,26 +151,48 @@ mod tests {
     }
 
     #[test]
-    fn adds_a_new_standard_channel_to_upstream_with_groups() {
-        let group_id = 0;
-        let group_channel_id = 0;
+    fn adds_a_new_standard_channel_to_upstream_with_groups() -> Result<(), Error> {
+        // Construct new UpstreamWithGroups
+        let mut upstream_with_groups = UpstreamWithGroups::new();
+        // Must add a new group channel to the UpstreamWithGroups instance
+        let group_channel_id = upstream_with_groups.new_group_channel();
+        assert_eq!(1, group_channel_id);
+
         let request_id = 0;
-        let channel_id = 0;
         let downstream_hr = 1_000_000_000_000.0; // 1 TH/s
-        let mut extranonce_prefix_vec: Vec<u8> = vec![
-            0x01, 0x00, 0x00, 0x00, 0x00, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        let actual = upstream_with_groups.new_standard_channel(
+            request_id,
+            downstream_hr,
+            group_channel_id,
+        )?;
+
+        let new_extranonce: B032 = vec![
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00,
-        ];
-        let extranonce_prefix: B032 = extranonce_prefix_vec.try_into().unwrap();
+        ]
+        .try_into()
+        .unwrap();
+        let mut extranonce = Extranonce::from(new_extranonce);
 
         let expect = OpenStandardMiningChannelSuccess {
             request_id,
-            channel_id,
+            channel_id: 1,
             target: target_from_hr(downstream_hr),
-            extranonce_prefix,
+            extranonce_prefix: extranonce.next(),
             group_channel_id,
         };
+
+        assert_eq!(expect, actual);
+
+        Ok(())
+    }
+
+    #[test]
+    fn errors_on_a_new_standard_channel_to_upstream_with_groups_if_groups_hashmap_is_empty(
+    ) -> Result<(), Error> {
+        let expect =
+            "A channel was attempted to be added to an Upstream, but no groups are specified";
 
         let mut upstream_with_groups = UpstreamWithGroups {
             groups: HashMap::new(),
@@ -177,6 +200,16 @@ mod tests {
             extranonces: Extranonce::new(),
         };
 
-        let actual = upstream_with_groups.new_standard_channel(request_id, downstream_hr, group_id);
+        let group_id = 0;
+        let request_id = 0;
+        let downstream_hr = 1_000_000_000_000.0; // 1 TH/s
+
+        let err = upstream_with_groups
+            .new_standard_channel(request_id, downstream_hr, group_id)
+            .unwrap_err();
+
+        assert_eq!(expect, err.to_string());
+
+        Ok(())
     }
 }
