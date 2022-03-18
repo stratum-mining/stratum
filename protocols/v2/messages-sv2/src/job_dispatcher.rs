@@ -7,7 +7,7 @@ use mining_sv2::{
     NewExtendedMiningJob, NewMiningJob, SetNewPrevHash, SubmitSharesError, SubmitSharesStandard,
     Target,
 };
-use std::{collections::HashMap, convert::TryInto, sync::Arc}; //compact_target_from_u256
+use std::{collections::HashMap, convert::TryInto, sync::Arc};
 
 fn extended_to_standard_job_for_group_channel<'a>(
     extended: &NewExtendedMiningJob,
@@ -219,11 +219,11 @@ impl GroupChannelJobDispatcher {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::errors::Error;
     use binary_sv2::{u256_from_int, Seq0255, B064K, U256};
     #[cfg(feature = "serde")]
     use serde::Deserialize;
 
-    use crate::errors::Error;
 
     #[cfg(feature = "serde")]
     #[derive(Debug, Deserialize)]

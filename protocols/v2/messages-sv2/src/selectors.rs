@@ -178,7 +178,7 @@ pub struct GeneralMiningSelector<
     Up: IsMiningUpstream<Down, Sel>,
 > {
     upstreams: Vec<Arc<Mutex<Up>>>,
-    id_to_upstream: HashMap<u32, Arc<Mutex<Up>>>,
+    pub id_to_upstream: HashMap<u32, Arc<Mutex<Up>>>,
     sel: std::marker::PhantomData<Sel>,
     down: std::marker::PhantomData<Down>,
 }

@@ -244,6 +244,7 @@ impl
         &mut self,
         m: SubmitSharesStandard,
     ) -> Result<SendTo<UpstreamMiningNode>, Error> {
+        println!("{:?}", m);
         match self.channel_id_to_group_id.get(&m.channel_id) {
             Some(group_id) => match crate::upstream_from_job_id(m.job_id) {
                 Some(remote) => {
