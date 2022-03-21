@@ -15,14 +15,14 @@ use std::sync::Arc;
 
 fn extended_to_standard_job_for_group_channel<'a>(
     extended: &NewExtendedMiningJob,
-    extranonce: &[u8],
+    coinbase_script: &[u8],
     channel_id: u32,
     job_id: u32,
 ) -> NewMiningJob<'a> {
     let merkle_root = merkle_root_from_path(
         extended.coinbase_tx_prefix.inner_as_ref(),
         extended.coinbase_tx_suffix.inner_as_ref(),
-        extranonce,
+        coinbase_script,
         &extended.merkle_path.inner_as_ref(),
     );
     NewMiningJob {
@@ -36,14 +36,19 @@ fn extended_to_standard_job_for_group_channel<'a>(
 
 fn merkle_root_from_path(
     coinbase_tx_prefix: &[u8],
+    coinbase_script: &[u8],
     coinbase_tx_suffix: &[u8],
-    extranonce: &[u8],
     path: &[&[u8]],
 ) -> Vec<u8> {
-    let mut coinbase =
-        Vec::with_capacity(coinbase_tx_prefix.len() + coinbase_tx_suffix.len() + extranonce.len());
+    // RR TODO: catch empty cb
+    if !coinbase_tx_prefix.len() == 46 {
+        panic!("TODO: add error that checks cb prefix is 46 bytes");
+    }
+    let mut coinbase = Vec::with_capacity(
+        coinbase_tx_prefix.len() + coinbase_tx_suffix.len() + coinbase_script.len(),
+    );
     coinbase.extend_from_slice(coinbase_tx_prefix);
-    coinbase.extend_from_slice(extranonce);
+    coinbase.extend_from_slice(coinbase_script);
     coinbase.extend_from_slice(coinbase_tx_suffix);
 
     let mut engine = sha256d::Hash::engine();
@@ -56,6 +61,7 @@ fn merkle_root_from_path(
         engine.input(leaf);
         sha256d::Hash::from_engine(engine)
     });
+
     root.to_vec()
 }
 
@@ -257,55 +263,99 @@ mod tests {
     }
 
     #[cfg(feature = "serde")]
+    fn block_with_1_tx_read_yaml() -> CoinbaseTest {
+        let yaml_str = include_str!("../../../../test_data/reg-test-block.yaml");
+        serde_yaml::from_str(yaml_str).expect("JSON was no well-formatted")
+    }
+
+    #[cfg(feature = "serde")]
     #[derive(Debug, Deserialize)]
     struct CoinbaseTest {
         hash: String,
         merkle_root: String,
         coinbase_tx_prefix: String,
-        extranonce: String,
+        coinbase_script: String,
         coinbase_tx_suffix: String,
         path: Vec<String>,
     }
 
     #[cfg(feature = "serde")]
     #[test]
+    fn gets_merkle_root_from_path() {
+        let cb = block_with_1_tx_read_yaml();
+
+        // Expect the merkle root from the yaml file
+        let mut expect = decode_hex(&cb.merkle_root).expect("Could not decode hex");
+        // Swap endianness to LE
+        expect.reverse();
+
+        // Pass in coinbase as three pieces:
+        //   coinbase_tx_prefix + coinbase script + coinbase_tx_suffix
+        let coinbase_tx_prefix_vec =
+            decode_hex(&cb.coinbase_tx_prefix).expect("Could not decode hex");
+        let coinbase_tx_prefix: B064K = coinbase_tx_prefix_vec
+            .try_into()
+            .expect("Could not decode hex");
+
+        let coinbase_tx_suffix_vec =
+            decode_hex(&cb.coinbase_tx_suffix).expect("Could not decode hex");
+        let coinbase_tx_suffix: B064K = coinbase_tx_suffix_vec
+            .try_into()
+            .expect("Could not decode hex");
+
+        let coinbase_script_vec = decode_hex(&cb.coinbase_script).expect("Could not decode hex");
+        let coinbase_script = &coinbase_script_vec;
+
+        let mut path_vec = Vec::<U256>::new();
+        for p in cb.path {
+            let p_vec = decode_hex(&p).unwrap();
+            let p_arr: [u8; 32] = p_vec.try_into().expect("Slice is incorrect length");
+            let p_u256: U256 = (p_arr)
+                .try_into()
+                .expect("Could not convert to U256 from [u8; 32]");
+            path_vec.push(p_u256);
+        }
+        let path = Seq0255::new(path_vec).unwrap();
+
+        let actual = merkle_root_from_path(
+            coinbase_tx_prefix.inner_as_ref(),
+            coinbase_script,
+            coinbase_tx_suffix.inner_as_ref(),
+            &path.inner_as_ref(),
+        );
+        assert_eq!(expect, actual);
+    }
+
+    #[cfg(feature = "serde")]
+    #[test]
     fn gets_merkle_root_from_path_empty_path() {
-        // txid: e53765709b8384f1196fae8a796df30a4dc9f87123346ca10836c411af5ad6b5
-        // merkle_root: e53765709b8384f1196fae8a796df30a4dc9f87123346ca10836c411af5ad6b5
-        // block hash: 00000000000000db143554fa093eda1e7d608309f733170c4c7ea2777cfd5424
         let cb = cb_empty_block_read_yaml();
+
+        // Expect the merkle root from the yaml file
+        let mut expect = decode_hex(&cb.merkle_root).unwrap();
+        // Swap endianness to LE
+        expect.reverse();
+
+        // Pass in coinbase as three pieces:
+        //   coinbase_tx_prefix + coinbase script + coinbase_tx_suffix
         let coinbase_tx_prefix_vec = decode_hex(&cb.coinbase_tx_prefix).unwrap();
         let coinbase_tx_prefix: B064K = coinbase_tx_prefix_vec.try_into().unwrap();
 
         let coinbase_tx_suffix_vec = decode_hex(&cb.coinbase_tx_suffix).unwrap();
         let coinbase_tx_suffix: B064K = coinbase_tx_suffix_vec.try_into().unwrap();
 
-        let extranonce_vec = decode_hex(&cb.extranonce).unwrap();
-        let extranonce = &extranonce_vec;
+        let coinbase_script_vec = decode_hex(&cb.coinbase_script).unwrap();
+        let coinbase_script = &coinbase_script_vec;
 
-        let mut path_vec = Vec::<U256>::new();
-        if !path_vec.is_empty() {
-            for p in cb.path {
-                let p_vec = decode_hex(&p).unwrap();
-                let p_arr: [u8; 32] = p_vec.try_into().expect("Slice is incorrect length");
-                let p_u256: U256 = (p_arr).try_into().unwrap();
-                path_vec.push(p_u256);
-            }
-        }
-        let path = Seq0255::new(path_vec).unwrap();
+        let path = Seq0255::new(Vec::<U256>::new()).unwrap();
 
         let actual = merkle_root_from_path(
             coinbase_tx_prefix.inner_as_ref(),
+            coinbase_script,
             coinbase_tx_suffix.inner_as_ref(),
-            extranonce,
             &path.inner_as_ref(),
         );
 
-        let expect = vec![
-            0xb5, 0xd6, 0x5a, 0xaf, 0x11, 0xc4, 0x36, 0x08, 0xa1, 0x6c, 0x34, 0x23, 0x71, 0xf8,
-            0xc9, 0x4d, 0x0a, 0xf3, 0x6d, 0x79, 0x8a, 0xae, 0x6f, 0x19, 0xf1, 0x84, 0x83, 0x9b,
-            0x70, 0x65, 0x37, 0xe5,
-        ];
         assert_eq!(expect, actual);
     }
 
