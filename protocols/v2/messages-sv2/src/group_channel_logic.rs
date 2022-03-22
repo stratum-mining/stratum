@@ -113,7 +113,9 @@ mod tests {
         assert_eq!(1, groups_hashmap.len());
         assert!(&groups_hashmap.contains_key(&1));
 
-        let actual_value = (&groups_hashmap).get(&1).unwrap();
+        let actual_value = (&groups_hashmap)
+            .get(&1)
+            .expect("Hashmap should not be empty");
         let expect_value = Id::new();
         assert_eq!(expect_value, *actual_value);
 
@@ -141,12 +143,16 @@ mod tests {
         assert_eq!(2, groups_hashmap.len());
         assert!(&groups_hashmap.contains_key(&1));
 
-        let actual_value = (&groups_hashmap).get(&1).unwrap();
+        let actual_value = (&groups_hashmap)
+            .get(&1)
+            .expect("Hashmap should not be empty");
         let expect_value = Id::new();
         assert_eq!(expect_value, *actual_value);
 
         assert!(&groups_hashmap.contains_key(&2));
-        let actual_value = (&groups_hashmap).get(&2).unwrap();
+        let actual_value = (&groups_hashmap)
+            .get(&2)
+            .expect("Hashmap should not be empty");
         assert_eq!(expect_value, *actual_value);
     }
 
@@ -172,7 +178,7 @@ mod tests {
             0x00, 0x00, 0x00, 0x00,
         ]
         .try_into()
-        .unwrap();
+        .expect("Invalid `B032`");
         let mut extranonce = Extranonce::from(new_extranonce);
 
         let expect = OpenStandardMiningChannelSuccess {
