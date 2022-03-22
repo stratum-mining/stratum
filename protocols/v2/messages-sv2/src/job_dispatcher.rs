@@ -1,17 +1,15 @@
 use crate::{
+    common_properties::StandardChannel,
     errors::Error,
     utils::{Id, Mutex},
 };
+use binary_sv2::U256;
 use bitcoin::hashes::{sha256d, Hash, HashEngine};
 use mining_sv2::{
     NewExtendedMiningJob, NewMiningJob, SetNewPrevHash, SubmitSharesError, SubmitSharesStandard,
     Target,
 };
-//use crate::common_properties::StandardChannel;
-use crate::common_properties::StandardChannel;
-use std::collections::HashMap;
-use std::convert::TryInto;
-use std::sync::Arc;
+use std::{collections::HashMap, convert::TryInto, sync::Arc};
 
 fn extended_to_standard_job_for_group_channel<'a>(
     extended: &NewExtendedMiningJob,
@@ -21,10 +19,11 @@ fn extended_to_standard_job_for_group_channel<'a>(
 ) -> NewMiningJob<'a> {
     let merkle_root = merkle_root_from_path(
         extended.coinbase_tx_prefix.inner_as_ref(),
-        extended.coinbase_tx_suffix.inner_as_ref(),
         coinbase_script,
+        extended.coinbase_tx_suffix.inner_as_ref(),
         &extended.merkle_path.inner_as_ref(),
     );
+
     NewMiningJob {
         channel_id,
         job_id,
@@ -77,8 +76,7 @@ struct BlockHeader<'a> {
 
 impl<'a> BlockHeader<'a> {
     #[allow(dead_code)]
-    /// TODO: why do we return a `Target` from a block header hash
-    pub fn hash(&self) -> Target {
+    pub fn hash(&self) -> U256<'static> {
         let mut engine = sha256d::Hash::engine();
         engine.input(&self.version.to_le_bytes());
         engine.input(&self.prev_hash);
@@ -86,28 +84,34 @@ impl<'a> BlockHeader<'a> {
         engine.input(&self.timestamp.to_be_bytes());
         engine.input(&self.nbits.to_be_bytes());
         engine.input(&self.nonce.to_be_bytes());
-        let hashed = sha256d::Hash::from_engine(engine).into_inner();
-        hashed.into()
+        let hashed = sha256d::Hash::from_engine(engine);
+        println!("HASHED: {:x?}", &hashed);
+        let hashed: Vec<u8> = hashed.to_vec();
+        let hashed: U256 = hashed.try_into().unwrap();
+        hashed
+
+        // let hashed: U256 = u256_from_int(hashed);
     }
 }
 
-#[allow(dead_code)]
-fn target_from_shares(
-    job: &DownstreamJob,
-    prev_hash: &[u8],
-    nbits: u32,
-    share: &SubmitSharesStandard,
-) -> Target {
-    let header = BlockHeader {
-        version: share.version,
-        prev_hash,
-        merkle_root: &job.merkle_root,
-        timestamp: share.ntime,
-        nbits,
-        nonce: share.nonce,
-    };
-    header.hash()
-}
+// RR TODO: UNCOMMENT, RETURN `Target` (first convert from U256), then test
+// #[allow(dead_code)]
+// fn target_from_shares(
+//     job: &DownstreamJob,
+//     prev_hash: &[u8],
+//     nbits: u32,
+//     share: &SubmitSharesStandard,
+// ) -> Target {
+//     let header = BlockHeader {
+//         version: share.version,
+//         prev_hash,
+//         merkle_root: &job.merkle_root,
+//         timestamp: share.ntime,
+//         nbits,
+//         nonce: share.nonce,
+//     };
+//     header.hash()
+// }
 
 //#[derive(Debug)]
 //pub struct StandardChannel {
@@ -240,7 +244,7 @@ impl GroupChannelJobDispatcher {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use binary_sv2::{u256_from_int, Seq0255, B064K, U256};
+    use binary_sv2::{u256_from_int, Seq0255, B032, B064K, U256};
     #[cfg(feature = "serde")]
     use serde::{self, Deserialize};
 
@@ -257,22 +261,27 @@ mod tests {
     }
 
     #[cfg(feature = "serde")]
-    fn cb_empty_block_read_yaml() -> CoinbaseTest {
+    fn cb_empty_block_read_yaml() -> CoinbaseTestRaw {
         let yaml_str = include_str!("../../../../test_data/238440-cb-empty-block.yaml");
         serde_yaml::from_str(yaml_str).expect("JSON was no well-formatted")
     }
 
     #[cfg(feature = "serde")]
-    fn block_with_1_tx_read_yaml() -> CoinbaseTest {
+    fn block_with_1_tx_read_yaml() -> CoinbaseTestRaw {
         let yaml_str = include_str!("../../../../test_data/reg-test-block.yaml");
         serde_yaml::from_str(yaml_str).expect("JSON was no well-formatted")
     }
 
     #[cfg(feature = "serde")]
     #[derive(Debug, Deserialize)]
-    struct CoinbaseTest {
-        hash: String,
+    struct CoinbaseTestRaw {
+        block_hash: String,
+        version: u32,
+        prev_hash: String,
+        time: u32,
         merkle_root: String,
+        nbits: u32,
+        nonce: u32,
         coinbase_tx_prefix: String,
         coinbase_script: String,
         coinbase_tx_suffix: String,
@@ -285,25 +294,27 @@ mod tests {
         let cb = block_with_1_tx_read_yaml();
 
         // Expect the merkle root from the yaml file
-        let mut expect = decode_hex(&cb.merkle_root).expect("Could not decode hex");
+        let mut expect =
+            decode_hex(&cb.merkle_root).expect("Could not decode hex string to `Vec<u8>`");
         // Swap endianness to LE
         expect.reverse();
 
         // Pass in coinbase as three pieces:
         //   coinbase_tx_prefix + coinbase script + coinbase_tx_suffix
         let coinbase_tx_prefix_vec =
-            decode_hex(&cb.coinbase_tx_prefix).expect("Could not decode hex");
+            decode_hex(&cb.coinbase_tx_prefix).expect("Could not decode hex string to `Vec<u8>`");
         let coinbase_tx_prefix: B064K = coinbase_tx_prefix_vec
             .try_into()
-            .expect("Could not decode hex");
+            .expect("Could not convert `Vec<u8>` into `B064K`");
 
         let coinbase_tx_suffix_vec =
-            decode_hex(&cb.coinbase_tx_suffix).expect("Could not decode hex");
+            decode_hex(&cb.coinbase_tx_suffix).expect("Could not decode hex string to `Vec<u8>`");
         let coinbase_tx_suffix: B064K = coinbase_tx_suffix_vec
             .try_into()
-            .expect("Could not decode hex");
+            .expect("Could not convert `Vec<u8>` into `B064K`");
 
-        let coinbase_script_vec = decode_hex(&cb.coinbase_script).expect("Could not decode hex");
+        let coinbase_script_vec =
+            decode_hex(&cb.coinbase_script).expect("Could not decode hex string to `Vec<u8>`");
         let coinbase_script = &coinbase_script_vec;
 
         let mut path_vec = Vec::<U256>::new();
@@ -359,83 +370,107 @@ mod tests {
         assert_eq!(expect, actual);
     }
 
-    #[ignore]
+    #[cfg(feature = "serde")]
     #[test]
     fn success_extended_to_standard_job_for_group_channel() {
-        let job_id = 0;
         let channel_id = 0;
-        let coinbase_tx_prefix: B064K = vec![
-            0x01, 0x00, 0x00, 0x00, 0x00, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff,
-            0xff, 0x54, 0x03, 0x4f, 0x06, 0x0b,
-        ]
-        .try_into()
-        .unwrap();
-        let coinbase_tx_suffix: B064K = vec![
-            0x1b, 0x4d, 0x69, 0x6e, 0x65, 0x64, 0x20, 0x62, 0x79, 0x20, 0x41, 0x6e, 0x74, 0x50,
-            0x6f, 0x6f, 0x6c, 0x37, 0x34, 0x32, 0x50, 0x00, 0xb5, 0x03, 0x65, 0xad, 0x84, 0xd3,
-            0xfa, 0xbe, 0x6d, 0x6d, 0x8a, 0xa3, 0x76, 0x66, 0x5f, 0x34, 0xd5, 0xc9, 0x70, 0x1b,
-            0xd9, 0x61, 0x6d, 0xae, 0x1f, 0x69, 0x98, 0x2b, 0x75, 0x78, 0x01, 0x45, 0xde, 0x2e,
-            0x30, 0xc1, 0xbf, 0xf3, 0xd5, 0x29, 0x08, 0x3c, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0xc1, 0xb6, 0x22, 0x00, 0x15, 0x2e, 0x00, 0x00,
-        ]
-        .try_into()
-        .unwrap();
+        let job_id = 0;
+        let future_job = true; // RR TODO: test with false
+        let block = block_with_1_tx_read_yaml();
+        let mut merkle_root =
+            decode_hex(&block.merkle_root).expect("Could not decode hex string to `Vec<u8>`");
+        // Swap endianness to LE
+        merkle_root.reverse();
+        let merkle_root: B032 = merkle_root.try_into().expect("Invalid `B032`");
+        // Pass in coinbase as three pieces:
+        //   coinbase_tx_prefix + coinbase script + coinbase_tx_suffix
+        let coinbase_tx_prefix_vec = decode_hex(&block.coinbase_tx_prefix)
+            .expect("Could not decode hex string to `Vec<u8>`");
+        let coinbase_tx_prefix: B064K = coinbase_tx_prefix_vec
+            .try_into()
+            .expect("Could not convert `Vec<u8>` into `B064K`");
+
+        let coinbase_script_vec =
+            decode_hex(&block.coinbase_script).expect("Could not decode hex string to `Vec<u8>`");
+        let coinbase_script = &coinbase_script_vec;
+
+        let coinbase_tx_suffix_vec = decode_hex(&block.coinbase_tx_suffix).unwrap();
+        let coinbase_tx_suffix: B064K = coinbase_tx_suffix_vec.try_into().unwrap();
+
+        let expect = NewMiningJob {
+            channel_id,
+            job_id,
+            future_job,
+            version: 2,
+            merkle_root,
+        };
+
+        // Get merkle path
+        let mut path_vec = Vec::<U256>::new();
+        for p in block.path {
+            let p_vec = decode_hex(&p).expect("Could not decode hex string to `Vec<u8>`");
+            let p_arr: [u8; 32] = p_vec.try_into().expect("Slice is incorrect length");
+            let p_u256: U256 = (p_arr)
+                .try_into()
+                .expect("Could not convert to `U256` from `[u8; 32]`");
+            path_vec.push(p_u256);
+        }
+
+        let merkle_path =
+            Seq0255::new(path_vec).expect("Could not convert `Vec<U256>` to `Seq0255`");
+
         let extended = NewExtendedMiningJob {
             channel_id,
-            job_id: 0,
-            future_job: false, // test true too?
+            job_id,
+            future_job: true, // RR TODO: test w false
             version: 2,
-            version_rolling_allowed: false, // test true too?
-            merkle_path: Seq0255::new(Vec::<U256>::new()).unwrap(),
+            version_rolling_allowed: true, // RR TODO: test w false
+            merkle_path,
             coinbase_tx_prefix,
             coinbase_tx_suffix,
         };
-        let extranonce = &[0x00; 4];
 
-        let _actual =
-            extended_to_standard_job_for_group_channel(&extended, extranonce, channel_id, job_id);
-
-        let merkle_root = merkle_root_from_path(
-            extended.coinbase_tx_prefix.inner_as_ref(),
-            extended.coinbase_tx_suffix.inner_as_ref(),
-            extranonce,
-            &extended.merkle_path.inner_as_ref(),
-        );
-        let _expect = NewMiningJob {
+        let actual = extended_to_standard_job_for_group_channel(
+            &extended,
+            coinbase_script,
             channel_id,
             job_id,
-            future_job: extended.future_job,
-            version: extended.version,
-            merkle_root: merkle_root.try_into().unwrap(),
-        };
-        assert_eq!(0, 1);
+        );
+
+        assert_eq!(actual, expect);
     }
 
-    #[ignore]
     #[test]
     fn hashes_block_header() {
-        // 04000020fdebe2b471e716ef42acf2d631182b09f67b20b435520000000000000000000054e49e1ee2250e8b8bf1359e31874c423742cf60e4f9d5966a392393bdb3fd346e070462b48b0a179da50a9d
-        let block_header = BlockHeader {
-            version: 0x04000020,
-            prev_hash: &[
-                0xfd, 0xeb, 0xe2, 0xb4, 0x71, 0xe7, 0x16, 0xef, 0x42, 0xac, 0xf2, 0xd6, 0x31, 0x18,
-                0x2b, 0x09, 0xf6, 0x7b, 0x20, 0xb4, 0x35, 0x52, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                0x00, 0x00, 0x00, 0x00,
-            ],
-            merkle_root: &[
-                0x54, 0xe4, 0x9e, 0x1e, 0xe2, 0x25, 0x0e, 0x8b, 0x8b, 0xf1, 0x35, 0x9e, 0x31, 0x87,
-                0x4c, 0x42, 0x37, 0x42, 0xcf, 0x60, 0xe4, 0xf9, 0xd5, 0x96, 0x6a, 0x39, 0x23, 0x93,
-                0xbd, 0xb3, 0xfd, 0x34,
-            ],
-            timestamp: 0x6e070462,
-            nbits: 0xb48b0a17, // 386567092
-            nonce: 0x9da50a9d,
-        };
-        let _actual = &block_header.hash();
+        let block = block_with_1_tx_read_yaml();
+        let block_hash_vec =
+            decode_hex(&block.block_hash).expect("Could not decode hex string to `Vec<u8>`");
+        let mut block_hash_vec: [u8; 32] = block_hash_vec
+            .try_into()
+            .expect("Slice is incorrect length");
+        block_hash_vec.reverse();
+        // 0x59202ef47d684ab51866e91d5f40e61a94787d02d899fc3da28e4f4bcb8fd0a4
+        let expect: U256 = block_hash_vec.try_into().unwrap();
 
-        assert_eq!(1, 1);
+        let mut prev_hash: Vec<u8> =
+            decode_hex(&block.prev_hash).expect("Could not convert `String` to `&[u8]`");
+        // prev_hash.reverse();
+
+        let mut merkle_root: Vec<u8> =
+            decode_hex(&block.merkle_root).expect("Could not convert `String` to `&[u8]`");
+        merkle_root.reverse();
+
+        let block_header = BlockHeader {
+            version: block.version,
+            prev_hash: &prev_hash,
+            merkle_root: &merkle_root,
+            timestamp: block.time,
+            nbits: block.nbits, // 386567092
+            nonce: block.nonce,
+        };
+        let actual = block_header.hash();
+
+        assert_eq!(actual, expect);
     }
 
     #[test]
