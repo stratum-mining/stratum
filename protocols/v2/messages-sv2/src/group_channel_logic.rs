@@ -40,6 +40,7 @@ impl UpstreamWithGroups {
             None => return Err(Error::NoGroupsFound),
         };
 
+        // RR Q: why is this called the extranonce_prefix if it is the next extranonce?
         Ok(OpenStandardMiningChannelSuccess {
             request_id,
             channel_id,
