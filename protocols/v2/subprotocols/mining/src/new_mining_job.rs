@@ -10,7 +10,7 @@ use binary_sv2::{Deserialize, Seq0255, Serialize, B032, B064K, U256};
 ///
 /// If the future_job field is set to *False*, the client MUST start to mine on the new job as soon as
 /// possible after receiving this message.
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct NewMiningJob<'decoder> {
     /// Channel identifier, this must be a standard channel.
     pub channel_id: u32,
