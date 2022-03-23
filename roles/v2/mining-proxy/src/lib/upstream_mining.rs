@@ -617,7 +617,7 @@ impl
                 Ok(SendTo::RelaySameMessage(downstreams[0].clone()))
             }
             (false, Some(JobDispatcher::Group(dispatcher))) => {
-                dispatcher.on_new_prev_hash(&m);
+                dispatcher.on_new_prev_hash(&m)?;
                 let downstreams = self
                     .downstream_selector
                     .get_downstreams_in_channel(m.channel_id);
