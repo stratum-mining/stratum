@@ -246,15 +246,11 @@ mod tests {
     use binary_sv2::{u256_from_int, Seq0255, B032, B064K, U256};
     use mining_sv2::Extranonce;
     #[cfg(feature = "serde")]
-    use serde::Deserialize as DeserializeSerde;
-    #[cfg(feature = "serde")]
-    use serde::{self};
+    use serde::Deserialize;
 
-    #[cfg(feature = "serde")]
     use std::convert::TryInto;
     use std::num::ParseIntError;
 
-    #[cfg(feature = "serde")]
     fn decode_hex(s: &str) -> Result<Vec<u8>, ParseIntError> {
         (0..s.len())
             .step_by(2)
@@ -263,20 +259,8 @@ mod tests {
     }
 
     #[cfg(feature = "serde")]
-    fn cb_empty_block_read_yaml() -> TestBlockYaml {
-        let yaml_str = include_str!("../../../../test_data/238440-cb-empty-block.yaml");
-        serde_yaml::from_str(yaml_str).expect("JSON was no well-formatted")
-    }
-
-    #[cfg(feature = "serde")]
-    fn block_with_1_tx_read_yaml() -> TestBlockYaml {
-        let yaml_str = include_str!("../../../../test_data/reg-test-block.yaml");
-        serde_yaml::from_str(yaml_str).expect("JSON was no well-formatted")
-    }
-
-    #[cfg(feature = "serde")]
-    #[derive(Debug, DeserializeSerde)]
-    struct TestBlockYaml {
+    #[derive(Debug, Deserialize)]
+    struct TestBlockToml {
         block_hash: String,
         version: u32,
         prev_hash: String,
@@ -290,6 +274,7 @@ mod tests {
         path: Vec<String>,
     }
 
+    #[derive(Debug)]
     struct TestBlock<'decoder> {
         block_hash: U256<'decoder>,
         version: u32,
@@ -305,7 +290,12 @@ mod tests {
     }
 
     #[cfg(feature = "serde")]
-    fn get_test_block<'decoder>(block: TestBlockYaml) -> TestBlock<'decoder> {
+    fn get_test_block<'decoder>() -> TestBlock<'decoder> {
+        let test_file = std::fs::read_to_string("../../../test_data/reg-test-block.toml")
+            .expect("Could not read file from string");
+        let block: TestBlockToml =
+            toml::from_str(&test_file).expect("Could not parse toml file as `TestBlockToml`");
+
         // Get block hash
         let block_hash_vec =
             decode_hex(&block.block_hash).expect("Could not decode hex string to `Vec<u8>`");
@@ -313,8 +303,11 @@ mod tests {
             .try_into()
             .expect("Slice is incorrect length");
         block_hash_vec.reverse();
-        let block_hash: U256 = block_hash_vec.try_into().unwrap();
+        let block_hash: U256 = block_hash_vec
+            .try_into()
+            .expect("Could not convert `[u8; 32]` to `U256`");
 
+        // Get prev hash
         let mut prev_hash: Vec<u8> =
             decode_hex(&block.prev_hash).expect("Could not convert `String` to `&[u8]`");
         prev_hash.reverse();
@@ -324,7 +317,6 @@ mod tests {
             decode_hex(&block.merkle_root).expect("Could not decode hex string to `Vec<u8>`");
         // Swap endianness to LE
         merkle_root.reverse();
-        // let merkle_root: B032 = merkle_root.try_into().expect("Invalid `B032`");
 
         // Get Merkle path
         let mut path_vec = Vec::<U256>::new();
@@ -348,16 +340,19 @@ mod tests {
             .expect("Could not convert `Vec<u8>` into `B064K`");
 
         let coinbase_script =
-            decode_hex(&block.coinbase_script).expect("Could not decode hex string to `Vec<u8>`");
+            decode_hex(&block.coinbase_script).expect("Could not decode hex `String` to `Vec<u8>`");
 
-        let coinbase_tx_suffix_vec = decode_hex(&block.coinbase_tx_suffix).unwrap();
-        let coinbase_tx_suffix: B064K = coinbase_tx_suffix_vec.try_into().unwrap();
+        let coinbase_tx_suffix_vec = decode_hex(&block.coinbase_tx_suffix)
+            .expect("Could not decode hex `String` to `Vec<u8>`");
+        let coinbase_tx_suffix: B064K = coinbase_tx_suffix_vec
+            .try_into()
+            .expect("Could not convert `Vec<u8>` to `B064K`");
 
         TestBlock {
             block_hash,
             version: block.version,
             prev_hash,
-            time: block.version,
+            time: block.time,
             merkle_root,
             nbits: block.nbits,
             nonce: block.nonce,
@@ -368,10 +363,10 @@ mod tests {
         }
     }
 
-    #[cfg(feature = "serde")]
     #[test]
+    #[cfg(feature = "serde")]
     fn gets_merkle_root_from_path() {
-        let block = get_test_block(block_with_1_tx_read_yaml());
+        let block = get_test_block();
         let expect: Vec<u8> = block.merkle_root;
 
         let actual = merkle_root_from_path(
@@ -385,44 +380,11 @@ mod tests {
 
     #[cfg(feature = "serde")]
     #[test]
-    fn gets_merkle_root_from_path_empty_path() {
-        let cb = cb_empty_block_read_yaml();
-
-        // Expect the merkle root from the yaml file
-        let mut expect = decode_hex(&cb.merkle_root).unwrap();
-        // Swap endianness to LE
-        expect.reverse();
-
-        // Pass in coinbase as three pieces:
-        //   coinbase_tx_prefix + coinbase script + coinbase_tx_suffix
-        let coinbase_tx_prefix_vec = decode_hex(&cb.coinbase_tx_prefix).unwrap();
-        let coinbase_tx_prefix: B064K = coinbase_tx_prefix_vec.try_into().unwrap();
-
-        let coinbase_tx_suffix_vec = decode_hex(&cb.coinbase_tx_suffix).unwrap();
-        let coinbase_tx_suffix: B064K = coinbase_tx_suffix_vec.try_into().unwrap();
-
-        let coinbase_script_vec = decode_hex(&cb.coinbase_script).unwrap();
-        let coinbase_script = &coinbase_script_vec;
-
-        let path = Seq0255::new(Vec::<U256>::new()).unwrap();
-
-        let actual = merkle_root_from_path(
-            coinbase_tx_prefix.inner_as_ref(),
-            coinbase_script,
-            coinbase_tx_suffix.inner_as_ref(),
-            &path.inner_as_ref(),
-        );
-
-        assert_eq!(expect, actual);
-    }
-
-    #[cfg(feature = "serde")]
-    #[test]
     fn success_extended_to_standard_job_for_group_channel() {
         let channel_id = 0;
         let job_id = 0;
         let future_job = true; // RR TODO: test with false
-        let block = get_test_block(block_with_1_tx_read_yaml());
+        let block = get_test_block();
         let merkle_root: B032 = block.merkle_root.try_into().expect("Invalid `B032`");
 
         let expect = NewMiningJob {
@@ -454,31 +416,18 @@ mod tests {
         assert_eq!(actual, expect);
     }
 
-    #[test]
     #[ignore] // cant get hash right
+    #[test]
+    #[cfg(feature = "serde")]
     fn hashes_block_header() {
-        let block = block_with_1_tx_read_yaml();
-        let block_hash_vec =
-            decode_hex(&block.block_hash).expect("Could not decode hex string to `Vec<u8>`");
-        let mut block_hash_vec: [u8; 32] = block_hash_vec
-            .try_into()
-            .expect("Slice is incorrect length");
-        block_hash_vec.reverse();
+        let block = get_test_block();
         // 0x59202ef47d684ab51866e91d5f40e61a94787d02d899fc3da28e4f4bcb8fd0a4
-        let expect: U256 = block_hash_vec.try_into().unwrap();
-
-        let mut prev_hash: Vec<u8> =
-            decode_hex(&block.prev_hash).expect("Could not convert `String` to `&[u8]`");
-        prev_hash.reverse();
-
-        let mut merkle_root: Vec<u8> =
-            decode_hex(&block.merkle_root).expect("Could not convert `String` to `&[u8]`");
-        merkle_root.reverse();
+        let expect: U256 = block.block_hash;
 
         let block_header = BlockHeader {
             version: block.version,
-            prev_hash: &prev_hash,
-            merkle_root: &merkle_root,
+            prev_hash: &block.prev_hash,
+            merkle_root: &block.merkle_root,
             timestamp: block.time,
             nbits: block.nbits,
             nonce: block.nonce,
@@ -519,7 +468,7 @@ mod tests {
         let job_id = 0;
         let future_job = false; // RR TODO: test with true
 
-        let block = get_test_block(block_with_1_tx_read_yaml());
+        let block = get_test_block();
         let merkle_root: B032 = block.merkle_root.try_into().expect("Invalid `B032`");
 
         let expect = NewMiningJob {
@@ -579,7 +528,7 @@ mod tests {
             0_u8,
         ])
         .try_into()
-        .unwrap();
+        .expect("Could not convert `[u8; 32]` to `Target`");
         let channel = StandardChannel {
             channel_id,
             group_id: 1,

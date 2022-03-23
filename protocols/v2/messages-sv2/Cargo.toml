@@ -15,10 +15,7 @@ job_negotiation_sv2 = { path = "../../../protocols/v2/subprotocols/job-negotiati
 const_sv2 = { version = "0.1.0", path = "../../../protocols/v2/const-sv2"}
 framing_sv2 = { path = "../../../protocols/v2/framing-sv2" }
 bitcoin = "0.27.1"
-
-[dev-dependencies]
-serde_yaml = "0.8.23"
-serde_derive = "1.0.136"
+toml = {git = "https://github.com/diondokter/toml-rs", default-features = false, rev="c4161aa"}
 
 [features]
 with_serde = [ "serde",
