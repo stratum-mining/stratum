@@ -1,7 +1,7 @@
 # Block with 1 transaction (not including the cb tx) generated using regtest
 block_hash: "59202ef47d684ab51866e91d5f40e61a94787d02d899fc3da28e4f4bcb8fd0a4"
-version: 0x20000000 # LE
-# version: 0x00000020 # BE
+# version: 0x20000000 # LE
+version: 0x00000020 # BE
 prev_hash: "74f34a78cf87740b67fa545734ce7ea86e917e53001c3bd6eaf5d32f5d89264d"
 merkle_root: "3a158fb4278f27d01cafcac465ba1c5b8f3461687681465f6734649f2cb8d5a7"
 time: 0x6ab83862 # LE
