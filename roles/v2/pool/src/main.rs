@@ -7,14 +7,17 @@ use roles_logic_sv2::{
 
 mod lib;
 
-use lib::{mining_pool::Pool, template_receiver::TemplateRx};
+use lib::{job_negotiator::JobNegotiator, mining_pool::Pool, template_receiver::TemplateRx};
 
 pub type Message = PoolMessages<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;
 pub type EitherFrame = StandardEitherFrame<Message>;
 
 const ADDR: &str = "127.0.0.1:34254";
+
 const TP_ADDR: &str = "127.0.0.1:8442";
+const ADDR_JOB_NEGOTIATOR: &str = "127.0.0.1:34264";
+
 const HOM_GROUP_ID: u32 = u32::MAX;
 
 const PRIVATE_KEY_BTC: [u8; 32] = [34; 32];
@@ -53,5 +56,7 @@ async fn main() {
     } else {
         TemplateRx::connect(TP_ADDR.parse().unwrap(), s_new_t, s_prev_hash, r_solution).await;
     }
+
+    async_std::task::spawn(async { JobNegotiator::start().await });
     Pool::start(r_new_t, r_prev_hash, s_solution).await;
 }
