@@ -3,6 +3,7 @@ use codec_sv2::{
     noise_sv2::formats::{EncodedEd25519PublicKey, EncodedEd25519SecretKey},
     StandardEitherFrame, StandardSv2Frame,
 };
+use tokio::task;
 use roles_logic_sv2::{
     bitcoin::{secp256k1::Secp256k1, Network, PrivateKey, PublicKey},
     parsers::PoolMessages,
@@ -11,7 +12,7 @@ use serde::Deserialize;
 
 mod lib;
 
-use lib::{mining_pool::Pool, template_receiver::TemplateRx};
+use lib::{job_negotiator::JobNegotiator, mining_pool::Pool, template_receiver::TemplateRx};
 
 pub type Message = PoolMessages<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;
@@ -30,10 +31,11 @@ fn new_pub_key() -> PublicKey {
     PublicKey::from_private_key(&secp, &priv_k)
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct Configuration {
     pub listen_address: String,
     pub tp_address: String,
+    pub jn_address: String,
     pub authority_public_key: EncodedEd25519PublicKey,
     pub authority_secret_key: EncodedEd25519SecretKey,
     pub cert_validity_sec: u64,
@@ -128,5 +130,7 @@ async fn main() {
     )
     .await;
     println!("POOL INITIALIZED");
-    Pool::start(config, r_new_t, r_prev_hash, s_solution).await;
+    Pool::start(config.clone(), r_new_t, r_prev_hash, s_solution).await;
+    task::spawn(async{JobNegotiator::start(config).await });
+
 }
