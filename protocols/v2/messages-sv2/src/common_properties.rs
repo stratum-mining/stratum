@@ -4,6 +4,7 @@ use crate::selectors::{
 };
 use common_messages_sv2::has_requires_std_job;
 use common_messages_sv2::{Protocol, SetupConnection};
+use mining_sv2::{Extranonce, Target};
 use std::collections::HashMap;
 use std::fmt::Debug as D;
 
@@ -43,7 +44,7 @@ pub trait IsUpstream<Down: IsDownstream, Sel: DownstreamSelector<Down> + ?Sized>
     fn get_remote_selector(&mut self) -> &mut Sel;
 }
 
-/// Channel opened with upsrtream
+/// Channel to be opened with the upstream nodes.
 #[derive(Debug, Clone, Copy)]
 pub enum UpstreamChannel {
     // nominal hash rate
@@ -52,7 +53,7 @@ pub enum UpstreamChannel {
     Extended,
 }
 
-/// Channel opened with downstream
+/// Channel to be opened with the downstream nodes.
 #[derive(Debug, Clone)]
 pub enum DownstreamChannel {
     // channel id, target, extranonce prefix, group channel id
@@ -62,6 +63,7 @@ pub enum DownstreamChannel {
 }
 
 impl DownstreamChannel {
+    /// Returns the group id for a given Standard, Group, or Extended (TODO) channel.
     pub fn group_id(&self) -> u32 {
         match self {
             DownstreamChannel::Standard(s) => s.group_id,
@@ -69,6 +71,8 @@ impl DownstreamChannel {
             DownstreamChannel::Extended => todo!(),
         }
     }
+
+    /// Returns the channel id for a given Standard, Group, or Extended (TODO) channel.
     pub fn channel_id(&self) -> u32 {
         match self {
             DownstreamChannel::Standard(s) => s.channel_id,
@@ -77,17 +81,23 @@ impl DownstreamChannel {
         }
     }
 }
-use mining_sv2::{Extranonce, Target};
 
 #[derive(Debug, Clone)]
+/// Standard channels are intended to be used by end mining devices.
 pub struct StandardChannel {
+    /// Newly assigned identifier of the channel, stable for the whole lifetime of the connection.
+    /// e.g. it is used for broadcasting new jobs by `NewExtendedMiningJob`
     pub channel_id: u32,
+    /// Identifier of the group where the standard channel belongs
     pub group_id: u32,
+    /// Initial target for the mining channel
     pub target: Target,
+    /// Extranonce bytes which need to be added to the coinbase to form a fully valid submission:
+    /// (full coinbase = coinbase_tx_prefix + extranonce_prefix + extranonce + coinbase_tx_suffix).
     pub extranonce: Extranonce,
 }
 
-/// General propoerties that each mining upstream that implement the Sv2 protocol should have
+/// General properties that every Sv2 compatible mining upstream nodes must implement.
 pub trait IsMiningUpstream<Down: IsMiningDownstream, Sel: DownstreamMiningSelector<Down> + ?Sized>:
     IsUpstream<Down, Sel>
 {
@@ -100,7 +110,7 @@ pub trait IsMiningUpstream<Down: IsMiningDownstream, Sel: DownstreamMiningSelect
     }
 }
 
-/// General propoerties that each downstream that implement the Sv2 protocol should have
+/// General properties that every Sv2 compatible mining downstream nodes must implement.
 pub trait IsDownstream {
     fn get_downstream_mining_data(&self) -> CommonDownstreamData;
 }
@@ -163,16 +173,18 @@ impl IsDownstream for () {
 
 impl IsMiningDownstream for () {}
 
-/// Proxyies likely need to change the request ids of downsteam's messages. They also need to
-/// remeber original id to patch the upstream's response with it
-#[derive(Debug, Default)]
+/// Proxies likely need to change the request ids of the downsteam's messages. They also need to
+/// remember the original id to patch the upstream's response with it.
+#[derive(Debug, Default, PartialEq)]
 pub struct RequestIdMapper {
-    // upstream id -> downstream id
+    /// Mapping of upstream id -> downstream ids
     request_ids_map: HashMap<u32, u32>,
     next_id: u32,
 }
 
 impl RequestIdMapper {
+    /// Builds a new `RequestIdMapper` initialized with an empty hashmap and initializes `next_id`
+    /// to `0`.
     pub fn new() -> Self {
         Self {
             request_ids_map: HashMap::new(),
@@ -180,17 +192,137 @@ impl RequestIdMapper {
         }
     }
 
+    /// Updates the `RequestIdMapper` with a new upstream/downstream mapping.
     pub fn on_open_channel(&mut self, id: u32) -> u32 {
         let new_id = self.next_id;
         self.next_id += 1;
 
-        //let mut inner = self.request_ids_map.lock().unwrap();
         self.request_ids_map.insert(new_id, id);
         new_id
     }
 
+    /// Removes a upstream/downstream mapping from the `RequsetIdMapper`.
     pub fn remove(&mut self, upstream_id: u32) -> u32 {
-        //let mut inner = self.request_ids_map.lock().unwrap();
         self.request_ids_map.remove(&upstream_id).unwrap()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use binary_sv2::u256_from_int;
+
+    #[test]
+    fn builds_request_id_mapper() {
+        let expect = RequestIdMapper {
+            request_ids_map: HashMap::<u32, u32>::new(),
+            next_id: 0,
+        };
+        let actual = RequestIdMapper::new();
+
+        assert_eq!(expect, actual);
+    }
+
+    #[test]
+    fn updates_request_id_mapper_on_open_channel() {
+        let id = 0;
+        let mut expect = RequestIdMapper {
+            request_ids_map: HashMap::<u32, u32>::new(),
+            next_id: id,
+        };
+        let new_id = expect.next_id;
+        expect.next_id += 1;
+        expect.request_ids_map.insert(new_id, id);
+
+        let mut actual = RequestIdMapper::new();
+        actual.on_open_channel(0);
+
+        assert_eq!(expect, actual);
+    }
+
+    #[test]
+    fn removes_id_from_request_id_mapper() {
+        let mut request_id_mapper = RequestIdMapper::new();
+        request_id_mapper.on_open_channel(0);
+        assert!(!request_id_mapper.request_ids_map.is_empty());
+
+        request_id_mapper.remove(0);
+        assert!(request_id_mapper.request_ids_map.is_empty());
+    }
+
+    #[test]
+    fn downstream_channel_returns_group_id_on_receiving_standard_channel() {
+        let expect = 0;
+
+        let channel = DownstreamChannel::Standard(StandardChannel {
+            channel_id: 0,
+            group_id: 0,
+            target: u256_from_int(45_u32).into(),
+            extranonce: mining_sv2::Extranonce::new(),
+        });
+        let actual = channel.group_id();
+
+        assert_eq!(expect, actual);
+    }
+
+    #[test]
+    fn downstream_channel_returns_group_id_on_receiving_group_channel() {
+        let id = 0;
+        let expect = id;
+
+        let channel = DownstreamChannel::Group(id);
+        let actual = channel.group_id();
+
+        assert_eq!(expect, actual);
+    }
+
+    #[ignore]
+    #[test]
+    fn downstream_channel_returns_group_id_on_receiving_extended_channel() {
+        todo!();
+
+        // let expect = TODO;
+        // let channel = DownstreamChannel::Extended;
+        // let actual = channel.group_id();
+        //
+        // assert_eq!(expect, actual);
+    }
+
+    #[test]
+    fn downstream_channel_returns_channel_id_on_receiving_standard_channel() {
+        let expect = 0;
+
+        let channel = DownstreamChannel::Standard(StandardChannel {
+            channel_id: 0,
+            group_id: 0,
+            target: u256_from_int(45_u32).into(),
+            extranonce: mining_sv2::Extranonce::new(),
+        });
+        let actual = channel.channel_id();
+
+        assert_eq!(expect, actual);
+    }
+
+    #[test]
+    fn downstream_channel_returns_channel_id_on_receiving_group_channel() {
+        let id = 0;
+        let expect = id;
+
+        let channel = DownstreamChannel::Group(id);
+        let actual = channel.channel_id();
+
+        assert_eq!(expect, actual);
+    }
+
+    #[ignore]
+    #[test]
+    fn downstream_channel_returns_channel_id_on_receiving_extended_channel() {
+        todo!();
+
+        // let expect = TODO;
+        // let channel = DownstreamChannel::Extended;
+        // let actual = channel.channel_id();
+        //
+        // assert_eq!(expect, actual);
     }
 }

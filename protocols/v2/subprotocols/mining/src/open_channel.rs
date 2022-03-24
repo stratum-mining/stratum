@@ -56,7 +56,7 @@ impl<'decoder> OpenStandardMiningChannel<'decoder> {
 
 /// # OpenStandardMiningChannel.Success (Server -> Client)
 /// Sent as a response for opening a standard channel, if successful.
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct OpenStandardMiningChannelSuccess<'decoder> {
     /// Client-specified request ID from OpenStandardMiningChannel message,
     /// so that the client can pair responses with open channel requests.
