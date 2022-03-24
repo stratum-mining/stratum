@@ -4,12 +4,17 @@ use crate::{
     utils::{Id, Mutex},
 };
 use binary_sv2::U256;
-use bitcoin::hashes::{sha256d, Hash, HashEngine};
+use bitcoin::hashes::sha256d::Hash as DHash;
+use bitcoin::{
+    blockdata::block::BlockHeader,
+    hash_types::{BlockHash, TxMerkleNode},
+    hashes::{sha256d, Hash, HashEngine},
+};
 use mining_sv2::{
     NewExtendedMiningJob, NewMiningJob, SetNewPrevHash, SubmitSharesError, SubmitSharesStandard,
     Target,
 };
-use std::{collections::HashMap, convert::TryInto, sync::Arc};
+use std::{collections::HashMap, convert::TryInto, sync::Arc}; //compact_target_from_u256
 
 fn extended_to_standard_job_for_group_channel<'a>(
     extended: &NewExtendedMiningJob,
@@ -64,31 +69,57 @@ fn merkle_root_from_path(
     root.to_vec()
 }
 
-#[allow(dead_code)]
-struct BlockHeader<'a> {
-    version: u32,
-    prev_hash: &'a [u8],
-    merkle_root: &'a [u8],
-    timestamp: u32,
-    nbits: u32,
+/// Returns a new `BlockHeader`.
+/// Expected endianness inputs:
+/// version     LE
+/// prev_hash   BE
+/// merkle_root BE
+/// time        BE
+/// bits        BE
+/// nonce       BE
+fn new_header(
+    version: i32,
+    prev_hash: &[u8],
+    merkle_root: &[u8],
+    time: u32,
+    bits: u32,
     nonce: u32,
+) -> Result<BlockHeader, Error> {
+    if !(prev_hash.len() == 32) {
+        return Err(Error::ExpectedLen32(prev_hash.len()));
+    }
+    if !(merkle_root.len() == 32) {
+        return Err(Error::ExpectedLen32(merkle_root.len()));
+    }
+    let mut prev_hash_arr = [0u8; 32];
+    prev_hash_arr.copy_from_slice(prev_hash);
+    let prev_hash = DHash::from_inner(prev_hash_arr);
+
+    let mut merkle_root_arr = [0u8; 32];
+    merkle_root_arr.copy_from_slice(merkle_root);
+    let merkle_root = DHash::from_inner(merkle_root_arr);
+
+    Ok(BlockHeader {
+        version,
+        prev_blockhash: BlockHash::from_hash(prev_hash),
+        merkle_root: TxMerkleNode::from_hash(merkle_root),
+        time,
+        bits,
+        nonce,
+    })
 }
 
-impl<'a> BlockHeader<'a> {
-    #[allow(dead_code)]
-    pub fn hash(&self) -> U256<'static> {
-        let mut engine = sha256d::Hash::engine();
-        engine.input(&self.version.to_le_bytes());
-        engine.input(&self.prev_hash);
-        engine.input(&self.merkle_root);
-        engine.input(&self.timestamp.to_be_bytes());
-        engine.input(&self.nbits.to_be_bytes());
-        engine.input(&self.nonce.to_be_bytes());
-        let hashed = sha256d::Hash::from_engine(engine);
-        let hashed: Vec<u8> = hashed.to_vec();
-        let hashed: U256 = hashed.try_into().unwrap();
-        hashed
-    }
+/// Returns hash of the `BlockHeader`.
+/// Endianness reference for the correct hash:
+/// version     LE
+/// prev_hash   BE
+/// merkle_root BE
+/// time        BE
+/// bits        BE
+/// nonce       BE
+fn new_header_hash<'decoder>(header: BlockHeader) -> U256<'decoder> {
+    let hash = header.block_hash().to_vec();
+    hash.try_into().unwrap()
 }
 
 #[allow(dead_code)]
@@ -98,18 +129,17 @@ fn target_from_shares(
     nbits: u32,
     share: &SubmitSharesStandard,
 ) -> Target {
-    let header = BlockHeader {
-        version: share.version,
+    let header = new_header(
+        share.version as i32,
         prev_hash,
-        merkle_root: &job.merkle_root,
-        timestamp: share.ntime,
+        &job.merkle_root,
+        share.ntime,
         nbits,
-        nonce: share.nonce,
-    };
-    header
-        .hash()
-        .try_into()
-        .expect("Could not convert from U256 to Target")
+        share.nonce,
+    )
+    .unwrap();
+
+    new_header_hash(header).try_into().unwrap()
 }
 
 // #[derive(Debug)]
@@ -416,23 +446,131 @@ mod tests {
         assert_eq!(actual, expect);
     }
 
-    #[ignore] // cant get hash right
     #[test]
     #[cfg(feature = "serde")]
-    fn hashes_block_header() {
+    fn gets_new_header() -> Result<(), Error> {
         let block = get_test_block();
-        // 0x59202ef47d684ab51866e91d5f40e61a94787d02d899fc3da28e4f4bcb8fd0a4
-        let expect: U256 = block.block_hash;
 
-        let block_header = BlockHeader {
-            version: block.version,
-            prev_hash: &block.prev_hash,
-            merkle_root: &block.merkle_root,
-            timestamp: block.time,
-            nbits: block.nbits,
+        if !block.prev_hash.len() == 32 {
+            return Err(Error::ExpectedLen32(block.prev_hash.len()));
+        }
+        if !block.merkle_root.len() == 32 {
+            return Err(Error::ExpectedLen32(block.merkle_root.len()));
+        }
+        let mut prev_hash_arr = [0u8; 32];
+        prev_hash_arr.copy_from_slice(&block.prev_hash);
+        let prev_hash = DHash::from_inner(prev_hash_arr);
+
+        let mut merkle_root_arr = [0u8; 32];
+        merkle_root_arr.copy_from_slice(&block.merkle_root);
+        let merkle_root = DHash::from_inner(merkle_root_arr);
+
+        let expect = BlockHeader {
+            version: block.version as i32,
+            prev_blockhash: BlockHash::from_hash(prev_hash),
+            merkle_root: TxMerkleNode::from_hash(merkle_root),
+            time: block.time,
+            bits: block.nbits,
             nonce: block.nonce,
         };
-        let actual = block_header.hash();
+
+        let actual_block = get_test_block();
+        let actual = new_header(
+            block.version as i32,
+            &actual_block.prev_hash,
+            &actual_block.merkle_root,
+            block.time,
+            block.nbits,
+            block.nonce,
+        )?;
+        assert_eq!(actual, expect);
+        Ok(())
+    }
+
+    #[test]
+    #[cfg(feature = "serde")]
+    fn error_if_unexpected_len_on_new_header() -> Result<(), ()> {
+        // Test that it error on bad prev_hash
+        let block = get_test_block();
+        let bad_prev_hash = vec![0u8; 31];
+
+        let err = new_header(
+            block.version as i32,
+            &bad_prev_hash,
+            &block.merkle_root,
+            block.time,
+            block.nbits,
+            block.nonce,
+        )
+        .unwrap_err();
+
+        let expect = String::from("Expected length of 32, but received length of 31");
+        assert_eq!(err.to_string(), expect);
+
+        // Test that it error on bad merkle_root
+        let block = get_test_block();
+        let bad_merkle_root = vec![0u8; 31];
+
+        let err = new_header(
+            block.version as i32,
+            &block.prev_hash,
+            &bad_merkle_root,
+            block.time,
+            block.nbits,
+            block.nonce,
+        )
+        .unwrap_err();
+
+        let expect = String::from("Expected length of 32, but received length of 31");
+        assert_eq!(err.to_string(), expect);
+
+        Ok(())
+    }
+
+    #[test]
+    #[cfg(feature = "serde")]
+    fn gets_new_header_hash() {
+        let block = get_test_block();
+        let expect = block.block_hash;
+        let block = get_test_block();
+        let prev_hash: [u8; 32] = block.prev_hash.to_vec().try_into().unwrap();
+        let prev_hash = DHash::from_inner(prev_hash);
+        let merkle_root: [u8; 32] = block.merkle_root.to_vec().try_into().unwrap();
+        let merkle_root = DHash::from_inner(merkle_root);
+        let header = BlockHeader {
+            version: block.version as i32,
+            prev_blockhash: BlockHash::from_hash(prev_hash),
+            merkle_root: TxMerkleNode::from_hash(merkle_root),
+            time: block.time,
+            bits: block.nbits,
+            nonce: block.nonce,
+        };
+
+        let actual = new_header_hash(header);
+
+        assert_eq!(actual, expect);
+    }
+
+    #[test]
+    #[cfg(feature = "serde")]
+    fn gets_target_from_shares() {
+        let block = get_test_block();
+        let expect: Target = block.block_hash.try_into().unwrap();
+
+        let job = DownstreamJob {
+            merkle_root: block.merkle_root,
+            extended_job_id: 0,
+        };
+        let share = SubmitSharesStandard {
+            channel_id: 0,
+            sequence_number: 0xfffffffe, // dummy var
+            job_id: 0,
+            nonce: block.nonce,
+            ntime: block.time,
+            version: block.version,
+        };
+
+        let actual = target_from_shares(&job, &block.prev_hash, block.nbits, &share);
 
         assert_eq!(actual, expect);
     }
