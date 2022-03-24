@@ -69,35 +69,14 @@ fn merkle_root_from_path(
     root.to_vec()
 }
 
-// // RR TODO: use rust-bitcoin lib
-// #[allow(dead_code)]
-// struct BlockHeader<'a> {
-//     version: u32,
-//     prev_hash: &'a [u8],
-//     merkle_root: &'a [u8],
-//     timestamp: u32,
-//     nbits: u32,
-//     nonce: u32,
-// }
-//
-// impl<'a> BlockHeader<'a> {
-//     #[allow(dead_code)]
-//     pub fn hash(&self) -> U256<'static> {
-//         let mut engine = sha256d::Hash::engine();
-//         engine.input(&self.version.to_le_bytes());
-//         engine.input(&self.prev_hash);
-//         engine.input(&self.merkle_root);
-//         engine.input(&self.timestamp.to_le_bytes());
-//         engine.input(&self.nbits.to_be_bytes());
-//         engine.input(&self.nonce.to_be_bytes());
-//         let hashed = sha256d::Hash::from_engine(engine);
-//         let hashed: Vec<u8> = hashed.to_vec();
-//         let hashed: U256 = hashed.try_into().unwrap();
-//         hashed
-//     }
-// }
-//
-
+/// Returns a new `BlockHeader`.
+/// Expected endianness inputs:
+/// version     LE
+/// prev_hash   BE
+/// merkle_root BE
+/// time        BE
+/// bits        BE
+/// nonce       BE
 fn new_header(
     version: i32,
     prev_hash: &[u8],
@@ -121,6 +100,19 @@ fn new_header(
     }
 }
 
+/// Returns hash of the `BlockHeader`.
+/// Endianness reference for the correct hash:
+/// version     LE
+/// prev_hash   BE
+/// merkle_root BE
+/// time        BE
+/// bits        BE
+/// nonce       BE
+fn new_header_hash<'decoder>(header: BlockHeader) -> U256<'decoder> {
+    let hash = header.block_hash().to_vec();
+    hash.try_into().unwrap()
+}
+
 #[allow(dead_code)]
 fn target_from_shares(
     job: &DownstreamJob,
@@ -137,9 +129,7 @@ fn target_from_shares(
         share.nonce,
     );
 
-    let hash = header.block_hash().to_vec();
-    let hash: U256 = hash.try_into().unwrap();
-    hash.try_into().unwrap()
+    new_header_hash(header).try_into().unwrap()
 }
 
 // #[derive(Debug)]
@@ -476,31 +466,51 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
+    #[cfg(feature = "serde")]
+    fn gets_new_header_hash() {
+        let block = get_test_block();
+        let expect = block.block_hash;
+        let block = get_test_block();
+        let prev_hash: [u8; 32] = block.prev_hash.to_vec().try_into().unwrap();
+        let prev_hash = DHash::from_inner(prev_hash);
+        let merkle_root: [u8; 32] = block.merkle_root.to_vec().try_into().unwrap();
+        let merkle_root = DHash::from_inner(merkle_root);
+        let header = BlockHeader {
+            version: block.version as i32,
+            prev_blockhash: BlockHash::from_hash(prev_hash),
+            merkle_root: TxMerkleNode::from_hash(merkle_root),
+            time: block.time,
+            bits: block.nbits,
+            nonce: block.nonce,
+        };
+
+        let actual = new_header_hash(header);
+
+        assert_eq!(actual, expect);
+    }
+
+    #[test]
     #[cfg(feature = "serde")]
     fn gets_target_from_shares() {
         let block = get_test_block();
-        // let expect =
-        let actual_block = get_test_block();
+        let expect: Target = block.block_hash.try_into().unwrap();
 
         let job = DownstreamJob {
-            merkle_root: actual_block.merkle_root,
+            merkle_root: block.merkle_root,
             extended_job_id: 0,
         };
         let share = SubmitSharesStandard {
-            channel_id: 0,               // dummy var
-            sequence_number: 0xffffffff, // dummy var
+            channel_id: 0,
+            sequence_number: 0xfffffffe, // dummy var
             job_id: 0,
             nonce: block.nonce,
             ntime: block.time,
             version: block.version,
         };
 
-        let actual = target_from_shares(&job, &actual_block.prev_hash, block.nbits, &share);
-        println!("ACTUAL: {:?}", &actual);
-        println!("");
-        println!("ACTUAL HEX: {:x?}", &actual);
-        assert_eq!(1, 1);
+        let actual = target_from_shares(&job, &block.prev_hash, block.nbits, &share);
+
+        assert_eq!(actual, expect);
     }
 
     #[test]
