@@ -84,20 +84,29 @@ fn new_header(
     time: u32,
     bits: u32,
     nonce: u32,
-) -> BlockHeader {
-    let prev_hash: [u8; 32] = prev_hash.to_vec().try_into().unwrap();
-    let prev_hash = DHash::from_inner(prev_hash);
-    let merkle_root: [u8; 32] = merkle_root.to_vec().try_into().unwrap();
-    let merkle_root = DHash::from_inner(merkle_root);
+) -> Result<BlockHeader, Error> {
+    if !(prev_hash.len() == 32) {
+        return Err(Error::ExpectedLen32(prev_hash.len()));
+    }
+    if !(merkle_root.len() == 32) {
+        return Err(Error::ExpectedLen32(merkle_root.len()));
+    }
+    let mut prev_hash_arr = [0u8; 32];
+    prev_hash_arr.copy_from_slice(prev_hash);
+    let prev_hash = DHash::from_inner(prev_hash_arr);
 
-    BlockHeader {
+    let mut merkle_root_arr = [0u8; 32];
+    merkle_root_arr.copy_from_slice(merkle_root);
+    let merkle_root = DHash::from_inner(merkle_root_arr);
+
+    Ok(BlockHeader {
         version,
         prev_blockhash: BlockHash::from_hash(prev_hash),
         merkle_root: TxMerkleNode::from_hash(merkle_root),
         time,
         bits,
         nonce,
-    }
+    })
 }
 
 /// Returns hash of the `BlockHeader`.
@@ -127,7 +136,8 @@ fn target_from_shares(
         share.ntime,
         nbits,
         share.nonce,
-    );
+    )
+    .unwrap();
 
     new_header_hash(header).try_into().unwrap()
 }
@@ -438,12 +448,23 @@ mod tests {
 
     #[test]
     #[cfg(feature = "serde")]
-    fn gets_new_header() {
+    fn gets_new_header() -> Result<(), Error> {
         let block = get_test_block();
-        let prev_hash: [u8; 32] = block.prev_hash.to_vec().try_into().unwrap();
-        let prev_hash = DHash::from_inner(prev_hash);
-        let merkle_root: [u8; 32] = block.merkle_root.to_vec().try_into().unwrap();
-        let merkle_root = DHash::from_inner(merkle_root);
+
+        if !block.prev_hash.len() == 32 {
+            return Err(Error::ExpectedLen32(block.prev_hash.len()));
+        }
+        if !block.merkle_root.len() == 32 {
+            return Err(Error::ExpectedLen32(block.merkle_root.len()));
+        }
+        let mut prev_hash_arr = [0u8; 32];
+        prev_hash_arr.copy_from_slice(&block.prev_hash);
+        let prev_hash = DHash::from_inner(prev_hash_arr);
+
+        let mut merkle_root_arr = [0u8; 32];
+        merkle_root_arr.copy_from_slice(&block.merkle_root);
+        let merkle_root = DHash::from_inner(merkle_root_arr);
+
         let expect = BlockHeader {
             version: block.version as i32,
             prev_blockhash: BlockHash::from_hash(prev_hash),
@@ -461,8 +482,49 @@ mod tests {
             block.time,
             block.nbits,
             block.nonce,
-        );
+        )?;
         assert_eq!(actual, expect);
+        Ok(())
+    }
+
+    #[test]
+    #[cfg(feature = "serde")]
+    fn error_if_unexpected_len_on_new_header() -> Result<(), ()> {
+        // Test that it error on bad prev_hash
+        let block = get_test_block();
+        let bad_prev_hash = vec![0u8; 31];
+
+        let err = new_header(
+            block.version as i32,
+            &bad_prev_hash,
+            &block.merkle_root,
+            block.time,
+            block.nbits,
+            block.nonce,
+        )
+        .unwrap_err();
+
+        let expect = String::from("Expected length of 32, but received length of 31");
+        assert_eq!(err.to_string(), expect);
+
+        // Test that it error on bad merkle_root
+        let block = get_test_block();
+        let bad_merkle_root = vec![0u8; 31];
+
+        let err = new_header(
+            block.version as i32,
+            &block.prev_hash,
+            &bad_merkle_root,
+            block.time,
+            block.nbits,
+            block.nonce,
+        )
+        .unwrap_err();
+
+        let expect = String::from("Expected length of 32, but received length of 31");
+        assert_eq!(err.to_string(), expect);
+
+        Ok(())
     }
 
     #[test]
