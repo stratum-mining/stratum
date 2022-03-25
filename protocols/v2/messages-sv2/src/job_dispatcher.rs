@@ -85,10 +85,10 @@ fn new_header(
     bits: u32,
     nonce: u32,
 ) -> Result<BlockHeader, Error> {
-    if !(prev_hash.len() == 32) {
+    if prev_hash.len() != 32 {
         return Err(Error::ExpectedLen32(prev_hash.len()));
     }
-    if !(merkle_root.len() == 32) {
+    if merkle_root.len() != 32 {
         return Err(Error::ExpectedLen32(merkle_root.len()));
     }
     let mut prev_hash_arr = [0u8; 32];
