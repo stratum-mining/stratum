@@ -164,9 +164,9 @@ if the message contains one or more `CVec`'s, then the content of the `CVec` mus
 
 [`sv2_ffi::encode`] encodes a [`sv2_ffi::CSv2Message`] as an encoded Sv2 frame in a buffer internal
 to [`sv2_ffi::EncoderWrapper`]. The buffer contents are returned as a "borrowed" `CVec`. After
-that, C++ has copied it and it must free the encoder with [`sv2_ffi::free_encoder`].
+that, C++ has copied it and it must free the encoder with [`sv2_ffi::flush_encoder`].
 This is necessary because the encoder will reuse the internal buffer to encode the next message with
-[`sv2_ffi::free_encoder`]. We let the encoder know that the content of the internal buffer has been copied
+[`sv2_ffi::flush_encoder`]. We let the encoder know that the content of the internal buffer has been copied
 and can be overwritten. 
 
 
@@ -182,7 +182,7 @@ and can be overwritten.
 1. Instantiate an encoder with [`sv2_ffi::new_encoder`]
 2. Call [`sv2_ffi::encode`] with a valid `CSv2Message`
 3. Copy the returned encoded frame where needed
-4. Call [`sv2_ffi::free_encoder`] to let the encoder know that the encoded frame has been copied
+4. Call [`sv2_ffi::flush_encoder`] to let the encoder know that the encoded frame has been copied
 
 ## Build for C++
 
