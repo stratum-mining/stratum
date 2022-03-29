@@ -1,4 +1,12 @@
-#!/bin/bash
+#! /bin/bash
+#
+# This program executes the test for each crate in the sv2-tp-crates branch of
+# the stratum-mining repository.
+#
+# This script is called by the `.github/workflows/test.yaml` on every PR to the
+# sv2-tp-crates branch.
+# This script can be run locally as well.
+#
 
 # exit on first error, see: http://stackoverflow.com/a/185900/432509
 error() {
@@ -15,33 +23,41 @@ error() {
 trap 'error ${LINENO}' ERR
 # done with trap
 
-# support cargo command override
-if [[ -z $CARGO_BIN ]]; then
+# Support cargo command override
+if [ -z $CARGO_BIN ]; then
     CARGO_BIN=cargo
 fi
 
-# toplevel git repo
+# Top level of this git repository
 ROOT=$(git rev-parse --show-toplevel)
 
-for cargo_dir in $(find "$ROOT" -name Cargo.toml -printf '%h\n'); do
-    echo "Running tests in: $cargo_dir"
-    pushd "$cargo_dir"
+# Loop through each crate and execute the tests
+# Each crate path is found by searching for a Cargo.toml file
+for cargo_dir in $(find . -type f -name 'Cargo.toml' | sed -r 's|/[^/]+$||'); do
+    echo Running tests in: $cargo_dir
+    cd $cargo_dir
+    # Compile the tests, but do not execute
     RUST_BACKTRACE=0 $CARGO_BIN test --no-run
+    # Execute tests and print any outputs to stdout
     RUST_BACKTRACE=1 $CARGO_BIN test -- --nocapture
-    popd
+    cd $ROOT
 done
 
-rm ./protocols/v2/binary-sv2/binary-sv2/Cargo.lock
-rm -r ./protocols/v2/binary-sv2/binary-sv2/target/
-rm ./protocols/v2/codec-sv2/Cargo.lock
-rm -r ./protocols/v2/codec-sv2/target/
-rm ./protocols/v2/const-sv2/Cargo.lock
-rm -r ./protocols/v2/const-sv2/target/
-rm ./protocols/v2/framing-sv2/Cargo.lock
-rm -r ./protocols/v2/framing-sv2/target/
-rm ./protocols/v2/subprotocols/common-messages/Cargo.lock
-rm -r ./protocols/v2/subprotocols/common-messages/target/
-rm ./protocols/v2/subprotocols/template-distribution/Cargo.lock
-rm -r ./protocols/v2/subprotocols/template-distribution/target/
-rm ./protocols/v2/sv2-ffi/Cargo.lock
-rm -r ./protocols/v2/sv2-ffi/target/
+rm -f ./protocols/v2/binary-sv2/binary-sv2/Cargo.lock
+rm -rf ./protocols/v2/binary-sv2/binary-sv2/target/
+rm -f ./protocols/v2/binary-sv2/no-serde-sv2/codec/Cargo.lock
+rm -rf ./protocols/v2/binary-sv2/no-serde-sv2/codec/target/
+rm -f ./protocols/v2/binary-sv2/no-serde-sv2/derive_codec/Cargo.lock
+rm -rf ./protocols/v2/binary-sv2/no-serde-sv2/derive_codec/target/
+rm -f ./protocols/v2/codec-sv2/Cargo.lock
+rm -rf ./protocols/v2/codec-sv2/target/
+rm -f ./protocols/v2/const-sv2/Cargo.lock
+rm -rf ./protocols/v2/const-sv2/target/
+rm -f ./protocols/v2/framing-sv2/Cargo.lock
+rm -rf ./protocols/v2/framing-sv2/target/
+rm -f ./protocols/v2/subprotocols/common-messages/Cargo.lock
+rm -rf ./protocols/v2/subprotocols/common-messages/target/
+rm -f ./protocols/v2/subprotocols/template-distribution/Cargo.lock
+rm -rf ./protocols/v2/subprotocols/template-distribution/target/
+rm -f ./protocols/v2/sv2-ffi/Cargo.lock
+rm -rf ./protocols/v2/sv2-ffi/target/
