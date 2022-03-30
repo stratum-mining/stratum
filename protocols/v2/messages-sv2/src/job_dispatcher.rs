@@ -1,14 +1,7 @@
 use crate::{
     common_properties::StandardChannel,
     errors::Error,
-    utils::{Id, Mutex},
-};
-use binary_sv2::U256;
-use bitcoin::hashes::sha256d::Hash as DHash;
-use bitcoin::{
-    blockdata::block::BlockHeader,
-    hash_types::{BlockHash, TxMerkleNode},
-    hashes::{sha256d, Hash, HashEngine},
+    utils::{merkle_root_from_path, new_header, new_header_hash, Id, Mutex},
 };
 use mining_sv2::{
     NewExtendedMiningJob, NewMiningJob, SetNewPrevHash, SubmitSharesError, SubmitSharesStandard,
@@ -36,90 +29,6 @@ fn extended_to_standard_job_for_group_channel<'a>(
         version: extended.version,
         merkle_root: merkle_root.try_into().unwrap(),
     }
-}
-
-fn merkle_root_from_path(
-    coinbase_tx_prefix: &[u8],
-    coinbase_script: &[u8],
-    coinbase_tx_suffix: &[u8],
-    path: &[&[u8]],
-) -> Vec<u8> {
-    // RR TODO: catch empty cb
-    if !coinbase_tx_prefix.len() == 46 {
-        panic!("TODO: add error that checks cb prefix is 46 bytes");
-    }
-    let mut coinbase = Vec::with_capacity(
-        coinbase_tx_prefix.len() + coinbase_tx_suffix.len() + coinbase_script.len(),
-    );
-    coinbase.extend_from_slice(coinbase_tx_prefix);
-    coinbase.extend_from_slice(coinbase_script);
-    coinbase.extend_from_slice(coinbase_tx_suffix);
-
-    let mut engine = sha256d::Hash::engine();
-    engine.input(&coinbase);
-    let coinbase = sha256d::Hash::from_engine(engine);
-
-    let root = path.iter().fold(coinbase, |root, leaf| {
-        let mut engine = sha256d::Hash::engine();
-        engine.input(&root);
-        engine.input(leaf);
-        sha256d::Hash::from_engine(engine)
-    });
-
-    root.to_vec()
-}
-
-/// Returns a new `BlockHeader`.
-/// Expected endianness inputs:
-/// version     LE
-/// prev_hash   BE
-/// merkle_root BE
-/// time        BE
-/// bits        BE
-/// nonce       BE
-fn new_header(
-    version: i32,
-    prev_hash: &[u8],
-    merkle_root: &[u8],
-    time: u32,
-    bits: u32,
-    nonce: u32,
-) -> Result<BlockHeader, Error> {
-    if prev_hash.len() != 32 {
-        return Err(Error::ExpectedLen32(prev_hash.len()));
-    }
-    if merkle_root.len() != 32 {
-        return Err(Error::ExpectedLen32(merkle_root.len()));
-    }
-    let mut prev_hash_arr = [0u8; 32];
-    prev_hash_arr.copy_from_slice(prev_hash);
-    let prev_hash = DHash::from_inner(prev_hash_arr);
-
-    let mut merkle_root_arr = [0u8; 32];
-    merkle_root_arr.copy_from_slice(merkle_root);
-    let merkle_root = DHash::from_inner(merkle_root_arr);
-
-    Ok(BlockHeader {
-        version,
-        prev_blockhash: BlockHash::from_hash(prev_hash),
-        merkle_root: TxMerkleNode::from_hash(merkle_root),
-        time,
-        bits,
-        nonce,
-    })
-}
-
-/// Returns hash of the `BlockHeader`.
-/// Endianness reference for the correct hash:
-/// version     LE
-/// prev_hash   BE
-/// merkle_root BE
-/// time        BE
-/// bits        BE
-/// nonce       BE
-fn new_header_hash<'decoder>(header: BlockHeader) -> U256<'decoder> {
-    let hash = header.block_hash().to_vec();
-    hash.try_into().unwrap()
 }
 
 #[allow(dead_code)]
@@ -273,14 +182,20 @@ impl GroupChannelJobDispatcher {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use binary_sv2::{u256_from_int, Seq0255, B032, B064K, U256};
+    #[cfg(feature = "serde")]
+    use binary_sv2::B032;
+    use binary_sv2::{u256_from_int, Seq0255, B064K, U256};
+    #[cfg(feature = "serde")]
     use mining_sv2::Extranonce;
     #[cfg(feature = "serde")]
     use serde::Deserialize;
 
+    #[cfg(feature = "serde")]
     use std::convert::TryInto;
+    #[cfg(feature = "serde")]
     use std::num::ParseIntError;
 
+    #[cfg(feature = "serde")]
     fn decode_hex(s: &str) -> Result<Vec<u8>, ParseIntError> {
         (0..s.len())
             .step_by(2)
@@ -393,21 +308,6 @@ mod tests {
         }
     }
 
-    #[test]
-    #[cfg(feature = "serde")]
-    fn gets_merkle_root_from_path() {
-        let block = get_test_block();
-        let expect: Vec<u8> = block.merkle_root;
-
-        let actual = merkle_root_from_path(
-            block.coinbase_tx_prefix.inner_as_ref(),
-            &block.coinbase_script,
-            block.coinbase_tx_suffix.inner_as_ref(),
-            &block.path.inner_as_ref(),
-        );
-        assert_eq!(expect, actual);
-    }
-
     #[cfg(feature = "serde")]
     #[test]
     fn success_extended_to_standard_job_for_group_channel() {
@@ -448,47 +348,6 @@ mod tests {
 
     #[test]
     #[cfg(feature = "serde")]
-    fn gets_new_header() -> Result<(), Error> {
-        let block = get_test_block();
-
-        if !block.prev_hash.len() == 32 {
-            return Err(Error::ExpectedLen32(block.prev_hash.len()));
-        }
-        if !block.merkle_root.len() == 32 {
-            return Err(Error::ExpectedLen32(block.merkle_root.len()));
-        }
-        let mut prev_hash_arr = [0u8; 32];
-        prev_hash_arr.copy_from_slice(&block.prev_hash);
-        let prev_hash = DHash::from_inner(prev_hash_arr);
-
-        let mut merkle_root_arr = [0u8; 32];
-        merkle_root_arr.copy_from_slice(&block.merkle_root);
-        let merkle_root = DHash::from_inner(merkle_root_arr);
-
-        let expect = BlockHeader {
-            version: block.version as i32,
-            prev_blockhash: BlockHash::from_hash(prev_hash),
-            merkle_root: TxMerkleNode::from_hash(merkle_root),
-            time: block.time,
-            bits: block.nbits,
-            nonce: block.nonce,
-        };
-
-        let actual_block = get_test_block();
-        let actual = new_header(
-            block.version as i32,
-            &actual_block.prev_hash,
-            &actual_block.merkle_root,
-            block.time,
-            block.nbits,
-            block.nonce,
-        )?;
-        assert_eq!(actual, expect);
-        Ok(())
-    }
-
-    #[test]
-    #[cfg(feature = "serde")]
     fn error_if_unexpected_len_on_new_header() -> Result<(), ()> {
         // Test that it error on bad prev_hash
         let block = get_test_block();
@@ -525,30 +384,6 @@ mod tests {
         assert_eq!(err.to_string(), expect);
 
         Ok(())
-    }
-
-    #[test]
-    #[cfg(feature = "serde")]
-    fn gets_new_header_hash() {
-        let block = get_test_block();
-        let expect = block.block_hash;
-        let block = get_test_block();
-        let prev_hash: [u8; 32] = block.prev_hash.to_vec().try_into().unwrap();
-        let prev_hash = DHash::from_inner(prev_hash);
-        let merkle_root: [u8; 32] = block.merkle_root.to_vec().try_into().unwrap();
-        let merkle_root = DHash::from_inner(merkle_root);
-        let header = BlockHeader {
-            version: block.version as i32,
-            prev_blockhash: BlockHash::from_hash(prev_hash),
-            merkle_root: TxMerkleNode::from_hash(merkle_root),
-            time: block.time,
-            bits: block.nbits,
-            nonce: block.nonce,
-        };
-
-        let actual = new_header_hash(header);
-
-        assert_eq!(actual, expect);
     }
 
     #[test]
