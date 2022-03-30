@@ -49,11 +49,6 @@ fn target_from_shares(
     .unwrap();
     let new_hash = new_header_hash(header)?;
     Ok(new_hash.try_into().unwrap())
-
-    // Ok(new_header_hash(header).try_into()?)
-    // Ok(new_header_hash(header)
-    //     .try_into()
-    //     .map_err(Error::BinarySv2Error)?)
 }
 
 // #[derive(Debug)]
@@ -393,7 +388,7 @@ mod tests {
 
     #[test]
     #[cfg(feature = "serde")]
-    fn gets_target_from_shares() {
+    fn gets_target_from_shares() -> Result<(), Error> {
         let block = get_test_block();
         let expect: Target = block.block_hash.try_into().unwrap();
 
@@ -410,9 +405,10 @@ mod tests {
             version: block.version,
         };
 
-        let actual = target_from_shares(&job, &block.prev_hash, block.nbits, &share);
+        let actual = target_from_shares(&job, &block.prev_hash, block.nbits, &share)?;
 
         assert_eq!(actual, expect);
+        Ok(())
     }
 
     #[test]

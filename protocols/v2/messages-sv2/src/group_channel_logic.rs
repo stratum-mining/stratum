@@ -37,7 +37,7 @@ impl UpstreamWithGroups {
         // Return error if self.groups hashmap is empty
         let channel_id = match self.groups.get_mut(&group_id) {
             Some(cid) => cid.next(),
-            None => return Err(Error::NoGroupsFound),
+            None => return Err(Error::NotFoundGroups),
         };
 
         // RR Q: why is this called the extranonce_prefix if it is the next extranonce?

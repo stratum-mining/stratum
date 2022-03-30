@@ -282,13 +282,13 @@ impl<
                 match message_type {
                     const_sv2::MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL_SUCCESS => {
                         let upstream_id = get_request_id(payload);
-                        let downstream_id = id_map.unwrap().remove(upstream_id);
+                        let downstream_id = id_map.unwrap().remove(upstream_id).unwrap();
                         update_request_id(payload, downstream_id);
                         upstream_id
                     }
                     const_sv2::MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL_SUCCES => {
                         let upstream_id = get_request_id(payload);
-                        let downstream_id = id_map.unwrap().remove(upstream_id);
+                        let downstream_id = id_map.unwrap().remove(upstream_id).unwrap();
                         update_request_id(payload, downstream_id);
                         upstream_id
                     }

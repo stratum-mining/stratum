@@ -1,4 +1,5 @@
 //! Traits that implements very basic properties that every implementation should implements
+use crate::errors::Error;
 use crate::selectors::{
     DownstreamMiningSelector, DownstreamSelector, NullDownstreamMiningSelector,
 };
@@ -201,9 +202,13 @@ impl RequestIdMapper {
         new_id
     }
 
-    /// Removes a upstream/downstream mapping from the `RequsetIdMapper`.
-    pub fn remove(&mut self, upstream_id: u32) -> u32 {
-        self.request_ids_map.remove(&upstream_id).unwrap()
+    /// Removes a upstream/downstream mapping from the `RequestIdMapper`.
+    pub fn remove(&mut self, upstream_id: u32) -> Result<u32, Error> {
+        // self.request_ids_map.remove(&upstream_id).unwrap()
+        match self.request_ids_map.remove(&upstream_id) {
+            Some(u) => Ok(u),
+            None => Err(Error::NotFoundRequestId),
+        }
     }
 }
 
@@ -241,13 +246,14 @@ mod tests {
     }
 
     #[test]
-    fn removes_id_from_request_id_mapper() {
+    fn removes_id_from_request_id_mapper() -> Result<(), Error> {
         let mut request_id_mapper = RequestIdMapper::new();
         request_id_mapper.on_open_channel(0);
         assert!(!request_id_mapper.request_ids_map.is_empty());
 
-        request_id_mapper.remove(0);
+        request_id_mapper.remove(0)?;
         assert!(request_id_mapper.request_ids_map.is_empty());
+        Ok(())
     }
 
     #[test]

@@ -323,7 +323,7 @@ mod tests {
 
     #[test]
     #[cfg(feature = "serde")]
-    fn gets_new_header_hash() {
+    fn gets_new_header_hash() -> Result<(), Error> {
         let block = get_test_block();
         let expect = block.block_hash;
         let block = get_test_block();
@@ -340,8 +340,9 @@ mod tests {
             nonce: block.nonce,
         };
 
-        let actual = new_header_hash(header);
+        let actual = new_header_hash(header)?;
 
         assert_eq!(actual, expect);
+        Ok(())
     }
 }
