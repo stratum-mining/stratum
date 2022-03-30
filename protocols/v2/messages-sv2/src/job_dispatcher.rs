@@ -37,7 +37,7 @@ fn target_from_shares(
     prev_hash: &[u8],
     nbits: u32,
     share: &SubmitSharesStandard,
-) -> Target {
+) -> Result<Target, Error> {
     let header = new_header(
         share.version as i32,
         prev_hash,
@@ -47,8 +47,13 @@ fn target_from_shares(
         share.nonce,
     )
     .unwrap();
+    let new_hash = new_header_hash(header)?;
+    Ok(new_hash.try_into().unwrap())
 
-    new_header_hash(header).try_into().unwrap()
+    // Ok(new_header_hash(header).try_into()?)
+    // Ok(new_header_hash(header)
+    //     .try_into()
+    //     .map_err(Error::BinarySv2Error)?)
 }
 
 // #[derive(Debug)]

@@ -136,9 +136,9 @@ pub(crate) fn new_header(
 /// time        BE
 /// bits        BE
 /// nonce       BE
-pub(crate) fn new_header_hash<'decoder>(header: BlockHeader) -> U256<'decoder> {
+pub(crate) fn new_header_hash<'decoder>(header: BlockHeader) -> Result<U256<'decoder>, Error> {
     let hash = header.block_hash().to_vec();
-    hash.try_into().unwrap()
+    Ok(hash.try_into()?)
 }
 
 #[cfg(test)]

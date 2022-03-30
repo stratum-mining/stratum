@@ -16,8 +16,8 @@ pub enum Error {
 }
 
 impl From<BinarySv2Error> for Error {
-    fn from(v: BinarySv2Error) -> Error {
-        Error::BinarySv2Error(v)
+    fn from(e: BinarySv2Error) -> Error {
+        Error::BinarySv2Error(e)
     }
 }
 
@@ -25,7 +25,7 @@ impl Display for Error {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         use Error::*;
         match self {
-            BinarySv2Error(v) => write!(f, "BinarySv2Error: TODO better description: {:?}", v),
+            BinarySv2Error(ref e) => write!(f, "BinarySv2Error: TODO better description: {:?}", e),
             ExpectedLen32(l) => write!(f, "Expected length of 32, but received length of {}", l),
             NoGroupsFound => write!(
                 f,
