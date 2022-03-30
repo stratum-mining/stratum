@@ -84,7 +84,7 @@ void send_setup_connection_error(int socket, EncoderWrapper *encoder) {
     cout << "sending connection setup error \n";
     write(socket, encoded.ok._0.data, encoded.ok._0.len);
     drop_sv2_message(response);
-    free_encoder(encoder);
+    flush_encoder(encoder);
     break;
   case CResult < CVec, Sv2Error > ::Tag::Err:
     cout << "Some error occurred \n";

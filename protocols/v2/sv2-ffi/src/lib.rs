@@ -309,7 +309,7 @@ pub extern "C" fn new_encoder() -> *mut EncoderWrapper {
 
 #[no_mangle]
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
-pub extern "C" fn free_encoder(encoder: *mut EncoderWrapper) {
+pub extern "C" fn flush_encoder(encoder: *mut EncoderWrapper) {
     let mut encoder = unsafe { Box::from_raw(encoder) };
     encoder.free = true;
     Box::into_raw(encoder);
