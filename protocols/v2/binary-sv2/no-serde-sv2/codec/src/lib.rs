@@ -33,10 +33,11 @@ pub use datatypes::{
     U256,
 };
 
-pub use crate::codec::decodable::Decodable;
-pub use crate::codec::encodable::{Encodable, EncodableField};
-pub use crate::codec::GetSize;
-pub use crate::codec::SizeHint;
+pub use crate::codec::{
+    decodable::Decodable,
+    encodable::{Encodable, EncodableField},
+    GetSize, SizeHint,
+};
 
 #[allow(clippy::wrong_self_convention)]
 pub fn to_bytes<T: Encodable + GetSize>(src: T) -> Result<Vec<u8>, Error> {
@@ -56,15 +57,12 @@ pub fn from_bytes<'a, T: Decodable<'a>>(data: &'a mut [u8]) -> Result<T, Error> 
 }
 
 pub mod decodable {
-    pub use crate::codec::decodable::Decodable;
-    pub use crate::codec::decodable::DecodableField;
-    pub use crate::codec::decodable::FieldMarker;
+    pub use crate::codec::decodable::{Decodable, DecodableField, FieldMarker};
     //pub use crate::codec::decodable::PrimitiveMarker;
 }
 
 pub mod encodable {
-    pub use crate::codec::encodable::Encodable;
-    pub use crate::codec::encodable::EncodableField;
+    pub use crate::codec::encodable::{Encodable, EncodableField};
 }
 
 #[macro_use]

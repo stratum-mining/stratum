@@ -1,12 +1,13 @@
-use serde_json::Value;
-use serde_json::Value::Array as JArrary;
-use serde_json::Value::Number as JNumber;
-use serde_json::Value::String as JString;
-use std::convert::TryFrom;
-use std::convert::TryInto;
+use serde_json::{
+    Value,
+    Value::{Array as JArrary, Number as JNumber, String as JString},
+};
+use std::convert::{TryFrom, TryInto};
 
-use crate::json_rpc::{Message, Response, StandardRequest};
-use crate::utils::{HexBytes, HexU32Be};
+use crate::{
+    json_rpc::{Message, Response, StandardRequest},
+    utils::{HexBytes, HexU32Be},
+};
 
 use crate::methods::{MethodError, ParsingMethodError};
 

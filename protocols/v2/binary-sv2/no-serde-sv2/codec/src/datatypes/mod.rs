@@ -1,5 +1,7 @@
-use crate::codec::{GetSize, SizeHint};
-use crate::Error;
+use crate::{
+    codec::{GetSize, SizeHint},
+    Error,
+};
 mod non_copy_data_types;
 
 mod copy_data_types;

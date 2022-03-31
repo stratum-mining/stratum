@@ -1,11 +1,12 @@
 use bytes::{BufMut, BytesMut};
-use core::convert::{TryFrom, TryInto};
-use core::time::Duration;
+use core::{
+    convert::{TryFrom, TryInto},
+    time::Duration,
+};
 use serde::{Deserialize, Serialize};
 use std::time::SystemTime;
 
-use crate::StaticPublicKey;
-use crate::{Error, Result};
+use crate::{Error, Result, StaticPublicKey};
 
 use ed25519_dalek::Signer;
 
@@ -106,15 +107,14 @@ impl SignedPartHeader {
         SystemTime::UNIX_EPOCH
             .checked_add(Duration::from_secs(unix_timestamp.into()))
             .ok_or(
-                Error {}
-                //ErrorKind::Noise(
-                //    format!(
-                //        "Cannot convert unix timestamp ({}) to system time",
-                //        unix_timestamp
-                //    )
-                //    .to_string(),
-                //)
-                //.into(),
+                Error {}, //ErrorKind::Noise(
+                          //    format!(
+                          //        "Cannot convert unix timestamp ({}) to system time",
+                          //        unix_timestamp
+                          //    )
+                          //    .to_string(),
+                          //)
+                          //.into(),
             )
     }
 }

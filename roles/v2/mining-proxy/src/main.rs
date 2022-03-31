@@ -35,11 +35,12 @@ use std::str::FromStr;
 // TODO make them configurable via flags or config file
 pub const MAX_SUPPORTED_VERSION: u16 = 2;
 pub const MIN_SUPPORTED_VERSION: u16 = 2;
-use messages_sv2::routing_logic::MiningProxyRoutingLogic;
-use messages_sv2::selectors::{GeneralMiningSelector, UpstreamMiningSelctor};
-use messages_sv2::utils::{Id, Mutex};
-use std::collections::HashMap;
-use std::sync::Arc;
+use messages_sv2::{
+    routing_logic::MiningProxyRoutingLogic,
+    selectors::{GeneralMiningSelector, UpstreamMiningSelctor},
+    utils::{Id, Mutex},
+};
+use std::{collections::HashMap, sync::Arc};
 
 type RLogic = MiningProxyRoutingLogic<
     crate::lib::downstream_mining::DownstreamMiningNode,

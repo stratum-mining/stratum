@@ -1,15 +1,15 @@
 use core::sync::atomic::Ordering;
 use iai::{black_box, main};
 
-use buffer_sv2::BufferFromSystemMemory as BufferFromMemory;
-use buffer_sv2::BufferPool as Pool;
-use buffer_sv2::{Buffer, Slice};
+use buffer_sv2::{Buffer, BufferFromSystemMemory as BufferFromMemory, BufferPool as Pool, Slice};
 use core::time::Duration;
 use rand::Rng;
 
 mod control_struct;
-use control_struct::{add_random_bytes, bench_no_thread, keep_slice, Load, DATA};
-use control_struct::{MaxESlice, MaxEfficeincy, PPool, SSlice};
+use control_struct::{
+    add_random_bytes, bench_no_thread, keep_slice, Load, MaxESlice, MaxEfficeincy, PPool, SSlice,
+    DATA,
+};
 
 fn with_pool() {
     let data = DATA;

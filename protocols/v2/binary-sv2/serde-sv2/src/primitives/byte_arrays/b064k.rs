@@ -1,5 +1,4 @@
-use crate::error::Error;
-use crate::primitives::GetSize;
+use crate::{error::Error, primitives::GetSize};
 use alloc::vec::Vec;
 use core::convert::TryFrom;
 use serde::{de::Visitor, ser, ser::SerializeTuple, Deserialize, Deserializer, Serialize};

@@ -2,16 +2,21 @@ use async_std::net::{TcpListener, TcpStream};
 use std::convert::TryInto;
 
 use async_channel::{bounded, Receiver, Sender};
-use async_std::io::BufReader;
-use async_std::prelude::*;
-use async_std::sync::{Arc, Mutex};
-use async_std::task;
+use async_std::{
+    io::BufReader,
+    prelude::*,
+    sync::{Arc, Mutex},
+    task,
+};
 use std::time;
 
 const ADDR: &str = "127.0.0.1:34254";
 
 use v1::{
-    client_to_server, error::Error, json_rpc, server_to_client, utils::HexBytes, utils::HexU32Be,
+    client_to_server,
+    error::Error,
+    json_rpc, server_to_client,
+    utils::{HexBytes, HexU32Be},
     ClientStatus, IsClient, IsServer,
 };
 

@@ -4,15 +4,19 @@ use binary_sv2::Deserialize;
 use binary_sv2::GetSize;
 use binary_sv2::Serialize;
 use core::marker::PhantomData;
-use framing_sv2::framing2::{EitherFrame, Frame as F_, Sv2Frame};
 #[cfg(feature = "noise_sv2")]
 use framing_sv2::framing2::{HandShakeFrame, NoiseFrame};
-use framing_sv2::header::Header;
 #[cfg(feature = "noise_sv2")]
 use framing_sv2::header::NoiseHeader;
+use framing_sv2::{
+    framing2::{EitherFrame, Frame as F_, Sv2Frame},
+    header::Header,
+};
 
-use crate::buffer::{Buffer, SlowAndCorrect};
-use crate::error::{Error, Result};
+use crate::{
+    buffer::{Buffer, SlowAndCorrect},
+    error::{Error, Result},
+};
 #[cfg(feature = "noise_sv2")]
 use crate::{State, TransportMode};
 

@@ -1,7 +1,6 @@
 use bitcoin_hashes::Error as BTCHashError;
 use hex::FromHexError;
-use std::convert::TryFrom;
-use std::convert::TryInto;
+use std::convert::{TryFrom, TryInto};
 
 pub mod client_to_server;
 pub mod server_to_client;

@@ -1,16 +1,14 @@
 use crate::{EitherFrame, StdFrame};
 use async_channel::{Receiver, Sender};
 use codec_sv2::Frame;
-use messages_sv2::common_messages_sv2::{Protocol, SetupConnection};
-use messages_sv2::handlers::common::ParseUpstreamCommonMessages;
-use messages_sv2::handlers::common::SendTo;
-use messages_sv2::parsers::PoolMessages;
-use messages_sv2::routing_logic::CommonRoutingLogic;
-use messages_sv2::routing_logic::NoRouting;
-use messages_sv2::utils::Mutex;
-use std::convert::TryInto;
-use std::net::SocketAddr;
-use std::sync::Arc;
+use messages_sv2::{
+    common_messages_sv2::{Protocol, SetupConnection},
+    handlers::common::{ParseUpstreamCommonMessages, SendTo},
+    parsers::PoolMessages,
+    routing_logic::{CommonRoutingLogic, NoRouting},
+    utils::Mutex,
+};
+use std::{convert::TryInto, net::SocketAddr, sync::Arc};
 
 pub struct SetupConnectionHandler {}
 

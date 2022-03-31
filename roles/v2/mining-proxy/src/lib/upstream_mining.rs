@@ -1,25 +1,25 @@
 use super::downstream_mining::{DownstreamMiningNode, StdFrame as DownstreamFrame};
 use async_channel::{Receiver, SendError, Sender};
 use async_recursion::async_recursion;
-use async_std::net::TcpStream;
-use async_std::task;
+use async_std::{net::TcpStream, task};
 use codec_sv2::{Frame, HandshakeRole, Initiator, StandardEitherFrame, StandardSv2Frame};
-use messages_sv2::common_messages_sv2::{Protocol, SetupConnection};
-use messages_sv2::common_properties::{
-    DownstreamChannel, IsMiningDownstream, IsMiningUpstream, IsUpstream, RequestIdMapper,
-    StandardChannel, UpstreamChannel,
+use messages_sv2::{
+    common_messages_sv2::{Protocol, SetupConnection},
+    common_properties::{
+        DownstreamChannel, IsMiningDownstream, IsMiningUpstream, IsUpstream, RequestIdMapper,
+        StandardChannel, UpstreamChannel,
+    },
+    errors::Error,
+    handlers::mining::{ChannelType, ParseUpstreamMiningMessages, SendTo},
+    job_dispatcher::GroupChannelJobDispatcher,
+    mining_sv2::*,
+    parsers::{CommonMessages, Mining, MiningDeviceMessages, PoolMessages},
+    routing_logic::{MiningProxyRoutingLogic, MiningRoutingLogic},
+    selectors::{DownstreamMiningSelector, ProxyDownstreamMiningSelector as Prs},
+    utils::{Id, Mutex},
 };
-use messages_sv2::errors::Error;
-use messages_sv2::handlers::mining::{ChannelType, ParseUpstreamMiningMessages, SendTo};
-use messages_sv2::job_dispatcher::GroupChannelJobDispatcher;
-use messages_sv2::mining_sv2::*;
-use messages_sv2::parsers::{CommonMessages, Mining, MiningDeviceMessages, PoolMessages};
-use messages_sv2::routing_logic::{MiningProxyRoutingLogic, MiningRoutingLogic};
-use messages_sv2::selectors::{DownstreamMiningSelector, ProxyDownstreamMiningSelector as Prs};
-use messages_sv2::utils::{Id, Mutex};
 use network_helpers::Connection;
-use std::collections::HashMap;
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 pub type Message = PoolMessages<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;
@@ -78,8 +78,7 @@ pub struct UpstreamMiningNode {
     downstream_selector: ProxyRemoteSelector,
 }
 
-use crate::MAX_SUPPORTED_VERSION;
-use crate::MIN_SUPPORTED_VERSION;
+use crate::{MAX_SUPPORTED_VERSION, MIN_SUPPORTED_VERSION};
 use core::convert::TryInto;
 use std::net::SocketAddr;
 

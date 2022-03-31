@@ -1,8 +1,11 @@
-use super::super::{Signature, U24, U256};
-use super::{Seq, SeqMaxLen, SeqVisitor, TryFromBSlice};
-use crate::primitives::FixedSize;
-use crate::primitives::GetSize;
-use crate::Error;
+use super::{
+    super::{Signature, U24, U256},
+    Seq, SeqMaxLen, SeqVisitor, TryFromBSlice,
+};
+use crate::{
+    primitives::{FixedSize, GetSize},
+    Error,
+};
 use alloc::vec::Vec;
 use serde::{ser, ser::SerializeTuple, Deserialize, Deserializer, Serialize};
 

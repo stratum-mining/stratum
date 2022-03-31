@@ -1,5 +1,4 @@
-use crate::error::Error;
-use crate::primitives::FixedSize;
+use crate::{error::Error, primitives::FixedSize};
 use alloc::boxed::Box;
 use core::convert::TryFrom;
 use serde::{de::Visitor, ser, Deserialize, Deserializer, Serialize};

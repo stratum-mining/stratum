@@ -1,8 +1,6 @@
-use crate::header::Header;
-use crate::header::NoiseHeader;
+use crate::header::{Header, NoiseHeader};
 use alloc::vec::Vec;
-use binary_sv2::Serialize;
-use binary_sv2::{to_writer, GetSize};
+use binary_sv2::{to_writer, GetSize, Serialize};
 use core::convert::TryFrom;
 
 const NOISE_MAX_LEN: usize = const_sv2::NOISE_FRAME_MAX_SIZE;

@@ -1,11 +1,11 @@
 //! Selectors are used from the routing logic in order to chose to which remote or set of remotes
 //! a message should be ralyied, or to which remote or set of remotes a message should be sent.
-use crate::common_properties::{IsDownstream, IsMiningDownstream, IsMiningUpstream, PairSettings};
-use crate::errors::Error;
-use crate::utils::Mutex;
-use std::collections::HashMap;
-use std::fmt::Debug as D;
-use std::sync::Arc;
+use crate::{
+    common_properties::{IsDownstream, IsMiningDownstream, IsMiningUpstream, PairSettings},
+    errors::Error,
+    utils::Mutex,
+};
+use std::{collections::HashMap, fmt::Debug as D, sync::Arc};
 
 /// A DownstreamMiningSelector useful for routing messages in a mining proxy
 #[derive(Debug, Clone, Default)]

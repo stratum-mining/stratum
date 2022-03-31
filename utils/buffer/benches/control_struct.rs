@@ -1,8 +1,7 @@
 use buffer_sv2::{Buffer, Slice};
 use std::sync::{Arc, Mutex};
 
-use core::sync::atomic::Ordering;
-use core::time::Duration;
+use core::{sync::atomic::Ordering, time::Duration};
 use rand::Rng;
 
 const FILE_LEN: usize = 5242880;

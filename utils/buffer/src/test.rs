@@ -1,8 +1,6 @@
 use alloc::vec::Vec;
 
-use crate::buffer_pool::BufferPool as Pool;
-use crate::slice::Slice;
-use crate::Buffer;
+use crate::{buffer_pool::BufferPool as Pool, slice::Slice, Buffer};
 use rand::Rng;
 
 #[test]

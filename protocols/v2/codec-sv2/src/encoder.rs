@@ -1,6 +1,5 @@
 use alloc::vec::Vec;
-use binary_sv2::GetSize;
-use binary_sv2::Serialize;
+use binary_sv2::{GetSize, Serialize};
 #[cfg(feature = "noise_sv2")]
 use core::cmp::min;
 #[cfg(feature = "noise_sv2")]

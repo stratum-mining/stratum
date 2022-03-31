@@ -45,9 +45,7 @@ use std::convert::TryInto;
 // use error::Result;
 use error::Error;
 pub use json_rpc::Message;
-pub use methods::client_to_server;
-pub use methods::server_to_client;
-pub use methods::MethodError;
+pub use methods::{client_to_server, server_to_client, MethodError};
 use utils::{HexBytes, HexU32Be};
 
 /// json_rpc Response are not handled cause startum v1 do not have any request from a server to a

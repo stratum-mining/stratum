@@ -1,6 +1,4 @@
-use crate::common_properties::RequestIdMapper;
-use crate::errors::Error;
-use crate::parsers::Mining;
+use crate::{common_properties::RequestIdMapper, errors::Error, parsers::Mining};
 use core::convert::TryInto;
 use mining_sv2::{
     CloseChannel, NewExtendedMiningJob, NewMiningJob, OpenExtendedMiningChannel,
@@ -11,15 +9,16 @@ use mining_sv2::{
     UpdateChannelError,
 };
 
-use crate::common_properties::{IsMiningDownstream, IsMiningUpstream};
-use crate::routing_logic::{MiningRouter, MiningRoutingLogic};
-use crate::selectors::DownstreamMiningSelector;
+use crate::{
+    common_properties::{IsMiningDownstream, IsMiningUpstream},
+    routing_logic::{MiningRouter, MiningRoutingLogic},
+    selectors::DownstreamMiningSelector,
+};
 
 use super::SendTo_;
 
 use crate::utils::Mutex;
-use std::fmt::Debug as D;
-use std::sync::Arc;
+use std::{fmt::Debug as D, sync::Arc};
 
 pub type SendTo<Remote> = SendTo_<Mining<'static>, Remote>;
 

@@ -1,6 +1,8 @@
-use crate::codec::GetSize;
-use crate::datatypes::{Bytes, Signature, Sv2DataType, B016M, B0255, B032, B064K, U24, U256};
-use crate::Error;
+use crate::{
+    codec::GetSize,
+    datatypes::{Bytes, Signature, Sv2DataType, B016M, B0255, B032, B064K, U24, U256},
+    Error,
+};
 use alloc::vec::Vec;
 #[cfg(not(feature = "no_std"))]
 use std::io::{Error as E, Write};

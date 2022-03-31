@@ -1,6 +1,4 @@
-use async_std::net::TcpListener;
-use async_std::prelude::*;
-use async_std::task;
+use async_std::{net::TcpListener, prelude::*, task};
 use codec_sv2::{HandshakeRole, Responder};
 use network_helpers::Connection;
 use std::sync::Arc as SArc;
@@ -9,17 +7,20 @@ use async_channel::{Receiver, Sender};
 use async_std::sync::Arc;
 use binary_sv2::{u256_from_int, B032};
 use codec_sv2::{Frame, StandardEitherFrame, StandardSv2Frame};
-use messages_sv2::common_messages_sv2::{SetupConnection, SetupConnectionSuccess};
-use messages_sv2::common_properties::{CommonDownstreamData, IsDownstream, IsMiningDownstream};
-use messages_sv2::errors::Error;
-use messages_sv2::handlers::common::ParseDownstreamCommonMessages;
-use messages_sv2::handlers::mining::{ChannelType, ParseDownstreamMiningMessages, SendTo};
-use messages_sv2::mining_sv2::*;
-use messages_sv2::parsers::Mining;
-use messages_sv2::parsers::{CommonMessages, PoolMessages};
-use messages_sv2::routing_logic::{CommonRoutingLogic, MiningRoutingLogic, NoRouting};
-use messages_sv2::selectors::NullDownstreamMiningSelector;
-use messages_sv2::utils::Mutex;
+use messages_sv2::{
+    common_messages_sv2::{SetupConnection, SetupConnectionSuccess},
+    common_properties::{CommonDownstreamData, IsDownstream, IsMiningDownstream},
+    errors::Error,
+    handlers::{
+        common::ParseDownstreamCommonMessages,
+        mining::{ChannelType, ParseDownstreamMiningMessages, SendTo},
+    },
+    mining_sv2::*,
+    parsers::{CommonMessages, Mining, PoolMessages},
+    routing_logic::{CommonRoutingLogic, MiningRoutingLogic, NoRouting},
+    selectors::NullDownstreamMiningSelector,
+    utils::Mutex,
+};
 use std::convert::TryInto;
 
 pub type Message = PoolMessages<'static>;

@@ -1,8 +1,6 @@
-use binary_sv2::GetSize;
 #[cfg(not(feature = "with_serde"))]
 use binary_sv2::{binary_codec_sv2, decodable::DecodableField, decodable::FieldMarker};
-use binary_sv2::{Bytes as Sv2Bytes, Seq064K, Str0255, U24, U256};
-use binary_sv2::{Deserialize, Serialize};
+use binary_sv2::{Bytes as Sv2Bytes, Deserialize, GetSize, Seq064K, Serialize, Str0255, U24, U256};
 use rand::{distributions::Alphanumeric, Rng};
 use std::convert::TryInto;
 

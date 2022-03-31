@@ -12,8 +12,10 @@ use template_distribution_sv2::{
 };
 
 use binary_sv2::{
-    binary_codec_sv2::CVec, decodable::DecodableField, decodable::FieldMarker,
-    encodable::EncodableField, from_bytes, Deserialize, Error,
+    binary_codec_sv2::CVec,
+    decodable::{DecodableField, FieldMarker},
+    encodable::EncodableField,
+    from_bytes, Deserialize, Error,
 };
 
 use const_sv2::{

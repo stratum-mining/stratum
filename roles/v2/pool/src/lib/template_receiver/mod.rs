@@ -1,17 +1,16 @@
 use crate::{EitherFrame, StdFrame};
 use async_channel::{Receiver, Sender};
 //use std::sync::mpsc::Sender as SSender;
-use async_std::net::TcpStream;
-use async_std::task;
+use async_std::{net::TcpStream, task};
 use codec_sv2::Frame;
-use messages_sv2::handlers::template_distribution::ParseServerTemplateDistributionMessages;
-use messages_sv2::parsers::TemplateDistribution;
-use messages_sv2::template_distribution_sv2::{NewTemplate, SetNewPrevHash};
-use messages_sv2::utils::Mutex;
+use messages_sv2::{
+    handlers::template_distribution::ParseServerTemplateDistributionMessages,
+    parsers::TemplateDistribution,
+    template_distribution_sv2::{NewTemplate, SetNewPrevHash},
+    utils::Mutex,
+};
 use network_helpers::PlainConnection;
-use std::convert::TryInto;
-use std::net::SocketAddr;
-use std::sync::Arc;
+use std::{convert::TryInto, net::SocketAddr, sync::Arc};
 
 mod message_handler;
 mod setup_connection;

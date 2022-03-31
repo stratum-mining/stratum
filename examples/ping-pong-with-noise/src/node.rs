@@ -5,12 +5,13 @@ use rand::Rng;
 use async_channel::{Receiver, Sender};
 use async_std::net::TcpStream;
 
-use async_std::sync::{Arc, Mutex};
-use async_std::task;
+use async_std::{
+    sync::{Arc, Mutex},
+    task,
+};
 use core::convert::TryInto;
 
-use codec_sv2::Frame;
-use codec_sv2::{HandshakeRole, StandardEitherFrame, StandardSv2Frame};
+use codec_sv2::{Frame, HandshakeRole, StandardEitherFrame, StandardSv2Frame};
 
 use std::time;
 
