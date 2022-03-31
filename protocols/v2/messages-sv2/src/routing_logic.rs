@@ -19,23 +19,20 @@
 //! MiningProxyRoutingLogic -> routing logic valid for a standard Sv2 mining proxy it is both a
 //!     CommonRouter and a MiningRouter
 //!
-use crate::common_properties::{
-    CommonDownstreamData, IsMiningDownstream, IsMiningUpstream, PairSettings,
+use crate::{
+    common_properties::{CommonDownstreamData, IsMiningDownstream, IsMiningUpstream, PairSettings},
+    errors::Error,
+    selectors::{
+        DownstreamMiningSelector, GeneralMiningSelector, NullDownstreamMiningSelector,
+        UpstreamMiningSelctor,
+    },
+    utils::{Id, Mutex},
 };
-use crate::errors::Error;
-use crate::selectors::{
-    DownstreamMiningSelector, GeneralMiningSelector, NullDownstreamMiningSelector,
-    UpstreamMiningSelctor,
-};
-use crate::utils::{Id, Mutex};
 use common_messages_sv2::{
     has_requires_std_job, Protocol, SetupConnection, SetupConnectionSuccess,
 };
 use mining_sv2::{OpenStandardMiningChannel, OpenStandardMiningChannelSuccess};
-use std::collections::HashMap;
-use std::fmt::Debug as D;
-use std::marker::PhantomData;
-use std::sync::Arc;
+use std::{collections::HashMap, fmt::Debug as D, marker::PhantomData, sync::Arc};
 
 /// CommonRouter trait it define a router needed by
 /// crate::handlers::common::ParseUpstreamCommonMessages and

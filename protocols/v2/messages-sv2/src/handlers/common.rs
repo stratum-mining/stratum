@@ -1,9 +1,11 @@
 use super::SendTo_;
-use crate::common_properties::CommonDownstreamData;
-use crate::errors::Error;
-use crate::parsers::CommonMessages;
-use crate::routing_logic::{CommonRouter, CommonRoutingLogic};
-use crate::utils::Mutex;
+use crate::{
+    common_properties::CommonDownstreamData,
+    errors::Error,
+    parsers::CommonMessages,
+    routing_logic::{CommonRouter, CommonRoutingLogic},
+    utils::Mutex,
+};
 use common_messages_sv2::{
     ChannelEndpointChanged, SetupConnection, SetupConnectionError, SetupConnectionSuccess,
 };

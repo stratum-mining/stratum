@@ -1,14 +1,15 @@
 use crate::lib::mining_pool::Downstream;
 use binary_sv2::u256_from_int;
-use messages_sv2::errors::Error;
-use messages_sv2::handlers::mining::{ChannelType, ParseDownstreamMiningMessages, SendTo};
-use messages_sv2::mining_sv2::*;
-use messages_sv2::parsers::Mining;
-use messages_sv2::routing_logic::NoRouting;
-use messages_sv2::selectors::NullDownstreamMiningSelector;
-use messages_sv2::utils::Mutex;
-use std::convert::TryInto;
-use std::sync::Arc;
+use messages_sv2::{
+    errors::Error,
+    handlers::mining::{ChannelType, ParseDownstreamMiningMessages, SendTo},
+    mining_sv2::*,
+    parsers::Mining,
+    routing_logic::NoRouting,
+    selectors::NullDownstreamMiningSelector,
+    utils::Mutex,
+};
+use std::{convert::TryInto, sync::Arc};
 
 impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> for Downstream {
     fn get_channel_type(&self) -> ChannelType {

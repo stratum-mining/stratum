@@ -2,8 +2,7 @@ use bitcoin_hashes::hex::{FromHex, ToHex};
 use byteorder::{BigEndian, ByteOrder, LittleEndian, WriteBytesExt};
 use hex::FromHexError;
 use serde_json::Value;
-use std::convert::TryFrom;
-use std::mem::size_of;
+use std::{convert::TryFrom, mem::size_of};
 
 /// Helper type that allows simple serialization and deserialization of byte vectors
 /// that are represented as hex strings in JSON

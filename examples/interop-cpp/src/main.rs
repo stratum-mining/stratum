@@ -14,17 +14,20 @@ mod main_ {
 mod main_ {
     use codec_sv2::{Encoder, Frame, StandardDecoder, StandardSv2Frame};
     use common_messages_sv2::{Protocol, SetupConnection, SetupConnectionError};
-    use const_sv2::CHANNEL_BIT_SETUP_CONNECTION;
-    use const_sv2::MESSAGE_TYPE_SETUP_CONNECTION;
-    use const_sv2::MESSAGE_TYPE_SETUP_CONNECTION_ERROR;
-    use std::convert::TryFrom;
-    use std::convert::TryInto;
-    use std::io::{Read, Write};
-    use std::net::TcpStream;
+    use const_sv2::{
+        CHANNEL_BIT_SETUP_CONNECTION, MESSAGE_TYPE_SETUP_CONNECTION,
+        MESSAGE_TYPE_SETUP_CONNECTION_ERROR,
+    };
+    use std::{
+        convert::{TryFrom, TryInto},
+        io::{Read, Write},
+        net::TcpStream,
+    };
 
     use binary_sv2::{
-        decodable::DecodableField, decodable::FieldMarker, encodable::EncodableField, from_bytes,
-        Deserialize, Error,
+        decodable::{DecodableField, FieldMarker},
+        encodable::EncodableField,
+        from_bytes, Deserialize, Error,
     };
 
     #[derive(Clone, Debug)]

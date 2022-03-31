@@ -5,13 +5,8 @@ mod signature;
 mod u24;
 mod u256;
 
-pub use byte_arrays::b016m::B016M;
-pub use byte_arrays::b0255::B0255;
-pub use byte_arrays::b032::B032;
-pub use byte_arrays::b064k::B064K;
-pub use byte_arrays::bytes::Bytes;
-pub use sequences::seq0255::Seq0255;
-pub use sequences::seq064k::Seq064K;
+pub use byte_arrays::{b016m::B016M, b0255::B0255, b032::B032, b064k::B064K, bytes::Bytes};
+pub use sequences::{seq0255::Seq0255, seq064k::Seq064K};
 
 pub use signature::Signature;
 pub use u24::U24;

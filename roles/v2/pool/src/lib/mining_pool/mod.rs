@@ -1,6 +1,4 @@
-use async_std::net::TcpListener;
-use async_std::prelude::*;
-use async_std::task;
+use async_std::{net::TcpListener, prelude::*, task};
 use codec_sv2::{HandshakeRole, Responder};
 use network_helpers::Connection;
 
@@ -8,19 +6,18 @@ use crate::{EitherFrame, StdFrame};
 use async_channel::{Receiver, Sender};
 use async_std::sync::Arc;
 use codec_sv2::Frame;
-use messages_sv2::common_properties::{CommonDownstreamData, IsDownstream, IsMiningDownstream};
-use messages_sv2::errors::Error;
-use messages_sv2::handlers::mining::{ParseDownstreamMiningMessages, SendTo};
-use messages_sv2::job_creator::JobsCreators;
-use messages_sv2::mining_sv2::NewExtendedMiningJob;
-use messages_sv2::mining_sv2::SetNewPrevHash as NewPrevHash;
-use messages_sv2::parsers::{Mining, PoolMessages};
-use messages_sv2::routing_logic::MiningRoutingLogic;
-use messages_sv2::template_distribution_sv2::{NewTemplate, SetNewPrevHash};
-use messages_sv2::utils::Id;
-use messages_sv2::utils::Mutex;
-use std::collections::HashMap;
-use std::convert::TryInto;
+use messages_sv2::{
+    common_properties::{CommonDownstreamData, IsDownstream, IsMiningDownstream},
+    errors::Error,
+    handlers::mining::{ParseDownstreamMiningMessages, SendTo},
+    job_creator::JobsCreators,
+    mining_sv2::{NewExtendedMiningJob, SetNewPrevHash as NewPrevHash},
+    parsers::{Mining, PoolMessages},
+    routing_logic::MiningRoutingLogic,
+    template_distribution_sv2::{NewTemplate, SetNewPrevHash},
+    utils::{Id, Mutex},
+};
+use std::{collections::HashMap, convert::TryInto};
 
 pub mod setup_connection;
 use setup_connection::SetupConnectionHandler;

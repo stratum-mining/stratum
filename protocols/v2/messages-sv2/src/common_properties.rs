@@ -2,11 +2,9 @@
 use crate::selectors::{
     DownstreamMiningSelector, DownstreamSelector, NullDownstreamMiningSelector,
 };
-use common_messages_sv2::has_requires_std_job;
-use common_messages_sv2::{Protocol, SetupConnection};
+use common_messages_sv2::{has_requires_std_job, Protocol, SetupConnection};
 use mining_sv2::{Extranonce, Target};
-use std::collections::HashMap;
-use std::fmt::Debug as D;
+use std::{collections::HashMap, fmt::Debug as D};
 
 /// What define a mining downstream node at the very basic
 #[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]

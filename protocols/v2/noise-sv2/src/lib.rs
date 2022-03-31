@@ -7,13 +7,11 @@ pub mod handshake;
 
 use alloc::vec::Vec;
 use bytes::Bytes;
-use core::convert::TryFrom;
-use core::time::Duration;
+use core::{convert::TryFrom, time::Duration};
 use error::{Error, Result};
 use snow::{params::NoiseParams, Builder, HandshakeState, TransportState};
 
-pub use auth::SignatureNoiseMessage;
-pub use auth::SignedPartHeader;
+pub use auth::{SignatureNoiseMessage, SignedPartHeader};
 pub use formats::Certificate;
 
 /// Static keypair (aka 's' and 'rs') from the noise handshake patterns. This has to be used by

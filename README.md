@@ -82,3 +82,6 @@ reviewed:
 
 For everything else including performance an safety issues just accept the PR then amend the
 problematic code and do another PR tagging the author of the amended PR.
+
+#### Formatting
+Before merging, run `cargo +nightly fmt` to properly apply the settings in `rustfmt.toml`.

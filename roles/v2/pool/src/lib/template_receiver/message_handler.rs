@@ -1,10 +1,10 @@
 use crate::lib::template_receiver::TemplateRx;
-use messages_sv2::errors::Error;
-use messages_sv2::handlers::template_distribution::{
-    ParseServerTemplateDistributionMessages, SendTo,
+use messages_sv2::{
+    errors::Error,
+    handlers::template_distribution::{ParseServerTemplateDistributionMessages, SendTo},
+    parsers::TemplateDistribution,
+    template_distribution_sv2::*,
 };
-use messages_sv2::parsers::TemplateDistribution;
-use messages_sv2::template_distribution_sv2::*;
 
 impl ParseServerTemplateDistributionMessages for TemplateRx {
     fn handle_new_template(&mut self, m: NewTemplate) -> Result<SendTo, Error> {

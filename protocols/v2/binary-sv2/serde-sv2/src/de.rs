@@ -5,8 +5,10 @@
 use alloc::vec::Vec;
 use core::convert::TryInto;
 
-use serde::de::{self, DeserializeSeed, SeqAccess, Visitor};
-use serde::Deserialize;
+use serde::{
+    de::{self, DeserializeSeed, SeqAccess, Visitor},
+    Deserialize,
+};
 
 use crate::error::{Error, Result};
 
@@ -634,8 +636,7 @@ fn test_b064k() {
 
 #[test]
 fn test_seq0255_u256() {
-    use crate::primitives::Seq0255;
-    use crate::primitives::U256;
+    use crate::primitives::{Seq0255, U256};
     use serde::Serialize;
 
     let u256_1: crate::primitives::U256 = (&[6; 32][..]).try_into().unwrap();
@@ -685,8 +686,7 @@ fn test_seq0255_bool() {
 
 #[test]
 fn test_seq0255_u16() {
-    use crate::primitives::Seq0255;
-    use crate::primitives::U16;
+    use crate::primitives::{Seq0255, U16};
     use serde::Serialize;
 
     let s: crate::primitives::Seq0255<U16> = Seq0255::new(vec![10, 43, 89]).unwrap();
@@ -707,8 +707,7 @@ fn test_seq0255_u16() {
 
 #[test]
 fn test_seq0255_u24() {
-    use crate::primitives::Seq0255;
-    use crate::primitives::U24;
+    use crate::primitives::{Seq0255, U24};
     use serde::Serialize;
 
     let u24_1 = U24(56);
@@ -757,8 +756,7 @@ fn test_seq0255_u32() {
 
 #[test]
 fn test_seq0255_signature() {
-    use crate::primitives::Seq0255;
-    use crate::primitives::Signature;
+    use crate::primitives::{Seq0255, Signature};
     use serde::Serialize;
 
     let siganture_1: Signature = (&[88; 64][..]).try_into().unwrap();
@@ -785,8 +783,7 @@ fn test_seq0255_signature() {
 
 #[test]
 fn test_seq064k_u256() {
-    use crate::primitives::Seq064K;
-    use crate::primitives::U256;
+    use crate::primitives::{Seq064K, U256};
     use serde::Serialize;
 
     let u256_1: crate::primitives::U256 = (&[6; 32][..]).try_into().unwrap();
@@ -842,8 +839,7 @@ fn test_seq064k_bool() {
 
 #[test]
 fn test_seq064k_u16() {
-    use crate::primitives::Seq064K;
-    use crate::primitives::U16;
+    use crate::primitives::{Seq064K, U16};
     use serde::Serialize;
 
     let s: Seq064K<U16> = Seq064K::new(vec![10, 43, 89]).unwrap();
@@ -864,8 +860,7 @@ fn test_seq064k_u16() {
 
 #[test]
 fn test_seq064k_u24() {
-    use crate::primitives::Seq064K;
-    use crate::primitives::U24;
+    use crate::primitives::{Seq064K, U24};
     use serde::Serialize;
 
     let u24_1 = U24(56);
@@ -914,8 +909,7 @@ fn test_seq064k_u32() {
 
 #[test]
 fn test_seq064k_signature() {
-    use crate::primitives::Seq064K;
-    use crate::primitives::Signature;
+    use crate::primitives::{Seq064K, Signature};
     use serde::Serialize;
 
     let siganture_1: Signature = (&[88_u8; 64][..]).try_into().unwrap();
@@ -942,8 +936,7 @@ fn test_seq064k_signature() {
 
 #[test]
 fn test_seq064k_b016m() {
-    use crate::primitives::Seq064K;
-    use crate::primitives::B016M;
+    use crate::primitives::{Seq064K, B016M};
     use serde::Serialize;
 
     let bytes_1: B016M = (&[88_u8; 64][..]).try_into().unwrap();

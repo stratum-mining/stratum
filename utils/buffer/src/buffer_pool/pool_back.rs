@@ -1,7 +1,4 @@
-use crate::buffer_pool::InnerMemory;
-use crate::buffer_pool::PoolFront;
-use crate::buffer_pool::PoolMode;
-use crate::buffer_pool::POOL_CAPACITY;
+use crate::buffer_pool::{InnerMemory, PoolFront, PoolMode, POOL_CAPACITY};
 
 #[derive(Debug, Clone)]
 pub struct PoolBack {

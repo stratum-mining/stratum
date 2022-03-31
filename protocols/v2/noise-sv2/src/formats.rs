@@ -1,12 +1,13 @@
 use alloc::string::String;
-use core::convert::TryFrom;
-use core::fmt;
+use core::{convert::TryFrom, fmt};
 use serde::{Deserialize, Serialize};
 use std::time::SystemTime;
 
-use crate::auth::{SignatureNoiseMessage, SignedPart, SignedPartHeader};
-use crate::error::{Error, Result};
-use crate::{StaticPublicKey, StaticSecretKey};
+use crate::{
+    auth::{SignatureNoiseMessage, SignedPart, SignedPartHeader},
+    error::{Error, Result},
+    StaticPublicKey, StaticSecretKey,
+};
 
 use ed25519_dalek::ed25519::signature::Signature;
 

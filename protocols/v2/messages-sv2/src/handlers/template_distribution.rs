@@ -1,7 +1,5 @@
 use super::SendTo_;
-use crate::errors::Error;
-use crate::parsers::TemplateDistribution;
-use crate::utils::Mutex;
+use crate::{errors::Error, parsers::TemplateDistribution, utils::Mutex};
 use template_distribution_sv2::{
     CoinbaseOutputDataSize, NewTemplate, RequestTransactionData, RequestTransactionDataError,
     RequestTransactionDataSuccess, SetNewPrevHash, SubmitSolution,

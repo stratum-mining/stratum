@@ -1,11 +1,13 @@
 use alloc::{vec, vec::Vec};
 use core::sync::atomic::Ordering;
 
-use crate::buffer::BufferFromSystemMemory;
 #[cfg(test)]
 use crate::buffer::TestBufferFromMemory;
-use crate::slice::{SharedState, Slice};
-use crate::Buffer;
+use crate::{
+    buffer::BufferFromSystemMemory,
+    slice::{SharedState, Slice},
+    Buffer,
+};
 #[cfg(feature = "debug")]
 use std::time::SystemTime;
 

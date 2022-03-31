@@ -1,12 +1,13 @@
 use async_channel::bounded;
 use codec_sv2::{StandardEitherFrame, StandardSv2Frame};
-use messages_sv2::bitcoin::{secp256k1::Secp256k1, Network, PrivateKey, PublicKey};
-use messages_sv2::parsers::PoolMessages;
+use messages_sv2::{
+    bitcoin::{secp256k1::Secp256k1, Network, PrivateKey, PublicKey},
+    parsers::PoolMessages,
+};
 
 mod lib;
 
-use lib::mining_pool::Pool;
-use lib::template_receiver::TemplateRx;
+use lib::{mining_pool::Pool, template_receiver::TemplateRx};
 
 pub type Message = PoolMessages<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;

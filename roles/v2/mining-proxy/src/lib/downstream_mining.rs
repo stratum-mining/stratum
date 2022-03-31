@@ -1,22 +1,23 @@
 use super::upstream_mining::{JobDispatcher, StdFrame as UpstreamFrame, UpstreamMiningNode};
 use async_channel::{Receiver, SendError, Sender};
-use messages_sv2::common_messages_sv2::{SetupConnection, SetupConnectionSuccess};
-use messages_sv2::common_properties::{
-    CommonDownstreamData, DownstreamChannel, IsDownstream, IsMiningDownstream,
+use messages_sv2::{
+    common_messages_sv2::{SetupConnection, SetupConnectionSuccess},
+    common_properties::{
+        CommonDownstreamData, DownstreamChannel, IsDownstream, IsMiningDownstream,
+    },
+    errors::Error,
+    handlers::{
+        common::{ParseDownstreamCommonMessages, SendTo as SendToCommon},
+        mining::{ChannelType, ParseDownstreamMiningMessages, SendTo},
+    },
+    mining_sv2::*,
+    parsers::{Mining, MiningDeviceMessages, PoolMessages},
+    routing_logic::{CommonRoutingLogic, MiningProxyRoutingLogic, MiningRoutingLogic},
+    utils::Mutex,
 };
-use messages_sv2::errors::Error;
-use messages_sv2::handlers::common::{ParseDownstreamCommonMessages, SendTo as SendToCommon};
-use messages_sv2::handlers::mining::{ChannelType, ParseDownstreamMiningMessages, SendTo};
-use messages_sv2::mining_sv2::*;
-use messages_sv2::parsers::{Mining, MiningDeviceMessages, PoolMessages};
-use messages_sv2::routing_logic::{
-    CommonRoutingLogic, MiningProxyRoutingLogic, MiningRoutingLogic,
-};
-use messages_sv2::utils::Mutex;
 use std::collections::HashMap;
 
-use codec_sv2::Frame;
-use codec_sv2::{StandardEitherFrame, StandardSv2Frame};
+use codec_sv2::{Frame, StandardEitherFrame, StandardSv2Frame};
 
 pub type Message = MiningDeviceMessages<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;
@@ -79,8 +80,7 @@ impl DownstreamMiningNodeStatus {
     }
 }
 
-use async_std::sync::Arc;
-use async_std::task;
+use async_std::{sync::Arc, task};
 use core::convert::TryInto;
 
 impl DownstreamMiningNode {
@@ -306,8 +306,7 @@ impl
     }
 }
 
-use async_std::net::TcpListener;
-use async_std::prelude::*;
+use async_std::{net::TcpListener, prelude::*};
 use network_helpers::PlainConnection;
 use std::net::SocketAddr;
 

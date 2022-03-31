@@ -4,8 +4,7 @@ use alloc::vec::Vec;
 use binary_sv2::binary_codec_sv2::{self, free_vec, CVec};
 #[cfg(not(feature = "with_serde"))]
 use binary_sv2::Error;
-use binary_sv2::B064K;
-use binary_sv2::{Deserialize, Serialize};
+use binary_sv2::{Deserialize, Serialize, B064K};
 #[cfg(not(feature = "with_serde"))]
 use core::convert::TryInto;
 

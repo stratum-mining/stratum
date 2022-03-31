@@ -1,1 +1,4 @@
 edition = "2018"
+imports_indent = "Block"
+imports_layout = "Mixed"
+imports_granularity = "Crate"

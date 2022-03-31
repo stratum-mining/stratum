@@ -1,8 +1,9 @@
-use async_std::net::TcpStream;
-use async_std::task;
+use async_std::{net::TcpStream, task};
 use network_helpers::PlainConnection;
-use std::net::{IpAddr, Ipv4Addr, SocketAddr};
-use std::sync::Arc;
+use std::{
+    net::{IpAddr, Ipv4Addr, SocketAddr},
+    sync::Arc,
+};
 
 async fn connect(address: SocketAddr) {
     let stream = TcpStream::connect(address).await.unwrap();
@@ -23,16 +24,20 @@ async fn main() {
 use async_channel::{Receiver, Sender};
 use binary_sv2::u256_from_int;
 use codec_sv2::{Frame, StandardEitherFrame, StandardSv2Frame};
-use messages_sv2::common_messages_sv2::{Protocol, SetupConnection, SetupConnectionSuccess};
-use messages_sv2::common_properties::{IsMiningUpstream, IsUpstream};
-use messages_sv2::errors::Error;
-use messages_sv2::handlers::common::ParseUpstreamCommonMessages;
-use messages_sv2::handlers::mining::{ChannelType, ParseUpstreamMiningMessages, SendTo};
-use messages_sv2::mining_sv2::*;
-use messages_sv2::parsers::{Mining, MiningDeviceMessages};
-use messages_sv2::routing_logic::{CommonRoutingLogic, MiningRoutingLogic, NoRouting};
-use messages_sv2::selectors::NullDownstreamMiningSelector;
-use messages_sv2::utils::Mutex;
+use messages_sv2::{
+    common_messages_sv2::{Protocol, SetupConnection, SetupConnectionSuccess},
+    common_properties::{IsMiningUpstream, IsUpstream},
+    errors::Error,
+    handlers::{
+        common::ParseUpstreamCommonMessages,
+        mining::{ChannelType, ParseUpstreamMiningMessages, SendTo},
+    },
+    mining_sv2::*,
+    parsers::{Mining, MiningDeviceMessages},
+    routing_logic::{CommonRoutingLogic, MiningRoutingLogic, NoRouting},
+    selectors::NullDownstreamMiningSelector,
+    utils::Mutex,
+};
 
 pub type Message = MiningDeviceMessages<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;

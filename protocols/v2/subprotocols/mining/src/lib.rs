@@ -105,8 +105,10 @@
 //! This protocol explicitly expects that upstream server software is able to manage the size of the
 //! hashing space correctly for its clients and can provide new jobs quickly enough.
 use binary_sv2::{B032, U256};
-use core::cmp::{Ord, PartialOrd};
-use core::convert::TryInto;
+use core::{
+    cmp::{Ord, PartialOrd},
+    convert::TryInto,
+};
 
 extern crate alloc;
 mod close_channel;
@@ -122,11 +124,11 @@ mod submit_shares;
 mod update_channel;
 
 pub use close_channel::CloseChannel;
-pub use new_mining_job::NewExtendedMiningJob;
-pub use new_mining_job::NewMiningJob;
-pub use open_channel::OpenMiningChannelError;
-pub use open_channel::{OpenExtendedMiningChannel, OpenExtendedMiningChannelSuccess};
-pub use open_channel::{OpenStandardMiningChannel, OpenStandardMiningChannelSuccess};
+pub use new_mining_job::{NewExtendedMiningJob, NewMiningJob};
+pub use open_channel::{
+    OpenExtendedMiningChannel, OpenExtendedMiningChannelSuccess, OpenMiningChannelError,
+    OpenStandardMiningChannel, OpenStandardMiningChannelSuccess,
+};
 pub use reconnect::Reconnect;
 pub use set_custom_mining_job::{
     SetCustomMiningJob, SetCustomMiningJobError, SetCustomMiningJobSuccess,
@@ -135,9 +137,9 @@ pub use set_extranonce_prefix::SetExtranoncePrefix;
 pub use set_group_channel::SetGroupChannel;
 pub use set_new_prev_hash::SetNewPrevHash;
 pub use set_target::SetTarget;
-pub use submit_shares::SubmitSharesExtended;
-pub use submit_shares::SubmitSharesStandard;
-pub use submit_shares::{SubmitSharesError, SubmitSharesSuccess};
+pub use submit_shares::{
+    SubmitSharesError, SubmitSharesExtended, SubmitSharesStandard, SubmitSharesSuccess,
+};
 pub use update_channel::{UpdateChannel, UpdateChannelError};
 
 pub fn target_from_hr(_hr: f32) -> U256<'static> {

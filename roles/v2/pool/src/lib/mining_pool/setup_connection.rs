@@ -1,19 +1,19 @@
 use crate::{EitherFrame, StdFrame};
 use async_channel::{Receiver, Sender};
 use codec_sv2::Frame;
-use messages_sv2::common_messages_sv2::{
-    has_requires_std_job, has_version_rolling, has_work_selection, SetupConnection,
-    SetupConnectionSuccess,
+use messages_sv2::{
+    common_messages_sv2::{
+        has_requires_std_job, has_version_rolling, has_work_selection, SetupConnection,
+        SetupConnectionSuccess,
+    },
+    common_properties::CommonDownstreamData,
+    errors::Error,
+    handlers::common::ParseDownstreamCommonMessages,
+    parsers::{CommonMessages, PoolMessages},
+    routing_logic::{CommonRoutingLogic, NoRouting},
+    utils::Mutex,
 };
-use messages_sv2::common_properties::CommonDownstreamData;
-use messages_sv2::errors::Error;
-use messages_sv2::handlers::common::ParseDownstreamCommonMessages;
-use messages_sv2::parsers::{CommonMessages, PoolMessages};
-use messages_sv2::routing_logic::CommonRoutingLogic;
-use messages_sv2::routing_logic::NoRouting;
-use messages_sv2::utils::Mutex;
-use std::convert::TryInto;
-use std::sync::Arc;
+use std::{convert::TryInto, sync::Arc};
 
 pub struct SetupConnectionHandler {
     header_only: Option<bool>,

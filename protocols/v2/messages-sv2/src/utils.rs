@@ -1,14 +1,15 @@
 //! Useful struct used into this crate and by crates that want to interact with this one
 use crate::errors::Error;
 use binary_sv2::U256;
-use bitcoin::hashes::sha256d::Hash as DHash;
 use bitcoin::{
     blockdata::block::BlockHeader,
     hash_types::{BlockHash, TxMerkleNode},
-    hashes::{sha256d, Hash, HashEngine},
+    hashes::{sha256d, sha256d::Hash as DHash, Hash, HashEngine},
 };
-use std::convert::TryInto;
-use std::sync::{Mutex as Mutex_, MutexGuard, PoisonError}; //compact_target_from_u256
+use std::{
+    convert::TryInto,
+    sync::{Mutex as Mutex_, MutexGuard, PoisonError},
+}; //compact_target_from_u256
 
 /// Generator of unique ids
 #[derive(Debug, PartialEq)]

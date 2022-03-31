@@ -1,7 +1,9 @@
 use super::IntoOwned;
-use crate::codec::{GetSize, SizeHint};
-use crate::datatypes::Sv2DataType;
-use crate::Error;
+use crate::{
+    codec::{GetSize, SizeHint},
+    datatypes::Sv2DataType,
+    Error,
+};
 use core::convert::TryFrom;
 
 #[cfg(not(feature = "no_std"))]

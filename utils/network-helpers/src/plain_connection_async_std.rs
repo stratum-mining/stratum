@@ -1,7 +1,9 @@
 use async_channel::{bounded, Receiver, Sender};
-use async_std::net::{TcpListener, TcpStream};
-use async_std::prelude::*;
-use async_std::task;
+use async_std::{
+    net::{TcpListener, TcpStream},
+    prelude::*,
+    task,
+};
 use binary_sv2::{Deserialize, Serialize};
 use core::convert::TryInto;
 

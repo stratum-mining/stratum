@@ -1,11 +1,15 @@
 use async_channel::{Receiver, Sender};
 use async_std::net::TcpStream;
 use codec_sv2::{Frame, StandardEitherFrame, StandardSv2Frame, Sv2Frame};
-use messages_sv2::parsers::{IsSv2Message, TemplateDistribution};
-use messages_sv2::template_distribution_sv2::SubmitSolution;
+use messages_sv2::{
+    parsers::{IsSv2Message, TemplateDistribution},
+    template_distribution_sv2::SubmitSolution,
+};
 use network_helpers::PlainConnection;
-use std::convert::TryInto;
-use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::{
+    convert::TryInto,
+    net::{IpAddr, Ipv4Addr, SocketAddr},
+};
 
 pub type Message = TemplateDistribution<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;

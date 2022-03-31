@@ -1,14 +1,14 @@
-use serde_json::Value;
-use serde_json::Value::Array as JArrary;
-use serde_json::Value::Bool as JBool;
-use serde_json::Value::Number as JNumber;
-use serde_json::Value::String as JString;
-use std::convert::TryFrom;
-use std::convert::TryInto;
+use serde_json::{
+    Value,
+    Value::{Array as JArrary, Bool as JBool, Number as JNumber, String as JString},
+};
+use std::convert::{TryFrom, TryInto};
 
-use crate::json_rpc::{Message, Notification, Response};
-use crate::methods::{MethodError, ParsingMethodError};
-use crate::utils::{HexBytes, HexU32Be, PrevHash};
+use crate::{
+    json_rpc::{Message, Notification, Response},
+    methods::{MethodError, ParsingMethodError},
+    utils::{HexBytes, HexU32Be, PrevHash},
+};
 
 // client.get_version() TODO
 

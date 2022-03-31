@@ -1,13 +1,18 @@
 use crate::utils::Id;
 use binary_sv2::B064K;
-use bitcoin::blockdata::script::Script;
-use bitcoin::blockdata::transaction::{OutPoint, Transaction, TxIn, TxOut};
-use bitcoin::consensus::encode::Encodable;
-pub use bitcoin::secp256k1::SecretKey;
-pub use bitcoin::util::ecdsa::{PrivateKey, PublicKey};
+use bitcoin::{
+    blockdata::{
+        script::Script,
+        transaction::{OutPoint, Transaction, TxIn, TxOut},
+    },
+    consensus::encode::Encodable,
+};
+pub use bitcoin::{
+    secp256k1::SecretKey,
+    util::ecdsa::{PrivateKey, PublicKey},
+};
 use mining_sv2::NewExtendedMiningJob;
-use std::collections::HashMap;
-use std::convert::TryInto;
+use std::{collections::HashMap, convert::TryInto};
 use template_distribution_sv2::NewTemplate;
 
 /// Used by pool one for each group channel
