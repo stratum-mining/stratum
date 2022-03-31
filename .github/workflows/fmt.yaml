@@ -23,16 +23,14 @@ jobs:
             target: x86_64-unknown-linux-musl
 
     steps:
-      - name: Install stable toolchain & components
-        uses: actions/checkout@v2
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: nightly
           override: true
-          components: rustfmt, clippy
-
-      - name: Rust fmt lint
-        uses: actions-rs/cargo@v1
+          components: rustfmt
+      - uses: actions-rs/cargo@v1
         with:
           command: fmt
           args: --all -- --check
