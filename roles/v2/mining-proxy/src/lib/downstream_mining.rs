@@ -32,6 +32,7 @@ pub struct DownstreamMiningNode {
     pub status: DownstreamMiningNodeStatus,
     // channel_id/group_id -> group_id
     channel_id_to_group_id: HashMap<u32, u32>,
+    pub prev_job_id: Option<u32>,
 }
 
 #[derive(Debug)]
@@ -96,6 +97,7 @@ impl DownstreamMiningNode {
             sender,
             status: DownstreamMiningNodeStatus::Initializing,
             channel_id_to_group_id: HashMap::new(),
+            prev_job_id: None,
         }
     }
 
@@ -141,7 +143,7 @@ impl DownstreamMiningNode {
         let message_type = incoming.get_header().unwrap().msg_type();
         let payload = incoming.payload();
 
-        let routing_logic = MiningRoutingLogic::Proxy(crate::get_routing_logic());
+        let routing_logic = MiningRoutingLogic::Proxy(crate::get_routing_logic_sync());
 
         let next_message_to_send = ParseDownstreamMiningMessages::handle_message_mining(
             self_mutex.clone(),
@@ -242,6 +244,7 @@ impl
         &mut self,
         m: SubmitSharesStandard,
     ) -> Result<SendTo<UpstreamMiningNode>, Error> {
+        println!("{:?}", m);
         match self.channel_id_to_group_id.get(&m.channel_id) {
             Some(group_id) => match crate::upstream_from_job_id(m.job_id) {
                 Some(remote) => {
@@ -324,7 +327,7 @@ pub async fn listen_for_downstream_mining(address: SocketAddr) {
             let mut incoming: StdFrame = node.receiver.recv().await.unwrap().try_into().unwrap();
             let message_type = incoming.get_header().unwrap().msg_type();
             let payload = incoming.payload();
-            let routing_logic = CommonRoutingLogic::Proxy(crate::get_routing_logic());
+            let routing_logic = CommonRoutingLogic::Proxy(crate::get_routing_logic_sync());
             let node = Arc::new(Mutex::new(node));
 
             // Call handle_setup_connection or fail

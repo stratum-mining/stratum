@@ -51,7 +51,18 @@ type RLogic = MiningProxyRoutingLogic<
 static mut ROUTING_LOGIC: Option<Arc<Mutex<RLogic>>> = None;
 static mut JOB_ID_TO_UPSTREAM_ID: Option<Arc<Mutex<HashMap<u32, u32>>>> = None;
 
-pub fn get_routing_logic() -> Arc<Mutex<RLogic>> {
+pub async fn get_routing_logic() -> Arc<Mutex<RLogic>> {
+    unsafe {
+        loop {
+            match ROUTING_LOGIC.clone() {
+                Some(r_logic) => return r_logic,
+                None => async_std::task::sleep(std::time::Duration::from_millis(10)).await,
+            }
+        }
+    }
+}
+
+pub fn get_routing_logic_sync() -> Arc<Mutex<RLogic>> {
     unsafe {
         let cloned = ROUTING_LOGIC.clone();
         cloned.unwrap()
@@ -64,16 +75,23 @@ pub fn upstream_from_job_id(job_id: u32) -> Option<Arc<Mutex<UpstreamMiningNode>
         upstream_id = JOB_ID_TO_UPSTREAM_ID
             .clone()
             .unwrap()
-            .safe_lock(|x| x.remove(&job_id).unwrap())
+            .safe_lock(|x| *x.get(&job_id).unwrap())
             .unwrap();
     }
-    get_routing_logic()
+    get_routing_logic_sync()
         .safe_lock(|r| r.upstream_selector.get_upstream(upstream_id))
         .unwrap()
 }
 
-pub fn add_job_id(job_id: u32, up_id: u32) {
+pub fn add_job_id(job_id: u32, up_id: u32, prev_job_id: Option<u32>) {
     unsafe {
+        if let Some(prev_job_id) = prev_job_id {
+            JOB_ID_TO_UPSTREAM_ID
+                .clone()
+                .unwrap()
+                .safe_lock(|x| x.remove(&prev_job_id))
+                .unwrap();
+        }
         JOB_ID_TO_UPSTREAM_ID
             .clone()
             .unwrap()

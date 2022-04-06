@@ -55,7 +55,7 @@ pub trait Frame<'a, T: Serialize + GetSize>: Sized {
     ) -> Option<Self>;
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Sv2Frame<T, B> {
     header: Header,
     payload: Option<T>,

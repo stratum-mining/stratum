@@ -13,6 +13,7 @@ pub enum Error {
     NoPairableUpstream((u16, u16, u32)),
     /// Error if the hashmap `future_jobs` field in the `GroupChannelJobDispatcher` is empty.
     NoFutureJobs,
+    NoDownstreamsConnected,
 }
 
 impl From<BinarySv2Error> for Error {
@@ -37,6 +38,7 @@ impl Display for Error {
                 write!(f, "No pairable upstream node: {:?}", a)
             }
             NoFutureJobs => write!(f, "GroupChannelJobDispatcher does not have any future jobs"),
+            NoDownstreamsConnected => write!(f, "NoDownstreamsConnected"),
         }
     }
 }

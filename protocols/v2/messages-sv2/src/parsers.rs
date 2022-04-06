@@ -966,6 +966,8 @@ pub enum PoolMessages<'a> {
     Mining(Mining<'a>),
     #[cfg_attr(feature = "with_serde", serde(borrow))]
     JobNegotiation(JobNegotiation<'a>),
+    #[cfg_attr(feature = "with_serde", serde(borrow))]
+    TemplateDistribution(TemplateDistribution<'a>),
 }
 
 impl<'a> TryFrom<MiningDeviceMessages<'a>> for PoolMessages<'a> {
@@ -986,6 +988,7 @@ impl<'decoder> From<PoolMessages<'decoder>> for EncodableField<'decoder> {
             PoolMessages::Common(a) => a.into(),
             PoolMessages::Mining(a) => a.into(),
             PoolMessages::JobNegotiation(a) => a.into(),
+            PoolMessages::TemplateDistribution(a) => a.into(),
         }
     }
 }
@@ -996,6 +999,7 @@ impl GetSize for PoolMessages<'_> {
             PoolMessages::Common(a) => a.get_size(),
             PoolMessages::Mining(a) => a.get_size(),
             PoolMessages::JobNegotiation(a) => a.get_size(),
+            PoolMessages::TemplateDistribution(a) => a.get_size(),
         }
     }
 }
@@ -1006,6 +1010,7 @@ impl<'a> IsSv2Message for PoolMessages<'a> {
             PoolMessages::Common(a) => a.message_type(),
             PoolMessages::Mining(a) => a.message_type(),
             PoolMessages::JobNegotiation(a) => a.message_type(),
+            PoolMessages::TemplateDistribution(a) => a.message_type(),
         }
     }
 
@@ -1014,6 +1019,7 @@ impl<'a> IsSv2Message for PoolMessages<'a> {
             PoolMessages::Common(a) => a.channel_bit(),
             PoolMessages::Mining(a) => a.channel_bit(),
             PoolMessages::JobNegotiation(a) => a.channel_bit(),
+            PoolMessages::TemplateDistribution(a) => a.channel_bit(),
         }
     }
 }
@@ -1144,6 +1150,7 @@ impl<'a> TryFrom<PoolMessages<'a>> for MiningDeviceMessages<'a> {
             PoolMessages::Common(message) => Ok(Self::Common(message)),
             PoolMessages::Mining(message) => Ok(Self::Mining(message)),
             PoolMessages::JobNegotiation(_) => Err(()),
+            PoolMessages::TemplateDistribution(_) => Err(()),
         }
     }
 }
