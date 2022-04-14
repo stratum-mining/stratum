@@ -49,8 +49,6 @@ TODO
 ### coinpool with shnorr only
 
 
-I do want ANYPREVOUT and 
-
 **Initialize the pool**
 1. A PubKey is constructed by all the pool participants.
 2. We use the above PubKey to build the coinbase output.
