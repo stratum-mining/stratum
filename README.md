@@ -1,6 +1,19 @@
 # STRATUM
 
-# Stratum
+The goal of the project is to provide:
+* A robust set of Sv2 primitives as rust library crates that can be used by anyone that want expand
+    the protocol or implement a role (EG a pool that want to support Sv2, or mining-device producer
+    that want to integrate Sv2 into the firmware, a bitcoin node that want to implement Template Provide capabilities).
+    Make this primitives available also to non rust user. 
+* A set of helpers built on top of the above primitives and external bitcoin related rust crates,
+    that can be used by anyone the want to implement an Sv2 role (EG a pool that want to support Sv2
+    and that use rust)
+* An open-source implementation of an Sv2 proxy, that can be used by miners that want to use Sv2.
+* An open-source implementation of an Sv2 pool that can be used by anyone that want to operate an Sv2
+    pool.
+* A self hosted Job Negotiator + Template Provider that can be used by Sv2 or Sv1 pool that want to
+    offer job negotiation capabilities to their costumer without messing with the pool codebase (a
+    minimum amount of modification is still required)
 
 [Project page](https://stratum-mining.github.io/)
 
