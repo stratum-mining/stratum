@@ -1,192 +1,167 @@
 # RFC
 
-## Add new Sv2 sub(protocol) coinbase negotiation as an Sv2 extension
+One of the biggest treat to Bitcoin decentralization are pools. Stratum V2 introduce a way for the
+miners to select the transaction that they want to include in the mined block. That make very easy
+for the miner to see if the pool is censuring transactions, but alone is not enough, we need to have at least
+one pool that is not censuring transactions. 
 
-### Why
-Schnorr signatures + presigned transactions (today) and CHECKTEMPLATEVERIFY (CTV) (perhaps in the 
-near future) along with SV2’s support of mining extensions, make the implementation of all
-noncustodial pool possible for the first time.
+Best thing that we can do to ensure that there will always be at least one honest pool is to make
+as easy as possible deploy a pool (that means maintain an open source implementation), and this is
+already in the scope of the stratum-mining project, but is still not enough.
+Having an honest pool is pretty useless if it do not have any hashrate, we need to make as easy as
+possible for a miner to switch to the honest pool, and that means that the we must minimize the
+amount of trust that a miner need to put into the pool operator.
 
+To recap we need:
+1. an open source very easy to deploy pool
+2. the pool code should be well tested so that miners can trust that the pool actually works
+3. miners should place the minimum possible amount of trust into the pool operator (non custodial)
+
+## Non custodial pool
+A non custodial pool is pool the do not custody any bitcoin in order to do that the coinbase
+output/s of the pool redistribute coinbase reward directly to the miners. 
+
+Below some possible non-custodial pool implementation:
+1. classical: coinbase have an output for each miner
+2. coinpool: coinpool can be built with (1) schnorr, (2) schnorr + ANYPREVOUT + (TODO), (3) CTV. Each
+   possibility will be discussed.
+3. channels
+4. sidechains
+
+### Minimum trust problem
+The minimum trust problem is that the pool in order to know how much a miner should be rewarded need 
+to receive shares from the miner.
+That means that if ^t is the time between coinbase updates the miner must trust the pool to reward
+the miner for the work done in that ^t in the next coinbase. (or the other way around)
+A pool colluding with a miner or a group of miner could have an incentive in doing this attack. If a
+coinbase is negotiate very often these incentives tend to disappear (TODO prove it)
+
+The minimum trust problem can be solved by decentralized pools (TODO) or using sidechains (TODO)
+Decentralized pool do not works for small miners but a scenario where small miner use non-custodial
+pools and that non-custodial pool use decentralized pools is possible.
+
+## Kind of non-custodial pools
+
+### classical
+
+TODO
+
+### coinpool with shnorr only
+
+
+I do want ANYPREVOUT and 
+
+**Initialize the pool**
+1. A PubKey is constructed by all the pool participants.
+2. We use the above PubKey to build the coinbase output.
+3. A tx that spend the above output to each participants (each one with the right quota) is
+   constructed.
+4. The above tx is signed by all the participants.
+
+```
+10 -> ABC
+  -> 7 -> A
+     2 -> B
+     1 -> C
+```
+
+**Sum outputs (need cooperation)**
+1. The pool create a tx (tx1) that have as inputs two ore more coinbase outputs.
+2. Both the aggregated coinbase outputs and the tx1 output have the same pk_script (controlled by
+   every participant)
+3. A tx (tx2) that spend tx1 output to each participant (each one with the right quota)
+4. tx2 is signed by each participant
+5. tx1 is signed by each participant
+6. tx1 is added to a new block
+```
+10 -> ABC
+  -> 7 -> A
+     2 -> B
+     1 -> C
+
+10 -> ABD
+  -> 7 -> A
+     2 -> B
+     1 -> D
+
+-> 20 -> ABCD
+  -> 14 -> A
+     4 -> B
+     1 -> C
+     1 -> D
+```
+When we aggregate, we should avoid to end up with txs with to many output. That means that could be
+good have more coinpools each one with separate participants:
+1. we avoid to end up with very big txs
+2. is more robust (if one participant become unresponsive a smaller set of participant is affected)
+
+If a pool have six participant instead of:
+```
+10 -> ABCDEF
+  -> 3 -> A
+     2 -> B
+     2 -> C
+     1 -> D
+     1 -> E
+     1 -> F
+```
+
+Could do:
+```
+5 -> ABC
+ ...
+5 -> DEF
+ ...
+```
+
+**Exit with cooperation**
+```
+10 -> ABC
+  -> 7 -> A
+     2 -> B
+     1 -> C
+
+-> 3 -> AB
+   1 -> C
+```
+
+**Exit without cooperation**
+```
+10 -> ABC
+  -> 7 -> A
+     2 -> B
+     1 -> C
+
+-> 7 -> A
+   2 -> B
+   1 -> C
+```
+
+If one participant is no longer online, presigned txs can be added when blockspace is cheap.
+
+Honest participant do not have any incentive in being uncooperative, btw is a plausible attack for
+someone that want to disrupt the service.
+
+### coinpool with shnorr + ANYPREVOUT + (TODO)
+
+TODO
+
+### coinpool with CTV
+
+TODO
+
+### channels
+
+TODO
+
+### sidechains
+
+## Proposal
 A non-custodial pool would require the negotiation of a coinbase transaction between the upstream 
 Pool Service and the downstream nodes. This is a good use case for an SV2 extension as the coinbase
 negotiation process can use the already available data format, framing, handshake, authorization,
 and encryption layer as defined by the SV2 protocol.
 
-
-### POC Rationale:
-1. Makes Sv2 more interesting giving one more reason to push for Sv2 adoption.
-2. A non-custodial Pool Service relieves a substantial amount of custodial-related overhead format
-   Pool Service operators.
-3. A non-custodial pool may help reduce pool skimming. Today, there is no mechanism is in place to
-   protect miner against this attack vector.
-
-### Goals:
-1. start exploring possible ways to have non custodial pools
-
-### Non goals:
-1. formally define the coinbase negotiator role and the coinbase negotiation subprottocol
-
-### Some questions:
-1. is the use of extension + flags consistent with how extension have been thought in Sv2?
-2. is the proposed use of MuSig1 correct?
-
-### Proposal
-Add extension [TODO] used by pool's client (miners) and pool to negotiate a coinbase tx that will be
-used in the next block. The extension do not use channels.
-
-SetupConnection.Success.flags:
-```
-bit  a  : signal if downstream want to negotiate a coinbase or if it will accept any coinbase tx
-          proposed
-bit  a+1: understand Schnorr + presigned txs negotiation
-bit  a+2: understand CTV negotiation 
-```
-
-### Schnorr + presigned txs negotiation:
-1. Each client send to the pool a public key and the address where it want to retrieve the coins
-2. The pool create coinbase that sent the input to an address (a1) obtained from the "sum" of all
-   the client's pub key
-3. The pool create a transaction for each client. The created tx send an amount from a1 to the address
-   provided by the client in step 1
-4. Each client sign each transaction created in step 3
-5. coinbase from step 2 is used in the next block
-
-In order to calculate the amount that the presigned transaction must transfer from a1 to the client
-address in step 2, the pool just use the already provided hashrate by the client that has not been
-paid yet (so what the miner is being paid is not the block that contribute to mine but the previous
-one/ones)
-
-#### Pros:
-1. pool is noncustodial
-2. miners can verify the 2 below prop of the coinbase tx that they are mining (a1 is the output of the coinbase tx)
-    1. they can see that a valid transaction from a1 to the miner address exist and have the *right*
-       amount
-    2. they need to sign each valid tx from a1 so they can see that the total amount of all the
-       presigned txs from a1 is (coinbase input - the fair reward that they expect)
-
-#### Cons:
-1. not scale  well on chain, cause if you are a small miner and you get paid at each found
-   blocks you will likely end up paying a lot in fees. You can mitigate it (1) sending the txs when the
-   fee is small, (2) aggregating txs, (3) the pool is not paying you at each founded block but only
-   when you will be paid an amount above a minimum one.
-2. not scale well off chain: pool need to coordinate all the miners, and everyone need to agree and be
-   online if only one fail the process need to be restarted from zero.
-
-### CTV
-Using CTV you will have the above pros without the above cons so it make sense to add this
-possibility if it will be merged on master.
-
-### No coinbase negotiation
-Pool can reserve a path to itself where they do custody bitcoin for miner that prefer to use a custodian pool.
-
-### Messages
-
-#### Valid for both Schnorr and CTV negotiations:
-
-Upstream will use the provided address as receiving address for the downstream path.
-```
-Client -> Server
-NewAddress:
-    address: B0255
-    
-msg_type: 0x77
-```
-
-#### Valid for Schnorr negotiations:
-
-
-Upstream will use the pub keys as Xi and Ri to calculate X and R as described here
-https://blog.blockstream.com/en-musig-key-aggregation-schnorr-signatures/ (MuSig paragrapher)
-```
-Client -> Server
-NewPubKeyPair:
-    pub_key_x: B0255
-    pub_key_r: B0255
-
-msg_type: 0x78
-```
-
-
-
-Downstream will use X, R, m, and L to sign m as described here
-https://blog.blockstream.com/en-musig-key-aggregation-schnorr-signatures/ (MuSig paragrapher)
-```
-Server -> Client
-NewTxToSign:
-    x: B0255
-    r: B0255
-    l: B0255
-    m: B064K
-
-
-msg_type: 0x79
-```
-
-
-Upstream will use the provided si value to calculate s as described here
-https://blog.blockstream.com/en-musig-key-aggregation-schnorr-signatures/ (MuSig paragrapher)
-```
-Client -> Server
-NewSignature:
-    s: B0255
-```
-
-
-After that a tx has been signed by all the downstream, upstream compute the valid signature s and
-send it to the downstream that control the output in m
-```
-Server -> Client
-ValidSignature:
-   s: B0255
-
-
-msg_type: 0x7A
-```
-
-
-
-When the downstream nodes (clients) start to mine a new block, they will each use the new coinbase
-transaction if:
-1. the coinbase output yields bitcoin spendable by the miner provided address, or
-2. if the sum of the bitcoin spent by the transaction signed via NewTxToSign does not exceed the
-   coinbase input.
-```
-Server -> Client
-NewCoinbase:
-   coinbase: B064K
-
-
-msg_type: 0x7B
-```
-
-
-### Note 1 possible implementation
-Consider the scenario when a miner wants to commence mining with an non-custodial pool:
-1. miner will send a NewPubKeyPair to the pool.
-2. pool will not send a NewCoinbaseTx and the miner should start to mine whatever job is provided
-   by the pool.
-3. pool and miner will register all the valid shares provided by the miner.
-   [Sum(valid shares for job n), Sum(valid shares for job n+1, ...]
-4. on NewPrevHash pool send NewTxToSign where it pay to the miner all the provided shares, right now
-   the miner is still mining a job the is not paying the miner but on next block will mine a block
-   that pay the miner.
-5. from this point the pool will keep sending NewTxToSign for every NewPrevHash
-6. when miner want to exit it just stop mine new jobs and  wait until the pool find a new block. If the miner go offline pool will stop to put the miner reward in the coinbase tx but as soon as the miner will be online the miner will restart to put miner reward in coinbase.
-
-
-
-1. The miner will send a NewPubKeyPair to the pool.
-2. The pool will now send a NewCoinbaseTx to the miner who should start mining on the job provided
-   by the pool.
-3. The pool and the miner will register all the valid shares provided by the Mining Devices.
-   [Sum(valid shares for job n), Sum(valid shares for job n+1, ...]
-4. On a NewPrevHash, the pool sends a NewTxToSign where it pays to the miner all the provided
-   shares.
-5. From this point the pool will keep sending NewTxToSign’s for every NewPrevHash.
-6. As soon as the pool finds a block, if miner stop accepting jobs it will be net pair with the
-   pool.
-
-
-
-Fair price:
-The miner still trust the pool that the shares are payed a fair price.
+# Links
+[decentralized pools](https://lists.linuxfoundation.org/pipermail/bitcoin-dev/2021-December/019662.html)
+[coinpools](https://coinpool.dev/v0.1.pdf)
