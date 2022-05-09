@@ -32,12 +32,12 @@ if [ "$SHA1_1" = "$SHA1_2" ];
 then
   echo "Success. sv2.h files match."
   echo $SHA1_1
-  return 0
+  exit 0
 else
   echo "Fail. sv2.h files do not match."
   echo "./protocols/v2/sv2-ffi/sv2.h hash:"
   echo $SHA1_1
   echo "./sv2.h hash:"
   echo $SHA1_2
-  return -1
+  exit -1
 fi

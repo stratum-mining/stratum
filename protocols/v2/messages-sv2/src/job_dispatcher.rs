@@ -224,7 +224,6 @@ mod tests {
     #[cfg(feature = "serde")]
     use serde::Deserialize;
 
-
     #[cfg(feature = "serde")]
     #[derive(Debug, Deserialize)]
     struct TestBlockToml {
