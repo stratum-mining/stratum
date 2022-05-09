@@ -235,6 +235,7 @@ pub struct CSetupConnectionError {
 #[cfg(not(feature = "with_serde"))]
 impl<'a> CSetupConnectionError {
     #[cfg(not(feature = "with_serde"))]
+    #[allow(clippy::wrong_self_convention)]
     pub fn to_rust_rep_mut(&'a mut self) -> Result<SetupConnectionError<'a>, Error> {
         let error_code: Str0255 = self.error_code.as_mut_slice().try_into()?;
 

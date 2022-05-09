@@ -146,6 +146,7 @@ impl<'a> From<Sv2Message<'a>> for CSv2Message {
 }
 
 impl<'a> CSv2Message {
+    #[allow(clippy::wrong_self_convention)]
     pub fn to_rust_rep_mut(&'a mut self) -> Result<Sv2Message<'a>, Error> {
         match self {
             CSv2Message::NewTemplate(v) => Ok(Sv2Message::NewTemplate(v.to_rust_rep_mut()?)),
