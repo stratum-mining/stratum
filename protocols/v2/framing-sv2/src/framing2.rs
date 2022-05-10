@@ -5,7 +5,10 @@ use core::convert::TryFrom;
 
 const NOISE_MAX_LEN: usize = const_sv2::NOISE_FRAME_MAX_SIZE;
 
-impl<A, B> Sv2Frame<A, B> {
+impl<A, B> Sv2Frame<A, B>
+where
+	B: AsMut<[u8]> + AsRef<[u8]>
+{
     pub fn map<C>(self, fun: fn(A) -> C) -> Sv2Frame<C, B> {
         let serialized = self.serialized;
         let header = self.header;
@@ -56,14 +59,20 @@ pub trait Frame<'a, T: Serialize + GetSize>: Sized {
 }
 
 #[derive(Debug, Clone)]
-pub struct Sv2Frame<T, B> {
+pub struct Sv2Frame<T, B> 
+where
+	B: AsMut<[u8]> + AsRef<[u8]>
+{
     header: Header,
     payload: Option<T>,
     /// Serializsed header + payload (TODO check if this is correct)
     serialized: Option<B>,
 }
 
-impl<T, B> Default for Sv2Frame<T, B> {
+impl<T, B> Default for Sv2Frame<T, B>
+where 
+	B: AsMut<[u8]> + AsRef<[u8]>
+{
     fn default() -> Self {
         Sv2Frame {
             header: Header::default(),
@@ -81,7 +90,11 @@ pub struct NoiseFrame {
 
 pub type HandShakeFrame = NoiseFrame;
 
-impl<'a, T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> Frame<'a, T> for Sv2Frame<T, B> {
+impl<'a, T, B> Frame<'a, T> for Sv2Frame<T, B>
+where
+	T: Serialize + GetSize,
+	B: AsMut<[u8]> + AsRef<[u8]>
+{
     type Buffer = B;
     type Deserialized = B;
 
@@ -294,14 +307,21 @@ fn update_extension_type(extension_type: u16, channel_msg: bool) -> u16 {
 /// 3: HandashakeFrame
 ///
 #[derive(Debug)]
-pub enum EitherFrame<T, B> {
+pub enum EitherFrame<T, B>
+where
+	B: AsMut<[u8]> + AsRef<[u8]>
+{
     HandShake(HandShakeFrame),
     Sv2(Sv2Frame<T, B>),
 }
 
 //impl
 
-impl<T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> EitherFrame<T, B> {
+impl<T, B> EitherFrame<T, B>
+where
+	T: Serialize + GetSize,
+	B: AsMut<[u8]> + AsRef<[u8]>
+{
     //pub fn serialize(mut self, dst: &mut B) -> Result<(), serde_sv2::Error> {
     //    match self {
     //        Self::HandShake(frame) => todo!(),
@@ -317,7 +337,10 @@ impl<T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> EitherFrame<T, B> {
     }
 }
 
-impl<T, B> TryFrom<EitherFrame<T, B>> for HandShakeFrame {
+impl<T, B> TryFrom<EitherFrame<T, B>> for HandShakeFrame
+where
+	B: AsMut<[u8]> + AsRef<[u8]>
+{
     type Error = ();
 
     fn try_from(v: EitherFrame<T, B>) -> Result<Self, Self::Error> {
@@ -328,7 +351,10 @@ impl<T, B> TryFrom<EitherFrame<T, B>> for HandShakeFrame {
     }
 }
 
-impl<T, B> TryFrom<EitherFrame<T, B>> for Sv2Frame<T, B> {
+impl<T, B> TryFrom<EitherFrame<T, B>> for Sv2Frame<T, B>
+where
+	B: AsMut<[u8]> + AsRef<[u8]>
+{
     type Error = ();
 
     fn try_from(v: EitherFrame<T, B>) -> Result<Self, Self::Error> {
@@ -339,13 +365,19 @@ impl<T, B> TryFrom<EitherFrame<T, B>> for Sv2Frame<T, B> {
     }
 }
 
-impl<T, B> From<HandShakeFrame> for EitherFrame<T, B> {
+impl<T, B> From<HandShakeFrame> for EitherFrame<T, B>
+where
+	B: AsMut<[u8]> + AsRef<[u8]>
+{
     fn from(v: HandShakeFrame) -> Self {
         Self::HandShake(v)
     }
 }
 
-impl<T, B> From<Sv2Frame<T, B>> for EitherFrame<T, B> {
+impl<T, B> From<Sv2Frame<T, B>> for EitherFrame<T, B>
+where
+	B: AsMut<[u8]> + AsRef<[u8]>
+{
     fn from(v: Sv2Frame<T, B>) -> Self {
         Self::Sv2(v)
     }

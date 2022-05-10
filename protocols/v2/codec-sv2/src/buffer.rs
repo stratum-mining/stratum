@@ -1,16 +1,5 @@
 use alloc::vec::Vec;
-
-pub trait Buffer {
-    type Slice: AsMut<[u8]> + AsRef<[u8]>;
-
-    fn get_writable(&mut self, len: usize) -> &mut [u8];
-
-    fn get_data_owned(&mut self) -> Self::Slice;
-
-    fn get_data_by_ref(&mut self, header_size: usize) -> &mut [u8];
-
-    fn len(&self) -> usize;
-}
+use buffer_sv2::Buffer;
 
 #[derive(Debug)]
 pub struct SlowAndCorrect {

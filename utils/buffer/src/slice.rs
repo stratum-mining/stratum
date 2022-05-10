@@ -31,6 +31,15 @@ impl AsMut<[u8]> for Slice {
     }
 }
 
+impl AsRef<[u8]> for Slice {
+    fn as_ref(&self) -> &[u8] {
+		match self.owned.as_ref() {
+			None => unsafe { core::slice::from_raw_parts(self.offset, self.len) },
+			Some(x) => x,
+		}
+	}
+}
+
 impl Drop for Slice {
     fn drop(&mut self) {
         #[cfg(feature = "debug")]
