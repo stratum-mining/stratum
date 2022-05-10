@@ -48,6 +48,7 @@ pub struct CSetNewPrevHash {
 #[cfg(not(feature = "with_serde"))]
 impl<'a> CSetNewPrevHash {
     #[cfg(not(feature = "with_serde"))]
+    #[allow(clippy::wrong_self_convention)]
     pub fn to_rust_rep_mut(&'a mut self) -> Result<SetNewPrevHash<'a>, Error> {
         let prev_hash: U256 = self.prev_hash.as_mut_slice().try_into()?;
         let target: U256 = self.target.as_mut_slice().try_into()?;

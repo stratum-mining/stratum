@@ -15,6 +15,8 @@
 # This script is called by `.github/workflows/sv2-header-check.yaml` on every PR onto the main branch.
 #
 
+cargo install  --version 0.20.0 cbindgen
+
 set -e
 # cargo install cbindgen --force bts
 # cbindgen -V

@@ -128,6 +128,7 @@ pub struct CSetupConnection {
 #[cfg(not(feature = "with_serde"))]
 impl<'a> CSetupConnection {
     #[cfg(not(feature = "with_serde"))]
+    #[allow(clippy::wrong_self_convention)]
     pub fn to_rust_rep_mut(&'a mut self) -> Result<SetupConnection<'a>, Error> {
         let endpoint_host: Str0255 = self.endpoint_host.as_mut_slice().try_into()?;
         let vendor: Str0255 = self.vendor.as_mut_slice().try_into()?;
@@ -235,6 +236,7 @@ pub struct CSetupConnectionError {
 #[cfg(not(feature = "with_serde"))]
 impl<'a> CSetupConnectionError {
     #[cfg(not(feature = "with_serde"))]
+    #[allow(clippy::wrong_self_convention)]
     pub fn to_rust_rep_mut(&'a mut self) -> Result<SetupConnectionError<'a>, Error> {
         let error_code: Str0255 = self.error_code.as_mut_slice().try_into()?;
 
