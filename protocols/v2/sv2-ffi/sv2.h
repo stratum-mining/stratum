@@ -535,7 +535,7 @@ bool is_ok(const CResult<CSv2Message, Sv2Error> *cresult);
 
 EncoderWrapper *new_encoder();
 
-void free_encoder(EncoderWrapper *encoder);
+void flush_encoder(EncoderWrapper *encoder);
 
 void free_decoder(DecoderWrapper *decoder);
 

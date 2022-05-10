@@ -1,9 +1,13 @@
-use crate::codec::decodable::{
-    Decodable, DecodableField, DecodablePrimitive, FieldMarker, GetMarker, PrimitiveMarker,
+use crate::{
+    codec::{
+        decodable::{
+            Decodable, DecodableField, DecodablePrimitive, FieldMarker, GetMarker, PrimitiveMarker,
+        },
+        encodable::{EncodableField, EncodablePrimitive},
+    },
+    datatypes::*,
+    Error,
 };
-use crate::codec::encodable::{EncodableField, EncodablePrimitive};
-use crate::datatypes::*;
-use crate::Error;
 use alloc::vec::Vec;
 use core::convert::{TryFrom, TryInto};
 

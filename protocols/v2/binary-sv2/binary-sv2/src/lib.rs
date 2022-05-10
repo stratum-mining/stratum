@@ -20,8 +20,8 @@ pub fn clone_message<T: Serialize>(_: T) -> T {
 pub fn u256_from_int<V: Into<u64>>(value: V) -> U256<'static> {
     let mut u256 = vec![0_u8; 24];
     let val: u64 = value.into();
-    for v in val.to_le_bytes() {
-        u256.push(v)
+    for v in &(val.to_le_bytes()) {
+        u256.push(*v)
     }
     let u256: U256 = u256.try_into().unwrap();
     u256

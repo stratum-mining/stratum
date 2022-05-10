@@ -4,8 +4,7 @@ use alloc::vec::Vec;
 use binary_sv2::binary_codec_sv2::{self, free_vec, free_vec_2, CVec, CVec2};
 #[cfg(not(feature = "with_serde"))]
 use binary_sv2::Error;
-use binary_sv2::{Deserialize, Serialize};
-use binary_sv2::{Seq0255, B0255, B064K, U256};
+use binary_sv2::{Deserialize, Seq0255, Serialize, B0255, B064K, U256};
 #[cfg(not(feature = "with_serde"))]
 use core::convert::TryInto;
 
@@ -52,6 +51,24 @@ pub struct NewTemplate<'decoder> {
     /// Merkle path hashes ordered from deepest.
     #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub merkle_path: Seq0255<'decoder, U256<'decoder>>,
+}
+
+impl<'a> NewTemplate<'a> {
+    pub fn as_static(&self) -> NewTemplate<'static> {
+        NewTemplate {
+            template_id: self.template_id,
+            future_template: self.future_template,
+            version: self.version,
+            coinbase_tx_version: self.coinbase_tx_version,
+            coinbase_prefix: self.coinbase_prefix.clone().into_static(),
+            coinbase_tx_input_sequence: self.coinbase_tx_input_sequence,
+            coinbase_tx_value_remaining: self.coinbase_tx_value_remaining,
+            coinbase_tx_outputs_count: self.coinbase_tx_outputs_count,
+            coinbase_tx_outputs: self.coinbase_tx_outputs.clone().into_static(),
+            coinbase_tx_locktime: self.coinbase_tx_locktime,
+            merkle_path: self.merkle_path.clone().into_static(),
+        }
+    }
 }
 
 #[repr(C)]
@@ -107,6 +124,7 @@ impl<'a> From<NewTemplate<'a>> for CNewTemplate {
 #[cfg(not(feature = "with_serde"))]
 impl<'a> CNewTemplate {
     #[cfg(not(feature = "with_serde"))]
+    #[allow(clippy::wrong_self_convention)]
     pub fn to_rust_rep_mut(&'a mut self) -> Result<NewTemplate<'a>, Error> {
         let coinbase_prefix: B0255 = self.coinbase_prefix.as_mut_slice().try_into()?;
         let coinbase_tx_outputs: B064K = self.coinbase_tx_outputs.as_mut_slice().try_into()?;
