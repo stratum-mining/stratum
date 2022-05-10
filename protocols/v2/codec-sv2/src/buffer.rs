@@ -1,5 +1,16 @@
 use alloc::vec::Vec;
-use buffer_sv2::Buffer;
+
+pub trait Buffer {
+    type Slice: AsMut<[u8]> + AsRef<[u8]>;
+
+    fn get_writable(&mut self, len: usize) -> &mut [u8];
+
+    fn get_data_owned(&mut self) -> Self::Slice;
+
+    fn get_data_by_ref(&mut self, header_size: usize) -> &mut [u8];
+
+    fn len(&self) -> usize;
+}
 
 #[derive(Debug)]
 pub struct SlowAndCorrect {
@@ -22,39 +33,51 @@ impl Default for SlowAndCorrect {
     }
 }
 
-impl Buffer for SlowAndCorrect {
-    type Slice = Vec<u8>;
+macro_rules! impl_buffer {
+    ($ty: ty) => {
+		impl $ty for SlowAndCorrect {
+			type Slice = Vec<u8>;
 
-    #[inline]
-    fn get_writable(&mut self, len: usize) -> &mut [u8] {
-        let cursor = self.cursor;
-        let len = self.cursor + len;
+			#[inline]
+			fn get_writable(&mut self, len: usize) -> &mut [u8] {
+				let cursor = self.cursor;
+				let len = self.cursor + len;
 
-        if len > self.inner.len() {
-            self.inner.resize(len, 0)
-        };
+				if len > self.inner.len() {
+					self.inner.resize(len, 0)
+				};
 
-        self.cursor = len;
+				self.cursor = len;
 
-        &mut self.inner[cursor..len]
-    }
+				&mut self.inner[cursor..len]
+			}
 
-    #[inline]
-    fn get_data_owned(&mut self) -> Vec<u8> {
-        let mut tail = self.inner.split_off(self.cursor);
-        core::mem::swap(&mut tail, &mut self.inner);
-        let head = tail;
-        self.cursor = 0;
-        head
-    }
+			#[inline]
+			fn get_data_owned(&mut self) -> Vec<u8> {
+				let mut tail = self.inner.split_off(self.cursor);
+				core::mem::swap(&mut tail, &mut self.inner);
+				let head = tail;
+				self.cursor = 0;
+				head
+			}
 
-    #[inline]
-    fn get_data_by_ref(&mut self, header_size: usize) -> &mut [u8] {
-        &mut self.inner[..usize::min(header_size, self.cursor)]
-    }
+			#[inline]
+			fn get_data_by_ref(&mut self, header_size: usize) -> &mut [u8] {
+				&mut self.inner[..usize::min(header_size, self.cursor)]
+			}
 
-    #[inline]
-    fn len(&self) -> usize {
-        self.cursor
-    }
+			#[inline]
+			fn len(&self) -> usize {
+				self.cursor
+			}
+		}
+	};
 }
+
+// Buffer trait from buffer-pool. Faster but unsafe.
+#[cfg(feature = "buffer_sv2")]
+impl_buffer!(buffer_sv2::Buffer);
+
+// Codec defaults to safe Buffer impl.
+#[cfg(not(feature = "buffer_sv2"))]
+impl_buffer!(Buffer);

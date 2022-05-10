@@ -3,7 +3,6 @@ use binary_sv2::Deserialize;
 #[cfg(feature = "noise_sv2")]
 use binary_sv2::GetSize;
 use binary_sv2::Serialize;
-use buffer_sv2::Buffer;
 use core::marker::PhantomData;
 #[cfg(feature = "noise_sv2")]
 use framing_sv2::framing2::{HandShakeFrame, NoiseFrame};
@@ -13,6 +12,11 @@ use framing_sv2::{
     framing2::{EitherFrame, Frame as F_, Sv2Frame},
     header::Header,
 };
+
+#[cfg(feature = "buffer_sv2")]
+use buffer_sv2::Buffer;
+#[cfg(not(feature = "buffer_sv2"))]
+use crate::buffer::Buffer;
 
 use crate::{
     buffer::SlowAndCorrect,
