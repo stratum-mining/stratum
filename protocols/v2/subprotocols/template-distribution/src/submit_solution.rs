@@ -4,8 +4,7 @@ use alloc::vec::Vec;
 use binary_sv2::binary_codec_sv2::{self, free_vec, CVec};
 #[cfg(not(feature = "with_serde"))]
 use binary_sv2::Error;
-use binary_sv2::B064K;
-use binary_sv2::{Deserialize, Serialize};
+use binary_sv2::{Deserialize, Serialize, B064K};
 #[cfg(not(feature = "with_serde"))]
 use core::convert::TryInto;
 
@@ -48,6 +47,7 @@ pub struct CSubmitSolution {
 #[cfg(not(feature = "with_serde"))]
 impl<'a> CSubmitSolution {
     #[cfg(not(feature = "with_serde"))]
+    #[allow(clippy::wrong_self_convention)]
     pub fn to_rust_rep_mut(&'a mut self) -> Result<SubmitSolution<'a>, Error> {
         let coinbase_tx: B064K = self.coinbase_tx.as_mut_slice().try_into()?;
 

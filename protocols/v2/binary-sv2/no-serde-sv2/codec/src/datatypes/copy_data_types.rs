@@ -1,7 +1,5 @@
 //! Copy data types
-use crate::codec::Fixed;
-use crate::datatypes::Sv2DataType;
-use crate::Error;
+use crate::{codec::Fixed, datatypes::Sv2DataType, Error};
 use core::convert::{TryFrom, TryInto};
 
 #[cfg(not(feature = "no_std"))]

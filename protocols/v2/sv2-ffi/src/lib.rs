@@ -12,8 +12,10 @@ use template_distribution_sv2::{
 };
 
 use binary_sv2::{
-    binary_codec_sv2::CVec, decodable::DecodableField, decodable::FieldMarker,
-    encodable::EncodableField, from_bytes, Deserialize, Error,
+    binary_codec_sv2::CVec,
+    decodable::{DecodableField, FieldMarker},
+    encodable::EncodableField,
+    from_bytes, Deserialize, Error,
 };
 
 use const_sv2::{
@@ -144,6 +146,7 @@ impl<'a> From<Sv2Message<'a>> for CSv2Message {
 }
 
 impl<'a> CSv2Message {
+    #[allow(clippy::wrong_self_convention)]
     pub fn to_rust_rep_mut(&'a mut self) -> Result<Sv2Message<'a>, Error> {
         match self {
             CSv2Message::NewTemplate(v) => Ok(Sv2Message::NewTemplate(v.to_rust_rep_mut()?)),
@@ -309,7 +312,7 @@ pub extern "C" fn new_encoder() -> *mut EncoderWrapper {
 
 #[no_mangle]
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
-pub extern "C" fn free_encoder(encoder: *mut EncoderWrapper) {
+pub extern "C" fn flush_encoder(encoder: *mut EncoderWrapper) {
     let mut encoder = unsafe { Box::from_raw(encoder) };
     encoder.free = true;
     Box::into_raw(encoder);

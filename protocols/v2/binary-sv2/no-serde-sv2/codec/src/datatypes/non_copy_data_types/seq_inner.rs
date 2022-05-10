@@ -1,10 +1,12 @@
-use crate::codec::decodable::{Decodable, DecodableField, FieldMarker, GetMarker, PrimitiveMarker};
-use crate::codec::encodable::{EncodableField, EncodablePrimitive};
-use crate::codec::Fixed;
-use crate::codec::GetSize;
-use crate::datatypes::Sv2DataType;
-use crate::datatypes::*;
-use crate::Error;
+use crate::{
+    codec::{
+        decodable::{Decodable, DecodableField, FieldMarker, GetMarker, PrimitiveMarker},
+        encodable::{EncodableField, EncodablePrimitive},
+        Fixed, GetSize,
+    },
+    datatypes::{Sv2DataType, *},
+    Error,
+};
 use core::marker::PhantomData;
 
 // TODO add test for that implement also with serde!!!!

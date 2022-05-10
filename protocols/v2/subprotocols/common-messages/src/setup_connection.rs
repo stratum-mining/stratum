@@ -1,12 +1,11 @@
 #[cfg(not(feature = "with_serde"))]
 use alloc::vec::Vec;
-use binary_sv2::Str0255;
 #[cfg(not(feature = "with_serde"))]
 use binary_sv2::{
     binary_codec_sv2, binary_codec_sv2::CVec, decodable::DecodableField, decodable::FieldMarker,
     free_vec, Error, GetSize,
 };
-use binary_sv2::{Deserialize, Serialize};
+use binary_sv2::{Deserialize, Serialize, Str0255};
 use const_sv2::{
     SV2_JOB_DISTR_PROTOCOL_DISCRIMINANT, SV2_JOB_NEG_PROTOCOL_DISCRIMINANT,
     SV2_MINING_PROTOCOL_DISCRIMINANT, SV2_TEMPLATE_DISTR_PROTOCOL_DISCRIMINANT,
@@ -129,6 +128,7 @@ pub struct CSetupConnection {
 #[cfg(not(feature = "with_serde"))]
 impl<'a> CSetupConnection {
     #[cfg(not(feature = "with_serde"))]
+    #[allow(clippy::wrong_self_convention)]
     pub fn to_rust_rep_mut(&'a mut self) -> Result<SetupConnection<'a>, Error> {
         let endpoint_host: Str0255 = self.endpoint_host.as_mut_slice().try_into()?;
         let vendor: Str0255 = self.vendor.as_mut_slice().try_into()?;
@@ -236,6 +236,7 @@ pub struct CSetupConnectionError {
 #[cfg(not(feature = "with_serde"))]
 impl<'a> CSetupConnectionError {
     #[cfg(not(feature = "with_serde"))]
+    #[allow(clippy::wrong_self_convention)]
     pub fn to_rust_rep_mut(&'a mut self) -> Result<SetupConnectionError<'a>, Error> {
         let error_code: Str0255 = self.error_code.as_mut_slice().try_into()?;
 
