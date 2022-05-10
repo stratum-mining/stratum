@@ -124,6 +124,7 @@ impl<'a> From<NewTemplate<'a>> for CNewTemplate {
 #[cfg(not(feature = "with_serde"))]
 impl<'a> CNewTemplate {
     #[cfg(not(feature = "with_serde"))]
+    #[allow(clippy::wrong_self_convention)]
     pub fn to_rust_rep_mut(&'a mut self) -> Result<NewTemplate<'a>, Error> {
         let coinbase_prefix: B0255 = self.coinbase_prefix.as_mut_slice().try_into()?;
         let coinbase_tx_outputs: B064K = self.coinbase_tx_outputs.as_mut_slice().try_into()?;
