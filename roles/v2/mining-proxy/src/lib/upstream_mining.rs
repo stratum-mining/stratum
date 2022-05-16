@@ -49,7 +49,8 @@ impl UpstreamMiningConnection {
 #[derive(Clone, Copy, Debug)]
 pub struct Sv2MiningConnection {
     version: u16,
-    mining_flags: u32,
+    setup_connection_flags: u32,
+    setup_connection_success_flags: u32,
 }
 
 #[derive(Debug)]
@@ -214,7 +215,7 @@ impl UpstreamMiningNode {
         match sv2_connection {
             None => Ok(()),
             Some(sv2_connection) => {
-                let flags = sv2_connection.mining_flags;
+                let flags = sv2_connection.setup_connection_flags;
                 let version = sv2_connection.version;
                 let frame = self_mutex
                     .safe_lock(|self_| self_.new_setup_connection_frame(flags, version, version))
@@ -351,7 +352,8 @@ impl UpstreamMiningNode {
                     .safe_lock(|self_| {
                         self_.sv2_connection = Some(Sv2MiningConnection {
                             version: m.used_version,
-                            mining_flags: m.flags,
+                            setup_connection_flags: flags,
+                            setup_connection_success_flags: m.flags,
                         });
                         self_.connection.clone().unwrap().receiver
                     })
@@ -765,7 +767,7 @@ impl IsUpstream<DownstreamMiningNode, ProxyRemoteSelector> for UpstreamMiningNod
     }
 
     fn get_flags(&self) -> u32 {
-        self.sv2_connection.unwrap().mining_flags
+        self.sv2_connection.unwrap().setup_connection_flags
     }
 
     fn get_supported_protocols(&self) -> Vec<Protocol> {
