@@ -145,7 +145,7 @@ impl ParseDownstreamCommonMessages<NoRouting> for SetupConnectionHandler {
         Ok(SendTo::RelayNewMessage(
             Arc::new(Mutex::new(())),
             CommonMessages::SetupConnectionSuccess(SetupConnectionSuccess {
-                flags: incoming.flags,
+                flags: 0,
                 used_version: 2,
             }),
         ))
