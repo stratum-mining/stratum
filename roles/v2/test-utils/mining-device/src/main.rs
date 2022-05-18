@@ -5,8 +5,8 @@ use bitcoin::{
     hashes::{sha256d::Hash as DHash, Hash},
     util::uint::Uint256,
 };
-use messages_sv2::utils::Id;
 use network_helpers::PlainConnection;
+use roles_logic_sv2::utils::Id;
 use std::{
     net::{IpAddr, Ipv4Addr, SocketAddr},
     sync::Arc,
@@ -31,7 +31,7 @@ async fn main() {
 use async_channel::{Receiver, Sender};
 use binary_sv2::u256_from_int;
 use codec_sv2::{Frame, StandardEitherFrame, StandardSv2Frame};
-use messages_sv2::{
+use roles_logic_sv2::{
     common_messages_sv2::{Protocol, SetupConnection, SetupConnectionSuccess},
     common_properties::{IsMiningUpstream, IsUpstream},
     errors::Error,
@@ -107,22 +107,22 @@ impl ParseUpstreamCommonMessages<NoRouting> for SetupConnectionHandler {
     fn handle_setup_connection_success(
         &mut self,
         _: SetupConnectionSuccess,
-    ) -> Result<messages_sv2::handlers::common::SendTo, messages_sv2::errors::Error> {
-        use messages_sv2::handlers::common::SendTo;
+    ) -> Result<roles_logic_sv2::handlers::common::SendTo, roles_logic_sv2::errors::Error> {
+        use roles_logic_sv2::handlers::common::SendTo;
         Ok(SendTo::None(None))
     }
 
     fn handle_setup_connection_error(
         &mut self,
-        _: messages_sv2::common_messages_sv2::SetupConnectionError,
-    ) -> Result<messages_sv2::handlers::common::SendTo, messages_sv2::errors::Error> {
+        _: roles_logic_sv2::common_messages_sv2::SetupConnectionError,
+    ) -> Result<roles_logic_sv2::handlers::common::SendTo, roles_logic_sv2::errors::Error> {
         todo!()
     }
 
     fn handle_channel_endpoint_changed(
         &mut self,
-        _: messages_sv2::common_messages_sv2::ChannelEndpointChanged,
-    ) -> Result<messages_sv2::handlers::common::SendTo, messages_sv2::errors::Error> {
+        _: roles_logic_sv2::common_messages_sv2::ChannelEndpointChanged,
+    ) -> Result<roles_logic_sv2::handlers::common::SendTo, roles_logic_sv2::errors::Error> {
         todo!()
     }
 }
@@ -269,7 +269,7 @@ impl IsUpstream<(), NullDownstreamMiningSelector> for Device {
         todo!()
     }
 
-    fn get_mapper(&mut self) -> Option<&mut messages_sv2::common_properties::RequestIdMapper> {
+    fn get_mapper(&mut self) -> Option<&mut roles_logic_sv2::common_properties::RequestIdMapper> {
         todo!()
     }
 
@@ -288,11 +288,11 @@ impl IsMiningUpstream<(), NullDownstreamMiningSelector> for Device {
     }
     fn get_opened_channels(
         &mut self,
-    ) -> &mut Vec<messages_sv2::common_properties::UpstreamChannel> {
+    ) -> &mut Vec<roles_logic_sv2::common_properties::UpstreamChannel> {
         todo!()
     }
 
-    fn update_channels(&mut self, _: messages_sv2::common_properties::UpstreamChannel) {
+    fn update_channels(&mut self, _: roles_logic_sv2::common_properties::UpstreamChannel) {
         todo!()
     }
 }
