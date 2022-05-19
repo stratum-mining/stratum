@@ -4,7 +4,9 @@ use messages_sv2::{
     handlers::template_distribution::{ParseServerTemplateDistributionMessages, SendTo},
     parsers::TemplateDistribution,
     template_distribution_sv2::*,
+    utils::Mutex,
 };
+use std::sync::Arc;
 
 impl ParseServerTemplateDistributionMessages for TemplateRx {
     fn handle_new_template(&mut self, m: NewTemplate) -> Result<SendTo, Error> {
@@ -22,8 +24,10 @@ impl ParseServerTemplateDistributionMessages for TemplateRx {
             merkle_path: m.merkle_path.into_static(),
         };
         let new_template = TemplateDistribution::NewTemplate(new_template);
-        //self.new_template_sender.send(new_template_static).unwrap();
-        Ok(SendTo::None(Some(new_template)))
+        Ok(SendTo::RelayNewMessage(
+            Arc::new(Mutex::new(())),
+            new_template,
+        ))
     }
 
     fn handle_set_new_prev_hash(&mut self, m: SetNewPrevHash) -> Result<SendTo, Error> {
@@ -35,7 +39,10 @@ impl ParseServerTemplateDistributionMessages for TemplateRx {
             target: m.target.into_static(),
         };
         let new_prev_hash = TemplateDistribution::SetNewPrevHash(new_prev_hash);
-        Ok(SendTo::None(Some(new_prev_hash)))
+        Ok(SendTo::RelayNewMessage(
+            Arc::new(Mutex::new(())),
+            new_prev_hash,
+        ))
     }
 
     fn handle_request_tx_data_success(
