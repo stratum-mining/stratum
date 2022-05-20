@@ -117,7 +117,7 @@ template-distribution). They are just the rust translation of the messages defin
 * const_sv2
 * binary_sv2
 
-### PROTOCOLS/V2/SUBPROTOCOLS
+### PROTOCOLS/V2/SV2-FFI
 
 Export a C static library with the min subset of `protocols/v2` needed to build a Template Provider.
 Every dependency is compiled without noise and without serde.
