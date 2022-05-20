@@ -85,7 +85,7 @@ Along with `Frame` two implementation are exported `Sv2Frame`, `NoiseFrame` and 
 
 Exports `StandardNoiseDecoder` and `StandardSv2Decoder` they get initialized with a buffer that
 contain a "stream" of bytes. When `next_frame` is called they return either an `Sv2Frame` or and
-error containing the missing bytes to allow next step^1 so that the caller can fill the buffer
+error containing the number of missing bytes to allow next step^1 so that the caller can fill the buffer
 with the missing bytes and then call it again.
 
 It also export `NoiseEncoder` and `Encoder`.
