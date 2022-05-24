@@ -55,19 +55,19 @@ protocols
 └─ v1
 └─ v2
    └─ binary-sv2
-      └─ binary-sv2
-      └─ no-serde-sv2
-      └─ serde-sv2
+   │   └─ binary-sv2
+   │   └─ no-serde-sv2
+   │   └─ serde-sv2
    └─ codec-sv2
    └─ const-sv2
    └─ framing-sv2
    └─ noise-sv2
    └─ roles-logic-sv2
    └─ subprotocols
-      └─ common-messages
-      └─ job-negotiation
-      └─ mining
-      └─ template-distribution
+   │   └─ common-messages
+   │   └─ job-negotiation
+   │   └─ mining
+   │   └─ template-distribution
    └─ sv2-ffi
 ```
 #### `protocols/v1`
