@@ -1,19 +1,37 @@
 # Stratum V2 (Sv2) Proxy
 
 The goal of the project is to provide:
-* A robust set of Sv2 primitives as rust library crates that can be used by anyone that want expand
-    the protocol or implement a role (EG a pool that want to support Sv2, or mining-device producer
-    that want to integrate Sv2 into the firmware, a bitcoin node that want to implement Template Provide capabilities).
-    Make this primitives available also to non rust user. 
-* A set of helpers built on top of the above primitives and external bitcoin related rust crates,
-    that can be used by anyone the want to implement an Sv2 role (EG a pool that want to support Sv2
-    and that use Rust)
-* An open-source implementation of an Sv2 proxy, that can be used by miners that want to use Sv2.
-* An open-source implementation of an Sv2 pool that can be used by anyone that want to operate an Sv2
-    pool.
-* A self hosted Job Negotiator + Template Provider that can be used by Sv2 or Sv1 pool that want to
-    offer job negotiation capabilities to their costumer without messing with the pool codebase (a
-    minimum amount of modification is still required)
+* These libraries can all be used, or only a subset of them can be used, depending on the
+  functionality desired by the end user. Some examples of individuals who benefit from the
+  libraries in this repository are as follows (note that not all features are completed yet):
+    * A miner who runs a mining farm with Sv2-compatible mining firmware mining to a 
+      Sv2-compatible pool can use this library as a proxy which allows them to use the Group
+      Channels, which reduce their bandwidth consumption and bolster their efficiency. Standard
+      Channels are also supported in here, but are not as efficient as Group Channels.
+    * A miner who runs a mining farm with Sv2-compatible mining firmware mining to a Sv2-compatible
+      pool, who wants to select their own transactions to build their own `blocktemplate`, can use
+      this library as a proxy in conjunction with a Bitcoin Core node (with the Template Provider
+      logic) to do so.
+    * A miner who runs a mining farm with SV1-compatible mining firmware mining to a Sv2-compatible
+      pool, who wants to gain some of the security and efficiency improvements that Sv2 offers over
+      Stratum V1 (Sv1) (by using Extended Channels). This Sv1<->Sv2 miner proxy does not support
+      all the features of Sv2, therefore it should be used as a temporary measure before completely
+      upgrading to Sv2-compatible firmware.
+    * A pool that wants to build a Sv2 compatible pool server, complete with all Sv2 channel
+      support (Standard, Group, and Extended channels).
+    * A pool that wants to begin supporting Sv2 but is not yet ready to completely overhaul their
+      existing Sv1 server can use these libraries to construct a Sv2<->Sv1 proxy server. This proxy
+      server lives on the upstream pool end under the pool's control, between the downstream
+      devices on the miner's side (either a miner's proxy or the mining devices themselves), and
+      the most upstream Sv1 pool server. This most upstream Sv1 pool server is likely the already
+      existing pool server logic. In this way, pools can begin supporting Sv2 without waiting to
+      redo their entire server infrastructure to be Sv2 compatible only. This Sv2<->Sv1 pool proxy
+      will only allow the pool to support Standard channels (not Group or Extended), therefore this
+      should be used as a temporary measure before completely upgrading to a Sv2-only pool.
+    * A Sv2- or Sv1-compatible pool that wants to offer job negotiation capabilities to their
+      customers (miner's mining to their pool) can use this library to self-host a Job Negotiator
+      and Template Provider (a minimum amount of modification is still required).
+* Make this primitives available also to non Rust user.
 
 ## STRUCTURE
 
@@ -35,7 +53,7 @@ TODO
 ### PROTOCOLS/V2
 TODO
 
-### PROTOCOLS/V2/CONST-SV2
+### PROTOCOLS/V2/CONST-Sv2
 
 A bunch of Sv2 related constants.
 
@@ -45,7 +63,7 @@ A bunch of Sv2 related constants.
 **Internal dependencies**:
 * no dependencies
 
-### PROTOCOLS/V2/BINARY-SV2/BINARY-SV2
+### PROTOCOLS/V2/BINARY-Sv2/BINARY-Sv2
 
 Sv2 data types binary mapping.
 
@@ -63,7 +81,7 @@ API is the same when compiled `with_serde` and not.
 **Internal dependencies**:
 * buffer-sv2 (only when compiled `with_serde`)
 
-### PROTOCOLS/V2/FRAMING-SV2
+### PROTOCOLS/V2/FRAMING-Sv2
 
 It export the `Frame` trait. A frame can:
 * be serialized (`serialize`), deserialized (`from_bytes`, `from_bytes_unchecked`)
@@ -81,7 +99,7 @@ Along with `Frame` two implementation are exported `Sv2Frame`, `NoiseFrame` and 
 * const_sv2
 * binary_sv2
 
-### PROTOCOLS/V2/CODEC-SV2
+### PROTOCOLS/V2/CODEC-Sv2
 
 Exports `StandardNoiseDecoder` and `StandardSv2Decoder` they get initialized with a buffer that
 contain a "stream" of bytes. When `next_frame` is called they return either an `Sv2Frame` or and
@@ -117,7 +135,7 @@ template-distribution). They are just the Rust translation of the messages defin
 * const_sv2
 * binary_sv2
 
-### PROTOCOLS/V2/SV2-FFI
+### PROTOCOLS/V2/Sv2-FFI
 
 Export a C static library with the min subset of `protocols/v2` needed to build a Template Provider.
 Every dependency is compiled without noise and without serde.
@@ -132,10 +150,10 @@ Every dependency is compiled without noise and without serde.
 * subprotocols/common_messages_sv2
 * subprotocols/template_distribution_sv2
 
-### PROTOCOLS/V2/NOISE-SV2
+### PROTOCOLS/V2/NOISE-Sv2
 TODO
 
-### PROTOCOLS/V2/MESSAGES-SV2
+### PROTOCOLS/V2/MESSAGES-Sv2
 
 **Very soon it will be renamed in roles-logic-sv2**. (already commited in a working branch)
 
