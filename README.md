@@ -131,21 +131,22 @@ Contains the Sv2 related constants.
 * no dependencies
 
 #### `protocols/v2/framing-sv2`
-It export the `Frame` trait. A frame can:
-* be serialized (`serialize`), deserialized (`from_bytes`, `from_bytes_unchecked`)
+Exports the `Frame` trait. A `Frame` can:
+* be serialized (`serialize`) and deserialized (`from_bytes`, `from_bytes_unchecked`)
 * return the payload (`payload`)
 * return the header (`get_header`)
-* be constructed from a serializable payload when the payload do not exceed the maximum frame size
-    (`from_message`)
+* be constructed from a serializable payload when the payload does not exceed the maximum frame
+  size (`from_message`)
 
-Along with `Frame` two implementation are exported `Sv2Frame`, `NoiseFrame` and an enum `EitherFrame`.
+Two implementations of the `Frame` trait are exports: `Sv2Frame` and `NoiseFrame`. An enum named
+`EitherFrame` representing one of these frames is also exported.
 
 **External dependencies**:
-* serde (only when compiled `with_serde`)
+* [`serde`](https://crates.io/crates/serde) (only when compiled with the `with_serde` flag)
 
 **Internal dependencies**:
-* const_sv2
-* binary_sv2
+* `const_sv2`
+* `binary_sv2`
 
 
 #### `protocols/v2/noise-sv2`
