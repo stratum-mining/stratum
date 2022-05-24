@@ -155,38 +155,38 @@ TODO: More information.
 
 #### `protocols/v2/roles-logic-sv2`
 **Previously called messages-sv2**.
-It contain everything that is needed to build an Sv2 role that do not fit in the above crates. So we
-have:
+A sort of "catch-all" workspace that contains miscellaneous logic required to build a Sv2 role, but
+that does not "fit" into the other workspaces. This includes:
 * roles properties
 * message handlers
-* channel "routing" logic (group extended)
+* channel "routing" logic (Group and Extended channels)
 * `Sv2Frame` <-> specific (sub)protocol message mapping
 * (sub)protocol <-> (sub)protocol mapping
-* job logic (it overlap with channel logic)
-* bitcoin data structures <-> sv2 data structures mapping
+* job logic (this overlaps with the channel logic)
+* Bitcoin data structures <-> Sv2 data structures mapping
 * utils
 
-A Rust implementation of an Sv2 role is supposed to import this crate in order to have anything it
-need that is Sv2 or bitcoin related. In the future every library under `protocols/v2` will be
-reexported by this crate, so if a Rust implementation of a role need access to a lower level library
-there is no need to reimport it.
+A Rust implementation of an Sv2 role is supposed to import this crate in order to have everything
+it need that is Sv2 or bitcoin related. In the future every library under `protocols/v2` will be
+reexported by this crate, so if a Rust implementation of a role needs access to a lower level
+library, there is no need to reimport it.
 
 This crate do not assume any async runtime. The only thing that the user is required to use is a
 safe `Mutex` defined in `messages_sv2::utils::Mutex`.
 
 **External dependencies**:
-* serde (only when compiled `with_serde`)
-* bitcoin
+* [`serde`](https://crates.io/crates/serde) (only when compiled with the `with_serde` flag)
+* [Bitcoin-Core with Sv2 Template Provider logic](https://github.com/ccdle12/bitcoin/tree/2022.05.19-remove-rust-example-code)
 
 **Internal dependencies**:
-* const_sv2
-* binary_sv2
-* framing_sv2
-* codec_sv2
-* subprotocols/common_messages_sv2
-* subprotocols/mining_sv2
-* subprotocols/template_distribution_sv2
-* subprotocols/job_negotiation_sv2
+* `const_sv2`
+* `binary_sv2`
+* `framing_sv2`
+* `codec_sv2`
+* `subprotocols/common_messages_sv2`
+* `subprotocols/mining_sv2`
+* `subprotocols/template_distribution_sv2`
+* `subprotocols/job_negotiation_sv2`
 
 #### `protocols/v2/subprotocols`
 Under subprotocols there are 4 crates (common-messages, job-negotiation, mining,
