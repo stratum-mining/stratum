@@ -100,27 +100,26 @@ TODO: confirm that the `serde-sv2` crate is only used when the `with_serde` flag
 **Internal dependencies**:
 * `buffer-sv2` (only when compiled with the `with_serde` flag) TODO: where is the `buffer-sv2` dep?
 
-##### `protocols/v2/codec-sv2`
-Exports `StandardNoiseDecoder` and `StandardSv2Decoder` they get initialized with a buffer that
-contain a "stream" of bytes. When `next_frame` is called they return either an `Sv2Frame` or and
-error containing the number of missing bytes to allow next step^1 so that the caller can fill the buffer
-with the missing bytes and then call it again.
+#### `protocols/v2/codec-sv2`
+Exports `StandardNoiseDecoder` and `StandardSv2Decoder` that are initialized with a buffer
+containing a "stream" of bytes. When `next_frame` is called, they return either a `Sv2Frame` or an
+error containing the number of missing bytes to allow next step[^1], so that the caller can fill the
+buffer with the missing bytes and then call it again.
 
 It also export `NoiseEncoder` and `Encoder`.
 
-^1 for non noise decoder that refer to either missing bytes to complete the frame header or missing bytes to
-have a complete frame. In noise case is more complex cause it return an `Sv2Frame` but an `Sv2Frame`
-can be composed by several `NoiseFrame`.
-
+[^1] For the case of a non-noise decoder, this refers to the missing bytes that are either needed
+to 1) complete the frame header, or 2) to have a complete frame. For the case of a noise decoder,
+this is more complex as it returns a `Sv2Frame`, which can be composed of several `NoiseFrames`.
 
 **External dependencies**:
-* serde (only when compiled `with_serde`)
+* [`serde`](https://crates.io/crates/serde) (only when compiled with the `with_serde` flag)
 
 **Internal dependencies**:
-* const_sv2
-* binary_sv2
-* framing_sv2
-* noise_sv2 (only when compiled `with_noise`)
+* `const_sv2`
+* `binary_sv2`
+* `framing_sv2`
+* `noise_sv2` (only when compiled with the `with_noise` flag)
 
 #### `protocols/v2/const-sv2`
 Sv2 related constants.
