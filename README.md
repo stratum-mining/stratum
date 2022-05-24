@@ -95,10 +95,10 @@ when the `with_serde` flag is NOT used?
 TODO: confirm that the `serde-sv2` crate is only used when the `with_serde` flag is used
 
 **External dependencies**:
-* serde (only when compiled with the `with_serde` flag)
+* [`serde`](https://crates.io/crates/serde) (only when compiled with the `with_serde` flag)
 
 **Internal dependencies**:
-* buffer-sv2 (only when compiled the `with_serde` flag)
+* `buffer-sv2` (only when compiled with the `with_serde` flag) TODO: where is the `buffer-sv2` dep?
 
 ##### `protocols/v2/codec-sv2`
 Exports `StandardNoiseDecoder` and `StandardSv2Decoder` they get initialized with a buffer that
