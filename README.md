@@ -150,7 +150,8 @@ Two implementations of the `Frame` trait are exports: `Sv2Frame` and `NoiseFrame
 
 
 #### `protocols/v2/noise-sv2`
-TODO
+Contains the Noise Protocol logic.
+TODO: More information.
 
 #### `protocols/v2/roles-logic-sv2`
 **Previously called messages-sv2**.
