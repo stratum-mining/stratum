@@ -34,6 +34,47 @@ The goal of the project is to provide:
 * Make this primitives available also to non Rust user.
 
 ## Structure
+```
+stratum
+  └─ examples
+  │   └─ interop-cpp
+  │   └─ interop-cpp-no-cargo
+  │   └─ ping-pong-with-noise
+  │   └─ ping-pong-without-noise
+  │   └─ sv1-client-and-server
+  │   └─ sv2-proxy
+  │   └─ template-provider-test
+  └─ experimental
+  │   └─ coinbase-negotiator
+  └─ protocols
+  │   └─ v1
+  │   └─ v2
+  │       └─ binary-sv2
+  │       │   └─ binary-sv2
+  │       │   └─ no-serde-sv2
+  │       │   └─ serde-sv2
+  │       └─ codec-sv2
+  │       └─ const-sv2
+  │       └─ framing-sv2
+  │       └─ noise-sv2
+  │       └─ roles-logic-sv2
+  │       └─ subprotocols
+  │       │   └─ common-messages
+  │       │   └─ job-negotiation
+  │       │   └─ mining
+  │       │   └─ template-distribution
+  │       └─ sv2-ffi
+  └─ roles/v2
+  │   └─ mining-proxy
+  │   └─ pool
+  │   └─ test-utils
+  │   │   └─ mining-device
+  │   │   └─ pool
+  └─ test
+  └─ utils
+      └─ buffer
+      └─ network-helpers
+```
 
 This workspace is divided in 6 macro-areas:
 1. `protocols`: Core Stratum V2 and V1 libraries.
@@ -50,26 +91,6 @@ Every dependency related to benchmarking and testing can be always opted out so 
 them under **External dependencies**.
 
 ### `protocols` Workspace
-```
-protocols
-└─ v1
-└─ v2
-   └─ binary-sv2
-   │   └─ binary-sv2
-   │   └─ no-serde-sv2
-   │   └─ serde-sv2
-   └─ codec-sv2
-   └─ const-sv2
-   └─ framing-sv2
-   └─ noise-sv2
-   └─ roles-logic-sv2
-   └─ subprotocols
-   │   └─ common-messages
-   │   └─ job-negotiation
-   │   └─ mining
-   │   └─ template-distribution
-   └─ sv2-ffi
-```
 #### `protocols/v1`
 Contains a Sv1 library.
 TODO: more information
