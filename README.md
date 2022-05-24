@@ -1,4 +1,4 @@
-# STRATUM
+# Stratum V2 (Sv2) Proxy
 
 The goal of the project is to provide:
 * A robust set of Sv2 primitives as rust library crates that can be used by anyone that want expand
@@ -7,7 +7,7 @@ The goal of the project is to provide:
     Make this primitives available also to non rust user. 
 * A set of helpers built on top of the above primitives and external bitcoin related rust crates,
     that can be used by anyone the want to implement an Sv2 role (EG a pool that want to support Sv2
-    and that use rust)
+    and that use Rust)
 * An open-source implementation of an Sv2 proxy, that can be used by miners that want to use Sv2.
 * An open-source implementation of an Sv2 pool that can be used by anyone that want to operate an Sv2
     pool.
@@ -107,7 +107,7 @@ can be composed by several `NoiseFrame`.
 ### PROTOCOLS/V2/SUBPROTOCOLS
 
 Under subprotocols there are 4 crates (common-messages, job-negotiation, mining,
-template-distribution). They are just the rust translation of the messages defined by each Sv2
+template-distribution). They are just the Rust translation of the messages defined by each Sv2
 (sub)protocol. They all have the same internal external dependencies.
 
 **External dependencies**:
@@ -150,9 +150,9 @@ have:
 * bitcoin data structures <-> sv2 data structures mapping
 * utils
 
-A rust implementation of an Sv2 role is supposed to import this crate in order to have anything it
+A Rust implementation of an Sv2 role is supposed to import this crate in order to have anything it
 need that is Sv2 or bitcoin related. In the future every library under `protocols/v2` will be
-reexported by this crate, so if a rust implementation of a role need access to a lower level library
+reexported by this crate, so if a Rust implementation of a role need access to a lower level library
 there is no need to reimport it.
 
 This crate do not assume any async runtime. The only thing that the user is required to use is a
