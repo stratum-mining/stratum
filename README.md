@@ -33,11 +33,18 @@ The goal of the project is to provide:
       and Template Provider (a minimum amount of modification is still required).
 * Make this primitives available also to non Rust user.
 
-## STRUCTURE
+## Structure
 
-This workspace is divided in 6 macro-areas, (1) *protocols* several Stratum library, (2) *roles* the
-actual Sv2 roles, (3) *utils*, (4) *examples*, (5) *test* integration tests, (6) *experimental* not yet
-specified part of the protocol or extensions.
+This workspace is divided in 6 macro-areas:
+1. `protocols`: Core Stratum V2 and V1 libraries.
+1. `roles`: The Sv2 roles as binaries to be executed, including the mining-device, mining-proxy,
+            and pool. This gives good examples of the actual implementation/use of the available
+            libraries.
+1. `utils`: Offers an alternative buffer to use that is more efficient, but less safe than the
+            default buffers used. Also has network helpers.
+1. `examples`: Several example implementations of various use cases.
+1. `test`: Integration tests.
+1. `experimental`: Not yet specified part of the protocol or extensions.
 
 Every dependency related to benchmarking and testing can be always opted out so we never list
 them under **External dependencies**.
