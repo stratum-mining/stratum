@@ -6,6 +6,7 @@ use crate::{
 use alloc::vec::Vec;
 #[cfg(not(feature = "no_std"))]
 use std::io::{Cursor, Read};
+use std::convert::TryFrom;
 
 /// Implmented by all the decodable structure, it can be derived for every structure composed only
 /// by primitives or other Decodable.
@@ -165,12 +166,18 @@ impl From<PrimitiveMarker> for FieldMarker {
     }
 }
 
-impl From<Vec<FieldMarker>> for FieldMarker {
-    fn from(mut v: Vec<FieldMarker>) -> Self {
+impl TryFrom<Vec<FieldMarker>> for FieldMarker {
+    type Error = crate::Error;
+
+    fn try_from(mut v: Vec<FieldMarker>) -> Result<Self, crate::Error> {
         match v.len() {
-            0 => panic!("TODO"),
-            1 => v.pop().unwrap(),
-            _ => FieldMarker::Struct(v),
+            // It shouldn't be possible to call this function with a void Vec but for safety
+            // reasons it is implemented with TryFrom and not From if needed should be possible
+            // to use From and just panic
+            0 => Err(crate::Error::VoidFieldMarker),
+            // if v.len is 1 pop can not fail
+            1 => Ok(v.pop().unwrap()),
+            _ => Ok(FieldMarker::Struct(v)),
         }
     }
 }

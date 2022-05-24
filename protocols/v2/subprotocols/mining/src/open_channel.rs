@@ -3,6 +3,7 @@ use alloc::vec::Vec;
 #[cfg(not(feature = "with_serde"))]
 use binary_sv2::binary_codec_sv2;
 use binary_sv2::{Deserialize, Serialize, Str0255, Str032, B032, U256};
+use core::convert::TryInto;
 
 /// # OpenStandardMiningChannel (Client -> Server)
 /// This message requests to open a standard channel to the upstream node.

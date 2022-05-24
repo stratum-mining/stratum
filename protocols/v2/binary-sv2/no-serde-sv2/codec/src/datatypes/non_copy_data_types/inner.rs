@@ -5,6 +5,7 @@ use crate::{
     Error,
 };
 use core::convert::TryFrom;
+use std::convert::TryInto;
 
 #[cfg(not(feature = "no_std"))]
 use std::io::{Error as E, Read, Write};
@@ -209,7 +210,7 @@ use crate::codec::decodable::FieldMarker;
 impl<'a, const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize>
     Sv2DataType<'a> for Inner<'a, ISFIXED, SIZE, HEADERSIZE, MAXSIZE>
 where
-    Self: Into<FieldMarker>,
+    Self: TryInto<FieldMarker>,
 {
     fn from_bytes_unchecked(data: &'a mut [u8]) -> Self {
         if ISFIXED {

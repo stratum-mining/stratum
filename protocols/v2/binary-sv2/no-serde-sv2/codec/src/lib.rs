@@ -88,6 +88,7 @@ pub enum Error {
     #[cfg(not(feature = "no_std"))]
     IoError(E),
     ReadError(usize, usize),
+    VoidFieldMarker,
     Todo,
 }
 
