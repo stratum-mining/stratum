@@ -49,29 +49,35 @@ This workspace is divided in 6 macro-areas:
 Every dependency related to benchmarking and testing can be always opted out so we never list
 them under **External dependencies**.
 
-### PROTOCOLS
+### `protocols` Workspace
+```
+protocols
+└─ v1
+└─ v2
+   └─ binary-sv2
+      └─ binary-sv2
+      └─ no-serde-sv2
+      └─ serde-sv2
+   └─ codec-sv2
+   └─ const-sv2
+   └─ framing-sv2
+   └─ noise-sv2
+   └─ roles-logic-sv2
+   └─ subprotocols
+   └─ sv2-ffi
+```
+#### `protocols/v1`
+Contains a Sv1 library.
+TODO: more information
 
-Under *protocols* there is *v1* that contain an Sv1 library and *v2* that contain several Sv2
-libraries.
+#### `protocols/v2`
+Contains several Sv2 libraries serving various purposes depending on the desired application.
+TODO: more info
 
-### PROTOCOLS/V1
-TODO
+#### `protocols/v2/binary-sv2`
+TODO 
 
-### PROTOCOLS/V2
-TODO
-
-### PROTOCOLS/V2/CONST-Sv2
-
-A bunch of Sv2 related constants.
-
-**External dependencies**:
-* no dependencies
-
-**Internal dependencies**:
-* no dependencies
-
-### PROTOCOLS/V2/BINARY-Sv2/BINARY-Sv2
-
+##### `protocols/v2/binary-sv2/binary-sv2`
 Sv2 data types binary mapping.
 
 It export an API that allow to serialize and deserialize the Sv2 primitive data types, it also
@@ -88,26 +94,7 @@ API is the same when compiled `with_serde` and not.
 **Internal dependencies**:
 * buffer-sv2 (only when compiled `with_serde`)
 
-### PROTOCOLS/V2/FRAMING-Sv2
-
-It export the `Frame` trait. A frame can:
-* be serialized (`serialize`), deserialized (`from_bytes`, `from_bytes_unchecked`)
-* return the payload (`payload`)
-* return the header (`get_header`)
-* be constructed from a serializable payload when the payload do not exceed the maximum frame size
-    (`from_message`)
-
-Along with `Frame` two implementation are exported `Sv2Frame`, `NoiseFrame` and an enum `EitherFrame`.
-
-**External dependencies**:
-* serde (only when compiled `with_serde`)
-
-**Internal dependencies**:
-* const_sv2
-* binary_sv2
-
-### PROTOCOLS/V2/CODEC-Sv2
-
+##### `protocols/v2/codec-sv2`
 Exports `StandardNoiseDecoder` and `StandardSv2Decoder` they get initialized with a buffer that
 contain a "stream" of bytes. When `next_frame` is called they return either an `Sv2Frame` or and
 error containing the number of missing bytes to allow next step^1 so that the caller can fill the buffer
@@ -129,11 +116,24 @@ can be composed by several `NoiseFrame`.
 * framing_sv2
 * noise_sv2 (only when compiled `with_noise`)
 
-### PROTOCOLS/V2/SUBPROTOCOLS
+##### `protocols/v2/const-sv2`
+Sv2 related constants.
 
-Under subprotocols there are 4 crates (common-messages, job-negotiation, mining,
-template-distribution). They are just the Rust translation of the messages defined by each Sv2
-(sub)protocol. They all have the same internal external dependencies.
+**External dependencies**:
+* no dependencies
+
+**Internal dependencies**:
+* no dependencies
+
+#### `protocols/v2/framing-sv2`
+It export the `Frame` trait. A frame can:
+* be serialized (`serialize`), deserialized (`from_bytes`, `from_bytes_unchecked`)
+* return the payload (`payload`)
+* return the header (`get_header`)
+* be constructed from a serializable payload when the payload do not exceed the maximum frame size
+    (`from_message`)
+
+Along with `Frame` two implementation are exported `Sv2Frame`, `NoiseFrame` and an enum `EitherFrame`.
 
 **External dependencies**:
 * serde (only when compiled `with_serde`)
@@ -142,28 +142,12 @@ template-distribution). They are just the Rust translation of the messages defin
 * const_sv2
 * binary_sv2
 
-### PROTOCOLS/V2/Sv2-FFI
 
-Export a C static library with the min subset of `protocols/v2` needed to build a Template Provider.
-Every dependency is compiled without noise and without serde.
-
-**External dependencies**:
-* no dependencies
-
-**Internal dependencies**:
-* codec_sv2
-* const_sv2
-* binary_sv2 (maybe in the future will be used the one already imported by codec_sv2)
-* subprotocols/common_messages_sv2
-* subprotocols/template_distribution_sv2
-
-### PROTOCOLS/V2/NOISE-Sv2
+#### `protocols/v2/noise-sv2`
 TODO
 
-### PROTOCOLS/V2/MESSAGES-Sv2
-
-**Very soon it will be renamed in roles-logic-sv2**. (already commited in a working branch)
-
+#### `protocols/v2/roles-logic-sv2`
+**Previously called messages-sv2**.
 It contain everything that is needed to build an Sv2 role that do not fit in the above crates. So we
 have:
 * roles properties
@@ -196,6 +180,36 @@ safe `Mutex` defined in `messages_sv2::utils::Mutex`.
 * subprotocols/mining_sv2
 * subprotocols/template_distribution_sv2
 * subprotocols/job_negotiation_sv2
+
+#### `protocols/v2/subprotocols`
+Under subprotocols there are 4 crates (common-messages, job-negotiation, mining,
+template-distribution). They are just the Rust translation of the messages defined by each Sv2
+(sub)protocol. They all have the same internal external dependencies.
+
+**External dependencies**:
+* serde (only when compiled `with_serde`)
+
+**Internal dependencies**:
+* const_sv2
+* binary_sv2
+#### `protocols/v2/subprotocols/common-messages`
+#### `protocols/v2/subprotocols/job-negotiation`
+#### `protocols/v2/subprotocols/mining`
+#### `protocols/v2/subprotocols/template-distribution`
+
+#### `protocols/v2/sv2-ffi`
+Export a C static library with the min subset of `protocols/v2` needed to build a Template Provider.
+Every dependency is compiled without noise and without serde.
+
+**External dependencies**:
+* no dependencies
+
+**Internal dependencies**:
+* codec_sv2
+* const_sv2
+* binary_sv2 (maybe in the future will be used the one already imported by codec_sv2)
+* subprotocols/common_messages_sv2
+* subprotocols/template_distribution_sv2
 
 ### UTILS/BUFFER
 
