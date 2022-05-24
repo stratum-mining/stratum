@@ -79,24 +79,26 @@ Contains several Sv2 libraries serving various purposes depending on the desired
 TODO: more info
 
 #### `protocols/v2/binary-sv2`
-TODO 
+Under `binary-sv2` are three crates (`binary-sv2`, `no-serde-sv2`, and `serde-sv2`) that are
+contain Sv2 data types binary mappings.
 
-##### `protocols/v2/binary-sv2/binary-sv2`
-Sv2 data types binary mapping.
+It exports an API that allows the serialization and deserialization of the Sv2 primitive data
+types. It also exports two procedural macros, `Encodable` and `Decodable`, that, when applied to a
+struct, make it serializable/deserializable to/from the Sv2 binary format.
 
-It export an API that allow to serialize and deserialize the Sv2 primitive data types, it also
-export two procedural macro `Encodable` and `Decodable` that when applied to a struct make it
-serializable/deserializable to/from the Sv2 binary format.
+This crate can be compiled with the `with_serde` feature, which will use the external `serde` crate
+to serialize and deserialize. If this feature flag is NOT set, an internal serialization engine is
+used. The exported API is the same when compiled `with_serde` and not.
 
-This crate can be compiled with the `with_serde` feature, when the feature is on the crate will use
-serde in order to serialize and deserialize when it is off it will use an internal engine. The exported
-API is the same when compiled `with_serde` and not.
+TODO: what about the `no-serde-sv2` crate? is that the internal serialization engine that is used
+when the `with_serde` flag is NOT used?
+TODO: confirm that the `serde-sv2` crate is only used when the `with_serde` flag is used
 
 **External dependencies**:
-* serde (only when compiled `with_serde`)
+* serde (only when compiled with the `with_serde` flag)
 
 **Internal dependencies**:
-* buffer-sv2 (only when compiled `with_serde`)
+* buffer-sv2 (only when compiled the `with_serde` flag)
 
 ##### `protocols/v2/codec-sv2`
 Exports `StandardNoiseDecoder` and `StandardSv2Decoder` they get initialized with a buffer that
