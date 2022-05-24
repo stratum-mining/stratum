@@ -201,18 +201,19 @@ Under `subprotocols` are four crates (`common-messages`, `job-negotiation`, `min
 * `binary_sv2`
 
 #### `protocols/v2/sv2-ffi`
-Export a C static library with the min subset of `protocols/v2` needed to build a Template Provider.
-Every dependency is compiled without noise and without serde.
+Exports a C static library with the minimum subset of the `protocols/v2` libraries required to
+build a Template Provider. Every dependency is compiled WITHOUT the `with_noise` and  `with_serde`
+flags.
 
 **External dependencies**:
 * no dependencies
 
 **Internal dependencies**:
-* codec_sv2
-* const_sv2
-* binary_sv2 (maybe in the future will be used the one already imported by codec_sv2)
-* subprotocols/common_messages_sv2
-* subprotocols/template_distribution_sv2
+* `codec_sv2`
+* `const_sv2`
+* `binary_sv2` (maybe in the future will be used the one already imported by `codec_sv2`)
+* `subprotocols/common_messages_sv2`
+* `subprotocols/template_distribution_sv2`
 
 ### UTILS/BUFFER
 
