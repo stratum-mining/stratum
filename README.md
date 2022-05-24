@@ -64,6 +64,10 @@ protocols
    └─ noise-sv2
    └─ roles-logic-sv2
    └─ subprotocols
+      └─ common-messages
+      └─ job-negotiation
+      └─ mining
+      └─ template-distribution
    └─ sv2-ffi
 ```
 #### `protocols/v1`
@@ -116,7 +120,7 @@ can be composed by several `NoiseFrame`.
 * framing_sv2
 * noise_sv2 (only when compiled `with_noise`)
 
-##### `protocols/v2/const-sv2`
+#### `protocols/v2/const-sv2`
 Sv2 related constants.
 
 **External dependencies**:
