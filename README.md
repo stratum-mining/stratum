@@ -189,20 +189,16 @@ safe `Mutex` defined in `messages_sv2::utils::Mutex`.
 * `subprotocols/job_negotiation_sv2`
 
 #### `protocols/v2/subprotocols`
-Under subprotocols there are 4 crates (common-messages, job-negotiation, mining,
-template-distribution). They are just the Rust translation of the messages defined by each Sv2
+Under `subprotocols` are four crates (`common-messages`, `job-negotiation`, `mining`, and
+`template-distribution`) that are the Rust translation of the messages defined by each Sv2
 (sub)protocol. They all have the same internal external dependencies.
 
 **External dependencies**:
-* serde (only when compiled `with_serde`)
+* [`serde`](https://crates.io/crates/serde) (only when compiled with the `with_serde` flag)
 
 **Internal dependencies**:
-* const_sv2
-* binary_sv2
-#### `protocols/v2/subprotocols/common-messages`
-#### `protocols/v2/subprotocols/job-negotiation`
-#### `protocols/v2/subprotocols/mining`
-#### `protocols/v2/subprotocols/template-distribution`
+* `const_sv2`
+* `binary_sv2`
 
 #### `protocols/v2/sv2-ffi`
 Export a C static library with the min subset of `protocols/v2` needed to build a Template Provider.
