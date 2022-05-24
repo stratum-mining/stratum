@@ -1,6 +1,6 @@
 use super::upstream_mining::{JobDispatcher, StdFrame as UpstreamFrame, UpstreamMiningNode};
 use async_channel::{Receiver, SendError, Sender};
-use messages_sv2::{
+use roles_logic_sv2::{
     common_messages_sv2::{SetupConnection, SetupConnectionSuccess},
     common_properties::{
         CommonDownstreamData, DownstreamChannel, IsDownstream, IsMiningDownstream,
@@ -252,13 +252,13 @@ impl
                         match r.channel_id_to_job_dispatcher.get(group_id) {
                             Some(JobDispatcher::Group(dispatcher)) => {
                                 match dispatcher.on_submit_shares(m) {
-                                    messages_sv2::job_dispatcher::SendSharesResponse::Valid(m) => {
+                                    roles_logic_sv2::job_dispatcher::SendSharesResponse::Valid(m) => {
                                         // TODO this could just relasy same message and change the
                                         // job_id as we do for request_ids
                                         let message = Mining::SubmitSharesStandard(m);
                                         Ok(SendTo::RelayNewMessage(remote.clone(),message))
                                     },
-                                    messages_sv2::job_dispatcher::SendSharesResponse::Invalid(m) => {
+                                    roles_logic_sv2::job_dispatcher::SendSharesResponse::Invalid(m) => {
                                         let message = Mining::SubmitSharesError(m);
                                         Ok(SendTo::Respond(message))
                                     }
@@ -299,7 +299,7 @@ impl
         &mut self,
         _: SetupConnection,
         result: Option<Result<(CommonDownstreamData, SetupConnectionSuccess), Error>>,
-    ) -> Result<messages_sv2::handlers::common::SendTo, Error> {
+    ) -> Result<roles_logic_sv2::handlers::common::SendTo, Error> {
         let (data, message) = result.unwrap().unwrap();
         self.status.pair(data);
         Ok(SendToCommon::RelayNewMessage(
@@ -339,7 +339,7 @@ pub async fn listen_for_downstream_mining(address: SocketAddr) {
             ) {
                 Ok(SendToCommon::RelayNewMessage(_, message)) => {
                     let message = match message {
-                        messages_sv2::parsers::CommonMessages::SetupConnectionSuccess(m) => m,
+                        roles_logic_sv2::parsers::CommonMessages::SetupConnectionSuccess(m) => m,
                         _ => panic!(),
                     };
                     DownstreamMiningNode::start(node, message).await

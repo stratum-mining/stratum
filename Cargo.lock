@@ -1002,22 +1002,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "messages_sv2"
-version = "0.1.0"
-dependencies = [
- "binary_sv2",
- "bitcoin",
- "common_messages_sv2",
- "const_sv2",
- "framing_sv2",
- "job_negotiation_sv2",
- "mining_sv2",
- "serde",
- "template_distribution_sv2",
- "toml",
-]
-
-[[package]]
 name = "mining-device"
 version = "0.1.0"
 dependencies = [
@@ -1029,9 +1013,9 @@ dependencies = [
  "buffer_sv2",
  "codec_sv2",
  "const_sv2",
- "messages_sv2",
  "network_helpers",
  "rand 0.8.4",
+ "roles_logic_sv2",
 ]
 
 [[package]]
@@ -1046,8 +1030,8 @@ dependencies = [
  "codec_sv2",
  "const_sv2",
  "futures",
- "messages_sv2",
  "network_helpers",
+ "roles_logic_sv2",
  "serde",
  "toml",
 ]
@@ -1069,7 +1053,6 @@ dependencies = [
  "async-std",
  "binary_sv2",
  "codec_sv2",
- "messages_sv2",
  "serde",
 ]
 
@@ -1255,9 +1238,9 @@ dependencies = [
  "buffer_sv2",
  "codec_sv2",
  "const_sv2",
- "messages_sv2",
  "network_helpers",
  "rand 0.8.4",
+ "roles_logic_sv2",
 ]
 
 [[package]]
@@ -1442,6 +1425,22 @@ name = "regex-syntax"
 version = "0.6.25"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f497285884f3fcff424ffc933e56d7cbca511def0c9831a7f9b5f6153e3cc89b"
+
+[[package]]
+name = "roles_logic_sv2"
+version = "0.1.0"
+dependencies = [
+ "binary_sv2",
+ "bitcoin",
+ "common_messages_sv2",
+ "const_sv2",
+ "framing_sv2",
+ "job_negotiation_sv2",
+ "mining_sv2",
+ "serde",
+ "template_distribution_sv2",
+ "toml",
+]
 
 [[package]]
 name = "rustc_version"
@@ -1683,8 +1682,8 @@ dependencies = [
  "async-channel",
  "async-std",
  "codec_sv2",
- "messages_sv2",
  "network_helpers",
+ "roles_logic_sv2",
 ]
 
 [[package]]
@@ -1709,9 +1708,9 @@ dependencies = [
  "buffer_sv2",
  "codec_sv2",
  "const_sv2",
- "messages_sv2",
  "network_helpers",
  "rand 0.8.4",
+ "roles_logic_sv2",
 ]
 
 [[package]]

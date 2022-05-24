@@ -7,7 +7,7 @@ use async_channel::{Receiver, Sender};
 use async_std::sync::Arc;
 use binary_sv2::{u256_from_int, B032};
 use codec_sv2::{Frame, StandardEitherFrame, StandardSv2Frame};
-use messages_sv2::{
+use roles_logic_sv2::{
     common_messages_sv2::{SetupConnection, SetupConnectionSuccess},
     common_properties::{CommonDownstreamData, IsDownstream, IsMiningDownstream},
     errors::Error,
@@ -136,8 +136,8 @@ impl ParseDownstreamCommonMessages<NoRouting> for SetupConnectionHandler {
         &mut self,
         incoming: SetupConnection,
         _: Option<Result<(CommonDownstreamData, SetupConnectionSuccess), Error>>,
-    ) -> Result<messages_sv2::handlers::common::SendTo, Error> {
-        use messages_sv2::handlers::common::SendTo;
+    ) -> Result<roles_logic_sv2::handlers::common::SendTo, Error> {
+        use roles_logic_sv2::handlers::common::SendTo;
         let header_only = incoming.requires_standard_job();
         self.header_only = Some(header_only);
         println!("POOL: setup connection");

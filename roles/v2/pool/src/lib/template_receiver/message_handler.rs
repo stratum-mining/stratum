@@ -1,5 +1,5 @@
 use crate::lib::template_receiver::TemplateRx;
-use messages_sv2::{
+use roles_logic_sv2::{
     errors::Error,
     handlers::template_distribution::{ParseServerTemplateDistributionMessages, SendTo},
     parsers::TemplateDistribution,

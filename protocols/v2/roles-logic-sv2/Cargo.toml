@@ -1,5 +1,5 @@
 [package]
-name = "messages_sv2"
+name = "roles_logic_sv2"
 version = "0.1.0"
 edition = "2018"
 

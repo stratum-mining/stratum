@@ -1,11 +1,11 @@
 use async_channel::{Receiver, Sender};
 use async_std::net::TcpStream;
 use codec_sv2::{Frame, StandardEitherFrame, StandardSv2Frame, Sv2Frame};
-use messages_sv2::{
+use network_helpers::PlainConnection;
+use roles_logic_sv2::{
     parsers::{IsSv2Message, TemplateDistribution},
     template_distribution_sv2::SubmitSolution,
 };
-use network_helpers::PlainConnection;
 use std::{
     convert::TryInto,
     net::{IpAddr, Ipv4Addr, SocketAddr},

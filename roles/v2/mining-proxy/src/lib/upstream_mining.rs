@@ -3,7 +3,8 @@ use async_channel::{Receiver, SendError, Sender};
 use async_recursion::async_recursion;
 use async_std::{net::TcpStream, task};
 use codec_sv2::{Frame, HandshakeRole, Initiator, StandardEitherFrame, StandardSv2Frame};
-use messages_sv2::{
+use network_helpers::Connection;
+use roles_logic_sv2::{
     common_messages_sv2::{Protocol, SetupConnection},
     common_properties::{
         DownstreamChannel, IsMiningDownstream, IsMiningUpstream, IsUpstream, RequestIdMapper,
@@ -18,7 +19,6 @@ use messages_sv2::{
     selectors::{DownstreamMiningSelector, ProxyDownstreamMiningSelector as Prs},
     utils::{Id, Mutex},
 };
-use network_helpers::Connection;
 use std::{collections::HashMap, sync::Arc};
 
 pub type Message = PoolMessages<'static>;

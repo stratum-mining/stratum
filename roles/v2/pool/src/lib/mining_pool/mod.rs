@@ -14,7 +14,7 @@ use bitcoin::{
     TxMerkleNode,
 };
 use codec_sv2::Frame;
-use messages_sv2::{
+use roles_logic_sv2::{
     common_properties::{CommonDownstreamData, IsDownstream, IsMiningDownstream},
     errors::Error,
     handlers::mining::{ParseDownstreamMiningMessages, SendTo},
@@ -358,7 +358,7 @@ impl Downstream {
         for job in extended_jobs {
             Self::send(
                 self_.clone(),
-                messages_sv2::parsers::Mining::NewExtendedMiningJob(job.0),
+                roles_logic_sv2::parsers::Mining::NewExtendedMiningJob(job.0),
             )
             .await
             .unwrap();
@@ -423,7 +423,7 @@ impl Downstream {
 
     pub async fn send(
         self_mutex: Arc<Mutex<Self>>,
-        message: messages_sv2::parsers::Mining<'static>,
+        message: roles_logic_sv2::parsers::Mining<'static>,
     ) -> Result<(), ()> {
         let sv2_frame: StdFrame = PoolMessages::Mining(message).try_into().unwrap();
         let sender = self_mutex.safe_lock(|self_| self_.sender.clone()).unwrap();

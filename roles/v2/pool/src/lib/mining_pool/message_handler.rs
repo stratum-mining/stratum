@@ -1,7 +1,7 @@
 use crate::lib::mining_pool::{Downstream, VelideateTargetResult};
 use binary_sv2::U256;
 use bitcoin::util::uint::Uint256;
-use messages_sv2::{
+use roles_logic_sv2::{
     errors::Error,
     handlers::mining::{ChannelType, ParseDownstreamMiningMessages, SendTo},
     mining_sv2::*,

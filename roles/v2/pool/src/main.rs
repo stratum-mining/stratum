@@ -1,6 +1,6 @@
 use async_channel::bounded;
 use codec_sv2::{StandardEitherFrame, StandardSv2Frame};
-use messages_sv2::{
+use roles_logic_sv2::{
     bitcoin::{secp256k1::Secp256k1, Network, PrivateKey, PublicKey},
     parsers::PoolMessages,
 };

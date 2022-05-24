@@ -35,7 +35,7 @@ use std::str::FromStr;
 // TODO make them configurable via flags or config file
 pub const MAX_SUPPORTED_VERSION: u16 = 2;
 pub const MIN_SUPPORTED_VERSION: u16 = 2;
-use messages_sv2::{
+use roles_logic_sv2::{
     routing_logic::MiningProxyRoutingLogic,
     selectors::{GeneralMiningSelector, UpstreamMiningSelctor},
     utils::{Id, Mutex},

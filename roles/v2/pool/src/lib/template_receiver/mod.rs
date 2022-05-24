@@ -3,13 +3,13 @@ use async_channel::{Receiver, Sender};
 //use std::sync::mpsc::Sender as SSender;
 use async_std::{net::TcpStream, task};
 use codec_sv2::Frame;
-use messages_sv2::{
+use network_helpers::PlainConnection;
+use roles_logic_sv2::{
     handlers::template_distribution::ParseServerTemplateDistributionMessages,
     parsers::{PoolMessages, TemplateDistribution},
     template_distribution_sv2::{NewTemplate, SetNewPrevHash, SubmitSolution},
     utils::Mutex,
 };
-use network_helpers::PlainConnection;
 use std::{convert::TryInto, net::SocketAddr, sync::Arc};
 
 mod message_handler;
@@ -74,7 +74,7 @@ impl TemplateRx {
             )
             .unwrap()
             {
-                messages_sv2::handlers::SendTo_::RelayNewMessage(_, m) => match m {
+                roles_logic_sv2::handlers::SendTo_::RelayNewMessage(_, m) => match m {
                     TemplateDistribution::CoinbaseOutputDataSize(_) => todo!(),
                     TemplateDistribution::NewTemplate(m) => {
                         new_template_sender.send(m).await.unwrap()
