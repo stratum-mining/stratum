@@ -122,7 +122,7 @@ this is more complex as it returns a `Sv2Frame`, which can be composed of severa
 * `noise_sv2` (only when compiled with the `with_noise` flag)
 
 #### `protocols/v2/const-sv2`
-Sv2 related constants.
+Contains the Sv2 related constants.
 
 **External dependencies**:
 * no dependencies
