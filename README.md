@@ -1,4 +1,4 @@
-# Stratum V2 (Sv2) Proxy
+# Stratum
 
 ## Table of Contents
 - [Stratum V2 (Sv2) Proxy](#stratum-v2--sv2--proxy)
