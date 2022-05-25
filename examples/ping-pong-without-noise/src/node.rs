@@ -22,6 +22,7 @@ enum Expected {
 pub struct Node {
     name: String,
     last_id: u32,
+    #[allow(dead_code)]
     connection: Arc<Mutex<Connection>>,
     expected: Expected,
     receiver: Receiver<StandardSv2Frame<Message<'static>>>,

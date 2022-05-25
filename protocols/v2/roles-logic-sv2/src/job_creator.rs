@@ -28,6 +28,7 @@ struct JobCreator {
     version_rolling_allowed: bool,
     template_id_to_job_id: HashMap<u64, u32>,
     // TODO this is always 32 (required by the spec) so put that in const_sv2 crate
+    #[allow(dead_code)]
     extranonce_prefix_len: u8,
 }
 

@@ -20,6 +20,7 @@ use crate::error::{Error, Result};
 #[derive(Debug)]
 pub struct Deserializer<'de> {
     input: &'de [u8],
+    #[allow(dead_code)]
     len: u8,
 }
 

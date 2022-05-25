@@ -600,8 +600,11 @@ impl From<VersionRollingParams> for serde_json::Map<String, Value> {
 #[derive(Debug)]
 pub struct InfoParams {
     connection_url: Option<String>,
+    #[allow(dead_code)]
     hw_id: Option<String>,
+    #[allow(dead_code)]
     hw_version: Option<String>,
+    #[allow(dead_code)]
     sw_version: Option<String>,
 }
 

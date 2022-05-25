@@ -50,6 +50,7 @@ impl UpstreamMiningConnection {
 pub struct Sv2MiningConnection {
     version: u16,
     setup_connection_flags: u32,
+    #[allow(dead_code)]
     setup_connection_success_flags: u32,
 }
 

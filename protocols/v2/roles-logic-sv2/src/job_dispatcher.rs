@@ -81,12 +81,14 @@ struct DownstreamJob {
 
 #[derive(Debug)]
 struct ExtendedJobs {
+    #[allow(dead_code)]
     upstream_target: Vec<u8>,
 }
 
 #[derive(Debug)]
 pub struct GroupChannelJobDispatcher {
     //channels: Vec<StandardChannel>,
+    #[allow(dead_code)]
     target: Target,
     prev_hash: Vec<u8>,
     // extedned_job_id -> standard_job_id -> standard_job

@@ -129,6 +129,7 @@ impl ParseUpstreamCommonMessages<NoRouting> for SetupConnectionHandler {
 
 #[derive(Debug)]
 pub struct Device {
+    #[allow(dead_code)]
     receiver: Receiver<EitherFrame>,
     sender: Sender<EitherFrame>,
     #[allow(dead_code)]

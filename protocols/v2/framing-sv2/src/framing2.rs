@@ -75,6 +75,7 @@ impl<T, B> Default for Sv2Frame<T, B> {
 
 #[derive(Debug)]
 pub struct NoiseFrame {
+    #[allow(dead_code)]
     header: u16,
     payload: Vec<u8>,
 }
