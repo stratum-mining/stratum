@@ -236,9 +236,8 @@ flags.
 * `subprotocols/common_messages_sv2`
 * `subprotocols/template_distribution_sv2`
 
-### UTILS/BUFFER
-
-Unsafe fast buffer pool with fuzzy testing and benches. Can be used with codec_sv2.
+### `utils/buffer`
+Unsafe but fast buffer pool with fuzz testing and benches. Can be used with `codec_sv2`.
 
 **External dependencies**:
 * no dependencies
