@@ -1,5 +1,7 @@
 # Stratum V2 (Sv2) Proxy
 
+## 1. Goals
+
 The goal of the project is to provide:
 * These libraries can all be used, or only a subset of them can be used, depending on the
   functionality desired by the end user. Some examples of individuals who benefit from the
@@ -33,7 +35,7 @@ The goal of the project is to provide:
       and Template Provider (a minimum amount of modification is still required).
 * Make this primitives available also to non Rust user.
 
-## Structure
+## 2. Structure
 ```
 stratum
   └─ examples
@@ -91,18 +93,18 @@ This workspace is divided in 6 macro-areas:
 All dependencies related to the testing and benchmarking of this repository is optional and is
 never listed under a workspace's **External dependencies**.
 
-### `protocols`
+### 2.1 `protocols`
 Core Stratum V2 and V1 libraries.
 
-#### `protocols/v1`
+#### 2.1.1 `protocols/v1`
 Contains a Sv1 library.
 TODO: more information
 
-#### `protocols/v2`
+#### 2.1.2 `protocols/v2`
 Contains several Sv2 libraries serving various purposes depending on the desired application.
 TODO: more info
 
-#### `protocols/v2/binary-sv2`
+#### 2.1.2.1 `protocols/v2/binary-sv2`
 Under `binary-sv2` are three crates (`binary-sv2`, `no-serde-sv2`, and `serde-sv2`) that are
 contain Sv2 data types binary mappings.
 
@@ -124,7 +126,7 @@ TODO: confirm that the `serde-sv2` crate is only used when the `with_serde` flag
 **Internal dependencies**:
 * `buffer-sv2` (only when compiled with the `with_serde` flag) TODO: where is the `buffer-sv2` dep?
 
-### `protocols/v2/codec-sv2`
+#### 2.1.2.2 `protocols/v2/codec-sv2`
 Exports `StandardNoiseDecoder` and `StandardSv2Decoder` that are initialized with a buffer
 containing a "stream" of bytes. When `next_frame` is called, they return either a `Sv2Frame` or an
 error containing the number of missing bytes to allow next step[^1], so that the caller can fill the
@@ -145,7 +147,7 @@ this is more complex as it returns a `Sv2Frame`, which can be composed of severa
 * `framing_sv2`
 * `noise_sv2` (only when compiled with the `with_noise` flag)
 
-### `protocols/v2/const-sv2`
+#### 2.1.2.3 `protocols/v2/const-sv2`
 Contains the Sv2 related constants.
 
 **External dependencies**:
@@ -154,7 +156,7 @@ Contains the Sv2 related constants.
 **Internal dependencies**:
 * no dependencies
 
-### `protocols/v2/framing-sv2`
+#### 2.1.2.4 `protocols/v2/framing-sv2`
 Exports the `Frame` trait. A `Frame` can:
 * be serialized (`serialize`) and deserialized (`from_bytes`, `from_bytes_unchecked`)
 * return the payload (`payload`)
@@ -173,11 +175,11 @@ Two implementations of the `Frame` trait are exports: `Sv2Frame` and `NoiseFrame
 * `binary_sv2`
 
 
-### `protocols/v2/noise-sv2`
+#### 2.1.2.5 `protocols/v2/noise-sv2`
 Contains the Noise Protocol logic.
 TODO: More information.
 
-### `protocols/v2/roles-logic-sv2`
+#### 2.1.2.6 `protocols/v2/roles-logic-sv2`
 **Previously called messages-sv2**.
 A sort of "catch-all" workspace that contains miscellaneous logic required to build a Sv2 role, but
 that does not "fit" into the other workspaces. This includes:
@@ -212,7 +214,7 @@ safe `Mutex` defined in `messages_sv2::utils::Mutex`.
 * `subprotocols/template_distribution_sv2`
 * `subprotocols/job_negotiation_sv2`
 
-### `protocols/v2/subprotocols`
+#### 2.1.2.7 `protocols/v2/subprotocols`
 Under `subprotocols` are four crates (`common-messages`, `job-negotiation`, `mining`, and
 `template-distribution`) that are the Rust translation of the messages defined by each Sv2
 (sub)protocol. They all have the same internal external dependencies.
@@ -224,7 +226,7 @@ Under `subprotocols` are four crates (`common-messages`, `job-negotiation`, `min
 * `const_sv2`
 * `binary_sv2`
 
-### `protocols/v2/sv2-ffi`
+#### 2.1.2.8 `protocols/v2/sv2-ffi`
 Exports a C static library with the minimum subset of the `protocols/v2` libraries required to
 build a Template Provider. Every dependency is compiled WITHOUT the `with_noise` and  `with_serde`
 flags.
@@ -239,11 +241,11 @@ flags.
 * `subprotocols/common_messages_sv2`
 * `subprotocols/template_distribution_sv2`
 
-### `utils`
+### 2.2 `utils`
 Offers an alternative buffer to use that is more efficient, but less safe than the default buffers
 used. Also has network helpers.
 
-### `utils/buffer`
+#### 2.2.1 `utils/buffer`
 Unsafe but fast buffer pool with fuzz testing and benches. Can be used with `codec_sv2`.
 
 **External dependencies**:
@@ -252,7 +254,7 @@ Unsafe but fast buffer pool with fuzz testing and benches. Can be used with `cod
 **Internal dependencies**:
 * no dependencies
 
-### `utils/network-helpers`
+#### 2.2.2 `utils/network-helpers`
 Async runtime specific helpers. 
 Exports `Connection` which is used to open an Sv2 connection either with or without noise.
 
@@ -268,30 +270,33 @@ TODO: More information
 * `const_sv2`
 * `messages_sv2` (it will be removed very soon already commited in a wroking branch)
 
-### `roles`
+### 2.3 `roles`
 The Sv2 roles as binaries to be executed, including the mining-device, mining-proxy, and pool. This
 gives good examples of the actual implementation/use of the available libraries.
 
-#### `roles/mining-proxy`
+#### 2.3.1 `roles/mining-proxy`
 A Sv2 proxy.
 
-### `roles/pool`
+#### 2.3.2 `roles/pool`
 A Sv2 pool.
 
-### `roles/test-utils/pool`
+#### 2.3.4 `roles/test-utils/pool`
 A Sv2 pools useful to do integration tests.
 
-### `roles/test-utils/mining-device`
+#### 2.3.5 `roles/test-utils/mining-device`
 A Sv2 CPU miner useful to do integration tests.
 
-### `examples`
+### 2.4 `examples`
 Contains several example implementations of various use cases.
 
-### `experimental`
+### 2.5 `test`
+Contains integration tests.
+
+### 2.6 `experimental`
 Contains experimental logic that is not yet specified in the protocol or in a protocol extension.
 
 
-## Branches
+## 3. Branches
 TODO
 
 * main
