@@ -1,5 +1,42 @@
 # Stratum V2 (Sv2) Proxy
 
+## Table of Contents
+- [Stratum V2 (Sv2) Proxy](#stratum-v2--sv2--proxy)
+  * [1. Goals](#1-goals)
+  * [2. Structure](#2-structure)
+    + [2.1 `protocols`](#21--protocols-)
+      - [2.1.1 `protocols/v1`](#211--protocols-v1-)
+      - [2.1.2 `protocols/v2`](#212--protocols-v2-)
+      - [2.1.2.1 `protocols/v2/binary-sv2`](#2121--protocols-v2-binary-sv2-)
+      - [2.1.2.2 `protocols/v2/codec-sv2`](#2122--protocols-v2-codec-sv2-)
+      - [2.1.2.3 `protocols/v2/const-sv2`](#2123--protocols-v2-const-sv2-)
+      - [2.1.2.4 `protocols/v2/framing-sv2`](#2124--protocols-v2-framing-sv2-)
+      - [2.1.2.5 `protocols/v2/noise-sv2`](#2125--protocols-v2-noise-sv2-)
+      - [2.1.2.6 `protocols/v2/roles-logic-sv2`](#2126--protocols-v2-roles-logic-sv2-)
+      - [2.1.2.7 `protocols/v2/subprotocols`](#2127--protocols-v2-subprotocols-)
+      - [2.1.2.8 `protocols/v2/sv2-ffi`](#2128--protocols-v2-sv2-ffi-)
+    + [2.2 `utils`](#22--utils-)
+      - [2.2.1 `utils/buffer`](#221--utils-buffer-)
+      - [2.2.2 `utils/network-helpers`](#222--utils-network-helpers-)
+    + [2.3 `roles`](#23--roles-)
+      - [2.3.1 `roles/mining-proxy`](#231--roles-mining-proxy-)
+      - [2.3.2 `roles/pool`](#232--roles-pool-)
+      - [2.3.3 `roles/test-utils`](#233--roles-test-utils-)
+      - [2.3.3.1 `roles/test-utils/pool`](#2331--roles-test-utils-pool-)
+      - [2.3.3.2 `roles/test-utils/mining-device`](#2332--roles-test-utils-mining-device-)
+    + [2.4 `examples`](#24--examples-)
+      - [2.4.1 `interop-cpp`](#241--interop-cpp-)
+      - [2.4.2 `interop-cpp-no-cargo`](#242--interop-cpp-no-cargo-)
+      - [2.4.3 `ping-pong-with-noise`](#243--ping-pong-with-noise-)
+      - [2.4.4 `ping-pong-without-noise`](#244--ping-pong-without-noise-)
+      - [2.4.5 `sv1-client-and-server`](#245--sv1-client-and-server-)
+      - [2.4.6 `sv2-proxy`](#246--sv2-proxy-)
+      - [2.4.7 `template-provider-test`](#247--template-provider-test-)
+    + [2.5 `test`](#25--test-)
+    + [2.6 `experimental`](#26--experimental-)
+  * [3. Branches](#3-branches)
+
+
 ## 1. Goals
 
 The goal of the project is to provide:
