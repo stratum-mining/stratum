@@ -41,24 +41,23 @@ the Bitcoin network.
 
 ## 1. Goals
 The goals of this project is to provide:
+
 1. A robust set of Stratum V2 (Sv2) primitives as Rust library crates that can be used by anyone
    that wants to expand the protocol or implement a role (e.g. a pool wanting to support Sv2, a
    mining-device/hashrate producer that wants to integrate Sv2 into their firmware, a Bitcoin node
    that wants to implement Template Provider capabilities to build the `blocktemplate`).
 
-1. Make these primitives available to non-Rust users using a C FFI.
+1. The above Rust primitives as a C library, making it available to non-Rust users via a C
+   bindings.
 
 1. A set of helpers built on top of the above primitives and the external Bitcoin-related Rust
    crates that can be used by anyone who wants to implement the Sv2 roles (e.g. a pool that uses
    Rust and wants to support Sv2).
+
 1. An open-source implementation of a Sv2 proxy that can be used by miners that want to use Sv2.
 
 1. An open-source implementation of a Sv2 pool that can be used by anyone that wants to operate a
    Sv2 pool.
-
-1. A self hosted Job Negotiator + Template Provider that can be used by a Sv2 or Sv1 pool that
-   wants to offer job negotiation capabilities to their costumer without modifying the existing
-   pool's Sv1 codebase (a minimum amount of modification is still required).
 
 
 ## 2. Common Use Cases
