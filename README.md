@@ -138,7 +138,7 @@ stratum
 ```
 
 This workspace is divided in 6 macro-areas:
-1. `protocols`: Core Stratum V2 and V1 libraries.
+1. `protocols`: Stratum V2 and V1 libraries.
 1. `roles`: The Sv2 roles as binaries to be executed, including the mining-device, mining-proxy,
             and pool. This gives good examples of the actual implementation/use of the available
             libraries.
