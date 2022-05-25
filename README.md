@@ -268,10 +268,13 @@ A Sv2 proxy.
 #### 2.3.2 `roles/pool`
 A Sv2 pool.
 
-#### 2.3.4 `roles/test-utils/pool`
+#### 2.3.3 `roles/test-utils`
+TODO
+
+#### 2.3.3.1 `roles/test-utils/pool`
 A Sv2 pools useful to do integration tests.
 
-#### 2.3.5 `roles/test-utils/mining-device`
+#### 2.3.3.2 `roles/test-utils/mining-device`
 A Sv2 CPU miner useful to do integration tests.
 
 ### 2.4 `examples`
