@@ -141,9 +141,7 @@ stratum
 
 This workspace is divided in 6 macro-areas:
 1. `protocols`: Stratum V2 and V1 libraries.
-1. `roles`: The Sv2 roles as binaries to be executed, including the mining-device, mining-proxy,
-            and pool. This gives good examples of the actual implementation/use of the available
-            libraries.
+1. `roles`: The Sv2 roles logic.
 1. `utils`: Offers an alternative buffer to use that is more efficient, but less safe than the
             default buffers used. Also has network helpers.
 1. `examples`: Several example implementations of various use cases.
@@ -320,8 +318,7 @@ TODO: More information
 * `messages_sv2` (it will be removed very soon already commited in a wroking branch)
 
 ### 2.3 `roles`
-The Sv2 roles as binaries to be executed, including the mining-device, mining-proxy, and pool. This
-gives good examples of the actual implementation/use of the available libraries.
+Contains the Sv2 roles logic.
 
 #### 2.3.1 `roles/mining-proxy`
 A Sv2 proxy.
