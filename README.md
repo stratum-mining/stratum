@@ -64,10 +64,9 @@ The goals of this project is to provide:
 Different portions of the library will be used depending on the use case and/or desired
 functionality. Some examples of different use-cases are:
 
-1. A miner who runs a mining farm with Sv2-compatible mining firmware mining to a
-   Sv2-compatible pool can use this library as a proxy which allows them to use the Group
-   Channels, which reduce their bandwidth consumption and bolster their efficiency. Standard
-   Channels are also supported in here, but are not as efficient as Group Channels.
+1. A miner who runs a mining farm with Sv2-compatible mining firmware mining to a Sv2-compatible
+   pool can use this library as a proxy which allows them realize the full benefits of the Sv2
+   protocol.
 
 1. A miner who runs a mining farm with Sv2-compatible mining firmware mining to a Sv2-compatible
    pool, who wants to select their own transactions to build their own `blocktemplate`, can use
@@ -76,12 +75,10 @@ functionality. Some examples of different use-cases are:
 
 1. A miner who runs a mining farm with SV1-compatible mining firmware mining to a Sv2-compatible
    pool, who wants to gain some of the security and efficiency improvements that Sv2 offers over
-   Stratum V1 (Sv1) (by using Extended Channels). This Sv1<->Sv2 miner proxy does not support
-   all the features of Sv2, therefore it should be used as a temporary measure before completely
-   upgrading to Sv2-compatible firmware.
+   Stratum V1 (Sv1). This Sv1<->Sv2 miner proxy does not support all the features of Sv2, therefore
+   it should be used as a temporary measure before completely upgrading to Sv2-compatible firmware.
 
-1. A pool that wants to build a Sv2 compatible pool server, complete with all Sv2 channel
-   support (Standard, Group, and Extended channels).
+1. A pool that wants to build a Sv2 compatible pool server.
 
 1. A pool that wants to begin supporting Sv2 but is not yet ready to completely overhaul their
    existing Sv1 server can use these libraries to construct a Sv2<->Sv1 proxy server. This proxy
@@ -90,8 +87,8 @@ functionality. Some examples of different use-cases are:
    the most upstream Sv1 pool server. This most upstream Sv1 pool server is likely the already
    existing pool server logic. In this way, pools can begin supporting Sv2 without waiting to
    redo their entire server infrastructure to be Sv2 compatible only. This Sv2<->Sv1 pool proxy
-   will only allow the pool to support Standard channels (not Group or Extended), therefore this
-   should be used as a temporary measure before completely upgrading to a Sv2-only pool.
+   will only allow the pool to support a certain subset of the Sv2 protocol, and should be used as
+   a temporary measure before completely upgrading to a Sv2-only pool.
 
 1. A Sv2- or Sv1-compatible pool that wants to offer job negotiation capabilities to their
    customers (miner's mining to their pool) can use this library to self-host a Job Negotiator
