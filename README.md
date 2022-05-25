@@ -150,12 +150,6 @@ this is more complex as it returns a `Sv2Frame`, which can be composed of severa
 #### 2.1.2.3 `protocols/v2/const-sv2`
 Contains the Sv2 related constants.
 
-**External dependencies**:
-* no dependencies
-
-**Internal dependencies**:
-* no dependencies
-
 #### 2.1.2.4 `protocols/v2/framing-sv2`
 Exports the `Frame` trait. A `Frame` can:
 * be serialized (`serialize`) and deserialized (`from_bytes`, `from_bytes_unchecked`)
@@ -178,6 +172,9 @@ Two implementations of the `Frame` trait are exports: `Sv2Frame` and `NoiseFrame
 #### 2.1.2.5 `protocols/v2/noise-sv2`
 Contains the Noise Protocol logic.
 TODO: More information.
+
+**External dependencies**: TODO
+**Internal dependencies**: TODO
 
 #### 2.1.2.6 `protocols/v2/roles-logic-sv2`
 **Previously called messages-sv2**.
@@ -231,9 +228,6 @@ Exports a C static library with the minimum subset of the `protocols/v2` librari
 build a Template Provider. Every dependency is compiled WITHOUT the `with_noise` and  `with_serde`
 flags.
 
-**External dependencies**:
-* no dependencies
-
 **Internal dependencies**:
 * `codec_sv2`
 * `const_sv2`
@@ -247,12 +241,6 @@ used. Also has network helpers.
 
 #### 2.2.1 `utils/buffer`
 Unsafe but fast buffer pool with fuzz testing and benches. Can be used with `codec_sv2`.
-
-**External dependencies**:
-* no dependencies
-
-**Internal dependencies**:
-* no dependencies
 
 #### 2.2.2 `utils/network-helpers`
 Async runtime specific helpers. 
@@ -294,7 +282,6 @@ Contains integration tests.
 
 ### 2.6 `experimental`
 Contains experimental logic that is not yet specified in the protocol or in a protocol extension.
-
 
 ## 3. Branches
 TODO
