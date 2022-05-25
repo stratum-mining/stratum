@@ -293,7 +293,7 @@ flags.
 * `subprotocols/template_distribution_sv2`
 
 ### 2.2 `utils`
-Offers an alternative buffer to use that is more efficient, but less safe than the default buffers
+Offers an alternative, more efficient buffer to use, but is less safe than the default buffers
 used. Also has network helpers.
 
 #### 2.2.1 `utils/buffer`
