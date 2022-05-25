@@ -280,6 +280,27 @@ A Sv2 CPU miner useful to do integration tests.
 ### 2.4 `examples`
 Contains several example implementations of various use cases.
 
+#### 2.4.1 `interop-cpp`
+TODO
+
+#### 2.4.2 `interop-cpp-no-cargo`
+TODO
+
+#### 2.4.3 `ping-pong-with-noise`
+TODO
+
+#### 2.4.4 `ping-pong-without-noise`
+TODO
+
+#### 2.4.5 `sv1-client-and-server`
+TODO
+
+#### 2.4.6 `sv2-proxy`
+TODO
+
+#### 2.4.7 `template-provider-test`
+TODO
+
 ### 2.5 `test`
 Contains integration tests.
 
