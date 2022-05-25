@@ -85,12 +85,15 @@ This workspace is divided in 6 macro-areas:
             default buffers used. Also has network helpers.
 1. `examples`: Several example implementations of various use cases.
 1. `test`: Integration tests.
-1. `experimental`: Not yet specified part of the protocol or extensions.
+1. `experimental`: Experimental logic that is not yet specified in the protocol or in a protocol
+                   extension.
 
 Every dependency related to benchmarking and testing can be always opted out so we never list
 them under **External dependencies**.
 
-### `protocols` Workspace
+### `protocols`
+Core Stratum V2 and V1 libraries.
+
 #### `protocols/v1`
 Contains a Sv1 library.
 TODO: more information
@@ -236,6 +239,10 @@ flags.
 * `subprotocols/common_messages_sv2`
 * `subprotocols/template_distribution_sv2`
 
+### `utils`
+Offers an alternative buffer to use that is more efficient, but less safe than the default buffers
+used. Also has network helpers.
+
 ### `utils/buffer`
 Unsafe but fast buffer pool with fuzz testing and benches. Can be used with `codec_sv2`.
 
@@ -261,7 +268,11 @@ TODO: More information
 * `const_sv2`
 * `messages_sv2` (it will be removed very soon already commited in a wroking branch)
 
-### `roles/mining-proxy`
+### `roles`
+The Sv2 roles as binaries to be executed, including the mining-device, mining-proxy, and pool. This
+gives good examples of the actual implementation/use of the available libraries.
+
+#### `roles/mining-proxy`
 A Sv2 proxy.
 
 ### `roles/pool`
@@ -280,7 +291,7 @@ Contains several example implementations of various use cases.
 Contains experimental logic that is not yet specified in the protocol or in a protocol extension.
 
 
-## BRANCHES
+## Branches
 TODO
 
 * main
