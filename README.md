@@ -261,17 +261,17 @@ TODO: More information
 * `const_sv2`
 * `messages_sv2` (it will be removed very soon already commited in a wroking branch)
 
-### ROLES/MINING-PROXY
-An Sv2 proxy
+### `roles/mining-proxy`
+A Sv2 proxy.
 
-### ROLES/POOL
-An Sv2 pool
+### `roles/pool`
+A Sv2 pool.
 
-### ROLES/TEST-UTILS/POOL
-An Sv2 pools useful to do integration tests
+### `roles/test-utils/pool`
+A Sv2 pools useful to do integration tests.
 
-### ROLES/TEST-UTILS/MINING-DEVICE
-An Sv2 CPU miner useful to do integration tests
+### `roles/test-utils/mining-device`
+A Sv2 CPU miner useful to do integration tests.
 
 ### EXAMPLES
 TODO
