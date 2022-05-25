@@ -33,7 +33,7 @@ impl<'a, const SIZE: usize> Inner<'a, true, SIZE, 0, 0> {
     pub fn inner_as_ref(&self) -> &[u8] {
         match self {
             Inner::Ref(ref_) => ref_,
-            Inner::Owned(v) => &v,
+            Inner::Owned(v) => v,
         }
     }
 }

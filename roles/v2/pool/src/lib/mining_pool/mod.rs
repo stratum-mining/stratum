@@ -90,6 +90,7 @@ struct CompleteStandardJob {
     coinbase_tx_suffix: Vec<u8>,
     coinbase_tx_prefix: Vec<u8>,
     extranonce: Vec<u8>,
+    #[allow(dead_code)]
     merkle_path: Vec<Vec<u8>>,
     merkle_root: TxMerkleNode,
 }
@@ -229,7 +230,9 @@ impl StandardJob {
 
 #[derive(Debug)]
 pub struct ExtendedJob {
+    #[allow(dead_code)]
     merkle_path: Vec<u8>,
+    #[allow(dead_code)]
     nbits: u32,
 }
 

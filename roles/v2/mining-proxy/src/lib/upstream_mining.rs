@@ -50,9 +50,14 @@ impl UpstreamMiningConnection {
 pub struct Sv2MiningConnection {
     version: u16,
     setup_connection_flags: u32,
+    #[allow(dead_code)]
     setup_connection_success_flags: u32,
 }
 
+// Efficient stack do use JobDispatcher so the smaller variant (None) do not impact performance
+// cause is used in already non performant environments. That to justify the below allow.
+// https://rust-lang.github.io/rust-clippy/master/index.html#large_enum_varianT
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug)]
 pub enum JobDispatcher {
     Group(GroupChannelJobDispatcher),
@@ -533,7 +538,7 @@ impl
                 for job in &self.last_extended_jobs {
                     // TODO the below unwrap is not safe
                     for job in
-                        jobs_to_relay(self.id, &job, &downstream, dispatcher.as_mut().unwrap())
+                        jobs_to_relay(self.id, job, &downstream, dispatcher.as_mut().unwrap())
                     {
                         responses.push(job)
                     }
@@ -821,7 +826,7 @@ fn jobs_to_relay(
                         }
                         DownstreamChannel::Standard(channel) => {
                             if let JobDispatcher::Group(d) = dispacther {
-                                let job = d.on_new_extended_mining_job(&m, channel);
+                                let job = d.on_new_extended_mining_job(m, channel);
                                 crate::add_job_id(job.job_id, id, prev_id);
                                 let message = Mining::NewMiningJob(job);
                                 messages.push(SendTo::RelayNewMessage(downstream.clone(), message));

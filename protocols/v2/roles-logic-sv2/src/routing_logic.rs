@@ -238,7 +238,7 @@ impl<
     ) -> u32 {
         let upstreams = self
             .downstream_to_upstream_map
-            .get(&downstream_mining_data)
+            .get(downstream_mining_data)
             .unwrap();
         // TODO the upstream selection logic should be specified by the caller
         let upstream = Self::select_upstreams(&mut upstreams.to_vec());
