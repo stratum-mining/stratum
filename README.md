@@ -246,12 +246,12 @@ that does not "fit" into the other workspaces. This includes:
 * Bitcoin data structures <-> Sv2 data structures mapping
 * utils
 
-A Rust implementation of an Sv2 role is supposed to import this crate in order to have everything
-it need that is Sv2 or bitcoin related. In the future every library under `protocols/v2` will be
-reexported by this crate, so if a Rust implementation of a role needs access to a lower level
-library, there is no need to reimport it.
+A Rust implementation of a Sv2 role should import this crate to have all the required Sv2- or
+Bitcoin-related logic. In the future, every library under `protocols/v2` will be reexported by this
+crate, so if a Rust implementation of a role needs access to a lower level library, there is no
+need to reimport it.
 
-This crate do not assume any async runtime. The only thing that the user is required to use is a
+This crate does not assume any async runtime. The only thing that the user is required to use is a
 safe `Mutex` defined in `messages_sv2::utils::Mutex`.
 
 **External dependencies**:
