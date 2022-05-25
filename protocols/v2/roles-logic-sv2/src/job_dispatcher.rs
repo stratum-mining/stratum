@@ -45,8 +45,8 @@ impl<'a> BlockHeader<'a> {
     pub fn hash(&self) -> Target {
         let mut engine = sha256d::Hash::engine();
         engine.input(&self.version.to_le_bytes());
-        engine.input(&self.prev_hash);
-        engine.input(&self.merkle_root);
+        engine.input(self.prev_hash);
+        engine.input(self.merkle_root);
         engine.input(&self.timestamp.to_be_bytes());
         engine.input(&self.nbits.to_be_bytes());
         engine.input(&self.nonce.to_be_bytes());
@@ -139,7 +139,7 @@ impl GroupChannelJobDispatcher {
 
         let extranonce: Vec<u8> = channel.extranonce.clone().into();
         let new_mining_job_message = extended_to_standard_job_for_group_channel(
-            &extended,
+            extended,
             &extranonce,
             channel.channel_id,
             standard_job_id,

@@ -370,7 +370,7 @@ impl ParseUpstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> fo
         match (m.future_job, self.prev_hash.as_ref()) {
             (false, Some(p_h)) => {
                 self.miner
-                    .safe_lock(|miner| miner.new_header(&p_h, &m))
+                    .safe_lock(|miner| miner.new_header(p_h, &m))
                     .unwrap();
                 self.jobs = vec![m.as_static()];
             }
