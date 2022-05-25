@@ -5,9 +5,6 @@ use serde::{de, ser};
 
 pub type Result<T> = core::result::Result<T, Error>;
 
-// TODO provode additional information in the error type:
-// 1. byte offset into the input
-// 2. ??
 #[derive(Clone, Debug, PartialEq)]
 pub enum Error {
     // One or more variants that can be created by data structures through the

@@ -10,7 +10,7 @@ license = "MIT"
 
 [dependencies]
 snow = "0.8"
-# TODO use crates.io repo as soon as a new version is issued
+# TODO use crates.io repo as soon as a new version is issued (version 1.0.1 is not wirking)
 ed25519-dalek = { git = "https://github.com/dalek-cryptography/ed25519-dalek", branch = "develop",features = ["rand", "serde", "alloc"], default-features = false }
 bs58 = { version ="0.4.0", features = ["check"] }
 serde_json = { version = "1.0.64", default-features = false, features = ["alloc"] }

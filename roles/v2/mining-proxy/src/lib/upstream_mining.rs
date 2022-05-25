@@ -692,7 +692,7 @@ impl
                         .safe_lock(|d| {
                             for channel in d.status.get_channels().get_mut(&m.channel_id).unwrap() {
                                 match channel {
-                                    DownstreamChannel::Extended => todo!(),
+                                    DownstreamChannel::Extended(_) => todo!(),
                                     DownstreamChannel::Group(_) => todo!(),
                                     DownstreamChannel::Standard(channel) => {
                                         let new_prev_hash = SetNewPrevHash {
@@ -819,7 +819,7 @@ fn jobs_to_relay(
                 let prev_id = d.prev_job_id;
                 for channel in d.status.get_channels().get_mut(&m.channel_id).unwrap() {
                     match channel {
-                        DownstreamChannel::Extended => todo!(),
+                        DownstreamChannel::Extended(_) => todo!(),
                         DownstreamChannel::Group(_) => {
                             crate::add_job_id(m.job_id, id, prev_id);
                             messages.push(SendTo::RelaySameMessage(downstream.clone()))

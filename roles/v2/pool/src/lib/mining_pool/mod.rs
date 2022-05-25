@@ -39,7 +39,6 @@ pub mod setup_connection;
 use setup_connection::SetupConnectionHandler;
 
 pub mod message_handler;
-const EXTRANONCE_LEN: u8 = 32;
 
 #[derive(Debug, Clone)]
 struct PartialStandardJob {
@@ -316,7 +315,7 @@ impl Downstream {
             }
         };
         let extended_jobs = job_creators
-            .safe_lock(|j| j.new_group_channel(id, downstream_data.version_rolling, EXTRANONCE_LEN))
+            .safe_lock(|j| j.new_group_channel(id, downstream_data.version_rolling))
             .unwrap();
 
         let mut future_jobs = HashMap::new();

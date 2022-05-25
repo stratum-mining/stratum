@@ -90,7 +90,6 @@ impl<'s, T: Clone + FixedSize + Serialize + TryFromBSlice<'s>> Serialize for Seq
 }
 
 impl<'s> Serialize for Seq064K<'s, B064K<'s>> {
-    // TODO test this function
     #[inline]
     fn serialize<S>(&self, serializer: S) -> core::result::Result<S::Ok, S::Error>
     where
@@ -98,7 +97,7 @@ impl<'s> Serialize for Seq064K<'s, B064K<'s>> {
     {
         match (&self.seq, &self.data) {
             (Some(seq), None) => {
-                // TODO is len > than u16::MAX should return an error
+                // TODO if len > than u16::MAX should return an error
                 let len = B016M::get_elements_number_in_array(seq.data);
                 let tuple = (len as u16, seq.data);
                 let mut seq = serializer.serialize_tuple(2)?;
@@ -107,7 +106,7 @@ impl<'s> Serialize for Seq064K<'s, B064K<'s>> {
                 seq.end()
             }
             (None, Some(data)) => {
-                // TODO is data.len > than u16::MAX should return an error
+                // TODO if data.len > than u16::MAX should return an error
                 let tuple = (data.len() as u16, &data[..]);
                 let mut seq = serializer.serialize_tuple(2)?;
                 seq.serialize_element(&tuple.0)?;
@@ -120,7 +119,6 @@ impl<'s> Serialize for Seq064K<'s, B064K<'s>> {
 }
 
 impl<'s> Serialize for Seq064K<'s, B016M<'s>> {
-    // TODO test this function
     #[inline]
     fn serialize<S>(&self, serializer: S) -> core::result::Result<S::Ok, S::Error>
     where
@@ -128,7 +126,7 @@ impl<'s> Serialize for Seq064K<'s, B016M<'s>> {
     {
         match (&self.seq, &self.data) {
             (Some(seq), None) => {
-                // TODO is len > than u16::MAX should return an error
+                // TODO if len > than u16::MAX should return an error
                 let len = B016M::get_elements_number_in_array(seq.data);
                 let tuple = (len as u16, seq.data);
                 let mut seq = serializer.serialize_tuple(2)?;
@@ -137,7 +135,7 @@ impl<'s> Serialize for Seq064K<'s, B016M<'s>> {
                 seq.end()
             }
             (None, Some(data)) => {
-                // TODO is data.len > than u16::MAX should return an error
+                // TODO if data.len > than u16::MAX should return an error
                 let tuple = (data.len() as u16, &data[..]);
                 let mut seq = serializer.serialize_tuple(2)?;
                 seq.serialize_element(&tuple.0)?;

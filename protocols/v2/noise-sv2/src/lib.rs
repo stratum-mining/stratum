@@ -307,8 +307,6 @@ impl TransportMode {
     }
 
     /// Decrypt and verify message from `in_buf` and append the result to `decrypted_message`
-    ///
-    /// TODO check if decrypt msg len is always encrypted msg len - TAG_LEN
     #[inline(always)]
     pub fn read(&mut self, encrypted_msg: &[u8], decrypted_msg: &mut [u8]) -> Result<()> {
         let _msg_len = self
