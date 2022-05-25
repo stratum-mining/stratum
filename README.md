@@ -113,6 +113,8 @@ stratum
   │       └─ binary-sv2
   │       │   └─ binary-sv2
   │       │   └─ no-serde-sv2
+  │       │   │   └─ codec
+  │       │   │   └─ derive_codec
   │       │   └─ serde-sv2
   │       └─ codec-sv2
   │       └─ const-sv2
@@ -165,10 +167,12 @@ Contains several Sv2 libraries serving various purposes depending on the desired
 TODO: more info
 
 #### 2.1.2.1 `protocols/v2/binary-sv2`
-Under `binary-sv2` are three crates (`binary-sv2`, `no-serde-sv2`, and `serde-sv2`) that are
-contain Sv2 data types binary mappings.
+Under `binary-sv2` are five crates (`binary-sv2`, `serde-sv2`, `no-serde-sv2`,
+`no-serde-sv2/codec`, `no-serde-sv2/derive_codec`) that are contain Sv2 data types binary mappings.
+However, only `procotols/v2/binary-sv2/binary-sv2` is used by the user, the remaining are for
+internal use only, therefore only `procotols/v2/binary-sv2/binary-sv2` is discussed here.
 
-It exports an API that allows the serialization and deserialization of the Sv2 primitive data
+Exports an API that allows the serialization and deserialization of the Sv2 primitive data
 types. It also exports two procedural macros, `Encodable` and `Decodable`, that, when applied to a
 struct, make it serializable/deserializable to/from the Sv2 binary format.
 
