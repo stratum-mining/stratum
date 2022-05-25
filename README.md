@@ -256,7 +256,7 @@ safe `Mutex` defined in `messages_sv2::utils::Mutex`.
 
 **External dependencies**:
 * [`serde`](https://crates.io/crates/serde) (only when compiled with the `with_serde` flag)
-* [Bitcoin-Core with Sv2 Template Provider logic](https://github.com/ccdle12/bitcoin/tree/2022.05.19-remove-rust-example-code)
+* [Rust Bitcoin Library](https://docs.rs/bitcoin/latest/bitcoin)
 
 **Internal dependencies**:
 * `const_sv2`
