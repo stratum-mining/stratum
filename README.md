@@ -146,8 +146,8 @@ This workspace is divided in 6 macro-areas:
             default buffers used. Also has network helpers.
 1. `examples`: Several example implementations of various use cases.
 1. `test`: Integration tests.
-1. `experimental`: Experimental logic that is not yet specified in the protocol or in a protocol
-                   extension.
+1. `experimental`: Experimental logic that is not yet specified as part of the protocol or
+                   extensions.
 
 All dependencies related to the testing and benchmarking of this repository is optional and is
 never listed under a workspace's **External dependencies**.
@@ -364,7 +364,7 @@ TODO
 Contains integration tests.
 
 ### 2.6 `experimental`
-Contains experimental logic that is not yet specified in the protocol or in a protocol extension.
+Contains experimental logic that is not yet specified as part of the protocol or extensions.
 
 ## 3. Branches
 TODO
