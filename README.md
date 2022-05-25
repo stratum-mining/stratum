@@ -176,15 +176,12 @@ This crate can be compiled with the `with_serde` feature, which will use the ext
 to serialize and deserialize. If this feature flag is NOT set, an internal serialization engine is
 used. The exported API is the same when compiled `with_serde` and not.
 
-TODO: what about the `no-serde-sv2` crate? is that the internal serialization engine that is used
-when the `with_serde` flag is NOT used?
-TODO: confirm that the `serde-sv2` crate is only used when the `with_serde` flag is used
-
 **External dependencies**:
 * [`serde`](https://crates.io/crates/serde) (only when compiled with the `with_serde` flag)
 
 **Internal dependencies**:
-* `buffer-sv2` (only when compiled with the `with_serde` flag) TODO: where is the `buffer-sv2` dep?
+* `buffer-sv2` in `protocols/v2/serde-sv2` (only when compiled with the `with_serde` flag)
+* `no-serde-sv2` (only when compiled WITHOUT the `with_serde` flag)
 
 #### 2.1.2.2 `protocols/v2/codec-sv2`
 Exports `StandardNoiseDecoder` and `StandardSv2Decoder` that are initialized with a buffer
