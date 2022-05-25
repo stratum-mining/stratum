@@ -88,8 +88,8 @@ This workspace is divided in 6 macro-areas:
 1. `experimental`: Experimental logic that is not yet specified in the protocol or in a protocol
                    extension.
 
-Every dependency related to benchmarking and testing can be always opted out so we never list
-them under **External dependencies**.
+All dependencies related to the testing and benchmarking of this repository is optional and is
+never listed under a workspace's **External dependencies**.
 
 ### `protocols`
 Core Stratum V2 and V1 libraries.
