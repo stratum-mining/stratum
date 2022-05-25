@@ -226,7 +226,7 @@ any dependent crates. This can be a benefits:
     '(#:source #:target #:rust #:inputs #:native-inputs #:outputs
       #:cargo-inputs #:cargo-development-inputs))
 
-  (and (not target) ;; TODO: support cross-compilation
+  (and (not target)
        (bag
          (name name)
          (system system)

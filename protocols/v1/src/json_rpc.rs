@@ -24,7 +24,7 @@ impl Message {
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct StandardRequest {
-    pub id: String, // TODO can be number
+    pub id: String, // can be number
     pub method: String,
     pub parameters: serde_json::Value,
 }
@@ -37,14 +37,14 @@ pub struct Notification {
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Response {
-    pub id: String, // TODO can be number
+    pub id: String, // can be number
     pub error: Option<JsonRpcError>,
     pub result: serde_json::Value,
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct JsonRpcError {
-    pub code: i32, // TODO json do not specify precision which one should be used?
+    pub code: i32, // json do not specify precision which one should be used?
     pub message: String,
     pub data: Option<serde_json::Value>,
 }

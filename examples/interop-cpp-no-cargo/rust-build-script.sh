@@ -1,6 +1,5 @@
 #! /bin/sh
 
-#TODO make it relative or env var
 ROOT=$1
 
 DEPS="./deps"
