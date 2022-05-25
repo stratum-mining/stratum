@@ -273,8 +273,8 @@ A Sv2 pools useful to do integration tests.
 ### `roles/test-utils/mining-device`
 A Sv2 CPU miner useful to do integration tests.
 
-### EXAMPLES
-TODO
+### `examples`
+Contains several example implementations of various use cases.
 
 ### EXPERIMENTAL
 TODO
