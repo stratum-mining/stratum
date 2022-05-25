@@ -245,21 +245,21 @@ Unsafe but fast buffer pool with fuzz testing and benches. Can be used with `cod
 **Internal dependencies**:
 * no dependencies
 
-### UTILS/NETWORK-HELPERS
+### `utils/network-helpers`
+Async runtime specific helpers. 
+Exports `Connection` which is used to open an Sv2 connection either with or without noise.
 
-Async runtime specific helpers.
-
-It export `Connection` that is used to open an Sv2 connection either with or without noise.
+TODO: More information
 
 **External dependencies**:
-* serde (only when compiled `with_serde`)
-* async-std
-* async-channel
+* [`serde`](https://crates.io/crates/serde) (only when compiled with the `with_serde` flag)
+* [`async-std`](https://crates.io/crates/async-std)
+* [`async-channel`](https://crates.io/crates/async-channel)
 
 **Internal dependencies**:
-* binary_sv2
-* const_sv2
-* messages_sv2 (it will be removed very soon already commited in a wroking branch)
+* `binary_sv2`
+* `const_sv2`
+* `messages_sv2` (it will be removed very soon already commited in a wroking branch)
 
 ### ROLES/MINING-PROXY
 An Sv2 proxy
