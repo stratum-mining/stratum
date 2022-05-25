@@ -1,4 +1,6 @@
 # Stratum
+The Stratum protocol defines how miners, proxies, and pool communicate to contribute hashrate to
+the Bitcoin network.
 
 ## Table of Contents
 - [Stratum V2 (Sv2) Proxy](#stratum-v2--sv2--proxy)
