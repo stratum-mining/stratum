@@ -276,8 +276,8 @@ A Sv2 CPU miner useful to do integration tests.
 ### `examples`
 Contains several example implementations of various use cases.
 
-### EXPERIMENTAL
-TODO
+### `experimental`
+Contains experimental logic that is not yet specified in the protocol or in a protocol extension.
 
 
 ## BRANCHES
