@@ -81,8 +81,9 @@ impl DownstreamMiningNodeStatus {
     }
 }
 
-use async_std::{sync::Arc, task};
 use core::convert::TryInto;
+use std::sync::Arc;
+use tokio::task;
 
 impl DownstreamMiningNode {
     pub fn add_channel(&mut self, channel: DownstreamChannel) {
@@ -308,18 +309,16 @@ impl
     }
 }
 
-use async_std::{net::TcpListener, prelude::*};
 use network_helpers::PlainConnection;
 use std::net::SocketAddr;
+use tokio::net::TcpListener;
 
 pub async fn listen_for_downstream_mining(address: SocketAddr) {
     let listner = TcpListener::bind(address).await.unwrap();
-    let mut incoming = listner.incoming();
 
-    while let Some(stream) = incoming.next().await {
-        let stream = stream.unwrap();
+    while let Ok((stream, _)) = listner.accept().await {
         let (receiver, sender): (Receiver<EitherFrame>, Sender<EitherFrame>) =
-            PlainConnection::new(stream, 10).await;
+            PlainConnection::new(stream).await;
         let node = DownstreamMiningNode::new(receiver, sender);
 
         task::spawn(async move {

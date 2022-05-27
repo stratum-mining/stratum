@@ -1033,7 +1033,6 @@ version = "0.1.0"
 dependencies = [
  "async-channel",
  "async-recursion",
- "async-std",
  "binary_sv2",
  "buffer_sv2",
  "codec_sv2",
@@ -1043,6 +1042,7 @@ dependencies = [
  "once_cell",
  "roles_logic_sv2",
  "serde",
+ "tokio",
  "toml",
 ]
 

@@ -1,10 +1,13 @@
 use async_channel::{bounded, Receiver, Sender};
-use tokio::{net::TcpListener, net::TcpStream,task,sync::Mutex};
-use tokio::io::{AsyncReadExt,AsyncWriteExt};
 use binary_sv2::{Deserialize, Serialize};
 use core::convert::TryInto;
-use std::time::Duration;
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
+use tokio::{
+    io::{AsyncReadExt, AsyncWriteExt},
+    net::{TcpListener, TcpStream},
+    sync::Mutex,
+    task,
+};
 
 use binary_sv2::GetSize;
 use codec_sv2::{
@@ -187,16 +190,17 @@ pub async fn listen(
     let listner = TcpListener::bind(address).await.unwrap();
     loop {
         match listner.accept().await {
-            Ok((stream,_)) => {
+            Ok((stream, _)) => {
                 let responder = Responder::from_authority_kp(
                     &authority_public_key[..],
                     &authority_private_key[..],
                     cert_validity,
-                );
+                )
+                .unwrap();
                 let role = HandshakeRole::Responder(responder);
                 sender.send((stream, role)).await;
-            },
-            _ => ()
+            }
+            _ => (),
         }
     }
 }
@@ -206,7 +210,7 @@ pub async fn connect(
     authority_public_key: [u8; 32],
 ) -> Result<(TcpStream, HandshakeRole), ()> {
     let stream = TcpStream::connect(address).await.map_err(|_| ())?;
-    let initiator = Initiator::from_raw_k(authority_public_key);
+    let initiator = Initiator::from_raw_k(authority_public_key).unwrap();
     let role = HandshakeRole::Initiator(initiator);
     Ok((stream, role))
 }

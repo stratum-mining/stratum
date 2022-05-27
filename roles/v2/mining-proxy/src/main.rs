@@ -154,7 +154,7 @@ pub fn initialize_r_logic() -> RLogic {
 ///    itself in it
 /// 7. normal operation between the paired downstream_mining::DownstreamMiningNode and
 ///    upstream_mining::UpstreamMiningNode begin
-#[async_std::main]
+#[tokio::main]
 async fn main() {
     // Scan all the upstreams and map them
     let config_file = std::fs::read_to_string("proxy-config.toml").unwrap();

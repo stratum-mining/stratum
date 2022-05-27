@@ -1,8 +1,11 @@
 use async_channel::{bounded, Receiver, Sender};
-use tokio::{net::TcpListener, net::TcpStream,task};
-use tokio::io::{AsyncReadExt,AsyncWriteExt};
 use binary_sv2::{Deserialize, Serialize};
 use core::convert::TryInto;
+use tokio::{
+    io::{AsyncReadExt, AsyncWriteExt},
+    net::{TcpListener, TcpStream},
+    task,
+};
 
 use binary_sv2::GetSize;
 use codec_sv2::{StandardDecoder, StandardEitherFrame};
@@ -83,10 +86,10 @@ pub async fn plain_listen(address: &str, sender: Sender<TcpStream>) {
     let listner = TcpListener::bind(address).await.unwrap();
     loop {
         match listner.accept().await {
-            Ok((stream,_)) => {
+            Ok((stream, _)) => {
                 sender.send(stream).await;
-            },
-            _ => ()
+            }
+            _ => (),
         }
     }
 }
