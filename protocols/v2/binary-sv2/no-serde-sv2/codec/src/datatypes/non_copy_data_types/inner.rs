@@ -37,6 +37,12 @@ impl<'a, const SIZE: usize> Inner<'a, true, SIZE, 0, 0> {
             Inner::Owned(v) => v,
         }
     }
+    pub fn inner_as_mut(&mut self) -> &mut [u8] {
+        match self {
+            Inner::Ref(ref_) => ref_,
+            Inner::Owned(v) => v,
+        }
+    }
 }
 // TODO add test for that and implement it also with serde!!!!
 impl<'a, const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize>

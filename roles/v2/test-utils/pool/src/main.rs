@@ -13,7 +13,7 @@ use roles_logic_sv2::{
     errors::Error,
     handlers::{
         common::ParseDownstreamCommonMessages,
-        mining::{ChannelType, ParseDownstreamMiningMessages, SendTo},
+        mining::{SupportedChannelTypes, ParseDownstreamMiningMessages, SendTo},
     },
     mining_sv2::*,
     parsers::{CommonMessages, Mining, PoolMessages},
@@ -249,8 +249,8 @@ impl IsDownstream for Downstream {
 impl IsMiningDownstream for Downstream {}
 
 impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> for Downstream {
-    fn get_channel_type(&self) -> ChannelType {
-        ChannelType::Group
+    fn get_channel_type(&self) -> SupportedChannelTypes {
+        SupportedChannelTypes::Group
     }
 
     fn is_work_selection_enabled(&self) -> bool {
@@ -262,7 +262,7 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
         incoming: OpenStandardMiningChannel,
         _m: Option<Arc<Mutex<()>>>,
     ) -> Result<SendTo<()>, Error> {
-        let request_id = incoming.request_id;
+        let request_id = incoming.get_request_id_as_u32();
         let message = match (self.is_header_only, self.group_id) {
             (false, Some(group_channel_id)) => {
                 let channel_id = self.channel_id_generator.safe_lock(|x| x.next()).unwrap();
@@ -272,7 +272,7 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
                     channel_id, group_channel_id, request_id,
                 );
                 OpenStandardMiningChannelSuccess {
-                    request_id,
+                    request_id: request_id.into(),
                     channel_id,
                     group_channel_id,
                     target: u256_from_int(45_u32),
@@ -285,12 +285,13 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
                 self.channels_id.push(channel_id);
                 self.group_id = Some(group_channel_id);
                 println!("POOL: created group channel with id: {}", group_channel_id);
+                let r_id: u32 = request_id.into();
                 println!(
                     "POOL: channel opened: channel id is {}, group id is {}, request id is {}",
-                    channel_id, group_channel_id, request_id,
+                    channel_id, group_channel_id, r_id,
                 );
                 OpenStandardMiningChannelSuccess {
-                    request_id,
+                    request_id: request_id.into(),
                     channel_id,
                     group_channel_id,
                     target: u256_from_int(45_u32),

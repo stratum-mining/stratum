@@ -53,12 +53,6 @@ pub trait MiningRouter<
     Sel: DownstreamMiningSelector<Down>,
 >: CommonRouter
 {
-    fn update_id_downstream(
-        &mut self,
-        message_type: u8,
-        payload: &mut [u8],
-        downstream_mining_data: &CommonDownstreamData,
-    ) -> u32;
 
     fn update_id_upstream(
         &mut self,
@@ -71,15 +65,15 @@ pub trait MiningRouter<
     fn on_open_standard_channel(
         &mut self,
         downstream: Arc<Mutex<Down>>,
-        request: &OpenStandardMiningChannel,
+        request: &mut OpenStandardMiningChannel,
+        downstream_mining_data: &CommonDownstreamData,
     ) -> Result<Arc<Mutex<Up>>, ()>;
 
     #[allow(clippy::result_unit_err)]
     fn on_open_standard_channel_success(
         &mut self,
         upstream: Arc<Mutex<Up>>,
-        upstream_request_id: u32,
-        request: &OpenStandardMiningChannelSuccess,
+        request: &mut OpenStandardMiningChannelSuccess,
     ) -> Result<Arc<Mutex<Down>>, ()>;
 }
 
@@ -102,15 +96,6 @@ impl<
         Up: IsMiningUpstream<Down, NullDownstreamMiningSelector> + D,
     > MiningRouter<Down, Up, NullDownstreamMiningSelector> for NoRouting
 {
-    fn update_id_downstream(
-        &mut self,
-        _message_type: u8,
-        _payload: &mut [u8],
-        _downstream_mining_data: &CommonDownstreamData,
-    ) -> u32 {
-        unreachable!()
-    }
-
     fn update_id_upstream(
         &mut self,
         _message_type: u8,
@@ -123,7 +108,8 @@ impl<
     fn on_open_standard_channel(
         &mut self,
         _downstream: Arc<Mutex<Down>>,
-        _request: &OpenStandardMiningChannel,
+        _request: &mut OpenStandardMiningChannel,
+        _downstream_mining_data: &CommonDownstreamData,
     ) -> Result<Arc<Mutex<Up>>, ()> {
         unreachable!()
     }
@@ -131,8 +117,7 @@ impl<
     fn on_open_standard_channel_success(
         &mut self,
         _upstream: Arc<Mutex<Up>>,
-        _upstream_request_id: u32,
-        _request: &OpenStandardMiningChannelSuccess,
+        _request: &mut OpenStandardMiningChannelSuccess,
     ) -> Result<Arc<Mutex<Down>>, ()> {
         unreachable!()
     }
@@ -221,50 +206,6 @@ impl<
         Sel: DownstreamMiningSelector<Down> + D,
     > MiningRouter<Down, Up, Sel> for MiningProxyRoutingLogic<Down, Up, Sel>
 {
-    /// Update the request id from downstream to a connection-wide unique request id for
-    /// downstream.
-    /// This method check message type and for the message type that do have a request it update
-    /// it.
-    ///
-    /// it return the original request id
-    ///
-    /// TODO remove this method and update request id after that the payload has been parsed see
-    /// the todo in update_request_id()
-    fn update_id_downstream(
-        &mut self,
-        message_type: u8,
-        payload: &mut [u8],
-        downstream_mining_data: &CommonDownstreamData,
-    ) -> u32 {
-        let upstreams = self
-            .downstream_to_upstream_map
-            .get(downstream_mining_data)
-            .unwrap();
-        // TODO the upstream selection logic should be specified by the caller
-        let upstream = Self::select_upstreams(&mut upstreams.to_vec());
-        let old_id = get_request_id(payload);
-        upstream
-            .safe_lock(|u| {
-                let id_map = u.get_mapper();
-                match message_type {
-                    // REQUESTS
-                    const_sv2::MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL => {
-                        let new_req_id = id_map.unwrap().on_open_channel(old_id);
-                        update_request_id(payload, new_req_id);
-                    }
-                    const_sv2::MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL => {
-                        let new_req_id = id_map.unwrap().on_open_channel(old_id);
-                        update_request_id(payload, new_req_id);
-                    }
-                    const_sv2::MESSAGE_TYPE_SET_CUSTOM_MINING_JOB => {
-                        todo!()
-                    }
-                    _ => (),
-                }
-            })
-            .unwrap();
-        old_id
-    }
 
     /// TODO as above
     fn update_id_upstream(
@@ -315,9 +256,11 @@ impl<
     fn on_open_standard_channel_success(
         &mut self,
         upstream: Arc<Mutex<Up>>,
-        upstream_request_id: u32,
-        request: &OpenStandardMiningChannelSuccess,
+        request: &mut OpenStandardMiningChannelSuccess,
     ) -> Result<Arc<Mutex<Down>>, ()> {
+        let upstream_request_id = request.get_request_id_as_u32();
+        let original_request_id = upstream.safe_lock(|u| u.get_mapper().unwrap().remove(upstream_request_id)).unwrap();
+        request.update_id(original_request_id);
         let downstreams = upstream
             .safe_lock(|u| {
                 let selector = u.get_remote_selector();
@@ -333,11 +276,24 @@ impl<
 
     /// At this point the Sv2 connection with downstream is initialized that means that
     /// routing_logic has already preselected a set of upstreams pairable with downstream.
+    ///
+    /// It update the request id from downstream to a connection-wide unique request id for
+    /// downstream.
     fn on_open_standard_channel(
         &mut self,
         downstream: Arc<Mutex<Down>>,
-        request: &OpenStandardMiningChannel,
+        request: &mut OpenStandardMiningChannel,
+        downstream_mining_data: &CommonDownstreamData,
     ) -> Result<Arc<Mutex<Up>>, ()> {
+        let upstreams = self
+            .downstream_to_upstream_map
+            .get(downstream_mining_data)
+            .unwrap();
+        // TODO the upstream selection logic should be specified by the caller
+        let upstream = Self::select_upstreams(&mut upstreams.to_vec());
+        let old_id = request.get_request_id_as_u32();
+        let new_req_id = upstream.safe_lock(|u| u.get_mapper().unwrap().on_open_channel(old_id)).unwrap();
+        request.update_id(new_req_id);
         self.on_open_standard_channel_request_header_only(downstream, request)
     }
 }
@@ -487,7 +443,7 @@ impl<
         upstream
             .safe_lock(|u| {
                 let selector = u.get_remote_selector();
-                selector.on_open_standard_channel_request(request.request_id, downstream)
+                selector.on_open_standard_channel_request(request.request_id.as_u32(), downstream)
             })
             .unwrap();
         Ok(upstream)

@@ -42,7 +42,7 @@ impl UpstreamWithGroups {
 
         // RR Q: why is this called the extranonce_prefix if it is the next extranonce?
         Ok(OpenStandardMiningChannelSuccess {
-            request_id,
+            request_id: request_id.into(),
             channel_id,
             target: target_from_hr(downstream_hr),
             extranonce_prefix: self.extranonces.next(),
@@ -183,7 +183,7 @@ mod tests {
         let mut extranonce = Extranonce::from(new_extranonce);
 
         let expect = OpenStandardMiningChannelSuccess {
-            request_id,
+            request_id: request_id.into(),
             channel_id: 1,
             target: target_from_hr(downstream_hr),
             extranonce_prefix: extranonce.next(),

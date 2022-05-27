@@ -8,7 +8,7 @@ use roles_logic_sv2::{
     errors::Error,
     handlers::{
         common::{ParseDownstreamCommonMessages, SendTo as SendToCommon},
-        mining::{ChannelType, ParseDownstreamMiningMessages, SendTo},
+        mining::{SupportedChannelTypes, ParseDownstreamMiningMessages, SendTo},
     },
     mining_sv2::*,
     parsers::{Mining, MiningDeviceMessages, PoolMessages},
@@ -209,8 +209,8 @@ impl
         MiningProxyRoutingLogic<Self, UpstreamMiningNode, ProxyRemoteSelector>,
     > for DownstreamMiningNode
 {
-    fn get_channel_type(&self) -> ChannelType {
-        ChannelType::Group
+    fn get_channel_type(&self) -> SupportedChannelTypes {
+        SupportedChannelTypes::Group
     }
 
     fn is_work_selection_enabled(&self) -> bool {

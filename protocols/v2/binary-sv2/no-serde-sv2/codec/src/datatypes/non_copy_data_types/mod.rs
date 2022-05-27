@@ -3,6 +3,8 @@ use core::convert::TryInto;
 #[cfg(feature = "prop_test")]
 use quickcheck::{Arbitrary, Gen};
 
+use crate::codec::decodable::Decodable;
+
 mod inner;
 mod seq_inner;
 
@@ -13,6 +15,7 @@ trait IntoOwned {
 pub use inner::Inner;
 pub use seq_inner::{Seq0255, Seq064K};
 
+pub type U32AsRef<'a> = Inner<'a, true, 4, 0, 0>;
 pub type U256<'a> = Inner<'a, true, 32, 0, 0>;
 pub type PubKey<'a> = Inner<'a, true, 32, 0, 0>;
 pub type Signature<'a> = Inner<'a, true, 64, 0, 0>;
@@ -64,5 +67,31 @@ impl<'a> TryFrom<String> for Str032<'a> {
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
         value.into_bytes().try_into()
+    }
+}
+
+impl<'a> U32AsRef<'a> {
+    pub fn as_u32(&self) -> u32 {
+        let inner = self.inner_as_ref();
+        u32::from_le_bytes([inner[0], inner[1], inner[2], inner[3]])
+    }
+}
+
+impl<'a> From<u32> for U32AsRef<'a> {
+    fn from(v: u32) -> Self {
+        let bytes = v.to_le_bytes();
+        let mut inner = vec![];
+        inner.push(bytes[0]);
+        inner.push(bytes[1]);
+        inner.push(bytes[2]);
+        inner.push(bytes[3]);
+        U32AsRef::Owned(inner)
+    }
+}
+
+impl<'a> From<&'a U32AsRef<'a>> for u32 {
+    fn from(v: &'a U32AsRef<'a>) -> Self {
+        let b = v.inner_as_ref();
+        u32::from_le_bytes([b[0],b[1],b[2],b[3]])
     }
 }
