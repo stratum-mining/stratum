@@ -123,7 +123,7 @@ impl DownstreamMiningNode {
                 .unwrap();
             }
 
-            task::spawn(async move {
+            let _ = task::spawn(async move {
                 loop {
                     let receiver = self_mutex
                         .safe_lock(|self_| self_.receiver.clone())
