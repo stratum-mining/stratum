@@ -309,9 +309,9 @@ impl
     }
 }
 
-use tokio::net::TcpListener;
 use network_helpers::plain_connection_tokio::PlainConnection;
 use std::net::SocketAddr;
+use tokio::net::TcpListener;
 
 pub async fn listen_for_downstream_mining(address: SocketAddr) {
     let listner = TcpListener::bind(address).await.unwrap();
