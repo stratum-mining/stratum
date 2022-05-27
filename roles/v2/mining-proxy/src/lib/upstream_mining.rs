@@ -2,7 +2,7 @@ use super::downstream_mining::{DownstreamMiningNode, StdFrame as DownstreamFrame
 use async_channel::{Receiver, SendError, Sender};
 use async_recursion::async_recursion;
 use codec_sv2::{Frame, HandshakeRole, Initiator, StandardEitherFrame, StandardSv2Frame};
-use network_helpers::Connection;
+use network_helpers::noise_connection_tokio::Connection;
 use roles_logic_sv2::{
     common_messages_sv2::{Protocol, SetupConnection},
     common_properties::{
