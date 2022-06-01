@@ -61,14 +61,7 @@ The goals of this project is to provide:
 Different portions of the library will be used depending on the use case and/or desired
 functionality. Some examples of different use-cases are:
 
-1. A miner who runs a mining farm with Sv2-compatible mining firmware mining to a Sv2-compatible
-   pool can use this library as a proxy which allows them realize the full benefits of the Sv2
-   protocol.
-
-1. A miner who runs a mining farm with Sv2-compatible mining firmware mining to a Sv2-compatible
-   pool, who wants to select their own transactions to build their own `blocktemplate`, can use
-   this library as a proxy in conjunction with a Bitcoin Core node (with the Template Provider
-   logic) to do so.
+1. A miner can use the proxy (`roles/sv2/mining-proxy`) to connect with a Sv2-compatible pool.
 
 1. A miner who runs a mining farm with SV1-compatible mining firmware mining to a Sv2-compatible
    pool, who wants to gain some of the security and efficiency improvements that Sv2 offers over
