@@ -6,6 +6,8 @@ the Bitcoin network.
 - [Stratum](#stratum)
   * [1. Goals](#1-goals)
   * [2. Common Use Cases](#2-common-use-cases)
+    * [2.1 Miners](#21-miners)
+    * [2.2 Pools](#22-pools)
   * [3. Structure](#3-structure)
     + [3.01 `protocols`](https://github.com/stratum-mining/stratum#301-protocols)
     + [3.02 `protocols/v1`](https://github.com/stratum-mining/stratum#302--protocols-v1)
@@ -61,28 +63,26 @@ The goals of this project is to provide:
 Different portions of the library will be used depending on the use case and/or desired
 functionality. Some examples of different use-cases are:
 
+## 2.1 Miners
+
 1. A miner can use the proxy (`roles/sv2/mining-proxy`) to connect with a Sv2-compatible pool.
 
 1. A miner who runs a mining farm with SV1-compatible mining firmware mining to a Sv2-compatible
    pool, who wants to gain some of the security and efficiency improvements that Sv2 offers over
    Stratum V1 (Sv1). This Sv1<->Sv2 miner proxy does not support all the features of Sv2, therefore
    it should be used as a temporary measure before completely upgrading to Sv2-compatible firmware.
+   This Sv1<->Sv2 translation has not yet been implemented, but is currently being worked on.
 
-1. A pool that wants to build a Sv2 compatible pool server.
+## 2.2 Pools
 
-1. A pool that wants to begin supporting Sv2 but is not yet ready to completely overhaul their
-   existing Sv1 server can use these libraries to construct a Sv2<->Sv1 proxy server. This proxy
-   server lives on the upstream pool end under the pool's control, between the downstream
-   devices on the miner's side (either a miner's proxy or the mining devices themselves), and
-   the most upstream Sv1 pool server. This most upstream Sv1 pool server is likely the already
-   existing pool server logic. In this way, pools can begin supporting Sv2 without waiting to
-   redo their entire server infrastructure to be Sv2 compatible only. This Sv2<->Sv1 pool proxy
-   will only allow the pool to support a certain subset of the Sv2 protocol, and should be used as
-   a temporary measure before completely upgrading to a Sv2-only pool.
+1. A pool that wants to support Sv2 can deploy the open source binary crate (`roles/pool`) to offer
+   an Sv2-compatible pool to their clients (miners participating in said pool).
 
-1. A Sv2- or Sv1-compatible pool that wants to offer job negotiation capabilities to their
-   customers (miner's mining to their pool) can use this library to self-host a Job Negotiator
-   and Template Provider (a minimum amount of modification is still required).
+1. A pool that wants to build an Sv2 compatible pool in Rust will likely use the Rust helper
+   library.
+
+1. A pool that wants to build an Sv2 compatible pool not in Rust will likely use the Rust
+   primitives as C library.
 
 ## 3. Structure
 ```
