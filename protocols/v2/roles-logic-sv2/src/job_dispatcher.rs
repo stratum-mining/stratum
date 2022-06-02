@@ -14,7 +14,7 @@ fn extended_to_standard_job_for_group_channel<'a>(
     coinbase_script: &[u8],
     channel_id: u32,
     job_id: u32,
-) -> NewMiningJob<'a> {
+) -> Option<NewMiningJob<'a>> {
     let merkle_root = merkle_root_from_path(
         extended.coinbase_tx_prefix.inner_as_ref(),
         extended.coinbase_tx_suffix.inner_as_ref(),
@@ -22,13 +22,13 @@ fn extended_to_standard_job_for_group_channel<'a>(
         &extended.merkle_path.inner_as_ref(),
     );
 
-    NewMiningJob {
+    Some(NewMiningJob {
         channel_id,
         job_id,
         future_job: extended.future_job,
         version: extended.version,
-        merkle_root: merkle_root.try_into().unwrap(),
-    }
+        merkle_root: merkle_root?.try_into().unwrap(),
+    })
 }
 #[allow(dead_code)]
 struct BlockHeader<'a> {
@@ -134,7 +134,7 @@ impl GroupChannelJobDispatcher {
         &mut self,
         extended: &NewExtendedMiningJob,
         channel: &StandardChannel,
-    ) -> NewMiningJob<'static> {
+    ) -> Option<NewMiningJob<'static>> {
         let standard_job_id = self.ids.safe_lock(|ids| ids.next()).unwrap();
 
         let extranonce: Vec<u8> = channel.extranonce.clone().into();
@@ -143,7 +143,7 @@ impl GroupChannelJobDispatcher {
             &extranonce,
             channel.channel_id,
             standard_job_id,
-        );
+        )?;
         let job = DownstreamJob {
             merkle_root: new_mining_job_message.merkle_root.to_vec(),
             extended_job_id: extended.job_id,
@@ -163,7 +163,7 @@ impl GroupChannelJobDispatcher {
         } else {
             self.jobs.insert(new_mining_job_message.job_id, job);
         };
-        new_mining_job_message
+        Some(new_mining_job_message)
     }
 
     pub fn on_new_prev_hash(&mut self, message: &SetNewPrevHash) -> HashMap<u32, u32> {

@@ -826,7 +826,7 @@ fn jobs_to_relay(
                         }
                         DownstreamChannel::Standard(channel) => {
                             if let JobDispatcher::Group(d) = dispacther {
-                                let job = d.on_new_extended_mining_job(m, channel);
+                                let job = d.on_new_extended_mining_job(m, channel).unwrap();
                                 crate::add_job_id(job.job_id, id, prev_id);
                                 let message = Mining::NewMiningJob(job);
                                 messages.push(SendTo::RelayNewMessage(downstream.clone(), message));

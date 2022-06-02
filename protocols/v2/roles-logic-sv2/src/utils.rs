@@ -64,18 +64,21 @@ pub fn merkle_root_from_path(
     coinbase_tx_prefix: &[u8],
     coinbase_tx_suffix: &[u8],
     extranonce: &[u8],
-    _path: &[&[u8]],
-) -> Vec<u8> {
+    path: &[&[u8]],
+) -> Option<Vec<u8>> {
     let mut coinbase =
         Vec::with_capacity(coinbase_tx_prefix.len() + coinbase_tx_suffix.len() + extranonce.len());
     coinbase.extend_from_slice(coinbase_tx_prefix);
     coinbase.extend_from_slice(extranonce);
     coinbase.extend_from_slice(coinbase_tx_suffix);
     let coinbase = Transaction::deserialize(&coinbase[..]).unwrap();
-    let txs = vec![coinbase];
-    // TODO path
-    let root = bitcoin_merkle_root(txs.iter().map(|obj| obj.txid().as_hash()));
-    root.into_inner().to_vec()
+    let mut hashes = vec![coinbase.txid().as_hash()];
+    for hash in path {
+        hashes.push(Hash::from_slice(hash).ok()?)
+    }
+    
+    let root = bitcoin_merkle_root(hashes.into_iter());
+    Some(root.into_inner().to_vec())
 }
 
 /// Returns a new `BlockHeader`.

@@ -196,9 +196,7 @@ impl<
     /// On open standard channel success:
     /// 1. the downstream that requested the opening of the channel must be selected an put in the
     ///    right group channel
-    /// 2. request_id from upsteram must be replaced with the original request id from downstream
-    ///    TODO this point is done in a preavious passage by update_id but in future that
-    ///    method should be removed and the id should be updated here
+    /// 2. request_id from upsteram is replaced with the original request id from downstream
     ///
     /// The selected downstream is returned
     fn on_open_standard_channel_success(
@@ -368,11 +366,10 @@ impl<
     /// 1. an upstream must be selected between the possibles upstreams for this downstream, if the
     ///    downstream is header only, just one upstream will be there so the choice is easy, if not
     ///    (TODO on_open_standard_channel_request_no_standard_job must be used)
-    /// 2. request_id from downstream must be updated to a connection-wide uniques request-id for
-    ///    upstream (TODO this point is done in a preavious passage by update_id but in future that
-    ///    method should be removed and the id should be updated here)
+    /// 2. request_id from downstream is updated to a connection-wide uniques request-id for
+    ///    upstreams
     ///
-    /// The selected upstream is returned
+    ///    The selected upstream is returned
     #[allow(clippy::result_unit_err)]
     pub fn on_open_standard_channel_request_header_only(
         &mut self,

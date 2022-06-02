@@ -2,6 +2,7 @@ use binary_sv2::Error as BinarySv2Error;
 use std::fmt::{self, Display, Formatter};
 
 #[derive(Debug)]
+/// No NoPairableUpstream((min_v, max_v, all falgs supported))
 pub enum Error {
     ExpectedLen32(usize),
     BinarySv2Error(BinarySv2Error),

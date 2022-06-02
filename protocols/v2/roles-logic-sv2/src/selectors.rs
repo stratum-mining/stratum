@@ -216,7 +216,7 @@ impl<
         Up: IsMiningUpstream<Down, Sel>,
     > UpstreamMiningSelctor<Down, Up, Sel> for GeneralMiningSelector<Sel, Down, Up>
 {
-    /// Return the set of mining upstream nodes that can accept messages from a downstream withe
+    /// Return the set of mining upstream nodes that can accept messages from a downstream with
     /// the passed PairSettings and the sum of all the accepted flags
     #[allow(clippy::type_complexity)]
     fn on_setup_connection(
@@ -230,7 +230,6 @@ impl<
                 .safe_lock(|node| node.is_pairable(pair_settings))
                 .unwrap();
             if is_pairable {
-                // equal to supported_flags = supported_flags | node.safe_lock(|n| n.get_flags()).unwrap()
                 supported_flags |= node.safe_lock(|n| n.get_flags()).unwrap();
                 supported_upstreams.push(node.clone());
             }
@@ -239,7 +238,6 @@ impl<
             return Ok((supported_upstreams, supported_flags));
         }
 
-        // TODO should return something more meaningfull
         Err(Error::NoPairableUpstream((2, 2, 0)))
     }
 
