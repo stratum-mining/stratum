@@ -54,13 +54,6 @@ pub trait MiningRouter<
 >: CommonRouter
 {
 
-    fn update_id_upstream(
-        &mut self,
-        message_type: u8,
-        payload: &mut [u8],
-        upstream_mutex: Arc<Mutex<Up>>,
-    ) -> u32;
-
     #[allow(clippy::result_unit_err)]
     fn on_open_standard_channel(
         &mut self,
@@ -96,14 +89,6 @@ impl<
         Up: IsMiningUpstream<Down, NullDownstreamMiningSelector> + D,
     > MiningRouter<Down, Up, NullDownstreamMiningSelector> for NoRouting
 {
-    fn update_id_upstream(
-        &mut self,
-        _message_type: u8,
-        _payload: &mut [u8],
-        _upstream_mutex: Arc<Mutex<Up>>,
-    ) -> u32 {
-        unreachable!()
-    }
 
     fn on_open_standard_channel(
         &mut self,
@@ -207,43 +192,6 @@ impl<
     > MiningRouter<Down, Up, Sel> for MiningProxyRoutingLogic<Down, Up, Sel>
 {
 
-    /// TODO as above
-    fn update_id_upstream(
-        &mut self,
-        message_type: u8,
-        payload: &mut [u8],
-        upstream_mutex: Arc<Mutex<Up>>,
-    ) -> u32 {
-        upstream_mutex
-            .safe_lock(|u| {
-                let id_map = u.get_mapper();
-                match message_type {
-                    const_sv2::MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL_SUCCESS => {
-                        let upstream_id = get_request_id(payload);
-                        let downstream_id = id_map.unwrap().remove(upstream_id);
-                        update_request_id(payload, downstream_id);
-                        upstream_id
-                    }
-                    const_sv2::MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL_SUCCES => {
-                        let upstream_id = get_request_id(payload);
-                        let downstream_id = id_map.unwrap().remove(upstream_id);
-                        update_request_id(payload, downstream_id);
-                        upstream_id
-                    }
-                    const_sv2::MESSAGE_TYPE_OPEN_MINING_CHANNEL_ERROR => {
-                        todo!()
-                    }
-                    const_sv2::MESSAGE_TYPE_SET_CUSTOM_MINING_JOB_SUCCESS => {
-                        todo!()
-                    }
-                    const_sv2::MESSAGE_TYPE_SET_CUSTOM_MINING_JOB_ERROR => {
-                        todo!()
-                    }
-                    _ => 0,
-                }
-            })
-            .unwrap()
-    }
 
     /// On open standard channel success:
     /// 1. the downstream that requested the opening of the channel must be selected an put in the
@@ -467,30 +415,3 @@ impl<
 //        Self::new()
 //    }
 //}
-
-/// WARNING this function assume that request id are the first 2 bytes of the
-/// payload
-///
-/// this function should probably stay somewhere in the binary-sv2 crate the problem here is that
-/// payload is moved to the message created from payload, messages created from payload can be
-/// mutaed but should bot cause changing a value in the created message is not going to replace the
-/// payload bytes and so to use the updated payload eg to realy the message, the message should be
-/// serialized again and the payload can not be used. For that when necessary the message should
-/// export a method that change a value both in the payload and in the message. Then
-/// ProxyRoutingLogic::update_id can be removed and the id will be updated after that payload has
-/// been parsed. TODO make that in a github issue
-fn update_request_id(payload: &mut [u8], id: u32) {
-    let bytes = id.to_le_bytes();
-    payload[0] = bytes[0];
-    payload[1] = bytes[1];
-    payload[2] = bytes[2];
-    payload[3] = bytes[3];
-}
-
-/// WARNING this function assume that request id are the first 2 bytes of the
-/// payload
-/// TODO this function should probably stay in another crate
-fn get_request_id(payload: &mut [u8]) -> u32 {
-    let bytes = [payload[0], payload[1], payload[2], payload[3]];
-    u32::from_le_bytes(bytes)
-}

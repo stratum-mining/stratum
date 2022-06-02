@@ -3,8 +3,6 @@ use core::convert::TryInto;
 #[cfg(feature = "prop_test")]
 use quickcheck::{Arbitrary, Gen};
 
-use crate::codec::decodable::Decodable;
-
 mod inner;
 mod seq_inner;
 
