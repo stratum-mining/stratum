@@ -23,6 +23,7 @@ members = [
     "utils/network-helpers",
     "utils/buffer",
     "examples/sv1-client-and-server",
+    "examples/sv1-to-sv2",
     "examples/ping-pong-with-noise",
     "examples/ping-pong-without-noise",
     "examples/interop-cpp",
