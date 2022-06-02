@@ -1,0 +1,9 @@
+[package]
+name = "sv1_to_sv2"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+v1 = { path = "../../protocols/v1" }
+serde = { version = "1.0.89", default-features = false, features = ["derive", "alloc"] }
+serde_json = { version = "1.0.64", default-features = false, features = ["alloc"] }
