@@ -280,12 +280,6 @@ mod tests {
     #[test]
     fn downstream_channel_returns_group_id_on_receiving_extended_channel() {
         todo!();
-
-        // let expect = TODO;
-        // let channel = DownstreamChannel::Extended;
-        // let actual = channel.group_id();
-        //
-        // assert_eq!(expect, actual);
     }
 
     #[test]
@@ -318,11 +312,5 @@ mod tests {
     #[test]
     fn downstream_channel_returns_channel_id_on_receiving_extended_channel() {
         todo!();
-
-        // let expect = TODO;
-        // let channel = DownstreamChannel::Extended;
-        // let actual = channel.channel_id();
-        //
-        // assert_eq!(expect, actual);
     }
 }
