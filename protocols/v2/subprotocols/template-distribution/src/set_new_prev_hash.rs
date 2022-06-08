@@ -10,8 +10,8 @@ use core::convert::TryInto;
 
 /// ## SetNewPrevHash (Server -> Client)
 /// Upon successful validation of a new best block, the server MUST immediately provide a
-/// SetNewPrevHash message. If a [NewWork](TODO link) message has previously been sent with the
-/// [future_job](TODO link) flag set, which is valid work based on the prev_hash contained in this message, the
+/// SetNewPrevHash message. If a [NewWork] message has previously been sent with the
+/// [future_job] flag set, which is valid work based on the prev_hash contained in this message, the
 /// template_id field SHOULD be set to the job_id present in that NewTemplate message
 /// indicating the client MUST begin mining on that template as soon as possible.
 /// TODO: Define how many previous works the client has to track (2? 3?), and require that the

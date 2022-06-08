@@ -90,6 +90,6 @@ impl<'a> From<u32> for U32AsRef<'a> {
 impl<'a> From<&'a U32AsRef<'a>> for u32 {
     fn from(v: &'a U32AsRef<'a>) -> Self {
         let b = v.inner_as_ref();
-        u32::from_le_bytes([b[0],b[1],b[2],b[3]])
+        u32::from_le_bytes([b[0], b[1], b[2], b[3]])
     }
 }

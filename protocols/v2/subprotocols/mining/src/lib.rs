@@ -142,46 +142,6 @@ pub use submit_shares::{
 };
 pub use update_channel::{UpdateChannel, UpdateChannelError};
 
-pub fn target_from_hr(_hr: f32) -> U256<'static> {
-    // TODO
-    ([
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0b_0001_0000,
-        0_u8,
-    ])
-    .try_into()
-    .unwrap()
-}
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Target {
     head: u128,

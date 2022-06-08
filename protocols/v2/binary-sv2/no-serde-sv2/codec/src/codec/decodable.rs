@@ -1,12 +1,12 @@
 use crate::{
     codec::{GetSize, SizeHint},
-    datatypes::{Bytes, Signature, Sv2DataType, B016M, B0255, B032, B064K, U24, U256, U32AsRef},
+    datatypes::{Bytes, Signature, Sv2DataType, U32AsRef, B016M, B0255, B032, B064K, U24, U256},
     Error,
 };
 use alloc::vec::Vec;
+use std::convert::TryFrom;
 #[cfg(not(feature = "no_std"))]
 use std::io::{Cursor, Read};
-use std::convert::TryFrom;
 
 /// Implmented by all the decodable structure, it can be derived for every structure composed only
 /// by primitives or other Decodable.
@@ -206,7 +206,9 @@ impl PrimitiveMarker {
                 DecodablePrimitive::Signature(Signature::from_bytes_unchecked(&mut data[offset..]))
             }
             Self::U32 => DecodablePrimitive::U32(u32::from_bytes_unchecked(&mut data[offset..])),
-            Self::U32AsRef => DecodablePrimitive::U32AsRef(U32AsRef::from_bytes_unchecked(&mut data[offset..])),
+            Self::U32AsRef => {
+                DecodablePrimitive::U32AsRef(U32AsRef::from_bytes_unchecked(&mut data[offset..]))
+            }
             Self::F32 => DecodablePrimitive::F32(f32::from_bytes_unchecked(&mut data[offset..])),
             Self::U64 => DecodablePrimitive::U64(u64::from_bytes_unchecked(&mut data[offset..])),
             Self::B032 => DecodablePrimitive::B032(B032::from_bytes_unchecked(&mut data[offset..])),
@@ -237,7 +239,9 @@ impl PrimitiveMarker {
                 reader,
             )?)),
             Self::U32 => Ok(DecodablePrimitive::U32(u32::from_reader_(reader)?)),
-            Self::U32AsRef => Ok(DecodablePrimitive::U32AsRef(U32AsRef::from_reader_(reader)?)),
+            Self::U32AsRef => Ok(DecodablePrimitive::U32AsRef(U32AsRef::from_reader_(
+                reader,
+            )?)),
             Self::F32 => Ok(DecodablePrimitive::F32(f32::from_reader_(reader)?)),
             Self::U64 => Ok(DecodablePrimitive::U64(u64::from_reader_(reader)?)),
             Self::B032 => Ok(DecodablePrimitive::B032(B032::from_reader_(reader)?)),

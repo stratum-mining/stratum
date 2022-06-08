@@ -8,7 +8,7 @@ use roles_logic_sv2::{
     errors::Error,
     handlers::{
         common::{ParseDownstreamCommonMessages, SendTo as SendToCommon},
-        mining::{SupportedChannelTypes, ParseDownstreamMiningMessages, SendTo},
+        mining::{ParseDownstreamMiningMessages, SendTo, SupportedChannelTypes},
     },
     mining_sv2::*,
     parsers::{Mining, MiningDeviceMessages, PoolMessages},
@@ -239,7 +239,6 @@ impl
         todo!()
     }
 
-    // TODO
     fn handle_submit_shares_standard(
         &mut self,
         m: SubmitSharesStandard,
@@ -253,7 +252,7 @@ impl
                             Some(JobDispatcher::Group(dispatcher)) => {
                                 match dispatcher.on_submit_shares(m) {
                                     roles_logic_sv2::job_dispatcher::SendSharesResponse::Valid(m) => {
-                                        // TODO this could just relasy same message and change the
+                                        // This could just relay same message and change the
                                         // job_id as we do for request_ids
                                         let message = Mining::SubmitSharesStandard(m);
                                         Ok(SendTo::RelayNewMessage(remote.clone(),message))

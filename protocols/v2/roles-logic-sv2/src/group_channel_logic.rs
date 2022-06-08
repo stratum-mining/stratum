@@ -1,5 +1,8 @@
-use crate::{errors::Error, utils::Id};
-use mining_sv2::{target_from_hr, Extranonce, OpenStandardMiningChannelSuccess};
+use crate::{
+    errors::Error,
+    utils::{target_from_hash_rate, Id},
+};
+use mining_sv2::{Extranonce, OpenStandardMiningChannelSuccess};
 use std::collections::HashMap;
 
 #[derive(Debug, Default)]
@@ -40,11 +43,10 @@ impl UpstreamWithGroups {
             None => return Err(Error::NoGroupsFound),
         };
 
-        // RR Q: why is this called the extranonce_prefix if it is the next extranonce?
         Ok(OpenStandardMiningChannelSuccess {
             request_id: request_id.into(),
             channel_id,
-            target: target_from_hr(downstream_hr),
+            target: target_from_hash_rate(downstream_hr, 1.0),
             extranonce_prefix: self.extranonces.next(),
             group_channel_id: group_id,
         })
@@ -185,7 +187,7 @@ mod tests {
         let expect = OpenStandardMiningChannelSuccess {
             request_id: request_id.into(),
             channel_id: 1,
-            target: target_from_hr(downstream_hr),
+            target: target_from_hash_rate(downstream_hr, 1.0),
             extranonce_prefix: extranonce.next(),
             group_channel_id,
         };

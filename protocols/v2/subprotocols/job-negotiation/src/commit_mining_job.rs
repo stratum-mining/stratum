@@ -45,7 +45,6 @@ pub struct CommitMiningJob<'decoder> {
     /// A unique nonce used to ensure tx_short_hash collisions are
     /// uncorrelated across the network.
     pub tx_short_hash_nonce: u64,
-    /// TODO in the spec is defined as SEQ0_64K[B8] check which is the correct format.
     /// Sequence of SipHash-2-4(SHA256(transaction_data),
     /// tx_short_hash_nonce)) upstream node to check against its
     /// mempool. Does not include the coinbase transaction (as there

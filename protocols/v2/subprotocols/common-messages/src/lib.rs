@@ -42,10 +42,6 @@ impl ChannelEndpointChanged {
 impl SetupConnection<'static> {
     pub fn from_gen(g: &mut Gen) -> Self {
         let protocol = setup_connection::Protocol::MiningProtocol;
-        // TODO: test each Protocol variant
-        // let protocol = setup_connection::Protocol::JobDistributionProtocol;
-        // let protocol = setup_connection::Protocol::TemplateDistributionProtocol;
-        // let protocol = setup_connection::Protocol::JobNegotiationProtocol;
 
         let mut endpoint_host_gen = Gen::new(255);
         let mut endpoint_host: vec::Vec<u8> = vec::Vec::new();

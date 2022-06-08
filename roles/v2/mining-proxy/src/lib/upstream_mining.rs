@@ -11,7 +11,7 @@ use roles_logic_sv2::{
         StandardChannel, UpstreamChannel,
     },
     errors::Error,
-    handlers::mining::{SupportedChannelTypes, ParseUpstreamMiningMessages, SendTo},
+    handlers::mining::{ParseUpstreamMiningMessages, SendTo, SupportedChannelTypes},
     job_dispatcher::GroupChannelJobDispatcher,
     mining_sv2::*,
     parsers::{CommonMessages, Mining, MiningDeviceMessages, PoolMessages},
@@ -86,11 +86,11 @@ pub struct UpstreamMiningNode {
     last_extended_jobs: Vec<NewExtendedMiningJob<'static>>,
 }
 
-use crate::{MAX_SUPPORTED_VERSION, MIN_SUPPORTED_VERSION};
+use crate::{max_supported_version, min_supported_version};
 use core::convert::TryInto;
 use std::net::SocketAddr;
 
-/// It assume that endpoint NEVER change flags and version! TODO add test for it
+/// It assume that endpoint NEVER change flags and version!
 impl UpstreamMiningNode {
     pub fn new(
         id: u32,
@@ -122,7 +122,6 @@ impl UpstreamMiningNode {
     ///     returned and the upstream is marked as not connected.
     /// If the node is not connected it try to connect and send the message and everything is ok
     ///     the upstream is marked as connected and Ok(()) is returned if not an error is returned.
-    ///     TODO verify and test the above statements
     pub async fn send(
         self_mutex: Arc<Mutex<Self>>,
         sv2_frame: StdFrame,
@@ -137,8 +136,7 @@ impl UpstreamMiningNode {
                 Ok(_) => Ok(()),
                 Err(_e) => {
                     Self::connect(self_mutex.clone()).await.unwrap();
-                    // It assume that enpoint NEVER change flags and version! TODO add test for
-                    // that
+                    // It assume that enpoint NEVER change flags and version!
                     match Self::setup_connection(self_mutex).await {
                         Ok(()) => Ok(()),
                         Err(()) => panic!(),
@@ -148,7 +146,7 @@ impl UpstreamMiningNode {
             // It assume that no downstream try to send messages before that the upstream is
             // initialized. This assumption is enforced by the fact that
             // UpstreamMiningNode::pair only pair downstream noder with already
-            // initialized upstream nodes! TODO add test for that
+            // initialized upstream nodes!
             (Some(connection), false) => match connection.send(sv2_frame).await {
                 Ok(_) => Ok(()),
                 Err(e) => Err(e),
@@ -337,8 +335,8 @@ impl UpstreamMiningNode {
         flags: Option<u32>,
     ) -> Result<(), ()> {
         let flags = flags.unwrap_or(0b0111_0000_0000_0000_0000_0000_0000_0000);
-        let min_version = MIN_SUPPORTED_VERSION;
-        let max_version = MAX_SUPPORTED_VERSION;
+        let min_version = min_supported_version();
+        let max_version = max_supported_version();
         let frame = self_mutex
             .safe_lock(|self_| self_.new_setup_connection_frame(flags, min_version, max_version))
             .unwrap();
@@ -371,7 +369,7 @@ impl UpstreamMiningNode {
                     let flags = flags ^ m.flags;
                     // We need to send SetupConnection again as we do not yet know the version of
                     // upstream
-                    // TODO debounce this?
+                    // debounce this?
                     Self::setup_flag_and_version(self_mutex, Some(flags)).await
                 } else {
                     Err(())
@@ -602,7 +600,6 @@ impl
         &mut self,
         _m: SubmitSharesError,
     ) -> Result<SendTo<DownstreamMiningNode>, Error> {
-        // TODO
         Ok(SendTo::None(None))
     }
 

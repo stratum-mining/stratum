@@ -11,7 +11,7 @@ use core::convert::TryInto;
 /// device/connection aggregation (i.e. it is a proxy), it MUST send this message when downstream
 /// channels change. This update can be debounced so that it is not sent more often than once in a
 /// second (for a very busy proxy).
-/// TODO add the below to the specifications:
+///
 /// This message is an extended channel only message. Using it in other kind if channels should
 /// raise an error
 #[derive(Serialize, Deserialize, Debug, Clone)]

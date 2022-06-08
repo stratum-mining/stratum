@@ -2,7 +2,7 @@
 use alloc::vec::Vec;
 #[cfg(not(feature = "with_serde"))]
 use binary_sv2::binary_codec_sv2;
-use binary_sv2::{Deserialize, Serialize, Str0255, Str032, B032, U256, U32AsRef};
+use binary_sv2::{Deserialize, Serialize, Str0255, Str032, U32AsRef, B032, U256};
 use core::convert::TryInto;
 
 /// # OpenStandardMiningChannel (Client -> Server)
@@ -56,7 +56,6 @@ impl<'decoder> OpenStandardMiningChannel<'decoder> {
     }
 }
 
-/// TODO
 impl<'decoder> OpenStandardMiningChannel<'decoder> {
     pub fn into_static_self(
         s: OpenStandardMiningChannel<'decoder>,

@@ -53,7 +53,6 @@ pub trait MiningRouter<
     Sel: DownstreamMiningSelector<Down>,
 >: CommonRouter
 {
-
     #[allow(clippy::result_unit_err)]
     fn on_open_standard_channel(
         &mut self,
@@ -89,7 +88,6 @@ impl<
         Up: IsMiningUpstream<Down, NullDownstreamMiningSelector> + D,
     > MiningRouter<Down, Up, NullDownstreamMiningSelector> for NoRouting
 {
-
     fn on_open_standard_channel(
         &mut self,
         _downstream: Arc<Mutex<Down>>,
@@ -191,8 +189,6 @@ impl<
         Sel: DownstreamMiningSelector<Down> + D,
     > MiningRouter<Down, Up, Sel> for MiningProxyRoutingLogic<Down, Up, Sel>
 {
-
-
     /// On open standard channel success:
     /// 1. the downstream that requested the opening of the channel must be selected an put in the
     ///    right group channel
@@ -205,7 +201,9 @@ impl<
         request: &mut OpenStandardMiningChannelSuccess,
     ) -> Result<Arc<Mutex<Down>>, ()> {
         let upstream_request_id = request.get_request_id_as_u32();
-        let original_request_id = upstream.safe_lock(|u| u.get_mapper().unwrap().remove(upstream_request_id)).unwrap();
+        let original_request_id = upstream
+            .safe_lock(|u| u.get_mapper().unwrap().remove(upstream_request_id))
+            .unwrap();
         request.update_id(original_request_id);
         let downstreams = upstream
             .safe_lock(|u| {
@@ -238,7 +236,9 @@ impl<
         // TODO the upstream selection logic should be specified by the caller
         let upstream = Self::select_upstreams(&mut upstreams.to_vec());
         let old_id = request.get_request_id_as_u32();
-        let new_req_id = upstream.safe_lock(|u| u.get_mapper().unwrap().on_open_channel(old_id)).unwrap();
+        let new_req_id = upstream
+            .safe_lock(|u| u.get_mapper().unwrap().on_open_channel(old_id))
+            .unwrap();
         request.update_id(new_req_id);
         self.on_open_standard_channel_request_header_only(downstream, request)
     }

@@ -66,7 +66,11 @@ pub trait ParseDownstreamMiningMessages<
                         r_logic
                             .safe_lock(|r_logic| {
                                 r_logic
-                                    .on_open_standard_channel(self_mutex.clone(), &mut m, &downstream_mining_data)
+                                    .on_open_standard_channel(
+                                        self_mutex.clone(),
+                                        &mut m,
+                                        &downstream_mining_data,
+                                    )
                                     .unwrap()
                             })
                             .unwrap(),
@@ -210,10 +214,7 @@ pub trait ParseUpstreamMiningMessages<
                         .safe_lock(|r_logic| {
                             Some(
                                 r_logic
-                                    .on_open_standard_channel_success(
-                                        self_mutex.clone(),
-                                        &mut m,
-                                    )
+                                    .on_open_standard_channel_success(self_mutex.clone(), &mut m)
                                     .unwrap(),
                             )
                         })
@@ -270,7 +271,9 @@ pub trait ParseUpstreamMiningMessages<
                 SupportedChannelTypes::Extended => {
                     self_mutex.safe_lock(|x| x.handle_close_channel(m)).unwrap()
                 }
-                SupportedChannelTypes::Group => self_mutex.safe_lock(|x| x.handle_close_channel(m)).unwrap(),
+                SupportedChannelTypes::Group => {
+                    self_mutex.safe_lock(|x| x.handle_close_channel(m)).unwrap()
+                }
                 SupportedChannelTypes::GroupAndExtended => todo!(),
             },
             Ok(Mining::SetExtranoncePrefix(m)) => match channel_type {
@@ -364,15 +367,27 @@ pub trait ParseUpstreamMiningMessages<
                 }
             }
             Ok(Mining::SetTarget(m)) => match channel_type {
-                SupportedChannelTypes::Standard => self_mutex.safe_lock(|x| x.handle_set_target(m)).unwrap(),
-                SupportedChannelTypes::Extended => self_mutex.safe_lock(|x| x.handle_set_target(m)).unwrap(),
-                SupportedChannelTypes::Group => self_mutex.safe_lock(|x| x.handle_set_target(m)).unwrap(),
+                SupportedChannelTypes::Standard => {
+                    self_mutex.safe_lock(|x| x.handle_set_target(m)).unwrap()
+                }
+                SupportedChannelTypes::Extended => {
+                    self_mutex.safe_lock(|x| x.handle_set_target(m)).unwrap()
+                }
+                SupportedChannelTypes::Group => {
+                    self_mutex.safe_lock(|x| x.handle_set_target(m)).unwrap()
+                }
                 SupportedChannelTypes::GroupAndExtended => todo!(),
             },
             Ok(Mining::Reconnect(m)) => match channel_type {
-                SupportedChannelTypes::Standard => self_mutex.safe_lock(|x| x.handle_reconnect(m)).unwrap(),
-                SupportedChannelTypes::Extended => self_mutex.safe_lock(|x| x.handle_reconnect(m)).unwrap(),
-                SupportedChannelTypes::Group => self_mutex.safe_lock(|x| x.handle_reconnect(m)).unwrap(),
+                SupportedChannelTypes::Standard => {
+                    self_mutex.safe_lock(|x| x.handle_reconnect(m)).unwrap()
+                }
+                SupportedChannelTypes::Extended => {
+                    self_mutex.safe_lock(|x| x.handle_reconnect(m)).unwrap()
+                }
+                SupportedChannelTypes::Group => {
+                    self_mutex.safe_lock(|x| x.handle_reconnect(m)).unwrap()
+                }
                 SupportedChannelTypes::GroupAndExtended => todo!(),
             },
             Ok(Mining::SetGroupChannel(_)) => todo!(),

@@ -76,7 +76,7 @@ pub fn merkle_root_from_path(
     for hash in path {
         hashes.push(Hash::from_slice(hash).ok()?)
     }
-    
+
     let root = bitcoin_merkle_root(hashes.into_iter());
     Some(root.into_inner().to_vec())
 }
@@ -134,6 +134,28 @@ pub(crate) fn new_header(
 pub(crate) fn new_header_hash<'decoder>(header: BlockHeader) -> U256<'decoder> {
     let hash = header.block_hash().to_vec();
     hash.try_into().unwrap()
+}
+use bitcoin::util::uint::Uint256;
+
+fn u128_as_u256(v: u128) -> Uint256 {
+    let u128_min = [0_u8; 16];
+    let u128_b = v.to_be_bytes();
+    let u256 = [&u128_min[..], &u128_b[..]].concat();
+    // below never panic
+    Uint256::from_be_slice(&u256).unwrap()
+}
+
+/// target = u256_max * (shar_per_min / 60) * (2^32 / hash_per_second)
+/// target = u128_max * ((shar_per_min / 60) * (2^32 / hash_per_second) * u128_max)
+pub fn target_from_hash_rate(hash_per_second: f32, share_per_min: f32) -> U256<'static> {
+    assert!(hash_per_second >= 1000000000.0);
+    let operand = (share_per_min as f64 / 60.0) * (u32::MAX as f64 / hash_per_second as f64);
+    assert!(operand <= 1.0);
+    let operand = operand * (u128::MAX as f64);
+    let target = u128_as_u256(u128::MAX) * u128_as_u256(operand as u128);
+    let mut target: [u8; 32] = target.to_be_bytes();
+    target.reverse();
+    target.into()
 }
 
 #[cfg(test)]

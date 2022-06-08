@@ -13,7 +13,7 @@ use roles_logic_sv2::{
     errors::Error,
     handlers::{
         common::ParseDownstreamCommonMessages,
-        mining::{SupportedChannelTypes, ParseDownstreamMiningMessages, SendTo},
+        mining::{ParseDownstreamMiningMessages, SendTo, SupportedChannelTypes},
     },
     mining_sv2::*,
     parsers::{CommonMessages, Mining, PoolMessages},

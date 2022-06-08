@@ -386,7 +386,6 @@ mod tests {
     //    assert_eq!(actual, expect);
     //}
 
-
     //#[test]
     //#[cfg(feature = "serde")]
     //fn gets_new_header() -> Result<(), Error> {

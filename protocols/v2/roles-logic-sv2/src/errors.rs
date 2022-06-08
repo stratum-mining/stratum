@@ -26,7 +26,11 @@ impl Display for Error {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         use Error::*;
         match self {
-            BinarySv2Error(v) => write!(f, "BinarySv2Error: error in serializing/deserilizing binary format {:?}", v),
+            BinarySv2Error(v) => write!(
+                f,
+                "BinarySv2Error: error in serializing/deserilizing binary format {:?}",
+                v
+            ),
             ExpectedLen32(l) => write!(f, "Expected length of 32, but received length of {}", l),
             NoGroupsFound => write!(
                 f,

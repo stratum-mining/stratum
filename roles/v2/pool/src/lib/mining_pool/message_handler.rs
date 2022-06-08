@@ -3,7 +3,7 @@ use binary_sv2::U256;
 use bitcoin::util::uint::Uint256;
 use roles_logic_sv2::{
     errors::Error,
-    handlers::mining::{SupportedChannelTypes, ParseDownstreamMiningMessages, SendTo},
+    handlers::mining::{ParseDownstreamMiningMessages, SendTo, SupportedChannelTypes},
     mining_sv2::*,
     parsers::Mining,
     routing_logic::NoRouting,

@@ -1,6 +1,6 @@
 use crate::{
     codec::GetSize,
-    datatypes::{Bytes, Signature, Sv2DataType, B016M, B0255, B032, B064K, U24, U256, U32AsRef},
+    datatypes::{Bytes, Signature, Sv2DataType, U32AsRef, B016M, B0255, B032, B064K, U24, U256},
     Error,
 };
 use alloc::vec::Vec;
