@@ -283,10 +283,9 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
                 self.channels_id.push(channel_id);
                 self.group_id = Some(group_channel_id);
                 println!("POOL: created group channel with id: {}", group_channel_id);
-                let r_id: u32 = request_id.into();
                 println!(
                     "POOL: channel opened: channel id is {}, group id is {}, request id is {}",
-                    channel_id, group_channel_id, r_id,
+                    channel_id, group_channel_id, request_id,
                 );
                 OpenStandardMiningChannelSuccess {
                     request_id: request_id.into(),

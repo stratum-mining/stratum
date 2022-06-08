@@ -78,11 +78,7 @@ impl<'a> U32AsRef<'a> {
 impl<'a> From<u32> for U32AsRef<'a> {
     fn from(v: u32) -> Self {
         let bytes = v.to_le_bytes();
-        let mut inner = vec![];
-        inner.push(bytes[0]);
-        inner.push(bytes[1]);
-        inner.push(bytes[2]);
-        inner.push(bytes[3]);
+        let inner = vec![bytes[0], bytes[1], bytes[2], bytes[3]];
         U32AsRef::Owned(inner)
     }
 }
