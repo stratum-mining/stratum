@@ -92,15 +92,15 @@ fn from_to_json_rpc(auth: Authorize) -> bool {
     auth == TryInto::<Authorize>::try_into(request).unwrap()
 }
 
-// mining.capabilities (DRAFT) TODO (incompatible with mining.configure)
+// mining.capabilities (DRAFT) (incompatible with mining.configure)
 
 /// _mining.extranonce.subscribe()_
 /// Indicates to the server that the client supports the mining.set_extranonce method.
-/// TODO https://en.bitcoin.it/wiki/BIP_0310
+/// https://en.bitcoin.it/wiki/BIP_0310
 #[derive(Debug)]
 pub struct ExtranonceSubscribe();
 
-// mining.get_transactions TODO
+// mining.get_transactions
 
 /// _mining.submit("username", "job id", "ExtraNonce2", "nTime", "nOnce")_
 ///
@@ -139,7 +139,7 @@ impl Submit {
 
 impl From<Submit> for Message {
     fn from(submit: Submit) -> Self {
-        let ex: String = submit.extra_nonce2.try_into().unwrap(); // TODO check if unwrap is ok here
+        let ex: String = submit.extra_nonce2.try_into().unwrap();
         let mut parameters: Vec<Value> = vec![
             submit.user_name.into(),
             submit.job_id.into(),
@@ -148,7 +148,7 @@ impl From<Submit> for Message {
             submit.nonce.into(),
         ];
         if let Some(a) = submit.version_bits {
-            let a: String = a.try_into().unwrap(); // TODO check if unwrap is ok here
+            let a: String = a.try_into().unwrap(); //
             parameters.push(a.into());
         };
         Message::StandardRequest(StandardRequest {
@@ -259,7 +259,7 @@ pub struct Subscribe {
 impl Subscribe {
     pub fn respond(
         self,
-        subscriptions: Vec<(String, String)>, // TODO should be a custom type?
+        subscriptions: Vec<(String, String)>,
         extra_nonce1: HexBytes,
         extra_nonce2_size: usize,
     ) -> Response {
@@ -321,7 +321,6 @@ impl TryFrom<StandardRequest> for Subscribe {
     }
 }
 
-/// TODO
 #[derive(Debug)]
 pub struct Configure {
     extensions: Vec<ConfigureExtension>,
@@ -569,7 +568,7 @@ impl From<ConfigureExtension> for serde_json::Map<String, Value> {
 
 #[derive(Debug)]
 pub struct VersionRollingParams {
-    mask: Option<HexU32Be>, // TODO chech if better to use just u32
+    mask: Option<HexU32Be>,
     min_bit_count: Option<HexU32Be>,
 }
 
@@ -621,8 +620,8 @@ impl From<InfoParams> for serde_json::Map<String, Value> {
     }
 }
 
-// mining.suggest_difficulty TODO
+// mining.suggest_difficulty
 
-// mining.suggest_target TODO
+// mining.suggest_target
 
-// mining.minimum_difficulty TODO (extension)
+// mining.minimum_difficulty (extension)

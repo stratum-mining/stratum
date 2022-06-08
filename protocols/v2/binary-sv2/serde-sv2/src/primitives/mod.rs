@@ -18,8 +18,8 @@ pub type U16 = u16;
 pub type U32 = u32;
 pub type U64 = u64;
 pub type Pubkey<'u> = U256<'u>;
-// TODO rust string are valid UTF-8 Sv2 string (STR0255) are raw bytes. So there are Sv2 string not
-// representable as Str0255. I suggest to define Sv2 STR0255 as 1 byte len + a valid UTF-8 string.
+// rust string are valid UTF-8 Sv2 string (STR0255) are raw bytes. So there are Sv2 string not
+// representable as Str0255.
 pub type Str0255<'a> = B0255<'a>;
 
 pub trait GetSize {

@@ -10,11 +10,11 @@ use crate::{
     utils::{HexBytes, HexU32Be, PrevHash},
 };
 
-// client.get_version() TODO
+// client.get_version()
 
-// client.reconnect TODO
+// client.reconnect
 
-// client.show_message TODO
+// client.show_message
 
 /// Fields in order:
 ///
@@ -186,7 +186,7 @@ impl TryFrom<Notification> for SetDifficulty {
 /// These values, when provided, replace the initial subscription values beginning with the next
 /// mining.notify job.
 ///
-/// TODO check if it is a Notification or a StandardRequest this implementation assume that it is a
+/// check if it is a Notification or a StandardRequest this implementation assume that it is a
 /// Notification
 ///
 #[derive(Debug)]

@@ -186,9 +186,6 @@ and can be overwritten.
 
 ## Build for C++
 
-### Standard
-TODO
-
 ### Guix
 An example of how to build a C++ program that use [`sv2_ffi`] can be found
 [here](./template-provider/example-of-guix-build/build.sh).

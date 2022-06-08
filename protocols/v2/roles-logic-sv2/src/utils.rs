@@ -64,18 +64,21 @@ pub fn merkle_root_from_path(
     coinbase_tx_prefix: &[u8],
     coinbase_tx_suffix: &[u8],
     extranonce: &[u8],
-    _path: &[&[u8]],
-) -> Vec<u8> {
+    path: &[&[u8]],
+) -> Option<Vec<u8>> {
     let mut coinbase =
         Vec::with_capacity(coinbase_tx_prefix.len() + coinbase_tx_suffix.len() + extranonce.len());
     coinbase.extend_from_slice(coinbase_tx_prefix);
     coinbase.extend_from_slice(extranonce);
     coinbase.extend_from_slice(coinbase_tx_suffix);
     let coinbase = Transaction::deserialize(&coinbase[..]).unwrap();
-    let txs = vec![coinbase];
-    // TODO path
-    let root = bitcoin_merkle_root(txs.iter().map(|obj| obj.txid().as_hash()));
-    root.into_inner().to_vec()
+    let mut hashes = vec![coinbase.txid().as_hash()];
+    for hash in path {
+        hashes.push(Hash::from_slice(hash).ok()?)
+    }
+
+    let root = bitcoin_merkle_root(hashes.into_iter());
+    Some(root.into_inner().to_vec())
 }
 
 /// Returns a new `BlockHeader`.
@@ -131,6 +134,28 @@ pub(crate) fn new_header(
 pub(crate) fn new_header_hash<'decoder>(header: BlockHeader) -> U256<'decoder> {
     let hash = header.block_hash().to_vec();
     hash.try_into().unwrap()
+}
+use bitcoin::util::uint::Uint256;
+
+fn u128_as_u256(v: u128) -> Uint256 {
+    let u128_min = [0_u8; 16];
+    let u128_b = v.to_be_bytes();
+    let u256 = [&u128_min[..], &u128_b[..]].concat();
+    // below never panic
+    Uint256::from_be_slice(&u256).unwrap()
+}
+
+/// target = u256_max * (shar_per_min / 60) * (2^32 / hash_per_second)
+/// target = u128_max * ((shar_per_min / 60) * (2^32 / hash_per_second) * u128_max)
+pub fn target_from_hash_rate(hash_per_second: f32, share_per_min: f32) -> U256<'static> {
+    assert!(hash_per_second >= 1000000000.0);
+    let operand = (share_per_min as f64 / 60.0) * (u32::MAX as f64 / hash_per_second as f64);
+    assert!(operand <= 1.0);
+    let operand = operand * (u128::MAX as f64);
+    let target = u128_as_u256(u128::MAX) * u128_as_u256(operand as u128);
+    let mut target: [u8; 32] = target.to_be_bytes();
+    target.reverse();
+    target.into()
 }
 
 #[cfg(test)]

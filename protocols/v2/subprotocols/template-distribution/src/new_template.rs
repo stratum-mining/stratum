@@ -22,7 +22,7 @@ pub struct NewTemplate<'decoder> {
     /// should start to work on the job immediately.
     pub future_template: bool,
     /// Valid header version field that reflects the current network
-    /// consensus. The general purpose bits (as specified in [BIP320](TODO link)) can
+    /// consensus. The general purpose bits (as specified in [BIP320]) can
     /// be freely manipulated by the downstream node. The downstream
     /// node MUST NOT rely on the upstream node to set the BIP320 bits
     /// to any particular value.

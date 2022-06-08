@@ -2,7 +2,8 @@
 use alloc::vec::Vec;
 #[cfg(not(feature = "with_serde"))]
 use binary_sv2::binary_codec_sv2;
-use binary_sv2::{Deserialize, Serialize, Str0255, Str032, B032, U256};
+use binary_sv2::{Deserialize, Serialize, Str0255, Str032, U32AsRef, B032, U256};
+use core::convert::TryInto;
 
 /// # OpenStandardMiningChannel (Client -> Server)
 /// This message requests to open a standard channel to the upstream node.
@@ -20,7 +21,7 @@ pub struct OpenStandardMiningChannel<'decoder> {
     /// Client-specified identifier for matching responses from upstream server.
     /// The value MUST be connection-wide unique and is not interpreted by
     /// the server.
-    pub request_id: u32,
+    pub request_id: U32AsRef<'decoder>,
     /// Unconstrained sequence of bytes. Whatever is needed by upstream
     /// node to identify/authenticate the client, e.g. “braiinstest.worker1”.
     /// Additional restrictions can be imposed by the upstream node (e.g. a
@@ -40,13 +41,27 @@ pub struct OpenStandardMiningChannel<'decoder> {
     pub max_target: U256<'decoder>,
 }
 
-/// TODO
+impl<'decoder> OpenStandardMiningChannel<'decoder> {
+    pub fn get_request_id_as_u32(&self) -> u32 {
+        (&self.request_id).into()
+    }
+
+    pub fn update_id(&mut self, new_id: u32) {
+        let bytes_new = new_id.to_le_bytes();
+        let bytes_old = self.request_id.inner_as_mut();
+        bytes_old[0] = bytes_new[0];
+        bytes_old[1] = bytes_new[1];
+        bytes_old[2] = bytes_new[2];
+        bytes_old[3] = bytes_new[3];
+    }
+}
+
 impl<'decoder> OpenStandardMiningChannel<'decoder> {
     pub fn into_static_self(
         s: OpenStandardMiningChannel<'decoder>,
     ) -> OpenStandardMiningChannel<'static> {
         OpenStandardMiningChannel {
-            request_id: s.request_id,
+            request_id: s.request_id.into_static(),
             user_identity: s.user_identity.into_static(),
             nominal_hash_rate: s.nominal_hash_rate,
             max_target: s.max_target.into_static(),
@@ -60,7 +75,7 @@ impl<'decoder> OpenStandardMiningChannel<'decoder> {
 pub struct OpenStandardMiningChannelSuccess<'decoder> {
     /// Client-specified request ID from OpenStandardMiningChannel message,
     /// so that the client can pair responses with open channel requests.
-    pub request_id: u32,
+    pub request_id: U32AsRef<'decoder>,
     /// Newly assigned identifier of the channel, stable for the whole lifetime of
     /// the connection. E.g. it is used for broadcasting new jobs by
     /// NewExtendedMiningJob.
@@ -76,6 +91,21 @@ pub struct OpenStandardMiningChannelSuccess<'decoder> {
     /// Group channel into which the new channel belongs. See
     /// SetGroupChannel for details.
     pub group_channel_id: u32,
+}
+
+impl<'decoder> OpenStandardMiningChannelSuccess<'decoder> {
+    pub fn get_request_id_as_u32(&self) -> u32 {
+        (&self.request_id).into()
+    }
+
+    pub fn update_id(&mut self, new_id: u32) {
+        let bytes_new = new_id.to_le_bytes();
+        let bytes_old = self.request_id.inner_as_mut();
+        bytes_old[0] = bytes_new[0];
+        bytes_old[1] = bytes_new[1];
+        bytes_old[2] = bytes_new[2];
+        bytes_old[3] = bytes_new[3];
+    }
 }
 
 /// # OpenExtendedMiningChannel (Client -> Server)

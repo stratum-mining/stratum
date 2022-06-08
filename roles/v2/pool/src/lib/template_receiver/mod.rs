@@ -34,7 +34,7 @@ impl TemplateRx {
         let stream = TcpStream::connect(address).await.unwrap();
 
         let (mut receiver, mut sender): (Receiver<EitherFrame>, Sender<EitherFrame>) =
-            PlainConnection::new(stream).await;
+            PlainConnection::new(stream, 10).await;
 
         SetupConnectionHandler::setup(&mut receiver, &mut sender, address)
             .await

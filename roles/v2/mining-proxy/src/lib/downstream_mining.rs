@@ -8,7 +8,7 @@ use roles_logic_sv2::{
     errors::Error,
     handlers::{
         common::{ParseDownstreamCommonMessages, SendTo as SendToCommon},
-        mining::{ChannelType, ParseDownstreamMiningMessages, SendTo},
+        mining::{ParseDownstreamMiningMessages, SendTo, SupportedChannelTypes},
     },
     mining_sv2::*,
     parsers::{Mining, MiningDeviceMessages, PoolMessages},
@@ -209,8 +209,8 @@ impl
         MiningProxyRoutingLogic<Self, UpstreamMiningNode, ProxyRemoteSelector>,
     > for DownstreamMiningNode
 {
-    fn get_channel_type(&self) -> ChannelType {
-        ChannelType::Group
+    fn get_channel_type(&self) -> SupportedChannelTypes {
+        SupportedChannelTypes::Group
     }
 
     fn is_work_selection_enabled(&self) -> bool {
@@ -239,7 +239,6 @@ impl
         todo!()
     }
 
-    // TODO
     fn handle_submit_shares_standard(
         &mut self,
         m: SubmitSharesStandard,
@@ -253,7 +252,7 @@ impl
                             Some(JobDispatcher::Group(dispatcher)) => {
                                 match dispatcher.on_submit_shares(m) {
                                     roles_logic_sv2::job_dispatcher::SendSharesResponse::Valid(m) => {
-                                        // TODO this could just relasy same message and change the
+                                        // This could just relay same message and change the
                                         // job_id as we do for request_ids
                                         let message = Mining::SubmitSharesStandard(m);
                                         Ok(SendTo::RelayNewMessage(remote.clone(),message))
@@ -320,7 +319,7 @@ pub async fn listen_for_downstream_mining(address: SocketAddr) {
     while let Some(stream) = incoming.next().await {
         let stream = stream.unwrap();
         let (receiver, sender): (Receiver<EitherFrame>, Sender<EitherFrame>) =
-            PlainConnection::new(stream).await;
+            PlainConnection::new(stream, 10).await;
         let node = DownstreamMiningNode::new(receiver, sender);
 
         task::spawn(async move {

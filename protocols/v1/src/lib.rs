@@ -1,5 +1,6 @@
 #![allow(clippy::result_unit_err)]
-//! Startum V1 application protocol: TODO
+//! Startum V1 application protocol:
+//!
 //! json-rpc has two types of messages: **request** and **response**.
 //! A request message can be either a **notification** or a **standard message**.
 //! Standard messegaes expect a response notifications no. A typical example of a notification
@@ -57,8 +58,8 @@ pub trait IsServer {
     /// Deserialize a [raw json_rpc message][a] into a [stratum v1 message][b] and handle the
     /// result.
     ///
-    /// [a]: TODO // crate::...
-    /// [b]: TODO
+    /// [a]: crate::...
+    /// [b]:
     ///
     fn handle_message(
         &mut self,
@@ -214,11 +215,10 @@ pub trait IsServer {
         .map_err(|_| ())
     }
     // {"params":["00003000"], "id":null, "method": "mining.set_version_mask"}
-    // TODO fn update_version_rolling_mask
+    // fn update_version_rolling_mask
 
     #[allow(clippy::needless_question_mark)]
     fn notify(&mut self) -> Result<json_rpc::Message, ()> {
-        // TODO
         Ok(server_to_client::Notify {
             job_id: "ciao".to_string(),
             prev_hash: utils::PrevHash(vec![3_u8, 4, 5, 6]),
@@ -238,8 +238,8 @@ pub trait IsClient {
     /// Deserialize a [raw json_rpc message][a] into a [stratum v1 message][b] and handle the
     /// result.
     ///
-    /// [a]: TODO // crate::...
-    /// [b]: TODO
+    /// [a]: crate::...
+    /// [b]:
     ///
     fn handle_message(
         &mut self,
@@ -263,7 +263,7 @@ pub trait IsClient {
                         let response = self.response_from_id(msg)?;
                         self.handle_response(response).map(|_| None)
                     }
-                    _ => panic!(), // TODO this case should be impossible
+                    _ => panic!(), // impossible
                 },
             }
         } else {

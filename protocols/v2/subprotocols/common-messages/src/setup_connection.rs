@@ -216,7 +216,7 @@ pub struct SetupConnectionSuccess {
 pub struct SetupConnectionError<'decoder> {
     /// Flags indicating features causing an error.
     pub flags: u32,
-    /// Human-readable error code(s). See Error Codes section, [link](TODO).
+    /// Human-readable error code(s). See Error Codes section, [link].
     /// ### Possible error codes:
     /// * ‘unsupported-feature-flags’
     /// * ‘unsupported-protocol’

@@ -17,8 +17,8 @@ use core::convert::TryInto;
 pub struct SubmitSolution<'decoder> {
     /// The template_id field as it appeared in NewTemplate.
     pub template_id: u64,
-    /// The version field in the block header. Bits not defined by [BIP320](TODO link) as
-    /// additional nonce MUST be the same as they appear in the [NewWork](TODO link)
+    /// The version field in the block header. Bits not defined by [BIP320] as
+    /// additional nonce MUST be the same as they appear in the [NewWork]
     /// message, other bits may be set to any value.
     pub version: u32,
     /// The nTime field in the block header. This MUST be greater than or equal

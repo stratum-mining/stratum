@@ -7,13 +7,13 @@
 //! u16      <-> U16
 //! U24      <-> U24
 //! u32      <-> u32
-//! f32      <-> f32 // todo not in the spec but used
-//! u64      <-> u64 // TODO not in the spec but used
+//! f32      <-> f32 // not in the spec but used
+//! u64      <-> u64 // not in the spec but used
 //! U256     <-> U256
 //! String   <-> STRO_255
 //! Signature<-> SIGNATURE
-//! B032     <-> B0_32 // todo not in the spec but used
-//! B032     <-> STR0_32 // todo not in the spec but used
+//! B032     <-> B0_32 // not in the spec but used
+//! B032     <-> STR0_32 // not in the spec but used
 //! B0255    <-> B0_255
 //! B064K    <-> B0_64K
 //! B016M    <-> B0_16M

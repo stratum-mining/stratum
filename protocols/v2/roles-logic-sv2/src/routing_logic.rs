@@ -53,33 +53,19 @@ pub trait MiningRouter<
     Sel: DownstreamMiningSelector<Down>,
 >: CommonRouter
 {
-    fn update_id_downstream(
-        &mut self,
-        message_type: u8,
-        payload: &mut [u8],
-        downstream_mining_data: &CommonDownstreamData,
-    ) -> u32;
-
-    fn update_id_upstream(
-        &mut self,
-        message_type: u8,
-        payload: &mut [u8],
-        upstream_mutex: Arc<Mutex<Up>>,
-    ) -> u32;
-
     #[allow(clippy::result_unit_err)]
     fn on_open_standard_channel(
         &mut self,
         downstream: Arc<Mutex<Down>>,
-        request: &OpenStandardMiningChannel,
+        request: &mut OpenStandardMiningChannel,
+        downstream_mining_data: &CommonDownstreamData,
     ) -> Result<Arc<Mutex<Up>>, ()>;
 
     #[allow(clippy::result_unit_err)]
     fn on_open_standard_channel_success(
         &mut self,
         upstream: Arc<Mutex<Up>>,
-        upstream_request_id: u32,
-        request: &OpenStandardMiningChannelSuccess,
+        request: &mut OpenStandardMiningChannelSuccess,
     ) -> Result<Arc<Mutex<Down>>, ()>;
 }
 
@@ -102,28 +88,11 @@ impl<
         Up: IsMiningUpstream<Down, NullDownstreamMiningSelector> + D,
     > MiningRouter<Down, Up, NullDownstreamMiningSelector> for NoRouting
 {
-    fn update_id_downstream(
-        &mut self,
-        _message_type: u8,
-        _payload: &mut [u8],
-        _downstream_mining_data: &CommonDownstreamData,
-    ) -> u32 {
-        unreachable!()
-    }
-
-    fn update_id_upstream(
-        &mut self,
-        _message_type: u8,
-        _payload: &mut [u8],
-        _upstream_mutex: Arc<Mutex<Up>>,
-    ) -> u32 {
-        unreachable!()
-    }
-
     fn on_open_standard_channel(
         &mut self,
         _downstream: Arc<Mutex<Down>>,
-        _request: &OpenStandardMiningChannel,
+        _request: &mut OpenStandardMiningChannel,
+        _downstream_mining_data: &CommonDownstreamData,
     ) -> Result<Arc<Mutex<Up>>, ()> {
         unreachable!()
     }
@@ -131,8 +100,7 @@ impl<
     fn on_open_standard_channel_success(
         &mut self,
         _upstream: Arc<Mutex<Up>>,
-        _upstream_request_id: u32,
-        _request: &OpenStandardMiningChannelSuccess,
+        _request: &mut OpenStandardMiningChannelSuccess,
     ) -> Result<Arc<Mutex<Down>>, ()> {
         unreachable!()
     }
@@ -221,103 +189,22 @@ impl<
         Sel: DownstreamMiningSelector<Down> + D,
     > MiningRouter<Down, Up, Sel> for MiningProxyRoutingLogic<Down, Up, Sel>
 {
-    /// Update the request id from downstream to a connection-wide unique request id for
-    /// downstream.
-    /// This method check message type and for the message type that do have a request it update
-    /// it.
-    ///
-    /// it return the original request id
-    ///
-    /// TODO remove this method and update request id after that the payload has been parsed see
-    /// the todo in update_request_id()
-    fn update_id_downstream(
-        &mut self,
-        message_type: u8,
-        payload: &mut [u8],
-        downstream_mining_data: &CommonDownstreamData,
-    ) -> u32 {
-        let upstreams = self
-            .downstream_to_upstream_map
-            .get(downstream_mining_data)
-            .unwrap();
-        // TODO the upstream selection logic should be specified by the caller
-        let upstream = Self::select_upstreams(&mut upstreams.to_vec());
-        let old_id = get_request_id(payload);
-        upstream
-            .safe_lock(|u| {
-                let id_map = u.get_mapper();
-                match message_type {
-                    // REQUESTS
-                    const_sv2::MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL => {
-                        let new_req_id = id_map.unwrap().on_open_channel(old_id);
-                        update_request_id(payload, new_req_id);
-                    }
-                    const_sv2::MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL => {
-                        let new_req_id = id_map.unwrap().on_open_channel(old_id);
-                        update_request_id(payload, new_req_id);
-                    }
-                    const_sv2::MESSAGE_TYPE_SET_CUSTOM_MINING_JOB => {
-                        todo!()
-                    }
-                    _ => (),
-                }
-            })
-            .unwrap();
-        old_id
-    }
-
-    /// TODO as above
-    fn update_id_upstream(
-        &mut self,
-        message_type: u8,
-        payload: &mut [u8],
-        upstream_mutex: Arc<Mutex<Up>>,
-    ) -> u32 {
-        upstream_mutex
-            .safe_lock(|u| {
-                let id_map = u.get_mapper();
-                match message_type {
-                    const_sv2::MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL_SUCCESS => {
-                        let upstream_id = get_request_id(payload);
-                        let downstream_id = id_map.unwrap().remove(upstream_id);
-                        update_request_id(payload, downstream_id);
-                        upstream_id
-                    }
-                    const_sv2::MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL_SUCCES => {
-                        let upstream_id = get_request_id(payload);
-                        let downstream_id = id_map.unwrap().remove(upstream_id);
-                        update_request_id(payload, downstream_id);
-                        upstream_id
-                    }
-                    const_sv2::MESSAGE_TYPE_OPEN_MINING_CHANNEL_ERROR => {
-                        todo!()
-                    }
-                    const_sv2::MESSAGE_TYPE_SET_CUSTOM_MINING_JOB_SUCCESS => {
-                        todo!()
-                    }
-                    const_sv2::MESSAGE_TYPE_SET_CUSTOM_MINING_JOB_ERROR => {
-                        todo!()
-                    }
-                    _ => 0,
-                }
-            })
-            .unwrap()
-    }
-
     /// On open standard channel success:
     /// 1. the downstream that requested the opening of the channel must be selected an put in the
     ///    right group channel
-    /// 2. request_id from upsteram must be replaced with the original request id from downstream
-    ///    TODO this point is done in a preavious passage by update_id but in future that
-    ///    method should be removed and the id should be updated here
+    /// 2. request_id from upsteram is replaced with the original request id from downstream
     ///
     /// The selected downstream is returned
     fn on_open_standard_channel_success(
         &mut self,
         upstream: Arc<Mutex<Up>>,
-        upstream_request_id: u32,
-        request: &OpenStandardMiningChannelSuccess,
+        request: &mut OpenStandardMiningChannelSuccess,
     ) -> Result<Arc<Mutex<Down>>, ()> {
+        let upstream_request_id = request.get_request_id_as_u32();
+        let original_request_id = upstream
+            .safe_lock(|u| u.get_mapper().unwrap().remove(upstream_request_id))
+            .unwrap();
+        request.update_id(original_request_id);
         let downstreams = upstream
             .safe_lock(|u| {
                 let selector = u.get_remote_selector();
@@ -333,11 +220,26 @@ impl<
 
     /// At this point the Sv2 connection with downstream is initialized that means that
     /// routing_logic has already preselected a set of upstreams pairable with downstream.
+    ///
+    /// It update the request id from downstream to a connection-wide unique request id for
+    /// downstream.
     fn on_open_standard_channel(
         &mut self,
         downstream: Arc<Mutex<Down>>,
-        request: &OpenStandardMiningChannel,
+        request: &mut OpenStandardMiningChannel,
+        downstream_mining_data: &CommonDownstreamData,
     ) -> Result<Arc<Mutex<Up>>, ()> {
+        let upstreams = self
+            .downstream_to_upstream_map
+            .get(downstream_mining_data)
+            .unwrap();
+        // TODO the upstream selection logic should be specified by the caller
+        let upstream = Self::select_upstreams(&mut upstreams.to_vec());
+        let old_id = request.get_request_id_as_u32();
+        let new_req_id = upstream
+            .safe_lock(|u| u.get_mapper().unwrap().on_open_channel(old_id))
+            .unwrap();
+        request.update_id(new_req_id);
         self.on_open_standard_channel_request_header_only(downstream, request)
     }
 }
@@ -464,11 +366,10 @@ impl<
     /// 1. an upstream must be selected between the possibles upstreams for this downstream, if the
     ///    downstream is header only, just one upstream will be there so the choice is easy, if not
     ///    (TODO on_open_standard_channel_request_no_standard_job must be used)
-    /// 2. request_id from downstream must be updated to a connection-wide uniques request-id for
-    ///    upstream (TODO this point is done in a preavious passage by update_id but in future that
-    ///    method should be removed and the id should be updated here)
+    /// 2. request_id from downstream is updated to a connection-wide uniques request-id for
+    ///    upstreams
     ///
-    /// The selected upstream is returned
+    ///    The selected upstream is returned
     #[allow(clippy::result_unit_err)]
     pub fn on_open_standard_channel_request_header_only(
         &mut self,
@@ -487,7 +388,7 @@ impl<
         upstream
             .safe_lock(|u| {
                 let selector = u.get_remote_selector();
-                selector.on_open_standard_channel_request(request.request_id, downstream)
+                selector.on_open_standard_channel_request(request.request_id.as_u32(), downstream)
             })
             .unwrap();
         Ok(upstream)
@@ -511,30 +412,3 @@ impl<
 //        Self::new()
 //    }
 //}
-
-/// WARNING this function assume that request id are the first 2 bytes of the
-/// payload
-///
-/// this function should probably stay somewhere in the binary-sv2 crate the problem here is that
-/// payload is moved to the message created from payload, messages created from payload can be
-/// mutaed but should bot cause changing a value in the created message is not going to replace the
-/// payload bytes and so to use the updated payload eg to realy the message, the message should be
-/// serialized again and the payload can not be used. For that when necessary the message should
-/// export a method that change a value both in the payload and in the message. Then
-/// ProxyRoutingLogic::update_id can be removed and the id will be updated after that payload has
-/// been parsed. TODO make that in a github issue
-fn update_request_id(payload: &mut [u8], id: u32) {
-    let bytes = id.to_le_bytes();
-    payload[0] = bytes[0];
-    payload[1] = bytes[1];
-    payload[2] = bytes[2];
-    payload[3] = bytes[3];
-}
-
-/// WARNING this function assume that request id are the first 2 bytes of the
-/// payload
-/// TODO this function should probably stay in another crate
-fn get_request_id(payload: &mut [u8]) -> u32 {
-    let bytes = [payload[0], payload[1], payload[2], payload[3]];
-    u32::from_le_bytes(bytes)
-}

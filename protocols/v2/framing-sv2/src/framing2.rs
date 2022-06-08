@@ -59,7 +59,7 @@ pub trait Frame<'a, T: Serialize + GetSize>: Sized {
 pub struct Sv2Frame<T, B> {
     header: Header,
     payload: Option<T>,
-    /// Serializsed header + payload (TODO check if this is correct)
+    /// Serializsed header + payload
     serialized: Option<B>,
 }
 

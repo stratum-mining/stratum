@@ -79,7 +79,6 @@ impl Fixed for u32 {
     const SIZE: usize = 4;
 }
 
-// TODO fix not in the specs
 impl Fixed for u64 {
     const SIZE: usize = 8;
 }

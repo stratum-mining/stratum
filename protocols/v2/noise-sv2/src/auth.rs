@@ -204,8 +204,6 @@ pub struct SignatureNoiseMessage {
 
 impl SignatureNoiseMessage {
     pub fn serialize_to_writer<T: Write>(&self, writer: &mut T) -> Result<()> {
-        // TODO
-        // v2::serialization::to_writer(writer, self)?;
         let sign_len = [74, 0];
         self.header.serialize_to_writer(writer).unwrap();
         writer.write_all(&sign_len).unwrap();

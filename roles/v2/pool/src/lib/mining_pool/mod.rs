@@ -39,7 +39,6 @@ pub mod setup_connection;
 use setup_connection::SetupConnectionHandler;
 
 pub mod message_handler;
-const EXTRANONCE_LEN: u8 = 32;
 
 #[derive(Debug, Clone)]
 struct PartialStandardJob {
@@ -61,6 +60,7 @@ impl PartialStandardJob {
             &(self.extranonce[..]),
             &(new_ext_job.merkle_path.inner_as_ref()[..]),
         )
+        .unwrap()
         .try_into()
         .unwrap();
         let merkle_root = Hash::from_inner(merkle_root);
@@ -136,7 +136,7 @@ impl CompleteStandardJob {
         if hash <= bitcoin_target {
             self.new_shares_sum += 1;
             let solution = SubmitSolution {
-                template_id: self.template_id, // TODO
+                template_id: self.template_id,
                 version: version as u32,
                 header_timestamp: ntime,
                 header_nonce: nonce,
@@ -164,6 +164,7 @@ impl CompleteStandardJob {
             &(self.extranonce[..]),
             &(new_ext_job.merkle_path.inner_as_ref()[..]),
         )
+        .unwrap()
         .try_into()
         .unwrap();
         let merkle_root = Hash::from_inner(merkle_root);
@@ -245,7 +246,6 @@ pub struct Downstream {
     downstream_data: CommonDownstreamData,
     channel_ids: Id,
     extranonces: Arc<Mutex<Extranonce>>,
-    // TODO move in JobsCreators or somewhere in messages_sv2 (target, extranonce)
     // channel_id -> StandardJob
     jobs: HashMap<u32, StandardJob>,
     // extended_job_id -> (FutureJob,template_id)
@@ -316,7 +316,7 @@ impl Downstream {
             }
         };
         let extended_jobs = job_creators
-            .safe_lock(|j| j.new_group_channel(id, downstream_data.version_rolling, EXTRANONCE_LEN))
+            .safe_lock(|j| j.new_group_channel(id, downstream_data.version_rolling))
             .unwrap();
 
         let mut future_jobs = HashMap::new();
@@ -420,8 +420,6 @@ impl Downstream {
             Err(Error::UnexpectedMessage) => todo!(),
             Err(_) => todo!(),
         }
-
-        //TODO
     }
 
     pub async fn send(
@@ -533,7 +531,7 @@ impl Pool {
             );
             let last_new_prev_hash = self_.safe_lock(|x| x.last_new_prev_hash.clone()).unwrap();
             let (receiver, sender): (Receiver<EitherFrame>, Sender<EitherFrame>) =
-                Connection::new(stream, HandshakeRole::Responder(responder)).await;
+                Connection::new(stream, HandshakeRole::Responder(responder), 10).await;
             let group_ids = self_.safe_lock(|s| s.group_ids.clone()).unwrap();
             let hom_ids = self_.safe_lock(|s| s.hom_ids.clone()).unwrap();
             let job_creators = self_.safe_lock(|s| s.job_creators.clone()).unwrap();
