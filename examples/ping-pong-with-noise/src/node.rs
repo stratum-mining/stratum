@@ -34,7 +34,7 @@ pub struct Node {
 
 impl Node {
     pub async fn new(name: String, socket: TcpStream, role: HandshakeRole) -> Arc<Mutex<Self>> {
-        let (receiver, sender) = Connection::new(socket, role).await;
+        let (receiver, sender) = Connection::new(socket, role, 10).await;
 
         let node = Arc::new(Mutex::new(Node {
             last_id: 0,

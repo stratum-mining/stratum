@@ -186,7 +186,7 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
                     error_code: "difficulty-too-low".to_string().try_into().unwrap(),
                 }),
             )),
-            Err(()) => Ok(SendTo::None(None)), // TODO
+            Err(()) => Ok(SendTo::None(None)),
         }
     }
 

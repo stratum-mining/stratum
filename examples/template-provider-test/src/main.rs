@@ -39,7 +39,7 @@ async fn test_1() {
     let stream = TcpStream::connect(socket).await.unwrap();
 
     let (_receiver, sender): (Receiver<EitherFrame>, Sender<EitherFrame>) =
-        PlainConnection::new(stream).await;
+        PlainConnection::new(stream, 10).await;
     let submit_solution = SubmitSolution {
         template_id: 0,
         version: 0x01000000,

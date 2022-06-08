@@ -199,7 +199,7 @@ impl UpstreamMiningNode {
                 let socket = TcpStream::connect(address).await.map_err(|_| ())?;
                 let initiator = Initiator::from_raw_k(authority_public_key);
                 let (receiver, sender) =
-                    Connection::new(socket, HandshakeRole::Initiator(initiator)).await;
+                    Connection::new(socket, HandshakeRole::Initiator(initiator), 10).await;
                 let connection = UpstreamMiningConnection { receiver, sender };
                 self_mutex
                     .safe_lock(|self_| {

@@ -25,6 +25,7 @@ impl Connection {
     pub async fn new<'a, Message: Serialize + Deserialize<'a> + GetSize + Send + 'static>(
         stream: TcpStream,
         role: HandshakeRole,
+        capacity: usize,
     ) -> (
         Receiver<StandardEitherFrame<Message>>,
         Sender<StandardEitherFrame<Message>>,
@@ -34,11 +35,11 @@ impl Connection {
         let (sender_incoming, receiver_incoming): (
             Sender<StandardEitherFrame<Message>>,
             Receiver<StandardEitherFrame<Message>>,
-        ) = bounded(10); // TODO caller should provide this param
+        ) = bounded(capacity);
         let (sender_outgoing, receiver_outgoing): (
             Sender<StandardEitherFrame<Message>>,
             Receiver<StandardEitherFrame<Message>>,
-        ) = bounded(10); // TODO caller should provide this param
+        ) = bounded(capacity);
 
         let state = codec_sv2::State::new();
 

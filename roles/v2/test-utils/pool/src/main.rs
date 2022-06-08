@@ -60,7 +60,7 @@ async fn server_pool() {
             CERT_VALIDITY,
         );
         let (receiver, sender): (Receiver<EitherFrame>, Sender<EitherFrame>) =
-            Connection::new(stream, HandshakeRole::Responder(responder)).await;
+            Connection::new(stream, HandshakeRole::Responder(responder), 10).await;
         let downstream = Downstream::new(
             receiver,
             sender,
@@ -219,8 +219,6 @@ impl Downstream {
             Err(Error::UnexpectedMessage) => todo!(),
             Err(_) => todo!(),
         }
-
-        //TODO
     }
 }
 

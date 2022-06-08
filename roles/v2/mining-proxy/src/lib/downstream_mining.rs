@@ -319,7 +319,7 @@ pub async fn listen_for_downstream_mining(address: SocketAddr) {
     while let Some(stream) = incoming.next().await {
         let stream = stream.unwrap();
         let (receiver, sender): (Receiver<EitherFrame>, Sender<EitherFrame>) =
-            PlainConnection::new(stream).await;
+            PlainConnection::new(stream, 10).await;
         let node = DownstreamMiningNode::new(receiver, sender);
 
         task::spawn(async move {
