@@ -306,7 +306,8 @@ impl<'decoder> binary_sv2::Decodable<'decoder> for Protocol {
     ) -> core::result::Result<Self, binary_sv2::Error> {
         let val = v.pop().ok_or(binary_sv2::Error::NoDecodableFieldPassed)?;
         let val: u8 = val.try_into()?;
-        val.try_into().map_err(|_| binary_sv2::Error::ValueIsNotAValidProtocol(val))
+        val.try_into()
+            .map_err(|_| binary_sv2::Error::ValueIsNotAValidProtocol(val))
     }
 }
 

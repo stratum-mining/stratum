@@ -29,8 +29,8 @@ use std::io::{Error as E, ErrorKind};
 mod codec;
 mod datatypes;
 pub use datatypes::{
-    Bytes, PubKey, Seq0255, Seq064K, Signature, Str0255, Str032, U32AsRef, B016M, B0255, B032,
-    B064K, U24, U256,
+    PubKey, Seq0255, Seq064K, Signature, Str0255, Str032, U32AsRef, B016M, B0255, B032, B064K, U24,
+    U256,
 };
 
 pub use crate::codec::{
@@ -111,12 +111,10 @@ impl GetSize for Vec<u8> {
     }
 }
 
+// Only needed for implement encodable for Frame never called
 impl<'a> From<Vec<u8>> for EncodableField<'a> {
-    fn from(v: Vec<u8>) -> Self {
-        let bytes: Bytes = v.try_into().unwrap();
-        crate::encodable::EncodableField::Primitive(
-            crate::codec::encodable::EncodablePrimitive::Bytes(bytes),
-        )
+    fn from(_v: Vec<u8>) -> Self {
+        unreachable!()
     }
 }
 

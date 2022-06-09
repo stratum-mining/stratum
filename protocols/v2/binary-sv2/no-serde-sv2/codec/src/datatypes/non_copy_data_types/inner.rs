@@ -102,11 +102,13 @@ impl<'a, const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const 
     fn expected_length_variable(data: &[u8]) -> Result<usize, Error> {
         if data.len() >= HEADERSIZE {
             let size = match HEADERSIZE {
-                0 => Ok(data.len()),
                 1 => Ok(data[0] as usize),
                 2 => Ok(u16::from_le_bytes([data[0], data[1]]) as usize),
                 3 => Ok(u32::from_le_bytes([data[0], data[1], data[2], 0]) as usize),
-                _ => unimplemented!(),
+                // HEADERSIZE for Sv2 datatypes is at maximum 3 bytes
+                // When HEADERSIZE is 0 datatypes ISFIXED only exception is Bytes datatypes but is
+                // not used
+                _ => unreachable!(),
             };
             size.map(|x| x + HEADERSIZE)
         } else {
@@ -125,7 +127,10 @@ impl<'a, const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const 
                 1 => header[0] as usize,
                 2 => u16::from_le_bytes([header[0], header[1]]) as usize,
                 3 => u32::from_le_bytes([header[0], header[1], header[2], 0]) as usize,
-                _ => unimplemented!(),
+                // HEADERSIZE for Sv2 datatypes is at maximum 3 bytes
+                // When HEADERSIZE is 0 datatypes ISFIXED only exception is Bytes datatypes but is
+                // not used
+                _ => unreachable!(),
             };
             if expected_length <= (MAXSIZE + HEADERSIZE) {
                 Ok(expected_length)

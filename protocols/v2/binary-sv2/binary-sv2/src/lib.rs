@@ -34,33 +34,6 @@ pub fn u256_from_int<V: Into<u64>>(value: V) -> U256<'static> {
 mod test {
     use super::*;
 
-    mod test_bytes {
-        use super::*;
-        use core::convert::TryInto;
-
-        #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
-        struct Test<'decoder> {
-            #[cfg_attr(feature = "with_serde", serde(borrow))]
-            a: Bytes<'decoder>,
-        }
-
-        #[test]
-        fn test_struct() {
-            let mut bytes = [98; 890];
-            let a: Bytes = (&mut bytes[..]).try_into().unwrap();
-            let expected = Test { a };
-
-            #[cfg(not(feature = "with_serde"))]
-            let mut bytes = to_bytes(expected.clone()).unwrap();
-            #[cfg(feature = "with_serde")]
-            let mut bytes = to_bytes(&expected.clone()).unwrap();
-
-            let deserialized: Test = from_bytes(&mut bytes[..]).unwrap();
-
-            assert_eq!(deserialized, expected);
-        }
-    }
-
     mod test_struct {
         use super::*;
         use core::convert::TryInto;

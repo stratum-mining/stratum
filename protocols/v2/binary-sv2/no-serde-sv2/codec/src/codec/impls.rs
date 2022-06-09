@@ -77,12 +77,6 @@ impl<'a> GetMarker for B016M<'a> {
         FieldMarker::Primitive(PrimitiveMarker::B016M)
     }
 }
-impl<'a> GetMarker for Bytes<'a> {
-    fn get_marker() -> FieldMarker {
-        FieldMarker::Primitive(PrimitiveMarker::Bytes)
-    }
-}
-
 impl<'a> GetMarker for U32AsRef<'a> {
     fn get_marker() -> FieldMarker {
         FieldMarker::Primitive(PrimitiveMarker::U32AsRef)
@@ -202,16 +196,6 @@ impl<'a> Decodable<'a> for B064K<'a> {
 impl<'a> Decodable<'a> for B016M<'a> {
     fn get_structure(_: &[u8]) -> Result<Vec<FieldMarker>, Error> {
         Ok(vec![PrimitiveMarker::B016M.into()])
-    }
-
-    fn from_decoded_fields(mut data: Vec<DecodableField<'a>>) -> Result<Self, Error> {
-        data.pop().ok_or(Error::NoDecodableFieldPassed)?.try_into()
-    }
-}
-
-impl<'a> Decodable<'a> for Bytes<'a> {
-    fn get_structure(_: &[u8]) -> Result<Vec<FieldMarker>, Error> {
-        Ok(vec![PrimitiveMarker::Bytes.into()])
     }
 
     fn from_decoded_fields(mut data: Vec<DecodableField<'a>>) -> Result<Self, Error> {
@@ -362,16 +346,6 @@ impl<'a> TryFrom<DecodablePrimitive<'a>> for B016M<'a> {
         }
     }
 }
-impl<'a> TryFrom<DecodablePrimitive<'a>> for Bytes<'a> {
-    type Error = Error;
-
-    fn try_from(value: DecodablePrimitive<'a>) -> Result<Self, Self::Error> {
-        match value {
-            DecodablePrimitive::Bytes(val) => Ok(val),
-            _ => Err(Error::PrimitiveConversionError),
-        }
-    }
-}
 impl<'a> TryFrom<DecodablePrimitive<'a>> for U32AsRef<'a> {
     type Error = Error;
 
@@ -506,16 +480,6 @@ impl<'a> TryFrom<DecodableField<'a>> for B064K<'a> {
     }
 }
 impl<'a> TryFrom<DecodableField<'a>> for B016M<'a> {
-    type Error = Error;
-
-    fn try_from(value: DecodableField<'a>) -> Result<Self, Self::Error> {
-        match value {
-            DecodableField::Primitive(p) => p.try_into(),
-            _ => Err(Error::DecodableConversionError),
-        }
-    }
-}
-impl<'a> TryFrom<DecodableField<'a>> for Bytes<'a> {
     type Error = Error;
 
     fn try_from(value: DecodableField<'a>) -> Result<Self, Self::Error> {
@@ -733,21 +697,6 @@ impl<'a> TryFrom<EncodableField<'a>> for B016M<'a> {
         }
     }
 }
-impl<'a> From<Bytes<'a>> for EncodableField<'a> {
-    fn from(v: Bytes<'a>) -> Self {
-        EncodableField::Primitive(EncodablePrimitive::Bytes(v))
-    }
-}
-impl<'a> TryFrom<EncodableField<'a>> for Bytes<'a> {
-    type Error = Error;
-
-    fn try_from(value: EncodableField<'a>) -> Result<Self, Self::Error> {
-        match value {
-            EncodableField::Primitive(EncodablePrimitive::Bytes(v)) => Ok(v),
-            _ => Err(Error::Todo),
-        }
-    }
-}
 //impl<'a> From<&'a Seq0255<'a, U24>> for EncodableField<'a> {
 //    fn from(v: &'a Seq0255<'a, U24>) -> Self {
 //        EncodableField::Primitive(EncodablePrimitive::Seq0255u24(v))
@@ -844,11 +793,6 @@ impl<'a> From<Inner<'a, false, 1, 2, { 2_usize.pow(16) - 1 }>> for FieldMarker {
 impl<'a> From<Inner<'a, false, 1, 3, { 2_usize.pow(24) - 1 }>> for FieldMarker {
     fn from(_: Inner<'a, false, 1, 3, { 2_usize.pow(24) - 1 }>) -> Self {
         FieldMarker::Primitive(PrimitiveMarker::B016M)
-    }
-}
-impl<'a> From<Bytes<'a>> for FieldMarker {
-    fn from(_: Inner<'a, false, 0, 0, { ((2_usize.pow(63) - 1) * 2) + 1 }>) -> Self {
-        FieldMarker::Primitive(PrimitiveMarker::Bytes)
     }
 }
 impl<'a> From<U32AsRef<'a>> for FieldMarker {
