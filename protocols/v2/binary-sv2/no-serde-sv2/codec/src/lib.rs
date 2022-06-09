@@ -89,6 +89,8 @@ pub enum Error {
     IoError(E),
     ReadError(usize, usize),
     VoidFieldMarker,
+    NoDecodableFieldPassed,
+    ValueIsNotAValidProtocol(u8),
     Todo,
 }
 

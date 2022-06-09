@@ -97,7 +97,7 @@ impl<'a> Decodable<'a> for u8 {
     }
 
     fn from_decoded_fields(mut data: Vec<DecodableField<'a>>) -> Result<Self, Error> {
-        data.pop().unwrap().try_into()
+        data.pop().ok_or(Error::NoDecodableFieldPassed)?.try_into()
     }
 }
 impl<'a> Decodable<'a> for u16 {
@@ -106,7 +106,7 @@ impl<'a> Decodable<'a> for u16 {
     }
 
     fn from_decoded_fields(mut data: Vec<DecodableField<'a>>) -> Result<Self, Error> {
-        data.pop().unwrap().try_into()
+        data.pop().ok_or(Error::NoDecodableFieldPassed)?.try_into()
     }
 }
 impl<'a> Decodable<'a> for u32 {
@@ -115,7 +115,7 @@ impl<'a> Decodable<'a> for u32 {
     }
 
     fn from_decoded_fields(mut data: Vec<DecodableField<'a>>) -> Result<Self, Error> {
-        data.pop().unwrap().try_into()
+        data.pop().ok_or(Error::NoDecodableFieldPassed)?.try_into()
     }
 }
 impl<'a> Decodable<'a> for f32 {
@@ -124,7 +124,7 @@ impl<'a> Decodable<'a> for f32 {
     }
 
     fn from_decoded_fields(mut data: Vec<DecodableField<'a>>) -> Result<Self, Error> {
-        data.pop().unwrap().try_into()
+        data.pop().ok_or(Error::NoDecodableFieldPassed)?.try_into()
     }
 }
 impl<'a> Decodable<'a> for u64 {
@@ -133,7 +133,7 @@ impl<'a> Decodable<'a> for u64 {
     }
 
     fn from_decoded_fields(mut data: Vec<DecodableField<'a>>) -> Result<Self, Error> {
-        data.pop().unwrap().try_into()
+        data.pop().ok_or(Error::NoDecodableFieldPassed)?.try_into()
     }
 }
 impl<'a> Decodable<'a> for bool {
@@ -142,7 +142,7 @@ impl<'a> Decodable<'a> for bool {
     }
 
     fn from_decoded_fields(mut data: Vec<DecodableField<'a>>) -> Result<Self, Error> {
-        data.pop().unwrap().try_into()
+        data.pop().ok_or(Error::NoDecodableFieldPassed)?.try_into()
     }
 }
 impl<'a> Decodable<'a> for U24 {
@@ -151,7 +151,7 @@ impl<'a> Decodable<'a> for U24 {
     }
 
     fn from_decoded_fields(mut data: Vec<DecodableField<'a>>) -> Result<Self, Error> {
-        data.pop().unwrap().try_into()
+        data.pop().ok_or(Error::NoDecodableFieldPassed)?.try_into()
     }
 }
 impl<'a> Decodable<'a> for U256<'a> {
@@ -160,7 +160,7 @@ impl<'a> Decodable<'a> for U256<'a> {
     }
 
     fn from_decoded_fields(mut data: Vec<DecodableField<'a>>) -> Result<Self, Error> {
-        data.pop().unwrap().try_into()
+        data.pop().ok_or(Error::NoDecodableFieldPassed)?.try_into()
     }
 }
 impl<'a> Decodable<'a> for Signature<'a> {
@@ -169,7 +169,7 @@ impl<'a> Decodable<'a> for Signature<'a> {
     }
 
     fn from_decoded_fields(mut data: Vec<DecodableField<'a>>) -> Result<Self, Error> {
-        data.pop().unwrap().try_into()
+        data.pop().ok_or(Error::NoDecodableFieldPassed)?.try_into()
     }
 }
 impl<'a> Decodable<'a> for B032<'a> {
@@ -178,7 +178,7 @@ impl<'a> Decodable<'a> for B032<'a> {
     }
 
     fn from_decoded_fields(mut data: Vec<DecodableField<'a>>) -> Result<Self, Error> {
-        data.pop().unwrap().try_into()
+        data.pop().ok_or(Error::NoDecodableFieldPassed)?.try_into()
     }
 }
 impl<'a> Decodable<'a> for B0255<'a> {
@@ -187,7 +187,7 @@ impl<'a> Decodable<'a> for B0255<'a> {
     }
 
     fn from_decoded_fields(mut data: Vec<DecodableField<'a>>) -> Result<Self, Error> {
-        data.pop().unwrap().try_into()
+        data.pop().ok_or(Error::NoDecodableFieldPassed)?.try_into()
     }
 }
 impl<'a> Decodable<'a> for B064K<'a> {
@@ -196,7 +196,7 @@ impl<'a> Decodable<'a> for B064K<'a> {
     }
 
     fn from_decoded_fields(mut data: Vec<DecodableField<'a>>) -> Result<Self, Error> {
-        data.pop().unwrap().try_into()
+        data.pop().ok_or(Error::NoDecodableFieldPassed)?.try_into()
     }
 }
 impl<'a> Decodable<'a> for B016M<'a> {
@@ -205,7 +205,7 @@ impl<'a> Decodable<'a> for B016M<'a> {
     }
 
     fn from_decoded_fields(mut data: Vec<DecodableField<'a>>) -> Result<Self, Error> {
-        data.pop().unwrap().try_into()
+        data.pop().ok_or(Error::NoDecodableFieldPassed)?.try_into()
     }
 }
 
@@ -215,7 +215,7 @@ impl<'a> Decodable<'a> for Bytes<'a> {
     }
 
     fn from_decoded_fields(mut data: Vec<DecodableField<'a>>) -> Result<Self, Error> {
-        data.pop().unwrap().try_into()
+        data.pop().ok_or(Error::NoDecodableFieldPassed)?.try_into()
     }
 }
 
@@ -225,7 +225,7 @@ impl<'a> Decodable<'a> for U32AsRef<'a> {
     }
 
     fn from_decoded_fields(mut data: Vec<DecodableField<'a>>) -> Result<Self, Error> {
-        data.pop().unwrap().try_into()
+        data.pop().ok_or(Error::NoDecodableFieldPassed)?.try_into()
     }
 }
 

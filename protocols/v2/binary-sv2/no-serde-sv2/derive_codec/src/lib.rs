@@ -240,7 +240,7 @@ pub fn decodable(item: TokenStream) -> TokenStream {
     for f in fields.clone() {
         let field = format!(
             "
-            {}: {}{}::from_decoded_fields(data.pop().unwrap().into())?,
+            {}: {}{}::from_decoded_fields(data.pop().ok_or(Error::NoDecodableFieldPassed)?.into())?,
             ",
             f.name,
             f.type_,
