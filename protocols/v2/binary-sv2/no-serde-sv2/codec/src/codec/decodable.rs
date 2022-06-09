@@ -104,6 +104,7 @@ pub enum DecodableField<'a> {
 }
 
 impl SizeHint for PrimitiveMarker {
+    // PrimitiveMarker need introspection to return a size hint. This method is not implementeable
     fn size_hint(_data: &[u8], _offset: usize) -> Result<usize, Error> {
         unimplemented!()
     }
@@ -130,6 +131,7 @@ impl SizeHint for PrimitiveMarker {
 }
 
 impl SizeHint for FieldMarker {
+    // FieldMarker need introspection to return a size hint. This method is not implementeable
     fn size_hint(_data: &[u8], _offset: usize) -> Result<usize, Error> {
         unimplemented!()
     }
@@ -149,6 +151,7 @@ impl SizeHint for FieldMarker {
 }
 
 impl SizeHint for Vec<FieldMarker> {
+    // FieldMarker need introspection to return a size hint. This method is not implementeable
     fn size_hint(_data: &[u8], _offset: usize) -> Result<usize, Error> {
         unimplemented!()
     }
@@ -178,7 +181,7 @@ impl TryFrom<Vec<FieldMarker>> for FieldMarker {
             // reasons it is implemented with TryFrom and not From if needed should be possible
             // to use From and just panic
             0 => Err(crate::Error::VoidFieldMarker),
-            // if v.len is 1 pop can not fail
+            // This is always safe: if v.len is 1 pop can not fail
             1 => Ok(v.pop().unwrap()),
             _ => Ok(FieldMarker::Struct(v)),
         }
