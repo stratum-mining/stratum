@@ -17,6 +17,7 @@ impl Default for Header {
         Header {
             extension_type: 0,
             msg_type: 0,
+            // converting 0_32 into a U24 never panic
             msg_length: 0_u32.try_into().unwrap(),
         }
     }
@@ -42,6 +43,7 @@ impl Header {
         Ok(Self {
             extension_type,
             msg_type,
+            // Converting and u32 with the most significant byte set to 0 to and U24 never panic
             msg_length: msg_length.try_into().unwrap(),
         })
     }
@@ -52,16 +54,12 @@ impl Header {
         inner as usize
     }
 
-    pub fn is_empty(&self) -> bool {
-        unimplemented!()
-    }
-
     #[inline]
     pub fn from_len(len: u32, message_type: u8, extension_type: u16) -> Option<Header> {
         Some(Self {
             extension_type,
             msg_type: message_type,
-            msg_length: len.try_into().unwrap(),
+            msg_length: len.try_into().ok()?,
         })
     }
 
