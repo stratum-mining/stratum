@@ -4,6 +4,11 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+mining_sv2 = { path = "../../protocols/v2/subprotocols/mining", version = "0.1.*" }
+common_messages_sv2 = { path = "../../protocols/v2/subprotocols/common-messages", version = "0.1.*" }
 v1 = { path = "../../protocols/v1" }
 serde = { version = "1.0.89", default-features = false, features = ["derive", "alloc"] }
 serde_json = { version = "1.0.64", default-features = false, features = ["alloc"] }
+
+[features]
+with_serde = []
