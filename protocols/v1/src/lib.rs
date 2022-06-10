@@ -38,7 +38,7 @@
 
 pub mod error;
 pub mod json_rpc;
-mod methods;
+pub mod methods;
 pub mod utils;
 
 use std::convert::TryInto;
