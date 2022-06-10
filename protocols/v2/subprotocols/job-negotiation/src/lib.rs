@@ -7,7 +7,6 @@
 //!
 //! Protocol flow:
 //!
-//! TODO add image
 
 extern crate alloc;
 mod allocate_mining_job;

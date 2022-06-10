@@ -213,27 +213,6 @@ impl Certificate {
         }
     }
 
-    // TODO research if it is possible to generate the public key via existing 'snow' API as we don't
-    // want to cross the API boundary that carefully hides the underalying type of the keys
-    //    /// TODO implement unit test
-    //    /// Ensures that the secret key generates the same public key as the one present in this
-    //    /// certificate
-    //    pub fn validate_secret_key(&self, secret_key: StaticSecretKey) -> Result<StaticPublicKey> {
-    //        let public_key = SecretStaticKeyFormat::new(ed25519_dalek::PublicKey::from(secret_key));
-    //
-    //        match public_key == self.pubkey {
-    //            true => Ok(public_key.into_inner()),
-    //            false => Err(ErrorKind::Noise(format!(
-    //                "Invalid certificate: public key({}) doesn't match public key({}) generated from \
-    //                 secret key",
-    //                public_key.inner, self.pubkey.inner,
-    //            ))
-    //            .into()),
-    //        }
-    //    }
-
-    /// See  https://docs.rs/ed25519-dalek/1.0.0-pre.3/ed25519_dalek/struct.PublicKey.html on
-    /// details for the strict verification
     pub fn validate(&self) -> Result<()> {
         let signed_part = SignedPart::new(
             self.signed_part_header.clone(),
@@ -298,7 +277,6 @@ pub mod test {
             build_test_signed_part_and_auth();
         let certificate = Certificate::new(signed_part, signature);
 
-        // TODO fix test to use the serialization methods!
         let serialized_cert =
             serde_json::to_string(&certificate).expect("BUG: cannot serialize certificate");
         let deserialized_cert = serde_json::from_str(serialized_cert.as_str())

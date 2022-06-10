@@ -448,7 +448,6 @@ impl IsClient for Client {
     }
 
     fn id_is_submit(&mut self, _: &str) -> bool {
-        // TODO
         false
     }
 

@@ -149,7 +149,6 @@ impl<T: Serialize + GetSize> NoiseEncoder<T> {
 impl<T: Serialize + binary_sv2::GetSize> NoiseEncoder<T> {
     pub fn new() -> Self {
         Self {
-            // TODO which capacity??
             sv2_buffer: Vec::with_capacity(512),
             noise_buffer: Vec::with_capacity(512),
             frame: core::marker::PhantomData,
@@ -183,7 +182,6 @@ impl<T: Serialize + GetSize> Encoder<T> {
 
     pub fn new() -> Self {
         Self {
-            // TODO which capacity??
             buffer: Vec::with_capacity(512),
             frame: core::marker::PhantomData,
         }

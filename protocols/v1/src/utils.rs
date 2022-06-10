@@ -56,7 +56,6 @@ impl From<HexBytes> for String {
 }
 
 /// Big-endian alternative of the HexU32
-/// TODO: find out how to consolidate/parametrize it with generic parameters
 #[derive(Clone, Debug, PartialEq)]
 pub struct HexU32Be(pub u32);
 
@@ -99,7 +98,6 @@ impl From<PrevHash> for Vec<u8> {
     }
 }
 
-/// TODO: implement unit test
 impl TryFrom<&str> for PrevHash {
     type Error = FromHexError;
 
@@ -110,7 +108,6 @@ impl TryFrom<&str> for PrevHash {
         // Decode the plain byte array and sanity check
         // let prev_hash_stratum_order = hex_decode(value).context("Parsing hex bytes failed")?;
         let prev_hash_stratum_order = hex_decode(value)?;
-        // TODO
         // if prev_hash_stratum_order.len() != 32 {
         //     return Err(ErrorKind::Json(format!(
         //         "Incorrect prev hash length: {}",
@@ -138,7 +135,6 @@ impl From<PrevHash> for Value {
 
 /// Helper Serializer that peforms the reverse process of converting the prev hash into stratum V1
 /// ordering
-/// TODO: implement unit test
 impl From<PrevHash> for String {
     fn from(v: PrevHash) -> Self {
         let mut prev_hash_stratum_cursor = std::io::Cursor::new(Vec::new());

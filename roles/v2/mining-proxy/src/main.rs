@@ -2,25 +2,17 @@
 //! Upstream means another proxy or a pool
 //! Downstream means another proxy or a mining device
 //!
-//! ## From messages_sv2
-//! UpstreamMining is the (sub)protocol that a proxy must implement in order to
+//! UpstreamMining is the trait that a proxy must implement in order to
 //! understant Downstream mining messages.
 //!
-//! DownstreamMining is the (sub)protocol that a proxy must implement in order to
+//! DownstreamMining is the trait that a proxy must implement in order to
 //! understand Upstream mining messages
 //!
-//! Same thing for DownstreamCommon and UpstreamCommon
+//! Same thing for DownstreamCommon and UpstreamCommon but for common messages
 //!
-//! ## Internal
-//! DownstreamMiningNode rapresent the Downstream as defined above as the proxy need to understand
-//! some message (TODO which one?) from downstream it DownstreamMiningNode it implement
-//! UpstreamMining. DownstreamMiningNode implement UpstreamCommon in order to setup a connection
-//! with the downstream node.
+//! DownstreamMiningNode implement both UpstreamMining and UpstreamCommon
 //!
-//! UpstreamMiningNode rapresent the upstream as defined above as the proxy only need to relay
-//! downstream messages coming from downstream UpstreamMiningNode do not (for now) implement
-//! DownstreamMining. UpstreamMiningNode implement DownstreamCommon (TODO) in order to setup a
-//! connection with with the upstream node.
+//! UpstreamMiningNode implement both DownstreamMining and DownstreamCommon
 //!
 //! A Downstream that signal the capacity to handle group channels can open more than one channel.
 //! A Downstream that signal the incapacity to handle group channels can open only one channel.
@@ -32,9 +24,6 @@ use lib::upstream_mining::UpstreamMiningNode;
 use serde::Deserialize;
 use std::str::FromStr;
 
-// TODO make them configurable via flags or config file
-pub const MAX_SUPPORTED_VERSION: u16 = 2;
-pub const MIN_SUPPORTED_VERSION: u16 = 2;
 use roles_logic_sv2::{
     routing_logic::MiningProxyRoutingLogic,
     selectors::{GeneralMiningSelector, UpstreamMiningSelctor},
@@ -50,6 +39,17 @@ type RLogic = MiningProxyRoutingLogic<
 
 static mut ROUTING_LOGIC: Option<Arc<Mutex<RLogic>>> = None;
 static mut JOB_ID_TO_UPSTREAM_ID: Option<Arc<Mutex<HashMap<u32, u32>>>> = None;
+
+pub fn max_supported_version() -> u16 {
+    let config_file = std::fs::read_to_string("proxy-config.toml").unwrap();
+    let config: Config = toml::from_str(&config_file).unwrap();
+    config.max_supported_version
+}
+pub fn min_supported_version() -> u16 {
+    let config_file = std::fs::read_to_string("proxy-config.toml").unwrap();
+    let config: Config = toml::from_str(&config_file).unwrap();
+    config.min_supported_version
+}
 
 pub async fn get_routing_logic() -> Arc<Mutex<RLogic>> {
     unsafe {
@@ -112,6 +112,8 @@ pub struct Config {
     upstreams: Vec<UpstreamValues>,
     listen_address: String,
     listen_mining_port: u16,
+    max_supported_version: u16,
+    min_supported_version: u16,
 }
 
 /// 1. the proxy scan all the upstreams and map them

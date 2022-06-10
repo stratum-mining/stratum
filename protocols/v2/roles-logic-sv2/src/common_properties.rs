@@ -57,25 +57,27 @@ pub enum DownstreamChannel {
     // channel id, target, extranonce prefix, group channel id
     Standard(StandardChannel),
     Group(u32),
-    Extended,
+    Extended(u32),
 }
 
 impl DownstreamChannel {
-    /// Returns the group id for a given Standard, Group, or Extended (TODO) channel.
+    /// Returns the group id for a given Standard, Group, or Extended, channel.
     pub fn group_id(&self) -> u32 {
         match self {
             DownstreamChannel::Standard(s) => s.group_id,
             DownstreamChannel::Group(id) => *id,
-            DownstreamChannel::Extended => todo!(),
+            // Extended channels do not have group ids better to fail whenever why try to get a
+            // group id on an extended channel
+            DownstreamChannel::Extended(_) => panic!("Extended channels do not have group ids"),
         }
     }
 
-    /// Returns the channel id for a given Standard, Group, or Extended (TODO) channel.
+    /// Returns the channel id for a given Standard, Group, or Extended, channel.
     pub fn channel_id(&self) -> u32 {
         match self {
             DownstreamChannel::Standard(s) => s.channel_id,
             DownstreamChannel::Group(id) => *id,
-            DownstreamChannel::Extended => todo!(),
+            DownstreamChannel::Extended(id) => *id,
         }
     }
 }
@@ -278,12 +280,6 @@ mod tests {
     #[test]
     fn downstream_channel_returns_group_id_on_receiving_extended_channel() {
         todo!();
-
-        // let expect = TODO;
-        // let channel = DownstreamChannel::Extended;
-        // let actual = channel.group_id();
-        //
-        // assert_eq!(expect, actual);
     }
 
     #[test]
@@ -316,11 +312,5 @@ mod tests {
     #[test]
     fn downstream_channel_returns_channel_id_on_receiving_extended_channel() {
         todo!();
-
-        // let expect = TODO;
-        // let channel = DownstreamChannel::Extended;
-        // let actual = channel.channel_id();
-        //
-        // assert_eq!(expect, actual);
     }
 }

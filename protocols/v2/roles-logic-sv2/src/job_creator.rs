@@ -27,9 +27,6 @@ struct JobCreator {
     job_ids: Id,
     version_rolling_allowed: bool,
     template_id_to_job_id: HashMap<u64, u32>,
-    // TODO this is always 32 (required by the spec) so put that in const_sv2 crate
-    #[allow(dead_code)]
-    extranonce_prefix_len: u8,
 }
 
 impl JobCreator {
@@ -43,10 +40,10 @@ impl JobCreator {
             "node provided outputs not supported yet"
         );
         let script_prefix = new_template.coinbase_prefix.to_vec();
-        // TODO the below should return an error not panic
+        // Is ok to panic here cause condition will be always true when not in a test chain
         assert!(
             script_prefix.len() > 3,
-            "Bitocin blockchain should be at least 16 block long"
+            "Bitcoin blockchain should be at least 16 block long"
         );
         let bip34_len = script_prefix[1] as usize;
         let bip34_bytes = script_prefix[1..2 + bip34_len].to_vec();
@@ -113,7 +110,7 @@ impl JobCreator {
     //}
 
     /// coinbase_tx_input_script_prefix: extranonce prefix (script lenght + bip34 block height) provided by the node
-    /// TODO it assume that NewTemplate.coinbase_tx_outputs == 0
+    /// It assume that NewTemplate.coinbase_tx_outputs == 0
     fn coinbase(
         &self,
         mut bip34_bytes: Vec<u8>,
@@ -215,15 +212,12 @@ impl JobsCreators {
         &mut self,
         group_channel_id: u32,
         version_rolling_allowed: bool,
-        extranonce_prefix_len: u8,
-        // Vec<(job,template_id)>
     ) -> Vec<(NewExtendedMiningJob<'static>, u64)> {
         let mut jc = JobCreator {
             group_channel_id,
             job_ids: Id::new(),
             version_rolling_allowed,
             template_id_to_job_id: HashMap::new(),
-            extranonce_prefix_len,
         };
         let mut res = Vec::new();
         for mut template in self.lasts_new_template.clone() {

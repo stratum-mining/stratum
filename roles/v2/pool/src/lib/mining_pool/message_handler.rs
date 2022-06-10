@@ -3,7 +3,7 @@ use binary_sv2::U256;
 use bitcoin::util::uint::Uint256;
 use roles_logic_sv2::{
     errors::Error,
-    handlers::mining::{ChannelType, ParseDownstreamMiningMessages, SendTo},
+    handlers::mining::{ParseDownstreamMiningMessages, SendTo, SupportedChannelTypes},
     mining_sv2::*,
     parsers::Mining,
     routing_logic::NoRouting,
@@ -37,8 +37,8 @@ pub fn u256_to_uint_256(v: U256<'static>) -> Uint256 {
 }
 
 impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> for Downstream {
-    fn get_channel_type(&self) -> ChannelType {
-        ChannelType::Group
+    fn get_channel_type(&self) -> SupportedChannelTypes {
+        SupportedChannelTypes::Group
     }
 
     fn is_work_selection_enabled(&self) -> bool {
@@ -50,7 +50,7 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
         incoming: OpenStandardMiningChannel,
         _m: Option<Arc<Mutex<()>>>,
     ) -> Result<SendTo<()>, Error> {
-        let request_id = incoming.request_id;
+        let request_id = incoming.get_request_id_as_u32();
         let target = hash_rate_to_target(incoming.nominal_hash_rate);
         let extranonce_prefix = self
             .extranonces
@@ -90,7 +90,7 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
                 };
 
                 OpenStandardMiningChannelSuccess {
-                    request_id,
+                    request_id: request_id.into(),
                     channel_id,
                     target,
                     extranonce_prefix,
@@ -129,7 +129,7 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
                 };
 
                 OpenStandardMiningChannelSuccess {
-                    request_id,
+                    request_id: request_id.into(),
                     channel_id,
                     group_channel_id: crate::HOM_GROUP_ID,
                     target,
@@ -186,7 +186,7 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
                     error_code: "difficulty-too-low".to_string().try_into().unwrap(),
                 }),
             )),
-            Err(()) => Ok(SendTo::None(None)), // TODO
+            Err(()) => Ok(SendTo::None(None)),
         }
     }
 

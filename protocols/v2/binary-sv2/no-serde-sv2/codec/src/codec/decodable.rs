@@ -1,9 +1,10 @@
 use crate::{
     codec::{GetSize, SizeHint},
-    datatypes::{Bytes, Signature, Sv2DataType, B016M, B0255, B032, B064K, U24, U256},
+    datatypes::{Bytes, Signature, Sv2DataType, U32AsRef, B016M, B0255, B032, B064K, U24, U256},
     Error,
 };
 use alloc::vec::Vec;
+use std::convert::TryFrom;
 #[cfg(not(feature = "no_std"))]
 use std::io::{Cursor, Read};
 
@@ -55,6 +56,7 @@ pub enum PrimitiveMarker {
     U256,
     Signature,
     U32,
+    U32AsRef,
     F32,
     U64,
     B032,
@@ -84,6 +86,7 @@ pub enum DecodablePrimitive<'a> {
     U256(U256<'a>),
     Signature(Signature<'a>),
     U32(u32),
+    U32AsRef(U32AsRef<'a>),
     F32(f32),
     U64(u64),
     B032(B032<'a>),
@@ -114,6 +117,7 @@ impl SizeHint for PrimitiveMarker {
             Self::U256 => U256::size_hint(data, offset),
             Self::Signature => Signature::size_hint(data, offset),
             Self::U32 => u32::size_hint(data, offset),
+            Self::U32AsRef => U32AsRef::size_hint(data, offset),
             Self::F32 => f32::size_hint(data, offset),
             Self::U64 => u64::size_hint(data, offset),
             Self::B032 => B032::size_hint(data, offset),
@@ -165,12 +169,18 @@ impl From<PrimitiveMarker> for FieldMarker {
     }
 }
 
-impl From<Vec<FieldMarker>> for FieldMarker {
-    fn from(mut v: Vec<FieldMarker>) -> Self {
+impl TryFrom<Vec<FieldMarker>> for FieldMarker {
+    type Error = crate::Error;
+
+    fn try_from(mut v: Vec<FieldMarker>) -> Result<Self, crate::Error> {
         match v.len() {
-            0 => panic!("TODO"),
-            1 => v.pop().unwrap(),
-            _ => FieldMarker::Struct(v),
+            // It shouldn't be possible to call this function with a void Vec but for safety
+            // reasons it is implemented with TryFrom and not From if needed should be possible
+            // to use From and just panic
+            0 => Err(crate::Error::VoidFieldMarker),
+            // if v.len is 1 pop can not fail
+            1 => Ok(v.pop().unwrap()),
+            _ => Ok(FieldMarker::Struct(v)),
         }
     }
 }
@@ -196,6 +206,9 @@ impl PrimitiveMarker {
                 DecodablePrimitive::Signature(Signature::from_bytes_unchecked(&mut data[offset..]))
             }
             Self::U32 => DecodablePrimitive::U32(u32::from_bytes_unchecked(&mut data[offset..])),
+            Self::U32AsRef => {
+                DecodablePrimitive::U32AsRef(U32AsRef::from_bytes_unchecked(&mut data[offset..]))
+            }
             Self::F32 => DecodablePrimitive::F32(f32::from_bytes_unchecked(&mut data[offset..])),
             Self::U64 => DecodablePrimitive::U64(u64::from_bytes_unchecked(&mut data[offset..])),
             Self::B032 => DecodablePrimitive::B032(B032::from_bytes_unchecked(&mut data[offset..])),
@@ -226,6 +239,9 @@ impl PrimitiveMarker {
                 reader,
             )?)),
             Self::U32 => Ok(DecodablePrimitive::U32(u32::from_reader_(reader)?)),
+            Self::U32AsRef => Ok(DecodablePrimitive::U32AsRef(U32AsRef::from_reader_(
+                reader,
+            )?)),
             Self::F32 => Ok(DecodablePrimitive::F32(f32::from_reader_(reader)?)),
             Self::U64 => Ok(DecodablePrimitive::U64(u64::from_reader_(reader)?)),
             Self::B032 => Ok(DecodablePrimitive::B032(B032::from_reader_(reader)?)),
@@ -247,6 +263,7 @@ impl<'a> GetSize for DecodablePrimitive<'a> {
             DecodablePrimitive::U256(v) => v.get_size(),
             DecodablePrimitive::Signature(v) => v.get_size(),
             DecodablePrimitive::U32(v) => v.get_size(),
+            DecodablePrimitive::U32AsRef(v) => v.get_size(),
             DecodablePrimitive::F32(v) => v.get_size(),
             DecodablePrimitive::U64(v) => v.get_size(),
             DecodablePrimitive::B032(v) => v.get_size(),

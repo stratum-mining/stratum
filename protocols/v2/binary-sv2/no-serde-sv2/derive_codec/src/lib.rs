@@ -215,7 +215,7 @@ pub fn decodable(item: TokenStream) -> TokenStream {
             "
             let {}: Vec<FieldMarker> = {}{}::get_structure(& data[offset..])?;
             offset += {}.size_hint_(&data, offset)?;
-            let {} =  {}.into();
+            let {} =  {}.try_into()?;
             fields.push({});
             ",
             f.name,

@@ -7,15 +7,15 @@ use core::convert::TryInto;
 
 #[derive(Debug, Serialize, Deserialize, Copy, Clone)]
 pub struct Header {
-    extesion_type: u16, // TODO use specific type?
-    msg_type: u8,       // TODO use specific type?
+    extension_type: u16, // TODO use specific type?
+    msg_type: u8,        // TODO use specific type?
     msg_length: U24,
 }
 
 impl Default for Header {
     fn default() -> Self {
         Header {
-            extesion_type: 0,
+            extension_type: 0,
             msg_type: 0,
             msg_length: 0_u32.try_into().unwrap(),
         }
@@ -35,15 +35,13 @@ impl Header {
             return Err((Self::SIZE - bytes.len()) as isize);
         };
 
-        // TODO remove hardcoded
-        let extesion_type = u16::from_le_bytes([bytes[0], bytes[1]]);
+        let extension_type = u16::from_le_bytes([bytes[0], bytes[1]]);
         let msg_type = bytes[2];
         let msg_length = u32::from_le_bytes([bytes[3], bytes[4], bytes[5], 0]);
 
         Ok(Self {
-            extesion_type,
+            extension_type,
             msg_type,
-            // TODO
             msg_length: msg_length.try_into().unwrap(),
         })
     }
@@ -61,7 +59,7 @@ impl Header {
     #[inline]
     pub fn from_len(len: u32, message_type: u8, extension_type: u16) -> Option<Header> {
         Some(Self {
-            extesion_type: extension_type,
+            extension_type,
             msg_type: message_type,
             msg_length: len.try_into().unwrap(),
         })
@@ -73,7 +71,7 @@ impl Header {
 
     pub fn channel_msg(&self) -> bool {
         let mask = 0b0000_0000_0000_0001;
-        self.extesion_type & mask == self.extesion_type
+        self.extension_type & mask == self.extension_type
     }
 }
 

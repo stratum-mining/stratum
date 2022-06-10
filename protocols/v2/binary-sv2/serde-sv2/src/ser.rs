@@ -51,7 +51,6 @@ impl<'a, W: Write> ser::Serializer for &'a mut Serializer<W> {
     type SerializeStruct = Self;
     type SerializeStructVariant = Self;
 
-    // TODO check endianess
     #[inline]
     fn serialize_bool(self, v: bool) -> Result<()> {
         match v {
@@ -109,7 +108,7 @@ impl<'a, W: Write> ser::Serializer for &'a mut Serializer<W> {
         value.serialize(self)
     }
 
-    // serialize_struct should preserve field order TODO verify it
+    // serialize_struct should preserve field order
     // https://users.rust-lang.org/t/order-of-fields-in-serde-json-to-string/48928/3?u=fi3
     #[inline]
     fn serialize_struct(self, _name: &'static str, _len: usize) -> Result<Self::SerializeStruct> {

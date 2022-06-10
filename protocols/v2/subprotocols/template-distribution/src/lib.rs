@@ -2,13 +2,13 @@
 
 //! # Template Distribution Protocol
 //! The Template Distribution protocol is used to receive updates of the block template to use in
-//! mining the next block. It effectively replaces BIPs [22](TODO) and [23](TODO) (getblocktemplate) and provides
+//! mining the next block. It effectively replaces BIPs [22] and [23] (getblocktemplate) and provides
 //! a much more efficient API which allows Bitcoin Core (or some other full node software) to push
 //! template updates at more appropriate times as well as provide a template which may be
 //! mined on quickly for the block-after-next. While not recommended, the template update
 //! protocol can be a remote server, and is thus authenticated and signed in the same way as all
-//! other protocols ([using the same SetupConnection handshake][TODO]).
-//! Like the [Job Negotiation](TODO) and [Job Distribution](TODO) (sub)protocols, all Template Distribution messages
+//! other protocols ([using the same SetupConnection handshake]).
+//! Like the [Job Negotiation] and [Job Distribution] (sub)protocols, all Template Distribution messages
 //! have the channel_msg bit unset, and there is no concept of channels. After the initial common
 //! handshake, the client MUST immediately send a [`CoinbaseOutputDataSize`] message to indicate
 //! the space it requires for coinbase output addition, to which the server MUST immediately reply

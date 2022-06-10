@@ -2,9 +2,9 @@ use binary_sv2::Error as BinarySv2Error;
 use std::fmt::{self, Display, Formatter};
 
 #[derive(Debug)]
+/// No NoPairableUpstream((min_v, max_v, all falgs supported))
 pub enum Error {
     ExpectedLen32(usize),
-    // TODO: what is this error used for? A general catch all?
     BinarySv2Error(BinarySv2Error),
     NoGroupsFound,
     WrongMessageType(u8),
@@ -26,7 +26,11 @@ impl Display for Error {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         use Error::*;
         match self {
-            BinarySv2Error(v) => write!(f, "BinarySv2Error: TODO better description: {:?}", v),
+            BinarySv2Error(v) => write!(
+                f,
+                "BinarySv2Error: error in serializing/deserilizing binary format {:?}",
+                v
+            ),
             ExpectedLen32(l) => write!(f, "Expected length of 32, but received length of {}", l),
             NoGroupsFound => write!(
                 f,

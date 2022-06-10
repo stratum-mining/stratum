@@ -15,7 +15,7 @@ use std::{
 async fn connect(address: SocketAddr, handicap: u32) {
     let stream = TcpStream::connect(address).await.unwrap();
     let (receiver, sender): (Receiver<EitherFrame>, Sender<EitherFrame>) =
-        PlainConnection::new(stream).await;
+        PlainConnection::new(stream, 10).await;
     Device::start(receiver, sender, address, handicap).await
 }
 
@@ -37,7 +37,7 @@ use roles_logic_sv2::{
     errors::Error,
     handlers::{
         common::ParseUpstreamCommonMessages,
-        mining::{ChannelType, ParseUpstreamMiningMessages, SendTo},
+        mining::{ParseUpstreamMiningMessages, SendTo, SupportedChannelTypes},
     },
     mining_sv2::*,
     parsers::{Mining, MiningDeviceMessages},
@@ -143,10 +143,10 @@ pub struct Device {
 
 fn open_channel() -> OpenStandardMiningChannel<'static> {
     let user_identity = "ABC".to_string().try_into().unwrap();
-    let id = 10;
+    let id: u32 = 10;
     println!("MINING DEVICE: send open channel with request id {}", id);
     OpenStandardMiningChannel {
-        request_id: 10,
+        request_id: id.into(),
         user_identity,
         nominal_hash_rate: 5.4,
         max_target: u256_from_int(567_u64),
@@ -299,8 +299,8 @@ impl IsMiningUpstream<(), NullDownstreamMiningSelector> for Device {
 }
 
 impl ParseUpstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> for Device {
-    fn get_channel_type(&self) -> ChannelType {
-        ChannelType::Standard
+    fn get_channel_type(&self) -> SupportedChannelTypes {
+        SupportedChannelTypes::Standard
     }
 
     fn is_work_selection_enabled(&self) -> bool {
@@ -314,9 +314,10 @@ impl ParseUpstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> fo
     ) -> Result<SendTo<()>, Error> {
         self.channel_opened = true;
         self.channel_id = Some(m.channel_id);
+        let req_id = m.get_request_id_as_u32();
         println!(
             "MINING DEVICE: channel opened with: group id {}, channel id {}, request id {}",
-            m.group_channel_id, m.channel_id, m.request_id
+            m.group_channel_id, m.channel_id, req_id
         );
         self.miner
             .safe_lock(|miner| miner.new_target(m.target.to_vec()))

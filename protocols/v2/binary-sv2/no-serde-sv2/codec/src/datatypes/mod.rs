@@ -8,14 +8,16 @@ mod copy_data_types;
 use crate::codec::decodable::FieldMarker;
 pub use copy_data_types::U24;
 pub use non_copy_data_types::{
-    Bytes, Inner, PubKey, Seq0255, Seq064K, Signature, Str0255, Str032, B016M, B0255, B032, B064K,
-    U256,
+    Bytes, Inner, PubKey, Seq0255, Seq064K, Signature, Str0255, Str032, U32AsRef, B016M, B0255,
+    B032, B064K, U256,
 };
 
 #[cfg(not(feature = "no_std"))]
 use std::io::{Error as E, Read, Write};
 
-pub trait Sv2DataType<'a>: Sized + SizeHint + GetSize + Into<FieldMarker> {
+use std::convert::TryInto;
+
+pub trait Sv2DataType<'a>: Sized + SizeHint + GetSize + TryInto<FieldMarker> {
     fn from_bytes_(data: &'a mut [u8]) -> Result<Self, Error> {
         Self::size_hint(data, 0)?;
         Ok(Self::from_bytes_unchecked(data))
