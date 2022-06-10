@@ -41,6 +41,12 @@ jobs:
         with:
           command: test
 
+      - name: Property based testing
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --features prop_test
+
       - name: Build ping-pong-with-noise example
         uses: actions-rs/cargo@v1
         with:
