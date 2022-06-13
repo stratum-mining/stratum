@@ -856,7 +856,11 @@ mod tests {
 
         assert_eq!(actual.id, id);
         // How to test Mutexes?
-        // assert_eq!(actual.job_ids, Arc::new(Mutex::new(Id::new())));
+        // Test inner value
+        // Use safe lock function -> have access to inner value inside a closer that we pass to
+        // that function to avoid deadlocks
+        // Test for equality inside closure you pass to the safe lock function
+        assert_eq!(actual.job_ids.inner(), Id::new());
         assert_eq!(actual.total_hash_rate, 0);
         assert_eq!(actual.address, address);
         if actual.connection.is_some() {
