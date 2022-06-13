@@ -855,14 +855,13 @@ mod tests {
         let actual = UpstreamMiningNode::new(id, address, authority_public_key, job_ids);
 
         assert_eq!(actual.id, id);
-        // How to test Mutexes?
-        // Test inner value
-        // Use safe lock function -> have access to inner value inside a closer that we pass to
-        // that function to avoid deadlocks
-        // Test for equality inside closure you pass to the safe lock function
-        assert_eq!(actual.job_ids.inner(), Id::new());
+
+        let expect_next_job_id = actual.job_ids.safe_lock(|ids| ids.next()).unwrap();
+        assert_eq!(expect_next_job_id, id + 1);
+
         assert_eq!(actual.total_hash_rate, 0);
         assert_eq!(actual.address, address);
+
         if actual.connection.is_some() {
             panic!("`UpstreamMiningNode::connection` should be `None` on call to `UpstreamMiningNode::new()`");
         }
@@ -871,11 +870,12 @@ mod tests {
             panic!("`UpstreamMiningNode::sv2_connection` should be `None` on call to `UpstreamMiningNode::new()`");
         }
 
+        // How to test
+        // assert_eq!(actual.downstream_selector, ProxyRemoteSelector::new());
+
         assert_eq!(actual.authority_public_key, authority_public_key);
         assert!(actual.channel_id_to_job_dispatcher.is_empty());
         assert_eq!(actual.request_id_mapper, RequestIdMapper::new());
-        // PartialEq is not impl. How to test? `impl PartialEq for ProxyRemoveSelector`?
-        // assert_eq!(actual.downstream_selector, ProxyRemoteSelector::new());
         assert!(actual.last_prev_hash.is_none());
         assert!(actual.last_extended_jobs.is_empty());
     }
