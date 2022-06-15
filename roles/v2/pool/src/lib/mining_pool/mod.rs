@@ -528,7 +528,8 @@ impl Pool {
                 &crate::AUTHORITY_PUBLIC_K[..],
                 &crate::AUTHORITY_PRIVATE_K[..],
                 crate::CERT_VALIDITY,
-            );
+            )
+            .unwrap();
             let last_new_prev_hash = self_.safe_lock(|x| x.last_new_prev_hash.clone()).unwrap();
             let (receiver, sender): (Receiver<EitherFrame>, Sender<EitherFrame>) =
                 Connection::new(stream, HandshakeRole::Responder(responder), 10).await;

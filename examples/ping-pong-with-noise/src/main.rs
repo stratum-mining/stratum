@@ -32,7 +32,8 @@ async fn server_pool() {
             &AUTHORITY_PUBLIC_K[..],
             &AUTHORITY_PRIVATE_K[..],
             CERT_VALIDITY,
-        );
+        )
+        .unwrap();
         let _server = node::Node::new(
             "server".to_string(),
             stream,
@@ -44,7 +45,7 @@ async fn server_pool() {
 
 async fn new_client(name: String) {
     let stream = TcpStream::connect(ADDR).await.unwrap();
-    let initiator = Initiator::from_raw_k(AUTHORITY_PUBLIC_K);
+    let initiator = Initiator::from_raw_k(AUTHORITY_PUBLIC_K).unwrap();
     let client = node::Node::new(name, stream, HandshakeRole::Initiator(initiator)).await;
 
     task::block_on(async move {
