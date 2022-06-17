@@ -203,6 +203,7 @@ impl<
         let upstream_request_id = request.get_request_id_as_u32();
         let original_request_id = upstream
             .safe_lock(|u| u.get_mapper().unwrap().remove(upstream_request_id))
+            .unwrap()
             .unwrap();
         request.update_id(original_request_id);
         let downstreams = upstream

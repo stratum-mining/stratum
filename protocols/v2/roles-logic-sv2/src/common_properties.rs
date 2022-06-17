@@ -124,50 +124,50 @@ pub trait IsMiningDownstream: IsDownstream {
 /// Implemented for the NullDownstreamMiningSelector
 impl<Down: IsDownstream + D> IsUpstream<Down, NullDownstreamMiningSelector> for () {
     fn get_version(&self) -> u16 {
-        unreachable!("0");
+        unreachable!("Null upstream do not have a version");
     }
 
     fn get_flags(&self) -> u32 {
-        unreachable!("1");
+        unreachable!("Null upstream do not have flags");
     }
 
     fn get_supported_protocols(&self) -> Vec<Protocol> {
-        unreachable!("2");
+        unreachable!("Null upstream do not support any protocol");
     }
     fn get_id(&self) -> u32 {
-        unreachable!("b");
+        unreachable!("Null upstream do not have an ID");
     }
 
     fn get_mapper(&mut self) -> Option<&mut RequestIdMapper> {
-        todo!()
+        unreachable!("Null upstream do not have a mapper")
     }
 
     fn get_remote_selector(&mut self) -> &mut NullDownstreamMiningSelector {
-        todo!()
-    }
-}
-
-impl<Down: IsMiningDownstream + D> IsMiningUpstream<Down, NullDownstreamMiningSelector> for () {
-    fn total_hash_rate(&self) -> u64 {
-        todo!()
-    }
-
-    fn add_hash_rate(&mut self, _to_add: u64) {
-        todo!()
-    }
-    fn get_opened_channels(&mut self) -> &mut Vec<UpstreamChannel> {
-        todo!()
-    }
-
-    fn update_channels(&mut self, _: UpstreamChannel) {
-        todo!()
+        unreachable!("Null upstream do not have a selector")
     }
 }
 
 /// Implemented for the NullDownstreamMiningSelector
 impl IsDownstream for () {
     fn get_downstream_mining_data(&self) -> CommonDownstreamData {
-        unreachable!("c");
+        unreachable!("Null downstream do not have mining data");
+    }
+}
+
+impl<Down: IsMiningDownstream + D> IsMiningUpstream<Down, NullDownstreamMiningSelector> for () {
+    fn total_hash_rate(&self) -> u64 {
+        unreachable!("Null selector do not have hash rate");
+    }
+
+    fn add_hash_rate(&mut self, _to_add: u64) {
+        unreachable!("Null selector can not add hash rate");
+    }
+    fn get_opened_channels(&mut self) -> &mut Vec<UpstreamChannel> {
+        unreachable!("Null selector can not open channels");
+    }
+
+    fn update_channels(&mut self, _: UpstreamChannel) {
+        unreachable!("Null selector can not update channels");
     }
 }
 
@@ -202,8 +202,8 @@ impl RequestIdMapper {
     }
 
     /// Removes a upstream/downstream mapping from the `RequsetIdMapper`.
-    pub fn remove(&mut self, upstream_id: u32) -> u32 {
-        self.request_ids_map.remove(&upstream_id).unwrap()
+    pub fn remove(&mut self, upstream_id: u32) -> Option<u32> {
+        self.request_ids_map.remove(&upstream_id)
     }
 }
 

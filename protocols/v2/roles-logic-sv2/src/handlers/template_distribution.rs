@@ -18,6 +18,7 @@ where
         message_type: u8,
         payload: &mut [u8],
     ) -> Result<SendTo, Error> {
+        // Is ok to unwrap a safe_lock result
         match (message_type, payload).try_into() {
             Ok(TemplateDistribution::NewTemplate(m)) => {
                 self_.safe_lock(|x| x.handle_new_template(m)).unwrap()
@@ -58,6 +59,7 @@ where
         message_type: u8,
         payload: &mut [u8],
     ) -> Result<SendTo, Error> {
+        // Is ok to unwrap a safe_lock result
         match (message_type, payload).try_into() {
             Ok(TemplateDistribution::CoinbaseOutputDataSize(m)) => self_
                 .safe_lock(|x| x.handle_coinbase_out_data_size(m))

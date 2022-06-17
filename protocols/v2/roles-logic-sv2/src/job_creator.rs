@@ -1,4 +1,4 @@
-use crate::utils::Id;
+use crate::{errors::Error, utils::Id};
 use binary_sv2::B064K;
 use bitcoin::{
     blockdata::{
@@ -34,13 +34,14 @@ impl JobCreator {
         &mut self,
         new_template: &mut NewTemplate,
         coinbase_outputs: &[TxOut],
-    ) -> NewExtendedMiningJob<'static> {
+    ) -> Result<NewExtendedMiningJob<'static>, Error> {
         assert!(
             new_template.coinbase_tx_outputs_count == 0,
             "node provided outputs not supported yet"
         );
         let script_prefix = new_template.coinbase_prefix.to_vec();
         // Is ok to panic here cause condition will be always true when not in a test chain
+        // (regtest ecc ecc)
         assert!(
             script_prefix.len() > 3,
             "Bitcoin blockchain should be at least 16 block long"
@@ -65,12 +66,12 @@ impl JobCreator {
             version: new_template.version,
             version_rolling_allowed: self.version_rolling_allowed,
             merkle_path: new_template.merkle_path.clone().into_static(),
-            coinbase_tx_prefix: Self::coinbase_tx_prefix(&coinbase, SCRIPT_PREFIX_LEN),
-            coinbase_tx_suffix: Self::coinbase_tx_suffix(&coinbase, SCRIPT_PREFIX_LEN),
+            coinbase_tx_prefix: Self::coinbase_tx_prefix(&coinbase, SCRIPT_PREFIX_LEN)?,
+            coinbase_tx_suffix: Self::coinbase_tx_suffix(&coinbase, SCRIPT_PREFIX_LEN)?,
         };
         self.template_id_to_job_id
             .insert(new_template.template_id, new_extended_mining_job.job_id);
-        new_extended_mining_job
+        Ok(new_extended_mining_job)
     }
 
     fn get_job_id(&self, template_id: u64) -> Option<u32> {
@@ -80,34 +81,27 @@ impl JobCreator {
     fn coinbase_tx_prefix(
         coinbase: &Transaction,
         coinbase_tx_input_script_prefix_byte_len: usize,
-    ) -> B064K<'static> {
+    ) -> Result<B064K<'static>, Error> {
         let encoded = coinbase.serialize();
         // add 1 cause the script header (len of script) is 1 byte
         let r = encoded
             [0..SCRIPT_PREFIX_LEN + coinbase_tx_input_script_prefix_byte_len + PREV_OUT_LEN]
             .to_vec();
-        r.try_into().unwrap()
+        r.try_into().map_err(|e| Error::BinarySv2Error(e))
     }
 
     fn coinbase_tx_suffix(
         coinbase: &Transaction,
         coinbase_tx_input_script_prefix_byte_len: usize,
-    ) -> B064K<'static> {
+    ) -> Result<B064K<'static>, Error> {
         let encoded = coinbase.serialize();
         let r = encoded[SCRIPT_PREFIX_LEN
             + coinbase_tx_input_script_prefix_byte_len
             + PREV_OUT_LEN
             + EXTRANONCE_LEN..]
             .to_vec();
-        r.try_into().unwrap()
+        r.try_into().map_err(|e| Error::BinarySv2Error(e))
     }
-    //fn coinbase_script(&self, mut coinbase_tx_input_script_prefix: Vec<u8>) -> Script {
-    //    let remaning_len = self.extranonce_prefix_len;
-    //    coinbase_tx_input_script_prefix.append(&mut vec![0, remaning_len]);
-    //    coinbase_tx_input_script_prefix
-    //        .try_into()
-    //        .expect("invalid script")
-    //}
 
     /// coinbase_tx_input_script_prefix: extranonce prefix (script lenght + bip34 block height) provided by the node
     /// It assume that NewTemplate.coinbase_tx_outputs == 0
@@ -122,7 +116,7 @@ impl JobCreator {
         bip34_bytes.extend_from_slice(&[0; EXTRANONCE_LEN]);
         let tx_in = TxIn {
             previous_output: OutPoint::null(),
-            script_sig: bip34_bytes.try_into().unwrap(),
+            script_sig: bip34_bytes.into(),
             sequence,
             witness: vec![],
         };
@@ -149,42 +143,46 @@ pub struct JobsCreators {
 }
 
 impl JobsCreators {
-    pub fn new(block_reward_staoshi: u64, pub_key: PublicKey) -> Self {
-        Self {
+    pub fn new(block_reward_staoshi: u64, pub_key: PublicKey) -> Option<Self> {
+        Some(Self {
             jobs_creators: vec![],
-            coinbase_outputs: Self::new_outputs(block_reward_staoshi, pub_key),
+            coinbase_outputs: vec![Self::new_output(block_reward_staoshi, pub_key)?],
             block_reward_staoshi,
             pub_key,
             lasts_new_template: Vec::new(),
-        }
+        })
     }
 
-    pub fn new_outputs(block_reward_staoshi: u64, pub_key: PublicKey) -> Vec<TxOut> {
-        let script_pubkey = Script::new_v0_wpkh(&pub_key.wpubkey_hash().unwrap());
-        vec![TxOut {
+    fn new_output(block_reward_staoshi: u64, pub_key: PublicKey) -> Option<TxOut> {
+        let script_pubkey = Script::new_v0_wpkh(&pub_key.wpubkey_hash()?);
+        Some(TxOut {
             value: block_reward_staoshi,
             script_pubkey,
-        }]
+        })
+    }
+
+    pub fn new_outputs(&self, block_reward_staoshi: u64) -> Vec<TxOut> {
+        // safe unwrap cause pub key in self is compressed
+        vec![Self::new_output(block_reward_staoshi, self.pub_key).unwrap()]
     }
 
     pub fn on_new_template(
         &mut self,
         template: &mut NewTemplate,
-    ) -> HashMap<u32, NewExtendedMiningJob<'static>> {
+    ) -> Result<HashMap<u32, NewExtendedMiningJob<'static>>, Error> {
         if template.coinbase_tx_value_remaining != self.block_reward_staoshi {
             self.block_reward_staoshi = template.coinbase_tx_value_remaining;
-            self.coinbase_outputs =
-                Self::new_outputs(template.coinbase_tx_value_remaining, self.pub_key);
+            self.coinbase_outputs = self.new_outputs(template.coinbase_tx_value_remaining);
         }
 
         let mut new_extended_jobs = HashMap::new();
         for creator in &mut self.jobs_creators {
-            let job = creator.new_extended_job(template, &self.coinbase_outputs);
+            let job = creator.new_extended_job(template, &self.coinbase_outputs)?;
             new_extended_jobs.insert(job.channel_id, job);
         }
         self.lasts_new_template.push(template.as_static());
 
-        new_extended_jobs
+        Ok(new_extended_jobs)
     }
 
     fn reset_new_templates(&mut self, template: Option<NewTemplate<'static>>) {
@@ -204,6 +202,7 @@ impl JobsCreators {
         match template.len() {
             0 => self.reset_new_templates(None),
             1 => self.reset_new_templates(Some(template[0].clone())),
+            // TODO how many templates can we have at max
             _ => todo!("{:#?}", template.len()),
         }
     }
@@ -212,7 +211,7 @@ impl JobsCreators {
         &mut self,
         group_channel_id: u32,
         version_rolling_allowed: bool,
-    ) -> Vec<(NewExtendedMiningJob<'static>, u64)> {
+    ) -> Result<Vec<(NewExtendedMiningJob<'static>, u64)>, Error> {
         let mut jc = JobCreator {
             group_channel_id,
             job_ids: Id::new(),
@@ -222,12 +221,12 @@ impl JobsCreators {
         let mut res = Vec::new();
         for mut template in self.lasts_new_template.clone() {
             res.push((
-                jc.new_extended_job(&mut template, &self.coinbase_outputs),
+                jc.new_extended_job(&mut template, &self.coinbase_outputs)?,
                 template.template_id,
             ));
         }
         self.jobs_creators.push(jc);
-        res
+        Ok(res)
     }
 
     pub fn job_id_from_template(&self, template_id: u64, group_id: u32) -> Option<u32> {

@@ -20,9 +20,6 @@
 //! Seq0255  <-> SEQ0_255[T]
 //! Seq064K  <-> SEQ0_64K[T]
 //! ```
-#![cfg_attr(feature = "no_std", no_std)]
-use core::convert::TryInto;
-
 #[cfg(not(feature = "no_std"))]
 use std::io::{Error as E, ErrorKind};
 
