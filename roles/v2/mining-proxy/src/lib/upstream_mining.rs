@@ -641,12 +641,6 @@ impl
             .get_mut(&m.channel_id)
             .unwrap();
 
-        match dispacther {
-            JobDispatcher::Group(d) => {
-                d.on_new_extended_mining_job_pre(&m);
-            }
-            JobDispatcher::None => (),
-        };
 
         let messages = jobs_to_relay(id, &m, downstreams, dispacther);
 
@@ -677,7 +671,7 @@ impl
                 Ok(SendTo::RelaySameMessage(downstreams[0].clone()))
             }
             (false, Some(JobDispatcher::Group(dispatcher))) => {
-                let mut channel_id_to_job_id = dispatcher.on_new_prev_hash(&m);
+                let mut channel_id_to_job_id = dispatcher.on_new_prev_hash(&m).unwrap();
                 let downstreams = self
                     .downstream_selector
                     .get_downstreams_in_channel(m.channel_id)

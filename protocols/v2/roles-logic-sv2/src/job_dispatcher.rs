@@ -1,6 +1,7 @@
 use crate::{
     common_properties::StandardChannel,
     utils::{merkle_root_from_path, Id, Mutex},
+    errors::Error,
 };
 use bitcoin::hashes::{sha256d, Hash, HashEngine};
 use mining_sv2::{
@@ -27,7 +28,7 @@ fn extended_to_standard_job_for_group_channel<'a>(
         job_id,
         future_job: extended.future_job,
         version: extended.version,
-        merkle_root: merkle_root?.try_into().unwrap(),
+        merkle_root: merkle_root?.try_into().ok()?,
     })
 }
 #[allow(dead_code)]
@@ -120,21 +121,28 @@ impl GroupChannelJobDispatcher {
         }
     }
 
-    pub fn on_new_extended_mining_job_pre(&mut self, extended: &NewExtendedMiningJob) {
-        if extended.future_job {
-            self.future_jobs.insert(extended.job_id, HashMap::new());
-            self.extended_id_to_job_id
-                .insert(extended.job_id, HashMap::new());
-        }
-    }
-
-    // Alway call on_new_extended_mining_job_pre before
+    /// When a downstream open a connection with a proxy, the proxy use this function to create a
+    /// new mining job from the last valid new extended mining job.
+    ///
+    /// When a proxy receive a new extended mining job from upstream it use this function to create
+    /// the corrispective new mining job for each connected downstream.
     #[allow(clippy::option_map_unit_fn)]
     pub fn on_new_extended_mining_job(
         &mut self,
         extended: &NewExtendedMiningJob,
         channel: &StandardChannel,
     ) -> Option<NewMiningJob<'static>> {
+
+        if extended.future_job {
+            self.future_jobs
+                .entry(extended.job_id)
+                .or_insert(HashMap::new());
+            self.extended_id_to_job_id
+                .entry(extended.job_id)
+                .or_insert(HashMap::new());
+        }
+
+        // Is fine to unwrap a safe_lock result
         let standard_job_id = self.ids.safe_lock(|ids| ids.next()).unwrap();
 
         let extranonce: Vec<u8> = channel.extranonce.clone().into();
@@ -158,6 +166,7 @@ impl GroupChannelJobDispatcher {
             let channel_id_to_standard_id = self
                 .extended_id_to_job_id
                 .get_mut(&extended.job_id)
+                // The key is always in the map cause we insert it above if not present
                 .unwrap();
             channel_id_to_standard_id.insert(channel.channel_id, standard_job_id);
         } else {
@@ -166,8 +175,9 @@ impl GroupChannelJobDispatcher {
         Some(new_mining_job_message)
     }
 
-    pub fn on_new_prev_hash(&mut self, message: &SetNewPrevHash) -> HashMap<u32, u32> {
-        let jobs = self.future_jobs.get_mut(&message.job_id).unwrap();
+    pub fn on_new_prev_hash(&mut self, message: &SetNewPrevHash) -> Result<HashMap<u32, u32>, Error> {
+        let jobs = self.future_jobs.get_mut(&message.job_id)
+            .ok_or(Error::PrevHashRequireNonExistentJobId(message.job_id))?;
         std::mem::swap(&mut self.jobs, jobs);
         self.prev_hash = message.prev_hash.to_vec();
         self.nbits = message.nbits;
@@ -175,11 +185,11 @@ impl GroupChannelJobDispatcher {
         match self.extended_id_to_job_id.remove(&message.job_id) {
             Some(map) => {
                 self.extended_id_to_job_id.clear();
-                map
+                Ok(map)
             }
             None => {
                 self.extended_id_to_job_id.clear();
-                HashMap::new()
+                Ok(HashMap::new())
             }
         }
     }
@@ -188,16 +198,6 @@ impl GroupChannelJobDispatcher {
     pub fn on_submit_shares(&self, shares: SubmitSharesStandard) -> SendSharesResponse {
         let id = shares.job_id;
         if let Some(job) = self.jobs.get(&id) {
-            //let target = target_from_shares(
-            //    job,
-            //    &self.prev_hash,
-            //    self.nbits,
-            //    &shares,
-            //    );
-            //match target >= self.target {
-            //    true => SendSharesResponse::ValidAndMeetUpstreamTarget(success),
-            //    false => SendSharesResponse::Valid(success),
-            //}
             let success = SubmitSharesStandard {
                 channel_id: shares.channel_id,
                 sequence_number: shares.sequence_number,
@@ -211,6 +211,7 @@ impl GroupChannelJobDispatcher {
             let error = SubmitSharesError {
                 channel_id: shares.channel_id,
                 sequence_number: shares.sequence_number,
+                // Below unwrap never panic
                 error_code: "".to_string().into_bytes().try_into().unwrap(),
             };
             SendSharesResponse::Invalid(error)

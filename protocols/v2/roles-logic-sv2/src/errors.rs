@@ -14,6 +14,9 @@ pub enum Error {
     /// Error if the hashmap `future_jobs` field in the `GroupChannelJobDispatcher` is empty.
     NoFutureJobs,
     NoDownstreamsConnected,
+    PrevHashRequireNonExistentJobId(u32),
+    RequestIdNotMapped(u32),
+    NoUpstreamsConnected,
 }
 
 impl From<BinarySv2Error> for Error {
@@ -43,6 +46,9 @@ impl Display for Error {
             }
             NoFutureJobs => write!(f, "GroupChannelJobDispatcher does not have any future jobs"),
             NoDownstreamsConnected => write!(f, "NoDownstreamsConnected"),
+            PrevHashRequireNonExistentJobId(id) => write!(f, "PrevHashRequireNonExistentJobId {}", id),
+            RequestIdNotMapped(id) => write!(f, "RequestIdNotMapped {}", id),
+            NoUpstreamsConnected => write!(f, "There are no upstream connected"),
         }
     }
 }
