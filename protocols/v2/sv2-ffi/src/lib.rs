@@ -156,7 +156,18 @@ impl<'a> CSv2Message {
                 Ok(Sv2Message::SetupConnectionError(v.to_rust_rep_mut()?))
             }
             CSv2Message::SetupConnectionSuccess(v) => Ok(Sv2Message::SetupConnectionSuccess(*v)),
-            _ => todo!(),
+            CSv2Message::CoinbaseOutputDataSize(v) => Ok(Sv2Message::CoinbaseOutputDataSize(*v)),
+            CSv2Message::RequestTransactionData(v) => Ok(Sv2Message::RequestTransactionData(*v)),
+            CSv2Message::RequestTransactionDataError(v) => Ok(
+                Sv2Message::RequestTransactionDataError(v.to_rust_rep_mut()?),
+            ),
+            CSv2Message::RequestTransactionDataSuccess(v) => Ok(
+                Sv2Message::RequestTransactionDataSuccess(v.to_rust_rep_mut()?),
+            ),
+            CSv2Message::ChannelEndpointChanged(v) => Ok(Sv2Message::ChannelEndpointChanged(*v)),
+            CSv2Message::SetupConnection(v) => {
+                Ok(Sv2Message::SetupConnection(v.to_rust_rep_mut()?))
+            }
         }
     }
 }
@@ -258,7 +269,7 @@ impl<'a> TryFrom<(u8, &'a mut [u8])> for Sv2Message<'a> {
                 let message: SubmitSolution = from_bytes(v.1)?;
                 Ok(Sv2Message::SubmitSolution(message))
             }
-            _ => panic!(),
+            _ => Err(Error::UnknownMessageType(msg_type)),
         }
     }
 }
@@ -275,6 +286,7 @@ pub enum Sv2Error {
     EncoderBusy,
     Todo,
     Unknown,
+    InvalidSv2Frame,
 }
 
 #[no_mangle]
@@ -390,7 +402,10 @@ pub extern "C" fn next_frame(decoder: *mut DecoderWrapper) -> CResult<CSv2Messag
 
     match decoder.0.next_frame() {
         Ok(mut f) => {
-            let msg_type = f.get_header().unwrap().msg_type();
+            let msg_type = match f.get_header() {
+                Some(header) => header.msg_type(),
+                None => return CResult::Err(Sv2Error::InvalidSv2Frame),
+            };
             let payload = f.payload();
             let len = payload.len();
             let ptr = payload.as_mut_ptr();

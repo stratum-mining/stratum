@@ -12,7 +12,7 @@ use core::convert::TryInto;
 /// A request sent by the Job Negotiator to the Template Provider which requests the set of
 /// transaction data for all transactions (excluding the coinbase transaction) included in a block, as
 /// well as any additional data which may be required by the Pool to validate the work.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Copy)]
 #[repr(C)]
 pub struct RequestTransactionData {
     /// The template_id corresponding to a NewTemplate message.

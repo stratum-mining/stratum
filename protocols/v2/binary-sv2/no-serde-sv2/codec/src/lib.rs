@@ -88,6 +88,7 @@ pub enum Error {
     VoidFieldMarker,
     NoDecodableFieldPassed,
     ValueIsNotAValidProtocol(u8),
+    UnknownMessageType(u8),
     Todo,
 }
 
