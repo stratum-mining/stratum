@@ -1,7 +1,7 @@
 use crate::{
     common_properties::StandardChannel,
-    utils::{merkle_root_from_path, Id, Mutex},
     errors::Error,
+    utils::{merkle_root_from_path, Id, Mutex},
 };
 use bitcoin::hashes::{sha256d, Hash, HashEngine};
 use mining_sv2::{
@@ -132,7 +132,6 @@ impl GroupChannelJobDispatcher {
         extended: &NewExtendedMiningJob,
         channel: &StandardChannel,
     ) -> Option<NewMiningJob<'static>> {
-
         if extended.future_job {
             self.future_jobs
                 .entry(extended.job_id)
@@ -175,8 +174,13 @@ impl GroupChannelJobDispatcher {
         Some(new_mining_job_message)
     }
 
-    pub fn on_new_prev_hash(&mut self, message: &SetNewPrevHash) -> Result<HashMap<u32, u32>, Error> {
-        let jobs = self.future_jobs.get_mut(&message.job_id)
+    pub fn on_new_prev_hash(
+        &mut self,
+        message: &SetNewPrevHash,
+    ) -> Result<HashMap<u32, u32>, Error> {
+        let jobs = self
+            .future_jobs
+            .get_mut(&message.job_id)
             .ok_or(Error::PrevHashRequireNonExistentJobId(message.job_id))?;
         std::mem::swap(&mut self.jobs, jobs);
         self.prev_hash = message.prev_hash.to_vec();

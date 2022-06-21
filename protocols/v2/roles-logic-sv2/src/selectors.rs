@@ -43,8 +43,11 @@ impl<Down: IsMiningDownstream> DownstreamMiningSelector<Down>
         request_id: u32,
         g_channel_id: u32,
         channel_id: u32,
-    ) -> Arc<Mutex<Down>> {
-        let downstream = self.request_id_to_remotes.remove(&request_id).unwrap();
+    ) -> Result<Arc<Mutex<Down>>, Error> {
+        let downstream = self
+            .request_id_to_remotes
+            .remove(&request_id)
+            .ok_or(Error::UnknownRequestId(request_id))?;
         self.channel_id_to_downstream
             .insert(channel_id, downstream.clone());
         match self.channel_id_to_downstreams.get_mut(&g_channel_id) {
@@ -54,15 +57,11 @@ impl<Down: IsMiningDownstream> DownstreamMiningSelector<Down>
             }
             Some(x) => x.push(downstream.clone()),
         }
-        downstream
+        Ok(downstream)
     }
 
     fn get_downstreams_in_channel(&self, channel_id: u32) -> Option<&Vec<Arc<Mutex<Down>>>> {
         self.channel_id_to_downstreams.get(&channel_id)
-    }
-
-    fn remote_from_request_id(&mut self, _request_id: u32) -> Arc<Mutex<Down>> {
-        todo!()
     }
 
     fn downstream_from_channel_id(&self, channel_id: u32) -> Option<Arc<Mutex<Down>>> {
@@ -88,7 +87,7 @@ pub trait DownstreamMiningSelector<Downstream: IsMiningDownstream>:
         request_id: u32,
         g_channel_id: u32,
         channel_id: u32,
-    ) -> Arc<Mutex<Downstream>>;
+    ) -> Result<Arc<Mutex<Downstream>>, Error>;
 
     // group / standard naming is terrible channel_id in this case can be  either the channel_id
     // or the group_channel_id
@@ -96,8 +95,6 @@ pub trait DownstreamMiningSelector<Downstream: IsMiningDownstream>:
 
     // only for standard
     fn downstream_from_channel_id(&self, channel_id: u32) -> Option<Arc<Mutex<Downstream>>>;
-
-    fn remote_from_request_id(&mut self, request_id: u32) -> Arc<Mutex<Downstream>>;
 }
 
 pub trait DownstreamSelector<D: IsDownstream> {}
@@ -134,16 +131,12 @@ impl<Down: IsMiningDownstream + D> DownstreamMiningSelector<Down> for NullDownst
         _request_id: u32,
         _channel_id: u32,
         _channel_id_2: u32,
-    ) -> Arc<Mutex<Down>> {
+    ) -> Result<Arc<Mutex<Down>>, Error> {
         unreachable!("on_open_standard_channel_success")
     }
 
     fn get_downstreams_in_channel(&self, _channel_id: u32) -> Option<&Vec<Arc<Mutex<Down>>>> {
         unreachable!("get_downstreams_in_channel")
-    }
-
-    fn remote_from_request_id(&mut self, _request_id: u32) -> Arc<Mutex<Down>> {
-        unreachable!("remote_from_request_id")
     }
 
     fn downstream_from_channel_id(&self, _channel_id: u32) -> Option<Arc<Mutex<Down>>> {
@@ -192,6 +185,7 @@ impl<
     pub fn new(upstreams: Vec<Arc<Mutex<Up>>>) -> Self {
         let mut id_to_upstream = HashMap::new();
         for up in &upstreams {
+            // Is ok to unwrap safe_lock result
             id_to_upstream.insert(up.safe_lock(|u| u.get_id()).unwrap(), up.clone());
         }
         Self {
@@ -228,8 +222,10 @@ impl<
         for node in &self.upstreams {
             let is_pairable = node
                 .safe_lock(|node| node.is_pairable(pair_settings))
+                // Is ok to unwrap safe_lock result
                 .unwrap();
             if is_pairable {
+                // Is ok to unwrap safe_lock result
                 supported_flags |= node.safe_lock(|n| n.get_flags()).unwrap();
                 supported_upstreams.push(node.clone());
             }

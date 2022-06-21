@@ -17,6 +17,7 @@ pub enum Error {
     PrevHashRequireNonExistentJobId(u32),
     RequestIdNotMapped(u32),
     NoUpstreamsConnected,
+    UnknownRequestId(u32),
 }
 
 impl From<BinarySv2Error> for Error {
@@ -46,9 +47,18 @@ impl Display for Error {
             }
             NoFutureJobs => write!(f, "GroupChannelJobDispatcher does not have any future jobs"),
             NoDownstreamsConnected => write!(f, "NoDownstreamsConnected"),
-            PrevHashRequireNonExistentJobId(id) => write!(f, "PrevHashRequireNonExistentJobId {}", id),
+            PrevHashRequireNonExistentJobId(id) => {
+                write!(f, "PrevHashRequireNonExistentJobId {}", id)
+            }
             RequestIdNotMapped(id) => write!(f, "RequestIdNotMapped {}", id),
             NoUpstreamsConnected => write!(f, "There are no upstream connected"),
+            UnknownRequestId(id) => write!(
+                f,
+                "Upstream is answering with a wrong request ID {} or
+                DownstreamMiningSelector::on_open_standard_channel_request has not been called
+                before relaying open channel request to upstream",
+                id
+            ),
         }
     }
 }

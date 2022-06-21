@@ -55,8 +55,8 @@ impl<T> Mutex<T> {
         Mutex(Mutex_::new(v))
     }
 
-    pub fn to_remove(&self) -> MutexGuard<'_, T> {
-        self.0.lock().unwrap()
+    pub fn to_remove(&self) -> Result<MutexGuard<'_, T>, PoisonError<MutexGuard<'_, T>>> {
+        self.0.lock()
     }
 }
 
@@ -71,7 +71,7 @@ pub fn merkle_root_from_path(
     coinbase.extend_from_slice(coinbase_tx_prefix);
     coinbase.extend_from_slice(extranonce);
     coinbase.extend_from_slice(coinbase_tx_suffix);
-    let coinbase = Transaction::deserialize(&coinbase[..]).unwrap();
+    let coinbase = Transaction::deserialize(&coinbase[..]).ok()?;
     let mut hashes = vec![coinbase.txid().as_hash()];
     for hash in path {
         hashes.push(Hash::from_slice(hash).ok()?)
@@ -133,6 +133,7 @@ pub(crate) fn new_header(
 #[allow(dead_code)]
 pub(crate) fn new_header_hash<'decoder>(header: BlockHeader) -> U256<'decoder> {
     let hash = header.block_hash().to_vec();
+    // below never panic an header hash is always U256
     hash.try_into().unwrap()
 }
 use bitcoin::util::uint::Uint256;

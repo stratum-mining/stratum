@@ -221,7 +221,7 @@ impl<
             })
             // Is fine to unwrap a safe_lock result
             .unwrap();
-        Ok(downstreams)
+        Ok(downstreams?)
     }
 
     /// At this point the Sv2 connection with downstream is initialized that means that
@@ -242,7 +242,8 @@ impl<
             // unwrap can not panic
             .unwrap();
         // TODO the upstream selection logic should be specified by the caller
-        let upstream = Self::select_upstreams(&mut upstreams.to_vec()).ok_or(Error::NoUpstreamsConnected)?;
+        let upstream =
+            Self::select_upstreams(&mut upstreams.to_vec()).ok_or(Error::NoUpstreamsConnected)?;
         let old_id = request.get_request_id_as_u32();
         let new_req_id = upstream
             // if we are here get_mapper should always return Some(mappe) so below unwrap is ok
@@ -314,8 +315,7 @@ where
 {
     if ups.len() == 0 {
         None
-    }
-    else if ups.len() == 1 {
+    } else if ups.len() == 1 {
         Some(ups[0].clone())
     } else if !filter_header_only(ups).is_empty() {
         Some(minor_total_hr_upstream(&mut filter_header_only(ups)))
@@ -352,7 +352,8 @@ impl<
     ) -> Result<(CommonDownstreamData, SetupConnectionSuccess), Error> {
         let mut upstreams = self.upstream_selector.on_setup_connection(pair_settings)?;
         // TODO the upstream selection logic should be specified by the caller
-        let upstream = Self::select_upstreams(&mut upstreams.0).ok_or(Error::NoUpstreamsConnected)?;
+        let upstream =
+            Self::select_upstreams(&mut upstreams.0).ok_or(Error::NoUpstreamsConnected)?;
         let downstream_data = CommonDownstreamData {
             header_only: true,
             work_selection: false,

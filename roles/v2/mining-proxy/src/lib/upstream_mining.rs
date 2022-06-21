@@ -641,7 +641,6 @@ impl
             .get_mut(&m.channel_id)
             .unwrap();
 
-
         let messages = jobs_to_relay(id, &m, downstreams, dispacther);
 
         Ok(SendTo::Multiple(messages))
