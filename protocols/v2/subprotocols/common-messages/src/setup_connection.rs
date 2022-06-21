@@ -76,6 +76,7 @@ impl<'decoder> SetupConnection<'decoder> {
 
                 work_selection && version_rolling
             }
+            // TODO
             _ => todo!(),
         }
     }
