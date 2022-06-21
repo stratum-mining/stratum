@@ -151,6 +151,7 @@ pub struct Target {
 impl From<[u8; 32]> for Target {
     fn from(mut v: [u8; 32]) -> Self {
         v.reverse();
+        // below unwraps never panics
         let head = u128::from_le_bytes(v[0..16].try_into().unwrap());
         let tail = u128::from_le_bytes(v[16..32].try_into().unwrap());
         Self { head, tail }
@@ -168,6 +169,7 @@ impl From<Extranonce> for alloc::vec::Vec<u8> {
 impl<'a> From<U256<'a>> for Target {
     fn from(v: U256<'a>) -> Self {
         let inner = v.inner_as_ref();
+        // below unwraps never panics
         let head = u128::from_le_bytes(inner[0..16].try_into().unwrap());
         let tail = u128::from_le_bytes(inner[16..32].try_into().unwrap());
         Self { head, tail }
@@ -178,6 +180,7 @@ impl From<Target> for U256<'static> {
     fn from(v: Target) -> Self {
         let mut inner = v.head.to_le_bytes().to_vec();
         inner.extend_from_slice(&v.tail.to_le_bytes());
+        // below unwraps never panics
         inner.try_into().unwrap()
     }
 }
@@ -213,6 +216,7 @@ pub struct Extranonce {
 impl<'a> From<U256<'a>> for Extranonce {
     fn from(v: U256<'a>) -> Self {
         let inner = v.inner_as_ref();
+        // below unwraps never panics
         let head = u128::from_le_bytes(inner[..16].try_into().unwrap());
         let tail = u128::from_le_bytes(inner[16..].try_into().unwrap());
         Self { head, tail }
@@ -223,6 +227,7 @@ impl<'a> From<Extranonce> for U256<'a> {
     fn from(v: Extranonce) -> Self {
         let mut inner = v.head.to_le_bytes().to_vec();
         inner.extend_from_slice(&v.tail.to_le_bytes());
+        // below unwraps never panics
         inner.try_into().unwrap()
     }
 }
@@ -230,6 +235,7 @@ impl<'a> From<Extranonce> for U256<'a> {
 impl<'a> From<B032<'a>> for Extranonce {
     fn from(v: B032<'a>) -> Self {
         let inner = v.inner_as_ref();
+        // below unwraps never panics
         let head = u128::from_le_bytes(inner[..16].try_into().unwrap());
         let tail = u128::from_le_bytes(inner[16..].try_into().unwrap());
         Self { head, tail }
@@ -254,6 +260,7 @@ impl Extranonce {
         };
         let mut extranonce = self.tail.to_le_bytes().to_vec();
         extranonce.append(&mut self.head.to_le_bytes().to_vec());
+        // below unwraps never panics
         extranonce.try_into().unwrap()
     }
 }
