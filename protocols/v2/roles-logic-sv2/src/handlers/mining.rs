@@ -63,19 +63,18 @@ pub trait ParseDownstreamMiningMessages<
             Ok(Mining::OpenStandardMiningChannel(mut m)) => {
                 let upstream = match routing_logic {
                     MiningRoutingLogic::None => None,
-                    MiningRoutingLogic::Proxy(r_logic) => Some(
-                        r_logic
+                    MiningRoutingLogic::Proxy(r_logic) => {
+                        let up = r_logic
                             .safe_lock(|r_logic| {
-                                r_logic
-                                    .on_open_standard_channel(
-                                        self_mutex.clone(),
-                                        &mut m,
-                                        &downstream_mining_data,
-                                    )
-                                    .unwrap()
+                                r_logic.on_open_standard_channel(
+                                    self_mutex.clone(),
+                                    &mut m,
+                                    &downstream_mining_data,
+                                )
                             })
-                            .unwrap(),
-                    ),
+                            .unwrap();
+                        Some(up?)
+                    }
                     // Variant just used for phantom data is ok to panic
                     MiningRoutingLogic::_P(_) => panic!(),
                 };
@@ -215,15 +214,14 @@ pub trait ParseUpstreamMiningMessages<
             Ok(Mining::OpenStandardMiningChannelSuccess(mut m)) => {
                 let remote = match routing_logic {
                     MiningRoutingLogic::None => None,
-                    MiningRoutingLogic::Proxy(r_logic) => r_logic
-                        .safe_lock(|r_logic| {
-                            Some(
-                                r_logic
-                                    .on_open_standard_channel_success(self_mutex.clone(), &mut m)
-                                    .unwrap(),
-                            )
-                        })
-                        .unwrap(),
+                    MiningRoutingLogic::Proxy(r_logic) => {
+                        let up = r_logic
+                            .safe_lock(|r_logic| {
+                                r_logic.on_open_standard_channel_success(self_mutex.clone(), &mut m)
+                            })
+                            .unwrap();
+                        Some(up?)
+                    }
                     // Variant just used for phantom data is ok to panic
                     MiningRoutingLogic::_P(_) => panic!(),
                 };
