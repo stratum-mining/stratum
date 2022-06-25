@@ -109,21 +109,33 @@ impl<
 /// Enum that contains the possibles routing logic is usually contructed before calling
 /// handle_message_..()
 #[derive(Debug)]
-pub enum CommonRoutingLogic<Router: CommonRouter> {
-    Proxy(Arc<Mutex<Router>>),
+pub enum CommonRoutingLogic<Router: 'static + CommonRouter> {
+    Proxy(&'static Mutex<Router>),
     None,
 }
 
 /// Enum that contains the possibles routing logic is usually contructed before calling
 /// handle_message_..()
+//#[derive(Debug)]
+//pub enum MiningRoutingLogic<
+//    Down: IsMiningDownstream + D,
+//    Up: IsMiningUpstream<Down, Sel> + D,
+//    Sel: DownstreamMiningSelector<Down> + D,
+//    //Router: std::ops::DerefMut<Target= dyn MiningRouter<Down, Up, Sel>>,
+//    Router: MiningRouter<Down, Up, Sel>,
+//> {
+//    Proxy(Mutex<Router>),
+//    None,
+//    _P(PhantomData<(Down, Up, Sel)>),
+//}
 #[derive(Debug)]
 pub enum MiningRoutingLogic<
     Down: IsMiningDownstream + D,
     Up: IsMiningUpstream<Down, Sel> + D,
     Sel: DownstreamMiningSelector<Down> + D,
-    Router: MiningRouter<Down, Up, Sel>,
+    Router: 'static + MiningRouter<Down, Up, Sel>,
 > {
-    Proxy(Arc<Mutex<Router>>),
+    Proxy(&'static Mutex<Router>),
     None,
     _P(PhantomData<(Down, Up, Sel)>),
 }
@@ -147,7 +159,7 @@ impl<
     fn clone(&self) -> Self {
         match self {
             Self::None => Self::None,
-            Self::Proxy(x) => Self::Proxy(x.clone()),
+            Self::Proxy(x) => Self::Proxy(x),
             // Variant used only for PhantomData safe to panic here
             Self::_P(_) => panic!(),
         }

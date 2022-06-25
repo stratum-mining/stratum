@@ -15,7 +15,7 @@ use roles_logic_sv2::{
     job_dispatcher::GroupChannelJobDispatcher,
     mining_sv2::*,
     parsers::{CommonMessages, Mining, MiningDeviceMessages, PoolMessages},
-    routing_logic::{MiningProxyRoutingLogic, MiningRoutingLogic},
+    routing_logic::MiningProxyRoutingLogic,
     selectors::{DownstreamMiningSelector, ProxyDownstreamMiningSelector as Prs},
     utils::{Id, Mutex},
 };
@@ -264,7 +264,7 @@ impl UpstreamMiningNode {
         let message_type = incoming.get_header().unwrap().msg_type();
         let payload = incoming.payload();
 
-        let routing_logic = MiningRoutingLogic::Proxy(crate::get_routing_logic().await);
+        let routing_logic = crate::get_routing_logic();
 
         let next_message_to_send = UpstreamMiningNode::handle_message_mining(
             self_mutex.clone(),
