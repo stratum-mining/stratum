@@ -77,9 +77,9 @@ pub struct UpstreamMiningNode {
     authority_public_key: [u8; 32],
     /// group_channel id/channel_id -> dispatcher
     pub channel_id_to_job_dispatcher: HashMap<u32, JobDispatcher>,
-    /// Each relayd message that have a request_id field must have a unique request_id number
+    /// Each relayed message that has a `request_id` field must have a unique `request_id` number,
     /// connection-wise.
-    /// request_id from downstream is not garanted to be uniquie so must be changed
+    /// The `request_id` from the downstream is NOT guaranteed to be unique, so it must be changed.
     request_id_mapper: RequestIdMapper,
     downstream_selector: ProxyRemoteSelector,
     last_prev_hash: Option<SetNewPrevHash<'static>>,
@@ -837,4 +837,46 @@ fn jobs_to_relay(
             .unwrap();
     }
     messages
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::net::{IpAddr, Ipv4Addr};
+
+    #[test]
+    fn new_upstream_minining_node() {
+        let id = 0;
+        let job_ids = Arc::new(Mutex::new(Id::new()));
+        let address = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8080);
+        let authority_public_key = [
+            215, 11, 47, 78, 34, 232, 25, 192, 195, 168, 170, 209, 95, 181, 40, 114, 154, 226, 176,
+            190, 90, 169, 238, 89, 191, 183, 97, 63, 194, 119, 11, 31,
+        ];
+        let actual = UpstreamMiningNode::new(id, address, authority_public_key, job_ids);
+
+        assert_eq!(actual.id, id);
+
+        let expect_next_job_id = actual.job_ids.safe_lock(|ids| ids.next()).unwrap();
+        assert_eq!(expect_next_job_id, id + 1);
+
+        assert_eq!(actual.total_hash_rate, 0);
+        assert_eq!(actual.address, address);
+
+        if actual.connection.is_some() {
+            panic!("`UpstreamMiningNode::connection` should be `None` on call to `UpstreamMiningNode::new()`");
+        }
+
+        if actual.sv2_connection.is_some() {
+            panic!("`UpstreamMiningNode::sv2_connection` should be `None` on call to `UpstreamMiningNode::new()`");
+        }
+
+        // How to test
+        // assert_eq!(actual.downstream_selector, ProxyRemoteSelector::new());
+
+        assert_eq!(actual.authority_public_key, authority_public_key);
+        assert!(actual.channel_id_to_job_dispatcher.is_empty());
+        assert_eq!(actual.request_id_mapper, RequestIdMapper::new());
+        assert!(actual.last_prev_hash.is_none());
+        assert!(actual.last_extended_jobs.is_empty());
+    }
 }
