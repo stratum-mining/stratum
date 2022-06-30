@@ -20,8 +20,8 @@
 mod lib;
 use std::net::{IpAddr, SocketAddr};
 
-use once_cell::sync::Lazy;
 use lib::upstream_mining::UpstreamMiningNode;
+use once_cell::sync::Lazy;
 use serde::Deserialize;
 use std::str::FromStr;
 
@@ -66,7 +66,6 @@ async fn initialize_upstreams() {
         .unwrap();
     crate::lib::upstream_mining::scan(upstreams).await;
 }
-
 
 pub fn get_routing_logic() -> MiningRoutingLogic<
     crate::lib::downstream_mining::DownstreamMiningNode,

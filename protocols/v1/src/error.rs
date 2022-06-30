@@ -1,4 +1,4 @@
-use crate::methods::MethodError;
+use crate::methods::{MethodError,Method};
 
 #[derive(Debug)]
 #[non_exhaustive]
@@ -7,7 +7,8 @@ pub enum Error {
     InvalidJsonRpcMessageKind,
     InvalidSubmission,
     #[allow(clippy::upper_case_acronyms)]
-    UnknownID,
+    UnknownID(String),
+    InvalidReceiver(Method),
 }
 
 impl From<MethodError> for Error {

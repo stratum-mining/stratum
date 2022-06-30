@@ -46,7 +46,7 @@ use std::convert::TryInto;
 // use error::Result;
 use error::Error;
 pub use json_rpc::Message;
-pub use methods::{client_to_server, server_to_client, MethodError};
+pub use methods::{client_to_server, server_to_client, MethodError,ParsingMethodError,Method};
 use utils::{HexBytes, HexU32Be};
 
 /// json_rpc Response are not handled cause startum v1 do not have any request from a server to a
@@ -106,8 +106,11 @@ pub trait IsServer {
             methods::Client2Server::Submit(submit) => {
                 let has_valid_version_bits = match &submit.version_bits {
                     Some(a) => {
-                        self.version_rolling_mask().is_some()
-                            && self.version_rolling_mask().unwrap().check_mask(a)
+                        if let Some(version_rolling_mask) = self.version_rolling_mask() {
+                            version_rolling_mask.check_mask(a)
+                        } else {
+                            false
+                        }
                     }
                     None => self.version_rolling_mask().is_none(),
                 };
@@ -217,21 +220,8 @@ pub trait IsServer {
     // {"params":["00003000"], "id":null, "method": "mining.set_version_mask"}
     // fn update_version_rolling_mask
 
-    #[allow(clippy::needless_question_mark)]
-    fn notify(&mut self) -> Result<json_rpc::Message, ()> {
-        Ok(server_to_client::Notify {
-            job_id: "ciao".to_string(),
-            prev_hash: utils::PrevHash(vec![3_u8, 4, 5, 6]),
-            coin_base1: "ffff".try_into().unwrap(),
-            coin_base2: "ffff".try_into().unwrap(),
-            merkle_branch: vec!["fff".try_into().unwrap()],
-            version: utils::HexU32Be(5667),
-            bits: utils::HexU32Be(5678),
-            time: utils::HexU32Be(5609),
-            clean_jobs: true,
-        }
-        .try_into()?)
-    }
+    fn notify(&mut self) -> Result<json_rpc::Message, ()>;
+
 }
 
 pub trait IsClient {
@@ -248,27 +238,45 @@ pub trait IsClient {
     where
         Self: std::marker::Sized,
     {
-        if msg.is_response() {
-            // A respnse can be an error if ...
-            if msg.error().is_some() {
-                todo!();
-            }
+        let method: Result<Method, MethodError> = msg.try_into();
 
-            // A response can be either a Server2ClientResponse in the cases ... or a general
-            // response in the cases ...
-            match TryInto::<methods::Server2ClientResponse>::try_into(msg.clone()) {
-                Ok(a) => self.handle_response(a).map(|_| None),
-                Err(_) => match msg {
-                    json_rpc::Message::Response(msg) => {
-                        let response = self.response_from_id(msg)?;
-                        self.handle_response(response).map(|_| None)
-                    }
-                    _ => panic!(), // impossible
+        match method {
+            Ok(m) => match m {
+                Method::Server2ClientResponse(response) => {
+                    let response = self.update_response(response)?;
+                    self.handle_response(response).map(|_| None)
                 },
-            }
-        } else {
-            self.handle_request(msg.try_into()?)
+                Method::Server2Client(request) => {
+                    self.handle_request(request)
+                },
+                Method::Client2Server(_) => Err(Error::InvalidReceiver(m)),
+                Method::ErrorMessage(msg) => self.handle_error_message(msg),
+            },
+            Err(e) => Err(e.into()),
         }
+
+
+    }
+
+    fn update_response(
+        &mut self,
+        response: methods::Server2ClientResponse,
+    ) -> Result<methods::Server2ClientResponse, Error> {
+        match &response {
+                methods::Server2ClientResponse::GeneralResponse(general) => {
+                    let is_authorize = self.id_is_authorize(&general.id);
+                    let is_submit = self.id_is_submit(&general.id);
+                    match (is_authorize,is_submit) {
+                        (Some(prev_name), false) => {
+                            let authorize = general.clone().into_authorize(prev_name);
+                            Ok(methods::Server2ClientResponse::Authorize(authorize))
+                        },
+                        (None, false) => Ok(methods::Server2ClientResponse::Submit(general.clone().into_submit())),
+                        _ => Err(Error::UnknownID(general.id.clone())),
+                    }
+                },
+                _ => Ok(response)
+            }
     }
 
     /// Call the right handler according with the called method
@@ -288,25 +296,6 @@ pub trait IsClient {
             methods::Server2Client::SetDifficulty(_set_diff) => todo!(),
             methods::Server2Client::SetExtranonce(_set_extra_nonce) => todo!(),
             methods::Server2Client::SetVersionMask(_set_version_mask) => todo!(),
-        }
-    }
-
-    /// Check if the given response has an id that correspond to an already sent request, if so it
-    /// return the rispective response if not fail
-    ///
-    fn response_from_id(
-        &mut self,
-        response: json_rpc::Response,
-    ) -> Result<methods::Server2ClientResponse, Error> {
-        if self.id_is_authorize(&response.id).is_some() {
-            let name = self.id_is_authorize(&response.id).unwrap();
-            let resp = server_to_client::Authorize(response, name);
-            Ok(methods::Server2ClientResponse::Authorize(resp))
-        } else if self.id_is_submit(&response.id) {
-            let resp = server_to_client::Submit(response);
-            Ok(methods::Server2ClientResponse::Submit(resp))
-        } else {
-            Err(Error::UnknownID)
         }
     }
 
@@ -336,8 +325,12 @@ pub trait IsClient {
                 Ok(())
             }
             methods::Server2ClientResponse::Submit(_) => Ok(()),
+            // impossible state
+            methods::Server2ClientResponse::GeneralResponse(_) => panic!(),
         }
     }
+
+    fn handle_error_message(&mut self, message: Message) -> Result<Option<json_rpc::Response>, Error>;
 
     /// Check if the client sent an Authorize request with the given id, if so it return the
     /// authorized name

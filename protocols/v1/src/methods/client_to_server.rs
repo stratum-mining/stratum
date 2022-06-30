@@ -9,7 +9,7 @@ use crate::{
     utils::{HexBytes, HexU32Be},
 };
 
-use crate::methods::{MethodError, ParsingMethodError};
+use crate::methods::ParsingMethodError;
 
 #[cfg(test)]
 use quickcheck::{Arbitrary, Gen};
@@ -31,6 +31,7 @@ pub struct Authorize {
 
 impl Authorize {
     pub fn respond(self, is_ok: bool) -> Response {
+        // infallible
         let result = serde_json::to_value(is_ok).unwrap();
         Response {
             id: self.id,
@@ -51,7 +52,7 @@ impl From<Authorize> for Message {
 }
 
 impl TryFrom<StandardRequest> for Authorize {
-    type Error = MethodError;
+    type Error = ParsingMethodError;
 
     fn try_from(msg: StandardRequest) -> Result<Self, Self::Error> {
         match msg.parameters.as_array() {
@@ -128,6 +129,7 @@ pub struct Submit {
 
 impl Submit {
     pub fn respond(self, is_ok: bool) -> Response {
+        // infallibel
         let result = serde_json::to_value(is_ok).unwrap();
         Response {
             id: self.id,
@@ -139,7 +141,7 @@ impl Submit {
 
 impl From<Submit> for Message {
     fn from(submit: Submit) -> Self {
-        let ex: String = submit.extra_nonce2.try_into().unwrap();
+        let ex: String = submit.extra_nonce2.into();
         let mut parameters: Vec<Value> = vec![
             submit.user_name.into(),
             submit.job_id.into(),
@@ -148,7 +150,7 @@ impl From<Submit> for Message {
             submit.nonce.into(),
         ];
         if let Some(a) = submit.version_bits {
-            let a: String = a.try_into().unwrap(); //
+            let a: String = a.into();
             parameters.push(a.into());
         };
         Message::StandardRequest(StandardRequest {
@@ -160,7 +162,7 @@ impl From<Submit> for Message {
 }
 
 impl TryFrom<StandardRequest> for Submit {
-    type Error = MethodError;
+    type Error = ParsingMethodError;
 
     #[allow(clippy::many_single_char_names)]
     fn try_from(msg: StandardRequest) -> Result<Self, Self::Error> {
@@ -271,7 +273,7 @@ impl Subscribe {
         };
         match Message::try_from(response) {
             Ok(r) => match r {
-                Message::Response(r) => r,
+                Message::OkResponse(r) => r,
                 _ => todo!(),
             },
             Err(_) => todo!(),
@@ -296,7 +298,7 @@ impl TryFrom<Subscribe> for Message {
 }
 
 impl TryFrom<StandardRequest> for Subscribe {
-    type Error = MethodError;
+    type Error = ParsingMethodError;
 
     fn try_from(msg: StandardRequest) -> Result<Self, Self::Error> {
         match msg.parameters.as_array() {
@@ -351,7 +353,7 @@ impl Configure {
         };
         match Message::try_from(response) {
             Ok(r) => match r {
-                Message::Response(r) => r,
+                Message::OkResponse(r) => r,
                 _ => todo!(),
             },
             Err(_) => todo!(),
@@ -401,7 +403,7 @@ impl From<Configure> for Message {
 }
 
 impl TryFrom<StandardRequest> for Configure {
-    type Error = MethodError;
+    type Error = ParsingMethodError;
 
     fn try_from(msg: StandardRequest) -> Result<Self, Self::Error> {
         let extensions = ConfigureExtension::from_value(&msg.parameters)?;
@@ -420,7 +422,7 @@ pub enum ConfigureExtension {
 
 #[allow(clippy::unnecessary_unwrap)]
 impl ConfigureExtension {
-    pub fn from_value(val: &Value) -> Result<Vec<ConfigureExtension>, MethodError> {
+    pub fn from_value(val: &Value) -> Result<Vec<ConfigureExtension>, ParsingMethodError> {
         let mut res = vec![];
         let root = val
             .as_array()
@@ -445,8 +447,10 @@ impl ConfigureExtension {
         }
         if version_rolling_mask.is_some() || version_rolling_min_bit.is_some() {
             let mask: Option<HexU32Be> = if version_rolling_mask.is_some()
+                // infallible
                 && version_rolling_mask.unwrap().as_str().is_some()
             {
+                // infallible
                 Some(version_rolling_mask.unwrap().as_str().unwrap().try_into()?)
             } else if version_rolling_mask.is_some() {
                 return Err(ParsingMethodError::Todo.into());
@@ -454,12 +458,15 @@ impl ConfigureExtension {
                 None
             };
             let min_bit_count: Option<HexU32Be> = if version_rolling_min_bit.is_some()
+                // infallible
                 && version_rolling_min_bit.unwrap().as_str().is_some()
             {
                 Some(
                     version_rolling_min_bit
+                        // infallible
                         .unwrap()
                         .as_str()
+                        // infallible
                         .unwrap()
                         .try_into()?,
                 )
@@ -497,23 +504,29 @@ impl ConfigureExtension {
             || info_sw_version.is_some()
         {
             let connection_url = if info_connection_url.is_some()
+                // infallible
                 && info_connection_url.unwrap().as_str().is_some()
             {
+                // infallible
                 Some(info_connection_url.unwrap().as_str().unwrap().to_string())
             } else if info_connection_url.is_some() {
                 return Err(ParsingMethodError::Todo.into());
             } else {
                 None
             };
+            // infallible
             let hw_id = if info_hw_id.is_some() && info_hw_id.unwrap().as_str().is_some() {
+                // infallible
                 Some(info_hw_id.unwrap().as_str().unwrap().to_string())
             } else if info_hw_id.is_some() {
                 return Err(ParsingMethodError::Todo.into());
             } else {
                 None
             };
+            // infallible
             let hw_version =
                 if info_hw_version.is_some() && info_hw_version.unwrap().as_str().is_some() {
+                    // infallible
                     Some(info_hw_version.unwrap().as_str().unwrap().to_string())
                 } else if info_hw_version.is_some() {
                     return Err(ParsingMethodError::Todo.into());
@@ -521,7 +534,9 @@ impl ConfigureExtension {
                     None
                 };
             let sw_version =
+                // infallible
                 if info_sw_version.is_some() && info_sw_version.unwrap().as_str().is_some() {
+                    // infallible
                     Some(info_sw_version.unwrap().as_str().unwrap().to_string())
                 } else if info_sw_version.is_some() {
                     return Err(ParsingMethodError::Todo.into());
@@ -613,6 +628,7 @@ impl From<InfoParams> for serde_json::Map<String, Value> {
         if info.connection_url.is_some() {
             params.insert(
                 "info.connection-url".to_string(),
+                // infallible
                 info.connection_url.unwrap().into(),
             );
         }

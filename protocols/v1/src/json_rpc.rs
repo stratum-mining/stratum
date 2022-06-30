@@ -6,20 +6,27 @@ use serde::{Deserialize, Serialize};
 pub enum Message {
     StandardRequest(StandardRequest),
     Notification(Notification),
-    Response(Response),
+    OkResponse(Response),
+    ErrorResponse(Response),
 }
 
 impl Message {
+    // TODO REMOVE it
     pub fn is_response(&self) -> bool {
-        matches!(self, Message::Response(_))
-    }
-
-    pub fn error(&self) -> Option<JsonRpcError> {
         match self {
-            Message::Response(r) => r.error.clone(),
-            _ => None,
+            Message::StandardRequest(_) => false,
+            Message::Notification(_) => false,
+            Message::OkResponse(_) => true,
+            Message::ErrorResponse(_) => true,
         }
     }
+
+    //pub fn error(&self) -> Option<JsonRpcError> {
+    //    match self {
+    //        Message::Response(r) => r.error.clone(),
+    //        _ => None,
+    //    }
+    //}
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
@@ -42,6 +49,7 @@ pub struct Response {
     pub result: serde_json::Value,
 }
 
+
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct JsonRpcError {
     pub code: i32, // json do not specify precision which one should be used?
@@ -51,7 +59,11 @@ pub struct JsonRpcError {
 
 impl From<Response> for Message {
     fn from(res: Response) -> Self {
-        Message::Response(res)
+        if res.error.is_some() {
+            Message::ErrorResponse(res)
+        } else {
+            Message::OkResponse(res)
+        }
     }
 }
 
