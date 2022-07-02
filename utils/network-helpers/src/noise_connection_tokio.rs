@@ -61,11 +61,9 @@ impl Connection {
                             sender_incoming.send(x).await.unwrap();
                         }
                     }
-                    Err(e) => {
-                        println!("{:?}", e);
-                        //TODO check if this shutdown the stream
-                        drop(reader);
-                        break;
+                    Err(_) => {
+                        // Just fail and force to reinitialize everything
+                        panic!()
                     }
                 }
             }
@@ -92,8 +90,9 @@ impl Connection {
                         }
                     }
                     Err(_) => {
+                        // Just fail and force to reinitilize everything
                         let _ = writer.shutdown().await;
-                        break;
+                        panic!()
                     }
                 };
             }

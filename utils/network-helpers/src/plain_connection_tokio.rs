@@ -45,9 +45,8 @@ impl PlainConnection {
                         }
                     }
                     Err(_) => {
-                        //TODO check if this shutdown the stream
-                        drop(reader);
-                        break;
+                        // Just fail and force to reinitialize everything
+                        panic!()
                     }
                 }
             }
@@ -71,8 +70,9 @@ impl PlainConnection {
                         }
                     }
                     Err(_) => {
+                        // Just fail and force to reinitilize everything
                         let _ = writer.shutdown().await;
-                        break;
+                        panic!()
                     }
                 };
             }
