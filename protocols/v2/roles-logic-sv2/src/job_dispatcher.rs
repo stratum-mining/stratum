@@ -135,10 +135,10 @@ impl GroupChannelJobDispatcher {
         if extended.future_job {
             self.future_jobs
                 .entry(extended.job_id)
-                .or_insert(HashMap::new());
+                .or_insert_with(HashMap::new);
             self.extended_id_to_job_id
                 .entry(extended.job_id)
-                .or_insert(HashMap::new());
+                .or_insert_with(HashMap::new);
         }
 
         // Is fine to unwrap a safe_lock result

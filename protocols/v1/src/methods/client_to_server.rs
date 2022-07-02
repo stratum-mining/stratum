@@ -59,14 +59,12 @@ impl TryFrom<StandardRequest> for Authorize {
             Some(params) => {
                 let (name, password) = match &params[..] {
                     [JString(a), JString(b)] => (a.into(), b.into()),
-                    _ => {
-                        return Err(ParsingMethodError::wrong_args_from_value(msg.parameters).into())
-                    }
+                    _ => return Err(ParsingMethodError::wrong_args_from_value(msg.parameters)),
                 };
                 let id = msg.id;
                 Ok(Self { id, name, password })
             }
-            None => Err(ParsingMethodError::not_array_from_value(msg.parameters).into()),
+            None => Err(ParsingMethodError::not_array_from_value(msg.parameters)),
         }
     }
 }
@@ -190,9 +188,7 @@ impl TryFrom<StandardRequest> for Submit {
                             .ok_or_else(|| ParsingMethodError::not_int_from_value(e.clone()))?,
                         None,
                     ),
-                    _ => {
-                        return Err(ParsingMethodError::wrong_args_from_value(msg.parameters).into())
-                    }
+                    _ => return Err(ParsingMethodError::wrong_args_from_value(msg.parameters)),
                 };
                 let id = msg.id;
                 let res = crate::client_to_server::Submit {
@@ -206,7 +202,7 @@ impl TryFrom<StandardRequest> for Submit {
                 };
                 Ok(res)
             }
-            None => Err(ParsingMethodError::not_array_from_value(msg.parameters).into()),
+            None => Err(ParsingMethodError::not_array_from_value(msg.parameters)),
         }
     }
 }
@@ -306,9 +302,7 @@ impl TryFrom<StandardRequest> for Subscribe {
                 let (agent_signature, extranonce1) = match &params[..] {
                     [JString(a), JString(b)] => (a.into(), Some(b.as_str().try_into()?)),
                     [JString(a)] => (a.into(), None),
-                    _ => {
-                        return Err(ParsingMethodError::wrong_args_from_value(msg.parameters).into())
-                    }
+                    _ => return Err(ParsingMethodError::wrong_args_from_value(msg.parameters)),
                 };
                 let id = msg.id;
                 let res = Subscribe {
@@ -318,7 +312,7 @@ impl TryFrom<StandardRequest> for Subscribe {
                 };
                 Ok(res)
             }
-            None => Err(ParsingMethodError::not_array_from_value(msg.parameters).into()),
+            None => Err(ParsingMethodError::not_array_from_value(msg.parameters)),
         }
     }
 }
@@ -428,7 +422,7 @@ impl ConfigureExtension {
             .as_array()
             .ok_or_else(|| ParsingMethodError::not_array_from_value(val.clone()))?;
         if root.is_empty() {
-            return Err(ParsingMethodError::Todo.into());
+            return Err(ParsingMethodError::Todo);
         };
         let version_rolling_mask = val.pointer("1/version-rolling.mask");
         let version_rolling_min_bit = val.pointer("1/version-rolling.min-bit-count");
@@ -453,7 +447,7 @@ impl ConfigureExtension {
                 // infallible
                 Some(version_rolling_mask.unwrap().as_str().unwrap().try_into()?)
             } else if version_rolling_mask.is_some() {
-                return Err(ParsingMethodError::Todo.into());
+                return Err(ParsingMethodError::Todo);
             } else {
                 None
             };
@@ -471,7 +465,7 @@ impl ConfigureExtension {
                         .try_into()?,
                 )
             } else if version_rolling_mask.is_some() {
-                return Err(ParsingMethodError::Todo.into());
+                return Err(ParsingMethodError::Todo);
             } else {
                 None
             };
@@ -490,8 +484,7 @@ impl ConfigureExtension {
                 _ => {
                     return Err(ParsingMethodError::unexpected_value_from_value(
                         minimum_difficulty_value.clone(),
-                    )
-                    .into())
+                    ))
                 }
             };
 
@@ -510,7 +503,7 @@ impl ConfigureExtension {
                 // infallible
                 Some(info_connection_url.unwrap().as_str().unwrap().to_string())
             } else if info_connection_url.is_some() {
-                return Err(ParsingMethodError::Todo.into());
+                return Err(ParsingMethodError::Todo);
             } else {
                 None
             };
@@ -519,7 +512,7 @@ impl ConfigureExtension {
                 // infallible
                 Some(info_hw_id.unwrap().as_str().unwrap().to_string())
             } else if info_hw_id.is_some() {
-                return Err(ParsingMethodError::Todo.into());
+                return Err(ParsingMethodError::Todo);
             } else {
                 None
             };
@@ -529,7 +522,7 @@ impl ConfigureExtension {
                     // infallible
                     Some(info_hw_version.unwrap().as_str().unwrap().to_string())
                 } else if info_hw_version.is_some() {
-                    return Err(ParsingMethodError::Todo.into());
+                    return Err(ParsingMethodError::Todo);
                 } else {
                     None
                 };
@@ -539,7 +532,7 @@ impl ConfigureExtension {
                     // infallible
                     Some(info_sw_version.unwrap().as_str().unwrap().to_string())
                 } else if info_sw_version.is_some() {
-                    return Err(ParsingMethodError::Todo.into());
+                    return Err(ParsingMethodError::Todo);
                 } else {
                     None
                 };

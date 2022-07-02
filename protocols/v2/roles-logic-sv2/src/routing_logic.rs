@@ -144,7 +144,7 @@ impl<Router: CommonRouter> Clone for CommonRoutingLogic<Router> {
     fn clone(&self) -> Self {
         match self {
             Self::None => Self::None,
-            Self::Proxy(x) => Self::Proxy(x.clone()),
+            Self::Proxy(x) => Self::Proxy(x),
         }
     }
 }
@@ -233,7 +233,7 @@ impl<
             })
             // Is fine to unwrap a safe_lock result
             .unwrap();
-        Ok(downstreams?)
+        downstreams
     }
 
     /// At this point the Sv2 connection with downstream is initialized that means that
@@ -325,7 +325,7 @@ where
     Up: IsMiningUpstream<Down, Sel> + D,
     Sel: DownstreamMiningSelector<Down> + D,
 {
-    if ups.len() == 0 {
+    if ups.is_empty() {
         None
     } else if ups.len() == 1 {
         Some(ups[0].clone())

@@ -48,6 +48,7 @@ impl Header {
         })
     }
 
+    #[allow(clippy::len_without_is_empty)]
     #[inline]
     pub fn len(&self) -> usize {
         let inner: u32 = self.msg_length.into();

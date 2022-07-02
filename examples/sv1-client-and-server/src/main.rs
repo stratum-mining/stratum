@@ -16,7 +16,7 @@ use v1::{
     client_to_server,
     error::Error,
     json_rpc, server_to_client,
-    utils::{HexBytes, HexU32Be,self},
+    utils::{self, HexBytes, HexU32Be},
     ClientStatus, IsClient, IsServer,
 };
 
@@ -118,13 +118,14 @@ impl Server {
         server
     }
 
+    #[allow(clippy::single_match)]
     async fn parse_message(
         &mut self,
         incoming_message: Result<String, async_channel::TryRecvError>,
     ) {
         if let Ok(line) = incoming_message {
             println!("SERVER - message: {}", line);
-            let message: Result<json_rpc::Message,_> = serde_json::from_str(&line);
+            let message: Result<json_rpc::Message, _> = serde_json::from_str(&line);
             match message {
                 Ok(message) => {
                     match self.handle_message(message) {
@@ -133,10 +134,10 @@ impl Server {
                                 self.send_message(json_rpc::Message::OkResponse(response.unwrap()))
                                     .await;
                             }
-                        },
+                        }
                         Err(_) => (),
                     };
-                },
+                }
                 Err(_) => (),
             }
         };
@@ -231,7 +232,7 @@ impl IsServer for Server {
     }
 
     fn notify(&mut self) -> Result<json_rpc::Message, ()> {
-        Ok(server_to_client::Notify {
+        server_to_client::Notify {
             job_id: "ciao".to_string(),
             prev_hash: utils::PrevHash(vec![3_u8, 4, 5, 6]),
             coin_base1: "ffff".try_into().unwrap(),
@@ -242,7 +243,7 @@ impl IsServer for Server {
             time: utils::HexU32Be(5609),
             clean_jobs: true,
         }
-        .try_into()?)
+        .try_into()
     }
 }
 
@@ -487,7 +488,10 @@ impl IsClient for Client {
         self.last_notify.clone()
     }
 
-    fn handle_error_message(&mut self, message: v1::Message) -> Result<Option<json_rpc::Response>, Error> {
+    fn handle_error_message(
+        &mut self,
+        message: v1::Message,
+    ) -> Result<Option<json_rpc::Response>, Error> {
         println!("{:?}", message);
         Ok(None)
     }

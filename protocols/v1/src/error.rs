@@ -1,4 +1,4 @@
-use crate::methods::{MethodError,Method};
+use crate::methods::{Method, MethodError};
 
 #[derive(Debug)]
 #[non_exhaustive]

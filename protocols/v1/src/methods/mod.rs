@@ -5,7 +5,7 @@ use std::convert::{TryFrom, TryInto};
 pub mod client_to_server;
 pub mod server_to_client;
 
-use crate::json_rpc::{Response,Message};
+use crate::json_rpc::{Message, Response};
 
 /// Errors encountered during conversion between valid json_rpc messages and Sv1 messages.
 ///
@@ -42,7 +42,6 @@ impl From<BTCHashError> for ParsingMethodError {
     }
 }
 
-
 #[derive(Debug)]
 pub enum ParsingMethodError {
     HexError(Box<FromHexError>),
@@ -58,14 +57,14 @@ pub enum ParsingMethodError {
     ImpossibleToParseResultField(Box<Response>),
     ImpossibleToParseAsU64(Box<serde_json::Number>),
     UnexpectedArrayParams(Vec<serde_json::Value>),
-    UnexpectedObjectParams(serde_json::Map<String,serde_json::Value>),
+    UnexpectedObjectParams(serde_json::Map<String, serde_json::Value>),
     MultipleError(Vec<ParsingMethodError>),
     Todo,
 }
 
 impl ParsingMethodError {
     pub fn as_method_error(self, msg: Message) -> MethodError {
-        MethodError::ParsingMethodError((self,msg))
+        MethodError::ParsingMethodError((self, msg))
     }
 }
 
@@ -164,7 +163,6 @@ impl TryFrom<Message> for Server2Client {
     }
 }
 
-
 #[derive(Debug)]
 pub enum Server2ClientResponse {
     Configure(server_to_client::Configure),
@@ -201,48 +199,74 @@ impl TryFrom<Message> for Method {
         match &msg {
             Message::StandardRequest(request) => match &request.method[..] {
                 "mining.subscribe" => {
-                    let method = request.clone().try_into().map_err(|e: ParsingMethodError| e.as_method_error(msg))?;
+                    let method = request
+                        .clone()
+                        .try_into()
+                        .map_err(|e: ParsingMethodError| e.as_method_error(msg))?;
                     Ok(Method::Client2Server(Client2Server::Subscribe(method)))
                 }
                 "mining.authorize" => {
-                    let method = request.clone().try_into().map_err(|e: ParsingMethodError| e.as_method_error(msg))?;
+                    let method = request
+                        .clone()
+                        .try_into()
+                        .map_err(|e: ParsingMethodError| e.as_method_error(msg))?;
                     Ok(Method::Client2Server(Client2Server::Authorize(method)))
                 }
                 "mining.extranonce.subscribe" => Ok(Method::Client2Server(
                     Client2Server::ExtranonceSubscribe(client_to_server::ExtranonceSubscribe()),
                 )),
                 "mining.submit" => {
-                    let method = request.clone().try_into().map_err(|e: ParsingMethodError| e.as_method_error(msg))?;
+                    let method = request
+                        .clone()
+                        .try_into()
+                        .map_err(|e: ParsingMethodError| e.as_method_error(msg))?;
                     Ok(Method::Client2Server(Client2Server::Submit(method)))
                 }
                 "mining.configure" => {
-                    let method = request.clone().try_into().map_err(|e: ParsingMethodError| e.as_method_error(msg))?;
+                    let method = request
+                        .clone()
+                        .try_into()
+                        .map_err(|e: ParsingMethodError| e.as_method_error(msg))?;
                     Ok(Method::Client2Server(Client2Server::Configure(method)))
                 }
                 _ => Err(MethodError::MethodNotFound(request.clone().method)),
             },
             Message::Notification(notification) => match &notification.method[..] {
                 "mining.notify" => {
-                    let method = notification.clone().try_into().map_err(|e: ParsingMethodError| e.as_method_error(msg))?;
+                    let method = notification
+                        .clone()
+                        .try_into()
+                        .map_err(|e: ParsingMethodError| e.as_method_error(msg))?;
                     Ok(Method::Server2Client(Server2Client::Notify(method)))
                 }
                 "mining.set_version_mask" => {
-                    let method = notification.clone().try_into().map_err(|e: ParsingMethodError| e.as_method_error(msg))?;
+                    let method = notification
+                        .clone()
+                        .try_into()
+                        .map_err(|e: ParsingMethodError| e.as_method_error(msg))?;
                     Ok(Method::Server2Client(Server2Client::SetVersionMask(method)))
                 }
                 "mining.set_difficulty" => {
-                    let method = notification.clone().try_into().map_err(|e: ParsingMethodError| e.as_method_error(msg))?;
+                    let method = notification
+                        .clone()
+                        .try_into()
+                        .map_err(|e: ParsingMethodError| e.as_method_error(msg))?;
                     Ok(Method::Server2Client(Server2Client::SetDifficulty(method)))
                 }
                 "mining.set_extranonce" => {
-                    let method = notification.clone().try_into().map_err(|e: ParsingMethodError| e.as_method_error(msg))?;
+                    let method = notification
+                        .clone()
+                        .try_into()
+                        .map_err(|e: ParsingMethodError| e.as_method_error(msg))?;
                     Ok(Method::Server2Client(Server2Client::SetExtranonce(method)))
                 }
                 _ => Err(MethodError::MethodNotFound(notification.clone().method)),
             },
-            Message::OkResponse(response) => {
-                response.clone().try_into().map(|result| Method::Server2ClientResponse(result)).map_err(|e| e.as_method_error(msg))
-            }
+            Message::OkResponse(response) => response
+                .clone()
+                .try_into()
+                .map(Method::Server2ClientResponse)
+                .map_err(|e| e.as_method_error(msg)),
             Message::ErrorResponse(_) => Ok(Method::ErrorMessage(msg)),
         }
     }
@@ -252,24 +276,17 @@ impl TryFrom<crate::json_rpc::Response> for Server2ClientResponse {
     type Error = ParsingMethodError;
 
     fn try_from(msg: Response) -> Result<Self, Self::Error> {
-       let subscribe: Result<server_to_client::Subscribe, ParsingMethodError> = (&msg).try_into();
-       let configure: Result<server_to_client::Configure, ParsingMethodError> = (&msg).try_into();
-       let general_response: Result<server_to_client::GeneralResponse, ParsingMethodError> = (&msg).try_into();
-       match (subscribe, configure, general_response) {
-           (Ok(a), Err(_), Err(_)) => Ok(
-               Server2ClientResponse::Subscribe(a),
-           ),
-           (Err(_), Ok(a), Err(_)) => Ok(
-               Server2ClientResponse::Configure(a),
-           ),
-           (Err(_), Err(_), Ok(a)) => Ok(
-               Server2ClientResponse::GeneralResponse(a),
-           ),
-           (Err(e), Err(ee), Err(eee)) => {
-               Err(ParsingMethodError::MultipleError(vec![e,ee,eee]))
-           }
-           // Impossible state a message can not be more than one method
-           _ => panic!()
-       }
+        let subscribe: Result<server_to_client::Subscribe, ParsingMethodError> = (&msg).try_into();
+        let configure: Result<server_to_client::Configure, ParsingMethodError> = (&msg).try_into();
+        let general_response: Result<server_to_client::GeneralResponse, ParsingMethodError> =
+            (&msg).try_into();
+        match (subscribe, configure, general_response) {
+            (Ok(a), Err(_), Err(_)) => Ok(Server2ClientResponse::Subscribe(a)),
+            (Err(_), Ok(a), Err(_)) => Ok(Server2ClientResponse::Configure(a)),
+            (Err(_), Err(_), Ok(a)) => Ok(Server2ClientResponse::GeneralResponse(a)),
+            (Err(e), Err(ee), Err(eee)) => Err(ParsingMethodError::MultipleError(vec![e, ee, eee])),
+            // Impossible state a message can not be more than one method
+            _ => panic!(),
+        }
     }
 }

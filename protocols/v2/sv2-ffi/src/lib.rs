@@ -111,7 +111,7 @@ pub extern "C" fn drop_sv2_message(s: CSv2Message) {
     match s {
         CSv2Message::CoinbaseOutputDataSize(_) => (),
         CSv2Message::NewTemplate(a) => drop(a),
-        CSv2Message::RequestTransactionData(a) => drop(a),
+        CSv2Message::RequestTransactionData(_) => (),
         CSv2Message::RequestTransactionDataError(a) => drop(a),
         CSv2Message::RequestTransactionDataSuccess(a) => drop(a),
         CSv2Message::SetNewPrevHash(a) => drop(a),

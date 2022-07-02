@@ -46,7 +46,7 @@ use std::convert::TryInto;
 // use error::Result;
 use error::Error;
 pub use json_rpc::Message;
-pub use methods::{client_to_server, server_to_client, MethodError,ParsingMethodError,Method};
+pub use methods::{client_to_server, server_to_client, Method, MethodError, ParsingMethodError};
 use utils::{HexBytes, HexU32Be};
 
 /// json_rpc Response are not handled cause startum v1 do not have any request from a server to a
@@ -221,7 +221,6 @@ pub trait IsServer {
     // fn update_version_rolling_mask
 
     fn notify(&mut self) -> Result<json_rpc::Message, ()>;
-
 }
 
 pub trait IsClient {
@@ -245,17 +244,13 @@ pub trait IsClient {
                 Method::Server2ClientResponse(response) => {
                     let response = self.update_response(response)?;
                     self.handle_response(response).map(|_| None)
-                },
-                Method::Server2Client(request) => {
-                    self.handle_request(request)
-                },
+                }
+                Method::Server2Client(request) => self.handle_request(request),
                 Method::Client2Server(_) => Err(Error::InvalidReceiver(m)),
                 Method::ErrorMessage(msg) => self.handle_error_message(msg),
             },
             Err(e) => Err(e.into()),
         }
-
-
     }
 
     fn update_response(
@@ -263,20 +258,22 @@ pub trait IsClient {
         response: methods::Server2ClientResponse,
     ) -> Result<methods::Server2ClientResponse, Error> {
         match &response {
-                methods::Server2ClientResponse::GeneralResponse(general) => {
-                    let is_authorize = self.id_is_authorize(&general.id);
-                    let is_submit = self.id_is_submit(&general.id);
-                    match (is_authorize,is_submit) {
-                        (Some(prev_name), false) => {
-                            let authorize = general.clone().into_authorize(prev_name);
-                            Ok(methods::Server2ClientResponse::Authorize(authorize))
-                        },
-                        (None, false) => Ok(methods::Server2ClientResponse::Submit(general.clone().into_submit())),
-                        _ => Err(Error::UnknownID(general.id.clone())),
+            methods::Server2ClientResponse::GeneralResponse(general) => {
+                let is_authorize = self.id_is_authorize(&general.id);
+                let is_submit = self.id_is_submit(&general.id);
+                match (is_authorize, is_submit) {
+                    (Some(prev_name), false) => {
+                        let authorize = general.clone().into_authorize(prev_name);
+                        Ok(methods::Server2ClientResponse::Authorize(authorize))
                     }
-                },
-                _ => Ok(response)
+                    (None, false) => Ok(methods::Server2ClientResponse::Submit(
+                        general.clone().into_submit(),
+                    )),
+                    _ => Err(Error::UnknownID(general.id.clone())),
+                }
             }
+            _ => Ok(response),
+        }
     }
 
     /// Call the right handler according with the called method
@@ -330,7 +327,10 @@ pub trait IsClient {
         }
     }
 
-    fn handle_error_message(&mut self, message: Message) -> Result<Option<json_rpc::Response>, Error>;
+    fn handle_error_message(
+        &mut self,
+        message: Message,
+    ) -> Result<Option<json_rpc::Response>, Error>;
 
     /// Check if the client sent an Authorize request with the given id, if so it return the
     /// authorized name

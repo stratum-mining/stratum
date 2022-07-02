@@ -12,7 +12,7 @@ use roles_logic_sv2::{
     },
     mining_sv2::*,
     parsers::{Mining, MiningDeviceMessages, PoolMessages},
-    routing_logic::{CommonRoutingLogic, MiningProxyRoutingLogic, MiningRoutingLogic},
+    routing_logic::MiningProxyRoutingLogic,
     utils::Mutex,
 };
 use std::collections::HashMap;

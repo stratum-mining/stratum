@@ -49,7 +49,6 @@ pub struct Response {
     pub result: serde_json::Value,
 }
 
-
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct JsonRpcError {
     pub code: i32, // json do not specify precision which one should be used?

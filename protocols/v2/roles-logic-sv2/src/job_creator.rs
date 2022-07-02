@@ -87,7 +87,7 @@ impl JobCreator {
         let r = encoded
             [0..SCRIPT_PREFIX_LEN + coinbase_tx_input_script_prefix_byte_len + PREV_OUT_LEN]
             .to_vec();
-        r.try_into().map_err(|e| Error::BinarySv2Error(e))
+        r.try_into().map_err(Error::BinarySv2Error)
     }
 
     fn coinbase_tx_suffix(
@@ -100,7 +100,7 @@ impl JobCreator {
             + PREV_OUT_LEN
             + EXTRANONCE_LEN..]
             .to_vec();
-        r.try_into().map_err(|e| Error::BinarySv2Error(e))
+        r.try_into().map_err(Error::BinarySv2Error)
     }
 
     /// coinbase_tx_input_script_prefix: extranonce prefix (script lenght + bip34 block height) provided by the node

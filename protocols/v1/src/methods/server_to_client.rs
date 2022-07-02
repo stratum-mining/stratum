@@ -115,7 +115,7 @@ impl TryFrom<Notification> for Notify {
                     *i,
                 )
             }
-            _ => return Err(ParsingMethodError::wrong_args_from_value(msg.parameters).into()),
+            _ => return Err(ParsingMethodError::wrong_args_from_value(msg.parameters)),
         };
         let mut merkle_branch = vec![];
         for h in merkle_branch_ {
@@ -173,7 +173,7 @@ impl TryFrom<Notification> for SetDifficulty {
             [a] => (a
                 .as_f64()
                 .ok_or_else(|| ParsingMethodError::not_float_from_value(a.clone()))?,),
-            _ => return Err(ParsingMethodError::wrong_args_from_value(msg.parameters).into()),
+            _ => return Err(ParsingMethodError::wrong_args_from_value(msg.parameters)),
         };
         Ok(SetDifficulty { value })
     }
@@ -223,7 +223,7 @@ impl TryFrom<Notification> for SetExtranonce {
                     .ok_or_else(|| ParsingMethodError::not_unsigned_from_value(b.clone()))?
                     as usize,
             ),
-            _ => return Err(ParsingMethodError::wrong_args_from_value(msg.parameters).into()),
+            _ => return Err(ParsingMethodError::wrong_args_from_value(msg.parameters)),
         };
         Ok(SetExtranonce {
             extra_nonce1,
@@ -260,7 +260,7 @@ impl TryFrom<Notification> for SetVersionMask {
             .ok_or_else(|| ParsingMethodError::not_array_from_value(msg.parameters.clone()))?;
         let version_mask = match &params[..] {
             [JString(a)] => a.as_str().try_into()?,
-            _ => return Err(ParsingMethodError::wrong_args_from_value(msg.parameters).into()),
+            _ => return Err(ParsingMethodError::wrong_args_from_value(msg.parameters)),
         };
         Ok(SetVersionMask { version_mask })
     }
@@ -269,18 +269,25 @@ impl TryFrom<Notification> for SetVersionMask {
 //pub struct Authorize(pub crate::json_rpc::Response, pub String);
 
 /// Authorize and Submit responsed are identical
-#[derive(Debug,Clone)]
+#[derive(Debug, Clone)]
 pub struct GeneralResponse {
     pub id: String,
-    result: bool
+    result: bool,
 }
 
 impl GeneralResponse {
     pub fn into_authorize(self, prev_request_name: String) -> Authorize {
-        Authorize { id: self.id, authorized: self.result, prev_request_name }
+        Authorize {
+            id: self.id,
+            authorized: self.result,
+            prev_request_name,
+        }
     }
     pub fn into_submit(self) -> Submit {
-        Submit { id: self.id, is_ok: self.result }
+        Submit {
+            id: self.id,
+            is_ok: self.result,
+        }
     }
 }
 
@@ -289,21 +296,19 @@ impl TryFrom<&Response> for GeneralResponse {
 
     fn try_from(msg: &Response) -> Result<Self, Self::Error> {
         let id = msg.id.clone();
-        let result = msg.result.as_bool().ok_or(ParsingMethodError::ImpossibleToParseResultField(Box::new(msg.clone())))?;
-        Ok(GeneralResponse {
-            id,
-            result,
-        })
+        let result = msg.result.as_bool().ok_or_else(|| {
+            ParsingMethodError::ImpossibleToParseResultField(Box::new(msg.clone()))
+        })?;
+        Ok(GeneralResponse { id, result })
     }
 }
 
-#[derive(Debug,Clone)]
+#[derive(Debug, Clone)]
 pub struct Authorize {
     pub id: String,
     authorized: bool,
-    pub prev_request_name: String
+    pub prev_request_name: String,
 }
-
 
 impl Authorize {
     pub fn is_ok(&self) -> bool {
@@ -319,12 +324,11 @@ impl Authorize {
 pub struct Submit {
     pub id: String,
     is_ok: bool,
-
 }
 
 impl Submit {
     pub fn is_ok(&self) -> bool {
-        self.is_ok()
+        self.is_ok
     }
 }
 
@@ -356,7 +360,6 @@ pub struct Subscribe {
 }
 
 impl From<Subscribe> for Message {
-
     fn from(su: Subscribe) -> Self {
         let extra_nonce1: Value = su.extra_nonce1.into();
         let extra_nonce2_size: Value = su.extra_nonce2_size.into();
@@ -379,12 +382,16 @@ impl TryFrom<&Response> for Subscribe {
 
     fn try_from(msg: &Response) -> Result<Self, Self::Error> {
         let id = msg.id.clone();
-        let params = msg.result.as_array().ok_or(ParsingMethodError::ImpossibleToParseResultField(Box::new(msg.clone())))?;
+        let params = msg.result.as_array().ok_or_else(|| {
+            ParsingMethodError::ImpossibleToParseResultField(Box::new(msg.clone()))
+        })?;
         let (extra_nonce1, extra_nonce2_size, subscriptions_) = match &params[..] {
             [JString(a), JNumber(b), JArrary(d)] => (
                 // infallible
                 a.as_str().try_into().unwrap(),
-                b.as_u64().ok_or(ParsingMethodError::ImpossibleToParseAsU64(Box::new(b.clone())))? as usize,
+                b.as_u64().ok_or_else(|| {
+                    ParsingMethodError::ImpossibleToParseAsU64(Box::new(b.clone()))
+                })? as usize,
                 d,
             ),
             _ => return Err(ParsingMethodError::UnexpectedArrayParams(params.clone())),
@@ -397,8 +404,12 @@ impl TryFrom<&Response> for Subscribe {
                 return Err(ParsingMethodError::UnexpectedArrayParams(params.clone()));
             };
             let s = (
-                s[0].as_str().ok_or(ParsingMethodError::UnexpectedArrayParams(params.clone()))?.to_string(),
-                s[1].as_str().ok_or(ParsingMethodError::UnexpectedArrayParams(params.clone()))?.to_string(),
+                s[0].as_str()
+                    .ok_or_else(|| ParsingMethodError::UnexpectedArrayParams(params.clone()))?
+                    .to_string(),
+                s[1].as_str()
+                    .ok_or_else(|| ParsingMethodError::UnexpectedArrayParams(params.clone()))?
+                    .to_string(),
             );
             subscriptions.push(s);
         }
@@ -446,7 +457,6 @@ impl Configure {
 }
 
 impl From<Configure> for Message {
-
     fn from(co: Configure) -> Self {
         let mut params = serde_json::Map::new();
         if let Some(version_rolling_) = co.version_rolling {
@@ -472,7 +482,9 @@ impl TryFrom<&Response> for Configure {
 
     fn try_from(msg: &Response) -> Result<Self, ParsingMethodError> {
         let id = msg.id.clone();
-        let params = msg.result.as_object().ok_or(ParsingMethodError::ImpossibleToParseResultField(Box::new(msg.clone())))?;
+        let params = msg.result.as_object().ok_or_else(|| {
+            ParsingMethodError::ImpossibleToParseResultField(Box::new(msg.clone()))
+        })?;
 
         let version_rolling_ = params.get("version-rolling");
         let version_rolling_mask = params.get("version-rolling.mask");
@@ -486,16 +498,19 @@ impl TryFrom<&Response> for Configure {
             && version_rolling_mask.is_some()
             && version_rolling_min_bit_count.is_some()
         {
-            let vr: bool = version_rolling_.unwrap().as_bool().ok_or(ParsingMethodError::UnexpectedObjectParams(params.clone()))?;
+            let vr: bool = version_rolling_
+                .unwrap()
+                .as_bool()
+                .ok_or_else(|| ParsingMethodError::UnexpectedObjectParams(params.clone()))?;
             let version_rolling_mask: HexU32Be = version_rolling_mask
                 .unwrap()
                 .as_str()
-                .ok_or(ParsingMethodError::UnexpectedObjectParams(params.clone()))?
+                .ok_or_else(|| ParsingMethodError::UnexpectedObjectParams(params.clone()))?
                 .try_into()?;
             let version_rolling_min_bit_count: HexU32Be = version_rolling_min_bit_count
                 .unwrap()
                 .as_str()
-                .ok_or(ParsingMethodError::UnexpectedObjectParams(params.clone()))?
+                .ok_or_else(|| ParsingMethodError::UnexpectedObjectParams(params.clone()))?
                 .try_into()?;
             version_rolling = Some(VersionRollingParams {
                 version_rolling: vr,
@@ -512,7 +527,10 @@ impl TryFrom<&Response> for Configure {
         };
 
         let minimum_difficulty = match minimum_difficulty {
-            Some(a) => Some(a.as_bool().ok_or(ParsingMethodError::UnexpectedObjectParams(params.clone()))?),
+            Some(a) => Some(
+                a.as_bool()
+                    .ok_or_else(|| ParsingMethodError::UnexpectedObjectParams(params.clone()))?,
+            ),
             None => None,
         };
 
