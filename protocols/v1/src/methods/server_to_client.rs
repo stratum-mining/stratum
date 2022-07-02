@@ -6,7 +6,7 @@ use std::convert::{TryFrom, TryInto};
 
 use crate::{
     json_rpc::{Message, Notification, Response},
-    methods::{MethodError, ParsingMethodError},
+    methods::ParsingMethodError,
     utils::{HexBytes, HexU32Be, PrevHash},
 };
 
@@ -83,7 +83,7 @@ impl TryFrom<Notify> for Message {
 }
 
 impl TryFrom<Notification> for Notify {
-    type Error = MethodError;
+    type Error = ParsingMethodError;
 
     #[allow(clippy::many_single_char_names)]
     fn try_from(msg: Notification) -> Result<Self, Self::Error> {
@@ -115,7 +115,7 @@ impl TryFrom<Notification> for Notify {
                     *i,
                 )
             }
-            _ => return Err(ParsingMethodError::wrong_args_from_value(msg.parameters).into()),
+            _ => return Err(ParsingMethodError::wrong_args_from_value(msg.parameters)),
         };
         let mut merkle_branch = vec![];
         for h in merkle_branch_ {
@@ -162,7 +162,7 @@ impl From<SetDifficulty> for Message {
 }
 
 impl TryFrom<Notification> for SetDifficulty {
-    type Error = MethodError;
+    type Error = ParsingMethodError;
 
     fn try_from(msg: Notification) -> Result<Self, Self::Error> {
         let params = msg
@@ -173,7 +173,7 @@ impl TryFrom<Notification> for SetDifficulty {
             [a] => (a
                 .as_f64()
                 .ok_or_else(|| ParsingMethodError::not_float_from_value(a.clone()))?,),
-            _ => return Err(ParsingMethodError::wrong_args_from_value(msg.parameters).into()),
+            _ => return Err(ParsingMethodError::wrong_args_from_value(msg.parameters)),
         };
         Ok(SetDifficulty { value })
     }
@@ -209,7 +209,7 @@ impl TryFrom<SetExtranonce> for Message {
 }
 
 impl TryFrom<Notification> for SetExtranonce {
-    type Error = MethodError;
+    type Error = ParsingMethodError;
 
     fn try_from(msg: Notification) -> Result<Self, Self::Error> {
         let params = msg
@@ -223,7 +223,7 @@ impl TryFrom<Notification> for SetExtranonce {
                     .ok_or_else(|| ParsingMethodError::not_unsigned_from_value(b.clone()))?
                     as usize,
             ),
-            _ => return Err(ParsingMethodError::wrong_args_from_value(msg.parameters).into()),
+            _ => return Err(ParsingMethodError::wrong_args_from_value(msg.parameters)),
         };
         Ok(SetExtranonce {
             extra_nonce1,
@@ -251,7 +251,7 @@ impl TryFrom<SetVersionMask> for Message {
 }
 
 impl TryFrom<Notification> for SetVersionMask {
-    type Error = MethodError;
+    type Error = ParsingMethodError;
 
     fn try_from(msg: Notification) -> Result<Self, Self::Error> {
         let params = msg
@@ -260,31 +260,75 @@ impl TryFrom<Notification> for SetVersionMask {
             .ok_or_else(|| ParsingMethodError::not_array_from_value(msg.parameters.clone()))?;
         let version_mask = match &params[..] {
             [JString(a)] => a.as_str().try_into()?,
-            _ => return Err(ParsingMethodError::wrong_args_from_value(msg.parameters).into()),
+            _ => return Err(ParsingMethodError::wrong_args_from_value(msg.parameters)),
         };
         Ok(SetVersionMask { version_mask })
     }
 }
 
-#[derive(Debug)]
-pub struct Authorize(pub crate::json_rpc::Response, pub String);
+//pub struct Authorize(pub crate::json_rpc::Response, pub String);
+
+/// Authorize and Submit responsed are identical
+#[derive(Debug, Clone)]
+pub struct GeneralResponse {
+    pub id: String,
+    result: bool,
+}
+
+impl GeneralResponse {
+    pub fn into_authorize(self, prev_request_name: String) -> Authorize {
+        Authorize {
+            id: self.id,
+            authorized: self.result,
+            prev_request_name,
+        }
+    }
+    pub fn into_submit(self) -> Submit {
+        Submit {
+            id: self.id,
+            is_ok: self.result,
+        }
+    }
+}
+
+impl TryFrom<&Response> for GeneralResponse {
+    type Error = ParsingMethodError;
+
+    fn try_from(msg: &Response) -> Result<Self, Self::Error> {
+        let id = msg.id.clone();
+        let result = msg.result.as_bool().ok_or_else(|| {
+            ParsingMethodError::ImpossibleToParseResultField(Box::new(msg.clone()))
+        })?;
+        Ok(GeneralResponse { id, result })
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Authorize {
+    pub id: String,
+    authorized: bool,
+    pub prev_request_name: String,
+}
 
 impl Authorize {
     pub fn is_ok(&self) -> bool {
-        self.0.result.as_bool().unwrap_or(false)
+        self.authorized
     }
 
     pub fn user_name(self) -> String {
-        self.1
+        self.prev_request_name
     }
 }
 
 #[derive(Debug)]
-pub struct Submit(pub crate::json_rpc::Response);
+pub struct Submit {
+    pub id: String,
+    is_ok: bool,
+}
 
 impl Submit {
     pub fn is_ok(&self) -> bool {
-        self.0.result.as_bool().unwrap_or(false)
+        self.is_ok
     }
 }
 
@@ -315,11 +359,9 @@ pub struct Subscribe {
     pub subscriptions: Vec<(String, String)>,
 }
 
-impl TryFrom<Subscribe> for Message {
-    type Error = ();
-
-    fn try_from(su: Subscribe) -> Result<Self, Self::Error> {
-        let extra_nonce1: Value = su.extra_nonce1.try_into().map_err(|_| ())?;
+impl From<Subscribe> for Message {
+    fn from(su: Subscribe) -> Self {
+        let extra_nonce1: Value = su.extra_nonce1.into();
         let extra_nonce2_size: Value = su.extra_nonce2_size.into();
         let subscriptions: Vec<Value> = su
             .subscriptions
@@ -327,37 +369,47 @@ impl TryFrom<Subscribe> for Message {
             .map(|x| JArrary(vec![JString(x.0.clone()), JString(x.1.clone())]))
             .collect();
         let subscriptions: Value = subscriptions.into();
-        Ok(Message::Response(Response {
+        Message::OkResponse(Response {
             id: su.id,
             error: None,
             result: (&[extra_nonce1, extra_nonce2_size, subscriptions][..]).into(),
-        }))
+        })
     }
 }
 
 impl TryFrom<&Response> for Subscribe {
-    type Error = ();
+    type Error = ParsingMethodError;
 
     fn try_from(msg: &Response) -> Result<Self, Self::Error> {
         let id = msg.id.clone();
-        let params = msg.result.as_array().ok_or(())?;
+        let params = msg.result.as_array().ok_or_else(|| {
+            ParsingMethodError::ImpossibleToParseResultField(Box::new(msg.clone()))
+        })?;
         let (extra_nonce1, extra_nonce2_size, subscriptions_) = match &params[..] {
             [JString(a), JNumber(b), JArrary(d)] => (
-                a.as_str().try_into().map_err(|_| ())?,
-                b.as_u64().ok_or(())? as usize,
+                // infallible
+                a.as_str().try_into().unwrap(),
+                b.as_u64().ok_or_else(|| {
+                    ParsingMethodError::ImpossibleToParseAsU64(Box::new(b.clone()))
+                })? as usize,
                 d,
             ),
-            _ => return Err(()),
+            _ => return Err(ParsingMethodError::UnexpectedArrayParams(params.clone())),
         };
         let mut subscriptions: Vec<(String, String)> = vec![];
         for s in subscriptions_ {
-            let s = s.as_array().ok_or(())?;
+            // we already checked that subscriptions_ is an array
+            let s = s.as_array().unwrap();
             if s.len() != 2 {
-                return Err(());
+                return Err(ParsingMethodError::UnexpectedArrayParams(params.clone()));
             };
             let s = (
-                s[0].as_str().ok_or(())?.to_string(),
-                s[1].as_str().ok_or(())?.to_string(),
+                s[0].as_str()
+                    .ok_or_else(|| ParsingMethodError::UnexpectedArrayParams(params.clone()))?
+                    .to_string(),
+                s[1].as_str()
+                    .ok_or_else(|| ParsingMethodError::UnexpectedArrayParams(params.clone()))?
+                    .to_string(),
             );
             subscriptions.push(s);
         }
@@ -404,34 +456,35 @@ impl Configure {
     }
 }
 
-impl TryFrom<Configure> for Message {
-    type Error = ();
-
-    fn try_from(co: Configure) -> Result<Self, ()> {
+impl From<Configure> for Message {
+    fn from(co: Configure) -> Self {
         let mut params = serde_json::Map::new();
-        if co.version_rolling.is_some() {
+        if let Some(version_rolling_) = co.version_rolling {
             let mut version_rolling: serde_json::Map<String, Value> =
-                co.version_rolling.unwrap().try_into()?;
+                // infallible
+                version_rolling_.try_into().unwrap();
             params.append(&mut version_rolling);
         };
-        if co.minimum_difficulty.is_some() {
-            let minimum_difficulty: Value = co.minimum_difficulty.unwrap().into();
+        if let Some(min_diff) = co.minimum_difficulty {
+            let minimum_difficulty: Value = min_diff.into();
             params.insert("minimum-difficulty".to_string(), minimum_difficulty);
         };
-        Ok(Message::Response(Response {
+        Message::OkResponse(Response {
             id: co.id,
             error: None,
             result: serde_json::Value::Object(params),
-        }))
+        })
     }
 }
 
 impl TryFrom<&Response> for Configure {
-    type Error = ();
+    type Error = ParsingMethodError;
 
-    fn try_from(msg: &Response) -> Result<Self, ()> {
+    fn try_from(msg: &Response) -> Result<Self, ParsingMethodError> {
         let id = msg.id.clone();
-        let params = msg.result.as_object().ok_or(())?;
+        let params = msg.result.as_object().ok_or_else(|| {
+            ParsingMethodError::ImpossibleToParseResultField(Box::new(msg.clone()))
+        })?;
 
         let version_rolling_ = params.get("version-rolling");
         let version_rolling_mask = params.get("version-rolling.mask");
@@ -445,19 +498,20 @@ impl TryFrom<&Response> for Configure {
             && version_rolling_mask.is_some()
             && version_rolling_min_bit_count.is_some()
         {
-            let vr: bool = version_rolling_.unwrap().as_bool().ok_or(())?;
+            let vr: bool = version_rolling_
+                .unwrap()
+                .as_bool()
+                .ok_or_else(|| ParsingMethodError::UnexpectedObjectParams(params.clone()))?;
             let version_rolling_mask: HexU32Be = version_rolling_mask
                 .unwrap()
                 .as_str()
-                .ok_or(())?
-                .try_into()
-                .map_err(|_| ())?;
+                .ok_or_else(|| ParsingMethodError::UnexpectedObjectParams(params.clone()))?
+                .try_into()?;
             let version_rolling_min_bit_count: HexU32Be = version_rolling_min_bit_count
                 .unwrap()
                 .as_str()
-                .ok_or(())?
-                .try_into()
-                .map_err(|_| ())?;
+                .ok_or_else(|| ParsingMethodError::UnexpectedObjectParams(params.clone()))?
+                .try_into()?;
             version_rolling = Some(VersionRollingParams {
                 version_rolling: vr,
                 version_rolling_mask,
@@ -469,11 +523,14 @@ impl TryFrom<&Response> for Configure {
         {
             version_rolling = None;
         } else {
-            return Err(());
+            return Err(ParsingMethodError::UnexpectedObjectParams(params.clone()));
         };
 
         let minimum_difficulty = match minimum_difficulty {
-            Some(a) => Some(a.as_bool().ok_or(())?),
+            Some(a) => Some(
+                a.as_bool()
+                    .ok_or_else(|| ParsingMethodError::UnexpectedObjectParams(params.clone()))?,
+            ),
             None => None,
         };
 

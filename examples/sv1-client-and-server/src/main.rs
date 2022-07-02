@@ -16,7 +16,7 @@ use v1::{
     client_to_server,
     error::Error,
     json_rpc, server_to_client,
-    utils::{HexBytes, HexU32Be},
+    utils::{self, HexBytes, HexU32Be},
     ClientStatus, IsClient, IsServer,
 };
 
@@ -118,17 +118,27 @@ impl Server {
         server
     }
 
+    #[allow(clippy::single_match)]
     async fn parse_message(
         &mut self,
         incoming_message: Result<String, async_channel::TryRecvError>,
     ) {
         if let Ok(line) = incoming_message {
             println!("SERVER - message: {}", line);
-            let message: json_rpc::Message = serde_json::from_str(&line).unwrap();
-            let response = self.handle_message(message).unwrap();
-            if response.is_some() {
-                self.send_message(json_rpc::Message::Response(response.unwrap()))
-                    .await;
+            let message: Result<json_rpc::Message, _> = serde_json::from_str(&line);
+            match message {
+                Ok(message) => {
+                    match self.handle_message(message) {
+                        Ok(response) => {
+                            if response.is_some() {
+                                self.send_message(json_rpc::Message::OkResponse(response.unwrap()))
+                                    .await;
+                            }
+                        }
+                        Err(_) => (),
+                    };
+                }
+                Err(_) => (),
             }
         };
     }
@@ -219,6 +229,21 @@ impl IsServer for Server {
 
     fn set_version_rolling_min_bit(&mut self, mask: Option<HexU32Be>) {
         self.version_rolling_min_bit = mask
+    }
+
+    fn notify(&mut self) -> Result<json_rpc::Message, ()> {
+        server_to_client::Notify {
+            job_id: "ciao".to_string(),
+            prev_hash: utils::PrevHash(vec![3_u8, 4, 5, 6]),
+            coin_base1: "ffff".try_into().unwrap(),
+            coin_base2: "ffff".try_into().unwrap(),
+            merkle_branch: vec!["fff".try_into().unwrap()],
+            version: utils::HexU32Be(5667),
+            bits: utils::HexU32Be(5678),
+            time: utils::HexU32Be(5609),
+            clean_jobs: true,
+        }
+        .try_into()
     }
 }
 
@@ -461,6 +486,14 @@ impl IsClient for Client {
 
     fn last_notify(&self) -> Option<server_to_client::Notify> {
         self.last_notify.clone()
+    }
+
+    fn handle_error_message(
+        &mut self,
+        message: v1::Message,
+    ) -> Result<Option<json_rpc::Response>, Error> {
+        println!("{:?}", message);
+        Ok(None)
     }
 }
 

@@ -951,8 +951,9 @@ impl<'a> TryFrom<(u8, &'a mut [u8])> for MiningDeviceMessages<'a> {
         match (is_common, is_mining) {
             (Ok(_), Err(_)) => Ok(Self::Common(v.try_into()?)),
             (Err(_), Ok(_)) => Ok(Self::Mining(v.try_into()?)),
-            (Ok(_), Ok(_)) => panic!(),
             (Err(e), Err(_)) => Err(e),
+            // this is an impossible state is safe to panic here
+            (Ok(_), Ok(_)) => panic!(),
         }
     }
 }
@@ -1052,6 +1053,7 @@ impl<'a> TryFrom<(u8, &'a mut [u8])> for PoolMessages<'a> {
             (Err(_), Ok(_), Err(_)) => Ok(Self::Mining(v.try_into()?)),
             (Err(_), Err(_), Ok(_)) => Ok(Self::JobNegotiation(v.try_into()?)),
             (Err(e), Err(_), Err(_)) => Err(e),
+            // This is an impossible state is safe to panic here
             _ => panic!(),
         }
     }

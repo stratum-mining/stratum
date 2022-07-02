@@ -58,7 +58,8 @@ async fn server_pool() {
             &AUTHORITY_PUBLIC_K[..],
             &AUTHORITY_PRIVATE_K[..],
             CERT_VALIDITY,
-        );
+        )
+        .unwrap();
         let (receiver, sender): (Receiver<EitherFrame>, Sender<EitherFrame>) =
             Connection::new(stream, HandshakeRole::Responder(responder), 10).await;
         let downstream = Downstream::new(

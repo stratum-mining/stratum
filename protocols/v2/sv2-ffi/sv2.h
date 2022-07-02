@@ -421,6 +421,7 @@ enum class Sv2Error {
   EncoderBusy,
   Todo,
   Unknown,
+  InvalidSv2Frame,
 };
 
 struct DecoderWrapper;

@@ -59,14 +59,14 @@ pub trait MiningRouter<
         downstream: Arc<Mutex<Down>>,
         request: &mut OpenStandardMiningChannel,
         downstream_mining_data: &CommonDownstreamData,
-    ) -> Result<Arc<Mutex<Up>>, ()>;
+    ) -> Result<Arc<Mutex<Up>>, Error>;
 
     #[allow(clippy::result_unit_err)]
     fn on_open_standard_channel_success(
         &mut self,
         upstream: Arc<Mutex<Up>>,
         request: &mut OpenStandardMiningChannelSuccess,
-    ) -> Result<Arc<Mutex<Down>>, ()>;
+    ) -> Result<Arc<Mutex<Down>>, Error>;
 }
 
 /// NoRoutiung Router used when RoutingLogic::None and MiningRoutingLogic::None are needed
@@ -93,7 +93,7 @@ impl<
         _downstream: Arc<Mutex<Down>>,
         _request: &mut OpenStandardMiningChannel,
         _downstream_mining_data: &CommonDownstreamData,
-    ) -> Result<Arc<Mutex<Up>>, ()> {
+    ) -> Result<Arc<Mutex<Up>>, Error> {
         unreachable!()
     }
 
@@ -101,7 +101,7 @@ impl<
         &mut self,
         _upstream: Arc<Mutex<Up>>,
         _request: &mut OpenStandardMiningChannelSuccess,
-    ) -> Result<Arc<Mutex<Down>>, ()> {
+    ) -> Result<Arc<Mutex<Down>>, Error> {
         unreachable!()
     }
 }
@@ -109,21 +109,33 @@ impl<
 /// Enum that contains the possibles routing logic is usually contructed before calling
 /// handle_message_..()
 #[derive(Debug)]
-pub enum CommonRoutingLogic<Router: CommonRouter> {
-    Proxy(Arc<Mutex<Router>>),
+pub enum CommonRoutingLogic<Router: 'static + CommonRouter> {
+    Proxy(&'static Mutex<Router>),
     None,
 }
 
 /// Enum that contains the possibles routing logic is usually contructed before calling
 /// handle_message_..()
+//#[derive(Debug)]
+//pub enum MiningRoutingLogic<
+//    Down: IsMiningDownstream + D,
+//    Up: IsMiningUpstream<Down, Sel> + D,
+//    Sel: DownstreamMiningSelector<Down> + D,
+//    //Router: std::ops::DerefMut<Target= dyn MiningRouter<Down, Up, Sel>>,
+//    Router: MiningRouter<Down, Up, Sel>,
+//> {
+//    Proxy(Mutex<Router>),
+//    None,
+//    _P(PhantomData<(Down, Up, Sel)>),
+//}
 #[derive(Debug)]
 pub enum MiningRoutingLogic<
     Down: IsMiningDownstream + D,
     Up: IsMiningUpstream<Down, Sel> + D,
     Sel: DownstreamMiningSelector<Down> + D,
-    Router: MiningRouter<Down, Up, Sel>,
+    Router: 'static + MiningRouter<Down, Up, Sel>,
 > {
-    Proxy(Arc<Mutex<Router>>),
+    Proxy(&'static Mutex<Router>),
     None,
     _P(PhantomData<(Down, Up, Sel)>),
 }
@@ -132,7 +144,7 @@ impl<Router: CommonRouter> Clone for CommonRoutingLogic<Router> {
     fn clone(&self) -> Self {
         match self {
             Self::None => Self::None,
-            Self::Proxy(x) => Self::Proxy(x.clone()),
+            Self::Proxy(x) => Self::Proxy(x),
         }
     }
 }
@@ -147,7 +159,8 @@ impl<
     fn clone(&self) -> Self {
         match self {
             Self::None => Self::None,
-            Self::Proxy(x) => Self::Proxy(x.clone()),
+            Self::Proxy(x) => Self::Proxy(x),
+            // Variant used only for PhantomData safe to panic here
             Self::_P(_) => panic!(),
         }
     }
@@ -178,6 +191,7 @@ impl<
             (Protocol::MiningProtocol, true) => {
                 self.on_setup_connection_mining_header_only(&pair_settings)
             }
+            // TODO add handler for other protocols
             _ => panic!(),
         }
     }
@@ -199,11 +213,14 @@ impl<
         &mut self,
         upstream: Arc<Mutex<Up>>,
         request: &mut OpenStandardMiningChannelSuccess,
-    ) -> Result<Arc<Mutex<Down>>, ()> {
+    ) -> Result<Arc<Mutex<Down>>, Error> {
         let upstream_request_id = request.get_request_id_as_u32();
         let original_request_id = upstream
+            // if we are here get_mapper should always return Some(mappe) so below unwrap is ok
             .safe_lock(|u| u.get_mapper().unwrap().remove(upstream_request_id))
-            .unwrap();
+            // Is fine to unwrap a safe_lock result
+            .unwrap()
+            .ok_or(Error::RequestIdNotMapped(upstream_request_id))?;
         request.update_id(original_request_id);
         let downstreams = upstream
             .safe_lock(|u| {
@@ -214,8 +231,9 @@ impl<
                     request.channel_id,
                 )
             })
+            // Is fine to unwrap a safe_lock result
             .unwrap();
-        Ok(downstreams)
+        downstreams
     }
 
     /// At this point the Sv2 connection with downstream is initialized that means that
@@ -228,16 +246,21 @@ impl<
         downstream: Arc<Mutex<Down>>,
         request: &mut OpenStandardMiningChannel,
         downstream_mining_data: &CommonDownstreamData,
-    ) -> Result<Arc<Mutex<Up>>, ()> {
+    ) -> Result<Arc<Mutex<Up>>, Error> {
         let upstreams = self
             .downstream_to_upstream_map
             .get(downstream_mining_data)
+            // If we are here a list of possible upstream has been already selected so the below
+            // unwrap can not panic
             .unwrap();
         // TODO the upstream selection logic should be specified by the caller
-        let upstream = Self::select_upstreams(&mut upstreams.to_vec());
+        let upstream =
+            Self::select_upstreams(&mut upstreams.to_vec()).ok_or(Error::NoUpstreamsConnected)?;
         let old_id = request.get_request_id_as_u32();
         let new_req_id = upstream
+            // if we are here get_mapper should always return Some(mappe) so below unwrap is ok
             .safe_lock(|u| u.get_mapper().unwrap().on_open_channel(old_id))
+            // Is fine to unwrap a safe_lock result
             .unwrap();
         request.update_id(new_req_id);
         self.on_open_standard_channel_request_header_only(downstream, request)
@@ -257,18 +280,6 @@ pub struct MiningProxyRoutingLogic<
     //pub upstream_startegy: MiningUpstreamSelectionStrategy<Up,Down,Sel>,
 }
 
-//enum MiningUpstreamSelectionStrategy<Up: IsMiningUpstream<Down,Sel>, Down: IsMiningDownstream, Sel: DownstreamMiningSelector<Down>> {
-//    FirstOne,
-//    MinHashRate,
-//    Costum(dyn Fn(Vec<Arc<Mutex<Up>>>) -> Arc<Mutex<Up>>),
-//
-//}
-//
-//impl<Up: IsMiningUpstream<Down,Sel>, Down: IsMiningDownstream, Sel: DownstreamMiningSelector<Down>> MiningUpstreamSelectionStrategy<Up, Down, Sel> {
-//    pub fn chose(ups: Vec<Arc<Mutex<Up>>>) -> Arc<Mutex<Up>> {
-//        todo!()
-//    }
-//}
 fn minor_total_hr_upstream<Down, Up, Sel>(ups: &mut Vec<Arc<Mutex<Up>>>) -> Arc<Mutex<Up>>
 where
     Down: IsMiningDownstream + D,
@@ -277,6 +288,7 @@ where
 {
     ups.iter_mut()
         .reduce(|acc, item| {
+            // Is fine to unwrap a safe_lock result
             if acc.safe_lock(|x| x.total_hash_rate()).unwrap()
                 < item.safe_lock(|x| x.total_hash_rate()).unwrap()
             {
@@ -285,6 +297,8 @@ where
                 item
             }
         })
+        // Internal private function we only call thi function with non void vectors so is safe to
+        // unwrap here
         .unwrap()
         .clone()
 }
@@ -296,6 +310,7 @@ where
     Sel: DownstreamMiningSelector<Down> + D,
 {
     ups.iter()
+        // Is fine to unwrap a safe_lock result
         .filter(|up_mutex| up_mutex.safe_lock(|up| !up.is_header_only()).unwrap())
         .cloned()
         .collect()
@@ -304,18 +319,20 @@ where
 /// If only one upstream is avaiable return it
 /// Try to return an upstream that is not header only
 /// Return the upstream that have got less hash rate from downstreams
-fn select_upstream<Down, Up, Sel>(ups: &mut Vec<Arc<Mutex<Up>>>) -> Arc<Mutex<Up>>
+fn select_upstream<Down, Up, Sel>(ups: &mut Vec<Arc<Mutex<Up>>>) -> Option<Arc<Mutex<Up>>>
 where
     Down: IsMiningDownstream + D,
     Up: IsMiningUpstream<Down, Sel> + D,
     Sel: DownstreamMiningSelector<Down> + D,
 {
-    if ups.len() == 1 {
-        ups[0].clone()
+    if ups.is_empty() {
+        None
+    } else if ups.len() == 1 {
+        Some(ups[0].clone())
     } else if !filter_header_only(ups).is_empty() {
-        minor_total_hr_upstream(&mut filter_header_only(ups))
+        Some(minor_total_hr_upstream(&mut filter_header_only(ups)))
     } else {
-        minor_total_hr_upstream(ups)
+        Some(minor_total_hr_upstream(ups))
     }
 }
 
@@ -327,7 +344,7 @@ impl<
 {
     /// TODO this should stay in a enum UpstreamSelectionLogic that get passed from the caller to
     /// the several methods
-    fn select_upstreams(ups: &mut Vec<Arc<Mutex<Up>>>) -> Arc<Mutex<Up>> {
+    fn select_upstreams(ups: &mut Vec<Arc<Mutex<Up>>>) -> Option<Arc<Mutex<Up>>> {
         select_upstream(ups)
     }
 
@@ -347,7 +364,8 @@ impl<
     ) -> Result<(CommonDownstreamData, SetupConnectionSuccess), Error> {
         let mut upstreams = self.upstream_selector.on_setup_connection(pair_settings)?;
         // TODO the upstream selection logic should be specified by the caller
-        let upstream = Self::select_upstreams(&mut upstreams.0);
+        let upstream =
+            Self::select_upstreams(&mut upstreams.0).ok_or(Error::NoUpstreamsConnected)?;
         let downstream_data = CommonDownstreamData {
             header_only: true,
             work_selection: false,
@@ -355,6 +373,7 @@ impl<
         };
         let message = SetupConnectionSuccess {
             used_version: 2,
+            // Is fine to unwrap a safe_lock result
             flags: upstream.safe_lock(|u| u.get_flags()).unwrap(),
         };
         self.downstream_to_upstream_map
@@ -364,25 +383,33 @@ impl<
 
     /// On open standard channel request:
     /// 1. an upstream must be selected between the possibles upstreams for this downstream, if the
-    ///    downstream is header only, just one upstream will be there so the choice is easy, if not
+    ///    downstream* is header only, just one upstream will be there so the choice is easy, if not
     ///    (TODO on_open_standard_channel_request_no_standard_job must be used)
     /// 2. request_id from downstream is updated to a connection-wide uniques request-id for
     ///    upstreams
     ///
     ///    The selected upstream is returned
+    ///
+    ///
+    ///    * The downstream that want to open a channel did already connected with the proxy so a
+    ///    valid upstream has already been selected (other wise downstream can not be connected).
+    ///    If the downstream is header only only one valid upstream have beem selected (cause an
+    ///    header only mining device can be connected only with one pool)
     #[allow(clippy::result_unit_err)]
     pub fn on_open_standard_channel_request_header_only(
         &mut self,
         downstream: Arc<Mutex<Down>>,
         request: &OpenStandardMiningChannel,
-    ) -> Result<Arc<Mutex<Up>>, ()> {
+    ) -> Result<Arc<Mutex<Up>>, Error> {
         let downstream_mining_data = downstream
             .safe_lock(|d| d.get_downstream_mining_data())
+            // Is fine to unwrap a safe_lock result
             .unwrap();
         // header only downstream must map to only one upstream
         let upstream = self
             .downstream_to_upstream_map
             .get(&downstream_mining_data)
+            // if we are here upstream has already been selected so is ok to unwrap here
             .unwrap()[0]
             .clone();
         upstream
@@ -390,6 +417,7 @@ impl<
                 let selector = u.get_remote_selector();
                 selector.on_open_standard_channel_request(request.request_id.as_u32(), downstream)
             })
+            // Is fine to unwrap a safe_lock result
             .unwrap();
         Ok(upstream)
     }

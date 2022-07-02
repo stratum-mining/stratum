@@ -15,7 +15,7 @@ use roles_logic_sv2::{
     job_dispatcher::GroupChannelJobDispatcher,
     mining_sv2::*,
     parsers::{CommonMessages, Mining, MiningDeviceMessages, PoolMessages},
-    routing_logic::{MiningProxyRoutingLogic, MiningRoutingLogic},
+    routing_logic::MiningProxyRoutingLogic,
     selectors::{DownstreamMiningSelector, ProxyDownstreamMiningSelector as Prs},
     utils::{Id, Mutex},
 };
@@ -197,7 +197,7 @@ impl UpstreamMiningNode {
                     .safe_lock(|self_| (self_.address, self_.authority_public_key))
                     .unwrap();
                 let socket = TcpStream::connect(address).await.map_err(|_| ())?;
-                let initiator = Initiator::from_raw_k(authority_public_key);
+                let initiator = Initiator::from_raw_k(authority_public_key).unwrap();
                 let (receiver, sender) =
                     Connection::new(socket, HandshakeRole::Initiator(initiator), 10).await;
                 let connection = UpstreamMiningConnection { receiver, sender };
@@ -264,7 +264,7 @@ impl UpstreamMiningNode {
         let message_type = incoming.get_header().unwrap().msg_type();
         let payload = incoming.payload();
 
-        let routing_logic = MiningRoutingLogic::Proxy(crate::get_routing_logic().await);
+        let routing_logic = crate::get_routing_logic();
 
         let next_message_to_send = UpstreamMiningNode::handle_message_mining(
             self_mutex.clone(),
@@ -641,13 +641,6 @@ impl
             .get_mut(&m.channel_id)
             .unwrap();
 
-        match dispacther {
-            JobDispatcher::Group(d) => {
-                d.on_new_extended_mining_job_pre(&m);
-            }
-            JobDispatcher::None => (),
-        };
-
         let messages = jobs_to_relay(id, &m, downstreams, dispacther);
 
         Ok(SendTo::Multiple(messages))
@@ -677,7 +670,7 @@ impl
                 Ok(SendTo::RelaySameMessage(downstreams[0].clone()))
             }
             (false, Some(JobDispatcher::Group(dispatcher))) => {
-                let mut channel_id_to_job_id = dispatcher.on_new_prev_hash(&m);
+                let mut channel_id_to_job_id = dispatcher.on_new_prev_hash(&m).unwrap();
                 let downstreams = self
                     .downstream_selector
                     .get_downstreams_in_channel(m.channel_id)

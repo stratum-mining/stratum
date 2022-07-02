@@ -5,13 +5,13 @@
 //! u16      <-> U16
 //! U24      <-> U24
 //! u32      <-> u32
-//! f32      <-> f32 // todo not in the spec but used
-//! u64      <-> u64 // todo not in the spec but used
+//! f32      <-> f32 // not in the spec but used
+//! u64      <-> u64 // not in the spec but used
 //! U256     <-> U256
 //! Str0255  <-> STRO_255
-//! Str032   <-> STRO_32 // todo not in the spec but used
+//! Str032   <-> STRO_32 // not in the spec but used
 //! Signature<-> SIGNATURE
-//! B032     <-> B0_32 // todo not in the spec but used
+//! B032     <-> B0_32 // not in the spec but used
 //! B0255    <-> B0_255
 //! B064K    <-> B0_64K
 //! B016M    <-> B0_16M
@@ -20,17 +20,14 @@
 //! Seq0255  <-> SEQ0_255[T]
 //! Seq064K  <-> SEQ0_64K[T]
 //! ```
-#![cfg_attr(feature = "no_std", no_std)]
-use core::convert::TryInto;
-
 #[cfg(not(feature = "no_std"))]
 use std::io::{Error as E, ErrorKind};
 
 mod codec;
 mod datatypes;
 pub use datatypes::{
-    Bytes, PubKey, Seq0255, Seq064K, Signature, Str0255, Str032, U32AsRef, B016M, B0255, B032,
-    B064K, U24, U256,
+    PubKey, Seq0255, Seq064K, Signature, Str0255, Str032, U32AsRef, B016M, B0255, B032, B064K, U24,
+    U256,
 };
 
 pub use crate::codec::{
@@ -89,6 +86,9 @@ pub enum Error {
     IoError(E),
     ReadError(usize, usize),
     VoidFieldMarker,
+    NoDecodableFieldPassed,
+    ValueIsNotAValidProtocol(u8),
+    UnknownMessageType(u8),
     Todo,
 }
 
@@ -109,12 +109,10 @@ impl GetSize for Vec<u8> {
     }
 }
 
+// Only needed for implement encodable for Frame never called
 impl<'a> From<Vec<u8>> for EncodableField<'a> {
-    fn from(v: Vec<u8>) -> Self {
-        let bytes: Bytes = v.try_into().unwrap();
-        crate::encodable::EncodableField::Primitive(
-            crate::codec::encodable::EncodablePrimitive::Bytes(bytes),
-        )
+    fn from(_v: Vec<u8>) -> Self {
+        unreachable!()
     }
 }
 

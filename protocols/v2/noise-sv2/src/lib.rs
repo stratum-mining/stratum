@@ -65,22 +65,22 @@ pub struct Initiator {
 }
 
 impl Initiator {
-    pub fn new(authority_public_key: ed25519_dalek::PublicKey) -> Self {
+    pub fn new(authority_public_key: ed25519_dalek::PublicKey) -> Result<Self> {
         let params: NoiseParams = PARAMS.parse().expect("BUG: cannot parse noise parameters");
 
         let builder: Builder<'_> = Builder::new(params);
-        let handshake_state = builder.build_initiator().unwrap();
+        let handshake_state = builder.build_initiator().map_err(|_| Error {})?;
 
-        Self {
+        Ok(Self {
             stage: 0,
             handshake_state,
             authority_public_key,
-        }
+        })
     }
 
-    pub fn from_raw_k(authority_public_key: [u8; 32]) -> Self {
-        let authority_public_key =
-            ed25519_dalek::PublicKey::from_bytes(&authority_public_key[..]).unwrap();
+    pub fn from_raw_k(authority_public_key: [u8; 32]) -> Result<Self> {
+        let authority_public_key = ed25519_dalek::PublicKey::from_bytes(&authority_public_key[..])
+            .map_err(|_| Error {})?;
         Self::new(authority_public_key)
     }
 
@@ -89,7 +89,7 @@ impl Initiator {
         &mut self,
         signature_noise_message: Vec<u8>,
     ) -> Result<()> {
-        let remote_static_key = self.handshake_state.get_remote_static().unwrap();
+        let remote_static_key = self.handshake_state.get_remote_static().ok_or(Error {})?;
         let remote_static_key = StaticPublicKey::from(remote_static_key);
 
         let signature_noise_message =
@@ -153,7 +153,7 @@ impl handshake::Step for Initiator {
                 handshake::StepResult::Done
             }
             _ => {
-                panic!("BUG: No more steps that can be done by the Initiator in Noise handshake");
+                return Err(Error {});
             }
         };
         self.stage += 1;
@@ -179,9 +179,9 @@ impl Authority {
     }
 
     /// Create an Authority from pub_k and priv_k (32 bytes keys)
-    pub fn from_raw_k(pub_k: &[u8], priv_k: &[u8]) -> Self {
-        let kp = ed25519_dalek::Keypair::from_bytes(&[priv_k, pub_k].concat()).unwrap();
-        Self { kp }
+    pub fn from_raw_k(pub_k: &[u8], priv_k: &[u8]) -> Option<Self> {
+        let kp = ed25519_dalek::Keypair::from_bytes(&[priv_k, pub_k].concat()).ok()?;
+        Some(Self { kp })
     }
 
     /// Create a Certificate valid until now + duration for pub_k
@@ -189,16 +189,16 @@ impl Authority {
         &self,
         pub_k: &[u8],
         duration: Duration,
-    ) -> auth::SignatureNoiseMessage {
-        let header = SignedPartHeader::with_duration(duration).unwrap();
+    ) -> Result<auth::SignatureNoiseMessage> {
+        let header = SignedPartHeader::with_duration(duration).map_err(|_| Error {})?;
 
         let signed_part = auth::SignedPart::new(header, pub_k.into(), self.kp.public);
 
-        let signature = signed_part.sign_with(&self.kp).unwrap();
+        let signature = signed_part.sign_with(&self.kp).map_err(|_| Error {})?;
 
         let certificate = auth::Certificate::new(signed_part, signature);
 
-        certificate.build_noise_message()
+        Ok(certificate.build_noise_message())
     }
 
     /// Create a Certificate valid until now + duration for pub_k
@@ -206,14 +206,14 @@ impl Authority {
         &self,
         pub_k: StaticPublicKey,
         duration: Duration,
-    ) -> auth::SignatureNoiseMessage {
+    ) -> Result<auth::SignatureNoiseMessage> {
         self.new_cert_from_raw(&pub_k[..], duration)
     }
 }
 
 impl Responder {
-    pub fn new(static_keypair: &StaticKeypair, signature_noise_message: Bytes) -> Self {
-        let params: NoiseParams = PARAMS.parse().unwrap();
+    pub fn new(static_keypair: &StaticKeypair, signature_noise_message: Bytes) -> Result<Self> {
+        let params: NoiseParams = PARAMS.parse().map_err(|_| Error {})?;
 
         let builder: Builder<'_> = Builder::new(params);
 
@@ -222,29 +222,33 @@ impl Responder {
             .build_responder()
             .expect("BUG: cannot build responder");
 
-        Self {
+        Ok(Self {
             stage: 0,
             handshake_state,
             signature_noise_message,
-        }
+        })
     }
 
-    pub fn with_random_static_kp(signature_noise_message: Bytes) -> Self {
-        let static_keypair = generate_keypair().unwrap();
+    pub fn with_random_static_kp(signature_noise_message: Bytes) -> Result<Self> {
+        let static_keypair = generate_keypair().map_err(|_| Error {})?;
         Self::new(&static_keypair, signature_noise_message)
     }
 
     /// Create a Responder from authority pub_k and priv_k (32 bytes keys)
     /// Usefull if there is no central pool authority and the Responder can certify itself
-    pub fn from_authority_kp(pub_k: &[u8], priv_k: &[u8], duration: core::time::Duration) -> Self {
+    pub fn from_authority_kp(
+        pub_k: &[u8],
+        priv_k: &[u8],
+        duration: core::time::Duration,
+    ) -> Result<Self> {
         let authority = Authority::from_raw_k(pub_k, priv_k);
 
-        let static_keypair = generate_keypair().unwrap();
+        let static_keypair = generate_keypair().map_err(|_| Error {})?;
 
         let signature_noise_message = authority
-            .new_cert(static_keypair.public.clone(), duration)
-            .serialize_to_bytes_mut()
-            .unwrap();
+            .ok_or(Error {})?
+            .new_cert(static_keypair.public.clone(), duration)?
+            .serialize_to_bytes_mut()?;
 
         Self::new(&static_keypair, signature_noise_message.into())
     }
@@ -285,9 +289,7 @@ impl handshake::Step for Responder {
                 handshake::StepResult::NoMoreReply(noise_bytes)
             }
             1 => handshake::StepResult::Done,
-            _ => {
-                panic!("BUG: No more steps that can be done by the Initiator in Noise handshake");
-            }
+            _ => return Err(Error {}),
         };
         self.stage += 1;
         Ok(result)
@@ -320,11 +322,10 @@ impl TransportMode {
     /// Return the size that decrypt_msg in Self::read should have in order to decrypt the
     /// encrypted payload
     ///
-    /// If the encrypted payload has an invalid length it panic
     ///
     #[inline(always)]
-    pub fn size_hint_decrypt(encrypted_msg_len: usize) -> usize {
-        encrypted_msg_len - SNOW_TAGLEN
+    pub fn size_hint_decrypt(encrypted_msg_len: usize) -> Option<usize> {
+        encrypted_msg_len.checked_sub(SNOW_TAGLEN)
     }
 
     /// Return the size that encrypt_msg in Self::write should have in order to encrypt the payload
@@ -380,9 +381,9 @@ pub(crate) mod test {
         let (signature_noise_message, authority_keypair, static_keypair) =
             build_serialized_signature_noise_message_and_keypairs();
 
-        let mut initiator = Initiator::new(authority_keypair.public);
+        let mut initiator = Initiator::new(authority_keypair.public).unwrap();
 
-        let mut responder = Responder::new(&static_keypair, signature_noise_message);
+        let mut responder = Responder::new(&static_keypair, signature_noise_message).unwrap();
         let mut initiator_in_msg: Option<handshake::Message> = None;
 
         loop {
@@ -462,9 +463,9 @@ pub(crate) mod test {
         let (signature_noise_message, authority_keypair, static_keypair) =
             build_serialized_signature_noise_message_and_keypairs();
 
-        let mut initiator = Initiator::new(authority_keypair.public);
+        let mut initiator = Initiator::new(authority_keypair.public).unwrap();
 
-        let mut responder = Responder::new(&static_keypair, signature_noise_message);
+        let mut responder = Responder::new(&static_keypair, signature_noise_message).unwrap();
         let first_message = match initiator.step(None).unwrap() {
             handshake::StepResult::ExpectReply(msg) => msg,
             _ => panic!(),
@@ -507,7 +508,7 @@ pub(crate) mod test {
             .unwrap();
 
         let size_hint = TransportMode::size_hint_decrypt(encrypted_msg.len());
-        decrypted_msg.resize(size_hint, 0);
+        decrypted_msg.resize(size_hint.unwrap(), 0);
 
         responder_transport_mode
             .read(&encrypted_msg[..], &mut decrypted_msg[..])

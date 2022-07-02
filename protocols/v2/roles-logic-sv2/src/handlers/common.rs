@@ -18,6 +18,7 @@ pub trait ParseUpstreamCommonMessages<Router: CommonRouter>
 where
     Self: Sized,
 {
+    // Is fine to unwrap on safe_lock
     fn handle_message_common(
         self_: Arc<Mutex<Self>>,
         message_type: u8,
@@ -66,6 +67,7 @@ where
         }
     }
 
+    // Is fine to unwrap on safe_lock
     fn handle_message_common(
         self_: Arc<Mutex<Self>>,
         message_type: u8,

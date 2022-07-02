@@ -21,11 +21,12 @@ mod lib;
 use std::net::{IpAddr, SocketAddr};
 
 use lib::upstream_mining::UpstreamMiningNode;
+use once_cell::sync::Lazy;
 use serde::Deserialize;
 use std::str::FromStr;
 
 use roles_logic_sv2::{
-    routing_logic::MiningProxyRoutingLogic,
+    routing_logic::{CommonRoutingLogic, MiningProxyRoutingLogic, MiningRoutingLogic},
     selectors::{GeneralMiningSelector, UpstreamMiningSelctor},
     utils::{Id, Mutex},
 };
@@ -36,9 +37,6 @@ type RLogic = MiningProxyRoutingLogic<
     crate::lib::upstream_mining::UpstreamMiningNode,
     crate::lib::upstream_mining::ProxyRemoteSelector,
 >;
-
-static mut ROUTING_LOGIC: Option<Arc<Mutex<RLogic>>> = None;
-static mut JOB_ID_TO_UPSTREAM_ID: Option<Arc<Mutex<HashMap<u32, u32>>>> = None;
 
 pub fn max_supported_version() -> u16 {
     let config_file = std::fs::read_to_string("proxy-config.toml").unwrap();
@@ -51,53 +49,55 @@ pub fn min_supported_version() -> u16 {
     config.min_supported_version
 }
 
-pub async fn get_routing_logic() -> Arc<Mutex<RLogic>> {
-    unsafe {
-        loop {
-            match ROUTING_LOGIC.clone() {
-                Some(r_logic) => return r_logic,
-                None => async_std::task::sleep(std::time::Duration::from_millis(10)).await,
-            }
-        }
-    }
+/// Panic whene we are looking one of this 2 global mutex would force the proxy to go down as every
+/// part of the program depend on them.
+/// SAFTEY note: we use global mutable memory instead of a dedicated struct that use a dedicated
+/// task to change the mutable state and communicate with the other parts of the program via
+/// messages cause it is impossible for a task to panic while is using one of the two below Mutex.
+/// So it make sense to use shared mutable memory to lower the complexity of the codebase and to
+/// have some performance gain.
+static ROUTING_LOGIC: Lazy<Mutex<RLogic>> = Lazy::new(|| Mutex::new(initialize_r_logic()));
+static JOB_ID_TO_UPSTREAM_ID: Lazy<Mutex<HashMap<u32, u32>>> =
+    Lazy::new(|| Mutex::new(HashMap::new()));
+
+async fn initialize_upstreams() {
+    let upstreams = ROUTING_LOGIC
+        .safe_lock(|r_logic| r_logic.upstream_selector.upstreams.clone())
+        .unwrap();
+    crate::lib::upstream_mining::scan(upstreams).await;
 }
 
-pub fn get_routing_logic_sync() -> Arc<Mutex<RLogic>> {
-    unsafe {
-        let cloned = ROUTING_LOGIC.clone();
-        cloned.unwrap()
-    }
+pub fn get_routing_logic() -> MiningRoutingLogic<
+    crate::lib::downstream_mining::DownstreamMiningNode,
+    crate::lib::upstream_mining::UpstreamMiningNode,
+    crate::lib::upstream_mining::ProxyRemoteSelector,
+    RLogic,
+> {
+    MiningRoutingLogic::Proxy(&ROUTING_LOGIC)
+}
+pub fn get_common_routing_logic() -> CommonRoutingLogic<RLogic> {
+    CommonRoutingLogic::Proxy(&ROUTING_LOGIC)
 }
 
 pub fn upstream_from_job_id(job_id: u32) -> Option<Arc<Mutex<UpstreamMiningNode>>> {
     let upstream_id: u32;
-    unsafe {
-        upstream_id = JOB_ID_TO_UPSTREAM_ID
-            .clone()
-            .unwrap()
-            .safe_lock(|x| *x.get(&job_id).unwrap())
-            .unwrap();
-    }
-    get_routing_logic_sync()
-        .safe_lock(|r| r.upstream_selector.get_upstream(upstream_id))
+    upstream_id = JOB_ID_TO_UPSTREAM_ID
+        .safe_lock(|x| *x.get(&job_id).unwrap())
+        .unwrap();
+    ROUTING_LOGIC
+        .safe_lock(|rlogic| rlogic.upstream_selector.get_upstream(upstream_id))
         .unwrap()
 }
 
 pub fn add_job_id(job_id: u32, up_id: u32, prev_job_id: Option<u32>) {
-    unsafe {
-        if let Some(prev_job_id) = prev_job_id {
-            JOB_ID_TO_UPSTREAM_ID
-                .clone()
-                .unwrap()
-                .safe_lock(|x| x.remove(&prev_job_id))
-                .unwrap();
-        }
+    if let Some(prev_job_id) = prev_job_id {
         JOB_ID_TO_UPSTREAM_ID
-            .clone()
-            .unwrap()
-            .safe_lock(|x| x.insert(job_id, up_id))
+            .safe_lock(|x| x.remove(&prev_job_id))
             .unwrap();
     }
+    JOB_ID_TO_UPSTREAM_ID
+        .safe_lock(|x| x.insert(job_id, up_id))
+        .unwrap();
 }
 
 #[derive(Debug, Deserialize)]
@@ -116,19 +116,7 @@ pub struct Config {
     min_supported_version: u16,
 }
 
-/// 1. the proxy scan all the upstreams and map them
-/// 2. donwstream open a connetcion with proxy
-/// 3. downstream send SetupConnection
-/// 4. a mining_channle::Upstream is created
-/// 5. upstream_mining::UpstreamMiningNodes is used to pair this downstream with the most suitable
-///    upstream
-/// 6. mining_channle::Upstream create a new downstream_mining::DownstreamMiningNode embedding
-///    itself in it
-/// 7. normal operation between the paired downstream_mining::DownstreamMiningNode and
-///    upstream_mining::UpstreamMiningNode begin
-#[async_std::main]
-async fn main() {
-    // Scan all the upstreams and map them
+pub fn initialize_r_logic() -> RLogic {
     let config_file = std::fs::read_to_string("proxy-config.toml").unwrap();
     let config: Config = toml::from_str(&config_file).unwrap();
     let upstreams = config.upstreams;
@@ -147,17 +135,31 @@ async fn main() {
             )))
         })
         .collect();
-    crate::lib::upstream_mining::scan(upstream_mining_nodes.clone()).await;
+    //crate::lib::upstream_mining::scan(upstream_mining_nodes.clone()).await;
     let upstream_selector = GeneralMiningSelector::new(upstream_mining_nodes);
-    let routing_logic = MiningProxyRoutingLogic {
+    MiningProxyRoutingLogic {
         upstream_selector,
         downstream_id_generator: Id::new(),
         downstream_to_upstream_map: std::collections::HashMap::new(),
-    };
-    unsafe {
-        ROUTING_LOGIC = Some(Arc::new(Mutex::new(routing_logic)));
-        JOB_ID_TO_UPSTREAM_ID = Some(Arc::new(Mutex::new(HashMap::new())));
     }
+}
+
+/// 1. the proxy scan all the upstreams and map them
+/// 2. donwstream open a connetcion with proxy
+/// 3. downstream send SetupConnection
+/// 4. a mining_channle::Upstream is created
+/// 5. upstream_mining::UpstreamMiningNodes is used to pair this downstream with the most suitable
+///    upstream
+/// 6. mining_channle::Upstream create a new downstream_mining::DownstreamMiningNode embedding
+///    itself in it
+/// 7. normal operation between the paired downstream_mining::DownstreamMiningNode and
+///    upstream_mining::UpstreamMiningNode begin
+#[async_std::main]
+async fn main() {
+    // Scan all the upstreams and map them
+    let config_file = std::fs::read_to_string("proxy-config.toml").unwrap();
+    let config: Config = toml::from_str(&config_file).unwrap();
+    initialize_upstreams().await;
 
     // Wait for downstream connection
     let socket = SocketAddr::new(

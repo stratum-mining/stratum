@@ -316,7 +316,10 @@ impl Downstream {
             }
         };
         let extended_jobs = job_creators
-            .safe_lock(|j| j.new_group_channel(id, downstream_data.version_rolling))
+            .safe_lock(|j| {
+                j.new_group_channel(id, downstream_data.version_rolling)
+                    .unwrap()
+            })
             .unwrap();
 
         let mut future_jobs = HashMap::new();
@@ -528,7 +531,8 @@ impl Pool {
                 &crate::AUTHORITY_PUBLIC_K[..],
                 &crate::AUTHORITY_PRIVATE_K[..],
                 crate::CERT_VALIDITY,
-            );
+            )
+            .unwrap();
             let last_new_prev_hash = self_.safe_lock(|x| x.last_new_prev_hash.clone()).unwrap();
             let (receiver, sender): (Receiver<EitherFrame>, Sender<EitherFrame>) =
                 Connection::new(stream, HandshakeRole::Responder(responder), 10).await;
@@ -617,7 +621,7 @@ impl Pool {
         while let Ok(mut new_template) = rx.recv().await {
             let job_creators = self_.safe_lock(|s| s.job_creators.clone()).unwrap();
             let mut new_jobs = job_creators
-                .safe_lock(|j| j.on_new_template(&mut new_template))
+                .safe_lock(|j| j.on_new_template(&mut new_template).unwrap())
                 .unwrap();
             let group_downstreams: Vec<Arc<Mutex<Downstream>>> = self_
                 .safe_lock(|s| s.group_downstreams.iter().map(|d| d.1.clone()).collect())
@@ -652,10 +656,9 @@ impl Pool {
             hom_downstreams: HashMap::new(),
             hom_ids: Arc::new(Mutex::new(Id::new())),
             group_ids: Arc::new(Mutex::new(Id::new())),
-            job_creators: Arc::new(Mutex::new(JobsCreators::new(
-                crate::BLOCK_REWARD,
-                crate::new_pub_key(),
-            ))),
+            job_creators: Arc::new(Mutex::new(
+                JobsCreators::new(crate::BLOCK_REWARD, crate::new_pub_key()).unwrap(),
+            )),
             last_new_prev_hash: None,
             extranonces: Arc::new(Mutex::new(Extranonce::new())),
             solution_sender,

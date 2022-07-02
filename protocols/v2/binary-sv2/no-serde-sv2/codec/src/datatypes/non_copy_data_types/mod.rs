@@ -1,6 +1,4 @@
 #[cfg(feature = "prop_test")]
-use core::convert::TryInto;
-#[cfg(feature = "prop_test")]
 use quickcheck::{Arbitrary, Gen};
 
 mod inner;
@@ -23,7 +21,6 @@ pub type Str032<'a> = Inner<'a, false, 1, 1, 32>;
 pub type Str0255<'a> = Inner<'a, false, 1, 1, 255>;
 pub type B064K<'a> = Inner<'a, false, 1, 2, { u16::MAX as usize }>;
 pub type B016M<'a> = Inner<'a, false, 1, 3, { 2_usize.pow(24) - 1 }>;
-pub type Bytes<'a> = Inner<'a, false, 0, 0, { usize::MAX }>;
 
 impl<'decoder> From<[u8; 32]> for U256<'decoder> {
     fn from(v: [u8; 32]) -> Self {
@@ -37,6 +34,7 @@ impl<'a> U256<'a> {
     pub fn from_gen(g: &mut Gen) -> Self {
         let mut inner = Vec::<u8>::arbitrary(g);
         inner.resize(32, 0);
+        // 32 Bytes arrays are always converted into U256 unwrap never panic
         let inner: [u8; 32] = inner.try_into().unwrap();
         inner.into()
     }
@@ -46,6 +44,7 @@ impl<'a> U256<'a> {
 #[cfg(feature = "prop_test")]
 impl<'a> B016M<'a> {
     pub fn from_gen(g: &mut Gen) -> Self {
+        // This can fail but is used only for tests purposes
         Vec::<u8>::arbitrary(g).try_into().unwrap()
     }
 }

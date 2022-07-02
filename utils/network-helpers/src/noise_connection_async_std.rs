@@ -195,7 +195,8 @@ pub async fn listen(
             &authority_public_key[..],
             &authority_private_key[..],
             cert_validity,
-        );
+        )
+        .unwrap();
         let role = HandshakeRole::Responder(responder);
         let _ = sender.send((stream, role)).await;
     }
@@ -205,7 +206,7 @@ pub async fn connect(
     authority_public_key: [u8; 32],
 ) -> Result<(TcpStream, HandshakeRole), ()> {
     let stream = TcpStream::connect(address).await.map_err(|_| ())?;
-    let initiator = Initiator::from_raw_k(authority_public_key);
+    let initiator = Initiator::from_raw_k(authority_public_key).unwrap();
     let role = HandshakeRole::Initiator(initiator);
     Ok((stream, role))
 }

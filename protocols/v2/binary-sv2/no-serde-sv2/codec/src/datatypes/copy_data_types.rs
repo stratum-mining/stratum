@@ -26,10 +26,12 @@ impl<'a> Sv2DataType<'a> for bool {
             .get(0)
             .map(|x: &u8| x << 7)
             .map(|x: u8| x >> 7)
-            .unwrap()
+            // This is an unchecked function is fine to panic
+            .expect("Try to decode a bool from a buffer of len 0")
         {
             0 => false,
             1 => true,
+            // Below panic is impossible value is either 0 or 1
             _ => panic!(),
         }
     }
@@ -87,7 +89,10 @@ macro_rules! impl_sv2_for_unsigned {
     ($a:ty) => {
         impl<'a> Sv2DataType<'a> for $a {
             fn from_bytes_unchecked(data: &'a mut [u8]) -> Self {
-                let a: &[u8; Self::SIZE] = data[0..Self::SIZE].try_into().unwrap();
+                // unchecked function is fine to panic
+                let a: &[u8; Self::SIZE] = data[0..Self::SIZE].try_into().expect(
+                    "Try to decode a copy data type from a buffer that do not have enough bytes",
+                );
                 Self::from_le_bytes(*a)
             }
 

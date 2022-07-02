@@ -17,6 +17,7 @@ impl Default for Header {
         Header {
             extension_type: 0,
             msg_type: 0,
+            // converting 0_32 into a U24 never panic
             msg_length: 0_u32.try_into().unwrap(),
         }
     }
@@ -42,18 +43,16 @@ impl Header {
         Ok(Self {
             extension_type,
             msg_type,
+            // Converting and u32 with the most significant byte set to 0 to and U24 never panic
             msg_length: msg_length.try_into().unwrap(),
         })
     }
 
+    #[allow(clippy::len_without_is_empty)]
     #[inline]
     pub fn len(&self) -> usize {
         let inner: u32 = self.msg_length.into();
         inner as usize
-    }
-
-    pub fn is_empty(&self) -> bool {
-        unimplemented!()
     }
 
     #[inline]
@@ -61,7 +60,7 @@ impl Header {
         Some(Self {
             extension_type,
             msg_type: message_type,
-            msg_length: len.try_into().unwrap(),
+            msg_length: len.try_into().ok()?,
         })
     }
 

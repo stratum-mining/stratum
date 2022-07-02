@@ -65,6 +65,7 @@ fn parse_struct_fields(group: Vec<TokenTree>) -> Vec<ParsedField> {
                 if p.to_string() == ":" {
                     field_parser_state = ParserState::Type
                 } else {
+                    // Never executed at runtime it ok to panic
                     panic!("Unexpected token '{}' in parsing {:#?}", p, field_);
                 }
             }
@@ -78,6 +79,7 @@ fn parse_struct_fields(group: Vec<TokenTree>) -> Vec<ParsedField> {
                     field_.generics = "<".to_string();
                     field_parser_state = ParserState::Generics(0);
                 }
+                // Never executed at runtime it ok to panic
                 _ => panic!("Unexpected token '{}' in parsing {:#?}", p, field_),
             },
             (TokenTree::Punct(p), ParserState::Generics(open_brackets)) => {
@@ -102,6 +104,7 @@ fn parse_struct_fields(group: Vec<TokenTree>) -> Vec<ParsedField> {
                     }
                 }
             }
+            // Never executed at runtime it ok to panic
             _ => panic!("Unexpected token"),
         }
     }
@@ -169,6 +172,7 @@ fn get_struct_properties(item: TokenStream) -> ParsedStruct {
     // Get the struct name
     let struct_name = match stream.next().expect("Struct has no name") {
         TokenTree::Ident(i) => i.to_string(),
+        // Never executed at runtime it ok to panic
         _ => panic!("Strcut has no name"),
     };
 
@@ -179,6 +183,7 @@ fn get_struct_properties(item: TokenStream) -> ParsedStruct {
     loop {
         match stream
             .next()
+            // Never executed at runtime it ok to panic
             .unwrap_or_else(|| panic!("Struct {} has no fields", struct_name))
         {
             TokenTree::Group(g) => {
@@ -191,6 +196,7 @@ fn get_struct_properties(item: TokenStream) -> ParsedStruct {
             TokenTree::Ident(i) => {
                 struct_generics = format!("{}{}", struct_generics, i);
             }
+            // Never executed at runtime it ok to panic
             _ => panic!("Struct {} has no fields", struct_name),
         };
     }
@@ -240,7 +246,7 @@ pub fn decodable(item: TokenStream) -> TokenStream {
     for f in fields.clone() {
         let field = format!(
             "
-            {}: {}{}::from_decoded_fields(data.pop().unwrap().into())?,
+            {}: {}{}::from_decoded_fields(data.pop().ok_or(Error::NoDecodableFieldPassed)?.into())?,
             ",
             f.name,
             f.type_,
@@ -285,8 +291,8 @@ pub fn decodable(item: TokenStream) -> TokenStream {
         derive_fields,
         derive_decoded_fields,
     );
-    //println!("{}", result);
 
+    // Never executed at runtime it ok to panic
     result.parse().unwrap()
 }
 
@@ -375,5 +381,6 @@ pub fn encodable(item: TokenStream) -> TokenStream {
     );
     //println!("{}", result);
 
+    // Never executed at runtime it ok to panic
     result.parse().unwrap()
 }

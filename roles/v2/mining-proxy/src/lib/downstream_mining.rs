@@ -12,7 +12,7 @@ use roles_logic_sv2::{
     },
     mining_sv2::*,
     parsers::{Mining, MiningDeviceMessages, PoolMessages},
-    routing_logic::{CommonRoutingLogic, MiningProxyRoutingLogic, MiningRoutingLogic},
+    routing_logic::MiningProxyRoutingLogic,
     utils::Mutex,
 };
 use std::collections::HashMap;
@@ -143,7 +143,7 @@ impl DownstreamMiningNode {
         let message_type = incoming.get_header().unwrap().msg_type();
         let payload = incoming.payload();
 
-        let routing_logic = MiningRoutingLogic::Proxy(crate::get_routing_logic_sync());
+        let routing_logic = crate::get_routing_logic();
 
         let next_message_to_send = ParseDownstreamMiningMessages::handle_message_mining(
             self_mutex.clone(),
@@ -326,7 +326,7 @@ pub async fn listen_for_downstream_mining(address: SocketAddr) {
             let mut incoming: StdFrame = node.receiver.recv().await.unwrap().try_into().unwrap();
             let message_type = incoming.get_header().unwrap().msg_type();
             let payload = incoming.payload();
-            let routing_logic = CommonRoutingLogic::Proxy(crate::get_routing_logic_sync());
+            let routing_logic = crate::get_common_routing_logic();
             let node = Arc::new(Mutex::new(node));
 
             // Call handle_setup_connection or fail
