@@ -40,18 +40,20 @@ fn new_pub_key() -> PublicKey {
     PublicKey::from_private_key(&secp, &priv_k)
 }
 
-#[async_std::main]
+#[tokio::main]
 async fn main() {
     //let test: bool = std::env::var("TEST").unwrap().parse().unwrap();
     let test = false;
     let (s_new_t, r_new_t) = bounded(10);
     let (s_prev_hash, r_prev_hash) = bounded(10);
     let (s_solution, r_solution) = bounded(10);
+    println!("POOL INTITIALIZING ");
     if test {
         crate::lib::template_receiver::test_template::TestTemplateRx::start(s_new_t, s_prev_hash)
             .await;
     } else {
         TemplateRx::connect(TP_ADDR.parse().unwrap(), s_new_t, s_prev_hash, r_solution).await;
     }
+    println!("POOL INITIALIZED");
     Pool::start(r_new_t, r_prev_hash, s_solution).await;
 }

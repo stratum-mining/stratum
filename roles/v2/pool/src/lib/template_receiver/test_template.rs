@@ -1,5 +1,5 @@
 use async_channel::Sender;
-use async_std::task;
+use tokio::task;
 use binary_sv2::{Seq0255, U256};
 use roles_logic_sv2::template_distribution_sv2::{NewTemplate, SetNewPrevHash};
 use std::convert::TryInto;
@@ -38,9 +38,9 @@ impl TestTemplateRx {
             target: vec![3; 32].try_into().unwrap(),
         };
         task::spawn(async move {
-            task::sleep(std::time::Duration::from_secs(20)).await;
+            tokio::time::sleep(std::time::Duration::from_secs(20)).await;
             templ_sender.send(new_template).await.unwrap();
-            task::sleep(std::time::Duration::from_secs(10)).await;
+            tokio::time::sleep(std::time::Duration::from_secs(10)).await;
             prev_h_sender.send(new_prev_hash).await.unwrap();
         });
     }

@@ -1,10 +1,10 @@
-use async_std::{net::TcpListener, prelude::*, task};
+use tokio::{net::TcpListener, task};
 use codec_sv2::{HandshakeRole, Responder};
-use network_helpers::Connection;
+use network_helpers::noise_connection_tokio::Connection;
 
 use crate::{EitherFrame, StdFrame};
 use async_channel::{Receiver, Sender};
-use async_std::sync::Arc;
+use std::sync::Arc;
 use binary_sv2::{B064K, U256};
 use bitcoin::{
     blockdata::block::BlockHeader,
@@ -511,7 +511,6 @@ impl Downstream {
         Ok(())
     }
 }
-
 impl IsDownstream for Downstream {
     fn get_downstream_mining_data(&self) -> CommonDownstreamData {
         self.downstream_data
@@ -523,10 +522,8 @@ impl IsMiningDownstream for Downstream {}
 impl Pool {
     async fn accept_incoming_connection(self_: Arc<Mutex<Pool>>) {
         let listner = TcpListener::bind(crate::ADDR).await.unwrap();
-        let mut incoming = listner.incoming();
-        while let Some(stream) = incoming.next().await {
+        while let Ok((stream,_)) = listner.accept().await {
             let solution_sender = self_.safe_lock(|p| p.solution_sender.clone()).unwrap();
-            let stream = stream.unwrap();
             let responder = Responder::from_authority_kp(
                 &crate::AUTHORITY_PUBLIC_K[..],
                 &crate::AUTHORITY_PRIVATE_K[..],
@@ -535,7 +532,7 @@ impl Pool {
             .unwrap();
             let last_new_prev_hash = self_.safe_lock(|x| x.last_new_prev_hash.clone()).unwrap();
             let (receiver, sender): (Receiver<EitherFrame>, Sender<EitherFrame>) =
-                Connection::new(stream, HandshakeRole::Responder(responder), 10).await;
+                Connection::new(stream, HandshakeRole::Responder(responder)).await;
             let group_ids = self_.safe_lock(|s| s.group_ids.clone()).unwrap();
             let hom_ids = self_.safe_lock(|s| s.hom_ids.clone()).unwrap();
             let job_creators = self_.safe_lock(|s| s.job_creators.clone()).unwrap();
@@ -571,7 +568,7 @@ impl Pool {
     async fn on_new_prev_hash(self_: Arc<Mutex<Self>>, rx: Receiver<SetNewPrevHash<'static>>) {
         while let Ok(new_prev_hash) = rx.recv().await {
             while !self_.safe_lock(|s| s.new_template_processed).unwrap() {
-                task::sleep(std::time::Duration::from_millis(1)).await;
+                tokio::time::sleep(std::time::Duration::from_millis(1)).await;
             }
             self_
                 .safe_lock(|s| s.new_template_processed = false)
