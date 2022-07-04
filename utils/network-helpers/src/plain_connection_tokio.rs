@@ -85,11 +85,8 @@ impl PlainConnection {
 pub async fn plain_listen(address: &str, sender: Sender<TcpStream>) {
     let listner = TcpListener::bind(address).await.unwrap();
     loop {
-        match listner.accept().await {
-            Ok((stream, _)) => {
-                let _ = sender.send(stream).await;
-            }
-            _ => (),
+        if let Ok((stream, _)) = listner.accept().await {
+            let _ = sender.send(stream).await;
         }
     }
 }

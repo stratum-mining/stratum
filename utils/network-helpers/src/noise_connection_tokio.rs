@@ -191,18 +191,15 @@ pub async fn listen(
 ) {
     let listner = TcpListener::bind(address).await.unwrap();
     loop {
-        match listner.accept().await {
-            Ok((stream, _)) => {
-                let responder = Responder::from_authority_kp(
-                    &authority_public_key[..],
-                    &authority_private_key[..],
-                    cert_validity,
-                )
-                .unwrap();
-                let role = HandshakeRole::Responder(responder);
-                let _ = sender.send((stream, role)).await;
-            }
-            _ => (),
+        if let Ok((stream, _)) = listner.accept().await {
+            let responder = Responder::from_authority_kp(
+                &authority_public_key[..],
+                &authority_private_key[..],
+                cert_validity,
+            )
+            .unwrap();
+            let role = HandshakeRole::Responder(responder);
+            let _ = sender.send((stream, role)).await;
         }
     }
 }
