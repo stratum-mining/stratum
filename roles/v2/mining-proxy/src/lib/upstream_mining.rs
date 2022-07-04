@@ -1,9 +1,8 @@
 use super::downstream_mining::{DownstreamMiningNode, StdFrame as DownstreamFrame};
 use async_channel::{Receiver, SendError, Sender};
 use async_recursion::async_recursion;
-use async_std::{net::TcpStream, task};
 use codec_sv2::{Frame, HandshakeRole, Initiator, StandardEitherFrame, StandardSv2Frame};
-use network_helpers::Connection;
+use network_helpers::noise_connection_tokio::Connection;
 use roles_logic_sv2::{
     common_messages_sv2::{Protocol, SetupConnection},
     common_properties::{
@@ -20,6 +19,7 @@ use roles_logic_sv2::{
     utils::{Id, Mutex},
 };
 use std::{collections::HashMap, sync::Arc};
+use tokio::{net::TcpStream, task};
 
 pub type Message = PoolMessages<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;
@@ -199,7 +199,7 @@ impl UpstreamMiningNode {
                 let socket = TcpStream::connect(address).await.map_err(|_| ())?;
                 let initiator = Initiator::from_raw_k(authority_public_key).unwrap();
                 let (receiver, sender) =
-                    Connection::new(socket, HandshakeRole::Initiator(initiator), 10).await;
+                    Connection::new(socket, HandshakeRole::Initiator(initiator)).await;
                 let connection = UpstreamMiningConnection { receiver, sender };
                 self_mutex
                     .safe_lock(|self_| {
@@ -228,7 +228,10 @@ impl UpstreamMiningNode {
                     .map_err(|_| ())?;
 
                 let cloned = self_mutex.clone();
-                let mut response = task::spawn(async { Self::receive(cloned).await }).await?;
+                let mut response = task::spawn(async { Self::receive(cloned).await })
+                    .await
+                    .unwrap()
+                    .unwrap();
 
                 let message_type = response.get_header().unwrap().msg_type();
                 let payload = response.payload();
@@ -345,7 +348,10 @@ impl UpstreamMiningNode {
             .map_err(|_| ())?;
 
         let cloned = self_mutex.clone();
-        let mut response = task::spawn(async { Self::receive(cloned).await }).await?;
+        let mut response = task::spawn(async { Self::receive(cloned).await })
+            .await
+            .unwrap()
+            .unwrap();
 
         let message_type = response.get_header().unwrap().msg_type();
         let payload = response.payload();
@@ -752,7 +758,7 @@ pub async fn scan(nodes: Vec<Arc<Mutex<UpstreamMiningNode>>>) {
         })
         .collect();
     for task in spawn_tasks {
-        task.await
+        task.await.unwrap();
     }
 }
 

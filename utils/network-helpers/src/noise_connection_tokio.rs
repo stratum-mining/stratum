@@ -1,13 +1,13 @@
 use async_channel::{bounded, Receiver, Sender};
-use async_std::{
-    net::{TcpListener, TcpStream},
-    prelude::*,
-    sync::{Arc, Mutex},
-    task,
-};
 use binary_sv2::{Deserialize, Serialize};
 use core::convert::TryInto;
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
+use tokio::{
+    io::{AsyncReadExt, AsyncWriteExt},
+    net::{TcpListener, TcpStream},
+    sync::Mutex,
+    task,
+};
 
 use binary_sv2::GetSize;
 use codec_sv2::{
@@ -25,21 +25,20 @@ impl Connection {
     pub async fn new<'a, Message: Serialize + Deserialize<'a> + GetSize + Send + 'static>(
         stream: TcpStream,
         role: HandshakeRole,
-        capacity: usize,
     ) -> (
         Receiver<StandardEitherFrame<Message>>,
         Sender<StandardEitherFrame<Message>>,
     ) {
-        let (mut reader, writer) = (stream.clone(), stream.clone());
+        let (mut reader, mut writer) = stream.into_split();
 
         let (sender_incoming, receiver_incoming): (
             Sender<StandardEitherFrame<Message>>,
             Receiver<StandardEitherFrame<Message>>,
-        ) = bounded(capacity);
+        ) = bounded(10); // TODO caller should provide this param
         let (sender_outgoing, receiver_outgoing): (
             Sender<StandardEitherFrame<Message>>,
             Receiver<StandardEitherFrame<Message>>,
-        ) = bounded(capacity);
+        ) = bounded(10); // TODO caller should provide this param
 
         let state = codec_sv2::State::new();
 
@@ -63,8 +62,8 @@ impl Connection {
                         }
                     }
                     Err(_) => {
-                        let _ = reader.shutdown(async_std::net::Shutdown::Both);
-                        break;
+                        // Just fail and force to reinitialize everything
+                        panic!()
                     }
                 }
             }
@@ -83,16 +82,19 @@ impl Connection {
                         let mut connection = cloned2.lock().await;
                         let b = encoder.encode(frame, &mut connection.state).unwrap();
 
-                        match (&writer).write_all(b).await {
+                        match (&mut writer).write_all(b).await {
                             Ok(_) => (),
                             Err(_) => {
-                                let _ = writer.shutdown(async_std::net::Shutdown::Both);
+                                let _ = writer.shutdown().await;
+                                // Just fail and force to reinitialize everything
+                                panic!()
                             }
                         }
                     }
                     Err(_) => {
-                        let _ = writer.shutdown(async_std::net::Shutdown::Both);
-                        break;
+                        // Just fail and force to reinitilize everything
+                        let _ = writer.shutdown().await;
+                        panic!()
                     }
                 };
             }
@@ -126,7 +128,7 @@ impl Connection {
 
     async fn set_state(self_: Arc<Mutex<Self>>, state: codec_sv2::State) {
         loop {
-            if let Some(mut connection) = self_.try_lock() {
+            if let Ok(mut connection) = self_.try_lock() {
                 connection.state = state;
                 break;
             };
@@ -170,7 +172,7 @@ impl Connection {
 
         // CHECK IF SECOND_MESSAGE HAS BEEN SENT
         loop {
-            task::sleep(std::time::Duration::from_millis(1)).await;
+            tokio::time::sleep(std::time::Duration::from_millis(1)).await;
             if sender_incoming.is_empty() {
                 break;
             }
@@ -188,19 +190,20 @@ pub async fn listen(
     sender: Sender<(TcpStream, HandshakeRole)>,
 ) {
     let listner = TcpListener::bind(address).await.unwrap();
-    let mut incoming = listner.incoming();
-    while let Some(stream) = incoming.next().await {
-        let stream = stream.unwrap();
-        let responder = Responder::from_authority_kp(
-            &authority_public_key[..],
-            &authority_private_key[..],
-            cert_validity,
-        )
-        .unwrap();
-        let role = HandshakeRole::Responder(responder);
-        let _ = sender.send((stream, role)).await;
+    loop {
+        if let Ok((stream, _)) = listner.accept().await {
+            let responder = Responder::from_authority_kp(
+                &authority_public_key[..],
+                &authority_private_key[..],
+                cert_validity,
+            )
+            .unwrap();
+            let role = HandshakeRole::Responder(responder);
+            let _ = sender.send((stream, role)).await;
+        }
     }
 }
+
 pub async fn connect(
     address: &str,
     authority_public_key: [u8; 32],

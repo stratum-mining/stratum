@@ -1,9 +1,7 @@
 use crate::{EitherFrame, StdFrame};
 use async_channel::{Receiver, Sender};
-//use std::sync::mpsc::Sender as SSender;
-use async_std::{net::TcpStream, task};
 use codec_sv2::Frame;
-use network_helpers::PlainConnection;
+use network_helpers::plain_connection_tokio::PlainConnection;
 use roles_logic_sv2::{
     handlers::template_distribution::ParseServerTemplateDistributionMessages,
     parsers::{PoolMessages, TemplateDistribution},
@@ -11,6 +9,7 @@ use roles_logic_sv2::{
     utils::Mutex,
 };
 use std::{convert::TryInto, net::SocketAddr, sync::Arc};
+use tokio::{net::TcpStream, task};
 
 mod message_handler;
 mod setup_connection;
@@ -34,7 +33,7 @@ impl TemplateRx {
         let stream = TcpStream::connect(address).await.unwrap();
 
         let (mut receiver, mut sender): (Receiver<EitherFrame>, Sender<EitherFrame>) =
-            PlainConnection::new(stream, 10).await;
+            PlainConnection::new(stream).await;
 
         SetupConnectionHandler::setup(&mut receiver, &mut sender, address)
             .await
