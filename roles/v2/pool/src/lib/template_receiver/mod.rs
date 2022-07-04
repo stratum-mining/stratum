@@ -13,7 +13,6 @@ use tokio::{net::TcpStream, task};
 
 mod message_handler;
 mod setup_connection;
-pub mod test_template;
 use setup_connection::SetupConnectionHandler;
 
 pub struct TemplateRx {
