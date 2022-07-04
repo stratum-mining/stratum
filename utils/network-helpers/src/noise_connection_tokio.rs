@@ -86,6 +86,8 @@ impl Connection {
                             Ok(_) => (),
                             Err(_) => {
                                 let _ = writer.shutdown().await;
+                                // Just fail and force to reinitialize everything
+                                panic!()
                             }
                         }
                     }
@@ -170,6 +172,7 @@ impl Connection {
 
         // CHECK IF SECOND_MESSAGE HAS BEEN SENT
         loop {
+            tokio::time::sleep(std::time::Duration::from_millis(1)).await;
             if sender_incoming.is_empty() {
                 break;
             }
@@ -197,7 +200,7 @@ pub async fn listen(
                 )
                 .unwrap();
                 let role = HandshakeRole::Responder(responder);
-                sender.send((stream, role)).await;
+                let _ = sender.send((stream, role)).await;
             }
             _ => (),
         }

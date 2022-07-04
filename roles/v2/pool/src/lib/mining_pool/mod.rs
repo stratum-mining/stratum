@@ -1,10 +1,9 @@
-use tokio::{net::TcpListener, task};
 use codec_sv2::{HandshakeRole, Responder};
 use network_helpers::noise_connection_tokio::Connection;
+use tokio::{net::TcpListener, task};
 
 use crate::{EitherFrame, StdFrame};
 use async_channel::{Receiver, Sender};
-use std::sync::Arc;
 use binary_sv2::{B064K, U256};
 use bitcoin::{
     blockdata::block::BlockHeader,
@@ -27,7 +26,7 @@ use roles_logic_sv2::{
     template_distribution_sv2::{NewTemplate, SetNewPrevHash, SubmitSolution},
     utils::{merkle_root_from_path, Id, Mutex},
 };
-use std::{collections::HashMap, convert::TryInto};
+use std::{collections::HashMap, convert::TryInto, sync::Arc};
 
 pub fn u256_to_block_hash(v: U256<'static>) -> BlockHash {
     let hash: [u8; 32] = v.to_vec().try_into().unwrap();
@@ -522,7 +521,7 @@ impl IsMiningDownstream for Downstream {}
 impl Pool {
     async fn accept_incoming_connection(self_: Arc<Mutex<Pool>>) {
         let listner = TcpListener::bind(crate::ADDR).await.unwrap();
-        while let Ok((stream,_)) = listner.accept().await {
+        while let Ok((stream, _)) = listner.accept().await {
             let solution_sender = self_.safe_lock(|p| p.solution_sender.clone()).unwrap();
             let responder = Responder::from_authority_kp(
                 &crate::AUTHORITY_PUBLIC_K[..],
@@ -674,7 +673,7 @@ impl Pool {
             Self::on_new_prev_hash(cloned2, new_prev_hash_rx).await;
         });
 
-        task::spawn(async move {
+        let _ = task::spawn(async move {
             Self::on_new_template(cloned3, new_template_rx).await;
         })
         .await;

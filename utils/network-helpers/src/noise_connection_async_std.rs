@@ -62,8 +62,7 @@ impl Connection {
                             sender_incoming.send(x).await.unwrap();
                         }
                     }
-                    Err(e) => {
-                        println!("{:?}", e);
+                    Err(_) => {
                         let _ = reader.shutdown(async_std::net::Shutdown::Both);
                         break;
                     }
@@ -171,6 +170,7 @@ impl Connection {
 
         // CHECK IF SECOND_MESSAGE HAS BEEN SENT
         loop {
+            task::sleep(std::time::Duration::from_millis(1)).await;
             if sender_incoming.is_empty() {
                 break;
             }

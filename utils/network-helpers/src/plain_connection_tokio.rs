@@ -87,7 +87,7 @@ pub async fn plain_listen(address: &str, sender: Sender<TcpStream>) {
     loop {
         match listner.accept().await {
             Ok((stream, _)) => {
-                sender.send(stream).await;
+                let _ = sender.send(stream).await;
             }
             _ => (),
         }

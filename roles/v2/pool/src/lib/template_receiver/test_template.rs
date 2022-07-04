@@ -1,8 +1,8 @@
 use async_channel::Sender;
-use tokio::task;
 use binary_sv2::{Seq0255, U256};
 use roles_logic_sv2::template_distribution_sv2::{NewTemplate, SetNewPrevHash};
 use std::convert::TryInto;
+use tokio::task;
 
 pub struct TestTemplateRx {}
 

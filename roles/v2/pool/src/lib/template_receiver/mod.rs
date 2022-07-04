@@ -1,6 +1,5 @@
 use crate::{EitherFrame, StdFrame};
 use async_channel::{Receiver, Sender};
-use tokio::{net::TcpStream, task};
 use codec_sv2::Frame;
 use network_helpers::plain_connection_tokio::PlainConnection;
 use roles_logic_sv2::{
@@ -10,6 +9,7 @@ use roles_logic_sv2::{
     utils::Mutex,
 };
 use std::{convert::TryInto, net::SocketAddr, sync::Arc};
+use tokio::{net::TcpStream, task};
 
 mod message_handler;
 mod setup_connection;

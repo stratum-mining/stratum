@@ -159,6 +159,7 @@ async fn main() {
     // Scan all the upstreams and map them
     let config_file = std::fs::read_to_string("proxy-config.toml").unwrap();
     let config: Config = toml::from_str(&config_file).unwrap();
+    println!("PROXY INITIALIZING");
     initialize_upstreams().await;
 
     // Wait for downstream connection
@@ -166,5 +167,6 @@ async fn main() {
         IpAddr::from_str(&config.listen_address).unwrap(),
         config.listen_mining_port,
     );
+    println!("PROXY INITIALIZED");
     crate::lib::downstream_mining::listen_for_downstream_mining(socket).await
 }
