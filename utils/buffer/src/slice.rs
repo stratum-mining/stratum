@@ -26,7 +26,15 @@ impl AsMut<[u8]> for Slice {
         match self.owned.as_mut() {
             None => unsafe { core::slice::from_raw_parts_mut(self.offset, self.len) },
             Some(x) => x,
-            //Some(x) => &mut x[0..0],
+        }
+    }
+}
+impl AsRef<[u8]> for Slice {
+    #[inline(always)]
+    fn as_ref(&self) -> &[u8] {
+        match self.owned.as_ref() {
+            None => unsafe { core::slice::from_raw_parts_mut(self.offset, self.len) },
+            Some(x) => x,
         }
     }
 }

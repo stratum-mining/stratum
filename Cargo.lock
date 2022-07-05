@@ -433,6 +433,7 @@ name = "codec_sv2"
 version = "0.1.4"
 dependencies = [
  "binary_sv2",
+ "buffer_sv2",
  "const_sv2",
  "framing_sv2",
  "noise_sv2",
