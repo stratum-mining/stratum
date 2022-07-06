@@ -6,11 +6,14 @@ use network_helpers::noise_connection_tokio::Connection;
 use crate::{EitherFrame, Configuration};
 use async_channel::{Receiver, Sender};
 
-pub struct JobNegotiatorDownstream {}
+pub struct JobNegotiatorDownstream {
+    sender: Sender<EitherFrame>,
+    receiver: Receiver<EitherFrame>,
+}
 
 impl JobNegotiatorDownstream {
-    pub fn new() -> Self {
-        Self {}
+    pub fn new( receiver: Receiver<EitherFrame>,sender: Sender<EitherFrame>) -> Self {
+        Self {receiver, sender}
     }
 }
 
@@ -33,7 +36,7 @@ impl JobNegotiator {
             let (_receiver, _sender): (Receiver<EitherFrame>, Sender<EitherFrame>) =
                 Connection::new(stream, HandshakeRole::Responder(responder)).await;
 
-            let downstream = JobNegotiatorDownstream::new();
+            let downstream = JobNegotiatorDownstream::new(_receiver, _sender);
             self_.downstreams.push(downstream);
         }
     }
