@@ -1,6 +1,5 @@
 use crate::errors::Error;
 
-#[cfg(not(feature = "with_serde"))]
 use binary_sv2::{
     decodable::DecodableField, decodable::FieldMarker, encodable::EncodableField, GetSize,
 };
@@ -280,7 +279,6 @@ impl<'a> IsSv2Message for Mining<'a> {
     }
 }
 
-#[cfg(not(feature = "with_serde"))]
 impl<'decoder> From<CommonMessages<'decoder>> for EncodableField<'decoder> {
     fn from(m: CommonMessages<'decoder>) -> Self {
         match m {
@@ -291,7 +289,6 @@ impl<'decoder> From<CommonMessages<'decoder>> for EncodableField<'decoder> {
         }
     }
 }
-#[cfg(not(feature = "with_serde"))]
 impl<'decoder> From<TemplateDistribution<'decoder>> for EncodableField<'decoder> {
     fn from(m: TemplateDistribution<'decoder>) -> Self {
         match m {
@@ -305,7 +302,6 @@ impl<'decoder> From<TemplateDistribution<'decoder>> for EncodableField<'decoder>
         }
     }
 }
-#[cfg(not(feature = "with_serde"))]
 impl<'decoder> From<JobNegotiation<'decoder>> for EncodableField<'decoder> {
     fn from(m: JobNegotiation<'decoder>) -> Self {
         match m {
@@ -322,7 +318,6 @@ impl<'decoder> From<JobNegotiation<'decoder>> for EncodableField<'decoder> {
     }
 }
 
-#[cfg(not(feature = "with_serde"))]
 impl<'decoder> From<Mining<'decoder>> for EncodableField<'decoder> {
     fn from(m: Mining<'decoder>) -> Self {
         match m {
@@ -352,7 +347,6 @@ impl<'decoder> From<Mining<'decoder>> for EncodableField<'decoder> {
     }
 }
 
-#[cfg(not(feature = "with_serde"))]
 impl GetSize for CommonMessages<'_> {
     fn get_size(&self) -> usize {
         match self {
@@ -363,7 +357,6 @@ impl GetSize for CommonMessages<'_> {
         }
     }
 }
-#[cfg(not(feature = "with_serde"))]
 impl GetSize for TemplateDistribution<'_> {
     fn get_size(&self) -> usize {
         match self {
@@ -377,7 +370,6 @@ impl GetSize for TemplateDistribution<'_> {
         }
     }
 }
-#[cfg(not(feature = "with_serde"))]
 impl GetSize for JobNegotiation<'_> {
     fn get_size(&self) -> usize {
         match self {
@@ -393,7 +385,6 @@ impl GetSize for JobNegotiation<'_> {
         }
     }
 }
-#[cfg(not(feature = "with_serde"))]
 impl GetSize for Mining<'_> {
     fn get_size(&self) -> usize {
         match self {
@@ -423,7 +414,6 @@ impl GetSize for Mining<'_> {
     }
 }
 
-#[cfg(not(feature = "with_serde"))]
 impl<'decoder> Deserialize<'decoder> for CommonMessages<'decoder> {
     fn get_structure(_v: &[u8]) -> std::result::Result<Vec<FieldMarker>, binary_sv2::Error> {
         unimplemented!()
@@ -434,7 +424,6 @@ impl<'decoder> Deserialize<'decoder> for CommonMessages<'decoder> {
         unimplemented!()
     }
 }
-#[cfg(not(feature = "with_serde"))]
 impl<'decoder> Deserialize<'decoder> for TemplateDistribution<'decoder> {
     fn get_structure(_v: &[u8]) -> std::result::Result<Vec<FieldMarker>, binary_sv2::Error> {
         unimplemented!()
@@ -445,7 +434,6 @@ impl<'decoder> Deserialize<'decoder> for TemplateDistribution<'decoder> {
         unimplemented!()
     }
 }
-#[cfg(not(feature = "with_serde"))]
 impl<'decoder> Deserialize<'decoder> for JobNegotiation<'decoder> {
     fn get_structure(_v: &[u8]) -> std::result::Result<Vec<FieldMarker>, binary_sv2::Error> {
         unimplemented!()
@@ -456,7 +444,6 @@ impl<'decoder> Deserialize<'decoder> for JobNegotiation<'decoder> {
         unimplemented!()
     }
 }
-#[cfg(not(feature = "with_serde"))]
 impl<'decoder> Deserialize<'decoder> for Mining<'decoder> {
     fn get_structure(_v: &[u8]) -> std::result::Result<Vec<FieldMarker>, binary_sv2::Error> {
         unimplemented!()
@@ -468,7 +455,6 @@ impl<'decoder> Deserialize<'decoder> for Mining<'decoder> {
     }
 }
 
-#[cfg(not(feature = "with_serde"))]
 impl<'decoder> Deserialize<'decoder> for PoolMessages<'decoder> {
     fn get_structure(_v: &[u8]) -> std::result::Result<Vec<FieldMarker>, binary_sv2::Error> {
         unimplemented!()
@@ -480,7 +466,6 @@ impl<'decoder> Deserialize<'decoder> for PoolMessages<'decoder> {
     }
 }
 
-#[cfg(not(feature = "with_serde"))]
 impl<'decoder> Deserialize<'decoder> for MiningDeviceMessages<'decoder> {
     fn get_structure(_v: &[u8]) -> std::result::Result<Vec<FieldMarker>, binary_sv2::Error> {
         unimplemented!()
@@ -879,7 +864,6 @@ pub enum MiningDeviceMessages<'a> {
     Common(CommonMessages<'a>),
     Mining(Mining<'a>),
 }
-#[cfg(not(feature = "with_serde"))]
 impl<'decoder> From<MiningDeviceMessages<'decoder>> for EncodableField<'decoder> {
     fn from(m: MiningDeviceMessages<'decoder>) -> Self {
         match m {
@@ -888,7 +872,6 @@ impl<'decoder> From<MiningDeviceMessages<'decoder>> for EncodableField<'decoder>
         }
     }
 }
-#[cfg(not(feature = "with_serde"))]
 impl GetSize for MiningDeviceMessages<'_> {
     fn get_size(&self) -> usize {
         match self {
@@ -932,7 +915,6 @@ impl<'a> TryFrom<MiningDeviceMessages<'a>> for PoolMessages<'a> {
     }
 }
 
-#[cfg(not(feature = "with_serde"))]
 impl<'decoder> From<PoolMessages<'decoder>> for EncodableField<'decoder> {
     fn from(m: PoolMessages<'decoder>) -> Self {
         match m {
@@ -943,7 +925,6 @@ impl<'decoder> From<PoolMessages<'decoder>> for EncodableField<'decoder> {
         }
     }
 }
-#[cfg(not(feature = "with_serde"))]
 impl GetSize for PoolMessages<'_> {
     fn get_size(&self) -> usize {
         match self {
