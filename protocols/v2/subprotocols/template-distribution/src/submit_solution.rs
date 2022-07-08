@@ -1,11 +1,7 @@
-#[cfg(not(feature = "with_serde"))]
 use alloc::vec::Vec;
-#[cfg(not(feature = "with_serde"))]
 use binary_sv2::binary_codec_sv2::{self, free_vec, CVec};
-#[cfg(not(feature = "with_serde"))]
 use binary_sv2::Error;
 use binary_sv2::{Deserialize, Serialize, B064K};
-#[cfg(not(feature = "with_serde"))]
 use core::convert::TryInto;
 
 /// ## SubmitSolution (Client -> Server)
@@ -30,11 +26,9 @@ pub struct SubmitSolution<'decoder> {
     pub header_nonce: u32,
     /// The full serialized coinbase transaction, meeting all the requirements of
     /// the NewWork message, above.
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub coinbase_tx: B064K<'decoder>,
 }
 
-#[cfg(not(feature = "with_serde"))]
 #[repr(C)]
 pub struct CSubmitSolution {
     template_id: u64,
@@ -44,9 +38,7 @@ pub struct CSubmitSolution {
     coinbase_tx: CVec,
 }
 
-#[cfg(not(feature = "with_serde"))]
 impl<'a> CSubmitSolution {
-    #[cfg(not(feature = "with_serde"))]
     #[allow(clippy::wrong_self_convention)]
     pub fn to_rust_rep_mut(&'a mut self) -> Result<SubmitSolution<'a>, Error> {
         let coinbase_tx: B064K = self.coinbase_tx.as_mut_slice().try_into()?;
@@ -62,19 +54,16 @@ impl<'a> CSubmitSolution {
 }
 
 #[no_mangle]
-#[cfg(not(feature = "with_serde"))]
 pub extern "C" fn free_submit_solution(s: CSubmitSolution) {
     drop(s)
 }
 
-#[cfg(not(feature = "with_serde"))]
 impl Drop for CSubmitSolution {
     fn drop(&mut self) {
         free_vec(&mut self.coinbase_tx);
     }
 }
 
-#[cfg(not(feature = "with_serde"))]
 impl<'a> From<SubmitSolution<'a>> for CSubmitSolution {
     fn from(v: SubmitSolution<'a>) -> Self {
         Self {
