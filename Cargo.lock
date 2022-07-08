@@ -1513,7 +1513,6 @@ dependencies = [
  "framing_sv2",
  "job_negotiation_sv2",
  "mining_sv2",
- "serde",
  "template_distribution_sv2",
  "toml",
 ]

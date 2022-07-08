@@ -5,9 +5,6 @@ use binary_sv2::{
     decodable::DecodableField, decodable::FieldMarker, encodable::EncodableField, GetSize,
 };
 
-#[cfg(feature = "with_serde")]
-use binary_sv2::Serialize;
-
 use binary_sv2::{from_bytes, Deserialize};
 
 use framing_sv2::framing2::{Frame, Sv2Frame};
@@ -81,99 +78,60 @@ use mining_sv2::{
 use core::convert::{TryFrom, TryInto};
 
 #[derive(Clone, Debug)]
-#[cfg_attr(feature = "with_serde", derive(Serialize, Deserialize))]
 pub enum CommonMessages<'a> {
     ChannelEndpointChanged(ChannelEndpointChanged),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     SetupConnection(SetupConnection<'a>),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     SetupConnectionError(SetupConnectionError<'a>),
     SetupConnectionSuccess(SetupConnectionSuccess),
 }
 
 #[derive(Clone, Debug)]
-#[cfg_attr(feature = "with_serde", derive(Serialize, Deserialize))]
 pub enum TemplateDistribution<'a> {
     CoinbaseOutputDataSize(CoinbaseOutputDataSize),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     NewTemplate(NewTemplate<'a>),
     RequestTransactionData(RequestTransactionData),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     RequestTransactionDataError(RequestTransactionDataError<'a>),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     RequestTransactionDataSuccess(RequestTransactionDataSuccess<'a>),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     SetNewPrevHash(SetNewPrevHash<'a>),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     SubmitSolution(SubmitSolution<'a>),
 }
 
 #[derive(Clone, Debug)]
-#[cfg_attr(feature = "with_serde", derive(Serialize, Deserialize))]
 pub enum JobNegotiation<'a> {
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     AllocateMiningJobToken(AllocateMiningJobToken<'a>),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     AllocateMiningJobTokenSuccess(AllocateMiningJobTokenSuccess<'a>),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     CommitMiningJob(CommitMiningJob<'a>),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     CommitMiningJobSuccess(CommitMiningJobSuccess<'a>),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     CommitMiningJobError(CommitMiningJobError<'a>),
     IdentifyTransactions(IdentifyTransactions),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     IdentifyTransactionsSuccess(IdentifyTransactionsSuccess<'a>),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     ProvideMissingTransactions(ProvideMissingTransactions<'a>),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     ProvideMissingTransactionsSuccess(ProvideMissingTransactionsSuccess<'a>),
 }
 
 #[derive(Clone, Debug)]
-#[cfg_attr(feature = "with_serde", derive(Serialize, Deserialize))]
 pub enum Mining<'a> {
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     CloseChannel(CloseChannel<'a>),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     NewExtendedMiningJob(NewExtendedMiningJob<'a>),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     NewMiningJob(NewMiningJob<'a>),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     OpenExtendedMiningChannel(OpenExtendedMiningChannel<'a>),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     OpenExtendedMiningChannelSuccess(OpenExtendedMiningChannelSuccess<'a>),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     OpenMiningChannelError(OpenMiningChannelError<'a>),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     OpenStandardMiningChannel(OpenStandardMiningChannel<'a>),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     OpenStandardMiningChannelSuccess(OpenStandardMiningChannelSuccess<'a>),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     Reconnect(Reconnect<'a>),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     SetCustomMiningJob(SetCustomMiningJob<'a>),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     SetCustomMiningJobError(SetCustomMiningJobError<'a>),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     SetCustomMiningJobSuccess(SetCustomMiningJobSuccess<'a>),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     SetExtranoncePrefix(SetExtranoncePrefix<'a>),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     SetGroupChannel(SetGroupChannel<'a>),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     SetNewPrevHash(MiningSetNewPrevHash<'a>),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     SetTarget(SetTarget<'a>),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     SubmitSharesError(SubmitSharesError<'a>),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     SubmitSharesExtended(SubmitSharesExtended<'a>),
     SubmitSharesStandard(SubmitSharesStandard),
     SubmitSharesSuccess(SubmitSharesSuccess),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     UpdateChannel(UpdateChannel<'a>),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     UpdateChannelError(UpdateChannelError<'a>),
 }
 
@@ -917,11 +875,8 @@ impl<'a> TryFrom<(u8, &'a mut [u8])> for Mining<'a> {
 }
 
 #[derive(Clone, Debug)]
-#[cfg_attr(feature = "with_serde", derive(Serialize, Deserialize))]
 pub enum MiningDeviceMessages<'a> {
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     Common(CommonMessages<'a>),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     Mining(Mining<'a>),
 }
 #[cfg(not(feature = "with_serde"))]
@@ -959,15 +914,10 @@ impl<'a> TryFrom<(u8, &'a mut [u8])> for MiningDeviceMessages<'a> {
 }
 
 #[derive(Clone, Debug)]
-#[cfg_attr(feature = "with_serde", derive(Serialize, Deserialize))]
 pub enum PoolMessages<'a> {
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     Common(CommonMessages<'a>),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     Mining(Mining<'a>),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     JobNegotiation(JobNegotiation<'a>),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     TemplateDistribution(TemplateDistribution<'a>),
 }
 
