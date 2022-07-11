@@ -34,18 +34,14 @@ mod set_new_prev_hash;
 mod submit_solution;
 //
 pub use coinbase_output_data_size::CoinbaseOutputDataSize;
-#[cfg(not(feature = "with_serde"))]
 pub use new_template::CNewTemplate;
 pub use new_template::NewTemplate;
-#[cfg(not(feature = "with_serde"))]
 pub use request_transaction_data::{CRequestTransactionDataError, CRequestTransactionDataSuccess};
 pub use request_transaction_data::{
     RequestTransactionData, RequestTransactionDataError, RequestTransactionDataSuccess,
 };
-#[cfg(not(feature = "with_serde"))]
 pub use set_new_prev_hash::CSetNewPrevHash;
 pub use set_new_prev_hash::SetNewPrevHash;
-#[cfg(not(feature = "with_serde"))]
 pub use submit_solution::CSubmitSolution;
 pub use submit_solution::SubmitSolution;
 
@@ -55,7 +51,6 @@ pub extern "C" fn _c_export_coinbase_out(_a: CoinbaseOutputDataSize) {}
 #[no_mangle]
 pub extern "C" fn _c_export_req_tx_data(_a: RequestTransactionData) {}
 
-#[cfg(not(feature = "with_serde"))]
 #[cfg(feature = "prop_test")]
 impl NewTemplate<'static> {
     pub fn from_gen(g: &mut Gen) -> Self {
@@ -123,7 +118,6 @@ impl RequestTransactionDataError<'static> {
     }
 }
 
-#[cfg(not(feature = "with_serde"))]
 #[cfg(feature = "prop_test")]
 impl RequestTransactionDataSuccess<'static> {
     pub fn from_gen(g: &mut Gen) -> Self {
@@ -140,7 +134,6 @@ impl RequestTransactionDataSuccess<'static> {
     }
 }
 
-#[cfg(not(feature = "with_serde"))]
 #[cfg(feature = "prop_test")]
 impl SetNewPrevHash<'static> {
     pub fn from_gen(g: &mut Gen) -> Self {
