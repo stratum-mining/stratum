@@ -1,6 +1,4 @@
-#[cfg(not(feature = "with_serde"))]
 use alloc::vec::Vec;
-#[cfg(not(feature = "with_serde"))]
 use binary_sv2::{
     binary_codec_sv2, binary_codec_sv2::CVec, decodable::DecodableField, decodable::FieldMarker,
     free_vec, Error, GetSize,
@@ -11,7 +9,6 @@ use const_sv2::{
     SV2_MINING_PROTOCOL_DISCRIMINANT, SV2_TEMPLATE_DISTR_PROTOCOL_DISCRIMINANT,
 };
 use core::convert::TryFrom;
-#[cfg(not(feature = "with_serde"))]
 use core::convert::TryInto;
 
 /// ## SetupConnection (Client -> Server)
@@ -35,18 +32,13 @@ pub struct SetupConnection<'decoder> {
     /// protocol from [`SetupConnection.protocol`] field has its own values/flags.
     pub flags: u32,
     /// ASCII text indicating the hostname or IP address.
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub endpoint_host: Str0255<'decoder>,
     /// Connecting port value
     pub endpoint_port: u16,
     //-- DEVICE INFORMATION --//
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub vendor: Str0255<'decoder>,
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub hardware_version: Str0255<'decoder>,
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub firmware: Str0255<'decoder>,
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub device_id: Str0255<'decoder>,
 }
 
@@ -111,7 +103,6 @@ pub fn has_work_selection(flags: u32) -> bool {
 }
 
 #[repr(C)]
-#[cfg(not(feature = "with_serde"))]
 #[derive(Debug, Clone)]
 pub struct CSetupConnection {
     pub protocol: Protocol,
@@ -126,9 +117,7 @@ pub struct CSetupConnection {
     pub device_id: CVec,
 }
 
-#[cfg(not(feature = "with_serde"))]
 impl<'a> CSetupConnection {
-    #[cfg(not(feature = "with_serde"))]
     #[allow(clippy::wrong_self_convention)]
     pub fn to_rust_rep_mut(&'a mut self) -> Result<SetupConnection<'a>, Error> {
         let endpoint_host: Str0255 = self.endpoint_host.as_mut_slice().try_into()?;
@@ -153,12 +142,10 @@ impl<'a> CSetupConnection {
 }
 
 #[no_mangle]
-#[cfg(not(feature = "with_serde"))]
 pub extern "C" fn free_setup_connection(s: CSetupConnection) {
     drop(s)
 }
 
-#[cfg(not(feature = "with_serde"))]
 impl Drop for CSetupConnection {
     fn drop(&mut self) {
         free_vec(&mut self.endpoint_host);
@@ -169,7 +156,6 @@ impl Drop for CSetupConnection {
     }
 }
 
-#[cfg(not(feature = "with_serde"))]
 impl<'a> From<SetupConnection<'a>> for CSetupConnection {
     fn from(v: SetupConnection) -> Self {
         Self {
@@ -222,21 +208,17 @@ pub struct SetupConnectionError<'decoder> {
     /// * ‘unsupported-feature-flags’
     /// * ‘unsupported-protocol’
     /// * ‘protocol-version-mismatch’
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub error_code: Str0255<'decoder>,
 }
 
 #[repr(C)]
-#[cfg(not(feature = "with_serde"))]
 #[derive(Debug, Clone)]
 pub struct CSetupConnectionError {
     flags: u32,
     error_code: CVec,
 }
 
-#[cfg(not(feature = "with_serde"))]
 impl<'a> CSetupConnectionError {
-    #[cfg(not(feature = "with_serde"))]
     #[allow(clippy::wrong_self_convention)]
     pub fn to_rust_rep_mut(&'a mut self) -> Result<SetupConnectionError<'a>, Error> {
         let error_code: Str0255 = self.error_code.as_mut_slice().try_into()?;
@@ -249,19 +231,16 @@ impl<'a> CSetupConnectionError {
 }
 
 #[no_mangle]
-#[cfg(not(feature = "with_serde"))]
 pub extern "C" fn free_setup_connection_error(s: CSetupConnectionError) {
     drop(s)
 }
 
-#[cfg(not(feature = "with_serde"))]
 impl Drop for CSetupConnectionError {
     fn drop(&mut self) {
         free_vec(&mut self.error_code);
     }
 }
 
-#[cfg(not(feature = "with_serde"))]
 impl<'a> From<SetupConnectionError<'a>> for CSetupConnectionError {
     fn from(v: SetupConnectionError<'a>) -> Self {
         Self {
@@ -275,7 +254,6 @@ impl<'a> From<SetupConnectionError<'a>> for CSetupConnectionError {
 /// JobNegotiationProtocol = [`SV2_JOB_NEG_PROTOCOL_DISCRIMINANT`],
 /// TemplateDistributionProtocol = [`SV2_TEMPLATE_DISTR_PROTOCOL_DISCRIMINANT`],
 /// JobDistributionProtocol = [`SV2_JOB_DISTR_PROTOCOL_DISCRIMINANT`],
-#[cfg_attr(feature = "with_serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
 #[allow(clippy::enum_variant_names)]
@@ -286,7 +264,6 @@ pub enum Protocol {
     JobDistributionProtocol = SV2_JOB_DISTR_PROTOCOL_DISCRIMINANT,
 }
 
-#[cfg(not(feature = "with_serde"))]
 impl<'a> From<Protocol> for binary_sv2::encodable::EncodableField<'a> {
     fn from(v: Protocol) -> Self {
         let val = v as u8;
@@ -294,7 +271,6 @@ impl<'a> From<Protocol> for binary_sv2::encodable::EncodableField<'a> {
     }
 }
 
-#[cfg(not(feature = "with_serde"))]
 impl<'decoder> binary_sv2::Decodable<'decoder> for Protocol {
     fn get_structure(
         _: &[u8],
@@ -326,7 +302,6 @@ impl TryFrom<u8> for Protocol {
     }
 }
 
-#[cfg(not(feature = "with_serde"))]
 impl GetSize for Protocol {
     fn get_size(&self) -> usize {
         1

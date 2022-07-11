@@ -451,7 +451,6 @@ dependencies = [
  "const_sv2",
  "quickcheck 1.0.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "quickcheck_macros 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "serde",
 ]
 
 [[package]]
@@ -943,7 +942,6 @@ version = "0.1.0"
 dependencies = [
  "binary_sv2",
  "const_sv2",
- "serde",
 ]
 
 [[package]]
