@@ -1,6 +1,4 @@
-#[cfg(not(feature = "with_serde"))]
 use alloc::vec::Vec;
-#[cfg(not(feature = "with_serde"))]
 use binary_sv2::binary_codec_sv2;
 use binary_sv2::{Deserialize, Serialize, Str0255};
 use core::convert::TryInto;
@@ -23,7 +21,6 @@ use core::convert::TryInto;
 pub struct Reconnect<'decoder> {
     /// When empty, downstream node attempts to reconnect to its present
     /// host.
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub new_host: Str0255<'decoder>,
     /// When 0, downstream node attempts to reconnect to its present port.
     pub new_port: u16,

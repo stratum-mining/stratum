@@ -1,6 +1,4 @@
-#[cfg(not(feature = "with_serde"))]
 use alloc::vec::Vec;
-#[cfg(not(feature = "with_serde"))]
 use binary_sv2::binary_codec_sv2;
 use binary_sv2::{Deserialize, Serialize, U256};
 use core::convert::TryInto;
@@ -22,6 +20,5 @@ pub struct SetTarget<'decoder> {
     pub channel_id: u32,
     /// Maximum value of produced hash that will be accepted by a server to
     /// accept shares.
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub maximum_target: U256<'decoder>,
 }

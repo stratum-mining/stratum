@@ -1,6 +1,4 @@
-#[cfg(not(feature = "with_serde"))]
 use alloc::vec::Vec;
-#[cfg(not(feature = "with_serde"))]
 use binary_sv2::binary_codec_sv2;
 use binary_sv2::{Deserialize, Seq0255, Seq064K, Serialize, Str032, B0255, B064K, U256};
 use core::convert::TryInto;
@@ -23,7 +21,6 @@ pub struct SetCustomMiningJob<'decoder> {
     /// the job that the Job Negotiator has negotiated with the
     /// pool. See the Job Negotiation Protocol for more
     /// details.
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub mining_job_token: B0255<'decoder>,
     /// Valid version field that reflects the current network
     /// consensus. The general purpose bits (as specified in
@@ -31,7 +28,6 @@ pub struct SetCustomMiningJob<'decoder> {
     /// node.
     pub version: u32,
     /// Previous block’s hash, found in the block header field.
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub prev_hash: U256<'decoder>,
     /// Smallest nTime value available for hashing.
     pub min_ntime: u32,
@@ -51,12 +47,10 @@ pub struct SetCustomMiningJob<'decoder> {
     pub coinbase_tx_value_remaining: u64,
     /// Bitcoin transaction outputs to be included as the last
     /// outputs in the coinbase transaction.
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub coinbase_tx_outputs: Seq064K<'decoder, B064K<'decoder>>,
     /// The locktime field in the coinbase transaction.
     pub coinbase_tx_locktime: u32,
     /// Merkle path hashes ordered from deepest.
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub merkle_path: Seq0255<'decoder, U256<'decoder>>,
     /// Size of extranonce in bytes that will be provided by the
     /// downstream node.
@@ -80,10 +74,8 @@ pub struct SetCustomMiningJobSuccess<'decoder> {
     /// Server’s identification of the mining job.
     pub job_id: u32,
     /// Prefix part of the coinbase transaction*.
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub coinbase_tx_prefix: B064K<'decoder>,
     /// Suffix part of the coinbase transaction.
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub coinbase_tx_suffix: B064K<'decoder>,
 }
 
@@ -102,6 +94,5 @@ pub struct SetCustomMiningJobError<'decoder> {
     /// MUST be provided by upstream in the response message.
     pub request_id: u32,
     /// Reason why the custom job has been rejected.
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub error_code: Str032<'decoder>,
 }

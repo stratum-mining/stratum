@@ -1,6 +1,4 @@
-#[cfg(not(feature = "with_serde"))]
 use alloc::vec::Vec;
-#[cfg(not(feature = "with_serde"))]
 use binary_sv2::binary_codec_sv2;
 use binary_sv2::{Deserialize, Seq064K, Serialize};
 use core::convert::TryInto;
@@ -27,6 +25,5 @@ pub struct SetGroupChannel<'decoder> {
     pub group_channel_id: u32,
     /// A sequence of opened standard channel IDs, for which the group
     /// channel is being redefined.
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub channel_ids: Seq064K<'decoder, u32>,
 }

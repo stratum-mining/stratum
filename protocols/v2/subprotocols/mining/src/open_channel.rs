@@ -1,6 +1,4 @@
-#[cfg(not(feature = "with_serde"))]
 use alloc::vec::Vec;
-#[cfg(not(feature = "with_serde"))]
 use binary_sv2::binary_codec_sv2;
 use binary_sv2::{Deserialize, Serialize, Str0255, Str032, U32AsRef, B032, U256};
 use core::convert::TryInto;
@@ -26,7 +24,6 @@ pub struct OpenStandardMiningChannel<'decoder> {
     /// node to identify/authenticate the client, e.g. “braiinstest.worker1”.
     /// Additional restrictions can be imposed by the upstream node (e.g. a
     /// pool). It is highly recommended that UTF-8 encoding is used.
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub user_identity: Str0255<'decoder>,
     /// [h/s] Expected hash rate of the device (or cumulative hashrate on the
     /// channel if multiple devices are connected downstream) in h/s.
@@ -37,7 +34,6 @@ pub struct OpenStandardMiningChannel<'decoder> {
     /// Maximum target which can be accepted by the connected device or
     /// devices. Server MUST accept the target or respond by sending
     /// OpenMiningChannel.Error message.
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub max_target: U256<'decoder>,
 }
 
@@ -81,12 +77,10 @@ pub struct OpenStandardMiningChannelSuccess<'decoder> {
     /// NewExtendedMiningJob.
     pub channel_id: u32,
     /// Initial target for the mining channel.
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub target: U256<'decoder>,
     /// Bytes used as implicit first part of extranonce for the scenario when
     /// extended job is served by the upstream node for a set of standard
     /// channels that belong to the same group.
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub extranonce_prefix: B032<'decoder>,
     /// Group channel into which the new channel belongs. See
     /// SetGroupChannel for details.
@@ -121,7 +115,6 @@ pub struct OpenExtendedMiningChannel<'decoder> {
     /// node to identify/authenticate the client, e.g. “braiinstest.worker1”.
     /// Additional restrictions can be imposed by the upstream node (e.g. a
     /// pool). It is highly recommended that UTF-8 encoding is used.
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub user_identity: Str0255<'decoder>,
     /// [h/s] Expected hash rate of the device (or cumulative hashrate on the
     /// channel if multiple devices are connected downstream) in h/s.
@@ -132,7 +125,6 @@ pub struct OpenExtendedMiningChannel<'decoder> {
     /// Maximum target which can be accepted by the connected device or
     /// devices. Server MUST accept the target or respond by sending
     /// OpenMiningChannel.Error message.
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub max_target: U256<'decoder>,
     /// Minimum size of extranonce needed by the device/node.
     pub min_extranonce_size: u16,
@@ -150,12 +142,10 @@ pub struct OpenExtendedMiningChannelSuccess<'decoder> {
     /// NewExtendedMiningJob.
     pub channel_id: u32,
     /// Initial target for the mining channel.
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub target: U256<'decoder>,
     /// Extranonce size (in bytes) set for the channel.
     pub extranonce_size: u16,
     /// Bytes used as implicit first part of extranonce
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub extranonce_prefix: B032<'decoder>,
 }
 
@@ -168,6 +158,5 @@ pub struct OpenMiningChannelError<'decoder> {
     /// Possible error codes:
     /// * ‘unknown-user’
     /// * ‘max-target-out-of-range’
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub error_code: Str032<'decoder>,
 }

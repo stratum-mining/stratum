@@ -1,6 +1,4 @@
-#[cfg(not(feature = "with_serde"))]
 use alloc::vec::Vec;
-#[cfg(not(feature = "with_serde"))]
 use binary_sv2::binary_codec_sv2;
 use binary_sv2::{Deserialize, Serialize, U256};
 use core::convert::TryInto;
@@ -23,7 +21,6 @@ pub struct SetNewPrevHash<'decoder> {
     /// transactions present in the current block template).
     pub job_id: u32,
     /// Previous block’s hash, block header field.
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub prev_hash: U256<'decoder>,
     /// Smallest nTime value available for hashing.
     pub min_ntime: u32,

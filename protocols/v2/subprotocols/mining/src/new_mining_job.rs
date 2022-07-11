@@ -1,6 +1,4 @@
-#[cfg(not(feature = "with_serde"))]
 use alloc::vec::Vec;
-#[cfg(not(feature = "with_serde"))]
 use binary_sv2::binary_codec_sv2;
 use binary_sv2::{Deserialize, Seq0255, Serialize, B032, B064K, U256};
 use core::convert::TryInto;
@@ -29,7 +27,6 @@ pub struct NewMiningJob<'decoder> {
     /// upstream node to set the BIP320 bits to any particular value.
     pub version: u32,
     /// Merkle root field as used in the bitcoin block header.
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub merkle_root: B032<'decoder>,
 }
 
@@ -72,7 +69,6 @@ pub struct NewExtendedMiningJob<'decoder> {
     /// If set to False, the downstream node MUST use version as it is
     /// defined by this message.
     pub version_rolling_allowed: bool,
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     /// Merkle path hashes ordered from deepest.
     pub merkle_path: Seq0255<'decoder, U256<'decoder>>,
     /// Prefix part of the coinbase transaction.
@@ -80,9 +76,7 @@ pub struct NewExtendedMiningJob<'decoder> {
     /// * For a *standard channel*: extranonce_prefix
     /// * For an *extended channel*: extranonce_prefix + extranonce (=N bytes), where N is the
     ///   negotiated extranonce space for the channel (OpenMiningChannel.Success.extranonce_size)
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub coinbase_tx_prefix: B064K<'decoder>,
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     /// Suffix part of the coinbase transaction.
     pub coinbase_tx_suffix: B064K<'decoder>,
 }

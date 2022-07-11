@@ -1,6 +1,4 @@
-#[cfg(not(feature = "with_serde"))]
 use alloc::vec::Vec;
-#[cfg(not(feature = "with_serde"))]
 use binary_sv2::binary_codec_sv2;
 use binary_sv2::{Deserialize, Serialize, Str032, B032};
 use core::convert::TryInto;
@@ -54,7 +52,6 @@ pub struct SubmitSharesExtended<'decoder> {
     /// extranonce_prefix + extranonce + coinbase_tx_suffix). The size of the
     /// provided extranonce MUST be equal to the negotiated extranonce size
     /// from channel opening.
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub extranonce: B032<'decoder>,
 }
 
@@ -94,6 +91,5 @@ pub struct SubmitSharesSuccess {
 pub struct SubmitSharesError<'decoder> {
     pub channel_id: u32,
     pub sequence_number: u32,
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub error_code: Str032<'decoder>,
 }
