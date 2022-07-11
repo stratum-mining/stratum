@@ -162,7 +162,7 @@ pub fn target_from_hash_rate(hash_per_second: f32, share_per_min: f32) -> U256<'
 #[cfg(test)]
 mod tests {
     // #[cfg(feature = "serde")]
-    use super::*;
+    // use super::*;
     use binary_sv2::{Seq0255, B064K, U256};
     // #[cfg(feature = "serde")]
     // use serde::Deserialize;
