@@ -1,6 +1,4 @@
-#[cfg(not(feature = "with_serde"))]
 use alloc::vec::Vec;
-#[cfg(not(feature = "with_serde"))]
 use binary_sv2::binary_codec_sv2;
 use binary_sv2::{Deserialize, Serialize, Str0255, B0255};
 use core::convert::TryInto;
@@ -16,7 +14,6 @@ pub struct AllocateMiningJobToken<'decoder> {
     /// identify/authenticate the client, e.g. “braiinstest”. Additional restrictions
     /// can be imposed by the pool. It is highly recommended that UTF-8
     /// encoding is used.
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub user_identifier: Str0255<'decoder>,
     /// Unique identifier for pairing the response.
     pub request_id: u32,
@@ -36,7 +33,6 @@ pub struct AllocateMiningJobTokenSuccess<'decoder> {
     /// Token that makes the client eligible for committing a mining job for
     /// approval/transaction negotiation or for identifying custom mining job
     /// on mining connection.
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub mining_job_token: B0255<'decoder>,
     /// The maximum additional serialized bytes which the pool will add in
     /// coinbase transaction outputs. See discussion in the Template

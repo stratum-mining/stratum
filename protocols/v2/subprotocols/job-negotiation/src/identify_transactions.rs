@@ -1,6 +1,4 @@
-#[cfg(not(feature = "with_serde"))]
 use alloc::vec::Vec;
-#[cfg(not(feature = "with_serde"))]
 use binary_sv2::binary_codec_sv2;
 use binary_sv2::{Deserialize, Seq064K, Serialize, U256};
 use core::convert::TryInto;
@@ -27,6 +25,5 @@ pub struct IdentifyTransactionsSuccess<'decoder> {
     pub request_id: u32,
     /// The full list of transaction data hashes used to build the mining job in
     /// the corresponding CommitMiningJob message.
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub tx_hash_list: Seq064K<'decoder, U256<'decoder>>,
 }

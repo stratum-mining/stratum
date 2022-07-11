@@ -1,6 +1,4 @@
-#[cfg(not(feature = "with_serde"))]
 use alloc::vec::Vec;
-#[cfg(not(feature = "with_serde"))]
 use binary_sv2::binary_codec_sv2;
 use binary_sv2::{Deserialize, Seq064K, Serialize, Str0255, B0255, B064K, U256};
 use core::convert::TryInto;
@@ -25,7 +23,6 @@ pub struct CommitMiningJob<'decoder> {
     /// Up to 8 bytes (not including the length byte) which are to be
     /// placed at the beginning of the coinbase field in the coinbase
     /// transaction.
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub coinbase_prefix: B0255<'decoder>,
     /// The coinbase transaction input’s nSequence field.
     pub coinbase_tx_input_n_sequence: u32,
@@ -35,7 +32,6 @@ pub struct CommitMiningJob<'decoder> {
     pub coinbase_tx_value_remaining: u64,
     /// Bitcoin transaction outputs to be included as the last outputs
     /// in the coinbase transaction.
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub coinbase_tx_outputs: Seq064K<'decoder, B064K<'decoder>>,
     /// The locktime field in the coinbase transaction.
     pub coinbase_tx_locktime: u32,
@@ -49,15 +45,12 @@ pub struct CommitMiningJob<'decoder> {
     /// tx_short_hash_nonce)) upstream node to check against its
     /// mempool. Does not include the coinbase transaction (as there
     /// is no corresponding full data for it yet)
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub tx_short_hash_list: Seq064K<'decoder, u64>,
     /// Hash of the full sequence of SHA256(transaction_data)
     /// contained in the transaction_hash_list.
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub tx_hash_list_hash: U256<'decoder>,
     /// Extra data which the Pool may require to validate the work (as
     /// defined in the Template Distribution Protocol).
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub excess_data: B064K<'decoder>,
 }
 
@@ -75,7 +68,6 @@ pub struct CommitMiningJobSuccess<'decoder> {
     /// using the original token), the client MUST send a SetCustomMiningJob
     /// message on each Mining Protocol client which wishes to mine using the
     /// negotiated job.
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub new_mining_job_token: B0255<'decoder>,
 }
 
@@ -87,9 +79,7 @@ pub struct CommitMiningJobSuccess<'decoder> {
 pub struct CommitMiningJobError<'decoder> {
     /// Identifier of the original request.
     pub request_id: u32,
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub error_code: Str0255<'decoder>,
     /// Optional data providing further details to given error.
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub error_details: B064K<'decoder>,
 }

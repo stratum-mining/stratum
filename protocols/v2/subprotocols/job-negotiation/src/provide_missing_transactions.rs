@@ -1,6 +1,4 @@
-#[cfg(not(feature = "with_serde"))]
 use alloc::vec::Vec;
-#[cfg(not(feature = "with_serde"))]
 use binary_sv2::binary_codec_sv2;
 use binary_sv2::{Deserialize, Seq064K, Serialize, B016M};
 use core::convert::TryInto;
@@ -12,7 +10,6 @@ pub struct ProvideMissingTransactions<'decoder> {
     /// A list of unrecognized transactions that need to be supplied by
     /// the Job Negotiator in full. They are specified by their position inthe original CommitMiningJob message, 0-indexed not including
     /// the coinbase transaction.
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub unknown_tx_position_list: Seq064K<'decoder, u16>,
 }
 
@@ -28,6 +25,5 @@ pub struct ProvideMissingTransactionsSuccess<'decoder> {
     /// List of full transactions as requested by
     /// ProvideMissingTransactions, in the order they were requested
     /// in ProvideMissingTransactions.
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub transaction_list: Seq064K<'decoder, B016M<'decoder>>,
 }
