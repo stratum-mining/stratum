@@ -18,3 +18,4 @@ serde = { version = "1.0.89", features = ["derive"], default-features = false, o
 async_std = ["async-std", "async-channel", "binary_sv2", "codec_sv2"]
 with_tokio = ["tokio", "async-channel", "binary_sv2", "codec_sv2"]
 with_serde = ["binary_sv2/with_serde", "serde", "codec_sv2/with_serde"]
+with_buffer_pool = ["codec_sv2/with_buffer_pool"]
