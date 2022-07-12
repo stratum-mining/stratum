@@ -227,19 +227,16 @@ extern "C" {
 ///
 /// # Safety
 ///
-/// TODO
 CVec cvec_from_buffer(const uint8_t *data, uintptr_t len);
 
 /// # Safety
 ///
-/// TODO
 CVec2 init_cvec2();
 
 /// The caller is reponsible for NOT adding duplicate cvecs to the cvec2 structure,
 /// as this can lead to double free errors when the message is dropped.
 /// # Safety
 ///
-/// TODO
 void cvec2_push(CVec2 *cvec2, CVec cvec);
 
 void _c_export_u24(U24 _a);
@@ -268,7 +265,7 @@ enum class Protocol : uint8_t {
 
 /// ## ChannelEndpointChanged (Server -> Client)
 /// When a channel’s upstream or downstream endpoint changes and that channel had previously
-/// sent messages with [channel_msg](TODO) bitset of unknown extension_type, the intermediate proxy
+/// sent messages with [channel_msg] bitset of unknown extension_type, the intermediate proxy
 /// MUST send a [`ChannelEndpointChanged`] message. Upon receipt thereof, any extension state
 /// (including version negotiation and the presence of support for a given extension) MUST be
 /// reset and version/presence negotiation must begin again.
@@ -424,6 +421,7 @@ enum class Sv2Error {
   EncoderBusy,
   Todo,
   Unknown,
+  InvalidSv2Frame,
 };
 
 struct DecoderWrapper;
@@ -541,7 +539,6 @@ void free_decoder(DecoderWrapper *decoder);
 
 /// # Safety
 ///
-/// TODO
 CResult<CVec, Sv2Error> encode(CSv2Message *message, EncoderWrapper *encoder);
 
 DecoderWrapper *new_decoder();

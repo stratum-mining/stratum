@@ -37,13 +37,13 @@ pub const MESSAGE_TYPE_SUBMIT_SOLUTION: u8 = 0x76;
 // JOB NEGOTIATION PROTOCOL MESSAGES TYPES
 pub const MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN: u8 = 0x50;
 pub const MESSAGE_TYPE_ALLOCATE_MINING_JOB_SUCCESS: u8 = 0x51;
-// pub const MESSAGE_TYPE_ALLOCATE_MINING_JOB_ERROR: u8 = 0x52; // TODO is on the message type
+// pub const MESSAGE_TYPE_ALLOCATE_MINING_JOB_ERROR: u8 = 0x52; is on the message type
 // table but is not defined as message
 pub const MESSAGE_TYPE_IDENTIFY_TRANSACTIONS: u8 = 0x53;
 pub const MESSAGE_TYPE_IDENTIFY_TRANSACTIONS_SUCCESS: u8 = 0x54;
 pub const MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTION: u8 = 0x55;
 pub const MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTION_SUCCESS: u8 = 0x56;
-// TODO not in messages type table !!!
+// not in messages type table !!!
 pub const MESSAGE_TYPE_COMMIT_MINING_JOB: u8 = 0x57;
 pub const MESSAGE_TYPE_COMMIT_MINING_JOB_SUCCESS: u8 = 0x58;
 pub const MESSAGE_TYPE_COMMIT_MINING_JOB_ERROR: u8 = 0x59;
@@ -53,7 +53,7 @@ pub const MESSAGE_TYPE_NEW_EXTENDED_MINING_JOB: u8 = 0x1f;
 pub const MESSAGE_TYPE_NEW_MINING_JOB: u8 = 0x1e;
 pub const MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL: u8 = 0x13;
 pub const MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL_SUCCES: u8 = 0x14;
-// TODO in the spec page 21 is defined OpenMiningChannelError valid for both extended and standard
+// in the spec page 21 is defined OpenMiningChannelError valid for both extended and standard
 // messages but in the spec page 40 are defined two different message types for
 // OpenStandardMiningChannelError and OpenExtendedMiningChannelError
 pub const MESSAGE_TYPE_OPEN_MINING_CHANNEL_ERROR: u8 = 0x12;
@@ -90,13 +90,13 @@ pub const CHANNEL_BIT_SUBMIT_SOLUTION: bool = false;
 // JOB NEGOTIATION PROTOCOL MESSAGES CHANNEL BIT
 pub const CHANNEL_BIT_ALLOCATE_MINING_JOB_TOKEN: bool = false;
 pub const CHANNEL_BIT_ALLOCATE_MINING_JOB_SUCCESS: bool = false;
-pub const CHANNEL_BIT_ALLOCATE_MINING_JOB_ERROR: bool = false; // TODO is on the message type
+pub const CHANNEL_BIT_ALLOCATE_MINING_JOB_ERROR: bool = false; // is on the message type
                                                                // table but is not defined as message
 pub const CHANNEL_BIT_IDENTIFY_TRANSACTIONS: bool = false;
 pub const CHANNEL_BIT_IDENTIFY_TRANSACTIONS_SUCCESS: bool = false;
 pub const CHANNEL_BIT_PROVIDE_MISSING_TRANSACTION: bool = false;
 pub const CHANNEL_BIT_PROVIDE_MISSING_TRANSACTION_SUCCESS: bool = false;
-// TODO not in messages type table !!!
+// Not in messages type table !!!
 pub const CHANNEL_BIT_COMMIT_MINING_JOB: bool = false;
 pub const CHANNEL_BIT_COMMIT_MINING_JOB_SUCCESS: bool = false;
 pub const CHANNEL_BIT_COMMIT_MINING_JOB_ERROR: bool = false;
@@ -106,7 +106,7 @@ pub const CHANNEL_BIT_NEW_EXTENDED_MINING_JOB: bool = true;
 pub const CHANNEL_BIT_NEW_MINING_JOB: bool = true;
 pub const CHANNEL_BIT_OPEN_EXTENDED_MINING_CHANNEL: bool = false;
 pub const CHANNEL_BIT_OPEN_EXTENDED_MINING_CHANNEL_SUCCES: bool = false;
-// TODO in the spec page 21 is defined OpenMiningChannelError valid for both extended and standard
+// in the spec page 21 is defined OpenMiningChannelError valid for both extended and standard
 // messages but in the spec page 40 are defined two different message types for
 // OpenStandardMiningChannelError and OpenExtendedMiningChannelError
 pub const CHANNEL_BIT_OPEN_MINING_CHANNEL_ERROR: bool = false;

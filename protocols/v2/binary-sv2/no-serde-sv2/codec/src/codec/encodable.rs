@@ -1,6 +1,6 @@
 use crate::{
     codec::GetSize,
-    datatypes::{Bytes, Signature, Sv2DataType, B016M, B0255, B032, B064K, U24, U256},
+    datatypes::{Signature, Sv2DataType, U32AsRef, B016M, B0255, B032, B064K, U24, U256},
     Error,
 };
 use alloc::vec::Vec;
@@ -42,13 +42,13 @@ pub enum EncodablePrimitive<'a> {
     U256(U256<'a>),
     Signature(Signature<'a>),
     U32(u32),
+    U32AsRef(U32AsRef<'a>),
     F32(f32),
     U64(u64),
     B032(B032<'a>),
     B0255(B0255<'a>),
     B064K(B064K<'a>),
     B016M(B016M<'a>),
-    Bytes(Bytes<'a>),
 }
 
 impl<'a> EncodablePrimitive<'a> {
@@ -62,13 +62,13 @@ impl<'a> EncodablePrimitive<'a> {
             Self::U256(v) => v.to_slice(dst),
             Self::Signature(v) => v.to_slice(dst),
             Self::U32(v) => v.to_slice(dst),
+            Self::U32AsRef(v) => v.to_slice(dst),
             Self::F32(v) => v.to_slice(dst),
             Self::U64(v) => v.to_slice(dst),
             Self::B032(v) => v.to_slice(dst),
             Self::B0255(v) => v.to_slice(dst),
             Self::B064K(v) => v.to_slice(dst),
             Self::B016M(v) => v.to_slice(dst),
-            Self::Bytes(v) => v.to_slice(dst),
         }
     }
 
@@ -83,13 +83,13 @@ impl<'a> EncodablePrimitive<'a> {
             Self::U256(v) => v.to_writer_(writer),
             Self::Signature(v) => v.to_writer_(writer),
             Self::U32(v) => v.to_writer_(writer),
+            Self::U32AsRef(v) => v.to_writer_(writer),
             Self::F32(v) => v.to_writer_(writer),
             Self::U64(v) => v.to_writer_(writer),
             Self::B032(v) => v.to_writer_(writer),
             Self::B0255(v) => v.to_writer_(writer),
             Self::B064K(v) => v.to_writer_(writer),
             Self::B016M(v) => v.to_writer_(writer),
-            Self::Bytes(v) => v.to_writer_(writer),
         }
     }
 }
@@ -105,13 +105,13 @@ impl<'a> GetSize for EncodablePrimitive<'a> {
             Self::U256(v) => v.get_size(),
             Self::Signature(v) => v.get_size(),
             Self::U32(v) => v.get_size(),
+            Self::U32AsRef(v) => v.get_size(),
             Self::F32(v) => v.get_size(),
             Self::U64(v) => v.get_size(),
             Self::B032(v) => v.get_size(),
             Self::B0255(v) => v.get_size(),
             Self::B064K(v) => v.get_size(),
             Self::B016M(v) => v.get_size(),
-            Self::Bytes(v) => v.get_size(),
         }
     }
 }

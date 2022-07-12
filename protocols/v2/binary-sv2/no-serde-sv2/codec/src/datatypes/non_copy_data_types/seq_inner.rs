@@ -9,7 +9,7 @@ use crate::{
 };
 use core::marker::PhantomData;
 
-// TODO add test for that implement also with serde!!!!
+// TODO add test for that and implement it also with serde!!!!
 impl<'a, const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize>
     Seq0255<'a, super::inner::Inner<'a, false, SIZE, HEADERSIZE, MAXSIZE>>
 {
@@ -21,7 +21,7 @@ impl<'a, const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize>
     }
 }
 
-// TODO add test for that implement also with serde!!!!
+// TODO add test for that and implement it also with serde!!!!
 impl<'a, const SIZE: usize> Seq0255<'a, super::inner::Inner<'a, true, SIZE, 0, 0>> {
     pub fn to_vec(&self) -> Vec<Vec<u8>> {
         self.0.iter().map(|x| x.to_vec()).collect()
@@ -148,7 +148,8 @@ macro_rules! impl_codec_for_sequence {
                                     T::from_decoded_fields(vec![DecodableField::Primitive(p)]);
                                 inner.push(element?)
                             }
-                            DecodableField::Struct(_) => unimplemented!(),
+                            // A struct always recursivly call decode until it reach a primitive
+                            DecodableField::Struct(_) => unreachable!(),
                         }
                     }
                     i += 1;

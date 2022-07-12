@@ -5,13 +5,13 @@
 //! u16      <-> U16
 //! U24      <-> U24
 //! u32      <-> u32
-//! f32      <-> f32 // todo not in the spec but used
-//! u64      <-> u64 // todo not in the spec but used
+//! f32      <-> f32 // not in the spec but used
+//! u64      <-> u64 // not in the spec but used
 //! U256     <-> U256
 //! Str0255  <-> STRO_255
-//! Str032   <-> STRO_32 // todo not in the spec but used
+//! Str032   <-> STRO_32 // not in the spec but used
 //! Signature<-> SIGNATURE
-//! B032     <-> B0_32 // todo not in the spec but used
+//! B032     <-> B0_32 // not in the spec but used
 //! B0255    <-> B0_255
 //! B064K    <-> B0_64K
 //! B016M    <-> B0_16M
@@ -20,16 +20,13 @@
 //! Seq0255  <-> SEQ0_255[T]
 //! Seq064K  <-> SEQ0_64K[T]
 //! ```
-#![cfg_attr(feature = "no_std", no_std)]
-use core::convert::TryInto;
-
 #[cfg(not(feature = "no_std"))]
 use std::io::{Error as E, ErrorKind};
 
 mod codec;
 mod datatypes;
 pub use datatypes::{
-    Bytes, PubKey, Seq0255, Seq064K, Signature, Str0255, Str032, B016M, B0255, B032, B064K, U24,
+    PubKey, Seq0255, Seq064K, Signature, Str0255, Str032, U32AsRef, B016M, B0255, B032, B064K, U24,
     U256,
 };
 
@@ -88,6 +85,10 @@ pub enum Error {
     #[cfg(not(feature = "no_std"))]
     IoError(E),
     ReadError(usize, usize),
+    VoidFieldMarker,
+    NoDecodableFieldPassed,
+    ValueIsNotAValidProtocol(u8),
+    UnknownMessageType(u8),
     Todo,
 }
 
@@ -108,12 +109,10 @@ impl GetSize for Vec<u8> {
     }
 }
 
+// Only needed for implement encodable for Frame never called
 impl<'a> From<Vec<u8>> for EncodableField<'a> {
-    fn from(v: Vec<u8>) -> Self {
-        let bytes: Bytes = v.try_into().unwrap();
-        crate::encodable::EncodableField::Primitive(
-            crate::codec::encodable::EncodablePrimitive::Bytes(bytes),
-        )
+    fn from(_v: Vec<u8>) -> Self {
+        unreachable!()
     }
 }
 
@@ -169,7 +168,6 @@ impl From<&[u8]> for CVec {
 ///
 /// # Safety
 ///
-/// TODO
 #[no_mangle]
 pub unsafe extern "C" fn cvec_from_buffer(data: *const u8, len: usize) -> CVec {
     let input = std::slice::from_raw_parts(data, len);
@@ -257,7 +255,6 @@ impl<'a, const A: bool, const B: usize, const C: usize, const D: usize>
 
 /// # Safety
 ///
-/// TODO
 #[no_mangle]
 pub unsafe extern "C" fn init_cvec2() -> CVec2 {
     let mut buffer = Vec::<CVec>::new();
@@ -278,7 +275,6 @@ pub unsafe extern "C" fn init_cvec2() -> CVec2 {
 /// as this can lead to double free errors when the message is dropped.
 /// # Safety
 ///
-/// TODO
 #[no_mangle]
 pub unsafe extern "C" fn cvec2_push(cvec2: &mut CVec2, cvec: CVec) {
     let mut buffer: Vec<CVec> = Vec::from_raw_parts(cvec2.data, cvec2.len, cvec2.capacity);

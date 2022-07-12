@@ -59,7 +59,7 @@ pub trait Frame<'a, T: Serialize + GetSize>: Sized {
 pub struct Sv2Frame<T, B> {
     header: Header,
     payload: Option<T>,
-    /// Serializsed header + payload (TODO check if this is correct)
+    /// Serializsed header + payload
     serialized: Option<B>,
 }
 
@@ -75,6 +75,7 @@ impl<T, B> Default for Sv2Frame<T, B> {
 
 #[derive(Debug)]
 pub struct NoiseFrame {
+    #[allow(dead_code)]
     header: u16,
     payload: Vec<u8>,
 }
@@ -89,19 +90,22 @@ impl<'a, T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> Frame<'a, T> for 
     /// itself
     #[inline]
     fn serialize(self, dst: &mut Self::Buffer) -> Result<(), binary_sv2::Error> {
-        if self.serialized.is_some() {
-            *dst = self.serialized.unwrap();
+        if let Some(serialized) = self.serialized {
+            *dst = serialized;
             Ok(())
-        } else {
+        } else if let Some(payload) = self.payload {
             #[cfg(not(feature = "with_serde"))]
             to_writer(self.header, dst.as_mut())?;
             #[cfg(not(feature = "with_serde"))]
-            to_writer(self.payload.unwrap(), &mut dst.as_mut()[Header::SIZE..])?;
+            to_writer(payload, &mut dst.as_mut()[Header::SIZE..])?;
             #[cfg(feature = "with_serde")]
             to_writer(&self.header, dst.as_mut())?;
             #[cfg(feature = "with_serde")]
-            to_writer(&self.payload.unwrap(), &mut dst.as_mut()[Header::SIZE..])?;
+            to_writer(payload, &mut dst.as_mut()[Header::SIZE..])?;
             Ok(())
+        } else {
+            // Sv2Frame always has a payload or a serialized payload
+            panic!("Impossible state")
         }
     }
 
@@ -109,12 +113,14 @@ impl<'a, T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> Frame<'a, T> for 
     // deserialized it contain the rust type that represant the Sv2 message. If the type is
     // deserialized self.paylos.is_some() is true. To get the serialized payload the inner type
     // should be serialized and this function should never be used, cause is intended as a fast
-    // function that return a reference to an already serialized payload. For that for now is a todo.
+    // function that return a reference to an already serialized payload. For that the function
+    // panic.
     fn payload(&'a mut self) -> &'a mut [u8] {
-        if self.payload.is_some() {
-            todo!()
+        if let Some(serialized) = self.serialized.as_mut() {
+            &mut serialized.as_mut()[Header::SIZE..]
         } else {
-            &mut self.serialized.as_mut().unwrap().as_mut()[Header::SIZE..]
+            // panic here is the expected behaviour
+            panic!()
         }
     }
 
@@ -140,7 +146,8 @@ impl<'a, T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> Frame<'a, T> for 
 
     #[inline]
     fn from_bytes_unchecked(mut bytes: Self::Buffer) -> Self {
-        let header = Header::from_bytes(bytes.as_mut()).unwrap();
+        // Unchecked function caller is supposed to already know that the passed bytes are valid
+        let header = Header::from_bytes(bytes.as_mut()).expect("Invalid header");
         Self {
             header,
             payload: None,
@@ -164,10 +171,13 @@ impl<'a, T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> Frame<'a, T> for 
 
     #[inline]
     fn encoded_length(&self) -> usize {
-        if self.serialized.is_some() {
-            self.serialized.as_ref().unwrap().as_ref().len()
+        if let Some(serialized) = self.serialized.as_ref() {
+            serialized.as_ref().len()
+        } else if let Some(payload) = self.payload.as_ref() {
+            payload.get_size() + Header::SIZE
         } else {
-            self.payload.as_ref().unwrap().get_size() + Header::SIZE
+            // Sv2Frame always has a payload or a serialized payload
+            panic!("Impossible state")
         }
     }
 
@@ -219,12 +229,9 @@ impl<'a> Frame<'a, Vec<u8>> for NoiseFrame {
         None
     }
 
-    /// Try to build a Frame frame from raw bytes.
-    /// It return the frame or the number of the bytes needed to complete the frame
-    /// The resulting frame is just a header plus a payload with the right number of bytes nothing
-    /// is said about the correctness of the payload
-    fn from_bytes(_bytes: Self::Buffer) -> Result<Self, isize> {
-        unimplemented!()
+    // For a NoiseFrame from_bytes is the same of from_bytes_unchecked
+    fn from_bytes(bytes: Self::Buffer) -> Result<Self, isize> {
+        Ok(Self::from_bytes_unchecked(bytes))
     }
 
     #[inline]
@@ -299,16 +306,7 @@ pub enum EitherFrame<T, B> {
     Sv2(Sv2Frame<T, B>),
 }
 
-//impl
-
 impl<T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> EitherFrame<T, B> {
-    //pub fn serialize(mut self, dst: &mut B) -> Result<(), serde_sv2::Error> {
-    //    match self {
-    //        Self::HandShake(frame) => todo!(),
-    //        Self::Sv2(frame) => frame.serialize(dst),
-    //    }
-    //}
-
     pub fn encoded_length(&self) -> usize {
         match &self {
             Self::HandShake(frame) => frame.encoded_length(),
