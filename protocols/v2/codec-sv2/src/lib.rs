@@ -53,12 +53,12 @@ impl HandshakeRole {
         match self {
             Self::Initiator(stepper) => {
                 let message = stepper.step(in_msg).map_err(|_| ())?.inner();
-                Ok(HandShakeFrame::from_message(message, 0, 0, false).ok_or(())?)
+                Ok(HandShakeFrame::from_message(message.into(), 0, 0, false).ok_or(())?)
             }
 
             Self::Responder(stepper) => {
                 let message = stepper.step(in_msg).map_err(|_| ())?.inner();
-                Ok(HandShakeFrame::from_message(message, 0, 0, false).ok_or(())?)
+                Ok(HandShakeFrame::from_message(message.into(), 0, 0, false).ok_or(())?)
             }
         }
     }
