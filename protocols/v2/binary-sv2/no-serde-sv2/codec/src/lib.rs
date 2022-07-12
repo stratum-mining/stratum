@@ -116,6 +116,13 @@ impl<'a> From<Vec<u8>> for EncodableField<'a> {
     }
 }
 
+#[cfg(feature = "with_buffer_pool")]
+impl<'a> From<buffer_sv2::Slice> for EncodableField<'a> {
+    fn from(_v: buffer_sv2::Slice) -> Self {
+        unreachable!()
+    }
+}
+
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
 pub struct CVec {
