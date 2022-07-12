@@ -1,6 +1,5 @@
 use alloc::string::String;
 use core::{convert::TryFrom, fmt};
-// use serde::{Deserialize, Serialize};
 use std::time::SystemTime;
 
 use crate::{
@@ -19,7 +18,6 @@ macro_rules! impl_basic_type {
         /// encoding
         // removed (Deserialize, Serialize) from this line)
         #[derive( Debug, $( $tr ), *)]
-        // #[serde(into = "String", try_from = "String")]
         pub struct $encoded_struct_type {
             inner: $inner_encoded_struct_type,
         }
@@ -40,7 +38,6 @@ macro_rules! impl_basic_type {
         // removed (Deserialize, Serialize) from this line)
         #[derive( Debug, Clone, PartialEq)]
         pub struct $format_struct_type {
-            // #[serde(rename = $format_struct_inner_rename)]
             inner: $encoded_struct_type,
         }
         impl $format_struct_type {
@@ -53,20 +50,6 @@ macro_rules! impl_basic_type {
                 self.inner.into_inner()
             }
         }
-        // impl TryFrom<String> for $format_struct_type {
-            // type Error = Error;
-
-            // fn try_from(value: String) -> Result<Self> {
-                // serde_json::from_str(value.as_str()).map_err(|_| Error {})
-            // }
-        // }
-        // /// Helper serializer into string
-        // impl TryFrom<$format_struct_type> for String {
-            // type Error = Error;
-            // fn try_from(value: $format_struct_type) -> Result<String> {
-                // serde_json::to_string_pretty(&value).map_err(|_| Error {})
-            // }
-        // }
     };
 }
 
@@ -244,21 +227,6 @@ impl Certificate {
         }
     }
 }
-
-// impl TryFrom<String> for Certificate {
-// type Error = Error;
-
-// fn try_from(value: String) -> Result<Self> {
-// serde_json::from_str(value.as_str()).map_err(|_| Error {})
-// }
-// }
-
-// impl TryFrom<Certificate> for String {
-// type Error = Error;
-// fn try_from(value: Certificate) -> Result<String> {
-// serde_json::to_string_pretty(&value).map_err(|_| Error {})
-// }
-// }
 
 #[cfg(test)]
 pub mod test {
