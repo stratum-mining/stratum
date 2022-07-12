@@ -12,9 +12,7 @@ async-channel = { version = "1.5.1", optional = true }
 tokio = { version = "1", features = ["full"], optional = true }
 binary_sv2 = { path = "../../protocols/v2/binary-sv2/binary-sv2", optional = true }
 codec_sv2 = { path = "../../protocols/v2/codec-sv2", features=["noise_sv2"], optional = true }
-serde = { version = "1.0.89", features = ["derive"], default-features = false, optional = true }
 
 [features]
 async_std = ["async-std", "async-channel", "binary_sv2", "codec_sv2"]
 with_tokio = ["tokio", "async-channel", "binary_sv2", "codec_sv2"]
-# with_serde = ["binary_sv2/with_serde", "serde", "codec_sv2/with_serde"]

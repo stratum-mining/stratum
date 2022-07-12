@@ -1078,7 +1078,6 @@ dependencies = [
  "async-std",
  "binary_sv2",
  "codec_sv2",
- "serde",
  "tokio",
 ]
 
