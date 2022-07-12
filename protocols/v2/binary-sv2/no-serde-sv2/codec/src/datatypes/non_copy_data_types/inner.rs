@@ -23,7 +23,7 @@ pub enum Inner<
     Owned(Vec<u8>),
 }
 
-// TODO add test for that and implement it also with serde!!!!
+// TODO add test for that
 impl<'a, const SIZE: usize> Inner<'a, true, SIZE, 0, 0> {
     pub fn to_vec(&self) -> Vec<u8> {
         match self {
@@ -44,7 +44,7 @@ impl<'a, const SIZE: usize> Inner<'a, true, SIZE, 0, 0> {
         }
     }
 }
-// TODO add test for that and implement it also with serde!!!!
+// TODO add test for that
 impl<'a, const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize>
     Inner<'a, false, SIZE, HEADERSIZE, MAXSIZE>
 {
