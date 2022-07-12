@@ -277,7 +277,7 @@ impl UpstreamMiningNode {
         );
         match next_message_to_send {
             Ok(SendTo::RelaySameMessage(downstream)) => {
-                let sv2_frame: codec_sv2::Sv2Frame<MiningDeviceMessages, Vec<u8>> =
+                let sv2_frame: codec_sv2::Sv2Frame<MiningDeviceMessages, buffer_sv2::Slice> =
                     incoming.map(|payload| payload.try_into().unwrap());
 
                 DownstreamMiningNode::send(downstream.clone(), sv2_frame)
@@ -307,7 +307,7 @@ impl UpstreamMiningNode {
                                 .unwrap();
                         }
                         SendTo::RelaySameMessage(downstream_mutex) => {
-                            let frame: codec_sv2::Sv2Frame<MiningDeviceMessages, Vec<u8>> =
+                            let frame: codec_sv2::Sv2Frame<MiningDeviceMessages, buffer_sv2::Slice> =
                                 incoming.clone().map(|payload| payload.try_into().unwrap());
                             DownstreamMiningNode::send(downstream_mutex, frame)
                                 .await
