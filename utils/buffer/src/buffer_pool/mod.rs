@@ -210,6 +210,7 @@ impl InnerMemory {
         match self.raw_len {
             0 => self.raw_offset = 0,
             _ => {
+                self.pool.copy_within(self.raw_offset..self.raw_offset+self.raw_len, 0);
                 self.raw_offset = 0;
             }
         }
@@ -333,7 +334,7 @@ impl BufferPool<BufferFromSystemMemory> {
             mode: PoolMode::Back,
             shared_state: SharedState::new(),
             inner_memory: InnerMemory::new(capacity),
-            system_memory: BufferFromSystemMemory::new(),
+            system_memory: BufferFromSystemMemory::default(),
         }
     }
 }
