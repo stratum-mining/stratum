@@ -1096,8 +1096,6 @@ dependencies = [
  "const_sv2",
  "ed25519-dalek",
  "rand 0.7.3",
- "serde",
- "serde_json",
  "snow",
 ]
 
