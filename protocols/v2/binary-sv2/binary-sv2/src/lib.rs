@@ -18,11 +18,14 @@ pub fn clone_message<T: Serialize>(_: T) -> T {
 
 #[cfg(not(feature = "with_serde"))]
 pub fn u256_from_int<V: Into<u64>>(value: V) -> U256<'static> {
+    // initialize u256 as a bytes vec of len 24
     let mut u256 = vec![0_u8; 24];
     let val: u64 = value.into();
     for v in &(val.to_le_bytes()) {
+        // add 8 bytes to u256
         u256.push(*v)
     }
+    // Always safe cause u256 is 24 + 8 (32) bytes
     let u256: U256 = u256.try_into().unwrap();
     u256
 }
@@ -30,33 +33,6 @@ pub fn u256_from_int<V: Into<u64>>(value: V) -> U256<'static> {
 #[cfg(test)]
 mod test {
     use super::*;
-
-    mod test_bytes {
-        use super::*;
-        use core::convert::TryInto;
-
-        #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
-        struct Test<'decoder> {
-            #[cfg_attr(feature = "with_serde", serde(borrow))]
-            a: Bytes<'decoder>,
-        }
-
-        #[test]
-        fn test_struct() {
-            let mut bytes = [98; 890];
-            let a: Bytes = (&mut bytes[..]).try_into().unwrap();
-            let expected = Test { a };
-
-            #[cfg(not(feature = "with_serde"))]
-            let mut bytes = to_bytes(expected.clone()).unwrap();
-            #[cfg(feature = "with_serde")]
-            let mut bytes = to_bytes(&expected.clone()).unwrap();
-
-            let deserialized: Test = from_bytes(&mut bytes[..]).unwrap();
-
-            assert_eq!(deserialized, expected);
-        }
-    }
 
     mod test_struct {
         use super::*;

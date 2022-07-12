@@ -5,6 +5,7 @@ use crate::{
     Error,
 };
 use core::convert::TryFrom;
+use std::convert::TryInto;
 
 #[cfg(not(feature = "no_std"))]
 use std::io::{Error as E, Read, Write};
@@ -22,7 +23,7 @@ pub enum Inner<
     Owned(Vec<u8>),
 }
 
-// TODO add test for that implement also with serde!!!!
+// TODO add test for that and implement it also with serde!!!!
 impl<'a, const SIZE: usize> Inner<'a, true, SIZE, 0, 0> {
     pub fn to_vec(&self) -> Vec<u8> {
         match self {
@@ -33,11 +34,17 @@ impl<'a, const SIZE: usize> Inner<'a, true, SIZE, 0, 0> {
     pub fn inner_as_ref(&self) -> &[u8] {
         match self {
             Inner::Ref(ref_) => ref_,
-            Inner::Owned(v) => &v,
+            Inner::Owned(v) => v,
+        }
+    }
+    pub fn inner_as_mut(&mut self) -> &mut [u8] {
+        match self {
+            Inner::Ref(ref_) => ref_,
+            Inner::Owned(v) => v,
         }
     }
 }
-// TODO add test for that implement also with serde!!!!
+// TODO add test for that and implement it also with serde!!!!
 impl<'a, const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize>
     Inner<'a, false, SIZE, HEADERSIZE, MAXSIZE>
 {
@@ -95,11 +102,13 @@ impl<'a, const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const 
     fn expected_length_variable(data: &[u8]) -> Result<usize, Error> {
         if data.len() >= HEADERSIZE {
             let size = match HEADERSIZE {
-                0 => Ok(data.len()),
                 1 => Ok(data[0] as usize),
                 2 => Ok(u16::from_le_bytes([data[0], data[1]]) as usize),
                 3 => Ok(u32::from_le_bytes([data[0], data[1], data[2], 0]) as usize),
-                _ => unimplemented!(),
+                // HEADERSIZE for Sv2 datatypes is at maximum 3 bytes
+                // When HEADERSIZE is 0 datatypes ISFIXED only exception is Bytes datatypes but is
+                // not used
+                _ => unreachable!(),
             };
             size.map(|x| x + HEADERSIZE)
         } else {
@@ -118,7 +127,10 @@ impl<'a, const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const 
                 1 => header[0] as usize,
                 2 => u16::from_le_bytes([header[0], header[1]]) as usize,
                 3 => u32::from_le_bytes([header[0], header[1], header[2], 0]) as usize,
-                _ => unimplemented!(),
+                // HEADERSIZE for Sv2 datatypes is at maximum 3 bytes
+                // When HEADERSIZE is 0 datatypes ISFIXED only exception is Bytes datatypes but is
+                // not used
+                _ => unreachable!(),
             };
             if expected_length <= (MAXSIZE + HEADERSIZE) {
                 Ok(expected_length)
@@ -209,7 +221,7 @@ use crate::codec::decodable::FieldMarker;
 impl<'a, const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize>
     Sv2DataType<'a> for Inner<'a, ISFIXED, SIZE, HEADERSIZE, MAXSIZE>
 where
-    Self: Into<FieldMarker>,
+    Self: TryInto<FieldMarker>,
 {
     fn from_bytes_unchecked(data: &'a mut [u8]) -> Self {
         if ISFIXED {

@@ -32,7 +32,7 @@ pub trait Variable {
 
     fn inner_size(&self) -> usize;
 
-    // TODO use [u8; HEADER_SIZE] instead of Vec
+    // That could be [u8; Self::HEADER_SIZE] but rust do not allow it
     fn get_header(&self) -> Vec<u8>;
 }
 

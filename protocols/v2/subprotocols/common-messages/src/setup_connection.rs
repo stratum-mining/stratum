@@ -76,6 +76,7 @@ impl<'decoder> SetupConnection<'decoder> {
 
                 work_selection && version_rolling
             }
+            // TODO
             _ => todo!(),
         }
     }
@@ -216,7 +217,7 @@ pub struct SetupConnectionSuccess {
 pub struct SetupConnectionError<'decoder> {
     /// Flags indicating features causing an error.
     pub flags: u32,
-    /// Human-readable error code(s). See Error Codes section, [link](TODO).
+    /// Human-readable error code(s). See Error Codes section, [link].
     /// ### Possible error codes:
     /// * ‘unsupported-feature-flags’
     /// * ‘unsupported-protocol’
@@ -304,9 +305,10 @@ impl<'decoder> binary_sv2::Decodable<'decoder> for Protocol {
     fn from_decoded_fields(
         mut v: alloc::vec::Vec<DecodableField<'decoder>>,
     ) -> core::result::Result<Self, binary_sv2::Error> {
-        let val = v.pop().unwrap();
-        let val: u8 = val.try_into().unwrap();
-        Ok(val.try_into().unwrap())
+        let val = v.pop().ok_or(binary_sv2::Error::NoDecodableFieldPassed)?;
+        let val: u8 = val.try_into()?;
+        val.try_into()
+            .map_err(|_| binary_sv2::Error::ValueIsNotAValidProtocol(val))
     }
 }
 
