@@ -2,21 +2,21 @@
 //
 use core::convert::TryInto;
 
-#[cfg(feature = "with_serde")]
-pub use serde::{self, Deserialize, Serialize};
-#[cfg(feature = "with_serde")]
-pub use serde_sv2::*;
+// #[cfg(feature = "with_serde")]
+// pub use serde::{self, Deserialize, Serialize};
+// #[cfg(feature = "with_serde")]
+// pub use serde_sv2::*;
 
-#[cfg(not(feature = "with_serde"))]
+// #[cfg(not(feature = "with_serde"))]
 pub use binary_codec_sv2::{self, Decodable as Deserialize, Encodable as Serialize, *};
-#[cfg(not(feature = "with_serde"))]
+// #[cfg(not(feature = "with_serde"))]
 pub use derive_codec_sv2::{Decodable as Deserialize, Encodable as Serialize};
 
 pub fn clone_message<T: Serialize>(_: T) -> T {
     todo!()
 }
 
-#[cfg(not(feature = "with_serde"))]
+// #[cfg(not(feature = "with_serde"))]
 pub fn u256_from_int<V: Into<u64>>(value: V) -> U256<'static> {
     // initialize u256 as a bytes vec of len 24
     let mut u256 = vec![0_u8; 24];
@@ -53,10 +53,10 @@ mod test {
                 c: 67_u32.try_into().unwrap(),
             };
 
-            #[cfg(not(feature = "with_serde"))]
+            // #[cfg(not(feature = "with_serde"))]
             let mut bytes = to_bytes(expected.clone()).unwrap();
-            #[cfg(feature = "with_serde")]
-            let mut bytes = to_bytes(&expected.clone()).unwrap();
+            // #[cfg(feature = "with_serde")]
+            // let mut bytes = to_bytes(&expected.clone()).unwrap();
 
             let deserialized: Test = from_bytes(&mut bytes[..]).unwrap();
 
@@ -83,10 +83,10 @@ mod test {
                 b: 67_u32.try_into().unwrap(),
             };
 
-            #[cfg(not(feature = "with_serde"))]
+            // #[cfg(not(feature = "with_serde"))]
             let mut bytes = to_bytes(expected.clone()).unwrap();
-            #[cfg(feature = "with_serde")]
-            let mut bytes = to_bytes(&expected.clone()).unwrap();
+            // #[cfg(feature = "with_serde")]
+            // let mut bytes = to_bytes(&expected.clone()).unwrap();
 
             let deserialized: Test = from_bytes(&mut bytes[..]).unwrap();
 
@@ -98,9 +98,10 @@ mod test {
         use super::*;
         use core::convert::TryInto;
 
-        #[derive(Clone, Deserialize, Serialize, PartialEq, Debug)]
+        // #[derive(Clone, Deserialize, Serialize, PartialEq, Debug)]
+        #[derive(Clone, PartialEq, Debug)]
         struct Test<'decoder> {
-            #[cfg_attr(feature = "with_serde", serde(borrow))]
+            // #[cfg_attr(feature = "with_serde", serde(borrow))]
             a: Str032<'decoder>,
         }
 
@@ -111,10 +112,10 @@ mod test {
 
             let expected = Test { a: stro32 };
 
-            #[cfg(not(feature = "with_serde"))]
+            // #[cfg(not(feature = "with_serde"))]
             let mut bytes = to_bytes(expected.clone()).unwrap();
-            #[cfg(feature = "with_serde")]
-            let mut bytes = to_bytes(&expected.clone()).unwrap();
+            // #[cfg(feature = "with_serde")]
+            // let mut bytes = to_bytes(&expected.clone()).unwrap();
 
             let deserialized: Test = from_bytes(&mut bytes[..]).unwrap();
 
@@ -128,10 +129,10 @@ mod test {
 
             let expected = Test { a: stro32 };
 
-            #[cfg(not(feature = "with_serde"))]
+            // #[cfg(not(feature = "with_serde"))]
             let mut bytes = to_bytes(expected.clone()).unwrap();
-            #[cfg(feature = "with_serde")]
-            let mut bytes = to_bytes(&expected.clone()).unwrap();
+            // #[cfg(feature = "with_serde")]
+            // let mut bytes = to_bytes(&expected.clone()).unwrap();
 
             let deserialized: Test = from_bytes(&mut bytes[..]).unwrap();
 
@@ -143,9 +144,10 @@ mod test {
         use super::*;
         use core::convert::TryInto;
 
-        #[derive(Clone, Deserialize, Serialize, PartialEq, Debug)]
+        // #[derive(Clone, Deserialize, Serialize, PartialEq, Debug)]
+        #[derive(Clone, PartialEq, Debug)]
         struct Test<'decoder> {
-            #[cfg_attr(feature = "with_serde", serde(borrow))]
+            // #[cfg_attr(feature = "with_serde", serde(borrow))]
             a: B0255<'decoder>,
         }
 
@@ -156,10 +158,10 @@ mod test {
 
             let expected = Test { a: b0255 };
 
-            #[cfg(not(feature = "with_serde"))]
+            // #[cfg(not(feature = "with_serde"))]
             let mut bytes = to_bytes(expected.clone()).unwrap();
-            #[cfg(feature = "with_serde")]
-            let mut bytes = to_bytes(&expected.clone()).unwrap();
+            // #[cfg(feature = "with_serde")]
+            // let mut bytes = to_bytes(&expected.clone()).unwrap();
 
             let deserialized: Test = from_bytes(&mut bytes[..]).unwrap();
 
@@ -173,10 +175,10 @@ mod test {
 
             let expected = Test { a: b0255 };
 
-            #[cfg(not(feature = "with_serde"))]
+            // #[cfg(not(feature = "with_serde"))]
             let mut bytes = to_bytes(expected.clone()).unwrap();
-            #[cfg(feature = "with_serde")]
-            let mut bytes = to_bytes(&expected.clone()).unwrap();
+            // #[cfg(feature = "with_serde")]
+            // let mut bytes = to_bytes(&expected.clone()).unwrap();
 
             let deserialized: Test = from_bytes(&mut bytes[..]).unwrap();
 
@@ -188,9 +190,10 @@ mod test {
         use super::*;
         use core::convert::TryInto;
 
-        #[derive(Clone, Deserialize, Serialize, PartialEq, Debug)]
+        // #[derive(Clone, Deserialize, Serialize, PartialEq, Debug)]
+        #[derive(Clone, PartialEq, Debug)]
         struct Test<'decoder> {
-            #[cfg_attr(feature = "with_serde", serde(borrow))]
+            // #[cfg_attr(feature = "with_serde", serde(borrow))]
             a: U256<'decoder>,
         }
 
@@ -201,10 +204,10 @@ mod test {
 
             let expected = Test { a: u256 };
 
-            #[cfg(not(feature = "with_serde"))]
+            // #[cfg(not(feature = "with_serde"))]
             let mut bytes = to_bytes(expected.clone()).unwrap();
-            #[cfg(feature = "with_serde")]
-            let mut bytes = to_bytes(&expected.clone()).unwrap();
+            // #[cfg(feature = "with_serde")]
+            // let mut bytes = to_bytes(&expected.clone()).unwrap();
 
             let deserialized: Test = from_bytes(&mut bytes[..]).unwrap();
 
@@ -216,9 +219,10 @@ mod test {
         use super::*;
         use core::convert::TryInto;
 
-        #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
+        // #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
+        #[derive(PartialEq, Debug, Clone)]
         struct Test<'decoder> {
-            #[cfg_attr(feature = "with_serde", serde(borrow))]
+            // #[cfg_attr(feature = "with_serde", serde(borrow))]
             a: Signature<'decoder>,
         }
 
@@ -229,10 +233,10 @@ mod test {
 
             let expected = Test { a: s };
 
-            #[cfg(not(feature = "with_serde"))]
+            // #[cfg(not(feature = "with_serde"))]
             let mut bytes = to_bytes(expected.clone()).unwrap();
-            #[cfg(feature = "with_serde")]
-            let mut bytes = to_bytes(&expected.clone()).unwrap();
+            // #[cfg(feature = "with_serde")]
+            // let mut bytes = to_bytes(&expected.clone()).unwrap();
 
             let deserialized: Test = from_bytes(&mut bytes[..]).unwrap();
 
@@ -244,10 +248,11 @@ mod test {
         use super::*;
         use core::convert::TryInto;
 
-        #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
+        // #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
+        #[derive(PartialEq, Debug, Clone)]
         struct Test<'decoder> {
             b: bool,
-            #[cfg_attr(feature = "with_serde", serde(borrow))]
+            // #[cfg_attr(feature = "with_serde", serde(borrow))]
             a: B016M<'decoder>,
         }
 
@@ -259,10 +264,10 @@ mod test {
 
             let expected = Test { a: b, b: true };
 
-            #[cfg(not(feature = "with_serde"))]
+            // #[cfg(not(feature = "with_serde"))]
             let mut bytes = to_bytes(expected.clone()).unwrap();
-            #[cfg(feature = "with_serde")]
-            let mut bytes = to_bytes(&expected.clone()).unwrap();
+            // #[cfg(feature = "with_serde")]
+            // let mut bytes = to_bytes(&expected.clone()).unwrap();
 
             let deserialized: Test = from_bytes(&mut bytes[..]).unwrap();
 
@@ -277,10 +282,10 @@ mod test {
 
             let expected = Test { a: b, b: true };
 
-            #[cfg(not(feature = "with_serde"))]
+            // #[cfg(not(feature = "with_serde"))]
             let mut bytes = to_bytes(expected.clone()).unwrap();
-            #[cfg(feature = "with_serde")]
-            let mut bytes = to_bytes(&expected.clone()).unwrap();
+            // #[cfg(feature = "with_serde")]
+            // let mut bytes = to_bytes(&expected.clone()).unwrap();
 
             let deserialized: Test = from_bytes(&mut bytes[..]).unwrap();
 
@@ -292,10 +297,11 @@ mod test {
         use super::*;
         use core::convert::TryInto;
 
-        #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
+        // #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
+        #[derive(PartialEq, Debug, Clone)]
         struct Test<'decoder> {
             b: bool,
-            #[cfg_attr(feature = "with_serde", serde(borrow))]
+            // #[cfg_attr(feature = "with_serde", serde(borrow))]
             a: B064K<'decoder>,
         }
 
@@ -308,10 +314,10 @@ mod test {
 
             let expected = Test { a: b, b: true };
 
-            #[cfg(not(feature = "with_serde"))]
+            // #[cfg(not(feature = "with_serde"))]
             let mut bytes = to_bytes(expected.clone()).unwrap();
-            #[cfg(feature = "with_serde")]
-            let mut bytes = to_bytes(&expected.clone()).unwrap();
+            // #[cfg(feature = "with_serde")]
+            // let mut bytes = to_bytes(&expected.clone()).unwrap();
 
             let deserialized: Test = from_bytes(&mut bytes[..]).unwrap();
 
@@ -323,9 +329,10 @@ mod test {
         use super::*;
         use core::convert::TryInto;
 
-        #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
+        // #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
+        #[derive(PartialEq, Debug, Clone)]
         struct Test<'decoder> {
-            #[cfg_attr(feature = "with_serde", serde(borrow))]
+            // #[cfg_attr(feature = "with_serde", serde(borrow))]
             a: Seq0255<'decoder, U256<'decoder>>,
         }
 
@@ -343,17 +350,17 @@ mod test {
 
             let test = Test { a: s };
 
-            #[cfg(not(feature = "with_serde"))]
+            // #[cfg(not(feature = "with_serde"))]
             let mut bytes = to_bytes(test.clone()).unwrap();
-            #[cfg(feature = "with_serde")]
-            let mut bytes = to_bytes(&test.clone()).unwrap();
+            // #[cfg(feature = "with_serde")]
+            // let mut bytes = to_bytes(&test.clone()).unwrap();
 
             let deserialized: Test = from_bytes(&mut bytes[..]).unwrap();
 
-            #[cfg(not(feature = "with_serde"))]
+            // #[cfg(not(feature = "with_serde"))]
             let bytes_2 = to_bytes(deserialized.clone()).unwrap();
-            #[cfg(feature = "with_serde")]
-            let bytes_2 = to_bytes(&deserialized.clone()).unwrap();
+            // #[cfg(feature = "with_serde")]
+            // let bytes_2 = to_bytes(&deserialized.clone()).unwrap();
 
             assert_eq!(bytes, bytes_2);
         }
@@ -362,9 +369,9 @@ mod test {
     mod test_0255_bool {
         use super::*;
 
-        #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
+        #[derive(PartialEq, Debug, Clone)]
         struct Test<'decoder> {
-            #[cfg_attr(feature = "with_serde", serde(borrow))]
+            // #[cfg_attr(feature = "with_serde", serde(borrow))]
             a: Seq0255<'decoder, bool>,
         }
 
@@ -374,10 +381,10 @@ mod test {
 
             let expected = Test { a: s };
 
-            #[cfg(not(feature = "with_serde"))]
+            // #[cfg(not(feature = "with_serde"))]
             let mut bytes = to_bytes(expected.clone()).unwrap();
-            #[cfg(feature = "with_serde")]
-            let mut bytes = to_bytes(&expected.clone()).unwrap();
+            // #[cfg(feature = "with_serde")]
+            // let mut bytes = to_bytes(&expected.clone()).unwrap();
 
             let deserialized: Test = from_bytes(&mut bytes[..]).unwrap();
 
@@ -388,9 +395,10 @@ mod test {
     mod test_seq0255_u16 {
         use super::*;
 
-        #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
+        // #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
+        #[derive(PartialEq, Debug, Clone)]
         struct Test<'decoder> {
-            #[cfg_attr(feature = "with_serde", serde(borrow))]
+            // #[cfg_attr(feature = "with_serde", serde(borrow))]
             a: Seq0255<'decoder, u16>,
         }
 
@@ -400,10 +408,10 @@ mod test {
 
             let expected = Test { a: s };
 
-            #[cfg(not(feature = "with_serde"))]
+            // #[cfg(not(feature = "with_serde"))]
             let mut bytes = to_bytes(expected.clone()).unwrap();
-            #[cfg(feature = "with_serde")]
-            let mut bytes = to_bytes(&expected.clone()).unwrap();
+            // #[cfg(feature = "with_serde")]
+            // let mut bytes = to_bytes(&expected.clone()).unwrap();
 
             let deserialized: Test = from_bytes(&mut bytes[..]).unwrap();
 
@@ -415,9 +423,10 @@ mod test {
         use super::*;
         use core::convert::TryInto;
 
-        #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
+        // #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
+        #[derive(PartialEq, Debug, Clone)]
         struct Test<'decoder> {
-            #[cfg_attr(feature = "with_serde", serde(borrow))]
+            // #[cfg_attr(feature = "with_serde", serde(borrow))]
             a: Seq0255<'decoder, U24>,
         }
 
@@ -432,10 +441,10 @@ mod test {
 
             let expected = Test { a: s };
 
-            #[cfg(not(feature = "with_serde"))]
+            // #[cfg(not(feature = "with_serde"))]
             let mut bytes = to_bytes(expected.clone()).unwrap();
-            #[cfg(feature = "with_serde")]
-            let mut bytes = to_bytes(&expected.clone()).unwrap();
+            // #[cfg(feature = "with_serde")]
+            // let mut bytes = to_bytes(&expected.clone()).unwrap();
 
             let deserialized: Test = from_bytes(&mut bytes[..]).unwrap();
 
@@ -446,9 +455,10 @@ mod test {
     mod test_seqo255_u32 {
         use super::*;
 
-        #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
+        // #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
+        #[derive(PartialEq, Debug, Clone)]
         struct Test<'decoder> {
-            #[cfg_attr(feature = "with_serde", serde(borrow))]
+            // #[cfg_attr(feature = "with_serde", serde(borrow))]
             a: Seq0255<'decoder, u32>,
         }
 
@@ -458,10 +468,10 @@ mod test {
 
             let expected = Test { a: s };
 
-            #[cfg(not(feature = "with_serde"))]
+            // #[cfg(not(feature = "with_serde"))]
             let mut bytes = to_bytes(expected.clone()).unwrap();
-            #[cfg(feature = "with_serde")]
-            let mut bytes = to_bytes(&expected.clone()).unwrap();
+            // #[cfg(feature = "with_serde")]
+            // let mut bytes = to_bytes(&expected.clone()).unwrap();
 
             let deserialized: Test = from_bytes(&mut bytes[..]).unwrap();
 
@@ -473,9 +483,10 @@ mod test {
         use super::*;
         use core::convert::TryInto;
 
-        #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
+        // #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
+        #[derive(PartialEq, Debug, Clone)]
         struct Test<'decoder> {
-            #[cfg_attr(feature = "with_serde", serde(borrow))]
+            // #[cfg_attr(feature = "with_serde", serde(borrow))]
             a: Seq0255<'decoder, Signature<'decoder>>,
         }
 
@@ -493,10 +504,10 @@ mod test {
 
             let expected = Test { a: s };
 
-            #[cfg(not(feature = "with_serde"))]
+            // #[cfg(not(feature = "with_serde"))]
             let mut bytes = to_bytes(expected.clone()).unwrap();
-            #[cfg(feature = "with_serde")]
-            let mut bytes = to_bytes(&expected.clone()).unwrap();
+            // #[cfg(feature = "with_serde")]
+            // let mut bytes = to_bytes(&expected.clone()).unwrap();
 
             let deserialized: Test = from_bytes(&mut bytes[..]).unwrap();
 
@@ -508,9 +519,10 @@ mod test {
         use super::*;
         use core::convert::TryInto;
 
-        #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
+        // #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
+        #[derive(PartialEq, Debug, Clone)]
         struct Test<'decoder> {
-            #[cfg_attr(feature = "with_serde", serde(borrow))]
+            // #[cfg_attr(feature = "with_serde", serde(borrow))]
             a: Seq064K<'decoder, U256<'decoder>>,
         }
 
@@ -528,17 +540,17 @@ mod test {
 
             let test = Test { a: s };
 
-            #[cfg(not(feature = "with_serde"))]
+            // #[cfg(not(feature = "with_serde"))]
             let mut bytes = to_bytes(test.clone()).unwrap();
-            #[cfg(feature = "with_serde")]
-            let mut bytes = to_bytes(&test.clone()).unwrap();
+            // #[cfg(feature = "with_serde")]
+            // let mut bytes = to_bytes(&test.clone()).unwrap();
 
             let deserialized: Test = from_bytes(&mut bytes[..]).unwrap();
 
-            #[cfg(not(feature = "with_serde"))]
+            // #[cfg(not(feature = "with_serde"))]
             let bytes_2 = to_bytes(deserialized.clone()).unwrap();
-            #[cfg(feature = "with_serde")]
-            let bytes_2 = to_bytes(&deserialized.clone()).unwrap();
+            // #[cfg(feature = "with_serde")]
+            // let bytes_2 = to_bytes(&deserialized.clone()).unwrap();
 
             assert_eq!(bytes, bytes_2);
         }
@@ -547,9 +559,10 @@ mod test {
     mod test_064_bool {
         use super::*;
 
-        #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
+        // #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
+        #[derive(PartialEq, Debug, Clone)]
         struct Test<'decoder> {
-            #[cfg_attr(feature = "with_serde", serde(borrow))]
+            // #[cfg_attr(feature = "with_serde", serde(borrow))]
             a: Seq064K<'decoder, bool>,
         }
 
@@ -561,14 +574,14 @@ mod test {
             let expected = Test { a: s };
             let expected2 = Test { a: s2 };
 
-            #[cfg(not(feature = "with_serde"))]
+            // #[cfg(not(feature = "with_serde"))]
             let mut bytes = to_bytes(expected.clone()).unwrap();
-            #[cfg(feature = "with_serde")]
-            let mut bytes = to_bytes(&expected.clone()).unwrap();
-            #[cfg(not(feature = "with_serde"))]
+            // #[cfg(feature = "with_serde")]
+            // let mut bytes = to_bytes(&expected.clone()).unwrap();
+            // #[cfg(not(feature = "with_serde"))]
             let mut bytes2 = to_bytes(expected2.clone()).unwrap();
-            #[cfg(feature = "with_serde")]
-            let mut bytes2 = to_bytes(&expected2.clone()).unwrap();
+            // #[cfg(feature = "with_serde")]
+            // let mut bytes2 = to_bytes(&expected2.clone()).unwrap();
 
             let deserialized: Test = from_bytes(&mut bytes[..]).unwrap();
             let deserialized2: Test = from_bytes(&mut bytes2[..]).unwrap();
@@ -581,9 +594,10 @@ mod test {
     mod test_se1o64k_u16 {
         use super::*;
 
-        #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
+        #[derive(PartialEq, Debug, Clone)]
+        // #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
         struct Test<'decoder> {
-            #[cfg_attr(feature = "with_serde", serde(borrow))]
+            // #[cfg_attr(feature = "with_serde", serde(borrow))]
             a: Seq064K<'decoder, u16>,
         }
 
@@ -593,10 +607,10 @@ mod test {
 
             let expected = Test { a: s };
 
-            #[cfg(not(feature = "with_serde"))]
+            // #[cfg(not(feature = "with_serde"))]
             let mut bytes = to_bytes(expected.clone()).unwrap();
-            #[cfg(feature = "with_serde")]
-            let mut bytes = to_bytes(&expected.clone()).unwrap();
+            // #[cfg(feature = "with_serde")]
+            // let mut bytes = to_bytes(&expected.clone()).unwrap();
 
             let deserialized: Test = from_bytes(&mut bytes[..]).unwrap();
 
@@ -608,9 +622,10 @@ mod test {
         use super::*;
         use core::convert::TryInto;
 
-        #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
+        // #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
+        #[derive(PartialEq, Debug, Clone)]
         struct Test<'decoder> {
-            #[cfg_attr(feature = "with_serde", serde(borrow))]
+            // #[cfg_attr(feature = "with_serde", serde(borrow))]
             a: Seq064K<'decoder, U24>,
         }
 
@@ -625,10 +640,10 @@ mod test {
 
             let expected = Test { a: s };
 
-            #[cfg(not(feature = "with_serde"))]
+            // #[cfg(not(feature = "with_serde"))]
             let mut bytes = to_bytes(expected.clone()).unwrap();
-            #[cfg(feature = "with_serde")]
-            let mut bytes = to_bytes(&expected.clone()).unwrap();
+            // #[cfg(feature = "with_serde")]
+            // let mut bytes = to_bytes(&expected.clone()).unwrap();
 
             let deserialized: Test = from_bytes(&mut bytes[..]).unwrap();
 
@@ -639,9 +654,10 @@ mod test {
     mod test_seq064k_u32 {
         use super::*;
 
-        #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
+        // #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
+        #[derive(PartialEq, Debug, Clone)]
         struct Test<'decoder> {
-            #[cfg_attr(feature = "with_serde", serde(borrow))]
+            // #[cfg_attr(feature = "with_serde", serde(borrow))]
             a: Seq064K<'decoder, u32>,
         }
 
@@ -651,10 +667,10 @@ mod test {
 
             let expected = Test { a: s };
 
-            #[cfg(not(feature = "with_serde"))]
+            // #[cfg(not(feature = "with_serde"))]
             let mut bytes = to_bytes(expected.clone()).unwrap();
-            #[cfg(feature = "with_serde")]
-            let mut bytes = to_bytes(&expected.clone()).unwrap();
+            // #[cfg(feature = "with_serde")]
+            // let mut bytes = to_bytes(&expected.clone()).unwrap();
 
             let deserialized: Test = from_bytes(&mut bytes[..]).unwrap();
 
@@ -665,9 +681,10 @@ mod test {
         use super::*;
         use core::convert::TryInto;
 
-        #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
+        #[derive(PartialEq, Debug, Clone)]
+        // #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
         struct Test<'decoder> {
-            #[cfg_attr(feature = "with_serde", serde(borrow))]
+            // #[cfg_attr(feature = "with_serde", serde(borrow))]
             a: Seq064K<'decoder, Signature<'decoder>>,
         }
 
@@ -685,10 +702,10 @@ mod test {
 
             let expected = Test { a: s };
 
-            #[cfg(not(feature = "with_serde"))]
+            // #[cfg(not(feature = "with_serde"))]
             let mut bytes = to_bytes(expected.clone()).unwrap();
-            #[cfg(feature = "with_serde")]
-            let mut bytes = to_bytes(&expected.clone()).unwrap();
+            // #[cfg(feature = "with_serde")]
+            // let mut bytes = to_bytes(&expected.clone()).unwrap();
 
             let deserialized: Test = from_bytes(&mut bytes[..]).unwrap();
 
@@ -699,9 +716,10 @@ mod test {
         use super::*;
         use core::convert::TryInto;
 
-        #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
+        // #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
+        #[derive(PartialEq, Debug, Clone)]
         struct Test<'decoder> {
-            #[cfg_attr(feature = "with_serde", serde(borrow))]
+            // #[cfg_attr(feature = "with_serde", serde(borrow))]
             a: Seq064K<'decoder, B016M<'decoder>>,
         }
 
@@ -719,10 +737,10 @@ mod test {
 
             let expected = Test { a: s };
 
-            #[cfg(not(feature = "with_serde"))]
+            // #[cfg(not(feature = "with_serde"))]
             let mut bytes = to_bytes(expected.clone()).unwrap();
-            #[cfg(feature = "with_serde")]
-            let mut bytes = to_bytes(&expected.clone()).unwrap();
+            // #[cfg(feature = "with_serde")]
+            // let mut bytes = to_bytes(&expected.clone()).unwrap();
 
             let deserialized: Test = from_bytes(&mut bytes[..]).unwrap();
 
@@ -732,9 +750,10 @@ mod test {
     mod test_seq_0255_in_struct {
         use super::*;
 
-        #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
+        // #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
+        #[derive(PartialEq, Debug, Clone)]
         struct Test<'decoder> {
-            #[cfg_attr(feature = "with_serde", serde(borrow))]
+            // #[cfg_attr(feature = "with_serde", serde(borrow))]
             a: u8,
             b: Seq0255<'decoder, u8>,
             c: u32,
