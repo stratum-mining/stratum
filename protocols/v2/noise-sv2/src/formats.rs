@@ -1,6 +1,6 @@
 use alloc::string::String;
 use core::{convert::TryFrom, fmt};
-use serde::{Deserialize, Serialize};
+// use serde::{Deserialize, Serialize};
 use std::time::SystemTime;
 
 use crate::{
@@ -17,8 +17,9 @@ macro_rules! impl_basic_type {
      $format_struct_inner_rename:expr, $( $tr:tt ), *) => {
         /// Helper that ensures serialization of the `$inner_encoded_struct_type` into a prefered
         /// encoding
-        #[derive(Serialize, Deserialize, Debug, $( $tr ), *)]
-        #[serde(into = "String", try_from = "String")]
+        // removed (Deserialize, Serialize) from this line)
+        #[derive( Debug, $( $tr ), *)]
+        // #[serde(into = "String", try_from = "String")]
         pub struct $encoded_struct_type {
             inner: $inner_encoded_struct_type,
         }
@@ -36,9 +37,10 @@ macro_rules! impl_basic_type {
                 write!(f, "{}", String::from(self.clone()))
             }
         }
-        #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+        // removed (Deserialize, Serialize) from this line)
+        #[derive( Debug, Clone, PartialEq)]
         pub struct $format_struct_type {
-            #[serde(rename = $format_struct_inner_rename)]
+            // #[serde(rename = $format_struct_inner_rename)]
             inner: $encoded_struct_type,
         }
         impl $format_struct_type {
@@ -51,20 +53,20 @@ macro_rules! impl_basic_type {
                 self.inner.into_inner()
             }
         }
-        impl TryFrom<String> for $format_struct_type {
-            type Error = Error;
+        // impl TryFrom<String> for $format_struct_type {
+            // type Error = Error;
 
-            fn try_from(value: String) -> Result<Self> {
-                serde_json::from_str(value.as_str()).map_err(|_| Error {})
-            }
-        }
-        /// Helper serializer into string
-        impl TryFrom<$format_struct_type> for String {
-            type Error = Error;
-            fn try_from(value: $format_struct_type) -> Result<String> {
-                serde_json::to_string_pretty(&value).map_err(|_| Error {})
-            }
-        }
+            // fn try_from(value: String) -> Result<Self> {
+                // serde_json::from_str(value.as_str()).map_err(|_| Error {})
+            // }
+        // }
+        // /// Helper serializer into string
+        // impl TryFrom<$format_struct_type> for String {
+            // type Error = Error;
+            // fn try_from(value: $format_struct_type) -> Result<String> {
+                // serde_json::to_string_pretty(&value).map_err(|_| Error {})
+            // }
+        // }
     };
 }
 
@@ -195,7 +197,8 @@ generate_noise_keypair_structs!(
 /// stratum server.
 /// Second use of the certificate is to build it from `SignatureNoiseMessage` and check its
 /// validity
-#[derive(Serialize, Deserialize, PartialEq, Clone, Debug)]
+// removed (Deserialize, Serialize) from this line)
+#[derive(PartialEq, Clone, Debug)]
 pub struct Certificate {
     signed_part_header: SignedPartHeader,
     pub public_key: StaticPublicKeyFormat,
@@ -242,20 +245,20 @@ impl Certificate {
     }
 }
 
-impl TryFrom<String> for Certificate {
-    type Error = Error;
+// impl TryFrom<String> for Certificate {
+// type Error = Error;
 
-    fn try_from(value: String) -> Result<Self> {
-        serde_json::from_str(value.as_str()).map_err(|_| Error {})
-    }
-}
+// fn try_from(value: String) -> Result<Self> {
+// serde_json::from_str(value.as_str()).map_err(|_| Error {})
+// }
+// }
 
-impl TryFrom<Certificate> for String {
-    type Error = Error;
-    fn try_from(value: Certificate) -> Result<String> {
-        serde_json::to_string_pretty(&value).map_err(|_| Error {})
-    }
-}
+// impl TryFrom<Certificate> for String {
+// type Error = Error;
+// fn try_from(value: Certificate) -> Result<String> {
+// serde_json::to_string_pretty(&value).map_err(|_| Error {})
+// }
+// }
 
 #[cfg(test)]
 pub mod test {
@@ -270,18 +273,18 @@ pub mod test {
 
         certificate.validate().expect("BUG: Certificate not valid!");
     }
+    // TODO: redo this test without serde dependency
+    // #[test]
+    // fn certificate_serialization() {
+    // let (signed_part, _authority_keypair, _static_keypair, signature) =
+    // build_test_signed_part_and_auth();
+    // let certificate = Certificate::new(signed_part, signature);
 
-    #[test]
-    fn certificate_serialization() {
-        let (signed_part, _authority_keypair, _static_keypair, signature) =
-            build_test_signed_part_and_auth();
-        let certificate = Certificate::new(signed_part, signature);
+    // let serialized_cert =
+    // serde_json::to_string(&certificate).expect("BUG: cannot serialize certificate");
+    // let deserialized_cert = serde_json::from_str(serialized_cert.as_str())
+    // .expect("BUG: cannot deserialized certificate");
 
-        let serialized_cert =
-            serde_json::to_string(&certificate).expect("BUG: cannot serialize certificate");
-        let deserialized_cert = serde_json::from_str(serialized_cert.as_str())
-            .expect("BUG: cannot deserialized certificate");
-
-        assert_eq!(certificate, deserialized_cert, "Certificates don't match!");
-    }
+    // assert_eq!(certificate, deserialized_cert, "Certificates don't match!");
+    // }
 }
