@@ -108,9 +108,9 @@ impl<'a, T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> Frame<'a, T> for 
             Ok(())
         } else if let Some(payload) = self.payload {
             #[cfg(not(feature = "with_serde"))]
-            to_writer(self.header, dst.as_mut())?;
+            to_writer(self.header, dst)?;
             #[cfg(not(feature = "with_serde"))]
-            to_writer(payload, &mut dst.as_mut()[Header::SIZE..])?;
+            to_writer(payload, &mut dst[Header::SIZE..])?;
             #[cfg(feature = "with_serde")]
             to_writer(&self.header, dst.as_mut())?;
             #[cfg(feature = "with_serde")]

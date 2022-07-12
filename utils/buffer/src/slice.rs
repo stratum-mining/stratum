@@ -28,6 +28,9 @@ impl Slice {
             0
         }
     }
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
 }
 
 impl core::ops::Index<usize> for Slice {

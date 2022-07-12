@@ -86,7 +86,7 @@ impl<T: Serialize + GetSize> NoiseEncoder<T> {
         let len = TransportMode::size_hint_encrypt(self.sv2_buffer.len());
 
         // PREPEND THE NOISE FRAME HEADER
-        build_noise_frame_header(&mut self.noise_buffer.get_writable(2), len as u16);
+        build_noise_frame_header(self.noise_buffer.get_writable(2), len as u16);
 
         // ENCRYPT THE SV2 FRAME AND ENCODE THE NOISE FRAME
         transport_mode
@@ -110,7 +110,7 @@ impl<T: Serialize + GetSize> NoiseEncoder<T> {
 
             // PREPEND THE NOISE FRAME HEADER
             let len = TransportMode::size_hint_encrypt(buf.len());
-            build_noise_frame_header(&mut self.noise_buffer.get_writable(2), len as u16);
+            build_noise_frame_header(self.noise_buffer.get_writable(2), len as u16);
 
             // ENCRYPT THE SV2 FRAGMENT
             transport_mode
@@ -132,7 +132,7 @@ impl<T: Serialize + GetSize> NoiseEncoder<T> {
         let len = item.encoded_length();
         // ENCODE THE SV2 FRAME
         let i: HandShakeFrame = item.try_into().map_err(|_| ())?;
-        i.serialize(&mut self.noise_buffer.get_writable(len))
+        i.serialize(self.noise_buffer.get_writable(len))
             .map_err(|_| ())?;
 
         Ok(())
