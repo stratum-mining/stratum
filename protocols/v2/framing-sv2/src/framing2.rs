@@ -26,8 +26,6 @@ pub trait Frame<'a, T: Serialize + GetSize>: Sized {
     /// itself
     fn serialize(self, dst: &mut Self::Buffer) -> Result<(), binary_sv2::Error>;
 
-    //fn deserialize(&'a mut self) -> Result<Self::Deserialized, serde_sv2::Error>;
-
     fn payload(&'a mut self) -> &'a mut [u8];
 
     /// If is an Sv2 frame return the Some(header) if it is a noise frame return None
