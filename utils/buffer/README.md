@@ -234,6 +234,10 @@ If the buffer is sent to other contexts  `BufferPool` is 4 times faster than no 
 than the hashmap pool and 1.8 times slower than max efficiency.
 
 ### Fuzzy tests
+Install cargo fuzz with `cargo install cargo-fuzz`
+
+Then do `cd ./fuzz`
+
 Run them with `cargo fuzz run slower -- -rss_limit_mb=5000000000` and
 `cargo fuzz run faster -- -rss_limit_mb=5000000000`
 
