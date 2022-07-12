@@ -7,7 +7,7 @@ pub const INGORE_INDEX: u8 = 59;
 
 unsafe impl Send for Slice {}
 
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 pub struct Slice {
     pub(crate) offset: *mut u8,
     pub(crate) len: usize,
@@ -19,6 +19,65 @@ pub struct Slice {
     #[cfg(feature = "debug")]
     pub time: SystemTime,
 }
+
+impl Slice {
+    pub fn len(&self) -> usize {
+        if let Some(owned) = &self.owned {
+            owned.len()
+        } else {
+            0
+        }
+    }
+}
+
+impl core::ops::Index<usize> for Slice {
+    type Output = u8;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        self.as_ref().index(index)
+    }
+}
+impl core::ops::IndexMut<usize> for Slice {
+
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        self.as_mut().index_mut(index)
+    }
+}
+impl core::ops::Index<core::ops::RangeFrom<usize>> for Slice {
+    type Output = [u8];
+
+    fn index(&self, index: core::ops::RangeFrom<usize>) -> &Self::Output {
+        self.as_ref().index(index)
+    }
+}
+impl core::ops::IndexMut<core::ops::RangeFrom<usize>> for Slice {
+
+    fn index_mut(&mut self, index: core::ops::RangeFrom<usize>) -> &mut Self::Output {
+        self.as_mut().index_mut(index)
+    }
+
+}
+impl core::ops::Index<core::ops::Range<usize>> for Slice {
+    type Output = [u8];
+
+    fn index(&self, index: core::ops::Range<usize>) -> &Self::Output {
+        self.as_ref().index(index)
+    }
+}
+impl core::ops::IndexMut<core::ops::Range<usize>> for Slice {
+
+    fn index_mut(&mut self, index: core::ops::Range<usize>) -> &mut Self::Output {
+        self.as_mut().index_mut(index)
+    }
+}
+impl core::ops::Index<core::ops::RangeFull> for Slice {
+    type Output = [u8];
+
+    fn index(&self, index: core::ops::RangeFull) -> &Self::Output {
+        self.as_ref().index(index)
+    }
+}
+
 
 impl AsMut<[u8]> for Slice {
     #[inline(always)]
@@ -64,6 +123,7 @@ impl From<Vec<u8>> for Slice {
         }
     }
 }
+
 
 #[derive(Clone, Debug)]
 pub struct SharedState(Arc<AtomicU8>);
