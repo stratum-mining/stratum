@@ -17,10 +17,9 @@ use framing_sv2::{
 use buffer_sv2::{Buffer as IsBuffer, BufferFromSystemMemory as Buffer};
 
 #[cfg(feature = "with_buffer_pool")]
-use buffer_sv2::{Buffer as IsBuffer, BufferPool, BufferFromSystemMemory};
+use buffer_sv2::{Buffer as IsBuffer, BufferFromSystemMemory, BufferPool};
 #[cfg(feature = "with_buffer_pool")]
 type Buffer = BufferPool<BufferFromSystemMemory>;
-
 
 use crate::error::{Error, Result};
 

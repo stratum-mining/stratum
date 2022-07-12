@@ -86,12 +86,11 @@ pub struct NoiseFrame {
     payload: Slice,
 }
 
-
 pub type HandShakeFrame = NoiseFrame;
 
 #[cfg(feature = "with_buffer_pool")]
-impl<A> From<EitherFrame<A,Vec<u8>>> for Sv2Frame<A,buffer_sv2::Slice> {
-    fn from(_: EitherFrame<A,Vec<u8>>) -> Self {
+impl<A> From<EitherFrame<A, Vec<u8>>> for Sv2Frame<A, buffer_sv2::Slice> {
+    fn from(_: EitherFrame<A, Vec<u8>>) -> Self {
         unreachable!()
     }
 }
@@ -220,7 +219,6 @@ pub fn build_noise_frame_header(frame: &mut [u8], len: u16) {
 }
 
 impl<'a> Frame<'a, Slice> for NoiseFrame {
-
     type Buffer = Slice;
     type Deserialized = &'a mut [u8];
 
@@ -293,7 +291,10 @@ impl<'a> Frame<'a, Slice> for NoiseFrame {
             let header = message.len() as u16;
             // TODO this shold not allocate a vector
             let payload = [&header.to_le_bytes()[..], &message[..]].concat();
-            Some(Self { header, payload: payload.into() })
+            Some(Self {
+                header,
+                payload: payload.into(),
+            })
         } else {
             None
         }

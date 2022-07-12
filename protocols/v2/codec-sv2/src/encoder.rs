@@ -8,8 +8,6 @@ use core::marker::PhantomData;
 #[cfg(feature = "noise_sv2")]
 use framing_sv2::framing2::{build_noise_frame_header, EitherFrame, HandShakeFrame};
 use framing_sv2::framing2::{Frame as F_, Sv2Frame};
-#[cfg(feature = "noise_sv2")]
-use framing_sv2::header::NoiseHeader;
 
 #[cfg(feature = "noise_sv2")]
 use crate::{State, TransportMode};
@@ -27,7 +25,7 @@ use buffer_sv2::{Buffer as IsBuffer, BufferFromSystemMemory as Buffer};
 
 #[cfg(feature = "noise_sv2")]
 #[cfg(feature = "with_buffer_pool")]
-use buffer_sv2::{Buffer as IsBuffer, BufferPool, BufferFromSystemMemory};
+use buffer_sv2::{Buffer as IsBuffer, BufferFromSystemMemory, BufferPool};
 
 #[cfg(feature = "noise_sv2")]
 #[cfg(feature = "with_buffer_pool")]
@@ -49,16 +47,10 @@ pub struct NoiseEncoder<T: Serialize + binary_sv2::GetSize> {
 #[cfg(feature = "noise_sv2")]
 type Item<T> = EitherFrame<T, Slice>;
 
-
-
 #[cfg(feature = "noise_sv2")]
 impl<T: Serialize + GetSize> NoiseEncoder<T> {
     #[inline]
-    pub fn encode(
-        &mut self,
-        item: Item<T>,
-        state: &mut State,
-    ) -> Result<Slice, crate::Error> {
+    pub fn encode(&mut self, item: Item<T>, state: &mut State) -> Result<Slice, crate::Error> {
         match state {
             State::Transport(transport_mode) => {
                 let len = item.encoded_length();
@@ -122,10 +114,7 @@ impl<T: Serialize + GetSize> NoiseEncoder<T> {
 
             // ENCRYPT THE SV2 FRAGMENT
             transport_mode
-                .write(
-                    buf,
-                    self.noise_buffer.get_writable(len),
-                )
+                .write(buf, self.noise_buffer.get_writable(len))
                 .map_err(|_| ())?;
 
             if end == buffer_len {
@@ -143,7 +132,8 @@ impl<T: Serialize + GetSize> NoiseEncoder<T> {
         let len = item.encoded_length();
         // ENCODE THE SV2 FRAME
         let i: HandShakeFrame = item.try_into().map_err(|_| ())?;
-        i.serialize(&mut self.noise_buffer.get_writable(len)).map_err(|_| ())?;
+        i.serialize(&mut self.noise_buffer.get_writable(len))
+            .map_err(|_| ())?;
 
         Ok(())
     }
@@ -153,9 +143,9 @@ impl<T: Serialize + GetSize> NoiseEncoder<T> {
 impl<T: Serialize + binary_sv2::GetSize> NoiseEncoder<T> {
     pub fn new() -> Self {
         #[cfg(not(feature = "with_buffer_pool"))]
-        let size  = 512;
+        let size = 512;
         #[cfg(feature = "with_buffer_pool")]
-        let size  = 2_usize.pow(16) * 5;
+        let size = 2_usize.pow(16) * 5;
         Self {
             sv2_buffer: Buffer::new(size),
             noise_buffer: Buffer::new(size),

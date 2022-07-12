@@ -7,7 +7,7 @@ pub const INGORE_INDEX: u8 = 59;
 
 unsafe impl Send for Slice {}
 
-#[derive(Debug,Clone)]
+#[derive(Debug, Clone)]
 pub struct Slice {
     pub(crate) offset: *mut u8,
     pub(crate) len: usize,
@@ -38,7 +38,6 @@ impl core::ops::Index<usize> for Slice {
     }
 }
 impl core::ops::IndexMut<usize> for Slice {
-
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
         self.as_mut().index_mut(index)
     }
@@ -51,11 +50,9 @@ impl core::ops::Index<core::ops::RangeFrom<usize>> for Slice {
     }
 }
 impl core::ops::IndexMut<core::ops::RangeFrom<usize>> for Slice {
-
     fn index_mut(&mut self, index: core::ops::RangeFrom<usize>) -> &mut Self::Output {
         self.as_mut().index_mut(index)
     }
-
 }
 impl core::ops::Index<core::ops::Range<usize>> for Slice {
     type Output = [u8];
@@ -65,7 +62,6 @@ impl core::ops::Index<core::ops::Range<usize>> for Slice {
     }
 }
 impl core::ops::IndexMut<core::ops::Range<usize>> for Slice {
-
     fn index_mut(&mut self, index: core::ops::Range<usize>) -> &mut Self::Output {
         self.as_mut().index_mut(index)
     }
@@ -77,7 +73,6 @@ impl core::ops::Index<core::ops::RangeFull> for Slice {
         self.as_ref().index(index)
     }
 }
-
 
 impl AsMut<[u8]> for Slice {
     #[inline(always)]
@@ -123,7 +118,6 @@ impl From<Vec<u8>> for Slice {
         }
     }
 }
-
 
 #[derive(Clone, Debug)]
 pub struct SharedState(Arc<AtomicU8>);
