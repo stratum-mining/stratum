@@ -3,7 +3,6 @@ use core::{
     convert::{TryFrom, TryInto},
     time::Duration,
 };
-use serde::{Deserialize, Serialize};
 use std::time::SystemTime;
 
 use crate::{Error, Result, StaticPublicKey};
@@ -15,7 +14,8 @@ pub use crate::formats::*;
 use std::io::Write;
 
 /// Header of the `SignedPart` that will also be part of the `Certificate`
-#[derive(Serialize, Deserialize, PartialEq, Clone, Debug)]
+//Removed (Serialize, Deserialize)
+#[derive(PartialEq, Clone, Debug)]
 pub struct SignedPartHeader {
     version: u16,
     // Validity start time (unix timestamp)
@@ -120,7 +120,8 @@ impl SignedPartHeader {
 }
 
 /// Helper struct for performing the actual signature of the relevant parts of the certificate
-#[derive(Serialize, Deserialize, PartialEq, Clone, Debug)]
+//Removed (Serialize, Deserialize)
+#[derive(PartialEq, Clone, Debug)]
 pub struct SignedPart {
     pub(crate) header: SignedPartHeader,
     pub(crate) pubkey: StaticPublicKey,
@@ -196,7 +197,8 @@ impl SignedPart {
 
 /// The payload message that will be appended to the handshake message to proof static key
 /// authenticity
-#[derive(Serialize, Deserialize, PartialEq, Clone, Debug)]
+//Removed (Serialize, Deserialize)
+#[derive(PartialEq, Clone, Debug)]
 pub struct SignatureNoiseMessage {
     pub(crate) header: SignedPartHeader,
     pub(crate) signature: ed25519_dalek::Signature,
