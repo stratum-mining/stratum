@@ -17,4 +17,4 @@ codec_sv2 = { path = "../../protocols/v2/codec-sv2", features=["noise_sv2"] }
 network_helpers = { path = "../../utils/network-helpers", features=["async_std"] }
 
 [features]
-with_serde = ["binary_sv2/with_serde", "serde", "codec_sv2/with_serde", "network_helpers/with_serde"]
+# with_serde = ["binary_sv2/with_serde", "serde", "codec_sv2/with_serde", "network_helpers/with_serde"]

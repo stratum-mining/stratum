@@ -16,4 +16,4 @@ binary_sv2 = { path = "../../protocols/v2/binary-sv2/binary-sv2" }
 codec_sv2 = { path = "../../protocols/v2/codec-sv2" }
 
 [features]
-with_serde = ["binary_sv2/with_serde", "serde", "codec_sv2/with_serde"]
+# with_serde = ["binary_sv2/with_serde", "serde", "codec_sv2/with_serde"]
