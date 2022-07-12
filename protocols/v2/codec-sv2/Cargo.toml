@@ -14,7 +14,10 @@ framing_sv2 = { version = "0.1.*", path = "../../../protocols/v2/framing-sv2" }
 noise_sv2 = { version = "0.1.*", path = "../../../protocols/v2/noise-sv2", optional=true}
 binary_sv2 = { version = "0.1.*", path = "../../../protocols/v2/binary-sv2/binary-sv2" }
 const_sv2 = { version = "0.1.*", path = "../../../protocols/v2/const-sv2"}
+buffer_sv2 = { path = "../../../utils/buffer"}
+
 
 
 [features]
 with_serde = ["binary_sv2/with_serde", "serde", "framing_sv2/with_serde"]
+with_buffer_pool = ["framing_sv2/with_buffer_pool"]

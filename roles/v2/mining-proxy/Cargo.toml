@@ -5,12 +5,12 @@ authors = ["user"]
 edition = "2018"
 
 [dependencies]
-codec_sv2 = { path = "../../../protocols/v2/codec-sv2", features=["noise_sv2"] }
+codec_sv2 = { path = "../../../protocols/v2/codec-sv2", features=["noise_sv2", "with_buffer_pool"] }
 roles_logic_sv2 = { path = "../../../protocols/v2/roles-logic-sv2" }
 const_sv2 = { path = "../../../protocols/v2/const-sv2" }
 async-channel = "1.5.1"
 binary_sv2 = { path = "../../../protocols/v2/binary-sv2/binary-sv2" }
-network_helpers = { path = "../../../utils/network-helpers", features=["with_tokio"] }
+network_helpers = { path = "../../../utils/network-helpers",features=["with_tokio","with_buffer_pool"] }
 buffer_sv2 = { path = "../../../utils/buffer"}
 async-recursion = "0.3.2"
 toml = {git = "https://github.com/diondokter/toml-rs", default-features = false, rev="c4161aa"}

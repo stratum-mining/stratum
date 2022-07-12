@@ -81,6 +81,7 @@ impl Connection {
                     Ok(frame) => {
                         let mut connection = cloned2.lock().await;
                         let b = encoder.encode(frame, &mut connection.state).unwrap();
+                        let b = b.as_ref();
 
                         match (&mut writer).write_all(b).await {
                             Ok(_) => (),
