@@ -62,17 +62,17 @@ impl NewTemplate<'static> {
         let mut coinbase_prefix_gen = Gen::new(255);
         let mut coinbase_prefix: vec::Vec<u8> = vec::Vec::new();
         coinbase_prefix.resize_with(255, || u8::arbitrary(&mut coinbase_prefix_gen));
-        let mut coinbase_prefix: binary_sv2::B0255 = coinbase_prefix.try_into().unwrap();
+        let coinbase_prefix: binary_sv2::B0255 = coinbase_prefix.try_into().unwrap();
 
         let mut coinbase_tx_outputs_gen = Gen::new(64);
         let mut coinbase_tx_outputs: vec::Vec<u8> = vec::Vec::new();
         coinbase_tx_outputs.resize_with(64, || u8::arbitrary(&mut coinbase_tx_outputs_gen));
-        let mut coinbase_tx_outputs: binary_sv2::B064K = coinbase_tx_outputs.try_into().unwrap();
+        let coinbase_tx_outputs: binary_sv2::B064K = coinbase_tx_outputs.try_into().unwrap();
 
         let mut merkle_path_inner_gen = Gen::new(32);
         let mut merkle_path_inner: vec::Vec<u8> = vec::Vec::new();
         merkle_path_inner.resize_with(32, || u8::arbitrary(&mut merkle_path_inner_gen));
-        let mut merkle_path_inner: binary_sv2::U256 = merkle_path_inner.try_into().unwrap();
+        let merkle_path_inner: binary_sv2::U256 = merkle_path_inner.try_into().unwrap();
 
         let merkle_path: binary_sv2::Seq0255<binary_sv2::U256> = vec![merkle_path_inner].into();
         NewTemplate {
