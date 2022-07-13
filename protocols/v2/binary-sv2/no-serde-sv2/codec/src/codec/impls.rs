@@ -513,7 +513,7 @@ impl<'a> TryFrom<EncodableField<'a>> for bool {
     fn try_from(value: EncodableField<'a>) -> Result<Self, Self::Error> {
         match value {
             EncodableField::Primitive(EncodablePrimitive::Bool(v)) => Ok(v),
-            _ => Err(Error::Todo),
+            _ => Err(Error::NonPrimitiveTypeCannotBeEncoded),
         }
     }
 }
@@ -528,7 +528,7 @@ impl<'a> TryFrom<EncodableField<'a>> for u8 {
     fn try_from(value: EncodableField<'a>) -> Result<Self, Self::Error> {
         match value {
             EncodableField::Primitive(EncodablePrimitive::U8(v)) => Ok(v),
-            _ => Err(Error::Todo),
+            _ => Err(Error::NonPrimitiveTypeCannotBeEncoded),
         }
     }
 }
@@ -543,7 +543,7 @@ impl<'a> TryFrom<EncodableField<'a>> for u16 {
     fn try_from(value: EncodableField<'a>) -> Result<Self, Self::Error> {
         match value {
             EncodableField::Primitive(EncodablePrimitive::U16(v)) => Ok(v),
-            _ => Err(Error::Todo),
+            _ => Err(Error::NonPrimitiveTypeCannotBeEncoded),
         }
     }
 }
@@ -558,7 +558,7 @@ impl<'a> TryFrom<EncodableField<'a>> for U24 {
     fn try_from(value: EncodableField<'a>) -> Result<Self, Self::Error> {
         match value {
             EncodableField::Primitive(EncodablePrimitive::U24(v)) => Ok(v),
-            _ => Err(Error::Todo),
+            _ => Err(Error::NonPrimitiveTypeCannotBeEncoded),
         }
     }
 }
@@ -573,7 +573,7 @@ impl<'a> TryFrom<EncodableField<'a>> for u32 {
     fn try_from(value: EncodableField<'a>) -> Result<Self, Self::Error> {
         match value {
             EncodableField::Primitive(EncodablePrimitive::U32(v)) => Ok(v),
-            _ => Err(Error::Todo),
+            _ => Err(Error::NonPrimitiveTypeCannotBeEncoded),
         }
     }
 }
@@ -588,7 +588,7 @@ impl<'a> TryFrom<EncodableField<'a>> for f32 {
     fn try_from(value: EncodableField<'a>) -> Result<Self, Self::Error> {
         match value {
             EncodableField::Primitive(EncodablePrimitive::F32(v)) => Ok(v),
-            _ => Err(Error::Todo),
+            _ => Err(Error::NonPrimitiveTypeCannotBeEncoded),
         }
     }
 }
@@ -603,7 +603,7 @@ impl<'a> TryFrom<EncodableField<'a>> for u64 {
     fn try_from(value: EncodableField<'a>) -> Result<Self, Self::Error> {
         match value {
             EncodableField::Primitive(EncodablePrimitive::U64(v)) => Ok(v),
-            _ => Err(Error::Todo),
+            _ => Err(Error::NonPrimitiveTypeCannotBeEncoded),
         }
     }
 }
@@ -618,7 +618,7 @@ impl<'a> TryFrom<EncodableField<'a>> for U256<'a> {
     fn try_from(value: EncodableField<'a>) -> Result<Self, Self::Error> {
         match value {
             EncodableField::Primitive(EncodablePrimitive::U256(v)) => Ok(v),
-            _ => Err(Error::Todo),
+            _ => Err(Error::NonPrimitiveTypeCannotBeEncoded),
         }
     }
 }
@@ -633,7 +633,7 @@ impl<'a> TryFrom<EncodableField<'a>> for Signature<'a> {
     fn try_from(value: EncodableField<'a>) -> Result<Self, Self::Error> {
         match value {
             EncodableField::Primitive(EncodablePrimitive::Signature(v)) => Ok(v),
-            _ => Err(Error::Todo),
+            _ => Err(Error::NonPrimitiveTypeCannotBeEncoded),
         }
     }
 }
@@ -653,7 +653,7 @@ impl<'a> TryFrom<EncodableField<'a>> for B032<'a> {
     fn try_from(value: EncodableField<'a>) -> Result<Self, Self::Error> {
         match value {
             EncodableField::Primitive(EncodablePrimitive::B032(v)) => Ok(v),
-            _ => Err(Error::Todo),
+            _ => Err(Error::NonPrimitiveTypeCannotBeEncoded),
         }
     }
 }
@@ -663,7 +663,7 @@ impl<'a> TryFrom<EncodableField<'a>> for B0255<'a> {
     fn try_from(value: EncodableField<'a>) -> Result<Self, Self::Error> {
         match value {
             EncodableField::Primitive(EncodablePrimitive::B0255(v)) => Ok(v),
-            _ => Err(Error::Todo),
+            _ => Err(Error::NonPrimitiveTypeCannotBeEncoded),
         }
     }
 }
@@ -678,7 +678,7 @@ impl<'a> TryFrom<EncodableField<'a>> for B064K<'a> {
     fn try_from(value: EncodableField<'a>) -> Result<Self, Self::Error> {
         match value {
             EncodableField::Primitive(EncodablePrimitive::B064K(v)) => Ok(v),
-            _ => Err(Error::Todo),
+            _ => Err(Error::NonPrimitiveTypeCannotBeEncoded),
         }
     }
 }
@@ -693,7 +693,7 @@ impl<'a> TryFrom<EncodableField<'a>> for B016M<'a> {
     fn try_from(value: EncodableField<'a>) -> Result<Self, Self::Error> {
         match value {
             EncodableField::Primitive(EncodablePrimitive::B016M(v)) => Ok(v),
-            _ => Err(Error::Todo),
+            _ => Err(Error::NonPrimitiveTypeCannotBeEncoded),
         }
     }
 }
@@ -713,7 +713,7 @@ impl<'a> TryFrom<EncodableField<'a>> for U32AsRef<'a> {
     fn try_from(value: EncodableField<'a>) -> Result<Self, Self::Error> {
         match value {
             EncodableField::Primitive(EncodablePrimitive::U32AsRef(v)) => Ok(v),
-            _ => Err(Error::Todo),
+            _ => Err(Error::NonPrimitiveTypeCannotBeEncoded),
         }
     }
 }
