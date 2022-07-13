@@ -55,7 +55,7 @@ impl<'a, T: 'a> Seq0255<'a, T> {
         if inner.len() <= 255 {
             Ok(Self(inner, PhantomData))
         } else {
-            Err(Error::Todo)
+            Err(Error::SeqExceedsMaxSize)
         }
     }
 
@@ -67,7 +67,7 @@ impl<'a, T: 'a> Seq0255<'a, T> {
     //        }
     //        Ok(Self(inner_, PhantomData))
     //    } else {
-    //        Err(Error::Todo)
+    //        Err(Error::SeqExceedsMaxSize)
     //    }
     //}
 }
@@ -102,7 +102,7 @@ impl<'a, T: 'a> Seq064K<'a, T> {
         if inner.len() <= 65535 {
             Ok(Self(inner, PhantomData))
         } else {
-            Err(Error::Todo)
+            Err(Error::SeqExceedsMaxSize)
         }
     }
 }
