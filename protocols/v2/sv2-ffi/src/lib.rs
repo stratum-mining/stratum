@@ -609,7 +609,7 @@ mod tests {
 
     #[test]
     fn test_message_type_channel_endpoint_changed() {
-        let expect = MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGES;
+        let expect = MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED;
 
         let channel_endpoint_changed = ChannelEndpointChanged { channel_id: 0 };
 
@@ -1017,7 +1017,7 @@ mod tests {
         let mut decoder = StandardDecoder::<Sv2Message<'static>>::new();
 
         let frame =
-            StandardSv2Frame::from_message(message.0, MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGES, 0)
+            StandardSv2Frame::from_message(message.0, MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED, 0)
                 .unwrap();
         let encoded_frame = encoder.encode(frame).unwrap();
 
