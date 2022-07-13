@@ -1,3 +1,4 @@
+#[repr(C)]
 #[derive(Debug)]
 pub enum Error {
     MissingBytes(usize),
