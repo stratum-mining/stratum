@@ -309,7 +309,7 @@ impl fmt::Display for Sv2Error {
 
 impl From<binary_sv2::CError> for Sv2Error {
     fn from(e: binary_sv2::CError) -> Sv2Error {
-        Sv2Error::BinaryError(e.into())
+        Sv2Error::BinaryError(e)
     }
 }
 
@@ -383,7 +383,7 @@ fn encode_(
     encoder
         .encoder
         .encode(frame)
-        .map_err(|e| Sv2Error::CodecError(e))
+        .map_err(Sv2Error::CodecError)
         .map(|x| x.into())
 }
 
