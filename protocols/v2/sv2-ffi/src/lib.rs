@@ -283,7 +283,7 @@ pub enum CResult<T, E> {
 
 #[repr(C)]
 pub enum Sv2Error {
-    BinaryError(binary_sv2::Error),
+    BinaryError(binary_sv2::CError),
     CodecError(codec_sv2::Error),
     EncoderBusy,
     InvalidSv2Frame,
@@ -307,9 +307,15 @@ impl fmt::Display for Sv2Error {
     }
 }
 
+impl From<binary_sv2::CError> for Sv2Error {
+    fn from(e: binary_sv2::CError) -> Sv2Error {
+        Sv2Error::BinaryError(e.into())
+    }
+}
+
 impl From<binary_sv2::Error> for Sv2Error {
     fn from(e: binary_sv2::Error) -> Sv2Error {
-        Sv2Error::BinaryError(e)
+        Sv2Error::BinaryError(e.into())
     }
 }
 
