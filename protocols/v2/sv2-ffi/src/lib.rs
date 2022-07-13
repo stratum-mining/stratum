@@ -1,4 +1,5 @@
 #![cfg(not(feature = "with_serde"))]
+use std::fmt;
 
 use codec_sv2::{Encoder, Frame, StandardDecoder, StandardSv2Frame};
 use common_messages_sv2::{
@@ -282,11 +283,41 @@ pub enum CResult<T, E> {
 
 #[repr(C)]
 pub enum Sv2Error {
-    MissingBytes,
+    BinaryError(binary_sv2::Error),
+    CodecError(codec_sv2::Error),
     EncoderBusy,
-    Todo,
-    Unknown,
     InvalidSv2Frame,
+    MissingBytes,
+    PayloadTooBig,
+    Unknown,
+}
+
+impl fmt::Display for Sv2Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use Sv2Error::*;
+        match self {
+            BinaryError(ref e) => write!(f, "{:?}", e),
+            CodecError(ref e) => write!(f, "{:?}", e),
+            PayloadTooBig => write!(f, "Payload is too big"),
+            // PayloadTooBig(s) => write!(f, "{}", s),
+            MissingBytes => write!(f, "Missing expected bytes"),
+            EncoderBusy => write!(f, "Encoder is busy"),
+            Todo => write!(f, "TODO: Handle Error"),
+            Unknown => write!(f, "Unknown error occurred"),
+        }
+    }
+}
+
+impl From<binary_sv2::Error> for Sv2Error {
+    fn from(e: binary_sv2::Error) -> Sv2Error {
+        Sv2Error::BinaryError(e)
+    }
+}
+
+impl From<codec_sv2::Error> for Sv2Error {
+    fn from(e: codec_sv2::Error) -> Sv2Error {
+        Sv2Error::CodecError(e)
+    }
 }
 
 #[no_mangle]
@@ -330,7 +361,10 @@ pub extern "C" fn flush_encoder(encoder: *mut EncoderWrapper) {
     Box::into_raw(encoder);
 }
 
-fn encode_(message: &'static mut CSv2Message, encoder: &mut EncoderWrapper) -> Result<CVec, Error> {
+fn encode_(
+    message: &'static mut CSv2Message,
+    encoder: &mut EncoderWrapper,
+) -> Result<CVec, Sv2Error> {
     let message: Sv2Message = message.to_rust_rep_mut()?;
     let m_type = message.message_type();
     let c_bit = message.channel_bit();
@@ -340,11 +374,11 @@ fn encode_(message: &'static mut CSv2Message, encoder: &mut EncoderWrapper) -> R
         EXTENSION_TYPE_NO_EXTENSION,
         c_bit,
     )
-    .ok_or(Error::Todo)?;
+    .ok_or(Sv2Error::PayloadTooBig)?;
     encoder
         .encoder
         .encode(frame)
-        .map_err(|_| Error::Todo)
+        .map_err(|e| Sv2Error::CodecError(e))
         .map(|x| x.into())
 }
 
@@ -365,12 +399,10 @@ pub unsafe extern "C" fn encode(
 ) -> CResult<CVec, Sv2Error> {
     let mut encoder = Box::from_raw(encoder);
     if encoder.free {
-        let result = encode_(message, &mut encoder)
-            .map_err(|_| Sv2Error::Todo)
-            .into();
+        let result = encode_(message, &mut encoder);
         encoder.free = false;
         Box::into_raw(encoder);
-        result
+        result.into()
     } else {
         CResult::Err(Sv2Error::EncoderBusy)
     }
