@@ -299,10 +299,9 @@ impl fmt::Display for Sv2Error {
             BinaryError(ref e) => write!(f, "{:?}", e),
             CodecError(ref e) => write!(f, "{:?}", e),
             PayloadTooBig => write!(f, "Payload is too big"),
-            // PayloadTooBig(s) => write!(f, "{}", s),
+            InvalidSv2Frame => write!(f, "Invalid Sv2 frame"),
             MissingBytes => write!(f, "Missing expected bytes"),
             EncoderBusy => write!(f, "Encoder is busy"),
-            Todo => write!(f, "TODO: Handle Error"),
             Unknown => write!(f, "Unknown error occurred"),
         }
     }
