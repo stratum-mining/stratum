@@ -6,7 +6,7 @@ on:
     branches:
       - main
 
-name: Test & Lint
+name: Test, Prop Tests, Example Tests
 
 jobs:
   ci:
@@ -29,7 +29,6 @@ jobs:
           profile: minimal
           toolchain: 1.57.0
           override: true
-          components: clippy
 
       - name: Build
         uses: actions-rs/cargo@v1
@@ -64,9 +63,3 @@ jobs:
         with:
           command: build
           args: --manifest-path examples/sv1-client-and-server/Cargo.toml
-
-      - name: Cargo clippy lint
-        uses: actions-rs/cargo@v1
-        with:
-          command: clippy
-          args: -- -D warnings -A dead-code
