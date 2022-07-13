@@ -88,6 +88,9 @@ pub enum Error {
     IoError(E),
     ReadError(usize, usize),
     VoidFieldMarker,
+    /// Error when `Inner` type value exceeds max size.
+    /// (ISFIXED, SIZE, HEADERSIZE, MAXSIZE, bad value vec, bad value length)
+    ValueExceedsMaxSize(bool, usize, usize, usize, Vec<u8>, usize),
     NoDecodableFieldPassed,
     ValueIsNotAValidProtocol(u8),
     UnknownMessageType(u8),
