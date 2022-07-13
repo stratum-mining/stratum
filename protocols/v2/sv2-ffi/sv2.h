@@ -416,14 +416,6 @@ void free_submit_solution(CSubmitSolution s);
 #include <ostream>
 #include <new>
 
-enum class Sv2Error {
-  MissingBytes,
-  EncoderBusy,
-  Todo,
-  Unknown,
-  InvalidSv2Frame,
-};
-
 struct DecoderWrapper;
 
 struct EncoderWrapper;
@@ -500,6 +492,32 @@ struct CSv2Message {
     SetupConnection_Body setup_connection;
     SetupConnectionError_Body setup_connection_error;
     SetupConnectionSuccess_Body setup_connection_success;
+  };
+};
+
+struct Sv2Error {
+  enum class Tag {
+    BinaryError,
+    CodecError,
+    EncoderBusy,
+    InvalidSv2Frame,
+    MissingBytes,
+    PayloadTooBig,
+    Unknown,
+  };
+
+  struct BinaryError_Body {
+    CError _0;
+  };
+
+  struct CodecError_Body {
+    Error _0;
+  };
+
+  Tag tag;
+  union {
+    BinaryError_Body binary_error;
+    CodecError_Body codec_error;
   };
 };
 
