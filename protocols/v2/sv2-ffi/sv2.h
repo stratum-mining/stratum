@@ -547,6 +547,11 @@ extern "C" {
 
 void drop_sv2_message(CSv2Message s);
 
+/// This function does nothing unless there is some heap allocated data owned by the C side that
+/// needs to be dropped (specifically a `CVec`). In this case, `free_vec` is used in order to drop
+/// that memory.
+void drop_sv2_error(Sv2Error s);
+
 bool is_ok(const CResult<CSv2Message, Sv2Error> *cresult);
 
 EncoderWrapper *new_encoder();
