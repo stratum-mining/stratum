@@ -177,6 +177,36 @@ impl From<Error> for CError {
     }
 }
 
+impl Drop for CError {
+    fn drop(&mut self) {
+        match self {
+            Self::OutOfBound => (),
+            Self::NotABool(_) => (),
+            Self::WriteError(_, _) => (),
+            Self::U24TooBig(_) => (),
+            Self::InvalidSignatureSize(_) => (),
+            Self::InvalidU256(_) => (),
+            Self::InvalidU24(_) => (),
+            Self::InvalidB0255Size(_) => (),
+            Self::InvalidB064KSize(_) => (),
+            Self::InvalidB016MSize(_) => (),
+            Self::InvalidSeq0255Size(_) => (),
+            Self::NonPrimitiveTypeCannotBeEncoded => (),
+            Self::PrimitiveConversionError => (),
+            Self::DecodableConversionError => (),
+            Self::UnInitializedDecoder => (),
+            Self::IoError => (),
+            Self::ReadError(_, _) => (),
+            Self::VoidFieldMarker => (),
+            Self::ValueExceedsMaxSize(_, _, _, _, cvec, _) => free_vec(cvec),
+            Self::SeqExceedsMaxSize => (),
+            Self::NoDecodableFieldPassed => (),
+            Self::ValueIsNotAValidProtocol(_) => (),
+            Self::UnknownMessageType(_) => (),
+        };
+    }
+}
+
 /// Vec<u8> is used as the Sv2 type Bytes
 impl GetSize for Vec<u8> {
     fn get_size(&self) -> usize {

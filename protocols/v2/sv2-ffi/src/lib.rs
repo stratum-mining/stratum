@@ -131,7 +131,7 @@ pub extern "C" fn drop_sv2_message(s: CSv2Message) {
 pub extern "C" fn drop_sv2_error(s: Sv2Error) {
     match s {
         Sv2Error::BinaryError(a) => drop(a),
-        Sv2Error::CodecError(a) => drop(a),
+        Sv2Error::CodecError(_) => (),
         Sv2Error::EncoderBusy => (),
         Sv2Error::InvalidSv2Frame => (),
         Sv2Error::MissingBytes => (),
