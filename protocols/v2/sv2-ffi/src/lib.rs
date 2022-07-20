@@ -124,6 +124,22 @@ pub extern "C" fn drop_sv2_message(s: CSv2Message) {
     }
 }
 
+/// This function does nothing unless there is some heap allocated data owned by the C side that
+/// needs to be dropped (specifically a `CVec`). In this case, `free_vec` is used in order to drop
+/// that memory.
+#[no_mangle]
+pub extern "C" fn drop_sv2_error(s: Sv2Error) {
+    match s {
+        Sv2Error::BinaryError(a) => drop(a),
+        Sv2Error::CodecError(_) => (),
+        Sv2Error::EncoderBusy => (),
+        Sv2Error::InvalidSv2Frame => (),
+        Sv2Error::MissingBytes => (),
+        Sv2Error::PayloadTooBig => (),
+        Sv2Error::Unknown => (),
+    }
+}
+
 impl<'a> From<Sv2Message<'a>> for CSv2Message {
     fn from(v: Sv2Message<'a>) -> Self {
         match v {
