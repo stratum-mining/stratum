@@ -243,10 +243,22 @@ impl<'a> From<B032<'a>> for Extranonce {
         Self { head, tail }
     }
 }
+impl<'a> From<Extranonce> for B032<'a> {
+    fn from(v: Extranonce) -> Self {
+        let mut extranonce = v.tail.to_le_bytes().to_vec();
+        extranonce.append(&mut v.head.to_le_bytes().to_vec());
+        // below unwraps never panics
+        extranonce.try_into().unwrap()
+    }
+}
 
 impl Extranonce {
     pub fn new() -> Self {
         Self { head: 0, tail: 0 }
+    }
+
+    pub fn into_b032(self) -> B032<'static> {
+        self.into()
     }
 
     #[allow(clippy::should_implement_trait)]
@@ -269,8 +281,8 @@ impl Extranonce {
 
 impl From<&mut ExtendedExtranonce> for Extranonce {
     fn from(v: &mut ExtendedExtranonce) -> Self {
-        let head: [u8;16] = v.inner[0..8].try_into().unwrap();
-        let tail: [u8;16] = v.inner[8..16].try_into().unwrap();
+        let head: [u8;16] = v.inner[0..16].try_into().unwrap();
+        let tail: [u8;16] = v.inner[16..32].try_into().unwrap();
         let head = u128::from_be_bytes(head);
         let tail = u128::from_be_bytes(tail);
         Self {head,tail}

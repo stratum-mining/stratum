@@ -54,7 +54,7 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
         let target = hash_rate_to_target(incoming.nominal_hash_rate);
         let extranonce_prefix = self
             .extranonces
-            .safe_lock(|e| e.next().clone().into_static())
+            .safe_lock(|e| e.next_standard().unwrap().into_b032())
             .unwrap();
         let message = match (self.downstream_data.header_only, self.id) {
             (false, group_channel_id) => {

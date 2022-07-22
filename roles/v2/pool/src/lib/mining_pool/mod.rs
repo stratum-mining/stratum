@@ -19,7 +19,7 @@ use roles_logic_sv2::{
     handlers::mining::{ParseDownstreamMiningMessages, SendTo},
     job_creator::JobsCreators,
     mining_sv2::{
-        Extranonce, NewExtendedMiningJob, SetNewPrevHash as NewPrevHash, SubmitSharesStandard,
+        Extranonce, NewExtendedMiningJob, SetNewPrevHash as NewPrevHash, SubmitSharesStandard, ExtendedExtranonce,
     },
     parsers::{Mining, PoolMessages},
     routing_logic::MiningRoutingLogic,
@@ -237,6 +237,13 @@ pub struct ExtendedJob {
 }
 
 #[derive(Debug)]
+enum DownstreamKind {
+    Extended,
+    Group,
+    StandardJob,
+}
+
+#[derive(Debug)]
 pub struct Downstream {
     // Either group or channel id
     id: u32,
@@ -244,7 +251,7 @@ pub struct Downstream {
     sender: Sender<EitherFrame>,
     downstream_data: CommonDownstreamData,
     channel_ids: Id,
-    extranonces: Arc<Mutex<Extranonce>>,
+    extranonces: Arc<Mutex<ExtendedExtranonce>>,
     // channel_id -> StandardJob
     jobs: HashMap<u32, StandardJob>,
     // extended_job_id -> (FutureJob,template_id)
@@ -254,6 +261,7 @@ pub struct Downstream {
     // (job,template_id)
     last_valid_extended_job: Option<(NewExtendedMiningJob<'static>, u64)>,
     solution_sender: Sender<SubmitSolution<'static>>,
+    kind: DownstreamKind,
 }
 
 /// Accept downstream connection
@@ -266,7 +274,7 @@ pub struct Pool {
     group_ids: Arc<Mutex<Id>>,
     job_creators: Arc<Mutex<JobsCreators>>,
     last_new_prev_hash: Option<SetNewPrevHash<'static>>,
-    extranonces: Arc<Mutex<Extranonce>>,
+    extranonces: Arc<Mutex<ExtendedExtranonce>>,
     solution_sender: Sender<SubmitSolution<'static>>,
     new_template_processed: bool,
 }
@@ -298,7 +306,7 @@ impl Downstream {
         group_ids: Arc<Mutex<Id>>,
         _hom_ids: Arc<Mutex<Id>>,
         job_creators: Arc<Mutex<JobsCreators>>,
-        extranonces: Arc<Mutex<Extranonce>>,
+        extranonces: Arc<Mutex<ExtendedExtranonce>>,
         last_new_prev_hash: Option<SetNewPrevHash<'static>>,
         solution_sender: Sender<SubmitSolution<'static>>,
     ) -> Arc<Mutex<Self>> {
@@ -358,6 +366,7 @@ impl Downstream {
             last_nbits: None,
             last_valid_extended_job,
             solution_sender,
+            kind: DownstreamKind::Group,
         }));
 
         for job in extended_jobs {
@@ -647,6 +656,9 @@ impl Pool {
         solution_sender: Sender<SubmitSolution<'static>>,
     ) {
         //let group_id_generator = Arc::new(Mutex::new(Id::new()));
+        let range_0 = std::ops::Range{start: 0, end: 0};
+        let range_1 = std::ops::Range{start: 0, end: 16};
+        let range_2 = std::ops::Range{start: 16, end: 32};
         let pool = Arc::new(Mutex::new(Pool {
             group_downstreams: HashMap::new(),
             hom_downstreams: HashMap::new(),
@@ -656,7 +668,7 @@ impl Pool {
                 JobsCreators::new(crate::BLOCK_REWARD, crate::new_pub_key()).unwrap(),
             )),
             last_new_prev_hash: None,
-            extranonces: Arc::new(Mutex::new(Extranonce::new())),
+            extranonces: Arc::new(Mutex::new(ExtendedExtranonce::new(range_0, range_1, range_2))),
             solution_sender,
             new_template_processed: false,
         }));
