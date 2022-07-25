@@ -124,6 +124,7 @@ mod submit_shares;
 mod update_channel;
 
 pub use close_channel::CloseChannel;
+use core::ops::Range;
 pub use new_mining_job::{NewExtendedMiningJob, NewMiningJob};
 pub use open_channel::{
     OpenExtendedMiningChannel, OpenExtendedMiningChannelSuccess, OpenMiningChannelError,
@@ -141,6 +142,7 @@ pub use submit_shares::{
     SubmitSharesError, SubmitSharesExtended, SubmitSharesStandard, SubmitSharesSuccess,
 };
 pub use update_channel::{UpdateChannel, UpdateChannelError};
+const EXTRANONCE_LEN: usize = 32;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Target {
@@ -241,10 +243,22 @@ impl<'a> From<B032<'a>> for Extranonce {
         Self { head, tail }
     }
 }
+impl<'a> From<Extranonce> for B032<'a> {
+    fn from(v: Extranonce) -> Self {
+        let mut extranonce = v.tail.to_le_bytes().to_vec();
+        extranonce.append(&mut v.head.to_le_bytes().to_vec());
+        // below unwraps never panics
+        extranonce.try_into().unwrap()
+    }
+}
 
 impl Extranonce {
     pub fn new() -> Self {
         Self { head: 0, tail: 0 }
+    }
+
+    pub fn into_b032(self) -> B032<'static> {
+        self.into()
     }
 
     #[allow(clippy::should_implement_trait)]
@@ -263,4 +277,92 @@ impl Extranonce {
         // below unwraps never panics
         extranonce.try_into().unwrap()
     }
+}
+
+impl From<&mut ExtendedExtranonce> for Extranonce {
+    fn from(v: &mut ExtendedExtranonce) -> Self {
+        let head: [u8; 16] = v.inner[0..16].try_into().unwrap();
+        let tail: [u8; 16] = v.inner[16..32].try_into().unwrap();
+        let head = u128::from_be_bytes(head);
+        let tail = u128::from_be_bytes(tail);
+        Self { head, tail }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ExtendedExtranonce {
+    inner: [u8; EXTRANONCE_LEN],
+    // Part of extranonce managed by upstream is fixed and can not be changed, for most upstreams
+    // nodes (e.g. a pool) this is [0..0]
+    range_0: core::ops::Range<usize>,
+    // Part of extranonce that a Downstream that itself implement extended channel can reserve
+    range_1: core::ops::Range<usize>,
+    range_2: core::ops::Range<usize>,
+}
+
+impl ExtendedExtranonce {
+    pub fn new(range_0: Range<usize>, range_1: Range<usize>, range_2: Range<usize>) -> Self {
+        assert!(range_0.start == 0);
+        assert!(range_0.end == range_1.start);
+        assert!(range_1.end == range_2.start);
+        assert!(range_2.end == EXTRANONCE_LEN);
+        Self {
+            inner: [0; EXTRANONCE_LEN],
+            range_0,
+            range_1,
+            range_2,
+        }
+    }
+
+    pub fn from_extranonce(
+        v: Extranonce,
+        range_0: Range<usize>,
+        range_1: Range<usize>,
+        range_2: Range<usize>,
+    ) -> Self {
+        let head = v.head.to_be_bytes();
+        let tail = v.tail.to_be_bytes();
+        // below unwraps never panics
+        let mut inner: [u8; EXTRANONCE_LEN] = [head, tail].concat().try_into().unwrap();
+        let non_reserved_extranonces_bytes = &mut inner[range_2.start..range_2.end];
+        for b in non_reserved_extranonces_bytes {
+            *b = 0;
+        }
+        Self {
+            inner,
+            range_0,
+            range_1,
+            range_2,
+        }
+    }
+
+    pub fn next_standard(&mut self) -> Option<Extranonce> {
+        let non_reserved_extranonces_bytes = &mut self.inner[self.range_2.start..self.range_2.end];
+
+        match increment_bytes_be(non_reserved_extranonces_bytes) {
+            Ok(_) => Some(self.into()),
+            Err(_) => None,
+        }
+    }
+
+    pub fn next_extended(&mut self, required_len: usize) -> Option<Extranonce> {
+        if required_len > self.range_2.start - self.range_2.end {
+            return None;
+        };
+        let extended_part = &mut self.inner[self.range_1.start..self.range_1.end];
+        match increment_bytes_be(extended_part) {
+            Ok(_) => Some(self.into()),
+            Err(_) => None,
+        }
+    }
+}
+
+fn increment_bytes_be(bs: &mut [u8]) -> Result<(), ()> {
+    for b in bs.iter_mut().rev() {
+        if *b != u8::MAX {
+            *b += 1;
+            return Ok(());
+        }
+    }
+    Err(())
 }

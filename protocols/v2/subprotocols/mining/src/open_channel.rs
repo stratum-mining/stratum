@@ -116,7 +116,7 @@ pub struct OpenExtendedMiningChannel<'decoder> {
     /// Client-specified identifier for matching responses from upstream server.
     /// The value MUST be connection-wide unique and is not interpreted by
     /// the server.
-    pub request_id: u32,
+    pub request_id: U32AsRef<'decoder>,
     /// Unconstrained sequence of bytes. Whatever is needed by upstream
     /// node to identify/authenticate the client, e.g. “braiinstest.worker1”.
     /// Additional restrictions can be imposed by the upstream node (e.g. a
@@ -136,6 +136,11 @@ pub struct OpenExtendedMiningChannel<'decoder> {
     pub max_target: U256<'decoder>,
     /// Minimum size of extranonce needed by the device/node.
     pub min_extranonce_size: u16,
+}
+impl<'decoder> OpenExtendedMiningChannel<'decoder> {
+    pub fn get_request_id_as_u32(&self) -> u32 {
+        (&self.request_id).into()
+    }
 }
 
 /// # OpenExtendedMiningChannel.Success (Server -> Client)
