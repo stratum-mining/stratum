@@ -129,8 +129,7 @@ impl CompleteJob {
                 .try_into()
                 .unwrap();
                 let merkle_root = Hash::from_inner(merkle_root);
-                let merkle_root = TxMerkleNode::from_hash(merkle_root);
-                merkle_root
+                TxMerkleNode::from_hash(merkle_root)
             }
         };
         // TODO  how should version be transoformed from u32 into i32???

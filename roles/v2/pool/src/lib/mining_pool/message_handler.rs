@@ -198,7 +198,7 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
         };
 
         let message = OpenExtendedMiningChannelSuccess {
-            request_id: request_id.into(),
+            request_id,
             target,
             channel_id,
             extranonce_size: 128,

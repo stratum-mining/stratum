@@ -320,7 +320,6 @@ impl ExtendedExtranonce {
         range_1: Range<usize>,
         range_2: Range<usize>,
     ) -> Self {
-        assert!(EXTRANONCE_LEN == 256);
         let head = v.head.to_be_bytes();
         let tail = v.tail.to_be_bytes();
         // below unwraps never panics
