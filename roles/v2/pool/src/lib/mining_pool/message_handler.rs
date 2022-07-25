@@ -59,7 +59,7 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
         let message = match (self.downstream_data.header_only, self.id) {
             (false, group_channel_id) => {
                 let channel_id = self.channel_ids.next();
-                let mut partial_job = crate::lib::mining_pool::StandardJob::new(
+                let mut partial_job = crate::lib::mining_pool::Job::new(
                     u256_to_uint_256(target.clone()),
                     extranonce_prefix.clone().to_vec(),
                 );
@@ -98,7 +98,7 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
                 }
             }
             (true, channel_id) => {
-                let mut partial_job = crate::lib::mining_pool::StandardJob::new(
+                let mut partial_job = crate::lib::mining_pool::Job::new(
                     u256_to_uint_256(target.clone()),
                     extranonce_prefix.clone().to_vec(),
                 );

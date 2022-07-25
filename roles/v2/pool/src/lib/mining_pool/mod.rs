@@ -19,7 +19,7 @@ use roles_logic_sv2::{
     handlers::mining::{ParseDownstreamMiningMessages, SendTo},
     job_creator::JobsCreators,
     mining_sv2::{
-        Extranonce, NewExtendedMiningJob, SetNewPrevHash as NewPrevHash, SubmitSharesStandard, ExtendedExtranonce,
+        NewExtendedMiningJob, SetNewPrevHash as NewPrevHash, ExtendedExtranonce
     },
     parsers::{Mining, PoolMessages},
     routing_logic::MiningRoutingLogic,
@@ -40,19 +40,19 @@ use setup_connection::SetupConnectionHandler;
 pub mod message_handler;
 
 #[derive(Debug, Clone)]
-struct PartialStandardJob {
+struct PartialJob {
     target: Uint256,
     extranonce: Vec<u8>,
 }
 
-impl PartialStandardJob {
+impl PartialJob {
     pub fn to_complete_standard_job(
         &self,
         new_ext_job: &NewExtendedMiningJob<'static>,
         nbits: u32,
         prev_hash: BlockHash,
         template_id: u64,
-    ) -> CompleteStandardJob {
+    ) -> CompleteJob {
         let merkle_root: [u8; 32] = merkle_root_from_path(
             &(new_ext_job.coinbase_tx_prefix.to_vec()[..]),
             &(new_ext_job.coinbase_tx_suffix.to_vec()[..]),
@@ -64,7 +64,7 @@ impl PartialStandardJob {
         .unwrap();
         let merkle_root = Hash::from_inner(merkle_root);
         let merkle_root = TxMerkleNode::from_hash(merkle_root);
-        CompleteStandardJob {
+        CompleteJob {
             target: self.target,
             nbits,
             prev_hash,
@@ -77,10 +77,8 @@ impl PartialStandardJob {
             template_id,
         }
     }
-}
-
-#[derive(Debug, Clone)]
-struct CompleteStandardJob {
+} #[derive(Debug, Clone)]
+struct CompleteJob {
     template_id: u64,
     target: Uint256,
     nbits: u32,
@@ -101,7 +99,7 @@ pub enum VelideateTargetResult {
     Invalid(BlockHash),
 }
 
-impl CompleteStandardJob {
+impl CompleteJob {
     pub fn get_coinbase(&self) -> B064K<'static> {
         let mut coinbase = Vec::new();
         coinbase.extend(self.coinbase_tx_prefix.clone());
@@ -114,13 +112,34 @@ impl CompleteStandardJob {
         nonce: u32,
         version: u32,
         ntime: u32,
+        extranonce_suffix: Option<&[u8]>,
     ) -> VelideateTargetResult {
+        let merkle_root = match extranonce_suffix {
+            None => self.merkle_root,
+            Some(suffix) => {
+                let mid_point = self.extranonce.len() - suffix.len();
+                let extranonce = [&self.extranonce[0..mid_point],suffix].concat();
+                assert!(self.extranonce.len() == 32);
+                let merkle_root: [u8; 32] = merkle_root_from_path(
+                    &(self.coinbase_tx_prefix[..]),
+                    &(self.coinbase_tx_suffix[..]),
+                    &extranonce[..],
+                    &(self.merkle_path[..]),
+                )
+                .unwrap()
+                .try_into()
+                .unwrap();
+                let merkle_root = Hash::from_inner(merkle_root);
+                let merkle_root = TxMerkleNode::from_hash(merkle_root);
+                merkle_root
+            }
+        };
         // TODO  how should version be transoformed from u32 into i32???
         let version = version as i32;
         let header = BlockHeader {
             version,
             prev_blockhash: self.prev_hash,
-            merkle_root: self.merkle_root,
+            merkle_root,
             time: ntime,
             bits: self.nbits,
             nonce,
@@ -184,14 +203,14 @@ impl CompleteStandardJob {
 }
 
 #[derive(Debug, Clone)]
-enum StandardJob {
-    Partial(PartialStandardJob),
-    Complete(CompleteStandardJob),
+enum Job {
+    Partial(PartialJob),
+    Complete(CompleteJob),
 }
 
-impl StandardJob {
+impl Job {
     pub fn new(target: Uint256, extranonce: Vec<u8>) -> Self {
-        Self::Partial(PartialStandardJob { target, extranonce })
+        Self::Partial(PartialJob { target, extranonce })
     }
     pub fn update_job(
         &mut self,
@@ -201,7 +220,7 @@ impl StandardJob {
         template_id: u64,
     ) {
         match self {
-            StandardJob::Partial(p) => {
+            Job::Partial(p) => {
                 *self = Self::Complete(p.to_complete_standard_job(
                     new_ext_job,
                     nbits,
@@ -209,7 +228,7 @@ impl StandardJob {
                     template_id,
                 ));
             }
-            StandardJob::Complete(c) => {
+            Job::Complete(c) => {
                 *self = Self::Complete(c.update_job(new_ext_job, nbits, prev_hash, template_id));
             }
         }
@@ -219,7 +238,7 @@ impl StandardJob {
         match self {
             Self::Partial(_) => (),
             Self::Complete(c) => {
-                *self = Self::Partial(PartialStandardJob {
+                *self = Self::Partial(PartialJob {
                     target: c.target,
                     extranonce: c.extranonce.clone(),
                 });
@@ -236,12 +255,6 @@ pub struct ExtendedJob {
     nbits: u32,
 }
 
-#[derive(Debug)]
-enum DownstreamKind {
-    Extended,
-    Group,
-    StandardJob,
-}
 
 #[derive(Debug)]
 pub struct Downstream {
@@ -252,16 +265,17 @@ pub struct Downstream {
     downstream_data: CommonDownstreamData,
     channel_ids: Id,
     extranonces: Arc<Mutex<ExtendedExtranonce>>,
-    // channel_id -> StandardJob
-    jobs: HashMap<u32, StandardJob>,
+    // channel_id -> Job
+    jobs: HashMap<u32, Job>,
     // extended_job_id -> (FutureJob,template_id)
     future_jobs: HashMap<u32, (NewExtendedMiningJob<'static>, u64)>,
+    // channel_id -> Prefixes VALID ONLY FOR EXTENDED CHANNELS
+    prefixes: HashMap<u32,Vec<u8>>,
     last_prev_hash: Option<BlockHash>,
     last_nbits: Option<u32>,
     // (job,template_id)
     last_valid_extended_job: Option<(NewExtendedMiningJob<'static>, u64)>,
     solution_sender: Sender<SubmitSolution<'static>>,
-    kind: DownstreamKind,
 }
 
 /// Accept downstream connection
@@ -280,11 +294,11 @@ pub struct Pool {
 }
 
 impl Downstream {
-    pub fn check_target(&mut self, m: &SubmitSharesStandard) -> Result<VelideateTargetResult, ()> {
-        let id = m.channel_id;
+    pub fn check_target(&mut self, channel_id: u32, nonce: u32, version: u32, ntime: u32, extranonce_suffix: Option<&[u8]>) -> Result<VelideateTargetResult, ()> {
+        let id = channel_id;
         match self.jobs.get_mut(&id) {
-            Some(StandardJob::Complete(job)) => {
-                let res = job.validate_target(m.nonce, m.version, m.ntime);
+            Some(Job::Complete(job)) => {
+                let res = job.validate_target(nonce, version, ntime, extranonce_suffix);
                 match res {
                     VelideateTargetResult::LessThanBitcoinTarget(_, _, _) => {
                         self.jobs.get_mut(&id).as_mut().unwrap().make_partial();
@@ -294,10 +308,11 @@ impl Downstream {
                 };
                 Ok(res)
             }
-            Some(StandardJob::Partial(_)) => Err(()),
+            Some(Job::Partial(_)) => Err(()),
             None => Err(()),
         }
     }
+
 
     #[allow(clippy::too_many_arguments)]
     pub async fn new(
@@ -366,7 +381,7 @@ impl Downstream {
             last_nbits: None,
             last_valid_extended_job,
             solution_sender,
-            kind: DownstreamKind::Group,
+            prefixes: HashMap::new(),
         }));
 
         for job in extended_jobs {
