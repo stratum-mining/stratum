@@ -18,9 +18,7 @@ use roles_logic_sv2::{
     errors::Error,
     handlers::mining::{ParseDownstreamMiningMessages, SendTo},
     job_creator::JobsCreators,
-    mining_sv2::{
-        NewExtendedMiningJob, SetNewPrevHash as NewPrevHash, ExtendedExtranonce
-    },
+    mining_sv2::{ExtendedExtranonce, NewExtendedMiningJob, SetNewPrevHash as NewPrevHash},
     parsers::{Mining, PoolMessages},
     routing_logic::MiningRoutingLogic,
     template_distribution_sv2::{NewTemplate, SetNewPrevHash, SubmitSolution},
@@ -77,7 +75,8 @@ impl PartialJob {
             template_id,
         }
     }
-} #[derive(Debug, Clone)]
+}
+#[derive(Debug, Clone)]
 struct CompleteJob {
     template_id: u64,
     target: Uint256,
@@ -118,7 +117,7 @@ impl CompleteJob {
             None => self.merkle_root,
             Some(suffix) => {
                 let mid_point = self.extranonce.len() - suffix.len();
-                let extranonce = [&self.extranonce[0..mid_point],suffix].concat();
+                let extranonce = [&self.extranonce[0..mid_point], suffix].concat();
                 assert!(self.extranonce.len() == 32);
                 let merkle_root: [u8; 32] = merkle_root_from_path(
                     &(self.coinbase_tx_prefix[..]),
@@ -255,7 +254,6 @@ pub struct ExtendedJob {
     nbits: u32,
 }
 
-
 #[derive(Debug)]
 pub struct Downstream {
     // Either group or channel id
@@ -270,7 +268,7 @@ pub struct Downstream {
     // extended_job_id -> (FutureJob,template_id)
     future_jobs: HashMap<u32, (NewExtendedMiningJob<'static>, u64)>,
     // channel_id -> Prefixes VALID ONLY FOR EXTENDED CHANNELS
-    prefixes: HashMap<u32,Vec<u8>>,
+    prefixes: HashMap<u32, Vec<u8>>,
     last_prev_hash: Option<BlockHash>,
     last_nbits: Option<u32>,
     // (job,template_id)
@@ -294,7 +292,14 @@ pub struct Pool {
 }
 
 impl Downstream {
-    pub fn check_target(&mut self, channel_id: u32, nonce: u32, version: u32, ntime: u32, extranonce_suffix: Option<&[u8]>) -> Result<VelideateTargetResult, ()> {
+    pub fn check_target(
+        &mut self,
+        channel_id: u32,
+        nonce: u32,
+        version: u32,
+        ntime: u32,
+        extranonce_suffix: Option<&[u8]>,
+    ) -> Result<VelideateTargetResult, ()> {
         let id = channel_id;
         match self.jobs.get_mut(&id) {
             Some(Job::Complete(job)) => {
@@ -312,7 +317,6 @@ impl Downstream {
             None => Err(()),
         }
     }
-
 
     #[allow(clippy::too_many_arguments)]
     pub async fn new(
@@ -671,9 +675,9 @@ impl Pool {
         solution_sender: Sender<SubmitSolution<'static>>,
     ) {
         //let group_id_generator = Arc::new(Mutex::new(Id::new()));
-        let range_0 = std::ops::Range{start: 0, end: 0};
-        let range_1 = std::ops::Range{start: 0, end: 16};
-        let range_2 = std::ops::Range{start: 16, end: 32};
+        let range_0 = std::ops::Range { start: 0, end: 0 };
+        let range_1 = std::ops::Range { start: 0, end: 16 };
+        let range_2 = std::ops::Range { start: 16, end: 32 };
         let pool = Arc::new(Mutex::new(Pool {
             group_downstreams: HashMap::new(),
             hom_downstreams: HashMap::new(),
@@ -683,7 +687,9 @@ impl Pool {
                 JobsCreators::new(crate::BLOCK_REWARD, crate::new_pub_key()).unwrap(),
             )),
             last_new_prev_hash: None,
-            extranonces: Arc::new(Mutex::new(ExtendedExtranonce::new(range_0, range_1, range_2))),
+            extranonces: Arc::new(Mutex::new(ExtendedExtranonce::new(
+                range_0, range_1, range_2,
+            ))),
             solution_sender,
             new_template_processed: false,
         }));
