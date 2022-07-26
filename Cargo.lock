@@ -1096,6 +1096,7 @@ dependencies = [
 name = "noise_sv2"
 version = "0.1.1"
 dependencies = [
+ "binary_sv2",
  "bs58",
  "buffer_sv2",
  "bytes",

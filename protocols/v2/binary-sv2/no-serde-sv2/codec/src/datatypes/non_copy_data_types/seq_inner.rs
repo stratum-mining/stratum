@@ -37,7 +37,7 @@ use std::io::Read;
 /// The liftime is here only for type compatibility with serde-sv2
 #[repr(C)]
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct Seq0255<'a, T>(pub(crate) Vec<T>, PhantomData<&'a T>);
+pub struct Seq0255<'a, T>(pub Vec<T>, PhantomData<&'a T>);
 
 impl<'a, T: 'a> Seq0255<'a, T> {
     const HEADERSIZE: usize = 1;

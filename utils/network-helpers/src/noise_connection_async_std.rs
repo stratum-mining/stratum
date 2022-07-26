@@ -148,7 +148,14 @@ impl Connection {
         let mut second_message: HandShakeFrame = second_message.try_into().unwrap();
         let second_message = second_message.payload().to_vec();
 
-        state.step(Some(second_message)).unwrap();
+        let thirth_message = state.step(Some(second_message)).unwrap();
+        sender_outgoing.send(thirth_message.into()).await.unwrap();
+
+        let fourth_message = receiver_incoming.recv().await.unwrap();
+        let mut fourth_message: HandShakeFrame = fourth_message.try_into().unwrap();
+        let fourth_message = fourth_message.payload().to_vec();
+
+        state.step(Some(fourth_message)).unwrap();
 
         state.into_transport_mode().unwrap()
     }
@@ -169,7 +176,14 @@ impl Connection {
 
         sender_outgoing.send(second_message.into()).await.unwrap();
 
-        // CHECK IF SECOND_MESSAGE HAS BEEN SENT
+        let mut thirth_message: HandShakeFrame =
+            receiver_incoming.recv().await.unwrap().try_into().unwrap();
+        let thirth_message = thirth_message.payload().to_vec();
+
+        let fourth_message = state.step(Some(thirth_message)).unwrap();
+        sender_outgoing.send(fourth_message.into()).await.unwrap();
+
+        // CHECK IF FOURTH MESSAGE HAS BEEN SENT
         loop {
             task::sleep(std::time::Duration::from_millis(1)).await;
             if sender_incoming.is_empty() {
