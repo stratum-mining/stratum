@@ -4,11 +4,14 @@ mod auth;
 mod error;
 mod formats;
 pub mod handshake;
+mod negotiation;
 
 use alloc::vec::Vec;
+use binary_sv2::{from_bytes, to_bytes};
 use bytes::Bytes;
 use core::{convert::TryFrom, time::Duration};
 use error::{Error, Result};
+use negotiation::{EncryptionAlgorithm, NegotiationMessage, NoiseParamsBuilder};
 use snow::{params::NoiseParams, Builder, HandshakeState, TransportState};
 
 pub use auth::{SignatureNoiseMessage, SignedPartHeader};
@@ -59,6 +62,7 @@ pub fn random_keypair() -> ([u8; 32], [u8; 32]) {
 pub struct Initiator {
     stage: usize,
     handshake_state: HandshakeState,
+    algorithms: Vec<EncryptionAlgorithm>,
     /// Authority public key use to sign the certificate that prove the identity of the Responder
     /// (upstream node) to the Initiator (downstream node)
     authority_public_key: ed25519_dalek::PublicKey,
@@ -70,11 +74,13 @@ impl Initiator {
 
         let builder: Builder<'_> = Builder::new(params);
         let handshake_state = builder.build_initiator().map_err(|_| Error {})?;
+        let algorithms = vec![EncryptionAlgorithm::ChaChaPoly, EncryptionAlgorithm::AESGCM];
 
         Ok(Self {
             stage: 0,
             handshake_state,
             authority_public_key,
+            algorithms,
         })
     }
 
@@ -106,6 +112,20 @@ impl Initiator {
 
         Ok(())
     }
+
+    pub fn update_handshake_state(
+        &mut self,
+        algo: EncryptionAlgorithm,
+        prologue: &[u8],
+    ) -> Result<()> {
+        let builder = NoiseParamsBuilder::new(algo).get_builder();
+
+        self.handshake_state = builder
+            .prologue(prologue)
+            .build_initiator()
+            .map_err(|_| Error {})?;
+        Ok(())
+    }
 }
 
 impl handshake::Step for Initiator {
@@ -118,7 +138,30 @@ impl handshake::Step for Initiator {
 
         let result = match self.stage {
             0 => {
-                // Create first message (initiator ephemeral public key)
+                // -> list supported algorithms
+                //
+                let msg = NegotiationMessage::new(self.algorithms.clone());
+                // below never fail
+                let serialized = to_bytes(msg.clone()).unwrap();
+
+                handshake::StepResult::ExpectReply(serialized)
+            }
+            1 => {
+                // <- chosen algorithm
+                let mut in_msg = in_msg.ok_or(Error {})?;
+                let negotiation_message: NegotiationMessage =
+                    dbg!(from_bytes(in_msg.as_mut()).map_err(|_| Error {})?);
+                let algos = dbg!(negotiation_message.get_algos()?);
+
+                if algos.len() != 1 {
+                    return Err(Error {});
+                }
+                let chosen_algorithm = algos[0];
+                // Below is inffalible
+                let prologue = to_bytes(negotiation_message).unwrap();
+                self.update_handshake_state(chosen_algorithm, &prologue)?;
+
+                // Send (initiator ephemeral public key)
                 // -> e
                 //
                 let buffer_len = SNOW_PSKLEN + SNOW_TAGLEN;
@@ -133,7 +176,7 @@ impl handshake::Step for Initiator {
 
                 handshake::StepResult::ExpectReply(noise_bytes)
             }
-            1 => {
+            2 => {
                 // Receive responder message
                 // <- e, ee, s, es, SIGNATURE_NOISE_MESSAGE
                 //
@@ -167,6 +210,8 @@ pub struct Responder {
     handshake_state: HandshakeState,
     /// Serialized signature noise message
     signature_noise_message: Bytes,
+    algorithms: Vec<EncryptionAlgorithm>,
+    private: Vec<u8>,
 }
 
 pub struct Authority {
@@ -221,11 +266,14 @@ impl Responder {
             .local_private_key(&static_keypair.private)
             .build_responder()
             .expect("BUG: cannot build responder");
+        let algorithms = vec![EncryptionAlgorithm::ChaChaPoly, EncryptionAlgorithm::AESGCM];
 
         Ok(Self {
             stage: 0,
             handshake_state,
             signature_noise_message,
+            algorithms,
+            private: static_keypair.private.clone(),
         })
     }
 
@@ -252,6 +300,21 @@ impl Responder {
 
         Self::new(&static_keypair, signature_noise_message.into())
     }
+
+    pub fn update_handshake_state(
+        &mut self,
+        algo: EncryptionAlgorithm,
+        prologue: &[u8],
+    ) -> Result<()> {
+        let builder = NoiseParamsBuilder::new(algo).get_builder();
+
+        self.handshake_state = dbg!(builder
+            .local_private_key(&self.private)
+            .prologue(prologue)
+            .build_responder())
+        .map_err(|_| Error {})?;
+        Ok(())
+    }
 }
 
 impl handshake::Step for Responder {
@@ -264,6 +327,37 @@ impl handshake::Step for Responder {
 
         let result = match self.stage {
             0 => {
+                let mut in_msg = in_msg.ok_or(Error {})?;
+                let negotiation_message: std::result::Result<NegotiationMessage, _> =
+                    from_bytes(&mut in_msg);
+                match negotiation_message {
+                    Ok(negotiation_message) => {
+                        let algs: Vec<EncryptionAlgorithm> = negotiation_message.get_algos()?;
+
+                        // If AES is present choose AES, otherwise choose the first supported one
+                        let chosen_algorithm = if algs.contains(&EncryptionAlgorithm::AESGCM) {
+                            EncryptionAlgorithm::AESGCM
+                        } else {
+                            algs.into_iter()
+                                .find(|x| self.algorithms.contains(x))
+                                .ok_or(Error {})?
+                        };
+
+                        let negotiation_message = NegotiationMessage::new(vec![chosen_algorithm]);
+
+                        // below never fail
+                        let to_send = to_bytes(negotiation_message).unwrap();
+                        self.update_handshake_state(chosen_algorithm, &to_send)?;
+                        handshake::StepResult::ExpectReply(to_send)
+                    }
+                    Err(_) => {
+                        // Otherwise, use the handshake with default params and pass e to the next step
+                        self.stage += 1;
+                        self.step(Some(in_msg))?
+                    }
+                }
+            }
+            1 => {
                 // Receive Initiator ephemeral public key
                 // <- e
                 //
@@ -288,7 +382,7 @@ impl handshake::Step for Responder {
                 debug_assert!(buffer_len == len_written);
                 handshake::StepResult::NoMoreReply(noise_bytes)
             }
-            1 => handshake::StepResult::Done,
+            2 => handshake::StepResult::Done,
             _ => return Err(Error {}),
         };
         self.stage += 1;
@@ -471,10 +565,18 @@ pub(crate) mod test {
             _ => panic!(),
         };
         let second_message = match responder.step(Some(first_message)).unwrap() {
+            handshake::StepResult::ExpectReply(msg) => msg,
+            _ => panic!(),
+        };
+        let thirth_message = match initiator.step(Some(second_message)).unwrap() {
+            handshake::StepResult::ExpectReply(msg) => msg,
+            _ => panic!(),
+        };
+        let fourth_message = match responder.step(Some(thirth_message)).unwrap() {
             handshake::StepResult::NoMoreReply(msg) => msg,
             _ => panic!(),
         };
-        initiator.step(Some(second_message)).unwrap();
+        initiator.step(Some(fourth_message)).unwrap();
 
         TransportMode::new(
             initiator
