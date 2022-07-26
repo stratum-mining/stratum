@@ -37,7 +37,7 @@ use std::io::Read;
 /// The liftime is here only for type compatibility with serde-sv2
 #[repr(C)]
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct Seq0255<'a, T>(pub(crate) Vec<T>, PhantomData<&'a T>);
+pub struct Seq0255<'a, T>(pub Vec<T>, PhantomData<&'a T>);
 
 impl<'a, T: 'a> Seq0255<'a, T> {
     const HEADERSIZE: usize = 1;
@@ -55,7 +55,7 @@ impl<'a, T: 'a> Seq0255<'a, T> {
         if inner.len() <= 255 {
             Ok(Self(inner, PhantomData))
         } else {
-            Err(Error::Todo)
+            Err(Error::SeqExceedsMaxSize)
         }
     }
 
@@ -67,7 +67,7 @@ impl<'a, T: 'a> Seq0255<'a, T> {
     //        }
     //        Ok(Self(inner_, PhantomData))
     //    } else {
-    //        Err(Error::Todo)
+    //        Err(Error::SeqExceedsMaxSize)
     //    }
     //}
 }
@@ -102,7 +102,7 @@ impl<'a, T: 'a> Seq064K<'a, T> {
         if inner.len() <= 65535 {
             Ok(Self(inner, PhantomData))
         } else {
-            Err(Error::Todo)
+            Err(Error::SeqExceedsMaxSize)
         }
     }
 }

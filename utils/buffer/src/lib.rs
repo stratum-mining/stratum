@@ -60,7 +60,7 @@ impl Write for &mut [u8] {
 }
 
 pub trait Buffer {
-    type Slice: AsMut<[u8]> + Into<Slice>;
+    type Slice: AsMut<[u8]> + AsRef<[u8]> + Into<Slice>;
 
     // Caller need to borrow a buffer to write some date
     fn get_writable(&mut self, len: usize) -> &mut [u8];

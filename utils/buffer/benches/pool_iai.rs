@@ -20,7 +20,7 @@ fn with_pool() {
 
 fn without_pool() {
     let data = DATA;
-    let buffer = BufferFromMemory::new();
+    let buffer = BufferFromMemory::new(0);
     bench_no_thread(buffer, &data[..]);
 }
 
@@ -74,7 +74,7 @@ fn without_pool_threaded_1() {
     let data = DATA;
     let capacity: usize = 2_usize.pow(16) * 5;
     let mut pool = Pool::new(capacity);
-    let mut buffer = BufferFromMemory::new();
+    let mut buffer = BufferFromMemory::new(0);
     let mut rng = rand::thread_rng();
     let d = Duration::from_micros(10);
     for i in 0..1000 {
@@ -91,7 +91,7 @@ fn without_pool_threaded_2() {
     let data = DATA;
     let capacity: usize = 2_usize.pow(16) * 5;
     let mut pool = Pool::new(capacity);
-    let mut buffer = BufferFromMemory::new();
+    let mut buffer = BufferFromMemory::new(0);
     let mut rng = rand::thread_rng();
     let d = Duration::from_nanos(10);
     for i in 0..1000 {

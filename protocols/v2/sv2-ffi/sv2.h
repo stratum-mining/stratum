@@ -416,14 +416,6 @@ void free_submit_solution(CSubmitSolution s);
 #include <ostream>
 #include <new>
 
-enum class Sv2Error {
-  MissingBytes,
-  EncoderBusy,
-  Todo,
-  Unknown,
-  InvalidSv2Frame,
-};
-
 struct DecoderWrapper;
 
 struct EncoderWrapper;
@@ -503,6 +495,32 @@ struct CSv2Message {
   };
 };
 
+struct Sv2Error {
+  enum class Tag {
+    BinaryError,
+    CodecError,
+    EncoderBusy,
+    InvalidSv2Frame,
+    MissingBytes,
+    PayloadTooBig,
+    Unknown,
+  };
+
+  struct BinaryError_Body {
+    CError _0;
+  };
+
+  struct CodecError_Body {
+    Error _0;
+  };
+
+  Tag tag;
+  union {
+    BinaryError_Body binary_error;
+    CodecError_Body codec_error;
+  };
+};
+
 template<typename T, typename E>
 struct CResult {
   enum class Tag {
@@ -528,6 +546,11 @@ struct CResult {
 extern "C" {
 
 void drop_sv2_message(CSv2Message s);
+
+/// This function does nothing unless there is some heap allocated data owned by the C side that
+/// needs to be dropped (specifically a `CVec`). In this case, `free_vec` is used in order to drop
+/// that memory.
+void drop_sv2_error(Sv2Error s);
 
 bool is_ok(const CResult<CSv2Message, Sv2Error> *cresult);
 

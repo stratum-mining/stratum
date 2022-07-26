@@ -13,21 +13,27 @@ use framing_sv2::{
     header::Header,
 };
 
-use crate::{
-    buffer::{Buffer, SlowAndCorrect},
-    error::{Error, Result},
-};
+#[cfg(not(feature = "with_buffer_pool"))]
+use buffer_sv2::{Buffer as IsBuffer, BufferFromSystemMemory as Buffer};
+
+#[cfg(feature = "with_buffer_pool")]
+use buffer_sv2::{Buffer as IsBuffer, BufferFromSystemMemory, BufferPool};
+#[cfg(feature = "with_buffer_pool")]
+type Buffer = BufferPool<BufferFromSystemMemory>;
+
+use crate::error::{Error, Result};
+
 #[cfg(feature = "noise_sv2")]
 use crate::{State, TransportMode};
 
 #[cfg(feature = "noise_sv2")]
-pub type StandardNoiseDecoder<T> = WithNoise<SlowAndCorrect, T>;
-pub type StandardEitherFrame<T> = EitherFrame<T, <SlowAndCorrect as Buffer>::Slice>;
-pub type StandardSv2Frame<T> = Sv2Frame<T, <SlowAndCorrect as Buffer>::Slice>;
-pub type StandardDecoder<T> = WithoutNoise<SlowAndCorrect, T>;
+pub type StandardNoiseDecoder<T> = WithNoise<Buffer, T>;
+pub type StandardEitherFrame<T> = EitherFrame<T, <Buffer as IsBuffer>::Slice>;
+pub type StandardSv2Frame<T> = Sv2Frame<T, <Buffer as IsBuffer>::Slice>;
+pub type StandardDecoder<T> = WithoutNoise<Buffer, T>;
 
 #[cfg(feature = "noise_sv2")]
-pub struct WithNoise<B: Buffer, T: Serialize + binary_sv2::GetSize> {
+pub struct WithNoise<B: IsBuffer, T: Serialize + binary_sv2::GetSize> {
     frame: PhantomData<T>,
     missing_noise_b: usize,
     noise_buffer: B,
@@ -36,7 +42,7 @@ pub struct WithNoise<B: Buffer, T: Serialize + binary_sv2::GetSize> {
 }
 
 #[cfg(feature = "noise_sv2")]
-impl<'a, T: Serialize + GetSize + Deserialize<'a>, B: Buffer> WithNoise<B, T> {
+impl<'a, T: Serialize + GetSize + Deserialize<'a>, B: IsBuffer> WithNoise<B, T> {
     #[inline]
     pub fn next_frame(&mut self, state: &mut State) -> Result<EitherFrame<T, B::Slice>> {
         let len = self.noise_buffer.len();
@@ -61,8 +67,11 @@ impl<'a, T: Serialize + GetSize + Deserialize<'a>, B: Buffer> WithNoise<B, T> {
             State::Transport(transport_mode) => {
                 // STRIP THE HEADER FROM THE FRAME AND GET THE ENCRYPTED PAYLOAD
                 // everything here can not fail as the size has been already checked
+                #[cfg(feature = "with_buffer_pool")]
+                let src = self.noise_buffer.get_data_owned();
+                #[cfg(not(feature = "with_buffer_pool"))]
                 let src = self.noise_buffer.get_data_owned().as_mut().to_vec();
-                let mut noise_frame = NoiseFrame::from_bytes_unchecked(src);
+                let mut noise_frame = NoiseFrame::from_bytes_unchecked(src.into());
                 let src = noise_frame.payload();
 
                 // DECRYPT THE ENCRYPTED PAYLOAD
@@ -88,7 +97,7 @@ impl<'a, T: Serialize + GetSize + Deserialize<'a>, B: Buffer> WithNoise<B, T> {
                     return Ok(frame.into());
                 }
 
-                // IF HINT IS NOT 0 AND MISSING BYTES IS 0 IT MEAN THAT THE FIRST FRAGMENT OF AN
+                // IF HINT IS NOT 0 AND MISSING BYTES IS 0 IT MEANs THAT THE FIRST FRAGMENT OF AN
                 // SV2 HAS BEEN RECEIVED
                 self.handle_fragmented().ok_or(())?;
                 Err(Error::MissingBytes(self.missing_noise_b))
@@ -129,7 +138,7 @@ impl<'a, T: Serialize + GetSize + Deserialize<'a>, B: Buffer> WithNoise<B, T> {
         let src = self.noise_buffer.get_data_owned().as_mut().to_vec();
 
         // below is inffalible as noise frame length has been already checked
-        let frame = HandShakeFrame::from_bytes_unchecked(src);
+        let frame = HandShakeFrame::from_bytes_unchecked(src.into());
 
         frame.into()
     }
@@ -141,33 +150,33 @@ impl<'a, T: Serialize + GetSize + Deserialize<'a>, B: Buffer> WithNoise<B, T> {
 }
 
 #[cfg(feature = "noise_sv2")]
-impl<T: Serialize + binary_sv2::GetSize> WithNoise<SlowAndCorrect, T> {
+impl<T: Serialize + binary_sv2::GetSize> WithNoise<Buffer, T> {
     pub fn new() -> Self {
         Self {
             frame: PhantomData,
             missing_noise_b: 0,
-            noise_buffer: SlowAndCorrect::new(),
-            sv2_buffer: SlowAndCorrect::new(),
+            noise_buffer: Buffer::new(2_usize.pow(16) * 5),
+            sv2_buffer: Buffer::new(2_usize.pow(16) * 5),
             sv2_frame_size: 0,
         }
     }
 }
 
 #[cfg(feature = "noise_sv2")]
-impl<T: Serialize + binary_sv2::GetSize> Default for WithNoise<SlowAndCorrect, T> {
+impl<T: Serialize + binary_sv2::GetSize> Default for WithNoise<Buffer, T> {
     fn default() -> Self {
         Self::new()
     }
 }
 
 #[derive(Debug)]
-pub struct WithoutNoise<B: Buffer, T: Serialize + binary_sv2::GetSize> {
+pub struct WithoutNoise<B: IsBuffer, T: Serialize + binary_sv2::GetSize> {
     frame: PhantomData<T>,
     missing_b: usize,
     buffer: B,
 }
 
-impl<T: Serialize + binary_sv2::GetSize, B: Buffer> WithoutNoise<B, T> {
+impl<T: Serialize + binary_sv2::GetSize, B: IsBuffer> WithoutNoise<B, T> {
     #[inline]
     pub fn next_frame(&mut self) -> Result<Sv2Frame<T, B::Slice>> {
         let len = self.buffer.len();
@@ -193,17 +202,17 @@ impl<T: Serialize + binary_sv2::GetSize, B: Buffer> WithoutNoise<B, T> {
     }
 }
 
-impl<T: Serialize + binary_sv2::GetSize> WithoutNoise<SlowAndCorrect, T> {
+impl<T: Serialize + binary_sv2::GetSize> WithoutNoise<Buffer, T> {
     pub fn new() -> Self {
         Self {
             frame: PhantomData,
             missing_b: Header::SIZE,
-            buffer: SlowAndCorrect::new(),
+            buffer: Buffer::new(2_usize.pow(16) * 5),
         }
     }
 }
 
-impl<T: Serialize + binary_sv2::GetSize> Default for WithoutNoise<SlowAndCorrect, T> {
+impl<T: Serialize + binary_sv2::GetSize> Default for WithoutNoise<Buffer, T> {
     fn default() -> Self {
         Self::new()
     }

@@ -1,8 +1,8 @@
 #![no_main]
 use affinity::{get_core_num, set_thread_affinity};
 use arbitrary::Arbitrary;
-use buffer::BufferPool as Pool;
-use buffer::{Buffer, Slice};
+use buffer_sv2::BufferPool as Pool;
+use buffer_sv2::{Buffer, Slice};
 use libfuzzer_sys::fuzz_target;
 use std::fs::File;
 use std::io::Read;

@@ -60,11 +60,11 @@ impl<T> Mutex<T> {
     }
 }
 
-pub fn merkle_root_from_path(
+pub fn merkle_root_from_path<T: AsRef<[u8]>>(
     coinbase_tx_prefix: &[u8],
     coinbase_tx_suffix: &[u8],
     extranonce: &[u8],
-    path: &[&[u8]],
+    path: &[T],
 ) -> Option<Vec<u8>> {
     let mut coinbase =
         Vec::with_capacity(coinbase_tx_prefix.len() + coinbase_tx_suffix.len() + extranonce.len());
@@ -74,7 +74,7 @@ pub fn merkle_root_from_path(
     let coinbase = Transaction::deserialize(&coinbase[..]).ok()?;
     let mut hashes = vec![coinbase.txid().as_hash()];
     for hash in path {
-        hashes.push(Hash::from_slice(hash).ok()?)
+        hashes.push(Hash::from_slice(hash.as_ref()).ok()?)
     }
 
     let root = bitcoin_merkle_root(hashes.into_iter());

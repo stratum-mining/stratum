@@ -8,7 +8,7 @@ pub struct BufferFromSystemMemory {
 }
 
 impl BufferFromSystemMemory {
-    pub fn new() -> Self {
+    pub fn new(_: usize) -> Self {
         Self {
             inner: Vec::new(),
             cursor: 0,
@@ -18,7 +18,7 @@ impl BufferFromSystemMemory {
 
 impl Default for BufferFromSystemMemory {
     fn default() -> Self {
-        Self::new()
+        Self::new(0)
     }
 }
 

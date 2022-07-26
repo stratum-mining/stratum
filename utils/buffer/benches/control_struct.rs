@@ -100,6 +100,13 @@ impl AsMut<[u8]> for SSlice {
     }
 }
 
+impl AsRef<[u8]> for SSlice {
+    #[inline(always)]
+    fn as_ref(&self) -> &[u8] {
+        unsafe { core::slice::from_raw_parts(self.offset, self.len) }
+    }
+}
+
 impl Drop for SSlice {
     fn drop(&mut self) {
         let mut to_free = self.to_free.lock().unwrap();
@@ -213,6 +220,13 @@ impl AsMut<[u8]> for MaxESlice {
     #[inline(always)]
     fn as_mut(&mut self) -> &mut [u8] {
         unsafe { core::slice::from_raw_parts_mut(self.offset, self.len) }
+    }
+}
+
+impl AsRef<[u8]> for MaxESlice {
+    #[inline(always)]
+    fn as_ref(&self) -> &[u8] {
+        unsafe { core::slice::from_raw_parts(self.offset, self.len) }
     }
 }
 

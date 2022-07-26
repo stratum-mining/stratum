@@ -16,3 +16,4 @@ codec_sv2 = { path = "../../protocols/v2/codec-sv2", features=["noise_sv2"], opt
 [features]
 async_std = ["async-std", "async-channel", "binary_sv2", "codec_sv2"]
 with_tokio = ["tokio", "async-channel", "binary_sv2", "codec_sv2"]
+with_buffer_pool = ["codec_sv2/with_buffer_pool"]

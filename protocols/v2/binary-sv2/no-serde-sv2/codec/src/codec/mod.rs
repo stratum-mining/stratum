@@ -8,6 +8,8 @@ use crate::Error;
 pub mod decodable;
 pub mod encodable;
 mod impls;
+#[cfg(feature = "with_buffer_pool")]
+use buffer_sv2::Slice;
 
 /// Return the encoded byte size or a `Decodable`
 pub trait SizeHint {
@@ -18,6 +20,13 @@ pub trait SizeHint {
 /// Return the encoded byte size of an `Encodable` comprehensive of the header, if any
 pub trait GetSize {
     fn get_size(&self) -> usize;
+}
+
+#[cfg(feature = "with_buffer_pool")]
+impl GetSize for Slice {
+    fn get_size(&self) -> usize {
+        self.len()
+    }
 }
 
 /// Implemented by all the primitives with a fixed size

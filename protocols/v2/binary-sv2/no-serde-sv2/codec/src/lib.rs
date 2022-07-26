@@ -79,6 +79,8 @@ pub enum Error {
     InvalidB064KSize(usize),
     InvalidB016MSize(usize),
     InvalidSeq0255Size(usize),
+    /// Error when trying to encode a non-primitive data type
+    NonPrimitiveTypeCannotBeEncoded,
     PrimitiveConversionError,
     DecodableConversionError,
     UnInitializedDecoder,
@@ -86,10 +88,14 @@ pub enum Error {
     IoError(E),
     ReadError(usize, usize),
     VoidFieldMarker,
+    /// Error when `Inner` type value exceeds max size.
+    /// (ISFIXED, SIZE, HEADERSIZE, MAXSIZE, bad value vec, bad value length)
+    ValueExceedsMaxSize(bool, usize, usize, usize, Vec<u8>, usize),
+    /// Error when sequence value (`Seq0255`, `Seq064K`) exceeds max size
+    SeqExceedsMaxSize,
     NoDecodableFieldPassed,
     ValueIsNotAValidProtocol(u8),
     UnknownMessageType(u8),
-    Todo,
 }
 
 #[cfg(not(feature = "no_std"))]
@@ -99,6 +105,105 @@ impl From<E> for Error {
             ErrorKind::UnexpectedEof => Error::OutOfBound,
             _ => Error::IoError(v),
         }
+    }
+}
+
+/// FFI-safe Error
+#[repr(C)]
+#[derive(Debug)]
+pub enum CError {
+    OutOfBound,
+    NotABool(u8),
+    /// -> (expected size, actual size)
+    WriteError(usize, usize),
+    U24TooBig(u32),
+    InvalidSignatureSize(usize),
+    InvalidU256(usize),
+    InvalidU24(u32),
+    InvalidB0255Size(usize),
+    InvalidB064KSize(usize),
+    InvalidB016MSize(usize),
+    InvalidSeq0255Size(usize),
+    /// Error when trying to encode a non-primitive data type
+    NonPrimitiveTypeCannotBeEncoded,
+    PrimitiveConversionError,
+    DecodableConversionError,
+    UnInitializedDecoder,
+    #[cfg(not(feature = "no_std"))]
+    IoError,
+    ReadError(usize, usize),
+    VoidFieldMarker,
+    /// Error when `Inner` type value exceeds max size.
+    /// (ISFIXED, SIZE, HEADERSIZE, MAXSIZE, bad value vec, bad value length)
+    ValueExceedsMaxSize(bool, usize, usize, usize, CVec, usize),
+    /// Error when sequence value (`Seq0255`, `Seq064K`) exceeds max size
+    SeqExceedsMaxSize,
+    NoDecodableFieldPassed,
+    ValueIsNotAValidProtocol(u8),
+    UnknownMessageType(u8),
+}
+
+impl From<Error> for CError {
+    fn from(e: Error) -> CError {
+        match e {
+            Error::OutOfBound => CError::OutOfBound,
+            Error::NotABool(u) => CError::NotABool(u),
+            Error::WriteError(u1, u2) => CError::WriteError(u1, u2),
+            Error::U24TooBig(u) => CError::U24TooBig(u),
+            Error::InvalidSignatureSize(u) => CError::InvalidSignatureSize(u),
+            Error::InvalidU256(u) => CError::InvalidU256(u),
+            Error::InvalidU24(u) => CError::InvalidU24(u),
+            Error::InvalidB0255Size(u) => CError::InvalidB0255Size(u),
+            Error::InvalidB064KSize(u) => CError::InvalidB064KSize(u),
+            Error::InvalidB016MSize(u) => CError::InvalidB016MSize(u),
+            Error::InvalidSeq0255Size(u) => CError::InvalidSeq0255Size(u),
+            Error::NonPrimitiveTypeCannotBeEncoded => CError::NonPrimitiveTypeCannotBeEncoded,
+            Error::PrimitiveConversionError => CError::PrimitiveConversionError,
+            Error::DecodableConversionError => CError::DecodableConversionError,
+            Error::UnInitializedDecoder => CError::UnInitializedDecoder,
+            Error::IoError(_) => CError::IoError,
+            Error::ReadError(u1, u2) => CError::ReadError(u1, u2),
+            Error::VoidFieldMarker => CError::VoidFieldMarker,
+            Error::ValueExceedsMaxSize(isfixed, size, headersize, maxsize, bad_value, bad_len) => {
+                let bv1: &[u8] = bad_value.as_ref();
+                let bv: CVec = bv1.into();
+                CError::ValueExceedsMaxSize(isfixed, size, headersize, maxsize, bv, bad_len)
+            }
+            Error::SeqExceedsMaxSize => CError::SeqExceedsMaxSize,
+            Error::NoDecodableFieldPassed => CError::NoDecodableFieldPassed,
+            Error::ValueIsNotAValidProtocol(u) => CError::ValueIsNotAValidProtocol(u),
+            Error::UnknownMessageType(u) => CError::UnknownMessageType(u),
+        }
+    }
+}
+
+impl Drop for CError {
+    fn drop(&mut self) {
+        match self {
+            Self::OutOfBound => (),
+            Self::NotABool(_) => (),
+            Self::WriteError(_, _) => (),
+            Self::U24TooBig(_) => (),
+            Self::InvalidSignatureSize(_) => (),
+            Self::InvalidU256(_) => (),
+            Self::InvalidU24(_) => (),
+            Self::InvalidB0255Size(_) => (),
+            Self::InvalidB064KSize(_) => (),
+            Self::InvalidB016MSize(_) => (),
+            Self::InvalidSeq0255Size(_) => (),
+            Self::NonPrimitiveTypeCannotBeEncoded => (),
+            Self::PrimitiveConversionError => (),
+            Self::DecodableConversionError => (),
+            Self::UnInitializedDecoder => (),
+            Self::IoError => (),
+            Self::ReadError(_, _) => (),
+            Self::VoidFieldMarker => (),
+            Self::ValueExceedsMaxSize(_, _, _, _, cvec, _) => free_vec(cvec),
+            Self::SeqExceedsMaxSize => (),
+            Self::NoDecodableFieldPassed => (),
+            Self::ValueIsNotAValidProtocol(_) => (),
+            Self::UnknownMessageType(_) => (),
+        };
     }
 }
 
@@ -112,6 +217,13 @@ impl GetSize for Vec<u8> {
 // Only needed for implement encodable for Frame never called
 impl<'a> From<Vec<u8>> for EncodableField<'a> {
     fn from(_v: Vec<u8>) -> Self {
+        unreachable!()
+    }
+}
+
+#[cfg(feature = "with_buffer_pool")]
+impl<'a> From<buffer_sv2::Slice> for EncodableField<'a> {
+    fn from(_v: buffer_sv2::Slice) -> Self {
         unreachable!()
     }
 }

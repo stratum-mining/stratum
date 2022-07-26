@@ -123,6 +123,7 @@ impl DownstreamMiningNode {
                 .unwrap();
             }
 
+            // TODO levare questo task
             let _ = task::spawn(async move {
                 loop {
                     let receiver = self_mutex
@@ -155,7 +156,7 @@ impl DownstreamMiningNode {
 
         match next_message_to_send {
             Ok(SendTo::RelaySameMessage(upstream_mutex)) => {
-                let sv2_frame: codec_sv2::Sv2Frame<PoolMessages, Vec<u8>> =
+                let sv2_frame: codec_sv2::Sv2Frame<PoolMessages, buffer_sv2::Slice> =
                     incoming.map(|payload| payload.try_into().unwrap());
                 UpstreamMiningNode::send(upstream_mutex.clone(), sv2_frame)
                     .await

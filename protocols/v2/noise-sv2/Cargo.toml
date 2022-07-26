@@ -18,3 +18,4 @@ bytes = "1.0.1"
 rand = "0.7.3" 
 const_sv2 = {version = "0.1.*", path = "../../../protocols/v2/const-sv2"}
 buffer_sv2 = {version = "0.1.*", path = "../../../utils/buffer"}
+binary_sv2 = { version = "0.1.3", path = "../../../protocols/v2/binary-sv2/binary-sv2" }

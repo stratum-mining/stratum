@@ -24,21 +24,21 @@ dependencies = [
 ]
 
 [[package]]
-name = "buffer"
-version = "0.1.0"
-
-[[package]]
 name = "buffer-fuzz"
 version = "0.0.0"
 dependencies = [
  "affinity",
  "arbitrary",
- "buffer",
+ "buffer_sv2",
  "lazy_static",
  "libfuzzer-sys",
  "rand",
  "threadpool",
 ]
+
+[[package]]
+name = "buffer_sv2"
+version = "0.1.0"
 
 [[package]]
 name = "cc"

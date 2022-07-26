@@ -5,6 +5,12 @@ use core::convert::TryFrom;
 
 const NOISE_MAX_LEN: usize = const_sv2::NOISE_FRAME_MAX_SIZE;
 
+#[cfg(not(feature = "with_buffer_pool"))]
+type Slice = Vec<u8>;
+
+#[cfg(feature = "with_buffer_pool")]
+type Slice = buffer_sv2::Slice;
+
 impl<A, B> Sv2Frame<A, B> {
     pub fn map<C>(self, fun: fn(A) -> C) -> Sv2Frame<C, B> {
         let serialized = self.serialized;
@@ -24,7 +30,7 @@ pub trait Frame<'a, T: Serialize + GetSize>: Sized {
 
     /// Serialize the frame into dst if the frame is already serialized it just swap dst with
     /// itself
-    fn serialize(self, dst: &mut Self::Buffer) -> Result<(), binary_sv2::Error>;
+    fn serialize(self, dst: &mut [u8]) -> Result<(), binary_sv2::Error>;
 
     fn payload(&'a mut self) -> &'a mut [u8];
 
@@ -75,10 +81,17 @@ impl<T, B> Default for Sv2Frame<T, B> {
 pub struct NoiseFrame {
     #[allow(dead_code)]
     header: u16,
-    payload: Vec<u8>,
+    payload: Slice,
 }
 
 pub type HandShakeFrame = NoiseFrame;
+
+#[cfg(feature = "with_buffer_pool")]
+impl<A> From<EitherFrame<A, Vec<u8>>> for Sv2Frame<A, buffer_sv2::Slice> {
+    fn from(_: EitherFrame<A, Vec<u8>>) -> Self {
+        unreachable!()
+    }
+}
 
 impl<'a, T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> Frame<'a, T> for Sv2Frame<T, B> {
     type Buffer = B;
@@ -87,9 +100,9 @@ impl<'a, T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> Frame<'a, T> for 
     /// Serialize the frame into dst if the frame is already serialized it just swap dst with
     /// itself
     #[inline]
-    fn serialize(self, dst: &mut Self::Buffer) -> Result<(), binary_sv2::Error> {
-        if let Some(serialized) = self.serialized {
-            *dst = serialized;
+    fn serialize(self, dst: &mut [u8]) -> Result<(), binary_sv2::Error> {
+        if let Some(mut serialized) = self.serialized {
+            dst.swap_with_slice(serialized.as_mut());
             Ok(())
         } else if let Some(payload) = self.payload {
             to_writer(self.header, dst.as_mut())?;
@@ -192,22 +205,20 @@ impl<'a, T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> Frame<'a, T> for 
 }
 
 #[inline]
-pub fn build_noise_frame_header(frame: &mut Vec<u8>, len: u16) {
-    frame.push(len.to_le_bytes()[0]);
-    frame.push(len.to_le_bytes()[1]);
+pub fn build_noise_frame_header(frame: &mut [u8], len: u16) {
+    frame[0] = len.to_le_bytes()[0];
+    frame[1] = len.to_le_bytes()[1];
 }
 
-impl<'a> Frame<'a, Vec<u8>> for NoiseFrame {
-    //impl<T: Serialize + GetSize> Frame<T> for NoiseFrame {
-
-    type Buffer = Vec<u8>;
+impl<'a> Frame<'a, Slice> for NoiseFrame {
+    type Buffer = Slice;
     type Deserialized = &'a mut [u8];
 
     /// Serialize the frame into dst if the frame is already serialized it just swap dst with
     /// itself
     #[inline]
-    fn serialize(self, dst: &mut Self::Buffer) -> Result<(), binary_sv2::Error> {
-        *dst = self.payload;
+    fn serialize(mut self, dst: &mut [u8]) -> Result<(), binary_sv2::Error> {
+        dst.swap_with_slice(self.payload.as_mut());
         Ok(())
     }
 
@@ -261,16 +272,21 @@ impl<'a> Frame<'a, Vec<u8>> for NoiseFrame {
     /// Try to build a `Frame` frame from a serializable payload.
     /// It returns a Frame if the size of the payload fits in the frame, if not it returns None
     /// Inneficient should be used only to build `HandShakeFrames`
+    /// TODO check if is used only to build `HandShakeFrames`
     fn from_message(
-        message: Vec<u8>,
+        message: Slice,
         _message_type: u8,
         _extension_type: u16,
         _channel_msg: bool,
     ) -> Option<Self> {
         if message.len() <= NOISE_MAX_LEN {
             let header = message.len() as u16;
+            // TODO this shold not allocate a vector
             let payload = [&header.to_le_bytes()[..], &message[..]].concat();
-            Some(Self { header, payload })
+            Some(Self {
+                header,
+                payload: payload.into(),
+            })
         } else {
             None
         }
