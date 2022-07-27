@@ -31,6 +31,7 @@ use const_sv2::{
     MESSAGE_TYPE_SUBMIT_SOLUTION,
 };
 use core::convert::{TryFrom, TryInto};
+use core::fmt;
 
 #[derive(Clone, Debug)]
 pub enum Sv2Message<'a> {
