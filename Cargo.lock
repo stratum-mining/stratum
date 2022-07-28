@@ -228,8 +228,6 @@ version = "0.1.4"
 dependencies = [
  "binary_codec_sv2",
  "derive_codec_sv2",
- "serde",
- "serde_sv2",
 ]
 
 [[package]]
