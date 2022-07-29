@@ -1856,12 +1856,15 @@ dependencies = [
 name = "translator"
 version = "0.1.0"
 dependencies = [
- "common_messages_sv2",
- "mining_sv2",
+ "async-channel",
+ "async-std",
+ "codec_sv2",
+ "network_helpers",
+ "roles_logic_sv2",
  "serde",
  "serde_json",
  "tokio",
- "v1",
+ "toml",
 ]
 
 [[package]]
