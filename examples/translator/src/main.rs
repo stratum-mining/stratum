@@ -1,9 +1,5 @@
 use tokio::net::TcpStream;
 const ADDR: &str = "127.0.0.1:34254";
-// use mining_sv2;
-
-// mod sv1_downstream;
-// mod sv2_upstream;
 
 /// Sv1 Downstream (Miner) <-> Sv1/Sv2 Proxy <-> Sv2 Upstream (Pool)
 #[tokio::main]
