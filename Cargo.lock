@@ -1205,7 +1205,6 @@ dependencies = [
  "codec_sv2",
  "network_helpers",
  "rand 0.8.4",
- "serde",
 ]
 
 [[package]]
@@ -1218,7 +1217,6 @@ dependencies = [
  "bytes",
  "codec_sv2",
  "rand 0.8.4",
- "serde",
 ]
 
 [[package]]

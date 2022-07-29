@@ -1,4 +1,4 @@
-#[cfg(not(feature = "with_serde"))]
+// #[cfg(not(feature = "with_serde"))]
 use binary_sv2::{binary_codec_sv2, decodable::DecodableField, decodable::FieldMarker};
 use binary_sv2::{Deserialize, GetSize, Seq064K, Serialize, Str0255, U24, U256};
 use rand::{distributions::Alphanumeric, Rng};
@@ -6,44 +6,44 @@ use std::convert::TryInto;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Ping<'decoder> {
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
+    // #[cfg_attr(feature = "with_serde", serde(borrow))]
     message: Str0255<'decoder>,
     id: U24,
 }
 
-#[cfg(feature = "with_serde")]
-impl<'decoder> GetSize for Ping<'decoder> {
-    fn get_size(&self) -> usize {
-        self.message.get_size() + self.id.get_size()
-    }
-}
+// #[cfg(feature = "with_serde")]
+// impl<'decoder> GetSize for Ping<'decoder> {
+// fn get_size(&self) -> usize {
+// self.message.get_size() + self.id.get_size()
+// }
+// }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Pong<'decoder> {
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
+    // #[cfg_attr(feature = "with_serde", serde(borrow))]
     message: Seq064K<'decoder, U256<'decoder>>,
     id: U24,
 }
 
-#[cfg(feature = "with_serde")]
-impl GetSize for Pong<'_> {
-    fn get_size(&self) -> usize {
-        self.message.get_size() + self.id.get_size()
-    }
-}
+// #[cfg(feature = "with_serde")]
+// impl GetSize for Pong<'_> {
+// fn get_size(&self) -> usize {
+// self.message.get_size() + self.id.get_size()
+// }
+// }
 
 #[derive(Debug, Serialize)]
 pub struct NoiseHandShake {
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
+    // #[cfg_attr(feature = "with_serde", serde(borrow))]
     payload: Vec<u8>,
 }
 
-#[cfg(feature = "with_serde")]
-impl<'decoder> GetSize for NoiseHandShake<'decoder> {
-    fn get_size(&self) -> usize {
-        self.payload.get_size()
-    }
-}
+// #[cfg(feature = "with_serde")]
+// impl<'decoder> GetSize for NoiseHandShake<'decoder> {
+// fn get_size(&self) -> usize {
+// self.payload.get_size()
+// }
+// }
 
 impl<'decoder> Ping<'decoder> {
     pub fn new(id: u32) -> Self {
@@ -79,30 +79,30 @@ pub enum Message<'decoder> {
     Pong(Pong<'decoder>),
 }
 
-#[cfg(feature = "with_serde")]
-impl<'decoder> binary_sv2::Serialize for Message<'decoder> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: binary_sv2::serde::Serializer,
-    {
-        match self {
-            Message::Ping(p) => p.serialize(serializer),
-            Message::Pong(p) => p.serialize(serializer),
-        }
-    }
-}
+// #[cfg(feature = "with_serde")]
+// impl<'decoder> binary_sv2::Serialize for Message<'decoder> {
+// fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+// where
+// S: binary_sv2::serde::Serializer,
+// {
+// match self {
+// Message::Ping(p) => p.serialize(serializer),
+// Message::Pong(p) => p.serialize(serializer),
+// }
+// }
+// }
 
-#[cfg(feature = "with_serde")]
-impl<'decoder> binary_sv2::Deserialize<'decoder> for Message<'decoder> {
-    fn deserialize<D>(_deserializer: D) -> Result<Self, D::Error>
-    where
-        D: binary_sv2::serde::Deserializer<'decoder>,
-    {
-        todo!()
-    }
-}
+// #[cfg(feature = "with_serde")]
+// impl<'decoder> binary_sv2::Deserialize<'decoder> for Message<'decoder> {
+// fn deserialize<D>(_deserializer: D) -> Result<Self, D::Error>
+// where
+// D: binary_sv2::serde::Deserializer<'decoder>,
+// {
+// todo!()
+// }
+// }
 
-#[cfg(not(feature = "with_serde"))]
+// #[cfg(not(feature = "with_serde"))]
 impl<'decoder> From<Message<'decoder>> for binary_sv2::encodable::EncodableField<'decoder> {
     fn from(m: Message<'decoder>) -> Self {
         match m {
@@ -112,7 +112,7 @@ impl<'decoder> From<Message<'decoder>> for binary_sv2::encodable::EncodableField
     }
 }
 
-#[cfg(not(feature = "with_serde"))]
+// #[cfg(not(feature = "with_serde"))]
 impl<'decoder> Deserialize<'decoder> for Message<'decoder> {
     fn get_structure(_v: &[u8]) -> std::result::Result<Vec<FieldMarker>, binary_sv2::Error> {
         unimplemented!()
