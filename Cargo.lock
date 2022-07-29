@@ -1717,18 +1717,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6bdef32e8150c2a081110b42772ffe7d7c9032b606bc226c8260fd97e0976601"
 
 [[package]]
-name = "sv1_to_sv2"
-version = "0.1.0"
-dependencies = [
- "common_messages_sv2",
- "mining_sv2",
- "serde",
- "serde_json",
- "tokio",
- "v1",
-]
-
-[[package]]
 name = "sv2_ffi"
 version = "0.1.3"
 dependencies = [
@@ -1862,6 +1850,18 @@ source = "git+https://github.com/diondokter/toml-rs?rev=c4161aa#c4161aa70202b399
 dependencies = [
  "hashbrown",
  "serde",
+]
+
+[[package]]
+name = "translator"
+version = "0.1.0"
+dependencies = [
+ "common_messages_sv2",
+ "mining_sv2",
+ "serde",
+ "serde_json",
+ "tokio",
+ "v1",
 ]
 
 [[package]]

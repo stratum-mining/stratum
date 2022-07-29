@@ -1,5 +1,5 @@
 [package]
-name = "sv1_to_sv2"
+name = "translator"
 version = "0.1.0"
 edition = "2021"
 
