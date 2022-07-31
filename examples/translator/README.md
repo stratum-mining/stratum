@@ -18,6 +18,10 @@ Translates sv1 packets sent from a mining device to sv2 packets to be sent to an
    https://github.com/stratum-mining/stratum/blob/main/roles/v2/mining-proxy/src/lib/downstream_mining.rs#L320-L322
 5. you will use the same struct for the client:
    https://github.com/stratum-mining/stratum/blob/main/roles/v2/test-utils/mining-device/src/main.rs#L17-L18
+6. next thing to do is to implement ParseUpstreamCommonMessages for the client
+   https://github.com/stratum-mining/stratum/blob/main/roles/v2/test-utils/mining-device/src/main.rs#L106
+7. and ParseDownstreamCommonMessages for the server
+8. and then initialize the Sv2 connection
 
 
 # Initial Considerations
