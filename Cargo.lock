@@ -1857,9 +1857,12 @@ name = "translator"
 version = "0.1.0"
 dependencies = [
  "async-channel",
+ "async-recursion",
  "async-std",
+ "buffer_sv2",
  "codec_sv2",
  "network_helpers",
+ "once_cell",
  "roles_logic_sv2",
  "serde",
  "serde_json",
