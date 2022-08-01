@@ -1,10 +1,14 @@
-use crate::{
-    downstream::{DownstreamMiningNode, StdFrame as DownstreamFrame},
-    max_supported_version, min_supported_version,
+pub use super::{
+    upstream_mining_connection::UpstreamMiningConnection, EitherFrame, ProxyRemoteSelector,
+    StdFrame,
 };
-use async_channel::{Receiver, SendError, Sender};
+use crate::{
+    config::{max_supported_version, min_supported_version},
+    downstream::{downstream_mining_node::DownstreamMiningNode, StdFrame as DownstreamFrame},
+};
+use async_channel::{Receiver, SendError};
 use async_recursion::async_recursion;
-use codec_sv2::{Frame, HandshakeRole, Initiator, StandardEitherFrame, StandardSv2Frame};
+use codec_sv2::{Frame, HandshakeRole, Initiator};
 use network_helpers::noise_connection_tokio::Connection;
 use roles_logic_sv2::{
     common_messages_sv2::{Protocol, SetupConnection},
@@ -23,23 +27,46 @@ use roles_logic_sv2::{
     },
     parsers::{CommonMessages, Mining, MiningDeviceMessages, PoolMessages},
     routing_logic::MiningProxyRoutingLogic,
-    selectors::{DownstreamMiningSelector, ProxyDownstreamMiningSelector as Prs},
+    selectors::DownstreamMiningSelector,
     utils::{Id, Mutex},
 };
 use std::{collections::HashMap, convert::TryInto, net::SocketAddr, sync::Arc};
 use tokio::{net::TcpStream, task};
 
-pub type Message = PoolMessages<'static>;
-pub type StdFrame = StandardSv2Frame<Message>;
-pub type EitherFrame = StandardEitherFrame<Message>;
-pub type ProxyRemoteSelector = Prs<DownstreamMiningNode>;
-
-#[derive(Clone, Copy, Debug)]
-pub struct Sv2MiningConnection {
-    version: u16,
-    setup_connection_flags: u32,
-    #[allow(dead_code)]
-    setup_connection_success_flags: u32,
+fn jobs_to_relay(
+    id: u32,
+    m: &NewExtendedMiningJob,
+    downstreams: &[Arc<Mutex<DownstreamMiningNode>>],
+    dispacther: &mut JobDispatcher,
+) -> Vec<SendTo<DownstreamMiningNode>> {
+    let mut messages = Vec::with_capacity(downstreams.len());
+    for downstream in downstreams {
+        downstream
+            .safe_lock(|d| {
+                let prev_id = d.prev_job_id;
+                for channel in d.status.get_channels().get_mut(&m.channel_id).unwrap() {
+                    match channel {
+                        DownstreamChannel::Extended(_) => todo!(),
+                        DownstreamChannel::Group(_) => {
+                            crate::add_job_id(m.job_id, id, prev_id);
+                            messages.push(SendTo::RelaySameMessage(downstream.clone()))
+                        }
+                        DownstreamChannel::Standard(channel) => {
+                            if let JobDispatcher::Group(d) = dispacther {
+                                let job = d.on_new_extended_mining_job(m, channel).unwrap();
+                                crate::add_job_id(job.job_id, id, prev_id);
+                                let message = Mining::NewMiningJob(job);
+                                messages.push(SendTo::RelayNewMessage(downstream.clone(), message));
+                            } else {
+                                panic!()
+                            };
+                        }
+                    }
+                }
+            })
+            .unwrap();
+    }
+    messages
 }
 
 // Efficient stack do use JobDispatcher so the smaller variant (None) do not impact performance
@@ -52,22 +79,12 @@ pub enum JobDispatcher {
     None,
 }
 
-/// A 1 to 1 connection with an upstream node that implements the mining (sub)protocol.
-/// The upstream node it connects with is most typically a pool, but could also be another proxy.
-#[derive(Debug, Clone)]
-struct UpstreamMiningConnection {
-    receiver: Receiver<EitherFrame>,
-    sender: Sender<EitherFrame>,
-}
-
-impl UpstreamMiningConnection {
-    async fn send(&mut self, sv2_frame: StdFrame) -> Result<(), SendError<EitherFrame>> {
-        let either_frame = sv2_frame.into();
-        match self.sender.send(either_frame).await {
-            Ok(_) => Ok(()),
-            Err(e) => Err(e),
-        }
-    }
+#[derive(Clone, Copy, Debug)]
+pub struct Sv2MiningConnection {
+    version: u16,
+    setup_connection_flags: u32,
+    #[allow(dead_code)]
+    setup_connection_success_flags: u32,
 }
 
 #[derive(Debug)]
@@ -151,7 +168,7 @@ impl UpstreamMiningNode {
     }
 
     #[async_recursion]
-    async fn setup_flag_and_version(
+    pub(crate) async fn setup_flag_and_version(
         self_mutex: Arc<Mutex<Self>>,
         flags: Option<u32>,
     ) -> Result<(), ()> {
@@ -763,57 +780,4 @@ impl IsMiningUpstream<DownstreamMiningNode, ProxyRemoteSelector> for UpstreamMin
     fn update_channels(&mut self, _channel: UpstreamChannel) {
         todo!()
     }
-}
-
-pub async fn scan(nodes: Vec<Arc<Mutex<UpstreamMiningNode>>>) {
-    let spawn_tasks: Vec<task::JoinHandle<()>> = nodes
-        .iter()
-        .map(|node| {
-            let node = node.clone();
-            task::spawn(async move {
-                UpstreamMiningNode::setup_flag_and_version(node, None)
-                    .await
-                    .unwrap();
-            })
-        })
-        .collect();
-    for task in spawn_tasks {
-        task.await.unwrap();
-    }
-}
-
-fn jobs_to_relay(
-    id: u32,
-    m: &NewExtendedMiningJob,
-    downstreams: &[Arc<Mutex<DownstreamMiningNode>>],
-    dispacther: &mut JobDispatcher,
-) -> Vec<SendTo<DownstreamMiningNode>> {
-    let mut messages = Vec::with_capacity(downstreams.len());
-    for downstream in downstreams {
-        downstream
-            .safe_lock(|d| {
-                let prev_id = d.prev_job_id;
-                for channel in d.status.get_channels().get_mut(&m.channel_id).unwrap() {
-                    match channel {
-                        DownstreamChannel::Extended(_) => todo!(),
-                        DownstreamChannel::Group(_) => {
-                            crate::add_job_id(m.job_id, id, prev_id);
-                            messages.push(SendTo::RelaySameMessage(downstream.clone()))
-                        }
-                        DownstreamChannel::Standard(channel) => {
-                            if let JobDispatcher::Group(d) = dispacther {
-                                let job = d.on_new_extended_mining_job(m, channel).unwrap();
-                                crate::add_job_id(job.job_id, id, prev_id);
-                                let message = Mining::NewMiningJob(job);
-                                messages.push(SendTo::RelayNewMessage(downstream.clone(), message));
-                            } else {
-                                panic!()
-                            };
-                        }
-                    }
-                }
-            })
-            .unwrap();
-    }
-    messages
 }

@@ -3,16 +3,11 @@ use codec_sv2::StandardEitherFrame;
 use network_helpers::plain_connection_tokio::PlainConnection;
 use once_cell::sync::Lazy;
 use roles_logic_sv2::{
-    common_messages_sv2::{SetupConnection, SetupConnectionSuccess},
-    common_properties::CommonDownstreamData,
-    errors::Error,
-    handlers::common::{ParseDownstreamCommonMessages, ParseUpstreamCommonMessages},
-    parsers::{CommonMessages, MiningDeviceMessages},
-    routing_logic::{CommonRoutingLogic, MiningProxyRoutingLogic, MiningRoutingLogic, NoRouting},
+    parsers::MiningDeviceMessages,
+    routing_logic::{CommonRoutingLogic, MiningProxyRoutingLogic, MiningRoutingLogic},
     selectors::{GeneralMiningSelector, UpstreamMiningSelctor},
     utils::{Id, Mutex},
 };
-use serde::Deserialize;
 use std::{
     collections::HashMap,
     net::{IpAddr, SocketAddr},
@@ -20,8 +15,11 @@ use std::{
     sync::Arc,
 };
 use tokio::net::{TcpListener, TcpStream};
-pub(crate) mod downstream;
-pub(crate) mod upstream;
+pub mod config;
+pub mod downstream;
+pub mod setup_connection_handler;
+pub mod upstream;
+use crate::config::Config;
 use crate::upstream::UpstreamMiningNode;
 
 pub type Message = MiningDeviceMessages<'static>;
@@ -45,89 +43,6 @@ static JOB_ID_TO_UPSTREAM_ID: Lazy<Mutex<HashMap<u32, u32>>> =
 
 /// Downstream client (typically the Mining Device) connection address + port
 const DOWNSTREAM_ADDR: &str = "127.0.0.1:34255";
-
-/// Upstream configuration values
-#[derive(Debug, Deserialize)]
-pub struct UpstreamValues {
-    address: String,
-    port: u16,
-    pub_key: [u8; 32],
-}
-
-/// Upstream server connection configuration
-#[derive(Debug, Deserialize)]
-pub struct Config {
-    upstreams: Vec<UpstreamValues>,
-    listen_address: String,
-    listen_mining_port: u16,
-    max_supported_version: u16,
-    min_supported_version: u16,
-}
-
-/// Handles the opening connections:
-/// 1. Downstream (Mining Device) <-> Upstream Proxy
-/// 2. Downstream Proxy <-> Upstream Pool
-struct SetupConnectionHandler {}
-
-/// Implement the `ParseUpstreamCommonMessages` trait for `SetupConnectionHandler`.
-impl ParseUpstreamCommonMessages<NoRouting> for SetupConnectionHandler {
-    /// Upstream sends the Downstream (this proxy) back a `SetupConnection.Success` message on a
-    /// successful connection setup. This functions handles that response.
-    fn handle_setup_connection_success(
-        &mut self,
-        _: SetupConnectionSuccess,
-    ) -> Result<roles_logic_sv2::handlers::common::SendTo, roles_logic_sv2::errors::Error> {
-        use roles_logic_sv2::handlers::common::SendTo;
-        Ok(SendTo::None(None))
-    }
-
-    /// Upstream sends the Downstream (this proxy) back a `SetupConnection.Error` message on an
-    /// unsuccessful connection setup. This functions handles that response.
-    fn handle_setup_connection_error(
-        &mut self,
-        _: roles_logic_sv2::common_messages_sv2::SetupConnectionError,
-    ) -> Result<roles_logic_sv2::handlers::common::SendTo, roles_logic_sv2::errors::Error> {
-        todo!()
-    }
-
-    fn handle_channel_endpoint_changed(
-        &mut self,
-        _: roles_logic_sv2::common_messages_sv2::ChannelEndpointChanged,
-    ) -> Result<roles_logic_sv2::handlers::common::SendTo, roles_logic_sv2::errors::Error> {
-        todo!()
-    }
-}
-
-impl ParseDownstreamCommonMessages<NoRouting> for SetupConnectionHandler {
-    fn handle_setup_connection(
-        &mut self,
-        incoming: SetupConnection,
-        _: Option<Result<(CommonDownstreamData, SetupConnectionSuccess), Error>>,
-    ) -> Result<roles_logic_sv2::handlers::common::SendTo, Error> {
-        use roles_logic_sv2::handlers::common::SendTo;
-        let header_only = incoming.requires_standard_job();
-        // self.header_only = Some(header_only);
-        Ok(SendTo::RelayNewMessage(
-            Arc::new(Mutex::new(())),
-            CommonMessages::SetupConnectionSuccess(SetupConnectionSuccess {
-                flags: 0,
-                used_version: 2,
-            }),
-        ))
-    }
-}
-
-pub(crate) fn max_supported_version() -> u16 {
-    let config_file = std::fs::read_to_string("proxy-config.toml").unwrap();
-    let config: Config = toml::from_str(&config_file).unwrap();
-    config.max_supported_version
-}
-
-pub(crate) fn min_supported_version() -> u16 {
-    let config_file = std::fs::read_to_string("proxy-config.toml").unwrap();
-    let config: Config = toml::from_str(&config_file).unwrap();
-    config.min_supported_version
-}
 
 async fn initialize_upstreams() {
     let upstreams = ROUTING_LOGIC

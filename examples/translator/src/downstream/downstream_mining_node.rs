@@ -1,9 +1,10 @@
+pub use super::{EitherFrame, StdFrame};
+use crate::downstream::downstream_mining_node_status::DownstreamMiningNodeStatus;
 use crate::upstream::{
     JobDispatcher, ProxyRemoteSelector, StdFrame as UpstreamFrame, UpstreamMiningNode,
 };
 use async_channel::{Receiver, SendError, Sender};
-use codec_sv2::{Frame, StandardEitherFrame, StandardSv2Frame};
-use network_helpers::plain_connection_tokio::PlainConnection;
+use codec_sv2::Frame;
 use roles_logic_sv2::{
     common_messages_sv2::{SetupConnection, SetupConnectionSuccess},
     common_properties::{
@@ -22,68 +23,18 @@ use roles_logic_sv2::{
     routing_logic::MiningProxyRoutingLogic,
     utils::Mutex,
 };
-use std::{collections::HashMap, convert::TryInto, net::SocketAddr, sync::Arc};
-use tokio::{net::TcpListener, task};
-
-pub(crate) type Message = PoolMessages<'static>;
-pub(crate) type StdFrame = StandardSv2Frame<Message>;
-pub type EitherFrame = StandardEitherFrame<Message>;
-
-#[derive(Debug)]
-pub enum DownstreamMiningNodeStatus {
-    Initializing,
-    Paired((CommonDownstreamData, HashMap<u32, Vec<DownstreamChannel>>)),
-}
-
-impl DownstreamMiningNodeStatus {
-    fn is_paired(&self) -> bool {
-        match self {
-            DownstreamMiningNodeStatus::Initializing => false,
-            DownstreamMiningNodeStatus::Paired(_) => true,
-        }
-    }
-
-    fn pair(&mut self, data: CommonDownstreamData) {
-        match self {
-            DownstreamMiningNodeStatus::Initializing => {
-                let self_ = Self::Paired((data, HashMap::new()));
-                let _ = std::mem::replace(self, self_);
-            }
-            DownstreamMiningNodeStatus::Paired(_) => panic!(),
-        }
-    }
-
-    pub fn get_channels(&mut self) -> &mut HashMap<u32, Vec<DownstreamChannel>> {
-        match self {
-            DownstreamMiningNodeStatus::Initializing => panic!(),
-            DownstreamMiningNodeStatus::Paired((_, channels)) => channels,
-        }
-    }
-
-    fn add_channel(&mut self, channel: DownstreamChannel) {
-        match self {
-            DownstreamMiningNodeStatus::Initializing => panic!(),
-            DownstreamMiningNodeStatus::Paired((_, channels)) => {
-                match channels.get_mut(&channel.group_id()) {
-                    Some(g) => g.push(channel),
-                    None => {
-                        channels.insert(channel.group_id(), vec![channel]);
-                    }
-                };
-            }
-        }
-    }
-}
+use std::{collections::HashMap, convert::TryInto, sync::Arc};
+use tokio::task;
 
 /// 1 to 1 connection with a downstream node that implement the mining (sub)protocol can be either
 /// a mining device or a downstream proxy.
 #[derive(Debug)]
 pub struct DownstreamMiningNode {
-    receiver: Receiver<EitherFrame>,
-    sender: Sender<EitherFrame>,
+    pub receiver: Receiver<EitherFrame>,
+    pub sender: Sender<EitherFrame>,
     pub status: DownstreamMiningNodeStatus,
     // channel_id/group_id -> group_id
-    channel_id_to_group_id: HashMap<u32, u32>,
+    pub channel_id_to_group_id: HashMap<u32, u32>,
     pub prev_job_id: Option<u32>,
 }
 
@@ -318,40 +269,5 @@ impl
         _: SetCustomMiningJob,
     ) -> Result<SendTo<UpstreamMiningNode>, Error> {
         todo!()
-    }
-}
-
-pub async fn listen_for_downstream_mining(address: SocketAddr) {
-    let listner = TcpListener::bind(address).await.unwrap();
-
-    while let Ok((stream, _)) = listner.accept().await {
-        let (receiver, sender): (Receiver<EitherFrame>, Sender<EitherFrame>) =
-            PlainConnection::new(stream).await;
-        let node = DownstreamMiningNode::new(receiver, sender);
-
-        task::spawn(async move {
-            let mut incoming: StdFrame = node.receiver.recv().await.unwrap().try_into().unwrap();
-            let message_type = incoming.get_header().unwrap().msg_type();
-            let payload = incoming.payload();
-            let routing_logic = crate::get_common_routing_logic();
-            let node = Arc::new(Mutex::new(node));
-
-            // Call handle_setup_connection or fail
-            match DownstreamMiningNode::handle_message_common(
-                node.clone(),
-                message_type,
-                payload,
-                routing_logic,
-            ) {
-                Ok(SendToCommon::RelayNewMessage(_, message)) => {
-                    let message = match message {
-                        roles_logic_sv2::parsers::CommonMessages::SetupConnectionSuccess(m) => m,
-                        _ => panic!(),
-                    };
-                    DownstreamMiningNode::start(node, message).await
-                }
-                _ => panic!(),
-            }
-        });
     }
 }
