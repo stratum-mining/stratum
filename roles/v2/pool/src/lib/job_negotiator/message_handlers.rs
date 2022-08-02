@@ -12,8 +12,15 @@ use roles_logic_sv2::errors::Error;
 impl JobNegotiatorDownstream {
     
     fn verify_job(&mut self, message: &CommitMiningJob) -> bool{
-        todo!()
-}
+        let is_token_allocated = self.token_to_job_map.contains_key(&message.mining_job_token);
+        // TODO Function to implement, it must be checked if the requested job has: 
+        // 1. right coinbase
+        // 2. right version field
+        // 3. right prev-hash
+        // 4. right nbits
+        // 5. a valid merketpath
+        is_token_allocated
+    }
 }
 
 impl ParseClientJobNegotiationMessages for JobNegotiatorDownstream{
@@ -36,12 +43,12 @@ impl ParseClientJobNegotiationMessages for JobNegotiatorDownstream{
 
     fn commit_mining_job(&mut self, message: CommitMiningJob) -> Result<SendTo, Error>{
         if self.verify_job(&message) {
-            let token = self.tokens.next().to_be_bytes();
             let message_success = CommitMiningJobSuccess {
                 request_id: message.request_id,
-                new_mining_job_token: token.to_vec().try_into().unwrap(),
+                new_mining_job_token: message.mining_job_token,
             };
             let message_enum_success = JobNegotiation::CommitMiningJobSuccess(message_success);
+            self.token_to_job_map.insert(message.mining_job_token, Some(message.into()));
             Ok(SendTo::Respond(message_enum_success))
         }
         else {

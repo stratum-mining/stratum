@@ -11,6 +11,12 @@ use tokio::task;
 mod message_handlers;
 
 struct CommittedMiningJob {}
+
+impl<'a> From<CommitMiningJob<'a>> for CommittedMiningJob {
+    fn from(v: CommitMiningJob) -> Self{
+        todo!()
+    }
+}
 pub struct JobNegotiatorDownstream {
     sender: Sender<EitherFrame>,
     receiver: Receiver<EitherFrame>,
