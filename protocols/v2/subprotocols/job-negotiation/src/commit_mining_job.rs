@@ -63,7 +63,7 @@ pub struct CommitMiningJob<'decoder> {
 
 /// # CommitMiningJob.Success (Server->Client)
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct CommitMiningJobSuccess<'decoder> {
+pub struct CommitMiningJobSuccess {
     /// Identifier of the original request.
     pub request_id: u32,
     /// Unique identifier provided by the pool of the job that the Job Negotiator
@@ -76,7 +76,7 @@ pub struct CommitMiningJobSuccess<'decoder> {
     /// message on each Mining Protocol client which wishes to mine using the
     /// negotiated job.
     #[cfg_attr(feature = "with_serde", serde(borrow))]
-    pub new_mining_job_token: B0255<'decoder>,
+    pub new_mining_job_token: u32,
 }
 
 /// # CommitMiningJob.Error (Server->Client)

@@ -114,11 +114,11 @@ pub enum JobNegotiation<'a> {
     #[cfg_attr(feature = "with_serde", serde(borrow))]
     AllocateMiningJobToken(AllocateMiningJobToken<'a>),
     #[cfg_attr(feature = "with_serde", serde(borrow))]
-    AllocateMiningJobTokenSuccess(AllocateMiningJobTokenSuccess<'a>),
+    AllocateMiningJobTokenSuccess(AllocateMiningJobTokenSuccess),
     #[cfg_attr(feature = "with_serde", serde(borrow))]
     CommitMiningJob(CommitMiningJob<'a>),
     #[cfg_attr(feature = "with_serde", serde(borrow))]
-    CommitMiningJobSuccess(CommitMiningJobSuccess<'a>),
+    CommitMiningJobSuccess(CommitMiningJobSuccess),
     #[cfg_attr(feature = "with_serde", serde(borrow))]
     CommitMiningJobError(CommitMiningJobError<'a>),
     IdentifyTransactions(IdentifyTransactions),
