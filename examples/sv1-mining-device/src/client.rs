@@ -48,7 +48,10 @@ impl Client {
         let (share_send, share_recv) = bounded(10);
 
         let miner = Arc::new(Mutex::new(Miner::new(0)));
-        miner.safe_lock(|m| m.new_target(todo!())).unwrap();
+        // TODO: This is hard coded for the purposes of a demo
+        let default_target: Uint256 = Uint256::from_u64(45_u64).unwrap();
+        // neet to serialize
+        miner.safe_lock(|m| m.new_target(default_target)).unwrap();
         let miner_cloned = miner.clone();
 
         task::spawn(async move {
@@ -145,6 +148,7 @@ impl Client {
 }
 
 impl IsClient for Client {
+    /// Updates miner with new job
     fn handle_notify(&mut self, notify: server_to_client::Notify) -> Result<(), Error> {
         let new_job: Job = notify.into();
         self.miner.safe_lock(|m| m.new_header(new_job)).unwrap();
@@ -274,8 +278,8 @@ impl Miner {
         }
     }
 
-    fn new_target(&mut self, target: Vec<u8>) {
-        self.target = Some(Uint256::from_be_bytes(target.try_into().unwrap()));
+    fn new_target(&mut self, target: Uint256) {
+        self.target = Some(target);
     }
 
     fn new_header(&mut self, new_job: Job) {
