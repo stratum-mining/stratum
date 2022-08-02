@@ -22,27 +22,27 @@ const ADDR: &str = "127.0.0.1:34254";
 #[async_std::main]
 async fn main() {
     task::spawn(async {
-        proxy_server().await;
+        listen_downstream().await;
     }).await;
 }
 
-async fn proxy_server() {
+async fn listen_downstream() {
     let listner = TcpListener::bind(ADDR).await.unwrap();
     let mut incoming = listner.incoming();
     while let Some(stream) = incoming.next().await {
         let stream = stream.unwrap();
         println!("SERVER - Accepting from: {}", stream.peer_addr().unwrap());
-        let server = Proxy::new(stream).await;
+        let server = Downstream::new(stream).await;
         Arc::new(Mutex::new(server));
     }
 }
 
-struct Proxy {
+struct Downstream {
     receiver_incoming: Receiver<String>,
     sender_outgoing: Sender<String>,
 }
 
-impl Proxy {
+impl Downstream {
     pub async fn new(stream: TcpStream) -> Arc<Mutex<Self>> {
         let stream = std::sync::Arc::new(stream);
 
@@ -67,13 +67,12 @@ impl Proxy {
             }
         });
 
-        let proxy = Proxy {
+        let dowstream = Arc::new(Mutex::new(Downstream {
             receiver_incoming,
             sender_outgoing,
-        };
+        }));
 
-        let proxy = Arc::new(Mutex::new(proxy));
-        let cloned = proxy.clone();
+        let cloned = dowstream.clone();
 
         task::spawn(async move {
             loop {
@@ -85,7 +84,7 @@ impl Proxy {
             }
         });
 
-        let cloned = proxy.clone();
+        let cloned = dowstream.clone();
         task::spawn(async move {
             loop {
                 if let Some(mut self_) = cloned.try_lock() {
@@ -97,7 +96,7 @@ impl Proxy {
             }
         });
 
-        proxy
+        dowstream
     }
 
     #[allow(clippy::single_match)]
