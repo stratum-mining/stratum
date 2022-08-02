@@ -19,12 +19,11 @@ use v1::{
 
 const ADDR: &str = "127.0.0.1:34254";
 
-fn main() {
-    std::thread::spawn(|| {
-        task::spawn(async {
-            proxy_server().await;
-        });
-    });
+#[async_std::main]
+async fn main() {
+    task::spawn(async {
+        proxy_server().await;
+    }).await;
 }
 
 async fn proxy_server() {
