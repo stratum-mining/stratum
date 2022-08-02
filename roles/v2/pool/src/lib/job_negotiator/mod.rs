@@ -1,6 +1,6 @@
 use codec_sv2::{HandshakeRole, Responder};
-use roles_logic_sv2::utils::Mutex;
-use std::{convert::TryInto, sync::Arc};
+use roles_logic_sv2::{utils::{Mutex, Id}, job_negotiation_sv2::CommitMiningJob};
+use std::{convert::TryInto, sync::Arc, collections::HashMap};
 use tokio::net::TcpListener;
 //use messages_sv2::parsers::JobNegotiation;
 use network_helpers::noise_connection_tokio::Connection;
@@ -9,14 +9,18 @@ use async_channel::{Receiver, Sender};
 use roles_logic_sv2::parsers::PoolMessages;
 use tokio::task;
 mod message_handlers;
+
+struct CommittedMiningJob {}
 pub struct JobNegotiatorDownstream {
     sender: Sender<EitherFrame>,
     receiver: Receiver<EitherFrame>,
+    token_to_job_map: HashMap<u32, Option<CommittedMiningJob>>,
+    tokens: Id,
 }
 
 impl JobNegotiatorDownstream {
     pub fn new(receiver: Receiver<EitherFrame>, sender: Sender<EitherFrame>) -> Self {
-        Self { receiver, sender }
+        Self { receiver, sender, token_to_job_map: HashMap::new(), tokens: Id::new() }
     }
 
     pub async fn next(self_mutex: Arc<Mutex<Self>>, mut incoming: StdFrame) {
@@ -31,6 +35,9 @@ impl JobNegotiatorDownstream {
         let sender = self_mutex.safe_lock(|self_| self_.sender.clone()).unwrap();
         sender.send(sv2_frame.into()).await.map_err(|_| ())?;
         Ok(())
+    }
+    fn check_job_validity(&mut self, _message: & CommitMiningJob) -> bool{
+        true
     }
 }
 
