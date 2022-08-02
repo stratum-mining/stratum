@@ -5,10 +5,11 @@ use async_channel::{bounded, Receiver, Sender};
 use async_std::{
     io::BufReader,
     prelude::*,
-    sync::{Arc, Mutex},
     task,
 };
 use std::time;
+use std::sync::Arc;
+use roles_logic_sv2::utils::Mutex;
 use v1::{
     client_to_server,
     error::Error,
@@ -29,61 +30,51 @@ pub async fn listen_downstream() {
 }
 
 struct Downstream {
-    receiver_incoming: Receiver<String>,
-    sender_outgoing: Sender<String>,
+    receiver_incoming: Receiver<json_rpc::Message>,
+    sender_outgoing: Sender<json_rpc::Message>,
 }
 
 impl Downstream {
     pub async fn new(stream: TcpStream) -> Arc<Mutex<Self>> {
         let stream = std::sync::Arc::new(stream);
 
-        let (reader, writer) = (stream.clone(), stream);
+        let (socket_reader, socket_writer) = (stream.clone(), stream);
 
         let (sender_incoming, receiver_incoming) = bounded(10);
         let (sender_outgoing, receiver_outgoing) = bounded(10);
 
-        task::spawn(async move {
-            let mut messages = BufReader::new(&*reader).lines();
-            while let Some(message) = messages.next().await {
-                let message = message.unwrap();
-                println!("{}", message);
-                sender_incoming.send(message).await.unwrap();
-            }
-        });
-
-        task::spawn(async move {
-            loop {
-                let message: String = receiver_outgoing.recv().await.unwrap();
-                (&*writer).write_all(message.as_bytes()).await.unwrap();
-            }
-        });
 
         let dowstream = Arc::new(Mutex::new(Downstream {
             receiver_incoming,
             sender_outgoing,
         }));
 
-        let cloned = dowstream.clone();
-
+        let self_ = dowstream.clone();
         task::spawn(async move {
             loop {
-                if let Some(mut self_) = cloned.try_lock() {
-                    let incoming = self_.receiver_incoming.try_recv();
-                    self_.parse_message(incoming).await;
-                    drop(self_);
-                };
+                let to_send = receiver_outgoing.recv().await.unwrap();
+                let to_send = format!("{}\n", serde_json::to_string(&to_send).unwrap());
+                (&*socket_writer).write_all(to_send.as_bytes()).await.unwrap();
+
             }
         });
-
-        let cloned = dowstream.clone();
         task::spawn(async move {
-            loop {
-                if let Some(mut self_) = cloned.try_lock() {
-                    let outgoing = self_.sender_outgoing.send(String::from("hello")).await;
-                    // self_.send_notify().await;
-                    // drop(self_);
-                    task::sleep(time::Duration::from_secs(5)).await;
-                };
+            let mut messages = BufReader::new(&*socket_reader).lines();
+            while let Some(incoming) = messages.next().await {
+                let incoming = incoming.unwrap();
+                let incoming: Result<json_rpc::Message, _> = serde_json::from_str(&incoming);
+                match incoming {
+                    Ok(message) => {
+                        let to_send = Self::parse_message(self_.clone(),message).await;
+                        match to_send {
+                            Some(message) => {
+                                Self::send_message(self_.clone(), message).await;
+                            },
+                            None => (),
+                        }
+                    },
+                    Err(_) => (),
+                }
             }
         });
 
@@ -92,24 +83,14 @@ impl Downstream {
 
     #[allow(clippy::single_match)]
     async fn parse_message(
-        &mut self,
-        incoming_message: Result<String, async_channel::TryRecvError>,
-    ) {
-        if let Ok(line) = incoming_message {
-            println!("SERVER - message: {}", line);
-            let message: Result<json_rpc::Message, _> = serde_json::from_str(&line);
-            match message {
-                Ok(message) => {
-                    self.send_message().await;
-                }
-                Err(_) => (),
-            }
-        };
+        self_: Arc<Mutex<Self>>,
+        incoming_message: json_rpc::Message,
+    ) -> Option<json_rpc::Message> {
+        todo!()
     }
 
-    async fn send_message(&mut self) {
-        // let msg = format!("{}\n", serde_json::to_string(&msg).unwrap());
-        let msg = String::from("HI");
-        self.sender_outgoing.send(msg).await.unwrap();
+    async fn send_message(self_: Arc<Mutex<Self>>, msg: json_rpc::Message) {
+        let sender = self_.safe_lock(|s| s.sender_outgoing.clone()).unwrap();
+        sender.send(msg).await.unwrap()
     }
 }
