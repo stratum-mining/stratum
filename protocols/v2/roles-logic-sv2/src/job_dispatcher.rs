@@ -228,41 +228,42 @@ impl GroupChannelJobDispatcher {
 mod tests {
     use super::*;
     use crate::errors::Error;
-    //use binary_sv2::{u256_from_int, Seq0255, B064K, U256};
-    use binary_sv2::u256_from_int;
+    // use binary_sv2::u256_from_int;
+    use binary_sv2::{binary_codec_sv2, decodable::DecodableField, decodable::FieldMarker};
+    use binary_sv2::{u256_from_int, Deserialize, Seq0255, B064K, U256};
     //#[cfg(feature = "serde")]
-    //use serde::Deserialize;
+    // use decoder::Deserialize;
 
     //#[cfg(feature = "serde")]
-    //#[derive(Debug, Deserialize)]
-    //struct TestBlockToml {
-    //    block_hash: String,
-    //    version: u32,
-    //    prev_hash: String,
-    //    time: u32,
-    //    merkle_root: String,
-    //    nbits: u32,
-    //    nonce: u32,
-    //    coinbase_tx_prefix: String,
-    //    coinbase_script: String,
-    //    coinbase_tx_suffix: String,
-    //    path: Vec<String>,
-    //}
+    // #[derive(Debug, Deserialize)]
+    // struct TestBlockToml {
+    // block_hash: String,
+    // version: u32,
+    // prev_hash: String,
+    // time: u32,
+    // merkle_root: String,
+    // nbits: u32,
+    // nonce: u32,
+    // coinbase_tx_prefix: String,
+    // coinbase_script: String,
+    // coinbase_tx_suffix: String,
+    // path: Vec<String>,
+    // }
 
-    //#[derive(Debug)]
-    //struct TestBlock<'decoder> {
-    //    block_hash: U256<'decoder>,
-    //    version: u32,
-    //    prev_hash: Vec<u8>,
-    //    time: u32,
-    //    merkle_root: Vec<u8>,
-    //    nbits: u32,
-    //    nonce: u32,
-    //    coinbase_tx_prefix: B064K<'decoder>,
-    //    coinbase_script: Vec<u8>,
-    //    coinbase_tx_suffix: B064K<'decoder>,
-    //    path: Seq0255<'decoder, U256<'decoder>>,
-    //}
+    #[derive(Debug)]
+    struct TestBlock<'decoder> {
+        block_hash: U256<'decoder>,
+        version: u32,
+        prev_hash: Vec<u8>,
+        time: u32,
+        merkle_root: Vec<u8>,
+        nbits: u32,
+        nonce: u32,
+        coinbase_tx_prefix: B064K<'decoder>,
+        coinbase_script: Vec<u8>,
+        coinbase_tx_suffix: B064K<'decoder>,
+        path: Seq0255<'decoder, U256<'decoder>>,
+    }
 
     //#[cfg(feature = "serde")]
     //fn get_test_block<'decoder>() -> TestBlock<'decoder> {
