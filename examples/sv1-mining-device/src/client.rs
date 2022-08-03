@@ -75,6 +75,9 @@ impl Client {
             }
         });
 
+        let sender_outgoing_clone = sender_outgoing.clone();
+
+        // Initialize Client
         let mut client = Client {
             client_id,
             extranonce1: "00000000".try_into().unwrap(),
@@ -125,7 +128,7 @@ impl Client {
                 let message: json_rpc::Message = submit.into();
                 let message = format!("{}\n", serde_json::to_string(&message).unwrap());
                 // sender.send(message).await.unwrap();
-                sender_outgoing.send(message).await.unwrap();
+                sender_outgoing_clone.send(message).await.unwrap();
             }
         });
 
