@@ -57,6 +57,7 @@ impl Downstream {
                     .unwrap();
             }
         });
+        // Task to listen on Downstream socket for incoming messages
         task::spawn(async move {
             let mut messages = BufReader::new(&*socket_reader).lines();
             while let Some(incoming) = messages.next().await {
@@ -69,6 +70,7 @@ impl Downstream {
                             Some(message) => {
                                 // TODO: add relay_message fn
                                 // self.relay_message(m).await;
+                                // Sends Downstream messages received from socket to downstream
                                 Self::send_message(self_.clone(), message).await;
                             }
                             None => (),

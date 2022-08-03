@@ -1,5 +1,10 @@
-use crate::upstream_sv2::EitherFrame;
-use async_std::net::TcpStream;
+use crate::{
+    downstream_sv1::Downstream,
+    upstream_sv2::{EitherFrame, Upstream},
+};
+use async_std::net::{TcpListener, TcpStream};
+use std::net::{IpAddr, SocketAddr};
+use std::str::FromStr;
 
 use async_channel::{bounded, Receiver, Sender};
 use async_std::{io::BufReader, prelude::*, task};
@@ -7,6 +12,7 @@ use roles_logic_sv2::utils::Mutex;
 use std::sync::Arc;
 use v1::json_rpc;
 
+#[derive(Clone)]
 pub(crate) struct Translator {
     /// Sends Sv2 messages  to the upstream. these sv2 messages were receieved from
     /// reciever_downstream and then translated from sv1 to sv2
@@ -26,14 +32,76 @@ pub(crate) struct Translator {
 }
 
 impl Translator {
-    pub(crate) fn new() -> Self {
+    pub(crate) async fn new() -> Self {
         let (sender_upstream, receiver_upstream) = bounded(10);
         let (sender_downstream, receiver_downstream) = bounded(10);
-        Translator {
+
+        let sender_upstream_clone = sender_upstream.clone();
+        let receiver_upstream_clone = receiver_upstream.clone();
+        let sender_downstream_clone = sender_downstream.clone();
+        let receiver_downstream_clone = receiver_downstream.clone();
+
+        let mut translator = Translator {
             sender_upstream,
             receiver_upstream,
             sender_downstream,
             receiver_downstream,
+        };
+
+        // Connect to Upstream
+        let authority_public_key = [
+            215, 11, 47, 78, 34, 232, 25, 192, 195, 168, 170, 209, 95, 181, 40, 114, 154, 226, 176,
+            190, 90, 169, 238, 89, 191, 183, 97, 63, 194, 119, 11, 31,
+        ];
+        let upstream_addr = SocketAddr::new(IpAddr::from_str("127.0.0.1").unwrap(), 34254);
+        let _upstream = Upstream::new(
+            upstream_addr,
+            authority_public_key,
+            sender_upstream_clone,
+            receiver_upstream_clone,
+        )
+        .await;
+
+        // Accept Downstream connections
+        let downstream_listener = TcpListener::bind(crate::LISTEN_ADDR).await.unwrap();
+        let mut downstream_incoming = downstream_listener.incoming();
+        while let Some(stream) = downstream_incoming.next().await {
+            let sender_downstream_clone = sender_downstream_clone.clone();
+            let receiver_downstream_clone = receiver_downstream_clone.clone();
+            let stream = stream.unwrap();
+            println!(
+                "PROXY SERVER - Accepting from: {}",
+                stream.peer_addr().unwrap()
+            );
+            let server =
+                Downstream::new(stream, sender_downstream_clone, receiver_downstream_clone).await;
+            Arc::new(Mutex::new(server));
         }
+
+        // Spawn task to listen for incoming messages from SV1 Downstream
+        // Spawned tasks waits to receive a message from `Downstream.connection.sender_upstream`,
+        // then parses the message + translates to Sv2. Then the `Translator.sender_upstream` sends
+        // the SV2 message to the `Upstream.receiver_downstream`
+        let mut translator_clone = translator.clone();
+        task::spawn(async move {
+            loop {
+                let message_sv1: json_rpc::Message =
+                    translator_clone.receiver_downstream.recv().await.unwrap();
+                let message_sv2: EitherFrame = translator_clone.parse_sv1_to_sv2(message_sv1);
+                translator_clone.send_sv2(message_sv2).await;
+            }
+        });
+
+        translator
+    }
+
+    /// Parses a SV1 message and translates to to a SV2 message
+    fn parse_sv1_to_sv2(&mut self, message_sv1: json_rpc::Message) -> EitherFrame {
+        todo!()
+    }
+
+    /// Sends SV2 message (translated from SV1) to the `Upstream.receiver_downstream`.
+    async fn send_sv2(&mut self, message_sv2: EitherFrame) {
+        self.sender_upstream.send(message_sv2).await.unwrap();
     }
 }
