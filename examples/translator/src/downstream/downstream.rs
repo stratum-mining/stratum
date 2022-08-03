@@ -6,6 +6,24 @@ use roles_logic_sv2::common_properties::{IsDownstream, IsMiningDownstream};
 use roles_logic_sv2::utils::Mutex;
 use std::sync::Arc;
 use v1::json_rpc;
+//
+// struct Translator {
+//     /// Receives Sv2 messages from upstream to be translated into Sv1 and sent to downstream via
+//     /// the sender_downstream
+//     /// will have the other part of the channel on the upstream that wont be called sender_upstream
+//     /// (becuase we have sender_upstream here), the other part of the channel that lives on
+//     /// Upstream will be called sender_upstream
+//     receiver_upstream: Reciever<EitherFrame>,
+//     /// Sends Sv2 messages  to the upstream. these sv2 messages were receieved from
+//     /// reciever_downstream and then translated from sv1 to sv2
+//     sender_upstream: Sender<EitherFrame>,
+//     /// Sends Sv1 messages from initially received by reciever_upstream, then translated to Sv1 and
+//     /// then will be received by reciver_downstream
+//     sender_downstream: Sender<json_rpc::Message>,
+//     /// Receives Sv1 messages from the sender_downstream to be translated to Sv2 and sent to the
+//     /// sender_upstream
+//     reciever_downstream: Sender<json_rpc::Message>,
+// }
 
 /// Handles the sending and receiving of messages to and from an SV2 Upstream role (most typically
 /// a SV2 Pool server).
@@ -15,7 +33,13 @@ pub(crate) struct Downstream {
     receiver_incoming: Receiver<json_rpc::Message>,
     /// Sends messages to the SV1 Downstream client node (most typically a SV1 Mining Device).
     sender_outgoing: Sender<json_rpc::Message>,
+    // /// Receiver from Translator::sender_downstream
+    // receiver_upstream: Reciver<json_rpc::Message>,
+    // /// Sends to Translator::reciver_downstream
+    // sender_upstream: Reciver<json_rpc::Message>,
 }
+// new task loops through receiver upstream is sending something, if so use sender outgoing and
+// transform to sv1 messages then use sender outgoing to send to the socket
 impl IsMiningDownstream for Downstream {}
 impl IsDownstream for Downstream {
     fn get_downstream_mining_data(

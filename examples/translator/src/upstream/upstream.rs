@@ -18,11 +18,13 @@ use roles_logic_sv2::{
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-/// RR Q: Why do we have an `Upstream` and `UpstreamConnection`, but we only have a single
-/// `Downstream` with a receiver and sender as its member fields directly?
 #[derive(Debug)]
 pub struct Upstream {
     connection: UpstreamConnection,
+    // /// Receives from Translator::sender_upstream
+    // receiver_downstream: Reciever<EitherFrame>,
+    // /// Sends to Translator::receiver_upstream
+    // sender_downstream: Sender<EitherFrame>,
 }
 
 impl IsUpstream<Downstream, NullDownstreamMiningSelector> for Upstream {
@@ -269,6 +271,9 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
         m: roles_logic_sv2::mining_sv2::NewExtendedMiningJob,
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error>
     {
+        // this one
+        // this does nothing rn
+        // first thing the pool does is send a NewExtendedMiningJob
         Ok(SendTo::None(None))
     }
 
@@ -277,6 +282,8 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
         m: roles_logic_sv2::mining_sv2::SetNewPrevHash,
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error>
     {
+        // this one
+        // first thing the pool does is send a SetNewPrevHash
         Ok(SendTo::None(None))
     }
 
