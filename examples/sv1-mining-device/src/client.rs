@@ -46,7 +46,10 @@ impl Client {
         let (reader, writer) = (stream.clone(), stream);
 
         // RR Q
+        // `receiver_incoming` accepts serialized json messages from the Upstream node
+        // RR Q: `sender_incoming`
         let (sender_incoming, receiver_incoming) = bounded(10);
+        // `sender_outgoing` sends json serialized messages to the Upstream node
         let (sender_outgoing, receiver_outgoing) = bounded(10);
         let (share_send, share_recv) = bounded(10);
 
@@ -75,6 +78,8 @@ impl Client {
             }
         });
 
+        // Clone the sender to the Upstream node to use it in another task below as
+        // `sender_outgoing` is consumed by the initialization of `Client`.
         let sender_outgoing_clone = sender_outgoing.clone();
 
         // Initialize Client
@@ -92,6 +97,7 @@ impl Client {
             miner,
         };
 
+        // RR Q
         client.send_configure().await;
 
         // Gets the latest candidate block header hash from the `Miner` by calling the `next_share`
@@ -106,6 +112,9 @@ impl Client {
                 let time = miner_cloned.safe_lock(|m| m.header.unwrap().time).unwrap();
                 let job_id = miner_cloned.safe_lock(|m| m.job_id).unwrap();
                 let version = miner_cloned.safe_lock(|m| m.version).unwrap();
+                // Sends relevant candidate block header values needed to construct a
+                // `mining.submit` message to the `share_recv` in the task that is responsible for
+                // sending messages to the Upstream node.
                 share_send
                     .try_send((nonce, job_id.unwrap(), version.unwrap(), time))
                     .unwrap();
@@ -115,9 +124,11 @@ impl Client {
                 .unwrap();
         });
 
+        // Task to receive relevant candidate block header values needed to construct a
+        // `mining.submit` message. This message is contructed as a `client_to_server::Submit` and
+        // then serialized into json to be sent to the Upstream via the `sender_outgoing` sender.
         task::spawn(async move {
             let recv = share_recv.clone();
-            // let sender = share_send.clone();
             loop {
                 let (nonce, job_id, version, ntime) = recv.recv().await.unwrap();
                 let extra_nonce2: HexBytes = "0x0000000000000000".try_into().unwrap();
@@ -133,7 +144,6 @@ impl Client {
                 };
                 let message: json_rpc::Message = submit.into();
                 let message = format!("{}\n", serde_json::to_string(&message).unwrap());
-                // sender.send(message).await.unwrap();
                 sender_outgoing_clone.send(message).await.unwrap();
             }
         });
