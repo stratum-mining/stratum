@@ -16,15 +16,12 @@ use roles_logic_sv2::{
 use std::net::SocketAddr;
 use std::sync::Arc;
 
+pub mod upstream_connection;
+use upstream_connection::UpstreamConnection;
+
 pub type Message = PoolMessages<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;
 pub type EitherFrame = StandardEitherFrame<Message>;
-
-#[derive(Debug, Clone)]
-struct UpstreamConnection {
-    receiver: Receiver<EitherFrame>,
-    sender: Sender<EitherFrame>,
-}
 
 #[derive(Clone, Copy, Debug)]
 pub struct Sv2MiningConnection {
@@ -32,16 +29,6 @@ pub struct Sv2MiningConnection {
     setup_connection_flags: u32,
     #[allow(dead_code)]
     setup_connection_success_flags: u32,
-}
-
-impl UpstreamConnection {
-    pub async fn send(&mut self, sv2_frame: StdFrame) -> Result<(), ()> {
-        let either_frame = sv2_frame.into();
-        match self.sender.send(either_frame).await {
-            Ok(_) => Ok(()),
-            Err(_) => Err(()),
-        }
-    }
 }
 
 #[derive(Debug)]
