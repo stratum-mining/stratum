@@ -41,68 +41,73 @@ pub(crate) struct Client {
 }
 
 impl Client {
+    /// Outgoing channels are used to send messages to the Upstream
+    /// Incoming channels are used to receive messages from the Upstream
+    /// There are three separate channels, the first two are responsible for receiving and sending
+    /// messages to the Upstream, and the third is responsible for pass valid job submissions to
+    /// the first set of channels:
+    /// 1. `(sender_incoming, receiver_incoming)`:
+    ///     `sender_incoming` listens on the socket where messages are being sent from the Upstream
+    ///     node. From the socket, it reads the incoming bytes from the Upstream into a
+    ///     `BufReader`. The incoming bytes represent a message from the Upstream, and each new
+    ///     line is a new message. When it gets this line (a message) from the Upstream, it sends
+    ///     them to the `receiver_incoming` which is listening in a loop. The message line received
+    ///     by the `receiver_incoming` are then parsed by the `Client` in the `parse_message`
+    ///     method to be handled.
+    /// 2. `(sender_outgoing, receiver_outgoing)`:
+    ///    When the `parse_message` method on the `Client` is called, it handles the message and
+    ///    formats the a new message to be sent to the Upstream in response. It sends the response
+    ///    message via the `sender_outgoing` to the `receiver_outgoing` which is waiting to receive
+    ///    a message in its own task. When the `receiver_outgoing` receives the response message
+    ///    from the the `sender_outgoing`, it writes this message to the socket connected to the
+    ///    Upstream via `write_all`.
+    /// 3. `(sender_share, receiver_share)`:
+    ///    A new thread is spawned to mock the act of a Miner hashing over a candidate block
+    ///    without blocking the rest of the program. Since this in its own thread, we need a
+    ///    channel to communicate with it, which is `(sender_share, receiver_share)`. In this thread, on
+    ///    each new share, `sender_share` sends the pertinent information to create a `mining.submit`
+    ///    message to the `receiver_share` that is waiting to receive this information in a separate
+    ///    task. In this task, once `receiver_share` gets the information from `sender_share`, it is
+    ///    formatted as a `v1::client_to_server::Submit` and then serialized into a json message
+    ///    that is sent to the Upstream via `sender_outgoing`.
     pub(crate) async fn new(client_id: u32) {
         let stream = std::sync::Arc::new(TcpStream::connect(ADDR).await.unwrap());
         let (reader, writer) = (stream.clone(), stream);
 
-        // Tasks -> take everything it reads on the socket. it only sends the bytes it receives if
-        // it forms a complete message.
-        // Have a task that is just reading from the socket continuously and creates the messages
-        // (checks whenever we have a new line on the socket)
-        // Whenever we have a message, this task takes the bytes representing the messages and
-        // sends them with sender_incoming to send bunch of bytes
-        // Then Client awaiting on the receiver_incoming + whenever the sender_incoming sends the
-        // bytes to the receiver_incoming returns and we parse these messages
-        // On the other side: the sender_outgoing is used in a task (second) to write to the
-        // socket. We are awaiting on the sending_outgoing, when the receiver_outgoing sees bytes
-        // that it awaits from the second tasks, it returns the json string to the socket
-        //
-        // Separate tasks because we are nto chekcing whenever there is something on the socket, we
-        // need to have ac omplete message on the socket, THEN when we have a complete message (in
-        // the while next) we send the complete messages to the client logic.
-        // Do not have Connection in SV1 so we have to read from the sockets
-        // `receiver_incoming` accepts serialized json messages from the Upstream node
-        // RR Q: `sender_incoming`
-        //
-        // THESE are the channesl for the complete messages
-        // sender_incoming takes complete message from the socket when the buffer has a complete
-        // message in it. it send it to the recieving_incoming
+        // `sender_incoming` listens on socket for incoming messages from the Upstream and sends
+        // messages to the `receiver_incoming` to be parsed and handled by the `Client`
         let (sender_incoming, receiver_incoming) = bounded(10);
-        // incoming/outgoing = how we use the channel
-        // incoming - using it to take the message that are incoming from Upstream
-        // outgoing - using this channel to send messages to the Upstream
-        // `sender_outgoing` sends json serialized messages to the Upstream node
-        // used for the incoming message
+        // `sender_outgoing` sends the message parsed by the `Client` to the `receiver_outgoing`
+        // which writes the messages to the socket to the Upstream
         let (sender_outgoing, receiver_outgoing) = bounded(10);
-        // Share send then share recv then create sv1 submit share then reciever
-        let (share_send, share_recv) = bounded(10);
+        // `sender_share` sends job share results to the `receiver_share` where the job share results are
+        // formated into a "mining.submit" messages that is then sent to the Upstream via
+        // `sender_outgoing`
+        let (sender_share, receiver_share) = bounded(10);
 
         // Instantiates a new `Miner` (a mock of an actual Mining Device) with a job id of 0.
         let miner = Arc::new(Mutex::new(Miner::new(0)));
+
         // Sets an initial target for the `Miner`.
         // TODO: This is hard coded for the purposes of a demo, should be set by the SV1
         // `mining.set_difficulty` message received from the Upstream role
         let default_target: Uint256 = Uint256::from_u64(45_u64).unwrap();
         miner.safe_lock(|m| m.new_target(default_target)).unwrap();
+
         let miner_cloned = miner.clone();
 
-        // Reads from the socket and sends the bytes to from `sender_incoming` to
-        // `receiver_outgoing`.
-        // Put bytes in buffer when we get them in the socket
-        // When new bytes are received, we send to X, X determines when we have a complete message.
-        // 1. Reads bytes from socket (sender_incoming)
-        // Sending the incoming message to the recieving_incoming that will be in another task with
-        // some logic for the Client to do soemthing with the message
+        // Reads messages sent by the Upstream from the socket to be passed to the
+        // `receiver_incoming`
         task::spawn(async move {
             let mut messages = BufReader::new(&*reader).lines();
             while let Some(message) = messages.next().await {
                 let message = message.unwrap();
-                // println!("{}", message);
                 sender_incoming.send(message).await.unwrap();
             }
         });
 
-        // Write to the socket the messages to send
+        // Waits to receive a message from `sender_outgoing` and writes it to the socket for the
+        // Upstream to receive
         task::spawn(async move {
             loop {
                 let message: String = receiver_outgoing.recv().await.unwrap();
@@ -111,7 +116,7 @@ impl Client {
         });
 
         // Clone the sender to the Upstream node to use it in another task below as
-        // `sender_outgoing` is consumed by the initialization of `Client`.
+        // `sender_outgoing` is consumed by the initialization of `Client`
         let sender_outgoing_clone = sender_outgoing.clone();
 
         // Initialize Client
@@ -129,18 +134,16 @@ impl Client {
             miner,
         };
 
-        // RR Q
         client.send_configure().await;
 
         // Gets the latest candidate block header hash from the `Miner` by calling the `next_share`
         // method. Mocks the act of the `Miner` incrementing the nonce. Performs this in a loop,
         // incrementing the nonce each time, to mimic a Mining Device generating continuous hashes.
-        // For each generated block header, sends the `share_recv` the relevant values that
-        // generated the candidate block header needed to then format and send as a `mining.submit`
+        // For each generated block header, sends to the `receiver_share` the relevant values that
+        // generated the candidate block header needed to then format and send as a "mining.submit"
         // message to the Upstream node.
-        // Needs to be in a separate thread because it is CPU intensive.
-        // When this thread finds a share it communicates this share to another part of the program
-        // that sends the share and sends to upstream.
+        // Is a separate thread as it can be CPU intensive and we do not want to block the reading
+        // and writing of messages to the socket.
         std::thread::spawn(move || loop {
             if miner_cloned.safe_lock(|m| m.next_share()).unwrap().is_ok() {
                 let nonce = miner_cloned.safe_lock(|m| m.header.unwrap().nonce).unwrap();
@@ -148,9 +151,9 @@ impl Client {
                 let job_id = miner_cloned.safe_lock(|m| m.job_id).unwrap();
                 let version = miner_cloned.safe_lock(|m| m.version).unwrap();
                 // Sends relevant candidate block header values needed to construct a
-                // `mining.submit` message to the `share_recv` in the task that is responsible for
+                // `mining.submit` message to the `receiver_share` in the task that is responsible for
                 // sending messages to the Upstream node.
-                share_send
+                sender_share
                     .try_send((nonce, job_id.unwrap(), version.unwrap(), time))
                     .unwrap();
             }
@@ -163,7 +166,7 @@ impl Client {
         // `mining.submit` message. This message is contructed as a `client_to_server::Submit` and
         // then serialized into json to be sent to the Upstream via the `sender_outgoing` sender.
         task::spawn(async move {
-            let recv = share_recv.clone();
+            let recv = receiver_share.clone();
             loop {
                 let (nonce, job_id, version, ntime) = recv.recv().await.unwrap();
                 let extra_nonce2: HexBytes = "0x0000000000000000".try_into().unwrap();
@@ -183,9 +186,9 @@ impl Client {
             }
         });
 
-        // Getting messages from sender_incoming
+        // Waits for the `sender_incoming` to get message line from socket to be parsed by the
+        // `Client`
         loop {
-            // let incoming = client.receiver_incoming.try_recv();
             let incoming = client.receiver_incoming.recv().await.unwrap();
             client.parse_message(Ok(incoming)).await;
         }
