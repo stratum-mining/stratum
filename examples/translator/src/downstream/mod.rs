@@ -2,14 +2,10 @@ use async_std::net::{TcpListener, TcpStream};
 use std::convert::TryInto;
 
 use async_channel::{bounded, Receiver, Sender};
-use async_std::{
-    io::BufReader,
-    prelude::*,
-    task,
-};
-use std::time;
-use std::sync::Arc;
+use async_std::{io::BufReader, prelude::*, task};
 use roles_logic_sv2::utils::Mutex;
+use std::sync::Arc;
+use std::time;
 use v1::{
     client_to_server,
     error::Error,
@@ -17,6 +13,7 @@ use v1::{
     utils::{self, HexBytes, HexU32Be},
     ClientStatus, IsClient, IsServer,
 };
+use roles_logic_sv2::common_properties::{IsDownstream,IsMiningDownstream};
 
 pub async fn listen_downstream() {
     let listner = TcpListener::bind(crate::LISTEN_ADDR).await.unwrap();
@@ -29,9 +26,16 @@ pub async fn listen_downstream() {
     }
 }
 
-struct Downstream {
+#[derive(Debug)]
+pub struct Downstream {
     receiver_incoming: Receiver<json_rpc::Message>,
     sender_outgoing: Sender<json_rpc::Message>,
+}
+impl IsMiningDownstream for Downstream {}
+impl IsDownstream for Downstream {
+    fn get_downstream_mining_data(&self) -> roles_logic_sv2::common_properties::CommonDownstreamData {
+        todo!()
+    }
 }
 
 impl Downstream {
@@ -43,7 +47,6 @@ impl Downstream {
         let (sender_incoming, receiver_incoming) = bounded(10);
         let (sender_outgoing, receiver_outgoing) = bounded(10);
 
-
         let dowstream = Arc::new(Mutex::new(Downstream {
             receiver_incoming,
             sender_outgoing,
@@ -54,8 +57,10 @@ impl Downstream {
             loop {
                 let to_send = receiver_outgoing.recv().await.unwrap();
                 let to_send = format!("{}\n", serde_json::to_string(&to_send).unwrap());
-                (&*socket_writer).write_all(to_send.as_bytes()).await.unwrap();
-
+                (&*socket_writer)
+                    .write_all(to_send.as_bytes())
+                    .await
+                    .unwrap();
             }
         });
         task::spawn(async move {
@@ -65,14 +70,14 @@ impl Downstream {
                 let incoming: Result<json_rpc::Message, _> = serde_json::from_str(&incoming);
                 match incoming {
                     Ok(message) => {
-                        let to_send = Self::parse_message(self_.clone(),message).await;
+                        let to_send = Self::parse_message(self_.clone(), message).await;
                         match to_send {
                             Some(message) => {
                                 Self::send_message(self_.clone(), message).await;
-                            },
+                            }
                             None => (),
                         }
-                    },
+                    }
                     Err(_) => (),
                 }
             }
