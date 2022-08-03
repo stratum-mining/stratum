@@ -50,7 +50,6 @@ impl Client {
         let miner = Arc::new(Mutex::new(Miner::new(0)));
         // TODO: This is hard coded for the purposes of a demo
         let default_target: Uint256 = Uint256::from_u64(45_u64).unwrap();
-        // neet to serialize
         miner.safe_lock(|m| m.new_target(default_target)).unwrap();
         let miner_cloned = miner.clone();
 
@@ -105,8 +104,12 @@ impl Client {
             let recv = share_recv.clone();
             loop {
                 let (nonce, job_id, version, ntime) = recv.recv().await.unwrap();
+                // create sv1 Message to create when a share is found, then send
                 // TODO create the message to send the share
                 // TODO use sender_outgoing send message and send the sahre
+                //
+                // let message: json_rpc::Message = serde_json::serialize(sv1 SubmitShare message);
+                // sender_outgoing.send(message).await.unwrap();
                 todo!()
             }
         });
@@ -117,6 +120,7 @@ impl Client {
         }
     }
 
+    /// WHen client recieves message from upstream
     async fn parse_message(
         &mut self,
         incoming_message: Result<String, async_channel::TryRecvError>,
@@ -124,8 +128,13 @@ impl Client {
         if let Ok(line) = incoming_message {
             println!("CIENT {} - message: {}", self.client_id, line);
             let message: json_rpc::Message = serde_json::from_str(&line).unwrap();
+            // If has a message, it sends it back
             match self.handle_message(message).unwrap() {
-                Some(m) => self.send_message(m).await,
+                Some(m) => {
+                    self.send_message(m).await;
+                    // TODO: add relay_message fn
+                    // self.relay_message(m).await;
+                }
                 None => (),
             }
         };
@@ -253,8 +262,19 @@ struct Job {
 }
 
 impl From<v1::methods::server_to_client::Notify> for Job {
-    fn from(_: v1::methods::server_to_client::Notify) -> Self {
-        todo!()
+    fn from(notify_msg: v1::methods::server_to_client::Notify) -> Self {
+        // receive a notify from server, must be transformed in the Job struct
+        // todo!()
+        // TODO: Hard coded for demo. Should be properly translated from received Notify message
+        // Right now, Notify.job_id is a string, but the Job.job_id is a u32 here.
+        let job_id = 9910597111u32;
+        Job {
+            job_id,
+            prev_hash: notify_msg.prev_hash,
+            nbits: notify_msg.bits,
+            version: notify_msg.version,
+            merkle_root: notify_msg.merkle_branch,
+        }
     }
 }
 
