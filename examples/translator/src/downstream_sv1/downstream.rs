@@ -26,15 +26,17 @@ impl IsDownstream for Downstream {
 }
 
 impl Downstream {
-    pub async fn new(stream: TcpStream) -> Arc<Mutex<Self>> {
+    pub async fn new(
+        stream: TcpStream,
+        sender_upstream: Sender<json_rpc::Message>,
+        receiver_upstream: Receiver<json_rpc::Message>,
+    ) -> Arc<Mutex<Self>> {
         let stream = std::sync::Arc::new(stream);
 
         let (socket_reader, socket_writer) = (stream.clone(), stream);
-
         let (sender_incoming, receiver_incoming) = bounded(10);
         let (sender_outgoing, receiver_outgoing) = bounded(10);
-        // TOOD pass in upstream channel instead
-        let (sender_upstream, receiver_upstream) = bounded(10);
+
         let connection = DownstreamConnection {
             sender_outgoing,
             receiver_incoming,

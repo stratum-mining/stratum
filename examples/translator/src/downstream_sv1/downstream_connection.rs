@@ -1,8 +1,7 @@
 use async_std::net::TcpStream;
 
-use async_channel::{bounded, Receiver, Sender};
+use async_channel::{Receiver, Sender};
 use async_std::{io::BufReader, prelude::*, task};
-use roles_logic_sv2::common_properties::{IsDownstream, IsMiningDownstream};
 use roles_logic_sv2::utils::Mutex;
 use std::sync::Arc;
 use v1::json_rpc;

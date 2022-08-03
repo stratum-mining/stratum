@@ -21,8 +21,10 @@ async fn main() {
         translator.receiver_upstream.clone(),
     )
     .await;
+    let sender_downstream_clone = translator.sender_downstream.clone();
+    let receiver_downstream_clone = translator.receiver_downstream.clone();
     async_std::task::spawn(async {
-        downstream_sv1::listen_downstream().await;
+        downstream_sv1::listen_downstream(sender_downstream_clone, receiver_downstream_clone).await;
     })
     .await;
 }
