@@ -14,6 +14,10 @@ pub(crate) struct UpstreamConnection {
     pub(crate) receiver: Receiver<EitherFrame>,
     /// Sends messages to the SV2 Upstream role
     pub(crate) sender: Sender<EitherFrame>,
+    /// Sends to Translator::receiver_upstream
+    pub(crate) sender_downstream: Sender<EitherFrame>,
+    /// Receives from Translator::sender_upstream
+    pub(crate) receiver_downstream: Receiver<EitherFrame>,
 }
 
 impl UpstreamConnection {

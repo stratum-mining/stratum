@@ -1,7 +1,8 @@
 use crate::{
     downstream_sv1::Downstream,
-    upstream_sv2::{StdFrame, UpstreamConnection},
+    upstream_sv2::{EitherFrame, StdFrame, UpstreamConnection},
 };
+use async_channel::{Receiver, Sender};
 use async_std::net::TcpStream;
 use codec_sv2::{Frame, HandshakeRole, Initiator};
 use network_helpers::Connection;
@@ -21,19 +22,25 @@ use std::sync::Arc;
 #[derive(Debug)]
 pub struct Upstream {
     connection: UpstreamConnection,
-    // /// Receives from Translator::sender_upstream
-    // receiver_downstream: Reciever<EitherFrame>,
-    // /// Sends to Translator::receiver_upstream
-    // sender_downstream: Sender<EitherFrame>,
 }
 
 impl Upstream {
-    pub async fn new(address: SocketAddr, authority_public_key: [u8; 32]) -> Arc<Mutex<Self>> {
+    pub async fn new(
+        address: SocketAddr,
+        authority_public_key: [u8; 32],
+        sender_downstream: Sender<EitherFrame>,
+        receiver_downstream: Receiver<EitherFrame>,
+    ) -> Arc<Mutex<Self>> {
         let socket = TcpStream::connect(address).await.map_err(|_| ()).unwrap();
         let initiator = Initiator::from_raw_k(authority_public_key).unwrap();
         let (receiver, sender) =
             Connection::new(socket, HandshakeRole::Initiator(initiator), 10).await;
-        let connection = UpstreamConnection { receiver, sender };
+        let connection = UpstreamConnection {
+            sender,
+            receiver,
+            sender_downstream,
+            receiver_downstream,
+        };
         let self_ = Self::setup(connection).await.unwrap();
         self_
     }

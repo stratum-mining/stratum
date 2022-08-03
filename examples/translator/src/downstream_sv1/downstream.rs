@@ -11,14 +11,14 @@ use v1::json_rpc;
 /// a SV2 Pool server).
 #[derive(Debug)]
 pub(crate) struct Downstream {
-    /// Receives messages from the SV1 Downstream client node (most typically a SV1 Mining Device).
-    receiver_incoming: Receiver<json_rpc::Message>,
     /// Sends messages to the SV1 Downstream client node (most typically a SV1 Mining Device).
     sender_outgoing: Sender<json_rpc::Message>,
-    // /// Receiver from Translator::sender_downstream
-    // receiver_upstream: Reciver<json_rpc::Message>,
-    // /// Sends to Translator::reciver_downstream
-    // sender_upstream: Reciver<json_rpc::Message>,
+    /// Receives messages from the SV1 Downstream client node (most typically a SV1 Mining Device).
+    receiver_incoming: Receiver<json_rpc::Message>,
+    /// Sends to Translator::reciver_downstream
+    sender_upstream: Sender<json_rpc::Message>,
+    /// Receiver from Translator::sender_downstream
+    receiver_upstream: Receiver<json_rpc::Message>,
 }
 // new task loops through receiver upstream is sending something, if so use sender outgoing and
 // transform to sv1 messages then use sender outgoing to send to the socket
@@ -39,10 +39,13 @@ impl Downstream {
 
         let (sender_incoming, receiver_incoming) = bounded(10);
         let (sender_outgoing, receiver_outgoing) = bounded(10);
+        let (sender_upstream, receiver_upstream) = bounded(10);
 
         let dowstream = Arc::new(Mutex::new(Downstream {
-            receiver_incoming,
             sender_outgoing,
+            receiver_incoming,
+            sender_upstream,
+            receiver_upstream,
         }));
 
         let self_ = dowstream.clone();
