@@ -241,8 +241,7 @@ mod tests {
     }
 
     // #[cfg(feature = "serde")]
-    // #[derive(Debug, Deserialize)]
-    #[derive(Debug)]
+    #[derive(Debug, Deserialize)]
     struct TestBlockToml {
         block_hash: String,
         version: u32,
