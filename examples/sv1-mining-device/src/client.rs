@@ -1,12 +1,7 @@
 use async_std::net::TcpStream;
 use std::convert::TryInto;
 
-use bitcoin::{
-    blockdata::block::BlockHeader,
-    hash_types::{BlockHash, TxMerkleNode},
-    hashes::{sha256d::Hash as DHash, Hash},
-    util::uint::Uint256,
-};
+use bitcoin::util::uint::Uint256;
 
 use async_channel::{bounded, Receiver, Sender};
 
@@ -14,8 +9,6 @@ use async_std::{io::BufReader, prelude::*, task};
 use roles_logic_sv2::utils::Mutex;
 use std::sync::Arc;
 use std::time;
-
-const ADDR: &str = "127.0.0.1:34254";
 
 use v1::{
     client_to_server,
@@ -25,15 +18,18 @@ use v1::{
     ClientStatus, IsClient,
 };
 
+use crate::{job::Job, miner::Miner};
+const ADDR: &str = "127.0.0.1:34254";
+
 /// Represents the Mining Device client which is connected to a Upstream node (either a SV1 Pool
 /// server or a SV1<->SV2 Translator Proxy server).
-pub struct Client {
+pub(crate) struct Client {
     client_id: u32,
     extranonce1: HexBytes,
     extranonce2_size: usize,
     version_rolling_mask: Option<HexU32Be>,
     version_rolling_min_bit: Option<HexU32Be>,
-    pub status: ClientStatus,
+    pub(crate) status: ClientStatus,
     sented_authorize_request: Vec<(String, String)>, // (id, user_name)
     authorized: Vec<String>,
     /// Receives incoming messages from the SV1 Upstream node.
@@ -45,7 +41,7 @@ pub struct Client {
 }
 
 impl Client {
-    pub async fn new(client_id: u32) {
+    pub(crate) async fn new(client_id: u32) {
         let stream = std::sync::Arc::new(TcpStream::connect(ADDR).await.unwrap());
         let (reader, writer) = (stream.clone(), stream);
 
@@ -159,7 +155,7 @@ impl Client {
         self.sender_outgoing.send(msg).await.unwrap();
     }
 
-    pub async fn send_configure(&mut self) {
+    pub(crate) async fn send_configure(&mut self) {
         let id = time::SystemTime::now()
             .duration_since(time::SystemTime::UNIX_EPOCH)
             .unwrap()
@@ -282,123 +278,4 @@ struct Submit {
     /// Nonce
     /// TODO: Hard coded for the demo
     nonce: u32,
-}
-
-/// Represents a new Job built from an incoming `mining.notify` message from the Upstream server.
-struct Job {
-    /// ID of the job used while submitting share generated from this job.
-    /// TODO: Currently is `u32` and is hardcoded, but should be String and set by the incoming
-    /// `mining.notify` message.
-    job_id: u32,
-    /// Hash of previous block
-    prev_hash: [u8; 32],
-    /// Merkle root
-    /// TODO: Currently is hardcoded. This field should be replaced with three fields: 1)
-    /// `coinbase_1` - the first half of the coinbase transaction before the `extranonce` which is
-    /// inserted by the miner, 2) `coinbase_2` - the second half of the coinbase transaction after
-    /// the `extranonce` which is inserted by the miner, and 3) `merkle_branches` - the merkle
-    /// branches to build the merkle root sans the coinbase transaction
-    // coinbase_1: Vec<u32>,
-    // coinbase_2: Vec<u32>,
-    // merkle_brances: Vec<[u8; 32]>,
-    merkle_root: [u8; 32],
-    version: u32,
-    nbits: u32,
-}
-
-impl From<v1::methods::server_to_client::Notify> for Job {
-    fn from(notify_msg: v1::methods::server_to_client::Notify) -> Self {
-        // TODO: Hard coded for demo. Should be properly translated from received Notify message
-        // Right now, Notify.job_id is a string, but the Job.job_id is a u32 here.
-        let job_id = 1u32;
-
-        // Convert prev hash from Vec<u8> into expected [u32; 8]
-        let prev_hash_vec: Vec<u8> = notify_msg.prev_hash.into();
-        let prev_hash_slice: &[u8] = prev_hash_vec.as_slice();
-        let prev_hash: &[u8; 32] = prev_hash_slice.try_into().expect("Expected len 32");
-        let prev_hash = *prev_hash;
-
-        // Make a fake merkle root for the demo
-        // TODO: Should instead update Job to have cb1, cb2, and merkle_branches instead of
-        // merkle_root, then generate a random extranonce, build the cb by concatenating cb1 +
-        // extranonce + cb2, then calculate the merkle_root with the full branches
-        let merkle_root: [u8; 32] = [
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00,
-        ];
-        Job {
-            job_id,
-            prev_hash,
-            nbits: notify_msg.bits.0,
-            version: notify_msg.version.0,
-            merkle_root,
-        }
-    }
-}
-
-/// A mock representation of a Mining Device that produces block header hashes to be submitted by
-/// the `Client` to the Upstream node (either a SV1 Pool server or a SV1<->SV2 Translator Proxy
-/// server).
-#[derive(Debug)]
-struct Miner {
-    header: Option<BlockHeader>,
-    target: Option<Uint256>,
-    job_id: Option<u32>,
-    version: Option<u32>,
-    handicap: u32,
-}
-
-impl Miner {
-    fn new(handicap: u32) -> Self {
-        Self {
-            target: None,
-            header: None,
-            job_id: None,
-            version: None,
-            handicap,
-        }
-    }
-
-    fn new_target(&mut self, target: Uint256) {
-        self.target = Some(target);
-    }
-
-    fn new_header(&mut self, new_job: Job) {
-        self.job_id = Some(new_job.job_id);
-        self.version = Some(new_job.version);
-        let prev_hash: [u8; 32] = new_job.prev_hash;
-        let prev_hash = DHash::from_inner(prev_hash);
-        let merkle_root: [u8; 32] = new_job.merkle_root.to_vec().try_into().unwrap();
-        let merkle_root = DHash::from_inner(merkle_root);
-        let header = BlockHeader {
-            version: new_job.version as i32,
-            prev_blockhash: BlockHash::from_hash(prev_hash),
-            merkle_root: TxMerkleNode::from_hash(merkle_root),
-            time: std::time::SystemTime::now()
-                .duration_since(
-                    std::time::SystemTime::UNIX_EPOCH - std::time::Duration::from_secs(60),
-                )
-                .unwrap()
-                .as_secs() as u32,
-            bits: new_job.nbits,
-            nonce: 0,
-        };
-        self.header = Some(header);
-    }
-    pub fn next_share(&mut self) -> Result<(), ()> {
-        let header = self.header.as_ref().ok_or(())?;
-        let mut hash = header.block_hash().as_hash().into_inner();
-        hash.reverse();
-        let hash = Uint256::from_be_bytes(hash);
-        if hash < *self.target.as_ref().ok_or(())? {
-            println!(
-                "Found share with nonce: {}, for target: {:?}",
-                header.nonce, self.target
-            );
-            Ok(())
-        } else {
-            Err(())
-        }
-    }
 }

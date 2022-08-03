@@ -8,35 +8,29 @@ use bitcoin::{
 use std::convert::TryInto;
 
 /// A mock representation of a Mining Device that produces block header hashes to be submitted by
-/// the `Client` to the Upstream node (either a SV1 Pool server or a SV1 <-> SV2 Translator Proxy
+/// the `Client` to the Upstream node (either a SV1 Pool server or a SV1<->SV2 Translator Proxy
 /// server).
 #[derive(Debug)]
 pub(crate) struct Miner {
-    /// Mock of mined candidate block header.
     pub(crate) header: Option<BlockHeader>,
-    /// Current mining target.
     pub(crate) target: Option<Uint256>,
-    /// ID of the job used while submitting share generated from this job.
     pub(crate) job_id: Option<u32>,
-    /// Block header version
     pub(crate) version: Option<u32>,
     /// TODO: RRQ: Remove?
-    pub(crate) _handicap: u32,
+    pub(crate) handicap: u32,
 }
 
 impl Miner {
-    /// Instantiates a new Miner instance.
     pub(crate) fn new(handicap: u32) -> Self {
         Self {
             target: None,
             header: None,
             job_id: None,
             version: None,
-            _handicap: handicap,
+            handicap,
         }
     }
 
-    /// Updates target when a new target is received by the SV1 `Client`.
     pub(crate) fn new_target(&mut self, target: Uint256) {
         self.target = Some(target);
     }
