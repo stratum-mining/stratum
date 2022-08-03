@@ -7,9 +7,13 @@ use roles_logic_sv2::utils::Mutex;
 use std::sync::Arc;
 use v1::json_rpc;
 
+/// Handles the sending and receiving of messages to and from an SV2 Upstream role (most typically
+/// a SV2 Pool server).
 #[derive(Debug)]
 pub(crate) struct Downstream {
+    /// Receives messages from the SV1 Downstream client node (most typically a SV1 Mining Device).
     receiver_incoming: Receiver<json_rpc::Message>,
+    /// Sends messages to the SV1 Downstream client node (most typically a SV1 Mining Device).
     sender_outgoing: Sender<json_rpc::Message>,
 }
 impl IsMiningDownstream for Downstream {}
@@ -56,6 +60,8 @@ impl Downstream {
                         let to_send = Self::parse_message(self_.clone(), message).await;
                         match to_send {
                             Some(message) => {
+                                // TODO: add relay_message fn
+                                // self.relay_message(m).await;
                                 Self::send_message(self_.clone(), message).await;
                             }
                             None => (),
@@ -77,6 +83,13 @@ impl Downstream {
         todo!()
     }
 
+    /// Translates the SV1 message into an SV2 message
+    async fn relay_message(self_: Arc<Mutex<Self>>, msg: json_rpc::Message) {
+        let sender = self_.safe_lock(|s| s.sender_outgoing.clone()).unwrap();
+        sender.send(msg).await.unwrap()
+    }
+
+    /// Sends SV1 message to the Downstream client (most typically a SV1 Mining Device).
     async fn send_message(self_: Arc<Mutex<Self>>, msg: json_rpc::Message) {
         let sender = self_.safe_lock(|s| s.sender_outgoing.clone()).unwrap();
         sender.send(msg).await.unwrap()

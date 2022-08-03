@@ -25,6 +25,8 @@ use v1::{
     ClientStatus, IsClient,
 };
 
+/// Represents the Mining Device client which is connected to a Upstream node (either a SV1 Pool
+/// server or a SV1<->SV2 Translator Proxy server).
 pub struct Client {
     client_id: u32,
     extranonce1: HexBytes,
@@ -34,8 +36,11 @@ pub struct Client {
     pub status: ClientStatus,
     sented_authorize_request: Vec<(String, String)>, // (id, user_name)
     authorized: Vec<String>,
+    /// Receives incoming messages from the SV1 Upstream node.
     receiver_incoming: Receiver<String>,
+    /// Sends outgoing messages to the SV1 Upstream node.
     sender_outgoing: Sender<String>,
+    /// Representation of the Mining Devices
     miner: Arc<Mutex<Miner>>,
 }
 
@@ -130,26 +135,25 @@ impl Client {
         }
     }
 
-    /// WHen client recieves message from upstream
+    /// Parse SV1 messages received from the Upstream node.
     async fn parse_message(
         &mut self,
         incoming_message: Result<String, async_channel::TryRecvError>,
     ) {
         if let Ok(line) = incoming_message {
-            println!("CIENT {} - message: {}", self.client_id, line);
+            println!("CLIENT {} - message: {}", self.client_id, line);
             let message: json_rpc::Message = serde_json::from_str(&line).unwrap();
             // If has a message, it sends it back
             match self.handle_message(message).unwrap() {
                 Some(m) => {
                     self.send_message(m).await;
-                    // TODO: add relay_message fn
-                    // self.relay_message(m).await;
                 }
                 None => (),
             }
         };
     }
 
+    /// Send SV1 messages to the Upstream node
     async fn send_message(&mut self, msg: json_rpc::Message) {
         let msg = format!("{}\n", serde_json::to_string(&msg).unwrap());
         self.sender_outgoing.send(msg).await.unwrap();
@@ -333,6 +337,9 @@ impl From<v1::methods::server_to_client::Notify> for Job {
     }
 }
 
+/// A mock representation of a Mining Device that produces block header hashes to be submitted by
+/// the `Client` to the Upstream node (either a SV1 Pool server or a SV1<->SV2 Translator Proxy
+/// server).
 #[derive(Debug)]
 struct Miner {
     header: Option<BlockHeader>,

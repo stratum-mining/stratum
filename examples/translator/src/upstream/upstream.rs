@@ -18,6 +18,8 @@ use roles_logic_sv2::{
 use std::net::SocketAddr;
 use std::sync::Arc;
 
+/// RR Q: Why do we have an `Upstream` and `UpstreamConnection`, but we only have a single
+/// `Downstream` with a receiver and sender as its member fields directly?
 #[derive(Debug)]
 pub struct Upstream {
     connection: UpstreamConnection,
