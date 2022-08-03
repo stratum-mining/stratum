@@ -230,25 +230,32 @@ mod tests {
     use crate::errors::Error;
     // use binary_sv2::u256_from_int;
     use binary_sv2::{binary_codec_sv2, decodable::DecodableField, decodable::FieldMarker};
-    use binary_sv2::{u256_from_int, Deserialize, Seq0255, B064K, U256};
+    use binary_sv2::{u256_from_int, Decodable as Deserialize, Seq0255, B064K, U256};
     //#[cfg(feature = "serde")]
     // use decoder::Deserialize;
+    fn decode_hex(s: &str) -> Result<Vec<u8>, std::num::ParseIntError> {
+        (0..s.len())
+            .step_by(2)
+            .map(|i| u8::from_str_radix(&s[i..i + 2], 16))
+            .collect()
+    }
 
-    //#[cfg(feature = "serde")]
+    // #[cfg(feature = "serde")]
     // #[derive(Debug, Deserialize)]
-    // struct TestBlockToml {
-    // block_hash: String,
-    // version: u32,
-    // prev_hash: String,
-    // time: u32,
-    // merkle_root: String,
-    // nbits: u32,
-    // nonce: u32,
-    // coinbase_tx_prefix: String,
-    // coinbase_script: String,
-    // coinbase_tx_suffix: String,
-    // path: Vec<String>,
-    // }
+    #[derive(Debug)]
+    struct TestBlockToml {
+        block_hash: String,
+        version: u32,
+        prev_hash: String,
+        time: u32,
+        merkle_root: String,
+        nbits: u32,
+        nonce: u32,
+        coinbase_tx_prefix: String,
+        coinbase_script: String,
+        coinbase_tx_suffix: String,
+        path: Vec<String>,
+    }
 
     #[derive(Debug)]
     struct TestBlock<'decoder> {
@@ -266,78 +273,78 @@ mod tests {
     }
 
     //#[cfg(feature = "serde")]
-    //fn get_test_block<'decoder>() -> TestBlock<'decoder> {
-    //    let test_file = std::fs::read_to_string("../../../test_data/reg-test-block.toml")
-    //        .expect("Could not read file from string");
-    //    let block: TestBlockToml =
-    //        toml::from_str(&test_file).expect("Could not parse toml file as `TestBlockToml`");
+    fn get_test_block<'decoder>() -> TestBlock<'decoder> {
+        let test_file = std::fs::read_to_string("../../../test_data/reg-test-block.toml")
+            .expect("Could not read file from string");
+        let block: TestBlockToml =
+            toml::from_str(&test_file).expect("Could not parse toml file as `TestBlockToml`");
 
-    //    // Get block hash
-    //    let block_hash_vec =
-    //        decode_hex(&block.block_hash).expect("Could not decode hex string to `Vec<u8>`");
-    //    let mut block_hash_vec: [u8; 32] = block_hash_vec
-    //        .try_into()
-    //        .expect("Slice is incorrect length");
-    //    block_hash_vec.reverse();
-    //    let block_hash: U256 = block_hash_vec
-    //        .try_into()
-    //        .expect("Could not convert `[u8; 32]` to `U256`");
+        // Get block hash
+        let block_hash_vec =
+            decode_hex(&block.block_hash).expect("Could not decode hex string to `Vec<u8>`");
+        let mut block_hash_vec: [u8; 32] = block_hash_vec
+            .try_into()
+            .expect("Slice is incorrect length");
+        block_hash_vec.reverse();
+        let block_hash: U256 = block_hash_vec
+            .try_into()
+            .expect("Could not convert `[u8; 32]` to `U256`");
 
-    //    // Get prev hash
-    //    let mut prev_hash: Vec<u8> =
-    //        decode_hex(&block.prev_hash).expect("Could not convert `String` to `&[u8]`");
-    //    prev_hash.reverse();
+        // Get prev hash
+        let mut prev_hash: Vec<u8> =
+            decode_hex(&block.prev_hash).expect("Could not convert `String` to `&[u8]`");
+        prev_hash.reverse();
 
-    //    // Get Merkle root
-    //    let mut merkle_root =
-    //        decode_hex(&block.merkle_root).expect("Could not decode hex string to `Vec<u8>`");
-    //    // Swap endianness to LE
-    //    merkle_root.reverse();
+        // Get Merkle root
+        let mut merkle_root =
+            decode_hex(&block.merkle_root).expect("Could not decode hex string to `Vec<u8>`");
+        // Swap endianness to LE
+        merkle_root.reverse();
 
-    //    // Get Merkle path
-    //    let mut path_vec = Vec::<U256>::new();
-    //    for p in block.path {
-    //        let p_vec = decode_hex(&p).expect("Could not decode hex string to `Vec<u8>`");
-    //        let p_arr: [u8; 32] = p_vec.try_into().expect("Slice is incorrect length");
-    //        let p_u256: U256 = (p_arr)
-    //            .try_into()
-    //            .expect("Could not convert to `U256` from `[u8; 32]`");
-    //        path_vec.push(p_u256);
-    //    }
+        // Get Merkle path
+        let mut path_vec = Vec::<U256>::new();
+        for p in block.path {
+            let p_vec = decode_hex(&p).expect("Could not decode hex string to `Vec<u8>`");
+            let p_arr: [u8; 32] = p_vec.try_into().expect("Slice is incorrect length");
+            let p_u256: U256 = (p_arr)
+                .try_into()
+                .expect("Could not convert to `U256` from `[u8; 32]`");
+            path_vec.push(p_u256);
+        }
 
-    //    let path = Seq0255::new(path_vec).expect("Could not convert `Vec<U256>` to `Seq0255`");
+        let path = Seq0255::new(path_vec).expect("Could not convert `Vec<U256>` to `Seq0255`");
 
-    //    // Pass in coinbase as three pieces:
-    //    //   coinbase_tx_prefix + coinbase script + coinbase_tx_suffix
-    //    let coinbase_tx_prefix_vec = decode_hex(&block.coinbase_tx_prefix)
-    //        .expect("Could not decode hex string to `Vec<u8>`");
-    //    let coinbase_tx_prefix: B064K = coinbase_tx_prefix_vec
-    //        .try_into()
-    //        .expect("Could not convert `Vec<u8>` into `B064K`");
+        // Pass in coinbase as three pieces:
+        //   coinbase_tx_prefix + coinbase script + coinbase_tx_suffix
+        let coinbase_tx_prefix_vec = decode_hex(&block.coinbase_tx_prefix)
+            .expect("Could not decode hex string to `Vec<u8>`");
+        let coinbase_tx_prefix: B064K = coinbase_tx_prefix_vec
+            .try_into()
+            .expect("Could not convert `Vec<u8>` into `B064K`");
 
-    //    let coinbase_script =
-    //        decode_hex(&block.coinbase_script).expect("Could not decode hex `String` to `Vec<u8>`");
+        let coinbase_script =
+            decode_hex(&block.coinbase_script).expect("Could not decode hex `String` to `Vec<u8>`");
 
-    //    let coinbase_tx_suffix_vec = decode_hex(&block.coinbase_tx_suffix)
-    //        .expect("Could not decode hex `String` to `Vec<u8>`");
-    //    let coinbase_tx_suffix: B064K = coinbase_tx_suffix_vec
-    //        .try_into()
-    //        .expect("Could not convert `Vec<u8>` to `B064K`");
+        let coinbase_tx_suffix_vec = decode_hex(&block.coinbase_tx_suffix)
+            .expect("Could not decode hex `String` to `Vec<u8>`");
+        let coinbase_tx_suffix: B064K = coinbase_tx_suffix_vec
+            .try_into()
+            .expect("Could not convert `Vec<u8>` to `B064K`");
 
-    //    TestBlock {
-    //        block_hash,
-    //        version: block.version,
-    //        prev_hash,
-    //        time: block.time,
-    //        merkle_root,
-    //        nbits: block.nbits,
-    //        nonce: block.nonce,
-    //        coinbase_tx_prefix,
-    //        coinbase_script,
-    //        coinbase_tx_suffix,
-    //        path,
-    //    }
-    //}
+        TestBlock {
+            block_hash,
+            version: block.version,
+            prev_hash,
+            time: block.time,
+            merkle_root,
+            nbits: block.nbits,
+            nonce: block.nonce,
+            coinbase_tx_prefix,
+            coinbase_script,
+            coinbase_tx_suffix,
+            path,
+        }
+    }
 
     //#[test]
     //#[cfg(feature = "serde")]
