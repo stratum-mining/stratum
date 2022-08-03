@@ -263,16 +263,21 @@ struct Job {
 
 impl From<v1::methods::server_to_client::Notify> for Job {
     fn from(notify_msg: v1::methods::server_to_client::Notify) -> Self {
-        // receive a notify from server, must be transformed in the Job struct
         // todo!()
         // TODO: Hard coded for demo. Should be properly translated from received Notify message
         // Right now, Notify.job_id is a string, but the Job.job_id is a u32 here.
         let job_id = 9910597111u32;
+        // Convert prev hash from Vec<u8> into expected [u32; 8]
+        let prev_hash_vec: Vec<u8> = notify_msg.prev_hash.into();
+        let prev_hash_slice: &[u8] = prev_hash_vec.as_slice();
+        let prev_hash: &[u8; 32] = prev_hash_slice.try_into().expect("Expected len 32");
+        let prev_hash = *prev_hash;
+
         Job {
             job_id,
-            prev_hash: notify_msg.prev_hash,
-            nbits: notify_msg.bits,
-            version: notify_msg.version,
+            prev_hash,
+            nbits: notify_msg.bits.0,
+            version: notify_msg.version.0,
             merkle_root: notify_msg.merkle_branch,
         }
     }
