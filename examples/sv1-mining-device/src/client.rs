@@ -18,6 +18,7 @@ use std::time;
 const ADDR: &str = "127.0.0.1:34254";
 
 use v1::{
+    client_to_server,
     error::Error,
     json_rpc, server_to_client,
     utils::{HexBytes, HexU32Be},
@@ -102,15 +103,24 @@ impl Client {
 
         task::spawn(async move {
             let recv = share_recv.clone();
+            // let sender = share_send.clone();
             loop {
                 let (nonce, job_id, version, ntime) = recv.recv().await.unwrap();
-                // create sv1 Message to create when a share is found, then send
-                // TODO create the message to send the share
-                // TODO use sender_outgoing send message and send the sahre
-                //
-                // let message: json_rpc::Message = serde_json::serialize(sv1 SubmitShare message);
-                // sender_outgoing.send(message).await.unwrap();
-                todo!()
+                let extra_nonce2: HexBytes = "0x0000000000000000".try_into().unwrap();
+                let version = Some(HexU32Be(version));
+                let submit = client_to_server::Submit {
+                    id: "TODO: ID".into(),
+                    user_name: "TODO: USER NAME".into(),
+                    job_id: "TODO: job_id as String".into(),
+                    extra_nonce2,
+                    time: ntime.into(),
+                    nonce: nonce.into(),
+                    version_bits: version,
+                };
+                let message: json_rpc::Message = submit.into();
+                let message = format!("{}\n", serde_json::to_string(&message).unwrap());
+                // sender.send(message).await.unwrap();
+                sender_outgoing.send(message).await.unwrap();
             }
         });
 
@@ -251,6 +261,23 @@ impl IsClient for Client {
         println!("{:?}", message);
         Ok(None)
     }
+}
+
+/// Represents a new outgoing `mining.submit` solution submission to be sent to the Upstream
+/// server.
+struct Submit {
+    // worker_name: String,
+    /// ID of the job used while submitting share generated from this job.
+    /// TODO: Currently is `u32` and is hardcoded, but should be String and set by the incoming
+    /// `mining.notify` message.
+    job_id: u32,
+    // /// TODO: Hard coded for demo
+    // extranonce_2: u32,
+    /// Current time
+    ntime: u32,
+    /// Nonce
+    /// TODO: Hard coded for the demo
+    nonce: u32,
 }
 
 /// Represents a new Job built from an incoming `mining.notify` message from the Upstream server.
