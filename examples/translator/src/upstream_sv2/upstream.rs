@@ -1,6 +1,6 @@
 use crate::{
-    downstream::Downstream,
-    upstream::{StdFrame, UpstreamConnection},
+    downstream_sv1::Downstream,
+    upstream_sv2::{StdFrame, UpstreamConnection},
 };
 use async_std::net::TcpStream;
 use codec_sv2::{Frame, HandshakeRole, Initiator};
@@ -25,52 +25,6 @@ pub struct Upstream {
     // receiver_downstream: Reciever<EitherFrame>,
     // /// Sends to Translator::receiver_upstream
     // sender_downstream: Sender<EitherFrame>,
-}
-
-impl IsUpstream<Downstream, NullDownstreamMiningSelector> for Upstream {
-    fn get_version(&self) -> u16 {
-        todo!()
-    }
-
-    fn get_flags(&self) -> u32 {
-        todo!()
-    }
-
-    fn get_supported_protocols(&self) -> Vec<Protocol> {
-        todo!()
-    }
-
-    fn get_id(&self) -> u32 {
-        todo!()
-    }
-
-    fn get_mapper(&mut self) -> Option<&mut roles_logic_sv2::common_properties::RequestIdMapper> {
-        todo!()
-    }
-
-    fn get_remote_selector(&mut self) -> &mut NullDownstreamMiningSelector {
-        todo!()
-    }
-}
-
-impl IsMiningUpstream<Downstream, NullDownstreamMiningSelector> for Upstream {
-    fn total_hash_rate(&self) -> u64 {
-        todo!()
-    }
-
-    fn add_hash_rate(&mut self, to_add: u64) {
-        todo!()
-    }
-
-    fn get_opened_channels(
-        &mut self,
-    ) -> &mut Vec<roles_logic_sv2::common_properties::UpstreamChannel> {
-        todo!()
-    }
-
-    fn update_channels(&mut self, c: roles_logic_sv2::common_properties::UpstreamChannel) {
-        todo!()
-    }
 }
 
 impl Upstream {
@@ -158,6 +112,52 @@ impl Upstream {
             firmware,
             device_id,
         }
+    }
+}
+
+impl IsUpstream<Downstream, NullDownstreamMiningSelector> for Upstream {
+    fn get_version(&self) -> u16 {
+        todo!()
+    }
+
+    fn get_flags(&self) -> u32 {
+        todo!()
+    }
+
+    fn get_supported_protocols(&self) -> Vec<Protocol> {
+        todo!()
+    }
+
+    fn get_id(&self) -> u32 {
+        todo!()
+    }
+
+    fn get_mapper(&mut self) -> Option<&mut roles_logic_sv2::common_properties::RequestIdMapper> {
+        todo!()
+    }
+
+    fn get_remote_selector(&mut self) -> &mut NullDownstreamMiningSelector {
+        todo!()
+    }
+}
+
+impl IsMiningUpstream<Downstream, NullDownstreamMiningSelector> for Upstream {
+    fn total_hash_rate(&self) -> u64 {
+        todo!()
+    }
+
+    fn add_hash_rate(&mut self, to_add: u64) {
+        todo!()
+    }
+
+    fn get_opened_channels(
+        &mut self,
+    ) -> &mut Vec<roles_logic_sv2::common_properties::UpstreamChannel> {
+        todo!()
+    }
+
+    fn update_channels(&mut self, c: roles_logic_sv2::common_properties::UpstreamChannel) {
+        todo!()
     }
 }
 

@@ -1,6 +1,6 @@
-mod downstream;
+mod downstream_sv1;
 mod proxy;
-mod upstream;
+mod upstream_sv2;
 use std::net::{IpAddr, SocketAddr};
 use std::str::FromStr;
 
@@ -13,9 +13,9 @@ async fn main() {
         190, 90, 169, 238, 89, 191, 183, 97, 63, 194, 119, 11, 31,
     ];
     let upstream_addr = SocketAddr::new(IpAddr::from_str("127.0.0.1").unwrap(), 34254);
-    let _upstream = upstream::Upstream::new(upstream_addr, authority_public_key).await;
+    let _upstream = upstream_sv2::Upstream::new(upstream_addr, authority_public_key).await;
     async_std::task::spawn(async {
-        downstream::listen_downstream().await;
+        downstream_sv1::listen_downstream().await;
     })
     .await;
 }

@@ -1,4 +1,4 @@
-use crate::downstream::Downstream;
+use crate::downstream_sv1::Downstream;
 use codec_sv2::{StandardEitherFrame, StandardSv2Frame};
 use roles_logic_sv2::parsers::PoolMessages;
 

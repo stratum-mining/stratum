@@ -1,4 +1,4 @@
-use crate::upstream::EitherFrame;
+use crate::upstream_sv2::EitherFrame;
 use async_std::net::TcpStream;
 
 use async_channel::{bounded, Receiver, Sender};
