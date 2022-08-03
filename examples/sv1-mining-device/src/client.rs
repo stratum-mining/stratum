@@ -45,12 +45,36 @@ impl Client {
         let stream = std::sync::Arc::new(TcpStream::connect(ADDR).await.unwrap());
         let (reader, writer) = (stream.clone(), stream);
 
-        // RR Q
+        // Tasks -> take everything it reads on the socket. it only sends the bytes it receives if
+        // it forms a complete message.
+        // Have a task that is just reading from the socket continuously and creates the messages
+        // (checks whenever we have a new line on the socket)
+        // Whenever we have a message, this task takes the bytes representing the messages and
+        // sends them with sender_incoming to send bunch of bytes
+        // Then Client awaiting on the receiver_incoming + whenever the sender_incoming sends the
+        // bytes to the receiver_incoming returns and we parse these messages
+        // On the other side: the sender_outgoing is used in a task (second) to write to the
+        // socket. We are awaiting on the sending_outgoing, when the receiver_outgoing sees bytes
+        // that it awaits from the second tasks, it returns the json string to the socket
+        //
+        // Separate tasks because we are nto chekcing whenever there is something on the socket, we
+        // need to have ac omplete message on the socket, THEN when we have a complete message (in
+        // the while next) we send the complete messages to the client logic.
+        // Do not have Connection in SV1 so we have to read from the sockets
         // `receiver_incoming` accepts serialized json messages from the Upstream node
         // RR Q: `sender_incoming`
+        //
+        // THESE are the channesl for the complete messages
+        // sender_incoming takes complete message from the socket when the buffer has a complete
+        // message in it. it send it to the recieving_incoming
         let (sender_incoming, receiver_incoming) = bounded(10);
+        // incoming/outgoing = how we use the channel
+        // incoming - using it to take the message that are incoming from Upstream
+        // outgoing - using this channel to send messages to the Upstream
         // `sender_outgoing` sends json serialized messages to the Upstream node
+        // used for the incoming message
         let (sender_outgoing, receiver_outgoing) = bounded(10);
+        // Share send then share recv then create sv1 submit share then reciever
         let (share_send, share_recv) = bounded(10);
 
         // Instantiates a new `Miner` (a mock of an actual Mining Device) with a job id of 0.
@@ -62,6 +86,13 @@ impl Client {
         miner.safe_lock(|m| m.new_target(default_target)).unwrap();
         let miner_cloned = miner.clone();
 
+        // Reads from the socket and sends the bytes to from `sender_incoming` to
+        // `receiver_outgoing`.
+        // Put bytes in buffer when we get them in the socket
+        // When new bytes are received, we send to X, X determines when we have a complete message.
+        // 1. Reads bytes from socket (sender_incoming)
+        // Sending the incoming message to the recieving_incoming that will be in another task with
+        // some logic for the Client to do soemthing with the message
         task::spawn(async move {
             let mut messages = BufReader::new(&*reader).lines();
             while let Some(message) = messages.next().await {
@@ -71,6 +102,7 @@ impl Client {
             }
         });
 
+        // Write to the socket the messages to send
         task::spawn(async move {
             loop {
                 let message: String = receiver_outgoing.recv().await.unwrap();
@@ -106,6 +138,9 @@ impl Client {
         // For each generated block header, sends the `share_recv` the relevant values that
         // generated the candidate block header needed to then format and send as a `mining.submit`
         // message to the Upstream node.
+        // Needs to be in a separate thread because it is CPU intensive.
+        // When this thread finds a share it communicates this share to another part of the program
+        // that sends the share and sends to upstream.
         std::thread::spawn(move || loop {
             if miner_cloned.safe_lock(|m| m.next_share()).unwrap().is_ok() {
                 let nonce = miner_cloned.safe_lock(|m| m.header.unwrap().nonce).unwrap();
@@ -148,9 +183,11 @@ impl Client {
             }
         });
 
+        // Getting messages from sender_incoming
         loop {
-            let incoming = client.receiver_incoming.try_recv();
-            client.parse_message(incoming).await;
+            // let incoming = client.receiver_incoming.try_recv();
+            let incoming = client.receiver_incoming.recv().await.unwrap();
+            client.parse_message(Ok(incoming)).await;
         }
     }
 
@@ -159,6 +196,7 @@ impl Client {
         &mut self,
         incoming_message: Result<String, async_channel::TryRecvError>,
     ) {
+        // If we have a line (1 line represents 1 sv1 incoming message), then handle that message
         if let Ok(line) = incoming_message {
             println!("CLIENT {} - message: {}", self.client_id, line);
             let message: json_rpc::Message = serde_json::from_str(&line).unwrap();
@@ -172,7 +210,7 @@ impl Client {
         };
     }
 
-    /// Send SV1 messages to the Upstream node
+    /// Send SV1 messages to the receiver_outgoing which writes to the socket (aka Upstream node)
     async fn send_message(&mut self, msg: json_rpc::Message) {
         let msg = format!("{}\n", serde_json::to_string(&msg).unwrap());
         self.sender_outgoing.send(msg).await.unwrap();
