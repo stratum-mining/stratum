@@ -5,7 +5,9 @@ use roles_logic_sv2::utils::Mutex;
 use std::sync::Arc;
 
 pub(crate) mod downstream;
+pub(crate) mod downstream_connection;
 pub(crate) use downstream::Downstream;
+pub(crate) use downstream_connection::DownstreamConnection;
 
 pub(crate) async fn listen_downstream() {
     let listner = TcpListener::bind(crate::LISTEN_ADDR).await.unwrap();

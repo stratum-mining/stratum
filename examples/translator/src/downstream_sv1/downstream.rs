@@ -1,3 +1,4 @@
+use crate::downstream_sv1::DownstreamConnection;
 use async_std::net::TcpStream;
 
 use async_channel::{bounded, Receiver, Sender};
@@ -11,14 +12,7 @@ use v1::json_rpc;
 /// a SV2 Pool server).
 #[derive(Debug)]
 pub(crate) struct Downstream {
-    /// Sends messages to the SV1 Downstream client node (most typically a SV1 Mining Device).
-    sender_outgoing: Sender<json_rpc::Message>,
-    /// Receives messages from the SV1 Downstream client node (most typically a SV1 Mining Device).
-    receiver_incoming: Receiver<json_rpc::Message>,
-    /// Sends to Translator::reciver_downstream
-    sender_upstream: Sender<json_rpc::Message>,
-    /// Receiver from Translator::sender_downstream
-    receiver_upstream: Receiver<json_rpc::Message>,
+    connection: DownstreamConnection,
 }
 // new task loops through receiver upstream is sending something, if so use sender outgoing and
 // transform to sv1 messages then use sender outgoing to send to the socket
@@ -39,14 +33,16 @@ impl Downstream {
 
         let (sender_incoming, receiver_incoming) = bounded(10);
         let (sender_outgoing, receiver_outgoing) = bounded(10);
+        // TOOD pass in upstream channel instead
         let (sender_upstream, receiver_upstream) = bounded(10);
-
-        let dowstream = Arc::new(Mutex::new(Downstream {
+        let connection = DownstreamConnection {
             sender_outgoing,
             receiver_incoming,
             sender_upstream,
             receiver_upstream,
-        }));
+        };
+
+        let dowstream = Arc::new(Mutex::new(Downstream { connection }));
 
         let self_ = dowstream.clone();
         task::spawn(async move {
@@ -94,13 +90,17 @@ impl Downstream {
 
     /// Translates the SV1 message into an SV2 message
     async fn relay_message(self_: Arc<Mutex<Self>>, msg: json_rpc::Message) {
-        let sender = self_.safe_lock(|s| s.sender_outgoing.clone()).unwrap();
+        let sender = self_
+            .safe_lock(|s| s.connection.sender_outgoing.clone())
+            .unwrap();
         sender.send(msg).await.unwrap()
     }
 
     /// Sends SV1 message to the Downstream client (most typically a SV1 Mining Device).
     async fn send_message(self_: Arc<Mutex<Self>>, msg: json_rpc::Message) {
-        let sender = self_.safe_lock(|s| s.sender_outgoing.clone()).unwrap();
+        let sender = self_
+            .safe_lock(|s| s.connection.sender_outgoing.clone())
+            .unwrap();
         sender.send(msg).await.unwrap()
     }
 }
