@@ -22,7 +22,7 @@ use crate::{job::Job, miner::Miner};
 const ADDR: &str = "127.0.0.1:34254";
 
 /// Represents the Mining Device client which is connected to a Upstream node (either a SV1 Pool
-/// server or a SV1<->SV2 Translator Proxy server).
+/// server or a SV1 <-> SV2 Translator Proxy server).
 pub(crate) struct Client {
     client_id: u32,
     extranonce1: HexBytes,
@@ -94,6 +94,12 @@ impl Client {
 
         client.send_configure().await;
 
+        // Gets the latest candidate block header hash from the `Miner` by calling the `next_share`
+        // method. Mocks the act of the `Miner` incrementing the nonce. Performs this in a loop,
+        // incrementing the nonce each time, to mimic a Mining Device generating continuous hashes.
+        // For each generated block header, sends the `share_recv` the relevant values that
+        // generated the candidate block header needed to then format and send as a `mining.submit`
+        // message to the Upstream node.
         std::thread::spawn(move || loop {
             if miner_cloned.safe_lock(|m| m.next_share()).unwrap().is_ok() {
                 let nonce = miner_cloned.safe_lock(|m| m.header.unwrap().nonce).unwrap();
