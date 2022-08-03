@@ -1,20 +1,20 @@
-use async_channel::{bounded, Receiver, Sender};
-use async_std::net::{TcpListener, TcpStream};
+use crate::downstream::Downstream;
+use async_channel::{Receiver, Sender};
+use async_std::net::TcpStream;
 use codec_sv2::{Frame, HandshakeRole, Initiator, StandardEitherFrame, StandardSv2Frame};
 use network_helpers::Connection;
+use roles_logic_sv2::common_properties::{IsMiningUpstream, IsUpstream};
 use roles_logic_sv2::utils::Mutex;
 use roles_logic_sv2::{
     common_messages_sv2::{Protocol, SetupConnection},
-    parsers::PoolMessages,
     handlers::common::{ParseUpstreamCommonMessages, SendTo as SendToCommon},
     handlers::mining::{ParseUpstreamMiningMessages, SendTo},
-    routing_logic::{CommonRoutingLogic, NoRouting,MiningRoutingLogic},
+    parsers::PoolMessages,
+    routing_logic::{CommonRoutingLogic, MiningRoutingLogic, NoRouting},
     selectors::NullDownstreamMiningSelector,
 };
 use std::net::SocketAddr;
 use std::sync::Arc;
-use roles_logic_sv2::common_properties::{IsUpstream,IsMiningUpstream};
-use crate::downstream::Downstream;
 
 pub type Message = PoolMessages<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;
@@ -49,7 +49,7 @@ pub struct Upstream {
     connection: UpstreamConnection,
 }
 
-impl IsUpstream<Downstream,NullDownstreamMiningSelector> for Upstream {
+impl IsUpstream<Downstream, NullDownstreamMiningSelector> for Upstream {
     fn get_version(&self) -> u16 {
         todo!()
     }
@@ -73,10 +73,9 @@ impl IsUpstream<Downstream,NullDownstreamMiningSelector> for Upstream {
     fn get_remote_selector(&mut self) -> &mut NullDownstreamMiningSelector {
         todo!()
     }
-
 }
 
-impl IsMiningUpstream<Downstream,NullDownstreamMiningSelector> for Upstream {
+impl IsMiningUpstream<Downstream, NullDownstreamMiningSelector> for Upstream {
     fn total_hash_rate(&self) -> u64 {
         todo!()
     }
@@ -85,7 +84,9 @@ impl IsMiningUpstream<Downstream,NullDownstreamMiningSelector> for Upstream {
         todo!()
     }
 
-    fn get_opened_channels(&mut self) -> &mut Vec<roles_logic_sv2::common_properties::UpstreamChannel> {
+    fn get_opened_channels(
+        &mut self,
+    ) -> &mut Vec<roles_logic_sv2::common_properties::UpstreamChannel> {
         todo!()
     }
 
@@ -105,9 +106,7 @@ impl Upstream {
         self_
     }
 
-    async fn setup(
-        mut connection: UpstreamConnection,
-    ) -> Result<Arc<Mutex<Self>>, ()> {
+    async fn setup(mut connection: UpstreamConnection) -> Result<Arc<Mutex<Self>>, ()> {
         let setup_connection = Self::get_setup_connection_message();
 
         let sv2_frame: StdFrame = PoolMessages::Common(setup_connection.into())
@@ -116,11 +115,17 @@ impl Upstream {
         let sv2_frame = sv2_frame.into();
         connection.send(sv2_frame).await.map_err(|_| ())?;
 
-        let mut incoming: StdFrame = connection.receiver.recv().await.unwrap().try_into().unwrap();
+        let mut incoming: StdFrame = connection
+            .receiver
+            .recv()
+            .await
+            .unwrap()
+            .try_into()
+            .unwrap();
         let message_type = incoming.get_header().unwrap().msg_type();
         let payload = incoming.payload();
 
-        let self_ = Arc::new(Mutex::new(Self {connection}));
+        let self_ = Arc::new(Mutex::new(Self { connection }));
 
         ParseUpstreamCommonMessages::handle_message_common(
             self_.clone(),
@@ -152,7 +157,6 @@ impl Upstream {
                     Ok(_) => (),
                     Err(_) => (),
                 }
-
             }
         });
     }
@@ -177,7 +181,6 @@ impl Upstream {
             device_id,
         }
     }
-
 }
 
 impl ParseUpstreamCommonMessages<NoRouting> for Upstream {
@@ -203,7 +206,7 @@ impl ParseUpstreamCommonMessages<NoRouting> for Upstream {
     }
 }
 
-impl ParseUpstreamMiningMessages<Downstream,NullDownstreamMiningSelector,NoRouting> for Upstream {
+impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRouting> for Upstream {
     fn get_channel_type(&self) -> roles_logic_sv2::handlers::mining::SupportedChannelTypes {
         roles_logic_sv2::handlers::mining::SupportedChannelTypes::Extended
     }
@@ -216,85 +219,120 @@ impl ParseUpstreamMiningMessages<Downstream,NullDownstreamMiningSelector,NoRouti
         &mut self,
         m: roles_logic_sv2::mining_sv2::OpenStandardMiningChannelSuccess,
         remote: Option<Arc<Mutex<Downstream>>>,
-    ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error> {
+    ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error>
+    {
         todo!()
     }
 
     fn handle_open_extended_mining_channel_success(
         &mut self,
         m: roles_logic_sv2::mining_sv2::OpenExtendedMiningChannelSuccess,
-    ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error> {
+    ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error>
+    {
         todo!()
     }
 
     fn handle_open_mining_channel_error(
         &mut self,
         m: roles_logic_sv2::mining_sv2::OpenMiningChannelError,
-    ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error> {
+    ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error>
+    {
         todo!()
     }
 
-    fn handle_update_channel_error(&mut self, m: roles_logic_sv2::mining_sv2::UpdateChannelError)
-        -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error> {
+    fn handle_update_channel_error(
+        &mut self,
+        m: roles_logic_sv2::mining_sv2::UpdateChannelError,
+    ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error>
+    {
         todo!()
     }
 
-    fn handle_close_channel(&mut self, m: roles_logic_sv2::mining_sv2::CloseChannel) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error> {
+    fn handle_close_channel(
+        &mut self,
+        m: roles_logic_sv2::mining_sv2::CloseChannel,
+    ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error>
+    {
         todo!()
     }
 
     fn handle_set_extranonce_prefix(
         &mut self,
         m: roles_logic_sv2::mining_sv2::SetExtranoncePrefix,
-    ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error> {
+    ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error>
+    {
         todo!()
     }
 
     fn handle_submit_shares_success(
         &mut self,
         m: roles_logic_sv2::mining_sv2::SubmitSharesSuccess,
-    ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error> {
+    ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error>
+    {
         todo!()
     }
 
-    fn handle_submit_shares_error(&mut self, m: roles_logic_sv2::mining_sv2::SubmitSharesError) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error> {
+    fn handle_submit_shares_error(
+        &mut self,
+        m: roles_logic_sv2::mining_sv2::SubmitSharesError,
+    ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error>
+    {
         todo!()
     }
 
-    fn handle_new_mining_job(&mut self, m: roles_logic_sv2::mining_sv2::NewMiningJob) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error> {
+    fn handle_new_mining_job(
+        &mut self,
+        m: roles_logic_sv2::mining_sv2::NewMiningJob,
+    ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error>
+    {
         todo!()
     }
 
     fn handle_new_extended_mining_job(
         &mut self,
         m: roles_logic_sv2::mining_sv2::NewExtendedMiningJob,
-    ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error> {
+    ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error>
+    {
         Ok(SendTo::None(None))
     }
 
-    fn handle_set_new_prev_hash(&mut self, m: roles_logic_sv2::mining_sv2::SetNewPrevHash) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error> {
+    fn handle_set_new_prev_hash(
+        &mut self,
+        m: roles_logic_sv2::mining_sv2::SetNewPrevHash,
+    ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error>
+    {
         Ok(SendTo::None(None))
     }
 
     fn handle_set_custom_mining_job_success(
         &mut self,
         m: roles_logic_sv2::mining_sv2::SetCustomMiningJobSuccess,
-    ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error> {
+    ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error>
+    {
         todo!()
     }
 
     fn handle_set_custom_mining_job_error(
         &mut self,
         m: roles_logic_sv2::mining_sv2::SetCustomMiningJobError,
-    ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error> {
+    ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error>
+    {
         todo!()
     }
 
-    fn handle_set_target(&mut self, m: roles_logic_sv2::mining_sv2::SetTarget) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error> {
+    fn handle_set_target(
+        &mut self,
+        m: roles_logic_sv2::mining_sv2::SetTarget,
+    ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error>
+    {
         todo!()
     }
 
-    fn handle_reconnect(&mut self, m: roles_logic_sv2::mining_sv2::Reconnect) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error> {
+    fn handle_reconnect(
+        &mut self,
+        m: roles_logic_sv2::mining_sv2::Reconnect,
+    ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error>
+    {
         todo!()
     }
 }

@@ -1,19 +1,11 @@
 use async_std::net::{TcpListener, TcpStream};
-use std::convert::TryInto;
 
 use async_channel::{bounded, Receiver, Sender};
 use async_std::{io::BufReader, prelude::*, task};
+use roles_logic_sv2::common_properties::{IsDownstream, IsMiningDownstream};
 use roles_logic_sv2::utils::Mutex;
 use std::sync::Arc;
-use std::time;
-use v1::{
-    client_to_server,
-    error::Error,
-    json_rpc, server_to_client,
-    utils::{self, HexBytes, HexU32Be},
-    ClientStatus, IsClient, IsServer,
-};
-use roles_logic_sv2::common_properties::{IsDownstream,IsMiningDownstream};
+use v1::json_rpc;
 
 pub async fn listen_downstream() {
     let listner = TcpListener::bind(crate::LISTEN_ADDR).await.unwrap();
@@ -33,7 +25,9 @@ pub struct Downstream {
 }
 impl IsMiningDownstream for Downstream {}
 impl IsDownstream for Downstream {
-    fn get_downstream_mining_data(&self) -> roles_logic_sv2::common_properties::CommonDownstreamData {
+    fn get_downstream_mining_data(
+        &self,
+    ) -> roles_logic_sv2::common_properties::CommonDownstreamData {
         todo!()
     }
 }
