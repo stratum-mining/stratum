@@ -45,12 +45,16 @@ impl Client {
         let stream = std::sync::Arc::new(TcpStream::connect(ADDR).await.unwrap());
         let (reader, writer) = (stream.clone(), stream);
 
+        // RR Q
         let (sender_incoming, receiver_incoming) = bounded(10);
         let (sender_outgoing, receiver_outgoing) = bounded(10);
         let (share_send, share_recv) = bounded(10);
 
+        // Instantiates a new `Miner` (a mock of an actual Mining Device) with a job id of 0.
         let miner = Arc::new(Mutex::new(Miner::new(0)));
-        // TODO: This is hard coded for the purposes of a demo
+        // Sets an initial target for the `Miner`.
+        // TODO: This is hard coded for the purposes of a demo, should be set by the SV1
+        // `mining.set_difficulty` message received from the Upstream role
         let default_target: Uint256 = Uint256::from_u64(45_u64).unwrap();
         miner.safe_lock(|m| m.new_target(default_target)).unwrap();
         let miner_cloned = miner.clone();
