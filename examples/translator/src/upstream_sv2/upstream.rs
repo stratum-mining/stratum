@@ -12,7 +12,7 @@ use roles_logic_sv2::{
     common_messages_sv2::{Protocol, SetupConnection},
     handlers::common::{ParseUpstreamCommonMessages, SendTo as SendToCommon},
     handlers::mining::{ParseUpstreamMiningMessages, SendTo},
-    parsers::{MiningDeviceMessages, PoolMessages},
+    parsers::PoolMessages,
     routing_logic::{CommonRoutingLogic, MiningRoutingLogic, NoRouting},
     selectors::NullDownstreamMiningSelector,
 };
@@ -137,10 +137,8 @@ impl Upstream {
                 // the `UpstreamConnection.downstream_sender`.
                 match next_message_to_send {
                     Ok(SendTo::RelaySameMessage(downstream)) => {
-                        let sv2_frame: codec_sv2::Sv2Frame<
-                            MiningDeviceMessages,
-                            buffer_sv2::Slice,
-                        > = incoming.map(|payload| payload.try_into().unwrap());
+                        let sv2_frame: codec_sv2::Sv2Frame<PoolMessages, buffer_sv2::Slice> =
+                            incoming.map(|payload| payload.try_into().unwrap());
                         let sender = self_
                             .safe_lock(|self_| self_.connection.sender_downstream.clone())
                             .unwrap();
