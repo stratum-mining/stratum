@@ -12,7 +12,7 @@ use roles_logic_sv2::{
     common_messages_sv2::{Protocol, SetupConnection},
     handlers::common::{ParseUpstreamCommonMessages, SendTo as SendToCommon},
     handlers::mining::{ParseUpstreamMiningMessages, SendTo},
-    parsers::PoolMessages,
+    parsers::{MiningDeviceMessages, PoolMessages},
     routing_logic::{CommonRoutingLogic, MiningRoutingLogic, NoRouting},
     selectors::NullDownstreamMiningSelector,
 };
@@ -30,34 +30,51 @@ pub struct Upstream {
 }
 
 impl Upstream {
+    /// Instantiate a new `Upstream`.
+    /// Connect to the SV2 Upstream role (most typically a SV2 Pool). Initialize the
+    /// `UpstreamConnection` with a channel to send and receive messages to the SV2 Upstream role,
+    /// and a channel to send and receive messages from the Downstream Translator Proxy.
     pub(crate) async fn new(
         address: SocketAddr,
         authority_public_key: [u8; 32],
         sender_downstream: Sender<EitherFrame>,
         receiver_downstream: Receiver<EitherFrame>,
     ) -> Result<Arc<Mutex<Self>>, ()> {
+        // Connect to the SV2 Upstream role
         let socket = TcpStream::connect(address).await.map_err(|_| ()).unwrap();
         let initiator = Initiator::from_raw_k(authority_public_key).unwrap();
+
+        // Channel to send and receive messages to the SV2 Upstream role
         let (receiver, sender) =
             Connection::new(socket, HandshakeRole::Initiator(initiator), 10).await;
+        // Initialize `UpstreamConnection` with channel for SV2 Upstream role communication and
+        // channel for downstream Translator Proxy communication
         let connection = UpstreamConnection {
             sender,
             receiver,
             sender_downstream,
             receiver_downstream,
         };
+
+        // Setup the connection with the SV2 Upstream role (Pool)
         let self_ = Self::setup_connection(connection).await.unwrap();
         Ok(self_)
     }
 
+    /// Setups the connection with the SV2 Upstream role (Pool)
     async fn setup_connection(mut connection: UpstreamConnection) -> Result<Arc<Mutex<Self>>, ()> {
+        // Get the `SetupConnection` message with Mining Device information (currently hard coded)
         let setup_connection = Self::get_setup_connection_message();
 
+        // Put the `SetupConnection` message in a `StdFrame` to be sent over the wire
         let sv2_frame: StdFrame = PoolMessages::Common(setup_connection.into())
             .try_into()
             .unwrap();
+        // Send the `SetupConnection` frame to the SV2 Upstream role
         connection.send(sv2_frame).await.map_err(|_| ())?;
 
+        // Wait for the SV2 Upstream to respond with either a `SetupConnectionSuccess` or a
+        // `SetupConnectionError` inside a SV2 binary message frame
         let mut incoming: StdFrame = connection
             .receiver
             .recv()
@@ -65,7 +82,9 @@ impl Upstream {
             .unwrap()
             .try_into()
             .unwrap();
+        // Gets the binary frame message type from the message header
         let message_type = incoming.get_header().unwrap().msg_type();
+        // Gets the message payload
         let payload = incoming.payload();
 
         let downstream_selector = ProxyDownstreamMiningSelector::new();
@@ -74,6 +93,8 @@ impl Upstream {
             downstream_selector,
         }));
 
+        // Handle the incoming message (should be either `SetupConnectionSuccess` or
+        // `SetupConnectionError`)
         ParseUpstreamCommonMessages::handle_message_common(
             self_.clone(),
             message_type,
@@ -108,6 +129,9 @@ impl Upstream {
         });
     }
 
+    /// Creates the `SetupConnection` message to setup the connection with the SV2 Upstream role.
+    /// TODO: The Mining Device information is hard coded here, need to receive from Downstream
+    /// instead.
     fn get_setup_connection_message() -> SetupConnection<'static> {
         let endpoint_host = "0.0.0.0".to_string().into_bytes().try_into().unwrap();
         let vendor = String::new().try_into().unwrap();
