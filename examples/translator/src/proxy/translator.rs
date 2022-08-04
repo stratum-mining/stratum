@@ -73,6 +73,7 @@ pub(crate) struct Translator {
 
 impl Translator {
     pub(crate) async fn new() -> Self {
+        println!("PROXY: Translator Proxy Starting");
         let (sender_upstream, receiver_upstream) = bounded(10);
         let (sender_downstream, receiver_downstream) = bounded(10);
 

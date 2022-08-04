@@ -19,7 +19,7 @@ use v1::{
 };
 
 use crate::{job::Job, miner::Miner};
-const ADDR: &str = "127.0.0.1:34254";
+const ADDR: &str = "127.0.0.1:34255";
 
 /// Represents the Mining Device client which is connected to a Upstream node (either a SV1 Pool
 /// server or a SV1 <-> SV2 Translator Proxy server).
@@ -111,6 +111,7 @@ impl Client {
         task::spawn(async move {
             loop {
                 let message: String = receiver_outgoing.recv().await.unwrap();
+                println!("SV1 Client to Upstream: {}", &message);
                 (&*writer).write_all(message.as_bytes()).await.unwrap();
             }
         });
