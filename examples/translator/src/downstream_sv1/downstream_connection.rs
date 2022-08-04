@@ -1,9 +1,4 @@
-use async_std::net::TcpStream;
-
 use async_channel::{Receiver, Sender};
-use async_std::{io::BufReader, prelude::*, task};
-use roles_logic_sv2::utils::Mutex;
-use std::sync::Arc;
 use v1::json_rpc;
 
 /// Handles the sending and receiving of messages to and from an SV2 Upstream role (most typically
