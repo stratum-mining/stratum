@@ -12,7 +12,7 @@ use roles_logic_sv2::{
     handlers::common::{ParseUpstreamCommonMessages, SendTo as SendToCommon},
     handlers::mining::{ParseUpstreamMiningMessages, SendTo},
     // mining_sv2::*,
-    mining_sv2::{NewExtendedMiningJob, SetNewPrevHash},
+    mining_sv2::{NewExtendedMiningJob, SetNewPrevHash, SubmitSharesError, SubmitSharesSuccess},
     parsers::{Mining, PoolMessages},
     routing_logic::{CommonRoutingLogic, MiningRoutingLogic, NoRouting},
     selectors::NullDownstreamMiningSelector,
@@ -317,18 +317,36 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
 
     fn handle_submit_shares_success(
         &mut self,
-        _m: roles_logic_sv2::mining_sv2::SubmitSharesSuccess,
+        m: roles_logic_sv2::mining_sv2::SubmitSharesSuccess,
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error>
     {
-        todo!()
+        let message = Mining::SubmitSharesSuccess(SubmitSharesSuccess {
+            // Channel identifier
+            channel_id: m.channel_id,
+            // Most recent sequence number with a correct result.
+            last_sequence_number: m.last_sequence_number,
+            // Count of new submits acknowledged within this batch.
+            new_submits_accepted_count: m.new_submits_accepted_count,
+            // Sum of shares acknowledged within this batch.
+            new_shares_sum: m.new_shares_sum,
+        });
+        Ok(SendTo::Respond(message))
     }
 
     fn handle_submit_shares_error(
         &mut self,
-        _m: roles_logic_sv2::mining_sv2::SubmitSharesError,
+        m: roles_logic_sv2::mining_sv2::SubmitSharesError,
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error>
     {
-        todo!()
+        let message = Mining::SubmitSharesError(SubmitSharesError {
+            // Channel identifier
+            channel_id: m.channel_id,
+            // Sequence number
+            sequence_number: m.sequence_number,
+            // Relevant error reason code
+            error_code: m.error_code.clone().into_static(),
+        });
+        Ok(SendTo::Respond(message))
     }
 
     fn handle_new_mining_job(
