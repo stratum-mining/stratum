@@ -269,13 +269,16 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
         false
     }
 
+    /// SV2 `OpenStandardMiningChannelSuccess` message is NOT handled because it is NOT used for
+    /// the Translator Proxy as only Extended channels are used between the Translator Proxy and
+    /// the SV2 Upstream role.
     fn handle_open_standard_mining_channel_success(
         &mut self,
         _m: roles_logic_sv2::mining_sv2::OpenStandardMiningChannelSuccess,
         _remote: Option<Arc<Mutex<Downstream>>>,
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error>
     {
-        todo!()
+        panic!("Standard Mining Channels are not used in Translator Proxy")
     }
 
     fn handle_open_extended_mining_channel_success(
@@ -316,20 +319,24 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
         Ok(SendTo::Respond(message))
     }
 
+    /// Handle SV2 `UpdateChannelError`.
+    /// TODO: Not implemented for demo.
     fn handle_update_channel_error(
         &mut self,
         _m: roles_logic_sv2::mining_sv2::UpdateChannelError,
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error>
     {
-        todo!()
+        unimplemented!()
     }
 
+    /// Handle SV2 `CloseChannel`.
+    /// TODO: Not implemented for demo.
     fn handle_close_channel(
         &mut self,
         _m: roles_logic_sv2::mining_sv2::CloseChannel,
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error>
     {
-        todo!()
+        unimplemented!()
     }
 
     fn handle_set_extranonce_prefix(
@@ -386,13 +393,14 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
         Ok(SendTo::Respond(message))
     }
 
-    // Not used for Translator Proxy
+    /// SV2 `NewMiningJob` message is NOT handled because it is NOT used for the Translator Proxy
+    /// as only Extended channels are used between the Translator Proxy and the SV2 Upstream role.
     fn handle_new_mining_job(
         &mut self,
         _m: roles_logic_sv2::mining_sv2::NewMiningJob,
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error>
     {
-        todo!()
+        panic!("Standard Mining Channels are not used in Translator Proxy")
     }
 
     fn handle_new_extended_mining_job(
@@ -433,24 +441,28 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
         Ok(SendTo::Respond(message))
     }
 
+    /// Handle SV2 `SetCustomMiningJobSuccess`.
+    /// TODO: Not implemented for demo.
     fn handle_set_custom_mining_job_success(
         &mut self,
         _m: roles_logic_sv2::mining_sv2::SetCustomMiningJobSuccess,
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error>
     {
-        todo!()
+        unimplemented!()
     }
 
+    /// Handle SV2 `SetCustomMiningJobError`.
+    /// TODO: Not implemented for demo.
     fn handle_set_custom_mining_job_error(
         &mut self,
         _m: roles_logic_sv2::mining_sv2::SetCustomMiningJobError,
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error>
     {
-        todo!()
+        unimplemented!()
     }
 
-    /// Handle SV2 `SetTarget` message
-    /// RR: Not used in demo, target is hardcoded
+    /// Handle SV2 `SetTarget` message.
+    /// RR: Not used in demo, target is hardcoded.
     fn handle_set_target(
         &mut self,
         m: roles_logic_sv2::mining_sv2::SetTarget,
@@ -466,11 +478,13 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
         Ok(SendTo::Respond(message))
     }
 
+    /// Handle SV2 `Reconnect` message.
+    /// RR: Not used in demo
     fn handle_reconnect(
         &mut self,
         _m: roles_logic_sv2::mining_sv2::Reconnect,
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error>
     {
-        todo!()
+        unimplemented!()
     }
 }
