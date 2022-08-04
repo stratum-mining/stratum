@@ -128,6 +128,7 @@ impl Translator {
             loop {
                 let message_sv1: json_rpc::Message =
                     translator_clone.receiver_downstream.recv().await.unwrap();
+                println!("PROXY TRANSLATOR RECV: {:?}", &message_sv1);
                 let message_sv2: EitherFrame = translator_clone.parse_sv1_to_sv2(message_sv1);
                 translator_clone.send_sv2(message_sv2).await;
             }
