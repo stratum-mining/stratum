@@ -1,13 +1,53 @@
+///
+/// Translator is a Proxy server sits between a Downstream role (most typically a SV1 Mining
+/// Device, but could also be a SV1 Proxy server) and an Upstream role (most typically a SV2 Pool
+/// server, but could also be a SV2 Proxy server). It accepts and sends messages between the SV1
+/// Downstream role and the SV2 Upstream role, translating the messages into the appropriate
+/// protocol.
+///
+/// **Translator starts**
+///
+/// 1. Connects to SV2 Upstream role.
+///    a. Sends a SV2 `SetupConnection` message to the SV2 Upstream role + receives a SV2
+///       `SetupConnectionSuccess` or `SetupConnectionError` message in response.
+///    b. If connection was successful, sends a SV2 `OpenExtendedMiningChannel` message to the SV2
+///       Upstream role + receives a SV2 `OpenExtendedMiningChannelSuccess` or
+///       `OpenMiningChannelError` message in response.
+///    c. On successful open of channel, SV2 Upstream role sends a SV2 `SetNewPrevHash` +
+///       `NewExtendedMiningJob` message.
+///
+/// 2. Meanwhile, Translator is listening for a SV1 Downstream role to connect. On connection:
+///    a. Receives a SV1 `mining.subscribe` message from the SV1 Downstream role + sends a response
+///       with a SV1 `mining.set_difficulty` + `mining.notify` which the Translator builds using
+///       the SV2 `SetNewPrevHash` + `NewExtendedMiningJob` messages received from the SV2 Upstream
+///       role.
+///
+/// 3. Translator waits for the SV1 Downstream role to find a valid share submission.
+///    a. It receives this share submission via a SV1 `mining.submit` message + translates it into a
+///       SV2 `SubmitSharesExtended` message which is then sent to the SV2 Upstream role + receives
+///       a SV2 `SubmitSharesSuccess` or `SubmitSharesError` message in response.
+///    b. This keeps happening until a new Bitcoin block is confirmed on the network, making this
+///       current job's PrevHash stale.
+///
+/// 4. When a new block is confirmed on the Bitcoin network, the Translator sends a fresh job to
+///    the SV1 Downstream role.
+///    a. The SV2 Upstream role immediately sends the Translator a fresh SV2 `SetNewPrevHash`
+///       followed by a `NewExtendedMiningJob` message.
+///    b. Once the Translator receives BOTH messages, it translates them into a SV1 `mining.notify`
+///       message + sends to the SV1 Downstream role.
+///    c. The SV1 Downstream role begins finding a new valid share submission + Step 3 commences
+///       again.
+///
 use crate::{
     downstream_sv1::Downstream,
     upstream_sv2::{EitherFrame, Upstream},
 };
-use async_std::net::{TcpListener, TcpStream};
+use async_std::net::TcpListener;
 use std::net::{IpAddr, SocketAddr};
 use std::str::FromStr;
 
 use async_channel::{bounded, Receiver, Sender};
-use async_std::{io::BufReader, prelude::*, task};
+use async_std::{prelude::*, task};
 use roles_logic_sv2::utils::Mutex;
 use std::sync::Arc;
 use v1::json_rpc;
@@ -41,7 +81,7 @@ impl Translator {
         let sender_downstream_clone = sender_downstream.clone();
         let receiver_downstream_clone = receiver_downstream.clone();
 
-        let mut translator = Translator {
+        let translator = Translator {
             sender_upstream,
             receiver_upstream,
             sender_downstream,
@@ -110,7 +150,7 @@ impl Translator {
     }
 
     /// Parses a SV1 message and translates to to a SV2 message
-    fn parse_sv1_to_sv2(&mut self, message_sv1: json_rpc::Message) -> EitherFrame {
+    fn parse_sv1_to_sv2(&mut self, _message_sv1: json_rpc::Message) -> EitherFrame {
         todo!()
     }
 
@@ -120,7 +160,7 @@ impl Translator {
     }
 
     /// Parses a SV2 message and translates to to a SV1 message
-    fn parse_sv2_to_sv1(&mut self, message_sv2: EitherFrame) -> json_rpc::Message {
+    fn parse_sv2_to_sv1(&mut self, _message_sv2: EitherFrame) -> json_rpc::Message {
         todo!()
     }
 
