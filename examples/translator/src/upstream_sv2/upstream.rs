@@ -6,7 +6,7 @@ use async_channel::{Receiver, Sender};
 use async_std::net::TcpStream;
 use codec_sv2::{Frame, HandshakeRole, Initiator};
 use network_helpers::Connection;
-use roles_logic_sv2::common_properties::{IsMiningUpstream, IsUpstream};
+use roles_logic_sv2::selectors::DownstreamMiningSelector;
 use roles_logic_sv2::utils::Mutex;
 use roles_logic_sv2::{
     common_messages_sv2::{Protocol, SetupConnection},
@@ -16,21 +16,26 @@ use roles_logic_sv2::{
     routing_logic::{CommonRoutingLogic, MiningRoutingLogic, NoRouting},
     selectors::NullDownstreamMiningSelector,
 };
+use roles_logic_sv2::{
+    common_properties::{IsMiningUpstream, IsUpstream},
+    selectors::ProxyDownstreamMiningSelector,
+};
 use std::net::SocketAddr;
 use std::sync::Arc;
 
 #[derive(Debug)]
 pub struct Upstream {
     connection: UpstreamConnection,
+    downstream_selector: ProxyDownstreamMiningSelector<Downstream>,
 }
 
 impl Upstream {
-    pub async fn new(
+    pub(crate) async fn new(
         address: SocketAddr,
         authority_public_key: [u8; 32],
         sender_downstream: Sender<EitherFrame>,
         receiver_downstream: Receiver<EitherFrame>,
-    ) -> Arc<Mutex<Self>> {
+    ) -> Result<Arc<Mutex<Self>>, ()> {
         let socket = TcpStream::connect(address).await.map_err(|_| ()).unwrap();
         let initiator = Initiator::from_raw_k(authority_public_key).unwrap();
         let (receiver, sender) =
@@ -41,17 +46,16 @@ impl Upstream {
             sender_downstream,
             receiver_downstream,
         };
-        let self_ = Self::setup(connection).await.unwrap();
-        self_
+        let self_ = Self::setup_connection(connection).await.unwrap();
+        Ok(self_)
     }
 
-    async fn setup(mut connection: UpstreamConnection) -> Result<Arc<Mutex<Self>>, ()> {
+    async fn setup_connection(mut connection: UpstreamConnection) -> Result<Arc<Mutex<Self>>, ()> {
         let setup_connection = Self::get_setup_connection_message();
 
         let sv2_frame: StdFrame = PoolMessages::Common(setup_connection.into())
             .try_into()
             .unwrap();
-        let sv2_frame = sv2_frame.into();
         connection.send(sv2_frame).await.map_err(|_| ())?;
 
         let mut incoming: StdFrame = connection
@@ -64,7 +68,11 @@ impl Upstream {
         let message_type = incoming.get_header().unwrap().msg_type();
         let payload = incoming.payload();
 
-        let self_ = Arc::new(Mutex::new(Self { connection }));
+        let downstream_selector = ProxyDownstreamMiningSelector::new();
+        let self_ = Arc::new(Mutex::new(Self {
+            connection,
+            downstream_selector,
+        }));
 
         ParseUpstreamCommonMessages::handle_message_common(
             self_.clone(),
