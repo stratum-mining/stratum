@@ -14,7 +14,7 @@ use roles_logic_sv2::{
     // mining_sv2::*,
     mining_sv2::{
         NewExtendedMiningJob, OpenExtendedMiningChannelSuccess, OpenMiningChannelError,
-        SetNewPrevHash, SubmitSharesError, SubmitSharesSuccess,
+        SetExtranoncePrefix, SetNewPrevHash, SubmitSharesError, SubmitSharesSuccess,
     },
     parsers::{Mining, PoolMessages},
     routing_logic::{CommonRoutingLogic, MiningRoutingLogic, NoRouting},
@@ -288,7 +288,8 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
             // client can pair responses with open channel requests.
             request_id: m.request_id,
             // Channel identifier, stable for whole connection lifetime. Used for broadcasting new
-            // jobs by the connection
+            // jobs by the connection. Can be extended of standard channel (always extended for SV1
+            // Translator Proxy)
             channel_id: m.channel_id,
             // Initial target for the mining channel
             target: m.target.clone().into_static(),
@@ -333,10 +334,18 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
 
     fn handle_set_extranonce_prefix(
         &mut self,
-        _m: roles_logic_sv2::mining_sv2::SetExtranoncePrefix,
+        m: roles_logic_sv2::mining_sv2::SetExtranoncePrefix,
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error>
     {
-        todo!()
+        let message = Mining::SetExtranoncePrefix(SetExtranoncePrefix {
+            // Channel identifier, stable for whole connection lifetime. Used for broadcasting new
+            // jobs by the connection. Can be extended of standard channel (always extended for SV1
+            // Translator Proxy)
+            channel_id: m.channel_id,
+            // Bytes used as implicit first part of extranonce.
+            extranonce_prefix: m.extranonce_prefix.clone().into_static(),
+        });
+        Ok(SendTo::Respond(message))
     }
 
     fn handle_submit_shares_success(
@@ -345,7 +354,9 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error>
     {
         let message = Mining::SubmitSharesSuccess(SubmitSharesSuccess {
-            // Channel identifier
+            // Channel identifier, stable for whole connection lifetime. Used for broadcasting new
+            // jobs by the connection. Can be extended of standard channel (always extended for SV1
+            // Translator Proxy)
             channel_id: m.channel_id,
             // Most recent sequence number with a correct result.
             last_sequence_number: m.last_sequence_number,
@@ -363,7 +374,9 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error>
     {
         let message = Mining::SubmitSharesError(SubmitSharesError {
-            // Channel identifier
+            // Channel identifier, stable for whole connection lifetime. Used for broadcasting new
+            // jobs by the connection. Can be extended of standard channel (always extended for SV1
+            // Translator Proxy)
             channel_id: m.channel_id,
             // Sequence number
             sequence_number: m.sequence_number,
@@ -387,6 +400,8 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error>
     {
         let message = Mining::NewExtendedMiningJob(NewExtendedMiningJob {
+            // Extended channel identifier, stable for whole connection lifetime. Used for broadcasting new
+            // jobs by the connection
             channel_id: m.channel_id,
             job_id: m.job_id,
             future_job: m.future_job, // Maybe hard code to false for demo
@@ -405,6 +420,9 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error>
     {
         let message = Mining::SetNewPrevHash(SetNewPrevHash {
+            // Channel identifier, stable for whole connection lifetime. Used for broadcasting new
+            // jobs by the connection. Can be extended of standard channel (always extended for SV1
+            // Translator Proxy)
             channel_id: m.channel_id,
             job_id: m.job_id,
             prev_hash: m.prev_hash.clone().into_static(),
