@@ -12,7 +12,10 @@ use roles_logic_sv2::{
     handlers::common::{ParseUpstreamCommonMessages, SendTo as SendToCommon},
     handlers::mining::{ParseUpstreamMiningMessages, SendTo},
     // mining_sv2::*,
-    mining_sv2::{NewExtendedMiningJob, SetNewPrevHash, SubmitSharesError, SubmitSharesSuccess},
+    mining_sv2::{
+        NewExtendedMiningJob, OpenExtendedMiningChannelSuccess, SetNewPrevHash, SubmitSharesError,
+        SubmitSharesSuccess,
+    },
     parsers::{Mining, PoolMessages},
     routing_logic::{CommonRoutingLogic, MiningRoutingLogic, NoRouting},
     selectors::NullDownstreamMiningSelector,
@@ -277,10 +280,24 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
 
     fn handle_open_extended_mining_channel_success(
         &mut self,
-        _m: roles_logic_sv2::mining_sv2::OpenExtendedMiningChannelSuccess,
+        m: roles_logic_sv2::mining_sv2::OpenExtendedMiningChannelSuccess,
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error>
     {
-        todo!()
+        let message = Mining::OpenExtendedMiningChannelSuccess(OpenExtendedMiningChannelSuccess {
+            // Client-specified request ID from OpenStandardMiningChannel message, so that the
+            // client can pair responses with open channel requests.
+            request_id: m.request_id,
+            // Channel identifier, stable for whole connection lifetime. Used for broadcasting new
+            // jobs by the connection
+            channel_id: m.channel_id,
+            // Initial target for the mining channel
+            target: m.target.clone().into_static(),
+            // Extranonce size (in bytes) set for the channel
+            extranonce_size: m.extranonce_size,
+            // Bytes used as implicit first part of extranonce
+            extranonce_prefix: m.extranonce_prefix.clone().into_static(),
+        });
+        Ok(SendTo::Respond(message))
     }
 
     fn handle_open_mining_channel_error(
