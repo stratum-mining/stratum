@@ -296,8 +296,11 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
         m: roles_logic_sv2::mining_sv2::SetNewPrevHash,
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error>
     {
-        // first thing the pool does is send a SetNewPrevHash
-        Ok(SendTo::None(None))
+        let downstreams = self
+            .downstream_selector
+            .get_downstreams_in_channel(m.channel_id)
+            .unwrap();
+        Ok(SendTo::RelaySameMessage(downstreams[0].clone()))
     }
 
     fn handle_set_custom_mining_job_success(
