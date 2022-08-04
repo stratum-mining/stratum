@@ -144,21 +144,14 @@ impl Upstream {
                 // say to specifc downstream.
                 match next_message_to_send {
                     Ok(SendTo::Respond(next_message_to_send)) => {
-                        let message = next_message_to_send;
-                        // let message: EitherFrame = next_message_to_send.try_into().unwrap();
-                        // let message: EitherFrame = next_message_to_send.into();
-                        // let message: StdFrame = next_message_to_send.try_into().unwrap();
-                        // let message: StdFrame = next_message_to_send.into();
+                        let message_pool = PoolMessages::Mining(next_message_to_send);
+                        let message_frame: StdFrame = message_pool.try_into().unwrap();
+                        let message: EitherFrame = message_frame.into();
 
-                        // let message: StdFrame = next_message_to_send.try_into().unwrap();
-                        // Ok(SendTo::RelaySameMessage(downstream)) => {
-                        // let sv2_frame: codec_sv2::Sv2Frame<PoolMessages, buffer_sv2::Slice> =
-                        //     incoming.map(|payload| payload.try_into().unwrap());
                         let sender = self_
                             .safe_lock(|self_| self_.connection.sender_downstream.clone())
                             .unwrap();
 
-                        // sender.send(next_message_to_send).await.unwrap();
                         sender.send(message).await.unwrap();
                     }
                     Ok(_) => (),
