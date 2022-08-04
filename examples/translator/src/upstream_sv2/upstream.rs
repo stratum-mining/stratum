@@ -14,7 +14,7 @@ use roles_logic_sv2::{
     // mining_sv2::*,
     mining_sv2::{
         NewExtendedMiningJob, OpenExtendedMiningChannelSuccess, OpenMiningChannelError,
-        SetExtranoncePrefix, SetNewPrevHash, SubmitSharesError, SubmitSharesSuccess,
+        SetExtranoncePrefix, SetNewPrevHash, SetTarget, SubmitSharesError, SubmitSharesSuccess,
     },
     parsers::{Mining, PoolMessages},
     routing_logic::{CommonRoutingLogic, MiningRoutingLogic, NoRouting},
@@ -386,6 +386,7 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
         Ok(SendTo::Respond(message))
     }
 
+    // Not used for Translator Proxy
     fn handle_new_mining_job(
         &mut self,
         _m: roles_logic_sv2::mining_sv2::NewMiningJob,
@@ -448,12 +449,21 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
         todo!()
     }
 
+    /// Handle SV2 `SetTarget` message
+    /// RR: Not used in demo, target is hardcoded
     fn handle_set_target(
         &mut self,
-        _m: roles_logic_sv2::mining_sv2::SetTarget,
+        m: roles_logic_sv2::mining_sv2::SetTarget,
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error>
     {
-        todo!()
+        let message = Mining::SetTarget(SetTarget {
+            // Channel identifier, stable for whole connection lifetime. Used for broadcasting new
+            // jobs by the connection. Can be extended of standard channel (always extended for SV1
+            // Translator Proxy)
+            channel_id: m.channel_id,
+            maximum_target: m.maximum_target.clone().into_static(),
+        });
+        Ok(SendTo::Respond(message))
     }
 
     fn handle_reconnect(
