@@ -13,8 +13,8 @@ use roles_logic_sv2::{
     handlers::mining::{ParseUpstreamMiningMessages, SendTo},
     // mining_sv2::*,
     mining_sv2::{
-        NewExtendedMiningJob, OpenExtendedMiningChannelSuccess, SetNewPrevHash, SubmitSharesError,
-        SubmitSharesSuccess,
+        NewExtendedMiningJob, OpenExtendedMiningChannelSuccess, OpenMiningChannelError,
+        SetNewPrevHash, SubmitSharesError, SubmitSharesSuccess,
     },
     parsers::{Mining, PoolMessages},
     routing_logic::{CommonRoutingLogic, MiningRoutingLogic, NoRouting},
@@ -302,10 +302,17 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
 
     fn handle_open_mining_channel_error(
         &mut self,
-        _m: roles_logic_sv2::mining_sv2::OpenMiningChannelError,
+        m: roles_logic_sv2::mining_sv2::OpenMiningChannelError,
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error>
     {
-        todo!()
+        let message = Mining::OpenMiningChannelError(OpenMiningChannelError {
+            // Client-specified request ID from OpenStandardMiningChannel message, so that the
+            // client can pair responses with open channel requests.
+            request_id: m.request_id,
+            // Relevant error reason code
+            error_code: m.error_code.clone().into_static(),
+        });
+        Ok(SendTo::Respond(message))
     }
 
     fn handle_update_channel_error(
