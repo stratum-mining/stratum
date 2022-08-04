@@ -12,7 +12,7 @@ use roles_logic_sv2::{
     handlers::common::{ParseUpstreamCommonMessages, SendTo as SendToCommon},
     handlers::mining::{ParseUpstreamMiningMessages, SendTo},
     // mining_sv2::*,
-    mining_sv2::SetNewPrevHash,
+    mining_sv2::{NewExtendedMiningJob, SetNewPrevHash},
     parsers::{Mining, PoolMessages},
     routing_logic::{CommonRoutingLogic, MiningRoutingLogic, NoRouting},
     selectors::NullDownstreamMiningSelector,
@@ -341,12 +341,20 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
 
     fn handle_new_extended_mining_job(
         &mut self,
-        _m: roles_logic_sv2::mining_sv2::NewExtendedMiningJob,
+        m: roles_logic_sv2::mining_sv2::NewExtendedMiningJob,
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error>
     {
-        // this does nothing rn
-        // first thing the pool does is send a NewExtendedMiningJob
-        Ok(SendTo::None(None))
+        let message = Mining::NewExtendedMiningJob(NewExtendedMiningJob {
+            channel_id: m.channel_id,
+            job_id: m.job_id,
+            future_job: m.future_job, // Maybe hard code to false for demo
+            version: m.version,
+            version_rolling_allowed: m.version_rolling_allowed,
+            merkle_path: m.merkle_path.clone().into_static(),
+            coinbase_tx_prefix: m.coinbase_tx_prefix.clone().into_static(),
+            coinbase_tx_suffix: m.coinbase_tx_suffix.clone().into_static(),
+        });
+        Ok(SendTo::Respond(message))
     }
 
     fn handle_set_new_prev_hash(
