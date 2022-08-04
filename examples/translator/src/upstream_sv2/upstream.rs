@@ -4,9 +4,8 @@ use crate::{
 };
 use async_channel::{Receiver, Sender};
 use async_std::net::TcpStream;
-use codec_sv2::{Frame, HandshakeRole, Initiator, Sv2Frame};
+use codec_sv2::{Frame, HandshakeRole, Initiator};
 use network_helpers::Connection;
-use roles_logic_sv2::selectors::DownstreamMiningSelector;
 use roles_logic_sv2::utils::Mutex;
 use roles_logic_sv2::{
     common_messages_sv2::{Protocol, SetupConnection},
@@ -28,7 +27,8 @@ use std::sync::Arc;
 #[derive(Debug)]
 pub struct Upstream {
     connection: UpstreamConnection,
-    downstream_selector: ProxyDownstreamMiningSelector<Downstream>,
+    /// TODO: Not used for demo, but needs to be properly implemented
+    _downstream_selector: ProxyDownstreamMiningSelector<Downstream>,
 }
 
 impl Upstream {
@@ -89,12 +89,12 @@ impl Upstream {
         // Gets the message payload
         let payload = incoming.payload();
 
+        // TODO: Initialize an empty `ProxyDownstreamMiningSelector`, but should instead pass in a
+        // `Downstream`
         let downstream_selector = ProxyDownstreamMiningSelector::new();
-        // let downstream_selector = Downstream;
-        // Must pass downtream here
         let self_ = Arc::new(Mutex::new(Self {
             connection,
-            downstream_selector,
+            _downstream_selector: downstream_selector,
         }));
 
         // Handle the incoming message (should be either `SetupConnectionSuccess` or
@@ -139,19 +139,21 @@ impl Upstream {
                 );
                 // Sends the response message to the Downstream `Translator.upstream_receiver` via
                 // the `UpstreamConnection.downstream_sender`.
-                // RSM: have inside the RSM varient you have the downstream in which you want to
-                // send the message, because for sv2 proxy (maybe future in translatr), we need to
-                // say to specifc downstream.
+                // TODO: Using `SendTo::Respond` for demo, but should be replaced with
+                // `SendTo::RelaySameMessage`
                 match next_message_to_send {
                     Ok(SendTo::Respond(next_message_to_send)) => {
+                        // Format message as `EitherFrame` to send to the
+                        // `Translator.upstream_receiver`
                         let message_pool = PoolMessages::Mining(next_message_to_send);
                         let message_frame: StdFrame = message_pool.try_into().unwrap();
                         let message: EitherFrame = message_frame.into();
 
+                        // Get the `sender_downstream` and send the SV2 message to
+                        // `Translator.receiver_upstream`
                         let sender = self_
                             .safe_lock(|self_| self_.connection.sender_downstream.clone())
                             .unwrap();
-
                         sender.send(message).await.unwrap();
                     }
                     Ok(_) => (),
@@ -352,7 +354,6 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
         m: roles_logic_sv2::mining_sv2::SetNewPrevHash,
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error>
     {
-        // let message = PoolMessages::Mining::SetNewPrevHash(m.clone());
         let message = Mining::SetNewPrevHash(SetNewPrevHash {
             channel_id: m.channel_id,
             job_id: m.job_id,
