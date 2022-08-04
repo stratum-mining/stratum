@@ -106,22 +106,57 @@ impl Upstream {
         Ok(self_)
     }
 
+    /// Parse the incoming SV2 message from the Upstream role and use the
+    /// `Upstream.sender_downstream` to send the message to the `Translator.receiver_upstream` to
+    /// be handled.
     fn parse_incoming(self_: Arc<Mutex<Self>>) {
         async_std::task::spawn(async move {
             loop {
+                // Waiting to receive a message from the SV2 Upstream role
                 let recv = self_.safe_lock(|s| s.connection.receiver.clone()).unwrap();
                 let mut incoming: StdFrame = recv.recv().await.unwrap().try_into().unwrap();
+                // On message receive, get the message type from the message header and get the
+                // message payload
                 let message_type = incoming.get_header().unwrap().msg_type();
                 let payload = incoming.payload();
+
+                // Since this is not communicating with an SV2 proxy, but instead a custom SV1
+                // proxy where the routing logic is handled via the `Upstream`'s communication
+                // channels, we do not use the mining routing logic in the SV2 library and specify
+                // no mining routing logic here.
                 let routing_logic = MiningRoutingLogic::None;
 
+                // Gets the response message for the received SV2 Upstream role message
                 let next_message_to_send = Upstream::handle_message_mining(
                     self_.clone(),
                     message_type,
                     payload,
                     routing_logic,
                 );
+                // Sends the response message to the Downstream `Translator.upstream_receiver` via
+                // the `UpstreamConnection.downstream_sender`.
                 match next_message_to_send {
+                    Ok(SendTo::RelaySameMessage(downstream)) => {
+                        let sv2_frame: codec_sv2::Sv2Frame<
+                            MiningDeviceMessages,
+                            buffer_sv2::Slice,
+                        > = incoming.map(|payload| payload.try_into().unwrap());
+                        let sender = self_
+                            .safe_lock(|self_| self_.connection.sender_downstream.clone())
+                            .unwrap();
+                        let either_frame: EitherFrame = sv2_frame.into();
+                        sender.send(either_frame).await.unwrap();
+                        // let either_frame: EitherFrame = sv2_frame.into();
+                        // self_
+                        //     .connection
+                        //     .sender_downstream(sv2_frame)
+                        //     .send
+                        //     .await
+                        //     .unwrap();
+                        // Downstream::send(downstream.clone(), sv2_frame)
+                        //     .await
+                        //     .unwrap();
+                    }
                     Ok(_) => (),
                     Err(_) => (),
                 }
