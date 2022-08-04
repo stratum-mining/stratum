@@ -8,7 +8,7 @@ use async_channel::{Receiver, Sender};
 /// this does the dirty work of reading byte by byte in the socket and puts them in a complete
 /// Sv2Messages frame and when the message is ready then sends to our Upstream
 /// sender_incoming + receiver_outgoing are in network_helpers::Connection
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub(crate) struct UpstreamConnection {
     /// Receives messages from the SV2 Upstream role
     pub(crate) receiver: Receiver<EitherFrame>,
