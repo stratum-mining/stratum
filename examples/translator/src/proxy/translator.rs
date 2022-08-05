@@ -53,67 +53,72 @@ use std::sync::Arc;
 use v1::json_rpc;
 
 #[derive(Clone)]
+/// The `Translator` is responsible for sending and receiving messages from the `Downstream` and
+/// `Upstream`. It translates the messages into the appropriate protocol (SV1 or SV2) and routes
+/// them to them to the appropriate role (`Downstream` or `Upstream`). The SV1 and SV2 protocols
+/// are NOT 1-to-1, the `Translator` handles this.
 pub(crate) struct Translator {
-    /// Sends SV2 messages  to the upstream. These SV2 messages were received from
-    /// receiver_downstream and then translated from SV1 to SV2
-    pub(crate) sender_to_upstream: Sender<EitherFrame>,
-    /// Receives SV2 messages from upstream to be translated into SV1 and sent to downstream via
-    /// the sender_downstream
-    /// will have the other part of the channel on the upstream that wont be called sender_upstream
-    /// (because we have sender_upstream here), the other part of the channel that lives on
-    /// Upstream will be called sender_upstream
-    pub(crate) receiver_from_upstream: Receiver<EitherFrame>,
-    /// Sends SV1 messages from initially received by receiver_upstream, then translated to SV1 and
-    /// then will be received by receiver_downstream
+    /// Sends SV1 messages to the `Downstream::receiver_upstream`. These messages are either
+    /// translated from SV2 messages received from the `Upstream`, or generated specifically for
+    /// the SV1 protocol.
     pub(crate) sender_to_downstream: Sender<json_rpc::Message>,
-    /// Receives SV1 messages from the sender_downstream to be translated to SV2 and sent to the
-    /// sender_upstream
+    /// Receives SV1 messages to the `Downstream::receiver_upstream`. These messages are then
+    /// handles by either translating them from SV1 to SV2 or dropped if not applicable to the SV2
+    /// protocol.
     pub(crate) receiver_from_downstream: Receiver<json_rpc::Message>,
-    // 1. Receives from downstream (R<json_rpc::M>), pass in associated sender to Downstream (S<json_rpc::M>)
-    //    a. Receiver is for proxy, sender is for Downstream
-    // 2. Sender downstream (S<json_rpc::M>), pass in associated receiver to Downstream (R<json_rpc::M>)
-    //    a. Sender is for proxy, receiver is for Downstream
-    // 3. Receives from upstream (R<EitherFrame>), pass in associated sender to Upstream (S<EitherFrame>)
-    //    a. Receiver is for proxy, sender is for Upstream
-    // 4. Sender upstream (S<EitherFrame>), pass in associated receiver to Upstream (R<EitherFrame>)
-    //    a. Sender is for proxy, receiver is for Upstream
+    /// Sends SV2 messages to the `Upstream::receiver_downstream`.
+    pub(crate) sender_to_upstream: Sender<EitherFrame>,
+    /// Receives SV2 messages from the `Upstream::sender_downstream`. These messages are then
+    /// handled by either translating them from SV2 to SV1 or dropped if not applicable to the SV1
+    /// protocol.
+    pub(crate) receiver_from_upstream: Receiver<EitherFrame>,
 }
 
 impl Translator {
+    /// Initializes a new `Translator` that handles all message translation and routing. There are
+    /// four communication channels required:
+    /// 1. A channel for the `Downstream` to send to the `Translator` and for the `Translator` to
+    ///    receive from the `Downstream`:
+    ///    `(sender_for_downstream, receiver_downstream_for_proxy)`
+    /// 2. A channel for the `Translator` to send to the `Downstream` and for the `Downstream` to
+    ///    receive from the `Translator`:
+    ///    `(sender_downstream_for_proxy, receiver_for_downstream)`
+    /// 3. A channel for the `Upstream` to send to the `Translator` and for the `Translator` to
+    ///    receive from the `Upstream`:
+    ///    `(sender_for_upstream, receiver_upstream_for_proxy)`
+    /// 4. A channel for the `Translator` to send to the `Upstream` and for the `Upstream` to
+    ///    receive from the `Translator`:
+    ///    `(sender_upstream_for_proxy, receiver_for_upstream)`
     pub(crate) async fn new() -> Self {
-        // Four channels:
-        // 4. proxy sends to SV2 Upstream + upstream receives SV2 (sender_upstream_for_proxy, receiver_upstream)
-        let (sender_upstream_for_proxy, receiver_for_upstream): (
-            Sender<EitherFrame>,
-            Receiver<EitherFrame>,
-        ) = bounded(10);
-        // 2. upstream sends to SV2 proxy + proxy receives SV2 (sender_for_upstream, receiver_upstream_for_proxy)
-        let (sender_for_upstream, receiver_upstream_for_proxy): (
-            Sender<EitherFrame>,
-            Receiver<EitherFrame>,
-        ) = bounded(10);
-        // 3. proxy sends to downstream SV1 + downstream receives SV1 (sender_downstream_for_proxy, receiver_downstream)
-        let (sender_downstream_for_proxy, receiver_for_downstream): (
-            Sender<json_rpc::Message>,
-            Receiver<json_rpc::Message>,
-        ) = bounded(10);
-        // 1. downstream sends to proxy SV1 + proxy receives SV1 (sender_for_downstream, receiver_downstream_for_proxy)
+        // A channel for the `Downstream` to send to the `Translator` and for the `Translator` to
+        // receive from the `Downstream`
         let (sender_for_downstream, receiver_downstream_for_proxy): (
             Sender<json_rpc::Message>,
             Receiver<json_rpc::Message>,
         ) = bounded(10);
+        // A channel for the `Translator` to send to the `Downstream` and for the `Downstream` to
+        // receive from the `Translator`:
+        let (sender_downstream_for_proxy, receiver_for_downstream): (
+            Sender<json_rpc::Message>,
+            Receiver<json_rpc::Message>,
+        ) = bounded(10);
+        // A channel for the `Upstream` to send to the `Translator` and for the `Translator` to
+        // receive from the `Upstream`
+        let (sender_for_upstream, receiver_upstream_for_proxy): (
+            Sender<EitherFrame>,
+            Receiver<EitherFrame>,
+        ) = bounded(10);
+        // A channel for the `Translator` to send to the `Upstream` and for the `Upstream` to
+        // receive from the `Translator`
+        let (sender_upstream_for_proxy, receiver_for_upstream): (
+            Sender<EitherFrame>,
+            Receiver<EitherFrame>,
+        ) = bounded(10);
+
         let translator = Translator {
-            // Proxy sends SV2 messages to Upstream receiver
-            // 4. proxy sends to Upstream + upstream receives (sender_upstream_for_proxy, receiver_upstream)
             sender_to_upstream: sender_upstream_for_proxy, // Sender<EitherFrame>
-            // Proxy receives SV2 message from Upstream sender
-            // 2. upstream sends to proxy + proxy receives (sender_for_upstream, receiver_upstream_for_proxy)
             receiver_from_upstream: receiver_upstream_for_proxy,
-            // Proxy sends SV1 message to Downstream receiver
-            // 3. proxy sends to downstream + downstream receives (sender_downstream_for_proxy, receiver_downstream)
             sender_to_downstream: sender_downstream_for_proxy,
-            // Proxy receives SV1 messages from Downstream sender
-            // 1. downstream sends to proxy + proxy receives (sender_for_downstream, receiver_downstream_for_proxy)
             receiver_from_downstream: receiver_downstream_for_proxy,
         };
 
@@ -184,8 +189,8 @@ impl Translator {
                     .await
                     .unwrap();
                 println!("PROXY UPSTREAM RECV: {:?}", &message_sv2);
-                // let message_sv1: json_rpc::Message = translator_clone.parse_sv2_to_sv1(message_sv2);
-                // translator_clone.send_sv1(message_sv1).await;
+                let message_sv1: json_rpc::Message = translator_clone.parse_sv2_to_sv1(message_sv2);
+                translator_clone.send_sv1(message_sv1).await;
             }
         });
 
@@ -197,19 +202,19 @@ impl Translator {
         todo!()
     }
 
-    /// Sends SV2 message (translated from SV1) to the `Upstream.receiver_downstream`.
-    async fn send_sv2(&mut self, message_sv2: EitherFrame) {
-        self.sender_to_upstream.send(message_sv2).await.unwrap();
-    }
-
     /// Parses a SV2 message and translates to to a SV1 message
-    fn parse_sv2_to_sv1(&mut self, message_sv2: EitherFrame) -> json_rpc::Message {
+    fn parse_sv2_to_sv1(&mut self, _message_sv2: EitherFrame) -> json_rpc::Message {
         todo!()
         // println!("PROXY PARSE SV2 -> SV1: {:?}", &message_sv2);
         // let message_str =
         //     r#"{"params": ["slush.miner1", "password"], "id": 2, "method": "mining.authorize"}"#;
         // let message_json: json_rpc::Message = serde_json::from_str(message_str).unwrap();
         // message_json
+    }
+
+    /// Sends SV2 message to the `Upstream.receiver_downstream`.
+    async fn send_sv2(&mut self, message_sv2: EitherFrame) {
+        self.sender_to_upstream.send(message_sv2).await.unwrap();
     }
 
     /// Sends SV1 message (translated from SV2) to the `Downstream.receiver_upstream`.
