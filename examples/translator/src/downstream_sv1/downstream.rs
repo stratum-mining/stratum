@@ -1,5 +1,5 @@
 use crate::downstream_sv1::DownstreamConnection;
-use async_channel::{Receiver, Sender};
+use async_channel::{bounded, Receiver, Sender};
 use async_std::{io::BufReader, net::TcpStream, prelude::*, task};
 use roles_logic_sv2::{
     common_properties::{IsDownstream, IsMiningDownstream},
@@ -38,8 +38,11 @@ impl Downstream {
 
         // Reads and writes from Downstream SV1 Mining Device Client
         let (socket_reader, socket_writer) = (stream.clone(), stream);
+        let (sender_outgoing, receiver_outgoing) = bounded(10);
 
         let connection = DownstreamConnection {
+            sender_outgoing,
+            receiver_outgoing,
             sender_upstream,
             receiver_upstream,
         };
@@ -102,9 +105,19 @@ impl Downstream {
         self_: Arc<Mutex<Self>>,
         message_sv1: json_rpc::Message,
     ) -> Option<json_rpc::Message> {
+        // `handle_message` in `IsServer` trait + calls `handle_request`
         let response = self_.safe_lock(|s| s.handle_message(message_sv1)).unwrap();
         match response {
-            Ok(res) => println!("RES: {:?}", res),
+            Ok(res) => {
+                if let Some(r) = res {
+                    // let sender = self_.safe_lock(|s| s.connection.sender_upstream)
+                    // If some response is received, indicates no messages translation is needed
+                    // and response should be sent directly to the SV1 Downstream. Otherwise,
+                    // message will be sent to the upstream Translator to be translated to SV2 and
+                    // forwarded to the `Upstream`
+                    println!("RES: {:?}", &r);
+                }
+            }
             Err(e) => panic!("Error: `{:?}`", e),
         }
 
@@ -140,12 +153,12 @@ impl IsServer for Downstream {
                 // }
                 // Ok(Some(authorize.respond(authorized)))
             }
-            methods::Client2Server::Configure(_configure) => {
-                todo!()
-                // self.set_version_rolling_mask(configure.version_rolling_mask());
-                // self.set_version_rolling_min_bit(configure.version_rolling_min_bit_count());
-                // let (version_rolling, min_diff) = self.handle_configure(&configure);
-                // Ok(Some(configure.respond(version_rolling, min_diff)))
+            methods::Client2Server::Configure(configure) => {
+                // todo!()
+                self.set_version_rolling_mask(configure.version_rolling_mask());
+                self.set_version_rolling_min_bit(configure.version_rolling_min_bit_count());
+                let (version_rolling, min_diff) = self.handle_configure(&configure);
+                Ok(Some(configure.respond(version_rolling, min_diff)))
             }
             methods::Client2Server::ExtranonceSubscribe(_) => {
                 todo!()
