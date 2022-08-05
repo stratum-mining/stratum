@@ -10,11 +10,11 @@
 /// 1. Connects to SV2 Upstream role.
 ///    a. Sends a SV2 `SetupConnection` message to the SV2 Upstream role + receives a SV2
 ///       `SetupConnectionSuccess` or `SetupConnectionError` message in response.
-///    b. If connection was successful, sends a SV2 `OpenExtendedMiningChannel` message to the SV2
+///    b.  SV2 Upstream role immediately sends a SV2 `SetNewPrevHash` + `NewExtendedMiningJob`
+///        message.
+///    c. If connection was successful, sends a SV2 `OpenExtendedMiningChannel` message to the SV2
 ///       Upstream role + receives a SV2 `OpenExtendedMiningChannelSuccess` or
 ///       `OpenMiningChannelError` message in response.
-///    c. On successful open of channel, SV2 Upstream role sends a SV2 `SetNewPrevHash` +
-///       `NewExtendedMiningJob` message.
 ///
 /// 2. Meanwhile, Translator is listening for a SV1 Downstream role to connect. On connection:
 ///    a. Receives a SV1 `mining.subscribe` message from the SV1 Downstream role + sends a response
@@ -54,13 +54,13 @@ use v1::json_rpc;
 
 #[derive(Clone)]
 pub(crate) struct Translator {
-    /// Sends Sv2 messages  to the upstream. these sv2 messages were receieved from
-    /// reciever_downstream and then translated from sv1 to sv2
+    /// Sends Sv2 messages  to the upstream. These sv2 messages were recieeved from
+    /// receiver_downstream and then translated from SV1 to SV2
     pub(crate) sender_upstream: Sender<EitherFrame>,
     /// Receives Sv2 messages from upstream to be translated into Sv1 and sent to downstream via
     /// the sender_downstream
     /// will have the other part of the channel on the upstream that wont be called sender_upstream
-    /// (becuase we have sender_upstream here), the other part of the channel that lives on
+    /// (because we have sender_upstream here), the other part of the channel that lives on
     /// Upstream will be called sender_upstream
     pub(crate) receiver_upstream: Receiver<EitherFrame>,
     /// Sends Sv1 messages from initially received by reciever_upstream, then translated to Sv1 and
