@@ -134,6 +134,7 @@ impl Downstream {
                     println!("RES: {:?}", &r);
                     Self::send_message_downstream(self_, r).await;
                 } else {
+                    println!("RR HERE IN TO SEND TO UPSTRRAM");
                     Self::send_message_upstream(self_, message_sv1_clone).await;
                 }
             }
@@ -153,7 +154,7 @@ impl Downstream {
     /// Sends SV1 message to the Upstream Translator to be translated to SV2 and sent to the
     /// Upstream role (most typically a SV2 Pool).
     async fn send_message_upstream(self_: Arc<Mutex<Self>>, msg: json_rpc::Message) {
-        println!("DS SEND SV1: {:?}", &msg);
+        println!("DS SEND SV1 TO UPSTREAM: {:?}", &msg);
         let sender = self_
             .safe_lock(|s| s.connection.sender_upstream.clone())
             .unwrap();
@@ -180,8 +181,7 @@ impl IsServer for Downstream {
                 // Ok(Some(authorize.respond(authorized)))
             }
             methods::Client2Server::Configure(configure) => {
-                println!("RR DOWNSTREAM CONFIGURE");
-                // todo!()
+                println!("DS CONFIGURE");
                 self.set_version_rolling_mask(configure.version_rolling_mask());
                 self.set_version_rolling_min_bit(configure.version_rolling_min_bit_count());
                 let (version_rolling, min_diff) = self.handle_configure(&configure);
@@ -216,16 +216,11 @@ impl IsServer for Downstream {
                 //     Err(Error::InvalidSubmission)
                 // }
             }
-            methods::Client2Server::Subscribe(_subscribe) => {
-                todo!()
-                // let subscriptions = self.handle_subscribe(&subscribe);
-                // let extra_n1 = self.set_extranonce1(None);
-                // let extra_n2_size = self.set_extranonce2_size(None);
-                // Ok(Some(subscribe.respond(
-                //     subscriptions,
-                //     extra_n1,
-                //     extra_n2_size,
-                // )))
+            methods::Client2Server::Subscribe(subscribe) => {
+                // On the receive of SV1 Subscribe, need to format a response with set_difficulty
+                // + mining.notify from the SV2 SetNewPrevHash + NewExtendedMiningJob
+                println!("DS SUBSCRIBE -> TO BE TRANSLATED");
+                Ok(None)
             }
         }
     }
