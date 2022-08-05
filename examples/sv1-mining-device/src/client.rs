@@ -111,7 +111,6 @@ impl Client {
         task::spawn(async move {
             loop {
                 let message: String = receiver_outgoing.recv().await.unwrap();
-                println!("SV1 Client to Upstream: {}", &message);
                 (&*writer).write_all(message.as_bytes()).await.unwrap();
             }
         });
@@ -202,7 +201,7 @@ impl Client {
     ) {
         // If we have a line (1 line represents 1 sv1 incoming message), then handle that message
         if let Ok(line) = incoming_message {
-            println!("CLIENT {} - message: {}", self.client_id, line);
+            println!("CLIENT {} - Received: {}", self.client_id, line);
             let message: json_rpc::Message = serde_json::from_str(&line).unwrap();
             // If has a message, it sends it back
             match self.handle_message(message).unwrap() {
@@ -217,6 +216,7 @@ impl Client {
     /// Send SV1 messages to the receiver_outgoing which writes to the socket (aka Upstream node)
     async fn send_message(&mut self, msg: json_rpc::Message) {
         let msg = format!("{}\n", serde_json::to_string(&msg).unwrap());
+        println!("CLIENT {} - Send: {}", self.client_id, &msg);
         self.sender_outgoing.send(msg).await.unwrap();
     }
 
