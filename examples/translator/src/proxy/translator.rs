@@ -145,7 +145,7 @@ impl Translator {
             let receiver_for_downstream_clone = receiver_for_downstream.clone();
             let stream = stream.unwrap();
             println!(
-                "PROXY SERVER - Accepting from: {}",
+                "PROXY SERVER - Accepting from: {}\n",
                 stream.peer_addr().unwrap()
             );
             let server = Downstream::new(
@@ -170,9 +170,14 @@ impl Translator {
                     .recv()
                     .await
                     .unwrap();
-                println!("PROXY RECV FROM DOWNSTREAM: {:?}", &message_sv1);
-                let message_sv2: EitherFrame = translator_clone.parse_sv1_to_sv2(message_sv1);
-                translator_clone.send_sv2(message_sv2).await;
+                println!("P RECV SV1: {:?}", &message_sv1);
+                // fn to handle what to do with message
+                let message_sv1 = Self::handle_incoming_sv1(message_sv1);
+                if let Some(message_to_translate) = message_sv1 {
+                    let message_sv2: EitherFrame =
+                        translator_clone.parse_sv1_to_sv2(message_to_translate);
+                    translator_clone.send_sv2(message_sv2).await;
+                }
             }
         });
 
@@ -188,13 +193,28 @@ impl Translator {
                     .recv()
                     .await
                     .unwrap();
-                println!("PROXY RECV FROM UPSTREAM: {:?}", &message_sv2);
+                println!("P RECV SV2: {:?}", &message_sv2);
                 let message_sv1: json_rpc::Message = translator_clone.parse_sv2_to_sv1(message_sv2);
                 translator_clone.send_sv1(message_sv1).await;
             }
         });
 
         translator
+    }
+
+    /// As SV1 messages come in, determines if the message response needs to be translated to SV2
+    /// and sent to the `Upstream`, or if a direct response can be sent back by the `Translator`
+    /// (SV1 and SV2 protocol messages are NOT 1-to-1.
+    fn handle_incoming_sv1(message_sv1: json_rpc::Message) -> Option<json_rpc::Message> {
+        match message_sv1 {
+            json_rpc::Message::StandardRequest(std_req) => {
+                println!("P SV1 STANDARD REQUEST: {:?}", &std_req);
+                None
+            }
+            json_rpc::Message::Notification(_notification) => None,
+            json_rpc::Message::OkResponse(_ok_res) => None,
+            json_rpc::Message::ErrorResponse(err_res) => panic!("Error: `{:?}`", err_res),
+        }
     }
 
     /// Parses a SV1 message and translates to to a SV2 message

@@ -54,8 +54,8 @@ impl Downstream {
         let self_ = downstream.clone();
 
         // Task to read from SV1 Mining Device Client socket via `socket_reader`. Parses received
-        // message as `json_rpc::Message` + sends to upstream `Translator.receive_downstream` via
-        // `sender_upstream` (done in `send_message_upstream`.
+        // message as `json_rpc::Message` + sends to upstream `Translator.receiver_for_downstream`
+        // via `sender_upstream`
         task::spawn(async move {
             loop {
                 // Read message from SV1 Mining Device Client socket
@@ -66,18 +66,15 @@ impl Downstream {
                 while let Some(incoming) = messages.next().await {
                     let incoming = incoming.unwrap();
                     let incoming: Result<json_rpc::Message, _> = serde_json::from_str(&incoming);
-                    println!("DOWNSTREAM RECV: {:?}", &incoming);
+                    println!("DS RECV SV1: {:?}", &incoming);
                     Self::send_message_upstream(self_.clone(), incoming.unwrap()).await;
                 }
             }
         });
 
-        // Task to loop over the `receiver_outgoing` waiting to receive `json_rpc::Message`
-        // messages from `Translator.sender_downstream` to be written to the SV1 Mining Device
+        // Task to loop over the `receiver_upstream` waiting to receive `json_rpc::Message`
+        // messages from `Translator.sender_to_downstream` to be written to the SV1 Mining Device
         // Client socket.
-        // RR NOTE: may need to have another task to receive from `Translator.sender_downstream`
-        // into `receiver_upstream`, then pass that to `sender_outgoing` which then sends to
-        // `receiver_outgoing` which should replace the `receiver_upstream` here.
         task::spawn(async move {
             loop {
                 let to_send = receiver_upstream_clone.recv().await.unwrap();
@@ -95,7 +92,7 @@ impl Downstream {
     /// Sends SV1 message to the Upstream Translator to be translated to SV2 and sent to the
     /// Upstream role (most typically a SV2 Pool).
     async fn send_message_upstream(self_: Arc<Mutex<Self>>, msg: json_rpc::Message) {
-        println!("RRMSG: {:?}", &msg);
+        println!("DS SEND SV1: {:?}", &msg);
         let sender = self_
             .safe_lock(|s| s.connection.sender_upstream.clone())
             .unwrap();
@@ -103,6 +100,7 @@ impl Downstream {
     }
 }
 
+/// Implements `IsServer` for `Downstream` to handle the SV1 messages.
 impl IsServer for Downstream {
     fn handle_configure(
         &mut self,
