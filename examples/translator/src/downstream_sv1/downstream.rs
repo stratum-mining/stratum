@@ -120,6 +120,7 @@ impl Downstream {
     /// and sent to the `Upstream`, or if a direct response can be sent back by the `Translator`
     /// (SV1 and SV2 protocol messages are NOT 1-to-1.
     async fn handle_incoming_sv1(self_: Arc<Mutex<Self>>, message_sv1: json_rpc::Message) {
+        let message_sv1_clone = message_sv1.clone();
         // `handle_message` in `IsServer` trait + calls `handle_request`
         let response = self_.safe_lock(|s| s.handle_message(message_sv1)).unwrap();
         match response {
@@ -132,6 +133,8 @@ impl Downstream {
                     // let sender = self_.safe_lock(|s| s.connection.sender_upstream)
                     println!("RES: {:?}", &r);
                     Self::send_message_downstream(self_, r).await;
+                } else {
+                    Self::send_message_upstream(self_, message_sv1_clone).await;
                 }
             }
             Err(e) => panic!("Error: `{:?}`", e),
