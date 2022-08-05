@@ -40,6 +40,9 @@ impl Downstream {
         let (socket_reader, socket_writer) = (stream.clone(), stream);
         let (sender_outgoing, receiver_outgoing) = bounded(10);
 
+        let receiver_outgoing_clone = receiver_outgoing.clone();
+        let socket_writer_clone = socket_writer.clone();
+
         let connection = DownstreamConnection {
             sender_outgoing,
             receiver_outgoing,
@@ -89,6 +92,19 @@ impl Downstream {
                 let to_send = receiver_upstream_clone.recv().await.unwrap();
                 let to_send = format!("{}\n", serde_json::to_string(&to_send).unwrap());
                 (&*socket_writer)
+                    .write_all(to_send.as_bytes())
+                    .await
+                    .unwrap();
+            }
+        });
+
+        // Wait for SV1 responses that do not need to go through the Translator, but can be sent
+        // back the SV1 Mining Device directly
+        task::spawn(async move {
+            loop {
+                let to_send = receiver_outgoing_clone.recv().await.unwrap();
+                let to_send = format!("{}\n", serde_json::to_string(&to_send).unwrap());
+                (&*socket_writer_clone)
                     .write_all(to_send.as_bytes())
                     .await
                     .unwrap();
