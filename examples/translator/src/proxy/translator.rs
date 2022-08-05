@@ -104,20 +104,23 @@ impl Translator {
         .await;
 
         // Accept Downstream connections
-        let downstream_listener = TcpListener::bind(crate::LISTEN_ADDR).await.unwrap();
-        let mut downstream_incoming = downstream_listener.incoming();
-        while let Some(stream) = downstream_incoming.next().await {
-            let sender_downstream_clone = sender_downstream_clone.clone();
-            let receiver_downstream_clone = receiver_downstream_clone.clone();
-            let stream = stream.unwrap();
-            println!(
-                "PROXY SERVER - Accepting from: {}",
-                stream.peer_addr().unwrap()
-            );
-            let server =
-                Downstream::new(stream, sender_downstream_clone, receiver_downstream_clone).await;
-            Arc::new(Mutex::new(server));
-        }
+        task::spawn(async move {
+            let downstream_listener = TcpListener::bind(crate::LISTEN_ADDR).await.unwrap();
+            let mut downstream_incoming = downstream_listener.incoming();
+            while let Some(stream) = downstream_incoming.next().await {
+                let sender_downstream_clone = sender_downstream_clone.clone();
+                let receiver_downstream_clone = receiver_downstream_clone.clone();
+                let stream = stream.unwrap();
+                println!(
+                    "PROXY SERVER - Accepting from: {}",
+                    stream.peer_addr().unwrap()
+                );
+                let server =
+                    Downstream::new(stream, sender_downstream_clone, receiver_downstream_clone)
+                        .await;
+                Arc::new(Mutex::new(server));
+            }
+        });
 
         // Spawn task to listen for incoming messages from SV1 Downstream.
         // Spawned task waits to receive a message from `Downstream.connection.sender_upstream`,
@@ -143,8 +146,9 @@ impl Translator {
             loop {
                 let message_sv2: EitherFrame =
                     translator_clone.receiver_upstream.recv().await.unwrap();
-                let message_sv1: json_rpc::Message = translator_clone.parse_sv2_to_sv1(message_sv2);
-                translator_clone.send_sv1(message_sv1).await;
+                println!("PROXY UPSTREAM RECV: {:?}", &message_sv2);
+                // let message_sv1: json_rpc::Message = translator_clone.parse_sv2_to_sv1(message_sv2);
+                // translator_clone.send_sv1(message_sv1).await;
             }
         });
 
