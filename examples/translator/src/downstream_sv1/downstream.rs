@@ -1,7 +1,7 @@
 use crate::downstream_sv1::DownstreamConnection;
 use async_std::net::TcpStream;
 
-use async_channel::{bounded, Receiver, Sender};
+use async_channel::{Receiver, Sender};
 use async_std::{io::BufReader, prelude::*, task};
 use roles_logic_sv2::common_properties::{IsDownstream, IsMiningDownstream};
 use roles_logic_sv2::utils::Mutex;
@@ -33,12 +33,8 @@ impl Downstream {
 
         // Reads and writes from Downstream SV1 Mining Device Client
         let (socket_reader, socket_writer) = (stream.clone(), stream);
-        let (_sender_incoming, receiver_incoming) = bounded(10);
-        let (sender_outgoing, _receiver_outgoing) = bounded(10);
 
         let connection = DownstreamConnection {
-            sender_outgoing,
-            receiver_incoming,
             sender_upstream,
             receiver_upstream,
         };
