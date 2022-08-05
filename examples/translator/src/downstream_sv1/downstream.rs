@@ -7,7 +7,9 @@ use roles_logic_sv2::{
 };
 use std::sync::Arc;
 use v1::{
-    client_to_server, json_rpc, server_to_client,
+    client_to_server,
+    error::Error,
+    json_rpc, methods, server_to_client,
     utils::{self, HexBytes, HexU32Be},
     IsServer,
 };
@@ -106,22 +108,7 @@ impl Downstream {
             Err(e) => panic!("Error: `{:?}`", e),
         }
 
-        // self.handle_request(std_req).unwrap();
         None
-        // match message_sv1 {
-        //     json_rpc::Message::StandardRequest(std_req) => {
-        //         println!("P SV1 STANDARD REQUEST: {:?}", &std_req);
-        //         // self.handle_request(std_req).unwrap();
-        //         // let method = std_req.method;
-        //         // if method.contains("configure") {
-        //         //     self.handle_configure(
-        //         // }
-        //         None
-        //     }
-        //     json_rpc::Message::Notification(_notification) => None,
-        //     json_rpc::Message::OkResponse(_ok_res) => None,
-        //     json_rpc::Message::ErrorResponse(err_res) => panic!("Error: `{:?}`", err_res),
-        // }
     }
 
     /// Sends SV1 message to the Upstream Translator to be translated to SV2 and sent to the
@@ -137,6 +124,67 @@ impl Downstream {
 
 /// Implements `IsServer` for `Downstream` to handle the SV1 messages.
 impl IsServer for Downstream {
+    fn handle_request(
+        &mut self,
+        request: methods::Client2Server,
+    ) -> Result<Option<json_rpc::Response>, Error>
+    where
+        Self: std::marker::Sized,
+    {
+        match request {
+            methods::Client2Server::Authorize(authorize) => {
+                let authorized = self.handle_authorize(&authorize);
+                if authorized {
+                    self.authorize(&authorize.name);
+                }
+                Ok(Some(authorize.respond(authorized)))
+            }
+            methods::Client2Server::Configure(configure) => {
+                self.set_version_rolling_mask(configure.version_rolling_mask());
+                self.set_version_rolling_min_bit(configure.version_rolling_min_bit_count());
+                let (version_rolling, min_diff) = self.handle_configure(&configure);
+                Ok(Some(configure.respond(version_rolling, min_diff)))
+            }
+            methods::Client2Server::ExtranonceSubscribe(_) => {
+                self.handle_extranonce_subscribe();
+                Ok(None)
+            }
+            methods::Client2Server::Submit(submit) => {
+                let has_valid_version_bits = match &submit.version_bits {
+                    Some(a) => {
+                        if let Some(version_rolling_mask) = self.version_rolling_mask() {
+                            version_rolling_mask.check_mask(a)
+                        } else {
+                            false
+                        }
+                    }
+                    None => self.version_rolling_mask().is_none(),
+                };
+
+                let is_valid_submission = self.is_authorized(&submit.user_name)
+                    && self.extranonce2_size() == submit.extra_nonce2.len()
+                    && has_valid_version_bits;
+
+                if is_valid_submission {
+                    let accepted = self.handle_submit(&submit);
+                    Ok(Some(submit.respond(accepted)))
+                } else {
+                    Err(Error::InvalidSubmission)
+                }
+            }
+            methods::Client2Server::Subscribe(subscribe) => {
+                let subscriptions = self.handle_subscribe(&subscribe);
+                let extra_n1 = self.set_extranonce1(None);
+                let extra_n2_size = self.set_extranonce2_size(None);
+                Ok(Some(subscribe.respond(
+                    subscriptions,
+                    extra_n1,
+                    extra_n2_size,
+                )))
+            }
+        }
+    }
+
     fn handle_configure(
         &mut self,
         _request: &client_to_server::Configure,
