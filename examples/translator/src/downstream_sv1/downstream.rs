@@ -89,6 +89,7 @@ impl Downstream {
     /// Sends SV1 message to the Upstream Translator to be translated to SV2 and sent to the
     /// Upstream role (most typically a SV2 Pool).
     async fn send_message_upstream(self_: Arc<Mutex<Self>>, msg: json_rpc::Message) {
+        println!("RRMSG: {:?}", &msg);
         let sender = self_
             .safe_lock(|s| s.connection.sender_upstream.clone())
             .unwrap();
