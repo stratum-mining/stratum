@@ -171,13 +171,8 @@ impl Translator {
                     .await
                     .unwrap();
                 println!("P RECV SV1: {:?}", &message_sv1);
-                // fn to handle what to do with message
-                let message_sv1 = Self::handle_incoming_sv1(message_sv1);
-                if let Some(message_to_translate) = message_sv1 {
-                    let message_sv2: EitherFrame =
-                        translator_clone.parse_sv1_to_sv2(message_to_translate);
-                    translator_clone.send_sv2(message_sv2).await;
-                }
+                let message_sv2: EitherFrame = translator_clone.parse_sv1_to_sv2(message_sv1);
+                translator_clone.send_sv2(message_sv2).await;
             }
         });
 
@@ -200,21 +195,6 @@ impl Translator {
         });
 
         translator
-    }
-
-    /// As SV1 messages come in, determines if the message response needs to be translated to SV2
-    /// and sent to the `Upstream`, or if a direct response can be sent back by the `Translator`
-    /// (SV1 and SV2 protocol messages are NOT 1-to-1.
-    fn handle_incoming_sv1(message_sv1: json_rpc::Message) -> Option<json_rpc::Message> {
-        match message_sv1 {
-            json_rpc::Message::StandardRequest(std_req) => {
-                println!("P SV1 STANDARD REQUEST: {:?}", &std_req);
-                None
-            }
-            json_rpc::Message::Notification(_notification) => None,
-            json_rpc::Message::OkResponse(_ok_res) => None,
-            json_rpc::Message::ErrorResponse(err_res) => panic!("Error: `{:?}`", err_res),
-        }
     }
 
     /// Parses a SV1 message and translates to to a SV2 message
