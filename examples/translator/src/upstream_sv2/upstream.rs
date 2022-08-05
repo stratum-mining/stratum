@@ -3,12 +3,12 @@ use crate::{
     upstream_sv2::{EitherFrame, StdFrame, UpstreamConnection},
 };
 use async_channel::{Receiver, Sender};
-use async_std::{net::TcpStream, task};
+use async_std::net::TcpStream;
 use codec_sv2::{Frame, HandshakeRole, Initiator};
 use network_helpers::Connection;
-use roles_logic_sv2::utils::Mutex;
 use roles_logic_sv2::{
     common_messages_sv2::{Protocol, SetupConnection},
+    common_properties::{IsMiningUpstream, IsUpstream},
     handlers::common::{ParseUpstreamCommonMessages, SendTo as SendToCommon},
     handlers::mining::{ParseUpstreamMiningMessages, SendTo},
     // mining_sv2::*,
@@ -18,14 +18,10 @@ use roles_logic_sv2::{
     },
     parsers::{Mining, PoolMessages},
     routing_logic::{CommonRoutingLogic, MiningRoutingLogic, NoRouting},
-    selectors::NullDownstreamMiningSelector,
+    selectors::{NullDownstreamMiningSelector, ProxyDownstreamMiningSelector},
+    utils::Mutex,
 };
-use roles_logic_sv2::{
-    common_properties::{IsMiningUpstream, IsUpstream},
-    selectors::ProxyDownstreamMiningSelector,
-};
-use std::net::SocketAddr;
-use std::sync::Arc;
+use std::{net::SocketAddr, sync::Arc};
 
 #[derive(Debug)]
 pub struct Upstream {
@@ -127,7 +123,7 @@ impl Upstream {
     }
 
     /// Receive messages from the downstream `Translator::sender_to_upstream`.
-    async fn receive(self_mutex: Arc<Mutex<Self>>) -> Result<StdFrame, ()> {
+    async fn _receive(self_mutex: Arc<Mutex<Self>>) -> Result<StdFrame, ()> {
         let connection = self_mutex
             .safe_lock(|self_| self_.connection.clone())
             .unwrap();

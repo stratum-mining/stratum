@@ -1,10 +1,10 @@
 use crate::downstream_sv1::DownstreamConnection;
-use async_std::net::TcpStream;
-
 use async_channel::{Receiver, Sender};
-use async_std::{io::BufReader, prelude::*, task};
-use roles_logic_sv2::common_properties::{IsDownstream, IsMiningDownstream};
-use roles_logic_sv2::utils::Mutex;
+use async_std::{io::BufReader, net::TcpStream, prelude::*, task};
+use roles_logic_sv2::{
+    common_properties::{IsDownstream, IsMiningDownstream},
+    utils::Mutex,
+};
 use std::sync::Arc;
 use v1::json_rpc;
 
@@ -56,7 +56,7 @@ impl Downstream {
                 while let Some(incoming) = messages.next().await {
                     let incoming = incoming.unwrap();
                     let incoming: Result<json_rpc::Message, _> = serde_json::from_str(&incoming);
-                    println!("PROXY DOWNSTREAM RECV: {:?}", &incoming);
+                    println!("DOWNSTREAM RECV: {:?}", &incoming);
                     Self::send_message_upstream(self_.clone(), incoming.unwrap()).await;
                 }
             }

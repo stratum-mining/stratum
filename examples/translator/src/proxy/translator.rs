@@ -42,14 +42,14 @@ use crate::{
     downstream_sv1::Downstream,
     upstream_sv2::{EitherFrame, Upstream},
 };
-use async_std::net::TcpListener;
-use std::net::{IpAddr, SocketAddr};
-use std::str::FromStr;
-
 use async_channel::{bounded, Receiver, Sender};
-use async_std::{prelude::*, task};
+use async_std::{net::TcpListener, prelude::*, task};
 use roles_logic_sv2::utils::Mutex;
-use std::sync::Arc;
+use std::{
+    net::{IpAddr, SocketAddr},
+    str::FromStr,
+    sync::Arc,
+};
 use v1::json_rpc;
 
 #[derive(Clone)]
@@ -170,7 +170,7 @@ impl Translator {
                     .recv()
                     .await
                     .unwrap();
-                println!("PROXY TRANSLATOR RECV: {:?}", &message_sv1);
+                println!("PROXY RECV FROM DOWNSTREAM: {:?}", &message_sv1);
                 let message_sv2: EitherFrame = translator_clone.parse_sv1_to_sv2(message_sv1);
                 translator_clone.send_sv2(message_sv2).await;
             }
@@ -188,7 +188,7 @@ impl Translator {
                     .recv()
                     .await
                     .unwrap();
-                println!("PROXY UPSTREAM RECV: {:?}", &message_sv2);
+                println!("PROXY RECV FROM UPSTREAM: {:?}", &message_sv2);
                 let message_sv1: json_rpc::Message = translator_clone.parse_sv2_to_sv1(message_sv2);
                 translator_clone.send_sv1(message_sv1).await;
             }
