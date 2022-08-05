@@ -132,55 +132,60 @@ impl IsServer for Downstream {
         Self: std::marker::Sized,
     {
         match request {
-            methods::Client2Server::Authorize(authorize) => {
-                let authorized = self.handle_authorize(&authorize);
-                if authorized {
-                    self.authorize(&authorize.name);
-                }
-                Ok(Some(authorize.respond(authorized)))
+            methods::Client2Server::Authorize(_authorize) => {
+                todo!()
+                // let authorized = self.handle_authorize(&authorize);
+                // if authorized {
+                //     self.authorize(&authorize.name);
+                // }
+                // Ok(Some(authorize.respond(authorized)))
             }
-            methods::Client2Server::Configure(configure) => {
-                self.set_version_rolling_mask(configure.version_rolling_mask());
-                self.set_version_rolling_min_bit(configure.version_rolling_min_bit_count());
-                let (version_rolling, min_diff) = self.handle_configure(&configure);
-                Ok(Some(configure.respond(version_rolling, min_diff)))
+            methods::Client2Server::Configure(_configure) => {
+                todo!()
+                // self.set_version_rolling_mask(configure.version_rolling_mask());
+                // self.set_version_rolling_min_bit(configure.version_rolling_min_bit_count());
+                // let (version_rolling, min_diff) = self.handle_configure(&configure);
+                // Ok(Some(configure.respond(version_rolling, min_diff)))
             }
             methods::Client2Server::ExtranonceSubscribe(_) => {
-                self.handle_extranonce_subscribe();
-                Ok(None)
+                todo!()
+                // self.handle_extranonce_subscribe();
+                // Ok(None)
             }
-            methods::Client2Server::Submit(submit) => {
-                let has_valid_version_bits = match &submit.version_bits {
-                    Some(a) => {
-                        if let Some(version_rolling_mask) = self.version_rolling_mask() {
-                            version_rolling_mask.check_mask(a)
-                        } else {
-                            false
-                        }
-                    }
-                    None => self.version_rolling_mask().is_none(),
-                };
-
-                let is_valid_submission = self.is_authorized(&submit.user_name)
-                    && self.extranonce2_size() == submit.extra_nonce2.len()
-                    && has_valid_version_bits;
-
-                if is_valid_submission {
-                    let accepted = self.handle_submit(&submit);
-                    Ok(Some(submit.respond(accepted)))
-                } else {
-                    Err(Error::InvalidSubmission)
-                }
+            methods::Client2Server::Submit(_submit) => {
+                todo!()
+                // let has_valid_version_bits = match &submit.version_bits {
+                //     Some(a) => {
+                //         if let Some(version_rolling_mask) = self.version_rolling_mask() {
+                //             version_rolling_mask.check_mask(a)
+                //         } else {
+                //             false
+                //         }
+                //     }
+                //     None => self.version_rolling_mask().is_none(),
+                // };
+                //
+                // let is_valid_submission = self.is_authorized(&submit.user_name)
+                //     && self.extranonce2_size() == submit.extra_nonce2.len()
+                //     && has_valid_version_bits;
+                //
+                // if is_valid_submission {
+                //     let accepted = self.handle_submit(&submit);
+                //     Ok(Some(submit.respond(accepted)))
+                // } else {
+                //     Err(Error::InvalidSubmission)
+                // }
             }
-            methods::Client2Server::Subscribe(subscribe) => {
-                let subscriptions = self.handle_subscribe(&subscribe);
-                let extra_n1 = self.set_extranonce1(None);
-                let extra_n2_size = self.set_extranonce2_size(None);
-                Ok(Some(subscribe.respond(
-                    subscriptions,
-                    extra_n1,
-                    extra_n2_size,
-                )))
+            methods::Client2Server::Subscribe(_subscribe) => {
+                todo!()
+                // let subscriptions = self.handle_subscribe(&subscribe);
+                // let extra_n1 = self.set_extranonce1(None);
+                // let extra_n2_size = self.set_extranonce2_size(None);
+                // Ok(Some(subscribe.respond(
+                //     subscriptions,
+                //     extra_n1,
+                //     extra_n2_size,
+                // )))
             }
         }
     }
