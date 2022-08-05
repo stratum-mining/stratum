@@ -137,26 +137,24 @@ impl Translator {
         .await;
 
         // Accept Downstream connections
-        // task::spawn(async move {
-        let downstream_listener = TcpListener::bind(crate::LISTEN_ADDR).await.unwrap();
-        let mut downstream_incoming = downstream_listener.incoming();
-        while let Some(stream) = downstream_incoming.next().await {
-            let sender_for_downstream_clone = sender_for_downstream.clone();
-            let receiver_for_downstream_clone = receiver_for_downstream.clone();
-            let stream = stream.unwrap();
-            println!(
-                "PROXY SERVER - Accepting from: {}\n",
-                stream.peer_addr().unwrap()
-            );
-            let server = Downstream::new(
-                stream,
-                sender_for_downstream_clone,
-                receiver_for_downstream_clone,
-            )
-            .await;
-            Arc::new(Mutex::new(server));
-        }
-        // });
+        task::spawn(async move {
+            let downstream_listener = TcpListener::bind(crate::LISTEN_ADDR).await.unwrap();
+            let mut downstream_incoming = downstream_listener.incoming();
+            while let Some(stream) = downstream_incoming.next().await {
+                let stream = stream.unwrap();
+                println!(
+                    "PROXY SERVER - Accepting from: {}\n",
+                    stream.peer_addr().unwrap()
+                );
+                let server = Downstream::new(
+                    stream,
+                    sender_for_downstream.clone(),
+                    receiver_for_downstream.clone(),
+                )
+                .await;
+                Arc::new(Mutex::new(server));
+            }
+        });
 
         // Spawn task to listen for incoming messages from SV1 Downstream.
         // Spawned task waits to receive a message from `Downstream.connection.sender_upstream`,
@@ -164,6 +162,7 @@ impl Translator {
         // the SV2 message to the `Upstream.receiver_downstream`.
         let mut translator_clone = translator.clone();
         task::spawn(async move {
+            // println!("P RECV SV1: ");
             loop {
                 let message_sv1: json_rpc::Message = translator_clone
                     .receiver_from_downstream
