@@ -48,6 +48,7 @@ impl Upstream {
         // Connect to the SV2 Upstream role
         let socket = TcpStream::connect(address).await.map_err(|_| ()).unwrap();
         let initiator = Initiator::from_raw_k(authority_public_key).unwrap();
+        println!("UPSTREAM CONNECTED to {}", socket.peer_addr().unwrap());
 
         // Channel to send and receive messages to the SV2 Upstream role
         let (receiver, sender) =
@@ -122,6 +123,7 @@ impl Upstream {
                 // Waiting to receive a message from the SV2 Upstream role
                 let recv = self_.safe_lock(|s| s.connection.receiver.clone()).unwrap();
                 let mut incoming: StdFrame = recv.recv().await.unwrap().try_into().unwrap();
+                println!("UPSTREAM RECV PARSE: {:?}", &incoming);
                 // On message receive, get the message type from the message header and get the
                 // message payload
                 let message_type = incoming.get_header().unwrap().msg_type();
