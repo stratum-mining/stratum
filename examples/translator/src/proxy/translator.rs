@@ -104,23 +104,22 @@ impl Translator {
         .await;
 
         // Accept Downstream connections
-        task::spawn(async move {
-            let downstream_listener = TcpListener::bind(crate::LISTEN_ADDR).await.unwrap();
-            let mut downstream_incoming = downstream_listener.incoming();
-            while let Some(stream) = downstream_incoming.next().await {
-                let sender_downstream_clone = sender_downstream_clone.clone();
-                let receiver_downstream_clone = receiver_downstream_clone.clone();
-                let stream = stream.unwrap();
-                println!(
-                    "PROXY SERVER - Accepting from: {}",
-                    stream.peer_addr().unwrap()
-                );
-                let server =
-                    Downstream::new(stream, sender_downstream_clone, receiver_downstream_clone)
-                        .await;
-                Arc::new(Mutex::new(server));
-            }
-        });
+        // task::spawn(async move {
+        let downstream_listener = TcpListener::bind(crate::LISTEN_ADDR).await.unwrap();
+        let mut downstream_incoming = downstream_listener.incoming();
+        while let Some(stream) = downstream_incoming.next().await {
+            let sender_downstream_clone = sender_downstream_clone.clone();
+            let receiver_downstream_clone = receiver_downstream_clone.clone();
+            let stream = stream.unwrap();
+            println!(
+                "PROXY SERVER - Accepting from: {}",
+                stream.peer_addr().unwrap()
+            );
+            let server =
+                Downstream::new(stream, sender_downstream_clone, receiver_downstream_clone).await;
+            Arc::new(Mutex::new(server));
+        }
+        // });
 
         // Spawn task to listen for incoming messages from SV1 Downstream.
         // Spawned task waits to receive a message from `Downstream.connection.sender_upstream`,
@@ -166,8 +165,13 @@ impl Translator {
     }
 
     /// Parses a SV2 message and translates to to a SV1 message
-    fn parse_sv2_to_sv1(&mut self, _message_sv2: EitherFrame) -> json_rpc::Message {
+    fn parse_sv2_to_sv1(&mut self, message_sv2: EitherFrame) -> json_rpc::Message {
         todo!()
+        // println!("PROXY PARSE SV2 -> SV1: {:?}", &message_sv2);
+        // let message_str =
+        //     r#"{"params": ["slush.miner1", "password"], "id": 2, "method": "mining.authorize"}"#;
+        // let message_json: json_rpc::Message = serde_json::from_str(message_str).unwrap();
+        // message_json
     }
 
     /// Sends SV1 message (translated from SV2) to the `Downstream.receiver_upstream`.
