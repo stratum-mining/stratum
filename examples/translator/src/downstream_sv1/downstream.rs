@@ -76,7 +76,7 @@ impl Downstream {
                     let incoming: Result<json_rpc::Message, _> = serde_json::from_str(&incoming);
                     println!("DS RECV SV1: {:?}", incoming.as_ref().unwrap());
                     // Handle what to do with message
-                    Self::handle_incoming_sv1(self_.clone(), incoming.unwrap());
+                    Self::handle_incoming_sv1(self_.clone(), incoming.unwrap()).await;
                     // let message_sv1 = Self::handle_incoming_sv1(self_.clone(), incoming.unwrap());
                     // if let Some(message_to_translate) = message_sv1 {
                     //     Self::send_message_upstream(self_.clone(), message_to_translate).await;
@@ -105,6 +105,7 @@ impl Downstream {
             loop {
                 let to_send = receiver_outgoing_clone.recv().await.unwrap();
                 let to_send = format!("{}\n", serde_json::to_string(&to_send).unwrap());
+                println!("DS SEND SV1 RES: {}", &to_send);
                 (&*socket_writer_clone)
                     .write_all(to_send.as_bytes())
                     .await
@@ -176,6 +177,7 @@ impl IsServer for Downstream {
                 // Ok(Some(authorize.respond(authorized)))
             }
             methods::Client2Server::Configure(configure) => {
+                println!("RR DOWNSTREAM CONFIGURE");
                 // todo!()
                 self.set_version_rolling_mask(configure.version_rolling_mask());
                 self.set_version_rolling_min_bit(configure.version_rolling_min_bit_count());
