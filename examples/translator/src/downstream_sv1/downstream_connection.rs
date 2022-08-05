@@ -7,9 +7,9 @@ use v1::json_rpc;
 pub(crate) struct DownstreamConnection {
     /// Sends to SV1 messages parsed by `Downstream` to the `receiver_outgoing` which makes the
     /// message available to be written to the SV1 Downstream Mining Device socket
-    pub(crate) sender_outgoing: Sender<json_rpc::Message>,
+    pub(crate) sender_outgoing: Sender<json_rpc::Response>,
     /// Receiver from `Translator::sender_to_downstream`
-    pub(crate) receiver_outgoing: Receiver<json_rpc::Message>,
+    pub(crate) receiver_outgoing: Receiver<json_rpc::Response>,
     /// Sends to `Translator::receiver_from_downstream`
     pub(crate) sender_upstream: Sender<json_rpc::Message>,
     /// Receiver from `Translator::sender_to_downstream`
