@@ -230,7 +230,9 @@ mod tests {
     use crate::errors::Error;
     // use binary_sv2::u256_from_int;
     use binary_sv2::{binary_codec_sv2, decodable::DecodableField, decodable::FieldMarker};
-    use binary_sv2::{u256_from_int, Decodable as Deserialize, Seq0255, B064K, U256};
+    // use binary_sv2::{u256_from_int, Decodable as Deserialize, Seq0255, B064K, U256};
+    use binary_sv2::{u256_from_int, Seq0255, B064K, U256};
+    use proc_macro::Decodable;
     //#[cfg(feature = "serde")]
     // use decoder::Deserialize;
     fn decode_hex(s: &str) -> Result<Vec<u8>, std::num::ParseIntError> {
@@ -242,7 +244,8 @@ mod tests {
 
     // #[cfg(feature = "serde")]
     // #[derive(Debug, Deserialize)]
-    #[derive(Debug)]
+    // #[derive(Debug)]
+    #[proc_macro_derive(Decodable)]
     struct TestBlockToml {
         block_hash: String,
         version: u32,
@@ -273,6 +276,7 @@ mod tests {
     }
 
     //#[cfg(feature = "serde")]
+    #[proc_macro_derive(Decodable)]
     fn get_test_block<'decoder>() -> TestBlock<'decoder> {
         let test_file = std::fs::read_to_string("../../../test_data/reg-test-block.toml")
             .expect("Could not read file from string");
