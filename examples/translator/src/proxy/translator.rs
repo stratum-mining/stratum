@@ -137,24 +137,24 @@ impl Translator {
         .await;
 
         // Accept Downstream connections
-        task::spawn(async move {
-            let downstream_listener = TcpListener::bind(crate::LISTEN_ADDR).await.unwrap();
-            let mut downstream_incoming = downstream_listener.incoming();
-            while let Some(stream) = downstream_incoming.next().await {
-                let stream = stream.unwrap();
-                println!(
-                    "PROXY SERVER - Accepting from: {}\n",
-                    stream.peer_addr().unwrap()
-                );
-                let server = Downstream::new(
-                    stream,
-                    sender_for_downstream.clone(),
-                    receiver_for_downstream.clone(),
-                )
-                .await;
-                Arc::new(Mutex::new(server));
-            }
-        });
+        // task::spawn(async move {
+        let downstream_listener = TcpListener::bind(crate::LISTEN_ADDR).await.unwrap();
+        let mut downstream_incoming = downstream_listener.incoming();
+        while let Some(stream) = downstream_incoming.next().await {
+            let stream = stream.unwrap();
+            println!(
+                "PROXY SERVER - Accepting from: {}\n",
+                stream.peer_addr().unwrap()
+            );
+            let server = Downstream::new(
+                stream,
+                sender_for_downstream.clone(),
+                receiver_for_downstream.clone(),
+            )
+            .await;
+            Arc::new(Mutex::new(server));
+        }
+        // });
 
         // Spawn task to listen for incoming messages from SV1 Downstream.
         // Spawned task waits to receive a message from `Downstream.connection.sender_upstream`,
