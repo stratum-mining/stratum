@@ -3,7 +3,7 @@ use crate::{
     upstream_sv2::{EitherFrame, StdFrame, UpstreamConnection},
 };
 use async_channel::{Receiver, Sender};
-use async_std::net::TcpStream;
+use async_std::{net::TcpStream, task};
 use codec_sv2::{Frame, HandshakeRole, Initiator};
 use network_helpers::Connection;
 use roles_logic_sv2::utils::Mutex;
@@ -101,6 +101,18 @@ impl Upstream {
             _downstream_selector: downstream_selector,
         }));
 
+        // // TODO: NOT HANDLED YET
+        // // Receive messages from the downstream `Translator`
+        // // RR: Think i need to refactor parse_incoming to receive the EitherFrame and handle
+        // // appropriately. Make a new function called incoming_upstream to receive messages from
+        // // upstream pool server + and another function called incoming_downstream to recieve
+        // // messages from downstream proxy (basically does the next 2 lines)
+        // // If these two lines are uncommented -> blocks and nothing works
+        // let cloned = self_.clone();
+        // let mut _incoming_downstream = task::spawn(async { Self::receive(cloned).await })
+        //     .await
+        //     .unwrap();
+
         // Handle the incoming message (should be either `SetupConnectionSuccess` or
         // `SetupConnectionError`)
         ParseUpstreamCommonMessages::handle_message_common(
@@ -112,6 +124,15 @@ impl Upstream {
         .unwrap();
         Self::parse_incoming(self_.clone());
         Ok(self_)
+    }
+
+    /// Receive messages from the downstream `Translator::sender_to_upstream`.
+    async fn receive(self_mutex: Arc<Mutex<Self>>) -> Result<StdFrame, ()> {
+        let connection = self_mutex
+            .safe_lock(|self_| self_.connection.clone())
+            .unwrap();
+        let message_incoming = connection.receiver_downstream.recv().await.unwrap();
+        message_incoming.try_into()
     }
 
     /// Parse the incoming SV2 message from the Upstream role and use the
