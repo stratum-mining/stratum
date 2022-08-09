@@ -18,17 +18,19 @@
 //! A Downstream that signal the incapacity to handle group channels can open only one channel.
 //!
 mod lib;
-use std::net::SocketAddr;
-
-use lib::upstream_mining::UpstreamMiningNode;
-use once_cell::sync::{Lazy, OnceCell};
+use std::net::IpAddr;
+use std::str::FromStr;
 use serde::Deserialize;
+use std::net::SocketAddr;
+use once_cell::sync::{Lazy, OnceCell};
+use lib::{upstream_mining::UpstreamMiningNode, job_negotiator::JobNegotiator};
 
 use roles_logic_sv2::{
     routing_logic::{CommonRoutingLogic, MiningProxyRoutingLogic, MiningRoutingLogic},
     selectors::{GeneralMiningSelector, UpstreamMiningSelctor},
     utils::{Id, Mutex},
 };
+use tokio::task;
 use std::{collections::HashMap, sync::Arc};
 
 type RLogic = MiningProxyRoutingLogic<
@@ -111,14 +113,14 @@ pub fn add_job_id(job_id: u32, up_id: u32, prev_job_id: Option<u32>) {
         .unwrap();
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct UpstreamValues {
     address: String,
     port: u16,
     pub_key: codec_sv2::noise_sv2::formats::EncodedEd25519PublicKey,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct Config {
     upstreams: Vec<UpstreamValues>,
     listen_address: String,
@@ -253,4 +255,9 @@ async fn main() {
     );
     println!("PROXY INITIALIZED");
     crate::lib::downstream_mining::listen_for_downstream_mining(socket).await;
+    JobNegotiator::new(SocketAddr::new(
+        IpAddr::from_str(&config.upstreams[0].address).unwrap(),
+        config.upstreams[0].port,
+    ), config.upstreams[0].clone().pub_key.into_inner().as_bytes().clone()).await;
+    crate::lib::downstream_mining::listen_for_downstream_mining(socket).await
 }
