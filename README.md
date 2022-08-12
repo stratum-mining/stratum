@@ -3,7 +3,7 @@
 The Stratum protocol defines how miners, proxies, and pools communicate to contribute hashrate to
 the Bitcoin network.
 
-## Table of Conents
+## Table of Contents
 
 - [Stratum](#stratum)
   - [1. Goals](#1-goals)
