@@ -69,7 +69,7 @@ The library is modular to address different use-cases and desired functionality.
 
 2. Sv1 mining farms mining to a Sv2-compatible pool gain some of the security and efficiency
    improvements Sv2 offers over Stratum V1 (Sv1). The Sv1<->Sv2 miner proxy does not support
-   _all_ the features of Sv2, but can used as a temporary measure before upgrading completely
+   _all_ the features of Sv2, but works as a temporary measure before upgrading completely
    to Sv2-compatible firmware. (The Sv1<->Sv2 translation proxy implementation is a work in progress.)
 
 ## 2.2 Pools
@@ -80,7 +80,7 @@ The library is modular to address different use-cases and desired functionality.
 1. The Rust helper library provides a suite of tools for mining pools to build custom Sv2 compatible
    pool implementations.
 
-1. The C library provides a set of FFI bindings to the above Rust helper library for miners to integrate
+1. The C library provides a set of FFI bindings to the Rust helper library for miners to integrate
    Sv2 into their existing firmware stack.
 
 ## 3. Structure
