@@ -46,9 +46,10 @@ The goals of this project are to provide:
 
 1. A robust set of Stratum V2 (Sv2) primitives as Rust library crates which anyone can use
    to expand the protocol or implement a role. For example:
-   a) Pools supporting Sv2
-   b) Mining-device/hashrate producers integrating Sv2 into their firmware
-   c) Bitcoin nodes implementing Template Provider to build the `blocktemplate`
+
+   - Pools supporting Sv2
+   - Mining-device/hashrate producers integrating Sv2 into their firmware
+   - Bitcoin nodes implementing Template Provider to build the `blocktemplate`
 
 2. The above Rust primitives as a C library available for use in other languages via FFI.
 
