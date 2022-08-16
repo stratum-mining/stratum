@@ -127,15 +127,15 @@ impl State {
 
     pub fn step(&mut self, in_msg: Option<Vec<u8>>) -> Result<HandShakeFrame, crate::Error> {
         match self {
-            Self::NotInitialized => Err(Error::Todo),
+            Self::NotInitialized => Err(Error::UnexpectedNoiseState),
             Self::HandShake(stepper) => stepper.step(in_msg),
-            Self::Transport(_) => Err(Error::Todo),
+            Self::Transport(_) => Err(Error::UnexpectedNoiseState),
         }
     }
 
     pub fn into_transport_mode(self) -> Result<Self, Error> {
         match self {
-            Self::NotInitialized => Err(Error::Todo),
+            Self::NotInitialized => Err(Error::UnexpectedNoiseState),
             Self::HandShake(stepper) => {
                 let tp = stepper.into_transport()?;
 
