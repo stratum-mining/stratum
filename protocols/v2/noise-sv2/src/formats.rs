@@ -55,14 +55,14 @@ macro_rules! impl_basic_type {
             type Error = Error;
 
             fn try_from(value: String) -> Result<Self> {
-                serde_json::from_str(value.as_str()).map_err(|_| Error {})
+                serde_json::from_str(value.as_str()).map_err(|_| Error::Todo)
             }
         }
         /// Helper serializer into string
         impl TryFrom<$format_struct_type> for String {
             type Error = Error;
             fn try_from(value: $format_struct_type) -> Result<String> {
-                serde_json::to_string_pretty(&value).map_err(|_| Error {})
+                serde_json::to_string_pretty(&value).map_err(|_| Error::Todo)
             }
         }
     };
@@ -86,8 +86,8 @@ macro_rules! generate_ed25519_structs {
 
             fn try_from(value: String) -> Result<Self> {
                 // Decode with checksum, don't verify version
-                let bytes = bs58::decode(value).with_check(None).into_vec().map_err(|_| Error {})?;
-                Ok(Self::new(<$inner_encoded_struct_type>::from_bytes(&bytes).map_err(|_| Error {})?))
+                let bytes = bs58::decode(value).with_check(None).into_vec().map_err(|_| Error::Todo)?;
+                Ok(Self::new(<$inner_encoded_struct_type>::from_bytes(&bytes).map_err(|_| Error::Todo)?))
             }
         }
 
@@ -118,7 +118,7 @@ macro_rules! generate_noise_keypair_structs {
                 let bytes = bs58::decode(value)
                     .with_check(None)
                     .into_vec()
-                    .map_err(|_| Error {})?;
+                    .map_err(|_| Error::Todo)?;
                 Ok(Self::new(bytes))
             }
         }
@@ -246,14 +246,14 @@ impl TryFrom<String> for Certificate {
     type Error = Error;
 
     fn try_from(value: String) -> Result<Self> {
-        serde_json::from_str(value.as_str()).map_err(|_| Error {})
+        serde_json::from_str(value.as_str()).map_err(|_| Error::Todo)
     }
 }
 
 impl TryFrom<Certificate> for String {
     type Error = Error;
     fn try_from(value: Certificate) -> Result<String> {
-        serde_json::to_string_pretty(&value).map_err(|_| Error {})
+        serde_json::to_string_pretty(&value).map_err(|_| Error::Todo)
     }
 }
 

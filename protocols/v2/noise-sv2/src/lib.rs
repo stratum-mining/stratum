@@ -47,7 +47,7 @@ const BUFFER_LEN: usize =
 pub fn generate_keypair() -> Result<StaticKeypair> {
     let params: NoiseParams = PARAMS.parse().expect("BUG: cannot parse noise parameters");
     let builder: Builder<'_> = Builder::new(params);
-    builder.generate_keypair().map_err(|_| Error {})
+    builder.generate_keypair().map_err(|_| Error::Todo)
 }
 
 /// Generate a random ed25519 dalek keypair
@@ -73,7 +73,7 @@ impl Initiator {
         let params: NoiseParams = PARAMS.parse().expect("BUG: cannot parse noise parameters");
 
         let builder: Builder<'_> = Builder::new(params);
-        let handshake_state = builder.build_initiator().map_err(|_| Error {})?;
+        let handshake_state = builder.build_initiator().map_err(|_| Error::Todo)?;
         let algorithms = vec![EncryptionAlgorithm::ChaChaPoly, EncryptionAlgorithm::AESGCM];
 
         Ok(Self {
@@ -86,7 +86,7 @@ impl Initiator {
 
     pub fn from_raw_k(authority_public_key: [u8; 32]) -> Result<Self> {
         let authority_public_key = ed25519_dalek::PublicKey::from_bytes(&authority_public_key[..])
-            .map_err(|_| Error {})?;
+            .map_err(|_| Error::Todo)?;
         Self::new(authority_public_key)
     }
 
@@ -95,12 +95,14 @@ impl Initiator {
         &mut self,
         signature_noise_message: Vec<u8>,
     ) -> Result<()> {
-        let remote_static_key = self.handshake_state.get_remote_static().ok_or(Error {})?;
+        let remote_static_key = self
+            .handshake_state
+            .get_remote_static()
+            .ok_or(Error::Todo)?;
         let remote_static_key = StaticPublicKey::from(remote_static_key);
 
         let signature_noise_message =
-            auth::SignatureNoiseMessage::try_from(&signature_noise_message[..])
-                .map_err(|_| Error {})?;
+            auth::SignatureNoiseMessage::try_from(&signature_noise_message[..])?;
 
         let certificate = auth::Certificate::from_noise_message(
             signature_noise_message,
@@ -108,7 +110,7 @@ impl Initiator {
             self.authority_public_key,
         );
 
-        certificate.validate().map_err(|_| Error {})?;
+        certificate.validate()?;
 
         Ok(())
     }
@@ -123,7 +125,7 @@ impl Initiator {
         self.handshake_state = builder
             .prologue(prologue)
             .build_initiator()
-            .map_err(|_| Error {})?;
+            .map_err(|_| Error::Todo)?;
         Ok(())
     }
 }
@@ -134,6 +136,8 @@ impl handshake::Step for Initiator {
     }
 
     fn step(&mut self, in_msg: Option<handshake::Message>) -> Result<handshake::StepResult> {
+        dbg!("RR NOISE_SV2 step");
+        dbg!(&in_msg);
         let mut noise_bytes = Vec::new();
 
         let result = match self.stage {
@@ -153,7 +157,7 @@ impl handshake::Step for Initiator {
                 let algos = dbg!(negotiation_message.get_algos()?);
 
                 if algos.len() != 1 {
-                    return Err(Error {});
+                    return Err(Error::Todo);
                 }
                 let chosen_algorithm = algos[0];
                 // Below is inffalible
@@ -166,27 +170,26 @@ impl handshake::Step for Initiator {
                 let buffer_len = SNOW_PSKLEN + SNOW_TAGLEN;
                 noise_bytes.resize(buffer_len, 0);
 
-                let len_written = self
-                    .handshake_state
-                    .write_message(&[], &mut noise_bytes)
-                    .map_err(|_| Error {})?;
+                let len_written = self.handshake_state.write_message(&[], &mut noise_bytes)?;
 
                 noise_bytes.truncate(len_written);
 
                 handshake::StepResult::ExpectReply(noise_bytes)
             }
             2 => {
+                dbg!("2");
                 // Receive responder message
                 // <- e, ee, s, es, SIGNATURE_NOISE_MESSAGE
                 //
-                let in_msg = in_msg.ok_or(Error {})?;
+                let in_msg = in_msg.ok_or(Error::Todo)?;
 
                 noise_bytes.resize(BUFFER_LEN, 0);
 
                 let signature_len = self
                     .handshake_state
                     .read_message(&in_msg[..], &mut noise_bytes)
-                    .map_err(|_| Error {})?;
+                    .expect("RR ERRORS HERE");
+                dbg!(&signature_len);
 
                 debug_assert!(SIGNATURE_MESSAGE_LEN == signature_len);
 
@@ -195,7 +198,7 @@ impl handshake::Step for Initiator {
                 handshake::StepResult::Done
             }
             _ => {
-                return Err(Error {});
+                return Err(Error::Todo);
             }
         };
         self.stage += 1;
@@ -234,11 +237,11 @@ impl Authority {
         pub_k: &[u8],
         duration: Duration,
     ) -> Result<auth::SignatureNoiseMessage> {
-        let header = SignedPartHeader::with_duration(duration).map_err(|_| Error {})?;
+        let header = SignedPartHeader::with_duration(duration)?;
 
         let signed_part = auth::SignedPart::new(header, pub_k.into(), self.kp.public);
 
-        let signature = signed_part.sign_with(&self.kp).map_err(|_| Error {})?;
+        let signature = signed_part.sign_with(&self.kp)?;
 
         let certificate = auth::Certificate::new(signed_part, signature);
 
@@ -277,7 +280,7 @@ impl Responder {
     }
 
     pub fn with_random_static_kp(signature_noise_message: Bytes) -> Result<Self> {
-        let static_keypair = generate_keypair().map_err(|_| Error {})?;
+        let static_keypair = generate_keypair()?;
         Self::new(&static_keypair, signature_noise_message)
     }
 
@@ -290,10 +293,10 @@ impl Responder {
     ) -> Result<Self> {
         let authority = Authority::from_raw_k(pub_k, priv_k);
 
-        let static_keypair = generate_keypair().map_err(|_| Error {})?;
+        let static_keypair = generate_keypair()?;
 
         let signature_noise_message = authority
-            .ok_or(Error {})?
+            .ok_or(Error::Todo)?
             .new_cert(static_keypair.public.clone(), duration)?
             .serialize_to_bytes_mut()?;
 
@@ -311,7 +314,7 @@ impl Responder {
             .local_private_key(&self.private)
             .prologue(prologue)
             .build_responder())
-        .map_err(|_| Error {})?;
+        .map_err(|_| Error::Todo)?;
         Ok(())
     }
 }
@@ -326,7 +329,7 @@ impl handshake::Step for Responder {
 
         let result = match self.stage {
             0 => {
-                let mut in_msg = in_msg.ok_or(Error {})?;
+                let mut in_msg = in_msg.ok_or(Error::Todo)?;
                 let negotiation_message: std::result::Result<NegotiationMessage, _> =
                     from_bytes(&mut in_msg);
                 match negotiation_message {
@@ -339,7 +342,7 @@ impl handshake::Step for Responder {
                         } else {
                             algs.into_iter()
                                 .find(|x| self.algorithms.contains(x))
-                                .ok_or(Error {})?
+                                .ok_or(Error::Todo)?
                         };
 
                         let negotiation_message = NegotiationMessage::new(vec![chosen_algorithm]);
@@ -360,7 +363,7 @@ impl handshake::Step for Responder {
                 // Receive Initiator ephemeral public key
                 // <- e
                 //
-                let in_msg = in_msg.ok_or(Error {})?;
+                let in_msg = in_msg.ok_or(Error::Todo)?;
 
                 let buffer_len = BUFFER_LEN;
 
@@ -368,7 +371,7 @@ impl handshake::Step for Responder {
 
                 self.handshake_state
                     .read_message(&in_msg, &mut noise_bytes)
-                    .map_err(|_| Error {})?;
+                    .map_err(|_| Error::Todo)?;
 
                 // Create response message
                 // -> e, ee, s, es, SIGNATURE_NOISE_MESSAGE
@@ -376,13 +379,13 @@ impl handshake::Step for Responder {
                 let len_written = self
                     .handshake_state
                     .write_message(&self.signature_noise_message, &mut noise_bytes)
-                    .map_err(|_| Error {})?;
+                    .map_err(|_| Error::Todo)?;
 
                 debug_assert!(buffer_len == len_written);
                 handshake::StepResult::NoMoreReply(noise_bytes)
             }
             2 => handshake::StepResult::Done,
-            _ => return Err(Error {}),
+            _ => return Err(Error::Todo),
         };
         self.stage += 1;
         Ok(result)
@@ -407,7 +410,7 @@ impl TransportMode {
         let _msg_len = self
             .inner
             .read_message(encrypted_msg, decrypted_msg)
-            .map_err(|_| Error {})?;
+            .map_err(|_| Error::Todo)?;
 
         Ok(())
     }
@@ -440,7 +443,7 @@ impl TransportMode {
         let _msg_len = self
             .inner
             .write_message(plain_msg, encrypted_msg)
-            .map_err(|_| Error {})?;
+            .map_err(|_| Error::Todo)?;
 
         Ok(())
     }
