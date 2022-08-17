@@ -439,6 +439,7 @@ dependencies = [
  "framing_sv2",
  "noise_sv2",
  "serde",
+ "snow",
 ]
 
 [[package]]

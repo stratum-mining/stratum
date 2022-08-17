@@ -69,18 +69,12 @@ impl HandshakeRole {
     pub fn into_transport(self) -> Result<TransportMode> {
         match self {
             Self::Initiator(stepper) => {
-                let tp = stepper
-                    .into_handshake_state()
-                    .into_transport_mode()
-                    .map_err(|_| Error::CodecTodo)?;
+                let tp = stepper.into_handshake_state().into_transport_mode()?;
                 Ok(TransportMode::new(tp))
             }
 
             Self::Responder(stepper) => {
-                let tp = stepper
-                    .into_handshake_state()
-                    .into_transport_mode()
-                    .map_err(|_| Error::CodecTodo)?;
+                let tp = stepper.into_handshake_state().into_transport_mode()?;
                 Ok(TransportMode::new(tp))
             }
         }

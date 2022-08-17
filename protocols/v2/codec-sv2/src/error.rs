@@ -11,6 +11,8 @@ pub enum Error {
     MissingBytes(usize),
     #[cfg(feature = "noise_sv2")]
     NoiseSv2Error(NoiseError),
+    /// `snow` errors
+    SnowError(snow::Error),
     /// Error if Noise protocol state is not as expected
     UnexpectedNoiseState,
     CodecTodo,
@@ -26,6 +28,7 @@ impl fmt::Display for Error {
             MissingBytes(u) => write!(f, "Missing `{}` Noise bytes", u),
             #[cfg(feature = "noise_sv2")]
             NoiseSv2Error(e) => write!(f, "Noise SV2 Error: `{:?}`", e),
+            SnowError(e) => write!(f, "Snow Error: `{:?}`", e),
             UnexpectedNoiseState => {
                 write!(f, "Noise state is incorrect")
             }
@@ -44,5 +47,11 @@ impl From<binary_sv2::Error> for Error {
 impl From<NoiseError> for Error {
     fn from(e: NoiseError) -> Self {
         Error::NoiseSv2Error(e)
+    }
+}
+
+impl From<snow::Error> for Error {
+    fn from(e: snow::Error) -> Self {
+        Error::SnowError(e)
     }
 }

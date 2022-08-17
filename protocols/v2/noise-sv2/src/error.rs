@@ -122,6 +122,7 @@ impl From<serde_json::Error> for Error {
         Error::BadSerdeJson(e)
     }
 }
+
 impl From<snow::Error> for Error {
     fn from(e: snow::Error) -> Self {
         Error::SnowError(e)
