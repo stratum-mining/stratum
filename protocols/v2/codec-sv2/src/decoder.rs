@@ -75,7 +75,7 @@ impl<'a, T: Serialize + GetSize + Deserialize<'a>, B: IsBuffer> WithNoise<B, T> 
                 let src = noise_frame.payload();
 
                 // DECRYPT THE ENCRYPTED PAYLOAD
-                let len = TransportMode::size_hint_decrypt(src.len()).ok_or(Error::CodecTodo)?;
+                let len = TransportMode::size_hint_decrypt(src.len())?;
                 let decrypted = self.sv2_buffer.get_writable(len);
                 transport_mode.read(src, decrypted)?;
 
