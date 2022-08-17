@@ -47,7 +47,7 @@ const BUFFER_LEN: usize =
 pub fn generate_keypair() -> Result<StaticKeypair> {
     let params: NoiseParams = PARAMS.parse().expect("BUG: cannot parse noise parameters");
     let builder: Builder<'_> = Builder::new(params);
-    builder.generate_keypair().map_err(|_| Error::NoiseTodo)
+    Ok(builder.generate_keypair()?)
 }
 
 /// Generate a random ed25519 dalek keypair
@@ -73,7 +73,7 @@ impl Initiator {
         let params: NoiseParams = PARAMS.parse().expect("BUG: cannot parse noise parameters");
 
         let builder: Builder<'_> = Builder::new(params);
-        let handshake_state = builder.build_initiator().map_err(|_| Error::NoiseTodo)?;
+        let handshake_state = builder.build_initiator()?;
         let algorithms = vec![EncryptionAlgorithm::ChaChaPoly, EncryptionAlgorithm::AESGCM];
 
         Ok(Self {
@@ -85,8 +85,7 @@ impl Initiator {
     }
 
     pub fn from_raw_k(authority_public_key: [u8; 32]) -> Result<Self> {
-        let authority_public_key = ed25519_dalek::PublicKey::from_bytes(&authority_public_key[..])
-            .map_err(|_| Error::NoiseTodo)?;
+        let authority_public_key = ed25519_dalek::PublicKey::from_bytes(&authority_public_key[..])?;
         Self::new(authority_public_key)
     }
 
@@ -175,6 +174,7 @@ impl handshake::Step for Initiator {
                 handshake::StepResult::ExpectReply(noise_bytes)
             }
             2 => {
+                dbg!("2");
                 // Receive responder message
                 // <- e, ee, s, es, SIGNATURE_NOISE_MESSAGE
                 //
@@ -185,6 +185,7 @@ impl handshake::Step for Initiator {
                 let signature_len = self
                     .handshake_state
                     .read_message(&in_msg[..], &mut noise_bytes)?;
+                // .expect("RR ERRORS HERE");
 
                 debug_assert!(SIGNATURE_MESSAGE_LEN == signature_len);
 
