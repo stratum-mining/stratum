@@ -55,14 +55,14 @@ macro_rules! impl_basic_type {
             type Error = Error;
 
             fn try_from(value: String) -> Result<Self> {
-                serde_json::from_str(value.as_str()).map_err(|_| Error::NoiseTodo)
+                Ok(serde_json::from_str(value.as_str())?)
             }
         }
         /// Helper serializer into string
         impl TryFrom<$format_struct_type> for String {
             type Error = Error;
             fn try_from(value: $format_struct_type) -> Result<String> {
-                serde_json::to_string_pretty(&value).map_err(|_| Error::NoiseTodo)
+                Ok(serde_json::to_string_pretty(&value)?)
             }
         }
     };
@@ -246,14 +246,14 @@ impl TryFrom<String> for Certificate {
     type Error = Error;
 
     fn try_from(value: String) -> Result<Self> {
-        serde_json::from_str(value.as_str()).map_err(|_| Error::NoiseTodo)
+        Ok(serde_json::from_str(value.as_str())?)
     }
 }
 
 impl TryFrom<Certificate> for String {
     type Error = Error;
     fn try_from(value: Certificate) -> Result<String> {
-        serde_json::to_string_pretty(&value).map_err(|_| Error::NoiseTodo)
+        Ok(serde_json::to_string_pretty(&value)?)
     }
 }
 

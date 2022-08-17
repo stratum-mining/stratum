@@ -3,6 +3,7 @@ use core::fmt;
 #[repr(C)]
 #[derive(Debug)]
 pub enum Error {
+    BadSerdeJson(serde_json::Error),
     /// Errors on bad conversion from system time to UNIX timestamp.
     BadSystemTimeFromTimestamp(std::time::SystemTimeError),
     /// Errors on bad conversion from UNIX timestamp to system time.
@@ -47,6 +48,7 @@ impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use Error::*;
         match self {
+            BadSerdeJson(e) => write!(f, "Serde JSON Error: `{}`", e),
             BadSystemTimeFromTimestamp(e) => write!(f, "Error converting system time to UNIX timestamp: `{}`", e),
             BadTimestampFromSystemTime(u) => write!(f, "Error converting UNIX timestamp `{}` to system time", u),
             BinarySv2Error(e) => write!(f, "Binary Sv2 Error: `{:?}`", e),
@@ -94,6 +96,12 @@ impl From<ed25519_dalek::ed25519::Error> for Error {
 impl From<std::io::Error> for Error {
     fn from(e: std::io::Error) -> Self {
         Error::IoError(e)
+    }
+}
+
+impl From<serde_json::Error> for Error {
+    fn from(e: serde_json::Error) -> Self {
+        Error::BadSerdeJson(e)
     }
 }
 impl From<snow::Error> for Error {
