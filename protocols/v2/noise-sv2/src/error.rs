@@ -13,6 +13,8 @@ pub enum Error {
     /// Errors if negotiation encryption algorithm is unsupported. Valid values are `1196639553`
     /// (AESGCM) or `1212368963` (ChaChaPoly).
     InvalidEncryptionAlgorithm(u32),
+    #[cfg(not(feature = "no_std"))]
+    IoError(std::io::Error),
     SnowError(snow::Error),
     /// Errors on `get_remote_static_key` return is `None`. Occurs is chosen Noise pattern doesn’t
     /// necessitate a remote static key, or if the remote static key is not yet known (as can be
@@ -47,6 +49,7 @@ impl fmt::Display for Error {
                 u
             ),
             InvalidEncryptionAlgorithm(u) => write!(f, "Invalid encryption algorithm. Expected `1196639553` (AESGCM) or `1212368963` (ChaChaPoly). Got: `{}`", u),
+            IoError(e) => write!(f, "IO Error: `{:?}`", e),
             SnowError(e) => write!(f, "Snow Error: `{:?}`", e),
             SnowNoRemoteStaticKey => write!(f, "Snow Error: No remote static key found"),
             NoiseTodo => write!(f, "Noise Sv2 Error: TODO"),
@@ -72,6 +75,12 @@ impl From<ed25519_dalek::ed25519::Error> for Error {
     }
 }
 
+#[cfg(not(feature = "no_std"))]
+impl From<std::io::Error> for Error {
+    fn from(e: std::io::Error) -> Self {
+        Error::IoError(e)
+    }
+}
 impl From<snow::Error> for Error {
     fn from(e: snow::Error) -> Self {
         Error::SnowError(e)

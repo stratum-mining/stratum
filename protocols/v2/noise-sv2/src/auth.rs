@@ -31,9 +31,7 @@ impl SignedPartHeader {
         let version = self.version.to_le_bytes();
         let valid_from = self.valid_from.to_le_bytes();
         let not_valid_after = self.not_valid_after.to_le_bytes();
-        writer
-            .write_all(&[&version[..], &valid_from[..], &not_valid_after[..]].concat()[..])
-            .map_err(|_| Error::NoiseTodo)?;
+        writer.write_all(&[&version[..], &valid_from[..], &not_valid_after[..]].concat()[..])?;
         Ok(())
     }
 
