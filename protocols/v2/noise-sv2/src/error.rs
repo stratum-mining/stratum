@@ -10,6 +10,7 @@ pub enum Error {
     BadTimestampFromSystemTime(u32),
     /// Errors from the `binary_sv2` crate
     BinarySv2Error(binary_sv2::Error),
+    Bs58DecodeError(bs58::decode::Error),
     /// Errors on expired certificate. Displays validity expiration time and current time:
     /// `(not_valid_after, now)`.
     CertificateExpired(u32, u32),
@@ -51,6 +52,7 @@ impl fmt::Display for Error {
             BadSerdeJson(e) => write!(f, "Serde JSON Error: `{}`", e),
             BadSystemTimeFromTimestamp(e) => write!(f, "Error converting system time to UNIX timestamp: `{}`", e),
             BadTimestampFromSystemTime(u) => write!(f, "Error converting UNIX timestamp `{}` to system time", u),
+    Bs58DecodeError(e) => write!(f, "Bs58 Error: `{}`", e),
             BinarySv2Error(e) => write!(f, "Binary Sv2 Error: `{:?}`", e),
             CertificateExpired(u1, u2) => write!(f, "Certificate expired. Provided certificate expired at `{}`. The current time is `{}`", u1, u2),
             CertificateInvalid(u1, u2) => write!(f, "Certificate invalid. Provided certificate is valid starting at `{}`. The current time is `{}`", u1, u2),
@@ -77,6 +79,12 @@ impl fmt::Display for Error {
 impl From<()> for Error {
     fn from(_: ()) -> Self {
         Error::NoiseTodo
+    }
+}
+
+impl From<bs58::decode::Error> for Error {
+    fn from(e: bs58::decode::Error) -> Self {
+        Error::Bs58DecodeError(e)
     }
 }
 
