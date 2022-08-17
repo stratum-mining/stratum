@@ -121,10 +121,7 @@ impl Initiator {
     ) -> Result<()> {
         let builder = NoiseParamsBuilder::new(algo).get_builder();
 
-        self.handshake_state = builder
-            .prologue(prologue)
-            .build_initiator()
-            .map_err(|_| Error::NoiseTodo)?;
+        self.handshake_state = builder.prologue(prologue).build_initiator()?;
         Ok(())
     }
 }
@@ -174,7 +171,6 @@ impl handshake::Step for Initiator {
                 handshake::StepResult::ExpectReply(noise_bytes)
             }
             2 => {
-                dbg!("2");
                 // Receive responder message
                 // <- e, ee, s, es, SIGNATURE_NOISE_MESSAGE
                 //
@@ -185,7 +181,6 @@ impl handshake::Step for Initiator {
                 let signature_len = self
                     .handshake_state
                     .read_message(&in_msg[..], &mut noise_bytes)?;
-                // .expect("RR ERRORS HERE");
 
                 debug_assert!(SIGNATURE_MESSAGE_LEN == signature_len);
 
@@ -193,9 +188,7 @@ impl handshake::Step for Initiator {
 
                 handshake::StepResult::Done
             }
-            _ => {
-                return Err(Error::NoiseTodo);
-            }
+            _ => return Err(Error::HSInitiatorStepNotFound(self.stage)),
         };
         self.stage += 1;
         Ok(result)
@@ -381,7 +374,7 @@ impl handshake::Step for Responder {
                 handshake::StepResult::NoMoreReply(noise_bytes)
             }
             2 => handshake::StepResult::Done,
-            _ => return Err(Error::NoiseTodo),
+            _ => return Err(Error::HSResponderStepNotFound(self.stage)),
         };
         self.stage += 1;
         Ok(result)

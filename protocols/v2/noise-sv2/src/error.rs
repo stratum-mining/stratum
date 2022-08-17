@@ -7,6 +7,10 @@ pub enum Error {
     BinarySv2Error(binary_sv2::Error),
     DalekError(ed25519_dalek::ed25519::Error),
     SnowError(snow::Error),
+    /// Errors if handshake initiator step is invalid. Valid steps are 0, 1, or 2.
+    HSInitiatorStepNotFound(usize),
+    /// Errors if handshake responder step is invalid. Valid steps are 0, 1, or 2.
+    HSResponderStepNotFound(usize),
     /// Catch all
     NoiseTodo,
 }
@@ -25,6 +29,16 @@ impl fmt::Display for Error {
             BinarySv2Error(e) => write!(f, "Binary Sv2 Error: `{:?}`", e),
             DalekError(e) => write!(f, "ed25519 Dalek Error: `{:?}`", e),
             SnowError(e) => write!(f, "Snow Error: `{:?}`", e),
+            HSInitiatorStepNotFound(u) => write!(
+                f,
+                "Invalid handshake initiator step: `{}`. Valid steps are 0, 1, or 2.",
+                u
+            ),
+            HSResponderStepNotFound(u) => write!(
+                f,
+                "Invalid handshake responder step: `{}`. Valid steps are 0, 1, or 2.",
+                u
+            ),
             NoiseTodo => write!(f, "Noise Sv2 Error: TODO"),
         }
     }
