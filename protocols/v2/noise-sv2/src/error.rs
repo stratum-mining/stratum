@@ -6,16 +6,19 @@ pub enum Error {
     /// Errors from the `binary_sv2` crate
     BinarySv2Error(binary_sv2::Error),
     DalekError(ed25519_dalek::ed25519::Error),
+    /// Errors if handshake initiator step is invalid. Valid steps are 0, 1, or 2.
+    HSInitiatorStepNotFound(usize),
+    /// Errors if handshake responder step is invalid. Valid steps are 0, 1, or 2.
+    HSResponderStepNotFound(usize),
+    /// Errors if negotiation encryption algorithm is unsupported. Valid values are `1196639553`
+    /// (AESGCM) or `1212368963` (ChaChaPoly).
+    InvalidEncryptionAlgorithm(u32),
     SnowError(snow::Error),
     /// Errors on `get_remote_static_key` return is `None`. Occurs is chosen Noise pattern doesn’t
     /// necessitate a remote static key, or if the remote static key is not yet known (as can be
     /// the case in the XX pattern, for example).
     /// https://docs.rs/snow/latest/snow/struct.HandshakeState.html#method.get_remote_static
     SnowNoRemoteStaticKey,
-    /// Errors if handshake initiator step is invalid. Valid steps are 0, 1, or 2.
-    HSInitiatorStepNotFound(usize),
-    /// Errors if handshake responder step is invalid. Valid steps are 0, 1, or 2.
-    HSResponderStepNotFound(usize),
     /// Catch all
     NoiseTodo,
 }
@@ -33,8 +36,6 @@ impl fmt::Display for Error {
         match self {
             BinarySv2Error(e) => write!(f, "Binary Sv2 Error: `{:?}`", e),
             DalekError(e) => write!(f, "ed25519 Dalek Error: `{:?}`", e),
-            SnowError(e) => write!(f, "Snow Error: `{:?}`", e),
-            SnowNoRemoteStaticKey => write!(f, "Snow Error: No remote static key found"),
             HSInitiatorStepNotFound(u) => write!(
                 f,
                 "Invalid handshake initiator step: `{}`. Valid steps are 0, 1, or 2.",
@@ -45,6 +46,9 @@ impl fmt::Display for Error {
                 "Invalid handshake responder step: `{}`. Valid steps are 0, 1, or 2.",
                 u
             ),
+            InvalidEncryptionAlgorithm(u) => write!(f, "Invalid encryption algorithm. Expected `1196639553` (AESGCM) or `1212368963` (ChaChaPoly). Got: `{}`", u),
+            SnowError(e) => write!(f, "Snow Error: `{:?}`", e),
+            SnowNoRemoteStaticKey => write!(f, "Snow Error: No remote static key found"),
             NoiseTodo => write!(f, "Noise Sv2 Error: TODO"),
         }
     }

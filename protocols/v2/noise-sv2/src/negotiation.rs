@@ -1,3 +1,4 @@
+use crate::Error;
 use binary_sv2::{binary_codec_sv2, Deserialize, Seq0255, Serialize};
 use core::convert::{TryFrom, TryInto};
 use snow::{params::NoiseParams, Builder};
@@ -40,7 +41,7 @@ impl From<EncryptionAlgorithm> for u32 {
     }
 }
 impl TryFrom<u32> for EncryptionAlgorithm {
-    type Error = ();
+    type Error = Error;
 
     fn try_from(value: u32) -> Result<Self, Self::Error> {
         match value {
@@ -48,7 +49,7 @@ impl TryFrom<u32> for EncryptionAlgorithm {
             1196639553 => Ok(EncryptionAlgorithm::AESGCM),
             //32::from_le_bytes(*b"CHCH");
             1212368963 => Ok(EncryptionAlgorithm::ChaChaPoly),
-            _ => Err(()),
+            _ => Err(Error::InvalidEncryptionAlgorithm(value)),
         }
     }
 }
@@ -71,8 +72,7 @@ impl<'decoder> NegotiationMessage<'decoder> {
     pub fn get_algos(&self) -> Result<Vec<EncryptionAlgorithm>, crate::Error> {
         let mut algos = vec![];
         for algo in &self.encryption_algos.0 {
-            let algo: EncryptionAlgorithm =
-                (*algo).try_into().map_err(|_| crate::Error::NoiseTodo)?;
+            let algo: EncryptionAlgorithm = (*algo).try_into()?;
             algos.push(algo);
         }
         Ok(algos)
