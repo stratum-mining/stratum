@@ -7,7 +7,7 @@ use alloc::{boxed::Box, vec::Vec};
 
 mod decoder;
 mod encoder;
-mod error;
+pub mod error;
 
 pub use error::Error;
 
