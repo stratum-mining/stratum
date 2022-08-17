@@ -11,7 +11,6 @@ pub enum Error {
     MissingBytes(usize),
     #[cfg(feature = "noise_sv2")]
     NoiseSv2Error(NoiseError),
-    CodecTodo,
     /// Catch all
     CodecCatchAll,
 }
@@ -28,7 +27,6 @@ impl fmt::Display for Error {
             MissingBytes(u) => write!(f, "Missing `{}` Noise bytes", u),
             #[cfg(feature = "noise_sv2")]
             NoiseSv2Error(e) => write!(f, "Noise SV2 Error: `{:?}`", e),
-            CodecTodo => write!(f, "Codec Sv2 Error: TODO"),
             CodecCatchAll => write!(f, "Codec Sv2 Error: CATCH ALL"),
         }
     }
