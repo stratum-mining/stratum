@@ -62,18 +62,16 @@ impl<T: Serialize + GetSize> NoiseEncoder<T> {
 
                 // IF THE MESSAGE FIT INTO A NOISE FRAME ENCODE IT HOT PATH
                 if len <= M {
-                    self.encode_single_frame(transport_mode)
-                        .map_err(|_| Error::CodecTodo)?;
+                    self.encode_single_frame(transport_mode)?;
 
-                // IF LEN IS BIGGER THAN NOISE PAYLOAD MAX SIZE MESSAGE IS ENCODED AS SEVERAL NOISE
-                // MESSAGES COLD PATH
+                    // IF LEN IS BIGGER THAN NOISE PAYLOAD MAX SIZE MESSAGE IS ENCODED AS SEVERAL NOISE
+                    // MESSAGES COLD PATH
                 } else {
-                    self.encode_multiple_frame(transport_mode)
-                        .map_err(|_| Error::CodecTodo)?;
+                    self.encode_multiple_frame(transport_mode)?;
                 }
             }
-            State::HandShake(_) => self.while_handshaking(item).map_err(|_| Error::CodecTodo)?,
-            State::NotInitialized => self.while_handshaking(item).map_err(|_| Error::CodecTodo)?,
+            State::HandShake(_) => self.while_handshaking(item)?,
+            State::NotInitialized => self.while_handshaking(item)?,
         };
 
         // Clear sv2_buffer
@@ -82,23 +80,23 @@ impl<T: Serialize + GetSize> NoiseEncoder<T> {
         Ok(self.noise_buffer.get_data_owned())
     }
 
+    /// Encode a single noise message frame.
     #[inline(always)]
     fn encode_single_frame(&mut self, transport_mode: &mut TransportMode) -> Result<()> {
-        // RESERVE ENAUGH SPACE TO ENCODE THE NOISE MESSAGE
+        // Reserve enough space to encode the noise message
         let len = TransportMode::size_hint_encrypt(self.sv2_buffer.len());
 
-        // PREPEND THE NOISE FRAME HEADER
+        // Prepend the noise frame header
         build_noise_frame_header(self.noise_buffer.get_writable(2), len as u16);
 
-        // ENCRYPT THE SV2 FRAME AND ENCODE THE NOISE FRAME
-        transport_mode
-            .write(
-                self.sv2_buffer.get_data_by_ref(self.sv2_buffer.len()),
-                self.noise_buffer.get_writable(len),
-            )
-            .map_err(|_| Error::CodecTodo)
+        // Encrypt the SV2 frame and encode the noise frame
+        Ok(transport_mode.write(
+            self.sv2_buffer.get_data_by_ref(self.sv2_buffer.len()),
+            self.noise_buffer.get_writable(len),
+        )?)
     }
 
+    /// Encode multiple noise message frames.
     #[inline(never)]
     fn encode_multiple_frame(&mut self, transport_mode: &mut TransportMode) -> Result<()> {
         let buffer_len: usize = self.sv2_buffer.len();
@@ -110,14 +108,12 @@ impl<T: Serialize + GetSize> NoiseEncoder<T> {
 
             let buf = &self.sv2_buffer.get_data_by_ref(self.sv2_buffer.len())[start..end];
 
-            // PREPEND THE NOISE FRAME HEADER
+            // Prepend the noise frame header
             let len = TransportMode::size_hint_encrypt(buf.len());
             build_noise_frame_header(self.noise_buffer.get_writable(2), len as u16);
 
-            // ENCRYPT THE SV2 FRAGMENT
-            transport_mode
-                .write(buf, self.noise_buffer.get_writable(len))
-                .map_err(|_| Error::CodecTodo)?;
+            // Encrypt the SV2 fragment
+            transport_mode.write(buf, self.noise_buffer.get_writable(len))?;
 
             if end == buffer_len {
                 break;
@@ -134,8 +130,7 @@ impl<T: Serialize + GetSize> NoiseEncoder<T> {
         let len = item.encoded_length();
         // ENCODE THE SV2 FRAME
         let i: HandShakeFrame = item.try_into().map_err(|_| Error::CodecTodo)?;
-        i.serialize(self.noise_buffer.get_writable(len))
-            .map_err(|_| Error::CodecTodo)?;
+        i.serialize(self.noise_buffer.get_writable(len))?;
 
         Ok(())
     }

@@ -109,9 +109,9 @@ impl<'a, T: Serialize + GetSize + Deserialize<'a>, B: IsBuffer> WithNoise<B, T> 
 
     #[inline(never)]
     fn handle_fragmented(&mut self) -> Option<EitherFrame<T, B::Slice>> {
-        // IF IS NOT THE FIRST FRAGMENT CHECK IF A COMPLETE FRAME IS AVAIBLE IF YES RETURN THE
-        // FRAME IF NOT SET MISSING NOISE BYTES TO NOISE HEADER SIZE SO THE DECODER CAN START TO
-        // DECODE THE NEXT NOISE FRAME
+        // If is NOT the first fragment: check if a complete frame is available. If it is, return
+        // the frame. If is NOT, set missing noise bytes to noise header size so the decoder can
+        // start to decode the next noise frame.
         let len = self.sv2_buffer.len();
         let src = self.sv2_buffer.get_data_by_ref(len);
         let hint = Sv2Frame::<T, B::Slice>::size_hint(src);
@@ -125,7 +125,7 @@ impl<'a, T: Serialize + GetSize + Deserialize<'a>, B: IsBuffer> WithNoise<B, T> 
                 None
             }
 
-        // IF IS THE FIRST FRAGMETN JUST SET THE MISSING SV2 AND NOISE BYTES
+        // If is the first fragment just set the missing sv2 and noise bytes.
         } else {
             self.sv2_frame_size = hint as usize;
             self.missing_noise_b = NoiseHeader::SIZE;
