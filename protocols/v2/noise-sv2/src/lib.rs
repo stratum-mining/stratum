@@ -257,7 +257,7 @@ impl Authority {
 
 impl Responder {
     pub fn new(static_keypair: &StaticKeypair, signature_noise_message: Bytes) -> Result<Self> {
-        let params: NoiseParams = PARAMS.parse().map_err(|_| Error {})?;
+        let params: NoiseParams = PARAMS.parse()?;
 
         let builder: Builder<'_> = Builder::new(params);
 
