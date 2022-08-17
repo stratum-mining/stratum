@@ -97,7 +97,7 @@ impl Initiator {
         let remote_static_key = self
             .handshake_state
             .get_remote_static()
-            .ok_or(Error::NoiseTodo)?;
+            .ok_or(Error::SnowNoRemoteStaticKey)?;
         let remote_static_key = StaticPublicKey::from(remote_static_key);
 
         let signature_noise_message =
