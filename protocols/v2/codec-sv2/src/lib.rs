@@ -9,7 +9,7 @@ mod decoder;
 mod encoder;
 pub mod error;
 
-pub use error::Error;
+pub use error::{Error, Result};
 
 pub use decoder::{StandardEitherFrame, StandardSv2Frame};
 
@@ -49,7 +49,7 @@ pub enum HandshakeRole {
 
 #[cfg(feature = "noise_sv2")]
 impl HandshakeRole {
-    pub fn step(&mut self, in_msg: Option<Vec<u8>>) -> Result<HandShakeFrame, Error> {
+    pub fn step(&mut self, in_msg: Option<Vec<u8>>) -> Result<HandShakeFrame> {
         match self {
             Self::Initiator(stepper) => {
                 let message = stepper.step(in_msg)?.inner();
@@ -66,7 +66,7 @@ impl HandshakeRole {
         }
     }
 
-    pub fn into_transport(self) -> Result<TransportMode, Error> {
+    pub fn into_transport(self) -> Result<TransportMode> {
         match self {
             Self::Initiator(stepper) => {
                 let tp = stepper
@@ -128,7 +128,7 @@ impl State {
         Self::Transport(tm)
     }
 
-    pub fn step(&mut self, in_msg: Option<Vec<u8>>) -> Result<HandShakeFrame, Error> {
+    pub fn step(&mut self, in_msg: Option<Vec<u8>>) -> Result<HandShakeFrame> {
         match self {
             Self::NotInitialized => Err(Error::UnexpectedNoiseState),
             Self::HandShake(stepper) => stepper.step(in_msg),
@@ -136,7 +136,7 @@ impl State {
         }
     }
 
-    pub fn into_transport_mode(self) -> Result<Self, Error> {
+    pub fn into_transport_mode(self) -> Result<Self> {
         match self {
             Self::NotInitialized => Err(Error::UnexpectedNoiseState),
             Self::HandShake(stepper) => {
