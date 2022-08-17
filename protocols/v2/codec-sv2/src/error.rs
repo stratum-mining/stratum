@@ -14,8 +14,6 @@ pub enum Error {
     /// Error if Noise protocol state is not as expected
     UnexpectedNoiseState,
     CodecTodo,
-    /// Catch all
-    CodecCatchAll,
 }
 
 pub type Result<T> = core::result::Result<T, Error>;
@@ -32,16 +30,9 @@ impl fmt::Display for Error {
                 write!(f, "Noise state is incorrect")
             }
             CodecTodo => write!(f, "Codec Sv2 Error: TODO"),
-            CodecCatchAll => write!(f, "Codec Sv2 Error: CATCH ALL"),
         }
     }
 }
-
-// impl From<()> for Error {
-//     fn from(_: ()) -> Self {
-//         Error::CodecCatchAll
-//     }
-// }
 
 impl From<binary_sv2::Error> for Error {
     fn from(e: binary_sv2::Error) -> Self {
