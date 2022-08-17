@@ -7,6 +7,12 @@ pub enum Error {
     BadTimestamp(u32),
     /// Errors from the `binary_sv2` crate
     BinarySv2Error(binary_sv2::Error),
+    /// Errors on expired certificate. Displays validity expiration time and current time:
+    /// `(not_valid_after, now)`.
+    CertificateExpired(u32, u32),
+    /// Errors on invalid certificate. Displays validity start time and current time:
+    /// `(valid_from, now)`.
+    CertificateInvalid(u32, u32),
     DalekError(ed25519_dalek::ed25519::Error),
     /// Errors if handshake initiator step is invalid. Valid steps are 0, 1, or 2.
     HSInitiatorStepNotFound(usize),
@@ -41,6 +47,8 @@ impl fmt::Display for Error {
         match self {
             BadTimestamp(u) => write!(f, "Error converting unix timestamp `{}` to system time", u),
             BinarySv2Error(e) => write!(f, "Binary Sv2 Error: `{:?}`", e),
+            CertificateExpired(u1, u2) => write!(f, "Certificate expired. Provided certificate expired at `{}`. The current time is `{}`", u1, u2),
+            CertificateInvalid(u1, u2) => write!(f, "Certificate invalid. Provided certificate is valid starting at `{}`. The current time is `{}`", u1, u2),
             DalekError(e) => write!(f, "ed25519 Dalek Error: `{:?}`", e),
             HSInitiatorStepNotFound(u) => write!(
                 f,

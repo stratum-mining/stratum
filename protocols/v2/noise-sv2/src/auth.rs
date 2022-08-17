@@ -70,20 +70,13 @@ impl SignedPartHeader {
     pub fn verify_expiration(&self, now: SystemTime) -> Result<()> {
         let now_timestamp = Self::system_time_to_unix_time_u32(&now)?;
         if now_timestamp < self.valid_from {
-            //return Err(ErrorKind::Noise(format!(
-            //    "Certificate not yet valid, valid from: {:?}, now: {:?}",
-            //    self.valid_from, now
-            //))
-            //.into());
-            return Err(Error::NoiseTodo);
+            return Err(Error::CertificateInvalid(self.valid_from, now_timestamp));
         }
         if now_timestamp > self.not_valid_after {
-            //return Err(ErrorKind::Noise(format!(
-            //    "Certificate expired, not valid after: {:?}, now: {:?}",
-            //    self.valid_from, now
-            //))
-            //.into());
-            return Err(Error::NoiseTodo);
+            return Err(Error::CertificateExpired(
+                self.not_valid_after,
+                now_timestamp,
+            ));
         }
         Ok(())
     }
@@ -137,24 +130,22 @@ impl SignedPart {
         let pub_k_len = [32, 0];
         let pub_k = &self.pubkey[..];
         let auth_pub_k = &self.authority_public_key.as_bytes()[..];
-        signed_part_writer
-            .write_all(
-                &[
-                    version,
-                    valid_from,
-                    not_valid_after,
-                    &pub_k_len,
-                    pub_k,
-                    &pub_k_len,
-                    auth_pub_k,
-                ]
-                .concat()[..],
-            )
-            .map_err(|_| Error::NoiseTodo)?;
+        signed_part_writer.write_all(
+            &[
+                version,
+                valid_from,
+                not_valid_after,
+                &pub_k_len,
+                pub_k,
+                &pub_k_len,
+                auth_pub_k,
+            ]
+            .concat()[..],
+        )?;
         Ok(signed_part_writer.into_inner())
     }
 
-    /// Generates the actual ed25519_dalek::Signature that is ready to be embedded into the certificate
+    /// Generates the actual `ed25519_dalek::Signature` to embed into the certificate.
     pub fn sign_with(&self, keypair: &ed25519_dalek::Keypair) -> Result<ed25519_dalek::Signature> {
         debug_assert_eq!(
             keypair.public,
@@ -169,12 +160,11 @@ impl SignedPart {
         Ok(keypair.sign(&signed_part_buf[..]))
     }
 
-    /// Verifies the specifed `signature` against this signed part
+    /// Verifies the specified `signature` against this signed part.
     pub(crate) fn verify(&self, signature: &ed25519_dalek::Signature) -> Result<()> {
         let signed_part_buf = self.serialize_to_buf()?;
         self.authority_public_key
-            .verify_strict(&signed_part_buf[..], signature)
-            .map_err(|_| Error::NoiseTodo)?;
+            .verify_strict(&signed_part_buf[..], signature)?;
         Ok(())
     }
 
@@ -194,24 +184,16 @@ pub struct SignatureNoiseMessage {
 impl SignatureNoiseMessage {
     pub fn serialize_to_writer<T: Write>(&self, writer: &mut T) -> Result<()> {
         let sign_len = [74, 0];
-        self.header
-            .serialize_to_writer(writer)
-            .map_err(|_| Error::NoiseTodo)?;
-        writer.write_all(&sign_len).map_err(|_| Error::NoiseTodo)?;
-        writer
-            .write_all(&self.signature.to_bytes()[..])
-            .map_err(|_| Error::NoiseTodo)?;
+        self.header.serialize_to_writer(writer)?;
+        writer.write_all(&sign_len)?;
+        writer.write_all(&self.signature.to_bytes()[..])?;
         Ok(())
     }
 
     pub fn serialize_to_bytes_mut(&self) -> Result<BytesMut> {
         let mut writer = BytesMut::new().writer();
-        self.serialize_to_writer(&mut writer)
-            .map_err(|_| Error::NoiseTodo)?;
-        //.context("Serialize noise message")?;
-
+        self.serialize_to_writer(&mut writer)?;
         let serialized_signature_noise_message = writer.into_inner();
-
         Ok(serialized_signature_noise_message)
     }
 
