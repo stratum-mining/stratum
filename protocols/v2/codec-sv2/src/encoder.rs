@@ -57,7 +57,7 @@ impl<T: Serialize + GetSize> NoiseEncoder<T> {
                 let writable = self.sv2_buffer.get_writable(len);
 
                 // ENCODE THE SV2 FRAME
-                let i: Sv2Frame<T, Slice> = item.try_into().map_err(|_| ())?;
+                let i: Sv2Frame<T, Slice> = item.try_into()?;
                 i.serialize(writable).map_err(|_| ())?;
 
                 // IF THE MESSAGE FIT INTO A NOISE FRAME ENCODE IT HOT PATH
@@ -173,7 +173,7 @@ impl<T: Serialize + GetSize> Encoder<T> {
 
         self.buffer.resize(len, 0);
 
-        item.serialize(&mut self.buffer).map_err(|_| ())?;
+        item.serialize(&mut self.buffer)?;
 
         Ok(&self.buffer[..])
     }

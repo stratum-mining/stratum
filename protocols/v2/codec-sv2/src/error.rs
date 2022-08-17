@@ -5,12 +5,15 @@ use noise_sv2::Error as NoiseError;
 #[repr(C)]
 #[derive(Debug)]
 pub enum Error {
-    /// Error if Noise protocol state is not as expected
-    UnexpectedNoiseState,
+    /// Errors from the `binary_sv2` crate
+    BinarySv2Error(binary_sv2::Error),
     /// Errors if there are missing bytes in the Noise protocol
     MissingBytes(usize),
     #[cfg(feature = "noise_sv2")]
     NoiseSv2Error(NoiseError),
+    /// Error if Noise protocol state is not as expected
+    UnexpectedNoiseState,
+    CodecTodo,
     /// Catch all
     CodecCatchAll,
 }
@@ -21,12 +24,14 @@ impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use Error::*;
         match self {
-            UnexpectedNoiseState => {
-                write!(f, "Noise state is incorrect")
-            }
+            BinarySv2Error(e) => write!(f, "Binary Sv2 Error: `{:?}`", e),
             MissingBytes(u) => write!(f, "Missing `{}` Noise bytes", u),
             #[cfg(feature = "noise_sv2")]
             NoiseSv2Error(e) => write!(f, "Noise SV2 Error: `{:?}`", e),
+            UnexpectedNoiseState => {
+                write!(f, "Noise state is incorrect")
+            }
+            CodecTodo => write!(f, "Codec Sv2 Error: TODO"),
             CodecCatchAll => write!(f, "Codec Sv2 Error: CATCH ALL"),
         }
     }
@@ -35,6 +40,12 @@ impl fmt::Display for Error {
 impl From<()> for Error {
     fn from(_: ()) -> Self {
         Error::CodecCatchAll
+    }
+}
+
+impl From<binary_sv2::Error> for Error {
+    fn from(e: binary_sv2::Error) -> Self {
+        Error::BinarySv2Error(e)
     }
 }
 
