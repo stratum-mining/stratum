@@ -52,8 +52,10 @@ impl HandshakeRole {
     pub fn step(&mut self, in_msg: Option<Vec<u8>>) -> Result<HandShakeFrame, crate::Error> {
         match self {
             Self::Initiator(stepper) => {
-                let message = stepper.step(in_msg).map_err(|_| ())?.inner();
-                Ok(HandShakeFrame::from_message(message.into(), 0, 0, false).ok_or(())?)
+                // let message = stepper.step(in_msg).map_err(|_| ())?.inner();
+                let message = stepper.step(in_msg)?.inner();
+                Ok(HandShakeFrame::from_message(message.into(), 0, 0, false)
+                    .ok_or(Error::CodecTodo)?)
             }
 
             Self::Responder(stepper) => {
