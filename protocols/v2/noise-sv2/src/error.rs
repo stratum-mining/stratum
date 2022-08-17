@@ -3,6 +3,8 @@ use core::fmt;
 #[repr(C)]
 #[derive(Debug)]
 pub enum Error {
+    /// Errors on bad conversion from UNIX timestamp to system time.
+    BadTimestamp(u32),
     /// Errors from the `binary_sv2` crate
     BinarySv2Error(binary_sv2::Error),
     DalekError(ed25519_dalek::ed25519::Error),
@@ -13,6 +15,7 @@ pub enum Error {
     /// Errors if negotiation encryption algorithm is unsupported. Valid values are `1196639553`
     /// (AESGCM) or `1212368963` (ChaChaPoly).
     InvalidEncryptionAlgorithm(u32),
+    /// I/O Error
     #[cfg(not(feature = "no_std"))]
     IoError(std::io::Error),
     SnowError(snow::Error),
@@ -36,6 +39,7 @@ impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use Error::*;
         match self {
+            BadTimestamp(u) => write!(f, "Error converting unix timestamp `{}` to system time", u),
             BinarySv2Error(e) => write!(f, "Binary Sv2 Error: `{:?}`", e),
             DalekError(e) => write!(f, "ed25519 Dalek Error: `{:?}`", e),
             HSInitiatorStepNotFound(u) => write!(

@@ -104,16 +104,7 @@ impl SignedPartHeader {
     fn unix_time_u32_to_system_time(unix_timestamp: u32) -> Result<SystemTime> {
         SystemTime::UNIX_EPOCH
             .checked_add(Duration::from_secs(unix_timestamp.into()))
-            .ok_or(
-                Error::NoiseTodo, //ErrorKind::Noise(
-                                  //    format!(
-                                  //        "Cannot convert unix timestamp ({}) to system time",
-                                  //        unix_timestamp
-                                  //    )
-                                  //    .to_string(),
-                                  //)
-                                  //.into(),
-            )
+            .ok_or(Error::BadTimestamp(unix_timestamp))
     }
 }
 
