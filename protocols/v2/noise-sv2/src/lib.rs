@@ -148,9 +148,8 @@ impl handshake::Step for Initiator {
             }
             1 => {
                 // <- chosen algorithm
-                let mut in_msg = in_msg.ok_or(Error {})?;
-                let negotiation_message: NegotiationMessage =
-                    dbg!(from_bytes(in_msg.as_mut()).map_err(|_| Error {})?);
+                let mut in_msg = in_msg.ok_or(Error::Todo)?;
+                let negotiation_message: NegotiationMessage = dbg!(from_bytes(in_msg.as_mut())?);
                 let algos = dbg!(negotiation_message.get_algos()?);
 
                 if algos.len() != 1 {
