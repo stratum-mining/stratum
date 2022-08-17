@@ -215,9 +215,9 @@ impl Authority {
     }
 
     /// Create an Authority from pub_k and priv_k (32 bytes keys)
-    pub fn from_raw_k(pub_k: &[u8], priv_k: &[u8]) -> Option<Self> {
-        let kp = ed25519_dalek::Keypair::from_bytes(&[priv_k, pub_k].concat()).ok()?;
-        Some(Self { kp })
+    pub fn from_raw_k(pub_k: &[u8], priv_k: &[u8]) -> Result<Self> {
+        let kp = ed25519_dalek::Keypair::from_bytes(&[priv_k, pub_k].concat())?;
+        Ok(Self { kp })
     }
 
     /// Create a Certificate valid until now + duration for pub_k
@@ -280,12 +280,11 @@ impl Responder {
         priv_k: &[u8],
         duration: core::time::Duration,
     ) -> Result<Self> {
-        let authority = Authority::from_raw_k(pub_k, priv_k);
+        let authority = Authority::from_raw_k(pub_k, priv_k)?;
 
         let static_keypair = generate_keypair()?;
 
         let signature_noise_message = authority
-            .ok_or(Error::NoiseTodo)?
             .new_cert(static_keypair.public.clone(), duration)?
             .serialize_to_bytes_mut()?;
 
