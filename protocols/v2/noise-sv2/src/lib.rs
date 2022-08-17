@@ -136,8 +136,6 @@ impl handshake::Step for Initiator {
     }
 
     fn step(&mut self, in_msg: Option<handshake::Message>) -> Result<handshake::StepResult> {
-        dbg!("RR NOISE_SV2 step");
-        dbg!(&in_msg);
         let mut noise_bytes = Vec::new();
 
         let result = match self.stage {
@@ -177,7 +175,6 @@ impl handshake::Step for Initiator {
                 handshake::StepResult::ExpectReply(noise_bytes)
             }
             2 => {
-                dbg!("2");
                 // Receive responder message
                 // <- e, ee, s, es, SIGNATURE_NOISE_MESSAGE
                 //
@@ -188,8 +185,6 @@ impl handshake::Step for Initiator {
                 let signature_len = self
                     .handshake_state
                     .read_message(&in_msg[..], &mut noise_bytes)?;
-                // .expect("RR ERRORS HERE");
-                dbg!(&signature_len);
 
                 debug_assert!(SIGNATURE_MESSAGE_LEN == signature_len);
 
