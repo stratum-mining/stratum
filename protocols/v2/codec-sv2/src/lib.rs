@@ -49,29 +49,30 @@ pub enum HandshakeRole {
 
 #[cfg(feature = "noise_sv2")]
 impl HandshakeRole {
-    pub fn step(&mut self, in_msg: Option<Vec<u8>>) -> Result<HandShakeFrame, crate::Error> {
+    pub fn step(&mut self, in_msg: Option<Vec<u8>>) -> Result<HandShakeFrame, Error> {
         match self {
             Self::Initiator(stepper) => {
-                // let message = stepper.step(in_msg).map_err(|_| ())?.inner();
                 let message = stepper.step(in_msg)?.inner();
                 Ok(HandShakeFrame::from_message(message.into(), 0, 0, false)
                     .ok_or(Error::CodecTodo)?)
             }
 
             Self::Responder(stepper) => {
-                let message = stepper.step(in_msg).map_err(|_| ())?.inner();
-                Ok(HandShakeFrame::from_message(message.into(), 0, 0, false).ok_or(())?)
+                let message = stepper.step(in_msg)?.inner();
+                Ok(HandShakeFrame::from_message(message.into(), 0, 0, false)
+                    .ok_or(())
+                    .map_err(|_| Error::CodecTodo)?)
             }
         }
     }
 
-    pub fn into_transport(self) -> Result<TransportMode, crate::Error> {
+    pub fn into_transport(self) -> Result<TransportMode, Error> {
         match self {
             Self::Initiator(stepper) => {
                 let tp = stepper
                     .into_handshake_state()
                     .into_transport_mode()
-                    .map_err(|_| ())?;
+                    .map_err(|_| Error::CodecTodo)?;
                 Ok(TransportMode::new(tp))
             }
 
@@ -79,7 +80,7 @@ impl HandshakeRole {
                 let tp = stepper
                     .into_handshake_state()
                     .into_transport_mode()
-                    .map_err(|_| ())?;
+                    .map_err(|_| Error::CodecTodo)?;
                 Ok(TransportMode::new(tp))
             }
         }
@@ -127,7 +128,7 @@ impl State {
         Self::Transport(tm)
     }
 
-    pub fn step(&mut self, in_msg: Option<Vec<u8>>) -> Result<HandShakeFrame, crate::Error> {
+    pub fn step(&mut self, in_msg: Option<Vec<u8>>) -> Result<HandShakeFrame, Error> {
         match self {
             Self::NotInitialized => Err(Error::UnexpectedNoiseState),
             Self::HandShake(stepper) => stepper.step(in_msg),

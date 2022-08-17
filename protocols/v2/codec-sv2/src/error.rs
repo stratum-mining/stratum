@@ -37,11 +37,11 @@ impl fmt::Display for Error {
     }
 }
 
-impl From<()> for Error {
-    fn from(_: ()) -> Self {
-        Error::CodecCatchAll
-    }
-}
+// impl From<()> for Error {
+//     fn from(_: ()) -> Self {
+//         Error::CodecCatchAll
+//     }
+// }
 
 impl From<binary_sv2::Error> for Error {
     fn from(e: binary_sv2::Error) -> Self {

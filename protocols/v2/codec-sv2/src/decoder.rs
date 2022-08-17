@@ -75,14 +75,14 @@ impl<'a, T: Serialize + GetSize + Deserialize<'a>, B: IsBuffer> WithNoise<B, T> 
                 let src = noise_frame.payload();
 
                 // DECRYPT THE ENCRYPTED PAYLOAD
-                let len = TransportMode::size_hint_decrypt(src.len()).ok_or(())?;
+                let len = TransportMode::size_hint_decrypt(src.len()).ok_or(Error::CodecTodo)?;
                 let decrypted = self.sv2_buffer.get_writable(len);
                 transport_mode.read(src, decrypted)?;
 
                 // IF THE DECODER IS RECEIVING A FRAGMENTED FRAME ADD THE DECRYPTED DATA TO THE
                 // PARTIAL FRAME AND CHECK IF READY
                 if self.sv2_frame_size > 0 {
-                    return Ok(self.handle_fragmented().ok_or(())?);
+                    return Ok(self.handle_fragmented().ok_or(Error::CodecTodo)?);
                 };
 
                 let len = self.sv2_buffer.len();
@@ -99,7 +99,7 @@ impl<'a, T: Serialize + GetSize + Deserialize<'a>, B: IsBuffer> WithNoise<B, T> 
 
                 // IF HINT IS NOT 0 AND MISSING BYTES IS 0 IT MEANs THAT THE FIRST FRAGMENT OF AN
                 // SV2 HAS BEEN RECEIVED
-                self.handle_fragmented().ok_or(())?;
+                self.handle_fragmented().ok_or(Error::CodecTodo)?;
                 Err(Error::MissingBytes(self.missing_noise_b))
             }
             State::HandShake(_) => Ok(self.while_handshaking()),

@@ -10,7 +10,7 @@ use framing_sv2::framing2::{build_noise_frame_header, EitherFrame, HandShakeFram
 use framing_sv2::framing2::{Frame as F_, Sv2Frame};
 
 #[cfg(feature = "noise_sv2")]
-use crate::{State, TransportMode};
+use crate::{Error, State, TransportMode};
 
 #[cfg(feature = "noise_sv2")]
 const TAGLEN: usize = const_sv2::SNOW_TAGLEN;
@@ -50,28 +50,30 @@ type Item<T> = EitherFrame<T, Slice>;
 #[cfg(feature = "noise_sv2")]
 impl<T: Serialize + GetSize> NoiseEncoder<T> {
     #[inline]
-    pub fn encode(&mut self, item: Item<T>, state: &mut State) -> Result<Slice, crate::Error> {
+    pub fn encode(&mut self, item: Item<T>, state: &mut State) -> Result<Slice, Error> {
         match state {
             State::Transport(transport_mode) => {
                 let len = item.encoded_length();
                 let writable = self.sv2_buffer.get_writable(len);
 
                 // ENCODE THE SV2 FRAME
-                let i: Sv2Frame<T, Slice> = item.try_into()?;
-                i.serialize(writable).map_err(|_| ())?;
+                let i: Sv2Frame<T, Slice> = item.try_into().map_err(|_| Error::CodecTodo)?;
+                i.serialize(writable)?;
 
                 // IF THE MESSAGE FIT INTO A NOISE FRAME ENCODE IT HOT PATH
                 if len <= M {
-                    self.encode_single_frame(transport_mode)?;
+                    self.encode_single_frame(transport_mode)
+                        .map_err(|_| Error::CodecTodo)?;
 
                 // IF LEN IS BIGGER THAN NOISE PAYLOAD MAX SIZE MESSAGE IS ENCODED AS SEVERAL NOISE
                 // MESSAGES COLD PATH
                 } else {
-                    self.encode_multiple_frame(transport_mode)?;
+                    self.encode_multiple_frame(transport_mode)
+                        .map_err(|_| Error::CodecTodo)?;
                 }
             }
-            State::HandShake(_) => self.while_handshaking(item)?,
-            State::NotInitialized => self.while_handshaking(item)?,
+            State::HandShake(_) => self.while_handshaking(item).map_err(|_| Error::CodecTodo)?,
+            State::NotInitialized => self.while_handshaking(item).map_err(|_| Error::CodecTodo)?,
         };
 
         // Clear sv2_buffer
