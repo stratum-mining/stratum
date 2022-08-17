@@ -82,7 +82,7 @@ impl<'a, T: Serialize + GetSize + Deserialize<'a>, B: IsBuffer> WithNoise<B, T> 
                 // IF THE DECODER IS RECEIVING A FRAGMENTED FRAME ADD THE DECRYPTED DATA TO THE
                 // PARTIAL FRAME AND CHECK IF READY
                 if self.sv2_frame_size > 0 {
-                    return Ok(self.handle_fragmented().ok_or(Error::CodecTodo)?);
+                    return self.handle_fragmented().ok_or(Error::CodecTodo);
                 };
 
                 let len = self.sv2_buffer.len();
