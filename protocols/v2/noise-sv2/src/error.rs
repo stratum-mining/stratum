@@ -18,13 +18,15 @@ pub enum Error {
     /// `(valid_from, now)`.
     CertificateInvalid(u32, u32),
     DalekError(ed25519_dalek::ed25519::Error),
+    /// Errors if negotiation encryption algorithm is unsupported. Valid values are `1196639553`
+    /// (AESGCM) or `1212368963` (ChaChaPoly).
+    EncryptionAlgorithmInvalid(u32),
+    /// Errors if encryption algorithm is expected to be specified but is not.
+    EncryptionAlgorithmNotFound,
     /// Errors if handshake initiator step is invalid. Valid steps are 0, 1, or 2.
     HSInitiatorStepNotFound(usize),
     /// Errors if handshake responder step is invalid. Valid steps are 0, 1, or 2.
     HSResponderStepNotFound(usize),
-    /// Errors if negotiation encryption algorithm is unsupported. Valid values are `1196639553`
-    /// (AESGCM) or `1212368963` (ChaChaPoly).
-    InvalidEncryptionAlgorithm(u32),
     /// I/O Error
     #[cfg(not(feature = "no_std"))]
     IoError(std::io::Error),
@@ -60,6 +62,8 @@ impl fmt::Display for Error {
             CertificateExpired(u1, u2) => write!(f, "Certificate expired. Provided certificate expired at `{}`. The current time is `{}`", u1, u2),
             CertificateInvalid(u1, u2) => write!(f, "Certificate invalid. Provided certificate is valid starting at `{}`. The current time is `{}`", u1, u2),
             DalekError(e) => write!(f, "ed25519 Dalek Error: `{:?}`", e),
+            EncryptionAlgorithmInvalid(u) => write!(f, "Invalid encryption algorithm. Expected `1196639553` (AESGCM) or `1212368963` (ChaChaPoly). Got: `{}`", u),
+            EncryptionAlgorithmNotFound => write!(f, "Expected encryption algorithm, but got `None`"),
             HSInitiatorStepNotFound(u) => write!(
                 f,
                 "Invalid handshake initiator step: `{}`. Valid steps are 0, 1, or 2.",
@@ -70,7 +74,6 @@ impl fmt::Display for Error {
                 "Invalid handshake responder step: `{}`. Valid steps are 0, 1, or 2.",
                 u
             ),
-            InvalidEncryptionAlgorithm(u) => write!(f, "Invalid encryption algorithm. Expected `1196639553` (AESGCM) or `1212368963` (ChaChaPoly). Got: `{}`", u),
             IoError(e) => write!(f, "IO Error: `{:?}`", e),
             MoreThanOneAlgoReceived(u) => write!(f, "Expected 1 encryption algorithm. Received `{}`", u),
             SnowError(e) => write!(f, "Snow Error: `{:?}`", e),

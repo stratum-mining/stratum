@@ -49,7 +49,7 @@ impl TryFrom<u32> for EncryptionAlgorithm {
             1196639553 => Ok(EncryptionAlgorithm::AESGCM),
             //32::from_le_bytes(*b"CHCH");
             1212368963 => Ok(EncryptionAlgorithm::ChaChaPoly),
-            _ => Err(Error::InvalidEncryptionAlgorithm(value)),
+            _ => Err(Error::EncryptionAlgorithmInvalid(value)),
         }
     }
 }

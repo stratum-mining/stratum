@@ -329,7 +329,7 @@ impl handshake::Step for Responder {
                         } else {
                             algs.into_iter()
                                 .find(|x| self.algorithms.contains(x))
-                                .ok_or(Error::NoiseTodo)?
+                                .ok_or(Error::EncryptionAlgorithmNotFound)?
                         };
 
                         let negotiation_message = NegotiationMessage::new(vec![chosen_algorithm]);
