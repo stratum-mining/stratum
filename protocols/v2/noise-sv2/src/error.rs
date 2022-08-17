@@ -28,6 +28,9 @@ pub enum Error {
     /// I/O Error
     #[cfg(not(feature = "no_std"))]
     IoError(std::io::Error),
+    /// Errors if more than on encryption algorithm was returned when only one was expected.
+    MoreThanOneAlgoReceived(usize),
+    /// `snow` errors
     SnowError(snow::Error),
     /// Errors on `get_remote_static_key` return is `None`. Occurs is chosen Noise pattern doesn’t
     /// necessitate a remote static key, or if the remote static key is not yet known (as can be
@@ -52,7 +55,7 @@ impl fmt::Display for Error {
             BadSerdeJson(e) => write!(f, "Serde JSON Error: `{}`", e),
             BadSystemTimeFromTimestamp(e) => write!(f, "Error converting system time to UNIX timestamp: `{}`", e),
             BadTimestampFromSystemTime(u) => write!(f, "Error converting UNIX timestamp `{}` to system time", u),
-    Bs58DecodeError(e) => write!(f, "Bs58 Error: `{}`", e),
+            Bs58DecodeError(e) => write!(f, "Bs58 Error: `{}`", e),
             BinarySv2Error(e) => write!(f, "Binary Sv2 Error: `{:?}`", e),
             CertificateExpired(u1, u2) => write!(f, "Certificate expired. Provided certificate expired at `{}`. The current time is `{}`", u1, u2),
             CertificateInvalid(u1, u2) => write!(f, "Certificate invalid. Provided certificate is valid starting at `{}`. The current time is `{}`", u1, u2),
@@ -69,6 +72,7 @@ impl fmt::Display for Error {
             ),
             InvalidEncryptionAlgorithm(u) => write!(f, "Invalid encryption algorithm. Expected `1196639553` (AESGCM) or `1212368963` (ChaChaPoly). Got: `{}`", u),
             IoError(e) => write!(f, "IO Error: `{:?}`", e),
+            MoreThanOneAlgoReceived(u) => write!(f, "Expected 1 encryption algorithm. Received `{}`", u),
             SnowError(e) => write!(f, "Snow Error: `{:?}`", e),
             SnowNoRemoteStaticKey => write!(f, "Snow Error: No remote static key found"),
             NoiseTodo => write!(f, "Noise Sv2 Error: TODO"),

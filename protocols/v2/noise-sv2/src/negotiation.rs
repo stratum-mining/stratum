@@ -69,6 +69,7 @@ impl<'decoder> NegotiationMessage<'decoder> {
             encryption_algos: algos.try_into().unwrap(),
         }
     }
+
     pub fn get_algos(&self) -> Result<Vec<EncryptionAlgorithm>, crate::Error> {
         let mut algos = vec![];
         for algo in &self.encryption_algos.0 {

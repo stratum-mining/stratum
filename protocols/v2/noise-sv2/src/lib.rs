@@ -151,7 +151,7 @@ impl handshake::Step for Initiator {
                 let algos = dbg!(negotiation_message.get_algos()?);
 
                 if algos.len() != 1 {
-                    return Err(Error::NoiseTodo);
+                    return Err(Error::MoreThanOneAlgoReceived(algos.len()));
                 }
                 let chosen_algorithm = algos[0];
                 // Below is inffalible
