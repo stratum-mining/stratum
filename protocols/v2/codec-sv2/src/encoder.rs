@@ -170,7 +170,10 @@ pub struct Encoder<T> {
 }
 
 impl<T: Serialize + GetSize> Encoder<T> {
-    pub fn encode(&mut self, item: Sv2Frame<T, Slice>) -> Result<&[u8]> {
+    pub fn encode(
+        &mut self,
+        item: Sv2Frame<T, Slice>,
+    ) -> core::result::Result<&[u8], crate::Error> {
         let len = item.encoded_length();
 
         self.buffer.resize(len, 0);
