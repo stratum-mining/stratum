@@ -396,17 +396,18 @@ impl TransportMode {
         Ok(())
     }
 
-    /// Return the size that decrypt_msg in Self::read should have in order to decrypt the
-    /// encrypted payload
-    ///
-    ///
+    /// Return the size that `decrypt_msg` in `Self::read` should have in order to decrypt the
+    /// encrypted payload.
     #[inline(always)]
-    pub fn size_hint_decrypt(encrypted_msg_len: usize) -> Option<usize> {
-        encrypted_msg_len.checked_sub(SNOW_TAGLEN)
+    pub fn size_hint_decrypt(encrypted_msg_len: usize) -> Result<usize> {
+        match encrypted_msg_len.checked_sub(SNOW_TAGLEN) {
+            Some(l) => Ok(l),
+            None => Err(Error::MessageToDecryptIsEmpty),
+        }
     }
 
-    /// Return the size that encrypt_msg in Self::write should have in order to encrypt the payload
-    ///
+    /// Return the size that `encrypt_msg` in `Self::write` should have in order to encrypt the
+    /// payload.
     #[inline(always)]
     pub fn size_hint_encrypt(payload_len: usize) -> usize {
         payload_len + SNOW_TAGLEN

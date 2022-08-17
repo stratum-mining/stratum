@@ -30,6 +30,8 @@ pub enum Error {
     /// I/O Error
     #[cfg(not(feature = "no_std"))]
     IoError(std::io::Error),
+    /// Errors if message to be decrypted is empty.
+    MessageToDecryptIsEmpty,
     /// Errors if more than on encryption algorithm was returned when only one was expected.
     MoreThanOneAlgoReceived(usize),
     /// `snow` errors
@@ -75,6 +77,7 @@ impl fmt::Display for Error {
                 u
             ),
             IoError(e) => write!(f, "IO Error: `{:?}`", e),
+            MessageToDecryptIsEmpty => write!(f, "Message to decrypt is empty"),
             MoreThanOneAlgoReceived(u) => write!(f, "Expected 1 encryption algorithm. Received `{}`", u),
             SnowError(e) => write!(f, "Snow Error: `{:?}`", e),
             SnowNoRemoteStaticKey => write!(f, "Snow Error: No remote static key found"),
