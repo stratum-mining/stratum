@@ -81,23 +81,17 @@ impl SignedPartHeader {
         Ok(())
     }
 
+    /// Convert system time to UNIX time
     fn system_time_to_unix_time_u32(t: &SystemTime) -> Result<u32> {
-        t.duration_since(SystemTime::UNIX_EPOCH)
-            .map(|duration| duration.as_secs() as u32)
-            .map_err(|_| {
-                Error::NoiseTodo
-                //ErrorKind::Noise(format!(
-                //    "Cannot convert system time to unix timestamp: {}",
-                //    e
-                //))
-                //.into()
-            })
+        Ok(t.duration_since(SystemTime::UNIX_EPOCH)
+            .map(|duration| duration.as_secs() as u32)?)
     }
 
+    /// Convert UNIX time to system time
     fn unix_time_u32_to_system_time(unix_timestamp: u32) -> Result<SystemTime> {
         SystemTime::UNIX_EPOCH
             .checked_add(Duration::from_secs(unix_timestamp.into()))
-            .ok_or(Error::BadTimestamp(unix_timestamp))
+            .ok_or(Error::BadTimestampFromSystemTime(unix_timestamp))
     }
 }
 

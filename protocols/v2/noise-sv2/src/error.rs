@@ -3,8 +3,10 @@ use core::fmt;
 #[repr(C)]
 #[derive(Debug)]
 pub enum Error {
+    /// Errors on bad conversion from system time to UNIX timestamp.
+    BadSystemTimeFromTimestamp(std::time::SystemTimeError),
     /// Errors on bad conversion from UNIX timestamp to system time.
-    BadTimestamp(u32),
+    BadTimestampFromSystemTime(u32),
     /// Errors from the `binary_sv2` crate
     BinarySv2Error(binary_sv2::Error),
     /// Errors on expired certificate. Displays validity expiration time and current time:
@@ -45,7 +47,8 @@ impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use Error::*;
         match self {
-            BadTimestamp(u) => write!(f, "Error converting unix timestamp `{}` to system time", u),
+            BadSystemTimeFromTimestamp(e) => write!(f, "Error converting system time to UNIX timestamp: `{}`", e),
+            BadTimestampFromSystemTime(u) => write!(f, "Error converting UNIX timestamp `{}` to system time", u),
             BinarySv2Error(e) => write!(f, "Binary Sv2 Error: `{:?}`", e),
             CertificateExpired(u1, u2) => write!(f, "Certificate expired. Provided certificate expired at `{}`. The current time is `{}`", u1, u2),
             CertificateInvalid(u1, u2) => write!(f, "Certificate invalid. Provided certificate is valid starting at `{}`. The current time is `{}`", u1, u2),
@@ -96,5 +99,11 @@ impl From<std::io::Error> for Error {
 impl From<snow::Error> for Error {
     fn from(e: snow::Error) -> Self {
         Error::SnowError(e)
+    }
+}
+
+impl From<std::time::SystemTimeError> for Error {
+    fn from(e: std::time::SystemTimeError) -> Self {
+        Error::BadSystemTimeFromTimestamp(e)
     }
 }
