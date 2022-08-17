@@ -302,8 +302,7 @@ impl Responder {
         self.handshake_state = dbg!(builder
             .local_private_key(&self.private)
             .prologue(prologue)
-            .build_responder())
-        .map_err(|_| Error::NoiseTodo)?;
+            .build_responder())?;
         Ok(())
     }
 }
@@ -359,16 +358,14 @@ impl handshake::Step for Responder {
                 noise_bytes.resize(buffer_len, 0);
 
                 self.handshake_state
-                    .read_message(&in_msg, &mut noise_bytes)
-                    .map_err(|_| Error::NoiseTodo)?;
+                    .read_message(&in_msg, &mut noise_bytes)?;
 
                 // Create response message
                 // -> e, ee, s, es, SIGNATURE_NOISE_MESSAGE
                 //
                 let len_written = self
                     .handshake_state
-                    .write_message(&self.signature_noise_message, &mut noise_bytes)
-                    .map_err(|_| Error::NoiseTodo)?;
+                    .write_message(&self.signature_noise_message, &mut noise_bytes)?;
 
                 debug_assert!(buffer_len == len_written);
                 handshake::StepResult::NoMoreReply(noise_bytes)
@@ -396,11 +393,7 @@ impl TransportMode {
     /// Decrypt and verify message from `in_buf` and append the result to `decrypted_message`
     #[inline(always)]
     pub fn read(&mut self, encrypted_msg: &[u8], decrypted_msg: &mut [u8]) -> Result<()> {
-        let _msg_len = self
-            .inner
-            .read_message(encrypted_msg, decrypted_msg)
-            .map_err(|_| Error::NoiseTodo)?;
-
+        let _msg_len = self.inner.read_message(encrypted_msg, decrypted_msg)?;
         Ok(())
     }
 
@@ -429,10 +422,7 @@ impl TransportMode {
         //encrypted_msg[0] = len.to_le_bytes()[0];
         //encrypted_msg[1] = len.to_be_bytes()[1];
 
-        let _msg_len = self
-            .inner
-            .write_message(plain_msg, encrypted_msg)
-            .map_err(|_| Error::NoiseTodo)?;
+        let _msg_len = self.inner.write_message(plain_msg, encrypted_msg)?;
 
         Ok(())
     }
