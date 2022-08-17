@@ -71,7 +71,8 @@ impl<'decoder> NegotiationMessage<'decoder> {
     pub fn get_algos(&self) -> Result<Vec<EncryptionAlgorithm>, crate::Error> {
         let mut algos = vec![];
         for algo in &self.encryption_algos.0 {
-            let algo: EncryptionAlgorithm = (*algo).try_into().map_err(|_| crate::Error::Todo)?;
+            let algo: EncryptionAlgorithm =
+                (*algo).try_into().map_err(|_| crate::Error::NoiseTodo)?;
             algos.push(algo);
         }
         Ok(algos)

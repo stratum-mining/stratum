@@ -7,7 +7,7 @@ pub enum Error {
     BinarySv2Error(binary_sv2::Error),
     SnowError(snow::Error),
     /// Catch all
-    Todo,
+    NoiseTodo,
 }
 pub type Result<T> = core::result::Result<T, Error>;
 
@@ -23,14 +23,14 @@ impl fmt::Display for Error {
         match self {
             BinarySv2Error(e) => write!(f, "Binary Sv2 Error: `{:?}`", e),
             SnowError(e) => write!(f, "Snow Error: `{:?}`", e),
-            Todo => write!(f, "Noise Sv2 Error: TODO"),
+            NoiseTodo => write!(f, "Noise Sv2 Error: TODO"),
         }
     }
 }
 
 impl From<()> for Error {
     fn from(_: ()) -> Self {
-        Error::Todo
+        Error::NoiseTodo
     }
 }
 

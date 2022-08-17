@@ -33,7 +33,7 @@ impl SignedPartHeader {
         let not_valid_after = self.not_valid_after.to_le_bytes();
         writer
             .write_all(&[&version[..], &valid_from[..], &not_valid_after[..]].concat()[..])
-            .map_err(|_| Error::Todo)?;
+            .map_err(|_| Error::NoiseTodo)?;
         Ok(())
     }
 
@@ -77,7 +77,7 @@ impl SignedPartHeader {
             //    self.valid_from, now
             //))
             //.into());
-            return Err(Error::Todo);
+            return Err(Error::NoiseTodo);
         }
         if now_timestamp > self.not_valid_after {
             //return Err(ErrorKind::Noise(format!(
@@ -85,7 +85,7 @@ impl SignedPartHeader {
             //    self.valid_from, now
             //))
             //.into());
-            return Err(Error::Todo);
+            return Err(Error::NoiseTodo);
         }
         Ok(())
     }
@@ -94,7 +94,7 @@ impl SignedPartHeader {
         t.duration_since(SystemTime::UNIX_EPOCH)
             .map(|duration| duration.as_secs() as u32)
             .map_err(|_| {
-                Error::Todo
+                Error::NoiseTodo
                 //ErrorKind::Noise(format!(
                 //    "Cannot convert system time to unix timestamp: {}",
                 //    e
@@ -107,14 +107,14 @@ impl SignedPartHeader {
         SystemTime::UNIX_EPOCH
             .checked_add(Duration::from_secs(unix_timestamp.into()))
             .ok_or(
-                Error::Todo, //ErrorKind::Noise(
-                             //    format!(
-                             //        "Cannot convert unix timestamp ({}) to system time",
-                             //        unix_timestamp
-                             //    )
-                             //    .to_string(),
-                             //)
-                             //.into(),
+                Error::NoiseTodo, //ErrorKind::Noise(
+                                  //    format!(
+                                  //        "Cannot convert unix timestamp ({}) to system time",
+                                  //        unix_timestamp
+                                  //    )
+                                  //    .to_string(),
+                                  //)
+                                  //.into(),
             )
     }
 }
@@ -161,7 +161,7 @@ impl SignedPart {
                 ]
                 .concat()[..],
             )
-            .map_err(|_| Error::Todo)?;
+            .map_err(|_| Error::NoiseTodo)?;
         Ok(signed_part_writer.into_inner())
     }
 
@@ -185,7 +185,7 @@ impl SignedPart {
         let signed_part_buf = self.serialize_to_buf()?;
         self.authority_public_key
             .verify_strict(&signed_part_buf[..], signature)
-            .map_err(|_| Error::Todo)?;
+            .map_err(|_| Error::NoiseTodo)?;
         Ok(())
     }
 
@@ -207,18 +207,18 @@ impl SignatureNoiseMessage {
         let sign_len = [74, 0];
         self.header
             .serialize_to_writer(writer)
-            .map_err(|_| Error::Todo)?;
-        writer.write_all(&sign_len).map_err(|_| Error::Todo)?;
+            .map_err(|_| Error::NoiseTodo)?;
+        writer.write_all(&sign_len).map_err(|_| Error::NoiseTodo)?;
         writer
             .write_all(&self.signature.to_bytes()[..])
-            .map_err(|_| Error::Todo)?;
+            .map_err(|_| Error::NoiseTodo)?;
         Ok(())
     }
 
     pub fn serialize_to_bytes_mut(&self) -> Result<BytesMut> {
         let mut writer = BytesMut::new().writer();
         self.serialize_to_writer(&mut writer)
-            .map_err(|_| Error::Todo)?;
+            .map_err(|_| Error::NoiseTodo)?;
         //.context("Serialize noise message")?;
 
         let serialized_signature_noise_message = writer.into_inner();
@@ -255,7 +255,7 @@ impl TryFrom<&[u8]> for SignatureNoiseMessage {
         let siganture = &data[12..76];
         let header = SignedPartHeader::from_bytes(header);
         let signature =
-            ed25519_dalek::Signature::new(siganture.try_into().map_err(|_| Error::Todo)?);
+            ed25519_dalek::Signature::new(siganture.try_into().map_err(|_| Error::NoiseTodo)?);
         Ok(SignatureNoiseMessage { header, signature })
     }
 }
