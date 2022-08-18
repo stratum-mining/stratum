@@ -156,7 +156,6 @@ impl Connection {
         let fourth_message = receiver_incoming.recv().await.unwrap();
         let mut fourth_message: HandShakeFrame = fourth_message.try_into().unwrap();
         let fourth_message = fourth_message.payload().to_vec();
-        dbg!(&fourth_message);
 
         state
             .step(Some(fourth_message))
