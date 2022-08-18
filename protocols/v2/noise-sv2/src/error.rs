@@ -29,7 +29,7 @@ pub enum Error {
     HSResponderStepNotFound(usize),
     /// I/O Error
     #[cfg(not(feature = "no_std"))]
-    IoError(std::io::Error),
+    IoError,
     /// Errors if message to be decrypted is empty.
     MessageToDecryptIsEmpty,
     /// Errors if more than on encryption algorithm was returned when only one was expected.
@@ -76,7 +76,7 @@ impl fmt::Display for Error {
                 "Invalid handshake responder step: `{}`. Valid steps are 0, 1, or 2.",
                 u
             ),
-            IoError(e) => write!(f, "IO Error: `{:?}`", e),
+            IoError => write!(f, "IO Error"),
             MessageToDecryptIsEmpty => write!(f, "Message to decrypt is empty"),
             MoreThanOneAlgoReceived(u) => write!(f, "Expected 1 encryption algorithm. Received `{}`", u),
             SnowError(e) => write!(f, "Snow Error: `{:?}`", e),
@@ -107,13 +107,6 @@ impl From<binary_sv2::Error> for Error {
 impl From<ed25519_dalek::ed25519::Error> for Error {
     fn from(e: ed25519_dalek::ed25519::Error) -> Self {
         Error::DalekError(e)
-    }
-}
-
-#[cfg(not(feature = "no_std"))]
-impl From<std::io::Error> for Error {
-    fn from(e: std::io::Error) -> Self {
-        Error::IoError(e)
     }
 }
 

@@ -31,7 +31,9 @@ impl SignedPartHeader {
         let version = self.version.to_le_bytes();
         let valid_from = self.valid_from.to_le_bytes();
         let not_valid_after = self.not_valid_after.to_le_bytes();
-        writer.write_all(&[&version[..], &valid_from[..], &not_valid_after[..]].concat()[..])?;
+        writer
+            .write_all(&[&version[..], &valid_from[..], &not_valid_after[..]].concat()[..])
+            .map_err(|_| Error::IoError)?;
         Ok(())
     }
 
@@ -124,18 +126,20 @@ impl SignedPart {
         let pub_k_len = [32, 0];
         let pub_k = &self.pubkey[..];
         let auth_pub_k = &self.authority_public_key.as_bytes()[..];
-        signed_part_writer.write_all(
-            &[
-                version,
-                valid_from,
-                not_valid_after,
-                &pub_k_len,
-                pub_k,
-                &pub_k_len,
-                auth_pub_k,
-            ]
-            .concat()[..],
-        )?;
+        signed_part_writer
+            .write_all(
+                &[
+                    version,
+                    valid_from,
+                    not_valid_after,
+                    &pub_k_len,
+                    pub_k,
+                    &pub_k_len,
+                    auth_pub_k,
+                ]
+                .concat()[..],
+            )
+            .map_err(|_| Error::IoError)?;
         Ok(signed_part_writer.into_inner())
     }
 
@@ -179,8 +183,10 @@ impl SignatureNoiseMessage {
     pub fn serialize_to_writer<T: Write>(&self, writer: &mut T) -> Result<()> {
         let sign_len = [74, 0];
         self.header.serialize_to_writer(writer)?;
-        writer.write_all(&sign_len)?;
-        writer.write_all(&self.signature.to_bytes()[..])?;
+        writer.write_all(&sign_len).map_err(|_| Error::IoError)?;
+        writer
+            .write_all(&self.signature.to_bytes()[..])
+            .map_err(|_| Error::IoError)?;
         Ok(())
     }
 
