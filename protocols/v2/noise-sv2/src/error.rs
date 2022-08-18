@@ -35,7 +35,7 @@ pub enum Error {
     /// Errors if message to be decrypted is empty.
     MessageToDecryptIsEmpty,
     /// Errors if more than on encryption algorithm was returned when only one was expected.
-    MoreThanOneAlgoReceived(usize),
+    MustSpecifyOneEncryptionAlgorithm(usize),
     /// `snow` errors
     SnowError(snow::Error),
     /// Errors on `get_remote_static_key` return is `None`. Occurs is chosen Noise pattern doesn’t
@@ -81,7 +81,7 @@ impl fmt::Display for Error {
             ),
             IoError => write!(f, "IO Error"),
             MessageToDecryptIsEmpty => write!(f, "Message to decrypt is empty"),
-            MoreThanOneAlgoReceived(u) => write!(f, "Expected 1 encryption algorithm. Received `{}`", u),
+            MustSpecifyOneEncryptionAlgorithm(u) => write!(f, "Expected 1 encryption algorithm. Received `{}`", u),
             SnowError(e) => write!(f, "Snow Error: `{:?}`", e),
             SnowNoRemoteStaticKey => write!(f, "Snow Error: No remote static key found"),
             NoiseTodo => write!(f, "Noise Sv2 Error: TODO"),
