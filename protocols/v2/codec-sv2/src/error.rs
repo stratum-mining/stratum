@@ -1,6 +1,8 @@
 use core::fmt;
 #[cfg(feature = "noise_sv2")]
 use noise_sv2::Error as NoiseError;
+#[cfg(feature = "noise_sv2")]
+use noise_sv2::NoiseSv2SnowError;
 
 #[repr(C)]
 #[derive(Debug)]
@@ -9,10 +11,12 @@ pub enum Error {
     BinarySv2Error(binary_sv2::Error),
     /// Errors if there are missing bytes in the Noise protocol
     MissingBytes(usize),
+    /// Errors from the `noise_sv2` crate
     #[cfg(feature = "noise_sv2")]
     NoiseSv2Error(NoiseError),
     /// `snow` errors
-    SnowError(snow::Error),
+    #[cfg(feature = "noise_sv2")]
+    SnowError(NoiseSv2SnowError),
     /// Error if Noise protocol state is not as expected
     UnexpectedNoiseState,
     CodecTodo,
@@ -28,6 +32,7 @@ impl fmt::Display for Error {
             MissingBytes(u) => write!(f, "Missing `{}` Noise bytes", u),
             #[cfg(feature = "noise_sv2")]
             NoiseSv2Error(e) => write!(f, "Noise SV2 Error: `{:?}`", e),
+            #[cfg(feature = "noise_sv2")]
             SnowError(e) => write!(f, "Snow Error: `{:?}`", e),
             UnexpectedNoiseState => {
                 write!(f, "Noise state is incorrect")
@@ -50,8 +55,9 @@ impl From<NoiseError> for Error {
     }
 }
 
-impl From<snow::Error> for Error {
-    fn from(e: snow::Error) -> Self {
+#[cfg(feature = "noise_sv2")]
+impl From<NoiseSv2SnowError> for Error {
+    fn from(e: NoiseSv2SnowError) -> Self {
         Error::SnowError(e)
     }
 }

@@ -13,6 +13,8 @@ use core::{convert::TryFrom, time::Duration};
 pub use error::{Error, Result};
 use negotiation::{EncryptionAlgorithm, NegotiationMessage, NoiseParamsBuilder};
 use snow::{params::NoiseParams, Builder, HandshakeState, TransportState};
+// Export for use in `codec_sv2::error::Error::SnowError`
+pub use snow::Error as NoiseSv2SnowError;
 
 pub use auth::{SignatureNoiseMessage, SignedPartHeader};
 pub use formats::Certificate;
