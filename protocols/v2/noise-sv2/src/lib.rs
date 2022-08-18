@@ -148,7 +148,7 @@ impl handshake::Step for Initiator {
             }
             1 => {
                 // <- chosen algorithm
-                let mut in_msg = in_msg.ok_or(Error::NoiseTodo)?;
+                let mut in_msg = in_msg.ok_or(Error::ExpectedIncomingHandshakeMessage)?;
                 let negotiation_message: NegotiationMessage = dbg!(from_bytes(in_msg.as_mut())?);
                 let algos = dbg!(negotiation_message.get_algos()?);
 
@@ -176,7 +176,7 @@ impl handshake::Step for Initiator {
                 // Receive responder message
                 // <- e, ee, s, es, SIGNATURE_NOISE_MESSAGE
                 //
-                let in_msg = in_msg.ok_or(Error::NoiseTodo)?;
+                let in_msg = in_msg.ok_or(Error::ExpectedIncomingHandshakeMessage)?;
 
                 noise_bytes.resize(BUFFER_LEN, 0);
 
@@ -318,7 +318,7 @@ impl handshake::Step for Responder {
 
         let result = match self.stage {
             0 => {
-                let mut in_msg = in_msg.ok_or(Error::NoiseTodo)?;
+                let mut in_msg = in_msg.ok_or(Error::ExpectedIncomingHandshakeMessage)?;
                 let negotiation_message: std::result::Result<NegotiationMessage, _> =
                     from_bytes(&mut in_msg);
                 match negotiation_message {
@@ -352,7 +352,7 @@ impl handshake::Step for Responder {
                 // Receive Initiator ephemeral public key
                 // <- e
                 //
-                let in_msg = in_msg.ok_or(Error::NoiseTodo)?;
+                let in_msg = in_msg.ok_or(Error::ExpectedIncomingHandshakeMessage)?;
 
                 let buffer_len = BUFFER_LEN;
 

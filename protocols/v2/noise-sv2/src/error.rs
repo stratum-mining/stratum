@@ -23,6 +23,8 @@ pub enum Error {
     EncryptionAlgorithmInvalid(u32),
     /// Errors if encryption algorithm is expected to be specified but is not.
     EncryptionAlgorithmNotFound,
+    /// Errors if handshake step expected message but received `None`.
+    ExpectedIncomingHandshakeMessage,
     /// Errors if handshake initiator step is invalid. Valid steps are 0, 1, or 2.
     HSInitiatorStepNotFound(usize),
     /// Errors if handshake responder step is invalid. Valid steps are 0, 1, or 2.
@@ -66,6 +68,7 @@ impl fmt::Display for Error {
             DalekError(e) => write!(f, "ed25519 Dalek Error: `{:?}`", e),
             EncryptionAlgorithmInvalid(u) => write!(f, "Invalid encryption algorithm. Expected `1196639553` (AESGCM) or `1212368963` (ChaChaPoly). Got: `{}`", u),
             EncryptionAlgorithmNotFound => write!(f, "Expected encryption algorithm, but got `None`"),
+            ExpectedIncomingHandshakeMessage => write!(f, "Handshake step expected message but got `None`"),
             HSInitiatorStepNotFound(u) => write!(
                 f,
                 "Invalid handshake initiator step: `{}`. Valid steps are 0, 1, or 2.",
