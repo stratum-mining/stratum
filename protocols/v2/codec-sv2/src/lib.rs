@@ -163,4 +163,12 @@ mod tests {
         let expect = Error::UnexpectedNoiseState;
         assert_eq!(actual, expect);
     }
+
+    #[test]
+    fn into_transport_mode_errs_if_state_is_not_initialized() {
+        let state = State::new();
+        let actual = state.into_transport_mode().unwrap_err();
+        let expect = Error::UnexpectedNoiseState;
+        assert_eq!(actual, expect);
+    }
 }
