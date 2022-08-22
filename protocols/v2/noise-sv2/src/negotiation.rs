@@ -1,5 +1,6 @@
 use crate::Error;
 use binary_sv2::{binary_codec_sv2, Deserialize, Seq0255, Serialize};
+use bytes::BufMut;
 use core::convert::{TryFrom, TryInto};
 use snow::{params::NoiseParams, Builder};
 
@@ -20,6 +21,41 @@ impl NoiseParamsBuilder {
     pub fn get_builder<'a>(self) -> Builder<'a> {
         // Initialize our initiator using a builder.
         Builder::new(self.params)
+    }
+}
+
+/// Negotiation prologue; if initiator and responder prologue don't match the entire negotiation
+/// fails.
+/// Made of the initiator message (the list of algorithms) and the responder message (the
+/// algorithm chosen). If both of them are None, no negotiation happened.
+#[derive(Clone, Debug)]
+pub struct Prologue<'d> {
+    pub initiator_msg: Option<NegotiationMessage<'d>>,
+    pub responder_msg: Option<NegotiationMessage<'d>>,
+}
+
+impl<'d> Prologue<'d> {
+    pub fn serialize_to_buf(&self, buf: &mut bytes::BytesMut) {
+        match &self.initiator_msg {
+            None => {
+                buf.put_u8(0);
+            }
+            Some(t) => {
+                buf.put_u8(1);
+                let nm = binary_sv2::to_bytes(t.clone()).unwrap();
+                buf.extend_from_slice(&nm);
+            }
+        }
+        match &self.responder_msg {
+            None => {
+                buf.put_u8(0);
+            }
+            Some(t) => {
+                buf.put_u8(1);
+                let nm = binary_sv2::to_bytes(t.clone()).unwrap();
+                buf.extend_from_slice(&nm);
+            }
+        }
     }
 }
 

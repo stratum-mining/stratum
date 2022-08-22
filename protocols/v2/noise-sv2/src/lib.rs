@@ -156,8 +156,12 @@ impl handshake::Step for Initiator {
                     return Err(Error::MustSpecifyOneEncryptionAlgorithm(algos.len()));
                 }
                 let chosen_algorithm = algos[0];
-                // Below is inffalible
-                let prologue = to_bytes(negotiation_message).unwrap();
+                let mut prologue = bytes::BytesMut::new();
+                negotiation::Prologue {
+                    initiator_msg: None,
+                    responder_msg: Some(negotiation_message),
+                }
+                .serialize_to_buf(&mut prologue);
                 self.update_handshake_state(chosen_algorithm, &prologue)?;
 
                 // Send (initiator ephemeral public key)
@@ -179,7 +183,6 @@ impl handshake::Step for Initiator {
                 let in_msg = in_msg.ok_or(Error::ExpectedIncomingHandshakeMessage)?;
 
                 noise_bytes.resize(BUFFER_LEN, 0);
-
                 let signature_len = self
                     .handshake_state
                     .read_message(&in_msg[..], &mut noise_bytes)?;
@@ -187,7 +190,6 @@ impl handshake::Step for Initiator {
                 debug_assert!(SIGNATURE_MESSAGE_LEN == signature_len);
 
                 self.verify_remote_static_key_signature(noise_bytes[..signature_len].to_vec())?;
-
                 handshake::StepResult::Done
             }
             _ => return Err(Error::HSInitiatorStepNotFound(self.stage)),
