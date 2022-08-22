@@ -1,3 +1,5 @@
+#[cfg(test)]
+use core::cmp;
 use core::fmt;
 #[cfg(feature = "noise_sv2")]
 use noise_sv2::Error as NoiseError;
@@ -38,6 +40,22 @@ impl fmt::Display for Error {
                 write!(f, "Noise state is incorrect")
             }
             CodecTodo => write!(f, "Codec Sv2 Error: TODO"),
+        }
+    }
+}
+
+#[cfg(test)]
+impl cmp::PartialEq for Error {
+    fn eq(&self, other: &Self) -> bool {
+        use Error::*;
+        match (self, other) {
+            (BinarySv2Error(_), BinarySv2Error(_)) => true,
+            (MissingBytes(_), MissingBytes(_)) => true,
+            (NoiseSv2Error(_), NoiseSv2Error(_)) => true,
+            (SnowError(_), SnowError(_)) => true,
+            (UnexpectedNoiseState, UnexpectedNoiseState) => true,
+            (CodecTodo, CodecTodo) => true,
+            _ => false,
         }
     }
 }
