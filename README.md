@@ -1,4 +1,5 @@
 # Stratum
+[![codecov](https://codecov.io/gh/stratum-mining/stratum/branch/main/graph/badge.svg)](https://codecov.io/gh/stratum-mining/stratum)
 
 The Stratum protocol defines how miners, proxies, and pools communicate to contribute hashrate to
 the Bitcoin network.
