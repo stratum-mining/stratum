@@ -104,7 +104,7 @@ pub fn add_job_id(job_id: u32, up_id: u32, prev_job_id: Option<u32>) {
 pub struct UpstreamValues {
     address: String,
     port: u16,
-    pub_key: [u8; 32],
+    pub_key: codec_sv2::noise_sv2::formats::EncodedEd25519PublicKey,
 }
 
 #[derive(Debug, Deserialize)]
@@ -130,7 +130,7 @@ pub fn initialize_r_logic() -> RLogic {
             Arc::new(Mutex::new(UpstreamMiningNode::new(
                 index as u32,
                 socket,
-                upstream.pub_key,
+                upstream.pub_key.clone().into_inner().to_bytes(),
                 job_ids.clone(),
             )))
         })

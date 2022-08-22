@@ -1,4 +1,4 @@
-upstreams = [{ address = "127.0.0.1", port = 34254, pub_key = [215, 11, 47, 78, 34, 232, 25, 192, 195, 168, 170, 209, 95, 181, 40, 114, 154, 226, 176, 190, 90, 169, 238, 89, 191, 183, 97, 63, 194, 119, 11, 31]}]
+upstreams = [{ address = "127.0.0.1", port = 34254, pub_key = "u95GEReVMjK6k5YqiSFNqqTnKU4ypU2Wm8awa6tmbmDmk1bWt"}]
 listen_address = "127.0.0.1"
 listen_mining_port = 34255
 max_supported_version = 2
