@@ -1,29 +1,41 @@
+# Performs test coverage of project's libraries using cargo-tarpaulin and generates results using
+# codecov.io.
+# The follow flags are used when executing cargo-tarpaulin:
+# -- features: Includes the code with the listed features. The following features result in a
+#    tarpaulin error and are NOT included: derive, alloc, arbitrary-derive, attributes, and
+#    with_serde
+# --lib: Only tests the package's library unit tests. Includes protocols, and utils (without the
+#   exclude-files flag, it includes this example because it contains a lib.rs file)
+# --exclude-files examples/*: Excludes all projects in examples directory (specifically added to
+#   ignore examples that that contain a lib.rs file like interop-cpp)
+# --timeout 120: If unresponsive for 120 seconds, action will fail
+# --fail-under 40: If code coverage is less than 40%, action will fail
+# --out Xml: Required for codecov.io to generate coverage result
+
+name: Test Coverage
+
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
   pull_request:
-    branches:
-      - main
+    branches: [ main ]
 
-name: Code Coverage
+jobs:
+  test:
+    name: Test Coverage
+    runs-on: ubuntu-latest
+    container:
+      image: xd009642/tarpaulin:develop-nightly
+      options: --security-opt seccomp=unconfined
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
 
-  # jobs:
-  #   test:
-  #     name: Coverage
-  #     runs-on: ubuntu-latest
-  #     container:
-  #       image: xd009642/tarpaulin:develop-nightly
-  #       options: --security-opt seccomp=unconfined
-  #     steps:
-  #       - name: Checkout repository
-  #         uses: actions/checkout@v2
-  # 
-  #       - name: Generate code coverage
-  #         run: |
-  #           cargo +nightly tarpaulin --timeout 120 --fail-under 1
-  # 
-  #       - name: Upload to codecov.io
-  #         uses: codecov/codecov-action@v2
-  #         with:
-  #           fail_ci_if_error: true
+      - name: Generate code coverage
+        run: |
+          cargo +nightly tarpaulin --verbose --features prop_test noise_sv2 fuzz with_buffer_pool async_std debug tokio with_tokio derive_codec_sv2 binary_codec_sv2 default core --lib --exclude-files examples/* --timeout 120 --fail-under 41 --out Xml
+
+      - name: Upload to codecov.io
+        uses: codecov/codecov-action@v2
+        with:
+          fail_ci_if_error: true
