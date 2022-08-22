@@ -1,3 +1,16 @@
+# Performs test coverage of project's libraries using cargo-tarpaulin and generates results using
+# codecov.io.
+# The follow flags are used when executing cargo-tarpaulin:
+# -- features prop_test: Includes the prop_feature flag only (and still counts non-prop tests)
+# --lib: Only tests the package's library unit tests. Includes protocols, and utils (without the
+# --exclude-files flag, it includes this example because it contains
+#   a lib.rs file).
+# --exclude-files examples/*: Excludes all projects in examples directory (specifically added to
+#   ignore examples that that contain a lib.rs file like interop-cpp)
+# --timeout 120: If unresponsive for 120 seconds, action will fail
+# --fail-under 40: If code coverage is less than 40%, action will fail
+# --out Xml: Required for codecov.io to generate coverage result
+
 name: Test Coverage
 
 on:
@@ -19,7 +32,7 @@ jobs:
 
       - name: Generate code coverage
         run: |
-          cargo +nightly tarpaulin --verbose --features prop_test --workspace --timeout 120 --fail-under 32 --out Xml
+          cargo +nightly tarpaulin --verbose --features prop_test --lib --exclude-files examples/* --timeout 120 --fail-under 40 --out Xml
 
       - name: Upload to codecov.io
         uses: codecov/codecov-action@v2
