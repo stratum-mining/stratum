@@ -154,9 +154,17 @@ impl Default for State {
 mod tests {
     use super::*;
 
-    #[cfg(feature = "noise_sv2")]
     #[test]
     fn handshake_step_fails_if_state_is_not_initialized() {
+        let mut state = State::new();
+        let msg = None;
+        let actual = state.step(msg).unwrap_err();
+        let expect = Error::UnexpectedNoiseState;
+        assert_eq!(actual, expect);
+    }
+
+    #[test]
+    fn handshake_step_fails_if_state_is_in_transport_mode() {
         let mut state = State::new();
         let msg = None;
         let actual = state.step(msg).unwrap_err();
