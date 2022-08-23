@@ -317,7 +317,7 @@ pub trait IsClient {
                 self.set_extranonce1(subscribe.extra_nonce1);
                 self.set_extranonce2_size(subscribe.extra_nonce2_size);
                 self.set_status(ClientStatus::Subscribed);
-                Ok(())
+                Ok(None)
             }
             methods::Server2ClientResponse::Authorize(authorize) => {
                 if authorize.is_ok() {
