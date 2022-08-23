@@ -50,7 +50,7 @@ impl cmp::PartialEq for Error {
         use Error::*;
         match (self, other) {
             (BinarySv2Error(_), BinarySv2Error(_)) => true,
-            (MissingBytes(_), MissingBytes(_)) => true,
+            (MissingBytes(a), MissingBytes(b)) => a == b,
             (NoiseSv2Error(_), NoiseSv2Error(_)) => true,
             (SnowError(_), SnowError(_)) => true,
             (UnexpectedNoiseState, UnexpectedNoiseState) => true,
