@@ -122,21 +122,11 @@ impl Translator {
             receiver_from_downstream: receiver_downstream_for_proxy,
         };
 
-        // Connect to Upstream
-        let authority_public_key = [
-            215, 11, 47, 78, 34, 232, 25, 192, 195, 168, 170, 209, 95, 181, 40, 114, 154, 226, 176,
-            190, 90, 169, 238, 89, 191, 183, 97, 63, 194, 119, 11, 31,
-        ];
-        let upstream_addr = SocketAddr::new(IpAddr::from_str("127.0.0.1").unwrap(), 34254);
-        let _upstream = Upstream::new(
-            upstream_addr,
-            authority_public_key,
-            sender_for_upstream,
-            receiver_for_upstream,
-        )
-        .await;
+        // Accept connection from one SV2 Upstream role (SV2 Pool)
+        Translator::accept_connection_upstream(sender_for_upstream, receiver_for_upstream).await;
 
-        Translator::accept_connections_downstream(
+        // Accept connections from one or more SV1 Downstream roles (SV1 Mining Devices)
+        Translator::accept_connection_downstreams(
             sender_for_downstream.clone(),
             receiver_for_downstream.clone(),
         )
@@ -182,8 +172,25 @@ impl Translator {
         translator
     }
 
-    /// Accept connections from one or more Downstream mining devices.
-    async fn accept_connections_downstream(
+    /// Accept connection from one SV2 Upstream role (SV2 Pool).
+    /// TODO: Authority public key used to authorize with Upstream is hardcoded, but should be read
+    /// in via a proxy-config.toml.
+    async fn accept_connection_upstream(
+        sender_for_upstream: Sender<EitherFrame>,
+        receiver_for_upstream: Receiver<EitherFrame>,
+    ) {
+        let upstream_addr = SocketAddr::new(IpAddr::from_str("127.0.0.1").unwrap(), 34254);
+        let _upstream = Upstream::new(
+            upstream_addr,
+            crate::AUTHORITY_PUBLIC_KEY,
+            sender_for_upstream,
+            receiver_for_upstream,
+        )
+        .await;
+    }
+
+    /// Accept connections from one or more SV1 Downstream roles (SV1 Mining Devices).
+    async fn accept_connection_downstreams(
         sender_for_downstream: Sender<json_rpc::Message>,
         receiver_for_downstream: Receiver<json_rpc::Message>,
     ) {
