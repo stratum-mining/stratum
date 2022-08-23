@@ -90,7 +90,11 @@ impl Client {
         // Sets an initial target for the `Miner`.
         // TODO: This is hard coded for the purposes of a demo, should be set by the SV1
         // `mining.set_difficulty` message received from the Upstream role
-        let default_target: Uint256 = Uint256::from_u64(45_u64).unwrap();
+        let target_vec: [u8; 32] = [
+            0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0,
+        ];
+        let default_target = Uint256::from_be_bytes(target_vec);
         miner.safe_lock(|m| m.new_target(default_target)).unwrap();
 
         let miner_cloned = miner.clone();
@@ -183,12 +187,12 @@ impl Client {
             let recv = receiver_share.clone();
             loop {
                 let (nonce, job_id, version, ntime) = recv.recv().await.unwrap();
-                let extra_nonce2: HexBytes = "0x0000000000000000".try_into().unwrap();
+                let extra_nonce2: HexBytes = "0000000000000000".try_into().unwrap();
                 let version = Some(HexU32Be(version));
                 let submit = client_to_server::Submit {
-                    id: "TODO: ID".into(),
-                    user_name: "TODO: USER NAME".into(),
-                    job_id: "TODO: job_id as String".into(),
+                    id: "deadbeef".into(),
+                    user_name: "user".into(), // TODO: user name should NOT be hardcoded
+                    job_id: job_id.to_string(),
                     extra_nonce2,
                     time: ntime.into(),
                     nonce: nonce.into(),
