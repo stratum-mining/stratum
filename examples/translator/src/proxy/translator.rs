@@ -136,25 +136,11 @@ impl Translator {
         )
         .await;
 
-        // Accept Downstream connections
-        // task::spawn(async move {
-        let downstream_listener = TcpListener::bind(crate::LISTEN_ADDR).await.unwrap();
-        let mut downstream_incoming = downstream_listener.incoming();
-        while let Some(stream) = downstream_incoming.next().await {
-            let stream = stream.unwrap();
-            println!(
-                "PROXY SERVER - Accepting from: {}\n",
-                stream.peer_addr().unwrap()
-            );
-            let server = Downstream::new(
-                stream,
-                sender_for_downstream.clone(),
-                receiver_for_downstream.clone(),
-            )
-            .await;
-            Arc::new(Mutex::new(server));
-        }
-        // });
+        Translator::accept_connections_downstream(
+            sender_for_downstream.clone(),
+            receiver_for_downstream.clone(),
+        )
+        .await;
 
         // Spawn task to listen for incoming messages from SV1 Downstream.
         // Spawned task waits to receive a message from `Downstream.connection.sender_upstream`,
@@ -194,6 +180,31 @@ impl Translator {
         });
 
         translator
+    }
+
+    /// Accept connections from one or more Downstream mining devices.
+    async fn accept_connections_downstream(
+        sender_for_downstream: Sender<json_rpc::Message>,
+        receiver_for_downstream: Receiver<json_rpc::Message>,
+    ) {
+        // task::spawn(async move {
+        let downstream_listener = TcpListener::bind(crate::LISTEN_ADDR).await.unwrap();
+        let mut downstream_incoming = downstream_listener.incoming();
+        while let Some(stream) = downstream_incoming.next().await {
+            let stream = stream.unwrap();
+            println!(
+                "PROXY SERVER - Accepting from: {}\n",
+                stream.peer_addr().unwrap()
+            );
+            let server = Downstream::new(
+                stream,
+                sender_for_downstream.clone(),
+                receiver_for_downstream.clone(),
+            )
+            .await;
+            Arc::new(Mutex::new(server));
+        }
+        // });
     }
 
     /// Parses a SV1 message and translates to to a SV2 message
