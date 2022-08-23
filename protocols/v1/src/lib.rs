@@ -230,10 +230,7 @@ pub trait IsClient {
     /// [a]: crate::...
     /// [b]:
     ///
-    fn handle_message(
-        &mut self,
-        msg: json_rpc::Message,
-    ) -> Result<Option<json_rpc::Response>, Error>
+    fn handle_message(&mut self, msg: json_rpc::Message) -> Result<Option<json_rpc::Message>, Error>
     where
         Self: std::marker::Sized,
     {
@@ -281,7 +278,7 @@ pub trait IsClient {
     fn handle_request(
         &mut self,
         request: methods::Server2Client,
-    ) -> Result<Option<json_rpc::Response>, Error>
+    ) -> Result<Option<json_rpc::Message>, Error>
     where
         Self: std::marker::Sized,
     {
@@ -296,7 +293,10 @@ pub trait IsClient {
         }
     }
 
-    fn handle_response(&mut self, response: methods::Server2ClientResponse) -> Result<(), Error>
+    fn handle_response(
+        &mut self,
+        response: methods::Server2ClientResponse,
+    ) -> Result<Option<json_rpc::Message>, Error>
     where
         Self: std::marker::Sized,
     {
@@ -330,7 +330,7 @@ pub trait IsClient {
     fn handle_error_message(
         &mut self,
         message: Message,
-    ) -> Result<Option<json_rpc::Response>, Error>;
+    ) -> Result<Option<json_rpc::Message>, Error>;
 
     /// Check if the client sent an Authorize request with the given id, if so it return the
     /// authorized name
