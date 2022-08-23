@@ -132,42 +132,13 @@ impl Translator {
         )
         .await;
 
-        // Spawn task to listen for incoming messages from SV1 Downstream.
-        // Spawned task waits to receive a message from `Downstream.connection.sender_upstream`,
-        // then parses the message + translates to SV2. Then the `Translator.sender_upstream` sends
-        // the SV2 message to the `Upstream.receiver_downstream`.
-        let mut translator_clone = translator.clone();
-        task::spawn(async move {
-            // println!("P RECV SV1: ");
-            loop {
-                let message_sv1: json_rpc::Message = translator_clone
-                    .receiver_from_downstream
-                    .recv()
-                    .await
-                    .unwrap();
-                println!("P RECV SV1: {:?}", &message_sv1);
-                let message_sv2: EitherFrame = translator_clone.parse_sv1_to_sv2(message_sv1);
-                translator_clone.send_sv2(message_sv2).await;
-            }
-        });
+        // Spawn task to listen for incoming messages from SV1 Downstream
+        let translator_clone_downstream = translator.clone();
+        translator_clone_downstream.listen_downstream().await;
 
-        // Spawn task to listen for incoming messages from SV2 Upstream.
-        // Spawned task waits to receive a message from `Upstream.connection.sender_downstream`,
-        // then parses the message + translates to SV1. Then the `Translator.sender_downstream`
-        // sends the SV1 message to the `Downstream.receiver_upstream`.
-        let mut translator_clone = translator.clone();
-        task::spawn(async move {
-            loop {
-                let message_sv2: EitherFrame = translator_clone
-                    .receiver_from_upstream
-                    .recv()
-                    .await
-                    .unwrap();
-                println!("P RECV SV2: {:?}", &message_sv2);
-                let message_sv1: json_rpc::Message = translator_clone.parse_sv2_to_sv1(message_sv2);
-                translator_clone.send_sv1(message_sv1).await;
-            }
-        });
+        // Spawn task to listen for incoming messages from SV2 Upstream
+        let translator_clone_upstream = translator.clone();
+        translator_clone_upstream.listen_upstream().await;
 
         translator
     }
@@ -212,6 +183,37 @@ impl Translator {
             Arc::new(Mutex::new(server));
         }
         // });
+    }
+
+    /// Spawn task to listen for incoming messages from SV1 Downstream.
+    /// Spawned task waits to receive a message from `Downstream.connection.sender_upstream`,
+    /// then parses the message + translates to SV2. Then the `Translator.sender_upstream` sends
+    /// the SV2 message to the `Upstream.receiver_downstream`.
+    async fn listen_downstream(mut self) {
+        task::spawn(async move {
+            loop {
+                let message_sv1: json_rpc::Message =
+                    self.receiver_from_downstream.recv().await.unwrap();
+                println!("P RECV SV1: {:?}", &message_sv1);
+                let message_sv2: EitherFrame = self.parse_sv1_to_sv2(message_sv1);
+                self.send_sv2(message_sv2).await;
+            }
+        });
+    }
+
+    /// Spawn task to listen for incoming messages from SV2 Upstream.
+    /// Spawned task waits to receive a message from `Upstream.connection.sender_downstream`,
+    /// then parses the message + translates to SV1. Then the `Translator.sender_downstream`
+    /// sends the SV1 message to the `Downstream.receiver_upstream`.
+    async fn listen_upstream(mut self) {
+        task::spawn(async move {
+            loop {
+                let message_sv2: EitherFrame = self.receiver_from_upstream.recv().await.unwrap();
+                println!("P RECV SV2: {:?}", &message_sv2);
+                let message_sv1: json_rpc::Message = self.parse_sv2_to_sv1(message_sv2);
+                self.send_sv1(message_sv1).await;
+            }
+        });
     }
 
     /// Parses a SV1 message and translates to to a SV2 message
