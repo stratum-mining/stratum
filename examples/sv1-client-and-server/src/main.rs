@@ -536,7 +536,7 @@ impl IsClient for Client {
     fn handle_error_message(
         &mut self,
         message: v1::Message,
-    ) -> Result<Option<json_rpc::Response>, Error> {
+    ) -> Result<Option<json_rpc::Message>, Error> {
         println!("{:?}", message);
         Ok(None)
     }
