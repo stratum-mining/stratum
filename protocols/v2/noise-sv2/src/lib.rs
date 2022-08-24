@@ -76,7 +76,7 @@ impl Initiator {
 
         let builder: Builder<'_> = Builder::new(params);
         let handshake_state = builder.build_initiator()?;
-        let algorithms = vec![EncryptionAlgorithm::ChaChaPoly, EncryptionAlgorithm::AESGCM];
+        let algorithms = vec![EncryptionAlgorithm::ChaChaPoly, EncryptionAlgorithm::AesGcm];
 
         Ok(Self {
             stage: 0,
@@ -261,7 +261,7 @@ impl Responder {
             .local_private_key(&static_keypair.private)
             .build_responder()
             .expect("BUG: cannot build responder");
-        let algorithms = vec![EncryptionAlgorithm::ChaChaPoly, EncryptionAlgorithm::AESGCM];
+        let algorithms = vec![EncryptionAlgorithm::ChaChaPoly, EncryptionAlgorithm::AesGcm];
 
         Ok(Self {
             stage: 0,
@@ -328,8 +328,8 @@ impl handshake::Step for Responder {
                         let algs: Vec<EncryptionAlgorithm> = negotiation_message.get_algos()?;
 
                         // If AES is present choose AES, otherwise choose the first supported one
-                        let chosen_algorithm = if algs.contains(&EncryptionAlgorithm::AESGCM) {
-                            EncryptionAlgorithm::AESGCM
+                        let chosen_algorithm = if algs.contains(&EncryptionAlgorithm::AesGcm) {
+                            EncryptionAlgorithm::AesGcm
                         } else {
                             algs.into_iter()
                                 .find(|x| self.algorithms.contains(x))

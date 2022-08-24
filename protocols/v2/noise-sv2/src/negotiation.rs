@@ -1,6 +1,6 @@
 use crate::Error;
 use binary_sv2::{binary_codec_sv2, Deserialize, Seq0255, Serialize};
-use bytes::BufMut;
+use bytes::{Buf, BufMut, BytesMut};
 use core::convert::{TryFrom, TryInto};
 use snow::{params::NoiseParams, Builder};
 
@@ -62,17 +62,21 @@ impl<'d> Prologue<'d> {
 const MAGIC: u32 = u32::from_le_bytes(*b"STR2");
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-#[allow(clippy::upper_case_acronyms)]
 pub enum EncryptionAlgorithm {
-    AESGCM,
+    AesGcm,
     ChaChaPoly,
+}
+
+impl EncryptionAlgorithm {
+    const AESGCM: u32 = u32::from_le_bytes(*b"AESG");
+    const CHACHAPOLY: u32 = u32::from_le_bytes(*b"CHCH");
 }
 
 impl From<EncryptionAlgorithm> for u32 {
     fn from(value: EncryptionAlgorithm) -> Self {
         match value {
-            EncryptionAlgorithm::AESGCM => u32::from_le_bytes(*b"AESG"),
-            EncryptionAlgorithm::ChaChaPoly => u32::from_le_bytes(*b"CHCH"),
+            EncryptionAlgorithm::AesGcm => EncryptionAlgorithm::AESGCM,
+            EncryptionAlgorithm::ChaChaPoly => EncryptionAlgorithm::CHACHAPOLY,
         }
     }
 }
@@ -81,10 +85,8 @@ impl TryFrom<u32> for EncryptionAlgorithm {
 
     fn try_from(value: u32) -> Result<Self, Self::Error> {
         match value {
-            //32::from_le_bytes(*b"AESG");
-            1196639553 => Ok(EncryptionAlgorithm::AESGCM),
-            //32::from_le_bytes(*b"CHCH");
-            1212368963 => Ok(EncryptionAlgorithm::ChaChaPoly),
+            Self::AESGCM => Ok(EncryptionAlgorithm::AesGcm),
+            Self::CHACHAPOLY => Ok(EncryptionAlgorithm::ChaChaPoly),
             _ => Err(Error::EncryptionAlgorithmInvalid(value)),
         }
     }
