@@ -6,14 +6,15 @@ The Stratum protocol defines how miners, proxies, and pools communicate to contr
 the Bitcoin network.
 
 ### Test Coverage
-Command to generate test coverage percentage:
 
+Generate test coverage percentage with cargo-tarpaulin:
 ```
 cargo install cargo-tarpaulin
 cargo +nightly tarpaulin --verbose --features prop_test noise_sv2 fuzz with_buffer_pool async_std debug tokio with_tokio derive_codec_sv2 binary_codec_sv2 default core --lib --exclude-files examples/* --timeout 120 --fail-under 20 --out Xml
 ```
 
 Must have [`cargo-tarpaulin`](https://github.com/xd009642/tarpaulin) installed globally:
+
 ```
 cargo install cargo-tarpaulin
 ```
@@ -53,9 +54,11 @@ cargo install cargo-tarpaulin
     - [3.25 examples/template-provider-test](#325-examplestemplate-provider-test)
     - [3.26 test](#326-test)
     - [3.27 experimental](#327-experimental)
-  - [4. Build/Run/Test](#4-build)
+  - [4. Build/Test/Run](#4-build-test-run)
+    - [4.01 build](#401-build)
+    - [4.02 test](#402-test)
+    - [4.03 run](#403-run)
   - [5. Branches](#5-branches)
-
 
 ## 1. Goals
 
@@ -410,13 +413,23 @@ Contains experimental logic that is not yet specified as part of the protocol or
 
 ## 4. Build/Run/Test
 
-### 4.1 Build
+### 4.01 Build
 
-### 4.2 Run
+### 4.02 Test
 
-### 4.3 Test
+Generate test coverage percentage with cargo-tarpaulin:
 
-Performs test coverage of project's libraries using cargo-tarpaulin and generates results using codecov.io.
+```
+cargo +nightly tarpaulin --verbose --features prop_test noise_sv2 fuzz with_buffer_pool async_std debug tokio with_tokio derive_codec_sv2 binary_codec_sv2 default core --lib --exclude-files examples/* --timeout 120 --fail-under 30 --out Xml
+```
+
+Must have [`cargo-tarpaulin`](https://github.com/xd009642/tarpaulin) installed globally:
+
+```
+cargo install cargo-tarpaulin
+```
+
+Performs test coverage of entire project's libraries using cargo-tarpaulin and generates results using codecov.io.
 The following flags are used when executing cargo-tarpaulin:
 `--features`
 Includes the code with the listed features.
@@ -428,6 +441,8 @@ Only tests the package's library unit tests. Includes protocols, and utils (with
 `--timeout 120`: If unresponsive for 120 seconds, action will fail
 `--fail-under 40`: If code coverage is less than 40%, action will fail
 `--out Xml`: Required for codecov.io to generate coverage result
+
+### 4.03 Run
 
 ## 5. Branches
 
