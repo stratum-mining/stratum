@@ -461,6 +461,7 @@ To build the various projects/examples follow the following commands:
 
 Generate test coverage percentage with cargo-tarpaulin:
 
+Generate test coverage percentage with cargo-tarpaulin:
 ```
 cargo +nightly tarpaulin --verbose --features prop_test noise_sv2 fuzz with_buffer_pool async_std debug tokio with_tokio derive_codec_sv2 binary_codec_sv2 default core --lib --exclude-files examples/* --timeout 120 --fail-under 30 --out Xml
 ```
