@@ -124,6 +124,7 @@ impl Upstream {
             CommonRoutingLogic::None,
         )
         .unwrap();
+
         Self::parse_incoming(self_.clone());
         Ok(self_)
     }
@@ -179,7 +180,7 @@ impl Upstream {
                 // `SendTo::RelaySameMessage`
                 match next_message_to_send {
                     Ok(SendTo::Respond(next_message_to_send)) => {
-                        println!("TU SEND SV2 MSG TO TP: {:?}", &next_message_to_send);
+                        println!("\nTU SEND SV2 MSG TO TP: {:?}\n", &next_message_to_send);
                         // Format message as `EitherFrame` to send to the
                         // `Translator.upstream_receiver`
                         let message_pool = PoolMessages::Mining(next_message_to_send);

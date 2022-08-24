@@ -41,11 +41,16 @@
 use crate::{
     downstream_sv1::Downstream,
     proxy::{DownstreamTranslator, UpstreamTranslator},
-    upstream_sv2::{EitherFrame, Upstream},
+    upstream_sv2::{EitherFrame, Message, StdFrame, Upstream},
 };
 use async_channel::{bounded, Receiver, Sender};
 use async_std::{net::TcpListener, prelude::*, task};
-use roles_logic_sv2::utils::Mutex;
+use codec_sv2::Frame;
+use core::convert::TryInto;
+use roles_logic_sv2::{
+    parsers::{JobNegotiation, Mining},
+    utils::Mutex,
+};
 use std::{
     net::{IpAddr, SocketAddr},
     str::FromStr,
@@ -233,12 +238,46 @@ impl Translator {
     }
 
     /// Parses a SV2 message and translates to to a SV1 message
-    fn parse_sv2_to_sv1(&mut self, _message_sv2: EitherFrame) -> json_rpc::Message {
-        todo!()
-        // println!("TP PARSE SV2 -> SV1: {:?}", &message_sv2);
-        // let message_str =
-        //     r#"{"params": ["slush.miner1", "password"], "id": 2, "method": "mining.authorize"}"#;
-        // let message_json: json_rpc::Message = serde_json::from_str(message_str).unwrap();
-        // message_json
+    fn parse_sv2_to_sv1(&mut self, message_sv2: EitherFrame) -> json_rpc::Message {
+        println!("\n\n\n");
+        println!("TP PARSE SV2 -> SV1: {:?}", &message_sv2);
+        let mut message: StdFrame = message_sv2.try_into().unwrap();
+        let msg_type = message.get_header().unwrap().msg_type();
+        let payload = message.payload();
+        // let msg_type = message_sv2.get_header().unwrap().msg_type();
+        // let payload = message_sv2.payload();
+        // println!("\nPAYLOAD: {:?}", &payload);
+        // match (msg_type, payload).try_into() {
+        //     Ok(Mining::OpenStandardMiningChannelSuccess(m)) => println!("OSMCS: {:?}", m),
+        //     Ok(Mining::OpenExtendedMiningChannel(m)) => println!("OSMCS: {:?}", m),
+        //     Ok(Mining::NewExtendedMiningJob(m)) => println!("NEMJ: {:?}", m),
+        //     Ok(Mining::SetNewPrevHash(m)) => println!("SNPH: {:?}", m),
+        //     Ok(m) => println!("OTHER: {:?}", m),
+        //     Err(_) => panic!("ERROR"),
+        // };
+        // let msg_type = message_sv2.get_header();
+        // match message_sv2.into() {
+        //     Message::Common(m) => println!("OK"),
+        //     _ => println!("NOT OK"),
+        // };
+        // type Message = roles_logic_sv2::parsers::PoolMessages<'static>;
+        // type EitherFrame = codec_sv2::decoder::StandardEitherFrame<Message>;
+
+        // let msg_type = message_sv2.into;
+        // todo!()
+        // match message_sv2 {
+        //     Message::NewExtendedMiningJob(m) => println!("\nNEMJ: {:?}\n", m),
+        //     Message::SetNewPrevHash(m) => println!("\nSNPH: {:?}\n", m),
+        //     _ => println!("\nSOMETHING ELSE\n"),
+        //     // Message::Common(m) => println!("\n COMMON MESSAGE: {:?}", m),
+        //     // Message::Mining(m) => println!("\n MINING MESSAGE: {:?}", m),
+        //     // Message::JobNegotiation(m) => println!("\n JN MESSAGE: {:?}", m),
+        //     // Message::TemplateDistribution(m) => println!("\n TD MESSAGE: {:?}", m),
+        // }
+        let message_str =
+            r#"{"params": ["slush.miner1", "password"], "id": 2, "method": "mining.authorize"}"#;
+        let message_json: json_rpc::Message = serde_json::from_str(message_str).unwrap();
+        println!("\n\n\n");
+        message_json
     }
 }
