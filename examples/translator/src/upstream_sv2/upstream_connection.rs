@@ -23,7 +23,7 @@ pub(crate) struct UpstreamConnection {
 impl UpstreamConnection {
     /// Send a SV2 message to the Upstream role
     pub(crate) async fn send(&mut self, sv2_frame: StdFrame) -> Result<(), ()> {
-        println!("UPSTREAM SEND: {:?}", &sv2_frame);
+        println!("TU SEND TO UPSTREAM: {:?}", &sv2_frame);
         let either_frame = sv2_frame.into();
         match self.sender.send(either_frame).await {
             Ok(_) => Ok(()),

@@ -195,10 +195,12 @@ impl Translator {
     /// the SV2 message to the `Upstream.receiver_downstream`.
     async fn listen_downstream(mut self) {
         task::spawn(async move {
+            println!("TP LISTENING FOR INCOMING SV1 MSG FROM TD\n");
             loop {
                 let message_sv1: json_rpc::Message =
                     self.downstream_translator.receiver.recv().await.unwrap();
-                println!("P RECV SV1: {:?}", &message_sv1);
+                println!("TP RECV SV1 FROM TD: {:?}", &message_sv1);
+                // let message_sv2 = self.parse_sv1_to_sv2(message_sv1);
                 let message_sv2: EitherFrame = self.parse_sv1_to_sv2(message_sv1);
                 self.upstream_translator.send_sv2(message_sv2).await;
             }
@@ -207,14 +209,16 @@ impl Translator {
 
     /// Spawn task to listen for incoming messages from SV2 Upstream.
     /// Spawned task waits to receive a message from `Upstream.connection.sender_downstream`,
-    /// then parses the message + translates to SV1. Then the `Translator.sender_downstream`
-    /// sends the SV1 message to the `Downstream.receiver_upstream`.
+    /// then parses the message + translates to SV1. Then the
+    /// `Translator.downstream_translator.sender` sends the SV1 message to the
+    /// `Downstream.receiver_upstream`.
     async fn listen_upstream(mut self) {
         task::spawn(async move {
+            println!("TP LISTENING FOR INCOMING SV2 MSG FROM TU\n");
             loop {
                 let message_sv2: EitherFrame =
                     self.upstream_translator.receiver.recv().await.unwrap();
-                println!("P RECV SV2: {:?}", &message_sv2);
+                println!("TP RECV SV2 FROM TU: {:?}", &message_sv2);
                 let message_sv1: json_rpc::Message = self.parse_sv2_to_sv1(message_sv2);
                 self.downstream_translator.send_sv1(message_sv1).await;
             }
@@ -222,14 +226,17 @@ impl Translator {
     }
 
     /// Parses a SV1 message and translates to to a SV2 message
-    fn parse_sv1_to_sv2(&mut self, _message_sv1: json_rpc::Message) -> EitherFrame {
+    fn parse_sv1_to_sv2(&mut self, message_sv1: json_rpc::Message) -> EitherFrame {
+        // fn parse_sv1_to_sv2(&mut self, message_sv1: json_rpc::Message) -> () {
         todo!()
+        // println!("TP PARSE SV1 -> SV2: {:?}", &message_sv1);
+        // ()
     }
 
     /// Parses a SV2 message and translates to to a SV1 message
-    fn parse_sv2_to_sv1(&mut self, _message_sv2: EitherFrame) -> json_rpc::Message {
+    fn parse_sv2_to_sv1(&mut self, message_sv2: EitherFrame) -> json_rpc::Message {
         todo!()
-        // println!("PROXY PARSE SV2 -> SV1: {:?}", &message_sv2);
+        // println!("TP PARSE SV2 -> SV1: {:?}", &message_sv2);
         // let message_str =
         //     r#"{"params": ["slush.miner1", "password"], "id": 2, "method": "mining.authorize"}"#;
         // let message_json: json_rpc::Message = serde_json::from_str(message_str).unwrap();

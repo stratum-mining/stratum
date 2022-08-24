@@ -136,15 +136,15 @@ impl Upstream {
     }
 
     /// Parse the incoming SV2 message from the Upstream role and use the
-    /// `Upstream.sender_downstream` to send the message to the `Translator.receiver_upstream` to
-    /// be handled.
+    /// `Upstream.sender_downstream` to send the message to the
+    /// `Translator.upstream_translator.receiver` to be handled.
     fn parse_incoming(self_: Arc<Mutex<Self>>) {
         async_std::task::spawn(async move {
             loop {
                 // Waiting to receive a message from the SV2 Upstream role
                 let recv = self_.safe_lock(|s| s.connection.receiver.clone()).unwrap();
                 let mut incoming: StdFrame = recv.recv().await.unwrap().try_into().unwrap();
-                println!("UPSTREAM RECV PARSE: {:?}", &incoming);
+                println!("TU RECV SV2 FROM UPSTREAM: {:?}", &incoming);
                 // On message receive, get the message type from the message header and get the
                 // message payload
                 let message_type = incoming.get_header().unwrap().msg_type();
@@ -157,18 +157,21 @@ impl Upstream {
                 let routing_logic = MiningRoutingLogic::None;
 
                 // Gets the response message for the received SV2 Upstream role message
+                // `handle_message_mining` takes care of the SetupConnection +
+                // SetupConnection.Success
                 let next_message_to_send = Upstream::handle_message_mining(
                     self_.clone(),
                     message_type,
                     payload,
                     routing_logic,
                 );
-                // Sends the response message to the Downstream `Translator.upstream_receiver` via
+                // Sends the response message to the Downstream `Translator.upstream_translator.receiver` via
                 // the `UpstreamConnection.downstream_sender`.
                 // TODO: Using `SendTo::Respond` for demo, but should be replaced with
                 // `SendTo::RelaySameMessage`
                 match next_message_to_send {
                     Ok(SendTo::Respond(next_message_to_send)) => {
+                        println!("TU SEND SV2 MSG TO TP: {:?}", &next_message_to_send);
                         // Format message as `EitherFrame` to send to the
                         // `Translator.upstream_receiver`
                         let message_pool = PoolMessages::Mining(next_message_to_send);

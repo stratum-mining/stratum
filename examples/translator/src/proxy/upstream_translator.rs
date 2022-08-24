@@ -18,6 +18,7 @@ impl UpstreamTranslator {
 
     /// Sends SV2 message to the `Upstream.receiver_downstream`.
     pub(crate) async fn send_sv2(&mut self, message_sv2: EitherFrame) {
+        println!("TP SENDS TRANSLATED SV2 MSG TO TU: {:?}", &message_sv2);
         self.sender.send(message_sv2).await.unwrap();
     }
 }
