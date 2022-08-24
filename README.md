@@ -1,4 +1,5 @@
 # Stratum
+
 [![codecov](https://codecov.io/gh/stratum-mining/stratum/branch/main/graph/badge.svg)](https://codecov.io/gh/stratum-mining/stratum)
 
 The Stratum protocol defines how miners, proxies, and pools communicate to contribute hashrate to
@@ -39,7 +40,8 @@ the Bitcoin network.
     - [3.25 examples/template-provider-test](#325-examplestemplate-provider-test)
     - [3.26 test](#326-test)
     - [3.27 experimental](#327-experimental)
-  - [4. Branches](#4-branches)
+  - [4. Build/Run/Test](#4-build)
+  - [5. Branches](#5-branches)
 
 ## 1. Goals
 
@@ -392,7 +394,28 @@ Contains integration tests.
 
 Contains experimental logic that is not yet specified as part of the protocol or extensions.
 
-## 4. Branches
+## 4. Build/Run/Test
+
+### 4.1 Build
+
+### 4.2 Run
+
+### 4.3 Test
+
+Performs test coverage of project's libraries using cargo-tarpaulin and generates results using codecov.io.
+The following flags are used when executing cargo-tarpaulin:
+`--features`
+Includes the code with the listed features.
+The following features result in a tarpaulin error and are NOT included:
+derive, alloc, arbitrary-derive, attributes, with_serde
+`--lib`
+Only tests the package's library unit tests. Includes protocols, and utils (without the exclude-files flag, it includes this example because it contains a lib.rs file)
+`--exclude-files examples/*`: Excludes all projects in examples directory (specifically added to ignore examples that that contain a lib.rs file like interop-cpp)
+`--timeout 120`: If unresponsive for 120 seconds, action will fail
+`--fail-under 40`: If code coverage is less than 40%, action will fail
+`--out Xml`: Required for codecov.io to generate coverage result
+
+## 5. Branches
 
 TODO
 
