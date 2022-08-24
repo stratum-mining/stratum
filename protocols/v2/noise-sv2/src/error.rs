@@ -31,6 +31,8 @@ pub enum Error {
     HSInitiatorStepNotFound(usize),
     /// Errors if handshake responder step is invalid. Valid steps are 0, 1, or 2.
     HSResponderStepNotFound(usize),
+    /// Failed to parse incoming message
+    InvalidHandshakeMessage,
     /// I/O Error
     #[cfg(not(feature = "no_std"))]
     IoError,
@@ -74,6 +76,7 @@ impl fmt::Display for Error {
                 "Invalid handshake responder step: `{}`. Valid steps are 0, 1, or 2.",
                 u
             ),
+            InvalidHandshakeMessage => write!(f, "Failed to parse handshake message"),
             IoError => write!(f, "IO Error"),
             MessageToDecryptIsEmpty => write!(f, "Message to decrypt is empty"),
             MustSpecifyOneEncryptionAlgorithm(u) => write!(f, "Expected 1 encryption algorithm. Received `{}`", u),

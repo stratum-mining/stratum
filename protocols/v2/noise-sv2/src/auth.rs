@@ -221,9 +221,9 @@ impl TryFrom<&[u8]> for SignatureNoiseMessage {
     type Error = Error;
 
     fn try_from(data: &[u8]) -> Result<Self> {
-        debug_assert!(data.len() == 76);
+        debug_assert!(data.len() == 74);
         let header = &data[0..10];
-        let siganture = &data[12..76];
+        let siganture = &data[10..74];
         let header = SignedPartHeader::from_bytes(header);
         let signature =
             ed25519_dalek::Signature::new(siganture.try_into().map_err(|_| Error::NoiseTodo)?);

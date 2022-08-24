@@ -1,6 +1,6 @@
 use crate::Error;
 use binary_sv2::{binary_codec_sv2, Deserialize, Seq0255, Serialize};
-use bytes::{Buf, BufMut, BytesMut};
+use bytes::{Buf, BufMut};
 use core::convert::{TryFrom, TryInto};
 use snow::{params::NoiseParams, Builder};
 
@@ -28,38 +28,24 @@ impl NoiseParamsBuilder {
 /// fails.
 /// Made of the initiator message (the list of algorithms) and the responder message (the
 /// algorithm chosen). If both of them are None, no negotiation happened.
-#[derive(Clone, Debug)]
-pub struct Prologue<'d> {
-    pub initiator_msg: Option<NegotiationMessage<'d>>,
-    pub responder_msg: Option<NegotiationMessage<'d>>,
+#[derive(Clone, Debug, PartialEq)]
+pub struct Prologue<'a> {
+    pub possible_algos: &'a [EncryptionAlgorithm],
+    pub chosen_algo: EncryptionAlgorithm,
 }
 
 impl<'d> Prologue<'d> {
-    pub fn serialize_to_buf(&self, buf: &mut bytes::BytesMut) {
-        match &self.initiator_msg {
-            None => {
-                buf.put_u8(0);
-            }
-            Some(t) => {
-                buf.put_u8(1);
-                let nm = binary_sv2::to_bytes(t.clone()).unwrap();
-                buf.extend_from_slice(&nm);
-            }
+    pub fn serialize_to_buf(&self, buf: &mut Vec<u8>) {
+        let algo_list_len = self.possible_algos.len() as u8;
+        buf.put_u8(algo_list_len);
+        for algo in self.possible_algos.iter() {
+            algo.serialize_to_buf(buf);
         }
-        match &self.responder_msg {
-            None => {
-                buf.put_u8(0);
-            }
-            Some(t) => {
-                buf.put_u8(1);
-                let nm = binary_sv2::to_bytes(t.clone()).unwrap();
-                buf.extend_from_slice(&nm);
-            }
-        }
+        self.chosen_algo.serialize_to_buf(buf)
     }
 }
 
-const MAGIC: u32 = u32::from_le_bytes(*b"STR2");
+const MAGIC: u32 = u32::from_le_bytes(*b"STR3");
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum EncryptionAlgorithm {
@@ -70,6 +56,19 @@ pub enum EncryptionAlgorithm {
 impl EncryptionAlgorithm {
     const AESGCM: u32 = u32::from_le_bytes(*b"AESG");
     const CHACHAPOLY: u32 = u32::from_le_bytes(*b"CHCH");
+
+    pub fn serialize_to_buf(&self, buf: &mut Vec<u8>) {
+        buf.put_u32_le(u32::from(*self));
+    }
+
+    pub fn deserialize_from_buf(buf: &[u8]) -> Result<Self, Error> {
+        if buf.remaining() < std::mem::size_of::<u32>() {
+            return Err(Error::InvalidHandshakeMessage);
+        }
+        let mut raw_repr = [0_u8; 4];
+        raw_repr.copy_from_slice(&buf[0..4]);
+        Self::try_from(u32::from_le_bytes(raw_repr))
+    }
 }
 
 impl From<EncryptionAlgorithm> for u32 {

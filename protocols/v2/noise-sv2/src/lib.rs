@@ -19,9 +19,11 @@ pub use snow::Error as NoiseSv2SnowError;
 pub use auth::{SignatureNoiseMessage, SignedPartHeader};
 pub use formats::Certificate;
 
+use crate::negotiation::Prologue;
 /// Static keypair (aka 's' and 'rs') from the noise handshake patterns. This has to be used by
 /// users of this noise when Building the responder
 pub use snow::Keypair as StaticKeypair;
+
 /// Snow doesn't have a dedicated public key type, we will need it for authentication
 pub type StaticPublicKey = Vec<u8>;
 /// Snow doesn't have a dedicated secret key type, we will need it for authentication
@@ -32,9 +34,8 @@ const PARAMS: &str = const_sv2::NOISE_PARAMS;
 /// version: u16
 /// valid_from: u32
 /// not_valid_after: u32
-/// siganture len: u16 (64 little endian)
 /// siganture: 64 bytes
-pub const SIGNATURE_MESSAGE_LEN: usize = 76;
+pub const SIGNATURE_MESSAGE_LEN: usize = 74;
 
 /// Private snow constants redefined here
 pub const MAX_MESSAGE_SIZE: usize = const_sv2::NOISE_FRAME_MAX_SIZE;
@@ -65,6 +66,8 @@ pub struct Initiator {
     stage: usize,
     handshake_state: HandshakeState,
     algorithms: Vec<EncryptionAlgorithm>,
+    /// Set during algorithm negotiation phase
+    chosen_algorithm: Option<EncryptionAlgorithm>,
     /// Authority public key use to sign the certificate that prove the identity of the Responder
     /// (upstream node) to the Initiator (downstream node)
     authority_public_key: ed25519_dalek::PublicKey,
@@ -81,8 +84,9 @@ impl Initiator {
         Ok(Self {
             stage: 0,
             handshake_state,
-            authority_public_key,
             algorithms,
+            chosen_algorithm: None,
+            authority_public_key,
         })
     }
 
@@ -116,14 +120,19 @@ impl Initiator {
         Ok(())
     }
 
-    pub fn update_handshake_state(
-        &mut self,
-        algo: EncryptionAlgorithm,
-        prologue: &[u8],
-    ) -> Result<()> {
-        let builder = NoiseParamsBuilder::new(algo).get_builder();
+    pub fn update_handshake_state(&mut self) -> Result<()> {
+        let chosen_algo = self
+            .chosen_algorithm
+            .expect("BUG: Algorithm must be set at this point");
+        let builder = NoiseParamsBuilder::new(chosen_algo).get_builder();
+        let mut prologue = Vec::new();
+        Prologue {
+            possible_algos: &self.algorithms,
+            chosen_algo,
+        }
+        .serialize_to_buf(&mut prologue);
 
-        self.handshake_state = builder.prologue(prologue).build_initiator()?;
+        self.handshake_state = builder.prologue(&prologue).build_initiator()?;
         Ok(())
     }
 }
@@ -134,8 +143,6 @@ impl handshake::Step for Initiator {
     }
 
     fn step(&mut self, in_msg: Option<handshake::Message>) -> Result<handshake::StepResult> {
-        let mut noise_bytes = Vec::new();
-
         let result = match self.stage {
             0 => {
                 // -> list supported algorithms
@@ -149,26 +156,15 @@ impl handshake::Step for Initiator {
             1 => {
                 // <- chosen algorithm
                 let mut in_msg = in_msg.ok_or(Error::ExpectedIncomingHandshakeMessage)?;
-                let negotiation_message: NegotiationMessage = dbg!(from_bytes(in_msg.as_mut())?);
-                let algos = dbg!(negotiation_message.get_algos()?);
+                let chosen_algorithm = EncryptionAlgorithm::deserialize_from_buf(&mut in_msg)?;
+                self.chosen_algorithm = Some(chosen_algorithm);
 
-                if algos.len() != 1 {
-                    return Err(Error::MustSpecifyOneEncryptionAlgorithm(algos.len()));
-                }
-                let chosen_algorithm = algos[0];
-                let mut prologue = bytes::BytesMut::new();
-                negotiation::Prologue {
-                    initiator_msg: None,
-                    responder_msg: Some(negotiation_message),
-                }
-                .serialize_to_buf(&mut prologue);
-                self.update_handshake_state(chosen_algorithm, &prologue)?;
+                self.update_handshake_state()?;
 
                 // Send (initiator ephemeral public key)
                 // -> e
                 //
-                let buffer_len = SNOW_PSKLEN + SNOW_TAGLEN;
-                noise_bytes.resize(buffer_len, 0);
+                let mut noise_bytes = vec![0; SNOW_PSKLEN + SNOW_TAGLEN];
 
                 let len_written = self.handshake_state.write_message(&[], &mut noise_bytes)?;
 
@@ -181,8 +177,7 @@ impl handshake::Step for Initiator {
                 // <- e, ee, s, es, SIGNATURE_NOISE_MESSAGE
                 //
                 let in_msg = in_msg.ok_or(Error::ExpectedIncomingHandshakeMessage)?;
-
-                noise_bytes.resize(BUFFER_LEN, 0);
+                let mut noise_bytes = vec![0; BUFFER_LEN];
                 let signature_len = self
                     .handshake_state
                     .read_message(&in_msg[..], &mut noise_bytes)?;
@@ -199,14 +194,18 @@ impl handshake::Step for Initiator {
     }
 }
 
-#[derive(Debug)]
 pub struct Responder {
     stage: usize,
-    handshake_state: HandshakeState,
+    static_keypair: snow::Keypair,
+    handshake_state: Option<HandshakeState>,
+    /// Algorithms requested by initiator
+    requested_algorithms: Vec<EncryptionAlgorithm>,
+    /// Algorithm chosen by the server
+    chosen_algorithm: Option<EncryptionAlgorithm>,
     /// Serialized signature noise message
     signature_noise_message: Bytes,
+    /// Algorithms enabled on the responder
     algorithms: Vec<EncryptionAlgorithm>,
-    private: Vec<u8>,
 }
 
 pub struct Authority {
@@ -252,29 +251,23 @@ impl Authority {
 }
 
 impl Responder {
-    pub fn new(static_keypair: &StaticKeypair, signature_noise_message: Bytes) -> Result<Self> {
-        let params: NoiseParams = PARAMS.parse()?;
-
-        let builder: Builder<'_> = Builder::new(params);
-
-        let handshake_state = builder
-            .local_private_key(&static_keypair.private)
-            .build_responder()
-            .expect("BUG: cannot build responder");
+    pub fn new(static_keypair: StaticKeypair, signature_noise_message: Bytes) -> Result<Self> {
         let algorithms = vec![EncryptionAlgorithm::ChaChaPoly, EncryptionAlgorithm::AesGcm];
 
         Ok(Self {
             stage: 0,
-            handshake_state,
+            static_keypair,
+            handshake_state: None,
+            requested_algorithms: vec![],
+            chosen_algorithm: None,
             signature_noise_message,
             algorithms,
-            private: static_keypair.private.clone(),
         })
     }
 
     pub fn with_random_static_kp(signature_noise_message: Bytes) -> Result<Self> {
         let static_keypair = generate_keypair()?;
-        Self::new(&static_keypair, signature_noise_message)
+        Self::new(static_keypair, signature_noise_message)
     }
 
     /// Create a Responder from authority pub_k and priv_k (32 bytes keys)
@@ -292,20 +285,29 @@ impl Responder {
             .new_cert(static_keypair.public.clone(), duration)?
             .serialize_to_bytes_mut()?;
 
-        Self::new(&static_keypair, signature_noise_message.into())
+        Self::new(static_keypair, signature_noise_message.into())
     }
 
-    pub fn update_handshake_state(
-        &mut self,
-        algo: EncryptionAlgorithm,
-        prologue: &[u8],
-    ) -> Result<()> {
-        let builder = NoiseParamsBuilder::new(algo).get_builder();
+    pub fn update_handshake_state(&mut self) -> Result<()> {
+        let chosen_algo = self
+            .chosen_algorithm
+            .expect("BUG: Algorithm must be set at this moment");
 
-        self.handshake_state = dbg!(builder
-            .local_private_key(&self.private)
-            .prologue(prologue)
-            .build_responder())?;
+        let builder = NoiseParamsBuilder::new(chosen_algo).get_builder();
+
+        let mut prologue = Vec::new();
+        Prologue {
+            possible_algos: &self.requested_algorithms,
+            chosen_algo,
+        }
+        .serialize_to_buf(&mut prologue);
+
+        self.handshake_state = Some(
+            builder
+                .local_private_key(&self.static_keypair.private)
+                .prologue(&prologue)
+                .build_responder()?,
+        );
         Ok(())
     }
 }
@@ -313,35 +315,35 @@ impl Responder {
 impl handshake::Step for Responder {
     fn into_handshake_state(self) -> HandshakeState {
         self.handshake_state
+            .expect("BUG: Handshake must be set at this moment")
     }
 
     fn step(&mut self, in_msg: Option<handshake::Message>) -> Result<handshake::StepResult> {
-        let mut noise_bytes = Vec::new();
-
         let result = match self.stage {
             0 => {
                 let mut in_msg = in_msg.ok_or(Error::ExpectedIncomingHandshakeMessage)?;
                 let negotiation_message: std::result::Result<NegotiationMessage, _> =
                     from_bytes(&mut in_msg);
+
                 match negotiation_message {
                     Ok(negotiation_message) => {
-                        let algs: Vec<EncryptionAlgorithm> = negotiation_message.get_algos()?;
+                        let algos: Vec<EncryptionAlgorithm> = negotiation_message.get_algos()?;
 
-                        // If AES is present choose AES, otherwise choose the first supported one
-                        let chosen_algorithm = if algs.contains(&EncryptionAlgorithm::AesGcm) {
-                            EncryptionAlgorithm::AesGcm
-                        } else {
-                            algs.into_iter()
-                                .find(|x| self.algorithms.contains(x))
-                                .ok_or(Error::EncryptionAlgorithmNotFound)?
-                        };
+                        let chosen_algorithm = self
+                            .algorithms
+                            .iter()
+                            .find(|&a| algos.contains(a))
+                            .copied()
+                            .ok_or(Error::EncryptionAlgorithmNotFound)?;
+                        self.requested_algorithms = algos;
+                        self.chosen_algorithm = Some(chosen_algorithm);
 
-                        let negotiation_message = NegotiationMessage::new(vec![chosen_algorithm]);
+                        let mut noise_bytes = Vec::new();
+                        chosen_algorithm.serialize_to_buf(&mut noise_bytes);
+                        // let negotiation_message = NegotiationMessage::new(vec![chosen_algorithm]);
 
-                        // below never fail
-                        let to_send = to_bytes(negotiation_message).unwrap();
-                        self.update_handshake_state(chosen_algorithm, &to_send)?;
-                        handshake::StepResult::ExpectReply(to_send)
+                        self.update_handshake_state()?;
+                        handshake::StepResult::ExpectReply(noise_bytes)
                     }
                     Err(_) => {
                         // Otherwise, use the handshake with default params and pass e to the next step
@@ -356,11 +358,11 @@ impl handshake::Step for Responder {
                 //
                 let in_msg = in_msg.ok_or(Error::ExpectedIncomingHandshakeMessage)?;
 
-                let buffer_len = BUFFER_LEN;
-
-                noise_bytes.resize(buffer_len, 0);
+                let mut noise_bytes = vec![0; BUFFER_LEN];
 
                 self.handshake_state
+                    .as_mut()
+                    .expect("BUG: Handshake must be set at this point")
                     .read_message(&in_msg, &mut noise_bytes)?;
 
                 // Create response message
@@ -368,9 +370,11 @@ impl handshake::Step for Responder {
                 //
                 let len_written = self
                     .handshake_state
+                    .as_mut()
+                    .expect("BUG: Handshake must be set at this point")
                     .write_message(&self.signature_noise_message, &mut noise_bytes)?;
 
-                debug_assert!(buffer_len == len_written);
+                debug_assert!(BUFFER_LEN == len_written);
                 handshake::StepResult::NoMoreReply(noise_bytes)
             }
             2 => handshake::StepResult::Done,
@@ -462,7 +466,7 @@ pub(crate) mod test {
 
         let mut initiator = Initiator::new(authority_keypair.public).unwrap();
 
-        let mut responder = Responder::new(&static_keypair, signature_noise_message).unwrap();
+        let mut responder = Responder::new(static_keypair, signature_noise_message).unwrap();
         let mut initiator_in_msg: Option<handshake::Message> = None;
 
         loop {
@@ -544,7 +548,7 @@ pub(crate) mod test {
 
         let mut initiator = Initiator::new(authority_keypair.public).unwrap();
 
-        let mut responder = Responder::new(&static_keypair, signature_noise_message).unwrap();
+        let mut responder = Responder::new(static_keypair, signature_noise_message).unwrap();
         let first_message = match initiator.step(None).unwrap() {
             handshake::StepResult::ExpectReply(msg) => msg,
             _ => panic!(),
