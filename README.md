@@ -5,6 +5,17 @@
 The Stratum protocol defines how miners, proxies, and pools communicate to contribute hashrate to
 the Bitcoin network.
 
+### Test Coverage
+Command to generate test coverage percentage:
+```
+cargo +nightly tarpaulin --verbose --features prop_test noise_sv2 fuzz with_buffer_pool async_std debug tokio with_tokio derive_codec_sv2 binary_codec_sv2 default core --lib --exclude-files examples/* --timeout 120 --fail-under 30 --out Xml
+```
+
+Must have [`cargo-tarpaulin`](https://github.com/xd009642/tarpaulin) installed globally:
+```
+cargo install cargo-tarpaulin
+```
+
 ## Table of Contents
 
 - [Stratum](#stratum)
@@ -42,6 +53,7 @@ the Bitcoin network.
     - [3.27 experimental](#327-experimental)
   - [4. Build/Run/Test](#4-build)
   - [5. Branches](#5-branches)
+
 
 ## 1. Goals
 
