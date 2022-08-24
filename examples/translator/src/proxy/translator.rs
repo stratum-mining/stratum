@@ -108,6 +108,7 @@ impl Translator {
 
         // Listen for SV1 Downstream(s) + SV2 Upstream, process received messages + send
         // accordingly
+        // RR TODO: LISTEN IS NEVER CALLED??!
         let translator_clone_listen = translator.clone();
         translator_clone_listen.listen().await;
 
@@ -122,6 +123,7 @@ impl Translator {
         sender_for_upstream: Sender<EitherFrame>,
         receiver_for_upstream: Receiver<EitherFrame>,
     ) {
+        println!("CONNECTING...\n");
         // Accept connection from one SV2 Upstream role (SV2 Pool)
         Translator::accept_connection_upstream(sender_for_upstream, receiver_for_upstream).await;
 
@@ -135,6 +137,8 @@ impl Translator {
 
     /// Listen for SV1 Downstream(s) + SV2 Upstream, process received messages + send accordingly.
     async fn listen(self) {
+        // RR TODO: NEVER CALLED
+        println!("\nLISTENING...\n");
         // Spawn task to listen for incoming messages from SV1 Downstream
         let translator_clone_downstream = self.clone();
         translator_clone_downstream.listen_downstream().await;
@@ -169,7 +173,6 @@ impl Translator {
         sender_for_downstream: Sender<json_rpc::Message>,
         receiver_for_downstream: Receiver<json_rpc::Message>,
     ) {
-        // task::spawn(async move {
         let downstream_listener = TcpListener::bind(crate::LISTEN_ADDR).await.unwrap();
         let mut downstream_incoming = downstream_listener.incoming();
         while let Some(stream) = downstream_incoming.next().await {
@@ -186,7 +189,6 @@ impl Translator {
             .await;
             Arc::new(Mutex::new(server));
         }
-        // });
     }
 
     /// Spawn task to listen for incoming messages from SV1 Downstream.
@@ -199,8 +201,6 @@ impl Translator {
             loop {
                 let message_sv1: json_rpc::Message =
                     self.downstream_translator.receiver.recv().await.unwrap();
-                println!("TP RECV SV1 FROM TD: {:?}", &message_sv1);
-                // let message_sv2 = self.parse_sv1_to_sv2(message_sv1);
                 let message_sv2: EitherFrame = self.parse_sv1_to_sv2(message_sv1);
                 self.upstream_translator.send_sv2(message_sv2).await;
             }
@@ -216,6 +216,7 @@ impl Translator {
         task::spawn(async move {
             println!("TP LISTENING FOR INCOMING SV2 MSG FROM TU\n");
             loop {
+                // let message_sv2: EitherFrame = self.upstream_translator.recv_sv2();
                 let message_sv2: EitherFrame =
                     self.upstream_translator.receiver.recv().await.unwrap();
                 println!("TP RECV SV2 FROM TU: {:?}", &message_sv2);
@@ -226,7 +227,8 @@ impl Translator {
     }
 
     /// Parses a SV1 message and translates to to a SV2 message
-    fn parse_sv1_to_sv2(&mut self, message_sv1: json_rpc::Message) -> EitherFrame {
+    fn parse_sv1_to_sv2(&mut self, _message_sv1: json_rpc::Message) -> EitherFrame {
+        // println!("TP RECV SV1 FROM TD TO HANDLE: {:?}", &message_sv1);
         // fn parse_sv1_to_sv2(&mut self, message_sv1: json_rpc::Message) -> () {
         todo!()
         // println!("TP PARSE SV1 -> SV2: {:?}", &message_sv1);
@@ -234,7 +236,7 @@ impl Translator {
     }
 
     /// Parses a SV2 message and translates to to a SV1 message
-    fn parse_sv2_to_sv1(&mut self, message_sv2: EitherFrame) -> json_rpc::Message {
+    fn parse_sv2_to_sv1(&mut self, _message_sv2: EitherFrame) -> json_rpc::Message {
         todo!()
         // println!("TP PARSE SV2 -> SV1: {:?}", &message_sv2);
         // let message_str =

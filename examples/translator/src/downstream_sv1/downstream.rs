@@ -221,7 +221,7 @@ impl IsServer for Downstream {
                 //     Err(Error::InvalidSubmission)
                 // }
             }
-            methods::Client2Server::Subscribe(subscribe) => {
+            methods::Client2Server::Subscribe(_subscribe) => {
                 // On the receive of SV1 Subscribe, need to format a response with set_difficulty
                 // + mining.notify from the SV2 SetNewPrevHash + NewExtendedMiningJob
                 println!("DT HANDLE SUBSCRIBE");

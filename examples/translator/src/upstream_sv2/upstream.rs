@@ -3,7 +3,7 @@ use crate::{
     upstream_sv2::{EitherFrame, StdFrame, UpstreamConnection},
 };
 use async_channel::{Receiver, Sender};
-use async_std::net::TcpStream;
+use async_std::{net::TcpStream, task};
 use codec_sv2::{Frame, HandshakeRole, Initiator};
 use network_helpers::Connection;
 use roles_logic_sv2::{
@@ -113,6 +113,8 @@ impl Upstream {
         //     .await
         //     .unwrap();
 
+        Self::parse_incoming_downstream(self_.clone());
+
         // Handle the incoming message (should be either `SetupConnectionSuccess` or
         // `SetupConnectionError`)
         ParseUpstreamCommonMessages::handle_message_common(
@@ -126,20 +128,26 @@ impl Upstream {
         Ok(self_)
     }
 
-    /// Receive messages from the downstream `Translator::sender_to_upstream`.
-    async fn _receive(self_mutex: Arc<Mutex<Self>>) -> Result<StdFrame, ()> {
-        let connection = self_mutex
-            .safe_lock(|self_| self_.connection.clone())
-            .unwrap();
-        let message_incoming = connection.receiver_downstream.recv().await.unwrap();
-        message_incoming.try_into()
+    /// Receive messages from the downstream `Translator::upstream_translator.sender`, sent in
+    /// `UpstreamTranslator::send_sv2`.
+    fn parse_incoming_downstream(self_: Arc<Mutex<Self>>) {
+        task::spawn(async move {
+            loop {
+                let recv = self_
+                    .safe_lock(|s| s.connection.receiver_downstream.clone())
+                    .unwrap();
+                let message_incoming = recv.recv().await.unwrap();
+                println!("TU RECV SV2 FROM TP: {:?}", &message_incoming);
+                // message_incoming.try_into() // StdFrame
+            }
+        });
     }
 
     /// Parse the incoming SV2 message from the Upstream role and use the
     /// `Upstream.sender_downstream` to send the message to the
     /// `Translator.upstream_translator.receiver` to be handled.
     fn parse_incoming(self_: Arc<Mutex<Self>>) {
-        async_std::task::spawn(async move {
+        task::spawn(async move {
             loop {
                 // Waiting to receive a message from the SV2 Upstream role
                 let recv = self_.safe_lock(|s| s.connection.receiver.clone()).unwrap();
