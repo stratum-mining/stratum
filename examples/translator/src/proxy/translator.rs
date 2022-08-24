@@ -94,6 +94,10 @@ impl Translator {
             downstream_translator,
             upstream_translator,
         };
+        // Listen for SV1 Downstream(s) + SV2 Upstream, process received messages + send
+        // accordingly
+        let translator_clone_listen = translator.clone();
+        translator_clone_listen.listen().await;
 
         // Connect to SV1 Downstream(s) + SV2 Upstream
         let translator_clone_connect = translator.clone();
@@ -105,12 +109,6 @@ impl Translator {
                 receiver_for_upstream,
             )
             .await;
-
-        // Listen for SV1 Downstream(s) + SV2 Upstream, process received messages + send
-        // accordingly
-        // RR TODO: LISTEN IS NEVER CALLED??!
-        let translator_clone_listen = translator.clone();
-        translator_clone_listen.listen().await;
 
         translator
     }
@@ -137,7 +135,6 @@ impl Translator {
 
     /// Listen for SV1 Downstream(s) + SV2 Upstream, process received messages + send accordingly.
     async fn listen(self) {
-        // RR TODO: NEVER CALLED
         println!("\nLISTENING...\n");
         // Spawn task to listen for incoming messages from SV1 Downstream
         let translator_clone_downstream = self.clone();
