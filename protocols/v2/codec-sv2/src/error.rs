@@ -6,6 +6,8 @@ use noise_sv2::Error as NoiseError;
 #[cfg(feature = "noise_sv2")]
 use noise_sv2::NoiseSv2SnowError;
 
+pub type Result<T> = core::result::Result<T, Error>;
+
 #[repr(C)]
 #[derive(Debug)]
 pub enum Error {
@@ -23,8 +25,6 @@ pub enum Error {
     UnexpectedNoiseState,
     CodecTodo,
 }
-
-pub type Result<T> = core::result::Result<T, Error>;
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -77,5 +77,49 @@ impl From<NoiseError> for Error {
 impl From<NoiseSv2SnowError> for Error {
     fn from(e: NoiseSv2SnowError) -> Self {
         Error::SnowError(e)
+    }
+}
+
+#[repr(C)]
+#[derive(Debug)]
+pub enum CError {
+    /// Errors from the `binary_sv2` crate
+    BinarySv2Error,
+    /// Errors if there are missing bytes in the Noise protocol
+    MissingBytes(usize),
+    /// Errors from the `noise_sv2` crate
+    NoiseSv2Error,
+    /// `snow` errors
+    SnowError,
+    /// Error if Noise protocol state is not as expected
+    UnexpectedNoiseState,
+    CodecTodo,
+}
+
+impl From<Error> for CError {
+    fn from(e: Error) -> CError {
+        match e {
+            Error::BinarySv2Error(_) => CError::BinarySv2Error,
+            Error::MissingBytes(u) => CError::MissingBytes(u),
+            #[cfg(feature = "noise_sv2")]
+            Error::NoiseSv2Error(_) => CError::NoiseSv2Error,
+            #[cfg(feature = "noise_sv2")]
+            Error::SnowError(_) => CError::SnowError,
+            Error::UnexpectedNoiseState => CError::UnexpectedNoiseState,
+            Error::CodecTodo => CError::CodecTodo,
+        }
+    }
+}
+
+impl Drop for CError {
+    fn drop(&mut self) {
+        match self {
+            CError::BinarySv2Error => (),
+            CError::MissingBytes(_) => (),
+            CError::NoiseSv2Error => (),
+            CError::SnowError => (),
+            CError::UnexpectedNoiseState => (),
+            CError::CodecTodo => (),
+        };
     }
 }
