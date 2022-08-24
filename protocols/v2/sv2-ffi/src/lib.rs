@@ -300,7 +300,7 @@ pub enum CResult<T, E> {
 #[repr(C)]
 pub enum Sv2Error {
     BinaryError(binary_sv2::CError),
-    CodecError(codec_sv2::Error),
+    CodecError(codec_sv2::CError),
     EncoderBusy,
     InvalidSv2Frame,
     MissingBytes,
@@ -335,8 +335,8 @@ impl From<binary_sv2::Error> for Sv2Error {
     }
 }
 
-impl From<codec_sv2::Error> for Sv2Error {
-    fn from(e: codec_sv2::Error) -> Sv2Error {
+impl From<codec_sv2::CError> for Sv2Error {
+    fn from(e: codec_sv2::CError) -> Sv2Error {
         Sv2Error::CodecError(e)
     }
 }
@@ -399,7 +399,7 @@ fn encode_(
     encoder
         .encoder
         .encode(frame)
-        .map_err(Sv2Error::CodecError)
+        .map_err(|e| Sv2Error::CodecError(e.into()))
         .map(|x| x.into())
 }
 

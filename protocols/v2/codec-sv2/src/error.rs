@@ -8,7 +8,6 @@ use noise_sv2::NoiseSv2SnowError;
 
 pub type Result<T> = core::result::Result<T, Error>;
 
-#[repr(C)]
 #[derive(Debug)]
 pub enum Error {
     /// Errors from the `binary_sv2` crate
