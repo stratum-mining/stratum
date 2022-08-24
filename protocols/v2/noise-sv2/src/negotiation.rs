@@ -11,10 +11,12 @@ pub struct NoiseParamsBuilder {
 
 impl NoiseParamsBuilder {
     pub fn new(chosen_algorithm: EncryptionAlgorithm) -> Self {
+        let pattern = match chosen_algorithm {
+            EncryptionAlgorithm::AesGcm => "Noise_NX_25519_AESGCM_BLAKE2s",
+            EncryptionAlgorithm::ChaChaPoly => "Noise_NX_25519_ChaChaPoly_BLAKE2s",
+        };
         Self {
-            params: format!("Noise_NX_25519_{:?}_BLAKE2s", chosen_algorithm)
-                .parse()
-                .expect("BUG: cannot parse noise parameters"),
+            params: pattern.parse().expect("BUG: cannot parse noise parameters"),
         }
     }
 

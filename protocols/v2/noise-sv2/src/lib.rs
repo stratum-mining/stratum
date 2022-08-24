@@ -15,6 +15,7 @@ use negotiation::{EncryptionAlgorithm, NegotiationMessage, NoiseParamsBuilder};
 use snow::{params::NoiseParams, Builder, HandshakeState, TransportState};
 // Export for use in `codec_sv2::error::Error::SnowError`
 pub use snow::Error as NoiseSv2SnowError;
+use std::fmt;
 
 pub use auth::{SignatureNoiseMessage, SignedPartHeader};
 pub use formats::Certificate;
@@ -206,6 +207,17 @@ pub struct Responder {
     signature_noise_message: Bytes,
     /// Algorithms enabled on the responder
     algorithms: Vec<EncryptionAlgorithm>,
+}
+
+impl fmt::Debug for Responder {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Responder")
+            .field("stage", &self.stage)
+            .field("requested_algorithms", &self.requested_algorithms)
+            .field("chosen_algorithm", &self.chosen_algorithm)
+            .field("algorithms", &self.algorithms)
+            .finish()
+    }
 }
 
 pub struct Authority {
