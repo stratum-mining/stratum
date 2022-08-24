@@ -2,6 +2,8 @@ mod downstream_sv1;
 mod proxy;
 mod upstream_sv2;
 
+pub const UPSTREAM_IP: &str = "127.0.0.1";
+pub const UPSTREAM_PORT: u16 = 34254;
 pub const LISTEN_ADDR: &str = "127.0.0.1:34255";
 /// TODO: Authority public key used to authorize with Upstream is hardcoded, but should be read
 /// in via a proxy-config.toml.

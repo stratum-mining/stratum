@@ -151,7 +151,10 @@ impl Translator {
         sender_for_upstream: Sender<EitherFrame>,
         receiver_for_upstream: Receiver<EitherFrame>,
     ) {
-        let upstream_addr = SocketAddr::new(IpAddr::from_str("127.0.0.1").unwrap(), 34254);
+        let upstream_addr = SocketAddr::new(
+            IpAddr::from_str(crate::UPSTREAM_IP).unwrap(),
+            crate::UPSTREAM_PORT,
+        );
         let _upstream = Upstream::new(
             upstream_addr,
             crate::AUTHORITY_PUBLIC_KEY,
@@ -172,7 +175,7 @@ impl Translator {
         while let Some(stream) = downstream_incoming.next().await {
             let stream = stream.unwrap();
             println!(
-                "PROXY SERVER - Accepting from: {}\n",
+                "\nPROXY SERVER - ACCEPTING FROM DOWNSTREAM: {}\n",
                 stream.peer_addr().unwrap()
             );
             let server = Downstream::new(

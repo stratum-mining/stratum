@@ -44,7 +44,11 @@ impl Upstream {
         // Connect to the SV2 Upstream role
         let socket = TcpStream::connect(address).await.map_err(|_| ()).unwrap();
         let initiator = Initiator::from_raw_k(authority_public_key).unwrap();
-        println!("UPSTREAM CONNECTED to {}", socket.peer_addr().unwrap());
+
+        println!(
+            "\nPROXY SERVER - ACCEPTING FROM UPSTREAM: {}\n",
+            socket.peer_addr().unwrap()
+        );
 
         // Channel to send and receive messages to the SV2 Upstream role
         let (receiver, sender) =
