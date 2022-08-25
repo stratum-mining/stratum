@@ -1,4 +1,7 @@
-use crate::downstream_sv1::DownstreamConnection;
+use crate::{
+    downstream_sv1::DownstreamConnection,
+    error::{Error, ProxyResult},
+};
 use async_channel::{bounded, Receiver, Sender};
 use async_std::{io::BufReader, net::TcpStream, prelude::*, task};
 use roles_logic_sv2::{
@@ -33,7 +36,7 @@ impl Downstream {
         stream: TcpStream,
         sender_upstream: Sender<json_rpc::Message>,
         receiver_upstream: Receiver<json_rpc::Message>,
-    ) -> Arc<Mutex<Self>> {
+    ) -> ProxyResult<Arc<Mutex<Self>>> {
         let stream = std::sync::Arc::new(stream);
 
         // Reads and writes from Downstream SV1 Mining Device Client
@@ -94,6 +97,7 @@ impl Downstream {
         task::spawn(async move {
             loop {
                 let to_send = receiver_upstream_clone.recv().await.unwrap();
+                // TODO: Use `Error::bad_serde_json`
                 let to_send = format!("{}\n", serde_json::to_string(&to_send).unwrap());
                 (&*socket_writer)
                     .write_all(to_send.as_bytes())
@@ -107,6 +111,7 @@ impl Downstream {
         task::spawn(async move {
             loop {
                 let to_send = receiver_outgoing_clone.recv().await.unwrap();
+                // TODO: Use `Error::bad_serde_json`
                 let to_send = format!("{}\n", serde_json::to_string(&to_send).unwrap());
                 (&*socket_writer_clone)
                     .write_all(to_send.as_bytes())
@@ -115,7 +120,7 @@ impl Downstream {
             }
         });
 
-        downstream
+        Ok(downstream)
     }
 
     /// As SV1 messages come in, determines if the message response needs to be translated to SV2

@@ -196,7 +196,8 @@ impl Translator {
                 sender_for_downstream.clone(),
                 receiver_for_downstream.clone(),
             )
-            .await;
+            .await
+            .unwrap();
             Arc::new(Mutex::new(server));
         }
     }
