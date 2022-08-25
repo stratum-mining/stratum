@@ -212,7 +212,7 @@ impl Translator {
             loop {
                 let message_sv1: json_rpc::Message =
                     self.downstream_translator.receiver.recv().await.unwrap();
-                let message_sv2 = self.parse_sv1_to_sv2(message_sv1);
+                let message_sv2 = self.parse_sv1_to_sv2(message_sv1).unwrap();
                 // let message_sv2: EitherFrame = self.parse_sv1_to_sv2(message_sv1)?;
                 // self.upstream_translator.send_sv2(message_sv2).await;
             }
@@ -242,17 +242,18 @@ impl Translator {
 
     /// Parses a SV1 message and translates to to a SV2 message
     // fn parse_sv1_to_sv2(&mut self, _message_sv1: json_rpc::Message) -> Result<EitherFrame> {
-    fn parse_sv1_to_sv2(&mut self, message_sv1: json_rpc::Message) {
+    fn parse_sv1_to_sv2(&mut self, message_sv1: json_rpc::Message) -> ProxyResult<()> {
         println!("TP RECV SV1 FROM TD TO HANDLE: {:?}", &message_sv1);
         match message_sv1 {
             json_rpc::Message::StandardRequest(std_req) => {
                 println!("STDREQ: {:?}", std_req);
-                let _message_sv2 = self.handle_sv1_std_req(std_req);
+                let _message_sv2 = self.handle_sv1_std_req(std_req)?;
             }
             json_rpc::Message::Notification(not) => println!("NOTIFICATION: {:?}", not),
             json_rpc::Message::OkResponse(ok_res) => println!("OKRES: {:?}", ok_res),
             json_rpc::Message::ErrorResponse(err_res) => println!("ERRRES: {:?}", err_res),
         };
+        Ok(())
         // todo!()
         // println!("TP PARSE SV1 -> SV2: {:?}", &message_sv1);
         // Ok(())
