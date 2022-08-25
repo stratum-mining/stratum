@@ -8,7 +8,7 @@ use roles_logic_sv2::{
 use std::sync::Arc;
 use v1::{
     client_to_server,
-    error::Error,
+    error::Error as V1Error,
     json_rpc, methods, server_to_client,
     utils::{self, HexBytes, HexU32Be},
     IsServer,
@@ -120,10 +120,11 @@ impl Downstream {
 
     /// As SV1 messages come in, determines if the message response needs to be translated to SV2
     /// and sent to the `Upstream`, or if a direct response can be sent back by the `Translator`
-    /// (SV1 and SV2 protocol messages are NOT 1-to-1.
+    /// (SV1 and SV2 protocol messages are NOT 1-to-1).
     async fn handle_incoming_sv1(self_: Arc<Mutex<Self>>, message_sv1: json_rpc::Message) {
         let message_sv1_clone = message_sv1.clone();
         // `handle_message` in `IsServer` trait + calls `handle_request`
+        // TODO: Map err from V1Error to Error::V1Error
         let response = self_.safe_lock(|s| s.handle_message(message_sv1)).unwrap();
         match response {
             Ok(res) => {
@@ -140,9 +141,12 @@ impl Downstream {
                     Self::send_message_upstream(self_, message_sv1_clone).await;
                 }
             }
-            Err(e) => panic!(
-                "Error::InvalidJsonRpcMessageKind, sever shouldnt receive json_rpc responsese: `{:?}`",
-                e),
+            Err(e) => {
+                // Err(Error::V1Error(e))
+                panic!(
+                    "Error::InvalidJsonRpcMessageKind, sever shouldnt receive json_rpc responsese: `{:?}`",
+                    e);
+            }
         }
     }
 
@@ -172,7 +176,7 @@ impl IsServer for Downstream {
     fn handle_request(
         &mut self,
         request: methods::Client2Server,
-    ) -> Result<Option<json_rpc::Response>, Error>
+    ) -> Result<Option<json_rpc::Response>, V1Error>
     where
         Self: std::marker::Sized,
     {
@@ -220,7 +224,7 @@ impl IsServer for Downstream {
                 //     let accepted = self.handle_submit(&submit);
                 //     Ok(Some(submit.respond(accepted)))
                 // } else {
-                //     Err(Error::InvalidSubmission)
+                //     Err(V1Error::InvalidSubmission)
                 // }
             }
             methods::Client2Server::Subscribe(_subscribe) => {

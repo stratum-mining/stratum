@@ -44,16 +44,17 @@ use crate::{
         error::{Error, ProxyResult},
         DownstreamTranslator, UpstreamTranslator,
     },
-    upstream_sv2::{EitherFrame, Message, StdFrame, Upstream},
+    // upstream_sv2::{EitherFrame, Message, StdFrame, Upstream},
+    upstream_sv2::{EitherFrame, Upstream},
 };
 use async_channel::{bounded, Receiver, Sender};
 use async_std::{net::TcpListener, prelude::*, task};
-use codec_sv2::Frame;
-use core::convert::TryInto;
-use roles_logic_sv2::{
-    parsers::{JobNegotiation, Mining},
-    utils::Mutex,
-};
+// use codec_sv2::Frame;
+// use core::convert::TryInto;
+// use roles_logic_sv2::{
+//     parsers::{JobNegotiation, Mining},
+// };
+use roles_logic_sv2::utils::Mutex;
 use std::{
     net::{IpAddr, SocketAddr},
     str::FromStr,
@@ -206,13 +207,22 @@ impl Translator {
     /// Spawned task waits to receive a message from `Downstream.connection.sender_upstream`,
     /// then parses the message + translates to SV2. Then the `Translator.sender_upstream` sends
     /// the SV2 message to the `Upstream.receiver_downstream`.
+    // async fn listen_downstream(mut self) -> async_std::task::JoinHandle<ProxyResult<()>> {
+    //     let join_handle: task::JoinHandle<ProxyResult<()>> = task::spawn(async move {
     async fn listen_downstream(mut self) {
         task::spawn(async move {
             println!("TP LISTENING FOR INCOMING SV1 MSG FROM TD\n");
             loop {
                 let message_sv1: json_rpc::Message =
                     self.downstream_translator.receiver.recv().await.unwrap();
-                let message_sv2 = self.parse_sv1_to_sv2(message_sv1).unwrap();
+                let _message_sv2 = self.parse_sv1_to_sv2(message_sv1).unwrap();
+                // let _message_sv2 = match self.parse_sv1_to_sv2(message_sv1) {
+                //     Ok(msv2) => (),
+                //     Err(_) => return Err(Error::bad_sv1_std_req("bad")),
+                // };
+                // if false {
+                //     return Ok(());
+                // }
                 // let message_sv2: EitherFrame = self.parse_sv1_to_sv2(message_sv1)?;
                 // self.upstream_translator.send_sv2(message_sv2).await;
             }

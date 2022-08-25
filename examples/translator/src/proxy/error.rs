@@ -1,6 +1,4 @@
-use std::fmt;
-use std::future::Future;
-use std::pin::Pin;
+// use std::fmt;
 
 pub type ProxyResult<T> = core::result::Result<T, Error>;
 
@@ -12,9 +10,8 @@ pub struct Error {
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ErrorKind {
-    // BadSv1StandardRequest(String),
     BadSv1StdReq,
-    // V1Error(v1::error::Error),
+    // V1ProtocolError,
     // InvalidJsonRpcMessageKind(String),
 }
 
@@ -29,23 +26,34 @@ impl Error {
         }
     }
 
+    // pub fn v1_protocol_error<E>(error: E) -> Self
+    // where
+    //     E: Into<Box<dyn std::error::Error + Send + Sync>>,
+    // {
+    //     Self {
+    //         kind: ErrorKind::V1ProtocolError,
+    //         error: error.into(),
+    //     }
+    // }
+
+    #[cfg(test)]
     pub fn kind(&self) -> ErrorKind {
         self.kind
     }
 
-    /// Converts the error into the underlying error.
-    pub fn into_inner(self) -> Box<dyn std::error::Error + Send + Sync> {
-        self.error
-    }
+    // /// Converts the error into the underlying error.
+    // pub fn into_inner(self) -> Box<dyn std::error::Error + Send + Sync> {
+    //     self.error
+    // }
 }
 
-// impl fmt::Display for Error {
+// impl fmt::Display for ErrorKind {
 //     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-//         use Error::*;
+//         use ErrorKind::*;
 //         match self {
-//             BadSv1StandardRequest(s) => write!(f, "Bad SV1 Standard Request: `{}`", s),
-//             V1Error(ref e) => write!(f, "V1 Protocol Error: `{:?}`", e),
-//             InvalidJsonRpcMessageKind(s) => write!(f, "INVALID: {}", s),
+//             BadSv1StdReq => write!(f, "Bad SV1 Standard Request"),
+//             // V1Error(ref e) => write!(f, "V1 Protocol Error: `{:?}`", e),
+//             // InvalidJsonRpcMessageKind(s) => write!(f, "INVALID: {}", s),
 //         }
 //     }
 // }
