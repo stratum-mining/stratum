@@ -1,4 +1,5 @@
 mod downstream_sv1;
+mod error;
 mod proxy;
 mod upstream_sv2;
 

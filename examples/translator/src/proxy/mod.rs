@@ -1,5 +1,4 @@
 pub(crate) mod downstream_translator;
-pub mod error;
 pub(crate) mod translator;
 pub(crate) mod upstream_translator;
 pub(crate) use downstream_translator::DownstreamTranslator;

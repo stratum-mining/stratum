@@ -40,10 +40,8 @@
 ///
 use crate::{
     downstream_sv1::Downstream,
-    proxy::{
-        error::{Error, ProxyResult},
-        DownstreamTranslator, UpstreamTranslator,
-    },
+    error::{Error, ProxyResult},
+    proxy::{DownstreamTranslator, UpstreamTranslator},
     // upstream_sv2::{EitherFrame, Message, StdFrame, Upstream},
     upstream_sv2::{EitherFrame, Upstream},
 };
