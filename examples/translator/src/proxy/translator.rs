@@ -40,7 +40,10 @@
 ///
 use crate::{
     downstream_sv1::Downstream,
-    proxy::{DownstreamTranslator, UpstreamTranslator},
+    proxy::{
+        error::{Error, Result},
+        DownstreamTranslator, UpstreamTranslator,
+    },
     upstream_sv2::{EitherFrame, Message, StdFrame, Upstream},
 };
 use async_channel::{bounded, Receiver, Sender};
@@ -58,10 +61,16 @@ use std::{
 };
 use v1::json_rpc;
 
+// pub(crate) struct NewJob {
+//     set_new_prev_hash: Option<>,
+//     new_extended_mining_job: Option<>,
+// }
+
 #[derive(Clone)]
 pub(crate) struct Translator {
     pub(crate) downstream_translator: DownstreamTranslator,
     pub(crate) upstream_translator: UpstreamTranslator,
+    // pub(crate) new_job:
 }
 
 impl Translator {
@@ -203,8 +212,9 @@ impl Translator {
             loop {
                 let message_sv1: json_rpc::Message =
                     self.downstream_translator.receiver.recv().await.unwrap();
-                let message_sv2: EitherFrame = self.parse_sv1_to_sv2(message_sv1);
-                self.upstream_translator.send_sv2(message_sv2).await;
+                let message_sv2 = self.parse_sv1_to_sv2(message_sv1).unwrap();
+                // let message_sv2: EitherFrame = self.parse_sv1_to_sv2(message_sv1)?;
+                // self.upstream_translator.send_sv2(message_sv2).await;
             }
         });
     }
@@ -222,6 +232,8 @@ impl Translator {
                 let message_sv2: EitherFrame =
                     self.upstream_translator.receiver.recv().await.unwrap();
                 println!("TP RECV SV2 FROM TU: {:?}", &message_sv2);
+                // let message_sv2: StdFrame = message_sv2.try_into().unwrap();
+                // let message_sv2: Message = message_sv2.into().unwrap();
                 let message_sv1: json_rpc::Message = self.parse_sv2_to_sv1(message_sv2);
                 self.downstream_translator.send_sv1(message_sv1).await;
             }
@@ -229,55 +241,44 @@ impl Translator {
     }
 
     /// Parses a SV1 message and translates to to a SV2 message
-    fn parse_sv1_to_sv2(&mut self, _message_sv1: json_rpc::Message) -> EitherFrame {
-        // println!("TP RECV SV1 FROM TD TO HANDLE: {:?}", &message_sv1);
-        // fn parse_sv1_to_sv2(&mut self, message_sv1: json_rpc::Message) -> () {
-        todo!()
+    // fn parse_sv1_to_sv2(&mut self, _message_sv1: json_rpc::Message) -> Result<EitherFrame> {
+    fn parse_sv1_to_sv2(&mut self, message_sv1: json_rpc::Message) -> Result<()> {
+        println!("TP RECV SV1 FROM TD TO HANDLE: {:?}", &message_sv1);
+        match message_sv1 {
+            json_rpc::Message::StandardRequest(std_req) => {
+                println!("STDREQ: {:?}", std_req);
+                let _message_sv2 = self.handle_sv1_standard_request(std_req)?;
+            }
+            json_rpc::Message::Notification(not) => println!("NOTIFICATION: {:?}", not),
+            json_rpc::Message::OkResponse(ok_res) => println!("OKRES: {:?}", ok_res),
+            json_rpc::Message::ErrorResponse(err_res) => println!("ERRRES: {:?}", err_res),
+        };
+        // todo!()
         // println!("TP PARSE SV1 -> SV2: {:?}", &message_sv1);
-        // ()
+        Ok(())
     }
 
     /// Parses a SV2 message and translates to to a SV1 message
     fn parse_sv2_to_sv1(&mut self, message_sv2: EitherFrame) -> json_rpc::Message {
         println!("\n\n\n");
         println!("TP PARSE SV2 -> SV1: {:?}", &message_sv2);
-        let mut message: StdFrame = message_sv2.try_into().unwrap();
-        let msg_type = message.get_header().unwrap().msg_type();
-        let payload = message.payload();
-        // let msg_type = message_sv2.get_header().unwrap().msg_type();
-        // let payload = message_sv2.payload();
-        // println!("\nPAYLOAD: {:?}", &payload);
-        // match (msg_type, payload).try_into() {
-        //     Ok(Mining::OpenStandardMiningChannelSuccess(m)) => println!("OSMCS: {:?}", m),
-        //     Ok(Mining::OpenExtendedMiningChannel(m)) => println!("OSMCS: {:?}", m),
-        //     Ok(Mining::NewExtendedMiningJob(m)) => println!("NEMJ: {:?}", m),
-        //     Ok(Mining::SetNewPrevHash(m)) => println!("SNPH: {:?}", m),
-        //     Ok(m) => println!("OTHER: {:?}", m),
-        //     Err(_) => panic!("ERROR"),
-        // };
-        // let msg_type = message_sv2.get_header();
-        // match message_sv2.into() {
-        //     Message::Common(m) => println!("OK"),
-        //     _ => println!("NOT OK"),
-        // };
-        // type Message = roles_logic_sv2::parsers::PoolMessages<'static>;
-        // type EitherFrame = codec_sv2::decoder::StandardEitherFrame<Message>;
 
-        // let msg_type = message_sv2.into;
-        // todo!()
-        // match message_sv2 {
-        //     Message::NewExtendedMiningJob(m) => println!("\nNEMJ: {:?}\n", m),
-        //     Message::SetNewPrevHash(m) => println!("\nSNPH: {:?}\n", m),
-        //     _ => println!("\nSOMETHING ELSE\n"),
-        //     // Message::Common(m) => println!("\n COMMON MESSAGE: {:?}", m),
-        //     // Message::Mining(m) => println!("\n MINING MESSAGE: {:?}", m),
-        //     // Message::JobNegotiation(m) => println!("\n JN MESSAGE: {:?}", m),
-        //     // Message::TemplateDistribution(m) => println!("\n TD MESSAGE: {:?}", m),
-        // }
         let message_str =
             r#"{"params": ["slush.miner1", "password"], "id": 2, "method": "mining.authorize"}"#;
         let message_json: json_rpc::Message = serde_json::from_str(message_str).unwrap();
         println!("\n\n\n");
         message_json
+    }
+
+    fn handle_sv1_standard_request(&self, std_req: json_rpc::StandardRequest) -> Result<()> {
+        let method = std_req.method;
+        println!("METHOD: {:?}", &method);
+        match method.as_ref() {
+            "mining.subscribe" => Ok(()),
+            "mining.submit" => Ok(()),
+            "mining.configure" => panic!("No translation"),
+            _ => Err(Error::BadSv1StandardRequest(method)),
+        };
+        Ok(())
     }
 }

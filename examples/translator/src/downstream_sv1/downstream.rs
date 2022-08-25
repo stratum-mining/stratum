@@ -140,7 +140,9 @@ impl Downstream {
                     Self::send_message_upstream(self_, message_sv1_clone).await;
                 }
             }
-            Err(e) => panic!("Error: `{:?}`", e),
+            Err(e) => panic!(
+                "Error::InvalidJsonRpcMessageKind, sever shouldnt receive json_rpc responsese: `{:?}`",
+                e),
         }
     }
 
