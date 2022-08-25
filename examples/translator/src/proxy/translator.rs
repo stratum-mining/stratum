@@ -281,14 +281,15 @@ impl Translator {
         message_json
     }
 
-    // fn handle_sv1_std_req(&self, std_req: json_rpc::StandardRequest) -> ProxyResult<()> {
     fn handle_sv1_std_req(&self, std_req: json_rpc::StandardRequest) -> ProxyResult<()> {
         let method = std_req.method;
         println!("METHOD: {:?}", &method);
         match method.as_ref() {
             "mining.subscribe" => Ok(()),
             "mining.submit" => Ok(()),
-            "mining.configure" => panic!("No translation"),
+            "mining.configure" => Err(Error::no_translation_required(
+                "`mining.configure` should not be translated to SV2",
+            )),
             _ => Err(Error::bad_sv1_std_req(format!(
                 "Bad SV1 Mining Method: {}",
                 method
@@ -300,23 +301,21 @@ impl Translator {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Mock a `Translator`.
     fn mock_translator() -> Translator {
-        let (sender_for_downstream, receiver_downstream_for_proxy): (
+        let (_, receiver_downstream_for_proxy): (
             Sender<json_rpc::Message>,
             Receiver<json_rpc::Message>,
         ) = bounded(10);
-        let (sender_downstream_for_proxy, receiver_for_downstream): (
+        let (sender_downstream_for_proxy, _): (
             Sender<json_rpc::Message>,
             Receiver<json_rpc::Message>,
         ) = bounded(10);
-        let (sender_for_upstream, receiver_upstream_for_proxy): (
-            Sender<EitherFrame>,
-            Receiver<EitherFrame>,
-        ) = bounded(10);
-        let (sender_upstream_for_proxy, receiver_for_upstream): (
-            Sender<EitherFrame>,
-            Receiver<EitherFrame>,
-        ) = bounded(10);
+        let (_, receiver_upstream_for_proxy): (Sender<EitherFrame>, Receiver<EitherFrame>) =
+            bounded(10);
+        let (sender_upstream_for_proxy, _): (Sender<EitherFrame>, Receiver<EitherFrame>) =
+            bounded(10);
 
         let downstream_translator =
             DownstreamTranslator::new(sender_downstream_for_proxy, receiver_downstream_for_proxy);
@@ -328,16 +327,36 @@ mod tests {
         }
     }
 
+    /// Mock a `json_rpc::StandardRequest`.
+    fn mock_sv1_std_req(
+        id: Option<&str>,
+        method: &str,
+        parameters: Option<serde_json::Value>,
+    ) -> json_rpc::StandardRequest {
+        let id = id.unwrap_or("1661448689530130279");
+        let parameters = parameters.unwrap_or(serde_json::Value::Null);
+        json_rpc::StandardRequest {
+            id: id.into(),
+            method: method.into(),
+            parameters,
+        }
+    }
+
     #[test]
-    fn ret_err_on_bad_sv1_std_req() {
-        let std_req = json_rpc::StandardRequest {
-            id: "1661448689530130279".into(),
-            method: "mining.bad_method".into(),
-            parameters: serde_json::Value::Null,
-        };
+    fn ret_err_on_handle_bad_sv1_std_req() {
+        let std_req = mock_sv1_std_req(None, "mining.bad_method", None);
         let translator = mock_translator();
         let actual = translator.handle_sv1_std_req(std_req).unwrap_err().kind();
         let expect = crate::proxy::error::ErrorKind::BadSv1StdReq;
+        assert_eq!(actual, expect);
+    }
+
+    #[test]
+    fn ret_err_on_handle_bad_translation_attempt() {
+        let std_req = mock_sv1_std_req(None, "mining.configure", None);
+        let translator = mock_translator();
+        let actual = translator.handle_sv1_std_req(std_req).unwrap_err().kind();
+        let expect = crate::proxy::error::ErrorKind::NoTranslationRequired;
         assert_eq!(actual, expect);
     }
 }

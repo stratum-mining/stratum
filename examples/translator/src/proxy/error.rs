@@ -11,6 +11,7 @@ pub struct Error {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ErrorKind {
     BadSv1StdReq,
+    NoTranslationRequired,
     // V1ProtocolError,
     // InvalidJsonRpcMessageKind(String),
 }
@@ -22,6 +23,16 @@ impl Error {
     {
         Self {
             kind: ErrorKind::BadSv1StdReq,
+            error: error.into(),
+        }
+    }
+
+    pub fn no_translation_required<E>(error: E) -> Self
+    where
+        E: Into<Box<dyn std::error::Error + Send + Sync>>,
+    {
+        Self {
+            kind: ErrorKind::NoTranslationRequired,
             error: error.into(),
         }
     }
