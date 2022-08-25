@@ -10,6 +10,7 @@ pub struct Error {
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ErrorKind {
+    BadSerdeJson,
     BadSv1StdReq,
     NoTranslationRequired,
     // V1ProtocolError,
@@ -17,6 +18,16 @@ pub enum ErrorKind {
 }
 
 impl Error {
+    pub fn bad_serde_json<E>(error: E) -> Self
+    where
+        E: Into<Box<dyn std::error::Error + Send + Sync>>,
+    {
+        Self {
+            kind: ErrorKind::BadSerdeJson,
+            error: error.into(),
+        }
+    }
+
     pub fn bad_sv1_std_req<E>(error: E) -> Self
     where
         E: Into<Box<dyn std::error::Error + Send + Sync>>,
@@ -72,5 +83,11 @@ impl Error {
 // impl From<v1::error::Error> for Error {
 //     fn from(e: v1::error::Error) -> Self {
 //         Error::V1Error(e)
+//     }
+// }
+
+// impl From<serde_json::Error> for Error {
+//     fn from(e: serde_json::Error) -> Self {
+//         Error::bad_serde_json(&mut e)
 //     }
 // }

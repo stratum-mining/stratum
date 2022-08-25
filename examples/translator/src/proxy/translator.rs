@@ -244,7 +244,7 @@ impl Translator {
                 println!("TP RECV SV2 FROM TU: {:?}", &message_sv2);
                 // let message_sv2: StdFrame = message_sv2.try_into().unwrap();
                 // let message_sv2: Message = message_sv2.into().unwrap();
-                let message_sv1: json_rpc::Message = self.parse_sv2_to_sv1(message_sv2);
+                let message_sv1: json_rpc::Message = self.parse_sv2_to_sv1(message_sv2).unwrap();
                 self.downstream_translator.send_sv1(message_sv1).await;
             }
         });
@@ -270,15 +270,16 @@ impl Translator {
     }
 
     /// Parses a SV2 message and translates to to a SV1 message
-    fn parse_sv2_to_sv1(&mut self, message_sv2: EitherFrame) -> json_rpc::Message {
+    fn parse_sv2_to_sv1(&mut self, message_sv2: EitherFrame) -> ProxyResult<json_rpc::Message> {
         println!("\n\n\n");
         println!("TP PARSE SV2 -> SV1: {:?}", &message_sv2);
 
         let message_str =
             r#"{"params": ["slush.miner1", "password"], "id": 2, "method": "mining.authorize"}"#;
-        let message_json: json_rpc::Message = serde_json::from_str(message_str).unwrap();
+        let message_json: json_rpc::Message = serde_json::from_str(message_str)
+            .map_err(|e| Error::bad_serde_json(format!("{:?}", e)))?;
         println!("\n\n\n");
-        message_json
+        Ok(message_json)
     }
 
     fn handle_sv1_std_req(&self, std_req: json_rpc::StandardRequest) -> ProxyResult<()> {
