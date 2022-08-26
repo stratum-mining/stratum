@@ -324,10 +324,18 @@ impl UpstreamMiningNode {
                         }
                         SendTo::None(_) => (),
                         SendTo::Multiple(_) => panic!("Nested SendTo::Multiple not supported"),
+                        // TODO: Rm panic and replace w proper error handling
+                        SendTo::RelaySameMessageSv1(_) => {
+                            panic!("{:?}", Error::CannotRelaySv1Message)
+                        }
                     }
                 }
             }
             Ok(SendTo::None(_)) => (),
+            // TODO: Rm panic and replace w proper error handling
+            Ok(SendTo::RelaySameMessageSv1(_)) => {
+                panic!("{:?}", Error::CannotRelaySv1Message)
+            }
             Err(Error::NoDownstreamsConnected) => (),
             Err(Error::UnexpectedMessage) => todo!(),
             Err(_) => todo!(),
