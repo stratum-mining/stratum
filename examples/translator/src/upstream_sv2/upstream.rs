@@ -195,37 +195,34 @@ impl Upstream {
                         // Format message as `EitherFrame` to send to the
                         // `Translator.upstream_receiver`
                         let message_pool = Message::Mining(message_to_translate);
-                        println!("\n\nMESSAGEPOOL: {:?}\n\n", &message_pool);
                         let message_frame: StdFrame = message_pool.try_into().unwrap();
                         let message: EitherFrame = message_frame.into();
 
-                        // Get the `sender_downstream` and send the SV2 message to
-                        // `Translator.receiver_upstream`
+                        // Relay the same message received from the Upstream role to `Translator`
+                        // to handle
                         let sender = self_
                             .safe_lock(|self_| self_.connection.sender_downstream.clone())
                             .unwrap();
                         sender.send(message).await.unwrap();
                     }
-                    // // No response is needed to be given to the SV2 Upstream role or the SV1
-                    // // Downstream role
-                    // Ok(SendTo::None(None)) => (),
-                    // Ok(SendTo::RelayNewMessageToSv2(_, _))
-                    // | Ok(SendTo::RelaySameMessageToSv2(_))
-                    // | Ok(SendTo::Multiple(_)) => {
-                    //     // /// Errors if a `SendTo::RelaySameMessageToSv2` or
-                    //     // `SendTo::RelayNewMessageToSv2` request is made on SV1/SV2 application
-                    //     // Error::UnsupportedRelayType,
-                    //     //     // Proxy does not support this type
-                    //     //     // Err(Error::ProxyDoesNotSupportMultiple
-                    //     ()
-                    // }
-                    // Ok(SendTo::None(None)) => {
-                    //     todo!("Handle None");
-                    //     // Probably just end up putting ()
-                    // }
-                    // Ok(SendTo::None(Some(_))) => todo!("Handle SendTo::Some(Some(m))"),
-                    Ok(_) => (),
-                    Err(_) => (),
+                    // No response is needed to be given to the SV2 Upstream role or the SV1
+                    // Downstream role
+                    Ok(SendTo::RelayNewMessageToSv2(_, _))
+                    | Ok(SendTo::RelaySameMessageToSv2(_))
+                    | Ok(SendTo::Multiple(_)) => {
+                        todo!("Handle unexpected `SendTo`s in Upstream");
+                        // /// Errors if a `SendTo::RelaySameMessageToSv2` or
+                        // `SendTo::RelayNewMessageToSv2` request is made on SV1/SV2 application
+                        // Error::UnsupportedRelayType,
+                        //     // Proxy does not support this type
+                        //     // Err(Error::ProxyDoesNotSupportMultiple
+                    }
+                    Ok(SendTo::None(None)) => {
+                        todo!("Handle None");
+                        // Probably just end up putting ()
+                    }
+                    Ok(SendTo::None(Some(_))) => todo!("Handle SendTo::Some(Some(m))"),
+                    Err(_) => todo!("Handle `SendTo` error on Upstream"),
                 }
             }
         });
