@@ -1,6 +1,6 @@
 use crate::{
     downstream_sv1::Downstream,
-    upstream_sv2::{EitherFrame, StdFrame, UpstreamConnection},
+    upstream_sv2::{EitherFrame, Message, StdFrame, UpstreamConnection},
 };
 use async_channel::{Receiver, Sender};
 use async_std::{net::TcpStream, task};
@@ -208,32 +208,28 @@ impl Upstream {
                             .safe_lock(|self_| self_.connection.sender.clone())
                             .unwrap();
                         // Take the message and send it back to upstream
-                        // May be StdFrame
-                        // let message: roles_logic_sv2::parsers::Mining =
-                        //     next_message_to_send_upstream.try_into().unwrap();
-                        // let message: StdFrame = message.into();
-
-                        // let message: EitherFrame = next_message_to_send_upstream.into();
-                        // let message: EitherFrame = message.into();
-                        // sender.send(next_message_to_send_upstream).await.unwrap();
+                        let message = Message::Mining(next_message_to_send_upstream);
+                        let frame: StdFrame = message.try_into().unwrap();
+                        let frame: EitherFrame = frame.try_into().unwrap();
+                        sender.send(frame).await.unwrap();
                         ()
                     }
                     // Send to translator to convert to sv1 + send to downstream
-                    Ok(SendTo::RelaySameMessageSv1(message_to_translate)) => {
-                        println!("\nTU SEND SV2 MSG TO TP: {:?}\n", &message_to_translate);
-                        // Format message as `EitherFrame` to send to the
-                        // `Translator.upstream_receiver`
-                        let message_pool = PoolMessages::Mining(message_to_translate);
-                        let message_frame: StdFrame = message_pool.try_into().unwrap();
-                        let message: EitherFrame = message_frame.into();
-
-                        // Get the `sender_downstream` and send the SV2 message to
-                        // `Translator.receiver_upstream`
-                        let sender = self_
-                            .safe_lock(|self_| self_.connection.sender_downstream.clone())
-                            .unwrap();
-                        sender.send(message).await.unwrap();
-                    }
+                    // Ok(SendTo::RelaySameMessageSv1(message_to_translate)) => {
+                    //     println!("\nTU SEND SV2 MSG TO TP: {:?}\n", &message_to_translate);
+                    //     // Format message as `EitherFrame` to send to the
+                    //     // `Translator.upstream_receiver`
+                    //     let message_pool = PoolMessages::Mining(message_to_translate);
+                    //     let message_frame: StdFrame = message_pool.try_into().unwrap();
+                    //     let message: EitherFrame = message_frame.into();
+                    //
+                    //     // Get the `sender_downstream` and send the SV2 message to
+                    //     // `Translator.receiver_upstream`
+                    //     let sender = self_
+                    //         .safe_lock(|self_| self_.connection.sender_downstream.clone())
+                    //         .unwrap();
+                    //     sender.send(message).await.unwrap();
+                    // }
                     Ok(_) => (),
                     Err(_) => (),
                 }
