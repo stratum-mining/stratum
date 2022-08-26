@@ -301,6 +301,7 @@ impl Translator {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::error::ErrorKind;
 
     /// Mock a `Translator`.
     fn mock_translator() -> Translator {
@@ -347,7 +348,7 @@ mod tests {
         let std_req = mock_sv1_std_req(None, "mining.bad_method", None);
         let translator = mock_translator();
         let actual = translator.handle_sv1_std_req(std_req).unwrap_err().kind();
-        let expect = crate::proxy::error::ErrorKind::BadSv1StdReq;
+        let expect = ErrorKind::BadSv1StdReq;
         assert_eq!(actual, expect);
     }
 
@@ -356,7 +357,7 @@ mod tests {
         let std_req = mock_sv1_std_req(None, "mining.configure", None);
         let translator = mock_translator();
         let actual = translator.handle_sv1_std_req(std_req).unwrap_err().kind();
-        let expect = crate::proxy::error::ErrorKind::NoTranslationRequired;
+        let expect = ErrorKind::NoTranslationRequired;
         assert_eq!(actual, expect);
     }
 }
