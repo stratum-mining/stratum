@@ -220,7 +220,7 @@ impl Device {
             )
             .unwrap();
             match next {
-                SendTo::RelayNewMessage(_, m) => {
+                SendTo::RelayNewMessageToSv2(_, m) => {
                     let sv2_frame: StdFrame = MiningDeviceMessages::Mining(m).try_into().unwrap();
                     let either_frame: EitherFrame = sv2_frame.into();
                     sender.send(either_frame).await.unwrap();

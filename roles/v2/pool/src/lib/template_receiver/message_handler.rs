@@ -24,7 +24,7 @@ impl ParseServerTemplateDistributionMessages for TemplateRx {
             merkle_path: m.merkle_path.into_static(),
         };
         let new_template = TemplateDistribution::NewTemplate(new_template);
-        Ok(SendTo::RelayNewMessage(
+        Ok(SendTo::RelayNewMessageToSv2(
             Arc::new(Mutex::new(())),
             new_template,
         ))
@@ -39,7 +39,7 @@ impl ParseServerTemplateDistributionMessages for TemplateRx {
             target: m.target.into_static(),
         };
         let new_prev_hash = TemplateDistribution::SetNewPrevHash(new_prev_hash);
-        Ok(SendTo::RelayNewMessage(
+        Ok(SendTo::RelayNewMessageToSv2(
             Arc::new(Mutex::new(())),
             new_prev_hash,
         ))

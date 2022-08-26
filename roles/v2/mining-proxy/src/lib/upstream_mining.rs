@@ -276,7 +276,7 @@ impl UpstreamMiningNode {
             routing_logic,
         );
         match next_message_to_send {
-            Ok(SendTo::RelaySameMessage(downstream)) => {
+            Ok(SendTo::RelaySameMessageToSv2(downstream)) => {
                 let sv2_frame: codec_sv2::Sv2Frame<MiningDeviceMessages, buffer_sv2::Slice> =
                     incoming.map(|payload| payload.try_into().unwrap());
 
@@ -284,7 +284,7 @@ impl UpstreamMiningNode {
                     .await
                     .unwrap();
             }
-            Ok(SendTo::RelayNewMessage(downstream_mutex, message)) => {
+            Ok(SendTo::RelayNewMessageToSv2(downstream_mutex, message)) => {
                 let message = MiningDeviceMessages::Mining(message);
                 let frame: DownstreamFrame = message.try_into().unwrap();
                 DownstreamMiningNode::send(downstream_mutex, frame)
@@ -299,14 +299,14 @@ impl UpstreamMiningNode {
             Ok(SendTo::Multiple(sends_to)) => {
                 for send_to in sends_to {
                     match send_to {
-                        SendTo::RelayNewMessage(downstream_mutex, message) => {
+                        SendTo::RelayNewMessageToSv2(downstream_mutex, message) => {
                             let message = MiningDeviceMessages::Mining(message);
                             let frame: DownstreamFrame = message.try_into().unwrap();
                             DownstreamMiningNode::send(downstream_mutex, frame)
                                 .await
                                 .unwrap();
                         }
-                        SendTo::RelaySameMessage(downstream_mutex) => {
+                        SendTo::RelaySameMessageToSv2(downstream_mutex) => {
                             let frame: codec_sv2::Sv2Frame<
                                 MiningDeviceMessages,
                                 buffer_sv2::Slice,
@@ -324,10 +324,18 @@ impl UpstreamMiningNode {
                         }
                         SendTo::None(_) => (),
                         SendTo::Multiple(_) => panic!("Nested SendTo::Multiple not supported"),
+                        // TODO: Rm panic and replace w proper error handling
+                        SendTo::RelaySameMessageToSv1(_) => {
+                            panic!("{:?}", Error::CannotRelaySv1Message)
+                        }
                     }
                 }
             }
             Ok(SendTo::None(_)) => (),
+            // TODO: Rm panic and replace w proper error handling
+            Ok(SendTo::RelaySameMessageToSv1(_)) => {
+                panic!("{:?}", Error::CannotRelaySv1Message)
+            }
             Err(Error::NoDownstreamsConnected) => (),
             Err(Error::UnexpectedMessage) => todo!(),
             Err(_) => todo!(),
@@ -521,7 +529,7 @@ impl
             }
         }
 
-        let open_channel = SendTo::RelaySameMessage(remote.clone().unwrap());
+        let open_channel = SendTo::RelaySameMessageToSv2(remote.clone().unwrap());
 
         match (&self.last_prev_hash, &self.last_extended_jobs.len()) {
             (Some(_), 0) => {
@@ -540,7 +548,7 @@ impl
                     min_ntime: new_prev_hash.min_ntime,
                     nbits: new_prev_hash.nbits,
                 });
-                responses.push(SendTo::RelayNewMessage(remote.unwrap(), new_prev_hash));
+                responses.push(SendTo::RelayNewMessageToSv2(remote.unwrap(), new_prev_hash));
                 for job in &self.last_extended_jobs {
                     // TODO the below unwrap is not safe
                     for job in
@@ -599,7 +607,7 @@ impl
             .downstream_selector
             .downstream_from_channel_id(m.channel_id)
         {
-            Some(d) => Ok(SendTo::RelaySameMessage(d.clone())),
+            Some(d) => Ok(SendTo::RelaySameMessageToSv2(d.clone())),
             None => todo!(),
         }
     }
@@ -627,7 +635,7 @@ impl
                     self.id,
                     downstream.safe_lock(|d| d.prev_job_id).unwrap(),
                 );
-                Ok(SendTo::RelaySameMessage(downstream.clone()))
+                Ok(SendTo::RelaySameMessageToSv2(downstream.clone()))
             }
             None => Err(Error::NoDownstreamsConnected),
         }
@@ -675,7 +683,7 @@ impl
                     .get_downstreams_in_channel(m.channel_id)
                     .ok_or(Error::NoDownstreamsConnected)?;
                 // If upstream is header only one and only one downstream is in channel
-                Ok(SendTo::RelaySameMessage(downstreams[0].clone()))
+                Ok(SendTo::RelaySameMessageToSv2(downstreams[0].clone()))
             }
             (false, Some(JobDispatcher::Group(dispatcher))) => {
                 let mut channel_id_to_job_id = dispatcher.on_new_prev_hash(&m).unwrap();
@@ -703,7 +711,7 @@ impl
                                             nbits: m.nbits,
                                         };
                                         let message = Mining::SetNewPrevHash(new_prev_hash);
-                                        messages.push(SendTo::RelayNewMessage(
+                                        messages.push(SendTo::RelayNewMessageToSv2(
                                             downstream.clone(),
                                             message,
                                         ));
@@ -820,14 +828,17 @@ fn jobs_to_relay(
                         DownstreamChannel::Extended(_) => todo!(),
                         DownstreamChannel::Group(_) => {
                             crate::add_job_id(m.job_id, id, prev_id);
-                            messages.push(SendTo::RelaySameMessage(downstream.clone()))
+                            messages.push(SendTo::RelaySameMessageToSv2(downstream.clone()))
                         }
                         DownstreamChannel::Standard(channel) => {
                             if let JobDispatcher::Group(d) = dispacther {
                                 let job = d.on_new_extended_mining_job(m, channel).unwrap();
                                 crate::add_job_id(job.job_id, id, prev_id);
                                 let message = Mining::NewMiningJob(job);
-                                messages.push(SendTo::RelayNewMessage(downstream.clone(), message));
+                                messages.push(SendTo::RelayNewMessageToSv2(
+                                    downstream.clone(),
+                                    message,
+                                ));
                             } else {
                                 panic!()
                             };
