@@ -178,6 +178,18 @@ impl Upstream {
                 // the `UpstreamConnection.downstream_sender`.
                 // TODO: Using `SendTo::Respond` for demo, but should be replaced with
                 // `SendTo::RelaySameMessage`
+                // RR: Wrong variant, Response means send to Upstream role
+                // means you already know what you have to answer to upstream (no translation
+                // needed)
+                // When we want to translate sv2, we use RelaySameMessage variant
+                // but this variant is made for sv2 only proxy, so expects that downstream is sv2
+                // but in our case the downstream is the translator
+                // to make it work: make translator impl DownstreamForTranslator
+                // or: use variant SendToNone then put send(Some(message)) to tranlsator
+                // or: have a specigic variant for translator: RelayToSv1(message_sv2)
+                // if we introduce new variant: everything will break + need to fix
+                // new variant is the best way, fixing shouldnt be too hard
+                // second best is to use the SendToNone(Some(message_sv2))
                 match next_message_to_send {
                     Ok(SendTo::Respond(next_message_to_send)) => {
                         println!("\nTU SEND SV2 MSG TO TP: {:?}\n", &next_message_to_send);
