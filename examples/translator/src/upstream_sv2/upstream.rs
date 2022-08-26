@@ -176,34 +176,10 @@ impl Upstream {
                 );
                 // Sends the response message to the Downstream `Translator.upstream_translator.receiver` via
                 // the `UpstreamConnection.downstream_sender`.
-                // TODO: Using `SendTo::Respond` for demo, but should be replaced with
-                // `SendTo::RelaySameMessage`
-                // RR: Wrong variant, Response means send to Upstream role
-                // means you already know what you have to answer to upstream (no translation
-                // needed)
-                // When we want to translate sv2, we use RelaySameMessage variant
-                // but this variant is made for sv2 only proxy, so expects that downstream is sv2
-                // but in our case the downstream is the translator
-                // to make it work: make translator impl DownstreamForTranslator
-                // or: use variant SendToNone then put send(Some(message)) to tranlsator
-                // or: have a specigic variant for translator: RelayToSv1(message_sv2)
-                // if we introduce new variant: everything will break + need to fix
-                // new variant is the best way, fixing shouldnt be too hard
-                // second best is to use the SendToNone(Some(message_sv2))
-                //
-                // We support 1 Upstream + multiple Downstream
-                // Open EC w Upstream + do not care after that to route messages
-                // In sv2 proxy it is pool that checks if share is correct or not, but in this case
-                // it should be this proxy to check if the share is correct or not and then answer
-                // the downstream. So we should not have to route message from ...so can use
-                // RelaySameMessage w/out anything inside -> resason: when i rely the same message
-                // i just take the received frame and relay to upstream so i dont spend energy in
-                // serializing and deserializing.
-                // this is NOT our case because we have an sv1 downstream. we deseri
-                // So the variant: RelaySameMessageSv1(m)
                 match next_message_to_send {
                     // No tranlsation required, simply respond to SV2 pool w an SV2 message
                     Ok(SendTo::Respond(next_message_to_send_upstream)) => {
+                        println!("\n\nRESPOND: {:?}", &next_message_to_send_upstream);
                         let sender = self_
                             .safe_lock(|self_| self_.connection.sender.clone())
                             .unwrap();
@@ -215,21 +191,39 @@ impl Upstream {
                         ()
                     }
                     // Send to translator to convert to sv1 + send to downstream
-                    // Ok(SendTo::RelaySameMessageSv1(message_to_translate)) => {
-                    //     println!("\nTU SEND SV2 MSG TO TP: {:?}\n", &message_to_translate);
-                    //     // Format message as `EitherFrame` to send to the
-                    //     // `Translator.upstream_receiver`
-                    //     let message_pool = PoolMessages::Mining(message_to_translate);
-                    //     let message_frame: StdFrame = message_pool.try_into().unwrap();
-                    //     let message: EitherFrame = message_frame.into();
-                    //
-                    //     // Get the `sender_downstream` and send the SV2 message to
-                    //     // `Translator.receiver_upstream`
-                    //     let sender = self_
-                    //         .safe_lock(|self_| self_.connection.sender_downstream.clone())
-                    //         .unwrap();
-                    //     sender.send(message).await.unwrap();
+                    Ok(SendTo::RelaySameMessageToSv1(message_to_translate)) => {
+                        println!("\nTU SEND SV2 MSG TO TP: {:?}\n", &message_to_translate);
+                        // Format message as `EitherFrame` to send to the
+                        // `Translator.upstream_receiver`
+                        let message_pool = PoolMessages::Mining(message_to_translate);
+                        let message_frame: StdFrame = message_pool.try_into().unwrap();
+                        let message: EitherFrame = message_frame.into();
+
+                        // Get the `sender_downstream` and send the SV2 message to
+                        // `Translator.receiver_upstream`
+                        let sender = self_
+                            .safe_lock(|self_| self_.connection.sender_downstream.clone())
+                            .unwrap();
+                        sender.send(message).await.unwrap();
+                    }
+                    // // No response is needed to be given to the SV2 Upstream role or the SV1
+                    // // Downstream role
+                    // Ok(SendTo::None(None)) => (),
+                    // Ok(SendTo::RelayNewMessageToSv2(_, _))
+                    // | Ok(SendTo::RelaySameMessageToSv2(_))
+                    // | Ok(SendTo::Multiple(_)) => {
+                    //     // /// Errors if a `SendTo::RelaySameMessageToSv2` or
+                    //     // `SendTo::RelayNewMessageToSv2` request is made on SV1/SV2 application
+                    //     // Error::UnsupportedRelayType,
+                    //     //     // Proxy does not support this type
+                    //     //     // Err(Error::ProxyDoesNotSupportMultiple
+                    //     ()
                     // }
+                    // Ok(SendTo::None(None)) => {
+                    //     todo!("Handle None");
+                    //     // Probably just end up putting ()
+                    // }
+                    // Ok(SendTo::None(Some(_))) => todo!("Handle SendTo::Some(Some(m))"),
                     Ok(_) => (),
                     Err(_) => (),
                 }
