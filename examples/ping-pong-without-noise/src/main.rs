@@ -22,10 +22,10 @@ async fn server_pool() {
 async fn new_client(name: String) {
     let stream = loop {
         match TcpStream::connect(ADDR).await {
-            Ok(st) => { break st }
+            Ok(st) => break st,
             Err(_) => {
                 println!("Server not ready... retry");
-                continue
+                continue;
             }
         }
     };
