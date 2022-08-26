@@ -42,17 +42,17 @@ use crate::{
     downstream_sv1::Downstream,
     error::{Error, ProxyResult},
     proxy::{DownstreamTranslator, UpstreamTranslator},
-    // upstream_sv2::{EitherFrame, Message, StdFrame, Upstream},
-    upstream_sv2::{EitherFrame, Upstream},
+    upstream_sv2::{EitherFrame, Message, StdFrame, Upstream},
 };
 use async_channel::{bounded, Receiver, Sender};
 use async_std::{net::TcpListener, prelude::*, task};
+use codec_sv2::Frame;
 // use codec_sv2::Frame;
 // use core::convert::TryInto;
 // use roles_logic_sv2::{
 //     parsers::{JobNegotiation, Mining},
 // };
-use roles_logic_sv2::utils::Mutex;
+use roles_logic_sv2::{parsers::Mining, utils::Mutex};
 use std::{
     net::{IpAddr, SocketAddr},
     str::FromStr,
@@ -60,10 +60,10 @@ use std::{
 };
 use v1::json_rpc;
 
-// pub(crate) struct NewJob {
-//     set_new_prev_hash: Option<>,
-//     new_extended_mining_job: Option<>,
-// }
+pub(crate) struct NewJob {
+    set_new_prev_hash: Option<Message>,
+    new_extended_mining_job: Option<Message>,
+}
 
 #[derive(Clone)]
 pub(crate) struct Translator {
@@ -241,8 +241,6 @@ impl Translator {
                 let message_sv2: EitherFrame =
                     self.upstream_translator.receiver.recv().await.unwrap();
                 println!("TP RECV SV2 FROM TU: {:?}", &message_sv2);
-                // let message_sv2: StdFrame = message_sv2.try_into().unwrap();
-                // let message_sv2: Message = message_sv2.into().unwrap();
                 let message_sv1: json_rpc::Message = self.parse_sv2_to_sv1(message_sv2).unwrap();
                 self.downstream_translator.send_sv1(message_sv1).await;
             }
@@ -272,6 +270,14 @@ impl Translator {
     fn parse_sv2_to_sv1(&mut self, message_sv2: EitherFrame) -> ProxyResult<json_rpc::Message> {
         println!("\n\n\n");
         println!("TP PARSE SV2 -> SV1: {:?}", &message_sv2);
+        let mut incoming: StdFrame = message_sv2.try_into().unwrap();
+        let message_type = incoming.get_header().unwrap().msg_type();
+        let payload = incoming.payload();
+        println!("\nPAYLOAD: {:?}\n\n", &payload);
+        // let mut frame: StdFrame = message_sv2.try_into().unwrap();
+        // let t = frame.payload();
+        // println!("\n\nFRAME:{:?}\n", &t);
+        // let pool_message: Message = Message::Mining(frame);
 
         let message_str =
             r#"{"params": ["slush.miner1", "password"], "id": 2, "method": "mining.authorize"}"#;

@@ -16,7 +16,7 @@ use roles_logic_sv2::{
         NewExtendedMiningJob, OpenExtendedMiningChannelSuccess, OpenMiningChannelError,
         SetExtranoncePrefix, SetNewPrevHash, SetTarget, SubmitSharesError, SubmitSharesSuccess,
     },
-    parsers::{Mining, PoolMessages},
+    parsers::Mining,
     routing_logic::{CommonRoutingLogic, MiningRoutingLogic, NoRouting},
     selectors::{NullDownstreamMiningSelector, ProxyDownstreamMiningSelector},
     utils::Mutex,
@@ -73,9 +73,7 @@ impl Upstream {
         let setup_connection = Self::get_setup_connection_message();
 
         // Put the `SetupConnection` message in a `StdFrame` to be sent over the wire
-        let sv2_frame: StdFrame = PoolMessages::Common(setup_connection.into())
-            .try_into()
-            .unwrap();
+        let sv2_frame: StdFrame = Message::Common(setup_connection.into()).try_into().unwrap();
         // Send the `SetupConnection` frame to the SV2 Upstream role
         connection.send(sv2_frame).await.map_err(|_| ())?;
 
@@ -174,28 +172,30 @@ impl Upstream {
                     payload,
                     routing_logic,
                 );
-                // Sends the response message to the Downstream `Translator.upstream_translator.receiver` via
-                // the `UpstreamConnection.downstream_sender`.
+                // Routes the incoming messages accordingly
                 match next_message_to_send {
-                    // No tranlsation required, simply respond to SV2 pool w an SV2 message
-                    Ok(SendTo::Respond(next_message_to_send_upstream)) => {
-                        println!("\n\nRESPOND: {:?}", &next_message_to_send_upstream);
+                    // No translation required, simply respond to SV2 pool w a SV2 message
+                    Ok(SendTo::Respond(message_for_upstream)) => {
+                        println!("TU SEND DIRECTLY TO UPSTREAM: {:?}", &message_for_upstream);
+
+                        let message = Message::Mining(message_for_upstream);
+                        let frame: StdFrame = message.try_into().unwrap();
+                        let frame: EitherFrame = frame.try_into().unwrap();
+
+                        // Relay the response message to the Upstream role
                         let sender = self_
                             .safe_lock(|self_| self_.connection.sender.clone())
                             .unwrap();
-                        // Take the message and send it back to upstream
-                        let message = Message::Mining(next_message_to_send_upstream);
-                        let frame: StdFrame = message.try_into().unwrap();
-                        let frame: EitherFrame = frame.try_into().unwrap();
                         sender.send(frame).await.unwrap();
-                        ()
                     }
-                    // Send to translator to convert to sv1 + send to downstream
+                    // Relay the SV2 message to `Translator.upstream_translator.receiver` via
+                    // the `UpstreamConnection.downstream_sender`
                     Ok(SendTo::RelaySameMessageToSv1(message_to_translate)) => {
                         println!("\nTU SEND SV2 MSG TO TP: {:?}\n", &message_to_translate);
                         // Format message as `EitherFrame` to send to the
                         // `Translator.upstream_receiver`
-                        let message_pool = PoolMessages::Mining(message_to_translate);
+                        let message_pool = Message::Mining(message_to_translate);
+                        println!("\n\nMESSAGEPOOL: {:?}\n\n", &message_pool);
                         let message_frame: StdFrame = message_pool.try_into().unwrap();
                         let message: EitherFrame = message_frame.into();
 
@@ -468,6 +468,10 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
         panic!("Standard Mining Channels are not used in Translator Proxy")
     }
 
+    /// Relay incoming `NewExtendedMiningJob` message to `Translator` to be handled. `Translator`
+    /// will store this message until it receives a `SetNewPrevHash` message from the Upstream
+    /// role. `Translator` will then format these messages into a SV1 `mining.notify` message to be
+    /// sent to the Downstream role.
     fn handle_new_extended_mining_job(
         &mut self,
         m: roles_logic_sv2::mining_sv2::NewExtendedMiningJob,
@@ -485,9 +489,13 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
             coinbase_tx_prefix: m.coinbase_tx_prefix.clone().into_static(),
             coinbase_tx_suffix: m.coinbase_tx_suffix.clone().into_static(),
         });
-        Ok(SendTo::Respond(message))
+        Ok(SendTo::RelaySameMessageToSv1(message))
     }
 
+    /// Relay incoming `SetNewPrevHash` message to `Translator` to be handled. `SetNewPrevHash`
+    /// will be combined with the previously stored `NewExtendedMiningJob` message held by
+    /// `Translator`, then formatted into a SV1 `mining.notify` message to be sent to the
+    /// Downstream role.
     fn handle_set_new_prev_hash(
         &mut self,
         m: roles_logic_sv2::mining_sv2::SetNewPrevHash,
@@ -503,7 +511,7 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
             min_ntime: m.min_ntime,
             nbits: m.nbits,
         });
-        Ok(SendTo::Respond(message))
+        Ok(SendTo::RelaySameMessageToSv1(message))
     }
 
     /// Handle SV2 `SetCustomMiningJobSuccess`.
