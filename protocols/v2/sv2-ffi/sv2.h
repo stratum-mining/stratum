@@ -511,7 +511,7 @@ struct Sv2Error {
   };
 
   struct CodecError_Body {
-    Error _0;
+    CError _0;
   };
 
   Tag tag;

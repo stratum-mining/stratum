@@ -7,9 +7,9 @@ use alloc::{boxed::Box, vec::Vec};
 
 mod decoder;
 mod encoder;
-mod error;
+pub mod error;
 
-pub use error::Error;
+pub use error::{CError, Error, Result};
 
 pub use decoder::{StandardEitherFrame, StandardSv2Frame};
 
@@ -49,35 +49,32 @@ pub enum HandshakeRole {
 
 #[cfg(feature = "noise_sv2")]
 impl HandshakeRole {
-    pub fn step(&mut self, in_msg: Option<Vec<u8>>) -> Result<HandShakeFrame, crate::Error> {
+    pub fn step(&mut self, in_msg: Option<Vec<u8>>) -> Result<HandShakeFrame> {
         match self {
             Self::Initiator(stepper) => {
-                let message = stepper.step(in_msg).map_err(|_| ())?.inner();
-                Ok(HandShakeFrame::from_message(message.into(), 0, 0, false).ok_or(())?)
+                let message = stepper.step(in_msg)?.inner();
+                Ok(HandShakeFrame::from_message(message.into(), 0, 0, false)
+                    .ok_or(Error::CodecTodo)?)
             }
 
             Self::Responder(stepper) => {
-                let message = stepper.step(in_msg).map_err(|_| ())?.inner();
-                Ok(HandShakeFrame::from_message(message.into(), 0, 0, false).ok_or(())?)
+                let message = stepper.step(in_msg)?.inner();
+                Ok(HandShakeFrame::from_message(message.into(), 0, 0, false)
+                    .ok_or(())
+                    .map_err(|_| Error::CodecTodo)?)
             }
         }
     }
 
-    pub fn into_transport(self) -> Result<TransportMode, crate::Error> {
+    pub fn into_transport(self) -> Result<TransportMode> {
         match self {
             Self::Initiator(stepper) => {
-                let tp = stepper
-                    .into_handshake_state()
-                    .into_transport_mode()
-                    .map_err(|_| ())?;
+                let tp = stepper.into_handshake_state().into_transport_mode()?;
                 Ok(TransportMode::new(tp))
             }
 
             Self::Responder(stepper) => {
-                let tp = stepper
-                    .into_handshake_state()
-                    .into_transport_mode()
-                    .map_err(|_| ())?;
+                let tp = stepper.into_handshake_state().into_transport_mode()?;
                 Ok(TransportMode::new(tp))
             }
         }
@@ -125,17 +122,17 @@ impl State {
         Self::Transport(tm)
     }
 
-    pub fn step(&mut self, in_msg: Option<Vec<u8>>) -> Result<HandShakeFrame, crate::Error> {
+    pub fn step(&mut self, in_msg: Option<Vec<u8>>) -> Result<HandShakeFrame> {
         match self {
-            Self::NotInitialized => Err(Error::Todo),
+            Self::NotInitialized => Err(Error::UnexpectedNoiseState),
             Self::HandShake(stepper) => stepper.step(in_msg),
-            Self::Transport(_) => Err(Error::Todo),
+            Self::Transport(_) => Err(Error::UnexpectedNoiseState),
         }
     }
 
-    pub fn into_transport_mode(self) -> Result<Self, Error> {
+    pub fn into_transport_mode(self) -> Result<Self> {
         match self {
-            Self::NotInitialized => Err(Error::Todo),
+            Self::NotInitialized => Err(Error::UnexpectedNoiseState),
             Self::HandShake(stepper) => {
                 let tp = stepper.into_transport()?;
 
@@ -150,5 +147,36 @@ impl State {
 impl Default for State {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn handshake_step_fails_if_state_is_not_initialized() {
+        let mut state = State::new();
+        let msg = None;
+        let actual = state.step(msg).unwrap_err();
+        let expect = Error::UnexpectedNoiseState;
+        assert_eq!(actual, expect);
+    }
+
+    #[test]
+    fn handshake_step_fails_if_state_is_in_transport_mode() {
+        let mut state = State::new();
+        let msg = None;
+        let actual = state.step(msg).unwrap_err();
+        let expect = Error::UnexpectedNoiseState;
+        assert_eq!(actual, expect);
+    }
+
+    #[test]
+    fn into_transport_mode_errs_if_state_is_not_initialized() {
+        let state = State::new();
+        let actual = state.into_transport_mode().unwrap_err();
+        let expect = Error::UnexpectedNoiseState;
+        assert_eq!(actual, expect);
     }
 }

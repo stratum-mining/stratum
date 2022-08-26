@@ -33,7 +33,7 @@ impl SignedPartHeader {
         let not_valid_after = self.not_valid_after.to_le_bytes();
         writer
             .write_all(&[&version[..], &valid_from[..], &not_valid_after[..]].concat()[..])
-            .map_err(|_| Error {})?;
+            .map_err(|_| Error::IoError)?;
         Ok(())
     }
 
@@ -72,50 +72,28 @@ impl SignedPartHeader {
     pub fn verify_expiration(&self, now: SystemTime) -> Result<()> {
         let now_timestamp = Self::system_time_to_unix_time_u32(&now)?;
         if now_timestamp < self.valid_from {
-            //return Err(ErrorKind::Noise(format!(
-            //    "Certificate not yet valid, valid from: {:?}, now: {:?}",
-            //    self.valid_from, now
-            //))
-            //.into());
-            return Err(Error {});
+            return Err(Error::CertificateInvalid(self.valid_from, now_timestamp));
         }
         if now_timestamp > self.not_valid_after {
-            //return Err(ErrorKind::Noise(format!(
-            //    "Certificate expired, not valid after: {:?}, now: {:?}",
-            //    self.valid_from, now
-            //))
-            //.into());
-            return Err(Error {});
+            return Err(Error::CertificateExpired(
+                self.not_valid_after,
+                now_timestamp,
+            ));
         }
         Ok(())
     }
 
+    /// Convert system time to UNIX time
     fn system_time_to_unix_time_u32(t: &SystemTime) -> Result<u32> {
-        t.duration_since(SystemTime::UNIX_EPOCH)
-            .map(|duration| duration.as_secs() as u32)
-            .map_err(|_| {
-                Error {}
-                //ErrorKind::Noise(format!(
-                //    "Cannot convert system time to unix timestamp: {}",
-                //    e
-                //))
-                //.into()
-            })
+        Ok(t.duration_since(SystemTime::UNIX_EPOCH)
+            .map(|duration| duration.as_secs() as u32)?)
     }
 
+    /// Convert UNIX time to system time
     fn unix_time_u32_to_system_time(unix_timestamp: u32) -> Result<SystemTime> {
         SystemTime::UNIX_EPOCH
             .checked_add(Duration::from_secs(unix_timestamp.into()))
-            .ok_or(
-                Error {}, //ErrorKind::Noise(
-                          //    format!(
-                          //        "Cannot convert unix timestamp ({}) to system time",
-                          //        unix_timestamp
-                          //    )
-                          //    .to_string(),
-                          //)
-                          //.into(),
-            )
+            .ok_or(Error::BadTimestampFromSystemTime(unix_timestamp))
     }
 }
 
@@ -161,11 +139,11 @@ impl SignedPart {
                 ]
                 .concat()[..],
             )
-            .map_err(|_| Error {})?;
+            .map_err(|_| Error::IoError)?;
         Ok(signed_part_writer.into_inner())
     }
 
-    /// Generates the actual ed25519_dalek::Signature that is ready to be embedded into the certificate
+    /// Generates the actual `ed25519_dalek::Signature` to embed into the certificate.
     pub fn sign_with(&self, keypair: &ed25519_dalek::Keypair) -> Result<ed25519_dalek::Signature> {
         debug_assert_eq!(
             keypair.public,
@@ -180,12 +158,11 @@ impl SignedPart {
         Ok(keypair.sign(&signed_part_buf[..]))
     }
 
-    /// Verifies the specifed `signature` against this signed part
+    /// Verifies the specified `signature` against this signed part.
     pub(crate) fn verify(&self, signature: &ed25519_dalek::Signature) -> Result<()> {
         let signed_part_buf = self.serialize_to_buf()?;
         self.authority_public_key
-            .verify_strict(&signed_part_buf[..], signature)
-            .map_err(|_| Error {})?;
+            .verify_strict(&signed_part_buf[..], signature)?;
         Ok(())
     }
 
@@ -205,24 +182,18 @@ pub struct SignatureNoiseMessage {
 impl SignatureNoiseMessage {
     pub fn serialize_to_writer<T: Write>(&self, writer: &mut T) -> Result<()> {
         let sign_len = [74, 0];
-        self.header
-            .serialize_to_writer(writer)
-            .map_err(|_| Error {})?;
-        writer.write_all(&sign_len).map_err(|_| Error {})?;
+        self.header.serialize_to_writer(writer)?;
+        writer.write_all(&sign_len).map_err(|_| Error::IoError)?;
         writer
             .write_all(&self.signature.to_bytes()[..])
-            .map_err(|_| Error {})?;
+            .map_err(|_| Error::IoError)?;
         Ok(())
     }
 
     pub fn serialize_to_bytes_mut(&self) -> Result<BytesMut> {
         let mut writer = BytesMut::new().writer();
-        self.serialize_to_writer(&mut writer)
-            .map_err(|_| Error {})?;
-        //.context("Serialize noise message")?;
-
+        self.serialize_to_writer(&mut writer)?;
         let serialized_signature_noise_message = writer.into_inner();
-
         Ok(serialized_signature_noise_message)
     }
 
@@ -254,7 +225,8 @@ impl TryFrom<&[u8]> for SignatureNoiseMessage {
         let header = &data[0..10];
         let siganture = &data[12..76];
         let header = SignedPartHeader::from_bytes(header);
-        let signature = ed25519_dalek::Signature::new(siganture.try_into().map_err(|_| Error {})?);
+        let signature =
+            ed25519_dalek::Signature::new(siganture.try_into().map_err(|_| Error::NoiseTodo)?);
         Ok(SignatureNoiseMessage { header, signature })
     }
 }
