@@ -190,12 +190,40 @@ impl Upstream {
                 // if we introduce new variant: everything will break + need to fix
                 // new variant is the best way, fixing shouldnt be too hard
                 // second best is to use the SendToNone(Some(message_sv2))
+                //
+                // We support 1 Upstream + multiple Downstream
+                // Open EC w Upstream + do not care after that to route messages
+                // In sv2 proxy it is pool that checks if share is correct or not, but in this case
+                // it should be this proxy to check if the share is correct or not and then answer
+                // the downstream. So we should not have to route message from ...so can use
+                // RelaySameMessage w/out anything inside -> resason: when i rely the same message
+                // i just take the received frame and relay to upstream so i dont spend energy in
+                // serializing and deserializing.
+                // this is NOT our case because we have an sv1 downstream. we deseri
+                // So the variant: RelaySameMessageSv1(m)
                 match next_message_to_send {
-                    Ok(SendTo::Respond(next_message_to_send)) => {
-                        println!("\nTU SEND SV2 MSG TO TP: {:?}\n", &next_message_to_send);
+                    // No tranlsation required, simply respond to SV2 pool w an SV2 message
+                    Ok(SendTo::Respond(next_message_to_send_upstream)) => {
+                        let sender = self_
+                            .safe_lock(|self_| self_.connection.sender.clone())
+                            .unwrap();
+                        // Take the message and send it back to upstream
+                        // May be StdFrame
+                        // let message: roles_logic_sv2::parsers::Mining =
+                        //     next_message_to_send_upstream.try_into().unwrap();
+                        // let message: StdFrame = message.into();
+
+                        // let message: EitherFrame = next_message_to_send_upstream.into();
+                        // let message: EitherFrame = message.into();
+                        // sender.send(next_message_to_send_upstream).await.unwrap();
+                        ()
+                    }
+                    // Send to translator to convert to sv1 + send to downstream
+                    Ok(SendTo::RelaySameMessageSv1(message_to_translate)) => {
+                        println!("\nTU SEND SV2 MSG TO TP: {:?}\n", &message_to_translate);
                         // Format message as `EitherFrame` to send to the
                         // `Translator.upstream_receiver`
-                        let message_pool = PoolMessages::Mining(next_message_to_send);
+                        let message_pool = PoolMessages::Mining(message_to_translate);
                         let message_frame: StdFrame = message_pool.try_into().unwrap();
                         let message: EitherFrame = message_frame.into();
 
