@@ -36,7 +36,7 @@ pub enum SendTo_<SubProtocol, Remote> {
     RelaySameMessage(Arc<Mutex<Remote>>),
     /// Used by SV1<->SV2 translator proxies to relay a SV2 message to be translated to a SV1
     /// message by the proxy.
-    RelaySameMessageSv1(SubProtocol),
+    RelaySameMessageToSv1(SubProtocol),
     /// Used by proxyies and other roles to directly respond.
     Respond(SubProtocol),
     /// Used when multiple type of SendTo are needed
@@ -50,7 +50,7 @@ impl<SubProtocol, Remote> SendTo_<SubProtocol, Remote> {
         match self {
             Self::RelayNewMessage(_, m) => Some(m),
             Self::RelaySameMessage(_) => None,
-            Self::RelaySameMessageSv1(m) => Some(m),
+            Self::RelaySameMessageToSv1(m) => Some(m),
             Self::Respond(m) => Some(m),
             Self::Multiple(_) => None,
             Self::None(m) => m,
@@ -60,7 +60,7 @@ impl<SubProtocol, Remote> SendTo_<SubProtocol, Remote> {
         match self {
             Self::RelayNewMessage(r, _) => Some(r),
             Self::RelaySameMessage(r) => Some(r),
-            Self::RelaySameMessageSv1(_) => None,
+            Self::RelaySameMessageToSv1(_) => None,
             Self::Respond(_) => None,
             Self::Multiple(_) => None,
             Self::None(_) => None,

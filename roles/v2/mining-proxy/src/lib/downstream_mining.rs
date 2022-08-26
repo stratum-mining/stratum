@@ -180,7 +180,7 @@ impl DownstreamMiningNode {
                 todo!();
             }
             // TODO: Rm panic and replace w proper error handling
-            Ok(SendTo::RelaySameMessageSv1(_)) => panic!("{:?}", Error::CannotRelaySv1Message),
+            Ok(SendTo::RelaySameMessageToSv1(_)) => panic!("{:?}", Error::CannotRelaySv1Message),
             Ok(SendTo::None(_)) => (),
             Err(Error::UnexpectedMessage) => todo!("148"),
             Err(_) => todo!("149"),
