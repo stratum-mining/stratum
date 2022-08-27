@@ -316,7 +316,7 @@ impl Translator {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::error::ErrorKind;
+    use crate::{error::ErrorKind, proxy::next_mining_notify};
 
     /// Mock a `Translator`.
     fn mock_translator() -> Translator {
@@ -337,9 +337,14 @@ mod tests {
             DownstreamTranslator::new(sender_downstream_for_proxy, receiver_downstream_for_proxy);
         let upstream_translator =
             UpstreamTranslator::new(sender_upstream_for_proxy, receiver_upstream_for_proxy);
+        let next_mining_notify = NextMiningNotify {
+            set_new_prev_hash: None,
+            new_extended_mining_job: None,
+        };
         Translator {
             downstream_translator,
             upstream_translator,
+            next_mining_notify,
         }
     }
 
