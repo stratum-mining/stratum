@@ -41,7 +41,7 @@
 use crate::{
     downstream_sv1::Downstream,
     error::{Error, ProxyResult},
-    proxy::{DownstreamTranslator, UpstreamTranslator},
+    proxy::{DownstreamTranslator, NextMiningNotify, UpstreamTranslator},
     upstream_sv2::{EitherFrame, Message, StdFrame, Upstream},
 };
 use async_channel::{bounded, Receiver, Sender};
@@ -60,16 +60,11 @@ use std::{
 };
 use v1::json_rpc;
 
-pub(crate) struct NewJob {
-    set_new_prev_hash: Option<Message>,
-    new_extended_mining_job: Option<Message>,
-}
-
 #[derive(Clone)]
 pub(crate) struct Translator {
     pub(crate) downstream_translator: DownstreamTranslator,
     pub(crate) upstream_translator: UpstreamTranslator,
-    // pub(crate) new_job:
+    pub(crate) next_mining_notify: NextMiningNotify,
 }
 
 impl Translator {
@@ -106,6 +101,10 @@ impl Translator {
         let translator = Translator {
             downstream_translator,
             upstream_translator,
+            next_mining_notify: NextMiningNotify {
+                set_new_prev_hash: None,
+                new_extended_mining_job: None,
+            },
         };
         // Listen for SV1 Downstream(s) + SV2 Upstream, process received messages + send
         // accordingly
@@ -272,13 +271,23 @@ impl Translator {
         println!("TP PARSE SV2 -> SV1: {:?}", &message_sv2);
         let mut incoming: StdFrame = message_sv2.try_into().unwrap();
         let message_type = incoming.get_header().unwrap().msg_type();
-        let payload = incoming.payload();
-        println!("\nPAYLOAD: {:?}\n\n", &payload);
-        // let mut frame: StdFrame = message_sv2.try_into().unwrap();
-        // let t = frame.payload();
-        // println!("\n\nFRAME:{:?}\n", &t);
-        // let pool_message: Message = Message::Mining(frame);
+        // TODO: getting payload here errors in framing2.rs L136
+        // let payload = incoming.payload();
+        // println!("\nPAYLOAD: {:?}\n\n", &payload);
 
+        match message_type {
+            31 => {
+                println!("\n===== NEWEXTENDEDMININGJOB\n");
+                self.next_mining_notify.new_extended_mining_job = Some(incoming);
+            }
+            32 => {
+                println!("\n===== SETNEWPREVHASH\n");
+                self.next_mining_notify.set_new_prev_hash = Some(incoming);
+                self.next_mining_notify.new_mining_notify();
+                // return self.next_mining_notify.new_mining_notify();
+            }
+            _ => println!("\n=====  OTHER\n"),
+        };
         let message_str =
             r#"{"params": ["slush.miner1", "password"], "id": 2, "method": "mining.authorize"}"#;
         let message_json: json_rpc::Message = serde_json::from_str(message_str)
