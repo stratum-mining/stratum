@@ -102,6 +102,25 @@ impl Translator {
             upstream_translator,
             next_mining_notify: NextMiningNotify::new(),
         };
+        // Open connection with TUpstream + then connect to Upstream
+        // Wait to send messages until downstream is connected
+        // Open connection with TDownstream + then connect to Downstream
+        //
+        // // Accept connection from one SV2 Upstream role (SV2 Pool)
+        // Translator::accept_connection_upstream(sender_for_upstream, receiver_for_upstream).await;
+        // // Spawn task to listen for incoming messages from SV2 Upstream
+        // let translator_clone_upstream = translator.clone();
+        // translator_clone_upstream.listen_upstream().await;
+        // // Accept connections from one or more SV1 Downstream roles (SV1 Mining Devices)
+        // Translator::accept_connection_downstreams(
+        //     sender_for_downstream.clone(),
+        //     receiver_for_downstream.clone(),
+        // )
+        // .await;
+        // Spawn task to listen for incoming messages from SV1 Downstream
+        let translator_clone_downstream = translator.clone();
+        translator_clone_downstream.listen_downstream().await;
+
         // Listen for SV1 Downstream(s) + SV2 Upstream, process received messages + send
         // accordingly
         let translator_clone_listen = translator.clone();
@@ -209,7 +228,7 @@ impl Translator {
             loop {
                 let message_sv1: json_rpc::Message =
                     self.downstream_translator.receiver.recv().await.unwrap();
-                let _message_sv2 = self.parse_sv1_to_sv2(message_sv1).unwrap();
+                let _message_sv2 = self.handle_incoming_sv1(message_sv1).await;
                 // let _message_sv2 = match self.parse_sv1_to_sv2(message_sv1) {
                 //     Ok(msv2) => (),
                 //     Err(_) => return Err(Error::bad_sv1_std_req("bad")),
@@ -247,18 +266,18 @@ impl Translator {
 
     /// Parses a SV1 message and translates to to a SV2 message
     // fn parse_sv1_to_sv2(&mut self, _message_sv1: json_rpc::Message) -> Result<EitherFrame> {
-    fn parse_sv1_to_sv2(&mut self, message_sv1: json_rpc::Message) -> ProxyResult<()> {
+    async fn handle_incoming_sv1(&mut self, message_sv1: json_rpc::Message) {
         println!("TP RECV SV1 FROM TD TO HANDLE: {:?}", &message_sv1);
         match message_sv1 {
             json_rpc::Message::StandardRequest(std_req) => {
                 println!("STDREQ: {:?}", std_req);
-                let _message_sv2 = self.handle_sv1_std_req(std_req)?;
+                let _message_sv2 = self.handle_sv1_std_req(std_req).await;
             }
             json_rpc::Message::Notification(not) => println!("NOTIFICATION: {:?}", not),
             json_rpc::Message::OkResponse(ok_res) => println!("OKRES: {:?}", ok_res),
             json_rpc::Message::ErrorResponse(err_res) => println!("ERRRES: {:?}", err_res),
         };
-        Ok(())
+        // Ok(())
         // todo!()
         // println!("TP PARSE SV1 -> SV2: {:?}", &message_sv1);
         // Ok(())
@@ -281,7 +300,8 @@ impl Translator {
             MiningMessage::SetNewPrevHash(m) => {
                 println!("TP RECV SETNEWPREVHASH: {:?}", &m);
                 self.next_mining_notify.set_new_prev_hash = Some(MiningMessage::SetNewPrevHash(m));
-                Ok(Some(self.next_mining_notify.handle_subscribe_response()))
+                Ok(None)
+                // Ok(Some(self.next_mining_notify.handle_subscribe_response()))
             }
             _ => {
                 println!("TODO!!: TP RECV OTHER MESSAGE: {:?}", &message_sv2);
@@ -315,11 +335,25 @@ impl Translator {
         // Ok(message_json)
     }
 
-    fn handle_sv1_std_req(&self, std_req: json_rpc::StandardRequest) -> ProxyResult<()> {
+    async fn handle_sv1_std_req(&self, std_req: json_rpc::StandardRequest) -> ProxyResult<()> {
         let method = std_req.method;
         println!("METHOD: {:?}", &method);
         match method.as_ref() {
-            "mining.subscribe" => Ok(()),
+            // Use SV2 `SetNewPrevHash` + `NewExtendedMiningJob` to create a SV1 `mining.subscribe`
+            // response message to send to the Downstream MD
+            "mining.subscribe" => {
+                let sv1_message_to_send_downstream =
+                    self.next_mining_notify.handle_subscribe_response();
+                println!(
+                    "\n\nRRR SV1 MESSAGE TO SEND DOWNSTREAM: {:?}",
+                    &sv1_message_to_send_downstream
+                );
+                self.downstream_translator
+                    .sender
+                    .send(sv1_message_to_send_downstream)
+                    .await;
+                Ok(())
+            }
             "mining.submit" => Ok(()),
             "mining.configure" => Err(Error::no_translation_required(
                 "`mining.configure` should not be translated to SV2",
