@@ -1331,6 +1331,7 @@ dependencies = [
 name = "pool"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "async-channel",
  "async-recursion",
  "binary_sv2",
@@ -1339,9 +1340,13 @@ dependencies = [
  "codec_sv2",
  "const_sv2",
  "network_helpers",
+ "noise_sv2",
  "rand 0.8.4",
  "roles_logic_sv2",
+ "serde",
+ "structopt",
  "tokio",
+ "toml",
 ]
 
 [[package]]
