@@ -138,6 +138,7 @@ impl Client {
         };
 
         client.send_configure().await;
+        client.status = ClientStatus::Subscribed;
         client.send_authorize().await;
 
         // Gets the latest candidate block header hash from the `Miner` by calling the `next_share`
