@@ -23,7 +23,6 @@ use std::net::SocketAddr;
 use lib::upstream_mining::UpstreamMiningNode;
 use once_cell::sync::{Lazy, OnceCell};
 use serde::Deserialize;
-use structopt::StructOpt;
 
 use roles_logic_sv2::{
     routing_logic::{CommonRoutingLogic, MiningProxyRoutingLogic, MiningRoutingLogic},
@@ -128,14 +127,6 @@ pub struct Config {
     min_supported_version: u16,
 }
 
-#[derive(Debug, StructOpt)]
-/// Stratum-V2 to Stratum-V2 mining proxy
-struct Args {
-    /// Configuration file path
-    #[structopt(short, long, default_value = "proxy-config.toml")]
-    config_path: std::path::PathBuf,
-}
-
 pub fn initialize_r_logic(upstreams: &[UpstreamValues]) -> RLogic {
     let job_ids = Arc::new(Mutex::new(Id::new()));
     let upstream_mining_nodes: Vec<Arc<Mutex<UpstreamMiningNode>>> = upstreams
@@ -160,6 +151,67 @@ pub fn initialize_r_logic(upstreams: &[UpstreamValues]) -> RLogic {
     }
 }
 
+mod args {
+    use std::path::PathBuf;
+
+    #[derive(Debug)]
+    pub struct Args {
+        pub config_path: PathBuf,
+    }
+
+    enum ArgsState {
+        Next,
+        ExpectPath,
+        Done,
+    }
+
+    enum ArgsResult {
+        Config(PathBuf),
+        None,
+        Help(String),
+    }
+
+    impl Args {
+        const DEFAULT_CONFIG_PATH: &'static str = "proxy-config.toml";
+
+        pub fn from_args() -> Result<Self, String> {
+            let cli_args = std::env::args();
+
+            let config_path = cli_args
+                .scan(ArgsState::Next, |state, item| {
+                    match std::mem::replace(state, ArgsState::Done) {
+                        ArgsState::Next => match item.as_str() {
+                            "-c" | "--config" => {
+                                *state = ArgsState::ExpectPath;
+                                Some(ArgsResult::None)
+                            }
+                            "-h" | "--help" => Some(ArgsResult::Help(format!(
+                                "Usage: -h/--help, -c/--config <path|default {}>",
+                                Self::DEFAULT_CONFIG_PATH
+                            ))),
+                            _ => {
+                                *state = ArgsState::Next;
+
+                                Some(ArgsResult::None)
+                            }
+                        },
+                        ArgsState::ExpectPath => {
+                            Some(ArgsResult::Config(PathBuf::from(item)))
+                        }
+                        ArgsState::Done => None,
+                    }
+                })
+                .last();
+            let config_path = match config_path {
+                Some(ArgsResult::Config(p)) => p,
+                Some(ArgsResult::Help(h)) => return Err(h),
+                _ => PathBuf::from(Self::DEFAULT_CONFIG_PATH),
+            };
+            Ok(Self { config_path })
+        }
+    }
+}
+
 /// 1. the proxy scan all the upstreams and map them
 /// 2. donwstream open a connetcion with proxy
 /// 3. downstream send SetupConnection
@@ -172,7 +224,13 @@ pub fn initialize_r_logic(upstreams: &[UpstreamValues]) -> RLogic {
 ///    upstream_mining::UpstreamMiningNode begin
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let args: Args = Args::from_args();
+    let args = match args::Args::from_args() {
+        Ok(cfg) => cfg,
+        Err(help) => {
+            println!("{}", help);
+            return Ok(());
+        }
+    };
 
     // Scan all the upstreams and map them
     let config_file = std::fs::read_to_string(args.config_path)?;

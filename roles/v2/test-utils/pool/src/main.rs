@@ -3,7 +3,6 @@ use codec_sv2::{HandshakeRole, Responder};
 use network_helpers::Connection;
 use serde::Deserialize;
 use std::sync::Arc as SArc;
-use structopt::StructOpt;
 
 use async_channel::{Receiver, Sender};
 use async_std::sync::Arc;
@@ -32,7 +31,7 @@ pub type EitherFrame = StandardEitherFrame<Message>;
 #[derive(Debug, Deserialize)]
 struct Configuration {
     listen_address: String,
-    authority_publib_key: EncodedEd25519PublicKey,
+    authority_public_key: EncodedEd25519PublicKey,
     authority_secret_key: EncodedEd25519SecretKey,
     cert_validity_sec: u64,
 }
@@ -52,7 +51,7 @@ async fn server_pool(config: &Configuration) {
             stream.peer_addr().unwrap()
         );
         let responder = Responder::from_authority_kp(
-            config.authority_publib_key.clone().into_inner().as_bytes(),
+            config.authority_public_key.clone().into_inner().as_bytes(),
             config.authority_secret_key.clone().into_inner().as_bytes(),
             std::time::Duration::from_secs(config.cert_validity_sec),
         )
@@ -70,15 +69,76 @@ async fn server_pool(config: &Configuration) {
     }
 }
 
-#[derive(Debug, StructOpt)]
-struct Args {
-    #[structopt(short, long, default_value = "pool-config.toml")]
-    config_path: std::path::PathBuf,
+mod args {
+    use std::path::PathBuf;
+
+    #[derive(Debug)]
+    pub struct Args {
+        pub config_path: PathBuf,
+    }
+
+    enum ArgsState {
+        Next,
+        ExpectPath,
+        Done,
+    }
+
+    enum ArgsResult {
+        Config(PathBuf),
+        None,
+        Help(String),
+    }
+
+    impl Args {
+        const DEFAULT_CONFIG_PATH: &'static str = "pool-config.toml";
+
+        pub fn from_args() -> Result<Self, String> {
+            let cli_args = std::env::args();
+
+            let config_path = cli_args
+                .scan(ArgsState::Next, |state, item| {
+                    match std::mem::replace(state, ArgsState::Done) {
+                        ArgsState::Next => match item.as_str() {
+                            "-c" | "--config" => {
+                                *state = ArgsState::ExpectPath;
+                                Some(ArgsResult::None)
+                            }
+                            "-h" | "--help" => Some(ArgsResult::Help(format!(
+                                "Usage: -h/--help, -c/--config <path|default {}>",
+                                Self::DEFAULT_CONFIG_PATH
+                            ))),
+                            _ => {
+                                *state = ArgsState::Next;
+
+                                Some(ArgsResult::None)
+                            }
+                        },
+                        ArgsState::ExpectPath => {
+                            Some(ArgsResult::Config(PathBuf::from(item)))
+                        }
+                        ArgsState::Done => None,
+                    }
+                })
+                .last();
+            let config_path = match config_path {
+                Some(ArgsResult::Config(p)) => p,
+                Some(ArgsResult::Help(h)) => return Err(h),
+                _ => PathBuf::from(Self::DEFAULT_CONFIG_PATH),
+            };
+            Ok(Self { config_path })
+        }
+    }
 }
 
 #[async_std::main]
 async fn main() -> anyhow::Result<()> {
-    let args: Args = Args::from_args();
+    let args = match args::Args::from_args() {
+        Ok(cfg) => cfg,
+        Err(help) => {
+            println!("{}", help);
+            return Ok(());
+        }
+    };
     let config_file = std::fs::read_to_string(args.config_path)?;
     let config: Configuration = toml::from_str(&config_file)
         .map_err(|e| anyhow::anyhow!("Failed to parse config file: {}", e))?;

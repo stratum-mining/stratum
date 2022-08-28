@@ -1,12 +1,13 @@
 use async_channel::bounded;
-use codec_sv2::{StandardEitherFrame, StandardSv2Frame};
-use codec_sv2::noise_sv2::formats::{EncodedEd25519PublicKey, EncodedEd25519SecretKey};
+use codec_sv2::{
+    noise_sv2::formats::{EncodedEd25519PublicKey, EncodedEd25519SecretKey},
+    StandardEitherFrame, StandardSv2Frame,
+};
 use roles_logic_sv2::{
     bitcoin::{secp256k1::Secp256k1, Network, PrivateKey, PublicKey},
     parsers::PoolMessages,
 };
 use serde::Deserialize;
-use structopt::StructOpt;
 
 mod lib;
 
@@ -23,7 +24,6 @@ const NETWORK: Network = Network::Testnet;
 
 const BLOCK_REWARD: u64 = 625_000_000_000;
 
-
 fn new_pub_key() -> PublicKey {
     let priv_k = PrivateKey::from_slice(&PRIVATE_KEY_BTC, NETWORK).unwrap();
     let secp = Secp256k1::default();
@@ -34,20 +34,81 @@ fn new_pub_key() -> PublicKey {
 pub struct Configuration {
     pub listen_address: String,
     pub tp_address: String,
-    pub authority_publib_key: EncodedEd25519PublicKey,
+    pub authority_public_key: EncodedEd25519PublicKey,
     pub authority_secret_key: EncodedEd25519SecretKey,
     pub cert_validity_sec: u64,
 }
 
-#[derive(Debug, StructOpt)]
-struct Args {
-    #[structopt(short, long, default_value = "pool-config.toml")]
-    config_path: std::path::PathBuf,
+mod args {
+    use std::path::PathBuf;
+
+    #[derive(Debug)]
+    pub struct Args {
+        pub config_path: PathBuf,
+    }
+
+    enum ArgsState {
+        Next,
+        ExpectPath,
+        Done,
+    }
+
+    enum ArgsResult {
+        Config(PathBuf),
+        None,
+        Help(String),
+    }
+
+    impl Args {
+        const DEFAULT_CONFIG_PATH: &'static str = "pool-config.toml";
+
+        pub fn from_args() -> Result<Self, String> {
+            let cli_args = std::env::args();
+
+            let config_path = cli_args
+                .scan(ArgsState::Next, |state, item| {
+                    match std::mem::replace(state, ArgsState::Done) {
+                        ArgsState::Next => match item.as_str() {
+                            "-c" | "--config" => {
+                                *state = ArgsState::ExpectPath;
+                                Some(ArgsResult::None)
+                            }
+                            "-h" | "--help" => Some(ArgsResult::Help(format!(
+                                "Usage: -h/--help, -c/--config <path|default {}>",
+                                Self::DEFAULT_CONFIG_PATH
+                            ))),
+                            _ => {
+                                *state = ArgsState::Next;
+
+                                Some(ArgsResult::None)
+                            }
+                        },
+                        ArgsState::ExpectPath => {
+                            Some(ArgsResult::Config(PathBuf::from(item)))
+                        }
+                        ArgsState::Done => None,
+                    }
+                })
+                .last();
+            let config_path = match config_path {
+                Some(ArgsResult::Config(p)) => p,
+                Some(ArgsResult::Help(h)) => return Err(h),
+                _ => PathBuf::from(Self::DEFAULT_CONFIG_PATH),
+            };
+            Ok(Self { config_path })
+        }
+    }
 }
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let args: Args = Args::from_args();
+    let args = match args::Args::from_args() {
+        Ok(cfg) => cfg,
+        Err(help) => {
+            println!("{}", help);
+            return Ok(());
+        }
+    };
     let config_file = std::fs::read_to_string(args.config_path)?;
     let config: Configuration = toml::from_str(&config_file)
         .map_err(|e| anyhow::anyhow!("Failed to parse config file: {}", e))?;
@@ -56,7 +117,13 @@ async fn main() -> anyhow::Result<()> {
     let (s_prev_hash, r_prev_hash) = bounded(10);
     let (s_solution, r_solution) = bounded(10);
     println!("POOL INTITIALIZING ");
-    TemplateRx::connect(config.tp_address.parse().unwrap(), s_new_t, s_prev_hash, r_solution).await;
+    TemplateRx::connect(
+        config.tp_address.parse().unwrap(),
+        s_new_t,
+        s_prev_hash,
+        r_solution,
+    )
+    .await;
     println!("POOL INITIALIZED");
     Pool::start(config, r_new_t, r_prev_hash, s_solution).await;
     Ok(())

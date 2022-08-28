@@ -25,7 +25,6 @@ use roles_logic_sv2::{
     utils::{merkle_root_from_path, Id, Mutex},
 };
 use std::{collections::HashMap, convert::TryInto, sync::Arc};
-use std::net::SocketAddr;
 
 pub fn u256_to_block_hash(v: U256<'static>) -> BlockHash {
     let hash: [u8; 32] = v.to_vec().try_into().unwrap();
@@ -552,7 +551,7 @@ impl Pool {
         while let Ok((stream, _)) = listner.accept().await {
             let solution_sender = self_.safe_lock(|p| p.solution_sender.clone()).unwrap();
             let responder = Responder::from_authority_kp(
-                config.authority_publib_key.clone().into_inner().as_bytes(),
+                config.authority_public_key.clone().into_inner().as_bytes(),
                 config.authority_secret_key.clone().into_inner().as_bytes(),
                 std::time::Duration::from_secs(config.cert_validity_sec),
             )
@@ -699,9 +698,7 @@ impl Pool {
         let cloned2 = pool.clone();
         let cloned3 = pool.clone();
 
-        task::spawn(
-            Self::accept_incoming_connection(cloned, config)
-        );
+        task::spawn(Self::accept_incoming_connection(cloned, config));
 
         task::spawn(async {
             Self::on_new_prev_hash(cloned2, new_prev_hash_rx).await;
