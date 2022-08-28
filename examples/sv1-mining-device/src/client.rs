@@ -135,6 +135,7 @@ impl Client {
         };
 
         client.send_configure().await;
+        client.send_authorize().await;
 
         // Gets the latest candidate block header hash from the `Miner` by calling the `next_share`
         // method. Mocks the act of the `Miner` incrementing the nonce. Performs this in a loop,
@@ -228,6 +229,19 @@ impl Client {
             .to_string();
         let configure = self.configure(id);
         self.send_message(configure).await;
+    }
+
+    pub async fn send_authorize(&mut self) {
+        let id = time::SystemTime::now()
+            .duration_since(time::SystemTime::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+            .to_string();
+        let authorize = self
+            .authorize(id.clone(), "user".to_string(), "password".to_string())
+            .unwrap();
+        self.sented_authorize_request.push((id, "user".to_string()));
+        self.send_message(authorize).await;
     }
 }
 
