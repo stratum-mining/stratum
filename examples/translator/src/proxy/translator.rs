@@ -287,12 +287,11 @@ impl Translator {
         println!("TP PARSE SV2 -> SV1: {:?}", &message_sv2);
         match message_sv2 {
             MiningMessage::NewExtendedMiningJob(m) => {
-                self.next_mining_notify.new_extended_mining_job =
-                    Some(MiningMessage::NewExtendedMiningJob(m));
+                self.next_mining_notify.new_extended_mining_job = Some(m);
                 Ok(None)
             }
             MiningMessage::SetNewPrevHash(m) => {
-                self.next_mining_notify.set_new_prev_hash = Some(MiningMessage::SetNewPrevHash(m));
+                self.next_mining_notify.set_new_prev_hash = Some(m);
                 Ok(None)
             }
             _ => {
@@ -309,11 +308,17 @@ impl Translator {
             // response message to send to the Downstream MD
             "mining.subscribe" => {
                 let sv1_message_to_send_downstream =
-                    self.next_mining_notify.handle_subscribe_response();
+                    self.next_mining_notify.create_subscribe_response();
                 self.downstream_translator
                     .sender
                     .send(sv1_message_to_send_downstream)
                     .await;
+                let _ = self.next_mining_notify.create_notify();
+                // let sv1_notify_message = self.next_mining_notify.create_notify();
+                // self.downstream_translator
+                //     .sender
+                //     .send(sv1_notify_message)
+                //     .await;
                 Ok(())
             }
             "mining.submit" => Ok(()),

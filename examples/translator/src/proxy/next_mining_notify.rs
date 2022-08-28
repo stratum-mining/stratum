@@ -3,13 +3,13 @@ use crate::{
     error::{Error, ProxyResult},
     upstream_sv2::MiningMessage,
 };
-use roles_logic_sv2::mining_sv2::SubmitSharesSuccess;
+use roles_logic_sv2::mining_sv2::{NewExtendedMiningJob, SetNewPrevHash, SubmitSharesSuccess};
 use v1::{json_rpc, methods::Server2Client, server_to_client};
 
 #[derive(Clone, Debug)]
 pub(crate) struct NextMiningNotify {
-    pub(crate) set_new_prev_hash: Option<MiningMessage>,
-    pub(crate) new_extended_mining_job: Option<MiningMessage>,
+    pub(crate) set_new_prev_hash: Option<SetNewPrevHash<'static>>,
+    pub(crate) new_extended_mining_job: Option<NewExtendedMiningJob<'static>>,
 }
 
 impl NextMiningNotify {
@@ -23,7 +23,7 @@ impl NextMiningNotify {
     /// `mining.notify`:  subscription id
     /// extranonce1
     /// extranonce_size2
-    pub(crate) fn handle_subscribe_response(&self) -> json_rpc::Message {
+    pub(crate) fn create_subscribe_response(&self) -> json_rpc::Message {
         println!("IN NEW_MINING_NOTIFY: {:?}", &self);
         let extra_nonce1 = downstream_sv1::new_extranonce();
         // let extranonce1_str: String = extra_nonce1.try_into().unwrap();
@@ -44,5 +44,22 @@ impl NextMiningNotify {
             subscriptions,
         };
         subscribe_response.into()
+    }
+
+    // pub(crate) fn create_notify(&self) -> json_rpc::Message {
+    pub(crate) fn create_notify(&self) {
+        let new_prev_hash = match &self.set_new_prev_hash {
+            Some(nph) => nph,
+            None => panic!("TODO: No SetNewPrevHash available"),
+        };
+        let job_id = "";
+        let prevhash = "";
+        let coinb1 = "";
+        let coinb2 = "";
+        let merkle_branch = "";
+        let version = "";
+        let nbits = "";
+        // let ntime = new_prev_hash.min_ntime;
+        let clean_jobs = false; // ?
     }
 }
