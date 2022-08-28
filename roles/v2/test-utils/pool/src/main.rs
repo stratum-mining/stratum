@@ -28,11 +28,13 @@ pub type StdFrame = StandardSv2Frame<Message>;
 pub type EitherFrame = StandardEitherFrame<Message>;
 const ADDR: &str = "127.0.0.1:34254";
 
+// 2di19GHYQnAZJmEpoUeP7C3Eg9TCcksHr23rZCC83dvUiZgiDL
 pub const AUTHORITY_PUBLIC_K: [u8; 32] = [
     215, 11, 47, 78, 34, 232, 25, 192, 195, 168, 170, 209, 95, 181, 40, 114, 154, 226, 176, 190,
     90, 169, 238, 89, 191, 183, 97, 63, 194, 119, 11, 31,
 ];
 
+// 2Z1FZug7mZNyM63ggkm37r4oKQ29khLjAvEx43rGkFN47RcJ2t
 pub const AUTHORITY_PRIVATE_K: [u8; 32] = [
     204, 93, 167, 220, 169, 204, 172, 35, 9, 84, 174, 208, 171, 89, 25, 53, 196, 209, 161, 148, 4,
     5, 173, 0, 234, 59, 15, 127, 31, 160, 136, 131,
