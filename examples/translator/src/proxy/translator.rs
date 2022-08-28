@@ -236,8 +236,11 @@ impl Translator {
                 let message_sv2: MiningMessage =
                     self.upstream_translator.receiver.recv().await.unwrap();
                 println!("TP RECV SV2 FROM TU: {:?}", &message_sv2);
-                let message_sv1: json_rpc::Message = self.parse_sv2_to_sv1(message_sv2).unwrap();
-                self.downstream_translator.send_sv1(message_sv1).await;
+                let message_sv1: Option<json_rpc::Message> =
+                    self.parse_sv2_to_sv1(message_sv2).unwrap();
+                if let Some(m) = message_sv1 {
+                    self.downstream_translator.send_sv1(m).await;
+                };
             }
         });
     }
@@ -262,18 +265,29 @@ impl Translator {
     }
 
     /// Parses a SV2 message and translates to to a SV1 message
-    fn parse_sv2_to_sv1(&mut self, message_sv2: MiningMessage) -> ProxyResult<json_rpc::Message> {
+    fn parse_sv2_to_sv1(
+        &mut self,
+        message_sv2: MiningMessage,
+    ) -> ProxyResult<Option<json_rpc::Message>> {
         println!("\n\n\n");
         println!("TP PARSE SV2 -> SV1: {:?}", &message_sv2);
         match message_sv2 {
             MiningMessage::NewExtendedMiningJob(m) => {
                 println!("TP RECV NEWEXTENDEDMININGJOB: {:?}", &m);
+                self.next_mining_notify.new_extended_mining_job =
+                    Some(MiningMessage::NewExtendedMiningJob(m));
+                Ok(None)
             }
             MiningMessage::SetNewPrevHash(m) => {
                 println!("TP RECV SETNEWPREVHASH: {:?}", &m);
+                self.next_mining_notify.set_new_prev_hash = Some(MiningMessage::SetNewPrevHash(m));
+                Ok(Some(self.next_mining_notify.handle_subscribe_response()))
             }
-            _ => println!("TP RECV OTHER MESSAGE: {:?}", &message_sv2),
-        };
+            _ => {
+                println!("TODO!!: TP RECV OTHER MESSAGE: {:?}", &message_sv2);
+                Ok(None)
+            }
+        }
         // let mut incoming: StdFrame = message_sv2.try_into().unwrap();
         // let message_type = incoming.get_header().unwrap().msg_type();
         // // TODO: getting payload here errors in framing2.rs L136
@@ -293,12 +307,12 @@ impl Translator {
         //     }
         //     _ => println!("\n=====  OTHER\n"),
         // };
-        let message_str =
-            r#"{"params": ["slush.miner1", "password"], "id": 2, "method": "mining.authorize"}"#;
-        let message_json: json_rpc::Message = serde_json::from_str(message_str)
-            .map_err(|e| Error::bad_serde_json(format!("{:?}", e)))?;
-        println!("\n\n\n");
-        Ok(message_json)
+        // let message_str =
+        //     r#"{"params": ["slush.miner1", "password"], "id": 2, "method": "mining.authorize"}"#;
+        // let message_json: json_rpc::Message = serde_json::from_str(message_str)
+        //     .map_err(|e| Error::bad_serde_json(format!("{:?}", e)))?;
+        // println!("\n\n\n");
+        // Ok(message_json)
     }
 
     fn handle_sv1_std_req(&self, std_req: json_rpc::StandardRequest) -> ProxyResult<()> {
