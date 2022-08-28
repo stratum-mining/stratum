@@ -277,10 +277,6 @@ impl Translator {
             json_rpc::Message::OkResponse(ok_res) => println!("OKRES: {:?}", ok_res),
             json_rpc::Message::ErrorResponse(err_res) => println!("ERRRES: {:?}", err_res),
         };
-        // Ok(())
-        // todo!()
-        // println!("TP PARSE SV1 -> SV2: {:?}", &message_sv1);
-        // Ok(())
     }
 
     /// Parses a SV2 message and translates to to a SV1 message
@@ -288,66 +284,32 @@ impl Translator {
         &mut self,
         message_sv2: MiningMessage,
     ) -> ProxyResult<Option<json_rpc::Message>> {
-        println!("\n\n\n");
         println!("TP PARSE SV2 -> SV1: {:?}", &message_sv2);
         match message_sv2 {
             MiningMessage::NewExtendedMiningJob(m) => {
-                println!("TP RECV NEWEXTENDEDMININGJOB: {:?}", &m);
                 self.next_mining_notify.new_extended_mining_job =
                     Some(MiningMessage::NewExtendedMiningJob(m));
                 Ok(None)
             }
             MiningMessage::SetNewPrevHash(m) => {
-                println!("TP RECV SETNEWPREVHASH: {:?}", &m);
                 self.next_mining_notify.set_new_prev_hash = Some(MiningMessage::SetNewPrevHash(m));
                 Ok(None)
-                // Ok(Some(self.next_mining_notify.handle_subscribe_response()))
             }
             _ => {
                 println!("TODO!!: TP RECV OTHER MESSAGE: {:?}", &message_sv2);
                 Ok(None)
             }
         }
-        // let mut incoming: StdFrame = message_sv2.try_into().unwrap();
-        // let message_type = incoming.get_header().unwrap().msg_type();
-        // // TODO: getting payload here errors in framing2.rs L136
-        // // let payload = incoming.payload();
-        // // println!("\nPAYLOAD: {:?}\n\n", &payload);
-        //
-        // match message_type {
-        //     31 => {
-        //         println!("\n===== NEWEXTENDEDMININGJOB\n");
-        //         self.next_mining_notify.new_extended_mining_job = Some(incoming);
-        //     }
-        //     32 => {
-        //         println!("\n===== SETNEWPREVHASH\n");
-        //         self.next_mining_notify.set_new_prev_hash = Some(incoming);
-        //         self.next_mining_notify.new_mining_notify();
-        //         // return self.next_mining_notify.new_mining_notify();
-        //     }
-        //     _ => println!("\n=====  OTHER\n"),
-        // };
-        // let message_str =
-        //     r#"{"params": ["slush.miner1", "password"], "id": 2, "method": "mining.authorize"}"#;
-        // let message_json: json_rpc::Message = serde_json::from_str(message_str)
-        //     .map_err(|e| Error::bad_serde_json(format!("{:?}", e)))?;
-        // println!("\n\n\n");
-        // Ok(message_json)
     }
 
     async fn handle_sv1_std_req(&self, std_req: json_rpc::StandardRequest) -> ProxyResult<()> {
         let method = std_req.method;
-        println!("METHOD: {:?}", &method);
         match method.as_ref() {
             // Use SV2 `SetNewPrevHash` + `NewExtendedMiningJob` to create a SV1 `mining.subscribe`
             // response message to send to the Downstream MD
             "mining.subscribe" => {
                 let sv1_message_to_send_downstream =
                     self.next_mining_notify.handle_subscribe_response();
-                println!(
-                    "\n\nRRR SV1 MESSAGE TO SEND DOWNSTREAM: {:?}",
-                    &sv1_message_to_send_downstream
-                );
                 self.downstream_translator
                     .sender
                     .send(sv1_message_to_send_downstream)

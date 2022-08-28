@@ -187,6 +187,7 @@ impl IsServer for Downstream {
     {
         match request {
             methods::Client2Server::Authorize(authorize) => {
+                println!("DT HANDLE AUTHORIZE");
                 let authorized = self.handle_authorize(&authorize);
                 if authorized {
                     self.authorize(&authorize.name);
