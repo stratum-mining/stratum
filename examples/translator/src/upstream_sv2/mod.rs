@@ -1,11 +1,12 @@
 use codec_sv2::{StandardEitherFrame, StandardSv2Frame};
-use roles_logic_sv2::parsers::PoolMessages;
+use roles_logic_sv2::parsers::{Mining, PoolMessages};
 
 pub mod upstream;
 pub mod upstream_connection;
 pub(crate) use upstream::Upstream;
 pub(crate) use upstream_connection::UpstreamConnection;
 
+pub(crate) type MiningMessage = Mining<'static>;
 pub(crate) type Message = PoolMessages<'static>;
 pub(crate) type StdFrame = StandardSv2Frame<Message>;
 pub(crate) type EitherFrame = StandardEitherFrame<Message>;

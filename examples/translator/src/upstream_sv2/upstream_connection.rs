@@ -1,4 +1,4 @@
-use super::{EitherFrame, StdFrame};
+use super::{EitherFrame, MiningMessage, StdFrame};
 use async_channel::{Receiver, Sender};
 
 /// Handles the sending and receiving of messages to and from an SV2 Upstream role (most typically
@@ -15,9 +15,9 @@ pub(crate) struct UpstreamConnection {
     /// Sends messages to the SV2 Upstream role
     pub(crate) sender: Sender<EitherFrame>,
     /// Sends to Translator::receiver_upstream
-    pub(crate) sender_downstream: Sender<EitherFrame>,
+    pub(crate) sender_downstream: Sender<MiningMessage>,
     /// Receives from Translator::sender_upstream
-    pub(crate) receiver_downstream: Receiver<EitherFrame>,
+    pub(crate) receiver_downstream: Receiver<MiningMessage>,
 }
 
 impl UpstreamConnection {

@@ -1,6 +1,6 @@
 use crate::{
     downstream_sv1::Downstream,
-    upstream_sv2::{EitherFrame, Message, StdFrame, UpstreamConnection},
+    upstream_sv2::{EitherFrame, Message, MiningMessage, StdFrame, UpstreamConnection},
 };
 use async_channel::{Receiver, Sender};
 use async_std::{net::TcpStream, task};
@@ -38,8 +38,8 @@ impl Upstream {
     pub(crate) async fn new(
         address: SocketAddr,
         authority_public_key: [u8; 32],
-        sender_downstream: Sender<EitherFrame>,
-        receiver_downstream: Receiver<EitherFrame>,
+        sender_downstream: Sender<MiningMessage>,
+        receiver_downstream: Receiver<MiningMessage>,
     ) -> Result<Arc<Mutex<Self>>, ()> {
         // Connect to the SV2 Upstream role
         let socket = TcpStream::connect(address).await.map_err(|_| ()).unwrap();
@@ -192,18 +192,12 @@ impl Upstream {
                     // the `UpstreamConnection.downstream_sender`
                     Ok(SendTo::RelaySameMessageToSv1(message_to_translate)) => {
                         println!("\nTU SEND SV2 MSG TO TP: {:?}\n", &message_to_translate);
-                        // Format message as `EitherFrame` to send to the
-                        // `Translator.upstream_receiver`
-                        let message_pool = Message::Mining(message_to_translate);
-                        let message_frame: StdFrame = message_pool.try_into().unwrap();
-                        let message: EitherFrame = message_frame.into();
-
                         // Relay the same message received from the Upstream role to `Translator`
                         // to handle
                         let sender = self_
                             .safe_lock(|self_| self_.connection.sender_downstream.clone())
                             .unwrap();
-                        sender.send(message).await.unwrap();
+                        sender.send(message_to_translate).await.unwrap();
                     }
                     // No response is needed to be given to the SV2 Upstream role or the SV1
                     // Downstream role

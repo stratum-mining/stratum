@@ -42,7 +42,7 @@ use crate::{
     downstream_sv1::Downstream,
     error::{Error, ProxyResult},
     proxy::{DownstreamTranslator, NextMiningNotify, UpstreamTranslator},
-    upstream_sv2::{EitherFrame, Message, StdFrame, Upstream},
+    upstream_sv2::{EitherFrame, Message, MiningMessage, StdFrame, Upstream},
 };
 use async_channel::{bounded, Receiver, Sender};
 use async_std::{net::TcpListener, prelude::*, task};
@@ -84,14 +84,14 @@ impl Translator {
         // A channel for the `Upstream` to send to the `Translator` and for the `Translator` to
         // receive from the `Upstream`
         let (sender_for_upstream, receiver_upstream_for_proxy): (
-            Sender<EitherFrame>,
-            Receiver<EitherFrame>,
+            Sender<MiningMessage>,
+            Receiver<MiningMessage>,
         ) = bounded(10);
         // A channel for the `Translator` to send to the `Upstream` and for the `Upstream` to
         // receive from the `Translator`
         let (sender_upstream_for_proxy, receiver_for_upstream): (
-            Sender<EitherFrame>,
-            Receiver<EitherFrame>,
+            Sender<MiningMessage>,
+            Receiver<MiningMessage>,
         ) = bounded(10);
 
         let downstream_translator =
@@ -130,8 +130,8 @@ impl Translator {
         self,
         sender_for_downstream: Sender<json_rpc::Message>,
         receiver_for_downstream: Receiver<json_rpc::Message>,
-        sender_for_upstream: Sender<EitherFrame>,
-        receiver_for_upstream: Receiver<EitherFrame>,
+        sender_for_upstream: Sender<MiningMessage>,
+        receiver_for_upstream: Receiver<MiningMessage>,
     ) {
         println!("CONNECTING...\n");
         // Accept connection from one SV2 Upstream role (SV2 Pool)
@@ -161,8 +161,8 @@ impl Translator {
     /// TODO: Authority public key used to authorize with Upstream is hardcoded, but should be read
     /// in via a proxy-config.toml.
     async fn accept_connection_upstream(
-        sender_for_upstream: Sender<EitherFrame>,
-        receiver_for_upstream: Receiver<EitherFrame>,
+        sender_for_upstream: Sender<MiningMessage>,
+        receiver_for_upstream: Receiver<MiningMessage>,
     ) {
         let upstream_addr = SocketAddr::new(
             IpAddr::from_str(crate::UPSTREAM_IP).unwrap(),
@@ -237,7 +237,7 @@ impl Translator {
             println!("TP LISTENING FOR INCOMING SV2 MSG FROM TU\n");
             loop {
                 // let message_sv2: EitherFrame = self.upstream_translator.recv_sv2();
-                let message_sv2: EitherFrame =
+                let message_sv2: MiningMessage =
                     self.upstream_translator.receiver.recv().await.unwrap();
                 println!("TP RECV SV2 FROM TU: {:?}", &message_sv2);
                 let message_sv1: json_rpc::Message = self.parse_sv2_to_sv1(message_sv2).unwrap();
@@ -266,28 +266,28 @@ impl Translator {
     }
 
     /// Parses a SV2 message and translates to to a SV1 message
-    fn parse_sv2_to_sv1(&mut self, message_sv2: EitherFrame) -> ProxyResult<json_rpc::Message> {
+    fn parse_sv2_to_sv1(&mut self, message_sv2: MiningMessage) -> ProxyResult<json_rpc::Message> {
         println!("\n\n\n");
         println!("TP PARSE SV2 -> SV1: {:?}", &message_sv2);
-        let mut incoming: StdFrame = message_sv2.try_into().unwrap();
-        let message_type = incoming.get_header().unwrap().msg_type();
-        // TODO: getting payload here errors in framing2.rs L136
-        // let payload = incoming.payload();
-        // println!("\nPAYLOAD: {:?}\n\n", &payload);
-
-        match message_type {
-            31 => {
-                println!("\n===== NEWEXTENDEDMININGJOB\n");
-                self.next_mining_notify.new_extended_mining_job = Some(incoming);
-            }
-            32 => {
-                println!("\n===== SETNEWPREVHASH\n");
-                self.next_mining_notify.set_new_prev_hash = Some(incoming);
-                self.next_mining_notify.new_mining_notify();
-                // return self.next_mining_notify.new_mining_notify();
-            }
-            _ => println!("\n=====  OTHER\n"),
-        };
+        // let mut incoming: StdFrame = message_sv2.try_into().unwrap();
+        // let message_type = incoming.get_header().unwrap().msg_type();
+        // // TODO: getting payload here errors in framing2.rs L136
+        // // let payload = incoming.payload();
+        // // println!("\nPAYLOAD: {:?}\n\n", &payload);
+        //
+        // match message_type {
+        //     31 => {
+        //         println!("\n===== NEWEXTENDEDMININGJOB\n");
+        //         self.next_mining_notify.new_extended_mining_job = Some(incoming);
+        //     }
+        //     32 => {
+        //         println!("\n===== SETNEWPREVHASH\n");
+        //         self.next_mining_notify.set_new_prev_hash = Some(incoming);
+        //         self.next_mining_notify.new_mining_notify();
+        //         // return self.next_mining_notify.new_mining_notify();
+        //     }
+        //     _ => println!("\n=====  OTHER\n"),
+        // };
         let message_str =
             r#"{"params": ["slush.miner1", "password"], "id": 2, "method": "mining.authorize"}"#;
         let message_json: json_rpc::Message = serde_json::from_str(message_str)
@@ -328,9 +328,9 @@ mod tests {
             Sender<json_rpc::Message>,
             Receiver<json_rpc::Message>,
         ) = bounded(10);
-        let (_, receiver_upstream_for_proxy): (Sender<EitherFrame>, Receiver<EitherFrame>) =
+        let (_, receiver_upstream_for_proxy): (Sender<MiningMessage>, Receiver<MiningMessage>) =
             bounded(10);
-        let (sender_upstream_for_proxy, _): (Sender<EitherFrame>, Receiver<EitherFrame>) =
+        let (sender_upstream_for_proxy, _): (Sender<MiningMessage>, Receiver<MiningMessage>) =
             bounded(10);
 
         let downstream_translator =
