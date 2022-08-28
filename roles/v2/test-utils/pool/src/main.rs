@@ -1,7 +1,9 @@
 use async_std::{net::TcpListener, prelude::*, task};
 use codec_sv2::{HandshakeRole, Responder};
 use network_helpers::Connection;
+use serde::Deserialize;
 use std::sync::Arc as SArc;
+use structopt::StructOpt;
 
 use async_channel::{Receiver, Sender};
 use async_std::sync::Arc;
@@ -26,24 +28,17 @@ use std::convert::TryInto;
 pub type Message = PoolMessages<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;
 pub type EitherFrame = StandardEitherFrame<Message>;
-const ADDR: &str = "127.0.0.1:34254";
 
-// 2di19GHYQnAZJmEpoUeP7C3Eg9TCcksHr23rZCC83dvUiZgiDL
-pub const AUTHORITY_PUBLIC_K: [u8; 32] = [
-    215, 11, 47, 78, 34, 232, 25, 192, 195, 168, 170, 209, 95, 181, 40, 114, 154, 226, 176, 190,
-    90, 169, 238, 89, 191, 183, 97, 63, 194, 119, 11, 31,
-];
+#[derive(Debug, Deserialize)]
+struct Configuration {
+    listen_address: String,
+    authority_publib_key: EncodedEd25519PublicKey,
+    authority_secret_key: EncodedEd25519SecretKey,
+    cert_validity_sec: u64,
+}
 
-// 2Z1FZug7mZNyM63ggkm37r4oKQ29khLjAvEx43rGkFN47RcJ2t
-pub const AUTHORITY_PRIVATE_K: [u8; 32] = [
-    204, 93, 167, 220, 169, 204, 172, 35, 9, 84, 174, 208, 171, 89, 25, 53, 196, 209, 161, 148, 4,
-    5, 173, 0, 234, 59, 15, 127, 31, 160, 136, 131,
-];
-
-const CERT_VALIDITY: std::time::Duration = std::time::Duration::from_secs(3600);
-
-async fn server_pool() {
-    let listner = TcpListener::bind(ADDR).await.unwrap();
+async fn server_pool(config: &Configuration) {
+    let listner = TcpListener::bind(&config.listen_address).await.unwrap();
     let mut incoming = listner.incoming();
     let group_id_generator = SArc::new(Mutex::new(Id::new()));
     let channel_id_generator = SArc::new(Mutex::new(Id::new()));
@@ -57,9 +52,9 @@ async fn server_pool() {
             stream.peer_addr().unwrap()
         );
         let responder = Responder::from_authority_kp(
-            &AUTHORITY_PUBLIC_K[..],
-            &AUTHORITY_PRIVATE_K[..],
-            CERT_VALIDITY,
+            config.authority_publib_key.clone().into_inner().as_bytes(),
+            config.authority_secret_key.clone().into_inner().as_bytes(),
+            std::time::Duration::from_secs(config.cert_validity_sec),
         )
         .unwrap();
         let (receiver, sender): (Receiver<EitherFrame>, Sender<EitherFrame>) =
@@ -75,9 +70,20 @@ async fn server_pool() {
     }
 }
 
+#[derive(Debug, StructOpt)]
+struct Args {
+    #[structopt(short, long, default_value = "pool-config.toml")]
+    config_path: std::path::PathBuf,
+}
+
 #[async_std::main]
-async fn main() {
-    server_pool().await;
+async fn main() -> anyhow::Result<()> {
+    let args: Args = Args::from_args();
+    let config_file = std::fs::read_to_string(args.config_path)?;
+    let config: Configuration = toml::from_str(&config_file)
+        .map_err(|e| anyhow::anyhow!("Failed to parse config file: {}", e))?;
+    server_pool(&config).await;
+    Ok(())
 }
 
 #[derive(Debug)]
@@ -225,6 +231,7 @@ impl Downstream {
     }
 }
 
+use noise_sv2::formats::{EncodedEd25519PublicKey, EncodedEd25519SecretKey};
 use rand::Rng;
 
 fn get_random_extranonce() -> B032<'static> {
