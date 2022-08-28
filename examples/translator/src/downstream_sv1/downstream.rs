@@ -186,13 +186,12 @@ impl IsServer for Downstream {
         Self: std::marker::Sized,
     {
         match request {
-            methods::Client2Server::Authorize(_authorize) => {
-                todo!()
-                // let authorized = self.handle_authorize(&authorize);
-                // if authorized {
-                //     self.authorize(&authorize.name);
-                // }
-                // Ok(Some(authorize.respond(authorized)))
+            methods::Client2Server::Authorize(authorize) => {
+                let authorized = self.handle_authorize(&authorize);
+                if authorized {
+                    self.authorize(&authorize.name);
+                }
+                Ok(Some(authorize.respond(authorized)))
             }
             methods::Client2Server::Configure(configure) => {
                 println!("DT HANDLE CONFIGURE");
