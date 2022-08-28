@@ -42,17 +42,16 @@ use crate::{
     downstream_sv1::Downstream,
     error::{Error, ProxyResult},
     proxy::{DownstreamTranslator, NextMiningNotify, UpstreamTranslator},
-    upstream_sv2::{EitherFrame, Message, MiningMessage, StdFrame, Upstream},
+    upstream_sv2::{MiningMessage, Upstream},
 };
 use async_channel::{bounded, Receiver, Sender};
 use async_std::{net::TcpListener, prelude::*, task};
-use codec_sv2::Frame;
 // use codec_sv2::Frame;
 // use core::convert::TryInto;
 // use roles_logic_sv2::{
 //     parsers::{JobNegotiation, Mining},
 // };
-use roles_logic_sv2::{parsers::Mining, utils::Mutex};
+use roles_logic_sv2::utils::Mutex;
 use std::{
     net::{IpAddr, SocketAddr},
     str::FromStr,
@@ -101,10 +100,7 @@ impl Translator {
         let translator = Translator {
             downstream_translator,
             upstream_translator,
-            next_mining_notify: NextMiningNotify {
-                set_new_prev_hash: None,
-                new_extended_mining_job: None,
-            },
+            next_mining_notify: NextMiningNotify::new(),
         };
         // Listen for SV1 Downstream(s) + SV2 Upstream, process received messages + send
         // accordingly
@@ -269,6 +265,15 @@ impl Translator {
     fn parse_sv2_to_sv1(&mut self, message_sv2: MiningMessage) -> ProxyResult<json_rpc::Message> {
         println!("\n\n\n");
         println!("TP PARSE SV2 -> SV1: {:?}", &message_sv2);
+        match message_sv2 {
+            MiningMessage::NewExtendedMiningJob(m) => {
+                println!("TP RECV NEWEXTENDEDMININGJOB: {:?}", &m);
+            }
+            MiningMessage::SetNewPrevHash(m) => {
+                println!("TP RECV SETNEWPREVHASH: {:?}", &m);
+            }
+            _ => println!("TP RECV OTHER MESSAGE: {:?}", &message_sv2),
+        };
         // let mut incoming: StdFrame = message_sv2.try_into().unwrap();
         // let message_type = incoming.get_header().unwrap().msg_type();
         // // TODO: getting payload here errors in framing2.rs L136
@@ -316,7 +321,7 @@ impl Translator {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{error::ErrorKind, proxy::next_mining_notify};
+    use crate::error::ErrorKind;
 
     /// Mock a `Translator`.
     fn mock_translator() -> Translator {
@@ -337,10 +342,7 @@ mod tests {
             DownstreamTranslator::new(sender_downstream_for_proxy, receiver_downstream_for_proxy);
         let upstream_translator =
             UpstreamTranslator::new(sender_upstream_for_proxy, receiver_upstream_for_proxy);
-        let next_mining_notify = NextMiningNotify {
-            set_new_prev_hash: None,
-            new_extended_mining_job: None,
-        };
+        let next_mining_notify = NextMiningNotify::new();
         Translator {
             downstream_translator,
             upstream_translator,
