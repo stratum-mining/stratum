@@ -18,12 +18,12 @@
 //! A Downstream that signal the incapacity to handle group channels can open only one channel.
 //!
 mod lib;
-use std::net::{IpAddr, SocketAddr};
+use std::net::SocketAddr;
 
 use lib::upstream_mining::UpstreamMiningNode;
 use once_cell::sync::Lazy;
 use serde::Deserialize;
-use std::str::FromStr;
+use structopt::StructOpt;
 
 use roles_logic_sv2::{
     routing_logic::{CommonRoutingLogic, MiningProxyRoutingLogic, MiningRoutingLogic},
@@ -116,6 +116,14 @@ pub struct Config {
     min_supported_version: u16,
 }
 
+#[derive(Debug, StructOpt)]
+/// Stratum-V2 to Stratum-V2 mining proxy
+struct Args {
+    /// Configuration file path
+    #[structopt(short, long, default_value = "proxy-config.toml")]
+    config_path: std::path::PathBuf,
+}
+
 pub fn initialize_r_logic() -> RLogic {
     let config_file = std::fs::read_to_string("proxy-config.toml").unwrap();
     let config: Config = toml::from_str(&config_file).unwrap();
@@ -125,8 +133,7 @@ pub fn initialize_r_logic() -> RLogic {
         .iter()
         .enumerate()
         .map(|(index, upstream)| {
-            let socket =
-                SocketAddr::new(IpAddr::from_str(&upstream.address).unwrap(), upstream.port);
+            let socket = SocketAddr::new(upstream.address.parse().unwrap(), upstream.port);
             Arc::new(Mutex::new(UpstreamMiningNode::new(
                 index as u32,
                 socket,
@@ -155,18 +162,22 @@ pub fn initialize_r_logic() -> RLogic {
 /// 7. normal operation between the paired downstream_mining::DownstreamMiningNode and
 ///    upstream_mining::UpstreamMiningNode begin
 #[tokio::main]
-async fn main() {
+async fn main() -> anyhow::Result<()> {
+    let args: Args = Args::from_args();
+
     // Scan all the upstreams and map them
-    let config_file = std::fs::read_to_string("proxy-config.toml").unwrap();
-    let config: Config = toml::from_str(&config_file).unwrap();
+    let config_file = std::fs::read_to_string(args.config_path)?;
+    let config: Config = toml::from_str(&config_file)
+        .map_err(|e| anyhow::anyhow!("Failed to parse config file: {}", e))?;
     println!("PROXY INITIALIZING");
     initialize_upstreams().await;
 
     // Wait for downstream connection
     let socket = SocketAddr::new(
-        IpAddr::from_str(&config.listen_address).unwrap(),
+        config.listen_address.parse().unwrap(),
         config.listen_mining_port,
     );
     println!("PROXY INITIALIZED");
-    crate::lib::downstream_mining::listen_for_downstream_mining(socket).await
+    crate::lib::downstream_mining::listen_for_downstream_mining(socket).await;
+    Ok(())
 }
