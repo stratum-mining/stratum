@@ -21,7 +21,7 @@ mod lib;
 use std::net::SocketAddr;
 
 use lib::upstream_mining::UpstreamMiningNode;
-use once_cell::sync::Lazy;
+use once_cell::sync::{Lazy, OnceCell};
 use serde::Deserialize;
 use structopt::StructOpt;
 
@@ -56,12 +56,14 @@ pub fn min_supported_version() -> u16 {
 /// messages cause it is impossible for a task to panic while is using one of the two below Mutex.
 /// So it make sense to use shared mutable memory to lower the complexity of the codebase and to
 /// have some performance gain.
-static ROUTING_LOGIC: Lazy<Mutex<RLogic>> = Lazy::new(|| Mutex::new(initialize_r_logic()));
+static ROUTING_LOGIC: OnceCell<Mutex<RLogic>> = OnceCell::new();
 static JOB_ID_TO_UPSTREAM_ID: Lazy<Mutex<HashMap<u32, u32>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
 
 async fn initialize_upstreams() {
     let upstreams = ROUTING_LOGIC
+        .get()
+        .expect("BUG: ROUTING_LOGIC has not been set yet")
         .safe_lock(|r_logic| r_logic.upstream_selector.upstreams.clone())
         .unwrap();
     crate::lib::upstream_mining::scan(upstreams).await;
@@ -73,10 +75,18 @@ pub fn get_routing_logic() -> MiningRoutingLogic<
     crate::lib::upstream_mining::ProxyRemoteSelector,
     RLogic,
 > {
-    MiningRoutingLogic::Proxy(&ROUTING_LOGIC)
+    MiningRoutingLogic::Proxy(
+        ROUTING_LOGIC
+            .get()
+            .expect("BUG: ROUTING_LOGIC was not set yet"),
+    )
 }
 pub fn get_common_routing_logic() -> CommonRoutingLogic<RLogic> {
-    CommonRoutingLogic::Proxy(&ROUTING_LOGIC)
+    CommonRoutingLogic::Proxy(
+        ROUTING_LOGIC
+            .get()
+            .expect("BUG: ROUTING_LOGIC was not set yet"),
+    )
 }
 
 pub fn upstream_from_job_id(job_id: u32) -> Option<Arc<Mutex<UpstreamMiningNode>>> {
@@ -85,6 +95,8 @@ pub fn upstream_from_job_id(job_id: u32) -> Option<Arc<Mutex<UpstreamMiningNode>
         .safe_lock(|x| *x.get(&job_id).unwrap())
         .unwrap();
     ROUTING_LOGIC
+        .get()
+        .expect("BUG: ROUTING_LOGIC was not set yet")
         .safe_lock(|rlogic| rlogic.upstream_selector.get_upstream(upstream_id))
         .unwrap()
 }
@@ -124,10 +136,7 @@ struct Args {
     config_path: std::path::PathBuf,
 }
 
-pub fn initialize_r_logic() -> RLogic {
-    let config_file = std::fs::read_to_string("proxy-config.toml").unwrap();
-    let config: Config = toml::from_str(&config_file).unwrap();
-    let upstreams = config.upstreams;
+pub fn initialize_r_logic(upstreams: &[UpstreamValues]) -> RLogic {
     let job_ids = Arc::new(Mutex::new(Id::new()));
     let upstream_mining_nodes: Vec<Arc<Mutex<UpstreamMiningNode>>> = upstreams
         .iter()
@@ -169,6 +178,10 @@ async fn main() -> anyhow::Result<()> {
     let config_file = std::fs::read_to_string(args.config_path)?;
     let config: Config = toml::from_str(&config_file)
         .map_err(|e| anyhow::anyhow!("Failed to parse config file: {}", e))?;
+    ROUTING_LOGIC
+        .set(Mutex::new(initialize_r_logic(&config.upstreams)))
+        .expect("BUG: Failed to set ROUTING_LOGIC");
+
     println!("PROXY INITIALIZING");
     initialize_upstreams().await;
 
