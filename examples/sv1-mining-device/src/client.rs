@@ -135,7 +135,7 @@ impl Client {
         };
 
         client.send_configure().await;
-        client.status = ClientStatus::Subscribed;
+        client.send_subscribe().await;
         client.send_authorize().await;
 
         // Gets the latest candidate block header hash from the `Miner` by calling the `next_share`
@@ -223,6 +223,12 @@ impl Client {
     }
 
     pub(crate) async fn send_configure(&mut self) {
+        // This loop is probably unnecessary as the first state is `Init`
+        loop {
+            if let ClientStatus::Init = self.status {
+                break;
+            }
+        }
         let id = time::SystemTime::now()
             .duration_since(time::SystemTime::UNIX_EPOCH)
             .unwrap()
@@ -230,9 +236,33 @@ impl Client {
             .to_string();
         let configure = self.configure(id);
         self.send_message(configure).await;
+        // Update status as configured
+        self.status = ClientStatus::Configured;
+    }
+
+    pub async fn send_subscribe(&mut self) {
+        loop {
+            if let ClientStatus::Configured = self.status {
+                break;
+            }
+        }
+        let id = time::SystemTime::now()
+            .duration_since(time::SystemTime::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+            .to_string();
+        let subscribe = self.subscribe(id, None).unwrap();
+        self.send_message(subscribe).await;
+        // Update status as subscribed
+        self.status = ClientStatus::Subscribed;
     }
 
     pub async fn send_authorize(&mut self) {
+        loop {
+            if let ClientStatus::Subscribed = self.status {
+                break;
+            }
+        }
         let id = time::SystemTime::now()
             .duration_since(time::SystemTime::UNIX_EPOCH)
             .unwrap()
