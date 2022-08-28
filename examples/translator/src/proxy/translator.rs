@@ -102,24 +102,17 @@ impl Translator {
             upstream_translator,
             next_mining_notify: NextMiningNotify::new(),
         };
-        // Open connection with TUpstream + then connect to Upstream
-        // Wait to send messages until downstream is connected
-        // Open connection with TDownstream + then connect to Downstream
+
+        // RR LEFT OFF HERE:
+        // Second guessing myself on using the intermediary proxy
+        // Because when i save the SetNewPrevHash + NewExtendedMiningJob msg received from the
+        // Upstream role in translator_clone_listen, it doesnt copy over to
+        // translator_clone_connect where i need those saved messages to create a `mining.notify`
+        // Perhaps just send directly btwn TD <-> TU? So instead of:
+        // Downstream <-> TD <-> T <-> TU <-> Upstream
+        // it would be:
+        // Downstream <-> TD <-> TU <-> Upstream
         //
-        // // Accept connection from one SV2 Upstream role (SV2 Pool)
-        // Translator::accept_connection_upstream(sender_for_upstream, receiver_for_upstream).await;
-        // // Spawn task to listen for incoming messages from SV2 Upstream
-        // let translator_clone_upstream = translator.clone();
-        // translator_clone_upstream.listen_upstream().await;
-        // // Accept connections from one or more SV1 Downstream roles (SV1 Mining Devices)
-        // Translator::accept_connection_downstreams(
-        //     sender_for_downstream.clone(),
-        //     receiver_for_downstream.clone(),
-        // )
-        // .await;
-        // Spawn task to listen for incoming messages from SV1 Downstream
-        let translator_clone_downstream = translator.clone();
-        translator_clone_downstream.listen_downstream().await;
 
         // Listen for SV1 Downstream(s) + SV2 Upstream, process received messages + send
         // accordingly
@@ -312,13 +305,16 @@ impl Translator {
                 self.downstream_translator
                     .sender
                     .send(sv1_message_to_send_downstream)
-                    .await;
+                    .await
+                    .unwrap();
+
                 let _ = self.next_mining_notify.create_notify();
-                // let sv1_notify_message = self.next_mining_notify.create_notify();
-                // self.downstream_translator
-                //     .sender
-                //     .send(sv1_notify_message)
-                //     .await;
+                let sv1_notify_message = self.next_mining_notify.create_notify();
+                self.downstream_translator
+                    .sender
+                    .send(sv1_notify_message)
+                    .await
+                    .unwrap();
                 Ok(())
             }
             "mining.submit" => Ok(()),
