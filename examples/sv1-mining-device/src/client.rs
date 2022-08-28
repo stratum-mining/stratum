@@ -137,22 +137,8 @@ impl Client {
             miner,
         };
 
-        //let line = client.receiver_incoming.recv().await.unwrap();
-        //println!("CLIENT {} - Received: {}", client_id, line);
-        //let message: json_rpc::Message = serde_json::from_str(&line).unwrap();
-        //match client.handle_message(message).unwrap() {
-        //    Some(m) => {
-        //        if m.is_subscribe() {
-        //            client.send_message(m).await;
-        //        } else {
-        //           panic!("unexpected response from upstream");
-        //        }
-        //    }
-        //    None => panic!("unexpected response from upstream"),
-        //};
-        //task::spawn(async move {
-        //    client.send_authorize().await;
-        //});
+        client.send_configure().await;
+        client.send_authorize().await;
 
         // Gets the latest candidate block header hash from the `Miner` by calling the `next_share`
         // method. Mocks the act of the `Miner` incrementing the nonce. Performs this in a loop,
