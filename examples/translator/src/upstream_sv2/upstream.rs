@@ -62,9 +62,19 @@ impl Upstream {
             receiver_downstream,
         };
 
+        let self_ = Self::initialize(connection).await;
+        Ok(self_)
+    }
+
+    async fn initialize(connection: UpstreamConnection) -> Arc<Mutex<Self>> {
         // Setup the connection with the SV2 Upstream role (Pool)
         let self_ = Self::setup_connection(connection).await.unwrap();
-        Ok(self_)
+        // Here to handle messages AFTER the SetupConnection
+        Self::parse_incoming(self_.clone());
+        Self::parse_incoming_downstream(self_.clone());
+        // println!("DONE WITH PARSE DOWNSTRA");
+
+        self_
     }
 
     /// Setups the connection with the SV2 Upstream role (Pool)
@@ -111,8 +121,6 @@ impl Upstream {
         //     .await
         //     .unwrap();
 
-        Self::parse_incoming_downstream(self_.clone());
-
         // Handle the incoming message (should be either `SetupConnectionSuccess` or
         // `SetupConnectionError`)
         ParseUpstreamCommonMessages::handle_message_common(
@@ -123,7 +131,6 @@ impl Upstream {
         )
         .unwrap();
 
-        Self::parse_incoming(self_.clone());
         Ok(self_)
     }
 

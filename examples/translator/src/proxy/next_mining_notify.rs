@@ -53,6 +53,7 @@ impl NextMiningNotify {
     }
 
     pub(crate) fn create_notify(&self) -> json_rpc::Message {
+        println!("\n\nRRRR====RRRRR: {:?}\n\n", &self);
         if self.set_new_prev_hash.is_none() || self.new_extended_mining_job.is_none() {
             panic!(
                 "TODO 1 or both are None: SetNewPrevHash: {:?} + NewExtendedMiningJob: {:?}",

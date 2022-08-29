@@ -22,6 +22,7 @@ impl DownstreamTranslator {
     }
 
     /// Sends SV1 message (translated from SV2) to the `Downstream.receiver_upstream`.
+    /// TODO: Remove this fn
     pub(crate) async fn send_sv1(&mut self, message_sv1: json_rpc::Message) {
         println!("TP SENDS TRANSLATED SV1 MSG TO TD: {:?}", &message_sv1);
         self.sender.send(message_sv1).await.unwrap();

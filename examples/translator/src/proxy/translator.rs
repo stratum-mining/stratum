@@ -67,7 +67,8 @@ pub(crate) struct Translator {
 }
 
 impl Translator {
-    pub async fn new() -> Self {
+    // pub async fn new() -> Self {
+    pub async fn initiate() {
         // A channel for the `Downstream` to send to the `Translator` and for the `Translator` to
         // receive from the `Downstream`
         let (sender_for_downstream, receiver_downstream_for_proxy): (
@@ -114,60 +115,75 @@ impl Translator {
         // Downstream <-> TD <-> TU <-> Upstream
         //
 
-        // Listen for SV1 Downstream(s) + SV2 Upstream, process received messages + send
-        // accordingly
-        let translator_clone_listen = translator.clone();
-        translator_clone_listen.listen().await;
-
         // Connect to SV1 Downstream(s) + SV2 Upstream
-        let translator_clone_connect = translator.clone();
-        translator_clone_connect
-            .connect(
-                sender_for_downstream,
-                receiver_for_downstream,
-                sender_for_upstream,
-                receiver_for_upstream,
-            )
-            .await;
+        // let translator_clone_connect = translator.clone();
+        // let _ = &translator
+        //     .connect(
+        //         sender_for_downstream,
+        //         receiver_for_downstream,
+        //         sender_for_upstream,
+        //         receiver_for_upstream,
+        //     )
+        //     .await;
 
-        translator
-    }
-
-    /// Connect to SV1 Downstream(s) (SV1 Mining Device) + SV2 Upstream (SV2 Pool).
-    async fn connect(
-        self,
-        sender_for_downstream: Sender<json_rpc::Message>,
-        receiver_for_downstream: Receiver<json_rpc::Message>,
-        sender_for_upstream: Sender<MiningMessage>,
-        receiver_for_upstream: Receiver<MiningMessage>,
-    ) {
-        println!("CONNECTING...\n");
         // Accept connection from one SV2 Upstream role (SV2 Pool)
         Translator::accept_connection_upstream(sender_for_upstream, receiver_for_upstream).await;
+        // TODO: change to:
+        // Upstream::accept_connection_upstream(sender_for_upstream, receiver_for_upstream).await;
+        let translator_mutex = Arc::new(Mutex::new(translator));
+        Translator::listen_upstream(translator_mutex.clone());
 
+        println!("\n\n----AFTER LISTENT UPSTRAM");
         // Accept connections from one or more SV1 Downstream roles (SV1 Mining Devices)
-        Translator::accept_connection_downstreams(
-            sender_for_downstream.clone(),
-            receiver_for_downstream.clone(),
-        )
-        .await;
+        Translator::accept_connection_downstreams(sender_for_downstream, receiver_for_downstream);
+        // TODO: change to:
+        // Downstream::accept_connection_downstreams(sender_for_downstream, receiver_for_downstream);
+        Translator::listen_downstream(translator_mutex.clone()).await;
+
+        // Listen for SV1 Downstream(s) + SV2 Upstream, process received messages + send
+        // accordingly
+        // let translator_clone_listen = translator.clone();
+        // let _ = &translator.listen().await;
+
+        // translator
     }
 
-    /// Listen for SV1 Downstream(s) + SV2 Upstream, process received messages + send accordingly.
-    async fn listen(self) {
-        println!("\nLISTENING...\n");
-        // Spawn task to listen for incoming messages from SV1 Downstream
-        let translator_clone_downstream = self.clone();
-        translator_clone_downstream.listen_downstream().await;
+    // /// Connect to SV1 Downstream(s) (SV1 Mining Device) + SV2 Upstream (SV2 Pool).
+    // async fn connect(
+    //     &self,
+    //     sender_for_downstream: Sender<json_rpc::Message>,
+    //     receiver_for_downstream: Receiver<json_rpc::Message>,
+    //     sender_for_upstream: Sender<MiningMessage>,
+    //     receiver_for_upstream: Receiver<MiningMessage>,
+    // ) {
+    //     println!("CONNECTING...\n");
+    //     // Accept connection from one SV2 Upstream role (SV2 Pool)
+    //     Translator::accept_connection_upstream(sender_for_upstream, receiver_for_upstream).await;
+    //
+    //     // Accept connections from one or more SV1 Downstream roles (SV1 Mining Devices)
+    //     Translator::accept_connection_downstreams(
+    //         sender_for_downstream.clone(),
+    //         receiver_for_downstream.clone(),
+    //     )
+    //     .await;
+    // }
 
-        // Spawn task to listen for incoming messages from SV2 Upstream
-        let translator_clone_upstream = self.clone();
-        translator_clone_upstream.listen_upstream().await;
-    }
+    // /// Listen for SV1 Downstream(s) + SV2 Upstream, process received messages + send accordingly.
+    // async fn listen(&self) {
+    //     println!("\nLISTENING...\n");
+    //     // Spawn task to listen for incoming messages from SV1 Downstream
+    //     let translator_clone_downstream = self.clone();
+    //     translator_clone_downstream.listen_downstream().await;
+    //
+    //     // Spawn task to listen for incoming messages from SV2 Upstream
+    //     let translator_clone_upstream = self.clone();
+    //     translator_clone_upstream.listen_upstream().await;
+    // }
 
     /// Accept connection from one SV2 Upstream role (SV2 Pool).
     /// TODO: Authority public key used to authorize with Upstream is hardcoded, but should be read
     /// in via a proxy-config.toml.
+    /// TODO: Move to upstream.rs
     async fn accept_connection_upstream(
         sender_for_upstream: Sender<MiningMessage>,
         receiver_for_upstream: Receiver<MiningMessage>,
@@ -186,27 +202,30 @@ impl Translator {
     }
 
     /// Accept connections from one or more SV1 Downstream roles (SV1 Mining Devices).
-    async fn accept_connection_downstreams(
+    /// TODO: MOVE TO downstream.rs
+    fn accept_connection_downstreams(
         sender_for_downstream: Sender<json_rpc::Message>,
         receiver_for_downstream: Receiver<json_rpc::Message>,
     ) {
-        let downstream_listener = TcpListener::bind(crate::LISTEN_ADDR).await.unwrap();
-        let mut downstream_incoming = downstream_listener.incoming();
-        while let Some(stream) = downstream_incoming.next().await {
-            let stream = stream.unwrap();
-            println!(
-                "\nPROXY SERVER - ACCEPTING FROM DOWNSTREAM: {}\n",
-                stream.peer_addr().unwrap()
-            );
-            let server = Downstream::new(
-                stream,
-                sender_for_downstream.clone(),
-                receiver_for_downstream.clone(),
-            )
-            .await
-            .unwrap();
-            Arc::new(Mutex::new(server));
-        }
+        task::spawn(async move {
+            let downstream_listener = TcpListener::bind(crate::LISTEN_ADDR).await.unwrap();
+            let mut downstream_incoming = downstream_listener.incoming();
+            while let Some(stream) = downstream_incoming.next().await {
+                let stream = stream.unwrap();
+                println!(
+                    "\nPROXY SERVER - ACCEPTING FROM DOWNSTREAM: {}\n",
+                    stream.peer_addr().unwrap()
+                );
+                let server = Downstream::new(
+                    stream,
+                    sender_for_downstream.clone(),
+                    receiver_for_downstream.clone(),
+                )
+                .await
+                .unwrap();
+                Arc::new(Mutex::new(server));
+            }
+        });
     }
 
     /// Spawn task to listen for incoming messages from SV1 Downstream.
@@ -215,13 +234,16 @@ impl Translator {
     /// the SV2 message to the `Upstream.receiver_downstream`.
     // async fn listen_downstream(mut self) -> async_std::task::JoinHandle<ProxyResult<()>> {
     //     let join_handle: task::JoinHandle<ProxyResult<()>> = task::spawn(async move {
-    async fn listen_downstream(mut self) {
+    async fn listen_downstream(self_: Arc<Mutex<Self>>) {
         task::spawn(async move {
             println!("TP LISTENING FOR INCOMING SV1 MSG FROM TD\n");
             loop {
-                let message_sv1: json_rpc::Message =
-                    self.downstream_translator.receiver.recv().await.unwrap();
-                let _message_sv2 = self.handle_incoming_sv1(message_sv1).await;
+                let receiver = self_
+                    .safe_lock(|r| r.downstream_translator.receiver.clone())
+                    .unwrap();
+                let message_sv1: json_rpc::Message = receiver.recv().await.unwrap();
+                println!("\nMESSAGE_SV1 RRR DOWN: {:?}\n", &message_sv1);
+                // let _message_sv2 = self.handle_incoming_sv1(message_sv1).await;
                 // let _message_sv2 = match self.parse_sv1_to_sv2(message_sv1) {
                 //     Ok(msv2) => (),
                 //     Err(_) => return Err(Error::bad_sv1_std_req("bad")),
@@ -232,7 +254,8 @@ impl Translator {
                 // let message_sv2: EitherFrame = self.parse_sv1_to_sv2(message_sv1)?;
                 // self.upstream_translator.send_sv2(message_sv2).await;
             }
-        });
+        })
+        .await;
     }
 
     /// Spawn task to listen for incoming messages from SV2 Upstream.
@@ -240,18 +263,25 @@ impl Translator {
     /// then parses the message + translates to SV1. Then the
     /// `Translator.downstream_translator.sender` sends the SV1 message to the
     /// `Downstream.receiver_upstream`.
-    async fn listen_upstream(mut self) {
+    fn listen_upstream(self_: Arc<Mutex<Self>>) {
         task::spawn(async move {
             println!("TP LISTENING FOR INCOMING SV2 MSG FROM TU\n");
             loop {
-                // let message_sv2: EitherFrame = self.upstream_translator.recv_sv2();
-                let message_sv2: MiningMessage =
-                    self.upstream_translator.receiver.recv().await.unwrap();
+                let receiver = self_
+                    .safe_lock(|r| r.upstream_translator.receiver.clone())
+                    .unwrap();
+                let message_sv2: MiningMessage = receiver.recv().await.unwrap();
                 println!("TP RECV SV2 FROM TU: {:?}", &message_sv2);
-                let message_sv1: Option<json_rpc::Message> =
-                    self.parse_sv2_to_sv1(message_sv2).unwrap();
+                // Works because parse_sv2_to_sv1 is NOT async
+                let message_sv1 = self_
+                    .safe_lock(|s| s.parse_sv2_to_sv1(message_sv2).unwrap())
+                    .unwrap();
+
                 if let Some(m) = message_sv1 {
-                    self.downstream_translator.send_sv1(m).await;
+                    let sender = self_
+                        .safe_lock(|s| s.downstream_translator.sender.clone())
+                        .unwrap();
+                    sender.send(m).await.unwrap();
                 };
             }
         });
@@ -273,6 +303,7 @@ impl Translator {
     }
 
     /// Parses a SV2 message and translates to to a SV1 message
+    /// TODO: rename
     fn parse_sv2_to_sv1(
         &mut self,
         message_sv2: MiningMessage,

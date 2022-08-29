@@ -16,7 +16,7 @@ const AUTHORITY_PUBLIC_KEY: [u8; 32] = [
 #[async_std::main]
 async fn main() {
     // async_std::task::spawn(async {
-    let _ = proxy::Translator::new().await;
+    proxy::Translator::initiate().await;
     // })
     // .await;
 }

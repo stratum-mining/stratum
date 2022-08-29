@@ -27,7 +27,7 @@ impl UpstreamConnection {
         let either_frame = sv2_frame.into();
         match self.sender.send(either_frame).await {
             Ok(_) => Ok(()),
-            Err(_) => Err(()),
+            Err(_) => panic!("TODO: SEND TO UPSTREAM FAIL"),
         }
     }
 }
