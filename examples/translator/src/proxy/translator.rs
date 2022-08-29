@@ -104,28 +104,6 @@ impl Translator {
             next_mining_notify: NextMiningNotify::new(),
         };
 
-        // RR LEFT OFF HERE:
-        // Second guessing myself on using the intermediary proxy
-        // Because when i save the SetNewPrevHash + NewExtendedMiningJob msg received from the
-        // Upstream role in translator_clone_listen, it doesnt copy over to
-        // translator_clone_connect where i need those saved messages to create a `mining.notify`
-        // Perhaps just send directly btwn TD <-> TU? So instead of:
-        // Downstream <-> TD <-> T <-> TU <-> Upstream
-        // it would be:
-        // Downstream <-> TD <-> TU <-> Upstream
-        //
-
-        // Connect to SV1 Downstream(s) + SV2 Upstream
-        // let translator_clone_connect = translator.clone();
-        // let _ = &translator
-        //     .connect(
-        //         sender_for_downstream,
-        //         receiver_for_downstream,
-        //         sender_for_upstream,
-        //         receiver_for_upstream,
-        //     )
-        //     .await;
-
         // Accept connection from one SV2 Upstream role (SV2 Pool)
         Translator::accept_connection_upstream(sender_for_upstream, receiver_for_upstream).await;
         // TODO: change to:
@@ -139,46 +117,7 @@ impl Translator {
         // TODO: change to:
         // Downstream::accept_connection_downstreams(sender_for_downstream, receiver_for_downstream);
         Translator::listen_downstream(translator_mutex.clone()).await;
-
-        // Listen for SV1 Downstream(s) + SV2 Upstream, process received messages + send
-        // accordingly
-        // let translator_clone_listen = translator.clone();
-        // let _ = &translator.listen().await;
-
-        // translator
     }
-
-    // /// Connect to SV1 Downstream(s) (SV1 Mining Device) + SV2 Upstream (SV2 Pool).
-    // async fn connect(
-    //     &self,
-    //     sender_for_downstream: Sender<json_rpc::Message>,
-    //     receiver_for_downstream: Receiver<json_rpc::Message>,
-    //     sender_for_upstream: Sender<MiningMessage>,
-    //     receiver_for_upstream: Receiver<MiningMessage>,
-    // ) {
-    //     println!("CONNECTING...\n");
-    //     // Accept connection from one SV2 Upstream role (SV2 Pool)
-    //     Translator::accept_connection_upstream(sender_for_upstream, receiver_for_upstream).await;
-    //
-    //     // Accept connections from one or more SV1 Downstream roles (SV1 Mining Devices)
-    //     Translator::accept_connection_downstreams(
-    //         sender_for_downstream.clone(),
-    //         receiver_for_downstream.clone(),
-    //     )
-    //     .await;
-    // }
-
-    // /// Listen for SV1 Downstream(s) + SV2 Upstream, process received messages + send accordingly.
-    // async fn listen(&self) {
-    //     println!("\nLISTENING...\n");
-    //     // Spawn task to listen for incoming messages from SV1 Downstream
-    //     let translator_clone_downstream = self.clone();
-    //     translator_clone_downstream.listen_downstream().await;
-    //
-    //     // Spawn task to listen for incoming messages from SV2 Upstream
-    //     let translator_clone_upstream = self.clone();
-    //     translator_clone_upstream.listen_upstream().await;
-    // }
 
     /// Accept connection from one SV2 Upstream role (SV2 Pool).
     /// TODO: Authority public key used to authorize with Upstream is hardcoded, but should be read
@@ -232,8 +171,6 @@ impl Translator {
     /// Spawned task waits to receive a message from `Downstream.connection.sender_upstream`,
     /// then parses the message + translates to SV2. Then the `Translator.sender_upstream` sends
     /// the SV2 message to the `Upstream.receiver_downstream`.
-    // async fn listen_downstream(mut self) -> async_std::task::JoinHandle<ProxyResult<()>> {
-    //     let join_handle: task::JoinHandle<ProxyResult<()>> = task::spawn(async move {
     async fn listen_downstream(self_: Arc<Mutex<Self>>) {
         task::spawn(async move {
             println!("TP LISTENING FOR INCOMING SV1 MSG FROM TD\n");
