@@ -3,7 +3,12 @@ use crate::{
     error::{Error, ProxyResult},
 };
 use async_channel::{bounded, Receiver, Sender};
-use async_std::{io::BufReader, net::TcpStream, prelude::*, task};
+use async_std::{
+    io::BufReader,
+    net::{TcpListener, TcpStream},
+    prelude::*,
+    task,
+};
 use roles_logic_sv2::{
     common_properties::{IsDownstream, IsMiningDownstream},
     utils::Mutex,
@@ -121,6 +126,32 @@ impl Downstream {
         });
 
         Ok(downstream)
+    }
+
+    /// Accept connections from one or more SV1 Downstream roles (SV1 Mining Devices).
+    pub(crate) fn accept_connections(
+        sender_for_downstream: Sender<json_rpc::Message>,
+        receiver_for_downstream: Receiver<json_rpc::Message>,
+    ) {
+        task::spawn(async move {
+            let downstream_listener = TcpListener::bind(crate::LISTEN_ADDR).await.unwrap();
+            let mut downstream_incoming = downstream_listener.incoming();
+            while let Some(stream) = downstream_incoming.next().await {
+                let stream = stream.unwrap();
+                println!(
+                    "\nPROXY SERVER - ACCEPTING FROM DOWNSTREAM: {}\n",
+                    stream.peer_addr().unwrap()
+                );
+                let server = Downstream::new(
+                    stream,
+                    sender_for_downstream.clone(),
+                    receiver_for_downstream.clone(),
+                )
+                .await
+                .unwrap();
+                Arc::new(Mutex::new(server));
+            }
+        });
     }
 
     /// As SV1 messages come in, determines if the message response needs to be translated to SV2

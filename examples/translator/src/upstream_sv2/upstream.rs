@@ -21,7 +21,11 @@ use roles_logic_sv2::{
     selectors::{NullDownstreamMiningSelector, ProxyDownstreamMiningSelector},
     utils::Mutex,
 };
-use std::{net::SocketAddr, sync::Arc};
+use std::{
+    net::{IpAddr, SocketAddr},
+    str::FromStr,
+    sync::Arc,
+};
 
 #[derive(Debug)]
 pub struct Upstream {
@@ -64,6 +68,27 @@ impl Upstream {
 
         let self_ = Self::initialize(connection).await;
         Ok(self_)
+    }
+
+    /// Accept connection from one SV2 Upstream role (SV2 Pool).
+    /// TODO: Authority public key used to authorize with Upstream is hardcoded, but should be read
+    /// in via a proxy-config.toml.
+    /// TODO: Move to upstream.rs
+    pub(crate) async fn accept_connection_upstream(
+        sender_for_upstream: Sender<MiningMessage>,
+        receiver_for_upstream: Receiver<MiningMessage>,
+    ) {
+        let upstream_addr = SocketAddr::new(
+            IpAddr::from_str(crate::UPSTREAM_IP).unwrap(),
+            crate::UPSTREAM_PORT,
+        );
+        let _upstream = Upstream::new(
+            upstream_addr,
+            crate::AUTHORITY_PUBLIC_KEY,
+            sender_for_upstream,
+            receiver_for_upstream,
+        )
+        .await;
     }
 
     async fn initialize(connection: UpstreamConnection) -> Arc<Mutex<Self>> {

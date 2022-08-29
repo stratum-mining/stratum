@@ -45,18 +45,14 @@ use crate::{
     upstream_sv2::{MiningMessage, Upstream},
 };
 use async_channel::{bounded, Receiver, Sender};
-use async_std::{net::TcpListener, prelude::*, task};
+use async_std::task;
 // use codec_sv2::Frame;
 // use core::convert::TryInto;
 // use roles_logic_sv2::{
 //     parsers::{JobNegotiation, Mining},
 // };
 use roles_logic_sv2::utils::Mutex;
-use std::{
-    net::{IpAddr, SocketAddr},
-    str::FromStr,
-    sync::Arc,
-};
+use std::sync::Arc;
 use v1::json_rpc;
 
 #[derive(Clone)]
@@ -105,66 +101,14 @@ impl Translator {
         };
 
         // Accept connection from one SV2 Upstream role (SV2 Pool)
-        Translator::accept_connection_upstream(sender_for_upstream, receiver_for_upstream).await;
-        // TODO: change to:
-        // Upstream::accept_connection_upstream(sender_for_upstream, receiver_for_upstream).await;
+        Upstream::accept_connection_upstream(sender_for_upstream, receiver_for_upstream).await;
         let translator_mutex = Arc::new(Mutex::new(translator));
         Translator::listen_upstream(translator_mutex.clone());
 
         println!("\n\n----AFTER LISTENT UPSTRAM");
         // Accept connections from one or more SV1 Downstream roles (SV1 Mining Devices)
-        Translator::accept_connection_downstreams(sender_for_downstream, receiver_for_downstream);
-        // TODO: change to:
-        // Downstream::accept_connection_downstreams(sender_for_downstream, receiver_for_downstream);
+        Downstream::accept_connections(sender_for_downstream, receiver_for_downstream);
         Translator::listen_downstream(translator_mutex.clone()).await;
-    }
-
-    /// Accept connection from one SV2 Upstream role (SV2 Pool).
-    /// TODO: Authority public key used to authorize with Upstream is hardcoded, but should be read
-    /// in via a proxy-config.toml.
-    /// TODO: Move to upstream.rs
-    async fn accept_connection_upstream(
-        sender_for_upstream: Sender<MiningMessage>,
-        receiver_for_upstream: Receiver<MiningMessage>,
-    ) {
-        let upstream_addr = SocketAddr::new(
-            IpAddr::from_str(crate::UPSTREAM_IP).unwrap(),
-            crate::UPSTREAM_PORT,
-        );
-        let _upstream = Upstream::new(
-            upstream_addr,
-            crate::AUTHORITY_PUBLIC_KEY,
-            sender_for_upstream,
-            receiver_for_upstream,
-        )
-        .await;
-    }
-
-    /// Accept connections from one or more SV1 Downstream roles (SV1 Mining Devices).
-    /// TODO: MOVE TO downstream.rs
-    fn accept_connection_downstreams(
-        sender_for_downstream: Sender<json_rpc::Message>,
-        receiver_for_downstream: Receiver<json_rpc::Message>,
-    ) {
-        task::spawn(async move {
-            let downstream_listener = TcpListener::bind(crate::LISTEN_ADDR).await.unwrap();
-            let mut downstream_incoming = downstream_listener.incoming();
-            while let Some(stream) = downstream_incoming.next().await {
-                let stream = stream.unwrap();
-                println!(
-                    "\nPROXY SERVER - ACCEPTING FROM DOWNSTREAM: {}\n",
-                    stream.peer_addr().unwrap()
-                );
-                let server = Downstream::new(
-                    stream,
-                    sender_for_downstream.clone(),
-                    receiver_for_downstream.clone(),
-                )
-                .await
-                .unwrap();
-                Arc::new(Mutex::new(server));
-            }
-        });
     }
 
     /// Spawn task to listen for incoming messages from SV1 Downstream.
