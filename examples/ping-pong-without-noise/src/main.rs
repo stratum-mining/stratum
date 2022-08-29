@@ -20,7 +20,15 @@ async fn server_pool() {
 }
 
 async fn new_client(name: String) {
-    let stream = TcpStream::connect(ADDR).await.unwrap();
+    let stream = loop {
+        match TcpStream::connect(ADDR).await {
+            Ok(st) => break st,
+            Err(_) => {
+                println!("Server not ready... retry");
+                continue;
+            }
+        }
+    };
     let client = node::Node::new(name, stream);
     task::block_on(async move {
         let mut client = client.lock().await;
