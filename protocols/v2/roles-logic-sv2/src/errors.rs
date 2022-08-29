@@ -6,6 +6,8 @@ use std::fmt::{self, Display, Formatter};
 pub enum Error {
     ExpectedLen32(usize),
     BinarySv2Error(BinarySv2Error),
+    /// Errors if a `SendTo::RelaySameMessageSv1` request is made on a SV2-only application.
+    CannotRelaySv1Message,
     NoGroupsFound,
     WrongMessageType(u8),
     UnexpectedMessage,
@@ -35,6 +37,12 @@ impl Display for Error {
                 "BinarySv2Error: error in serializing/deserilizing binary format {:?}",
                 v
             ),
+            CannotRelaySv1Message => {
+                write!(
+                    f,
+                    "Cannot process request: Received SV1 relay request on a SV2-only application"
+                )
+            }
             ExpectedLen32(l) => write!(f, "Expected length of 32, but received length of {}", l),
             NoGroupsFound => write!(
                 f,

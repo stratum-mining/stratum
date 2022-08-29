@@ -157,7 +157,9 @@ impl Connection {
         let mut fourth_message: HandShakeFrame = fourth_message.try_into().unwrap();
         let fourth_message = fourth_message.payload().to_vec();
 
-        state.step(Some(fourth_message)).unwrap();
+        state
+            .step(Some(fourth_message))
+            .expect("Error on fourth message step");
 
         state.into_transport_mode().unwrap()
     }

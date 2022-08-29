@@ -438,7 +438,7 @@ impl Downstream {
             MiningRoutingLogic::None,
         );
         match next_message_to_send {
-            Ok(SendTo::RelayNewMessage(_, message)) => {
+            Ok(SendTo::RelayNewMessageToSv2(_, message)) => {
                 Self::send(self_mutex, message).await.unwrap();
             }
             Ok(SendTo::Respond(message)) => {

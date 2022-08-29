@@ -1,52 +1,62 @@
-//! Handlers are divided per (sub)protocol and per downstream/upstream
-//! Each (sup)protocol define an handler for both the upstream node and the downstream node
-//! Handlers are trait called Parse[Downstream/Upstream][(sub)protocol] (eg. ParseDownstreamCommonMessages)
+//! Handlers are divided per (sub)protocol and per Downstream/Upstream.
+//! Each (sup)protocol defines a handler for both the Upstream node and the Downstream node
+//! Handlers are a trait called `Parse[Downstream/Upstream][(sub)protocol]`
+//! (eg. `ParseDownstreamCommonMessages`).
 //!
-//! When implemented an handler make avaiable a funtction called
-//! handle_message_[(sub)protoco](..) (eg handle_message_common(..))
+//! When implemented, the handler makes the `handle_message_[(sub)protoco](..)` (e.g.
+//! `handle_message_common(..)`) function available.
 //!
-//! The trait require the implementor to define one function for each message type that a role
-//! defined by the (sub)protocl and the upstream/downstream state could receive.
+//! The trait requires the implementer to define one function for each message type that a role
+//! defined by the (sub)protocol and the Upstream/Downstream state could receive.
 //!
-//! This funtcion will always take a mutable ref to self, a message payload and a message type and
-//! a routing logic.
-//! Using parsers in crate::parser the payload and message type are parsed in an actual Sv2
+//! This function will always take a mutable ref to `self`, a message payload + message type, and
+//! the routing logic.
+//! Using `parsers` in `crate::parser`, the payload and message type are parsed in an actual SV2
 //! message.
-//! Routing logic is used in order to select the correct downstream/upstream to which the message
-//! must be realyied/sent
+//! Routing logic is used in order to select the correct Downstream/Upstream to which the message
+//! must be relayed/sent.
 //! Routing logic is used to update the request id when needed.
-//! After that the specific function for the message type (implemented by the implementor) is
-//! called with the Sv2 message and the remote that must receive the message.
+//! After that, the specific function for the message type (implemented by the implementer) is
+//! called with the SV2 message and the remote that must receive the message.
 //!
-//! A Result<SendTo_, Error> is returned and is duty of the implementor to send the message
+//! A `Result<SendTo_, Error>` is returned and it is the duty of the implementer to send the
+//! message.
+//!
 pub mod common;
 pub mod mining;
 pub mod template_distribution;
 use crate::utils::Mutex;
 use std::sync::Arc;
 
-/// SubProtocol is the Sv2 (sub)protocol that the implementor is implementing (eg: mining, common,
-/// ...)
-/// Remote is wathever type the implementor use to represent remote connection
+/// SubProtocol is the SV2 (sub)protocol that the implementer is implementing (e.g.: `mining`,
+/// `common`, ect.)
+/// Remote is whatever type the implementer uses to represent the remote connection.
 pub enum SendTo_<SubProtocol, Remote> {
-    /// Used by proxyies to realy messages. It allocate a new message.
-    RelayNewMessage(Arc<Mutex<Remote>>, SubProtocol),
-    /// Used by proxyies to relay messages. It do not allocate a new message and use the received
+    /// Used by SV2-only proxies to allocate a new message + relay.
+    RelayNewMessageToSv2(Arc<Mutex<Remote>>, SubProtocol),
+    /// Used by SV2-only proxies to relay the same message it receives.
     /// one.
-    RelaySameMessage(Arc<Mutex<Remote>>),
-    /// Used by proxyies and other roles to directly respond.
+    RelaySameMessageToSv2(Arc<Mutex<Remote>>),
+    /// Used by SV1<->SV2 translator proxies to relay a SV2 message to be translated to a SV1
+    /// message by the proxy.
+    RelaySameMessageToSv1(SubProtocol),
+    /// Used by all proxies and other roles to directly respond to a received SV2 message with
+    /// the proper SV2 message response.
     Respond(SubProtocol),
-    /// Used when multiple type of SendTo are needed
+    /// Return multiple types of `SendTo`, e.g. `SendTo::Respond` + `SendTo::Relay*`. In the case
+    /// where multiple `SendTo::Relay*` is received in this variant, that indicates there are
+    /// multiple Downstream roles connected to the application.
     Multiple(Vec<SendTo_<SubProtocol, Remote>>),
-    /// Used by proxyies and other roles when no messages need to be sent.
+    /// Used by all proxies and other roles when no messages need to be sent.
     None(Option<SubProtocol>),
 }
 
 impl<SubProtocol, Remote> SendTo_<SubProtocol, Remote> {
     pub fn into_message(self) -> Option<SubProtocol> {
         match self {
-            Self::RelayNewMessage(_, m) => Some(m),
-            Self::RelaySameMessage(_) => None,
+            Self::RelayNewMessageToSv2(_, m) => Some(m),
+            Self::RelaySameMessageToSv2(_) => None,
+            Self::RelaySameMessageToSv1(m) => Some(m),
             Self::Respond(m) => Some(m),
             Self::Multiple(_) => None,
             Self::None(m) => m,
@@ -54,8 +64,9 @@ impl<SubProtocol, Remote> SendTo_<SubProtocol, Remote> {
     }
     pub fn into_remote(self) -> Option<Arc<Mutex<Remote>>> {
         match self {
-            Self::RelayNewMessage(r, _) => Some(r),
-            Self::RelaySameMessage(r) => Some(r),
+            Self::RelayNewMessageToSv2(r, _) => Some(r),
+            Self::RelaySameMessageToSv2(r) => Some(r),
+            Self::RelaySameMessageToSv1(_) => None,
             Self::Respond(_) => None,
             Self::Multiple(_) => None,
             Self::None(_) => None,
