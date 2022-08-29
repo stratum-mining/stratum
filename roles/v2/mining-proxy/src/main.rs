@@ -195,9 +195,7 @@ mod args {
                                 Some(ArgsResult::None)
                             }
                         },
-                        ArgsState::ExpectPath => {
-                            Some(ArgsResult::Config(PathBuf::from(item)))
-                        }
+                        ArgsState::ExpectPath => Some(ArgsResult::Config(PathBuf::from(item))),
                         ArgsState::Done => None,
                     }
                 })
@@ -223,19 +221,24 @@ mod args {
 /// 7. normal operation between the paired downstream_mining::DownstreamMiningNode and
 ///    upstream_mining::UpstreamMiningNode begin
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() {
     let args = match args::Args::from_args() {
         Ok(cfg) => cfg,
         Err(help) => {
             println!("{}", help);
-            return Ok(());
+            return;
         }
     };
 
     // Scan all the upstreams and map them
-    let config_file = std::fs::read_to_string(args.config_path)?;
-    let config: Config = toml::from_str(&config_file)
-        .map_err(|e| anyhow::anyhow!("Failed to parse config file: {}", e))?;
+    let config_file = std::fs::read_to_string(args.config_path).expect("TODO: Error handling");
+    let config = match toml::from_str::<Config>(&config_file) {
+        Ok(cfg) => cfg,
+        Err(e) => {
+            println!("Failed to parse config file: {}", e);
+            return;
+        }
+    };
     ROUTING_LOGIC
         .set(Mutex::new(initialize_r_logic(&config.upstreams)))
         .expect("BUG: Failed to set ROUTING_LOGIC");
@@ -250,5 +253,4 @@ async fn main() -> anyhow::Result<()> {
     );
     println!("PROXY INITIALIZED");
     crate::lib::downstream_mining::listen_for_downstream_mining(socket).await;
-    Ok(())
 }

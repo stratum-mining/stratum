@@ -113,9 +113,7 @@ mod args {
                                 Some(ArgsResult::None)
                             }
                         },
-                        ArgsState::ExpectPath => {
-                            Some(ArgsResult::Config(PathBuf::from(item)))
-                        }
+                        ArgsState::ExpectPath => Some(ArgsResult::Config(PathBuf::from(item))),
                         ArgsState::Done => None,
                     }
                 })
@@ -131,19 +129,23 @@ mod args {
 }
 
 #[async_std::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() {
     let args = match args::Args::from_args() {
         Ok(cfg) => cfg,
         Err(help) => {
             println!("{}", help);
-            return Ok(());
+            return;
         }
     };
-    let config_file = std::fs::read_to_string(args.config_path)?;
-    let config: Configuration = toml::from_str(&config_file)
-        .map_err(|e| anyhow::anyhow!("Failed to parse config file: {}", e))?;
+    let config_file = std::fs::read_to_string(args.config_path).expect("TODO: Error handling");
+    let config = match toml::from_str::<Configuration>(&config_file) {
+        Ok(cfg) => cfg,
+        Err(e) => {
+            println!("Failed to parse config file: {}", e);
+            return;
+        }
+    };
     server_pool(&config).await;
-    Ok(())
 }
 
 #[derive(Debug)]

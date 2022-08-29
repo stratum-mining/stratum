@@ -53,10 +53,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "anyhow"
-version = "0.1.0"
-
-[[package]]
 name = "async-attributes"
 version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1038,7 +1034,6 @@ dependencies = [
 name = "mining-proxy"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "async-channel",
  "async-recursion",
  "binary_sv2",
@@ -1306,7 +1301,6 @@ dependencies = [
 name = "pool"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "async-channel",
  "async-recursion",
  "binary_sv2",
@@ -1805,7 +1799,6 @@ dependencies = [
 name = "test-pool"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "async-channel",
  "async-recursion",
  "async-std",
