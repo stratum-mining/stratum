@@ -105,10 +105,38 @@ impl Translator {
         let translator_mutex = Arc::new(Mutex::new(translator));
         Translator::listen_upstream(translator_mutex.clone());
 
-        println!("\n\n----AFTER LISTENT UPSTRAM");
         // Accept connections from one or more SV1 Downstream roles (SV1 Mining Devices)
         Downstream::accept_connections(sender_for_downstream, receiver_for_downstream);
         Translator::listen_downstream(translator_mutex.clone()).await;
+    }
+
+    /// Spawn task to listen for incoming messages from SV2 Upstream.
+    /// Spawned task waits to receive a message from `Upstream.connection.sender_downstream`,
+    /// then parses the message + translates to SV1. Then the
+    /// `Translator.downstream_translator.sender` sends the SV1 message to the
+    /// `Downstream.receiver_upstream`.
+    fn listen_upstream(self_: Arc<Mutex<Self>>) {
+        task::spawn(async move {
+            println!("TP LISTENING FOR INCOMING SV2 MSG FROM TU\n");
+            loop {
+                let receiver = self_
+                    .safe_lock(|r| r.upstream_translator.receiver.clone())
+                    .unwrap();
+                let message_sv2: MiningMessage = receiver.recv().await.unwrap();
+                println!("TP RECV SV2 FROM TU: {:?}", &message_sv2);
+                // Works because parse_sv2_to_sv1 is NOT async
+                let message_sv1 = self_
+                    .safe_lock(|s| s.parse_sv2_to_sv1(message_sv2).unwrap())
+                    .unwrap();
+
+                if let Some(m) = message_sv1 {
+                    let sender = self_
+                        .safe_lock(|s| s.downstream_translator.sender.clone())
+                        .unwrap();
+                    sender.send(m).await.unwrap();
+                };
+            }
+        });
     }
 
     /// Spawn task to listen for incoming messages from SV1 Downstream.
@@ -142,35 +170,6 @@ impl Translator {
         .await;
     }
 
-    /// Spawn task to listen for incoming messages from SV2 Upstream.
-    /// Spawned task waits to receive a message from `Upstream.connection.sender_downstream`,
-    /// then parses the message + translates to SV1. Then the
-    /// `Translator.downstream_translator.sender` sends the SV1 message to the
-    /// `Downstream.receiver_upstream`.
-    fn listen_upstream(self_: Arc<Mutex<Self>>) {
-        task::spawn(async move {
-            println!("TP LISTENING FOR INCOMING SV2 MSG FROM TU\n");
-            loop {
-                let receiver = self_
-                    .safe_lock(|r| r.upstream_translator.receiver.clone())
-                    .unwrap();
-                let message_sv2: MiningMessage = receiver.recv().await.unwrap();
-                println!("TP RECV SV2 FROM TU: {:?}", &message_sv2);
-                // Works because parse_sv2_to_sv1 is NOT async
-                let message_sv1 = self_
-                    .safe_lock(|s| s.parse_sv2_to_sv1(message_sv2).unwrap())
-                    .unwrap();
-
-                if let Some(m) = message_sv1 {
-                    let sender = self_
-                        .safe_lock(|s| s.downstream_translator.sender.clone())
-                        .unwrap();
-                    sender.send(m).await.unwrap();
-                };
-            }
-        });
-    }
-
     /// Parses a SV1 message and translates to to a SV2 message
     // fn parse_sv1_to_sv2(&mut self, _message_sv1: json_rpc::Message) -> Result<EitherFrame> {
     async fn handle_incoming_sv1(self_: Arc<Mutex<Self>>, message_sv1: json_rpc::Message) {
@@ -178,7 +177,8 @@ impl Translator {
         match message_sv1 {
             json_rpc::Message::StandardRequest(std_req) => {
                 println!("STDREQ: {:?}", std_req);
-                let _message_sv2 = Translator::handle_sv1_std_req(self_, std_req).await;
+                // let _message_sv2 = Translator::handle_sv1_std_req(self_, std_req).await;
+                Translator::handle_sv1_std_req(self_, std_req).await;
                 // let _message_sv2 = self.handle_sv1_std_req(std_req).await;
             }
             json_rpc::Message::Notification(not) => println!("NOTIFICATION: {:?}", not),
@@ -227,6 +227,7 @@ impl Translator {
                     .safe_lock(|s| s.next_mining_notify.create_subscribe_response())
                     .unwrap();
                 return sv1_message_to_send_downstream;
+
                 // self_
                 //     .safe_lock(|s| {
                 //         s.downstream_translator
