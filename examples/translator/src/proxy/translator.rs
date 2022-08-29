@@ -176,10 +176,13 @@ impl Translator {
             println!("TP LISTENING FOR INCOMING SV1 MSG FROM TD\n");
             loop {
                 let receiver = self_
+                    .clone()
                     .safe_lock(|r| r.downstream_translator.receiver.clone())
                     .unwrap();
                 let message_sv1: json_rpc::Message = receiver.recv().await.unwrap();
-                println!("\nMESSAGE_SV1 RRR DOWN: {:?}\n", &message_sv1);
+                let _message_sv2 =
+                    Translator::handle_incoming_sv1(self_.clone(), message_sv1).await;
+                //
                 // let _message_sv2 = self.handle_incoming_sv1(message_sv1).await;
                 // let _message_sv2 = match self.parse_sv1_to_sv2(message_sv1) {
                 //     Ok(msv2) => (),
@@ -226,12 +229,13 @@ impl Translator {
 
     /// Parses a SV1 message and translates to to a SV2 message
     // fn parse_sv1_to_sv2(&mut self, _message_sv1: json_rpc::Message) -> Result<EitherFrame> {
-    async fn handle_incoming_sv1(&mut self, message_sv1: json_rpc::Message) {
+    async fn handle_incoming_sv1(self_: Arc<Mutex<Self>>, message_sv1: json_rpc::Message) {
         println!("TP RECV SV1 FROM TD TO HANDLE: {:?}", &message_sv1);
         match message_sv1 {
             json_rpc::Message::StandardRequest(std_req) => {
                 println!("STDREQ: {:?}", std_req);
-                let _message_sv2 = self.handle_sv1_std_req(std_req).await;
+                let _message_sv2 = Translator::handle_sv1_std_req(self_, std_req).await;
+                // let _message_sv2 = self.handle_sv1_std_req(std_req).await;
             }
             json_rpc::Message::Notification(not) => println!("NOTIFICATION: {:?}", not),
             json_rpc::Message::OkResponse(ok_res) => println!("OKRES: {:?}", ok_res),
@@ -262,37 +266,56 @@ impl Translator {
         }
     }
 
-    async fn handle_sv1_std_req(&self, std_req: json_rpc::StandardRequest) -> ProxyResult<()> {
+    // TODO: use SendTo here to add context, but SendTo uses Sv2
+    // Create an enum SendToSv1
+    // 1. send mutex to this fn, and use mutex to send here + make everything work
+    // 2. think of more elegant way to handle
+    async fn handle_sv1_std_req(
+        self_: Arc<Mutex<Self>>,
+        std_req: json_rpc::StandardRequest,
+    ) -> json_rpc::Message {
         let method = std_req.method;
         match method.as_ref() {
             // Use SV2 `SetNewPrevHash` + `NewExtendedMiningJob` to create a SV1 `mining.subscribe`
             // response message to send to the Downstream MD
             "mining.subscribe" => {
-                let sv1_message_to_send_downstream =
-                    self.next_mining_notify.create_subscribe_response();
-                self.downstream_translator
-                    .sender
-                    .send(sv1_message_to_send_downstream)
-                    .await
+                let sv1_message_to_send_downstream = self_
+                    .safe_lock(|s| s.next_mining_notify.create_subscribe_response())
                     .unwrap();
-
-                let _ = self.next_mining_notify.create_notify();
-                let sv1_notify_message = self.next_mining_notify.create_notify();
-                self.downstream_translator
-                    .sender
-                    .send(sv1_notify_message)
-                    .await
-                    .unwrap();
-                Ok(())
+                return sv1_message_to_send_downstream;
+                // self_
+                //     .safe_lock(|s| {
+                //         s.downstream_translator
+                //             .sender
+                //             .send(sv1_message_to_send_downstream)
+                //             .await
+                //             .unwrap()
+                //     })
+                //     .unwrap();
+                // self.downstream_translator
+                //     .sender
+                //     .send(sv1_message_to_send_downstream)
+                //     .await
+                //     .unwrap();
+                //
+                // let _ = self.next_mining_notify.create_notify();
+                // let sv1_notify_message = self.next_mining_notify.create_notify();
+                // self.downstream_translator
+                //     .sender
+                //     .send(sv1_notify_message)
+                //     .await
+                //     .unwrap();
+                // Ok(())
             }
-            "mining.submit" => Ok(()),
-            "mining.configure" => Err(Error::no_translation_required(
-                "`mining.configure` should not be translated to SV2",
-            )),
-            _ => Err(Error::bad_sv1_std_req(format!(
-                "Bad SV1 Mining Method: {}",
-                method
-            ))),
+            // "mining.submit" => (),
+            _ => panic!("RRR TODO"), // RR TODO
+                                     // "mining.configure" => Err(Error::no_translation_required(
+                                     //     "`mining.configure` should not be translated to SV2",
+                                     // )),
+                                     // _ => Err(Error::bad_sv1_std_req(format!(
+                                     //     "Bad SV1 Mining Method: {}",
+                                     //     method
+                                     // )))
         }
     }
 }
