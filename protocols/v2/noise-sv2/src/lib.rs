@@ -336,10 +336,10 @@ impl handshake::Step for Responder {
                 let mut in_msg = in_msg.ok_or(Error::ExpectedIncomingHandshakeMessage)?;
                 let negotiation_message: std::result::Result<NegotiationMessage, _> =
                     from_bytes(&mut in_msg);
-
                 match negotiation_message {
                     Ok(negotiation_message) => {
                         let algos: Vec<EncryptionAlgorithm> = negotiation_message.get_algos()?;
+                        println!("-> suggested algorithms received {:?}", algos);
 
                         let chosen_algorithm = self
                             .algorithms
@@ -347,6 +347,7 @@ impl handshake::Step for Responder {
                             .find(|&a| algos.contains(a))
                             .copied()
                             .ok_or(Error::EncryptionAlgorithmNotFound)?;
+                        println!("<- chosen algorith: {:?}", chosen_algorithm);
                         self.requested_algorithms = algos;
                         self.chosen_algorithm = Some(chosen_algorithm);
 
@@ -370,12 +371,13 @@ impl handshake::Step for Responder {
                 //
                 let in_msg = in_msg.ok_or(Error::ExpectedIncomingHandshakeMessage)?;
 
-                let mut noise_bytes = vec![0; BUFFER_LEN];
-
                 self.handshake_state
                     .as_mut()
                     .expect("BUG: Handshake must be set at this point")
-                    .read_message(&in_msg, &mut noise_bytes)?;
+                    .read_message(&in_msg, &mut [0; BUFFER_LEN])?;
+                println!("-> token received: e");
+
+                let mut noise_bytes = vec![0; BUFFER_LEN];
 
                 // Create response message
                 // -> e, ee, s, es, SIGNATURE_NOISE_MESSAGE
@@ -385,8 +387,9 @@ impl handshake::Step for Responder {
                     .as_mut()
                     .expect("BUG: Handshake must be set at this point")
                     .write_message(&self.signature_noise_message, &mut noise_bytes)?;
+                println!("<- tokens sent: e, ee, s, es, SIG_NOISE_MSG");
 
-                debug_assert!(BUFFER_LEN == len_written);
+                debug_assert_eq!(BUFFER_LEN, len_written);
                 handshake::StepResult::NoMoreReply(noise_bytes)
             }
             2 => handshake::StepResult::Done,
