@@ -223,8 +223,11 @@ impl TryFrom<&[u8]> for SignatureNoiseMessage {
         let header = &data[0..10];
         let siganture = &data[10..74];
         let header = SignedPartHeader::from_bytes(header);
-        let signature =
-            ed25519_dalek::Signature::new(siganture.try_into().map_err(|_| Error::NoiseTodo)?);
+        let signature = ed25519_dalek::Signature::new(
+            siganture
+                .try_into()
+                .map_err(|_| Error::BinarySv2Error(binary_sv2::Error::PrimitiveConversionError))?,
+        );
         Ok(SignatureNoiseMessage { header, signature })
     }
 }
