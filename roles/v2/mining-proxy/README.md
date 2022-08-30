@@ -13,9 +13,10 @@ Terminal 1:
 Terminal 2:
 Run mining proxy:
 
-```bash
-# For help run `cargo run -- --help`
-cargo run
+```
+% # For help run `cargo run -- --help`
+% cd roles/v2/mining-proxy
+% cargo run
 ```
 
 Terminal 3:
