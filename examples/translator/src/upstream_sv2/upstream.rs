@@ -9,9 +9,10 @@ use network_helpers::Connection;
 use roles_logic_sv2::{
     common_messages_sv2::{Protocol, SetupConnection},
     common_properties::{IsMiningUpstream, IsUpstream},
-    handlers::common::{ParseUpstreamCommonMessages, SendTo as SendToCommon},
-    handlers::mining::{ParseUpstreamMiningMessages, SendTo},
-    // mining_sv2::*,
+    handlers::{
+        common::{ParseUpstreamCommonMessages, SendTo as SendToCommon},
+        mining::{ParseUpstreamMiningMessages, SendTo},
+    },
     mining_sv2::{
         NewExtendedMiningJob, OpenExtendedMiningChannelSuccess, OpenMiningChannelError,
         SetExtranoncePrefix, SetNewPrevHash, SetTarget, SubmitSharesError, SubmitSharesSuccess,

@@ -263,11 +263,18 @@ impl IsServer for Downstream {
                 //     Err(V1Error::InvalidSubmission)
                 // }
             }
-            methods::Client2Server::Subscribe(_subscribe) => {
+            methods::Client2Server::Subscribe(subscribe) => {
                 // On the receive of SV1 Subscribe, need to format a response with set_difficulty
                 // + mining.notify from the SV2 SetNewPrevHash + NewExtendedMiningJob
                 println!("DT HANDLE SUBSCRIBE");
-                Ok(None)
+                let subscriptions = self.handle_subscribe(&subscribe);
+                let extra_n1 = self.set_extranonce1(None);
+                let extra_n2_size = self.set_extranonce2_size(None);
+                Ok(Some(subscribe.respond(
+                    subscriptions,
+                    extra_n1,
+                    extra_n2_size,
+                )))
             }
         }
     }
