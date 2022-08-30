@@ -1,6 +1,9 @@
 # mining-proxy
 
 ## Run
+
+### Test miner <-> proxy <-> pool stack
+
 Terminal 1:
 ```
 % cd examples/sv2-proxy
@@ -8,7 +11,10 @@ Terminal 1:
 ```
 
 Terminal 2:
+Run mining proxy:
+
 ```
+% # For help run `cargo run -- --help`
 % cd roles/v2/mining-proxy
 % cargo run
 ```

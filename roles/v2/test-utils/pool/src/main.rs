@@ -1,6 +1,7 @@
 use async_std::{net::TcpListener, prelude::*, task};
 use codec_sv2::{HandshakeRole, Responder};
 use network_helpers::Connection;
+use serde::Deserialize;
 use std::sync::Arc as SArc;
 
 use async_channel::{Receiver, Sender};
@@ -26,22 +27,17 @@ use std::convert::TryInto;
 pub type Message = PoolMessages<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;
 pub type EitherFrame = StandardEitherFrame<Message>;
-const ADDR: &str = "127.0.0.1:34254";
 
-pub const AUTHORITY_PUBLIC_K: [u8; 32] = [
-    215, 11, 47, 78, 34, 232, 25, 192, 195, 168, 170, 209, 95, 181, 40, 114, 154, 226, 176, 190,
-    90, 169, 238, 89, 191, 183, 97, 63, 194, 119, 11, 31,
-];
+#[derive(Debug, Deserialize)]
+struct Configuration {
+    listen_address: String,
+    authority_public_key: EncodedEd25519PublicKey,
+    authority_secret_key: EncodedEd25519SecretKey,
+    cert_validity_sec: u64,
+}
 
-pub const AUTHORITY_PRIVATE_K: [u8; 32] = [
-    204, 93, 167, 220, 169, 204, 172, 35, 9, 84, 174, 208, 171, 89, 25, 53, 196, 209, 161, 148, 4,
-    5, 173, 0, 234, 59, 15, 127, 31, 160, 136, 131,
-];
-
-const CERT_VALIDITY: std::time::Duration = std::time::Duration::from_secs(3600);
-
-async fn server_pool() {
-    let listner = TcpListener::bind(ADDR).await.unwrap();
+async fn server_pool(config: &Configuration) {
+    let listner = TcpListener::bind(&config.listen_address).await.unwrap();
     let mut incoming = listner.incoming();
     let group_id_generator = SArc::new(Mutex::new(Id::new()));
     let channel_id_generator = SArc::new(Mutex::new(Id::new()));
@@ -55,9 +51,9 @@ async fn server_pool() {
             stream.peer_addr().unwrap()
         );
         let responder = Responder::from_authority_kp(
-            &AUTHORITY_PUBLIC_K[..],
-            &AUTHORITY_PRIVATE_K[..],
-            CERT_VALIDITY,
+            config.authority_public_key.clone().into_inner().as_bytes(),
+            config.authority_secret_key.clone().into_inner().as_bytes(),
+            std::time::Duration::from_secs(config.cert_validity_sec),
         )
         .unwrap();
         let (receiver, sender): (Receiver<EitherFrame>, Sender<EitherFrame>) =
@@ -73,9 +69,83 @@ async fn server_pool() {
     }
 }
 
+mod args {
+    use std::path::PathBuf;
+
+    #[derive(Debug)]
+    pub struct Args {
+        pub config_path: PathBuf,
+    }
+
+    enum ArgsState {
+        Next,
+        ExpectPath,
+        Done,
+    }
+
+    enum ArgsResult {
+        Config(PathBuf),
+        None,
+        Help(String),
+    }
+
+    impl Args {
+        const DEFAULT_CONFIG_PATH: &'static str = "pool-config.toml";
+
+        pub fn from_args() -> Result<Self, String> {
+            let cli_args = std::env::args();
+
+            let config_path = cli_args
+                .scan(ArgsState::Next, |state, item| {
+                    match std::mem::replace(state, ArgsState::Done) {
+                        ArgsState::Next => match item.as_str() {
+                            "-c" | "--config" => {
+                                *state = ArgsState::ExpectPath;
+                                Some(ArgsResult::None)
+                            }
+                            "-h" | "--help" => Some(ArgsResult::Help(format!(
+                                "Usage: -h/--help, -c/--config <path|default {}>",
+                                Self::DEFAULT_CONFIG_PATH
+                            ))),
+                            _ => {
+                                *state = ArgsState::Next;
+
+                                Some(ArgsResult::None)
+                            }
+                        },
+                        ArgsState::ExpectPath => Some(ArgsResult::Config(PathBuf::from(item))),
+                        ArgsState::Done => None,
+                    }
+                })
+                .last();
+            let config_path = match config_path {
+                Some(ArgsResult::Config(p)) => p,
+                Some(ArgsResult::Help(h)) => return Err(h),
+                _ => PathBuf::from(Self::DEFAULT_CONFIG_PATH),
+            };
+            Ok(Self { config_path })
+        }
+    }
+}
+
 #[async_std::main]
 async fn main() {
-    server_pool().await;
+    let args = match args::Args::from_args() {
+        Ok(cfg) => cfg,
+        Err(help) => {
+            println!("{}", help);
+            return;
+        }
+    };
+    let config_file = std::fs::read_to_string(args.config_path).expect("TODO: Error handling");
+    let config = match toml::from_str::<Configuration>(&config_file) {
+        Ok(cfg) => cfg,
+        Err(e) => {
+            println!("Failed to parse config file: {}", e);
+            return;
+        }
+    };
+    server_pool(&config).await;
 }
 
 #[derive(Debug)]
@@ -223,6 +293,7 @@ impl Downstream {
     }
 }
 
+use noise_sv2::formats::{EncodedEd25519PublicKey, EncodedEd25519SecretKey};
 use rand::Rng;
 
 fn get_random_extranonce() -> B032<'static> {

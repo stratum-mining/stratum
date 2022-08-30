@@ -1309,9 +1309,12 @@ dependencies = [
  "codec_sv2",
  "const_sv2",
  "network_helpers",
+ "noise_sv2",
  "rand 0.8.4",
  "roles_logic_sv2",
+ "serde",
  "tokio",
+ "toml",
 ]
 
 [[package]]
@@ -1804,8 +1807,11 @@ dependencies = [
  "codec_sv2",
  "const_sv2",
  "network_helpers",
+ "noise_sv2",
  "rand 0.8.4",
  "roles_logic_sv2",
+ "serde",
+ "toml",
 ]
 
 [[package]]

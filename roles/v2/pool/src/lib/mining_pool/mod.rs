@@ -2,7 +2,7 @@ use codec_sv2::{HandshakeRole, Responder};
 use network_helpers::noise_connection_tokio::Connection;
 use tokio::{net::TcpListener, task};
 
-use crate::{EitherFrame, StdFrame};
+use crate::{Configuration, EitherFrame, StdFrame};
 use async_channel::{Receiver, Sender};
 use binary_sv2::{B064K, U256};
 use bitcoin::{
@@ -546,14 +546,14 @@ impl IsDownstream for Downstream {
 impl IsMiningDownstream for Downstream {}
 
 impl Pool {
-    async fn accept_incoming_connection(self_: Arc<Mutex<Pool>>) {
-        let listner = TcpListener::bind(crate::ADDR).await.unwrap();
+    async fn accept_incoming_connection(self_: Arc<Mutex<Pool>>, config: Configuration) {
+        let listner = TcpListener::bind(&config.listen_address).await.unwrap();
         while let Ok((stream, _)) = listner.accept().await {
             let solution_sender = self_.safe_lock(|p| p.solution_sender.clone()).unwrap();
             let responder = Responder::from_authority_kp(
-                &crate::AUTHORITY_PUBLIC_K[..],
-                &crate::AUTHORITY_PRIVATE_K[..],
-                crate::CERT_VALIDITY,
+                config.authority_public_key.clone().into_inner().as_bytes(),
+                config.authority_secret_key.clone().into_inner().as_bytes(),
+                std::time::Duration::from_secs(config.cert_validity_sec),
             )
             .unwrap();
             let last_new_prev_hash = self_.safe_lock(|x| x.last_new_prev_hash.clone()).unwrap();
@@ -669,6 +669,7 @@ impl Pool {
     }
 
     pub async fn start(
+        config: Configuration,
         new_template_rx: Receiver<NewTemplate<'static>>,
         new_prev_hash_rx: Receiver<SetNewPrevHash<'static>>,
         solution_sender: Sender<SubmitSolution<'static>>,
@@ -697,9 +698,7 @@ impl Pool {
         let cloned2 = pool.clone();
         let cloned3 = pool.clone();
 
-        task::spawn(async move {
-            Self::accept_incoming_connection(cloned).await;
-        });
+        task::spawn(Self::accept_incoming_connection(cloned, config));
 
         task::spawn(async {
             Self::on_new_prev_hash(cloned2, new_prev_hash_rx).await;

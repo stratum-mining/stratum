@@ -2,18 +2,20 @@
 name = "pool"
 version = "0.1.0"
 edition = "2018"
-
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-codec_sv2 = { path = "../../../protocols/v2/codec-sv2", features=["noise_sv2"] }
-roles_logic_sv2 = { path = "../../../protocols/v2/roles-logic-sv2" }
-const_sv2 = { path = "../../../protocols/v2/const-sv2" }
 async-channel = "1.5.1"
-binary_sv2 = { path = "../../../protocols/v2/binary-sv2/binary-sv2" }
-buffer_sv2 = { path = "../../../utils/buffer"}
 async-recursion = "0.3.2"
-rand = "0.8.4"
-network_helpers = { path = "../../../utils/network-helpers", features=["with_tokio"] }
+binary_sv2 = { path = "../../../protocols/v2/binary-sv2/binary-sv2" }
 bitcoin = "0.27.1"
-tokio = { version = "1", features = ["full"]}
+buffer_sv2 = { path = "../../../utils/buffer" }
+codec_sv2 = { path = "../../../protocols/v2/codec-sv2", features = ["noise_sv2"] }
+const_sv2 = { path = "../../../protocols/v2/const-sv2" }
+network_helpers = { path = "../../../utils/network-helpers", features = ["with_tokio"] }
+noise_sv2 = { path = "../../../protocols/v2/noise-sv2" }
+rand = "0.8.4"
+roles_logic_sv2 = { path = "../../../protocols/v2/roles-logic-sv2" }
+serde = { version = "1.0.89", features = ["derive", "alloc"], default-features = false }
+tokio = { version = "1", features = ["full"] }
+toml = { git = "https://github.com/diondokter/toml-rs", default-features = false, rev = "c4161aa" }

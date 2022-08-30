@@ -2,7 +2,7 @@ extern crate alloc;
 
 mod auth;
 pub mod error;
-mod formats;
+pub mod formats;
 pub mod handshake;
 mod negotiation;
 
