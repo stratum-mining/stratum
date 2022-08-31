@@ -167,7 +167,7 @@ impl Connection {
         receiver_incoming: Receiver<StandardEitherFrame<Message>>,
     ) -> codec_sv2::State {
         let mut state = codec_sv2::State::initialize(role);
-
+        println!("Noise handshake started");
         let mut first_message: HandShakeFrame =
             receiver_incoming.recv().await.unwrap().try_into().unwrap();
         let first_message = first_message.payload().to_vec();
@@ -182,6 +182,7 @@ impl Connection {
 
         let fourth_message = state.step(Some(thirth_message)).unwrap();
         sender_outgoing.send(fourth_message.into()).await.unwrap();
+        println!("Noise handshake finished");
 
         // CHECK IF FOURTH MESSAGE HAS BEEN SENT
         loop {

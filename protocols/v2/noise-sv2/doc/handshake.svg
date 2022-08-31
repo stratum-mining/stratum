@@ -1,0 +1,189 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" contentStyleType="text/css" height="1349px" preserveAspectRatio="none" style="width:1075px;height:1349px;background:#FFFFFF;" version="1.1" viewBox="0 0 1075 1349" width="1075px" zoomAndPan="magnify"><defs/><g><line style="stroke:#181818;stroke-width:0.5;stroke-dasharray:5.0,5.0;" x1="364" x2="364" y1="39.0679" y2="1245.6627"/><line style="stroke:#A80036;stroke-width:1.0;stroke-dasharray:1.0,4.0;" x1="364" x2="364" y1="1245.6627" y2="1273.6627"/><line style="stroke:#181818;stroke-width:0.5;stroke-dasharray:5.0,5.0;" x1="364" x2="364" y1="1273.6627" y2="1311.6627"/><line style="stroke:#181818;stroke-width:0.5;stroke-dasharray:5.0,5.0;" x1="763.5" x2="763.5" y1="39.0679" y2="1245.6627"/><line style="stroke:#A80036;stroke-width:1.0;stroke-dasharray:1.0,4.0;" x1="763.5" x2="763.5" y1="1245.6627" y2="1273.6627"/><line style="stroke:#181818;stroke-width:0.5;stroke-dasharray:5.0,5.0;" x1="763.5" x2="763.5" y1="1273.6627" y2="1311.6627"/><rect fill="#E2E2F0" height="33.0679" rx="2.5" ry="2.5" style="stroke:#181818;stroke-width:0.5;" width="68" x="330" y="5"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="54" x="337" y="26.9659">Initiator</text><rect fill="#E2E2F0" height="33.0679" rx="2.5" ry="2.5" style="stroke:#181818;stroke-width:0.5;" width="68" x="330" y="1310.6627"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="54" x="337" y="1332.6287">Initiator</text><rect fill="#E2E2F0" height="33.0679" rx="2.5" ry="2.5" style="stroke:#181818;stroke-width:0.5;" width="87" x="720.5" y="5"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="73" x="727.5" y="26.9659">Responder</text><rect fill="#E2E2F0" height="33.0679" rx="2.5" ry="2.5" style="stroke:#181818;stroke-width:0.5;" width="87" x="720.5" y="1310.6627"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="73" x="727.5" y="1332.6287">Responder</text><path d="M769,54.0679 L769,241.0679 L1028,241.0679 L1028,64.0679 L1018,54.0679 L769,54.0679 " fill="#FEFFDD" style="stroke:#181818;stroke-width:0.5;"/><path d="M1018,54.0679 L1018,64.0679 L1028,64.0679 L1018,54.0679 " fill="#FEFFDD" style="stroke:#181818;stroke-width:0.5;"/><text fill="#000000" font-family="monospace" font-size="13" lengthAdjust="spacing" textLength="104" x="775" y="72.9649">Certificate {</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="6" x="775" y="90.6709">  </text><text fill="#000000" font-family="monospace" font-size="13" lengthAdjust="spacing" textLength="104" x="781" y="90.6709">version: u16,</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="6" x="775" y="108.377">  </text><text fill="#000000" font-family="monospace" font-size="13" lengthAdjust="spacing" textLength="128" x="781" y="108.377">valid_from: u32,</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="6" x="775" y="126.083">  </text><text fill="#000000" font-family="monospace" font-size="13" lengthAdjust="spacing" textLength="168" x="781" y="126.083">not_valid_after: u32,</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="6" x="775" y="143.789">  </text><text fill="#0000FF" font-family="monospace" font-size="13" lengthAdjust="spacing" textLength="160" x="781" y="143.789">static_public_key: s</text><text fill="#000000" font-family="monospace" font-size="13" lengthAdjust="spacing" textLength="8" x="941" y="143.789">,</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="6" x="775" y="161.495">  </text><text fill="#000000" font-family="monospace" font-size="13" lengthAdjust="spacing" textLength="232" x="781" y="161.495">ca_public_key: Ed25519PubKey,</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="6" x="775" y="179.201">  </text><text fill="#008000" font-family="monospace" font-size="13" lengthAdjust="spacing" textLength="160" x="781" y="179.201">signature: Signature</text><text fill="#000000" font-family="monospace" font-size="13" lengthAdjust="spacing" textLength="8" x="941" y="179.201">,</text><text fill="#000000" font-family="monospace" font-size="13" lengthAdjust="spacing" textLength="8" x="775" y="196.907">}</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="3" x="775" y="214.6131"> </text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="4" x="775" y="232.3191">(</text><text fill="#000000" font-family="monospace" font-size="13" lengthAdjust="spacing" textLength="136" x="779" y="232.3191">static_secret_key</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="59" x="918" y="232.3191">is implicit)</text><path d="M234,54.0679 L234,81.0679 L359,81.0679 L359,64.0679 L349,54.0679 L234,54.0679 " fill="#FEFFDD" style="stroke:#181818;stroke-width:0.5;"/><path d="M349,54.0679 L349,64.0679 L359,64.0679 L349,54.0679 " fill="#FEFFDD" style="stroke:#181818;stroke-width:0.5;"/><text fill="#000000" font-family="monospace" font-size="13" font-weight="bold" lengthAdjust="spacing" textLength="104" x="240" y="72.9649">CA public key</text><rect fill="#EEEEEE" height="3" style="stroke:#EEEEEE;stroke-width:1.0;" width="1068" x="0" y="267.9811"/><line style="stroke:#000000;stroke-width:1.0;" x1="0" x2="1068" y1="267.9811" y2="267.9811"/><line style="stroke:#000000;stroke-width:1.0;" x1="0" x2="1068" y1="270.9811" y2="270.9811"/><rect fill="#EEEEEE" height="25.706" style="stroke:#000000;stroke-width:2.0;" width="165" x="451.5" y="256.1281"/><text fill="#000000" font-family="sans-serif" font-size="13" font-weight="bold" lengthAdjust="spacing" textLength="148" x="457.5" y="274.0251">Algorithm negotiation</text><path d="M369,296.8341 L369,376.8341 L652,376.8341 L652,306.8341 L642,296.8341 L369,296.8341 " fill="#FEFFDD" style="stroke:#181818;stroke-width:0.5;"/><path d="M642,296.8341 L642,306.8341 L652,306.8341 L642,296.8341 " fill="#FEFFDD" style="stroke:#181818;stroke-width:0.5;"/><text fill="#000000" font-family="monospace" font-size="13" lengthAdjust="spacing" textLength="160" x="375" y="315.7311">NegotiationMessage {</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="6" x="375" y="333.4371">  </text><text fill="#000000" font-family="monospace" font-size="13" lengthAdjust="spacing" textLength="144" x="381" y="333.4371">magic_number: u32,</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="6" x="375" y="351.1431">  </text><text fill="#000000" font-family="monospace" font-size="13" lengthAdjust="spacing" textLength="256" x="381" y="351.1431">algorithms: Seq0_255&lt;Algorithm&gt;,</text><text fill="#000000" font-family="monospace" font-size="13" lengthAdjust="spacing" textLength="8" x="375" y="368.8492">}</text><polygon fill="#181818" points="752,402.3642,762,406.3642,752,410.3642,756,406.3642" style="stroke:#181818;stroke-width:1.0;"/><line style="stroke:#181818;stroke-width:1.0;" x1="364" x2="758" y1="406.3642" y2="406.3642"/><text fill="#000000" font-family="monospace" font-size="13" lengthAdjust="spacing" textLength="240" x="371" y="400.5552">NoiseFrame[NegotiationMessage]</text><polygon fill="#181818" points="375,434.0702,365,438.0702,375,442.0702,371,438.0702" style="stroke:#181818;stroke-width:1.0;"/><line style="stroke:#181818;stroke-width:1.0;" x1="369" x2="763" y1="438.0702" y2="438.0702"/><text fill="#000000" font-family="monospace" font-size="13" lengthAdjust="spacing" textLength="168" x="381" y="432.2612">NoiseFrame[Algorithm]</text><rect fill="#FEFFDD" height="96" style="stroke:#181818;stroke-width:0.5;" width="294" x="769" y="451.0702"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="118" x="773" y="468.9672">construct prologue:</text><text fill="#000000" font-family="monospace" font-size="13" lengthAdjust="spacing" textLength="80" x="773" y="486.6732">Prologue {</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="6" x="773" y="504.3792">  </text><text fill="#000000" font-family="monospace" font-size="13" lengthAdjust="spacing" textLength="280" x="779" y="504.3792">list_received: Seq0_255&lt;Algorithm&gt;,</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="6" x="773" y="522.0853">  </text><text fill="#000000" font-family="monospace" font-size="13" lengthAdjust="spacing" textLength="184" x="779" y="522.0853">choice_sent: Algorithm,</text><text fill="#000000" font-family="monospace" font-size="13" lengthAdjust="spacing" textLength="8" x="773" y="539.7913">}</text><rect fill="#FEFFDD" height="96" style="stroke:#181818;stroke-width:0.5;" width="262" x="97" y="451.0702"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="118" x="101" y="468.9672">construct prologue:</text><text fill="#000000" font-family="monospace" font-size="13" lengthAdjust="spacing" textLength="80" x="101" y="486.6732">Prologue {</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="6" x="101" y="504.3792">  </text><text fill="#000000" font-family="monospace" font-size="13" lengthAdjust="spacing" textLength="248" x="107" y="504.3792">list_sent: Seq0_255&lt;Algorithm&gt;,</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="6" x="101" y="522.0853">  </text><text fill="#000000" font-family="monospace" font-size="13" lengthAdjust="spacing" textLength="216" x="107" y="522.0853">choice_received: Algorithm,</text><text fill="#000000" font-family="monospace" font-size="13" lengthAdjust="spacing" textLength="8" x="101" y="539.7913">}</text><rect fill="#EEEEEE" height="3" style="stroke:#EEEEEE;stroke-width:1.0;" width="1068" x="0" y="574.4533"/><line style="stroke:#000000;stroke-width:1.0;" x1="0" x2="1068" y1="574.4533" y2="574.4533"/><line style="stroke:#000000;stroke-width:1.0;" x1="0" x2="1068" y1="577.4533" y2="577.4533"/><rect fill="#EEEEEE" height="25.706" style="stroke:#000000;stroke-width:2.0;" width="332" x="368" y="562.6003"/><text fill="#000000" font-family="sans-serif" font-size="13" font-weight="bold" lengthAdjust="spacing" textLength="315" x="374" y="580.4973">Noise handshake using negotiatiated algorithm</text><path d="M291,603.3063 L291,666.3063 L436,666.3063 L436,613.3063 L426,603.3063 L291,603.3063 " fill="#FEFFDD" style="stroke:#181818;stroke-width:0.5;"/><path d="M426,603.3063 L426,613.3063 L436,613.3063 L426,603.3063 " fill="#FEFFDD" style="stroke:#181818;stroke-width:0.5;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="106" x="297" y="622.2033">Serialize Prologue</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="111" x="297" y="639.9093">and commit to the</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="124" x="297" y="657.6153">handshake prologue</text><path d="M691,603.3063 L691,666.3063 L836,666.3063 L836,613.3063 L826,603.3063 L691,603.3063 " fill="#FEFFDD" style="stroke:#181818;stroke-width:0.5;"/><path d="M826,603.3063 L826,613.3063 L836,613.3063 L826,603.3063 " fill="#FEFFDD" style="stroke:#181818;stroke-width:0.5;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="106" x="697" y="622.2033">Serialize Prologue</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="111" x="697" y="639.9093">and commit to the</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="124" x="697" y="657.6153">handshake prologue</text><polygon fill="#181818" points="752,691.1304,762,695.1304,752,699.1304,756,695.1304" style="stroke:#181818;stroke-width:1.0;"/><line style="stroke:#181818;stroke-width:1.0;" x1="364" x2="758" y1="695.1304" y2="695.1304"/><text fill="#000000" font-family="monospace" font-size="13" lengthAdjust="spacing" textLength="104" x="371" y="689.3214">NoiseFrame[e]</text><path d="M769,708.1304 L769,824.1304 L974,824.1304 L974,718.1304 L964,708.1304 L769,708.1304 " fill="#FEFFDD" style="stroke:#181818;stroke-width:0.5;"/><path d="M964,708.1304 L964,718.1304 L974,718.1304 L964,708.1304 " fill="#FEFFDD" style="stroke:#181818;stroke-width:0.5;"/><text fill="#000000" font-family="monospace" font-size="13" lengthAdjust="spacing" textLength="184" x="775" y="727.0274">SignatureNoiseMessage {</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="6" x="775" y="744.7334">  </text><text fill="#000000" font-family="monospace" font-size="13" lengthAdjust="spacing" textLength="104" x="781" y="744.7334">version: u16,</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="6" x="775" y="762.4394">  </text><text fill="#000000" font-family="monospace" font-size="13" lengthAdjust="spacing" textLength="128" x="781" y="762.4394">valid_from: u32,</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="6" x="775" y="780.1454">  </text><text fill="#000000" font-family="monospace" font-size="13" lengthAdjust="spacing" textLength="168" x="781" y="780.1454">not_valid_after: u32,</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="6" x="775" y="797.8514">  </text><text fill="#008000" font-family="monospace" font-size="13" lengthAdjust="spacing" textLength="160" x="781" y="797.8514">signature: Signature</text><text fill="#000000" font-family="monospace" font-size="13" lengthAdjust="spacing" textLength="8" x="941" y="797.8514">,</text><text fill="#000000" font-family="monospace" font-size="13" lengthAdjust="spacing" textLength="8" x="775" y="815.5575">}</text><polygon fill="#181818" points="375,849.0725,365,853.0725,375,857.0725,371,853.0725" style="stroke:#181818;stroke-width:1.0;"/><line style="stroke:#181818;stroke-width:1.0;" x1="369" x2="763" y1="853.0725" y2="853.0725"/><text fill="#000000" font-family="monospace" font-size="13" lengthAdjust="spacing" textLength="136" x="381" y="847.2635">NoiseFrame[e, ee,</text><text fill="#0000FF" font-family="monospace" font-size="13" font-weight="bold" lengthAdjust="spacing" textLength="8" x="525" y="847.2635">s</text><text fill="#000000" font-family="monospace" font-size="13" lengthAdjust="spacing" textLength="224" x="533" y="847.2635">, es, SignatureNoiseMessage]</text><rect fill="#FEFFDD" height="220" style="stroke:#181818;stroke-width:0.5;" width="354" x="5" y="866.0725"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="276" x="9" y="883.9695">1. Reconstruct certificate from static public key</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="346" x="9" y="901.6755">obtained during handshake and signature noise message:</text><text fill="#000000" font-family="monospace" font-size="13" lengthAdjust="spacing" textLength="104" x="9" y="919.3815">Certificate {</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="6" x="9" y="937.0875">  </text><text fill="#000000" font-family="monospace" font-size="13" lengthAdjust="spacing" textLength="104" x="15" y="937.0875">version: u16,</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="6" x="9" y="954.7936">  </text><text fill="#000000" font-family="monospace" font-size="13" lengthAdjust="spacing" textLength="128" x="15" y="954.7936">valid_from: u32,</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="6" x="9" y="972.4996">  </text><text fill="#000000" font-family="monospace" font-size="13" lengthAdjust="spacing" textLength="168" x="15" y="972.4996">not_valid_after: u32,</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="6" x="9" y="990.2056">  </text><text fill="#0000FF" font-family="monospace" font-size="13" lengthAdjust="spacing" textLength="160" x="15" y="990.2056">static_public_key: s</text><text fill="#000000" font-family="monospace" font-size="13" lengthAdjust="spacing" textLength="8" x="175" y="990.2056">,</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="6" x="9" y="1007.9116">  </text><text fill="#000000" font-family="monospace" font-size="13" lengthAdjust="spacing" textLength="232" x="15" y="1007.9116">ca_public_key: Ed25519PubKey,</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="6" x="9" y="1025.6176">  </text><text fill="#008000" font-family="monospace" font-size="13" lengthAdjust="spacing" textLength="160" x="15" y="1025.6176">signature: Signature</text><text fill="#000000" font-family="monospace" font-size="13" lengthAdjust="spacing" textLength="8" x="175" y="1025.6176">,</text><text fill="#000000" font-family="monospace" font-size="13" lengthAdjust="spacing" textLength="8" x="9" y="1043.3236">}</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="3" x="9" y="1061.0297"> </text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="47" x="9" y="1078.7357">2. Verify</text><text fill="#008000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="57" x="62" y="1078.7357">signature</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="115" x="122" y="1078.7357">using CA public key</text><rect fill="#EEEEEE" height="3" style="stroke:#EEEEEE;stroke-width:1.0;" width="1068" x="0" y="1113.3977"/><line style="stroke:#000000;stroke-width:1.0;" x1="0" x2="1068" y1="1113.3977" y2="1113.3977"/><line style="stroke:#000000;stroke-width:1.0;" x1="0" x2="1068" y1="1116.3977" y2="1116.3977"/><rect fill="#EEEEEE" height="25.706" style="stroke:#000000;stroke-width:2.0;" width="248" x="410" y="1101.5447"/><text fill="#000000" font-family="sans-serif" font-size="13" font-weight="bold" lengthAdjust="spacing" textLength="231" x="416" y="1119.4417">Switch to the noise transport mode</text><path d="M327,1167.2507 L327,1194.2507 L799,1194.2507 L799,1177.2507 L789,1167.2507 L327,1167.2507 " fill="#FEFFDD" style="stroke:#181818;stroke-width:0.5;"/><path d="M789,1167.2507 L789,1177.2507 L799,1177.2507 L789,1167.2507 " fill="#FEFFDD" style="stroke:#181818;stroke-width:0.5;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="187" x="362.25" y="1186.1477">Encrypted communication with</text><text fill="#000000" font-family="monospace" font-size="13" lengthAdjust="spacing" textLength="88" x="552.25" y="1186.1477">NoiseFrame[</text><text fill="#000000" font-family="sans-serif" font-size="13" font-style="italic" lengthAdjust="spacing" textLength="107" x="640.25" y="1186.1477">Encrypted payload</text><text fill="#000000" font-family="monospace" font-size="13" lengthAdjust="spacing" textLength="8" x="747.25" y="1186.1477">]</text><polygon fill="#181818" points="752,1219.6627,762,1223.6627,752,1227.6627,756,1223.6627" style="stroke:#181818;stroke-width:1.0;"/><line style="stroke:#181818;stroke-width:1.0;" x1="364" x2="758" y1="1223.6627" y2="1223.6627"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="9" x="371" y="1217.8537">...</text><polygon fill="#181818" points="375,1233.6627,365,1237.6627,375,1241.6627,371,1237.6627" style="stroke:#181818;stroke-width:1.0;"/><line style="stroke:#181818;stroke-width:1.0;" x1="369" x2="763" y1="1237.6627" y2="1237.6627"/><polygon fill="#181818" points="752,1275.6627,762,1279.6627,752,1283.6627,756,1279.6627" style="stroke:#181818;stroke-width:1.0;"/><line style="stroke:#181818;stroke-width:1.0;" x1="364" x2="758" y1="1279.6627" y2="1279.6627"/><polygon fill="#181818" points="375,1289.6627,365,1293.6627,375,1297.6627,371,1293.6627" style="stroke:#181818;stroke-width:1.0;"/><line style="stroke:#181818;stroke-width:1.0;" x1="369" x2="763" y1="1293.6627" y2="1293.6627"/><!--MD5=[1db4feef935a26f1e3c0d5d00d306131]
+@startuml
+
+'' <i>List of supported algorithms</i>
+'' <i>Responder's choise of algorithm</i>
+
+participant Initiator
+participant Responder
+
+note right of Responder
+""Certificate {""
+  ""version: u16,""
+  ""valid_from: u32,""
+  ""not_valid_after: u32,""
+  ""<color blue>static_public_key: s</color>,""
+  ""ca_public_key: Ed25519PubKey,""
+  ""<color green>signature: Signature</color>,""
+""}""
+
+(""static_secret_key"" is implicit)
+endnote
+/note left of Initiator
+""**CA public key**""
+endnote
+
+== Algorithm negotiation ==
+note right of Initiator
+""NegotiationMessage {""
+  ""magic_number: u32,""
+  ""algorithms: Seq0_255<Algorithm>,""
+""}""
+endnote
+Initiator -> Responder: ""NoiseFrame[NegotiationMessage]""
+
+Responder -> Initiator: ""NoiseFrame[Algorithm]""
+
+rnote right of Responder
+  construct prologue:
+  ""Prologue {""
+    ""list_received: Seq0_255<Algorithm>,""
+    ""choice_sent: Algorithm,""
+  ""}""
+endhnote
+/rnote left of Initiator
+  construct prologue:
+  ""Prologue {""
+    ""list_sent: Seq0_255<Algorithm>,""
+    ""choice_received: Algorithm,""
+  ""}""
+endhnote
+
+== Noise handshake using negotiatiated algorithm ==
+note over Initiator: Serialize Prologue\nand commit to the\nhandshake prologue
+/note over Responder: Serialize Prologue\nand commit to the\nhandshake prologue
+Initiator -> Responder: ""NoiseFrame[e]""
+note right of Responder
+""SignatureNoiseMessage {""
+  ""version: u16,""
+  ""valid_from: u32,""
+  ""not_valid_after: u32,""
+  ""<color green>signature: Signature</color>,""
+""}""
+endnote
+Responder -> Initiator: ""NoiseFrame[e, ee, <color blue>**s**</color>, es, SignatureNoiseMessage]""
+
+rnote left of Initiator
+1. Reconstruct certificate from static public key
+obtained during handshake and signature noise message:
+""Certificate {""
+  ""version: u16,""
+  ""valid_from: u32,""
+  ""not_valid_after: u32,""
+  ""<color blue>static_public_key: s</color>,""
+  ""ca_public_key: Ed25519PubKey,""
+  ""<color green>signature: Signature</color>,""
+""}""
+
+2. Verify <color green> signature</color> using CA public key
+endnote
+
+== Switch to the noise transport mode ==
+|||
+note across
+Encrypted communication with ""NoiseFrame[""//Encrypted payload//""]""
+endnote
+Initiator -> Responder: ...
+Initiator <- Responder
+...
+Initiator -> Responder
+Initiator <- Responder
+@enduml
+
+@startuml
+
+
+participant Initiator
+participant Responder
+
+note right of Responder
+""Certificate {""
+  ""version: u16,""
+  ""valid_from: u32,""
+  ""not_valid_after: u32,""
+  ""<color blue>static_public_key: s</color>,""
+  ""ca_public_key: Ed25519PubKey,""
+  ""<color green>signature: Signature</color>,""
+""}""
+
+(""static_secret_key"" is implicit)
+endnote
+/note left of Initiator
+""**CA public key**""
+endnote
+
+== Algorithm negotiation ==
+note right of Initiator
+""NegotiationMessage {""
+  ""magic_number: u32,""
+  ""algorithms: Seq0_255<Algorithm>,""
+""}""
+endnote
+Initiator -> Responder: ""NoiseFrame[NegotiationMessage]""
+
+Responder -> Initiator: ""NoiseFrame[Algorithm]""
+
+rnote right of Responder
+  construct prologue:
+  ""Prologue {""
+    ""list_received: Seq0_255<Algorithm>,""
+    ""choice_sent: Algorithm,""
+  ""}""
+endhnote
+/rnote left of Initiator
+  construct prologue:
+  ""Prologue {""
+    ""list_sent: Seq0_255<Algorithm>,""
+    ""choice_received: Algorithm,""
+  ""}""
+endhnote
+
+== Noise handshake using negotiatiated algorithm ==
+note over Initiator: Serialize Prologue\nand commit to the\nhandshake prologue
+/note over Responder: Serialize Prologue\nand commit to the\nhandshake prologue
+Initiator -> Responder: ""NoiseFrame[e]""
+note right of Responder
+""SignatureNoiseMessage {""
+  ""version: u16,""
+  ""valid_from: u32,""
+  ""not_valid_after: u32,""
+  ""<color green>signature: Signature</color>,""
+""}""
+endnote
+Responder -> Initiator: ""NoiseFrame[e, ee, <color blue>**s**</color>, es, SignatureNoiseMessage]""
+
+rnote left of Initiator
+1. Reconstruct certificate from static public key
+obtained during handshake and signature noise message:
+""Certificate {""
+  ""version: u16,""
+  ""valid_from: u32,""
+  ""not_valid_after: u32,""
+  ""<color blue>static_public_key: s</color>,""
+  ""ca_public_key: Ed25519PubKey,""
+  ""<color green>signature: Signature</color>,""
+""}""
+
+2. Verify <color green> signature</color> using CA public key
+endnote
+
+== Switch to the noise transport mode ==
+|||
+note across
+Encrypted communication with ""NoiseFrame[""//Encrypted payload//""]""
+endnote
+Initiator -> Responder: ...
+Initiator <- Responder
+...
+Initiator -> Responder
+Initiator <- Responder
+@enduml
+
+PlantUML version 1.2022.6(Tue Jun 21 19:34:49 CEST 2022)
+(GPL source distribution)
+Java Runtime: OpenJDK Runtime Environment
+JVM: OpenJDK 64-Bit Server VM
+Default Encoding: UTF-8
+Language: en
+Country: US
+--></g></svg>

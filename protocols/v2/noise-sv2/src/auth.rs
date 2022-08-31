@@ -181,9 +181,7 @@ pub struct SignatureNoiseMessage {
 
 impl SignatureNoiseMessage {
     pub fn serialize_to_writer<T: Write>(&self, writer: &mut T) -> Result<()> {
-        let sign_len = [74, 0];
         self.header.serialize_to_writer(writer)?;
-        writer.write_all(&sign_len).map_err(|_| Error::IoError)?;
         writer
             .write_all(&self.signature.to_bytes()[..])
             .map_err(|_| Error::IoError)?;
@@ -191,7 +189,7 @@ impl SignatureNoiseMessage {
     }
 
     pub fn serialize_to_bytes_mut(&self) -> Result<BytesMut> {
-        let mut writer = BytesMut::new().writer();
+        let mut writer = BytesMut::with_capacity(super::SIGNATURE_MESSAGE_LEN).writer();
         self.serialize_to_writer(&mut writer)?;
         let serialized_signature_noise_message = writer.into_inner();
         Ok(serialized_signature_noise_message)
@@ -221,12 +219,15 @@ impl TryFrom<&[u8]> for SignatureNoiseMessage {
     type Error = Error;
 
     fn try_from(data: &[u8]) -> Result<Self> {
-        debug_assert!(data.len() == 76);
+        debug_assert!(data.len() == 74);
         let header = &data[0..10];
-        let siganture = &data[12..76];
+        let siganture = &data[10..74];
         let header = SignedPartHeader::from_bytes(header);
-        let signature =
-            ed25519_dalek::Signature::new(siganture.try_into().map_err(|_| Error::NoiseTodo)?);
+        let signature = ed25519_dalek::Signature::new(
+            siganture
+                .try_into()
+                .map_err(|_| Error::BinarySv2Error(binary_sv2::Error::PrimitiveConversionError))?,
+        );
         Ok(SignatureNoiseMessage { header, signature })
     }
 }
