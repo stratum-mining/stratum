@@ -1,16 +1,20 @@
 # Stratum
+
 [![codecov](https://codecov.io/gh/stratum-mining/stratum/branch/main/graph/badge.svg)](https://codecov.io/gh/stratum-mining/stratum)
 
 The Stratum protocol defines how miners, proxies, and pools communicate to contribute hashrate to
 the Bitcoin network.
 
 ### Test Coverage
-Command to generate test coverage percentage:
+
+Generate test coverage percentage with cargo-tarpaulin:
+
 ```
 cargo +nightly tarpaulin --verbose --features prop_test noise_sv2 fuzz with_buffer_pool async_std debug tokio with_tokio derive_codec_sv2 binary_codec_sv2 default core --lib --exclude-files examples/* --timeout 120 --fail-under 30 --out Xml
 ```
 
 Must have [`cargo-tarpaulin`](https://github.com/xd009642/tarpaulin) installed globally:
+
 ```
 cargo install cargo-tarpaulin
 ```
@@ -50,8 +54,11 @@ cargo install cargo-tarpaulin
     - [3.25 examples/template-provider-test](#325-examplestemplate-provider-test)
     - [3.26 test](#326-test)
     - [3.27 experimental](#327-experimental)
-  - [4. Branches](#4-branches)
-
+  - [4. Build/Test/Run](#4-build-test-run)
+    - [4.01 build](#401-build)
+    - [4.02 test](#402-test)
+    - [4.03 run](#403-run)
+  - [5. Branches](#5-branches)
 
 ## 1. Goals
 
@@ -404,7 +411,40 @@ Contains integration tests.
 
 Contains experimental logic that is not yet specified as part of the protocol or extensions.
 
-## 4. Branches
+## 4. Build/Run/Test
+
+### 4.01 Build
+
+### 4.02 Test
+
+Generate test coverage percentage with cargo-tarpaulin:
+
+```
+cargo +nightly tarpaulin --verbose --features prop_test noise_sv2 fuzz with_buffer_pool async_std debug tokio with_tokio derive_codec_sv2 binary_codec_sv2 default core --lib --exclude-files examples/* --timeout 120 --fail-under 30 --out Xml
+```
+
+Must have [`cargo-tarpaulin`](https://github.com/xd009642/tarpaulin) installed globally:
+
+```
+cargo install cargo-tarpaulin
+```
+
+Performs test coverage of entire project's libraries using cargo-tarpaulin and generates results using codecov.io.
+The following flags are used when executing cargo-tarpaulin:
+`--features`
+Includes the code with the listed features.
+The following features result in a tarpaulin error and are NOT included:
+derive, alloc, arbitrary-derive, attributes, with_serde
+`--lib`
+Only tests the package's library unit tests. Includes protocols, and utils (without the exclude-files flag, it includes this example because it contains a lib.rs file)
+`--exclude-files examples/*`: Excludes all projects in examples directory (specifically added to ignore examples that that contain a lib.rs file like interop-cpp)
+`--timeout 120`: If unresponsive for 120 seconds, action will fail
+`--fail-under 40`: If code coverage is less than 40%, action will fail
+`--out Xml`: Required for codecov.io to generate coverage result
+
+### 4.03 Run
+
+## 5. Branches
 
 TODO
 
