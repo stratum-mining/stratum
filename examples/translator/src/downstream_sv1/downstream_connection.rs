@@ -9,9 +9,25 @@ pub(crate) struct DownstreamConnection {
     /// message available to be written to the SV1 Downstream Mining Device socket
     pub(crate) sender_outgoing: Sender<json_rpc::Response>,
     /// Receiver from `Translator::sender_to_downstream`
-    pub(crate) receiver_outgoing: Receiver<json_rpc::Response>,
+    pub(crate) _receiver_outgoing: Receiver<json_rpc::Response>,
     /// Sends to `Translator::receiver_from_downstream`
     pub(crate) sender_upstream: Sender<json_rpc::Message>,
     /// Receiver from `Translator::sender_to_downstream`
     pub(crate) receiver_upstream: Receiver<json_rpc::Message>,
+}
+
+impl DownstreamConnection {
+    pub(crate) fn new(
+        sender_outgoing: Sender<json_rpc::Response>,
+        _receiver_outgoing: Receiver<json_rpc::Response>,
+        sender_upstream: Sender<json_rpc::Message>,
+        receiver_upstream: Receiver<json_rpc::Message>,
+    ) -> Self {
+        DownstreamConnection {
+            sender_outgoing,
+            _receiver_outgoing,
+            sender_upstream,
+            receiver_upstream,
+        }
+    }
 }

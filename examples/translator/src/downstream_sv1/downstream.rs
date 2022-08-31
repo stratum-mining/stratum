@@ -1,7 +1,4 @@
-use crate::{
-    downstream_sv1::DownstreamConnection,
-    error::{Error, ProxyResult},
-};
+use crate::{downstream_sv1::DownstreamConnection, error::ProxyResult};
 use async_channel::{bounded, Receiver, Sender};
 use async_std::{
     io::BufReader,
@@ -31,8 +28,6 @@ pub(crate) struct Downstream {
     extranonce2_size: usize,
     version_rolling_mask: Option<HexU32Be>,
     version_rolling_min_bit: Option<HexU32Be>,
-    // receiver_incoming: Receiver<String>,
-    // sender_outgoing: Sender<String>,
     connection: DownstreamConnection,
 }
 
@@ -51,12 +46,12 @@ impl Downstream {
         let receiver_outgoing_clone = receiver_outgoing.clone();
         let socket_writer_clone = socket_writer.clone();
 
-        let connection = DownstreamConnection {
+        let connection = DownstreamConnection::new(
             sender_outgoing,
             receiver_outgoing,
             sender_upstream,
             receiver_upstream,
-        };
+        );
         let receiver_upstream_clone = connection.receiver_upstream.clone();
 
         let downstream = Arc::new(Mutex::new(Downstream {
