@@ -156,8 +156,8 @@ impl handshake::Step for Initiator {
             }
             1 => {
                 // <- chosen algorithm
-                let mut in_msg = in_msg.ok_or(Error::ExpectedIncomingHandshakeMessage)?;
-                let chosen_algorithm = EncryptionAlgorithm::deserialize_from_buf(&mut in_msg)?;
+                let in_msg = in_msg.ok_or(Error::ExpectedIncomingHandshakeMessage)?;
+                let chosen_algorithm = EncryptionAlgorithm::deserialize_from_buf(&in_msg)?;
                 self.chosen_algorithm = Some(chosen_algorithm);
 
                 self.update_handshake_state()?;
