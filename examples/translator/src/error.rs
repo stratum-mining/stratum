@@ -1,5 +1,3 @@
-// use std::fmt;
-
 pub type ProxyResult<T> = core::result::Result<T, Error>;
 
 #[derive(Debug)]

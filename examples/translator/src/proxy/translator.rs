@@ -40,7 +40,7 @@
 ///
 use crate::{
     downstream_sv1::Downstream,
-    error::{Error, ProxyResult},
+    error::ProxyResult,
     proxy::{DownstreamTranslator, NextMiningNotify, UpstreamTranslator},
     upstream_sv2::{MiningMessage, Upstream},
 };
@@ -226,7 +226,7 @@ impl Translator {
                 let sv1_message_to_send_downstream = self_
                     .safe_lock(|s| s.next_mining_notify.create_subscribe_response())
                     .unwrap();
-                return sv1_message_to_send_downstream;
+                sv1_message_to_send_downstream
 
                 // self_
                 //     .safe_lock(|s| {

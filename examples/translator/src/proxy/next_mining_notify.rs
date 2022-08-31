@@ -1,14 +1,8 @@
-use crate::{
-    downstream_sv1,
-    error::{Error, ProxyResult},
-    upstream_sv2::MiningMessage,
-};
-use roles_logic_sv2::mining_sv2::{NewExtendedMiningJob, SetNewPrevHash, SubmitSharesSuccess};
+use crate::downstream_sv1;
+use roles_logic_sv2::mining_sv2::{NewExtendedMiningJob, SetNewPrevHash};
 use std::convert::TryInto;
 use v1::{
-    json_rpc,
-    methods::Server2Client,
-    server_to_client,
+    json_rpc, server_to_client,
     utils::{HexBytes, HexU32Be, PrevHash},
 };
 
