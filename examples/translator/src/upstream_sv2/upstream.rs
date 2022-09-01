@@ -15,17 +15,15 @@ use roles_logic_sv2::{
     },
     mining_sv2::{
         NewExtendedMiningJob, OpenExtendedMiningChannelSuccess, OpenMiningChannelError,
-        SetExtranoncePrefix, SetNewPrevHash, SetTarget, SubmitSharesError, SubmitSharesSuccess,SubmitSharesExtended,
+        SetExtranoncePrefix, SetNewPrevHash, SetTarget, SubmitSharesError, SubmitSharesExtended,
+        SubmitSharesSuccess,
     },
     parsers::Mining,
     routing_logic::{CommonRoutingLogic, MiningRoutingLogic, NoRouting},
     selectors::NullDownstreamMiningSelector,
     utils::Mutex,
 };
-use std::{
-    net::SocketAddr,
-    sync::Arc,
-};
+use std::{net::SocketAddr, sync::Arc};
 
 #[derive(Debug)]
 pub struct Upstream {
@@ -37,9 +35,10 @@ pub struct Upstream {
 
 impl Upstream {
     /// Instantiate a new `Upstream`.
-    /// Connect to the SV2 Upstream role (most typically a SV2 Pool). Initialize the
-    /// `UpstreamConnection` with a channel to send and receive messages to the SV2 Upstream role,
-    /// and a channel to send and receive messages from the Downstream Translator Proxy.
+    /// Connect to the SV2 Upstream role (most typically a SV2 Pool). Initializes the
+    /// `UpstreamConnection` with a channel to send and receive messages from the SV2 Upstream
+    /// role, and uses a channel provided in the function arguments to send and receive messages
+    /// from the Downstream Translator Proxy.
     pub async fn new(
         address: SocketAddr,
         authority_public_key: [u8; 32],
@@ -61,13 +60,15 @@ impl Upstream {
             Connection::new(socket, HandshakeRole::Initiator(initiator), 10).await;
         // Initialize `UpstreamConnection` with channel for SV2 Upstream role communication and
         // channel for downstream Translator Proxy communication
-        let connection = UpstreamConnection {
-            sender,
-            receiver,
-        };
+        let connection = UpstreamConnection { sender, receiver };
 
-        Arc::new(Mutex::new(Self {connection, submit_from_dowstream, new_prev_hash_sender, new_extended_mining_job_sender }))
-    } 
+        Arc::new(Mutex::new(Self {
+            connection,
+            submit_from_dowstream,
+            new_prev_hash_sender,
+            new_extended_mining_job_sender,
+        }))
+    }
 
     /// Setups the connection with the SV2 Upstream role (Pool)
     pub async fn connect(self_: Arc<Mutex<Self>>) {
@@ -170,17 +171,20 @@ impl Upstream {
                     Ok(SendTo::None(Some(m))) => {
                         match m {
                             Mining::NewExtendedMiningJob(m) => {
-                                let sender = self_.safe_lock(|s| s.new_extended_mining_job_sender.clone()).unwrap();
+                                let sender = self_
+                                    .safe_lock(|s| s.new_extended_mining_job_sender.clone())
+                                    .unwrap();
                                 sender.send(m).await.unwrap();
-                            },
+                            }
                             Mining::SetNewPrevHash(m) => {
-                                let sender = self_.safe_lock(|s| s.new_prev_hash_sender.clone()).unwrap();
+                                let sender =
+                                    self_.safe_lock(|s| s.new_prev_hash_sender.clone()).unwrap();
                                 sender.send(m).await.unwrap();
-                            },
+                            }
                             // impossible state
                             _ => panic!(),
                         }
-                    },
+                    }
                     // NO need to handle impossible state just panic cause are impossible and we
                     // will never panic ;-)
                     Ok(_) => panic!(),
@@ -194,7 +198,7 @@ impl Upstream {
         // TODO
         // check if submit meet the upstream target and if so send back (upstream target will
         // likely be not the same of downstream target)
-        task::spawn(async {loop{}});
+        task::spawn(async { loop {} });
     }
 
     fn is_contained_in_upstream_target(&self, _share: SubmitSharesExtended) -> bool {

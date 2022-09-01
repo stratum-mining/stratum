@@ -1,5 +1,9 @@
+use async_channel::{Receiver, Sender};
+use async_std::task;
+use roles_logic_sv2::mining_sv2::{NewExtendedMiningJob, SetNewPrevHash, SubmitSharesExtended};
+use roles_logic_sv2::utils::Mutex;
 ///
-/// Bridge is a Proxy server sits between a Downstream role (most typically a SV1 Mining
+/// Bridge is a Proxy server that sits between a Downstream role (most typically a SV1 Mining
 /// Device, but could also be a SV1 Proxy server) and an Upstream role (most typically a SV2 Pool
 /// server, but could also be a SV2 Proxy server). It accepts and sends messages between the SV1
 /// Downstream role and the SV2 Upstream role, translating the messages into the appropriate
@@ -27,10 +31,10 @@
 ///       SV2 `SubmitSharesExtended` message which is then sent to the SV2 Upstream role + receives
 ///       a SV2 `SubmitSharesSuccess` or `SubmitSharesError` message in response.
 ///    b. This keeps happening until a new Bitcoin block is confirmed on the network, making this
-///       current job's PrevHash stale.
+///       current job's previous hash stale.
 ///
-/// 4. When a new block is confirmed on the Bitcoin network, the Bridge sends a fresh job to
-///    the SV1 Downstream role.
+/// 4. When a new block is confirmed on the Bitcoin network, the Bridge sends a fresh job to the
+///    SV1 Downstream role.
 ///    a. The SV2 Upstream role immediately sends the Bridge a fresh SV2 `SetNewPrevHash`
 ///       followed by a `NewExtendedMiningJob` message.
 ///    b. Once the Bridge receives BOTH messages, it translates them into a SV1 `mining.notify`
@@ -38,35 +42,30 @@
 ///    c. The SV1 Downstream role begins finding a new valid share submission + Step 3 commences
 ///       again.
 ///
-use v1::client_to_server::Submit;
-use roles_logic_sv2::mining_sv2::{SetNewPrevHash,SubmitSharesExtended,NewExtendedMiningJob};
-use roles_logic_sv2::utils::Mutex;
-use async_std::task;
 use std::sync::Arc;
+use v1::client_to_server::Submit;
 
 #[derive(Debug, Clone)]
 pub struct Bridge {
+    /// Receives a `mining.submit` SV1 message from the SV1 Downstream role.
     submit_from_sv1: Receiver<Submit>,
+    /// Sends `SubmitSharesExtended` SV2 message created on a valid SV1 `mining.submit` message to
+    /// the SV2 Upstream.
     submit_to_sv2: Sender<SubmitSharesExtended<'static>>,
-
+    /// `SetNewPrevHash` SV2 message received from the SV2 Upstream.
     set_new_prev_hash: Receiver<SetNewPrevHash<'static>>,
-
+    /// `NexExtendedMiningJob` SV2 message received from the SV2 Upstream.
     new_extended_mining_job: Receiver<NewExtendedMiningJob<'static>>,
 }
 
-use async_channel::{Receiver, Sender};
-
-
 impl Bridge {
+    /// Creates a new `Bridge`.
     pub fn new(
         submit_from_sv1: Receiver<Submit>,
         submit_to_sv2: Sender<SubmitSharesExtended<'static>>,
-
         set_new_prev_hash: Receiver<SetNewPrevHash<'static>>,
-
         new_extended_mining_job: Receiver<NewExtendedMiningJob<'static>>,
-        ) -> Self
-    {
+    ) -> Self {
         Self {
             submit_from_sv1,
             submit_to_sv2,
@@ -96,13 +95,11 @@ impl Bridge {
 
     fn handle_new_prev_hash(self_: Arc<Mutex<Self>>) {
         //TODO!
-        task::spawn(async {loop {}});
+        task::spawn(async { loop {} });
     }
 
     fn handle_new_extended_minig_job(self_: Arc<Mutex<Self>>) {
         //TODO!
-        task::spawn(async {loop {}});
+        task::spawn(async { loop {} });
     }
 }
-
-
