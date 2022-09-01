@@ -13,13 +13,19 @@ pub(crate) struct NextMiningNotify {
 }
 
 impl NextMiningNotify {
-    pub(crate) fn new() -> Self {
+    pub(crate) fn default() -> Self {
         NextMiningNotify {
             set_new_prev_hash: None,
             new_extended_mining_job: None,
         }
     }
-    // fn new_mining_notify(self) -> ProxyResult<json_rpc::Message> {
+
+    /// Sets `set_new_prev_hash` member field upon `Bridge` receiving a SV2 `SetNewPrevHash`
+    /// message from `Upstream`.
+    pub(crate) fn set_new_prev_hash_msg(&mut self, set_new_prev_hash: SetNewPrevHash<'static>) {
+        self.set_new_prev_hash = Some(set_new_prev_hash);
+    }
+
     /// `mining.notify`:  subscription id
     /// extranonce1
     /// extranonce_size2

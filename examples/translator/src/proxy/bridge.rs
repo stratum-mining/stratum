@@ -1,3 +1,4 @@
+use crate::proxy::next_mining_notify;
 use async_channel::{Receiver, Sender};
 use async_std::task;
 use roles_logic_sv2::mining_sv2::{NewExtendedMiningJob, SetNewPrevHash, SubmitSharesExtended};
@@ -45,6 +46,8 @@ use roles_logic_sv2::utils::Mutex;
 use std::sync::Arc;
 use v1::client_to_server::Submit;
 
+use super::next_mining_notify::NextMiningNotify;
+
 #[derive(Debug, Clone)]
 pub struct Bridge {
     /// Receives a `mining.submit` SV1 message from the SV1 Downstream role.
@@ -56,6 +59,7 @@ pub struct Bridge {
     set_new_prev_hash: Receiver<SetNewPrevHash<'static>>,
     /// `NexExtendedMiningJob` SV2 message received from the SV2 Upstream.
     new_extended_mining_job: Receiver<NewExtendedMiningJob<'static>>,
+    next_mining_notify: NextMiningNotify,
 }
 
 impl Bridge {
@@ -71,6 +75,7 @@ impl Bridge {
             submit_to_sv2,
             set_new_prev_hash,
             new_extended_mining_job,
+            next_mining_notify: NextMiningNotify::default(),
         }
     }
 
@@ -94,14 +99,25 @@ impl Bridge {
     }
 
     fn handle_new_prev_hash(self_: Arc<Mutex<Self>>) {
-        println!("\nHANDLE NEW PREV HASH");
-        //TODO!
-        task::spawn(async { loop {} });
+        task::spawn(async move {
+            loop {
+                let set_new_prev_hash_recv =
+                    self_.safe_lock(|s| s.set_new_prev_hash.clone()).unwrap();
+                let sv2_set_new_prev_hash: SetNewPrevHash =
+                    set_new_prev_hash_recv.clone().recv().await.unwrap();
+                println!("SV2 SET NEW PREV HASH: {:?}", &sv2_set_new_prev_hash);
+                self_
+                    .safe_lock(|s| {
+                        s.next_mining_notify
+                            .set_new_prev_hash_msg(sv2_set_new_prev_hash)
+                    })
+                    .unwrap();
+            }
+        });
     }
 
     fn handle_new_extended_mining_job(self_: Arc<Mutex<Self>>) {
         println!("\n HANDLE NEW EXT MINING JOB");
-        //TODO!
         task::spawn(async { loop {} });
     }
 }
