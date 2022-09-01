@@ -1,6 +1,6 @@
 use crate::{
     downstream_sv1::Downstream,
-    upstream_sv2::{EitherFrame, Message, MiningMessage, StdFrame, UpstreamConnection},
+    upstream_sv2::{EitherFrame, Message, StdFrame, UpstreamConnection},
 };
 use async_channel::{Receiver, Sender};
 use async_std::{net::TcpStream, task};
@@ -15,24 +15,24 @@ use roles_logic_sv2::{
     },
     mining_sv2::{
         NewExtendedMiningJob, OpenExtendedMiningChannelSuccess, OpenMiningChannelError,
-        SetExtranoncePrefix, SetNewPrevHash, SetTarget, SubmitSharesError, SubmitSharesSuccess,
+        SetExtranoncePrefix, SetNewPrevHash, SetTarget, SubmitSharesError, SubmitSharesSuccess,SubmitSharesExtended,
     },
     parsers::Mining,
     routing_logic::{CommonRoutingLogic, MiningRoutingLogic, NoRouting},
-    selectors::{NullDownstreamMiningSelector, ProxyDownstreamMiningSelector},
+    selectors::NullDownstreamMiningSelector,
     utils::Mutex,
 };
 use std::{
-    net::{IpAddr, SocketAddr},
-    str::FromStr,
+    net::SocketAddr,
     sync::Arc,
 };
 
 #[derive(Debug)]
 pub struct Upstream {
     connection: UpstreamConnection,
-    /// TODO: Not used for demo, but needs to be properly implemented
-    _downstream_selector: ProxyDownstreamMiningSelector<Downstream>,
+    submit_from_dowstream: Receiver<SubmitSharesExtended<'static>>,
+    new_prev_hash_sender: Sender<SetNewPrevHash<'static>>,
+    new_extended_mining_job_sender: Sender<NewExtendedMiningJob<'static>>,
 }
 
 impl Upstream {
@@ -40,12 +40,13 @@ impl Upstream {
     /// Connect to the SV2 Upstream role (most typically a SV2 Pool). Initialize the
     /// `UpstreamConnection` with a channel to send and receive messages to the SV2 Upstream role,
     /// and a channel to send and receive messages from the Downstream Translator Proxy.
-    pub(crate) async fn new(
+    pub async fn new(
         address: SocketAddr,
         authority_public_key: [u8; 32],
-        sender_downstream: Sender<MiningMessage>,
-        receiver_downstream: Receiver<MiningMessage>,
-    ) -> Result<Arc<Mutex<Self>>, ()> {
+        submit_from_dowstream: Receiver<SubmitSharesExtended<'static>>,
+        new_prev_hash_sender: Sender<SetNewPrevHash<'static>>,
+        new_extended_mining_job_sender: Sender<NewExtendedMiningJob<'static>>,
+    ) -> Arc<Mutex<Self>> {
         // Connect to the SV2 Upstream role
         let socket = TcpStream::connect(address).await.map_err(|_| ()).unwrap();
         let initiator = Initiator::from_raw_k(authority_public_key).unwrap();
@@ -63,55 +64,23 @@ impl Upstream {
         let connection = UpstreamConnection {
             sender,
             receiver,
-            sender_downstream,
-            receiver_downstream,
         };
 
-        let self_ = Self::initialize(connection).await;
-        Ok(self_)
-    }
-
-    /// Accept connection from one SV2 Upstream role (SV2 Pool).
-    /// TODO: Authority public key used to authorize with Upstream is hardcoded, but should be read
-    /// in via a proxy-config.toml.
-    /// TODO: Move to upstream.rs
-    pub(crate) async fn accept_connection_upstream(
-        sender_for_upstream: Sender<MiningMessage>,
-        receiver_for_upstream: Receiver<MiningMessage>,
-    ) {
-        let upstream_addr = SocketAddr::new(
-            IpAddr::from_str(crate::UPSTREAM_IP).unwrap(),
-            crate::UPSTREAM_PORT,
-        );
-        let _upstream = Upstream::new(
-            upstream_addr,
-            crate::AUTHORITY_PUBLIC_KEY,
-            sender_for_upstream,
-            receiver_for_upstream,
-        )
-        .await;
-    }
-
-    async fn initialize(connection: UpstreamConnection) -> Arc<Mutex<Self>> {
-        // Setup the connection with the SV2 Upstream role (Pool)
-        let self_ = Self::setup_connection(connection).await.unwrap();
-        // Here to handle messages AFTER the SetupConnection
-        Self::parse_incoming(self_.clone());
-        Self::parse_incoming_downstream(self_.clone());
-        // println!("DONE WITH PARSE DOWNSTRA");
-
-        self_
-    }
+        Arc::new(Mutex::new(Self {connection, submit_from_dowstream, new_prev_hash_sender, new_extended_mining_job_sender }))
+    } 
 
     /// Setups the connection with the SV2 Upstream role (Pool)
-    async fn setup_connection(mut connection: UpstreamConnection) -> Result<Arc<Mutex<Self>>, ()> {
+    pub async fn connect(self_: Arc<Mutex<Self>>) {
         // Get the `SetupConnection` message with Mining Device information (currently hard coded)
         let setup_connection = Self::get_setup_connection_message();
+        let mut connection = self_.safe_lock(|s| s.connection.clone()).unwrap();
 
         // Put the `SetupConnection` message in a `StdFrame` to be sent over the wire
         let sv2_frame: StdFrame = Message::Common(setup_connection.into()).try_into().unwrap();
         // Send the `SetupConnection` frame to the SV2 Upstream role
-        connection.send(sv2_frame).await.map_err(|_| ())?;
+        // We support only one upstream if is not possible to connect we can just panic and let the
+        // user know which is the issue
+        connection.send(sv2_frame).await.unwrap();
 
         // Wait for the SV2 Upstream to respond with either a `SetupConnectionSuccess` or a
         // `SetupConnectionError` inside a SV2 binary message frame
@@ -126,14 +95,6 @@ impl Upstream {
         let message_type = incoming.get_header().unwrap().msg_type();
         // Gets the message payload
         let payload = incoming.payload();
-
-        // TODO: Initialize an empty `ProxyDownstreamMiningSelector`, but should instead pass in a
-        // `Downstream`
-        let downstream_selector = ProxyDownstreamMiningSelector::new();
-        let self_ = Arc::new(Mutex::new(Self {
-            connection,
-            _downstream_selector: downstream_selector,
-        }));
 
         // // TODO: NOT HANDLED YET
         // // Receive messages from the downstream `Translator`
@@ -156,29 +117,12 @@ impl Upstream {
             CommonRoutingLogic::None,
         )
         .unwrap();
-
-        Ok(self_)
-    }
-
-    /// Receive messages from the downstream `Translator::upstream_translator.sender`, sent in
-    /// `UpstreamTranslator::send_sv2`.
-    fn parse_incoming_downstream(self_: Arc<Mutex<Self>>) {
-        task::spawn(async move {
-            loop {
-                let recv = self_
-                    .safe_lock(|s| s.connection.receiver_downstream.clone())
-                    .unwrap();
-                let message_incoming = recv.recv().await.unwrap();
-                println!("TU RECV SV2 FROM TP: {:?}", &message_incoming);
-                // message_incoming.try_into() // StdFrame
-            }
-        });
     }
 
     /// Parse the incoming SV2 message from the Upstream role and use the
     /// `Upstream.sender_downstream` to send the message to the
     /// `Translator.upstream_translator.receiver` to be handled.
-    fn parse_incoming(self_: Arc<Mutex<Self>>) {
+    pub fn parse_incoming(self_: Arc<Mutex<Self>>) {
         task::spawn(async move {
             loop {
                 // Waiting to receive a message from the SV2 Upstream role
@@ -221,38 +165,40 @@ impl Upstream {
                             .unwrap();
                         sender.send(frame).await.unwrap();
                     }
-                    // Relay the SV2 message to `Translator.upstream_translator.receiver` via
-                    // the `UpstreamConnection.downstream_sender`
-                    Ok(SendTo::RelaySameMessageToSv1(message_to_translate)) => {
-                        println!("\nTU SEND SV2 MSG TO TP: {:?}\n", &message_to_translate);
-                        // Relay the same message received from the Upstream role to `Translator`
-                        // to handle
-                        let sender = self_
-                            .safe_lock(|self_| self_.connection.sender_downstream.clone())
-                            .unwrap();
-                        sender.send(message_to_translate).await.unwrap();
-                    }
-                    // No response is needed to be given to the SV2 Upstream role or the SV1
-                    // Downstream role
-                    Ok(SendTo::RelayNewMessageToSv2(_, _))
-                    | Ok(SendTo::RelaySameMessageToSv2(_))
-                    | Ok(SendTo::Multiple(_)) => {
-                        todo!("Handle unexpected `SendTo`s in Upstream");
-                        // /// Errors if a `SendTo::RelaySameMessageToSv2` or
-                        // `SendTo::RelayNewMessageToSv2` request is made on SV1/SV2 application
-                        // Error::UnsupportedRelayType,
-                        //     // Proxy does not support this type
-                        //     // Err(Error::ProxyDoesNotSupportMultiple
-                    }
-                    Ok(SendTo::None(None)) => {
-                        todo!("Handle None");
-                        // Probably just end up putting ()
-                    }
-                    Ok(SendTo::None(Some(_))) => todo!("Handle SendTo::Some(Some(m))"),
+                    // We use None as we do not send the message to anyone but just use it
+                    // internally so SendTo::None have the right semantic
+                    Ok(SendTo::None(Some(m))) => {
+                        match m {
+                            Mining::NewExtendedMiningJob(m) => {
+                                let sender = self_.safe_lock(|s| s.new_extended_mining_job_sender.clone()).unwrap();
+                                sender.send(m).await.unwrap();
+                            },
+                            Mining::SetNewPrevHash(m) => {
+                                let sender = self_.safe_lock(|s| s.new_prev_hash_sender.clone()).unwrap();
+                                sender.send(m).await.unwrap();
+                            },
+                            // impossible state
+                            _ => panic!(),
+                        }
+                    },
+                    // NO need to handle impossible state just panic cause are impossible and we
+                    // will never panic ;-)
+                    Ok(_) => panic!(),
                     Err(_) => todo!("Handle `SendTo` error on Upstream"),
                 }
             }
         });
+    }
+
+    pub fn on_submit(_self_: Arc<Mutex<Self>>) {
+        // TODO
+        // check if submit meet the upstream target and if so send back (upstream target will
+        // likely be not the same of downstream target)
+        task::spawn(async {loop{}});
+    }
+
+    fn is_contained_in_upstream_target(&self, _share: SubmitSharesExtended) -> bool {
+        todo!()
     }
 
     /// Creates the `SetupConnection` message to setup the connection with the SV2 Upstream role.
@@ -513,7 +459,7 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
             coinbase_tx_prefix: m.coinbase_tx_prefix.clone().into_static(),
             coinbase_tx_suffix: m.coinbase_tx_suffix.clone().into_static(),
         });
-        Ok(SendTo::RelaySameMessageToSv1(message))
+        Ok(SendTo::None(Some(message)))
     }
 
     /// Relay incoming `SetNewPrevHash` message to `Translator` to be handled. `SetNewPrevHash`
@@ -535,7 +481,7 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
             min_ntime: m.min_ntime,
             nbits: m.nbits,
         });
-        Ok(SendTo::RelaySameMessageToSv1(message))
+        Ok(SendTo::None(Some(message)))
     }
 
     /// Handle SV2 `SetCustomMiningJobSuccess`.

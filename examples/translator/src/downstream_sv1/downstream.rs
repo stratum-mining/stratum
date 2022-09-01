@@ -1,4 +1,4 @@
-use crate::{downstream_sv1::DownstreamConnection, error::ProxyResult};
+use crate::error::ProxyResult;
 use async_channel::{bounded, Receiver, Sender};
 use async_std::{
     io::BufReader,
@@ -22,20 +22,22 @@ use v1::{
 /// Handles the sending and receiving of messages to and from an SV2 Upstream role (most typically
 /// a SV2 Pool server).
 #[derive(Debug)]
-pub(crate) struct Downstream {
+pub struct Downstream {
     authorized_names: Vec<String>,
     extranonce1: HexBytes,
     extranonce2_size: usize,
     version_rolling_mask: Option<HexU32Be>,
     version_rolling_min_bit: Option<HexU32Be>,
-    connection: DownstreamConnection,
+    submit_sender: Sender<v1::client_to_server::Submit>,
+    // put it in a DownstreamConnection as we did for Upstream if you like
+    // also like that is fine btw
+    sender_outgoing: Sender<json_rpc::Message>,
 }
 
 impl Downstream {
     pub async fn new(
         stream: TcpStream,
-        sender_upstream: Sender<json_rpc::Message>,
-        receiver_upstream: Receiver<json_rpc::Message>,
+        submit_sender: Sender<v1::client_to_server::Submit>,
     ) -> ProxyResult<Arc<Mutex<Self>>> {
         let stream = std::sync::Arc::new(stream);
 
@@ -43,16 +45,8 @@ impl Downstream {
         let (socket_reader, socket_writer) = (stream.clone(), stream);
         let (sender_outgoing, receiver_outgoing) = bounded(10);
 
-        let receiver_outgoing_clone = receiver_outgoing.clone();
         let socket_writer_clone = socket_writer.clone();
 
-        let connection = DownstreamConnection::new(
-            sender_outgoing,
-            receiver_outgoing,
-            sender_upstream,
-            receiver_upstream,
-        );
-        let receiver_upstream_clone = connection.receiver_upstream.clone();
 
         let downstream = Arc::new(Mutex::new(Downstream {
             authorized_names: vec![],
@@ -60,7 +54,8 @@ impl Downstream {
             extranonce2_size: 2,
             version_rolling_mask: None,
             version_rolling_min_bit: None,
-            connection,
+            submit_sender,
+            sender_outgoing: sender_outgoing.clone(),
         }));
         let self_ = downstream.clone();
 
@@ -91,26 +86,12 @@ impl Downstream {
             }
         });
 
-        // Task to loop over the `receiver_upstream` waiting to receive `json_rpc::Message`
-        // messages from `Translator.sender_to_downstream` to be written to the SV1 Mining Device
-        // Client socket.
-        task::spawn(async move {
-            loop {
-                let to_send = receiver_upstream_clone.recv().await.unwrap();
-                // TODO: Use `Error::bad_serde_json`
-                let to_send = format!("{}\n", serde_json::to_string(&to_send).unwrap());
-                (&*socket_writer)
-                    .write_all(to_send.as_bytes())
-                    .await
-                    .unwrap();
-            }
-        });
 
         // Wait for SV1 responses that do not need to go through the Translator, but can be sent
         // back the SV1 Mining Device directly
         task::spawn(async move {
             loop {
-                let to_send = receiver_outgoing_clone.recv().await.unwrap();
+                let to_send = receiver_outgoing.recv().await.unwrap();
                 // TODO: Use `Error::bad_serde_json`
                 let to_send = format!("{}\n", serde_json::to_string(&to_send).unwrap());
                 (&*socket_writer_clone)
@@ -124,9 +105,8 @@ impl Downstream {
     }
 
     /// Accept connections from one or more SV1 Downstream roles (SV1 Mining Devices).
-    pub(crate) fn accept_connections(
-        sender_for_downstream: Sender<json_rpc::Message>,
-        receiver_for_downstream: Receiver<json_rpc::Message>,
+    pub fn accept_connections(
+        submit_sender: Sender<v1::client_to_server::Submit>,
     ) {
         task::spawn(async move {
             let downstream_listener = TcpListener::bind(crate::LISTEN_ADDR).await.unwrap();
@@ -139,8 +119,7 @@ impl Downstream {
                 );
                 let server = Downstream::new(
                     stream,
-                    sender_for_downstream.clone(),
-                    receiver_for_downstream.clone(),
+                    submit_sender.clone(),
                 )
                 .await
                 .unwrap();
@@ -165,11 +144,10 @@ impl Downstream {
                     // message will be sent to the upstream Translator to be translated to SV2 and
                     // forwarded to the `Upstream`
                     // let sender = self_.safe_lock(|s| s.connection.sender_upstream)
-                    Self::send_message_downstream(self_, r).await;
+                    Self::send_message_downstream(self_, r.into()).await;
                 } else {
                     // If None response is received, indicates this SV1 message received from the
                     // Downstream MD is passed to the `Translator` for translation into SV2
-                    Self::send_message_upstream(self_, message_sv1_clone).await;
                 }
             }
             Err(e) => {
@@ -183,96 +161,18 @@ impl Downstream {
 
     /// Send SV1 Response that is generated by `Downstream` (not received by upstream `Translator`)
     /// to be written to the SV1 Downstream Mining Device socket
-    async fn send_message_downstream(self_: Arc<Mutex<Self>>, response: json_rpc::Response) {
+    async fn send_message_downstream(self_: Arc<Mutex<Self>>, response: json_rpc::Message) {
         println!("DT SEND SV1 MSG TO DOWNSTREAM: {:?}", &response);
         let sender = self_
-            .safe_lock(|s| s.connection.sender_outgoing.clone())
+            .safe_lock(|s| s.sender_outgoing.clone())
             .unwrap();
         sender.send(response).await.unwrap();
     }
 
-    /// Sends SV1 message to the Upstream Translator to be translated to SV2 and sent to the
-    /// Upstream role (most typically a SV2 Pool).
-    async fn send_message_upstream(self_: Arc<Mutex<Self>>, msg: json_rpc::Message) {
-        println!("DT SEND SV1 MSG TO TP: {:?}", &msg);
-        let sender = self_
-            .safe_lock(|s| s.connection.sender_upstream.clone())
-            .unwrap();
-        sender.send(msg).await.unwrap()
-    }
 }
 
 /// Implements `IsServer` for `Downstream` to handle the SV1 messages.
 impl IsServer for Downstream {
-    fn handle_request(
-        &mut self,
-        request: methods::Client2Server,
-    ) -> Result<Option<json_rpc::Response>, V1Error>
-    where
-        Self: std::marker::Sized,
-    {
-        match request {
-            methods::Client2Server::Authorize(authorize) => {
-                println!("DT HANDLE AUTHORIZE");
-                let authorized = self.handle_authorize(&authorize);
-                if authorized {
-                    self.authorize(&authorize.name);
-                }
-                Ok(Some(authorize.respond(authorized)))
-            }
-            methods::Client2Server::Configure(configure) => {
-                println!("DT HANDLE CONFIGURE");
-                self.set_version_rolling_mask(configure.version_rolling_mask());
-                self.set_version_rolling_min_bit(configure.version_rolling_min_bit_count());
-                let (version_rolling, min_diff) = self.handle_configure(&configure);
-                Ok(Some(configure.respond(version_rolling, min_diff)))
-            }
-            methods::Client2Server::ExtranonceSubscribe(_) => {
-                todo!()
-                // println!("DT HANDLE EXTRANONCESUBSCRIBE");
-                // self.handle_extranonce_subscribe();
-                // Ok(None)
-            }
-            methods::Client2Server::Submit(_submit) => {
-                todo!()
-                // println!("DT HANDLE SUBMIT");
-                // let has_valid_version_bits = match &submit.version_bits {
-                //     Some(a) => {
-                //         if let Some(version_rolling_mask) = self.version_rolling_mask() {
-                //             version_rolling_mask.check_mask(a)
-                //         } else {
-                //             false
-                //         }
-                //     }
-                //     None => self.version_rolling_mask().is_none(),
-                // };
-                //
-                // let is_valid_submission = self.is_authorized(&submit.user_name)
-                //     && self.extranonce2_size() == submit.extra_nonce2.len()
-                //     && has_valid_version_bits;
-                //
-                // if is_valid_submission {
-                //     let accepted = self.handle_submit(&submit);
-                //     Ok(Some(submit.respond(accepted)))
-                // } else {
-                //     Err(V1Error::InvalidSubmission)
-                // }
-            }
-            methods::Client2Server::Subscribe(subscribe) => {
-                // On the receive of SV1 Subscribe, need to format a response with set_difficulty
-                // + mining.notify from the SV2 SetNewPrevHash + NewExtendedMiningJob
-                println!("DT HANDLE SUBSCRIBE");
-                let subscriptions = self.handle_subscribe(&subscribe);
-                let extra_n1 = self.set_extranonce1(None);
-                let extra_n2_size = self.set_extranonce2_size(None);
-                Ok(Some(subscribe.respond(
-                    subscriptions,
-                    extra_n1,
-                    extra_n2_size,
-                )))
-            }
-        }
-    }
 
     fn handle_configure(
         &mut self,

@@ -1,4 +1,4 @@
-use super::{EitherFrame, MiningMessage, StdFrame};
+use super::{EitherFrame, StdFrame};
 use async_channel::{Receiver, Sender};
 
 /// Handles the sending and receiving of messages to and from an SV2 Upstream role (most typically
@@ -9,20 +9,16 @@ use async_channel::{Receiver, Sender};
 /// Sv2Messages frame and when the message is ready then sends to our Upstream
 /// sender_incoming + receiver_outgoing are in network_helpers::Connection
 #[derive(Debug, Clone)]
-pub(crate) struct UpstreamConnection {
+pub struct UpstreamConnection {
     /// Receives messages from the SV2 Upstream role
-    pub(crate) receiver: Receiver<EitherFrame>,
+    pub receiver: Receiver<EitherFrame>,
     /// Sends messages to the SV2 Upstream role
-    pub(crate) sender: Sender<EitherFrame>,
-    /// Sends to Translator::receiver_upstream
-    pub(crate) sender_downstream: Sender<MiningMessage>,
-    /// Receives from Translator::sender_upstream
-    pub(crate) receiver_downstream: Receiver<MiningMessage>,
+    pub sender: Sender<EitherFrame>,
 }
 
 impl UpstreamConnection {
     /// Send a SV2 message to the Upstream role
-    pub(crate) async fn send(&mut self, sv2_frame: StdFrame) -> Result<(), ()> {
+    pub async fn send(&mut self, sv2_frame: StdFrame) -> Result<(), ()> {
         println!("TU SEND TO UPSTREAM: {:?}", &sv2_frame);
         let either_frame = sv2_frame.into();
         match self.sender.send(either_frame).await {
