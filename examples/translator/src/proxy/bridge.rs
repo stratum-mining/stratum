@@ -77,7 +77,7 @@ impl Bridge {
     pub fn start(self) {
         let self_ = Arc::new(Mutex::new(self));
         Self::handle_new_prev_hash(self_.clone());
-        Self::handle_new_extended_minig_job(self_.clone());
+        Self::handle_new_extended_mining_job(self_.clone());
         Self::handle_downstream_share_submission(self_.clone());
     }
 
@@ -94,11 +94,13 @@ impl Bridge {
     }
 
     fn handle_new_prev_hash(self_: Arc<Mutex<Self>>) {
+        println!("\nHANDLE NEW PREV HASH");
         //TODO!
         task::spawn(async { loop {} });
     }
 
-    fn handle_new_extended_minig_job(self_: Arc<Mutex<Self>>) {
+    fn handle_new_extended_mining_job(self_: Arc<Mutex<Self>>) {
+        println!("\n HANDLE NEW EXT MINING JOB");
         //TODO!
         task::spawn(async { loop {} });
     }

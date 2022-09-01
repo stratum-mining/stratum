@@ -60,7 +60,7 @@ impl Upstream {
             Connection::new(socket, HandshakeRole::Initiator(initiator), 10).await;
         // Initialize `UpstreamConnection` with channel for SV2 Upstream role communication and
         // channel for downstream Translator Proxy communication
-        let connection = UpstreamConnection { sender, receiver };
+        let connection = UpstreamConnection { receiver, sender };
 
         Arc::new(Mutex::new(Self {
             connection,
@@ -96,18 +96,6 @@ impl Upstream {
         let message_type = incoming.get_header().unwrap().msg_type();
         // Gets the message payload
         let payload = incoming.payload();
-
-        // // TODO: NOT HANDLED YET
-        // // Receive messages from the downstream `Translator`
-        // // RR: Think i need to refactor parse_incoming to receive the EitherFrame and handle
-        // // appropriately. Make a new function called incoming_upstream to receive messages from
-        // // upstream pool server + and another function called incoming_downstream to recieve
-        // // messages from downstream proxy (basically does the next 2 lines)
-        // // If these two lines are uncommented -> blocks and nothing works
-        // let cloned = self_.clone();
-        // let mut _incoming_downstream = task::spawn(async { Self::receive(cloned).await })
-        //     .await
-        //     .unwrap();
 
         // Handle the incoming message (should be either `SetupConnectionSuccess` or
         // `SetupConnectionError`)
