@@ -102,7 +102,7 @@ impl Bridge {
         task::spawn(async move {
             loop {
                 let set_new_prev_hash_recv =
-                    self_.safe_lock(|s| s.set_new_prev_hash.clone()).unwrap();
+                    self_.safe_lock(|r| r.set_new_prev_hash.clone()).unwrap();
                 let sv2_set_new_prev_hash: SetNewPrevHash =
                     set_new_prev_hash_recv.clone().recv().await.unwrap();
                 println!("SV2 SET NEW PREV HASH: {:?}", &sv2_set_new_prev_hash);
@@ -118,6 +118,21 @@ impl Bridge {
 
     fn handle_new_extended_mining_job(self_: Arc<Mutex<Self>>) {
         println!("\n HANDLE NEW EXT MINING JOB");
-        task::spawn(async { loop {} });
+        task::spawn(async move {
+            loop {
+                let new_ext_mining_job_recv = self_
+                    .safe_lock(|r| r.new_extended_mining_job.clone())
+                    .unwrap();
+                let new_ext_mining_job: NewExtendedMiningJob =
+                    new_ext_mining_job_recv.clone().recv().await.unwrap();
+                println!("NEW EXT MINING JOB: {:?}", &new_ext_mining_job);
+                self_
+                    .safe_lock(|s| {
+                        s.next_mining_notify
+                            .new_extended_mining_job_msg(new_ext_mining_job)
+                    })
+                    .unwrap();
+            }
+        });
     }
 }

@@ -21,9 +21,20 @@ impl NextMiningNotify {
     }
 
     /// Sets `set_new_prev_hash` member field upon `Bridge` receiving a SV2 `SetNewPrevHash`
-    /// message from `Upstream`.
+    /// message from `Upstream`. Used in conjunction with `NewExtendedMiningJob` to create a SV1
+    /// `mining.notify` message.
     pub(crate) fn set_new_prev_hash_msg(&mut self, set_new_prev_hash: SetNewPrevHash<'static>) {
         self.set_new_prev_hash = Some(set_new_prev_hash);
+    }
+
+    /// Sets `new_extended_mining_job` member field upon `Bridge` receiving a SV2
+    /// `NewExtendedMiningJob` message from `Upstream`. Used in conjunction with `SetNewPrevHash`
+    /// to create a SV1 `mining.notify` message.
+    pub(crate) fn new_extended_mining_job_msg(
+        &mut self,
+        new_extended_mining_job: NewExtendedMiningJob<'static>,
+    ) {
+        self.new_extended_mining_job = Some(new_extended_mining_job);
     }
 
     /// `mining.notify`:  subscription id
