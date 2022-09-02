@@ -2,10 +2,17 @@ mod downstream_sv1;
 mod error;
 mod proxy;
 mod upstream_sv2;
+use proxy::next_mining_notify::NextMiningNotify;
+use roles_logic_sv2::utils::Mutex;
 
-use async_channel::bounded;
-use std::net::{IpAddr, SocketAddr};
+use async_channel::{bounded, Receiver, Sender};
+use proxy::next_mining_notify;
 use std::str::FromStr;
+use std::{
+    net::{IpAddr, SocketAddr},
+    sync::Arc,
+};
+use v1::server_to_client;
 
 pub const UPSTREAM_IP: &str = "127.0.0.1";
 pub const UPSTREAM_PORT: u16 = 34254;
@@ -39,6 +46,13 @@ async fn main() {
     let (sender_new_extended_mining_job, recv_new_extended_mining_job) = bounded(10);
 
     // TODO add a channel to send new jobs from Bridge to Downstream
+    // Put NextMiningNotify in a mutex
+    // NextMiningNotify should have channel to Downstream?
+    // Put recv in next_mining_notify struct
+    let (sender_mining_notify_bridge, recv_mining_notify_downstream): (
+        Sender<server_to_client::Notify>,
+        Receiver<server_to_client::Notify>,
+    ) = bounded(10);
 
     // Format `Upstream` connection address
     let upstream_addr = SocketAddr::new(
@@ -61,6 +75,10 @@ async fn main() {
     upstream_sv2::Upstream::parse_incoming(upstream.clone());
     // Start receiving submit from the SV1 Downstream role
     upstream_sv2::Upstream::on_submit(upstream.clone());
+    let next_mining_notify = Arc::new(Mutex::new(NextMiningNotify::new(
+        sender_mining_notify_bridge,
+    )));
+    let next_mining_notify_clone = next_mining_notify.clone();
 
     // Instantiates a new `Bridge` and begins handling incoming messages
     proxy::Bridge::new(
@@ -68,11 +86,21 @@ async fn main() {
         sender_submit_to_sv2,
         recv_new_prev_hash,
         recv_new_extended_mining_job,
+        next_mining_notify,
+        // sender_mining_notify_bridge,
     )
     .start();
+    // let mining_notify_msg = next_mining_notify_clone
+    //     .safe_lock(|nmn| nmn.create_notify())
+    //     .unwrap();
 
     // Accept connections from one or more SV1 Downstream roles (SV1 Mining Devices)
-    downstream_sv1::Downstream::accept_connections(sender_submit_from_sv1);
+    downstream_sv1::Downstream::accept_connections(
+        sender_submit_from_sv1,
+        recv_mining_notify_downstream,
+        next_mining_notify_clone,
+        // mining_notify_msg,
+    );
     // async_std::task::spawn(async {
     //proxy::Bridge::initiate().await;
     // })

@@ -1,4 +1,7 @@
-use crate::error::ProxyResult;
+use crate::{
+    error::ProxyResult,
+    proxy::next_mining_notify::{self, NextMiningNotify},
+};
 use async_channel::{bounded, Receiver, Sender};
 use async_std::{
     io::BufReader,
@@ -32,12 +35,16 @@ pub struct Downstream {
     // put it in a DownstreamConnection as we did for Upstream if you like
     // also like that is fine btw
     sender_outgoing: Sender<json_rpc::Message>,
+    // mining_notify_msg: server_to_client::Notify,
 }
 
 impl Downstream {
     pub async fn new(
         stream: TcpStream,
         submit_sender: Sender<v1::client_to_server::Submit>,
+        // next_mining_notify: Arc<Mutex<NextMiningNotify>>,
+        // mining_notify_msg: server_to_client::Notify,
+        mining_notify_receiver: Receiver<server_to_client::Notify>,
     ) -> ProxyResult<Arc<Mutex<Self>>> {
         let stream = std::sync::Arc::new(stream);
 
@@ -47,7 +54,6 @@ impl Downstream {
 
         let socket_writer_clone = socket_writer.clone();
 
-
         let downstream = Arc::new(Mutex::new(Downstream {
             authorized_names: vec![],
             extranonce1: "00000000".try_into().unwrap(),
@@ -56,6 +62,7 @@ impl Downstream {
             version_rolling_min_bit: None,
             submit_sender,
             sender_outgoing: sender_outgoing.clone(),
+            // mining_notify_msg,
         }));
         let self_ = downstream.clone();
 
@@ -86,7 +93,6 @@ impl Downstream {
             }
         });
 
-
         // Wait for SV1 responses that do not need to go through the Translator, but can be sent
         // back the SV1 Mining Device directly
         task::spawn(async move {
@@ -101,12 +107,55 @@ impl Downstream {
             }
         });
 
+        let downstream_clone = downstream.clone();
+        // RR TODO
+        task::spawn(async move {
+            loop {
+                // // Get receiver
+                let is_a: bool = downstream_clone
+                    .safe_lock(|d| d.is_authorized("name"))
+                    .unwrap();
+                if is_a {
+                    println!("\n\n RRR INT SV1 MINIG.NOT\n");
+                    let sv1_mining_notify_msg =
+                        mining_notify_receiver.clone().recv().await.unwrap();
+                    println!("\n\n RRR SV1 MINIG.NOT: {:?}\n", &sv1_mining_notify_msg);
+                }
+                //
+                //                                            // safe lock
+                //     // but update the mining_notify_msg
+                //     // in NextMiningNotify struct have another task w another loop that relays
+                //     // sending is from the Bridge
+                //     // create_notify to get new message
+                // if is_a {
+                //     // send notify
+                // }
+            }
+        });
+
         Ok(downstream)
     }
 
     /// Accept connections from one or more SV1 Downstream roles (SV1 Mining Devices).
+    /// Before creating new Downstream
+    /// If we create Downstream + right after the Downstream sends configure, auth, subscribe
+    /// Now we have next_mining_notify, when we create Downsteram, we have to spawn a new task that
+    /// will take an Arc::Mutex<Downstream> + listen for a new next_mining_notify message via a
+    /// channel.
+    /// It will be a loop.
+    /// When there is a new NextMiningNotify, this loop locks the mutex, changes the field in the
+    /// downstream, so we have downstream w updated next_minig_notify field
+    /// In the new loop, listen for new NextMiningNotify
+    /// We add a field to Downstream called is_authorized: bool. If false, this loop just updates
+    /// the NextMiningNotify.  This loop changes the NMN field to prepare for when it is authorized
+    /// If True, loop updates field and sends message to downstream.
+    /// is_authorized in v1/protocols
     pub fn accept_connections(
         submit_sender: Sender<v1::client_to_server::Submit>,
+        receiver_mining_notify: Receiver<server_to_client::Notify>,
+        next_mining_notify: Arc<Mutex<NextMiningNotify>>,
+        // mining_notify_msg: server_to_client::Notify,
+        // next_mining_notify: Arc<Mutex<NextMiningNotify>>,
     ) {
         task::spawn(async move {
             let downstream_listener = TcpListener::bind(crate::LISTEN_ADDR).await.unwrap();
@@ -117,10 +166,16 @@ impl Downstream {
                     "\nPROXY SERVER - ACCEPTING FROM DOWNSTREAM: {}\n",
                     stream.peer_addr().unwrap()
                 );
+                // next_mining_notify
+                //     .safe_lock(|nmn| nmn.create_notify())
+                //     .unwrap();
                 let server = Downstream::new(
                     stream,
                     submit_sender.clone(),
+                    // mining_notify_msg.clone(),
+                    receiver_mining_notify.clone(),
                 )
+                // let server = Downstream::new(stream, submit_sender.clone(), receiver_mining_notify)
                 .await
                 .unwrap();
                 Arc::new(Mutex::new(server));
@@ -163,17 +218,13 @@ impl Downstream {
     /// to be written to the SV1 Downstream Mining Device socket
     async fn send_message_downstream(self_: Arc<Mutex<Self>>, response: json_rpc::Message) {
         println!("DT SEND SV1 MSG TO DOWNSTREAM: {:?}", &response);
-        let sender = self_
-            .safe_lock(|s| s.sender_outgoing.clone())
-            .unwrap();
+        let sender = self_.safe_lock(|s| s.sender_outgoing.clone()).unwrap();
         sender.send(response).await.unwrap();
     }
-
 }
 
 /// Implements `IsServer` for `Downstream` to handle the SV1 messages.
 impl IsServer for Downstream {
-
     fn handle_configure(
         &mut self,
         _request: &client_to_server::Configure,
