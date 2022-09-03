@@ -61,7 +61,7 @@ pub struct Bridge {
     new_extended_mining_job: Receiver<NewExtendedMiningJob<'static>>,
     next_mining_notify: Arc<Mutex<NextMiningNotify>>,
     // TODO: put sender her eor in Bridge to update Dowstream
-    // sender_mining_notify: Sender<server_to_client::Notify>,
+    sender_mining_notify: Sender<server_to_client::Notify>,
 }
 
 impl Bridge {
@@ -72,7 +72,7 @@ impl Bridge {
         set_new_prev_hash: Receiver<SetNewPrevHash<'static>>,
         new_extended_mining_job: Receiver<NewExtendedMiningJob<'static>>,
         next_mining_notify: Arc<Mutex<NextMiningNotify>>,
-        // sender_mining_notify: Sender<server_to_client::Notify>,
+        sender_mining_notify: Sender<server_to_client::Notify>,
     ) -> Self {
         Self {
             submit_from_sv1,
@@ -80,7 +80,7 @@ impl Bridge {
             set_new_prev_hash,
             new_extended_mining_job,
             next_mining_notify,
-            // sender_mining_notify,
+            sender_mining_notify,
         }
     }
 
@@ -122,7 +122,19 @@ impl Bridge {
                     .unwrap();
                 // Sender here to Downstream recvier that updates NMN
                 // do safe lock to take sender (can do this at begining of loop)
-                // let sender_mining_notify = self_.safe_lock(|s| s.sender_mining_notify).unwrap();
+                let sender_mining_notify =
+                    self_.safe_lock(|s| s.sender_mining_notify.clone()).unwrap();
+                let sv1_notify_msg = self_
+                    .safe_lock(|s| {
+                        s.next_mining_notify
+                            .safe_lock(|nmn| nmn.create_notify())
+                            .unwrap()
+                    })
+                    .unwrap();
+                if let Some(msg) = sv1_notify_msg {
+                    println!("SET_NEW_PREV_HASH as mining.notify: {:?}", &msg);
+                    sender_mining_notify.send(msg).await.unwrap();
+                }
             }
         });
     }
@@ -149,17 +161,20 @@ impl Bridge {
                             .unwrap();
                     })
                     .unwrap();
-                self_
+                let sender_mining_notify =
+                    self_.safe_lock(|s| s.sender_mining_notify.clone()).unwrap();
+                let sv1_notify_msg = self_
                     .safe_lock(|s| {
                         s.next_mining_notify
-                            .safe_lock(|nmn| {
-                                nmn.create_notify().await;
-                            })
-                            .unwrap();
+                            .safe_lock(|nmn| nmn.create_notify())
+                            .unwrap()
                     })
                     .unwrap();
+                if let Some(msg) = sv1_notify_msg {
+                    println!("NEW_EXTENDED_MINING_JOB as mining.notify: {:?}", &msg);
+                    sender_mining_notify.send(msg).await.unwrap();
+                }
             }
-            // Sender here to Downstream recvier that updates NMN
         });
     }
 }

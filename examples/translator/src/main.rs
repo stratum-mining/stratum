@@ -75,9 +75,7 @@ async fn main() {
     upstream_sv2::Upstream::parse_incoming(upstream.clone());
     // Start receiving submit from the SV1 Downstream role
     upstream_sv2::Upstream::on_submit(upstream.clone());
-    let next_mining_notify = Arc::new(Mutex::new(NextMiningNotify::new(
-        sender_mining_notify_bridge,
-    )));
+    let next_mining_notify = Arc::new(Mutex::new(NextMiningNotify::new()));
     let next_mining_notify_clone = next_mining_notify.clone();
 
     // Instantiates a new `Bridge` and begins handling incoming messages
@@ -87,7 +85,7 @@ async fn main() {
         recv_new_prev_hash,
         recv_new_extended_mining_job,
         next_mining_notify,
-        // sender_mining_notify_bridge,
+        sender_mining_notify_bridge,
     )
     .start();
     // let mining_notify_msg = next_mining_notify_clone

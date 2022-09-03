@@ -11,15 +11,14 @@ use v1::{
 pub struct NextMiningNotify {
     pub set_new_prev_hash: Option<SetNewPrevHash<'static>>,
     pub new_extended_mining_job: Option<NewExtendedMiningJob<'static>>,
-    pub sender_mining_notify: Sender<server_to_client::Notify>,
+    // pub sender_mining_notify: Sender<server_to_client::Notify>,
 }
 
 impl NextMiningNotify {
-    pub(crate) fn new(sender_mining_notify: Sender<server_to_client::Notify>) -> Self {
+    pub(crate) fn new() -> Self {
         NextMiningNotify {
             set_new_prev_hash: None,
             new_extended_mining_job: None,
-            sender_mining_notify,
         }
     }
 
@@ -66,8 +65,7 @@ impl NextMiningNotify {
         subscribe_response.into()
     }
 
-    pub(crate) async fn create_notify(&self) {
-        // pub(crate) fn create_notify(&self) -> json_rpc::Message {
+    pub(crate) fn create_notify(&self) -> Option<server_to_client::Notify> {
         // Put logic in to make sure that SetNewPrevHash + NewExtendedMiningJob is matching (not
         // future)
         // if new_prev_hash.job_id != new_job.job_id {
@@ -151,11 +149,9 @@ impl NextMiningNotify {
                 time,
                 clean_jobs,
             };
-            self.sender_mining_notify
-                .send(notify_response)
-                .await
-                .unwrap();
-            // notify_response.try_into().unwrap()
+            Some(notify_response)
+        } else {
+            None
         }
     }
 }
