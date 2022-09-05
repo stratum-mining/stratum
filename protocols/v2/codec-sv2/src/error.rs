@@ -95,6 +95,12 @@ pub enum CError {
     CodecTodo,
 }
 
+/// Here only to force cbindgen to create header for CError
+#[no_mangle]
+pub extern "C" fn export_cerror() -> CError {
+    unimplemented!()
+}
+
 impl From<Error> for CError {
     fn from(e: Error) -> CError {
         match e {
