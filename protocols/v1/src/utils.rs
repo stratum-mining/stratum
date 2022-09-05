@@ -7,7 +7,7 @@ use std::{convert::TryFrom, mem::size_of};
 /// Helper type that allows simple serialization and deserialization of byte vectors
 /// that are represented as hex strings in JSON
 #[derive(Clone, Debug, PartialEq)]
-pub struct HexBytes(pub(crate) Vec<u8>);
+pub struct HexBytes(pub Vec<u8>);
 
 impl HexBytes {
     pub fn len(&self) -> usize {
