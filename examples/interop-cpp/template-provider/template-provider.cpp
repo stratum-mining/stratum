@@ -54,11 +54,11 @@ void on_success(CSv2Message message) {
 }
 
 void on_error(Sv2Error error) {
-  switch (error) {
-  case Sv2Error::MissingBytes:
+  switch (error.tag) {
+  case Sv2Error::Tag::MissingBytes:
     cout << "Waiting for the remaining part of the frame \n";
     break;
-  case Sv2Error::Unknown:
+  default:
     cout << "An unkwon error occured \n";
     break;
   }
