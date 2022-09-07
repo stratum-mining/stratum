@@ -53,6 +53,7 @@ impl Downstream {
         let (sender_outgoing, receiver_outgoing) = bounded(10);
 
         let socket_writer_clone = socket_writer.clone();
+        let socket_writer_notify_clone = socket_writer.clone();
 
         let downstream = Arc::new(Mutex::new(Downstream {
             authorized_names: vec![],
@@ -113,13 +114,19 @@ impl Downstream {
             loop {
                 // // Get receiver
                 let is_a: bool = downstream_clone
-                    .safe_lock(|d| d.is_authorized("name"))
+                    .safe_lock(|d| d.is_authorized("user"))
                     .unwrap();
                 if is_a {
                     println!("\n\n RRR INT SV1 MINIG.NOT\n");
                     let sv1_mining_notify_msg =
                         mining_notify_receiver.clone().recv().await.unwrap();
                     println!("\n\n RRR SV1 MINIG.NOT: {:?}\n", &sv1_mining_notify_msg);
+                    let to_send: json_rpc::Message = sv1_mining_notify_msg.try_into().unwrap();
+                    let to_send = format!("{}\n", serde_json::to_string(&to_send).unwrap());
+                    (&*socket_writer_notify_clone)
+                        .write_all(to_send.as_bytes())
+                        .await
+                        .unwrap();
                 }
                 //
                 //                                            // safe lock
@@ -261,8 +268,8 @@ impl IsServer for Downstream {
     /// Indicates to the server that the client supports the mining.set_extranonce method.
     fn handle_extranonce_subscribe(&self) {}
 
-    fn is_authorized(&self, _name: &str) -> bool {
-        true
+    fn is_authorized(&self, name: &str) -> bool {
+        self.authorized_names.contains(&name.to_string())
     }
 
     fn authorize(&mut self, name: &str) {
