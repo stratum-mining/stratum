@@ -263,8 +263,20 @@ struct Client {
 
 impl Client {
     pub async fn new(client_id: u32) -> Arc<Mutex<Self>> {
-        let stream = std::sync::Arc::new(TcpStream::connect(ADDR).await.unwrap());
-        let (reader, writer) = (stream.clone(), stream);
+
+        let stream = loop {
+            match TcpStream::connect(ADDR).await {
+                Ok(st) => break st,
+                Err(_) => {
+                    println!("Server not ready... retry");
+                    continue;
+                }
+            }
+        };
+
+        let arc_stream = std::sync::Arc::new(stream);
+
+        let (reader, writer) = (arc_stream.clone(), arc_stream);
 
         let (sender_incoming, receiver_incoming) = bounded(10);
         let (sender_outgoing, receiver_outgoing) = bounded(10);
@@ -320,7 +332,7 @@ impl Client {
         incoming_message: Result<String, async_channel::TryRecvError>,
     ) {
         if let Ok(line) = incoming_message {
-            println!("CIENT {} - message: {}", self.client_id, line);
+            println!("CLIENT {} - message: {}", self.client_id, line);
             let message: json_rpc::Message = serde_json::from_str(&line).unwrap();
             self.handle_message(message).unwrap();
         };
