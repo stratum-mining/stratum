@@ -8,11 +8,11 @@ pub fn new_extranonce() -> HexBytes {
 }
 
 pub fn new_extranonce2_size() -> usize {
-    4
+    8
 }
 
 pub fn new_difficulty() -> HexBytes {
-    "b4b6693b72a50c7116db18d6497cac52".try_into().unwrap()
+    "0001".try_into().unwrap()
 }
 
 pub fn new_subscription_id() -> HexBytes {
