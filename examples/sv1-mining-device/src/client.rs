@@ -7,8 +7,7 @@ use async_channel::{bounded, Receiver, Sender};
 
 use async_std::{io::BufReader, prelude::*, task};
 use roles_logic_sv2::utils::Mutex;
-use std::sync::Arc;
-use std::time;
+use std::{sync::Arc, time};
 
 use v1::{
     client_to_server,
@@ -91,7 +90,11 @@ impl Client {
         // Sets an initial target for the `Miner`.
         // TODO: This is hard coded for the purposes of a demo, should be set by the SV1
         // `mining.set_difficulty` message received from the Upstream role
-        let default_target: Uint256 = Uint256::from_u64(45_u64).unwrap();
+        let target_vec: [u8; 32] = [
+            0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0,
+        ];
+        let default_target = Uint256::from_be_bytes(target_vec);
         miner.safe_lock(|m| m.new_target(default_target)).unwrap();
 
         let miner_cloned = miner.clone();
@@ -134,9 +137,22 @@ impl Client {
             miner,
         };
 
-        client.send_configure().await;
-        client.send_subscribe().await;
-        client.send_authorize().await;
+        //let line = client.receiver_incoming.recv().await.unwrap();
+        //println!("CLIENT {} - Received: {}", client_id, line);
+        //let message: json_rpc::Message = serde_json::from_str(&line).unwrap();
+        //match client.handle_message(message).unwrap() {
+        //    Some(m) => {
+        //        if m.is_subscribe() {
+        //            client.send_message(m).await;
+        //        } else {
+        //           panic!("unexpected response from upstream");
+        //        }
+        //    }
+        //    None => panic!("unexpected response from upstream"),
+        //};
+        //task::spawn(async move {
+        //    client.send_authorize().await;
+        //});
 
         // Gets the latest candidate block header hash from the `Miner` by calling the `next_share`
         // method. Mocks the act of the `Miner` incrementing the nonce. Performs this in a loop,
@@ -171,12 +187,12 @@ impl Client {
             let recv = receiver_share.clone();
             loop {
                 let (nonce, job_id, version, ntime) = recv.recv().await.unwrap();
-                let extra_nonce2: HexBytes = "0x0000000000000000".try_into().unwrap();
+                let extra_nonce2: HexBytes = "0000000000000000".try_into().unwrap();
                 let version = Some(HexU32Be(version));
                 let submit = client_to_server::Submit {
-                    id: "TODO: ID".into(),
-                    user_name: "TODO: USER NAME".into(),
-                    job_id: "TODO: job_id as String".into(),
+                    id: "TODO ID".into(),
+                    user_name: "user".into(), // TODO: user name should NOT be hardcoded
+                    job_id: job_id.to_string(),
                     extra_nonce2,
                     time: ntime.into(),
                     nonce: nonce.into(),
@@ -188,6 +204,21 @@ impl Client {
             }
         });
 
+        // configure subscribe and authorize
+        client.send_configure().await;
+        loop {
+            match client.status {
+                ClientStatus::Init => panic!("impossible state"),
+                ClientStatus::Configured => {
+                    let incoming = client.receiver_incoming.recv().await.unwrap();
+                    client.parse_message(Ok(incoming)).await;
+                }
+                ClientStatus::Subscribed => {
+                    client.send_authorize().await;
+                    break;
+                }
+            }
+        }
         // Waits for the `sender_incoming` to get message line from socket to be parsed by the
         // `Client`
         loop {
@@ -240,29 +271,7 @@ impl Client {
         self.status = ClientStatus::Configured;
     }
 
-    pub async fn send_subscribe(&mut self) {
-        loop {
-            if let ClientStatus::Configured = self.status {
-                break;
-            }
-        }
-        let id = time::SystemTime::now()
-            .duration_since(time::SystemTime::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos()
-            .to_string();
-        let subscribe = self.subscribe(id, None).unwrap();
-        self.send_message(subscribe).await;
-        // Update status as subscribed
-        self.status = ClientStatus::Subscribed;
-    }
-
     pub async fn send_authorize(&mut self) {
-        loop {
-            if let ClientStatus::Subscribed = self.status {
-                break;
-            }
-        }
         let id = time::SystemTime::now()
             .duration_since(time::SystemTime::UNIX_EPOCH)
             .unwrap()
