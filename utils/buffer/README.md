@@ -238,8 +238,10 @@ Install cargo fuzz with `cargo install cargo-fuzz`
 
 Then do `cd ./fuzz`
 
-Run them with `cargo fuzz run slower -- -rss_limit_mb=5000000000` and
-`cargo fuzz run faster -- -rss_limit_mb=5000000000`
+Make sure you have nightly installed `rustup install nightly`
+
+Run them with `cargo +nightly fuzz run slower -- -rss_limit_mb=5000000000` and
+`cargo +nightly fuzz run faster -- -rss_limit_mb=5000000000`
 
 `BufferPool` is fuzzy tested with `cargo fuzzy`. The test checks if slices created by `BufferPool`
 still contain the same bytes contained at creation time after a random amount of time and after been
