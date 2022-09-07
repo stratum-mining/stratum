@@ -5,19 +5,6 @@
 The Stratum protocol defines how miners, proxies, and pools communicate to contribute hashrate to
 the Bitcoin network.
 
-### Test Coverage
-
-Generate test coverage percentage with cargo-tarpaulin:
-```
-cargo install cargo-tarpaulin
-cargo +nightly tarpaulin --verbose --features prop_test noise_sv2 fuzz with_buffer_pool async_std debug tokio with_tokio derive_codec_sv2 binary_codec_sv2 default core --lib --exclude-files examples/* --timeout 120 --fail-under 20 --out Xml
-```
-
-Must have [`cargo-tarpaulin`](https://github.com/xd009642/tarpaulin) installed globally:
-
-```
-cargo install cargo-tarpaulin
-```
 
 ## Table of Contents
 
@@ -172,7 +159,10 @@ Core Stratum V2 and V1 libraries.
 ### 3.02 protocols/v1
 
 Contains a Sv1 library.
-TODO: more information
+
+**External dependencies**:
+- [serde](https://crates.io/crates/serde) - default-features off - [derive](https://serde.rs/derive.html), [alloc](https://serde.rs/feature-flags.html#-features-alloc) enabled
+- [serde_json](https://github.com/serde-rs/json) - default-features off - [alloc](https://docs.rs/serde_json/latest/serde_json/#no-std-support) enabled
 
 ### 3.03 protocols/v2
 
@@ -376,32 +366,62 @@ A Sv2 CPU miner useful to do integration tests.
 Contains several example implementations of various use cases.
 
 ### 3.19 examples/interop-cpp
+To run:<br>
+`$ run.sh` 
 
-TODO
+This script will build the sv2_ffi crate, then install cbindgen (to generate C bindings), generate
+ the C bindings then compile the template-provider test example with the generated C bindings. Then 
+finally it will run both the template-provider and the interop-cpp example.
+
+See [interop-cpp README](examples/interop-cpp/README.md) for more details 
 
 ### 3.20 examples/interop-cpp-no-cargo
 
-TODO
 
 ### 3.21 examples/ping-pong-with-noise
+This example simply sets up a server on 127.0.0.1:34254 and a client connects to that server.
+This uses the noise protocol to secure the connection. It sends random bytes to the server which
+then prints out the incoming message. This example loops forever and sends a message every second.
 
-TODO
+From the root directory run
+`$cargo run --bin ping_pong_with_noise`
+or from `examples/ping-pong-with-noise` run
+`$cargo run`
 
 ### 3.22 examples/ping-pong-without-noise
+This example simply sets up a server on 127.0.0.1:34254 and a client connects to that server.
+This uses the binary protocol. It sends random bytes to the server which
+then prints out the incoming message. This example loops forever and sends a message every second.
 
-TODO
+From the root directory run
+`$cargo run --bin ping_pong_without_noise`
+or from `examples/ping-pong-without-noise` run
+`$cargo run`
+
 
 ### 3.23 examples/sv1-client-and-server
+Runs a simple stratum v1 client and server such that the client runs through the configure, subscribe, auth
+startup and then sends a mining.submit in a loop every 2 seconds. The server sends a mining.notify to the client every 5s.
+The client and server both print out the messages received.
 
-TODO
+From the root directory run 
+`$cargo run --bin client_and_server`
+or from `examples/sv1-client-and-server` run
+`$cargo run`
 
 ### 3.24 examples/sv2-proxy
+**Deprecated**
 
-TODO
+This runs the [test-pool](roles/v2/test-utils/pool), [mining-proxy](roles/v2/mining-proxy), 
+and [mining-device](roles/v2/test-utils/pool) where test-pool is a sv2 encrypted pool,
+the mining-proxy is an sv2 proxy, the mining-device with a Standard Channel. A group channel is open
+between the proxy and pool. This example is deprecated and isn't fully functional.
+
+From `examples/sv2-proxy` run 
+`$./run.sh`
 
 ### 3.25 examples/template-provider-test
-
-TODO
+**Deprecated** 
 
 ### 3.26 test
 
@@ -415,6 +435,27 @@ Contains experimental logic that is not yet specified as part of the protocol or
 
 ### 4.01 Build
 
+To build the various projects/examples follow the following commands:
+
+`cargo build` - This quickly builds a test/debug artifacts for all crates
+
+`cargo build --release` - This builds artifacts in release mode with optimizations 
+
+**Features**
+
+| Feature                                               | Description                                                                                         | Default | Crate                                                                                                        |
+|-------------------------------------------------------|-----------------------------------------------------------------------------------------------------|---------|--------------------------------------------------------------------------------------------------------------|
+| with_[serde](https://serde.rs/)                       | (De)Serializing - Deprecated                                                                        | no      | network-helpers, interop-cpp, v2/(most), subprotocols/*                                                      |
+ | with_buffer_pool                                      | See [README.md](utils/buffer/README.md)                                                             | no      | network_helpers, v2/codec-sv2, binary-sv2, framing-sv2, no-serde-sv2                                         |
+| [noise](https://docs.rs/snow)_sv2                     | Provides encryption handshaking                                                                     | no      | v2/codec-sv2                                                                                                 |
+ | prop_test                                             | Uses [quickcheck](https://github.com/BurntSushi/quickcheck) for property testing with random values | no      | binary-sv2, no-serde-sv2/codec, subprotocols/common-messages, subprotocols/template-distribution, v2/sv2-ffi |
+| core                                                  | Uses in house binary codec instead of serde                                                         | yes     | v2/binary_sv2                                                                                                |
+| [fuzz](https://crates.io/crates/cargo-fuzz)           | Enables asserts for fuzz tests                                                                      | no      | utils/buffer                                                                                                 |
+ | [async_std](https://async.rs/)                        | Alternative to tokio                                                                                | yes     | network_helpers                                                                                              |
+ | with_[tokio](https://tokio.rs/)                       | For async with custom (de)serializer                                                                | no      | network_helpers                                                                                              |
+ | debug                                                 | Turns on debugging features                                                                         | no      | utils/buffer                                                                                                 |
+ | [criterion](https://github.com/bheisler/criterion.rs) | To [run benchmark tests](utils/buffer/README.md)                                                    | no      | utils/buffer                                                                                                 |
+
 ### 4.02 Test
 
 Generate test coverage percentage with cargo-tarpaulin:
@@ -423,7 +464,7 @@ Generate test coverage percentage with cargo-tarpaulin:
 cargo +nightly tarpaulin --verbose --features prop_test noise_sv2 fuzz with_buffer_pool async_std debug tokio with_tokio derive_codec_sv2 binary_codec_sv2 default core --lib --exclude-files examples/* --timeout 120 --fail-under 30 --out Xml
 ```
 
-Must have [`cargo-tarpaulin`](https://github.com/xd009642/tarpaulin) installed globally:
+Must have [cargo-tarpaulin](https://github.com/xd009642/tarpaulin) installed globally:
 
 ```
 cargo install cargo-tarpaulin
@@ -444,10 +485,9 @@ Only tests the package's library unit tests. Includes protocols, and utils (with
 
 ### 4.03 Run
 
+
 ## 5. Branches
 
-TODO
-
-- main
-- POCRegtest-1-0-0
-- sv2-tp-crates
+- main - the main branch with the latest
+- POCRegtest-1-0-0 - Deprecated POC branch
+- sv2-tp-crates - Subset of main which contains only the files needed by core to implement the template provider

@@ -132,7 +132,7 @@ mod main_ {
                     match message {
                         Sv2Message::SetupConnection(_) => panic!(),
                         Sv2Message::SetupConnectionError(m) => {
-                            println!("RUST MESSAGE RECIVED");
+                            println!("RUST MESSAGE RECEIVED");
                             println!("  {}", std::str::from_utf8(m.error_code.as_ref()).unwrap());
                         }
                     }

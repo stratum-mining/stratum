@@ -1,6 +1,6 @@
 # C++ interop
 
-This crate provide an example of how to use the Rust Sv2 `Decoder` and `Encoder` from C++. 
+This crate provides an example of how to use the Rust Sv2 `Decoder` and `Encoder` from C++. 
 
 To run the example: `./run.sh`.
 
@@ -17,7 +17,7 @@ the `sv2-ffi` as a static library using guix.
 
 ### Header file
 
-The [header file](../../../protocols/v2/sv2-ffi/sv2.h) is generated with `cbindgen`.
+The [header file](../../protocols/v2/sv2-ffi/sv2.h) is generated with `cbindgen`.
 
 Rust enums definition are transformed by `cbingen` in:
 ```c
@@ -157,7 +157,7 @@ The message can contain one or more "owned" `CVec`'s, so it must be manually dro
 [`sv2_ffi::EncoderWrapper`] is instantiated in C++ via [`sv2_ffi::new_encoder`].
 There is no need to drop it as it will live for the entire life of the program.
 
-A [`sv2_ffi::CSv2Message`] can be constructed in C++ ([here is an example](./template-provider/template-provider.cpp#67))
+A [`sv2_ffi::CSv2Message`] can be constructed in C++ ([here is an example](template-provider/template-provider.cpp#67))
 if the message contains one or more `CVec`'s, then the content of the `CVec` must be copied in a Rust allocated
 `CVec` with [`binary_sv2::binary_codec_sv2::cvec_from_buffer`]. The message must be dropped with 
 [`sv2_ffi::drop_sv2_message`].
@@ -211,7 +211,7 @@ The manifest it expect to find `sv2.h` in the `sv2_ffi` package. Since the `sv2.
 the most updated header file, a GitHub Actions check is planned to be added.
 
 ## Install cbindgen
-
+`run.sh` will (indirectly) install cbindgen for you or you can manually
 ```
 $ cargo install cbindgen --force bts
 ```
