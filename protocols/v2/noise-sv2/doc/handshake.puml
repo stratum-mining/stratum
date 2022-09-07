@@ -1,0 +1,90 @@
+@startuml
+
+'' <i>List of supported algorithms</i>
+'' <i>Responder's choise of algorithm</i>
+
+participant Initiator
+participant Responder
+
+note right of Responder
+""Certificate {""
+  ""version: u16,""
+  ""valid_from: u32,""
+  ""not_valid_after: u32,""
+  ""<color blue>static_public_key: s</color>,""
+  ""ca_public_key: Ed25519PubKey,""
+  ""<color green>signature: Signature</color>,""
+""}""
+
+(""static_secret_key"" is implicit)
+endnote
+/note left of Initiator
+""**CA public key**""
+endnote
+
+== Algorithm negotiation ==
+note right of Initiator
+""NegotiationMessage {""
+  ""magic_number: u32,""
+  ""algorithms: Seq0_255<Algorithm>,""
+""}""
+endnote
+Initiator -> Responder: ""NoiseFrame[NegotiationMessage]""
+
+Responder -> Initiator: ""NoiseFrame[Algorithm]""
+
+rnote right of Responder
+  construct prologue:
+  ""Prologue {""
+    ""list_received: Seq0_255<Algorithm>,""
+    ""choice_sent: Algorithm,""
+  ""}""
+endhnote
+/rnote left of Initiator
+  construct prologue:
+  ""Prologue {""
+    ""list_sent: Seq0_255<Algorithm>,""
+    ""choice_received: Algorithm,""
+  ""}""
+endhnote
+
+== Noise handshake using negotiatiated algorithm ==
+note over Initiator: Serialize Prologue\nand commit to the\nhandshake prologue
+/note over Responder: Serialize Prologue\nand commit to the\nhandshake prologue
+Initiator -> Responder: ""NoiseFrame[e]""
+note right of Responder
+""SignatureNoiseMessage {""
+  ""version: u16,""
+  ""valid_from: u32,""
+  ""not_valid_after: u32,""
+  ""<color green>signature: Signature</color>,""
+""}""
+endnote
+Responder -> Initiator: ""NoiseFrame[e, ee, <color blue>**s**</color>, es, SignatureNoiseMessage]""
+
+rnote left of Initiator
+1. Reconstruct certificate from static public key
+obtained during handshake and signature noise message:
+""Certificate {""
+  ""version: u16,""
+  ""valid_from: u32,""
+  ""not_valid_after: u32,""
+  ""<color blue>static_public_key: s</color>,""
+  ""ca_public_key: Ed25519PubKey,""
+  ""<color green>signature: Signature</color>,""
+""}""
+
+2. Verify <color green> signature</color> using CA public key
+endnote
+
+== Switch to the noise transport mode ==
+|||
+note across
+Encrypted communication with ""NoiseFrame[""//Encrypted payload//""]""
+endnote
+Initiator -> Responder: ...
+Initiator <- Responder
+...
+Initiator -> Responder
+Initiator <- Responder
+@enduml

@@ -416,6 +416,43 @@ void free_submit_solution(CSubmitSolution s);
 #include <ostream>
 #include <new>
 
+struct CError {
+  enum class Tag {
+    /// Errors from the `binary_sv2` crate
+    BinarySv2Error,
+    /// Errors if there are missing bytes in the Noise protocol
+    MissingBytes,
+    /// Errors from the `noise_sv2` crate
+    NoiseSv2Error,
+    /// `snow` errors
+    SnowError,
+    /// Error if Noise protocol state is not as expected
+    UnexpectedNoiseState,
+    CodecTodo,
+  };
+
+  struct MissingBytes_Body {
+    uintptr_t _0;
+  };
+
+  Tag tag;
+  union {
+    MissingBytes_Body missing_bytes;
+  };
+};
+
+extern "C" {
+
+/// Here only to force cbindgen to create header for CError
+CError export_cerror();
+
+} // extern "C"
+#include <cstdarg>
+#include <cstdint>
+#include <cstdlib>
+#include <ostream>
+#include <new>
+
 struct DecoderWrapper;
 
 struct EncoderWrapper;
