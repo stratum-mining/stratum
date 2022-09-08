@@ -377,6 +377,7 @@ See [interop-cpp README](examples/interop-cpp/README.md) for more details
 
 ### 3.20 examples/interop-cpp-no-cargo
 
+Same as interop-cpp except it doesn't use `cargo build` - compiles directly with `rustc` instead. 
 
 ### 3.21 examples/ping-pong-with-noise
 This example simply sets up a server on 127.0.0.1:34254 and a client connects to that server.
