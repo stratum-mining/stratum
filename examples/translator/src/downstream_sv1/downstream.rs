@@ -54,6 +54,7 @@ impl Downstream {
         let (sender_outgoing, receiver_outgoing) = bounded(10);
 
         let socket_writer_clone = socket_writer.clone();
+        let socket_writer_set_difficulty_clone = socket_writer.clone();
         let socket_writer_notify_clone = socket_writer.clone();
 
         let downstream = Arc::new(Mutex::new(Downstream {
@@ -113,15 +114,25 @@ impl Downstream {
         // RR TODO
         task::spawn(async move {
             loop {
-                // // Get receiver
+                // Get receiver
                 let is_a: bool = downstream_clone
                     .safe_lock(|d| d.is_authorized("user"))
                     .unwrap();
                 if is_a {
-                    println!("\n\n RRR INT SV1 MINIG.NOT\n");
+                    let set_difficulty = downstream_clone
+                        .safe_lock(|d| {
+                            d.handle_set_difficulty(downstream_sv1::new_difficulty())
+                                .unwrap()
+                        })
+                        .unwrap();
+                    let to_send = format!("{}\n", serde_json::to_string(&set_difficulty).unwrap());
+                    (&*socket_writer_set_difficulty_clone)
+                        .write_all(to_send.as_bytes())
+                        .await
+                        .unwrap();
+
                     let sv1_mining_notify_msg =
                         mining_notify_receiver.clone().recv().await.unwrap();
-                    println!("\n\n RRR SV1 MINIG.NOT: {:?}\n", &sv1_mining_notify_msg);
                     let to_send: json_rpc::Message = sv1_mining_notify_msg.try_into().unwrap();
                     let to_send = format!("{}\n", serde_json::to_string(&to_send).unwrap());
                     (&*socket_writer_notify_clone)

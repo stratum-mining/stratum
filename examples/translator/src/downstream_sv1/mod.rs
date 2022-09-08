@@ -11,8 +11,10 @@ pub fn new_extranonce2_size() -> usize {
     8
 }
 
-pub fn new_difficulty() -> HexBytes {
-    "0001".try_into().unwrap()
+pub fn new_difficulty() -> f64 {
+    1.0
+    // 0x001
+    // "0001".try_into().unwrap()
 }
 
 pub fn new_subscription_id() -> HexBytes {
