@@ -561,15 +561,12 @@ impl VersionRollingParams {
 }
 
 impl TryFrom<VersionRollingParams> for serde_json::Map<String, Value> {
-    type Error = ();
+    type Error = Error;
 
-    fn try_from(vp: VersionRollingParams) -> Result<Self, ()> {
+    fn try_from(vp: VersionRollingParams) -> Result<Self, Error> {
         let version_rolling: Value = vp.version_rolling.into();
-        let version_rolling_mask: Value = vp.version_rolling_mask.try_into().map_err(|_| ())?;
-        let version_rolling_min_bit_count: Value = vp
-            .version_rolling_min_bit_count
-            .try_into()
-            .map_err(|_| ())?;
+        let version_rolling_mask: Value = vp.version_rolling_mask.try_into()?;
+        let version_rolling_min_bit_count: Value = vp.version_rolling_min_bit_count.try_into()?;
         let mut params = serde_json::Map::new();
         params.insert("version-rolling".to_string(), version_rolling);
         params.insert("version-rolling.mask".to_string(), version_rolling_mask);
