@@ -148,7 +148,7 @@ impl TryFrom<Notification> for Notify {
 ///
 #[derive(Debug)]
 pub struct SetDifficulty {
-    value: f64,
+    pub value: f64,
 }
 
 impl From<SetDifficulty> for Message {

@@ -170,6 +170,7 @@ pub enum Server2ClientResponse {
     GeneralResponse(server_to_client::GeneralResponse),
     Authorize(server_to_client::Authorize),
     Submit(server_to_client::Submit),
+    SetDifficulty(server_to_client::SetDifficulty),
 }
 
 impl From<Server2ClientResponse> for Method {

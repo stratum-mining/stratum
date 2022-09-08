@@ -221,6 +221,11 @@ pub trait IsServer {
     // fn update_version_rolling_mask
 
     fn notify(&mut self) -> Result<json_rpc::Message, ()>;
+
+    fn handle_set_difficulty(&mut self, value: f64) -> Result<json_rpc::Message, ()> {
+        let set_difficulty = server_to_client::SetDifficulty { value };
+        Ok(set_difficulty.try_into().unwrap())
+    }
 }
 
 pub trait IsClient {
@@ -287,7 +292,7 @@ pub trait IsClient {
                 self.handle_notify(notify)?;
                 Ok(None)
             }
-            methods::Server2Client::SetDifficulty(_set_diff) => todo!(),
+            methods::Server2Client::SetDifficulty(_set_diff) => Ok(None),
             methods::Server2Client::SetExtranonce(_set_extra_nonce) => todo!(),
             methods::Server2Client::SetVersionMask(_set_version_mask) => todo!(),
         }
@@ -328,6 +333,7 @@ pub trait IsClient {
             methods::Server2ClientResponse::Submit(_) => Ok(None),
             // impossible state
             methods::Server2ClientResponse::GeneralResponse(_) => panic!(),
+            methods::Server2ClientResponse::SetDifficulty(_) => Ok(None),
         }
     }
 
