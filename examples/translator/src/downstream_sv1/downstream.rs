@@ -332,7 +332,7 @@ impl IsServer for Downstream {
         self.version_rolling_min_bit = mask
     }
 
-    fn notify(&mut self) -> Result<json_rpc::Message, ()> {
+    fn notify(&mut self) -> Result<json_rpc::Message, v1::error::Error> {
         server_to_client::Notify {
             job_id: "ciao".to_string(),
             prev_hash: utils::PrevHash(vec![3_u8, 4, 5, 6]),
