@@ -485,6 +485,22 @@ Only tests the package's library unit tests. Includes protocols, and utils (with
 
 ### 4.03 Run
 
+To get a list of the available binaries that can be run type `cargo run --bin` from the root. Then to run specify the 
+binary - for example from the table below to run the interop-cpp test you'd run `cargo run --bin interop-cpp`
+
+| binary                  | location                          | description                                       |
+|-------------------------|-----------------------------------|---------------------------------------------------|
+| client_and_server       | examples/sv1-client-and-server    | Depricated                                        |
+| coinbase-negotiator     | experemental/coinbase-negotiator  | Not complete POC                                  |
+| interop-cpp             | examples/interop-cpp              | Example which uses the ffi C bindings             |
+| mining-device           | roles/v2/test-utils/mining-device | Used in the sv2-proxy example as a mock miner     |
+| mining-proxy            | roles/v2/mining-proxy             | sv1->sv2 mining proxy                             |
+| ping_pong_with_noise    | examples/ping-pong-with-noise     | Example to show noise protocol in use             |
+| ping_pong_without_noise | examples/ping-pong-with-noise     | Example to show sv2 primatives and framing in use |
+| pool                    | roles/v2/pool                     | sv2 pool role                                     |
+| template-provider-test  | examples/template-provider-test   | Depricated                                        |
+| test-pool               | roles/v2/test-utils/pool          | Used in the sv2-proxy example as the sv2 pool     |
+ 
 
 ## 5. Branches
 
