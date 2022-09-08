@@ -208,15 +208,15 @@ pub trait IsServer {
         &mut self,
         extra_nonce1: HexBytes,
         extra_nonce2_size: usize,
-    ) -> Result<json_rpc::Message, ()> {
+    ) -> Result<json_rpc::Message, Error> {
         self.set_extranonce1(Some(extra_nonce1.clone()));
         self.set_extranonce2_size(Some(extra_nonce2_size));
-        (server_to_client::SetExtranonce {
+
+        server_to_client::SetExtranonce {
             extra_nonce1,
             extra_nonce2_size,
-        })
+        }
         .try_into()
-        .map_err(|_| ())
     }
     // {"params":["00003000"], "id":null, "method": "mining.set_version_mask"}
     // fn update_version_rolling_mask
