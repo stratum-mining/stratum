@@ -5,6 +5,7 @@ use serde_json::{
 use std::convert::{TryFrom, TryInto};
 
 use crate::{
+    error::Error,
     json_rpc::{Message, Notification, Response},
     methods::ParsingMethodError,
     utils::{HexBytes, HexU32Be, PrevHash},
@@ -196,10 +197,10 @@ pub struct SetExtranonce {
 }
 
 impl TryFrom<SetExtranonce> for Message {
-    type Error = ();
+    type Error = Error;
 
-    fn try_from(se: SetExtranonce) -> Result<Self, ()> {
-        let extra_nonce1: Value = se.extra_nonce1.try_into().map_err(|_| ())?;
+    fn try_from(se: SetExtranonce) -> Result<Self, Error> {
+        let extra_nonce1: Value = se.extra_nonce1.try_into()?;
         let extra_nonce2_size: Value = se.extra_nonce2_size.into();
         Ok(Message::Notification(Notification {
             method: "mining.set_extranonce".to_string(),

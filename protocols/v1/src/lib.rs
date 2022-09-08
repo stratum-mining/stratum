@@ -51,6 +51,7 @@ use utils::{HexBytes, HexU32Be};
 
 /// json_rpc Response are not handled cause startum v1 do not have any request from a server to a
 /// client
+/// TODO: Should update to accommodate miner requesting a difficulty change
 ///
 /// A stratum v1 server rapresent a single connection with a client
 ///
