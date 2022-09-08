@@ -240,10 +240,10 @@ pub struct SetVersionMask {
 }
 
 impl TryFrom<SetVersionMask> for Message {
-    type Error = ();
+    type Error = Error;
 
-    fn try_from(sv: SetVersionMask) -> Result<Self, ()> {
-        let version_mask: Value = sv.version_mask.try_into().map_err(|_| ())?;
+    fn try_from(sv: SetVersionMask) -> Result<Self, Error> {
+        let version_mask: Value = sv.version_mask.try_into()?;
         Ok(Message::Notification(Notification {
             method: "mining.set_version".to_string(),
             parameters: (&[version_mask][..]).into(),
