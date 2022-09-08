@@ -8,7 +8,6 @@ pub mod server_to_client;
 use crate::json_rpc::{Message, Response};
 
 /// Errors encountered during conversion between valid json_rpc messages and Sv1 messages.
-///
 #[derive(Debug)]
 pub enum MethodError {
     /// If the json_rpc message call a method not defined by Sv1. It contains the called method
