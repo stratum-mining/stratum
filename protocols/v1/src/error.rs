@@ -3,6 +3,8 @@ use crate::methods::{Method, MethodError};
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum Error {
+    /// Errors on bad hex decode/encode.
+    HexError(hex::FromHexError),
     /// Errors if `ClientStatus` is in an unexpected state when a message is received. For example,
     /// if a `mining.subscribed` is received when the `ClientStatus` is in the `Init` state.
     IncorrectClientStatus(String),
@@ -28,6 +30,7 @@ pub enum Error {
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
+            Error::HexError(ref e) => write!(f, "Bad hex encode/decode: `{:?}`", e),
             Error::IncorrectClientStatus(s) => {
                 write!(f, "Client status is incompatible with message: `{}`", s)
             }
@@ -59,6 +62,12 @@ impl std::fmt::Display for Error {
             ),
             Error::UnknownID(e) => write!(f, "Server did not recognize the client id: `{}`.", e),
         }
+    }
+}
+
+impl From<hex::FromHexError> for Error {
+    fn from(e: hex::FromHexError) -> Self {
+        Error::HexError(e)
     }
 }
 
