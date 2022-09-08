@@ -8,7 +8,7 @@ pub enum Error {
     /// Errors if `ClientStatus` is in an unexpected state when a message is received. For example,
     /// if a `mining.subscribed` is received when the `ClientStatus` is in the `Init` state.
     IncorrectClientStatus(String),
-    Infalliable(std::convert::Infallible),
+    Infallible(std::convert::Infallible),
     /// Errors if server receives a `json_rpc` request as the server should only receive responses.
     /// TODO: Should update to accommodate miner requesting a difficulty change
     InvalidJsonRpcMessageKind,
@@ -34,7 +34,7 @@ impl std::fmt::Display for Error {
             Error::IncorrectClientStatus(s) => {
                 write!(f, "Client status is incompatible with message: `{}`", s)
             }
-            Error::Infalliable(ref e) => write!(f, "{:?}", e),
+            Error::Infallible(ref e) => write!(f, "Infallible error{:?}", e),
             Error::InvalidJsonRpcMessageKind => write!(
                 f,
                 "Server received a `json_rpc` response when it should only receive requests"
@@ -73,7 +73,7 @@ impl From<hex::FromHexError> for Error {
 
 impl From<std::convert::Infallible> for Error {
     fn from(e: std::convert::Infallible) -> Self {
-        Error::Infalliable(e)
+        Error::Infallible(e)
     }
 }
 
