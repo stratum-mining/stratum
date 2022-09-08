@@ -50,21 +50,21 @@ pub struct Notify {
 }
 
 impl TryFrom<Notify> for Message {
-    type Error = ();
+    type Error = Error;
 
-    fn try_from(notify: Notify) -> Result<Self, ()> {
-        let prev_hash: Value = notify.prev_hash.try_into().map_err(|_| ())?;
-        let coin_base1: Value = notify.coin_base1.try_into().map_err(|_| ())?;
-        let coin_base2: Value = notify.coin_base2.try_into().map_err(|_| ())?;
+    fn try_from(notify: Notify) -> Result<Self, Error> {
+        let prev_hash: Value = notify.prev_hash.try_into()?;
+        let coin_base1: Value = notify.coin_base1.try_into()?;
+        let coin_base2: Value = notify.coin_base2.try_into()?;
         let mut merkle_branch: Vec<Value> = vec![];
         for mb in notify.merkle_branch {
-            let mb: Value = mb.try_into().map_err(|_| ())?;
+            let mb: Value = mb.try_into()?;
             merkle_branch.push(mb);
         }
         let merkle_branch = JArrary(merkle_branch);
-        let version: Value = notify.version.try_into().map_err(|_| ())?;
-        let bits: Value = notify.bits.try_into().map_err(|_| ())?;
-        let time: Value = notify.time.try_into().map_err(|_| ())?;
+        let version: Value = notify.version.try_into()?;
+        let bits: Value = notify.bits.try_into()?;
+        let time: Value = notify.time.try_into()?;
         Ok(Message::Notification(Notification {
             method: "mining.notify".to_string(),
             parameters: (&[
