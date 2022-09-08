@@ -263,7 +263,6 @@ struct Client {
 
 impl Client {
     pub async fn new(client_id: u32) -> Arc<Mutex<Self>> {
-
         let stream = loop {
             match TcpStream::connect(ADDR).await {
                 Ok(st) => break st,
