@@ -18,6 +18,9 @@ pub enum Error {
     InvalidSubmission,
     /// Errors encountered during conversion between valid `json_rpc` messages and SV1 messages.
     Method(MethodError),
+    /// Errors if action is attempted that requires the client to be authorized, but it is
+    /// unauthorized. The client `id` is given in the error message.
+    UnauthorizedClient(String),
     /// Errors if server does not recognize the client's `id`.
     UnknownID(String),
 }
@@ -49,6 +52,11 @@ impl std::fmt::Display for Error {
                     e
                 )
             }
+            Error::UnauthorizedClient(id) => write!(
+                f,
+                "Client with id `{}` expected to be authorized but is unauthorized.",
+                id
+            ),
             Error::UnknownID(e) => write!(f, "Server did not recognize the client id: `{}`.", e),
         }
     }
