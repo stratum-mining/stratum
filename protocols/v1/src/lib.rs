@@ -402,7 +402,6 @@ pub trait IsClient {
         extranonce1: Option<HexBytes>,
     ) -> Result<json_rpc::Message, Error> {
         match self.status() {
-            // ClientStatus::Init => Err(()),
             ClientStatus::Init => Err(Error::IncorrectClientStatus("mining.subscribe".to_string())),
             _ => Ok(client_to_server::Subscribe {
                 id,
