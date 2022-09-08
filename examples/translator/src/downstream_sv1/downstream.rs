@@ -254,8 +254,19 @@ impl IsServer for Downstream {
         )
     }
 
+    /// Handle the response to a `mining.subscribe` message received from the client.
+    /// The subscription messages are erroneous and just used to conform the SV1 protocol spec.
     fn handle_subscribe(&self, _request: &client_to_server::Subscribe) -> Vec<(String, String)> {
-        vec![]
+        let set_difficulty_sub = (
+            "mining.set_difficulty".to_string(),
+            "b4b6693b72a50c7116db18d6497cac52".to_string(),
+        );
+        let notify_sub = (
+            "mining.notify".to_string(),
+            "ae6812eb4cd7735a302a8a9dd95cf71f".to_string(),
+        );
+
+        vec![set_difficulty_sub, notify_sub]
     }
 
     fn handle_authorize(&self, _request: &client_to_server::Authorize) -> bool {
