@@ -3,6 +3,9 @@ use crate::methods::{Method, MethodError};
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum Error {
+    /// Errors if `ClientStatus` is in an unexpected state when a message is received. For example,
+    /// if a `mining.subscribed` is received when the `ClientStatus` is in the `Init` state.
+    IncorrectClientStatus(String),
     Infalliable(std::convert::Infallible),
     /// Errors if server receives a `json_rpc` request as the server should only receive responses.
     /// TODO: Should update to accommodate miner requesting a difficulty change
@@ -22,6 +25,9 @@ pub enum Error {
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
+            Error::IncorrectClientStatus(s) => {
+                write!(f, "Client status is incompatible with message: `{}`", s)
+            }
             Error::Infalliable(ref e) => write!(f, "{:?}", e),
             Error::InvalidJsonRpcMessageKind => write!(
                 f,

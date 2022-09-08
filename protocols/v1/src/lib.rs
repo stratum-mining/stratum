@@ -400,9 +400,10 @@ pub trait IsClient {
         &mut self,
         id: String,
         extranonce1: Option<HexBytes>,
-    ) -> Result<json_rpc::Message, ()> {
+    ) -> Result<json_rpc::Message, Error> {
         match self.status() {
-            ClientStatus::Init => Err(()),
+            // ClientStatus::Init => Err(()),
+            ClientStatus::Init => Err(Error::IncorrectClientStatus("mining.subscribe".to_string())),
             _ => Ok(client_to_server::Subscribe {
                 id,
                 agent_signature: self.signature(),
