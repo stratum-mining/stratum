@@ -1,4 +1,5 @@
 use crate::{
+    downstream_sv1,
     error::ProxyResult,
     proxy::next_mining_notify::{self, NextMiningNotify},
 };
@@ -236,14 +237,14 @@ impl IsServer for Downstream {
         &mut self,
         _request: &client_to_server::Configure,
     ) -> (Option<server_to_client::VersionRollingParams>, Option<bool>) {
-        self.version_rolling_mask = self.version_rolling_mask.clone().map_or(
-            Some(crate::downstream_sv1::new_version_rolling_mask()),
-            Some,
-        );
+        self.version_rolling_mask = self
+            .version_rolling_mask
+            .clone()
+            .map_or(Some(downstream_sv1::new_version_rolling_mask()), Some);
         self.version_rolling_min_bit = self
             .version_rolling_mask
             .clone()
-            .map_or(Some(crate::downstream_sv1::new_version_rolling_min()), Some);
+            .map_or(Some(downstream_sv1::new_version_rolling_min()), Some);
         (
             Some(server_to_client::VersionRollingParams::new(
                 self.version_rolling_mask.clone().unwrap(),
@@ -278,7 +279,7 @@ impl IsServer for Downstream {
 
     /// Set extranonce1 to extranonce1 if provided. If not create a new one and set it.
     fn set_extranonce1(&mut self, extranonce1: Option<HexBytes>) -> HexBytes {
-        self.extranonce1 = extranonce1.unwrap_or_else(crate::downstream_sv1::new_extranonce);
+        self.extranonce1 = extranonce1.unwrap_or_else(downstream_sv1::new_extranonce);
         self.extranonce1.clone()
     }
 
@@ -289,7 +290,7 @@ impl IsServer for Downstream {
     /// Set extranonce2_size to extranonce2_size if provided. If not create a new one and set it.
     fn set_extranonce2_size(&mut self, extra_nonce2_size: Option<usize>) -> usize {
         self.extranonce2_size =
-            extra_nonce2_size.unwrap_or_else(crate::downstream_sv1::new_extranonce2_size);
+            extra_nonce2_size.unwrap_or_else(downstream_sv1::new_extranonce2_size);
         self.extranonce2_size
     }
 
