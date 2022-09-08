@@ -223,9 +223,9 @@ pub trait IsServer {
 
     fn notify(&mut self) -> Result<json_rpc::Message, ()>;
 
-    fn handle_set_difficulty(&mut self, value: f64) -> Result<json_rpc::Message, ()> {
+    fn handle_set_difficulty(&mut self, value: f64) -> Result<json_rpc::Message, Error> {
         let set_difficulty = server_to_client::SetDifficulty { value };
-        Ok(set_difficulty.try_into().unwrap())
+        Ok(set_difficulty.try_into()?)
     }
 }
 
