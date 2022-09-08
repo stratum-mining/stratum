@@ -314,7 +314,7 @@ pub trait IsClient {
                 self.set_status(ClientStatus::Configured);
                 println!("WARNING: Subscribe extranonce is hardcoded by server");
                 let subscribe = self
-                    .subscribe(configure.id, Some("08000002".try_into().unwrap()))
+                    .subscribe(configure.id, Some("08000002".try_into()?))
                     .ok();
                 Ok(subscribe)
             }
