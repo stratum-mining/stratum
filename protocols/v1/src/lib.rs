@@ -221,7 +221,7 @@ pub trait IsServer {
     // {"params":["00003000"], "id":null, "method": "mining.set_version_mask"}
     // fn update_version_rolling_mask
 
-    fn notify(&mut self) -> Result<json_rpc::Message, ()>;
+    fn notify(&mut self) -> Result<json_rpc::Message, Error>;
 
     fn handle_set_difficulty(&mut self, value: f64) -> Result<json_rpc::Message, Error> {
         let set_difficulty = server_to_client::SetDifficulty { value };
