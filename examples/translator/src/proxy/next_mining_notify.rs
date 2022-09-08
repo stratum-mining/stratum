@@ -38,32 +38,6 @@ impl NextMiningNotify {
         self.new_extended_mining_job = Some(new_extended_mining_job);
     }
 
-    /// `mining.notify`:  subscription id
-    /// extranonce1
-    /// extranonce_size2
-    pub(crate) fn create_subscribe_response(&self) -> json_rpc::Message {
-        println!("IN NEW_MINING_NOTIFY: {:?}", &self);
-        let extra_nonce1 = downstream_sv1::new_extranonce();
-        // let extranonce1_str: String = extra_nonce1.try_into().unwrap();
-        let extra_nonce2_size = downstream_sv1::new_extranonce2_size();
-        let difficulty = downstream_sv1::new_difficulty();
-        let difficulty: String = difficulty.try_into().unwrap();
-        let set_difficulty_str = format!("[\"mining.set_difficulty\", \"{}\"]", difficulty);
-        let subscription_id = downstream_sv1::new_subscription_id();
-        let subscription_id: String = subscription_id.try_into().unwrap();
-        let notify_str = format!("[\"mining.notify\", \"{}\"]", subscription_id);
-        let id = "1".to_string();
-        let subscriptions = vec![(set_difficulty_str, notify_str)];
-
-        let subscribe_response = server_to_client::Subscribe {
-            id,
-            extra_nonce1,
-            extra_nonce2_size,
-            subscriptions,
-        };
-        subscribe_response.into()
-    }
-
     pub(crate) fn create_notify(&self) -> Option<server_to_client::Notify> {
         // Put logic in to make sure that SetNewPrevHash + NewExtendedMiningJob is matching (not
         // future)
