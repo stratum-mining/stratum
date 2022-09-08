@@ -402,7 +402,6 @@ pub trait IsClient {
         extranonce1: Option<HexBytes>,
     ) -> Result<json_rpc::Message, Error> {
         match self.status() {
-            // ClientStatus::Init => Err(()),
             ClientStatus::Init => Err(Error::IncorrectClientStatus("mining.subscribe".to_string())),
             _ => Ok(client_to_server::Subscribe {
                 id,
@@ -418,9 +417,9 @@ pub trait IsClient {
         id: String,
         name: String,
         password: String,
-    ) -> Result<json_rpc::Message, ()> {
+    ) -> Result<json_rpc::Message, Error> {
         match self.status() {
-            ClientStatus::Init => Err(()),
+            ClientStatus::Init => Err(Error::IncorrectClientStatus("mining.authorize".to_string())),
             _ => Ok(client_to_server::Authorize { id, name, password }.into()),
         }
     }
@@ -433,13 +432,14 @@ pub trait IsClient {
         time: i64,
         nonce: i64,
         version_bits: Option<HexU32Be>,
-    ) -> Result<json_rpc::Message, ()> {
+    ) -> Result<json_rpc::Message, Error> {
         match self.status() {
-            ClientStatus::Init => Err(()),
+            ClientStatus::Init => Err(Error::IncorrectClientStatus("mining.submit".to_string())),
             _ => {
                 // TODO check if version_bits is set
                 if self.last_notify().is_none() {
-                    Err(())
+                    // Err(())
+                    panic!("TODO: Check if version_bits is set");
                 } else if self.is_authorized(&user_name) {
                     Ok(client_to_server::Submit {
                         job_id: self.last_notify().unwrap().job_id,
@@ -452,7 +452,7 @@ pub trait IsClient {
                     }
                     .into())
                 } else {
-                    Err(())
+                    Err(Error::UnauthorizedClient(id))
                 }
             }
         }
