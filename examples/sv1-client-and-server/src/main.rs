@@ -46,8 +46,8 @@ struct Server {
 }
 
 async fn server_pool() {
-    let listner = TcpListener::bind(ADDR).await.unwrap();
-    let mut incoming = listner.incoming();
+    let listener = TcpListener::bind(ADDR).await.unwrap();
+    let mut incoming = listener.incoming();
     while let Some(stream) = incoming.next().await {
         let stream = stream.unwrap();
         println!("SERVER - Accepting from: {}", stream.peer_addr().unwrap());
