@@ -286,7 +286,7 @@ impl IsServer for Downstream {
     }
 
     fn handle_submit(&self, request: &client_to_server::Submit) -> bool {
-        // 1. Check if receiving valid shares
+        // 1. Check if receiving valid shares by adding diff field to Downstream
         // 2. Have access to &self, use safe_lock to access sender_submit to the Bridge
         // If we need a multiple ref, we can put the channel in a Arc<Mutex<>> or change the
         // IsServer trait handle_submit def
@@ -345,7 +345,7 @@ impl IsServer for Downstream {
 
     fn notify(&mut self) -> Result<json_rpc::Message, v1::error::Error> {
         server_to_client::Notify {
-            job_id: "ciao".to_string(),
+            job_id: "deadbeef".to_string(),
             prev_hash: utils::PrevHash(vec![3_u8, 4, 5, 6]),
             coin_base1: "ffff".try_into().unwrap(),
             coin_base2: "ffff".try_into().unwrap(),

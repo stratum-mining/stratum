@@ -95,13 +95,37 @@ impl Bridge {
         task::spawn(async move {
             loop {
                 let submit_recv = self_.safe_lock(|s| s.submit_from_sv1.clone()).unwrap();
-                println!("\n\n RRRR SUBMIT RECVD: \n");
                 let sv1_submit = submit_recv.clone().recv().await.unwrap();
-                let sv2_submit: SubmitSharesExtended = todo!();
+                let sv2_submit: SubmitSharesExtended = Self::translate_submit(sv1_submit);
                 let submit_to_sv2 = self_.safe_lock(|s| s.submit_to_sv2.clone()).unwrap();
                 submit_to_sv2.send(sv2_submit).await.unwrap();
             }
         });
+    }
+
+    fn translate_submit(sv1_submit: Submit) -> SubmitSharesExtended<'static> {
+        println!("\n\n RRRR SUBMIT RECVD: {:?}\n", &sv1_submit);
+        // TODO
+        let sequence_number = 1;
+
+        // TODO
+        let extranonce: binary_sv2::B032 = vec![
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00,
+        ]
+        .try_into()
+        .expect("Invalid `B032`");
+
+        SubmitSharesExtended {
+            channel_id: 1,
+            sequence_number,
+            job_id: sv1_submit.job_id.parse::<u32>().unwrap(),
+            nonce: sv1_submit.nonce as u32,
+            ntime: sv1_submit.time as u32,
+            version: sv1_submit.version_bits.unwrap().0,
+            extranonce,
+        }
     }
 
     fn handle_new_prev_hash(self_: Arc<Mutex<Self>>) {

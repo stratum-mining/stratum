@@ -1872,6 +1872,7 @@ dependencies = [
  "async-channel",
  "async-recursion",
  "async-std",
+ "binary_sv2",
  "buffer_sv2",
  "codec_sv2",
  "network_helpers",

@@ -182,11 +182,27 @@ impl Upstream {
         });
     }
 
-    pub fn on_submit(_self_: Arc<Mutex<Self>>) {
+    pub fn on_submit(self_: Arc<Mutex<Self>>) {
         // TODO
         // check if submit meet the upstream target and if so send back (upstream target will
         // likely be not the same of downstream target)
-        task::spawn(async { loop {} });
+        task::spawn(async move {
+            loop {
+                let receiver = self_
+                    .safe_lock(|s| s.submit_from_dowstream.clone())
+                    .unwrap();
+                let sv2_submit: SubmitSharesExtended = receiver.recv().await.unwrap();
+                println!("\n\nRRRR UPSTREAM IN ON SUBMIT: {:?}\n", &sv2_submit);
+                let message = Mining::SubmitSharesExtended(sv2_submit);
+                let message = Message::Mining(message);
+                let frame: StdFrame = message.try_into().unwrap();
+                let frame: EitherFrame = frame.try_into().unwrap();
+                let sender = self_
+                    .safe_lock(|self_| self_.connection.sender.clone())
+                    .unwrap();
+                sender.send(frame).await.unwrap();
+            }
+        });
     }
 
     fn is_contained_in_upstream_target(&self, _share: SubmitSharesExtended) -> bool {
