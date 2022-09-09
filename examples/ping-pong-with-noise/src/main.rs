@@ -38,7 +38,7 @@ async fn server_pool_listen(listener: TcpListener) {
             "server".to_string(),
             stream,
             HandshakeRole::Responder(responder),
-            u32::MAX
+            u32::MAX,
         )
         .await;
     }
