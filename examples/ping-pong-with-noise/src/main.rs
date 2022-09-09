@@ -6,6 +6,7 @@ use async_std::{
     task,
 };
 use codec_sv2::{HandshakeRole, Initiator, Responder};
+use std::env;
 use std::time;
 
 const ADDR: &str = "127.0.0.1:34254";
@@ -20,7 +21,7 @@ pub const AUTHORITY_PRIVATE_K: [u8; 32] = [
     5, 173, 0, 234, 59, 15, 127, 31, 160, 136, 131,
 ];
 
-const CERT_VALIDITY: std::time::Duration = std::time::Duration::from_secs(3600);
+const CERT_VALIDITY: time::Duration = time::Duration::from_secs(3600);
 
 async fn server_pool() {
     let listner = TcpListener::bind(ADDR).await.unwrap();
@@ -38,12 +39,15 @@ async fn server_pool() {
             "server".to_string(),
             stream,
             HandshakeRole::Responder(responder),
+            0,
         )
         .await;
+        println!("After creating new server");
     }
 }
 
-async fn new_client(name: String) {
+async fn new_client(name: String, test: u32) {
+    //let test = test.clone();
     let stream = loop {
         match TcpStream::connect(ADDR).await {
             Ok(st) => break st,
@@ -54,7 +58,7 @@ async fn new_client(name: String) {
         }
     };
     let initiator = Initiator::from_raw_k(AUTHORITY_PUBLIC_K).unwrap();
-    let client = node::Node::new(name, stream, HandshakeRole::Initiator(initiator)).await;
+    let client = node::Node::new(name, stream, HandshakeRole::Initiator(initiator), test).await;
 
     task::block_on(async move {
         loop {
@@ -64,9 +68,18 @@ async fn new_client(name: String) {
             }
         }
     });
+    println!("finished new_client method");
 }
 
 fn main() {
+    let args: Vec<String> = env::args().collect();
+
+    let test = if args.len() > 1 {
+        args[1].parse::<u32>().unwrap()
+    } else {
+        u32::MAX
+    };
+
     std::thread::spawn(|| {
         task::spawn(async {
             server_pool().await;
@@ -76,7 +89,8 @@ fn main() {
         let mut i: u32 = 0;
         loop {
             if i < 1 {
-                new_client(format!("Client{}", i)).await;
+                new_client(format!("Client{}", i), test).await;
+                println!("finished created new client");
                 i += 1;
             };
             task::sleep(time::Duration::from_millis(1000)).await;

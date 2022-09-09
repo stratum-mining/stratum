@@ -46,11 +46,11 @@ jobs:
           command: test
           args: --features prop_test
 
-      - name: Build ping-pong-with-noise example
+      - name: Run ping-pong-with-noise example
         uses: actions-rs/cargo@v1
         with:
-          command: build
-          args: --manifest-path examples/ping-pong-with-noise/Cargo.toml
+          command: run
+          args: --bin ping_pong_with_noise -- 10
 
       - name: Build ping-pong-without-noise example
         uses: actions-rs/cargo@v1
