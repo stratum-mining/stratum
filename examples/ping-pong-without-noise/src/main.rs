@@ -15,7 +15,11 @@ async fn server_pool() {
     while let Some(stream) = incoming.next().await {
         let stream = stream.unwrap();
         println!("SERVER - Accepting from: {}", stream.peer_addr().unwrap());
-        let _server = node::Node::new("server".to_string(), stream, u32::MAX);
+        let _server = node::Node::new(
+            "server".to_string(),
+            stream,
+            u32::MAX, //We only need the client to have a valid test count
+        );
     }
 }
 
