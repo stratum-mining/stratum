@@ -39,15 +39,13 @@ async fn server_pool() {
             "server".to_string(),
             stream,
             HandshakeRole::Responder(responder),
-            0,
+            u32::MAX
         )
         .await;
-        println!("After creating new server");
     }
 }
 
-async fn new_client(name: String, test: u32) {
-    //let test = test.clone();
+async fn new_client(name: String, test_count: u32) {
     let stream = loop {
         match TcpStream::connect(ADDR).await {
             Ok(st) => break st,
@@ -58,7 +56,7 @@ async fn new_client(name: String, test: u32) {
         }
     };
     let initiator = Initiator::from_raw_k(AUTHORITY_PUBLIC_K).unwrap();
-    let client = node::Node::new(name, stream, HandshakeRole::Initiator(initiator), test).await;
+    let client = node::Node::new(name, stream, HandshakeRole::Initiator(initiator), test_count).await;
 
     task::block_on(async move {
         loop {
@@ -68,13 +66,12 @@ async fn new_client(name: String, test: u32) {
             }
         }
     });
-    println!("finished new_client method");
 }
 
 fn main() {
     let args: Vec<String> = env::args().collect();
 
-    let test = if args.len() > 1 {
+    let test_count = if args.len() > 1 {
         args[1].parse::<u32>().unwrap()
     } else {
         u32::MAX
@@ -89,8 +86,7 @@ fn main() {
         let mut i: u32 = 0;
         loop {
             if i < 1 {
-                new_client(format!("Client{}", i), test).await;
-                println!("finished created new client");
+                new_client(format!("Client{}", i), test_count).await;
                 i += 1;
             };
             task::sleep(time::Duration::from_millis(1000)).await;

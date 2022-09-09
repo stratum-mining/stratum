@@ -33,7 +33,7 @@ pub struct Node {
 }
 
 impl Node {
-    pub async fn new(name: String, socket: TcpStream, role: HandshakeRole, test: u32) -> Arc<Mutex<Self>> {
+    pub async fn new(name: String, socket: TcpStream, role: HandshakeRole, test_count: u32) -> Arc<Mutex<Self>> {
         let (receiver, sender) = Connection::new(socket, role, 10).await;
 
         let node = Arc::new(Mutex::new(Node {
@@ -49,7 +49,7 @@ impl Node {
             loop {
                 task::sleep(time::Duration::from_millis(500)).await;
                 if let Some(mut node) = cloned.try_lock() {
-                    if test > 0 && (node.last_id > test) {
+                    if node.last_id > test_count {
                         node.sender.close();
                         node.receiver.close();
                         println!("Test Successful");
