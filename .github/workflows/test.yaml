@@ -52,14 +52,14 @@ jobs:
           command: run
           args: --bin ping_pong_with_noise -- 10
 
-      - name: Build ping-pong-without-noise example
+      - name: Run ping-pong-without-noise example
         uses: actions-rs/cargo@v1
         with:
           command: run
           args: --bin ping_pong_without_noise -- 10
 
-      - name: Build sv1-client-and-server example
-        uses: actions-rs/cargo@v1
+      - name: Run sv1-client-and-server example
+        uses: actions-rs/toolchain@v1
         with:
-          command: build
-          args: --manifest-path examples/sv1-client-and-server/Cargo.toml
+          toolchain: stable
+        - run: timeout 30s cargo run --bin client_and_server
