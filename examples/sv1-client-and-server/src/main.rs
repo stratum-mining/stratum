@@ -8,8 +8,7 @@ use async_std::{
     sync::{Arc, Mutex},
     task,
 };
-use std::process::exit;
-use std::{env, time};
+use std::{env, process::exit, time};
 
 const ADDR: &str = "127.0.0.1:34254";
 
