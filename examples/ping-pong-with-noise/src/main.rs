@@ -39,7 +39,7 @@ async fn server_pool() {
             "server".to_string(),
             stream,
             HandshakeRole::Responder(responder),
-            u32::MAX
+            u32::MAX,
         )
         .await;
     }
@@ -56,7 +56,13 @@ async fn new_client(name: String, test_count: u32) {
         }
     };
     let initiator = Initiator::from_raw_k(AUTHORITY_PUBLIC_K).unwrap();
-    let client = node::Node::new(name, stream, HandshakeRole::Initiator(initiator), test_count).await;
+    let client = node::Node::new(
+        name,
+        stream,
+        HandshakeRole::Initiator(initiator),
+        test_count,
+    )
+    .await;
 
     task::block_on(async move {
         loop {
