@@ -2,8 +2,8 @@
 
 ### Clone and build core
 
-1. clone https://github.com/ccdle12/bitcoin/ and checkout `2022.04.06-POC-Regtest-1-0-0`
-2. do `./autogen.sh && ./configure --without-bdb --without-gui --disable-tests --enable-template-provider --disable-bench`
+1. clone https://github.com/ccdle12/bitcoin/ and checkout `2022.09.08-add-sv2-template-provider`
+2. do `./autogen.sh && ./configure --enable-template-provider`
 3. do `make`
 
 ### Start and initialize bictoind
