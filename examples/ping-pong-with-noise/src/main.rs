@@ -6,8 +6,7 @@ use async_std::{
     task,
 };
 use codec_sv2::{HandshakeRole, Initiator, Responder};
-use std::env;
-use std::time;
+use std::{env, time};
 
 const ADDR: &str = "127.0.0.1:34254";
 
