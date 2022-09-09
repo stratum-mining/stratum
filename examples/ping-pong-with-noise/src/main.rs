@@ -38,7 +38,7 @@ async fn server_pool_listen(listener: TcpListener) {
             "server".to_string(),
             stream,
             HandshakeRole::Responder(responder),
-            u32::MAX //We only need the client to have a valid test count
+            u32::MAX, //We only need the client to have a valid test count
         )
         .await;
     }
