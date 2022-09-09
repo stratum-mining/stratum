@@ -59,7 +59,7 @@ jobs:
           args: --bin ping_pong_without_noise -- 10
 
       - name: Run sv1-client-and-server example
-        uses: actions-rs/toolchain@v1
+        uses: actions-rs/cargo@v1
         with:
-          toolchain: stable
-        - run: timeout 30s cargo run --bin client_and_server
+          command: run
+          args: run --bin client_and_server 10
