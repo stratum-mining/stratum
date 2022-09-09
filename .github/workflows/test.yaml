@@ -68,7 +68,7 @@ jobs:
           args: --bin ping_pong_without_noise -- 10
 
       - name: Run sv1-client-and-server example
-        uses: actions-rs/toolchain@v1
+        uses: actions-rs/cargo@v1
         with:
           command: run
           args: --bin client_and_server -- 60

@@ -117,9 +117,8 @@ impl Server {
                 if let Some(mut self_) = cloned.try_lock() {
                     self_.send_notify().await;
                     drop(self_);
-                    sleep(Duration::from_secs(notify_time));
-                    //subtract notify_time from run_time
-                    run_time -= notify_time as i32;
+                    task::sleep(time::Duration::from_secs(notify_time)).await;
+                    run_time -= notify_time;
 
                     if run_time <= 0 {
                         println!("Test Success - ran for {} seconds", Self::get_runtime());
@@ -132,13 +131,14 @@ impl Server {
         server
     }
 
-    fn get_runtime() -> i32 {
+    fn get_runtime() -> u64 {
         let args: Vec<String> = env::args().collect();
-        if args.len() > 1 {
-            args[1].parse::<i32>().unwrap()
+        let run_time = if args.len() > 1 {
+            args[1].parse::<u64>().unwrap()
         } else {
-            i32::MAX
-        }
+            u64::MAX
+        };
+        run_time
     }
 
     #[allow(clippy::single_match)]
