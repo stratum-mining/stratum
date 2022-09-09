@@ -95,6 +95,7 @@ impl Bridge {
         task::spawn(async move {
             loop {
                 let submit_recv = self_.safe_lock(|s| s.submit_from_sv1.clone()).unwrap();
+                println!("\n\n RRRR SUBMIT RECVD: \n");
                 let sv1_submit = submit_recv.clone().recv().await.unwrap();
                 let sv2_submit: SubmitSharesExtended = todo!();
                 let submit_to_sv2 = self_.safe_lock(|s| s.submit_to_sv2.clone()).unwrap();

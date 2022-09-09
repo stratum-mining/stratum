@@ -267,6 +267,7 @@ impl IsServer for Downstream {
 
     /// Handle the response to a `mining.subscribe` message received from the client.
     /// The subscription messages are erroneous and just used to conform the SV1 protocol spec.
+    /// Because no one unsubscribed in practice, they just unplug their machine.
     fn handle_subscribe(&self, _request: &client_to_server::Subscribe) -> Vec<(String, String)> {
         let set_difficulty_sub = (
             "mining.set_difficulty".to_string(),
@@ -284,7 +285,17 @@ impl IsServer for Downstream {
         true
     }
 
-    fn handle_submit(&self, _request: &client_to_server::Submit) -> bool {
+    fn handle_submit(&self, request: &client_to_server::Submit) -> bool {
+        // 1. Check if receiving valid shares
+        // 2. Have access to &self, use safe_lock to access sender_submit to the Bridge
+        // If we need a multiple ref, we can put the channel in a Arc<Mutex<>> or change the
+        // IsServer trait handle_submit def
+        // Concern that the channel my become full. Max 10 messages. If full, we unwrap and it
+        // panics.
+        // Can use an unbounded channel.
+        // Another reason for a potential panic: The channel would close if the Bridge thread
+        // panics.
+        self.submit_sender.try_send(request.clone()).unwrap();
         true
     }
 
