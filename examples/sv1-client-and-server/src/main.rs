@@ -8,7 +8,8 @@ use async_std::{
     sync::{Arc, Mutex},
     task,
 };
-use std::time;
+use std::process::exit;
+use std::{env, time};
 
 const ADDR: &str = "127.0.0.1:34254";
 
@@ -58,7 +59,7 @@ async fn server_pool() {
 
 impl Server {
     pub async fn new(stream: TcpStream) -> Arc<Mutex<Self>> {
-        let stream = std::sync::Arc::new(stream);
+        let stream = Arc::new(stream);
 
         let (reader, writer) = (stream.clone(), stream);
 
@@ -106,16 +107,35 @@ impl Server {
 
         let cloned = server.clone();
         task::spawn(async move {
+            let mut run_time = Self::get_runtime();
+
             loop {
+                let notify_time = 5;
                 if let Some(mut self_) = cloned.try_lock() {
                     self_.send_notify().await;
                     drop(self_);
-                    task::sleep(time::Duration::from_secs(5)).await;
+                    task::sleep(time::Duration::from_secs(notify_time)).await;
+                    run_time -= notify_time;
+
+                    if run_time <= 0 {
+                        println!("Test Success - ran for {} seconds", Self::get_runtime());
+                        exit(0)
+                    }
                 };
             }
         });
 
         server
+    }
+
+    fn get_runtime() -> u64 {
+        let args: Vec<String> = env::args().collect();
+        let run_time = if args.len() > 1 {
+            args[1].parse::<u64>().unwrap()
+        } else {
+            u64::MAX
+        };
+        run_time
     }
 
     #[allow(clippy::single_match)]
@@ -238,9 +258,9 @@ impl IsServer for Server {
             coin_base1: "ffff".try_into().unwrap(),
             coin_base2: "ffff".try_into().unwrap(),
             merkle_branch: vec!["fff".try_into().unwrap()],
-            version: utils::HexU32Be(5667),
-            bits: utils::HexU32Be(5678),
-            time: utils::HexU32Be(5609),
+            version: HexU32Be(5667),
+            bits: HexU32Be(5678),
+            time: HexU32Be(5609),
             clean_jobs: true,
         }
         .try_into()
@@ -263,7 +283,7 @@ struct Client {
 
 impl Client {
     pub async fn new(client_id: u32) -> Arc<Mutex<Self>> {
-        let stream = std::sync::Arc::new(TcpStream::connect(ADDR).await.unwrap());
+        let stream = Arc::new(TcpStream::connect(ADDR).await.unwrap());
         let (reader, writer) = (stream.clone(), stream);
 
         let (sender_incoming, receiver_incoming) = bounded(10);
