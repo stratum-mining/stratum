@@ -38,9 +38,10 @@ async fn server_pool_listen(listener: TcpListener) {
             "server".to_string(),
             stream,
             HandshakeRole::Responder(responder),
-            u32::MAX, //We only need the client to have a valid test count
+            0,
         )
         .await;
+        println!("After creating new server");
     }
 }
 
@@ -71,6 +72,7 @@ async fn new_client(name: String, test_count: u32, socket: SocketAddr) {
             }
         }
     });
+    println!("finished new_client method");
 }
 
 fn main() {
