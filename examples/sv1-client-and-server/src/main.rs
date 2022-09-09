@@ -114,7 +114,8 @@ impl Server {
                     self_.send_notify().await;
                     drop(self_);
                     task::sleep(time::Duration::from_secs(notify_time)).await;
-                    run_time -= notify_time;
+                    //subtract notify_time from run_time
+                    run_time -= notify_time as i32;
 
                     if run_time <= 0 {
                         println!("Test Success - ran for {} seconds", Self::get_runtime());
@@ -127,14 +128,13 @@ impl Server {
         server
     }
 
-    fn get_runtime() -> u64 {
+    fn get_runtime() -> i32 {
         let args: Vec<String> = env::args().collect();
-        let run_time = if args.len() > 1 {
-            args[1].parse::<u64>().unwrap()
+        if args.len() > 1 {
+            args[1].parse::<i32>().unwrap()
         } else {
-            u64::MAX
-        };
-        run_time
+            i32::MAX
+        }
     }
 
     #[allow(clippy::single_match)]
