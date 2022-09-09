@@ -30,7 +30,7 @@ pub struct Node {
 }
 
 impl Node {
-    pub fn new(name: String, socket: TcpStream) -> Arc<Mutex<Self>> {
+    pub fn new(name: String, socket: TcpStream, test_count: u32) -> Arc<Mutex<Self>> {
         let (connection, receiver, sender) = Connection::new(socket);
 
         let node = Arc::new(Mutex::new(Node {
@@ -46,8 +46,15 @@ impl Node {
         task::spawn(async move {
             loop {
                 if let Some(mut node) = cloned.try_lock() {
-                    let incoming = node.receiver.recv().await.unwrap();
-                    node.respond(incoming).await;
+                    if node.last_id > test_count {
+                        node.sender.close();
+                        node.receiver.close();
+                        println!("Test Successful");
+                        std::process::exit(0);
+                    } else {
+                        let incoming = node.receiver.recv().await.unwrap();
+                        node.respond(incoming).await;
+                    }
                 }
             }
         });
@@ -152,7 +159,7 @@ impl Connection {
 
         // Encode and send incoming messages to TCP stream
         task::spawn(async move {
-            let mut encoder = codec_sv2::Encoder::<crate::messages::Message>::new();
+            let mut encoder = codec_sv2::Encoder::<Message>::new();
 
             loop {
                 if let Ok(frame) = receiver_outgoing.recv().await {
