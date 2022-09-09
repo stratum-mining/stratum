@@ -55,8 +55,8 @@ jobs:
       - name: Build ping-pong-without-noise example
         uses: actions-rs/cargo@v1
         with:
-          command: build
-          args: --manifest-path examples/ping-pong-without-noise/Cargo.toml
+          command: run
+          args: --bin ping_pong_without_noise -- 10
 
       - name: Build sv1-client-and-server example
         uses: actions-rs/cargo@v1
