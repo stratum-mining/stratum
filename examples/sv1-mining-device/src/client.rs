@@ -190,7 +190,7 @@ impl Client {
                 let extra_nonce2: HexBytes = "0000000000000000".try_into().unwrap();
                 let version = Some(HexU32Be(version));
                 let submit = client_to_server::Submit {
-                    id: "TODO ID".into(),
+                    id: "deadbeef".into(),
                     user_name: "user".into(), // TODO: user name should NOT be hardcoded
                     job_id: job_id.to_string(),
                     extra_nonce2,
