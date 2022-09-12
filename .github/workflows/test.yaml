@@ -35,10 +35,6 @@ jobs:
         with:
           command: build
 
-      - name: interop-test
-        run: ./run.sh 30
-        working-directory: examples/interop-cpp/
-
       - name: Test
         uses: actions-rs/cargo@v1
         with:
