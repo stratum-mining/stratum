@@ -73,7 +73,7 @@ impl Server {
             let mut messages = BufReader::new(&*reader).lines();
             while let Some(message) = messages.next().await {
                 let message = message.unwrap();
-                // println!("{}", message);
+                println!("server reader message - {}", message);
                 sender_incoming.send(message).await.unwrap();
             }
         });
@@ -81,6 +81,8 @@ impl Server {
         task::spawn(async move {
             loop {
                 let message: String = receiver_outgoing.recv().await.unwrap();
+                println!("server receiver message - {}", message);
+
                 (&*writer).write_all(message.as_bytes()).await.unwrap();
             }
         });
@@ -111,7 +113,7 @@ impl Server {
         let cloned = server.clone();
         task::spawn(async move {
             let mut run_time = Self::get_runtime();
-
+            println!("Starting notify thread loop");
             loop {
                 let notify_time = 5;
                 if let Some(mut self_) = cloned.try_lock() {
@@ -316,7 +318,7 @@ impl Client {
             let mut messages = BufReader::new(&*reader).lines();
             while let Some(message) = messages.next().await {
                 let message = message.unwrap();
-                // println!("{}", message);
+                println!("{}", message);
                 sender_incoming.send(message).await.unwrap();
             }
         });
