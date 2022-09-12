@@ -3,6 +3,7 @@ use crate::methods::{Method, MethodError};
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum Error {
+    BTCHashError(bitcoin_hashes::Error),
     /// Errors on bad hex decode/encode.
     HexError(hex::FromHexError),
     /// Errors if `ClientStatus` is in an unexpected state when a message is received. For example,
@@ -30,6 +31,7 @@ pub enum Error {
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
+            Error::BTCHashError(ref e) => write!(f, "Bitcoin Hashes Error: `{:?}`", e),
             Error::HexError(ref e) => write!(f, "Bad hex encode/decode: `{:?}`", e),
             Error::IncorrectClientStatus(s) => {
                 write!(f, "Client status is incompatible with message: `{}`", s)
@@ -62,6 +64,12 @@ impl std::fmt::Display for Error {
             ),
             Error::UnknownID(e) => write!(f, "Server did not recognize the client id: `{}`.", e),
         }
+    }
+}
+
+impl From<bitcoin_hashes::Error> for Error {
+    fn from(e: bitcoin_hashes::Error) -> Self {
+        Error::BTCHashError(e)
     }
 }
 
