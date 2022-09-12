@@ -30,11 +30,14 @@ jobs:
           toolchain: 1.57.0
           override: true
 
-
       - name: Build
         uses: actions-rs/cargo@v1
         with:
           command: build
+
+      - name: interop-test
+        run: ./run.sh 30
+        working-directory: examples/interop-cpp/
 
       - name: Test
         uses: actions-rs/cargo@v1
@@ -46,10 +49,6 @@ jobs:
         with:
           command: test
           args: --features prop_test
-
-      - name: interop-test
-        run: ./run.sh 30
-        working-directory: examples/interop-cpp/
 
       - name: Run ping-pong-with-noise example
         uses: actions-rs/cargo@v1
