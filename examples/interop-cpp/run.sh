@@ -14,4 +14,4 @@ cargo build --release -p sv2_ffi && cp ../../target/release/libsv2_ffi.a ./
 g++ -I ./ ./template-provider/template-provider.cpp  libsv2_ffi.a  -lpthread -ldl
 
 cargo run &
-timeout 30 ./a.out
+./a.out
