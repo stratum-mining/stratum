@@ -1,3 +1,4 @@
+use crate::error::Error;
 use bitcoin_hashes::Error as BTCHashError;
 use hex::FromHexError;
 use std::convert::{TryFrom, TryInto};
@@ -59,6 +60,16 @@ pub enum ParsingMethodError {
     UnexpectedObjectParams(serde_json::Map<String, serde_json::Value>),
     MultipleError(Vec<ParsingMethodError>),
     Todo,
+}
+
+impl From<Error> for ParsingMethodError {
+    fn from(inner: Error) -> Self {
+        match inner {
+            Error::HexError(e) => ParsingMethodError::HexError(Box::new(e)),
+            Error::BTCHashError(e) => ParsingMethodError::BTCHashError(Box::new(e)),
+            _ => panic!("v1 Error does not implement this ParsingMethodError, but probably should"),
+        }
+    }
 }
 
 impl ParsingMethodError {

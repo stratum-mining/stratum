@@ -1,6 +1,6 @@
+use crate::error::Error;
 use bitcoin_hashes::hex::{FromHex, ToHex};
 use byteorder::{BigEndian, ByteOrder, LittleEndian, WriteBytesExt};
-use hex::FromHexError;
 use serde_json::Value;
 use std::{convert::TryFrom, mem::size_of};
 
@@ -33,18 +33,18 @@ impl AsRef<Vec<u8>> for HexBytes {
 
 /// fix for error on odd-length hex sequences
 /// FIXME: find a nicer solution
-fn hex_decode(s: &str) -> std::result::Result<Vec<u8>, FromHexError> {
+fn hex_decode(s: &str) -> Result<Vec<u8>, Error> {
     if s.len() % 2 != 0 {
-        hex::decode(&format!("0{}", s))
+        Ok(hex::decode(&format!("0{}", s))?)
     } else {
-        hex::decode(s)
+        Ok(hex::decode(s)?)
     }
 }
 
 impl TryFrom<&str> for HexBytes {
-    type Error = FromHexError;
+    type Error = Error;
 
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
+    fn try_from(value: &str) -> Result<Self, Error> {
         Ok(HexBytes(hex_decode(value)?))
     }
 }
@@ -72,9 +72,9 @@ impl From<HexU32Be> for Value {
 }
 
 impl TryFrom<&str> for HexU32Be {
-    type Error = bitcoin_hashes::Error;
+    type Error = Error;
 
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
+    fn try_from(value: &str) -> Result<Self, Error> {
         let parsed_bytes: [u8; 4] = FromHex::from_hex(value)?;
         Ok(HexU32Be(u32::from_be_bytes(parsed_bytes)))
     }
@@ -99,9 +99,9 @@ impl From<PrevHash> for Vec<u8> {
 }
 
 impl TryFrom<&str> for PrevHash {
-    type Error = FromHexError;
+    type Error = Error;
 
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
+    fn try_from(value: &str) -> Result<Self, Error> {
         // Reorder prevhash will be stored via this cursor
         let mut prev_hash_cursor = std::io::Cursor::new(Vec::new());
 
