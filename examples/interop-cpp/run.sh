@@ -19,17 +19,18 @@ provider_pid=$!
 cargo run &
 run_pid=$!
 
-echo "run pid is $run_pid; provider pid is $provider_pid"
+# If there is a first argument sleep for that long
+if [ -n "$1" ]; then
+    sleep "$1"
 
-sleep 30
-
-if ps -p $provider_pid > /dev/null && ps -p $run_pid > /dev/null
-then
-    echo "Success"
-    kill $provider_pid
-    kill $run_pid
-    exit 1
-else
-    echo "Failure!!!"
-    exit 1
+  if ps -p $provider_pid > /dev/null && ps -p $run_pid > /dev/null
+  then
+      echo "Success!"
+      kill $provider_pid
+      kill $run_pid
+  else
+      echo "Failure!!!"
+      exit 1
+  fi
 fi
+
