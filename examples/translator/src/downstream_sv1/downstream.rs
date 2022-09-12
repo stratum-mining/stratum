@@ -53,7 +53,7 @@ impl Downstream {
 
         let downstream = Arc::new(Mutex::new(Downstream {
             authorized_names: vec![],
-            extranonce1: "00000000".try_into().unwrap(),
+            extranonce1: "00000000".try_into()?,
             extranonce2_size: 2,
             version_rolling_mask: None,
             version_rolling_min_bit: None,
