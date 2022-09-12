@@ -1,8 +1,4 @@
-use crate::{
-    downstream_sv1,
-    error::ProxyResult,
-    proxy::next_mining_notify::{self, NextMiningNotify},
-};
+use crate::{downstream_sv1, error::ProxyResult};
 use async_channel::{bounded, Receiver, Sender};
 use async_std::{
     io::BufReader,
@@ -18,7 +14,7 @@ use std::sync::Arc;
 use v1::{
     client_to_server,
     error::Error as V1Error,
-    json_rpc, methods, server_to_client,
+    json_rpc, server_to_client,
     utils::{self, HexBytes, HexU32Be},
     IsServer,
 };
@@ -43,8 +39,6 @@ impl Downstream {
     pub async fn new(
         stream: TcpStream,
         submit_sender: Sender<v1::client_to_server::Submit>,
-        // next_mining_notify: Arc<Mutex<NextMiningNotify>>,
-        // mining_notify_msg: server_to_client::Notify,
         mining_notify_receiver: Receiver<server_to_client::Notify>,
     ) -> ProxyResult<Arc<Mutex<Self>>> {
         let stream = std::sync::Arc::new(stream);
@@ -172,9 +166,6 @@ impl Downstream {
     pub fn accept_connections(
         submit_sender: Sender<v1::client_to_server::Submit>,
         receiver_mining_notify: Receiver<server_to_client::Notify>,
-        next_mining_notify: Arc<Mutex<NextMiningNotify>>,
-        // mining_notify_msg: server_to_client::Notify,
-        // next_mining_notify: Arc<Mutex<NextMiningNotify>>,
     ) {
         task::spawn(async move {
             let downstream_listener = TcpListener::bind(crate::LISTEN_ADDR).await.unwrap();
@@ -185,16 +176,11 @@ impl Downstream {
                     "\nPROXY SERVER - ACCEPTING FROM DOWNSTREAM: {}\n",
                     stream.peer_addr().unwrap()
                 );
-                // next_mining_notify
-                //     .safe_lock(|nmn| nmn.create_notify())
-                //     .unwrap();
                 let server = Downstream::new(
                     stream,
                     submit_sender.clone(),
-                    // mining_notify_msg.clone(),
                     receiver_mining_notify.clone(),
                 )
-                // let server = Downstream::new(stream, submit_sender.clone(), receiver_mining_notify)
                 .await
                 .unwrap();
                 Arc::new(Mutex::new(server));
@@ -206,7 +192,6 @@ impl Downstream {
     /// and sent to the `Upstream`, or if a direct response can be sent back by the `Translator`
     /// (SV1 and SV2 protocol messages are NOT 1-to-1).
     async fn handle_incoming_sv1(self_: Arc<Mutex<Self>>, message_sv1: json_rpc::Message) {
-        let message_sv1_clone = message_sv1.clone();
         // `handle_message` in `IsServer` trait + calls `handle_request`
         // TODO: Map err from V1Error to Error::V1Error
         let response = self_.safe_lock(|s| s.handle_message(message_sv1)).unwrap();
@@ -271,7 +256,7 @@ impl IsServer for Downstream {
     fn handle_subscribe(&self, _request: &client_to_server::Subscribe) -> Vec<(String, String)> {
         let set_difficulty_sub = (
             "mining.set_difficulty".to_string(),
-            "b4b6693b72a50c7116db18d6497cac52".to_string(),
+            downstream_sv1::new_subscription_id(),
         );
         let notify_sub = (
             "mining.notify".to_string(),

@@ -1,9 +1,7 @@
-use crate::downstream_sv1;
-use async_channel::Sender;
 use roles_logic_sv2::mining_sv2::{NewExtendedMiningJob, SetNewPrevHash};
 use std::convert::TryInto;
 use v1::{
-    json_rpc, server_to_client,
+    server_to_client,
     utils::{HexBytes, HexU32Be, PrevHash},
 };
 
@@ -72,7 +70,7 @@ impl NextMiningNotify {
             let merkle_path_vec = merkle_path_seq0255.clone().into_static();
             let merkle_path_vec: Vec<Vec<u8>> = merkle_path_vec.to_vec();
             let mut merkle_branch = Vec::<HexBytes>::new();
-            for mut path in merkle_path_vec {
+            for path in merkle_path_vec {
                 // TODO: Check endianness
                 merkle_branch.push(HexBytes(path).try_into().unwrap());
             }

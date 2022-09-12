@@ -38,13 +38,12 @@
 ///    c. The SV1 Downstream role begins finding a new valid share submission + Step 3 commences
 ///       again.
 ///
-use crate::proxy::next_mining_notify;
 use async_channel::{Receiver, Sender};
 use async_std::task;
 use roles_logic_sv2::mining_sv2::{NewExtendedMiningJob, SetNewPrevHash, SubmitSharesExtended};
 use roles_logic_sv2::utils::Mutex;
 use std::sync::Arc;
-use v1::{client_to_server::Submit, json_rpc, server_to_client};
+use v1::{client_to_server::Submit, server_to_client};
 
 use super::next_mining_notify::NextMiningNotify;
 

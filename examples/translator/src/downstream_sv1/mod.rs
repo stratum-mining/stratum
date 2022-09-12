@@ -17,8 +17,8 @@ pub fn new_difficulty() -> f64 {
     // "0001".try_into().unwrap()
 }
 
-pub fn new_subscription_id() -> HexBytes {
-    "ae6812eb4cd7735a302a8a9dd95cf71f".try_into().unwrap()
+pub fn new_subscription_id() -> String {
+    "ae6812eb4cd7735a302a8a9dd95cf71f".into()
 }
 
 pub fn new_version_rolling_mask() -> HexU32Be {

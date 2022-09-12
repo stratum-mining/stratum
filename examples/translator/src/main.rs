@@ -6,7 +6,6 @@ use proxy::next_mining_notify::NextMiningNotify;
 use roles_logic_sv2::utils::Mutex;
 
 use async_channel::{bounded, Receiver, Sender};
-use proxy::next_mining_notify;
 use std::str::FromStr;
 use std::{
     net::{IpAddr, SocketAddr},
@@ -76,7 +75,6 @@ async fn main() {
     // Start receiving submit from the SV1 Downstream role
     upstream_sv2::Upstream::on_submit(upstream.clone());
     let next_mining_notify = Arc::new(Mutex::new(NextMiningNotify::new()));
-    let next_mining_notify_clone = next_mining_notify.clone();
 
     // Instantiates a new `Bridge` and begins handling incoming messages
     proxy::Bridge::new(
@@ -88,20 +86,11 @@ async fn main() {
         sender_mining_notify_bridge,
     )
     .start();
-    // let mining_notify_msg = next_mining_notify_clone
-    //     .safe_lock(|nmn| nmn.create_notify())
-    //     .unwrap();
 
     // Accept connections from one or more SV1 Downstream roles (SV1 Mining Devices)
     downstream_sv1::Downstream::accept_connections(
         sender_submit_from_sv1,
         recv_mining_notify_downstream,
-        next_mining_notify_clone,
-        // mining_notify_msg,
     );
-    // async_std::task::spawn(async {
-    //proxy::Bridge::initiate().await;
-    // })
-    // .await;
     loop {}
 }
