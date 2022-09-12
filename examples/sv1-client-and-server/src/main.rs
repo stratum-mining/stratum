@@ -10,8 +10,6 @@ use async_std::{
 };
 use std::{env, net::SocketAddr, process::exit, thread::sleep, time, time::Duration};
 use time::SystemTime;
-use std::thread::sleep;
-use std::time::Duration;
 
 const ADDR: &str = "127.0.0.1:0";
 
