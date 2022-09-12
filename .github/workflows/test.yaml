@@ -35,6 +35,11 @@ jobs:
         with:
           command: build
 
+      - name: interop-test
+        run: |
+          ./run.sh 30
+        working-directory: examples/interop-cpp/
+
       - name: Test
         uses: actions-rs/cargo@v1
         with:
@@ -46,20 +51,21 @@ jobs:
           command: test
           args: --features prop_test
 
-      - name: Build ping-pong-with-noise example
+      - name: Run ping-pong-with-noise example
         uses: actions-rs/cargo@v1
         with:
-          command: build
-          args: --manifest-path examples/ping-pong-with-noise/Cargo.toml
+          command: run
+          args: --bin ping_pong_with_noise -- 10
 
-      - name: Build ping-pong-without-noise example
+      - name: Run ping-pong-without-noise example
         uses: actions-rs/cargo@v1
         with:
-          command: build
-          args: --manifest-path examples/ping-pong-without-noise/Cargo.toml
+          command: run
+          args: --bin ping_pong_without_noise -- 10
 
-      - name: Build sv1-client-and-server example
+      - name: Run sv1-client-and-server example
         uses: actions-rs/cargo@v1
         with:
-          command: build
-          args: --manifest-path examples/sv1-client-and-server/Cargo.toml
+          command: run
+          args: --bin client_and_server -- 10
+

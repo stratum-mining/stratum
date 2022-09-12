@@ -8,7 +8,7 @@ use async_std::{
     sync::{Arc, Mutex},
     task,
 };
-use std::time;
+use std::{env, process::exit, time};
 
 const ADDR: &str = "127.0.0.1:34254";
 
@@ -46,8 +46,8 @@ struct Server {
 }
 
 async fn server_pool() {
-    let listner = TcpListener::bind(ADDR).await.unwrap();
-    let mut incoming = listner.incoming();
+    let listener = TcpListener::bind(ADDR).await.unwrap();
+    let mut incoming = listener.incoming();
     while let Some(stream) = incoming.next().await {
         let stream = stream.unwrap();
         println!("SERVER - Accepting from: {}", stream.peer_addr().unwrap());
@@ -58,7 +58,7 @@ async fn server_pool() {
 
 impl Server {
     pub async fn new(stream: TcpStream) -> Arc<Mutex<Self>> {
-        let stream = std::sync::Arc::new(stream);
+        let stream = Arc::new(stream);
 
         let (reader, writer) = (stream.clone(), stream);
 
@@ -106,16 +106,35 @@ impl Server {
 
         let cloned = server.clone();
         task::spawn(async move {
+            let mut run_time = Self::get_runtime();
+
             loop {
+                let notify_time = 5;
                 if let Some(mut self_) = cloned.try_lock() {
                     self_.send_notify().await;
                     drop(self_);
-                    task::sleep(time::Duration::from_secs(5)).await;
+                    task::sleep(time::Duration::from_secs(notify_time)).await;
+                    //subtract notify_time from run_time
+                    run_time -= notify_time as i32;
+
+                    if run_time <= 0 {
+                        println!("Test Success - ran for {} seconds", Self::get_runtime());
+                        exit(0)
+                    }
                 };
             }
         });
 
         server
+    }
+
+    fn get_runtime() -> i32 {
+        let args: Vec<String> = env::args().collect();
+        if args.len() > 1 {
+            args[1].parse::<i32>().unwrap()
+        } else {
+            i32::MAX
+        }
     }
 
     #[allow(clippy::single_match)]
@@ -238,9 +257,9 @@ impl IsServer for Server {
             coin_base1: "ffff".try_into().unwrap(),
             coin_base2: "ffff".try_into().unwrap(),
             merkle_branch: vec!["fff".try_into().unwrap()],
-            version: utils::HexU32Be(5667),
-            bits: utils::HexU32Be(5678),
-            time: utils::HexU32Be(5609),
+            version: HexU32Be(5667),
+            bits: HexU32Be(5678),
+            time: HexU32Be(5609),
             clean_jobs: true,
         }
         .try_into()
@@ -273,7 +292,7 @@ impl Client {
             }
         };
 
-        let arc_stream = std::sync::Arc::new(stream);
+        let arc_stream = Arc::new(stream);
 
         let (reader, writer) = (arc_stream.clone(), arc_stream);
 
