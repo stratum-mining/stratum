@@ -15,7 +15,7 @@ g++ -I ./ ./template-provider/template-provider.cpp  libsv2_ffi.a  -lpthread -ld
 
 ./a.out &
 provider_pid=$!
-
+sleep 1 # wait for provider to start listening
 cargo run &
 run_pid=$!
 
