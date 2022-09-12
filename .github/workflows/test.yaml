@@ -48,7 +48,7 @@ jobs:
           args: --features prop_test
 
       - name: interop-test
-        run: ./run.sh
+        run: ./run.sh 30
         working-directory: examples/interop-cpp/
 
       - name: Run ping-pong-with-noise example
