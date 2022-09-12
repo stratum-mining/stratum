@@ -8,9 +8,7 @@ use async_std::{
     sync::{Arc, Mutex},
     task,
 };
-use std::{env, process::exit, time};
-use std::thread::sleep;
-use std::time::Duration;
+use std::{env, process::exit, thread::sleep, time, time::Duration};
 
 const ADDR: &str = "127.0.0.1:34254";
 
@@ -285,13 +283,12 @@ struct Client {
 
 impl Client {
     pub async fn new(client_id: u32) -> Arc<Mutex<Self>> {
-
         let stream = loop {
             match TcpStream::connect(ADDR).await {
                 Ok(st) => {
                     println!("CLIENT - connected to server at {}", ADDR);
-                    break st
-                },
+                    break st;
+                }
                 Err(_) => {
                     println!("Server not ready... retry");
                     sleep(Duration::from_secs(1));
