@@ -284,6 +284,8 @@ struct Client {
 impl Client {
     pub async fn new(client_id: u32) -> Arc<Mutex<Self>> {
         let stream = loop {
+            sleep(Duration::from_secs(1));
+
             match TcpStream::connect(ADDR).await {
                 Ok(st) => {
                     println!("CLIENT - connected to server at {}", ADDR);
@@ -291,7 +293,6 @@ impl Client {
                 }
                 Err(_) => {
                     println!("Server not ready... retry");
-                    sleep(Duration::from_secs(1));
                     continue;
                 }
             }
