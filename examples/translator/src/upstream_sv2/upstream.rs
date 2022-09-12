@@ -193,8 +193,10 @@ impl Upstream {
                     .unwrap();
                 let sv2_submit: SubmitSharesExtended = receiver.recv().await.unwrap();
                 println!("\n\nRRRR UPSTREAM IN ON SUBMIT: {:?}\n", &sv2_submit);
-                let message = Mining::SubmitSharesExtended(sv2_submit);
-                let message = Message::Mining(message);
+                let message = Message::Mining(
+                    roles_logic_sv2::parsers::Mining::SubmitSharesExtended(sv2_submit),
+                );
+
                 let frame: StdFrame = message.try_into().unwrap();
                 let frame: EitherFrame = frame.try_into().unwrap();
                 let sender = self_
