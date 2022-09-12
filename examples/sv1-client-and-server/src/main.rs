@@ -10,6 +10,8 @@ use async_std::{
 };
 use std::{env, net::SocketAddr, process::exit, thread::sleep, time, time::Duration};
 use time::SystemTime;
+use std::thread::sleep;
+use std::time::Duration;
 
 const ADDR: &str = "127.0.0.1:0";
 
@@ -117,7 +119,7 @@ impl Server {
                 if let Some(mut self_) = cloned.try_lock() {
                     self_.send_notify().await;
                     drop(self_);
-                    task::sleep(time::Duration::from_secs(notify_time)).await;
+                    sleep(Duration::from_secs(notify_time));
                     //subtract notify_time from run_time
                     run_time -= notify_time as i32;
 
@@ -300,6 +302,7 @@ impl Client {
                 }
                 Err(_) => {
                     println!("Server not ready... retry");
+                    sleep(Duration::from_secs(1));
                     continue;
                 }
             }
