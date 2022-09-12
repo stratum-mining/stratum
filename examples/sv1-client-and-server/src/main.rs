@@ -300,7 +300,6 @@ impl Client {
                 }
                 Err(_) => {
                     println!("Server not ready... retry");
-                    sleep(Duration::from_secs(1));
                     continue;
                 }
             }
