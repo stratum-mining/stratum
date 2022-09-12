@@ -9,6 +9,8 @@ use async_std::{
     task,
 };
 use std::{env, process::exit, time};
+use std::thread::sleep;
+use std::time::Duration;
 
 const ADDR: &str = "127.0.0.1:34254";
 
@@ -47,6 +49,7 @@ struct Server {
 
 async fn server_pool() {
     let listener = TcpListener::bind(ADDR).await.unwrap();
+    println!("Bound on {}", ADDR);
     let mut incoming = listener.incoming();
     while let Some(stream) = incoming.next().await {
         let stream = stream.unwrap();
@@ -113,7 +116,7 @@ impl Server {
                 if let Some(mut self_) = cloned.try_lock() {
                     self_.send_notify().await;
                     drop(self_);
-                    task::sleep(time::Duration::from_secs(notify_time)).await;
+                    sleep(Duration::from_secs(notify_time));
                     //subtract notify_time from run_time
                     run_time -= notify_time as i32;
 
@@ -282,11 +285,16 @@ struct Client {
 
 impl Client {
     pub async fn new(client_id: u32) -> Arc<Mutex<Self>> {
+
         let stream = loop {
             match TcpStream::connect(ADDR).await {
-                Ok(st) => break st,
+                Ok(st) => {
+                    println!("CLIENT - connected to server at {}", ADDR);
+                    break st
+                },
                 Err(_) => {
                     println!("Server not ready... retry");
+                    sleep(Duration::from_secs(1));
                     continue;
                 }
             }
@@ -539,13 +547,13 @@ async fn initialize_client(client: Arc<Mutex<Client>>) {
             }
         }
         drop(client_);
-        task::sleep(time::Duration::from_millis(100)).await;
+        task::sleep(Duration::from_millis(100)).await;
     }
-    task::sleep(time::Duration::from_millis(2000)).await;
+    task::sleep(Duration::from_millis(2000)).await;
     loop {
         let mut client_ = client.lock().await;
         client_.send_submit().await;
-        task::sleep(time::Duration::from_millis(2000)).await;
+        task::sleep(Duration::from_millis(2000)).await;
     }
 }
 
