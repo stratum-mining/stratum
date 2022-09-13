@@ -50,11 +50,7 @@ async fn server_pool_listen(listener: TcpListener) {
     let mut incoming = listener.incoming();
     while let Some(stream) = incoming.next().await {
         let stream = stream.unwrap();
-        println!(
-            "{:?}-SERVER - Accepting from: {}",
-            chrono::offset::Local::now(),
-            stream.peer_addr().unwrap()
-        );
+        println!("SERVER - Accepting from: {}", stream.peer_addr().unwrap());
         let server = Server::new(stream).await;
         Arc::new(Mutex::new(server));
     }
@@ -73,7 +69,7 @@ impl Server {
             let mut messages = BufReader::new(&*reader).lines();
             while let Some(message) = messages.next().await {
                 let message = message.unwrap();
-                println!("server SENDING message - {}", message);
+                println!("{:?}-server SENDING message - {}", SystemTime::now(), message);
                 sender_incoming.send(message).await.unwrap();
             }
         });
@@ -149,7 +145,8 @@ impl Server {
         incoming_message: Result<String, async_channel::TryRecvError>,
     ) {
         if let Ok(line) = incoming_message {
-            println!("SERVER - message: {}", line);
+
+            println!("{:?}-SERVER - message: {}", SystemTime::now(), line);
             let message: Result<json_rpc::Message, _> = serde_json::from_str(&line);
             match message {
                 Ok(message) => {
