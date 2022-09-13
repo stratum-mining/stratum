@@ -8,7 +8,7 @@ use async_std::{
 use codec_sv2::{HandshakeRole, Initiator, Responder};
 use std::{env, time};
 
-const ADDR: &str = "127.0.0.1:34254";
+const ADDR: &str = "127.0.0.1:34256";
 
 pub const AUTHORITY_PUBLIC_K: [u8; 32] = [
     215, 11, 47, 78, 34, 232, 25, 192, 195, 168, 170, 209, 95, 181, 40, 114, 154, 226, 176, 190,

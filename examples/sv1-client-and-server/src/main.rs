@@ -10,7 +10,7 @@ use async_std::{
 };
 use std::{env, process::exit, thread::sleep, time, time::Duration};
 
-const ADDR: &str = "127.0.0.1:34254";
+const ADDR: &str = "127.0.0.1:34255";
 
 use v1::{
     client_to_server,
