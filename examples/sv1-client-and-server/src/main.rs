@@ -69,7 +69,11 @@ impl Server {
             let mut messages = BufReader::new(&*reader).lines();
             while let Some(message) = messages.next().await {
                 let message = message.unwrap();
-                println!("{:?}-server SENDING message - {}", SystemTime::now(), message);
+                println!(
+                    "{:?}-server SENDING message - {}",
+                    SystemTime::now(),
+                    message
+                );
                 sender_incoming.send(message).await.unwrap();
             }
         });
@@ -145,7 +149,6 @@ impl Server {
         incoming_message: Result<String, async_channel::TryRecvError>,
     ) {
         if let Ok(line) = incoming_message {
-
             println!("{:?}-SERVER - message: {}", SystemTime::now(), line);
             let message: Result<json_rpc::Message, _> = serde_json::from_str(&line);
             match message {
