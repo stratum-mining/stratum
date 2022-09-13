@@ -10,6 +10,8 @@ use async_std::{
 };
 use std::{env, net::SocketAddr, process::exit, thread::sleep, time, time::Duration};
 use time::SystemTime;
+use chrono;
+
 
 const ADDR: &str = "127.0.0.1:0";
 
@@ -52,7 +54,7 @@ async fn server_pool_listen(listener: TcpListener) {
         let stream = stream.unwrap();
         println!(
             "{:?}-SERVER - Accepting from: {}",
-            Local::now(),
+            chrono::offset::Local::now(),
             stream.peer_addr().unwrap()
         );
         let server = Server::new(stream).await;
@@ -75,7 +77,7 @@ impl Server {
                 let message = message.unwrap();
                 println!(
                     "{:?}-sender_incoming SENDING message - {}",
-                    Local::now(),
+                    chrono::offset::Local::now(),
                     message
                 );
                 sender_incoming.send(message).await.unwrap();
@@ -108,7 +110,6 @@ impl Server {
             loop {
                 if let Some(mut self_) = cloned.try_lock() {
                     let incoming = self_.receiver_incoming.try_recv();
-                    println!("receiver_incoming writing message - {}", incoming.unwrap());
 
                     self_.parse_message(incoming).await;
                     drop(self_);
@@ -119,11 +120,11 @@ impl Server {
         let cloned = server.clone();
         task::spawn(async move {
             let mut run_time = Self::get_runtime();
-            println!("{}-Starting notify thread loop", Local::now());
+            println!("{}-Starting notify thread loop", chrono::offset::Local::now());
             loop {
                 let notify_time = 5;
                 if let Some(mut self_) = cloned.try_lock() {
-                    println!("{}-Sending notify...", Local::now());
+                    println!("{}-Sending notify...", chrono::offset::Local::now());
 
                     self_.send_notify().await;
                     drop(self_);
@@ -159,7 +160,7 @@ impl Server {
     ) {
         if let Ok(line) = incoming_message {
 
-            println!("{:?}-SERVER - message: {}", Local::now(), line);
+            println!("{:?}-SERVER - message: {}", chrono::offset::Local::now(), line);
             let message: Result<json_rpc::Message, _> = serde_json::from_str(&line);
             match message {
                 Ok(message) => {
@@ -170,10 +171,10 @@ impl Server {
                                     .await;
                             }
                         }
-                        Err(_) => (),
+                        Err(_) => (println!("Error parsing message1")),
                     };
                 }
-                Err(_) => (),
+                Err(_) => (println!("Error parsing message2")),
             }
         };
     }
@@ -305,7 +306,7 @@ impl Client {
                 Ok(st) => {
                     println!(
                         "{:?}-CLIENT - connected to server at {}",
-                        Local::now(),
+                        chrono::offset::Local::now(),
                         socket
                     );
                     break st;
