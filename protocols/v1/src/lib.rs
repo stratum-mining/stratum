@@ -97,6 +97,8 @@ pub trait IsServer {
                 self.set_version_rolling_mask(configure.version_rolling_mask());
                 self.set_version_rolling_min_bit(configure.version_rolling_min_bit_count());
                 let (version_rolling, min_diff) = self.handle_configure(&configure);
+
+                println!("{:?}-Responding to configure message", std::time::SystemTime::now());
                 Ok(Some(configure.respond(version_rolling, min_diff)))
             }
             methods::Client2Server::ExtranonceSubscribe(_) => {
