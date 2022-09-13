@@ -9,6 +9,7 @@ use async_std::{
     task,
 };
 use std::{env, net::SocketAddr, process::exit, thread::sleep, time, time::Duration};
+use time::SystemTime;
 
 const ADDR: &str = "127.0.0.1:0";
 
@@ -49,7 +50,7 @@ async fn server_pool_listen(listener: TcpListener) {
     let mut incoming = listener.incoming();
     while let Some(stream) = incoming.next().await {
         let stream = stream.unwrap();
-        println!("SERVER - Accepting from: {}", stream.peer_addr().unwrap());
+        println!("{:?}-SERVER - Accepting from: {}", time::SystemTime::now(), stream.peer_addr().unwrap());
         let server = Server::new(stream).await;
         Arc::new(Mutex::new(server));
     }
@@ -68,7 +69,7 @@ impl Server {
             let mut messages = BufReader::new(&*reader).lines();
             while let Some(message) = messages.next().await {
                 let message = message.unwrap();
-                println!("server SENDING message - {}", message);
+                println!("{:?}-server SENDING message - {}", SystemTime::now(), message);
                 sender_incoming.send(message).await.unwrap();
             }
         });
@@ -144,7 +145,8 @@ impl Server {
         incoming_message: Result<String, async_channel::TryRecvError>,
     ) {
         if let Ok(line) = incoming_message {
-            println!("SERVER - message: {}", line);
+
+            println!("{:?}-SERVER - message: {}", SystemTime::now(), line);
             let message: Result<json_rpc::Message, _> = serde_json::from_str(&line);
             match message {
                 Ok(message) => {
@@ -288,7 +290,7 @@ impl Client {
 
             match TcpStream::connect(socket).await {
                 Ok(st) => {
-                    println!("CLIENT - connected to server at {}", ADDR);
+                    println!("{:?}-CLIENT - connected to server at {}", SystemTime::now(), socket);
                     break st;
                 }
                 Err(_) => {
@@ -373,8 +375,8 @@ impl Client {
                 break;
             }
         }
-        let id = time::SystemTime::now()
-            .duration_since(time::SystemTime::UNIX_EPOCH)
+        let id = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
             .unwrap()
             .as_nanos()
             .to_string();
@@ -393,8 +395,8 @@ impl Client {
     //}
 
     pub async fn send_authorize(&mut self) {
-        let id = time::SystemTime::now()
-            .duration_since(time::SystemTime::UNIX_EPOCH)
+        let id = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
             .unwrap()
             .as_nanos()
             .to_string();
@@ -406,8 +408,8 @@ impl Client {
     }
 
     pub async fn send_submit(&mut self) {
-        let id = time::SystemTime::now()
-            .duration_since(time::SystemTime::UNIX_EPOCH)
+        let id = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
             .unwrap()
             .as_nanos()
             .to_string();
@@ -428,8 +430,8 @@ impl Client {
     }
 
     pub async fn send_configure(&mut self) {
-        let id = time::SystemTime::now()
-            .duration_since(time::SystemTime::UNIX_EPOCH)
+        let id = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
             .unwrap()
             .as_nanos()
             .to_string();
