@@ -44,32 +44,32 @@ jobs:
           fi
         working-directory: examples/interop-cpp/
 
-      - name: Test
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-
-      - name: Property based testing
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --features prop_test
-
-      - name: Run ping-pong-with-noise example
-        uses: actions-rs/cargo@v1
-        with:
-          command: run
-          args: --bin ping_pong_with_noise -- 10
-
-      - name: Run ping-pong-without-noise example
-        uses: actions-rs/cargo@v1
-        with:
-          command: run
-          args: --bin ping_pong_without_noise -- 10
+#      - name: Test
+#        uses: actions-rs/cargo@v1
+#        with:
+#          command: test
+#
+#      - name: Property based testing
+#        uses: actions-rs/cargo@v1
+#        with:
+#          command: test
+#          args: --features prop_test
+#
+#      - name: Run ping-pong-with-noise example
+#        uses: actions-rs/cargo@v1
+#        with:
+#          command: run
+#          args: --bin ping_pong_with_noise -- 10
+#
+#      - name: Run ping-pong-without-noise example
+#        uses: actions-rs/cargo@v1
+#        with:
+#          command: run
+#          args: --bin ping_pong_without_noise -- 10
 
       - name: Run sv1-client-and-server example
         uses: actions-rs/cargo@v1
         with:
           command: run
-          args: --bin client_and_server -- 30
+          args: --bin client_and_server -- 60
 
