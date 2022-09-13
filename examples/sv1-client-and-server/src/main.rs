@@ -8,10 +8,9 @@ use async_std::{
     sync::{Arc, Mutex},
     task,
 };
+use chrono;
 use std::{env, net::SocketAddr, process::exit, thread::sleep, time, time::Duration};
 use time::SystemTime;
-use chrono;
-
 
 const ADDR: &str = "127.0.0.1:0";
 
@@ -116,7 +115,10 @@ impl Server {
         let cloned = server.clone();
         task::spawn(async move {
             let mut run_time = Self::get_runtime();
-            println!("{}-Starting notify thread loop", chrono::offset::Local::now());
+            println!(
+                "{}-Starting notify thread loop",
+                chrono::offset::Local::now()
+            );
             loop {
                 let notify_time = 5;
                 if let Some(mut self_) = cloned.try_lock() {
@@ -148,15 +150,17 @@ impl Server {
         }
     }
 
-
     #[allow(clippy::single_match)]
     async fn parse_message(
         &mut self,
         incoming_message: Result<String, async_channel::TryRecvError>,
     ) {
         if let Ok(line) = incoming_message {
-
-            println!("{:?}-SERVER - message: {}", chrono::offset::Local::now(), line);
+            println!(
+                "{:?}-SERVER - message: {}",
+                chrono::offset::Local::now(),
+                line
+            );
             let message: Result<json_rpc::Message, _> = serde_json::from_str(&line);
             match message {
                 Ok(message) => {
