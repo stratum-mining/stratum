@@ -5,8 +5,7 @@ use async_std::{
     prelude::*,
     task,
 };
-use std::{env, time};
-use std::net::SocketAddr;
+use std::{env, net::SocketAddr, time};
 
 //Pick any unused port
 const ADDR: &str = "127.0.0.1:0";

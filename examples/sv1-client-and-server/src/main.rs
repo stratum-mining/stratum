@@ -8,8 +8,7 @@ use async_std::{
     sync::{Arc, Mutex},
     task,
 };
-use std::{env, process::exit, thread::sleep, time, time::Duration};
-use std::net::SocketAddr;
+use std::{env, net::SocketAddr, process::exit, thread::sleep, time, time::Duration};
 
 const ADDR: &str = "127.0.0.1:0";
 
