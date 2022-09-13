@@ -380,7 +380,7 @@ See [interop-cpp README](examples/interop-cpp/README.md) for more details
 Same as interop-cpp except it doesn't use `cargo build` - compiles directly with `rustc` instead. 
 
 ### 3.21 examples/ping-pong-with-noise
-This example simply sets up a server on 127.0.0.1:34254 and a client connects to that server.
+This example simply sets up a server on 127.0.0.1 and random port and a client connects to that server.
 This uses the noise protocol to secure the connection. It sends random bytes to the server which
 then prints out the incoming message. This example loops forever and sends a message every second.
 
@@ -390,7 +390,7 @@ or from `examples/ping-pong-with-noise` run
 `$cargo run`
 
 ### 3.22 examples/ping-pong-without-noise
-This example simply sets up a server on 127.0.0.1:34254 and a client connects to that server.
+This example simply sets up a server on 127.0.0.1 and random port and a client connects to that server.
 This uses the binary protocol. It sends random bytes to the server which
 then prints out the incoming message. This example loops forever and sends a message every second.
 
