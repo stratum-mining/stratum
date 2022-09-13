@@ -73,7 +73,7 @@ impl Server {
             let mut messages = BufReader::new(&*reader).lines();
             while let Some(message) = messages.next().await {
                 let message = message.unwrap();
-                println!("server reader message - {}", message);
+                println!("server SENDING message - {}", message);
                 sender_incoming.send(message).await.unwrap();
             }
         });
