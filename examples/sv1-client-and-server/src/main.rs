@@ -9,8 +9,9 @@ use async_std::{
     task,
 };
 use std::{env, process::exit, thread::sleep, time, time::Duration};
+use std::net::SocketAddr;
 
-const ADDR: &str = "127.0.0.1:34255";
+const ADDR: &str = "127.0.0.1:0";
 
 use v1::{
     client_to_server,
@@ -45,9 +46,7 @@ struct Server {
     sender_outgoing: Sender<String>,
 }
 
-async fn server_pool() {
-    let listener = TcpListener::bind(ADDR).await.unwrap();
-    println!("Bound on {}", ADDR);
+async fn server_pool_listen(listener: TcpListener) {
     let mut incoming = listener.incoming();
     while let Some(stream) = incoming.next().await {
         let stream = stream.unwrap();
@@ -284,11 +283,11 @@ struct Client {
 }
 
 impl Client {
-    pub async fn new(client_id: u32) -> Arc<Mutex<Self>> {
+    pub async fn new(client_id: u32, socket: SocketAddr) -> Arc<Mutex<Self>> {
         let stream = loop {
             sleep(Duration::from_secs(1));
 
-            match TcpStream::connect(ADDR).await {
+            match TcpStream::connect(socket).await {
                 Ok(st) => {
                     println!("CLIENT - connected to server at {}", ADDR);
                     break st;
@@ -558,13 +557,23 @@ async fn initialize_client(client: Arc<Mutex<Client>>) {
 }
 
 fn main() {
+    //Listen on available port and wait for bind
+    let listener = task::block_on(async move {
+        let listener = TcpListener::bind(ADDR).await.unwrap();
+        println!("Server listening on: {}", listener.local_addr().unwrap());
+        listener
+    });
+
+    let socket = listener.local_addr().unwrap();
+
     std::thread::spawn(|| {
-        task::spawn(async {
-            server_pool().await;
+        task::spawn(async move {
+            server_pool_listen(listener).await;
         });
     });
+
     task::block_on(async {
-        let client = Client::new(80).await;
+        let client = Client::new(80, socket).await;
         initialize_client(client).await;
     });
 }
