@@ -70,8 +70,8 @@ impl Server {
             while let Some(message) = messages.next().await {
                 let message = message.unwrap();
                 println!(
-                    "{:?}-server SENDING message - {}",
-                    SystemTime::now(),
+                    "{:?}-sender_incoming SENDING message - {}",
+                    Local::now(),
                     message
                 );
                 sender_incoming.send(message).await.unwrap();
@@ -81,7 +81,7 @@ impl Server {
         task::spawn(async move {
             loop {
                 let message: String = receiver_outgoing.recv().await.unwrap();
-                println!("server receiver message - {}", message);
+                println!("receiver_outgoing writing message - {}", message);
 
                 (&*writer).write_all(message.as_bytes()).await.unwrap();
             }
@@ -104,6 +104,8 @@ impl Server {
             loop {
                 if let Some(mut self_) = cloned.try_lock() {
                     let incoming = self_.receiver_incoming.try_recv();
+                    println!("receiver_incoming writing message - {}", incoming.unwrap());
+
                     self_.parse_message(incoming).await;
                     drop(self_);
                 };
@@ -113,10 +115,12 @@ impl Server {
         let cloned = server.clone();
         task::spawn(async move {
             let mut run_time = Self::get_runtime();
-            println!("Starting notify thread loop");
+            println!("{}-Starting notify thread loop", Local::now());
             loop {
                 let notify_time = 5;
                 if let Some(mut self_) = cloned.try_lock() {
+                    println!("{}-Sending notify...", Local::now());
+
                     self_.send_notify().await;
                     drop(self_);
                     sleep(Duration::from_secs(notify_time));
@@ -143,13 +147,15 @@ impl Server {
         }
     }
 
+
     #[allow(clippy::single_match)]
     async fn parse_message(
         &mut self,
         incoming_message: Result<String, async_channel::TryRecvError>,
     ) {
         if let Ok(line) = incoming_message {
-            println!("{:?}-SERVER - message: {}", SystemTime::now(), line);
+
+            println!("{:?}-SERVER - message: {}", Local::now(), line);
             let message: Result<json_rpc::Message, _> = serde_json::from_str(&line);
             match message {
                 Ok(message) => {
@@ -295,7 +301,7 @@ impl Client {
                 Ok(st) => {
                     println!(
                         "{:?}-CLIENT - connected to server at {}",
-                        chrono::offset::Local::now(),
+                        SystemTime::now(),
                         socket
                     );
                     break st;
