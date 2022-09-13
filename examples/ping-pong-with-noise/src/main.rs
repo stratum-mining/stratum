@@ -23,6 +23,7 @@ pub const AUTHORITY_PRIVATE_K: [u8; 32] = [
 
 const CERT_VALIDITY: time::Duration = time::Duration::from_secs(3600);
 
+
 async fn server_pool_listen(listener: TcpListener) {
     let mut incoming = listener.incoming();
     while let Some(stream) = incoming.next().await {
@@ -73,6 +74,7 @@ async fn new_client(name: String, test_count: u32, socket: SocketAddr) {
     });
 }
 
+
 fn main() {
     let args: Vec<String> = env::args().collect();
 
@@ -101,7 +103,8 @@ fn main() {
         let mut i: u32 = 0;
         loop {
             if i < 1 {
-                new_client(format!("Client{}", i), test_count, socket).await;
+                new_client(format!("Client{}", i), test_count,
+                           socket).await;
                 i += 1;
             };
             task::sleep(time::Duration::from_millis(1000)).await;
