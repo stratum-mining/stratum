@@ -559,11 +559,24 @@ impl IsClient for Client {
 
 async fn initialize_client(client: Arc<Mutex<Client>>) {
     loop {
+        println!("Initialized client");
         let mut client_ = client.lock().await;
+        println!("Got client lock");
+
         match client_.status {
-            ClientStatus::Init => client_.send_configure().await,
-            ClientStatus::Configured => client_.send_subscribe().await,
+            ClientStatus::Init => {
+                println!("Client status: init");
+
+                client_.send_configure().await
+            }
+            ClientStatus::Configured => {
+                println!("Client status: configured");
+
+                client_.send_subscribe().await
+            }
             ClientStatus::Subscribed => {
+                println!("Client status: subscribed");
+
                 client_.send_authorize().await;
                 break;
             }
