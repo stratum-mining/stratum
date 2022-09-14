@@ -5,6 +5,7 @@ use core::fmt;
 
 #[derive(Debug)]
 pub enum Error {
+    BinarySv2Error(binary_sv2::Error),
     ExpectedHandshakeFrame,
     ExpectedSv2Frame,
     Todo,
@@ -14,6 +15,9 @@ impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use Error::*;
         match self {
+            BinarySv2Error(ref e) => {
+                write!(f, "BinarySv2Error: `{:?}`", e)
+            }
             ExpectedHandshakeFrame => {
                 write!(f, "Expected `HandshakeFrame`, received `Sv2Frame`")
             }
@@ -22,5 +26,11 @@ impl fmt::Display for Error {
             }
             Todo => write!(f, "framing_sv2 error TODO"),
         }
+    }
+}
+
+impl From<binary_sv2::Error> for Error {
+    fn from(e: binary_sv2::Error) -> Self {
+        Error::BinarySv2Error(e)
     }
 }

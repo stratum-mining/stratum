@@ -33,7 +33,7 @@ pub trait Frame<'a, T: Serialize + GetSize>: Sized {
 
     /// Serialize the frame into dst if the frame is already serialized it just swap dst with
     /// itself
-    fn serialize(self, dst: &mut [u8]) -> Result<(), binary_sv2::Error>;
+    fn serialize(self, dst: &mut [u8]) -> Result<(), Error>;
 
     //fn deserialize(&'a mut self) -> Result<Self::Deserialized, serde_sv2::Error>;
 
@@ -105,19 +105,20 @@ impl<'a, T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> Frame<'a, T> for 
     /// Serialize the frame into dst if the frame is already serialized it just swap dst with
     /// itself
     #[inline]
-    fn serialize(self, dst: &mut [u8]) -> Result<(), binary_sv2::Error> {
+    fn serialize(self, dst: &mut [u8]) -> Result<(), Error> {
         if let Some(mut serialized) = self.serialized {
             dst.swap_with_slice(serialized.as_mut());
             Ok(())
         } else if let Some(payload) = self.payload {
             #[cfg(not(feature = "with_serde"))]
-            to_writer(self.header, dst)?;
+            to_writer(self.header, dst).map_err(|e| Error::BinarySv2Error(e))?;
             #[cfg(not(feature = "with_serde"))]
-            to_writer(payload, &mut dst[Header::SIZE..])?;
+            to_writer(payload, &mut dst[Header::SIZE..]).map_err(|e| Error::BinarySv2Error(e))?;
             #[cfg(feature = "with_serde")]
-            to_writer(&self.header, dst.as_mut())?;
+            to_writer(&self.header, dst.as_mut()).map_err(|e| Error::BinarySv2Error(e))?;
             #[cfg(feature = "with_serde")]
-            to_writer(payload, &mut dst.as_mut()[Header::SIZE..])?;
+            to_writer(payload, &mut dst.as_mut()[Header::SIZE..])
+                .map_err(|e| Error::BinarySv2Error(e))?;
             Ok(())
         } else {
             // Sv2Frame always has a payload or a serialized payload
@@ -228,7 +229,7 @@ impl<'a> Frame<'a, Slice> for NoiseFrame {
     /// Serialize the frame into dst if the frame is already serialized it just swap dst with
     /// itself
     #[inline]
-    fn serialize(mut self, dst: &mut [u8]) -> Result<(), binary_sv2::Error> {
+    fn serialize(mut self, dst: &mut [u8]) -> Result<(), Error> {
         dst.swap_with_slice(self.payload.as_mut());
         Ok(())
     }
