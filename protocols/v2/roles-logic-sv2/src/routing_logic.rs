@@ -21,12 +21,12 @@
 //!
 use crate::{
     common_properties::{CommonDownstreamData, IsMiningDownstream, IsMiningUpstream, PairSettings},
-    errors::Error,
     selectors::{
         DownstreamMiningSelector, GeneralMiningSelector, NullDownstreamMiningSelector,
         UpstreamMiningSelctor,
     },
     utils::{Id, Mutex},
+    Error,
 };
 use common_messages_sv2::{
     has_requires_std_job, Protocol, SetupConnection, SetupConnectionSuccess,
@@ -192,7 +192,7 @@ impl<
                 self.on_setup_connection_mining_header_only(&pair_settings)
             }
             // TODO add handler for other protocols
-            _ => panic!(),
+            _ => Err(Error::UnimplementedProtocol),
         }
     }
 }

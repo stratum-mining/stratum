@@ -2,8 +2,8 @@
 //! a message should be ralyied, or to which remote or set of remotes a message should be sent.
 use crate::{
     common_properties::{IsDownstream, IsMiningDownstream, IsMiningUpstream, PairSettings},
-    errors::Error,
     utils::Mutex,
+    Error,
 };
 use std::{collections::HashMap, fmt::Debug as D, sync::Arc};
 

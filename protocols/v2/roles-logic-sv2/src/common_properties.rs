@@ -1,6 +1,7 @@
 //! Traits that implements very basic properties that every implementation should implements
-use crate::selectors::{
-    DownstreamMiningSelector, DownstreamSelector, NullDownstreamMiningSelector,
+use crate::{
+    selectors::{DownstreamMiningSelector, DownstreamSelector, NullDownstreamMiningSelector},
+    Error,
 };
 use common_messages_sv2::{has_requires_std_job, Protocol, SetupConnection};
 use mining_sv2::{Extranonce, Target};
@@ -62,13 +63,13 @@ pub enum DownstreamChannel {
 
 impl DownstreamChannel {
     /// Returns the group id for a given Standard, Group, or Extended, channel.
-    pub fn group_id(&self) -> u32 {
+    pub fn group_id(&self) -> Result<u32, Error> {
         match self {
-            DownstreamChannel::Standard(s) => s.group_id,
-            DownstreamChannel::Group(id) => *id,
+            DownstreamChannel::Standard(s) => Ok(s.group_id),
+            DownstreamChannel::Group(id) => Ok(*id),
             // Extended channels do not have group ids better to fail whenever why try to get a
             // group id on an extended channel
-            DownstreamChannel::Extended(_) => panic!("Extended channels do not have group ids"),
+            DownstreamChannel::Extended(_) => Err(Error::NoGroupIdOnExtendedChannel),
         }
     }
 
@@ -260,7 +261,7 @@ mod tests {
             target: u256_from_int(45_u32).into(),
             extranonce: mining_sv2::Extranonce::new(),
         });
-        let actual = channel.group_id();
+        let actual = channel.group_id().unwrap();
 
         assert_eq!(expect, actual);
     }
@@ -271,7 +272,7 @@ mod tests {
         let expect = id;
 
         let channel = DownstreamChannel::Group(id);
-        let actual = channel.group_id();
+        let actual = channel.group_id().unwrap();
 
         assert_eq!(expect, actual);
     }

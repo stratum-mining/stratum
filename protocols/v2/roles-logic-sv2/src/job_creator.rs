@@ -1,4 +1,4 @@
-use crate::{errors::Error, utils::Id};
+use crate::{utils::Id, Error};
 use binary_sv2::B064K;
 use bitcoin::{
     blockdata::{

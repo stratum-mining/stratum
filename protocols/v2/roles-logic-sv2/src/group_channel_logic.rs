@@ -1,6 +1,6 @@
 use crate::{
-    errors::Error,
     utils::{target_from_hash_rate, Id},
+    Error,
 };
 use mining_sv2::{Extranonce, OpenStandardMiningChannelSuccess};
 use std::collections::HashMap;
