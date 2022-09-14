@@ -4,6 +4,7 @@ use crate::{
 };
 use async_channel::{Receiver, Sender};
 use async_std::{net::TcpStream, task};
+use binary_sv2::u256_from_int;
 use codec_sv2::{Frame, HandshakeRole, Initiator};
 use network_helpers::Connection;
 use roles_logic_sv2::{
@@ -14,9 +15,9 @@ use roles_logic_sv2::{
         mining::{ParseUpstreamMiningMessages, SendTo},
     },
     mining_sv2::{
-        NewExtendedMiningJob, OpenExtendedMiningChannelSuccess, OpenMiningChannelError,
-        SetExtranoncePrefix, SetNewPrevHash, SetTarget, SubmitSharesError, SubmitSharesExtended,
-        SubmitSharesSuccess,
+        NewExtendedMiningJob, OpenExtendedMiningChannel, OpenExtendedMiningChannelSuccess,
+        OpenMiningChannelError, SetExtranoncePrefix, SetNewPrevHash, SetTarget, SubmitSharesError,
+        SubmitSharesExtended, SubmitSharesSuccess,
     },
     parsers::Mining,
     routing_logic::{CommonRoutingLogic, MiningRoutingLogic, NoRouting},
@@ -27,6 +28,7 @@ use std::{net::SocketAddr, sync::Arc};
 
 #[derive(Debug)]
 pub struct Upstream {
+    channel_id: Option<u32>,
     connection: UpstreamConnection,
     submit_from_dowstream: Receiver<SubmitSharesExtended<'static>>,
     new_prev_hash_sender: Sender<SetNewPrevHash<'static>>,
@@ -67,6 +69,7 @@ impl Upstream {
             submit_from_dowstream,
             new_prev_hash_sender,
             new_extended_mining_job_sender,
+            channel_id: None,
         }))
     }
 
@@ -106,6 +109,18 @@ impl Upstream {
             CommonRoutingLogic::None,
         )
         .unwrap();
+
+        // Send open channel request before returning
+        let user_identity = "ABC".to_string().try_into().unwrap();
+        let open_channel = Mining::OpenExtendedMiningChannel(OpenExtendedMiningChannel {
+            request_id: 0.into(),               // TODO
+            user_identity,                      // TODO
+            nominal_hash_rate: 5.4,             // TODO
+            max_target: u256_from_int(567_u64), // TODO
+            min_extranonce_size: 8,
+        });
+        let sv2_frame: StdFrame = Message::Mining(open_channel.into()).try_into().unwrap();
+        connection.send(sv2_frame).await.unwrap();
     }
 
     /// Parse the incoming SV2 message from the Upstream role and use the
@@ -173,6 +188,7 @@ impl Upstream {
                             _ => panic!(),
                         }
                     }
+                    Ok(SendTo::None(None)) => (),
                     // NO need to handle impossible state just panic cause are impossible and we
                     // will never panic ;-)
                     Ok(_) => panic!(),
@@ -191,7 +207,10 @@ impl Upstream {
                 let receiver = self_
                     .safe_lock(|s| s.submit_from_dowstream.clone())
                     .unwrap();
-                let sv2_submit: SubmitSharesExtended = receiver.recv().await.unwrap();
+                let mut sv2_submit: SubmitSharesExtended = receiver.recv().await.unwrap();
+                sv2_submit.channel_id = self_.safe_lock(|s| s.channel_id.unwrap()).unwrap();
+                //sv2_submit.channel_id = 0;
+
                 println!("\n\nRRRR UPSTREAM IN ON SUBMIT: {:?}\n", &sv2_submit);
                 let message = Message::Mining(
                     roles_logic_sv2::parsers::Mining::SubmitSharesExtended(sv2_submit),
@@ -331,37 +350,24 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
         m: roles_logic_sv2::mining_sv2::OpenExtendedMiningChannelSuccess,
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error>
     {
-        let message = Mining::OpenExtendedMiningChannelSuccess(OpenExtendedMiningChannelSuccess {
-            // Client-specified request ID from OpenStandardMiningChannel message, so that the
-            // client can pair responses with open channel requests.
-            request_id: m.request_id,
-            // Channel identifier, stable for whole connection lifetime. Used for broadcasting new
-            // jobs by the connection. Can be extended of standard channel (always extended for SV1
-            // Translator Proxy)
-            channel_id: m.channel_id,
-            // Initial target for the mining channel
-            target: m.target.clone().into_static(),
-            // Extranonce size (in bytes) set for the channel
-            extranonce_size: m.extranonce_size,
-            // Bytes used as implicit first part of extranonce
-            extranonce_prefix: m.extranonce_prefix.clone().into_static(),
-        });
-        Ok(SendTo::Respond(message))
+        self.channel_id = Some(m.channel_id);
+        Ok(SendTo::None(None))
     }
 
     fn handle_open_mining_channel_error(
         &mut self,
-        m: roles_logic_sv2::mining_sv2::OpenMiningChannelError,
+        _: roles_logic_sv2::mining_sv2::OpenMiningChannelError,
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error>
     {
-        let message = Mining::OpenMiningChannelError(OpenMiningChannelError {
-            // Client-specified request ID from OpenStandardMiningChannel message, so that the
-            // client can pair responses with open channel requests.
-            request_id: m.request_id,
-            // Relevant error reason code
-            error_code: m.error_code.clone().into_static(),
-        });
-        Ok(SendTo::Respond(message))
+        // let message = Mining::OpenMiningChannelError(OpenMiningChannelError {
+        //     // Client-specified request ID from OpenStandardMiningChannel message, so that the
+        //     // client can pair responses with open channel requests.
+        //     request_id: m.request_id,
+        //     // Relevant error reason code
+        //     error_code: m.error_code.clone().into_static(),
+        // });
+        // Ok(SendTo::Respond(message))
+        todo!()
     }
 
     /// Handle SV2 `UpdateChannelError`.
@@ -371,7 +377,7 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
         _m: roles_logic_sv2::mining_sv2::UpdateChannelError,
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error>
     {
-        unimplemented!()
+        todo!()
     }
 
     /// Handle SV2 `CloseChannel`.
@@ -381,61 +387,53 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
         _m: roles_logic_sv2::mining_sv2::CloseChannel,
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error>
     {
-        unimplemented!()
+        todo!()
     }
 
     fn handle_set_extranonce_prefix(
         &mut self,
-        m: roles_logic_sv2::mining_sv2::SetExtranoncePrefix,
+        _: roles_logic_sv2::mining_sv2::SetExtranoncePrefix,
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error>
     {
-        let message = Mining::SetExtranoncePrefix(SetExtranoncePrefix {
-            // Channel identifier, stable for whole connection lifetime. Used for broadcasting new
-            // jobs by the connection. Can be extended of standard channel (always extended for SV1
-            // Translator Proxy)
-            channel_id: m.channel_id,
-            // Bytes used as implicit first part of extranonce.
-            extranonce_prefix: m.extranonce_prefix.clone().into_static(),
-        });
-        Ok(SendTo::Respond(message))
+        todo!()
     }
 
     fn handle_submit_shares_success(
         &mut self,
-        m: roles_logic_sv2::mining_sv2::SubmitSharesSuccess,
+        _: roles_logic_sv2::mining_sv2::SubmitSharesSuccess,
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error>
     {
-        let message = Mining::SubmitSharesSuccess(SubmitSharesSuccess {
-            // Channel identifier, stable for whole connection lifetime. Used for broadcasting new
-            // jobs by the connection. Can be extended of standard channel (always extended for SV1
-            // Translator Proxy)
-            channel_id: m.channel_id,
-            // Most recent sequence number with a correct result.
-            last_sequence_number: m.last_sequence_number,
-            // Count of new submits acknowledged within this batch.
-            new_submits_accepted_count: m.new_submits_accepted_count,
-            // Sum of shares acknowledged within this batch.
-            new_shares_sum: m.new_shares_sum,
-        });
-        Ok(SendTo::Respond(message))
+        // // TODO
+        // let message = Mining::SetExtranoncePrefix(SetExtranoncePrefix {
+        //     // Channel identifier, stable for whole connection lifetime. Used for broadcasting new
+        //     // jobs by the connection. Can be extended of standard channel (always extended for SV1
+        //     // Translator Proxy)
+        //     channel_id: m.channel_id,
+        //     // Bytes used as implicit first part of extranonce.
+        //     extranonce_prefix: m.extranonce_prefix.clone().into_static(),
+        // });
+        // Ok(SendTo::Respond(message))
+        Ok(SendTo::None(None))
     }
 
     fn handle_submit_shares_error(
         &mut self,
-        m: roles_logic_sv2::mining_sv2::SubmitSharesError,
+        _: roles_logic_sv2::mining_sv2::SubmitSharesError,
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error>
     {
-        let message = Mining::SubmitSharesError(SubmitSharesError {
-            // Channel identifier, stable for whole connection lifetime. Used for broadcasting new
-            // jobs by the connection. Can be extended of standard channel (always extended for SV1
-            // Translator Proxy)
-            channel_id: m.channel_id,
-            // Sequence number
-            sequence_number: m.sequence_number,
-            // Relevant error reason code
-            error_code: m.error_code.clone().into_static(),
-        });
-        Ok(SendTo::Respond(message))
+        // TODO
+        // let message = Mining::SubmitSharesError(SubmitSharesError {
+        //     // Channel identifier, stable for whole connection lifetime. Used for broadcasting new
+        //     // jobs by the connection. Can be extended of standard channel (always extended for SV1
+        //     // Translator Proxy)
+        //     channel_id: m.channel_id,
+        //     // Sequence number
+        //     sequence_number: m.sequence_number,
+        //     // Relevant error reason code
+        //     error_code: m.error_code.clone().into_static(),
+        // });
+        // Ok(SendTo::Respond(message))
+        Ok(SendTo::None(None))
     }
 
     /// SV2 `NewMiningJob` message is NOT handled because it is NOT used for the Translator Proxy
@@ -518,17 +516,18 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
     /// RR: Not used in demo, target is hardcoded.
     fn handle_set_target(
         &mut self,
-        m: roles_logic_sv2::mining_sv2::SetTarget,
+        _: roles_logic_sv2::mining_sv2::SetTarget,
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error>
     {
-        let message = Mining::SetTarget(SetTarget {
-            // Channel identifier, stable for whole connection lifetime. Used for broadcasting new
-            // jobs by the connection. Can be extended of standard channel (always extended for SV1
-            // Translator Proxy)
-            channel_id: m.channel_id,
-            maximum_target: m.maximum_target.clone().into_static(),
-        });
-        Ok(SendTo::Respond(message))
+        // let message = Mining::SetTarget(SetTarget {
+        //     Channel identifier, stable for whole connection lifetime. Used for broadcasting new
+        //     jobs by the connection. Can be extended of standard channel (always extended for SV1
+        //     Translator Proxy)
+        //     channel_id: m.channel_id,
+        //     maximum_target: m.maximum_target.clone().into_static(),
+        // });
+        // Ok(SendTo::Respond(message))
+        unimplemented!()
     }
 
     /// Handle SV2 `Reconnect` message.
