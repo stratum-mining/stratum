@@ -137,10 +137,9 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
                 }
             }
         };
-        Ok(SendTo::RelayNewMessageToSv2(
-            Arc::new(Mutex::new(())),
-            Mining::OpenStandardMiningChannelSuccess(message),
-        ))
+        Ok(SendTo::Respond(Mining::OpenStandardMiningChannelSuccess(
+            message,
+        )))
     }
 
     fn handle_open_extended_mining_channel(
@@ -204,10 +203,9 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
             extranonce_size: 128,
             extranonce_prefix: extended.try_into().unwrap(),
         };
-        Ok(SendTo::RelayNewMessageToSv2(
-            Arc::new(Mutex::new(())),
-            Mining::OpenExtendedMiningChannelSuccess(message),
-        ))
+        Ok(SendTo::Respond(Mining::OpenExtendedMiningChannelSuccess(
+            message,
+        )))
     }
 
     fn handle_update_channel(&mut self, _: UpdateChannel) -> Result<SendTo<()>, Error> {

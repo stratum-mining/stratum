@@ -155,14 +155,14 @@ impl DownstreamMiningNode {
         );
 
         match next_message_to_send {
-            Ok(SendTo::RelaySameMessageToSv2(upstream_mutex)) => {
+            Ok(SendTo::RelaySameMessageToRemote(upstream_mutex)) => {
                 let sv2_frame: codec_sv2::Sv2Frame<PoolMessages, buffer_sv2::Slice> =
                     incoming.map(|payload| payload.try_into().unwrap());
                 UpstreamMiningNode::send(upstream_mutex.clone(), sv2_frame)
                     .await
                     .unwrap();
             }
-            Ok(SendTo::RelayNewMessageToSv2(upstream_mutex, message)) => {
+            Ok(SendTo::RelayNewMessageToRemote(upstream_mutex, message)) => {
                 let message = PoolMessages::Mining(message);
                 let frame: UpstreamFrame = message.try_into().unwrap();
                 UpstreamMiningNode::send(upstream_mutex.clone(), frame)
@@ -177,13 +177,10 @@ impl DownstreamMiningNode {
                     .unwrap();
             }
             Ok(SendTo::Multiple(_sends_to)) => {
-                todo!();
+                panic!();
             }
-            // TODO: Rm panic and replace w proper error handling
-            Ok(SendTo::RelaySameMessageToSv1(_)) => panic!("{:?}", Error::CannotRelaySv1Message),
-            Ok(SendTo::None(_)) => (),
-            Err(Error::UnexpectedMessage) => todo!("148"),
-            Err(_) => todo!("149"),
+            Ok(_) => panic!(),
+            Err(_) => todo!(),
         }
     }
 
@@ -197,7 +194,7 @@ impl DownstreamMiningNode {
         match sender.send(either_frame).await {
             Ok(_) => Ok(()),
             Err(_) => {
-                todo!("172")
+                todo!()
             }
         }
     }
@@ -226,7 +223,7 @@ impl
         _: OpenStandardMiningChannel,
         up: Option<Arc<Mutex<UpstreamMiningNode>>>,
     ) -> Result<SendTo<UpstreamMiningNode>, Error> {
-        Ok(SendTo::RelaySameMessageToSv2(up.unwrap()))
+        Ok(SendTo::RelaySameMessageToRemote(up.unwrap()))
     }
 
     fn handle_open_extended_mining_channel(
@@ -259,7 +256,7 @@ impl
                                         // This could just relay same message and change the
                                         // job_id as we do for request_ids
                                         let message = Mining::SubmitSharesStandard(m);
-                                        Ok(SendTo::RelayNewMessageToSv2(remote.clone(),message))
+                                        Ok(SendTo::RelayNewMessageToRemote(remote.clone(),message))
                                     },
                                     roles_logic_sv2::job_dispatcher::SendSharesResponse::Invalid(m) => {
                                         let message = Mining::SubmitSharesError(m);
@@ -305,7 +302,7 @@ impl
     ) -> Result<roles_logic_sv2::handlers::common::SendTo, Error> {
         let (data, message) = result.unwrap().unwrap();
         self.status.pair(data);
-        Ok(SendToCommon::RelayNewMessageToSv2(
+        Ok(SendToCommon::RelayNewMessageToRemote(
             Arc::new(Mutex::new(())),
             message.try_into().unwrap(),
         ))
@@ -338,7 +335,7 @@ pub async fn listen_for_downstream_mining(address: SocketAddr) {
                 payload,
                 routing_logic,
             ) {
-                Ok(SendToCommon::RelayNewMessageToSv2(_, message)) => {
+                Ok(SendToCommon::RelayNewMessageToRemote(_, message)) => {
                     let message = match message {
                         roles_logic_sv2::parsers::CommonMessages::SetupConnectionSuccess(m) => m,
                         _ => panic!(),

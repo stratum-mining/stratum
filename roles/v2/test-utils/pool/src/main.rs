@@ -213,13 +213,12 @@ impl ParseDownstreamCommonMessages<NoRouting> for SetupConnectionHandler {
         self.header_only = Some(header_only);
         println!("POOL: setup connection");
         println!("POOL: connection require_std_job: {}", header_only);
-        Ok(SendTo::RelayNewMessageToSv2(
-            Arc::new(Mutex::new(())),
-            CommonMessages::SetupConnectionSuccess(SetupConnectionSuccess {
+        Ok(SendTo::Respond(CommonMessages::SetupConnectionSuccess(
+            SetupConnectionSuccess {
                 flags: 0,
                 used_version: 2,
-            }),
-        ))
+            },
+        )))
     }
 }
 
@@ -280,7 +279,7 @@ impl Downstream {
             MiningRoutingLogic::None,
         );
         match next_message_to_send {
-            Ok(SendTo::RelayNewMessageToSv2(_, message)) => {
+            Ok(SendTo::Respond(message)) => {
                 let sv2_frame: StdFrame = PoolMessages::Mining(message).try_into().unwrap();
                 let sender = self_mutex.safe_lock(|self_| self_.sender.clone()).unwrap();
                 sender.send(sv2_frame.into()).await.unwrap();
@@ -372,10 +371,9 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
             }
             (true, Some(_)) => panic!(),
         };
-        Ok(SendTo::RelayNewMessageToSv2(
-            Arc::new(Mutex::new(())),
-            Mining::OpenStandardMiningChannelSuccess(message),
-        ))
+        Ok(SendTo::Respond(Mining::OpenStandardMiningChannelSuccess(
+            message,
+        )))
     }
 
     fn handle_open_extended_mining_channel(

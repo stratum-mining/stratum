@@ -72,7 +72,7 @@ impl TemplateRx {
             )
             .unwrap()
             {
-                roles_logic_sv2::handlers::SendTo_::RelayNewMessageToSv2(_, m) => match m {
+                roles_logic_sv2::handlers::SendTo_::RelayNewMessageToRemote(_, m) => match m {
                     TemplateDistribution::CoinbaseOutputDataSize(_) => todo!(),
                     TemplateDistribution::NewTemplate(m) => {
                         new_template_sender.send(m).await.unwrap()
