@@ -21,6 +21,7 @@ pub enum Error {
     PrevHashRequireNonExistentJobId(u32),
     RequestIdNotMapped(u32),
     NoUpstreamsConnected,
+    UnexpectedPoolMessage,
     UnknownRequestId(u32),
 }
 
@@ -63,6 +64,7 @@ impl Display for Error {
             }
             RequestIdNotMapped(id) => write!(f, "RequestIdNotMapped {}", id),
             NoUpstreamsConnected => write!(f, "There are no upstream connected"),
+            UnexpectedPoolMessage => write!(f, "Unexpected `PoolMessage` type"),
             UnknownRequestId(id) => write!(
                 f,
                 "Upstream is answering with a wrong request ID {} or

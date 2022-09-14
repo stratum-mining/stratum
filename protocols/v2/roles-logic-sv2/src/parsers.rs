@@ -1148,14 +1148,14 @@ impl<'decoder, B: AsMut<[u8]> + AsRef<[u8]>> TryFrom<TemplateDistribution<'decod
 }
 
 impl<'a> TryFrom<PoolMessages<'a>> for MiningDeviceMessages<'a> {
-    type Error = ();
+    type Error = Error;
 
-    fn try_from(value: PoolMessages<'a>) -> Result<Self, Self::Error> {
+    fn try_from(value: PoolMessages<'a>) -> Result<Self, Error> {
         match value {
             PoolMessages::Common(message) => Ok(Self::Common(message)),
             PoolMessages::Mining(message) => Ok(Self::Mining(message)),
-            PoolMessages::JobNegotiation(_) => Err(()),
-            PoolMessages::TemplateDistribution(_) => Err(()),
+            PoolMessages::JobNegotiation(_) => Err(Error::UnexpectedPoolMessage),
+            PoolMessages::TemplateDistribution(_) => Err(Error::UnexpectedPoolMessage),
         }
     }
 }
