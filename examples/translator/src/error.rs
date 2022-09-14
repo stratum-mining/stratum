@@ -18,6 +18,8 @@ pub enum Error {
     // NoTranslationRequired,
     /// SV1 protocol library error
     V1ProtocolError(v1::error::Error),
+    /// Errors if a `NoiseFrame` was returned, when a `SV2Frame` was expected.
+    UnexpectedNoiseFrame,
     // InvalidJsonRpcMessageKind(String),
 }
 
@@ -31,6 +33,7 @@ impl fmt::Display for Error {
             FramingSv2Error(ref e) => write!(f, "Framing SV2 error: `{:?}`", e),
             IoError(ref e) => write!(f, "I/O error: `{:?}", e),
             RolesSv2LogicError(ref e) => write!(f, "Roles SV2 Logic Error: `{:?}`", e),
+            UnexpectedNoiseFrame => write!(f, "Expected `SV2Frame`, received `NoiseFrame`"),
             V1ProtocolError(ref e) => write!(f, "V1 Protocol Error: `{:?}`", e),
         }
     }

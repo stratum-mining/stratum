@@ -91,7 +91,10 @@ impl Upstream {
         // `SetupConnectionError` inside a SV2 binary message frame
         let mut incoming: StdFrame = connection.receiver.recv().await.unwrap().try_into()?;
         // Gets the binary frame message type from the message header
-        let message_type = incoming.get_header().unwrap().msg_type();
+        let message_type = incoming
+            .get_header()
+            .unwrap_or(return Err(Error::UnexpectedNoiseFrame))
+            .msg_type();
         // Gets the message payload
         let payload = incoming.payload();
 
