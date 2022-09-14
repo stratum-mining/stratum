@@ -307,6 +307,8 @@ pub trait IsClient {
     {
         match response {
             methods::Server2ClientResponse::Configure(mut configure) => {
+                println!("{:?} - got configure response", std::time::SystemTime::now());
+
                 self.handle_configure(&mut configure)?;
                 self.set_version_rolling_mask(configure.version_rolling_mask());
                 self.set_version_rolling_min_bit(configure.version_rolling_min_bit());
@@ -314,6 +316,8 @@ pub trait IsClient {
                 Ok(())
             }
             methods::Server2ClientResponse::Subscribe(subscribe) => {
+                println!("{:?} - got subscribe response", std::time::SystemTime::now());
+
                 self.handle_subscribe(&subscribe)?;
                 self.set_extranonce1(subscribe.extra_nonce1);
                 self.set_extranonce2_size(subscribe.extra_nonce2_size);
@@ -321,6 +325,8 @@ pub trait IsClient {
                 Ok(())
             }
             methods::Server2ClientResponse::Authorize(authorize) => {
+                println!("{:?} - got auth response", std::time::SystemTime::now());
+
                 if authorize.is_ok() {
                     self.authorize_user_name(authorize.user_name());
                 };
