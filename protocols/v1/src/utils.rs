@@ -5,9 +5,10 @@ use serde_json::Value;
 use std::{convert::TryFrom, mem::size_of};
 
 /// Helper type that allows simple serialization and deserialization of byte vectors
-/// that are represented as hex strings in JSON
+/// that are represented as hex strings in JSON.
+/// HexBytes must be less than or equal to 32 bytes.
 #[derive(Clone, Debug, PartialEq)]
-pub struct HexBytes(pub Vec<u8>);
+pub struct HexBytes(Vec<u8>);
 
 impl HexBytes {
     pub fn len(&self) -> usize {
@@ -15,6 +16,19 @@ impl HexBytes {
     }
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
+    }
+}
+
+impl TryFrom<HexBytes> for Vec<u8> {
+    type Error = Error;
+
+    fn try_from(value: HexBytes) -> Result<Self, Self::Error> {
+        let len = value.len();
+        if len > 32 {
+            Err(Error::BadHexBytesToVecConvert(len))
+        } else {
+            Ok(value.0)
+        }
     }
 }
 
