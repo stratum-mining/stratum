@@ -346,7 +346,7 @@ impl ExtendedExtranonce {
     }
 
     pub fn next_extended(&mut self, required_len: usize) -> Option<Extranonce> {
-        if required_len > self.range_2.start - self.range_2.end {
+        if required_len > self.range_2.end - self.range_2.start {
             return None;
         };
         let extended_part = &mut self.inner[self.range_1.start..self.range_1.end];
