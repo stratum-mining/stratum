@@ -23,12 +23,17 @@ impl TryFrom<Vec<u8>> for HexBytes {
     type Error = Error;
 
     fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
-        let len = value.len();
-        if len > 32 {
-            Err(Error::BadHexBytesConvert(len))
-        } else {
-            Ok(HexBytes(value))
-        }
+        Ok(HexBytes(value))
+        // Previously expected HexBytes to never exceed 32 bytes in length, but when used with
+        // `coinbase_prefix` + `coinbase_suffix` in the translator proxy, the length exceeds 32
+        // bytes and this should be allowed. Leaving the commented out error checks in case we
+        // revert back and handle these coinbase values differently
+        // let len = value.len();
+        // if len > 32 {
+        //     Err(Error::BadHexBytesConvert(len))
+        // } else {
+        //     Ok(HexBytes(value))
+        // }
     }
 }
 
@@ -36,12 +41,17 @@ impl TryFrom<HexBytes> for Vec<u8> {
     type Error = Error;
 
     fn try_from(value: HexBytes) -> Result<Self, Self::Error> {
-        let len = value.len();
-        if len > 32 {
-            Err(Error::BadHexBytesConvert(len))
-        } else {
-            Ok(value.0)
-        }
+        Ok(value.0)
+        // Previously expected HexBytes to never exceed 32 bytes in length, but when used with
+        // `coinbase_prefix` + `coinbase_suffix` in the translator proxy, the length exceeds 32
+        // bytes and this should be allowed. Leaving the commented out error checks in case we
+        // revert back and handle these coinbase values differently
+        // let len = value.len();
+        // if len > 32 {
+        //     Err(Error::BadHexBytesConvert(len))
+        // } else {
+        //     Ok(value.0)
+        // }
     }
 }
 
