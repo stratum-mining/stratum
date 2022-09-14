@@ -592,6 +592,14 @@ async fn initialize_client(client: Arc<Mutex<Client>>) {
 }
 
 fn main() {
+    // exit application after 50 seconds
+    task::spawn(async {
+        sleep(Duration::from_secs(50));
+        println!("Exiting application");
+        exit(0)
+        });
+
+
     //Listen on available port and wait for bind
     let listener = task::block_on(async move {
         let listener = TcpListener::bind(ADDR).await.unwrap();
