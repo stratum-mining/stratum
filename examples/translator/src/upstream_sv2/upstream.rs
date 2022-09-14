@@ -1,5 +1,6 @@
 use crate::{
     downstream_sv1::Downstream,
+    error::{Error, ProxyResult},
     upstream_sv2::{EitherFrame, Message, StdFrame, UpstreamConnection},
 };
 use async_channel::{Receiver, Sender};
@@ -47,14 +48,14 @@ impl Upstream {
         submit_from_dowstream: Receiver<SubmitSharesExtended<'static>>,
         new_prev_hash_sender: Sender<SetNewPrevHash<'static>>,
         new_extended_mining_job_sender: Sender<NewExtendedMiningJob<'static>>,
-    ) -> Arc<Mutex<Self>> {
+    ) -> ProxyResult<Arc<Mutex<Self>>> {
         // Connect to the SV2 Upstream role
-        let socket = TcpStream::connect(address).await.map_err(|_| ()).unwrap();
-        let initiator = Initiator::from_raw_k(authority_public_key).unwrap();
+        let socket = TcpStream::connect(address).await?;
+        let initiator = Initiator::from_raw_k(authority_public_key)?;
 
         println!(
             "\nPROXY SERVER - ACCEPTING FROM UPSTREAM: {}\n",
-            socket.peer_addr().unwrap()
+            socket.peer_addr()?
         );
 
         // Channel to send and receive messages to the SV2 Upstream role
@@ -64,13 +65,13 @@ impl Upstream {
         // channel for downstream Translator Proxy communication
         let connection = UpstreamConnection { receiver, sender };
 
-        Arc::new(Mutex::new(Self {
+        Ok(Arc::new(Mutex::new(Self {
             connection,
             submit_from_dowstream,
             new_prev_hash_sender,
             new_extended_mining_job_sender,
             channel_id: None,
-        }))
+        })))
     }
 
     /// Setups the connection with the SV2 Upstream role (Pool)

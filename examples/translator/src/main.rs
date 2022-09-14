@@ -67,7 +67,8 @@ async fn main() {
         sender_new_prev_hash,
         sender_new_extended_mining_job,
     )
-    .await;
+    .await
+    .unwrap();
     // Connects to the SV2 Upstream role
     upstream_sv2::Upstream::connect(upstream.clone()).await;
     // Start receiving messages from the SV2 Upstream role
