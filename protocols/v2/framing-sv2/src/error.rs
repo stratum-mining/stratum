@@ -8,7 +8,7 @@ pub enum Error {
     BinarySv2Error(binary_sv2::Error),
     ExpectedHandshakeFrame,
     ExpectedSv2Frame,
-    Todo,
+    UnexpectedHeaderLength(isize),
 }
 
 impl fmt::Display for Error {
@@ -24,7 +24,9 @@ impl fmt::Display for Error {
             ExpectedSv2Frame => {
                 write!(f, "Expected `Sv2Frame`, received `HandshakeFrame`")
             }
-            Todo => write!(f, "framing_sv2 error TODO"),
+            UnexpectedHeaderLength(i) => {
+                write!(f, "Unexpected `Header` length: `{}`", i)
+            }
         }
     }
 }

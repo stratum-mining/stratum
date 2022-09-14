@@ -1,6 +1,6 @@
 use crate::{
-    error::Error,
     header::{Header, NoiseHeader},
+    Error,
 };
 use alloc::vec::Vec;
 use binary_sv2::{to_writer, GetSize, Serialize};
@@ -175,7 +175,10 @@ impl<'a, T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> Frame<'a, T> for 
     #[inline]
     fn size_hint(bytes: &[u8]) -> isize {
         match Header::from_bytes(bytes) {
-            Err(i) => i,
+            Err(_) => {
+                // Return incorrect header length
+                (Header::SIZE - bytes.len()) as isize
+            }
             Ok(header) => {
                 if bytes.len() - Header::SIZE == header.len() {
                     0
