@@ -38,7 +38,7 @@ pub fn u256_to_uint_256(v: U256<'static>) -> Uint256 {
 
 impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> for Downstream {
     fn get_channel_type(&self) -> SupportedChannelTypes {
-        SupportedChannelTypes::Group
+        SupportedChannelTypes::GroupAndExtended
     }
 
     fn is_work_selection_enabled(&self) -> bool {
