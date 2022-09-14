@@ -420,6 +420,8 @@ struct CError {
   enum class Tag {
     /// Errors from the `binary_sv2` crate
     BinarySv2Error,
+    /// Errors from the `framing_sv2` crate
+    FramingSv2Error,
     /// Errors if there are missing bytes in the Noise protocol
     MissingBytes,
     /// Errors from the `noise_sv2` crate
