@@ -62,8 +62,8 @@ impl NextMiningNotify {
 
             // TODO: Check endianness
             // B064K<'static'> -> HexBytes
-            let coin_base1 = HexBytes((&new_job.coinbase_tx_prefix).to_vec());
-            let coin_base2 = HexBytes((&new_job.coinbase_tx_suffix).to_vec());
+            let coin_base1 = new_job.coinbase_tx_prefix.to_vec().try_into().unwrap();
+            let coin_base2 = new_job.coinbase_tx_suffix.to_vec().try_into().unwrap();
 
             // Seq0255<'static, U56<'static>> -> Vec<Vec<u8>> -> Vec<HexBytes>
             let merkle_path_seq0255 = &new_job.merkle_path;
@@ -72,7 +72,7 @@ impl NextMiningNotify {
             let mut merkle_branch = Vec::<HexBytes>::new();
             for path in merkle_path_vec {
                 // TODO: Check endianness
-                merkle_branch.push(HexBytes(path).try_into().unwrap());
+                merkle_branch.push(path.try_into().unwrap());
             }
 
             // TODO: Check endianness
