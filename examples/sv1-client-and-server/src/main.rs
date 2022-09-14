@@ -603,6 +603,9 @@ fn main() {
         });
     });
 
+    //Give the server a full sec to get setup
+    sleep(Duration::from_millis(1000));
+    println!("slept for a sec - now starting up client");
     task::block_on(async {
         let client = Client::new(80, socket).await;
         initialize_client(client).await;
