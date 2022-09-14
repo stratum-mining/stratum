@@ -3,9 +3,13 @@ use crate::methods::{Method, MethodError};
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum Error {
-    /// `HexBytes` should be less than or equal to 32 bytes. Errors on conversion to `Vec` if
-    /// length is greater than 32 bytes.
-    BadHexBytesConvert(usize),
+    // Previously expected HexBytes to never exceed 32 bytes in length, but when used with
+    // `coinbase_prefix` + `coinbase_suffix` in the translator proxy, the length exceeds 32
+    // bytes and this should be allowed. Leaving the commented out error checks in case we
+    // revert back and handle these coinbase values differently
+    // /// `HexBytes` should be less than or equal to 32 bytes. Errors on conversion to `Vec` if
+    // /// length is greater than 32 bytes.
+    // BadHexBytesConvert(usize),
     BTCHashError(bitcoin_hashes::Error),
     /// Errors on bad hex decode/encode.
     HexError(hex::FromHexError),
@@ -34,11 +38,11 @@ pub enum Error {
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
-            Error::BadHexBytesConvert(u) => write!(
-                f,
-                "Expected HexBytes to have length <= 32 bytes. Received `{}` bytes",
-                u
-            ),
+            // Error::BadHexBytesConvert(u) => write!(
+            //     f,
+            //     "Expected HexBytes to have length <= 32 bytes. Received `{}` bytes",
+            //     u
+            // ),
             Error::BTCHashError(ref e) => write!(f, "Bitcoin Hashes Error: `{:?}`", e),
             Error::HexError(ref e) => write!(f, "Bad hex encode/decode: `{:?}`", e),
             Error::IncorrectClientStatus(s) => {
