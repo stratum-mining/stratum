@@ -137,8 +137,7 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
                 }
             }
         };
-        Ok(SendTo::RelayNewMessageToSv2(
-            Arc::new(Mutex::new(())),
+        Ok(SendTo::Respond(
             Mining::OpenStandardMiningChannelSuccess(message),
         ))
     }
@@ -204,8 +203,7 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
             extranonce_size: 128,
             extranonce_prefix: extended.try_into().unwrap(),
         };
-        Ok(SendTo::RelayNewMessageToSv2(
-            Arc::new(Mutex::new(())),
+        Ok(SendTo::Respond(
             Mining::OpenExtendedMiningChannelSuccess(message),
         ))
     }
