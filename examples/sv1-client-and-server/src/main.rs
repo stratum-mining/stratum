@@ -504,6 +504,7 @@ impl IsClient for Client {
     }
 
     fn set_status(&mut self, status: ClientStatus) {
+        println!("Setting client status to {:?}", status);
         self.status = status;
     }
 
@@ -569,12 +570,18 @@ async fn initialize_client(client: Arc<Mutex<Client>>) {
                 client_.send_configure().await
             }
             ClientStatus::Configured => {
-                println!("{:?} - Client status: configured", chrono::offset::Local::now());
+                println!(
+                    "{:?} - Client status: configured",
+                    chrono::offset::Local::now()
+                );
 
                 client_.send_subscribe().await
             }
             ClientStatus::Subscribed => {
-                println!("{:?} - Client status: subscribed", chrono::offset::Local::now());
+                println!(
+                    "{:?} - Client status: subscribed",
+                    chrono::offset::Local::now()
+                );
 
                 client_.send_authorize().await;
                 break;
@@ -596,9 +603,7 @@ fn main() {
     task::spawn(async {
         sleep(Duration::from_secs(50));
         println!("Exiting application");
-        exit(0)
-        });
-
+    });
 
     //Listen on available port and wait for bind
     let listener = task::block_on(async move {
@@ -609,7 +614,7 @@ fn main() {
 
     let socket = listener.local_addr().unwrap();
 
-    std::thread::spawn(|| {
+    let server_handle = std::thread::spawn(|| {
         task::spawn(async move {
             server_pool_listen(listener).await;
         });

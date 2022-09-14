@@ -307,7 +307,10 @@ pub trait IsClient {
     {
         match response {
             methods::Server2ClientResponse::Configure(mut configure) => {
-                println!("{:?} - got configure response", std::time::SystemTime::now());
+                println!(
+                    "{:?} - got configure response",
+                    std::time::SystemTime::now()
+                );
 
                 self.handle_configure(&mut configure)?;
                 self.set_version_rolling_mask(configure.version_rolling_mask());
@@ -316,7 +319,10 @@ pub trait IsClient {
                 Ok(())
             }
             methods::Server2ClientResponse::Subscribe(subscribe) => {
-                println!("{:?} - got subscribe response", std::time::SystemTime::now());
+                println!(
+                    "{:?} - got subscribe response",
+                    std::time::SystemTime::now()
+                );
 
                 self.handle_subscribe(&subscribe)?;
                 self.set_extranonce1(subscribe.extra_nonce1);
@@ -458,7 +464,7 @@ pub trait IsClient {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub enum ClientStatus {
     Init,
     Configured,
