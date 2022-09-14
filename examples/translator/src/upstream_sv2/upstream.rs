@@ -75,7 +75,7 @@ impl Upstream {
     }
 
     /// Setups the connection with the SV2 Upstream role (Pool)
-    pub async fn connect(self_: Arc<Mutex<Self>>) {
+    pub async fn connect(self_: Arc<Mutex<Self>>) -> ProxyResult<()> {
         // Get the `SetupConnection` message with Mining Device information (currently hard coded)
         let setup_connection = Self::get_setup_connection_message();
         let mut connection = self_.safe_lock(|s| s.connection.clone()).unwrap();
@@ -122,6 +122,7 @@ impl Upstream {
         });
         let sv2_frame: StdFrame = Message::Mining(open_channel.into()).try_into().unwrap();
         connection.send(sv2_frame).await.unwrap();
+        Ok(())
     }
 
     /// Parse the incoming SV2 message from the Upstream role and use the
