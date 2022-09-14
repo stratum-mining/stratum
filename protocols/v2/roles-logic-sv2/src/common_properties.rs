@@ -261,7 +261,7 @@ mod tests {
             target: u256_from_int(45_u32).into(),
             extranonce: mining_sv2::Extranonce::new(),
         });
-        let actual = channel.group_id();
+        let actual = channel.group_id().unwrap();
 
         assert_eq!(expect, actual);
     }
@@ -272,7 +272,7 @@ mod tests {
         let expect = id;
 
         let channel = DownstreamChannel::Group(id);
-        let actual = channel.group_id();
+        let actual = channel.group_id().unwrap();
 
         assert_eq!(expect, actual);
     }
