@@ -1,4 +1,7 @@
-use crate::header::{Header, NoiseHeader};
+use crate::{
+    error::Error,
+    header::{Header, NoiseHeader},
+};
 use alloc::vec::Vec;
 use binary_sv2::{to_writer, GetSize, Serialize};
 use core::convert::TryFrom;
@@ -332,23 +335,23 @@ impl<T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> EitherFrame<T, B> {
 }
 
 impl<T, B> TryFrom<EitherFrame<T, B>> for HandShakeFrame {
-    type Error = ();
+    type Error = Error;
 
-    fn try_from(v: EitherFrame<T, B>) -> Result<Self, Self::Error> {
+    fn try_from(v: EitherFrame<T, B>) -> Result<Self, Error> {
         match v {
             EitherFrame::HandShake(frame) => Ok(frame),
-            EitherFrame::Sv2(_) => Err(()),
+            EitherFrame::Sv2(_) => Err(Error::ExpectedHandshakeFrame),
         }
     }
 }
 
 impl<T, B> TryFrom<EitherFrame<T, B>> for Sv2Frame<T, B> {
-    type Error = ();
+    type Error = Error;
 
-    fn try_from(v: EitherFrame<T, B>) -> Result<Self, Self::Error> {
+    fn try_from(v: EitherFrame<T, B>) -> Result<Self, Error> {
         match v {
             EitherFrame::Sv2(frame) => Ok(frame),
-            EitherFrame::HandShake(_) => Err(()),
+            EitherFrame::HandShake(_) => Err(Error::ExpectedSv2Frame),
         }
     }
 }
