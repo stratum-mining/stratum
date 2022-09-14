@@ -9,6 +9,8 @@ pub enum Error {
     BadSv1StdReq,
     /// Errors on bad noise handshake.
     CodecNoiseError(codec_sv2::noise_sv2::Error),
+    /// Errors from `framing_sv2` crate.
+    FramingSv2Error(framing_sv2::Error),
     /// Errors on bad `TcpStream` connection.
     IoError(std::io::Error),
     /// Errors from `roles_logic_sv2` crate.
@@ -23,9 +25,10 @@ impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use Error::*;
         match self {
-            CodecNoiseError(ref e) => write!(f, "Noise error: `{:?}", e),
             BadSerdeJson(ref e) => write!(f, "Bad serde json: `{:?}`", e),
             BadSv1StdReq => write!(f, "Bad SV1 Standard Request"),
+            CodecNoiseError(ref e) => write!(f, "Noise error: `{:?}", e),
+            FramingSv2Error(ref e) => write!(f, "Framing SV2 error: `{:?}`", e),
             IoError(ref e) => write!(f, "I/O error: `{:?}", e),
             RolesSv2LogicError(ref e) => write!(f, "Roles SV2 Logic Error: `{:?}`", e),
             V1ProtocolError(ref e) => write!(f, "V1 Protocol Error: `{:?}`", e),
@@ -36,6 +39,12 @@ impl fmt::Display for Error {
 impl From<codec_sv2::noise_sv2::Error> for Error {
     fn from(e: codec_sv2::noise_sv2::Error) -> Self {
         Error::CodecNoiseError(e)
+    }
+}
+
+impl From<framing_sv2::Error> for Error {
+    fn from(e: framing_sv2::Error) -> Self {
+        Error::FramingSv2Error(e)
     }
 }
 

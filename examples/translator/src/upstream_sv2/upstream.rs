@@ -89,13 +89,7 @@ impl Upstream {
 
         // Wait for the SV2 Upstream to respond with either a `SetupConnectionSuccess` or a
         // `SetupConnectionError` inside a SV2 binary message frame
-        let mut incoming: StdFrame = connection
-            .receiver
-            .recv()
-            .await
-            .unwrap()
-            .try_into()
-            .unwrap();
+        let mut incoming: StdFrame = connection.receiver.recv().await.unwrap().try_into()?;
         // Gets the binary frame message type from the message header
         let message_type = incoming.get_header().unwrap().msg_type();
         // Gets the message payload
