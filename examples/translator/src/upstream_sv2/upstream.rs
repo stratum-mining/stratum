@@ -108,7 +108,7 @@ impl Upstream {
         )?;
 
         // Send open channel request before returning
-        let user_identity = "ABC".to_string().try_into().unwrap();
+        let user_identity = "ABC".to_string().try_into()?;
         let open_channel = Mining::OpenExtendedMiningChannel(OpenExtendedMiningChannel {
             request_id: 0.into(),               // TODO
             user_identity,                      // TODO

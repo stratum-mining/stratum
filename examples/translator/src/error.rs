@@ -7,6 +7,8 @@ pub enum Error {
     /// Errors on bad `serde_json` serialize/deserialize.
     BadSerdeJson(serde_json::Error),
     BadSv1StdReq,
+    /// Errors from `binary_sv2` crate.
+    BinarySv2Error(binary_sv2::Error),
     /// Errors on bad noise handshake.
     CodecNoiseError(codec_sv2::noise_sv2::Error),
     /// Errors from `framing_sv2` crate.
@@ -29,6 +31,7 @@ impl fmt::Display for Error {
         match self {
             BadSerdeJson(ref e) => write!(f, "Bad serde json: `{:?}`", e),
             BadSv1StdReq => write!(f, "Bad SV1 Standard Request"),
+            BinarySv2Error(ref e) => write!(f, "Binary SV2 error: `{:?}`", e),
             CodecNoiseError(ref e) => write!(f, "Noise error: `{:?}", e),
             FramingSv2Error(ref e) => write!(f, "Framing SV2 error: `{:?}`", e),
             IoError(ref e) => write!(f, "I/O error: `{:?}", e),
@@ -36,6 +39,12 @@ impl fmt::Display for Error {
             UnexpectedNoiseFrame => write!(f, "Expected `SV2Frame`, received `NoiseFrame`"),
             V1ProtocolError(ref e) => write!(f, "V1 Protocol Error: `{:?}`", e),
         }
+    }
+}
+
+impl From<binary_sv2::Error> for Error {
+    fn from(e: binary_sv2::Error) -> Self {
+        Error::BinarySv2Error(e)
     }
 }
 
