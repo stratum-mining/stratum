@@ -81,7 +81,7 @@ impl Upstream {
         let mut connection = self_.safe_lock(|s| s.connection.clone()).unwrap();
 
         // Put the `SetupConnection` message in a `StdFrame` to be sent over the wire
-        let sv2_frame: StdFrame = Message::Common(setup_connection.into()).try_into().unwrap();
+        let sv2_frame: StdFrame = Message::Common(setup_connection.into()).try_into()?;
         // Send the `SetupConnection` frame to the SV2 Upstream role
         // We support only one upstream if is not possible to connect we can just panic and let the
         // user know which is the issue
