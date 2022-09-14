@@ -4,6 +4,8 @@ use std::fmt::{self, Display, Formatter};
 #[derive(Debug)]
 /// No NoPairableUpstream((min_v, max_v, all falgs supported))
 pub enum Error {
+    /// Errors if payload size is too big to fit into a frame.
+    BadPayloadSize,
     ExpectedLen32(usize),
     BinarySv2Error(BinarySv2Error),
     /// Errors if a `SendTo::RelaySameMessageSv1` request is made on a SV2-only application.
@@ -32,6 +34,7 @@ impl Display for Error {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         use Error::*;
         match self {
+            BadPayloadSize => write!(f, "Payload is too big to fit into the frame"),
             BinarySv2Error(v) => write!(
                 f,
                 "BinarySv2Error: error in serializing/deserilizing binary format {:?}",

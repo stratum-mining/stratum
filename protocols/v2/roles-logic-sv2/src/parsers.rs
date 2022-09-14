@@ -972,11 +972,11 @@ pub enum PoolMessages<'a> {
 }
 
 impl<'a> TryFrom<MiningDeviceMessages<'a>> for PoolMessages<'a> {
-    type Error = ();
+    type Error = Error;
 
     fn try_from(value: MiningDeviceMessages<'a>) -> Result<Self, Self::Error> {
         match value {
-            MiningDeviceMessages::Common(_) => Err(()),
+            MiningDeviceMessages::Common(_) => Err(Error::UnexpectedMessage),
             MiningDeviceMessages::Mining(m) => Ok(PoolMessages::Mining(m)),
         }
     }
@@ -1108,39 +1108,42 @@ impl<'a, T: Into<CommonMessages<'a>>> From<T> for MiningDeviceMessages<'a> {
 impl<'decoder, B: AsMut<[u8]> + AsRef<[u8]>> TryFrom<PoolMessages<'decoder>>
     for Sv2Frame<PoolMessages<'decoder>, B>
 {
-    type Error = ();
+    type Error = Error;
 
-    fn try_from(v: PoolMessages<'decoder>) -> Result<Self, ()> {
+    fn try_from(v: PoolMessages<'decoder>) -> Result<Self, Error> {
         let extension_type = 0;
         let channel_bit = v.channel_bit();
         let message_type = v.message_type();
-        Sv2Frame::from_message(v, message_type, extension_type, channel_bit).ok_or(())
+        Sv2Frame::from_message(v, message_type, extension_type, channel_bit)
+            .ok_or(Error::BadPayloadSize)
     }
 }
 
 impl<'decoder, B: AsMut<[u8]> + AsRef<[u8]>> TryFrom<MiningDeviceMessages<'decoder>>
     for Sv2Frame<MiningDeviceMessages<'decoder>, B>
 {
-    type Error = ();
+    type Error = Error;
 
-    fn try_from(v: MiningDeviceMessages<'decoder>) -> Result<Self, ()> {
+    fn try_from(v: MiningDeviceMessages<'decoder>) -> Result<Self, Error> {
         let extension_type = 0;
         let channel_bit = v.channel_bit();
         let message_type = v.message_type();
-        Sv2Frame::from_message(v, message_type, extension_type, channel_bit).ok_or(())
+        Sv2Frame::from_message(v, message_type, extension_type, channel_bit)
+            .ok_or(Error::BadPayloadSize)
     }
 }
 
 impl<'decoder, B: AsMut<[u8]> + AsRef<[u8]>> TryFrom<TemplateDistribution<'decoder>>
     for Sv2Frame<TemplateDistribution<'decoder>, B>
 {
-    type Error = ();
+    type Error = Error;
 
-    fn try_from(v: TemplateDistribution<'decoder>) -> Result<Self, ()> {
+    fn try_from(v: TemplateDistribution<'decoder>) -> Result<Self, Error> {
         let extension_type = 0;
         let channel_bit = v.channel_bit();
         let message_type = v.message_type();
-        Sv2Frame::from_message(v, message_type, extension_type, channel_bit).ok_or(())
+        Sv2Frame::from_message(v, message_type, extension_type, channel_bit)
+            .ok_or(Error::BadPayloadSize)
     }
 }
 
