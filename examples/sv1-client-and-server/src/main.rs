@@ -71,7 +71,7 @@ impl Server {
             while let Some(message) = messages.next().await {
                 let message = message.unwrap();
                 println!(
-                    "{:?}-sender_incoming SENDING message - {}",
+                    "{:?}-Server sender_incoming SENDING message - {}",
                     chrono::offset::Local::now(),
                     message
                 );
@@ -82,7 +82,7 @@ impl Server {
         task::spawn(async move {
             loop {
                 let message: String = receiver_outgoing.recv().await.unwrap();
-                println!("receiver_outgoing writing message - {}", message);
+                println!("server - receiver_outgoing writing message - {}", message);
 
                 (&*writer).write_all(message.as_bytes()).await.unwrap();
             }
