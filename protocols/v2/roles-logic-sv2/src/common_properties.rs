@@ -1,7 +1,7 @@
 //! Traits that implements very basic properties that every implementation should implements
 use crate::{
-    errors::Error,
     selectors::{DownstreamMiningSelector, DownstreamSelector, NullDownstreamMiningSelector},
+    Error,
 };
 use common_messages_sv2::{has_requires_std_job, Protocol, SetupConnection};
 use mining_sv2::{Extranonce, Target};

@@ -1,4 +1,4 @@
-use crate::errors::Error;
+use crate::Error;
 
 #[cfg(not(feature = "with_serde"))]
 use binary_sv2::{

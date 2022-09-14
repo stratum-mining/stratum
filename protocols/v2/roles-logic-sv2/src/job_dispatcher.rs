@@ -1,7 +1,7 @@
 use crate::{
     common_properties::StandardChannel,
-    errors::Error,
     utils::{merkle_root_from_path, Id, Mutex},
+    Error,
 };
 use bitcoin::hashes::{sha256d, Hash, HashEngine};
 use mining_sv2::{
