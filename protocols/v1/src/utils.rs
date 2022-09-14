@@ -19,13 +19,26 @@ impl HexBytes {
     }
 }
 
+impl TryFrom<Vec<u8>> for HexBytes {
+    type Error = Error;
+
+    fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
+        let len = value.len();
+        if len > 32 {
+            Err(Error::BadHexBytesConvert(len))
+        } else {
+            Ok(HexBytes(value))
+        }
+    }
+}
+
 impl TryFrom<HexBytes> for Vec<u8> {
     type Error = Error;
 
     fn try_from(value: HexBytes) -> Result<Self, Self::Error> {
         let len = value.len();
         if len > 32 {
-            Err(Error::BadHexBytesToVecConvert(len))
+            Err(Error::BadHexBytesConvert(len))
         } else {
             Ok(value.0)
         }

@@ -5,7 +5,7 @@ use crate::methods::{Method, MethodError};
 pub enum Error {
     /// `HexBytes` should be less than or equal to 32 bytes. Errors on conversion to `Vec` if
     /// length is greater than 32 bytes.
-    BadHexBytesToVecConvert(usize),
+    BadHexBytesConvert(usize),
     BTCHashError(bitcoin_hashes::Error),
     /// Errors on bad hex decode/encode.
     HexError(hex::FromHexError),
@@ -34,7 +34,7 @@ pub enum Error {
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
-            Error::BadHexBytesToVecConvert(u) => write!(
+            Error::BadHexBytesConvert(u) => write!(
                 f,
                 "Expected HexBytes to have length <= 32 bytes. Received `{}` bytes",
                 u
