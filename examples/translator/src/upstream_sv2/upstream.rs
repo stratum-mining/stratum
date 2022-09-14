@@ -116,7 +116,7 @@ impl Upstream {
             max_target: u256_from_int(567_u64), // TODO
             min_extranonce_size: 8,
         });
-        let sv2_frame: StdFrame = Message::Mining(open_channel.into()).try_into().unwrap();
+        let sv2_frame: StdFrame = Message::Mining(open_channel.into()).try_into()?;
         connection.send(sv2_frame).await.unwrap();
         Ok(())
     }
@@ -129,11 +129,18 @@ impl Upstream {
             loop {
                 // Waiting to receive a message from the SV2 Upstream role
                 let recv = self_.safe_lock(|s| s.connection.receiver.clone()).unwrap();
-                let mut incoming: StdFrame = recv.recv().await.unwrap().try_into().unwrap();
+                // let mut incoming: StdFrame = recv.recv().await.unwrap().try_into().unwrap();
+                let incoming = recv.recv().await.unwrap();
+                let mut incoming: StdFrame = incoming
+                    .try_into()
+                    .expect("Err converting received frame into `StdFrame`");
                 println!("TU RECV SV2 FROM UPSTREAM: {:?}", &incoming);
                 // On message receive, get the message type from the message header and get the
                 // message payload
-                let message_type = incoming.get_header().unwrap().msg_type();
+                let message_type = incoming
+                    .get_header()
+                    .expect("UnexpectedNoiseFrame: Expected `SV2Frame`, received `NoiseFrame`")
+                    .msg_type();
                 let payload = incoming.payload();
 
                 // Since this is not communicating with an SV2 proxy, but instead a custom SV1
@@ -158,8 +165,12 @@ impl Upstream {
                         println!("TU SEND DIRECTLY TO UPSTREAM: {:?}", &message_for_upstream);
 
                         let message = Message::Mining(message_for_upstream);
-                        let frame: StdFrame = message.try_into().unwrap();
-                        let frame: EitherFrame = frame.try_into().unwrap();
+                        let frame: StdFrame = message
+                            .try_into()
+                            .expect("Err converting `Message::Mining` to `StdFrame`");
+                        let frame: EitherFrame = frame
+                            .try_into()
+                            .expect("Err converting `StdFrame` to `EitherFrame`");
 
                         // Relay the response message to the Upstream role
                         let sender = self_
