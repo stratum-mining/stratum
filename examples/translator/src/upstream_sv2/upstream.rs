@@ -108,8 +108,7 @@ impl Upstream {
             message_type,
             payload,
             CommonRoutingLogic::None,
-        )
-        .unwrap();
+        )?;
 
         // Send open channel request before returning
         let user_identity = "ABC".to_string().try_into().unwrap();

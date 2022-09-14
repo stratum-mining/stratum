@@ -11,6 +11,8 @@ pub enum Error {
     CodecNoiseError(codec_sv2::noise_sv2::Error),
     /// Errors on bad `TcpStream` connection.
     IoError(std::io::Error),
+    /// Errors from `roles_logic_sv2` crate.
+    RolesSv2LogicError(roles_logic_sv2::errors::Error),
     // NoTranslationRequired,
     /// SV1 protocol library error
     V1ProtocolError(v1::error::Error),
@@ -25,6 +27,7 @@ impl fmt::Display for Error {
             BadSerdeJson(ref e) => write!(f, "Bad serde json: `{:?}`", e),
             BadSv1StdReq => write!(f, "Bad SV1 Standard Request"),
             IoError(ref e) => write!(f, "I/O error: `{:?}", e),
+            RolesSv2LogicError(ref e) => write!(f, "Roles SV2 Logic Error: `{:?}`", e),
             V1ProtocolError(ref e) => write!(f, "V1 Protocol Error: `{:?}`", e),
         }
     }
@@ -39,6 +42,12 @@ impl From<codec_sv2::noise_sv2::Error> for Error {
 impl From<std::io::Error> for Error {
     fn from(e: std::io::Error) -> Self {
         Error::IoError(e)
+    }
+}
+
+impl From<roles_logic_sv2::errors::Error> for Error {
+    fn from(e: roles_logic_sv2::errors::Error) -> Self {
+        Error::RolesSv2LogicError(e)
     }
 }
 
