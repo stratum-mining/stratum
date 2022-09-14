@@ -1,21 +1,10 @@
 # Stratum
+
 [![codecov](https://codecov.io/gh/stratum-mining/stratum/branch/main/graph/badge.svg)](https://codecov.io/gh/stratum-mining/stratum)
 
 The Stratum protocol defines how miners, proxies, and pools communicate to contribute hashrate to
 the Bitcoin network.
 
-### Test Coverage
-Command to generate test coverage percentage:
-
-```
-cargo install cargo-tarpaulin
-cargo +nightly tarpaulin --verbose --features prop_test noise_sv2 fuzz with_buffer_pool async_std debug tokio with_tokio derive_codec_sv2 binary_codec_sv2 default core --lib --exclude-files examples/* --timeout 120 --fail-under 20 --out Xml
-```
-
-Must have [`cargo-tarpaulin`](https://github.com/xd009642/tarpaulin) installed globally:
-```
-cargo install cargo-tarpaulin
-```
 
 ## Table of Contents
 
@@ -52,8 +41,11 @@ cargo install cargo-tarpaulin
     - [3.25 examples/template-provider-test](#325-examplestemplate-provider-test)
     - [3.26 test](#326-test)
     - [3.27 experimental](#327-experimental)
-  - [4. Branches](#4-branches)
-
+  - [4. Build/Test/Run](#4-build-test-run)
+    - [4.01 build](#401-build)
+    - [4.02 test](#402-test)
+    - [4.03 run](#403-run)
+  - [5. Branches](#5-branches)
 
 ## 1. Goals
 
@@ -167,7 +159,10 @@ Core Stratum V2 and V1 libraries.
 ### 3.02 protocols/v1
 
 Contains a Sv1 library.
-TODO: more information
+
+**External dependencies**:
+- [serde](https://crates.io/crates/serde) - default-features off - [derive](https://serde.rs/derive.html), [alloc](https://serde.rs/feature-flags.html#-features-alloc) enabled
+- [serde_json](https://github.com/serde-rs/json) - default-features off - [alloc](https://docs.rs/serde_json/latest/serde_json/#no-std-support) enabled
 
 ### 3.03 protocols/v2
 
@@ -371,32 +366,63 @@ A Sv2 CPU miner useful to do integration tests.
 Contains several example implementations of various use cases.
 
 ### 3.19 examples/interop-cpp
+To run:<br>
+`$ run.sh` 
 
-TODO
+This script will build the sv2_ffi crate, then install cbindgen (to generate C bindings), generate
+ the C bindings then compile the template-provider test example with the generated C bindings. Then 
+finally it will run both the template-provider and the interop-cpp example.
+
+See [interop-cpp README](examples/interop-cpp/README.md) for more details 
 
 ### 3.20 examples/interop-cpp-no-cargo
 
-TODO
+Same as interop-cpp except it doesn't use `cargo build` - compiles directly with `rustc` instead. 
 
 ### 3.21 examples/ping-pong-with-noise
+This example simply sets up a server on 127.0.0.1:34254 and a client connects to that server.
+This uses the noise protocol to secure the connection. It sends random bytes to the server which
+then prints out the incoming message. This example loops forever and sends a message every second.
 
-TODO
+From the root directory run
+`$cargo run --bin ping_pong_with_noise`
+or from `examples/ping-pong-with-noise` run
+`$cargo run`
 
 ### 3.22 examples/ping-pong-without-noise
+This example simply sets up a server on 127.0.0.1:34254 and a client connects to that server.
+This uses the binary protocol. It sends random bytes to the server which
+then prints out the incoming message. This example loops forever and sends a message every second.
 
-TODO
+From the root directory run
+`$cargo run --bin ping_pong_without_noise`
+or from `examples/ping-pong-without-noise` run
+`$cargo run`
+
 
 ### 3.23 examples/sv1-client-and-server
+Runs a simple stratum v1 client and server such that the client runs through the configure, subscribe, auth
+startup and then sends a mining.submit in a loop every 2 seconds. The server sends a mining.notify to the client every 5s.
+The client and server both print out the messages received.
 
-TODO
+From the root directory run 
+`$cargo run --bin client_and_server`
+or from `examples/sv1-client-and-server` run
+`$cargo run`
 
 ### 3.24 examples/sv2-proxy
+**Deprecated**
 
-TODO
+This runs the [test-pool](roles/v2/test-utils/pool), [mining-proxy](roles/v2/mining-proxy), 
+and [mining-device](roles/v2/test-utils/pool) where test-pool is a sv2 encrypted pool,
+the mining-proxy is an sv2 proxy, the mining-device with a Standard Channel. A group channel is open
+between the proxy and pool. This example is deprecated and isn't fully functional.
+
+From `examples/sv2-proxy` run 
+`$./run.sh`
 
 ### 3.25 examples/template-provider-test
-
-TODO
+**Deprecated** 
 
 ### 3.26 test
 
@@ -406,10 +432,80 @@ Contains integration tests.
 
 Contains experimental logic that is not yet specified as part of the protocol or extensions.
 
-## 4. Branches
+## 4. Build/Run/Test
 
-TODO
+### 4.01 Build
 
-- main
-- POCRegtest-1-0-0
-- sv2-tp-crates
+To build the various projects/examples follow the following commands:
+
+`cargo build` - This quickly builds a test/debug artifacts for all crates
+
+`cargo build --release` - This builds artifacts in release mode with optimizations 
+
+**Features**
+
+| Feature                                               | Description                                                                                         | Default | Crate                                                                                                        |
+|-------------------------------------------------------|-----------------------------------------------------------------------------------------------------|---------|--------------------------------------------------------------------------------------------------------------|
+| with_[serde](https://serde.rs/)                       | (De)Serializing - Deprecated                                                                        | no      | network-helpers, interop-cpp, v2/(most), subprotocols/*                                                      |
+ | with_buffer_pool                                      | See [README.md](utils/buffer/README.md)                                                             | no      | network_helpers, v2/codec-sv2, binary-sv2, framing-sv2, no-serde-sv2                                         |
+| [noise](https://docs.rs/snow)_sv2                     | Provides encryption handshaking                                                                     | no      | v2/codec-sv2                                                                                                 |
+ | prop_test                                             | Uses [quickcheck](https://github.com/BurntSushi/quickcheck) for property testing with random values | no      | binary-sv2, no-serde-sv2/codec, subprotocols/common-messages, subprotocols/template-distribution, v2/sv2-ffi |
+| core                                                  | Uses in house binary codec instead of serde                                                         | yes     | v2/binary_sv2                                                                                                |
+| [fuzz](https://crates.io/crates/cargo-fuzz)           | Enables asserts for fuzz tests                                                                      | no      | utils/buffer                                                                                                 |
+ | [async_std](https://async.rs/)                        | Alternative to tokio                                                                                | yes     | network_helpers                                                                                              |
+ | with_[tokio](https://tokio.rs/)                       | For async with custom (de)serializer                                                                | no      | network_helpers                                                                                              |
+ | debug                                                 | Turns on debugging features                                                                         | no      | utils/buffer                                                                                                 |
+ | [criterion](https://github.com/bheisler/criterion.rs) | To [run benchmark tests](utils/buffer/README.md)                                                    | no      | utils/buffer                                                                                                 |
+
+### 4.02 Test
+
+Generate test coverage percentage with cargo-tarpaulin:
+
+Generate test coverage percentage with cargo-tarpaulin:
+```
+cargo +nightly tarpaulin --verbose --features prop_test noise_sv2 fuzz with_buffer_pool async_std debug tokio with_tokio derive_codec_sv2 binary_codec_sv2 default core --lib --exclude-files examples/* --timeout 120 --fail-under 30 --out Xml
+```
+
+Must have [cargo-tarpaulin](https://github.com/xd009642/tarpaulin) installed globally:
+
+```
+cargo install cargo-tarpaulin
+```
+
+Performs test coverage of entire project's libraries using cargo-tarpaulin and generates results using codecov.io.
+The following flags are used when executing cargo-tarpaulin:
+`--features`
+Includes the code with the listed features.
+The following features result in a tarpaulin error and are NOT included:
+derive, alloc, arbitrary-derive, attributes, with_serde
+`--lib`
+Only tests the package's library unit tests. Includes protocols, and utils (without the exclude-files flag, it includes this example because it contains a lib.rs file)
+`--exclude-files examples/*`: Excludes all projects in examples directory (specifically added to ignore examples that that contain a lib.rs file like interop-cpp)
+`--timeout 120`: If unresponsive for 120 seconds, action will fail
+`--fail-under 40`: If code coverage is less than 40%, action will fail
+`--out Xml`: Required for codecov.io to generate coverage result
+
+### 4.03 Run
+
+To get a list of the available binaries that can be run type `cargo run --bin` from the root. Then to run specify the 
+binary - for example from the table below to run the interop-cpp test you'd run `cargo run --bin interop-cpp`
+
+| binary                  | location                          | description                                       |
+|-------------------------|-----------------------------------|---------------------------------------------------|
+| client_and_server       | examples/sv1-client-and-server    | Depricated                                        |
+| coinbase-negotiator     | experemental/coinbase-negotiator  | Not complete POC                                  |
+| interop-cpp             | examples/interop-cpp              | Example which uses the ffi C bindings             |
+| mining-device           | roles/v2/test-utils/mining-device | Used in the sv2-proxy example as a mock miner     |
+| mining-proxy            | roles/v2/mining-proxy             | sv1->sv2 mining proxy                             |
+| ping_pong_with_noise    | examples/ping-pong-with-noise     | Example to show noise protocol in use             |
+| ping_pong_without_noise | examples/ping-pong-with-noise     | Example to show sv2 primatives and framing in use |
+| pool                    | roles/v2/pool                     | sv2 pool role                                     |
+| template-provider-test  | examples/template-provider-test   | Depricated                                        |
+| test-pool               | roles/v2/test-utils/pool          | Used in the sv2-proxy example as the sv2 pool     |
+ 
+
+## 5. Branches
+
+- main - the main branch with the latest
+- POCRegtest-1-0-0 - Deprecated POC branch
+- sv2-tp-crates - Subset of main which contains only the files needed by core to implement the template provider
