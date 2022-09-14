@@ -13,7 +13,8 @@ pub enum Error {
     NoGroupsFound,
     WrongMessageType(u8),
     UnexpectedMessage,
-    // min_v max_v all falgs supported
+    NoGroupIdOnExtendedChannel,
+    /// (`min_v`, `max_v`, all flags supported)
     NoPairableUpstream((u16, u16, u32)),
     /// Error if the hashmap `future_jobs` field in the `GroupChannelJobDispatcher` is empty.
     NoFutureJobs,
@@ -54,6 +55,7 @@ impl Display for Error {
             ),
             WrongMessageType(m) => write!(f, "Wrong message type: {}", m),
             UnexpectedMessage => write!(f, "Error: Unexpected message received"),
+            NoGroupIdOnExtendedChannel => write!(f, "Extended channels do not have group IDs"),
             NoPairableUpstream(a) => {
                 write!(f, "No pairable upstream node: {:?}", a)
             }

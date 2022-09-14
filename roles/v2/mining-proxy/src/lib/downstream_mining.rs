@@ -70,10 +70,10 @@ impl DownstreamMiningNodeStatus {
         match self {
             DownstreamMiningNodeStatus::Initializing => panic!(),
             DownstreamMiningNodeStatus::Paired((_, channels)) => {
-                match channels.get_mut(&channel.group_id()) {
+                match channels.get_mut(&channel.group_id().unwrap()) {
                     Some(g) => g.push(channel),
                     None => {
-                        channels.insert(channel.group_id(), vec![channel]);
+                        channels.insert(channel.group_id().unwrap(), vec![channel]);
                     }
                 };
             }
@@ -88,7 +88,7 @@ use tokio::task;
 impl DownstreamMiningNode {
     pub fn add_channel(&mut self, channel: DownstreamChannel) {
         self.channel_id_to_group_id
-            .insert(channel.channel_id(), channel.group_id());
+            .insert(channel.channel_id(), channel.group_id().unwrap());
         self.status.add_channel(channel);
     }
 
