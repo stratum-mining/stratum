@@ -327,6 +327,7 @@ impl Downstream {
         extranonces: Arc<Mutex<ExtendedExtranonce>>,
         last_new_prev_hash: Option<SetNewPrevHash<'static>>,
         solution_sender: Sender<SubmitSolution<'static>>,
+        pool: Arc<Mutex<Pool>>,
     ) -> Arc<Mutex<Self>> {
         let setup_connection = Arc::new(Mutex::new(SetupConnectionHandler::new()));
         let downstream_data =
@@ -421,8 +422,29 @@ impl Downstream {
         task::spawn(async move {
             loop {
                 let receiver = cloned.safe_lock(|d| d.receiver.clone()).unwrap();
-                let incoming: StdFrame = receiver.recv().await.unwrap().try_into().unwrap();
-                Downstream::next(cloned.clone(), incoming).await
+                match receiver.recv().await {
+                    Ok(received) => {
+                        let received: Result<StdFrame, _> = received.try_into();
+                        match received {
+                            Ok(std_frame) => Downstream::next(cloned.clone(), std_frame).await,
+                            _ => todo!(),
+                        }
+                    }
+                    _ => {
+                        match downstream_data.header_only {
+                            false => {
+                                pool.safe_lock(|p| p.group_downstreams.remove(&id).unwrap())
+                                    .unwrap();
+                            }
+                            true => {
+                                //_hom_ids.safe_lock(|id| id.next()).unwrap();
+                                panic!("Downstream standard channel not supported");
+                            }
+                        };
+                        break;
+                    }
+                }
+                //let incoming: StdFrame = receiver.recv().await.expect("DICOLCALALCLA").try_into().unwrap();
             }
         });
         self_
@@ -569,6 +591,7 @@ impl Pool {
                 extranonces,
                 last_new_prev_hash,
                 solution_sender,
+                self_.clone(),
             )
             .await;
 
