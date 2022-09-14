@@ -176,7 +176,7 @@ impl UpstreamMiningNode {
             .unwrap();
         match connection.as_mut() {
             Some(connection) => match connection.receiver.recv().await {
-                Ok(m) => Ok(m.try_into()?),
+                Ok(m) => Ok(m.try_into().unwrap()),
                 Err(_) => {
                     Self::connect(self_mutex).await?;
                     Err(())

@@ -1,4 +1,7 @@
-use crate::header::{Header, NoiseHeader};
+use crate::{
+    header::{Header, NoiseHeader},
+    Error,
+};
 use alloc::vec::Vec;
 use binary_sv2::{to_writer, GetSize, Serialize};
 use core::convert::TryFrom;
@@ -30,7 +33,7 @@ pub trait Frame<'a, T: Serialize + GetSize>: Sized {
 
     /// Serialize the frame into dst if the frame is already serialized it just swap dst with
     /// itself
-    fn serialize(self, dst: &mut [u8]) -> Result<(), binary_sv2::Error>;
+    fn serialize(self, dst: &mut [u8]) -> Result<(), Error>;
 
     //fn deserialize(&'a mut self) -> Result<Self::Deserialized, serde_sv2::Error>;
 
@@ -102,19 +105,19 @@ impl<'a, T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> Frame<'a, T> for 
     /// Serialize the frame into dst if the frame is already serialized it just swap dst with
     /// itself
     #[inline]
-    fn serialize(self, dst: &mut [u8]) -> Result<(), binary_sv2::Error> {
+    fn serialize(self, dst: &mut [u8]) -> Result<(), Error> {
         if let Some(mut serialized) = self.serialized {
             dst.swap_with_slice(serialized.as_mut());
             Ok(())
         } else if let Some(payload) = self.payload {
             #[cfg(not(feature = "with_serde"))]
-            to_writer(self.header, dst)?;
+            to_writer(self.header, dst).map_err(Error::BinarySv2Error)?;
             #[cfg(not(feature = "with_serde"))]
-            to_writer(payload, &mut dst[Header::SIZE..])?;
+            to_writer(payload, &mut dst[Header::SIZE..]).map_err(Error::BinarySv2Error)?;
             #[cfg(feature = "with_serde")]
-            to_writer(&self.header, dst.as_mut())?;
+            to_writer(&self.header, dst.as_mut()).map_err(Error::BinarySv2Error)?;
             #[cfg(feature = "with_serde")]
-            to_writer(payload, &mut dst.as_mut()[Header::SIZE..])?;
+            to_writer(payload, &mut dst.as_mut()[Header::SIZE..]).map_err(Error::BinarySv2Error)?;
             Ok(())
         } else {
             // Sv2Frame always has a payload or a serialized payload
@@ -171,7 +174,10 @@ impl<'a, T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> Frame<'a, T> for 
     #[inline]
     fn size_hint(bytes: &[u8]) -> isize {
         match Header::from_bytes(bytes) {
-            Err(i) => i,
+            Err(_) => {
+                // Return incorrect header length
+                (Header::SIZE - bytes.len()) as isize
+            }
             Ok(header) => {
                 if bytes.len() - Header::SIZE == header.len() {
                     0
@@ -225,7 +231,7 @@ impl<'a> Frame<'a, Slice> for NoiseFrame {
     /// Serialize the frame into dst if the frame is already serialized it just swap dst with
     /// itself
     #[inline]
-    fn serialize(mut self, dst: &mut [u8]) -> Result<(), binary_sv2::Error> {
+    fn serialize(mut self, dst: &mut [u8]) -> Result<(), Error> {
         dst.swap_with_slice(self.payload.as_mut());
         Ok(())
     }
@@ -332,23 +338,23 @@ impl<T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> EitherFrame<T, B> {
 }
 
 impl<T, B> TryFrom<EitherFrame<T, B>> for HandShakeFrame {
-    type Error = ();
+    type Error = Error;
 
-    fn try_from(v: EitherFrame<T, B>) -> Result<Self, Self::Error> {
+    fn try_from(v: EitherFrame<T, B>) -> Result<Self, Error> {
         match v {
             EitherFrame::HandShake(frame) => Ok(frame),
-            EitherFrame::Sv2(_) => Err(()),
+            EitherFrame::Sv2(_) => Err(Error::ExpectedHandshakeFrame),
         }
     }
 }
 
 impl<T, B> TryFrom<EitherFrame<T, B>> for Sv2Frame<T, B> {
-    type Error = ();
+    type Error = Error;
 
-    fn try_from(v: EitherFrame<T, B>) -> Result<Self, Self::Error> {
+    fn try_from(v: EitherFrame<T, B>) -> Result<Self, Error> {
         match v {
             EitherFrame::Sv2(frame) => Ok(frame),
-            EitherFrame::HandShake(_) => Err(()),
+            EitherFrame::HandShake(_) => Err(Error::ExpectedSv2Frame),
         }
     }
 }

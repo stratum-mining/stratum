@@ -1,3 +1,4 @@
+use crate::Error;
 #[cfg(not(feature = "with_serde"))]
 use alloc::vec::Vec;
 #[cfg(not(feature = "with_serde"))]
@@ -31,9 +32,11 @@ impl Header {
     pub const SIZE: usize = const_sv2::SV2_FRAME_HEADER_SIZE;
 
     #[inline]
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self, isize> {
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
         if bytes.len() < Self::SIZE {
-            return Err((Self::SIZE - bytes.len()) as isize);
+            return Err(Error::UnexpectedHeaderLength(
+                (Self::SIZE - bytes.len()) as isize,
+            ));
         };
 
         let extension_type = u16::from_le_bytes([bytes[0], bytes[1]]);
