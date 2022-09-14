@@ -40,14 +40,16 @@
 ///
 use async_channel::{Receiver, Sender};
 use async_std::task;
-use roles_logic_sv2::mining_sv2::{NewExtendedMiningJob, SetNewPrevHash, SubmitSharesExtended};
-use roles_logic_sv2::utils::Mutex;
+use roles_logic_sv2::{
+    mining_sv2::{NewExtendedMiningJob, SetNewPrevHash, SubmitSharesExtended},
+    utils::{Id, Mutex},
+};
 use std::sync::Arc;
 use v1::{client_to_server::Submit, server_to_client};
 
 use super::next_mining_notify::NextMiningNotify;
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Bridge {
     /// Receives a `mining.submit` SV1 message from the SV1 Downstream role.
     submit_from_sv1: Receiver<Submit>,
@@ -61,6 +63,7 @@ pub struct Bridge {
     next_mining_notify: Arc<Mutex<NextMiningNotify>>,
     // TODO: put sender her eor in Bridge to update Dowstream
     sender_mining_notify: Sender<server_to_client::Notify>,
+    channel_sequence_id: Id,
 }
 
 impl Bridge {
@@ -80,6 +83,7 @@ impl Bridge {
             new_extended_mining_job,
             next_mining_notify,
             sender_mining_notify,
+            channel_sequence_id: Id::new(),
         }
     }
 
@@ -95,30 +99,33 @@ impl Bridge {
             loop {
                 let submit_recv = self_.safe_lock(|s| s.submit_from_sv1.clone()).unwrap();
                 let sv1_submit = submit_recv.clone().recv().await.unwrap();
-                let sv2_submit: SubmitSharesExtended = Self::translate_submit(sv1_submit);
+                let channel_sequence_id =
+                    self_.safe_lock(|s| s.channel_sequence_id.next()).unwrap();
+                let sv2_submit: SubmitSharesExtended =
+                    Self::translate_submit(channel_sequence_id, sv1_submit);
                 let submit_to_sv2 = self_.safe_lock(|s| s.submit_to_sv2.clone()).unwrap();
                 submit_to_sv2.send(sv2_submit).await.unwrap();
             }
         });
     }
 
-    fn translate_submit(sv1_submit: Submit) -> SubmitSharesExtended<'static> {
+    fn translate_submit(
+        channel_sequence_id: u32,
+        sv1_submit: Submit,
+    ) -> SubmitSharesExtended<'static> {
         println!("\n\n RRRR SUBMIT RECVD: {:?}\n", &sv1_submit);
-        // TODO
-        let sequence_number = 1;
 
         // TODO
-        let extranonce: binary_sv2::B032 = vec![
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00,
-        ]
-        .try_into()
-        .expect("Invalid `B032`");
+        let extranonce_vec: Vec<u8> = sv1_submit.extra_nonce2.try_into().expect(
+            "Invalid `HexBytes` to `Vec<u8>` conversion for `mining.submit` `extra_nonce2`",
+        );
+        let extranonce: binary_sv2::B032 = extranonce_vec
+            .try_into()
+            .expect("Invalid `Vec<u8>` to `B032` conversion for `mining.submit` `extra_nonce2`");
 
         SubmitSharesExtended {
             channel_id: 1,
-            sequence_number,
+            sequence_number: channel_sequence_id,
             job_id: sv1_submit.job_id.parse::<u32>().unwrap(),
             nonce: sv1_submit.nonce as u32,
             ntime: sv1_submit.time as u32,
