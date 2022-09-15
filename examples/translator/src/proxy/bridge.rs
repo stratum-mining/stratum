@@ -118,10 +118,11 @@ impl Bridge {
 
         let extranonce_vec: Vec<u8> = sv1_submit.extra_nonce2.try_into()?;
         let extranonce: binary_sv2::B032 = extranonce_vec.try_into()?;
-        let version = sv1_submit
-            .version_bits
-            .unwrap_or(return Err(Error::NoSv1VersionBits))
-            .0;
+
+        let version = match sv1_submit.version_bits {
+            Some(vb) => vb.0,
+            None => return Err(Error::NoSv1VersionBits),
+        };
 
         Ok(SubmitSharesExtended {
             channel_id: 1,
