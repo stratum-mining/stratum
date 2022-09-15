@@ -77,7 +77,7 @@ impl Upstream {
     /// Setups the connection with the SV2 Upstream role (Pool)
     pub async fn connect(self_: Arc<Mutex<Self>>) -> ProxyResult<()> {
         // Get the `SetupConnection` message with Mining Device information (currently hard coded)
-        let setup_connection = Self::get_setup_connection_message();
+        let setup_connection = Self::get_setup_connection_message()?;
         let mut connection = self_.safe_lock(|s| s.connection.clone()).unwrap();
 
         // Put the `SetupConnection` message in a `StdFrame` to be sent over the wire
@@ -129,7 +129,6 @@ impl Upstream {
             loop {
                 // Waiting to receive a message from the SV2 Upstream role
                 let recv = self_.safe_lock(|s| s.connection.receiver.clone()).unwrap();
-                // let mut incoming: StdFrame = recv.recv().await.unwrap().try_into().unwrap();
                 let incoming = recv.recv().await.unwrap();
                 let mut incoming: StdFrame = incoming
                     .try_into()
@@ -217,16 +216,24 @@ impl Upstream {
                     .safe_lock(|s| s.submit_from_dowstream.clone())
                     .unwrap();
                 let mut sv2_submit: SubmitSharesExtended = receiver.recv().await.unwrap();
-                sv2_submit.channel_id = self_.safe_lock(|s| s.channel_id.unwrap()).unwrap();
-                //sv2_submit.channel_id = 0;
+                sv2_submit.channel_id = self_
+                    .safe_lock(|s| {
+                        s.channel_id
+                            .expect("Expected `Upstream`'s `channel_id` to be `Some`, got `None`")
+                    })
+                    .unwrap();
 
-                println!("\n\nRRRR UPSTREAM IN ON SUBMIT: {:?}\n", &sv2_submit);
+                println!("\n\nUPSTREAM IN ON SUBMIT: {:?}\n", &sv2_submit);
                 let message = Message::Mining(
                     roles_logic_sv2::parsers::Mining::SubmitSharesExtended(sv2_submit),
                 );
 
-                let frame: StdFrame = message.try_into().unwrap();
-                let frame: EitherFrame = frame.try_into().unwrap();
+                let frame: StdFrame = message
+                    .try_into()
+                    .expect("Err converting `PoolMessage` to `StdFrame`");
+                let frame: EitherFrame = frame
+                    .try_into()
+                    .expect("Err converting `StdFrame` to `EitherFrame`");
                 let sender = self_
                     .safe_lock(|self_| self_.connection.sender.clone())
                     .unwrap();
@@ -242,14 +249,14 @@ impl Upstream {
     /// Creates the `SetupConnection` message to setup the connection with the SV2 Upstream role.
     /// TODO: The Mining Device information is hard coded here, need to receive from Downstream
     /// instead.
-    fn get_setup_connection_message() -> SetupConnection<'static> {
-        let endpoint_host = "0.0.0.0".to_string().into_bytes().try_into().unwrap();
-        let vendor = String::new().try_into().unwrap();
-        let hardware_version = String::new().try_into().unwrap();
-        let firmware = String::new().try_into().unwrap();
-        let device_id = String::new().try_into().unwrap();
+    fn get_setup_connection_message() -> ProxyResult<SetupConnection<'static>> {
+        let endpoint_host = "0.0.0.0".to_string().into_bytes().try_into()?;
+        let vendor = String::new().try_into()?;
+        let hardware_version = String::new().try_into()?;
+        let firmware = String::new().try_into()?;
+        let device_id = String::new().try_into()?;
         let flags = 0b0111_0000_0000_0000_0000_0000_0000_0000;
-        SetupConnection {
+        Ok(SetupConnection {
             protocol: Protocol::MiningProtocol,
             min_version: 2,
             max_version: 2,
@@ -260,7 +267,7 @@ impl Upstream {
             hardware_version,
             firmware,
             device_id,
-        }
+        })
     }
 }
 
