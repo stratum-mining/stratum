@@ -1,4 +1,5 @@
 use super::{EitherFrame, StdFrame};
+use crate::error::ProxyResult;
 use async_channel::{Receiver, Sender};
 
 /// Handles the sending and receiving of messages to and from an SV2 Upstream role (most typically
@@ -18,12 +19,13 @@ pub struct UpstreamConnection {
 
 impl UpstreamConnection {
     /// Send a SV2 message to the Upstream role
-    pub async fn send(&mut self, sv2_frame: StdFrame) -> Result<(), ()> {
+    pub async fn send(&mut self, sv2_frame: StdFrame) -> ProxyResult<()> {
         println!("TU SEND TO UPSTREAM: {:?}", &sv2_frame);
         let either_frame = sv2_frame.into();
-        match self.sender.send(either_frame).await {
-            Ok(_) => Ok(()),
-            Err(_) => panic!("TODO: SEND TO UPSTREAM FAIL"),
-        }
+        Ok(self
+            .sender
+            .send(either_frame)
+            .await
+            .expect("Error sending `EitherFrame` to the Upstream role"))
     }
 }
