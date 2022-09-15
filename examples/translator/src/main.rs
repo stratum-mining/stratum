@@ -1,9 +1,13 @@
+mod args;
 mod downstream_sv1;
 mod error;
 mod proxy;
+mod proxy_config;
 mod upstream_sv2;
+use args::Args;
 use error::{Error, ProxyResult};
 use proxy::next_mining_notify::NextMiningNotify;
+use proxy_config::ProxyConfig;
 use roles_logic_sv2::utils::Mutex;
 
 use async_channel::{bounded, Receiver, Sender};
@@ -14,18 +18,23 @@ use std::{
 };
 use v1::server_to_client;
 
-pub const UPSTREAM_IP: &str = "127.0.0.1";
-pub const UPSTREAM_PORT: u16 = 34254;
-pub const LISTEN_ADDR: &str = "127.0.0.1:34255";
-/// TODO: Authority public key used to authorize with Upstream is hardcoded, but should be read
-/// in via a proxy-config.toml.
-const AUTHORITY_PUBLIC_KEY: [u8; 32] = [
-    215, 11, 47, 78, 34, 232, 25, 192, 195, 168, 170, 209, 95, 181, 40, 114, 154, 226, 176, 190,
-    90, 169, 238, 89, 191, 183, 97, 63, 194, 119, 11, 31,
-];
+/// Process CLI args, if any.
+fn process_cli_args() -> ProxyResult<ProxyConfig> {
+    let args = match Args::from_args() {
+        Ok(cfg) => cfg,
+        Err(help) => {
+            println!("{}", help);
+            return Err(Error::BadCliArgs);
+        }
+    };
+    let config_file = std::fs::read_to_string(args.config_path)?;
+    Ok(toml::from_str::<ProxyConfig>(&config_file)?)
+}
 
 #[async_std::main]
 async fn main() {
+    let proxy_config = process_cli_args().unwrap();
+    println!("PC: {:?}", &proxy_config);
     // `sender_submit_from_sv1` sender is used by `Downstream` to send a `mining.submit` message to
     // `Bridge` via the `recv_submit_from_sv1` receiver
     // (Sender<v1::client_to_server::Submit>, Receiver<Submit>)
@@ -56,14 +65,14 @@ async fn main() {
 
     // Format `Upstream` connection address
     let upstream_addr = SocketAddr::new(
-        IpAddr::from_str(crate::UPSTREAM_IP).unwrap(),
-        crate::UPSTREAM_PORT,
+        IpAddr::from_str(&proxy_config.upstream_address).unwrap(),
+        proxy_config.upstream_port,
     );
 
     // Instantiate a new `Upstream`
     let upstream = upstream_sv2::Upstream::new(
         upstream_addr,
-        crate::AUTHORITY_PUBLIC_KEY,
+        proxy_config.upstream_authority_pubkey,
         recv_submit_to_sv2,
         sender_new_prev_hash,
         sender_new_extended_mining_job,
@@ -91,8 +100,15 @@ async fn main() {
     )
     .start();
 
+    // Format `Downstream` connection address
+    let downstream_addr = SocketAddr::new(
+        IpAddr::from_str(&proxy_config.downstream_address).unwrap(),
+        proxy_config.downstream_port,
+    );
+
     // Accept connections from one or more SV1 Downstream roles (SV1 Mining Devices)
     downstream_sv1::Downstream::accept_connections(
+        downstream_addr,
         sender_submit_from_sv1,
         recv_mining_notify_downstream,
     );

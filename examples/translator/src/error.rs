@@ -4,9 +4,13 @@ pub type ProxyResult<T> = core::result::Result<T, Error>;
 
 #[derive(Debug)]
 pub enum Error {
+    /// Errors on bad CLI argument input.
+    BadCliArgs,
     /// Errors on bad `serde_json` serialize/deserialize.
     BadSerdeJson(serde_json::Error),
     BadSv1StdReq,
+    /// Errors on bad `toml` deserialize.
+    BadTomlDeserialize(toml::de::Error),
     /// Errors from `binary_sv2` crate.
     BinarySv2Error(binary_sv2::Error),
     /// Errors on bad noise handshake.
@@ -31,8 +35,10 @@ impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use Error::*;
         match self {
+            BadCliArgs => write!(f, "Bad CLI arg input"),
             BadSerdeJson(ref e) => write!(f, "Bad serde json: `{:?}`", e),
             BadSv1StdReq => write!(f, "Bad SV1 Standard Request"),
+            BadTomlDeserialize(ref e) => write!(f, "Bad `toml` deserialize: `{:?}`", e),
             BinarySv2Error(ref e) => write!(f, "Binary SV2 error: `{:?}`", e),
             CodecNoiseError(ref e) => write!(f, "Noise error: `{:?}", e),
             FramingSv2Error(ref e) => write!(f, "Framing SV2 error: `{:?}`", e),
@@ -88,6 +94,12 @@ impl From<roles_logic_sv2::errors::Error> for Error {
 impl From<serde_json::Error> for Error {
     fn from(e: serde_json::Error) -> Self {
         Error::BadSerdeJson(e)
+    }
+}
+
+impl From<toml::de::Error> for Error {
+    fn from(e: toml::de::Error) -> Self {
+        Error::BadTomlDeserialize(e)
     }
 }
 

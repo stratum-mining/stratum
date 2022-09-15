@@ -10,7 +10,7 @@ use roles_logic_sv2::{
     common_properties::{IsDownstream, IsMiningDownstream},
     utils::Mutex,
 };
-use std::sync::Arc;
+use std::{net::SocketAddr, sync::Arc};
 use v1::{
     client_to_server,
     error::Error as V1Error,
@@ -163,11 +163,12 @@ impl Downstream {
     /// If True, loop updates field and sends message to downstream.
     /// is_authorized in v1/protocols
     pub fn accept_connections(
+        downstream_addr: SocketAddr,
         submit_sender: Sender<v1::client_to_server::Submit>,
         receiver_mining_notify: Receiver<server_to_client::Notify>,
     ) {
         task::spawn(async move {
-            let downstream_listener = TcpListener::bind(crate::LISTEN_ADDR).await.unwrap();
+            let downstream_listener = TcpListener::bind(downstream_addr).await.unwrap();
             let mut downstream_incoming = downstream_listener.incoming();
             while let Some(stream) = downstream_incoming.next().await {
                 let stream = stream.expect("Err on SV1 Downstream connection stream");
