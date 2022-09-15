@@ -8,7 +8,6 @@ pub enum Error {
     BadCliArgs,
     /// Errors on bad `serde_json` serialize/deserialize.
     BadSerdeJson(serde_json::Error),
-    BadSv1StdReq,
     /// Errors on bad `toml` deserialize.
     BadTomlDeserialize(toml::de::Error),
     /// Errors from `binary_sv2` crate.
@@ -27,8 +26,6 @@ pub enum Error {
     RolesSv2LogicError(roles_logic_sv2::errors::Error),
     /// SV1 protocol library error
     V1ProtocolError(v1::error::Error),
-    /// Errors if a `NoiseFrame` was returned, when a `SV2Frame` was expected.
-    UnexpectedNoiseFrame,
 }
 
 impl fmt::Display for Error {
@@ -37,7 +34,6 @@ impl fmt::Display for Error {
         match self {
             BadCliArgs => write!(f, "Bad CLI arg input"),
             BadSerdeJson(ref e) => write!(f, "Bad serde json: `{:?}`", e),
-            BadSv1StdReq => write!(f, "Bad SV1 Standard Request"),
             BadTomlDeserialize(ref e) => write!(f, "Bad `toml` deserialize: `{:?}`", e),
             BinarySv2Error(ref e) => write!(f, "Binary SV2 error: `{:?}`", e),
             CodecNoiseError(ref e) => write!(f, "Noise error: `{:?}", e),
@@ -49,7 +45,6 @@ impl fmt::Display for Error {
             ),
             ParseInt(ref e) => write!(f, "Bad convert from `String` to `int`: `{:?}`", e),
             RolesSv2LogicError(ref e) => write!(f, "Roles SV2 Logic Error: `{:?}`", e),
-            UnexpectedNoiseFrame => write!(f, "Expected `SV2Frame`, received `NoiseFrame`"),
             V1ProtocolError(ref e) => write!(f, "V1 Protocol Error: `{:?}`", e),
         }
     }

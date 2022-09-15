@@ -1,7 +1,7 @@
 use crate::{
     downstream_sv1::Downstream,
     upstream_sv2::{EitherFrame, Message, StdFrame, UpstreamConnection},
-    Error, ProxyResult,
+    ProxyResult,
 };
 use async_channel::{Receiver, Sender};
 use async_std::{net::TcpStream, task};
@@ -15,10 +15,13 @@ use roles_logic_sv2::{
         common::{ParseUpstreamCommonMessages, SendTo as SendToCommon},
         mining::{ParseUpstreamMiningMessages, SendTo},
     },
+    // mining_sv2::{
+    //     NewExtendedMiningJob, OpenExtendedMiningChannel, OpenExtendedMiningChannelSuccess,
+    //     OpenMiningChannelError, SetExtranoncePrefix, SetNewPrevHash, SetTarget, SubmitSharesError,
+    //     SubmitSharesExtended, SubmitSharesSuccess,
+    // },
     mining_sv2::{
-        NewExtendedMiningJob, OpenExtendedMiningChannel, OpenExtendedMiningChannelSuccess,
-        OpenMiningChannelError, SetExtranoncePrefix, SetNewPrevHash, SetTarget, SubmitSharesError,
-        SubmitSharesExtended, SubmitSharesSuccess,
+        NewExtendedMiningJob, OpenExtendedMiningChannel, SetNewPrevHash, SubmitSharesExtended,
     },
     parsers::Mining,
     routing_logic::{CommonRoutingLogic, MiningRoutingLogic, NoRouting},
@@ -242,7 +245,7 @@ impl Upstream {
         });
     }
 
-    fn is_contained_in_upstream_target(&self, _share: SubmitSharesExtended) -> bool {
+    fn _is_contained_in_upstream_target(&self, _share: SubmitSharesExtended) -> bool {
         todo!()
     }
 

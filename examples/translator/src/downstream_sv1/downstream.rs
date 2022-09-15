@@ -12,9 +12,7 @@ use roles_logic_sv2::{
 };
 use std::{net::SocketAddr, sync::Arc};
 use v1::{
-    client_to_server,
-    error::Error as V1Error,
-    json_rpc, server_to_client,
+    client_to_server, json_rpc, server_to_client,
     utils::{self, HexBytes, HexU32Be},
     IsServer,
 };
