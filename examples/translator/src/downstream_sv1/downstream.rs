@@ -74,18 +74,13 @@ impl Downstream {
                 // `Translator.receive_downstream` via `sender_upstream` done in
                 // `send_message_upstream`.
                 while let Some(incoming) = messages.next().await {
-                    let incoming = incoming.unwrap();
+                    let incoming =
+                        incoming.expect("Err reading next incoming message from SV1 Downstream");
                     let incoming: Result<json_rpc::Message, _> = serde_json::from_str(&incoming);
-                    println!(
-                        "TD RECV MSG FROM DOWNSTREAM: {:?}",
-                        incoming.as_ref().unwrap()
-                    );
+                    let incoming = incoming.expect("Err serializing incoming message from SV1 Downstream into JSON from `String`");
+                    println!("TD RECV MSG FROM DOWNSTREAM: {:?}", &incoming);
                     // Handle what to do with message
-                    Self::handle_incoming_sv1(self_.clone(), incoming.unwrap()).await;
-                    // let message_sv1 = Self::handle_incoming_sv1(self_.clone(), incoming.unwrap());
-                    // if let Some(message_to_translate) = message_sv1 {
-                    //     Self::send_message_upstream(self_.clone(), message_to_translate).await;
-                    // }
+                    Self::handle_incoming_sv1(self_.clone(), incoming).await;
                 }
             }
         });
@@ -96,7 +91,11 @@ impl Downstream {
             loop {
                 let to_send = receiver_outgoing.recv().await.unwrap();
                 // TODO: Use `Error::bad_serde_json`
-                let to_send = format!("{}\n", serde_json::to_string(&to_send).unwrap());
+                let to_send = format!(
+                    "{}\n",
+                    serde_json::to_string(&to_send)
+                        .expect("Err deserializing JSON message for SV1 Downstream into `String`")
+                );
                 (&*socket_writer_clone)
                     .write_all(to_send.as_bytes())
                     .await
@@ -119,7 +118,12 @@ impl Downstream {
                                 .unwrap()
                         })
                         .unwrap();
-                    let to_send = format!("{}\n", serde_json::to_string(&set_difficulty).unwrap());
+                    let to_send = format!(
+                        "{}\n",
+                        serde_json::to_string(&set_difficulty).expect(
+                            "Err deserializing JSON message for SV1 Downstream into `String`"
+                        )
+                    );
                     (&*socket_writer_set_difficulty_clone)
                         .write_all(to_send.as_bytes())
                         .await
@@ -127,22 +131,20 @@ impl Downstream {
 
                     let sv1_mining_notify_msg =
                         mining_notify_receiver.clone().recv().await.unwrap();
-                    let to_send: json_rpc::Message = sv1_mining_notify_msg.try_into().unwrap();
-                    let to_send = format!("{}\n", serde_json::to_string(&to_send).unwrap());
+                    let to_send: json_rpc::Message = sv1_mining_notify_msg.try_into().expect(
+                        "Err serializing `Notify` as `json_rpc::Message` for the SV1 Downstream",
+                    );
+                    let to_send = format!(
+                        "{}\n",
+                        serde_json::to_string(&to_send).expect(
+                            "Err deserializing JSON message for SV1 Downstream into `String`"
+                        )
+                    );
                     (&*socket_writer_notify_clone)
                         .write_all(to_send.as_bytes())
                         .await
                         .unwrap();
                 }
-                //
-                //                                            // safe lock
-                //     // but update the mining_notify_msg
-                //     // in NextMiningNotify struct have another task w another loop that relays
-                //     // sending is from the Bridge
-                //     // create_notify to get new message
-                // if is_a {
-                //     // send notify
-                // }
             }
         });
 
@@ -171,7 +173,7 @@ impl Downstream {
             let downstream_listener = TcpListener::bind(crate::LISTEN_ADDR).await.unwrap();
             let mut downstream_incoming = downstream_listener.incoming();
             while let Some(stream) = downstream_incoming.next().await {
-                let stream = stream.unwrap();
+                let stream = stream.expect("Err on SV1 Downstream connection stream");
                 println!(
                     "\nPROXY SERVER - ACCEPTING FROM DOWNSTREAM: {}\n",
                     stream.peer_addr().unwrap()
@@ -332,9 +334,9 @@ impl IsServer for Downstream {
         server_to_client::Notify {
             job_id: "deadbeef".to_string(),
             prev_hash: utils::PrevHash(vec![3_u8, 4, 5, 6]),
-            coin_base1: "ffff".try_into().unwrap(),
-            coin_base2: "ffff".try_into().unwrap(),
-            merkle_branch: vec!["fff".try_into().unwrap()],
+            coin_base1: "ffff".try_into()?,
+            coin_base2: "ffff".try_into()?,
+            merkle_branch: vec!["fff".try_into()?],
             version: utils::HexU32Be(5667),
             bits: utils::HexU32Be(5678),
             time: utils::HexU32Be(5609),
