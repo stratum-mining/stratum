@@ -6,6 +6,8 @@ use v1::{
     utils::{HexBytes, HexU32Be, PrevHash},
 };
 
+/// Given a new SV2 `SetNewPrevHash` and/or `NewExtendedMiningJob` message, creates a new SV1
+/// `mining.notify` message.
 #[derive(Clone, Debug)]
 pub struct NextMiningNotify {
     pub set_new_prev_hash: Option<SetNewPrevHash<'static>>,
@@ -13,6 +15,7 @@ pub struct NextMiningNotify {
 }
 
 impl NextMiningNotify {
+    /// Instantiates a new `NextMiningNotify`.
     pub(crate) fn new() -> Self {
         NextMiningNotify {
             set_new_prev_hash: None,
@@ -37,6 +40,8 @@ impl NextMiningNotify {
         self.new_extended_mining_job = Some(new_extended_mining_job);
     }
 
+    /// Creates a new SV1 `mining.notify` message on a new SV2 `SetNewPrevHash` and/or new
+    /// `NewExtendedMiningJob` message.
     pub(crate) fn create_notify(&self) -> ProxyResult<Option<server_to_client::Notify>> {
         // Put logic in to make sure that SetNewPrevHash + NewExtendedMiningJob is matching (not
         // future)
@@ -45,7 +50,6 @@ impl NextMiningNotify {
         // }
 
         if self.set_new_prev_hash.is_some() && self.new_extended_mining_job.is_some() {
-            println!("\nRR CREATE_NOTIFY\n");
             let new_prev_hash = match &self.set_new_prev_hash {
                 Some(nph) => nph,
                 None => panic!("Should never happen because of if statement"),

@@ -29,10 +29,7 @@ pub struct Downstream {
     version_rolling_mask: Option<HexU32Be>,
     version_rolling_min_bit: Option<HexU32Be>,
     submit_sender: Sender<v1::client_to_server::Submit>,
-    // put it in a DownstreamConnection as we did for Upstream if you like
-    // also like that is fine btw
     sender_outgoing: Sender<json_rpc::Message>,
-    // mining_notify_msg: server_to_client::Notify,
 }
 
 impl Downstream {

@@ -114,8 +114,6 @@ impl Bridge {
         channel_sequence_id: u32,
         sv1_submit: Submit,
     ) -> ProxyResult<SubmitSharesExtended<'static>> {
-        println!("\n\nSUBMIT RECVD: {:?}\n", &sv1_submit);
-
         let extranonce_vec: Vec<u8> = sv1_submit.extra_nonce2.try_into()?;
         let extranonce: binary_sv2::B032 = extranonce_vec.try_into()?;
 

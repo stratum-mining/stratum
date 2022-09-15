@@ -220,7 +220,6 @@ impl Upstream {
                     })
                     .unwrap();
 
-                println!("\n\nUPSTREAM IN ON SUBMIT: {:?}\n", &sv2_submit);
                 let message = Message::Mining(
                     roles_logic_sv2::parsers::Mining::SubmitSharesExtended(sv2_submit),
                 );

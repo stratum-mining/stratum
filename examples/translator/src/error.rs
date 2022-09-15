@@ -21,12 +21,10 @@ pub enum Error {
     ParseInt(std::num::ParseIntError),
     /// Errors from `roles_logic_sv2` crate.
     RolesSv2LogicError(roles_logic_sv2::errors::Error),
-    // NoTranslationRequired,
     /// SV1 protocol library error
     V1ProtocolError(v1::error::Error),
     /// Errors if a `NoiseFrame` was returned, when a `SV2Frame` was expected.
     UnexpectedNoiseFrame,
-    // InvalidJsonRpcMessageKind(String),
 }
 
 impl fmt::Display for Error {
