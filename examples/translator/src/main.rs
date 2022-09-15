@@ -80,9 +80,13 @@ async fn main() {
     .await
     .unwrap();
     // Connects to the SV2 Upstream role
-    upstream_sv2::Upstream::connect(upstream.clone())
-        .await
-        .unwrap();
+    upstream_sv2::Upstream::connect(
+        upstream.clone(),
+        proxy_config.min_supported_version,
+        proxy_config.max_supported_version,
+    )
+    .await
+    .unwrap();
     // Start receiving messages from the SV2 Upstream role
     upstream_sv2::Upstream::parse_incoming(upstream.clone());
     // Start receiving submit from the SV1 Downstream role

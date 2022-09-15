@@ -75,9 +75,13 @@ impl Upstream {
     }
 
     /// Setups the connection with the SV2 Upstream role (Pool)
-    pub async fn connect(self_: Arc<Mutex<Self>>) -> ProxyResult<()> {
+    pub async fn connect(
+        self_: Arc<Mutex<Self>>,
+        min_version: u16,
+        max_version: u16,
+    ) -> ProxyResult<()> {
         // Get the `SetupConnection` message with Mining Device information (currently hard coded)
-        let setup_connection = Self::get_setup_connection_message()?;
+        let setup_connection = Self::get_setup_connection_message(min_version, max_version)?;
         let mut connection = self_.safe_lock(|s| s.connection.clone()).unwrap();
 
         // Put the `SetupConnection` message in a `StdFrame` to be sent over the wire
@@ -245,7 +249,10 @@ impl Upstream {
     /// Creates the `SetupConnection` message to setup the connection with the SV2 Upstream role.
     /// TODO: The Mining Device information is hard coded here, need to receive from Downstream
     /// instead.
-    fn get_setup_connection_message() -> ProxyResult<SetupConnection<'static>> {
+    fn get_setup_connection_message(
+        min_version: u16,
+        max_version: u16,
+    ) -> ProxyResult<SetupConnection<'static>> {
         let endpoint_host = "0.0.0.0".to_string().into_bytes().try_into()?;
         let vendor = String::new().try_into()?;
         let hardware_version = String::new().try_into()?;
@@ -254,8 +261,8 @@ impl Upstream {
         let flags = 0b0111_0000_0000_0000_0000_0000_0000_0000;
         Ok(SetupConnection {
             protocol: Protocol::MiningProtocol,
-            min_version: 2,
-            max_version: 2,
+            min_version,
+            max_version,
             flags,
             endpoint_host,
             endpoint_port: 50,
