@@ -103,7 +103,7 @@ impl Bridge {
                 let channel_sequence_id =
                     self_.safe_lock(|s| s.channel_sequence_id.next()).unwrap();
                 let sv2_submit: SubmitSharesExtended =
-                    Self::translate_submit(channel_sequence_id, sv1_submit);
+                    Self::translate_submit(channel_sequence_id, sv1_submit).unwrap();
                 let submit_to_sv2 = self_.safe_lock(|s| s.submit_to_sv2.clone()).unwrap();
                 submit_to_sv2.send(sv2_submit).await.unwrap();
             }
@@ -113,26 +113,25 @@ impl Bridge {
     fn translate_submit(
         channel_sequence_id: u32,
         sv1_submit: Submit,
-    ) -> SubmitSharesExtended<'static> {
-        println!("\n\n RRRR SUBMIT RECVD: {:?}\n", &sv1_submit);
+    ) -> ProxyResult<SubmitSharesExtended<'static>> {
+        println!("\n\nSUBMIT RECVD: {:?}\n", &sv1_submit);
 
-        // TODO
-        let extranonce_vec: Vec<u8> = sv1_submit.extra_nonce2.try_into().expect(
-            "Invalid `HexBytes` to `Vec<u8>` conversion for `mining.submit` `extra_nonce2`",
-        );
-        let extranonce: binary_sv2::B032 = extranonce_vec
-            .try_into()
-            .expect("Invalid `Vec<u8>` to `B032` conversion for `mining.submit` `extra_nonce2`");
+        let extranonce_vec: Vec<u8> = sv1_submit.extra_nonce2.try_into()?;
+        let extranonce: binary_sv2::B032 = extranonce_vec.try_into()?;
+        let version = sv1_submit
+            .version_bits
+            .unwrap_or(return Err(Error::NoSv1VersionBits))
+            .0;
 
-        SubmitSharesExtended {
+        Ok(SubmitSharesExtended {
             channel_id: 1,
             sequence_number: channel_sequence_id,
-            job_id: sv1_submit.job_id.parse::<u32>().unwrap(),
+            job_id: sv1_submit.job_id.parse::<u32>()?,
             nonce: sv1_submit.nonce as u32,
             ntime: sv1_submit.time as u32,
-            version: sv1_submit.version_bits.unwrap().0,
+            version,
             extranonce,
-        }
+        })
     }
 
     fn handle_new_prev_hash(self_: Arc<Mutex<Self>>) {
