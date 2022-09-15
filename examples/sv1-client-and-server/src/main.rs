@@ -599,10 +599,10 @@ async fn initialize_client(client: Arc<Mutex<Client>>) {
 }
 
 fn main() {
-    // exit application after 50 seconds
+    // exit application after 80 seconds
     task::spawn(async {
-        sleep(Duration::from_secs(50));
-        println!("Exiting application");
+        sleep(Duration::from_secs(80));
+        println!("Exiting application!!");
     });
 
     //Listen on available port and wait for bind
