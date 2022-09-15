@@ -162,6 +162,8 @@ impl Bridge {
                             .unwrap()
                     })
                     .unwrap();
+                let sv1_notify_msg =
+                    sv1_notify_msg.expect("Error creating `mining.Notify` from `SetNewPrevHash`");
                 if let Some(msg) = sv1_notify_msg {
                     println!("SET_NEW_PREV_HASH as mining.notify: {:?}", &msg);
                     sender_mining_notify.send(msg).await.unwrap();
@@ -201,6 +203,8 @@ impl Bridge {
                             .unwrap()
                     })
                     .unwrap();
+                let sv1_notify_msg = sv1_notify_msg
+                    .expect("Error creating `mining.Notify` from `NewExtendedMiningJob`");
                 if let Some(msg) = sv1_notify_msg {
                     println!("NEW_EXTENDED_MINING_JOB as mining.notify: {:?}", &msg);
                     sender_mining_notify.send(msg).await.unwrap();

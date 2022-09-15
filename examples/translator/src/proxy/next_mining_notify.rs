@@ -1,3 +1,4 @@
+use crate::ProxyResult;
 use roles_logic_sv2::mining_sv2::{NewExtendedMiningJob, SetNewPrevHash};
 use std::convert::TryInto;
 use v1::{
@@ -36,7 +37,7 @@ impl NextMiningNotify {
         self.new_extended_mining_job = Some(new_extended_mining_job);
     }
 
-    pub(crate) fn create_notify(&self) -> Option<server_to_client::Notify> {
+    pub(crate) fn create_notify(&self) -> ProxyResult<Option<server_to_client::Notify>> {
         // Put logic in to make sure that SetNewPrevHash + NewExtendedMiningJob is matching (not
         // future)
         // if new_prev_hash.job_id != new_job.job_id {
@@ -62,8 +63,8 @@ impl NextMiningNotify {
 
             // TODO: Check endianness
             // B064K<'static'> -> HexBytes
-            let coin_base1 = new_job.coinbase_tx_prefix.to_vec().try_into().unwrap();
-            let coin_base2 = new_job.coinbase_tx_suffix.to_vec().try_into().unwrap();
+            let coin_base1 = new_job.coinbase_tx_prefix.to_vec().try_into()?;
+            let coin_base2 = new_job.coinbase_tx_suffix.to_vec().try_into()?;
 
             // Seq0255<'static, U56<'static>> -> Vec<Vec<u8>> -> Vec<HexBytes>
             let merkle_path_seq0255 = &new_job.merkle_path;
@@ -72,7 +73,7 @@ impl NextMiningNotify {
             let mut merkle_branch = Vec::<HexBytes>::new();
             for path in merkle_path_vec {
                 // TODO: Check endianness
-                merkle_branch.push(path.try_into().unwrap());
+                merkle_branch.push(path.try_into()?);
             }
 
             // TODO: Check endianness
@@ -94,9 +95,9 @@ impl NextMiningNotify {
                 time,
                 clean_jobs,
             };
-            Some(notify_response)
+            Ok(Some(notify_response))
         } else {
-            None
+            Ok(None)
         }
     }
 }
