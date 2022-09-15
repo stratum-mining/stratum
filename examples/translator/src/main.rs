@@ -2,6 +2,7 @@ mod downstream_sv1;
 mod error;
 mod proxy;
 mod upstream_sv2;
+use error::{Error, ProxyResult};
 use proxy::next_mining_notify::NextMiningNotify;
 use roles_logic_sv2::utils::Mutex;
 

@@ -1,5 +1,5 @@
 use super::{EitherFrame, StdFrame};
-use crate::error::ProxyResult;
+use crate::ProxyResult;
 use async_channel::{Receiver, Sender};
 
 /// Handles the sending and receiving of messages to and from an SV2 Upstream role (most typically

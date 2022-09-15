@@ -48,6 +48,7 @@ use std::sync::Arc;
 use v1::{client_to_server::Submit, server_to_client};
 
 use super::next_mining_notify::NextMiningNotify;
+use crate::{Error, ProxyResult};
 
 #[derive(Debug)]
 pub struct Bridge {

@@ -1,7 +1,7 @@
 use crate::{
     downstream_sv1::Downstream,
-    error::{Error, ProxyResult},
     upstream_sv2::{EitherFrame, Message, StdFrame, UpstreamConnection},
+    Error, ProxyResult,
 };
 use async_channel::{Receiver, Sender};
 use async_std::{net::TcpStream, task};
