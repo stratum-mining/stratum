@@ -589,7 +589,6 @@ fn increment_bytes_be(bs: &mut [u8]) -> Result<(), ()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alloc::vec::Vec;
     use quickcheck::{Arbitrary, Gen};
     use quickcheck_macros;
 
@@ -604,7 +603,6 @@ mod tests {
         assert!(u8::from_be_bytes(input) == u8::MAX);
     }
 
-    // thest the function incrment_bytes_be for values different from MAX
     #[quickcheck_macros::quickcheck]
     fn test_increment_by_one(input: u8) -> bool {
         let expected1 = match input {
