@@ -267,6 +267,7 @@ impl Extranonce {
             (u128::MAX, u128::MAX) => panic!(),
             (u128::MAX, head) => {
                 self.head = head + 1;
+                self.tail = 0;
             }
             (tail, _) => {
                 self.tail = tail + 1;
@@ -276,6 +277,22 @@ impl Extranonce {
         extranonce.append(&mut self.head.to_le_bytes().to_vec());
         // below unwraps never panics
         extranonce.try_into().unwrap()
+    }
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_extranonce_max_size() {
+        let mut extranonce = Extranonce::new();
+        extranonce.tail = u128::MAX - 10;
+        extranonce.head = 5;
+        for _ in 0..100 {
+            extranonce.next();
+        }
+        assert!(extranonce.head == 6);
+        assert!(extranonce.tail == u128::MAX.wrapping_add(100 - 10));
     }
 }
 
