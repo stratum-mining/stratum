@@ -297,22 +297,6 @@ impl Extranonce {
         self.extranonce
     }
 }
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_extranonce_max_size() {
-        let mut extranonce = Extranonce::new();
-        extranonce.tail = u128::MAX - 10;
-        extranonce.head = 5;
-        for _ in 0..100 {
-            extranonce.next();
-        }
-        assert!(extranonce.head == 6);
-        assert!(extranonce.tail == u128::MAX.wrapping_add(100 - 10));
-    }
-}
 
 impl From<&mut ExtendedExtranonce> for Extranonce {
     fn from(v: &mut ExtendedExtranonce) -> Self {
