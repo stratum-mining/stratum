@@ -73,11 +73,7 @@ impl Server {
             let mut messages = BufReader::new(&*reader).lines();
             while let Some(message) = messages.next().await {
                 let message = message.unwrap();
-                println!(
-                    "{:?}-Server sender_incoming SENDING message - {}",
-                    chrono::offset::Local::now(),
-                    message
-                );
+                // println!("{}", message);
                 sender_incoming.send(message).await.unwrap();
             }
         });
@@ -85,8 +81,6 @@ impl Server {
         task::spawn(async move {
             loop {
                 let message: String = receiver_outgoing.recv().await.unwrap();
-                println!("server - receiver_outgoing writing message - {}", message);
-
                 (&*writer).write_all(message.as_bytes()).await.unwrap();
             }
         });
@@ -108,7 +102,6 @@ impl Server {
             loop {
                 if let Some(mut self_) = cloned.try_lock() {
                     let incoming = self_.receiver_incoming.try_recv();
-
                     self_.parse_message(incoming).await;
                     drop(self_);
                 };
@@ -118,15 +111,10 @@ impl Server {
         let cloned = server.clone();
         task::spawn(async move {
             let mut run_time = Self::get_runtime();
-            println!(
-                "{}-Starting notify thread loop",
-                chrono::offset::Local::now()
-            );
+
             loop {
                 let notify_time = 5;
                 if let Some(mut self_) = cloned.try_lock() {
-                    println!("{}-Sending notify...", chrono::offset::Local::now());
-
                     self_.send_notify().await;
                     drop(self_);
                     sleep(Duration::from_secs(notify_time));
@@ -159,11 +147,7 @@ impl Server {
         incoming_message: Result<String, async_channel::TryRecvError>,
     ) {
         if let Ok(line) = incoming_message {
-            println!(
-                "{:?}-SERVER - message: {}",
-                chrono::offset::Local::now(),
-                line
-            );
+            println!("SERVER - message: {}", line);
             let message: Result<json_rpc::Message, _> = serde_json::from_str(&line);
             match message {
                 Ok(message) => {
@@ -174,10 +158,10 @@ impl Server {
                                     .await;
                             }
                         }
-                        Err(_) => (println!("Error parsing message1")),
+                        Err(_) => (),
                     };
                 }
-                Err(_) => (println!("Error parsing message2")),
+                Err(_) => (),
             }
         };
     }
@@ -332,7 +316,7 @@ impl Client {
             let mut messages = BufReader::new(&*reader).lines();
             while let Some(message) = messages.next().await {
                 let message = message.unwrap();
-                println!("{}", message);
+                // println!("{}", message);
                 sender_incoming.send(message).await.unwrap();
             }
         });
@@ -504,7 +488,6 @@ impl IsClient for Client {
     }
 
     fn set_status(&mut self, status: ClientStatus) {
-        println!("Setting client status to {:?}", status);
         self.status = status;
     }
 
@@ -559,30 +542,11 @@ impl IsClient for Client {
 
 async fn initialize_client(client: Arc<Mutex<Client>>) {
     loop {
-        println!("{:?} Initialized client", chrono::offset::Local::now());
         let mut client_ = client.lock().await;
-        println!("Got client lock");
-
         match client_.status {
-            ClientStatus::Init => {
-                println!("{:?} - Client status: init", chrono::offset::Local::now());
-
-                client_.send_configure().await
-            }
-            ClientStatus::Configured => {
-                println!(
-                    "{:?} - Client status: configured",
-                    chrono::offset::Local::now()
-                );
-
-                client_.send_subscribe().await
-            }
+            ClientStatus::Init => client_.send_configure().await,
+            ClientStatus::Configured => client_.send_subscribe().await,
             ClientStatus::Subscribed => {
-                println!(
-                    "{:?} - Client status: subscribed",
-                    chrono::offset::Local::now()
-                );
-
                 client_.send_authorize().await;
                 break;
             }
@@ -599,12 +563,6 @@ async fn initialize_client(client: Arc<Mutex<Client>>) {
 }
 
 fn main() {
-    // exit application after 80 seconds
-    task::spawn(async {
-        sleep(Duration::from_secs(80));
-        println!("Exiting application!!");
-    });
-
     //Listen on available port and wait for bind
     let listener = task::block_on(async move {
         let listener = TcpListener::bind(ADDR).await.unwrap();
@@ -614,15 +572,12 @@ fn main() {
 
     let socket = listener.local_addr().unwrap();
 
-    let server_handle = std::thread::spawn(|| {
+    std::thread::spawn(|| {
         task::spawn(async move {
             server_pool_listen(listener).await;
         });
     });
 
-    //Give the server a full sec to get setup
-    sleep(Duration::from_millis(1000));
-    println!("slept for a sec - now starting up client");
     task::block_on(async {
         let client = Client::new(80, socket).await;
         initialize_client(client).await;
