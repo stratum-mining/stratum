@@ -2,7 +2,6 @@ on:
   push:
     branches:
       - main
-      - 71-AddExampleTests
   pull_request:
     branches:
       - main
