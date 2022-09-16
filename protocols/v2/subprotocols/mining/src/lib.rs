@@ -272,22 +272,6 @@ impl Extranonce {
         Some(self.extranonce.clone().try_into().unwrap())
     }
 }
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_extranonce_max_size() {
-        let mut extranonce = Extranonce::new();
-        extranonce.tail = u128::MAX - 10;
-        extranonce.head = 5;
-        for _ in 0..100 {
-            extranonce.next();
-        }
-        assert!(extranonce.head == 6);
-        assert!(extranonce.tail == u128::MAX.wrapping_add(100 - 10));
-    }
-}
 
 impl From<&mut ExtendedExtranonce> for Extranonce {
     fn from(v: &mut ExtendedExtranonce) -> Self {
@@ -370,7 +354,51 @@ fn increment_bytes_be(bs: &mut [u8]) -> Result<(), ()> {
         if *b != u8::MAX {
             *b += 1;
             return Ok(());
+        } else {
+            *b = 0;
         }
     }
+    for b in bs.iter_mut() {
+        *b = u8::MAX
+    }
     Err(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use quickcheck::{Arbitrary, Gen};
+    use quickcheck_macros;
+
+    #[test]
+    fn test_extranonce_max_size() {
+        let mut extranonce = Extranonce::new();
+        extranonce.tail = u128::MAX - 10;
+        extranonce.head = 5;
+        for _ in 0..100 {
+            extranonce.next();
+        }
+        assert!(extranonce.head == 6);
+        assert!(extranonce.tail == u128::MAX.wrapping_add(100 - 10));
+    }
+    #[test]
+    fn test_incrment_bytes_be_max() {
+        let input = u128::MAX;
+        let mut input = input.to_be_bytes();
+        let result = increment_bytes_be(&mut input[..]);
+        assert!(result == Err(()));
+        assert!(u128::from_be_bytes(input) == u128::MAX);
+    }
+
+    #[quickcheck_macros::quickcheck]
+    fn test_increment_by_one(input: u128) -> bool {
+        let expected1 = match input {
+            u128::MAX => input,
+            _ => input + 1,
+        };
+        let mut input = input.to_be_bytes();
+        let _ = increment_bytes_be(&mut input[..]);
+        let incremented_by_1 = u128::from_be_bytes(input);
+        incremented_by_1 == expected1
+    }
 }
