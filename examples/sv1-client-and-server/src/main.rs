@@ -301,7 +301,7 @@ impl Client {
             }
         };
 
-        let arc_stream = std::sync::Arc::new(stream);
+        let arc_stream = Arc::new(stream);
 
         let (reader, writer) = (arc_stream.clone(), arc_stream);
 
