@@ -8,9 +8,10 @@ use async_std::{
     sync::{Arc, Mutex},
     task,
 };
-use std::time;
+use std::{env, net::SocketAddr, process::exit, thread::sleep, time, time::Duration};
+use time::SystemTime;
 
-const ADDR: &str = "127.0.0.1:34254";
+const ADDR: &str = "127.0.0.1:0";
 
 use v1::{
     client_to_server,
@@ -45,9 +46,8 @@ struct Server {
     sender_outgoing: Sender<String>,
 }
 
-async fn server_pool() {
-    let listner = TcpListener::bind(ADDR).await.unwrap();
-    let mut incoming = listner.incoming();
+async fn server_pool_listen(listener: TcpListener) {
+    let mut incoming = listener.incoming();
     while let Some(stream) = incoming.next().await {
         let stream = stream.unwrap();
         println!("SERVER - Accepting from: {}", stream.peer_addr().unwrap());
@@ -58,7 +58,7 @@ async fn server_pool() {
 
 impl Server {
     pub async fn new(stream: TcpStream) -> Arc<Mutex<Self>> {
-        let stream = std::sync::Arc::new(stream);
+        let stream = Arc::new(stream);
 
         let (reader, writer) = (stream.clone(), stream);
 
@@ -106,16 +106,35 @@ impl Server {
 
         let cloned = server.clone();
         task::spawn(async move {
+            let mut run_time = Self::get_runtime();
+
             loop {
+                let notify_time = 5;
                 if let Some(mut self_) = cloned.try_lock() {
                     self_.send_notify().await;
                     drop(self_);
-                    task::sleep(time::Duration::from_secs(5)).await;
+                    sleep(Duration::from_secs(notify_time));
+                    //subtract notify_time from run_time
+                    run_time -= notify_time as i32;
+
+                    if run_time <= 0 {
+                        println!("Test Success - ran for {} seconds", Self::get_runtime());
+                        exit(0)
+                    }
                 };
             }
         });
 
         server
+    }
+
+    fn get_runtime() -> i32 {
+        let args: Vec<String> = env::args().collect();
+        if args.len() > 1 {
+            args[1].parse::<i32>().unwrap()
+        } else {
+            i32::MAX
+        }
     }
 
     #[allow(clippy::single_match)]
@@ -238,9 +257,9 @@ impl IsServer for Server {
             coin_base1: "ffff".try_into().unwrap(),
             coin_base2: "ffff".try_into().unwrap(),
             merkle_branch: vec!["fff".try_into().unwrap()],
-            version: utils::HexU32Be(5667),
-            bits: utils::HexU32Be(5678),
-            time: utils::HexU32Be(5609),
+            version: HexU32Be(5667),
+            bits: HexU32Be(5678),
+            time: HexU32Be(5609),
             clean_jobs: true,
         }
         .try_into()
@@ -262,10 +281,19 @@ struct Client {
 }
 
 impl Client {
-    pub async fn new(client_id: u32) -> Arc<Mutex<Self>> {
+    pub async fn new(client_id: u32, socket: SocketAddr) -> Arc<Mutex<Self>> {
         let stream = loop {
-            match TcpStream::connect(ADDR).await {
-                Ok(st) => break st,
+            sleep(Duration::from_secs(1));
+
+            match TcpStream::connect(socket).await {
+                Ok(st) => {
+                    println!(
+                        "{:?}-CLIENT - connected to server at {}",
+                        SystemTime::now(),
+                        socket
+                    );
+                    break st;
+                }
                 Err(_) => {
                     println!("Server not ready... retry");
                     continue;
@@ -273,7 +301,7 @@ impl Client {
             }
         };
 
-        let arc_stream = std::sync::Arc::new(stream);
+        let arc_stream = Arc::new(stream);
 
         let (reader, writer) = (arc_stream.clone(), arc_stream);
 
@@ -348,8 +376,8 @@ impl Client {
                 break;
             }
         }
-        let id = time::SystemTime::now()
-            .duration_since(time::SystemTime::UNIX_EPOCH)
+        let id = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
             .unwrap()
             .as_nanos()
             .to_string();
@@ -368,8 +396,8 @@ impl Client {
     //}
 
     pub async fn send_authorize(&mut self) {
-        let id = time::SystemTime::now()
-            .duration_since(time::SystemTime::UNIX_EPOCH)
+        let id = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
             .unwrap()
             .as_nanos()
             .to_string();
@@ -381,8 +409,8 @@ impl Client {
     }
 
     pub async fn send_submit(&mut self) {
-        let id = time::SystemTime::now()
-            .duration_since(time::SystemTime::UNIX_EPOCH)
+        let id = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
             .unwrap()
             .as_nanos()
             .to_string();
@@ -403,8 +431,8 @@ impl Client {
     }
 
     pub async fn send_configure(&mut self) {
-        let id = time::SystemTime::now()
-            .duration_since(time::SystemTime::UNIX_EPOCH)
+        let id = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
             .unwrap()
             .as_nanos()
             .to_string();
@@ -520,24 +548,34 @@ async fn initialize_client(client: Arc<Mutex<Client>>) {
             }
         }
         drop(client_);
-        task::sleep(time::Duration::from_millis(100)).await;
+        task::sleep(Duration::from_millis(100)).await;
     }
-    task::sleep(time::Duration::from_millis(2000)).await;
+    task::sleep(Duration::from_millis(2000)).await;
     loop {
         let mut client_ = client.lock().await;
         client_.send_submit().await;
-        task::sleep(time::Duration::from_millis(2000)).await;
+        task::sleep(Duration::from_millis(2000)).await;
     }
 }
 
 fn main() {
+    //Listen on available port and wait for bind
+    let listener = task::block_on(async move {
+        let listener = TcpListener::bind(ADDR).await.unwrap();
+        println!("Server listening on: {}", listener.local_addr().unwrap());
+        listener
+    });
+
+    let socket = listener.local_addr().unwrap();
+
     std::thread::spawn(|| {
-        task::spawn(async {
-            server_pool().await;
+        task::spawn(async move {
+            server_pool_listen(listener).await;
         });
     });
+
     task::block_on(async {
-        let client = Client::new(80).await;
+        let client = Client::new(80, socket).await;
         initialize_client(client).await;
     });
 }
