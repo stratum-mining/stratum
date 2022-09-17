@@ -93,7 +93,7 @@ impl ParseClientJobNegotiationMessages for JobNegotiatorDownstream {
         self_: std::sync::Arc<roles_logic_sv2::utils::Mutex<Self>>,
         message_type: u8,
         payload: &mut [u8],
-    ) -> Result<roles_logic_sv2::handlers::job_negotiation::SendTo, Error> {
+    ) -> Result<SendTo, Error> {
         // Is ok to unwrap a safe_lock result
         match (message_type, payload).try_into() {
             Ok(JobNegotiation::AllocateMiningJobToken(message)) => self_

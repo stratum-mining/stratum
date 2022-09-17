@@ -67,7 +67,7 @@ pub async fn start(config: Configuration) {
         task::spawn(async move { Self::accept_incoming_connection(self_, config) });
     }
     async fn accept_incoming_connection(self_: Arc<Mutex<JobNegotiator>>, config: Configuration) {
-        let listner = TcpListener::bind(&config.jn_address).await.unwrap();
+        let listner = TcpListener::bind(&config.listen_jn_address).await.unwrap();
         while let Ok((stream, _)) = listner.accept().await {
             let responder = Responder::from_authority_kp(
                 config.authority_public_key.clone().into_inner().as_bytes(),

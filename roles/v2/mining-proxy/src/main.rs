@@ -19,7 +19,7 @@
 //!
 mod lib;
 use std::net::{IpAddr, SocketAddr};
-use lib::{job_negotiator::JobNegotiator, upstream_mining::UpstreamMiningNode};
+use lib::{job_negotiator::JobNegotiator, upstream_mining::UpstreamMiningNode, template_receiver::TemplateRx};
 use serde::Deserialize;
 use std::str::FromStr;
 use once_cell::sync::{Lazy, OnceCell};
@@ -30,7 +30,6 @@ use roles_logic_sv2::{
     utils::{Id, Mutex},
 };
 use std::{collections::HashMap, sync::Arc};
-use tokio::task;
 
 type RLogic = MiningProxyRoutingLogic<
     crate::lib::downstream_mining::DownstreamMiningNode,
@@ -122,6 +121,8 @@ pub struct UpstreamValues {
 #[derive(Debug, Deserialize, Clone)]
 pub struct Config {
     upstreams: Vec<UpstreamValues>,
+    upstreams_jn: Vec<UpstreamValues>,
+    tp_address: String,
     listen_address: String,
     listen_mining_port: u16,
     max_supported_version: u16,
@@ -253,10 +254,14 @@ async fn main() {
         config.listen_mining_port,
     );
     println!("PROXY INITIALIZED");
-    crate::lib::downstream_mining::listen_for_downstream_mining(socket).await;
+
+    TemplateRx::connect(
+        config.tp_address.parse().unwrap(),
+    ).await;
+
     JobNegotiator::new(SocketAddr::new(
-        IpAddr::from_str(&config.upstreams[0].address).unwrap(),
-        config.upstreams[0].port,
-    ), config.upstreams[0].clone().pub_key.into_inner().as_bytes().clone()).await;
+        IpAddr::from_str(&config.upstreams_jn[0].address).unwrap(),
+        config.upstreams_jn[0].port,
+    ), config.upstreams_jn[0].clone().pub_key.into_inner().as_bytes().clone()).await;
     crate::lib::downstream_mining::listen_for_downstream_mining(socket).await
 }
