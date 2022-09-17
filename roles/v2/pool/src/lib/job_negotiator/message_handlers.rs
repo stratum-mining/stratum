@@ -1,19 +1,23 @@
-use std::convert::TryInto;
-use roles_logic_sv2::handlers::job_negotiation::ParseClientJobNegotiationMessages;
 use crate::lib::job_negotiator::JobNegotiatorDownstream;
-use roles_logic_sv2::job_negotiation_sv2::{
-    AllocateMiningJobToken, CommitMiningJob, IdentifyTransactionsSuccess, ProvideMissingTransactionsSuccess, AllocateMiningJobTokenSuccess, CommitMiningJobSuccess, CommitMiningJobError,
+use roles_logic_sv2::{
+    handlers::{job_negotiation::ParseClientJobNegotiationMessages, SendTo_},
+    job_negotiation_sv2::{
+        AllocateMiningJobToken, AllocateMiningJobTokenSuccess, CommitMiningJob,
+        CommitMiningJobError, CommitMiningJobSuccess, IdentifyTransactionsSuccess,
+        ProvideMissingTransactionsSuccess,
+    },
+    parsers::JobNegotiation,
 };
-use roles_logic_sv2::handlers::SendTo_;
-use roles_logic_sv2::parsers::JobNegotiation;
+use std::convert::TryInto;
 pub type SendTo = SendTo_<JobNegotiation<'static>, ()>;
 use roles_logic_sv2::errors::Error;
 
 impl JobNegotiatorDownstream {
-    
-    fn verify_job(&mut self, message: &CommitMiningJob) -> bool{
-        let is_token_allocated = self.token_to_job_map.contains_key(&message.mining_job_token);
-        // TODO Function to implement, it must be checked if the requested job has: 
+    fn verify_job(&mut self, message: &CommitMiningJob) -> bool {
+        let is_token_allocated = self
+            .token_to_job_map
+            .contains_key(&message.mining_job_token);
+        // TODO Function to implement, it must be checked if the requested job has:
         // 1. right coinbase
         // 2. right version field
         // 3. right prev-hash
@@ -23,14 +27,13 @@ impl JobNegotiatorDownstream {
     }
 }
 
-impl ParseClientJobNegotiationMessages for JobNegotiatorDownstream{
-
+impl ParseClientJobNegotiationMessages for JobNegotiatorDownstream {
     fn allocate_mining_job_token(
         &mut self,
         message: AllocateMiningJobToken,
-    ) -> Result<SendTo, Error>{
+    ) -> Result<SendTo, Error> {
         let token = self.tokens.next();
-        self.token_to_job_map.insert(token, None); 
+        self.token_to_job_map.insert(token, None);
         let message_success = AllocateMiningJobTokenSuccess {
             request_id: message.request_id,
             mining_job_token: token,
@@ -41,17 +44,17 @@ impl ParseClientJobNegotiationMessages for JobNegotiatorDownstream{
         Ok(SendTo::Respond(message_enum))
     }
 
-    fn commit_mining_job(&mut self, message: CommitMiningJob) -> Result<SendTo, Error>{
+    fn commit_mining_job(&mut self, message: CommitMiningJob) -> Result<SendTo, Error> {
         if self.verify_job(&message) {
             let message_success = CommitMiningJobSuccess {
                 request_id: message.request_id,
                 new_mining_job_token: message.mining_job_token,
             };
             let message_enum_success = JobNegotiation::CommitMiningJobSuccess(message_success);
-            self.token_to_job_map.insert(message.mining_job_token, Some(message.into()));
+            self.token_to_job_map
+                .insert(message.mining_job_token, Some(message.into()));
             Ok(SendTo::Respond(message_enum_success))
-        }
-        else {
+        } else {
             let message_error = CommitMiningJobError {
                 request_id: message.request_id,
                 error_code: todo!(),
@@ -65,7 +68,7 @@ impl ParseClientJobNegotiationMessages for JobNegotiatorDownstream{
     fn identify_transactions_success(
         &mut self,
         message: IdentifyTransactionsSuccess,
-    ) -> Result<SendTo, Error>{
+    ) -> Result<SendTo, Error> {
         let message_success = IdentifyTransactionsSuccess {
             request_id: message.request_id,
             tx_hash_list: todo!(),
@@ -77,7 +80,7 @@ impl ParseClientJobNegotiationMessages for JobNegotiatorDownstream{
     fn provide_missing_transactions_success(
         &mut self,
         message: ProvideMissingTransactionsSuccess,
-    ) -> Result<SendTo, Error>{
+    ) -> Result<SendTo, Error> {
         let message_success = ProvideMissingTransactionsSuccess {
             request_id: message.request_id,
             transaction_list: todo!(),

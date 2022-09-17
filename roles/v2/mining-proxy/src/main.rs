@@ -18,20 +18,19 @@
 //! A Downstream that signal the incapacity to handle group channels can open only one channel.
 //!
 mod lib;
-use std::net::IpAddr;
-use std::str::FromStr;
+use std::net::{IpAddr, SocketAddr};
+use lib::{job_negotiator::JobNegotiator, upstream_mining::UpstreamMiningNode};
 use serde::Deserialize;
-use std::net::SocketAddr;
+use std::str::FromStr;
 use once_cell::sync::{Lazy, OnceCell};
-use lib::{upstream_mining::UpstreamMiningNode, job_negotiator::JobNegotiator};
 
 use roles_logic_sv2::{
     routing_logic::{CommonRoutingLogic, MiningProxyRoutingLogic, MiningRoutingLogic},
     selectors::{GeneralMiningSelector, UpstreamMiningSelctor},
     utils::{Id, Mutex},
 };
-use tokio::task;
 use std::{collections::HashMap, sync::Arc};
+use tokio::task;
 
 type RLogic = MiningProxyRoutingLogic<
     crate::lib::downstream_mining::DownstreamMiningNode,
