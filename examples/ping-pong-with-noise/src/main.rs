@@ -6,9 +6,10 @@ use async_std::{
     task,
 };
 use codec_sv2::{HandshakeRole, Initiator, Responder};
-use std::time;
+use std::{env, net::SocketAddr, time};
 
-const ADDR: &str = "127.0.0.1:34254";
+//Pick any unused port
+const ADDR: &str = "127.0.0.1:0";
 
 pub const AUTHORITY_PUBLIC_K: [u8; 32] = [
     215, 11, 47, 78, 34, 232, 25, 192, 195, 168, 170, 209, 95, 181, 40, 114, 154, 226, 176, 190,
@@ -20,11 +21,10 @@ pub const AUTHORITY_PRIVATE_K: [u8; 32] = [
     5, 173, 0, 234, 59, 15, 127, 31, 160, 136, 131,
 ];
 
-const CERT_VALIDITY: std::time::Duration = std::time::Duration::from_secs(3600);
+const CERT_VALIDITY: time::Duration = time::Duration::from_secs(3600);
 
-async fn server_pool() {
-    let listner = TcpListener::bind(ADDR).await.unwrap();
-    let mut incoming = listner.incoming();
+async fn server_pool_listen(listener: TcpListener) {
+    let mut incoming = listener.incoming();
     while let Some(stream) = incoming.next().await {
         let stream = stream.unwrap();
         println!("SERVER - Accepting from: {}", stream.peer_addr().unwrap());
@@ -38,14 +38,15 @@ async fn server_pool() {
             "server".to_string(),
             stream,
             HandshakeRole::Responder(responder),
+            u32::MAX, //We only need the client to have a valid test count
         )
         .await;
     }
 }
 
-async fn new_client(name: String) {
+async fn new_client(name: String, test_count: u32, socket: SocketAddr) {
     let stream = loop {
-        match TcpStream::connect(ADDR).await {
+        match TcpStream::connect(socket).await {
             Ok(st) => break st,
             Err(_) => {
                 println!("Server not ready... retry");
@@ -54,7 +55,13 @@ async fn new_client(name: String) {
         }
     };
     let initiator = Initiator::from_raw_k(AUTHORITY_PUBLIC_K).unwrap();
-    let client = node::Node::new(name, stream, HandshakeRole::Initiator(initiator)).await;
+    let client = node::Node::new(
+        name,
+        stream,
+        HandshakeRole::Initiator(initiator),
+        test_count,
+    )
+    .await;
 
     task::block_on(async move {
         loop {
@@ -67,16 +74,34 @@ async fn new_client(name: String) {
 }
 
 fn main() {
+    let args: Vec<String> = env::args().collect();
+
+    let test_count = if args.len() > 1 {
+        args[1].parse::<u32>().unwrap()
+    } else {
+        u32::MAX
+    };
+
+    //Listen on available port and wait for bind
+    let listener = task::block_on(async move {
+        let listener = TcpListener::bind(ADDR).await.unwrap();
+        println!("Server listening on: {}", listener.local_addr().unwrap());
+        listener
+    });
+
+    let socket = listener.local_addr().unwrap();
+
     std::thread::spawn(|| {
-        task::spawn(async {
-            server_pool().await;
+        task::spawn(async move {
+            server_pool_listen(listener).await;
         });
     });
+
     task::block_on(async {
         let mut i: u32 = 0;
         loop {
             if i < 1 {
-                new_client(format!("Client{}", i)).await;
+                new_client(format!("Client{}", i), test_count, socket).await;
                 i += 1;
             };
             task::sleep(time::Duration::from_millis(1000)).await;
