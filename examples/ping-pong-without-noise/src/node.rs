@@ -52,10 +52,10 @@ impl Node {
                         println!("Test Successful");
                         std::process::exit(0);
                     } else {
-                    let incoming = node.receiver.recv().await.unwrap();
-                    node.respond(incoming).await;
+                        let incoming = node.receiver.recv().await.unwrap();
+                        node.respond(incoming).await;
+                    }
                 }
-            }
             }
         });
 
