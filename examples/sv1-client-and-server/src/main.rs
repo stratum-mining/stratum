@@ -539,6 +539,8 @@ async fn initialize_client(client: Arc<Mutex<Client>>) {
     }
 }
 
+#[allow(clippy::single_match)]
+#[allow(deprecated)]
 fn main() {
     match get_runtime() {
         Some(s) => {
