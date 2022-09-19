@@ -90,3 +90,4 @@ jobs:
         with:
           command: run
           args: --bin ping_pong_without_noise -- 10
+
