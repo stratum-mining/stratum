@@ -106,35 +106,16 @@ impl Server {
 
         let cloned = server.clone();
         task::spawn(async move {
-            let mut run_time = Self::get_runtime();
-
             loop {
-                let notify_time = 5;
                 if let Some(mut self_) = cloned.try_lock() {
                     self_.send_notify().await;
                     drop(self_);
-                    sleep(Duration::from_secs(notify_time));
-                    //subtract notify_time from run_time
-                    run_time -= notify_time as i32;
-
-                    if run_time <= 0 {
-                        println!("Test Success - ran for {} seconds", Self::get_runtime());
-                        exit(0)
-                    }
+                    task::sleep(time::Duration::from_secs(5)).await;
                 };
             }
         });
 
         server
-    }
-
-    fn get_runtime() -> i32 {
-        let args: Vec<String> = env::args().collect();
-        if args.len() > 1 {
-            args[1].parse::<i32>().unwrap()
-        } else {
-            i32::MAX
-        }
     }
 
     #[allow(clippy::single_match)]
@@ -559,6 +540,22 @@ async fn initialize_client(client: Arc<Mutex<Client>>) {
 }
 
 fn main() {
+    match get_runtime() {
+        Some(s) => {
+            std::thread::spawn(move || {
+                let now = std::time::SystemTime::now();
+                loop {
+                    std::thread::sleep_ms(100);
+                    let elapsed = now.elapsed().unwrap().as_secs();
+                    if elapsed > s {
+                        println!("Test Success - ran for {} seconds", elapsed);
+                        exit(0)
+                    }
+                }
+            });
+        }
+        None => (),
+    }
     //Listen on available port and wait for bind
     let listener = task::block_on(async move {
         let listener = TcpListener::bind(ADDR).await.unwrap();
@@ -578,4 +575,12 @@ fn main() {
         let client = Client::new(80, socket).await;
         initialize_client(client).await;
     });
+}
+fn get_runtime() -> Option<u64> {
+    let args: Vec<String> = env::args().collect();
+    if args.len() > 1 {
+        Some(args[1].parse::<u64>().unwrap())
+    } else {
+        None
+    }
 }
