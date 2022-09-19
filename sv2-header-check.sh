@@ -17,7 +17,7 @@
 
 cargo install  --version 0.20.0 cbindgen
 
-set -e
+set -ex
 # cargo install cbindgen --force bts
 # cbindgen -V
 
