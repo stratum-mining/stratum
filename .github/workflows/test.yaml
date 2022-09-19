@@ -71,4 +71,4 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: run
-          args: --bin client_and_server -- 10
+          args: --bin client_and_server -- 60
