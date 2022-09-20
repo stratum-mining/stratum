@@ -130,7 +130,8 @@ async fn main() {
     )
     .await;
     println!("POOL INITIALIZED");
-    Pool::start(config.clone(), r_new_t, r_prev_hash, s_solution).await;
-    task::spawn(async{JobNegotiator::start(config).await });
+    let cloned = config.clone();
+    task::spawn(async move {JobNegotiator::start(cloned).await });
+    Pool::start(config, r_new_t, r_prev_hash, s_solution).await;
 
 }

@@ -60,11 +60,13 @@ pub struct JobNegotiator {
 }
 
 impl JobNegotiator {
-pub async fn start(config: Configuration) {
+    pub async fn start(config: Configuration) {
         let mut self_ = Arc::new(Mutex::new(Self {
             downstreams: Vec::new(),
         }));
-        task::spawn(async move { Self::accept_incoming_connection(self_, config) });
+        println!("JN INITIALIZED");
+        Self::accept_incoming_connection(self_, config).await;
+
     }
     async fn accept_incoming_connection(self_: Arc<Mutex<JobNegotiator>>, config: Configuration) {
         let listner = TcpListener::bind(&config.listen_jn_address).await.unwrap();

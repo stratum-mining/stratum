@@ -49,7 +49,6 @@ impl SetupConnectionHandler {
             .unwrap();
         let sv2_frame = sv2_frame.into();
         sender.send(sv2_frame).await.map_err(|_| ())?;
-        println!("gigi");
 
         let mut incoming: StdFrame = receiver.recv().await.unwrap().try_into().unwrap();
         let message_type = incoming.get_header().unwrap().msg_type();

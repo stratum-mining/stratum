@@ -43,7 +43,14 @@ impl TemplateRx {
             .await
             .unwrap();
 
-        println!("TP CONNECTED")
+        println!("TP CONNECTED");
+        tokio::task::spawn(async move {
+            loop {
+                let frame = receiver.recv().await.unwrap();
+                let sender = sender.clone();
+                println!("{:?}", frame);
+            }
+        });
     }
 }
 
