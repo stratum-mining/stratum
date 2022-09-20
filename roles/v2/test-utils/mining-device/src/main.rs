@@ -67,7 +67,7 @@ impl SetupConnectionHandler {
             protocol: Protocol::MiningProtocol,
             min_version: 2,
             max_version: 2,
-            flags: 0b1000_0000_0000_0000_0000_0000_0000_0000,
+            flags: 0b0000_0000_0000_0000_0000_0000_0000_0001,
             endpoint_host,
             endpoint_port: address.port(),
             vendor,
