@@ -60,7 +60,6 @@ impl Node {
                         println!("Test Successful");
                         std::process::exit(0);
                     } else {
-                        println!("Receiving message");
                         let incoming = node.receiver.recv().await.unwrap().try_into().unwrap();
                         node.respond(incoming).await;
                     }
