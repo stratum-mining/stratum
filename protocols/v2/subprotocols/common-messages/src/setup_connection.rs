@@ -52,7 +52,7 @@ pub struct SetupConnection<'decoder> {
 
 impl<'decoder> SetupConnection<'decoder> {
     pub fn set_requires_standard_job(&mut self) {
-        self.flags |= 0b_1000_0000_0000_0000_0000_0000_0000_0000
+        self.flags |= 0b_0000_0000_0000_0000_0000_0000_0000_0001
     }
     
     pub fn set_async_job_nogotiation(&mut self) {
@@ -67,6 +67,8 @@ impl<'decoder> SetupConnection<'decoder> {
             // [1] [1] -> true
             // [0] [1] -> false
             Protocol::MiningProtocol => {
+                let required_flags = required_flags.reverse_bits();
+                let avaiable_flags = avaiable_flags.reverse_bits();
                 let requires_work_selection_passed = (avaiable_flags >> 30) > 0;
                 let requires_version_rolling_passed = (avaiable_flags >> 29) > 0;
 
@@ -100,15 +102,18 @@ impl<'decoder> SetupConnection<'decoder> {
 }
 
 pub fn has_requires_std_job(flags: u32) -> bool {
+    let flags = flags.reverse_bits();
     let flag = flags >> 31;
     flag != 0
 }
 pub fn has_version_rolling(flags: u32) -> bool {
+    let flags = flags.reverse_bits();
     let flags = flags << 1;
     let flag = flags >> 31;
     flag != 0
 }
 pub fn has_work_selection(flags: u32) -> bool {
+    let flags = flags.reverse_bits();
     let flags = flags << 2;
     let flag = flags >> 31;
     flag != 0
