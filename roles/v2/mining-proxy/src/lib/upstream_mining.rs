@@ -341,7 +341,7 @@ impl UpstreamMiningNode {
         self_mutex: Arc<Mutex<Self>>,
         flags: Option<u32>,
     ) -> Result<(), ()> {
-        let flags = flags.unwrap_or(0b0111_0000_0000_0000_0000_0000_0000_0000);
+        let flags = flags.unwrap_or(0b0000_0000_0000_0000_0000_0000_0000_1110);
         let min_version = min_supported_version();
         let max_version = max_supported_version();
         let frame = self_mutex
