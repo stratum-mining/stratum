@@ -1,3 +1,4 @@
+use std::thread::sleep;
 use crate::messages::{Message, Ping, Pong};
 use binary_sv2::{from_bytes, U256};
 use rand::Rng;
@@ -45,6 +46,7 @@ impl Node {
 
         task::spawn(async move {
             loop {
+                //This lock is sharing access with the client lock in main.rs::new_client
                 if let Some(mut node) = cloned.try_lock() {
                     if node.last_id > test_count {
                         node.sender.close();
@@ -52,10 +54,19 @@ impl Node {
                         println!("Test Successful");
                         std::process::exit(0);
                     } else {
-                        let incoming = node.receiver.recv().await.unwrap();
-                        node.respond(incoming).await;
+                        if !node.receiver.is_empty() {
+                            let incoming = node.receiver.recv().await.unwrap();
+                            node.respond(incoming).await;
+                        } else {
+                            //If there are no messages waiting just sleep a bit for a message to come in
+                            //Without this there are occasions where this is waiting with the lock
+                            //which blocks the client from sending the ping
+                            sleep(time::Duration::from_millis(100));
+                            continue;
+                        }
                     }
                 }
+                sleep(time::Duration::from_millis(500));
             }
         });
 

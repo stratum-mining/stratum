@@ -33,10 +33,15 @@ async fn new_client(name: String, test_count: u32, socket: SocketAddr) {
             }
         }
     };
+
     let client = node::Node::new(name, stream, test_count);
     task::block_on(async move {
-        let mut client = client.lock().await;
-        client.send_ping().await;
+        loop {
+            if let Some(mut client) = client.try_lock() {
+                client.send_ping().await;
+                break;
+            }
+        }
     });
 }
 
@@ -68,6 +73,7 @@ fn main() {
         let mut i: u32 = 0;
         loop {
             if i < 1 {
+                println!("Client connecting");
                 new_client(format!("Client{}", i), test_count, socket).await;
                 i += 1;
             };
