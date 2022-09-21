@@ -62,7 +62,6 @@ jobs:
           fi
         working-directory: utils/buffer/fuzz
 
-
       - name: Test
         uses: actions-rs/cargo@v1
         with:
