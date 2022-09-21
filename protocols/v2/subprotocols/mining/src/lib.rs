@@ -1,4 +1,4 @@
-#![no_std]
+//#![no_std]
 
 //! # Mining Protocol
 //! ## Channels
@@ -216,7 +216,7 @@ pub struct Extranonce {
     extranonce: alloc::vec::Vec<u8>,
 }
 
-// this function converts a U256 type in little endian to Extranonce type
+// From: tratto, geenrico è il T (nel nostro case U256<'a>) 
 impl<'a> From<U256<'a>> for Extranonce {
     fn from(v: U256<'a>) -> Self {
         let extranonce: alloc::vec::Vec<u8> = v.inner_as_ref().into();
@@ -298,6 +298,7 @@ impl Extranonce {
     }
 }
 
+// TODO fare test
 impl From<&mut ExtendedExtranonce> for Extranonce {
     fn from(v: &mut ExtendedExtranonce) -> Self {
         let mut extranonce = v.inner.to_vec();
@@ -464,7 +465,6 @@ impl ExtendedExtranonce {
             range_2,
         }
     }
-
     /// Specular of [Self::from_downstream_extranonce]
     /// Suppose that P receives from the upstream an extranonce that needs to be converted into any
     /// ExtendedExtranonce, eg when an extended channel is opened. Then range_0 (that should
@@ -524,9 +524,6 @@ impl ExtendedExtranonce {
         }
     }
 
-    /// This function calculates the next extranonce, but the output is ExtendedExtranonce. The
-    /// required_len variable represents the range requested by the downstream to use. The part
-    /// incremented is range_1, as every downstream must have different jubs.
     pub fn next_extended(&mut self, required_len: usize) -> Option<Extranonce> {
         if required_len > self.range_2.end - self.range_2.start {
             return None;
@@ -1070,3 +1067,5 @@ mod tests {
     //    }
     //}
 }
+
+
