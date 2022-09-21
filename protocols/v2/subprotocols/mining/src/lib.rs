@@ -245,7 +245,8 @@ impl<'a> From<B032<'a>> for Extranonce {
 // this function converts an Extranonce type in B032 in little endian
 impl<'a> From<Extranonce> for B032<'a> {
     fn from(v: Extranonce) -> Self {
-        let inner = v.extranonce.to_vec();
+        let mut extranonce = v.head.to_le_bytes().to_vec();
+        extranonce.append(&mut v.tail.to_le_bytes().to_vec());
         // below unwraps never panics
         inner.try_into().unwrap()
     }
@@ -298,6 +299,7 @@ impl Extranonce {
     }
 }
 
+// TODO fare test
 impl From<&mut ExtendedExtranonce> for Extranonce {
     fn from(v: &mut ExtendedExtranonce) -> Self {
         let mut extranonce = v.inner.to_vec();
@@ -895,3 +897,5 @@ mod tests {
         }
     }
 }
+
+
