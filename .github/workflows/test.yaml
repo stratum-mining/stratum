@@ -44,6 +44,16 @@ jobs:
           fi
         working-directory: examples/interop-cpp/
 
+      - name: interop-no-cargo-test
+        run: |
+          if [ ${{ matrix.os }} == "ubuntu-latest" ]; then
+            ./run.sh 30
+          else
+            echo "Skipping interop-test on ${{ matrix.os }} - not supported"
+          fi
+        working-directory: examples/interop-cpp-no-cargo/
+
+
       - name: Test
         uses: actions-rs/cargo@v1
         with:
