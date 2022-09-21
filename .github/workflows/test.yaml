@@ -27,7 +27,7 @@ jobs:
         uses: actions/checkout@v2
         with:
           profile: minimal
-          toolchain: 1.57.0
+          toolchain: nightly
           override: true
 
       - name: Build
@@ -43,6 +43,12 @@ jobs:
             echo "Skipping interop-test on ${{ matrix.os }} - not supported"
           fi
         working-directory: examples/interop-cpp/
+
+      - name: fuzz tests
+        run: |
+          ./run.sh
+        working-directory: utils/buffer/fuzz
+
 
       - name: Test
         uses: actions-rs/cargo@v1
@@ -66,3 +72,4 @@ jobs:
         with:
           command: run
           args: --bin ping_pong_without_noise -- 10
+
