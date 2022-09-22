@@ -56,12 +56,6 @@ impl Node {
                     } else if !node.receiver.is_empty() {
                         let incoming = node.receiver.recv().await.unwrap();
                         node.respond(incoming).await;
-                    } else {
-                        //If there are no messages waiting just sleep a bit for a message to come in
-                        //Without this there are occasions where this is waiting with the lock
-                        //which blocks the client from sending the ping
-                        sleep(time::Duration::from_millis(100));
-                        continue;
                     }
                 }
                 sleep(time::Duration::from_millis(500));
