@@ -73,3 +73,8 @@ jobs:
           command: run
           args: --bin ping_pong_without_noise -- 10
 
+      - name: Run client-server example
+        uses: actions-rs/cargo@v1
+        with:
+          command: run
+          args: --bin client_and_server -- 20
