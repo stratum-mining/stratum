@@ -100,6 +100,9 @@ impl Server {
                     let incoming = self_.receiver_incoming.try_recv();
                     self_.parse_message(incoming).await;
                     drop(self_);
+                    //It's healthy to sleep after giving up the lock so the other thread has a shot
+                    //at acquiring it.
+                    sleep(Duration::from_millis(100));
                 };
             }
         });
@@ -348,6 +351,9 @@ impl Client {
                     let incoming = self_.receiver_incoming.try_recv();
                     self_.parse_message(incoming).await;
                 }
+                //It's healthy to sleep after giving up the lock so the other thread has a shot
+                //at acquiring it - it also prevents pegging the cpu
+                sleep(Duration::from_millis(100));
             }
         });
 
