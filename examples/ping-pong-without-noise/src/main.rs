@@ -5,7 +5,7 @@ use async_std::{
     prelude::*,
     task,
 };
-use std::{env, net::SocketAddr, time};
+use std::{env, net::SocketAddr, thread::sleep, time};
 
 //Pick any unused port
 const ADDR: &str = "127.0.0.1:0";
@@ -33,10 +33,19 @@ async fn new_client(name: String, test_count: u32, socket: SocketAddr) {
             }
         }
     };
+
     let client = node::Node::new(name, stream, test_count);
     task::block_on(async move {
-        let mut client = client.lock().await;
-        client.send_ping().await;
+        loop {
+            if let Some(mut client) = client.try_lock() {
+                println!("ping+");
+                client.send_ping().await;
+                println!("ping-");
+
+                break;
+            }
+            sleep(time::Duration::from_millis(500));
+        }
     });
 }
 
@@ -68,6 +77,7 @@ fn main() {
         let mut i: u32 = 0;
         loop {
             if i < 1 {
+                println!("Client connecting");
                 new_client(format!("Client{}", i), test_count, socket).await;
                 i += 1;
             };

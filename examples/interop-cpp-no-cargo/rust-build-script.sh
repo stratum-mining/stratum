@@ -1,12 +1,28 @@
 #! /bin/sh
 
+set -ex
+
 ROOT=$1
+UTILS=$2
 
 DEPS="./deps"
 
 rm -rf $DEPS
 
 mkdir $DEPS
+
+rustc \
+        --crate-name buffer_sv2 \
+        --edition=2018 \
+        "$UTILS"/buffer/src/lib.rs \
+        --error-format=json \
+        --json=diagnostic-rendered-ansi,artifacts \
+        --crate-type lib \
+        --emit=dep-info,metadata,link \
+        -C opt-level=3 \
+        -C embed-bitcode=no \
+        --out-dir $DEPS \
+        -L dependency=$DEPS \
 
 rustc \
         --crate-name binary_codec_sv2 \
@@ -141,7 +157,8 @@ rustc \
         -L dependency=$DEPS \
         --extern binary_sv2=$DEPS/libbinary_sv2.rmeta \
         --extern const_sv2=$DEPS/libconst_sv2.rmeta \
-        --extern framing_sv2=$DEPS/libframing_sv2.rmeta
+        --extern framing_sv2=$DEPS/libframing_sv2.rmeta \
+        --extern buffer_sv2=$DEPS/libbuffer_sv2.rmeta
 
 rustc \
         --crate-name sv2_ffi \
