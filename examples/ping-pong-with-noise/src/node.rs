@@ -102,7 +102,7 @@ impl Node {
                 let ping: Result<Ping, _> = from_bytes(frame.payload());
                 match ping {
                     Ok(ping) => {
-                        println!("Node {} recived:", self.name);
+                        println!("Node {} received:", self.name);
                         println!("{:#?}\n", ping);
                         let mut seq: Vec<U256> = vec![];
                         for _ in 0..3000 {
@@ -121,7 +121,7 @@ impl Node {
                 let pong: Result<Pong, _> = from_bytes(frame.payload());
                 match pong {
                     Ok(pong) => {
-                        println!("Node {} recived:", self.name);
+                        println!("Node {} received:", self.name);
                         println!(
                             "Pong, id: {:#?}, message len: {} \n",
                             pong.get_id(),
