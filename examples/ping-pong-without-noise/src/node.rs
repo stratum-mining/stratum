@@ -1,6 +1,7 @@
 use crate::messages::{Message, Ping, Pong};
 use binary_sv2::{from_bytes, U256};
 use rand::Rng;
+use std::thread::sleep;
 
 use async_channel::{bounded, Receiver, Sender};
 use async_std::{
@@ -48,6 +49,7 @@ impl Node {
                 task::sleep(time::Duration::from_millis(500)).await;
                 //This lock is sharing access with the client lock in main.rs::new_client
                 if let Some(mut node) = cloned.try_lock() {
+                    println!("{}+", node.name);
                     if node.last_id > test_count {
                         node.sender.close();
                         node.receiver.close();
@@ -57,7 +59,10 @@ impl Node {
                         let incoming = node.receiver.recv().await.unwrap();
                         node.respond(incoming).await;
                     }
+                    println!("{}-", node.name);
                 }
+
+                sleep(time::Duration::from_millis(500));
             }
         });
 
