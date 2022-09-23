@@ -48,6 +48,7 @@ impl Node {
             loop {
                 //This lock is sharing access with the client lock in main.rs::new_client
                 if let Some(mut node) = cloned.try_lock() {
+                    println!("{}+", node.name);
                     if node.last_id > test_count {
                         node.sender.close();
                         node.receiver.close();
@@ -57,7 +58,9 @@ impl Node {
                         let incoming = node.receiver.recv().await.unwrap();
                         node.respond(incoming).await;
                     }
+                    println!("{}-", node.name);
                 }
+
                 sleep(time::Duration::from_millis(500));
             }
         });
