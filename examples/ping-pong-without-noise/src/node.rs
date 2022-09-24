@@ -46,6 +46,7 @@ impl Node {
 
         task::spawn(async move {
             loop {
+                task::sleep(time::Duration::from_millis(500)).await;
                 //This lock is sharing access with the client lock in main.rs::new_client
                 if let Some(mut node) = cloned.try_lock() {
                     println!("{}+", node.name);
@@ -60,8 +61,6 @@ impl Node {
                     }
                     println!("{}-", node.name);
                 }
-
-                sleep(time::Duration::from_millis(500));
             }
         });
 
