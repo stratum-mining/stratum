@@ -6,6 +6,7 @@ pub enum Error {
     Method(MethodError),
     InvalidJsonRpcMessageKind,
     InvalidSubmission,
+    InvalidState(String),
     #[allow(clippy::upper_case_acronyms)]
     UnknownID(String),
     InvalidReceiver(Method),
