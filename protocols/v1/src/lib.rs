@@ -421,13 +421,13 @@ pub trait IsClient {
         time: i64,
         nonce: i64,
         version_bits: Option<HexU32Be>,
-    ) -> Result<json_rpc::Message, ()> {
+    ) -> Result<json_rpc::Message, Error> {
         match self.status() {
-            ClientStatus::Init => Err(Error::InvalidState("Not yet subscribed")),
+            ClientStatus::Init => Err(Error::InvalidState("Not yet subscribed".to_string())),
             _ => {
                 // TODO check if version_bits is set
                 if self.last_notify().is_none() {
-                    Err(Error::InvalidState("Not yet notified"))
+                    Err(Error::InvalidState("Not yet notified".to_string()))
                 } else if self.is_authorized(&user_name) {
                     Ok(client_to_server::Submit {
                         job_id: self.last_notify().unwrap().job_id,
@@ -440,7 +440,7 @@ pub trait IsClient {
                     }
                     .into())
                 } else {
-                    Err(Error::InvalidState("Not yet authorized"))
+                    Err(Error::InvalidState("Not yet authorized".to_string()))
                 }
             }
         }
