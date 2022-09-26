@@ -5,6 +5,7 @@ as a collaborator to the repository.  You can then push changes to the repositor
 To push to the repository a pre-push hook needs to be run locally to ensure that the code is formatted correctly and
 tests pass. To install the pre-push hook run the following command from the root of the repo:
 
+# Enable pre-push hooks
 This tells git where the githooks are located
 `# git config core.hooksPath .githooks`
 
