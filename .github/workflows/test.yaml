@@ -78,10 +78,10 @@ jobs:
         with:
           command: run
           args: --bin ping_pong_with_noise -- 10
-      #
-      # GitHub Actions hangs on this test. Issue #249
-      # - name: Run ping-pong-without-noise example
-      #   uses: actions-rs/cargo@v1
-      #   with:
-      #     command: run
-      #     args: --bin ping_pong_without_noise -- 10
+      
+      GitHub Actions hangs on this test. Issue #249
+      - name: Run ping-pong-without-noise example
+        uses: actions-rs/cargo@v1
+        with:
+          command: run
+          args: --bin ping_pong_without_noise -- 10
