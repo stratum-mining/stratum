@@ -20,3 +20,4 @@ Once these are installed the first time you try to push your source to the repo 
 # Running the github actions without pushing
 You can run the `pre-push` script to run the github actions locally if you want to test out your changes before pushing.
 with just `./githooks/pre-push`
+
