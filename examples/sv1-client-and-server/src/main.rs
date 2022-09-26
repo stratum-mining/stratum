@@ -102,7 +102,7 @@ impl Server {
                     drop(self_);
                     //It's healthy to sleep after giving up the lock so the other thread has a shot
                     //at acquiring it.
-                    task::sleep(Duration::from_millis(100));
+                    task::sleep(Duration::from_millis(100)).await;
                 };
             }
         });
@@ -116,7 +116,7 @@ impl Server {
                 if let Some(mut self_) = cloned.try_lock() {
                     self_.send_notify().await;
                     drop(self_);
-                    task::sleep(Duration::from_secs(notify_time));
+                    task::sleep(Duration::from_secs(notify_time)).await;
                     //subtract notify_time from run_time
                     run_time -= notify_time as i32;
 
@@ -286,7 +286,7 @@ struct Client {
 impl Client {
     pub async fn new(client_id: u32, socket: SocketAddr) -> Arc<Mutex<Self>> {
         let stream = loop {
-            task::sleep(Duration::from_secs(1));
+            task::sleep(Duration::from_secs(1)).await;
 
             match TcpStream::connect(socket).await {
                 Ok(st) => {
@@ -353,7 +353,7 @@ impl Client {
                 }
                 //It's healthy to sleep after giving up the lock so the other thread has a shot
                 //at acquiring it - it also prevents pegging the cpu
-                task::sleep(Duration::from_millis(100));
+                task::sleep(Duration::from_millis(100)).await;
             }
         });
 
