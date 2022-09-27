@@ -290,10 +290,7 @@ impl Client {
 
             match TcpStream::connect(socket).await {
                 Ok(st) => {
-                    println!(
-                        "CLIENT - connected to server at {}",
-                        socket
-                    );
+                    println!("CLIENT - connected to server at {}", socket);
                     break st;
                 }
                 Err(_) => {
