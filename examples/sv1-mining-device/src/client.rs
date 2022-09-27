@@ -69,7 +69,7 @@ impl Client {
     ///    task. In this task, once `receiver_share` gets the information from `sender_share`, it is
     ///    formatted as a `v1::client_to_server::Submit` and then serialized into a json message
     ///    that is sent to the Upstream via `sender_outgoing`.
-    pub(crate) async fn new(client_id: u32) {
+    pub(crate) async fn connect(client_id: u32) {
         let stream = std::sync::Arc::new(TcpStream::connect(ADDR).await.unwrap());
         let (reader, writer) = (stream.clone(), stream);
 
@@ -237,11 +237,8 @@ impl Client {
             println!("CLIENT {} - Received: {}", self.client_id, line);
             let message: json_rpc::Message = serde_json::from_str(&line).unwrap();
             // If has a message, it sends it back
-            match self.handle_message(message).unwrap() {
-                Some(m) => {
-                    self.send_message(m).await;
-                }
-                None => (),
+            if let Some(m) = self.handle_message(message).unwrap() {
+                self.send_message(m).await;
             }
         };
     }
@@ -382,19 +379,19 @@ impl IsClient for Client {
     }
 }
 
-/// Represents a new outgoing `mining.submit` solution submission to be sent to the Upstream
-/// server.
-struct Submit {
-    // worker_name: String,
-    /// ID of the job used while submitting share generated from this job.
-    /// TODO: Currently is `u32` and is hardcoded, but should be String and set by the incoming
-    /// `mining.notify` message.
-    job_id: u32,
-    // /// TODO: Hard coded for demo
-    // extranonce_2: u32,
-    /// Current time
-    ntime: u32,
-    /// Nonce
-    /// TODO: Hard coded for the demo
-    nonce: u32,
-}
+// /// Represents a new outgoing `mining.submit` solution submission to be sent to the Upstream
+// /// server.
+// struct Submit {
+//     // worker_name: String,
+//     /// ID of the job used while submitting share generated from this job.
+//     /// TODO: Currently is `u32` and is hardcoded, but should be String and set by the incoming
+//     /// `mining.notify` message.
+//     job_id: u32,
+//     // /// TODO: Hard coded for demo
+//     // extranonce_2: u32,
+//     /// Current time
+//     ntime: u32,
+//     /// Nonce
+//     /// TODO: Hard coded for the demo
+//     nonce: u32,
+// }
