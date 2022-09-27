@@ -13,7 +13,7 @@ use roles_logic_sv2::utils::Mutex;
 use async_channel::{bounded, Receiver, Sender};
 use std::{
     net::{IpAddr, SocketAddr},
-    std::FromStr,
+    str::FromStr,
     sync::Arc,
 };
 use v1::server_to_client;
