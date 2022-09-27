@@ -37,6 +37,7 @@ members = [
     "utils/network-helpers",
     "utils/buffer",
     "examples/sv1-client-and-server",
+    "examples/sv1-mining-device",
     "examples/ping-pong-with-noise",
     "examples/ping-pong-without-noise",
     "examples/interop-cpp",
