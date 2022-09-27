@@ -291,8 +291,7 @@ impl Client {
             match TcpStream::connect(socket).await {
                 Ok(st) => {
                     println!(
-                        "{:?}-CLIENT - connected to server at {}",
-                        SystemTime::now(),
+                        "CLIENT - connected to server at {}",
                         socket
                     );
                     break st;
@@ -554,7 +553,7 @@ async fn initialize_client(client: Arc<Mutex<Client>>) {
             }
         }
         drop(client_);
-        task::sleep(Duration::from_millis(100)).await;
+        task::sleep(Duration::from_millis(1000)).await;
     }
     task::sleep(Duration::from_millis(2000)).await;
     loop {

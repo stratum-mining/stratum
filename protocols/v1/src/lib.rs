@@ -312,6 +312,7 @@ pub trait IsClient {
                 self.handle_subscribe(&subscribe)?;
                 self.set_extranonce1(subscribe.extra_nonce1);
                 self.set_extranonce2_size(subscribe.extra_nonce2_size);
+                println!("Handling subscribe - status will be subscribed");
                 self.set_status(ClientStatus::Subscribed);
                 Ok(())
             }
