@@ -439,7 +439,7 @@ pub trait IsClient {
                 // TODO check if version_bits is set
                 if self.last_notify().is_none() {
                     // Err(())
-                    panic!("TODO: Check if version_bits is set".to_string());
+                    panic!("TODO: Check if version_bits is set");
                 } else if self.is_authorized(&user_name) {
                     Ok(client_to_server::Submit {
                         job_id: self.last_notify().unwrap().job_id,
