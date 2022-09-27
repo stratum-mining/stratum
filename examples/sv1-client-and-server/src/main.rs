@@ -253,7 +253,7 @@ impl IsServer for Server {
         self.version_rolling_min_bit = mask
     }
 
-    fn notify(&mut self) -> Result<json_rpc::Message, ()> {
+    fn notify(&mut self) -> Result<json_rpc::Message, Error> {
         server_to_client::Notify {
             job_id: "ciao".to_string(),
             prev_hash: utils::PrevHash(vec![3_u8, 4, 5, 6]),
@@ -536,7 +536,7 @@ impl IsClient for Client {
     fn handle_error_message(
         &mut self,
         message: v1::Message,
-    ) -> Result<Option<json_rpc::Response>, Error> {
+    ) -> Result<Option<json_rpc::Message>, Error> {
         println!("{:?}", message);
         Ok(None)
     }
