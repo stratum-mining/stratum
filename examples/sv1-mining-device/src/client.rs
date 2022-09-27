@@ -69,7 +69,7 @@ impl Client {
     ///    task. In this task, once `receiver_share` gets the information from `sender_share`, it is
     ///    formatted as a `v1::client_to_server::Submit` and then serialized into a json message
     ///    that is sent to the Upstream via `sender_outgoing`.
-    pub(crate) async fn new(client_id: u32) {
+    pub(crate) async fn connect(client_id: u32) {
         let stream = std::sync::Arc::new(TcpStream::connect(ADDR).await.unwrap());
         let (reader, writer) = (stream.clone(), stream);
 

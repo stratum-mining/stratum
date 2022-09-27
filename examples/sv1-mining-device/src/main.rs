@@ -5,5 +5,5 @@ pub(crate) use client::Client;
 
 #[async_std::main]
 async fn main() {
-    Client::new(80).await
+    Client::connect(80).await
 }

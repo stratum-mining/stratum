@@ -21,7 +21,7 @@ pub(crate) struct Miner {
     /// Block header version
     pub(crate) version: Option<u32>,
     /// TODO: RRQ: Remove?
-    pub(crate) handicap: u32,
+    pub(crate) _handicap: u32,
 }
 
 impl Miner {
@@ -32,7 +32,7 @@ impl Miner {
             header: None,
             job_id: None,
             version: None,
-            handicap,
+            _handicap: handicap,
         }
     }
 
