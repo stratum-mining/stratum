@@ -212,7 +212,7 @@ impl Arbitrary for Submit {
     fn arbitrary(g: &mut Gen) -> Self {
         let extra = Vec::<u8>::arbitrary(g);
         let bits = Option::<u32>::arbitrary(g);
-        let extra = HexBytes(extra);
+        let extra: HexBytes = extra.try_into().unwrap();
         let bits = bits.map(|x| HexU32Be(x));
         Submit {
             user_name: String::arbitrary(g),
