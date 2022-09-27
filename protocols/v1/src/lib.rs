@@ -51,6 +51,7 @@ use utils::{HexBytes, HexU32Be};
 
 /// json_rpc Response are not handled cause startum v1 do not have any request from a server to a
 /// client
+/// TODO: Should update to accommodate miner requesting a difficulty change
 ///
 /// A stratum v1 server rapresent a single connection with a client
 ///
@@ -207,20 +208,25 @@ pub trait IsServer {
         &mut self,
         extra_nonce1: HexBytes,
         extra_nonce2_size: usize,
-    ) -> Result<json_rpc::Message, ()> {
+    ) -> Result<json_rpc::Message, Error> {
         self.set_extranonce1(Some(extra_nonce1.clone()));
         self.set_extranonce2_size(Some(extra_nonce2_size));
-        (server_to_client::SetExtranonce {
+
+        server_to_client::SetExtranonce {
             extra_nonce1,
             extra_nonce2_size,
-        })
+        }
         .try_into()
-        .map_err(|_| ())
     }
     // {"params":["00003000"], "id":null, "method": "mining.set_version_mask"}
     // fn update_version_rolling_mask
 
-    fn notify(&mut self) -> Result<json_rpc::Message, ()>;
+    fn notify(&mut self) -> Result<json_rpc::Message, Error>;
+
+    fn handle_set_difficulty(&mut self, value: f64) -> Result<json_rpc::Message, Error> {
+        let set_difficulty = server_to_client::SetDifficulty { value };
+        Ok(set_difficulty.try_into()?)
+    }
 }
 
 pub trait IsClient {
@@ -230,10 +236,7 @@ pub trait IsClient {
     /// [a]: crate::...
     /// [b]:
     ///
-    fn handle_message(
-        &mut self,
-        msg: json_rpc::Message,
-    ) -> Result<Option<json_rpc::Response>, Error>
+    fn handle_message(&mut self, msg: json_rpc::Message) -> Result<Option<json_rpc::Message>, Error>
     where
         Self: std::marker::Sized,
     {
@@ -243,7 +246,7 @@ pub trait IsClient {
             Ok(m) => match m {
                 Method::Server2ClientResponse(response) => {
                     let response = self.update_response(response)?;
-                    self.handle_response(response).map(|_| None)
+                    self.handle_response(response)
                 }
                 Method::Server2Client(request) => self.handle_request(request),
                 Method::Client2Server(_) => Err(Error::InvalidReceiver(m)),
@@ -281,7 +284,7 @@ pub trait IsClient {
     fn handle_request(
         &mut self,
         request: methods::Server2Client,
-    ) -> Result<Option<json_rpc::Response>, Error>
+    ) -> Result<Option<json_rpc::Message>, Error>
     where
         Self: std::marker::Sized,
     {
@@ -290,13 +293,16 @@ pub trait IsClient {
                 self.handle_notify(notify)?;
                 Ok(None)
             }
-            methods::Server2Client::SetDifficulty(_set_diff) => todo!(),
+            methods::Server2Client::SetDifficulty(_set_diff) => Ok(None),
             methods::Server2Client::SetExtranonce(_set_extra_nonce) => todo!(),
             methods::Server2Client::SetVersionMask(_set_version_mask) => todo!(),
         }
     }
 
-    fn handle_response(&mut self, response: methods::Server2ClientResponse) -> Result<(), Error>
+    fn handle_response(
+        &mut self,
+        response: methods::Server2ClientResponse,
+    ) -> Result<Option<json_rpc::Message>, Error>
     where
         Self: std::marker::Sized,
     {
@@ -306,31 +312,36 @@ pub trait IsClient {
                 self.set_version_rolling_mask(configure.version_rolling_mask());
                 self.set_version_rolling_min_bit(configure.version_rolling_min_bit());
                 self.set_status(ClientStatus::Configured);
-                Ok(())
+                println!("WARNING: Subscribe extranonce is hardcoded by server");
+                let subscribe = self
+                    .subscribe(configure.id, Some("08000002".try_into()?))
+                    .ok();
+                Ok(subscribe)
             }
             methods::Server2ClientResponse::Subscribe(subscribe) => {
                 self.handle_subscribe(&subscribe)?;
                 self.set_extranonce1(subscribe.extra_nonce1);
                 self.set_extranonce2_size(subscribe.extra_nonce2_size);
                 self.set_status(ClientStatus::Subscribed);
-                Ok(())
+                Ok(None)
             }
             methods::Server2ClientResponse::Authorize(authorize) => {
                 if authorize.is_ok() {
                     self.authorize_user_name(authorize.user_name());
                 };
-                Ok(())
+                Ok(None)
             }
-            methods::Server2ClientResponse::Submit(_) => Ok(()),
+            methods::Server2ClientResponse::Submit(_) => Ok(None),
             // impossible state
             methods::Server2ClientResponse::GeneralResponse(_) => panic!(),
+            methods::Server2ClientResponse::SetDifficulty(_) => Ok(None),
         }
     }
 
     fn handle_error_message(
         &mut self,
         message: Message,
-    ) -> Result<Option<json_rpc::Response>, Error>;
+    ) -> Result<Option<json_rpc::Message>, Error>;
 
     /// Check if the client sent an Authorize request with the given id, if so it return the
     /// authorized name
@@ -389,9 +400,9 @@ pub trait IsClient {
         &mut self,
         id: String,
         extranonce1: Option<HexBytes>,
-    ) -> Result<json_rpc::Message, ()> {
+    ) -> Result<json_rpc::Message, Error> {
         match self.status() {
-            ClientStatus::Init => Err(()),
+            ClientStatus::Init => Err(Error::IncorrectClientStatus("mining.subscribe".to_string())),
             _ => Ok(client_to_server::Subscribe {
                 id,
                 agent_signature: self.signature(),
@@ -406,9 +417,9 @@ pub trait IsClient {
         id: String,
         name: String,
         password: String,
-    ) -> Result<json_rpc::Message, ()> {
+    ) -> Result<json_rpc::Message, Error> {
         match self.status() {
-            ClientStatus::Init => Err(()),
+            ClientStatus::Init => Err(Error::IncorrectClientStatus("mining.authorize".to_string())),
             _ => Ok(client_to_server::Authorize { id, name, password }.into()),
         }
     }
@@ -423,11 +434,12 @@ pub trait IsClient {
         version_bits: Option<HexU32Be>,
     ) -> Result<json_rpc::Message, Error> {
         match self.status() {
-            ClientStatus::Init => Err(Error::InvalidState("Not yet subscribed".to_string())),
+            ClientStatus::Init => Err(Error::IncorrectClientStatus("mining.submit".to_string())),
             _ => {
                 // TODO check if version_bits is set
                 if self.last_notify().is_none() {
-                    Err(Error::InvalidState("Not yet notified".to_string()))
+                    // Err(())
+                    panic!("TODO: Check if version_bits is set");
                 } else if self.is_authorized(&user_name) {
                     Ok(client_to_server::Submit {
                         job_id: self.last_notify().unwrap().job_id,
@@ -440,7 +452,7 @@ pub trait IsClient {
                     }
                     .into())
                 } else {
-                    Err(Error::InvalidState("Not yet authorized".to_string()))
+                    Err(Error::UnauthorizedClient(id))
                 }
             }
         }
