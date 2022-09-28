@@ -8,7 +8,7 @@ use async_std::{
     sync::{Arc, Mutex},
     task,
 };
-use std::{env, net::SocketAddr, process::exit, thread::sleep, time, time::Duration};
+use std::{env, net::SocketAddr, process::exit, time, time::Duration};
 use time::SystemTime;
 
 const ADDR: &str = "127.0.0.1:0";
@@ -102,7 +102,7 @@ impl Server {
                     drop(self_);
                     //It's healthy to sleep after giving up the lock so the other thread has a shot
                     //at acquiring it.
-                    sleep(Duration::from_millis(100));
+                    task::sleep(Duration::from_millis(100)).await;
                 };
             }
         });
@@ -116,7 +116,7 @@ impl Server {
                 if let Some(mut self_) = cloned.try_lock() {
                     self_.send_notify().await;
                     drop(self_);
-                    sleep(Duration::from_secs(notify_time));
+                    task::sleep(Duration::from_secs(notify_time)).await;
                     //subtract notify_time from run_time
                     run_time -= notify_time as i32;
 
@@ -286,15 +286,11 @@ struct Client {
 impl Client {
     pub async fn new(client_id: u32, socket: SocketAddr) -> Arc<Mutex<Self>> {
         let stream = loop {
-            sleep(Duration::from_secs(1));
+            task::sleep(Duration::from_secs(1)).await;
 
             match TcpStream::connect(socket).await {
                 Ok(st) => {
-                    println!(
-                        "{:?}-CLIENT - connected to server at {}",
-                        SystemTime::now(),
-                        socket
-                    );
+                    println!("CLIENT - connected to server at {}", socket);
                     break st;
                 }
                 Err(_) => {
@@ -353,7 +349,7 @@ impl Client {
                 }
                 //It's healthy to sleep after giving up the lock so the other thread has a shot
                 //at acquiring it - it also prevents pegging the cpu
-                sleep(Duration::from_millis(100));
+                task::sleep(Duration::from_millis(100)).await;
             }
         });
 
@@ -554,7 +550,7 @@ async fn initialize_client(client: Arc<Mutex<Client>>) {
             }
         }
         drop(client_);
-        task::sleep(Duration::from_millis(100)).await;
+        task::sleep(Duration::from_millis(1000)).await;
     }
     task::sleep(Duration::from_millis(2000)).await;
     loop {

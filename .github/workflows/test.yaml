@@ -35,6 +35,12 @@ jobs:
         with:
           command: build
 
+      - name: Run sv1-client-and-server example
+        uses: actions-rs/cargo@v1
+        with:
+          command: run
+          args: --bin client_and_server -- 60
+
       - name: interop-test
         run: |
           if [ ${{ matrix.os }} == "ubuntu-latest" ]; then
