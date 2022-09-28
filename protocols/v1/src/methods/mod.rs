@@ -1,3 +1,4 @@
+use crate::error::Error;
 use bitcoin_hashes::Error as BTCHashError;
 use hex::FromHexError;
 use std::convert::{TryFrom, TryInto};
@@ -8,7 +9,6 @@ pub mod server_to_client;
 use crate::json_rpc::{Message, Response};
 
 /// Errors encountered during conversion between valid json_rpc messages and Sv1 messages.
-///
 #[derive(Debug)]
 pub enum MethodError {
     /// If the json_rpc message call a method not defined by Sv1. It contains the called method
@@ -60,6 +60,16 @@ pub enum ParsingMethodError {
     UnexpectedObjectParams(serde_json::Map<String, serde_json::Value>),
     MultipleError(Vec<ParsingMethodError>),
     Todo,
+}
+
+impl From<Error> for ParsingMethodError {
+    fn from(inner: Error) -> Self {
+        match inner {
+            Error::HexError(e) => ParsingMethodError::HexError(Box::new(e)),
+            Error::BTCHashError(e) => ParsingMethodError::BTCHashError(Box::new(e)),
+            _ => panic!("v1 Error does not implement this ParsingMethodError, but probably should"),
+        }
+    }
 }
 
 impl ParsingMethodError {
@@ -170,6 +180,7 @@ pub enum Server2ClientResponse {
     GeneralResponse(server_to_client::GeneralResponse),
     Authorize(server_to_client::Authorize),
     Submit(server_to_client::Submit),
+    SetDifficulty(server_to_client::SetDifficulty),
 }
 
 impl From<Server2ClientResponse> for Method {

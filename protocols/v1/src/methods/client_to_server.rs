@@ -5,11 +5,11 @@ use serde_json::{
 use std::convert::{TryFrom, TryInto};
 
 use crate::{
+    error::Error,
     json_rpc::{Message, Response, StandardRequest},
+    methods::ParsingMethodError,
     utils::{HexBytes, HexU32Be},
 };
-
-use crate::methods::ParsingMethodError;
 
 #[cfg(test)]
 use quickcheck::{Arbitrary, Gen};
@@ -212,7 +212,7 @@ impl Arbitrary for Submit {
     fn arbitrary(g: &mut Gen) -> Self {
         let extra = Vec::<u8>::arbitrary(g);
         let bits = Option::<u32>::arbitrary(g);
-        let extra = HexBytes(extra);
+        let extra: HexBytes = extra.try_into().unwrap();
         let bits = bits.map(|x| HexU32Be(x));
         Submit {
             user_name: String::arbitrary(g),
@@ -278,11 +278,11 @@ impl Subscribe {
 }
 
 impl TryFrom<Subscribe> for Message {
-    type Error = ();
+    type Error = Error;
 
-    fn try_from(subscribe: Subscribe) -> Result<Self, ()> {
+    fn try_from(subscribe: Subscribe) -> Result<Self, Error> {
         let parameters = match (subscribe.agent_signature, subscribe.extranonce1) {
-            (a, Some(b)) => vec![a, b.try_into().map_err(|_| ())?],
+            (a, Some(b)) => vec![a, b.try_into()?],
             (a, None) => vec![a],
         };
         Ok(Message::StandardRequest(StandardRequest {

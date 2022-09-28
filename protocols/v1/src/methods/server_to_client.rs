@@ -5,6 +5,7 @@ use serde_json::{
 use std::convert::{TryFrom, TryInto};
 
 use crate::{
+    error::Error,
     json_rpc::{Message, Notification, Response},
     methods::ParsingMethodError,
     utils::{HexBytes, HexU32Be, PrevHash},
@@ -49,21 +50,21 @@ pub struct Notify {
 }
 
 impl TryFrom<Notify> for Message {
-    type Error = ();
+    type Error = Error;
 
-    fn try_from(notify: Notify) -> Result<Self, ()> {
-        let prev_hash: Value = notify.prev_hash.try_into().map_err(|_| ())?;
-        let coin_base1: Value = notify.coin_base1.try_into().map_err(|_| ())?;
-        let coin_base2: Value = notify.coin_base2.try_into().map_err(|_| ())?;
+    fn try_from(notify: Notify) -> Result<Self, Error> {
+        let prev_hash: Value = notify.prev_hash.try_into()?;
+        let coin_base1: Value = notify.coin_base1.try_into()?;
+        let coin_base2: Value = notify.coin_base2.try_into()?;
         let mut merkle_branch: Vec<Value> = vec![];
         for mb in notify.merkle_branch {
-            let mb: Value = mb.try_into().map_err(|_| ())?;
+            let mb: Value = mb.try_into()?;
             merkle_branch.push(mb);
         }
         let merkle_branch = JArrary(merkle_branch);
-        let version: Value = notify.version.try_into().map_err(|_| ())?;
-        let bits: Value = notify.bits.try_into().map_err(|_| ())?;
-        let time: Value = notify.time.try_into().map_err(|_| ())?;
+        let version: Value = notify.version.try_into()?;
+        let bits: Value = notify.bits.try_into()?;
+        let time: Value = notify.time.try_into()?;
         Ok(Message::Notification(Notification {
             method: "mining.notify".to_string(),
             parameters: (&[
@@ -148,7 +149,7 @@ impl TryFrom<Notification> for Notify {
 ///
 #[derive(Debug)]
 pub struct SetDifficulty {
-    value: f64,
+    pub value: f64,
 }
 
 impl From<SetDifficulty> for Message {
@@ -196,10 +197,10 @@ pub struct SetExtranonce {
 }
 
 impl TryFrom<SetExtranonce> for Message {
-    type Error = ();
+    type Error = Error;
 
-    fn try_from(se: SetExtranonce) -> Result<Self, ()> {
-        let extra_nonce1: Value = se.extra_nonce1.try_into().map_err(|_| ())?;
+    fn try_from(se: SetExtranonce) -> Result<Self, Error> {
+        let extra_nonce1: Value = se.extra_nonce1.try_into()?;
         let extra_nonce2_size: Value = se.extra_nonce2_size.into();
         Ok(Message::Notification(Notification {
             method: "mining.set_extranonce".to_string(),
@@ -239,10 +240,10 @@ pub struct SetVersionMask {
 }
 
 impl TryFrom<SetVersionMask> for Message {
-    type Error = ();
+    type Error = Error;
 
-    fn try_from(sv: SetVersionMask) -> Result<Self, ()> {
-        let version_mask: Value = sv.version_mask.try_into().map_err(|_| ())?;
+    fn try_from(sv: SetVersionMask) -> Result<Self, Error> {
+        let version_mask: Value = sv.version_mask.try_into()?;
         Ok(Message::Notification(Notification {
             method: "mining.set_version".to_string(),
             parameters: (&[version_mask][..]).into(),
@@ -560,15 +561,12 @@ impl VersionRollingParams {
 }
 
 impl TryFrom<VersionRollingParams> for serde_json::Map<String, Value> {
-    type Error = ();
+    type Error = Error;
 
-    fn try_from(vp: VersionRollingParams) -> Result<Self, ()> {
+    fn try_from(vp: VersionRollingParams) -> Result<Self, Error> {
         let version_rolling: Value = vp.version_rolling.into();
-        let version_rolling_mask: Value = vp.version_rolling_mask.try_into().map_err(|_| ())?;
-        let version_rolling_min_bit_count: Value = vp
-            .version_rolling_min_bit_count
-            .try_into()
-            .map_err(|_| ())?;
+        let version_rolling_mask: Value = vp.version_rolling_mask.try_into()?;
+        let version_rolling_min_bit_count: Value = vp.version_rolling_min_bit_count.try_into()?;
         let mut params = serde_json::Map::new();
         params.insert("version-rolling".to_string(), version_rolling);
         params.insert("version-rolling.mask".to_string(), version_rolling_mask);
