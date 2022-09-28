@@ -1,4 +1,4 @@
-//#![no_std]
+#![no_std]
 
 //! # Mining Protocol
 //! ## Channels
@@ -216,7 +216,7 @@ pub struct Extranonce {
     extranonce: alloc::vec::Vec<u8>,
 }
 
-// From: tratto, geenrico è il T (nel nostro case U256<'a>) 
+
 impl<'a> From<U256<'a>> for Extranonce {
     fn from(v: U256<'a>) -> Self {
         let extranonce: alloc::vec::Vec<u8> = v.inner_as_ref().into();
@@ -298,7 +298,6 @@ impl Extranonce {
     }
 }
 
-// TODO fare test
 impl From<&mut ExtendedExtranonce> for Extranonce {
     fn from(v: &mut ExtendedExtranonce) -> Self {
         let mut extranonce = v.inner.to_vec();
@@ -586,6 +585,7 @@ fn increment_bytes_be(bs: &mut [u8]) -> Result<(), ()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use alloc::vec::Vec;
     use quickcheck::{Arbitrary, Gen};
     use quickcheck_macros;
 
@@ -971,6 +971,85 @@ mod tests {
         }
     }
 
+    #[quickcheck_macros::quickcheck]
+    fn test_next_standard_extranonce(input: (u8, u8, Vec<u8>)) -> bool {
+        let inner = from_arbitrary_vec_to_array(input.2.clone());
+        let r0 = input.0 as usize;
+        let r1 = input.1 as usize;
+        let r0 = r0 % EXTRANONCE_LEN;
+        let r1 = r1 % EXTRANONCE_LEN;
+        let mut ranges = Vec::from([r0, r1]);
+        ranges.sort();
+        let range_0 = 0..ranges[0];
+        let range_1 = ranges[0]..ranges[1];
+        let range_2 = ranges[1]..EXTRANONCE_LEN;
+        let extended_extranonce_start = ExtendedExtranonce {
+            inner,
+            range_0: range_0.clone(),
+            range_1: range_1.clone(),
+            range_2: range_2.clone(),
+        };
+        let extranonce_expected: Extranonce =
+            Extranonce::from(&mut extended_extranonce_start.clone())
+                .next()
+                .into();
+        match extended_extranonce_start.clone().next_standard() {
+            Some(extranonce_next) => extranonce_expected == extranonce_next,
+            None => {
+                for b in inner[range_2.start..range_2.end].iter() {
+                    if b != &255_u8 {
+                        return false;
+                    }
+                }
+                true
+            }
+        }
+    }
+
+    #[quickcheck_macros::quickcheck]
+    fn test_next_extended_extranonce(input: (u8, u8, Vec<u8>, u8)) -> bool {
+        let input = (0 as u8, 0 as u8, Vec::from([]), 0 as u8);
+        let inner = from_arbitrary_vec_to_array(input.2);
+        let r0 = input.0 as usize;
+        let r1 = input.1 as usize;
+        let r0 = r0 % (EXTRANONCE_LEN + 1);
+        let r1 = r1 % (EXTRANONCE_LEN + 1);
+        let required_len = (input.3 as usize % EXTRANONCE_LEN) + 1;
+        let mut ranges = Vec::from([r0, r1]);
+        ranges.sort();
+        let range_0 = 0..ranges[0];
+        let range_1 = ranges[0]..ranges[1];
+        let range_2 = ranges[1]..EXTRANONCE_LEN;
+        let extended_extranonce_start = ExtendedExtranonce {
+            inner,
+            range_0: range_0.clone(),
+            range_1: range_1.clone(),
+            range_2: range_2.clone(),
+        };
+        let extranonce_expected: Extranonce =
+            Extranonce::from(&mut extended_extranonce_start.clone())
+                .next()
+                .into();
+        match extended_extranonce_start
+            .clone()
+            .next_extended(required_len)
+        {
+            Some(extranonce_next) => extranonce_expected == extranonce_next,
+            None => {
+                if required_len > range_2.len() {
+                    return true;
+                } else {
+                    for b in inner[range_1.start..range_1.end].iter() {
+                        if b != &255_u8 {
+                            return false;
+                        }
+                    }
+                };
+                return true;
+            }
+        }
+    }
+
     use core::convert::TryInto;
     fn from_arbitrary_vec_to_array(vec: Vec<u8>) -> [u8; 32] {
         if vec.len() >= 32 {
@@ -1067,5 +1146,3 @@ mod tests {
     //    }
     //}
 }
-
-
