@@ -44,7 +44,8 @@ impl Downstream {
 
         let socket_writer_clone = socket_writer.clone();
         let socket_writer_set_difficulty_clone = socket_writer.clone();
-        let socket_writer_notify_clone = socket_writer.clone();
+        // Used to send SV1 `mining.notify` messages to the Downstreams
+        let socket_writer_notify = socket_writer;
 
         let downstream = Arc::new(Mutex::new(Downstream {
             authorized_names: vec![],
@@ -53,8 +54,7 @@ impl Downstream {
             version_rolling_mask: None,
             version_rolling_min_bit: None,
             submit_sender,
-            sender_outgoing: sender_outgoing.clone(),
-            // mining_notify_msg,
+            sender_outgoing,
         }));
         let self_ = downstream.clone();
 
@@ -135,7 +135,7 @@ impl Downstream {
                             "Err deserializing JSON message for SV1 Downstream into `String`"
                         )
                     );
-                    (&*socket_writer_notify_clone)
+                    (&*socket_writer_notify)
                         .write_all(to_send.as_bytes())
                         .await
                         .unwrap();

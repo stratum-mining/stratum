@@ -120,7 +120,7 @@ impl Upstream {
             max_target: u256_from_int(567_u64), // TODO
             min_extranonce_size: 8,
         });
-        let sv2_frame: StdFrame = Message::Mining(open_channel.into()).try_into()?;
+        let sv2_frame: StdFrame = Message::Mining(open_channel).try_into()?;
         connection.send(sv2_frame).await.unwrap();
         Ok(())
     }

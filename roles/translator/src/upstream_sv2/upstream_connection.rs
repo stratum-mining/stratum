@@ -22,10 +22,10 @@ impl UpstreamConnection {
     pub async fn send(&mut self, sv2_frame: StdFrame) -> ProxyResult<()> {
         println!("TU SEND TO UPSTREAM: {:?}", &sv2_frame);
         let either_frame = sv2_frame.into();
-        Ok(self
-            .sender
+        self.sender
             .send(either_frame)
             .await
-            .expect("Error sending `EitherFrame` to the Upstream role"))
+            .expect("Error sending `EitherFrame` to the Upstream role");
+        Ok(())
     }
 }

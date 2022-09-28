@@ -11,10 +11,12 @@ use proxy_config::ProxyConfig;
 use roles_logic_sv2::utils::Mutex;
 
 use async_channel::{bounded, Receiver, Sender};
+use async_std::task;
 use std::{
     net::{IpAddr, SocketAddr},
     str::FromStr,
     sync::Arc,
+    time::Duration,
 };
 use v1::server_to_client;
 
@@ -116,5 +118,10 @@ async fn main() {
         sender_submit_from_sv1,
         recv_mining_notify_downstream,
     );
-    loop {}
+
+    // If this loop is not here, the proxy does not stay live long enough for a Downstream to
+    // connect
+    loop {
+        task::sleep(Duration::from_secs(1)).await;
+    }
 }

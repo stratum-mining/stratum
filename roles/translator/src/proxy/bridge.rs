@@ -92,7 +92,7 @@ impl Bridge {
         let self_ = Arc::new(Mutex::new(self));
         Self::handle_new_prev_hash(self_.clone());
         Self::handle_new_extended_mining_job(self_.clone());
-        Self::handle_downstream_share_submission(self_.clone());
+        Self::handle_downstream_share_submission(self_);
     }
 
     fn handle_downstream_share_submission(self_: Arc<Mutex<Self>>) {
