@@ -18,7 +18,7 @@ use std::{
     sync::Arc,
     time::Duration,
 };
-use v1::server_to_client;
+use v1::{server_to_client, utils::HexBytes};
 
 /// Process CLI args, if any.
 fn process_cli_args() -> ProxyResult<ProxyConfig> {
@@ -112,14 +112,28 @@ async fn main() {
         proxy_config.downstream_port,
     );
 
-    // Get the `extranonce_size` size received from the Upstream to be sent to the Downstream in
-    // the SV1 `mining.subscribe` message response.
+    // Get the `extranonce_size` size received from the Upstream to be sent to the Downstream as
+    // the `extranonce2_size` field in the SV1 `mining.subscribe` message response.
     let extranonce_size = upstream.safe_lock(|u| u.extranonce_size).unwrap() as usize;
+
+    // Get the `extranonce_prefix` size received from the Upstream to be sent to the Downstream as
+    // the `extranonce1` field in the SV1 `mining.subscribe` message response.
+    // let extranonce_prefix = upstream
+    //     .safe_lock(|u| u.extranonce_prefix.clone().unwrap())
+    //     .unwrap();
+    // let extranonce_prefix =
+    //     extranonce_prefix.expect("Expected `extranonce_prefix` to be set by the Upstream");
+    // let extranonce1: HexBytes = extranonce_prefix.to_vec().try_into().unwrap();
+
+    // TODO: Tmp until extranonce_prefix static lifetime can be fixed in Upstream
+    let extranonce1: HexBytes = "08000002".try_into().unwrap();
+
     // Accept connections from one or more SV1 Downstream roles (SV1 Mining Devices)
     downstream_sv1::Downstream::accept_connections(
         downstream_addr,
         sender_submit_from_sv1,
         recv_mining_notify_downstream,
+        extranonce1,
         extranonce_size,
     );
 

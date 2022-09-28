@@ -35,6 +35,7 @@ impl Downstream {
         stream: TcpStream,
         submit_sender: Sender<v1::client_to_server::Submit>,
         mining_notify_receiver: Receiver<server_to_client::Notify>,
+        extranonce1: HexBytes,
         extranonce2_size: usize,
     ) -> ProxyResult<Arc<Mutex<Self>>> {
         let stream = std::sync::Arc::new(stream);
@@ -50,7 +51,7 @@ impl Downstream {
 
         let downstream = Arc::new(Mutex::new(Downstream {
             authorized_names: vec![],
-            extranonce1: "00000000".try_into()?,
+            extranonce1,
             extranonce2_size,
             version_rolling_mask: None,
             version_rolling_min_bit: None,
@@ -165,6 +166,7 @@ impl Downstream {
         downstream_addr: SocketAddr,
         submit_sender: Sender<v1::client_to_server::Submit>,
         receiver_mining_notify: Receiver<server_to_client::Notify>,
+        extranonce1: HexBytes,
         extranonce2_size: usize,
     ) {
         task::spawn(async move {
@@ -180,6 +182,7 @@ impl Downstream {
                     stream,
                     submit_sender.clone(),
                     receiver_mining_notify.clone(),
+                    extranonce1,
                     extranonce2_size,
                 )
                 .await
@@ -296,9 +299,10 @@ impl IsServer for Downstream {
         self.authorized_names.push(name.to_string())
     }
 
-    /// Set extranonce1 to extranonce1 if provided. If not create a new one and set it.
-    fn set_extranonce1(&mut self, extranonce1: Option<HexBytes>) -> HexBytes {
-        self.extranonce1 = extranonce1.unwrap_or_else(downstream_sv1::new_extranonce);
+    /// Set the `extranonce1` field to be sent to the Downstream in the SV1 `mining.subscribe`
+    /// message response. This field is set by the Upstream in the SV2
+    /// `OpenExtendedMiningChannelSuccess` message, passed down through the Bridge.
+    fn set_extranonce1(&mut self, _extranonce1: Option<HexBytes>) -> HexBytes {
         self.extranonce1.clone()
     }
 
@@ -308,7 +312,7 @@ impl IsServer for Downstream {
 
     /// Set the `extranonce2_size` field to be sent to the Downstream in the SV1 `mining.subscribe`
     /// message response. This field is set by the Upstream in the SV2
-    /// `OpenExtendedMiningChannelSuccess` message passed down through the Bridge.
+    /// `OpenExtendedMiningChannelSuccess` message, passed down through the Bridge.
     fn set_extranonce2_size(&mut self, _extra_nonce2_size: Option<usize>) -> usize {
         self.extranonce2_size
     }

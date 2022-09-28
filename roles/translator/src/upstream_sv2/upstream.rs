@@ -25,12 +25,12 @@ use roles_logic_sv2::{
 };
 use std::{net::SocketAddr, sync::Arc};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Upstream {
     channel_id: Option<u32>,
     /// Extranonce1 received from the Upstream in the SV2 `OpenExtendedMiningChannelSuccess`
     /// message, to be sent to the Downstream in the SV1 `mining.subscribe` message response.
-    extranonce_prefix: Option<B032<'static>>,
+    pub extranonce_prefix: Option<B032<'static>>,
     /// Extranonce2 size. Requested by `Bridge` to the Upstream in the SV2
     /// `OpenExtendedMiningChannel` message, then confirmed by the Upstream in the SV2
     /// `OpenExtendedMiningChannelSuccess` message. Sent to the Downstream in the SV1
@@ -393,6 +393,7 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
         // min_extranonce_size requested by the Upstream (in the upstream_sv2/mod.rs
         // new_extranonce_size function)
         self.extranonce_size = m.extranonce_size;
+        self.extranonce_prefix = Some(m.extranonce_prefix);
         Ok(SendTo::None(None))
     }
 
