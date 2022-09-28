@@ -126,13 +126,15 @@ impl Upstream {
         )?;
 
         // Send open channel request before returning
+        // TODO: Do not hardcode user_identity. Where should this be generated?
         let user_identity = "ABC".to_string().try_into()?;
+        let min_extranonce_size = self_.safe_lock(|s| s.extranonce_size).unwrap();
         let open_channel = Mining::OpenExtendedMiningChannel(OpenExtendedMiningChannel {
             request_id: 0.into(),               // TODO
             user_identity,                      // TODO
             nominal_hash_rate: 5.4,             // TODO
             max_target: u256_from_int(567_u64), // TODO
-            min_extranonce_size: 8,
+            min_extranonce_size,
         });
         let sv2_frame: StdFrame = Message::Mining(open_channel).try_into()?;
         connection.send(sv2_frame).await.unwrap();
@@ -387,6 +389,10 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error>
     {
         self.channel_id = Some(m.channel_id);
+        // TODO: Check that extranonce_size received in OpenExtendedMiningChannelSuccess is gte the
+        // min_extranonce_size requested by the Upstream (in the upstream_sv2/mod.rs
+        // new_extranonce_size function)
+        self.extranonce_size = m.extranonce_size;
         Ok(SendTo::None(None))
     }
 
