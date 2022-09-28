@@ -112,11 +112,15 @@ async fn main() {
         proxy_config.downstream_port,
     );
 
+    // Get the `extranonce_size` size received from the Upstream to be sent to the Downstream in
+    // the SV1 `mining.subscribe` message response.
+    let extranonce_size = upstream.safe_lock(|u| u.extranonce_size).unwrap() as usize;
     // Accept connections from one or more SV1 Downstream roles (SV1 Mining Devices)
     downstream_sv1::Downstream::accept_connections(
         downstream_addr,
         sender_submit_from_sv1,
         recv_mining_notify_downstream,
+        extranonce_size,
     );
 
     // If this loop is not here, the proxy does not stay live long enough for a Downstream to

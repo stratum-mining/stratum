@@ -35,7 +35,7 @@ pub struct Upstream {
     /// `OpenExtendedMiningChannel` message, then confirmed by the Upstream in the SV2
     /// `OpenExtendedMiningChannelSuccess` message. Sent to the Downstream in the SV1
     /// `mining.subscribe` message response.
-    extranonce_size: u16,
+    pub extranonce_size: u16,
     /// Represents the SV2 Upstream connection.
     connection: UpstreamConnection,
     /// Channel to send SV2 `SubmitSharesExtended` messages translated from SV1 `mining.submit`
