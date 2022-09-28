@@ -17,3 +17,7 @@ pub struct Sv2MiningConnection {
     #[allow(dead_code)]
     setup_connection_success_flags: u32,
 }
+
+pub fn new_extranonce2_size() -> u16 {
+    8
+}

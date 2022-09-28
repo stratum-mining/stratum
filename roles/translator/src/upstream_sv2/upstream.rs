@@ -1,11 +1,11 @@
 use crate::{
     downstream_sv1::Downstream,
-    upstream_sv2::{EitherFrame, Message, StdFrame, UpstreamConnection},
+    upstream_sv2::{new_extranonce2_size, EitherFrame, Message, StdFrame, UpstreamConnection},
     ProxyResult,
 };
 use async_channel::{Receiver, Sender};
 use async_std::{net::TcpStream, task};
-use binary_sv2::u256_from_int;
+use binary_sv2::{u256_from_int, B032};
 use codec_sv2::{Frame, HandshakeRole, Initiator};
 use network_helpers::Connection;
 use roles_logic_sv2::{
@@ -28,9 +28,26 @@ use std::{net::SocketAddr, sync::Arc};
 #[derive(Debug)]
 pub struct Upstream {
     channel_id: Option<u32>,
+    /// Extranonce1 received from the Upstream in the SV2 `OpenExtendedMiningChannelSuccess`
+    /// message, to be sent to the Downstream in the SV1 `mining.subscribe` message response.
+    extranonce_prefix: Option<B032<'static>>,
+    /// Extranonce2 size. Requested by `Bridge` to the Upstream in the SV2
+    /// `OpenExtendedMiningChannel` message, then confirmed by the Upstream in the SV2
+    /// `OpenExtendedMiningChannelSuccess` message. Sent to the Downstream in the SV1
+    /// `mining.subscribe` message response.
+    extranonce_size: u16,
+    /// Represents the SV2 Upstream connection.
     connection: UpstreamConnection,
+    /// Channel to send SV2 `SubmitSharesExtended` messages translated from SV1 `mining.submit`
+    /// messages received from the Downstream.
     submit_from_dowstream: Receiver<SubmitSharesExtended<'static>>,
+    /// Channel to send SV2 `SetNewPrevHash` messages received from the Upstream to be translated
+    /// (in conjunction with a SV2 `NewExtendedMiningJob` message) into a `mining.notify` message
+    /// to be send to the Downstream.
     new_prev_hash_sender: Sender<SetNewPrevHash<'static>>,
+    /// Channel to send SV2 `NewExtendedMiningJob` messages received from the Upstream to be
+    /// translated (in conjunction with a SV2 `SetNewPrevHash` message) into a `mining.notify`
+    /// message to be send to the Downstream.
     new_extended_mining_job_sender: Sender<NewExtendedMiningJob<'static>>,
 }
 
@@ -69,6 +86,8 @@ impl Upstream {
             new_prev_hash_sender,
             new_extended_mining_job_sender,
             channel_id: None,
+            extranonce_prefix: None,
+            extranonce_size: new_extranonce2_size(),
         })))
     }
 
