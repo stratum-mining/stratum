@@ -113,15 +113,11 @@ async fn main() {
     );
 
     // Accept connections from one or more SV1 Downstream roles (SV1 Mining Devices)
-    downstream_sv1::Downstream::accept_connections(
-        downstream_addr,
-        sender_submit_from_sv1,
-        recv_mining_notify_downstream,
-    );
-
-    // If this loop is not here, the proxy does not stay live long enough for a Downstream to
-    // connect
-    loop {
-        task::sleep(Duration::from_secs(1)).await;
-    }
+    task::spawn(async move {
+        downstream_sv1::Downstream::accept_connections(
+            downstream_addr,
+            sender_submit_from_sv1,
+            recv_mining_notify_downstream
+        ).await;
+    }).await;
 }

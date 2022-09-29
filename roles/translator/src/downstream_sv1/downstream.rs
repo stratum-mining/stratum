@@ -160,30 +160,28 @@ impl Downstream {
     /// the NextMiningNotify.  This loop changes the NMN field to prepare for when it is authorized
     /// If True, loop updates field and sends message to downstream.
     /// is_authorized in v1/protocols
-    pub fn accept_connections(
+    pub async fn accept_connections(
         downstream_addr: SocketAddr,
         submit_sender: Sender<v1::client_to_server::Submit>,
         receiver_mining_notify: Receiver<server_to_client::Notify>,
     ) {
-        task::spawn(async move {
-            let downstream_listener = TcpListener::bind(downstream_addr).await.unwrap();
-            let mut downstream_incoming = downstream_listener.incoming();
-            while let Some(stream) = downstream_incoming.next().await {
-                let stream = stream.expect("Err on SV1 Downstream connection stream");
-                println!(
-                    "\nPROXY SERVER - ACCEPTING FROM DOWNSTREAM: {}\n",
-                    stream.peer_addr().unwrap()
-                );
-                let server = Downstream::new(
-                    stream,
-                    submit_sender.clone(),
-                    receiver_mining_notify.clone(),
-                )
-                .await
-                .unwrap();
-                Arc::new(Mutex::new(server));
-            }
-        });
+        let downstream_listener = TcpListener::bind(downstream_addr).await.unwrap();
+        let mut incoming = downstream_listener.incoming();
+        while let Some(stream) = incoming.next().await {
+            let stream = stream.expect("Err on SV1 Downstream connection stream");
+            println!(
+                "\nPROXY SERVER - ACCEPTING FROM DOWNSTREAM: {}\n",
+                stream.peer_addr().unwrap()
+            );
+            let server = Downstream::new(
+                stream,
+                submit_sender.clone(),
+                receiver_mining_notify.clone(),
+            )
+            .await
+            .unwrap();
+            Arc::new(Mutex::new(server));
+        }
     }
 
     /// As SV1 messages come in, determines if the message response needs to be translated to SV2
