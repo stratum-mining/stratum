@@ -11,7 +11,7 @@ use core::convert::TryInto;
 ///
 /// This message is connection-related so that it should not be propagated downstream by
 /// intermediate proxies. Upon receiving the message, the client re-initiates the Noise handshake
-/// and uses the pool’s authority public key to verify that the certificate presented by the new
+/// and uses the pool’s authority public key to verify that the certificate present by the new
 /// server has a valid signature.
 ///
 /// For security reasons, it is not possible to reconnect to a server with a certificate signed by a

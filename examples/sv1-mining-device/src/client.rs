@@ -30,7 +30,7 @@ pub(crate) struct Client {
     version_rolling_mask: Option<HexU32Be>,
     version_rolling_min_bit: Option<HexU32Be>,
     pub(crate) status: ClientStatus,
-    sented_authorize_request: Vec<(String, String)>, // (id, user_name)
+    sent_authorize_request: Vec<(String, String)>, // (id, user_name)
     authorized: Vec<String>,
     /// Receives incoming messages from the SV1 Upstream node.
     receiver_incoming: Receiver<String>,
@@ -131,7 +131,7 @@ impl Client {
             version_rolling_mask: None,
             version_rolling_min_bit: None,
             status: ClientStatus::Init,
-            sented_authorize_request: vec![],
+            sent_authorize_request: vec![],
             authorized: vec![],
             receiver_incoming,
             sender_outgoing,
@@ -285,7 +285,7 @@ impl Client {
             })
             .unwrap();
         self_
-            .safe_lock(|s| s.sented_authorize_request.push((id, "user".to_string())))
+            .safe_lock(|s| s.sent_authorize_request.push((id, "user".to_string())))
             .unwrap();
         let sender = self_.safe_lock(|s| s.sender_outgoing.clone()).unwrap();
 
@@ -355,7 +355,7 @@ impl IsClient for Client {
 
     fn id_is_authorize(&mut self, id: &str) -> Option<String> {
         let req: Vec<&(String, String)> = self
-            .sented_authorize_request
+            .sent_authorize_request
             .iter()
             .filter(|x| x.0 == id)
             .collect();

@@ -277,7 +277,7 @@ struct Client {
     version_rolling_min_bit: Option<HexU32Be>,
     status: ClientStatus,
     last_notify: Option<server_to_client::Notify>,
-    sented_authorize_request: Vec<(String, String)>, // (id, user_name)
+    sent_authorize_request: Vec<(String, String)>, // (id, user_name)
     authorized: Vec<String>,
     receiver_incoming: Receiver<String>,
     sender_outgoing: Sender<String>,
@@ -331,7 +331,7 @@ impl Client {
             version_rolling_min_bit: None,
             status: ClientStatus::Init,
             last_notify: None,
-            sented_authorize_request: vec![],
+            sent_authorize_request: vec![],
             authorized: vec![],
             receiver_incoming,
             sender_outgoing,
@@ -406,7 +406,7 @@ impl Client {
         let authorize = self
             .authorize(id.clone(), "user".to_string(), "user".to_string())
             .unwrap();
-        self.sented_authorize_request.push((id, "user".to_string()));
+        self.sent_authorize_request.push((id, "user".to_string()));
         self.send_message(authorize).await;
     }
 
@@ -503,7 +503,7 @@ impl IsClient for Client {
 
     fn id_is_authorize(&mut self, id: &str) -> Option<String> {
         let req: Vec<&(String, String)> = self
-            .sented_authorize_request
+            .sent_authorize_request
             .iter()
             .filter(|x| x.0 == id)
             .collect();
