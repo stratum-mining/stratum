@@ -136,42 +136,42 @@ pub struct JobsCreators {
     jobs_creators: Vec<JobCreator>,
     /// Computed by the pool
     coinbase_outputs: Vec<TxOut>,
-    block_reward_staoshi: u64,
+    block_reward_satoshi: u64,
     pub_key: PublicKey,
     lasts_new_template: Vec<NewTemplate<'static>>,
     //last_prev_hash: Pr
 }
 
 impl JobsCreators {
-    pub fn new(block_reward_staoshi: u64, pub_key: PublicKey) -> Option<Self> {
+    pub fn new(block_reward_satoshi: u64, pub_key: PublicKey) -> Option<Self> {
         Some(Self {
             jobs_creators: vec![],
-            coinbase_outputs: vec![Self::new_output(block_reward_staoshi, pub_key)?],
-            block_reward_staoshi,
+            coinbase_outputs: vec![Self::new_output(block_reward_satoshi, pub_key)?],
+            block_reward_satoshi,
             pub_key,
             lasts_new_template: Vec::new(),
         })
     }
 
-    fn new_output(block_reward_staoshi: u64, pub_key: PublicKey) -> Option<TxOut> {
+    fn new_output(block_reward_satoshi: u64, pub_key: PublicKey) -> Option<TxOut> {
         let script_pubkey = Script::new_v0_wpkh(&pub_key.wpubkey_hash()?);
         Some(TxOut {
-            value: block_reward_staoshi,
+            value: block_reward_satoshi,
             script_pubkey,
         })
     }
 
-    pub fn new_outputs(&self, block_reward_staoshi: u64) -> Vec<TxOut> {
+    pub fn new_outputs(&self, block_reward_satoshi: u64) -> Vec<TxOut> {
         // safe unwrap cause pub key in self is compressed
-        vec![Self::new_output(block_reward_staoshi, self.pub_key).unwrap()]
+        vec![Self::new_output(block_reward_satoshi, self.pub_key).unwrap()]
     }
 
     pub fn on_new_template(
         &mut self,
         template: &mut NewTemplate,
     ) -> Result<HashMap<u32, NewExtendedMiningJob<'static>>, Error> {
-        if template.coinbase_tx_value_remaining != self.block_reward_staoshi {
-            self.block_reward_staoshi = template.coinbase_tx_value_remaining;
+        if template.coinbase_tx_value_remaining != self.block_reward_satoshi {
+            self.block_reward_satoshi = template.coinbase_tx_value_remaining;
             self.coinbase_outputs = self.new_outputs(template.coinbase_tx_value_remaining);
         }
 
