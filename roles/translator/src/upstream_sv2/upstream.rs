@@ -15,11 +15,6 @@ use roles_logic_sv2::{
         common::{ParseUpstreamCommonMessages, SendTo as SendToCommon},
         mining::{ParseUpstreamMiningMessages, SendTo},
     },
-    // mining_sv2::{
-    //     NewExtendedMiningJob, OpenExtendedMiningChannel, OpenExtendedMiningChannelSuccess,
-    //     OpenMiningChannelError, SetExtranoncePrefix, SetNewPrevHash, SetTarget, SubmitSharesError,
-    //     SubmitSharesExtended, SubmitSharesSuccess,
-    // },
     mining_sv2::{
         NewExtendedMiningJob, OpenExtendedMiningChannel, SetNewPrevHash, SubmitSharesExtended,
     },
