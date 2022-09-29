@@ -211,30 +211,12 @@ impl Ord for Target {
 /// (full coinbase = coinbase_tx_prefix + extranonce_prefix + extranonce + coinbase_tx_suffix).
 /// The size of the provided extranonce MUST be equal to the negotiated extranonce size from
 /// channel opening.
+/// Representation is in big endian, so tail is for the digits relative to smaller powers
 pub struct Extranonce {
     extranonce: alloc::vec::Vec<u8>,
 }
 
-// questo viene fatto in automatico dal compilatore quando uso derive
-// impl Clone for Extranonce {
-//     fn clone(&self) -> Self {
-//         Extranonce { head: self.head.clone(), tail: self.tail.clone()}
-//     }
-//
-// }
-
-//trait From_<T> {
-//    // la funzione from definisce il tratto
-//    fn from(value: T) -> Self
-//}
-//
-//impl From_<u32> for u128 {
-//    fn from(value: u32) -> Self {
-//        value as u128
-//    }
-//}
-
-// From: tratto, geenrico è il T (nel nostro case U256<'a>)
+// this function converts a U256 type in little endian to Extranonce type
 impl<'a> From<U256<'a>> for Extranonce {
     fn from(v: U256<'a>) -> Self {
         let extranonce: alloc::vec::Vec<u8> = v.inner_as_ref().into();
@@ -242,6 +224,7 @@ impl<'a> From<U256<'a>> for Extranonce {
     }
 }
 
+// This function converts an Extranonce type to U256n little endian
 impl<'a> From<Extranonce> for U256<'a> {
     fn from(v: Extranonce) -> Self {
         let inner = v.extranonce.to_vec();
@@ -250,12 +233,15 @@ impl<'a> From<Extranonce> for U256<'a> {
     }
 }
 
+// this function converts an extranonce to the type B032
 impl<'a> From<B032<'a>> for Extranonce {
     fn from(v: B032<'a>) -> Self {
         let extranonce: alloc::vec::Vec<u8> = v.inner_as_ref().into();
         Self { extranonce }
     }
 }
+
+// this function converts an Extranonce type in B032 in little endian
 impl<'a> From<Extranonce> for B032<'a> {
     fn from(v: Extranonce) -> Self {
         // tail and head inverted cause are serialized as le bytes
@@ -283,7 +269,7 @@ impl Extranonce {
             Some(Self { extranonce })
         }
     }
-
+    /// this function converts a Extranonce type to b032 type
     pub fn into_b032(self) -> B032<'static> {
         self.into()
     }
@@ -296,6 +282,7 @@ impl Extranonce {
     }
 }
 
+// this method converts a ExtendedExtranonce type in Extranonce type
 impl From<&mut ExtendedExtranonce> for Extranonce {
     fn from(v: &mut ExtendedExtranonce) -> Self {
         Self {
@@ -305,17 +292,44 @@ impl From<&mut ExtendedExtranonce> for Extranonce {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// Downstram and upstream are not global terms but are relative
+/// to an actor of the protocol P. In simple terms, upstream is the part of the protocol that a
+/// user P sees when he looks above and downstream when he looks beneath.
+///
+/// An ExtendedExtranonce is defined by 3 ranges:
+///
+/// range_0: is the range that represents the extended extranonce part that reserved by upstream relative to P (for most upstreams nodes, e.g. a pool, this is [0..0]) and it is fixed for P.
+/// range_1: is the range that represents the extended extranonce part reserved to P. P assingns to every relative downstream an extranonce with different value in the range 1 in the following way: if D_i is the (i+1)-th downstream that connected to P, then D_i gets from P and extranonce with range_1=i (note that the concatenation of range_1 and range_1 is the range_0 relative to D_i and range_2 of P is the range_1 of D_i).
+/// range_2: is the range that P reserve for the downstreams.
+///
+///
+/// In the following examples, we examine the extended extranonce in some cases.
+///
+/// The user P is the pool.
+/// range_0 -> 0..0, there is no upstream relative to the pool P, so no space reserved by the upstream
+/// range_1 -> 0..16 the pool P increments the first 16 bytes to be sure the each pool's downstream get a different extranonce or a different extended extranoce search space (more on that below*)
+/// range_2 -> 16..32 this bytes are not changed by the pool but are changed by the pool's downstream
+///
+/// The user P is the translator.
+/// range_0 -> 0..16 these bytes are set by the pool and P shouldn't change them
+/// range_1 -> 16..24 these bytes are modified by P each time that a sv1 mining device connect, so we can be sure that each connected sv1 mining device get a different extended extranonce search space
+/// range_2 -> 24..32 these bytes are left free for the sv1 minig device
+///
+/// The user P is a sv1 mining device.
+/// range_0 -> 0..24 these bytes are setted by the device's upstreams
+/// range_1 -> 24..32 these bytes are changed by P (if capable) in order to increment the search space
+/// range_2 -> 32..32 no more downstream
+///
+
 pub struct ExtendedExtranonce {
     inner: [u8; EXTRANONCE_LEN],
-    // Part of extranonce managed by upstream is fixed and can not be changed, for most upstreams
-    // nodes (e.g. a pool) this is [0..0]
     range_0: core::ops::Range<usize>,
-    // Part of extranonce that a Downstream that itself implement extended channel can reserve
     range_1: core::ops::Range<usize>,
     range_2: core::ops::Range<usize>,
 }
 
 impl ExtendedExtranonce {
+    /// every extranonce start from zero.
     pub fn new(range_0: Range<usize>, range_1: Range<usize>, range_2: Range<usize>) -> Self {
         assert!(range_0.start == 0);
         assert!(range_0.end == range_1.start);
@@ -329,6 +343,8 @@ impl ExtendedExtranonce {
         }
     }
 
+    // A Extranonce type (in big andian) can be converted into a Extended extranonce type (in big
+    // andian) if ranges are given in input.
     fn from_extranonce(
         v: Extranonce,
         range_0: Range<usize>,
@@ -351,6 +367,10 @@ impl ExtendedExtranonce {
         }
     }
 
+    /// Suppose that P receives an Extranonce type from the an upstream. Then range_0 (that should
+    /// be provided along the Extranonce) is
+    /// reserved for the upstream and can't be modiefied by P. The other bytes of range_1 and
+    /// range_2 must be zero, since the Extranonce comes from the upstream.
     pub fn from_upstream_extranonce(
         v: Extranonce,
         range_0: Range<usize>,
@@ -368,6 +388,10 @@ impl ExtendedExtranonce {
         Some(self_)
     }
 
+    ///This function takes in input an ExtendedExtranonce for the extended channel. This extranonce
+    ///represents a number. This function calculates the next extranonce (namely the extranonce
+    ///incremented by one) and gives it as Extranonce type in the output. The bytes incremented
+    ///belongs to the range_2. If renge_2 is at maximum value, the output is None.
     pub fn next_standard(&mut self) -> Option<Extranonce> {
         let non_reserved_extranonces_bytes = &mut self.inner[self.range_2.start..self.range_2.end];
 
@@ -377,6 +401,9 @@ impl ExtendedExtranonce {
         }
     }
 
+    /// This function calculates the next extranonce, but the output is ExtendedExtranonce. The
+    /// required_len variable represents the range requested by the downstream to use. The part
+    /// incremented is range_1, as every downstream must have different jubs.
     pub fn next_extended(&mut self, required_len: usize) -> Option<Extranonce> {
         if required_len > self.range_2.end - self.range_2.start {
             return None;
@@ -388,7 +415,8 @@ impl ExtendedExtranonce {
         }
     }
 }
-
+// This function is used to inctrement extranonces, and it is used in next_standard and
+// next_extended functions. Returns Err(()) if the the input an array of MAX.
 fn increment_bytes_be(bs: &mut [u8]) -> Result<(), ()> {
     for b in bs.iter_mut().rev() {
         if *b != u8::MAX {
@@ -411,6 +439,8 @@ mod tests {
     use quickcheck::{Arbitrary, Gen};
     use quickcheck_macros;
 
+    // This test confirms that when the tail of the extranonce is MAX, the next extranonce
+    // increments the head
     #[test]
     fn test_extranonce_max_size() {
         let mut extranonce = Extranonce::new();
@@ -422,6 +452,9 @@ mod tests {
         assert!(extranonce.head == 6);
         assert!(extranonce.tail == u128::MAX.wrapping_add(100 - 10));
     }
+
+    // This test checks the behaviour of the function increment_bytes_be for a the MAX value
+    // converted in be array of u8
     #[test]
     fn test_incrment_bytes_be_max() {
         let input = u128::MAX;
@@ -431,6 +464,7 @@ mod tests {
         assert!(u128::from_be_bytes(input) == u128::MAX);
     }
 
+    // thest the function incrment_bytes_be for values different from MAX
     #[quickcheck_macros::quickcheck]
     fn test_increment_by_one(input: u128) -> bool {
         let expected1 = match input {
@@ -443,6 +477,8 @@ mod tests {
         incremented_by_1 == expected1
     }
 
+    // check that the composition of the functions Extranonce to U256 and U256 to Extranonce is the
+    // identity function
     #[quickcheck_macros::quickcheck]
     fn test_extranonce_from_u256(input: (u128, u128)) -> bool {
         let extranonce_start = Extranonce {
@@ -454,6 +490,7 @@ mod tests {
         extranonce_start == extranonce_final
     }
 
+    // do the same of the above but with B032 type
     #[quickcheck_macros::quickcheck]
     fn test_extranonce_from_b032(input: (u128, u128)) -> bool {
         let extranonce_start = Extranonce {
@@ -465,6 +502,7 @@ mod tests {
         extranonce_start == extranonce_final
     }
 
+    // this test check the function from_extranonce.
     #[quickcheck_macros::quickcheck]
     fn test_extranonce_from_extended_extranonce(input: (u8, u8, Vec<u8>)) -> bool {
         let inner = from_arbitrary_vec_to_array(input.2.clone());
