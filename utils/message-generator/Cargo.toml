@@ -1,0 +1,15 @@
+[package]
+name = "message_generator_sv2"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+codec_sv2 = { path = "../../protocols/v2/codec-sv2", features = ["noise_sv2", "with_buffer_pool"] }
+async-channel = "1.5.1"
+binary_sv2 = { path = "../../protocols/v2/binary-sv2/binary-sv2" }
+tokio = { version = "1", features = ["full"] }
+network_helpers = { path = "../../utils/network-helpers", features = ["with_tokio"] }
+roles_logic_sv2 = { path = "../../protocols/v2/roles-logic-sv2" }
+const_sv2 = { path = "../../protocols/v2/const-sv2" }

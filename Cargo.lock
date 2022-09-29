@@ -1046,6 +1046,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "message_generator_sv2"
+version = "0.1.0"
+dependencies = [
+ "async-channel",
+ "binary_sv2",
+ "codec_sv2",
+ "const_sv2",
+ "network_helpers",
+ "roles_logic_sv2",
+ "tokio",
+]
+
+[[package]]
 name = "mining-device"
 version = "0.1.0"
 dependencies = [
