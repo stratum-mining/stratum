@@ -9,7 +9,6 @@
 //! u64      <-> u64 // not in the spec but used
 //! U256     <-> U256
 //! Str0255  <-> STRO_255
-//! Str032   <-> STRO_32 // not in the spec but used
 //! Signature<-> SIGNATURE
 //! B032     <-> B0_32 // not in the spec but used
 //! B0255    <-> B0_255
@@ -26,7 +25,7 @@ use std::io::{Error as E, ErrorKind};
 mod codec;
 mod datatypes;
 pub use datatypes::{
-    PubKey, Seq0255, Seq064K, Signature, Str0255, Str032, U32AsRef, B016M, B0255, B032, B064K, U24,
+    PubKey, Seq0255, Seq064K, Signature, Str0255, U32AsRef, B016M, B0255, B032, B064K, U24,
     U256,
 };
 

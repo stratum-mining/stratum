@@ -17,7 +17,6 @@ pub type PubKey<'a> = Inner<'a, true, 32, 0, 0>;
 pub type Signature<'a> = Inner<'a, true, 64, 0, 0>;
 pub type B032<'a> = Inner<'a, false, 1, 1, 32>;
 pub type B0255<'a> = Inner<'a, false, 1, 1, 255>;
-pub type Str032<'a> = Inner<'a, false, 1, 1, 32>;
 pub type Str0255<'a> = Inner<'a, false, 1, 1, 255>;
 pub type B064K<'a> = Inner<'a, false, 1, 2, { u16::MAX as usize }>;
 pub type B016M<'a> = Inner<'a, false, 1, 3, { 2_usize.pow(24) - 1 }>;
@@ -52,14 +51,6 @@ impl<'a> B016M<'a> {
 use core::convert::{TryFrom, TryInto};
 
 impl<'a> TryFrom<String> for Str0255<'a> {
-    type Error = crate::Error;
-
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        value.into_bytes().try_into()
-    }
-}
-
-impl<'a> TryFrom<String> for Str032<'a> {
     type Error = crate::Error;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {

@@ -2,7 +2,7 @@
 use alloc::vec::Vec;
 #[cfg(not(feature = "with_serde"))]
 use binary_sv2::binary_codec_sv2;
-use binary_sv2::{Deserialize, Serialize, Str032};
+use binary_sv2::{Deserialize, Serialize, Str0255};
 use core::convert::TryInto;
 
 /// # CloseChannel (Client -> Server, Server -> Client)
@@ -23,5 +23,5 @@ pub struct CloseChannel<'decoder> {
     pub channel_id: u32,
     /// Reason for closing the channel.
     #[cfg_attr(feature = "with_serde", serde(borrow))]
-    pub reason_code: Str032<'decoder>,
+    pub reason_code: Str0255<'decoder>,
 }
