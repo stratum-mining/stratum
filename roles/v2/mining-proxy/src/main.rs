@@ -48,7 +48,7 @@ pub fn min_supported_version() -> u16 {
     config.min_supported_version
 }
 
-/// Panic whene we are looking one of this 2 global mutex would force the proxy to go down as every
+/// Panic when we are looking one of this 2 global mutex would force the proxy to go down as every
 /// part of the program depend on them.
 /// SAFTEY note: we use global mutable memory instead of a dedicated struct that use a dedicated
 /// task to change the mutable state and communicate with the other parts of the program via
@@ -218,9 +218,9 @@ mod args {
 /// 4. a mining_channle::Upstream is created
 /// 5. upstream_mining::UpstreamMiningNodes is used to pair this downstream with the most suitable
 ///    upstream
-/// 6. mining_channle::Upstream create a new downstream_mining::DownstreamMiningNode embedding
+/// 6. mining_channel::Upstream create a new downstream_mining::DownstreamMiningNode embedding
 ///    itself in it
-/// 7. normal operation between the paired downstream_mining::DownstreamMiningNode and
+/// 7. normal operations between the paired downstream_mining::DownstreamMiningNode and
 ///    upstream_mining::UpstreamMiningNode begin
 #[tokio::main]
 async fn main() {

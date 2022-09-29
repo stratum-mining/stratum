@@ -6,7 +6,7 @@ use network_helpers::noise_connection_tokio::Connection;
 use roles_logic_sv2::{
     handlers::{SendTo_},
     parsers::{PoolMessages, TemplateDistribution},
-    utils::Mutex,
+    utils::Mutex, job_negotiation_sv2::AllocateMiningJobToken,
 };
 use codec_sv2::Frame;
 use roles_logic_sv2::handlers::job_negotiation::ParseServerJobNegotiationMessages;
@@ -21,6 +21,8 @@ pub type SendTo = SendTo_<roles_logic_sv2::parsers::JobNegotiation<'static>, ()>
 pub type EitherFrame = StandardEitherFrame<PoolMessages<'static>>;
 pub type StdFrame = StandardSv2Frame<Message>;
 
+mod setup_connection;
+use setup_connection::SetupConnectionHandler;
 
 pub struct JobNegotiator {
     sender: Sender<StandardEitherFrame<PoolMessages<'static>>>,
@@ -31,8 +33,12 @@ impl JobNegotiator {
     pub async fn new(address: SocketAddr, authority_public_key: [u8; 32]) {
         let stream = TcpStream::connect(address).await.unwrap();
         let initiator = Initiator::from_raw_k(authority_public_key).unwrap();
-        let (receiver, sender): (Receiver<EitherFrame>, Sender<EitherFrame>) =
+        let (mut receiver,mut sender): (Receiver<EitherFrame>, Sender<EitherFrame>) =
             Connection::new(stream, HandshakeRole::Initiator(initiator)).await;
+        SetupConnectionHandler::setup(&mut receiver, &mut sender, address)
+            .await
+            .unwrap();
+        println!("JN CONNECTED");
 
         let self_ = Arc::new(Mutex::new( JobNegotiator{
             sender,
@@ -44,6 +50,7 @@ impl JobNegotiator {
             loop {
                 let receiver = cloned.safe_lock(|d| d.receiver.clone()).unwrap();
                 let incoming: StdFrame = receiver.recv().await.unwrap().try_into().unwrap();
+                let sender = cloned.safe_lock(|d| d.sender.clone()).unwrap();
                 JobNegotiator::next(cloned.clone(), incoming).await
             }
         });
@@ -70,6 +77,16 @@ impl JobNegotiator {
             Ok(_) => panic!(),
             Err(_) => todo!(),
         }
+    }
+
+    pub async fn send(
+        self_mutex: Arc<Mutex<Self>>,
+        message: roles_logic_sv2::parsers::JobNegotiation<'static>,
+    ) -> Result<(), ()> {
+        let sv2_frame: StdFrame = PoolMessages::JobNegotiation(message).try_into().unwrap();
+        let sender = self_mutex.safe_lock(|self_| self_.sender.clone()).unwrap();
+        sender.send(sv2_frame.into()).await.map_err(|_| ())?;
+        Ok(())
     }
 
 }
