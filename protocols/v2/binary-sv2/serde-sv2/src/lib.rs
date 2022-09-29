@@ -89,4 +89,3 @@ pub use primitives::{
     U16, U24, U256, U32, U64, U8,
 };
 pub use ser::{to_bytes, to_writer, Serializer};
-pub type Str032<'a> = B032<'a>;
