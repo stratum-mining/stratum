@@ -120,17 +120,17 @@ async fn main() {
         }
     };
 
-    let (s_new_t, r_new_t) = bounded(10);
-    let (s_prev_hash, r_prev_hash) = bounded(10);
-    let (s_solution, r_solution) = bounded(10);
+    let (template_tx, template_rx) = bounded(10);
+    let (prev_hash_tx, prev_hash_rx) = bounded(10);
+    let (solution_tx, solution_rx) = bounded(10);
     info!("POOL INITIALIZING ");
     TemplateRx::connect(
         config.tp_address.parse().unwrap(),
-        s_new_t,
-        s_prev_hash,
-        r_solution,
+        template_tx,
+        prev_hash_tx,
+        solution_rx,
     )
     .await;
     info!("POOL INITIALIZED");
-    Pool::start(config, r_new_t, r_prev_hash, s_solution).await;
+    Pool::start(config, template_rx, prev_hash_rx, solution_tx).await;
 }
