@@ -16,7 +16,6 @@ use std::{
     net::{IpAddr, SocketAddr},
     str::FromStr,
     sync::Arc,
-    time::Duration,
 };
 use v1::server_to_client;
 
@@ -117,7 +116,9 @@ async fn main() {
         downstream_sv1::Downstream::accept_connections(
             downstream_addr,
             sender_submit_from_sv1,
-            recv_mining_notify_downstream
-        ).await;
-    }).await;
+            recv_mining_notify_downstream,
+        )
+        .await;
+    })
+    .await;
 }
