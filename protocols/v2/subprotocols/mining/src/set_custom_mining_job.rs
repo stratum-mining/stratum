@@ -2,7 +2,7 @@
 use alloc::vec::Vec;
 #[cfg(not(feature = "with_serde"))]
 use binary_sv2::binary_codec_sv2;
-use binary_sv2::{Deserialize, Seq0255, Seq064K, Serialize, Str032, B0255, B064K, U256};
+use binary_sv2::{Deserialize, Seq0255, Seq064K, Serialize, Str0255, B0255, B064K, U256};
 use core::convert::TryInto;
 
 /// # SetCustomMiningJob (Client -> Server)
@@ -103,5 +103,5 @@ pub struct SetCustomMiningJobError<'decoder> {
     pub request_id: u32,
     /// Reason why the custom job has been rejected.
     #[cfg_attr(feature = "with_serde", serde(borrow))]
-    pub error_code: Str032<'decoder>,
+    pub error_code: Str0255<'decoder>,
 }
