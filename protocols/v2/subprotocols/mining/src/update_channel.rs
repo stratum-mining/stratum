@@ -2,7 +2,7 @@
 use alloc::vec::Vec;
 #[cfg(not(feature = "with_serde"))]
 use binary_sv2::binary_codec_sv2;
-use binary_sv2::{Deserialize, Serialize, Str032, U256};
+use binary_sv2::{Deserialize, Serialize, Str0255, U256};
 use core::convert::TryInto;
 
 /// # UpdateChannel (Client -> Server)
@@ -41,5 +41,5 @@ pub struct UpdateChannelError<'decoder> {
     /// * ‘max-target-out-of-range’
     /// * ‘invalid-channel-id’
     #[cfg_attr(feature = "with_serde", serde(borrow))]
-    pub error_code: Str032<'decoder>,
+    pub error_code: Str0255<'decoder>,
 }
