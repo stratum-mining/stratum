@@ -282,7 +282,7 @@ impl Extranonce {
             Some(Self { extranonce })
         }
     }
-
+    /// this function converts a Extranonce type to b032 type
     pub fn into_b032(self) -> B032<'static> {
         self.into()
     }
@@ -300,6 +300,7 @@ impl Extranonce {
     }
 }
 
+// this method converts a ExtendedExtranonce type in Extranonce type
 impl From<&mut ExtendedExtranonce> for Extranonce {
     fn from(v: &mut ExtendedExtranonce) -> Self {
         let mut extranonce = v.inner.to_vec();
