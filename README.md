@@ -506,7 +506,7 @@ binary - for example from the table below to run the interop-cpp test you'd run 
 | binary                  | location                          | description                                       |
 |-------------------------|-----------------------------------|---------------------------------------------------|
 | client_and_server       | examples/sv1-client-and-server    | Depricated                                        |
-| coinbase-negotiator     | experemental/coinbase-negotiator  | Not complete POC                                  |
+| coinbase-negotiator     | experimental/coinbase-negotiator  | Not complete POC                                  |
 | interop-cpp             | examples/interop-cpp              | Example which uses the ffi C bindings             |
 | mining-device           | roles/v2/test-utils/mining-device | Used in the sv2-proxy example as a mock miner     |
 | mining-proxy            | roles/v2/mining-proxy             | sv1->sv2 mining proxy                             |
