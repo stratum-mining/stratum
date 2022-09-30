@@ -28,6 +28,7 @@ use std::{net::SocketAddr, sync::Arc};
 #[derive(Debug, Clone)]
 pub struct Upstream {
     channel_id: Option<u32>,
+    pub extended_extranonce: Option<ExtendedExtranonce>,
     /// Extranonce1 received from the Upstream in the SV2 `OpenExtendedMiningChannelSuccess`
     /// message, to be sent to the Downstream in the SV1 `mining.subscribe` message response.
     pub extranonce_prefix: Option<B032<'static>>,
@@ -86,6 +87,7 @@ impl Upstream {
             new_prev_hash_sender,
             new_extended_mining_job_sender,
             channel_id: None,
+            extended_extranonce: None,
             extranonce_prefix: None,
             extranonce_size: new_extranonce2_size(),
         })))
@@ -389,11 +391,34 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error>
     {
         self.channel_id = Some(m.channel_id);
+        let extended_extranonce = ExtendedExtranonce::new(
+            0..m.extranonce_size,
+            m.extranonce_size..m.extranonce_size + 2,
+            m.extranonce_size + 2,
+            32,
+        );
+        let extranonce: Extranonce = m.extranonce_prefix.into();
+        // This fn has a bug, so need to use Lorban's PR
+        let extended_extranonce =
+            ExtendedExtranonce::from_extranonce(extranonce, range0, range1, range2);
         // TODO: Check that extranonce_size received in OpenExtendedMiningChannelSuccess is gte the
         // min_extranonce_size requested by the Upstream (in the upstream_sv2/mod.rs
         // new_extranonce_size function)
         self.extranonce_size = m.extranonce_size;
-        self.extranonce_prefix = Some(m.extranonce_prefix);
+        println!("\n\nRR EXTRANONCEPREFIX: {:?}\n", &m.extranonce_prefix);
+        cnl.send(ExtendedExtranonce);
+        // Create an `ExtendedExtranonce` struct on the upstream
+        // When you create it you pass the ranges you want to use:
+        // range 0: min_extranonce_size [0-15]
+        // range 1: reserved for the translator. if you put 1 byte as range 1 (16-17), you can have
+        // at max 255 devices because after that you will run out of extranonce space to create a
+        // new channel, so should put 2 bytes here [16-18]. ONLY NEED THIS FOR TProxy
+        // range 2: [19-31] dont need this
+        // Everytime a md conects, you cann ext_extranonce.next_extended() to increment the number
+        // 1. Create ExtendedExtranonce
+        // 2. Transform to array of bytes
+        // 3. Take first 18, that is the `extranonce1` sent to MD in mining.subscribe response
+        self.extranonce_prefix = Some(m.extranonce_prefix.into_static());
         Ok(SendTo::None(None))
     }
 

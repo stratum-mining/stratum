@@ -119,14 +119,22 @@ async fn main() {
     // Get the `extranonce_prefix` size received from the Upstream to be sent to the Downstream as
     // the `extranonce1` field in the SV1 `mining.subscribe` message response.
     // let extranonce_prefix = upstream
-    //     .safe_lock(|u| u.extranonce_prefix.clone().unwrap())
+    //     .safe_lock(|u| {
+    //         u.extranonce_prefix
+    //             .clone()
+    //             .expect("Expected `extranonce_prefix` to be set by the Upstream")
+    //     })
     //     .unwrap();
-    // let extranonce_prefix =
-    //     extranonce_prefix.expect("Expected `extranonce_prefix` to be set by the Upstream");
     // let extranonce1: HexBytes = extranonce_prefix.to_vec().try_into().unwrap();
 
-    // TODO: Tmp until extranonce_prefix static lifetime can be fixed in Upstream
+    let extranonce_prefix = upstream.safe_lock(|u| u.extranonce_prefix.clone()).unwrap();
+    println!("\n MAIN EP: {:?}\n", &extranonce_prefix);
+    // // TODO: Tmp until extranonce_prefix static lifetime can be fixed in Upstream
     let extranonce1: HexBytes = "08000002".try_into().unwrap();
+    // Call next_extended here
+    // to get Extranonce
+    // get to B032 then to hexbytes
+    // will have to trim this value. take the range1  [0-18]
 
     // Accept connections from one or more SV1 Downstream roles (SV1 Mining Devices)
     downstream_sv1::Downstream::accept_connections(

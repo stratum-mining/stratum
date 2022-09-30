@@ -18,6 +18,7 @@ pub struct Sv2MiningConnection {
     setup_connection_success_flags: u32,
 }
 
+/// TODO: Put this value in the config file instead
 /// Set the minimum `extranonce_size` to be requested from the Upstream. Request is sent in the
 /// SV2 `OpenExtendedMiningChannel` message. The SV2 Upstream sends the final `extranonce_size` to
 /// the `Bridge` in the SV2 `OpenExtendedMiningChannelSuccess` message response. This

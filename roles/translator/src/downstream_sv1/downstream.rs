@@ -28,6 +28,7 @@ pub struct Downstream {
     version_rolling_min_bit: Option<HexU32Be>,
     submit_sender: Sender<v1::client_to_server::Submit>,
     sender_outgoing: Sender<json_rpc::Message>,
+    extended_extranonce: ExtendedExtranonce, // extranonce1
 }
 
 impl Downstream {
@@ -182,7 +183,7 @@ impl Downstream {
                     stream,
                     submit_sender.clone(),
                     receiver_mining_notify.clone(),
-                    extranonce1,
+                    extranonce1.clone(),
                     extranonce2_size,
                 )
                 .await
@@ -258,6 +259,7 @@ impl IsServer for Downstream {
     /// The subscription messages are erroneous and just used to conform the SV1 protocol spec.
     /// Because no one unsubscribed in practice, they just unplug their machine.
     fn handle_subscribe(&self, _request: &client_to_server::Subscribe) -> Vec<(String, String)> {
+        // TODO: have a channel to communinate the extranonce
         let set_difficulty_sub = (
             "mining.set_difficulty".to_string(),
             downstream_sv1::new_subscription_id(),
