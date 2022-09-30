@@ -1,5 +1,6 @@
 mod executor;
 mod net;
+mod test_initializer;
 
 use binary_sv2::{Deserialize, GetSize, Serialize};
 use codec_sv2::{
@@ -7,13 +8,10 @@ use codec_sv2::{
     Frame, StandardEitherFrame as EitherFrame, Sv2Frame,
 };
 use net::{setup_as_downstream, setup_as_upstream};
-use roles_logic_sv2::{
-    mining_sv2::{CloseChannel, SetTarget},
-    parsers::Mining,
-};
 use std::net::SocketAddr;
+use test_initializer::os_command;
 
-#[derive(Debug,PartialEq, Eq,Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 enum Sv2Type {
     Bool(bool),
     U8(u8),
@@ -30,7 +28,7 @@ enum Sv2Type {
     Seq064k(Vec<Vec<u8>>),
 }
 
-#[derive(Debug,PartialEq, Eq,Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 enum ActionResult {
     MatchMessageType(u8),
     MatchMessageField(Sv2Type),
@@ -40,19 +38,19 @@ enum ActionResult {
     None,
 }
 
-#[derive(Debug,PartialEq, Eq,Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 enum Role {
     Upstream,
     Downstream,
 }
 
-#[derive(Debug,Clone)]
+#[derive(Debug, Clone)]
 struct Upstream {
     addr: SocketAddr,
-    keys: Option<(EncodedEd25519PublicKey,EncodedEd25519SecretKey)>,
+    keys: Option<(EncodedEd25519PublicKey, EncodedEd25519SecretKey)>,
 }
 
-#[derive(Debug,Clone)]
+#[derive(Debug, Clone)]
 struct Downstream {
     addr: SocketAddr,
     key: Option<EncodedEd25519PublicKey>,
@@ -66,7 +64,7 @@ struct Action<Message: Serialize + Deserialize<'static> + GetSize + Send + 'stat
 }
 
 #[derive(Debug)]
-pub struct Test<Message: Serialize + Deserialize<'static> + GetSize + Send  + 'static> {
+pub struct Test<Message: Serialize + Deserialize<'static> + GetSize + Send + 'static> {
     actions: Vec<Action<Message>>,
     as_upstream: Option<Upstream>,
     as_dowstream: Option<Downstream>,
@@ -80,90 +78,183 @@ fn main() {
 #[cfg(test)]
 mod test {
     use super::*;
+    use roles_logic_sv2::{
+        common_messages_sv2::{Protocol, SetupConnection},
+        mining_sv2::{CloseChannel, SetTarget},
+        parsers::{CommonMessages, Mining},
+    };
     use std::convert::TryInto;
     use tokio::join;
 
+    //#[tokio::test]
+    //async fn it_send_and_receive() {
+    //    let message = CloseChannel {
+    //        channel_id: 78,
+    //        reason_code: "no reason".to_string().try_into().unwrap(),
+    //    };
+    //    let frame = Sv2Frame::from_message(
+    //        message.clone(),
+    //        const_sv2::MESSAGE_TYPE_CLOSE_CHANNEL,
+    //        0,
+    //        true,
+    //    )
+    //    .unwrap();
+    //    let server_socket = SocketAddr::new("127.0.0.1".parse().unwrap(), 54254);
+    //    let client_socket = SocketAddr::new("127.0.0.1".parse().unwrap(), 54254);
+    //    let ((server_recv, server_send), (client_recv, client_send)) = join!(
+    //        setup_as_upstream(server_socket, None),
+    //        setup_as_downstream(client_socket, None)
+    //    );
+    //    server_send
+    //        .send(frame.clone().try_into().unwrap())
+    //        .await
+    //        .unwrap();
+    //    client_send
+    //        .send(frame.clone().try_into().unwrap())
+    //        .await
+    //        .unwrap();
+    //    let server_received = server_recv.recv().await.unwrap();
+    //    let client_received = client_recv.recv().await.unwrap();
+    //    match (server_received, client_received) {
+    //        (EitherFrame::Sv2(mut frame1), EitherFrame::Sv2(mut frame2)) => {
+    //            let mt1 = frame1.get_header().unwrap().msg_type();
+    //            let mt2 = frame2.get_header().unwrap().msg_type();
+    //            let p1 = frame1.payload();
+    //            let p2 = frame2.payload();
+    //            let message1: Mining = (mt1, p1).try_into().unwrap();
+    //            let message2: Mining = (mt2, p2).try_into().unwrap();
+    //            match (message1, message2) {
+    //                (Mining::CloseChannel(message1), Mining::CloseChannel(message2)) => {
+    //                    assert!(message1.channel_id == message2.channel_id);
+    //                    assert!(message2.channel_id == message.channel_id);
+    //                    assert!(message1.reason_code == message2.reason_code);
+    //                    assert!(message2.reason_code == message.reason_code);
+    //                }
+    //                _ => assert!(false),
+    //            }
+    //        }
+    //        _ => assert!(false),
+    //    }
+    //}
+
+    //#[test]
+    //fn it_create_tests_with_different_messages() {
+    //    let message1 = CloseChannel {
+    //        channel_id: 78,
+    //        reason_code: "no reason".to_string().try_into().unwrap(),
+    //    };
+    //    let maximum_target: binary_sv2::U256 = [0; 32].try_into().unwrap();
+    //    let message2 = SetTarget {
+    //        channel_id: 78,
+    //        maximum_target,
+    //    };
+    //    let message1 = Mining::CloseChannel(message1);
+    //    let message2 = Mining::SetTarget(message2);
+    //    let frame = Sv2Frame::from_message(
+    //        message1.clone(),
+    //        const_sv2::MESSAGE_TYPE_CLOSE_CHANNEL,
+    //        0,
+    //        true,
+    //    )
+    //    .unwrap();
+    //    let frame = EitherFrame::Sv2(frame);
+    //    let frame2 = Sv2Frame::from_message(
+    //        message2.clone(),
+    //        const_sv2::MESSAGE_TYPE_CLOSE_CHANNEL,
+    //        0,
+    //        true,
+    //    )
+    //    .unwrap();
+    //    let frame2 = EitherFrame::Sv2(frame2);
+    //    let _ = vec![frame, frame2];
+    //    assert!(true)
+    //}
+
     #[tokio::test]
-    async fn it_send_and_receive() {
-        let message = CloseChannel {
-            channel_id: 78,
-            reason_code: "no reason".to_string().try_into().unwrap(),
-        };
+    async fn it_initialize_a_pool_and_connect_to_it() {
+        //let mut bitcoind = os_command(
+        //    "../../test/bitcoind",
+        //    vec![
+        //        "--regtest",
+        //        "--datadir=../../test/bitcoin_data/"
+        //    ],
+        //    Some("sv2 thread start"),
+        //)
+        //.await;
+        //tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+        //let mut child = os_command(
+        //    "../../test/bitcoin-cli",
+        //    vec![
+        //        "--regtest",
+        //        "generatetoaddress",
+        //        "16",
+        //        "bcrt1qttuwhmpa7a0ls5kr3ye6pjc24ng685jvdrksxx"
+        //    ],
+        //    None,
+        //)
+        //.await;
+        //dbg!(child.wait().await.unwrap());
+        let mut pool = os_command(
+            "cargo",
+            vec![
+                "run",
+                "-p",
+                "pool",
+                "--",
+                "-c",
+                "../../roles/v2/pool/pool-config.toml",
+            ],
+            Some("POOL INITIALIZED"),
+        )
+        .await;
+
+        let setup_connection = CommonMessages::SetupConnection(SetupConnection {
+            protocol: Protocol::MiningProtocol,
+            min_version: 2,
+            max_version: 2,
+            flags: 0,
+            endpoint_host: "".to_string().try_into().unwrap(),
+            endpoint_port: 0,
+            vendor: "".to_string().try_into().unwrap(),
+            hardware_version: "".to_string().try_into().unwrap(),
+            firmware: "".to_string().try_into().unwrap(),
+            device_id: "".to_string().try_into().unwrap(),
+        });
+
         let frame = Sv2Frame::from_message(
-            message.clone(),
-            const_sv2::MESSAGE_TYPE_CLOSE_CHANNEL,
+            setup_connection.clone(),
+            const_sv2::MESSAGE_TYPE_SETUP_CONNECTION,
             0,
             true,
         )
         .unwrap();
-        let server_socket = SocketAddr::new("127.0.0.1".parse().unwrap(), 34254);
-        let client_socket = SocketAddr::new("127.0.0.1".parse().unwrap(), 34254);
-        let ((server_recv, server_send), (client_recv, client_send)) = join!(
-            setup_as_upstream(server_socket, None),
-            setup_as_downstream(client_socket, None)
-        );
-        server_send
-            .send(frame.clone().try_into().unwrap())
-            .await
+
+        let frame = EitherFrame::Sv2(frame);
+
+        let pool_address = SocketAddr::new("127.0.0.1".parse().unwrap(), 34254);
+        let pub_key: EncodedEd25519PublicKey = "2di19GHYQnAZJmEpoUeP7C3Eg9TCcksHr23rZCC83dvUiZgiDL"
+            .to_string()
+            .try_into()
             .unwrap();
-        client_send
-            .send(frame.clone().try_into().unwrap())
-            .await
-            .unwrap();
-        let server_received = server_recv.recv().await.unwrap();
-        let client_received = client_recv.recv().await.unwrap();
-        match (server_received, client_received) {
-            (EitherFrame::Sv2(mut frame1), EitherFrame::Sv2(mut frame2)) => {
-                let mt1 = frame1.get_header().unwrap().msg_type();
-                let mt2 = frame2.get_header().unwrap().msg_type();
-                let p1 = frame1.payload();
-                let p2 = frame2.payload();
-                let message1: Mining = (mt1, p1).try_into().unwrap();
-                let message2: Mining = (mt2, p2).try_into().unwrap();
-                match (message1, message2) {
-                    (Mining::CloseChannel(message1), Mining::CloseChannel(message2)) => {
-                        assert!(message1.channel_id == message2.channel_id);
-                        assert!(message2.channel_id == message.channel_id);
-                        assert!(message1.reason_code == message2.reason_code);
-                        assert!(message2.reason_code == message.reason_code);
-                    }
-                    _ => assert!(false),
-                }
+        let (recv_from_pool, send_to_pool) = setup_as_downstream(pool_address, Some(pub_key)).await;
+        send_to_pool.send(frame.try_into().unwrap()).await.unwrap();
+        match recv_from_pool.recv().await.unwrap() {
+            EitherFrame::Sv2(_) => {
+                assert!(true)
             }
             _ => assert!(false),
         }
-    }
-
-    #[test]
-    fn it_create_tests_with_different_messages() {
-        let message1 = CloseChannel {
-            channel_id: 78,
-            reason_code: "no reason".to_string().try_into().unwrap(),
-        };
-        let maximum_target: binary_sv2::U256 = [0;32].try_into().unwrap();
-        let message2 = SetTarget {
-            channel_id: 78,
-            maximum_target,
-        };
-        let message1 = Mining::CloseChannel(message1);
-        let message2 = Mining::SetTarget(message2);
-        let frame = Sv2Frame::from_message(
-            message1.clone(),
-            const_sv2::MESSAGE_TYPE_CLOSE_CHANNEL,
-            0,
-            true,
-        )
-        .unwrap();
-        let frame = EitherFrame::Sv2(frame);
-        let frame2 = Sv2Frame::from_message(
-            message2.clone(),
-            const_sv2::MESSAGE_TYPE_CLOSE_CHANNEL,
-            0,
-            true,
-        )
-        .unwrap();
-        let frame2 = EitherFrame::Sv2(frame2);
-        let _ = vec![frame,frame2];
-        assert!(true)
+        //let mut child = os_command(
+        //    "rm",
+        //    vec![
+        //        "-rf",
+        //        "../../test/bitcoin_data/regtest"
+        //    ],
+        //    None,
+        //)
+        //.await;
+        //dbg!(child.wait().await.unwrap());
+        pool.kill().await.unwrap();
+        //bitcoind.kill().await.unwrap();
     }
 }
