@@ -1,5 +1,5 @@
-mod net;
 mod executor;
+mod net;
 
 use binary_sv2::{Deserialize, GetSize, Serialize};
 use codec_sv2::{
@@ -7,9 +7,13 @@ use codec_sv2::{
     Frame, StandardEitherFrame as EitherFrame, Sv2Frame,
 };
 use net::{setup_as_downstream, setup_as_upstream};
-use roles_logic_sv2::{mining_sv2::CloseChannel, parsers::Mining, mining_sv2::SetTarget};
+use roles_logic_sv2::{
+    mining_sv2::{CloseChannel, SetTarget},
+    parsers::Mining,
+};
 use std::net::SocketAddr;
 
+#[derive(Debug,PartialEq, Eq,Clone)]
 enum Sv2Type {
     Bool(bool),
     U8(u8),
@@ -26,6 +30,7 @@ enum Sv2Type {
     Seq064k(Vec<Vec<u8>>),
 }
 
+#[derive(Debug,PartialEq, Eq,Clone)]
 enum ActionResult {
     MatchMessageType(u8),
     MatchMessageField(Sv2Type),
@@ -35,31 +40,37 @@ enum ActionResult {
     None,
 }
 
+#[derive(Debug,PartialEq, Eq,Clone)]
 enum Role {
-    Upstream(Upstream),
-    Downstream(Downstream),
+    Upstream,
+    Downstream,
 }
 
+#[derive(Debug,Clone)]
 struct Upstream {
     addr: SocketAddr,
-    public: Option<EncodedEd25519PublicKey>,
-    secret: Option<EncodedEd25519SecretKey>
+    keys: Option<(EncodedEd25519PublicKey,EncodedEd25519SecretKey)>,
 }
 
+#[derive(Debug,Clone)]
 struct Downstream {
     addr: SocketAddr,
-    public: Option<EncodedEd25519PublicKey>,
+    key: Option<EncodedEd25519PublicKey>,
 }
 
+#[derive(Debug)]
 struct Action<Message: Serialize + Deserialize<'static> + GetSize + Send + 'static> {
-    message: Vec<EitherFrame<Message>>,
+    messages: Vec<EitherFrame<Message>>,
     result: ActionResult,
     role: Role,
 }
 
-struct Test<Message: Serialize + Deserialize<'static> + GetSize + Send + 'static> {
+#[derive(Debug)]
+pub struct Test<Message: Serialize + Deserialize<'static> + GetSize + Send  + 'static> {
     actions: Vec<Action<Message>>,
-    upstream: Role,
+    as_upstream: Option<Upstream>,
+    as_dowstream: Option<Downstream>,
+    // TODO setup_commmands: commands,
 }
 
 fn main() {
@@ -123,24 +134,36 @@ mod test {
         }
     }
 
-    //#[test]
-    //fn it_create_tests_with_different_messages() {
-    //    let message1 = CloseChannel {
-    //        channel_id: 78,
-    //        reason_code: "no reason".to_string().try_into().unwrap(),
-    //    };
-    //    let frame = Sv2Frame::from_message(
-    //        message1.clone(),
-    //        const_sv2::MESSAGE_TYPE_CLOSE_CHANNEL,
-    //        0,
-    //        true,
-    //    )
-    //    .unwrap();
-    //    let action = Action {
-    //        message: frame.into().unwrap(),
-    //        result: todo!(),
-    //        role: todo!(),
-    //    };
-
-    //}
+    #[test]
+    fn it_create_tests_with_different_messages() {
+        let message1 = CloseChannel {
+            channel_id: 78,
+            reason_code: "no reason".to_string().try_into().unwrap(),
+        };
+        let maximum_target: binary_sv2::U256 = [0;32].try_into().unwrap();
+        let message2 = SetTarget {
+            channel_id: 78,
+            maximum_target,
+        };
+        let message1 = Mining::CloseChannel(message1);
+        let message2 = Mining::SetTarget(message2);
+        let frame = Sv2Frame::from_message(
+            message1.clone(),
+            const_sv2::MESSAGE_TYPE_CLOSE_CHANNEL,
+            0,
+            true,
+        )
+        .unwrap();
+        let frame = EitherFrame::Sv2(frame);
+        let frame2 = Sv2Frame::from_message(
+            message2.clone(),
+            const_sv2::MESSAGE_TYPE_CLOSE_CHANNEL,
+            0,
+            true,
+        )
+        .unwrap();
+        let frame2 = EitherFrame::Sv2(frame2);
+        let _ = vec![frame,frame2];
+        assert!(true)
+    }
 }
