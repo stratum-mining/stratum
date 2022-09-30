@@ -457,6 +457,19 @@ To build the various projects/examples follow the following commands:
  | debug                                                 | Turns on debugging features                                                                         | no      | utils/buffer                                                                                                 |
  | [criterion](https://github.com/bheisler/criterion.rs) | To [run benchmark tests](utils/buffer/README.md)                                                    | no      | utils/buffer                                                                                                 |
 
+#### Building/Updating sv2-ffi
+
+Occasionally the sv2-ffi header file will need to be updated. When the sv2.h file is out of sync the `sv2-header-check`
+workflow, which runs the `sv2-header-check.sh` script, will fail.
+To prevent this from failing in GitHub Actions this `sv2-header-check.sh` script is also run as part of the manually
+configured [pre-push hook](README-DEV.md).
+
+If the sv2.h file is out of sync then the following steps can be taken to update it:
+From the root directory:
+`$ ./build_header.sh`
+This script will install cbindgen and then generate the `sv2.h` header file. This header file needs to be copied to the
+`protocols/v2/sv2-ffi` directory and committed.
+
 ### 4.02 Test
 
 Generate test coverage percentage with cargo-tarpaulin:
@@ -507,5 +520,6 @@ binary - for example from the table below to run the interop-cpp test you'd run 
 ## 5. Branches
 
 - main - the main branch with the latest
-- POCRegtest-1-0-0 - Deprecated POC branch
+- ~~POCRegtest-1-0-0~~ - Deprecated POC branch
 - sv2-tp-crates - Subset of main which contains only the files needed by core to implement the template provider
+- POCRegtest-2-0-0 - This branch contains instructions on how to run the demo with the proper bitcoind branch template provider
