@@ -1,25 +1,27 @@
 pub mod message_handler;
 use std::convert::TryInto;
+use std::str::FromStr;
 use async_channel::{Receiver, Sender};
 use codec_sv2::{HandshakeRole, Initiator, StandardEitherFrame, StandardSv2Frame};
 use network_helpers::noise_connection_tokio::Connection;
 use roles_logic_sv2::{
     handlers::{SendTo_},
-    parsers::{PoolMessages, TemplateDistribution},
+    parsers::{PoolMessages, TemplateDistribution, JobNegotiation},
     utils::Mutex, job_negotiation_sv2::AllocateMiningJobToken,
 };
 use codec_sv2::Frame;
 use roles_logic_sv2::handlers::job_negotiation::ParseServerJobNegotiationMessages;
-use std::{net::SocketAddr, sync::Arc};
+use std::{net::{SocketAddr, IpAddr}, sync::Arc};
 use tokio::{
     net::{TcpListener, TcpStream},
     task,
 };
 
 pub type Message = PoolMessages<'static>;
-pub type SendTo = SendTo_<roles_logic_sv2::parsers::JobNegotiation<'static>, ()>;
+pub type SendTo = SendTo_<JobNegotiation<'static>, ()>;
 pub type EitherFrame = StandardEitherFrame<PoolMessages<'static>>;
 pub type StdFrame = StandardSv2Frame<Message>;
+use crate::Config;
 
 mod setup_connection;
 use setup_connection::SetupConnectionHandler;
@@ -35,9 +37,20 @@ impl JobNegotiator {
         let initiator = Initiator::from_raw_k(authority_public_key).unwrap();
         let (mut receiver,mut sender): (Receiver<EitherFrame>, Sender<EitherFrame>) =
             Connection::new(stream, HandshakeRole::Initiator(initiator)).await;
-        SetupConnectionHandler::setup(&mut receiver, &mut sender, address)
+                
+        let  config_file: String = std::fs::read_to_string("proxy-config.toml").unwrap();
+        let config: Config = toml::from_str(&config_file).unwrap();
+        let proxy_address = SocketAddr::new(
+            IpAddr::from_str(&config.listen_address).unwrap(),
+            config.listen_mining_port,
+        );
+
+        println!("JN proxy: setupconnection");
+
+        SetupConnectionHandler::setup(&mut receiver, &mut sender, proxy_address)
             .await
             .unwrap();
+
         println!("JN CONNECTED");
 
         let self_ = Arc::new(Mutex::new( JobNegotiator{
@@ -45,12 +58,19 @@ impl JobNegotiator {
             receiver,
         }));
 
+        let allocate_token_message = JobNegotiation::AllocateMiningJobToken(AllocateMiningJobToken {
+            user_identifier: "4ss0".to_string().try_into().unwrap(),
+            request_id: 1
+            });
+
+        println!("Allocating token message {:?}", &allocate_token_message);
+        Self::send(self_.clone(), allocate_token_message).await.unwrap();
+
         let cloned = self_.clone();
         task::spawn(async move {
             loop {
                 let receiver = cloned.safe_lock(|d| d.receiver.clone()).unwrap();
                 let incoming: StdFrame = receiver.recv().await.unwrap().try_into().unwrap();
-                let sender = cloned.safe_lock(|d| d.sender.clone()).unwrap();
                 JobNegotiator::next(cloned.clone(), incoming).await
             }
         });
@@ -81,7 +101,7 @@ impl JobNegotiator {
 
     pub async fn send(
         self_mutex: Arc<Mutex<Self>>,
-        message: roles_logic_sv2::parsers::JobNegotiation<'static>,
+        message: JobNegotiation<'static>,
     ) -> Result<(), ()> {
         let sv2_frame: StdFrame = PoolMessages::JobNegotiation(message).try_into().unwrap();
         let sender = self_mutex.safe_lock(|self_| self_.sender.clone()).unwrap();

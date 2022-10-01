@@ -3,6 +3,7 @@ use codec_sv2::{StandardSv2Frame,
     StandardEitherFrame
 };
 use codec_sv2::Frame;
+use roles_logic_sv2::handlers::template_distribution::ParseClientTemplateDistributionMessages;
 use roles_logic_sv2::{
     common_messages_sv2::{Protocol, SetupConnection},
     handlers::common::{ParseUpstreamCommonMessages, SendTo},
@@ -17,32 +18,34 @@ pub type EitherFrame = StandardEitherFrame<Message>;
 pub struct SetupConnectionHandler {}
 
 impl SetupConnectionHandler {
-    fn get_setup_connection_message(address: SocketAddr) -> SetupConnection<'static> {
-        let endpoint_host = address.ip().to_string().into_bytes().try_into().unwrap();
+    fn get_setup_connection_message(proxy_address: SocketAddr) -> SetupConnection<'static> {
+        let endpoint_host = proxy_address.ip().to_string().into_bytes().try_into().unwrap();
         let vendor = String::new().try_into().unwrap();
         let hardware_version = String::new().try_into().unwrap();
         let firmware = String::new().try_into().unwrap();
         let device_id = String::new().try_into().unwrap();
-        SetupConnection {
+        let mut setup_connection = SetupConnection {
             protocol: Protocol::JobNegotiationProtocol,
             min_version: 2,
             max_version: 2,
             flags: 0b0000_0000_0000_0000_0000_0000_0000_0000,
             endpoint_host,
-            endpoint_port: address.port(),
+            endpoint_port: proxy_address.port(),
             vendor,
             hardware_version,
             firmware,
             device_id,
-        }
+        };
+        setup_connection.set_async_job_nogotiation();
+        setup_connection
     }
 
     pub async fn setup(
         receiver: &mut Receiver<EitherFrame>,
         sender: &mut Sender<EitherFrame>,
-        address: SocketAddr,
+        proxy_address: SocketAddr,
     ) -> Result<(), ()> {
-        let setup_connection = Self::get_setup_connection_message(address);
+        let setup_connection = Self::get_setup_connection_message(proxy_address);        
 
         let sv2_frame: StdFrame = PoolMessages::Common(setup_connection.into())
             .try_into()
@@ -51,6 +54,9 @@ impl SetupConnectionHandler {
         sender.send(sv2_frame).await.map_err(|_| ())?;
 
         let mut incoming: StdFrame = receiver.recv().await.unwrap().try_into().unwrap();
+
+        println!("Received setup connection message");
+        
         let message_type = incoming.get_header().unwrap().msg_type();
         let payload = incoming.payload();
         ParseUpstreamCommonMessages::handle_message_common(

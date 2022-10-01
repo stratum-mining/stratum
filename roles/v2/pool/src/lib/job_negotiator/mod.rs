@@ -78,28 +78,16 @@ impl JobNegotiatorDownstream {
 }
 
 pub struct JobNegotiator {
-    downstreams: Vec<Arc<roles_logic_sv2::utils::Mutex<JobNegotiatorDownstream>>>,
+    downstreams: Vec<JobNegotiatorDownstream>,
 }
 
 impl JobNegotiator {
     pub async fn start(config: Configuration) {
-        let mut self_ = Arc::new(Mutex::new(Self {
+        let self_ = Arc::new(Mutex::new(Self {
             downstreams: Vec::new(),
         }));
         println!("JN INITIALIZED");
-        Self::accept_incoming_connection(self_.clone(), config).await;
-        let cloned_downstreams = self_.clone();
-        let downstreams = cloned_downstreams.safe_lock(|self_| self_.downstreams.clone()).unwrap();
-        for downstream in downstreams{
-            task::spawn(async move {
-                loop {
-                    let receiver = downstream.safe_lock(|d| d.receiver.clone()).unwrap();
-                    let incoming: StdFrame = receiver.recv().await.unwrap().try_into().unwrap();
-                    let sender = downstream.safe_lock(|d| d.sender.clone()).unwrap();
-                    JobNegotiatorDownstream::next(downstream.clone(), incoming).await
-                }
-            });
-        }
+        Self::accept_incoming_connection(self_, config).await;
     }
     async fn accept_incoming_connection(self_: Arc<Mutex<JobNegotiator>>, config: Configuration) {
         let listner = TcpListener::bind(&config.listen_jn_address).await.unwrap();
@@ -112,7 +100,7 @@ impl JobNegotiator {
             let (_receiver, _sender): (Receiver<EitherFrame>, Sender<EitherFrame>) =
                 Connection::new(stream, HandshakeRole::Responder(responder)).await;
 
-            let downstream = Arc::new(Mutex::new(JobNegotiatorDownstream::new(_receiver, _sender)));
+            let downstream = JobNegotiatorDownstream::new(_receiver, _sender);
             self_
                 .safe_lock(|job_negotiator| job_negotiator.downstreams.push(downstream))
                 .unwrap();

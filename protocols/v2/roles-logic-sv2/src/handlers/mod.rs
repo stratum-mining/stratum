@@ -29,11 +29,11 @@ pub mod template_distribution;
 use crate::utils::Mutex;
 use std::sync::Arc;
 
-/// Message is a serializable entity ant rapresent the means of communication between Remote(s)
+/// Message is a serializable entity that rapresent the meanings of communication between Remote(s)
 /// SendTo_ is used to add context to Message, it say what we need to do with that Message.
 pub enum SendTo_<Message, Remote> {
     /// Used by proxies when Message must be relayed dowstream or upstream and we want to specify
-    /// to which particula downstream or upstream we want to relay the message.
+    /// to which particular downstream or upstream we want to relay the message.
     ///
     /// When the message that we need to realy is the same message that we received should be used
     /// RelaySameMessageToRemote in order to save an allocation.
@@ -48,7 +48,7 @@ pub enum SendTo_<Message, Remote> {
     /// specify to which particula downstream or upstream we want to relay the message.
     ///
     /// This is used in proxies that do and Sv1 to Sv2 translation. The upstream is connected via
-    /// an extdended channel that means that
+    /// an extended channel that means that
     RelayNewMessage(Message),
     /// Used proxies clients and servers to directly respond to a received message.
     Respond(Message),
