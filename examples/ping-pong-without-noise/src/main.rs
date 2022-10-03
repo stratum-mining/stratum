@@ -38,10 +38,7 @@ async fn new_client(name: String, test_count: u32, socket: SocketAddr) {
     task::block_on(async move {
         loop {
             if let Some(mut client) = client.try_lock() {
-                println!("ping+");
                 client.send_ping().await;
-                println!("ping-");
-
                 break;
             }
             sleep(time::Duration::from_millis(500));
