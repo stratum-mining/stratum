@@ -60,20 +60,20 @@ impl<'decoder> SetupConnection<'decoder> {
     }
 
     /// Check if passed flags support self flag
-    pub fn check_flags(protocol: Protocol, required_flags: u32, avaiable_flags: u32) -> bool {
+    pub fn check_flags(protocol: Protocol, avaiable_flags: u32, required_flags: u32) -> bool {
         match protocol {
             // [0] [0] -> true
             // [0] [1] -> false
             // [1] [1] -> true
             // [0] [1] -> false
             Protocol::MiningProtocol => {
-                let required_flags = required_flags.reverse_bits();
                 let avaiable_flags = avaiable_flags.reverse_bits();
-                let requires_work_selection_passed = (avaiable_flags >> 30) > 0;
-                let requires_version_rolling_passed = (avaiable_flags >> 29) > 0;
+                let required_flags = required_flags.reverse_bits();
+                let requires_work_selection_passed = (required_flags >> 30) > 0;
+                let requires_version_rolling_passed = (required_flags >> 29) > 0;
 
-                let requires_work_selection_self = (required_flags >> 30) > 0;
-                let requires_version_rolling_self = (required_flags >> 29) > 0;
+                let requires_work_selection_self = (avaiable_flags >> 30) > 0;
+                let requires_version_rolling_self = (avaiable_flags >> 29) > 0;
 
                 let work_selection =
                     !requires_work_selection_self || requires_work_selection_passed;
@@ -339,5 +339,22 @@ impl TryFrom<u8> for Protocol {
 impl GetSize for Protocol {
     fn get_size(&self) -> usize {
         1
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_check_flag() {
+        let protocol = crate::Protocol::MiningProtocol;
+        let flag_avaiable = 0b_0000_0000_0000_0000_0000_0000_0000_0000;
+        let flag_required = 0b_0000_0000_0000_0000_0000_0000_0000_0001;
+        assert!(SetupConnection::check_flags(
+            protocol,
+            flag_avaiable,
+            flag_required
+        ));
     }
 }
