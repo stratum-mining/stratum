@@ -110,7 +110,9 @@ use core::{
     convert::TryInto,
 };
 
+#[macro_use]
 extern crate alloc;
+
 mod close_channel;
 mod new_mining_job;
 mod open_channel;
@@ -237,6 +239,8 @@ impl<'a> From<Extranonce> for U256<'a> {
 impl<'a> From<B032<'a>> for Extranonce {
     fn from(v: B032<'a>) -> Self {
         let inner = v.inner_as_ref();
+        let tail = vec![0; 32 - inner.len()];
+        let inner = &[inner, &tail].concat();
         // below unwraps never panics
         let head = u128::from_le_bytes(inner[..16].try_into().unwrap());
         let tail = u128::from_le_bytes(inner[16..].try_into().unwrap());
