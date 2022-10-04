@@ -237,6 +237,9 @@ impl<'a> From<Extranonce> for U256<'a> {
 impl<'a> From<B032<'a>> for Extranonce {
     fn from(v: B032<'a>) -> Self {
         let inner = v.inner_as_ref();
+        let mut tail = alloc::vec::Vec::with_capacity(32 - inner.len());
+        tail.resize(32 - inner.len(), 0_u8);
+        let inner = &[inner, &tail].concat();
         // below unwraps never panics
         let head = u128::from_le_bytes(inner[..16].try_into().unwrap());
         let tail = u128::from_le_bytes(inner[16..].try_into().unwrap());
