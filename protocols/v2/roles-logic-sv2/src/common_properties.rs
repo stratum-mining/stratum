@@ -35,7 +35,7 @@ pub trait IsUpstream<Down: IsDownstream, Sel: DownstreamSelector<Down> + ?Sized>
         let flags = pair_settings.flags;
 
         let check_version = self.get_version() >= min_v && self.get_version() <= max_v;
-        let check_flags = SetupConnection::check_flags(protocol, flags, self.get_flags());
+        let check_flags = SetupConnection::check_flags(protocol, self.get_flags(), flags);
         check_version && check_flags
     }
     fn get_id(&self) -> u32;
