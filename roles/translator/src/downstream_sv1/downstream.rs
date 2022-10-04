@@ -306,6 +306,10 @@ impl IsServer for Downstream {
     /// message response. This field is set by the Upstream in the SV2
     /// `OpenExtendedMiningChannelSuccess` message, passed down through the Bridge.
     fn set_extranonce1(&mut self, _extranonce1: Option<HexBytes>) -> HexBytes {
+        println!(
+            "\n\nDOWNSTREAM EXTENDED EXTRANONCE: {:?}\n",
+            &self.extranonce1
+        );
         let next_extranonce = self.extranonce1.next_extended(32).unwrap();
         let next_extranonce_b032: B032 = next_extranonce.try_into().unwrap();
         let next_extranonce_vec = next_extranonce_b032.to_vec();
