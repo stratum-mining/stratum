@@ -7,6 +7,7 @@ use async_channel::{Receiver, Sender};
 use async_std::{net::TcpStream, task};
 use binary_sv2::{u256_from_int, B032};
 use codec_sv2::{Frame, HandshakeRole, Initiator};
+use mining_sv2::{ExtendedExtranonce, Extranonce};
 use network_helpers::Connection;
 use roles_logic_sv2::{
     common_messages_sv2::{Protocol, SetupConnection},
@@ -28,10 +29,10 @@ use std::{net::SocketAddr, sync::Arc};
 #[derive(Debug, Clone)]
 pub struct Upstream {
     channel_id: Option<u32>,
-    pub extended_extranonce: Option<ExtendedExtranonce>,
-    /// Extranonce1 received from the Upstream in the SV2 `OpenExtendedMiningChannelSuccess`
-    /// message, to be sent to the Downstream in the SV1 `mining.subscribe` message response.
-    pub extranonce_prefix: Option<B032<'static>>,
+    pub extended_extranonce: ExtendedExtranonce,
+    // /// Extranonce1 received from the Upstream in the SV2 `OpenExtendedMiningChannelSuccess`
+    // /// message, to be sent to the Downstream in the SV1 `mining.subscribe` message response.
+    // pub extranonce_prefix: Option<B032<'static>>,
     /// Extranonce2 size. Requested by `Bridge` to the Upstream in the SV2
     /// `OpenExtendedMiningChannel` message, then confirmed by the Upstream in the SV2
     /// `OpenExtendedMiningChannelSuccess` message. Sent to the Downstream in the SV1
@@ -81,15 +82,22 @@ impl Upstream {
         // channel for downstream Translator Proxy communication
         let connection = UpstreamConnection { receiver, sender };
 
+        let extranonce_len = 32;
+        let extranonce_size = new_extranonce2_size();
+        let ext_extranonce_size = extranonce_size as usize;
+        let range_0 = 0..ext_extranonce_size;
+        let range_1 = ext_extranonce_size..ext_extranonce_size + 2;
+        let range_2 = ext_extranonce_size + 2..extranonce_len;
+        let extended_extranonce = ExtendedExtranonce::new(range_0, range_1, range_2);
+
         Ok(Arc::new(Mutex::new(Self {
             connection,
             submit_from_dowstream,
             new_prev_hash_sender,
             new_extended_mining_job_sender,
             channel_id: None,
-            extended_extranonce: None,
-            extranonce_prefix: None,
-            extranonce_size: new_extranonce2_size(),
+            extended_extranonce,
+            extranonce_size,
         })))
     }
 
@@ -391,22 +399,24 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error>
     {
         self.channel_id = Some(m.channel_id);
-        let extended_extranonce = ExtendedExtranonce::new(
-            0..m.extranonce_size,
-            m.extranonce_size..m.extranonce_size + 2,
-            m.extranonce_size + 2,
-            32,
-        );
-        let extranonce: Extranonce = m.extranonce_prefix.into();
-        // This fn has a bug, so need to use Lorban's PR
-        let extended_extranonce =
-            ExtendedExtranonce::from_extranonce(extranonce, range0, range1, range2);
-        // TODO: Check that extranonce_size received in OpenExtendedMiningChannelSuccess is gte the
-        // min_extranonce_size requested by the Upstream (in the upstream_sv2/mod.rs
-        // new_extranonce_size function)
-        self.extranonce_size = m.extranonce_size;
-        println!("\n\nRR EXTRANONCEPREFIX: {:?}\n", &m.extranonce_prefix);
-        cnl.send(ExtendedExtranonce);
+
+        let extranonce_len = 32;
+        let extranonce_size = m.extranonce_size as usize;
+        let range_0 = 0..extranonce_size;
+        let range_1 = extranonce_size..extranonce_size + 2;
+        let range_2 = extranonce_size + 2..extranonce_len;
+        let extended_extranonce = ExtendedExtranonce::new(range_0, range_1, range_2);
+        // let extranonce: Extranonce = m.extranonce_prefix.into();
+        self.extended_extranonce = extended_extranonce;
+
+        // // This fn has a bug, so need to use Lorban's PR
+        // let extended_extranonce =
+        //     ExtendedExtranonce::from_extranonce(extranonce, range0, range1, range2);
+        // // TODO: Check that extranonce_size received in OpenExtendedMiningChannelSuccess is gte the
+        // // min_extranonce_size requested by the Upstream (in the upstream_sv2/mod.rs
+        // // new_extranonce_size function)
+        // println!("\n\nRR EXTRANONCEPREFIX: {:?}\n", &m.extranonce_prefix);
+        // cnl.send(ExtendedExtranonce);
         // Create an `ExtendedExtranonce` struct on the upstream
         // When you create it you pass the ranges you want to use:
         // range 0: min_extranonce_size [0-15]
@@ -418,7 +428,6 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
         // 1. Create ExtendedExtranonce
         // 2. Transform to array of bytes
         // 3. Take first 18, that is the `extranonce1` sent to MD in mining.subscribe response
-        self.extranonce_prefix = Some(m.extranonce_prefix.into_static());
         Ok(SendTo::None(None))
     }
 

@@ -6,6 +6,8 @@ use async_std::{
     prelude::*,
     task,
 };
+use binary_sv2::B032;
+use mining_sv2::ExtendedExtranonce;
 use roles_logic_sv2::{
     common_properties::{IsDownstream, IsMiningDownstream},
     utils::Mutex,
@@ -22,13 +24,12 @@ use v1::{
 #[derive(Debug)]
 pub struct Downstream {
     authorized_names: Vec<String>,
-    extranonce1: HexBytes,
+    extranonce1: ExtendedExtranonce,
     extranonce2_size: usize,
     version_rolling_mask: Option<HexU32Be>,
     version_rolling_min_bit: Option<HexU32Be>,
     submit_sender: Sender<v1::client_to_server::Submit>,
     sender_outgoing: Sender<json_rpc::Message>,
-    extended_extranonce: ExtendedExtranonce, // extranonce1
 }
 
 impl Downstream {
@@ -36,7 +37,7 @@ impl Downstream {
         stream: TcpStream,
         submit_sender: Sender<v1::client_to_server::Submit>,
         mining_notify_receiver: Receiver<server_to_client::Notify>,
-        extranonce1: HexBytes,
+        extranonce1: ExtendedExtranonce,
         extranonce2_size: usize,
     ) -> ProxyResult<Arc<Mutex<Self>>> {
         let stream = std::sync::Arc::new(stream);
@@ -167,7 +168,7 @@ impl Downstream {
         downstream_addr: SocketAddr,
         submit_sender: Sender<v1::client_to_server::Submit>,
         receiver_mining_notify: Receiver<server_to_client::Notify>,
-        extranonce1: HexBytes,
+        extranonce1: ExtendedExtranonce,
         extranonce2_size: usize,
     ) {
         task::spawn(async move {
@@ -305,11 +306,21 @@ impl IsServer for Downstream {
     /// message response. This field is set by the Upstream in the SV2
     /// `OpenExtendedMiningChannelSuccess` message, passed down through the Bridge.
     fn set_extranonce1(&mut self, _extranonce1: Option<HexBytes>) -> HexBytes {
-        self.extranonce1.clone()
+        let next_extranonce = self.extranonce1.next_extended(32).unwrap();
+        let next_extranonce_b032: B032 = next_extranonce.try_into().unwrap();
+        let next_extranonce_vec = next_extranonce_b032.to_vec();
+        let next_extranonce_vec = next_extranonce_vec[0..=18].to_vec();
+        let extranonce1: HexBytes = next_extranonce_vec.try_into().unwrap();
+        extranonce1
     }
 
     fn extranonce1(&self) -> HexBytes {
-        self.extranonce1.clone()
+        let next_extranonce = self.extranonce1.clone().next_extended(32).unwrap();
+        let next_extranonce_b032: B032 = next_extranonce.try_into().unwrap();
+        let next_extranonce_vec = next_extranonce_b032.to_vec();
+        let next_extranonce_vec = next_extranonce_vec[0..=18].to_vec();
+        let extranonce1: HexBytes = next_extranonce_vec.try_into().unwrap();
+        extranonce1
     }
 
     /// Set the `extranonce2_size` field to be sent to the Downstream in the SV1 `mining.subscribe`

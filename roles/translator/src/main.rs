@@ -6,6 +6,7 @@ mod proxy_config;
 mod upstream_sv2;
 use args::Args;
 use error::{Error, ProxyResult};
+use mining_sv2::ExtendedExtranonce;
 use proxy::next_mining_notify::NextMiningNotify;
 use proxy_config::ProxyConfig;
 use roles_logic_sv2::utils::Mutex;
@@ -65,6 +66,11 @@ async fn main() {
         Receiver<server_to_client::Notify>,
     ) = bounded(10);
 
+    let (sender_extranonce, receiver_extranonce): (
+        Sender<ExtendedExtranonce>,
+        Receiver<ExtendedExtranonce>,
+    ) = bounded(10);
+
     // Format `Upstream` connection address
     let upstream_addr = SocketAddr::new(
         IpAddr::from_str(&proxy_config.upstream_address).unwrap(),
@@ -112,36 +118,32 @@ async fn main() {
         proxy_config.downstream_port,
     );
 
-    // Get the `extranonce_size` size received from the Upstream to be sent to the Downstream as
-    // the `extranonce2_size` field in the SV1 `mining.subscribe` message response.
-    let extranonce_size = upstream.safe_lock(|u| u.extranonce_size).unwrap() as usize;
+    // // Get the `extranonce_prefix` size received from the Upstream to be sent to the Downstream as
+    // // the `extranonce1` field in the SV1 `mining.subscribe` message response.
+    // let mut extranonce_from_upstream = receiver_extranonce.recv().await.unwrap();
+    // let next_extranonce = extranonce_from_upstream.next_extended(32).unwrap();
+    // let next_extranonce_b032: B032 = next_extranonce.try_into().unwrap();
+    // let mut next_extranonce_vec = next_extranonce_b032.to_vec();
+    // let next_extranonce_vec = next_extranonce_vec[0..=18].to_vec();
+    // let extranonce1: HexBytes = next_extranonce_vec.try_into().unwrap();
 
-    // Get the `extranonce_prefix` size received from the Upstream to be sent to the Downstream as
-    // the `extranonce1` field in the SV1 `mining.subscribe` message response.
-    // let extranonce_prefix = upstream
-    //     .safe_lock(|u| {
-    //         u.extranonce_prefix
-    //             .clone()
-    //             .expect("Expected `extranonce_prefix` to be set by the Upstream")
-    //     })
-    //     .unwrap();
-    // let extranonce1: HexBytes = extranonce_prefix.to_vec().try_into().unwrap();
-
-    let extranonce_prefix = upstream.safe_lock(|u| u.extranonce_prefix.clone()).unwrap();
-    println!("\n MAIN EP: {:?}\n", &extranonce_prefix);
-    // // TODO: Tmp until extranonce_prefix static lifetime can be fixed in Upstream
-    let extranonce1: HexBytes = "08000002".try_into().unwrap();
     // Call next_extended here
     // to get Extranonce
     // get to B032 then to hexbytes
     // will have to trim this value. take the range1  [0-18]
 
+    // Get the `extranonce_size` size received from the Upstream to be sent to the Downstream as
+    // the `extranonce2_size` field in the SV1 `mining.subscribe` message response.
+    let extranonce_size = upstream.safe_lock(|u| u.extranonce_size).unwrap() as usize;
+    let extended_extranonce = upstream
+        .safe_lock(|u| u.clone().extended_extranonce)
+        .unwrap();
     // Accept connections from one or more SV1 Downstream roles (SV1 Mining Devices)
     downstream_sv1::Downstream::accept_connections(
         downstream_addr,
         sender_submit_from_sv1,
         recv_mining_notify_downstream,
-        extranonce1,
+        extended_extranonce,
         extranonce_size,
     );
 
