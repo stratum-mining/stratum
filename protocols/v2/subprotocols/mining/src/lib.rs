@@ -111,7 +111,9 @@ use core::{
     convert::TryInto,
 };
 
+#[macro_use]
 extern crate alloc;
+
 mod close_channel;
 mod new_mining_job;
 mod open_channel;
