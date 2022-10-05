@@ -7,8 +7,7 @@ use roles_logic_sv2::{
     template_distribution_sv2::*,
     utils::Mutex,
 };
-use std::ops::Deref;
-use std::sync::Arc;
+use std::{ops::Deref, sync::Arc};
 
 impl<L: Deref> ParseServerTemplateDistributionMessages for TemplateRx<L>
 where

@@ -9,10 +9,8 @@ use roles_logic_sv2::{
     template_distribution_sv2::{NewTemplate, SetNewPrevHash, SubmitSolution},
     utils::Mutex,
 };
-use std::ops::Deref;
-use std::{convert::TryInto, net::SocketAddr, sync::Arc};
-use tokio::time::sleep;
-use tokio::{net::TcpStream, task};
+use std::{convert::TryInto, net::SocketAddr, ops::Deref, sync::Arc};
+use tokio::{net::TcpStream, task, time::sleep};
 
 mod message_handler;
 mod setup_connection;

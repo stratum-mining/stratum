@@ -8,8 +8,7 @@ use roles_logic_sv2::{
     parsers::PoolMessages,
 };
 use serde::Deserialize;
-use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use std::{collections::HashMap, sync::{Arc, Mutex}};
 
 mod lib;
 

@@ -228,9 +228,7 @@ macro_rules! log_gossip {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::HashMap;
-    use std::sync::Arc;
-    use std::sync::Mutex;
+    use std::{collections::HashMap, sync::{Arc, Mutex}};
 
     pub struct TestLogger {
         level: Level,
