@@ -14,10 +14,9 @@
 //! The second one, client-side by implementing check against Record Level field.
 //! Each module may have its own Logger or share one.
 
-use core::cmp;
-use core::fmt;
+use core::{cmp, fmt};
 
-static LOG_LEVEL_NAMES: [&'static str; 6] = ["GOSSIP", "TRACE", "DEBUG", "INFO", "WARN", "ERROR"];
+static LOG_LEVEL_NAMES: [&str; 6] = ["GOSSIP", "TRACE", "DEBUG", "INFO", "WARN", "ERROR"];
 
 /// An enum representing the available verbosity levels of the logger.
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
@@ -228,7 +227,10 @@ macro_rules! log_gossip {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::{collections::HashMap, sync::{Arc, Mutex}};
+    use std::{
+        collections::HashMap,
+        sync::{Arc, Mutex},
+    };
 
     pub struct TestLogger {
         level: Level,
