@@ -25,6 +25,7 @@ pub enum Error {
     UnimplementedProtocol,
     UnexpectedPoolMessage,
     UnknownRequestId(u32),
+    NoMoreExtranonces,
 }
 
 impl From<BinarySv2Error> for Error {
@@ -79,6 +80,7 @@ impl Display for Error {
                 before relaying open channel request to upstream",
                 id
             ),
+            NoMoreExtranonces => write!(f, "No more extranonces"),
         }
     }
 }
