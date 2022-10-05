@@ -35,6 +35,7 @@ impl Downstream {
         stream: TcpStream,
         submit_sender: Sender<v1::client_to_server::Submit>,
         mining_notify_receiver: Receiver<server_to_client::Notify>,
+        extranonce2_size: usize,
     ) -> ProxyResult<Arc<Mutex<Self>>> {
         let stream = std::sync::Arc::new(stream);
 
@@ -50,7 +51,7 @@ impl Downstream {
         let downstream = Arc::new(Mutex::new(Downstream {
             authorized_names: vec![],
             extranonce1: "00000000".try_into()?,
-            extranonce2_size: 2,
+            extranonce2_size,
             version_rolling_mask: None,
             version_rolling_min_bit: None,
             submit_sender,
@@ -164,6 +165,7 @@ impl Downstream {
         downstream_addr: SocketAddr,
         submit_sender: Sender<v1::client_to_server::Submit>,
         receiver_mining_notify: Receiver<server_to_client::Notify>,
+        extranonce2_size: usize,
     ) {
         task::spawn(async move {
             let downstream_listener = TcpListener::bind(downstream_addr).await.unwrap();
@@ -178,6 +180,7 @@ impl Downstream {
                     stream,
                     submit_sender.clone(),
                     receiver_mining_notify.clone(),
+                    extranonce2_size,
                 )
                 .await
                 .unwrap();
@@ -303,10 +306,9 @@ impl IsServer for Downstream {
         self.extranonce1.clone()
     }
 
-    /// Set extranonce2_size to extranonce2_size if provided. If not create a new one and set it.
-    fn set_extranonce2_size(&mut self, extra_nonce2_size: Option<usize>) -> usize {
-        self.extranonce2_size =
-            extra_nonce2_size.unwrap_or_else(downstream_sv1::new_extranonce2_size);
+    /// Set extranonce2_size to extranonce2_size provided by the SV2 Upstream in the SV2
+    /// `OpenExtendedMiningChannelSuccess` message.
+    fn set_extranonce2_size(&mut self, _extra_nonce2_size: Option<usize>) -> usize {
         self.extranonce2_size
     }
 

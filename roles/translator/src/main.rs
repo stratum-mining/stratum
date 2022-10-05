@@ -78,6 +78,7 @@ async fn main() {
         recv_submit_to_sv2,
         sender_new_prev_hash,
         sender_new_extended_mining_job,
+        proxy_config.min_extranonce2_size,
     )
     .await
     .unwrap();
@@ -112,11 +113,14 @@ async fn main() {
         proxy_config.downstream_port,
     );
 
+    // SV2-specified minimum extranonce2 size received from `OpenExtendedMiningChannelSuccess`
+    let min_extranonce2_size = upstream.safe_lock(|u| u.min_extranonce_size).unwrap() as usize;
     // Accept connections from one or more SV1 Downstream roles (SV1 Mining Devices)
     downstream_sv1::Downstream::accept_connections(
         downstream_addr,
         sender_submit_from_sv1,
         recv_mining_notify_downstream,
+        min_extranonce2_size,
     );
 
     // If this loop is not here, the proxy does not stay live long enough for a Downstream to

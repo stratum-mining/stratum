@@ -10,3 +10,6 @@ downstream_port = 34255
 # Version support
 max_supported_version = 2
 min_supported_version = 2
+
+# Minimum extranonce2 size
+min_extranonce2_size=8
