@@ -25,7 +25,7 @@ use roles_logic_sv2::{
 };
 use std::{net::SocketAddr, sync::Arc};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Upstream {
     channel_id: Option<u32>,
     connection: UpstreamConnection,
@@ -114,6 +114,7 @@ impl Upstream {
         // Send open channel request before returning
         let user_identity = "ABC".to_string().try_into()?;
         let min_extranonce_size = self_.safe_lock(|s| s.min_extranonce_size).unwrap();
+        println!("\n MIN EXTSIZE: {:?}", &min_extranonce_size);
         let open_channel = Mining::OpenExtendedMiningChannel(OpenExtendedMiningChannel {
             request_id: 0.into(),               // TODO
             user_identity,                      // TODO
@@ -373,15 +374,17 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
         m: roles_logic_sv2::mining_sv2::OpenExtendedMiningChannelSuccess,
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error>
     {
-        if self.min_extranonce_size < m.extranonce_size {
+        println!("\n\nRR IN OEMCS\n\n");
+        let extranonce_size_bytes = m.extranonce_size / 8;
+        if self.min_extranonce_size < extranonce_size_bytes {
             panic!(
                 "Proxy requested min extranonce size of {}, but pool requires min of {}",
                 self.min_extranonce_size, m.extranonce_size
             );
         }
-
         // Set the `min_extranonce_size` in accordance to the SV2 Pool
         self.min_extranonce_size = m.extranonce_size;
+
         self.channel_id = Some(m.channel_id);
         Ok(SendTo::None(None))
     }

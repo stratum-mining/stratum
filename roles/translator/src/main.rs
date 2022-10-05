@@ -8,7 +8,7 @@ use args::Args;
 use error::{Error, ProxyResult};
 use proxy::next_mining_notify::NextMiningNotify;
 use proxy_config::ProxyConfig;
-use roles_logic_sv2::utils::Mutex;
+use roles_logic_sv2::{mining_sv2::ExtendedExtranonce, utils::Mutex};
 
 use async_channel::{bounded, Receiver, Sender};
 use async_std::task;
@@ -115,12 +115,26 @@ async fn main() {
 
     // SV2-specified minimum extranonce2 size received from `OpenExtendedMiningChannelSuccess`
     let min_extranonce2_size = upstream.safe_lock(|u| u.min_extranonce_size).unwrap() as usize;
+    // Create the `ExtendedExtranonce` to be used to generate `extranonce1`'s on a per-SV1
+    // Downstream MD basis.
+    let extranonce_len = 32;
+    let ext_extranonce_size = min_extranonce2_size;
+    let range_0 = 0..ext_extranonce_size;
+    let range_1 = ext_extranonce_size..ext_extranonce_size + 2;
+    let range_2 = ext_extranonce_size + 2..extranonce_len;
+    let extended_extranonce = ExtendedExtranonce::new(range_0, range_1, range_2);
+    println!(
+        "\n\nSET ExtendedExtranonce Prefix in MAIN: {:?}\n",
+        &extended_extranonce
+    );
+
     // Accept connections from one or more SV1 Downstream roles (SV1 Mining Devices)
     downstream_sv1::Downstream::accept_connections(
         downstream_addr,
         sender_submit_from_sv1,
         recv_mining_notify_downstream,
         min_extranonce2_size,
+        extended_extranonce,
     );
 
     // If this loop is not here, the proxy does not stay live long enough for a Downstream to
