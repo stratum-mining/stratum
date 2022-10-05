@@ -32,6 +32,9 @@ pub struct Upstream {
     submit_from_dowstream: Receiver<SubmitSharesExtended<'static>>,
     new_prev_hash_sender: Sender<SetNewPrevHash<'static>>,
     new_extended_mining_job_sender: Sender<NewExtendedMiningJob<'static>>,
+    /// Minimum `extranonce2` size. Initially requested in the `proxy-config.toml`, and ultimately
+    /// set by the SV2 Upstream via the SV2 `OpenExtendedMiningChannelSuccess` message.
+    pub min_extranonce_size: u16,
 }
 
 impl Upstream {
@@ -46,6 +49,7 @@ impl Upstream {
         submit_from_dowstream: Receiver<SubmitSharesExtended<'static>>,
         new_prev_hash_sender: Sender<SetNewPrevHash<'static>>,
         new_extended_mining_job_sender: Sender<NewExtendedMiningJob<'static>>,
+        min_extranonce_size: u16,
     ) -> ProxyResult<Arc<Mutex<Self>>> {
         // Connect to the SV2 Upstream role
         let socket = TcpStream::connect(address).await?;
@@ -69,6 +73,7 @@ impl Upstream {
             new_prev_hash_sender,
             new_extended_mining_job_sender,
             channel_id: None,
+            min_extranonce_size,
         })))
     }
 
@@ -108,12 +113,13 @@ impl Upstream {
 
         // Send open channel request before returning
         let user_identity = "ABC".to_string().try_into()?;
+        let min_extranonce_size = self_.safe_lock(|s| s.min_extranonce_size).unwrap();
         let open_channel = Mining::OpenExtendedMiningChannel(OpenExtendedMiningChannel {
             request_id: 0.into(),               // TODO
             user_identity,                      // TODO
             nominal_hash_rate: 5.4,             // TODO
             max_target: u256_from_int(567_u64), // TODO
-            min_extranonce_size: 8,
+            min_extranonce_size,
         });
         let sv2_frame: StdFrame = Message::Mining(open_channel).try_into()?;
         connection.send(sv2_frame).await.unwrap();
@@ -367,6 +373,15 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
         m: roles_logic_sv2::mining_sv2::OpenExtendedMiningChannelSuccess,
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error>
     {
+        if self.min_extranonce_size < m.extranonce_size {
+            panic!(
+                "Proxy requested min extranonce size of {}, but pool requires min of {}",
+                self.min_extranonce_size, m.extranonce_size
+            );
+        }
+
+        // Set the `min_extranonce_size` in accordance to the SV2 Pool
+        self.min_extranonce_size = m.extranonce_size;
         self.channel_id = Some(m.channel_id);
         Ok(SendTo::None(None))
     }

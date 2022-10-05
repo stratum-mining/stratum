@@ -9,4 +9,5 @@ pub struct ProxyConfig {
     pub downstream_port: u16,
     pub max_supported_version: u16,
     pub min_supported_version: u16,
+    pub min_extranonce2_size: u16,
 }
