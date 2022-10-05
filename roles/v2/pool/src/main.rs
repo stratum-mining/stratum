@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
 use async_channel::bounded;
 use codec_sv2::{
     noise_sv2::formats::{EncodedEd25519PublicKey, EncodedEd25519SecretKey},
@@ -10,12 +8,13 @@ use roles_logic_sv2::{
     parsers::PoolMessages,
 };
 use serde::Deserialize;
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 
 mod lib;
 
 use lib::{mining_pool::Pool, template_receiver::TemplateRx};
 use logging::*;
-
 
 pub type Message = PoolMessages<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;
@@ -108,11 +107,22 @@ struct TrackingLogger {
 }
 impl Logger for TrackingLogger {
     fn log(&self, record: &Record) {
-        *self.lines.lock().unwrap().entry((record.module_path.to_string(), format!("{}", record.args))).or_insert(0) += 1;
-        println!("{:<5} [{} : {}, {}] {}", record.level.to_string(), record.module_path, record.file, record.line, record.args);
+        *self
+            .lines
+            .lock()
+            .unwrap()
+            .entry((record.module_path.to_string(), format!("{}", record.args)))
+            .or_insert(0) += 1;
+        println!(
+            "{:<5} [{} : {}, {}] {}",
+            record.level.to_string(),
+            record.module_path,
+            record.file,
+            record.line,
+            record.args
+        );
     }
 }
-
 
 #[tokio::main]
 async fn main() {

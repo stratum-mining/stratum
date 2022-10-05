@@ -1,6 +1,7 @@
 use crate::{EitherFrame, StdFrame};
 use async_channel::{Receiver, Sender};
 use codec_sv2::Frame;
+use logging::*;
 use network_helpers::plain_connection_tokio::PlainConnection;
 use roles_logic_sv2::{
     handlers::template_distribution::ParseServerTemplateDistributionMessages,
@@ -8,17 +9,19 @@ use roles_logic_sv2::{
     template_distribution_sv2::{NewTemplate, SetNewPrevHash, SubmitSolution},
     utils::Mutex,
 };
-use std::{convert::TryInto, net::SocketAddr, sync::Arc};
 use std::ops::Deref;
-use tokio::{net::TcpStream, task};
+use std::{convert::TryInto, net::SocketAddr, sync::Arc};
 use tokio::time::sleep;
-use logging::*;
+use tokio::{net::TcpStream, task};
 
 mod message_handler;
 mod setup_connection;
 use setup_connection::SetupConnectionHandler;
 
-pub struct TemplateRx<L: Deref> where L::Target: Logger {
+pub struct TemplateRx<L: Deref>
+where
+    L::Target: Logger,
+{
     receiver: Receiver<EitherFrame>,
     sender: Sender<EitherFrame>,
     new_template_sender: Sender<NewTemplate<'static>>,
@@ -26,7 +29,11 @@ pub struct TemplateRx<L: Deref> where L::Target: Logger {
     logger: L,
 }
 
-impl <L: Deref> TemplateRx<L> where L::Target: Logger, L: 'static + Send{
+impl<L: Deref> TemplateRx<L>
+where
+    L::Target: Logger,
+    L: 'static + Send,
+{
     pub async fn connect(
         borrowed_logger: L,
         address: SocketAddr,
@@ -44,8 +51,12 @@ impl <L: Deref> TemplateRx<L> where L::Target: Logger, L: 'static + Send{
                     if attempts == 0 {
                         panic!("Failed to connect to template distribution server");
                     } else {
-                        log_error!(borrowed_logger, "Failed to connect to template distribution server \
-                            retrying in 5s, {} attempts left", attempts);
+                        log_error!(
+                            borrowed_logger,
+                            "Failed to connect to template distribution server \
+                            retrying in 5s, {} attempts left",
+                            attempts
+                        );
                         sleep(std::time::Duration::from_secs(5)).await;
                         continue;
                     }

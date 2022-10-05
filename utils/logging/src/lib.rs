@@ -7,7 +7,6 @@
 // You may not use this file except in accordance with one or both of these
 // licenses.
 
-
 //! Log traits live here, which are called throughout the library to provide useful information for
 //! debugging purposes.
 //!
@@ -105,13 +104,19 @@ impl<'a> Record<'a> {
     /// Returns a new Record.
     /// (C-not exported) as fmt can't be used in C
     #[inline]
-    pub fn new(level: Level, args: fmt::Arguments<'a>, module_path: &'static str, file: &'static str, line: u32) -> Record<'a> {
+    pub fn new(
+        level: Level,
+        args: fmt::Arguments<'a>,
+        module_path: &'static str,
+        file: &'static str,
+        line: u32,
+    ) -> Record<'a> {
         Record {
             level,
             args,
             module_path,
             file,
-            line
+            line,
         }
     }
 }
@@ -144,7 +149,6 @@ macro_rules! log_internal {
 		$logger.log(&Record::new($lvl, format_args!($($arg)+), module_path!(), file!(), line!()))
 	);
 }
-
 
 /// Logs an entry at the given level.
 #[doc(hidden)]
@@ -224,9 +228,9 @@ macro_rules! log_gossip {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::HashMap;
     use std::sync::Arc;
     use std::sync::Mutex;
-    use std::collections::HashMap;
 
     pub struct TestLogger {
         level: Level,
@@ -242,7 +246,7 @@ mod tests {
             TestLogger {
                 level: Level::Trace,
                 id,
-                lines: Mutex::new(HashMap::new())
+                lines: Mutex::new(HashMap::new()),
             }
         }
         pub fn enable(&mut self, level: Level) {
@@ -259,9 +263,11 @@ mod tests {
         /// And asserts if the number of occurrences is the same with the given `count`
         pub fn assert_log_contains(&self, module: String, line: String, count: usize) {
             let log_entries = self.lines.lock().unwrap();
-            let l: usize = log_entries.iter().filter(|&(&(ref m, ref l), _c)| {
-                m == &module && l.contains(line.as_str())
-            }).map(|(_, c) | { c }).sum();
+            let l: usize = log_entries
+                .iter()
+                .filter(|&(&(ref m, ref l), _c)| m == &module && l.contains(line.as_str()))
+                .map(|(_, c)| c)
+                .sum();
             assert_eq!(l, count)
         }
 
@@ -271,19 +277,34 @@ mod tests {
         /// Assert that the number of occurrences equals the given `count`
         pub fn assert_log_regex(&self, module: String, pattern: regex::Regex, count: usize) {
             let log_entries = self.lines.lock().unwrap();
-            let l: usize = log_entries.iter().filter(|&(&(ref m, ref l), _c)| {
-                m == &module && pattern.is_match(&l)
-            }).map(|(_, c) | { c }).sum();
+            let l: usize = log_entries
+                .iter()
+                .filter(|&(&(ref m, ref l), _c)| m == &module && pattern.is_match(&l))
+                .map(|(_, c)| c)
+                .sum();
             assert_eq!(l, count)
         }
     }
 
     impl Logger for TestLogger {
         fn log(&self, record: &Record) {
-            *self.lines.lock().unwrap().entry((record.module_path.to_string(), format!("{}", record.args))).or_insert(0) += 1;
+            *self
+                .lines
+                .lock()
+                .unwrap()
+                .entry((record.module_path.to_string(), format!("{}", record.args)))
+                .or_insert(0) += 1;
             if record.level >= self.level {
                 #[cfg(feature = "std")]
-                println!("{:<5} {} [{} : {}, {}] {}", record.level.to_string(), self.id, record.module_path, record.file, record.line, record.args);
+                println!(
+                    "{:<5} {} [{} : {}, {}] {}",
+                    record.level.to_string(),
+                    self.id,
+                    record.module_path,
+                    record.file,
+                    record.line,
+                    record.args
+                );
             }
         }
     }
@@ -296,14 +317,12 @@ mod tests {
     }
 
     struct WrapperLog {
-        logger: Arc<dyn Logger>
+        logger: Arc<dyn Logger>,
     }
 
     impl WrapperLog {
         fn new(logger: Arc<dyn Logger>) -> WrapperLog {
-            WrapperLog {
-                logger,
-            }
+            WrapperLog { logger }
         }
 
         fn call_macros(&self) {
@@ -320,7 +339,7 @@ mod tests {
     fn test_logging_macros() {
         let mut logger = TestLogger::new();
         logger.enable(Level::Gossip);
-        let logger : Arc<dyn Logger> = Arc::new(logger);
+        let logger: Arc<dyn Logger> = Arc::new(logger);
         let wrapper = WrapperLog::new(Arc::clone(&logger));
         wrapper.call_macros();
     }

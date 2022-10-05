@@ -1,5 +1,5 @@
-use std::ops::Deref;
 use crate::lib::template_receiver::TemplateRx;
+use logging::Logger;
 use roles_logic_sv2::{
     errors::Error,
     handlers::template_distribution::{ParseServerTemplateDistributionMessages, SendTo},
@@ -7,10 +7,13 @@ use roles_logic_sv2::{
     template_distribution_sv2::*,
     utils::Mutex,
 };
+use std::ops::Deref;
 use std::sync::Arc;
-use logging::Logger;
 
-impl <L: Deref> ParseServerTemplateDistributionMessages for TemplateRx<L> where L::Target: Logger{
+impl<L: Deref> ParseServerTemplateDistributionMessages for TemplateRx<L>
+where
+    L::Target: Logger,
+{
     fn handle_new_template(&mut self, m: NewTemplate) -> Result<SendTo, Error> {
         let new_template = NewTemplate {
             template_id: m.template_id,
