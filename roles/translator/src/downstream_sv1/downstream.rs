@@ -6,8 +6,10 @@ use async_std::{
     prelude::*,
     task,
 };
+use binary_sv2::B032;
 use roles_logic_sv2::{
     common_properties::{IsDownstream, IsMiningDownstream},
+    mining_sv2::ExtendedExtranonce,
     utils::Mutex,
 };
 use std::{net::SocketAddr, sync::Arc};
@@ -22,6 +24,7 @@ use v1::{
 #[derive(Debug)]
 pub struct Downstream {
     authorized_names: Vec<String>,
+    extended_extranonce: ExtendedExtranonce,
     extranonce1: HexBytes,
     extranonce2_size: usize,
     version_rolling_mask: Option<HexU32Be>,
@@ -36,6 +39,7 @@ impl Downstream {
         submit_sender: Sender<v1::client_to_server::Submit>,
         mining_notify_receiver: Receiver<server_to_client::Notify>,
         extranonce2_size: usize,
+        extended_extranonce: ExtendedExtranonce,
     ) -> ProxyResult<Arc<Mutex<Self>>> {
         let stream = std::sync::Arc::new(stream);
 
@@ -50,7 +54,8 @@ impl Downstream {
 
         let downstream = Arc::new(Mutex::new(Downstream {
             authorized_names: vec![],
-            extranonce1: "00000000".try_into()?,
+            extended_extranonce,
+            extranonce1: "00000000".try_into()?, // TODO
             extranonce2_size,
             version_rolling_mask: None,
             version_rolling_min_bit: None,
@@ -166,6 +171,7 @@ impl Downstream {
         submit_sender: Sender<v1::client_to_server::Submit>,
         receiver_mining_notify: Receiver<server_to_client::Notify>,
         extranonce2_size: usize,
+        extended_extranonce: ExtendedExtranonce,
     ) {
         task::spawn(async move {
             let downstream_listener = TcpListener::bind(downstream_addr).await.unwrap();
@@ -181,6 +187,7 @@ impl Downstream {
                     submit_sender.clone(),
                     receiver_mining_notify.clone(),
                     extranonce2_size,
+                    extended_extranonce.clone(),
                 )
                 .await
                 .unwrap();
@@ -297,8 +304,16 @@ impl IsServer for Downstream {
     }
 
     /// Set extranonce1 to extranonce1 if provided. If not create a new one and set it.
-    fn set_extranonce1(&mut self, extranonce1: Option<HexBytes>) -> HexBytes {
-        self.extranonce1 = extranonce1.unwrap_or_else(downstream_sv1::new_extranonce);
+    fn set_extranonce1(&mut self, _extranonce1: Option<HexBytes>) -> HexBytes {
+        let next_extranonce = self
+            .extended_extranonce
+            .next_extended(self.extranonce2_size)
+            .unwrap();
+        let next_extranonce_b032: B032 = next_extranonce.try_into().unwrap();
+        let next_extranonce_vec = next_extranonce_b032.to_vec();
+        let next_extranonce_vec = next_extranonce_vec[0..=18].to_vec();
+        self.extranonce1 = next_extranonce_vec.try_into().unwrap();
+
         self.extranonce1.clone()
     }
 

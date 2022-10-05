@@ -1,11 +1,7 @@
-use v1::utils::{HexBytes, HexU32Be};
+use v1::utils::HexU32Be;
 
 pub mod downstream;
 pub use downstream::Downstream;
-
-pub fn new_extranonce() -> HexBytes {
-    "08000002".try_into().unwrap()
-}
 
 pub fn new_difficulty() -> f64 {
     1.0
