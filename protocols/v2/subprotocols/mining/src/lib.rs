@@ -165,9 +165,7 @@ impl From<[u8; 32]> for Target {
 
 impl From<Extranonce> for alloc::vec::Vec<u8> {
     fn from(v: Extranonce) -> Self {
-        let head: [u8; 16] = v.head.to_le_bytes();
-        let tail: [u8; 16] = v.tail.to_le_bytes();
-        [head, tail].concat()
+        v.extranonce
     }
 }
 
@@ -210,31 +208,26 @@ impl Ord for Target {
 
 // WARNING: do not derive Copy on this type. Some operations performed to a copy of an extranonce
 // do not affect the original, and this may lead to different extranonce inconsistency
-#[derive(Debug, Clone, Default, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 /// Extranonce bytes which need to be added to the coinbase to form a fully valid submission:
 /// (full coinbase = coinbase_tx_prefix + extranonce + coinbase_tx_suffix).
 /// Representation is in big endian, so tail is for the digits relative to smaller powers
 pub struct Extranonce {
-    head: u128,
-    tail: u128,
+    extranonce: alloc::vec::Vec<u8>,
 }
 
 // this function converts a U256 type in little endian to Extranonce type
 impl<'a> From<U256<'a>> for Extranonce {
     fn from(v: U256<'a>) -> Self {
-        let inner = v.inner_as_ref();
-        // below unwraps never panics
-        let head = u128::from_le_bytes(inner[..16].try_into().unwrap());
-        let tail = u128::from_le_bytes(inner[16..].try_into().unwrap());
-        Self { head, tail }
+        let extranonce: alloc::vec::Vec<u8> = v.inner_as_ref().into();
+        Self { extranonce }
     }
 }
 
 // This function converts an Extranonce type to U256n little endian
 impl<'a> From<Extranonce> for U256<'a> {
     fn from(v: Extranonce) -> Self {
-        let mut inner = v.head.to_le_bytes().to_vec();
-        inner.extend_from_slice(&v.tail.to_le_bytes());
+        let inner = v.extranonce.to_vec();
         // below unwraps never panics
         inner.try_into().unwrap()
     }
@@ -243,33 +236,36 @@ impl<'a> From<Extranonce> for U256<'a> {
 // this function converts an extranonce to the type B032
 impl<'a> From<B032<'a>> for Extranonce {
     fn from(v: B032<'a>) -> Self {
-        let inner = v.inner_as_ref();
-        // tail and head inverted cause are serialized as le bytes
-        let mut tail = alloc::vec::Vec::with_capacity(32 - inner.len());
-        tail.resize(32 - inner.len(), 0_u8);
-        let inner = &[inner, &tail].concat();
-        // below unwraps never panics
-        let tail = u128::from_le_bytes(inner[..16].try_into().unwrap());
-        let head = u128::from_le_bytes(inner[16..].try_into().unwrap());
-        Self { head, tail }
+        let extranonce: alloc::vec::Vec<u8> = v.inner_as_ref().into();
+        Self { extranonce }
     }
 }
 
 // this function converts an Extranonce type in B032 in little endian
 impl<'a> From<Extranonce> for B032<'a> {
     fn from(v: Extranonce) -> Self {
-        // tail and head inverted cause are serialized as le bytes
-        let mut extranonce = v.tail.to_le_bytes().to_vec();
-        extranonce.append(&mut v.head.to_le_bytes().to_vec());
+        let inner = v.extranonce.to_vec();
         // below unwraps never panics
-        extranonce.try_into().unwrap()
+        inner.try_into().unwrap()
+    }
+}
+
+impl Default for Extranonce {
+    fn default() -> Self {
+        Self {
+            extranonce: vec![0; 32],
+        }
     }
 }
 
 impl Extranonce {
-    /// This method generates a new extranonce, with head and tail equal to zero
-    pub fn new() -> Self {
-        Self { head: 0, tail: 0 }
+    pub fn new(len: usize) -> Option<Self> {
+        if len > 32 {
+            None
+        } else {
+            let extranonce = vec![0; len];
+            Some(Self { extranonce })
+        }
     }
 
     pub fn into_b032(self) -> B032<'static> {
@@ -277,31 +273,18 @@ impl Extranonce {
     }
 
     #[allow(clippy::should_implement_trait)]
-    pub fn next(&mut self) -> B032 {
-        match (self.tail, self.head) {
-            (u128::MAX, u128::MAX) => panic!(),
-            (u128::MAX, head) => {
-                self.head = head + 1;
-                self.tail = 0;
-            }
-            (tail, _) => {
-                self.tail = tail + 1;
-            }
-        };
-        let mut extranonce = self.tail.to_le_bytes().to_vec();
-        extranonce.append(&mut self.head.to_le_bytes().to_vec());
+    pub fn next(&mut self) -> Option<B032> {
+        increment_bytes_be(&mut self.extranonce).ok()?;
         // below unwraps never panics
-        extranonce.try_into().unwrap()
+        Some(self.extranonce.clone().try_into().unwrap())
     }
 }
 
 impl From<&mut ExtendedExtranonce> for Extranonce {
     fn from(v: &mut ExtendedExtranonce) -> Self {
-        let head: [u8; 16] = v.inner[0..16].try_into().unwrap();
-        let tail: [u8; 16] = v.inner[16..32].try_into().unwrap();
-        let head = u128::from_be_bytes(head);
-        let tail = u128::from_be_bytes(tail);
-        Self { head, tail }
+        Self {
+            extranonce: v.inner.to_vec(),
+        }
     }
 }
 
@@ -377,11 +360,14 @@ impl ExtendedExtranonce {
         range_1: Range<usize>,
         range_2: Range<usize>,
     ) -> Self {
-        let head = v.head.to_be_bytes();
-        let tail = v.tail.to_be_bytes();
-        assert!(range_2.end == EXTRANONCE_LEN);
+        let inner = v.extranonce;
+        let rest = vec![0; 32 - inner.len()];
         // below unwraps never panics
-        let inner: [u8; EXTRANONCE_LEN] = [head, tail].concat().try_into().unwrap();
+        let mut inner: [u8; EXTRANONCE_LEN] = [inner, rest].concat().try_into().unwrap();
+        let non_reserved_extranonces_bytes = &mut inner[range_2.start..range_2.end];
+        for b in non_reserved_extranonces_bytes {
+            *b = 0;
+        }
         Self {
             inner,
             range_0,
