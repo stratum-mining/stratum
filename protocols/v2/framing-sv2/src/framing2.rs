@@ -309,10 +309,10 @@ impl<'a> Frame<'a, Slice> for NoiseFrame {
 
 fn update_extension_type(extension_type: u16, channel_msg: bool) -> u16 {
     if channel_msg {
-        let mask = 0b0000_0000_0000_0001;
+        let mask = 0b1000_0000_0000_0000;
         extension_type | mask
     } else {
-        let mask = 0b1111_1111_1111_1110;
+        let mask = 0b0111_1111_1111_1111;
         extension_type & mask
     }
 }
