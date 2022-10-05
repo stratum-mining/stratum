@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 use async_channel::bounded;
 use codec_sv2::{
     noise_sv2::formats::{EncodedEd25519PublicKey, EncodedEd25519SecretKey},
@@ -12,6 +14,8 @@ use serde::Deserialize;
 mod lib;
 
 use lib::{mining_pool::Pool, template_receiver::TemplateRx};
+use logging::*;
+
 
 pub type Message = PoolMessages<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;
@@ -98,6 +102,18 @@ mod args {
     }
 }
 
+struct TrackingLogger {
+    /// (module, message) -> count
+    pub lines: Mutex<HashMap<(String, String), usize>>,
+}
+impl Logger for TrackingLogger {
+    fn log(&self, record: &Record) {
+        *self.lines.lock().unwrap().entry((record.module_path.to_string(), format!("{}", record.args))).or_insert(0) += 1;
+        println!("{:<5} [{} : {}, {}] {}", record.level.to_string(), record.module_path, record.file, record.line, record.args);
+    }
+}
+
+
 #[tokio::main]
 async fn main() {
     let args = match args::Args::from_args() {
@@ -116,11 +132,18 @@ async fn main() {
         }
     };
 
+    let logger = TrackingLogger {
+        lines: Mutex::new(HashMap::new()),
+    };
+
+    log_info!(logger, "Starting pool - WITH LOGGER");
+
     let (s_new_t, r_new_t) = bounded(10);
     let (s_prev_hash, r_prev_hash) = bounded(10);
     let (s_solution, r_solution) = bounded(10);
     println!("POOL INTITIALIZING ");
     TemplateRx::connect(
+        Arc::new(logger),
         config.tp_address.parse().unwrap(),
         s_new_t,
         s_prev_hash,

@@ -36,6 +36,7 @@ members = [
     "roles/v2/test-utils/pool",
     "roles/translator",
     "utils/network-helpers",
+    "utils/logging",
     "utils/buffer",
     "examples/sv1-client-and-server",
     "examples/sv1-mining-device",

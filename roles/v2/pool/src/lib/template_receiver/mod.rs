@@ -9,27 +9,51 @@ use roles_logic_sv2::{
     utils::Mutex,
 };
 use std::{convert::TryInto, net::SocketAddr, sync::Arc};
+use std::ops::Deref;
 use tokio::{net::TcpStream, task};
+use tokio::time::sleep;
+use logging::*;
 
 mod message_handler;
 mod setup_connection;
 use setup_connection::SetupConnectionHandler;
 
-pub struct TemplateRx {
+pub struct TemplateRx<L: Deref> where L::Target: Logger {
     receiver: Receiver<EitherFrame>,
     sender: Sender<EitherFrame>,
     new_template_sender: Sender<NewTemplate<'static>>,
     new_prev_hash_sender: Sender<SetNewPrevHash<'static>>,
+    logger: L,
 }
 
-impl TemplateRx {
+impl <L: Deref> TemplateRx<L> where L::Target: Logger, L: 'static + Send{
     pub async fn connect(
+        borrowed_logger: L,
         address: SocketAddr,
         templ_sender: Sender<NewTemplate<'static>>,
         prev_h_sender: Sender<SetNewPrevHash<'static>>,
         solution_receiver: Receiver<SubmitSolution<'static>>,
     ) {
-        let stream = TcpStream::connect(address).await.unwrap();
+        let mut attempts = 10;
+
+        let stream = loop {
+            match TcpStream::connect(address).await {
+                Ok(st) => break st,
+                Err(_) => {
+                    attempts -= 1;
+                    if attempts == 0 {
+                        panic!("Failed to connect to template distribution server");
+                    } else {
+                        log_error!(borrowed_logger, "Failed to connect to template distribution server \
+                            retrying in 5s, {} attempts left", attempts);
+                        sleep(std::time::Duration::from_secs(5)).await;
+                        continue;
+                    }
+                }
+            }
+        };
+
+        log_info!(borrowed_logger, "Connected to template distribution server");
 
         let (mut receiver, mut sender): (Receiver<EitherFrame>, Sender<EitherFrame>) =
             PlainConnection::new(stream).await;
@@ -39,6 +63,7 @@ impl TemplateRx {
             .unwrap();
 
         let self_ = Arc::new(Mutex::new(Self {
+            logger: borrowed_logger,
             receiver,
             sender,
             new_template_sender: templ_sender,
@@ -65,6 +90,7 @@ impl TemplateRx {
             let mut message_from_tp: StdFrame = message_from_tp.try_into().unwrap();
             let message_type = message_from_tp.get_header().unwrap().msg_type();
             let payload = message_from_tp.payload();
+
             match ParseServerTemplateDistributionMessages::handle_message_template_distribution(
                 self_.clone(),
                 message_type,

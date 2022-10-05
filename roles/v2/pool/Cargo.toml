@@ -19,3 +19,4 @@ roles_logic_sv2 = { path = "../../../protocols/v2/roles-logic-sv2" }
 serde = { version = "1.0.89", features = ["derive", "alloc"], default-features = false }
 tokio = { version = "1", features = ["full"] }
 toml = { git = "https://github.com/diondokter/toml-rs", default-features = false, rev = "c4161aa" }
+logging = { path = "../../../utils/logging" }
