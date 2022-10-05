@@ -17,7 +17,7 @@ impl UpstreamWithGroups {
         Self {
             groups: HashMap::new(),
             ids: Id::new(),
-            extranonces: Extranonce::new(),
+            extranonces: Extranonce::default(),
         }
     }
 
@@ -47,7 +47,7 @@ impl UpstreamWithGroups {
             request_id: request_id.into(),
             channel_id,
             target: target_from_hash_rate(downstream_hr, 1.0),
-            extranonce_prefix: self.extranonces.next(),
+            extranonce_prefix: self.extranonces.next().ok_or(Error::NoMoreExtranonces)?,
             group_channel_id: group_id,
         })
     }
@@ -64,7 +64,7 @@ mod tests {
         let expect = UpstreamWithGroups {
             groups: HashMap::new(),
             ids: Id::new(),
-            extranonces: Extranonce::new(),
+            extranonces: Extranonce::default(),
         };
 
         let actual = UpstreamWithGroups::new();
@@ -79,13 +79,13 @@ mod tests {
         let mut expect_upstream_with_groups = UpstreamWithGroups {
             groups: HashMap::new(),
             ids: Id::new(),
-            extranonces: Extranonce::new(),
+            extranonces: Extranonce::default(),
         };
 
         let mut upstream_with_groups = UpstreamWithGroups {
             groups: HashMap::new(),
             ids: Id::new(),
-            extranonces: Extranonce::new(),
+            extranonces: Extranonce::default(),
         };
         assert!(upstream_with_groups.groups.is_empty());
 
@@ -188,7 +188,7 @@ mod tests {
             request_id: request_id.into(),
             channel_id: 1,
             target: target_from_hash_rate(downstream_hr, 1.0),
-            extranonce_prefix: extranonce.next(),
+            extranonce_prefix: extranonce.next().unwrap(),
             group_channel_id,
         };
 
@@ -206,7 +206,7 @@ mod tests {
         let mut upstream_with_groups = UpstreamWithGroups {
             groups: HashMap::new(),
             ids: Id::new(),
-            extranonces: Extranonce::new(),
+            extranonces: Extranonce::default(),
         };
 
         let group_id = 0;

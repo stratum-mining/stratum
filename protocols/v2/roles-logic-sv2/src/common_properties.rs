@@ -259,7 +259,7 @@ mod tests {
             channel_id: 0,
             group_id: 0,
             target: u256_from_int(45_u32).into(),
-            extranonce: mining_sv2::Extranonce::new(),
+            extranonce: mining_sv2::Extranonce::default(),
         });
         let actual = channel.group_id().unwrap();
 
@@ -291,7 +291,7 @@ mod tests {
             channel_id: 0,
             group_id: 0,
             target: u256_from_int(45_u32).into(),
-            extranonce: mining_sv2::Extranonce::new(),
+            extranonce: mining_sv2::Extranonce::default(),
         });
         let actual = channel.channel_id();
 
