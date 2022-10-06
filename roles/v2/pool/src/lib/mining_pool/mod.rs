@@ -708,7 +708,7 @@ impl Pool {
             )),
             last_new_prev_hash: None,
             extranonces: Arc::new(Mutex::new(ExtendedExtranonce::new(
-                range_0, range_1, range_2,
+                range_0, range_1, range_2, 32,
             ))),
             solution_sender,
             new_template_processed: false,
