@@ -46,7 +46,7 @@ impl From<Authorize> for Message {
         Message::StandardRequest(StandardRequest {
             id: auth.id,
             method: "mining.authorize".into(),
-            parameters: (&[auth.name, auth.password][..]).into(),
+            params: (&[auth.name, auth.password][..]).into(),
         })
     }
 }
@@ -55,16 +55,16 @@ impl TryFrom<StandardRequest> for Authorize {
     type Error = ParsingMethodError;
 
     fn try_from(msg: StandardRequest) -> Result<Self, Self::Error> {
-        match msg.parameters.as_array() {
+        match msg.params.as_array() {
             Some(params) => {
                 let (name, password) = match &params[..] {
                     [JString(a), JString(b)] => (a.into(), b.into()),
-                    _ => return Err(ParsingMethodError::wrong_args_from_value(msg.parameters)),
+                    _ => return Err(ParsingMethodError::wrong_args_from_value(msg.params)),
                 };
                 let id = msg.id;
                 Ok(Self { id, name, password })
             }
-            None => Err(ParsingMethodError::not_array_from_value(msg.parameters)),
+            None => Err(ParsingMethodError::not_array_from_value(msg.params)),
         }
     }
 }
@@ -140,7 +140,7 @@ impl Submit {
 impl From<Submit> for Message {
     fn from(submit: Submit) -> Self {
         let ex: String = submit.extra_nonce2.into();
-        let mut parameters: Vec<Value> = vec![
+        let mut params: Vec<Value> = vec![
             submit.user_name.into(),
             submit.job_id.into(),
             ex.into(),
@@ -149,12 +149,12 @@ impl From<Submit> for Message {
         ];
         if let Some(a) = submit.version_bits {
             let a: String = a.into();
-            parameters.push(a.into());
+            params.push(a.into());
         };
         Message::StandardRequest(StandardRequest {
             id: submit.id,
             method: "mining.submit".into(),
-            parameters: parameters.into(),
+            params: params.into(),
         })
     }
 }
@@ -164,7 +164,7 @@ impl TryFrom<StandardRequest> for Submit {
 
     #[allow(clippy::many_single_char_names)]
     fn try_from(msg: StandardRequest) -> Result<Self, Self::Error> {
-        match msg.parameters.as_array() {
+        match msg.params.as_array() {
             Some(params) => {
                 let (user_name, job_id, extra_nonce2, time, nonce, version_bits) = match &params[..]
                 {
@@ -188,7 +188,7 @@ impl TryFrom<StandardRequest> for Submit {
                             .ok_or_else(|| ParsingMethodError::not_int_from_value(e.clone()))?,
                         None,
                     ),
-                    _ => return Err(ParsingMethodError::wrong_args_from_value(msg.parameters)),
+                    _ => return Err(ParsingMethodError::wrong_args_from_value(msg.params)),
                 };
                 let id = msg.id;
                 let res = crate::client_to_server::Submit {
@@ -202,7 +202,7 @@ impl TryFrom<StandardRequest> for Submit {
                 };
                 Ok(res)
             }
-            None => Err(ParsingMethodError::not_array_from_value(msg.parameters)),
+            None => Err(ParsingMethodError::not_array_from_value(msg.params)),
         }
     }
 }
@@ -281,14 +281,14 @@ impl TryFrom<Subscribe> for Message {
     type Error = Error;
 
     fn try_from(subscribe: Subscribe) -> Result<Self, Error> {
-        let parameters = match (subscribe.agent_signature, subscribe.extranonce1) {
+        let params = match (subscribe.agent_signature, subscribe.extranonce1) {
             (a, Some(b)) => vec![a, b.try_into()?],
             (a, None) => vec![a],
         };
         Ok(Message::StandardRequest(StandardRequest {
             id: subscribe.id,
             method: "mining.subscribe".into(),
-            parameters: (&parameters[..]).into(),
+            params: (&params[..]).into(),
         }))
     }
 }
@@ -297,12 +297,12 @@ impl TryFrom<StandardRequest> for Subscribe {
     type Error = ParsingMethodError;
 
     fn try_from(msg: StandardRequest) -> Result<Self, Self::Error> {
-        match msg.parameters.as_array() {
+        match msg.params.as_array() {
             Some(params) => {
                 let (agent_signature, extranonce1) = match &params[..] {
                     [JString(a), JString(b)] => (a.into(), Some(b.as_str().try_into()?)),
                     [JString(a)] => (a.into(), None),
-                    _ => return Err(ParsingMethodError::wrong_args_from_value(msg.parameters)),
+                    _ => return Err(ParsingMethodError::wrong_args_from_value(msg.params)),
                 };
                 let id = msg.id;
                 let res = Subscribe {
@@ -312,7 +312,7 @@ impl TryFrom<StandardRequest> for Subscribe {
                 };
                 Ok(res)
             }
-            None => Err(ParsingMethodError::not_array_from_value(msg.parameters)),
+            None => Err(ParsingMethodError::not_array_from_value(msg.params)),
         }
     }
 }
@@ -378,7 +378,7 @@ impl Configure {
 
 impl From<Configure> for Message {
     fn from(conf: Configure) -> Self {
-        let mut parameters = serde_json::Map::new();
+        let mut params = serde_json::Map::new();
         let extension_names: Vec<Value> = conf
             .extensions
             .iter()
@@ -386,12 +386,12 @@ impl From<Configure> for Message {
             .collect();
         for parameter in conf.extensions {
             let mut parameter: serde_json::Map<String, Value> = parameter.into();
-            parameters.append(&mut parameter);
+            params.append(&mut parameter);
         }
         Message::StandardRequest(StandardRequest {
             id: conf.id,
             method: "mining.configure".into(),
-            parameters: vec![JArrary(extension_names), parameters.into()].into(),
+            params: vec![JArrary(extension_names), params.into()].into(),
         })
     }
 }
@@ -400,7 +400,7 @@ impl TryFrom<StandardRequest> for Configure {
     type Error = ParsingMethodError;
 
     fn try_from(msg: StandardRequest) -> Result<Self, Self::Error> {
-        let extensions = ConfigureExtension::from_value(&msg.parameters)?;
+        let extensions = ConfigureExtension::from_value(&msg.params)?;
         let id = msg.id;
         Ok(Self { extensions, id })
     }

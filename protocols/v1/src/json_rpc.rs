@@ -33,13 +33,13 @@ impl Message {
 pub struct StandardRequest {
     pub id: String, // can be number
     pub method: String,
-    pub parameters: serde_json::Value,
+    pub params: serde_json::Value,
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Notification {
     pub method: String,
-    pub parameters: serde_json::Value,
+    pub params: serde_json::Value,
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]

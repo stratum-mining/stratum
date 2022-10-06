@@ -67,7 +67,7 @@ impl TryFrom<Notify> for Message {
         let time: Value = notify.time.try_into()?;
         Ok(Message::Notification(Notification {
             method: "mining.notify".to_string(),
-            parameters: (&[
+            params: (&[
                 notify.job_id.into(),
                 prev_hash,
                 coin_base1,
@@ -89,9 +89,9 @@ impl TryFrom<Notification> for Notify {
     #[allow(clippy::many_single_char_names)]
     fn try_from(msg: Notification) -> Result<Self, Self::Error> {
         let params = msg
-            .parameters
+            .params
             .as_array()
-            .ok_or_else(|| ParsingMethodError::not_array_from_value(msg.parameters.clone()))?;
+            .ok_or_else(|| ParsingMethodError::not_array_from_value(msg.params.clone()))?;
         let (
             job_id,
             prev_hash,
@@ -116,7 +116,7 @@ impl TryFrom<Notification> for Notify {
                     *i,
                 )
             }
-            _ => return Err(ParsingMethodError::wrong_args_from_value(msg.parameters)),
+            _ => return Err(ParsingMethodError::wrong_args_from_value(msg.params)),
         };
         let mut merkle_branch = vec![];
         for h in merkle_branch_ {
@@ -157,7 +157,7 @@ impl From<SetDifficulty> for Message {
         let value: Value = sd.value.into();
         Message::Notification(Notification {
             method: "mining.set_difficulty".to_string(),
-            parameters: (&[value][..]).into(),
+            params: (&[value][..]).into(),
         })
     }
 }
@@ -167,14 +167,14 @@ impl TryFrom<Notification> for SetDifficulty {
 
     fn try_from(msg: Notification) -> Result<Self, Self::Error> {
         let params = msg
-            .parameters
+            .params
             .as_array()
-            .ok_or_else(|| ParsingMethodError::not_array_from_value(msg.parameters.clone()))?;
+            .ok_or_else(|| ParsingMethodError::not_array_from_value(msg.params.clone()))?;
         let (value,) = match &params[..] {
             [a] => (a
                 .as_f64()
                 .ok_or_else(|| ParsingMethodError::not_float_from_value(a.clone()))?,),
-            _ => return Err(ParsingMethodError::wrong_args_from_value(msg.parameters)),
+            _ => return Err(ParsingMethodError::wrong_args_from_value(msg.params)),
         };
         Ok(SetDifficulty { value })
     }
@@ -204,7 +204,7 @@ impl TryFrom<SetExtranonce> for Message {
         let extra_nonce2_size: Value = se.extra_nonce2_size.into();
         Ok(Message::Notification(Notification {
             method: "mining.set_extranonce".to_string(),
-            parameters: (&[extra_nonce1, extra_nonce2_size][..]).into(),
+            params: (&[extra_nonce1, extra_nonce2_size][..]).into(),
         }))
     }
 }
@@ -214,9 +214,9 @@ impl TryFrom<Notification> for SetExtranonce {
 
     fn try_from(msg: Notification) -> Result<Self, Self::Error> {
         let params = msg
-            .parameters
+            .params
             .as_array()
-            .ok_or_else(|| ParsingMethodError::not_array_from_value(msg.parameters.clone()))?;
+            .ok_or_else(|| ParsingMethodError::not_array_from_value(msg.params.clone()))?;
         let (extra_nonce1, extra_nonce2_size) = match &params[..] {
             [JString(a), JNumber(b)] => (
                 a.as_str().try_into()?,
@@ -224,7 +224,7 @@ impl TryFrom<Notification> for SetExtranonce {
                     .ok_or_else(|| ParsingMethodError::not_unsigned_from_value(b.clone()))?
                     as usize,
             ),
-            _ => return Err(ParsingMethodError::wrong_args_from_value(msg.parameters)),
+            _ => return Err(ParsingMethodError::wrong_args_from_value(msg.params)),
         };
         Ok(SetExtranonce {
             extra_nonce1,
@@ -246,7 +246,7 @@ impl TryFrom<SetVersionMask> for Message {
         let version_mask: Value = sv.version_mask.try_into()?;
         Ok(Message::Notification(Notification {
             method: "mining.set_version".to_string(),
-            parameters: (&[version_mask][..]).into(),
+            params: (&[version_mask][..]).into(),
         }))
     }
 }
@@ -256,12 +256,12 @@ impl TryFrom<Notification> for SetVersionMask {
 
     fn try_from(msg: Notification) -> Result<Self, Self::Error> {
         let params = msg
-            .parameters
+            .params
             .as_array()
-            .ok_or_else(|| ParsingMethodError::not_array_from_value(msg.parameters.clone()))?;
+            .ok_or_else(|| ParsingMethodError::not_array_from_value(msg.params.clone()))?;
         let version_mask = match &params[..] {
             [JString(a)] => a.as_str().try_into()?,
-            _ => return Err(ParsingMethodError::wrong_args_from_value(msg.parameters)),
+            _ => return Err(ParsingMethodError::wrong_args_from_value(msg.params)),
         };
         Ok(SetVersionMask { version_mask })
     }
