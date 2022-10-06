@@ -1,5 +1,5 @@
-use serde::Deserialize;
 use codec_sv2::noise_sv2::formats::EncodedEd25519PublicKey;
+use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
 pub struct ProxyConfig {

@@ -74,7 +74,10 @@ async fn main() {
     // Instantiate a new `Upstream`
     let upstream = upstream_sv2::Upstream::new(
         upstream_addr,
-        proxy_config.upstream_authority_pubkey.into_inner().to_bytes(),
+        proxy_config
+            .upstream_authority_pubkey
+            .into_inner()
+            .to_bytes(),
         recv_submit_to_sv2,
         sender_new_prev_hash,
         sender_new_extended_mining_job,
