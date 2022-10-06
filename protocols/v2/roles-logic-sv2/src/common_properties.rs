@@ -35,7 +35,7 @@ pub trait IsUpstream<Down: IsDownstream, Sel: DownstreamSelector<Down> + ?Sized>
         let flags = pair_settings.flags;
 
         let check_version = self.get_version() >= min_v && self.get_version() <= max_v;
-        let check_flags = SetupConnection::check_flags(protocol, flags, self.get_flags());
+        let check_flags = SetupConnection::check_flags(protocol, self.get_flags(), flags);
         check_version && check_flags
     }
     fn get_id(&self) -> u32;
@@ -259,7 +259,7 @@ mod tests {
             channel_id: 0,
             group_id: 0,
             target: u256_from_int(45_u32).into(),
-            extranonce: mining_sv2::Extranonce::new(),
+            extranonce: mining_sv2::Extranonce::default(),
         });
         let actual = channel.group_id().unwrap();
 
@@ -291,7 +291,7 @@ mod tests {
             channel_id: 0,
             group_id: 0,
             target: u256_from_int(45_u32).into(),
-            extranonce: mining_sv2::Extranonce::new(),
+            extranonce: mining_sv2::Extranonce::default(),
         });
         let actual = channel.channel_id();
 
