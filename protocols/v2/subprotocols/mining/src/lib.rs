@@ -580,14 +580,12 @@ impl ExtendedExtranonce {
         }
     }
 
-    pub fn upstream_part(
-        &self,
-    ) -> Extranonce {
-            self.inner[self.range_0.start..self.range_1.end]
-                .to_vec()
-                .try_into()
-                .unwrap()
-        }
+    pub fn upstream_part(&self) -> Extranonce {
+        self.inner[self.range_0.start..self.range_1.end]
+            .to_vec()
+            .try_into()
+            .unwrap()
+    }
 }
 /// This function is used to inctrement extranonces, and it is used in next_standard and in
 /// next_extended methods. If the input consists of an array of 255 as u8 (the maxmum value) then
