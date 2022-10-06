@@ -10,7 +10,6 @@ use proxy::next_mining_notify::NextMiningNotify;
 use proxy_config::ProxyConfig;
 use roles_logic_sv2::{mining_sv2::ExtendedExtranonce, utils::Mutex};
 
-const EXTRNONCE_LEN: usize = 32;
 const SELF_EXTRNONCE_LEN: usize = 2;
 
 use async_channel::{bounded, Receiver, Sender};
@@ -60,6 +59,7 @@ async fn main() {
     let (sender_new_extended_mining_job, recv_new_extended_mining_job) = bounded(10);
 
     let (sender_extranonce, recv_extranonce) = bounded(1);
+    let target = Arc::new(Mutex::new(vec![0; 32]));
 
     // TODO add a channel to send new jobs from Bridge to Downstream
     // Put NextMiningNotify in a mutex
@@ -85,6 +85,7 @@ async fn main() {
         sender_new_extended_mining_job,
         proxy_config.min_extranonce2_size,
         sender_extranonce,
+        target.clone(),
     )
     .await
     .unwrap();
@@ -102,6 +103,7 @@ async fn main() {
     // Start receiving submit from the SV1 Downstream role
     upstream_sv2::Upstream::handle_submit(upstream.clone());
     let next_mining_notify = Arc::new(Mutex::new(NextMiningNotify::new()));
+    let last_notify: Arc<Mutex<Option<server_to_client::Notify>>> = Arc::new(Mutex::new(None));
 
     // Instantiates a new `Bridge` and begins handling incoming messages
     proxy::Bridge::new(
@@ -111,6 +113,7 @@ async fn main() {
         recv_new_extended_mining_job,
         next_mining_notify,
         sender_mining_notify_bridge,
+        last_notify.clone(),
     )
     .start();
 
@@ -120,21 +123,19 @@ async fn main() {
         proxy_config.downstream_port,
     );
 
-    let min_extranonce_size = upstream.safe_lock(|s|s.min_extranonce_size).unwrap() as usize;
     let extended_extranonce = recv_extranonce.recv().await.unwrap();
+    let extranonce_len = extended_extranonce.get_len();
+    let min_extranonce_size = upstream.safe_lock(|s| s.min_extranonce_size).unwrap() as usize;
 
     // Accept connections from one or more SV1 Downstream roles (SV1 Mining Devices)
     downstream_sv1::Downstream::accept_connections(
         downstream_addr,
         sender_submit_from_sv1,
         recv_mining_notify_downstream,
-        EXTRNONCE_LEN - min_extranonce_size - SELF_EXTRNONCE_LEN,
+        extranonce_len - min_extranonce_size - (SELF_EXTRNONCE_LEN - 1),
         extended_extranonce,
-    );
-
-    // If this loop is not here, the proxy does not stay live long enough for a Downstream to
-    // connect
-    loop {
-        task::sleep(Duration::from_secs(1)).await;
-    }
+        last_notify,
+        target,
+    )
+    .await;
 }

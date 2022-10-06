@@ -19,6 +19,7 @@ serde_json = { version = "1.0.64", default-features = false, features = ["alloc"
 tokio = { version = "1", features = ["full"] }
 toml = { git = "https://github.com/diondokter/toml-rs", default-features = false, rev = "c4161aa" }
 v1 = { path = "../../protocols/v1" }
+bigint = "4.4.3"
 
 [features]
 with_serde = []
