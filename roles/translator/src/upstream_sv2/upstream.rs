@@ -198,24 +198,22 @@ impl Upstream {
                     Ok(SendTo::None(Some(m))) => {
                         match m {
                             Mining::OpenExtendedMiningChannelSuccess(m) => {
-                                let extranonce_len = crate::EXTRNONCE_LEN;
-                                let min_extranonce_size = self_.safe_lock(|s|s.min_extranonce_size).unwrap();
-
                                 let extranonce: Vec<u8> = m.extranonce_prefix.inner_as_ref().to_vec();
 
-                                if (m.extranonce_size as usize + extranonce.len()) != extranonce_len {
-                                    panic!("size different than 32 not yet supported, size is {}, prefix len is {}", m.extranonce_size, extranonce.len())
-                                };
+                                let downstream_extranonce_len = m.extranonce_size;
+                                let extranonce_len = extranonce.len() + m.extranonce_size as usize;
+                                let upstream_extrnonce_len = extranonce.len();
+
+                                self_.safe_lock(|s| s.min_extranonce_size = downstream_extranonce_len).unwrap();
 
                                 let extranonce = Extranonce::from_vec_with_len(extranonce, extranonce_len);
 
-                                let upstream_extrnonce_len = extranonce_len - min_extranonce_size as usize;
                                 let self_extranonce_len = crate::SELF_EXTRNONCE_LEN;
 
                                 let range_0 = 0..upstream_extrnonce_len;
                                 let range_1 = upstream_extrnonce_len..upstream_extrnonce_len + self_extranonce_len;
                                 let range_2 = upstream_extrnonce_len + self_extranonce_len..extranonce_len;
-                                let extended = ExtendedExtranonce::from_extranonce(extranonce,range_0,range_1,range_2);
+                                let extended = ExtendedExtranonce::from_upstream_extranonce(extranonce,range_0,range_1,range_2, extranonce_len).unwrap();
                                 let sender = self_.safe_lock(|s| s.extranonce_sender.clone()).unwrap();
                                 sender.send(extended).await.unwrap();
                             }

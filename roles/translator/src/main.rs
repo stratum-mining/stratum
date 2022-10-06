@@ -10,7 +10,6 @@ use proxy::next_mining_notify::NextMiningNotify;
 use proxy_config::ProxyConfig;
 use roles_logic_sv2::{mining_sv2::ExtendedExtranonce, utils::Mutex};
 
-const EXTRNONCE_LEN: usize = 32;
 const SELF_EXTRNONCE_LEN: usize = 2;
 
 use async_channel::{bounded, Receiver, Sender};
@@ -120,15 +119,16 @@ async fn main() {
         proxy_config.downstream_port,
     );
 
-    let min_extranonce_size = upstream.safe_lock(|s|s.min_extranonce_size).unwrap() as usize;
     let extended_extranonce = recv_extranonce.recv().await.unwrap();
+    let extranonce_len = extended_extranonce.get_len();
+    let min_extranonce_size = upstream.safe_lock(|s|s.min_extranonce_size).unwrap() as usize;
 
     // Accept connections from one or more SV1 Downstream roles (SV1 Mining Devices)
     downstream_sv1::Downstream::accept_connections(
         downstream_addr,
         sender_submit_from_sv1,
         recv_mining_notify_downstream,
-        EXTRNONCE_LEN - min_extranonce_size - SELF_EXTRNONCE_LEN,
+        extranonce_len - min_extranonce_size - SELF_EXTRNONCE_LEN,
         extended_extranonce,
     );
 

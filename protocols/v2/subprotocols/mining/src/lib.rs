@@ -388,6 +388,10 @@ impl ExtendedExtranonce {
         }
     }
 
+    pub fn get_len(&self) -> usize {
+        self.extranonce_len
+    }
+
     // A Extranonce type (in big andian) can be converted into a Extended extranonce type (in big
     // andian) if ranges are given in input.
     fn from_extranonce(
