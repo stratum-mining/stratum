@@ -22,7 +22,7 @@ const ADDR: &str = "127.0.0.1:34255";
 
 /// Represents the Mining Device client which is connected to a Upstream node (either a SV1 Pool
 /// server or a SV1 <-> SV2 Translator Proxy server).
-#[derive(Debug,Clone)]
+#[derive(Debug, Clone)]
 pub(crate) struct Client {
     client_id: u32,
     extranonce1: Option<HexBytes>,
@@ -175,10 +175,15 @@ impl Client {
             let recv = receiver_share.clone();
             loop {
                 let (nonce, job_id, version, ntime) = recv.recv().await.unwrap();
-                if cloned.clone().safe_lock(|c| c.status.clone()).unwrap() != ClientStatus::Subscribed {
+                if cloned.clone().safe_lock(|c| c.status.clone()).unwrap()
+                    != ClientStatus::Subscribed
+                {
                     continue;
                 }
-                let extra_nonce2: HexBytes = vec![0;cloned.safe_lock(|c| c.extranonce2_size.unwrap()).unwrap()].try_into().unwrap();
+                let extra_nonce2: HexBytes =
+                    vec![0; cloned.safe_lock(|c| c.extranonce2_size.unwrap()).unwrap()]
+                        .try_into()
+                        .unwrap();
                 let version = Some(HexU32Be(version));
                 let submit = client_to_server::Submit {
                     id: "deadbeef".into(),
@@ -194,7 +199,7 @@ impl Client {
                 sender_outgoing_clone.send(message).await.unwrap();
             }
         });
-        let recv_incoming = client.safe_lock(|c|c.receiver_incoming.clone()).unwrap();
+        let recv_incoming = client.safe_lock(|c| c.receiver_incoming.clone()).unwrap();
 
         loop {
             match client.clone().safe_lock(|c| c.status.clone()).unwrap() {
@@ -213,7 +218,7 @@ impl Client {
         // `Client`
         loop {
             let incoming = recv_incoming.recv().await.unwrap();
-            Self::parse_message(client.clone(),Ok(incoming)).await;
+            Self::parse_message(client.clone(), Ok(incoming)).await;
         }
     }
 
@@ -224,10 +229,17 @@ impl Client {
     ) {
         // If we have a line (1 line represents 1 sv1 incoming message), then handle that message
         if let Ok(line) = incoming_message {
-            println!("CLIENT {} - Received: {}", self_.safe_lock(|s|s.client_id).unwrap(), line);
+            println!(
+                "CLIENT {} - Received: {}",
+                self_.safe_lock(|s| s.client_id).unwrap(),
+                line
+            );
             let message: json_rpc::Message = serde_json::from_str(&line).unwrap();
             // If has a message, it sends it back
-            if let Some(m) = self_.safe_lock(|s|s.handle_message(message).unwrap()).unwrap() { 
+            if let Some(m) = self_
+                .safe_lock(|s| s.handle_message(message).unwrap())
+                .unwrap()
+            {
                 let sender = self_.safe_lock(|s| s.sender_outgoing.clone()).unwrap();
                 Self::send_message(sender, m).await;
             }
@@ -253,11 +265,13 @@ impl Client {
             .unwrap()
             .as_nanos()
             .to_string();
-        let configure = self_.safe_lock(|s|s.configure(id)).unwrap();
+        let configure = self_.safe_lock(|s| s.configure(id)).unwrap();
         let sender = self_.safe_lock(|s| s.sender_outgoing.clone()).unwrap();
-        Self::send_message(sender,configure).await;
+        Self::send_message(sender, configure).await;
         // Update status as configured
-        self_.safe_lock(|s|s.status = ClientStatus::Configured).unwrap();
+        self_
+            .safe_lock(|s| s.status = ClientStatus::Configured)
+            .unwrap();
     }
 
     pub async fn send_authorize(self_: Arc<Mutex<Self>>) {
@@ -266,11 +280,15 @@ impl Client {
             .unwrap()
             .as_nanos()
             .to_string();
-        let authorize = self_.safe_lock( |s| {
-            s.authorize(id.clone(), "user".to_string(), "password".to_string())
-            .unwrap()
-        }).unwrap();
-        self_.safe_lock(|s|s.sented_authorize_request.push((id, "user".to_string()))).unwrap();
+        let authorize = self_
+            .safe_lock(|s| {
+                s.authorize(id.clone(), "user".to_string(), "password".to_string())
+                    .unwrap()
+            })
+            .unwrap();
+        self_
+            .safe_lock(|s| s.sented_authorize_request.push((id, "user".to_string())))
+            .unwrap();
         let sender = self_.safe_lock(|s| s.sender_outgoing.clone()).unwrap();
 
         Self::send_message(sender, authorize).await;
