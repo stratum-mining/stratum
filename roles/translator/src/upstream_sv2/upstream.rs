@@ -16,8 +16,8 @@ use roles_logic_sv2::{
         mining::{ParseUpstreamMiningMessages, SendTo},
     },
     mining_sv2::{
-        NewExtendedMiningJob, OpenExtendedMiningChannel, SetNewPrevHash, SubmitSharesExtended,ExtendedExtranonce,OpenExtendedMiningChannelSuccess, Extranonce
-
+        ExtendedExtranonce, Extranonce, NewExtendedMiningJob, OpenExtendedMiningChannel,
+        OpenExtendedMiningChannelSuccess, SetNewPrevHash, SubmitSharesExtended,
     },
     parsers::Mining,
     routing_logic::{CommonRoutingLogic, MiningRoutingLogic, NoRouting},
@@ -58,11 +58,12 @@ impl Upstream {
         let socket = TcpStream::connect(address).await?;
         //let initiator = Initiator::from_raw_k(authority_public_key)?;
 
-        let pub_key: codec_sv2::noise_sv2::formats::EncodedEd25519PublicKey = "u95GEReVMjK6k5YqiSFNqqTnKU4ypU2Wm8awa6tmbmDmk1bWt"
-            .to_string()
-            .try_into()
-            .unwrap();
-        let initiator =Initiator::from_raw_k(*pub_key.into_inner().as_bytes()).unwrap();
+        let pub_key: codec_sv2::noise_sv2::formats::EncodedEd25519PublicKey =
+            "u95GEReVMjK6k5YqiSFNqqTnKU4ypU2Wm8awa6tmbmDmk1bWt"
+                .to_string()
+                .try_into()
+                .unwrap();
+        let initiator = Initiator::from_raw_k(*pub_key.into_inner().as_bytes()).unwrap();
 
         println!(
             "\nPROXY SERVER - ACCEPTING FROM UPSTREAM: {}\n",
@@ -198,23 +199,39 @@ impl Upstream {
                     Ok(SendTo::None(Some(m))) => {
                         match m {
                             Mining::OpenExtendedMiningChannelSuccess(m) => {
-                                let extranonce: Vec<u8> = m.extranonce_prefix.inner_as_ref().to_vec();
+                                let extranonce: Vec<u8> =
+                                    m.extranonce_prefix.inner_as_ref().to_vec();
 
                                 let downstream_extranonce_len = m.extranonce_size;
                                 let extranonce_len = extranonce.len() + m.extranonce_size as usize;
                                 let upstream_extrnonce_len = extranonce.len();
 
-                                self_.safe_lock(|s| s.min_extranonce_size = downstream_extranonce_len).unwrap();
+                                self_
+                                    .safe_lock(|s| {
+                                        s.min_extranonce_size = downstream_extranonce_len
+                                    })
+                                    .unwrap();
 
-                                let extranonce = Extranonce::from_vec_with_len(extranonce, extranonce_len);
+                                let extranonce =
+                                    Extranonce::from_vec_with_len(extranonce, extranonce_len);
 
                                 let self_extranonce_len = crate::SELF_EXTRNONCE_LEN;
 
                                 let range_0 = 0..upstream_extrnonce_len;
-                                let range_1 = upstream_extrnonce_len..upstream_extrnonce_len + self_extranonce_len;
-                                let range_2 = upstream_extrnonce_len + self_extranonce_len..extranonce_len;
-                                let extended = ExtendedExtranonce::from_upstream_extranonce(extranonce,range_0,range_1,range_2, extranonce_len).unwrap();
-                                let sender = self_.safe_lock(|s| s.extranonce_sender.clone()).unwrap();
+                                let range_1 = upstream_extrnonce_len
+                                    ..upstream_extrnonce_len + self_extranonce_len;
+                                let range_2 =
+                                    upstream_extrnonce_len + self_extranonce_len..extranonce_len;
+                                let extended = ExtendedExtranonce::from_upstream_extranonce(
+                                    extranonce,
+                                    range_0,
+                                    range_1,
+                                    range_2,
+                                    extranonce_len,
+                                )
+                                .unwrap();
+                                let sender =
+                                    self_.safe_lock(|s| s.extranonce_sender.clone()).unwrap();
                                 sender.send(extended).await.unwrap();
                             }
                             Mining::NewExtendedMiningJob(m) => {

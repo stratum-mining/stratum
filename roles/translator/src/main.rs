@@ -121,7 +121,7 @@ async fn main() {
 
     let extended_extranonce = recv_extranonce.recv().await.unwrap();
     let extranonce_len = extended_extranonce.get_len();
-    let min_extranonce_size = upstream.safe_lock(|s|s.min_extranonce_size).unwrap() as usize;
+    let min_extranonce_size = upstream.safe_lock(|s| s.min_extranonce_size).unwrap() as usize;
 
     // Accept connections from one or more SV1 Downstream roles (SV1 Mining Devices)
     downstream_sv1::Downstream::accept_connections(

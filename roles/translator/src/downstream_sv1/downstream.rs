@@ -8,7 +8,7 @@ use async_std::{
 };
 use roles_logic_sv2::{
     common_properties::{IsDownstream, IsMiningDownstream},
-    mining_sv2::{Extranonce,ExtendedExtranonce},
+    mining_sv2::{ExtendedExtranonce, Extranonce},
     utils::Mutex,
 };
 use std::{net::SocketAddr, sync::Arc};
@@ -54,7 +54,7 @@ impl Downstream {
         let socket_writer_notify = socket_writer;
 
         let extranonce: Vec<u8> = extranonce.try_into().unwrap();
-        let (extranonce1,extranonce2) = extranonce.split_at(extranonce.len() - extranonce2_size);
+        let (extranonce1, extranonce2) = extranonce.split_at(extranonce.len() - extranonce2_size);
 
         let downstream = Arc::new(Mutex::new(Downstream {
             authorized_names: vec![],
