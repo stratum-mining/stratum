@@ -69,10 +69,10 @@
 //! ### Future Jobs
 //! An empty future block job or speculated non-empty job can be sent in advance to speedup
 //! new mining job distribution. The point is that the mining server MAY have precomputed such a
-//! job and is able to pre-distribute it for all active channels. The only missing information to start
-//! to mine on the new block is the new prevhash. This information can be provided
-//! independently.Such an approach improves the efficiency of the protocol where the upstream node doesn’t
-//! waste precious time immediately after a new block is found in the network.
+//! job and is able to pre-distribute it for all active channels. The only missing information to
+//! start to mine on the new block is the new prevhash. This information can be provided
+//! independently.Such an approach improves the efficiency of the protocol where the upstream node
+//! doesn’t waste precious time immediately after a new block is found in the network.
 //!
 //! ### Hashing Space Distribution
 //! Each mining device has to work on a unique part of the whole search space. The full search
@@ -82,7 +82,8 @@
 //! * Timestamp header field.
 //!
 //! The other portion of the block header that’s used to define the full search space is the Merkle
-//! root hash of all transactions in the block, projected to the last variable field in the block header:
+//! root hash of all transactions in the block, projected to the last variable field in the block
+//! header:
 //!
 //! * Merkle root, deterministically computed from:
 //!   * Coinbase transaction: typically 4-8 bytes, possibly much more.
@@ -102,8 +103,8 @@
 //!   likely more difficult to implement, especially in light of the requirement that transaction
 //!   selection/ordering not be used explicitly for additional hash space distribution).
 //!
-//! This protocol explicitly expects that upstream server software is able to manage the size of the
-//! hashing space correctly for its clients and can provide new jobs quickly enough.
+//! This protocol explicitly expects that upstream server software is able to manage the size of
+//! the hashing space correctly for its clients and can provide new jobs quickly enough.
 use binary_sv2::{B032, U256};
 use core::{
     cmp::{Ord, PartialOrd},
@@ -209,9 +210,7 @@ impl Ord for Target {
 // do not affect the original, and this may lead to different extranonce inconsistency
 #[derive(Debug, Clone, Default, PartialEq)]
 /// Extranonce bytes which need to be added to the coinbase to form a fully valid submission:
-/// (full coinbase = coinbase_tx_prefix + extranonce_prefix + extranonce + coinbase_tx_suffix).
-/// The size of the provided extranonce MUST be equal to the negotiated extranonce size from
-/// channel opening.
+/// (full coinbase = coinbase_tx_prefix + extranonce + coinbase_tx_suffix).
 /// Representation is in big endian, so tail is for the digits relative to smaller powers
 pub struct Extranonce {
     head: u128,
@@ -267,15 +266,12 @@ impl Extranonce {
     pub fn new() -> Self {
         Self { head: 0, tail: 0 }
     }
-    /// this function converts a Extranonce type to b032 type
+
     pub fn into_b032(self) -> B032<'static> {
         self.into()
     }
 
     #[allow(clippy::should_implement_trait)]
-    /// this function takes in input an Extranonce type and has output a B032 type that
-    /// corresponds to the extranonce in input incremented by one. If the extranonce in input
-    /// is equal to 2^(32*8)-1, then the the function panics
     pub fn next(&mut self) -> B032 {
         match (self.tail, self.head) {
             (u128::MAX, u128::MAX) => panic!(),
@@ -294,7 +290,6 @@ impl Extranonce {
     }
 }
 
-// this method converts a ExtendedExtranonce type in Extranonce type
 impl From<&mut ExtendedExtranonce> for Extranonce {
     fn from(v: &mut ExtendedExtranonce) -> Self {
         let head: [u8; 16] = v.inner[0..16].try_into().unwrap();
@@ -312,26 +307,38 @@ impl From<&mut ExtendedExtranonce> for Extranonce {
 ///
 /// An ExtendedExtranonce is defined by 3 ranges:
 ///
-/// range_0: is the range that represents the extended extranonce part that reserved by upstream relative to P (for most upstreams nodes, e.g. a pool, this is [0..0]) and it is fixed for P.
-/// range_1: is the range that represents the extended extranonce part reserved to P. P assingns to every relative downstream an extranonce with different value in the range 1 in the following way: if D_i is the (i+1)-th downstream that connected to P, then D_i gets from P and extranonce with range_1=i (note that the concatenation of range_1 and range_1 is the range_0 relative to D_i and range_2 of P is the range_1 of D_i).
-/// range_2: is the range that P reserve for the downstreams.
+///  - range_0: is the range that represents the extended extranonce part that reserved by upstream
+/// relative to P (for most upstreams nodes, e.g. a pool, this is [0..0]) and it is fixed for P.
+///  - range_1: is the range that represents the extended extranonce part reserved to P. P assigns
+/// to every relative downstream an extranonce with different value in the range 1 in the
+/// following way: if D_i is the (i+1)-th downstream that connected to P, then D_i gets from P and
+/// extranonce with range_1=i (note that the concatenation of range_1 and range_1 is the range_0
+/// relative to D_i and range_2 of P is the range_1 of D_i).
+///  - range_2: is the range that P reserve for the downstreams.
 ///
 ///
 /// In the following examples, we examine the extended extranonce in some cases.
 ///
 /// The user P is the pool.
-/// range_0 -> 0..0, there is no upstream relative to the pool P, so no space reserved by the upstream
-/// range_1 -> 0..16 the pool P increments the first 16 bytes to be sure the each pool's downstream get a different extranonce or a different extended extranoce search space (more on that below*)
-/// range_2 -> 16..32 this bytes are not changed by the pool but are changed by the pool's downstream
+///  - range_0 -> 0..0, there is no upstream relative to the pool P, so no space reserved by the
+/// upstream
+///  - range_1 -> 0..16 the pool P increments the first 16 bytes to be sure the each pool's
+/// downstream get a different extranonce or a different extended extranoce search space (more
+/// on that below*)
+///  - range_2 -> 16..32 this bytes are not changed by the pool but are changed by the pool's
+/// downstream
 ///
 /// The user P is the translator.
-/// range_0 -> 0..16 these bytes are set by the pool and P shouldn't change them
-/// range_1 -> 16..24 these bytes are modified by P each time that a sv1 mining device connect, so we can be sure that each connected sv1 mining device get a different extended extranonce search space
-/// range_2 -> 24..32 these bytes are left free for the sv1 minig device
+///  - range_0 -> 0..16 these bytes are set by the pool and P shouldn't change them
+///  - range_1 -> 16..24 these bytes are modified by P each time that a sv1 mining device connect,
+///  so we can be sure that each connected sv1 mining device get a different extended extranonce
+///  search space
+///  - range_2 -> 24..32 these bytes are left free for the sv1 miniing device
 ///
 /// The user P is a sv1 mining device.
-/// range_0 -> 0..24 these bytes are setted by the device's upstreams
-/// range_1 -> 24..32 these bytes are changed by P (if capable) in order to increment the search space
+///  - range_0 -> 0..24 these byteshadd set by the device's upstreams
+/// range_1 -> 24..32 these bytes are changed by P (if capable) in order to increment the
+/// search space
 /// range_2 -> 32..32 no more downstream
 ///
 
@@ -343,7 +350,7 @@ pub struct ExtendedExtranonce {
 }
 
 impl ExtendedExtranonce {
-    /// every extranonce start from zero.
+    /// returns a new ExtendedExtranonce, which inner field consists of 0
     pub fn new(range_0: Range<usize>, range_1: Range<usize>, range_2: Range<usize>) -> Self {
         assert!(range_0.start == 0);
         assert!(range_0.end == range_1.start);
@@ -357,8 +364,8 @@ impl ExtendedExtranonce {
         }
     }
 
-    // A Extranonce type (in big andian) can be converted into a Extended extranonce type (in big
-    // andian) if ranges are given in input.
+    // It converts an Extranonce (in big endian) (in big endian) and 3 ranges into an
+    // ExtendedExtranonce.
     fn from_extranonce(
         v: Extranonce,
         range_0: Range<usize>,
@@ -378,10 +385,11 @@ impl ExtendedExtranonce {
         }
     }
 
-    /// Suppose that P receives an Extranonce type from the an upstream. Then range_0 (that should
-    /// be provided along the Extranonce) is
-    /// reserved for the upstream and can't be modiefied by P. The other bytes of range_1 and
-    /// range_2 must be zero, since the Extranonce comes from the upstream.
+    /// Suppose that P receives from the upstream an extranonce that needs to be converted into any
+    /// ExtendedExtranonce, eg when an extended channel is opened. Then range_0 (that should
+    /// be provided along the Extranonce) is reserved for the upstream and can't be modiefied by
+    /// P. If the bytes recerved to P (range_1 and range_2) are not set to zero, returns None,
+    /// otherwise returns Some(ExtendedExtranonce).
     pub fn from_upstream_extranonce(
         v: Extranonce,
         range_0: Range<usize>,
@@ -399,10 +407,9 @@ impl ExtendedExtranonce {
         Some(self_)
     }
 
-    ///This function takes in input an ExtendedExtranonce for the extended channel. This extranonce
-    ///represents a number. This function calculates the next extranonce (namely the extranonce
-    ///incremented by one) and gives it as Extranonce type in the output. The bytes incremented
-    ///belongs to the range_2. If renge_2 is at maximum value, the output is None.
+    /// This function takes in input an ExtendedExtranonce for the extended channel. The number
+    /// represented by the bytes in range_2 is incremented by 1 and the ExtendedExtranonce is
+    /// converted in an Extranonce. If range_2 is at maximum value, the output is None.
     pub fn next_standard(&mut self) -> Option<Extranonce> {
         let non_reserved_extranonces_bytes = &mut self.inner[self.range_2.start..self.range_2.end];
 
@@ -427,7 +434,8 @@ impl ExtendedExtranonce {
     }
 }
 // This function is used to inctrement extranonces, and it is used in next_standard and
-// next_extended functions. Returns Err(()) if the the input an array of MAX.
+// and then in this loop every element ction is used to inctrement extranonces, and it is used in
+// next_standard and next_extended functions. Returns Err(()) if the the input an array of MAX.
 fn increment_bytes_be(bs: &mut [u8]) -> Result<(), ()> {
     for b in bs.iter_mut().rev() {
         if *b != u8::MAX {
@@ -575,7 +583,6 @@ mod tests {
 
     #[quickcheck_macros::quickcheck]
     fn test_next_extended_extranonce(input: (u8, u8, Vec<u8>, u8)) -> bool {
-        let input = (0 as u8, 0 as u8, Vec::from([]), 0 as u8);
         let inner = from_arbitrary_vec_to_array(input.2);
         let r0 = input.0 as usize;
         let r1 = input.1 as usize;
@@ -593,20 +600,39 @@ mod tests {
             range_1: range_1.clone(),
             range_2: range_2.clone(),
         };
-        let extranonce_expected: Extranonce =
-            Extranonce::from(&mut extended_extranonce_start.clone())
-                .next()
-                .into();
+        let range_1_of_extended_extranonce =
+            &mut extended_extranonce_start.clone().inner[range_1.clone()];
+
+        let incremented_inner = match increment_bytes_be(range_1_of_extended_extranonce) {
+            Ok(_) => {
+                let incremented_inner_ = &[
+                    &inner[range_0.clone()],
+                    &range_1_of_extended_extranonce.to_vec()[..],
+                    &inner[range_2.clone()],
+                ]
+                .concat();
+                let incremented_inner_: [u8; 32] = incremented_inner_[..].try_into().unwrap();
+                Some(incremented_inner_)
+            }
+            Err(_) => None,
+        };
         match extended_extranonce_start
             .clone()
             .next_extended(required_len)
         {
-            Some(extranonce_next) => extranonce_expected == extranonce_next,
+            Some(extranonce_next) => match incremented_inner {
+                Some(incremented_inner_) => {
+                    ExtendedExtranonce::from_extranonce(extranonce_next, range_0, range_1, range_2)
+                        .inner
+                        == incremented_inner_
+                }
+                None => false,
+            },
             None => {
                 if required_len > range_2.len() {
                     return true;
                 } else {
-                    for b in inner[range_1.start..range_1.end].iter() {
+                    for b in inner[range_1].iter() {
                         if b != &255_u8 {
                             return false;
                         }
@@ -632,4 +658,84 @@ mod tests {
             result[..].try_into().unwrap()
         }
     }
+
+    #[quickcheck_macros::quickcheck]
+    fn test_target_from_u256(input: (u128, u128)) -> bool {
+        let target_start = Target {
+            head: input.0,
+            tail: input.1,
+        };
+        let u256 = U256::<'static>::from(target_start.clone());
+        let target_final = Target::from(u256);
+        target_final == target_final
+    }
+
+    #[quickcheck_macros::quickcheck]
+    fn test_ord_for_target_positive_increment(input: (u128, u128, u128, u128)) -> bool {
+        let max = u128::MAX;
+        let input = (input.0 % max, input.1 % max, input.2, input.3);
+        let target_start = Target {
+            head: input.0,
+            tail: input.1,
+        };
+        let positive_increment = (
+            input.2 % (max - target_start.head) + 1,
+            input.3 % (max - target_start.tail) + 1,
+        );
+        let target_final = Target {
+            head: target_start.head + positive_increment.0,
+            tail: target_start.tail + positive_increment.1,
+        };
+        match target_start.cmp(&target_final) {
+            core::cmp::Ordering::Less => true,
+            _ => false,
+        }
+    }
+
+    #[quickcheck_macros::quickcheck]
+    fn test_ord_for_target_negative_increment(input: (u128, u128, u128, u128)) -> bool {
+        let max = u128::MAX;
+        let input = (input.0 % max + 1, input.1 % max + 1, input.2, input.3);
+        let target_start = Target {
+            head: input.0,
+            tail: input.1,
+        };
+        let negative_increment = (
+            input.2 % target_start.head + 1,
+            input.3 % target_start.tail + 1,
+        );
+        let target_final = Target {
+            head: target_start.head - negative_increment.0,
+            tail: target_start.tail - negative_increment.1,
+        };
+        match target_start.cmp(&target_final) {
+            core::cmp::Ordering::Greater => true,
+            _ => false,
+        }
+    }
+
+    #[quickcheck_macros::quickcheck]
+    fn test_ord_for_target_zero_increment(input: (u128, u128)) -> bool {
+        let max = u128::MAX;
+        let target_start = Target {
+            head: input.0,
+            tail: input.1,
+        };
+        let target_final = target_start.clone();
+        match target_start.cmp(&target_final) {
+            core::cmp::Ordering::Equal => true,
+            _ => false,
+        }
+    }
+
+    //#[quickcheck_macros::quickcheck]
+    //fn test_from_32_bytes(input: Vec<u8>) -> bool {
+    //    let input_start =  from_arbitrary_vec_to_array(input);
+    //    let target: Target = input_start.into();
+    //    let target_final = target_start.clone();
+    //    match target_start.cmp(&target_final){
+    //         core::cmp::Ordering::Equal => true,
+    //         _ => false,
+    //    }
+    //}
 }
