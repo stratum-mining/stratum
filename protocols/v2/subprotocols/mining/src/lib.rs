@@ -281,6 +281,12 @@ impl Extranonce {
         }
     }
 
+    /// this function converts a Extranonce type to b032 type
+    pub fn from_vec_with_len(mut extranonce: alloc::vec::Vec<u8>, len: usize) -> Self {
+        extranonce.resize(len, 0);
+        Self { extranonce }
+    }
+
     pub fn into_b032(self) -> B032<'static> {
         self.into()
     }
@@ -465,7 +471,10 @@ impl ExtendedExtranonce {
         }
     }
 
-    /// Specular of [Self::from_downstream_extranonce]
+    pub fn get_len(&self) -> usize {
+        self.range_2.end
+    }
+
     /// Suppose that P receives from the upstream an extranonce that needs to be converted into any
     /// ExtendedExtranonce, eg when an extended channel is opened. Then range_0 (that should
     /// be provided along the Extranonce) is reserved for the upstream and can't be modiefied by

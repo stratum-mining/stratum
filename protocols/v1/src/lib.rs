@@ -459,7 +459,7 @@ pub trait IsClient {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone,PartialEq, Eq)]
 pub enum ClientStatus {
     Init,
     Configured,

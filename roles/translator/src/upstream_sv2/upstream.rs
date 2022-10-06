@@ -16,7 +16,8 @@ use roles_logic_sv2::{
         mining::{ParseUpstreamMiningMessages, SendTo},
     },
     mining_sv2::{
-        NewExtendedMiningJob, OpenExtendedMiningChannel, SetNewPrevHash, SubmitSharesExtended,
+        ExtendedExtranonce, Extranonce, NewExtendedMiningJob, OpenExtendedMiningChannel,
+        OpenExtendedMiningChannelSuccess, SetNewPrevHash, SubmitSharesExtended,
     },
     parsers::Mining,
     routing_logic::{CommonRoutingLogic, MiningRoutingLogic, NoRouting},
@@ -32,6 +33,7 @@ pub struct Upstream {
     submit_from_dowstream: Receiver<SubmitSharesExtended<'static>>,
     new_prev_hash_sender: Sender<SetNewPrevHash<'static>>,
     new_extended_mining_job_sender: Sender<NewExtendedMiningJob<'static>>,
+    extranonce_sender: Sender<ExtendedExtranonce>,
     /// Minimum `extranonce2` size. Initially requested in the `proxy-config.toml`, and ultimately
     /// set by the SV2 Upstream via the SV2 `OpenExtendedMiningChannelSuccess` message.
     pub min_extranonce_size: u16,
@@ -50,6 +52,7 @@ impl Upstream {
         new_prev_hash_sender: Sender<SetNewPrevHash<'static>>,
         new_extended_mining_job_sender: Sender<NewExtendedMiningJob<'static>>,
         min_extranonce_size: u16,
+        extranonce_sender: Sender<ExtendedExtranonce>,
     ) -> ProxyResult<Arc<Mutex<Self>>> {
         // Connect to the SV2 Upstream role
         let socket = TcpStream::connect(address).await?;
@@ -74,6 +77,7 @@ impl Upstream {
             new_extended_mining_job_sender,
             channel_id: None,
             min_extranonce_size,
+            extranonce_sender,
         })))
     }
 
@@ -187,6 +191,38 @@ impl Upstream {
                     // internally so SendTo::None have the right semantic
                     Ok(SendTo::None(Some(m))) => {
                         match m {
+                            Mining::OpenExtendedMiningChannelSuccess(m) => {
+                                let extranonce_len = crate::EXTRNONCE_LEN;
+                                let min_extranonce_size =
+                                    self_.safe_lock(|s| s.min_extranonce_size).unwrap();
+
+                                let extranonce: Vec<u8> =
+                                    m.extranonce_prefix.inner_as_ref().to_vec();
+
+                                if (m.extranonce_size as usize + extranonce.len()) != extranonce_len
+                                {
+                                    panic!("size different than 32 not yet supported, size is {}, prefix len is {}", m.extranonce_size, extranonce.len())
+                                };
+
+                                let extranonce =
+                                    Extranonce::from_vec_with_len(extranonce, extranonce_len);
+
+                                let upstream_extrnonce_len =
+                                    extranonce_len - min_extranonce_size as usize;
+                                let self_extranonce_len = crate::SELF_EXTRNONCE_LEN;
+
+                                let range_0 = 0..upstream_extrnonce_len;
+                                let range_1 = upstream_extrnonce_len
+                                    ..upstream_extrnonce_len + self_extranonce_len;
+                                let range_2 =
+                                    upstream_extrnonce_len + self_extranonce_len..extranonce_len;
+                                let extended = ExtendedExtranonce::from_extranonce(
+                                    extranonce, range_0, range_1, range_2,
+                                );
+                                let sender =
+                                    self_.safe_lock(|s| s.extranonce_sender.clone()).unwrap();
+                                sender.send(extended).await.unwrap();
+                            }
                             Mining::NewExtendedMiningJob(m) => {
                                 let sender = self_
                                     .safe_lock(|s| s.new_extended_mining_job_sender.clone())
@@ -212,7 +248,7 @@ impl Upstream {
         });
     }
 
-    pub fn on_submit(self_: Arc<Mutex<Self>>) {
+    pub fn handle_submit(self_: Arc<Mutex<Self>>) {
         // TODO
         // check if submit meet the upstream target and if so send back (upstream target will
         // likely be not the same of downstream target)
@@ -263,7 +299,7 @@ impl Upstream {
         let hardware_version = String::new().try_into()?;
         let firmware = String::new().try_into()?;
         let device_id = String::new().try_into()?;
-        let flags = 0b0111_0000_0000_0000_0000_0000_0000_0000;
+        let flags = 0b0000_0000_0000_0000_0000_0000_0000_1110;
         Ok(SetupConnection {
             protocol: Protocol::MiningProtocol,
             min_version,
@@ -386,7 +422,14 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
         self.min_extranonce_size = m.extranonce_size;
 
         self.channel_id = Some(m.channel_id);
-        Ok(SendTo::None(None))
+        let m = Mining::OpenExtendedMiningChannelSuccess(OpenExtendedMiningChannelSuccess {
+            request_id: m.request_id,
+            channel_id: m.channel_id,
+            target: m.target.into_static(),
+            extranonce_size: m.extranonce_size,
+            extranonce_prefix: m.extranonce_prefix.into_static(),
+        });
+        Ok(SendTo::None(Some(m)))
     }
 
     fn handle_open_mining_channel_error(
@@ -394,14 +437,6 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
         _: roles_logic_sv2::mining_sv2::OpenMiningChannelError,
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error>
     {
-        // let message = Mining::OpenMiningChannelError(OpenMiningChannelError {
-        //     // Client-specified request ID from OpenStandardMiningChannel message, so that the
-        //     // client can pair responses with open channel requests.
-        //     request_id: m.request_id,
-        //     // Relevant error reason code
-        //     error_code: m.error_code.clone().into_static(),
-        // });
-        // Ok(SendTo::Respond(message))
         todo!()
     }
 
