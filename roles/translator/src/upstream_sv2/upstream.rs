@@ -56,7 +56,13 @@ impl Upstream {
     ) -> ProxyResult<Arc<Mutex<Self>>> {
         // Connect to the SV2 Upstream role
         let socket = TcpStream::connect(address).await?;
-        let initiator = Initiator::from_raw_k(authority_public_key)?;
+        //let initiator = Initiator::from_raw_k(authority_public_key)?;
+
+        let pub_key: codec_sv2::noise_sv2::formats::EncodedEd25519PublicKey = "u95GEReVMjK6k5YqiSFNqqTnKU4ypU2Wm8awa6tmbmDmk1bWt"
+            .to_string()
+            .try_into()
+            .unwrap();
+        let initiator =Initiator::from_raw_k(*pub_key.into_inner().as_bytes()).unwrap();
 
         println!(
             "\nPROXY SERVER - ACCEPTING FROM UPSTREAM: {}\n",
