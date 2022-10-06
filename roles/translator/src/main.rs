@@ -10,6 +10,9 @@ use proxy::next_mining_notify::NextMiningNotify;
 use proxy_config::ProxyConfig;
 use roles_logic_sv2::{mining_sv2::ExtendedExtranonce, utils::Mutex};
 
+const EXTRNONCE_LEN: usize = 32;
+const SELF_EXTRNONCE_LEN: usize = 2;
+
 use async_channel::{bounded, Receiver, Sender};
 use async_std::task;
 use std::{
@@ -56,6 +59,8 @@ async fn main() {
     // (Sender<NewExtendedMiningJob<'static>>, Receiver<NewExtendedMiningJob<'static>>)
     let (sender_new_extended_mining_job, recv_new_extended_mining_job) = bounded(10);
 
+    let (sender_extranonce, recv_extranonce) = bounded(1);
+
     // TODO add a channel to send new jobs from Bridge to Downstream
     // Put NextMiningNotify in a mutex
     // NextMiningNotify should have channel to Downstream?
@@ -79,9 +84,11 @@ async fn main() {
         sender_new_prev_hash,
         sender_new_extended_mining_job,
         proxy_config.min_extranonce2_size,
+        sender_extranonce,
     )
     .await
     .unwrap();
+
     // Connects to the SV2 Upstream role
     upstream_sv2::Upstream::connect(
         upstream.clone(),
@@ -93,7 +100,7 @@ async fn main() {
     // Start receiving messages from the SV2 Upstream role
     upstream_sv2::Upstream::parse_incoming(upstream.clone());
     // Start receiving submit from the SV1 Downstream role
-    upstream_sv2::Upstream::on_submit(upstream.clone());
+    upstream_sv2::Upstream::handle_submit(upstream.clone());
     let next_mining_notify = Arc::new(Mutex::new(NextMiningNotify::new()));
 
     // Instantiates a new `Bridge` and begins handling incoming messages
@@ -113,27 +120,15 @@ async fn main() {
         proxy_config.downstream_port,
     );
 
-    // SV2-specified minimum extranonce2 size received from `OpenExtendedMiningChannelSuccess`
-    let min_extranonce2_size = upstream.safe_lock(|u| u.min_extranonce_size).unwrap() as usize;
-    // Create the `ExtendedExtranonce` to be used to generate `extranonce1`'s on a per-SV1
-    // Downstream MD basis.
-    let extranonce_len = 32;
-    let ext_extranonce_size = min_extranonce2_size;
-    let range_0 = 0..ext_extranonce_size;
-    let range_1 = ext_extranonce_size..ext_extranonce_size + 2;
-    let range_2 = ext_extranonce_size + 2..extranonce_len;
-    let extended_extranonce = ExtendedExtranonce::new(range_0, range_1, range_2);
-    println!(
-        "\n\nSET ExtendedExtranonce Prefix in MAIN: {:?}\n",
-        &extended_extranonce
-    );
+    let min_extranonce_size = upstream.safe_lock(|s|s.min_extranonce_size).unwrap() as usize;
+    let extended_extranonce = recv_extranonce.recv().await.unwrap();
 
     // Accept connections from one or more SV1 Downstream roles (SV1 Mining Devices)
     downstream_sv1::Downstream::accept_connections(
         downstream_addr,
         sender_submit_from_sv1,
         recv_mining_notify_downstream,
-        min_extranonce2_size,
+        EXTRNONCE_LEN - min_extranonce_size - SELF_EXTRNONCE_LEN,
         extended_extranonce,
     );
 
