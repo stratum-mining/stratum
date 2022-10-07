@@ -217,7 +217,6 @@ pub struct Extranonce {
     extranonce: alloc::vec::Vec<u8>,
 }
 
-
 // this function converts a U256 type in little endian to Extranonce type
 impl<'a> From<U256<'a>> for Extranonce {
     fn from(v: U256<'a>) -> Self {
