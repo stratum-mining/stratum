@@ -1,11 +1,12 @@
 # Upstream connection information
 upstream_address = "18.196.32.109"
-#upstream_address = "46.101.132.58"
 upstream_port = 3336
+#upstream_address = "127.0.0.1"
+#upstream_port = 34254
 upstream_authority_pubkey = [ 215, 11, 47, 78, 34, 232, 25, 192, 195, 168, 170, 209, 95, 181, 40, 114, 154, 226, 176, 190, 90, 169, 238, 89, 191, 183, 97, 63, 194, 119, 11, 31]
 
 # Downstream connection information
-downstream_address = "127.0.0.1"
+downstream_address = "0.0.0.0"
 downstream_port = 34255
 
 # Version support
