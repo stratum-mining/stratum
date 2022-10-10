@@ -49,8 +49,11 @@ where
                     if attempts == 0 {
                         panic!("Failed to connect to template distribution server");
                     } else {
-                        log_error!(logger, "Failed to connect to template distribution server \
-                            retrying in 5s, {} attempts left", attempts
+                        log_error!(
+                            logger,
+                            "Failed to connect to template distribution server \
+                            retrying in 5s, {} attempts left",
+                            attempts
                         );
                         sleep(std::time::Duration::from_secs(5)).await;
                         continue;
