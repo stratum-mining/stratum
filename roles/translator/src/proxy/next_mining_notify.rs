@@ -42,66 +42,53 @@ impl NextMiningNotify {
 
     /// Creates a new SV1 `mining.notify` message on a new SV2 `SetNewPrevHash` and/or new
     /// `NewExtendedMiningJob` message.
-    pub(crate) fn create_notify(&self) -> ProxyResult<Option<server_to_client::Notify>> {
+    pub(crate) fn create_notify(&self) -> Option<server_to_client::Notify> {
         // Put logic in to make sure that SetNewPrevHash + NewExtendedMiningJob is matching (not
         // future)
         // if new_prev_hash.job_id != new_job.job_id {
         //     panic!("TODO: SetNewPrevHash + NewExtendedMiningJob job id's do not match");
         // }
+        //
+        match (&self.set_new_prev_hash, &self.new_extended_mining_job) {
+            (Some(new_prev_hash),Some(new_job)) => {
+                let job_id = new_prev_hash.job_id.to_string();
 
-        if self.set_new_prev_hash.is_some() && self.new_extended_mining_job.is_some() {
-            let new_prev_hash = match &self.set_new_prev_hash {
-                Some(nph) => nph,
-                None => panic!("Should never happen because of if statement"),
-            };
-            let new_job = match &self.new_extended_mining_job {
-                Some(nj) => nj,
-                None => panic!("Should never happen because of if statement"),
-            };
-
-            let job_id = new_prev_hash.job_id.to_string();
-
-            // TODO: Check endianness
-            // U256<'static> -> PrevHash
-            let prev_hash = PrevHash((&new_prev_hash.prev_hash).to_vec());
-
-            // TODO: Check endianness
-            // B064K<'static'> -> HexBytes
-            let coin_base1 = new_job.coinbase_tx_prefix.to_vec().try_into()?;
-            let coin_base2 = new_job.coinbase_tx_suffix.to_vec().try_into()?;
-
-            // Seq0255<'static, U56<'static>> -> Vec<Vec<u8>> -> Vec<HexBytes>
-            let merkle_path_seq0255 = &new_job.merkle_path;
-            let merkle_path_vec = merkle_path_seq0255.clone().into_static();
-            let merkle_path_vec: Vec<Vec<u8>> = merkle_path_vec.to_vec();
-            let mut merkle_branch = Vec::<HexBytes>::new();
-            for path in merkle_path_vec {
                 // TODO: Check endianness
-                merkle_branch.push(path.try_into()?);
-            }
+                // U256<'static> -> PrevHash
+                let mut prev_hash = new_prev_hash.prev_hash.clone().to_vec();
+                let prev_hash = PrevHash(prev_hash);
 
-            // TODO: Check endianness
-            // u32 -> HexBytes
-            let version = HexU32Be(new_job.version);
-            let bits = HexU32Be(new_prev_hash.nbits);
-            let time = HexU32Be(new_prev_hash.min_ntime);
+                // TODO: Check endianness
+                // B064K<'static'> -> HexBytes
+                let coin_base1 = new_job.coinbase_tx_prefix.to_vec().into();
+                let coin_base2 = new_job.coinbase_tx_suffix.to_vec().into();
 
-            let clean_jobs = false; // TODO: ?
+                // Seq0255<'static, U56<'static>> -> Vec<Vec<u8>> -> Vec<HexBytes>
+                let merkle_path = new_job.merkle_path.clone().into_static().to_vec();
+                let merkle_branch: Vec<HexBytes> = merkle_path.into_iter().map(|p| p.into()).collect();
 
-            let notify_response = server_to_client::Notify {
-                job_id,
-                prev_hash,
-                coin_base1,
-                coin_base2,
-                merkle_branch,
-                version,
-                bits,
-                time,
-                clean_jobs,
-            };
-            Ok(Some(notify_response))
-        } else {
-            Ok(None)
+                // TODO: Check endianness
+                // u32 -> HexBytes
+                let version = HexU32Be(new_job.version);
+                let bits = HexU32Be(new_prev_hash.nbits);
+                let time = HexU32Be(new_prev_hash.min_ntime);
+
+                let clean_jobs = true;
+
+                let notify_response = server_to_client::Notify {
+                    job_id,
+                    prev_hash,
+                    coin_base1,
+                    coin_base2,
+                    merkle_branch,
+                    version,
+                    bits,
+                    time,
+                    clean_jobs,
+                };
+                Some(notify_response)
+            },
+            _ => None,
         }
     }
 }

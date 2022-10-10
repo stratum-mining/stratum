@@ -255,6 +255,46 @@ pub fn target_from_hash_rate(hash_per_second: f32, share_per_min: f32) -> U256<'
     target.into()
 }
 
+
+pub fn get_target(
+    nonce: u32,
+    version: u32,
+    ntime: u32,
+    extranonce: &[u8],
+    coinbase_tx_prefix: &[u8],
+    coinbase_tx_suffix: &[u8],
+    prev_hash: BlockHash,
+    merkle_path: Vec<Vec<u8>>,
+    nbits: u32,
+) -> [u8;32] {
+    let merkle_root: [u8; 32] = merkle_root_from_path(
+        &(coinbase_tx_prefix[..]),
+        &(coinbase_tx_suffix[..]),
+        &extranonce[..],
+        &(merkle_path[..]),
+    )
+    .unwrap()
+    .try_into()
+    .unwrap();
+    let merkle_root = Hash::from_inner(merkle_root);
+    let merkle_root =  TxMerkleNode::from_hash(merkle_root);
+    // TODO  how should version be transoformed from u32 into i32???
+    let version = version as i32;
+    let header = BlockHeader {
+        version,
+        prev_blockhash: prev_hash,
+        merkle_root,
+        time: ntime,
+        bits: nbits,
+        nonce,
+    };
+
+    let hash_ = header.block_hash();
+    let mut hash = hash_.as_hash().into_inner();
+    hash.reverse();
+    hash
+}
+
 #[cfg(test)]
 mod tests {
     #[cfg(feature = "serde")]

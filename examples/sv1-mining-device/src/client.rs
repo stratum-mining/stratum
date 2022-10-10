@@ -190,8 +190,8 @@ impl Client {
                     user_name: "user".into(), // TODO: user name should NOT be hardcoded
                     job_id: job_id.to_string(),
                     extra_nonce2,
-                    time: ntime.into(),
-                    nonce: nonce.into(),
+                    time: HexU32Be(ntime),
+                    nonce: HexU32Be(nonce),
                     version_bits: version,
                 };
                 let message: json_rpc::Message = submit.into();

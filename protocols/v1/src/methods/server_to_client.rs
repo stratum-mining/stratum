@@ -545,9 +545,9 @@ impl TryFrom<&Response> for Configure {
 
 #[derive(Debug)]
 pub struct VersionRollingParams {
-    version_rolling: bool,
-    version_rolling_mask: HexU32Be,
-    version_rolling_min_bit_count: HexU32Be,
+    pub version_rolling: bool,
+    pub version_rolling_mask: HexU32Be,
+    pub version_rolling_min_bit_count: HexU32Be,
 }
 
 impl VersionRollingParams {

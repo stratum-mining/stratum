@@ -95,6 +95,7 @@ pub trait IsServer {
                 Ok(Some(authorize.respond(authorized)))
             }
             methods::Client2Server::Configure(configure) => {
+                println!("{:?}", configure);
                 self.set_version_rolling_mask(configure.version_rolling_mask());
                 self.set_version_rolling_min_bit(configure.version_rolling_min_bit_count());
                 let (version_rolling, min_diff) = self.handle_configure(&configure);
@@ -445,8 +446,8 @@ pub trait IsClient {
                         job_id: self.last_notify().unwrap().job_id,
                         user_name,
                         extra_nonce2,
-                        time,
-                        nonce,
+                        time: HexU32Be(time as u32),
+                        nonce: HexU32Be(nonce as u32),
                         version_bits,
                         id,
                     }

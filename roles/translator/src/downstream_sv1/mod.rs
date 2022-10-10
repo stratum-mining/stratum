@@ -14,9 +14,9 @@ pub fn new_subscription_id() -> String {
 }
 
 pub fn new_version_rolling_mask() -> HexU32Be {
-    HexU32Be(0xffffffff)
+    HexU32Be(u32::MAX)
 }
 
 pub fn new_version_rolling_min() -> HexU32Be {
-    HexU32Be(0x00000000)
+    HexU32Be(0)
 }
