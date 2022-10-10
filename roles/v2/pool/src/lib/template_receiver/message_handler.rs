@@ -1,5 +1,5 @@
 use crate::lib::template_receiver::TemplateRx;
-use logging::{log_given_level, log_trace, log_internal, Level, Logger, Record};
+use logging::{log_given_level, log_internal, log_trace, Level, Logger, Record};
 use roles_logic_sv2::{
     errors::Error,
     handlers::template_distribution::{ParseServerTemplateDistributionMessages, SendTo},
