@@ -155,7 +155,6 @@ impl GroupChannelJobDispatcher {
             merkle_root: new_mining_job_message.merkle_root.to_vec(),
             extended_job_id: extended.job_id,
         };
-        println!("New mining job: {:?}", new_mining_job_message);
         if extended.future_job {
             self.future_jobs
                 .get_mut(&extended.job_id)

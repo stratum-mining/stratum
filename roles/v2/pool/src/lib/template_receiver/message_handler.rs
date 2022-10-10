@@ -1,5 +1,5 @@
 use crate::lib::template_receiver::TemplateRx;
-use logging::*;
+use logging::{log_given_level, log_trace, log_internal, Level, Logger, Record};
 use roles_logic_sv2::{
     errors::Error,
     handlers::template_distribution::{ParseServerTemplateDistributionMessages, SendTo},
@@ -43,7 +43,7 @@ where
             target: m.target.into_static(),
         };
         let new_prev_hash = TemplateDistribution::SetNewPrevHash(new_prev_hash);
-        log_info!(self.logger, "Received new prev hash");
+        log_trace!(self.logger, "Received new prev hash");
         Ok(SendTo::RelayNewMessageToRemote(
             Arc::new(Mutex::new(())),
             new_prev_hash,

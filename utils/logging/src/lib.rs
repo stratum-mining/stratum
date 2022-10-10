@@ -258,38 +258,6 @@ mod tests {
         pub fn enable(&mut self, level: Level) {
             self.level = level;
         }
-        pub fn assert_log(&self, module: String, line: String, count: usize) {
-            let log_entries = self.lines.lock().unwrap();
-            assert_eq!(log_entries.get(&(module, line)), Some(&count));
-        }
-
-        /// Search for the number of occurrence of the logged lines which
-        /// 1. belongs to the specified module and
-        /// 2. contains `line` in it.
-        /// And asserts if the number of occurrences is the same with the given `count`
-        pub fn assert_log_contains(&self, module: String, line: String, count: usize) {
-            let log_entries = self.lines.lock().unwrap();
-            let l: usize = log_entries
-                .iter()
-                .filter(|&(&(ref m, ref l), _c)| m == &module && l.contains(line.as_str()))
-                .map(|(_, c)| c)
-                .sum();
-            assert_eq!(l, count)
-        }
-
-        /// Search for the number of occurrences of logged lines which
-        /// 1. belong to the specified module and
-        /// 2. match the given regex pattern.
-        /// Assert that the number of occurrences equals the given `count`
-        pub fn assert_log_regex(&self, module: String, pattern: regex::Regex, count: usize) {
-            let log_entries = self.lines.lock().unwrap();
-            let l: usize = log_entries
-                .iter()
-                .filter(|&(&(ref m, ref l), _c)| m == &module && pattern.is_match(&l))
-                .map(|(_, c)| c)
-                .sum();
-            assert_eq!(l, count)
-        }
     }
 
     impl Logger for TestLogger {
