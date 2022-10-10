@@ -139,10 +139,10 @@ impl<'a> fmt::Display for DebugBytes<'a> {
 
 /// Logs a byte slice in hex format.
 #[macro_export]
-macro_rules!  log_bytes {
+macro_rules! log_bytes {
     ($obj: expr) => {
         DebugBytes(&$obj)
-    }
+    };
 }
 
 /// Create a new Record and log it. You probably don't want to use this macro directly,
@@ -335,7 +335,11 @@ mod tests {
             log_error!(self.logger, "This is an error");
             log_warn!(self.logger, "This is a warning");
             log_info!(self.logger, "This is an info");
-            log_info!(self.logger, "bytes: {}", log_bytes!("This is bytes".as_bytes()));
+            log_info!(
+                self.logger,
+                "bytes: {}",
+                log_bytes!("This is bytes".as_bytes())
+            );
             log_debug!(self.logger, "This is a debug");
             log_trace!(self.logger, "This is a trace");
             log_gossip!(self.logger, "This is a gossip");
