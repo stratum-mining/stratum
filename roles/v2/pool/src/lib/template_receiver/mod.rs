@@ -1,7 +1,7 @@
 use crate::{EitherFrame, StdFrame};
 use async_channel::{Receiver, Sender};
 use codec_sv2::Frame;
-use logging::*;
+use logging::{log_error, log_given_level, log_info, log_internal, Level, Logger, Record};
 use network_helpers::plain_connection_tokio::PlainConnection;
 use roles_logic_sv2::{
     handlers::template_distribution::ParseServerTemplateDistributionMessages,
@@ -33,7 +33,7 @@ where
     L: 'static + Send,
 {
     pub async fn connect(
-        borrowed_logger: L,
+        logger: L,
         address: SocketAddr,
         templ_sender: Sender<NewTemplate<'static>>,
         prev_h_sender: Sender<SetNewPrevHash<'static>>,
@@ -49,11 +49,8 @@ where
                     if attempts == 0 {
                         panic!("Failed to connect to template distribution server");
                     } else {
-                        log_error!(
-                            borrowed_logger,
-                            "Failed to connect to template distribution server \
-                            retrying in 5s, {} attempts left",
-                            attempts
+                        log_error!(logger, "Failed to connect to template distribution server \
+                            retrying in 5s, {} attempts left", attempts
                         );
                         sleep(std::time::Duration::from_secs(5)).await;
                         continue;
@@ -62,7 +59,7 @@ where
             }
         };
 
-        log_info!(borrowed_logger, "Connected to template distribution server");
+        log_info!(logger, "Connected to template distribution server");
 
         let (mut receiver, mut sender): (Receiver<EitherFrame>, Sender<EitherFrame>) =
             PlainConnection::new(stream).await;
@@ -72,7 +69,7 @@ where
             .unwrap();
 
         let self_ = Arc::new(Mutex::new(Self {
-            logger: borrowed_logger,
+            logger,
             receiver,
             sender,
             new_template_sender: templ_sender,

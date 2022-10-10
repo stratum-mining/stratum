@@ -101,7 +101,6 @@ pub struct Record<'a> {
 
 impl<'a> Record<'a> {
     /// Returns a new Record.
-    /// (C-not exported) as fmt can't be used in C
     #[inline]
     pub fn new(
         level: Level,
@@ -127,15 +126,22 @@ pub trait Logger {
 }
 
 /// Wrapper for logging byte slices in hex format.
-/// (C-not exported) as fmt can't be used in C
 #[doc(hidden)]
 pub struct DebugBytes<'a>(pub &'a [u8]);
-impl<'a> core::fmt::Display for DebugBytes<'a> {
-    fn fmt(&self, f: &mut core::fmt::Formatter) -> Result<(), core::fmt::Error> {
+impl<'a> fmt::Display for DebugBytes<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         for i in self.0 {
             write!(f, "{:02x}", i)?;
         }
         Ok(())
+    }
+}
+
+/// Logs a byte slice in hex format.
+#[macro_export]
+macro_rules!  log_bytes {
+    ($obj: expr) => {
+        DebugBytes(&$obj)
     }
 }
 
@@ -329,6 +335,7 @@ mod tests {
             log_error!(self.logger, "This is an error");
             log_warn!(self.logger, "This is a warning");
             log_info!(self.logger, "This is an info");
+            log_info!(self.logger, "bytes: {}", log_bytes!("This is bytes".as_bytes()));
             log_debug!(self.logger, "This is a debug");
             log_trace!(self.logger, "This is a trace");
             log_gossip!(self.logger, "This is a gossip");
