@@ -284,8 +284,8 @@ impl Extranonce {
     pub fn into_b032(self) -> B032<'static> {
         self.into()
     }
-   // B032 type is more used, this is why the output signature is not ExtendedExtranoncee the B032
-   // type is more used, this is why the output signature is not ExtendedExtranoncee
+    // B032 type is more used, this is why the output signature is not ExtendedExtranoncee the B032
+    // type is more used, this is why the output signature is not ExtendedExtranoncee
     #[allow(clippy::should_implement_trait)]
     pub fn next(&mut self) -> Option<B032> {
         increment_bytes_be(&mut self.extranonce).ok()?;
