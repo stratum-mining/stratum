@@ -37,32 +37,31 @@ fn process_cli_args() -> ProxyResult<ProxyConfig> {
 async fn main() {
     let proxy_config = process_cli_args().unwrap();
     println!("PC: {:?}", &proxy_config);
-    // `sender_submit_from_sv1` sender is used by `Downstream` to send a `mining.submit` message to
-    // `Bridge` via the `recv_submit_from_sv1` receiver
+
+    // Sender/Receiver to send a SV1 `mining.submit` from the `Downstream` to the `Bridge`
     // (Sender<v1::client_to_server::Submit>, Receiver<Submit>)
     let (sender_submit_from_sv1, recv_submit_from_sv1) = bounded(10);
-    // `sender_submit_to_sv2` sender is used by `Bridge` to send a `SubmitSharesExtended` message
-    // to `Upstream` via the `recv_submit_to_sv2` receiver
+
+    // Sender/Receiver to send a SV2 `SubmitSharesExtended` from the `Bridge` to the `Upstream`
     // (Sender<SubmitSharesExtended<'static>>, Receiver<SubmitSharesExtended<'static>>)
     let (sender_submit_to_sv2, recv_submit_to_sv2) = bounded(10);
 
-    // `sender_new_prev_hash` sender is used by `Upstream` to send a `SetNewPrevHash` to `Bridge`
-    // via the `recv_new_prev_hash` receiver
+    // Sender/Receiver to send a SV2 `SetNewPrevHash` message from the `Upstream` to the `Bridge`
     // (Sender<SetNewPrevHash<'static>>, Receiver<SetNewPrevHash<'static>>)
     let (sender_new_prev_hash, recv_new_prev_hash) = bounded(10);
 
-    // `sender_new_extended_mining_job` sender is used by `Upstream` to send a
-    // `NewExtendedMiningJob` to `Bridge` via the `recv_new_extended_mining_job` receiver
+    // Sender/Receiver to send a SV2 `NewExtendedMiningJob` message from the `Upstream` to the
+    // `Bridge`
     // (Sender<NewExtendedMiningJob<'static>>, Receiver<NewExtendedMiningJob<'static>>)
     let (sender_new_extended_mining_job, recv_new_extended_mining_job) = bounded(10);
 
+    // Sender/Receiver to send a new extranonce from the `Upstream` to this `main` function to be
+    // passed to the `Downstream` upon a Downstream role connection
+    // (Sender<ExtendedExtranonce>, Receiver<ExtendedExtranonce>)
     let (sender_extranonce, recv_extranonce) = bounded(1);
     let target = Arc::new(Mutex::new(vec![0; 32]));
 
-    // TODO add a channel to send new jobs from Bridge to Downstream
-    // Put NextMiningNotify in a mutex
-    // NextMiningNotify should have channel to Downstream?
-    // Put recv in next_mining_notify struct
+    // Sender/Receiver to send SV1 `mining.notify` message from the `Bridge` to the `Downstream`
     let (sender_mining_notify_bridge, recv_mining_notify_downstream): (
         Sender<server_to_client::Notify>,
         Receiver<server_to_client::Notify>,
@@ -74,7 +73,7 @@ async fn main() {
         proxy_config.upstream_port,
     );
 
-    // Instantiate a new `Upstream`
+    // Instantiate a new `Upstream` (SV2 Pool)
     let upstream = upstream_sv2::Upstream::new(
         upstream_addr,
         proxy_config.upstream_authority_pubkey,
@@ -88,7 +87,7 @@ async fn main() {
     .await
     .unwrap();
 
-    // Connects to the SV2 Upstream role
+    // Connect to the SV2 Upstream role
     upstream_sv2::Upstream::connect(
         upstream.clone(),
         proxy_config.min_supported_version,
@@ -96,14 +95,19 @@ async fn main() {
     )
     .await
     .unwrap();
+
     // Start receiving messages from the SV2 Upstream role
     upstream_sv2::Upstream::parse_incoming(upstream.clone());
-    // Start receiving submit from the SV1 Downstream role
+
+    // Start task handler to receive submits from the SV1 Downstream role once it connects
     upstream_sv2::Upstream::handle_submit(upstream.clone());
+
+    // Setup to store the latest SV2 `SetNewPrevHash` and `NewExtendedMiningJob` messages received
+    // from the Upstream role before any Downstream role connects
     let next_mining_notify = Arc::new(Mutex::new(NextMiningNotify::new()));
     let last_notify: Arc<Mutex<Option<server_to_client::Notify>>> = Arc::new(Mutex::new(None));
 
-    // Instantiates a new `Bridge` and begins handling incoming messages
+    // Instantiate a new `Bridge` and begins handling incoming messages
     proxy::Bridge::new(
         recv_submit_from_sv1,
         sender_submit_to_sv2,
@@ -121,6 +125,8 @@ async fn main() {
         proxy_config.downstream_port,
     );
 
+    // Receive the extranonce information from the Upstream role to send to the Downstream role
+    // once it connects
     let extended_extranonce = recv_extranonce.recv().await.unwrap();
     let extranonce_len = extended_extranonce.get_len();
     let min_extranonce_size = upstream.safe_lock(|s| s.min_extranonce_size).unwrap() as usize;
