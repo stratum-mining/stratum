@@ -223,7 +223,6 @@ impl Bridge {
                 //     .unwrap();
                 // let sv1_notify_msg = sv1_notify_msg
                 //     .expect("Error creating `mining.Notify` from `NewExtendedMiningJob`");
-                // println!("\n\nRR SV1 NOT MSG: {:?}", sv1_notify_msg);
                 // if let Some(msg) = sv1_notify_msg {
                 //     let last_notify = self_.safe_lock(|s| s.last_notify.clone()).unwrap();
                 //     last_notify

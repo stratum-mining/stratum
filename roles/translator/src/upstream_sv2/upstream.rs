@@ -182,6 +182,8 @@ impl Upstream {
         let setup_connection = Self::get_setup_connection_message(min_version, max_version)?;
         let mut connection = self_.safe_lock(|s| s.connection.clone()).unwrap();
 
+        println!("\nInfo:: Up: Sending: {:?}", &setup_connection);
+
         // Put the `SetupConnection` message in a `StdFrame` to be sent over the wire
         let sv2_frame: StdFrame = Message::Common(setup_connection.into()).try_into()?;
         // Send the `SetupConnection` frame to the SV2 Upstream role
@@ -191,6 +193,7 @@ impl Upstream {
         // Wait for the SV2 Upstream to respond with either a `SetupConnectionSuccess` or a
         // `SetupConnectionError` inside a SV2 binary message frame
         let mut incoming: StdFrame = connection.receiver.recv().await.unwrap().try_into()?;
+        println!("\nInfo:: Up: Receiving: {:?}", &incoming);
         // Gets the binary frame message type from the message header
         let message_type = incoming.get_header().unwrap().msg_type();
         // Gets the message payload
@@ -215,6 +218,9 @@ impl Upstream {
             max_target: u256_from_int(u64::MAX), // TODO
             min_extranonce_size,
         });
+
+        println!("\nInfo:: Up: Sending: {:?}", &open_channel);
+
         let sv2_frame: StdFrame = Message::Mining(open_channel).try_into()?;
         connection.send(sv2_frame).await.unwrap();
         Ok(())
@@ -260,6 +266,8 @@ impl Upstream {
                     // No translation required, simply respond to SV2 pool w a SV2 message
                     Ok(SendTo::Respond(message_for_upstream)) => {
                         let message = Message::Mining(message_for_upstream);
+                        println!("\nInfo:: Up: Sending: {:?}", &message);
+
                         let frame: StdFrame = message
                             .try_into()
                             .expect("Err converting `Message::Mining` to `StdFrame`");
@@ -309,6 +317,7 @@ impl Upstream {
                                     extranonce_len,
                                 )
                                 .unwrap();
+
                                 let sender =
                                     self_.safe_lock(|s| s.extranonce_sender.clone()).unwrap();
                                 sender.send(extended).await.unwrap();
@@ -361,11 +370,14 @@ impl Upstream {
                     .safe_lock(|s| s.submit_from_dowstream.clone())
                     .unwrap();
                 let mut sv2_submit: SubmitSharesExtended = receiver.recv().await.unwrap();
+
                 sv2_submit.channel_id = self_.safe_lock(|s| s.channel_id.unwrap()).unwrap();
                 sv2_submit.job_id = self_.safe_lock(|s| s.job_id.unwrap()).unwrap();
+
+                println!("\nInfo:: Up: Submitting Share");
                 println!(
-                    "SUBMITTING SHARE channel_id: {}, job_id: {}, sequence_number {}",
-                    sv2_submit.channel_id, sv2_submit.job_id, sv2_submit.sequence_number
+                    "Debug:: Up: Handling SubmitSharesExtended: {:?}",
+                    &sv2_submit
                 );
 
                 match self_
@@ -373,10 +385,10 @@ impl Upstream {
                     .unwrap()
                 {
                     Some(target) => {
-                        println!("{:?}", target);
+                        println!("Debug:: Up: SubmitSharesExtended Target: {:?}", target);
                     }
                     None => {
-                        println!("RECEIVED SHARE BUT NO JOB IS PRESENT");
+                        println!("Err:: Up: Received share but no job is present");
                     }
                 }
 
@@ -387,13 +399,16 @@ impl Upstream {
                 let frame: StdFrame = message
                     .try_into()
                     .expect("Err converting `PoolMessage` to `StdFrame`");
-                let _frame: EitherFrame = frame
-                    .try_into()
-                    .expect("Err converting `StdFrame` to `EitherFrame`");
-                let _sender = self_
-                    .safe_lock(|self_| self_.connection.sender.clone())
-                    .unwrap();
-                // TODO: Fix
+                // Doesnt actually send because of Braiins Pool issue that needs to be fixed
+                println!("\nInfo:: Up: Sending: {:?}", &frame);
+
+                // TODO: Fix Braiins Pool issue, then uncomment
+                // let frame: EitherFrame = frame
+                //     .try_into()
+                //     .expect("Err converting `StdFrame` to `EitherFrame`");
+                // let sender = self_
+                //     .safe_lock(|self_| self_.connection.sender.clone())
+                //     .unwrap();
                 // sender.send(frame).await.unwrap();
             }
         });
@@ -546,7 +561,11 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
         // Set the `min_extranonce_size` in accordance to the SV2 Pool
         self.min_extranonce_size = m.extranonce_size;
 
-        println!("OPENED EXTENDED CHANNEL, channel_id: {}", m.channel_id);
+        println!("\nInfo:: Up: Successfully Opened Extended Mining Channel");
+        println!(
+            "Debug:: Up: Handling OpenExtendedMiningChannelSuccess: {:?}",
+            &m
+        );
         self.channel_id = Some(m.channel_id);
         self.extranonce_prefix = Some(m.extranonce_prefix.to_vec());
         let m = Mining::OpenExtendedMiningChannelSuccess(OpenExtendedMiningChannelSuccess {
@@ -607,17 +626,18 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
     /// Handles the SV2 `SubmitSharesSuccess` message.
     fn handle_submit_shares_success(
         &mut self,
-        _: roles_logic_sv2::mining_sv2::SubmitSharesSuccess,
+        m: roles_logic_sv2::mining_sv2::SubmitSharesSuccess,
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error>
     {
-        println!("SUBMIT SHARE SUCCESS");
+        println!("\nInfo:: Up: Successfully Submitted Share");
+        println!("Debug:: Up: Handling SubmitSharesSuccess: {:?}", &m);
         Ok(SendTo::None(None))
     }
 
     /// Handles the SV2 `SubmitSharesError` message.
     fn handle_submit_shares_error(
         &mut self,
-        _: roles_logic_sv2::mining_sv2::SubmitSharesError,
+        m: roles_logic_sv2::mining_sv2::SubmitSharesError,
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error>
     {
         // let message = Mining::SubmitSharesError(SubmitSharesError {
@@ -631,7 +651,8 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
         //     error_code: m.error_code.clone().into_static(),
         // });
         // Ok(SendTo::Respond(message))
-        println!("SUBMIT SHARE ERROR");
+        println!("\nInfo:: Up: Rejected Submitted Share");
+        println!("Debug:: Up: Handling SubmitSharesError: {:?}", &m);
         Ok(SendTo::None(None))
     }
 
@@ -675,8 +696,7 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
                 self.current_job = Job::WithJobOnly(job);
             }
         };
-        //println!("{:#?}", m.coinbase_tx_suffix.to_vec());
-        //println!("{:#?}", m.coinbase_tx_prefix.to_vec());
+
         let message = Mining::NewExtendedMiningJob(NewExtendedMiningJob {
             // Extended channel identifier, stable for whole connection lifetime. Used for broadcasting new
             // jobs by the connection
@@ -689,10 +709,10 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
             coinbase_tx_prefix: m.coinbase_tx_prefix.clone().into_static(),
             coinbase_tx_suffix: m.coinbase_tx_suffix.clone().into_static(),
         });
-        println!(
-            "NEW MINING JOB, channel_id: {}, job_id: {}",
-            m.channel_id, m.job_id
-        );
+
+        println!("\nInfo:: Up: New Extended Mining Job");
+        println!("Debug:: Up: Handling NewExtendedMiningJob: {:?}", &message);
+
         Ok(SendTo::None(Some(message)))
     }
 
@@ -732,10 +752,10 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
             min_ntime: m.min_ntime,
             nbits: m.nbits,
         });
-        println!(
-            "NEW PREV HASH, channel_id: {}, job_id: {}",
-            m.channel_id, m.job_id
-        );
+
+        println!("\nInfo:: Up: Set New Prev Hash");
+        println!("Debug:: Up: Handling SetNewPrevHash: {:?}", &message);
+
         Ok(SendTo::None(Some(message)))
     }
 
@@ -768,7 +788,10 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
             channel_id: m.channel_id,
             maximum_target: m.maximum_target.into_static(),
         };
-        println!("SET TARGET TO: {:?}", m.maximum_target);
+
+        println!("\nInfo:: Up: Updating Target to: {:?}", &m.maximum_target);
+        println!("Debug:: Up: Handling SetTarget: {:?}", &m);
+
         self.target
             .safe_lock(|t| *t = m.maximum_target.to_vec())
             .unwrap();
