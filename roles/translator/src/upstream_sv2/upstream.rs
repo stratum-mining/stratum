@@ -46,7 +46,7 @@ struct PrevHash {
 #[derive(Debug, Clone)]
 enum Job {
     Void,
-    WithJob(Job_),
+    WithJobOnly(Job_),
     WithJobAndPrevHash(Job_, PrevHash),
 }
 
@@ -54,7 +54,7 @@ impl Job {
     pub fn get_target(self, share: &SubmitSharesExtended) -> Option<[u8; 32]> {
         match self {
             Job::Void => None,
-            Job::WithJob(_) => None,
+            Job::WithJobOnly(_) => None,
             Job::WithJobAndPrevHash(job, prev_hash) => {
                 let target = get_target(
                     share.nonce,
@@ -630,11 +630,11 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
         };
         match self.current_job {
             Job::Void => {
-                self.current_job = Job::WithJob(job);
+                self.current_job = Job::WithJobOnly(job);
             }
-            Job::WithJob(_) => todo!(),
+            Job::WithJobOnly(_) => todo!(),
             Job::WithJobAndPrevHash(_, _) => {
-                self.current_job = Job::WithJob(job);
+                self.current_job = Job::WithJobOnly(job);
             }
         };
         //println!("{:#?}", m.coinbase_tx_suffix.to_vec());
@@ -672,7 +672,7 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
         let prev_hash = BlockHash::from_hash(prev_hash);
         match &self.current_job {
             Job::Void => todo!(),
-            Job::WithJob(job) => {
+            Job::WithJobOnly(job) => {
                 if job.id == m.job_id {
                     let prev_hash = PrevHash {
                         prev_hash,
