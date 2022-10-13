@@ -61,12 +61,13 @@ enum Job {
 }
 
 impl Job {
-    pub fn get_target(self, share: &SubmitSharesExtended) -> Option<[u8; 32]> {
+    /// Calculates the candidate block hash of mining job.
+    pub fn get_candidate_hash(self, share: &SubmitSharesExtended) -> Option<[u8; 32]> {
         match self {
             Job::Void => None,
             Job::WithJobOnly(_) => None,
             Job::WithJobAndPrevHash(job, prev_hash) => {
-                let target = get_target(
+                let candidate_hash = get_target(
                     share.nonce,
                     share.version,
                     share.ntime,
@@ -77,7 +78,7 @@ impl Job {
                     job.merkle_path,
                     prev_hash.nbits,
                 );
-                Some(target)
+                Some(candidate_hash)
             }
         }
     }
@@ -371,7 +372,7 @@ impl Upstream {
                 );
 
                 match self_
-                    .safe_lock(|s| s.current_job.clone().get_target(&sv2_submit))
+                    .safe_lock(|s| s.current_job.clone().get_candidate_hash(&sv2_submit))
                     .unwrap()
                 {
                     Some(target) => {
