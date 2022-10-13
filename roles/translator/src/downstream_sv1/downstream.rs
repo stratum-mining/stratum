@@ -1,4 +1,4 @@
-use crate::{downstream_sv1, error::ProxyResult};
+use crate::{downstream_sv1, ProxyResult};
 use async_channel::{bounded, Receiver, Sender};
 use async_std::{
     io::BufReader,
@@ -23,21 +23,29 @@ use v1::{
 /// a SV2 Pool server).
 #[derive(Debug)]
 pub struct Downstream {
+    /// List of authorized Downstream Mining Devices.
     authorized_names: Vec<String>,
+    /// `extranonce1` to be sent to the Downstream in the SV1 `mining.subscribe` message response.
     extranonce1: Vec<u8>,
+    /// `extranonce2` to be sent to the Downstream in the SV1 `mining.subscribe` message response.
     extranonce2: Vec<u8>,
-    //extended_extranonce: Extranonce,
-    //extranonce1: HexBytes,
-    //extranonce2_size: usize,
+    /// Version rolling mask bits
     version_rolling_mask: Option<HexU32Be>,
+    /// Minimum version rolling mask bits size
     version_rolling_min_bit: Option<HexU32Be>,
+    /// Sends SV1 `mining.submit` message received from the SV1 Downstream to the Bridge for
+    /// translation into a SV2 `SubmitSharesExtended`.
     submit_sender: Sender<(v1::client_to_server::Submit, Vec<u8>)>,
+    /// Sends message to the SV1 Downstream role.
     sender_outgoing: Sender<json_rpc::Message>,
+    /// Difficulty target for SV1 Downstream.
     target: Arc<Mutex<Vec<u8>>>,
+    /// True if this is the first job received from `Upstream`.
     first_job_received: bool,
 }
 
 impl Downstream {
+    /// Instantiate a new `Downstream`.
     pub async fn new(
         stream: TcpStream,
         submit_sender: Sender<(v1::client_to_server::Submit, Vec<u8>)>,
@@ -74,9 +82,10 @@ impl Downstream {
         }));
         let self_ = downstream.clone();
 
-        // Task to read from SV1 Mining Device Client socket via `socket_reader`. Parses received
-        // message as `json_rpc::Message` + sends to upstream `Translator.receiver_for_downstream`
-        // via `sender_upstream`
+        // Task to read from SV1 Mining Device Client socket via `socket_reader`. Depending on the
+        // SV1 message received, a message response is sent directly back to the SV1 Downstream
+        // role, or the message is sent upwards to the Bridge for translation into a SV2 message
+        // and then sent to the SV2 Upstream role.
         task::spawn(async move {
             loop {
                 // Read message from SV1 Mining Device Client socket
@@ -97,8 +106,8 @@ impl Downstream {
             }
         });
 
-        // Wait for SV1 responses that do not need to go through the Translator, but can be sent
-        // back the SV1 Mining Device directly
+        // Task to receive SV1 message responses to SV1 messages that do NOT need translation.
+        // These response messages are sent directly to the SV1 Downstream role.
         task::spawn(async move {
             loop {
                 let to_send = receiver_outgoing.recv().await.unwrap();
@@ -117,7 +126,6 @@ impl Downstream {
         });
 
         let downstream_clone = downstream.clone();
-        // RR TODO
         task::spawn(async move {
             let mut first_sent = false;
             loop {
@@ -154,7 +162,8 @@ impl Downstream {
                 }
             }
         });
-        // Update target
+
+        // Task to update the target and send a new `mining.set_difficulty` to the SV1 Downstream
         let downstream_clone = downstream.clone();
         task::spawn(async move {
             let target = downstream_clone.safe_lock(|t| t.target.clone()).unwrap();
@@ -179,6 +188,8 @@ impl Downstream {
         Ok(downstream)
     }
 
+    /// Converts target received by the `SetTarget` SV2 message from the Upstream role into the
+    /// difficulty for the Downstream role sent via the SV1 `mining.set_difficulty` message.
     fn difficulty_from_target(target: Vec<u8>) -> f64 {
         // Convert target from Vec<u8> to U256 decimal representation (LE)
         let hex_strs: Vec<String> = target.iter().map(|b| format!("{:02X}", b)).collect();
@@ -199,6 +210,9 @@ impl Downstream {
         diff
     }
 
+    /// Converts target received by the `SetTarget` SV2 message from the Upstream role into the
+    /// difficulty for the Downstream role and creates the SV1 `mining.set_difficulty` message to
+    /// be sent to the Downstream role.
     fn get_set_difficulty(target: Vec<u8>) -> json_rpc::Message {
         let value = Downstream::difficulty_from_target(target);
         let set_target = v1::methods::server_to_client::SetDifficulty { value };
@@ -206,20 +220,8 @@ impl Downstream {
         message
     }
 
-    /// Accept connections from one or more SV1 Downstream roles (SV1 Mining Devices).
-    /// Before creating new Downstream
-    /// If we create Downstream + right after the Downstream sends configure, auth, subscribe
-    /// Now we have next_mining_notify, when we create Downsteram, we have to spawn a new task that
-    /// will take an Arc::Mutex<Downstream> + listen for a new next_mining_notify message via a
-    /// channel.
-    /// It will be a loop.
-    /// When there is a new NextMiningNotify, this loop locks the mutex, changes the field in the
-    /// downstream, so we have downstream w updated next_minig_notify field
-    /// In the new loop, listen for new NextMiningNotify
-    /// We add a field to Downstream called is_authorized: bool. If false, this loop just updates
-    /// the NextMiningNotify.  This loop changes the NMN field to prepare for when it is authorized
-    /// If True, loop updates field and sends message to downstream.
-    /// is_authorized in v1/protocols
+    /// Accept connections from one or more SV1 Downstream roles (SV1 Mining Devices) and create a
+    /// new `Downstream` for each connection.
     pub async fn accept_connections(
         downstream_addr: SocketAddr,
         submit_sender: Sender<(v1::client_to_server::Submit, Vec<u8>)>,
@@ -274,14 +276,13 @@ impl Downstream {
                 }
             }
             Err(e) => {
-                // Err(Error::V1Error(e))
                 panic!("`{:?}`", e);
             }
         }
     }
 
-    /// Send SV1 Response that is generated by `Downstream` (not received by upstream `Translator`)
-    /// to be written to the SV1 Downstream Mining Device socket
+    /// Send SV1 response message that is generated by `Downstream` (as opposed to being received
+    /// by `Bridge`) to be written to the SV1 Downstream role.
     async fn send_message_downstream(self_: Arc<Mutex<Self>>, response: json_rpc::Message) {
         //println!("DT SEND SV1 MSG TO DOWNSTREAM: {:?}", &response);
         let sender = self_.safe_lock(|s| s.sender_outgoing.clone()).unwrap();
@@ -291,6 +292,8 @@ impl Downstream {
 
 /// Implements `IsServer` for `Downstream` to handle the SV1 messages.
 impl IsServer for Downstream {
+    /// Handle the incoming `mining.configure` message which is received after a Downstream role is
+    /// subscribed and authorized. Contains the version rolling mask parameters.
     fn handle_configure(
         &mut self,
         _request: &client_to_server::Configure,
@@ -324,21 +327,18 @@ impl IsServer for Downstream {
         vec![set_difficulty_sub, notify_sub]
     }
 
+    /// Any numbers of workers may be authorized at any time during the session. In this way, a
+    /// large number of independent Mining Devices can be handled with a single SV1 connection.
+    /// https://bitcoin.stackexchange.com/questions/29416/how-do-pool-servers-handle-multiple-workers-sharing-one-connection-with-stratum
     fn handle_authorize(&self, _request: &client_to_server::Authorize) -> bool {
         println!("AUTHORIZING DOWNSTREAM");
         true
     }
 
+    /// When miner find the job which meets requested difficulty, it can submit share to the server.
+    /// Only [Submit](client_to_server::Submit) requests for authorized user names can be submitted.
     fn handle_submit(&self, request: &client_to_server::Submit) -> bool {
-        // 1. Check if receiving valid shares by adding diff field to Downstream
-        // 2. Have access to &self, use safe_lock to access sender_submit to the Bridge
-        // If we need a multiple ref, we can put the channel in a Arc<Mutex<>> or change the
-        // IsServer trait handle_submit def
-        // Concern that the channel my become full. Max 10 messages. If full, we unwrap and it
-        // panics.
-        // Can use an unbounded channel.
-        // Another reason for a potential panic: The channel would close if the Bridge thread
-        // panics.
+        // TODO: Check if receiving valid shares by adding diff field to Downstream
         if self.first_job_received {
             let to_send = (request.clone(), self.extranonce1.clone());
             self.submit_sender.try_send(to_send).unwrap();
@@ -349,41 +349,49 @@ impl IsServer for Downstream {
     /// Indicates to the server that the client supports the mining.set_extranonce method.
     fn handle_extranonce_subscribe(&self) {}
 
+    /// Checks if a Downstream role is authorized.
     fn is_authorized(&self, name: &str) -> bool {
         self.authorized_names.contains(&name.to_string())
     }
 
+    /// Authorizes a Downstream role.
     fn authorize(&mut self, name: &str) {
         self.authorized_names.push(name.to_string());
     }
 
-    /// Set extranonce1 to extranonce1 if provided. If not create a new one and set it.
+    /// Sets the `extranonce1` field sent in the SV1 `mining.notify` message to the value specified
+    /// by the SV2 `OpenExtendedMiningChannelSuccess` message sent from the Upstream role.
     fn set_extranonce1(&mut self, _extranonce1: Option<HexBytes>) -> HexBytes {
         self.extranonce1.clone().try_into().unwrap()
     }
 
+    /// Returns the `Downstream`'s `extranonce1` value.
     fn extranonce1(&self) -> HexBytes {
         self.extranonce1.clone().try_into().unwrap()
     }
 
-    /// Set extranonce2_size to extranonce2_size provided by the SV2 Upstream in the SV2
-    /// `OpenExtendedMiningChannelSuccess` message.
+    /// Sets the `extranonce2_size` field sent in the SV1 `mining.notify` message to the value
+    /// specified by the SV2 `OpenExtendedMiningChannelSuccess` message sent from the Upstream role.
     fn set_extranonce2_size(&mut self, _extra_nonce2_size: Option<usize>) -> usize {
         self.extranonce2.len()
     }
 
+    /// Returns the `Downstream`'s `extranonce2_size` value.
     fn extranonce2_size(&self) -> usize {
         self.extranonce2.len()
     }
 
+    /// Returns the version rolling mask.
     fn version_rolling_mask(&self) -> Option<HexU32Be> {
         self.version_rolling_mask.clone()
     }
 
+    /// Sets the version rolling mask.
     fn set_version_rolling_mask(&mut self, mask: Option<HexU32Be>) {
         self.version_rolling_mask = mask;
     }
 
+    /// Sets the minimum version rolling bit.
     fn set_version_rolling_min_bit(&mut self, mask: Option<HexU32Be>) {
         self.version_rolling_min_bit = mask
     }
