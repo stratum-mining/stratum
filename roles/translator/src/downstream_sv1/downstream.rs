@@ -87,6 +87,7 @@ impl Downstream {
                 while let Some(incoming) = messages.next().await {
                     let incoming =
                         incoming.expect("Err reading next incoming message from SV1 Downstream");
+                    println!("\nDOWN INCOMING: {:?}", &incoming);
                     let incoming: Result<json_rpc::Message, _> = serde_json::from_str(&incoming);
                     let incoming = incoming.expect("Err serializing incoming message from SV1 Downstream into JSON from `String`");
                     //println!("TD RECV MSG FROM DOWNSTREAM: {:?}", &incoming);
@@ -107,6 +108,7 @@ impl Downstream {
                     serde_json::to_string(&to_send)
                         .expect("Err deserializing JSON message for SV1 Downstream into `String`")
                 );
+                println!("\nDOWN SEND: {:?}", &to_send);
                 (&*socket_writer_clone)
                     .write_all(to_send.as_bytes())
                     .await
@@ -125,10 +127,12 @@ impl Downstream {
                     .unwrap();
 
                 if is_a && !first_sent {
-                    let target_2: bigint::U256 = target.safe_lock(|t| t.clone()).unwrap()[..]
-                        .try_into()
-                        .unwrap();
-                    let messsage = Self::get_set_difficulty(target_2);
+                    let target = target.safe_lock(|t| t.clone()).unwrap().to_vec();
+                    let messsage = Self::get_set_difficulty(target);
+                    // let target_2: bigint::U256 = target.safe_lock(|t| t.clone()).unwrap()[..]
+                    //     .try_into()
+                    //     .unwrap();
+                    // let messsage = Self::get_set_difficulty(target_2);
                     Downstream::send_message_downstream(downstream_clone.clone(), messsage).await;
 
                     let sv1_mining_notify_msg =
@@ -163,8 +167,10 @@ impl Downstream {
                 let target = target.safe_lock(|t| t.clone()).unwrap();
                 if target != last_target {
                     last_target = target;
-                    let target_2: bigint::U256 = last_target[..].try_into().unwrap();
+                    let target_2 = last_target.to_vec();
                     let message = Self::get_set_difficulty(target_2);
+                    // let target_2: bigint::U256 = last_target[..].try_into().unwrap();
+                    // let message = Self::get_set_difficulty(target_2);
                     Downstream::send_message_downstream(downstream_clone.clone(), message).await;
                 }
             }
@@ -173,20 +179,31 @@ impl Downstream {
         Ok(downstream)
     }
 
-    // TODO need to be fixed
-    fn get_set_difficulty(target_2: bigint::U256) -> json_rpc::Message {
-        let target_1 = bigint::U256::from_dec_str(
-            "26959535291011309493156476344723991336010898738574164086137773096960",
+    fn difficulty_from_target(target: Vec<u8>) -> f64 {
+        // Convert target from Vec<u8> to U256 decimal representation (LE)
+        let hex_strs: Vec<String> = target.iter().map(|b| format!("{:02X}", b)).collect();
+        let target_hex_str = hex_strs.connect("");
+        let target_u256 = bigint::U256::from_little_endian(&target);
+
+        // pdiff: 0x00000000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+        // https://en.bitcoin.it/wiki/Difficulty
+        let pdiff = bigint::U256::from_dec_str(
+            "26959946667150639794667015087019630673637144422540572481103610249215",
         )
         .unwrap();
-        let diff = target_1.overflowing_div(target_2);
+
+        let diff = pdiff.overflowing_div(target_u256);
         let diff = diff.0.to_string();
         let diff: f64 = diff.parse().unwrap();
         println!("SET DIFFICULTY TO: {}", diff);
-        // 1502588028741811700000000000000000000000000000000
-        let set_target = v1::methods::server_to_client::SetDifficulty { value: 10000.0 };
-        let messsage: json_rpc::Message = set_target.try_into().unwrap();
-        messsage
+        diff
+    }
+
+    fn get_set_difficulty(target: Vec<u8>) -> json_rpc::Message {
+        let value = Downstream::difficulty_from_target(target);
+        let set_target = v1::methods::server_to_client::SetDifficulty { value };
+        let message: json_rpc::Message = set_target.try_into().unwrap();
+        message
     }
 
     /// Accept connections from one or more SV1 Downstream roles (SV1 Mining Devices).
@@ -383,5 +400,21 @@ impl IsDownstream for Downstream {
         &self,
     ) -> roles_logic_sv2::common_properties::CommonDownstreamData {
         todo!()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn gets_difficulty_from_target() {
+        let target = vec![
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 255, 127,
+            0, 0, 0, 0, 0,
+        ];
+        let actual = Downstream::difficulty_from_target(target);
+        let expect = 512.0;
+        assert_eq!(actual, expect);
     }
 }
