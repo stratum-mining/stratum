@@ -35,8 +35,6 @@ use std::{net::SocketAddr, sync::Arc};
 struct Job_ {
     /// `job_id`, identifier of this mining job.
     id: u32,
-    /// Valid version field that reflects the current network consensus.
-    version: u32,
     /// Prefix part of the coinbase transaction.
     coinbase_tx_prefix: Vec<u8>,
     /// Suffix part of the coinbase transaction.
@@ -668,7 +666,6 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
         }
         let job = Job_ {
             id: m.job_id,
-            version: m.version,
             coinbase_tx_prefix: m.coinbase_tx_prefix.to_vec(),
             coinbase_tx_suffix: m.coinbase_tx_suffix.to_vec(),
             merkle_path: m.merkle_path.to_vec(),
