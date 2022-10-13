@@ -116,15 +116,14 @@ pub struct ExtranonceSubscribe();
 /// more details).
 #[derive(Debug, Clone, PartialEq)]
 pub struct Submit {
-    pub user_name: String, // root
-    pub job_id: String, // 6
+    pub user_name: String,      // root
+    pub job_id: String,         // 6
     pub extra_nonce2: HexBytes, // "8a.."
-    pub time: HexU32Be, //string
-    pub nonce: HexU32Be, 
+    pub time: HexU32Be,         //string
+    pub nonce: HexU32Be,
     pub version_bits: Option<HexU32Be>,
     pub id: String,
 }
-
 
 impl Submit {
     pub fn respond(self, is_ok: bool) -> Response {
@@ -169,16 +168,14 @@ impl TryFrom<StandardRequest> for Submit {
             Some(params) => {
                 let (user_name, job_id, extra_nonce2, time, nonce, version_bits) = match &params[..]
                 {
-                    //[JString(a), JString(b), JString(c), JNumber(d), JNumber(e), JString(f)] => (
-                    //    a.into(),
-                    //    b.into(),
-                    //    (c.as_str()).try_into()?,
-                    //    d.as_i64()
-                    //        .ok_or_else(|| ParsingMethodError::not_int_from_value(d.clone()))?,
-                    //    e.as_i64()
-                    //        .ok_or_else(|| ParsingMethodError::not_int_from_value(e.clone()))?,
-                    //    Some((f.as_str()).try_into()?),
-                    //),
+                    [JString(a), JString(b), JString(c), JNumber(d), JNumber(e), JString(f)] => (
+                        a.into(),
+                        b.into(),
+                        (c.as_str()).try_into()?,
+                        HexU32Be(d.as_u64().unwrap() as u32),
+                        HexU32Be(e.as_u64().unwrap() as u32),
+                        Some((f.as_str()).try_into()?),
+                    ),
                     [JString(a), JString(b), JString(c), JString(d), JString(e), JString(f)] => (
                         a.into(),
                         b.into(),
@@ -187,16 +184,22 @@ impl TryFrom<StandardRequest> for Submit {
                         (e.as_str()).try_into()?,
                         Some((f.as_str()).try_into()?),
                     ),
-                    //[JString(a), JString(b), JString(c), JNumber(d), JNumber(e)] => (
-                    //    a.into(),
-                    //    b.into(),
-                    //    (c.as_str()).try_into()?,
-                    //    d.as_i64()
-                    //        .ok_or_else(|| ParsingMethodError::not_int_from_value(d.clone()))?,
-                    //    e.as_i64()
-                    //        .ok_or_else(|| ParsingMethodError::not_int_from_value(e.clone()))?,
-                    //    None,
-                    //),
+                    [JString(a), JString(b), JString(c), JNumber(d), JNumber(e)] => (
+                        a.into(),
+                        b.into(),
+                        (c.as_str()).try_into()?,
+                        HexU32Be(d.as_u64().unwrap() as u32),
+                        HexU32Be(e.as_u64().unwrap() as u32),
+                        None,
+                    ),
+                    [JString(a), JString(b), JString(c), JString(d), JString(e)] => (
+                        a.into(),
+                        b.into(),
+                        (c.as_str()).try_into()?,
+                        (d.as_str()).try_into()?,
+                        (e.as_str()).try_into()?,
+                        None,
+                    ),
                     _ => return Err(ParsingMethodError::wrong_args_from_value(msg.params)),
                 };
                 let id = msg.id;
@@ -326,7 +329,6 @@ impl TryFrom<StandardRequest> for Subscribe {
         }
     }
 }
-
 
 #[derive(Debug)]
 pub struct Configure {
