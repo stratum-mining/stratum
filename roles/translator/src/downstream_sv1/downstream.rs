@@ -15,7 +15,7 @@ use roles_logic_sv2::{
 use std::{net::SocketAddr, sync::Arc};
 use v1::{
     client_to_server, json_rpc, server_to_client,
-    utils::{self, HexBytes, HexU32Be},
+    utils::{HexBytes, HexU32Be},
     IsServer,
 };
 
@@ -62,9 +62,9 @@ impl Downstream {
         let (sender_outgoing, receiver_outgoing) = bounded(10);
 
         let socket_writer_clone = socket_writer.clone();
-        let socket_writer_set_difficulty_clone = socket_writer.clone();
+        let _socket_writer_set_difficulty_clone = socket_writer.clone();
         // Used to send SV1 `mining.notify` messages to the Downstreams
-        let socket_writer_notify = socket_writer;
+        let _socket_writer_notify = socket_writer;
 
         let extranonce: Vec<u8> = extranonce.try_into().unwrap();
         let (extranonce1, extranonce2) = extranonce.split_at(extranonce.len() - extranonce2_size);
@@ -192,8 +192,6 @@ impl Downstream {
     /// difficulty for the Downstream role sent via the SV1 `mining.set_difficulty` message.
     fn difficulty_from_target(target: Vec<u8>) -> f64 {
         // Convert target from Vec<u8> to U256 decimal representation (LE)
-        let hex_strs: Vec<String> = target.iter().map(|b| format!("{:02X}", b)).collect();
-        let target_hex_str = hex_strs.connect("");
         let target_u256 = bigint::U256::from_little_endian(&target);
 
         // pdiff: 0x00000000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF

@@ -8,9 +8,11 @@ use async_std::{net::TcpStream, task};
 use binary_sv2::u256_from_int;
 use codec_sv2::{Frame, HandshakeRole, Initiator};
 use network_helpers::Connection;
-use roles_logic_sv2::bitcoin::{hashes::sha256d::Hash as DHash, hashes::Hash, BlockHash};
-use roles_logic_sv2::utils::get_target;
 use roles_logic_sv2::{
+    bitcoin::{
+        hashes::{sha256d::Hash as DHash, Hash},
+        BlockHash,
+    },
     common_messages_sv2::{Protocol, SetupConnection},
     common_properties::{IsMiningUpstream, IsUpstream},
     handlers::{
@@ -24,7 +26,7 @@ use roles_logic_sv2::{
     parsers::Mining,
     routing_logic::{CommonRoutingLogic, MiningRoutingLogic, NoRouting},
     selectors::NullDownstreamMiningSelector,
-    utils::Mutex,
+    utils::{get_target, Mutex},
 };
 use std::{net::SocketAddr, sync::Arc};
 
@@ -126,9 +128,10 @@ impl Upstream {
     /// `UpstreamConnection` with a channel to send and receive messages from the SV2 Upstream
     /// role and uses channels provided in the function arguments to send and receive messages
     /// from the `Downstream`.
+    #[cfg_attr(feature = "cargo-clippy", allow(clippy::too_many_arguments))]
     pub async fn new(
         address: SocketAddr,
-        authority_public_key: [u8; 32],
+        _authority_public_key: [u8; 32],
         submit_from_dowstream: Receiver<SubmitSharesExtended<'static>>,
         new_prev_hash_sender: Sender<SetNewPrevHash<'static>>,
         new_extended_mining_job_sender: Sender<NewExtendedMiningJob<'static>>,
@@ -390,10 +393,10 @@ impl Upstream {
                 let frame: StdFrame = message
                     .try_into()
                     .expect("Err converting `PoolMessage` to `StdFrame`");
-                let frame: EitherFrame = frame
+                let _frame: EitherFrame = frame
                     .try_into()
                     .expect("Err converting `StdFrame` to `EitherFrame`");
-                let sender = self_
+                let _sender = self_
                     .safe_lock(|self_| self_.connection.sender.clone())
                     .unwrap();
                 // TODO: Fix

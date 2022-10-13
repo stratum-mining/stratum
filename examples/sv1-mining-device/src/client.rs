@@ -175,9 +175,7 @@ impl Client {
             let recv = receiver_share.clone();
             loop {
                 let (nonce, job_id, version, ntime) = recv.recv().await.unwrap();
-                if cloned.clone().safe_lock(|c| c.status.clone()).unwrap()
-                    != ClientStatus::Subscribed
-                {
+                if cloned.clone().safe_lock(|c| c.status).unwrap() != ClientStatus::Subscribed {
                     continue;
                 }
                 let extra_nonce2: HexBytes =
@@ -202,7 +200,7 @@ impl Client {
         let recv_incoming = client.safe_lock(|c| c.receiver_incoming.clone()).unwrap();
 
         loop {
-            match client.clone().safe_lock(|c| c.status.clone()).unwrap() {
+            match client.clone().safe_lock(|c| c.status).unwrap() {
                 ClientStatus::Init => panic!("impossible state"),
                 ClientStatus::Configured => {
                     let incoming = recv_incoming.clone().recv().await.unwrap();

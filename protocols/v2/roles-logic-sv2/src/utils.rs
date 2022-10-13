@@ -255,7 +255,7 @@ pub fn target_from_hash_rate(hash_per_second: f32, share_per_min: f32) -> U256<'
     target.into()
 }
 
-
+#[cfg_attr(feature = "cargo-clippy", allow(clippy::too_many_arguments))]
 pub fn get_target(
     nonce: u32,
     version: u32,
@@ -266,18 +266,18 @@ pub fn get_target(
     prev_hash: BlockHash,
     merkle_path: Vec<Vec<u8>>,
     nbits: u32,
-) -> [u8;32] {
+) -> [u8; 32] {
     let merkle_root: [u8; 32] = merkle_root_from_path(
-        &(coinbase_tx_prefix[..]),
-        &(coinbase_tx_suffix[..]),
-        &extranonce[..],
+        coinbase_tx_prefix,
+        coinbase_tx_suffix,
+        extranonce,
         &(merkle_path[..]),
     )
     .unwrap()
     .try_into()
     .unwrap();
     let merkle_root = Hash::from_inner(merkle_root);
-    let merkle_root =  TxMerkleNode::from_hash(merkle_root);
+    let merkle_root = TxMerkleNode::from_hash(merkle_root);
     // TODO  how should version be transoformed from u32 into i32???
     let version = version as i32;
     let header = BlockHeader {

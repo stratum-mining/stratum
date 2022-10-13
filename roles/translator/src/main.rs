@@ -8,17 +8,15 @@ use args::Args;
 use error::{Error, ProxyResult};
 use proxy::next_mining_notify::NextMiningNotify;
 use proxy_config::ProxyConfig;
-use roles_logic_sv2::{mining_sv2::ExtendedExtranonce, utils::Mutex};
+use roles_logic_sv2::utils::Mutex;
 
 const SELF_EXTRNONCE_LEN: usize = 2;
 
 use async_channel::{bounded, Receiver, Sender};
-use async_std::task;
 use std::{
     net::{IpAddr, SocketAddr},
     str::FromStr,
     sync::Arc,
-    time::Duration,
 };
 use v1::server_to_client;
 

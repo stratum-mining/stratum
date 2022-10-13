@@ -373,7 +373,7 @@ impl From<Subscribe> for Message {
         Message::OkResponse(Response {
             id: su.id,
             error: None,
-            result: (&[subscriptions, extra_nonce1, extra_nonce2_size,][..]).into(),
+            result: (&[subscriptions, extra_nonce1, extra_nonce2_size][..]).into(),
         })
     }
 }

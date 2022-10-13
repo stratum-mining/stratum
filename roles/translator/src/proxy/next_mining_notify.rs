@@ -1,6 +1,4 @@
-use crate::ProxyResult;
 use roles_logic_sv2::mining_sv2::{NewExtendedMiningJob, SetNewPrevHash};
-use std::convert::TryInto;
 use v1::{
     server_to_client,
     utils::{HexBytes, HexU32Be, PrevHash},

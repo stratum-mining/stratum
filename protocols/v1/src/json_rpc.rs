@@ -1,5 +1,6 @@
 //! https://www.jsonrpc.org/specification#response_object
-use serde::{Deserialize, Serialize};
+use serde::{de, Deserialize, Deserializer, Serialize};
+use std::fmt;
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 #[serde(untagged)]
@@ -79,9 +80,6 @@ impl From<Notification> for Message {
     }
 }
 
-use serde::Deserializer;
-use serde::de;
-use std::fmt;
 struct DeserializeStringAndNumberIntoString;
 
 impl<'de> de::Visitor<'de> for DeserializeStringAndNumberIntoString {
