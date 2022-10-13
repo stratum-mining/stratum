@@ -352,7 +352,7 @@ impl Upstream {
         });
     }
 
-    /// Recieves a new SV2 `SubmitSharesExtended` message, checks that the submission target meets
+    /// Receives a new SV2 `SubmitSharesExtended` message, checks that the submission target meets
     /// the expected (TODO), and sends to the Upstream role.
     pub fn handle_submit(self_: Arc<Mutex<Self>>) {
         // TODO
