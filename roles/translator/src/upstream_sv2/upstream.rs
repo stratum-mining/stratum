@@ -129,7 +129,7 @@ impl Upstream {
     #[cfg_attr(feature = "cargo-clippy", allow(clippy::too_many_arguments))]
     pub async fn new(
         address: SocketAddr,
-        _authority_public_key: [u8; 32],
+        authority_public_key: String,
         submit_from_dowstream: Receiver<SubmitSharesExtended<'static>>,
         new_prev_hash_sender: Sender<SetNewPrevHash<'static>>,
         new_extended_mining_job_sender: Sender<NewExtendedMiningJob<'static>>,
@@ -139,14 +139,10 @@ impl Upstream {
     ) -> ProxyResult<Arc<Mutex<Self>>> {
         // Connect to the SV2 Upstream role
         let socket = TcpStream::connect(address).await?;
-        //let initiator = Initiator::from_raw_k(authority_public_key)?;
 
         // TODO: use this from the proxy-config.toml
         let pub_key: codec_sv2::noise_sv2::formats::EncodedEd25519PublicKey =
-            "u95GEReVMjK6k5YqiSFNqqTnKU4ypU2Wm8awa6tmbmDmk1bWt"
-                .to_string()
-                .try_into()
-                .unwrap();
+            authority_public_key.try_into().unwrap();
         let initiator = Initiator::from_raw_k(*pub_key.into_inner().as_bytes()).unwrap();
 
         println!(
