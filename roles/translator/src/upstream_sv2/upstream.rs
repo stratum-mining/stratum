@@ -28,18 +28,28 @@ use roles_logic_sv2::{
 };
 use std::{net::SocketAddr, sync::Arc};
 
+/// Represents the currently active mining job being worked on.
 #[derive(Debug, Clone)]
 struct Job_ {
+    /// `job_id`, identifier of this mining job.
     id: u32,
+    /// Valid version field that reflects the current network consensus.
     version: u32,
+    /// Prefix part of the coinbase transaction.
     coinbase_tx_prefix: Vec<u8>,
+    /// Suffix part of the coinbase transaction.
     coinbase_tx_suffix: Vec<u8>,
+    /// Merkle path hashes ordered from deepest
     merkle_path: Vec<Vec<u8>>,
 }
 
+/// Represents the currently active `prevhash` of the mining job being worked on OR being submitted
+/// from the Downstream role.
 #[derive(Debug, Clone)]
 struct PrevHash {
+    /// `prevhash` of mining job.
     prev_hash: BlockHash,
+    /// `nBits` encoded difficulty target.
     nbits: u32,
 }
 
@@ -75,15 +85,34 @@ impl Job {
 
 #[derive(Debug, Clone)]
 pub struct Upstream {
+    /// Newly assigned identifier of the channel, stable for the whole lifetime of the connection,
+    /// e.g. it is used for broadcasting new jobs by the `NewExtendedMiningJob` message.
     channel_id: Option<u32>,
+    /// Identifier of the job as provided by the `NewExtendedMiningJob` message.
     job_id: Option<u32>,
+    /// Bytes used as implicit first part of `extranonce`.
     extranonce_prefix: Option<Vec<u8>>,
+    /// Represents a connection to a SV2 Upstream role.
     connection: UpstreamConnection,
+    /// Receives SV2 `SubmitSharesExtended` messages translated from SV1 `mining.submit` messages.
+    /// Translated by and sent from the `Bridge`.
     submit_from_dowstream: Receiver<SubmitSharesExtended<'static>>,
+    /// Sends SV2 `SetNewPrevHash` messages to be translated (along with SV2 `NewExtendedMiningJob`
+    /// messages) into SV1 `mining.notify` messages. Received and translated by the `Bridge`.
     new_prev_hash_sender: Sender<SetNewPrevHash<'static>>,
+    /// Sends SV2 `NewExtendedMiningJob` messages to be translated (along with SV2 `SetNewPrevHash`
+    /// messages) into SV1 `mining.notify` messages. Received and translated by the `Bridge`.
     new_extended_mining_job_sender: Sender<NewExtendedMiningJob<'static>>,
+    /// Sends the extranonce1 received in the SV2 `OpenExtendedMiningChannelSuccess` message to be
+    /// used by the `Downstream` and sent to the Downstream role in a SV2 `mining.subscribe`
+    /// response message. Passed to the `Downstream` on connection creation.
     extranonce_sender: Sender<ExtendedExtranonce>,
+    /// The first `target` is received by the Upstream role in the SV2
+    /// `OpenExtendedMiningChannelSuccess` message, then updated periodically via SV2 `SetTarget`
+    /// messages. Passed to the `Downstream` on connection creation and sent to the Downstream role
+    /// via the SV1 `mining.set_difficulty` message.
     target: Arc<Mutex<Vec<u8>>>,
+    /// Represents the currently active mining job being worked on.
     current_job: Job,
     /// Minimum `extranonce2` size. Initially requested in the `proxy-config.toml`, and ultimately
     /// set by the SV2 Upstream via the SV2 `OpenExtendedMiningChannelSuccess` message.
@@ -94,8 +123,8 @@ impl Upstream {
     /// Instantiate a new `Upstream`.
     /// Connect to the SV2 Upstream role (most typically a SV2 Pool). Initializes the
     /// `UpstreamConnection` with a channel to send and receive messages from the SV2 Upstream
-    /// role, and uses a channel provided in the function arguments to send and receive messages
-    /// from the Downstream Translator Proxy.
+    /// role and uses channels provided in the function arguments to send and receive messages
+    /// from the `Downstream`.
     pub async fn new(
         address: SocketAddr,
         authority_public_key: [u8; 32],
@@ -110,6 +139,7 @@ impl Upstream {
         let socket = TcpStream::connect(address).await?;
         //let initiator = Initiator::from_raw_k(authority_public_key)?;
 
+        // TODO: use this from the proxy-config.toml
         let pub_key: codec_sv2::noise_sv2::formats::EncodedEd25519PublicKey =
             "u95GEReVMjK6k5YqiSFNqqTnKU4ypU2Wm8awa6tmbmDmk1bWt"
                 .to_string()
@@ -144,7 +174,7 @@ impl Upstream {
         })))
     }
 
-    /// Setups the connection with the SV2 Upstream role (Pool)
+    /// Setups the connection with the SV2 Upstream role (most typically a SV2 Pool).
     pub async fn connect(
         self_: Arc<Mutex<Self>>,
         min_version: u16,
@@ -157,8 +187,7 @@ impl Upstream {
         // Put the `SetupConnection` message in a `StdFrame` to be sent over the wire
         let sv2_frame: StdFrame = Message::Common(setup_connection.into()).try_into()?;
         // Send the `SetupConnection` frame to the SV2 Upstream role
-        // We support only one upstream if is not possible to connect we can just panic and let the
-        // user know which is the issue
+        // Only one Upstream role is supported, panics if multiple connections are encountered
         connection.send(sv2_frame).await.unwrap();
 
         // Wait for the SV2 Upstream to respond with either a `SetupConnectionSuccess` or a
@@ -193,9 +222,8 @@ impl Upstream {
         Ok(())
     }
 
-    /// Parse the incoming SV2 message from the Upstream role and use the
-    /// `Upstream.sender_downstream` to send the message to the
-    /// `Translator.upstream_translator.receiver` to be handled.
+    /// Parses the incoming SV2 message from the Upstream role and routes the message to the
+    /// appropriate handler.
     pub fn parse_incoming(self_: Arc<Mutex<Self>>) {
         task::spawn(async move {
             loop {
@@ -216,7 +244,7 @@ impl Upstream {
                 // Since this is not communicating with an SV2 proxy, but instead a custom SV1
                 // proxy where the routing logic is handled via the `Upstream`'s communication
                 // channels, we do not use the mining routing logic in the SV2 library and specify
-                // no mining routing logic here.
+                // no mining routing logic here
                 let routing_logic = MiningRoutingLogic::None;
 
                 // Gets the response message for the received SV2 Upstream role message
@@ -228,6 +256,7 @@ impl Upstream {
                     payload,
                     routing_logic,
                 );
+
                 // Routes the incoming messages accordingly
                 match next_message_to_send {
                     // No translation required, simply respond to SV2 pool w a SV2 message
@@ -246,8 +275,7 @@ impl Upstream {
                             .unwrap();
                         sender.send(frame).await.unwrap();
                     }
-                    // We use None as we do not send the message to anyone but just use it
-                    // internally so SendTo::None have the right semantic
+                    // Does not send the messages anywhere, but instead handle them internally
                     Ok(SendTo::None(Some(m))) => {
                         match m {
                             Mining::OpenExtendedMiningChannelSuccess(m) => {
@@ -314,7 +342,7 @@ impl Upstream {
                         }
                     }
                     Ok(SendTo::None(None)) => (),
-                    // NO need to handle impossible state just panic cause are impossible and we
+                    // No need to handle impossible state just panic cause are impossible and we
                     // will never panic ;-)
                     Ok(_) => panic!(),
                     Err(_) => todo!("Handle `SendTo` error on Upstream"),
@@ -323,6 +351,8 @@ impl Upstream {
         });
     }
 
+    /// Recieves a new SV2 `SubmitSharesExtended` message, checks that the submission target meets
+    /// the expected (TODO), and sends to the Upstream role.
     pub fn handle_submit(self_: Arc<Mutex<Self>>) {
         // TODO
         // check if submit meet the upstream target and if so send back (upstream target will
@@ -365,7 +395,8 @@ impl Upstream {
                 let sender = self_
                     .safe_lock(|self_| self_.connection.sender.clone())
                     .unwrap();
-                //sender.send(frame).await.unwrap();
+                // TODO: Fix
+                // sender.send(frame).await.unwrap();
             }
         });
     }
@@ -471,18 +502,24 @@ impl ParseUpstreamCommonMessages<NoRouting> for Upstream {
     }
 }
 
+/// Connection-wide SV2 Upstream role messages parser implemented by a downstream ("downstream"
+/// here is relative to the SV2 Upstream role and is represented by this `Upstream` struct).
 impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRouting> for Upstream {
+    /// Returns the channel type between the SV2 Upstream role and the `Upstream`, which will
+    /// always be `Extended` for a SV1/SV2 Translator Proxy.
     fn get_channel_type(&self) -> roles_logic_sv2::handlers::mining::SupportedChannelTypes {
         roles_logic_sv2::handlers::mining::SupportedChannelTypes::Extended
     }
 
+    /// Work selection is disabled for SV1/SV2 Translator Proxy and all work selection is performed
+    /// by the SV2 Upstream role.
     fn is_work_selection_enabled(&self) -> bool {
         false
     }
 
-    /// SV2 `OpenStandardMiningChannelSuccess` message is NOT handled because it is NOT used for
-    /// the Translator Proxy as only Extended channels are used between the Translator Proxy and
-    /// the SV2 Upstream role.
+    /// The SV2 `OpenStandardMiningChannelSuccess` message is NOT handled because it is NOT used
+    /// for the Translator Proxy as only `Extended` channels are used between the SV1/SV2 Translator
+    /// Proxy and the SV2 Upstream role.
     fn handle_open_standard_mining_channel_success(
         &mut self,
         _m: roles_logic_sv2::mining_sv2::OpenStandardMiningChannelSuccess,
@@ -492,6 +529,10 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
         panic!("Standard Mining Channels are not used in Translator Proxy")
     }
 
+    /// Handles the SV2 `OpenExtendedMiningChannelSuccess` message which provides important
+    /// parameters including the `target` which is sent to the Downstream role in a SV1
+    /// `mining.set_difficulty` message, and the extranonce values which is sent to the Downstream
+    /// role in a SV1 `mining.subscribe` message response.
     fn handle_open_extended_mining_channel_success(
         &mut self,
         m: roles_logic_sv2::mining_sv2::OpenExtendedMiningChannelSuccess,
@@ -520,6 +561,7 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
         Ok(SendTo::None(Some(m)))
     }
 
+    /// Handles the SV2 `OpenExtendedMiningChannelError` message (TODO).
     fn handle_open_mining_channel_error(
         &mut self,
         _: roles_logic_sv2::mining_sv2::OpenMiningChannelError,
@@ -528,8 +570,7 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
         todo!()
     }
 
-    /// Handle SV2 `UpdateChannelError`.
-    /// TODO: Not implemented for demo.
+    /// Handles the SV2 `UpdateChannelError` message (TODO).
     fn handle_update_channel_error(
         &mut self,
         _m: roles_logic_sv2::mining_sv2::UpdateChannelError,
@@ -538,8 +579,7 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
         todo!()
     }
 
-    /// Handle SV2 `CloseChannel`.
-    /// TODO: Not implemented for demo.
+    /// Handles the SV2 `CloseChannel` message (TODO).
     fn handle_close_channel(
         &mut self,
         _m: roles_logic_sv2::mining_sv2::CloseChannel,
@@ -548,20 +588,12 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
         todo!()
     }
 
+    /// Handles the SV2 `SetExtranoncePrefix` message (TODO).
     fn handle_set_extranonce_prefix(
         &mut self,
         _: roles_logic_sv2::mining_sv2::SetExtranoncePrefix,
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error>
     {
-        todo!()
-    }
-
-    fn handle_submit_shares_success(
-        &mut self,
-        _: roles_logic_sv2::mining_sv2::SubmitSharesSuccess,
-    ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error>
-    {
-        // // TODO
         // let message = Mining::SetExtranoncePrefix(SetExtranoncePrefix {
         //     // Channel identifier, stable for whole connection lifetime. Used for broadcasting new
         //     // jobs by the connection. Can be extended of standard channel (always extended for SV1
@@ -571,16 +603,25 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
         //     extranonce_prefix: m.extranonce_prefix.clone().into_static(),
         // });
         // Ok(SendTo::Respond(message))
+        todo!()
+    }
+
+    /// Handles the SV2 `SubmitSharesSuccess` message.
+    fn handle_submit_shares_success(
+        &mut self,
+        _: roles_logic_sv2::mining_sv2::SubmitSharesSuccess,
+    ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error>
+    {
         println!("SUBMIT SHARE SUCCESS");
         Ok(SendTo::None(None))
     }
 
+    /// Handles the SV2 `SubmitSharesError` message.
     fn handle_submit_shares_error(
         &mut self,
         _: roles_logic_sv2::mining_sv2::SubmitSharesError,
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error>
     {
-        // TODO
         // let message = Mining::SubmitSharesError(SubmitSharesError {
         //     // Channel identifier, stable for whole connection lifetime. Used for broadcasting new
         //     // jobs by the connection. Can be extended of standard channel (always extended for SV1
@@ -596,8 +637,9 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
         Ok(SendTo::None(None))
     }
 
-    /// SV2 `NewMiningJob` message is NOT handled because it is NOT used for the Translator Proxy
-    /// as only Extended channels are used between the Translator Proxy and the SV2 Upstream role.
+    /// The SV2 `NewMiningJob` message is NOT handled because it is NOT used for the Translator
+    /// Proxy as only `Extended` channels are used between the SV1/SV2 Translator Proxy and the SV2
+    /// Upstream role.
     fn handle_new_mining_job(
         &mut self,
         _m: roles_logic_sv2::mining_sv2::NewMiningJob,
@@ -606,10 +648,9 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
         panic!("Standard Mining Channels are not used in Translator Proxy")
     }
 
-    /// Relay incoming `NewExtendedMiningJob` message to `Translator` to be handled. `Translator`
-    /// will store this message until it receives a `SetNewPrevHash` message from the Upstream
-    /// role. `Translator` will then format these messages into a SV1 `mining.notify` message to be
-    /// sent to the Downstream role.
+    /// Handles the SV2 `NewExtendedMiningJob` message which is used (along with the SV2
+    /// `SetNewPrevHash` message) to later create a SV1 `mining.notify` for the Downstream
+    /// role.
     fn handle_new_extended_mining_job(
         &mut self,
         m: roles_logic_sv2::mining_sv2::NewExtendedMiningJob,
@@ -652,16 +693,15 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
             coinbase_tx_suffix: m.coinbase_tx_suffix.clone().into_static(),
         });
         println!(
-            "NEW MININH JOB, channel_id: {}, job_id: {}",
+            "NEW MINING JOB, channel_id: {}, job_id: {}",
             m.channel_id, m.job_id
         );
         Ok(SendTo::None(Some(message)))
     }
 
-    /// Relay incoming `SetNewPrevHash` message to `Translator` to be handled. `SetNewPrevHash`
-    /// will be combined with the previously stored `NewExtendedMiningJob` message held by
-    /// `Translator`, then formatted into a SV1 `mining.notify` message to be sent to the
-    /// Downstream role.
+    /// Handles the SV2 `SetNewPrevHash` message which is used (along with the SV2
+    /// `NewExtendedMiningJob` message) to later create a SV1 `mining.notify` for the Downstream
+    /// role.
     fn handle_set_new_prev_hash(
         &mut self,
         m: roles_logic_sv2::mining_sv2::SetNewPrevHash,
@@ -702,8 +742,7 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
         Ok(SendTo::None(Some(message)))
     }
 
-    /// Handle SV2 `SetCustomMiningJobSuccess`.
-    /// TODO: Not implemented for demo.
+    /// Handles the SV2 `SetCustomMiningJobSuccess` message (TODO).
     fn handle_set_custom_mining_job_success(
         &mut self,
         _m: roles_logic_sv2::mining_sv2::SetCustomMiningJobSuccess,
@@ -712,8 +751,7 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
         unimplemented!()
     }
 
-    /// Handle SV2 `SetCustomMiningJobError`.
-    /// TODO: Not implemented for demo.
+    /// Handles the SV2 `SetCustomMiningJobError` message (TODO).
     fn handle_set_custom_mining_job_error(
         &mut self,
         _m: roles_logic_sv2::mining_sv2::SetCustomMiningJobError,
@@ -722,8 +760,8 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
         unimplemented!()
     }
 
-    /// Handle SV2 `SetTarget` message.
-    /// RR: Not used in demo, target is hardcoded.
+    /// Handles the SV2 `SetTarget` message which updates the Downstream role(s) target
+    /// difficulty via the SV1 `mining.set_difficulty` message.
     fn handle_set_target(
         &mut self,
         m: roles_logic_sv2::mining_sv2::SetTarget,
@@ -740,8 +778,7 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
         Ok(SendTo::None(None))
     }
 
-    /// Handle SV2 `Reconnect` message.
-    /// RR: Not used in demo
+    /// Handles the SV2 `Reconnect` message (TODO).
     fn handle_reconnect(
         &mut self,
         _m: roles_logic_sv2::mining_sv2::Reconnect,
