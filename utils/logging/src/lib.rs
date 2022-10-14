@@ -7,6 +7,9 @@
 // You may not use this file except in accordance with one or both of these
 // licenses.
 
+//! NOTE: This library borrowed heavily from the lightning project, here:
+//! https://github.com/lightningdevkit/rust-lightning/blob/main/lightning/src/util/logger.rs
+//!
 //! Log traits live here, which are called throughout the library to provide useful information for
 //! debugging purposes.
 //!
@@ -14,12 +17,12 @@
 //! The second one, client-side by implementing check against Record Level field.
 //! Each module may have its own Logger or share one.
 
-use core::{cmp, fmt};
+use core::fmt;
 
 static LOG_LEVEL_NAMES: [&str; 6] = ["GOSSIP", "TRACE", "DEBUG", "INFO", "WARN", "ERROR"];
 
 /// An enum representing the available verbosity levels of the logger.
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Hash, PartialOrd, Ord)]
 pub enum Level {
     /// Designates extremely verbose information, including gossip-induced messages
     Gossip,
@@ -33,40 +36,6 @@ pub enum Level {
     Warn,
     /// Designates very serious errors
     Error,
-}
-
-impl PartialOrd for Level {
-    #[inline]
-    fn partial_cmp(&self, other: &Level) -> Option<cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-
-    #[inline]
-    fn lt(&self, other: &Level) -> bool {
-        (*self as usize) < *other as usize
-    }
-
-    #[inline]
-    fn le(&self, other: &Level) -> bool {
-        *self as usize <= *other as usize
-    }
-
-    #[inline]
-    fn gt(&self, other: &Level) -> bool {
-        *self as usize > *other as usize
-    }
-
-    #[inline]
-    fn ge(&self, other: &Level) -> bool {
-        *self as usize >= *other as usize
-    }
-}
-
-impl Ord for Level {
-    #[inline]
-    fn cmp(&self, other: &Level) -> cmp::Ordering {
-        (*self as usize).cmp(&(*other as usize))
-    }
 }
 
 impl fmt::Display for Level {
@@ -258,6 +227,11 @@ mod tests {
         pub fn enable(&mut self, level: Level) {
             self.level = level;
         }
+
+        fn assert_log(&self, module: String, line: String, count: usize) {
+            let log_entries = self.lines.lock().unwrap();
+            assert_eq!(log_entries.get(&(module, line)), Some(&count));
+        }
     }
 
     impl Logger for TestLogger {
@@ -269,7 +243,6 @@ mod tests {
                 .entry((record.module_path.to_string(), format!("{}", record.args)))
                 .or_insert(0) += 1;
             if record.level >= self.level {
-                #[cfg(feature = "std")]
                 println!(
                     "{:<5} {} [{} : {}, {}] {}",
                     record.level.to_string(),
@@ -321,6 +294,17 @@ mod tests {
         let logger: Arc<dyn Logger> = Arc::new(logger);
         let wrapper = WrapperLog::new(Arc::clone(&logger));
         wrapper.call_macros();
+    }
+
+    #[test]
+    fn test_logging_levels_to_records() {
+        let mut logger = TestLogger::new();
+        logger.enable(Level::Info);
+        log_info!(logger, "This is an info");
+        logger.assert_log("logging_sv2::tests".to_string(), "This is an info".to_string(), 1);
+        log_trace!(logger, "This is a trace");
+        //This seems wrong but it's up to the implementer of the logger to decide what to do with the records
+        logger.assert_log("logging_sv2::tests".to_string(), "This is a trace".to_string(), 1);
     }
 
     #[test]

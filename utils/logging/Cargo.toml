@@ -1,5 +1,5 @@
 [package]
-name = "logging"
+name = "logging_sv2"
 version = "0.1.0"
 edition = "2021"
 

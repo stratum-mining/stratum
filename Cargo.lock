@@ -999,8 +999,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "logging"
+name = "logging_sv2"
 version = "0.1.0"
+dependencies = [
+ "regex",
+]
 
 [[package]]
 name = "memchr"
@@ -1293,7 +1296,7 @@ dependencies = [
  "buffer_sv2",
  "codec_sv2",
  "const_sv2",
- "logging",
+ "logging_sv2",
  "network_helpers",
  "noise_sv2",
  "rand 0.8.4",
