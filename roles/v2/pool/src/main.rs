@@ -16,7 +16,7 @@ use std::{
 mod lib;
 
 use lib::{mining_pool::Pool, template_receiver::TemplateRx};
-use logging::{log_given_level, log_info, log_internal, Level, Logger, Record};
+use logging_sv2::{log_given_level, log_info, log_internal, Level, Logger, Record};
 
 pub type Message = PoolMessages<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;

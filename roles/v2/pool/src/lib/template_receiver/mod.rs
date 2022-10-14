@@ -1,7 +1,7 @@
 use crate::{EitherFrame, StdFrame};
 use async_channel::{Receiver, Sender};
 use codec_sv2::Frame;
-use logging::{log_error, log_given_level, log_info, log_internal, Level, Logger, Record};
+use logging_sv2::{log_error, log_given_level, log_info, log_internal, Level, Logger, Record};
 use network_helpers::plain_connection_tokio::PlainConnection;
 use roles_logic_sv2::{
     handlers::template_distribution::ParseServerTemplateDistributionMessages,
