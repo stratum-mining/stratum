@@ -301,10 +301,18 @@ mod tests {
         let mut logger = TestLogger::new();
         logger.enable(Level::Info);
         log_info!(logger, "This is an info");
-        logger.assert_log("logging_sv2::tests".to_string(), "This is an info".to_string(), 1);
+        logger.assert_log(
+            "logging_sv2::tests".to_string(),
+            "This is an info".to_string(),
+            1,
+        );
         log_trace!(logger, "This is a trace");
         //This seems wrong but it's up to the implementer of the logger to decide what to do with the records
-        logger.assert_log("logging_sv2::tests".to_string(), "This is a trace".to_string(), 1);
+        logger.assert_log(
+            "logging_sv2::tests".to_string(),
+            "This is a trace".to_string(),
+            1,
+        );
     }
 
     #[test]
