@@ -1,4 +1,4 @@
-#![no_std]
+//#![no_std]
 
 //! # Mining Protocol
 //! ## Channels
@@ -464,6 +464,10 @@ impl ExtendedExtranonce {
             range_2,
         }
     }
+<<<<<<< HEAD
+=======
+
+>>>>>>> 939b776 (Add some useful methods to ExtendedExtranonce)
     /// Specular of [Self::from_downstream_extranonce]
     /// Suppose that P receives from the upstream an extranonce that needs to be converted into any
     /// ExtendedExtranonce, eg when an extended channel is opened. Then range_0 (that should
@@ -990,26 +994,32 @@ mod tests {
         let range_1 = ranges[0]..ranges[1];
         let range_2 = ranges[1]..extranonce_len;
         let extended_extranonce_start = ExtendedExtranonce {
+
             inner,
             range_0: range_0.clone(),
             range_1: range_1.clone(),
             range_2: range_2.clone(),
         };
-        let extranonce = Extranonce::from(&mut (extended_extranonce_start.clone()));
+        let extranonce = match extended_extranonce_start.next_extended(0) {
+            Some(x) => x,
+            None => return true,
+        };
+
         let extended_extranonce_final = ExtendedExtranonce::from_upstream_extranonce(
             extranonce,
-            range_0,
+            range_0.clone(),
             range_1.clone(),
             range_2.clone(),
         );
         match extended_extranonce_final {
-            Some(self_) => {
-                for b in inner[range_1.start..range_2.end].iter() {
+            Some(extended_extranonce_final) => {
+                for b in extended_extranonce_final.inner[range_2.start..range_2.end].iter() {
                     if b != &0 {
                         return false;
                     }
                 }
-                self_ == extended_extranonce_start
+                extended_extranonce_final.inner[range_0.clone().start..range_1.end]
+                    == extended_extranonce_start.inner[range_0.start..range_1.end]
             }
             None => {
                 for b in inner[range_1.start..range_2.end].iter() {
@@ -1115,18 +1125,15 @@ mod tests {
         let range_0 = 0..ranges[0];
         let range_1 = ranges[0]..ranges[1];
         let range_2 = ranges[1]..extranonce_len;
-        let mut extended_extranonce_start = ExtendedExtranonce {
+        let mut extended_extranonce = ExtendedExtranonce {
             inner,
             range_0: range_0.clone(),
             range_1: range_1.clone(),
             range_2: range_2.clone(),
         };
-        match extended_extranonce_start.next_extended(required_len) {
-            Some(v) => {
-                let mut range_1_start = inner[range_1.clone()].to_vec();
-                increment_bytes_be(&mut range_1_start).unwrap();
-                extended_extranonce_start.inner[..range_2.end] == v.extranonce[..]
-                    && range_1_start[..] == v.extranonce[range_1]
+        match extended_extranonce.next_extended(required_len) {
+            Some(extranonce) => {
+                extended_extranonce.inner[..range_1.end] == extranonce.extranonce[..]
             }
             None => {
                 if required_len > range_2.end - range_2.start {
