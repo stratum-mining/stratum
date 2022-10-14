@@ -297,7 +297,7 @@ impl Extranonce {
 impl From<&mut ExtendedExtranonce> for Extranonce {
     fn from(v: &mut ExtendedExtranonce) -> Self {
         let mut extranonce = v.inner.to_vec();
-        extranonce.truncate(v.extranonce_len);
+        extranonce.truncate(v.range_2.end);
         Self { extranonce }
     }
 }
@@ -369,59 +369,48 @@ impl From<&mut ExtendedExtranonce> for Extranonce {
 ///
 /// ExtendedExtranonce type is meant to be used in cases where the extranonce length is not
 /// 32bytes. So, the inner part is an array of 32bytes, but only the firsts corresponding to the
-/// extranonce_len are used by the pool
+/// range_2.end are used by the pool
 pub struct ExtendedExtranonce {
     inner: [u8; MAX_EXTRANONCE_LEN],
     range_0: core::ops::Range<usize>,
     range_1: core::ops::Range<usize>,
     range_2: core::ops::Range<usize>,
-    extranonce_len: usize,
 }
 /// the trait PartialEq is implemented in such a way that only the relevant bytes are compared.
-/// If extranonce_len is set to 20, then the following ExtendedExtranonces are equal
+/// If range_2.end is set to 20, then the following ExtendedExtranonces are equal
 /// ExtendedExtranonce {
 ///     inner: [0000 0000 0000 0000      0000 0000 0000 0000],
 ///     range_0: [0..5],
 ///     range_1: [5..10],
 ///     range_2: [10, 20],
-///     extranonce_len: 20,
 /// }
 /// ExtendedExtranonce {
 ///     inner: [0000 0000 0000 0000      0000 1111 1111 1111],
 ///     range_0: [0..5],
 ///     range_1: [5..10],
 ///     range_2: [10, 20],
-///     extranonce_len: 20,
 /// }
 impl PartialEq for ExtendedExtranonce {
     fn eq(&self, other: &Self) -> bool {
-        self.inner[0..self.extranonce_len] == other.inner[0..other.extranonce_len]
+        let len = self.range_2.end;
+        self.inner[0..len] == other.inner[0..len]
             && self.range_0 == other.range_0
             && self.range_1 == other.range_1
             && self.range_2 == other.range_2
-            && self.extranonce_len == other.extranonce_len
     }
 }
 
 impl ExtendedExtranonce {
     /// every extranonce start from zero.
-    pub fn new(
-        range_0: Range<usize>,
-        range_1: Range<usize>,
-        range_2: Range<usize>,
-        extranonce_len: usize,
-    ) -> Self {
-        assert!(range_0.start == 0);
-        assert!(range_0.end == range_1.start);
-        assert!(range_1.end == range_2.start);
-        assert!(range_2.end == extranonce_len);
-        assert!(extranonce_len <= MAX_EXTRANONCE_LEN);
+    pub fn new(range_0: Range<usize>, range_1: Range<usize>, range_2: Range<usize>) -> Self {
+        debug_assert!(range_0.start == 0);
+        debug_assert!(range_0.end == range_1.start);
+        debug_assert!(range_1.end == range_2.start);
         Self {
             inner: [0; MAX_EXTRANONCE_LEN],
             range_0,
             range_1,
             range_2,
-            extranonce_len,
         }
     }
 
@@ -429,16 +418,15 @@ impl ExtendedExtranonce {
     /// ExtendedExtranonce, eg when an extended channel is opened. Then range_0 (that should
     /// be provided along the Extranonce) is reserved for the upstream and can't be modiefied by
     /// P. If the bytes recerved to P (range_1 and range_2) are not set to zero, returns None,
-    /// otherwise returns Some(ExtendedExtranonce). If the extranonce_len field is greater than 32,
+    /// otherwise returns Some(ExtendedExtranonce). If the range_2.end field is greater than 32,
     /// returns None.
     pub fn from_upstream_extranonce(
         v: Extranonce,
         range_0: Range<usize>,
         range_1: Range<usize>,
         range_2: Range<usize>,
-        extranonce_len: usize,
     ) -> Option<Self> {
-        if extranonce_len > range_2.end || extranonce_len > 32 {
+        if range_2.end > 32 {
             return None;
         }
         let non_reserved_extranonces_bytes = &v.extranonce[range_1.start..range_2.end];
@@ -456,7 +444,6 @@ impl ExtendedExtranonce {
             range_0,
             range_1,
             range_2,
-            extranonce_len,
         })
     }
 
@@ -581,7 +568,6 @@ mod tests {
             range_0: range_0.clone(),
             range_1: range_1.clone(),
             range_2: range_2.clone(),
-            extranonce_len,
         };
         let extranonce = Extranonce::from(&mut (extended_extranonce_start.clone()));
         let extended_extranonce_final = ExtendedExtranonce::from_upstream_extranonce(
@@ -589,7 +575,6 @@ mod tests {
             range_0,
             range_1.clone(),
             range_2.clone(),
-            extranonce_len,
         );
         match extended_extranonce_final {
             Some(self_) => {
@@ -629,7 +614,6 @@ mod tests {
             range_0: range_0.clone(),
             range_1: range_1.clone(),
             range_2: range_2.clone(),
-            extranonce_len,
         };
         let mut extranonce_copy: Extranonce =
             Extranonce::from(&mut extended_extranonce_start.clone());
@@ -679,7 +663,6 @@ mod tests {
             range_0: range_0.clone(),
             range_1: range_1.clone(),
             range_2: range_2.clone(),
-            extranonce_len,
         };
         match extended_extranonce_start.next_standard() {
             Some(v) => {
@@ -711,7 +694,6 @@ mod tests {
             range_0: range_0.clone(),
             range_1: range_1.clone(),
             range_2: range_2.clone(),
-            extranonce_len,
         };
         match extended_extranonce_start.next_extended(required_len) {
             Some(v) => {
@@ -796,7 +778,6 @@ mod tests {
 
     #[quickcheck_macros::quickcheck]
     fn test_ord_for_target_zero_increment(input: (u128, u128)) -> bool {
-        let max = u128::MAX;
         let target_start = Target {
             head: input.0,
             tail: input.1,
