@@ -729,6 +729,81 @@ mod tests {
             }
         }
     }
+    #[quickcheck_macros::quickcheck]
+    fn test_target_from_u256(input: (u128, u128)) -> bool {
+        let target_expected = Target {
+            head: input.0,
+            tail: input.1,
+        };
+
+        let bytes = [&input.0.to_ne_bytes()[..], &input.1.to_ne_bytes()[..]].concat();
+        let u256: U256 = bytes.try_into().unwrap();
+        let target_final: Target = u256.clone().into();
+
+        let u256_final: U256 = target_final.clone().into();
+
+        target_expected == target_final && u256_final == u256
+    }
+    #[quickcheck_macros::quickcheck]
+    fn test_target_to_u256(input: (u128, u128)) -> bool {
+        let target_start = Target {
+            head: input.0,
+            tail: input.1,
+        };
+        let u256 = U256::<'static>::from(target_start.clone());
+        let target_final = Target::from(u256);
+        target_final == target_final
+    }
+
+    #[quickcheck_macros::quickcheck]
+    fn test_ord_for_target_positive_increment(input: (u128, u128, u128, u128)) -> bool {
+        let max = u128::MAX;
+        // we want input.0 and input.1 >= 0 and < u128::MAX
+        let input = (input.0 % max, input.1 % max, input.2, input.3);
+        let target_start = Target {
+            head: input.0,
+            tail: input.1,
+        };
+        let positive_increment = (
+            input.2 % (max - target_start.head) + 1,
+            input.3 % (max - target_start.tail) + 1,
+        );
+        let target_final = Target {
+            head: target_start.head + positive_increment.0,
+            tail: target_start.tail + positive_increment.1,
+        };
+        target_final > target_start
+    }
+
+    #[quickcheck_macros::quickcheck]
+    fn test_ord_for_target_negative_increment(input: (u128, u128, u128, u128)) -> bool {
+        let max = u128::MAX;
+        let input = (input.0 % max + 1, input.1 % max + 1, input.2, input.3);
+        let target_start = Target {
+            head: input.0,
+            tail: input.1,
+        };
+        let negative_increment = (
+            input.2 % target_start.head + 1,
+            input.3 % target_start.tail + 1,
+        );
+        let target_final = Target {
+            head: target_start.head - negative_increment.0,
+            tail: target_start.tail - negative_increment.1,
+        };
+        target_final < target_start
+    }
+
+    #[quickcheck_macros::quickcheck]
+    fn test_ord_for_target_zero_increment(input: (u128, u128)) -> bool {
+        let max = u128::MAX;
+        let target_start = Target {
+            head: input.0,
+            tail: input.1,
+        };
+        let target_final = target_start.clone();
+        target_start == target_final
+    }
 
     use core::convert::TryInto;
     fn from_arbitrary_vec_to_array(vec: Vec<u8>) -> [u8; 32] {
