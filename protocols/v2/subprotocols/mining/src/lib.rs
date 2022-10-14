@@ -426,7 +426,6 @@ pub struct ExtendedExtranonce {
     range_0: core::ops::Range<usize>,
     range_1: core::ops::Range<usize>,
     range_2: core::ops::Range<usize>,
-    extranonce_len: usize,
 }
 /// the trait PartialEq is implemented in such a way that only the relevant bytes are compared.
 /// If range_2.end is set to 20, then the following ExtendedExtranonces are equal
@@ -463,7 +462,6 @@ impl ExtendedExtranonce {
             range_0,
             range_1,
             range_2,
-            extranonce_len,
         }
     }
     /// Specular of [Self::from_downstream_extranonce]
@@ -478,7 +476,6 @@ impl ExtendedExtranonce {
         range_0: Range<usize>,
         range_1: Range<usize>,
         range_2: Range<usize>,
-        extranonce_len: usize,
     ) -> Option<Self> {
         if range_2.end > 32 {
             return None;
@@ -997,7 +994,6 @@ mod tests {
             range_0: range_0.clone(),
             range_1: range_1.clone(),
             range_2: range_2.clone(),
-            extranonce_len,
         };
         let extranonce = Extranonce::from(&mut (extended_extranonce_start.clone()));
         let extended_extranonce_final = ExtendedExtranonce::from_upstream_extranonce(
@@ -1005,7 +1001,6 @@ mod tests {
             range_0,
             range_1.clone(),
             range_2.clone(),
-            extranonce_len,
         );
         match extended_extranonce_final {
             Some(self_) => {
@@ -1045,7 +1040,6 @@ mod tests {
             range_0: range_0.clone(),
             range_1: range_1.clone(),
             range_2: range_2.clone(),
-            extranonce_len,
         };
         let mut extranonce_copy: Extranonce =
             Extranonce::from(&mut extended_extranonce_start.clone());
@@ -1095,7 +1089,6 @@ mod tests {
             range_0: range_0.clone(),
             range_1: range_1.clone(),
             range_2: range_2.clone(),
-            extranonce_len,
         };
         match extended_extranonce_start.next_standard() {
             Some(v) => {
@@ -1127,7 +1120,6 @@ mod tests {
             range_0: range_0.clone(),
             range_1: range_1.clone(),
             range_2: range_2.clone(),
-            extranonce_len,
         };
         match extended_extranonce_start.next_extended(required_len) {
             Some(v) => {
@@ -1212,7 +1204,6 @@ mod tests {
 
     #[quickcheck_macros::quickcheck]
     fn test_ord_for_target_zero_increment(input: (u128, u128)) -> bool {
-        let max = u128::MAX;
         let target_start = Target {
             head: input.0,
             tail: input.1,
