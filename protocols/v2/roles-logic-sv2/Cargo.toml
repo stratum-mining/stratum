@@ -17,6 +17,11 @@ framing_sv2 = { path = "../../../protocols/v2/framing-sv2" }
 bitcoin = "0.27.1"
 toml = {git = "https://github.com/diondokter/toml-rs", default-features = false, rev="c4161aa"}
 
+[dev-dependencies]
+quickcheck = "1.0.3"
+quickcheck_macros = "1"
+rand = "0.8.5"
+
 [features]
 with_serde = [ "serde",
 "binary_sv2/with_serde",
