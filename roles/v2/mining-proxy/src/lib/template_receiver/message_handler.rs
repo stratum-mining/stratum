@@ -24,9 +24,7 @@ impl ParseServerTemplateDistributionMessages for TemplateRx {
             merkle_path: m.merkle_path.into_static(),
         };
         let new_template = TemplateDistribution::NewTemplate(new_template);
-        Ok(SendTo::None(
-            Some(new_template),
-        ))
+        Ok(SendTo::None(Some(new_template)))
     }
 
     fn handle_set_new_prev_hash(&mut self, m: SetNewPrevHash) -> Result<SendTo, Error> {

@@ -1,18 +1,21 @@
-use codec_sv2::{HandshakeRole, Responder, Frame};
+use codec_sv2::{Frame, HandshakeRole, Responder};
 use roles_logic_sv2::{
+    common_messages_sv2::SetupConnectionSuccess,
     job_negotiation_sv2::CommitMiningJob,
-    utils::{Id, Mutex}, parsers::CommonMessages, common_messages_sv2::SetupConnectionSuccess,
+    parsers::CommonMessages,
+    utils::{Id, Mutex},
 };
 use std::{collections::HashMap, convert::TryInto, sync::Arc};
 use tokio::net::TcpListener;
 //use messages_sv2::parsers::JobNegotiation;
-use network_helpers::noise_connection_tokio::Connection;
-use crate::{EitherFrame, Configuration, StdFrame, lib::mining_pool::setup_connection};
+use crate::{lib::mining_pool::setup_connection, Configuration, EitherFrame, StdFrame};
 use async_channel::{Receiver, Sender};
+use network_helpers::noise_connection_tokio::Connection;
 use roles_logic_sv2::{
-    handlers::{SendTo_},parsers::PoolMessages};
+    handlers::{job_negotiation::ParseClientJobNegotiationMessages, SendTo_},
+    parsers::PoolMessages,
+};
 use tokio::task;
-use roles_logic_sv2::handlers::job_negotiation::ParseClientJobNegotiationMessages;
 pub type SendTo = SendTo_<roles_logic_sv2::parsers::JobNegotiation<'static>, ()>;
 mod message_handlers;
 
@@ -45,11 +48,12 @@ impl JobNegotiatorDownstream {
     pub async fn next(self_mutex: Arc<Mutex<Self>>, mut incoming: StdFrame) {
         let message_type = incoming.get_header().unwrap().msg_type();
         let payload = incoming.payload();
-        let next_message_to_send = ParseClientJobNegotiationMessages::handle_message_job_negotiation(
-            self_mutex.clone(),
-            message_type,
-            payload
-        );
+        let next_message_to_send =
+            ParseClientJobNegotiationMessages::handle_message_job_negotiation(
+                self_mutex.clone(),
+                message_type,
+                payload,
+            );
         match next_message_to_send {
             Ok(SendTo::RelayNewMessage(message)) => {
                 todo!();
@@ -78,13 +82,20 @@ impl JobNegotiatorDownstream {
     fn check_job_validity(&mut self, _message: &CommitMiningJob) -> bool {
         true
     }
-    pub async fn start_messaging(self_mutex: Arc<Mutex<JobNegotiator>>, receiver: Receiver<EitherFrame>) {
+    pub async fn start_messaging(
+        self_mutex: Arc<Mutex<JobNegotiator>>,
+        receiver: Receiver<EitherFrame>,
+    ) {
         loop {
             let message_from_proxy_jn = receiver.recv().await.unwrap();
             let message_from_proxy_jn: StdFrame = message_from_proxy_jn.try_into().unwrap();
             // Here the pop is not a good choice since it will remove the last element so downstreams vector won't ever grow.
-            let self_downstreams_ = Arc::new(Mutex::new(self_mutex.clone().
-                safe_lock(|job_negotiator| job_negotiator.downstreams.pop().unwrap()).unwrap()));
+            let self_downstreams_ = Arc::new(Mutex::new(
+                self_mutex
+                    .clone()
+                    .safe_lock(|job_negotiator| job_negotiator.downstreams.pop().unwrap())
+                    .unwrap(),
+            ));
             JobNegotiatorDownstream::next(self_downstreams_, message_from_proxy_jn).await;
         }
     }
@@ -105,13 +116,13 @@ impl JobNegotiator {
     async fn accept_incoming_connection(self_: Arc<Mutex<JobNegotiator>>, config: Configuration) {
         let listner = TcpListener::bind(&config.listen_jn_address).await.unwrap();
         while let Ok((stream, _)) = listner.accept().await {
-            
             let responder = Responder::from_authority_kp(
                 config.authority_public_key.clone().into_inner().as_bytes(),
                 config.authority_secret_key.clone().into_inner().as_bytes(),
                 std::time::Duration::from_secs(config.cert_validity_sec),
-            ).unwrap();
-        
+            )
+            .unwrap();
+
             let (receiver, sender): (Receiver<EitherFrame>, Sender<EitherFrame>) =
                 Connection::new(stream, HandshakeRole::Responder(responder)).await;
 
@@ -121,14 +132,27 @@ impl JobNegotiator {
                 .safe_lock(|job_negotiator| job_negotiator.downstreams.push(downstream))
                 .unwrap();
 
-            println!("NUMBER of proxies JN: {:?}", self_.safe_lock(|job_negotiator| job_negotiator.downstreams.len()).unwrap());
-
+            println!(
+                "NUMBER of proxies JN: {:?}",
+                self_
+                    .safe_lock(|job_negotiator| job_negotiator.downstreams.len())
+                    .unwrap()
+            );
 
             let setup_message_from_proxy_jn = receiver.recv().await.unwrap();
-            println!("Setup connection message from proxy: {:?}", setup_message_from_proxy_jn);
+            println!(
+                "Setup connection message from proxy: {:?}",
+                setup_message_from_proxy_jn
+            );
 
-            let setup_connection_success_to_proxy = SetupConnectionSuccess{ used_version: 2, flags: 0b_0000_0000_0000_0000_0000_0000_0000_0001 };
-            let sv2_frame: StdFrame = PoolMessages::Common(setup_connection_success_to_proxy.into()).try_into().unwrap();
+            let setup_connection_success_to_proxy = SetupConnectionSuccess {
+                used_version: 2,
+                flags: 0b_0000_0000_0000_0000_0000_0000_0000_0001,
+            };
+            let sv2_frame: StdFrame =
+                PoolMessages::Common(setup_connection_success_to_proxy.into())
+                    .try_into()
+                    .unwrap();
             let sv2_frame = sv2_frame.into();
 
             println!("Sending success message for proxy");

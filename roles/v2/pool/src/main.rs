@@ -3,12 +3,12 @@ use codec_sv2::{
     noise_sv2::formats::{EncodedEd25519PublicKey, EncodedEd25519SecretKey},
     StandardEitherFrame, StandardSv2Frame,
 };
-use tokio::task;
 use roles_logic_sv2::{
     bitcoin::{secp256k1::Secp256k1, Network, PrivateKey, PublicKey},
     parsers::PoolMessages,
 };
 use serde::Deserialize;
+use tokio::task;
 
 mod lib;
 
@@ -131,7 +131,6 @@ async fn main() {
     .await;
     println!("POOL INITIALIZED");
     let cloned = config.clone();
-    task::spawn(async move {JobNegotiator::start(cloned).await });
+    task::spawn(async move { JobNegotiator::start(cloned).await });
     Pool::start(config, r_new_t, r_prev_hash, s_solution).await;
-
 }

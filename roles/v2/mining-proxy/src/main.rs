@@ -18,12 +18,17 @@
 //! A Downstream that signal the incapacity to handle group channels can open only one channel.
 //!
 mod lib;
-use std::net::{IpAddr, SocketAddr};
 use async_channel::bounded;
-use lib::{job_negotiator::JobNegotiator, upstream_mining::UpstreamMiningNode, template_receiver::TemplateRx};
-use serde::Deserialize;
-use std::str::FromStr;
+use lib::{
+    job_negotiator::JobNegotiator, template_receiver::TemplateRx,
+    upstream_mining::UpstreamMiningNode,
+};
 use once_cell::sync::{Lazy, OnceCell};
+use serde::Deserialize;
+use std::{
+    net::{IpAddr, SocketAddr},
+    str::FromStr,
+};
 
 use roles_logic_sv2::{
     routing_logic::{CommonRoutingLogic, MiningProxyRoutingLogic, MiningRoutingLogic},
@@ -256,17 +261,23 @@ async fn main() {
     );
     println!("PROXY INITIALIZED");
 
-    let (send,recv) = bounded(10);
+    let (send, recv) = bounded(10);
 
-    TemplateRx::connect(
-        config.tp_address.parse().unwrap(),
-        send,
-    ).await;
+    TemplateRx::connect(config.tp_address.parse().unwrap(), send).await;
 
-    JobNegotiator::new(SocketAddr::new(
-        IpAddr::from_str(&config.upstreams_jn[0].address).unwrap(),
-        config.upstreams_jn[0].port,
-    ), config.upstreams_jn[0].clone().pub_key.into_inner().as_bytes().clone(), 
-    recv,).await;
+    JobNegotiator::new(
+        SocketAddr::new(
+            IpAddr::from_str(&config.upstreams_jn[0].address).unwrap(),
+            config.upstreams_jn[0].port,
+        ),
+        config.upstreams_jn[0]
+            .clone()
+            .pub_key
+            .into_inner()
+            .as_bytes()
+            .clone(),
+        recv,
+    )
+    .await;
     crate::lib::downstream_mining::listen_for_downstream_mining(socket).await
 }

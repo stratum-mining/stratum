@@ -1,8 +1,5 @@
 use async_channel::{Receiver, Sender};
-use codec_sv2::{StandardSv2Frame,
-    StandardEitherFrame
-};
-use codec_sv2::Frame;
+use codec_sv2::{Frame, StandardEitherFrame, StandardSv2Frame};
 use roles_logic_sv2::{
     common_messages_sv2::{Protocol, SetupConnection},
     handlers::common::{ParseUpstreamCommonMessages, SendTo},
@@ -18,7 +15,12 @@ pub struct SetupConnectionHandler {}
 
 impl SetupConnectionHandler {
     fn get_setup_connection_message(proxy_address: SocketAddr) -> SetupConnection<'static> {
-        let endpoint_host = proxy_address.ip().to_string().into_bytes().try_into().unwrap();
+        let endpoint_host = proxy_address
+            .ip()
+            .to_string()
+            .into_bytes()
+            .try_into()
+            .unwrap();
         let vendor = String::new().try_into().unwrap();
         let hardware_version = String::new().try_into().unwrap();
         let firmware = String::new().try_into().unwrap();
@@ -44,7 +46,7 @@ impl SetupConnectionHandler {
         sender: &mut Sender<EitherFrame>,
         proxy_address: SocketAddr,
     ) -> Result<(), ()> {
-        let setup_connection = Self::get_setup_connection_message(proxy_address);        
+        let setup_connection = Self::get_setup_connection_message(proxy_address);
 
         let sv2_frame: StdFrame = PoolMessages::Common(setup_connection.into())
             .try_into()
@@ -58,7 +60,7 @@ impl SetupConnectionHandler {
         println!("Receiving setupconnection message from pool...");
         let mut incoming: StdFrame = receiver.recv().await.unwrap().try_into().unwrap();
         println!("Received setup connection message");
-        
+
         let message_type = incoming.get_header().unwrap().msg_type();
         let payload = incoming.payload();
         ParseUpstreamCommonMessages::handle_message_common(

@@ -1,8 +1,5 @@
 use async_channel::{Receiver, Sender};
-use codec_sv2::{StandardSv2Frame,
-    StandardEitherFrame
-};
-use codec_sv2::Frame;
+use codec_sv2::{Frame, StandardEitherFrame, StandardSv2Frame};
 use roles_logic_sv2::{
     common_messages_sv2::{Protocol, SetupConnection},
     handlers::common::{ParseUpstreamCommonMessages, SendTo},

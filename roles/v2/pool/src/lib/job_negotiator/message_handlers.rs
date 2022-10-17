@@ -41,7 +41,10 @@ impl ParseClientJobNegotiationMessages for JobNegotiatorDownstream {
             async_mining_allowed: true,
         };
         let message_enum = JobNegotiation::AllocateMiningJobTokenSuccess(message_success);
-        println!("Sending AllocateMiningJobTokenSuccess to proxy {:?}", message_enum);
+        println!(
+            "Sending AllocateMiningJobTokenSuccess to proxy {:?}",
+            message_enum
+        );
         Ok(SendTo::Respond(message_enum))
     }
 
@@ -100,8 +103,8 @@ impl ParseClientJobNegotiationMessages for JobNegotiatorDownstream {
             Ok(JobNegotiation::AllocateMiningJobToken(message)) => {
                 println!("Allocate mining job token message sent to Proxy");
                 self_
-                .safe_lock(|x| x.allocate_mining_job_token(message))
-                .unwrap()   
+                    .safe_lock(|x| x.allocate_mining_job_token(message))
+                    .unwrap()
             }
             Ok(JobNegotiation::CommitMiningJob(message)) => {
                 self_.safe_lock(|x| x.commit_mining_job(message)).unwrap()
