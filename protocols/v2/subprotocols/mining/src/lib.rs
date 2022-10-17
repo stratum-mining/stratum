@@ -475,6 +475,10 @@ impl ExtendedExtranonce {
         self.range_2.end
     }
 
+    pub fn get_range2_len(&self) -> usize {
+        self.range_2.end - self.range_2.start
+    }
+
     /// Suppose that P receives from the upstream an extranonce that needs to be converted into any
     /// ExtendedExtranonce, eg when an extended channel is opened. Then range_0 (that should
     /// be provided along the Extranonce) is reserved for the upstream and can't be modiefied by
@@ -575,6 +579,15 @@ impl ExtendedExtranonce {
                 .ok(),
         }
     }
+
+    pub fn upstream_part(
+        &self,
+    ) -> Extranonce {
+            self.inner[self.range_0.start..self.range_1.end]
+                .to_vec()
+                .try_into()
+                .unwrap()
+        }
 }
 /// This function is used to inctrement extranonces, and it is used in next_standard and in
 /// next_extended methods. If the input consists of an array of 255 as u8 (the maxmum value) then

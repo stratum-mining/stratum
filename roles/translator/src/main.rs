@@ -40,7 +40,7 @@ async fn main() {
 
     // Sender/Receiver to send a SV1 `mining.submit` from the `Downstream` to the `Bridge`
     // (Sender<v1::client_to_server::Submit>, Receiver<Submit>)
-    let (sender_submit_from_sv1, recv_submit_from_sv1) = bounded(10);
+    let (sender_submit_from_sv1, recv_submit_from_sv1) = async_channel::unbounded();
 
     // Sender/Receiver to send a SV2 `SubmitSharesExtended` from the `Bridge` to the `Upstream`
     // (Sender<SubmitSharesExtended<'static>>, Receiver<SubmitSharesExtended<'static>>)
@@ -128,15 +128,15 @@ async fn main() {
     // Receive the extranonce information from the Upstream role to send to the Downstream role
     // once it connects
     let extended_extranonce = recv_extranonce.recv().await.unwrap();
-    let extranonce_len = extended_extranonce.get_len();
-    let min_extranonce_size = upstream.safe_lock(|s| s.min_extranonce_size).unwrap() as usize;
+    //let extranonce_len = extended_extranonce.get_len();
+    //let min_extranonce_size = upstream.safe_lock(|s| s.min_extranonce_size).unwrap() as usize;
 
     // Accept connections from one or more SV1 Downstream roles (SV1 Mining Devices)
     downstream_sv1::Downstream::accept_connections(
         downstream_addr,
         sender_submit_from_sv1,
         recv_mining_notify_downstream,
-        extranonce_len - min_extranonce_size - (SELF_EXTRNONCE_LEN - 1),
+        //extranonce_len - min_extranonce_size - (SELF_EXTRNONCE_LEN - 1),
         extended_extranonce,
         last_notify,
         target,

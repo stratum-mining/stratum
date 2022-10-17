@@ -337,11 +337,11 @@ impl Upstream {
         // TODO
         // check if submit meet the upstream target and if so send back (upstream target will
         // likely be not the same of downstream target)
+        let receiver = self_
+            .safe_lock(|s| s.submit_from_dowstream.clone())
+            .unwrap();
         task::spawn(async move {
             loop {
-                let receiver = self_
-                    .safe_lock(|s| s.submit_from_dowstream.clone())
-                    .unwrap();
                 let mut sv2_submit: SubmitSharesExtended = receiver.recv().await.unwrap();
 
                 sv2_submit.channel_id = self_.safe_lock(|s| s.channel_id.unwrap()).unwrap();
@@ -353,17 +353,17 @@ impl Upstream {
                     &sv2_submit
                 );
 
-                match self_
-                    .safe_lock(|s| s.current_job.clone().get_candidate_hash(&sv2_submit))
-                    .unwrap()
-                {
-                    Some(target) => {
-                        println!("Debug:: Up: SubmitSharesExtended Target: {:?}", target);
-                    }
-                    None => {
-                        println!("Err:: Up: Received share but no job is present");
-                    }
-                }
+                //match self_
+                //    .safe_lock(|s| s.current_job.clone().get_candidate_hash(&sv2_submit))
+                //    .unwrap()
+                //{
+                //    Some(target) => {
+                //        println!("Debug:: Up: SubmitSharesExtended Target: {:?}", target);
+                //    }
+                //    None => {
+                //        println!("Err:: Up: Received share but no job is present");
+                //    }
+                //}
 
                 let message = Message::Mining(
                     roles_logic_sv2::parsers::Mining::SubmitSharesExtended(sv2_submit),
@@ -375,14 +375,13 @@ impl Upstream {
                 // Doesnt actually send because of Braiins Pool issue that needs to be fixed
                 println!("\nInfo:: Up: Sending: {:?}", &frame);
 
-                // TODO: Fix Braiins Pool issue, then uncomment
-                // let frame: EitherFrame = frame
-                //     .try_into()
-                //     .expect("Err converting `StdFrame` to `EitherFrame`");
-                // let sender = self_
-                //     .safe_lock(|self_| self_.connection.sender.clone())
-                //     .unwrap();
-                // sender.send(frame).await.unwrap();
+                let frame: EitherFrame = frame
+                    .try_into()
+                    .expect("Err converting `StdFrame` to `EitherFrame`");
+                let sender = self_
+                    .safe_lock(|self_| self_.connection.sender.clone())
+                    .unwrap();
+                sender.send(frame).await.unwrap();
             }
         });
     }

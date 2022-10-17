@@ -9,7 +9,7 @@ upstream_port = 3336
 # upstream_authority_pubkey = "2di19GHYQnAZJmEpoUeP7C3Eg9TCcksHr23rZCC83dvUiZgiDL"
 
 # Local Mining Device Downstream Connection
-downstream_address = "127.0.0.1"
+downstream_address = "0.0.0.0"
 downstream_port = 34255
 
 # Version support

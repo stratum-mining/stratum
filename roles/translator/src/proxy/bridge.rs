@@ -1,7 +1,7 @@
 use async_channel::{Receiver, Sender};
 use async_std::task;
 use roles_logic_sv2::{
-    mining_sv2::{NewExtendedMiningJob, SetNewPrevHash, SubmitSharesExtended},
+    mining_sv2::{NewExtendedMiningJob, SetNewPrevHash, SubmitSharesExtended, ExtendedExtranonce},
     utils::{Id, Mutex},
 };
 use std::sync::Arc;
@@ -17,7 +17,7 @@ use crate::{Error, ProxyResult};
 #[derive(Debug)]
 pub struct Bridge {
     /// Receives a SV1 `mining.submit` message from the Downstream role.
-    submit_from_sv1: Receiver<(Submit, Vec<u8>)>,
+    submit_from_sv1: Receiver<(Submit, ExtendedExtranonce)>,
     /// Sends SV2 `SubmitSharesExtended` messages translated from SV1 `mining.submit` messages to
     /// the `Upstream`.
     submit_to_sv2: Sender<SubmitSharesExtended<'static>>,
@@ -53,7 +53,7 @@ pub struct Bridge {
 impl Bridge {
     /// Instantiate a new `Bridge`.
     pub fn new(
-        submit_from_sv1: Receiver<(Submit, Vec<u8>)>,
+        submit_from_sv1: Receiver<(Submit, ExtendedExtranonce)>,
         submit_to_sv2: Sender<SubmitSharesExtended<'static>>,
         set_new_prev_hash: Receiver<SetNewPrevHash<'static>>,
         new_extended_mining_job: Receiver<NewExtendedMiningJob<'static>>,
@@ -85,15 +85,15 @@ impl Bridge {
     /// Receives a SV1 `mining.submit` message from the `Downstream`, translates it to a SV2
     /// `SubmitSharesExtended` message, and sends it to the `Upstream`.
     fn handle_downstream_share_submission(self_: Arc<Mutex<Self>>) {
+        let submit_recv = self_.safe_lock(|s| s.submit_from_sv1.clone()).unwrap();
+        let submit_to_sv2 = self_.safe_lock(|s| s.submit_to_sv2.clone()).unwrap();
         task::spawn(async move {
             loop {
-                let submit_recv = self_.safe_lock(|s| s.submit_from_sv1.clone()).unwrap();
-                let (sv1_submit, extrnonce_1) = submit_recv.clone().recv().await.unwrap();
+                let (sv1_submit, extrnonce) = submit_recv.clone().recv().await.unwrap();
                 let channel_sequence_id =
                     self_.safe_lock(|s| s.channel_sequence_id.next()).unwrap() - 1;
                 let sv2_submit: SubmitSharesExtended =
-                    Self::translate_submit(channel_sequence_id, sv1_submit, extrnonce_1).unwrap();
-                let submit_to_sv2 = self_.safe_lock(|s| s.submit_to_sv2.clone()).unwrap();
+                    Self::translate_submit(channel_sequence_id, sv1_submit, &extrnonce).unwrap();
                 submit_to_sv2.send(sv2_submit).await.unwrap();
             }
         });
@@ -103,12 +103,10 @@ impl Bridge {
     fn translate_submit(
         channel_sequence_id: u32,
         sv1_submit: Submit,
-        mut extranonce_1: Vec<u8>,
+        extranonce_1: &ExtendedExtranonce,
     ) -> ProxyResult<SubmitSharesExtended<'static>> {
-        let mut extranonce_vec: Vec<u8> = sv1_submit.extra_nonce2.into();
-        extranonce_1.append(&mut extranonce_vec);
-        let extranonce_vec = extranonce_1;
-        let extranonce: binary_sv2::B032 = extranonce_vec.try_into()?;
+        let extranonce_vec: Vec<u8> = sv1_submit.extra_nonce2.into();
+        let extranonce = extranonce_1.without_upstream_part(Some(extranonce_vec.try_into().unwrap())).unwrap();
 
         let version = match sv1_submit.version_bits {
             Some(vb) => vb.0,
@@ -122,7 +120,7 @@ impl Bridge {
             nonce: sv1_submit.nonce.0,
             ntime: sv1_submit.time.0,
             version,
-            extranonce,
+            extranonce: extranonce.try_into().unwrap(),
         })
     }
 

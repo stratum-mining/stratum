@@ -9,7 +9,7 @@ use async_std::{
 use bigint;
 use roles_logic_sv2::{
     common_properties::{IsDownstream, IsMiningDownstream},
-    mining_sv2::{ExtendedExtranonce, Extranonce},
+    mining_sv2::ExtendedExtranonce,
     utils::Mutex,
 };
 use std::{net::SocketAddr, sync::Arc};
@@ -25,17 +25,17 @@ use v1::{
 pub struct Downstream {
     /// List of authorized Downstream Mining Devices.
     authorized_names: Vec<String>,
+    extranonce: ExtendedExtranonce,
     /// `extranonce1` to be sent to the Downstream in the SV1 `mining.subscribe` message response.
-    extranonce1: Vec<u8>,
-    /// `extranonce2` to be sent to the Downstream in the SV1 `mining.subscribe` message response.
-    extranonce2: Vec<u8>,
+    //extranonce1: Vec<u8>,
+    //extranonce2_size: usize,
     /// Version rolling mask bits
     version_rolling_mask: Option<HexU32Be>,
     /// Minimum version rolling mask bits size
     version_rolling_min_bit: Option<HexU32Be>,
     /// Sends SV1 `mining.submit` message received from the SV1 Downstream to the Bridge for
     /// translation into a SV2 `SubmitSharesExtended`.
-    submit_sender: Sender<(v1::client_to_server::Submit, Vec<u8>)>,
+    submit_sender: Sender<(v1::client_to_server::Submit, ExtendedExtranonce)>,
     /// Sends message to the SV1 Downstream role.
     sender_outgoing: Sender<json_rpc::Message>,
     /// Difficulty target for SV1 Downstream.
@@ -48,10 +48,9 @@ impl Downstream {
     /// Instantiate a new `Downstream`.
     pub async fn new(
         stream: TcpStream,
-        submit_sender: Sender<(v1::client_to_server::Submit, Vec<u8>)>,
+        submit_sender: Sender<(v1::client_to_server::Submit, ExtendedExtranonce)>,
         mining_notify_receiver: Receiver<server_to_client::Notify>,
-        extranonce2_size: usize,
-        extranonce: Extranonce,
+        extranonce: ExtendedExtranonce,
         last_notify: Arc<Mutex<Option<server_to_client::Notify>>>,
         target: Arc<Mutex<Vec<u8>>>,
     ) -> ProxyResult<Arc<Mutex<Self>>> {
@@ -66,13 +65,13 @@ impl Downstream {
         // Used to send SV1 `mining.notify` messages to the Downstreams
         let _socket_writer_notify = socket_writer;
 
-        let extranonce: Vec<u8> = extranonce.try_into().unwrap();
-        let (extranonce1, extranonce2) = extranonce.split_at(extranonce.len() - extranonce2_size);
+        //let extranonce: Vec<u8> = extranonce.try_into().unwrap();
+        //let (extranonce1, _) = extranonce.split_at(extranonce.len() - extranonce2_size);
 
         let downstream = Arc::new(Mutex::new(Downstream {
             authorized_names: vec![],
-            extranonce1: extranonce1.to_vec(),
-            extranonce2: extranonce2.to_vec(),
+            extranonce,
+            //extranonce1: extranonce1.to_vec(),
             version_rolling_mask: None,
             version_rolling_min_bit: None,
             submit_sender,
@@ -96,7 +95,7 @@ impl Downstream {
                 while let Some(incoming) = messages.next().await {
                     let incoming =
                         incoming.expect("Err reading next incoming message from SV1 Downstream");
-                    println!("\nInfo:: Down: Receiving: {:?}", &incoming);
+                    //println!("\nInfo:: Down: Receiving: {:?}", &incoming);
                     let incoming: Result<json_rpc::Message, _> = serde_json::from_str(&incoming);
                     let incoming = incoming.expect("Err serializing incoming message from SV1 Downstream into JSON from `String`");
                     // Handle what to do with message
@@ -115,7 +114,7 @@ impl Downstream {
                     serde_json::to_string(&to_send)
                         .expect("Err deserializing JSON message for SV1 Downstream into `String`")
                 );
-                println!("\nInfo:: Down: Sending: {:?}", &to_send);
+                //println!("\nInfo:: Down: Sending: {:?}", &to_send);
                 (&*socket_writer_clone)
                     .write_all(to_send.as_bytes())
                     .await
@@ -220,9 +219,8 @@ impl Downstream {
     /// new `Downstream` for each connection.
     pub async fn accept_connections(
         downstream_addr: SocketAddr,
-        submit_sender: Sender<(v1::client_to_server::Submit, Vec<u8>)>,
+        submit_sender: Sender<(v1::client_to_server::Submit, ExtendedExtranonce)>,
         receiver_mining_notify: Receiver<server_to_client::Notify>,
-        extranonce2_size: usize,
         mut extended_extranonce: ExtendedExtranonce,
         last_notify: Arc<Mutex<Option<server_to_client::Notify>>>,
         target: Arc<Mutex<Vec<u8>>>,
@@ -231,6 +229,8 @@ impl Downstream {
         let mut downstream_incoming = downstream_listener.incoming();
         while let Some(stream) = downstream_incoming.next().await {
             let stream = stream.expect("Err on SV1 Downstream connection stream");
+            extended_extranonce.next_extended(0).unwrap();
+            let extended_extranonce = extended_extranonce.clone();
             println!(
                 "\nPROXY SERVER - ACCEPTING FROM DOWNSTREAM: {}\n",
                 stream.peer_addr().unwrap()
@@ -239,8 +239,7 @@ impl Downstream {
                 stream,
                 submit_sender.clone(),
                 receiver_mining_notify.clone(),
-                extranonce2_size,
-                extended_extranonce.next_extended(extranonce2_size).unwrap(),
+                extended_extranonce,
                 last_notify.clone(),
                 target.clone(),
             )
@@ -337,13 +336,13 @@ impl IsServer for Downstream {
     /// When miner find the job which meets requested difficulty, it can submit share to the server.
     /// Only [Submit](client_to_server::Submit) requests for authorized user names can be submitted.
     fn handle_submit(&self, request: &client_to_server::Submit) -> bool {
-        println!("\nInfo:: Down: Submitting Share");
-        println!("Debug:: Down: Handling mining.submit: {:?}", &request);
+        //println!("\nInfo:: Down: Submitting Share");
+        //println!("Debug:: Down: Handling mining.submit: {:?}", &request);
 
         // TODO: Check if receiving valid shares by adding diff field to Downstream
 
         if self.first_job_received {
-            let to_send = (request.clone(), self.extranonce1.clone());
+            let to_send = (request.clone(), self.extranonce.clone());
             self.submit_sender.try_send(to_send).unwrap();
         };
         true
@@ -365,23 +364,25 @@ impl IsServer for Downstream {
     /// Sets the `extranonce1` field sent in the SV1 `mining.notify` message to the value specified
     /// by the SV2 `OpenExtendedMiningChannelSuccess` message sent from the Upstream role.
     fn set_extranonce1(&mut self, _extranonce1: Option<HexBytes>) -> HexBytes {
-        self.extranonce1.clone().try_into().unwrap()
+        let extranonce1: Vec<u8> = self.extranonce.upstream_part().try_into().unwrap();
+        extranonce1.try_into().unwrap()
     }
 
     /// Returns the `Downstream`'s `extranonce1` value.
     fn extranonce1(&self) -> HexBytes {
-        self.extranonce1.clone().try_into().unwrap()
+        let downstream_ext: Vec<u8> = self.extranonce.without_upstream_part(None).unwrap().try_into().unwrap();
+        downstream_ext.try_into().unwrap()
     }
 
     /// Sets the `extranonce2_size` field sent in the SV1 `mining.notify` message to the value
     /// specified by the SV2 `OpenExtendedMiningChannelSuccess` message sent from the Upstream role.
     fn set_extranonce2_size(&mut self, _extra_nonce2_size: Option<usize>) -> usize {
-        self.extranonce2.len()
+        self.extranonce.get_range2_len()
     }
 
     /// Returns the `Downstream`'s `extranonce2_size` value.
     fn extranonce2_size(&self) -> usize {
-        self.extranonce2.len()
+        self.extranonce.get_range2_len()
     }
 
     /// Returns the version rolling mask.
