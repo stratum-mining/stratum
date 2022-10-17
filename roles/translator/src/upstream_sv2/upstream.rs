@@ -285,47 +285,20 @@ impl Upstream {
                     Ok(SendTo::None(Some(m))) => {
                         match m {
                             Mining::OpenExtendedMiningChannelSuccess(m) => {
-                                let target = m.target.to_vec();
-                                let extranonce: Vec<u8> =
-                                    m.extranonce_prefix.inner_as_ref().to_vec();
+                                let prefix_len = m.extranonce_prefix.len();
+                                let extranonce: Extranonce = m.extranonce_prefix.try_into().expect("Received and extranonce prefix bigger than 32 bytes");
 
-                                let downstream_extranonce_len = m.extranonce_size;
-                                let extranonce_len = extranonce.len() + m.extranonce_size as usize;
-                                let upstream_extrnonce_len = extranonce.len();
+                                let range_0 = 0..prefix_len;
+                                let range_1 = prefix_len..prefix_len + crate::SELF_EXTRNONCE_LEN;
+                                let range_2 = prefix_len + crate::SELF_EXTRNONCE_LEN..prefix_len + m.extranonce_size as usize;
 
-                                self_
-                                    .safe_lock(|s| {
-                                        s.min_extranonce_size = downstream_extranonce_len
-                                    })
-                                    .unwrap();
-
-                                let extranonce =
-                                    Extranonce::from_vec_with_len(extranonce, extranonce_len);
-
-                                let self_extranonce_len = crate::SELF_EXTRNONCE_LEN;
-
-                                let range_0 = 0..upstream_extrnonce_len;
-                                let range_1 = upstream_extrnonce_len
-                                    ..upstream_extrnonce_len + self_extranonce_len;
-                                let range_2 =
-                                    upstream_extrnonce_len + self_extranonce_len..extranonce_len;
                                 let extended = ExtendedExtranonce::from_upstream_extranonce(
-                                    extranonce,
-                                    range_0,
-                                    range_1,
-                                    range_2,
-                                    extranonce_len,
-                                )
-                                .unwrap();
+                                    extranonce.clone(), range_0.clone(), range_1.clone(), range_2.clone(),
+                                ).expect(&format!("Impossible to create a valid extended extranonce from {:?} {:?} {:?} {:?}", extranonce,range_0,range_1,range_2));
 
                                 let sender =
                                     self_.safe_lock(|s| s.extranonce_sender.clone()).unwrap();
                                 sender.send(extended).await.unwrap();
-                                let t = self_.safe_lock(|s| s.target.clone()).unwrap();
-                                t.safe_lock(|t| {
-                                    *t = target;
-                                })
-                                .unwrap();
                             }
                             Mining::NewExtendedMiningJob(m) => {
                                 let job_id = m.job_id;
