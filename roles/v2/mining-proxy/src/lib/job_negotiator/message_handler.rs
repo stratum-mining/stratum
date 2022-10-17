@@ -16,8 +16,29 @@ impl ParseServerJobNegotiationMessages for JobNegotiator {
         &mut self,
         message: AllocateMiningJobTokenSuccess,
     ) -> Result<SendTo, Error> {
-        let commit_mining_job_success = JobNegotiation::AllocateMiningJobTokenSuccess(message);
-        Ok(SendTo::None(Some(commit_mining_job_success)))
+        let coinbase_output_max_additional_size = message.coinbase_output_max_additional_size;
+
+        let new_template = self.last_new_template.unwrap();
+
+        let message_commit_mining_job = CommitMiningJob { 
+            request_id: message.request_id,
+            mining_job_token: message.mining_job_token, 
+            version: 2, 
+            coinbase_tx_version: 0, 
+            coinbase_prefix: new_template.coinbase_prefix, 
+            coinbase_tx_input_n_sequence: 0, 
+            coinbase_tx_value_remaining: 0, 
+            coinbase_tx_outputs: new_template.coinbase_tx_outputs, 
+            coinbase_tx_locktime: 0, 
+            min_extranonce_size: 0, 
+            tx_short_hash_nonce: 0, 
+            tx_short_hash_list, 
+            tx_hash_list_hash, 
+            excess_data, 
+        };
+        let commit_mining_job = JobNegotiation::CommitMiningJob(message_commit_mining_job);
+        println!("Sending AllocateMiningJobTokenSuccess to proxy {:?}", commit_mining_job);
+        Ok(SendTo::None(Some(commit_mining_job)))
     }
 
     fn commit_mining_job_success(

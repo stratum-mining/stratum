@@ -3,7 +3,6 @@ use codec_sv2::{StandardSv2Frame,
     StandardEitherFrame
 };
 use codec_sv2::Frame;
-use roles_logic_sv2::handlers::template_distribution::ParseClientTemplateDistributionMessages;
 use roles_logic_sv2::{
     common_messages_sv2::{Protocol, SetupConnection},
     handlers::common::{ParseUpstreamCommonMessages, SendTo},
@@ -51,10 +50,13 @@ impl SetupConnectionHandler {
             .try_into()
             .unwrap();
         let sv2_frame = sv2_frame.into();
+
+        println!("Sending sv2_frame...");
+
         sender.send(sv2_frame).await.map_err(|_| ())?;
 
+        println!("Receiving setupconnection message from pool...");
         let mut incoming: StdFrame = receiver.recv().await.unwrap().try_into().unwrap();
-
         println!("Received setup connection message");
         
         let message_type = incoming.get_header().unwrap().msg_type();

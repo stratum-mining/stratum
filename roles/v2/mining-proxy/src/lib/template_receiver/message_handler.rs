@@ -24,9 +24,8 @@ impl ParseServerTemplateDistributionMessages for TemplateRx {
             merkle_path: m.merkle_path.into_static(),
         };
         let new_template = TemplateDistribution::NewTemplate(new_template);
-        Ok(SendTo::RelayNewMessageToRemote(
-            Arc::new(Mutex::new(())),
-            new_template,
+        Ok(SendTo::None(
+            Some(new_template),
         ))
     }
 

@@ -22,7 +22,7 @@ impl JobNegotiatorDownstream {
         // 2. right version field
         // 3. right prev-hash
         // 4. right nbits
-        // 5. a valid merketpath
+        // 5. a valid merkletpath
         is_token_allocated
     }
 }
@@ -38,9 +38,10 @@ impl ParseClientJobNegotiationMessages for JobNegotiatorDownstream {
             request_id: message.request_id,
             mining_job_token: token,
             coinbase_output_max_additional_size: 0,
-            async_mining_allowed: false,
+            async_mining_allowed: true,
         };
         let message_enum = JobNegotiation::AllocateMiningJobTokenSuccess(message_success);
+        println!("Sending AllocateMiningJobTokenSuccess to proxy {:?}", message_enum);
         Ok(SendTo::Respond(message_enum))
     }
 
@@ -96,9 +97,12 @@ impl ParseClientJobNegotiationMessages for JobNegotiatorDownstream {
     ) -> Result<SendTo, Error> {
         // Is ok to unwrap a safe_lock result
         match (message_type, payload).try_into() {
-            Ok(JobNegotiation::AllocateMiningJobToken(message)) => self_
+            Ok(JobNegotiation::AllocateMiningJobToken(message)) => {
+                println!("Allocate mining job token message sent to Proxy");
+                self_
                 .safe_lock(|x| x.allocate_mining_job_token(message))
-                .unwrap(),
+                .unwrap()   
+            }
             Ok(JobNegotiation::CommitMiningJob(message)) => {
                 self_.safe_lock(|x| x.commit_mining_job(message)).unwrap()
             }
