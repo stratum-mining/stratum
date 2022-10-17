@@ -1,7 +1,7 @@
 use async_channel::{Receiver, Sender};
 use async_std::task;
 use roles_logic_sv2::{
-    mining_sv2::{NewExtendedMiningJob, SetNewPrevHash, SubmitSharesExtended, ExtendedExtranonce},
+    mining_sv2::{ExtendedExtranonce, NewExtendedMiningJob, SetNewPrevHash, SubmitSharesExtended},
     utils::{Id, Mutex},
 };
 use std::sync::Arc;
@@ -106,7 +106,9 @@ impl Bridge {
         extranonce_1: &ExtendedExtranonce,
     ) -> ProxyResult<SubmitSharesExtended<'static>> {
         let extranonce_vec: Vec<u8> = sv1_submit.extra_nonce2.into();
-        let extranonce = extranonce_1.without_upstream_part(Some(extranonce_vec.try_into().unwrap())).unwrap();
+        let extranonce = extranonce_1
+            .without_upstream_part(Some(extranonce_vec.try_into().unwrap()))
+            .unwrap();
 
         let version = match sv1_submit.version_bits {
             Some(vb) => vb.0,

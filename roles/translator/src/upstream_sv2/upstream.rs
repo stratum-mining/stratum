@@ -31,6 +31,7 @@ use roles_logic_sv2::{
 use std::{net::SocketAddr, sync::Arc};
 
 /// Represents the currently active mining job being worked on.
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 struct Job_ {
     /// `job_id`, identifier of this mining job.
@@ -46,6 +47,7 @@ struct Job_ {
 /// Represents the currently active `prevhash` of the mining job being worked on OR being submitted
 /// from the Downstream role.
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 struct PrevHash {
     /// `prevhash` of mining job.
     prev_hash: BlockHash,
@@ -62,6 +64,7 @@ enum Job {
 
 impl Job {
     /// Calculates the candidate block hash of mining job.
+    #[allow(dead_code)]
     pub fn get_candidate_hash(self, share: &SubmitSharesExtended) -> Option<[u8; 32]> {
         match self {
             Job::Void => None,
@@ -286,15 +289,19 @@ impl Upstream {
                         match m {
                             Mining::OpenExtendedMiningChannelSuccess(m) => {
                                 let prefix_len = m.extranonce_prefix.len();
-                                let extranonce: Extranonce = m.extranonce_prefix.try_into().expect("Received and extranonce prefix bigger than 32 bytes");
+                                let extranonce: Extranonce = m
+                                    .extranonce_prefix
+                                    .try_into()
+                                    .expect("Received and extranonce prefix bigger than 32 bytes");
 
                                 let range_0 = 0..prefix_len;
                                 let range_1 = prefix_len..prefix_len + crate::SELF_EXTRNONCE_LEN;
-                                let range_2 = prefix_len + crate::SELF_EXTRNONCE_LEN..prefix_len + m.extranonce_size as usize;
+                                let range_2 = prefix_len + crate::SELF_EXTRNONCE_LEN
+                                    ..prefix_len + m.extranonce_size as usize;
 
                                 let extended = ExtendedExtranonce::from_upstream_extranonce(
                                     extranonce.clone(), range_0.clone(), range_1.clone(), range_2.clone(),
-                                ).expect(&format!("Impossible to create a valid extended extranonce from {:?} {:?} {:?} {:?}", extranonce,range_0,range_1,range_2));
+                                ).unwrap_or_else(|| panic!("Impossible to create a valid extended extranonce from {:?} {:?} {:?} {:?}", extranonce,range_0,range_1,range_2));
 
                                 let sender =
                                     self_.safe_lock(|s| s.extranonce_sender.clone()).unwrap();

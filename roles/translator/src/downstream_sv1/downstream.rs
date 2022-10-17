@@ -370,7 +370,12 @@ impl IsServer for Downstream {
 
     /// Returns the `Downstream`'s `extranonce1` value.
     fn extranonce1(&self) -> HexBytes {
-        let downstream_ext: Vec<u8> = self.extranonce.without_upstream_part(None).unwrap().try_into().unwrap();
+        let downstream_ext: Vec<u8> = self
+            .extranonce
+            .without_upstream_part(None)
+            .unwrap()
+            .try_into()
+            .unwrap();
         downstream_ext.try_into().unwrap()
     }
 
