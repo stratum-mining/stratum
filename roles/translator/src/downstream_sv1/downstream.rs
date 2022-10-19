@@ -6,13 +6,13 @@ use async_std::{
     prelude::*,
     task,
 };
-use bigint;
 use roles_logic_sv2::{
+    bitcoin::util::uint::Uint256,
     common_properties::{IsDownstream, IsMiningDownstream},
     mining_sv2::ExtendedExtranonce,
     utils::Mutex,
 };
-use std::{net::SocketAddr, sync::Arc};
+use std::{net::SocketAddr, ops::Div, sync::Arc};
 use v1::{
     client_to_server, json_rpc, server_to_client,
     utils::{HexBytes, HexU32Be},
@@ -132,12 +132,8 @@ impl Downstream {
                     .unwrap();
 
                 if is_a && !first_sent {
-                    let target = target.safe_lock(|t| t.clone()).unwrap().to_vec();
+                    let target = target.safe_lock(|t| t.clone()).unwrap();
                     let messsage = Self::get_set_difficulty(target);
-                    // let target_2: bigint::U256 = target.safe_lock(|t| t.clone()).unwrap()[..]
-                    //     .try_into()
-                    //     .unwrap();
-                    // let messsage = Self::get_set_difficulty(target_2);
                     Downstream::send_message_downstream(downstream_clone.clone(), messsage).await;
 
                     let sv1_mining_notify_msg =
@@ -175,8 +171,6 @@ impl Downstream {
                     last_target = target;
                     let target_2 = last_target.to_vec();
                     let message = Self::get_set_difficulty(target_2);
-                    // let target_2: bigint::U256 = last_target[..].try_into().unwrap();
-                    // let message = Self::get_set_difficulty(target_2);
                     Downstream::send_message_downstream(downstream_clone.clone(), message).await;
                 }
             }
@@ -185,24 +179,39 @@ impl Downstream {
         Ok(downstream)
     }
 
+    /// Helper function to check if target is set to zero for some reason (typically happens when
+    /// Downstream role first connects).
+    /// https://stackoverflow.com/questions/65367552/checking-a-vecu8-to-see-if-its-all-zero
+    fn is_zero(buf: &[u8]) -> bool {
+        let (prefix, aligned, suffix) = unsafe { buf.align_to::<u128>() };
+
+        prefix.iter().all(|&x| x == 0)
+            && suffix.iter().all(|&x| x == 0)
+            && aligned.iter().all(|&x| x == 0)
+    }
+
     /// Converts target received by the `SetTarget` SV2 message from the Upstream role into the
     /// difficulty for the Downstream role sent via the SV1 `mining.set_difficulty` message.
-    fn difficulty_from_target(target: Vec<u8>) -> f64 {
-        // Convert target from Vec<u8> to U256 decimal representation (LE)
-        let target_u256 = bigint::U256::from_little_endian(&target);
+    fn difficulty_from_target(mut target: Vec<u8>) -> f64 {
+        target.reverse();
+        let target = target.as_slice();
+        // If received target is 0, return 0
+        if Downstream::is_zero(target) {
+            println!("TARGET IS ZERO");
+            return 0.0;
+        }
+        let target = Uint256::from_be_slice(target).unwrap();
+        println!("TARGET: {:?}", &target);
+        let pdiff: [u8; 32] = [
+            0, 0, 0, 0, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+            255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+        ];
+        let pdiff = Uint256::from_be_bytes(pdiff);
+        println!("PDIFF: {:?}", &pdiff);
 
-        // pdiff: 0x00000000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
-        // https://en.bitcoin.it/wiki/Difficulty
-        let pdiff = bigint::U256::from_dec_str(
-            "26959946667150639794667015087019630673637144422540572481103610249215",
-        )
-        .unwrap();
-
-        let diff = pdiff.overflowing_div(target_u256);
-        let diff = diff.0.to_string();
-        let diff: f64 = diff.parse().unwrap();
-        println!("\nInfo:: Down: Setting difficulty to: {}", diff);
-        diff
+        let diff = pdiff.div(target);
+        println!("DIFF: {:?}", &diff);
+        diff.low_u64() as f64
     }
 
     /// Converts target received by the `SetTarget` SV2 message from the Upstream role into the
@@ -430,6 +439,7 @@ mod tests {
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 255, 127,
             0, 0, 0, 0, 0,
         ];
+        println!("HERE");
         let actual = Downstream::difficulty_from_target(target);
         let expect = 512.0;
         assert_eq!(actual, expect);
