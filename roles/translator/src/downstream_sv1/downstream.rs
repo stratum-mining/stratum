@@ -195,22 +195,19 @@ impl Downstream {
     fn difficulty_from_target(mut target: Vec<u8>) -> f64 {
         target.reverse();
         let target = target.as_slice();
+
         // If received target is 0, return 0
         if Downstream::is_zero(target) {
-            println!("TARGET IS ZERO");
             return 0.0;
         }
         let target = Uint256::from_be_slice(target).unwrap();
-        println!("TARGET: {:?}", &target);
         let pdiff: [u8; 32] = [
             0, 0, 0, 0, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
             255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
         ];
         let pdiff = Uint256::from_be_bytes(pdiff);
-        println!("PDIFF: {:?}", &pdiff);
 
         let diff = pdiff.div(target);
-        println!("DIFF: {:?}", &diff);
         diff.low_u64() as f64
     }
 
