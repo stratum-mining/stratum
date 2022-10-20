@@ -62,7 +62,8 @@ impl Connection {
                             sender_incoming.send(x).await.unwrap();
                         }
                     }
-                    Err(_) => {
+                    Err(e) => {
+                        println!("{:#?}", e);
                         let _ = reader.shutdown(async_std::net::Shutdown::Both);
                         break;
                     }
@@ -86,12 +87,14 @@ impl Connection {
 
                         match (&writer).write_all(b).await {
                             Ok(_) => (),
-                            Err(_) => {
+                            Err(e) => {
+                                println!("UUUU {:#?}", e);
                                 let _ = writer.shutdown(async_std::net::Shutdown::Both);
                             }
                         }
                     }
-                    Err(_) => {
+                    Err(e) => {
+                        println!("EEEE {:#?}", e);
                         let _ = writer.shutdown(async_std::net::Shutdown::Both);
                         break;
                     }

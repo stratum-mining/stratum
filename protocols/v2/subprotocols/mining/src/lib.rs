@@ -281,6 +281,12 @@ impl Extranonce {
         }
     }
 
+    /// this function converts a Extranonce type to b032 type
+    pub fn from_vec_with_len(mut extranonce: alloc::vec::Vec<u8>, len: usize) -> Self {
+        extranonce.resize(len, 0);
+        Self { extranonce }
+    }
+
     pub fn into_b032(self) -> B032<'static> {
         self.into()
     }
@@ -452,7 +458,7 @@ impl PartialEq for ExtendedExtranonce {
 }
 
 impl ExtendedExtranonce {
-    /// returns a new ExtendedExtranonce, which inner field consists of 0
+    /// every extranonce start from zero.
     pub fn new(range_0: Range<usize>, range_1: Range<usize>, range_2: Range<usize>) -> Self {
         debug_assert!(range_0.start == 0);
         debug_assert!(range_0.end == range_1.start);
@@ -464,7 +470,15 @@ impl ExtendedExtranonce {
             range_2,
         }
     }
-    /// Specular of [Self::from_downstream_extranonce]
+
+    pub fn get_len(&self) -> usize {
+        self.range_2.end
+    }
+
+    pub fn get_range2_len(&self) -> usize {
+        self.range_2.end - self.range_2.start
+    }
+
     /// Suppose that P receives from the upstream an extranonce that needs to be converted into any
     /// ExtendedExtranonce, eg when an extended channel is opened. Then range_0 (that should
     /// be provided along the Extranonce) is reserved for the upstream and can't be modiefied by
@@ -564,6 +578,13 @@ impl ExtendedExtranonce {
                 .try_into()
                 .ok(),
         }
+    }
+
+    pub fn upstream_part(&self) -> Extranonce {
+        self.inner[self.range_0.start..self.range_1.end]
+            .to_vec()
+            .try_into()
+            .unwrap()
     }
 }
 /// This function is used to inctrement extranonces, and it is used in next_standard and in
@@ -878,343 +899,6 @@ mod tests {
         target_start == target_final
     }
 
-    #[quickcheck_macros::quickcheck]
-    fn test_next_standard_extranonce(input: (u8, u8, Vec<u8>)) -> bool {
-        let inner = from_arbitrary_vec_to_array(input.2.clone());
-        let r0 = input.0 as usize;
-        let r1 = input.1 as usize;
-        let r0 = r0 % EXTRANONCE_LEN;
-        let r1 = r1 % EXTRANONCE_LEN;
-        let mut ranges = Vec::from([r0, r1]);
-        ranges.sort();
-        let range_0 = 0..ranges[0];
-        let range_1 = ranges[0]..ranges[1];
-        let range_2 = ranges[1]..EXTRANONCE_LEN;
-        let extended_extranonce_start = ExtendedExtranonce {
-            inner,
-            range_0: range_0.clone(),
-            range_1: range_1.clone(),
-            range_2: range_2.clone(),
-        };
-        let extranonce_expected: Extranonce =
-            Extranonce::from(&mut extended_extranonce_start.clone())
-                .next()
-                .into();
-        match extended_extranonce_start.clone().next_standard() {
-            Some(extranonce_next) => extranonce_expected == extranonce_next,
-            None => {
-                for b in inner[range_2.start..range_2.end].iter() {
-                    if b != &255_u8 {
-                        return false;
-                    }
-                }
-                true
-            }
-        }
-    }
-
-    #[quickcheck_macros::quickcheck]
-    fn test_next_extended_extranonce(input: (u8, u8, Vec<u8>, u8)) -> bool {
-        let inner = from_arbitrary_vec_to_array(input.2);
-        let r0 = input.0 as usize;
-        let r1 = input.1 as usize;
-        let r0 = r0 % (EXTRANONCE_LEN + 1);
-        let r1 = r1 % (EXTRANONCE_LEN + 1);
-        let required_len = (input.3 as usize % EXTRANONCE_LEN) + 1;
-        let mut ranges = Vec::from([r0, r1]);
-        ranges.sort();
-        let range_0 = 0..ranges[0];
-        let range_1 = ranges[0]..ranges[1];
-        let range_2 = ranges[1]..EXTRANONCE_LEN;
-        let extended_extranonce_start = ExtendedExtranonce {
-            inner,
-            range_0: range_0.clone(),
-            range_1: range_1.clone(),
-            range_2: range_2.clone(),
-        };
-        let range_1_of_extended_extranonce =
-            &mut extended_extranonce_start.clone().inner[range_1.clone()];
-
-        let incremented_inner = match increment_bytes_be(range_1_of_extended_extranonce) {
-            Ok(_) => {
-                let incremented_inner_ = &[
-                    &inner[range_0.clone()],
-                    &range_1_of_extended_extranonce.to_vec()[..],
-                    &inner[range_2.clone()],
-                ]
-                .concat();
-                let incremented_inner_: [u8; 32] = incremented_inner_[..].try_into().unwrap();
-                Some(incremented_inner_)
-            }
-            Err(_) => None,
-        };
-        match extended_extranonce_start
-            .clone()
-            .next_extended(required_len)
-        {
-            Some(extranonce_next) => match incremented_inner {
-                Some(incremented_inner_) => {
-                    ExtendedExtranonce::from_extranonce(extranonce_next, range_0, range_1, range_2)
-                        .inner
-                        == incremented_inner_
-                }
-                None => false,
-            },
-            None => {
-                if required_len > range_2.len() {
-                    return true;
-                } else {
-                    for b in inner[range_1].iter() {
-                        if b != &255_u8 {
-                            return false;
-                        }
-                    }
-                };
-                return true;
-            }
-        }
-    }
-
-    // this test checks the functions from_upstream_extranonce and from_extranonce.
-    #[quickcheck_macros::quickcheck]
-    fn test_extranonce_from_extended_extranonce(input: (u8, u8, Vec<u8>, usize)) -> bool {
-        let inner = from_arbitrary_vec_to_array(input.2.clone());
-        let extranonce_len = input.3.clone() % MAX_EXTRANONCE_LEN + 1;
-        let r0 = input.0 as usize;
-        let r1 = input.1 as usize;
-        let r0 = r0 % (extranonce_len + 1);
-        let r1 = r1 % (extranonce_len + 1);
-        let mut ranges = Vec::from([r0, r1]);
-        ranges.sort();
-        let range_0 = 0..ranges[0];
-        let range_1 = ranges[0]..ranges[1];
-        let range_2 = ranges[1]..extranonce_len;
-        let extended_extranonce_start = ExtendedExtranonce {
-
-            inner,
-            range_0: range_0.clone(),
-            range_1: range_1.clone(),
-            range_2: range_2.clone(),
-        };
-        let extranonce = match extended_extranonce_start.next_extended(0) {
-            Some(x) => x,
-            None => return true,
-        };
-
-        let extended_extranonce_final = ExtendedExtranonce::from_upstream_extranonce(
-            extranonce,
-            range_0.clone(),
-            range_1.clone(),
-            range_2.clone(),
-        );
-        match extended_extranonce_final {
-            Some(extended_extranonce_final) => {
-                for b in extended_extranonce_final.inner[range_2.start..range_2.end].iter() {
-                    if b != &0 {
-                        return false;
-                    }
-                }
-                extended_extranonce_final.inner[range_0.clone().start..range_1.end]
-                    == extended_extranonce_start.inner[range_0.start..range_1.end]
-            }
-            None => {
-                for b in inner[range_1.start..range_2.end].iter() {
-                    if b != &0 {
-                        return true;
-                    }
-                }
-                return false;
-            }
-        }
-    }
-    // test next_standard_method
-    #[quickcheck_macros::quickcheck]
-    fn test_next_standard_extranonce(input: (u8, u8, Vec<u8>, usize)) -> bool {
-        let inner = from_arbitrary_vec_to_array(input.2.clone());
-        let extranonce_len = input.3.clone() % MAX_EXTRANONCE_LEN + 1;
-        let r0 = input.0 as usize;
-        let r1 = input.1 as usize;
-        let r0 = r0 % (extranonce_len + 1);
-        let r1 = r1 % (extranonce_len + 1);
-        let mut ranges = Vec::from([r0, r1]);
-        ranges.sort();
-        let range_0 = 0..ranges[0];
-        let range_1 = ranges[0]..ranges[1];
-        let range_2 = ranges[1]..extranonce_len;
-        let extended_extranonce_start = ExtendedExtranonce {
-            inner,
-            range_0: range_0.clone(),
-            range_1: range_1.clone(),
-            range_2: range_2.clone(),
-        };
-        let mut extranonce_copy: Extranonce =
-            Extranonce::from(&mut extended_extranonce_start.clone());
-        let extranonce_expected_b032: Option<B032> = extranonce_copy.next();
-        match extended_extranonce_start.clone().next_standard() {
-            Some(extranonce_next) => match extranonce_expected_b032 {
-                Some(b032) =>
-                // the range_2 of extranonce_next must be equal to the range_2 of the
-                // conversion of extranonce_copy.next() converted in extranonce
-                {
-                    extranonce_next.extranonce[range_2.start..range_2.end] == Extranonce::from(b032.clone()).extranonce[range_2.start..range_2.end]
-                    // the range_1 of the conversion of extranonce_copy.next() converted in
-                    // extranonce must remain unchanged
-                    && Extranonce::from(b032.clone()).extranonce[range_1.start..range_1.end]== extended_extranonce_start.inner[range_1.start..range_1.end]
-                    // the range_1 if extranonce_next is set to zero by the method .next_standard()
-                    && extranonce_next.extranonce[range_1.start..range_1.end]==vec![0 as u8; range_1.len()]
-                }
-                None => false,
-            },
-            // if .next_standard() method falls in None case, this means that the range_2 is at maximum
-            // value, so every entry must be 255 as u8
-            None => {
-                for b in inner[range_2.start..range_2.end].iter() {
-                    if b != &255_u8 {
-                        return false;
-                    }
-                }
-                true
-            }
-        }
-    }
-    #[quickcheck_macros::quickcheck]
-    fn test_next_stndard2(input: (u8, u8, Vec<u8>, usize)) -> bool {
-        let inner = from_arbitrary_vec_to_array(input.2.clone());
-        let extranonce_len = input.3.clone() % MAX_EXTRANONCE_LEN + 1;
-        let r0 = input.0 as usize;
-        let r1 = input.1 as usize;
-        let r0 = r0 % (extranonce_len + 1);
-        let r1 = r1 % (extranonce_len + 1);
-        let mut ranges = Vec::from([r0, r1]);
-        ranges.sort();
-        let range_0 = 0..ranges[0];
-        let range_1 = ranges[0]..ranges[1];
-        let range_2 = ranges[1]..extranonce_len;
-        let mut extended_extranonce_start = ExtendedExtranonce {
-            inner,
-            range_0: range_0.clone(),
-            range_1: range_1.clone(),
-            range_2: range_2.clone(),
-        };
-        match extended_extranonce_start.next_standard() {
-            Some(v) => {
-                extended_extranonce_start.inner[range_2.clone()] == v.extranonce[range_2]
-                    && extended_extranonce_start.inner[range_0.clone()]
-                        == v.extranonce[range_0.clone()]
-                    && v.extranonce[range_1.clone()] == vec![0; range_1.end - range_1.start]
-            }
-            None => true,
-        }
-    }
-
-    #[quickcheck_macros::quickcheck]
-    fn test_next_extended_extranonce(input: (u8, u8, Vec<u8>, usize, usize)) -> bool {
-        let inner = from_arbitrary_vec_to_array(input.2.clone());
-        let extranonce_len = input.3.clone() % MAX_EXTRANONCE_LEN + 1;
-        let r0 = input.0 as usize;
-        let r1 = input.1 as usize;
-        let r0 = r0 % (extranonce_len + 1);
-        let r1 = r1 % (extranonce_len + 1);
-        let required_len = input.4;
-        let mut ranges = Vec::from([r0, r1]);
-        ranges.sort();
-        let range_0 = 0..ranges[0];
-        let range_1 = ranges[0]..ranges[1];
-        let range_2 = ranges[1]..extranonce_len;
-        let mut extended_extranonce = ExtendedExtranonce {
-            inner,
-            range_0: range_0.clone(),
-            range_1: range_1.clone(),
-            range_2: range_2.clone(),
-        };
-        match extended_extranonce.next_extended(required_len) {
-            Some(extranonce) => {
-                extended_extranonce.inner[..range_1.end] == extranonce.extranonce[..]
-            }
-            None => {
-                if required_len > range_2.end - range_2.start {
-                    return true;
-                };
-                let mut range_1_start = inner[range_1.clone()].to_vec();
-                increment_bytes_be(&mut range_1_start).is_err()
-            }
-        }
-    }
-    #[quickcheck_macros::quickcheck]
-    fn test_target_from_u256(input: (u128, u128)) -> bool {
-        let target_expected = Target {
-            head: input.0,
-            tail: input.1,
-        };
-
-        let bytes = [&input.0.to_ne_bytes()[..], &input.1.to_ne_bytes()[..]].concat();
-        let u256: U256 = bytes.try_into().unwrap();
-        let target_final: Target = u256.clone().into();
-
-        let u256_final: U256 = target_final.clone().into();
-
-        target_expected == target_final && u256_final == u256
-    }
-    #[quickcheck_macros::quickcheck]
-    fn test_target_to_u256(input: (u128, u128)) -> bool {
-        let target_start = Target {
-            head: input.0,
-            tail: input.1,
-        };
-        let u256 = U256::<'static>::from(target_start.clone());
-        let target_final = Target::from(u256);
-        target_final == target_final
-    }
-
-    #[quickcheck_macros::quickcheck]
-    fn test_ord_for_target_positive_increment(input: (u128, u128, u128, u128)) -> bool {
-        let max = u128::MAX;
-        // we want input.0 and input.1 >= 0 and < u128::MAX
-        let input = (input.0 % max, input.1 % max, input.2, input.3);
-        let target_start = Target {
-            head: input.0,
-            tail: input.1,
-        };
-        let positive_increment = (
-            input.2 % (max - target_start.head) + 1,
-            input.3 % (max - target_start.tail) + 1,
-        );
-        let target_final = Target {
-            head: target_start.head + positive_increment.0,
-            tail: target_start.tail + positive_increment.1,
-        };
-        target_final > target_start
-    }
-
-    #[quickcheck_macros::quickcheck]
-    fn test_ord_for_target_negative_increment(input: (u128, u128, u128, u128)) -> bool {
-        let max = u128::MAX;
-        let input = (input.0 % max + 1, input.1 % max + 1, input.2, input.3);
-        let target_start = Target {
-            head: input.0,
-            tail: input.1,
-        };
-        let negative_increment = (
-            input.2 % target_start.head + 1,
-            input.3 % target_start.tail + 1,
-        );
-        let target_final = Target {
-            head: target_start.head - negative_increment.0,
-            tail: target_start.tail - negative_increment.1,
-        };
-        target_final < target_start
-    }
-
-    #[quickcheck_macros::quickcheck]
-    fn test_ord_for_target_zero_increment(input: (u128, u128)) -> bool {
-        let target_start = Target {
-            head: input.0,
-            tail: input.1,
-        };
-        let target_final = target_start.clone();
-        target_start == target_final
-    }
-
     use core::convert::TryInto;
     fn from_arbitrary_vec_to_array(vec: Vec<u8>) -> [u8; 32] {
         if vec.len() >= 32 {
@@ -1230,84 +914,4 @@ mod tests {
             result[..].try_into().unwrap()
         }
     }
-
-    #[quickcheck_macros::quickcheck]
-    fn test_target_from_u256(input: (u128, u128)) -> bool {
-        let target_start = Target {
-            head: input.0,
-            tail: input.1,
-        };
-        let u256 = U256::<'static>::from(target_start.clone());
-        let target_final = Target::from(u256);
-        target_final == target_final
-    }
-
-    #[quickcheck_macros::quickcheck]
-    fn test_ord_for_target_positive_increment(input: (u128, u128, u128, u128)) -> bool {
-        let max = u128::MAX;
-        let input = (input.0 % max, input.1 % max, input.2, input.3);
-        let target_start = Target {
-            head: input.0,
-            tail: input.1,
-        };
-        let positive_increment = (
-            input.2 % (max - target_start.head) + 1,
-            input.3 % (max - target_start.tail) + 1,
-        );
-        let target_final = Target {
-            head: target_start.head + positive_increment.0,
-            tail: target_start.tail + positive_increment.1,
-        };
-        match target_start.cmp(&target_final) {
-            core::cmp::Ordering::Less => true,
-            _ => false,
-        }
-    }
-
-    #[quickcheck_macros::quickcheck]
-    fn test_ord_for_target_negative_increment(input: (u128, u128, u128, u128)) -> bool {
-        let max = u128::MAX;
-        let input = (input.0 % max + 1, input.1 % max + 1, input.2, input.3);
-        let target_start = Target {
-            head: input.0,
-            tail: input.1,
-        };
-        let negative_increment = (
-            input.2 % target_start.head + 1,
-            input.3 % target_start.tail + 1,
-        );
-        let target_final = Target {
-            head: target_start.head - negative_increment.0,
-            tail: target_start.tail - negative_increment.1,
-        };
-        match target_start.cmp(&target_final) {
-            core::cmp::Ordering::Greater => true,
-            _ => false,
-        }
-    }
-
-    #[quickcheck_macros::quickcheck]
-    fn test_ord_for_target_zero_increment(input: (u128, u128)) -> bool {
-        let max = u128::MAX;
-        let target_start = Target {
-            head: input.0,
-            tail: input.1,
-        };
-        let target_final = target_start.clone();
-        match target_start.cmp(&target_final) {
-            core::cmp::Ordering::Equal => true,
-            _ => false,
-        }
-    }
-
-    //#[quickcheck_macros::quickcheck]
-    //fn test_from_32_bytes(input: Vec<u8>) -> bool {
-    //    let input_start =  from_arbitrary_vec_to_array(input);
-    //    let target: Target = input_start.into();
-    //    let target_final = target_start.clone();
-    //    match target_start.cmp(&target_final){
-    //         core::cmp::Ordering::Equal => true,
-    //         _ => false,
-    //    }
-    //}
 }

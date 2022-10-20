@@ -22,10 +22,18 @@ const ADDR: &str = "127.0.0.1:34255";
 
 /// Represents the Mining Device client which is connected to a Upstream node (either a SV1 Pool
 /// server or a SV1 <-> SV2 Translator Proxy server).
+<<<<<<< HEAD
 pub(crate) struct Client {
     client_id: u32,
     extranonce1: HexBytes,
     extranonce2_size: usize,
+=======
+#[derive(Debug, Clone)]
+pub(crate) struct Client {
+    client_id: u32,
+    extranonce1: Option<HexBytes>,
+    extranonce2_size: Option<usize>,
+>>>>>>> e45f4adc1ef1104031c71ef3519f1cfaaff130c3
     version_rolling_mask: Option<HexU32Be>,
     version_rolling_min_bit: Option<HexU32Be>,
     pub(crate) status: ClientStatus,
@@ -123,10 +131,17 @@ impl Client {
         let sender_outgoing_clone = sender_outgoing.clone();
 
         // Initialize Client
+<<<<<<< HEAD
         let mut client = Client {
             client_id,
             extranonce1: "00000000".try_into().unwrap(),
             extranonce2_size: 2,
+=======
+        let client = Arc::new(Mutex::new(Client {
+            client_id,
+            extranonce1: None,
+            extranonce2_size: None,
+>>>>>>> e45f4adc1ef1104031c71ef3519f1cfaaff130c3
             version_rolling_mask: None,
             version_rolling_min_bit: None,
             status: ClientStatus::Init,
@@ -135,6 +150,7 @@ impl Client {
             receiver_incoming,
             sender_outgoing,
             miner,
+<<<<<<< HEAD
         };
 
         //let line = client.receiver_incoming.recv().await.unwrap();
@@ -153,6 +169,12 @@ impl Client {
         //task::spawn(async move {
         //    client.send_authorize().await;
         //});
+=======
+        }));
+
+        // configure subscribe and authorize
+        Self::send_configure(client.clone()).await;
+>>>>>>> e45f4adc1ef1104031c71ef3519f1cfaaff130c3
 
         // Gets the latest candidate block header hash from the `Miner` by calling the `next_share`
         // method. Mocks the act of the `Miner` incrementing the nonce. Performs this in a loop,
@@ -183,19 +205,38 @@ impl Client {
         // Task to receive relevant candidate block header values needed to construct a
         // `mining.submit` message. This message is contructed as a `client_to_server::Submit` and
         // then serialized into json to be sent to the Upstream via the `sender_outgoing` sender.
+<<<<<<< HEAD
+=======
+        let cloned = client.clone();
+>>>>>>> e45f4adc1ef1104031c71ef3519f1cfaaff130c3
         task::spawn(async move {
             let recv = receiver_share.clone();
             loop {
                 let (nonce, job_id, version, ntime) = recv.recv().await.unwrap();
+<<<<<<< HEAD
                 let extra_nonce2: HexBytes = "0000000000000000".try_into().unwrap();
+=======
+                if cloned.clone().safe_lock(|c| c.status).unwrap() != ClientStatus::Subscribed {
+                    continue;
+                }
+                let extra_nonce2: HexBytes =
+                    vec![0; cloned.safe_lock(|c| c.extranonce2_size.unwrap()).unwrap()]
+                        .try_into()
+                        .unwrap();
+>>>>>>> e45f4adc1ef1104031c71ef3519f1cfaaff130c3
                 let version = Some(HexU32Be(version));
                 let submit = client_to_server::Submit {
                     id: "deadbeef".into(),
                     user_name: "user".into(), // TODO: user name should NOT be hardcoded
                     job_id: job_id.to_string(),
                     extra_nonce2,
+<<<<<<< HEAD
                     time: ntime.into(),
                     nonce: nonce.into(),
+=======
+                    time: HexU32Be(ntime),
+                    nonce: HexU32Be(nonce),
+>>>>>>> e45f4adc1ef1104031c71ef3519f1cfaaff130c3
                     version_bits: version,
                 };
                 let message: json_rpc::Message = submit.into();
@@ -203,6 +244,7 @@ impl Client {
                 sender_outgoing_clone.send(message).await.unwrap();
             }
         });
+<<<<<<< HEAD
 
         // configure subscribe and authorize
         client.send_configure().await;
@@ -215,6 +257,19 @@ impl Client {
                 }
                 ClientStatus::Subscribed => {
                     client.send_authorize().await;
+=======
+        let recv_incoming = client.safe_lock(|c| c.receiver_incoming.clone()).unwrap();
+
+        loop {
+            match client.clone().safe_lock(|c| c.status).unwrap() {
+                ClientStatus::Init => panic!("impossible state"),
+                ClientStatus::Configured => {
+                    let incoming = recv_incoming.clone().recv().await.unwrap();
+                    Self::parse_message(client.clone(), Ok(incoming)).await;
+                }
+                ClientStatus::Subscribed => {
+                    Self::send_authorize(client.clone()).await;
+>>>>>>> e45f4adc1ef1104031c71ef3519f1cfaaff130c3
                     break;
                 }
             }
@@ -222,28 +277,54 @@ impl Client {
         // Waits for the `sender_incoming` to get message line from socket to be parsed by the
         // `Client`
         loop {
+<<<<<<< HEAD
             let incoming = client.receiver_incoming.recv().await.unwrap();
             client.parse_message(Ok(incoming)).await;
+=======
+            let incoming = recv_incoming.recv().await.unwrap();
+            Self::parse_message(client.clone(), Ok(incoming)).await;
+>>>>>>> e45f4adc1ef1104031c71ef3519f1cfaaff130c3
         }
     }
 
     /// Parse SV1 messages received from the Upstream node.
     async fn parse_message(
+<<<<<<< HEAD
         &mut self,
+=======
+        self_: Arc<Mutex<Self>>,
+>>>>>>> e45f4adc1ef1104031c71ef3519f1cfaaff130c3
         incoming_message: Result<String, async_channel::TryRecvError>,
     ) {
         // If we have a line (1 line represents 1 sv1 incoming message), then handle that message
         if let Ok(line) = incoming_message {
+<<<<<<< HEAD
             println!("CLIENT {} - Received: {}", self.client_id, line);
             let message: json_rpc::Message = serde_json::from_str(&line).unwrap();
             // If has a message, it sends it back
             if let Some(m) = self.handle_message(message).unwrap() {
                 self.send_message(m).await;
+=======
+            println!(
+                "CLIENT {} - Received: {}",
+                self_.safe_lock(|s| s.client_id).unwrap(),
+                line
+            );
+            let message: json_rpc::Message = serde_json::from_str(&line).unwrap();
+            // If has a message, it sends it back
+            if let Some(m) = self_
+                .safe_lock(|s| s.handle_message(message).unwrap())
+                .unwrap()
+            {
+                let sender = self_.safe_lock(|s| s.sender_outgoing.clone()).unwrap();
+                Self::send_message(sender, m).await;
+>>>>>>> e45f4adc1ef1104031c71ef3519f1cfaaff130c3
             }
         };
     }
 
     /// Send SV1 messages to the receiver_outgoing which writes to the socket (aka Upstream node)
+<<<<<<< HEAD
     async fn send_message(&mut self, msg: json_rpc::Message) {
         let msg = format!("{}\n", serde_json::to_string(&msg).unwrap());
         println!("CLIENT {} - Send: {}", self.client_id, &msg);
@@ -254,6 +335,18 @@ impl Client {
         // This loop is probably unnecessary as the first state is `Init`
         loop {
             if let ClientStatus::Init = self.status {
+=======
+    async fn send_message(sender: Sender<String>, msg: json_rpc::Message) {
+        let msg = format!("{}\n", serde_json::to_string(&msg).unwrap());
+        println!(" - Send: {}", &msg);
+        sender.send(msg).await.unwrap();
+    }
+
+    pub(crate) async fn send_configure(self_: Arc<Mutex<Self>>) {
+        // This loop is probably unnecessary as the first state is `Init`
+        loop {
+            if let ClientStatus::Init = self_.safe_lock(|s| s.status).unwrap() {
+>>>>>>> e45f4adc1ef1104031c71ef3519f1cfaaff130c3
                 break;
             }
         }
@@ -262,6 +355,7 @@ impl Client {
             .unwrap()
             .as_nanos()
             .to_string();
+<<<<<<< HEAD
         let configure = self.configure(id);
         self.send_message(configure).await;
         // Update status as configured
@@ -269,16 +363,43 @@ impl Client {
     }
 
     pub async fn send_authorize(&mut self) {
+=======
+        let configure = self_.safe_lock(|s| s.configure(id)).unwrap();
+        let sender = self_.safe_lock(|s| s.sender_outgoing.clone()).unwrap();
+        Self::send_message(sender, configure).await;
+        // Update status as configured
+        self_
+            .safe_lock(|s| s.status = ClientStatus::Configured)
+            .unwrap();
+    }
+
+    pub async fn send_authorize(self_: Arc<Mutex<Self>>) {
+>>>>>>> e45f4adc1ef1104031c71ef3519f1cfaaff130c3
         let id = time::SystemTime::now()
             .duration_since(time::SystemTime::UNIX_EPOCH)
             .unwrap()
             .as_nanos()
             .to_string();
+<<<<<<< HEAD
         let authorize = self
             .authorize(id.clone(), "user".to_string(), "password".to_string())
             .unwrap();
         self.sented_authorize_request.push((id, "user".to_string()));
         self.send_message(authorize).await;
+=======
+        let authorize = self_
+            .safe_lock(|s| {
+                s.authorize(id.clone(), "user".to_string(), "password".to_string())
+                    .unwrap()
+            })
+            .unwrap();
+        self_
+            .safe_lock(|s| s.sented_authorize_request.push((id, "user".to_string())))
+            .unwrap();
+        let sender = self_.safe_lock(|s| s.sender_outgoing.clone()).unwrap();
+
+        Self::send_message(sender, authorize).await;
+>>>>>>> e45f4adc1ef1104031c71ef3519f1cfaaff130c3
     }
 }
 
@@ -299,6 +420,7 @@ impl IsClient for Client {
     }
 
     fn set_extranonce1(&mut self, extranonce1: HexBytes) {
+<<<<<<< HEAD
         self.extranonce1 = extranonce1;
     }
 
@@ -312,6 +434,21 @@ impl IsClient for Client {
 
     fn extranonce2_size(&self) -> usize {
         self.extranonce2_size
+=======
+        self.extranonce1 = Some(extranonce1);
+    }
+
+    fn extranonce1(&self) -> HexBytes {
+        self.extranonce1.clone().unwrap()
+    }
+
+    fn set_extranonce2_size(&mut self, extra_nonce2_size: usize) {
+        self.extranonce2_size = Some(extra_nonce2_size);
+    }
+
+    fn extranonce2_size(&self) -> usize {
+        self.extranonce2_size.unwrap()
+>>>>>>> e45f4adc1ef1104031c71ef3519f1cfaaff130c3
     }
 
     fn version_rolling_mask(&self) -> Option<HexU32Be> {

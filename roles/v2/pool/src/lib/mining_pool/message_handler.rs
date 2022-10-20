@@ -146,7 +146,7 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
         &mut self,
         incoming: OpenExtendedMiningChannel,
     ) -> Result<SendTo<()>, Error> {
-        if incoming.min_extranonce_size >= 16 {
+        if incoming.min_extranonce_size > 16 {
             todo!()
         };
         if self.downstream_data.header_only {
