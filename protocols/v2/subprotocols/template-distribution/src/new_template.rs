@@ -4,7 +4,7 @@ use alloc::vec::Vec;
 use binary_sv2::binary_codec_sv2::{self, free_vec, free_vec_2, CVec, CVec2};
 #[cfg(not(feature = "with_serde"))]
 use binary_sv2::Error;
-use binary_sv2::{Deserialize, Seq0255, Serialize, B0255, B064K, U256};
+use binary_sv2::{Deserialize, Seq0255, Seq064K, Serialize, B0255, B064K, U256};
 #[cfg(not(feature = "with_serde"))]
 use core::convert::TryInto;
 
@@ -45,7 +45,7 @@ pub struct NewTemplate<'decoder> {
     /// Bitcoin transaction outputs to be included as the last outputs in the
     /// coinbase transaction.
     #[cfg_attr(feature = "with_serde", serde(borrow))]
-    pub coinbase_tx_outputs: B064K<'decoder>, //bug
+    pub coinbase_tx_outputs: Seq064K<'decoder, B064K<'decoder>>,
     /// The locktime field in the coinbase transaction.
     pub coinbase_tx_locktime: u32,
     /// Merkle path hashes ordered from deepest.
@@ -82,7 +82,7 @@ pub struct CNewTemplate {
     coinbase_tx_input_sequence: u32,
     coinbase_tx_value_remaining: u64,
     coinbase_tx_outputs_count: u32,
-    coinbase_tx_outputs: CVec,
+    coinbase_tx_outputs: CVec2,
     coinbase_tx_locktime: u32,
     merkle_path: CVec2,
 }
@@ -97,7 +97,7 @@ pub extern "C" fn free_new_template(s: CNewTemplate) {
 impl Drop for CNewTemplate {
     fn drop(&mut self) {
         free_vec(&mut self.coinbase_prefix);
-        free_vec(&mut self.coinbase_tx_outputs);
+        free_vec_2(&mut self.coinbase_tx_outputs);
         free_vec_2(&mut self.merkle_path);
     }
 }
@@ -127,15 +127,21 @@ impl<'a> CNewTemplate {
     #[allow(clippy::wrong_self_convention)]
     pub fn to_rust_rep_mut(&'a mut self) -> Result<NewTemplate<'a>, Error> {
         let coinbase_prefix: B0255 = self.coinbase_prefix.as_mut_slice().try_into()?;
-        let coinbase_tx_outputs: B064K = self.coinbase_tx_outputs.as_mut_slice().try_into()?;
 
         let merkle_path_ = self.merkle_path.as_mut_slice();
         let mut merkle_path: Vec<U256> = Vec::new();
         for cvec in merkle_path_ {
             merkle_path.push(cvec.as_mut_slice().try_into()?);
         }
-
         let merkle_path = Seq0255::new(merkle_path)?;
+
+        let coinbase_tx_outputs_ = self.coinbase_tx_outputs.as_mut_slice();
+        let mut coinbase_tx_outputs: Vec<B064K> = Vec::new();
+        for cvec in coinbase_tx_outputs_ {
+            coinbase_tx_outputs.push(cvec.as_mut_slice().try_into()?);
+        }
+        let coinbase_tx_outputs = Seq064K::new(coinbase_tx_outputs)?;
+
         Ok(NewTemplate {
             template_id: self.template_id,
             future_template: self.future_template,
