@@ -42,7 +42,7 @@ pub mod methods;
 pub mod utils;
 
 use std::convert::TryInto;
-use tracing::{warn, debug};
+use tracing::{debug, warn};
 
 // use error::Result;
 use error::Error;
