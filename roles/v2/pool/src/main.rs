@@ -8,7 +8,6 @@ use roles_logic_sv2::{
     parsers::PoolMessages,
 };
 use serde::Deserialize;
-use tracing_subscriber;
 
 use tracing::{error, info};
 
