@@ -57,9 +57,16 @@ impl ParseClientJobNegotiationMessages for JobNegotiatorDownstream {
             let message_enum_success = JobNegotiation::CommitMiningJobSuccess(message_success);
             self.token_to_job_map
                 .insert(message.mining_job_token, Some(message.into()));
+                println!(
+                    "Commit mining job was a success: {:?}",
+                    message_enum_success
+                );
             Ok(SendTo::Respond(message_enum_success))
         } else {
             let message_error = CommitMiningJobError {
+                /// possible errors:
+                /// invalid-mining-job-token
+                /// invalid-job-param-value-{} - {} is replaced by a particular field name from CommitMiningJob message
                 request_id: message.request_id,
                 error_code: todo!(),
                 error_details: todo!(),

@@ -19,30 +19,30 @@ impl ParseServerJobNegotiationMessages for JobNegotiator {
     ) -> Result<SendTo, Error> {
         let coinbase_output_max_additional_size = message.coinbase_output_max_additional_size;
 
-        let new_template = self.last_new_template.unwrap();
+        let new_template = self.last_new_template.as_ref().unwrap();
 
         let message_commit_mining_job = CommitMiningJob {
             request_id: message.request_id,
             mining_job_token: message.mining_job_token,
             version: 2,
-            coinbase_tx_version: 0,
-            coinbase_prefix: new_template.coinbase_prefix,
-            coinbase_tx_input_n_sequence: 0,
-            coinbase_tx_value_remaining: 0,
-            coinbase_tx_outputs: todo!(),
-            coinbase_tx_locktime: 0,
+            coinbase_tx_version: new_template.clone().coinbase_tx_version,
+            coinbase_prefix: new_template.clone().coinbase_prefix,
+            coinbase_tx_input_n_sequence: new_template.clone().coinbase_tx_input_sequence,
+            coinbase_tx_value_remaining: new_template.clone().coinbase_tx_value_remaining,
+            coinbase_tx_outputs: new_template.clone().coinbase_tx_outputs,
+            coinbase_tx_locktime: new_template.clone().coinbase_tx_locktime,
             min_extranonce_size: 0,
             tx_short_hash_nonce: 0,
-            tx_short_hash_list,
-            tx_hash_list_hash,
-            excess_data,
+            tx_short_hash_list: todo!(),
+            tx_hash_list_hash: todo!(),
+            excess_data: todo!(),
         };
         let commit_mining_job = JobNegotiation::CommitMiningJob(message_commit_mining_job);
         println!(
-            "Sending AllocateMiningJobTokenSuccess to proxy {:?}",
+            "Send commit mining job to pool: {:?}",
             commit_mining_job
         );
-        Ok(SendTo::None(Some(commit_mining_job)))
+        Ok(SendTo::Respond(commit_mining_job))
     }
 
     fn commit_mining_job_success(
