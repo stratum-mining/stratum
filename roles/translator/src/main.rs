@@ -20,8 +20,6 @@ use std::{
 };
 use v1::server_to_client;
 
-use tracing_subscriber;
-
 use tracing::{error, warn};
 
 /// Process CLI args, if any.
