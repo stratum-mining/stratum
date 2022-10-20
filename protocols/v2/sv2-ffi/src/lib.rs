@@ -558,13 +558,9 @@ mod tests {
             coinbase_tx_input_sequence: 0xffffffff,
             coinbase_tx_value_remaining: 0x00f2052a,
             coinbase_tx_outputs_count: 1,
-            coinbase_tx_outputs: "0100f2052a01000000434104678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38c4f35504e51ec112de5c384df7ba0b8d578a4c702b6bf11d5fac"
-                .to_string()
-                .into_bytes()
-                .try_into()
-                .unwrap(),
-                coinbase_tx_locktime: 0x00000000,
-                merkle_path: binary_sv2::Seq0255::new(Vec::<binary_sv2::U256>::new()).unwrap(),
+            coinbase_tx_outputs: binary_sv2::Seq064K::new(Vec::<binary_sv2::B064K>::new()).unwrap(),
+            coinbase_tx_locktime: 0x00000000,
+            merkle_path: binary_sv2::Seq0255::new(Vec::<binary_sv2::U256>::new()).unwrap(),
 
         };
         let sv2_message = Sv2Message::NewTemplate(new_template);
