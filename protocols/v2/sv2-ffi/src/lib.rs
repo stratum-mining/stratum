@@ -561,7 +561,6 @@ mod tests {
             coinbase_tx_outputs: binary_sv2::Seq064K::new(Vec::<binary_sv2::B064K>::new()).unwrap(),
             coinbase_tx_locktime: 0x00000000,
             merkle_path: binary_sv2::Seq0255::new(Vec::<binary_sv2::U256>::new()).unwrap(),
-
         };
         let sv2_message = Sv2Message::NewTemplate(new_template);
         let actual = sv2_message.message_type();
