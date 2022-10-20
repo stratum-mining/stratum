@@ -8,6 +8,7 @@ use roles_logic_sv2::{
     parsers::PoolMessages,
 };
 use serde::Deserialize;
+use tracing_subscriber;
 
 use tracing::{error, info};
 
@@ -111,6 +112,8 @@ async fn main() {
             return;
         }
     };
+    tracing_subscriber::fmt::init();
+
     let config_file = std::fs::read_to_string(args.config_path).expect("TODO: Error handling");
     let config = match toml::from_str::<Configuration>(&config_file) {
         Ok(cfg) => cfg,
