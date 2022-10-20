@@ -16,7 +16,7 @@ use roles_logic_sv2::{
     utils::Mutex,
 };
 use std::collections::HashMap;
-use tracing::{info};
+use tracing::info;
 
 use codec_sv2::{Frame, StandardEitherFrame, StandardSv2Frame};
 
