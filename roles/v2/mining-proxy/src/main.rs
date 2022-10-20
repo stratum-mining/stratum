@@ -225,7 +225,6 @@ mod args {
 ///    upstream_mining::UpstreamMiningNode begin
 #[tokio::main]
 async fn main() {
-
     tracing_subscriber::fmt::init();
 
     let args = match args::Args::from_args() {

@@ -24,7 +24,6 @@ use tracing_subscriber;
 
 use tracing::{error, warn};
 
-
 /// Process CLI args, if any.
 fn process_cli_args() -> ProxyResult<ProxyConfig> {
     let args = match Args::from_args() {
