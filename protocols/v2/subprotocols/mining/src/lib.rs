@@ -464,10 +464,6 @@ impl ExtendedExtranonce {
             range_2,
         }
     }
-<<<<<<< HEAD
-=======
-
->>>>>>> 939b776 (Add some useful methods to ExtendedExtranonce)
     /// Specular of [Self::from_downstream_extranonce]
     /// Suppose that P receives from the upstream an extranonce that needs to be converted into any
     /// ExtendedExtranonce, eg when an extended channel is opened. Then range_0 (that should
