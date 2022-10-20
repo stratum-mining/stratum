@@ -42,6 +42,7 @@ pub mod methods;
 pub mod utils;
 
 use std::convert::TryInto;
+use tracing::{warn, debug};
 
 // use error::Result;
 use error::Error;
@@ -95,7 +96,7 @@ pub trait IsServer {
                 Ok(Some(authorize.respond(authorized)))
             }
             methods::Client2Server::Configure(configure) => {
-                println!("{:?}", configure);
+                debug!("{:?}", configure);
                 self.set_version_rolling_mask(configure.version_rolling_mask());
                 self.set_version_rolling_min_bit(configure.version_rolling_min_bit_count());
                 let (version_rolling, min_diff) = self.handle_configure(&configure);
@@ -313,7 +314,7 @@ pub trait IsClient {
                 self.set_version_rolling_mask(configure.version_rolling_mask());
                 self.set_version_rolling_min_bit(configure.version_rolling_min_bit());
                 self.set_status(ClientStatus::Configured);
-                println!("WARNING: Subscribe extranonce is hardcoded by server");
+                warn!("WARNING: Subscribe extranonce is hardcoded by server");
                 let subscribe = self
                     .subscribe(configure.id, Some("08000002".try_into()?))
                     .ok();

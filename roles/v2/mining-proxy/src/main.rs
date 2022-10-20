@@ -19,6 +19,9 @@
 //!
 mod lib;
 use std::net::SocketAddr;
+use tracing_subscriber;
+
+use tracing::{error, info};
 
 use lib::upstream_mining::UpstreamMiningNode;
 use once_cell::sync::{Lazy, OnceCell};
@@ -222,10 +225,13 @@ mod args {
 ///    upstream_mining::UpstreamMiningNode begin
 #[tokio::main]
 async fn main() {
+
+    tracing_subscriber::fmt::init();
+
     let args = match args::Args::from_args() {
         Ok(cfg) => cfg,
         Err(help) => {
-            println!("{}", help);
+            error!("{}", help);
             return;
         }
     };
@@ -235,7 +241,7 @@ async fn main() {
     let config = match toml::from_str::<Config>(&config_file) {
         Ok(cfg) => cfg,
         Err(e) => {
-            println!("Failed to parse config file: {}", e);
+            error!("Failed to parse config file: {}", e);
             return;
         }
     };
@@ -243,7 +249,7 @@ async fn main() {
         .set(Mutex::new(initialize_r_logic(&config.upstreams)))
         .expect("BUG: Failed to set ROUTING_LOGIC");
 
-    println!("PROXY INITIALIZING");
+    info!("PROXY INITIALIZING");
     initialize_upstreams().await;
 
     // Wait for downstream connection
@@ -251,6 +257,6 @@ async fn main() {
         config.listen_address.parse().unwrap(),
         config.listen_mining_port,
     );
-    println!("PROXY INITIALIZED");
+    info!("PROXY INITIALIZED");
     crate::lib::downstream_mining::listen_for_downstream_mining(socket).await;
 }
