@@ -361,7 +361,7 @@ struct CNewTemplate {
   uint32_t coinbase_tx_input_sequence;
   uint64_t coinbase_tx_value_remaining;
   uint32_t coinbase_tx_outputs_count;
-  CVec coinbase_tx_outputs;
+  CVec2 coinbase_tx_outputs;
   uint32_t coinbase_tx_locktime;
   CVec2 merkle_path;
 };
