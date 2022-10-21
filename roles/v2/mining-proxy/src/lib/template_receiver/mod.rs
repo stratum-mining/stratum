@@ -1,4 +1,5 @@
 use codec_sv2::{StandardEitherFrame, StandardSv2Frame};
+
 use roles_logic_sv2::utils::Mutex;
 
 use codec_sv2::Frame;
@@ -6,6 +7,7 @@ use roles_logic_sv2::{
     handlers::{template_distribution::ParseServerTemplateDistributionMessages, SendTo_},
     parsers::{PoolMessages, TemplateDistribution},
     template_distribution_sv2::{CoinbaseOutputDataSize, NewTemplate, SetNewPrevHash},
+
 };
 pub type SendTo = SendTo_<roles_logic_sv2::parsers::TemplateDistribution<'static>, ()>;
 //use messages_sv2::parsers::JobNegotiation;
@@ -35,6 +37,7 @@ impl TemplateRx {
         send_new_tp_to_negotiator: Sender<NewTemplate<'static>>,
         send_new_ph_to_negotiator: Sender<SetNewPrevHash<'static>>,
         receive_coinbase_output_max_additional_size: Receiver<CoinbaseOutputDataSize>,
+
     ) {
         let stream = TcpStream::connect(address).await.unwrap();
 
@@ -131,6 +134,7 @@ impl TemplateRx {
                         Ok(_) => panic!(),
                         Err(_) => todo!(),
                     }
+
                 }
             }
         });

@@ -31,12 +31,14 @@ impl ParseServerJobNegotiationMessages for JobNegotiator {
         Ok(SendTo::None(Some(
             JobNegotiation::AllocateMiningJobTokenSuccess(message),
         )))
+
     }
 
     fn commit_mining_job_success(
         &mut self,
         message: CommitMiningJobSuccess,
     ) -> Result<SendTo, Error> {
+ 
         info!("Recieved commit mining job success !");
         Ok(SendTo::None(None))
     }

@@ -1,5 +1,6 @@
 use crate::lib::job_negotiator::{CommittedMiningJob, JobNegotiatorDownstream};
 use binary_sv2::B0255;
+
 use roles_logic_sv2::{
     handlers::{job_negotiation::ParseClientJobNegotiationMessages, SendTo_},
     job_negotiation_sv2::{
@@ -12,6 +13,7 @@ use roles_logic_sv2::{
 use serde::__private::de::IdentifierDeserializer;
 use std::convert::TryInto;
 use tracing::info;
+
 pub type SendTo = SendTo_<JobNegotiation<'static>, ()>;
 use roles_logic_sv2::errors::Error;
 
@@ -19,6 +21,7 @@ impl JobNegotiatorDownstream {
     fn verify_job(&mut self, message: &CommitMiningJob) -> bool {
         let key: Vec<u8> = message.mining_job_token.inner_as_ref().try_into().unwrap();
         let is_token_allocated = self.token_to_job_map.contains_key(&key);
+
         // TODO Function to implement, it must be checked if the requested job has:
         // 1. right coinbase
         // 2. right version field
@@ -85,6 +88,7 @@ impl ParseClientJobNegotiationMessages for JobNegotiatorDownstream {
                 "Commit mining job was a success: {:?}",
                 message_enum_success
             );
+
             Ok(SendTo::Respond(message_enum_success))
         } else {
             let message_error = CommitMiningJobError {

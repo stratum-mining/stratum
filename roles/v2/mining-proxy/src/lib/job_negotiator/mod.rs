@@ -11,16 +11,19 @@ use roles_logic_sv2::{
 use std::{collections::HashMap, convert::TryInto, str::FromStr};
 use tracing::{debug, info};
 
+
 use codec_sv2::Frame;
 use roles_logic_sv2::{
     handlers::job_negotiation::ParseServerJobNegotiationMessages,
     template_distribution_sv2::{CoinbaseOutputDataSize, NewTemplate, SetNewPrevHash},
+
 };
 use std::{
     net::{IpAddr, SocketAddr},
     sync::Arc,
 };
 use tokio::{net::TcpStream, task};
+
 
 pub type Message = PoolMessages<'static>;
 pub type SendTo = SendTo_<JobNegotiation<'static>, ()>;
@@ -50,6 +53,7 @@ impl JobNegotiator {
         receiver_new_template: Receiver<NewTemplate<'static>>,
         receiver_set_new_prev_hash: Receiver<SetNewPrevHash<'static>>,
         sender_coinbase_output_max_additional_size: Sender<CoinbaseOutputDataSize>,
+
     ) {
         let stream = TcpStream::connect(address).await.unwrap();
         let initiator = Initiator::from_raw_k(authority_public_key).unwrap();
@@ -64,6 +68,7 @@ impl JobNegotiator {
         );
 
         info!(
+
             "JN proxy: setupconnection \nProxy address: {:?}",
             proxy_address
         );
@@ -73,6 +78,7 @@ impl JobNegotiator {
             .unwrap();
 
         info!("\nJN CONNECTED");
+
 
         let self_ = Arc::new(Mutex::new(JobNegotiator {
             sender,
@@ -89,6 +95,7 @@ impl JobNegotiator {
                 coinbase_output_max_additional_size: 0,
                 async_mining_allowed: false,
             },
+
         }));
 
         let allocate_token_message =
@@ -96,6 +103,7 @@ impl JobNegotiator {
                 user_identifier: "4ss0".to_string().try_into().unwrap(),
                 request_id: 1,
             });
+
 
         Self::send(self_.clone(), allocate_token_message)
             .await
@@ -105,6 +113,7 @@ impl JobNegotiator {
         Self::on_upstream_message(cloned.clone());
         Self::on_new_template(cloned.clone());
         Self::on_new_prev_hash(cloned.clone());
+
     }
 
     pub fn on_new_template(self_mutex: Arc<Mutex<Self>>) {
@@ -165,6 +174,7 @@ impl JobNegotiator {
                 if JobNegotiator::is_for_future_template(self_mutex.clone()) {
                     JobNegotiator::make_job(self_mutex.clone()).await;
                 }
+
             }
         });
     }
@@ -212,6 +222,7 @@ impl JobNegotiator {
                 _ => unreachable!(),
             },
             Ok(_) => print!("MVP2 ENDS HERE"),
+
             Err(_) => todo!(),
         }
     }

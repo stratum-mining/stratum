@@ -6,6 +6,7 @@ use roles_logic_sv2::{
     template_distribution_sv2::*,
 };
 
+
 impl ParseServerTemplateDistributionMessages for TemplateRx {
     fn handle_new_template(&mut self, m: NewTemplate) -> Result<SendTo, Error> {
         let new_template = NewTemplate {
@@ -35,6 +36,7 @@ impl ParseServerTemplateDistributionMessages for TemplateRx {
         };
         let new_prev_hash = TemplateDistribution::SetNewPrevHash(new_prev_hash);
         Ok(SendTo::None(Some(new_prev_hash)))
+
     }
 
     fn handle_request_tx_data_success(

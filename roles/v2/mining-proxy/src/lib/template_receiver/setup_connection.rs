@@ -60,6 +60,7 @@ impl SetupConnectionHandler {
             "Received {} response to setup connection message",
             message_type
         );
+
         ParseUpstreamCommonMessages::handle_message_common(
             Arc::new(Mutex::new(SetupConnectionHandler {})),
             message_type,

@@ -41,6 +41,7 @@ struct CommittedMiningJob<'decoder> {
 impl<'a> From<CommitMiningJob<'a>> for CommittedMiningJob<'static> {
     fn from(m: CommitMiningJob) -> Self {
         m.into()
+
     }
 }
 #[derive(Debug)]
@@ -98,6 +99,7 @@ impl JobNegotiatorDownstream {
             let message_from_proxy_jn: StdFrame =
                 receiver.recv().await.unwrap().try_into().unwrap();
             JobNegotiatorDownstream::next(self_.clone(), message_from_proxy_jn).await;
+
         }
     }
 }
