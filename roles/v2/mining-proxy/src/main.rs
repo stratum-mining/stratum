@@ -24,8 +24,17 @@ use async_channel::bounded;
 use tracing::{error, info};
 
 use lib::upstream_mining::UpstreamMiningNode;
-use once_cell::sync::OnceCell;
+use async_channel::bounded;
+use lib::{
+    job_negotiator::JobNegotiator, template_receiver::TemplateRx,
+    upstream_mining::UpstreamMiningNode,
+};
+use once_cell::sync::{Lazy, OnceCell};
 use serde::Deserialize;
+use std::{
+    net::{IpAddr, SocketAddr},
+    str::FromStr,
+};
 
 use roles_logic_sv2::{
     routing_logic::{CommonRoutingLogic, MiningProxyRoutingLogic, MiningRoutingLogic},
@@ -198,14 +207,14 @@ mod args {
 }
 
 /// 1. the proxy scan all the upstreams and map them
-/// 2. donwstream open a connetcion with proxy
+/// 2. donwstream open a connection with proxy
 /// 3. downstream send SetupConnection
 /// 4. a mining_channle::Upstream is created
 /// 5. upstream_mining::UpstreamMiningNodes is used to pair this downstream with the most suitable
 ///    upstream
-/// 6. mining_channle::Upstream create a new downstream_mining::DownstreamMiningNode embedding
+/// 6. mining_channel::Upstream create a new downstream_mining::DownstreamMiningNode embedding
 ///    itself in it
-/// 7. normal operation between the paired downstream_mining::DownstreamMiningNode and
+/// 7. normal operations between the paired downstream_mining::DownstreamMiningNode and
 ///    upstream_mining::UpstreamMiningNode begin
 #[tokio::main]
 async fn main() {
@@ -275,5 +284,26 @@ async fn main() {
     .await;
 
     info!("PROXY INITIALIZED");
+    crate::lib::downstream_mining::listen_for_downstream_mining(socket).await;
+    println!("PROXY INITIALIZED");
+
+    let (send, recv) = bounded(10);
+
+    TemplateRx::connect(config.tp_address.parse().unwrap(), send).await;
+
+    JobNegotiator::new(
+        SocketAddr::new(
+            IpAddr::from_str(&config.upstreams_jn[0].address).unwrap(),
+            config.upstreams_jn[0].port,
+        ),
+        config.upstreams_jn[0]
+            .clone()
+            .pub_key
+            .into_inner()
+            .as_bytes()
+            .clone(),
+        recv,
+    )
+    .await;
     crate::lib::downstream_mining::listen_for_downstream_mining(socket).await
 }
