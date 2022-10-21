@@ -23,8 +23,17 @@ use std::net::SocketAddr;
 use tracing::{error, info};
 
 use lib::upstream_mining::UpstreamMiningNode;
-use once_cell::sync::OnceCell;
+use async_channel::bounded;
+use lib::{
+    job_negotiator::JobNegotiator, template_receiver::TemplateRx,
+    upstream_mining::UpstreamMiningNode,
+};
+use once_cell::sync::{Lazy, OnceCell};
 use serde::Deserialize;
+use std::{
+    net::{IpAddr, SocketAddr},
+    str::FromStr,
+};
 
 use roles_logic_sv2::{
     routing_logic::{CommonRoutingLogic, MiningProxyRoutingLogic, MiningRoutingLogic},
@@ -77,16 +86,41 @@ pub fn get_common_routing_logic() -> CommonRoutingLogic<RLogic> {
     )
 }
 
-#[derive(Debug, Deserialize)]
+pub fn upstream_from_job_id(job_id: u32) -> Option<Arc<Mutex<UpstreamMiningNode>>> {
+    let upstream_id: u32;
+    upstream_id = JOB_ID_TO_UPSTREAM_ID
+        .safe_lock(|x| *x.get(&job_id).unwrap())
+        .unwrap();
+    ROUTING_LOGIC
+        .get()
+        .expect("BUG: ROUTING_LOGIC was not set yet")
+        .safe_lock(|rlogic| rlogic.upstream_selector.get_upstream(upstream_id))
+        .unwrap()
+}
+
+pub fn add_job_id(job_id: u32, up_id: u32, prev_job_id: Option<u32>) {
+    if let Some(prev_job_id) = prev_job_id {
+        JOB_ID_TO_UPSTREAM_ID
+            .safe_lock(|x| x.remove(&prev_job_id))
+            .unwrap();
+    }
+    JOB_ID_TO_UPSTREAM_ID
+        .safe_lock(|x| x.insert(job_id, up_id))
+        .unwrap();
+}
+
+#[derive(Debug, Deserialize, Clone)]
 pub struct UpstreamValues {
     address: String,
     port: u16,
     pub_key: codec_sv2::noise_sv2::formats::EncodedEd25519PublicKey,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct Config {
     upstreams: Vec<UpstreamValues>,
+    upstreams_jn: Vec<UpstreamValues>,
+    tp_address: String,
     listen_address: String,
     listen_mining_port: u16,
     max_supported_version: u16,
@@ -175,14 +209,14 @@ mod args {
 }
 
 /// 1. the proxy scan all the upstreams and map them
-/// 2. donwstream open a connetcion with proxy
+/// 2. donwstream open a connection with proxy
 /// 3. downstream send SetupConnection
 /// 4. a mining_channle::Upstream is created
 /// 5. upstream_mining::UpstreamMiningNodes is used to pair this downstream with the most suitable
 ///    upstream
-/// 6. mining_channle::Upstream create a new downstream_mining::DownstreamMiningNode embedding
+/// 6. mining_channel::Upstream create a new downstream_mining::DownstreamMiningNode embedding
 ///    itself in it
-/// 7. normal operation between the paired downstream_mining::DownstreamMiningNode and
+/// 7. normal operations between the paired downstream_mining::DownstreamMiningNode and
 ///    upstream_mining::UpstreamMiningNode begin
 #[tokio::main]
 async fn main() {
@@ -220,4 +254,25 @@ async fn main() {
     );
     info!("PROXY INITIALIZED");
     crate::lib::downstream_mining::listen_for_downstream_mining(socket).await;
+    println!("PROXY INITIALIZED");
+
+    let (send, recv) = bounded(10);
+
+    TemplateRx::connect(config.tp_address.parse().unwrap(), send).await;
+
+    JobNegotiator::new(
+        SocketAddr::new(
+            IpAddr::from_str(&config.upstreams_jn[0].address).unwrap(),
+            config.upstreams_jn[0].port,
+        ),
+        config.upstreams_jn[0]
+            .clone()
+            .pub_key
+            .into_inner()
+            .as_bytes()
+            .clone(),
+        recv,
+    )
+    .await;
+    crate::lib::downstream_mining::listen_for_downstream_mining(socket).await
 }
