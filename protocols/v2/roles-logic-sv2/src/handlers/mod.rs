@@ -23,13 +23,14 @@
 //! message.
 //!
 pub mod common;
+pub mod job_negotiation;
 pub mod mining;
 pub mod template_distribution;
 use crate::utils::Mutex;
 use std::sync::Arc;
 
 #[derive(Debug)]
-/// Message is a serializable entity ant rapresent the means of communication between Remote(s)
+/// Message is a serializable entity that rapresent the meanings of communication between Remote(s)
 /// SendTo_ is used to add context to Message, it say what we need to do with that Message.
 pub enum SendTo_<Message, Remote> {
     /// Used by proxies when Message must be relayed downstream or upstream and we want to specify
