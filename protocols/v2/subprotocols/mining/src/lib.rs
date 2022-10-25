@@ -1,4 +1,4 @@
-//#![no_std]
+#![no_std]
 
 //! # Mining Protocol
 //! ## Channels
