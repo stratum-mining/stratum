@@ -102,6 +102,8 @@ mod args {
 
 #[tokio::main]
 async fn main() {
+    tracing_subscriber::fmt::init();
+
     let args = match args::Args::from_args() {
         Ok(cfg) => cfg,
         Err(help) => {
@@ -109,8 +111,6 @@ async fn main() {
             return;
         }
     };
-    tracing_subscriber::fmt::init();
-
     let config_file = std::fs::read_to_string(args.config_path).expect("TODO: Error handling");
     let config = match toml::from_str::<Configuration>(&config_file) {
         Ok(cfg) => cfg,
