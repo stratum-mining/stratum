@@ -25,6 +25,7 @@ use roles_logic_sv2::{
     utils::{merkle_root_from_path, Id, Mutex},
 };
 use std::{collections::HashMap, convert::TryInto, sync::Arc};
+use tracing::{info};
 
 pub fn u256_to_block_hash(v: U256<'static>) -> BlockHash {
     let hash: [u8; 32] = v.to_vec().try_into().unwrap();
@@ -718,6 +719,7 @@ impl Pool {
         let cloned2 = pool.clone();
         let cloned3 = pool.clone();
 
+        info!("Starting up pool listener");
         task::spawn(Self::accept_incoming_connection(cloned, config));
 
         task::spawn(async {

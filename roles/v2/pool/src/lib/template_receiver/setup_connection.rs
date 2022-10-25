@@ -9,6 +9,9 @@ use roles_logic_sv2::{
     utils::Mutex,
 };
 use std::{convert::TryInto, net::SocketAddr, sync::Arc};
+use roles_logic_sv2::errors::Error;
+use tracing::{error, info, trace};
+
 
 pub struct SetupConnectionHandler {}
 
@@ -44,11 +47,18 @@ impl SetupConnectionHandler {
             .try_into()
             .unwrap();
         let sv2_frame = sv2_frame.into();
+        trace!("Sending setup connection message to template distribution server");
         sender.send(sv2_frame).await.map_err(|_| ())?;
+        trace!("Sent setup connection message, waiting for response");
 
-        let mut incoming: StdFrame = receiver.recv().await.unwrap().try_into().unwrap();
+        let mut incoming: StdFrame = receiver.recv()
+            .await.expect("Connection to TP closed!")
+            .try_into().expect("Failed to parse incoming SetupConnectionResponse");
+
         let message_type = incoming.get_header().unwrap().msg_type();
         let payload = incoming.payload();
+
+        trace!("Received {} response to setup connection message", message_type);
         ParseUpstreamCommonMessages::handle_message_common(
             Arc::new(Mutex::new(SetupConnectionHandler {})),
             message_type,
@@ -64,21 +74,25 @@ impl ParseUpstreamCommonMessages<NoRouting> for SetupConnectionHandler {
     fn handle_setup_connection_success(
         &mut self,
         _: roles_logic_sv2::common_messages_sv2::SetupConnectionSuccess,
-    ) -> Result<roles_logic_sv2::handlers::common::SendTo, roles_logic_sv2::errors::Error> {
+    ) -> Result<roles_logic_sv2::handlers::common::SendTo, Error> {
+        info!("Setup template provider connection success!");
         Ok(SendTo::None(None))
     }
 
     fn handle_setup_connection_error(
         &mut self,
         _: roles_logic_sv2::common_messages_sv2::SetupConnectionError,
-    ) -> Result<roles_logic_sv2::handlers::common::SendTo, roles_logic_sv2::errors::Error> {
-        todo!()
+    ) -> Result<roles_logic_sv2::handlers::common::SendTo, Error> {
+        error!("Setup template provider connection failed!");
+        //return error result
+        Err(Error::UnexpectedMessage)
     }
 
     fn handle_channel_endpoint_changed(
         &mut self,
         _: roles_logic_sv2::common_messages_sv2::ChannelEndpointChanged,
-    ) -> Result<roles_logic_sv2::handlers::common::SendTo, roles_logic_sv2::errors::Error> {
-        todo!()
+    ) -> Result<roles_logic_sv2::handlers::common::SendTo, Error> {
+        error!("Channel endpoint changed!");
+        Err(Error::UnexpectedMessage)
     }
 }

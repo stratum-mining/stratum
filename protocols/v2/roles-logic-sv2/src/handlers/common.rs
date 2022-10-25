@@ -11,6 +11,8 @@ use common_messages_sv2::{
 };
 use core::convert::TryInto;
 use std::sync::Arc;
+use tracing::{error};
+
 
 pub type SendTo = SendTo_<CommonMessages<'static>, ()>;
 
@@ -35,7 +37,10 @@ where
             Ok(CommonMessages::ChannelEndpointChanged(m)) => self_
                 .safe_lock(|x| x.handle_channel_endpoint_changed(m))
                 .unwrap(),
-            Ok(CommonMessages::SetupConnection(_)) => Err(Error::UnexpectedMessage),
+            Ok(CommonMessages::SetupConnection(_)) => {
+                error!("Got unexpected setup connection message: {:?}", message_type);
+                Err(Error::UnexpectedMessage)
+            },
             Err(e) => Err(e),
         }
     }

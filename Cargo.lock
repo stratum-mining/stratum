@@ -1551,6 +1551,7 @@ dependencies = [
  "serde",
  "template_distribution_sv2",
  "toml",
+ "tracing",
 ]
 
 [[package]]

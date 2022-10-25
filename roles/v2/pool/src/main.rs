@@ -111,11 +111,18 @@ async fn main() {
             return;
         }
     };
-    let config_file = std::fs::read_to_string(args.config_path).expect("TODO: Error handling");
-    let config = match toml::from_str::<Configuration>(&config_file) {
-        Ok(cfg) => cfg,
+
+    // Load config
+    let config : Configuration = match std::fs::read_to_string(&args.config_path) {
+        Ok(c) => match toml::from_str(&c) {
+            Ok(c) => c,
+            Err(e) => {
+                error!("Failed to parse config: {}", e);
+                return;
+            }
+        },
         Err(e) => {
-            error!("Failed to parse config file: {}", e);
+            error!("Failed to read config: {}", e);
             return;
         }
     };
@@ -123,7 +130,7 @@ async fn main() {
     let (s_new_t, r_new_t) = bounded(10);
     let (s_prev_hash, r_prev_hash) = bounded(10);
     let (s_solution, r_solution) = bounded(10);
-    info!("POOL INITIALIZING ");
+    info!("Pool INITIALIZING with config: {:?}", &args.config_path);
     TemplateRx::connect(
         config.tp_address.parse().unwrap(),
         s_new_t,
@@ -131,6 +138,6 @@ async fn main() {
         r_solution,
     )
     .await;
-    info!("POOL INITIALIZED");
     Pool::start(config, r_new_t, r_prev_hash, s_solution).await;
+    info!("Pool INITIALIZED");
 }

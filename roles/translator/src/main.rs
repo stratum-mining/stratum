@@ -41,7 +41,8 @@ async fn main() {
     let proxy_config = process_cli_args().unwrap();
     info!("PC: {:?}", &proxy_config);
 
-    // Sender/Receiver to send a SV1 `mining.submit` from the `Downstream` to the `Bridge`
+    // `sender_submit_from_sv1` sender is used by `Downstream` to send a `mining.submit` message to
+    // `Bridge` via the `recv_submit_from_sv1` receiver
     // (Sender<v1::client_to_server::Submit>, Receiver<Submit>)
     let (sender_submit_from_sv1, recv_submit_from_sv1) = async_channel::unbounded();
 
