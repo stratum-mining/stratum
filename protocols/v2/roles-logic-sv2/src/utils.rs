@@ -98,6 +98,67 @@ fn reduce_path<T: AsRef<[u8]>>(coinbase_id: [u8; 32], path: &[T]) -> [u8; 32] {
     root
 }
 
+/// The pool set a target for each miner. Each target is calibrated on the hashrate of the miner.
+/// The following function takes as input a miner hashrate and the shares per minute requested by
+/// the pool. The output t is the target (in big endian) for the miner with that hashrate. The
+/// miner that mines with target t produces the requested number of shares per minute.
+///
+///
+/// If we want a speficic number of shares per minute from a miner of known hashrate,
+/// how do we set the adequate target?
+///
+/// According to [1] and [2],  it is possible to model the probability of finding a block with
+/// a random variable X whose distribution is negtive hypergeometric [3].
+/// Such a variable is characterized as follows. Say that there are n (2^256) elements (possible
+/// hash values), of which t (values <= target) are defined as success and the remaining as
+/// failures. The variable X has codomain the positive integers, and X=k is the event where element
+/// are drawn one after the other, without replacement, and only the k-th element is successful.
+/// The expected value of this variable is (n-t)/(t+1).
+/// So, on average, a miner has to perform (2^256-t)/(t+1) hashes before finding hash whose value
+/// is below the target t. If the pool wants, on average, a share every s seconds, then, on
+/// average, the miner has to perform h*s hashes before finding one that is smaller than the
+/// target, where h is the miner's hashrate. Therefore, s*h= (2^256-t)/(t+1). If we consider h the
+/// global bitcoin's hashrate, s = 600 seconds and t the bicoin global target, then, for all the
+/// blocks we tried, the two members of the equations have the same order of magnitude and, most
+/// of the cases, they coincide with the first two digits. We take this as evidence of the
+/// correctness of our calculations. Thus, if the pool wants on average a share every s
+/// seconds from a miner with hashrate h, then the target t for the miner is t = (2^256-sh)/(sh+1).
+///
+/// [1] https://papers.ssrn.com/sol3/papers.cfm?abstract_id=3399742
+/// [2] https://www.zora.uzh.ch/id/eprint/173483/1/SSRN-id3399742-2.pdf
+/// [3] https://en.wikipedia.org/wiki/Negative_hypergeometric_distribution
+/// bdiff: 0x00000000ffff0000000000000000000000000000000000000000000000000000
+/// https://en.bitcoin.it/wiki/Difficulty#How_soon_might_I_expect_to_generate_a_block.3F
+pub fn hash_rate_to_target(h: f32, share_per_min: f32) -> U256<'static> {
+    // if we want 5 shares per minute, this means that s=60/5=12 seconds interval between shares
+    let s: f32 = 60_f32 / share_per_min;
+    let h_times_s = (h * s) as u128;
+
+    let h_times_s_plus_one = h_times_s + 1;
+    let h_times_s_plus_one: Uint256 = from_u128_to_uint256(h_times_s_plus_one);
+
+    let h_times_s_minus_one = h_times_s - 1;
+    let h_times_s_minus_one: Uint256 = from_u128_to_uint256(h_times_s_minus_one);
+
+    let two_to_256_minus_one = [255_u8; 32];
+    let two_to_256_minus_one = bitcoin::util::uint::Uint256::from_be_bytes(two_to_256_minus_one);
+
+    let numerator = two_to_256_minus_one - h_times_s_minus_one;
+    let denominator = h_times_s_plus_one;
+    let target = numerator / denominator;
+    let target = target.to_be_bytes();
+    U256::<'static>::from(target)
+}
+
+pub fn from_u128_to_uint256(input: u128) -> bitcoin::util::uint::Uint256 {
+    let input: [u8; 16] = input.to_be_bytes();
+    let mut be_bytes = [0_u8; 32];
+    for (i, b) in input.iter().enumerate() {
+        be_bytes[16 + i] = *b;
+    }
+    bitcoin::util::uint::Uint256::from_be_bytes(be_bytes)
+}
+
 #[test]
 fn test_merkle_root_from_path() {
     let coinbase_bytes = vec![
@@ -297,9 +358,13 @@ pub fn get_target(
 
 #[cfg(test)]
 mod tests {
+    use super::hash_rate_to_target;
     #[cfg(feature = "serde")]
     use super::*;
     use binary_sv2::{Seq0255, B064K, U256};
+    use quickcheck::{Arbitrary, Gen};
+    use quickcheck_macros;
+    use rand::Rng;
     #[cfg(feature = "serde")]
     use serde::Deserialize;
 
@@ -497,5 +562,41 @@ mod tests {
         let actual = new_header_hash(header);
 
         assert_eq!(actual, expect);
+    }
+
+    #[test]
+    fn test_hash_rate_to_target() {
+        let mut rng = rand::thread_rng();
+        let mut successes = 0;
+
+        let hr = 10.0;
+        let hrs = hr * 60.0;
+        let mut target = hash_rate_to_target(hr, 1.0);
+        let target =
+            bitcoin::util::uint::Uint256::from_be_slice(&target.inner_as_mut()[..]).unwrap();
+
+        let mut i: i64 = 0;
+        let mut results = vec![];
+        let attempts = 1000;
+        while successes < attempts {
+            let a: u128 = rng.gen();
+            let b: u128 = rng.gen();
+            let a = a.to_be_bytes();
+            let b = b.to_be_bytes();
+            let concat = [&a[..], &b[..]].concat().to_vec();
+            i += 1;
+            if bitcoin::util::uint::Uint256::from_be_slice(&concat[..]).unwrap() <= target {
+                results.push(i);
+                i = 0;
+                successes += 1;
+            }
+        }
+
+        let mut average: f32 = 0.0;
+        for i in &results {
+            average = average + (*i as f32) / attempts as f32;
+        }
+        let delta = (hrs - average) as i64;
+        assert!(delta.abs() < 100);
     }
 }

@@ -325,7 +325,7 @@ version = "0.1.0"
 dependencies = [
  "criterion",
  "iai",
- "rand 0.8.4",
+ "rand 0.8.5",
 ]
 
 [[package]]
@@ -1048,7 +1048,7 @@ dependencies = [
  "codec_sv2",
  "const_sv2",
  "network_helpers",
- "rand 0.8.4",
+ "rand 0.8.5",
  "roles_logic_sv2",
 ]
 
@@ -1219,7 +1219,7 @@ dependencies = [
  "bytes",
  "codec_sv2",
  "network_helpers",
- "rand 0.8.4",
+ "rand 0.8.5",
  "serde",
 ]
 
@@ -1232,7 +1232,7 @@ dependencies = [
  "binary_sv2",
  "bytes",
  "codec_sv2",
- "rand 0.8.4",
+ "rand 0.8.5",
  "serde",
 ]
 
@@ -1313,7 +1313,7 @@ dependencies = [
  "const_sv2",
  "network_helpers",
  "noise_sv2",
- "rand 0.8.4",
+ "rand 0.8.5",
  "roles_logic_sv2",
  "serde",
  "tokio",
@@ -1363,7 +1363,7 @@ checksum = "588f6378e4dd99458b60ec275b4477add41ce4fa9f64dcba6f15adccb19b50d6"
 dependencies = [
  "env_logger 0.8.4",
  "log",
- "rand 0.8.4",
+ "rand 0.8.5",
 ]
 
 [[package]]
@@ -1400,19 +1400,18 @@ dependencies = [
  "libc",
  "rand_chacha 0.2.2",
  "rand_core 0.5.1",
- "rand_hc 0.2.0",
+ "rand_hc",
 ]
 
 [[package]]
 name = "rand"
-version = "0.8.4"
+version = "0.8.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2e7573632e6454cf6b99d7aac4ccca54be06da05aca2ef7423d22d27d4d4bcd8"
+checksum = "34af8d1a0e25924bc5b7c43c079c942339d8f0a8b57c39049bef581b46327404"
 dependencies = [
  "libc",
  "rand_chacha 0.3.1",
  "rand_core 0.6.3",
- "rand_hc 0.3.1",
 ]
 
 [[package]]
@@ -1460,15 +1459,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ca3129af7b92a17112d59ad498c6f81eaf463253766b90396d39ea7a39d6613c"
 dependencies = [
  "rand_core 0.5.1",
-]
-
-[[package]]
-name = "rand_hc"
-version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d51e9f596de227fda2ea6c84607f5558e196eeaf43c986b724ba4fb8fdf497e7"
-dependencies = [
- "rand_core 0.6.3",
 ]
 
 [[package]]
@@ -1539,6 +1529,9 @@ dependencies = [
  "framing_sv2",
  "job_negotiation_sv2",
  "mining_sv2",
+ "quickcheck 1.0.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "quickcheck_macros 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rand 0.8.5",
  "serde",
  "template_distribution_sv2",
  "toml",
@@ -1732,7 +1725,7 @@ dependencies = [
  "aes-gcm",
  "blake2",
  "chacha20poly1305",
- "rand 0.8.4",
+ "rand 0.8.5",
  "rand_core 0.6.3",
  "rustc_version 0.3.3",
  "sha2",
@@ -1849,7 +1842,7 @@ dependencies = [
  "const_sv2",
  "network_helpers",
  "noise_sv2",
- "rand 0.8.4",
+ "rand 0.8.5",
  "roles_logic_sv2",
  "serde",
  "toml",
