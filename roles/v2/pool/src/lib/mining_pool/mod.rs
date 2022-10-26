@@ -58,7 +58,7 @@ impl PartialJob {
             &(self.extranonce[..]),
             &(new_ext_job.merkle_path.inner_as_ref()[..]),
         )
-        .unwrap()
+        .expect("Merkle root failed to be calculated")
         .try_into()
         .unwrap();
         let merkle_root = Hash::from_inner(merkle_root);

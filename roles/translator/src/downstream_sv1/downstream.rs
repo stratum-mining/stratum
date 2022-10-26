@@ -135,8 +135,8 @@ impl Downstream {
 
                 if is_a && !first_sent {
                     let target = target.safe_lock(|t| t.clone()).unwrap();
-                    let messsage = Self::get_set_difficulty(target);
-                    Downstream::send_message_downstream(downstream_clone.clone(), messsage).await;
+                    let message = Self::get_set_difficulty(target);
+                    Downstream::send_message_downstream(downstream_clone.clone(), message).await;
 
                     let sv1_mining_notify_msg =
                         last_notify.safe_lock(|s| s.clone()).unwrap().unwrap();
@@ -239,10 +239,7 @@ impl Downstream {
             let stream = stream.expect("Err on SV1 Downstream connection stream");
             extended_extranonce.next_extended(0).unwrap();
             let extended_extranonce = extended_extranonce.clone();
-            info!(
-                "\nPROXY SERVER - ACCEPTING FROM DOWNSTREAM: {}\n",
-                stream.peer_addr().unwrap()
-            );
+            info!("PROXY SERVER - ACCEPTING FROM DOWNSTREAM: {}", stream.peer_addr().unwrap());
             let server = Downstream::new(
                 stream,
                 submit_sender.clone(),
@@ -288,6 +285,7 @@ impl Downstream {
     /// by `Bridge`) to be written to the SV1 Downstream role.
     async fn send_message_downstream(self_: Arc<Mutex<Self>>, response: json_rpc::Message) {
         let sender = self_.safe_lock(|s| s.sender_outgoing.clone()).unwrap();
+        debug!("To DOWN: {:?}", response);
         sender.send(response).await.unwrap();
     }
 }

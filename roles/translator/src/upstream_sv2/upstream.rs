@@ -29,7 +29,7 @@ use roles_logic_sv2::{
     utils::{get_target, Mutex},
 };
 use std::{net::SocketAddr, sync::Arc};
-use tracing::{debug, info};
+use tracing::{debug, info, trace};
 
 /// Represents the currently active mining job being worked on.
 #[allow(dead_code)]
@@ -194,6 +194,7 @@ impl Upstream {
         // Only one Upstream role is supported, panics if multiple connections are encountered
         connection.send(sv2_frame).await.unwrap();
 
+        debug!("Sent SetupConnection to Upstream, waiting for response");
         // Wait for the SV2 Upstream to respond with either a `SetupConnectionSuccess` or a
         // `SetupConnectionError` inside a SV2 binary message frame
         let mut incoming: StdFrame = connection.receiver.recv().await.unwrap().try_into()?;
@@ -226,7 +227,7 @@ impl Upstream {
         info!("Up: Sending: {:?}", &open_channel);
 
         let sv2_frame: StdFrame = Message::Mining(open_channel).try_into()?;
-        connection.send(sv2_frame).await.unwrap();
+        connection.send(sv2_frame).await.expect("Failed to send OpenChannel");
         Ok(())
     }
 
@@ -237,7 +238,7 @@ impl Upstream {
             loop {
                 // Waiting to receive a message from the SV2 Upstream role
                 let recv = self_.safe_lock(|s| s.connection.receiver.clone()).unwrap();
-                let incoming = recv.recv().await.unwrap();
+                let incoming = recv.recv().await.expect("Failed to receive from Upstream");
                 let mut incoming: StdFrame = incoming
                     .try_into()
                     .expect("Err converting received frame into `StdFrame`");
@@ -474,6 +475,7 @@ impl ParseUpstreamCommonMessages<NoRouting> for Upstream {
         &mut self,
         _: roles_logic_sv2::common_messages_sv2::SetupConnectionSuccess,
     ) -> Result<SendToCommon, roles_logic_sv2::errors::Error> {
+        trace!("Up: Handling SetupConnectionSuccess");
         Ok(SendToCommon::None(None))
     }
 
@@ -649,6 +651,7 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
         m: roles_logic_sv2::mining_sv2::NewExtendedMiningJob,
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error>
     {
+        debug!("Received NewExtendedMiningJob: {:?}", &m);
         if !m.future_job {
             todo!()
         }
