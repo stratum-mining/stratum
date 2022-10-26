@@ -174,7 +174,10 @@ mod test {
     async fn it_initialize_a_pool_and_connect_to_it() {
         let mut bitcoind = os_command(
             "../../test/bitcoind",
-            vec!["--regtest", "--datadir=../../test/bitcoin_data/"],
+            vec![
+                "--regtest",
+                "--datadir=../../test/bitcoin_data/"
+            ],
             Some("sv2 thread start"),
         )
         .await;
@@ -185,7 +188,7 @@ mod test {
                 "--datadir=../../test/bitcoin_data/",
                 "generatetoaddress",
                 "16",
-                "bcrt1qttuwhmpa7a0ls5kr3ye6pjc24ng685jvdrksxx",
+                "bcrt1qttuwhmpa7a0ls5kr3ye6pjc24ng685jvdrksxx"
             ],
             None,
         )
@@ -243,8 +246,15 @@ mod test {
             }
             _ => assert!(false),
         }
-        let mut child =
-            os_command("rm", vec!["-rf", "../../test/bitcoin_data/regtest"], None).await;
+        let mut child = os_command(
+            "rm",
+            vec![
+                "-rf",
+                "../../test/bitcoin_data/regtest"
+            ],
+            None,
+        )
+        .await;
         child.wait().await.unwrap();
 
         // TODO not panic in network utils but return an handler
