@@ -86,7 +86,6 @@ pub struct UpstreamMiningNode {
     last_extended_jobs: Vec<NewExtendedMiningJob<'static>>,
 }
 
-use crate::{max_supported_version, min_supported_version};
 use core::convert::TryInto;
 use std::net::SocketAddr;
 
@@ -340,10 +339,10 @@ impl UpstreamMiningNode {
     async fn setup_flag_and_version(
         self_mutex: Arc<Mutex<Self>>,
         flags: Option<u32>,
+        min_version: u16,
+        max_version: u16,
     ) -> Result<(), ()> {
         let flags = flags.unwrap_or(0b0000_0000_0000_0000_0000_0000_0000_0110);
-        let min_version = min_supported_version();
-        let max_version = max_supported_version();
         let frame = self_mutex
             .safe_lock(|self_| self_.new_setup_connection_frame(flags, min_version, max_version))
             .unwrap();
@@ -380,7 +379,8 @@ impl UpstreamMiningNode {
                     // We need to send SetupConnection again as we do not yet know the version of
                     // upstream
                     // debounce this?
-                    Self::setup_flag_and_version(self_mutex, Some(flags)).await
+                    Self::setup_flag_and_version(self_mutex, Some(flags), min_version, max_version)
+                        .await
                 } else {
                     Err(())
                 }
@@ -752,13 +752,13 @@ impl
     }
 }
 
-pub async fn scan(nodes: Vec<Arc<Mutex<UpstreamMiningNode>>>) {
+pub async fn scan(nodes: Vec<Arc<Mutex<UpstreamMiningNode>>>, min_version: u16, max_version: u16) {
     let spawn_tasks: Vec<task::JoinHandle<()>> = nodes
         .iter()
         .map(|node| {
             let node = node.clone();
             task::spawn(async move {
-                UpstreamMiningNode::setup_flag_and_version(node, None)
+                UpstreamMiningNode::setup_flag_and_version(node, None, min_version, max_version)
                     .await
                     .unwrap();
             })

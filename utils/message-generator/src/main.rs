@@ -1,15 +1,15 @@
 mod executor;
+mod external_commands;
 mod net;
-mod test_initializer;
 
 use binary_sv2::{Deserialize, GetSize, Serialize};
 use codec_sv2::{
     noise_sv2::formats::{EncodedEd25519PublicKey, EncodedEd25519SecretKey},
     Frame, StandardEitherFrame as EitherFrame, Sv2Frame,
 };
+use external_commands::*;
 use net::{setup_as_downstream, setup_as_upstream};
 use std::net::SocketAddr;
-use test_initializer::os_command;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 enum Sv2Type {
@@ -83,7 +83,7 @@ mod test {
         mining_sv2::{CloseChannel, SetTarget},
         parsers::{CommonMessages, Mining},
     };
-    use std::convert::TryInto;
+    use std::{convert::TryInto, io::Write};
     use tokio::join;
 
     #[tokio::test]
@@ -174,11 +174,10 @@ mod test {
     async fn it_initialize_a_pool_and_connect_to_it() {
         let mut bitcoind = os_command(
             "../../test/bitcoind",
-            vec![
-                "--regtest",
-                "--datadir=../../test/bitcoin_data/"
-            ],
-            Some("sv2 thread start"),
+            vec!["--regtest", "--datadir=../../test/bitcoin_data/"],
+            ExternalCommandConditions::new_with_timer_secs(10)
+                .continue_if_std_out_have("sv2 thread start")
+                .fail_if_anything_on_std_err(),
         )
         .await;
         let mut child = os_command(
@@ -188,12 +187,12 @@ mod test {
                 "--datadir=../../test/bitcoin_data/",
                 "generatetoaddress",
                 "16",
-                "bcrt1qttuwhmpa7a0ls5kr3ye6pjc24ng685jvdrksxx"
+                "bcrt1qttuwhmpa7a0ls5kr3ye6pjc24ng685jvdrksxx",
             ],
-            None,
+            ExternalCommandConditions::None,
         )
         .await;
-        child.wait().await.unwrap();
+        child.unwrap().wait().await.unwrap();
         let mut pool = os_command(
             "cargo",
             vec![
@@ -204,8 +203,8 @@ mod test {
                 "-c",
                 "../../roles/v2/pool/pool-config.toml",
             ],
-            Some("POOL INITIALIZED"),
-            //Some("non esco"),
+            ExternalCommandConditions::new_with_timer_secs(10)
+                .continue_if_std_out_have("POOL INITIALIZED"),
         )
         .await;
 
@@ -248,18 +247,61 @@ mod test {
         }
         let mut child = os_command(
             "rm",
-            vec![
-                "-rf",
-                "../../test/bitcoin_data/regtest"
-            ],
-            None,
+            vec!["-rf", "../../test/bitcoin_data/regtest"],
+            ExternalCommandConditions::None,
         )
         .await;
-        child.wait().await.unwrap();
+        child.unwrap().wait().await.unwrap();
 
         // TODO not panic in network utils but return an handler
         //pool.kill().unwrap();
         //bitcoind.kill().await.unwrap();
+        assert!(true)
+    }
+
+    #[tokio::test]
+    async fn it_test_against_remote_endpoint() {
+        let proxy = match os_command(
+            "cargo",
+            vec![
+                "run",
+                "-p",
+                "mining-proxy",
+                "--",
+                "-c",
+                "../../test/ant-pool-config.toml",
+            ],
+            ExternalCommandConditions::new_with_timer_secs(10)
+                .continue_if_std_out_have("PROXY INITIALIZED")
+                .warn_no_panic(),
+        )
+        .await
+        {
+            Some(child) => child,
+            None => {
+                write!(
+                    &mut std::io::stdout(),
+                    "WARNING: remote not avaiable it_test_against_remote_endpoint not executed"
+                )
+                .unwrap();
+                return;
+            }
+        };
+        //loop {}
+        let _ = os_command(
+            "cargo",
+            vec![
+                "run",
+                "-p",
+                "mining-device",
+                "--",
+                "-c",
+                "../../test/ant-pool-config.toml",
+            ],
+            ExternalCommandConditions::new_with_timer_secs(10)
+                .continue_if_std_out_have("channel opened with"),
+        )
+        .await;
         assert!(true)
     }
 }
