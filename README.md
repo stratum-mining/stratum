@@ -46,6 +46,7 @@ the Bitcoin network.
     - [4.02 test](#402-test)
     - [4.03 run](#403-run)
   - [5. Branches](#5-branches)
+  - [6. Logging](#6-logging)
 
 ## 1. Goals
 
@@ -505,15 +506,15 @@ binary - for example from the table below to run the interop-cpp test you'd run 
 
 | binary                  | location                          | description                                       |
 |-------------------------|-----------------------------------|---------------------------------------------------|
-| client_and_server       | examples/sv1-client-and-server    | Depricated                                        |
+| client_and_server       | examples/sv1-client-and-server    | Deprecated                                        |
 | coinbase-negotiator     | experimental/coinbase-negotiator  | Not complete POC                                  |
 | interop-cpp             | examples/interop-cpp              | Example which uses the ffi C bindings             |
 | mining-device           | roles/v2/test-utils/mining-device | Used in the sv2-proxy example as a mock miner     |
 | mining-proxy            | roles/v2/mining-proxy             | sv1->sv2 mining proxy                             |
 | ping_pong_with_noise    | examples/ping-pong-with-noise     | Example to show noise protocol in use             |
-| ping_pong_without_noise | examples/ping-pong-with-noise     | Example to show sv2 primatives and framing in use |
+| ping_pong_without_noise | examples/ping-pong-with-noise     | Example to show sv2 primitives and framing in use |
 | pool                    | roles/v2/pool                     | sv2 pool role                                     |
-| template-provider-test  | examples/template-provider-test   | Depricated                                        |
+| template-provider-test  | examples/template-provider-test   | Deprecated                                        |
 | test-pool               | roles/v2/test-utils/pool          | Used in the sv2-proxy example as the sv2 pool     |
  
 
@@ -523,3 +524,11 @@ binary - for example from the table below to run the interop-cpp test you'd run 
 - ~~POCRegtest-1-0-0~~ - Deprecated POC branch
 - sv2-tp-crates - Subset of main which contains only the files needed by core to implement the template provider
 - POCRegtest-2-0-0 - This branch contains instructions on how to run the demo with the proper bitcoind branch template provider
+
+## 6. Logging
+The libraries and roles both depend on [tokio tracing](https://github.com/tokio-rs/tracing) crate for logging. The role
+binaries use the [tracing_subscriber](https://docs.rs/tracing-subscriber/latest/tracing_subscriber/) to output
+log messages to std out. To manage the log level output specify your log level in the environment variable `RUST_LOG`
+on startup.
+For example to start the pool crate with `debug` logging activated start it with `RUST_LOG=debug cargo run`. We support 
+this order of logging granularity: `trace`, `debug`, `info`, `warn`, `error`.
