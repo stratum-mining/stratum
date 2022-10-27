@@ -59,8 +59,15 @@ struct Downstream {
 #[derive(Debug)]
 struct Action<Message: Serialize + Deserialize<'static> + GetSize + Send + 'static> {
     messages: Vec<EitherFrame<Message>>,
-    result: ActionResult,
+    result: Vec<ActionResult>,
     role: Role,
+}
+
+#[derive(Debug)]
+pub struct Command {
+    command: String,
+    args: Vec<String>,
+    conditions: ExternalCommandConditions,
 }
 
 #[derive(Debug)]
@@ -68,11 +75,14 @@ pub struct Test<Message: Serialize + Deserialize<'static> + GetSize + Send + 'st
     actions: Vec<Action<Message>>,
     as_upstream: Option<Upstream>,
     as_dowstream: Option<Downstream>,
-    // TODO setup_commmands: commands,
+    setup_commmands: Vec<Command>,
+    execution_commands: Vec<Command>,
+    cleanup_commmands: Vec<Command>,
+    first_received: Option<Action<Message>>,
 }
 
 fn main() {
-    println!("Hello, world!");
+    println!("HeLlo, world!");
 }
 
 #[cfg(test)]

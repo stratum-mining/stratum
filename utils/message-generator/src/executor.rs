@@ -1,6 +1,7 @@
 use crate::{
+    external_commands::os_command,
     net::{setup_as_downstream, setup_as_upstream},
-    Action, ActionResult, Role, Test,
+    Action, ActionResult, Command, Role, Test,
 };
 use async_channel::{Receiver, Sender};
 use binary_sv2::{Deserialize, GetSize, Serialize};
@@ -12,10 +13,20 @@ pub struct Executor<Message: Serialize + Deserialize<'static> + GetSize + Send +
     send_to_up: Option<Sender<EitherFrame<Message>>>,
     recv_from_up: Option<Receiver<EitherFrame<Message>>>,
     actions: Vec<Action<Message>>,
+    execution_commands: Vec<Command>,
+    cleanup_commmands: Vec<Command>,
 }
 
 impl<Message: Serialize + Deserialize<'static> + GetSize + Send + 'static> Executor<Message> {
     pub async fn new(test: Test<Message>) -> Self {
+        for command in test.setup_commmands {
+            os_command(
+                &command.command,
+                command.args.iter().map(String::as_str).collect(),
+                command.conditions,
+            )
+            .await;
+        }
         match (test.as_dowstream, test.as_upstream) {
             (Some(as_down), Some(as_up)) => {
                 let (recv_from_down, send_to_down) =
@@ -28,6 +39,8 @@ impl<Message: Serialize + Deserialize<'static> + GetSize + Send + 'static> Execu
                     send_to_up: Some(send_to_up),
                     recv_from_up: Some(recv_from_up),
                     actions: test.actions,
+                    execution_commands: test.execution_commands,
+                    cleanup_commmands: test.cleanup_commmands,
                 }
             }
             (None, Some(as_up)) => {
@@ -39,6 +52,8 @@ impl<Message: Serialize + Deserialize<'static> + GetSize + Send + 'static> Execu
                     send_to_up: None,
                     recv_from_up: None,
                     actions: test.actions,
+                    execution_commands: test.execution_commands,
+                    cleanup_commmands: test.cleanup_commmands,
                 }
             }
             (Some(as_down), None) => {
@@ -50,6 +65,8 @@ impl<Message: Serialize + Deserialize<'static> + GetSize + Send + 'static> Execu
                     send_to_up: Some(send_to_up),
                     recv_from_up: Some(recv_from_up),
                     actions: test.actions,
+                    execution_commands: test.execution_commands,
+                    cleanup_commmands: test.cleanup_commmands,
                 }
             }
             (None, None) => todo!(),
@@ -57,6 +74,14 @@ impl<Message: Serialize + Deserialize<'static> + GetSize + Send + 'static> Execu
     }
 
     pub async fn execute(self) -> bool {
+        for command in self.execution_commands {
+            os_command(
+                &command.command,
+                command.args.iter().map(String::as_str).collect(),
+                command.conditions,
+            )
+            .await;
+        }
         for action in self.actions {
             let (sender, receiver) = match action.role {
                 Role::Upstream => (
@@ -80,14 +105,23 @@ impl<Message: Serialize + Deserialize<'static> + GetSize + Send + 'static> Execu
                 match sender.send(message).await {
                     Ok(_) => (),
                     Err(_) => {
-                        if action.result == ActionResult::CloseConnection {
-                            return true;
-                        } else {
-                            return false;
+                        for result in &action.result {
+                            if result != &ActionResult::CloseConnection {
+                                return false;
+                            }
                         }
+                        return true;
                     }
                 }
             }
+        }
+        for command in self.cleanup_commmands {
+            os_command(
+                &command.command,
+                command.args.iter().map(String::as_str).collect(),
+                command.conditions,
+            )
+            .await;
         }
         true
     }

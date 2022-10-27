@@ -21,6 +21,7 @@ pub struct ExternalCommandCondition {
     pub condition: bool,
 }
 
+#[derive(Debug, Clone)]
 pub enum ExternalCommandConditions {
     /// Just run the command and return
     None,
