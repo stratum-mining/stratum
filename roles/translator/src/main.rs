@@ -20,7 +20,7 @@ use std::{
 };
 use v1::server_to_client;
 
-use tracing::{error, warn};
+use tracing::{error, info};
 
 /// Process CLI args, if any.
 fn process_cli_args() -> ProxyResult<ProxyConfig> {
@@ -40,7 +40,7 @@ async fn main() {
     tracing_subscriber::fmt::init();
 
     let proxy_config = process_cli_args().unwrap();
-    warn!("PC: {:?}", &proxy_config);
+    info!("PC: {:?}", &proxy_config);
 
     // Sender/Receiver to send a SV1 `mining.submit` from the `Downstream` to the `Bridge`
     // (Sender<v1::client_to_server::Submit>, Receiver<Submit>)

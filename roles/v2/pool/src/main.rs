@@ -123,7 +123,7 @@ async fn main() {
     let (s_new_t, r_new_t) = bounded(10);
     let (s_prev_hash, r_prev_hash) = bounded(10);
     let (s_solution, r_solution) = bounded(10);
-    info!("POOL INTITIALIZING ");
+    info!("POOL INITIALIZING ");
     TemplateRx::connect(
         config.tp_address.parse().unwrap(),
         s_new_t,
