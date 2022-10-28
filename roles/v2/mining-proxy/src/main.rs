@@ -225,7 +225,7 @@ async fn main() {
 
     // Scan all the upstreams and map them
     let config_file = std::fs::read_to_string(args.config_path.clone())
-        .unwrap_or_else(|_|  panic!("Can not open {:?}", args.config_path));
+        .unwrap_or_else(|_| panic!("Can not open {:?}", args.config_path));
     let config = match toml::from_str::<Config>(&config_file) {
         Ok(cfg) => cfg,
         Err(e) => {
