@@ -254,6 +254,7 @@ fn test_group_id_new_into_group_id() {
     assert!(channel_id == channel_from_complete);
 }
 
+
 #[test]
 fn test_merkle_root_from_path() {
     let coinbase_bytes = vec![

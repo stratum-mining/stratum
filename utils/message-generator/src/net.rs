@@ -1,4 +1,5 @@
 use crate::{os_command, Command};
+
 use async_channel::{Receiver, Sender};
 use binary_sv2::{Deserialize, GetSize, Serialize};
 use codec_sv2::{
@@ -30,6 +31,7 @@ pub async fn setup_as_upstream<
         .await;
         childs.push(child);
     }
+
     let (stream, _) = listner.accept().await.unwrap();
     match keys {
         Some((publ, secret)) => {

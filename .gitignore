@@ -5,4 +5,7 @@
 /utils/buffer/target
 /sv2.h
 /test/bitcoin_data/regtest
+<<<<<<< HEAD
 lcov.info
+=======
+>>>>>>> e6ac35e (rebase)

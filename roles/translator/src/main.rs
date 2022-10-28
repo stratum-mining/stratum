@@ -38,6 +38,7 @@ fn process_cli_args<'a>() -> ProxyResult<'a, ProxyConfig> {
 async fn main() {
     tracing_subscriber::fmt::init();
 
+
     let proxy_config = process_cli_args().unwrap();
     info!("PC: {:?}", &proxy_config);
 

@@ -31,3 +31,4 @@ with_serde = [ "serde",
 "job_negotiation_sv2/with_serde",
 "mining_sv2/with_serde"]
 prop_test = ["template_distribution_sv2/prop_test"]
+

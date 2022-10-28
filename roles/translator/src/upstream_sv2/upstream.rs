@@ -168,6 +168,7 @@ impl Upstream {
             }
         };
 
+
         info!("Up: Receiving: {:?}", &incoming);
         // Gets the binary frame message type from the message header
         let message_type = incoming.get_header().unwrap().msg_type();

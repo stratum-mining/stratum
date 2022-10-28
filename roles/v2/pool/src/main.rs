@@ -124,6 +124,7 @@ async fn main() {
         },
         Err(e) => {
             error!("Failed to read config: {}", e);
+
             return;
         }
     };
@@ -133,6 +134,7 @@ async fn main() {
     let (s_solution, r_solution) = bounded(10);
     let (s_message_recv_signal, r_message_recv_signal) = bounded(10);
     info!("Pool INITIALIZING with config: {:?}", &args.config_path);
+
     TemplateRx::connect(
         config.tp_address.parse().unwrap(),
         s_new_t,
@@ -150,4 +152,5 @@ async fn main() {
     )
     .await;
     info!("Pool INITIALIZED");
+
 }
