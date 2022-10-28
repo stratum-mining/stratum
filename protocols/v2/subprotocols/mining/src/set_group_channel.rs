@@ -30,3 +30,11 @@ pub struct SetGroupChannel<'decoder> {
     #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub channel_ids: Seq064K<'decoder, u32>,
 }
+#[cfg(feature = "with_serde")]
+use binary_sv2::GetSize;
+#[cfg(feature = "with_serde")]
+impl<'d> GetSize for SetGroupChannel<'d> {
+    fn get_size(&self) -> usize {
+        self.group_channel_id.get_size() + self.channel_ids.get_size()
+    }
+}

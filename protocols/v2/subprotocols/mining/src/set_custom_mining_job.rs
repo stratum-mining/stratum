@@ -105,3 +105,42 @@ pub struct SetCustomMiningJobError<'decoder> {
     #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub error_code: Str0255<'decoder>,
 }
+#[cfg(feature = "with_serde")]
+use binary_sv2::GetSize;
+#[cfg(feature = "with_serde")]
+impl<'d> GetSize for SetCustomMiningJob<'d> {
+    fn get_size(&self) -> usize {
+        self.channel_id.get_size()
+            + self.request_id.get_size()
+            + self.mining_job_token.get_size()
+            + self.version.get_size()
+            + self.prev_hash.get_size()
+            + self.min_ntime.get_size()
+            + self.nbits.get_size()
+            + self.coinbase_tx_version.get_size()
+            + self.coinbase_prefix.get_size()
+            + self.coinbase_tx_input_n_sequence.get_size()
+            + self.coinbase_tx_value_remaining.get_size()
+            + self.coinbase_tx_outputs.get_size()
+            + self.coinbase_tx_locktime.get_size()
+            + self.merkle_path.get_size()
+            + self.extranonce_size.get_size()
+            + self.future_job.get_size()
+    }
+}
+#[cfg(feature = "with_serde")]
+impl<'d> GetSize for SetCustomMiningJobSuccess<'d> {
+    fn get_size(&self) -> usize {
+        self.channel_id.get_size()
+            + self.request_id.get_size()
+            + self.job_id.get_size()
+            + self.coinbase_tx_prefix.get_size()
+            + self.coinbase_tx_suffix.get_size()
+    }
+}
+#[cfg(feature = "with_serde")]
+impl<'d> GetSize for SetCustomMiningJobError<'d> {
+    fn get_size(&self) -> usize {
+        self.channel_id.get_size() + self.request_id.get_size() + self.error_code.get_size()
+    }
+}

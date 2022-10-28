@@ -3,9 +3,9 @@ use alloc::vec::Vec;
 #[cfg(not(feature = "with_serde"))]
 use binary_sv2::{
     binary_codec_sv2, binary_codec_sv2::CVec, decodable::DecodableField, decodable::FieldMarker,
-    free_vec, Error, GetSize,
+    free_vec, Error,
 };
-use binary_sv2::{Deserialize, Serialize, Str0255};
+use binary_sv2::{Deserialize, GetSize, Serialize, Str0255};
 use const_sv2::{
     SV2_JOB_DISTR_PROTOCOL_DISCRIMINANT, SV2_JOB_NEG_PROTOCOL_DISCRIMINANT,
     SV2_MINING_PROTOCOL_DISCRIMINANT, SV2_TEMPLATE_DISTR_PROTOCOL_DISCRIMINANT,
@@ -331,13 +331,39 @@ impl TryFrom<u8> for Protocol {
     }
 }
 
-#[cfg(not(feature = "with_serde"))]
 impl GetSize for Protocol {
     fn get_size(&self) -> usize {
         1
     }
 }
 
+#[cfg(feature = "with_serde")]
+impl<'d> GetSize for SetupConnectionError<'d> {
+    fn get_size(&self) -> usize {
+        self.flags.get_size() + self.error_code.get_size()
+    }
+}
+#[cfg(feature = "with_serde")]
+impl GetSize for SetupConnectionSuccess {
+    fn get_size(&self) -> usize {
+        self.used_version.get_size() + self.flags.get_size()
+    }
+}
+#[cfg(feature = "with_serde")]
+impl<'d> GetSize for SetupConnection<'d> {
+    fn get_size(&self) -> usize {
+        self.protocol.get_size()
+            + self.min_version.get_size()
+            + self.max_version.get_size()
+            + self.flags.get_size()
+            + self.endpoint_host.get_size()
+            + self.endpoint_port.get_size()
+            + self.vendor.get_size()
+            + self.hardware_version.get_size()
+            + self.firmware.get_size()
+            + self.device_id.get_size()
+    }
+}
 #[cfg(test)]
 mod test {
     use super::*;

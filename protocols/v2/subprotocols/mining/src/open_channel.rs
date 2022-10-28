@@ -1,8 +1,9 @@
 #[cfg(not(feature = "with_serde"))]
 use alloc::vec::Vec;
 #[cfg(not(feature = "with_serde"))]
-use binary_sv2::binary_codec_sv2;
-use binary_sv2::{Deserialize, Serialize, Str0255, U32AsRef, B032, U256};
+use binary_sv2::{binary_codec_sv2, U32AsRef};
+use binary_sv2::{Deserialize, Serialize, Str0255, B032, U256};
+#[cfg(not(feature = "with_serde"))]
 use core::convert::TryInto;
 
 /// # OpenStandardMiningChannel (Client -> Server)
@@ -21,7 +22,10 @@ pub struct OpenStandardMiningChannel<'decoder> {
     /// Client-specified identifier for matching responses from upstream server.
     /// The value MUST be connection-wide unique and is not interpreted by
     /// the server.
+    #[cfg(not(feature = "with_serde"))]
     pub request_id: U32AsRef<'decoder>,
+    #[cfg(feature = "with_serde")]
+    pub request_id: u32,
     /// Unconstrained sequence of bytes. Whatever is needed by upstream
     /// node to identify/authenticate the client, e.g. “braiinstest.worker1”.
     /// Additional restrictions can be imposed by the upstream node (e.g. a
@@ -42,10 +46,17 @@ pub struct OpenStandardMiningChannel<'decoder> {
 }
 
 impl<'decoder> OpenStandardMiningChannel<'decoder> {
+    #[cfg(not(feature = "with_serde"))]
     pub fn get_request_id_as_u32(&self) -> u32 {
         (&self.request_id).into()
     }
 
+    #[cfg(feature = "with_serde")]
+    pub fn get_request_id_as_u32(&self) -> u32 {
+        self.request_id
+    }
+
+    #[cfg(not(feature = "with_serde"))]
     pub fn update_id(&mut self, new_id: u32) {
         let bytes_new = new_id.to_le_bytes();
         let bytes_old = self.request_id.inner_as_mut();
@@ -54,6 +65,13 @@ impl<'decoder> OpenStandardMiningChannel<'decoder> {
         bytes_old[2] = bytes_new[2];
         bytes_old[3] = bytes_new[3];
     }
+
+    #[cfg(feature = "with_serde")]
+    pub fn update_id(&mut self, new_id: u32) {
+        // DO NOT USE MEM SWAP HERE AS IT DO NOT UPDATE THE UNDERLING PAYLOAD
+        // INSTEAD IMPLEMENT U32ASREF FOR SERDE
+        todo!()
+    }
 }
 
 impl<'decoder> OpenStandardMiningChannel<'decoder> {
@@ -61,7 +79,10 @@ impl<'decoder> OpenStandardMiningChannel<'decoder> {
         s: OpenStandardMiningChannel<'decoder>,
     ) -> OpenStandardMiningChannel<'static> {
         OpenStandardMiningChannel {
+            #[cfg(not(feature = "with_serde"))]
             request_id: s.request_id.into_static(),
+            #[cfg(feature = "with_serde")]
+            request_id: s.request_id,
             user_identity: s.user_identity.into_static(),
             nominal_hash_rate: s.nominal_hash_rate,
             max_target: s.max_target.into_static(),
@@ -75,7 +96,10 @@ impl<'decoder> OpenStandardMiningChannel<'decoder> {
 pub struct OpenStandardMiningChannelSuccess<'decoder> {
     /// Client-specified request ID from OpenStandardMiningChannel message,
     /// so that the client can pair responses with open channel requests.
+    #[cfg(not(feature = "with_serde"))]
     pub request_id: U32AsRef<'decoder>,
+    #[cfg(feature = "with_serde")]
+    pub request_id: u32,
     /// Newly assigned identifier of the channel, stable for the whole lifetime of
     /// the connection. E.g. it is used for broadcasting new jobs by
     /// NewExtendedMiningJob.
@@ -94,10 +118,17 @@ pub struct OpenStandardMiningChannelSuccess<'decoder> {
 }
 
 impl<'decoder> OpenStandardMiningChannelSuccess<'decoder> {
+    #[cfg(not(feature = "with_serde"))]
     pub fn get_request_id_as_u32(&self) -> u32 {
         (&self.request_id).into()
     }
 
+    #[cfg(feature = "with_serde")]
+    pub fn get_request_id_as_u32(&self) -> u32 {
+        self.request_id
+    }
+
+    #[cfg(not(feature = "with_serde"))]
     pub fn update_id(&mut self, new_id: u32) {
         let bytes_new = new_id.to_le_bytes();
         let bytes_old = self.request_id.inner_as_mut();
@@ -105,6 +136,13 @@ impl<'decoder> OpenStandardMiningChannelSuccess<'decoder> {
         bytes_old[1] = bytes_new[1];
         bytes_old[2] = bytes_new[2];
         bytes_old[3] = bytes_new[3];
+    }
+
+    #[cfg(feature = "with_serde")]
+    pub fn update_id(&mut self, new_id: u32) {
+        // DO NOT USE MEM SWAP HERE AS IT DO NOT UPDATE THE UNDERLING PAYLOAD
+        // INSTEAD IMPLEMENT U32ASREF FOR SERDE
+        todo!()
     }
 }
 
@@ -116,7 +154,7 @@ pub struct OpenExtendedMiningChannel<'decoder> {
     /// Client-specified identifier for matching responses from upstream server.
     /// The value MUST be connection-wide unique and is not interpreted by
     /// the server.
-    pub request_id: U32AsRef<'decoder>,
+    pub request_id: u32,
     /// Unconstrained sequence of bytes. Whatever is needed by upstream
     /// node to identify/authenticate the client, e.g. “braiinstest.worker1”.
     /// Additional restrictions can be imposed by the upstream node (e.g. a
@@ -139,7 +177,7 @@ pub struct OpenExtendedMiningChannel<'decoder> {
 }
 impl<'decoder> OpenExtendedMiningChannel<'decoder> {
     pub fn get_request_id_as_u32(&self) -> u32 {
-        (&self.request_id).into()
+        self.request_id
     }
 }
 
@@ -175,4 +213,48 @@ pub struct OpenMiningChannelError<'decoder> {
     /// * ‘max-target-out-of-range’
     #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub error_code: Str0255<'decoder>,
+}
+#[cfg(feature = "with_serde")]
+use binary_sv2::GetSize;
+#[cfg(feature = "with_serde")]
+impl<'d> GetSize for OpenStandardMiningChannel<'d> {
+    fn get_size(&self) -> usize {
+        self.request_id.get_size() + self.user_identity.get_size() + 4 + self.max_target.get_size()
+    }
+}
+#[cfg(feature = "with_serde")]
+impl<'d> GetSize for OpenMiningChannelError<'d> {
+    fn get_size(&self) -> usize {
+        self.request_id.get_size() + self.error_code.get_size()
+    }
+}
+#[cfg(feature = "with_serde")]
+impl<'d> GetSize for OpenStandardMiningChannelSuccess<'d> {
+    fn get_size(&self) -> usize {
+        self.request_id.get_size()
+            + self.channel_id.get_size()
+            + self.target.get_size()
+            + self.extranonce_prefix.get_size()
+            + self.group_channel_id.get_size()
+    }
+}
+#[cfg(feature = "with_serde")]
+impl<'d> GetSize for OpenExtendedMiningChannel<'d> {
+    fn get_size(&self) -> usize {
+        self.request_id.get_size()
+            + self.user_identity.get_size()
+            + 4
+            + self.max_target.get_size()
+            + self.min_extranonce_size.get_size()
+    }
+}
+#[cfg(feature = "with_serde")]
+impl<'d> GetSize for OpenExtendedMiningChannelSuccess<'d> {
+    fn get_size(&self) -> usize {
+        self.request_id.get_size()
+            + self.channel_id.get_size()
+            + self.target.get_size()
+            + self.extranonce_size.get_size()
+            + self.extranonce_prefix.get_size()
+    }
 }

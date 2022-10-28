@@ -6,6 +6,8 @@ use core::convert::TryInto;
 pub use serde::{self, Deserialize, Serialize};
 #[cfg(feature = "with_serde")]
 pub use serde_sv2::*;
+#[cfg(feature = "with_serde")]
+pub mod binary_codec_sv2 {}
 
 #[cfg(not(feature = "with_serde"))]
 pub use binary_codec_sv2::{self, Decodable as Deserialize, Encodable as Serialize, *};
@@ -16,7 +18,6 @@ pub fn clone_message<T: Serialize>(_: T) -> T {
     todo!()
 }
 
-#[cfg(not(feature = "with_serde"))]
 pub fn u256_from_int<V: Into<u64>>(value: V) -> U256<'static> {
     // initialize u256 as a bytes vec of len 24
     let mut u256 = vec![0_u8; 24];

@@ -9,6 +9,8 @@ use roles_logic_sv2::{
 };
 use serde::Deserialize;
 
+use tracing::{error, info};
+
 mod lib;
 
 use lib::{mining_pool::Pool, template_receiver::TemplateRx};
@@ -100,10 +102,12 @@ mod args {
 
 #[tokio::main]
 async fn main() {
+    tracing_subscriber::fmt::init();
+
     let args = match args::Args::from_args() {
         Ok(cfg) => cfg,
         Err(help) => {
-            println!("{}", help);
+            error!("{}", help);
             return;
         }
     };
@@ -111,7 +115,7 @@ async fn main() {
     let config = match toml::from_str::<Configuration>(&config_file) {
         Ok(cfg) => cfg,
         Err(e) => {
-            println!("Failed to parse config file: {}", e);
+            error!("Failed to parse config file: {}", e);
             return;
         }
     };
@@ -119,7 +123,7 @@ async fn main() {
     let (s_new_t, r_new_t) = bounded(10);
     let (s_prev_hash, r_prev_hash) = bounded(10);
     let (s_solution, r_solution) = bounded(10);
-    println!("POOL INTITIALIZING ");
+    info!("POOL INITIALIZING ");
     TemplateRx::connect(
         config.tp_address.parse().unwrap(),
         s_new_t,
@@ -127,6 +131,6 @@ async fn main() {
         r_solution,
     )
     .await;
-    println!("POOL INITIALIZED");
+    info!("POOL INITIALIZED");
     Pool::start(config, r_new_t, r_prev_hash, s_solution).await;
 }

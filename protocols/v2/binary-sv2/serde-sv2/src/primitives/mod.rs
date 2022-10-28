@@ -1,6 +1,6 @@
 use alloc::{string::String, vec::Vec};
 mod byte_arrays;
-mod sequences;
+pub mod sequences;
 mod signature;
 mod u24;
 mod u256;

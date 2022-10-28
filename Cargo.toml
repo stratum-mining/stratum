@@ -47,3 +47,7 @@ members = [
     "examples/template-provider-test",
     "experimental/coinbase-negotiator",
 ]
+
+exclude = [
+    "utils/message-generator",
+]

@@ -164,3 +164,24 @@ impl<'a> From<RequestTransactionDataError<'a>> for CRequestTransactionDataError 
         }
     }
 }
+
+#[cfg(feature = "with_serde")]
+use binary_sv2::GetSize;
+#[cfg(feature = "with_serde")]
+impl<'d> GetSize for RequestTransactionDataSuccess<'d> {
+    fn get_size(&self) -> usize {
+        self.template_id.get_size() + self.excess_data.get_size() + self.transaction_list.get_size()
+    }
+}
+#[cfg(feature = "with_serde")]
+impl<'d> GetSize for RequestTransactionDataError<'d> {
+    fn get_size(&self) -> usize {
+        self.template_id.get_size() + self.error_code.get_size()
+    }
+}
+#[cfg(feature = "with_serde")]
+impl GetSize for RequestTransactionData {
+    fn get_size(&self) -> usize {
+        self.template_id.get_size()
+    }
+}

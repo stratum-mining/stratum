@@ -96,3 +96,9 @@ impl<'de> Deserialize<'de> for U24 {
 impl FixedSize for U24 {
     const FIXED_SIZE: usize = 3;
 }
+
+impl U24 {
+    pub fn into_static(self) -> Self {
+        self
+    }
+}

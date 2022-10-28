@@ -157,3 +157,21 @@ impl<'a> CNewTemplate {
         })
     }
 }
+#[cfg(feature = "with_serde")]
+use binary_sv2::GetSize;
+#[cfg(feature = "with_serde")]
+impl<'d> GetSize for NewTemplate<'d> {
+    fn get_size(&self) -> usize {
+        self.template_id.get_size()
+            + self.future_template.get_size()
+            + self.version.get_size()
+            + self.coinbase_tx_version.get_size()
+            + self.coinbase_prefix.get_size()
+            + self.coinbase_tx_input_sequence.get_size()
+            + self.coinbase_tx_value_remaining.get_size()
+            + self.coinbase_tx_outputs_count.get_size()
+            + self.coinbase_tx_outputs.get_size()
+            + self.coinbase_tx_locktime.get_size()
+            + self.merkle_path.get_size()
+    }
+}

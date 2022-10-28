@@ -53,3 +53,20 @@ pub struct AllocateMiningJobTokenSuccess<'decoder> {
     /// REQUIRES_ASYNC_JOB_MINING set.
     pub async_mining_allowed: bool,
 }
+#[cfg(feature = "with_serde")]
+use binary_sv2::GetSize;
+#[cfg(feature = "with_serde")]
+impl<'d> GetSize for AllocateMiningJobTokenSuccess<'d> {
+    fn get_size(&self) -> usize {
+        self.request_id.get_size()
+            + self.mining_job_token.get_size()
+            + self.coinbase_output_max_additional_size.get_size()
+            + self.async_mining_allowed.get_size()
+    }
+}
+#[cfg(feature = "with_serde")]
+impl<'d> GetSize for AllocateMiningJobToken<'d> {
+    fn get_size(&self) -> usize {
+        self.user_identifier.get_size() + self.request_id.get_size()
+    }
+}

@@ -16,6 +16,7 @@ use snow::{params::NoiseParams, Builder, HandshakeState, TransportState};
 // Export for use in `codec_sv2::error::Error::SnowError`
 pub use snow::Error as NoiseSv2SnowError;
 use std::fmt;
+use tracing::{debug, info};
 
 pub use auth::{SignatureNoiseMessage, SignedPartHeader};
 pub use formats::Certificate;
@@ -150,7 +151,10 @@ impl handshake::Step for Initiator {
                 //
                 let msg = NegotiationMessage::new(self.algorithms.clone());
                 // below never fail
-                let serialized = to_bytes(msg.clone()).unwrap();
+                #[cfg(not(feature = "with_serde"))]
+                let serialized = to_bytes(msg).unwrap();
+                #[cfg(feature = "with_serde")]
+                let serialized = to_bytes(&msg.clone()).unwrap();
 
                 handshake::StepResult::ExpectReply(serialized)
             }
@@ -339,7 +343,7 @@ impl handshake::Step for Responder {
                 match negotiation_message {
                     Ok(negotiation_message) => {
                         let algos: Vec<EncryptionAlgorithm> = negotiation_message.get_algos()?;
-                        println!("-> suggested algorithms received {:?}", algos);
+                        info!("-> suggested algorithms received {:?}", algos);
 
                         let chosen_algorithm = self
                             .algorithms
@@ -347,7 +351,7 @@ impl handshake::Step for Responder {
                             .find(|&a| algos.contains(a))
                             .copied()
                             .ok_or(Error::EncryptionAlgorithmNotFound)?;
-                        println!("<- chosen algorith: {:?}", chosen_algorithm);
+                        debug!("<- chosen algorithm: {:?}", chosen_algorithm);
                         self.requested_algorithms = algos;
                         self.chosen_algorithm = Some(chosen_algorithm);
 
@@ -375,7 +379,7 @@ impl handshake::Step for Responder {
                     .as_mut()
                     .expect("BUG: Handshake must be set at this point")
                     .read_message(&in_msg, &mut [0; BUFFER_LEN])?;
-                println!("-> token received: e");
+                debug!("-> token received: e");
 
                 let mut noise_bytes = vec![0; BUFFER_LEN];
 
@@ -387,7 +391,7 @@ impl handshake::Step for Responder {
                     .as_mut()
                     .expect("BUG: Handshake must be set at this point")
                     .write_message(&self.signature_noise_message, &mut noise_bytes)?;
-                println!("<- tokens sent: e, ee, s, es, SIG_NOISE_MSG");
+                debug!("<- tokens sent: e, ee, s, es, SIG_NOISE_MSG");
 
                 debug_assert_eq!(BUFFER_LEN, len_written);
                 handshake::StepResult::NoMoreReply(noise_bytes)

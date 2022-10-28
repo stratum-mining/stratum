@@ -16,5 +16,5 @@ binary_sv2 = { version = "0.1.3", path = "../../../protocols/v2/binary-sv2/binar
 buffer_sv2 = { path = "../../../utils/buffer", optional=true }
 
 [features]
-with_serde = ["binary_sv2/with_serde", "serde"]
+with_serde = ["binary_sv2/with_serde", "serde", "buffer_sv2/with_serde"]
 with_buffer_pool = ["binary_sv2/with_buffer_pool", "buffer_sv2"]

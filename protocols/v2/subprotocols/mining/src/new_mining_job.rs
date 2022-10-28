@@ -113,3 +113,29 @@ impl<'a> NewMiningJob<'a> {
         }
     }
 }
+
+#[cfg(feature = "with_serde")]
+use binary_sv2::GetSize;
+#[cfg(feature = "with_serde")]
+impl<'d> GetSize for NewExtendedMiningJob<'d> {
+    fn get_size(&self) -> usize {
+        self.channel_id.get_size()
+            + self.job_id.get_size()
+            + self.future_job.get_size()
+            + self.version.get_size()
+            + self.version_rolling_allowed.get_size()
+            + self.merkle_path.get_size()
+            + self.coinbase_tx_prefix.get_size()
+            + self.coinbase_tx_suffix.get_size()
+    }
+}
+#[cfg(feature = "with_serde")]
+impl<'d> GetSize for NewMiningJob<'d> {
+    fn get_size(&self) -> usize {
+        self.channel_id.get_size()
+            + self.job_id.get_size()
+            + self.future_job.get_size()
+            + self.version.get_size()
+            + self.merkle_root.get_size()
+    }
+}

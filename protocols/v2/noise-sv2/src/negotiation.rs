@@ -1,5 +1,7 @@
 use crate::Error;
-use binary_sv2::{binary_codec_sv2, Deserialize, Seq0255, Serialize};
+#[cfg(not(feature = "with_serde"))]
+use binary_sv2::binary_codec_sv2;
+use binary_sv2::{Deserialize, Seq0255, Serialize};
 use bytes::{Buf, BufMut};
 use core::convert::{TryFrom, TryInto};
 use snow::{params::NoiseParams, Builder};
@@ -97,6 +99,7 @@ impl TryFrom<u32> for EncryptionAlgorithm {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct NegotiationMessage<'decoder> {
     magic: u32,
+    #[cfg_attr(feature = "with_serde", serde(borrow))]
     encryption_algos: Seq0255<'decoder, u32>,
 }
 
@@ -111,8 +114,12 @@ impl<'decoder> NegotiationMessage<'decoder> {
 
     pub fn get_algos(&self) -> Result<Vec<EncryptionAlgorithm>, crate::Error> {
         let mut algos = vec![];
-        for algo in &self.encryption_algos.0 {
-            let algo: EncryptionAlgorithm = (*algo).try_into()?;
+        #[cfg(not(feature = "with_serde"))]
+        let algos_: Vec<u32> = self.encryption_algos.0.clone();
+        #[cfg(feature = "with_serde")]
+        let algos_: Vec<u32> = self.encryption_algos.clone().into();
+        for algo in algos_ {
+            let algo: EncryptionAlgorithm = algo.try_into()?;
             algos.push(algo);
         }
         Ok(algos)

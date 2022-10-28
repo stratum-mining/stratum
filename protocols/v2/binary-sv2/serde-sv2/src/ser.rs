@@ -139,6 +139,16 @@ impl<'a, W: Write> ser::Serializer for &'a mut Serializer<W> {
         value.serialize(self)
     }
 
+    #[inline]
+    fn serialize_unit_variant(
+        self,
+        _name: &'static str,
+        _variant_index: u32,
+        _variant: &'static str,
+    ) -> Result<()> {
+        Ok(())
+    }
+
     ///// UNIMPLEMENTED /////
 
     fn serialize_i8(self, _v: i8) -> Result<()> {
@@ -191,15 +201,6 @@ impl<'a, W: Write> ser::Serializer for &'a mut Serializer<W> {
     }
 
     fn serialize_unit_struct(self, _name: &'static str) -> Result<()> {
-        unimplemented!()
-    }
-
-    fn serialize_unit_variant(
-        self,
-        _name: &'static str,
-        _variant_index: u32,
-        _variant: &'static str,
-    ) -> Result<()> {
         unimplemented!()
     }
 

@@ -25,3 +25,12 @@ pub struct CloseChannel<'decoder> {
     #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub reason_code: Str0255<'decoder>,
 }
+
+#[cfg(feature = "with_serde")]
+use binary_sv2::GetSize;
+#[cfg(feature = "with_serde")]
+impl<'d> GetSize for CloseChannel<'d> {
+    fn get_size(&self) -> usize {
+        self.channel_id.get_size() + self.reason_code.get_size()
+    }
+}

@@ -19,6 +19,8 @@ use v1::{
     IsServer,
 };
 
+use tracing::{debug, info};
+
 /// Handles the sending and receiving of messages to and from an SV2 Upstream role (most typically
 /// a SV2 Pool server).
 #[derive(Debug)]
@@ -95,7 +97,7 @@ impl Downstream {
                 while let Some(incoming) = messages.next().await {
                     let incoming =
                         incoming.expect("Err reading next incoming message from SV1 Downstream");
-                    //println!("\nInfo:: Down: Receiving: {:?}", &incoming);
+                    //info!("\nInfo:: Down: Receiving: {:?}", &incoming);
                     let incoming: Result<json_rpc::Message, _> = serde_json::from_str(&incoming);
                     let incoming = incoming.expect("Err serializing incoming message from SV1 Downstream into JSON from `String`");
                     // Handle what to do with message
@@ -114,7 +116,7 @@ impl Downstream {
                     serde_json::to_string(&to_send)
                         .expect("Err deserializing JSON message for SV1 Downstream into `String`")
                 );
-                //println!("\nInfo:: Down: Sending: {:?}", &to_send);
+                //info!("\nInfo:: Down: Sending: {:?}", &to_send);
                 (&*socket_writer_clone)
                     .write_all(to_send.as_bytes())
                     .await
@@ -237,7 +239,7 @@ impl Downstream {
             let stream = stream.expect("Err on SV1 Downstream connection stream");
             extended_extranonce.next_extended(0).unwrap();
             let extended_extranonce = extended_extranonce.clone();
-            println!(
+            info!(
                 "\nPROXY SERVER - ACCEPTING FROM DOWNSTREAM: {}\n",
                 stream.peer_addr().unwrap()
             );
@@ -298,8 +300,8 @@ impl IsServer for Downstream {
         &mut self,
         request: &client_to_server::Configure,
     ) -> (Option<server_to_client::VersionRollingParams>, Option<bool>) {
-        println!("\nInfo:: Down: Configuring");
-        println!("Debug:: Down: Handling mining.configure: {:?}", &request);
+        info!("Down: Configuring");
+        debug!("Down: Handling mining.configure: {:?}", &request);
         self.version_rolling_mask = Some(downstream_sv1::new_version_rolling_mask());
         self.version_rolling_min_bit = Some(downstream_sv1::new_version_rolling_min());
         (
@@ -315,8 +317,8 @@ impl IsServer for Downstream {
     /// The subscription messages are erroneous and just used to conform the SV1 protocol spec.
     /// Because no one unsubscribed in practice, they just unplug their machine.
     fn handle_subscribe(&self, request: &client_to_server::Subscribe) -> Vec<(String, String)> {
-        println!("\nInfo:: Down: Subscribing");
-        println!("Debug:: Down: Handling mining.subscribe: {:?}", &request);
+        info!("Down: Subscribing");
+        debug!("Down: Handling mining.subscribe: {:?}", &request);
 
         let set_difficulty_sub = (
             "mining.set_difficulty".to_string(),
@@ -334,16 +336,16 @@ impl IsServer for Downstream {
     /// large number of independent Mining Devices can be handled with a single SV1 connection.
     /// https://bitcoin.stackexchange.com/questions/29416/how-do-pool-servers-handle-multiple-workers-sharing-one-connection-with-stratum
     fn handle_authorize(&self, request: &client_to_server::Authorize) -> bool {
-        println!("\nInfo:: Down: Authorizing");
-        println!("Debug:: Down: Handling mining.authorize: {:?}", &request);
+        info!("Down: Authorizing");
+        debug!("Down: Handling mining.authorize: {:?}", &request);
         true
     }
 
     /// When miner find the job which meets requested difficulty, it can submit share to the server.
     /// Only [Submit](client_to_server::Submit) requests for authorized user names can be submitted.
     fn handle_submit(&self, request: &client_to_server::Submit) -> bool {
-        //println!("\nInfo:: Down: Submitting Share");
-        //println!("Debug:: Down: Handling mining.submit: {:?}", &request);
+        //info!("Down: Submitting Share");
+        //debug!("Down: Handling mining.submit: {:?}", &request);
 
         // TODO: Check if receiving valid shares by adding diff field to Downstream
 

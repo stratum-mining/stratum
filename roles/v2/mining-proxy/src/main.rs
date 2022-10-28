@@ -20,6 +20,8 @@
 mod lib;
 use std::net::SocketAddr;
 
+use tracing::{error, info};
+
 use lib::upstream_mining::UpstreamMiningNode;
 use once_cell::sync::{Lazy, OnceCell};
 use serde::Deserialize;
@@ -37,17 +39,6 @@ type RLogic = MiningProxyRoutingLogic<
     crate::lib::upstream_mining::ProxyRemoteSelector,
 >;
 
-pub fn max_supported_version() -> u16 {
-    let config_file = std::fs::read_to_string("proxy-config.toml").unwrap();
-    let config: Config = toml::from_str(&config_file).unwrap();
-    config.max_supported_version
-}
-pub fn min_supported_version() -> u16 {
-    let config_file = std::fs::read_to_string("proxy-config.toml").unwrap();
-    let config: Config = toml::from_str(&config_file).unwrap();
-    config.min_supported_version
-}
-
 /// Panic whene we are looking one of this 2 global mutex would force the proxy to go down as every
 /// part of the program depend on them.
 /// SAFTEY note: we use global mutable memory instead of a dedicated struct that use a dedicated
@@ -59,13 +50,13 @@ static ROUTING_LOGIC: OnceCell<Mutex<RLogic>> = OnceCell::new();
 static JOB_ID_TO_UPSTREAM_ID: Lazy<Mutex<HashMap<u32, u32>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
 
-async fn initialize_upstreams() {
+async fn initialize_upstreams(min_version: u16, max_version: u16) {
     let upstreams = ROUTING_LOGIC
         .get()
         .expect("BUG: ROUTING_LOGIC has not been set yet")
         .safe_lock(|r_logic| r_logic.upstream_selector.upstreams.clone())
         .unwrap();
-    crate::lib::upstream_mining::scan(upstreams).await;
+    crate::lib::upstream_mining::scan(upstreams, min_version, max_version).await;
 }
 
 pub fn get_routing_logic() -> MiningRoutingLogic<
@@ -222,20 +213,23 @@ mod args {
 ///    upstream_mining::UpstreamMiningNode begin
 #[tokio::main]
 async fn main() {
+    tracing_subscriber::fmt::init();
+
     let args = match args::Args::from_args() {
         Ok(cfg) => cfg,
         Err(help) => {
-            println!("{}", help);
+            error!("{}", help);
             return;
         }
     };
 
     // Scan all the upstreams and map them
-    let config_file = std::fs::read_to_string(args.config_path).expect("TODO: Error handling");
+    let config_file = std::fs::read_to_string(args.config_path.clone())
+        .unwrap_or_else(|_| panic!("Can not open {:?}", args.config_path));
     let config = match toml::from_str::<Config>(&config_file) {
         Ok(cfg) => cfg,
         Err(e) => {
-            println!("Failed to parse config file: {}", e);
+            error!("Failed to parse config file: {}", e);
             return;
         }
     };
@@ -243,14 +237,14 @@ async fn main() {
         .set(Mutex::new(initialize_r_logic(&config.upstreams)))
         .expect("BUG: Failed to set ROUTING_LOGIC");
 
-    println!("PROXY INITIALIZING");
-    initialize_upstreams().await;
+    info!("PROXY INITIALIZING");
+    initialize_upstreams(config.min_supported_version, config.max_supported_version).await;
 
     // Wait for downstream connection
     let socket = SocketAddr::new(
         config.listen_address.parse().unwrap(),
         config.listen_mining_port,
     );
-    println!("PROXY INITIALIZED");
+    info!("PROXY INITIALIZED");
     crate::lib::downstream_mining::listen_for_downstream_mining(socket).await;
 }

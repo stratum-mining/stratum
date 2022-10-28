@@ -18,3 +18,11 @@ pub struct ChannelEndpointChanged {
     /// The channel which has changed endpoint.
     pub channel_id: u32,
 }
+#[cfg(feature = "with_serde")]
+use binary_sv2::GetSize;
+#[cfg(feature = "with_serde")]
+impl GetSize for ChannelEndpointChanged {
+    fn get_size(&self) -> usize {
+        self.channel_id.get_size()
+    }
+}

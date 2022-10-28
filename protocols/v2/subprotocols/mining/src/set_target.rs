@@ -25,3 +25,11 @@ pub struct SetTarget<'decoder> {
     #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub maximum_target: U256<'decoder>,
 }
+#[cfg(feature = "with_serde")]
+use binary_sv2::GetSize;
+#[cfg(feature = "with_serde")]
+impl<'d> GetSize for SetTarget<'d> {
+    fn get_size(&self) -> usize {
+        self.channel_id.get_size() + self.maximum_target.get_size()
+    }
+}
