@@ -151,7 +151,10 @@ impl handshake::Step for Initiator {
                 //
                 let msg = NegotiationMessage::new(self.algorithms.clone());
                 // below never fail
-                let serialized = to_bytes(msg.clone()).unwrap();
+                #[cfg(not(feature = "with_serde"))]
+                let serialized = to_bytes(msg).unwrap();
+                #[cfg(feature = "with_serde")]
+                let serialized = to_bytes(&msg.clone()).unwrap();
 
                 handshake::StepResult::ExpectReply(serialized)
             }

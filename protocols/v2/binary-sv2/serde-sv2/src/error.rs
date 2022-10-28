@@ -30,6 +30,7 @@ pub enum Error {
     StringLenBiggerThan256,
     U24TooBig(u32),
     WriteError,
+    PrimitiveConversionError,
 }
 
 impl ser::Error for Error {
@@ -101,6 +102,7 @@ impl Display for Error {
                 n
             )),
             Error::WriteError => formatter.write_str("Write error."),
+            Error::PrimitiveConversionError => formatter.write_str("Primitive conversion error."),
         }
     }
 }

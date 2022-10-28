@@ -30,3 +30,17 @@ pub struct IdentifyTransactionsSuccess<'decoder> {
     #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub tx_hash_list: Seq064K<'decoder, U256<'decoder>>,
 }
+#[cfg(feature = "with_serde")]
+use binary_sv2::GetSize;
+#[cfg(feature = "with_serde")]
+impl<'d> GetSize for IdentifyTransactionsSuccess<'d> {
+    fn get_size(&self) -> usize {
+        self.request_id.get_size() + self.tx_hash_list.get_size()
+    }
+}
+#[cfg(feature = "with_serde")]
+impl GetSize for IdentifyTransactions {
+    fn get_size(&self) -> usize {
+        self.request_id.get_size()
+    }
+}

@@ -97,3 +97,43 @@ pub struct SubmitSharesError<'decoder> {
     #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub error_code: Str0255<'decoder>,
 }
+#[cfg(feature = "with_serde")]
+use binary_sv2::GetSize;
+#[cfg(feature = "with_serde")]
+impl GetSize for SubmitSharesStandard {
+    fn get_size(&self) -> usize {
+        self.channel_id.get_size()
+            + self.sequence_number.get_size()
+            + self.job_id.get_size()
+            + self.nonce.get_size()
+            + self.ntime.get_size()
+            + self.version.get_size()
+    }
+}
+#[cfg(feature = "with_serde")]
+impl<'d> GetSize for SubmitSharesExtended<'d> {
+    fn get_size(&self) -> usize {
+        self.channel_id.get_size()
+            + self.sequence_number.get_size()
+            + self.job_id.get_size()
+            + self.nonce.get_size()
+            + self.ntime.get_size()
+            + self.version.get_size()
+            + self.extranonce.get_size()
+    }
+}
+#[cfg(feature = "with_serde")]
+impl GetSize for SubmitSharesSuccess {
+    fn get_size(&self) -> usize {
+        self.channel_id.get_size()
+            + self.last_sequence_number.get_size()
+            + self.new_submits_accepted_count.get_size()
+            + self.new_shares_sum.get_size()
+    }
+}
+#[cfg(feature = "with_serde")]
+impl<'d> GetSize for SubmitSharesError<'d> {
+    fn get_size(&self) -> usize {
+        self.channel_id.get_size() + self.sequence_number.get_size() + self.error_code.get_size()
+    }
+}

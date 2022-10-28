@@ -93,3 +93,35 @@ pub struct CommitMiningJobError<'decoder> {
     #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub error_details: B064K<'decoder>,
 }
+#[cfg(feature = "with_serde")]
+use binary_sv2::GetSize;
+#[cfg(feature = "with_serde")]
+impl<'d> GetSize for CommitMiningJob<'d> {
+    fn get_size(&self) -> usize {
+        self.request_id.get_size()
+            + self.mining_job_token.get_size()
+            + self.version.get_size()
+            + self.coinbase_tx_version.get_size()
+            + self.coinbase_prefix.get_size()
+            + self.coinbase_tx_input_n_sequence.get_size()
+            + self.coinbase_tx_value_remaining.get_size()
+            + self.coinbase_tx_locktime.get_size()
+            + self.min_extranonce_size.get_size()
+            + self.tx_short_hash_nonce.get_size()
+            + self.tx_short_hash_list.get_size()
+            + self.tx_hash_list_hash.get_size()
+            + self.excess_data.get_size()
+    }
+}
+#[cfg(feature = "with_serde")]
+impl<'d> GetSize for CommitMiningJobSuccess<'d> {
+    fn get_size(&self) -> usize {
+        self.request_id.get_size() + self.new_mining_job_token.get_size()
+    }
+}
+#[cfg(feature = "with_serde")]
+impl<'d> GetSize for CommitMiningJobError<'d> {
+    fn get_size(&self) -> usize {
+        self.request_id.get_size() + self.error_code.get_size() + self.error_details.get_size()
+    }
+}

@@ -19,3 +19,11 @@ pub struct SetExtranoncePrefix<'decoder> {
     #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub extranonce_prefix: B032<'decoder>,
 }
+#[cfg(feature = "with_serde")]
+use binary_sv2::GetSize;
+#[cfg(feature = "with_serde")]
+impl<'d> GetSize for SetExtranoncePrefix<'d> {
+    fn get_size(&self) -> usize {
+        self.channel_id.get_size() + self.extranonce_prefix.get_size()
+    }
+}

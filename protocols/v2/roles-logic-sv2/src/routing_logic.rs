@@ -412,6 +412,15 @@ impl<
             // if we are here upstream has already been selected so is ok to unwrap here
             .unwrap()[0]
             .clone();
+        #[cfg(feature = "with_serde")]
+        upstream
+            .safe_lock(|u| {
+                let selector = u.get_remote_selector();
+                selector.on_open_standard_channel_request(request.request_id, downstream)
+            })
+            // Is fine to unwrap a safe_lock result
+            .unwrap();
+        #[cfg(not(feature = "with_serde"))]
         upstream
             .safe_lock(|u| {
                 let selector = u.get_remote_selector();

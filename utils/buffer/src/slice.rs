@@ -20,6 +20,19 @@ pub struct Slice {
     pub time: SystemTime,
 }
 
+#[cfg(feature = "with_serde")]
+use serde::ser::{Serialize, SerializeStruct, Serializer};
+
+#[cfg(feature = "with_serde")]
+impl Serialize for Slice {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        unreachable!()
+    }
+}
+
 impl Slice {
     pub fn len(&self) -> usize {
         if let Some(owned) = &self.owned {

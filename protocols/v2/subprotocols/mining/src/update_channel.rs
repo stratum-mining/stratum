@@ -43,3 +43,17 @@ pub struct UpdateChannelError<'decoder> {
     #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub error_code: Str0255<'decoder>,
 }
+#[cfg(feature = "with_serde")]
+use binary_sv2::GetSize;
+#[cfg(feature = "with_serde")]
+impl<'d> GetSize for UpdateChannel<'d> {
+    fn get_size(&self) -> usize {
+        self.channel_id.get_size() + 4 + self.maximum_target.get_size()
+    }
+}
+#[cfg(feature = "with_serde")]
+impl<'d> GetSize for UpdateChannelError<'d> {
+    fn get_size(&self) -> usize {
+        self.channel_id.get_size() + self.error_code.get_size()
+    }
+}

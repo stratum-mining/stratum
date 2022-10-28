@@ -1,0 +1,55 @@
+{
+    "messages": [
+        "setup_connection_success": {
+            "used_version": 2,
+            "flags": 0
+        },
+        "close_channel": {
+            "channel_id": 78,
+            "reason_code": "no reason"
+        }
+    ],
+    "frames": [
+        "setup_connection_success": "into",
+        "close_channel": {
+            "message": "close_channel",
+            "message_type": "0x18",
+            "extension_type": "0000_0000_0000_0000",
+            "channel_msg": "true"
+        }
+    ],
+    "first_received": [
+        "setup_connection": {
+            "protocol": 0,
+            "min_version": 2,
+            "max_version": 2,
+            "flags": 0,
+            "endpoint_host": "",
+            "endpoint_port": 0,
+            "vendor": "",
+            "hardware_version": "",
+            "firmware": "",
+            "device_id": ""
+        }
+    ],
+    "actions": [
+        "setup_connection": {
+            "messages": ["setup_connection_success"],
+            "result": ["match_message_type": "0x10"] 
+        },
+        "close_channel": {
+            "messages": ["close_channel"],
+            "result": ["close_connection"] 
+        }
+    ],
+    "commands": [
+        "run_mining_device": {
+            "command": "cargo",
+            "args": ["run","-p","mining-device"],
+            "conditions": ["none"]
+        }
+    ]
+    "setup_commands": [],
+    "execution_commands": [run_mining_device],
+    "cleanup_commands": []
+}

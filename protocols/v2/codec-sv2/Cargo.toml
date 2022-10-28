@@ -19,5 +19,5 @@ buffer_sv2 = { path = "../../../utils/buffer"}
 
 
 [features]
-with_serde = ["binary_sv2/with_serde", "serde", "framing_sv2/with_serde"]
+with_serde = ["binary_sv2/with_serde", "serde", "framing_sv2/with_serde", "buffer_sv2/with_serde","noise_sv2/with_serde"]
 with_buffer_pool = ["framing_sv2/with_buffer_pool"]

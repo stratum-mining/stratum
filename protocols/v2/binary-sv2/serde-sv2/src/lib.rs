@@ -89,3 +89,9 @@ pub use primitives::{
     U16, U24, U256, U32, U64, U8,
 };
 pub use ser::{to_bytes, to_writer, Serializer};
+
+impl GetSize for buffer_sv2::Slice {
+    fn get_size(&self) -> usize {
+        self.len()
+    }
+}
