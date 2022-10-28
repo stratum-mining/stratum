@@ -23,7 +23,7 @@ impl ParseServerJobNegotiationMessages for JobNegotiator {
 
         let message_commit_mining_job = CommitMiningJob {
             request_id: message.request_id,
-            mining_job_token: message.mining_job_token,
+            mining_job_token: message.mining_job_token.into_static(),
             version: 2,
             coinbase_tx_version: new_template.clone().coinbase_tx_version,
             coinbase_prefix: new_template.clone().coinbase_prefix,
@@ -33,9 +33,11 @@ impl ParseServerJobNegotiationMessages for JobNegotiator {
             coinbase_tx_locktime: new_template.clone().coinbase_tx_locktime,
             min_extranonce_size: 0,
             tx_short_hash_nonce: 0,
-            tx_short_hash_list: todo!(),
-            tx_hash_list_hash: todo!(),
-            excess_data: todo!(),
+            /// Only for MVP2: must be filled with right values for production,
+            /// this values are needed for block propagation
+            tx_short_hash_list: vec![].try_into().unwrap(),
+            tx_hash_list_hash: vec![].try_into().unwrap(),
+            excess_data: vec![].try_into().unwrap(),
         };
         let commit_mining_job = JobNegotiation::CommitMiningJob(message_commit_mining_job);
         println!(

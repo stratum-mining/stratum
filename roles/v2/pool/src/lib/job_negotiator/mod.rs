@@ -5,6 +5,7 @@ use roles_logic_sv2::{
     parsers::CommonMessages,
     utils::{Id, Mutex},
 };
+use binary_sv2::B0255;
 use std::{collections::HashMap, convert::TryInto, sync::Arc};
 use tokio::net::TcpListener;
 //use messages_sv2::parsers::JobNegotiation;
@@ -31,7 +32,7 @@ impl<'a> From<CommitMiningJob<'a>> for CommittedMiningJob {
 pub struct JobNegotiatorDownstream {
     sender: Sender<EitherFrame>,
     receiver: Receiver<EitherFrame>,
-    token_to_job_map: HashMap<u32, Option<CommittedMiningJob>>,
+    token_to_job_map: HashMap<B0255<'static>, Option<CommittedMiningJob>>,
     tokens: Id,
 }
 

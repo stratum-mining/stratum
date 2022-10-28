@@ -1,4 +1,5 @@
 use crate::lib::job_negotiator::JobNegotiatorDownstream;
+use binary_sv2::B0255;
 use roles_logic_sv2::{
     handlers::{job_negotiation::ParseClientJobNegotiationMessages, SendTo_},
     job_negotiation_sv2::{
@@ -15,8 +16,7 @@ use roles_logic_sv2::errors::Error;
 impl JobNegotiatorDownstream {
     fn verify_job(&mut self, message: &CommitMiningJob) -> bool {
         let is_token_allocated = self
-            .token_to_job_map
-            .contains_key(&message.mining_job_token);
+            .token_to_job_map.hasher();
         // TODO Function to implement, it must be checked if the requested job has:
         // 1. right coinbase
         // 2. right version field
@@ -32,7 +32,7 @@ impl ParseClientJobNegotiationMessages for JobNegotiatorDownstream {
         &mut self,
         message: AllocateMiningJobToken,
     ) -> Result<SendTo, Error> {
-        let token = self.tokens.next();
+        let token: B0255 = self.tokens.next().to_le_bytes().to_vec().try_into().unwrap();
         self.token_to_job_map.insert(token, None);
         let message_success = AllocateMiningJobTokenSuccess {
             request_id: message.request_id,

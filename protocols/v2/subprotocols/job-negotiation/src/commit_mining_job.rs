@@ -16,7 +16,7 @@ pub struct CommitMiningJob<'decoder> {
     pub request_id: u32,
     /// Previously reserved mining job token received by
     /// AllocateMiningJobToken.Success.
-    pub mining_job_token: u32,
+    pub mining_job_token: B0255<'decoder>,
     /// Version header field. To be later modified by
     /// BIP320-consistent changes.
     pub version: u32,
