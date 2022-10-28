@@ -31,3 +31,17 @@ pub struct ProvideMissingTransactionsSuccess<'decoder> {
     #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub transaction_list: Seq064K<'decoder, B016M<'decoder>>,
 }
+#[cfg(feature = "with_serde")]
+use binary_sv2::GetSize;
+#[cfg(feature = "with_serde")]
+impl<'d> GetSize for ProvideMissingTransactions<'d> {
+    fn get_size(&self) -> usize {
+        self.request_id.get_size() + self.unknown_tx_position_list.get_size()
+    }
+}
+#[cfg(feature = "with_serde")]
+impl<'d> GetSize for ProvideMissingTransactionsSuccess<'d> {
+    fn get_size(&self) -> usize {
+        self.request_id.get_size() + self.transaction_list.get_size()
+    }
+}

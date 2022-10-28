@@ -216,7 +216,7 @@ impl Upstream {
         let user_identity = "ABC".to_string().try_into()?;
         let min_extranonce_size = self_.safe_lock(|s| s.min_extranonce_size).unwrap();
         let open_channel = Mining::OpenExtendedMiningChannel(OpenExtendedMiningChannel {
-            request_id: 0.into(),                // TODO
+            request_id: 0,                       // TODO
             user_identity,                       // TODO
             nominal_hash_rate: 10_000_000_000.0, // TODO
             max_target: u256_from_int(u64::MAX), // TODO

@@ -4,6 +4,36 @@ pub mod b032;
 pub mod b064k;
 pub mod bytes;
 
+pub trait IntoStatic {
+    fn into_static(self) -> Self;
+}
+
+impl IntoStatic for bool {
+    fn into_static(self) -> Self {
+        self
+    }
+}
+impl IntoStatic for u8 {
+    fn into_static(self) -> Self {
+        self
+    }
+}
+impl IntoStatic for u16 {
+    fn into_static(self) -> Self {
+        self
+    }
+}
+impl IntoStatic for u32 {
+    fn into_static(self) -> Self {
+        self
+    }
+}
+impl IntoStatic for u64 {
+    fn into_static(self) -> Self {
+        self
+    }
+}
+
 #[test]
 fn test_b0_64k() {
     use crate::ser::to_bytes;

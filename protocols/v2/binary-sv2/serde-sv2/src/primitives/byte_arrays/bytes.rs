@@ -2,11 +2,22 @@ use crate::primitives::GetSize;
 use alloc::vec::Vec;
 use serde::{de::Visitor, ser, Deserialize, Deserializer, Serialize};
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, Clone)]
 enum Inner<'a> {
     Ref(&'a [u8]),
     #[allow(dead_code)]
     Owned(Vec<u8>),
+}
+
+impl<'a> PartialEq for Inner<'a> {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Inner::Ref(slice), Inner::Ref(slice1)) => slice == slice1,
+            (Inner::Ref(slice), Inner::Owned(inner)) => slice == &inner.as_slice(),
+            (Inner::Owned(inner), Inner::Ref(slice)) => slice == &inner.as_slice(),
+            (Inner::Owned(inner), Inner::Owned(inner1)) => inner == inner1,
+        }
+    }
 }
 
 impl<'a> Inner<'a> {
@@ -75,6 +86,14 @@ impl<'a> GetSize for Bytes<'a> {
         match &self.0 {
             Inner::Ref(v) => v.len(),
             Inner::Owned(v) => v.len(),
+        }
+    }
+}
+impl<'a> Bytes<'a> {
+    pub fn into_static(self) -> Bytes<'static> {
+        match self.0 {
+            Inner::Ref(slice) => Bytes(Inner::Owned(slice.to_vec())),
+            Inner::Owned(inner) => Bytes(Inner::Owned(inner)),
         }
     }
 }

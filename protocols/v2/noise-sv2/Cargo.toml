@@ -21,3 +21,6 @@ const_sv2 = {version = "0.1.*", path = "../../../protocols/v2/const-sv2"}
 buffer_sv2 = {version = "0.1.*", path = "../../../utils/buffer"}
 binary_sv2 = { version = "0.1.3", path = "../../../protocols/v2/binary-sv2/binary-sv2" }
 tracing = { version = "0.1"}
+
+[features]
+with_serde = ["binary_sv2/with_serde"]

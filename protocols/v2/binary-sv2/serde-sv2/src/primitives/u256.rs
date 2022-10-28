@@ -3,10 +3,21 @@ use alloc::boxed::Box;
 use core::convert::TryFrom;
 use serde::{de::Visitor, ser, Deserialize, Deserializer, Serialize};
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Eq)]
 enum Inner<'a> {
     Ref(&'a [u8]),
     Owned(Box<[u8; 32]>),
+}
+
+impl<'a> PartialEq for Inner<'a> {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Inner::Ref(slice), Inner::Ref(slice1)) => slice == slice1,
+            (Inner::Ref(slice), Inner::Owned(inner)) => slice == &(*inner).as_slice(),
+            (Inner::Owned(inner), Inner::Ref(slice)) => slice == &(*inner).as_slice(),
+            (Inner::Owned(inner), Inner::Owned(inner1)) => inner == inner1,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -91,4 +102,38 @@ impl<'de: 'a, 'a> Deserialize<'de> for U256<'a> {
 
 impl<'a> FixedSize for U256<'a> {
     const FIXED_SIZE: usize = 32;
+}
+use core::convert::TryInto;
+impl<'a> U256<'a> {
+    pub fn into_static(self) -> U256<'static> {
+        match self.0 {
+            Inner::Ref(inner) => U256(Inner::Owned(Box::new(inner.try_into().unwrap()))),
+            Inner::Owned(inner) => U256(Inner::Owned(inner)),
+        }
+    }
+    pub fn inner_as_ref(&self) -> &[u8] {
+        match &self.0 {
+            Inner::Ref(slice) => slice,
+            Inner::Owned(inner) => inner.as_ref(),
+        }
+    }
+    pub fn to_vec(&self) -> alloc::vec::Vec<u8> {
+        match &self.0 {
+            Inner::Ref(slice) => slice.to_vec(),
+            Inner::Owned(inner) => inner.to_vec(),
+        }
+    }
+}
+
+impl<'a> TryFrom<alloc::vec::Vec<u8>> for U256<'a> {
+    type Error = ();
+
+    fn try_from(value: alloc::vec::Vec<u8>) -> Result<Self, Self::Error> {
+        if value.len() == 32 {
+            let inner: [u8; 32] = value.try_into().unwrap();
+            Ok(Self(Inner::Owned(Box::new(inner))))
+        } else {
+            Err(())
+        }
+    }
 }

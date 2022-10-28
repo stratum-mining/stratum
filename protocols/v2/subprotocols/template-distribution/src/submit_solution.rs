@@ -86,3 +86,15 @@ impl<'a> From<SubmitSolution<'a>> for CSubmitSolution {
         }
     }
 }
+#[cfg(feature = "with_serde")]
+use binary_sv2::GetSize;
+#[cfg(feature = "with_serde")]
+impl<'d> GetSize for SubmitSolution<'d> {
+    fn get_size(&self) -> usize {
+        self.template_id.get_size()
+            + self.version.get_size()
+            + self.header_timestamp.get_size()
+            + self.header_nonce.get_size()
+            + self.coinbase_tx.get_size()
+    }
+}

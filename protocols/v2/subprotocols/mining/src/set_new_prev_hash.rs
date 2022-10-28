@@ -42,3 +42,15 @@ impl<'a> SetNewPrevHash<'a> {
         }
     }
 }
+#[cfg(feature = "with_serde")]
+use binary_sv2::GetSize;
+#[cfg(feature = "with_serde")]
+impl<'d> GetSize for SetNewPrevHash<'d> {
+    fn get_size(&self) -> usize {
+        self.channel_id.get_size()
+            + self.job_id.get_size()
+            + self.prev_hash.get_size()
+            + self.min_ntime.get_size()
+            + self.nbits.get_size()
+    }
+}

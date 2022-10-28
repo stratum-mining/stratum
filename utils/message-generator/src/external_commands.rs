@@ -214,8 +214,11 @@ impl ExternalCommandConditions {
     async fn check_std_out_(&self, std_out: &mut ChildStdout) {
         let mut reader = BufReader::new(std_out).lines();
         loop {
-            let line = match dbg!(reader.next_line().await.unwrap()) {
-                Some(line) => line,
+            let line = match reader.next_line().await.unwrap() {
+                Some(line) => {
+                    println!("STD OUT: {}", line);
+                    line
+                }
                 None => panic!("Stdout err"),
             };
             if self.check_condition(line, OutputLocation::StdOut) {
@@ -238,8 +241,11 @@ impl ExternalCommandConditions {
     async fn check_std_err_(&self, std_err: &mut ChildStderr) {
         let mut reader = BufReader::new(std_err).lines();
         loop {
-            let line = match dbg!(reader.next_line().await.unwrap()) {
-                Some(line) => line,
+            let line = match reader.next_line().await.unwrap() {
+                Some(line) => {
+                    println!("STD ERR: {}", line);
+                    line
+                }
                 None => panic!("Stderr err"),
             };
             if self.check_condition(line, OutputLocation::StdErr) {
@@ -280,7 +286,7 @@ pub async fn os_command(
         command.arg(arg);
     }
 
-    let mut child = command.spawn().unwrap();
+    let mut child = command.current_dir("../../").spawn().unwrap();
     debug_assert!(child.stdout.is_some());
     debug_assert!(child.stderr.is_some());
     match &conditions_ {
@@ -302,23 +308,4 @@ pub async fn os_command(
         }
         ExternalCommandConditions::None => Some(child),
     }
-    //match condition {
-    //    Some(condition) => {
-    //        let stdout = child.stderr.take().unwrap();
-    //        let mut stdout_reader = BufReader::new(stdout).lines();
-    //        loop {
-    //            let line = match dbg!(stdout_reader.next_line().await.unwrap()) {
-    //                Some(line) => line,
-    //                None => panic!("TODO this should print the stderr"),
-    //            };
-    //            if line.contains(&condition) {
-    //                child.stderr = Some(stdout_reader.into_inner().into_inner());
-    //                break;
-    //            }
-    //        }
-    //    }
-    //    None => (),
-    //}
-    //debug_assert!(child.stdout.is_some());
-    //child
 }

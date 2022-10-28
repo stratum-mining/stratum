@@ -28,3 +28,11 @@ pub struct Reconnect<'decoder> {
     /// When 0, downstream node attempts to reconnect to its present port.
     pub new_port: u16,
 }
+#[cfg(feature = "with_serde")]
+use binary_sv2::GetSize;
+#[cfg(feature = "with_serde")]
+impl<'d> GetSize for Reconnect<'d> {
+    fn get_size(&self) -> usize {
+        self.new_host.get_size() + self.new_port.get_size()
+    }
+}

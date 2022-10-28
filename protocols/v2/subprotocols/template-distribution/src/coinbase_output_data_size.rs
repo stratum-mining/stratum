@@ -26,3 +26,12 @@ pub struct CoinbaseOutputDataSize {
     /// coinbase transaction outputs.
     pub coinbase_output_max_additional_size: u32,
 }
+
+#[cfg(feature = "with_serde")]
+use binary_sv2::GetSize;
+#[cfg(feature = "with_serde")]
+impl GetSize for CoinbaseOutputDataSize {
+    fn get_size(&self) -> usize {
+        self.coinbase_output_max_additional_size.get_size()
+    }
+}

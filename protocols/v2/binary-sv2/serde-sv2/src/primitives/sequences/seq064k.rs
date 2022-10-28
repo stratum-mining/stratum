@@ -27,8 +27,18 @@ impl<'s, T: Clone + FixedSize + Serialize + TryFromBSlice<'s> + core::cmp::Parti
     }
 }
 impl<'s> Eq for Seq064K<'s, B016M<'s>> {}
+impl<'s> Eq for Seq064K<'s, B064K<'s>> {}
 
 impl<'s> PartialEq for Seq064K<'s, B016M<'s>> {
+    fn eq(&self, other: &Self) -> bool {
+        match (&self.seq, &self.data, &other.seq, &other.data) {
+            (Some(seq1), _, Some(seq2), _) => seq1 == seq2,
+            (_, Some(data1), _, Some(data2)) => data1 == data2,
+            _ => crate::ser::to_bytes(&self) == crate::ser::to_bytes(&other),
+        }
+    }
+}
+impl<'s> PartialEq for Seq064K<'s, B064K<'s>> {
     fn eq(&self, other: &Self) -> bool {
         match (&self.seq, &self.data, &other.seq, &other.data) {
             (Some(seq1), _, Some(seq2), _) => seq1 == seq2,
@@ -340,6 +350,35 @@ impl<'a> GetSize for Seq064K<'a, B016M<'a>> {
                 + 2
         } else {
             self.seq.as_ref().unwrap().data.len() + 2
+        }
+    }
+}
+impl<'a> GetSize for Seq064K<'a, B064K<'a>> {
+    fn get_size(&self) -> usize {
+        if self.data.is_some() {
+            (self
+                .data
+                .as_ref()
+                .unwrap()
+                .iter()
+                .fold(0, |acc, x| acc + x.get_size()))
+                + 2
+        } else {
+            self.seq.as_ref().unwrap().data.len() + 2
+        }
+    }
+}
+impl<'s> Seq064K<'s, B064K<'s>> {
+    pub fn into_static(self) -> Seq064K<'static, B064K<'static>> {
+        if let Some(inner) = self.data {
+            let inner = inner.clone();
+            let data: Vec<B064K<'static>> = inner.into_iter().map(|i| i.into_static()).collect();
+            Seq064K {
+                seq: None,
+                data: Some(data),
+            }
+        } else {
+            panic!()
         }
     }
 }

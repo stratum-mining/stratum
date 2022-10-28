@@ -7,7 +7,7 @@ use async_channel::{Receiver, Sender};
 use binary_sv2::{Deserialize, GetSize, Serialize};
 use codec_sv2::StandardEitherFrame as EitherFrame;
 
-pub struct Executor<Message: Serialize + Deserialize<'static> + GetSize + Send + 'static> {
+pub struct Executor<Message: Serialize + Deserialize<'static> + GetSize + Send> {
     send_to_down: Option<Sender<EitherFrame<Message>>>,
     recv_from_down: Option<Receiver<EitherFrame<Message>>>,
     send_to_up: Option<Sender<EitherFrame<Message>>>,

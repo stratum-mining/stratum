@@ -336,6 +336,7 @@ dependencies = [
  "criterion",
  "iai",
  "rand 0.8.5",
+ "serde",
 ]
 
 [[package]]
@@ -1043,19 +1044,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "59accc507f1338036a0477ef61afdae33cde60840f4dfe481319ce3ad116ddf9"
 dependencies = [
  "autocfg",
-]
-
-[[package]]
-name = "message_generator_sv2"
-version = "0.1.0"
-dependencies = [
- "async-channel",
- "binary_sv2",
- "codec_sv2",
- "const_sv2",
- "network_helpers",
- "roles_logic_sv2",
- "tokio",
 ]
 
 [[package]]

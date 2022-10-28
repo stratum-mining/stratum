@@ -59,6 +59,10 @@ impl<'a, T: 'a> Seq0255<'a, T> {
         }
     }
 
+    pub fn into_inner(self) -> Vec<T> {
+        self.0
+    }
+
     //pub fn try_from_slice(inner: &'a mut [T]) -> Result<Self, Error> {
     //    if inner.len() <= 255 {
     //        let inner_: Vec<T> = vec![];

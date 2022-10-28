@@ -9,9 +9,12 @@ use codec_sv2::{
 };
 use external_commands::*;
 use net::{setup_as_downstream, setup_as_upstream};
+use roles_logic_sv2::common_messages_sv2::SetupConnectionSuccess;
 use std::net::SocketAddr;
+//use serde::{Deserialize as SerdeDeserialize, Serialize as SerdeSerialize};
+use serde_json;
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 enum Sv2Type {
     Bool(bool),
     U8(u8),
@@ -28,7 +31,7 @@ enum Sv2Type {
     Seq064k(Vec<Vec<u8>>),
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 enum ActionResult {
     MatchMessageType(u8),
     MatchMessageField(Sv2Type),
@@ -38,7 +41,7 @@ enum ActionResult {
     None,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 enum Role {
     Upstream,
     Downstream,
@@ -57,7 +60,7 @@ struct Downstream {
 }
 
 #[derive(Debug)]
-struct Action<Message: Serialize + Deserialize<'static> + GetSize + Send + 'static> {
+struct Action<Message: Serialize + Deserialize<'static> + GetSize + Send> {
     messages: Vec<EitherFrame<Message>>,
     result: Vec<ActionResult>,
     role: Role,
@@ -71,7 +74,7 @@ pub struct Command {
 }
 
 #[derive(Debug)]
-pub struct Test<Message: Serialize + Deserialize<'static> + GetSize + Send + 'static> {
+pub struct Test<Message: Serialize + Deserialize<'static> + GetSize + Send> {
     actions: Vec<Action<Message>>,
     as_upstream: Option<Upstream>,
     as_dowstream: Option<Downstream>,
@@ -83,6 +86,13 @@ pub struct Test<Message: Serialize + Deserialize<'static> + GetSize + Send + 'st
 
 fn main() {
     println!("HeLlo, world!");
+    let data = r#"
+    {
+        "used_version": 2,
+        "flags": 0
+    }
+    "#;
+    let v: SetupConnectionSuccess = dbg!(serde_json::from_str(data).unwrap());
 }
 
 #[cfg(test)]
@@ -183,18 +193,18 @@ mod test {
     #[tokio::test]
     async fn it_initialize_a_pool_and_connect_to_it() {
         let mut bitcoind = os_command(
-            "../../test/bitcoind",
-            vec!["--regtest", "--datadir=../../test/bitcoin_data/"],
+            "./test/bitcoind",
+            vec!["--regtest", "--datadir=./test/bitcoin_data/"],
             ExternalCommandConditions::new_with_timer_secs(10)
                 .continue_if_std_out_have("sv2 thread start")
                 .fail_if_anything_on_std_err(),
         )
         .await;
         let mut child = os_command(
-            "../../test/bitcoin-cli",
+            "./test/bitcoin-cli",
             vec![
                 "--regtest",
-                "--datadir=../../test/bitcoin_data/",
+                "--datadir=./test/bitcoin_data/",
                 "generatetoaddress",
                 "16",
                 "bcrt1qttuwhmpa7a0ls5kr3ye6pjc24ng685jvdrksxx",
@@ -211,7 +221,7 @@ mod test {
                 "pool",
                 "--",
                 "-c",
-                "../../roles/v2/pool/pool-config.toml",
+                "./roles/v2/pool/pool-config.toml",
             ],
             ExternalCommandConditions::new_with_timer_secs(10)
                 .continue_if_std_out_have("POOL INITIALIZED"),
@@ -250,14 +260,14 @@ mod test {
         let (recv_from_pool, send_to_pool) = setup_as_downstream(pool_address, Some(pub_key)).await;
         send_to_pool.send(frame.try_into().unwrap()).await.unwrap();
         match recv_from_pool.recv().await.unwrap() {
-            EitherFrame::Sv2(_) => {
+            EitherFrame::Sv2(a) => {
                 assert!(true)
             }
             _ => assert!(false),
         }
         let mut child = os_command(
             "rm",
-            vec!["-rf", "../../test/bitcoin_data/regtest"],
+            vec!["-rf", "./test/bitcoin_data/regtest"],
             ExternalCommandConditions::None,
         )
         .await;
@@ -279,7 +289,7 @@ mod test {
                 "mining-proxy",
                 "--",
                 "-c",
-                "../../test/ant-pool-config.toml",
+                "./test/ant-pool-config.toml",
             ],
             ExternalCommandConditions::new_with_timer_secs(10)
                 .continue_if_std_out_have("PROXY INITIALIZED")
@@ -300,14 +310,7 @@ mod test {
         //loop {}
         let _ = os_command(
             "cargo",
-            vec![
-                "run",
-                "-p",
-                "mining-device",
-                "--",
-                "-c",
-                "../../test/ant-pool-config.toml",
-            ],
+            vec!["run", "-p", "mining-device"],
             ExternalCommandConditions::new_with_timer_secs(10)
                 .continue_if_std_out_have("channel opened with"),
         )

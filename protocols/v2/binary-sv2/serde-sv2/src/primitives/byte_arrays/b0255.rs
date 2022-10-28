@@ -1,12 +1,23 @@
 use crate::{error::Error, primitives::GetSize};
 use alloc::vec::Vec;
-use core::convert::TryFrom;
+use core::convert::{TryFrom, TryInto};
 use serde::{de::Visitor, ser, ser::SerializeTuple, Deserialize, Deserializer, Serialize};
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Eq)]
 enum Inner<'a> {
     Ref(&'a [u8]),
     Owned(Vec<u8>),
+}
+
+impl<'a> PartialEq for Inner<'a> {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Inner::Ref(slice), Inner::Ref(slice1)) => slice == slice1,
+            (Inner::Ref(slice), Inner::Owned(inner)) => slice == &inner.as_slice(),
+            (Inner::Owned(inner), Inner::Ref(slice)) => slice == &inner.as_slice(),
+            (Inner::Owned(inner), Inner::Owned(inner1)) => inner == inner1,
+        }
+    }
 }
 
 impl<'a> Inner<'a> {
@@ -118,5 +129,27 @@ impl<'a> GetSize for B0255<'a> {
             Inner::Ref(v) => v.len() + 1,
             Inner::Owned(v) => v.len() + 1,
         }
+    }
+}
+impl<'a> B0255<'a> {
+    pub fn into_static(self) -> B0255<'static> {
+        match self.0 {
+            Inner::Ref(slice) => B0255(Inner::Owned(slice.to_vec())),
+            Inner::Owned(inner) => B0255(Inner::Owned(inner)),
+        }
+    }
+    pub fn to_vec(&self) -> Vec<u8> {
+        match &self.0 {
+            Inner::Ref(slice) => slice.to_vec(),
+            Inner::Owned(inner) => inner.to_vec(),
+        }
+    }
+}
+
+impl<'a> TryFrom<alloc::string::String> for B0255<'a> {
+    type Error = crate::Error;
+
+    fn try_from(value: alloc::string::String) -> Result<Self, Self::Error> {
+        value.into_bytes().try_into()
     }
 }

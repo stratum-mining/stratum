@@ -1,12 +1,12 @@
 use crate::Error;
 
 #[cfg(not(feature = "with_serde"))]
-use binary_sv2::{
-    decodable::DecodableField, decodable::FieldMarker, encodable::EncodableField, GetSize,
-};
+use binary_sv2::{decodable::DecodableField, decodable::FieldMarker, encodable::EncodableField};
 
 #[cfg(feature = "with_serde")]
 use binary_sv2::Serialize;
+
+use binary_sv2::GetSize;
 
 use binary_sv2::{from_bytes, Deserialize};
 
@@ -394,7 +394,6 @@ impl<'decoder> From<Mining<'decoder>> for EncodableField<'decoder> {
     }
 }
 
-#[cfg(not(feature = "with_serde"))]
 impl GetSize for CommonMessages<'_> {
     fn get_size(&self) -> usize {
         match self {
@@ -405,7 +404,6 @@ impl GetSize for CommonMessages<'_> {
         }
     }
 }
-#[cfg(not(feature = "with_serde"))]
 impl GetSize for TemplateDistribution<'_> {
     fn get_size(&self) -> usize {
         match self {
@@ -419,7 +417,6 @@ impl GetSize for TemplateDistribution<'_> {
         }
     }
 }
-#[cfg(not(feature = "with_serde"))]
 impl GetSize for JobNegotiation<'_> {
     fn get_size(&self) -> usize {
         match self {
@@ -435,7 +432,6 @@ impl GetSize for JobNegotiation<'_> {
         }
     }
 }
-#[cfg(not(feature = "with_serde"))]
 impl GetSize for Mining<'_> {
     fn get_size(&self) -> usize {
         match self {
@@ -933,7 +929,6 @@ impl<'decoder> From<MiningDeviceMessages<'decoder>> for EncodableField<'decoder>
         }
     }
 }
-#[cfg(not(feature = "with_serde"))]
 impl GetSize for MiningDeviceMessages<'_> {
     fn get_size(&self) -> usize {
         match self {
@@ -993,7 +988,6 @@ impl<'decoder> From<PoolMessages<'decoder>> for EncodableField<'decoder> {
         }
     }
 }
-#[cfg(not(feature = "with_serde"))]
 impl GetSize for PoolMessages<'_> {
     fn get_size(&self) -> usize {
         match self {

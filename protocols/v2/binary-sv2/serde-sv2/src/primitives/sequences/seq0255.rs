@@ -202,3 +202,51 @@ impl<'a, T: Clone + FixedSize + Serialize + TryFromBSlice<'a>> GetSize for Seq02
         }
     }
 }
+impl<'s> Seq0255<'s, U256<'s>> {
+    pub fn into_static(self) -> Seq0255<'static, U256<'static>> {
+        if let Some(inner) = self.data {
+            let inner = inner.clone();
+            let data = inner.into_iter().map(|i| i.into_static()).collect();
+            Seq0255 {
+                seq: None,
+                data: Some(data),
+            }
+        } else {
+            panic!()
+        }
+    }
+    pub fn inner_as_ref(&self) -> &[&[u8]] {
+        todo!()
+    }
+}
+impl<'s> Seq0255<'s, u32> {
+    pub fn into_static(self) -> Seq0255<'static, u32> {
+        if let Some(inner) = self.data {
+            Seq0255 {
+                seq: None,
+                data: Some(inner),
+            }
+        } else {
+            panic!()
+        }
+    }
+}
+
+impl<'a> From<Vec<u32>> for Seq0255<'a, u32> {
+    fn from(v: Vec<u32>) -> Self {
+        Seq0255 {
+            seq: None,
+            data: Some(v),
+        }
+    }
+}
+
+impl<'a> From<Seq0255<'a, u32>> for Vec<u32> {
+    fn from(v: Seq0255<u32>) -> Self {
+        if let Some(inner) = v.data {
+            inner
+        } else {
+            panic!()
+        }
+    }
+}

@@ -88,3 +88,15 @@ impl<'a> From<SetNewPrevHash<'a>> for CSetNewPrevHash {
         }
     }
 }
+#[cfg(feature = "with_serde")]
+use binary_sv2::GetSize;
+#[cfg(feature = "with_serde")]
+impl<'d> GetSize for SetNewPrevHash<'d> {
+    fn get_size(&self) -> usize {
+        self.template_id.get_size()
+            + self.prev_hash.get_size()
+            + self.header_timestamp.get_size()
+            + self.n_bits.get_size()
+            + self.target.get_size()
+    }
+}
