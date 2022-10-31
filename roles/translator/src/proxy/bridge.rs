@@ -9,6 +9,7 @@ use v1::{client_to_server::Submit, server_to_client};
 
 use super::next_mining_notify::NextMiningNotify;
 use crate::{Error, ProxyResult};
+use tracing::{info, warn};
 
 /// Bridge between the SV2 `Upstream` and SV1 `Downstream` responsible for the following messaging
 /// translation:
@@ -137,12 +138,17 @@ impl Bridge {
                     self_.safe_lock(|r| r.set_new_prev_hash.clone()).unwrap();
                 let sv2_set_new_prev_hash: SetNewPrevHash =
                     set_new_prev_hash_recv.clone().recv().await.unwrap();
+                tracing::warn!(
+                    "handle_new_prev_hash job_id: {:?}",
+                    &sv2_set_new_prev_hash.job_id
+                );
                 // Store the prevhash value in the `NextMiningNotify` struct
                 self_
                     .safe_lock(|s| {
                         s.next_mining_notify
                             .safe_lock(|nmn| {
                                 nmn.set_new_prev_hash_msg(sv2_set_new_prev_hash);
+                                warn!("handle_new_prev_hash nmn set_new_prev_hash: {:?}", &nmn);
                             })
                             .unwrap();
                     })
@@ -161,13 +167,16 @@ impl Bridge {
                             .unwrap()
                     })
                     .unwrap();
-                let sv1_notify_msg =
-                    sv1_notify_msg.expect("Error creating `mining.Notify` from `SetNewPrevHash`");
+                warn!(
+                    "handle_new_prev_hash mining.notify to send: {:?}",
+                    &sv1_notify_msg
+                );
 
                 // If a `mining.notify` was able to be created (aka if `SetNewPrevHash` AND
                 // `NewExtendedMiningJob` messages have both been received), send the
                 // `mining.notify` data to the `Downstream`
-                if let Some(msg) = Some(sv1_notify_msg) {
+                if let Some(msg) = sv1_notify_msg {
+                    warn!("handle_new_prev_hash sending mining.notify to Downstream");
                     // `last_notify` logic here is only relevant for SV2 `SetNewPrevHash` and
                     // `NewExtendedMiningJob` messages received **before** a Downstream role
                     // connects
@@ -178,6 +187,9 @@ impl Bridge {
                         })
                         .unwrap();
                     sender_mining_notify.send(msg).await.unwrap();
+                } else {
+                    // info!("Error creating `mining.Notify` from `SetNewPrevHash`");
+                    warn!("handle_new_prev_hash NOT sending mining.notify to Downstream");
                 }
             }
         });
@@ -200,38 +212,59 @@ impl Bridge {
                         .recv()
                         .await
                         .unwrap();
+                warn!(
+                    "handle_new_extended_mining_job job_id: {:?}",
+                    &sv2_new_extended_mining_job.job_id
+                );
                 // Store the new extended mining job values in the `NextMiningNotify` struct
                 self_
                     .safe_lock(|s| {
                         s.next_mining_notify
                             .safe_lock(|nmn| {
                                 nmn.new_extended_mining_job_msg(sv2_new_extended_mining_job);
+                                warn!("handle_new_extended_mining_job nmn set_new_extended_mining_job: {:?}", &nmn);
                             })
                             .unwrap();
                     })
                     .unwrap();
 
-                // Commented out because of current Braiins Pool behavior.
-                // let sender_mining_notify =
-                //     self_.safe_lock(|s| s.sender_mining_notify.clone()).unwrap();
-                // let sv1_notify_msg = self_
-                //     .safe_lock(|s| {
-                //         s.next_mining_notify
-                //             .safe_lock(|nmn| nmn.create_notify())
-                //             .unwrap()
-                //     })
-                //     .unwrap();
-                // let sv1_notify_msg = sv1_notify_msg
-                //     .expect("Error creating `mining.Notify` from `NewExtendedMiningJob`");
-                // if let Some(msg) = sv1_notify_msg {
-                //     let last_notify = self_.safe_lock(|s| s.last_notify.clone()).unwrap();
-                //     last_notify
-                //         .safe_lock(|s| {
-                //             let _ = s.insert(msg.clone());
-                //         })
-                //         .unwrap();
-                //     sender_mining_notify.send(msg).await.unwrap();
-                // }
+                // Braiins pool currently only sends future_job=true, so there is never a case
+                // where we will want to send a mining.notify here because it will not have a
+                // corresponding SetNewPrevHash yet.
+                let sender_mining_notify =
+                    self_.safe_lock(|s| s.sender_mining_notify.clone()).unwrap();
+
+                // If this NewExtendedMiningJob has a future_job=false (meaning that this
+                // NewExtendedMiningJob is intended to be used with an already received
+                // SetNewPrevHash), a new `mining.notify` will be created via the NextMiningNotify
+                // create_notify method and returned in an Option to then be sent to the
+                // Downstream. If this NewExtendedMiningJob has a future_job=true (meaning that
+                // this NewExtendedMiningJob is intended to be used with a future SetNewPrevHash,
+                // the NextMiningNotify create_notify function will return None and NO
+                // `mining.notify` will be sent to the Downstream.
+                let sv1_notify_msg = self_
+                    .safe_lock(|s| {
+                        s.next_mining_notify
+                            .safe_lock(|nmn| nmn.create_notify())
+                            .unwrap()
+                    })
+                    .unwrap();
+
+                // If the current NewExtendedMiningJob and SetNewPrevHash are present and are
+                // intended to be used for the same job (both messages job_id's are the same), send
+                // the newly created `mining.notify` to the Downstream for mining.
+                if let Some(msg) = sv1_notify_msg {
+                    warn!("handle_new_extended_mining_job sending mining.notify to Downstream");
+                    let last_notify = self_.safe_lock(|s| s.last_notify.clone()).unwrap();
+                    last_notify
+                        .safe_lock(|s| {
+                            let _ = s.insert(msg.clone());
+                        })
+                        .unwrap();
+                    sender_mining_notify.send(msg).await.unwrap();
+                } else {
+                    warn!("handle_new_extended_mining_job NOT sending mining.notify to Downstream");
+                }
             }
         });
     }
