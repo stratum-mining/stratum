@@ -9,7 +9,7 @@ use v1::{client_to_server::Submit, server_to_client};
 
 use super::next_mining_notify::NextMiningNotify;
 use crate::{Error, ProxyResult};
-use tracing::{info, warn};
+use tracing::warn;
 
 /// Bridge between the SV2 `Upstream` and SV1 `Downstream` responsible for the following messaging
 /// translation:
