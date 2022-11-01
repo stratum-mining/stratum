@@ -160,8 +160,6 @@ impl Bridge {
                     })
                     .unwrap();
 
-                // if job_mapper has NEMJ with matching job id as SNPH, insert it into the NMN
-                // if not, use the NEMJ in the  NMN struct
                 // Check the job_mapper to see if there is a NewExtendedMiningJob with a job id
                 // that matches this SetNewPrevHash's job id. If there is, remove it from the
                 // mapping and store this NewExtendedMiningJob in the NextMiningNotify for
@@ -219,6 +217,15 @@ impl Bridge {
                         })
                         .unwrap();
                     sender_mining_notify.send(msg).await.unwrap();
+
+                    // Flush stale jobs from job_mapper (aka retain all values greater than
+                    // this job_id)
+                    let last_stale_job_id = sv2_set_new_prev_hash.job_id;
+                    self_
+                        .safe_lock(|s| {
+                            s.job_mapper.retain(|&k, _| k > last_stale_job_id);
+                        })
+                        .unwrap();
                 } else {
                     panic!("NewExtendedMiningJob and SetNewPrevHash job ids mismatch");
                 }
@@ -286,7 +293,9 @@ impl Bridge {
                         .safe_lock(|s| {
                             s.next_mining_notify
                                 .safe_lock(|nmn| {
-                                    nmn.new_extended_mining_job_msg(sv2_new_extended_mining_job);
+                                    nmn.new_extended_mining_job_msg(
+                                        sv2_new_extended_mining_job.clone(),
+                                    );
                                     nmn.create_notify()
                                 })
                                 .unwrap()
@@ -306,6 +315,15 @@ impl Bridge {
                             })
                             .unwrap();
                         sender_mining_notify.send(msg).await.unwrap();
+
+                        // Flush stale jobs from job_mapper (aka retain all values greater than
+                        // this job_id)
+                        let last_stale_job_id = sv2_new_extended_mining_job.job_id;
+                        self_
+                            .safe_lock(|s| {
+                                s.job_mapper.retain(|&k, _| k > last_stale_job_id);
+                            })
+                            .unwrap();
                     } else {
                         panic!("NewExtendedMiningJob and SetNewPrevHash job ids mismatch");
                     }
