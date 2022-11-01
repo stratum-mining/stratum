@@ -11,8 +11,7 @@ use common_messages_sv2::{
 };
 use core::convert::TryInto;
 use std::sync::Arc;
-use tracing::{error};
-
+use tracing::{debug, error};
 
 pub type SendTo = SendTo_<CommonMessages<'static>, ()>;
 
@@ -38,9 +37,12 @@ where
                 .safe_lock(|x| x.handle_channel_endpoint_changed(m))
                 .unwrap(),
             Ok(CommonMessages::SetupConnection(_)) => {
-                error!("Got unexpected setup connection message: {:?}", message_type);
+                error!(
+                    "Got unexpected setup connection message: {:?}",
+                    message_type
+                );
                 Err(Error::UnexpectedMessage)
-            },
+            }
             Err(e) => Err(e),
         }
     }
@@ -82,6 +84,7 @@ where
         match (message_type, payload).try_into() {
             Ok(CommonMessages::SetupConnection(m)) => match routing_logic {
                 CommonRoutingLogic::Proxy(r_logic) => {
+                    debug!("Got proxy setup connection message: {:?}", m);
                     let result = r_logic
                         .safe_lock(|r_logic| r_logic.on_setup_connection(&m))
                         .unwrap();

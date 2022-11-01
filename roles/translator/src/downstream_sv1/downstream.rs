@@ -239,7 +239,10 @@ impl Downstream {
             let stream = stream.expect("Err on SV1 Downstream connection stream");
             extended_extranonce.next_extended(0).unwrap();
             let extended_extranonce = extended_extranonce.clone();
-            info!("PROXY SERVER - ACCEPTING FROM DOWNSTREAM: {}", stream.peer_addr().unwrap());
+            info!(
+                "PROXY SERVER - ACCEPTING FROM DOWNSTREAM: {}",
+                stream.peer_addr().unwrap()
+            );
             let server = Downstream::new(
                 stream,
                 submit_sender.clone(),

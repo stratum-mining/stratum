@@ -25,7 +25,7 @@ use roles_logic_sv2::{
     utils::{merkle_root_from_path, Id, Mutex},
 };
 use std::{collections::HashMap, convert::TryInto, sync::Arc};
-use tracing::{info};
+use tracing::{debug, info};
 
 pub fn u256_to_block_hash(v: U256<'static>) -> BlockHash {
     let hash: [u8; 32] = v.to_vec().try_into().unwrap();
@@ -454,6 +454,10 @@ impl Downstream {
     pub async fn next(self_mutex: Arc<Mutex<Self>>, mut incoming: StdFrame) {
         let message_type = incoming.get_header().unwrap().msg_type();
         let payload = incoming.payload();
+        debug!(
+            "Downstream message type: {:?}, payload: {:?}",
+            message_type, payload
+        );
         let next_message_to_send = ParseDownstreamMiningMessages::handle_message_mining(
             self_mutex.clone(),
             message_type,
@@ -568,6 +572,7 @@ impl IsMiningDownstream for Downstream {}
 impl Pool {
     async fn accept_incoming_connection(self_: Arc<Mutex<Pool>>, config: Configuration) {
         let listner = TcpListener::bind(&config.listen_address).await.unwrap();
+        info!("Listening on {}", config.listen_address);
         while let Ok((stream, _)) = listner.accept().await {
             let solution_sender = self_.safe_lock(|p| p.solution_sender.clone()).unwrap();
             let responder = Responder::from_authority_kp(

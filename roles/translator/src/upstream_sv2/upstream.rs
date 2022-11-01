@@ -227,7 +227,10 @@ impl Upstream {
         info!("Up: Sending: {:?}", &open_channel);
 
         let sv2_frame: StdFrame = Message::Mining(open_channel).try_into()?;
-        connection.send(sv2_frame).await.expect("Failed to send OpenChannel");
+        connection
+            .send(sv2_frame)
+            .await
+            .expect("Failed to send OpenChannel");
         Ok(())
     }
 

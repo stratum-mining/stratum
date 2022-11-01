@@ -11,7 +11,7 @@ use roles_logic_sv2::{
     utils::Mutex,
 };
 use std::{convert::TryInto, sync::Arc};
-use tracing::{trace};
+use tracing::trace;
 // [h/s] Expected hash rate of the device (or cumulative hashrate on the
 // channel if multiple devices are connected downstream) in h/s.
 // Depending on server’s target setting policy, this value can be used for
@@ -176,7 +176,13 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
             &self.last_nbits,
         ) {
             (Some(job), Some(p_hash), Some(n_bits)) => {
-                trace!("updating job: {:?} {:?} {:?} {:?}", job, n_bits, p_hash, extended);
+                trace!(
+                    "updating job: {:?} {:?} {:?} {:?}",
+                    job,
+                    n_bits,
+                    p_hash,
+                    extended
+                );
                 partial_job.update_job(&job.0, *n_bits, *p_hash, job.1);
                 self.jobs.insert(channel_id, partial_job);
             }
