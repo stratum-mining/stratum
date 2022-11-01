@@ -49,6 +49,9 @@ pub struct Bridge {
     /// a Downstream role connects and receives the first notify values, this member field is no
     /// longer used.
     last_notify: Arc<Mutex<Option<server_to_client::Notify>>>,
+    /// Stores SV2 `NewExtendedMiningJob` messages intended for future SV2 `SetNewPrevHash`
+    /// messages (when the SV2 `NewExtendedMiningJob` message has a `future_job=false`). The
+    /// `job_id` is the key, and the `NewExtendedMiningJob` is the value.
     job_mapper: HashMap<u32, NewExtendedMiningJob<'static>>,
 }
 
