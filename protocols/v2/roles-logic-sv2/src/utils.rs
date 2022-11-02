@@ -19,7 +19,7 @@ use tracing::{error, info};
 use crate::errors::Error;
 
 /// Generator of unique ids
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Id {
     state: u32,
 }
