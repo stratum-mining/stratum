@@ -35,10 +35,6 @@ impl JobCreator {
         new_template: &mut NewTemplate,
         coinbase_outputs: &[TxOut],
     ) -> Result<NewExtendedMiningJob<'static>, Error> {
-        assert!(
-            new_template.coinbase_tx_outputs_count == 0,
-            "node provided outputs not supported yet"
-        );
         let script_prefix = new_template.coinbase_prefix.to_vec();
         // Is ok to panic here cause condition will be always true when not in a test chain
         // (regtest ecc ecc)
