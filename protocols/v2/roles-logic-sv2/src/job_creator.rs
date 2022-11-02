@@ -5,7 +5,7 @@ use bitcoin::{
         script::Script,
         transaction::{OutPoint, Transaction, TxIn, TxOut},
     },
-    util::psbt::serialize::Serialize,
+    util::psbt::serialize::{Deserialize, Serialize},
 };
 pub use bitcoin::{
     secp256k1::SecretKey,
@@ -176,6 +176,15 @@ impl JobsCreators {
         if template.coinbase_tx_value_remaining != self.block_reward_staoshi {
             self.block_reward_staoshi = template.coinbase_tx_value_remaining;
             self.coinbase_outputs = self.new_outputs(template.coinbase_tx_value_remaining);
+        }
+
+        if template.coinbase_tx_outputs_count > 0 {
+            self.coinbase_outputs = self.new_outputs(template.coinbase_tx_value_remaining);
+
+            for output in template.coinbase_tx_outputs.inner_as_ref() {
+                self.coinbase_outputs
+                    .push(TxOut::deserialize(output.inner_as_ref()).unwrap());
+            }
         }
 
         let mut new_extended_jobs = HashMap::new();
