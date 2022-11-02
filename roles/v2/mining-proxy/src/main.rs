@@ -22,8 +22,6 @@ use std::{net::{SocketAddr, IpAddr}, str::FromStr};
 
 use async_channel::bounded;
 use tracing::{error, info};
-
-use lib::upstream_mining::UpstreamMiningNode;
 use async_channel::bounded;
 use lib::{
     job_negotiator::JobNegotiator, template_receiver::TemplateRx,
@@ -32,7 +30,7 @@ use lib::{
 use once_cell::sync::{Lazy, OnceCell};
 use serde::Deserialize;
 use std::{
-    net::{IpAddr, SocketAddr},
+    net::IpAddr,
     str::FromStr,
 };
 

@@ -19,9 +19,9 @@ use roles_logic_sv2::errors::Error;
 
 impl JobNegotiatorDownstream {
     fn verify_job(&mut self, message: &CommitMiningJob) -> bool {
-        let key: Vec<u8> = message.mining_job_token.inner_as_ref().try_into().unwrap();
-        let is_token_allocated = self.token_to_job_map.contains_key(&key);
-
+        let key: [u8;32] = message.mining_job_token.inner_as_ref().try_into().unwrap();
+        let is_token_allocated = self
+            .token_to_job_map.contains_key(&key);
         // TODO Function to implement, it must be checked if the requested job has:
         // 1. right coinbase
         // 2. right version field
@@ -57,7 +57,7 @@ impl ParseClientJobNegotiationMessages for JobNegotiatorDownstream {
 
     fn commit_mining_job(&mut self, message: CommitMiningJob) -> Result<SendTo, Error> {
         if self.verify_job(&message) {
-            let message_success = CommitMiningJobSuccess {
+            let message_success = CommitMiningJobSuccess{
                 request_id: message.request_id,
                 new_mining_job_token: message.mining_job_token.clone().into_static(),
             };

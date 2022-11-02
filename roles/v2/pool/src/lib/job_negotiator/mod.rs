@@ -5,7 +5,6 @@ use roles_logic_sv2::{
     job_negotiation_sv2::CommitMiningJob,
     utils::{Id, Mutex},
 };
-use binary_sv2::B0255;
 use std::{collections::HashMap, convert::TryInto, sync::Arc};
 use tokio::net::TcpListener;
 use tracing::info;
@@ -45,7 +44,7 @@ impl<'a> From<CommitMiningJob<'a>> for CommittedMiningJob<'static> {
 
     }
 }
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct JobNegotiatorDownstream {
     sender: Sender<EitherFrame>,
     receiver: Receiver<EitherFrame>,
