@@ -183,7 +183,7 @@ impl JobsCreators {
 
             for output in template.coinbase_tx_outputs.inner_as_ref() {
                 self.coinbase_outputs
-                    .push(TxOut::deserialize(output.inner_as_ref()).unwrap());
+                    .push(TxOut::deserialize(output.inner_as_ref())?);
             }
         }
 
