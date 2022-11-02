@@ -109,6 +109,12 @@ impl<'a, T: 'a> Seq064K<'a, T> {
             Err(Error::SeqExceedsMaxSize)
         }
     }
+
+    /// Return a reference to the inner vector of T with the same lifetime
+    /// guarantees as the struct.
+    pub fn inner_as_ref(&'a self) -> &'a Vec<T> {
+        &self.0
+    }
 }
 
 impl<'a, T: GetSize> GetSize for Seq064K<'a, T> {
