@@ -19,6 +19,13 @@ const SCRIPT_PREFIX_LEN: usize = 4;
 const PREV_OUT_LEN: usize = 38;
 const EXTRANONCE_LEN: usize = 32;
 
+/// Hardcoded value if/when a spec change is approved to send this value from the
+/// TemplateProvider: https://github.com/stratum-mining/sv2-spec/pull/15
+///
+/// The WITNESS_RESERVE_VALUE is used to validate a witness commitment given:
+/// SHA256^2(witness_reserve_value, witness_root);
+const WITNESS_RESERVE_VALUE: [u8; 32] = [0x00; 32];
+
 /// Used by pool one for each group channel
 /// extended and standard channel not supported
 #[derive(Debug)]
@@ -114,7 +121,7 @@ impl JobCreator {
             previous_output: OutPoint::null(),
             script_sig: bip34_bytes.into(),
             sequence,
-            witness: vec![],
+            witness: vec![WITNESS_RESERVE_VALUE.to_vec()],
         };
         Transaction {
             version,
