@@ -20,7 +20,7 @@ use std::{
 };
 use v1::server_to_client;
 
-use tracing::{error, warn};
+use tracing::{debug, error, warn};
 
 /// Process CLI args, if any.
 fn process_cli_args() -> ProxyResult<ProxyConfig> {

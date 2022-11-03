@@ -51,13 +51,17 @@ impl SetupConnectionHandler {
         sender.send(sv2_frame).await.map_err(|_| ())?;
         trace!("Sent setup connection message, waiting for response");
 
-        let mut incoming: StdFrame = receiver.recv()
-            .await.expect("Connection to TP closed!")
-            .try_into().expect("Failed to parse incoming SetupConnectionResponse");
+        let mut incoming: StdFrame = receiver
+            .recv()
+            .await
+            .expect("Connection to TP closed!")
+            .try_into()
+            .expect("Failed to parse incoming SetupConnectionResponse");
         let message_type = incoming.get_header().unwrap().msg_type();
         let payload = incoming.payload();
 
-        trace!("Received {} response to setup connection message", message_type);
+        trace!("Received {} response to setup connection message",
+            message_type);
         ParseUpstreamCommonMessages::handle_message_common(
             Arc::new(Mutex::new(SetupConnectionHandler {})),
             message_type,
