@@ -60,8 +60,11 @@ impl SetupConnectionHandler {
         let message_type = incoming.get_header().unwrap().msg_type();
         let payload = incoming.payload();
 
-        trace!("Received {} response to setup connection message",
-            message_type);
+        trace!(
+            "Received {} response to setup connection message",
+            message_type
+        );
+
         ParseUpstreamCommonMessages::handle_message_common(
             Arc::new(Mutex::new(SetupConnectionHandler {})),
             message_type,
