@@ -23,10 +23,6 @@ use tracing_subscriber;
 
 use tracing::{error, info};
 
-use tracing::{error, info};
-
-use tracing::{error, info};
-
 use lib::upstream_mining::UpstreamMiningNode;
 use once_cell::sync::{Lazy, OnceCell};
 use serde::Deserialize;
