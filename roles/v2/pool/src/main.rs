@@ -112,7 +112,7 @@ async fn main() {
     };
 
     // Load config
-    let config: Configuration = match std::fs::read_to_string(&args.config_path) {
+    let config : Configuration = match std::fs::read_to_string(&args.config_path) {
         Ok(c) => match toml::from_str(&c) {
             Ok(c) => c,
             Err(e) => {

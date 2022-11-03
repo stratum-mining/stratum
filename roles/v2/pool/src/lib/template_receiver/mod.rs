@@ -45,8 +45,7 @@ impl TemplateRx {
             PlainConnection::new(stream).await;
 
         SetupConnectionHandler::setup(&mut receiver, &mut sender, address)
-            .await
-            .expect("Failed to setup connection with template distribution server!");
+            .await.expect("Failed to setup connection with template distribution server!");
 
         let self_ = Arc::new(Mutex::new(Self {
             receiver,
@@ -95,10 +94,9 @@ impl TemplateRx {
                     TemplateDistribution::RequestTransactionData(_) => todo!(),
                     TemplateDistribution::RequestTransactionDataError(_) => todo!(),
                     TemplateDistribution::RequestTransactionDataSuccess(_) => todo!(),
-                    TemplateDistribution::SetNewPrevHash(m) => new_prev_hash_sender
-                        .send(m)
-                        .await
-                        .expect("Failed to send new prev hash"),
+                    TemplateDistribution::SetNewPrevHash(m) => {
+                        new_prev_hash_sender.send(m).await.expect("Failed to send new prev hash")
+                    }
                     TemplateDistribution::SubmitSolution(_) => todo!(),
                 },
                 _ => todo!(),
@@ -124,8 +122,7 @@ impl TemplateRx {
                     .try_into()
                     .expect("Failed to convert solution to sv2 frame!");
             Self::send(self_.clone(), sv2_frame)
-                .await
-                .expect("Failed to send solution!");
+                .await.expect("Failed to send solution!");
         }
     }
 }
