@@ -4,12 +4,11 @@ use std::{
     sync::{Mutex as Mutex_, MutexGuard, PoisonError},
 };
 
-use bitcoin::util::uint::Uint256;
 use bitcoin::{
     blockdata::block::BlockHeader,
     hash_types::{BlockHash, TxMerkleNode},
     hashes::{sha256d::Hash as DHash, Hash},
-    util::psbt::serialize::Deserialize,
+    util::{psbt::serialize::Deserialize, uint::Uint256},
     Transaction,
 };
 

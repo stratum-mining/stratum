@@ -12,7 +12,6 @@ use roles_logic_sv2::{
 use std::{convert::TryInto, net::SocketAddr, sync::Arc};
 use tracing::{error, info, trace};
 
-
 pub struct SetupConnectionHandler {}
 
 impl SetupConnectionHandler {
