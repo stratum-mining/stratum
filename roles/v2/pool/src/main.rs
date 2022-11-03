@@ -8,9 +8,9 @@ use roles_logic_sv2::{
     parsers::PoolMessages,
 };
 use serde::Deserialize;
+use tracing_subscriber;
 
 use tracing::{error, info};
-
 mod lib;
 
 use lib::{mining_pool::Pool, template_receiver::TemplateRx};

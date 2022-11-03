@@ -360,7 +360,10 @@ impl Upstream {
                 sv2_submit.job_id = self_.safe_lock(|s| s.job_id.unwrap()).unwrap();
 
                 info!("Up: Submitting Share");
-                debug!("Up: Handling SubmitSharesExtended: {:?}", &sv2_submit);
+                debug!(
+                    "Up: Handling SubmitSharesExtended: {:?}",
+                    &sv2_submit
+                );
 
                 //match self_
                 //    .safe_lock(|s| s.current_job.clone().get_candidate_hash(&sv2_submit))
@@ -544,7 +547,10 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
         self.min_extranonce_size = m.extranonce_size;
 
         info!("Up: Successfully Opened Extended Mining Channel");
-        debug!("Up: Handling OpenExtendedMiningChannelSuccess: {:?}", &m);
+        debug!(
+            "Up: Handling OpenExtendedMiningChannelSuccess: {:?}",
+            &m
+        );
         self.channel_id = Some(m.channel_id);
         self.extranonce_prefix = Some(m.extranonce_prefix.to_vec());
         let m = Mining::OpenExtendedMiningChannelSuccess(OpenExtendedMiningChannelSuccess {
