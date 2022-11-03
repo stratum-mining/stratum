@@ -4,18 +4,18 @@ use std::{
     sync::{Mutex as Mutex_, MutexGuard, PoisonError},
 };
 
+use bitcoin::util::uint::Uint256;
 use bitcoin::{
     blockdata::block::BlockHeader,
     hash_types::{BlockHash, TxMerkleNode},
-    hashes::{Hash, sha256d::Hash as DHash},
-    Transaction,
+    hashes::{sha256d::Hash as DHash, Hash},
     util::psbt::serialize::Deserialize,
+    Transaction,
 };
-use bitcoin::util::uint::Uint256;
 
 use binary_sv2::U256;
 //compact_target_from_u256
-use tracing::{info};
+use tracing::info;
 
 use crate::errors::Error;
 
