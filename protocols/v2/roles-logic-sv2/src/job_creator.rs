@@ -15,14 +15,38 @@ use mining_sv2::NewExtendedMiningJob;
 use std::{collections::HashMap, convert::TryInto};
 use template_distribution_sv2::{NewTemplate, SetNewPrevHash};
 
-const SCRIPT_PREFIX_LEN: usize = 4;
-const PREV_OUT_LEN: usize = 38;
 const EXTRANONCE_LEN: usize = 32;
+
+/// CB_PREFIX_LEN is the default and consistent byte length of the first part
+/// of a serialized coinbase transaction. It includes all invariants and excludes
+/// all variants.
+///
+/// Invariants (in order):
+///   - version: 4 bytes
+///   - number of inputs: 1 byte
+///   - previous output hash + previous output index: 36 bytes
+///   - scriptSig length: 1 byte
+///   - block height length: 1 byte
+const CB_PREFIX_LEN: usize = 43;
+
+/// SCRIPT_SIG_LEN_INDEX is the index position of the scriptSig length in a serialized
+/// non-segwit coinbase transaction. For a Segwit transaction, this index position
+/// will need an additional 2 bytes (SEGWIT_FLAG_LEN).
+///
+/// The scriptSig length, includes all of the following fields:
+///     - block height length (1 byte)
+///     - block height (variable according to block height length value)
+///     - extra nonce (variable according to the remaining bytes after the 2 fields above)
+const SCRIPT_SIG_LEN_INDEX: usize = 41;
+
+/// SEGWIT_FLAG_LEN is the byte length of the optional Segwit flag in a coinbase
+/// transaction.
+const SEGWIT_FLAG_LEN: usize = 2;
 
 /// Hardcoded value if/when a spec change is approved to send this value from the
 /// TemplateProvider: https://github.com/stratum-mining/sv2-spec/pull/15
 ///
-/// The WITNESS_RESERVE_VALUE is used to validate a witness commitment given:
+/// The WITNESS_RESERVE_VALUE is used to create/validate a witness commitment given:
 /// SHA256^2(witness_reserve_value, witness_root);
 const WITNESS_RESERVE_VALUE: [u8; 32] = [0x00; 32];
 
