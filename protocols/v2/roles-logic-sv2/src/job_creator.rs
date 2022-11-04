@@ -286,3 +286,132 @@ impl JobsCreators {
         None
     }
 }
+
+mod test {
+    use super::*;
+    pub use bitcoin::consensus::encode::deserialize;
+
+    fn parse_coinbase_test(cb_bytes: &[u8], block_height_len: usize, segwit: bool) {
+        let cb_tx: Transaction = deserialize(&cb_bytes).unwrap();
+
+        let segwit_flag = if segwit { SEGWIT_FLAG_LEN } else { 0 };
+
+        // The coinbase prefix should be sliced to the end of the block height field.
+        let cb_prefix = JobCreator::coinbase_tx_prefix(&cb_tx, block_height_len, segwit).unwrap();
+        assert_eq!(
+            &cb_bytes[0..CB_PREFIX_LEN + segwit_flag + block_height_len],
+            &cb_prefix.inner_as_ref()[..]
+        );
+
+        // The coinbase suffix should be sliced from the sequence number (after
+        // the extranonce) until the end.
+        let script_sig_len: usize = (cb_bytes[SCRIPT_SIG_LEN_INDEX + segwit_flag] - 1).into();
+
+        let cb_suffix = JobCreator::coinbase_tx_suffix(&cb_tx, segwit).unwrap();
+        assert_eq!(
+            &cb_bytes[CB_PREFIX_LEN + segwit_flag + script_sig_len..],
+            &cb_suffix.inner_as_ref()[..]
+        );
+    }
+
+    #[test]
+    fn parse_coinbase_tx() {
+        // Segwit Regtest Block - Height: 256
+        #[rustfmt::skip]
+        let regtest_segwit_cb_bytes = [
+            2, 0, 0, 0, // version
+            0, 1, // segwit optional flag
+            1, // number of inputs
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // prev out
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            255, 255, 255, 255, // prev out index
+            35, // scriptSig len
+            2, // block height len
+            0, 1, // block height
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // extranonce
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            255, 255, 255, 255, // sequence number
+            2, // number of outputs
+            0, 249, 2, 149, 0, 0, 0, 0, // output value
+            22, // scriptPubKey len
+            0, 20, 83, 18, 96, 170, 42, 25, 158, 34, 140, 83, 125, 250, 66, 200, // scriptPubKey
+            43, 234, 44, 124, 31, 77,
+            0, 0, 0, 0, // locktime
+            0, 0, 0, 0, // start of coinbase witness commitment output
+            38, // length of following bytes
+            106, // OP_RETURN
+            36, // Push 36 bytes
+            170, 33, 169, 237, // commitment header
+            226, 246, 28, 63, 113, 209, 222, 253, 63, 169, 153, 223, 163, 105, // commitment hash and extra data
+            83, 117, 92, 105, 6, 137, 121, 153, 98, 180, 139, 235, 216, 54, 151,
+            78, 140, 249, 1, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+        ];
+        let block_height_len = 2;
+        parse_coinbase_test(&regtest_segwit_cb_bytes, block_height_len, true);
+
+        // Height: 761362
+        // https://blockstream.info/tx/eede27543f086abd612b87096a7216229d4c736d39bbdfd4fefc1455f427997f
+        #[rustfmt::skip]
+        let segwit_cb_bytes = [
+            2, 0, 0, 0, // version
+            0, 1, // segwit optional flag
+            1, // number of inputs
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // prev out
+            0, 0, 0, 0, 0, 0, 0, 0, 0,
+            255, 255, 255, 255, // prev out index
+            49, // scriptSig len
+            3, // block height len
+            18, 158, 11, // block height
+            4, 122, 0, 98, 99, 47, 70, 111, 117, 110, 100, 114, 121, 32, 85, 83, // extranonce
+            65, 32, 80, 111, 111, 108, 32, 35, 100, 114, 111, 112, 103, 111, 108,
+            100, 47, 13, 85, 98, 0, 128, 4, 0, 0, 0, 0, 0, 0,
+            255, 255, 255, 255, // sequence number
+            2, // number of outputs
+            6, 149, 39, 38, 0, 0, 0, 0, // output value
+            25, // scriptPubKey len
+            118, 169, 20, 14, 110, 210, 249, 94, 138, 127, 49, 49, 83, 84, 114, // scriptPubKey
+            225, 0, 154, 28, 119, 189, 1, 229, 136, 172,
+            0, 0, 0, 0, // lock time
+            0, 0, 0, 0, // start of coinbase witness commitment output
+            38,  // length of following bytes
+            106, // OP_RETURN
+            36,  // Push 36 bytes
+            170, 33, 169, 237, // commitment header
+            209, 182, 201, 196, 24, 245, 120, 15, 237, 192, 164, 203, 138, 101, // commitment hash and extra data
+            201, 95, 159, 55, 243, 248, 85, 219, 230, 159, 196, 135, 213, 73,
+            79, 164, 227, 50, 1, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        ];
+        let block_height_len = 3;
+        parse_coinbase_test(&segwit_cb_bytes, block_height_len, true);
+
+        // Height: 626507
+        // https://blockstream.info/tx/629509d4018a810f7af1e77d5abc5051c09e5b0df9552ca8ab329e0fa5b317cd
+        #[rustfmt::skip]
+        let non_segwit_cb_bytes = [
+            1, 0, 0, 0, // version
+            1, // tx input count
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, // prev out
+            255, 255, 255, 255, // prev out index
+            83,  // scriptSig len
+            3,   // block height len
+            113, 104, 9, // block height
+            4, 159, 32, 63, 94, 250, 190, 109, 109, 121, 10, 234, 181, 125, 12, // extranonce
+            44, 109, 178, 42, 205, 243, 18, 32, 72, 100, 170, 110, 8, 4, 210,
+            54, 188, 251, 243, 25, 63, 33, 106, 192, 174, 248, 4, 0, 0, 0, 0,
+            0, 0, 0, 8, 24, 0, 82, 194, 215, 5, 0, 0, 20, 47, 112, 114, 111,
+            104, 97, 115, 104, 105, 110, 103, 46, 99, 111, 109, 155, 29, 2, 0,
+            47,
+            0, 0, 0, 0, // sequence number
+            1, // number of tx outputs
+            142, 211, 26, 75, 0, 0, 0, 0, // output value
+            25, // scriptPubKey len
+            118, 169, 20, 55, 56, 117, 33, 54, 199, 181, 222, 235, 189, 237, // scriptPubKey
+            147, 39, 77, 105, 201, 13, 59, 32, 143, 136, 172,
+            0, 0, 0, 0, // locktime
+        ];
+        parse_coinbase_test(&non_segwit_cb_bytes, block_height_len, false);
+    }
+}
