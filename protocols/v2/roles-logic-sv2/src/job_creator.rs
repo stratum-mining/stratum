@@ -76,6 +76,11 @@ impl JobCreator {
         let bip34_len = script_prefix[1] as usize;
         let bip34_bytes = script_prefix[1..2 + bip34_len].to_vec();
 
+        // NOTE: There maybe be better ways to determine if the NewTemplate
+        // has segwit inputs. In this case, we are assuming extra coinbase_tx_outputs
+        // means a witness commitment.
+        let segwit_flag = new_template.coinbase_tx_outputs_count > 0;
+
         let coinbase = self.coinbase(
             bip34_bytes,
             new_template
@@ -85,6 +90,7 @@ impl JobCreator {
             new_template.coinbase_tx_locktime,
             new_template.coinbase_tx_input_sequence,
             coinbase_outputs,
+            segwit_flag,
         );
         let new_extended_mining_job: NewExtendedMiningJob<'static> = NewExtendedMiningJob {
             channel_id: self.group_channel_id,
@@ -93,8 +99,8 @@ impl JobCreator {
             version: new_template.version,
             version_rolling_allowed: self.version_rolling_allowed,
             merkle_path: new_template.merkle_path.clone().into_static(),
-            coinbase_tx_prefix: Self::coinbase_tx_prefix(&coinbase, SCRIPT_PREFIX_LEN)?,
-            coinbase_tx_suffix: Self::coinbase_tx_suffix(&coinbase, SCRIPT_PREFIX_LEN)?,
+            coinbase_tx_prefix: Self::coinbase_tx_prefix(&coinbase, bip34_len, segwit_flag)?,
+            coinbase_tx_suffix: Self::coinbase_tx_suffix(&coinbase, segwit_flag)?,
         };
         self.template_id_to_job_id
             .insert(new_template.template_id, new_extended_mining_job.job_id);
@@ -107,31 +113,30 @@ impl JobCreator {
 
     fn coinbase_tx_prefix(
         coinbase: &Transaction,
-        coinbase_tx_input_script_prefix_byte_len: usize,
+        cb_tx_block_height_len: usize,
+        segwit: bool,
     ) -> Result<B064K<'static>, Error> {
         let encoded = coinbase.serialize();
-        // add 1 cause the script header (len of script) is 1 byte
-        let r = encoded
-            [0..SCRIPT_PREFIX_LEN + coinbase_tx_input_script_prefix_byte_len + PREV_OUT_LEN]
-            .to_vec();
-        r.try_into().map_err(Error::BinarySv2Error)
+
+        let segwit_byte_flag = if segwit { SEGWIT_FLAG_LEN } else { 0 };
+        let prefix = encoded[0..CB_PREFIX_LEN + segwit_byte_flag + cb_tx_block_height_len].to_vec();
+
+        prefix.try_into().map_err(Error::BinarySv2Error)
     }
 
-    fn coinbase_tx_suffix(
-        coinbase: &Transaction,
-        coinbase_tx_input_script_prefix_byte_len: usize,
-    ) -> Result<B064K<'static>, Error> {
+    fn coinbase_tx_suffix(coinbase: &Transaction, segwit: bool) -> Result<B064K<'static>, Error> {
         let encoded = coinbase.serialize();
-        let r = encoded[SCRIPT_PREFIX_LEN
-            + coinbase_tx_input_script_prefix_byte_len
-            + PREV_OUT_LEN
-            + EXTRANONCE_LEN..]
-            .to_vec();
-        r.try_into().map_err(Error::BinarySv2Error)
+
+        let segwit_byte_flag = if segwit { SEGWIT_FLAG_LEN } else { 0 };
+        let script_sig_size = encoded[SCRIPT_SIG_LEN_INDEX + segwit_byte_flag];
+
+        let suffix =
+            encoded[CB_PREFIX_LEN + segwit_byte_flag + (script_sig_size - 1) as usize..].to_vec();
+
+        suffix.try_into().map_err(Error::BinarySv2Error)
     }
 
-    /// coinbase_tx_input_script_prefix: extranonce prefix (script lenght + bip34 block height) provided by the node
-    /// It assume that NewTemplate.coinbase_tx_outputs == 0
+    /// coinbase_tx_input_script_prefix: extranonce prefix (script length + bip34 block height) provided by the node
     fn coinbase(
         &self,
         mut bip34_bytes: Vec<u8>,
@@ -139,14 +144,21 @@ impl JobCreator {
         lock_time: u32,
         sequence: u32,
         coinbase_outputs: &[TxOut],
+        segwit: bool,
     ) -> Transaction {
         bip34_bytes.extend_from_slice(&[0; EXTRANONCE_LEN]);
+
         let tx_in = TxIn {
             previous_output: OutPoint::null(),
             script_sig: bip34_bytes.into(),
             sequence,
-            witness: vec![WITNESS_RESERVE_VALUE.to_vec()],
+            witness: if segwit {
+                vec![WITNESS_RESERVE_VALUE.to_vec()]
+            } else {
+                vec![]
+            },
         };
+
         Transaction {
             version,
             lock_time,
