@@ -7,6 +7,7 @@ use codec_sv2::{
 use network_helpers::{
     noise_connection_tokio::Connection, plain_connection_tokio::PlainConnection,
 };
+use roles_logic_sv2::parsers::AnyMessage;
 use std::net::SocketAddr;
 use tokio::net::{TcpListener, TcpStream};
 

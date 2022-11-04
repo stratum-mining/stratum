@@ -1,6 +1,10 @@
 mod executor;
 mod external_commands;
 mod net;
+mod parser;
+
+#[macro_use]
+extern crate load_file;
 
 use binary_sv2::{Deserialize, GetSize, Serialize};
 use codec_sv2::{
@@ -9,7 +13,7 @@ use codec_sv2::{
 };
 use external_commands::*;
 use net::{setup_as_downstream, setup_as_upstream};
-use roles_logic_sv2::common_messages_sv2::SetupConnectionSuccess;
+use roles_logic_sv2::{common_messages_sv2::SetupConnectionSuccess, parsers::AnyMessage};
 use std::net::SocketAddr;
 //use serde::{Deserialize as SerdeDeserialize, Serialize as SerdeSerialize};
 use serde_json;
@@ -34,17 +38,19 @@ enum Sv2Type {
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 enum ActionResult {
     MatchMessageType(u8),
-    MatchMessageField(Sv2Type),
+    // subprotocol, message type, field_name, value
+    MatchMessageField((String, String, String, Sv2Type)),
     MatchMessageLen(usize),
     MatchExtensionType(u16),
     CloseConnection,
     None,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize, Copy)]
 enum Role {
     Upstream,
     Downstream,
+    Proxy,
 }
 
 #[derive(Debug, Clone)]
@@ -60,13 +66,13 @@ struct Downstream {
 }
 
 #[derive(Debug)]
-struct Action<Message: Serialize + Deserialize<'static> + GetSize + Send> {
-    messages: Vec<EitherFrame<Message>>,
+pub struct Action<'a> {
+    messages: Vec<EitherFrame<AnyMessage<'a>>>,
     result: Vec<ActionResult>,
     role: Role,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Command {
     command: String,
     args: Vec<String>,
@@ -74,25 +80,25 @@ pub struct Command {
 }
 
 #[derive(Debug)]
-pub struct Test<Message: Serialize + Deserialize<'static> + GetSize + Send> {
-    actions: Vec<Action<Message>>,
+pub struct Test<'a> {
+    actions: Vec<Action<'a>>,
     as_upstream: Option<Upstream>,
     as_dowstream: Option<Downstream>,
     setup_commmands: Vec<Command>,
     execution_commands: Vec<Command>,
     cleanup_commmands: Vec<Command>,
-    first_received: Option<Action<Message>>,
 }
 
-fn main() {
-    println!("HeLlo, world!");
-    let data = r#"
-    {
-        "used_version": 2,
-        "flags": 0
-    }
-    "#;
-    let v: SetupConnectionSuccess = dbg!(serde_json::from_str(data).unwrap());
+#[tokio::main]
+async fn main() {
+    let args: Vec<String> = std::env::args().collect();
+    let test_path = &args[1];
+    let test = load_str!(test_path);
+    let test = parser::Parser::parse_test(&test);
+    let executor = executor::Executor::new(test).await;
+    executor.execute().await;
+    println!("TEST OK");
+    std::process::exit(1);
 }
 
 #[cfg(test)]
@@ -224,7 +230,7 @@ mod test {
                 "./roles/v2/pool/pool-config.toml",
             ],
             ExternalCommandConditions::new_with_timer_secs(10)
-                .continue_if_std_out_have("POOL INITIALIZED"),
+                .continue_if_std_out_have("Listening on"),
         )
         .await;
 
