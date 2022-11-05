@@ -36,10 +36,7 @@ impl ParseServerTemplateDistributionMessages for TemplateRx {
             target: m.target.into_static(),
         };
         let new_prev_hash = TemplateDistribution::SetNewPrevHash(new_prev_hash);
-        Ok(SendTo::RelayNewMessageToRemote(
-            Arc::new(Mutex::new(())),
-            new_prev_hash,
-        ))
+        Ok(SendTo::None(Some(new_prev_hash)))
     }
 
     fn handle_request_tx_data_success(

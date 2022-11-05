@@ -56,7 +56,6 @@ impl<'decoder> SetupConnection<'decoder> {
     pub fn set_requires_standard_job(&mut self) {
         self.flags |= 0b_0000_0000_0000_0000_0000_0000_0000_0001
     }
-    
 
     pub fn set_async_job_nogotiation(&mut self) {
         self.flags |= 0b_0000_0000_0000_0000_0000_0000_0000_0001

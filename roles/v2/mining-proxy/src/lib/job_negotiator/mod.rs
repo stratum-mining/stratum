@@ -9,11 +9,12 @@ use roles_logic_sv2::{
     utils::Mutex,
 };
 use std::{convert::TryInto, str::FromStr};
+use tracing::info;
 
 use codec_sv2::Frame;
 use roles_logic_sv2::{
     handlers::job_negotiation::ParseServerJobNegotiationMessages,
-    template_distribution_sv2::NewTemplate,
+    template_distribution_sv2::{NewTemplate, SetNewPrevHash},
 };
 use std::{
     net::{IpAddr, SocketAddr},
@@ -37,7 +38,9 @@ pub struct JobNegotiator {
     sender: Sender<StandardEitherFrame<PoolMessages<'static>>>,
     receiver: Receiver<StandardEitherFrame<PoolMessages<'static>>>,
     receiver_new_template: Receiver<NewTemplate<'static>>,
+    receiver_set_new_prev_hash: Receiver<SetNewPrevHash<'static>>,
     last_new_template: Option<NewTemplate<'static>>,
+    set_new_prev_hash: Option<SetNewPrevHash<'static>>,
 }
 
 impl JobNegotiator {
@@ -45,6 +48,7 @@ impl JobNegotiator {
         address: SocketAddr,
         authority_public_key: [u8; 32],
         receiver_new_template: Receiver<NewTemplate<'static>>,
+        receiver_set_new_prev_hash: Receiver<SetNewPrevHash<'static>>,
     ) {
         let stream = TcpStream::connect(address).await.unwrap();
         let initiator = Initiator::from_raw_k(authority_public_key).unwrap();
@@ -73,7 +77,9 @@ impl JobNegotiator {
             sender,
             receiver,
             receiver_new_template,
+            receiver_set_new_prev_hash,
             last_new_template: None,
+            set_new_prev_hash: None,
         }));
 
         let allocate_token_message =
@@ -89,6 +95,7 @@ impl JobNegotiator {
 
         let cloned = self_.clone();
         Self::on_new_template(cloned.clone());
+        Self::on_new_prev_hash(cloned.clone());
         loop {
             match cloned.safe_lock(|s| s.last_new_template.clone()).unwrap() {
                 Some(_) => break,
@@ -108,9 +115,26 @@ impl JobNegotiator {
                     .unwrap();
                 let incoming_new_template: NewTemplate =
                     receiver_new_tp.recv().await.unwrap().try_into().unwrap();
-                println!("New template {:?}", incoming_new_template);
+                println!("New template recieved {:?}", incoming_new_template);
                 self_mutex.safe_lock(|t| {
                     t.last_new_template = Some(incoming_new_template);
+                });
+            }
+        });
+    }
+
+    pub fn on_new_prev_hash(self_mutex: Arc<Mutex<Self>>) {
+        task::spawn(async move {
+            loop {
+                let receiver_new_ph = self_mutex
+                    .clone()
+                    .safe_lock(|d| d.receiver_set_new_prev_hash.clone())
+                    .unwrap();
+                let incoming_set_new_ph: SetNewPrevHash =
+                    receiver_new_ph.recv().await.unwrap().try_into().unwrap();
+                println!("SET new prev hash recieved {:?}", incoming_set_new_ph);
+                self_mutex.safe_lock(|t| {
+                    t.set_new_prev_hash = Some(incoming_set_new_ph);
                 });
             }
         });
@@ -140,11 +164,9 @@ impl JobNegotiator {
             Ok(SendTo::RelayNewMessage(message)) => {
                 todo!();
             }
-            Ok(SendTo::Respond(message)) => {
-                todo!();
-            }
+            Ok(SendTo::Respond(message)) => Self::send(self_mutex, message).await.unwrap(),
             Ok(SendTo::None(m)) => match m {
-                _ => todo!(),
+                _ => info!("MVP2 ENDS HERE"),
             },
             Ok(_) => panic!(),
             Err(_) => todo!(),

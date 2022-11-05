@@ -29,12 +29,14 @@ pub struct TemplateRx {
     receiver: Receiver<EitherFrame>,
     sender: Sender<EitherFrame>,
     send_new_tp_to_negotiator: Sender<NewTemplate<'static>>,
+    send_new_ph_to_negotiator: Sender<SetNewPrevHash<'static>>,
 }
 
 impl TemplateRx {
     pub async fn connect(
         address: SocketAddr,
         send_new_tp_to_negotiator: Sender<NewTemplate<'static>>,
+        send_new_ph_to_negotiator: Sender<SetNewPrevHash<'static>>,
     ) {
         let stream = TcpStream::connect(address).await.unwrap();
 
@@ -50,6 +52,7 @@ impl TemplateRx {
             receiver: receiver.clone(),
             sender: sender.clone(),
             send_new_tp_to_negotiator,
+            send_new_ph_to_negotiator,
         }));
 
         // Put this in a function
@@ -80,6 +83,12 @@ impl TemplateRx {
                         Some(TemplateDistribution::NewTemplate(m)) => {
                             let sender = self_mutex
                                 .safe_lock(|s| s.send_new_tp_to_negotiator.clone())
+                                .unwrap();
+                            sender.send(m).await.unwrap();
+                        }
+                        Some(TemplateDistribution::SetNewPrevHash(m)) => {
+                            let sender = self_mutex
+                                .safe_lock(|s| s.send_new_ph_to_negotiator.clone())
                                 .unwrap();
                             sender.send(m).await.unwrap();
                         }

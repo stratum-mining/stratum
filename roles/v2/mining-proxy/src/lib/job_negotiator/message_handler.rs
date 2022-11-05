@@ -8,6 +8,7 @@ use roles_logic_sv2::{
     },
     parsers::JobNegotiation,
 };
+use tracing::info;
 pub type SendTo = SendTo_<JobNegotiation<'static>, ()>;
 use roles_logic_sv2::errors::Error;
 use std::convert::TryInto;
@@ -36,14 +37,11 @@ impl ParseServerJobNegotiationMessages for JobNegotiator {
             /// Only for MVP2: must be filled with right values for production,
             /// this values are needed for block propagation
             tx_short_hash_list: vec![].try_into().unwrap(),
-            tx_hash_list_hash: vec![].try_into().unwrap(),
+            tx_hash_list_hash: [0; 32].try_into().unwrap(),
             excess_data: vec![].try_into().unwrap(),
         };
         let commit_mining_job = JobNegotiation::CommitMiningJob(message_commit_mining_job);
-        println!(
-            "Send commit mining job to pool: {:?}",
-            commit_mining_job
-        );
+        println!("Send commit mining job to pool: {:?}", commit_mining_job);
         Ok(SendTo::Respond(commit_mining_job))
     }
 
@@ -51,7 +49,8 @@ impl ParseServerJobNegotiationMessages for JobNegotiator {
         &mut self,
         message: CommitMiningJobSuccess,
     ) -> Result<SendTo, Error> {
-        todo!()
+        info!("MVP2 ENDS HERE");
+        Ok(SendTo::None(None))
     }
 
     fn commit_mining_job_error(&mut self, message: CommitMiningJobError) -> Result<SendTo, Error> {
