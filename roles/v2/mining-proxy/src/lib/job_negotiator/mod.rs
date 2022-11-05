@@ -8,15 +8,13 @@ use roles_logic_sv2::{
     parsers::{JobNegotiation, PoolMessages},
     utils::Mutex,
 };
-use std::{collections::HashMap, convert::TryInto, str::FromStr};
-use tracing::{debug, info};
-
+use std::{convert::TryInto, str::FromStr};
+use tracing::info;
 
 use codec_sv2::Frame;
 use roles_logic_sv2::{
     handlers::job_negotiation::ParseServerJobNegotiationMessages,
-    template_distribution_sv2::{CoinbaseOutputDataSize, NewTemplate, SetNewPrevHash},
-
+    template_distribution_sv2::{NewTemplate, SetNewPrevHash},
 };
 use std::{
     net::{IpAddr, SocketAddr},
@@ -41,9 +39,6 @@ pub struct JobNegotiator {
     receiver_set_new_prev_hash: Receiver<SetNewPrevHash<'static>>,
     last_new_template: Option<NewTemplate<'static>>,
     set_new_prev_hash: Option<SetNewPrevHash<'static>>,
-    future_templates: Vec<NewTemplate<'static>>,
-    sender_coinbase_output_max_additional_size: Sender<CoinbaseOutputDataSize>,
-    allocate_mining_job_message: AllocateMiningJobTokenSuccess<'static>,
 }
 
 impl JobNegotiator {
@@ -52,8 +47,6 @@ impl JobNegotiator {
         authority_public_key: [u8; 32],
         receiver_new_template: Receiver<NewTemplate<'static>>,
         receiver_set_new_prev_hash: Receiver<SetNewPrevHash<'static>>,
-        sender_coinbase_output_max_additional_size: Sender<CoinbaseOutputDataSize>,
-
     ) {
         let stream = TcpStream::connect(address).await.unwrap();
         let initiator = Initiator::from_raw_k(authority_public_key).unwrap();
@@ -175,6 +168,23 @@ impl JobNegotiator {
                     JobNegotiator::make_job(self_mutex.clone()).await;
                 }
 
+            }
+        });
+    }
+
+    pub fn on_new_prev_hash(self_mutex: Arc<Mutex<Self>>) {
+        task::spawn(async move {
+            loop {
+                let receiver_new_ph = self_mutex
+                    .clone()
+                    .safe_lock(|d| d.receiver_set_new_prev_hash.clone())
+                    .unwrap();
+                let incoming_set_new_ph: SetNewPrevHash =
+                    receiver_new_ph.recv().await.unwrap().try_into().unwrap();
+                println!("SET new prev hash recieved {:?}", incoming_set_new_ph);
+                self_mutex.safe_lock(|t| {
+                    t.set_new_prev_hash = Some(incoming_set_new_ph);
+                });
             }
         });
     }

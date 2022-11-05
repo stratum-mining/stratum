@@ -134,7 +134,6 @@ impl TemplateRx {
                         Ok(_) => panic!(),
                         Err(_) => todo!(),
                     }
-
                 }
             }
         });

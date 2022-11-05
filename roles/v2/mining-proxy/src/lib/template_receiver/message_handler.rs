@@ -36,7 +36,6 @@ impl ParseServerTemplateDistributionMessages for TemplateRx {
         };
         let new_prev_hash = TemplateDistribution::SetNewPrevHash(new_prev_hash);
         Ok(SendTo::None(Some(new_prev_hash)))
-
     }
 
     fn handle_request_tx_data_success(

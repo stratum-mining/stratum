@@ -29,10 +29,8 @@ use lib::{
 };
 use once_cell::sync::{Lazy, OnceCell};
 use serde::Deserialize;
-use std::{
-    net::IpAddr,
-    str::FromStr,
-};
+use std::{net::IpAddr, str::FromStr};
+use tracing::{error, info};
 
 use roles_logic_sv2::{
     routing_logic::{CommonRoutingLogic, MiningProxyRoutingLogic, MiningRoutingLogic},
@@ -285,9 +283,11 @@ async fn main() {
     crate::lib::downstream_mining::listen_for_downstream_mining(socket).await;
     println!("PROXY INITIALIZED");
 
-    let (send, recv) = bounded(10);
-
-    TemplateRx::connect(config.tp_address.parse().unwrap(), send).await;
+    // channel to exchange New Template
+    let (send_tp, recv_tp) = bounded(10);
+    // channel to exchange set new prev hash
+    let (send_ph, recv_ph) = bounded(10);
+    TemplateRx::connect(config.tp_address.parse().unwrap(), send_tp, send_ph).await;
 
     JobNegotiator::new(
         SocketAddr::new(
@@ -300,8 +300,11 @@ async fn main() {
             .into_inner()
             .as_bytes()
             .clone(),
-        recv,
+        recv_tp,
+        recv_ph,
     )
     .await;
+
+    info!("PROXY INITIALIZED");
     crate::lib::downstream_mining::listen_for_downstream_mining(socket).await
 }

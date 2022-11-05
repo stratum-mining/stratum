@@ -1,6 +1,5 @@
 use crate::lib::job_negotiator::{CommittedMiningJob, JobNegotiatorDownstream};
 use binary_sv2::B0255;
-
 use roles_logic_sv2::{
     handlers::{job_negotiation::ParseClientJobNegotiationMessages, SendTo_},
     job_negotiation_sv2::{
@@ -13,15 +12,13 @@ use roles_logic_sv2::{
 use serde::__private::de::IdentifierDeserializer;
 use std::convert::TryInto;
 use tracing::info;
-
 pub type SendTo = SendTo_<JobNegotiation<'static>, ()>;
 use roles_logic_sv2::errors::Error;
 
 impl JobNegotiatorDownstream {
     fn verify_job(&mut self, message: &CommitMiningJob) -> bool {
-        let key: [u8;32] = message.mining_job_token.inner_as_ref().try_into().unwrap();
-        let is_token_allocated = self
-            .token_to_job_map.contains_key(&key);
+        let key: Vec<u8> = message.mining_job_token.inner_as_ref().try_into().unwrap();
+        let is_token_allocated = self.token_to_job_map.contains_key(&key);
         // TODO Function to implement, it must be checked if the requested job has:
         // 1. right coinbase
         // 2. right version field
@@ -42,7 +39,7 @@ impl ParseClientJobNegotiationMessages for JobNegotiatorDownstream {
         let message_success = AllocateMiningJobTokenSuccess {
             request_id: message.request_id,
             mining_job_token: token.clone(),
-            coinbase_output_max_additional_size: 123454321,
+            coinbase_output_max_additional_size: 0,
             async_mining_allowed: true,
         };
         let token = token.inner_as_ref().to_owned();
@@ -57,7 +54,7 @@ impl ParseClientJobNegotiationMessages for JobNegotiatorDownstream {
 
     fn commit_mining_job(&mut self, message: CommitMiningJob) -> Result<SendTo, Error> {
         if self.verify_job(&message) {
-            let message_success = CommitMiningJobSuccess{
+            let message_success = CommitMiningJobSuccess {
                 request_id: message.request_id,
                 new_mining_job_token: message.mining_job_token.clone().into_static(),
             };
