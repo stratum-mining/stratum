@@ -9,7 +9,7 @@ use v1::{client_to_server::Submit, server_to_client};
 
 use super::next_mining_notify::NextMiningNotify;
 use crate::{Error, ProxyResult};
-use tracing::warn;
+use tracing::{debug, error};
 
 /// Bridge between the SV2 `Upstream` and SV1 `Downstream` responsible for the following messaging
 /// translation:
@@ -146,7 +146,7 @@ impl Bridge {
                     self_.safe_lock(|r| r.set_new_prev_hash.clone()).unwrap();
                 let sv2_set_new_prev_hash: SetNewPrevHash =
                     set_new_prev_hash_recv.clone().recv().await.unwrap();
-                tracing::warn!(
+                debug!(
                     "handle_new_prev_hash job_id: {:?}",
                     &sv2_set_new_prev_hash.job_id
                 );
@@ -157,7 +157,7 @@ impl Bridge {
                         s.next_mining_notify
                             .safe_lock(|nmn| {
                                 nmn.set_new_prev_hash_msg(sv2_set_new_prev_hash.clone());
-                                warn!("handle_new_prev_hash nmn set_new_prev_hash: {:?}", &nmn);
+                                debug!("handle_new_prev_hash nmn set_new_prev_hash: {:?}", &nmn);
                             })
                             .unwrap();
                     })
@@ -196,7 +196,7 @@ impl Bridge {
                             .unwrap()
                     })
                     .unwrap();
-                warn!(
+                debug!(
                     "handle_new_prev_hash mining.notify to send: {:?}",
                     &sv1_notify_msg
                 );
@@ -206,7 +206,7 @@ impl Bridge {
                 // the newly created `mining.notify` to the Downstream for mining. Otherwise, an
                 // error has occurred on the Upstream pool role and the connection will close.
                 if let Some(msg) = sv1_notify_msg {
-                    warn!(
+                    debug!(
                         "handle_new_prev_hash sending mining.notify to Downstream: {:?}",
                         &msg
                     );
@@ -230,6 +230,7 @@ impl Bridge {
                         })
                         .unwrap();
                 } else {
+                    error!("NewExtendedMiningJob and SetNewPrevHash job ids mismatch");
                     panic!("NewExtendedMiningJob and SetNewPrevHash job ids mismatch");
                 }
             }
@@ -257,7 +258,7 @@ impl Bridge {
                         .recv()
                         .await
                         .unwrap();
-                warn!(
+                debug!(
                     "handle_new_extended_mining_job job_id: {:?}",
                     &sv2_new_extended_mining_job.job_id
                 );
@@ -309,7 +310,9 @@ impl Bridge {
                     // intended to be used for the same job (both messages job_id's are the same), send
                     // the newly created `mining.notify` to the Downstream for mining.
                     if let Some(msg) = sv1_notify_msg {
-                        warn!("handle_new_extended_mining_job sending mining.notify to Downstream");
+                        debug!(
+                            "handle_new_extended_mining_job sending mining.notify to Downstream"
+                        );
                         // TODO: handle the last_notify using the job_mapper instead
                         let last_notify = self_.safe_lock(|s| s.last_notify.clone()).unwrap();
                         last_notify
@@ -328,6 +331,7 @@ impl Bridge {
                             })
                             .unwrap();
                     } else {
+                        error!("NewExtendedMiningJob and SetNewPrevHash job ids mismatch");
                         panic!("NewExtendedMiningJob and SetNewPrevHash job ids mismatch");
                     }
                 }

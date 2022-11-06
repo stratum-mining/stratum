@@ -1,5 +1,5 @@
 use roles_logic_sv2::mining_sv2::{NewExtendedMiningJob, SetNewPrevHash};
-use tracing::info;
+use tracing::{debug, error};
 use v1::{
     server_to_client,
     utils::{HexBytes, HexU32Be, PrevHash},
@@ -73,7 +73,7 @@ impl NextMiningNotify {
                 (None, Some(nemj)) => (None, Some(nemj.job_id)),
                 (None, None) => (None, None),
             };
-            info!(
+            error!(
                 "Job Id Mismatch. SetNewPrevHash Job Id: {:?}, NewExtendedMiningJob Job Id: {:?}",
                 snph_job_id, nemj_job_id
             );
@@ -117,7 +117,7 @@ impl NextMiningNotify {
                     time,
                     clean_jobs,
                 };
-                info!("\nNMN: {:?}\n", &self);
+                debug!("\nNextMiningNotify: {:?}\n", &self);
                 Some(notify_response)
             }
             // If either of the SV2 `SetNewPrevHash` or `NewExtendedMiningJob` have not been
