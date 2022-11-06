@@ -104,6 +104,7 @@ impl JobNegotiator {
         }
 
         Self::on_upstream_message(cloned);
+
     }
 
     pub fn on_new_template(self_mutex: Arc<Mutex<Self>>) {

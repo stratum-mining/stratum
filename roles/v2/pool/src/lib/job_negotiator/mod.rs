@@ -1,4 +1,4 @@
-use binary_sv2::B0255;
+use binary_sv2::{Seq064K, B0255, B064K, U256};
 use codec_sv2::{Frame, HandshakeRole, Responder};
 use roles_logic_sv2::{
     common_messages_sv2::SetupConnectionSuccess,
@@ -21,9 +21,24 @@ pub type SendTo = SendTo_<roles_logic_sv2::parsers::JobNegotiation<'static>, ()>
 mod message_handlers;
 
 #[derive(Debug, Clone)]
-struct CommittedMiningJob {}
+struct CommittedMiningJob<'decoder> {
+    request_id: u32,
+    mining_job_token: B0255<'decoder>,
+    version: u32,
+    coinbase_tx_version: u32,
+    coinbase_prefix: B0255<'decoder>,
+    coinbase_tx_input_n_sequence: u32,
+    coinbase_tx_value_remaining: u64,
+    coinbase_tx_outputs: Seq064K<'decoder, B064K<'decoder>>,
+    coinbase_tx_locktime: u32,
+    min_extranonce_size: u16,
+    tx_short_hash_nonce: u64,
+    tx_short_hash_list: Seq064K<'decoder, u64>,
+    tx_hash_list_hash: U256<'decoder>,
+    excess_data: B064K<'decoder>,
+}
 
-impl<'a> From<CommitMiningJob<'a>> for CommittedMiningJob {
+impl<'a> From<CommitMiningJob<'a>> for CommittedMiningJob<'static> {
     fn from(m: CommitMiningJob) -> Self {
         m.into()
     }
@@ -32,7 +47,7 @@ impl<'a> From<CommitMiningJob<'a>> for CommittedMiningJob {
 pub struct JobNegotiatorDownstream {
     sender: Sender<EitherFrame>,
     receiver: Receiver<EitherFrame>,
-    token_to_job_map: HashMap<Vec<u8>, Option<CommittedMiningJob>>,
+    token_to_job_map: HashMap<Vec<u8>, Option<CommittedMiningJob<'static>>>,
     tokens: Id,
 }
 

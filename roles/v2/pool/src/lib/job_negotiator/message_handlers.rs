@@ -60,9 +60,28 @@ impl ParseClientJobNegotiationMessages for JobNegotiatorDownstream {
             };
             let message_enum_success = JobNegotiation::CommitMiningJobSuccess(message_success);
             let token = message.mining_job_token.clone().into_static();
-            let message_committed = CommittedMiningJob {};
+            // To be changed with .into()
+            let message_committed = CommittedMiningJob {
+                request_id: message.request_id,
+                mining_job_token: message.mining_job_token.into_static(),
+                version: 2,
+                coinbase_tx_version: message.coinbase_tx_version,
+                coinbase_prefix: message.coinbase_prefix.into_static(),
+                coinbase_tx_input_n_sequence: message.coinbase_tx_input_n_sequence,
+                coinbase_tx_value_remaining: message.coinbase_tx_value_remaining,
+                coinbase_tx_outputs: message.coinbase_tx_outputs.into_static(),
+                coinbase_tx_locktime: message.coinbase_tx_locktime,
+                min_extranonce_size: 0,
+                tx_short_hash_nonce: 0,
+                /// Only for MVP2: must be filled with right values for production,
+                /// this values are needed for block propagation
+                tx_short_hash_list: vec![].try_into().unwrap(),
+                tx_hash_list_hash: [0; 32].try_into().unwrap(),
+                excess_data: vec![].try_into().unwrap(),
+            };
             self.token_to_job_map
                 .insert(token.inner_as_ref().to_owned(), Some(message_committed));
+            //
             println!(
                 "Commit mining job was a success: {:?}",
                 message_enum_success
