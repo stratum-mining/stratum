@@ -311,7 +311,7 @@ mod test {
     impl<'a> CoinbaseTestHarness<'a> {
         /// Test the prefix and suffix are sliced correctly.
         fn test_coinbase_prefix_suffix(&self) {
-            let cb_tx: Transaction = deserialize(&self.cb_bytes).unwrap();
+            let cb_tx: Transaction = deserialize(self.cb_bytes).unwrap();
 
             let segwit_flag = if self.segwit { SEGWIT_FLAG_LEN } else { 0 };
 
@@ -319,8 +319,8 @@ mod test {
             let cb_prefix =
                 JobCreator::coinbase_tx_prefix(&cb_tx, self.block_height_len, self.segwit).unwrap();
             assert_eq!(
-                &self.cb_bytes[0..CB_PREFIX_LEN + segwit_flag + self.block_height_len],
-                &cb_prefix.inner_as_ref()[..]
+                self.cb_bytes[0..CB_PREFIX_LEN + segwit_flag + self.block_height_len],
+                cb_prefix.inner_as_ref()[..]
             );
 
             // The coinbase suffix should be sliced from the sequence number (after
@@ -330,8 +330,8 @@ mod test {
 
             let cb_suffix = JobCreator::coinbase_tx_suffix(&cb_tx, self.segwit).unwrap();
             assert_eq!(
-                &self.cb_bytes[CB_PREFIX_LEN + segwit_flag + script_sig_len..],
-                &cb_suffix.inner_as_ref()[..]
+                self.cb_bytes[CB_PREFIX_LEN + segwit_flag + script_sig_len..],
+                cb_suffix.inner_as_ref()[..]
             );
 
             // Explicity test for the expected end of prefix bytes and beginning
