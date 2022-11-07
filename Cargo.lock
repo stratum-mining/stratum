@@ -1117,6 +1117,7 @@ dependencies = [
  "codec_sv2",
  "serde",
  "tokio",
+ "tracing",
 ]
 
 [[package]]

@@ -14,7 +14,7 @@ use bitcoin::{
 
 use binary_sv2::U256;
 //compact_target_from_u256
-use tracing::info;
+use tracing::{error, info};
 
 use crate::errors::Error;
 
@@ -76,7 +76,16 @@ pub fn merkle_root_from_path<T: AsRef<[u8]>>(
     coinbase.extend_from_slice(coinbase_tx_prefix);
     coinbase.extend_from_slice(extranonce);
     coinbase.extend_from_slice(coinbase_tx_suffix);
-    let coinbase = Transaction::deserialize(&coinbase[..]).expect("Invalid coinbase tx");
+    let coinbase = match Transaction::deserialize(&coinbase[..]) {
+        Ok(trans) => {
+            trans
+        }
+        Err(e) => {
+            error!("ERROR: {}", e);
+            return None;
+        }
+    };
+
     // below unwrap never panic
     let coinbase_id: [u8; 32] = coinbase.txid().as_hash().to_vec().try_into().unwrap();
     Some(merkle_root_from_path_(coinbase_id, path).to_vec())

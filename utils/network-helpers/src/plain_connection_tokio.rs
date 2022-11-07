@@ -9,6 +9,7 @@ use tokio::{
 
 use binary_sv2::GetSize;
 use codec_sv2::{StandardDecoder, StandardEitherFrame};
+use tracing::{error};
 
 #[derive(Debug)]
 pub struct PlainConnection {}
@@ -44,9 +45,10 @@ impl PlainConnection {
                             sender_incoming.send(x.into()).await.unwrap();
                         }
                     }
-                    Err(_) => {
+                    Err(e) => {
                         // Just fail and force to reinitialize everything
-                        panic!()
+                        error!("Failed to read from stream: {}", e);
+                        break;
                     }
                 }
             }
