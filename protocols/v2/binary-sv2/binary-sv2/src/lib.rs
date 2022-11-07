@@ -273,6 +273,15 @@ mod test {
 
             assert_eq!(deserialized, expected);
         }
+
+        #[test]
+        fn test_inner_as_ref() {
+            let mut input = [1, 2, 9];
+            let b: B064K = (&mut input[..]).try_into().unwrap();
+
+            let borrow = b.inner_as_ref();
+            assert_eq!(&borrow[..], &[1, 2, 9]);
+        }
     }
 
     mod test_seq0255_u256 {
