@@ -39,8 +39,7 @@ impl SetupConnectionHandler {
                 }
                 EitherFrame::Sv2(s) => {
                     debug!("Got sv2 message: {:?}", s);
-
-                    s.try_into().expect("Failed to parse sv2 message")
+                    s
                 }
             };
 
@@ -69,7 +68,7 @@ impl SetupConnectionHandler {
                     work_selection: has_work_selection(m.flags),
                     version_rolling: has_version_rolling(m.flags),
                 })
-            },
+            }
             _ => panic!(),
         }
     }

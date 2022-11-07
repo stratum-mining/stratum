@@ -26,7 +26,6 @@ use roles_logic_sv2::{
 };
 use std::{collections::HashMap, convert::TryInto, sync::Arc};
 use tracing::{debug, info};
-use network_helpers::plain_connection_tokio::PlainConnection;
 
 pub fn u256_to_block_hash(v: U256<'static>) -> BlockHash {
     let hash: [u8; 32] = v.to_vec().try_into().unwrap();
@@ -471,7 +470,9 @@ impl Downstream {
         match next_message_to_send {
             Ok(SendTo::Respond(message)) => {
                 debug!("Responding to downstream message: {:?}", message);
-                Self::send(self_mutex, message).await.expect("Failed to send downstream message");
+                Self::send(self_mutex, message)
+                    .await
+                    .expect("Failed to send downstream message");
             }
             Ok(SendTo::None(_)) => (),
             Ok(_) => panic!(),
@@ -534,7 +535,10 @@ impl Downstream {
         _merkle_path: Vec<Vec<u8>>,
         template_id: u64,
     ) -> Result<(), ()> {
-        debug!("Received new extended job - future_job={}: {:?}", message.future_job, message);
+        debug!(
+            "Received new extended job - future_job={}: {:?}",
+            message.future_job, message
+        );
 
         if !message.future_job {
             self_
@@ -593,10 +597,11 @@ impl Pool {
             .unwrap();
             let last_new_prev_hash = self_.safe_lock(|x| x.last_new_prev_hash.clone()).unwrap();
 
+            // Uncomment to allow unencrypted connections
+            // let (receiver, sender): (Receiver<EitherFrame>, Sender<EitherFrame>) =
+            //     PlainConnection::new(stream).await;
             let (receiver, sender): (Receiver<EitherFrame>, Sender<EitherFrame>) =
-                PlainConnection::new(stream).await;
-            //Connection::new(stream, HandshakeRole::Responder(responder)).await;
-
+                Connection::new(stream, HandshakeRole::Responder(responder)).await;
 
             let group_ids = self_.safe_lock(|s| s.group_ids.clone()).unwrap();
             let hom_ids = self_.safe_lock(|s| s.hom_ids.clone()).unwrap();
@@ -682,7 +687,10 @@ impl Pool {
 
     async fn on_new_template(self_: Arc<Mutex<Self>>, rx: Receiver<NewTemplate<'_>>) {
         while let Ok(mut new_template) = rx.recv().await {
-            debug!("New template received, creating a new mining job(s): {:?}", new_template);
+            debug!(
+                "New template received, creating a new mining job(s): {:?}",
+                new_template
+            );
             let job_creators = self_.safe_lock(|s| s.job_creators.clone()).unwrap();
             let mut new_jobs = job_creators
                 .safe_lock(|j| j.on_new_template(&mut new_template).unwrap())

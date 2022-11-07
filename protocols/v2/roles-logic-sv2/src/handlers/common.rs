@@ -11,7 +11,7 @@ use common_messages_sv2::{
 };
 use core::convert::TryInto;
 use std::sync::Arc;
-use tracing::{debug, error};
+use tracing::debug;
 
 pub type SendTo = SendTo_<CommonMessages<'static>, ()>;
 

@@ -9,7 +9,7 @@ use tokio::{
 
 use binary_sv2::GetSize;
 use codec_sv2::{StandardDecoder, StandardEitherFrame};
-use tracing::{error};
+use tracing::error;
 
 #[derive(Debug)]
 pub struct PlainConnection {}
