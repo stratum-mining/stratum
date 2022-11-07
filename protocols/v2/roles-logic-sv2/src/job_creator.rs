@@ -291,27 +291,58 @@ mod test {
     use super::*;
     pub use bitcoin::consensus::encode::deserialize;
 
-    fn parse_coinbase_test(cb_bytes: &[u8], block_height_len: usize, segwit: bool) {
-        let cb_tx: Transaction = deserialize(&cb_bytes).unwrap();
+    /// Convenience struct for asserting that the JobCreator is able to parse
+    /// the serialized bytes of a coinbase transaction correctly.
+    struct CoinbaseTestHarness<'a> {
+        cb_bytes: &'a [u8],
+        segwit: bool,
+        block_height_len: usize,
 
-        let segwit_flag = if segwit { SEGWIT_FLAG_LEN } else { 0 };
+        /// The last 3 bytes expected of a coinbase_prefix parsed by the JobCreator.
+        /// This is to assert and catch off by one errors at the end of the prefix.
+        expected_prefix_end: &'a [u8],
 
-        // The coinbase prefix should be sliced to the end of the block height field.
-        let cb_prefix = JobCreator::coinbase_tx_prefix(&cb_tx, block_height_len, segwit).unwrap();
-        assert_eq!(
-            &cb_bytes[0..CB_PREFIX_LEN + segwit_flag + block_height_len],
-            &cb_prefix.inner_as_ref()[..]
-        );
+        /// The first 3 bytes expected of a coinbase_suffix parsed by the JobCreator.
+        /// This is to assert and catch off bye one errors and also be able to handle
+        /// different extranonce lengths.
+        expected_suffix_start: &'a [u8],
+    }
 
-        // The coinbase suffix should be sliced from the sequence number (after
-        // the extranonce) until the end.
-        let script_sig_len: usize = (cb_bytes[SCRIPT_SIG_LEN_INDEX + segwit_flag] - 1).into();
+    impl<'a> CoinbaseTestHarness<'a> {
+        /// Test the prefix and suffix are sliced correctly.
+        fn test_coinbase_prefix_suffix(&self) {
+            let cb_tx: Transaction = deserialize(&self.cb_bytes).unwrap();
 
-        let cb_suffix = JobCreator::coinbase_tx_suffix(&cb_tx, segwit).unwrap();
-        assert_eq!(
-            &cb_bytes[CB_PREFIX_LEN + segwit_flag + script_sig_len..],
-            &cb_suffix.inner_as_ref()[..]
-        );
+            let segwit_flag = if self.segwit { SEGWIT_FLAG_LEN } else { 0 };
+
+            // The coinbase prefix should be sliced to the end of the block height field.
+            let cb_prefix =
+                JobCreator::coinbase_tx_prefix(&cb_tx, self.block_height_len, self.segwit).unwrap();
+            assert_eq!(
+                &self.cb_bytes[0..CB_PREFIX_LEN + segwit_flag + self.block_height_len],
+                &cb_prefix.inner_as_ref()[..]
+            );
+
+            // The coinbase suffix should be sliced from the sequence number (after
+            // the extranonce) until the end.
+            let script_sig_len: usize =
+                (self.cb_bytes[SCRIPT_SIG_LEN_INDEX + segwit_flag] - 1).into();
+
+            let cb_suffix = JobCreator::coinbase_tx_suffix(&cb_tx, self.segwit).unwrap();
+            assert_eq!(
+                &self.cb_bytes[CB_PREFIX_LEN + segwit_flag + script_sig_len..],
+                &cb_suffix.inner_as_ref()[..]
+            );
+
+            // Explicity test for the expected end of prefix bytes and beginning
+            // of suffix bytes to catch previous off by one errors.
+            let prefix_len = cb_prefix.inner_as_ref().len();
+            assert_eq!(
+                &cb_prefix.inner_as_ref()[prefix_len - 3..],
+                self.expected_prefix_end
+            );
+            assert_eq!(&cb_suffix.inner_as_ref()[0..3], self.expected_suffix_start);
+        }
     }
 
     #[test]
@@ -347,8 +378,14 @@ mod test {
             78, 140, 249, 1, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
         ];
-        let block_height_len = 2;
-        parse_coinbase_test(&regtest_segwit_cb_bytes, block_height_len, true);
+        CoinbaseTestHarness {
+            cb_bytes: &regtest_segwit_cb_bytes,
+            segwit: true,
+            block_height_len: 2,
+            expected_prefix_end: &[2, 0, 1],
+            expected_suffix_start: &[255, 255, 255],
+        }
+        .test_coinbase_prefix_suffix();
 
         // Height: 761362
         // https://blockstream.info/tx/eede27543f086abd612b87096a7216229d4c736d39bbdfd4fefc1455f427997f
@@ -383,8 +420,14 @@ mod test {
             79, 164, 227, 50, 1, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         ];
-        let block_height_len = 3;
-        parse_coinbase_test(&segwit_cb_bytes, block_height_len, true);
+        CoinbaseTestHarness {
+            cb_bytes: &segwit_cb_bytes,
+            segwit: true,
+            block_height_len: 3,
+            expected_prefix_end: &[18, 158, 11],
+            expected_suffix_start: &[255, 255, 255],
+        }
+        .test_coinbase_prefix_suffix();
 
         // Height: 626507
         // https://blockstream.info/tx/629509d4018a810f7af1e77d5abc5051c09e5b0df9552ca8ab329e0fa5b317cd
@@ -402,8 +445,7 @@ mod test {
             44, 109, 178, 42, 205, 243, 18, 32, 72, 100, 170, 110, 8, 4, 210,
             54, 188, 251, 243, 25, 63, 33, 106, 192, 174, 248, 4, 0, 0, 0, 0,
             0, 0, 0, 8, 24, 0, 82, 194, 215, 5, 0, 0, 20, 47, 112, 114, 111,
-            104, 97, 115, 104, 105, 110, 103, 46, 99, 111, 109, 155, 29, 2, 0,
-            47,
+            104, 97, 115, 104, 105, 110, 103, 46, 99, 111, 109, 155, 29, 2, 0, 47,
             0, 0, 0, 0, // sequence number
             1, // number of tx outputs
             142, 211, 26, 75, 0, 0, 0, 0, // output value
@@ -412,6 +454,13 @@ mod test {
             147, 39, 77, 105, 201, 13, 59, 32, 143, 136, 172,
             0, 0, 0, 0, // locktime
         ];
-        parse_coinbase_test(&non_segwit_cb_bytes, block_height_len, false);
+        CoinbaseTestHarness {
+            cb_bytes: &non_segwit_cb_bytes,
+            segwit: false,
+            block_height_len: 3,
+            expected_prefix_end: &[113, 104, 9],
+            expected_suffix_start: &[0, 0, 0],
+        }
+        .test_coinbase_prefix_suffix();
     }
 }
