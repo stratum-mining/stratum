@@ -38,7 +38,6 @@ pub struct Configuration {
     pub authority_public_key: EncodedEd25519PublicKey,
     pub authority_secret_key: EncodedEd25519SecretKey,
     pub cert_validity_sec: u64,
-    pub allow_insecure: bool,
 }
 
 mod args {
