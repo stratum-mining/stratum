@@ -92,7 +92,7 @@ struct CompleteJob {
 }
 
 #[derive(Debug)]
-pub enum VelideateTargetResult {
+pub enum ValidateTargetResult {
     LessThanBitcoinTarget(BlockHash, u64, SubmitSolution<'static>),
     LessThanDownstreamTarget(BlockHash, u64),
     Invalid(BlockHash),
@@ -112,7 +112,7 @@ impl CompleteJob {
         version: u32,
         ntime: u32,
         extranonce_suffix: Option<&[u8]>,
-    ) -> VelideateTargetResult {
+    ) -> ValidateTargetResult {
         let merkle_root = match extranonce_suffix {
             None => self.merkle_root,
             Some(suffix) => {
@@ -158,12 +158,12 @@ impl CompleteJob {
                 header_nonce: nonce,
                 coinbase_tx: self.get_coinbase(),
             };
-            VelideateTargetResult::LessThanBitcoinTarget(hash_, self.new_shares_sum, solution)
+            ValidateTargetResult::LessThanBitcoinTarget(hash_, self.new_shares_sum, solution)
         } else if hash <= self.target {
             self.new_shares_sum += 1;
-            VelideateTargetResult::LessThanDownstreamTarget(hash_, self.new_shares_sum)
+            ValidateTargetResult::LessThanDownstreamTarget(hash_, self.new_shares_sum)
         } else {
-            VelideateTargetResult::Invalid(hash_)
+            ValidateTargetResult::Invalid(hash_)
         }
     }
 
@@ -298,17 +298,17 @@ impl Downstream {
         version: u32,
         ntime: u32,
         extranonce_suffix: Option<&[u8]>,
-    ) -> Result<VelideateTargetResult, ()> {
+    ) -> Result<ValidateTargetResult, ()> {
         let id = channel_id;
         match self.jobs.get_mut(&id) {
             Some(Job::Complete(job)) => {
                 let res = job.validate_target(nonce, version, ntime, extranonce_suffix);
                 match res {
-                    VelideateTargetResult::LessThanBitcoinTarget(_, _, _) => {
+                    ValidateTargetResult::LessThanBitcoinTarget(_, _, _) => {
                         self.jobs.get_mut(&id).as_mut().unwrap().make_partial();
                     }
-                    VelideateTargetResult::LessThanDownstreamTarget(_, _) => (),
-                    VelideateTargetResult::Invalid(_) => (),
+                    ValidateTargetResult::LessThanDownstreamTarget(_, _) => (),
+                    ValidateTargetResult::Invalid(_) => (),
                 };
                 Ok(res)
             }

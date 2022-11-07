@@ -1,4 +1,4 @@
-use crate::lib::mining_pool::{Downstream, VelideateTargetResult};
+use crate::lib::mining_pool::{Downstream, ValidateTargetResult};
 use binary_sv2::U256;
 use bitcoin::util::uint::Uint256;
 use roles_logic_sv2::{
@@ -217,7 +217,7 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
         m: SubmitSharesStandard,
     ) -> Result<SendTo<()>, Error> {
         match self.check_target(m.channel_id, m.nonce, m.version, m.ntime, None) {
-            Ok(VelideateTargetResult::LessThanBitcoinTarget(_, new_shares_sum, solution)) => {
+            Ok(ValidateTargetResult::LessThanBitcoinTarget(_, new_shares_sum, solution)) => {
                 // That unwrap means lose a block!!! TODO
                 self.solution_sender.try_send(solution).unwrap();
                 Ok(SendTo::Respond(Mining::SubmitSharesSuccess(
@@ -229,7 +229,7 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
                     },
                 )))
             }
-            Ok(VelideateTargetResult::LessThanDownstreamTarget(_, new_shares_sum)) => Ok(
+            Ok(ValidateTargetResult::LessThanDownstreamTarget(_, new_shares_sum)) => Ok(
                 SendTo::Respond(Mining::SubmitSharesSuccess(SubmitSharesSuccess {
                     channel_id: m.channel_id,
                     last_sequence_number: m.sequence_number,
@@ -237,7 +237,7 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
                     new_shares_sum,
                 })),
             ),
-            Ok(VelideateTargetResult::Invalid(_)) => Ok(SendTo::Respond(
+            Ok(ValidateTargetResult::Invalid(_)) => Ok(SendTo::Respond(
                 Mining::SubmitSharesError(SubmitSharesError {
                     channel_id: m.channel_id,
                     sequence_number: m.sequence_number,
@@ -259,7 +259,7 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
             m.ntime,
             Some(m.extranonce.inner_as_ref()),
         ) {
-            Ok(VelideateTargetResult::LessThanBitcoinTarget(_, new_shares_sum, solution)) => {
+            Ok(ValidateTargetResult::LessThanBitcoinTarget(_, new_shares_sum, solution)) => {
                 // That unwrap means lose a block!!! TODO
                 self.solution_sender.try_send(solution).unwrap();
                 Ok(SendTo::Respond(Mining::SubmitSharesSuccess(
@@ -271,7 +271,7 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
                     },
                 )))
             }
-            Ok(VelideateTargetResult::LessThanDownstreamTarget(_, new_shares_sum)) => Ok(
+            Ok(ValidateTargetResult::LessThanDownstreamTarget(_, new_shares_sum)) => Ok(
                 SendTo::Respond(Mining::SubmitSharesSuccess(SubmitSharesSuccess {
                     channel_id: m.channel_id,
                     last_sequence_number: m.sequence_number,
@@ -279,7 +279,7 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
                     new_shares_sum,
                 })),
             ),
-            Ok(VelideateTargetResult::Invalid(_)) => Ok(SendTo::Respond(
+            Ok(ValidateTargetResult::Invalid(_)) => Ok(SendTo::Respond(
                 Mining::SubmitSharesError(SubmitSharesError {
                     channel_id: m.channel_id,
                     sequence_number: m.sequence_number,
