@@ -19,6 +19,7 @@ use super::SendTo_;
 
 use crate::utils::Mutex;
 use std::{fmt::Debug as D, sync::Arc};
+use tracing::debug;
 
 pub type SendTo<Remote> = SendTo_<Mining<'static>, Remote>;
 
@@ -61,9 +62,11 @@ pub trait ParseDownstreamMiningMessages<
         // Is fine to unwrap on safe_lock
         match (message_type, payload).try_into() {
             Ok(Mining::OpenStandardMiningChannel(mut m)) => {
+                debug!("Received OpenStandardMiningChannel message");
                 let upstream = match routing_logic {
                     MiningRoutingLogic::None => None,
                     MiningRoutingLogic::Proxy(r_logic) => {
+                        debug!("Routing logic is Proxy");
                         let up = r_logic
                             .safe_lock(|r_logic| {
                                 r_logic.on_open_standard_channel(
@@ -93,62 +96,95 @@ pub trait ParseDownstreamMiningMessages<
             }
             Ok(Mining::OpenExtendedMiningChannel(m)) => match channel_type {
                 SupportedChannelTypes::Standard => Err(Error::UnexpectedMessage),
-                SupportedChannelTypes::Extended => self_mutex
-                    .safe_lock(|self_| self_.handle_open_extended_mining_channel(m))
-                    .unwrap(),
+                SupportedChannelTypes::Extended => {
+                    debug!("Received OpenExtendedMiningChannel->Extended message");
+                    self_mutex
+                        .safe_lock(|self_| self_.handle_open_extended_mining_channel(m))
+                        .unwrap()
+                }
                 SupportedChannelTypes::Group => Err(Error::UnexpectedMessage),
-                SupportedChannelTypes::GroupAndExtended => self_mutex
-                    .safe_lock(|self_| self_.handle_open_extended_mining_channel(m))
-                    .unwrap(),
+                SupportedChannelTypes::GroupAndExtended => {
+                    debug!("Received OpenExtendedMiningChannel->GroupAndExtended message");
+                    self_mutex
+                        .safe_lock(|self_| self_.handle_open_extended_mining_channel(m))
+                        .unwrap()
+                }
             },
             Ok(Mining::UpdateChannel(m)) => match channel_type {
-                SupportedChannelTypes::Standard => self_mutex
-                    .safe_lock(|self_| self_.handle_update_channel(m))
-                    .unwrap(),
-                SupportedChannelTypes::Extended => self_mutex
-                    .safe_lock(|self_| self_.handle_update_channel(m))
-                    .unwrap(),
-                SupportedChannelTypes::Group => self_mutex
-                    .safe_lock(|self_| self_.handle_update_channel(m))
-                    .unwrap(),
-                SupportedChannelTypes::GroupAndExtended => self_mutex
-                    .safe_lock(|self_| self_.handle_update_channel(m))
-                    .unwrap(),
+                SupportedChannelTypes::Standard => {
+                    debug!("Received UpdateChannel->Standard message");
+                    self_mutex
+                        .safe_lock(|self_| self_.handle_update_channel(m))
+                        .unwrap()
+                }
+                SupportedChannelTypes::Extended => {
+                    debug!("Received UpdateChannel->Extended message");
+                    self_mutex
+                        .safe_lock(|self_| self_.handle_update_channel(m))
+                        .unwrap()
+                }
+                SupportedChannelTypes::Group => {
+                    debug!("Received UpdateChannel->Group message");
+                    self_mutex
+                        .safe_lock(|self_| self_.handle_update_channel(m))
+                        .unwrap()
+                }
+                SupportedChannelTypes::GroupAndExtended => {
+                    debug!("Received UpdateChannel->GroupAndExtended message");
+                    self_mutex
+                        .safe_lock(|self_| self_.handle_update_channel(m))
+                        .unwrap()
+                }
             },
             Ok(Mining::SubmitSharesStandard(m)) => match channel_type {
-                SupportedChannelTypes::Standard => self_mutex
-                    .safe_lock(|self_| self_.handle_submit_shares_standard(m))
-                    .unwrap(),
+                SupportedChannelTypes::Standard => {
+                    debug!("Received SubmitSharesStandard->Standard message");
+                    self_mutex
+                        .safe_lock(|self_| self_.handle_submit_shares_standard(m))
+                        .unwrap()
+                }
                 SupportedChannelTypes::Extended => Err(Error::UnexpectedMessage),
-                SupportedChannelTypes::Group => self_mutex
-                    .safe_lock(|self_| self_.handle_submit_shares_standard(m))
-                    .unwrap(),
-                SupportedChannelTypes::GroupAndExtended => self_mutex
-                    .safe_lock(|self_| self_.handle_submit_shares_standard(m))
-                    .unwrap(),
+                SupportedChannelTypes::Group => {
+                    debug!("Received SubmitSharesStandard->Group message");
+                    self_mutex
+                        .safe_lock(|self_| self_.handle_submit_shares_standard(m))
+                        .unwrap()
+                }
+                SupportedChannelTypes::GroupAndExtended => {
+                    debug!("Received SubmitSharesStandard->GroupAndExtended message");
+                    self_mutex
+                        .safe_lock(|self_| self_.handle_submit_shares_standard(m))
+                        .unwrap()
+                }
             },
-            Ok(Mining::SubmitSharesExtended(m)) => match channel_type {
-                SupportedChannelTypes::Standard => Err(Error::UnexpectedMessage),
-                SupportedChannelTypes::Extended => self_mutex
-                    .safe_lock(|self_| self_.handle_submit_shares_extended(m))
-                    .unwrap(),
-                SupportedChannelTypes::Group => Err(Error::UnexpectedMessage),
-                SupportedChannelTypes::GroupAndExtended => self_mutex
-                    .safe_lock(|self_| self_.handle_submit_shares_extended(m))
-                    .unwrap(),
-            },
-            Ok(Mining::SetCustomMiningJob(m)) => match (channel_type, is_work_selection_enabled) {
-                (SupportedChannelTypes::Extended, true) => self_mutex
-                    .safe_lock(|self_| self_.handle_set_custom_mining_job(m))
-                    .unwrap(),
-                (SupportedChannelTypes::Group, true) => self_mutex
-                    .safe_lock(|self_| self_.handle_set_custom_mining_job(m))
-                    .unwrap(),
-                (SupportedChannelTypes::GroupAndExtended, true) => self_mutex
-                    .safe_lock(|self_| self_.handle_set_custom_mining_job(m))
-                    .unwrap(),
-                _ => Err(Error::UnexpectedMessage),
-            },
+            Ok(Mining::SubmitSharesExtended(m)) => {
+                debug!("Received SubmitSharesExtended message");
+                match channel_type {
+                    SupportedChannelTypes::Standard => Err(Error::UnexpectedMessage),
+                    SupportedChannelTypes::Extended => self_mutex
+                        .safe_lock(|self_| self_.handle_submit_shares_extended(m))
+                        .unwrap(),
+                    SupportedChannelTypes::Group => Err(Error::UnexpectedMessage),
+                    SupportedChannelTypes::GroupAndExtended => self_mutex
+                        .safe_lock(|self_| self_.handle_submit_shares_extended(m))
+                        .unwrap(),
+                }
+            }
+            Ok(Mining::SetCustomMiningJob(m)) => {
+                debug!("Received SetCustomMiningJob message");
+                match (channel_type, is_work_selection_enabled) {
+                    (SupportedChannelTypes::Extended, true) => self_mutex
+                        .safe_lock(|self_| self_.handle_set_custom_mining_job(m))
+                        .unwrap(),
+                    (SupportedChannelTypes::Group, true) => self_mutex
+                        .safe_lock(|self_| self_.handle_set_custom_mining_job(m))
+                        .unwrap(),
+                    (SupportedChannelTypes::GroupAndExtended, true) => self_mutex
+                        .safe_lock(|self_| self_.handle_set_custom_mining_job(m))
+                        .unwrap(),
+                    _ => Err(Error::UnexpectedMessage),
+                }
+            }
             Ok(_) => Err(Error::UnexpectedMessage),
             Err(e) => Err(e),
         }
@@ -340,32 +376,38 @@ pub trait ParseUpstreamMiningMessages<
                 SupportedChannelTypes::Group => Err(Error::UnexpectedMessage),
                 SupportedChannelTypes::GroupAndExtended => Err(Error::UnexpectedMessage),
             },
-            Ok(Mining::NewExtendedMiningJob(m)) => match channel_type {
-                SupportedChannelTypes::Standard => Err(Error::UnexpectedMessage),
-                SupportedChannelTypes::Extended => self_mutex
-                    .safe_lock(|x| x.handle_new_extended_mining_job(m))
-                    .unwrap(),
-                SupportedChannelTypes::Group => self_mutex
-                    .safe_lock(|x| x.handle_new_extended_mining_job(m))
-                    .unwrap(),
-                SupportedChannelTypes::GroupAndExtended => self_mutex
-                    .safe_lock(|x| x.handle_new_extended_mining_job(m))
-                    .unwrap(),
-            },
-            Ok(Mining::SetNewPrevHash(m)) => match channel_type {
-                SupportedChannelTypes::Standard => self_mutex
-                    .safe_lock(|x| x.handle_set_new_prev_hash(m))
-                    .unwrap(),
-                SupportedChannelTypes::Extended => self_mutex
-                    .safe_lock(|x| x.handle_set_new_prev_hash(m))
-                    .unwrap(),
-                SupportedChannelTypes::Group => self_mutex
-                    .safe_lock(|x| x.handle_set_new_prev_hash(m))
-                    .unwrap(),
-                SupportedChannelTypes::GroupAndExtended => self_mutex
-                    .safe_lock(|x| x.handle_set_new_prev_hash(m))
-                    .unwrap(),
-            },
+            Ok(Mining::NewExtendedMiningJob(m)) => {
+                debug!("Received new extended mining job");
+                match channel_type {
+                    SupportedChannelTypes::Standard => Err(Error::UnexpectedMessage),
+                    SupportedChannelTypes::Extended => self_mutex
+                        .safe_lock(|x| x.handle_new_extended_mining_job(m))
+                        .unwrap(),
+                    SupportedChannelTypes::Group => self_mutex
+                        .safe_lock(|x| x.handle_new_extended_mining_job(m))
+                        .unwrap(),
+                    SupportedChannelTypes::GroupAndExtended => self_mutex
+                        .safe_lock(|x| x.handle_new_extended_mining_job(m))
+                        .unwrap(),
+                }
+            }
+            Ok(Mining::SetNewPrevHash(m)) => {
+                debug!("Received SetNewPrevHash");
+                match channel_type {
+                    SupportedChannelTypes::Standard => self_mutex
+                        .safe_lock(|x| x.handle_set_new_prev_hash(m))
+                        .unwrap(),
+                    SupportedChannelTypes::Extended => self_mutex
+                        .safe_lock(|x| x.handle_set_new_prev_hash(m))
+                        .unwrap(),
+                    SupportedChannelTypes::Group => self_mutex
+                        .safe_lock(|x| x.handle_set_new_prev_hash(m))
+                        .unwrap(),
+                    SupportedChannelTypes::GroupAndExtended => self_mutex
+                        .safe_lock(|x| x.handle_set_new_prev_hash(m))
+                        .unwrap(),
+                }
+            }
             Ok(Mining::SetCustomMiningJobSuccess(m)) => {
                 match (channel_type, is_work_selection_enabled) {
                     (SupportedChannelTypes::Extended, true) => self_mutex

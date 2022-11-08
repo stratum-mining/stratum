@@ -88,6 +88,7 @@ pub struct UpstreamMiningNode {
 
 use core::convert::TryInto;
 use std::net::SocketAddr;
+use tracing::debug;
 
 /// It assume that endpoint NEVER change flags and version!
 impl UpstreamMiningNode {
@@ -642,6 +643,7 @@ impl
         &mut self,
         m: NewExtendedMiningJob,
     ) -> Result<SendTo<DownstreamMiningNode>, Error> {
+        debug!("Handling new extended mining job: {:?}", m);
         self.last_extended_jobs.push(m.as_static());
         let id = self.id;
         let downstreams = self

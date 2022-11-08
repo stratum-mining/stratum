@@ -15,6 +15,8 @@ use codec_sv2::{
     StandardNoiseDecoder,
 };
 
+use tracing::error;
+
 #[derive(Debug)]
 pub struct Connection {
     pub state: codec_sv2::State,
@@ -61,9 +63,11 @@ impl Connection {
                             sender_incoming.send(x).await.unwrap();
                         }
                     }
-                    Err(_) => {
-                        // Just fail and force to reinitialize everything
-                        panic!()
+                    Err(e) => {
+                        error!("Disconnected from client: {}", e);
+
+                        //kill thread without a panic - don't need to panic everytime a client disconnects
+                        break;
                     }
                 }
             }
@@ -85,17 +89,19 @@ impl Connection {
 
                         match (&mut writer).write_all(b).await {
                             Ok(_) => (),
-                            Err(_) => {
+                            Err(e) => {
                                 let _ = writer.shutdown().await;
                                 // Just fail and force to reinitialize everything
-                                panic!()
+                                error!("Disconnecting from client due to error: {}", e);
+                                break;
                             }
                         }
                     }
-                    Err(_) => {
+                    Err(e) => {
                         // Just fail and force to reinitilize everything
                         let _ = writer.shutdown().await;
-                        panic!()
+                        error!("Disconnecting from client due to error: {}", e);
+                        break;
                     }
                 };
             }

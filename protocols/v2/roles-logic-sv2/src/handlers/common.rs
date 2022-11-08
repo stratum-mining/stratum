@@ -11,6 +11,7 @@ use common_messages_sv2::{
 };
 use core::convert::TryInto;
 use std::sync::Arc;
+use tracing::debug;
 
 pub type SendTo = SendTo_<CommonMessages<'static>, ()>;
 
@@ -77,6 +78,7 @@ where
         match (message_type, payload).try_into() {
             Ok(CommonMessages::SetupConnection(m)) => match routing_logic {
                 CommonRoutingLogic::Proxy(r_logic) => {
+                    debug!("Got proxy setup connection message: {:?}", m);
                     let result = r_logic
                         .safe_lock(|r_logic| r_logic.on_setup_connection(&m))
                         .unwrap();

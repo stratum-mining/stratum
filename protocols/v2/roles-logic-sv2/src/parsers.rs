@@ -79,6 +79,7 @@ use mining_sv2::{
 };
 
 use core::convert::{TryFrom, TryInto};
+use tracing::error;
 
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "with_serde", derive(Serialize, Deserialize))]
@@ -809,7 +810,14 @@ impl TryFrom<u8> for MiningTypes {
             MESSAGE_TYPE_SUBMIT_SHARES_SUCCESS => Ok(MiningTypes::SubmitSharesSuccess),
             MESSAGE_TYPE_UPDATE_CHANNEL => Ok(MiningTypes::UpdateChannel),
             MESSAGE_TYPE_UPDATE_CHANNEL_ERROR => Ok(MiningTypes::UpdateChannelError),
-            _ => Err(Error::WrongMessageType(v)),
+            MESSAGE_TYPE_SETUP_CONNECTION => {
+                error!("Got unexpected SETUP CONNECTION!! ");
+                Err(Error::WrongMessageType(v))
+            }
+            _ => {
+                error!("Invalid message type: {}", v);
+                Err(Error::WrongMessageType(v))
+            }
         }
     }
 }
