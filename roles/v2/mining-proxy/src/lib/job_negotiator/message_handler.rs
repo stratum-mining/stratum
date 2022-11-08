@@ -78,9 +78,16 @@ impl ParseServerJobNegotiationMessages for JobNegotiator {
         // Is ok to unwrap a safe_lock result
         match (message_type, payload).try_into() {
             Ok(JobNegotiation::AllocateMiningJobTokenSuccess(message)) => {
-                self_.safe_lock(|x| x.coinbase_output_max_additional_size = message.clone().coinbase_output_max_additional_size).unwrap();
-                self_.safe_lock(|x| x.allocate_mining_job_token_success(message)).unwrap()  
-            },
+                self_
+                    .safe_lock(|x| {
+                        x.coinbase_output_max_additional_size =
+                            message.clone().coinbase_output_max_additional_size
+                    })
+                    .unwrap();
+                self_
+                    .safe_lock(|x| x.allocate_mining_job_token_success(message))
+                    .unwrap()
+            }
             Ok(JobNegotiation::CommitMiningJobSuccess(message)) => self_
                 .safe_lock(|x| x.commit_mining_job_success(message))
                 .unwrap(),

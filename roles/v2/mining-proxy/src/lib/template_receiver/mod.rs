@@ -6,12 +6,10 @@ use codec_sv2::Frame;
 use roles_logic_sv2::{
     handlers::{template_distribution::ParseServerTemplateDistributionMessages, SendTo_},
     parsers::{PoolMessages, TemplateDistribution},
-<<<<<<< HEAD
     template_distribution_sv2::{CoinbaseOutputDataSize, NewTemplate, SetNewPrevHash},
-
-=======
-    template_distribution_sv2::{NewTemplate, SetNewPrevHash, SubmitSolution, CoinbaseOutputDataSize},
->>>>>>> ac34808 (Start CoinbaseOutputDataSize logic)
+    template_distribution_sv2::{
+        CoinbaseOutputDataSize, NewTemplate, SetNewPrevHash, SubmitSolution,
+    },
 };
 pub type SendTo = SendTo_<roles_logic_sv2::parsers::TemplateDistribution<'static>, ()>;
 //use messages_sv2::parsers::JobNegotiation;
@@ -41,10 +39,6 @@ impl TemplateRx {
         send_new_tp_to_negotiator: Sender<NewTemplate<'static>>,
         send_new_ph_to_negotiator: Sender<SetNewPrevHash<'static>>,
         receive_coinbase_output_max_additional_size: Receiver<CoinbaseOutputDataSize>,
-<<<<<<< HEAD
-
-=======
->>>>>>> ac34808 (Start CoinbaseOutputDataSize logic)
     ) {
         let stream = TcpStream::connect(address).await.unwrap();
 
@@ -93,8 +87,6 @@ impl TemplateRx {
                         .recv()
                         .await
                         .unwrap();
-
-<<<<<<< HEAD
                 let sv2_frame: StdFrame = PoolMessages::TemplateDistribution(
                     roles_logic_sv2::parsers::TemplateDistribution::CoinbaseOutputDataSize(
                         coinbase_output_max_additional_size,
@@ -142,7 +134,6 @@ impl TemplateRx {
                         Ok(_) => panic!(),
                         Err(_) => todo!(),
                     }
-=======
 
                 // coinbase_output_max_additional_size will be needed by CoinbaseOutputDataSize 
                 // to start templates exchanges. This receiver takes messages from the proxy JN.
@@ -150,10 +141,10 @@ impl TemplateRx {
                     .clone()
                     .safe_lock(|s| s.receive_coinbase_output_max_additional_size.clone())
                     .unwrap();
-                let coinbase_output_max_additional_size: CoinbaseOutputDataSize  = receiver_comas.recv().await.unwrap();
+                let coinbase_output_max_additional_size: CoinbaseOutputDataSize =
+                    receiver_comas.recv().await.unwrap();
                 let message_type = frame.get_header().unwrap().msg_type();
                 let payload = frame.payload();
-
 
                 let next_message_to_send =
                     ParseServerTemplateDistributionMessages::handle_message_template_distribution(
@@ -183,7 +174,6 @@ impl TemplateRx {
                     },
                     Ok(_) => panic!(),
                     Err(_) => todo!(),
->>>>>>> ac34808 (Start CoinbaseOutputDataSize logic)
                 }
             }
         });

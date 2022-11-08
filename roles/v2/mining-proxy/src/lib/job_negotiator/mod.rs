@@ -8,13 +8,13 @@ use roles_logic_sv2::{
     parsers::{JobNegotiation, PoolMessages},
     utils::Mutex,
 };
-use std::{convert::TryInto, str::FromStr, collections::HashMap};
+use std::{collections::HashMap, convert::TryInto, str::FromStr};
 use tracing::info;
 
 use codec_sv2::Frame;
 use roles_logic_sv2::{
     handlers::job_negotiation::ParseServerJobNegotiationMessages,
-    template_distribution_sv2::{NewTemplate, SetNewPrevHash, CoinbaseOutputDataSize},
+    template_distribution_sv2::{CoinbaseOutputDataSize, NewTemplate, SetNewPrevHash},
 };
 use std::{
     net::{IpAddr, SocketAddr},
