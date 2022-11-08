@@ -39,7 +39,7 @@ impl ParseClientJobNegotiationMessages for JobNegotiatorDownstream {
         let message_success = AllocateMiningJobTokenSuccess {
             request_id: message.request_id,
             mining_job_token: token.clone(),
-            coinbase_output_max_additional_size: 0,
+            coinbase_output_max_additional_size: 123454321,
             async_mining_allowed: true,
         };
         let token = token.inner_as_ref().to_owned();

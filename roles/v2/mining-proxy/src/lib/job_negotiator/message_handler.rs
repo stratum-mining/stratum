@@ -2,7 +2,7 @@ use crate::lib::job_negotiator::JobNegotiator;
 use roles_logic_sv2::{
     handlers::{job_negotiation::ParseServerJobNegotiationMessages, SendTo_},
     job_negotiation_sv2::{
-        AllocateMiningJobTokenSuccess, CommitMiningJob, CommitMiningJobError,
+        AllocateMiningJobTokenSuccess, CommitMiningJobError,
         CommitMiningJobSuccess, IdentifyTransactions, IdentifyTransactionsSuccess,
         ProvideMissingTransactions, ProvideMissingTransactionsSuccess,
     },
@@ -18,31 +18,8 @@ impl ParseServerJobNegotiationMessages for JobNegotiator {
         &mut self,
         message: AllocateMiningJobTokenSuccess,
     ) -> Result<SendTo, Error> {
-        let coinbase_output_max_additional_size = message.coinbase_output_max_additional_size;
-
-        let new_template = self.last_new_template.as_ref().unwrap();
-
-        let message_commit_mining_job = CommitMiningJob {
-            request_id: message.request_id,
-            mining_job_token: message.mining_job_token.into_static(),
-            version: 2,
-            coinbase_tx_version: new_template.clone().coinbase_tx_version,
-            coinbase_prefix: new_template.clone().coinbase_prefix,
-            coinbase_tx_input_n_sequence: new_template.clone().coinbase_tx_input_sequence,
-            coinbase_tx_value_remaining: new_template.clone().coinbase_tx_value_remaining,
-            coinbase_tx_outputs: new_template.clone().coinbase_tx_outputs,
-            coinbase_tx_locktime: new_template.clone().coinbase_tx_locktime,
-            min_extranonce_size: 0,
-            tx_short_hash_nonce: 0,
-            /// Only for MVP2: must be filled with right values for production,
-            /// this values are needed for block propagation
-            tx_short_hash_list: vec![].try_into().unwrap(),
-            tx_hash_list_hash: [0; 32].try_into().unwrap(),
-            excess_data: vec![].try_into().unwrap(),
-        };
-        let commit_mining_job = JobNegotiation::CommitMiningJob(message_commit_mining_job);
-        println!("Send commit mining job to pool: {:?}", commit_mining_job);
-        Ok(SendTo::Respond(commit_mining_job))
+        info!("Received allocate mining job token success! coinbase output max additional size is {:?}", self.coinbase_output_max_additional_size);
+        Ok(SendTo::None(None))
     }
 
     fn commit_mining_job_success(
@@ -87,9 +64,10 @@ impl ParseServerJobNegotiationMessages for JobNegotiator {
     ) -> Result<SendTo, Error> {
         // Is ok to unwrap a safe_lock result
         match (message_type, payload).try_into() {
-            Ok(JobNegotiation::AllocateMiningJobTokenSuccess(message)) => self_
-                .safe_lock(|x| x.allocate_mining_job_token_success(message))
-                .unwrap(),
+            Ok(JobNegotiation::AllocateMiningJobTokenSuccess(message)) => {
+                self_.safe_lock(|x| x.coinbase_output_max_additional_size = message.clone().coinbase_output_max_additional_size).unwrap();
+                self_.safe_lock(|x| x.allocate_mining_job_token_success(message)).unwrap()  
+            },
             Ok(JobNegotiation::CommitMiningJobSuccess(message)) => self_
                 .safe_lock(|x| x.commit_mining_job_success(message))
                 .unwrap(),

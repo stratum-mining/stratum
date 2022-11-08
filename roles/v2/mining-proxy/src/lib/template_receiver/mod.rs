@@ -10,7 +10,7 @@ use roles_logic_sv2::{
         SendTo_,
     },
     parsers::{PoolMessages, TemplateDistribution},
-    template_distribution_sv2::{NewTemplate, SetNewPrevHash, SubmitSolution},
+    template_distribution_sv2::{NewTemplate, SetNewPrevHash, SubmitSolution, CoinbaseOutputDataSize},
 };
 pub type SendTo = SendTo_<roles_logic_sv2::parsers::TemplateDistribution<'static>, ()>;
 //use messages_sv2::parsers::JobNegotiation;
@@ -30,6 +30,7 @@ pub struct TemplateRx {
     sender: Sender<EitherFrame>,
     send_new_tp_to_negotiator: Sender<NewTemplate<'static>>,
     send_new_ph_to_negotiator: Sender<SetNewPrevHash<'static>>,
+    receive_coinbase_output_max_additional_size: Receiver<CoinbaseOutputDataSize>,
 }
 
 impl TemplateRx {
@@ -37,6 +38,7 @@ impl TemplateRx {
         address: SocketAddr,
         send_new_tp_to_negotiator: Sender<NewTemplate<'static>>,
         send_new_ph_to_negotiator: Sender<SetNewPrevHash<'static>>,
+        receive_coinbase_output_max_additional_size: Receiver<CoinbaseOutputDataSize>,
     ) {
         let stream = TcpStream::connect(address).await.unwrap();
 
@@ -53,6 +55,7 @@ impl TemplateRx {
             sender: sender.clone(),
             send_new_tp_to_negotiator,
             send_new_ph_to_negotiator,
+            receive_coinbase_output_max_additional_size,
         }));
 
         // Put this in a function
@@ -66,6 +69,18 @@ impl TemplateRx {
                 let message_type = frame.get_header().unwrap().msg_type();
                 let payload = frame.payload();
 
+
+                // coinbase_output_max_additional_size will be needed by CoinbaseOutputDataSize 
+                // to start templates exchanges. This receiver takes messages from the proxy JN.
+                let receiver_comas = self_mutex
+                    .clone()
+                    .safe_lock(|s| s.receive_coinbase_output_max_additional_size.clone())
+                    .unwrap();
+                let coinbase_output_max_additional_size: CoinbaseOutputDataSize  = receiver_comas.recv().await.unwrap();
+                let message_type = frame.get_header().unwrap().msg_type();
+                let payload = frame.payload();
+
+
                 let next_message_to_send =
                     ParseServerTemplateDistributionMessages::handle_message_template_distribution(
                         self_mutex.clone(),
@@ -73,12 +88,6 @@ impl TemplateRx {
                         payload,
                     );
                 match next_message_to_send {
-                    Ok(SendTo::RelayNewMessage(message)) => {
-                        todo!();
-                    }
-                    Ok(SendTo::Respond(message)) => {
-                        todo!();
-                    }
                     Ok(SendTo::None(m)) => match m {
                         Some(TemplateDistribution::NewTemplate(m)) => {
                             let sender = self_mutex
@@ -91,6 +100,10 @@ impl TemplateRx {
                                 .safe_lock(|s| s.send_new_ph_to_negotiator.clone())
                                 .unwrap();
                             sender.send(m).await.unwrap();
+                        }
+
+                        Some(TemplateDistribution::CoinbaseOutputDataSize(m)) => {
+                            todo!()
                         }
                         _ => todo!(),
                     },

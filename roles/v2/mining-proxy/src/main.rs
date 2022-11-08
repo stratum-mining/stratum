@@ -252,7 +252,10 @@ async fn main() {
     let (send_tp, recv_tp) = bounded(10);
     // channel to exchange set new prev hash
     let (send_ph, recv_ph) = bounded(10);
-    TemplateRx::connect(config.tp_address.parse().unwrap(), send_tp, send_ph).await;
+    // channel to send coinbase_output_max_additional_size
+    let (send_comas, recv_comas) = bounded(10);
+
+    TemplateRx::connect(config.tp_address.parse().unwrap(), send_tp, send_ph, recv_comas).await;
 
     JobNegotiator::new(
         SocketAddr::new(
@@ -267,6 +270,7 @@ async fn main() {
             .clone(),
         recv_tp,
         recv_ph,
+        send_comas,
     )
     .await;
 

@@ -8,13 +8,13 @@ use roles_logic_sv2::{
     parsers::{JobNegotiation, PoolMessages, TemplateDistribution},
     utils::Mutex,
 };
-use std::{convert::TryInto, str::FromStr};
+use std::{convert::TryInto, str::FromStr, collections::HashMap};
 use tracing::info;
 
 use codec_sv2::Frame;
 use roles_logic_sv2::{
     handlers::job_negotiation::ParseServerJobNegotiationMessages,
-    template_distribution_sv2::{NewTemplate, SetNewPrevHash},
+    template_distribution_sv2::{NewTemplate, SetNewPrevHash, CoinbaseOutputDataSize},
 };
 use std::{
     net::{IpAddr, SocketAddr},
@@ -41,6 +41,9 @@ pub struct JobNegotiator {
     receiver_set_new_prev_hash: Receiver<SetNewPrevHash<'static>>,
     last_new_template: Option<NewTemplate<'static>>,
     set_new_prev_hash: Option<SetNewPrevHash<'static>>,
+    future_templates: HashMap<u64, NewTemplate<'static>>,
+    coinbase_output_max_additional_size: u32,
+    sender_coinbase_output_max_additional_size: Sender<CoinbaseOutputDataSize>,
 }
 
 impl JobNegotiator {
@@ -49,6 +52,7 @@ impl JobNegotiator {
         authority_public_key: [u8; 32],
         receiver_new_template: Receiver<NewTemplate<'static>>,
         receiver_set_new_prev_hash: Receiver<SetNewPrevHash<'static>>,
+        sender_coinbase_output_max_additional_size: Sender<CoinbaseOutputDataSize>,
     ) {
         let stream = TcpStream::connect(address).await.unwrap();
         let initiator = Initiator::from_raw_k(authority_public_key).unwrap();
@@ -80,6 +84,9 @@ impl JobNegotiator {
             receiver_set_new_prev_hash,
             last_new_template: None,
             set_new_prev_hash: None,
+            future_templates: HashMap::new(),
+            sender_coinbase_output_max_additional_size,
+            coinbase_output_max_additional_size: 0,
         }));
 
         let allocate_token_message =
@@ -88,22 +95,22 @@ impl JobNegotiator {
                 request_id: 1,
             });
 
-        println!("Allocating token message {:?}", &allocate_token_message);
         Self::send(self_.clone(), allocate_token_message)
             .await
             .unwrap();
 
         let cloned = self_.clone();
-        Self::on_new_template(cloned.clone());
-        Self::on_new_prev_hash(cloned.clone());
-        loop {
-            match cloned.safe_lock(|s| s.last_new_template.clone()).unwrap() {
-                Some(_) => break,
-                None => tokio::time::sleep(std::time::Duration::from_secs(1)).await,
-            }
-        }
-
-        Self::on_upstream_message(cloned);
+        // first massage received will be AllocateMiningJobSuccess with coinbase_output_max_additional_size
+        Self::on_upstream_message(cloned.clone());
+        if cloned.safe_lock(|s| s.coinbase_output_max_additional_size.clone()).unwrap() != 0 {
+            let sender_comas = cloned.safe_lock(|s| s.sender_coinbase_output_max_additional_size.clone().clone()).unwrap();
+            let comas_message =  CoinbaseOutputDataSize {
+                coinbase_output_max_additional_size: cloned.safe_lock(|s| s.coinbase_output_max_additional_size.clone().clone()).unwrap()
+            };
+            sender_comas.send(comas_message).await;
+            Self::on_new_template(cloned.clone());
+            Self::on_new_prev_hash(cloned.clone());
+            }  
 
     }
 
