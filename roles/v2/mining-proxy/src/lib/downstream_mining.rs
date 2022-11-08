@@ -315,6 +315,7 @@ use std::net::SocketAddr;
 use tokio::net::TcpListener;
 
 pub async fn listen_for_downstream_mining(address: SocketAddr) {
+    info!("Listening for downstream mining connections on {}", address);
     let listner = TcpListener::bind(address).await.unwrap();
 
     while let Ok((stream, _)) = listner.accept().await {

@@ -1,17 +1,22 @@
 //! Useful struct used into this crate and by crates that want to interact with this one
-use crate::errors::Error;
-use binary_sv2::U256;
+use std::{
+    convert::TryInto,
+    sync::{Mutex as Mutex_, MutexGuard, PoisonError},
+};
+
 use bitcoin::{
     blockdata::block::BlockHeader,
     hash_types::{BlockHash, TxMerkleNode},
     hashes::{sha256d::Hash as DHash, Hash},
-    util::psbt::serialize::Deserialize,
+    util::{psbt::serialize::Deserialize, uint::Uint256},
     Transaction,
 };
-use std::{
-    convert::TryInto,
-    sync::{Mutex as Mutex_, MutexGuard, PoisonError},
-}; //compact_target_from_u256
+
+use binary_sv2::U256;
+//compact_target_from_u256
+use tracing::{error, info};
+
+use crate::errors::Error;
 
 /// Generator of unique ids
 #[derive(Debug, PartialEq)]
@@ -71,7 +76,14 @@ pub fn merkle_root_from_path<T: AsRef<[u8]>>(
     coinbase.extend_from_slice(coinbase_tx_prefix);
     coinbase.extend_from_slice(extranonce);
     coinbase.extend_from_slice(coinbase_tx_suffix);
-    let coinbase = Transaction::deserialize(&coinbase[..]).ok()?;
+    let coinbase = match Transaction::deserialize(&coinbase[..]) {
+        Ok(trans) => trans,
+        Err(e) => {
+            error!("ERROR: {}", e);
+            return None;
+        }
+    };
+
     // below unwrap never panic
     let coinbase_id: [u8; 32] = coinbase.txid().as_hash().to_vec().try_into().unwrap();
     Some(merkle_root_from_path_(coinbase_id, path).to_vec())
@@ -88,6 +100,7 @@ fn merkle_root_from_path_<T: AsRef<[u8]>>(coinbase_id: [u8; 32], path: &[T]) -> 
 // TODO remove when we have https://github.com/rust-bitcoin/rust-bitcoin/issues/1319
 fn reduce_path<T: AsRef<[u8]>>(coinbase_id: [u8; 32], path: &[T]) -> [u8; 32] {
     let mut root = coinbase_id;
+    info!("reduce_path: coinbase_id: {:?}", root);
     for node in path {
         let to_hash = [&root[..], node.as_ref()].concat();
         root = bitcoin::hashes::sha256d::Hash::hash(&to_hash)
@@ -293,7 +306,6 @@ pub(crate) fn new_header_hash<'decoder>(header: BlockHeader) -> U256<'decoder> {
     // below never panic an header hash is always U256
     hash.try_into().unwrap()
 }
-use bitcoin::util::uint::Uint256;
 
 fn u128_as_u256(v: u128) -> Uint256 {
     let u128_min = [0_u8; 16];

@@ -25,6 +25,7 @@ use roles_logic_sv2::{
     utils::{merkle_root_from_path, Id, Mutex},
 };
 use std::{collections::HashMap, convert::TryInto, sync::Arc};
+use tracing::{debug, info};
 
 pub fn u256_to_block_hash(v: U256<'static>) -> BlockHash {
     let hash: [u8; 32] = v.to_vec().try_into().unwrap();
@@ -57,9 +58,10 @@ impl PartialJob {
             &(self.extranonce[..]),
             &(new_ext_job.merkle_path.inner_as_ref()[..]),
         )
-        .unwrap()
+        .expect("Merkle root failed to be calculated")
         .try_into()
         .unwrap();
+
         let merkle_root = Hash::from_inner(merkle_root);
         let merkle_root = TxMerkleNode::from_hash(merkle_root);
         CompleteJob {
@@ -389,6 +391,7 @@ impl Downstream {
         }));
 
         for job in extended_jobs {
+            debug!("Sending job downstream: {:?}", job.0);
             Self::send(
                 self_.clone(),
                 roles_logic_sv2::parsers::Mining::NewExtendedMiningJob(job.0),
@@ -420,6 +423,7 @@ impl Downstream {
         let cloned = self_.clone();
 
         task::spawn(async move {
+            debug!("Starting up downstream receiver");
             loop {
                 let receiver = cloned.safe_lock(|d| d.receiver.clone()).unwrap();
                 match receiver.recv().await {
@@ -453,6 +457,10 @@ impl Downstream {
     pub async fn next(self_mutex: Arc<Mutex<Self>>, mut incoming: StdFrame) {
         let message_type = incoming.get_header().unwrap().msg_type();
         let payload = incoming.payload();
+        debug!(
+            "Received downstream message type: {:?}, payload: {:?}",
+            message_type, payload
+        );
         let next_message_to_send = ParseDownstreamMiningMessages::handle_message_mining(
             self_mutex.clone(),
             message_type,
@@ -461,7 +469,10 @@ impl Downstream {
         );
         match next_message_to_send {
             Ok(SendTo::Respond(message)) => {
-                Self::send(self_mutex, message).await.unwrap();
+                debug!("Responding to downstream message: {:?}", message);
+                Self::send(self_mutex, message)
+                    .await
+                    .expect("Failed to send downstream message");
             }
             Ok(SendTo::None(_)) => (),
             Ok(_) => panic!(),
@@ -524,6 +535,11 @@ impl Downstream {
         _merkle_path: Vec<Vec<u8>>,
         template_id: u64,
     ) -> Result<(), ()> {
+        debug!(
+            "Received new extended job - future_job={}: {:?}",
+            message.future_job, message
+        );
+
         if !message.future_job {
             self_
                 .safe_lock(|s| {
@@ -551,6 +567,7 @@ impl Downstream {
             .unwrap();
 
         let sender = self_.safe_lock(|self_| self_.sender.clone()).unwrap();
+        debug!("Sending new extended job to downstream: {:?}", sv2_frame);
         sender.send(sv2_frame.into()).await.map_err(|_| ())?;
 
         Ok(())
@@ -567,7 +584,10 @@ impl IsMiningDownstream for Downstream {}
 impl Pool {
     async fn accept_incoming_connection(self_: Arc<Mutex<Pool>>, config: Configuration) {
         let listner = TcpListener::bind(&config.listen_address).await.unwrap();
+        info!("Listening on {}", config.listen_address);
         while let Ok((stream, _)) = listner.accept().await {
+            debug!("New connection from {}", stream.peer_addr().unwrap());
+
             let solution_sender = self_.safe_lock(|p| p.solution_sender.clone()).unwrap();
             let responder = Responder::from_authority_kp(
                 config.authority_public_key.clone().into_inner().as_bytes(),
@@ -576,8 +596,13 @@ impl Pool {
             )
             .unwrap();
             let last_new_prev_hash = self_.safe_lock(|x| x.last_new_prev_hash.clone()).unwrap();
+
+            // Uncomment to allow unencrypted connections
+            // let (receiver, sender): (Receiver<EitherFrame>, Sender<EitherFrame>) =
+            //     PlainConnection::new(stream).await;
             let (receiver, sender): (Receiver<EitherFrame>, Sender<EitherFrame>) =
                 Connection::new(stream, HandshakeRole::Responder(responder)).await;
+
             let group_ids = self_.safe_lock(|s| s.group_ids.clone()).unwrap();
             let hom_ids = self_.safe_lock(|s| s.hom_ids.clone()).unwrap();
             let job_creators = self_.safe_lock(|s| s.job_creators.clone()).unwrap();
@@ -662,6 +687,10 @@ impl Pool {
 
     async fn on_new_template(self_: Arc<Mutex<Self>>, rx: Receiver<NewTemplate<'_>>) {
         while let Ok(mut new_template) = rx.recv().await {
+            debug!(
+                "New template received, creating a new mining job(s): {:?}",
+                new_template
+            );
             let job_creators = self_.safe_lock(|s| s.job_creators.clone()).unwrap();
             let mut new_jobs = job_creators
                 .safe_lock(|j| j.on_new_template(&mut new_template).unwrap())
@@ -718,6 +747,7 @@ impl Pool {
         let cloned2 = pool.clone();
         let cloned3 = pool.clone();
 
+        info!("Starting up pool listener");
         task::spawn(Self::accept_incoming_connection(cloned, config));
 
         task::spawn(async {
