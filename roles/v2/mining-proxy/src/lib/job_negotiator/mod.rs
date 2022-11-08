@@ -8,13 +8,13 @@ use roles_logic_sv2::{
     parsers::{JobNegotiation, PoolMessages},
     utils::Mutex,
 };
-use std::{convert::TryInto, str::FromStr};
+use std::{convert::TryInto, str::FromStr, collections::HashMap};
 use tracing::info;
 
 use codec_sv2::Frame;
 use roles_logic_sv2::{
     handlers::job_negotiation::ParseServerJobNegotiationMessages,
-    template_distribution_sv2::{NewTemplate, SetNewPrevHash},
+    template_distribution_sv2::{NewTemplate, SetNewPrevHash, CoinbaseOutputDataSize},
 };
 use std::{
     net::{IpAddr, SocketAddr},
@@ -39,6 +39,9 @@ pub struct JobNegotiator {
     receiver_set_new_prev_hash: Receiver<SetNewPrevHash<'static>>,
     last_new_template: Option<NewTemplate<'static>>,
     set_new_prev_hash: Option<SetNewPrevHash<'static>>,
+    future_templates: HashMap<u64, NewTemplate<'static>>,
+    coinbase_output_max_additional_size: u32,
+    sender_coinbase_output_max_additional_size: Sender<CoinbaseOutputDataSize>,
 }
 
 impl JobNegotiator {
@@ -47,6 +50,7 @@ impl JobNegotiator {
         authority_public_key: [u8; 32],
         receiver_new_template: Receiver<NewTemplate<'static>>,
         receiver_set_new_prev_hash: Receiver<SetNewPrevHash<'static>>,
+        sender_coinbase_output_max_additional_size: Sender<CoinbaseOutputDataSize>,
     ) {
         let stream = TcpStream::connect(address).await.unwrap();
         let initiator = Initiator::from_raw_k(authority_public_key).unwrap();
@@ -96,7 +100,6 @@ impl JobNegotiator {
                 user_identifier: "4ss0".to_string().try_into().unwrap(),
                 request_id: 1,
             });
-
 
         Self::send(self_.clone(), allocate_token_message)
             .await
