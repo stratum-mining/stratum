@@ -8,13 +8,13 @@ use roles_logic_sv2::{
     parsers::{JobNegotiation, PoolMessages, TemplateDistribution},
     utils::Mutex,
 };
-use std::{convert::TryInto, str::FromStr, collections::HashMap};
+use std::{collections::HashMap, convert::TryInto, str::FromStr};
 use tracing::info;
 
 use codec_sv2::Frame;
 use roles_logic_sv2::{
     handlers::job_negotiation::ParseServerJobNegotiationMessages,
-    template_distribution_sv2::{NewTemplate, SetNewPrevHash, CoinbaseOutputDataSize},
+    template_distribution_sv2::{CoinbaseOutputDataSize, NewTemplate, SetNewPrevHash},
 };
 use std::{
     net::{IpAddr, SocketAddr},
@@ -102,16 +102,23 @@ impl JobNegotiator {
         let cloned = self_.clone();
         // first massage received will be AllocateMiningJobSuccess with coinbase_output_max_additional_size
         Self::on_upstream_message(cloned.clone());
-        if cloned.safe_lock(|s| s.coinbase_output_max_additional_size.clone()).unwrap() != 0 {
-            let sender_comas = cloned.safe_lock(|s| s.sender_coinbase_output_max_additional_size.clone().clone()).unwrap();
-            let comas_message =  CoinbaseOutputDataSize {
-                coinbase_output_max_additional_size: cloned.safe_lock(|s| s.coinbase_output_max_additional_size.clone().clone()).unwrap()
+        if cloned
+            .safe_lock(|s| s.coinbase_output_max_additional_size.clone())
+            .unwrap()
+            != 0
+        {
+            let sender_comas = cloned
+                .safe_lock(|s| s.sender_coinbase_output_max_additional_size.clone().clone())
+                .unwrap();
+            let comas_message = CoinbaseOutputDataSize {
+                coinbase_output_max_additional_size: cloned
+                    .safe_lock(|s| s.coinbase_output_max_additional_size.clone().clone())
+                    .unwrap(),
             };
             sender_comas.send(comas_message).await;
             Self::on_new_template(cloned.clone());
             Self::on_new_prev_hash(cloned.clone());
-            }  
-
+        }
     }
 
     pub fn on_new_template(self_mutex: Arc<Mutex<Self>>) {

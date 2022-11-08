@@ -10,7 +10,9 @@ use roles_logic_sv2::{
         SendTo_,
     },
     parsers::{PoolMessages, TemplateDistribution},
-    template_distribution_sv2::{NewTemplate, SetNewPrevHash, SubmitSolution, CoinbaseOutputDataSize},
+    template_distribution_sv2::{
+        CoinbaseOutputDataSize, NewTemplate, SetNewPrevHash, SubmitSolution,
+    },
 };
 pub type SendTo = SendTo_<roles_logic_sv2::parsers::TemplateDistribution<'static>, ()>;
 //use messages_sv2::parsers::JobNegotiation;
@@ -69,17 +71,16 @@ impl TemplateRx {
                 let message_type = frame.get_header().unwrap().msg_type();
                 let payload = frame.payload();
 
-
-                // coinbase_output_max_additional_size will be needed by CoinbaseOutputDataSize 
+                // coinbase_output_max_additional_size will be needed by CoinbaseOutputDataSize
                 // to start templates exchanges. This receiver takes messages from the proxy JN.
                 let receiver_comas = self_mutex
                     .clone()
                     .safe_lock(|s| s.receive_coinbase_output_max_additional_size.clone())
                     .unwrap();
-                let coinbase_output_max_additional_size: CoinbaseOutputDataSize  = receiver_comas.recv().await.unwrap();
+                let coinbase_output_max_additional_size: CoinbaseOutputDataSize =
+                    receiver_comas.recv().await.unwrap();
                 let message_type = frame.get_header().unwrap().msg_type();
                 let payload = frame.payload();
-
 
                 let next_message_to_send =
                     ParseServerTemplateDistributionMessages::handle_message_template_distribution(
