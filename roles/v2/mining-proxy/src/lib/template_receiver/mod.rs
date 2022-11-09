@@ -57,6 +57,7 @@ impl TemplateRx {
             send_new_ph_to_negotiator,
             receive_coinbase_output_max_additional_size,
         }));
+        let cloned = self_mutex.clone();
 
         Self::start_templates(self_mutex).await;
     }
@@ -166,16 +167,14 @@ impl TemplateRx {
                                 .unwrap();
                             sender.send(m).await.unwrap();
                         }
-
-                        Some(TemplateDistribution::CoinbaseOutputDataSize(m)) => {
-                            todo!()
-                        }
                         _ => todo!(),
                     },
                     Ok(_) => panic!(),
                     Err(_) => todo!(),
                 }
             }
+        
         });
+        
     }
 }
