@@ -314,11 +314,8 @@ mod tests {
     fn downstream_channel_returns_channel_id_on_receiving_extended_channel() {
         let id = 0;
         let expect = id;
-
         let channel = DownstreamChannel::Extended(id);
         let actual = channel.channel_id();
-
         assert_eq!(expect, actual);
-
     }
 }

@@ -356,7 +356,7 @@ mod tests {
         //Create a template
         let mut template = from_gen(&mut Gen::new(255), test_id);
         let jobs = jobs_creators.on_new_template(template.borrow_mut()).unwrap();
-        
+
         assert_eq!(jobs[&channel_id].job_id, 1);
         assert_eq!(jobs[&channel_id].channel_id, 1);
         assert_eq!(jobs[&channel_id].future_job, template.future_template);
