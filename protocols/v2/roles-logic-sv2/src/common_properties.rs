@@ -277,10 +277,11 @@ mod tests {
         assert_eq!(expect, actual);
     }
 
-    #[ignore]
     #[test]
-    fn downstream_channel_returns_group_id_on_receiving_extended_channel() {
-        todo!();
+    fn downstream_channel_returns_err_on_receiving_extended_channel() {
+        let id = 0;
+        let channel = DownstreamChannel::Extended(id);
+        assert!(channel.group_id().is_err())
     }
 
     #[test]
@@ -309,9 +310,15 @@ mod tests {
         assert_eq!(expect, actual);
     }
 
-    #[ignore]
     #[test]
     fn downstream_channel_returns_channel_id_on_receiving_extended_channel() {
-        todo!();
+        let id = 0;
+        let expect = id;
+
+        let channel = DownstreamChannel::Extended(id);
+        let actual = channel.channel_id();
+
+        assert_eq!(expect, actual);
+
     }
 }

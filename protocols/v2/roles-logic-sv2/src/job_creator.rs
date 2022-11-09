@@ -192,6 +192,9 @@ impl JobsCreators {
         }
     }
 
+    /// When we get a new SetNewPrevHash we need to clear all the other templates and only
+    /// keep the one that matches the template_id of the new prev hash. If none match then
+    /// we clear all the saved templates.
     pub fn on_new_prev_hash(&mut self, prev_hash: &SetNewPrevHash<'static>) {
         let template: Vec<NewTemplate<'static>> = self
             .lasts_new_template
@@ -236,5 +239,205 @@ impl JobsCreators {
             }
         }
         None
+    }
+}
+
+// Test
+#[cfg(test)]
+
+mod tests {
+    use super::*;
+    use binary_sv2::u256_from_int;
+    use bitcoin::secp256k1::Secp256k1;
+    use bitcoin::Network;
+    use quickcheck::{Arbitrary, Gen};
+    use std::borrow::BorrowMut;
+    use std::vec;
+
+    pub fn from_gen(g: &mut Gen, id: u64) -> NewTemplate<'static> {
+        let mut coinbase_prefix_gen = Gen::new(255);
+        let mut coinbase_prefix: vec::Vec<u8> = vec::Vec::new();
+        coinbase_prefix.resize_with(255, || u8::arbitrary(&mut coinbase_prefix_gen));
+        let coinbase_prefix: binary_sv2::B0255 = coinbase_prefix.try_into().unwrap();
+
+        let mut coinbase_tx_outputs_gen = Gen::new(32);
+        let mut coinbase_tx_outputs_inner: vec::Vec<u8> = vec::Vec::new();
+        coinbase_tx_outputs_inner.resize_with(32, || u8::arbitrary(&mut coinbase_tx_outputs_gen));
+        let coinbase_tx_outputs_inner: binary_sv2::B064K =
+            coinbase_tx_outputs_inner.try_into().unwrap();
+        let coinbase_tx_outputs: binary_sv2::Seq064K<binary_sv2::B064K> =
+            vec![coinbase_tx_outputs_inner].into();
+
+        let mut merkle_path_inner_gen = Gen::new(32);
+        let mut merkle_path_inner: vec::Vec<u8> = vec::Vec::new();
+        merkle_path_inner.resize_with(32, || u8::arbitrary(&mut merkle_path_inner_gen));
+        let merkle_path_inner: binary_sv2::U256 = merkle_path_inner.try_into().unwrap();
+        let merkle_path: binary_sv2::Seq0255<binary_sv2::U256> = vec![merkle_path_inner].into();
+
+        NewTemplate {
+            template_id: id,
+            future_template: bool::arbitrary(g),
+            version: u32::arbitrary(g),
+            coinbase_tx_version: 2,
+            coinbase_prefix,
+            coinbase_tx_input_sequence: u32::arbitrary(g),
+            coinbase_tx_value_remaining: u64::arbitrary(g),
+            coinbase_tx_outputs_count: 0,
+            coinbase_tx_outputs,
+            coinbase_tx_locktime: u32::arbitrary(g),
+            merkle_path,
+        }
+    }
+
+    const PRIVATE_KEY_BTC: [u8; 32] = [34; 32];
+    const NETWORK: Network = Network::Testnet;
+
+    const BLOCK_REWARD: u64 = 625_000_000_000;
+
+    fn new_pub_key() -> PublicKey {
+        let priv_k = PrivateKey::from_slice(&PRIVATE_KEY_BTC, NETWORK).unwrap();
+        let secp = Secp256k1::default();
+        PublicKey::from_private_key(&secp, &priv_k)
+    }
+
+    // Test job_id_from_template
+    #[test]
+    fn test_job_id_from_template() {
+        let mut jobs_creators = JobsCreators::new(BLOCK_REWARD, new_pub_key()).unwrap();
+
+        jobs_creators.new_group_channel(1, true).unwrap();
+
+        let test_id: u64 = 20;
+        //Create a template
+        let mut template = from_gen(&mut Gen::new(255), test_id);
+        let _jobs = jobs_creators.on_new_template(template.borrow_mut());
+
+        assert_eq!(jobs_creators.job_id_from_template(test_id, 1), Some(1));
+
+        // Assert returns non if no match
+        assert_eq!(jobs_creators.job_id_from_template(test_id, 2), None);
+    }
+
+    // Test new_group_channel
+    #[test]
+    fn test_new_group_channel() {
+        let mut jobs_creators = JobsCreators::new(BLOCK_REWARD, new_pub_key()).unwrap();
+
+        jobs_creators.new_group_channel(1, true).unwrap();
+
+        let test_id: u64 = 20;
+        //Create a template
+        let mut template = from_gen(&mut Gen::new(255), test_id);
+        let _jobs = jobs_creators.on_new_template(template.borrow_mut());
+
+        let res = jobs_creators.new_group_channel(2, true).unwrap();
+        assert_eq!(res.len(), 1);
+
+        // Assert there are now 2 job creators - one for each group
+        assert_eq!(jobs_creators.jobs_creators.len(), 2);
+    }
+
+    // Test on_new_template
+    #[test]
+    fn test_on_new_template() {
+        let mut jobs_creators = JobsCreators::new(BLOCK_REWARD, new_pub_key()).unwrap();
+
+        let channel_id = 1;
+        jobs_creators.new_group_channel(channel_id, true).unwrap();
+
+        let test_id: u64 = 20;
+        //Create a template
+        let mut template = from_gen(&mut Gen::new(255), test_id);
+        let jobs = jobs_creators.on_new_template(template.borrow_mut()).unwrap();
+        
+        assert_eq!(jobs[&channel_id].job_id, 1);
+        assert_eq!(jobs[&channel_id].channel_id, 1);
+        assert_eq!(jobs[&channel_id].future_job, template.future_template);
+        assert_eq!(jobs[&channel_id].version, template.version);
+        assert_eq!(jobs[&channel_id].version_rolling_allowed, true);
+        assert_eq!(jobs[&channel_id].merkle_path, template.merkle_path);
+
+    }
+
+    // Test reset new template
+    #[test]
+    fn test_reset_new_template() {
+        let mut jobs_creators = JobsCreators::new(BLOCK_REWARD, new_pub_key()).unwrap();
+
+        assert_eq!(jobs_creators.lasts_new_template.len(), 0);
+
+        jobs_creators.new_group_channel(1, true).unwrap();
+
+        let test_id: u64 = 22;
+        //Create a template
+        let mut template = from_gen(&mut Gen::new(255), test_id);
+        let _ = jobs_creators.on_new_template(template.borrow_mut());
+
+        assert_eq!(jobs_creators.lasts_new_template.len(), 1);
+        assert_eq!(jobs_creators.lasts_new_template[0], template);
+
+        let test_id2: u64 = 21;
+        //Create a 2nd template
+        let template2 = from_gen(&mut Gen::new(255), test_id2);
+
+        // Reset new template
+        jobs_creators.reset_new_templates(Some(template2.clone()));
+
+        // Should be pointing at new template
+        assert_eq!(jobs_creators.lasts_new_template.len(), 1);
+        assert_eq!(jobs_creators.lasts_new_template[0], template2);
+
+        // Reset new template
+        jobs_creators.reset_new_templates(None);
+
+        // Should be pointing at new template
+        assert_eq!(jobs_creators.lasts_new_template.len(), 0);
+    }
+
+    // Test on_new_prev_hash
+    #[test]
+    fn test_on_new_prev_hash() {
+        let mut jobs_creators = JobsCreators::new(BLOCK_REWARD, new_pub_key()).unwrap();
+
+        jobs_creators.new_group_channel(1, true).unwrap();
+
+        let test_id: u64 = 23;
+        //Create a template
+        let mut template = from_gen(&mut Gen::new(255), test_id);
+        let _ = jobs_creators.on_new_template(template.borrow_mut());
+
+        // Assert returns non if no match
+        assert_eq!(jobs_creators.job_id_from_template(test_id, 2), None);
+
+        // Create a SetNewPrevHash with matching template_id
+        let prev_hash = SetNewPrevHash {
+            template_id: test_id,
+            prev_hash: u256_from_int(45_u32),
+            header_timestamp: 0,
+            n_bits: 0,
+            target: ([0_u8; 32]).try_into().unwrap(),
+        };
+
+        jobs_creators.on_new_prev_hash(&prev_hash);
+
+        //Validate that we still have the same template loaded as there were matching templateIds
+        assert_eq!(jobs_creators.lasts_new_template.len(), 1);
+        assert_eq!(jobs_creators.lasts_new_template[0], template);
+
+        //let mut u256 = [0_u8; 32];
+
+        // Create a SetNewPrevHash with matching template_id
+        let prev_hash2 = SetNewPrevHash {
+            template_id: test_id + 1,
+            prev_hash: u256_from_int(45_u32),
+            header_timestamp: 0,
+            n_bits: 0,
+            target: ([0_u8; 32]).try_into().unwrap(),
+        };
+
+        jobs_creators.on_new_prev_hash(&prev_hash2);
+
+        //Validate that templates were cleared as we got a new templateId in setNewPrevHash
+        assert_eq!(jobs_creators.lasts_new_template.len(), 0);
     }
 }
