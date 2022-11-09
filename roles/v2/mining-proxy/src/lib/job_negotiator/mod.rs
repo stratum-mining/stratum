@@ -100,7 +100,7 @@ impl JobNegotiator {
             .unwrap();
 
         let cloned = self_.clone();
-        // first massage received will be AllocateMiningJobSuccess with coinbase_output_max_additional_size
+        // first massage received will be AllocateMiningJobSuccess with coinbase_output_max_additional_size != 0
         Self::on_upstream_message(cloned.clone());
         if cloned
             .safe_lock(|s| s.coinbase_output_max_additional_size.clone())

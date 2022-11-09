@@ -21,8 +21,9 @@ pub type StdFrame = StandardSv2Frame<Message>;
 pub type EitherFrame = StandardEitherFrame<Message>;
 use async_channel::{Receiver, Sender};
 use network_helpers::plain_connection_tokio::PlainConnection;
+use tracing::info;
 use std::{char::ParseCharError, convert::TryInto, net::SocketAddr, sync::Arc};
-use tokio::net::TcpStream;
+use tokio::{net::TcpStream, task};
 mod message_handler;
 mod setup_connection;
 use setup_connection::SetupConnectionHandler;
@@ -59,8 +60,41 @@ impl TemplateRx {
             send_new_ph_to_negotiator,
             receive_coinbase_output_max_additional_size,
         }));
+        let cloned = self_mutex.clone();
 
-        // Put this in a function
+        task::spawn(async { Self::send_comas(cloned).await });
+        task::spawn(async { Self::start_templates(self_mutex).await });
+    }
+
+    pub async fn send_comas(self_mutex: Arc<Mutex<Self>>) {
+        // coinbase_output_max_additional_size will be needed by CoinbaseOutputDataSize
+        // to start templates exchanges. This receiver takes messages from the proxy JN.
+        let receiver_comas = self_mutex
+            .clone()
+            .safe_lock(|s| s.receive_coinbase_output_max_additional_size.clone())
+            .unwrap();
+        let coinbase_output_max_additional_size: CoinbaseOutputDataSize =
+            receiver_comas.recv().await.unwrap();
+
+
+        let sv2_frame: StdFrame = PoolMessages::TemplateDistribution(roles_logic_sv2::parsers::TemplateDistribution::CoinbaseOutputDataSize(coinbase_output_max_additional_size))
+            .try_into()
+            .unwrap();
+        let sender = self_mutex
+            .clone()
+            .safe_lock(|s| s.sender.clone())
+            .unwrap();
+        let response = sender.send(sv2_frame.into()).await;
+
+        match response {
+            Ok(_m) => info!("CoinbaseOutputDataSize SENT"),
+            Err(_) => info!("Problem sending CoinbaseOutputDataSize"),
+        }
+
+        
+    }
+
+    pub async fn start_templates(self_mutex: Arc<Mutex<Self>>) {
         tokio::task::spawn(async move {
             loop {
                 let receiver = self_mutex
@@ -68,17 +102,6 @@ impl TemplateRx {
                     .safe_lock(|s| s.receiver.clone())
                     .unwrap();
                 let mut frame: StdFrame = receiver.recv().await.unwrap().try_into().unwrap();
-                let message_type = frame.get_header().unwrap().msg_type();
-                let payload = frame.payload();
-
-                // coinbase_output_max_additional_size will be needed by CoinbaseOutputDataSize
-                // to start templates exchanges. This receiver takes messages from the proxy JN.
-                let receiver_comas = self_mutex
-                    .clone()
-                    .safe_lock(|s| s.receive_coinbase_output_max_additional_size.clone())
-                    .unwrap();
-                let coinbase_output_max_additional_size: CoinbaseOutputDataSize =
-                    receiver_comas.recv().await.unwrap();
                 let message_type = frame.get_header().unwrap().msg_type();
                 let payload = frame.payload();
 
@@ -102,16 +125,14 @@ impl TemplateRx {
                                 .unwrap();
                             sender.send(m).await.unwrap();
                         }
-
-                        Some(TemplateDistribution::CoinbaseOutputDataSize(m)) => {
-                            todo!()
-                        }
                         _ => todo!(),
                     },
                     Ok(_) => panic!(),
                     Err(_) => todo!(),
                 }
             }
+        
         });
+        
     }
 }

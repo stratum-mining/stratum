@@ -43,7 +43,7 @@ impl<'a> From<CommitMiningJob<'a>> for CommittedMiningJob<'static> {
         m.into()
     }
 }
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct JobNegotiatorDownstream {
     sender: Sender<EitherFrame>,
     receiver: Receiver<EitherFrame>,
