@@ -255,7 +255,7 @@ impl JobsCreators {
 mod tests {
     use super::*;
     use binary_sv2::u256_from_int;
-    use bitcoin::{secp256k1::Secp256k1, Network} ;
+    use bitcoin::{secp256k1::Secp256k1, Network};
     use quickcheck::{Arbitrary, Gen};
     use std::{borrow::BorrowMut, vec};
 
