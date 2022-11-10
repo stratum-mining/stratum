@@ -379,4 +379,9 @@ mod test {
             flag_required
         ));
     }
+    #[test]
+    fn test_has_requires_std_job() {
+        let flags = 0b_0000_0000_0000_0000_0000_0000_0000_0001;
+        assert!(has_requires_std_job(flags) == true);
+    }
 }

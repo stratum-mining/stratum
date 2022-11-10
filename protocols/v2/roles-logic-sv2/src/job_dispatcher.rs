@@ -10,7 +10,7 @@ use mining_sv2::{
 };
 use std::{collections::HashMap, convert::TryInto, sync::Arc};
 
-fn extended_to_standard_job_for_group_channel<'a>(
+pub fn extended_to_standard_job_for_group_channel<'a>(
     extended: &NewExtendedMiningJob,
     coinbase_script: &[u8],
     channel_id: u32,
