@@ -161,6 +161,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "async-recursion"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2cda8f4bcc10624c4e85bc66b3f452cca98cfa5ca002dc83a16aad2367641bea"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "async-std"
 version = "1.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1051,7 +1062,7 @@ name = "mining-device"
 version = "0.1.0"
 dependencies = [
  "async-channel",
- "async-recursion",
+ "async-recursion 0.3.2",
  "async-std",
  "binary_sv2",
  "bitcoin",
@@ -1068,7 +1079,7 @@ name = "mining-proxy"
 version = "0.1.0"
 dependencies = [
  "async-channel",
- "async-recursion",
+ "async-recursion 0.3.2",
  "binary_sv2",
  "buffer_sv2",
  "codec_sv2",
@@ -1117,6 +1128,7 @@ dependencies = [
  "codec_sv2",
  "serde",
  "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -1319,7 +1331,7 @@ name = "pool"
 version = "0.1.0"
 dependencies = [
  "async-channel",
- "async-recursion",
+ "async-recursion 1.0.0",
  "binary_sv2",
  "bitcoin",
  "buffer_sv2",
@@ -1551,6 +1563,7 @@ dependencies = [
  "serde",
  "template_distribution_sv2",
  "toml",
+ "tracing",
 ]
 
 [[package]]
@@ -1859,7 +1872,7 @@ name = "test-pool"
 version = "0.1.0"
 dependencies = [
  "async-channel",
- "async-recursion",
+ "async-recursion 0.3.2",
  "async-std",
  "binary_sv2",
  "buffer_sv2",
@@ -2004,7 +2017,7 @@ name = "translator"
 version = "0.1.0"
 dependencies = [
  "async-channel",
- "async-recursion",
+ "async-recursion 0.3.2",
  "async-std",
  "binary_sv2",
  "buffer_sv2",

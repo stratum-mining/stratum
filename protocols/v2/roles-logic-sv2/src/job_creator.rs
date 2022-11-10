@@ -14,6 +14,7 @@ pub use bitcoin::{
 use mining_sv2::NewExtendedMiningJob;
 use std::{collections::HashMap, convert::TryInto};
 use template_distribution_sv2::{NewTemplate, SetNewPrevHash};
+use tracing::debug;
 
 const SCRIPT_PREFIX_LEN: usize = 4;
 const PREV_OUT_LEN: usize = 38;
@@ -71,6 +72,11 @@ impl JobCreator {
         };
         self.template_id_to_job_id
             .insert(new_template.template_id, new_extended_mining_job.job_id);
+
+        debug!(
+            "New extended mining job created: {:?}",
+            new_extended_mining_job
+        );
         Ok(new_extended_mining_job)
     }
 
@@ -215,6 +221,7 @@ impl JobsCreators {
         group_channel_id: u32,
         version_rolling_allowed: bool,
     ) -> Result<Vec<(NewExtendedMiningJob<'static>, u64)>, Error> {
+        debug!("new_group_channel created: {}", group_channel_id);
         let mut jc = JobCreator {
             group_channel_id,
             job_ids: Id::new(),

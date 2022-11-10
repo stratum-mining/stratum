@@ -14,6 +14,7 @@ use roles_logic_sv2::{
     utils::Mutex,
 };
 use std::{convert::TryInto, sync::Arc};
+use tracing::{debug, error};
 
 pub struct SetupConnectionHandler {
     header_only: Option<bool>,
@@ -28,7 +29,20 @@ impl SetupConnectionHandler {
         receiver: &mut Receiver<EitherFrame>,
         sender: &mut Sender<EitherFrame>,
     ) -> Result<CommonDownstreamData, ()> {
-        let mut incoming: StdFrame = receiver.recv().await.unwrap().try_into().unwrap();
+        // read stdFrame from receiver
+
+        let mut incoming: StdFrame =
+            match receiver.recv().await.expect("Connection Dropped to miner") {
+                EitherFrame::HandShake(_) => {
+                    error!("Got unexpected handshake message");
+                    panic!()
+                }
+                EitherFrame::Sv2(s) => {
+                    debug!("Got sv2 message: {:?}", s);
+                    s
+                }
+            };
+
         let message_type = incoming.get_header().unwrap().msg_type();
         let payload = incoming.payload();
         let response = ParseDownstreamCommonMessages::handle_message_common(
@@ -47,11 +61,14 @@ impl SetupConnectionHandler {
         self_.safe_lock(|s| s.header_only.unwrap()).unwrap();
 
         match message {
-            CommonMessages::SetupConnectionSuccess(m) => Ok(CommonDownstreamData {
-                header_only: has_requires_std_job(m.flags),
-                work_selection: has_work_selection(m.flags),
-                version_rolling: has_version_rolling(m.flags),
-            }),
+            CommonMessages::SetupConnectionSuccess(m) => {
+                debug!("Sent back SetupConnectionSuccess: {:?}", m);
+                Ok(CommonDownstreamData {
+                    header_only: has_requires_std_job(m.flags),
+                    work_selection: has_work_selection(m.flags),
+                    version_rolling: has_version_rolling(m.flags),
+                })
+            }
             _ => panic!(),
         }
     }
@@ -65,11 +82,12 @@ impl ParseDownstreamCommonMessages<NoRouting> for SetupConnectionHandler {
     ) -> Result<roles_logic_sv2::handlers::common::SendTo, Error> {
         use roles_logic_sv2::handlers::common::SendTo;
         let header_only = incoming.requires_standard_job();
+        debug!("Handling setup connection: header_only: {}", header_only);
         self.header_only = Some(header_only);
         Ok(SendTo::RelayNewMessageToRemote(
             Arc::new(Mutex::new(())),
             CommonMessages::SetupConnectionSuccess(SetupConnectionSuccess {
-                flags: 0,
+                flags: incoming.flags,
                 used_version: 2,
             }),
         ))
