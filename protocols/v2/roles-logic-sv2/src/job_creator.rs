@@ -255,11 +255,9 @@ impl JobsCreators {
 mod tests {
     use super::*;
     use binary_sv2::u256_from_int;
-    use bitcoin::secp256k1::Secp256k1;
-    use bitcoin::Network;
+    use bitcoin::{secp256k1::Secp256k1, Network} ;
     use quickcheck::{Arbitrary, Gen};
-    use std::borrow::BorrowMut;
-    use std::vec;
+    use std::{borrow::BorrowMut, vec};
 
     pub fn from_gen(g: &mut Gen, id: u64) -> NewTemplate<'static> {
         let mut coinbase_prefix_gen = Gen::new(255);
@@ -355,7 +353,9 @@ mod tests {
         let test_id: u64 = 20;
         //Create a template
         let mut template = from_gen(&mut Gen::new(255), test_id);
-        let jobs = jobs_creators.on_new_template(template.borrow_mut()).unwrap();
+        let jobs = jobs_creators
+            .on_new_template(template.borrow_mut())
+            .unwrap();
 
         assert_eq!(jobs[&channel_id].job_id, 1);
         assert_eq!(jobs[&channel_id].channel_id, 1);
@@ -363,7 +363,6 @@ mod tests {
         assert_eq!(jobs[&channel_id].version, template.version);
         assert_eq!(jobs[&channel_id].version_rolling_allowed, true);
         assert_eq!(jobs[&channel_id].merkle_path, template.merkle_path);
-
     }
 
     // Test reset new template
