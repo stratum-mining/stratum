@@ -582,6 +582,55 @@ impl IsDownstream for Downstream {
 impl IsMiningDownstream for Downstream {}
 
 impl Pool {
+    #[cfg(feature = "test_only_allow_unencrypted")]
+    async fn accept_incoming_plain_connection(self_: Arc<Mutex<Pool>>, config: Configuration) {
+        let listner = TcpListener::bind(&config.test_only_listen_adress_plain)
+            .await
+            .unwrap();
+        info!("Listening on {}", config.test_only_listen_adress_plain);
+        while let Ok((stream, _)) = listner.accept().await {
+            debug!("New connection from {}", stream.peer_addr().unwrap());
+
+            let solution_sender = self_.safe_lock(|p| p.solution_sender.clone()).unwrap();
+            let last_new_prev_hash = self_.safe_lock(|x| x.last_new_prev_hash.clone()).unwrap();
+
+            // Uncomment to allow unencrypted connections
+            let (receiver, sender): (Receiver<EitherFrame>, Sender<EitherFrame>) =
+                network_helpers::plain_connection_tokio::PlainConnection::new(stream).await;
+
+            let group_ids = self_.safe_lock(|s| s.group_ids.clone()).unwrap();
+            let hom_ids = self_.safe_lock(|s| s.hom_ids.clone()).unwrap();
+            let job_creators = self_.safe_lock(|s| s.job_creators.clone()).unwrap();
+            let extranonces = self_.safe_lock(|s| s.extranonces.clone()).unwrap();
+            let downstream = Downstream::new(
+                receiver,
+                sender,
+                group_ids,
+                hom_ids,
+                job_creators,
+                extranonces,
+                last_new_prev_hash,
+                solution_sender,
+                self_.clone(),
+            )
+            .await;
+
+            let (is_header_only, channel_id) = downstream
+                .safe_lock(|d| (d.downstream_data.header_only, d.id))
+                .unwrap();
+
+            self_
+                .safe_lock(|p| {
+                    if is_header_only {
+                        p.hom_downstreams.insert(channel_id, downstream);
+                    } else {
+                        p.group_downstreams.insert(channel_id, downstream);
+                    }
+                })
+                .unwrap();
+        }
+    }
+
     async fn accept_incoming_connection(self_: Arc<Mutex<Pool>>, config: Configuration) {
         let listner = TcpListener::bind(&config.listen_address).await.unwrap();
         info!("Listening on {}", config.listen_address);
@@ -597,9 +646,6 @@ impl Pool {
             .unwrap();
             let last_new_prev_hash = self_.safe_lock(|x| x.last_new_prev_hash.clone()).unwrap();
 
-            // Uncomment to allow unencrypted connections
-            // let (receiver, sender): (Receiver<EitherFrame>, Sender<EitherFrame>) =
-            //     PlainConnection::new(stream).await;
             let (receiver, sender): (Receiver<EitherFrame>, Sender<EitherFrame>) =
                 Connection::new(stream, HandshakeRole::Responder(responder)).await;
 
@@ -746,9 +792,13 @@ impl Pool {
         let cloned = pool.clone();
         let cloned2 = pool.clone();
         let cloned3 = pool.clone();
+        #[cfg(feature = "test_only_allow_unencrypted")]
+        let cloned4 = pool.clone();
 
         info!("Starting up pool listener");
-        task::spawn(Self::accept_incoming_connection(cloned, config));
+        task::spawn(Self::accept_incoming_connection(cloned, config.clone()));
+        #[cfg(feature = "test_only_allow_unencrypted")]
+        task::spawn(Self::accept_incoming_plain_connection(cloned4, config));
 
         task::spawn(async {
             Self::on_new_prev_hash(cloned2, new_prev_hash_rx).await;
