@@ -341,10 +341,10 @@ mod tests {
 
             // Create a template
             let mut template = from_gen(&mut Gen::new(255), 1);
-            let _jobs = jobs_creators.on_new_template(template.borrow_mut());
+            let _ = jobs_creators.on_new_template(template.borrow_mut());
 
             // Create a new group channel
-            let jobs = jobs_creators.new_group_channel(1, true).unwrap();
+            let _ = jobs_creators.new_group_channel(1, true).unwrap();
         }
 
         // let mut jobs_creators = JobsCreators::new(BLOCK_REWARD, new_pub_key()).unwrap();
