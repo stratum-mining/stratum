@@ -29,7 +29,7 @@ use roles_logic_sv2::{
     utils::{get_target, Mutex},
 };
 use std::{net::SocketAddr, sync::Arc};
-use tracing::{debug, info, trace};
+use tracing::{debug, info, trace, warn};
 
 /// Represents the currently active mining job being worked on.
 #[allow(dead_code)]
@@ -313,6 +313,7 @@ impl Upstream {
                                 sender.send(extended).await.unwrap();
                             }
                             Mining::NewExtendedMiningJob(m) => {
+                                debug!("parse_incoming Mining::NewExtendedMiningJob msg");
                                 let job_id = m.job_id;
                                 let sender = self_
                                     .safe_lock(|s| s.new_extended_mining_job_sender.clone())
@@ -325,6 +326,7 @@ impl Upstream {
                                 sender.send(m).await.unwrap();
                             }
                             Mining::SetNewPrevHash(m) => {
+                                debug!("parse_incoming Mining::SetNewPrevHash msg");
                                 let sender =
                                     self_.safe_lock(|s| s.new_prev_hash_sender.clone()).unwrap();
                                 sender.send(m).await.unwrap();
@@ -478,7 +480,7 @@ impl ParseUpstreamCommonMessages<NoRouting> for Upstream {
         &mut self,
         _: roles_logic_sv2::common_messages_sv2::SetupConnectionSuccess,
     ) -> Result<SendToCommon, roles_logic_sv2::errors::Error> {
-        trace!("Up: Handling SetupConnectionSuccess");
+        debug!("Up: Handling SetupConnectionSuccess");
         Ok(SendToCommon::None(None))
     }
 
@@ -655,11 +657,11 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error>
     {
         debug!("Received NewExtendedMiningJob: {:?}", &m);
-        if !m.future_job {
-            todo!()
-        }
+        info!("Is future job: {}\n", &m.future_job);
+
         if !m.version_rolling_allowed {
-            todo!()
+            warn!("VERSION ROLLING NOT ALLOWED IS A TODO");
+            // todo!()
         }
         let job = Job_ {
             id: m.job_id,
@@ -704,6 +706,7 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
         m: roles_logic_sv2::mining_sv2::SetNewPrevHash,
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error>
     {
+        trace!("handle_set_new_prev_hash msg");
         let prev_hash: [u8; 32] = m.prev_hash.to_vec().try_into().unwrap();
         let prev_hash = DHash::from_inner(prev_hash);
         let prev_hash = BlockHash::from_hash(prev_hash);
