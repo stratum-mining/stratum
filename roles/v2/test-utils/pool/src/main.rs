@@ -50,6 +50,7 @@ async fn server_pool(config: &Configuration) {
     let mut pool = Pool {
         downstreams: vec![],
     };
+
     while let Some(stream) = incoming.next().await {
         let stream = stream.unwrap();
         println!(
@@ -157,6 +158,10 @@ async fn main() {
             return;
         }
     };
+    if config.security.is_none() && !cfg!(feature = "devel") {
+        // TODO proper error handling instead of panicking
+        panic!("Plain insecure stratum v2 is not allowed");
+    }
     server_pool(&config).await;
 }
 
