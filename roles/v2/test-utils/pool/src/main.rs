@@ -29,10 +29,16 @@ pub type StdFrame = StandardSv2Frame<Message>;
 pub type EitherFrame = StandardEitherFrame<Message>;
 
 #[derive(Debug, Deserialize)]
-struct Configuration {
-    listen_address: String,
+struct Security {
     authority_public_key: EncodedEd25519PublicKey,
     authority_secret_key: EncodedEd25519SecretKey,
+}
+
+#[derive(Debug, Deserialize)]
+struct Configuration {
+    listen_address: String,
+    #[serde(flatten, default)]
+    security: Option<Security>,
     cert_validity_sec: u64,
 }
 
@@ -50,14 +56,20 @@ async fn server_pool(config: &Configuration) {
             "POOL: Accepting connection from: {}",
             stream.peer_addr().unwrap()
         );
-        let responder = Responder::from_authority_kp(
-            config.authority_public_key.clone().into_inner().as_bytes(),
-            config.authority_secret_key.clone().into_inner().as_bytes(),
-            std::time::Duration::from_secs(config.cert_validity_sec),
-        )
-        .unwrap();
-        let (receiver, sender): (Receiver<EitherFrame>, Sender<EitherFrame>) =
-            Connection::new(stream, HandshakeRole::Responder(responder), 10).await;
+        let responder = config.security.as_ref().map(|sec| {
+            Responder::from_authority_kp(
+                sec.authority_public_key.clone().into_inner().as_bytes(),
+                sec.authority_secret_key.clone().into_inner().as_bytes(),
+                std::time::Duration::from_secs(config.cert_validity_sec),
+            )
+            .unwrap()
+        });
+
+        let (receiver, sender) = if let Some(responder) = responder {
+            Connection::new(stream, HandshakeRole::Responder(responder), 10).await
+        } else {
+            network_helpers::PlainConnection::new(stream, 10).await
+        };
         let downstream = Downstream::new(
             receiver,
             sender,
