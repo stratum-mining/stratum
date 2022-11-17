@@ -98,7 +98,7 @@ async fn main() {
     let executor = executor::Executor::new(test).await;
     executor.execute().await;
     println!("TEST OK");
-    std::process::exit(1);
+    std::process::exit(0);
 }
 
 #[cfg(test)]
