@@ -264,9 +264,8 @@ mod tests {
     
     use super::*;
     use alloc::string::String;
-    use core::{convert::{TryFrom}, borrow::Borrow};
+    use core::convert::TryFrom;
     use alloc::vec::Vec;
-    use quickcheck::{Arbitrary, Gen};
     use quickcheck_macros;
     use crate::tests::from_arbitrary_vec_to_array;
 
