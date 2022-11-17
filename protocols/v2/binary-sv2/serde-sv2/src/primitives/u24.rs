@@ -89,7 +89,10 @@ impl<'de> Deserialize<'de> for U24 {
     where
         D: Deserializer<'de>,
     {
-        deserializer.deserialize_newtype_struct("U24", U24Visitor)
+        match deserializer.is_human_readable() {
+            false => deserializer.deserialize_newtype_struct("U24", U24Visitor),
+            true => deserializer.deserialize_byte_buf(U24Visitor),
+        }
     }
 }
 

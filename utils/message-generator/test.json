@@ -1,55 +1,177 @@
 {
-    "messages": [
-        "setup_connection_success": {
-            "used_version": 2,
-            "flags": 0
+    "doc": [
+        "This test do:",
+            "1) launch bitcoind in regtest and wait for TP initialization",
+            "2) create a bunch of block using bictoin-cli",
+            "3) launch SRI pool and wait for initialization",
+            "4) connect to the pool as a Downstream that use noise",
+            "5) send SetupConnection to the pool",
+            "6) check that SetupConnectionSuccess is received",
+            "7) check that NewExtendedJob is received",
+            "8) check that NewPrevHash is received",
+            "9) send OpenStandardMiningChannel with request id 89",
+            "10) check that OpenStandardMiningChannelSuccess with request 89 is received",
+            "11) remove bitcoind data"
+    ],
+    "common_messages": [
+        {
+            "message": {
+                "type": "SetupConnection",
+                "protocol": "MiningProtocol",
+                "min_version": 2,
+                "max_version": 2,
+                "flags": 0,
+                "endpoint_host": "",
+                "endpoint_port": 0,
+                "vendor": "",
+                "hardware_version": "",
+                "firmware": "",
+                "device_id": ""
+            },
+            "id": "setup_connection"
         },
-        "close_channel": {
-            "channel_id": 78,
-            "reason_code": "no reason"
+        {
+            "message": {
+                "type": "SetupConnectionSuccess",
+                "flags": 0,
+                "used_version": 2
+            },
+            "id": "setup_connection_success"
         }
     ],
-    "frames": [
-        "setup_connection_success": "into",
-        "close_channel": {
-            "message": "close_channel",
-            "message_type": "0x18",
-            "extension_type": "0000_0000_0000_0000",
-            "channel_msg": "true"
+    "mining_messages": [
+        {
+            "message": {
+                "type": "OpenStandardMiningChannel",
+                "request_id": 89,
+                "user_identity": "",
+                "nominal_hash_rate": 10,
+                "max_target": [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+            },
+            "id": "open_standard_minig_channel"
         }
     ],
-    "first_received": [
-        "setup_connection": {
-            "protocol": 0,
-            "min_version": 2,
-            "max_version": 2,
-            "flags": 0,
-            "endpoint_host": "",
-            "endpoint_port": 0,
-            "vendor": "",
-            "hardware_version": "",
-            "firmware": "",
-            "device_id": ""
+    "frame_builders": [
+        {
+            "type": "automatic",
+            "message_id": "setup_connection_success"
+        },
+        {
+            "type": "automatic",
+            "message_id": "setup_connection"
+        },
+        {
+            "type": "automatic",
+            "message_id": "open_standard_minig_channel"
         }
     ],
     "actions": [
-        "setup_connection": {
-            "messages": ["setup_connection_success"],
-            "result": ["match_message_type": "0x10"] 
+        {
+            "message_ids": ["setup_connection"],
+            "role": "client",
+            "results": [
+                {
+                    "type": "match_message_type",
+                    "value": "0x01"
+                },
+                {
+                    "type": "match_message_type",
+                    "value": "0x1f"
+                },
+                {
+                    "type": "match_message_type",
+                    "value": "0x20"
+                }
+            ] 
         },
-        "close_channel": {
-            "messages": ["close_channel"],
-            "result": ["close_connection"] 
+        {
+            "message_ids": ["open_standard_minig_channel"],
+            "role": "client",
+            "results": [
+                {
+                    "type": "match_message_field",
+                    "value": [
+                        "MiningProtocol",
+                        "OpenStandardMiningChannelSuccess",
+                        "request_id",
+                        {"U32": 89}
+                    ]
+                }
+            ] 
         }
     ],
-    "commands": [
-        "run_mining_device": {
+    "setup_commands": [
+        {
+            "command": "./test/bitcoind",
+            "args": ["--regtest", "--datadir=./test/bitcoin_data/"],
+            "conditions": {
+                "WithConditions": {
+                    "conditions": [
+                        {
+                            "output_string": "sv2 thread start",
+                            "output_location": "StdOut",
+                            "condition": true
+                        },
+                        {
+                            "output_string": "",
+                            "output_location": "StdErr",
+                            "condition": false
+                        }
+                    ],
+                    "timer_secs": 10,
+                    "warn_no_panic": false
+                }
+            }
+        },
+        {
+            "command": "./test/bitcoin-cli",
+            "args": [
+                        "--regtest",
+                        "--datadir=./test/bitcoin_data/",
+                        "generatetoaddress",
+                        "16",
+                        "bcrt1qttuwhmpa7a0ls5kr3ye6pjc24ng685jvdrksxx"
+            ],
+            "conditions": "None"
+        },
+        {
             "command": "cargo",
-            "args": ["run","-p","mining-device"],
-            "conditions": ["none"]
+            "args": [
+                        "run",
+                        "-p",
+                        "pool",
+                        "--",
+                        "-c",
+                        "./roles/v2/pool/pool-config.toml"
+            ],
+            "conditions": {
+                "WithConditions": {
+                    "conditions": [
+                        {
+                            "output_string": "Listening on 0.0.0.0:34254",
+                            "output_location": "StdOut",
+                            "condition": true
+                        }
+                    ],
+                    "timer_secs": 60,
+                    "warn_no_panic": false
+                }
+            }
         }
-    ]
-    "setup_commands": [],
-    "execution_commands": [run_mining_device],
-    "cleanup_commands": []
+    ],
+    "execution_commands": [
+    ],
+    "cleanup_commands": [
+        {
+            "command": "rm",
+            "args": [ "-rf", "./test/bitcoin_data/regtest"],
+            "conditions": "None"
+        }
+    ],
+    "role": "client",
+    "downstream": {
+        "ip": "0.0.0.0",
+        "port": 34254,
+        "pub_key": "2di19GHYQnAZJmEpoUeP7C3Eg9TCcksHr23rZCC83dvUiZgiDL"
+    }
 }
