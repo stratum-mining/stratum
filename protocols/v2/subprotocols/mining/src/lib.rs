@@ -607,7 +607,7 @@ fn increment_bytes_be(bs: &mut [u8]) -> Result<(), ()> {
 }
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
     use super::*;
     use alloc::vec::Vec;
     use quickcheck::{Arbitrary, Gen};
@@ -1014,8 +1014,16 @@ mod tests {
         target_start == target_final
     }
 
+    #[quickcheck_macros::quickcheck]
+    fn test_vec_from_extranonce(mut input: Vec<u8>) -> bool {
+        let input_start = from_arbitrary_vec_to_array(input).to_vec();
+        let extranonce_start = Extranonce::try_from(input_start.clone()).unwrap();
+        let vec_final = Vec::from(extranonce_start.clone());
+        input_start == vec_final
+    }
+
     use core::convert::TryInto;
-    fn from_arbitrary_vec_to_array(vec: Vec<u8>) -> [u8; 32] {
+    pub fn from_arbitrary_vec_to_array(vec: Vec<u8>) -> [u8; 32] {
         if vec.len() >= 32 {
             vec[0..32].try_into().unwrap()
         } else {
@@ -1029,4 +1037,5 @@ mod tests {
             result[..].try_into().unwrap()
         }
     }
+    
 }
