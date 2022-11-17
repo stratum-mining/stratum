@@ -98,7 +98,7 @@ async fn main() {
     let executor = executor::Executor::new(test).await;
     executor.execute().await;
     println!("TEST OK");
-    std::process::exit(1);
+    std::process::exit(0);
 }
 
 #[cfg(test)]
@@ -114,6 +114,7 @@ mod test {
 
     #[tokio::test]
     async fn it_send_and_receive() {
+        let mut childs = vec![];
         let message = CloseChannel {
             channel_id: 78,
             reason_code: "no reason".to_string().try_into().unwrap(),
@@ -128,7 +129,7 @@ mod test {
         let server_socket = SocketAddr::new("127.0.0.1".parse().unwrap(), 54254);
         let client_socket = SocketAddr::new("127.0.0.1".parse().unwrap(), 54254);
         let ((server_recv, server_send), (client_recv, client_send)) = join!(
-            setup_as_upstream(server_socket, None),
+            setup_as_upstream(server_socket, None, vec![], &mut childs),
             setup_as_downstream(client_socket, None)
         );
         server_send
@@ -199,18 +200,18 @@ mod test {
     #[tokio::test]
     async fn it_initialize_a_pool_and_connect_to_it() {
         let mut bitcoind = os_command(
-            "./test/bitcoind",
-            vec!["--regtest", "--datadir=./test/bitcoin_data/"],
+            "./test/bin/bitcoind",
+            vec!["--regtest", "--datadir=./test/appdata/bitcoin_data/"],
             ExternalCommandConditions::new_with_timer_secs(10)
                 .continue_if_std_out_have("sv2 thread start")
                 .fail_if_anything_on_std_err(),
         )
         .await;
         let mut child = os_command(
-            "./test/bitcoin-cli",
+            "./test/bin/bitcoin-cli",
             vec![
                 "--regtest",
-                "--datadir=./test/bitcoin_data/",
+                "--datadir=./test/appdata/bitcoin_data/",
                 "generatetoaddress",
                 "16",
                 "bcrt1qttuwhmpa7a0ls5kr3ye6pjc24ng685jvdrksxx",
@@ -273,7 +274,7 @@ mod test {
         }
         let mut child = os_command(
             "rm",
-            vec!["-rf", "./test/bitcoin_data/regtest"],
+            vec!["-rf", "./test/appdata/bitcoin_data/regtest"],
             ExternalCommandConditions::None,
         )
         .await;
@@ -295,7 +296,7 @@ mod test {
                 "mining-proxy",
                 "--",
                 "-c",
-                "./test/ant-pool-config.toml",
+                "./test/config/ant-pool-config.toml",
             ],
             ExternalCommandConditions::new_with_timer_secs(10)
                 .continue_if_std_out_have("PROXY INITIALIZED")

@@ -102,8 +102,8 @@
     ],
     "setup_commands": [
         {
-            "command": "./test/bitcoind",
-            "args": ["--regtest", "--datadir=./test/bitcoin_data/"],
+            "command": "./test/bin/bitcoind",
+            "args": ["--regtest", "--datadir=./test/appdata/bitcoin_data/"],
             "conditions": {
                 "WithConditions": {
                     "conditions": [
@@ -124,10 +124,10 @@
             }
         },
         {
-            "command": "./test/bitcoin-cli",
+            "command": "./test/bin/bitcoin-cli",
             "args": [
                         "--regtest",
-                        "--datadir=./test/bitcoin_data/",
+                        "--datadir=./test/appdata/bitcoin_data/",
                         "generatetoaddress",
                         "16",
                         "bcrt1qttuwhmpa7a0ls5kr3ye6pjc24ng685jvdrksxx"
@@ -164,7 +164,7 @@
     "cleanup_commands": [
         {
             "command": "rm",
-            "args": [ "-rf", "./test/bitcoin_data/regtest"],
+            "args": [ "-rf", "./test/appdata/bitcoin_data/regtest"],
             "conditions": "None"
         }
     ],

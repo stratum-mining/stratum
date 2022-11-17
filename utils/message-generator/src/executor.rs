@@ -14,7 +14,6 @@ pub struct Executor {
     send_to_up: Option<Sender<EitherFrame<AnyMessage<'static>>>>,
     recv_from_up: Option<Receiver<EitherFrame<AnyMessage<'static>>>>,
     actions: Vec<Action<'static>>,
-    execution_commands: Vec<Command>,
     cleanup_commmands: Vec<Command>,
     process: Vec<Option<tokio::process::Child>>,
 }
@@ -33,8 +32,13 @@ impl Executor {
         }
         match (test.as_dowstream, test.as_upstream) {
             (Some(as_down), Some(as_up)) => {
-                let (recv_from_down, send_to_down) =
-                    setup_as_upstream(as_up.addr, as_up.keys).await;
+                let (recv_from_down, send_to_down) = setup_as_upstream(
+                    as_up.addr,
+                    as_up.keys,
+                    test.execution_commands,
+                    &mut process,
+                )
+                .await;
                 let (recv_from_up, send_to_up) =
                     setup_as_downstream(as_down.addr, as_down.key).await;
                 Self {
@@ -43,21 +47,24 @@ impl Executor {
                     send_to_up: Some(send_to_up),
                     recv_from_up: Some(recv_from_up),
                     actions: test.actions,
-                    execution_commands: test.execution_commands,
                     cleanup_commmands: test.cleanup_commmands,
                     process,
                 }
             }
             (None, Some(as_up)) => {
-                let (recv_from_down, send_to_down) =
-                    setup_as_upstream(as_up.addr, as_up.keys).await;
+                let (recv_from_down, send_to_down) = setup_as_upstream(
+                    as_up.addr,
+                    as_up.keys,
+                    test.execution_commands,
+                    &mut process,
+                )
+                .await;
                 Self {
                     send_to_down: Some(send_to_down),
                     recv_from_down: Some(recv_from_down),
                     send_to_up: None,
                     recv_from_up: None,
                     actions: test.actions,
-                    execution_commands: test.execution_commands,
                     cleanup_commmands: test.cleanup_commmands,
                     process,
                 }
@@ -71,7 +78,6 @@ impl Executor {
                     send_to_up: Some(send_to_up),
                     recv_from_up: Some(recv_from_up),
                     actions: test.actions,
-                    execution_commands: test.execution_commands,
                     cleanup_commmands: test.cleanup_commmands,
                     process,
                 }
@@ -81,14 +87,6 @@ impl Executor {
     }
 
     pub async fn execute(self) {
-        for command in self.execution_commands {
-            os_command(
-                &command.command,
-                command.args.iter().map(String::as_str).collect(),
-                command.conditions,
-            )
-            .await;
-        }
         for action in self.actions {
             let (sender, recv) = match action.role {
                 Role::Upstream => (
