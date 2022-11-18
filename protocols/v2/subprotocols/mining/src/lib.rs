@@ -622,7 +622,7 @@ mod tests {
     }
 
     #[test]
-    fn test_from_upstream_extranonce() {
+    fn test_from_upstream_extranonce_error() {
         let range_0 = 0..0;
         let range_1 = 0..0;
         let range_2 = 0..MAX_EXTRANONCE_LEN + 1;
@@ -631,6 +631,8 @@ mod tests {
         let extended_extranonce =
             ExtendedExtranonce::from_upstream_extranonce(extranonce, range_0, range_1, range_2);
         assert!(extended_extranonce.is_none());
+
+        assert!(extended_extranonce.get_len() == );
     }
 
     #[test]
@@ -748,6 +750,10 @@ mod tests {
             range_1: range_1.clone(),
             range_2: range_2.clone(),
         };
+
+        assert_eq!(extended_extranonce_start.get_len(), extranonce_len);
+        assert_eq!(extended_extranonce_start.get_range2_len(), extranonce_len - ranges[1]);
+
         let extranonce = match extended_extranonce_start.next_extended(0) {
             Some(x) => x,
             None => return true,
