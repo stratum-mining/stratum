@@ -1,4 +1,5 @@
 use roles_logic_sv2::mining_sv2::{NewExtendedMiningJob, SetNewPrevHash};
+use tracing::{debug, error};
 use v1::{
     server_to_client,
     utils::{HexBytes, HexU32Be, PrevHash},
@@ -44,21 +45,39 @@ impl NextMiningNotify {
         self.new_extended_mining_job = Some(new_extended_mining_job);
     }
 
+    /// Checks that `SetNewPrevHash` and `NewExtendedMiningJob` stored in `NextMiningNotify` are
+    /// for the same job (aka each message has the same `job_id` field).
+    pub(crate) fn matching_job_id(&self) -> bool {
+        if let (Some(snph), Some(nemj)) = (
+            self.set_new_prev_hash.as_ref(),
+            self.new_extended_mining_job.as_ref(),
+        ) {
+            snph.job_id.eq(&nemj.job_id)
+        } else {
+            false
+        }
+    }
+
     /// Creates a new SV1 `mining.notify` message if both SV2 `SetNewPrevHash` and
     /// `NewExtendedMiningJob` messages have been received. If one of these messages is still being
     /// waited on, the function returns `None`.
     pub(crate) fn create_notify(&self) -> Option<server_to_client::Notify> {
         // Make sure that SetNewPrevHash + NewExtendedMiningJob is matching (not future)
-        if self.set_new_prev_hash.is_some() && self.new_extended_mining_job.is_some() {
-            let set_new_prev_hash_job_id = &self.set_new_prev_hash.as_ref().unwrap().job_id;
-            let new_extended_mining_job_job_id =
-                &self.new_extended_mining_job.as_ref().unwrap().job_id;
-            if set_new_prev_hash_job_id != new_extended_mining_job_job_id {
-                panic!(
-                    "Job Id Mismatch. SetNewPrevHash Job Id: {}, NewExtendedMiningJob Job Id: {}",
-                    set_new_prev_hash_job_id, new_extended_mining_job_job_id
-                );
-            }
+        if !self.matching_job_id() {
+            let (snph_job_id, nemj_job_id) = match (
+                self.set_new_prev_hash.as_ref(),
+                self.new_extended_mining_job.as_ref(),
+            ) {
+                (Some(snph), Some(nemj)) => (Some(snph.job_id), Some(nemj.job_id)),
+                (Some(snph), None) => (Some(snph.job_id), None),
+                (None, Some(nemj)) => (None, Some(nemj.job_id)),
+                (None, None) => (None, None),
+            };
+            error!(
+                "Job Id Mismatch. SetNewPrevHash Job Id: {:?}, NewExtendedMiningJob Job Id: {:?}",
+                snph_job_id, nemj_job_id
+            );
+            return None;
         }
 
         match (&self.set_new_prev_hash, &self.new_extended_mining_job) {
@@ -98,6 +117,7 @@ impl NextMiningNotify {
                     time,
                     clean_jobs,
                 };
+                debug!("\nNextMiningNotify: {:?}\n", &self);
                 Some(notify_response)
             }
             // If either of the SV2 `SetNewPrevHash` or `NewExtendedMiningJob` have not been

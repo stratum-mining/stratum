@@ -28,6 +28,8 @@ pub use framing_sv2::framing2::{HandShakeFrame, NoiseFrame};
 #[cfg(feature = "noise_sv2")]
 pub use noise_sv2::{self, handshake::Step, Initiator, Responder, TransportMode};
 
+pub use buffer_sv2;
+
 #[cfg(feature = "noise_sv2")]
 #[derive(Debug)]
 pub enum State {

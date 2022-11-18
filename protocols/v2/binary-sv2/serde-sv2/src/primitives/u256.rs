@@ -1,5 +1,5 @@
 use crate::{error::Error, primitives::FixedSize};
-use alloc::boxed::Box;
+use alloc::{boxed::Box, vec::Vec};
 use core::convert::TryFrom;
 use serde::{de::Visitor, ser, Deserialize, Deserializer, Serialize};
 
@@ -88,6 +88,40 @@ impl<'a> Visitor<'a> for U256Visitor {
     fn visit_borrowed_bytes<E>(self, value: &'a [u8]) -> Result<Self::Value, E> {
         Ok(U256(Inner::Ref(value)))
     }
+
+    fn visit_byte_buf<E>(self, v: Vec<u8>) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        if v.len() >= 32 {
+            let v = v[..32].to_vec();
+            Ok(U256(Inner::Owned(Box::new(v.try_into().unwrap()))))
+        } else {
+            Err(serde::de::Error::custom("Impossible deserialize U256"))
+        }
+    }
+
+    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+    where
+        A: serde::de::SeqAccess<'a>,
+    {
+        let mut buffer: Vec<u8> = vec![];
+        let mut i = 0;
+        while let Some(value) = seq.next_element()? {
+            i += 1;
+            buffer.push(value);
+            if i == 32 {
+                break;
+            }
+        }
+        if i < 32 {
+            Err(serde::de::Error::custom(
+                "Impossible deserialize U256 len < than 32",
+            ))
+        } else {
+            self.visit_byte_buf(buffer)
+        }
+    }
 }
 
 impl<'de: 'a, 'a> Deserialize<'de> for U256<'a> {
@@ -96,7 +130,10 @@ impl<'de: 'a, 'a> Deserialize<'de> for U256<'a> {
     where
         D: Deserializer<'de>,
     {
-        deserializer.deserialize_newtype_struct("U256", U256Visitor)
+        match deserializer.is_human_readable() {
+            false => deserializer.deserialize_newtype_struct("U256", U256Visitor),
+            true => deserializer.deserialize_byte_buf(U256Visitor),
+        }
     }
 }
 

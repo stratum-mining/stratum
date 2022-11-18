@@ -25,6 +25,7 @@ async fn main() {
     task::spawn(async move { connect(socket, 10).await });
     task::spawn(async move { connect(socket, 117).await });
     task::spawn(async move { connect(socket, 1078).await });
+    println!("start");
     connect(socket, 10008).await
 }
 

@@ -1,3 +1,4 @@
+use crate::{os_command, Command};
 use async_channel::{Receiver, Sender};
 use binary_sv2::{Deserialize, GetSize, Serialize};
 use codec_sv2::{
@@ -16,8 +17,19 @@ pub async fn setup_as_upstream<
 >(
     socket: SocketAddr,
     keys: Option<(EncodedEd25519PublicKey, EncodedEd25519SecretKey)>,
+    execution_commands: Vec<Command>,
+    childs: &mut Vec<Option<tokio::process::Child>>,
 ) -> (Receiver<EitherFrame<Message>>, Sender<EitherFrame<Message>>) {
     let listner = TcpListener::bind(socket).await.unwrap();
+    for command in execution_commands {
+        let child = os_command(
+            &command.command,
+            command.args.iter().map(String::as_str).collect(),
+            command.conditions,
+        )
+        .await;
+        childs.push(child);
+    }
     let (stream, _) = listner.accept().await.unwrap();
     match keys {
         Some((publ, secret)) => {

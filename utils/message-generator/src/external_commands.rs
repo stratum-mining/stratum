@@ -1,3 +1,4 @@
+use binary_sv2::{Deserialize, Serialize};
 use std::{ops::RangeBounds, process::Stdio, time::Duration};
 use tokio::{
     io::{AsyncBufReadExt, BufReader},
@@ -5,13 +6,13 @@ use tokio::{
     time::timeout,
 };
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum OutputLocation {
     StdOut,
     StdErr,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExternalCommandCondition {
     /// String that output must contain in order to fail or pass
     pub output_string: String,
@@ -21,7 +22,7 @@ pub struct ExternalCommandCondition {
     pub condition: bool,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ExternalCommandConditions {
     /// Just run the command and return
     None,

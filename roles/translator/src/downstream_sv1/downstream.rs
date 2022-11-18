@@ -97,7 +97,7 @@ impl Downstream {
                 while let Some(incoming) = messages.next().await {
                     let incoming =
                         incoming.expect("Err reading next incoming message from SV1 Downstream");
-                    //info!("\nInfo:: Down: Receiving: {:?}", &incoming);
+                    info!("Receiving from Mining Device: {:?}", &incoming);
                     let incoming: Result<json_rpc::Message, _> = serde_json::from_str(&incoming);
                     let incoming = incoming.expect("Err serializing incoming message from SV1 Downstream into JSON from `String`");
                     // Handle what to do with message
@@ -116,7 +116,7 @@ impl Downstream {
                     serde_json::to_string(&to_send)
                         .expect("Err deserializing JSON message for SV1 Downstream into `String`")
                 );
-                //info!("\nInfo:: Down: Sending: {:?}", &to_send);
+                info!("Sending to Mining Device: {:?}", &to_send);
                 (&*socket_writer_clone)
                     .write_all(to_send.as_bytes())
                     .await
