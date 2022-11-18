@@ -681,6 +681,46 @@ mod tests {
         assert_eq!(extranonce2.extranonce.len(), 22);
     }
 
+    #[test]
+    fn test_extranonce_without_upstream_part() {
+        let downstream_len = 10;
+
+        let downstream_extranonce = Extranonce::new(downstream_len).unwrap();
+
+        let range_0 = 0..4;
+        let range_1 = 4..downstream_len;
+        let range_2 = downstream_len..(downstream_len * 2 + 1);
+
+        let extended_extraonce = ExtendedExtranonce::new(range_0, range_1, range_2);
+
+        assert_eq!(
+            extended_extraonce.without_upstream_part(Some(downstream_extranonce.clone())),
+            None
+        );
+
+        let range_0 = 0..4;
+        let range_1 = 4..downstream_len;
+        let range_2 = downstream_len..(downstream_len * 2);
+        let upstream_extranonce = Extranonce::from_vec_with_len(vec![5; 14], downstream_len);
+
+        let extended_extraonce = ExtendedExtranonce::from_upstream_extranonce(
+            upstream_extranonce.clone(),
+            range_0,
+            range_1.clone(),
+            range_2,
+        )
+        .unwrap();
+
+        let extranonce = extended_extraonce
+            .without_upstream_part(Some(downstream_extranonce.clone()))
+            .unwrap();
+        assert_eq!(
+            extranonce.extranonce[0..6],
+            upstream_extranonce.extranonce[0..6]
+        );
+        assert_eq!(extranonce.extranonce[7..], vec![0; 9]);
+    }
+
     // This test checks the behaviour of the function increment_bytes_be for a the MAX value
     // converted in be array of u8
     #[test]
