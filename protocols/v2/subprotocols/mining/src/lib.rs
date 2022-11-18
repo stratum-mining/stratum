@@ -491,7 +491,7 @@ impl ExtendedExtranonce {
         range_1: Range<usize>,
         range_2: Range<usize>,
     ) -> Option<Self> {
-        if range_2.end > 32 {
+        if range_2.end > MAX_EXTRANONCE_LEN {
             return None;
         }
         let mut inner = v.extranonce;
@@ -619,6 +619,51 @@ mod tests {
         assert!(extranonce.is_err());
 
         assert!(Extranonce::new(MAX_EXTRANONCE_LEN + 1) == None);
+    }
+
+    #[test]
+    fn test_from_upstream_extranonce() {
+        let range_0 = 0..0;
+        let range_1 = 0..0;
+        let range_2 = 0..MAX_EXTRANONCE_LEN + 1;
+        let extranonce = Extranonce::new(10).unwrap();
+
+        let extended_extranonce = ExtendedExtranonce::from_upstream_extranonce(extranonce, range_0, range_1, range_2);
+        assert!(extended_extranonce.is_none());
+    }
+
+    #[test]
+    fn test_extranonce_from_downstream_extranonce() {
+        let downstream_len = 10;
+
+        let downstream_extranonce = Extranonce::new(downstream_len).unwrap();
+
+        let range_0 = 0..4;
+        let range_1 = 4..downstream_len;
+        let range_2 = downstream_len..(downstream_len*2 + 1);
+
+        let extended_extraonce = ExtendedExtranonce::new(range_0, range_1, range_2);
+
+        let extranonce = extended_extraonce.extranonce_from_downstream_extranonce(downstream_extranonce);
+
+        assert!(extranonce.is_none());
+
+        // Test with a valid downstream extranonce
+        let extra_content: Vec<u8> = vec![5; downstream_len];
+        let downstream_extranonce = Extranonce::from_vec_with_len(extra_content.clone(), downstream_len);
+
+        let range_0 = 0..4;
+        let range_1 = 4..downstream_len;
+        let range_2 = downstream_len..(downstream_len*2);
+
+        let extended_extraonce = ExtendedExtranonce::new(range_0, range_1, range_2);
+
+        let extranonce = extended_extraonce.extranonce_from_downstream_extranonce(downstream_extranonce);
+
+        assert!(extranonce.is_some());
+
+        //validate that the extranonce is the concatenation of the upstream part and the downstream part
+        assert_eq!(extra_content, extranonce.unwrap().extranonce.to_vec()[downstream_len..downstream_len * 2]);
     }
 
     // Test from_vec_with_len
