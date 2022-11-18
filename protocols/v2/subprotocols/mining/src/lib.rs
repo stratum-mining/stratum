@@ -615,7 +615,7 @@ mod tests {
 
     #[test]
     fn test_extranonce_errors() {
-        let extranonce = Extranonce::try_from(vec![0;MAX_EXTRANONCE_LEN + 1]);
+        let extranonce = Extranonce::try_from(vec![0; MAX_EXTRANONCE_LEN + 1]);
         assert!(extranonce.is_err());
 
         assert!(Extranonce::new(MAX_EXTRANONCE_LEN + 1) == None);
@@ -629,7 +629,6 @@ mod tests {
         assert_eq!(extranonce2.extranonce.len(), 22);
     }
 
-
     // This test checks the behaviour of the function increment_bytes_be for a the MAX value
     // converted in be array of u8
     #[test]
@@ -640,7 +639,6 @@ mod tests {
         assert!(result == Err(()));
         assert!(u8::from_be_bytes(input) == u8::MAX);
     }
-
 
     // thest the function incrment_bytes_be for values different from MAX
     #[quickcheck_macros::quickcheck]
