@@ -631,8 +631,6 @@ mod tests {
         let extended_extranonce =
             ExtendedExtranonce::from_upstream_extranonce(extranonce, range_0, range_1, range_2);
         assert!(extended_extranonce.is_none());
-
-        assert!(extended_extranonce.get_len() == );
     }
 
     #[test]
