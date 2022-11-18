@@ -752,7 +752,10 @@ mod tests {
         };
 
         assert_eq!(extended_extranonce_start.get_len(), extranonce_len);
-        assert_eq!(extended_extranonce_start.get_range2_len(), extranonce_len - ranges[1]);
+        assert_eq!(
+            extended_extranonce_start.get_range2_len(),
+            extranonce_len - ranges[1]
+        );
 
         let extranonce = match extended_extranonce_start.next_extended(0) {
             Some(x) => x,
