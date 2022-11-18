@@ -628,7 +628,8 @@ mod tests {
         let range_2 = 0..MAX_EXTRANONCE_LEN + 1;
         let extranonce = Extranonce::new(10).unwrap();
 
-        let extended_extranonce = ExtendedExtranonce::from_upstream_extranonce(extranonce, range_0, range_1, range_2);
+        let extended_extranonce =
+            ExtendedExtranonce::from_upstream_extranonce(extranonce, range_0, range_1, range_2);
         assert!(extended_extranonce.is_none());
     }
 
@@ -640,30 +641,36 @@ mod tests {
 
         let range_0 = 0..4;
         let range_1 = 4..downstream_len;
-        let range_2 = downstream_len..(downstream_len*2 + 1);
+        let range_2 = downstream_len..(downstream_len * 2 + 1);
 
         let extended_extraonce = ExtendedExtranonce::new(range_0, range_1, range_2);
 
-        let extranonce = extended_extraonce.extranonce_from_downstream_extranonce(downstream_extranonce);
+        let extranonce =
+            extended_extraonce.extranonce_from_downstream_extranonce(downstream_extranonce);
 
         assert!(extranonce.is_none());
 
         // Test with a valid downstream extranonce
         let extra_content: Vec<u8> = vec![5; downstream_len];
-        let downstream_extranonce = Extranonce::from_vec_with_len(extra_content.clone(), downstream_len);
+        let downstream_extranonce =
+            Extranonce::from_vec_with_len(extra_content.clone(), downstream_len);
 
         let range_0 = 0..4;
         let range_1 = 4..downstream_len;
-        let range_2 = downstream_len..(downstream_len*2);
+        let range_2 = downstream_len..(downstream_len * 2);
 
         let extended_extraonce = ExtendedExtranonce::new(range_0, range_1, range_2);
 
-        let extranonce = extended_extraonce.extranonce_from_downstream_extranonce(downstream_extranonce);
+        let extranonce =
+            extended_extraonce.extranonce_from_downstream_extranonce(downstream_extranonce);
 
         assert!(extranonce.is_some());
 
         //validate that the extranonce is the concatenation of the upstream part and the downstream part
-        assert_eq!(extra_content, extranonce.unwrap().extranonce.to_vec()[downstream_len..downstream_len * 2]);
+        assert_eq!(
+            extra_content,
+            extranonce.unwrap().extranonce.to_vec()[downstream_len..downstream_len * 2]
+        );
     }
 
     // Test from_vec_with_len
