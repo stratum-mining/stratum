@@ -615,10 +615,10 @@ mod tests {
 
     #[test]
     fn test_extranonce_errors() {
-        let extranonce = Extranonce::try_from(vec![0;MAX_EXTRANONCE_LEN+1]);
+        let extranonce = Extranonce::try_from(vec![0;MAX_EXTRANONCE_LEN + 1]);
         assert!(extranonce.is_err());
 
-        assert!(Extranonce::new(MAX_EXTRANONCE_LEN+1) == None);
+        assert!(Extranonce::new(MAX_EXTRANONCE_LEN + 1) == None);
     }
 
     // Test from_vec_with_len
