@@ -39,8 +39,7 @@ pub struct JobNegotiator {
     receiver_set_new_prev_hash: Receiver<SetNewPrevHash<'static>>,
     last_new_template: Option<NewTemplate<'static>>,
     set_new_prev_hash: Option<SetNewPrevHash<'static>>,
-    future_templates: HashMap<u64, NewTemplate<'static>>,
-    coinbase_output_max_additional_size: u32,
+    future_templates: Vec<NewTemplate<'static>>,
     sender_coinbase_output_max_additional_size: Sender<CoinbaseOutputDataSize>,
 }
 
@@ -65,7 +64,6 @@ impl JobNegotiator {
         );
 
         info!(
-
             "JN proxy: setupconnection \nProxy address: {:?}",
             proxy_address
         );
@@ -75,7 +73,6 @@ impl JobNegotiator {
             .unwrap();
 
         info!("\nJN CONNECTED");
-
 
         let self_ = Arc::new(Mutex::new(JobNegotiator {
             sender,
@@ -110,6 +107,7 @@ impl JobNegotiator {
         Self::on_new_template(cloned.clone());
         Self::on_new_prev_hash(cloned.clone());
     }
+
 
     pub fn on_new_template(self_mutex: Arc<Mutex<Self>>) {
         task::spawn(async move {
@@ -183,10 +181,15 @@ impl JobNegotiator {
                     .unwrap();
                 let incoming_set_new_ph: SetNewPrevHash =
                     receiver_new_ph.recv().await.unwrap().try_into().unwrap();
-                println!("SET new prev hash recieved {:?}", incoming_set_new_ph);
-                self_mutex.safe_lock(|t| {
+                println!("Set new prev hash recieved in JN {:?}", incoming_set_new_ph);
+                self_mutex.clone().safe_lock(|t| {
                     t.set_new_prev_hash = Some(incoming_set_new_ph);
-                });
+                }).unwrap();
+                if JobNegotiator::is_for_future_template(self_mutex.clone()) {
+                    JobNegotiator::make_job(self_mutex.clone());
+                }else{
+                    // else store it and wait for the new non future template
+                }
             }
         });
     }

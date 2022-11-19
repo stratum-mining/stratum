@@ -290,14 +290,6 @@ async fn main() {
     // channel to send coinbase_output_max_additional_size
     let (send_comas, recv_comas) = bounded(10);
 
-    TemplateRx::connect(
-        config.tp_address.parse().unwrap(),
-        send_tp,
-        send_ph,
-        recv_comas,
-    )
-    .await;
-
     JobNegotiator::new(
         SocketAddr::new(
             IpAddr::from_str(&config.upstreams_jn[0].address).unwrap(),
@@ -314,6 +306,15 @@ async fn main() {
         send_comas,
     )
     .await;
+
+    TemplateRx::connect(
+        config.tp_address.parse().unwrap(),
+        send_tp,
+        send_ph,
+        recv_comas,
+    )
+    .await;
+
 
     info!("PROXY INITIALIZED");
     crate::lib::downstream_mining::listen_for_downstream_mining(socket).await

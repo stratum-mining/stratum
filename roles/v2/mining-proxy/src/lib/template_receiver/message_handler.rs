@@ -6,7 +6,6 @@ use roles_logic_sv2::{
     template_distribution_sv2::*,
 };
 
-
 impl ParseServerTemplateDistributionMessages for TemplateRx {
     fn handle_new_template(&mut self, m: NewTemplate) -> Result<SendTo, Error> {
         let new_template = NewTemplate {

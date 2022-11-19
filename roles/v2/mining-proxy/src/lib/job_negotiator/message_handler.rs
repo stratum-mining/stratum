@@ -79,12 +79,6 @@ impl ParseServerJobNegotiationMessages for JobNegotiator {
         match (message_type, payload).try_into() {
             Ok(JobNegotiation::AllocateMiningJobTokenSuccess(message)) => {
                 self_
-                    .safe_lock(|x| {
-                        x.coinbase_output_max_additional_size =
-                            message.clone().coinbase_output_max_additional_size
-                    })
-                    .unwrap();
-                self_
                     .safe_lock(|x| x.allocate_mining_job_token_success(message))
                     .unwrap()
             }
