@@ -29,7 +29,7 @@ pub struct TemplateRx {
     sender: Sender<EitherFrame>,
     send_new_tp_to_negotiator: Sender<NewTemplate<'static>>,
     send_new_ph_to_negotiator: Sender<SetNewPrevHash<'static>>,
-    receive_coinbase_output_max_additional_size: Receiver<CoinbaseOutputDataSize>
+    receive_coinbase_output_max_additional_size: Receiver<CoinbaseOutputDataSize>,
 }
 
 impl TemplateRx {
@@ -73,64 +73,70 @@ impl TemplateRx {
         });
     }
 
-        pub async fn start_templates(self_mutex: Arc<Mutex<Self>>) {
-            tokio::task::spawn(async move {
-                loop {
-                    // Send CoinbaseOutputDataSize size to TP 
-                    let cloned = self_mutex.clone();
-                    let receiver_coinbase_output_max_additional_size = self_mutex
+    pub async fn start_templates(self_mutex: Arc<Mutex<Self>>) {
+        tokio::task::spawn(async move {
+            loop {
+                // Send CoinbaseOutputDataSize size to TP
+                let cloned = self_mutex.clone();
+                let receiver_coinbase_output_max_additional_size = self_mutex
                     .clone()
                     .safe_lock(|s| s.receive_coinbase_output_max_additional_size.clone())
                     .unwrap();
-                    let coinbase_output_max_additional_size: CoinbaseOutputDataSize =
-                        receiver_coinbase_output_max_additional_size.recv().await.unwrap();
-
-                    let sv2_frame: StdFrame = PoolMessages::TemplateDistribution(roles_logic_sv2::parsers::TemplateDistribution::CoinbaseOutputDataSize(coinbase_output_max_additional_size))
-                        .try_into()
+                let coinbase_output_max_additional_size: CoinbaseOutputDataSize =
+                    receiver_coinbase_output_max_additional_size
+                        .recv()
+                        .await
                         .unwrap();
-                    info!("\nSV2 Frame: {:?}\n", sv2_frame);
-                    task::spawn(async { Self::send(cloned, sv2_frame).await });
-                    loop {
-                        // Receive Templates and SetPrevHash from TP to send to JN
-                        let receiver = self_mutex
-                            .clone()
-                            .safe_lock(|s| s.receiver.clone())
-                            .unwrap();
-                        let mut frame: StdFrame = receiver.recv().await.unwrap().try_into().unwrap();
-                        let message_type = frame.get_header().unwrap().msg_type();
-                        let payload = frame.payload();
 
-                        let next_message_to_send =
+                let sv2_frame: StdFrame = PoolMessages::TemplateDistribution(
+                    roles_logic_sv2::parsers::TemplateDistribution::CoinbaseOutputDataSize(
+                        coinbase_output_max_additional_size,
+                    ),
+                )
+                .try_into()
+                .unwrap();
+                info!("\nSV2 Frame: {:?}\n", sv2_frame);
+                task::spawn(async { Self::send(cloned, sv2_frame).await });
+                loop {
+                    // Receive Templates and SetPrevHash from TP to send to JN
+                    let receiver = self_mutex
+                        .clone()
+                        .safe_lock(|s| s.receiver.clone())
+                        .unwrap();
+                    let mut frame: StdFrame = receiver.recv().await.unwrap().try_into().unwrap();
+                    let message_type = frame.get_header().unwrap().msg_type();
+                    let payload = frame.payload();
+
+                    let next_message_to_send =
                             ParseServerTemplateDistributionMessages::handle_message_template_distribution(
                                 self_mutex.clone(),
                                 message_type,
                                 payload,
                             );
-                        info!("\nNEXT MESSAGE TO SEND: {:?}\n", next_message_to_send);
-                        match next_message_to_send {
-                            Ok(SendTo::None(m)) => match m {
-                                Some(TemplateDistribution::NewTemplate(m)) => {
-                                    info!("\nSENDING NEW TEMPLATE\n");
-                                    let sender = self_mutex
-                                        .safe_lock(|s| s.send_new_tp_to_negotiator.clone())
-                                        .unwrap();
-                                    sender.send(m).await.unwrap();
-                                }
-                                Some(TemplateDistribution::SetNewPrevHash(m)) => {
-                                    info!("\nSENDING NEW PREV HASH\n");
-                                    let sender = self_mutex
-                                        .safe_lock(|s| s.send_new_ph_to_negotiator.clone())
-                                        .unwrap();
-                                    sender.send(m).await.unwrap();
-                                }
-                                _ => todo!(),
-                            },
-                            Ok(_) => panic!(),
-                            Err(_) => todo!(),
-                        }
+                    info!("\nNEXT MESSAGE TO SEND: {:?}\n", next_message_to_send);
+                    match next_message_to_send {
+                        Ok(SendTo::None(m)) => match m {
+                            Some(TemplateDistribution::NewTemplate(m)) => {
+                                info!("\nSENDING NEW TEMPLATE\n");
+                                let sender = self_mutex
+                                    .safe_lock(|s| s.send_new_tp_to_negotiator.clone())
+                                    .unwrap();
+                                sender.send(m).await.unwrap();
+                            }
+                            Some(TemplateDistribution::SetNewPrevHash(m)) => {
+                                info!("\nSENDING NEW PREV HASH\n");
+                                let sender = self_mutex
+                                    .safe_lock(|s| s.send_new_ph_to_negotiator.clone())
+                                    .unwrap();
+                                sender.send(m).await.unwrap();
+                            }
+                            _ => todo!(),
+                        },
+                        Ok(_) => panic!(),
+                        Err(_) => todo!(),
+                    }
                 }
             }
-            });
-        }
-    
+        });
+    }
 }

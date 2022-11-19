@@ -22,7 +22,6 @@ use std::{
 };
 use tokio::{net::TcpStream, task};
 
-
 pub type Message = PoolMessages<'static>;
 pub type SendTo = SendTo_<JobNegotiation<'static>, ()>;
 pub type EitherFrame = StandardEitherFrame<PoolMessages<'static>>;
@@ -41,6 +40,7 @@ pub struct JobNegotiator {
     set_new_prev_hash: Option<SetNewPrevHash<'static>>,
     future_templates: Vec<NewTemplate<'static>>,
     sender_coinbase_output_max_additional_size: Sender<CoinbaseOutputDataSize>,
+    allocate_mining_job_message: AllocateMiningJobTokenSuccess,
 }
 
 impl JobNegotiator {
@@ -107,7 +107,6 @@ impl JobNegotiator {
         Self::on_new_template(cloned.clone());
         Self::on_new_prev_hash(cloned.clone());
     }
-
 
     pub fn on_new_template(self_mutex: Arc<Mutex<Self>>) {
         task::spawn(async move {
@@ -182,13 +181,14 @@ impl JobNegotiator {
                 let incoming_set_new_ph: SetNewPrevHash =
                     receiver_new_ph.recv().await.unwrap().try_into().unwrap();
                 println!("Set new prev hash recieved in JN {:?}", incoming_set_new_ph);
-                self_mutex.clone().safe_lock(|t| {
-                    t.set_new_prev_hash = Some(incoming_set_new_ph);
-                }).unwrap();
+                self_mutex
+                    .clone()
+                    .safe_lock(|t| {
+                        t.set_new_prev_hash = Some(incoming_set_new_ph);
+                    })
+                    .unwrap();
                 if JobNegotiator::is_for_future_template(self_mutex.clone()) {
                     JobNegotiator::make_job(self_mutex.clone());
-                }else{
-                    // else store it and wait for the new non future template
                 }
             }
         });

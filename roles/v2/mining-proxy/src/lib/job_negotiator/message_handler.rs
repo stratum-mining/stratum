@@ -31,7 +31,6 @@ impl ParseServerJobNegotiationMessages for JobNegotiator {
         Ok(SendTo::None(Some(
             JobNegotiation::AllocateMiningJobTokenSuccess(message),
         )))
-
     }
 
     fn commit_mining_job_success(
@@ -77,11 +76,9 @@ impl ParseServerJobNegotiationMessages for JobNegotiator {
     ) -> Result<SendTo, Error> {
         // Is ok to unwrap a safe_lock result
         match (message_type, payload).try_into() {
-            Ok(JobNegotiation::AllocateMiningJobTokenSuccess(message)) => {
-                self_
-                    .safe_lock(|x| x.allocate_mining_job_token_success(message))
-                    .unwrap()
-            }
+            Ok(JobNegotiation::AllocateMiningJobTokenSuccess(message)) => self_
+                .safe_lock(|x| x.allocate_mining_job_token_success(message))
+                .unwrap(),
             Ok(JobNegotiation::CommitMiningJobSuccess(message)) => self_
                 .safe_lock(|x| x.commit_mining_job_success(message))
                 .unwrap(),
