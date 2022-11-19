@@ -20,10 +20,7 @@ use std::{
     net::{IpAddr, SocketAddr},
     sync::Arc,
 };
-use tokio::{
-    net::{TcpStream},
-    task,
-};
+use tokio::{net::TcpStream, task};
 
 pub type Message = PoolMessages<'static>;
 pub type SendTo = SendTo_<JobNegotiation<'static>, ()>;
@@ -99,11 +96,9 @@ impl JobNegotiator {
 
         let cloned = self_.clone();
         Self::on_upstream_message(cloned.clone());
-        Self::on_new_template(cloned.clone());   
-        Self::on_new_prev_hash(cloned.clone()); 
-
+        Self::on_new_template(cloned.clone());
+        Self::on_new_prev_hash(cloned.clone());
     }
-
 
     pub fn on_new_template(self_mutex: Arc<Mutex<Self>>) {
         task::spawn(async move {
@@ -115,14 +110,20 @@ impl JobNegotiator {
                 let incoming_new_template: NewTemplate =
                     receiver_new_tp.recv().await.unwrap().try_into().unwrap();
                 println!("New template recieved in JN {:?}", incoming_new_template);
-                if JobNegotiator::is_future(incoming_new_template.clone()) {
-                    self_mutex.clone().safe_lock(|t| {
-                        t.future_templates.push(incoming_new_template.clone());
-                    }).unwrap();
-                } else{
-                    self_mutex.clone().safe_lock(|t| {
-                        t.last_new_template = Some(incoming_new_template);
-                    }).unwrap();
+                if incoming_new_template.clone().future_template {
+                    self_mutex
+                        .clone()
+                        .safe_lock(|t| {
+                            t.future_templates.push(incoming_new_template.clone());
+                        })
+                        .unwrap();
+                } else {
+                    self_mutex
+                        .clone()
+                        .safe_lock(|t| {
+                            t.last_new_template = Some(incoming_new_template);
+                        })
+                        .unwrap();
                     JobNegotiator::make_job(self_mutex.clone());
                 }
             }
@@ -139,13 +140,14 @@ impl JobNegotiator {
                 let incoming_set_new_ph: SetNewPrevHash =
                     receiver_new_ph.recv().await.unwrap().try_into().unwrap();
                 println!("Set new prev hash recieved in JN {:?}", incoming_set_new_ph);
-                self_mutex.clone().safe_lock(|t| {
-                    t.set_new_prev_hash = Some(incoming_set_new_ph);
-                }).unwrap();
+                self_mutex
+                    .clone()
+                    .safe_lock(|t| {
+                        t.set_new_prev_hash = Some(incoming_set_new_ph);
+                    })
+                    .unwrap();
                 if JobNegotiator::is_for_future_template(self_mutex.clone()) {
                     JobNegotiator::make_job(self_mutex.clone());
-                }else{
-                    // else store it and wait for the new non future template
                 }
             }
         });
@@ -176,16 +178,19 @@ impl JobNegotiator {
             Ok(SendTo::None(Some(m))) => match m {
                 // Once coinbase_output_max_additional_size is received from pool ...
                 JobNegotiation::AllocateMiningJobTokenSuccess(m) => {
-                    let sender = self_mutex.safe_lock(|s| s.sender_coinbase_output_max_additional_size.clone()).unwrap();
+                    let sender = self_mutex
+                        .safe_lock(|s| s.sender_coinbase_output_max_additional_size.clone())
+                        .unwrap();
                     let coinbase_output_max_additional_size = CoinbaseOutputDataSize {
                         coinbase_output_max_additional_size: m.coinbase_output_max_additional_size,
                     };
                     // ... than coinbase_output_max_additional_size is sent to TP_receiver
-                    sender.send(coinbase_output_max_additional_size).await.unwrap();
-
-                },
+                    sender
+                        .send(coinbase_output_max_additional_size)
+                        .await
+                        .unwrap();
+                }
                 _ => unreachable!(),
-
             },
             Ok(_) => panic!(),
             Err(_) => todo!(),
@@ -204,18 +209,34 @@ impl JobNegotiator {
 
     pub fn make_job(self_mutex: Arc<Mutex<Self>>) {
         // iterate the future templates in JN
-        // check if one of them is compatible with this 
+        // check if one of them is compatible with this
         // send commit mining job to pool
         // create a Job
         // send the Job to mining devices
-        info!("to do")
+        unimplemented!()
     }
 
-    pub fn is_for_future_template(self_mutex: Arc<Mutex<Self>>)  -> bool {
-        true
+    pub fn is_for_future_template(self_mutex: Arc<Mutex<Self>>) -> bool {
+        // find the future template and put it in the last template in JN
+        let vec_future_templates = self_mutex
+            .clone()
+            .safe_lock(|j| j.future_templates.clone())
+            .unwrap();
+        let prev_hash_template_id = self_mutex
+            .safe_lock(|j| j.set_new_prev_hash.clone().unwrap().template_id.clone())
+            .unwrap();
+        for future_template in vec_future_templates {
+            if prev_hash_template_id == future_template.template_id {
+                self_mutex
+                    .safe_lock(|j| j.last_new_template = Some(future_template))
+                    .unwrap();
+                info!(
+                    "Last New Template is : {:?}",
+                    self_mutex.safe_lock(|j| j.last_new_template.clone().unwrap())
+                );
+                return true;
+            }
+        }
+        false
     }
-    pub fn is_future(incoming_new_template: NewTemplate) -> bool {
-        true
-    }
-
 }

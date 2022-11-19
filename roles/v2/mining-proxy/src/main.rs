@@ -280,7 +280,6 @@ async fn main() {
     )
     .await;
 
-
     info!("PROXY INITIALIZED");
     crate::lib::downstream_mining::listen_for_downstream_mining(socket).await
 }
