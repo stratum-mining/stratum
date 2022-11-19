@@ -56,7 +56,7 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
             .extranonces
             .safe_lock(|e| e.next_standard().unwrap().into_b032())
             .unwrap();
-        let message = match (self.downstream_data.header_only, self.id) {
+        match (self.downstream_data.header_only, self.id) {
             (false, group_channel_id) => {
                 let channel_id = self.channel_ids.next();
                 let mut partial_job = crate::lib::mining_pool::Job::new(
@@ -69,7 +69,15 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
                     &self.last_nbits,
                 ) {
                     (Some(job), Some(p_hash), Some(n_bits)) => {
-                        partial_job.update_job(&job.0, *n_bits, *p_hash, job.1);
+                        partial_job.update_job(
+                            &job.0,
+                            *n_bits,
+                            *p_hash,
+                            job.1,
+                            job.0.job_id,
+                            job.0.version,
+                            job.0.version_rolling_allowed,
+                        );
                         self.jobs.insert(channel_id, partial_job);
                     }
                     (None, Some(_), Some(_)) => {
@@ -89,13 +97,16 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
                     }
                 };
 
-                OpenStandardMiningChannelSuccess {
+                let message = OpenStandardMiningChannelSuccess {
                     request_id: request_id.into(),
                     channel_id,
                     target,
                     extranonce_prefix,
                     group_channel_id,
-                }
+                };
+                Ok(SendTo::Respond(Mining::OpenStandardMiningChannelSuccess(
+                    message,
+                )))
             }
             (true, channel_id) => {
                 let mut partial_job = crate::lib::mining_pool::Job::new(
@@ -108,7 +119,15 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
                     &self.last_nbits,
                 ) {
                     (Some(job), Some(p_hash), Some(n_bits)) => {
-                        partial_job.update_job(&job.0, *n_bits, *p_hash, job.1);
+                        partial_job.update_job(
+                            &job.0,
+                            *n_bits,
+                            *p_hash,
+                            job.1,
+                            job.0.job_id,
+                            job.0.version,
+                            job.0.version_rolling_allowed,
+                        );
                         self.jobs.insert(channel_id, partial_job);
                     }
                     (None, Some(_), Some(_)) => {
@@ -128,18 +147,39 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
                     }
                 };
 
-                OpenStandardMiningChannelSuccess {
+                let mut jobs = vec![];
+                let coinbase_script = &extranonce_prefix.clone().to_vec()[..];
+                if let Some(job) = self.jobs.get(&channel_id) {
+                    let job = match job {
+                        super::Job::Complete(job) => job.as_extended(channel_id, false),
+                        super::Job::Partial(_) => panic!("IMPOSSIBLE STATE"),
+                    };
+                    let job = roles_logic_sv2::job_dispatcher::extended_to_standard_job_for_group_channel(&job, coinbase_script, channel_id, job.job_id).unwrap();
+                    jobs.push(job)
+                };
+                for (job, _) in self.future_jobs.values() {
+                    let job = roles_logic_sv2::job_dispatcher::extended_to_standard_job_for_group_channel(job, coinbase_script, channel_id, job.job_id).unwrap();
+                    jobs.push(job)
+                }
+                let open_channel = OpenStandardMiningChannelSuccess {
                     request_id: request_id.into(),
                     channel_id,
                     group_channel_id: crate::HOM_GROUP_ID,
                     target,
-                    extranonce_prefix,
-                }
+                    extranonce_prefix: extranonce_prefix.clone(),
+                };
+                self.extranonce = Some(extranonce_prefix.to_vec());
+                let mut jobs = jobs
+                    .into_iter()
+                    .map(|j| SendTo::Respond(Mining::NewMiningJob(j)))
+                    .collect();
+                let mut to_send = vec![SendTo::Respond(Mining::OpenStandardMiningChannelSuccess(
+                    open_channel.clone(),
+                ))];
+                to_send.append(&mut jobs);
+                Ok(SendTo::Multiple(to_send))
             }
-        };
-        Ok(SendTo::Respond(Mining::OpenStandardMiningChannelSuccess(
-            message,
-        )))
+        }
     }
 
     fn handle_open_extended_mining_channel(
@@ -183,7 +223,15 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
                     p_hash,
                     extended
                 );
-                partial_job.update_job(&job.0, *n_bits, *p_hash, job.1);
+                partial_job.update_job(
+                    &job.0,
+                    *n_bits,
+                    *p_hash,
+                    job.1,
+                    job.0.job_id,
+                    job.0.version,
+                    job.0.version_rolling_allowed,
+                );
                 self.jobs.insert(channel_id, partial_job);
             }
             (None, Some(_), Some(_)) => {

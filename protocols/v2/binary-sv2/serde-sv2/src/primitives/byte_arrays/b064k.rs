@@ -1,6 +1,6 @@
 use crate::{error::Error, primitives::GetSize};
 use alloc::vec::Vec;
-use core::convert::TryFrom;
+use core::convert::{TryFrom, TryInto};
 use serde::{de::Visitor, ser, ser::SerializeTuple, Deserialize, Deserializer, Serialize};
 
 #[derive(Debug, Clone, Eq)]
@@ -111,6 +111,30 @@ impl<'a> Visitor<'a> for B064KVisitor {
     fn visit_borrowed_bytes<E>(self, value: &'a [u8]) -> Result<Self::Value, E> {
         Ok(B064K(Inner::Ref(value)))
     }
+
+    fn visit_byte_buf<E>(self, v: Vec<u8>) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        if v.len() < 2 {
+            return Err(serde::de::Error::custom("Impossible deserialize B064K"));
+        };
+        let len = u16::from_le_bytes([v[0], v[1]]);
+        if len as usize == v.len() - 2 {
+            // Can not fail already checked len above
+            let self_: B064K = v[2..].to_vec().try_into().unwrap();
+            Ok(self_)
+        } else {
+            Err(serde::de::Error::custom("Impossible deserialize B016M"))
+        }
+    }
+
+    fn visit_bytes<E>(self, _v: &[u8]) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        panic!();
+    }
 }
 
 impl<'de: 'a, 'a> Deserialize<'de> for B064K<'a> {
@@ -119,7 +143,10 @@ impl<'de: 'a, 'a> Deserialize<'de> for B064K<'a> {
     where
         D: Deserializer<'de>,
     {
-        deserializer.deserialize_newtype_struct("B064K", B064KVisitor)
+        match deserializer.is_human_readable() {
+            false => deserializer.deserialize_newtype_struct("B064K", B064KVisitor),
+            true => deserializer.deserialize_byte_buf(B064KVisitor),
+        }
     }
 }
 

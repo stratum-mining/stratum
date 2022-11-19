@@ -439,6 +439,10 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     {
         unimplemented!()
     }
+
+    fn is_human_readable(&self) -> bool {
+        false
+    }
 }
 
 struct Seq<'de, 'a> {

@@ -81,6 +81,8 @@ use mining_sv2::{
 use core::convert::{TryFrom, TryInto};
 use tracing::error;
 
+pub type AnyMessage<'a> = PoolMessages<'a>;
+
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "with_serde", derive(Serialize, Deserialize))]
 pub enum CommonMessages<'a> {

@@ -31,13 +31,15 @@ fn new_pub_key() -> PublicKey {
     PublicKey::from_private_key(&secp, &priv_k)
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct Configuration {
     pub listen_address: String,
     pub tp_address: String,
     pub authority_public_key: EncodedEd25519PublicKey,
     pub authority_secret_key: EncodedEd25519SecretKey,
     pub cert_validity_sec: u64,
+    #[cfg(feature = "test_only_allow_unencrypted")]
+    pub test_only_listen_adress_plain: String,
 }
 
 mod args {

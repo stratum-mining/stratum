@@ -45,12 +45,16 @@ struct PartialJob {
 }
 
 impl PartialJob {
+    #[allow(clippy::too_many_arguments)]
     pub fn to_complete_standard_job(
         &self,
         new_ext_job: &NewExtendedMiningJob<'static>,
         nbits: u32,
         prev_hash: BlockHash,
         template_id: u64,
+        job_id: u32,
+        version: u32,
+        version_rolling_allowed: bool,
     ) -> CompleteJob {
         let merkle_root: [u8; 32] = merkle_root_from_path(
             &(new_ext_job.coinbase_tx_prefix.to_vec()[..]),
@@ -75,11 +79,15 @@ impl PartialJob {
             extranonce: self.extranonce.clone(),
             merkle_root,
             template_id,
+            job_id,
+            version,
+            version_rolling_allowed,
         }
     }
 }
 #[derive(Debug, Clone)]
 struct CompleteJob {
+    job_id: u32,
     template_id: u64,
     target: Uint256,
     nbits: u32,
@@ -91,6 +99,8 @@ struct CompleteJob {
     #[allow(dead_code)]
     merkle_path: Vec<Vec<u8>>,
     merkle_root: TxMerkleNode,
+    version: u32,
+    version_rolling_allowed: bool,
 }
 
 #[derive(Debug)]
@@ -169,12 +179,16 @@ impl CompleteJob {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn update_job(
         &self,
         new_ext_job: &NewExtendedMiningJob<'static>,
         nbits: u32,
         prev_hash: BlockHash,
         template_id: u64,
+        job_id: u32,
+        version: u32,
+        version_rolling_allowed: bool,
     ) -> Self {
         let merkle_root: [u8; 32] = merkle_root_from_path(
             &(self.coinbase_tx_prefix[..]),
@@ -198,6 +212,28 @@ impl CompleteJob {
             extranonce: self.extranonce.clone(),
             merkle_root,
             template_id,
+            job_id,
+            version,
+            version_rolling_allowed,
+        }
+    }
+
+    pub fn as_extended(&self, channel_id: u32, future_job: bool) -> NewExtendedMiningJob {
+        let merkle_path: Vec<U256> = self
+            .merkle_path
+            .clone()
+            .into_iter()
+            .map(|leaf| leaf.try_into().unwrap())
+            .collect();
+        NewExtendedMiningJob {
+            channel_id,
+            job_id: self.job_id,
+            future_job,
+            version: self.version,
+            version_rolling_allowed: self.version_rolling_allowed,
+            merkle_path: merkle_path.try_into().unwrap(),
+            coinbase_tx_prefix: self.coinbase_tx_prefix.clone().try_into().unwrap(),
+            coinbase_tx_suffix: self.coinbase_tx_suffix.clone().try_into().unwrap(),
         }
     }
 }
@@ -212,12 +248,16 @@ impl Job {
     pub fn new(target: Uint256, extranonce: Vec<u8>) -> Self {
         Self::Partial(PartialJob { target, extranonce })
     }
+    #[allow(clippy::too_many_arguments)]
     pub fn update_job(
         &mut self,
         new_ext_job: &NewExtendedMiningJob<'static>,
         nbits: u32,
         prev_hash: BlockHash,
         template_id: u64,
+        job_id: u32,
+        version: u32,
+        version_rolling_allowed: bool,
     ) {
         match self {
             Job::Partial(p) => {
@@ -226,10 +266,21 @@ impl Job {
                     nbits,
                     prev_hash,
                     template_id,
+                    job_id,
+                    version,
+                    version_rolling_allowed,
                 ));
             }
             Job::Complete(c) => {
-                *self = Self::Complete(c.update_job(new_ext_job, nbits, prev_hash, template_id));
+                *self = Self::Complete(c.update_job(
+                    new_ext_job,
+                    nbits,
+                    prev_hash,
+                    template_id,
+                    job_id,
+                    version,
+                    version_rolling_allowed,
+                ));
             }
         }
     }
@@ -275,14 +326,13 @@ pub struct Downstream {
     // (job,template_id)
     last_valid_extended_job: Option<(NewExtendedMiningJob<'static>, u64)>,
     solution_sender: Sender<SubmitSolution<'static>>,
+    // only used for HOM downstreams
+    extranonce: Option<Vec<u8>>,
 }
 
 /// Accept downstream connection
 pub struct Pool {
-    /// Downstreams that are not HOM
-    group_downstreams: HashMap<u32, Arc<Mutex<Downstream>>>,
-    /// Downstreams that are HOM
-    hom_downstreams: HashMap<u32, Arc<Mutex<Downstream>>>,
+    downstreams: HashMap<u32, Arc<Mutex<Downstream>>>,
     hom_ids: Arc<Mutex<Id>>,
     group_ids: Arc<Mutex<Id>>,
     job_creators: Arc<Mutex<JobsCreators>>,
@@ -324,7 +374,7 @@ impl Downstream {
         mut receiver: Receiver<EitherFrame>,
         mut sender: Sender<EitherFrame>,
         group_ids: Arc<Mutex<Id>>,
-        _hom_ids: Arc<Mutex<Id>>,
+        hom_ids: Arc<Mutex<Id>>,
         job_creators: Arc<Mutex<JobsCreators>>,
         extranonces: Arc<Mutex<ExtendedExtranonce>>,
         last_new_prev_hash: Option<SetNewPrevHash<'static>>,
@@ -338,10 +388,7 @@ impl Downstream {
                 .unwrap();
         let id = match downstream_data.header_only {
             false => group_ids.safe_lock(|id| id.next()).unwrap(),
-            true => {
-                //_hom_ids.safe_lock(|id| id.next()).unwrap();
-                panic!("Downstream standard channel not supported");
-            }
+            true => hom_ids.safe_lock(|id| id.next()).unwrap(),
         };
         let extended_jobs = job_creators
             .safe_lock(|j| {
@@ -388,16 +435,19 @@ impl Downstream {
             last_valid_extended_job,
             solution_sender,
             prefixes: HashMap::new(),
+            extranonce: None,
         }));
 
-        for job in extended_jobs {
-            debug!("Sending job downstream: {:?}", job.0);
-            Self::send(
-                self_.clone(),
-                roles_logic_sv2::parsers::Mining::NewExtendedMiningJob(job.0),
-            )
-            .await
-            .unwrap();
+        if !downstream_data.header_only {
+            for job in extended_jobs {
+                debug!("Sending job downstream: {:?}", job.0);
+                Self::send(
+                    self_.clone(),
+                    roles_logic_sv2::parsers::Mining::NewExtendedMiningJob(job.0),
+                )
+                .await
+                .unwrap();
+            }
         }
 
         if let Some(new_prev_hash) = last_new_prev_hash {
@@ -435,20 +485,10 @@ impl Downstream {
                         }
                     }
                     _ => {
-                        match downstream_data.header_only {
-                            false => {
-                                pool.safe_lock(|p| p.group_downstreams.remove(&id).unwrap())
-                                    .unwrap();
-                            }
-                            true => {
-                                //_hom_ids.safe_lock(|id| id.next()).unwrap();
-                                panic!("Downstream standard channel not supported");
-                            }
-                        };
+                        pool.safe_lock(|p| p.downstreams.remove(&id)).unwrap();
                         break;
                     }
                 }
-                //let incoming: StdFrame = receiver.recv().await.expect("DICOLCALALCLA").try_into().unwrap();
             }
         });
         self_
@@ -467,12 +507,22 @@ impl Downstream {
             payload,
             MiningRoutingLogic::None,
         );
-        match next_message_to_send {
+        Self::match_send_to(self_mutex, next_message_to_send).await;
+    }
+
+    #[async_recursion::async_recursion]
+    async fn match_send_to(self_: Arc<Mutex<Self>>, send_to: Result<SendTo<()>, Error>) {
+        match send_to {
             Ok(SendTo::Respond(message)) => {
                 debug!("Responding to downstream message: {:?}", message);
-                Self::send(self_mutex, message)
+                Self::send(self_, message)
                     .await
                     .expect("Failed to send downstream message");
+            }
+            Ok(SendTo::Multiple(messages)) => {
+                for message in messages {
+                    Self::match_send_to(self_.clone(), Ok(message)).await;
+                }
             }
             Ok(SendTo::None(_)) => (),
             Ok(_) => panic!(),
@@ -501,6 +551,9 @@ impl Downstream {
                     message.nbits,
                     u256_to_block_hash(prev_hash.clone()),
                     future_job.1,
+                    future_job.0.job_id,
+                    future_job.0.version,
+                    future_job.0.version_rolling_allowed,
                 );
             }
         }
@@ -540,6 +593,8 @@ impl Downstream {
             message.future_job, message
         );
 
+        let is_header_only = self_.safe_lock(|s| s.is_header_only()).unwrap();
+
         if !message.future_job {
             self_
                 .safe_lock(|s| {
@@ -549,6 +604,9 @@ impl Downstream {
                             s.last_nbits.unwrap(),
                             *s.last_prev_hash.as_ref().unwrap(),
                             template_id,
+                            message.job_id,
+                            message.version,
+                            message.version_rolling_allowed,
                         );
                     }
                 })
@@ -562,12 +620,29 @@ impl Downstream {
                 .unwrap();
         }
 
-        let sv2_frame: StdFrame = PoolMessages::Mining(Mining::NewExtendedMiningJob(message))
-            .try_into()
-            .unwrap();
+        let sv2_frame: StdFrame = match is_header_only {
+            false => PoolMessages::Mining(Mining::NewExtendedMiningJob(message))
+                .try_into()
+                .unwrap(),
+            true => {
+                let coinbase_script = self_.safe_lock(|s| s.extranonce.clone().unwrap()).unwrap();
+                let channel_id = self_.safe_lock(|s| s.id).unwrap();
+                let message =
+                    roles_logic_sv2::job_dispatcher::extended_to_standard_job_for_group_channel(
+                        &message,
+                        &coinbase_script,
+                        channel_id,
+                        message.job_id,
+                    )
+                    .unwrap();
+                PoolMessages::Mining(Mining::NewMiningJob(message))
+                    .try_into()
+                    .unwrap()
+            }
+        };
 
         let sender = self_.safe_lock(|self_| self_.sender.clone()).unwrap();
-        debug!("Sending new extended job to downstream: {:?}", sv2_frame);
+        debug!("Sending new job to downstream: {:?}", sv2_frame);
         sender.send(sv2_frame.into()).await.map_err(|_| ())?;
 
         Ok(())
@@ -582,58 +657,75 @@ impl IsDownstream for Downstream {
 impl IsMiningDownstream for Downstream {}
 
 impl Pool {
+    #[cfg(feature = "test_only_allow_unencrypted")]
+    async fn accept_incoming_plain_connection(self_: Arc<Mutex<Pool>>, config: Configuration) {
+        let listner = TcpListener::bind(&config.test_only_listen_adress_plain)
+            .await
+            .unwrap();
+        info!("Listening on {}", config.test_only_listen_adress_plain);
+        while let Ok((stream, _)) = listner.accept().await {
+            debug!("New connection from {}", stream.peer_addr().unwrap());
+
+            // Uncomment to allow unencrypted connections
+            let (receiver, sender): (Receiver<EitherFrame>, Sender<EitherFrame>) =
+                network_helpers::plain_connection_tokio::PlainConnection::new(stream).await;
+            Self::accept_incoming_connection_(self_.clone(), receiver, sender).await;
+        }
+    }
+
     async fn accept_incoming_connection(self_: Arc<Mutex<Pool>>, config: Configuration) {
         let listner = TcpListener::bind(&config.listen_address).await.unwrap();
         info!("Listening on {}", config.listen_address);
         while let Ok((stream, _)) = listner.accept().await {
             debug!("New connection from {}", stream.peer_addr().unwrap());
 
-            let solution_sender = self_.safe_lock(|p| p.solution_sender.clone()).unwrap();
             let responder = Responder::from_authority_kp(
                 config.authority_public_key.clone().into_inner().as_bytes(),
                 config.authority_secret_key.clone().into_inner().as_bytes(),
                 std::time::Duration::from_secs(config.cert_validity_sec),
             )
             .unwrap();
-            let last_new_prev_hash = self_.safe_lock(|x| x.last_new_prev_hash.clone()).unwrap();
 
-            // Uncomment to allow unencrypted connections
-            // let (receiver, sender): (Receiver<EitherFrame>, Sender<EitherFrame>) =
-            //     PlainConnection::new(stream).await;
             let (receiver, sender): (Receiver<EitherFrame>, Sender<EitherFrame>) =
                 Connection::new(stream, HandshakeRole::Responder(responder)).await;
-
-            let group_ids = self_.safe_lock(|s| s.group_ids.clone()).unwrap();
-            let hom_ids = self_.safe_lock(|s| s.hom_ids.clone()).unwrap();
-            let job_creators = self_.safe_lock(|s| s.job_creators.clone()).unwrap();
-            let extranonces = self_.safe_lock(|s| s.extranonces.clone()).unwrap();
-            let downstream = Downstream::new(
-                receiver,
-                sender,
-                group_ids,
-                hom_ids,
-                job_creators,
-                extranonces,
-                last_new_prev_hash,
-                solution_sender,
-                self_.clone(),
-            )
-            .await;
-
-            let (is_header_only, channel_id) = downstream
-                .safe_lock(|d| (d.downstream_data.header_only, d.id))
-                .unwrap();
-
-            self_
-                .safe_lock(|p| {
-                    if is_header_only {
-                        p.hom_downstreams.insert(channel_id, downstream);
-                    } else {
-                        p.group_downstreams.insert(channel_id, downstream);
-                    }
-                })
-                .unwrap();
+            Self::accept_incoming_connection_(self_.clone(), receiver, sender).await;
         }
+    }
+
+    async fn accept_incoming_connection_(
+        self_: Arc<Mutex<Pool>>,
+        receiver: Receiver<EitherFrame>,
+        sender: Sender<EitherFrame>,
+    ) {
+        let last_new_prev_hash = self_.safe_lock(|x| x.last_new_prev_hash.clone()).unwrap();
+        let solution_sender = self_.safe_lock(|p| p.solution_sender.clone()).unwrap();
+
+        let group_ids = self_.safe_lock(|s| s.group_ids.clone()).unwrap();
+        let hom_ids = self_.safe_lock(|s| s.hom_ids.clone()).unwrap();
+        let job_creators = self_.safe_lock(|s| s.job_creators.clone()).unwrap();
+        let extranonces = self_.safe_lock(|s| s.extranonces.clone()).unwrap();
+        let downstream = Downstream::new(
+            receiver,
+            sender,
+            group_ids,
+            hom_ids,
+            job_creators,
+            extranonces,
+            last_new_prev_hash,
+            solution_sender,
+            self_.clone(),
+        )
+        .await;
+
+        let (_, channel_id) = downstream
+            .safe_lock(|d| (d.downstream_data.header_only, d.id))
+            .unwrap();
+
+        self_
+            .safe_lock(|p| {
+                p.downstreams.insert(channel_id, downstream);
+            })
+            .unwrap();
     }
 
     async fn on_new_prev_hash(self_: Arc<Mutex<Self>>, rx: Receiver<SetNewPrevHash<'static>>) {
@@ -654,13 +746,10 @@ impl Pool {
             self_
                 .safe_lock(|s| s.last_new_prev_hash = Some(new_prev_hash.clone()))
                 .unwrap();
-            let hom_downstreams: Vec<Arc<Mutex<Downstream>>> = self_
-                .safe_lock(|s| s.hom_downstreams.iter().map(|d| d.1.clone()).collect())
+            let downstreams: Vec<Arc<Mutex<Downstream>>> = self_
+                .safe_lock(|s| s.downstreams.iter().map(|d| d.1.clone()).collect())
                 .unwrap();
-            let group_downstreams: Vec<Arc<Mutex<Downstream>>> = self_
-                .safe_lock(|s| s.group_downstreams.iter().map(|d| d.1.clone()).collect())
-                .unwrap();
-            for downstream in [&hom_downstreams[..], &group_downstreams[..]].concat() {
+            for downstream in downstreams {
                 let channel_id = downstream.safe_lock(|d| d.id).unwrap();
                 let job_id = self_
                     .safe_lock(|s| {
@@ -695,11 +784,10 @@ impl Pool {
             let mut new_jobs = job_creators
                 .safe_lock(|j| j.on_new_template(&mut new_template).unwrap())
                 .unwrap();
-            let group_downstreams: Vec<Arc<Mutex<Downstream>>> = self_
-                .safe_lock(|s| s.group_downstreams.iter().map(|d| d.1.clone()).collect())
+            let downstreams: Vec<Arc<Mutex<Downstream>>> = self_
+                .safe_lock(|s| s.downstreams.iter().map(|d| d.1.clone()).collect())
                 .unwrap();
-            // TODO add standard channel downstream
-            for downstream in group_downstreams {
+            for downstream in downstreams {
                 let channel_id = downstream.safe_lock(|x| x.id).unwrap();
                 let extended_job = new_jobs.remove(&channel_id).unwrap();
                 Downstream::on_new_extended_job(
@@ -728,8 +816,7 @@ impl Pool {
         let range_1 = std::ops::Range { start: 0, end: 16 };
         let range_2 = std::ops::Range { start: 16, end: 32 };
         let pool = Arc::new(Mutex::new(Pool {
-            group_downstreams: HashMap::new(),
-            hom_downstreams: HashMap::new(),
+            downstreams: HashMap::new(),
             hom_ids: Arc::new(Mutex::new(Id::new())),
             group_ids: Arc::new(Mutex::new(Id::new())),
             job_creators: Arc::new(Mutex::new(
@@ -746,9 +833,13 @@ impl Pool {
         let cloned = pool.clone();
         let cloned2 = pool.clone();
         let cloned3 = pool.clone();
+        #[cfg(feature = "test_only_allow_unencrypted")]
+        let cloned4 = pool.clone();
 
         info!("Starting up pool listener");
-        task::spawn(Self::accept_incoming_connection(cloned, config));
+        task::spawn(Self::accept_incoming_connection(cloned, config.clone()));
+        #[cfg(feature = "test_only_allow_unencrypted")]
+        task::spawn(Self::accept_incoming_plain_connection(cloned4, config));
 
         task::spawn(async {
             Self::on_new_prev_hash(cloned2, new_prev_hash_rx).await;

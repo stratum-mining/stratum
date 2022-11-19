@@ -71,6 +71,10 @@ impl Header {
         self.msg_type
     }
 
+    pub fn ext_type(&self) -> u16 {
+        self.extension_type
+    }
+
     pub fn channel_msg(&self) -> bool {
         let mask = 0b0000_0000_0000_0001;
         self.extension_type & mask == self.extension_type
