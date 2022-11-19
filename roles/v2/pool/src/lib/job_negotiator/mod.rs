@@ -71,9 +71,6 @@ impl JobNegotiatorDownstream {
                 payload,
             );
         match next_message_to_send {
-            Ok(SendTo::RelayNewMessage(message)) => {
-                todo!();
-            }
             Ok(SendTo::Respond(message)) => Self::send(self_mutex, message).await.unwrap(),
             Ok(SendTo::None(m)) => match m {
                 _ => todo!(),
@@ -145,7 +142,7 @@ impl JobNegotiator {
                     .unwrap();
             let sv2_frame = sv2_frame.into();
 
-            println!("Sending success message for proxy");
+            info!("Sending success message for proxy");
             sender.send(sv2_frame).await.unwrap();
 
             let jndownstream = Arc::new(Mutex::new(JobNegotiatorDownstream::new(

@@ -18,15 +18,21 @@ impl ParseServerJobNegotiationMessages for JobNegotiator {
         &mut self,
         message: AllocateMiningJobTokenSuccess,
     ) -> Result<SendTo, Error> {
-        info!("Received allocate mining job token success! coinbase output max additional size is {:?}", self.coinbase_output_max_additional_size);
-        Ok(SendTo::None(None))
+        info!("Received allocate mining job token success message: {:?}\n", message);
+        let message = AllocateMiningJobTokenSuccess {
+            request_id: message.request_id,
+            mining_job_token: message.mining_job_token.into_static(), 
+            coinbase_output_max_additional_size: message.coinbase_output_max_additional_size, 
+            async_mining_allowed: message.async_mining_allowed, 
+        };
+        Ok(SendTo::None(Some(JobNegotiation::AllocateMiningJobTokenSuccess(message))))
     }
 
     fn commit_mining_job_success(
         &mut self,
         message: CommitMiningJobSuccess,
     ) -> Result<SendTo, Error> {
-        info!("MVP2 ENDS HERE");
+        info!("MVP2 ENDS HERE1");
         Ok(SendTo::None(None))
     }
 
@@ -65,12 +71,6 @@ impl ParseServerJobNegotiationMessages for JobNegotiator {
         // Is ok to unwrap a safe_lock result
         match (message_type, payload).try_into() {
             Ok(JobNegotiation::AllocateMiningJobTokenSuccess(message)) => {
-                self_
-                    .safe_lock(|x| {
-                        x.coinbase_output_max_additional_size =
-                            message.clone().coinbase_output_max_additional_size
-                    })
-                    .unwrap();
                 self_
                     .safe_lock(|x| x.allocate_mining_job_token_success(message))
                     .unwrap()

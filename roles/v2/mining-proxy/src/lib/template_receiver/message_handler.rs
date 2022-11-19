@@ -4,9 +4,7 @@ use roles_logic_sv2::{
     handlers::template_distribution::{ParseServerTemplateDistributionMessages, SendTo},
     parsers::TemplateDistribution,
     template_distribution_sv2::*,
-    utils::Mutex,
 };
-use std::sync::Arc;
 
 impl ParseServerTemplateDistributionMessages for TemplateRx {
     fn handle_new_template(&mut self, m: NewTemplate) -> Result<SendTo, Error> {
