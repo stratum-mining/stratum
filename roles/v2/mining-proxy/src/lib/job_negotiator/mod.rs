@@ -9,7 +9,7 @@ use roles_logic_sv2::{
     utils::Mutex,
 };
 use std::{collections::HashMap, convert::TryInto, str::FromStr};
-use tracing::info;
+use tracing::{debug, info};
 
 use codec_sv2::Frame;
 use roles_logic_sv2::{
@@ -338,5 +338,9 @@ impl JobNegotiator {
             }
         }
         false
+    }
+
+    pub fn send_commit_mining_job() {
+        unimplemented!()
     }
 }

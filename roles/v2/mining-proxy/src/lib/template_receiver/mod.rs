@@ -96,7 +96,7 @@ impl TemplateRx {
                 .try_into()
                 .unwrap();
                 info!("\nSV2 Frame: {:?}\n", sv2_frame);
-                task::spawn(async { Self::send(cloned, sv2_frame).await });
+                Self::send(cloned, sv2_frame).await;
                 loop {
                     // Receive Templates and SetPrevHash from TP to send to JN
                     let receiver = self_mutex
