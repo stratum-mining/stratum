@@ -254,14 +254,14 @@ impl JobsCreators {
 // Test
 #[cfg(test)]
 
-mod tests {
+pub mod tests {
     use super::*;
     use binary_sv2::u256_from_int;
     use bitcoin::{secp256k1::Secp256k1, Network};
     use quickcheck::{Arbitrary, Gen};
     use std::{borrow::BorrowMut, cmp, vec};
 
-    pub fn from_gen(g: &mut Gen) -> NewTemplate<'static> {
+    pub fn template_from_gen(g: &mut Gen) -> NewTemplate<'static> {
         let mut coinbase_prefix_gen = Gen::new(255);
         let mut coinbase_prefix: vec::Vec<u8> = vec::Vec::new();
 
@@ -308,7 +308,7 @@ mod tests {
 
     const BLOCK_REWARD: u64 = 625_000_000_000;
 
-    fn new_pub_key() -> PublicKey {
+    pub fn new_pub_key() -> PublicKey {
         let priv_k = PrivateKey::from_slice(&PRIVATE_KEY_BTC, NETWORK).unwrap();
         let secp = Secp256k1::default();
         PublicKey::from_private_key(&secp, &priv_k)
@@ -322,7 +322,7 @@ mod tests {
         jobs_creators.new_group_channel(1, true).unwrap();
 
         //Create a template
-        let mut template = from_gen(&mut Gen::new(255));
+        let mut template = template_from_gen(&mut Gen::new(255));
         let test_id: u64 = template.template_id;
 
         let _jobs = jobs_creators.on_new_template(template.borrow_mut());
@@ -341,7 +341,7 @@ mod tests {
             let mut jobs_creators = JobsCreators::new(BLOCK_REWARD, new_pub_key()).unwrap();
 
             // Create a template
-            let mut template = from_gen(&mut Gen::new(255));
+            let mut template = template_from_gen(&mut Gen::new(255));
             let _ = jobs_creators.on_new_template(template.borrow_mut());
 
             // Create a new group channel
@@ -354,7 +354,7 @@ mod tests {
         //
         // let test_id: u64 = 20;
         // //Create a template
-        // let mut template = from_gen(&mut Gen::new(255), test_id);
+        // let mut template = template_from_gen(&mut Gen::new(255), test_id);
         // let _jobs = jobs_creators.on_new_template(template.borrow_mut());
         //
         // let res = jobs_creators.new_group_channel(2, true).unwrap();
@@ -373,7 +373,7 @@ mod tests {
         jobs_creators.new_group_channel(channel_id, true).unwrap();
 
         //Create a template
-        let mut template = from_gen(&mut Gen::new(255));
+        let mut template = template_from_gen(&mut Gen::new(255));
         let jobs = jobs_creators
             .on_new_template(template.borrow_mut())
             .unwrap();
@@ -396,14 +396,14 @@ mod tests {
         jobs_creators.new_group_channel(1, true).unwrap();
 
         //Create a template
-        let mut template = from_gen(&mut Gen::new(255));
+        let mut template = template_from_gen(&mut Gen::new(255));
         let _ = jobs_creators.on_new_template(template.borrow_mut());
 
         assert_eq!(jobs_creators.lasts_new_template.len(), 1);
         assert_eq!(jobs_creators.lasts_new_template[0], template);
 
         //Create a 2nd template
-        let template2 = from_gen(&mut Gen::new(255));
+        let template2 = template_from_gen(&mut Gen::new(255));
 
         // Reset new template
         jobs_creators.reset_new_templates(Some(template2.clone()));
@@ -427,7 +427,7 @@ mod tests {
         jobs_creators.new_group_channel(1, true).unwrap();
 
         //Create a template
-        let mut template = from_gen(&mut Gen::new(255));
+        let mut template = template_from_gen(&mut Gen::new(255));
         let _ = jobs_creators.on_new_template(template.borrow_mut());
         let test_id = template.template_id;
 

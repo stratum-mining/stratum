@@ -261,40 +261,57 @@ impl<'d> GetSize for OpenExtendedMiningChannelSuccess<'d> {
 
 #[cfg(test)]
 mod tests {
-    
+
     use super::*;
-    use alloc::string::String;
-    use core::convert::TryFrom;
-    use alloc::vec::Vec;
-    use quickcheck_macros;
     use crate::tests::from_arbitrary_vec_to_array;
+    use alloc::{string::String, vec::Vec};
+    use core::convert::TryFrom;
+    use quickcheck_macros;
 
     // *** OPEN STANDARD MINING CHANNEL ***
     #[quickcheck_macros::quickcheck]
-    fn test_open_standard_mining_channel_fns(request_id: u32, user_identity: String, nominal_hash_rate: f32, max_target: Vec<u8>, new_request_id: u32) -> bool {
+    fn test_open_standard_mining_channel_fns(
+        request_id: u32,
+        user_identity: String,
+        nominal_hash_rate: f32,
+        max_target: Vec<u8>,
+        new_request_id: u32,
+    ) -> bool {
         let max_target: [u8; 32] = from_arbitrary_vec_to_array(max_target);
         let mut osmc = OpenStandardMiningChannel {
             request_id: U32AsRef::from(request_id.clone()),
-            user_identity: Str0255::try_from(String::from(user_identity.clone())).expect("could not convert string to Str0255"),
+            user_identity: Str0255::try_from(String::from(user_identity.clone()))
+                .expect("could not convert string to Str0255"),
             nominal_hash_rate: nominal_hash_rate.clone(),
-            max_target: U256::from(max_target.clone())
+            max_target: U256::from(max_target.clone()),
         };
-    let test_request_id_1 = osmc.get_request_id_as_u32();
-    osmc.update_id(new_request_id);
-    let test_request_id_2 = osmc.get_request_id_as_u32();
-    request_id == test_request_id_1 && new_request_id == test_request_id_2 && helpers::compare_static_osmc(osmc)
+        let test_request_id_1 = osmc.get_request_id_as_u32();
+        osmc.update_id(new_request_id);
+        let test_request_id_2 = osmc.get_request_id_as_u32();
+        request_id == test_request_id_1
+            && new_request_id == test_request_id_2
+            && helpers::compare_static_osmc(osmc)
     }
 
     #[quickcheck_macros::quickcheck]
-    fn test_open_standard_mining_channel_success(request_id: u32, channel_id: u32, target: Vec<u8>, extranonce_prefix: Vec<u8>, group_channel_id: u32, new_request_id: u32) -> bool {
+    fn test_open_standard_mining_channel_success(
+        request_id: u32,
+        channel_id: u32,
+        target: Vec<u8>,
+        extranonce_prefix: Vec<u8>,
+        group_channel_id: u32,
+        new_request_id: u32,
+    ) -> bool {
         let target = from_arbitrary_vec_to_array(target);
         let extranonce_prefix = from_arbitrary_vec_to_array(extranonce_prefix);
         let mut osmcs = OpenStandardMiningChannelSuccess {
             request_id: U32AsRef::from(request_id.clone()),
             channel_id,
             target: U256::from(target.clone()),
-            extranonce_prefix: B032::try_from(extranonce_prefix.to_vec()).expect("OpenStandardMiningChannelSuccess: failed to convert extranonce_prefix to B032"),
-            group_channel_id
+            extranonce_prefix: B032::try_from(extranonce_prefix.to_vec()).expect(
+                "OpenStandardMiningChannelSuccess: failed to convert extranonce_prefix to B032",
+            ),
+            group_channel_id,
         };
         let test_request_id_1 = osmcs.get_request_id_as_u32();
         osmcs.update_id(new_request_id);
@@ -303,29 +320,37 @@ mod tests {
     }
     // *** OPEN EXTENDED MINING CHANNEL SUCCESS ***
     #[quickcheck_macros::quickcheck]
-    fn test_extended_standard_mining_channel_fns(request_id: u32, user_identity: String, nominal_hash_rate: f32, max_target: Vec<u8>, min_extranonce_size: u16, new_request_id: u32) -> bool {
+    fn test_extended_standard_mining_channel_fns(
+        request_id: u32,
+        user_identity: String,
+        nominal_hash_rate: f32,
+        max_target: Vec<u8>,
+        min_extranonce_size: u16,
+        new_request_id: u32,
+    ) -> bool {
         let max_target: [u8; 32] = from_arbitrary_vec_to_array(max_target);
         let mut oemc = OpenExtendedMiningChannel {
             request_id: request_id.clone(),
-            user_identity: Str0255::try_from(String::from(user_identity.clone())).expect("could not convert string to Str0255"),
+            user_identity: Str0255::try_from(String::from(user_identity.clone()))
+                .expect("could not convert string to Str0255"),
             nominal_hash_rate: nominal_hash_rate.clone(),
             max_target: U256::from(max_target.clone()),
-            min_extranonce_size
+            min_extranonce_size,
         };
-    let test_request_id_1 = oemc.get_request_id_as_u32();
-    request_id == test_request_id_1
+        let test_request_id_1 = oemc.get_request_id_as_u32();
+        request_id == test_request_id_1
     }
-
 
     // *** HELPERS ***
     mod helpers {
         use super::*;
         pub fn compare_static_osmc(osmc: OpenStandardMiningChannel) -> bool {
             let static_osmc = OpenStandardMiningChannel::into_static_self(osmc.clone());
-            static_osmc.request_id == osmc.request_id &&
-            static_osmc.user_identity == osmc.user_identity &&
-            static_osmc.nominal_hash_rate.to_ne_bytes() == osmc.nominal_hash_rate.to_ne_bytes() &&
-            static_osmc.max_target == osmc.max_target
+            static_osmc.request_id == osmc.request_id
+                && static_osmc.user_identity == osmc.user_identity
+                && static_osmc.nominal_hash_rate.to_ne_bytes()
+                    == osmc.nominal_hash_rate.to_ne_bytes()
+                && static_osmc.max_target == osmc.max_target
         }
     }
 
@@ -333,8 +358,4 @@ mod tests {
     fn test() {
         "placeholder to allow in file unit tests for quickcheck";
     }
-    
-    
 }
-
-
