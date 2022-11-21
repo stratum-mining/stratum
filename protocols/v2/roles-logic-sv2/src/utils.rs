@@ -236,7 +236,7 @@ fn test_merkle_root_from_path() {
         203, 112, 102, 31, 49, 147, 24, 25, 245, 61, 179, 146, 205, 127, 126, 100, 78, 204, 228,
         146, 209, 154, 89, 194, 209, 81, 57, 167, 88, 251, 44, 76,
     ];
-    let path = vec![a, b, c, d, e, f, g, h, i, l, m, n];
+    let mut path = vec![a, b, c, d, e, f, g, h, i, l, m, n];
     let expected_root = vec![
         73, 100, 41, 247, 106, 44, 1, 242, 3, 64, 100, 1, 98, 155, 40, 91, 170, 255, 170, 29, 193,
         255, 244, 71, 236, 29, 134, 218, 94, 45, 78, 77,
@@ -248,7 +248,29 @@ fn test_merkle_root_from_path() {
         &path,
     )
     .unwrap();
-    assert_eq!(expected_root, root)
+    assert_eq!(expected_root, root);
+
+    //Target coinbase_id return path
+    path.clear();
+    let coinbase_id = vec![
+        10, 66, 217, 241, 152, 86, 5, 234, 225, 85, 251, 215, 105, 1, 21, 126, 222, 69, 40, 157,
+        23, 177, 157, 106, 234, 164, 243, 206, 23, 241, 250, 166,
+    ];
+
+    let root = merkle_root_from_path(
+        &coinbase_bytes[..20],
+        &coinbase_bytes[30..],
+        &coinbase_bytes[20..30],
+        &path,
+    )
+    .unwrap();
+    assert_eq!(coinbase_id, root);
+
+    //Target None return path on serialization
+    assert_eq!(
+        merkle_root_from_path(&coinbase_bytes, &coinbase_bytes, &coinbase_bytes, &path),
+        None
+    );
 }
 
 /// Returns a new `BlockHeader`.
