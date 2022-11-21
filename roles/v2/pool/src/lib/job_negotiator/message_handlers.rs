@@ -60,7 +60,6 @@ impl ParseClientJobNegotiationMessages for JobNegotiatorDownstream {
             };
             let message_enum_success = JobNegotiation::CommitMiningJobSuccess(message_success);
             let token = message.mining_job_token.clone().into_static();
-            // To be changed with .into()
             let message_committed = CommittedMiningJob {
                 request_id: message.request_id,
                 mining_job_token: message.mining_job_token.into_static(),
@@ -82,7 +81,7 @@ impl ParseClientJobNegotiationMessages for JobNegotiatorDownstream {
             self.token_to_job_map
                 .insert(token.inner_as_ref().to_owned(), Some(message_committed));
             //
-            println!(
+            info!(
                 "Commit mining job was a success: {:?}",
                 message_enum_success
             );

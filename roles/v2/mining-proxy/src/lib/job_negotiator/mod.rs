@@ -9,7 +9,7 @@ use roles_logic_sv2::{
     utils::Mutex,
 };
 use std::{collections::HashMap, convert::TryInto, str::FromStr};
-use tracing::info;
+use tracing::{debug, info};
 
 use codec_sv2::Frame;
 use roles_logic_sv2::{
@@ -109,7 +109,10 @@ impl JobNegotiator {
                     .unwrap();
                 let incoming_new_template: NewTemplate =
                     receiver_new_tp.recv().await.unwrap().try_into().unwrap();
-                println!("New template recieved in JN {:?}", incoming_new_template);
+                println!(
+                    "\n\nNew template recieved in JN {:?}\n\n",
+                    incoming_new_template
+                );
                 if incoming_new_template.clone().future_template {
                     self_mutex
                         .clone()
@@ -117,6 +120,9 @@ impl JobNegotiator {
                             t.future_templates.push(incoming_new_template.clone());
                         })
                         .unwrap();
+                    if JobNegotiator::is_for_future_template(self_mutex.clone()) {
+                        JobNegotiator::make_job(self_mutex.clone());
+                    }
                 } else {
                     self_mutex
                         .clone()
@@ -139,7 +145,10 @@ impl JobNegotiator {
                     .unwrap();
                 let incoming_set_new_ph: SetNewPrevHash =
                     receiver_new_ph.recv().await.unwrap().try_into().unwrap();
-                println!("Set new prev hash recieved in JN {:?}", incoming_set_new_ph);
+                println!(
+                    "\n\nSet new prev hash recieved in JN {:?}\n\n",
+                    incoming_set_new_ph
+                );
                 self_mutex
                     .clone()
                     .safe_lock(|t| {
@@ -208,16 +217,26 @@ impl JobNegotiator {
     }
 
     pub fn make_job(self_mutex: Arc<Mutex<Self>>) {
+        let set_new_prev_hash = self_mutex.safe_lock(|j| j.set_new_prev_hash.clone().unwrap());
+        let last_new_template = self_mutex.safe_lock(|j| j.last_new_template.clone().unwrap());
+        info!(
+            "\n\nJOB TO MAKE --- SET NEW PREV HASH:\n{:?}\nNEW TEMPLATE:\n{:?}\n\n",
+            set_new_prev_hash, last_new_template
+        );
         // iterate the future templates in JN
         // check if one of them is compatible with this
         // send commit mining job to pool
+        //JobNegotiator::send_commit_mining_job();
         // create a Job
         // send the Job to mining devices
-        unimplemented!()
+        self_mutex
+            .safe_lock(|j| j.future_templates = Vec::new())
+            .unwrap();
+        info!("\n\nfuture templates cleared\n\n");
     }
 
     pub fn is_for_future_template(self_mutex: Arc<Mutex<Self>>) -> bool {
-        // find the future template and put it in the last template in JN
+        // given set new prev hash, finds the future template and put it in the last template in JN
         let vec_future_templates = self_mutex
             .clone()
             .safe_lock(|j| j.future_templates.clone())
@@ -225,18 +244,35 @@ impl JobNegotiator {
         let prev_hash_template_id = self_mutex
             .safe_lock(|j| j.set_new_prev_hash.clone().unwrap().template_id.clone())
             .unwrap();
-        for future_template in vec_future_templates {
+        print!(
+            "\n\nNEW VEC OF FUTURE TEMPLATES {:?}\n\n",
+            vec_future_templates
+        );
+        for future_template in vec_future_templates.iter() {
+            info!(
+                "\n\nPREV HASH TEMPLATE ID: {:?}\nFUTURE TEMPLATE ID: {:?}\n\n",
+                prev_hash_template_id, future_template.template_id
+            );
             if prev_hash_template_id == future_template.template_id {
                 self_mutex
-                    .safe_lock(|j| j.last_new_template = Some(future_template))
+                    .safe_lock(|j| j.last_new_template = Some(future_template.clone()))
                     .unwrap();
                 info!(
                     "Last New Template is : {:?}",
                     self_mutex.safe_lock(|j| j.last_new_template.clone().unwrap())
                 );
+                println!(
+                    "\nGOT a future template: {:?}\nPrev hash ID: {:?}\n",
+                    future_template.clone(),
+                    prev_hash_template_id
+                );
                 return true;
             }
         }
         false
+    }
+
+    pub fn send_commit_mining_job() {
+        unimplemented!()
     }
 }

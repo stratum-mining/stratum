@@ -58,13 +58,15 @@ impl TemplateRx {
     }
 
     pub async fn send(self_: Arc<Mutex<Self>>, sv2_frame: StdFrame) {
-        info!("\nMessage to TP: inside !\n");
-        let either_frame = sv2_frame.into();
-        let sender_to_tp = self_.safe_lock(|self_| self_.sender.clone()).unwrap();
-        match sender_to_tp.send(either_frame).await {
-            Ok(_) => println!("\nMessage sent !!!\n"),
-            Err(_) => println!("\nERROR !!!\n"),
-        }
+        task::spawn(async move {
+            info!("\nMessage to TP: inside !\n");
+            let either_frame = sv2_frame.into();
+            let sender_to_tp = self_.safe_lock(|self_| self_.sender.clone()).unwrap();
+            match sender_to_tp.send(either_frame).await {
+                Ok(_) => println!("\nMessage sent !!!\n"),
+                Err(_) => println!("\nERROR !!!\n"),
+            }
+        });
     }
 
     pub async fn start_templates(self_mutex: Arc<Mutex<Self>>) {
@@ -90,7 +92,7 @@ impl TemplateRx {
                 .try_into()
                 .unwrap();
                 info!("\nSV2 Frame: {:?}\n", sv2_frame);
-                task::spawn(async { Self::send(cloned, sv2_frame).await });
+                Self::send(cloned, sv2_frame).await;
                 loop {
                     // Receive Templates and SetPrevHash from TP to send to JN
                     let receiver = self_mutex
