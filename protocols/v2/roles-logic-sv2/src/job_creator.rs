@@ -452,8 +452,9 @@ pub mod tests {
         //let mut u256 = [0_u8; 32];
 
         // Create a SetNewPrevHash with matching template_id
+        let test_id_2 = test_id.wrapping_add(1);
         let prev_hash2 = SetNewPrevHash {
-            template_id: test_id + 1,
+            template_id: test_id_2,
             prev_hash: u256_from_int(45_u32),
             header_timestamp: 0,
             n_bits: 0,
