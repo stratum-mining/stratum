@@ -208,11 +208,6 @@ mod tests {
             && static_nmj.merkle_root == nmj.merkle_root
     }
 
-    #[test]
-    fn test() {
-        "placeholder";
-    }
-
     pub mod helpers {
         use super::*;
 
