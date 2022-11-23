@@ -145,7 +145,7 @@ If `type` == `manual` the object must contain 3 additional fields:
 {
     "actions": [
         {
-            "message_ids": ["open_standard_minig_channel"],
+            "message_ids": ["open_standard_mining_channel"],
             "role": "client",
             "results": [
                 {
