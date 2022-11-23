@@ -3,8 +3,25 @@
 Little utility to execute interoperability tests between SRI and other Sv2 complaint software.
 
 ## Try it
+1. Stop any `bitcoind` regtest processes running (the `message-generator` starts it for you).
+2. In `test.json` specify `bitcoind`, `bitcoin-cli`, and `datadir` paths:
+```
+...
+    "setup_commands": [
+        {
+            "command": "PATH TO bitcoind",
+            "args": ["--regtest", "--datadir=PATH TO bitcoin datadir"],
 
-`cargo run ../test.json`
+...
+
+        {
+            "command": "PATH TO bitcoin-cli",
+            "args": [
+                        "--regtest",
+                        "--datadir=PATH TO bitcoin datadir",
+...
+```
+3. `% cargo run ../test.json`
 
 ## Test execution
 
