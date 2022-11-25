@@ -17,6 +17,7 @@ use roles_logic_sv2::{common_messages_sv2::SetupConnectionSuccess, parsers::AnyM
 use std::net::SocketAddr;
 //use serde::{Deserialize as SerdeDeserialize, Serialize as SerdeSerialize};
 use serde_json;
+use tracing::{debug, error, info};
 
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 enum Sv2Type {
@@ -94,11 +95,18 @@ pub struct Test<'a> {
 
 #[tokio::main]
 async fn main() {
+    // Initialize logger
+    tracing_subscriber::fmt::init();
+
+    info!("Starting Message Generator");
+
     let args: Vec<String> = std::env::args().collect();
+    debug!("Input arguments: {:?}", &args);
+
     let test_path = &args[1];
+    // Load contents of `test.json`, then parse
     let test = load_str!(test_path);
-    // parses test from test.sjon
-    let test = parser::Parser::parse_test(&test);
+    let test = parser::Parser::parse_test(test);
     // execture takse message and executures everything
     // then execute commonds
     // then execute all actions -> checking if the the things are true

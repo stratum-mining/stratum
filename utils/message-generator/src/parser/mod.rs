@@ -9,11 +9,20 @@ use roles_logic_sv2::parsers::AnyMessage;
 use serde_json::{Map, Value};
 use std::{collections::HashMap, convert::TryInto};
 use sv2_messages::TestMessageParser;
+use tracing::debug;
 
+/// Handles the parsing, processing, and execution as prescribed by the `test.json` file. This is
+/// broken into four stages:
+/// 1. `Step1`: Searches the parsed `test.json` `str` for any keys with the name `common_messages`,
+///    `mining_messages`, `template_provider_messages`, and/or `job_negotiation_messages`. Takes
+///    the message(s) values and converts them into their respective message type (i.e. if a
+///    `common_messages` key is present, takes the values and creates a `CommonMessage` struct).
+///    The formatted message struct(s) is then stored in the `TestMessageParser` struct.
+/// 2.
 #[derive(Debug)]
 pub enum Parser<'a> {
-    /// Common messages mining messages template provide and jn messages
-    /// initialize fn -> call Testtransform all from json into serde::Value
+    /// Stores any number or combination of `CommonMessage`, `JobNegotiationMessage`,
+    /// `MiningMessage`, and/or `TemplateDistributionMessage` as specified by the `test.json` file.
     Step1(HashMap<String, AnyMessage<'a>>),
     /// transforming the messages into frames
     /// you define the messages in Step1 and build frames in Step2
@@ -79,22 +88,32 @@ impl<'a> Parser<'a> {
         }
     }
 
-    /// 1st thing:
-    /// takes string from test.json and returns serde value
+    /// Initializes the first step, `Parser::Step1`. Accepts a `str` of the `test.json` file, and
+    /// creates and stores the specified messages (any number or combination os `CommonMessage`,
+    /// `JobNegotiationMessage`, `MiningMessage`, and/or `TemplateDistributionMessage`) and stores
+    /// them in a hashmap in the `Step1` enum variant.
     fn initialize<'b: 'a>(test: &'b str) -> Self {
+        debug!("INITIALIZE TEST: {:?}", &test);
         let messages = TestMessageParser::from_str(test);
-        Self::Step1(messages.into_map())
+        let step1 = Self::Step1(messages.into_map());
+        debug!("STEP 1: {:?}", &step1);
+        step1
     }
 
+    /// Progresses each step of `Parser` to the next.
     fn next_step<'b: 'a>(self, test: &'b str) -> Self {
         match self {
+            // Progresses from `Step1` to `Step2`
             Self::Step1(messages) => {
+                // Puts the messages stored in the `Step1` variant and converts them into framed
+                // messages which are stored in the `Step2` variant
                 let frames = Frames::from_step_1(test, messages.clone());
                 Self::Step2 {
                     messages,
                     frames: frames.frames,
                 }
             }
+            // Progresses from `Step2` to `Step3`
             Self::Step2 { messages, frames } => {
                 let actions = actions::ActionParser::from_step_3(test, frames.clone());
                 Self::Step3 {

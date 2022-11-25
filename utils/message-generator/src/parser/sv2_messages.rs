@@ -5,50 +5,97 @@ use roles_logic_sv2::{
 };
 use std::collections::HashMap;
 
-/// code allows for all none, but no tests will run, you could execute some command but btter to
-/// use a shell script
-/// this is where toml parser has difficulties
+/// Stores any number or combination of a `PoolMessage` (`CommonMessage`, `JobNegotiationMessage`,
+/// `MiningMessage`, and/or `TemplateDistributionMessage`) as specified by the `test.json` file.
+///
+/// Each member field type has the message itself (`message`) and a message identifier (`id`). When
+/// an action to send a message is present, the action looks at these messages and finds the right
+/// one to send by examining each member field's type's `id`.
+///
+/// Each message is optional. The code supports all messages being `None`, however no tests will
+/// run if this is the case. In this case, the message generator can be used to execute some
+/// command specified in the `test.json`, but would be better to use a standalone bash script in
+/// this case.
+///
+/// Q: When would we want multiples of a single message type?
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TestMessageParser<'a> {
+    /// Stores any number of `CommonMessage`s as specified by the `"common_messages"` key value
+    /// pair in `test.json`.
     #[serde(borrow)]
     common_messages: Option<Vec<CommonMessage<'a>>>,
+    /// Stores any number of `JobNegotiationMessage`s as specified by the
+    /// `"job_negotiation_messages"` key value pair in `test.json`.
     #[serde(borrow)]
     job_negotiation_messages: Option<Vec<JobNegotiationMessage<'a>>>,
+    /// Stores any number of `MiningMessage`s as specified by the `"mining_messages"` key value
+    /// pair in `test.json`.
     #[serde(borrow)]
     mining_messages: Option<Vec<MiningMessage<'a>>>,
+    /// Stores any number of `TemplateDistributionMessage`s as specified by the
+    /// `"template_distribution_messages"` key value pair in `test.json`.
     #[serde(borrow)]
     template_distribution_messages: Option<Vec<TemplateDistributionMessage<'a>>>,
 }
 
+/// Represents the `PoolMessages` type `CommonMessage` and the message identifier
+/// (`"common_messages"`) for the later action to locate and then send this message as specified by
+/// the action.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct CommonMessage<'a> {
+    /// `CommonMessage` message.
     #[serde(borrow)]
     message: CommonMessages<'a>,
+    /// `CommonMessage` message identifier as specified in the `test.json` (`"common_messages"`)
+    /// for a later action to identify and send.
     id: String,
 }
+
+/// Represents the `PoolMessages` type `JobNegotiationMessage` and the message identifier
+/// (`"job_negotiation_messages"`) for the later action to locate and then send this message as
+/// specified by the action.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct JobNegotiationMessage<'a> {
+    /// `JobNegotiation` message.
     #[serde(borrow)]
     message: JobNegotiation<'a>,
+    /// `JobNegotiation` message identifier as specified in the `test.json`
+    /// (`"job_negotiation_messages"`) for a later action to identify and send.
     id: String,
 }
+
+/// Represents the `PoolMessages` type `MiningMessage` and the message identifier
+/// (`"mining_messages"`) for the later action to locate and then send this message as specified by
+/// the action.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct MiningMessage<'a> {
+    /// `Mining` message.
     #[serde(borrow)]
     message: Mining<'a>,
+    /// `MiningMessage` message identifier as specified in the `test.json` (`"mining_messages"`)
+    /// for a later action to identify and send.
     id: String,
 }
+
+/// Represents the `PoolMessages` type `TemplateDistributionMessage` and the message identifier
+/// (`"template_distribution_messages"`) for the later action to locate and then send this message
+/// as specified by the action.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct TemplateDistributionMessage<'a> {
+    /// `TemplateDistribution` message.
     #[serde(borrow)]
     message: TemplateDistribution<'a>,
+    /// `TemplateDistribution` message identifier as specified in the `test.json`
+    /// (`"template_distribution_messages"`) for a later action to identify and send.
     id: String,
 }
 
 impl<'a> TestMessageParser<'a> {
-    /// Return HM of string=message id (test.json L32)
-    /// when we have an action and want to send a message, we identiy it via this string
-    /// value is the associated message
+    /// Converts the `PoolMessages` messages stored in `TestMessageParser` into a hashmap whose key
+    /// is the message name as specified in the `test.json` file (`"common_messages"`,
+    /// `"mining_messages"`, `"job_negotiation_messages"`, and/or
+    /// `"template_distribution_messages"`), and whose value is the message struct. A future action
+    /// then identifies the appropriate message to send via the message `id`.
     pub fn into_map(self) -> HashMap<String, AnyMessage<'a>> {
         let mut map = HashMap::new();
         if let Some(common_messages) = self.common_messages {
@@ -85,8 +132,11 @@ impl<'a> TestMessageParser<'a> {
         map
     }
 
+    /// Parses any number or combination of `CommonMessage`, `JobNegotiationMessage`,
+    /// `MiningMessage`, and/or `TemplateDistributionMessage` as specified by the `test.json` file
+    /// into a `TestMessageParser`.
     pub fn from_str<'b: 'a>(test: &'b str) -> Self {
-        serde_json::from_str(&test).unwrap()
+        serde_json::from_str(test).unwrap()
     }
 }
 
