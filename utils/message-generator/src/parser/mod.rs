@@ -15,15 +15,28 @@ use tracing::debug;
 /// broken into four stages:
 /// 1. `Step1`: Searches the parsed `test.json` `str` for any keys with the name `common_messages`,
 ///    `mining_messages`, `template_provider_messages`, and/or `job_negotiation_messages`. Takes
-///    the message(s) values and converts them into their respective message type (i.e. if a
-///    `common_messages` key is present, takes the values and creates a `CommonMessage` struct).
-///    The formatted message struct(s) is then stored in the `TestMessageParser` struct.
+///    the message(s) values and converts them into their respective message type. The formatted
+///    message struct(s) is then stored in the `TestMessageParser` struct which is held in the
+///    `Step1` enum variant.
+///
+///    As an example, if a `common_messages` key is present, at least one `CommonMessage` message
+///    must be present. These `CommonMessages` are `ChannelEndpointChanged`, `SetupConnection`,
+///    `SetupConnectionError`, and `SetupConnectionSuccess`. If the user wants to specify a
+///    `SetupConnection` message to be later invoked by an action, the user must specify all fields
+///    of the `SetupConnection` message and also specify a message identifier in the `"id"` field.
+///    The message identifier is a string that is a snake case representation of the message. So
+///    for `SetupConnection`, the message identifier string is `"setup_connection". Likewise, for
+///    the `SetupConnectionSuccess` message, the message identifier string is
+///    `"setup_connection_success"`.
 /// 2.
 #[derive(Debug)]
 pub enum Parser<'a> {
     /// Stores any number or combination of `PoolMessages` (`CommonMessage`,
     /// `JobNegotiationMessage`, `MiningMessage`, and/or `TemplateDistributionMessage`) as
     /// specified by the `test.json` file to be later used by a specified action.
+    ///
+    /// Each value is the `PoolMessages`, and each key the message identifier so later actions can
+    /// find and use it.
     Step1(HashMap<String, AnyMessage<'a>>),
     /// Transforms the `PoolMessages` from `Step1` in a `Sv2Frame`. The insertion of these messages
     /// into `Sv2Frame`s is separated from `Step1` to provide the ability for the user to have
@@ -38,12 +51,12 @@ pub enum Parser<'a> {
     /// or it can be set to `"manual"` if the user wants to construct their own `Sv2Frame`
     /// (typically used in the case where a forced error is desired). If `"manual"` is set, the
     /// user will need to provide the frame headers (`extension_type`, `msg_type`, `msg_length`) in
-    /// the json dict. The second key is `"message_id"` which is the connection to the
-    /// `PoolMessage` identifier discussed in `Step1`.
+    /// the json dict. The second key is the message identifier string, `"message_id"`, which is the
+    /// connection to the `PoolMessage` identifier, `"id"`, discussed in `Step1`.
     Step2 {
-        /// `PoolMessages` identifier and `PoolMessages`.
+        /// `PoolMessages` message identifier and `PoolMessages`.
         messages: HashMap<String, AnyMessage<'a>>,
-        /// `PoolMessages` identifier and `PoolMessages` as `Sv2Frame`.
+        /// `PoolMessages` message identifier and `PoolMessages` as `Sv2Frame`.
         frames: HashMap<String, Sv2Frame<AnyMessage<'a>, Slice>>,
     },
     /// parse all the actions

@@ -5,12 +5,15 @@ use roles_logic_sv2::{
 };
 use std::collections::HashMap;
 
-/// Stores any number or combination of a `PoolMessages` (`CommonMessage`, `JobNegotiationMessage`,
-/// `MiningMessage`, and/or `TemplateDistributionMessage`) as specified by the `test.json` file.
+/// Stores any number or combination of a `PoolMessages` type (`CommonMessage`,
+/// `JobNegotiationMessage`, `MiningMessage`, and/or `TemplateDistributionMessage`) as specified by
+/// the `test.json` file.
 ///
-/// Each member field type has the message itself (`message`) and a message identifier (`id`). When
-/// an action to send a message is present, the action looks at these messages and finds the right
-/// one to send by examining each member field's type's `id`.
+/// Each member field type has the message itself (`"message"`) and a message identifier (`"id"`).
+/// The message identifier is the snake case representation of the message (i.e. for a
+/// `CommonMessage` of `SetupConnection`, the message identifier is `"setup_connection"`). Later
+/// on when an action in invoked (in `Step3`), the action looks at these message identifiers and
+/// finds the right message to send.
 ///
 /// Each message is optional. The code supports all messages being `None`, however no tests will
 /// run if this is the case. In this case, the message generator can be used to execute some
@@ -41,6 +44,13 @@ pub struct TestMessageParser<'a> {
 /// Represents the `PoolMessages` type `CommonMessage` and the message identifier
 /// (`"common_messages"`) for the later action to locate and then send this message as specified by
 /// the action.
+///
+/// The `CommonMessages` message types (`message`) and their message identifier (`id`) as specified
+/// in the `test.json` file are:
+/// 1. `ChannelEndpointChanged`, `"channel_endpoint_changed"
+/// 2. `SetupConnection`, `"setup_connection"`
+/// 3. `SetupConnectionError`, `"setup_connection_error"`
+/// 4. `SetupConnectionSuccess`, `"setup_connection_success"`
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct CommonMessage<'a> {
     /// `CommonMessage` message.
@@ -54,6 +64,18 @@ struct CommonMessage<'a> {
 /// Represents the `PoolMessages` type `JobNegotiationMessage` and the message identifier
 /// (`"job_negotiation_messages"`) for the later action to locate and then send this message as
 /// specified by the action.
+///
+/// The `JobNegotiationMessage` message types (`message`) and their message identifier (`id`) as
+/// specified in the `test.json` file are:
+/// 1. `AllocateMiningJobToken`, `"allocate_mining_job_token"`
+/// 2. `AllocateMiningJobTokenSuccess`, `"allocate_mining_job_token_success"`
+/// 3. `CommitMiningJob`, `"commit_mining_job"`
+/// 4. `CommitMiningJobSuccess`, `"commit_mining_job_success"`
+/// 5. `CommitMiningJobError`, `"commit_mining_job_error"`
+/// 6. `IdentifyTransactions`, `"identify_transactions"`
+/// 7. `IdentifyTransactionsSuccess`, `"identify_transactions_success"`
+/// 8. `ProvideMissingTransactions`, `"provide_missing_transactions"`
+/// 9. `ProvideMissingTransactionsSuccess`, `"provide_missing_transactions_success"`
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct JobNegotiationMessage<'a> {
     /// `JobNegotiation` message.
@@ -67,6 +89,31 @@ struct JobNegotiationMessage<'a> {
 /// Represents the `PoolMessages` type `MiningMessage` and the message identifier
 /// (`"mining_messages"`) for the later action to locate and then send this message as specified by
 /// the action.
+///
+/// The `MiningMessage` message types (`message`) and their message identifier (`id`) as specified
+/// in the `test.json` file are:
+/// 1. `CloseChannel`, `"close_channel"`
+/// 2. `NewExtendedMiningJob`, `"new_extended_mining_job"`
+/// 3. `NewMiningJob`, `"new_mining_job"`
+/// 4. `OpenExtendedMiningChannel`, `"open_extended_mining_channel"`
+/// 5. `OpenExtendedMiningChannelSuccess`, `"open_extended_mining_channel_success"`
+/// 6. `OpenMiningChannelError`, `"open_mining_channel_error"`
+/// 7. `OpenStandardMiningChannel`, `"open_standard_mining_channel"`
+/// 8. `OpenStandardMiningChannelSuccess`, `"open_standard_mining_channel_success"`
+/// 9. `Reconnect`, `"reconnect"`
+/// 10. `SetCustomMiningJob`, `"set_custom_mining_job"`
+/// 11. `SetCustomMiningJobError`, `"set_custom_mining_job_error"`
+/// 12. `SetCustomMiningJobSuccess`, `"set_custom_mining_job_success"`
+/// 13. `SetExtranoncePrefix`, `"set_extranonce_prefix"`
+/// 14. `SetGroupChannel`, `"set_group_channel"`
+/// 15. `SetNewPrevHash`, `"set_new_prev_hash"`
+/// 16. `SetTarget`, `"set_target"`
+/// 17. `SubmitSharesError`, `"submit_shares_error"`
+/// 18. `SubmitSharesExtended`, `"submit_shares_extended"`
+/// 19. `SubmitSharesStandard`, `"submit_shares_standard"`
+/// 20. `SubmitSharesSuccess`, `"submit_shares_success"`
+/// 21. `UpdateChannel`, `"update_channel"`
+/// 22. `UpdateChannelError`, `"update_channel_error"`
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct MiningMessage<'a> {
     /// `Mining` message.
@@ -80,6 +127,16 @@ struct MiningMessage<'a> {
 /// Represents the `PoolMessages` type `TemplateDistributionMessage` and the message identifier
 /// (`"template_distribution_messages"`) for the later action to locate and then send this message
 /// as specified by the action.
+///
+/// The `TemplateDistributionMessage` message types (`message`) and their message identifier (`id`)
+/// as specified in the `test.json` file are:
+/// 1. `CoinbaseOutputDataSize`, `"coinbase_output_data_size"`
+/// 2. `NewTemplate`, `"new_template"`
+/// 3. `RequestTransactionData`, `"request_transaction_data"`
+/// 4. `RequestTransactionDataError`, `"request_transaction_data_error"`
+/// 5. `RequestTransactionDataSuccess`, `"request_transaction_data_success"`
+/// 6. `SetNewPrevHash`, `"set_new_prev_hash"`
+/// 7. `SubmitSolution`, `"submit_solution"`
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct TemplateDistributionMessage<'a> {
     /// `TemplateDistribution` message.
@@ -92,10 +149,9 @@ struct TemplateDistributionMessage<'a> {
 
 impl<'a> TestMessageParser<'a> {
     /// Converts the `PoolMessages` messages stored in `TestMessageParser` into a hashmap whose key
-    /// is the message name as specified in the `test.json` file (`"common_messages"`,
-    /// `"mining_messages"`, `"job_negotiation_messages"`, and `"template_distribution_messages"`),
-    /// and whose value is the message struct. A future action then identifies the appropriate
-    /// message to send via the message `id`.
+    /// is the message name as specified in the `test.json` file, and whose value is the message
+    /// struct. A future action then identifies the appropriate message to send via the message
+    /// `id`.
     pub fn into_map(self) -> HashMap<String, AnyMessage<'a>> {
         let mut map = HashMap::new();
         if let Some(common_messages) = self.common_messages {
@@ -132,9 +188,9 @@ impl<'a> TestMessageParser<'a> {
         map
     }
 
-    /// Parses any number or combination of `CommonMessage`, `JobNegotiationMessage`,
-    /// `MiningMessage`, and/or `TemplateDistributionMessage` as specified by the `test.json` file
-    /// into a `TestMessageParser`.
+    /// Parses any number or combination of `PoolMessages` (`CommonMessage`,
+    /// `JobNegotiationMessage`, `MiningMessage`, and/or `TemplateDistributionMessage`) as
+    /// specified by the `test.json` file into a `TestMessageParser`.
     pub fn from_str<'b: 'a>(test: &'b str) -> Self {
         serde_json::from_str(test).unwrap()
     }
