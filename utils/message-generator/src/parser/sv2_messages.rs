@@ -5,7 +5,7 @@ use roles_logic_sv2::{
 };
 use std::collections::HashMap;
 
-/// Stores any number or combination of a `PoolMessage` (`CommonMessage`, `JobNegotiationMessage`,
+/// Stores any number or combination of a `PoolMessages` (`CommonMessage`, `JobNegotiationMessage`,
 /// `MiningMessage`, and/or `TemplateDistributionMessage`) as specified by the `test.json` file.
 ///
 /// Each member field type has the message itself (`message`) and a message identifier (`id`). When
@@ -93,9 +93,9 @@ struct TemplateDistributionMessage<'a> {
 impl<'a> TestMessageParser<'a> {
     /// Converts the `PoolMessages` messages stored in `TestMessageParser` into a hashmap whose key
     /// is the message name as specified in the `test.json` file (`"common_messages"`,
-    /// `"mining_messages"`, `"job_negotiation_messages"`, and/or
-    /// `"template_distribution_messages"`), and whose value is the message struct. A future action
-    /// then identifies the appropriate message to send via the message `id`.
+    /// `"mining_messages"`, `"job_negotiation_messages"`, and `"template_distribution_messages"`),
+    /// and whose value is the message struct. A future action then identifies the appropriate
+    /// message to send via the message `id`.
     pub fn into_map(self) -> HashMap<String, AnyMessage<'a>> {
         let mut map = HashMap::new();
         if let Some(common_messages) = self.common_messages {

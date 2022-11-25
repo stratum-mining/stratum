@@ -21,23 +21,29 @@ use tracing::debug;
 /// 2.
 #[derive(Debug)]
 pub enum Parser<'a> {
-    /// Stores any number or combination of `CommonMessage`, `JobNegotiationMessage`,
-    /// `MiningMessage`, and/or `TemplateDistributionMessage` as specified by the `test.json` file.
+    /// Stores any number or combination of `PoolMessages` (`CommonMessage`,
+    /// `JobNegotiationMessage`, `MiningMessage`, and/or `TemplateDistributionMessage`) as
+    /// specified by the `test.json` file to be later used by a specified action.
     Step1(HashMap<String, AnyMessage<'a>>),
-    /// transforming the messages into frames
-    /// you define the messages in Step1 and build frames in Step2
-    /// this is becuase sometimes you maybe want to create an invalid frame and see if the
-    /// connection closes, just how the sw restpondes, the frame can build in an automatic fastion
-    /// with Automatic type + libs take message build right frame for this message. or you can
-    /// force a different frame using manual, and you have to put all the fields for it so yo have
-    /// a frame with a headr that you can decide here
-    /// you say which is the frame header
-    /// header.rs -> extention, type
-    /// (already have payload which is the message, specified by message in test.json)
-    /// give me the right header for this payload, or i wnat to specify an inforrect header to test
-    /// herrors
+    /// Transforms the `PoolMessages` from `Step1` in a `Sv2Frame`. The insertion of these messages
+    /// into `Sv2Frame`s is separated from `Step1` to provide the ability for the user to have
+    /// control over the frames. Specifically, being able to create a bad frame for any
+    /// `PoolMessage` and check that the test target handles the bad frame appropriately (either
+    /// expects an error or closes the connection).
+    ///
+    /// The behavior of the frame is specified in the `"frame_builders"` key value pair in the
+    /// `test.json` file. The `"frame_builders"` value is a vector of dicts, where each dict has
+    /// two key value pairs. The first key is `"type"` which can be set to `"automatic"` if the
+    /// user wants to place the `PoolMessages` into a "correct" `Sv2Frame` (the most common use),
+    /// or it can be set to `"manual"` if the user wants to construct their own `Sv2Frame`
+    /// (typically used in the case where a forced error is desired). If `"manual"` is set, the
+    /// user will need to provide the frame headers (`extension_type`, `msg_type`, `msg_length`) in
+    /// the json dict. The second key is `"message_id"` which is the connection to the
+    /// `PoolMessage` identifier discussed in `Step1`.
     Step2 {
+        /// `PoolMessages` identifier and `PoolMessages`.
         messages: HashMap<String, AnyMessage<'a>>,
+        /// `PoolMessages` identifier and `PoolMessages` as `Sv2Frame`.
         frames: HashMap<String, Sv2Frame<AnyMessage<'a>, Slice>>,
     },
     /// parse all the actions
@@ -77,6 +83,7 @@ pub enum Parser<'a> {
 impl<'a> Parser<'a> {
     /// when you parse test with Parer you execute in main
 
+    /// Progresses each step of `Parser` to the next.
     pub fn parse_test<'b: 'a>(test: &'b str) -> Test<'a> {
         let step1 = Self::initialize(test);
         let step2 = step1.next_step(test);
@@ -93,14 +100,14 @@ impl<'a> Parser<'a> {
     /// `JobNegotiationMessage`, `MiningMessage`, and/or `TemplateDistributionMessage`) and stores
     /// them in a hashmap in the `Step1` enum variant.
     fn initialize<'b: 'a>(test: &'b str) -> Self {
-        debug!("INITIALIZE TEST: {:?}", &test);
+        debug!("Initialize test");
         let messages = TestMessageParser::from_str(test);
         let step1 = Self::Step1(messages.into_map());
-        debug!("STEP 1: {:?}", &step1);
+        debug!("STEP 1: {:#?}", &step1);
         step1
     }
 
-    /// Progresses each step of `Parser` to the next.
+    /// Transforms each step of `Parser` to the next.
     fn next_step<'b: 'a>(self, test: &'b str) -> Self {
         match self {
             // Progresses from `Step1` to `Step2`

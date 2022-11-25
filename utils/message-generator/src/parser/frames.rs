@@ -3,14 +3,31 @@ use roles_logic_sv2::parsers::AnyMessage;
 use serde_json::{Map, Value};
 use std::{collections::HashMap, convert::TryInto};
 
+/// Represents a series of `PoolMessages` in a `Sv2Frame`, identified by the `PoolMessages` message
+/// identifier .
 pub struct Frames<'a> {
+    /// Mapping of `PoolMessages` message identifier (`"common_messages"`, `"mining_messages"`,
+    /// `"job_negotiation_messages"`, and `"template_distribution_messages"`) to the `PoolMessage`
+    /// in a `Sv2Frame`.
     pub frames: HashMap<String, Sv2Frame<AnyMessage<'a>, Slice>>,
 }
 
 impl<'a> Frames<'a> {
+    /// Converts a hashmap of `PoolMessages` message identifier to `PoolMessages` in a `Sv2Frame`
+    /// into `Frames`.
+    /// Takes the `PoolMessages` stored in a hashmap from `Step1`, and transforms each message into
+    /// a `Sv2Frame` then stores it in `Frames`.
     pub fn from_step_1<'b: 'a>(test: &'b str, messages: HashMap<String, AnyMessage<'a>>) -> Self {
-        let test: Map<String, Value> = serde_json::from_str(&test).unwrap();
+        // Extract `"frame_builders"` from `test.json` contents
+        let test: Map<String, Value> = serde_json::from_str(test).unwrap();
         let frames = test.get("frame_builders").unwrap().as_array().unwrap();
+
+        // For each `PoolMessage`, locates it using the `"message_id"` and puts it into a
+        // `Sv2Frame`. If `"automatic"` is specified, the message is put into a `Sv2Frame` in the
+        // standard fashion. If `"manual"` is specified, it is expected that the `Sv2Frame` header
+        // fields are specified in the `"frame_builders"` dict and a `Sv2Frame` is built using
+        // those specified parameters. This is mostly typically done when the user wants to force a
+        // frame error.
         let mut result = HashMap::new();
         for frame in frames {
             let id = frame
@@ -21,7 +38,7 @@ impl<'a> Frames<'a> {
                 .to_string();
             let message = messages
                 .get(&id)
-                .expect(format!("Missing messages message_id {}", id).as_str())
+                .unwrap_or_else(|| panic!("Missing messages message_id {}", id))
                 .clone();
             let type_ = frame.get("type").unwrap().as_str().unwrap();
             match type_ {
