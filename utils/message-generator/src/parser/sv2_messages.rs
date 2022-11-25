@@ -5,6 +5,9 @@ use roles_logic_sv2::{
 };
 use std::collections::HashMap;
 
+/// code allows for all none, but no tests will run, you could execute some command but btter to
+/// use a shell script
+/// this is where toml parser has difficulties
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TestMessageParser<'a> {
     #[serde(borrow)]
@@ -43,6 +46,9 @@ struct TemplateDistributionMessage<'a> {
 }
 
 impl<'a> TestMessageParser<'a> {
+    /// Return HM of string=message id (test.json L32)
+    /// when we have an action and want to send a message, we identiy it via this string
+    /// value is the associated message
     pub fn into_map(self) -> HashMap<String, AnyMessage<'a>> {
         let mut map = HashMap::new();
         if let Some(common_messages) = self.common_messages {

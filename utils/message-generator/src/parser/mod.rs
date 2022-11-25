@@ -12,20 +12,62 @@ use sv2_messages::TestMessageParser;
 
 #[derive(Debug)]
 pub enum Parser<'a> {
+    /// Common messages mining messages template provide and jn messages
+    /// initialize fn -> call Testtransform all from json into serde::Value
     Step1(HashMap<String, AnyMessage<'a>>),
+    /// transforming the messages into frames
+    /// you define the messages in Step1 and build frames in Step2
+    /// this is becuase sometimes you maybe want to create an invalid frame and see if the
+    /// connection closes, just how the sw restpondes, the frame can build in an automatic fastion
+    /// with Automatic type + libs take message build right frame for this message. or you can
+    /// force a different frame using manual, and you have to put all the fields for it so yo have
+    /// a frame with a headr that you can decide here
+    /// you say which is the frame header
+    /// header.rs -> extention, type
+    /// (already have payload which is the message, specified by message in test.json)
+    /// give me the right header for this payload, or i wnat to specify an inforrect header to test
+    /// herrors
     Step2 {
         messages: HashMap<String, AnyMessage<'a>>,
         frames: HashMap<String, Sv2Frame<AnyMessage<'a>, Slice>>,
     },
+    /// parse all the actions
+    /// we have message_ids: put all messages that you have setup to send.
+    /// i fyou want to send a message and recv + send and then send anothe rmessage, you have two
+    /// actions the first that sends the first message and the sedond action to do the second.
+    /// if i want to send two messages. if you expect to receive a message only after two messages,
+    /// you can put two messages int he message_ids array.
+    /// message_ids can be none if for ex the test is mocking an upstream and the first thing that
+    /// happens is when downstream connects it sends a setupconnection, so if you are mocking the
+    /// upstream , the first action is to expect to receive setupconn message, do not send anything
+    /// back. so you have an action w
+    ///
+    /// you can have empty message id: usefeul because if you are mocking an upstream server, you
+    /// expect is that you are not sending any message, you expect the client to send the
+    /// setupconnection. you are saying to mg the first thing you do is to receive a message.
+    /// how does it know which message it is whating form?
+    /// 1. wait for message wit mesage type 0x00. after that go to second action which will have
+    ///    setupconnection success
+    ///    restuls is a vector, but should be a vector of vectors
+    ///    in some cases maybe want to check more than 1 property for message received, so what
+    ///    result should really be is a vec of cev
     Step3 {
         messages: HashMap<String, AnyMessage<'a>>,
         frames: HashMap<String, Sv2Frame<AnyMessage<'a>, Slice>>,
         actions: Vec<Action<'a>>,
     },
+    /// parse the test + execute.
+    /// parse all bash commands
+    /// role: client, proxy, or server
+    /// if you are a client: need to have a downstream w connection infomation
+    /// if you put pubkey it iwll setup noise conn w server, if not will setup plain connection
+    /// if you have client=server, you need upstream fields, if proxy need both up and down
     Step4(Test<'a>),
 }
 
 impl<'a> Parser<'a> {
+    /// when you parse test with Parer you execute in main
+
     pub fn parse_test<'b: 'a>(test: &'b str) -> Test<'a> {
         let step1 = Self::initialize(test);
         let step2 = step1.next_step(test);
@@ -37,6 +79,8 @@ impl<'a> Parser<'a> {
         }
     }
 
+    /// 1st thing:
+    /// takes string from test.json and returns serde value
     fn initialize<'b: 'a>(test: &'b str) -> Self {
         let messages = TestMessageParser::from_str(test);
         Self::Step1(messages.into_map())

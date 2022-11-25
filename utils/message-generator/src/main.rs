@@ -42,7 +42,10 @@ enum ActionResult {
     MatchMessageField((String, String, String, Sv2Type)),
     MatchMessageLen(usize),
     MatchExtensionType(u16),
+    /// Can check if connection is closed: test bad frame and make sure server closes connection
     CloseConnection,
+    /// if "type"="none", Says to mg: i expect to receive a message but do not want to check this
+    /// message, not used often
     None,
 }
 
@@ -94,7 +97,13 @@ async fn main() {
     let args: Vec<String> = std::env::args().collect();
     let test_path = &args[1];
     let test = load_str!(test_path);
+    // parses test from test.sjon
     let test = parser::Parser::parse_test(&test);
+    // execture takse message and executures everything
+    // then execute commonds
+    // then execute all actions -> checking if the the things are true
+    // if false, test will fail
+    // then execute clean commands
     let executor = executor::Executor::new(test).await;
     executor.execute().await;
     println!("TEST OK");
