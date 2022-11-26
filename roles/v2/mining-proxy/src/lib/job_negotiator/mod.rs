@@ -89,7 +89,6 @@ impl JobNegotiator {
                 coinbase_output_max_additional_size: 0,
                 async_mining_allowed: false,
             },
-
         }));
 
         let allocate_token_message =
@@ -170,7 +169,6 @@ impl JobNegotiator {
             }
         });
     }
-
     pub fn on_new_prev_hash(self_mutex: Arc<Mutex<Self>>) {
         task::spawn(async move {
             loop {
@@ -237,7 +235,6 @@ impl JobNegotiator {
                 _ => unreachable!(),
             },
             Ok(_) => print!("MVP2 ENDS HERE"),
-
             Err(_) => todo!(),
         }
     }
@@ -338,9 +335,5 @@ impl JobNegotiator {
             }
         }
         false
-    }
-
-    pub fn send_commit_mining_job() {
-        unimplemented!()
     }
 }
