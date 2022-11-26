@@ -37,7 +37,7 @@ impl ParseServerJobNegotiationMessages for JobNegotiator {
         &mut self,
         message: CommitMiningJobSuccess,
     ) -> Result<SendTo, Error> {
-        info!("MVP2 ENDS HERE1");
+        info!("Recieved commit mining job success !");
         Ok(SendTo::None(None))
     }
 

@@ -4,7 +4,7 @@ use codec_sv2::{HandshakeRole, Initiator, StandardEitherFrame, StandardSv2Frame}
 use network_helpers::noise_connection_tokio::Connection;
 use roles_logic_sv2::{
     handlers::SendTo_,
-    job_negotiation_sv2::AllocateMiningJobToken,
+    job_negotiation_sv2::{AllocateMiningJobToken, AllocateMiningJobTokenSuccess, CommitMiningJob},
     parsers::{JobNegotiation, PoolMessages},
     utils::Mutex,
 };
@@ -40,6 +40,7 @@ pub struct JobNegotiator {
     set_new_prev_hash: Option<SetNewPrevHash<'static>>,
     future_templates: Vec<NewTemplate<'static>>,
     sender_coinbase_output_max_additional_size: Sender<CoinbaseOutputDataSize>,
+    allocate_mining_job_message: AllocateMiningJobTokenSuccess<'static>,
 }
 
 impl JobNegotiator {
@@ -82,6 +83,12 @@ impl JobNegotiator {
             set_new_prev_hash: None,
             future_templates: Vec::new(),
             sender_coinbase_output_max_additional_size,
+            allocate_mining_job_message: AllocateMiningJobTokenSuccess {
+                request_id: 0,
+                mining_job_token: vec![].try_into().unwrap(),
+                coinbase_output_max_additional_size: 0,
+                async_mining_allowed: false,
+            },
         }));
 
         let allocate_token_message =
@@ -121,7 +128,7 @@ impl JobNegotiator {
                         })
                         .unwrap();
                     if JobNegotiator::is_for_future_template(self_mutex.clone()) {
-                        JobNegotiator::make_job(self_mutex.clone());
+                        JobNegotiator::make_job(self_mutex.clone()).await;
                     }
                 } else {
                     self_mutex
@@ -130,7 +137,7 @@ impl JobNegotiator {
                             t.last_new_template = Some(incoming_new_template);
                         })
                         .unwrap();
-                    JobNegotiator::make_job(self_mutex.clone());
+                    JobNegotiator::make_job(self_mutex.clone()).await;
                 }
             }
         });
@@ -156,7 +163,7 @@ impl JobNegotiator {
                     })
                     .unwrap();
                 if JobNegotiator::is_for_future_template(self_mutex.clone()) {
-                    JobNegotiator::make_job(self_mutex.clone());
+                    JobNegotiator::make_job(self_mutex.clone()).await;
                 }
             }
         });
@@ -185,7 +192,7 @@ impl JobNegotiator {
         match next_message_to_send {
             Ok(SendTo::Respond(message)) => Self::send(self_mutex, message).await.unwrap(),
             Ok(SendTo::None(Some(m))) => match m {
-                // Once coinbase_output_max_additional_size is received from pool ...
+                // Coinbase_output_max_additional_size is received from pool ...
                 JobNegotiation::AllocateMiningJobTokenSuccess(m) => {
                     let sender = self_mutex
                         .safe_lock(|s| s.sender_coinbase_output_max_additional_size.clone())
@@ -198,10 +205,13 @@ impl JobNegotiator {
                         .send(coinbase_output_max_additional_size)
                         .await
                         .unwrap();
+                    self_mutex
+                        .safe_lock(|j| j.allocate_mining_job_message = m)
+                        .unwrap();
                 }
                 _ => unreachable!(),
             },
-            Ok(_) => panic!(),
+            Ok(_) => print!("MVP2 ENDS HERE"),
             Err(_) => todo!(),
         }
     }
@@ -216,19 +226,51 @@ impl JobNegotiator {
         Ok(())
     }
 
-    pub fn make_job(self_mutex: Arc<Mutex<Self>>) {
-        let set_new_prev_hash = self_mutex.safe_lock(|j| j.set_new_prev_hash.clone().unwrap());
-        let last_new_template = self_mutex.safe_lock(|j| j.last_new_template.clone().unwrap());
+    pub async fn make_job(self_mutex: Arc<Mutex<Self>>) {
+        let set_new_prev_hash = self_mutex
+            .safe_lock(|j| j.set_new_prev_hash.clone().unwrap())
+            .unwrap();
+        let last_new_template = self_mutex
+            .safe_lock(|j| j.last_new_template.clone().unwrap())
+            .unwrap();
         info!(
             "\n\nJOB TO MAKE --- SET NEW PREV HASH:\n{:?}\nNEW TEMPLATE:\n{:?}\n\n",
             set_new_prev_hash, last_new_template
         );
-        // iterate the future templates in JN
-        // check if one of them is compatible with this
         // send commit mining job to pool
-        //JobNegotiator::send_commit_mining_job();
+        //JobNegotiator::send_commit_mining_job(), use jobNegotiator.message_request_id to map the right message
+        let message = CommitMiningJob {
+            request_id: self_mutex
+                .safe_lock(|j| j.allocate_mining_job_message.request_id)
+                .unwrap(),
+            mining_job_token: self_mutex
+                .safe_lock(|j| j.allocate_mining_job_message.mining_job_token.clone())
+                .unwrap(),
+            version: 2,
+            coinbase_tx_version: last_new_template.coinbase_tx_version,
+            coinbase_prefix: last_new_template.coinbase_prefix,
+            coinbase_tx_input_n_sequence: last_new_template.coinbase_tx_input_sequence,
+            coinbase_tx_value_remaining: last_new_template.coinbase_tx_value_remaining,
+            coinbase_tx_outputs: last_new_template.coinbase_tx_outputs,
+            coinbase_tx_locktime: last_new_template.coinbase_tx_locktime,
+            min_extranonce_size: 0,
+            tx_short_hash_nonce: 0,
+            /// Only for MVP2: must be filled with right values for production,
+            /// this values are needed for block propagation
+            tx_short_hash_list: vec![].try_into().unwrap(),
+            tx_hash_list_hash: [0; 32].try_into().unwrap(),
+            excess_data: vec![].try_into().unwrap(),
+        };
+        Self::send(
+            self_mutex.clone(),
+            roles_logic_sv2::parsers::JobNegotiation::CommitMiningJob(message),
+        )
+        .await
+        .unwrap();
         // create a Job
         // send the Job to mining devices
+
+        // RESET future template
         self_mutex
             .safe_lock(|j| j.future_templates = Vec::new())
             .unwrap();
@@ -270,9 +312,5 @@ impl JobNegotiator {
             }
         }
         false
-    }
-
-    pub fn send_commit_mining_job() {
-        unimplemented!()
     }
 }
