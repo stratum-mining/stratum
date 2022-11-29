@@ -1,3 +1,4 @@
+use bitcoin_hashes::hex::ToHex;
 use serde_json::{
     Value,
     Value::{Array as JArrary, Number as JNumber, String as JString},
@@ -8,8 +9,9 @@ use crate::{
     error::Error,
     json_rpc::{Message, Response, StandardRequest},
     methods::ParsingMethodError,
-    utils::{HexBytes, HexU32Be},
+    utils::{HexU32Be},
 };
+use binary_sv2::U256;
 
 #[cfg(test)]
 use quickcheck::{Arbitrary, Gen};
@@ -41,7 +43,7 @@ impl Authorize {
     }
 }
 
-impl From<Authorize> for Message {
+impl<'a> From<Authorize> for Message<'a> {
     fn from(auth: Authorize) -> Self {
         Message::StandardRequest(StandardRequest {
             id: auth.id.parse().unwrap(),
@@ -115,17 +117,17 @@ pub struct ExtranonceSubscribe();
 /// Server response is result: true for accepted, false for rejected (or you may get an error with
 /// more details).
 #[derive(Debug, Clone, PartialEq)]
-pub struct Submit {
+pub struct Submit<'a> {
     pub user_name: String,      // root
     pub job_id: String,         // 6
-    pub extra_nonce2: HexBytes, // "8a.."
+    pub extra_nonce2: U256<'a>, // "8a.."
     pub time: HexU32Be,         //string
     pub nonce: HexU32Be,
     pub version_bits: Option<HexU32Be>,
     pub id: String,
 }
 
-impl Submit {
+impl<'a> Submit<'a> {
     pub fn respond(self, is_ok: bool) -> Response {
         // infallibel
         let result = serde_json::to_value(is_ok).unwrap();
@@ -137,9 +139,9 @@ impl Submit {
     }
 }
 
-impl From<Submit> for Message {
+impl<'a> From<Submit<'a>> for Message<'a> {
     fn from(submit: Submit) -> Self {
-        let ex: String = submit.extra_nonce2.into();
+        let ex: String = submit.extra_nonce2.inner_as_ref().to_hex();
         let mut params: Vec<Value> = vec![
             submit.user_name.into(),
             submit.job_id.into(),
@@ -159,7 +161,7 @@ impl From<Submit> for Message {
     }
 }
 
-impl TryFrom<StandardRequest> for Submit {
+impl<'a> TryFrom<StandardRequest> for Submit<'a> {
     type Error = ParsingMethodError;
 
     #[allow(clippy::many_single_char_names)]
@@ -171,7 +173,7 @@ impl TryFrom<StandardRequest> for Submit {
                     [JString(a), JString(b), JString(c), JNumber(d), JNumber(e), JString(f)] => (
                         a.into(),
                         b.into(),
-                        (c.as_str()).try_into()?,
+                        c.as_bytes().to_vec().try_into().unwrap(),
                         HexU32Be(d.as_u64().unwrap() as u32),
                         HexU32Be(e.as_u64().unwrap() as u32),
                         Some((f.as_str()).try_into()?),
@@ -179,7 +181,7 @@ impl TryFrom<StandardRequest> for Submit {
                     [JString(a), JString(b), JString(c), JString(d), JString(e), JString(f)] => (
                         a.into(),
                         b.into(),
-                        (c.as_str()).try_into()?,
+                        c.as_bytes().to_vec().try_into().unwrap(),
                         (d.as_str()).try_into()?,
                         (e.as_str()).try_into()?,
                         Some((f.as_str()).try_into()?),
@@ -187,7 +189,7 @@ impl TryFrom<StandardRequest> for Submit {
                     [JString(a), JString(b), JString(c), JNumber(d), JNumber(e)] => (
                         a.into(),
                         b.into(),
-                        (c.as_str()).try_into()?,
+                        c.as_bytes().to_vec().try_into().unwrap(),
                         HexU32Be(d.as_u64().unwrap() as u32),
                         HexU32Be(e.as_u64().unwrap() as u32),
                         None,
@@ -195,7 +197,7 @@ impl TryFrom<StandardRequest> for Submit {
                     [JString(a), JString(b), JString(c), JString(d), JString(e)] => (
                         a.into(),
                         b.into(),
-                        (c.as_str()).try_into()?,
+                        c.as_bytes().to_vec().try_into().unwrap(),
                         (d.as_str()).try_into()?,
                         (e.as_str()).try_into()?,
                         None,
@@ -220,11 +222,11 @@ impl TryFrom<StandardRequest> for Submit {
 }
 
 #[cfg(test)]
-impl Arbitrary for Submit {
+impl<'a> Arbitrary for Submit<'static> {
     fn arbitrary(g: &mut Gen) -> Self {
         let extra = Vec::<u8>::arbitrary(g);
         let bits = Option::<u32>::arbitrary(g);
-        let extra: HexBytes = extra.try_into().unwrap();
+        let extra: U256 = extra.try_into().unwrap();
         let bits = bits.map(|x| HexU32Be(x));
         Submit {
             user_name: String::arbitrary(g),
@@ -260,17 +262,17 @@ fn submit_from_to_json_rpc(submit: Submit) -> bool {
 ///
 ///
 #[derive(Debug)]
-pub struct Subscribe {
+pub struct Subscribe<'a> {
     pub id: String,
     pub agent_signature: String,
-    pub extranonce1: Option<HexBytes>,
+    pub extranonce1: Option<U256<'a>>,
 }
 
-impl Subscribe {
+impl<'a> Subscribe<'a> {
     pub fn respond(
         self,
         subscriptions: Vec<(String, String)>,
-        extra_nonce1: HexBytes,
+        extra_nonce1: U256<'a>,
         extra_nonce2_size: usize,
     ) -> Response {
         let response = crate::server_to_client::Subscribe {
@@ -289,12 +291,12 @@ impl Subscribe {
     }
 }
 
-impl TryFrom<Subscribe> for Message {
-    type Error = Error;
+impl<'a> TryFrom<Subscribe<'a>> for Message<'a> {
+    type Error = Error<'a>;
 
     fn try_from(subscribe: Subscribe) -> Result<Self, Error> {
         let params = match (subscribe.agent_signature, subscribe.extranonce1) {
-            (a, Some(b)) => vec![a, b.try_into()?],
+            (a, Some(b)) => vec![a, b.to_vec().to_hex()],
             (a, None) => vec![a],
         };
         Ok(Message::StandardRequest(StandardRequest {
@@ -305,14 +307,14 @@ impl TryFrom<Subscribe> for Message {
     }
 }
 
-impl TryFrom<StandardRequest> for Subscribe {
+impl<'a> TryFrom<StandardRequest> for Subscribe<'a> {
     type Error = ParsingMethodError;
 
     fn try_from(msg: StandardRequest) -> Result<Self, Self::Error> {
         match msg.params.as_array() {
             Some(params) => {
                 let (agent_signature, extranonce1) = match &params[..] {
-                    [JString(a), JString(b)] => (a.into(), Some(b.as_str().try_into()?)),
+                    [JString(a), JString(b)] => (a.into(), Some(b.as_bytes().to_vec().try_into().unwrap())),
                     [JString(a)] => (a.into(), None),
                     [] => ("".to_string(), None),
                     _ => return Err(ParsingMethodError::wrong_args_from_value(msg.params)),
@@ -389,7 +391,7 @@ impl Configure {
     }
 }
 
-impl From<Configure> for Message {
+impl<'a> From<Configure> for Message<'a> {
     fn from(conf: Configure) -> Self {
         let mut params = serde_json::Map::new();
         let extension_names: Vec<Value> = conf

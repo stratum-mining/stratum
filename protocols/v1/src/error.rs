@@ -2,7 +2,7 @@ use crate::methods::{Method, MethodError};
 
 #[derive(Debug)]
 #[non_exhaustive]
-pub enum Error {
+pub enum Error<'a> {
     // Previously expected HexBytes to never exceed 32 bytes in length, but when used with
     // `coinbase_prefix` + `coinbase_suffix` in the translator proxy, the length exceeds 32
     // bytes and this should be allowed. Leaving the commented out error checks in case we
@@ -23,11 +23,11 @@ pub enum Error {
     /// Errors if the client receives an invalid message that was intended to be sent from the
     /// client to the server, NOT from the server to the client.
     #[allow(clippy::upper_case_acronyms)]
-    InvalidReceiver(Method),
+    InvalidReceiver(Method<'a>),
     /// Errors if server receives and invalid `mining.submit` from the client.
     InvalidSubmission,
     /// Errors encountered during conversion between valid `json_rpc` messages and SV1 messages.
-    Method(MethodError),
+    Method(MethodError<'a>),
     /// Errors if action is attempted that requires the client to be authorized, but it is
     /// unauthorized. The client `id` is given in the error message.
     UnauthorizedClient(String),
@@ -35,7 +35,7 @@ pub enum Error {
     UnknownID(String),
 }
 
-impl std::fmt::Display for Error {
+impl<'a> std::fmt::Display for Error<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
             // Error::BadHexBytesConvert(u) => write!(
@@ -79,26 +79,26 @@ impl std::fmt::Display for Error {
     }
 }
 
-impl From<bitcoin_hashes::Error> for Error {
+impl<'a> From<bitcoin_hashes::Error> for Error<'a> {
     fn from(e: bitcoin_hashes::Error) -> Self {
         Error::BTCHashError(e)
     }
 }
 
-impl From<hex::FromHexError> for Error {
+impl<'a> From<hex::FromHexError> for Error<'a> {
     fn from(e: hex::FromHexError) -> Self {
         Error::HexError(e)
     }
 }
 
-impl From<std::convert::Infallible> for Error {
+impl<'a> From<std::convert::Infallible> for Error<'a> {
     fn from(e: std::convert::Infallible) -> Self {
         Error::Infallible(e)
     }
 }
 
-impl From<MethodError> for Error {
-    fn from(inner: MethodError) -> Self {
+impl<'a> From<MethodError<'a>> for Error<'a> {
+    fn from(inner: MethodError<'a>) -> Self {
         Error::Method(inner)
     }
 }

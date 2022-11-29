@@ -8,8 +8,9 @@ use crate::{
     error::Error,
     json_rpc::{Message, Notification, Response},
     methods::ParsingMethodError,
-    utils::{HexBytes, HexU32Be, PrevHash},
+    utils::{HexU32Be, PrevHash},
 };
+use binary_sv2::U256;
 
 // client.get_version()
 
@@ -37,28 +38,28 @@ use crate::{
 ///   the current nonce range.
 ///
 #[derive(Debug, Clone)]
-pub struct Notify {
+pub struct Notify<'a> {
     pub job_id: String,
     pub prev_hash: PrevHash,
-    pub coin_base1: HexBytes,
-    pub coin_base2: HexBytes,
-    pub merkle_branch: Vec<HexBytes>,
+    pub coin_base1: U256<'a>,
+    pub coin_base2: U256<'a>,
+    pub merkle_branch: Vec<U256<'a>>,
     pub version: HexU32Be,
     pub bits: HexU32Be,
     pub time: HexU32Be,
     pub clean_jobs: bool,
 }
 
-impl TryFrom<Notify> for Message {
-    type Error = Error;
+impl<'a> TryFrom<Notify<'a>> for Message<'a> {
+    type Error = Error<'a>;
 
     fn try_from(notify: Notify) -> Result<Self, Error> {
         let prev_hash: Value = notify.prev_hash.try_into()?;
-        let coin_base1: Value = notify.coin_base1.try_into()?;
-        let coin_base2: Value = notify.coin_base2.try_into()?;
+        let coin_base1: Value = notify.coin_base1.inner_as_ref().try_into()?;
+        let coin_base2: Value = notify.coin_base2.inner_as_ref().try_into()?;
         let mut merkle_branch: Vec<Value> = vec![];
         for mb in notify.merkle_branch {
-            let mb: Value = mb.try_into()?;
+            let mb: Value = mb.inner_as_ref().try_into()?;
             merkle_branch.push(mb);
         }
         let merkle_branch = JArrary(merkle_branch);
@@ -83,7 +84,7 @@ impl TryFrom<Notify> for Message {
     }
 }
 
-impl TryFrom<Notification> for Notify {
+impl<'a> TryFrom<Notification> for Notify<'a> {
     type Error = ParsingMethodError;
 
     #[allow(clippy::many_single_char_names)]
@@ -107,8 +108,8 @@ impl TryFrom<Notification> for Notify {
                 (
                     a.into(),
                     b.as_str().try_into()?,
-                    c.as_str().try_into()?,
-                    d.as_str().try_into()?,
+                    c.as_bytes().to_vec().try_into().unwrap(),
+                    d.as_bytes().to_vec().try_into().unwrap(),
                     e,
                     f.as_str().try_into()?,
                     g.as_str().try_into()?,
@@ -120,10 +121,13 @@ impl TryFrom<Notification> for Notify {
         };
         let mut merkle_branch = vec![];
         for h in merkle_branch_ {
-            let h: HexBytes = h
+            let h: U256 = h
                 .as_str()
                 .ok_or_else(|| ParsingMethodError::not_string_from_value(h.clone()))?
-                .try_into()?;
+                .as_bytes()
+                .to_vec()
+                .try_into()
+                .unwrap();
             merkle_branch.push(h);
         }
         Ok(Notify {
@@ -152,7 +156,7 @@ pub struct SetDifficulty {
     pub value: f64,
 }
 
-impl From<SetDifficulty> for Message {
+impl<'a> From<SetDifficulty> for Message<'a> {
     fn from(sd: SetDifficulty) -> Self {
         let value: Value = sd.value.into();
         Message::Notification(Notification {
@@ -191,16 +195,16 @@ impl TryFrom<Notification> for SetDifficulty {
 /// Notification
 ///
 #[derive(Debug)]
-pub struct SetExtranonce {
-    pub extra_nonce1: HexBytes,
+pub struct SetExtranonce<'a> {
+    pub extra_nonce1: U256<'a>,
     pub extra_nonce2_size: usize,
 }
 
-impl TryFrom<SetExtranonce> for Message {
-    type Error = Error;
+impl<'a> TryFrom<SetExtranonce<'a>> for Message<'a> {
+    type Error = Error<'a>;
 
     fn try_from(se: SetExtranonce) -> Result<Self, Error> {
-        let extra_nonce1: Value = se.extra_nonce1.try_into()?;
+        let extra_nonce1: Value = se.extra_nonce1.inner_as_ref().try_into()?;
         let extra_nonce2_size: Value = se.extra_nonce2_size.into();
         Ok(Message::Notification(Notification {
             method: "mining.set_extranonce".to_string(),
@@ -209,7 +213,7 @@ impl TryFrom<SetExtranonce> for Message {
     }
 }
 
-impl TryFrom<Notification> for SetExtranonce {
+impl<'a> TryFrom<Notification> for SetExtranonce<'a> {
     type Error = ParsingMethodError;
 
     fn try_from(msg: Notification) -> Result<Self, Self::Error> {
@@ -219,7 +223,7 @@ impl TryFrom<Notification> for SetExtranonce {
             .ok_or_else(|| ParsingMethodError::not_array_from_value(msg.params.clone()))?;
         let (extra_nonce1, extra_nonce2_size) = match &params[..] {
             [JString(a), JNumber(b)] => (
-                a.as_str().try_into()?,
+                a.as_bytes().to_vec().try_into().unwrap(),
                 b.as_u64()
                     .ok_or_else(|| ParsingMethodError::not_unsigned_from_value(b.clone()))?
                     as usize,
@@ -239,10 +243,10 @@ pub struct SetVersionMask {
     version_mask: HexU32Be,
 }
 
-impl TryFrom<SetVersionMask> for Message {
-    type Error = Error;
+impl<'a> TryFrom<SetVersionMask> for Message<'a> {
+    type Error = Error<'static>;
 
-    fn try_from(sv: SetVersionMask) -> Result<Self, Error> {
+    fn try_from(sv: SetVersionMask) -> Result<Self, Error<'static>> {
         let version_mask: Value = sv.version_mask.try_into()?;
         Ok(Message::Notification(Notification {
             method: "mining.set_version".to_string(),
@@ -353,16 +357,16 @@ impl Submit {
 ///    ExtraNonce2_size. - The number of bytes that the miner users for its ExtraNonce2 counter.
 ///
 #[derive(Debug)]
-pub struct Subscribe {
+pub struct Subscribe<'a> {
     pub id: String,
-    pub extra_nonce1: HexBytes,
+    pub extra_nonce1: U256<'a>,
     pub extra_nonce2_size: usize,
     pub subscriptions: Vec<(String, String)>,
 }
 
-impl From<Subscribe> for Message {
+impl<'a> From<Subscribe<'a>> for Message<'a> {
     fn from(su: Subscribe) -> Self {
-        let extra_nonce1: Value = su.extra_nonce1.into();
+        let extra_nonce1: Value = su.extra_nonce1.inner_as_ref().into();
         let extra_nonce2_size: Value = su.extra_nonce2_size.into();
         let subscriptions: Vec<Value> = su
             .subscriptions
@@ -378,7 +382,7 @@ impl From<Subscribe> for Message {
     }
 }
 
-impl TryFrom<&Response> for Subscribe {
+impl<'a> TryFrom<&Response> for Subscribe<'a> {
     type Error = ParsingMethodError;
 
     fn try_from(msg: &Response) -> Result<Self, Self::Error> {
@@ -389,7 +393,7 @@ impl TryFrom<&Response> for Subscribe {
         let (extra_nonce1, extra_nonce2_size, subscriptions_) = match &params[..] {
             [JString(a), JNumber(b), JArrary(d)] => (
                 // infallible
-                a.as_str().try_into().unwrap(),
+                a.as_bytes().to_vec().try_into().unwrap(),
                 b.as_u64().ok_or_else(|| {
                     ParsingMethodError::ImpossibleToParseAsU64(Box::new(b.clone()))
                 })? as usize,
@@ -457,7 +461,7 @@ impl Configure {
     }
 }
 
-impl From<Configure> for Message {
+impl<'a> From<Configure> for Message<'a> {
     fn from(co: Configure) -> Self {
         let mut params = serde_json::Map::new();
         if let Some(version_rolling_) = co.version_rolling {
@@ -561,9 +565,9 @@ impl VersionRollingParams {
 }
 
 impl TryFrom<VersionRollingParams> for serde_json::Map<String, Value> {
-    type Error = Error;
+    type Error = Error<'static>;
 
-    fn try_from(vp: VersionRollingParams) -> Result<Self, Error> {
+    fn try_from(vp: VersionRollingParams) -> Result<Self, Error<'static>> {
         let version_rolling: Value = vp.version_rolling.into();
         let version_rolling_mask: Value = vp.version_rolling_mask.try_into()?;
         let version_rolling_min_bit_count: Value = vp.version_rolling_min_bit_count.try_into()?;

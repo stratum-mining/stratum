@@ -10,43 +10,43 @@ use std::{convert::TryFrom, mem::size_of};
 #[derive(Clone, Debug, PartialEq)]
 pub struct HexBytes(Vec<u8>);
 
-impl HexBytes {
-    pub fn len(&self) -> usize {
-        self.0.len()
-    }
-    pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
-    }
-}
+// impl HexBytes {
+//     pub fn len(&self) -> usize {
+//         self.0.len()
+//     }
+//     pub fn is_empty(&self) -> bool {
+//         self.0.is_empty()
+//     }
+// }
 
-impl From<Vec<u8>> for HexBytes {
-    fn from(value: Vec<u8>) -> Self {
-        HexBytes(value)
-    }
-}
+// impl From<Vec<u8>> for HexBytes {
+//     fn from(value: Vec<u8>) -> Self {
+//         HexBytes(value)
+//     }
+// }
 
-impl From<HexBytes> for Vec<u8> {
-    fn from(v: HexBytes) -> Self {
-        v.0
-    }
-}
+// impl From<HexBytes> for Vec<u8> {
+//     fn from(v: HexBytes) -> Self {
+//         v.0
+//     }
+// }
 
-impl From<HexBytes> for Value {
-    fn from(eb: HexBytes) -> Self {
-        Into::<String>::into(eb).into()
-    }
-}
+// impl From<HexBytes> for Value {
+//     fn from(eb: HexBytes) -> Self {
+//         Into::<String>::into(eb).into()
+//     }
+// }
 
-/// Referencing the internal part of hex bytes
-impl AsRef<Vec<u8>> for HexBytes {
-    fn as_ref(&self) -> &Vec<u8> {
-        &self.0
-    }
-}
+// /// Referencing the internal part of hex bytes
+// impl AsRef<Vec<u8>> for HexBytes {
+//     fn as_ref(&self) -> &Vec<u8> {
+//         &self.0
+//     }
+// }
 
 /// fix for error on odd-length hex sequences
 /// FIXME: find a nicer solution
-fn hex_decode(s: &str) -> Result<Vec<u8>, Error> {
+fn hex_decode<'a>(s: &str) -> Result<Vec<u8>, Error<'a>> {
     if s.len() % 2 != 0 {
         Ok(hex::decode(&format!("0{}", s))?)
     } else {
@@ -54,19 +54,19 @@ fn hex_decode(s: &str) -> Result<Vec<u8>, Error> {
     }
 }
 
-impl TryFrom<&str> for HexBytes {
-    type Error = Error;
+// impl TryFrom<&str> for HexBytes {
+//     type Error = Error;
 
-    fn try_from(value: &str) -> Result<Self, Error> {
-        Ok(HexBytes(hex_decode(value)?))
-    }
-}
+//     fn try_from(value: &str) -> Result<Self, Error> {
+//         Ok(HexBytes(hex_decode(value)?))
+//     }
+// }
 
-impl From<HexBytes> for String {
-    fn from(bytes: HexBytes) -> String {
-        hex::encode(bytes.0)
-    }
-}
+// impl From<HexBytes> for String {
+//     fn from(bytes: HexBytes) -> String {
+//         hex::encode(bytes.0)
+//     }
+// }
 
 /// Big-endian alternative of the HexU32
 #[derive(Clone, Debug, PartialEq)]
@@ -85,9 +85,9 @@ impl From<HexU32Be> for Value {
 }
 
 impl TryFrom<&str> for HexU32Be {
-    type Error = Error;
+    type Error = Error<'static>;
 
-    fn try_from(value: &str) -> Result<Self, Error> {
+    fn try_from(value: &str) -> Result<Self, Error<'static>> {
         let parsed_bytes: [u8; 4] = FromHex::from_hex(value)?;
         Ok(HexU32Be(u32::from_be_bytes(parsed_bytes)))
     }
@@ -112,9 +112,9 @@ impl From<PrevHash> for Vec<u8> {
 }
 
 impl TryFrom<&str> for PrevHash {
-    type Error = Error;
+    type Error = Error<'static>;
 
-    fn try_from(value: &str) -> Result<Self, Error> {
+    fn try_from(value: &str) -> Result<Self, Error<'static>> {
         // Reorder prevhash will be stored via this cursor
         let mut prev_hash_cursor = std::io::Cursor::new(Vec::new());
 
