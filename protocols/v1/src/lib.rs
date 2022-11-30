@@ -3,7 +3,7 @@
 //!
 //! json-rpc has two types of messages: **request** and **response**.
 //! A request message can be either a **notification** or a **standard message**.
-//! Standard messegaes expect a response notifications no. A typical example of a notification
+//! Standard messages expect a response, notifications do not. A typical example of a notification
 //! is the broadcasting of a new block.
 //!
 //! Every RPC request contains three parts:
@@ -12,7 +12,7 @@
 //! * parameters: list of parameters
 //!
 //! ## Standard requests
-//! Mmessage ID must be an unique identifier of request during current transport session. It may be
+//! Message ID must be an unique identifier of request during current transport session. It may be
 //! integer or some unique string, like UUID. ID must be unique only from one side (it means, both
 //! server and clients can initiate request with id “1”). Client or server can choose string/UUID
 //! identifier for example in the case when standard “atomic” counter isn’t available.
@@ -51,11 +51,11 @@ pub use json_rpc::Message;
 pub use methods::{client_to_server, server_to_client, Method, MethodError, ParsingMethodError};
 use utils::{HexBytes, HexU32Be};
 
-/// json_rpc Response are not handled cause startum v1 do not have any request from a server to a
+/// json_rpc Response are not handled cause stratum v1 does not have any request from a server to a
 /// client
 /// TODO: Should update to accommodate miner requesting a difficulty change
 ///
-/// A stratum v1 server rapresent a single connection with a client
+/// A stratum v1 server represent a single connection with a client
 ///
 pub trait IsServer<'a> {
     /// Deserialize a [raw json_rpc message][a] into a [stratum v1 message][b] and handle the
@@ -390,7 +390,7 @@ pub trait IsClient<'a> {
     /// Register the given user_name has authorized by the server
     fn authorize_user_name(&mut self, name: String);
 
-    fn configure(&mut self, id: String) -> json_rpc::Message {
+    fn configure(&mut self, id: String) -> json_rpc::Message<'a> {
         client_to_server::Configure::new(
             id,
             self.version_rolling_mask(),

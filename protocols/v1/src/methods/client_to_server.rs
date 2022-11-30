@@ -173,7 +173,7 @@ impl<'a> TryFrom<StandardRequest> for Submit<'a> {
                     [JString(a), JString(b), JString(c), JNumber(d), JNumber(e), JString(f)] => (
                         a.into(),
                         b.into(),
-                        c.as_bytes().to_vec().try_into().unwrap(),
+                        U256::try_from(hex::decode(c).unwrap()).unwrap(),
                         HexU32Be(d.as_u64().unwrap() as u32),
                         HexU32Be(e.as_u64().unwrap() as u32),
                         Some((f.as_str()).try_into()?),
@@ -181,7 +181,7 @@ impl<'a> TryFrom<StandardRequest> for Submit<'a> {
                     [JString(a), JString(b), JString(c), JString(d), JString(e), JString(f)] => (
                         a.into(),
                         b.into(),
-                        c.as_bytes().to_vec().try_into().unwrap(),
+                        U256::try_from(hex::decode(c).unwrap()).unwrap(),
                         (d.as_str()).try_into()?,
                         (e.as_str()).try_into()?,
                         Some((f.as_str()).try_into()?),
@@ -189,7 +189,7 @@ impl<'a> TryFrom<StandardRequest> for Submit<'a> {
                     [JString(a), JString(b), JString(c), JNumber(d), JNumber(e)] => (
                         a.into(),
                         b.into(),
-                        c.as_bytes().to_vec().try_into().unwrap(),
+                        U256::try_from(hex::decode(c).unwrap()).unwrap(),
                         HexU32Be(d.as_u64().unwrap() as u32),
                         HexU32Be(e.as_u64().unwrap() as u32),
                         None,
@@ -197,7 +197,7 @@ impl<'a> TryFrom<StandardRequest> for Submit<'a> {
                     [JString(a), JString(b), JString(c), JString(d), JString(e)] => (
                         a.into(),
                         b.into(),
-                        c.as_bytes().to_vec().try_into().unwrap(),
+                        U256::try_from(hex::decode(c).unwrap()).unwrap(),
                         (d.as_str()).try_into()?,
                         (e.as_str()).try_into()?,
                         None,
@@ -222,12 +222,16 @@ impl<'a> TryFrom<StandardRequest> for Submit<'a> {
 }
 
 #[cfg(test)]
-impl<'a> Arbitrary for Submit<'static> {
+impl Arbitrary for Submit<'static> {
     fn arbitrary(g: &mut Gen) -> Self {
-        let extra = Vec::<u8>::arbitrary(g);
+        let mut extra = Vec::<u8>::arbitrary(g);
+        extra.resize(32, 0);
+        println!("\nEXTRA: {:?}\n", extra);
         let bits = Option::<u32>::arbitrary(g);
+        println!("\nBITS: {:?}\n", bits);
         let extra: U256 = extra.try_into().unwrap();
         let bits = bits.map(|x| HexU32Be(x));
+        println!("\nBITS: {:?}\n", bits);
         Submit {
             user_name: String::arbitrary(g),
             job_id: String::arbitrary(g),
@@ -242,12 +246,14 @@ impl<'a> Arbitrary for Submit<'static> {
 
 #[cfg(test)]
 #[quickcheck_macros::quickcheck]
-fn submit_from_to_json_rpc(submit: Submit) -> bool {
+fn submit_from_to_json_rpc(submit: Submit<'static>) -> bool {
     let message = Into::<Message>::into(submit.clone());
+    println!("\nMESSAGE: {:?}\n", message);
     let request = match message {
         Message::StandardRequest(s) => s,
         _ => panic!(),
     };
+    println!("\nREQUEST: {:?}\n", request);
     submit == TryInto::<Submit>::try_into(request).unwrap()
 }
 
