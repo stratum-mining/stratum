@@ -320,9 +320,10 @@ impl<'a> TryFrom<StandardRequest> for Subscribe<'a> {
         match msg.params.as_array() {
             Some(params) => {
                 let (agent_signature, extranonce1) = match &params[..] {
-                    [JString(a), JString(b)] => {
-                        (a.into(), Some(b.as_bytes().to_vec().try_into().unwrap()))
-                    }
+                    [JString(a), JString(b)] => (
+                        a.into(),
+                        Some(U256::try_from(hex::decode(b).unwrap()).unwrap()),
+                    ),
                     [JString(a)] => (a.into(), None),
                     [] => ("".to_string(), None),
                     _ => return Err(ParsingMethodError::wrong_args_from_value(msg.params)),

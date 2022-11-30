@@ -15,11 +15,7 @@ use roles_logic_sv2::{
 };
 use std::{net::SocketAddr, ops::Div, sync::Arc};
 use tracing::{debug, info};
-use v1::{
-    client_to_server, json_rpc, server_to_client,
-    utils::{HexBytes, HexU32Be},
-    IsServer,
-};
+use v1::{client_to_server, json_rpc, server_to_client, utils::HexU32Be, IsServer};
 
 /// Handles the sending and receiving of messages to and from an SV2 Upstream role (most typically
 /// a SV2 Pool server).

@@ -121,7 +121,9 @@ impl<'a> Server<'a> {
             loop {
                 let notify_time = 5;
                 if let Some(mut self_) = cloned.try_lock() {
-                    self_.send_notify().await;
+                    let sender = self_.sender_outgoing.clone();
+                    let notify = self_.notify().unwrap();
+                    Server::send_message(&sender, notify).await;
                     drop(self_);
                     task::sleep(Duration::from_secs(notify_time)).await;
                     //subtract notify_time from run_time
@@ -180,10 +182,11 @@ impl<'a> Server<'a> {
         sender_outgoing.send(msg).await.unwrap();
     }
 
-    async fn send_notify(&mut self) {
-        let notify = self.notify().unwrap();
-        // self.send_message(notify).await;
-    }
+    // async fn send_notify(&mut self) {
+    //     let sender = &self.sender_outgoing.clone();
+    //     let notify = self.notify().unwrap();
+    //     Self::send_message(sender, notify).await;
+    // }
 }
 
 impl<'a> IsServer<'a> for Server<'a> {
@@ -543,7 +546,7 @@ impl<'a> IsClient<'a> for Client<'a> {
         id: String,
         name: String,
         password: String,
-    ) -> Result<json_rpc::Message, Error> {
+    ) -> Result<json_rpc::Message<'a>, Error> {
         match self.status() {
             ClientStatus::Init => Err(Error::IncorrectClientStatus("mining.authorize".to_string())),
             _ => {

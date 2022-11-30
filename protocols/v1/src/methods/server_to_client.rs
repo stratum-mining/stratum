@@ -108,8 +108,8 @@ impl<'a> TryFrom<Notification> for Notify<'a> {
                 (
                     a.into(),
                     b.as_str().try_into()?,
-                    c.as_bytes().to_vec().try_into().unwrap(),
-                    d.as_bytes().to_vec().try_into().unwrap(),
+                    U256::try_from(hex::decode(c).unwrap()).unwrap(),
+                    U256::try_from(hex::decode(d).unwrap()).unwrap(),
                     e,
                     f.as_str().try_into()?,
                     g.as_str().try_into()?,
@@ -121,13 +121,14 @@ impl<'a> TryFrom<Notification> for Notify<'a> {
         };
         let mut merkle_branch = vec![];
         for h in merkle_branch_ {
-            let h: U256 = h
-                .as_str()
-                .ok_or_else(|| ParsingMethodError::not_string_from_value(h.clone()))?
-                .as_bytes()
-                .to_vec()
-                .try_into()
-                .unwrap();
+            let h: U256 = U256::try_from(
+                hex::decode(
+                    h.as_str()
+                        .ok_or_else(|| ParsingMethodError::not_string_from_value(h.clone()))?,
+                )
+                .unwrap(),
+            )
+            .unwrap();
             merkle_branch.push(h);
         }
         Ok(Notify {
@@ -223,7 +224,7 @@ impl<'a> TryFrom<Notification> for SetExtranonce<'a> {
             .ok_or_else(|| ParsingMethodError::not_array_from_value(msg.params.clone()))?;
         let (extra_nonce1, extra_nonce2_size) = match &params[..] {
             [JString(a), JNumber(b)] => (
-                a.as_bytes().to_vec().try_into().unwrap(),
+                U256::try_from(hex::decode(a).unwrap()).unwrap(),
                 b.as_u64()
                     .ok_or_else(|| ParsingMethodError::not_unsigned_from_value(b.clone()))?
                     as usize,
@@ -393,7 +394,7 @@ impl<'a> TryFrom<&Response> for Subscribe<'a> {
         let (extra_nonce1, extra_nonce2_size, subscriptions_) = match &params[..] {
             [JString(a), JNumber(b), JArrary(d)] => (
                 // infallible
-                a.as_bytes().to_vec().try_into().unwrap(),
+                U256::try_from(hex::decode(a).unwrap()).unwrap(),
                 b.as_u64().ok_or_else(|| {
                     ParsingMethodError::ImpossibleToParseAsU64(Box::new(b.clone()))
                 })? as usize,

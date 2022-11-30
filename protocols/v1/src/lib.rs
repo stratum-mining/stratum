@@ -42,14 +42,14 @@ pub mod methods;
 pub mod utils;
 
 use binary_sv2::U256;
-use std::convert::TryInto;
+use std::convert::{TryFrom, TryInto};
 use tracing::{debug, warn};
 
 // use error::Result;
 use error::Error;
 pub use json_rpc::Message;
 pub use methods::{client_to_server, server_to_client, Method, MethodError, ParsingMethodError};
-use utils::{HexU32Be};
+use utils::HexU32Be;
 
 /// json_rpc Response are not handled cause stratum v1 does not have any request from a server to a
 /// client
@@ -322,7 +322,7 @@ pub trait IsClient<'a> {
                 let subscribe = self
                     .subscribe(
                         configure.id,
-                        Some("08000002".as_bytes().to_vec().try_into().unwrap()),
+                        Some(U256::try_from(hex::decode("08000002").unwrap()).unwrap()),
                     )
                     .ok();
                 Ok(subscribe)
@@ -429,7 +429,7 @@ pub trait IsClient<'a> {
         id: String,
         name: String,
         password: String,
-    ) -> Result<json_rpc::Message, Error> {
+    ) -> Result<json_rpc::Message<'a>, Error> {
         match self.status() {
             ClientStatus::Init => Err(Error::IncorrectClientStatus("mining.authorize".to_string())),
             _ => Ok(client_to_server::Authorize { id, name, password }.into()),

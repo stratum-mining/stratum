@@ -9,12 +9,10 @@ use async_std::{io::BufReader, prelude::*, task};
 use roles_logic_sv2::utils::Mutex;
 use std::{sync::Arc, time};
 
+use binary_sv2::U256;
 use v1::{
-    client_to_server,
-    error::Error,
-    json_rpc, server_to_client,
-    utils::{HexBytes, HexU32Be},
-    ClientStatus, IsClient,
+    client_to_server, error::Error, json_rpc, server_to_client, utils::HexU32Be, ClientStatus,
+    IsClient,
 };
 
 use crate::{job::Job, miner::Miner};
@@ -25,7 +23,7 @@ const ADDR: &str = "127.0.0.1:34255";
 #[derive(Debug, Clone)]
 pub(crate) struct Client {
     client_id: u32,
-    extranonce1: Option<HexBytes>,
+    extranonce1: Option<U256<'static>>,
     extranonce2_size: Option<usize>,
     version_rolling_mask: Option<HexU32Be>,
     version_rolling_min_bit: Option<HexU32Be>,
@@ -178,7 +176,7 @@ impl Client {
                 if cloned.clone().safe_lock(|c| c.status).unwrap() != ClientStatus::Subscribed {
                     continue;
                 }
-                let extra_nonce2: HexBytes =
+                let extra_nonce2: U256 =
                     vec![0; cloned.safe_lock(|c| c.extranonce2_size.unwrap()).unwrap()]
                         .try_into()
                         .unwrap();
@@ -245,7 +243,7 @@ impl Client {
     }
 
     /// Send SV1 messages to the receiver_outgoing which writes to the socket (aka Upstream node)
-    async fn send_message(sender: Sender<String>, msg: json_rpc::Message) {
+    async fn send_message(sender: Sender<String>, msg: json_rpc::Message<'static>) {
         let msg = format!("{}\n", serde_json::to_string(&msg).unwrap());
         println!(" - Send: {}", &msg);
         sender.send(msg).await.unwrap();
@@ -293,27 +291,36 @@ impl Client {
     }
 }
 
-impl IsClient for Client {
+impl IsClient<'static> for Client {
     /// Updates miner with new job
-    fn handle_notify(&mut self, notify: server_to_client::Notify) -> Result<(), Error> {
+    fn handle_notify(
+        &mut self,
+        notify: server_to_client::Notify<'static>,
+    ) -> Result<(), Error<'static>> {
         let new_job: Job = notify.into();
         self.miner.safe_lock(|m| m.new_header(new_job)).unwrap();
         Ok(())
     }
 
-    fn handle_configure(&self, _conf: &mut server_to_client::Configure) -> Result<(), Error> {
+    fn handle_configure(
+        &self,
+        _conf: &mut server_to_client::Configure,
+    ) -> Result<(), Error<'static>> {
         Ok(())
     }
 
-    fn handle_subscribe(&mut self, _subscribe: &server_to_client::Subscribe) -> Result<(), Error> {
+    fn handle_subscribe(
+        &mut self,
+        _subscribe: &server_to_client::Subscribe,
+    ) -> Result<(), Error<'static>> {
         Ok(())
     }
 
-    fn set_extranonce1(&mut self, extranonce1: HexBytes) {
+    fn set_extranonce1(&mut self, extranonce1: U256<'static>) {
         self.extranonce1 = Some(extranonce1);
     }
 
-    fn extranonce1(&self) -> HexBytes {
+    fn extranonce1(&self) -> U256<'static> {
         self.extranonce1.clone().unwrap()
     }
 
@@ -377,14 +384,30 @@ impl IsClient for Client {
         self.authorized.contains(name)
     }
 
+    fn authorize(
+        &mut self,
+        id: String,
+        name: String,
+        password: String,
+    ) -> Result<json_rpc::Message<'static>, Error> {
+        match self.status() {
+            ClientStatus::Init => Err(Error::IncorrectClientStatus("mining.authorize".to_string())),
+            _ => {
+                self.sented_authorize_request
+                    .push((id.clone(), "user".to_string()));
+                Ok(client_to_server::Authorize { id, name, password }.into())
+            }
+        }
+    }
+
     fn last_notify(&self) -> Option<server_to_client::Notify> {
         None
     }
 
     fn handle_error_message(
         &mut self,
-        message: v1::Message,
-    ) -> Result<Option<json_rpc::Message>, Error> {
+        message: v1::Message<'static>,
+    ) -> Result<Option<json_rpc::Message<'static>>, Error<'static>> {
         println!("{:?}", message);
         Ok(None)
     }
