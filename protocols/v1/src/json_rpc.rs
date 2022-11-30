@@ -9,7 +9,7 @@ pub enum Message<'a> {
     Notification(Notification),
     OkResponse(Response),
     ErrorResponse(Response),
-    PhantomData(std::marker::PhantomData<&'a str>)
+    PhantomData(std::marker::PhantomData<&'a str>),
 }
 
 impl<'a> Message<'a> {
@@ -20,7 +20,7 @@ impl<'a> Message<'a> {
             Message::Notification(_) => false,
             Message::OkResponse(_) => true,
             Message::ErrorResponse(_) => true,
-            _ => false
+            _ => false,
         }
     }
 

@@ -41,15 +41,15 @@ pub mod json_rpc;
 pub mod methods;
 pub mod utils;
 
-use std::convert::TryInto;
 use binary_sv2::U256;
+use std::convert::TryInto;
 use tracing::{debug, warn};
 
 // use error::Result;
 use error::Error;
 pub use json_rpc::Message;
 pub use methods::{client_to_server, server_to_client, Method, MethodError, ParsingMethodError};
-use utils::{HexBytes, HexU32Be};
+use utils::{HexU32Be};
 
 /// json_rpc Response are not handled cause stratum v1 does not have any request from a server to a
 /// client
@@ -182,7 +182,7 @@ pub trait IsServer<'a> {
     /// When miner find the job which meets requested difficulty, it can submit share to the server.
     /// Only [Submit](client_to_server::Submit) requests for authorized user names can be submitted.
     ///
-    fn handle_submit(&self, request: &client_to_server::Submit) -> bool;
+    fn handle_submit(&self, request: &client_to_server::Submit<'a>) -> bool;
 
     /// Indicates to the server that the client supports the mining.set_extranonce method.
     fn handle_extranonce_subscribe(&self);
@@ -239,7 +239,10 @@ pub trait IsClient<'a> {
     /// [a]: crate::...
     /// [b]:
     ///
-    fn handle_message(&mut self, msg: json_rpc::Message<'a>) -> Result<Option<json_rpc::Message<'a>>, Error<'a>>
+    fn handle_message(
+        &mut self,
+        msg: json_rpc::Message<'a>,
+    ) -> Result<Option<json_rpc::Message<'a>>, Error<'a>>
     where
         Self: std::marker::Sized,
     {
@@ -317,7 +320,10 @@ pub trait IsClient<'a> {
                 self.set_status(ClientStatus::Configured);
                 warn!("WARNING: Subscribe extranonce is hardcoded by server");
                 let subscribe = self
-                    .subscribe(configure.id, Some("08000002".as_bytes().to_vec().try_into().unwrap()))
+                    .subscribe(
+                        configure.id,
+                        Some("08000002".as_bytes().to_vec().try_into().unwrap()),
+                    )
                     .ok();
                 Ok(subscribe)
             }
@@ -357,7 +363,10 @@ pub trait IsClient<'a> {
 
     fn handle_configure(&self, conf: &mut server_to_client::Configure) -> Result<(), Error<'a>>;
 
-    fn handle_subscribe(&mut self, subscribe: &server_to_client::Subscribe<'a>) -> Result<(), Error<'a>>;
+    fn handle_subscribe(
+        &mut self,
+        subscribe: &server_to_client::Subscribe<'a>,
+    ) -> Result<(), Error<'a>>;
 
     fn set_extranonce1(&mut self, extranonce1: U256<'a>);
 

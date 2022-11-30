@@ -1,5 +1,5 @@
 use async_std::net::{TcpListener, TcpStream};
-use std::convert::{TryInto, TryFrom};
+use std::convert::{TryFrom, TryInto};
 
 use async_channel::{bounded, Receiver, Sender};
 use async_std::{
@@ -13,6 +13,7 @@ use time::SystemTime;
 
 const ADDR: &str = "127.0.0.1:0";
 
+use binary_sv2::U256;
 use v1::{
     client_to_server,
     error::Error,
@@ -20,7 +21,6 @@ use v1::{
     utils::{self, HexU32Be},
     ClientStatus, IsClient, IsServer,
 };
-use binary_sv2::U256;
 
 fn new_extranonce<'a>() -> U256<'a> {
     extranonce_from_hex("08000002")
@@ -30,7 +30,6 @@ fn extranonce_from_hex<'a>(hex: &str) -> U256<'a> {
     let mut hex = hex::decode(hex).unwrap();
     hex.resize(32, 0);
     U256::try_from(hex).expect("Failed to convert hex to U256")
-
 }
 
 fn new_extranonce2_size() -> usize {
@@ -52,7 +51,6 @@ struct Server<'a> {
     version_rolling_min_bit: Option<HexU32Be>,
     receiver_incoming: Receiver<String>,
     sender_outgoing: Sender<String>,
-
 }
 
 async fn server_pool_listen(listener: TcpListener) {
@@ -162,8 +160,11 @@ impl<'a> Server<'a> {
                     match self.handle_message(message) {
                         Ok(response) => {
                             if response.is_some() {
-                                Self::send_message(&self.sender_outgoing, json_rpc::Message::OkResponse(response.unwrap()))
-                                    .await;
+                                Self::send_message(
+                                    &self.sender_outgoing,
+                                    json_rpc::Message::OkResponse(response.unwrap()),
+                                )
+                                .await;
                             }
                         }
                         Err(_) => (),
@@ -174,7 +175,7 @@ impl<'a> Server<'a> {
         };
     }
 
-    async fn send_message(sender_outgoing: &Sender<String>,  msg: json_rpc::Message<'a>) {
+    async fn send_message(sender_outgoing: &Sender<String>, msg: json_rpc::Message<'a>) {
         let msg = format!("{}\n", serde_json::to_string(&msg).unwrap());
         sender_outgoing.send(msg).await.unwrap();
     }
@@ -414,10 +415,9 @@ impl<'a> Client<'static> {
             .as_nanos()
             .to_string();
         let sender_outgoing = self.sender_outgoing.clone();
-        if let Ok(authorize) =  self.authorize(id.clone(), "user".to_string(), "user".to_string()) {
+        if let Ok(authorize) = self.authorize(id.clone(), "user".to_string(), "user".to_string()) {
             Self::send_message(&sender_outgoing, authorize).await;
         }
-        
     }
 
     pub async fn send_submit(&mut self) {
@@ -463,7 +463,10 @@ impl<'a> IsClient<'a> for Client<'a> {
         Ok(())
     }
 
-    fn handle_subscribe(&mut self, _subscribe: &server_to_client::Subscribe<'a>) -> Result<(), Error<'a>> {
+    fn handle_subscribe(
+        &mut self,
+        _subscribe: &server_to_client::Subscribe<'a>,
+    ) -> Result<(), Error<'a>> {
         Ok(())
     }
 
@@ -536,19 +539,19 @@ impl<'a> IsClient<'a> for Client<'a> {
     }
 
     fn authorize(
-            &mut self,
-            id: String,
-            name: String,
-            password: String,
-        ) -> Result<json_rpc::Message, Error> {
-            match self.status() {
-                ClientStatus::Init => Err(Error::IncorrectClientStatus("mining.authorize".to_string())),
-                _ => {
-                    self.sented_authorize_request.push((id.clone(), "user".to_string()));
-                    Ok(client_to_server::Authorize { id, name, password }.into())
-                },
+        &mut self,
+        id: String,
+        name: String,
+        password: String,
+    ) -> Result<json_rpc::Message, Error> {
+        match self.status() {
+            ClientStatus::Init => Err(Error::IncorrectClientStatus("mining.authorize".to_string())),
+            _ => {
+                self.sented_authorize_request
+                    .push((id.clone(), "user".to_string()));
+                Ok(client_to_server::Authorize { id, name, password }.into())
             }
-        
+        }
     }
 
     fn last_notify(&self) -> Option<server_to_client::Notify> {

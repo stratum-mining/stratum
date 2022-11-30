@@ -73,7 +73,7 @@ impl<'a> From<Error<'a>> for ParsingMethodError {
 }
 
 impl ParsingMethodError {
-    pub fn as_method_error<'a>(self, msg: Message) -> MethodError {
+    pub fn as_method_error(self, msg: Message) -> MethodError {
         MethodError::ParsingMethodError((self, msg))
     }
 }
@@ -279,7 +279,7 @@ impl<'a> TryFrom<Message<'a>> for Method<'a> {
                 .map(Method::Server2ClientResponse)
                 .map_err(|e| e.as_method_error(msg)),
             Message::ErrorResponse(_) => Ok(Method::ErrorMessage(msg)),
-            Message::PhantomData(_) => unreachable!()
+            Message::PhantomData(_) => unreachable!(),
         }
     }
 }

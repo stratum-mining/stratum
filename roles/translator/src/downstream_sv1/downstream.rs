@@ -6,6 +6,7 @@ use async_std::{
     prelude::*,
     task,
 };
+use binary_sv2::U256;
 use roles_logic_sv2::{
     bitcoin::util::uint::Uint256,
     common_properties::{IsDownstream, IsMiningDownstream},
@@ -13,13 +14,12 @@ use roles_logic_sv2::{
     utils::Mutex,
 };
 use std::{net::SocketAddr, ops::Div, sync::Arc};
+use tracing::{debug, info};
 use v1::{
     client_to_server, json_rpc, server_to_client,
     utils::{HexBytes, HexU32Be},
     IsServer,
 };
-
-use tracing::{debug, info};
 
 /// Handles the sending and receiving of messages to and from an SV2 Upstream role (most typically
 /// a SV2 Pool server).
@@ -37,9 +37,9 @@ pub struct Downstream {
     version_rolling_min_bit: Option<HexU32Be>,
     /// Sends a SV1 `mining.submit` message received from the Downstream role to the `Bridge` for
     /// translation into a SV2 `SubmitSharesExtended`.
-    tx_sv1_submit: Sender<(v1::client_to_server::Submit, ExtendedExtranonce)>,
+    tx_sv1_submit: Sender<(v1::client_to_server::Submit<'static>, ExtendedExtranonce)>,
     /// Sends message to the SV1 Downstream role.
-    tx_outgoing: Sender<json_rpc::Message>,
+    tx_outgoing: Sender<json_rpc::Message<'static>>,
     /// Difficulty target for SV1 Downstream.
     target: Arc<Mutex<Vec<u8>>>,
     /// True if this is the first job received from `Upstream`.
@@ -50,12 +50,12 @@ impl Downstream {
     /// Instantiate a new `Downstream`.
     pub async fn new(
         stream: TcpStream,
-        tx_sv1_submit: Sender<(v1::client_to_server::Submit, ExtendedExtranonce)>,
-        rx_sv1_notify: Receiver<server_to_client::Notify>,
+        tx_sv1_submit: Sender<(v1::client_to_server::Submit<'static>, ExtendedExtranonce)>,
+        rx_sv1_notify: Receiver<server_to_client::Notify<'static>>,
         extranonce: ExtendedExtranonce,
-        last_notify: Arc<Mutex<Option<server_to_client::Notify>>>,
+        last_notify: Arc<Mutex<Option<server_to_client::Notify<'static>>>>,
         target: Arc<Mutex<Vec<u8>>>,
-    ) -> ProxyResult<Arc<Mutex<Self>>> {
+    ) -> ProxyResult<'static, Arc<Mutex<Self>>> {
         let stream = std::sync::Arc::new(stream);
 
         // Reads and writes from Downstream SV1 Mining Device Client
@@ -215,7 +215,7 @@ impl Downstream {
     /// Converts target received by the `SetTarget` SV2 message from the Upstream role into the
     /// difficulty for the Downstream role and creates the SV1 `mining.set_difficulty` message to
     /// be sent to the Downstream role.
-    fn get_set_difficulty(target: Vec<u8>) -> json_rpc::Message {
+    fn get_set_difficulty(target: Vec<u8>) -> json_rpc::Message<'static> {
         let value = Downstream::difficulty_from_target(target);
         let set_target = v1::methods::server_to_client::SetDifficulty { value };
         let message: json_rpc::Message = set_target.try_into().unwrap();
@@ -226,10 +226,10 @@ impl Downstream {
     /// new `Downstream` for each connection.
     pub async fn accept_connections(
         downstream_addr: SocketAddr,
-        tx_sv1_submit: Sender<(v1::client_to_server::Submit, ExtendedExtranonce)>,
-        receiver_mining_notify: Receiver<server_to_client::Notify>,
+        tx_sv1_submit: Sender<(v1::client_to_server::Submit<'static>, ExtendedExtranonce)>,
+        receiver_mining_notify: Receiver<server_to_client::Notify<'static>>,
         mut extended_extranonce: ExtendedExtranonce,
-        last_notify: Arc<Mutex<Option<server_to_client::Notify>>>,
+        last_notify: Arc<Mutex<Option<server_to_client::Notify<'static>>>>,
         target: Arc<Mutex<Vec<u8>>>,
     ) {
         let downstream_listener = TcpListener::bind(downstream_addr).await.unwrap();
@@ -259,7 +259,7 @@ impl Downstream {
     /// As SV1 messages come in, determines if the message response needs to be translated to SV2
     /// and sent to the `Upstream`, or if a direct response can be sent back by the `Translator`
     /// (SV1 and SV2 protocol messages are NOT 1-to-1).
-    async fn handle_incoming_sv1(self_: Arc<Mutex<Self>>, message_sv1: json_rpc::Message) {
+    async fn handle_incoming_sv1(self_: Arc<Mutex<Self>>, message_sv1: json_rpc::Message<'static>) {
         // `handle_message` in `IsServer` trait + calls `handle_request`
         // TODO: Map err from V1Error to Error::V1Error
         let response = self_.safe_lock(|s| s.handle_message(message_sv1)).unwrap();
@@ -293,7 +293,7 @@ impl Downstream {
 }
 
 /// Implements `IsServer` for `Downstream` to handle the SV1 messages.
-impl IsServer for Downstream {
+impl IsServer<'static> for Downstream {
     /// Handle the incoming `mining.configure` message which is received after a Downstream role is
     /// subscribed and authorized. Contains the version rolling mask parameters.
     fn handle_configure(
@@ -343,7 +343,7 @@ impl IsServer for Downstream {
 
     /// When miner find the job which meets requested difficulty, it can submit share to the server.
     /// Only [Submit](client_to_server::Submit) requests for authorized user names can be submitted.
-    fn handle_submit(&self, request: &client_to_server::Submit) -> bool {
+    fn handle_submit(&self, request: &client_to_server::Submit<'static>) -> bool {
         //info!("Down: Submitting Share");
         //debug!("Down: Handling mining.submit: {:?}", &request);
 
@@ -371,13 +371,13 @@ impl IsServer for Downstream {
 
     /// Sets the `extranonce1` field sent in the SV1 `mining.notify` message to the value specified
     /// by the SV2 `OpenExtendedMiningChannelSuccess` message sent from the Upstream role.
-    fn set_extranonce1(&mut self, _extranonce1: Option<HexBytes>) -> HexBytes {
+    fn set_extranonce1(&mut self, _extranonce1: Option<U256<'static>>) -> U256<'static> {
         let extranonce1: Vec<u8> = self.extranonce.upstream_part().try_into().unwrap();
         extranonce1.try_into().unwrap()
     }
 
     /// Returns the `Downstream`'s `extranonce1` value.
-    fn extranonce1(&self) -> HexBytes {
+    fn extranonce1(&self) -> U256<'static> {
         let downstream_ext: Vec<u8> = self
             .extranonce
             .without_upstream_part(None)
