@@ -308,8 +308,8 @@ impl Extranonce {
         self.extranonce
     }
 
-    // Return only the prefix part of the extranonce
-    // If the required size is greater than the extranonce len it return None
+    /// Return only the prefix part of the extranonce
+    /// If the required size is greater than the extranonce len it return None
     pub fn into_prefix(&self, prefix_len: usize) -> Option<B032<'static>> {
         if prefix_len > self.extranonce.len() {
             None

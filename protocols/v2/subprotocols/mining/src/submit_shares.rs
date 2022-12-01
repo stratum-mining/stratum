@@ -97,6 +97,18 @@ pub struct SubmitSharesError<'decoder> {
     #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub error_code: Str0255<'decoder>,
 }
+
+impl<'a> SubmitSharesError<'a> {
+    pub fn invalid_channel_error_code() -> &'static str {
+        "invalid-channel-id"
+    }
+    pub fn stale_share_error_code() -> &'static str {
+        "stale-share"
+    }
+    pub fn difficulty_too_low_error_code() -> &'static str {
+        "difficulty-too-low"
+    }
+}
 #[cfg(feature = "with_serde")]
 use binary_sv2::GetSize;
 #[cfg(feature = "with_serde")]

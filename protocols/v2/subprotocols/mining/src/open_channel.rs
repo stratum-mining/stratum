@@ -1,3 +1,4 @@
+use alloc::string::ToString;
 #[cfg(not(feature = "with_serde"))]
 use alloc::vec::Vec;
 #[cfg(not(feature = "with_serde"))]
@@ -214,6 +215,22 @@ pub struct OpenMiningChannelError<'decoder> {
     #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub error_code: Str0255<'decoder>,
 }
+
+impl<'a> OpenMiningChannelError<'a> {
+    pub fn new_max_target_out_of_range(request_id: u32) -> Self {
+        Self {
+            request_id,
+            error_code: "max-target-out-of-range".to_string().try_into().unwrap(),
+        }
+    }
+    pub fn new_unknown_user(request_id: u32) -> Self {
+        Self {
+            request_id,
+            error_code: "unknown-user".to_string().try_into().unwrap(),
+        }
+    }
+}
+
 #[cfg(feature = "with_serde")]
 use binary_sv2::GetSize;
 #[cfg(feature = "with_serde")]
