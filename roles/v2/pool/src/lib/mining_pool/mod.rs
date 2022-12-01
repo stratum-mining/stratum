@@ -1,6 +1,6 @@
 use codec_sv2::{HandshakeRole, Responder};
 use network_helpers::noise_connection_tokio::Connection;
-use tokio::{net::TcpListener, task, time::sleep};
+use tokio::{net::TcpListener, task};
 
 use crate::{Configuration, EitherFrame, StdFrame};
 use async_channel::{Receiver, Sender};
@@ -24,7 +24,7 @@ use roles_logic_sv2::{
     template_distribution_sv2::{NewTemplate, SetNewPrevHash, SubmitSolution},
     utils::{merkle_root_from_path, Id, Mutex},
 };
-use std::{collections::HashMap, convert::TryInto, sync::Arc, time::Duration};
+use std::{collections::HashMap, convert::TryInto, sync::Arc};
 use tracing::{debug, error, info};
 
 pub fn u256_to_block_hash(v: U256<'static>) -> BlockHash {
