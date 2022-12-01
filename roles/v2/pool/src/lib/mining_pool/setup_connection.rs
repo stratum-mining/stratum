@@ -31,21 +31,20 @@ impl SetupConnectionHandler {
     ) -> Result<CommonDownstreamData, Error> {
         // read stdFrame from receiver
 
-        let mut incoming: StdFrame =
-            match receiver.recv().await {
-                Ok(EitherFrame::HandShake(_)) => {
-                    error!("Got unexpected handshake message");
-                    panic!()
-                }
-                Ok(EitherFrame::Sv2(s)) => {
-                    debug!("Got sv2 message: {:?}", s);
-                    s
-                }
-                Err(e) => {
-                    error!("Error receiving message: {:?}", e);
-                    return Err(Error::NoDownstreamsConnected);
-                }
-            };
+        let mut incoming: StdFrame = match receiver.recv().await {
+            Ok(EitherFrame::HandShake(_)) => {
+                error!("Got unexpected handshake message");
+                panic!()
+            }
+            Ok(EitherFrame::Sv2(s)) => {
+                debug!("Got sv2 message: {:?}", s);
+                s
+            }
+            Err(e) => {
+                error!("Error receiving message: {:?}", e);
+                return Err(Error::NoDownstreamsConnected);
+            }
+        };
 
         let message_type = incoming.get_header().unwrap().msg_type();
         let payload = incoming.payload();

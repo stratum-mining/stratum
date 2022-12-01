@@ -7,7 +7,6 @@ use async_std::{
 };
 use binary_sv2::{Deserialize, Serialize};
 use core::convert::TryInto;
-use std::fs::read;
 use std::time::Duration;
 use tracing::error;
 
@@ -124,7 +123,7 @@ impl Connection {
                     sender_outgoing.clone(),
                     receiver_incoming.clone(),
                 )
-                    .await
+                .await
             }
             HandshakeRole::Responder(_) => {
                 Self::initialize_as_upstream(
@@ -164,7 +163,7 @@ impl Connection {
             Err(e) => {
                 error!("Error receiving second message: {:#?}", e);
                 return state;
-            },
+            }
         };
 
         let mut second_message: HandShakeFrame = second_message.try_into().unwrap();

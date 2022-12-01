@@ -44,8 +44,10 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
             .safe_lock(|e| e.next_standard().unwrap().into_b032())
             .unwrap();
 
-        debug!("Handling open standard mining channel request_id: {} for hash_rate: {}",
-            request_id, incoming.nominal_hash_rate);
+        debug!(
+            "Handling open standard mining channel request_id: {} for hash_rate: {}",
+            request_id, incoming.nominal_hash_rate
+        );
 
         match (self.downstream_data.header_only, self.id) {
             (false, group_channel_id) => {
@@ -184,7 +186,7 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
             todo!()
         };
         let request_id = incoming.get_request_id_as_u32();
-        let target = hash_rate_to_target(incoming.nominal_hash_rate,  1 as f32);
+        let target = hash_rate_to_target(incoming.nominal_hash_rate, 1 as f32);
         let extended = self
             .extranonces
             .safe_lock(|e| {

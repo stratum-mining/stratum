@@ -24,8 +24,7 @@ use roles_logic_sv2::{
     template_distribution_sv2::{NewTemplate, SetNewPrevHash, SubmitSolution},
     utils::{merkle_root_from_path, Id, Mutex},
 };
-use std::{collections::HashMap, convert::TryInto, sync::Arc};
-use std::time::Duration;
+use std::{collections::HashMap, convert::TryInto, sync::Arc, time::Duration};
 use tracing::{debug, error, info};
 
 pub fn u256_to_block_hash(v: U256<'static>) -> BlockHash {
@@ -384,12 +383,12 @@ impl Downstream {
     ) -> Result<Arc<Mutex<Self>>, Error> {
         let setup_connection = Arc::new(Mutex::new(SetupConnectionHandler::new()));
         let downstream_data =
-            match SetupConnectionHandler::setup(setup_connection, &mut receiver, &mut sender)
-                .await {
+            match SetupConnectionHandler::setup(setup_connection, &mut receiver, &mut sender).await
+            {
                 Ok(d) => d,
                 Err(e) => {
                     error!("Error while setting up connection: {}", e);
-                    return Err(e)
+                    return Err(e);
                 }
             };
 
@@ -673,9 +672,15 @@ impl Pool {
         let listener = TcpListener::bind(&config.test_only_listen_adress_plain)
             .await
             .unwrap();
-        info!("Listening for unencrypted connection on: {}", config.test_only_listen_adress_plain);
+        info!(
+            "Listening for unencrypted connection on: {}",
+            config.test_only_listen_adress_plain
+        );
         while let Ok((stream, _)) = listener.accept().await {
-            debug!("New unencrypted connection from {}", stream.peer_addr().unwrap());
+            debug!(
+                "New unencrypted connection from {}",
+                stream.peer_addr().unwrap()
+            );
 
             // Uncomment to allow unencrypted connections
             let (receiver, sender): (Receiver<EitherFrame>, Sender<EitherFrame>) =
@@ -686,7 +691,10 @@ impl Pool {
 
     async fn accept_incoming_connection(self_: Arc<Mutex<Pool>>, config: Configuration) {
         let listener = TcpListener::bind(&config.listen_address).await.unwrap();
-        info!("Listening for encrypted connection on: {}", config.listen_address);
+        info!(
+            "Listening for encrypted connection on: {}",
+            config.listen_address
+        );
         while let Ok((stream, _)) = listener.accept().await {
             debug!("New connection from {}", stream.peer_addr().unwrap());
 
@@ -725,14 +733,15 @@ impl Pool {
             last_new_prev_hash,
             solution_sender,
             self_.clone(),
-        ).await {
+        )
+        .await
+        {
             Ok(downstream) => downstream,
             Err(e) => {
                 error!("Failed to create downstream: {:?}", e);
                 return;
             }
         };
-
 
         let (_, channel_id) = downstream
             .safe_lock(|d| (d.downstream_data.header_only, d.id))

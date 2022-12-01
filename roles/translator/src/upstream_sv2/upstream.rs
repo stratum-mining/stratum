@@ -1,5 +1,6 @@
 use crate::{
     downstream_sv1::Downstream,
+    error::Error::CodecNoise,
     upstream_sv2::{EitherFrame, Message, StdFrame, UpstreamConnection},
     ProxyResult,
 };
@@ -28,12 +29,8 @@ use roles_logic_sv2::{
     selectors::NullDownstreamMiningSelector,
     utils::{get_target, Mutex},
 };
-use std::{net::SocketAddr, sync::Arc};
-use std::thread::sleep;
-use std::time::Duration;
+use std::{net::SocketAddr, sync::Arc, thread::sleep, time::Duration};
 use tracing::{debug, error, info, trace, warn};
-use crate::error::Error::CodecNoise;
-
 
 /// Represents the currently active mining job being worked on.
 #[allow(dead_code)]
@@ -145,21 +142,24 @@ impl Upstream {
         extranonce_sender: Sender<ExtendedExtranonce>,
         target: Arc<Mutex<Vec<u8>>>,
     ) -> ProxyResult<Arc<Mutex<Self>>> {
-
         // Connect to the SV2 Upstream role retry connection every 5 seconds.
         let socket = loop {
             match TcpStream::connect(address).await {
                 Ok(socket) => break socket,
                 Err(e) => {
-                    error!("Failed to connect to Upstream role at {}, retrying in 5s: {}", address, e);
+                    error!(
+                        "Failed to connect to Upstream role at {}, retrying in 5s: {}",
+                        address, e
+                    );
 
                     sleep(Duration::from_secs(5));
                 }
             }
         };
 
-        let pub_key: codec_sv2::noise_sv2::formats::EncodedEd25519PublicKey =
-            authority_public_key.try_into().expect("Authority Public Key malformed in proxy-config");
+        let pub_key: codec_sv2::noise_sv2::formats::EncodedEd25519PublicKey = authority_public_key
+            .try_into()
+            .expect("Authority Public Key malformed in proxy-config");
         let initiator = Initiator::from_raw_k(*pub_key.into_inner().as_bytes()).unwrap();
 
         info!(
@@ -214,7 +214,9 @@ impl Upstream {
             Ok(frame) => frame.try_into()?,
             Err(e) => {
                 error!("Upstream connection closed: {}", e);
-                return Err(CodecNoise(codec_sv2::noise_sv2::Error::ExpectedIncomingHandshakeMessage));
+                return Err(CodecNoise(
+                    codec_sv2::noise_sv2::Error::ExpectedIncomingHandshakeMessage,
+                ));
             }
         };
 
