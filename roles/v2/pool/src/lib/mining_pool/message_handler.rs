@@ -38,7 +38,7 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
         _m: Option<Arc<Mutex<()>>>,
     ) -> Result<SendTo<()>, Error> {
         let request_id = incoming.get_request_id_as_u32();
-        let target = hash_rate_to_target(incoming.nominal_hash_rate, 1 as f32);
+        let target = hash_rate_to_target(incoming.nominal_hash_rate, 1_f32);
         let extranonce_prefix = self
             .extranonces
             .safe_lock(|e| e.next_standard().unwrap().into_b032())
@@ -186,7 +186,7 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
             todo!()
         };
         let request_id = incoming.get_request_id_as_u32();
-        let target = hash_rate_to_target(incoming.nominal_hash_rate, 1 as f32);
+        let target = hash_rate_to_target(incoming.nominal_hash_rate, 1_f32);
         let extended = self
             .extranonces
             .safe_lock(|e| {
