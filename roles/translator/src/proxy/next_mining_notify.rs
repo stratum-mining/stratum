@@ -92,8 +92,8 @@ impl NextMiningNotify {
                 let prev_hash = PrevHash(prev_hash);
 
                 // B064K<'static'> -> HexBytes
-                let coin_base1 = new_job.coinbase_tx_prefix.to_vec().try_into().unwrap();
-                let coin_base2 = new_job.coinbase_tx_suffix.to_vec().try_into().unwrap();
+                let coin_base1 = new_job.coinbase_tx_prefix.to_vec().into();
+                let coin_base2 = new_job.coinbase_tx_suffix.to_vec().into();
 
                 // Seq0255<'static, U56<'static>> -> Vec<Vec<u8>> -> Vec<HexBytes>
                 let merkle_path = new_job.merkle_path.clone().into_static().to_vec();

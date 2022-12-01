@@ -27,9 +27,17 @@ fn new_extranonce<'a>() -> U256<'a> {
 }
 
 fn extranonce_from_hex<'a>(hex: &str) -> U256<'a> {
-    let mut hex = hex::decode(hex).unwrap();
-    hex.resize(32, 0);
-    U256::try_from(hex).expect("Failed to convert hex to U256")
+    let data = hex::decode(hex).unwrap();
+    let len = data.len();
+    if len >= 32 {
+        // panic if hex is larger than 32 bytes
+        U256::try_from(data).expect("Failed to convert hex to U256")
+    } else {
+        // prepend hex with zeros so that it is 32 bytes
+        let mut new_vec = vec![0_u8; 32 - len];
+        new_vec.extend(data.iter());
+        U256::try_from(new_vec).expect("Failed to convert hex to U256")
+    }
 }
 
 fn new_extranonce2_size() -> usize {
@@ -121,9 +129,9 @@ impl<'a> Server<'a> {
             loop {
                 let notify_time = 5;
                 if let Some(mut self_) = cloned.try_lock() {
-                    let sender = self_.sender_outgoing.clone();
+                    let sender = &self_.sender_outgoing.clone();
                     let notify = self_.notify().unwrap();
-                    Server::send_message(&sender, notify).await;
+                    Server::send_message(sender, notify).await;
                     drop(self_);
                     task::sleep(Duration::from_secs(notify_time)).await;
                     //subtract notify_time from run_time
@@ -183,7 +191,7 @@ impl<'a> Server<'a> {
     }
 
     // async fn send_notify(&mut self) {
-    //     let sender = &self.sender_outgoing.clone();
+    //     let sender = &self.sender_outgoing;
     //     let notify = self.notify().unwrap();
     //     Self::send_message(sender, notify).await;
     // }
@@ -267,13 +275,13 @@ impl<'a> IsServer<'a> for Server<'a> {
     }
 
     fn notify(&mut self) -> Result<json_rpc::Message<'a>, Error<'a>> {
-        let u256 = extranonce_from_hex("ffff");
+        let hex = "ffff";
         server_to_client::Notify {
             job_id: "ciao".to_string(),
             prev_hash: utils::PrevHash(vec![3_u8, 4, 5, 6]),
-            coin_base1: u256.clone(),
-            coin_base2: u256.clone(),
-            merkle_branch: vec![u256],
+            coin_base1: hex.try_into()?,
+            coin_base2: hex.try_into()?,
+            merkle_branch: vec![extranonce_from_hex(hex)],
             version: HexU32Be(5667),
             bits: HexU32Be(5678),
             time: HexU32Be(5609),
@@ -398,7 +406,7 @@ impl<'a> Client<'static> {
             .as_nanos()
             .to_string();
         let subscribe = self.subscribe(id, None).unwrap();
-        Self::send_message(&self.sender_outgoing.clone(), subscribe).await;
+        Self::send_message(&self.sender_outgoing, subscribe).await;
     }
 
     //pub async fn restore_subscribe(&mut self) {
@@ -417,9 +425,8 @@ impl<'a> Client<'static> {
             .unwrap()
             .as_nanos()
             .to_string();
-        let sender_outgoing = self.sender_outgoing.clone();
         if let Ok(authorize) = self.authorize(id.clone(), "user".to_string(), "user".to_string()) {
-            Self::send_message(&sender_outgoing, authorize).await;
+            Self::send_message(&self.sender_outgoing, authorize).await;
         }
     }
 
@@ -442,7 +449,7 @@ impl<'a> Client<'static> {
                 version_bits,
             )
             .unwrap();
-        Self::send_message(&self.sender_outgoing.clone(), submit).await;
+        Self::send_message(&self.sender_outgoing, submit).await;
     }
 
     pub async fn send_configure(&mut self) {

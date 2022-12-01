@@ -8,7 +8,7 @@ use crate::{
     error::Error,
     json_rpc::{Message, Notification, Response},
     methods::ParsingMethodError,
-    utils::{HexU32Be, PrevHash},
+    utils::{HexBytes, HexU32Be, PrevHash},
 };
 use binary_sv2::U256;
 
@@ -41,8 +41,8 @@ use binary_sv2::U256;
 pub struct Notify<'a> {
     pub job_id: String,
     pub prev_hash: PrevHash,
-    pub coin_base1: U256<'a>,
-    pub coin_base2: U256<'a>,
+    pub coin_base1: HexBytes,
+    pub coin_base2: HexBytes,
     pub merkle_branch: Vec<U256<'a>>,
     pub version: HexU32Be,
     pub bits: HexU32Be,
@@ -55,8 +55,8 @@ impl<'a> TryFrom<Notify<'a>> for Message<'a> {
 
     fn try_from(notify: Notify) -> Result<Self, Error> {
         let prev_hash: Value = notify.prev_hash.try_into()?;
-        let coin_base1: Value = notify.coin_base1.inner_as_ref().try_into()?;
-        let coin_base2: Value = notify.coin_base2.inner_as_ref().try_into()?;
+        let coin_base1: Value = notify.coin_base1.try_into()?;
+        let coin_base2: Value = notify.coin_base2.try_into()?;
         let mut merkle_branch: Vec<Value> = vec![];
         for mb in notify.merkle_branch {
             let mb: Value = mb.inner_as_ref().try_into()?;
@@ -108,8 +108,8 @@ impl<'a> TryFrom<Notification> for Notify<'a> {
                 (
                     a.into(),
                     b.as_str().try_into()?,
-                    U256::try_from(hex::decode(c).unwrap()).unwrap(),
-                    U256::try_from(hex::decode(d).unwrap()).unwrap(),
+                    c.as_str().try_into()?,
+                    d.as_str().try_into()?,
                     e,
                     f.as_str().try_into()?,
                     g.as_str().try_into()?,
@@ -121,13 +121,12 @@ impl<'a> TryFrom<Notification> for Notify<'a> {
         };
         let mut merkle_branch = vec![];
         for h in merkle_branch_ {
-            let h: U256 = U256::try_from(
-                hex::decode(
-                    h.as_str()
-                        .ok_or_else(|| ParsingMethodError::not_string_from_value(h.clone()))?,
-                )
-                .unwrap(),
+            let h: U256 = hex::decode(
+                h.as_str()
+                    .ok_or_else(|| ParsingMethodError::not_string_from_value(h.clone()))?,
             )
+            .unwrap()
+            .try_into()
             .unwrap();
             merkle_branch.push(h);
         }
@@ -245,9 +244,9 @@ pub struct SetVersionMask {
 }
 
 impl<'a> TryFrom<SetVersionMask> for Message<'a> {
-    type Error = Error<'static>;
+    type Error = Error<'a>;
 
-    fn try_from(sv: SetVersionMask) -> Result<Self, Error<'static>> {
+    fn try_from(sv: SetVersionMask) -> Result<Self, Error<'a>> {
         let version_mask: Value = sv.version_mask.try_into()?;
         Ok(Message::Notification(Notification {
             method: "mining.set_version".to_string(),
@@ -555,7 +554,7 @@ pub struct VersionRollingParams {
     pub version_rolling_min_bit_count: HexU32Be,
 }
 
-impl VersionRollingParams {
+impl<'a> VersionRollingParams {
     pub fn new(version_rolling_mask: HexU32Be, version_rolling_min_bit_count: HexU32Be) -> Self {
         VersionRollingParams {
             version_rolling: true,

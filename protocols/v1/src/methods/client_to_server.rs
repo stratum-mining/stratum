@@ -302,7 +302,7 @@ impl<'a> TryFrom<Subscribe<'a>> for Message<'a> {
 
     fn try_from(subscribe: Subscribe) -> Result<Self, Error> {
         let params = match (subscribe.agent_signature, subscribe.extranonce1) {
-            (a, Some(b)) => vec![a, b.to_vec().to_hex()],
+            (a, Some(b)) => vec![a, b.inner_as_ref().to_hex()],
             (a, None) => vec![a],
         };
         Ok(Message::StandardRequest(StandardRequest {
