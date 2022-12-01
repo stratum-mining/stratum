@@ -153,9 +153,14 @@ pub struct Target {
     tail: u128,
 }
 
+impl Target {
+    pub fn new(head: u128, tail: u128) -> Self {
+        Self { head, tail }
+    }
+}
+
 impl From<[u8; 32]> for Target {
-    fn from(mut v: [u8; 32]) -> Self {
-        v.reverse();
+    fn from(v: [u8; 32]) -> Self {
         // below unwraps never panics
         let head = u128::from_le_bytes(v[0..16].try_into().unwrap());
         let tail = u128::from_le_bytes(v[16..32].try_into().unwrap());
@@ -199,9 +204,9 @@ impl Ord for Target {
         if self.tail == other.tail && self.head == other.head {
             core::cmp::Ordering::Equal
         } else if self.head != other.head {
-            self.head.cmp(&other.head)
-        } else {
             self.tail.cmp(&other.tail)
+        } else {
+            self.head.cmp(&other.head)
         }
     }
 }
@@ -301,6 +306,20 @@ impl Extranonce {
 
     pub fn to_vec(self) -> alloc::vec::Vec<u8> {
         self.extranonce
+    }
+
+    // Return only the prefix part of the extranonce
+    // If the required size is greater than the extranonce len it return None
+    pub fn into_prefix(&self, prefix_len: usize) -> Option<B032<'static>> {
+        if prefix_len > self.extranonce.len() {
+            None
+        } else {
+            let mut prefix = self.extranonce.clone();
+            prefix.resize(prefix_len, 0);
+            // unwrap is sage as prefix_len can not be greater than 32 cause is not possible to
+            // contruct Extranonce with the inner vecto greater than 32.
+            Some(prefix.try_into().unwrap())
+        }
     }
 }
 
@@ -471,12 +490,28 @@ impl ExtendedExtranonce {
         }
     }
 
+    pub fn new_with_inner_only_test(range_0: Range<usize>, range_1: Range<usize>, range_2: Range<usize>, mut inner: alloc::vec::Vec<u8>) -> Self {
+        inner.resize(MAX_EXTRANONCE_LEN, 0);
+        let inner = inner.try_into().unwrap();
+        Self {
+            inner,
+            range_0,
+            range_1,
+            range_2,
+        }
+    }
+
+
     pub fn get_len(&self) -> usize {
         self.range_2.end
     }
 
     pub fn get_range2_len(&self) -> usize {
         self.range_2.end - self.range_2.start
+    }
+
+    pub fn get_prefix_len(&self) -> usize {
+        self.range_1.end - self.range_0.start
     }
 
     /// Suppose that P receives from the upstream an extranonce that needs to be converted into any
@@ -1036,5 +1071,31 @@ pub mod tests {
             }
             result[..].try_into().unwrap()
         }
+    }
+
+    #[test]
+    fn test_extranonce_to_prefix() {
+        let inner = vec![1, 2, 3, 4, 5, 6, 7, 8, 9];
+        let extranone = Extranonce { extranonce: inner };
+        let prefix = extranone.into_prefix(4).unwrap();
+        assert!(vec![1, 2, 3, 4] == prefix.to_vec())
+    }
+
+    #[test]
+    fn test_extranonce_to_prefix_not_greater_than_inner() {
+        let inner = vec![1, 2, 3, 4, 5, 6, 7, 8, 9];
+        let extranone = Extranonce { extranonce: inner };
+        let prefix = extranone.into_prefix(20);
+        assert!(prefix.is_none())
+    }
+
+    #[test]
+    fn test_extended_extranonce_get_prefix_len() {
+        let range_0 = 0..2;
+        let range_1 = 2..4;
+        let range_2 = 4..9;
+        let extended = ExtendedExtranonce::new(range_0, range_1, range_2);
+        let prefix_len = extended.get_prefix_len();
+        assert!(prefix_len == 4);
     }
 }
