@@ -392,6 +392,7 @@ impl ParseUpstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> fo
     }
 
     fn handle_set_new_prev_hash(&mut self, m: SetNewPrevHash) -> Result<SendTo<()>, Error> {
+        debug!("Got new prev hash: {:?}", m.prev_hash);
         let jobs: Vec<&NewMiningJob<'static>> = self
             .jobs
             .iter()
@@ -408,7 +409,7 @@ impl ParseUpstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> fo
                 self.jobs = vec![jobs[0].clone()];
                 self.prev_hash = Some(m.as_static());
             }
-            _ => panic!(),
+            _ => panic!("More than one future job with the same id"),
         }
         Ok(SendTo::None(None))
     }

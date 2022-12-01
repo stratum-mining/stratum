@@ -74,7 +74,7 @@ impl PlainConnection {
                     Err(_) => {
                         // Just fail and force to reinitilize everything
                         let _ = writer.shutdown().await;
-                        panic!()
+                        break;
                     }
                 };
             }

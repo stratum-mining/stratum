@@ -135,7 +135,7 @@ pub enum JobNegotiation<'a> {
 
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "with_serde", derive(Serialize, Deserialize))]
-pub enum Mining<'a> {
+pub enum  Mining<'a> {
     #[cfg_attr(feature = "with_serde", serde(borrow))]
     CloseChannel(CloseChannel<'a>),
     #[cfg_attr(feature = "with_serde", serde(borrow))]
