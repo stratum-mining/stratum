@@ -243,7 +243,7 @@ impl Client {
     }
 
     /// Send SV1 messages to the receiver_outgoing which writes to the socket (aka Upstream node)
-    async fn send_message(sender: Sender<String>, msg: json_rpc::Message<'static>) {
+    async fn send_message(sender: Sender<String>, msg: json_rpc::Message) {
         let msg = format!("{}\n", serde_json::to_string(&msg).unwrap());
         println!(" - Send: {}", &msg);
         sender.send(msg).await.unwrap();
@@ -389,7 +389,7 @@ impl IsClient<'static> for Client {
         id: String,
         name: String,
         password: String,
-    ) -> Result<json_rpc::Message<'static>, Error> {
+    ) -> Result<json_rpc::Message, Error> {
         match self.status() {
             ClientStatus::Init => Err(Error::IncorrectClientStatus("mining.authorize".to_string())),
             _ => {
@@ -406,8 +406,8 @@ impl IsClient<'static> for Client {
 
     fn handle_error_message(
         &mut self,
-        message: v1::Message<'static>,
-    ) -> Result<Option<json_rpc::Message<'static>>, Error<'static>> {
+        message: v1::Message,
+    ) -> Result<Option<json_rpc::Message>, Error<'static>> {
         println!("{:?}", message);
         Ok(None)
     }

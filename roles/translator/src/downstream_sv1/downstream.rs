@@ -35,7 +35,7 @@ pub struct Downstream {
     /// translation into a SV2 `SubmitSharesExtended`.
     tx_sv1_submit: Sender<(v1::client_to_server::Submit<'static>, ExtendedExtranonce)>,
     /// Sends message to the SV1 Downstream role.
-    tx_outgoing: Sender<json_rpc::Message<'static>>,
+    tx_outgoing: Sender<json_rpc::Message>,
     /// Difficulty target for SV1 Downstream.
     target: Arc<Mutex<Vec<u8>>>,
     /// True if this is the first job received from `Upstream`.
@@ -211,7 +211,7 @@ impl Downstream {
     /// Converts target received by the `SetTarget` SV2 message from the Upstream role into the
     /// difficulty for the Downstream role and creates the SV1 `mining.set_difficulty` message to
     /// be sent to the Downstream role.
-    fn get_set_difficulty(target: Vec<u8>) -> json_rpc::Message<'static> {
+    fn get_set_difficulty(target: Vec<u8>) -> json_rpc::Message {
         let value = Downstream::difficulty_from_target(target);
         let set_target = v1::methods::server_to_client::SetDifficulty { value };
         let message: json_rpc::Message = set_target.try_into().unwrap();
@@ -255,7 +255,7 @@ impl Downstream {
     /// As SV1 messages come in, determines if the message response needs to be translated to SV2
     /// and sent to the `Upstream`, or if a direct response can be sent back by the `Translator`
     /// (SV1 and SV2 protocol messages are NOT 1-to-1).
-    async fn handle_incoming_sv1(self_: Arc<Mutex<Self>>, message_sv1: json_rpc::Message<'static>) {
+    async fn handle_incoming_sv1(self_: Arc<Mutex<Self>>, message_sv1: json_rpc::Message) {
         // `handle_message` in `IsServer` trait + calls `handle_request`
         // TODO: Map err from V1Error to Error::V1Error
         let response = self_.safe_lock(|s| s.handle_message(message_sv1)).unwrap();

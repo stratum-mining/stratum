@@ -185,16 +185,10 @@ impl<'a> Server<'a> {
         };
     }
 
-    async fn send_message(sender_outgoing: &Sender<String>, msg: json_rpc::Message<'a>) {
+    async fn send_message(sender_outgoing: &Sender<String>, msg: json_rpc::Message) {
         let msg = format!("{}\n", serde_json::to_string(&msg).unwrap());
         sender_outgoing.send(msg).await.unwrap();
     }
-
-    // async fn send_notify(&mut self) {
-    //     let sender = &self.sender_outgoing;
-    //     let notify = self.notify().unwrap();
-    //     Self::send_message(sender, notify).await;
-    // }
 }
 
 impl<'a> IsServer<'a> for Server<'a> {
@@ -274,7 +268,7 @@ impl<'a> IsServer<'a> for Server<'a> {
         self.version_rolling_min_bit = mask
     }
 
-    fn notify(&mut self) -> Result<json_rpc::Message<'a>, Error<'a>> {
+    fn notify(&mut self) -> Result<json_rpc::Message, Error<'a>> {
         let hex = "ffff";
         server_to_client::Notify {
             job_id: "ciao".to_string(),
@@ -389,7 +383,7 @@ impl<'a> Client<'static> {
         };
     }
 
-    async fn send_message(sender_outgoing: &Sender<String>, msg: json_rpc::Message<'a>) {
+    async fn send_message(sender_outgoing: &Sender<String>, msg: json_rpc::Message) {
         let msg = format!("{}\n", serde_json::to_string(&msg).unwrap());
         sender_outgoing.send(msg).await.unwrap();
     }
@@ -553,7 +547,7 @@ impl<'a> IsClient<'a> for Client<'a> {
         id: String,
         name: String,
         password: String,
-    ) -> Result<json_rpc::Message<'a>, Error> {
+    ) -> Result<json_rpc::Message, Error> {
         match self.status() {
             ClientStatus::Init => Err(Error::IncorrectClientStatus("mining.authorize".to_string())),
             _ => {
@@ -570,8 +564,8 @@ impl<'a> IsClient<'a> for Client<'a> {
 
     fn handle_error_message(
         &mut self,
-        message: v1::Message<'a>,
-    ) -> Result<Option<json_rpc::Message<'a>>, Error<'a>> {
+        message: v1::Message,
+    ) -> Result<Option<json_rpc::Message>, Error<'a>> {
         println!("{:?}", message);
         Ok(None)
     }

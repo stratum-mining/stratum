@@ -43,7 +43,7 @@ impl Authorize {
     }
 }
 
-impl<'a> From<Authorize> for Message<'a> {
+impl<'a> From<Authorize> for Message {
     fn from(auth: Authorize) -> Self {
         Message::StandardRequest(StandardRequest {
             id: auth.id.parse().unwrap(),
@@ -139,7 +139,7 @@ impl<'a> Submit<'a> {
     }
 }
 
-impl<'a> From<Submit<'a>> for Message<'a> {
+impl<'a> From<Submit<'a>> for Message {
     fn from(submit: Submit) -> Self {
         let ex: String = submit.extra_nonce2.inner_as_ref().to_hex();
         let mut params: Vec<Value> = vec![
@@ -297,7 +297,7 @@ impl<'a> Subscribe<'a> {
     }
 }
 
-impl<'a> TryFrom<Subscribe<'a>> for Message<'a> {
+impl<'a> TryFrom<Subscribe<'a>> for Message {
     type Error = Error<'a>;
 
     fn try_from(subscribe: Subscribe) -> Result<Self, Error> {
@@ -397,7 +397,7 @@ impl Configure {
     }
 }
 
-impl<'a> From<Configure> for Message<'a> {
+impl<'a> From<Configure> for Message {
     fn from(conf: Configure) -> Self {
         let mut params = serde_json::Map::new();
         let extension_names: Vec<Value> = conf

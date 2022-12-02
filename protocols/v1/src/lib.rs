@@ -66,7 +66,7 @@ pub trait IsServer<'a> {
     ///
     fn handle_message(
         &mut self,
-        msg: json_rpc::Message<'a>,
+        msg: json_rpc::Message,
     ) -> Result<Option<json_rpc::Response>, Error<'a>>
     where
         Self: std::marker::Sized,
@@ -211,7 +211,7 @@ pub trait IsServer<'a> {
         &mut self,
         extra_nonce1: U256<'a>,
         extra_nonce2_size: usize,
-    ) -> Result<json_rpc::Message<'a>, Error<'a>> {
+    ) -> Result<json_rpc::Message, Error<'a>> {
         self.set_extranonce1(Some(extra_nonce1.clone()));
         self.set_extranonce2_size(Some(extra_nonce2_size));
 
@@ -241,8 +241,8 @@ pub trait IsClient<'a> {
     ///
     fn handle_message(
         &mut self,
-        msg: json_rpc::Message<'a>,
-    ) -> Result<Option<json_rpc::Message<'a>>, Error<'a>>
+        msg: json_rpc::Message,
+    ) -> Result<Option<json_rpc::Message>, Error<'a>>
     where
         Self: std::marker::Sized,
     {
@@ -290,7 +290,7 @@ pub trait IsClient<'a> {
     fn handle_request(
         &mut self,
         request: methods::Server2Client<'a>,
-    ) -> Result<Option<json_rpc::Message<'a>>, Error<'a>>
+    ) -> Result<Option<json_rpc::Message>, Error<'a>>
     where
         Self: std::marker::Sized,
     {
@@ -308,7 +308,7 @@ pub trait IsClient<'a> {
     fn handle_response(
         &mut self,
         response: methods::Server2ClientResponse<'a>,
-    ) -> Result<Option<json_rpc::Message<'a>>, Error<'a>>
+    ) -> Result<Option<json_rpc::Message>, Error<'a>>
     where
         Self: std::marker::Sized,
     {
@@ -349,8 +349,8 @@ pub trait IsClient<'a> {
 
     fn handle_error_message(
         &mut self,
-        message: Message<'a>,
-    ) -> Result<Option<json_rpc::Message<'a>>, Error<'a>>;
+        message: Message,
+    ) -> Result<Option<json_rpc::Message>, Error<'a>>;
 
     /// Check if the client sent an Authorize request with the given id, if so it return the
     /// authorized name
@@ -399,7 +399,7 @@ pub trait IsClient<'a> {
     /// Register the given user_name has authorized by the server
     fn authorize_user_name(&mut self, name: String);
 
-    fn configure(&mut self, id: String) -> json_rpc::Message<'a> {
+    fn configure(&mut self, id: String) -> json_rpc::Message {
         client_to_server::Configure::new(
             id,
             self.version_rolling_mask(),
@@ -412,7 +412,7 @@ pub trait IsClient<'a> {
         &mut self,
         id: String,
         extranonce1: Option<U256<'a>>,
-    ) -> Result<json_rpc::Message<'a>, Error<'a>> {
+    ) -> Result<json_rpc::Message, Error<'a>> {
         match self.status() {
             ClientStatus::Init => Err(Error::IncorrectClientStatus("mining.subscribe".to_string())),
             _ => Ok(client_to_server::Subscribe {
@@ -429,7 +429,7 @@ pub trait IsClient<'a> {
         id: String,
         name: String,
         password: String,
-    ) -> Result<json_rpc::Message<'a>, Error> {
+    ) -> Result<json_rpc::Message, Error> {
         match self.status() {
             ClientStatus::Init => Err(Error::IncorrectClientStatus("mining.authorize".to_string())),
             _ => Ok(client_to_server::Authorize { id, name, password }.into()),
@@ -444,7 +444,7 @@ pub trait IsClient<'a> {
         time: i64,
         nonce: i64,
         version_bits: Option<HexU32Be>,
-    ) -> Result<json_rpc::Message<'a>, Error<'a>> {
+    ) -> Result<json_rpc::Message, Error<'a>> {
         match self.status() {
             ClientStatus::Init => Err(Error::IncorrectClientStatus("mining.submit".to_string())),
             _ => {

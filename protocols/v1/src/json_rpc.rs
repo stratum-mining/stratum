@@ -4,15 +4,14 @@ use std::fmt;
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 #[serde(untagged)]
-pub enum Message<'a> {
+pub enum Message {
     StandardRequest(StandardRequest),
     Notification(Notification),
     OkResponse(Response),
     ErrorResponse(Response),
-    PhantomData(std::marker::PhantomData<&'a str>),
 }
 
-impl<'a> Message<'a> {
+impl<'a> Message {
     // TODO REMOVE it
     pub fn is_response(&self) -> bool {
         match self {
@@ -20,7 +19,6 @@ impl<'a> Message<'a> {
             Message::Notification(_) => false,
             Message::OkResponse(_) => true,
             Message::ErrorResponse(_) => true,
-            _ => false,
         }
     }
 
@@ -60,7 +58,7 @@ pub struct JsonRpcError {
     pub data: Option<serde_json::Value>,
 }
 
-impl<'a> From<Response> for Message<'a> {
+impl<'a> From<Response> for Message {
     fn from(res: Response) -> Self {
         if res.error.is_some() {
             Message::ErrorResponse(res)
@@ -70,13 +68,13 @@ impl<'a> From<Response> for Message<'a> {
     }
 }
 
-impl<'a> From<StandardRequest> for Message<'a> {
+impl<'a> From<StandardRequest> for Message {
     fn from(sr: StandardRequest) -> Self {
         Message::StandardRequest(sr)
     }
 }
 
-impl<'a> From<Notification> for Message<'a> {
+impl<'a> From<Notification> for Message {
     fn from(n: Notification) -> Self {
         Message::Notification(n)
     }

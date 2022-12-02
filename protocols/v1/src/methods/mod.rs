@@ -16,7 +16,7 @@ pub enum MethodError<'a> {
     /// If the json_rpc Response co"ntain an error in this case the error should just be reported
     ResponseIsAnError(Box<crate::json_rpc::Response>),
     /// Method can not be parsed
-    ParsingMethodError((ParsingMethodError, Message<'a>)),
+    ParsingMethodError((ParsingMethodError, Message)),
     // Method can not be serialized
     // SerializeError(Box<Method>),
     UnexpectedMethod(Method<'a>),
@@ -79,8 +79,8 @@ impl<'a> From<Error<'a>> for ParsingMethodError {
     }
 }
 
-impl ParsingMethodError {
-    pub fn as_method_error(self, msg: Message) -> MethodError {
+impl<'a> ParsingMethodError {
+    pub fn as_method_error(self, msg: Message) -> MethodError<'a> {
         MethodError::ParsingMethodError((self, msg))
     }
 }
@@ -120,7 +120,7 @@ pub enum Method<'a> {
     Client2Server(Client2Server<'a>),
     Server2Client(Server2Client<'a>),
     Server2ClientResponse(Server2ClientResponse<'a>),
-    ErrorMessage(Message<'a>),
+    ErrorMessage(Message),
 }
 
 #[derive(Debug)]
@@ -138,10 +138,10 @@ impl<'a> From<Client2Server<'a>> for Method<'a> {
     }
 }
 
-impl<'a> TryFrom<Message<'a>> for Client2Server<'a> {
+impl<'a> TryFrom<Message> for Client2Server<'a> {
     type Error = MethodError<'a>;
 
-    fn try_from(msg: Message<'a>) -> Result<Self, Self::Error> {
+    fn try_from(msg: Message) -> Result<Self, Self::Error> {
         let method: Method = msg.try_into()?;
         match method {
             Method::Client2Server(client_to_server) => Ok(client_to_server),
@@ -166,10 +166,10 @@ impl<'a> From<Server2Client<'a>> for Method<'a> {
     }
 }
 
-impl<'a> TryFrom<Message<'a>> for Server2Client<'a> {
+impl<'a> TryFrom<Message> for Server2Client<'a> {
     type Error = MethodError<'a>;
 
-    fn try_from(msg: Message<'a>) -> Result<Self, Self::Error> {
+    fn try_from(msg: Message) -> Result<Self, Self::Error> {
         let method: Method = msg.try_into()?;
         match method {
             Method::Server2Client(client_to_server) => Ok(client_to_server),
@@ -196,10 +196,10 @@ impl<'a> From<Server2ClientResponse<'a>> for Method<'a> {
     }
 }
 
-impl<'a> TryFrom<Message<'a>> for Server2ClientResponse<'a> {
+impl<'a> TryFrom<Message> for Server2ClientResponse<'a> {
     type Error = MethodError<'a>;
 
-    fn try_from(msg: Message<'a>) -> Result<Self, Self::Error> {
+    fn try_from(msg: Message) -> Result<Self, Self::Error> {
         let method: Method = msg.try_into()?;
         match method {
             Method::Server2ClientResponse(server_to_client) => Ok(server_to_client),
@@ -210,10 +210,10 @@ impl<'a> TryFrom<Message<'a>> for Server2ClientResponse<'a> {
     }
 }
 
-impl<'a> TryFrom<Message<'a>> for Method<'a> {
+impl<'a> TryFrom<Message> for Method<'a> {
     type Error = MethodError<'a>;
 
-    fn try_from(msg: Message<'a>) -> Result<Self, MethodError<'a>> {
+    fn try_from(msg: Message) -> Result<Self, MethodError<'a>> {
         match &msg {
             Message::StandardRequest(request) => match &request.method[..] {
                 "mining.subscribe" => {
@@ -286,7 +286,6 @@ impl<'a> TryFrom<Message<'a>> for Method<'a> {
                 .map(Method::Server2ClientResponse)
                 .map_err(|e| e.as_method_error(msg)),
             Message::ErrorResponse(_) => Ok(Method::ErrorMessage(msg)),
-            Message::PhantomData(_) => unreachable!(),
         }
     }
 }

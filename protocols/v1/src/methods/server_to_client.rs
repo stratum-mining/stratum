@@ -50,7 +50,7 @@ pub struct Notify<'a> {
     pub clean_jobs: bool,
 }
 
-impl<'a> TryFrom<Notify<'a>> for Message<'a> {
+impl<'a> TryFrom<Notify<'a>> for Message {
     type Error = Error<'a>;
 
     fn try_from(notify: Notify) -> Result<Self, Error> {
@@ -154,7 +154,7 @@ pub struct SetDifficulty {
     pub value: f64,
 }
 
-impl<'a> From<SetDifficulty> for Message<'a> {
+impl<'a> From<SetDifficulty> for Message {
     fn from(sd: SetDifficulty) -> Self {
         let value: Value = sd.value.into();
         Message::Notification(Notification {
@@ -198,7 +198,7 @@ pub struct SetExtranonce<'a> {
     pub extra_nonce2_size: usize,
 }
 
-impl<'a> TryFrom<SetExtranonce<'a>> for Message<'a> {
+impl<'a> TryFrom<SetExtranonce<'a>> for Message {
     type Error = Error<'a>;
 
     fn try_from(se: SetExtranonce) -> Result<Self, Error> {
@@ -241,10 +241,10 @@ pub struct SetVersionMask {
     version_mask: HexU32Be,
 }
 
-impl<'a> TryFrom<SetVersionMask> for Message<'a> {
-    type Error = Error<'a>;
+impl TryFrom<SetVersionMask> for Message {
+    type Error = Error<'static>;
 
-    fn try_from(sv: SetVersionMask) -> Result<Self, Error<'a>> {
+    fn try_from(sv: SetVersionMask) -> Result<Self, Error<'static>> {
         let version_mask: Value = sv.version_mask.try_into()?;
         Ok(Message::Notification(Notification {
             method: "mining.set_version".to_string(),
@@ -362,7 +362,7 @@ pub struct Subscribe<'a> {
     pub subscriptions: Vec<(String, String)>,
 }
 
-impl<'a> From<Subscribe<'a>> for Message<'a> {
+impl<'a> From<Subscribe<'a>> for Message {
     fn from(su: Subscribe) -> Self {
         let extra_nonce1: Value = su.extra_nonce1.inner_as_ref().into();
         let extra_nonce2_size: Value = su.extra_nonce2_size.into();
@@ -459,7 +459,7 @@ impl Configure {
     }
 }
 
-impl<'a> From<Configure> for Message<'a> {
+impl<'a> From<Configure> for Message {
     fn from(co: Configure) -> Self {
         let mut params = serde_json::Map::new();
         if let Some(version_rolling_) = co.version_rolling {
