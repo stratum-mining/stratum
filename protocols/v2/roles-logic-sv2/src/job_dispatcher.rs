@@ -92,12 +92,12 @@ pub struct GroupChannelJobDispatcher {
     #[allow(dead_code)]
     target: Target,
     prev_hash: Vec<u8>,
-    // extedned_job_id -> standard_job_id -> standard_job
+    // extended_job_id -> standard_job_id -> standard_job
     future_jobs: HashMap<u32, HashMap<u32, DownstreamJob>>,
     // standard_job_id -> standard_job
     jobs: HashMap<u32, DownstreamJob>,
     ids: Arc<Mutex<Id>>,
-    // extended_id -> channel_id -> stanrd_id
+    // extended_id -> channel_id -> standard_id
     extended_id_to_job_id: HashMap<u32, HashMap<u32, u32>>,
     nbits: u32,
 }
@@ -121,11 +121,11 @@ impl GroupChannelJobDispatcher {
         }
     }
 
-    /// When a downstream open a connection with a proxy, the proxy use this function to create a
+    /// When a downstream open a connection with a proxy, the proxy uses this function to create a
     /// new mining job from the last valid new extended mining job.
     ///
-    /// When a proxy receive a new extended mining job from upstream it use this function to create
-    /// the corrispective new mining job for each connected downstream.
+    /// When a proxy receives a new extended mining job from upstream it uses this function to create
+    /// the corresponding new mining job for each connected downstream.
     #[allow(clippy::option_map_unit_fn)]
     pub fn on_new_extended_mining_job(
         &mut self,
@@ -227,9 +227,300 @@ impl GroupChannelJobDispatcher {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::errors::Error;
-    //use binary_sv2::{u256_from_int, Seq0255, B064K, U256};
-    use binary_sv2::u256_from_int;
+    use crate::{
+        errors::Error,
+        job_creator::{
+            tests::{new_pub_key, template_from_gen},
+            JobsCreators,
+        },
+    };
+    use binary_sv2::{u256_from_int, Seq0255, B064K, U256};
+    use mining_sv2::Extranonce;
+    use quickcheck::{Arbitrary, Gen};
+    use std::convert::TryFrom;
+
+    const BLOCK_REWARD: u64 = 625_000_000_000;
+
+    #[test]
+    fn test_block_hash() {
+        let le_version = "0x32950000".strip_prefix("0x").unwrap();
+        let be_prev_hash = "0x00000000000000000004e962c1a0fc6a201d937bf08ffe4b1221e956615c7cd9";
+        let be_merkle_root = "0x897dff6755a7c255455f1b2a2c8ad44ad1b6c23ef00fbf501d0dde7e42cd8c71";
+        let le_timestamp = "0x637B9A4C".strip_prefix("0x").unwrap();
+        let le_nbits = "0x17079e15".strip_prefix("0x").unwrap();
+        let le_nonce = "0x102aa10".strip_prefix("0x").unwrap();
+
+        let le_version = u32::from_str_radix(le_version, 16).expect("Failed converting hex to u32");
+        let mut be_prev_hash =
+            utils::decode_hex(be_prev_hash).expect("Failed converting hex to bytes");
+        let mut be_merkle_root =
+            utils::decode_hex(be_merkle_root).expect("Failed converting hex to bytes");
+        let le_timestamp: u32 =
+            u32::from_str_radix(le_timestamp, 16).expect("Failed converting hex to u32");
+        let le_nbits = u32::from_str_radix(le_nbits, 16).expect("Failed converting hex to u32");
+        let le_nonce = u32::from_str_radix(le_nonce, 16).expect("Failed converting hex to u32");
+        be_prev_hash.reverse();
+        be_merkle_root.reverse();
+        let le_prev_hash = be_prev_hash.as_slice();
+        let le_merkle_root = be_merkle_root.as_slice();
+
+        let block_header: BlockHeader = BlockHeader {
+            version: le_version,
+            prev_hash: le_prev_hash,
+            merkle_root: le_merkle_root,
+            timestamp: le_timestamp.to_be(),
+            nbits: le_nbits.to_be(),
+            nonce: le_nonce.to_be(),
+        };
+
+        let target = U256::from(block_header.hash());
+        let mut actual_block_hash =
+            utils::decode_hex("00000000000000000000199349a95526c4f83959f0ef06697048a297f25e7fac")
+                .expect("Failed converting hex to bytes");
+        assert_eq!(
+            target.to_vec(),
+            actual_block_hash,
+            "Computed block hash does not equal the actaul block hash"
+        );
+    }
+
+    #[test]
+    fn test_group_channel_job_dispatcher() {
+        let mut jobs_creators = JobsCreators::new(BLOCK_REWARD, new_pub_key()).unwrap();
+        let group_channel_id = 1;
+        jobs_creators
+            .new_group_channel(group_channel_id, true)
+            .unwrap();
+        //Create a template
+        let mut template = template_from_gen(&mut Gen::new(255));
+        template.future_template = true;
+        let jobs = jobs_creators
+            .on_new_template(&mut template)
+            .expect("Failed to create new job");
+        // create extended mining job
+        let extended_mining_job = jobs.get(&1).unwrap();
+        // create GroupChannelJobDispatcher
+        let ids = Arc::new(Mutex::new(Id::new()));
+        let mut group_channel_dispatcher = GroupChannelJobDispatcher::new(ids);
+        // create standard channel
+        let target = Target::from(U256::try_from(utils::extranonce_gen()).unwrap());
+        let standard_channel_id = 2;
+        let extranonce = Extranonce::try_from(utils::extranonce_gen())
+            .expect("Failed to convert bytes to extranonce");
+        let standard_channel = StandardChannel {
+            channel_id: standard_channel_id,
+            group_id: group_channel_id,
+            target: target,
+            extranonce: extranonce.clone(),
+        };
+        // call target function (on_new_extended_mining_job)
+        let new_mining_job = group_channel_dispatcher
+            .on_new_extended_mining_job(extended_mining_job, &standard_channel)
+            .unwrap();
+
+        // on_new_extended_mining_job assertions
+        let (future_job_id, test_merkle_root) = assert_on_new_extended_mining_job(
+            &group_channel_dispatcher,
+            &new_mining_job,
+            &extended_mining_job,
+            extranonce.clone(),
+            standard_channel_id,
+        );
+        // on_new_prev_hash assertions
+        if extended_mining_job.future_job {
+            assert_on_new_prev_hash(
+                &mut group_channel_dispatcher,
+                standard_channel_id,
+                future_job_id,
+                test_merkle_root,
+            )
+        }
+        assert_on_submit_shares(
+            &group_channel_dispatcher,
+            standard_channel_id,
+            future_job_id,
+        );
+    }
+
+    fn assert_on_new_extended_mining_job(
+        group_channel_job_dispatcher: &GroupChannelJobDispatcher,
+        new_mining_job: &NewMiningJob,
+        extended_mining_job: &NewExtendedMiningJob,
+        extranonce: Extranonce,
+        standard_channel_id: u32,
+    ) -> (u32, Vec<u8>) {
+        // compute test merkle path
+        let new_root = merkle_root_from_path(
+            extended_mining_job.coinbase_tx_prefix.inner_as_ref(),
+            extended_mining_job.coinbase_tx_suffix.inner_as_ref(),
+            extranonce.to_vec().as_slice(),
+            &extended_mining_job.merkle_path.inner_as_ref(),
+        )
+        .unwrap();
+        // Assertions
+        assert_eq!(
+            new_mining_job.channel_id, standard_channel_id,
+            "channel_id did not convert correctly"
+        );
+        assert_eq!(
+            new_mining_job.job_id, extended_mining_job.job_id,
+            "job_id did not convert correctly"
+        );
+        assert_eq!(
+            new_mining_job.version, extended_mining_job.version,
+            "version did not convert correctly"
+        );
+        assert_eq!(
+            new_mining_job.future_job, extended_mining_job.future_job,
+            "future_job did not convert correctly"
+        );
+        assert_eq!(
+            new_mining_job.merkle_root.to_vec(),
+            new_root,
+            "merkle_root did not convert correctly"
+        );
+        let mut future_job_id: u32 = 0;
+        if new_mining_job.future_job {
+            // assert job_id counter
+            let job_ids = group_channel_job_dispatcher
+                .extended_id_to_job_id
+                .get(&extended_mining_job.job_id)
+                .unwrap();
+            let standard_job_id = job_ids.get(&standard_channel_id).unwrap();
+            let standard_job_id_counter: u32 = group_channel_job_dispatcher
+                .ids
+                .safe_lock(|id| id.next())
+                .unwrap();
+            let prev_value = standard_job_id_counter - 1;
+            assert_eq!(
+                standard_job_id, &prev_value,
+                "Job Id counter does not match"
+            );
+            // assert job was stored
+            let future_jobs = group_channel_job_dispatcher
+                .future_jobs
+                .get(&extended_mining_job.job_id)
+                .unwrap();
+            let job = future_jobs.get(&prev_value).unwrap();
+            assert_eq!(
+                job.extended_job_id, extended_mining_job.job_id,
+                "job_id not stored correctly in future_jobs"
+            );
+            assert_eq!(
+                job.merkle_root,
+                new_mining_job.merkle_root.to_vec(),
+                "job merkle root not stored correctly in future jobs"
+            );
+            future_job_id = prev_value;
+        }
+        (future_job_id, new_root)
+    }
+
+    fn assert_on_new_prev_hash(
+        group_channel_job_dispatcher: &mut GroupChannelJobDispatcher,
+        standard_channel_id: u32,
+        future_job_id: u32,
+        test_merkle_root: Vec<u8>,
+    ) {
+        let mut prev_hash = Vec::new();
+        prev_hash.resize_with(32, || u8::arbitrary(&mut Gen::new(1)));
+        let min_ntime: u32 = 1;
+        let nbits: u32 = 1;
+        let new_message = SetNewPrevHash {
+            channel_id: standard_channel_id,
+            job_id: future_job_id,
+            prev_hash: U256::try_from(prev_hash).unwrap(),
+            min_ntime,
+            nbits,
+        };
+
+        let res = group_channel_job_dispatcher
+            .on_new_prev_hash(&new_message)
+            .expect("on_new_prev_hash failed to execute");
+
+        // assert future job was moved to current jobs
+        let new_current_job = group_channel_job_dispatcher
+            .jobs
+            .get(&future_job_id)
+            .unwrap();
+        assert_eq!(
+            new_current_job.merkle_root, test_merkle_root,
+            "Future job not moved to current job correctly (merkle root)"
+        );
+        assert_eq!(
+            new_current_job.extended_job_id, future_job_id,
+            "Future job not moved to current job correctly (job_id)"
+        );
+        assert_eq!(
+            group_channel_job_dispatcher.nbits, new_message.nbits,
+            "nbits not updated for SetNewPrevHash"
+        );
+        assert_eq!(
+            group_channel_job_dispatcher.prev_hash,
+            new_message.prev_hash.to_vec(),
+            "prev_hash not updated for SetNewPrevHash"
+        );
+        assert!(
+            group_channel_job_dispatcher.future_jobs.is_empty(),
+            "Future jobs did not get cleared"
+        )
+    }
+    fn assert_on_submit_shares(
+        group_channel_job_dispatcher: &GroupChannelJobDispatcher,
+        standard_channel_id: u32,
+        job_id: u32,
+    ) {
+        let shares = SubmitSharesStandard {
+            /// Channel identification.
+            channel_id: standard_channel_id,
+            /// Unique sequential identifier of the submit within the channel.
+            sequence_number: 0,
+            /// Identifier of the job as provided by *NewMiningJob* or
+            /// *NewExtendedMiningJob* message.
+            job_id,
+            /// Nonce leading to the hash being submitted.
+            nonce: 1,
+            /// The nTime field in the block header. This MUST be greater than or equal
+            /// to the header_timestamp field in the latest SetNewPrevHash message
+            /// and lower than or equal to that value plus the number of seconds since
+            /// the receipt of that message.
+            ntime: 1,
+            /// Full nVersion field.
+            version: 1,
+        };
+        let mut faulty_shares = shares.clone();
+        faulty_shares.job_id += 1;
+
+        for (index, shares) in vec![shares, faulty_shares].iter().enumerate() {
+            match group_channel_job_dispatcher.on_submit_shares(shares.clone()) {
+                SendSharesResponse::Valid(resp) => {
+                    assert_eq!(
+                        index, 0,
+                        "Only the first item in iterator should be a valid response"
+                    );
+                    assert_eq!(resp.channel_id, standard_channel_id);
+                    assert_eq!(resp.job_id, job_id);
+                    assert_eq!(resp.sequence_number, shares.sequence_number);
+                    assert_eq!(resp.nonce, shares.nonce);
+                    assert_eq!(resp.ntime, shares.ntime);
+                    assert_eq!(resp.version, shares.version);
+                }
+                SendSharesResponse::Invalid(err) => {
+                    assert_eq!(
+                        index, 1,
+                        "Only the second item in iterator should be an invalid response"
+                    );
+                    assert_eq!(err.channel_id, standard_channel_id);
+                    assert_eq!(err.sequence_number, shares.sequence_number);
+                    assert_eq!(
+                        err.error_code,
+                        "".to_string().into_bytes().try_into().unwrap()
+                    );
+                }
+            };
+        }
+    }
+
     //#[cfg(feature = "serde")]
     //use serde::Deserialize;
 
@@ -670,4 +961,35 @@ mod tests {
     //        "GroupChannelJobDispatcher does not have any future jobs"
     //    );
     //}
+
+    pub mod utils {
+        use super::*;
+        use std::fmt::Write;
+
+        pub fn extranonce_gen() -> Vec<u8> {
+            let mut u8_gen = Gen::new(1);
+            let mut extranonce: Vec<u8> = Vec::new();
+            extranonce.resize_with(32, || u8::arbitrary(&mut u8_gen));
+            extranonce
+        }
+
+        pub fn decode_hex(s: &str) -> Result<Vec<u8>, core::num::ParseIntError> {
+            let s = match s.strip_prefix("0x") {
+                Some(s) => s,
+                None => s,
+            };
+            (0..s.len())
+                .step_by(2)
+                .map(|i| u8::from_str_radix(&s[i..i + 2], 16))
+                .collect()
+        }
+
+        pub fn encode_hex(bytes: &[u8]) -> String {
+            let mut s = String::with_capacity(bytes.len() * 2);
+            for &b in bytes {
+                write!(&mut s, "{:02x}", b).unwrap();
+            }
+            s
+        }
+    }
 }
