@@ -24,7 +24,8 @@ impl PlainConnection {
     ///
     #[allow(clippy::new_ret_no_self)]
     pub async fn new<'a, Message: Serialize + Deserialize<'a> + GetSize + Send + 'static>(
-        stream: TcpStream, strict: bool,
+        stream: TcpStream,
+        strict: bool,
     ) -> (
         Receiver<StandardEitherFrame<Message>>,
         Sender<StandardEitherFrame<Message>>,
