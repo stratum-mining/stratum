@@ -87,6 +87,7 @@ impl PlainConnection {
                     Err(_) => {
                         // Just fail and force to reinitilize everything
                         let _ = writer.shutdown().await;
+                        error!("Failed to read from stream - terminating connection");
                         break;
                     }
                 };
