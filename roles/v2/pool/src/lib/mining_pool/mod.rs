@@ -493,6 +493,7 @@ impl Downstream {
                     }
                     _ => {
                         pool.safe_lock(|p| p.downstreams.remove(&id)).unwrap();
+                        error!("Downstream {} disconnected", id);
                         break;
                     }
                 }
@@ -683,8 +684,9 @@ impl Pool {
             );
 
             // Uncomment to allow unencrypted connections
+            // with strict - drop the connection if anything odd comes in that we can't handle
             let (receiver, sender): (Receiver<EitherFrame>, Sender<EitherFrame>) =
-                network_helpers::plain_connection_tokio::PlainConnection::new(stream).await;
+                network_helpers::plain_connection_tokio::PlainConnection::new(stream, true).await;
             Self::accept_incoming_connection_(self_.clone(), receiver, sender).await;
         }
     }

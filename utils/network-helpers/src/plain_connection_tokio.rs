@@ -15,9 +15,16 @@ use tracing::error;
 pub struct PlainConnection {}
 
 impl PlainConnection {
+    ///
+    ///
+    /// # Arguments
+    ///
+    /// * `strict` - true - will disconnect a connection that sends a message that can't be translated
+    /// *           false - will ignore messages that can't be translated
+    ///
     #[allow(clippy::new_ret_no_self)]
     pub async fn new<'a, Message: Serialize + Deserialize<'a> + GetSize + Send + 'static>(
-        stream: TcpStream,
+        stream: TcpStream, strict: bool,
     ) -> (
         Receiver<StandardEitherFrame<Message>>,
         Sender<StandardEitherFrame<Message>>,
@@ -43,6 +50,12 @@ impl PlainConnection {
                     Ok(_) => {
                         if let Ok(x) = decoder.next_frame() {
                             sender_incoming.send(x.into()).await.unwrap();
+                        } else {
+                            error!("Error parsing incoming frame");
+                            if strict {
+                                error!("Terminating connection!!!");
+                                break;
+                            }
                         }
                     }
                     Err(e) => {

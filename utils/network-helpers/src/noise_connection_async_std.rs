@@ -8,7 +8,7 @@ use async_std::{
 use binary_sv2::{Deserialize, Serialize};
 use core::convert::TryInto;
 use std::time::Duration;
-use tracing::error;
+use tracing::{debug, error};
 
 use binary_sv2::GetSize;
 use codec_sv2::{
@@ -58,13 +58,10 @@ impl Connection {
                 match reader.read_exact(writable).await {
                     Ok(_) => {
                         let mut connection = cloned1.lock().await;
-
                         if let Ok(x) = decoder.next_frame(&mut connection.state) {
                             sender_incoming.send(x).await.unwrap();
                         } else {
-                            error!("Failed to handle noise frame!");
-                            let _ = reader.shutdown(async_std::net::Shutdown::Both);
-                            break;
+                            error!("Failed to decode noise frame!");
                         }
                     }
                     Err(e) => {
@@ -154,9 +151,10 @@ impl Connection {
         receiver_incoming: Receiver<StandardEitherFrame<Message>>,
     ) -> codec_sv2::State {
         let mut state = codec_sv2::State::initialize(role);
-
+        debug!("Initialized downstream noise handshake");
         let first_message = state.step(None).unwrap();
         sender_outgoing.send(first_message.into()).await.unwrap();
+        debug!("Sent first message to upstream");
 
         let second_message = match receiver_incoming.recv().await {
             Ok(x) => x,
@@ -165,17 +163,18 @@ impl Connection {
                 return state;
             }
         };
-
+        debug!("Received second message from upstream");
         let mut second_message: HandShakeFrame = second_message.try_into().unwrap();
         let second_message = second_message.payload().to_vec();
 
         let thirth_message = state.step(Some(second_message)).unwrap();
         sender_outgoing.send(thirth_message.into()).await.unwrap();
 
+        debug!("Sent third message to upstream");
         let fourth_message = receiver_incoming.recv().await.unwrap();
         let mut fourth_message: HandShakeFrame = fourth_message.try_into().unwrap();
         let fourth_message = fourth_message.payload().to_vec();
-
+        debug!("Received fourth message from upstream");
         state.step(Some(fourth_message)).unwrap();
 
         state.into_transport_mode().unwrap()
@@ -188,7 +187,7 @@ impl Connection {
         receiver_incoming: Receiver<StandardEitherFrame<Message>>,
     ) -> codec_sv2::State {
         let mut state = codec_sv2::State::initialize(role);
-        println!("Noise handshake started");
+        debug!("Noise handshake started");
         let mut first_message: HandShakeFrame =
             receiver_incoming.recv().await.unwrap().try_into().unwrap();
         let first_message = first_message.payload().to_vec();
@@ -203,7 +202,7 @@ impl Connection {
 
         let fourth_message = state.step(Some(thirth_message)).unwrap();
         sender_outgoing.send(fourth_message.into()).await.unwrap();
-        println!("Noise handshake finished");
+        debug!("Noise handshake finished");
 
         // CHECK IF FOURTH MESSAGE HAS BEEN SENT
         loop {
