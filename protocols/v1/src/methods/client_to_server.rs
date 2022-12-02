@@ -173,7 +173,7 @@ impl<'a> TryFrom<StandardRequest> for Submit<'a> {
                     [JString(a), JString(b), JString(c), JNumber(d), JNumber(e), JString(f)] => (
                         a.into(),
                         b.into(),
-                        U256::try_from(hex::decode(c).unwrap()).unwrap(),
+                        U256::try_from(hex::decode(c)?)?,
                         HexU32Be(d.as_u64().unwrap() as u32),
                         HexU32Be(e.as_u64().unwrap() as u32),
                         Some((f.as_str()).try_into()?),
@@ -181,7 +181,7 @@ impl<'a> TryFrom<StandardRequest> for Submit<'a> {
                     [JString(a), JString(b), JString(c), JString(d), JString(e), JString(f)] => (
                         a.into(),
                         b.into(),
-                        U256::try_from(hex::decode(c).unwrap()).unwrap(),
+                        U256::try_from(hex::decode(c)?)?,
                         (d.as_str()).try_into()?,
                         (e.as_str()).try_into()?,
                         Some((f.as_str()).try_into()?),
@@ -189,7 +189,7 @@ impl<'a> TryFrom<StandardRequest> for Submit<'a> {
                     [JString(a), JString(b), JString(c), JNumber(d), JNumber(e)] => (
                         a.into(),
                         b.into(),
-                        U256::try_from(hex::decode(c).unwrap()).unwrap(),
+                        U256::try_from(hex::decode(c)?)?,
                         HexU32Be(d.as_u64().unwrap() as u32),
                         HexU32Be(e.as_u64().unwrap() as u32),
                         None,
@@ -197,7 +197,7 @@ impl<'a> TryFrom<StandardRequest> for Submit<'a> {
                     [JString(a), JString(b), JString(c), JString(d), JString(e)] => (
                         a.into(),
                         b.into(),
-                        U256::try_from(hex::decode(c).unwrap()).unwrap(),
+                        U256::try_from(hex::decode(c)?)?,
                         (d.as_str()).try_into()?,
                         (e.as_str()).try_into()?,
                         None,
@@ -320,10 +320,7 @@ impl<'a> TryFrom<StandardRequest> for Subscribe<'a> {
         match msg.params.as_array() {
             Some(params) => {
                 let (agent_signature, extranonce1) = match &params[..] {
-                    [JString(a), JString(b)] => (
-                        a.into(),
-                        Some(U256::try_from(hex::decode(b).unwrap()).unwrap()),
-                    ),
+                    [JString(a), JString(b)] => (a.into(), Some(U256::try_from(hex::decode(b)?)?)),
                     [JString(a)] => (a.into(), None),
                     [] => ("".to_string(), None),
                     _ => return Err(ParsingMethodError::wrong_args_from_value(msg.params)),

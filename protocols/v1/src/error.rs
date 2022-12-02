@@ -10,6 +10,7 @@ pub enum Error<'a> {
     // /// `HexBytes` should be less than or equal to 32 bytes. Errors on conversion to `Vec` if
     // /// length is greater than 32 bytes.
     // BadHexBytesConvert(usize),
+    BadU256Convert(binary_sv2::Error),
     BTCHashError(bitcoin_hashes::Error),
     /// Errors on bad hex decode/encode.
     HexError(hex::FromHexError),
@@ -43,6 +44,7 @@ impl<'a> std::fmt::Display for Error<'a> {
             //     "Expected HexBytes to have length <= 32 bytes. Received `{}` bytes",
             //     u
             // ),
+            Error::BadU256Convert(ref e) => write!(f, "Bad U256 conversion: {:?}", e),
             Error::BTCHashError(ref e) => write!(f, "Bitcoin Hashes Error: `{:?}`", e),
             Error::HexError(ref e) => write!(f, "Bad hex encode/decode: `{:?}`", e),
             Error::IncorrectClientStatus(s) => {
@@ -100,5 +102,11 @@ impl<'a> From<std::convert::Infallible> for Error<'a> {
 impl<'a> From<MethodError<'a>> for Error<'a> {
     fn from(inner: MethodError<'a>) -> Self {
         Error::Method(inner)
+    }
+}
+
+impl<'a> From<binary_sv2::Error> for Error<'a> {
+    fn from(inner: binary_sv2::Error) -> Self {
+        Error::BadU256Convert(inner)
     }
 }

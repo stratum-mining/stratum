@@ -95,11 +95,20 @@ impl NextMiningNotify {
                 let coin_base1 = new_job.coinbase_tx_prefix.to_vec().into();
                 let coin_base2 = new_job.coinbase_tx_suffix.to_vec().into();
 
-                // Seq0255<'static, U56<'static>> -> Vec<Vec<u8>> -> Vec<HexBytes>
+                // Seq0255<'static, U56<'static>> -> Vec<Vec<u8>>
                 let merkle_path = new_job.merkle_path.clone().into_static().to_vec();
                 let merkle_branch: Vec<U256> = merkle_path
                     .into_iter()
-                    .map(|p| p.try_into().unwrap())
+                    .map(|p| match p.try_into() {
+                        Ok(val) => val,
+                        Err(e) => {
+                            error!("Failed to convert Transaction hash to U256 for merkle path");
+                            panic!(
+                                "Failed to convert Transaction hash to U256 for merkle path: {:?}",
+                                e
+                            );
+                        }
+                    })
                     .collect();
 
                 // u32 -> HexBytes

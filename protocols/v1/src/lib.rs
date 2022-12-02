@@ -322,7 +322,7 @@ pub trait IsClient<'a> {
                 let subscribe = self
                     .subscribe(
                         configure.id,
-                        Some(U256::try_from(hex::decode("08000002").unwrap()).unwrap()),
+                        Some(U256::try_from(hex::decode("08000002")?)?),
                     )
                     .ok();
                 Ok(subscribe)
@@ -453,16 +453,23 @@ pub trait IsClient<'a> {
                     // Err(())
                     panic!("TODO: Check if version_bits is set");
                 } else if self.is_authorized(&user_name) {
-                    Ok(client_to_server::Submit {
-                        job_id: self.last_notify().unwrap().job_id,
-                        user_name,
-                        extra_nonce2,
-                        time: HexU32Be(time as u32),
-                        nonce: HexU32Be(nonce as u32),
-                        version_bits,
-                        id,
+                    if let Some(notify) = self.last_notify() {
+                        Ok(client_to_server::Submit {
+                            job_id: notify.job_id,
+                            user_name,
+                            extra_nonce2,
+                            time: HexU32Be(time as u32),
+                            nonce: HexU32Be(nonce as u32),
+                            version_bits,
+                            id,
+                        }
+                        .into())
+                    } else {
+                        // TODO: create
+                        Err(Error::IncorrectClientStatus(
+                            "self.last_notify() returned None".to_string(),
+                        ))
                     }
-                    .into())
                 } else {
                     Err(Error::UnauthorizedClient(id))
                 }

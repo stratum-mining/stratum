@@ -124,10 +124,8 @@ impl<'a> TryFrom<Notification> for Notify<'a> {
             let h: U256 = hex::decode(
                 h.as_str()
                     .ok_or_else(|| ParsingMethodError::not_string_from_value(h.clone()))?,
-            )
-            .unwrap()
-            .try_into()
-            .unwrap();
+            )?
+            .try_into()?;
             merkle_branch.push(h);
         }
         Ok(Notify {
@@ -223,7 +221,7 @@ impl<'a> TryFrom<Notification> for SetExtranonce<'a> {
             .ok_or_else(|| ParsingMethodError::not_array_from_value(msg.params.clone()))?;
         let (extra_nonce1, extra_nonce2_size) = match &params[..] {
             [JString(a), JNumber(b)] => (
-                U256::try_from(hex::decode(a).unwrap()).unwrap(),
+                U256::try_from(hex::decode(a)?)?,
                 b.as_u64()
                     .ok_or_else(|| ParsingMethodError::not_unsigned_from_value(b.clone()))?
                     as usize,
@@ -393,7 +391,7 @@ impl<'a> TryFrom<&Response> for Subscribe<'a> {
         let (extra_nonce1, extra_nonce2_size, subscriptions_) = match &params[..] {
             [JString(a), JNumber(b), JArrary(d)] => (
                 // infallible
-                U256::try_from(hex::decode(a).unwrap()).unwrap(),
+                U256::try_from(hex::decode(a)?)?,
                 b.as_u64().ok_or_else(|| {
                     ParsingMethodError::ImpossibleToParseAsU64(Box::new(b.clone()))
                 })? as usize,

@@ -42,8 +42,15 @@ impl From<BTCHashError> for ParsingMethodError {
     }
 }
 
+impl From<binary_sv2::Error> for ParsingMethodError {
+    fn from(u256_err: binary_sv2::Error) -> Self {
+        ParsingMethodError::BadU256Convert(Box::new(u256_err))
+    }
+}
+
 #[derive(Debug)]
 pub enum ParsingMethodError {
+    BadU256Convert(Box<binary_sv2::Error>),
     HexError(Box<FromHexError>),
     #[allow(clippy::upper_case_acronyms)]
     BTCHashError(Box<BTCHashError>),
