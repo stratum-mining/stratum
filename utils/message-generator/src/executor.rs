@@ -256,7 +256,7 @@ impl Executor {
                                     }
                                 },
                                 Ok(roles_logic_sv2::parsers::Mining::OpenExtendedMiningChannelSuccess(m)) => {
-                                    if message_type.as_str() == "OpenStandardMiningChannelSuccess" {
+                                    if message_type.as_str() == "OpenExtendedMiningChannelSuccess" {
                                         let msg = serde_json::to_value(&m).unwrap();
                                         check_msg_field(msg,&field_name,&value_type,field);
                                     }
@@ -370,7 +370,7 @@ impl Executor {
                                 },
                                 Err(e) => panic!("err {:?}",e),
                             }
-                        } else if subprotocol.as_str() == "JobNegotiationProtocol" {
+                        } else if subprotocol.as_str() == "TemplateDistributionProtocol" {
                             match (header.msg_type(),payload).try_into() {
                                 Ok(roles_logic_sv2::parsers::TemplateDistribution::SubmitSolution(m)) => {
                                     if message_type.as_str() == "SubmitSolution" {
