@@ -41,7 +41,7 @@ pub async fn setup_as_upstream<
             .unwrap();
             Connection::new(stream, HandshakeRole::Responder(responder)).await
         }
-        None => PlainConnection::new(stream, false).await,
+        None => PlainConnection::new(stream).await,
     }
 }
 
@@ -58,6 +58,6 @@ pub async fn setup_as_downstream<
             let initiator = Initiator::from_raw_k(*publ.into_inner().as_bytes()).unwrap();
             Connection::new(stream, HandshakeRole::Initiator(initiator)).await
         }
-        None => PlainConnection::new(stream, true).await,
+        None => PlainConnection::new(stream).await,
     }
 }
