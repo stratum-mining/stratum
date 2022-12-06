@@ -446,7 +446,6 @@ version = "0.1.0"
 dependencies = [
  "async-channel",
  "async-std",
- "binary_sv2",
  "hex",
  "serde",
  "serde_json",
@@ -1795,7 +1794,6 @@ version = "0.1.0"
 dependencies = [
  "async-channel",
  "async-std",
- "binary_sv2",
  "bitcoin",
  "roles_logic_sv2",
  "serde",

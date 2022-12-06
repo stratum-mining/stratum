@@ -6,7 +6,7 @@ use async_std::{
     prelude::*,
     task,
 };
-use binary_sv2::U256;
+
 use roles_logic_sv2::{
     bitcoin::util::uint::Uint256,
     common_properties::{IsDownstream, IsMiningDownstream},
@@ -15,7 +15,11 @@ use roles_logic_sv2::{
 };
 use std::{net::SocketAddr, ops::Div, sync::Arc};
 use tracing::{debug, info};
-use v1::{client_to_server, json_rpc, server_to_client, utils::HexU32Be, IsServer};
+use v1::{
+    client_to_server, json_rpc, server_to_client,
+    utils::{Extranonce, HexU32Be},
+    IsServer,
+};
 
 /// Handles the sending and receiving of messages to and from an SV2 Upstream role (most typically
 /// a SV2 Pool server).
@@ -367,13 +371,16 @@ impl IsServer<'static> for Downstream {
 
     /// Sets the `extranonce1` field sent in the SV1 `mining.notify` message to the value specified
     /// by the SV2 `OpenExtendedMiningChannelSuccess` message sent from the Upstream role.
-    fn set_extranonce1(&mut self, _extranonce1: Option<U256<'static>>) -> U256<'static> {
+    fn set_extranonce1(
+        &mut self,
+        _extranonce1: Option<Extranonce<'static>>,
+    ) -> Extranonce<'static> {
         let extranonce1: Vec<u8> = self.extranonce.upstream_part().try_into().unwrap();
         extranonce1.try_into().unwrap()
     }
 
     /// Returns the `Downstream`'s `extranonce1` value.
-    fn extranonce1(&self) -> U256<'static> {
+    fn extranonce1(&self) -> Extranonce<'static> {
         let downstream_ext: Vec<u8> = self
             .extranonce
             .without_upstream_part(None)

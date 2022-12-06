@@ -9,9 +9,8 @@ use crate::{
     error::Error,
     json_rpc::{Message, Response, StandardRequest},
     methods::ParsingMethodError,
-    utils::HexU32Be,
+    utils::{Extranonce, HexU32Be},
 };
-use binary_sv2::U256;
 
 #[cfg(test)]
 use quickcheck::{Arbitrary, Gen};
@@ -118,10 +117,10 @@ pub struct ExtranonceSubscribe();
 /// more details).
 #[derive(Debug, Clone, PartialEq)]
 pub struct Submit<'a> {
-    pub user_name: String,      // root
-    pub job_id: String,         // 6
-    pub extra_nonce2: U256<'a>, // "8a.."
-    pub time: HexU32Be,         //string
+    pub user_name: String,            // root
+    pub job_id: String,               // 6
+    pub extra_nonce2: Extranonce<'a>, // "8a.."
+    pub time: HexU32Be,               //string
     pub nonce: HexU32Be,
     pub version_bits: Option<HexU32Be>,
     pub id: String,
@@ -141,7 +140,7 @@ impl<'a> Submit<'a> {
 
 impl<'a> From<Submit<'a>> for Message {
     fn from(submit: Submit) -> Self {
-        let ex: String = submit.extra_nonce2.inner_as_ref().to_hex();
+        let ex: String = submit.extra_nonce2.0.inner_as_ref().to_hex();
         let mut params: Vec<Value> = vec![
             submit.user_name.into(),
             submit.job_id.into(),
@@ -173,7 +172,7 @@ impl<'a> TryFrom<StandardRequest> for Submit<'a> {
                     [JString(a), JString(b), JString(c), JNumber(d), JNumber(e), JString(f)] => (
                         a.into(),
                         b.into(),
-                        U256::try_from(hex::decode(c)?)?,
+                        Extranonce::try_from(hex::decode(c)?)?,
                         HexU32Be(d.as_u64().unwrap() as u32),
                         HexU32Be(e.as_u64().unwrap() as u32),
                         Some((f.as_str()).try_into()?),
@@ -181,7 +180,7 @@ impl<'a> TryFrom<StandardRequest> for Submit<'a> {
                     [JString(a), JString(b), JString(c), JString(d), JString(e), JString(f)] => (
                         a.into(),
                         b.into(),
-                        U256::try_from(hex::decode(c)?)?,
+                        Extranonce::try_from(hex::decode(c)?)?,
                         (d.as_str()).try_into()?,
                         (e.as_str()).try_into()?,
                         Some((f.as_str()).try_into()?),
@@ -189,7 +188,7 @@ impl<'a> TryFrom<StandardRequest> for Submit<'a> {
                     [JString(a), JString(b), JString(c), JNumber(d), JNumber(e)] => (
                         a.into(),
                         b.into(),
-                        U256::try_from(hex::decode(c)?)?,
+                        Extranonce::try_from(hex::decode(c)?)?,
                         HexU32Be(d.as_u64().unwrap() as u32),
                         HexU32Be(e.as_u64().unwrap() as u32),
                         None,
@@ -197,7 +196,7 @@ impl<'a> TryFrom<StandardRequest> for Submit<'a> {
                     [JString(a), JString(b), JString(c), JString(d), JString(e)] => (
                         a.into(),
                         b.into(),
-                        U256::try_from(hex::decode(c)?)?,
+                        Extranonce::try_from(hex::decode(c)?)?,
                         (d.as_str()).try_into()?,
                         (e.as_str()).try_into()?,
                         None,
@@ -229,7 +228,7 @@ impl Arbitrary for Submit<'static> {
         println!("\nEXTRA: {:?}\n", extra);
         let bits = Option::<u32>::arbitrary(g);
         println!("\nBITS: {:?}\n", bits);
-        let extra: U256 = extra.try_into().unwrap();
+        let extra: Extranonce = extra.try_into().unwrap();
         let bits = bits.map(|x| HexU32Be(x));
         println!("\nBITS: {:?}\n", bits);
         Submit {
@@ -271,14 +270,14 @@ fn submit_from_to_json_rpc(submit: Submit<'static>) -> bool {
 pub struct Subscribe<'a> {
     pub id: String,
     pub agent_signature: String,
-    pub extranonce1: Option<U256<'a>>,
+    pub extranonce1: Option<Extranonce<'a>>,
 }
 
 impl<'a> Subscribe<'a> {
     pub fn respond(
         self,
         subscriptions: Vec<(String, String)>,
-        extra_nonce1: U256<'a>,
+        extra_nonce1: Extranonce<'a>,
         extra_nonce2_size: usize,
     ) -> Response {
         let response = crate::server_to_client::Subscribe {
@@ -302,7 +301,7 @@ impl<'a> TryFrom<Subscribe<'a>> for Message {
 
     fn try_from(subscribe: Subscribe) -> Result<Self, Error> {
         let params = match (subscribe.agent_signature, subscribe.extranonce1) {
-            (a, Some(b)) => vec![a, b.inner_as_ref().to_hex()],
+            (a, Some(b)) => vec![a, b.0.inner_as_ref().to_hex()],
             (a, None) => vec![a],
         };
         Ok(Message::StandardRequest(StandardRequest {
@@ -320,7 +319,9 @@ impl<'a> TryFrom<StandardRequest> for Subscribe<'a> {
         match msg.params.as_array() {
             Some(params) => {
                 let (agent_signature, extranonce1) = match &params[..] {
-                    [JString(a), JString(b)] => (a.into(), Some(U256::try_from(hex::decode(b)?)?)),
+                    [JString(a), JString(b)] => {
+                        (a.into(), Some(Extranonce::try_from(hex::decode(b)?)?))
+                    }
                     [JString(a)] => (a.into(), None),
                     [] => ("".to_string(), None),
                     _ => return Err(ParsingMethodError::wrong_args_from_value(msg.params)),

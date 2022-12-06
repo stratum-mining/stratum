@@ -41,7 +41,6 @@ pub mod json_rpc;
 pub mod methods;
 pub mod utils;
 
-use binary_sv2::U256;
 use std::convert::{TryFrom, TryInto};
 use tracing::{debug, warn};
 
@@ -49,7 +48,7 @@ use tracing::{debug, warn};
 use error::Error;
 pub use json_rpc::Message;
 pub use methods::{client_to_server, server_to_client, Method, MethodError, ParsingMethodError};
-use utils::HexU32Be;
+use utils::{Extranonce, HexU32Be};
 
 /// json_rpc Response are not handled cause stratum v1 does not have any request from a server to a
 /// client
@@ -192,9 +191,9 @@ pub trait IsServer<'a> {
     fn authorize(&mut self, name: &str);
 
     /// Set extranonce1 to extranonce1 if provided. If not create a new one and set it.
-    fn set_extranonce1(&mut self, extranonce1: Option<U256<'a>>) -> U256<'a>;
+    fn set_extranonce1(&mut self, extranonce1: Option<Extranonce<'a>>) -> Extranonce<'a>;
 
-    fn extranonce1(&self) -> U256<'a>;
+    fn extranonce1(&self) -> Extranonce<'a>;
 
     /// Set extranonce2_size to extranonce2_size if provided. If not create a new one and set it.
     fn set_extranonce2_size(&mut self, extra_nonce2_size: Option<usize>) -> usize;
@@ -209,7 +208,7 @@ pub trait IsServer<'a> {
 
     fn update_extranonce(
         &mut self,
-        extra_nonce1: U256<'a>,
+        extra_nonce1: Extranonce<'a>,
         extra_nonce2_size: usize,
     ) -> Result<json_rpc::Message, Error<'a>> {
         self.set_extranonce1(Some(extra_nonce1.clone()));
@@ -322,7 +321,7 @@ pub trait IsClient<'a> {
                 let subscribe = self
                     .subscribe(
                         configure.id,
-                        Some(U256::try_from(hex::decode("08000002")?)?),
+                        Some(Extranonce::try_from(hex::decode("08000002")?)?),
                     )
                     .ok();
                 Ok(subscribe)
@@ -368,9 +367,9 @@ pub trait IsClient<'a> {
         subscribe: &server_to_client::Subscribe<'a>,
     ) -> Result<(), Error<'a>>;
 
-    fn set_extranonce1(&mut self, extranonce1: U256<'a>);
+    fn set_extranonce1(&mut self, extranonce1: Extranonce<'a>);
 
-    fn extranonce1(&self) -> U256<'a>;
+    fn extranonce1(&self) -> Extranonce<'a>;
 
     fn set_extranonce2_size(&mut self, extra_nonce2_size: usize);
 
@@ -411,7 +410,7 @@ pub trait IsClient<'a> {
     fn subscribe(
         &mut self,
         id: String,
-        extranonce1: Option<U256<'a>>,
+        extranonce1: Option<Extranonce<'a>>,
     ) -> Result<json_rpc::Message, Error<'a>> {
         match self.status() {
             ClientStatus::Init => Err(Error::IncorrectClientStatus("mining.subscribe".to_string())),
@@ -440,7 +439,7 @@ pub trait IsClient<'a> {
         &mut self,
         id: String,
         user_name: String,
-        extra_nonce2: U256<'a>,
+        extra_nonce2: Extranonce<'a>,
         time: i64,
         nonce: i64,
         version_bits: Option<HexU32Be>,

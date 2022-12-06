@@ -13,30 +13,34 @@ use time::SystemTime;
 
 const ADDR: &str = "127.0.0.1:0";
 
-use binary_sv2::U256;
 use v1::{
     client_to_server,
     error::Error,
     json_rpc, server_to_client,
-    utils::{self, HexU32Be},
+    utils::{Extranonce, HexU32Be, MerkleLeaf},
     ClientStatus, IsClient, IsServer,
 };
 
-fn new_extranonce<'a>() -> U256<'a> {
+fn new_extranonce<'a>() -> Extranonce<'a> {
     extranonce_from_hex("08000002")
 }
 
-fn extranonce_from_hex<'a>(hex: &str) -> U256<'a> {
+fn extranonce_from_hex<'a>(hex: &str) -> Extranonce<'a> {
+    let data = hex::decode(hex).unwrap();
+    Extranonce::try_from(data).expect("Failed to convert hex to U256")
+}
+
+fn merkleleaf_from_hex<'a>(hex: &str) -> MerkleLeaf<'a> {
     let data = hex::decode(hex).unwrap();
     let len = data.len();
-    if len >= 32 {
+    if hex.len() >= 64 {
         // panic if hex is larger than 32 bytes
-        U256::try_from(data).expect("Failed to convert hex to U256")
+        MerkleLeaf::try_from(hex).expect("Failed to convert hex to U256")
     } else {
         // prepend hex with zeros so that it is 32 bytes
         let mut new_vec = vec![0_u8; 32 - len];
         new_vec.extend(data.iter());
-        U256::try_from(new_vec).expect("Failed to convert hex to U256")
+        MerkleLeaf::try_from(hex::encode(new_vec).as_str()).expect("Failed to convert hex to U256")
     }
 }
 
@@ -53,7 +57,7 @@ fn new_version_rolling_min() -> HexU32Be {
 
 struct Server<'a> {
     authorized_names: Vec<String>,
-    extranonce1: U256<'a>,
+    extranonce1: Extranonce<'a>,
     extranonce2_size: usize,
     version_rolling_mask: Option<HexU32Be>,
     version_rolling_min_bit: Option<HexU32Be>,
@@ -237,12 +241,12 @@ impl<'a> IsServer<'a> for Server<'a> {
     }
 
     /// Set extranonce1 to extranonce1 if provided. If not create a new one and set it.
-    fn set_extranonce1(&mut self, extranonce1: Option<U256<'a>>) -> U256<'a> {
+    fn set_extranonce1(&mut self, extranonce1: Option<Extranonce<'a>>) -> Extranonce<'a> {
         self.extranonce1 = extranonce1.unwrap_or_else(new_extranonce);
         self.extranonce1.clone()
     }
 
-    fn extranonce1(&self) -> U256<'a> {
+    fn extranonce1(&self) -> Extranonce<'a> {
         self.extranonce1.clone()
     }
 
@@ -272,10 +276,10 @@ impl<'a> IsServer<'a> for Server<'a> {
         let hex = "ffff";
         server_to_client::Notify {
             job_id: "ciao".to_string(),
-            prev_hash: utils::PrevHash(vec![3_u8, 4, 5, 6]),
+            prev_hash: merkleleaf_from_hex(hex),
             coin_base1: hex.try_into()?,
             coin_base2: hex.try_into()?,
-            merkle_branch: vec![extranonce_from_hex(hex)],
+            merkle_branch: vec![merkleleaf_from_hex(hex)],
             version: HexU32Be(5667),
             bits: HexU32Be(5678),
             time: HexU32Be(5609),
@@ -287,7 +291,7 @@ impl<'a> IsServer<'a> for Server<'a> {
 
 struct Client<'a> {
     client_id: u32,
-    extranonce1: U256<'a>,
+    extranonce1: Extranonce<'a>,
     extranonce2_size: usize,
     version_rolling_mask: Option<HexU32Be>,
     version_rolling_min_bit: Option<HexU32Be>,
@@ -474,11 +478,11 @@ impl<'a> IsClient<'a> for Client<'a> {
         Ok(())
     }
 
-    fn set_extranonce1(&mut self, extranonce1: U256<'a>) {
+    fn set_extranonce1(&mut self, extranonce1: Extranonce<'a>) {
         self.extranonce1 = extranonce1;
     }
 
-    fn extranonce1(&self) -> U256<'a> {
+    fn extranonce1(&self) -> Extranonce<'a> {
         self.extranonce1.clone()
     }
 

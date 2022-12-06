@@ -8,9 +8,8 @@ use crate::{
     error::Error,
     json_rpc::{Message, Notification, Response},
     methods::ParsingMethodError,
-    utils::{HexBytes, HexU32Be, PrevHash},
+    utils::{Extranonce, HexBytes, HexU32Be, MerkleLeaf},
 };
-use binary_sv2::U256;
 
 // client.get_version()
 
@@ -40,10 +39,10 @@ use binary_sv2::U256;
 #[derive(Debug, Clone)]
 pub struct Notify<'a> {
     pub job_id: String,
-    pub prev_hash: PrevHash,
+    pub prev_hash: MerkleLeaf<'a>,
     pub coin_base1: HexBytes,
     pub coin_base2: HexBytes,
-    pub merkle_branch: Vec<U256<'a>>,
+    pub merkle_branch: Vec<MerkleLeaf<'a>>,
     pub version: HexU32Be,
     pub bits: HexU32Be,
     pub time: HexU32Be,
@@ -59,7 +58,7 @@ impl<'a> TryFrom<Notify<'a>> for Message {
         let coin_base2: Value = notify.coin_base2.try_into()?;
         let mut merkle_branch: Vec<Value> = vec![];
         for mb in notify.merkle_branch {
-            let mb: Value = mb.inner_as_ref().try_into()?;
+            let mb: Value = mb.try_into()?;
             merkle_branch.push(mb);
         }
         let merkle_branch = JArrary(merkle_branch);
@@ -117,18 +116,22 @@ impl<'a> TryFrom<Notification> for Notify<'a> {
                     *i,
                 )
             }
-            _ => return Err(ParsingMethodError::wrong_args_from_value(msg.params)),
+            _ => {
+                return Err(ParsingMethodError::wrong_args_from_value(
+                    msg.params.clone(),
+                ))
+            }
         };
         let mut merkle_branch = vec![];
         for h in merkle_branch_ {
-            let h: U256 = hex::decode(
-                h.as_str()
-                    .ok_or_else(|| ParsingMethodError::not_string_from_value(h.clone()))?,
-            )?
-            .try_into()?;
+            let h: MerkleLeaf = h
+                .as_str()
+                .ok_or_else(|| ParsingMethodError::not_string_from_value(h.clone()))?
+                .try_into()?;
+
             merkle_branch.push(h);
         }
-        Ok(Notify {
+        let notify = Notify {
             job_id,
             prev_hash,
             coin_base1,
@@ -138,7 +141,8 @@ impl<'a> TryFrom<Notification> for Notify<'a> {
             bits,
             time,
             clean_jobs,
-        })
+        };
+        Ok(notify.clone())
     }
 }
 
@@ -194,7 +198,7 @@ impl TryFrom<Notification> for SetDifficulty {
 ///
 #[derive(Debug)]
 pub struct SetExtranonce<'a> {
-    pub extra_nonce1: U256<'a>,
+    pub extra_nonce1: Extranonce<'a>,
     pub extra_nonce2_size: usize,
 }
 
@@ -202,7 +206,7 @@ impl<'a> TryFrom<SetExtranonce<'a>> for Message {
     type Error = Error<'a>;
 
     fn try_from(se: SetExtranonce) -> Result<Self, Error> {
-        let extra_nonce1: Value = se.extra_nonce1.inner_as_ref().try_into()?;
+        let extra_nonce1: Value = se.extra_nonce1.0.inner_as_ref().try_into()?;
         let extra_nonce2_size: Value = se.extra_nonce2_size.into();
         Ok(Message::Notification(Notification {
             method: "mining.set_extranonce".to_string(),
@@ -221,7 +225,7 @@ impl<'a> TryFrom<Notification> for SetExtranonce<'a> {
             .ok_or_else(|| ParsingMethodError::not_array_from_value(msg.params.clone()))?;
         let (extra_nonce1, extra_nonce2_size) = match &params[..] {
             [JString(a), JNumber(b)] => (
-                U256::try_from(hex::decode(a)?)?,
+                Extranonce::try_from(hex::decode(a)?)?,
                 b.as_u64()
                     .ok_or_else(|| ParsingMethodError::not_unsigned_from_value(b.clone()))?
                     as usize,
@@ -357,14 +361,14 @@ impl Submit {
 #[derive(Debug)]
 pub struct Subscribe<'a> {
     pub id: String,
-    pub extra_nonce1: U256<'a>,
+    pub extra_nonce1: Extranonce<'a>,
     pub extra_nonce2_size: usize,
     pub subscriptions: Vec<(String, String)>,
 }
 
 impl<'a> From<Subscribe<'a>> for Message {
     fn from(su: Subscribe) -> Self {
-        let extra_nonce1: Value = su.extra_nonce1.inner_as_ref().into();
+        let extra_nonce1: Value = su.extra_nonce1.0.inner_as_ref().into();
         let extra_nonce2_size: Value = su.extra_nonce2_size.into();
         let subscriptions: Vec<Value> = su
             .subscriptions
@@ -391,7 +395,7 @@ impl<'a> TryFrom<&Response> for Subscribe<'a> {
         let (extra_nonce1, extra_nonce2_size, subscriptions_) = match &params[..] {
             [JString(a), JNumber(b), JArrary(d)] => (
                 // infallible
-                U256::try_from(hex::decode(a)?)?,
+                Extranonce::try_from(hex::decode(a)?)?,
                 b.as_u64().ok_or_else(|| {
                     ParsingMethodError::ImpossibleToParseAsU64(Box::new(b.clone()))
                 })? as usize,

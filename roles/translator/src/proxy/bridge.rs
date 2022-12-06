@@ -113,7 +113,7 @@ impl Bridge {
         sv1_submit: Submit,
         extranonce_1: &ExtendedExtranonce,
     ) -> ProxyResult<'static, SubmitSharesExtended<'static>> {
-        let extranonce_vec: Vec<u8> = sv1_submit.extra_nonce2.to_vec();
+        let extranonce_vec: Vec<u8> = sv1_submit.extra_nonce2.0.to_vec();
         let extranonce = extranonce_1
             .without_upstream_part(Some(extranonce_vec.try_into().unwrap()))
             .unwrap();

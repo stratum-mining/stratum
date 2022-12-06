@@ -9,10 +9,12 @@ use async_std::{io::BufReader, prelude::*, task};
 use roles_logic_sv2::utils::Mutex;
 use std::{sync::Arc, time};
 
-use binary_sv2::U256;
 use v1::{
-    client_to_server, error::Error, json_rpc, server_to_client, utils::HexU32Be, ClientStatus,
-    IsClient,
+    client_to_server,
+    error::Error,
+    json_rpc, server_to_client,
+    utils::{Extranonce, HexU32Be},
+    ClientStatus, IsClient,
 };
 
 use crate::{job::Job, miner::Miner};
@@ -23,7 +25,7 @@ const ADDR: &str = "127.0.0.1:34255";
 #[derive(Debug, Clone)]
 pub(crate) struct Client {
     client_id: u32,
-    extranonce1: Option<U256<'static>>,
+    extranonce1: Option<Extranonce<'static>>,
     extranonce2_size: Option<usize>,
     version_rolling_mask: Option<HexU32Be>,
     version_rolling_min_bit: Option<HexU32Be>,
@@ -176,7 +178,7 @@ impl Client {
                 if cloned.clone().safe_lock(|c| c.status).unwrap() != ClientStatus::Subscribed {
                     continue;
                 }
-                let extra_nonce2: U256 =
+                let extra_nonce2: Extranonce =
                     vec![0; cloned.safe_lock(|c| c.extranonce2_size.unwrap()).unwrap()]
                         .try_into()
                         .unwrap();
@@ -316,11 +318,11 @@ impl IsClient<'static> for Client {
         Ok(())
     }
 
-    fn set_extranonce1(&mut self, extranonce1: U256<'static>) {
+    fn set_extranonce1(&mut self, extranonce1: Extranonce<'static>) {
         self.extranonce1 = Some(extranonce1);
     }
 
-    fn extranonce1(&self) -> U256<'static> {
+    fn extranonce1(&self) -> Extranonce<'static> {
         self.extranonce1.clone().unwrap()
     }
 
