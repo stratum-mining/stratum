@@ -686,7 +686,7 @@ impl Pool {
             // Uncomment to allow unencrypted connections
             // with strict - drop the connection if anything odd comes in that we can't handle
             let (receiver, sender): (Receiver<EitherFrame>, Sender<EitherFrame>) =
-                network_helpers::plain_connection_tokio::PlainConnection::new(stream, true).await;
+                network_helpers::plain_connection_tokio::PlainConnection::new(stream).await;
             Self::accept_incoming_connection_(self_.clone(), receiver, sender).await;
         }
     }

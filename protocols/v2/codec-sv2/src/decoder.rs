@@ -23,6 +23,7 @@ type Buffer = BufferPool<BufferFromSystemMemory>;
 
 use crate::error::{Error, Result};
 
+use crate::Error::MissingBytes;
 #[cfg(feature = "noise_sv2")]
 use crate::{State, TransportMode};
 
@@ -192,7 +193,7 @@ impl<T: Serialize + binary_sv2::GetSize, B: IsBuffer> WithoutNoise<B, T> {
             }
             _ => {
                 self.missing_b = hint;
-                Err(Error::MissingBytes(self.missing_b))
+                Err(MissingBytes(self.missing_b))
             }
         }
     }

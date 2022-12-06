@@ -32,13 +32,13 @@ impl SetupConnectionHandler {
         // read stdFrame from receiver
 
         let mut incoming: StdFrame = match receiver.recv().await {
-            Ok(EitherFrame::HandShake(_)) => {
-                error!("Got unexpected handshake message");
-                panic!()
-            }
             Ok(EitherFrame::Sv2(s)) => {
                 debug!("Got sv2 message: {:?}", s);
                 s
+            }
+            Ok(EitherFrame::HandShake(_)) => {
+                error!("Got unexpected handshake message");
+                panic!()
             }
             Err(e) => {
                 error!("Error receiving message: {:?}", e);
