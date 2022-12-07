@@ -28,7 +28,9 @@ use tracing::debug;
 ///    for `SetupConnection`, the message identifier string is `"setup_connection". Likewise, for
 ///    the `SetupConnectionSuccess` message, the message identifier string is
 ///    `"setup_connection_success"`.
-/// 2.
+/// 2. `Step2`: For each `PoolMessages` stored in `Step1`, serializes them into `Sv2Frame` as
+///    prescribed by the `test.json` file (either `"automatic"` or `"manual"`).
+/// 3. `Step3`:
 #[derive(Debug)]
 pub enum Parser<'a> {
     /// Stores any number or combination of `PoolMessages` (`CommonMessage`,
@@ -79,9 +81,15 @@ pub enum Parser<'a> {
     ///    restuls is a vector, but should be a vector of vectors
     ///    in some cases maybe want to check more than 1 property for message received, so what
     ///    result should really be is a vec of cev
+    ///
+    /// Parses and executes all the actions specified in the `test.json` file.
     Step3 {
+        /// Mapping of `PoolMessages` message identifer and the `PoolMessages` message.
         messages: HashMap<String, AnyMessage<'a>>,
+        /// Mapping of `PoolMessages` message identifer and the `PoolMessages` message serialized
+        /// as a `Sv2Frame`.
         frames: HashMap<String, Sv2Frame<AnyMessage<'a>, Slice>>,
+        /// TODO
         actions: Vec<Action<'a>>,
     },
     /// parse the test + execute.
@@ -135,6 +143,7 @@ impl<'a> Parser<'a> {
             }
             // Progresses from `Step2` to `Step3`
             Self::Step2 { messages, frames } => {
+                // Serializes each `PoolMessages` stored in `Step1` into a `Sv2Frame`
                 let actions = actions::ActionParser::from_step_3(test, frames.clone());
                 Self::Step3 {
                     messages,
@@ -142,7 +151,8 @@ impl<'a> Parser<'a> {
                     actions,
                 }
             }
-            Parser::Step3 {
+            // Progresses from `Step3` to `Step4`
+            Self::Step3 {
                 messages: _,
                 frames: _,
                 actions,

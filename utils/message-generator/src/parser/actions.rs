@@ -3,6 +3,7 @@ use codec_sv2::{buffer_sv2::Slice, StandardEitherFrame, Sv2Frame};
 use roles_logic_sv2::parsers::AnyMessage;
 use serde_json::{Map, Value};
 use std::collections::HashMap;
+use tracing::debug;
 
 pub struct ActionParser {}
 
@@ -11,7 +12,7 @@ impl ActionParser {
         test: &'b str,
         frames: HashMap<String, Sv2Frame<AnyMessage<'a>, Slice>>,
     ) -> Vec<Action<'a>> {
-        let test: Map<String, Value> = serde_json::from_str(&test).unwrap();
+        let test: Map<String, Value> = serde_json::from_str(test).unwrap();
         let actions = test.get("actions").unwrap().as_array().unwrap();
         let mut result = vec![];
         for action in actions {
@@ -25,9 +26,9 @@ impl ActionParser {
             for id in ids {
                 let frame = frames
                     .get(id.as_str().unwrap())
-                    .expect(
-                        format!("Frame id not found: {} Impossible to parse action", id).as_str(),
-                    )
+                    .unwrap_or_else(|| {
+                        panic!("Frame id not found: {} Impossible to parse action", id)
+                    })
                     .clone();
                 let frame = StandardEitherFrame::Sv2(frame);
                 action_frames.push(frame);
