@@ -393,7 +393,7 @@ impl<'a> TryFrom<&Response> for Subscribe<'a> {
             ParsingMethodError::ImpossibleToParseResultField(Box::new(msg.clone()))
         })?;
         let (extra_nonce1, extra_nonce2_size, subscriptions_) = match &params[..] {
-            [JString(a), JNumber(b), JArrary(d)] => (
+            [JArrary(d), JString(a), JNumber(b)] => (
                 // infallible
                 Extranonce::try_from(hex::decode(a)?)?,
                 b.as_u64().ok_or_else(|| {
