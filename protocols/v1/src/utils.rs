@@ -109,23 +109,22 @@ impl From<HexU32Be> for String {
     }
 }
 
-/// MerkleLeaf in Stratum V1 has brain-damaged serialization as it swaps bytes of every u32 word
+/// PrevHash in Stratum V1 has brain-damaged serialization as it swaps bytes of every u32 word
 /// into big endian. Therefore, we need a special type for it
 #[derive(Clone, Debug, PartialEq)]
-pub struct MerkleLeaf<'a>(pub U256<'a>);
-// pub type MerkleLeaf<'a> = U256<'a>;
+pub struct PrevHash<'a>(pub U256<'a>);
 
-impl<'a> From<MerkleLeaf<'a>> for Vec<u8> {
-    fn from(p_hash: MerkleLeaf<'a>) -> Self {
+impl<'a> From<PrevHash<'a>> for Vec<u8> {
+    fn from(p_hash: PrevHash<'a>) -> Self {
         p_hash.0.to_vec()
     }
 }
 
-impl<'a> TryFrom<&str> for MerkleLeaf<'a> {
+impl<'a> TryFrom<&str> for PrevHash<'a> {
     type Error = Error<'a>;
 
     fn try_from(value: &str) -> Result<Self, Error<'a>> {
-        // Reorder MerkleLeaf will be stored via this cursor
+        // Reorder PrevHash will be stored via this cursor
         // let mut prev_hash_cursor = std::io::Cursor::new([0_u8; 32]);
         let mut prev_hash_arr = [0_u8; 32];
 
@@ -144,7 +143,7 @@ impl<'a> TryFrom<&str> for MerkleLeaf<'a> {
                         .write_u32::<LittleEndian>(prev_hash_word)
                         .expect("Internal error: Could not write buffer");
                 }
-                return Ok(MerkleLeaf(prev_hash_arr.into()));
+                return Ok(PrevHash(prev_hash_arr.into()));
             }
             _ => {
                 return Err(error::Error::BadBytesConvert(
@@ -155,16 +154,16 @@ impl<'a> TryFrom<&str> for MerkleLeaf<'a> {
     }
 }
 
-impl<'a> From<MerkleLeaf<'a>> for Value {
-    fn from(ph: MerkleLeaf) -> Self {
+impl<'a> From<PrevHash<'a>> for Value {
+    fn from(ph: PrevHash) -> Self {
         Into::<String>::into(ph).into()
     }
 }
 
 /// Helper Serializer that peforms the reverse process of converting the prev hash into stratum V1
 /// ordering
-impl<'a> From<MerkleLeaf<'a>> for String {
-    fn from(v: MerkleLeaf) -> Self {
+impl<'a> From<PrevHash<'a>> for String {
+    fn from(v: PrevHash) -> Self {
         let mut prev_hash_stratum_cursor = std::io::Cursor::new(Vec::new());
         // swap every u32 from little endian to big endian
         for chunk in v.0.inner_as_ref().chunks(size_of::<u32>()) {
@@ -178,14 +177,14 @@ impl<'a> From<MerkleLeaf<'a>> for String {
 }
 
 // / Referencing the internal part of hex bytes
-impl<'a> AsRef<[u8]> for MerkleLeaf<'a> {
+impl<'a> AsRef<[u8]> for PrevHash<'a> {
     fn as_ref(&self) -> &[u8] {
         self.0.inner_as_ref()
     }
 }
 
 /// Referencing the internal part of hex bytes
-impl<'a> AsRef<U256<'a>> for MerkleLeaf<'a> {
+impl<'a> AsRef<U256<'a>> for PrevHash<'a> {
     fn as_ref(&self) -> &U256<'a> {
         &self.0
     }
@@ -195,6 +194,59 @@ impl<'a> AsRef<U256<'a>> for MerkleLeaf<'a> {
 impl<'a> AsRef<[u8]> for Extranonce<'a> {
     fn as_ref(&self) -> &[u8] {
         self.0.inner_as_ref()
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct MerkleNode<'a>(pub U256<'a>);
+
+impl<'a> MerkleNode<'a> {
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+    pub fn is_empty(&self) -> bool {
+        self.0.inner_as_ref().is_empty()
+    }
+}
+
+impl<'a> TryFrom<Vec<u8>> for MerkleNode<'a> {
+    type Error = Error<'a>;
+
+    fn try_from(value: Vec<u8>) -> Result<Self, Error<'a>> {
+        Ok(MerkleNode(U256::try_from(value)?))
+    }
+}
+
+impl<'a> From<MerkleNode<'a>> for Vec<u8> {
+    fn from(v: MerkleNode<'a>) -> Self {
+        v.0.to_vec()
+    }
+}
+
+impl<'a> From<MerkleNode<'a>> for Value {
+    fn from(eb: MerkleNode<'a>) -> Self {
+        Into::<String>::into(eb).into()
+    }
+}
+
+/// Referencing the internal part of hex bytes
+impl<'a> AsRef<[u8]> for MerkleNode<'a> {
+    fn as_ref(&self) -> &[u8] {
+        self.0.inner_as_ref()
+    }
+}
+
+impl<'a> TryFrom<&str> for MerkleNode<'a> {
+    type Error = Error<'a>;
+
+    fn try_from(value: &str) -> Result<Self, Error<'a>> {
+        Ok(MerkleNode(U256::try_from(hex_decode(value)?)?))
+    }
+}
+
+impl<'a> From<MerkleNode<'a>> for String {
+    fn from(bytes: MerkleNode<'a>) -> String {
+        hex::encode(bytes.0)
     }
 }
 
@@ -258,10 +310,10 @@ mod tests {
     use quickcheck::{Arbitrary, Gen};
 
     #[quickcheck_macros::quickcheck]
-    fn test_merkle_leaf(mut bytes: Vec<u8>) -> bool {
+    fn test_prev_hash(mut bytes: Vec<u8>) -> bool {
         bytes.resize(32, 0);
         let be_hex = bytes.to_hex();
-        let me = MerkleLeaf::try_from(be_hex.clone().as_str()).unwrap();
+        let me = PrevHash::try_from(be_hex.clone().as_str()).unwrap();
         let back_to_hex = String::from(me.clone());
         let back_to_hex_value = Value::from(me.clone());
         let value_to_string = back_to_hex_value.as_str().unwrap();

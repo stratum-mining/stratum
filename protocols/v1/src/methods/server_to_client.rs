@@ -8,7 +8,7 @@ use crate::{
     error::Error,
     json_rpc::{Message, Notification, Response},
     methods::ParsingMethodError,
-    utils::{Extranonce, HexBytes, HexU32Be, MerkleLeaf},
+    utils::{Extranonce, HexBytes, HexU32Be, MerkleNode, PrevHash},
 };
 
 // client.get_version()
@@ -39,10 +39,10 @@ use crate::{
 #[derive(Debug, Clone)]
 pub struct Notify<'a> {
     pub job_id: String,
-    pub prev_hash: MerkleLeaf<'a>,
+    pub prev_hash: PrevHash<'a>,
     pub coin_base1: HexBytes,
     pub coin_base2: HexBytes,
-    pub merkle_branch: Vec<MerkleLeaf<'a>>,
+    pub merkle_branch: Vec<MerkleNode<'a>>,
     pub version: HexU32Be,
     pub bits: HexU32Be,
     pub time: HexU32Be,
@@ -124,7 +124,7 @@ impl<'a> TryFrom<Notification> for Notify<'a> {
         };
         let mut merkle_branch = vec![];
         for h in merkle_branch_ {
-            let h: MerkleLeaf = h
+            let h: MerkleNode = h
                 .as_str()
                 .ok_or_else(|| ParsingMethodError::not_string_from_value(h.clone()))?
                 .try_into()?;
@@ -206,7 +206,7 @@ impl<'a> TryFrom<SetExtranonce<'a>> for Message {
     type Error = Error<'a>;
 
     fn try_from(se: SetExtranonce) -> Result<Self, Error> {
-        let extra_nonce1: Value = se.extra_nonce1.0.inner_as_ref().try_into()?;
+        let extra_nonce1: Value = se.extra_nonce1.try_into()?;
         let extra_nonce2_size: Value = se.extra_nonce2_size.into();
         Ok(Message::Notification(Notification {
             method: "mining.set_extranonce".to_string(),
@@ -368,7 +368,7 @@ pub struct Subscribe<'a> {
 
 impl<'a> From<Subscribe<'a>> for Message {
     fn from(su: Subscribe) -> Self {
-        let extra_nonce1: Value = su.extra_nonce1.0.inner_as_ref().into();
+        let extra_nonce1: Value = su.extra_nonce1.into();
         let extra_nonce2_size: Value = su.extra_nonce2_size.into();
         let subscriptions: Vec<Value> = su
             .subscriptions

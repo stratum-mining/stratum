@@ -2,7 +2,7 @@ use roles_logic_sv2::mining_sv2::{NewExtendedMiningJob, SetNewPrevHash};
 use tracing::{debug, error};
 use v1::{
     server_to_client,
-    utils::{HexU32Be, MerkleLeaf},
+    utils::{HexU32Be, MerkleNode, PrevHash},
 };
 
 /// To create a SV1 `mining.notify` message, both a SV2 `SetNewPrevHash` and `NewExtendedMiningJob`
@@ -87,7 +87,7 @@ impl NextMiningNotify {
                 let job_id = new_prev_hash.job_id.to_string();
 
                 // U256<'static> -> MerkleLeaf
-                let prev_hash = MerkleLeaf(new_prev_hash.prev_hash.clone());
+                let prev_hash = PrevHash(new_prev_hash.prev_hash.clone());
 
                 // B064K<'static'> -> HexBytes
                 let coin_base1 = new_job.coinbase_tx_prefix.to_vec().into();
@@ -95,8 +95,8 @@ impl NextMiningNotify {
 
                 // Seq0255<'static, U56<'static>> -> Vec<Vec<u8>>
                 let merkle_path = new_job.merkle_path.clone().into_static().0;
-                let merkle_branch: Vec<MerkleLeaf> =
-                    merkle_path.into_iter().map(MerkleLeaf).collect();
+                let merkle_branch: Vec<MerkleNode> =
+                    merkle_path.into_iter().map(MerkleNode).collect();
 
                 // u32 -> HexBytes
                 let version = HexU32Be(new_job.version);

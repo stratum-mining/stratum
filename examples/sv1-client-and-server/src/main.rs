@@ -17,7 +17,7 @@ use v1::{
     client_to_server,
     error::Error,
     json_rpc, server_to_client,
-    utils::{Extranonce, HexU32Be, MerkleLeaf},
+    utils::{Extranonce, HexU32Be, MerkleNode, PrevHash},
     ClientStatus, IsClient, IsServer,
 };
 
@@ -30,17 +30,31 @@ fn extranonce_from_hex<'a>(hex: &str) -> Extranonce<'a> {
     Extranonce::try_from(data).expect("Failed to convert hex to U256")
 }
 
-fn merkleleaf_from_hex<'a>(hex: &str) -> MerkleLeaf<'a> {
+fn merklenode_from_hex<'a>(hex: &str) -> MerkleNode<'a> {
     let data = hex::decode(hex).unwrap();
     let len = data.len();
     if hex.len() >= 64 {
         // panic if hex is larger than 32 bytes
-        MerkleLeaf::try_from(hex).expect("Failed to convert hex to U256")
+        MerkleNode::try_from(hex).expect("Failed to convert hex to U256")
     } else {
         // prepend hex with zeros so that it is 32 bytes
         let mut new_vec = vec![0_u8; 32 - len];
         new_vec.extend(data.iter());
-        MerkleLeaf::try_from(hex::encode(new_vec).as_str()).expect("Failed to convert hex to U256")
+        MerkleNode::try_from(hex::encode(new_vec).as_str()).expect("Failed to convert hex to U256")
+    }
+}
+
+fn prevhash_from_hex<'a>(hex: &str) -> PrevHash<'a> {
+    let data = hex::decode(hex).unwrap();
+    let len = data.len();
+    if hex.len() >= 64 {
+        // panic if hex is larger than 32 bytes
+        PrevHash::try_from(hex).expect("Failed to convert hex to U256")
+    } else {
+        // prepend hex with zeros so that it is 32 bytes
+        let mut new_vec = vec![0_u8; 32 - len];
+        new_vec.extend(data.iter());
+        PrevHash::try_from(hex::encode(new_vec).as_str()).expect("Failed to convert hex to U256")
     }
 }
 
@@ -276,10 +290,10 @@ impl<'a> IsServer<'a> for Server<'a> {
         let hex = "ffff";
         server_to_client::Notify {
             job_id: "ciao".to_string(),
-            prev_hash: merkleleaf_from_hex(hex),
+            prev_hash: prevhash_from_hex(hex),
             coin_base1: hex.try_into()?,
             coin_base2: hex.try_into()?,
-            merkle_branch: vec![merkleleaf_from_hex(hex)],
+            merkle_branch: vec![merklenode_from_hex(hex)],
             version: HexU32Be(5667),
             bits: HexU32Be(5678),
             time: HexU32Be(5609),
