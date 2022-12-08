@@ -28,20 +28,23 @@ impl SetupConnectionHandler {
         self_: Arc<Mutex<Self>>,
         receiver: &mut Receiver<EitherFrame>,
         sender: &mut Sender<EitherFrame>,
-    ) -> Result<CommonDownstreamData, ()> {
+    ) -> Result<CommonDownstreamData, Error> {
         // read stdFrame from receiver
 
-        let mut incoming: StdFrame =
-            match receiver.recv().await.expect("Connection Dropped to miner") {
-                EitherFrame::HandShake(_) => {
-                    error!("Got unexpected handshake message");
-                    panic!()
-                }
-                EitherFrame::Sv2(s) => {
-                    debug!("Got sv2 message: {:?}", s);
-                    s
-                }
-            };
+        let mut incoming: StdFrame = match receiver.recv().await {
+            Ok(EitherFrame::Sv2(s)) => {
+                debug!("Got sv2 message: {:?}", s);
+                s
+            }
+            Ok(EitherFrame::HandShake(_)) => {
+                error!("Got unexpected handshake message");
+                panic!()
+            }
+            Err(e) => {
+                error!("Error receiving message: {:?}", e);
+                return Err(Error::NoDownstreamsConnected);
+            }
+        };
 
         let message_type = incoming.get_header().unwrap().msg_type();
         let payload = incoming.payload();

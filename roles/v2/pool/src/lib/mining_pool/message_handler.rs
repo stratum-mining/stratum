@@ -8,23 +8,10 @@ use roles_logic_sv2::{
     parsers::Mining,
     routing_logic::NoRouting,
     selectors::NullDownstreamMiningSelector,
-    utils::Mutex,
+    utils::{hash_rate_to_target, Mutex},
 };
 use std::{convert::TryInto, sync::Arc};
-use tracing::trace;
-// [h/s] Expected hash rate of the device (or cumulative hashrate on the
-// channel if multiple devices are connected downstream) in h/s.
-// Depending on server’s target setting policy, this value can be used for
-// setting a reasonable target for the channel. Proxy MUST send 0.0f when
-// there are no mining devices connected yet.
-pub fn hash_rate_to_target(_hs: f32) -> U256<'static> {
-    vec![
-        0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0,
-    ]
-    .try_into()
-    .unwrap()
-}
+use tracing::{debug, trace};
 
 #[allow(clippy::many_single_char_names)]
 pub fn u256_to_uint_256(v: U256<'static>) -> Uint256 {
@@ -51,11 +38,17 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
         _m: Option<Arc<Mutex<()>>>,
     ) -> Result<SendTo<()>, Error> {
         let request_id = incoming.get_request_id_as_u32();
-        let target = hash_rate_to_target(incoming.nominal_hash_rate);
+        let target = hash_rate_to_target(incoming.nominal_hash_rate, 1_f32);
         let extranonce_prefix = self
             .extranonces
             .safe_lock(|e| e.next_standard().unwrap().into_b032())
             .unwrap();
+
+        debug!(
+            "Handling open standard mining channel request_id: {} for hash_rate: {}",
+            request_id, incoming.nominal_hash_rate
+        );
+
         match (self.downstream_data.header_only, self.id) {
             (false, group_channel_id) => {
                 let channel_id = self.channel_ids.next();
@@ -193,7 +186,7 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
             todo!()
         };
         let request_id = incoming.get_request_id_as_u32();
-        let target = hash_rate_to_target(incoming.nominal_hash_rate);
+        let target = hash_rate_to_target(incoming.nominal_hash_rate, 1_f32);
         let extended = self
             .extranonces
             .safe_lock(|e| {

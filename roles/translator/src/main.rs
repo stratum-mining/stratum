@@ -74,7 +74,8 @@ async fn main() {
 
     // Format `Upstream` connection address
     let upstream_addr = SocketAddr::new(
-        IpAddr::from_str(&proxy_config.upstream_address).unwrap(),
+        IpAddr::from_str(&proxy_config.upstream_address)
+            .expect("Failed to parse upstream address!"),
         proxy_config.upstream_port,
     );
 
@@ -93,13 +94,19 @@ async fn main() {
     .unwrap();
 
     // Connect to the SV2 Upstream role
-    upstream_sv2::Upstream::connect(
+    match upstream_sv2::Upstream::connect(
         upstream.clone(),
         proxy_config.min_supported_version,
         proxy_config.max_supported_version,
     )
     .await
-    .unwrap();
+    {
+        Ok(_) => info!("Connected to Upstream!"),
+        Err(e) => {
+            error!("Failed to connect to Upstream EXITING! : {}", e);
+            return;
+        }
+    }
 
     // Start receiving messages from the SV2 Upstream role
     upstream_sv2::Upstream::parse_incoming(upstream.clone());

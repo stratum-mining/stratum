@@ -8,13 +8,19 @@ use tokio::{
 };
 
 use binary_sv2::GetSize;
-use codec_sv2::{StandardDecoder, StandardEitherFrame};
-use tracing::error;
+use codec_sv2::{Error::MissingBytes, StandardDecoder, StandardEitherFrame};
+use tracing::{error, trace};
 
 #[derive(Debug)]
 pub struct PlainConnection {}
 
 impl PlainConnection {
+    ///
+    ///
+    /// # Arguments
+    ///
+    /// * `strict` - true - will disconnect a connection that sends a message that can't be translated, false - will ignore messages that can't be translated
+    ///
     #[allow(clippy::new_ret_no_self)]
     pub async fn new<'a, Message: Serialize + Deserialize<'a> + GetSize + Send + 'static>(
         stream: TcpStream,
@@ -22,6 +28,8 @@ impl PlainConnection {
         Receiver<StandardEitherFrame<Message>>,
         Sender<StandardEitherFrame<Message>>,
     ) {
+        const NOISE_HANDSHAKE_SIZE_HINT: usize = 3363412;
+
         let (mut reader, mut writer) = stream.into_split();
 
         let (sender_incoming, receiver_incoming): (
@@ -41,8 +49,25 @@ impl PlainConnection {
                 let writable = decoder.writable();
                 match reader.read_exact(writable).await {
                     Ok(_) => {
-                        if let Ok(x) = decoder.next_frame() {
-                            sender_incoming.send(x.into()).await.unwrap();
+                        match decoder.next_frame() {
+                            Ok(frame) => {
+                                if let Err(e) = sender_incoming.send(frame.into()).await {
+                                    error!("Failed to send incoming message: {}", e);
+                                }
+                            }
+                            Err(MissingBytes(size)) => {
+                                // Only disconnect if we get noise handshake message - this shouldn't
+                                // happen in plain_connection
+                                if size == NOISE_HANDSHAKE_SIZE_HINT {
+                                    error!("Got noise message on unencrypted connection - disconnecting");
+                                    break;
+                                } else {
+                                    trace!("MissingBytes({}) on incoming message - ignoring", size);
+                                }
+                            }
+                            Err(_) => {
+                                trace!("Failed to parse incoming message - ignoring");
+                            }
                         }
                     }
                     Err(e) => {
@@ -74,7 +99,8 @@ impl PlainConnection {
                     Err(_) => {
                         // Just fail and force to reinitilize everything
                         let _ = writer.shutdown().await;
-                        panic!()
+                        error!("Failed to read from stream - terminating connection");
+                        break;
                     }
                 };
             }
@@ -85,9 +111,9 @@ impl PlainConnection {
 }
 
 pub async fn plain_listen(address: &str, sender: Sender<TcpStream>) {
-    let listner = TcpListener::bind(address).await.unwrap();
+    let listener = TcpListener::bind(address).await.unwrap();
     loop {
-        if let Ok((stream, _)) = listner.accept().await {
+        if let Ok((stream, _)) = listener.accept().await {
             let _ = sender.send(stream).await;
         }
     }

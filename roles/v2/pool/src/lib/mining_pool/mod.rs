@@ -25,7 +25,7 @@ use roles_logic_sv2::{
     utils::{merkle_root_from_path, Id, Mutex},
 };
 use std::{collections::HashMap, convert::TryInto, sync::Arc};
-use tracing::{debug, info};
+use tracing::{debug, error, info};
 
 pub fn u256_to_block_hash(v: U256<'static>) -> BlockHash {
     let hash: [u8; 32] = v.to_vec().try_into().unwrap();
@@ -380,12 +380,18 @@ impl Downstream {
         last_new_prev_hash: Option<SetNewPrevHash<'static>>,
         solution_sender: Sender<SubmitSolution<'static>>,
         pool: Arc<Mutex<Pool>>,
-    ) -> Arc<Mutex<Self>> {
+    ) -> Result<Arc<Mutex<Self>>, Error> {
         let setup_connection = Arc::new(Mutex::new(SetupConnectionHandler::new()));
         let downstream_data =
-            SetupConnectionHandler::setup(setup_connection, &mut receiver, &mut sender)
-                .await
-                .unwrap();
+            match SetupConnectionHandler::setup(setup_connection, &mut receiver, &mut sender).await
+            {
+                Ok(d) => d,
+                Err(e) => {
+                    error!("Error while setting up connection: {}", e);
+                    return Err(e);
+                }
+            };
+
         let id = match downstream_data.header_only {
             false => group_ids.safe_lock(|id| id.next()).unwrap(),
             true => hom_ids.safe_lock(|id| id.next()).unwrap(),
@@ -465,6 +471,7 @@ impl Downstream {
                 .safe_lock(|d| d.on_new_prev_hash_sync(message.clone()))
                 .unwrap()
                 .unwrap();
+            debug!("Sending new prev hash downstream: {:?}", message);
             Downstream::send(self_.clone(), Mining::SetNewPrevHash(message))
                 .await
                 .unwrap();
@@ -486,12 +493,13 @@ impl Downstream {
                     }
                     _ => {
                         pool.safe_lock(|p| p.downstreams.remove(&id)).unwrap();
+                        error!("Downstream {} disconnected", id);
                         break;
                     }
                 }
             }
         });
-        self_
+        Ok(self_)
     }
 
     pub async fn next(self_mutex: Arc<Mutex<Self>>, mut incoming: StdFrame) {
@@ -520,7 +528,10 @@ impl Downstream {
                     .expect("Failed to send downstream message");
             }
             Ok(SendTo::Multiple(messages)) => {
+                debug!("Sending multiple messages to downstream");
+
                 for message in messages {
+                    debug!("Sending downstream message: {:?}", message);
                     Self::match_send_to(self_.clone(), Ok(message)).await;
                 }
             }
@@ -659,14 +670,21 @@ impl IsMiningDownstream for Downstream {}
 impl Pool {
     #[cfg(feature = "test_only_allow_unencrypted")]
     async fn accept_incoming_plain_connection(self_: Arc<Mutex<Pool>>, config: Configuration) {
-        let listner = TcpListener::bind(&config.test_only_listen_adress_plain)
+        let listener = TcpListener::bind(&config.test_only_listen_adress_plain)
             .await
             .unwrap();
-        info!("Listening on {}", config.test_only_listen_adress_plain);
-        while let Ok((stream, _)) = listner.accept().await {
-            debug!("New connection from {}", stream.peer_addr().unwrap());
+        info!(
+            "Listening for unencrypted connection on: {}",
+            config.test_only_listen_adress_plain
+        );
+        while let Ok((stream, _)) = listener.accept().await {
+            debug!(
+                "New unencrypted connection from {}",
+                stream.peer_addr().unwrap()
+            );
 
             // Uncomment to allow unencrypted connections
+            // with strict - drop the connection if anything odd comes in that we can't handle
             let (receiver, sender): (Receiver<EitherFrame>, Sender<EitherFrame>) =
                 network_helpers::plain_connection_tokio::PlainConnection::new(stream).await;
             Self::accept_incoming_connection_(self_.clone(), receiver, sender).await;
@@ -674,9 +692,12 @@ impl Pool {
     }
 
     async fn accept_incoming_connection(self_: Arc<Mutex<Pool>>, config: Configuration) {
-        let listner = TcpListener::bind(&config.listen_address).await.unwrap();
-        info!("Listening on {}", config.listen_address);
-        while let Ok((stream, _)) = listner.accept().await {
+        let listener = TcpListener::bind(&config.listen_address).await.unwrap();
+        info!(
+            "Listening for encrypted connection on: {}",
+            config.listen_address
+        );
+        while let Ok((stream, _)) = listener.accept().await {
             debug!("New connection from {}", stream.peer_addr().unwrap());
 
             let responder = Responder::from_authority_kp(
@@ -704,7 +725,7 @@ impl Pool {
         let hom_ids = self_.safe_lock(|s| s.hom_ids.clone()).unwrap();
         let job_creators = self_.safe_lock(|s| s.job_creators.clone()).unwrap();
         let extranonces = self_.safe_lock(|s| s.extranonces.clone()).unwrap();
-        let downstream = Downstream::new(
+        let downstream = match Downstream::new(
             receiver,
             sender,
             group_ids,
@@ -715,7 +736,14 @@ impl Pool {
             solution_sender,
             self_.clone(),
         )
-        .await;
+        .await
+        {
+            Ok(downstream) => downstream,
+            Err(e) => {
+                error!("Failed to create downstream: {:?}", e);
+                return;
+            }
+        };
 
         let (_, channel_id) = downstream
             .safe_lock(|d| (d.downstream_data.header_only, d.id))

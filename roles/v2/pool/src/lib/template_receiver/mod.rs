@@ -41,6 +41,8 @@ impl TemplateRx {
             }
         };
 
+        // Strict is false here because the first few messages coming in we can't parse -
+        // not sure what they are though - so false just lets us ignore them
         let (mut receiver, mut sender): (Receiver<EitherFrame>, Sender<EitherFrame>) =
             PlainConnection::new(stream).await;
 
