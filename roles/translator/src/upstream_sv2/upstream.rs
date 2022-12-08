@@ -141,7 +141,7 @@ impl Upstream {
         min_extranonce_size: u16,
         tx_sv2_extranonce: Sender<ExtendedExtranonce>,
         target: Arc<Mutex<Vec<u8>>>,
-    ) -> ProxyResult<Arc<Mutex<Self>>> {
+    ) -> ProxyResult<'static, Arc<Mutex<Self>>> {
         // Connect to the SV2 Upstream role retry connection every 5 seconds.
         let socket = loop {
             match TcpStream::connect(address).await {

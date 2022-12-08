@@ -447,30 +447,24 @@ pub trait IsClient<'a> {
         match self.status() {
             ClientStatus::Init => Err(Error::IncorrectClientStatus("mining.submit".to_string())),
             _ => {
-                // TODO check if version_bits is set
-                if self.last_notify().is_none() {
-                    // Err(())
-                    panic!("TODO: Check if version_bits is set");
-                } else if self.is_authorized(&user_name) {
-                    if let Some(notify) = self.last_notify() {
-                        Ok(client_to_server::Submit {
-                            job_id: notify.job_id,
-                            user_name,
-                            extra_nonce2,
-                            time: HexU32Be(time as u32),
-                            nonce: HexU32Be(nonce as u32),
-                            version_bits,
-                            id,
-                        }
-                        .into())
-                    } else {
-                        // TODO: create
-                        Err(Error::IncorrectClientStatus(
-                            "self.last_notify() returned None".to_string(),
-                        ))
+                if let Some(notify) = self.last_notify() {
+                    if !self.is_authorized(&user_name) {
+                        return Err(Error::UnauthorizedClient(id));
                     }
+                    Ok(client_to_server::Submit {
+                        job_id: notify.job_id,
+                        user_name,
+                        extra_nonce2,
+                        time: HexU32Be(time as u32),
+                        nonce: HexU32Be(nonce as u32),
+                        version_bits,
+                        id,
+                    }
+                    .into())
                 } else {
-                    Err(Error::UnauthorizedClient(id))
+                    Err(Error::IncorrectClientStatus(
+                        "No Notify instance found".to_string(),
+                    ))
                 }
             }
         }

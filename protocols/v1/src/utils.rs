@@ -39,20 +39,6 @@ impl<'a> From<Extranonce<'a>> for Value {
     }
 }
 
-// /// Referencing the internal part of hex bytes
-// impl<'a> AsRef<Vec<u8>> for Extranonce<'a> {
-//     fn as_ref(&self) -> &'a Vec<u8> {
-//         self.0.as_ref()
-//     }
-// }
-
-// /// Referencing the internal part of hex bytes
-// impl<'a> AsRef<[u8]> for Extranonce<'a> {
-//     fn as_ref(&self) -> &[u8]{
-//         self.0.inner_as_ref()
-//     }
-// }
-
 /// fix for error on odd-length hex sequences
 /// FIXME: find a nicer solution
 fn hex_decode(s: &str) -> Result<Vec<u8>, Error<'static>> {
