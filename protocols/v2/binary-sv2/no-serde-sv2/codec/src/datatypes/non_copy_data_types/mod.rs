@@ -79,3 +79,41 @@ impl<'a> From<&'a U32AsRef<'a>> for u32 {
         u32::from_le_bytes([b[0], b[1], b[2], b[3]])
     }
 }
+
+impl<'a> From<B032<'a>> for U256<'a> {
+    fn from(v: B032<'a>) -> Self {
+        let mut arr = [0_u8; 32];
+        let b032 = v.inner_as_ref();
+        // len for B032 can never be greater than that of U256
+        arr[..v.len()].clone_from_slice(&b032[..v.len()]);
+        U256::from(arr)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use quickcheck::{Arbitrary, Gen};
+
+    // test conversion from B032 to U256
+    #[quickcheck_macros::quickcheck]
+    fn test_b032_to_u256(mut v: Vec<u8>, mut len: u8) -> bool {
+        // randomize B032 lengths not greater than 32
+        len = len % 33;
+        // ensure v not greater than 32
+        v.resize(len.into(), 0);
+        let b032 = B032::try_from(v).unwrap();
+        let u256 = U256::from(b032.clone());
+        let mut test_b032 = b032.to_vec();
+        // resize b032 vec len to that of u256 for zipping
+        test_b032.resize(32, 0);
+        let test_u256 = u256.to_vec();
+        // ensure each slot correlates between original and converted vectors
+        for (u, b) in test_u256.iter().zip(&test_b032) {
+            if b != u {
+                panic!()
+            }
+        }
+        true
+    }
+}

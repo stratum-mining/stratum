@@ -198,7 +198,7 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
         let channel_id = self.channel_ids.next();
         let mut partial_job = crate::lib::mining_pool::Job::new(
             u256_to_uint_256(target.clone()),
-            extended.clone().to_vec(),
+            U256::from(extended.clone()).to_vec(),
         );
         let mut extended = extended.to_vec();
         extended.resize(16, 0);
