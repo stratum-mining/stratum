@@ -156,20 +156,21 @@ enum ActionResult {
 /// proxy role (`"proxy"`), or an upstream server role (`"upstream"`).
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize, Copy)]
 enum Role {
-    /// Represents the upstream server role being mocked. Used if the `"role": "upstream"` key-pair
+    /// Represents the upstream server role being mocked. Used if the `"role": "upstream"`
+    /// key-value pair
     /// is present in the `test.json` configuration file.
     Upstream,
     /// Represents the downstream server role being mocked. Used if the `"role": "downstream"`
-    /// key-pair is present in the `test.json` configuration file.
+    /// key-value pair is present in the `test.json` configuration file.
     Downstream,
-    /// Represents the proxy server role being mocked. Used if the `"role": "proxy"` key-pair
+    /// Represents the proxy server role being mocked. Used if the `"role": "proxy"` key-value pair
     /// is present in the `test.json` configuration file.
     Proxy,
 }
 
 /// Represents the endpoint connection information of an upstream server role being mocked, defined
-/// in the `"upstream"` key-pair in the `test.json` configuration file. Must be present if the
-/// `"role": "upstream"` or the `"role": "proxy"` key-value pair is present.
+/// in the `"upstream"` key-value pair in the `test.json` configuration file. Must be present if
+/// the `"role": "upstream"` or the `"role": "proxy"` key-value pair is present.
 #[derive(Debug, Clone)]
 struct Upstream {
     /// Host endpoint address.
@@ -180,8 +181,8 @@ struct Upstream {
 }
 
 /// Represents the endpoint connection information of an downstream server role being mocked,
-/// defined in the `"downstream"` key-pair in the `test.json` configuration file. Must be present
-/// if the `"role": "downstream"` or the `"role": "proxy"` key-value pair is present.
+/// defined in the `"downstream"` key-value pair in the `test.json` configuration file. Must be
+/// present if the `"role": "downstream"` or the `"role": "proxy"` key-value pair is present.
 #[derive(Debug, Clone)]
 struct Downstream {
     /// Host endpoint address.
@@ -218,13 +219,30 @@ pub struct Command {
     conditions: ExternalCommandConditions,
 }
 
+/// Represents all of the parsed contents from the `test.json` configuration file, ready for
+/// execution.
 #[derive(Debug)]
 pub struct Test<'a> {
+    /// Represents the result of a specified `Action` defined in `test.json` configuration file as
+    /// the `"results"` key-pair within the `"actions"` key value. It represents the expected
+    /// response(s) to a specified `PoolMessages` message.
     actions: Vec<Action<'a>>,
+    /// Represents the endpoint connection information of an upstream server role being mocked,
+    /// defined in the `"upstream"` key-value pair in the `test.json` configuration file. Present if the
+    /// `"role": "upstream"` or the `"role": "proxy"` key-value pair is present.
     as_upstream: Option<Upstream>,
+    /// Represents the endpoint connection information of an downstream server role being mocked,
+    /// defined in the `"downstream"` key-value pair in the `test.json` configuration file. Present if
+    /// the `"role": "downstream"` or the `"role": "proxy"` key-value pair is present.
     as_dowstream: Option<Downstream>,
+    /// Represents the `"setup_commands"` key-value pair in the `test.json` configuration file that
+    /// contains shell commands to run before any tests are executed.
     setup_commmands: Vec<Command>,
+    /// Represents the `"execution_commands"` key-value pair in the `test.json` configuration file
+    /// that TODO: ???.
     execution_commands: Vec<Command>,
+    /// Represents the `"cleanup_commands"` key-value pair in the `test.json` configuration file
+    /// that contains shell commands to run after all tests are executed.
     cleanup_commmands: Vec<Command>,
 }
 
