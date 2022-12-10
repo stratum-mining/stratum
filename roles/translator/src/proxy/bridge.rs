@@ -17,25 +17,26 @@ use tracing::{debug, error};
 /// 2. SV2 `SetNewPrevHash` + `NewExtendedMiningJob` -> SV1 `mining.notify`
 #[derive(Debug)]
 pub struct Bridge {
-    /// Receives a SV1 `mining.submit` message from the Downstream role.
-    submit_from_sv1: Receiver<(Submit, ExtendedExtranonce)>,
+    /// Receives a SV1 `mining.submit` message from the Downstream role to be translated into a SV2
+    /// `SubmitSharesExtended`.
+    rx_sv1_submit: Receiver<(Submit, ExtendedExtranonce)>,
     /// Sends SV2 `SubmitSharesExtended` messages translated from SV1 `mining.submit` messages to
     /// the `Upstream`.
-    submit_to_sv2: Sender<SubmitSharesExtended<'static>>,
+    tx_sv2_submit_shares_ext: Sender<SubmitSharesExtended<'static>>,
     /// Receives a SV2 `SetNewPrevHash` message from the `Upstream` to be translated (along with a
     /// SV2 `NewExtendedMiningJob` message) to a SV1 `mining.submit` for the `Downstream`.
-    set_new_prev_hash: Receiver<SetNewPrevHash<'static>>,
+    rx_sv2_set_new_prev_hash: Receiver<SetNewPrevHash<'static>>,
     /// Receives a SV2 `NewExtendedMiningJob` message from the `Upstream` to be translated (along
     /// with a SV2 `SetNewPrevHash` message) to a SV1 `mining.submit` to be sent to the
     /// `Downstream`.
-    new_extended_mining_job: Receiver<NewExtendedMiningJob<'static>>,
+    rx_sv2_new_ext_mining_job: Receiver<NewExtendedMiningJob<'static>>,
     /// Stores the received SV2 `SetNewPrevHash` and `NewExtendedMiningJob` messages in the
     /// `NextMiningNotify` struct to be translated into a SV1 `mining.notify` message to be sent to
     /// the `Downstream`.
     next_mining_notify: Arc<Mutex<NextMiningNotify>>,
     /// Sends SV1 `mining.notify` message (translated from the SV2 `SetNewPrevHash` and
     /// `NewExtendedMiningJob` messages stored in the `NextMiningNotify`) to the `Downstream`.
-    sender_mining_notify: Sender<server_to_client::Notify>,
+    tx_sv1_notify: Sender<server_to_client::Notify>,
     /// Unique sequential identifier of the submit within the channel.
     channel_sequence_id: Id,
     /// Stores the most recent SV1 `mining.notify` values to be sent to the `Downstream` upon
@@ -58,21 +59,21 @@ pub struct Bridge {
 impl Bridge {
     /// Instantiate a new `Bridge`.
     pub fn new(
-        submit_from_sv1: Receiver<(Submit, ExtendedExtranonce)>,
-        submit_to_sv2: Sender<SubmitSharesExtended<'static>>,
-        set_new_prev_hash: Receiver<SetNewPrevHash<'static>>,
-        new_extended_mining_job: Receiver<NewExtendedMiningJob<'static>>,
+        rx_sv1_submit: Receiver<(Submit, ExtendedExtranonce)>,
+        tx_sv2_submit_shares_ext: Sender<SubmitSharesExtended<'static>>,
+        rx_sv2_set_new_prev_hash: Receiver<SetNewPrevHash<'static>>,
+        rx_sv2_new_ext_mining_job: Receiver<NewExtendedMiningJob<'static>>,
         next_mining_notify: Arc<Mutex<NextMiningNotify>>,
-        sender_mining_notify: Sender<server_to_client::Notify>,
+        tx_sv1_notify: Sender<server_to_client::Notify>,
         last_notify: Arc<Mutex<Option<server_to_client::Notify>>>,
     ) -> Self {
         Self {
-            submit_from_sv1,
-            submit_to_sv2,
-            set_new_prev_hash,
-            new_extended_mining_job,
+            rx_sv1_submit,
+            tx_sv2_submit_shares_ext,
+            rx_sv2_set_new_prev_hash,
+            rx_sv2_new_ext_mining_job,
             next_mining_notify,
-            sender_mining_notify,
+            tx_sv1_notify,
             channel_sequence_id: Id::new(),
             last_notify,
             job_mapper: HashMap::new(),
@@ -84,15 +85,17 @@ impl Bridge {
     pub fn start(self) {
         let self_ = Arc::new(Mutex::new(self));
         Self::handle_new_prev_hash(self_.clone());
-        Self::handle_new_extended_mining_job(self_.clone());
+        Self::handle_rx_sv2_new_ext_mining_job(self_.clone());
         Self::handle_downstream_share_submission(self_);
     }
 
     /// Receives a SV1 `mining.submit` message from the `Downstream`, translates it to a SV2
     /// `SubmitSharesExtended` message, and sends it to the `Upstream`.
     fn handle_downstream_share_submission(self_: Arc<Mutex<Self>>) {
-        let submit_recv = self_.safe_lock(|s| s.submit_from_sv1.clone()).unwrap();
-        let submit_to_sv2 = self_.safe_lock(|s| s.submit_to_sv2.clone()).unwrap();
+        let submit_recv = self_.safe_lock(|s| s.rx_sv1_submit.clone()).unwrap();
+        let tx_sv2_submit_shares_ext = self_
+            .safe_lock(|s| s.tx_sv2_submit_shares_ext.clone())
+            .unwrap();
         task::spawn(async move {
             loop {
                 let (sv1_submit, extrnonce) = submit_recv.clone().recv().await.unwrap();
@@ -100,7 +103,7 @@ impl Bridge {
                     self_.safe_lock(|s| s.channel_sequence_id.next()).unwrap() - 1;
                 let sv2_submit: SubmitSharesExtended =
                     Self::translate_submit(channel_sequence_id, sv1_submit, &extrnonce).unwrap();
-                submit_to_sv2.send(sv2_submit).await.unwrap();
+                tx_sv2_submit_shares_ext.send(sv2_submit).await.unwrap();
             }
         });
     }
@@ -142,8 +145,9 @@ impl Bridge {
         task::spawn(async move {
             loop {
                 // Receive `SetNewPrevHash` from `Upstream`
-                let set_new_prev_hash_recv =
-                    self_.safe_lock(|r| r.set_new_prev_hash.clone()).unwrap();
+                let set_new_prev_hash_recv = self_
+                    .safe_lock(|r| r.rx_sv2_set_new_prev_hash.clone())
+                    .unwrap();
                 let sv2_set_new_prev_hash: SetNewPrevHash =
                     set_new_prev_hash_recv.clone().recv().await.unwrap();
                 debug!(
@@ -181,8 +185,7 @@ impl Bridge {
                     .unwrap();
 
                 // Get the sender to send the mining.notify to the Downstream
-                let sender_mining_notify =
-                    self_.safe_lock(|s| s.sender_mining_notify.clone()).unwrap();
+                let tx_sv1_notify = self_.safe_lock(|s| s.tx_sv1_notify.clone()).unwrap();
 
                 // Create the mining.notify to be sent to the Downstream. The create_notify method
                 // checks that this NewExtendedMiningJob and the previously stored SetNewPrevHash
@@ -219,7 +222,7 @@ impl Bridge {
                             let _ = s.insert(msg.clone());
                         })
                         .unwrap();
-                    sender_mining_notify.send(msg).await.unwrap();
+                    tx_sv1_notify.send(msg).await.unwrap();
 
                     // Flush stale jobs from job_mapper (aka retain all values greater than
                     // this job_id)
@@ -245,22 +248,22 @@ impl Bridge {
     /// `Downstream`. If `future_job=false` but this job's `job_id` does not match the current SV2
     /// `SetNewPrevHash` `job_id`, an error has occurred on the Upstream pool role and the
     /// connection will close.
-    fn handle_new_extended_mining_job(self_: Arc<Mutex<Self>>) {
+    fn handle_rx_sv2_new_ext_mining_job(self_: Arc<Mutex<Self>>) {
         task::spawn(async move {
             loop {
                 // Receive `NewExtendedMiningJob` from `Upstream`
-                let set_new_extended_mining_job_recv = self_
-                    .safe_lock(|r| r.new_extended_mining_job.clone())
+                let set_rx_sv2_new_ext_mining_job_recv = self_
+                    .safe_lock(|r| r.rx_sv2_new_ext_mining_job.clone())
                     .unwrap();
-                let sv2_new_extended_mining_job: NewExtendedMiningJob =
-                    set_new_extended_mining_job_recv
+                let sv2_rx_sv2_new_ext_mining_job: NewExtendedMiningJob =
+                    set_rx_sv2_new_ext_mining_job_recv
                         .clone()
                         .recv()
                         .await
                         .unwrap();
                 debug!(
-                    "handle_new_extended_mining_job job_id: {:?}",
-                    &sv2_new_extended_mining_job.job_id
+                    "handle_rx_sv2_new_ext_mining_job job_id: {:?}",
+                    &sv2_rx_sv2_new_ext_mining_job.job_id
                 );
 
                 // If future_job=true, this job is meant for a future SetNewPrevHash that the proxy
@@ -272,20 +275,19 @@ impl Bridge {
                 // a mining.notify is created and sent to the Downstream. If these job ids do not
                 // match, an error has occured on the Upstream pool role and the connection will
                 // close.
-                if sv2_new_extended_mining_job.future_job {
+                if sv2_rx_sv2_new_ext_mining_job.future_job {
                     self_
                         .safe_lock(|s| {
                             // Insert new future job, replaces value if already exists
                             let _ = s.job_mapper.insert(
-                                sv2_new_extended_mining_job.job_id,
-                                sv2_new_extended_mining_job.clone(),
+                                sv2_rx_sv2_new_ext_mining_job.job_id,
+                                sv2_rx_sv2_new_ext_mining_job.clone(),
                             );
                         })
                         .unwrap();
                 } else {
                     // Get the sender to send the mining.notify to the Downstream
-                    let sender_mining_notify =
-                        self_.safe_lock(|s| s.sender_mining_notify.clone()).unwrap();
+                    let tx_sv1_notify = self_.safe_lock(|s| s.tx_sv1_notify.clone()).unwrap();
 
                     // Insert the new job into the NextMiningNotify struct and create the
                     // mining.notify to be sent to the Downstream. The create_notify method checks
@@ -298,7 +300,7 @@ impl Bridge {
                             s.next_mining_notify
                                 .safe_lock(|nmn| {
                                     nmn.new_extended_mining_job_msg(
-                                        sv2_new_extended_mining_job.clone(),
+                                        sv2_rx_sv2_new_ext_mining_job.clone(),
                                     );
                                     nmn.create_notify()
                                 })
@@ -311,7 +313,7 @@ impl Bridge {
                     // the newly created `mining.notify` to the Downstream for mining.
                     if let Some(msg) = sv1_notify_msg {
                         debug!(
-                            "handle_new_extended_mining_job sending mining.notify to Downstream"
+                            "handle_rx_sv2_new_ext_mining_job sending mining.notify to Downstream"
                         );
                         // TODO: handle the last_notify using the job_mapper instead
                         let last_notify = self_.safe_lock(|s| s.last_notify.clone()).unwrap();
@@ -320,11 +322,11 @@ impl Bridge {
                                 let _ = s.insert(msg.clone());
                             })
                             .unwrap();
-                        sender_mining_notify.send(msg).await.unwrap();
+                        tx_sv1_notify.send(msg).await.unwrap();
 
                         // Flush stale jobs from job_mapper (aka retain all values greater than
                         // this job_id)
-                        let last_stale_job_id = sv2_new_extended_mining_job.job_id;
+                        let last_stale_job_id = sv2_rx_sv2_new_ext_mining_job.job_id;
                         self_
                             .safe_lock(|s| {
                                 s.job_mapper.retain(|&k, _| k > last_stale_job_id);
