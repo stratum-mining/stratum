@@ -240,14 +240,11 @@ async fn main() {
     // Load contents of `test.json`, then parse
     let test = load_str!(test_path);
     let test = parser::Parser::parse_test(test);
-    // execture takse message and executures everything
-    // then execute commonds
-    // then execute all actions -> checking if the the things are true
-    // if false, test will fail
-    // then execute clean commands
+    // Executes everything (the shell commands and actions)
+    // If the `executor` returns false, the test fails
     let executor = executor::Executor::new(test).await;
     executor.execute().await;
-    println!("TEST OK");
+    info!("TEST OK");
     std::process::exit(0);
 }
 
