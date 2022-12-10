@@ -240,13 +240,8 @@ use tracing::{debug, info};
 ///          in some cases maybe want to check more than 1 property for message received, so what
 ///          result should really be is a vec of cev
 ///
-/// 4. `Step4`: TODO
-///    parse the test + execute.
-///    parse all bash commands
-///    role: client, proxy, or server
-///    if you are a client: need to have a downstream w connection infomation
-///    if you put pubkey it iwll setup noise conn w server, if not will setup plain connection
-///    if you have client=server, you need upstream fields, if proxy need both up and down
+/// 4. `Step4`: Stores all parsed values from the `test.json` configuration file as `Test` struct,
+///    ready for execution.
 #[derive(Debug)]
 pub enum Parser<'a> {
     /// Stores any number or combination of `PoolMessages` (`CommonMessage`,
@@ -281,7 +276,8 @@ pub enum Parser<'a> {
         /// mocked.
         actions: Vec<Action<'a>>,
     },
-    /// Executes all the commands and actions as specified in the `test.json` configuration file.
+    /// Stores all parsed values from the `test.json` configuration file as `Test` struct, ready
+    /// for execution.
     Step4(Test<'a>),
 }
 
