@@ -19,7 +19,8 @@ use tracing::{debug, info};
 ///    `job_negotiation_messages`. Each optional value contains an array of
 ///    [`PoolMessages`](https://github.com/stratum-mining/stratum/blob/3b0f53e072adb313a3d08a4e64dc394d4c8c270d/protocols/v2/roles-logic-sv2/src/parsers.rs#L968),
 ///    which are then parsed into their respective message type struct(s) and stored in the
-///    `TestMessageParser` struct which is held in the `Step1` enum variant.
+///    `TestMessageParser` struct which is held in the `Step1` enum variant. These are the messages
+///    to be sent to or from the mocked role.
 ///
 ///    `PoolMessages` defines four enum variants representing groups of message types. These enum
 ///    variants are:
@@ -95,179 +96,196 @@ use tracing::{debug, info};
 ///
 /// 2. `Step2`: Serializes each `PoolMessages` stored in `Step1` into a `Sv2Frame` as prescribed by
 ///     the `test.json` file (either `"automatic"` or `"manual"`).
+///     The insertion of these messages into `Sv2Frame`s is separated from `Step1` to provide the
+///     ability for the user to have control over the frames. Specifically, being able to create a
+///     bad frame for any `PoolMessage` and check that the test target handles the bad frame
+///     appropriately (either expects an error or closes the connection).
 ///
-/// 3. `Step3`:
+///     The behavior of the frame is specified in the `"frame_builders"` key value pair in the
+///     `test.json` file. The `"frame_builders"` value is a array of dicts, where each dict has two
+///     key value pairs. The first key is `"type"` which can be set to `"automatic"` if the user
+///     wants to place the `PoolMessages` into a "correct" `Sv2Frame` (the most common use), or it
+///     can be set to `"manual"` if the user wants to construct their own `Sv2Frame` (typically
+///     used in the case where a forced error is desired). If `"manual"` is set, the user will need
+///     to provide the frame headers (`extension_type`, `msg_type`, `msg_length`) in the json dict.
+///     The second key is the message identifier string, `"message_id"`, which is the connection to
+///     the `PoolMessage` identifier, `"id"`, discussed in `Step1`.
+///
+/// 3. `Step3`: Parses and stores all the shell commands and actions specified in the `test.json`
+///     file. There are five key-value pairs being parsed and stored in this step:
+///
+///     1. The setup logic defined in the `"setup_commands"` key-value pairs.
+///   
+///        The `"setup_commands"` key value pair contains shell commands to be executed before any
+///        messages are sent. This typically includes:
+///          1. Starting up a bitcoind node on regtest
+///          2. Mining some regtest blocks using `bitcoin-cli`
+///          3. Starting up a SV2 role, like the SV2 pool
+///   
+///        The `"setup_commands"` key value is an array of dicts each with its own shell command
+///        to be executed. This dict's keys are:
+///          1. `"command"`: The first argument in the shell command
+///          2. `"args"`: Any remaining arguments in the shell command
+///          3. `"conditions"`: TODO Q
+///   
+///        For example, to create a command to initialize a `bitcoind` node on start up:
+///        ```
+///        "setup_commands": [
+///          {
+///              "command": "./test/bin/bitcoind",
+///              "args": ["--regtest", "--datadir=./test/appdata/bitcoin_data/"],
+///              "conditions": {
+///                "WithConditions": {
+///                    "conditions": [
+///                        {
+///                          "output_string": "sv2 thread start",
+///                          "output_location": "StdOut",
+///                          "condition": true
+///                        },
+///                        {
+///                          "output_string": "",
+///                          "output_location": "StdErr",
+///                          "condition": false
+///                        }
+///                    ],
+///                    "timer_secs": 10,
+///                    "warn_no_panic": false
+///                }
+///            }
+///          },
+///          ...
+///        ```
+///    2. The `"execution_commands"` key-value pairs.
+///
+///       The `"execution_commands"` key value pair contains shell commands to TODO: ???.
+///       It uses the same key-value format as the `"setup_commands"` key-value pair.
+///
+///    3. Parses and stores the `"role"` key-value pair and associated connection data. This
+///       key-value pair defines which role is being mocked by `message-generator`. It can be one
+///       of three roles:
+///         1. `"client"`: Represents a downstream role to be mocked. If present, the
+///            `"downstream"` key-value pair containing endpoint connection information must also
+///            be present in the `test.json` configuration.
+///    
+///            For example:
+///            ```
+///            "role": "client",
+///            "downstream": {
+///                "ip": "0.0.0.0",
+///                "port": 34254,
+///                "pub_key": "2di19GHYQnAZJmEpoUeP7C3Eg9TCcksHr23rZCC83dvUiZgiDL"
+///            }
+///            ```
+///         2. `"proxy"`: Represents a proxy role to be mocked. If present, both a `"downstream"`
+///            and `"upstream"` key-pair containing the connection information for each endpoint
+///            must also be present in the `test.json` configuration.
+///    
+///            For example:
+///            ```
+///            "role": "proxy",
+///            "downstream": {
+///                "ip": "0.0.0.0",
+///                "port": 34254,
+///                "pub_key": "2di19GHYQnAZJmEpoUeP7C3Eg9TCcksHr23rZCC83dvUiZgiDL"
+///            }
+///            "upstream": {
+///                "ip": "18.196.32.109",
+///                "port": 3336,
+///                "pub_key": "2di19GHYQnAZJmEpoUeP7C3Eg9TCcksHr23rZCC83dvUiZgiDL"
+///            }
+///            ```
+///         3. `"server"`: Represents an upstream server role to be mocked. If present, the
+///            `"upstream"` key-value pair containing endpoint connection information must also
+///            be present in the `test.json` configuration.
+///    
+///            For example:
+///            ```
+///            "role": "server",
+///            "upstream": {
+///                "ip": "18.196.32.109",
+///                "port": 3336,
+///                "pub_key": "2di19GHYQnAZJmEpoUeP7C3Eg9TCcksHr23rZCC83dvUiZgiDL"
+///            }
+///            ```
+///
+///    4. Parses and stores the `"cleanup_commands"` key-value pairs.
+///
+///      The `"cleanup_commands"` key value pair contains shell commands to be executed at the
+///      end of the tests, after all the actions are executed. It uses the same key-value format
+///      as the `"setup_commands"` key-value pair.
+///    
+///    5. Parses and stores the `"actions"` key-value pairs.
+///
+///       The `"actions"` key value pair contains and array of dicts containing the messages to be
+///       sent from the mocked role (defined in the `"role"` key-pair).
+///       RR TODO: FINISH
+///       parse all the actions
+///       we have message_ids: put all messages that you have setup to send.
+///       i fyou want to send a message and recv + send and then send anothe rmessage, you have two
+///       actions the first that sends the first message and the sedond action to do the second.
+///       if i want to send two messages. if you expect to receive a message only after two
+///       messages, you can put two messages int he message_ids array.
+///       message_ids can be none if for ex the test is mocking an upstream and the first thing
+///       that happens is when downstream connects it sends a setupconnection, so if you are
+///       mocking the upstream , the first action is to expect to receive setupconn message, do not
+///       send anything back. so you have an action w
+///
+///       you can have empty message id: usefeul because if you are mocking an upstream server, you
+///       expect is that you are not sending any message, you expect the client to send the
+///       setupconnection. you are saying to mg the first thing you do is to receive a message.
+///       how does it know which message it is whating form?
+///       1. wait for message wit mesage type 0x00. after that go to second action which will have
+///          setupconnection success
+///          restuls is a vector, but should be a vector of vectors
+///          in some cases maybe want to check more than 1 property for message received, so what
+///          result should really be is a vec of cev
+///
+/// 4. `Step4`: TODO
+///    parse the test + execute.
+///    parse all bash commands
+///    role: client, proxy, or server
+///    if you are a client: need to have a downstream w connection infomation
+///    if you put pubkey it iwll setup noise conn w server, if not will setup plain connection
+///    if you have client=server, you need upstream fields, if proxy need both up and down
 #[derive(Debug)]
 pub enum Parser<'a> {
     /// Stores any number or combination of `PoolMessages` (`CommonMessage`,
     /// `JobNegotiationMessage`, `MiningMessage`, and/or `TemplateDistributionMessage`) as
-    /// specified by the `test.json` file to be later used by a specified action.
+    /// specified by the `test.json` file to be later used by a specified action. These are the
+    /// messages that will be sent to or from the mocked role.
     ///
     /// Each value is the `PoolMessages`, and each key the message identifier so later actions can
     /// find and use it.
     Step1(HashMap<String, AnyMessage<'a>>),
-    /// Transforms the `PoolMessages` from `Step1` in a `Sv2Frame`. The insertion of these messages
-    /// into `Sv2Frame`s is separated from `Step1` to provide the ability for the user to have
-    /// control over the frames. Specifically, being able to create a bad frame for any
-    /// `PoolMessage` and check that the test target handles the bad frame appropriately (either
-    /// expects an error or closes the connection).
-    ///
-    /// The behavior of the frame is specified in the `"frame_builders"` key value pair in the
-    /// `test.json` file. The `"frame_builders"` value is a array of dicts, where each dict has two
-    /// key value pairs. The first key is `"type"` which can be set to `"automatic"` if the user
-    /// wants to place the `PoolMessages` into a "correct" `Sv2Frame` (the most common use), or it
-    /// can be set to `"manual"` if the user wants to construct their own `Sv2Frame` (typically
-    /// used in the case where a forced error is desired). If `"manual"` is set, the user will need
-    /// to provide the frame headers (`extension_type`, `msg_type`, `msg_length`) in the json dict.
-    /// The second key is the message identifier string, `"message_id"`, which is the connection to
-    /// the `PoolMessage` identifier, `"id"`, discussed in `Step1`.
+    /// Transforms the `PoolMessages` from `Step1` in a `Sv2Frame`.
     Step2 {
-        /// `PoolMessages` message identifier and `PoolMessages`.
+        /// `PoolMessages` message identifier and `PoolMessages` of the messages to be sent to or
+        /// from the mocked role.
         messages: HashMap<String, AnyMessage<'a>>,
-        /// `PoolMessages` message identifier and `PoolMessages` as `Sv2Frame`.
+        /// `PoolMessages` message identifier and `PoolMessages` of the messages to be sent from to
+        /// or from the mocked role, serialized as `Sv2Frame`s.
         frames: HashMap<String, Sv2Frame<AnyMessage<'a>, Slice>>,
     },
-    /// parse all the actions
-    /// we have message_ids: put all messages that you have setup to send.
-    /// i fyou want to send a message and recv + send and then send anothe rmessage, you have two
-    /// actions the first that sends the first message and the sedond action to do the second.
-    /// if i want to send two messages. if you expect to receive a message only after two messages,
-    /// you can put two messages int he message_ids array.
-    /// message_ids can be none if for ex the test is mocking an upstream and the first thing that
-    /// happens is when downstream connects it sends a setupconnection, so if you are mocking the
-    /// upstream , the first action is to expect to receive setupconn message, do not send anything
-    /// back. so you have an action w
-    ///
-    /// you can have empty message id: usefeul because if you are mocking an upstream server, you
-    /// expect is that you are not sending any message, you expect the client to send the
-    /// setupconnection. you are saying to mg the first thing you do is to receive a message.
-    /// how does it know which message it is whating form?
-    /// 1. wait for message wit mesage type 0x00. after that go to second action which will have
-    ///    setupconnection success
-    ///    restuls is a vector, but should be a vector of vectors
-    ///    in some cases maybe want to check more than 1 property for message received, so what
-    ///    result should really be is a vec of cev
-    ///
-    /// Parses and executes all the actions specified in the `test.json` file.
-    /// `Step3`:
-    ///  1. Parses and stores the setup logic defined in the `"setup_commands"` and
-    ///  `"execution_commands"` key-value pairs.
-    ///
-    ///     The `"setup_commands"` key value pair contains shell commands to be executed before any
-    ///     messages are sent. This typically includes:
-    ///       1. Starting up a bitcoind node on regtest
-    ///       2. Mining some regtest blocks using `bitcoin-cli`
-    ///       3. Starting up a SV2 role, like the SV2 pool
-    ///
-    ///     The `"setup_commands"` key value is an array of dicts each with its own shell command
-    ///     to be executed. This dict's keys are:
-    ///       1. `"command"`: The first argument in the shell command
-    ///       2. `"args"`: Any remaining arguments in the shell command
-    ///       3. `"conditions"`: TODO Q
-    ///
-    ///     For example, to create a command to initialize a `bitcoind` node on start up:
-    ///     ```
-    ///     "setup_commands": [
-    ///       {
-    ///           "command": "./test/bin/bitcoind",
-    ///           "args": ["--regtest", "--datadir=./test/appdata/bitcoin_data/"],
-    ///           "conditions": {
-    ///             "WithConditions": {
-    ///                 "conditions": [
-    ///                     {
-    ///                       "output_string": "sv2 thread start",
-    ///                       "output_location": "StdOut",
-    ///                       "condition": true
-    ///                     },
-    ///                     {
-    ///                       "output_string": "",
-    ///                       "output_location": "StdErr",
-    ///                       "condition": false
-    ///                     }
-    ///                 ],
-    ///                 "timer_secs": 10,
-    ///                 "warn_no_panic": false
-    ///             }
-    ///         }
-    ///       },
-    ///       ...
-    ///     ```
-    /// 2. Parses and stores the `"role"` key-value pair and associated connection data. This
-    ///    key-value pair defines which role is being mocked by `message-generator`. It can be one
-    ///    of three roles:
-    ///      1. `"client"`: Represents a downstream role to be mocked. If present, the
-    ///         `"downstream"` key-value pair containing endpoint connection information must also
-    ///         be present in the `test.json` configuration.
-    ///
-    ///         For example:
-    ///         ```
-    ///         "role": "client",
-    ///         "downstream": {
-    ///             "ip": "0.0.0.0",
-    ///             "port": 34254,
-    ///             "pub_key": "2di19GHYQnAZJmEpoUeP7C3Eg9TCcksHr23rZCC83dvUiZgiDL"
-    ///         }
-    ///         ```
-    ///      2. `"proxy"`: Represents a proxy role to be mocked. If present, both a `"downstream"`
-    ///         and `"upstream"` key-pair containing the connection information for each endpoint
-    ///         must also be present in the `test.json` configuration.
-    ///
-    ///         For example:
-    ///         ```
-    ///         "role": "proxy",
-    ///         "downstream": {
-    ///             "ip": "0.0.0.0",
-    ///             "port": 34254,
-    ///             "pub_key": "2di19GHYQnAZJmEpoUeP7C3Eg9TCcksHr23rZCC83dvUiZgiDL"
-    ///         }
-    ///         "upstream": {
-    ///             "ip": "18.196.32.109",
-    ///             "port": 3336,
-    ///             "pub_key": "2di19GHYQnAZJmEpoUeP7C3Eg9TCcksHr23rZCC83dvUiZgiDL"
-    ///         }
-    ///         ```
-    ///      3. `"server"`: Represents an upstream server role to be mocked. If present, the
-    ///         `"upstream"` key-value pair containing endpoint connection information must also
-    ///         be present in the `test.json` configuration.
-    ///
-    ///         For example:
-    ///         ```
-    ///         "role": "server",
-    ///         "upstream": {
-    ///             "ip": "18.196.32.109",
-    ///             "port": 3336,
-    ///             "pub_key": "2di19GHYQnAZJmEpoUeP7C3Eg9TCcksHr23rZCC83dvUiZgiDL"
-    ///         }
-    ///         ```
-    ///
-    ///  3. Parses and stores the `"cleanup_commands"` key-value pairs.
-    ///
-    ///    The `"cleanup_commands"` key value pair contains shell commands to be executed at the
-    ///    end of the tests, after all the actions are executed. It uses the same key-value format
-    ///    as the `"setup_commands"` key-value pair.
+    /// Parses and stores the `"setup_commmands"`, `"execution_commands"`, `"cleanup_commands"`,
+    /// `"role"`, and `"actions"` key-value pairs  all the actions specified in the `test.json`
+    /// file.
     Step3 {
-        /// Mapping of `PoolMessages` message identifer and the `PoolMessages` message.
+        /// Mapping of `PoolMessages` message identifer and the `PoolMessages` message to be sent
+        /// to or from the mocked role.
         messages: HashMap<String, AnyMessage<'a>>,
-        /// Mapping of `PoolMessages` message identifer and the `PoolMessages` message serialized
-        /// as a `Sv2Frame`.
+        /// Mapping of `PoolMessages` message identifer and the `PoolMessages` message to be sent
+        /// to or from the mocked role, serialized as `Sv2Frame`'s.
         frames: HashMap<String, Sv2Frame<AnyMessage<'a>, Slice>>,
         /// Vector of `Actions` containing the message identifiers of the messages to execute, the
         /// expected responses of each message, and the endpoint information of the role being
         /// mocked.
         actions: Vec<Action<'a>>,
     },
-    /// parse the test + execute.
-    /// parse all bash commands
-    /// role: client, proxy, or server
-    /// if you are a client: need to have a downstream w connection infomation
-    /// if you put pubkey it iwll setup noise conn w server, if not will setup plain connection
-    /// if you have client=server, you need upstream fields, if proxy need both up and down
+    /// Executes all the commands and actions as specified in the `test.json` configuration file.
     Step4(Test<'a>),
 }
 
 impl<'a> Parser<'a> {
-    /// when you parse test with Parer you execute in main
-
     /// Progresses each step of `Parser` to the next.
     pub fn parse_test<'b: 'a>(test: &'b str) -> Test<'a> {
         let step1 = Self::initialize(test);
