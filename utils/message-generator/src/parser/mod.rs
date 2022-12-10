@@ -150,18 +150,110 @@ pub enum Parser<'a> {
     ///
     /// Parses and executes all the actions specified in the `test.json` file.
     /// `Step3`:
-    ///  1. Parses and executes the setup logic defined in the `"setup_commands"` and
-    ///     `"execution_coammnds"` key-value pairs,
-    ///  2. Executes the messages defined in the `"actions"` which have been parsed and serialized
-    ///     into `Sv2Frames` in `Step1` and `Step2`,
-    ///  3. and parses and executes the `"cleanup_commands"` key-value pairs.
+    ///  1. Parses and stores the setup logic defined in the `"setup_commands"` and
+    ///  `"execution_commands"` key-value pairs.
+    ///
+    ///     The `"setup_commands"` key value pair contains shell commands to be executed before any
+    ///     messages are sent. This typically includes:
+    ///       1. Starting up a bitcoind node on regtest
+    ///       2. Mining some regtest blocks using `bitcoin-cli`
+    ///       3. Starting up a SV2 role, like the SV2 pool
+    ///
+    ///     The `"setup_commands"` key value is an array of dicts each with its own shell command
+    ///     to be executed. This dict's keys are:
+    ///       1. `"command"`: The first argument in the shell command
+    ///       2. `"args"`: Any remaining arguments in the shell command
+    ///       3. `"conditions"`: TODO Q
+    ///
+    ///     For example, to create a command to initialize a `bitcoind` node on start up:
+    ///     ```
+    ///     "setup_commands": [
+    ///       {
+    ///           "command": "./test/bin/bitcoind",
+    ///           "args": ["--regtest", "--datadir=./test/appdata/bitcoin_data/"],
+    ///           "conditions": {
+    ///             "WithConditions": {
+    ///                 "conditions": [
+    ///                     {
+    ///                       "output_string": "sv2 thread start",
+    ///                       "output_location": "StdOut",
+    ///                       "condition": true
+    ///                     },
+    ///                     {
+    ///                       "output_string": "",
+    ///                       "output_location": "StdErr",
+    ///                       "condition": false
+    ///                     }
+    ///                 ],
+    ///                 "timer_secs": 10,
+    ///                 "warn_no_panic": false
+    ///             }
+    ///         }
+    ///       },
+    ///       ...
+    ///     ```
+    /// 2. Parses and stores the `"role"` key-value pair and associated connection data. This
+    ///    key-value pair defines which role is being mocked by `message-generator`. It can be one
+    ///    of three roles:
+    ///      1. `"client"`: Represents a downstream role to be mocked. If present, the
+    ///         `"downstream"` key-value pair containing endpoint connection information must also
+    ///         be present in the `test.json` configuration.
+    ///
+    ///         For example:
+    ///         ```
+    ///         "role": "client",
+    ///         "downstream": {
+    ///             "ip": "0.0.0.0",
+    ///             "port": 34254,
+    ///             "pub_key": "2di19GHYQnAZJmEpoUeP7C3Eg9TCcksHr23rZCC83dvUiZgiDL"
+    ///         }
+    ///         ```
+    ///      2. `"proxy"`: Represents a proxy role to be mocked. If present, both a `"downstream"`
+    ///         and `"upstream"` key-pair containing the connection information for each endpoint
+    ///         must also be present in the `test.json` configuration.
+    ///
+    ///         For example:
+    ///         ```
+    ///         "role": "proxy",
+    ///         "downstream": {
+    ///             "ip": "0.0.0.0",
+    ///             "port": 34254,
+    ///             "pub_key": "2di19GHYQnAZJmEpoUeP7C3Eg9TCcksHr23rZCC83dvUiZgiDL"
+    ///         }
+    ///         "upstream": {
+    ///             "ip": "18.196.32.109",
+    ///             "port": 3336,
+    ///             "pub_key": "2di19GHYQnAZJmEpoUeP7C3Eg9TCcksHr23rZCC83dvUiZgiDL"
+    ///         }
+    ///         ```
+    ///      3. `"server"`: Represents an upstream server role to be mocked. If present, the
+    ///         `"upstream"` key-value pair containing endpoint connection information must also
+    ///         be present in the `test.json` configuration.
+    ///
+    ///         For example:
+    ///         ```
+    ///         "role": "server",
+    ///         "upstream": {
+    ///             "ip": "18.196.32.109",
+    ///             "port": 3336,
+    ///             "pub_key": "2di19GHYQnAZJmEpoUeP7C3Eg9TCcksHr23rZCC83dvUiZgiDL"
+    ///         }
+    ///         ```
+    ///
+    ///  3. Parses and stores the `"cleanup_commands"` key-value pairs.
+    ///
+    ///    The `"cleanup_commands"` key value pair contains shell commands to be executed at the
+    ///    end of the tests, after all the actions are executed. It uses the same key-value format
+    ///    as the `"setup_commands"` key-value pair.
     Step3 {
         /// Mapping of `PoolMessages` message identifer and the `PoolMessages` message.
         messages: HashMap<String, AnyMessage<'a>>,
         /// Mapping of `PoolMessages` message identifer and the `PoolMessages` message serialized
         /// as a `Sv2Frame`.
         frames: HashMap<String, Sv2Frame<AnyMessage<'a>, Slice>>,
-        /// TODO
+        /// Vector of `Actions` containing the message identifiers of the messages to execute, the
+        /// expected responses of each message, and the endpoint information of the role being
+        /// mocked.
         actions: Vec<Action<'a>>,
     },
     /// parse the test + execute.
