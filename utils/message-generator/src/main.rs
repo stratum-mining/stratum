@@ -151,36 +151,68 @@ enum ActionResult {
     None,
 }
 
+/// Represents the role being mocked defined in the `test.json` configuration file as the `"role"`
+/// key-value pair. The `"role"` key's value can be a downstream client role (`"downstream"`), a
+/// proxy role (`"proxy"`), or an upstream server role (`"upstream"`).
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize, Copy)]
 enum Role {
+    /// Represents the upstream server role being mocked. Used if the `"role": "upstream"` key-pair
+    /// is present in the `test.json` configuration file.
     Upstream,
+    /// Represents the downstream server role being mocked. Used if the `"role": "downstream"`
+    /// key-pair is present in the `test.json` configuration file.
     Downstream,
+    /// Represents the proxy server role being mocked. Used if the `"role": "proxy"` key-pair
+    /// is present in the `test.json` configuration file.
     Proxy,
 }
 
+/// Represents the endpoint connection information of an upstream server role being mocked, defined
+/// in the `"upstream"` key-pair in the `test.json` configuration file. Must be present if the
+/// `"role": "upstream"` or the `"role": "proxy"` key-value pair is present.
 #[derive(Debug, Clone)]
 struct Upstream {
+    /// Host endpoint address.
     addr: SocketAddr,
+    /// Host endpoint pubkey.
     keys: Option<(EncodedEd25519PublicKey, EncodedEd25519SecretKey)>,
 }
 
+/// Represents the endpoint connection information of an downstream server role being mocked,
+/// defined in the `"downstream"` key-pair in the `test.json` configuration file. Must be present
+/// if the `"role": "downstream"` or the `"role": "proxy"` key-value pair is present.
 #[derive(Debug, Clone)]
 struct Downstream {
+    /// Host endpoint address.
     addr: SocketAddr,
+    /// Host endpoint pubkey.
     key: Option<EncodedEd25519PublicKey>,
 }
 
+/// Represents the message identifiers of the messages to execute, the expected responses of each
+/// message, and the endpoint information of the role being mocked.
+/// Serialized from the `"actions"` key-value pair in the `test.json` configuration file.
 #[derive(Debug)]
 pub struct Action<'a> {
+    /// `PoolMessages` messages to execute serialized into a data frame.
     messages: Vec<EitherFrame<AnyMessage<'a>>>,
+    /// Expected message response results of each `PoolMessages` in `messages`.
     result: Vec<ActionResult>,
+    /// Role being mocked. Can be a downstream client role, a proxy role, or an upstream server
+    /// role.
     role: Role,
 }
 
+/// Represents a shell execution command defined in either the `"setup_commmands"`,
+/// `"execution_commands"` or `"cleanup_commmands"` key-value pair is present in the `test.json`
+/// configuration file.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Command {
+    /// Binary to call (first argument of shell command).
     command: String,
+    /// Flags or commands in call (remaining arguments in shell command).
     args: Vec<String>,
+    /// TODO: ??
     conditions: ExternalCommandConditions,
 }
 
