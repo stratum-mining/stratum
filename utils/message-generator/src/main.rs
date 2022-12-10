@@ -174,7 +174,8 @@ enum Role {
 struct Upstream {
     /// Host endpoint address.
     addr: SocketAddr,
-    /// Host endpoint pubkey.
+    /// Host endpoint pubkey. If present, a noise connection will be used, otherwise a plain
+    /// connection will be used.
     keys: Option<(EncodedEd25519PublicKey, EncodedEd25519SecretKey)>,
 }
 
@@ -185,7 +186,8 @@ struct Upstream {
 struct Downstream {
     /// Host endpoint address.
     addr: SocketAddr,
-    /// Host endpoint pubkey.
+    /// Host endpoint pubkey. If present, a noise connection will be used, otherwise a plain
+    /// connection will be used.
     key: Option<EncodedEd25519PublicKey>,
 }
 
