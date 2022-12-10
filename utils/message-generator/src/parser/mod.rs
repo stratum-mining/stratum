@@ -9,27 +9,93 @@ use roles_logic_sv2::parsers::AnyMessage;
 use serde_json::{Map, Value};
 use std::{collections::HashMap, convert::TryInto};
 use sv2_messages::TestMessageParser;
-use tracing::debug;
+use tracing::{debug, info};
 
 /// Handles the parsing, processing, and execution as prescribed by the `test.json` file. This is
 /// broken into four stages:
-/// 1. `Step1`: Searches the parsed `test.json` `str` for any keys with the name `common_messages`,
-///    `mining_messages`, `template_provider_messages`, and/or `job_negotiation_messages`. Takes
-///    the message(s) values and converts them into their respective message type. The formatted
-///    message struct(s) is then stored in the `TestMessageParser` struct which is held in the
-///    `Step1` enum variant.
 ///
-///    As an example, if a `common_messages` key is present, at least one `CommonMessage` message
-///    must be present. These `CommonMessages` are `ChannelEndpointChanged`, `SetupConnection`,
-///    `SetupConnectionError`, and `SetupConnectionSuccess`. If the user wants to specify a
-///    `SetupConnection` message to be later invoked by an action, the user must specify all fields
-///    of the `SetupConnection` message and also specify a message identifier in the `"id"` field.
-///    The message identifier is a string that is a snake case representation of the message. So
-///    for `SetupConnection`, the message identifier string is `"setup_connection". Likewise, for
-///    the `SetupConnectionSuccess` message, the message identifier string is
-///    `"setup_connection_success"`.
-/// 2. `Step2`: For each `PoolMessages` stored in `Step1`, serializes them into `Sv2Frame` as
-///    prescribed by the `test.json` file (either `"automatic"` or `"manual"`).
+/// 1. `Step1`: Searches the parsed `test.json` string for any keys with the name
+///    `common_messages`, `mining_messages`, `template_provider_messages`, and/or
+///    `job_negotiation_messages`. Each optional value contains an array of
+///    [`PoolMessages`](https://github.com/stratum-mining/stratum/blob/3b0f53e072adb313a3d08a4e64dc394d4c8c270d/protocols/v2/roles-logic-sv2/src/parsers.rs#L968),
+///    which are then parsed into their respective message type struct(s) and stored in the
+///    `TestMessageParser` struct which is held in the `Step1` enum variant.
+///
+///    `PoolMessages` defines four enum variants representing groups of message types. These enum
+///    variants are:
+///    1. [`CommonMessages`](https://github.com/stratum-mining/stratum/blob/3b0f53e072adb313a3d08a4e64dc394d4c8c270d/protocols/v2/roles-logic-sv2/src/parsers.rs#L88)
+///    2. [`Mining`](https://github.com/stratum-mining/stratum/blob/3b0f53e072adb313a3d08a4e64dc394d4c8c270d/protocols/v2/roles-logic-sv2/src/parsers.rs#L138)
+///    3. [`JobNegotiation`](https://github.com/stratum-mining/stratum/blob/3b0f53e072adb313a3d08a4e64dc394d4c8c270d/protocols/v2/roles-logic-sv2/src/parsers.rs#L116)
+///    4. [`TemplateDistribution`](https://github.com/stratum-mining/stratum/blob/3b0f53e072adb313a3d08a4e64dc394d4c8c270d/protocols/v2/roles-logic-sv2/src/parsers.rs#L99)
+///
+///    Each `PoolMessages` key contains an array of one or dicts with two key-value pairs. The
+///    first is `"id"` whose value is a snake case representation of the message type. The second
+///    is `"message"` whose value is a dict which always contains the `"type"` key defining the
+///    camel case message type, the remaining keys defined the message fields and associated values.
+///
+///    For example, if the user wants to defined the `CommonMessages` types of `SetupConnection`
+///    and `SetupConnectionSuccess`, and the `Mining` types of `OpenStandardMiningChannel`, the
+///    format is:
+///
+///    ```
+///    // Represents an array of `CommonMessages`
+///    "common_messages": [
+///        {
+///            "message": {
+///                // Specifies a `SetupConnection` message
+///                // (RR Q: why is this needed if we have `"id": "setup_connection"`)
+///                "type": "SetupConnection",
+///                // `SetupConnection` message fields
+///                "protocol": "MiningProtocol",
+///                "min_version": 2,
+///                "max_version": 2,
+///                "flags": 0,
+///                "endpoint_host": "",
+///                "endpoint_port": 0,
+///                "vendor": "",
+///                "hardware_version": "",
+///                "firmware": "",
+///                "device_id": ""
+///            },
+///            // `SetupConnection` message identifier
+///            "id": "setup_connection"
+///        },
+///        {
+///            "message": {
+///                // Represents a `SetupConnectionSuccess` message
+///                "type": "SetupConnectionSuccess",
+///                // `SetupConnection` message fields
+///                "flags": 0,
+///                "used_version": 2
+///            },
+///            // `SetupConnectionSuccess` message identifier
+///            "id": "setup_connection_success"
+///        }
+///    ],
+///    // Represents an array of one or more `Mining` messages
+///    "mining_messages": [
+///        {
+///            "message": {
+///                // Represents an `OpenStandardMiningChannel` message
+///                "type": "OpenStandardMiningChannel",
+///                // `OpenStandardMiningChannel` message fields
+///                "request_id": 89,
+///                "user_identity": "",
+///                "nominal_hash_rate": 10,
+///                "max_target": [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+///            },
+///            // `OpenStandardMiningChannel` identifier
+///            "id": "open_standard_mining_channel"
+///        }
+///    ]
+///    ```
+///
+///    Notice that no `TemplateDistribution` of `JobNegotiation` messages are present, so these
+///    fields are simply omitted. All fields are optional.
+///
+/// 2. `Step2`: Serializes each `PoolMessages` stored in `Step1` into a `Sv2Frame` as prescribed by
+///     the `test.json` file (either `"automatic"` or `"manual"`).
+///
 /// 3. `Step3`:
 #[derive(Debug)]
 pub enum Parser<'a> {
@@ -47,14 +113,14 @@ pub enum Parser<'a> {
     /// expects an error or closes the connection).
     ///
     /// The behavior of the frame is specified in the `"frame_builders"` key value pair in the
-    /// `test.json` file. The `"frame_builders"` value is a vector of dicts, where each dict has
-    /// two key value pairs. The first key is `"type"` which can be set to `"automatic"` if the
-    /// user wants to place the `PoolMessages` into a "correct" `Sv2Frame` (the most common use),
-    /// or it can be set to `"manual"` if the user wants to construct their own `Sv2Frame`
-    /// (typically used in the case where a forced error is desired). If `"manual"` is set, the
-    /// user will need to provide the frame headers (`extension_type`, `msg_type`, `msg_length`) in
-    /// the json dict. The second key is the message identifier string, `"message_id"`, which is the
-    /// connection to the `PoolMessage` identifier, `"id"`, discussed in `Step1`.
+    /// `test.json` file. The `"frame_builders"` value is a array of dicts, where each dict has two
+    /// key value pairs. The first key is `"type"` which can be set to `"automatic"` if the user
+    /// wants to place the `PoolMessages` into a "correct" `Sv2Frame` (the most common use), or it
+    /// can be set to `"manual"` if the user wants to construct their own `Sv2Frame` (typically
+    /// used in the case where a forced error is desired). If `"manual"` is set, the user will need
+    /// to provide the frame headers (`extension_type`, `msg_type`, `msg_length`) in the json dict.
+    /// The second key is the message identifier string, `"message_id"`, which is the connection to
+    /// the `PoolMessage` identifier, `"id"`, discussed in `Step1`.
     Step2 {
         /// `PoolMessages` message identifier and `PoolMessages`.
         messages: HashMap<String, AnyMessage<'a>>,
@@ -83,6 +149,12 @@ pub enum Parser<'a> {
     ///    result should really be is a vec of cev
     ///
     /// Parses and executes all the actions specified in the `test.json` file.
+    /// `Step3`:
+    ///  1. Parses and executes the setup logic defined in the `"setup_commands"` and
+    ///     `"execution_coammnds"` key-value pairs,
+    ///  2. Executes the messages defined in the `"actions"` which have been parsed and serialized
+    ///     into `Sv2Frames` in `Step1` and `Step2`,
+    ///  3. and parses and executes the `"cleanup_commands"` key-value pairs.
     Step3 {
         /// Mapping of `PoolMessages` message identifer and the `PoolMessages` message.
         messages: HashMap<String, AnyMessage<'a>>,
@@ -121,7 +193,7 @@ impl<'a> Parser<'a> {
     /// `JobNegotiationMessage`, `MiningMessage`, and/or `TemplateDistributionMessage`) and stores
     /// them in a hashmap in the `Step1` enum variant.
     fn initialize<'b: 'a>(test: &'b str) -> Self {
-        debug!("Initialize test");
+        info!("Initialize test");
         let messages = TestMessageParser::from_str(test);
         let step1 = Self::Step1(messages.into_map());
         debug!("STEP 1: {:#?}", &step1);
@@ -157,10 +229,18 @@ impl<'a> Parser<'a> {
                 frames: _,
                 actions,
             } => {
-                let test: Map<String, Value> = serde_json::from_str(&test).unwrap();
+                // Serializes the `test.json` configuration into a HashMap
+                let test: Map<String, Value> = serde_json::from_str(test).unwrap();
+                // `"setup_commands"` represents all the commands that need to be executed to
+                // enable the tests to run (typically starting up a regtest bitcoin node)
                 let setup_commands = test.get("setup_commands").unwrap().as_array().unwrap();
+                // `"execution_commands"` represents all the commands that need to be executed to
+                // ??? -> RR Q: what kinds of things go in `"execution_commands"`?
                 let execution_commands =
                     test.get("execution_commands").unwrap().as_array().unwrap();
+                // `"cleanup_commands"` represent the logic to be ran after all the tests are
+                // complete (typically removing the bitcoin node `datadir` created in the
+                // `"setup_commands"`
                 let cleanup_commands = test.get("cleanup_commands").unwrap().as_array().unwrap();
 
                 let setup_commmands: Vec<Command> = setup_commands
@@ -176,6 +256,11 @@ impl<'a> Parser<'a> {
                     .map(|s| serde_json::from_value(s.clone()).unwrap())
                     .collect();
 
+                // Gets the `"role"` key's value pair and .
+                // If the value is `"client", looks for `"downstream"` key-value pair which
+                // contains the connection information for a downstream client.
+                // If the value is `"server", looks for `"upstream"` key-value pair which
+                // contains the connection information for a upstream server.
                 let (as_upstream, as_dowstream) = match test.get("role").unwrap().as_str().unwrap()
                 {
                     "client" => {

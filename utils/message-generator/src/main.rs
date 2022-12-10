@@ -17,36 +17,137 @@ use roles_logic_sv2::{common_messages_sv2::SetupConnectionSuccess, parsers::AnyM
 use std::net::SocketAddr;
 //use serde::{Deserialize as SerdeDeserialize, Serialize as SerdeSerialize};
 use serde_json;
-use tracing::{debug, error, info};
+use tracing::{debug, info};
 
+// TODO RR: Move to `actions.rs`
+/// Represents a valid SV2 type used in the `"value"` key-pair of the `"results"` key value of the
+/// `"actions"` key value. It is used when the `"results"`'s `"type"` is `"match_message_field"`.
+/// For example:
+///    ```
+///    {
+///      "type": "match_message_field",
+///        "value": [
+///          "MiningProtocol",
+///          "OpenStandardMiningChannelSuccess",
+///          "request_id",
+///          { "U32": 89 }
+///        ]
+///     }
+///    ```
+///    where `{ "U32": 89 }` is serialized as `Sv2Type::U32(89)`.
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 enum Sv2Type {
+    /// Message field `bool` value
     Bool(bool),
+    /// Message field `u8` value
     U8(u8),
+    /// Message field `u16` value
     U16(u16),
+    /// Message field `u24` value as a vector of `u8`'s
+    /// TODO: Change variant to `U24Vec(Vec<u8>)`?
     U24(Vec<u8>),
+    /// Message field `u32` value
     U32(u32),
+    /// Message field `u256` value as a vector of `u8`'s
+    /// TODO: Change variant to `U256Vec(Vec<u8>)`?
     U256(Vec<u8>),
+    /// Message field `255` byte-len `String` value
     Str0255(String),
+    /// Message field 8-bit byte array
     B0255(Vec<u8>),
+    /// Message field 16-bit byte array
     B064K(Vec<u8>),
+    /// Message field 16-bit byte array of `u24`s
+    // TODO Q: should this be `Vec<u24>` as according to spec definition of `B0_16M`?
     B016m(Vec<u8>),
+    /// Message field X coordinate of Secp256k1 public key (see BIP 340)
     Pubkey(Vec<u8>),
+    /// Message field 8-bit byte array with length from 0 to 255 bits
     Seq0255(Vec<Vec<u8>>),
+    /// Message field 16-bit byte array with length from 0 to 65535 bits
     Seq064k(Vec<Vec<u8>>),
 }
 
+// TODO RR: Move to `actions.rs`
+/// Represents the result of a specified `Action` defined in `test.json` configuration file as the
+/// `"results"` key-pair within the `"actions"` key value. It represents the expected response(s)
+/// to a specified `PoolMessages` message.
+/// For example, if the `SetupConnection` is present in the `"common_messages"` key, one will
+/// expect a `SetupConnectionSuccess` in response. This expected response should be listed as an
+/// array entry in the `"results"` key value.
+///
+/// A user can specify if they want the message in the `"results"` key's value to be a specific
+/// message type, to have certain message fields, to have a specific byte length, or to have a
+/// specific extension type. This is all specified in an array entry of the `"results"` key's
+/// value. This value has two key-value pairs: `"type"` and `"value"`, and can take one of the
+/// following six forms:
+///
+/// 1. `{ "type": "match_message_type", "value": "<hex representation of message>" }`
+///     Used when the expected message should have a specific message type.
+///     Hex representation of messages are found
+///     [here](https://github.com/stratum-mining/sv2-spec/blob/main/08-Message-Types.md).
+/// 2.
+///    ```
+///    { "type": "match_message_field",
+///      "value": [
+///        "<subprotocol>",
+///        "<message type>",
+///        "<field name>",
+///        {"<field name Sv2Type data type>": <field name value> }
+///        ]
+///     }
+///    ```
+///     Used when the expected message should contain specific fields and values.
+/// 3. `{ "type": "match_message_len", "value": "<expected byte length of message>" }`
+///     Used when the expected message should have a specific byte len.
+/// 4. `{ "type": "match_extension_type", "value": "<hex representation of extension>" }`
+///     Used when the expected message should have a specific extension type.
+///     Hex representation of extensions are found
+///     [here](https://github.com/stratum-mining/sv2-spec/blob/main/09-Extensions.md).
+/// 5. `{ "type": "close_connection" }`
+///     Used when the expected message has a bad frame (or other error) and the connection is
+///     expected to close.
+/// 5. `{ "type": "none" }`
+///    Used when no action or check should be made on a expected message. Not typically used.
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 enum ActionResult {
+    /// Present if the user wants the resulting message type to match that defined in the `"value"`
+    /// key's value. The message type held by `"value"` is stored in this enum variant.
+    ///
+    /// For example, `{ "type": "match_message_type", "value": "0x01" }` indicates that
+    /// the user expects the resulting message to be of message type `0x01`, which is a
+    /// `SetupConnectionSuccess` message.
     MatchMessageType(u8),
-    // subprotocol, message type, field_name, value
+    /// Present if the user wants the resulting message fields to match that defined in the
+    /// `"value"` key pair. Here, the contents of `"value"` is a string array with the subprotocol,
+    /// message type, field name, and `Sv2Type` value which are stored in this enum variant.
+    ///
+    /// For example:
+    ///    ```
+    ///    {
+    ///      "type": "match_message_field",
+    ///        "value": [
+    ///          "MiningProtocol",
+    ///          "OpenStandardMiningChannelSuccess",
+    ///          "request_id",
+    ///          { "U32": 89 }
+    ///        ]
+    ///     }
+    ///    ```
+    ///    where `{ "U32": 89 }` is serialized as `Sv2Type::U32(89)`.
     MatchMessageField((String, String, String, Sv2Type)),
+    /// Present if the user wants the resulting message length to match that defined in the
+    /// `"value"` key's value.
     MatchMessageLen(usize),
+    /// Present if the user wants the resulting extension type to match that defined in the
+    /// `"value"` key's value.
     MatchExtensionType(u16),
-    /// Can check if connection is closed: test bad frame and make sure server closes connection
+    /// Present if the user wants to check if the connection is closed. Used to test that the
+    /// server closes the connection on a bad frame.
     CloseConnection,
-    /// if "type"="none", Says to mg: i expect to receive a message but do not want to check this
-    /// message, not used often
+    /// Present if the user expects to receive a message but does not want/need to check this
+    /// message. Not typically used.
+    /// For example, `{ "type": "none"}`.
     None,
 }
 

@@ -3,8 +3,9 @@ use codec_sv2::{buffer_sv2::Slice, StandardEitherFrame, Sv2Frame};
 use roles_logic_sv2::parsers::AnyMessage;
 use serde_json::{Map, Value};
 use std::collections::HashMap;
-use tracing::debug;
 
+/// Represents actions to parse.
+// TODO: should struct have an `actions` field of type `Vec<Action<'a>>`?
 pub struct ActionParser {}
 
 impl ActionParser {
@@ -12,9 +13,13 @@ impl ActionParser {
         test: &'b str,
         frames: HashMap<String, Sv2Frame<AnyMessage<'a>, Slice>>,
     ) -> Vec<Action<'a>> {
+        // Serializes the `test.json` configuration into a HashMap
         let test: Map<String, Value> = serde_json::from_str(test).unwrap();
+        // `"actions"` represents an array of messages that should be executed by a specified role
+        // (client or server)
         let actions = test.get("actions").unwrap().as_array().unwrap();
         let mut result = vec![];
+        // For each action, set it's specified role and associated messages to be sent by that role
         for action in actions {
             let role = match action.get("role").unwrap().as_str().unwrap() {
                 "client" => Role::Downstream,
@@ -34,6 +39,9 @@ impl ActionParser {
                 action_frames.push(frame);
             }
 
+            // For each action, set it's expected `"results"` `"type"` value as
+            // `"match_message_type"`, `"match_message_field"`, `"match_message_len"`,
+            // `"match_extension_type"`, `"close_connection"`, or `"none"`
             let mut action_results = vec![];
             let results = action.get("results").unwrap().as_array().unwrap();
             for result in results {
@@ -73,6 +81,7 @@ impl ActionParser {
                 }
             }
 
+            // Stores parsed `"actions"`
             let action = Action {
                 messages: action_frames,
                 result: action_results,
