@@ -102,17 +102,17 @@ pub struct Upstream {
     connection: UpstreamConnection,
     /// Receives SV2 `SubmitSharesExtended` messages translated from SV1 `mining.submit` messages.
     /// Translated by and sent from the `Bridge`.
-    submit_from_dowstream: Receiver<SubmitSharesExtended<'static>>,
+    rx_sv2_submit_shares_ext: Receiver<SubmitSharesExtended<'static>>,
     /// Sends SV2 `SetNewPrevHash` messages to be translated (along with SV2 `NewExtendedMiningJob`
     /// messages) into SV1 `mining.notify` messages. Received and translated by the `Bridge`.
-    new_prev_hash_sender: Sender<SetNewPrevHash<'static>>,
+    tx_sv2_set_new_prev_hash: Sender<SetNewPrevHash<'static>>,
     /// Sends SV2 `NewExtendedMiningJob` messages to be translated (along with SV2 `SetNewPrevHash`
     /// messages) into SV1 `mining.notify` messages. Received and translated by the `Bridge`.
-    new_extended_mining_job_sender: Sender<NewExtendedMiningJob<'static>>,
+    tx_sv2_new_ext_mining_job: Sender<NewExtendedMiningJob<'static>>,
     /// Sends the extranonce1 received in the SV2 `OpenExtendedMiningChannelSuccess` message to be
     /// used by the `Downstream` and sent to the Downstream role in a SV2 `mining.subscribe`
     /// response message. Passed to the `Downstream` on connection creation.
-    extranonce_sender: Sender<ExtendedExtranonce>,
+    tx_sv2_extranonce: Sender<ExtendedExtranonce>,
     /// The first `target` is received by the Upstream role in the SV2
     /// `OpenExtendedMiningChannelSuccess` message, then updated periodically via SV2 `SetTarget`
     /// messages. Passed to the `Downstream` on connection creation and sent to the Downstream role
@@ -135,11 +135,11 @@ impl Upstream {
     pub async fn new(
         address: SocketAddr,
         authority_public_key: String,
-        submit_from_dowstream: Receiver<SubmitSharesExtended<'static>>,
-        new_prev_hash_sender: Sender<SetNewPrevHash<'static>>,
-        new_extended_mining_job_sender: Sender<NewExtendedMiningJob<'static>>,
+        rx_sv2_submit_shares_ext: Receiver<SubmitSharesExtended<'static>>,
+        tx_sv2_set_new_prev_hash: Sender<SetNewPrevHash<'static>>,
+        tx_sv2_new_ext_mining_job: Sender<NewExtendedMiningJob<'static>>,
         min_extranonce_size: u16,
-        extranonce_sender: Sender<ExtendedExtranonce>,
+        tx_sv2_extranonce: Sender<ExtendedExtranonce>,
         target: Arc<Mutex<Vec<u8>>>,
     ) -> ProxyResult<Arc<Mutex<Self>>> {
         // Connect to the SV2 Upstream role retry connection every 5 seconds.
@@ -176,14 +176,14 @@ impl Upstream {
 
         Ok(Arc::new(Mutex::new(Self {
             connection,
-            submit_from_dowstream,
+            rx_sv2_submit_shares_ext,
             extranonce_prefix: None,
-            new_prev_hash_sender,
-            new_extended_mining_job_sender,
+            tx_sv2_set_new_prev_hash,
+            tx_sv2_new_ext_mining_job,
             channel_id: None,
             job_id: None,
             min_extranonce_size,
-            extranonce_sender,
+            tx_sv2_extranonce,
             target,
             current_job: Job::Void,
         })))
@@ -331,14 +331,14 @@ impl Upstream {
                                 ).unwrap_or_else(|| panic!("Impossible to create a valid extended extranonce from {:?} {:?} {:?} {:?}", extranonce,range_0,range_1,range_2));
 
                                 let sender =
-                                    self_.safe_lock(|s| s.extranonce_sender.clone()).unwrap();
+                                    self_.safe_lock(|s| s.tx_sv2_extranonce.clone()).unwrap();
                                 sender.send(extended).await.unwrap();
                             }
                             Mining::NewExtendedMiningJob(m) => {
                                 debug!("parse_incoming Mining::NewExtendedMiningJob msg");
                                 let job_id = m.job_id;
                                 let sender = self_
-                                    .safe_lock(|s| s.new_extended_mining_job_sender.clone())
+                                    .safe_lock(|s| s.tx_sv2_new_ext_mining_job.clone())
                                     .unwrap();
                                 self_
                                     .safe_lock(|s| {
@@ -349,8 +349,9 @@ impl Upstream {
                             }
                             Mining::SetNewPrevHash(m) => {
                                 debug!("parse_incoming Mining::SetNewPrevHash msg");
-                                let sender =
-                                    self_.safe_lock(|s| s.new_prev_hash_sender.clone()).unwrap();
+                                let sender = self_
+                                    .safe_lock(|s| s.tx_sv2_set_new_prev_hash.clone())
+                                    .unwrap();
                                 sender.send(m).await.unwrap();
                             }
                             // impossible state
@@ -374,7 +375,7 @@ impl Upstream {
         // check if submit meet the upstream target and if so send back (upstream target will
         // likely be not the same of downstream target)
         let receiver = self_
-            .safe_lock(|s| s.submit_from_dowstream.clone())
+            .safe_lock(|s| s.rx_sv2_submit_shares_ext.clone())
             .unwrap();
         task::spawn(async move {
             loop {

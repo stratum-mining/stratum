@@ -12,7 +12,7 @@ use roles_logic_sv2::utils::Mutex;
 
 const SELF_EXTRNONCE_LEN: usize = 2;
 
-use async_channel::{bounded, Receiver, Sender};
+use async_channel::{bounded, unbounded, Receiver, Sender};
 use std::{
     net::{IpAddr, SocketAddr},
     str::FromStr,
@@ -42,32 +42,32 @@ async fn main() {
     let proxy_config = process_cli_args().unwrap();
     info!("PC: {:?}", &proxy_config);
 
-    // `sender_submit_from_sv1` sender is used by `Downstream` to send a `mining.submit` message to
-    // `Bridge` via the `recv_submit_from_sv1` receiver
+    // `tx_sv1_submit` sender is used by `Downstream` to send a `mining.submit` message to
+    // `Bridge` via the `rx_sv1_submit` receiver
     // (Sender<v1::client_to_server::Submit>, Receiver<Submit>)
-    let (sender_submit_from_sv1, recv_submit_from_sv1) = async_channel::unbounded();
+    let (tx_sv1_submit, rx_sv1_submit) = unbounded();
 
     // Sender/Receiver to send a SV2 `SubmitSharesExtended` from the `Bridge` to the `Upstream`
     // (Sender<SubmitSharesExtended<'static>>, Receiver<SubmitSharesExtended<'static>>)
-    let (sender_submit_to_sv2, recv_submit_to_sv2) = bounded(10);
+    let (tx_sv2_submit_shares_ext, rx_sv2_submit_shares_ext) = bounded(10);
 
     // Sender/Receiver to send a SV2 `SetNewPrevHash` message from the `Upstream` to the `Bridge`
     // (Sender<SetNewPrevHash<'static>>, Receiver<SetNewPrevHash<'static>>)
-    let (sender_new_prev_hash, recv_new_prev_hash) = bounded(10);
+    let (tx_sv2_set_new_prev_hash, rx_sv2_set_new_prev_hash) = bounded(10);
 
     // Sender/Receiver to send a SV2 `NewExtendedMiningJob` message from the `Upstream` to the
     // `Bridge`
     // (Sender<NewExtendedMiningJob<'static>>, Receiver<NewExtendedMiningJob<'static>>)
-    let (sender_new_extended_mining_job, recv_new_extended_mining_job) = bounded(10);
+    let (tx_sv2_new_ext_mining_job, rx_sv2_new_ext_mining_job) = bounded(10);
 
     // Sender/Receiver to send a new extranonce from the `Upstream` to this `main` function to be
     // passed to the `Downstream` upon a Downstream role connection
     // (Sender<ExtendedExtranonce>, Receiver<ExtendedExtranonce>)
-    let (sender_extranonce, recv_extranonce) = bounded(1);
+    let (tx_sv2_extranonce, rx_sv2_extranonce) = bounded(1);
     let target = Arc::new(Mutex::new(vec![0; 32]));
 
     // Sender/Receiver to send SV1 `mining.notify` message from the `Bridge` to the `Downstream`
-    let (sender_mining_notify_bridge, recv_mining_notify_downstream): (
+    let (tx_sv1_notify, rx_sv1_notify): (
         Sender<server_to_client::Notify>,
         Receiver<server_to_client::Notify>,
     ) = bounded(10);
@@ -83,11 +83,11 @@ async fn main() {
     let upstream = upstream_sv2::Upstream::new(
         upstream_addr,
         proxy_config.upstream_authority_pubkey,
-        recv_submit_to_sv2,
-        sender_new_prev_hash,
-        sender_new_extended_mining_job,
+        rx_sv2_submit_shares_ext,
+        tx_sv2_set_new_prev_hash,
+        tx_sv2_new_ext_mining_job,
         proxy_config.min_extranonce2_size,
-        sender_extranonce,
+        tx_sv2_extranonce,
         target.clone(),
     )
     .await
@@ -121,12 +121,12 @@ async fn main() {
 
     // Instantiate a new `Bridge` and begins handling incoming messages
     proxy::Bridge::new(
-        recv_submit_from_sv1,
-        sender_submit_to_sv2,
-        recv_new_prev_hash,
-        recv_new_extended_mining_job,
+        rx_sv1_submit,
+        tx_sv2_submit_shares_ext,
+        rx_sv2_set_new_prev_hash,
+        rx_sv2_new_ext_mining_job,
         next_mining_notify,
-        sender_mining_notify_bridge,
+        tx_sv1_notify,
         last_notify.clone(),
     )
     .start();
@@ -139,16 +139,13 @@ async fn main() {
 
     // Receive the extranonce information from the Upstream role to send to the Downstream role
     // once it connects
-    let extended_extranonce = recv_extranonce.recv().await.unwrap();
-    //let extranonce_len = extended_extranonce.get_len();
-    //let min_extranonce_size = upstream.safe_lock(|s| s.min_extranonce_size).unwrap() as usize;
+    let extended_extranonce = rx_sv2_extranonce.recv().await.unwrap();
 
     // Accept connections from one or more SV1 Downstream roles (SV1 Mining Devices)
     downstream_sv1::Downstream::accept_connections(
         downstream_addr,
-        sender_submit_from_sv1,
-        recv_mining_notify_downstream,
-        //extranonce_len - min_extranonce_size - (SELF_EXTRNONCE_LEN - 1),
+        tx_sv1_submit,
+        rx_sv1_notify,
         extended_extranonce,
         last_notify,
         target,
