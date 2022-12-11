@@ -12,7 +12,7 @@ use roles_logic_sv2::utils::Mutex;
 
 const SELF_EXTRNONCE_LEN: usize = 2;
 
-use async_channel::{bounded, Receiver, Sender};
+use async_channel::{bounded, unbounded, Receiver, Sender};
 use std::{
     net::{IpAddr, SocketAddr},
     str::FromStr,
@@ -45,7 +45,7 @@ async fn main() {
     // `tx_sv1_submit` sender is used by `Downstream` to send a `mining.submit` message to
     // `Bridge` via the `rx_sv1_submit` receiver
     // (Sender<v1::client_to_server::Submit>, Receiver<Submit>)
-    let (tx_sv1_submit, rx_sv1_submit) = async_channel::unbounded();
+    let (tx_sv1_submit, rx_sv1_submit) = unbounded();
 
     // Sender/Receiver to send a SV2 `SubmitSharesExtended` from the `Bridge` to the `Upstream`
     // (Sender<SubmitSharesExtended<'static>>, Receiver<SubmitSharesExtended<'static>>)
@@ -140,15 +140,12 @@ async fn main() {
     // Receive the extranonce information from the Upstream role to send to the Downstream role
     // once it connects
     let extended_extranonce = rx_sv2_extranonce.recv().await.unwrap();
-    //let extranonce_len = extended_extranonce.get_len();
-    //let min_extranonce_size = upstream.safe_lock(|s| s.min_extranonce_size).unwrap() as usize;
 
     // Accept connections from one or more SV1 Downstream roles (SV1 Mining Devices)
     downstream_sv1::Downstream::accept_connections(
         downstream_addr,
         tx_sv1_submit,
         rx_sv1_notify,
-        //extranonce_len - min_extranonce_size - (SELF_EXTRNONCE_LEN - 1),
         extended_extranonce,
         last_notify,
         target,
