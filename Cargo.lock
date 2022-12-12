@@ -446,7 +446,6 @@ version = "0.1.0"
 dependencies = [
  "async-channel",
  "async-std",
- "hex",
  "serde",
  "serde_json",
  "v1",
