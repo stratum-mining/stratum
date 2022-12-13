@@ -126,7 +126,8 @@ use tracing::{debug, info};
 ///        to be executed. This dict's keys are:
 ///          1. `"command"`: The first argument in the shell command
 ///          2. `"args"`: Any remaining arguments in the shell command
-///          3. `"conditions"`: TODO Q
+///          3. `"conditions"`: Stdout/stderr conditions for a command to be considered a success
+///             of failure
 ///   
 ///        For example, to create a command to initialize a `bitcoind` node on start up:
 ///        ```
@@ -157,8 +158,9 @@ use tracing::{debug, info};
 ///        ```
 ///    2. The `"execution_commands"` key-value pairs.
 ///
-///       The `"execution_commands"` key value pair contains shell commands to TODO: ???.
-///       It uses the same key-value format as the `"setup_commands"` key-value pair.
+///       The `"execution_commands"` key value pair contains shell commands to be executed after
+///       a connection has been opened between two roles. It uses the same key-value format as the
+///       `"setup_commands"` key-value pair.
 ///
 ///    3. Parses and stores the `"role"` key-value pair and associated connection data. This
 ///       key-value pair defines which role is being mocked by `message-generator`. It can be one
@@ -218,27 +220,6 @@ use tracing::{debug, info};
 ///
 ///       The `"actions"` key value pair contains and array of dicts containing the messages to be
 ///       sent from the mocked role (defined in the `"role"` key-pair).
-///       RR TODO: FINISH
-///       parse all the actions
-///       we have message_ids: put all messages that you have setup to send.
-///       i fyou want to send a message and recv + send and then send anothe rmessage, you have two
-///       actions the first that sends the first message and the sedond action to do the second.
-///       if i want to send two messages. if you expect to receive a message only after two
-///       messages, you can put two messages int he message_ids array.
-///       message_ids can be none if for ex the test is mocking an upstream and the first thing
-///       that happens is when downstream connects it sends a setupconnection, so if you are
-///       mocking the upstream , the first action is to expect to receive setupconn message, do not
-///       send anything back. so you have an action w
-///
-///       you can have empty message id: usefeul because if you are mocking an upstream server, you
-///       expect is that you are not sending any message, you expect the client to send the
-///       setupconnection. you are saying to mg the first thing you do is to receive a message.
-///       how does it know which message it is whating form?
-///       1. wait for message wit mesage type 0x00. after that go to second action which will have
-///          setupconnection success
-///          restuls is a vector, but should be a vector of vectors
-///          in some cases maybe want to check more than 1 property for message received, so what
-///          result should really be is a vec of cev
 ///
 /// 4. `Step4`: Stores all parsed values from the `test.json` configuration file as `Test` struct,
 ///    ready for execution.

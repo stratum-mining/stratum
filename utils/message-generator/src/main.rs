@@ -44,12 +44,10 @@ enum Sv2Type {
     /// Message field `u16` value
     U16(u16),
     /// Message field `u24` value as a vector of `u8`'s
-    /// TODO: Change variant to `U24Vec(Vec<u8>)`?
     U24(Vec<u8>),
     /// Message field `u32` value
     U32(u32),
     /// Message field `u256` value as a vector of `u8`'s
-    /// TODO: Change variant to `U256Vec(Vec<u8>)`?
     U256(Vec<u8>),
     /// Message field `255` byte-len `String` value
     Str0255(String),
@@ -58,7 +56,6 @@ enum Sv2Type {
     /// Message field 16-bit byte array
     B064K(Vec<u8>),
     /// Message field 16-bit byte array of `u24`s
-    // TODO Q: should this be `Vec<u24>` as according to spec definition of `B0_16M`?
     B016m(Vec<u8>),
     /// Message field X coordinate of Secp256k1 public key (see BIP 340)
     Pubkey(Vec<u8>),
@@ -215,7 +212,7 @@ pub struct Command {
     command: String,
     /// Flags or commands in call (remaining arguments in shell command).
     args: Vec<String>,
-    /// TODO: ??
+    /// Stdout or Stderr conditions for when a command is considered a success or failure
     conditions: ExternalCommandConditions,
 }
 
@@ -228,18 +225,18 @@ pub struct Test<'a> {
     /// response(s) to a specified `PoolMessages` message.
     actions: Vec<Action<'a>>,
     /// Represents the endpoint connection information of an upstream server role being mocked,
-    /// defined in the `"upstream"` key-value pair in the `test.json` configuration file. Present if the
-    /// `"role": "upstream"` or the `"role": "proxy"` key-value pair is present.
+    /// defined in the `"upstream"` key-value pair in the `test.json` configuration file. Present
+    /// if the `"role": "upstream"` or the `"role": "proxy"` key-value pair is present.
     as_upstream: Option<Upstream>,
     /// Represents the endpoint connection information of an downstream server role being mocked,
-    /// defined in the `"downstream"` key-value pair in the `test.json` configuration file. Present if
-    /// the `"role": "downstream"` or the `"role": "proxy"` key-value pair is present.
+    /// defined in the `"downstream"` key-value pair in the `test.json` configuration file. Present
+    /// if the `"role": "downstream"` or the `"role": "proxy"` key-value pair is present.
     as_dowstream: Option<Downstream>,
     /// Represents the `"setup_commands"` key-value pair in the `test.json` configuration file that
     /// contains shell commands to run before any tests are executed.
     setup_commmands: Vec<Command>,
     /// Represents the `"execution_commands"` key-value pair in the `test.json` configuration file
-    /// that TODO: ???.
+    /// that contains shell commands to run after a connection is opened between two roles.
     execution_commands: Vec<Command>,
     /// Represents the `"cleanup_commands"` key-value pair in the `test.json` configuration file
     /// that contains shell commands to run after all tests are executed.
