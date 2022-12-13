@@ -392,14 +392,14 @@ impl<'a> TryFrom<&Response> for Subscribe<'a> {
         let params = msg.result.as_array().ok_or_else(|| {
             ParsingMethodError::ImpossibleToParseResultField(Box::new(msg.clone()))
         })?;
-        let (extra_nonce1, extra_nonce2_size, subscriptions_) = match &params[..] {
-            [JString(a), JNumber(b), JArrary(d)] => (
+        let (subscriptions_, extra_nonce1, extra_nonce2_size) = match &params[..] {
+            [JArrary(a), JString(b), JNumber(c)] => (
+                a,
                 // infallible
-                Extranonce::try_from(hex::decode(a)?)?,
-                b.as_u64().ok_or_else(|| {
-                    ParsingMethodError::ImpossibleToParseAsU64(Box::new(b.clone()))
+                b.as_str().try_into()?,
+                c.as_u64().ok_or_else(|| {
+                    ParsingMethodError::ImpossibleToParseAsU64(Box::new(c.clone()))
                 })? as usize,
-                d,
             ),
             _ => return Err(ParsingMethodError::UnexpectedArrayParams(params.clone())),
         };
