@@ -2,7 +2,7 @@ use roles_logic_sv2::mining_sv2::{NewExtendedMiningJob, SetNewPrevHash};
 use tracing::{debug, error};
 use v1::{
     server_to_client,
-    utils::{HexBytes, HexU32Be, PrevHash},
+    utils::{HexU32Be, MerkleNode, PrevHash},
 };
 
 /// To create a SV1 `mining.notify` message, both a SV2 `SetNewPrevHash` and `NewExtendedMiningJob`
@@ -61,7 +61,7 @@ impl NextMiningNotify {
     /// Creates a new SV1 `mining.notify` message if both SV2 `SetNewPrevHash` and
     /// `NewExtendedMiningJob` messages have been received. If one of these messages is still being
     /// waited on, the function returns `None`.
-    pub(crate) fn create_notify(&self) -> Option<server_to_client::Notify> {
+    pub(crate) fn create_notify(&self) -> Option<server_to_client::Notify<'static>> {
         // Make sure that SetNewPrevHash + NewExtendedMiningJob is matching (not future)
         if !self.matching_job_id() {
             let (snph_job_id, nemj_job_id) = match (
@@ -86,18 +86,17 @@ impl NextMiningNotify {
             (Some(new_prev_hash), Some(new_job)) => {
                 let job_id = new_prev_hash.job_id.to_string();
 
-                // U256<'static> -> PrevHash
-                let prev_hash = new_prev_hash.prev_hash.clone().to_vec();
-                let prev_hash = PrevHash(prev_hash);
+                // U256<'static> -> MerkleLeaf
+                let prev_hash = PrevHash(new_prev_hash.prev_hash.clone());
 
                 // B064K<'static'> -> HexBytes
                 let coin_base1 = new_job.coinbase_tx_prefix.to_vec().into();
                 let coin_base2 = new_job.coinbase_tx_suffix.to_vec().into();
 
-                // Seq0255<'static, U56<'static>> -> Vec<Vec<u8>> -> Vec<HexBytes>
-                let merkle_path = new_job.merkle_path.clone().into_static().to_vec();
-                let merkle_branch: Vec<HexBytes> =
-                    merkle_path.into_iter().map(|p| p.into()).collect();
+                // Seq0255<'static, U56<'static>> -> Vec<Vec<u8>>
+                let merkle_path = new_job.merkle_path.clone().into_static().0;
+                let merkle_branch: Vec<MerkleNode> =
+                    merkle_path.into_iter().map(MerkleNode).collect();
 
                 // u32 -> HexBytes
                 let version = HexU32Be(new_job.version);

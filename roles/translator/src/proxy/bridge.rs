@@ -18,7 +18,7 @@ use tracing::{debug, error};
 #[derive(Debug)]
 pub struct Bridge {
     /// Receives a SV1 `mining.submit` message from the Downstream role.
-    rx_sv1_submit: Receiver<(Submit, ExtendedExtranonce)>,
+    rx_sv1_submit: Receiver<(Submit<'static>, ExtendedExtranonce)>,
     /// Sends SV2 `SubmitSharesExtended` messages translated from SV1 `mining.submit` messages to
     /// the `Upstream`.
     tx_sv2_submit_shares_ext: Sender<SubmitSharesExtended<'static>>,
@@ -35,7 +35,7 @@ pub struct Bridge {
     next_mining_notify: Arc<Mutex<NextMiningNotify>>,
     /// Sends SV1 `mining.notify` message (translated from the SV2 `SetNewPrevHash` and
     /// `NewExtendedMiningJob` messages stored in the `NextMiningNotify`) to the `Downstream`.
-    tx_sv1_notify: Sender<server_to_client::Notify>,
+    tx_sv1_notify: Sender<server_to_client::Notify<'static>>,
     /// Unique sequential identifier of the submit within the channel.
     channel_sequence_id: Id,
     /// Stores the most recent SV1 `mining.notify` values to be sent to the `Downstream` upon
@@ -48,7 +48,7 @@ pub struct Bridge {
     /// first notify values to be relayed to the `Downstream` once a Downstream role connects. Once
     /// a Downstream role connects and receives the first notify values, this member field is no
     /// longer used.
-    last_notify: Arc<Mutex<Option<server_to_client::Notify>>>,
+    last_notify: Arc<Mutex<Option<server_to_client::Notify<'static>>>>,
     /// Stores SV2 `NewExtendedMiningJob` messages intended for future SV2 `SetNewPrevHash`
     /// messages (when the SV2 `NewExtendedMiningJob` message has a `future_job=false`). The
     /// `job_id` is the key, and the `NewExtendedMiningJob` is the value.
@@ -58,13 +58,13 @@ pub struct Bridge {
 impl Bridge {
     /// Instantiate a new `Bridge`.
     pub fn new(
-        rx_sv1_submit: Receiver<(Submit, ExtendedExtranonce)>,
+        rx_sv1_submit: Receiver<(Submit<'static>, ExtendedExtranonce)>,
         tx_sv2_submit_shares_ext: Sender<SubmitSharesExtended<'static>>,
         rx_sv2_set_new_prev_hash: Receiver<SetNewPrevHash<'static>>,
         rx_sv2_new_ext_mining_job: Receiver<NewExtendedMiningJob<'static>>,
         next_mining_notify: Arc<Mutex<NextMiningNotify>>,
-        tx_sv1_notify: Sender<server_to_client::Notify>,
-        last_notify: Arc<Mutex<Option<server_to_client::Notify>>>,
+        tx_sv1_notify: Sender<server_to_client::Notify<'static>>,
+        last_notify: Arc<Mutex<Option<server_to_client::Notify<'static>>>>,
     ) -> Self {
         Self {
             rx_sv1_submit,
@@ -112,8 +112,8 @@ impl Bridge {
         channel_sequence_id: u32,
         sv1_submit: Submit,
         extranonce_1: &ExtendedExtranonce,
-    ) -> ProxyResult<SubmitSharesExtended<'static>> {
-        let extranonce_vec: Vec<u8> = sv1_submit.extra_nonce2.into();
+    ) -> ProxyResult<'static, SubmitSharesExtended<'static>> {
+        let extranonce_vec: Vec<u8> = sv1_submit.extra_nonce2.0.to_vec();
         let extranonce = extranonce_1
             .without_upstream_part(Some(extranonce_vec.try_into().unwrap()))
             .unwrap();

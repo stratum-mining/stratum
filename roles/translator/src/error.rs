@@ -1,9 +1,9 @@
 use std::fmt;
 
-pub type ProxyResult<T> = core::result::Result<T, Error>;
+pub type ProxyResult<'a, T> = core::result::Result<T, Error<'a>>;
 
 #[derive(Debug)]
-pub enum Error {
+pub enum Error<'a> {
     /// Errors on bad CLI argument input.
     BadCliArgs,
     /// Errors on bad `serde_json` serialize/deserialize.
@@ -25,10 +25,10 @@ pub enum Error {
     /// Errors from `roles_logic_sv2` crate.
     RolesSv2Logic(roles_logic_sv2::errors::Error),
     /// SV1 protocol library error
-    V1Protocol(v1::error::Error),
+    V1Protocol(v1::error::Error<'a>),
 }
 
-impl fmt::Display for Error {
+impl<'a> fmt::Display for Error<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use Error::*;
         match self {
@@ -50,56 +50,56 @@ impl fmt::Display for Error {
     }
 }
 
-impl From<binary_sv2::Error> for Error {
+impl<'a> From<binary_sv2::Error> for Error<'a> {
     fn from(e: binary_sv2::Error) -> Self {
         Error::BinarySv2(e)
     }
 }
 
-impl From<codec_sv2::noise_sv2::Error> for Error {
+impl<'a> From<codec_sv2::noise_sv2::Error> for Error<'a> {
     fn from(e: codec_sv2::noise_sv2::Error) -> Self {
         Error::CodecNoise(e)
     }
 }
 
-impl From<framing_sv2::Error> for Error {
+impl<'a> From<framing_sv2::Error> for Error<'a> {
     fn from(e: framing_sv2::Error) -> Self {
         Error::FramingSv2(e)
     }
 }
 
-impl From<std::io::Error> for Error {
+impl<'a> From<std::io::Error> for Error<'a> {
     fn from(e: std::io::Error) -> Self {
         Error::Io(e)
     }
 }
 
-impl From<std::num::ParseIntError> for Error {
+impl<'a> From<std::num::ParseIntError> for Error<'a> {
     fn from(e: std::num::ParseIntError) -> Self {
         Error::ParseInt(e)
     }
 }
 
-impl From<roles_logic_sv2::errors::Error> for Error {
+impl<'a> From<roles_logic_sv2::errors::Error> for Error<'a> {
     fn from(e: roles_logic_sv2::errors::Error) -> Self {
         Error::RolesSv2Logic(e)
     }
 }
 
-impl From<serde_json::Error> for Error {
+impl<'a> From<serde_json::Error> for Error<'a> {
     fn from(e: serde_json::Error) -> Self {
         Error::BadSerdeJson(e)
     }
 }
 
-impl From<toml::de::Error> for Error {
+impl<'a> From<toml::de::Error> for Error<'a> {
     fn from(e: toml::de::Error) -> Self {
         Error::BadTomlDeserialize(e)
     }
 }
 
-impl From<v1::error::Error> for Error {
-    fn from(e: v1::error::Error) -> Self {
+impl<'a> From<v1::error::Error<'a>> for Error<'a> {
+    fn from(e: v1::error::Error<'a>) -> Self {
         Error::V1Protocol(e)
     }
 }

@@ -141,7 +141,7 @@ impl Upstream {
         min_extranonce_size: u16,
         tx_sv2_extranonce: Sender<ExtendedExtranonce>,
         target: Arc<Mutex<Vec<u8>>>,
-    ) -> ProxyResult<Arc<Mutex<Self>>> {
+    ) -> ProxyResult<'static, Arc<Mutex<Self>>> {
         // Connect to the SV2 Upstream role retry connection every 5 seconds.
         let socket = loop {
             match TcpStream::connect(address).await {
@@ -194,7 +194,7 @@ impl Upstream {
         self_: Arc<Mutex<Self>>,
         min_version: u16,
         max_version: u16,
-    ) -> ProxyResult<()> {
+    ) -> ProxyResult<'static, ()> {
         // Get the `SetupConnection` message with Mining Device information (currently hard coded)
         let setup_connection = Self::get_setup_connection_message(min_version, max_version)?;
         let mut connection = self_.safe_lock(|s| s.connection.clone()).unwrap();
@@ -430,7 +430,7 @@ impl Upstream {
     fn get_setup_connection_message(
         min_version: u16,
         max_version: u16,
-    ) -> ProxyResult<SetupConnection<'static>> {
+    ) -> ProxyResult<'static, SetupConnection<'static>> {
         let endpoint_host = "0.0.0.0".to_string().into_bytes().try_into()?;
         let vendor = String::new().try_into()?;
         let hardware_version = String::new().try_into()?;

@@ -19,7 +19,7 @@ pub struct UpstreamConnection {
 
 impl UpstreamConnection {
     /// Send a SV2 message to the Upstream role
-    pub async fn send(&mut self, sv2_frame: StdFrame) -> ProxyResult<()> {
+    pub async fn send(&mut self, sv2_frame: StdFrame) -> ProxyResult<'static, ()> {
         let either_frame = sv2_frame.into();
         self.sender
             .send(either_frame)

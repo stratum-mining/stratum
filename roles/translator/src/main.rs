@@ -23,7 +23,7 @@ use v1::server_to_client;
 use tracing::{error, info};
 
 /// Process CLI args, if any.
-fn process_cli_args() -> ProxyResult<ProxyConfig> {
+fn process_cli_args<'a>() -> ProxyResult<'a, ProxyConfig> {
     let args = match Args::from_args() {
         Ok(cfg) => cfg,
         Err(help) => {

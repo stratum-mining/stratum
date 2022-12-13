@@ -11,7 +11,7 @@ pub enum Message {
     ErrorResponse(Response),
 }
 
-impl Message {
+impl<'a> Message {
     // TODO REMOVE it
     pub fn is_response(&self) -> bool {
         match self {
@@ -58,7 +58,7 @@ pub struct JsonRpcError {
     pub data: Option<serde_json::Value>,
 }
 
-impl From<Response> for Message {
+impl<'a> From<Response> for Message {
     fn from(res: Response) -> Self {
         if res.error.is_some() {
             Message::ErrorResponse(res)
@@ -68,13 +68,13 @@ impl From<Response> for Message {
     }
 }
 
-impl From<StandardRequest> for Message {
+impl<'a> From<StandardRequest> for Message {
     fn from(sr: StandardRequest) -> Self {
         Message::StandardRequest(sr)
     }
 }
 
-impl From<Notification> for Message {
+impl<'a> From<Notification> for Message {
     fn from(n: Notification) -> Self {
         Message::Notification(n)
     }
