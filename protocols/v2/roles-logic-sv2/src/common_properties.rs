@@ -217,5 +217,4 @@ mod tests {
         request_id_mapper.remove(0);
         assert!(request_id_mapper.request_ids_map.is_empty());
     }
-
 }

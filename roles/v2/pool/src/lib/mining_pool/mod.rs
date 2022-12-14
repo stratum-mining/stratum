@@ -18,7 +18,7 @@ use roles_logic_sv2::{
     utils::Mutex,
 };
 use std::{collections::HashMap, convert::TryInto, sync::Arc};
-use tracing::{debug, info,error};
+use tracing::{debug, error, info};
 
 pub mod setup_connection;
 use setup_connection::SetupConnectionHandler;

@@ -25,7 +25,7 @@ impl GroupChannels {
 
         self.channels
             .entry(group_id)
-            .or_insert_with(|| GroupChannel::new());
+            .or_insert_with(GroupChannel::new);
         match self.channels.get_mut(&group_id) {
             Some(group) => group.on_channel_success_for_hom_downtream(m.clone()),
             None => unreachable!(),

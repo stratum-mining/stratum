@@ -731,7 +731,6 @@ mod tests {
 
         assert_eq!(actual.id, id);
 
-
         assert_eq!(actual.total_hash_rate, 0);
         assert_eq!(actual.address, address);
 

@@ -295,9 +295,8 @@ fn coinbase(
 pub mod tests {
     use super::*;
     use binary_sv2::u256_from_int;
-    use bitcoin::{secp256k1::Secp256k1, Network};
+    use bitcoin::{secp256k1::Secp256k1, util::ecdsa::PublicKey, Network};
     use quickcheck::{Arbitrary, Gen};
-    use bitcoin::util::ecdsa::PublicKey;
     use std::{borrow::BorrowMut, cmp, vec};
 
     pub fn template_from_gen(g: &mut Gen) -> NewTemplate<'static> {
@@ -352,38 +351,41 @@ pub mod tests {
         let secp = Secp256k1::default();
         let pub_k = PublicKey::from_private_key(&secp, &priv_k);
         ScriptKind::PayToPubKey(pub_k.wpubkey_hash().unwrap())
-
     }
 
     // Test job_id_from_template
     #[test]
     fn test_job_id_from_template() {
-        let mut jobs_creators = JobsCreators::new(BLOCK_REWARD, new_pub_key(),32);
+        let mut jobs_creators = JobsCreators::new(BLOCK_REWARD, new_pub_key(), 32);
 
         jobs_creators.new_outputs(5_000_000_000);
 
         //Create a template
         let mut template = template_from_gen(&mut Gen::new(255));
 
-        let job = jobs_creators.on_new_template(template.borrow_mut(),false).unwrap();
+        let job = jobs_creators
+            .on_new_template(template.borrow_mut(), false)
+            .unwrap();
 
-        assert_eq!(jobs_creators.get_template_id_from_job(job.job_id), Some(template.template_id));
+        assert_eq!(
+            jobs_creators.get_template_id_from_job(job.job_id),
+            Some(template.template_id)
+        );
 
         // Assert returns non if no match
         assert_eq!(jobs_creators.get_template_id_from_job(70), None);
     }
 
-
     // Test reset new template
     #[test]
     fn test_reset_new_template() {
-        let mut jobs_creators = JobsCreators::new(BLOCK_REWARD, new_pub_key(),32);
+        let mut jobs_creators = JobsCreators::new(BLOCK_REWARD, new_pub_key(), 32);
 
         assert_eq!(jobs_creators.lasts_new_template.len(), 0);
 
         //Create a template
         let mut template = template_from_gen(&mut Gen::new(255));
-        let _ = jobs_creators.on_new_template(template.borrow_mut(),false);
+        let _ = jobs_creators.on_new_template(template.borrow_mut(), false);
 
         assert_eq!(jobs_creators.lasts_new_template.len(), 1);
         assert_eq!(jobs_creators.lasts_new_template[0], template);
@@ -408,11 +410,11 @@ pub mod tests {
     // Test on_new_prev_hash
     #[test]
     fn test_on_new_prev_hash() {
-        let mut jobs_creators = JobsCreators::new(BLOCK_REWARD, new_pub_key(),32);
+        let mut jobs_creators = JobsCreators::new(BLOCK_REWARD, new_pub_key(), 32);
 
         //Create a template
         let mut template = template_from_gen(&mut Gen::new(255));
-        let _ = jobs_creators.on_new_template(template.borrow_mut(),false);
+        let _ = jobs_creators.on_new_template(template.borrow_mut(), false);
         let test_id = template.template_id;
 
         // Create a SetNewPrevHash with matching template_id

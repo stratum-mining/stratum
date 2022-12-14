@@ -29,7 +29,8 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
     ) -> Result<SendTo<()>, Error> {
         debug!(
             "Handling open standard mining channel request_id: {} for hash_rate: {}",
-            incoming.request_id.as_u32(), incoming.nominal_hash_rate
+            incoming.request_id.as_u32(),
+            incoming.nominal_hash_rate
         );
         let header_only = self.downstream_data.header_only;
         let reposnses = self

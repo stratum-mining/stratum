@@ -287,13 +287,13 @@ mod tests {
 
     #[test]
     fn test_group_channel_job_dispatcher() {
-        let mut jobs_creators = JobsCreators::new(BLOCK_REWARD, new_pub_key(),32);
+        let mut jobs_creators = JobsCreators::new(BLOCK_REWARD, new_pub_key(), 32);
         let group_channel_id = 1;
         //Create a template
         let mut template = template_from_gen(&mut Gen::new(255));
         template.future_template = true;
         let extended_mining_job = jobs_creators
-            .on_new_template(&mut template,false)
+            .on_new_template(&mut template, false)
             .expect("Failed to create new job");
 
         // create GroupChannelJobDispatcher
