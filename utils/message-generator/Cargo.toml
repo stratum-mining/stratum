@@ -15,6 +15,4 @@ network_helpers = { path = "../../utils/network-helpers", features = ["with_toki
 roles_logic_sv2 = { path = "../../protocols/v2/roles-logic-sv2", features = ["with_serde"] }
 serde = { version = "*", features = ["derive", "alloc"], default-features = false }
 serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
-tracing = { version = "0.1" }
-tracing-subscriber = { version = "0.3" }
 tokio = { version = "1", features = ["full"] }

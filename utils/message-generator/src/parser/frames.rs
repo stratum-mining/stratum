@@ -3,29 +3,15 @@ use roles_logic_sv2::parsers::AnyMessage;
 use serde_json::{Map, Value};
 use std::{collections::HashMap, convert::TryInto};
 
-/// Stores any number or combination of a `PoolMessages` type (`CommonMessage`,
-/// `JobNegotiationMessage`, `MiningMessage`, and/or `TemplateDistributionMessage`) as specified by
-/// the `test.json` file serialized as a `Sv2Frame`, identified by the message identifier string.
 pub struct Frames<'a> {
-    /// Mapping of `PoolMessages` message identifier to the `PoolMessage` serialized in a
-    /// `Sv2Frame`.
     pub frames: HashMap<String, Sv2Frame<AnyMessage<'a>, Slice>>,
 }
 
 impl<'a> Frames<'a> {
-    /// Takes the `PoolMessages` stored in a hashmap from `Step1`, and serializes each message into
-    /// a `Sv2Frame` then stores it in `Frames`.
     pub fn from_step_1<'b: 'a>(test: &'b str, messages: HashMap<String, AnyMessage<'a>>) -> Self {
-        // Extract `"frame_builders"` from `test.json` contents
         let test: Map<String, Value> = serde_json::from_str(test).unwrap();
         let frames = test.get("frame_builders").unwrap().as_array().unwrap();
 
-        // For each `PoolMessage`, locates it using the `"message_id"` and puts it into a
-        // `Sv2Frame`. If `"automatic"` is specified, the message is put into a `Sv2Frame` in the
-        // standard fashion. If `"manual"` is specified, it is expected that the `Sv2Frame` header
-        // fields are specified in the `"frame_builders"` dict and a `Sv2Frame` is built using
-        // those specified parameters. This is mostly typically done when the user wants to force a
-        // frame error.
         let mut result = HashMap::new();
         for frame in frames {
             let id = frame
