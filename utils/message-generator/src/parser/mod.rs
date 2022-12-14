@@ -12,16 +12,21 @@ use sv2_messages::TestMessageParser;
 
 #[derive(Debug)]
 pub enum Parser<'a> {
+    /// Parses any number or combination of messages to be later used by an action identified by
+    /// message id.
     Step1(HashMap<String, AnyMessage<'a>>),
+    /// Serializes messages into `Sv2Frames` identified by message id.
     Step2 {
         messages: HashMap<String, AnyMessage<'a>>,
         frames: HashMap<String, Sv2Frame<AnyMessage<'a>, Slice>>,
     },
+    /// Parses the setup, execution, and cleanup shell commands, roles, and actions.
     Step3 {
         messages: HashMap<String, AnyMessage<'a>>,
         frames: HashMap<String, Sv2Frame<AnyMessage<'a>, Slice>>,
         actions: Vec<Action<'a>>,
     },
+    /// Prepare for execution.
     Step4(Test<'a>),
 }
 
@@ -39,7 +44,8 @@ impl<'a> Parser<'a> {
 
     fn initialize<'b: 'a>(test: &'b str) -> Self {
         let messages = TestMessageParser::from_str(test);
-        Self::Step1(messages.into_map())
+        let step1 = Self::Step1(messages.into_map());
+        step1
     }
 
     fn next_step<'b: 'a>(self, test: &'b str) -> Self {
@@ -59,12 +65,12 @@ impl<'a> Parser<'a> {
                     actions,
                 }
             }
-            Parser::Step3 {
+            Self::Step3 {
                 messages: _,
                 frames: _,
                 actions,
             } => {
-                let test: Map<String, Value> = serde_json::from_str(&test).unwrap();
+                let test: Map<String, Value> = serde_json::from_str(test).unwrap();
                 let setup_commands = test.get("setup_commands").unwrap().as_array().unwrap();
                 let execution_commands =
                     test.get("execution_commands").unwrap().as_array().unwrap();

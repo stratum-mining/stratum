@@ -9,8 +9,9 @@ pub struct Frames<'a> {
 
 impl<'a> Frames<'a> {
     pub fn from_step_1<'b: 'a>(test: &'b str, messages: HashMap<String, AnyMessage<'a>>) -> Self {
-        let test: Map<String, Value> = serde_json::from_str(&test).unwrap();
+        let test: Map<String, Value> = serde_json::from_str(test).unwrap();
         let frames = test.get("frame_builders").unwrap().as_array().unwrap();
+
         let mut result = HashMap::new();
         for frame in frames {
             let id = frame
@@ -21,7 +22,7 @@ impl<'a> Frames<'a> {
                 .to_string();
             let message = messages
                 .get(&id)
-                .expect(format!("Missing messages message_id {}", id).as_str())
+                .unwrap_or_else(|| panic!("Missing messages message_id {}", id))
                 .clone();
             let type_ = frame.get("type").unwrap().as_str().unwrap();
             match type_ {

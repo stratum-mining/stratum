@@ -48,7 +48,7 @@
                 "nominal_hash_rate": 10,
                 "max_target": [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
             },
-            "id": "open_standard_minig_channel"
+            "id": "open_standard_mining_channel"
         }
     ],
     "frame_builders": [
@@ -62,7 +62,7 @@
         },
         {
             "type": "automatic",
-            "message_id": "open_standard_minig_channel"
+            "message_id": "open_standard_mining_channel"
         }
     ],
     "actions": [
@@ -85,7 +85,7 @@
             ] 
         },
         {
-            "message_ids": ["open_standard_minig_channel"],
+            "message_ids": ["open_standard_mining_channel"],
             "role": "client",
             "results": [
                 {
