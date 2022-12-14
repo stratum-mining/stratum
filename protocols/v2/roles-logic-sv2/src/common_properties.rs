@@ -1,7 +1,6 @@
-//! Traits that implements very basic properties that every implementation should implements
-use crate::{
-    selectors::{DownstreamMiningSelector, DownstreamSelector, NullDownstreamMiningSelector},
-    Error,
+//! Traits that implements very basic properties that every implementation should use
+use crate::selectors::{
+    DownstreamMiningSelector, DownstreamSelector, NullDownstreamMiningSelector,
 };
 use common_messages_sv2::{has_requires_std_job, Protocol, SetupConnection};
 use mining_sv2::{Extranonce, Target};
@@ -50,37 +49,6 @@ pub enum UpstreamChannel {
     Standard(f32),
     Group,
     Extended,
-}
-
-/// Channel to be opened with the downstream nodes.
-#[derive(Debug, Clone)]
-pub enum DownstreamChannel {
-    // channel id, target, extranonce prefix, group channel id
-    Standard(StandardChannel),
-    Group(u32),
-    Extended(u32),
-}
-
-impl DownstreamChannel {
-    /// Returns the group id for a given Standard, Group, or Extended, channel.
-    pub fn group_id(&self) -> Result<u32, Error> {
-        match self {
-            DownstreamChannel::Standard(s) => Ok(s.group_id),
-            DownstreamChannel::Group(id) => Ok(*id),
-            // Extended channels do not have group ids better to fail whenever why try to get a
-            // group id on an extended channel
-            DownstreamChannel::Extended(_) => Err(Error::NoGroupIdOnExtendedChannel),
-        }
-    }
-
-    /// Returns the channel id for a given Standard, Group, or Extended, channel.
-    pub fn channel_id(&self) -> u32 {
-        match self {
-            DownstreamChannel::Standard(s) => s.channel_id,
-            DownstreamChannel::Group(id) => *id,
-            DownstreamChannel::Extended(id) => *id,
-        }
-    }
 }
 
 #[derive(Debug, Clone)]
@@ -211,7 +179,6 @@ impl RequestIdMapper {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use binary_sv2::u256_from_int;
 
     #[test]
     fn builds_request_id_mapper() {
@@ -251,71 +218,4 @@ mod tests {
         assert!(request_id_mapper.request_ids_map.is_empty());
     }
 
-    #[test]
-    fn downstream_channel_returns_group_id_on_receiving_standard_channel() {
-        let expect = 0;
-
-        let channel = DownstreamChannel::Standard(StandardChannel {
-            channel_id: 0,
-            group_id: 0,
-            target: u256_from_int(45_u32).into(),
-            extranonce: mining_sv2::Extranonce::default(),
-        });
-        let actual = channel.group_id().unwrap();
-
-        assert_eq!(expect, actual);
-    }
-
-    #[test]
-    fn downstream_channel_returns_group_id_on_receiving_group_channel() {
-        let id = 0;
-        let expect = id;
-
-        let channel = DownstreamChannel::Group(id);
-        let actual = channel.group_id().unwrap();
-
-        assert_eq!(expect, actual);
-    }
-
-    #[test]
-    fn downstream_channel_returns_err_on_receiving_extended_channel() {
-        let id = 0;
-        let channel = DownstreamChannel::Extended(id);
-        assert!(channel.group_id().is_err())
-    }
-
-    #[test]
-    fn downstream_channel_returns_channel_id_on_receiving_standard_channel() {
-        let expect = 0;
-
-        let channel = DownstreamChannel::Standard(StandardChannel {
-            channel_id: 0,
-            group_id: 0,
-            target: u256_from_int(45_u32).into(),
-            extranonce: mining_sv2::Extranonce::default(),
-        });
-        let actual = channel.channel_id();
-
-        assert_eq!(expect, actual);
-    }
-
-    #[test]
-    fn downstream_channel_returns_channel_id_on_receiving_group_channel() {
-        let id = 0;
-        let expect = id;
-
-        let channel = DownstreamChannel::Group(id);
-        let actual = channel.channel_id();
-
-        assert_eq!(expect, actual);
-    }
-
-    #[test]
-    fn downstream_channel_returns_channel_id_on_receiving_extended_channel() {
-        let id = 0;
-        let expect = id;
-        let channel = DownstreamChannel::Extended(id);
-        let actual = channel.channel_id();
-        assert_eq!(expect, actual);
-    }
 }

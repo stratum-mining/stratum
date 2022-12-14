@@ -180,6 +180,45 @@ pub enum Mining<'a> {
     UpdateChannelError(UpdateChannelError<'a>),
 }
 
+impl<'a> Mining<'a> {
+    pub fn into_static(self) -> Mining<'static> {
+        match self {
+            Mining::CloseChannel(m) => Mining::CloseChannel(m.into_static()),
+            Mining::NewExtendedMiningJob(m) => Mining::NewExtendedMiningJob(m.into_static()),
+            Mining::NewMiningJob(m) => Mining::NewMiningJob(m.into_static()),
+            Mining::OpenExtendedMiningChannel(m) => {
+                Mining::OpenExtendedMiningChannel(m.into_static())
+            }
+            Mining::OpenExtendedMiningChannelSuccess(m) => {
+                Mining::OpenExtendedMiningChannelSuccess(m.into_static())
+            }
+            Mining::OpenMiningChannelError(m) => Mining::OpenMiningChannelError(m.into_static()),
+            Mining::OpenStandardMiningChannel(m) => {
+                Mining::OpenStandardMiningChannel(m.into_static())
+            }
+            Mining::OpenStandardMiningChannelSuccess(m) => {
+                Mining::OpenStandardMiningChannelSuccess(m.into_static())
+            }
+            Mining::Reconnect(m) => Mining::Reconnect(m.into_static()),
+            Mining::SetCustomMiningJob(m) => Mining::SetCustomMiningJob(m.into_static()),
+            Mining::SetCustomMiningJobError(m) => Mining::SetCustomMiningJobError(m.into_static()),
+            Mining::SetCustomMiningJobSuccess(m) => {
+                Mining::SetCustomMiningJobSuccess(m.into_static())
+            }
+            Mining::SetExtranoncePrefix(m) => Mining::SetExtranoncePrefix(m.into_static()),
+            Mining::SetGroupChannel(m) => Mining::SetGroupChannel(m.into_static()),
+            Mining::SetNewPrevHash(m) => Mining::SetNewPrevHash(m.into_static()),
+            Mining::SetTarget(m) => Mining::SetTarget(m.into_static()),
+            Mining::SubmitSharesError(m) => Mining::SubmitSharesError(m.into_static()),
+            Mining::SubmitSharesExtended(m) => Mining::SubmitSharesExtended(m.into_static()),
+            Mining::SubmitSharesStandard(m) => Mining::SubmitSharesStandard(m.into_static()),
+            Mining::SubmitSharesSuccess(m) => Mining::SubmitSharesSuccess(m.into_static()),
+            Mining::UpdateChannel(m) => Mining::UpdateChannel(m.into_static()),
+            Mining::UpdateChannelError(m) => Mining::UpdateChannelError(m.into_static()),
+        }
+    }
+}
+
 pub trait IsSv2Message {
     fn message_type(&self) -> u8;
     fn channel_bit(&self) -> bool;

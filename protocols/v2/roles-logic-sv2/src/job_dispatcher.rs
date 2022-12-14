@@ -234,7 +234,7 @@ mod tests {
             JobsCreators,
         },
     };
-    use binary_sv2::{u256_from_int, Seq0255, B064K, U256};
+    use binary_sv2::{u256_from_int, U256};
     use mining_sv2::Extranonce;
     use quickcheck::{Arbitrary, Gen};
     use std::convert::TryFrom;
@@ -277,6 +277,7 @@ mod tests {
         let mut actual_block_hash =
             utils::decode_hex("00000000000000000000199349a95526c4f83959f0ef06697048a297f25e7fac")
                 .expect("Failed converting hex to bytes");
+        actual_block_hash.reverse();
         assert_eq!(
             target.to_vec(),
             actual_block_hash,
@@ -286,19 +287,15 @@ mod tests {
 
     #[test]
     fn test_group_channel_job_dispatcher() {
-        let mut jobs_creators = JobsCreators::new(BLOCK_REWARD, new_pub_key()).unwrap();
+        let mut jobs_creators = JobsCreators::new(BLOCK_REWARD, new_pub_key(),32);
         let group_channel_id = 1;
-        jobs_creators
-            .new_group_channel(group_channel_id, true)
-            .unwrap();
         //Create a template
         let mut template = template_from_gen(&mut Gen::new(255));
         template.future_template = true;
-        let jobs = jobs_creators
-            .on_new_template(&mut template)
+        let extended_mining_job = jobs_creators
+            .on_new_template(&mut template,false)
             .expect("Failed to create new job");
-        // create extended mining job
-        let extended_mining_job = jobs.get(&1).unwrap();
+
         // create GroupChannelJobDispatcher
         let ids = Arc::new(Mutex::new(Id::new()));
         let mut group_channel_dispatcher = GroupChannelJobDispatcher::new(ids);
@@ -310,12 +307,12 @@ mod tests {
         let standard_channel = StandardChannel {
             channel_id: standard_channel_id,
             group_id: group_channel_id,
-            target: target,
+            target,
             extranonce: extranonce.clone(),
         };
         // call target function (on_new_extended_mining_job)
         let new_mining_job = group_channel_dispatcher
-            .on_new_extended_mining_job(extended_mining_job, &standard_channel)
+            .on_new_extended_mining_job(&extended_mining_job, &standard_channel)
             .unwrap();
 
         // on_new_extended_mining_job assertions
@@ -434,7 +431,7 @@ mod tests {
             nbits,
         };
 
-        let res = group_channel_job_dispatcher
+        group_channel_job_dispatcher
             .on_new_prev_hash(&new_message)
             .expect("on_new_prev_hash failed to execute");
 

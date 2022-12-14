@@ -490,7 +490,12 @@ impl ExtendedExtranonce {
         }
     }
 
-    pub fn new_with_inner_only_test(range_0: Range<usize>, range_1: Range<usize>, range_2: Range<usize>, mut inner: alloc::vec::Vec<u8>) -> Self {
+    pub fn new_with_inner_only_test(
+        range_0: Range<usize>,
+        range_1: Range<usize>,
+        range_2: Range<usize>,
+        mut inner: alloc::vec::Vec<u8>,
+    ) -> Self {
         inner.resize(MAX_EXTRANONCE_LEN, 0);
         let inner = inner.try_into().unwrap();
         Self {
@@ -500,7 +505,6 @@ impl ExtendedExtranonce {
             range_2,
         }
     }
-
 
     pub fn get_len(&self) -> usize {
         self.range_2.end

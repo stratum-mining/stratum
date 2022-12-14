@@ -134,6 +134,13 @@ impl ParsedField {
             format!("::{}", self.generics.clone())
         }
     }
+    pub fn as_static(&self) -> String {
+        if self.generics.is_empty() {
+            "".to_string()
+        } else {
+            ".into_static()".to_string()
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -235,6 +242,19 @@ pub fn decodable(item: TokenStream) -> TokenStream {
         derive_fields.push_str(&field)
     }
 
+    let mut derive_static_fields = String::new();
+    for f in parsed_struct.fields.clone() {
+        let field = format!(
+            "
+            {}: self.{}.clone(){},
+            ",
+            f.name,
+            f.name,
+            f.as_static(),
+        );
+        derive_static_fields.push_str(&field)
+    }
+
     let mut derive_decoded_fields = String::new();
     let mut fields = parsed_struct.fields.clone();
 
@@ -281,6 +301,21 @@ pub fn decodable(item: TokenStream) -> TokenStream {
             }})
         }}
     }}
+
+    impl{} {}{} {{
+        pub fn into_static(self) -> {}{} {{
+            {} {{
+                {}
+            }}
+        }}
+    }}
+    impl{} {}{} {{
+        pub fn as_static(&self) -> {}{} {{
+            {} {{
+                {}
+            }}
+        }}
+    }}
     }}",
         // imports
         parsed_struct.name.to_lowercase(),
@@ -290,10 +325,35 @@ pub fn decodable(item: TokenStream) -> TokenStream {
         parsed_struct.generics,
         derive_fields,
         derive_decoded_fields,
+        // impl into_static
+        impl_generics,
+        parsed_struct.name,
+        parsed_struct.generics,
+        parsed_struct.name,
+        get_static_genercis(&parsed_struct.generics),
+        parsed_struct.name,
+        derive_static_fields,
+        // impl into_static
+        impl_generics,
+        parsed_struct.name,
+        parsed_struct.generics,
+        parsed_struct.name,
+        get_static_genercis(&parsed_struct.generics),
+        parsed_struct.name,
+        derive_static_fields,
+
     );
 
     // Never executed at runtime it ok to panic
     result.parse().unwrap()
+}
+
+fn get_static_genercis(gen: &str) -> &str {
+    if gen.is_empty() {
+        gen
+    } else {
+        "<'static>"
+    }
 }
 
 #[proc_macro_derive(Encodable)]

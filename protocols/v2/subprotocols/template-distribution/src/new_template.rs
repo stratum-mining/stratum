@@ -53,24 +53,6 @@ pub struct NewTemplate<'decoder> {
     pub merkle_path: Seq0255<'decoder, U256<'decoder>>,
 }
 
-impl<'a> NewTemplate<'a> {
-    pub fn as_static(&self) -> NewTemplate<'static> {
-        NewTemplate {
-            template_id: self.template_id,
-            future_template: self.future_template,
-            version: self.version,
-            coinbase_tx_version: self.coinbase_tx_version,
-            coinbase_prefix: self.coinbase_prefix.clone().into_static(),
-            coinbase_tx_input_sequence: self.coinbase_tx_input_sequence,
-            coinbase_tx_value_remaining: self.coinbase_tx_value_remaining,
-            coinbase_tx_outputs_count: self.coinbase_tx_outputs_count,
-            coinbase_tx_outputs: self.coinbase_tx_outputs.clone().into_static(),
-            coinbase_tx_locktime: self.coinbase_tx_locktime,
-            merkle_path: self.merkle_path.clone().into_static(),
-        }
-    }
-}
-
 #[repr(C)]
 #[cfg(not(feature = "with_serde"))]
 pub struct CNewTemplate {

@@ -31,17 +31,6 @@ pub struct SetNewPrevHash<'decoder> {
     pub nbits: u32,
 }
 
-impl<'a> SetNewPrevHash<'a> {
-    pub fn as_static(&self) -> SetNewPrevHash<'static> {
-        SetNewPrevHash {
-            channel_id: self.channel_id,
-            job_id: self.job_id,
-            prev_hash: self.prev_hash.clone().into_static(),
-            min_ntime: self.min_ntime,
-            nbits: self.nbits,
-        }
-    }
-}
 #[cfg(feature = "with_serde")]
 use binary_sv2::GetSize;
 #[cfg(feature = "with_serde")]

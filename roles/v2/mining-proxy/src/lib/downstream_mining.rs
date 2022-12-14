@@ -1,10 +1,8 @@
-use super::upstream_mining::{JobDispatcher, StdFrame as UpstreamFrame, UpstreamMiningNode};
+use super::upstream_mining::{StdFrame as UpstreamFrame, UpstreamMiningNode};
 use async_channel::{Receiver, SendError, Sender};
 use roles_logic_sv2::{
     common_messages_sv2::{SetupConnection, SetupConnectionSuccess},
-    common_properties::{
-        CommonDownstreamData, DownstreamChannel, IsDownstream, IsMiningDownstream,
-    },
+    common_properties::{CommonDownstreamData, IsDownstream, IsMiningDownstream},
     errors::Error,
     handlers::{
         common::{ParseDownstreamCommonMessages, SendTo as SendToCommon},
@@ -15,7 +13,6 @@ use roles_logic_sv2::{
     routing_logic::MiningProxyRoutingLogic,
     utils::Mutex,
 };
-use std::collections::HashMap;
 use tracing::info;
 
 use codec_sv2::{Frame, StandardEitherFrame, StandardSv2Frame};
@@ -26,20 +23,44 @@ pub type EitherFrame = StandardEitherFrame<Message>;
 
 /// 1 to 1 connection with a downstream node that implement the mining (sub)protocol can be either
 /// a mining device or a downstream proxy.
+/// A downstream can only be linked with an upstream at a time. Support multi upstrems for
+/// downstream do no make much sense.
 #[derive(Debug)]
 pub struct DownstreamMiningNode {
     receiver: Receiver<EitherFrame>,
     sender: Sender<EitherFrame>,
     pub status: DownstreamMiningNodeStatus,
-    // channel_id/group_id -> group_id
-    channel_id_to_group_id: HashMap<u32, u32>,
     pub prev_job_id: Option<u32>,
+    upstream: Option<Arc<Mutex<UpstreamMiningNode>>>,
 }
 
 #[derive(Debug)]
 pub enum DownstreamMiningNodeStatus {
     Initializing,
-    Paired((CommonDownstreamData, HashMap<u32, Vec<DownstreamChannel>>)),
+    Paired(CommonDownstreamData),
+    ChannelOpened(Channel),
+}
+
+#[derive(Debug, Clone)]
+#[allow(clippy::enum_variant_names)]
+pub enum Channel {
+    DowntreamHomUpstreamGroup {
+        data: CommonDownstreamData,
+        channel_id: u32,
+        group_id: u32,
+    },
+    DowntreamHomUpstreamExtended {
+        data: CommonDownstreamData,
+        channel_id: u32,
+        group_id: u32,
+    },
+    // Below variant is not supported cause do not have much sense
+    // DowntreamNonHomUpstreamGroup { data: CommonDownstreamData, group_ids: Vec<u32>, extended_ids: Vec<u32>},
+    DowntreamNonHomUpstreamExtended {
+        data: CommonDownstreamData,
+        group_ids: Vec<u32>,
+        extended_ids: Vec<u32>,
+    },
 }
 
 impl DownstreamMiningNodeStatus {
@@ -47,37 +68,84 @@ impl DownstreamMiningNodeStatus {
         match self {
             DownstreamMiningNodeStatus::Initializing => false,
             DownstreamMiningNodeStatus::Paired(_) => true,
+            DownstreamMiningNodeStatus::ChannelOpened(_) => true,
         }
     }
 
     fn pair(&mut self, data: CommonDownstreamData) {
         match self {
             DownstreamMiningNodeStatus::Initializing => {
-                let self_ = Self::Paired((data, HashMap::new()));
+                let self_ = Self::Paired(data);
                 let _ = std::mem::replace(self, self_);
             }
-            DownstreamMiningNodeStatus::Paired(_) => panic!(),
+            _ => panic!("Try to pair an already paired downstream"),
         }
     }
 
-    pub fn get_channels(&mut self) -> &mut HashMap<u32, Vec<DownstreamChannel>> {
+    pub fn get_channel(&mut self) -> &mut Channel {
         match self {
-            DownstreamMiningNodeStatus::Initializing => panic!(),
-            DownstreamMiningNodeStatus::Paired((_, channels)) => channels,
-        }
-    }
-
-    fn add_channel(&mut self, channel: DownstreamChannel) {
-        match self {
-            DownstreamMiningNodeStatus::Initializing => panic!(),
-            DownstreamMiningNodeStatus::Paired((_, channels)) => {
-                match channels.get_mut(&channel.group_id().unwrap()) {
-                    Some(g) => g.push(channel),
-                    None => {
-                        channels.insert(channel.group_id().unwrap(), vec![channel]);
-                    }
-                };
+            DownstreamMiningNodeStatus::Initializing => {
+                panic!("Downstream is not initialized no channle opened yet")
             }
+            DownstreamMiningNodeStatus::Paired(_channels) => {
+                panic!("Downstream is paired but not channle opened yet")
+            }
+            DownstreamMiningNodeStatus::ChannelOpened(k) => k,
+        }
+    }
+
+    fn open_channel_for_down_hom_up_group(&mut self, channel_id: u32, group_id: u32) {
+        match self {
+            DownstreamMiningNodeStatus::Initializing => panic!(),
+            DownstreamMiningNodeStatus::Paired(data) => {
+                let channel = Channel::DowntreamHomUpstreamGroup {
+                    data: *data,
+                    channel_id,
+                    group_id,
+                };
+                let self_ = Self::ChannelOpened(channel);
+                let _ = std::mem::replace(self, self_);
+            }
+            DownstreamMiningNodeStatus::ChannelOpened(..) => panic!("Channel already opened"),
+        }
+    }
+
+    fn open_channel_for_down_hom_up_extended(&mut self, channel_id: u32, group_id: u32) {
+        match self {
+            DownstreamMiningNodeStatus::Initializing => panic!(),
+            DownstreamMiningNodeStatus::Paired(data) => {
+                let channel = Channel::DowntreamHomUpstreamExtended {
+                    data: *data,
+                    channel_id,
+                    group_id,
+                };
+                let self_ = Self::ChannelOpened(channel);
+                let _ = std::mem::replace(self, self_);
+            }
+            DownstreamMiningNodeStatus::ChannelOpened(..) => panic!("Channel already opened"),
+        }
+    }
+
+    fn add_extended_from_non_hom_for_up_extended(&mut self, id: u32) {
+        match self {
+            DownstreamMiningNodeStatus::Initializing => panic!(),
+            DownstreamMiningNodeStatus::Paired(data) => {
+                let channel = Channel::DowntreamNonHomUpstreamExtended {
+                    data: *data,
+                    group_ids: vec![],
+                    extended_ids: vec![id],
+                };
+                let self_ = Self::ChannelOpened(channel);
+                let _ = std::mem::replace(self, self_);
+            }
+            DownstreamMiningNodeStatus::ChannelOpened(
+                Channel::DowntreamNonHomUpstreamExtended { extended_ids, .. },
+            ) => {
+                if !extended_ids.contains(&id) {
+                    extended_ids.push(id)
+                }
+            }
+            _ => panic!(),
         }
     }
 }
@@ -87,10 +155,21 @@ use std::sync::Arc;
 use tokio::task;
 
 impl DownstreamMiningNode {
-    pub fn add_channel(&mut self, channel: DownstreamChannel) {
-        self.channel_id_to_group_id
-            .insert(channel.channel_id(), channel.group_id().unwrap());
-        self.status.add_channel(channel);
+    /// Return mining channel specific data
+    pub fn get_channel(&mut self) -> &mut Channel {
+        self.status.get_channel()
+    }
+
+    pub fn open_channel_for_down_hom_up_group(&mut self, channel_id: u32, group_id: u32) {
+        self.status
+            .open_channel_for_down_hom_up_group(channel_id, group_id);
+    }
+    pub fn open_channel_for_down_hom_up_extended(&mut self, channel_id: u32, group_id: u32) {
+        self.status
+            .open_channel_for_down_hom_up_extended(channel_id, group_id);
+    }
+    pub fn add_extended_from_non_hom_for_up_extended(&mut self, id: u32) {
+        self.status.add_extended_from_non_hom_for_up_extended(id);
     }
 
     pub fn new(receiver: Receiver<EitherFrame>, sender: Sender<EitherFrame>) -> Self {
@@ -98,8 +177,8 @@ impl DownstreamMiningNode {
             receiver,
             sender,
             status: DownstreamMiningNodeStatus::Initializing,
-            channel_id_to_group_id: HashMap::new(),
             prev_job_id: None,
+            upstream: None,
         }
     }
 
@@ -180,6 +259,7 @@ impl DownstreamMiningNode {
             Ok(SendTo::Multiple(_sends_to)) => {
                 panic!();
             }
+            Ok(SendTo::None(_)) => (),
             Ok(_) => panic!(),
             Err(_) => todo!(),
         }
@@ -246,33 +326,22 @@ impl
         m: SubmitSharesStandard,
     ) -> Result<SendTo<UpstreamMiningNode>, Error> {
         info!("{:?}", m);
-        match self.channel_id_to_group_id.get(&m.channel_id) {
-            Some(group_id) => match crate::upstream_from_job_id(m.job_id) {
-                Some(remote) => {
-                    remote.safe_lock(|r| {
-                        match r.channel_id_to_job_dispatcher.get(group_id) {
-                            Some(JobDispatcher::Group(dispatcher)) => {
-                                match dispatcher.on_submit_shares(m) {
-                                    roles_logic_sv2::job_dispatcher::SendSharesResponse::Valid(m) => {
-                                        // This could just relay same message and change the
-                                        // job_id as we do for request_ids
-                                        let message = Mining::SubmitSharesStandard(m);
-                                        Ok(SendTo::RelayNewMessageToRemote(remote.clone(),message))
-                                    },
-                                    roles_logic_sv2::job_dispatcher::SendSharesResponse::Invalid(m) => {
-                                        let message = Mining::SubmitSharesError(m);
-                                        Ok(SendTo::Respond(message))
-                                    }
-                                }
-                            },
-                            Some(_) => todo!(),
-                            None => todo!(),
-                        }
-                    }).unwrap()
-                }
-                None => todo!(),
-            },
-            None => todo!(),
+        match &self.status {
+            DownstreamMiningNodeStatus::Initializing => todo!(),
+            DownstreamMiningNodeStatus::Paired(_) => todo!(),
+            DownstreamMiningNodeStatus::ChannelOpened(Channel::DowntreamHomUpstreamGroup {
+                ..
+            }) => {
+                let remote = self.upstream.as_ref().unwrap();
+                // TODO maybe we want to check if shares meet target before
+                // sending them upstream If that is the case it should be
+                // done by GroupChannel not here
+                let message = Mining::SubmitSharesStandard(m);
+                Ok(SendTo::RelayNewMessageToRemote(remote.clone(), message))
+            }
+            _ => {
+                todo!()
+            }
         }
     }
 
@@ -302,6 +371,16 @@ impl
         result: Option<Result<(CommonDownstreamData, SetupConnectionSuccess), Error>>,
     ) -> Result<roles_logic_sv2::handlers::common::SendTo, Error> {
         let (data, message) = result.unwrap().unwrap();
+        let upstream = match crate::get_routing_logic() {
+            roles_logic_sv2::routing_logic::MiningRoutingLogic::Proxy(proxy_routing) => {
+                proxy_routing
+                    .safe_lock(|r| r.downstream_to_upstream_map.get(&data).unwrap()[0].clone())
+                    .unwrap()
+            }
+            _ => unreachable!(),
+        };
+        self.upstream = Some(upstream);
+
         self.status.pair(data);
         Ok(SendToCommon::RelayNewMessageToRemote(
             Arc::new(Mutex::new(())),
@@ -354,7 +433,18 @@ impl IsDownstream for DownstreamMiningNode {
     fn get_downstream_mining_data(&self) -> CommonDownstreamData {
         match self.status {
             DownstreamMiningNodeStatus::Initializing => panic!(),
-            DownstreamMiningNodeStatus::Paired((settings, _)) => settings,
+            DownstreamMiningNodeStatus::Paired(data) => data,
+            DownstreamMiningNodeStatus::ChannelOpened(Channel::DowntreamHomUpstreamGroup {
+                data,
+                ..
+            }) => data,
+            DownstreamMiningNodeStatus::ChannelOpened(
+                Channel::DowntreamNonHomUpstreamExtended { data, .. },
+            ) => data,
+            DownstreamMiningNodeStatus::ChannelOpened(Channel::DowntreamHomUpstreamExtended {
+                data,
+                ..
+            }) => data,
         }
     }
 }

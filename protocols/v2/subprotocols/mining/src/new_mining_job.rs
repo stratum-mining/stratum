@@ -87,33 +87,6 @@ pub struct NewExtendedMiningJob<'decoder> {
     pub coinbase_tx_suffix: B064K<'decoder>,
 }
 
-impl<'a> NewExtendedMiningJob<'a> {
-    pub fn as_static(&self) -> NewExtendedMiningJob<'static> {
-        NewExtendedMiningJob {
-            channel_id: self.channel_id,
-            job_id: self.job_id,
-            future_job: self.future_job,
-            version: self.version,
-            version_rolling_allowed: self.version_rolling_allowed,
-            merkle_path: self.merkle_path.clone().into_static(),
-            coinbase_tx_prefix: self.coinbase_tx_prefix.clone().into_static(),
-            coinbase_tx_suffix: self.coinbase_tx_suffix.clone().into_static(),
-        }
-    }
-}
-
-impl<'a> NewMiningJob<'a> {
-    pub fn as_static(&self) -> NewMiningJob<'static> {
-        NewMiningJob {
-            channel_id: self.channel_id,
-            job_id: self.job_id,
-            future_job: self.future_job,
-            version: self.version,
-            merkle_root: self.merkle_root.clone().into_static(),
-        }
-    }
-}
-
 #[cfg(feature = "with_serde")]
 use binary_sv2::GetSize;
 #[cfg(feature = "with_serde")]

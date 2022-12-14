@@ -371,3 +371,16 @@ impl<T, B> From<Sv2Frame<T, B>> for EitherFrame<T, B> {
         Self::Sv2(v)
     }
 }
+
+#[cfg(test)]
+use binary_sv2::binary_codec_sv2;
+
+#[cfg(test)]
+#[derive(Serialize)]
+struct T {}
+
+#[test]
+fn test_size_hint() {
+    let h = Sv2Frame::<T, Vec<u8>>::size_hint(&[0, 128, 30, 46, 0, 0][..]);
+    assert!(h == 46);
+}

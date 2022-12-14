@@ -75,22 +75,6 @@ impl<'decoder> OpenStandardMiningChannel<'decoder> {
     }
 }
 
-impl<'decoder> OpenStandardMiningChannel<'decoder> {
-    pub fn into_static_self(
-        s: OpenStandardMiningChannel<'decoder>,
-    ) -> OpenStandardMiningChannel<'static> {
-        OpenStandardMiningChannel {
-            #[cfg(not(feature = "with_serde"))]
-            request_id: s.request_id.into_static(),
-            #[cfg(feature = "with_serde")]
-            request_id: s.request_id,
-            user_identity: s.user_identity.into_static(),
-            nominal_hash_rate: s.nominal_hash_rate,
-            max_target: s.max_target.into_static(),
-        }
-    }
-}
-
 /// # OpenStandardMiningChannel.Success (Server -> Client)
 /// Sent as a response for opening a standard channel, if successful.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -343,10 +327,9 @@ mod tests {
         nominal_hash_rate: f32,
         max_target: Vec<u8>,
         min_extranonce_size: u16,
-        new_request_id: u32,
     ) -> bool {
         let max_target: [u8; 32] = from_arbitrary_vec_to_array(max_target);
-        let mut oemc = OpenExtendedMiningChannel {
+        let oemc = OpenExtendedMiningChannel {
             request_id: request_id.clone(),
             user_identity: Str0255::try_from(String::from(user_identity.clone()))
                 .expect("could not convert string to Str0255"),
@@ -362,7 +345,7 @@ mod tests {
     mod helpers {
         use super::*;
         pub fn compare_static_osmc(osmc: OpenStandardMiningChannel) -> bool {
-            let static_osmc = OpenStandardMiningChannel::into_static_self(osmc.clone());
+            let static_osmc = OpenStandardMiningChannel::into_static(osmc.clone());
             static_osmc.request_id == osmc.request_id
                 && static_osmc.user_identity == osmc.user_identity
                 && static_osmc.nominal_hash_rate.to_ne_bytes()
