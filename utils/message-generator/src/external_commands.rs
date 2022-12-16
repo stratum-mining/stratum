@@ -274,20 +274,24 @@ impl ExternalCommandConditions {
 }
 
 pub async fn os_command(
-    command: &str,
+    command_: &str,
     args: Vec<&str>,
     conditions_: ExternalCommandConditions,
 ) -> Option<tokio::process::Child> {
-    let mut command = Command::new(command);
+    let mut command = Command::new(command_);
     command.stdin(Stdio::null());
     command.stdout(Stdio::piped());
     command.stderr(Stdio::piped());
     command.kill_on_drop(true);
-    for arg in args {
+    for arg in args.clone() {
         command.arg(arg);
     }
 
-    let mut child = command.current_dir("../../").spawn().unwrap();
+    let mut child = if args.len() == 2 && command_ == "cargo" {
+        command.spawn().unwrap()
+    } else {
+        command.current_dir("../../").spawn().unwrap()
+    };
     debug_assert!(child.stdout.is_some());
     debug_assert!(child.stderr.is_some());
     match &conditions_ {
