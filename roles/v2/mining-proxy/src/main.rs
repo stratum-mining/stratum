@@ -19,8 +19,6 @@
 //!
 mod lib;
 use std::{net::{SocketAddr, IpAddr}, str::FromStr};
-
-use async_channel::bounded;
 use tracing::{error, info};
 use async_channel::bounded;
 use lib::{
@@ -31,6 +29,10 @@ use once_cell::sync::{Lazy, OnceCell};
 use serde::Deserialize;
 use std::{net::IpAddr, str::FromStr};
 use tracing::{error, info};
+
+use lib::upstream_mining::UpstreamMiningNode;
+use once_cell::sync::OnceCell;
+use serde::Deserialize;
 
 use roles_logic_sv2::{
     routing_logic::{CommonRoutingLogic, MiningProxyRoutingLogic, MiningRoutingLogic},
@@ -203,14 +205,14 @@ mod args {
 }
 
 /// 1. the proxy scan all the upstreams and map them
-/// 2. donwstream open a connection with proxy
+/// 2. donwstream open a connetcion with proxy
 /// 3. downstream send SetupConnection
 /// 4. a mining_channle::Upstream is created
 /// 5. upstream_mining::UpstreamMiningNodes is used to pair this downstream with the most suitable
 ///    upstream
-/// 6. mining_channel::Upstream create a new downstream_mining::DownstreamMiningNode embedding
+/// 6. mining_channle::Upstream create a new downstream_mining::DownstreamMiningNode embedding
 ///    itself in it
-/// 7. normal operations between the paired downstream_mining::DownstreamMiningNode and
+/// 7. normal operation between the paired downstream_mining::DownstreamMiningNode and
 ///    upstream_mining::UpstreamMiningNode begin
 #[tokio::main]
 async fn main() {
@@ -247,42 +249,6 @@ async fn main() {
         config.listen_mining_port,
     );
     
-    // channel to exchange New Template
-    let (send_tp, recv_tp) = bounded(10);
-    // channel to exchange set new prev hash
-    let (send_ph, recv_ph) = bounded(10);
-    // channel to send coinbase_output_max_additional_size
-    let (send_comas, recv_comas) = bounded(10);
-
-    JobNegotiator::new(
-        SocketAddr::new(
-            IpAddr::from_str(&config.upstreams_jn[0].address).unwrap(),
-            config.upstreams_jn[0].port,
-        ),
-        config.upstreams_jn[0]
-            .clone()
-            .pub_key
-            .into_inner()
-            .as_bytes()
-            .clone(),
-        recv_tp,
-        recv_ph,
-        send_comas,
-    )
-    .await;
-
-    TemplateRx::connect(
-        config.tp_address.parse().unwrap(),
-        send_tp,
-        send_ph,
-        recv_comas,
-    )
-    .await;
-
-    info!("PROXY INITIALIZED");
-    crate::lib::downstream_mining::listen_for_downstream_mining(socket).await;
-    println!("PROXY INITIALIZED");
-
     // channel to exchange New Template
     let (send_tp, recv_tp) = bounded(10);
     // channel to exchange set new prev hash
