@@ -18,17 +18,14 @@
 //! A Downstream that signal the incapacity to handle group channels can open only one channel.
 //!
 mod lib;
-use std::net::SocketAddr;
+use std::{net::{SocketAddr, IpAddr}, str::FromStr};
 
 use async_channel::bounded;
-use lib::{
-    job_negotiator::JobNegotiator, template_receiver::TemplateRx,
-    upstream_mining::UpstreamMiningNode,
-};
-use once_cell::sync::{Lazy, OnceCell};
-use serde::Deserialize;
-use std::{net::IpAddr, str::FromStr};
 use tracing::{error, info};
+
+use lib::upstream_mining::UpstreamMiningNode;
+use once_cell::sync::OnceCell;
+use serde::Deserialize;
 
 use roles_logic_sv2::{
     routing_logic::{CommonRoutingLogic, MiningProxyRoutingLogic, MiningRoutingLogic},
@@ -36,6 +33,8 @@ use roles_logic_sv2::{
     utils::{Id, Mutex},
 };
 use std::sync::Arc;
+
+use crate::lib::{job_negotiator::JobNegotiator, template_receiver::TemplateRx};
 
 type RLogic = MiningProxyRoutingLogic<
     crate::lib::downstream_mining::DownstreamMiningNode,
@@ -79,29 +78,6 @@ pub fn get_common_routing_logic() -> CommonRoutingLogic<RLogic> {
             .get()
             .expect("BUG: ROUTING_LOGIC was not set yet"),
     )
-}
-
-pub fn upstream_from_job_id(job_id: u32) -> Option<Arc<Mutex<UpstreamMiningNode>>> {
-    let upstream_id: u32;
-    upstream_id = JOB_ID_TO_UPSTREAM_ID
-        .safe_lock(|x| *x.get(&job_id).unwrap())
-        .unwrap();
-    ROUTING_LOGIC
-        .get()
-        .expect("BUG: ROUTING_LOGIC was not set yet")
-        .safe_lock(|rlogic| rlogic.upstream_selector.get_upstream(upstream_id))
-        .unwrap()
-}
-
-pub fn add_job_id(job_id: u32, up_id: u32, prev_job_id: Option<u32>) {
-    if let Some(prev_job_id) = prev_job_id {
-        JOB_ID_TO_UPSTREAM_ID
-            .safe_lock(|x| x.remove(&prev_job_id))
-            .unwrap();
-    }
-    JOB_ID_TO_UPSTREAM_ID
-        .safe_lock(|x| x.insert(job_id, up_id))
-        .unwrap();
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -204,14 +180,14 @@ mod args {
 }
 
 /// 1. the proxy scan all the upstreams and map them
-/// 2. donwstream open a connection with proxy
+/// 2. donwstream open a connetcion with proxy
 /// 3. downstream send SetupConnection
 /// 4. a mining_channle::Upstream is created
 /// 5. upstream_mining::UpstreamMiningNodes is used to pair this downstream with the most suitable
 ///    upstream
-/// 6. mining_channel::Upstream create a new downstream_mining::DownstreamMiningNode embedding
+/// 6. mining_channle::Upstream create a new downstream_mining::DownstreamMiningNode embedding
 ///    itself in it
-/// 7. normal operations between the paired downstream_mining::DownstreamMiningNode and
+/// 7. normal operation between the paired downstream_mining::DownstreamMiningNode and
 ///    upstream_mining::UpstreamMiningNode begin
 #[tokio::main]
 async fn main() {
@@ -247,7 +223,7 @@ async fn main() {
         config.listen_address.parse().unwrap(),
         config.listen_mining_port,
     );
-
+    
     // channel to exchange New Template
     let (send_tp, recv_tp) = bounded(10);
     // channel to exchange set new prev hash
