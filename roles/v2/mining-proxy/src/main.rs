@@ -30,7 +30,7 @@ use serde::Deserialize;
 use roles_logic_sv2::{
     routing_logic::{CommonRoutingLogic, MiningProxyRoutingLogic, MiningRoutingLogic},
     selectors::GeneralMiningSelector,
-    utils::{Id, Mutex},
+    utils::{Id, Mutex, GroupId},
 };
 use std::sync::Arc;
 
@@ -50,6 +50,9 @@ type RLogic = MiningProxyRoutingLogic<
 /// So it make sense to use shared mutable memory to lower the complexity of the codebase and to
 /// have some performance gain.
 static ROUTING_LOGIC: OnceCell<Mutex<RLogic>> = OnceCell::new();
+static MIN_EXTRANOUNCE_SIZE: u16 = 6;
+static EXTRANOUNCE_RAGE_1_LENGTH: usize = 4;
+const BLOCK_REWARD: u64 = 5_000_000_000;
 
 async fn initialize_upstreams(min_version: u16, max_version: u16) {
     let upstreams = ROUTING_LOGIC
@@ -81,16 +84,29 @@ pub fn get_common_routing_logic() -> CommonRoutingLogic<RLogic> {
 }
 
 #[derive(Debug, Deserialize, Clone)]
-pub struct UpstreamValues {
+pub struct UpstreamMiningValues {
+    address: String,
+    port: u16,
+    pub_key: codec_sv2::noise_sv2::formats::EncodedEd25519PublicKey,
+    channel_kind: ChannelKind,
+}
+#[derive(Debug, Deserialize, Clone)]
+pub struct UpstreamJNValues {
     address: String,
     port: u16,
     pub_key: codec_sv2::noise_sv2::formats::EncodedEd25519PublicKey,
 }
 
+#[derive(Debug, Deserialize, Clone, Copy)]
+pub enum ChannelKind {
+    Group,
+    Extended
+}
+
 #[derive(Debug, Deserialize, Clone)]
 pub struct Config {
-    upstreams: Vec<UpstreamValues>,
-    upstreams_jn: Vec<UpstreamValues>,
+    upstreams: Vec<UpstreamMiningValues>,
+    upstreams_jn: Vec<UpstreamJNValues>,
     tp_address: String,
     listen_address: String,
     listen_mining_port: u16,
@@ -98,7 +114,7 @@ pub struct Config {
     min_supported_version: u16,
 }
 
-pub fn initialize_r_logic(upstreams: &[UpstreamValues]) -> RLogic {
+pub fn initialize_r_logic(upstreams: &[UpstreamMiningValues], group_id: Arc<Mutex<GroupId>>) -> RLogic {
     let upstream_mining_nodes: Vec<Arc<Mutex<UpstreamMiningNode>>> = upstreams
         .iter()
         .enumerate()
@@ -108,6 +124,8 @@ pub fn initialize_r_logic(upstreams: &[UpstreamValues]) -> RLogic {
                 index as u32,
                 socket,
                 upstream.pub_key.clone().into_inner().to_bytes(),
+                upstream.channel_kind.clone(),
+                group_id.clone(),
             )))
         })
         .collect();
@@ -211,10 +229,10 @@ async fn main() {
             return;
         }
     };
+    let group_id = Arc::new(Mutex::new(GroupId::new()));
     ROUTING_LOGIC
-        .set(Mutex::new(initialize_r_logic(&config.upstreams)))
+        .set(Mutex::new(initialize_r_logic(&config.upstreams, group_id)))
         .expect("BUG: Failed to set ROUTING_LOGIC");
-
     info!("PROXY INITIALIZING");
     initialize_upstreams(config.min_supported_version, config.max_supported_version).await;
 

@@ -756,12 +756,14 @@ impl PoolChannelFactory {
             job_ids: Id::new(),
             channel_to_group_id: HashMap::new(),
         };
+        
         Self {
             inner,
             job_creator,
             pool_coinbase_outputs,
         }
     }
+    
 
     pub fn add_standard_channel(
         &mut self,
@@ -1052,6 +1054,7 @@ impl ProxyExtendedChannelFactory {
         &mut self,
         m: NewExtendedMiningJob<'static>,
     ) -> Result<HashMap<u32, Mining<'static>>, Error> {
+
         self.inner.on_new_extended_mining_job(m)
     }
     pub fn set_target(&mut self, new_target: &mut Target) {

@@ -1,11 +1,13 @@
+use crate::{ChannelKind, EXTRANOUNCE_RAGE_1_LENGTH, BLOCK_REWARD};
+
 use super::downstream_mining::{Channel, DownstreamMiningNode, StdFrame as DownstreamFrame};
 use async_channel::{Receiver, SendError, Sender};
 use async_recursion::async_recursion;
-use codec_sv2::{Frame, HandshakeRole, Initiator, StandardEitherFrame, StandardSv2Frame};
+use codec_sv2::{Frame, HandshakeRole, Initiator, StandardEitherFrame, StandardSv2Frame, Sv2Frame};
 use network_helpers::noise_connection_tokio::Connection;
 use roles_logic_sv2::{
     channel_logic::{
-        channel_factory::ProxyExtendedChannelFactory, proxy_group_channel::GroupChannels,
+        channel_factory::{ProxyExtendedChannelFactory, self, ExtendedChannelKind}, proxy_group_channel::GroupChannels,
     },
     common_messages_sv2::{Protocol, SetupConnection},
     common_properties::{
@@ -18,7 +20,7 @@ use roles_logic_sv2::{
     parsers::{CommonMessages, Mining, MiningDeviceMessages, PoolMessages},
     routing_logic::MiningProxyRoutingLogic,
     selectors::{DownstreamMiningSelector, ProxyDownstreamMiningSelector as Prs},
-    utils::Mutex,
+    utils::{Mutex, GroupId}, job_creator::JobsCreators,
 };
 use std::{collections::HashMap, sync::Arc};
 use tokio::{net::TcpStream, task};
@@ -86,16 +88,18 @@ pub struct UpstreamMiningNode {
     pub group_channels: GroupChannels,
     #[allow(dead_code)]
     channel_factory: Option<ProxyExtendedChannelFactory>,
+    pub channel_kind: ChannelKind,
+    group_id: Arc<Mutex<GroupId>>
 }
 
-use core::convert::TryInto;
+use core::{convert::TryInto, panic};
 use std::net::SocketAddr;
 use tracing::debug;
 
 /// It assume that endpoint NEVER change flags and version!
 /// I can open both extended and group channel with upstream.
 impl UpstreamMiningNode {
-    pub fn new(id: u32, address: SocketAddr, authority_public_key: [u8; 32]) -> Self {
+    pub fn new(id: u32, address: SocketAddr, authority_public_key: [u8; 32], channel_kind: ChannelKind, group_id: Arc<Mutex<GroupId>>) -> Self {
         let request_id_mapper = RequestIdMapper::new();
         let downstream_selector = ProxyRemoteSelector::new();
         Self {
@@ -110,6 +114,8 @@ impl UpstreamMiningNode {
             downstream_selector,
             group_channels: GroupChannels::new(),
             channel_factory: None,
+            channel_kind: channel_kind,
+            group_id: group_id, 
         }
     }
 
@@ -368,7 +374,12 @@ impl UpstreamMiningNode {
                         self_.connection.clone().unwrap().receiver
                     })
                     .unwrap();
-                Self::relay_incoming_messages(self_mutex, receiver);
+                Self::relay_incoming_messages(self_mutex.clone(), receiver);
+                let channel_kind = self_mutex.safe_lock(|s| s.channel_kind).unwrap();
+                match channel_kind {
+                    ChannelKind::Extended => {Self::open_extended_channel(self_mutex.clone()).await},
+                   _ => (),
+                };
                 Ok(())
             }
             Ok(CommonMessages::SetupConnectionError(m)) => {
@@ -385,6 +396,19 @@ impl UpstreamMiningNode {
             }
             Ok(_) => todo!("356"),
             Err(_) => todo!("357"),
+        }
+    }
+    async fn open_extended_channel(self_mutex: Arc<Mutex<Self>>) {
+        let message = PoolMessages::Mining(Mining::OpenExtendedMiningChannel(OpenExtendedMiningChannel { 
+            request_id: 0, 
+            user_identity: "proxy".to_string().try_into().unwrap(), 
+            nominal_hash_rate: 100_000_000_000_000.0, 
+            max_target: [255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255].try_into().unwrap(), 
+            min_extranonce_size: crate::MIN_EXTRANOUNCE_SIZE, 
+        }));
+        Self::send(self_mutex.clone(), message.try_into().unwrap()).await;
+        while self_mutex.safe_lock(|s| s.channel_factory.is_none()).unwrap() {
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
         }
     }
 
@@ -421,6 +445,17 @@ impl UpstreamMiningNode {
         setup_connection.try_into().unwrap()
     }
 
+    pub fn open_standard_channel_down(&mut self, request_id: u32, downstream_hash_rate: f32, id_header_only: bool) -> Vec<Mining<'static>> {
+        match self.channel_kind {
+            ChannelKind::Group => panic!(),
+            ChannelKind::Extended =>  {
+                let messages = self.channel_factory.as_mut().unwrap().add_standard_channel(request_id, downstream_hash_rate, id_header_only,todo!()).unwrap();
+                let messages = messages.into_iter().map(|x|x.into_static()).collect();
+                messages
+            },
+        }
+    }
+
     // Example of how next could be implemented more efficently if no particular good log are
     // needed it just relay the majiority of messages downstream without serializing and
     // deserializing them. In order to find the Downstream at which the message must bu relayed the
@@ -454,7 +489,7 @@ impl
     > for UpstreamMiningNode
 {
     fn get_channel_type(&self) -> SupportedChannelTypes {
-        SupportedChannelTypes::Group
+        SupportedChannelTypes::GroupAndExtended
     }
 
     fn is_work_selection_enabled(&self) -> bool {
@@ -497,9 +532,21 @@ impl
 
     fn handle_open_extended_mining_channel_success(
         &mut self,
-        _m: OpenExtendedMiningChannelSuccess,
+        m: OpenExtendedMiningChannelSuccess,
     ) -> Result<SendTo<DownstreamMiningNode>, Error> {
-        todo!("450")
+        let extranonce_prefix: Extranonce = m.extranonce_prefix.clone().try_into().unwrap();
+        let range_0 = 0..m.extranonce_prefix.clone().to_vec().len();
+        let range_1 = (range_0.end)..EXTRANOUNCE_RAGE_1_LENGTH;
+        let range_2 = range_1.end..(m.extranonce_size as usize);
+        //Custom in ScripKind must be filled with the right value as soon as the data is available, otherwise shares will be invalid
+        let job_creator: JobsCreators = JobsCreators::new(m.extranonce_size as u8);
+        //TODO: to review if to be used extranounce_prefix or else
+        let kind = ExtendedChannelKind::Proxy { upstream_target: m.target.clone().try_into().unwrap()};
+        let extranonces = ExtendedExtranonce::from_upstream_extranonce(extranonce_prefix, range_0, range_1, range_2).unwrap();
+        
+        let channel_factory = ProxyExtendedChannelFactory::new(self.group_id.clone(), extranonces, Some(job_creator), 10.0, kind,None);
+        self.channel_factory = Some(channel_factory);
+        Ok(SendTo::None(None))
     }
 
     fn handle_open_mining_channel_error(
@@ -727,7 +774,7 @@ mod tests {
             215, 11, 47, 78, 34, 232, 25, 192, 195, 168, 170, 209, 95, 181, 40, 114, 154, 226, 176,
             190, 90, 169, 238, 89, 191, 183, 97, 63, 194, 119, 11, 31,
         ];
-        let actual = UpstreamMiningNode::new(id, address, authority_public_key);
+        let actual = UpstreamMiningNode::new(id, address, authority_public_key, ChannelKind::Group);
 
         assert_eq!(actual.id, id);
 
@@ -749,4 +796,5 @@ mod tests {
         assert!(actual.channel_id_to_job_dispatcher.is_empty());
         assert_eq!(actual.request_id_mapper, RequestIdMapper::new());
     }
+
 }
