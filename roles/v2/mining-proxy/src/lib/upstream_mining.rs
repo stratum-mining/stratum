@@ -114,8 +114,8 @@ impl UpstreamMiningNode {
             downstream_selector,
             group_channels: GroupChannels::new(),
             channel_factory: None,
-            channel_kind: channel_kind,
-            group_id: group_id, 
+            channel_kind,
+            group_id, 
         }
     }
 
@@ -782,11 +782,11 @@ mod tests {
         assert_eq!(actual.address, address);
 
         if actual.connection.is_some() {
-            panic!("`UpstreamMiningNode::connection` should be `None` on call to `UpstreamMiningNode::new()`");
+            self::panic!("`UpstreamMiningNode::connection` should be `None` on call to `UpstreamMiningNode::new()`");
         }
 
         if actual.sv2_connection.is_some() {
-            panic!("`UpstreamMiningNode::sv2_connection` should be `None` on call to `UpstreamMiningNode::new()`");
+            self::panic!("`UpstreamMiningNode::sv2_connection` should be `None` on call to `UpstreamMiningNode::new()`");
         }
 
         // How to test
