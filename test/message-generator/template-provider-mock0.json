@@ -58,8 +58,15 @@
         {
             "type": "automatic",
             "message_id": "set_new_prev_hash"
+        },
+        {
+            "type": "automatic",
+            "message_id": "set_new_prev_hash_final"
+        },
+        {
+            "type": "automatic",
+            "message_id": "new_template_final"
         }
-
 
     ],
     "actions": [
@@ -76,17 +83,12 @@
         {
             "message_ids": ["setup_connection_success","new_template","set_new_prev_hash"],
             "role": "server",
-            "results": [] 
-        },
-        {
-            "message_ids": [],
-            "role": "server",
             "results": [
                 {
                     "type": "match_message_type",
-                    "value": "0x00"
+                    "value": "0x76"
                 }
-            ]
+            ] 
         }
     ],
     "setup_commands": [],
