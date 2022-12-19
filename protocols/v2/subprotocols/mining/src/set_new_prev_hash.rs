@@ -43,3 +43,12 @@ impl<'d> GetSize for SetNewPrevHash<'d> {
             + self.nbits.get_size()
     }
 }
+#[cfg(feature = "with_serde")]
+impl<'a> SetNewPrevHash<'a> {
+    pub fn into_static(self) -> SetNewPrevHash<'static> {
+        panic!("This function shouldn't be called by the Messaege Generator");
+    }
+    pub fn as_static(&self) -> SetNewPrevHash<'static> {
+        panic!("This function shouldn't be called by the Messaege Generator");
+    }
+}

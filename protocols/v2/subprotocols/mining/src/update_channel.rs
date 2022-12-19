@@ -57,3 +57,21 @@ impl<'d> GetSize for UpdateChannelError<'d> {
         self.channel_id.get_size() + self.error_code.get_size()
     }
 }
+#[cfg(feature = "with_serde")]
+impl<'a> UpdateChannel<'a> {
+    pub fn into_static(self) -> UpdateChannel<'static> {
+        panic!("This function shouldn't be called by the Messaege Generator");
+    }
+    pub fn as_static(&self) -> UpdateChannel<'static> {
+        panic!("This function shouldn't be called by the Messaege Generator");
+    }
+}
+#[cfg(feature = "with_serde")]
+impl<'a> UpdateChannelError<'a> {
+    pub fn into_static(self) -> UpdateChannelError<'static> {
+        panic!("This function shouldn't be called by the Messaege Generator");
+    }
+    pub fn as_static(&self) -> UpdateChannelError<'static> {
+        panic!("This function shouldn't be called by the Messaege Generator");
+    }
+}

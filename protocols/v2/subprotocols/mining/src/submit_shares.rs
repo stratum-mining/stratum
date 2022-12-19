@@ -149,3 +149,21 @@ impl<'d> GetSize for SubmitSharesError<'d> {
         self.channel_id.get_size() + self.sequence_number.get_size() + self.error_code.get_size()
     }
 }
+#[cfg(feature = "with_serde")]
+impl<'a> SubmitSharesError<'a> {
+    pub fn into_static(self) -> SubmitSharesError<'static> {
+        panic!("This function shouldn't be called by the Messaege Generator");
+    }
+    pub fn as_static(&self) -> SubmitSharesError<'static> {
+        panic!("This function shouldn't be called by the Messaege Generator");
+    }
+}
+#[cfg(feature = "with_serde")]
+impl<'a> SubmitSharesExtended<'a> {
+    pub fn into_static(self) -> SubmitSharesExtended<'static> {
+        panic!("This function shouldn't be called by the Messaege Generator");
+    }
+    pub fn as_static(&self) -> SubmitSharesExtended<'static> {
+        panic!("This function shouldn't be called by the Messaege Generator");
+    }
+}

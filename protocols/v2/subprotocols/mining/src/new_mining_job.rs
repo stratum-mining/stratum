@@ -200,3 +200,21 @@ mod tests {
         }
     }
 }
+#[cfg(feature = "with_serde")]
+impl<'a> NewExtendedMiningJob<'a> {
+    pub fn into_static(self) -> NewExtendedMiningJob<'static> {
+        panic!("This function shouldn't be called by the Messaege Generator");
+    }
+    pub fn as_static(&self) -> NewExtendedMiningJob<'static> {
+        panic!("This function shouldn't be called by the Messaege Generator");
+    }
+}
+#[cfg(feature = "with_serde")]
+impl<'a> NewMiningJob<'a> {
+    pub fn into_static(self) -> NewMiningJob<'static> {
+        panic!("This function shouldn't be called by the Messaege Generator");
+    }
+    pub fn as_static(&self) -> NewMiningJob<'static> {
+        panic!("This function shouldn't be called by the Messaege Generator");
+    }
+}

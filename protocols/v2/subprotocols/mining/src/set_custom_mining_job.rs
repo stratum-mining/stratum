@@ -144,3 +144,30 @@ impl<'d> GetSize for SetCustomMiningJobError<'d> {
         self.channel_id.get_size() + self.request_id.get_size() + self.error_code.get_size()
     }
 }
+#[cfg(feature = "with_serde")]
+impl<'a> SetCustomMiningJob<'a> {
+    pub fn into_static(self) -> SetCustomMiningJob<'static> {
+        panic!("This function shouldn't be called by the Messaege Generator");
+    }
+    pub fn as_static(&self) -> SetCustomMiningJob<'static> {
+        panic!("This function shouldn't be called by the Messaege Generator");
+    }
+}
+#[cfg(feature = "with_serde")]
+impl<'a> SetCustomMiningJobError<'a> {
+    pub fn into_static(self) -> SetCustomMiningJobError<'static> {
+        panic!("This function shouldn't be called by the Messaege Generator");
+    }
+    pub fn as_static(&self) -> SetCustomMiningJobError<'static> {
+        panic!("This function shouldn't be called by the Messaege Generator");
+    }
+}
+#[cfg(feature = "with_serde")]
+impl<'a> SetCustomMiningJobSuccess<'a> {
+    pub fn into_static(self) -> SetCustomMiningJobSuccess<'static> {
+        panic!("This function shouldn't be called by the Messaege Generator");
+    }
+    pub fn as_static(&self) -> SetCustomMiningJobSuccess<'static> {
+        panic!("This function shouldn't be called by the Messaege Generator");
+    }
+}

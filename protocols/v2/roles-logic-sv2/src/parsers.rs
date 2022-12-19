@@ -211,8 +211,8 @@ impl<'a> Mining<'a> {
             Mining::SetTarget(m) => Mining::SetTarget(m.into_static()),
             Mining::SubmitSharesError(m) => Mining::SubmitSharesError(m.into_static()),
             Mining::SubmitSharesExtended(m) => Mining::SubmitSharesExtended(m.into_static()),
-            Mining::SubmitSharesStandard(m) => Mining::SubmitSharesStandard(m.into_static()),
-            Mining::SubmitSharesSuccess(m) => Mining::SubmitSharesSuccess(m.into_static()),
+            Mining::SubmitSharesStandard(m) => Mining::SubmitSharesStandard(m),
+            Mining::SubmitSharesSuccess(m) => Mining::SubmitSharesSuccess(m),
             Mining::UpdateChannel(m) => Mining::UpdateChannel(m.into_static()),
             Mining::UpdateChannelError(m) => Mining::UpdateChannelError(m.into_static()),
         }

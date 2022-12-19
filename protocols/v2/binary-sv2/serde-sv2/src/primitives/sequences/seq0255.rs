@@ -289,3 +289,9 @@ impl<'de, 's, T: Clone + Serialize + Deserialize<'de> + TryFromBSlice<'s>> Seq02
         })
     }
 }
+
+impl<'a, T: Serialize + Clone + TryFromBSlice<'a>> Seq0255<'a, T> {
+    pub fn to_vec(&self) -> Vec<T> {
+        todo!()
+    }
+}

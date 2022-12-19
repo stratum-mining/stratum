@@ -190,3 +190,8 @@ impl<'a> B064K<'a> {
         }
     }
 }
+impl<'a> AsRef<[u8]> for B064K<'a> {
+    fn as_ref(&self) -> &[u8] {
+        todo!()
+    }
+}

@@ -157,3 +157,13 @@ impl<'d> GetSize for NewTemplate<'d> {
             + self.merkle_path.get_size()
     }
 }
+
+#[cfg(feature = "with_serde")]
+impl<'a> NewTemplate<'a> {
+    pub fn into_static(self) -> NewTemplate<'static> {
+        panic!("This function shouldn't be called by the Messaege Generator");
+    }
+    pub fn as_static(&self) -> NewTemplate<'static> {
+        panic!("This function shouldn't be called by the Messaege Generator");
+    }
+}

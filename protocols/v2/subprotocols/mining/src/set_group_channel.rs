@@ -38,3 +38,12 @@ impl<'d> GetSize for SetGroupChannel<'d> {
         self.group_channel_id.get_size() + self.channel_ids.get_size()
     }
 }
+#[cfg(feature = "with_serde")]
+impl<'a> SetGroupChannel<'a> {
+    pub fn into_static(self) -> SetGroupChannel<'static> {
+        panic!("This function shouldn't be called by the Messaege Generator");
+    }
+    pub fn as_static(&self) -> SetGroupChannel<'static> {
+        panic!("This function shouldn't be called by the Messaege Generator");
+    }
+}

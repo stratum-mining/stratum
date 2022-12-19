@@ -36,3 +36,12 @@ impl<'d> GetSize for Reconnect<'d> {
         self.new_host.get_size() + self.new_port.get_size()
     }
 }
+#[cfg(feature = "with_serde")]
+impl<'a> Reconnect<'a> {
+    pub fn into_static(self) -> Reconnect<'static> {
+        panic!("This function shouldn't be called by the Messaege Generator");
+    }
+    pub fn as_static(&self) -> Reconnect<'static> {
+        panic!("This function shouldn't be called by the Messaege Generator");
+    }
+}
