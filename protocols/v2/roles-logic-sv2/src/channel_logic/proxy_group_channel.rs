@@ -94,7 +94,6 @@ impl GroupChannel {
         };
         let channel_id = m.channel_id;
         let mut res = vec![];
-        //res.push(Mining::OpenStandardMiningChannelSuccess(m));
         for extended_job in &self.future_jobs {
             let standard_job = extended_to_standard_job(
                 extended_job,

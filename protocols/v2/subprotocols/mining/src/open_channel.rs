@@ -6,6 +6,8 @@ use binary_sv2::{binary_codec_sv2, U32AsRef};
 use binary_sv2::{Deserialize, Serialize, Str0255, B032, U256};
 #[cfg(not(feature = "with_serde"))]
 use core::convert::TryInto;
+#[cfg(feature = "with_serde")]
+use core::convert::TryInto;
 
 /// # OpenStandardMiningChannel (Client -> Server)
 /// This message requests to open a standard channel to the upstream node.

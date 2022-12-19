@@ -330,7 +330,7 @@ pub fn decodable(item: TokenStream) -> TokenStream {
         parsed_struct.name,
         parsed_struct.generics,
         parsed_struct.name,
-        get_static_genercis(&parsed_struct.generics),
+        get_static_generics(&parsed_struct.generics),
         parsed_struct.name,
         derive_static_fields,
         // impl into_static
@@ -338,7 +338,7 @@ pub fn decodable(item: TokenStream) -> TokenStream {
         parsed_struct.name,
         parsed_struct.generics,
         parsed_struct.name,
-        get_static_genercis(&parsed_struct.generics),
+        get_static_generics(&parsed_struct.generics),
         parsed_struct.name,
         derive_static_fields,
 
@@ -348,7 +348,7 @@ pub fn decodable(item: TokenStream) -> TokenStream {
     result.parse().unwrap()
 }
 
-fn get_static_genercis(gen: &str) -> &str {
+fn get_static_generics(gen: &str) -> &str {
     if gen.is_empty() {
         gen
     } else {

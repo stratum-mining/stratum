@@ -46,6 +46,26 @@ pub enum Share {
     Standard((SubmitSharesStandard, u32)),
 }
 
+#[derive(Clone, Debug)]
+pub struct StagedPhash {
+    job_id: u32,
+    prev_hash: binary_sv2::U256<'static>,
+    min_ntime: u32,
+    nbits: u32,
+}
+
+impl StagedPhash {
+    pub fn into_set_p_hash(&self, channel_id: u32) -> SetNewPrevHash<'static> {
+        SetNewPrevHash {
+            channel_id,
+            job_id: self.job_id,
+            prev_hash: self.prev_hash.clone(),
+            min_ntime: self.min_ntime,
+            nbits: self.nbits,
+        }
+    }
+}
+
 impl Share {
     pub fn get_sequence_number(&self) -> u32 {
         match self {
@@ -98,7 +118,7 @@ pub struct ChannelFactory {
     // (NewExtendedMiningJob,group ids that already received the future job)
     future_jobs: Vec<(NewExtendedMiningJob<'static>, Vec<u32>)>,
     // (SetNewPrevHash,group ids that already received the set prev_hash)
-    last_prev_hash: Option<(SetNewPrevHash<'static>, Vec<u32>)>,
+    last_prev_hash: Option<(StagedPhash, Vec<u32>)>,
     last_prev_hash_: Option<bitcoin::hash_types::BlockHash>,
     // (NewExtendedMiningJob,group ids that already received the job)
     last_valid_job: Option<(NewExtendedMiningJob<'static>, Vec<u32>)>,
@@ -184,6 +204,7 @@ impl ChannelFactory {
             self.extended_channels.insert(channel_id, success.clone());
             let mut result = vec![Mining::OpenExtendedMiningChannelSuccess(success)];
             if let Some((new_prev_hash, _)) = &self.last_prev_hash {
+                let new_prev_hash = new_prev_hash.into_set_p_hash(channel_id);
                 result.push(Mining::SetNewPrevHash(new_prev_hash.clone()))
             };
             if let Some((job, _)) = &self.last_valid_job {
@@ -205,14 +226,13 @@ impl ChannelFactory {
         m: &SetNewPrevHashFromTp<'static>,
     ) -> Result<u32, Error> {
         let job_id = self.job_creator.on_new_prev_hash(m).unwrap_or(0);
-        let new_prev_hash = SetNewPrevHash {
-            channel_id: 0,
+        let new_prev_hash = StagedPhash {
             job_id,
             prev_hash: m.prev_hash.clone(),
             min_ntime: m.header_timestamp,
             nbits: m.n_bits,
         };
-        self.on_new_prev_hash(new_prev_hash.clone())?;
+        self.on_new_prev_hash(new_prev_hash)?;
         Ok(job_id)
     }
 
@@ -259,8 +279,6 @@ impl ChannelFactory {
     ) -> Result<Vec<Mining>, Error> {
         let hom_group_id = 0;
         let mut result = vec![];
-        // first unwrap: is ok to unwrap safe_lock results
-        // second unwrap: GroupId always has the group 0 so it can not fail
         let channel_id = id;
         let target = crate::utils::hash_rate_to_target(downstream_hash_rate, self.share_per_min);
         let extranonce = self
@@ -398,18 +416,21 @@ impl ChannelFactory {
             // If we have just a prev hash we need to send it after the SetupConnectionSuccess
             // message
             (Some((prev_h, _)), None, true) => {
+                let prev_h = prev_h.into_set_p_hash(channel_id);
                 result.push(Mining::SetNewPrevHash(prev_h.clone()));
                 Ok(())
             }
             // If we have a prev hash and a last valid job we need to send before the prev hash and
             // the the valid job
             (Some((prev_h, _)), Some(job), true) => {
+                let prev_h = prev_h.into_set_p_hash(channel_id);
                 result.push(Mining::SetNewPrevHash(prev_h.clone()));
                 result.push(Mining::NewMiningJob(job));
                 Ok(())
             }
             // If we have everything we need, send before the prev hash and then all the jobs
             (Some((prev_h, _)), Some(job), false) => {
+                let prev_h = prev_h.into_set_p_hash(channel_id);
                 result.push(Mining::SetNewPrevHash(prev_h.clone()));
                 result.push(Mining::NewMiningJob(job));
                 // Safe unwrap cause we check that self.future_jobs is not empty
@@ -466,8 +487,7 @@ impl ChannelFactory {
             // message
             (Some((prev_h, group_id_p_hash_sent)), None, true) => {
                 if !group_id_p_hash_sent.contains(&group_id) {
-                    let mut prev_h = prev_h.clone();
-                    prev_h.channel_id = group_id;
+                    let prev_h = prev_h.into_set_p_hash(group_id);
                     group_id_p_hash_sent.push(group_id);
                     result.push(Mining::SetNewPrevHash(prev_h.clone()));
                 }
@@ -476,8 +496,7 @@ impl ChannelFactory {
             // the the valid job
             (Some((prev_h, group_id_p_hash_sent)), Some((job, group_id_job_sent)), true) => {
                 if !group_id_p_hash_sent.contains(&group_id) {
-                    let mut prev_h = prev_h.clone();
-                    prev_h.channel_id = group_id;
+                    let prev_h = prev_h.into_set_p_hash(group_id);
                     group_id_p_hash_sent.push(group_id);
                     result.push(Mining::SetNewPrevHash(prev_h));
                 }
@@ -491,8 +510,7 @@ impl ChannelFactory {
             // If we have everything we need, send before the prev hash and then all the jobs
             (Some((prev_h, group_id_p_hash_sent)), Some((job, group_id_job_sent)), false) => {
                 if !group_id_p_hash_sent.contains(&group_id) {
-                    let mut prev_h = prev_h.clone();
-                    prev_h.channel_id = group_id;
+                    let prev_h = prev_h.into_set_p_hash(group_id);
                     group_id_p_hash_sent.push(group_id);
                     result.push(Mining::SetNewPrevHash(prev_h));
                 }
@@ -523,7 +541,7 @@ impl ChannelFactory {
         }
     }
 
-    fn on_new_prev_hash(&mut self, m: SetNewPrevHash<'static>) -> Result<(), Error> {
+    fn on_new_prev_hash(&mut self, m: StagedPhash) -> Result<(), Error> {
         while let Some(mut job) = self.future_jobs.pop() {
             if job.0.job_id == m.job_id {
                 job.0.future_job = false;
@@ -649,13 +667,13 @@ impl ChannelFactory {
             .0
             .coinbase_tx_suffix
             .as_ref();
-        let merklet_path = self.last_valid_job.as_ref().unwrap().0.merkle_path.to_vec();
+        let merkle_path = self.last_valid_job.as_ref().unwrap().0.merkle_path.to_vec();
         // Safe unwrap a sha256 can always be converted into [u8;32]
         let merkle_root: [u8; 32] = crate::utils::merkle_root_from_path(
             coinbase_tx_prefix,
             coinbase_tx_suffix,
             &extranonce[..],
-            &merklet_path[..],
+            &merkle_path[..],
         )
         .ok_or(Error::InvalidCoinbase)?
         .try_into()
@@ -844,7 +862,12 @@ impl ProxyExtendedChannelFactory {
         self.inner.on_submit_shares_standard(m, group_id)
     }
     pub fn on_new_prev_hash(&mut self, m: SetNewPrevHash<'static>) -> Result<(), Error> {
-        self.inner.on_new_prev_hash(m)
+        self.inner.on_new_prev_hash(StagedPhash {
+            job_id: m.job_id,
+            prev_hash: m.prev_hash.clone().into_static(),
+            min_ntime: m.min_ntime,
+            nbits: m.nbits,
+        })
     }
 
     pub fn on_new_extended_mining_job(
