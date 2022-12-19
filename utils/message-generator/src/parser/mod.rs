@@ -188,6 +188,25 @@ impl<'a> Parser<'a> {
 #[cfg(test)]
 mod test {
     use super::*;
+    use binary_sv2::*;
+
+    #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+    struct TestStruct<'decoder> {
+        #[serde(borrow)]
+        test_b016m: B016M<'decoder>,
+        #[serde(borrow)]
+        test_b0255: B0255<'decoder>,
+        #[serde(borrow)]
+        test_b032: B032<'decoder>,
+        #[serde(borrow)]
+        test_b064: B064K<'decoder>,
+        #[serde(borrow)]
+        test_seq_064k_bool: Seq064K<'decoder,bool>,
+        #[serde(borrow)]
+        test_seq_064k_b064k: Seq064K<'decoder,B064K<'decoder>>,
+    }
+
+
 
     #[test]
     fn it_parse_test() {
@@ -203,5 +222,30 @@ mod test {
             }
             _ => unreachable!(),
         }
+    }
+
+    #[test]
+    fn it_parse_sequences() {
+        let test_json = r#"
+        {
+            "test_b016m": [1,1],
+            "test_b0255": [1,1],
+            "test_b032": [1,1],
+            "test_b064": [1,1],
+            "test_seq_064k_bool": [true,false],
+            "test_seq_064k_b064k": [[1,2],[3,4]]
+        }
+        "#;
+        let test_struct: TestStruct = serde_json::from_str(test_json).unwrap();
+        assert!(test_struct.test_b016m == vec![1,1].try_into().unwrap());
+        assert!(test_struct.test_b0255 == vec![1,1].try_into().unwrap());
+        assert!(test_struct.test_b032 == vec![1,1].try_into().unwrap());
+        assert!(test_struct.test_b064 == vec![1,1].try_into().unwrap());
+        assert!(test_struct.test_b064 == vec![1,1].try_into().unwrap());
+        assert!(test_struct.test_seq_064k_bool.into_inner() == vec![true,false]);
+        assert!(test_struct.test_seq_064k_b064k.into_inner() == vec![
+                vec![1,2].try_into().unwrap(),
+                vec![3,4].try_into().unwrap(),
+        ]);
     }
 }

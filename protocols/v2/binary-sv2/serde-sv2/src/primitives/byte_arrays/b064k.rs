@@ -112,6 +112,23 @@ impl<'a> Visitor<'a> for B064KVisitor {
         Ok(B064K(Inner::Ref(value)))
     }
 
+    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+    where
+        A: serde::de::SeqAccess<'a>,
+    {
+        let mut inner = vec![];
+        while let Ok(Some(x)) = seq.next_element() {
+            inner.push(x)
+        }
+        if inner.len() > u16::MAX as usize {
+            return Err(serde::de::Error::custom(
+                "Impossible deserialize B064K, len is bigger u16::MAX",
+            ));
+        }
+        let inner = Inner::Owned(inner);
+        Ok(B064K(inner))
+    }
+
     fn visit_byte_buf<E>(self, v: Vec<u8>) -> Result<Self::Value, E>
     where
         E: serde::de::Error,
@@ -125,7 +142,7 @@ impl<'a> Visitor<'a> for B064KVisitor {
             let self_: B064K = v[2..].to_vec().try_into().unwrap();
             Ok(self_)
         } else {
-            Err(serde::de::Error::custom("Impossible deserialize B016M"))
+            Err(serde::de::Error::custom("Impossible deserialize B064K"))
         }
     }
 
