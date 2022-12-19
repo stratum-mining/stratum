@@ -453,7 +453,8 @@ impl Executor {
                 command.args.iter().map(String::as_str).collect(),
                 command.conditions,
             )
-            .await;
+            // Give time to the last cleanup command to return before exit from the process
+            .await.unwrap().wait().await.unwrap();
         }
         for child in self.process {
             if let Some(mut child) = child {
