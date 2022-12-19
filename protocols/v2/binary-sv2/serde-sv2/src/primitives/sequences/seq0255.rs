@@ -85,16 +85,19 @@ impl<'de: 'a, 'a> Deserialize<'de> for Seq0255<'a, U256<'a>> {
     where
         D: Deserializer<'de>,
     {
-        deserializer
-            .deserialize_newtype_struct(
-                "Seq_0255_U256",
-                SeqVisitor {
-                    inner_type_size: 32,
-                    max_len: SeqMaxLen::_1B,
-                    _a: core::marker::PhantomData,
-                },
-            )
-            .map(|x| x.into())
+        match deserializer.is_human_readable() {
+            false => deserializer
+                .deserialize_newtype_struct(
+                    "Seq_0255_U256",
+                    SeqVisitor {
+                        inner_type_size: 32,
+                        max_len: SeqMaxLen::_1B,
+                        _a: core::marker::PhantomData,
+                    },
+                )
+                .map(|x| x.into()),
+            true => Seq0255::deserialize_json(deserializer),
+        }
     }
 }
 
@@ -104,16 +107,19 @@ impl<'de: 'a, 'a> Deserialize<'de> for Seq0255<'a, bool> {
     where
         D: Deserializer<'de>,
     {
-        deserializer
-            .deserialize_newtype_struct(
-                "Seq_0255_Bool",
-                SeqVisitor {
-                    inner_type_size: 1,
-                    max_len: SeqMaxLen::_1B,
-                    _a: core::marker::PhantomData,
-                },
-            )
-            .map(|x| x.into())
+        match deserializer.is_human_readable() {
+            false => deserializer
+                .deserialize_newtype_struct(
+                    "Seq_0255_Bool",
+                    SeqVisitor {
+                        inner_type_size: 1,
+                        max_len: SeqMaxLen::_1B,
+                        _a: core::marker::PhantomData,
+                    },
+                )
+                .map(|x| x.into()),
+            true => Seq0255::deserialize_json(deserializer),
+        }
     }
 }
 
@@ -123,16 +129,19 @@ impl<'de: 'a, 'a> Deserialize<'de> for Seq0255<'a, u16> {
     where
         D: Deserializer<'de>,
     {
-        deserializer
-            .deserialize_newtype_struct(
-                "Seq_0255_U16",
-                SeqVisitor {
-                    inner_type_size: 2,
-                    max_len: SeqMaxLen::_1B,
-                    _a: core::marker::PhantomData,
-                },
-            )
-            .map(|x| x.into())
+        match deserializer.is_human_readable() {
+            false => deserializer
+                .deserialize_newtype_struct(
+                    "Seq_0255_U16",
+                    SeqVisitor {
+                        inner_type_size: 2,
+                        max_len: SeqMaxLen::_1B,
+                        _a: core::marker::PhantomData,
+                    },
+                )
+                .map(|x| x.into()),
+            true => Seq0255::deserialize_json(deserializer),
+        }
     }
 }
 
@@ -142,16 +151,19 @@ impl<'de: 'a, 'a> Deserialize<'de> for Seq0255<'a, U24> {
     where
         D: Deserializer<'de>,
     {
-        deserializer
-            .deserialize_newtype_struct(
-                "Seq_0255_U24",
-                SeqVisitor {
-                    inner_type_size: 3,
-                    max_len: SeqMaxLen::_1B,
-                    _a: core::marker::PhantomData,
-                },
-            )
-            .map(|x| x.into())
+        match deserializer.is_human_readable() {
+            false => deserializer
+                .deserialize_newtype_struct(
+                    "Seq_0255_U24",
+                    SeqVisitor {
+                        inner_type_size: 3,
+                        max_len: SeqMaxLen::_1B,
+                        _a: core::marker::PhantomData,
+                    },
+                )
+                .map(|x| x.into()),
+            true => Seq0255::deserialize_json(deserializer),
+        }
     }
 }
 
@@ -161,16 +173,19 @@ impl<'de: 'a, 'a> Deserialize<'de> for Seq0255<'a, u32> {
     where
         D: Deserializer<'de>,
     {
-        deserializer
-            .deserialize_newtype_struct(
-                "Seq_0255_U32",
-                SeqVisitor {
-                    inner_type_size: 4,
-                    max_len: SeqMaxLen::_1B,
-                    _a: core::marker::PhantomData,
-                },
-            )
-            .map(|x| x.into())
+        match deserializer.is_human_readable() {
+            false => deserializer
+                .deserialize_newtype_struct(
+                    "Seq_0255_U32",
+                    SeqVisitor {
+                        inner_type_size: 4,
+                        max_len: SeqMaxLen::_1B,
+                        _a: core::marker::PhantomData,
+                    },
+                )
+                .map(|x| x.into()),
+            true => Seq0255::deserialize_json(deserializer),
+        }
     }
 }
 
@@ -180,16 +195,19 @@ impl<'de: 'a, 'a> Deserialize<'de> for Seq0255<'a, Signature<'a>> {
     where
         D: Deserializer<'de>,
     {
-        deserializer
-            .deserialize_newtype_struct(
-                "Seq_0255_Signature",
-                SeqVisitor {
-                    inner_type_size: 64,
-                    max_len: SeqMaxLen::_1B,
-                    _a: core::marker::PhantomData,
-                },
-            )
-            .map(|x| x.into())
+        match deserializer.is_human_readable() {
+            false => deserializer
+                .deserialize_newtype_struct(
+                    "Seq_0255_Signature",
+                    SeqVisitor {
+                        inner_type_size: 64,
+                        max_len: SeqMaxLen::_1B,
+                        _a: core::marker::PhantomData,
+                    },
+                )
+                .map(|x| x.into()),
+            true => Seq0255::deserialize_json(deserializer),
+        }
     }
 }
 
@@ -248,5 +266,26 @@ impl<'a> From<Seq0255<'a, u32>> for Vec<u32> {
         } else {
             panic!()
         }
+    }
+}
+
+impl<'de, 's, T: Clone + Serialize + Deserialize<'de> + TryFromBSlice<'s>> Seq0255<'s, T> {
+    pub fn into_inner(self) -> Vec<T> {
+        if let Some(inner) = self.data {
+            inner
+        } else {
+            todo!("Serde parser is supposed to be used only for message generator")
+        }
+    }
+
+    fn deserialize_json<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let vec: Vec<T> = Deserialize::deserialize(deserializer)?;
+        Ok(Seq0255 {
+            seq: None,
+            data: Some(vec),
+        })
     }
 }

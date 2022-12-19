@@ -112,6 +112,23 @@ impl<'a> Visitor<'a> for B0255Visitor {
         Ok(B0255(Inner::Ref(value)))
     }
 
+    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+    where
+        A: serde::de::SeqAccess<'a>,
+    {
+        let mut inner = vec![];
+        while let Ok(Some(x)) = seq.next_element() {
+            inner.push(x)
+        }
+        if inner.len() > u8::MAX as usize {
+            return Err(serde::de::Error::custom(
+                "Impossible deserialize B0255, len is bigger u8::MAX",
+            ));
+        }
+        let inner = Inner::Owned(inner);
+        Ok(B0255(inner))
+    }
+
     fn visit_byte_buf<E>(self, v: Vec<u8>) -> Result<Self::Value, E>
     where
         E: serde::de::Error,
