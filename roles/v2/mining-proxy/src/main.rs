@@ -23,15 +23,15 @@ use std::net::SocketAddr;
 use tracing::{error, info};
 
 use lib::upstream_mining::UpstreamMiningNode;
-use once_cell::sync::{Lazy, OnceCell};
+use once_cell::sync::OnceCell;
 use serde::Deserialize;
 
 use roles_logic_sv2::{
     routing_logic::{CommonRoutingLogic, MiningProxyRoutingLogic, MiningRoutingLogic},
-    selectors::{GeneralMiningSelector, UpstreamMiningSelctor},
+    selectors::GeneralMiningSelector,
     utils::{Id, Mutex},
 };
-use std::{collections::HashMap, sync::Arc};
+use std::sync::Arc;
 
 type RLogic = MiningProxyRoutingLogic<
     crate::lib::downstream_mining::DownstreamMiningNode,
@@ -47,8 +47,6 @@ type RLogic = MiningProxyRoutingLogic<
 /// So it make sense to use shared mutable memory to lower the complexity of the codebase and to
 /// have some performance gain.
 static ROUTING_LOGIC: OnceCell<Mutex<RLogic>> = OnceCell::new();
-static JOB_ID_TO_UPSTREAM_ID: Lazy<Mutex<HashMap<u32, u32>>> =
-    Lazy::new(|| Mutex::new(HashMap::new()));
 
 async fn initialize_upstreams(min_version: u16, max_version: u16) {
     let upstreams = ROUTING_LOGIC
@@ -79,29 +77,6 @@ pub fn get_common_routing_logic() -> CommonRoutingLogic<RLogic> {
     )
 }
 
-pub fn upstream_from_job_id(job_id: u32) -> Option<Arc<Mutex<UpstreamMiningNode>>> {
-    let upstream_id: u32;
-    upstream_id = JOB_ID_TO_UPSTREAM_ID
-        .safe_lock(|x| *x.get(&job_id).unwrap())
-        .unwrap();
-    ROUTING_LOGIC
-        .get()
-        .expect("BUG: ROUTING_LOGIC was not set yet")
-        .safe_lock(|rlogic| rlogic.upstream_selector.get_upstream(upstream_id))
-        .unwrap()
-}
-
-pub fn add_job_id(job_id: u32, up_id: u32, prev_job_id: Option<u32>) {
-    if let Some(prev_job_id) = prev_job_id {
-        JOB_ID_TO_UPSTREAM_ID
-            .safe_lock(|x| x.remove(&prev_job_id))
-            .unwrap();
-    }
-    JOB_ID_TO_UPSTREAM_ID
-        .safe_lock(|x| x.insert(job_id, up_id))
-        .unwrap();
-}
-
 #[derive(Debug, Deserialize)]
 pub struct UpstreamValues {
     address: String,
@@ -119,7 +94,6 @@ pub struct Config {
 }
 
 pub fn initialize_r_logic(upstreams: &[UpstreamValues]) -> RLogic {
-    let job_ids = Arc::new(Mutex::new(Id::new()));
     let upstream_mining_nodes: Vec<Arc<Mutex<UpstreamMiningNode>>> = upstreams
         .iter()
         .enumerate()
@@ -129,7 +103,6 @@ pub fn initialize_r_logic(upstreams: &[UpstreamValues]) -> RLogic {
                 index as u32,
                 socket,
                 upstream.pub_key.clone().into_inner().to_bytes(),
-                job_ids.clone(),
             )))
         })
         .collect();

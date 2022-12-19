@@ -19,6 +19,7 @@ use setup_connection::SetupConnectionHandler;
 pub struct TemplateRx {
     receiver: Receiver<EitherFrame>,
     sender: Sender<EitherFrame>,
+    message_received_signal: Receiver<()>,
     new_template_sender: Sender<NewTemplate<'static>>,
     new_prev_hash_sender: Sender<SetNewPrevHash<'static>>,
 }
@@ -29,6 +30,7 @@ impl TemplateRx {
         templ_sender: Sender<NewTemplate<'static>>,
         prev_h_sender: Sender<SetNewPrevHash<'static>>,
         solution_receiver: Receiver<SubmitSolution<'static>>,
+        message_received_signal: Receiver<()>,
     ) {
         let stream = match TcpStream::connect(address).await {
             Ok(stream) => {
@@ -55,6 +57,7 @@ impl TemplateRx {
             sender,
             new_template_sender: templ_sender,
             new_prev_hash_sender: prev_h_sender,
+            message_received_signal,
         }));
         let cloned = self_.clone();
 
@@ -63,6 +66,9 @@ impl TemplateRx {
     }
 
     pub async fn start(self_: Arc<Mutex<Self>>) {
+        let recv_msg_signal = self_
+            .safe_lock(|s| s.message_received_signal.clone())
+            .unwrap();
         let (receiver, new_template_sender, new_prev_hash_sender) = self_
             .safe_lock(|s| {
                 (
@@ -93,14 +99,19 @@ impl TemplateRx {
                             .send(m)
                             .await
                             .expect("Failed to send new template!");
+                        recv_msg_signal.recv().await.unwrap();
                     }
                     TemplateDistribution::RequestTransactionData(_) => todo!(),
                     TemplateDistribution::RequestTransactionDataError(_) => todo!(),
                     TemplateDistribution::RequestTransactionDataSuccess(_) => todo!(),
-                    TemplateDistribution::SetNewPrevHash(m) => new_prev_hash_sender
-                        .send(m)
-                        .await
-                        .expect("Failed to send new prev hash"),
+                    TemplateDistribution::SetNewPrevHash(m) => {
+                        new_prev_hash_sender
+                            .send(m)
+                            .await
+                            .expect("Failed to send new prev hash");
+
+                        recv_msg_signal.recv().await.unwrap();
+                    }
                     TemplateDistribution::SubmitSolution(_) => todo!(),
                 },
                 _ => todo!(),

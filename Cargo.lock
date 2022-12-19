@@ -1069,6 +1069,7 @@ dependencies = [
  "buffer_sv2",
  "codec_sv2",
  "const_sv2",
+ "futures",
  "network_helpers",
  "rand 0.8.5",
  "roles_logic_sv2",

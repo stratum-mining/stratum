@@ -87,33 +87,6 @@ pub struct NewExtendedMiningJob<'decoder> {
     pub coinbase_tx_suffix: B064K<'decoder>,
 }
 
-impl<'a> NewExtendedMiningJob<'a> {
-    pub fn as_static(&self) -> NewExtendedMiningJob<'static> {
-        NewExtendedMiningJob {
-            channel_id: self.channel_id,
-            job_id: self.job_id,
-            future_job: self.future_job,
-            version: self.version,
-            version_rolling_allowed: self.version_rolling_allowed,
-            merkle_path: self.merkle_path.clone().into_static(),
-            coinbase_tx_prefix: self.coinbase_tx_prefix.clone().into_static(),
-            coinbase_tx_suffix: self.coinbase_tx_suffix.clone().into_static(),
-        }
-    }
-}
-
-impl<'a> NewMiningJob<'a> {
-    pub fn as_static(&self) -> NewMiningJob<'static> {
-        NewMiningJob {
-            channel_id: self.channel_id,
-            job_id: self.job_id,
-            future_job: self.future_job,
-            version: self.version,
-            merkle_root: self.merkle_root.clone().into_static(),
-        }
-    }
-}
-
 #[cfg(feature = "with_serde")]
 use binary_sv2::GetSize;
 #[cfg(feature = "with_serde")]
@@ -225,5 +198,23 @@ mod tests {
         pub fn bytes_to_b064k(bytes: &Vec<u8>) -> B064K {
             B064K::try_from(bytes.clone()).expect("Failed to convert to B064K")
         }
+    }
+}
+#[cfg(feature = "with_serde")]
+impl<'a> NewExtendedMiningJob<'a> {
+    pub fn into_static(self) -> NewExtendedMiningJob<'static> {
+        panic!("This function shouldn't be called by the Messaege Generator");
+    }
+    pub fn as_static(&self) -> NewExtendedMiningJob<'static> {
+        panic!("This function shouldn't be called by the Messaege Generator");
+    }
+}
+#[cfg(feature = "with_serde")]
+impl<'a> NewMiningJob<'a> {
+    pub fn into_static(self) -> NewMiningJob<'static> {
+        panic!("This function shouldn't be called by the Messaege Generator");
+    }
+    pub fn as_static(&self) -> NewMiningJob<'static> {
+        panic!("This function shouldn't be called by the Messaege Generator");
     }
 }

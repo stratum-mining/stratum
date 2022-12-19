@@ -33,3 +33,12 @@ impl<'d> GetSize for SetTarget<'d> {
         self.channel_id.get_size() + self.maximum_target.get_size()
     }
 }
+#[cfg(feature = "with_serde")]
+impl<'a> SetTarget<'a> {
+    pub fn into_static(self) -> SetTarget<'static> {
+        panic!("This function shouldn't be called by the Messaege Generator");
+    }
+    pub fn as_static(&self) -> SetTarget<'static> {
+        panic!("This function shouldn't be called by the Messaege Generator");
+    }
+}

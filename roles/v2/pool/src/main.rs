@@ -18,12 +18,10 @@ pub type Message = PoolMessages<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;
 pub type EitherFrame = StandardEitherFrame<Message>;
 
-const HOM_GROUP_ID: u32 = u32::MAX;
-
 const PRIVATE_KEY_BTC: [u8; 32] = [34; 32];
 const NETWORK: Network = Network::Testnet;
 
-const BLOCK_REWARD: u64 = 625_000_000_000;
+const BLOCK_REWARD: u64 = 5_000_000_000;
 
 fn new_pub_key() -> PublicKey {
     let priv_k = PrivateKey::from_slice(&PRIVATE_KEY_BTC, NETWORK).unwrap();
@@ -131,14 +129,23 @@ async fn main() {
     let (s_new_t, r_new_t) = bounded(10);
     let (s_prev_hash, r_prev_hash) = bounded(10);
     let (s_solution, r_solution) = bounded(10);
+    let (s_message_recv_signal, r_message_recv_signal) = bounded(10);
     info!("Pool INITIALIZING with config: {:?}", &args.config_path);
     TemplateRx::connect(
         config.tp_address.parse().unwrap(),
         s_new_t,
         s_prev_hash,
         r_solution,
+        r_message_recv_signal,
     )
     .await;
-    Pool::start(config, r_new_t, r_prev_hash, s_solution).await;
+    Pool::start(
+        config,
+        r_new_t,
+        r_prev_hash,
+        s_solution,
+        s_message_recv_signal,
+    )
+    .await;
     info!("Pool INITIALIZED");
 }

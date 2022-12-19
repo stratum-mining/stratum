@@ -17,3 +17,4 @@ buffer_sv2 = { path = "../../../../utils/buffer"}
 async-recursion = "0.3.2"
 rand = "0.8.4"
 bitcoin = "0.27.1"
+futures = "0.3.5"

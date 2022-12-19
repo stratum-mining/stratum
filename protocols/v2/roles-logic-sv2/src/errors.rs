@@ -26,6 +26,20 @@ pub enum Error {
     UnexpectedPoolMessage,
     UnknownRequestId(u32),
     NoMoreExtranonces,
+    JobIsNotFutureButPrevHashNotPresent,
+    ChannelIsNeitherExtendedNeitherInAPool,
+    ExtranonceSpaceEnded,
+    ImpossibleToCalculateMerkleRoot,
+    GroupIdNotFound,
+    ShareDoNotMatchAnyJob,
+    ShareDoNotMatchAnyChannel,
+    InvalidCoinbase,
+    VersionTooBig,
+    TxVersionTooBig,
+    TxVersionTooLow,
+    NotFoundChannelId,
+    NoValidJob,
+    NoTemplateForId,
 }
 
 impl From<BinarySv2Error> for Error {
@@ -81,6 +95,20 @@ impl Display for Error {
                 id
             ),
             NoMoreExtranonces => write!(f, "No more extranonces"),
+            JobIsNotFutureButPrevHashNotPresent => write!(f, "A non future job always expect a previous new prev hash"),
+            ChannelIsNeitherExtendedNeitherInAPool => write!(f, "If a channel is neither extended neither is part of a pool the only thing to do when a OpenStandardChannle is received is to relay it upstream with and updated request id"),
+            ExtranonceSpaceEnded => write!(f, "No more avaible extranonces for downstream"),
+            ImpossibleToCalculateMerkleRoot => write!(f, "Impossible to calculate merkle root"),
+            GroupIdNotFound => write!(f, "Group id not found"),
+            ShareDoNotMatchAnyJob => write!(f, "A share has been recived but no job for it exist"),
+            ShareDoNotMatchAnyChannel => write!(f, "A share has been recived but no channel for it exist"),
+            InvalidCoinbase => write!(f, "Coinbase prefix + extranonce + coinbase suffix is not a valid coinbase"),
+            VersionTooBig => write!(f, "We are trying to construct a block header with version bigger than i32::MAX"),
+            TxVersionTooBig => write!(f, "Tx version can not be greater than i32::MAX"),
+            TxVersionTooLow => write!(f, "Tx version can not be lower than 1"),
+            NotFoundChannelId => write!(f, "No downstream has been registred for this channel id"),
+            NoValidJob => write!(f, "Impossible to create a standard job for channelA cause no valid job has been received from upstream yet"),
+            NoTemplateForId => write!(f, "Impossible a template for the required job id"),
         }
     }
 }

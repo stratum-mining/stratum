@@ -10,20 +10,7 @@ use std::sync::Arc;
 
 impl ParseServerTemplateDistributionMessages for TemplateRx {
     fn handle_new_template(&mut self, m: NewTemplate) -> Result<SendTo, Error> {
-        let new_template = NewTemplate {
-            template_id: m.template_id,
-            future_template: m.future_template,
-            version: m.version,
-            coinbase_tx_version: m.coinbase_tx_version,
-            coinbase_prefix: m.coinbase_prefix.into_static(),
-            coinbase_tx_input_sequence: m.coinbase_tx_input_sequence,
-            coinbase_tx_value_remaining: m.coinbase_tx_value_remaining,
-            coinbase_tx_outputs_count: m.coinbase_tx_outputs_count,
-            coinbase_tx_outputs: m.coinbase_tx_outputs.into_static(),
-            coinbase_tx_locktime: m.coinbase_tx_locktime,
-            merkle_path: m.merkle_path.into_static(),
-        };
-        let new_template = TemplateDistribution::NewTemplate(new_template);
+        let new_template = TemplateDistribution::NewTemplate(m.into_static());
         Ok(SendTo::RelayNewMessageToRemote(
             Arc::new(Mutex::new(())),
             new_template,
@@ -31,14 +18,7 @@ impl ParseServerTemplateDistributionMessages for TemplateRx {
     }
 
     fn handle_set_new_prev_hash(&mut self, m: SetNewPrevHash) -> Result<SendTo, Error> {
-        let new_prev_hash = SetNewPrevHash {
-            template_id: m.template_id,
-            prev_hash: m.prev_hash.into_static(),
-            header_timestamp: m.header_timestamp,
-            n_bits: m.n_bits,
-            target: m.target.into_static(),
-        };
-        let new_prev_hash = TemplateDistribution::SetNewPrevHash(new_prev_hash);
+        let new_prev_hash = TemplateDistribution::SetNewPrevHash(m.into_static());
         Ok(SendTo::RelayNewMessageToRemote(
             Arc::new(Mutex::new(())),
             new_prev_hash,

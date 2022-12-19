@@ -1,9 +1,12 @@
+use alloc::string::ToString;
 #[cfg(not(feature = "with_serde"))]
 use alloc::vec::Vec;
 #[cfg(not(feature = "with_serde"))]
 use binary_sv2::{binary_codec_sv2, U32AsRef};
 use binary_sv2::{Deserialize, Serialize, Str0255, B032, U256};
 #[cfg(not(feature = "with_serde"))]
+use core::convert::TryInto;
+#[cfg(feature = "with_serde")]
 use core::convert::TryInto;
 
 /// # OpenStandardMiningChannel (Client -> Server)
@@ -71,22 +74,6 @@ impl<'decoder> OpenStandardMiningChannel<'decoder> {
         // DO NOT USE MEM SWAP HERE AS IT DO NOT UPDATE THE UNDERLING PAYLOAD
         // INSTEAD IMPLEMENT U32ASREF FOR SERDE
         todo!()
-    }
-}
-
-impl<'decoder> OpenStandardMiningChannel<'decoder> {
-    pub fn into_static_self(
-        s: OpenStandardMiningChannel<'decoder>,
-    ) -> OpenStandardMiningChannel<'static> {
-        OpenStandardMiningChannel {
-            #[cfg(not(feature = "with_serde"))]
-            request_id: s.request_id.into_static(),
-            #[cfg(feature = "with_serde")]
-            request_id: s.request_id,
-            user_identity: s.user_identity.into_static(),
-            nominal_hash_rate: s.nominal_hash_rate,
-            max_target: s.max_target.into_static(),
-        }
     }
 }
 
@@ -214,6 +201,22 @@ pub struct OpenMiningChannelError<'decoder> {
     #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub error_code: Str0255<'decoder>,
 }
+
+impl<'a> OpenMiningChannelError<'a> {
+    pub fn new_max_target_out_of_range(request_id: u32) -> Self {
+        Self {
+            request_id,
+            error_code: "max-target-out-of-range".to_string().try_into().unwrap(),
+        }
+    }
+    pub fn new_unknown_user(request_id: u32) -> Self {
+        Self {
+            request_id,
+            error_code: "unknown-user".to_string().try_into().unwrap(),
+        }
+    }
+}
+
 #[cfg(feature = "with_serde")]
 use binary_sv2::GetSize;
 #[cfg(feature = "with_serde")]
@@ -326,10 +329,9 @@ mod tests {
         nominal_hash_rate: f32,
         max_target: Vec<u8>,
         min_extranonce_size: u16,
-        new_request_id: u32,
     ) -> bool {
         let max_target: [u8; 32] = from_arbitrary_vec_to_array(max_target);
-        let mut oemc = OpenExtendedMiningChannel {
+        let oemc = OpenExtendedMiningChannel {
             request_id: request_id.clone(),
             user_identity: Str0255::try_from(String::from(user_identity.clone()))
                 .expect("could not convert string to Str0255"),
@@ -345,7 +347,7 @@ mod tests {
     mod helpers {
         use super::*;
         pub fn compare_static_osmc(osmc: OpenStandardMiningChannel) -> bool {
-            let static_osmc = OpenStandardMiningChannel::into_static_self(osmc.clone());
+            let static_osmc = OpenStandardMiningChannel::into_static(osmc.clone());
             static_osmc.request_id == osmc.request_id
                 && static_osmc.user_identity == osmc.user_identity
                 && static_osmc.nominal_hash_rate.to_ne_bytes()
@@ -357,5 +359,51 @@ mod tests {
     #[test]
     fn test() {
         "placeholder to allow in file unit tests for quickcheck";
+    }
+}
+
+#[cfg(feature = "with_serde")]
+impl<'a> OpenExtendedMiningChannel<'a> {
+    pub fn into_static(self) -> OpenExtendedMiningChannel<'static> {
+        panic!("This function shouldn't be called by the Messaege Generator");
+    }
+    pub fn as_static(&self) -> OpenExtendedMiningChannel<'static> {
+        panic!("This function shouldn't be called by the Messaege Generator");
+    }
+}
+#[cfg(feature = "with_serde")]
+impl<'a> OpenExtendedMiningChannelSuccess<'a> {
+    pub fn into_static(self) -> OpenExtendedMiningChannelSuccess<'static> {
+        panic!("This function shouldn't be called by the Messaege Generator");
+    }
+    pub fn as_static(&self) -> OpenExtendedMiningChannelSuccess<'static> {
+        panic!("This function shouldn't be called by the Messaege Generator");
+    }
+}
+#[cfg(feature = "with_serde")]
+impl<'a> OpenMiningChannelError<'a> {
+    pub fn into_static(self) -> OpenMiningChannelError<'static> {
+        panic!("This function shouldn't be called by the Messaege Generator");
+    }
+    pub fn as_static(&self) -> OpenMiningChannelError<'static> {
+        panic!("This function shouldn't be called by the Messaege Generator");
+    }
+}
+#[cfg(feature = "with_serde")]
+impl<'a> OpenStandardMiningChannel<'a> {
+    pub fn into_static(self) -> OpenStandardMiningChannel<'static> {
+        panic!("This function shouldn't be called by the Messaege Generator");
+    }
+    pub fn as_static(&self) -> OpenStandardMiningChannel<'static> {
+        panic!("This function shouldn't be called by the Messaege Generator");
+    }
+}
+#[cfg(feature = "with_serde")]
+impl<'a> OpenStandardMiningChannelSuccess<'a> {
+    pub fn into_static(self) -> OpenStandardMiningChannelSuccess<'static> {
+        panic!("This function shouldn't be called by the Messaege Generator");
+    }
+    pub fn as_static(&self) -> OpenStandardMiningChannelSuccess<'static> {
+        panic!("This function shouldn't be called by the Messaege Generator");
     }
 }
