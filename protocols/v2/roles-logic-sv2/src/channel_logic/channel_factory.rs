@@ -125,6 +125,7 @@ pub struct ChannelFactory {
     job_creator: JobsCreators,
     kind: ExtendedChannelKind,
     job_ids: Id,
+    channel_to_group_id: HashMap<u32, u32>,
 }
 
 pub type PoolChannelFactory = ChannelFactory;
@@ -151,6 +152,7 @@ impl ChannelFactory {
             job_creator,
             kind,
             job_ids: Id::new(),
+            channel_to_group_id: HashMap::new(),
         }
     }
 
@@ -189,6 +191,7 @@ impl ChannelFactory {
                 .ids
                 .safe_lock(|ids| ids.new_channel_id(extended_channels_group).unwrap())
                 .unwrap();
+            self.channel_to_group_id.insert(channel_id, 0);
             let target = crate::utils::hash_rate_to_target(hash_rate, self.share_per_min);
             let extranonce = self
                 .extranonces
@@ -253,9 +256,22 @@ impl ChannelFactory {
     pub fn on_submit_shares_standard(
         &mut self,
         m: SubmitSharesStandard,
-        group_id: u32,
     ) -> Result<OnNewShare, Error> {
-        self.check_target(Share::Standard((m, group_id)))
+        #[allow(mutable_borrow_reservation_conflict)]
+        match self.channel_to_group_id.get(&m.channel_id) {
+            Some(g_id) => self.check_target(Share::Standard((m, *g_id))),
+            None => {
+                let err = SubmitSharesError {
+                    channel_id: m.channel_id,
+                    sequence_number: m.sequence_number,
+                    error_code: SubmitSharesError::invalid_channel_error_code()
+                        .to_string()
+                        .try_into()
+                        .unwrap(),
+                };
+                Ok(OnNewShare::SendErrorDowsntream(err))
+            }
+        }
     }
 
     pub fn new_group_id(&mut self) -> u32 {
@@ -268,6 +284,7 @@ impl ChannelFactory {
             .ids
             .safe_lock(|ids| ids.new_channel_id(hom_group_id).unwrap())
             .unwrap();
+        self.channel_to_group_id.insert(new_id, 0);
         new_id
     }
 
@@ -321,6 +338,7 @@ impl ChannelFactory {
             .safe_lock(|ids| ids.new_channel_id(group_id))
             .unwrap()
             .ok_or(Error::GroupIdNotFound)?;
+        self.channel_to_group_id.insert(channel_id, group_id);
         let complete_id = GroupId::into_complete_id(group_id, channel_id);
         let target = crate::utils::hash_rate_to_target(downstream_hash_rate, self.share_per_min);
         let extranonce = self
@@ -809,6 +827,7 @@ impl ProxyExtendedChannelFactory {
             job_creator,
             kind,
             job_ids: Id::new(),
+            channel_to_group_id: HashMap::new(),
         };
         ProxyExtendedChannelFactory { inner }
     }
@@ -857,9 +876,8 @@ impl ProxyExtendedChannelFactory {
     pub fn on_submit_shares_standard(
         &mut self,
         m: SubmitSharesStandard,
-        group_id: u32,
     ) -> Result<OnNewShare, Error> {
-        self.inner.on_submit_shares_standard(m, group_id)
+        self.inner.on_submit_shares_standard(m)
     }
     pub fn on_new_prev_hash(&mut self, m: SetNewPrevHash<'static>) -> Result<(), Error> {
         self.inner.on_new_prev_hash(StagedPhash {
@@ -1087,7 +1105,7 @@ mod test {
         };
 
         // "Send" the Share to channel
-        match channel.on_submit_shares_standard(share, 0).unwrap() {
+        match channel.on_submit_shares_standard(share).unwrap() {
             OnNewShare::SendErrorDowsntream(_) => panic!(),
             OnNewShare::SendSubmitShareUpstream(_) => panic!(),
             OnNewShare::RelaySubmitShareUpstream => panic!(),

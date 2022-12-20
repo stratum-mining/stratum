@@ -76,10 +76,9 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
         &mut self,
         m: SubmitSharesStandard,
     ) -> Result<SendTo<()>, Error> {
-        // TODO group_id should be used
         let res = self
             .channel_factory
-            .safe_lock(|cf| cf.on_submit_shares_standard(m.clone(), 1))
+            .safe_lock(|cf| cf.on_submit_shares_standard(m.clone()))
             .unwrap();
         match res {
             Ok(res) => match res  {
