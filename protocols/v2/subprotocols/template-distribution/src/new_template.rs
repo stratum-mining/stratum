@@ -45,7 +45,7 @@ pub struct NewTemplate<'decoder> {
     /// Bitcoin transaction outputs to be included as the last outputs in the
     /// coinbase transaction.
     #[cfg_attr(feature = "with_serde", serde(borrow))]
-    pub coinbase_tx_outputs: Seq064K<'decoder, B064K<'decoder>>,
+    pub coinbase_tx_outputs: B064K<'decoder>,
     /// The locktime field in the coinbase transaction.
     pub coinbase_tx_locktime: u32,
     /// Merkle path hashes ordered from deepest.
@@ -64,7 +64,7 @@ pub struct CNewTemplate {
     coinbase_tx_input_sequence: u32,
     coinbase_tx_value_remaining: u64,
     coinbase_tx_outputs_count: u32,
-    coinbase_tx_outputs: CVec2,
+    coinbase_tx_outputs: CVec,
     coinbase_tx_locktime: u32,
     merkle_path: CVec2,
 }
@@ -79,7 +79,7 @@ pub extern "C" fn free_new_template(s: CNewTemplate) {
 impl Drop for CNewTemplate {
     fn drop(&mut self) {
         free_vec(&mut self.coinbase_prefix);
-        free_vec_2(&mut self.coinbase_tx_outputs);
+        free_vec(&mut self.coinbase_tx_outputs);
         free_vec_2(&mut self.merkle_path);
     }
 }
@@ -117,12 +117,7 @@ impl<'a> CNewTemplate {
         }
         let merkle_path = Seq0255::new(merkle_path)?;
 
-        let coinbase_tx_outputs_ = self.coinbase_tx_outputs.as_mut_slice();
-        let mut coinbase_tx_outputs: Vec<B064K> = Vec::new();
-        for cvec in coinbase_tx_outputs_ {
-            coinbase_tx_outputs.push(cvec.as_mut_slice().try_into()?);
-        }
-        let coinbase_tx_outputs = Seq064K::new(coinbase_tx_outputs)?;
+        let coinbase_tx_outputs = self.coinbase_tx_outputs.as_mut_slice().try_into()?;
 
         Ok(NewTemplate {
             template_id: self.template_id,
