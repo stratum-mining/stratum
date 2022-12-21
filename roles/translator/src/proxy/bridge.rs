@@ -97,11 +97,11 @@ impl Bridge {
             .unwrap();
         task::spawn(async move {
             loop {
-                let (sv1_submit, extrnonce) = rx_sv1_submit.clone().recv().await.unwrap();
+                let (sv1_submit, extranonce) = rx_sv1_submit.clone().recv().await.unwrap();
                 let channel_sequence_id =
                     self_.safe_lock(|s| s.channel_sequence_id.next()).unwrap() - 1;
                 let sv2_submit: SubmitSharesExtended =
-                    Self::translate_submit(channel_sequence_id, sv1_submit, &extrnonce).unwrap();
+                    Self::translate_submit(&self_, channel_sequence_id, sv1_submit, &extranonce).unwrap();
                 tx_sv2_submit_shares_ext.send(sv2_submit).await.unwrap();
             }
         });
@@ -109,6 +109,7 @@ impl Bridge {
 
     /// Translates a SV1 `mining.submit` message to a SV2 `SubmitSharesExtended` message.
     fn translate_submit(
+        self_: &Arc<Mutex<Self>>,
         channel_sequence_id: u32,
         sv1_submit: Submit,
         extranonce_1: &ExtendedExtranonce,
@@ -118,15 +119,25 @@ impl Bridge {
             .without_upstream_part(Some(extranonce_vec.try_into().unwrap()))
             .unwrap();
 
+        let job_id = sv1_submit.job_id.parse::<u32>()?;
         let version = match sv1_submit.version_bits {
             Some(vb) => vb.0,
-            None => return Err(Error::NoSv1VersionBits),
+            None => {
+                // try to find correlating job in job_mapper to insert version bits into SubmitSharesExtended Message
+                self_.safe_lock(|s| {
+                    match s.job_mapper.get(&job_id) {
+                        Some(stored_job) => {Ok(stored_job.version.clone())},
+                        None => {return Err(Error::NoSv1VersionBits)},
+                    }
+                }).unwrap()?
+
+            },
         };
 
         Ok(SubmitSharesExtended {
             channel_id: 1,
             sequence_number: channel_sequence_id,
-            job_id: sv1_submit.job_id.parse::<u32>()?,
+            job_id,
             nonce: sv1_submit.nonce.0,
             ntime: sv1_submit.time.0,
             version,
@@ -173,10 +184,10 @@ impl Bridge {
                 // already stored in the NextMiningNotify struct will be favored.
                 self_
                     .safe_lock(|s| {
-                        if let Some(job) = s.job_mapper.remove(&sv2_set_new_prev_hash.job_id) {
+                        if let Some(job) = s.job_mapper.get(&sv2_set_new_prev_hash.job_id) {
                             s.next_mining_notify
                                 .safe_lock(|nmn| {
-                                    nmn.new_extended_mining_job_msg(job);
+                                    nmn.new_extended_mining_job_msg(job.clone());
                                 })
                                 .unwrap();
                         }
@@ -228,7 +239,7 @@ impl Bridge {
                     let last_stale_job_id = sv2_set_new_prev_hash.job_id;
                     self_
                         .safe_lock(|s| {
-                            s.job_mapper.retain(|&k, _| k > last_stale_job_id);
+                            s.job_mapper.retain(|&k, _| k >= last_stale_job_id);
                         })
                         .unwrap();
                 } else {
@@ -324,7 +335,7 @@ impl Bridge {
                         let last_stale_job_id = sv2_new_extended_mining_job.job_id;
                         self_
                             .safe_lock(|s| {
-                                s.job_mapper.retain(|&k, _| k > last_stale_job_id);
+                                s.job_mapper.retain(|&k, _| k >= last_stale_job_id);
                             })
                             .unwrap();
                     } else {
