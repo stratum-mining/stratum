@@ -101,7 +101,8 @@ impl Bridge {
                 let channel_sequence_id =
                     self_.safe_lock(|s| s.channel_sequence_id.next()).unwrap() - 1;
                 let sv2_submit: SubmitSharesExtended =
-                    Self::translate_submit(&self_, channel_sequence_id, sv1_submit, &extranonce).unwrap();
+                    Self::translate_submit(&self_, channel_sequence_id, sv1_submit, &extranonce)
+                        .unwrap();
                 tx_sv2_submit_shares_ext.send(sv2_submit).await.unwrap();
             }
         });
@@ -124,14 +125,13 @@ impl Bridge {
             Some(vb) => vb.0,
             None => {
                 // try to find correlating job in job_mapper to insert version bits into SubmitSharesExtended Message
-                self_.safe_lock(|s| {
-                    match s.job_mapper.get(&job_id) {
-                        Some(stored_job) => {Ok(stored_job.version.clone())},
-                        None => {return Err(Error::NoSv1VersionBits)},
-                    }
-                }).unwrap()?
-
-            },
+                self_
+                    .safe_lock(|s| match s.job_mapper.get(&job_id) {
+                        Some(stored_job) => Ok(stored_job.version),
+                        None => Err(Error::NoSv1VersionBits),
+                    })
+                    .unwrap()?
+            }
         };
 
         Ok(SubmitSharesExtended {
@@ -345,5 +345,81 @@ impl Bridge {
                 }
             }
         });
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use async_channel::bounded;
+    use binary_sv2::{Seq0255, B064K};
+    pub mod test_utils {
+        use super::*;
+        pub fn create_bridge() -> Bridge {
+            let (_tx_sv1_submit, rx_sv1_submit) = bounded(1);
+            let (tx_sv2_submit_shares_ext, _rx_sv2_submit_shares_ext) = bounded(1);
+            let (_tx_sv2_set_new_prev_hash, rx_sv2_set_new_prev_hash) = bounded(1);
+            let (_tx_sv2_new_ext_mining_job, rx_sv2_new_ext_mining_job) = bounded(1);
+            let (tx_sv1_notify, _rx_sv1_notify) = bounded(1);
+
+            let next_mining_notify = Arc::new(Mutex::new(NextMiningNotify::new()));
+            let last_notify: Arc<Mutex<Option<server_to_client::Notify>>> =
+                Arc::new(Mutex::new(None));
+            Bridge::new(
+                rx_sv1_submit,
+                tx_sv2_submit_shares_ext,
+                rx_sv2_set_new_prev_hash,
+                rx_sv2_new_ext_mining_job,
+                next_mining_notify,
+                tx_sv1_notify,
+                last_notify.clone(),
+            )
+        }
+
+        pub fn create_job() -> NewExtendedMiningJob<'static> {
+            NewExtendedMiningJob {
+                channel_id: 1,
+                job_id: 1,
+                future_job: false,
+                version: 483920,
+                version_rolling_allowed: false,
+                merkle_path: Seq0255::from(vec![]),
+                coinbase_tx_prefix: B064K::try_from(vec![2]).unwrap(),
+                coinbase_tx_suffix: B064K::try_from(vec![3]).unwrap(),
+            }
+        }
+
+        pub fn create_sv1_submit(job_id: u32) -> Submit<'static> {
+            Submit {
+                user_name: "test_user".to_string(),
+                job_id: job_id.to_string(),
+                extra_nonce2: v1::utils::Extranonce::try_from([0; 32].to_vec()).unwrap(),
+                time: v1::utils::HexU32Be(1),
+                nonce: v1::utils::HexU32Be(1),
+                version_bits: None,
+                id: "test_id".to_string(),
+            }
+        }
+    }
+
+    #[test]
+    fn test_version_bits_insert() {
+        let mut bridge = test_utils::create_bridge();
+        // add job to job_mapper
+        let job = test_utils::create_job();
+        bridge.job_mapper.insert(job.job_id, job.clone());
+
+        // pass sv1_submit into Bridge::translate_submit
+        let sv1_submit = test_utils::create_sv1_submit(job.job_id);
+        let channel_seq_id = bridge.channel_sequence_id.next() - 1;
+        let ext_extranonce = ExtendedExtranonce::new(0..0, 0..0, 0..32);
+        let bridge = Arc::new(Mutex::new(bridge));
+        let sv2_message =
+            Bridge::translate_submit(&bridge, channel_seq_id, sv1_submit, &ext_extranonce).unwrap();
+        // assert sv2 message equals sv1 with version bits added
+        assert_eq!(
+            job.version, sv2_message.version,
+            "Version bits were not inserted for non version rolling sv1 message"
+        );
     }
 }
