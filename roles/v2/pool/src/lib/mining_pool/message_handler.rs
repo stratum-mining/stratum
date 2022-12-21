@@ -1,5 +1,6 @@
 use crate::lib::mining_pool::Downstream;
 use roles_logic_sv2::{
+    channel_logic::channel_factory::OpenStandardChannleRequester,
     common_properties::IsDownstream,
     errors::Error,
     handlers::mining::{ParseDownstreamMiningMessages, SendTo, SupportedChannelTypes},
@@ -32,15 +33,17 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
             incoming.request_id.as_u32(),
             incoming.nominal_hash_rate
         );
-        let header_only = self.downstream_data.header_only;
+        let requester = match self.downstream_data.header_only {
+            true => OpenStandardChannleRequester::HomRequester,
+            false => OpenStandardChannleRequester::NonHomRequester { group_id: self.id },
+        };
         let reposnses = self
             .channel_factory
             .safe_lock(|factory| {
                 match factory.add_standard_channel(
                     incoming.request_id.as_u32(),
                     incoming.nominal_hash_rate,
-                    header_only,
-                    self.id,
+                    requester,
                 ) {
                     Ok(msgs) => {
                         let mut res = vec![];
@@ -76,10 +79,9 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
         &mut self,
         m: SubmitSharesStandard,
     ) -> Result<SendTo<()>, Error> {
-        // TODO group_id should be used
         let res = self
             .channel_factory
-            .safe_lock(|cf| cf.on_submit_shares_standard(m.clone(), 1))
+            .safe_lock(|cf| cf.on_submit_shares_standard(m.clone()))
             .unwrap();
         match res {
             Ok(res) => match res  {
