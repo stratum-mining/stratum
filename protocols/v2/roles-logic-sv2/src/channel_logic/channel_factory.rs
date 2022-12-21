@@ -129,6 +129,10 @@ pub struct ChannelFactory {
 }
 
 pub type PoolChannelFactory = ChannelFactory;
+pub enum OpenStandardChannleRequester {
+    HomRequester,
+    NonHomRequester { group_id: u32 },
+}
 
 impl ChannelFactory {
     pub fn new(
@@ -160,18 +164,18 @@ impl ChannelFactory {
         &mut self,
         request_id: u32,
         downstream_hash_rate: f32,
-        is_header_only: bool,
-        id: u32,
+        requester: OpenStandardChannleRequester,
     ) -> Result<Vec<Mining>, Error> {
-        match is_header_only {
-            true => {
-                self.new_standard_channel_for_hom_downstream(request_id, downstream_hash_rate, id)
+        match requester {
+            OpenStandardChannleRequester::HomRequester => {
+                self.new_standard_channel_for_hom_downstream(request_id, downstream_hash_rate)
             }
-            false => self.new_standard_channel_for_non_hom_downstream(
-                request_id,
-                downstream_hash_rate,
-                id,
-            ),
+            OpenStandardChannleRequester::NonHomRequester { group_id } => self
+                .new_standard_channel_for_non_hom_downstream(
+                    request_id,
+                    downstream_hash_rate,
+                    group_id,
+                ),
         }
     }
 
@@ -189,7 +193,7 @@ impl ChannelFactory {
             // longer connected?
             let channel_id = self
                 .ids
-                .safe_lock(|ids| ids.new_channel_id(extended_channels_group).unwrap())
+                .safe_lock(|ids| ids.new_channel_id(extended_channels_group))
                 .unwrap();
             self.channel_to_group_id.insert(channel_id, 0);
             let target = crate::utils::hash_rate_to_target(hash_rate, self.share_per_min);
@@ -282,7 +286,7 @@ impl ChannelFactory {
         let hom_group_id = 0;
         let new_id = self
             .ids
-            .safe_lock(|ids| ids.new_channel_id(hom_group_id).unwrap())
+            .safe_lock(|ids| ids.new_channel_id(hom_group_id))
             .unwrap();
         self.channel_to_group_id.insert(new_id, 0);
         new_id
@@ -292,11 +296,13 @@ impl ChannelFactory {
         &mut self,
         request_id: u32,
         downstream_hash_rate: f32,
-        id: u32,
     ) -> Result<Vec<Mining>, Error> {
         let hom_group_id = 0;
         let mut result = vec![];
-        let channel_id = id;
+        let channel_id = self
+            .ids
+            .safe_lock(|ids| ids.new_channel_id(hom_group_id))
+            .unwrap();
         let target = crate::utils::hash_rate_to_target(downstream_hash_rate, self.share_per_min);
         let extranonce = self
             .extranonces
@@ -322,6 +328,7 @@ impl ChannelFactory {
             },
         ));
         self.prepare_standard_jobs_and_p_hash(&mut result, channel_id)?;
+        self.channel_to_group_id.insert(channel_id, hom_group_id);
         Ok(result)
     }
 
@@ -336,8 +343,7 @@ impl ChannelFactory {
         let channel_id = self
             .ids
             .safe_lock(|ids| ids.new_channel_id(group_id))
-            .unwrap()
-            .ok_or(Error::GroupIdNotFound)?;
+            .unwrap();
         self.channel_to_group_id.insert(channel_id, group_id);
         let complete_id = GroupId::into_complete_id(group_id, channel_id);
         let target = crate::utils::hash_rate_to_target(downstream_hash_rate, self.share_per_min);
@@ -836,11 +842,10 @@ impl ProxyExtendedChannelFactory {
         &mut self,
         request_id: u32,
         downstream_hash_rate: f32,
-        id_header_only: bool,
-        id: u32,
+        requester: OpenStandardChannleRequester,
     ) -> Result<Vec<Mining>, Error> {
         self.inner
-            .add_standard_channel(request_id, downstream_hash_rate, id_header_only, id)
+            .add_standard_channel(request_id, downstream_hash_rate, requester)
     }
 
     pub fn new_extended_channel(
@@ -1060,13 +1065,12 @@ mod test {
 
         // "Send" the OpenStandardMiningChannel to channel
         let result = loop {
-            let id = channel.new_standard_id_for_hom();
+            let open_standard_channle_requester = OpenStandardChannleRequester::HomRequester;
             let result = channel
                 .add_standard_channel(
                     open_standard_channel.get_request_id_as_u32(),
                     open_standard_channel.nominal_hash_rate,
-                    true,
-                    id,
+                    open_standard_channle_requester,
                 )
                 .unwrap();
             let downsteram_extranonce = match &result[0] {
@@ -1106,7 +1110,11 @@ mod test {
 
         // "Send" the Share to channel
         match channel.on_submit_shares_standard(share).unwrap() {
-            OnNewShare::SendErrorDowsntream(_) => panic!(),
+            OnNewShare::SendErrorDowsntream(e) => panic!(
+                "{:?} {}",
+                e,
+                std::str::from_utf8(&e.error_code.to_vec()[..]).unwrap()
+            ),
             OnNewShare::SendSubmitShareUpstream(_) => panic!(),
             OnNewShare::RelaySubmitShareUpstream => panic!(),
             OnNewShare::ShareMeetBitcoinTarget(_) => assert!(true),

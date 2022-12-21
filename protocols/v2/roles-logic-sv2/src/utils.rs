@@ -1,6 +1,5 @@
 //! Useful struct used into this crate and by crates that want to interact with this one
 use std::{
-    collections::HashMap,
     convert::TryInto,
     sync::{Mutex as Mutex_, MutexGuard, PoisonError},
 };
@@ -173,37 +172,32 @@ pub fn from_u128_to_uint256(input: u128) -> bitcoin::util::uint::Uint256 {
     bitcoin::util::uint::Uint256::from_be_bytes(be_bytes)
 }
 
-/// Used when an hierarchy of ids is needed:
-/// we want to have global unique ids and they are the group ids
-/// for each group id we want to have unique ids so a complete id: group_id::channel_id
 #[derive(Debug, Default)]
 pub struct GroupId {
     group_ids: Id,
-    channel_ids: HashMap<u32, Id>,
+    channel_ids: Id,
 }
 
 impl GroupId {
     /// New GroupId it start with groups 0 that is reserved for hom downatreams
     ///
     pub fn new() -> Self {
-        let mut channel_ids = HashMap::new();
-        channel_ids.insert(0, Id::new());
         Self {
             group_ids: Id::new(),
-            channel_ids,
+            channel_ids: Id::new(),
         }
     }
 
     /// Create a group and return the id
     pub fn new_group_id(&mut self) -> u32 {
-        let id = self.group_ids.next();
-        self.channel_ids.insert(id, Id::new());
-        id
+        self.group_ids.next()
     }
 
     /// Create a channel for a paricular group and return the channel id
-    pub fn new_channel_id(&mut self, group_id: u32) -> Option<u32> {
-        self.channel_ids.get_mut(&group_id).map(|ids| ids.next())
+    /// _group_id is left for a future use of this API where we have an hirearchy of ids so that we
+    /// don't break old versions
+    pub fn new_channel_id(&mut self, _group_id: u32) -> u32 {
+        self.channel_ids.next()
     }
 
     /// Concatenate a group and a channel id into a complete id
@@ -241,14 +235,7 @@ fn test_group_id_new_channel_id() {
     let _ = group_ids.new_group_id();
     let id = group_ids.new_group_id();
     let channel_id = group_ids.new_channel_id(id);
-    assert!(channel_id == Some(1));
-}
-#[test]
-fn test_group_id_new_channel_id_fail() {
-    let mut group_ids = GroupId::new();
-    let _ = group_ids.new_group_id();
-    let channel_id = group_ids.new_channel_id(2);
-    assert!(channel_id == None);
+    assert!(channel_id == 1);
 }
 #[test]
 fn test_group_id_new_into_complete_id() {
