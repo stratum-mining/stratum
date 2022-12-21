@@ -24,4 +24,3 @@ async-recursion = "1.0.0"
 
 [features]
 test_only_allow_unencrypted = []
-

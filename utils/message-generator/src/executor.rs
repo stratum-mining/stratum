@@ -23,7 +23,6 @@ impl Executor {
         let mut process = vec![];
         for command in test.setup_commmands {
             let p = os_command(
-
                 &command.command,
                 command.args.iter().map(String::as_str).collect(),
                 command.conditions,
@@ -40,7 +39,6 @@ impl Executor {
                     &mut process,
                 )
                 .await;
-
                 let (recv_from_up, send_to_up) =
                     setup_as_downstream(as_down.addr, as_down.key).await;
                 Self {
@@ -61,7 +59,6 @@ impl Executor {
                     &mut process,
                 )
                 .await;
-
                 Self {
                     send_to_down: Some(send_to_down),
                     recv_from_down: Some(recv_from_down),
@@ -70,7 +67,6 @@ impl Executor {
                     actions: test.actions,
                     cleanup_commmands: test.cleanup_commmands,
                     process,
-
                 }
             }
             (Some(as_down), None) => {
@@ -84,7 +80,6 @@ impl Executor {
                     actions: test.actions,
                     cleanup_commmands: test.cleanup_commmands,
                     process,
-
                 }
             }
             (None, None) => todo!(),
@@ -94,7 +89,6 @@ impl Executor {
     pub async fn execute(self) {
         for action in self.actions {
             let (sender, recv) = match action.role {
-
                 Role::Upstream => (
                     self.send_to_down
                         .as_ref()
@@ -450,7 +444,6 @@ impl Executor {
                         todo!()
                     }
                     ActionResult::None => todo!(),
-
                 }
             }
         }
@@ -484,4 +477,3 @@ fn check_msg_field(
     let value: crate::Sv2Type = serde_json::from_str(&value).unwrap();
     assert!(field == &value)
 }
-

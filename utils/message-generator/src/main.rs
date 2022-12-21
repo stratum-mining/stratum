@@ -6,7 +6,6 @@ mod parser;
 #[macro_use]
 extern crate load_file;
 
-
 use binary_sv2::{Deserialize, GetSize, Serialize};
 use codec_sv2::{
     noise_sv2::formats::{EncodedEd25519PublicKey, EncodedEd25519SecretKey},
@@ -17,7 +16,6 @@ use net::{setup_as_downstream, setup_as_upstream};
 use roles_logic_sv2::{common_messages_sv2::SetupConnectionSuccess, parsers::AnyMessage};
 use serde_json;
 use std::net::SocketAddr;
-
 
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 enum Sv2Type {
@@ -40,7 +38,6 @@ enum Sv2Type {
 enum ActionResult {
     MatchMessageType(u8),
     MatchMessageField((String, String, String, Sv2Type)),
-
     MatchMessageLen(usize),
     MatchExtensionType(u16),
     CloseConnection,
@@ -52,14 +49,12 @@ enum Role {
     Upstream,
     Downstream,
     Proxy,
-
 }
 
 #[derive(Debug, Clone)]
 struct Upstream {
     addr: SocketAddr,
     /// If Some a noise connection is used, otherwise a plain connection is used.
-
     keys: Option<(EncodedEd25519PublicKey, EncodedEd25519SecretKey)>,
 }
 
@@ -67,14 +62,12 @@ struct Upstream {
 struct Downstream {
     addr: SocketAddr,
     /// If Some a noise connection is used, otherwise a plain connection is used.
-
     key: Option<EncodedEd25519PublicKey>,
 }
 
 #[derive(Debug)]
 pub struct Action<'a> {
     messages: Vec<EitherFrame<AnyMessage<'a>>>,
-
     result: Vec<ActionResult>,
     role: Role,
 }
@@ -96,7 +89,6 @@ pub struct Test<'a> {
     /// Some if role is upstream or proxy.
     as_upstream: Option<Upstream>,
     /// Some if role is downstream or proxy.
-
     as_dowstream: Option<Downstream>,
     setup_commmands: Vec<Command>,
     execution_commands: Vec<Command>,
@@ -116,7 +108,6 @@ async fn main() {
     executor.execute().await;
     println!("TEST OK");
     std::process::exit(0);
-
 }
 
 #[cfg(test)]
@@ -133,7 +124,6 @@ mod test {
     #[tokio::test]
     async fn it_send_and_receive() {
         let mut childs = vec![];
-
         let message = CloseChannel {
             channel_id: 78,
             reason_code: "no reason".to_string().try_into().unwrap(),
@@ -149,7 +139,6 @@ mod test {
         let client_socket = SocketAddr::new("127.0.0.1".parse().unwrap(), 54254);
         let ((server_recv, server_send), (client_recv, client_send)) = join!(
             setup_as_upstream(server_socket, None, vec![], &mut childs),
-
             setup_as_downstream(client_socket, None)
         );
         server_send
@@ -222,7 +211,6 @@ mod test {
         let mut bitcoind = os_command(
             "./test/bin/bitcoind",
             vec!["--regtest", "--datadir=./test/appdata/bitcoin_data/"],
-
             ExternalCommandConditions::new_with_timer_secs(10)
                 .continue_if_std_out_have("sv2 thread start")
                 .fail_if_anything_on_std_err(),
@@ -233,7 +221,6 @@ mod test {
             vec![
                 "--regtest",
                 "--datadir=./test/appdata/bitcoin_data/",
-
                 "generatetoaddress",
                 "16",
                 "bcrt1qttuwhmpa7a0ls5kr3ye6pjc24ng685jvdrksxx",
@@ -297,7 +284,6 @@ mod test {
         let mut child = os_command(
             "rm",
             vec!["-rf", "./test/appdata/bitcoin_data/regtest"],
-
             ExternalCommandConditions::None,
         )
         .await;
@@ -320,7 +306,6 @@ mod test {
                 "--",
                 "-c",
                 "./test/config/ant-pool-config.toml",
-
             ],
             ExternalCommandConditions::new_with_timer_secs(10)
                 .continue_if_std_out_have("PROXY INITIALIZED")

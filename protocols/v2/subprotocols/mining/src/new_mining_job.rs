@@ -200,7 +200,6 @@ mod tests {
         }
     }
 }
-
 #[cfg(feature = "with_serde")]
 impl<'a> NewExtendedMiningJob<'a> {
     pub fn into_static(self) -> NewExtendedMiningJob<'static> {

@@ -28,8 +28,6 @@ use roles_logic_sv2::{
 };
 use std::{net::SocketAddr, sync::Arc, thread::sleep, time::Duration};
 use tracing::{debug, error, info, warn};
-
-
 /// Represents the currently active `prevhash` of the mining job being worked on OR being submitted
 /// from the Downstream role.
 #[derive(Debug, Clone)]
@@ -168,7 +166,6 @@ impl Upstream {
                 ));
             }
         };
-
 
         info!("Up: Receiving: {:?}", &incoming);
         // Gets the binary frame message type from the message header

@@ -92,7 +92,7 @@ pub struct UpstreamMiningNode {
     group_id: Arc<Mutex<GroupId>>
 }
 
-use core::{convert::TryInto, panic};
+use core::convert::TryInto;
 use std::net::SocketAddr;
 use tracing::debug;
 
@@ -782,11 +782,11 @@ mod tests {
         assert_eq!(actual.address, address);
 
         if actual.connection.is_some() {
-            self::panic!("`UpstreamMiningNode::connection` should be `None` on call to `UpstreamMiningNode::new()`");
+            panic!("`UpstreamMiningNode::connection` should be `None` on call to `UpstreamMiningNode::new()`");
         }
 
         if actual.sv2_connection.is_some() {
-            self::panic!("`UpstreamMiningNode::sv2_connection` should be `None` on call to `UpstreamMiningNode::new()`");
+            panic!("`UpstreamMiningNode::sv2_connection` should be `None` on call to `UpstreamMiningNode::new()`");
         }
 
         // How to test

@@ -74,7 +74,6 @@ impl<'decoder> OpenStandardMiningChannel<'decoder> {
         // DO NOT USE MEM SWAP HERE AS IT DO NOT UPDATE THE UNDERLING PAYLOAD
         // INSTEAD IMPLEMENT U32ASREF FOR SERDE
         todo!()
-
     }
 }
 
@@ -217,7 +216,6 @@ impl<'a> OpenMiningChannelError<'a> {
         }
     }
 }
-
 
 #[cfg(feature = "with_serde")]
 use binary_sv2::GetSize;
