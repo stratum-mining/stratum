@@ -16,7 +16,11 @@ use mining_sv2::{
 use std::{collections::HashMap, convert::TryInto, sync::Arc};
 use template_distribution_sv2::{NewTemplate, SetNewPrevHash as SetNewPrevHashFromTp};
 
-use bitcoin::hashes::{sha256d::Hash, Hash as Hash_};
+use bitcoin::{
+    hashes::{sha256d::Hash, Hash as Hash_},
+    TxOut,
+};
+use tracing::error;
 
 /// Rapresent the action that needs to be done when a new share is received.
 #[derive(Debug, Clone)]
@@ -108,7 +112,8 @@ impl Share {
 }
 
 #[derive(Debug)]
-pub struct ChannelFactory {
+/// Basic logic shared between all the channel factory.
+struct ChannelFactory {
     ids: Arc<Mutex<GroupId>>,
     standard_channels_for_non_hom_downstreams: HashMap<u64, StandardChannel>,
     standard_channels_for_hom_downstreams: HashMap<u32, StandardChannel>,
@@ -122,60 +127,28 @@ pub struct ChannelFactory {
     last_prev_hash_: Option<bitcoin::hash_types::BlockHash>,
     // (NewExtendedMiningJob,group ids that already received the job)
     last_valid_job: Option<(NewExtendedMiningJob<'static>, Vec<u32>)>,
-    job_creator: JobsCreators,
     kind: ExtendedChannelKind,
     job_ids: Id,
     channel_to_group_id: HashMap<u32, u32>,
 }
 
-pub type PoolChannelFactory = ChannelFactory;
-pub enum OpenStandardChannleRequester {
-    HomRequester,
-    NonHomRequester { group_id: u32 },
-}
-
 impl ChannelFactory {
-    pub fn new(
-        ids: Arc<Mutex<GroupId>>,
-        extranonces: ExtendedExtranonce,
-        job_creator: JobsCreators,
-        share_per_min: f32,
-        kind: ExtendedChannelKind,
-    ) -> Self {
-        Self {
-            ids,
-            standard_channels_for_non_hom_downstreams: HashMap::new(),
-            standard_channels_for_hom_downstreams: HashMap::new(),
-            extended_channels: HashMap::new(),
-            extranonces,
-            share_per_min,
-            future_jobs: Vec::new(),
-            last_prev_hash: None,
-            last_prev_hash_: None,
-            last_valid_job: None,
-            job_creator,
-            kind,
-            job_ids: Id::new(),
-            channel_to_group_id: HashMap::new(),
-        }
-    }
-
     pub fn add_standard_channel(
         &mut self,
         request_id: u32,
         downstream_hash_rate: f32,
-        requester: OpenStandardChannleRequester,
+        is_header_only: bool,
+        id: u32,
     ) -> Result<Vec<Mining>, Error> {
-        match requester {
-            OpenStandardChannleRequester::HomRequester => {
-                self.new_standard_channel_for_hom_downstream(request_id, downstream_hash_rate)
+        match is_header_only {
+            true => {
+                self.new_standard_channel_for_hom_downstream(request_id, downstream_hash_rate, id)
             }
-            OpenStandardChannleRequester::NonHomRequester { group_id } => self
-                .new_standard_channel_for_non_hom_downstream(
-                    request_id,
-                    downstream_hash_rate,
-                    group_id,
-                ),
+            false => self.new_standard_channel_for_non_hom_downstream(
+                request_id,
+                downstream_hash_rate,
+                id,
+            ),
         }
     }
 
@@ -184,7 +157,7 @@ impl ChannelFactory {
         request_id: u32,
         hash_rate: f32,
         min_extranonce_size: u16,
-    ) -> Option<Vec<Mining>> {
+    ) -> Option<Vec<Mining<'static>>> {
         let extended_channels_group = 0;
         let max_extranonce_size = self.extranonces.get_range2_len() as u16;
         if min_extranonce_size <= max_extranonce_size {
@@ -193,7 +166,7 @@ impl ChannelFactory {
             // longer connected?
             let channel_id = self
                 .ids
-                .safe_lock(|ids| ids.new_channel_id(extended_channels_group))
+                .safe_lock(|ids| ids.new_channel_id(extended_channels_group).unwrap())
                 .unwrap();
             self.channel_to_group_id.insert(channel_id, 0);
             let target = crate::utils::hash_rate_to_target(hash_rate, self.share_per_min);
@@ -228,81 +201,15 @@ impl ChannelFactory {
         }
     }
 
-    pub fn on_new_prev_hash_from_tp(
-        &mut self,
-        m: &SetNewPrevHashFromTp<'static>,
-    ) -> Result<u32, Error> {
-        let job_id = self.job_creator.on_new_prev_hash(m).unwrap_or(0);
-        let new_prev_hash = StagedPhash {
-            job_id,
-            prev_hash: m.prev_hash.clone(),
-            min_ntime: m.header_timestamp,
-            nbits: m.n_bits,
-        };
-        self.on_new_prev_hash(new_prev_hash)?;
-        Ok(job_id)
-    }
-
-    pub fn on_new_template(
-        &mut self,
-        m: &mut NewTemplate<'static>,
-    ) -> Result<HashMap<u32, Mining<'static>>, Error> {
-        let new_job = self.job_creator.on_new_template(m, true)?;
-        self.on_new_extended_mining_job(new_job)
-    }
-
-    pub fn on_submit_shares_extended(
-        &mut self,
-        m: SubmitSharesExtended<'static>,
-    ) -> Result<OnNewShare, Error> {
-        self.check_target(Share::Extended(m))
-    }
-    pub fn on_submit_shares_standard(
-        &mut self,
-        m: SubmitSharesStandard,
-    ) -> Result<OnNewShare, Error> {
-        #[allow(mutable_borrow_reservation_conflict)]
-        match self.channel_to_group_id.get(&m.channel_id) {
-            Some(g_id) => self.check_target(Share::Standard((m, *g_id))),
-            None => {
-                let err = SubmitSharesError {
-                    channel_id: m.channel_id,
-                    sequence_number: m.sequence_number,
-                    error_code: SubmitSharesError::invalid_channel_error_code()
-                        .to_string()
-                        .try_into()
-                        .unwrap(),
-                };
-                Ok(OnNewShare::SendErrorDowsntream(err))
-            }
-        }
-    }
-
-    pub fn new_group_id(&mut self) -> u32 {
-        let new_id = self.ids.safe_lock(|ids| ids.new_group_id()).unwrap();
-        new_id
-    }
-    pub fn new_standard_id_for_hom(&mut self) -> u32 {
-        let hom_group_id = 0;
-        let new_id = self
-            .ids
-            .safe_lock(|ids| ids.new_channel_id(hom_group_id))
-            .unwrap();
-        self.channel_to_group_id.insert(new_id, 0);
-        new_id
-    }
-
     fn new_standard_channel_for_hom_downstream(
         &mut self,
         request_id: u32,
         downstream_hash_rate: f32,
+        id: u32,
     ) -> Result<Vec<Mining>, Error> {
         let hom_group_id = 0;
         let mut result = vec![];
-        let channel_id = self
-            .ids
-            .safe_lock(|ids| ids.new_channel_id(hom_group_id))
-            .unwrap();
+        let channel_id = id;
         let target = crate::utils::hash_rate_to_target(downstream_hash_rate, self.share_per_min);
         let extranonce = self
             .extranonces
@@ -343,8 +250,8 @@ impl ChannelFactory {
         let channel_id = self
             .ids
             .safe_lock(|ids| ids.new_channel_id(group_id))
-            .unwrap();
-        self.channel_to_group_id.insert(channel_id, group_id);
+            .unwrap()
+            .ok_or(Error::GroupIdNotFound)?;
         let complete_id = GroupId::into_complete_id(group_id, channel_id);
         let target = crate::utils::hash_rate_to_target(downstream_hash_rate, self.share_per_min);
         let extranonce = self
@@ -371,6 +278,7 @@ impl ChannelFactory {
             },
         ));
         self.prepare_jobs_and_p_hash(&mut result, complete_id);
+        self.channel_to_group_id.insert(channel_id, group_id);
         Ok(result)
     }
 
@@ -665,14 +573,21 @@ impl ChannelFactory {
         Ok(())
     }
 
-    fn check_target(&mut self, m: Share) -> Result<OnNewShare, Error> {
+    // If there is job creator  bitocin_target is retreived from there if not is set to 0
+    // If there is a job creator we pass the correct template id if not we pass 0 cause it wont be
+    // used
+    fn check_target(
+        &mut self,
+        m: Share,
+        bitcoin_target: mining_sv2::Target,
+        template_id: u64,
+    ) -> Result<OnNewShare, Error> {
         let upstream_target = match &self.kind {
             ExtendedChannelKind::Pool => Target::new(0, 0),
             ExtendedChannelKind::Proxy {
                 upstream_target, ..
             } => upstream_target.clone(),
         };
-        let last_bitcoin_target = self.job_creator.last_target();
         let (downstream_target, extranonce) = self
             .get_channel_specific_mining_info(&m)
             .ok_or(Error::ShareDoNotMatchAnyChannel)?;
@@ -726,12 +641,8 @@ impl ChannelFactory {
         let hash_ = header.block_hash();
         let hash = hash_.as_hash().into_inner();
         let hash: Target = hash.into();
-        let template_id = self
-            .job_creator
-            .get_template_id_from_job(self.last_valid_job.as_ref().unwrap().0.job_id)
-            .ok_or(Error::NoTemplateForId)?;
 
-        if hash <= last_bitcoin_target {
+        if hash.clone() <= bitcoin_target {
             let coinbase = [coinbase_tx_prefix, &extranonce[..], coinbase_tx_suffix]
                 .concat()
                 .to_vec();
@@ -768,6 +679,13 @@ impl ChannelFactory {
                 let extranonce = [&extranonce_prefix[..], &share.extranonce.to_vec()[..]]
                     .concat()
                     .to_vec();
+                if extranonce.len() != self.extranonces.get_len() {
+                    error!(
+                        "Extranonce is not of the right len expected {} actual {}",
+                        self.extranonces.get_len(),
+                        extranonce.len()
+                    );
+                }
                 Some((dowstream_target, extranonce))
             }
             Share::Standard((share, group_id)) => match &self.kind {
@@ -806,18 +724,23 @@ impl ChannelFactory {
     }
 }
 
+/// Used by a pool to in order to manage all downstream channel. It add job creation capabilities
+/// to ChannelFactory.
 #[derive(Debug)]
-pub struct ProxyExtendedChannelFactory {
+pub struct PoolChannelFactory {
     inner: ChannelFactory,
+    job_creator: JobsCreators,
+    pool_coinbase_outputs: Vec<TxOut>,
 }
 
-impl ProxyExtendedChannelFactory {
+impl PoolChannelFactory {
     pub fn new(
         ids: Arc<Mutex<GroupId>>,
         extranonces: ExtendedExtranonce,
         job_creator: JobsCreators,
         share_per_min: f32,
         kind: ExtendedChannelKind,
+        pool_coinbase_outputs: Vec<TxOut>,
     ) -> Self {
         let inner = ChannelFactory {
             ids,
@@ -830,22 +753,172 @@ impl ProxyExtendedChannelFactory {
             last_prev_hash: None,
             last_prev_hash_: None,
             last_valid_job: None,
-            job_creator,
             kind,
             job_ids: Id::new(),
             channel_to_group_id: HashMap::new(),
         };
-        ProxyExtendedChannelFactory { inner }
+        Self {
+            inner,
+            job_creator,
+            pool_coinbase_outputs,
+        }
     }
 
     pub fn add_standard_channel(
         &mut self,
         request_id: u32,
         downstream_hash_rate: f32,
-        requester: OpenStandardChannleRequester,
+        is_header_only: bool,
+        id: u32,
     ) -> Result<Vec<Mining>, Error> {
         self.inner
-            .add_standard_channel(request_id, downstream_hash_rate, requester)
+            .add_standard_channel(request_id, downstream_hash_rate, is_header_only, id)
+    }
+
+    pub fn new_extended_channel(
+        &mut self,
+        request_id: u32,
+        hash_rate: f32,
+        min_extranonce_size: u16,
+    ) -> Option<Vec<Mining<'static>>> {
+        self.inner
+            .new_extended_channel(request_id, hash_rate, min_extranonce_size)
+    }
+
+    pub fn on_new_prev_hash_from_tp(
+        &mut self,
+        m: &SetNewPrevHashFromTp<'static>,
+    ) -> Result<u32, Error> {
+        let job_id = self.job_creator.on_new_prev_hash(m).unwrap_or(0);
+        let new_prev_hash = StagedPhash {
+            job_id,
+            prev_hash: m.prev_hash.clone(),
+            min_ntime: m.header_timestamp,
+            nbits: m.n_bits,
+        };
+        self.inner.on_new_prev_hash(new_prev_hash)?;
+        Ok(job_id)
+    }
+
+    pub fn on_new_template(
+        &mut self,
+        m: &mut NewTemplate<'static>,
+    ) -> Result<HashMap<u32, Mining<'static>>, Error> {
+        let new_job =
+            self.job_creator
+                .on_new_template(m, true, self.pool_coinbase_outputs.clone())?;
+        self.inner.on_new_extended_mining_job(new_job)
+    }
+
+    pub fn on_submit_shares_standard(
+        &mut self,
+        m: SubmitSharesStandard,
+    ) -> Result<OnNewShare, Error> {
+        #[allow(mutable_borrow_reservation_conflict)]
+        match self.inner.channel_to_group_id.get(&m.channel_id) {
+            Some(g_id) => {
+                let template_id = self
+                    .job_creator
+                    .get_template_id_from_job(self.inner.last_valid_job.as_ref().unwrap().0.job_id)
+                    .ok_or(Error::NoTemplateForId)?;
+                let target = self.job_creator.last_target();
+                self.inner
+                    .check_target(Share::Standard((m, *g_id)), target, template_id)
+            }
+            None => {
+                let err = SubmitSharesError {
+                    channel_id: m.channel_id,
+                    sequence_number: m.sequence_number,
+                    error_code: SubmitSharesError::invalid_channel_error_code()
+                        .to_string()
+                        .try_into()
+                        .unwrap(),
+                };
+                Ok(OnNewShare::SendErrorDowsntream(err))
+            }
+        }
+    }
+    pub fn on_submit_shares_extended(
+        &mut self,
+        m: SubmitSharesExtended,
+    ) -> Result<OnNewShare, Error> {
+        let template_id = self
+            .job_creator
+            .get_template_id_from_job(self.inner.last_valid_job.as_ref().unwrap().0.job_id)
+            .ok_or(Error::NoTemplateForId)?;
+        let target = self.job_creator.last_target();
+        self.inner
+            .check_target(Share::Extended(m.into_static()), target, template_id)
+    }
+
+    pub fn new_group_id(&mut self) -> u32 {
+        let new_id = self.inner.ids.safe_lock(|ids| ids.new_group_id()).unwrap();
+        new_id
+    }
+    pub fn new_standard_id_for_hom(&mut self) -> u32 {
+        let hom_group_id = 0;
+        let new_id = self
+            .inner
+            .ids
+            .safe_lock(|ids| ids.new_channel_id(hom_group_id).unwrap())
+            .unwrap();
+        new_id
+    }
+
+    pub fn extranonce_from_downstream_extranonce(&self, ext: mining_sv2::Extranonce) -> Option<mining_sv2::Extranonce> {
+        self.inner.extranonces.extranonce_from_downstream_extranonce(ext)
+    }
+}
+
+/// Used by proxies that want to open extended channls with upstream. If the proxy have job
+/// negotiation capabilities we set the job creator and the coinbase outs.
+#[derive(Debug)]
+pub struct ProxyExtendedChannelFactory {
+    inner: ChannelFactory,
+    job_creator: Option<JobsCreators>,
+    pool_coinbase_outputs: Option<Vec<TxOut>>,
+}
+
+impl ProxyExtendedChannelFactory {
+    pub fn new(
+        ids: Arc<Mutex<GroupId>>,
+        extranonces: ExtendedExtranonce,
+        job_creator: Option<JobsCreators>,
+        share_per_min: f32,
+        kind: ExtendedChannelKind,
+        pool_coinbase_outputs: Option<Vec<TxOut>>,
+    ) -> Self {
+        let inner = ChannelFactory {
+            ids,
+            standard_channels_for_non_hom_downstreams: HashMap::new(),
+            standard_channels_for_hom_downstreams: HashMap::new(),
+            extended_channels: HashMap::new(),
+            extranonces,
+            share_per_min,
+            future_jobs: Vec::new(),
+            last_prev_hash: None,
+            last_prev_hash_: None,
+            last_valid_job: None,
+            kind,
+            job_ids: Id::new(),
+            channel_to_group_id: HashMap::new(),
+        };
+        ProxyExtendedChannelFactory {
+            inner,
+            job_creator,
+            pool_coinbase_outputs,
+        }
+    }
+
+    pub fn add_standard_channel(
+        &mut self,
+        request_id: u32,
+        downstream_hash_rate: f32,
+        id_header_only: bool,
+        id: u32,
+    ) -> Result<Vec<Mining>, Error> {
+        self.inner
+            .add_standard_channel(request_id, downstream_hash_rate, id_header_only, id)
     }
 
     pub fn new_extended_channel(
@@ -862,27 +935,105 @@ impl ProxyExtendedChannelFactory {
         &mut self,
         m: &SetNewPrevHashFromTp<'static>,
     ) -> Result<u32, Error> {
-        self.inner.on_new_prev_hash_from_tp(m)
+        if let Some(job_creator) = self.job_creator.as_mut() {
+            let job_id = job_creator.on_new_prev_hash(m).unwrap_or(0);
+            let new_prev_hash = StagedPhash {
+                job_id,
+                prev_hash: m.prev_hash.clone(),
+                min_ntime: m.header_timestamp,
+                nbits: m.n_bits,
+            };
+            self.inner.on_new_prev_hash(new_prev_hash)?;
+            Ok(job_id)
+        } else {
+            panic!("A channel factory without job creator do not have negotiation capabilities")
+        }
     }
 
     pub fn on_new_template(
         &mut self,
         m: &mut NewTemplate<'static>,
     ) -> Result<HashMap<u32, Mining>, Error> {
-        self.inner.on_new_template(m)
+        if let (Some(job_creator), Some(pool_coinbase_outputs)) = (
+            self.job_creator.as_mut(),
+            self.pool_coinbase_outputs.as_ref(),
+        ) {
+            let new_job = job_creator.on_new_template(m, true, pool_coinbase_outputs.clone())?;
+            self.inner.on_new_extended_mining_job(new_job)
+        } else {
+            panic!("A channel factory without job creator do not have negotiation capabilities")
+        }
     }
 
     pub fn on_submit_shares_extended(
         &mut self,
-        m: SubmitSharesExtended<'static>,
+        mut m: SubmitSharesExtended<'static>,
+        trim_extranonce: Option<usize>,
     ) -> Result<OnNewShare, Error> {
-        self.inner.on_submit_shares_extended(m)
+        if let Some(size) = trim_extranonce {
+            let mut extranonce = m.extranonce.to_vec();
+            extranonce.reverse();
+            for _ in 0..size {
+                extranonce.pop();
+            };
+            extranonce.reverse();
+            m.extranonce = extranonce.try_into().unwrap();
+        };
+        if let Some(job_creator) = self.job_creator.as_mut() {
+            let template_id = job_creator
+                .get_template_id_from_job(self.inner.last_valid_job.as_ref().unwrap().0.job_id)
+                .ok_or(Error::NoTemplateForId)?;
+            let bitcoin_target = job_creator.last_target();
+            self.inner
+                .check_target(Share::Extended(m), bitcoin_target, template_id)
+        } else {
+            let bitcoin_target = [0; 32];
+            // if there is not job_creator is not proxy duty to check if target is below or above
+            // bitcoin target so we set bitcoin_target = 0.
+            self.inner
+                .check_target(Share::Extended(m), bitcoin_target.into(), 0)
+        }
     }
+
     pub fn on_submit_shares_standard(
         &mut self,
         m: SubmitSharesStandard,
     ) -> Result<OnNewShare, Error> {
-        self.inner.on_submit_shares_standard(m)
+        #[allow(mutable_borrow_reservation_conflict)]
+        match self.inner.channel_to_group_id.get(&m.channel_id) {
+            Some(g_id) => {
+                if let Some(job_creator) = self.job_creator.as_mut() {
+                    let template_id = job_creator
+                        .get_template_id_from_job(
+                            self.inner.last_valid_job.as_ref().unwrap().0.job_id,
+                        )
+                        .ok_or(Error::NoTemplateForId)?;
+                    let bitcoin_target = job_creator.last_target();
+                    self.inner.check_target(
+                        Share::Standard((m, *g_id)),
+                        bitcoin_target,
+                        template_id,
+                    )
+                } else {
+                    let bitcoin_target = [0; 32];
+                    // if there is not job_creator is not proxy duty to check if target is below or above
+                    // bitcoin target so we set bitcoin_target = 0.
+                    self.inner
+                        .check_target(Share::Standard((m, *g_id)), bitcoin_target.into(), 0)
+                }
+            }
+            None => {
+                let err = SubmitSharesError {
+                    channel_id: m.channel_id,
+                    sequence_number: m.sequence_number,
+                    error_code: SubmitSharesError::invalid_channel_error_code()
+                        .to_string()
+                        .try_into()
+                        .unwrap(),
+                };
+                Ok(OnNewShare::SendErrorDowsntream(err))
+            }
+        }
     }
     pub fn on_new_prev_hash(&mut self, m: SetNewPrevHash<'static>) -> Result<(), Error> {
         self.inner.on_new_prev_hash(StagedPhash {
@@ -896,18 +1047,34 @@ impl ProxyExtendedChannelFactory {
     pub fn on_new_extended_mining_job(
         &mut self,
         m: NewExtendedMiningJob<'static>,
-    ) -> Result<HashMap<u32, Mining>, Error> {
+    ) -> Result<HashMap<u32, Mining<'static>>, Error> {
         self.inner.on_new_extended_mining_job(m)
+    }
+    pub fn set_target(&mut self, new_target: &mut Target) {
+        self.inner.kind.set_target(new_target);
+    }
+    pub fn last_valid_job_version(&self) -> Option<u32> {
+        self.inner.last_valid_job.as_ref().map(|j| j.0.version)
+    }
+    pub fn extranonce_from_downstream_extranonce(&self, ext: mining_sv2::Extranonce) -> Option<mining_sv2::Extranonce> {
+        self.inner.extranonces.extranonce_from_downstream_extranonce(ext)
     }
 }
 
 #[derive(Debug, Clone)]
 pub enum ExtendedChannelKind {
-    Proxy {
-        extranonce: Vec<u8>,
-        upstream_target: Target,
-    },
+    Proxy { upstream_target: Target },
     Pool,
+}
+impl ExtendedChannelKind {
+    pub fn set_target(&mut self, new_target: &mut Target) {
+        match self {
+            ExtendedChannelKind::Proxy { upstream_target } => {
+                std::mem::swap(upstream_target, new_target)
+            }
+            ExtendedChannelKind::Pool => panic!("Try to set upstream target for a pool"),
+        }
+    }
 }
 #[cfg(test)]
 mod test {
@@ -974,9 +1141,8 @@ mod test {
         (prefix, extranonce, suffix)
     }
 
-    fn get_coinbase_outputs() -> Seq064K<'static, B064K<'static>> {
-        let parsed: B064K = decode_hex(COINBASE_OUTPUT).unwrap().try_into().unwrap();
-        vec![parsed].try_into().unwrap()
+    fn get_coinbase_outputs() -> B064K<'static> {
+        decode_hex(COINBASE_OUTPUT).unwrap().try_into().unwrap()
     }
 
     fn get_merkle_path() -> Seq0255<'static, U256<'static>> {
@@ -1001,13 +1167,15 @@ mod test {
             .collect()
     }
 
+    use bitcoin::TxOut;
+
     #[test]
     fn test_complete_mining_round() {
         let (prefix, coinbase_extranonce, _) = get_coinbase();
 
         // Initialize a Channel of type Pool
-        let script_kind = crate::job_creator::ScriptKind::Custom(decode_hex("4104c6d0969c2d98a5c19ba7c36c7937c5edbd60ff2a01397c4afe54f16cd641667ea0049ba6f9e1796ba3c8e49e1b504c532ebbaaa1010c3f7d9b83a8ea7fd800e2ac").unwrap());
-        let creator = JobsCreators::new(BLOCK_REWARD, script_kind, 7);
+        let out = TxOut {value: BLOCK_REWARD, script_pubkey: decode_hex("4104c6d0969c2d98a5c19ba7c36c7937c5edbd60ff2a01397c4afe54f16cd641667ea0049ba6f9e1796ba3c8e49e1b504c532ebbaaa1010c3f7d9b83a8ea7fd800e2ac").unwrap().into()};
+        let creator = JobsCreators::new(7);
         let share_per_min = 1.0;
         // Create an ExtendedExtranonce of len 7:
         // upstream part is 0 bytes cause we are a pool so no more upstreams
@@ -1020,8 +1188,14 @@ mod test {
 
         let ids = Arc::new(Mutex::new(GroupId::new()));
         let channel_kind = ExtendedChannelKind::Pool;
-        let mut channel =
-            PoolChannelFactory::new(ids, extranonces, creator, share_per_min, channel_kind);
+        let mut channel = PoolChannelFactory::new(
+            ids,
+            extranonces,
+            creator,
+            share_per_min,
+            channel_kind,
+            vec![out],
+        );
 
         // Build a NewTemplate
         let mut new_template = NewTemplate {
@@ -1065,12 +1239,13 @@ mod test {
 
         // "Send" the OpenStandardMiningChannel to channel
         let result = loop {
-            let open_standard_channle_requester = OpenStandardChannleRequester::HomRequester;
+            let id = channel.new_standard_id_for_hom();
             let result = channel
                 .add_standard_channel(
                     open_standard_channel.get_request_id_as_u32(),
                     open_standard_channel.nominal_hash_rate,
-                    open_standard_channle_requester,
+                    true,
+                    id,
                 )
                 .unwrap();
             let downsteram_extranonce = match &result[0] {
@@ -1111,7 +1286,7 @@ mod test {
         // "Send" the Share to channel
         match channel.on_submit_shares_standard(share).unwrap() {
             OnNewShare::SendErrorDowsntream(e) => panic!(
-                "{:?} {}",
+                "{:?} \n {}",
                 e,
                 std::str::from_utf8(&e.error_code.to_vec()[..]).unwrap()
             ),

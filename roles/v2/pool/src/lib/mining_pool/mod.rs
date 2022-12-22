@@ -4,6 +4,7 @@ use tokio::{net::TcpListener, task};
 
 use crate::{Configuration, EitherFrame, StdFrame};
 use async_channel::{Receiver, Sender};
+use bitcoin::{Script, TxOut};
 use codec_sv2::Frame;
 use roles_logic_sv2::{
     channel_logic::channel_factory::PoolChannelFactory,
@@ -312,11 +313,14 @@ impl Pool {
         let range_0 = std::ops::Range { start: 0, end: 0 };
         let range_1 = std::ops::Range { start: 0, end: 16 };
         let range_2 = std::ops::Range { start: 16, end: 32 };
-        let script_kind = ScriptKind::PayToPubKey(crate::new_pub_key().wpubkey_hash().unwrap());
         let ids = Arc::new(Mutex::new(roles_logic_sv2::utils::GroupId::new()));
+        let txout = TxOut {
+            value: crate::BLOCK_REWARD,
+            script_pubkey: Script::new_p2pk(&crate::new_pub_key()),
+        };
         let extranonces =
             ExtendedExtranonce::new(range_0.clone(), range_1.clone(), range_2.clone());
-        let creator = JobsCreators::new(crate::BLOCK_REWARD, script_kind.clone(), 32);
+        let creator = JobsCreators::new(32);
         let share_per_min = 1.0;
         let kind = roles_logic_sv2::channel_logic::channel_factory::ExtendedChannelKind::Pool;
         let channel_factory = Arc::new(Mutex::new(PoolChannelFactory::new(
@@ -325,6 +329,7 @@ impl Pool {
             creator,
             share_per_min,
             kind,
+            vec![txout],
         )));
         let pool = Arc::new(Mutex::new(Pool {
             downstreams: HashMap::new(),
