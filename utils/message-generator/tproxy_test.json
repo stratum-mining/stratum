@@ -1,0 +1,144 @@
+{
+    "doc": [
+        "This test do:",
+            "1) launch bitcoind in regtest and wait for TP initialization",
+            "2) create a bunch of block using bictoin-cli",
+            "3) launch SRI pool and wait for initialization",
+            "4) launch TProxy and wait for initialization with pool",
+            "5) launch cpuminer instance on 'downstream' TProxy port",
+            "6) wait for cpuminer to send a mining.notify message"
+    ],
+    "common_messages": [
+    ],
+    "mining_messages": [
+    ],
+    "frame_builders": [
+    ],
+    "actions": [
+    ],
+    "setup_commands": [
+        {
+            "command": "./test/bin/bitcoind",
+            "args": ["--regtest"],
+            "conditions": {
+                "WithConditions": {
+                    "conditions": [
+                        {
+                            "output_string": "sv2 thread start",
+                            "output_location": "StdOut",
+                            "condition": true
+                        },
+                        {
+                            "output_string": "",
+                            "output_location": "StdErr",
+                            "condition": false
+                        }
+                    ],
+                    "timer_secs": 10,
+                    "warn_no_panic": false
+                }
+            }
+        },
+        {
+            "command": "./test/bin/bitcoin-cli",
+            "args": [
+                        "--regtest",
+                        "--datadir=./test/appdata/bitcoin_data/",
+                        "generatetoaddress",
+                        "16",
+                        "bcrt1qttuwhmpa7a0ls5kr3ye6pjc24ng685jvdrksxx"
+            ],
+            "conditions": "None"
+        },
+        {
+            "command": "cargo",
+            "args": [
+                        "run",
+                        "-p",
+                        "pool",
+                        "--",
+                        "-c",
+                        "./roles/v2/pool/pool-config.toml"
+            ],
+            "conditions": {
+                "WithConditions": {
+                    "conditions": [
+                        {
+                            "output_string": "Listening for encrypted connection on: 0.0.0.0:34254",
+                            "output_location": "StdOut",
+                            "condition": true
+                        }
+                    ],
+                    "timer_secs": 60,
+                    "warn_no_panic": false
+                }
+            }
+        },
+        {
+            "command": "cargo",
+            "args": [
+                        "run",
+                        "-p",
+                        "translator",
+                        "--",
+                        "-c",
+                        "./roles/translator/proxy-config.toml"
+            ],
+            "conditions": {
+                "WithConditions": {
+                    "conditions": [
+                        {
+                            "output_string": "PROXY SERVER - ACCEPTING FROM UPSTREAM: 127.0.0.1:34254",
+                            "output_location": "StdOut",
+                            "condition": true
+                        }
+                    ],
+                    "timer_secs": 60,
+                    "warn_no_panic": false
+                }
+            }
+        },
+        {
+            "command": "./test/bin/minerd",
+            "args": [
+                        "-o",
+                        "stratum+tcp://localhost:34255",
+                        "-t",
+                        "1",
+                        "-q",
+                        "-D",
+                        "-P",
+                        "-a",
+                        "sha256d"
+            ],
+            "conditions": {
+                "WithConditions": {
+                    "conditions": [
+                        {
+                            "output_string": "\"method\":\"mining.notify\"",
+                            "output_location": "StdErr",
+                            "condition": true
+                        }
+                    ],
+                    "timer_secs": 60,
+                    "warn_no_panic": false
+                }
+            }
+        }
+    ],
+    "execution_commands": [
+    ],
+    "cleanup_commands": [
+        {
+            "command": "rm",
+            "args": [ "-rf", "./test/appdata/bitcoin_data/regtest"],
+            "conditions": "None"
+        }
+    ],
+    "role": "client",
+    "downstream": {
+        "ip": "0.0.0.0",
+        "port": 34258,
+        "pub_key": "2di19GHYQnAZJmEpoUeP7C3Eg9TCcksHr23rZCC83dvUiZgiDL"
+    }
+}
