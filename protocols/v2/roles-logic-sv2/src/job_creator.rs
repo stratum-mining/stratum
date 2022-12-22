@@ -386,13 +386,15 @@ pub mod tests {
 
         //Create a template
         let mut template = template_from_gen(&mut Gen::new(255));
+        template.template_id = template.template_id.checked_sub(1).unwrap_or(0);
         let _ = jobs_creators.on_new_template(template.borrow_mut(), false, vec![out]);
 
         assert_eq!(jobs_creators.lasts_new_template.len(), 1);
         assert_eq!(jobs_creators.lasts_new_template[0], template);
 
         //Create a 2nd template
-        let template2 = template_from_gen(&mut Gen::new(255));
+        let mut template2 = template_from_gen(&mut Gen::new(255));
+        template2.template_id = template.template_id.checked_sub(1).unwrap_or(0);
 
         // Reset new template
         jobs_creators.reset_new_templates(Some(template2.clone()));

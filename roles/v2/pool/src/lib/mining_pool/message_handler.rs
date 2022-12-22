@@ -65,10 +65,20 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
 
     fn handle_open_extended_mining_channel(
         &mut self,
-        _: OpenExtendedMiningChannel,
+        m: OpenExtendedMiningChannel,
     ) -> Result<SendTo<()>, Error> {
-        // TODO add support for extended channel
-        todo!()
+        let request_id = m.request_id;
+        let hash_rate = m.nominal_hash_rate;
+        let min_extranonce_size = m.min_extranonce_size;
+        let messages = self
+            .channel_factory
+            .safe_lock(|s| {
+                s.new_extended_channel(request_id, hash_rate, min_extranonce_size)
+                    .unwrap()
+            })
+            .unwrap();
+        let messages = messages.into_iter().map(|m| SendTo::Respond(m)).collect();
+        Ok(SendTo::Multiple(messages))
     }
 
     fn handle_update_channel(&mut self, _: UpdateChannel) -> Result<SendTo<()>, Error> {
