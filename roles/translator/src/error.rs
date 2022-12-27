@@ -18,8 +18,6 @@ pub enum Error<'a> {
     FramingSv2(framing_sv2::Error),
     /// Errors on bad `TcpStream` connection.
     Io(std::io::Error),
-    /// Errors if SV1 downstream returns a `mining.submit` with no version bits.
-    NoSv1VersionBits,
     /// Errors on bad `String` to `int` conversion.
     ParseInt(std::num::ParseIntError),
     /// Errors from `roles_logic_sv2` crate.
@@ -39,10 +37,6 @@ impl<'a> fmt::Display for Error<'a> {
             CodecNoise(ref e) => write!(f, "Noise error: `{:?}", e),
             FramingSv2(ref e) => write!(f, "Framing SV2 error: `{:?}`", e),
             Io(ref e) => write!(f, "I/O error: `{:?}", e),
-            NoSv1VersionBits => write!(
-                f,
-                "`mining.submit` received from SV1 downstream does not contain `version_bits`"
-            ),
             ParseInt(ref e) => write!(f, "Bad convert from `String` to `int`: `{:?}`", e),
             RolesSv2Logic(ref e) => write!(f, "Roles SV2 Logic Error: `{:?}`", e),
             V1Protocol(ref e) => write!(f, "V1 Protocol Error: `{:?}`", e),

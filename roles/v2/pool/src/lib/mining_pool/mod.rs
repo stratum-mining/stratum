@@ -11,7 +11,7 @@ use roles_logic_sv2::{
     common_properties::{CommonDownstreamData, IsDownstream, IsMiningDownstream},
     errors::Error,
     handlers::mining::{ParseDownstreamMiningMessages, SendTo},
-    job_creator::{JobsCreators, ScriptKind},
+    job_creator::JobsCreators,
     mining_sv2::{ExtendedExtranonce, SetNewPrevHash as SetNPH},
     parsers::{Mining, PoolMessages},
     routing_logic::MiningRoutingLogic,

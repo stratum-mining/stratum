@@ -1,10 +1,7 @@
 use crate::{utils::Id, Error};
 use binary_sv2::B064K;
 use bitcoin::{
-    blockdata::{
-        script::Script,
-        transaction::{OutPoint, Transaction, TxIn, TxOut},
-    },
+    blockdata::transaction::{OutPoint, Transaction, TxIn, TxOut},
     util::psbt::serialize::Serialize,
 };
 pub use bitcoin::{
@@ -22,22 +19,12 @@ const PREV_OUT_LEN: usize = 38;
 
 #[derive(Debug)]
 pub struct JobsCreators {
-    //script_kind: Vec<ScriptKind>,
     lasts_new_template: Vec<NewTemplate<'static>>,
     job_to_template_id: HashMap<u32, u64>,
     templte_to_job_id: HashMap<u64, u32>,
     ids: Id,
     last_target: mining_sv2::Target,
     extranonce_len: u8,
-}
-#[derive(Debug, Clone)]
-pub enum ScriptKind {
-    PayToPubKey(WPubkeyHash),
-    PayToPubKeyHash(PubkeyHash),
-    PayToScriptHash(ScriptHash),
-    PayToWitnessPublicKeyHash(WPubkeyHash),
-    PayToWitnessScriptHash(WScriptHash),
-    Custom(Vec<u8>),
 }
 
 use bitcoin::consensus::Decodable;
@@ -247,8 +234,7 @@ fn coinbase_tx_suffix(
         script_prefix_len = 0;
     };
     let encoded = coinbase.serialize();
-    let r = encoded[
-        4    // tx version
+    let r = encoded[4    // tx version
         + 1  // number of inputs TODO can be also 3
         + 32 // prev OutPoint
         + 4  // index

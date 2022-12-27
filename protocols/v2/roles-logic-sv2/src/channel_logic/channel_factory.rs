@@ -166,7 +166,7 @@ impl ChannelFactory {
             // longer connected?
             let channel_id = self
                 .ids
-                .safe_lock(|ids| ids.new_channel_id(extended_channels_group).unwrap())
+                .safe_lock(|ids| ids.new_channel_id(extended_channels_group))
                 .unwrap();
             self.channel_to_group_id.insert(channel_id, 0);
             let target = crate::utils::hash_rate_to_target(hash_rate, self.share_per_min);
@@ -250,8 +250,7 @@ impl ChannelFactory {
         let channel_id = self
             .ids
             .safe_lock(|ids| ids.new_channel_id(group_id))
-            .unwrap()
-            .ok_or(Error::GroupIdNotFound)?;
+            .unwrap();
         let complete_id = GroupId::into_complete_id(group_id, channel_id);
         let target = crate::utils::hash_rate_to_target(downstream_hash_rate, self.share_per_min);
         let extranonce = self
@@ -642,7 +641,7 @@ impl ChannelFactory {
         let hash = hash_.as_hash().into_inner();
         let hash: Target = hash.into();
 
-        if hash.clone() <= bitcoin_target {
+        if hash <= bitcoin_target {
             let coinbase = [coinbase_tx_prefix, &extranonce[..], coinbase_tx_suffix]
                 .concat()
                 .to_vec();
@@ -860,13 +859,18 @@ impl PoolChannelFactory {
         let new_id = self
             .inner
             .ids
-            .safe_lock(|ids| ids.new_channel_id(hom_group_id).unwrap())
+            .safe_lock(|ids| ids.new_channel_id(hom_group_id))
             .unwrap();
         new_id
     }
 
-    pub fn extranonce_from_downstream_extranonce(&self, ext: mining_sv2::Extranonce) -> Option<mining_sv2::Extranonce> {
-        self.inner.extranonces.extranonce_from_downstream_extranonce(ext)
+    pub fn extranonce_from_downstream_extranonce(
+        &self,
+        ext: mining_sv2::Extranonce,
+    ) -> Option<mining_sv2::Extranonce> {
+        self.inner
+            .extranonces
+            .extranonce_from_downstream_extranonce(ext)
     }
 }
 
@@ -975,7 +979,7 @@ impl ProxyExtendedChannelFactory {
             extranonce.reverse();
             for _ in 0..size {
                 extranonce.pop();
-            };
+            }
             extranonce.reverse();
             m.extranonce = extranonce.try_into().unwrap();
         };
@@ -1056,8 +1060,13 @@ impl ProxyExtendedChannelFactory {
     pub fn last_valid_job_version(&self) -> Option<u32> {
         self.inner.last_valid_job.as_ref().map(|j| j.0.version)
     }
-    pub fn extranonce_from_downstream_extranonce(&self, ext: mining_sv2::Extranonce) -> Option<mining_sv2::Extranonce> {
-        self.inner.extranonces.extranonce_from_downstream_extranonce(ext)
+    pub fn extranonce_from_downstream_extranonce(
+        &self,
+        ext: mining_sv2::Extranonce,
+    ) -> Option<mining_sv2::Extranonce> {
+        self.inner
+            .extranonces
+            .extranonce_from_downstream_extranonce(ext)
     }
 }
 

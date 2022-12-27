@@ -6,7 +6,6 @@ mod proxy_config;
 mod upstream_sv2;
 use args::Args;
 use error::{Error, ProxyResult};
-use proxy::next_mining_notify::NextMiningNotify;
 use proxy_config::ProxyConfig;
 use roles_logic_sv2::utils::Mutex;
 
@@ -114,22 +113,29 @@ async fn main() {
     // Start task handler to receive submits from the SV1 Downstream role once it connects
     upstream_sv2::Upstream::handle_submit(upstream.clone());
 
-    // Setup to store the latest SV2 `SetNewPrevHash` and `NewExtendedMiningJob` messages received
-    // from the Upstream role before any Downstream role connects
-    let next_mining_notify = Arc::new(Mutex::new(NextMiningNotify::new()));
-    let last_notify: Arc<Mutex<Option<server_to_client::Notify>>> = Arc::new(Mutex::new(None));
+    // Receive the extranonce information from the Upstream role to send to the Downstream role
+    // once it connects also used to initialize the bridge
+    let extended_extranonce = rx_sv2_extranonce.recv().await.unwrap();
+
+    loop {
+        let target: [u8; 32] = target.safe_lock(|t| t.clone()).unwrap().try_into().unwrap();
+        if target != [0; 32] {
+            break;
+        };
+        async_std::task::sleep(std::time::Duration::from_millis(100)).await;
+    }
 
     // Instantiate a new `Bridge` and begins handling incoming messages
-    proxy::Bridge::new(
+    let b = Arc::new(Mutex::new(proxy::Bridge::new(
         rx_sv1_submit,
         tx_sv2_submit_shares_ext,
         rx_sv2_set_new_prev_hash,
         rx_sv2_new_ext_mining_job,
-        next_mining_notify,
         tx_sv1_notify,
-        last_notify.clone(),
-    )
-    .start();
+        extended_extranonce,
+        target,
+    )));
+    proxy::Bridge::start(b.clone());
 
     // Format `Downstream` connection address
     let downstream_addr = SocketAddr::new(
@@ -137,18 +143,12 @@ async fn main() {
         proxy_config.downstream_port,
     );
 
-    // Receive the extranonce information from the Upstream role to send to the Downstream role
-    // once it connects
-    let extended_extranonce = rx_sv2_extranonce.recv().await.unwrap();
-
     // Accept connections from one or more SV1 Downstream roles (SV1 Mining Devices)
     downstream_sv1::Downstream::accept_connections(
         downstream_addr,
         tx_sv1_submit,
         rx_sv1_notify,
-        extended_extranonce,
-        last_notify,
-        target,
+        b,
     )
     .await;
 }

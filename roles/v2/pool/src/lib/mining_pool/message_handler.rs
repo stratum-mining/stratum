@@ -1,6 +1,5 @@
 use crate::lib::mining_pool::Downstream;
 use roles_logic_sv2::{
-    channel_logic::channel_factory::OpenStandardChannleRequester,
     common_properties::IsDownstream,
     errors::Error,
     handlers::mining::{ParseDownstreamMiningMessages, SendTo, SupportedChannelTypes},
@@ -12,7 +11,7 @@ use roles_logic_sv2::{
     utils::Mutex,
 };
 use std::{convert::TryInto, sync::Arc};
-use tracing::{debug, info};
+use tracing::{debug, error, info};
 
 impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> for Downstream {
     fn get_channel_type(&self) -> SupportedChannelTypes {
@@ -33,17 +32,15 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
             incoming.request_id.as_u32(),
             incoming.nominal_hash_rate
         );
-        let requester = match self.downstream_data.header_only {
-            true => OpenStandardChannleRequester::HomRequester,
-            false => OpenStandardChannleRequester::NonHomRequester { group_id: self.id },
-        };
+        let header_only = self.downstream_data.header_only;
         let reposnses = self
             .channel_factory
             .safe_lock(|factory| {
                 match factory.add_standard_channel(
                     incoming.request_id.as_u32(),
                     incoming.nominal_hash_rate,
-                    requester,
+                    header_only,
+                    self.id,
                 ) {
                     Ok(msgs) => {
                         let mut res = vec![];
@@ -77,7 +74,7 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
                     .unwrap()
             })
             .unwrap();
-        let messages = messages.into_iter().map(|m| SendTo::Respond(m)).collect();
+        let messages = messages.into_iter().map(SendTo::Respond).collect();
         Ok(SendTo::Multiple(messages))
     }
 
@@ -137,9 +134,55 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
 
     fn handle_submit_shares_extended(
         &mut self,
-        _m: SubmitSharesExtended,
+        m: SubmitSharesExtended,
     ) -> Result<SendTo<()>, Error> {
-        todo!()
+        let res = self
+            .channel_factory
+            .safe_lock(|cf| cf.on_submit_shares_extended(m.clone()))
+            .unwrap();
+        match res {
+            Ok(res) => match res  {
+                roles_logic_sv2::channel_logic::channel_factory::OnNewShare::SendErrorDowsntream(m) => {
+                    Ok(SendTo::Respond(Mining::SubmitSharesError(m)))
+                }
+                roles_logic_sv2::channel_logic::channel_factory::OnNewShare::SendSubmitShareUpstream(_) => unreachable!(),
+                roles_logic_sv2::channel_logic::channel_factory::OnNewShare::RelaySubmitShareUpstream => unreachable!(),
+                roles_logic_sv2::channel_logic::channel_factory::OnNewShare::ShareMeetBitcoinTarget((share,t_id,coinbase)) => {
+                    info!("Found share that meet bitcoin target");
+                    let solution = SubmitSolution {
+                        template_id: t_id,
+                        version: share.get_version(),
+                        header_timestamp: share.get_n_time(),
+                        header_nonce: share.get_nonce(),
+                        coinbase_tx: coinbase.try_into().unwrap(),
+                    };
+                    // TODO we can block everything with the below
+                    while self.solution_sender.try_send(solution.clone()).is_err() {};
+                    let success = SubmitSharesSuccess {
+                        channel_id: m.channel_id,
+                        last_sequence_number: m.sequence_number,
+                        new_submits_accepted_count: 1,
+                        new_shares_sum: 0,
+                    };
+
+                    Ok(SendTo::Respond(Mining::SubmitSharesSuccess(success)))
+
+                },
+                roles_logic_sv2::channel_logic::channel_factory::OnNewShare::ShareMeetDownstreamTarget => {
+                 let success = SubmitSharesSuccess {
+                        channel_id: m.channel_id,
+                        last_sequence_number: m.sequence_number,
+                        new_submits_accepted_count: 1,
+                        new_shares_sum: 0,
+                    };
+                    Ok(SendTo::Respond(Mining::SubmitSharesSuccess(success)))
+                },
+            },
+            Err(e) => {
+                error!("{:?}",e);
+                todo!();
+            }
+        }
     }
 
     fn handle_set_custom_mining_job(&mut self, _: SetCustomMiningJob) -> Result<SendTo<()>, Error> {
