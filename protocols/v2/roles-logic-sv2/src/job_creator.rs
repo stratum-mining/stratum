@@ -330,6 +330,7 @@ pub mod tests {
         let pub_k = PublicKey::from_private_key(&secp, &priv_k);
         pub_k
     }
+    use bitcoin::Script;
 
     // Test job_id_from_template
     #[test]

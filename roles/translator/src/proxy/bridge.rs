@@ -344,7 +344,6 @@ pub struct OpenSv1Downstream {
 mod test {
     use super::*;
     use async_channel::bounded;
-    use binary_sv2::{Seq0255, B064K};
     use roles_logic_sv2::bitcoin::util::psbt::serialize::Serialize;
     const EXTRANONCE_LEN: usize = 16;
     pub mod test_utils {
@@ -356,11 +355,10 @@ mod test {
             let (_tx_sv2_new_ext_mining_job, rx_sv2_new_ext_mining_job) = bounded(1);
             let (tx_sv1_notify, _rx_sv1_notify) = bounded(1);
             let extranonces = ExtendedExtranonce::new(0..6, 6..8, 8..EXTRANONCE_LEN);
-            let upstream_target: Target = [
+            let upstream_target = vec![
                 0, 0, 0, 0, 255, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                 0, 0, 0, 0, 0, 0, 0,
-            ]
-            .into();
+            ];
 
             Bridge::new(
                 rx_sv1_submit,
@@ -369,7 +367,7 @@ mod test {
                 rx_sv2_new_ext_mining_job,
                 tx_sv1_notify,
                 extranonces,
-                upstream_target,
+                Arc::new(Mutex::new(upstream_target)),
             )
         }
 
