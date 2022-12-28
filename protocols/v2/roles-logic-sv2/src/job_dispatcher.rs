@@ -297,6 +297,7 @@ mod tests {
         let group_channel_id = 1;
         //Create a template
         let mut template = template_from_gen(&mut Gen::new(255));
+        template.template_id = template.template_id % u64::MAX;
         template.future_template = true;
         let extended_mining_job = jobs_creators
             .on_new_template(&mut template, false, vec![out])
