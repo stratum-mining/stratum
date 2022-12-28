@@ -189,6 +189,12 @@ impl<'a> B064K<'a> {
             Inner::Owned(inner) => inner.as_slice(),
         }
     }
+    pub fn to_vec(&self) -> Vec<u8> {
+        match &self.0 {
+            Inner::Ref(slice) => slice.to_vec(),
+            Inner::Owned(inner) => inner.to_vec(),
+        }
+    }
 }
 impl<'a> AsRef<[u8]> for B064K<'a> {
     fn as_ref(&self) -> &[u8] {
