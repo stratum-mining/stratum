@@ -10,10 +10,7 @@ use binary_sv2::u256_from_int;
 use codec_sv2::{Frame, HandshakeRole, Initiator};
 use network_helpers::Connection;
 use roles_logic_sv2::{
-    bitcoin::{
-        hashes::{sha256d::Hash as DHash, Hash},
-        BlockHash,
-    },
+    bitcoin::BlockHash,
     common_messages_sv2::{Protocol, SetupConnection},
     common_properties::{IsMiningUpstream, IsUpstream},
     handlers::{
@@ -27,24 +24,10 @@ use roles_logic_sv2::{
     parsers::Mining,
     routing_logic::{CommonRoutingLogic, MiningRoutingLogic, NoRouting},
     selectors::NullDownstreamMiningSelector,
-    utils::{get_target, Mutex},
+    utils::Mutex,
 };
 use std::{net::SocketAddr, sync::Arc, thread::sleep, time::Duration};
-use tracing::{debug, error, info, trace, warn};
-
-/// Represents the currently active mining job being worked on.
-#[allow(dead_code)]
-#[derive(Debug, Clone)]
-struct Job_ {
-    /// `job_id`, identifier of this mining job.
-    id: u32,
-    /// Prefix part of the coinbase transaction.
-    coinbase_tx_prefix: Vec<u8>,
-    /// Suffix part of the coinbase transaction.
-    coinbase_tx_suffix: Vec<u8>,
-    /// Merkle path hashes ordered from deepest
-    merkle_path: Vec<Vec<u8>>,
-}
+use tracing::{debug, error, info, warn};
 
 /// Represents the currently active `prevhash` of the mining job being worked on OR being submitted
 /// from the Downstream role.
@@ -55,38 +38,6 @@ struct PrevHash {
     prev_hash: BlockHash,
     /// `nBits` encoded difficulty target.
     nbits: u32,
-}
-
-#[derive(Debug, Clone)]
-enum Job {
-    Void,
-    WithJobOnly(Job_),
-    WithJobAndPrevHash(Job_, PrevHash),
-}
-
-impl Job {
-    /// Calculates the candidate block hash of mining job.
-    #[allow(dead_code)]
-    pub fn get_candidate_hash(self, share: &SubmitSharesExtended) -> Option<[u8; 32]> {
-        match self {
-            Job::Void => None,
-            Job::WithJobOnly(_) => None,
-            Job::WithJobAndPrevHash(job, prev_hash) => {
-                let candidate_hash = get_target(
-                    share.nonce,
-                    share.version,
-                    share.ntime,
-                    &share.extranonce.to_vec(),
-                    &job.coinbase_tx_prefix,
-                    &job.coinbase_tx_suffix,
-                    prev_hash.prev_hash,
-                    job.merkle_path,
-                    prev_hash.nbits,
-                );
-                Some(candidate_hash)
-            }
-        }
-    }
 }
 
 #[derive(Debug, Clone)]
@@ -118,8 +69,6 @@ pub struct Upstream {
     /// messages. Passed to the `Downstream` on connection creation and sent to the Downstream role
     /// via the SV1 `mining.set_difficulty` message.
     target: Arc<Mutex<Vec<u8>>>,
-    /// Represents the currently active mining job being worked on.
-    current_job: Job,
     /// Minimum `extranonce2` size. Initially requested in the `proxy-config.toml`, and ultimately
     /// set by the SV2 Upstream via the SV2 `OpenExtendedMiningChannelSuccess` message.
     pub min_extranonce_size: u16,
@@ -185,7 +134,6 @@ impl Upstream {
             min_extranonce_size,
             tx_sv2_extranonce,
             target,
-            current_job: Job::Void,
         })))
     }
 
@@ -315,17 +263,23 @@ impl Upstream {
                     Ok(SendTo::None(Some(m))) => {
                         match m {
                             Mining::OpenExtendedMiningChannelSuccess(m) => {
-                                let prefix_len = m.extranonce_prefix.len();
+                                let prefix_len = dbg!(m.extranonce_prefix.len());
                                 let extranonce: Extranonce = m
                                     .extranonce_prefix
                                     .try_into()
                                     .expect("Received and extranonce prefix bigger than 32 bytes");
 
+                                // Create the extended extranonce that will be saved in bridge and
+                                // it will be used to open downstream (sv1) channels
+                                // range 0 is extranonce1 with upstream
+                                // range 1 e range 2 are extranonce2 with upstream
+                                //
+                                // range0 and range1 are extranonce1 with downstream
+                                // range2 is extranonce2 with downstream
                                 let range_0 = 0..prefix_len;
                                 let range_1 = prefix_len..prefix_len + crate::SELF_EXTRNONCE_LEN;
                                 let range_2 = prefix_len + crate::SELF_EXTRNONCE_LEN
                                     ..prefix_len + m.extranonce_size as usize;
-
                                 let extended = ExtendedExtranonce::from_upstream_extranonce(
                                     extranonce.clone(), range_0.clone(), range_1.clone(), range_2.clone(),
                                 ).unwrap_or_else(|| panic!("Impossible to create a valid extended extranonce from {:?} {:?} {:?} {:?}", extranonce,range_0,range_1,range_2));
@@ -368,12 +322,7 @@ impl Upstream {
         });
     }
 
-    /// Receives a new SV2 `SubmitSharesExtended` message, checks that the submission target meets
-    /// the expected (TODO), and sends to the Upstream role.
     pub fn handle_submit(self_: Arc<Mutex<Self>>) {
-        // TODO
-        // check if submit meet the upstream target and if so send back (upstream target will
-        // likely be not the same of downstream target)
         let receiver = self_
             .safe_lock(|s| s.rx_sv2_submit_shares_ext.clone())
             .unwrap();
@@ -384,20 +333,10 @@ impl Upstream {
                 sv2_submit.channel_id = self_.safe_lock(|s| s.channel_id.unwrap()).unwrap();
                 sv2_submit.job_id = self_.safe_lock(|s| s.job_id.unwrap()).unwrap();
 
+                println!("{:#?}", sv2_submit);
+
                 info!("Up: Submitting Share");
                 debug!("Up: Handling SubmitSharesExtended: {:?}", &sv2_submit);
-
-                //match self_
-                //    .safe_lock(|s| s.current_job.clone().get_candidate_hash(&sv2_submit))
-                //    .unwrap()
-                //{
-                //    Some(target) => {
-                //        debug!("Up: SubmitSharesExtended Target: {:?}", target);
-                //    }
-                //    None => {
-                //        println!("Err:: Up: Received share but no job is present");
-                //    }
-                //}
 
                 let message = Message::Mining(
                     roles_logic_sv2::parsers::Mining::SubmitSharesExtended(sv2_submit),
@@ -565,6 +504,7 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
                 self.min_extranonce_size, m.extranonce_size
             );
         }
+        self.target.safe_lock(|t| *t = m.target.to_vec()).unwrap();
         // Set the `min_extranonce_size` in accordance to the SV2 Pool
         self.min_extranonce_size = m.extranonce_size;
 
@@ -609,15 +549,6 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
         _: roles_logic_sv2::mining_sv2::SetExtranoncePrefix,
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error>
     {
-        // let message = Mining::SetExtranoncePrefix(SetExtranoncePrefix {
-        //     // Channel identifier, stable for whole connection lifetime. Used for broadcasting new
-        //     // jobs by the connection. Can be extended of standard channel (always extended for SV1
-        //     // Translator Proxy)
-        //     channel_id: m.channel_id,
-        //     // Bytes used as implicit first part of extranonce.
-        //     extranonce_prefix: m.extranonce_prefix.clone().into_static(),
-        // });
-        // Ok(SendTo::Respond(message))
         todo!()
     }
 
@@ -638,17 +569,6 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
         m: roles_logic_sv2::mining_sv2::SubmitSharesError,
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error>
     {
-        // let message = Mining::SubmitSharesError(SubmitSharesError {
-        //     // Channel identifier, stable for whole connection lifetime. Used for broadcasting new
-        //     // jobs by the connection. Can be extended of standard channel (always extended for SV1
-        //     // Translator Proxy)
-        //     channel_id: m.channel_id,
-        //     // Sequence number
-        //     sequence_number: m.sequence_number,
-        //     // Relevant error reason code
-        //     error_code: m.error_code.clone().into_static(),
-        // });
-        // Ok(SendTo::Respond(message))
         info!("Up: Rejected Submitted Share");
         debug!("Up: Handling SubmitSharesError: {:?}", &m);
         Ok(SendTo::None(None))
@@ -680,21 +600,6 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
             warn!("VERSION ROLLING NOT ALLOWED IS A TODO");
             // todo!()
         }
-        let job = Job_ {
-            id: m.job_id,
-            coinbase_tx_prefix: m.coinbase_tx_prefix.to_vec(),
-            coinbase_tx_suffix: m.coinbase_tx_suffix.to_vec(),
-            merkle_path: m.merkle_path.to_vec(),
-        };
-        match self.current_job {
-            Job::Void => {
-                self.current_job = Job::WithJobOnly(job);
-            }
-            Job::WithJobOnly(_) => todo!(),
-            Job::WithJobAndPrevHash(_, _) => {
-                self.current_job = Job::WithJobOnly(job);
-            }
-        };
 
         let message = Mining::NewExtendedMiningJob(m.into_static());
 
@@ -712,30 +617,10 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
         m: roles_logic_sv2::mining_sv2::SetNewPrevHash,
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error>
     {
-        trace!("handle_set_new_prev_hash msg");
-        let prev_hash: [u8; 32] = m.prev_hash.to_vec().try_into().unwrap();
-        let prev_hash = DHash::from_inner(prev_hash);
-        let prev_hash = BlockHash::from_hash(prev_hash);
-        match &self.current_job {
-            Job::Void => todo!(),
-            Job::WithJobOnly(job) => {
-                if job.id == m.job_id {
-                    let prev_hash = PrevHash {
-                        prev_hash,
-                        nbits: m.nbits,
-                    };
-                    self.current_job = Job::WithJobAndPrevHash(job.clone(), prev_hash);
-                } else {
-                    todo!()
-                }
-            }
-            Job::WithJobAndPrevHash(_, _) => todo!(),
-        };
-        let message = Mining::SetNewPrevHash(m.into_static());
-
         info!("Up: Set New Prev Hash");
-        debug!("Up: Handling SetNewPrevHash: {:?}", &message);
+        debug!("Up: Handling SetNewPrevHash: {:?}", &m);
 
+        let message = Mining::SetNewPrevHash(m.into_static());
         Ok(SendTo::None(Some(message)))
     }
 

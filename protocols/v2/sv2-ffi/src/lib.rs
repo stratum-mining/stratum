@@ -558,7 +558,7 @@ mod tests {
             coinbase_tx_input_sequence: 0xffffffff,
             coinbase_tx_value_remaining: 0x00f2052a,
             coinbase_tx_outputs_count: 1,
-            coinbase_tx_outputs: binary_sv2::Seq064K::new(Vec::<binary_sv2::B064K>::new()).unwrap(),
+            coinbase_tx_outputs: vec![].try_into().unwrap(),
             coinbase_tx_locktime: 0x00000000,
             merkle_path: binary_sv2::Seq0255::new(Vec::<binary_sv2::U256>::new()).unwrap(),
         };
