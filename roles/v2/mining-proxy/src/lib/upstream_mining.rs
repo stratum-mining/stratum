@@ -3,11 +3,11 @@ use crate::{ChannelKind, EXTRANOUNCE_RAGE_1_LENGTH, BLOCK_REWARD};
 use super::downstream_mining::{Channel, DownstreamMiningNode, StdFrame as DownstreamFrame};
 use async_channel::{Receiver, SendError, Sender};
 use async_recursion::async_recursion;
-use codec_sv2::{Frame, HandshakeRole, Initiator, StandardEitherFrame, StandardSv2Frame, Sv2Frame};
+use codec_sv2::{Frame, HandshakeRole, Initiator, StandardEitherFrame, StandardSv2Frame};
 use network_helpers::noise_connection_tokio::Connection;
 use roles_logic_sv2::{
     channel_logic::{
-        channel_factory::{ProxyExtendedChannelFactory, self, ExtendedChannelKind}, proxy_group_channel::GroupChannels,
+        channel_factory::{ProxyExtendedChannelFactory, ExtendedChannelKind,OpenStandardChannleRequester, ChannelFactory}, proxy_group_channel::GroupChannels,
     },
     common_messages_sv2::{Protocol, SetupConnection},
     common_properties::{
@@ -20,10 +20,11 @@ use roles_logic_sv2::{
     parsers::{CommonMessages, Mining, MiningDeviceMessages, PoolMessages},
     routing_logic::MiningProxyRoutingLogic,
     selectors::{DownstreamMiningSelector, ProxyDownstreamMiningSelector as Prs},
-    utils::{Mutex, GroupId}, job_creator::JobsCreators,
+    utils::{Mutex, GroupId}, job_creator::JobsCreators, template_distribution_sv2::NewTemplate,
 };
 use std::{collections::HashMap, sync::Arc};
 use tokio::{net::TcpStream, task};
+use roles_logic_sv2::template_distribution_sv2::SetNewPrevHash as SetNewPrevHashTemplate;
 
 pub type Message = PoolMessages<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;
@@ -89,7 +90,9 @@ pub struct UpstreamMiningNode {
     #[allow(dead_code)]
     channel_factory: Option<ProxyExtendedChannelFactory>,
     pub channel_kind: ChannelKind,
-    group_id: Arc<Mutex<GroupId>>
+    group_id: Arc<Mutex<GroupId>>,
+    recv_tp: Option<Receiver<NewTemplate<'static>>>,
+    recv_ph: Option<Receiver<SetNewPrevHashTemplate<'static>>>
 }
 
 use core::convert::TryInto;
@@ -99,7 +102,7 @@ use tracing::debug;
 /// It assume that endpoint NEVER change flags and version!
 /// I can open both extended and group channel with upstream.
 impl UpstreamMiningNode {
-    pub fn new(id: u32, address: SocketAddr, authority_public_key: [u8; 32], channel_kind: ChannelKind, group_id: Arc<Mutex<GroupId>>) -> Self {
+    pub fn new(id: u32, address: SocketAddr, authority_public_key: [u8; 32], channel_kind: ChannelKind, group_id: Arc<Mutex<GroupId>>, recv_tp: Option<Receiver<NewTemplate<'static>>>, recv_ph: Option<Receiver<SetNewPrevHashTemplate<'static>>> ) -> Self {
         let request_id_mapper = RequestIdMapper::new();
         let downstream_selector = ProxyRemoteSelector::new();
         Self {
@@ -115,9 +118,44 @@ impl UpstreamMiningNode {
             group_channels: GroupChannels::new(),
             channel_factory: None,
             channel_kind,
-            group_id, 
+            group_id,
+            recv_tp,
+            recv_ph
         }
     }
+
+    pub fn start_receiving_new_template(self_mutex: Arc<Mutex<Self>>) {
+        task::spawn(async move {
+            let new_template_reciver = self_mutex.safe_lock(|a| a.recv_tp.clone()).unwrap().unwrap();
+            let mut res = vec![];
+            loop {
+                let mut message_new_template: NewTemplate = new_template_reciver.recv().await.unwrap();
+                let hash_map = self_mutex.safe_lock(|a| a.channel_factory.as_mut().unwrap().on_new_template(&mut message_new_template)).unwrap().unwrap();
+
+                for (id, message) in hash_map {
+                    let downstream = self_mutex.safe_lock(|a| a.downstream_selector.downstream_from_channel_id(id.clone())).unwrap().unwrap();
+                    res.push(SendTo::RelayNewMessageToRemote(
+                        downstream.clone(),
+                        message,
+                    ));
+                }
+                self_mutex.safe_lock(|s|
+               s.next_match(SendTo::Multiple(res)).await;
+            }
+
+        });
+    }
+
+    pub fn start_receiving_new_prev_hash(self_mutex: Arc<Mutex<Self>>) {
+        task::spawn(async move {
+            let prev_hash_reciver = self_mutex.safe_lock(|a| a.recv_ph.clone()).unwrap().unwrap();
+            loop {
+                let message_prev_hash = prev_hash_reciver.recv().await.unwrap();
+                let channel_factory = self_mutex.safe_lock(|a| a.channel_factory.as_mut().unwrap().on_new_prev_hash_from_tp(&message_prev_hash)).unwrap();
+            }
+        });
+    }
+
 
     /// Try send a message to the upstream node.
     /// If the node is connected and there are no error return Ok(())
@@ -278,6 +316,7 @@ impl UpstreamMiningNode {
             payload,
             routing_logic,
         );
+        // fn match_next(&mut self, send_to: SenDto)
         match next_message_to_send {
             Ok(SendTo::RelaySameMessageToRemote(downstream)) => {
                 let sv2_frame: codec_sv2::Sv2Frame<MiningDeviceMessages, buffer_sv2::Slice> =
@@ -450,6 +489,15 @@ impl UpstreamMiningNode {
             ChannelKind::Group => panic!(),
             ChannelKind::Extended =>  {
                 let messages = self.channel_factory.as_mut().unwrap().add_standard_channel(request_id, downstream_hash_rate, id_header_only,todo!()).unwrap();
+                let messages = messages.into_iter().map(|x|x.into_static()).collect();
+                messages
+            },
+            ChannelKind::ExtendedWithNegotiator =>  {
+                let requester = match is_header_only {
+                    true => OpenStandardChannleRequester::HomRequester,
+                    false => todo!(),
+                };
+                let messages = self.channel_factory.as_mut().unwrap().add_standard_channel(request_id, downstream_hash_rate, requester).unwrap();
                 let messages = messages.into_iter().map(|x|x.into_static()).collect();
                 messages
             },
@@ -636,6 +684,7 @@ impl
 
         let mut res = vec![];
         for downstream in downstreams {
+            
             match downstream.safe_lock(|r| r.get_channel().clone()).unwrap() {
                 Channel::DowntreamHomUpstreamGroup {
                     channel_id,
@@ -774,7 +823,8 @@ mod tests {
             215, 11, 47, 78, 34, 232, 25, 192, 195, 168, 170, 209, 95, 181, 40, 114, 154, 226, 176,
             190, 90, 169, 238, 89, 191, 183, 97, 63, 194, 119, 11, 31,
         ];
-        let actual = UpstreamMiningNode::new(id, address, authority_public_key, ChannelKind::Group);
+        let ids = Arc::new(Mutex::new(GroupId::new()));
+        let actual = UpstreamMiningNode::new(id, address, authority_public_key, ChannelKind::Group,ids, recv_tp, recv_ph);
 
         assert_eq!(actual.id, id);
 

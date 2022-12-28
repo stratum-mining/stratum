@@ -29,20 +29,16 @@ use once_cell::sync::{Lazy, OnceCell};
 use serde::Deserialize;
 use std::{net::IpAddr, str::FromStr};
 use tracing::{error, info};
-
 use lib::upstream_mining::UpstreamMiningNode;
 use once_cell::sync::OnceCell;
 use serde::Deserialize;
-
 use roles_logic_sv2::{
     routing_logic::{CommonRoutingLogic, MiningProxyRoutingLogic, MiningRoutingLogic},
     selectors::GeneralMiningSelector,
-    utils::{Id, Mutex, GroupId},
+    utils::{Id, Mutex, GroupId}
 };
 use std::sync::Arc;
-
 use crate::lib::{job_negotiator::JobNegotiator, template_receiver::TemplateRx};
-
 type RLogic = MiningProxyRoutingLogic<
     crate::lib::downstream_mining::DownstreamMiningNode,
     crate::lib::upstream_mining::UpstreamMiningNode,
@@ -107,7 +103,8 @@ pub struct UpstreamJNValues {
 #[derive(Debug, Deserialize, Clone, Copy)]
 pub enum ChannelKind {
     Group,
-    Extended
+    Extended,
+    ExtendedWithNegotiator
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -121,21 +118,66 @@ pub struct Config {
     min_supported_version: u16,
 }
 
-pub fn initialize_r_logic(upstreams: &[UpstreamMiningValues], group_id: Arc<Mutex<GroupId>>) -> RLogic {
-    let upstream_mining_nodes: Vec<Arc<Mutex<UpstreamMiningNode>>> = upstreams
-        .iter()
-        .enumerate()
-        .map(|(index, upstream)| {
-            let socket = SocketAddr::new(upstream.address.parse().unwrap(), upstream.port);
-            Arc::new(Mutex::new(UpstreamMiningNode::new(
-                index as u32,
-                socket,
-                upstream.pub_key.clone().into_inner().to_bytes(),
-                upstream.channel_kind.clone(),
-                group_id.clone(),
-            )))
-        })
-        .collect();
+pub async fn initialize_r_logic(upstreams: &[UpstreamMiningValues], group_id: Arc<Mutex<GroupId>>, config: Config) -> RLogic {
+
+    let mut upstream_mining_nodes = Vec::with_capacity(upstreams.len());
+    for (index,upstream) in upstreams.iter().enumerate() {
+        let socket = SocketAddr::new(upstream.address.parse().unwrap(), upstream.port);
+        
+        // channel for template
+        let (send_tp, recv_tp) = bounded(10);
+        // channel for prev hash
+        let (send_ph, recv_ph): (async_channel::Sender<roles_logic_sv2::template_distribution_sv2::SetNewPrevHash>,async_channel::Receiver<roles_logic_sv2::template_distribution_sv2::SetNewPrevHash>) = bounded(10);
+        // channel to send coinbase_output_max_additional_size
+        let (send_comas, recv_comas) = bounded(10);
+
+        match upstream.channel_kind {
+            ChannelKind::Group => todo!(),
+            ChannelKind::Extended => todo!(),
+            ChannelKind::ExtendedWithNegotiator => {
+                
+                TemplateRx::connect(
+                config.tp_address.parse().unwrap(),
+                send_tp,
+                send_ph,
+                recv_comas,
+            )
+            .await;
+            
+            JobNegotiator::new(
+                SocketAddr::new(
+                    IpAddr::from_str(&config.upstreams_jn[0].address).unwrap(),
+                    config.upstreams_jn[0].port,
+                ),
+                config.upstreams_jn[0]
+                    .clone()
+                    .pub_key
+                    .into_inner()
+                    .as_bytes()
+                    .clone(),
+                    send_comas,
+            ).await;
+        },
+
+            
+        }
+        
+        upstream_mining_nodes.push(Arc::new(Mutex::new(UpstreamMiningNode::new(
+            index as u32,
+            socket,
+            upstream.pub_key.clone().into_inner().to_bytes(),
+            upstream.channel_kind.clone(),
+            group_id.clone(),
+            Some(recv_tp),
+            Some(recv_ph)
+        ))));
+
+        let upstream = upstream_mining_nodes.pop().unwrap();
+
+        UpstreamMiningNode::start_receiving_new_template(upstream.clone());
+        UpstreamMiningNode::start_receiving_new_prev_hash(upstream.clone());
+
+    } 
     //crate::lib::upstream_mining::scan(upstream_mining_nodes.clone()).await;
     let upstream_selector = GeneralMiningSelector::new(upstream_mining_nodes);
     MiningProxyRoutingLogic {
@@ -236,9 +278,11 @@ async fn main() {
             return;
         }
     };
+    
+
     let group_id = Arc::new(Mutex::new(GroupId::new()));
     ROUTING_LOGIC
-        .set(Mutex::new(initialize_r_logic(&config.upstreams, group_id)))
+        .set(Mutex::new(initialize_r_logic(&config.upstreams, group_id, config.clone()).await))
         .expect("BUG: Failed to set ROUTING_LOGIC");
     info!("PROXY INITIALIZING");
     initialize_upstreams(config.min_supported_version, config.max_supported_version).await;
@@ -248,38 +292,6 @@ async fn main() {
         config.listen_address.parse().unwrap(),
         config.listen_mining_port,
     );
-    
-    // channel to exchange New Template
-    let (send_tp, recv_tp) = bounded(10);
-    // channel to exchange set new prev hash
-    let (send_ph, recv_ph) = bounded(10);
-    // channel to send coinbase_output_max_additional_size
-    let (send_comas, recv_comas) = bounded(10);
-
-    JobNegotiator::new(
-        SocketAddr::new(
-            IpAddr::from_str(&config.upstreams_jn[0].address).unwrap(),
-            config.upstreams_jn[0].port,
-        ),
-        config.upstreams_jn[0]
-            .clone()
-            .pub_key
-            .into_inner()
-            .as_bytes()
-            .clone(),
-        recv_tp,
-        recv_ph,
-        send_comas,
-    )
-    .await;
-
-    TemplateRx::connect(
-        config.tp_address.parse().unwrap(),
-        send_tp,
-        send_ph,
-        recv_comas,
-    )
-    .await;
 
     info!("PROXY INITIALIZED");
     crate::lib::downstream_mining::listen_for_downstream_mining(socket).await

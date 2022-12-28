@@ -313,6 +313,11 @@ impl
                 let messages = up.as_mut().unwrap().safe_lock(|up| up.open_standard_channel_down(req.request_id.as_u32(), req.nominal_hash_rate, true,)).unwrap();
                 let messages = messages.into_iter().map(|m| SendTo::Respond(m)).collect();
                 Ok(SendTo::Multiple(messages))
+            },
+            ChannelKind::ExtendedWithNegotiator => {
+                let messages = up.as_mut().unwrap().safe_lock(|up| up.open_standard_channel_down(req.request_id.as_u32(), req.nominal_hash_rate, true,)).unwrap();
+                let messages = messages.into_iter().map(|m| SendTo::Respond(m)).collect();
+                Ok(SendTo::Multiple(messages))
             }
         }
         
