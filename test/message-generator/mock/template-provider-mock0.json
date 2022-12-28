@@ -58,14 +58,6 @@
         {
             "type": "automatic",
             "message_id": "set_new_prev_hash"
-        },
-        {
-            "type": "automatic",
-            "message_id": "set_new_prev_hash_final"
-        },
-        {
-            "type": "automatic",
-            "message_id": "new_template_final"
         }
 
     ],
