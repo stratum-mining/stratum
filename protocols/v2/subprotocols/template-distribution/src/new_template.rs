@@ -174,18 +174,17 @@ use core::cmp;
 
 #[cfg(feature = "prop_test")]
 impl Arbitrary for NewTemplate<'static> {
-
     fn arbitrary(g: &mut Gen) -> NewTemplate<'static> {
         let coinbase_tx_version = (u32::arbitrary(g) % 2) + 1;
         let mut coinbase_prefix = vec::Vec::new();
         let coinbase_prefix_len = match coinbase_tx_version {
-            1 => u8::arbitrary(g)as usize,
+            1 => u8::arbitrary(g) as usize,
             2 => u8::arbitrary(g).checked_add(4).unwrap_or(4) as usize,
             _ => panic!(),
         };
         for _ in 0..coinbase_prefix_len {
             coinbase_prefix.push(u8::arbitrary(g))
-        };
+        }
         let coinbase_prefix: binary_sv2::B0255 = coinbase_prefix.try_into().unwrap();
 
         // TODO uncomment when node provided outputs are supported

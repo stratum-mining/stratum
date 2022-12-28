@@ -151,11 +151,9 @@ impl Bridge {
                 let channel_sequence_id =
                     self_.safe_lock(|s| s.channel_sequence_id.next()).unwrap() - 1;
                 let sv2_submit: SubmitSharesExtended = self_
-                    .safe_lock(|s| {
-                        s.translate_submit(channel_sequence_id, sv1_submit, extrnonce)
-                            .unwrap()
-                    })
-                    .unwrap();
+                    .safe_lock(|s| s.translate_submit(channel_sequence_id, sv1_submit, extrnonce))
+                    .unwrap()
+                    .unwrap_or_else(|_| std::process::exit(1));
                 let mut send_upstream = false;
                 match self_
                     .safe_lock(|s| {
