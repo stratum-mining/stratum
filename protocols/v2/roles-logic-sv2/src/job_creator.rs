@@ -333,16 +333,14 @@ pub mod tests {
     use bitcoin::Script;
 
     // Test job_id_from_template
-    #[test]
-    fn test_job_id_from_template() {
+    #[cfg(feature = "prop_test")]
+    #[quickcheck_macros::quickcheck]
+    fn test_job_id_from_template(mut template: NewTemplate<'static>) {
         let out = TxOut {
             value: BLOCK_REWARD,
             script_pubkey: Script::new_p2pk(&new_pub_key()),
         };
         let mut jobs_creators = JobsCreators::new(32);
-
-        //Create a template
-        let mut template = template_from_gen(&mut Gen::new(255));
 
         let job = jobs_creators
             .on_new_template(template.borrow_mut(), false, vec![out])
@@ -358,8 +356,9 @@ pub mod tests {
     }
 
     // Test reset new template
-    #[test]
-    fn test_reset_new_template() {
+    #[cfg(feature = "prop_test")]
+    #[quickcheck_macros::quickcheck]
+    fn test_reset_new_template(mut template: NewTemplate<'static>) {
         let out = TxOut {
             value: BLOCK_REWARD,
             script_pubkey: Script::new_p2pk(&new_pub_key()),
@@ -368,9 +367,6 @@ pub mod tests {
 
         assert_eq!(jobs_creators.lasts_new_template.len(), 0);
 
-        //Create a template
-        let mut template = template_from_gen(&mut Gen::new(255));
-        template.template_id = template.template_id.checked_sub(1).unwrap_or(0);
         let _ = jobs_creators.on_new_template(template.borrow_mut(), false, vec![out]);
 
         assert_eq!(jobs_creators.lasts_new_template.len(), 1);
@@ -395,8 +391,9 @@ pub mod tests {
     }
 
     // Test on_new_prev_hash
-    #[test]
-    fn test_on_new_prev_hash() {
+    #[cfg(feature = "prop_test")]
+    #[quickcheck_macros::quickcheck]
+    fn test_on_new_prev_hash(mut template: NewTemplate<'static>) {
         let out = TxOut {
             value: BLOCK_REWARD,
             script_pubkey: Script::new_p2pk(&new_pub_key()),
@@ -404,7 +401,6 @@ pub mod tests {
         let mut jobs_creators = JobsCreators::new(32);
 
         //Create a template
-        let mut template = template_from_gen(&mut Gen::new(255));
         let _ = jobs_creators.on_new_template(template.borrow_mut(), false, vec![out]);
         let test_id = template.template_id;
 
@@ -468,7 +464,7 @@ pub mod tests {
         encoded.append(&mut encoded1.clone());
         encoded.append(&mut encoded2.clone());
         let outs = tx_outputs_to_costum_scripts(&encoded[..]);
-        assert!(dbg!(&outs[0]) == dbg!(&tx1));
+        assert!(&outs[0] == &tx1);
         assert!(outs[1] == tx2);
     }
 }

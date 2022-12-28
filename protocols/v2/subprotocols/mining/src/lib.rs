@@ -649,7 +649,6 @@ fn increment_bytes_be(bs: &mut [u8]) -> Result<(), ()> {
 pub mod tests {
     use super::*;
     use alloc::vec::Vec;
-    use quickcheck::{Arbitrary, Gen};
     use quickcheck_macros;
 
     #[test]
