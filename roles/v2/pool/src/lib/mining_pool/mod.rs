@@ -274,18 +274,11 @@ impl Pool {
         rx: Receiver<NewTemplate<'static>>,
         sender_message_received_signal: Sender<()>,
     ) {
-        let mut first_done = false;
         while let Ok(mut new_template) = rx.recv().await {
             debug!(
                 "New template received, creating a new mining job(s): {:?}",
                 new_template
             );
-            // TODO temporary fix to bitcoind error that send a non future new template before the
-            // sending the p hash
-            if !first_done {
-                new_template.future_template = true;
-                first_done = true;
-            }
 
             let channel_factory = self_.safe_lock(|s| s.channel_factory.clone()).unwrap();
             let mut messages = channel_factory

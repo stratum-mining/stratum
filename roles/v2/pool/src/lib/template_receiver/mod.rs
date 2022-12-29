@@ -5,7 +5,9 @@ use network_helpers::plain_connection_tokio::PlainConnection;
 use roles_logic_sv2::{
     handlers::template_distribution::ParseServerTemplateDistributionMessages,
     parsers::{PoolMessages, TemplateDistribution},
-    template_distribution_sv2::{NewTemplate, SetNewPrevHash, SubmitSolution},
+    template_distribution_sv2::{
+        CoinbaseOutputDataSize, NewTemplate, SetNewPrevHash, SubmitSolution,
+    },
     utils::Mutex,
 };
 use std::{convert::TryInto, net::SocketAddr, sync::Arc};
@@ -43,8 +45,6 @@ impl TemplateRx {
             }
         };
 
-        // Strict is false here because the first few messages coming in we can't parse -
-        // not sure what they are though - so false just lets us ignore them
         let (mut receiver, mut sender): (Receiver<EitherFrame>, Sender<EitherFrame>) =
             PlainConnection::new(stream).await;
 
@@ -60,6 +60,17 @@ impl TemplateRx {
             message_received_signal,
         }));
         let cloned = self_.clone();
+
+        let c_additional_size = CoinbaseOutputDataSize {
+            coinbase_output_max_additional_size: crate::COINBASE_ADD_SZIE,
+        };
+        let frame = PoolMessages::TemplateDistribution(
+            TemplateDistribution::CoinbaseOutputDataSize(c_additional_size),
+        )
+        .try_into()
+        .unwrap();
+
+        Self::send(self_.clone(), frame).await.unwrap();
 
         task::spawn(async { Self::start(cloned).await });
         task::spawn(async { Self::on_new_solution(self_, solution_receiver).await });

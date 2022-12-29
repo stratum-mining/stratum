@@ -23,6 +23,8 @@ const NETWORK: Network = Network::Testnet;
 
 const BLOCK_REWARD: u64 = 5_000_000_000;
 
+const COINBASE_ADD_SZIE: u32 = 100;
+
 fn new_pub_key() -> PublicKey {
     let priv_k = PrivateKey::from_slice(&PRIVATE_KEY_BTC, NETWORK).unwrap();
     let secp = Secp256k1::default();
