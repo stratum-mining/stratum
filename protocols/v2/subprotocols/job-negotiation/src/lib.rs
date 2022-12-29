@@ -9,14 +9,6 @@
 //!
 
 extern crate alloc;
-mod allocate_mining_job;
-mod commit_mining_job;
-mod identify_transactions;
-mod provide_missing_transactions;
+mod coinbase_output_data_size;
 
-pub use allocate_mining_job::{AllocateMiningJobToken, AllocateMiningJobTokenSuccess};
-pub use commit_mining_job::{CommitMiningJob, CommitMiningJobError, CommitMiningJobSuccess};
-pub use identify_transactions::{IdentifyTransactions, IdentifyTransactionsSuccess};
-pub use provide_missing_transactions::{
-    ProvideMissingTransactions, ProvideMissingTransactionsSuccess,
-};
+pub use coinbase_output_data_size::CoinbaseOutputDataSize;

@@ -2,7 +2,7 @@
 use alloc::vec::Vec;
 #[cfg(not(feature = "with_serde"))]
 use binary_sv2::binary_codec_sv2;
-use binary_sv2::{Deserialize, Seq0255, Serialize, Str0255, B0255, B064K, U256};
+use binary_sv2::{Deserialize, Seq0255, Serialize, Str0255, B064K, U256};
 use core::convert::TryInto;
 
 /// # SetCustomMiningJob (Client -> Server)
@@ -19,12 +19,7 @@ pub struct SetCustomMiningJob<'decoder> {
     pub channel_id: u32,
     /// Client-specified identifier for pairing responses.
     pub request_id: u32,
-    /// Token provided by the pool which uniquely identifies
-    /// the job that the Job Negotiator has negotiated with the
-    /// pool. See the Job Negotiation Protocol for more
-    /// details.
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
-    pub mining_job_token: B0255<'decoder>,
+    pub coinbase_tx_output_additional_size: u32,
     /// Valid version field that reflects the current network
     /// consensus. The general purpose bits (as specified in
     /// BIP320) can be freely manipulated by the downstream
@@ -112,7 +107,7 @@ impl<'d> GetSize for SetCustomMiningJob<'d> {
     fn get_size(&self) -> usize {
         self.channel_id.get_size()
             + self.request_id.get_size()
-            + self.mining_job_token.get_size()
+            + self.coin.get_size()
             + self.version.get_size()
             + self.prev_hash.get_size()
             + self.min_ntime.get_size()

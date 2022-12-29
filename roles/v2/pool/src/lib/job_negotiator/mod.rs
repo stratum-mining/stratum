@@ -2,7 +2,6 @@ use binary_sv2::{Seq064K, B0255, B064K, U256};
 use codec_sv2::{Frame, HandshakeRole, Responder};
 use roles_logic_sv2::{
     common_messages_sv2::SetupConnectionSuccess,
-    job_negotiation_sv2::CommitMiningJob,
     utils::{Id, Mutex},
 };
 use std::{collections::HashMap, convert::TryInto, sync::Arc};
@@ -12,95 +11,29 @@ use tracing::info;
 use crate::{Configuration, EitherFrame, StdFrame};
 use async_channel::{Receiver, Sender};
 use network_helpers::noise_connection_tokio::Connection;
-use roles_logic_sv2::{
-    handlers::{job_negotiation::ParseClientJobNegotiationMessages, SendTo_},
-    parsers::PoolMessages,
-};
+use roles_logic_sv2::{handlers::SendTo_, parsers::PoolMessages};
 use tokio::task;
-pub type SendTo = SendTo_<roles_logic_sv2::parsers::JobNegotiation<'static>, ()>;
-mod message_handlers;
+pub type SendTo = SendTo_<roles_logic_sv2::parsers::JobNegotiation, ()>;
 
-#[derive(Debug, Clone)]
-struct CommittedMiningJob<'decoder> {
-    request_id: u32,
-    mining_job_token: B0255<'decoder>,
-    version: u32,
-    coinbase_tx_version: u32,
-    coinbase_prefix: B0255<'decoder>,
-    coinbase_tx_input_n_sequence: u32,
-    coinbase_tx_value_remaining: u64,
-    coinbase_tx_outputs: Seq064K<'decoder, B064K<'decoder>>,
-    coinbase_tx_locktime: u32,
-    min_extranonce_size: u16,
-    tx_short_hash_nonce: u64,
-    tx_short_hash_list: Seq064K<'decoder, u64>,
-    tx_hash_list_hash: U256<'decoder>,
-    excess_data: B064K<'decoder>,
-}
-
-impl<'a> From<CommitMiningJob<'a>> for CommittedMiningJob<'static> {
-    fn from(m: CommitMiningJob) -> Self {
-        m.into()
-
-    }
-}
 #[derive(Debug)]
 pub struct JobNegotiatorDownstream {
     sender: Sender<EitherFrame>,
     receiver: Receiver<EitherFrame>,
-    token_to_job_map: HashMap<Vec<u8>, Option<CommittedMiningJob<'static>>>,
-    tokens: Id,
 }
 
 impl JobNegotiatorDownstream {
     pub fn new(receiver: Receiver<EitherFrame>, sender: Sender<EitherFrame>) -> Self {
-        Self {
-            receiver,
-            sender,
-            token_to_job_map: HashMap::new(),
-            tokens: Id::new(),
-        }
-    }
-
-    pub async fn next(self_mutex: Arc<Mutex<Self>>, mut incoming: StdFrame) {
-        let message_type = incoming.get_header().unwrap().msg_type();
-        let payload = incoming.payload();
-        let next_message_to_send =
-            ParseClientJobNegotiationMessages::handle_message_job_negotiation(
-                self_mutex.clone(),
-                message_type,
-                payload,
-            );
-        match next_message_to_send {
-            Ok(SendTo::Respond(message)) => Self::send(self_mutex, message).await.unwrap(),
-            Ok(SendTo::None(m)) => match m {
-                _ => todo!(),
-            },
-            Ok(_) => panic!(),
-            Err(_) => todo!(),
-        }
+        Self { receiver, sender }
     }
 
     pub async fn send(
         self_mutex: Arc<Mutex<Self>>,
-        message: roles_logic_sv2::parsers::JobNegotiation<'static>,
+        message: roles_logic_sv2::parsers::JobNegotiation,
     ) -> Result<(), ()> {
         let sv2_frame: StdFrame = PoolMessages::JobNegotiation(message).try_into().unwrap();
         let sender = self_mutex.safe_lock(|self_| self_.sender.clone()).unwrap();
         sender.send(sv2_frame.into()).await.map_err(|_| ())?;
         Ok(())
-    }
-    fn check_job_validity(&mut self, _message: &CommitMiningJob) -> bool {
-        true
-    }
-    pub async fn start_messaging(self_: Arc<Mutex<JobNegotiatorDownstream>>) {
-        let receiver = self_.safe_lock(|s| s.receiver.clone()).unwrap();
-        loop {
-            let message_from_proxy_jn: StdFrame =
-                receiver.recv().await.unwrap().try_into().unwrap();
-            JobNegotiatorDownstream::next(self_.clone(), message_from_proxy_jn).await;
-
-        }
     }
 }
 
@@ -151,10 +84,6 @@ impl JobNegotiator {
                 receiver.clone(),
                 sender.clone(),
             )));
-            let cloned = jndownstream.clone();
-            task::spawn(async move {
-                JobNegotiatorDownstream::start_messaging(cloned).await;
-            });
 
             self_
                 .safe_lock(|job_negotiator| job_negotiator.downstreams.push(jndownstream))
