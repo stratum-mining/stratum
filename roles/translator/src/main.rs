@@ -17,8 +17,6 @@ use std::{
     net::{IpAddr, SocketAddr},
     str::FromStr,
     sync::Arc,
-    thread::sleep,
-    time::Duration,
 };
 use v1::server_to_client;
 
@@ -140,6 +138,7 @@ async fn main() {
         rx_sv2_set_new_prev_hash,
         rx_sv2_new_ext_mining_job,
         tx_sv1_notify,
+        tx_status,
         extended_extranonce,
         target,
     )));
@@ -157,7 +156,8 @@ async fn main() {
         tx_sv1_submit,
         rx_sv1_notify,
         b,
-    );
+    )
+    .await;
 
     // Check all tasks if is_finished() is true, if so exit
     loop {

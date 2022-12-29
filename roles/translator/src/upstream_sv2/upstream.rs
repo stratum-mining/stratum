@@ -26,6 +26,7 @@ use roles_logic_sv2::{
     routing_logic::{CommonRoutingLogic, MiningRoutingLogic, NoRouting},
     selectors::NullDownstreamMiningSelector,
     utils::Mutex,
+    Error,
 };
 use std::{net::SocketAddr, sync::Arc, thread::sleep, time::Duration};
 use tracing::{debug, error, info, warn};

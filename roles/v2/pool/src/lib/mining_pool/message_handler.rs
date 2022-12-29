@@ -134,7 +134,7 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
 
     fn handle_submit_shares_extended(
         &mut self,
-        _m: SubmitSharesExtended,
+        m: SubmitSharesExtended,
     ) -> Result<SendTo<()>, Error> {
         let res = self
             .channel_factory

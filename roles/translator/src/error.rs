@@ -1,6 +1,26 @@
-use std::fmt;
+use std::{
+    fmt,
+    sync::{MutexGuard, PoisonError},
+};
+
+use crate::proxy;
+use v1::server_to_client::Notify;
 
 pub type ProxyResult<'a, T> = core::result::Result<T, Error<'a>>;
+
+#[derive(Debug)]
+pub enum LockError<'a> {
+    Bridge(PoisonError<MutexGuard<'a, proxy::Bridge>>),
+}
+
+#[derive(Debug)]
+pub enum ChannelSendError<'a> {
+    SubmitSharesExtended(
+        async_channel::SendError<roles_logic_sv2::mining_sv2::SubmitSharesExtended<'a>>,
+    ),
+    SetNewPrevHash(async_channel::SendError<roles_logic_sv2::mining_sv2::SetNewPrevHash<'a>>),
+    Notify(async_channel::SendError<Notify<'a>>),
+}
 
 #[derive(Debug)]
 pub enum Error<'a> {
@@ -25,6 +45,13 @@ pub enum Error<'a> {
     UpstreamIncoming(roles_logic_sv2::errors::Error),
     /// SV1 protocol library error
     V1Protocol(v1::error::Error<'a>),
+    SubprotocolMining(String),
+    // Locking Errors
+    // PoisonLock(LockError<'a>),
+    // Channel Receiver Error
+    ChannelErrorReceiver(async_channel::RecvError),
+    // Channel Sender Errors
+    ChannelErrorSender(ChannelSendError<'a>),
 }
 
 impl<'a> fmt::Display for Error<'a> {
@@ -41,7 +68,11 @@ impl<'a> fmt::Display for Error<'a> {
             ParseInt(ref e) => write!(f, "Bad convert from `String` to `int`: `{:?}`", e),
             RolesSv2Logic(ref e) => write!(f, "Roles SV2 Logic Error: `{:?}`", e),
             V1Protocol(ref e) => write!(f, "V1 Protocol Error: `{:?}`", e),
+            SubprotocolMining(ref e) => write!(f, "Subprotocol Mining Error: `{:?}`", e),
             UpstreamIncoming(ref e) => write!(f, "Upstream parse incoming error: `{:?}`", e),
+            // PoisonLock(ref e) => write!(f, "Poison Lock error: `{:?}`", e),
+            ChannelErrorReceiver(ref e) => write!(f, "Channel receive error: `{:?}`", e),
+            ChannelErrorSender(ref e) => write!(f, "Channel send error: `{:?}`", e),
         }
     }
 }
@@ -97,5 +128,53 @@ impl<'a> From<toml::de::Error> for Error<'a> {
 impl<'a> From<v1::error::Error<'a>> for Error<'a> {
     fn from(e: v1::error::Error<'a>) -> Self {
         Error::V1Protocol(e)
+    }
+}
+
+impl<'a> From<async_channel::RecvError> for Error<'a> {
+    fn from(e: async_channel::RecvError) -> Self {
+        Error::ChannelErrorReceiver(e)
+    }
+}
+
+// *** LOCK ERRORS ***
+// impl<'a> From<PoisonError<MutexGuard<'a, proxy::Bridge>>> for Error<'a> {
+//     fn from(e: PoisonError<MutexGuard<'a, proxy::Bridge>>) -> Self {
+//         Error::PoisonLock(
+//             LockError::Bridge(e)
+//         )
+//     }
+// }
+
+// impl<'a> From<PoisonError<MutexGuard<'a, NextMiningNotify>>> for Error<'a> {
+//     fn from(e: PoisonError<MutexGuard<'a, NextMiningNotify>>) -> Self {
+//         Error::PoisonLock(
+//             LockError::NextMiningNotify(e)
+//         )
+//     }
+// }
+
+// *** CHANNEL SENDER ERRORS ***
+impl<'a> From<async_channel::SendError<roles_logic_sv2::mining_sv2::SubmitSharesExtended<'a>>>
+    for Error<'a>
+{
+    fn from(
+        e: async_channel::SendError<roles_logic_sv2::mining_sv2::SubmitSharesExtended<'a>>,
+    ) -> Self {
+        Error::ChannelErrorSender(ChannelSendError::SubmitSharesExtended(e))
+    }
+}
+
+impl<'a> From<async_channel::SendError<roles_logic_sv2::mining_sv2::SetNewPrevHash<'a>>>
+    for Error<'a>
+{
+    fn from(e: async_channel::SendError<roles_logic_sv2::mining_sv2::SetNewPrevHash<'a>>) -> Self {
+        Error::ChannelErrorSender(ChannelSendError::SetNewPrevHash(e))
+    }
+}
+
+impl<'a> From<async_channel::SendError<Notify<'a>>> for Error<'a> {
+    fn from(e: async_channel::SendError<Notify<'a>>) -> Self {
+        Error::ChannelErrorSender(ChannelSendError::Notify(e))
     }
 }

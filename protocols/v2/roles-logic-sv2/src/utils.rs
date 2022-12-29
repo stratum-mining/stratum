@@ -1,6 +1,5 @@
 //! Useful struct used into this crate and by crates that want to interact with this one
 use std::{
-    collections::HashMap,
     convert::TryInto,
     sync::{Mutex as Mutex_, MutexGuard, PoisonError},
 };

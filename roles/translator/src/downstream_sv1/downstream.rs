@@ -205,7 +205,7 @@ impl Downstream {
 
     /// Accept connections from one or more SV1 Downstream roles (SV1 Mining Devices) and create a
     /// new `Downstream` for each connection.
-    pub fn accept_connections(
+    pub async fn accept_connections(
         downstream_addr: SocketAddr,
         tx_sv1_submit: Sender<(v1::client_to_server::Submit<'static>, Vec<u8>)>,
         receiver_mining_notify: Receiver<server_to_client::Notify<'static>>,
