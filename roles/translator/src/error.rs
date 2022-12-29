@@ -1,10 +1,10 @@
+use crate::proxy;
+use roles_logic_sv2::bitcoin::util::uint::ParseLengthError;
 use std::{
     fmt,
     sync::{MutexGuard, PoisonError},
 };
-
-use crate::proxy;
-use v1::server_to_client::Notify;
+use v1::server_to_client::{Notify, SetDifficulty};
 
 pub type ProxyResult<'a, T> = core::result::Result<T, Error<'a>>;
 
@@ -24,6 +24,7 @@ pub enum ChannelSendError<'a> {
 
 #[derive(Debug)]
 pub enum Error<'a> {
+    VecToSlice32(Vec<u8>),
     /// Errors on bad CLI argument input.
     BadCliArgs,
     /// Errors on bad `serde_json` serialize/deserialize.
@@ -52,6 +53,8 @@ pub enum Error<'a> {
     ChannelErrorReceiver(async_channel::RecvError),
     // Channel Sender Errors
     ChannelErrorSender(ChannelSendError<'a>),
+    Uint256Conversion(ParseLengthError),
+    SetDifficultyToMessage(SetDifficulty),
 }
 
 impl<'a> fmt::Display for Error<'a> {
@@ -73,6 +76,11 @@ impl<'a> fmt::Display for Error<'a> {
             // PoisonLock(ref e) => write!(f, "Poison Lock error: `{:?}`", e),
             ChannelErrorReceiver(ref e) => write!(f, "Channel receive error: `{:?}`", e),
             ChannelErrorSender(ref e) => write!(f, "Channel send error: `{:?}`", e),
+            Uint256Conversion(ref e) => write!(f, "U256 Conversion Error: `{:?}`", e),
+            SetDifficultyToMessage(ref e) => {
+                write!(f, "Error converting SetDifficulty to Message: `{:?}`", e)
+            }
+            VecToSlice32(ref e) => write!(f, "Standard Error: `{:?}`", e),
         }
     }
 }
@@ -176,5 +184,23 @@ impl<'a> From<async_channel::SendError<roles_logic_sv2::mining_sv2::SetNewPrevHa
 impl<'a> From<async_channel::SendError<Notify<'a>>> for Error<'a> {
     fn from(e: async_channel::SendError<Notify<'a>>) -> Self {
         Error::ChannelErrorSender(ChannelSendError::Notify(e))
+    }
+}
+
+impl<'a> From<Vec<u8>> for Error<'a> {
+    fn from(e: Vec<u8>) -> Self {
+        Error::VecToSlice32(e)
+    }
+}
+
+impl<'a> From<ParseLengthError> for Error<'a> {
+    fn from(e: ParseLengthError) -> Self {
+        Error::Uint256Conversion(e)
+    }
+}
+
+impl<'a> From<SetDifficulty> for Error<'a> {
+    fn from(e: SetDifficulty) -> Self {
+        Error::SetDifficultyToMessage(e)
     }
 }

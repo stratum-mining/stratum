@@ -147,8 +147,8 @@ impl Bridge {
         let tx_status = self_.safe_lock(|s| s.tx_status.clone()).unwrap();
         task::spawn(async move {
             loop {
-                let upstream_target: [u8; 32] =
-                    target.safe_lock(|t| t.clone()).unwrap().try_into().unwrap();
+                let target = target.safe_lock(|t| t.clone()).unwrap().try_into();
+                let upstream_target: [u8; 32] = handle_result!(tx_status, target);
                 let mut upstream_target: Target = upstream_target.into();
                 self_
                     .safe_lock(|s| s.channel_factory.set_target(&mut upstream_target))

@@ -1,4 +1,4 @@
-use crate::{downstream_sv1, ProxyResult};
+use crate::{downstream_sv1, handle_result, status::Status, ProxyResult};
 use async_channel::{bounded, Receiver, Sender};
 use async_std::{
     io::BufReader,
@@ -46,10 +46,12 @@ pub struct Downstream {
 
 impl Downstream {
     /// Instantiate a new `Downstream`.
+    #[allow(clippy::too_many_arguments)]
     pub async fn new(
         stream: TcpStream,
         tx_sv1_submit: Sender<(v1::client_to_server::Submit<'static>, Vec<u8>)>,
         rx_sv1_notify: Receiver<server_to_client::Notify<'static>>,
+        tx_status: Sender<Status<'static>>,
         extranonce1: Vec<u8>,
         last_notify: Option<server_to_client::Notify<'static>>,
         target: Vec<u8>,
@@ -83,6 +85,7 @@ impl Downstream {
         // SV1 message received, a message response is sent directly back to the SV1 Downstream
         // role, or the message is sent upwards to the Bridge for translation into a SV2 message
         // and then sent to the SV2 Upstream role.
+        let tx_status_bufreader = tx_status.clone();
         task::spawn(async move {
             loop {
                 // Read message from SV1 Mining Device Client socket
@@ -91,11 +94,10 @@ impl Downstream {
                 // `Translator.receive_downstream` via `sender_upstream` done in
                 // `send_message_upstream`.
                 while let Some(incoming) = messages.next().await {
-                    let incoming =
-                        incoming.expect("Err reading next incoming message from SV1 Downstream");
+                    let incoming = handle_result!(tx_status_bufreader, incoming);
                     info!("Receiving from Mining Device: {:?}", &incoming);
                     let incoming: Result<json_rpc::Message, _> = serde_json::from_str(&incoming);
-                    let incoming = incoming.expect("Err serializing incoming message from SV1 Downstream into JSON from `String`");
+                    let incoming = handle_result!(tx_status_bufreader, incoming);
                     // Handle what to do with message
                     Self::handle_incoming_sv1(self_.clone(), incoming).await;
                 }
@@ -121,6 +123,7 @@ impl Downstream {
         });
 
         let downstream_clone = downstream.clone();
+        let tx_status_notify = tx_status.clone();
         task::spawn(async move {
             let mut first_sent = false;
             loop {
@@ -130,12 +133,14 @@ impl Downstream {
                     .unwrap();
 
                 if is_a && !first_sent && last_notify.is_some() {
-                    let message = Self::get_set_difficulty(target.clone());
+                    let message =
+                        handle_result!(tx_status_notify, Self::get_set_difficulty(target.clone()));
                     Downstream::send_message_downstream(downstream_clone.clone(), message).await;
-
+                    // safe unwrap since last_notify is checked in if statement
                     let sv1_mining_notify_msg = last_notify.as_ref().unwrap().clone();
-                    let messsage: json_rpc::Message = sv1_mining_notify_msg.try_into().unwrap();
-                    Downstream::send_message_downstream(downstream_clone.clone(), messsage).await;
+                    let message: json_rpc::Message =
+                        handle_result!(tx_status_notify, sv1_mining_notify_msg.try_into());
+                    Downstream::send_message_downstream(downstream_clone.clone(), message).await;
                     downstream_clone
                         .clone()
                         .safe_lock(|s| {
@@ -145,8 +150,9 @@ impl Downstream {
                     first_sent = true;
                 } else if is_a {
                     let sv1_mining_notify_msg = rx_sv1_notify.clone().recv().await.unwrap();
-                    let messsage: json_rpc::Message = sv1_mining_notify_msg.try_into().unwrap();
-                    Downstream::send_message_downstream(downstream_clone.clone(), messsage).await;
+                    let message: json_rpc::Message =
+                        handle_result!(tx_status_notify, sv1_mining_notify_msg.try_into());
+                    Downstream::send_message_downstream(downstream_clone.clone(), message).await;
                     first_sent = true;
                 }
             }
@@ -168,14 +174,14 @@ impl Downstream {
 
     /// Converts target received by the `SetTarget` SV2 message from the Upstream role into the
     /// difficulty for the Downstream role sent via the SV1 `mining.set_difficulty` message.
-    fn difficulty_from_target(target: Vec<u8>) -> f64 {
+    fn difficulty_from_target(target: Vec<u8>) -> ProxyResult<'static, f64> {
         let target = target.as_slice();
 
         // If received target is 0, return 0
         if Downstream::is_zero(target) {
-            return 0.0;
+            return Ok(0.0);
         }
-        let target = Uint256::from_be_slice(target).unwrap();
+        let target = Uint256::from_be_slice(target)?;
         let pdiff: [u8; 32] = [
             0, 0, 0, 0, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
             255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
@@ -184,23 +190,23 @@ impl Downstream {
 
         if pdiff > target {
             let diff = pdiff.div(target);
-            diff.low_u64() as f64
+            Ok(diff.low_u64() as f64)
         } else {
             let diff = target.div(pdiff);
             let diff = diff.low_u64() as f64;
             // TODO still bring to too low difficulty shares
-            1.0 / diff
+            Ok(1.0 / diff)
         }
     }
 
     /// Converts target received by the `SetTarget` SV2 message from the Upstream role into the
     /// difficulty for the Downstream role and creates the SV1 `mining.set_difficulty` message to
     /// be sent to the Downstream role.
-    fn get_set_difficulty(target: Vec<u8>) -> json_rpc::Message {
-        let value = Downstream::difficulty_from_target(target);
+    fn get_set_difficulty(target: Vec<u8>) -> ProxyResult<'static, json_rpc::Message> {
+        let value = Downstream::difficulty_from_target(target)?;
         let set_target = v1::methods::server_to_client::SetDifficulty { value };
-        let message: json_rpc::Message = set_target.try_into().unwrap();
-        message
+        let message: json_rpc::Message = set_target.into();
+        Ok(message)
     }
 
     /// Accept connections from one or more SV1 Downstream roles (SV1 Mining Devices) and create a
@@ -209,6 +215,7 @@ impl Downstream {
         downstream_addr: SocketAddr,
         tx_sv1_submit: Sender<(v1::client_to_server::Submit<'static>, Vec<u8>)>,
         receiver_mining_notify: Receiver<server_to_client::Notify<'static>>,
+        tx_status: Sender<Status<'static>>,
         bridge: Arc<Mutex<crate::proxy::Bridge>>,
     ) {
         let downstream_listener = TcpListener::bind(downstream_addr).await.unwrap();
@@ -230,6 +237,7 @@ impl Downstream {
                         stream,
                         tx_sv1_submit.clone(),
                         receiver_mining_notify.clone(),
+                        tx_status.clone(),
                         opened.extranonce,
                         opened.last_notify,
                         opened.target,
@@ -292,6 +300,7 @@ impl IsServer<'static> for Downstream {
         self.version_rolling_mask = Some(downstream_sv1::new_version_rolling_mask());
         self.version_rolling_min_bit = Some(downstream_sv1::new_version_rolling_min());
         (
+            // unwraps safe since values are set above
             Some(server_to_client::VersionRollingParams::new(
                 self.version_rolling_mask.clone().unwrap(),
                 self.version_rolling_min_bit.clone().unwrap(),
@@ -339,7 +348,7 @@ impl IsServer<'static> for Downstream {
         if self.first_job_received {
             let mut tproxy_part =
                 self.extranonce1[self.extranonce1.len() - crate::SELF_EXTRNONCE_LEN..].to_vec();
-            let mut downstream_part: Vec<u8> = request.extra_nonce2.clone().try_into().unwrap();
+            let mut downstream_part: Vec<u8> = request.extra_nonce2.clone().into();
             tproxy_part.append(&mut downstream_part);
 
             let to_send = (request.clone(), tproxy_part);
@@ -427,7 +436,7 @@ mod tests {
             0, 0, 0, 0, 0,
         ];
         target.reverse();
-        let actual = Downstream::difficulty_from_target(target);
+        let actual = Downstream::difficulty_from_target(target).unwrap();
         let expect = 512.0;
         assert_eq!(actual, expect);
     }

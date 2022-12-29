@@ -138,7 +138,7 @@ async fn main() {
         rx_sv2_set_new_prev_hash,
         rx_sv2_new_ext_mining_job,
         tx_sv1_notify,
-        tx_status,
+        tx_status.clone(),
         extended_extranonce,
         target,
     )));
@@ -155,6 +155,7 @@ async fn main() {
         downstream_addr,
         tx_sv1_submit,
         rx_sv1_notify,
+        tx_status.clone(),
         b,
     )
     .await;
