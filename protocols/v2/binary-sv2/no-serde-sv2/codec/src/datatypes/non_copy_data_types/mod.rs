@@ -79,3 +79,13 @@ impl<'a> From<&'a U32AsRef<'a>> for u32 {
         u32::from_le_bytes([b[0], b[1], b[2], b[3]])
     }
 }
+
+impl<'a> From<B032<'a>> for U256<'a> {
+    fn from(v: B032<'a>) -> Self {
+        let mut arr = [0_u8; 32];
+        let b032 = v.inner_as_ref();
+        // len for B032 can never be greater than that of U256
+        arr[..v.len()].clone_from_slice(&b032[..v.len()]);
+        U256::from(arr)
+    }
+}

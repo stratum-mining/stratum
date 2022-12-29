@@ -247,6 +247,7 @@ pub trait ParseUpstreamMiningMessages<
 
         // Is fine to unwrap on safe_lock
         match (message_type, payload).try_into() {
+            //PANICS
             Ok(Mining::OpenStandardMiningChannelSuccess(mut m)) => {
                 let remote = match routing_logic {
                     MiningRoutingLogic::None => None,
@@ -274,6 +275,7 @@ pub trait ParseUpstreamMiningMessages<
                         .unwrap(),
                 }
             }
+            // Returns         Ok(SendTo::None(Some(m)))
             Ok(Mining::OpenExtendedMiningChannelSuccess(m)) => match channel_type {
                 SupportedChannelTypes::Standard => Err(Error::UnexpectedMessage),
                 SupportedChannelTypes::Extended => self_mutex
@@ -284,6 +286,7 @@ pub trait ParseUpstreamMiningMessages<
                     .safe_lock(|s| s.handle_open_extended_mining_channel_success(m))
                     .unwrap(),
             },
+            // Panics
             Ok(Mining::OpenMiningChannelError(m)) => match channel_type {
                 SupportedChannelTypes::Standard => self_mutex
                     .safe_lock(|x| x.handle_open_mining_channel_error(m))
@@ -298,6 +301,7 @@ pub trait ParseUpstreamMiningMessages<
                     .safe_lock(|x| x.handle_open_mining_channel_error(m))
                     .unwrap(),
             },
+            // Panics
             Ok(Mining::UpdateChannelError(m)) => match channel_type {
                 SupportedChannelTypes::Standard => self_mutex
                     .safe_lock(|x| x.handle_update_channel_error(m))
@@ -312,6 +316,7 @@ pub trait ParseUpstreamMiningMessages<
                     .safe_lock(|x| x.handle_update_channel_error(m))
                     .unwrap(),
             },
+            // Panics
             Ok(Mining::CloseChannel(m)) => match channel_type {
                 SupportedChannelTypes::Standard => {
                     self_mutex.safe_lock(|x| x.handle_close_channel(m)).unwrap()
@@ -326,6 +331,7 @@ pub trait ParseUpstreamMiningMessages<
                     self_mutex.safe_lock(|x| x.handle_close_channel(m)).unwrap()
                 }
             },
+            //Panics
             Ok(Mining::SetExtranoncePrefix(m)) => match channel_type {
                 SupportedChannelTypes::Standard => self_mutex
                     .safe_lock(|x| x.handle_set_extranonce_prefix(m))
@@ -340,6 +346,7 @@ pub trait ParseUpstreamMiningMessages<
                     .safe_lock(|x| x.handle_set_extranonce_prefix(m))
                     .unwrap(),
             },
+            // Returns         Ok(SendTo::None(None))
             Ok(Mining::SubmitSharesSuccess(m)) => match channel_type {
                 SupportedChannelTypes::Standard => self_mutex
                     .safe_lock(|x| x.handle_submit_shares_success(m))
@@ -354,6 +361,7 @@ pub trait ParseUpstreamMiningMessages<
                     .safe_lock(|x| x.handle_submit_shares_success(m))
                     .unwrap(),
             },
+            // returns         Ok(SendTo::None(None))
             Ok(Mining::SubmitSharesError(m)) => match channel_type {
                 SupportedChannelTypes::Standard => self_mutex
                     .safe_lock(|x| x.handle_submit_shares_error(m))
@@ -368,6 +376,7 @@ pub trait ParseUpstreamMiningMessages<
                     .safe_lock(|x| x.handle_submit_shares_error(m))
                     .unwrap(),
             },
+            // Panics
             Ok(Mining::NewMiningJob(m)) => match channel_type {
                 SupportedChannelTypes::Standard => self_mutex
                     .safe_lock(|x| x.handle_new_mining_job(m))
@@ -376,6 +385,7 @@ pub trait ParseUpstreamMiningMessages<
                 SupportedChannelTypes::Group => Err(Error::UnexpectedMessage),
                 SupportedChannelTypes::GroupAndExtended => Err(Error::UnexpectedMessage),
             },
+            // returns         Ok(SendTo::None(Some(message)))l
             Ok(Mining::NewExtendedMiningJob(m)) => {
                 debug!("Received new extended mining job");
                 match channel_type {
@@ -391,6 +401,7 @@ pub trait ParseUpstreamMiningMessages<
                         .unwrap(),
                 }
             }
+            // returns         Ok(SendTo::None(Some(message)))
             Ok(Mining::SetNewPrevHash(m)) => {
                 debug!("Received SetNewPrevHash");
                 match channel_type {
@@ -408,6 +419,7 @@ pub trait ParseUpstreamMiningMessages<
                         .unwrap(),
                 }
             }
+            //Panic
             Ok(Mining::SetCustomMiningJobSuccess(m)) => {
                 match (channel_type, is_work_selection_enabled) {
                     (SupportedChannelTypes::Extended, true) => self_mutex
@@ -422,6 +434,7 @@ pub trait ParseUpstreamMiningMessages<
                     _ => Err(Error::UnexpectedMessage),
                 }
             }
+            //Panic
             Ok(Mining::SetCustomMiningJobError(m)) => {
                 match (channel_type, is_work_selection_enabled) {
                     (SupportedChannelTypes::Extended, true) => self_mutex
@@ -436,6 +449,7 @@ pub trait ParseUpstreamMiningMessages<
                     _ => Err(Error::UnexpectedMessage),
                 }
             }
+            // returns         Ok(SendTo::None(None))
             Ok(Mining::SetTarget(m)) => match channel_type {
                 SupportedChannelTypes::Standard => {
                     self_mutex.safe_lock(|x| x.handle_set_target(m)).unwrap()
@@ -450,6 +464,7 @@ pub trait ParseUpstreamMiningMessages<
                     self_mutex.safe_lock(|x| x.handle_set_target(m)).unwrap()
                 }
             },
+            // Panic
             Ok(Mining::Reconnect(m)) => match channel_type {
                 SupportedChannelTypes::Standard => {
                     self_mutex.safe_lock(|x| x.handle_reconnect(m)).unwrap()
@@ -464,6 +479,7 @@ pub trait ParseUpstreamMiningMessages<
                     self_mutex.safe_lock(|x| x.handle_reconnect(m)).unwrap()
                 }
             },
+            //returns         Ok(SendTo::None(None))
             Ok(Mining::SetGroupChannel(m)) => match channel_type {
                 SupportedChannelTypes::Standard => Err(Error::UnexpectedMessage),
                 SupportedChannelTypes::Extended => Err(Error::UnexpectedMessage),

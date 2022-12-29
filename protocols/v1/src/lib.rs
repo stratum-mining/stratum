@@ -317,7 +317,11 @@ pub trait IsClient<'a> {
                 self.set_version_rolling_mask(configure.version_rolling_mask());
                 self.set_version_rolling_min_bit(configure.version_rolling_min_bit());
                 self.set_status(ClientStatus::Configured);
-                warn!("WARNING: Subscribe extranonce is hardcoded by server");
+
+                //in sv1 the mining.configure message should be the first message to come in before
+                // the subscribe - the subscribe response is where the server hands out the extranonce
+                // so it doesnt really matter what the server sets the extranonce to in the mining.configure handler
+                debug!("NOTICE: Subscribe extranonce is hardcoded by server");
                 let subscribe = self
                     .subscribe(
                         configure.id,

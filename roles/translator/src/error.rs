@@ -22,6 +22,7 @@ pub enum Error<'a> {
     ParseInt(std::num::ParseIntError),
     /// Errors from `roles_logic_sv2` crate.
     RolesSv2Logic(roles_logic_sv2::errors::Error),
+    UpstreamIncoming(roles_logic_sv2::errors::Error),
     /// SV1 protocol library error
     V1Protocol(v1::error::Error<'a>),
 }
@@ -40,6 +41,7 @@ impl<'a> fmt::Display for Error<'a> {
             ParseInt(ref e) => write!(f, "Bad convert from `String` to `int`: `{:?}`", e),
             RolesSv2Logic(ref e) => write!(f, "Roles SV2 Logic Error: `{:?}`", e),
             V1Protocol(ref e) => write!(f, "V1 Protocol Error: `{:?}`", e),
+            UpstreamIncoming(ref e) => write!(f, "Upstream parse incoming error: `{:?}`", e),
         }
     }
 }

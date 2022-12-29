@@ -324,7 +324,7 @@ pub mod tests {
 
     const BLOCK_REWARD: u64 = 625_000_000_000;
 
-    pub fn new_pub_key() -> PublicKey {
+    pub fn new_pub_key() -> ScriptKind {
         let priv_k = PrivateKey::from_slice(&PRIVATE_KEY_BTC, NETWORK).unwrap();
         let secp = Secp256k1::default();
         let pub_k = PublicKey::from_private_key(&secp, &priv_k);

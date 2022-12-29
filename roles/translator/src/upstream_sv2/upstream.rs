@@ -1,6 +1,7 @@
 use crate::{
     downstream_sv1::Downstream,
-    error::Error::CodecNoise,
+    error::Error::{CodecNoise, UpstreamIncoming},
+    status::{State, Status},
     upstream_sv2::{EitherFrame, Message, StdFrame, UpstreamConnection},
     ProxyResult,
 };
@@ -64,6 +65,9 @@ pub struct Upstream {
     /// used by the `Downstream` and sent to the Downstream role in a SV2 `mining.subscribe`
     /// response message. Passed to the `Downstream` on connection creation.
     tx_sv2_extranonce: Sender<ExtendedExtranonce>,
+    /// This allows the upstream threads to be able to communicate back to the main thread its
+    /// current status.
+    tx_status: Sender<Status<'static>>,
     /// The first `target` is received by the Upstream role in the SV2
     /// `OpenExtendedMiningChannelSuccess` message, then updated periodically via SV2 `SetTarget`
     /// messages. Passed to the `Downstream` on connection creation and sent to the Downstream role
@@ -89,6 +93,7 @@ impl Upstream {
         tx_sv2_new_ext_mining_job: Sender<NewExtendedMiningJob<'static>>,
         min_extranonce_size: u16,
         tx_sv2_extranonce: Sender<ExtendedExtranonce>,
+        tx_status: Sender<Status<'static>>,
         target: Arc<Mutex<Vec<u8>>>,
     ) -> ProxyResult<'static, Arc<Mutex<Self>>> {
         // Connect to the SV2 Upstream role retry connection every 5 seconds.
@@ -133,6 +138,7 @@ impl Upstream {
             job_id: None,
             min_extranonce_size,
             tx_sv2_extranonce,
+            tx_status,
             target,
         })))
     }
@@ -308,15 +314,30 @@ impl Upstream {
                                     .unwrap();
                                 sender.send(m).await.unwrap();
                             }
-                            // impossible state
+                            // impossible state: handle_message_mining only returns
+                            // the above 3 messages in the Ok(SendTo::None(Some(m))) case to be sent
+                            // to the bridge for translation.
                             _ => panic!(),
                         }
                     }
                     Ok(SendTo::None(None)) => (),
                     // No need to handle impossible state just panic cause are impossible and we
-                    // will never panic ;-)
+                    // will never panic ;-) Verified: handle_message_mining only either panics,
+                    // returns Ok(SendTo::None(None)) or Ok(SendTo::None(Some(m))), or returns Err
                     Ok(_) => panic!(),
-                    Err(_) => todo!("Handle `SendTo` error on Upstream"),
+                    Err(e) => {
+                        let status = Status {
+                            state: State::Shutdown(UpstreamIncoming(e)),
+                        };
+                        error!(
+                            "TERMINATING: Error handling pool role message: {:?}",
+                            status
+                        );
+                        let sender = self_.safe_lock(|s| s.tx_status.clone()).unwrap();
+                        sender.send(status).await.unwrap();
+
+                        break;
+                    }
                 }
             }
         });
@@ -326,6 +347,7 @@ impl Upstream {
         let receiver = self_
             .safe_lock(|s| s.rx_sv2_submit_shares_ext.clone())
             .unwrap();
+        debug!("handle_submit: starting");
         task::spawn(async move {
             loop {
                 let mut sv2_submit: SubmitSharesExtended = receiver.recv().await.unwrap();
@@ -439,7 +461,7 @@ impl ParseUpstreamCommonMessages<NoRouting> for Upstream {
     fn handle_setup_connection_success(
         &mut self,
         _: roles_logic_sv2::common_messages_sv2::SetupConnectionSuccess,
-    ) -> Result<SendToCommon, roles_logic_sv2::errors::Error> {
+    ) -> Result<SendToCommon, Error> {
         debug!("Up: Handling SetupConnectionSuccess");
         Ok(SendToCommon::None(None))
     }
@@ -447,14 +469,14 @@ impl ParseUpstreamCommonMessages<NoRouting> for Upstream {
     fn handle_setup_connection_error(
         &mut self,
         _: roles_logic_sv2::common_messages_sv2::SetupConnectionError,
-    ) -> Result<SendToCommon, roles_logic_sv2::errors::Error> {
+    ) -> Result<SendToCommon, Error> {
         todo!()
     }
 
     fn handle_channel_endpoint_changed(
         &mut self,
         _: roles_logic_sv2::common_messages_sv2::ChannelEndpointChanged,
-    ) -> Result<SendToCommon, roles_logic_sv2::errors::Error> {
+    ) -> Result<SendToCommon, Error> {
         todo!()
     }
 }
@@ -481,8 +503,7 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
         &mut self,
         _m: roles_logic_sv2::mining_sv2::OpenStandardMiningChannelSuccess,
         _remote: Option<Arc<Mutex<Downstream>>>,
-    ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error>
-    {
+    ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, Error> {
         panic!("Standard Mining Channels are not used in Translator Proxy")
     }
 
@@ -493,14 +514,12 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
     fn handle_open_extended_mining_channel_success(
         &mut self,
         m: roles_logic_sv2::mining_sv2::OpenExtendedMiningChannelSuccess,
-    ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error>
-    {
-        let extranonce_size_bytes = m.extranonce_size / 8;
-        if self.min_extranonce_size < extranonce_size_bytes {
-            panic!(
-                "Proxy requested min extranonce size of {}, but pool requires min of {}",
-                self.min_extranonce_size, m.extranonce_size
-            );
+    ) -> Result<SendTo<Downstream>, Error> {
+        if self.min_extranonce_size < m.extranonce_size {
+            return Err(Error::InvalidExtranonceSize(
+                self.min_extranonce_size,
+                m.extranonce_size,
+            ));
         }
         self.target.safe_lock(|t| *t = m.target.to_vec()).unwrap();
         // Set the `min_extranonce_size` in accordance to the SV2 Pool
@@ -518,8 +537,7 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
     fn handle_open_mining_channel_error(
         &mut self,
         _: roles_logic_sv2::mining_sv2::OpenMiningChannelError,
-    ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error>
-    {
+    ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, Error> {
         todo!()
     }
 
@@ -527,8 +545,7 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
     fn handle_update_channel_error(
         &mut self,
         _m: roles_logic_sv2::mining_sv2::UpdateChannelError,
-    ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error>
-    {
+    ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, Error> {
         todo!()
     }
 
@@ -536,8 +553,7 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
     fn handle_close_channel(
         &mut self,
         _m: roles_logic_sv2::mining_sv2::CloseChannel,
-    ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error>
-    {
+    ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, Error> {
         todo!()
     }
 
@@ -554,8 +570,7 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
     fn handle_submit_shares_success(
         &mut self,
         m: roles_logic_sv2::mining_sv2::SubmitSharesSuccess,
-    ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error>
-    {
+    ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, Error> {
         info!("Up: Successfully Submitted Share");
         debug!("Up: Handling SubmitSharesSuccess: {:?}", &m);
         Ok(SendTo::None(None))
@@ -578,8 +593,7 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
     fn handle_new_mining_job(
         &mut self,
         _m: roles_logic_sv2::mining_sv2::NewMiningJob,
-    ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error>
-    {
+    ) -> Result<SendTo<Downstream>, Error> {
         panic!("Standard Mining Channels are not used in Translator Proxy")
     }
 
@@ -589,8 +603,7 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
     fn handle_new_extended_mining_job(
         &mut self,
         m: roles_logic_sv2::mining_sv2::NewExtendedMiningJob,
-    ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error>
-    {
+    ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, Error> {
         debug!("Received NewExtendedMiningJob: {:?}", &m);
         info!("Is future job: {}\n", &m.future_job);
 
@@ -626,8 +639,7 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
     fn handle_set_custom_mining_job_success(
         &mut self,
         _m: roles_logic_sv2::mining_sv2::SetCustomMiningJobSuccess,
-    ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error>
-    {
+    ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, Error> {
         unimplemented!()
     }
 
@@ -635,8 +647,7 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
     fn handle_set_custom_mining_job_error(
         &mut self,
         _m: roles_logic_sv2::mining_sv2::SetCustomMiningJobError,
-    ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error>
-    {
+    ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, Error> {
         unimplemented!()
     }
 
@@ -662,8 +673,7 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
     fn handle_reconnect(
         &mut self,
         _m: roles_logic_sv2::mining_sv2::Reconnect,
-    ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error>
-    {
+    ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, Error> {
         unimplemented!()
     }
 }
