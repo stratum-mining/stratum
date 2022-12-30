@@ -9,6 +9,6 @@
 //!
 
 extern crate alloc;
-mod coinbase_output_data_size;
+mod set_coinbase;
 
-pub use coinbase_output_data_size::CoinbaseOutputDataSize;
+pub use set_coinbase::SetCoinbase;

@@ -14,7 +14,7 @@ use framing_sv2::framing2::{Frame, Sv2Frame};
 
 use const_sv2::{
     CHANNEL_BIT_CHANNEL_ENDPOINT_CHANGED, CHANNEL_BIT_CLOSE_CHANNEL,
-    CHANNEL_BIT_COINBASE_OUTPUT_DATA_SIZE, CHANNEL_BIT_COINBASE_OUTPUT_DATA_SIZE_JN,
+    CHANNEL_BIT_COINBASE_OUTPUT_DATA_SIZE, CHANNEL_BIT_SET_COINBASE,
     CHANNEL_BIT_MINING_SET_NEW_PREV_HASH, CHANNEL_BIT_NEW_EXTENDED_MINING_JOB,
     CHANNEL_BIT_NEW_MINING_JOB, CHANNEL_BIT_NEW_TEMPLATE, CHANNEL_BIT_OPEN_EXTENDED_MINING_CHANNEL,
     CHANNEL_BIT_OPEN_EXTENDED_MINING_CHANNEL_SUCCES, CHANNEL_BIT_OPEN_MINING_CHANNEL_ERROR,
@@ -30,7 +30,7 @@ use const_sv2::{
     CHANNEL_BIT_SUBMIT_SHARES_SUCCESS, CHANNEL_BIT_SUBMIT_SOLUTION, CHANNEL_BIT_UPDATE_CHANNEL,
     CHANNEL_BIT_UPDATE_CHANNEL_ERROR, MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED,
     MESSAGE_TYPE_CLOSE_CHANNEL, MESSAGE_TYPE_COINBASE_OUTPUT_DATA_SIZE,
-    MESSAGE_TYPE_COINBASE_OUTPUT_DATA_SIZE_JN, MESSAGE_TYPE_MINING_SET_NEW_PREV_HASH,
+    MESSAGE_TYPE_SET_COINBASE, MESSAGE_TYPE_MINING_SET_NEW_PREV_HASH,
     MESSAGE_TYPE_NEW_EXTENDED_MINING_JOB, MESSAGE_TYPE_NEW_MINING_JOB, MESSAGE_TYPE_NEW_TEMPLATE,
     MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL, MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL_SUCCES,
     MESSAGE_TYPE_OPEN_MINING_CHANNEL_ERROR, MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL,
@@ -55,7 +55,7 @@ use template_distribution_sv2::{
     RequestTransactionDataSuccess, SetNewPrevHash, SubmitSolution,
 };
 
-use job_negotiation_sv2::CoinbaseOutputDataSize as CoinbaseOutputDataSizeJn;
+use job_negotiation_sv2::SetCoinbase;
 
 use mining_sv2::{
     CloseChannel, NewExtendedMiningJob, NewMiningJob, OpenExtendedMiningChannel,
@@ -101,8 +101,8 @@ pub enum TemplateDistribution<'a> {
 
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "with_serde", derive(Serialize, Deserialize))]
-pub enum JobNegotiation {
-    CoinbaseOutputDataSize(CoinbaseOutputDataSizeJn),
+pub enum JobNegotiation<'a> {
+    SetCoinbase(SetCoinbase<'a>),
 }
 
 #[derive(Clone, Debug)]
@@ -131,7 +131,7 @@ pub enum Mining<'a> {
     #[cfg_attr(feature = "with_serde", serde(borrow))]
     SetCustomMiningJobError(SetCustomMiningJobError<'a>),
     #[cfg_attr(feature = "with_serde", serde(borrow))]
-    SetCustomMiningJobSuccess(SetCustomMiningJobSuccess<'a>),
+    SetCustomMiningJobSuccess(SetCustomMiningJobSuccess),
     #[cfg_attr(feature = "with_serde", serde(borrow))]
     SetExtranoncePrefix(SetExtranoncePrefix<'a>),
     #[cfg_attr(feature = "with_serde", serde(borrow))]
@@ -240,15 +240,15 @@ impl<'a> IsSv2Message for TemplateDistribution<'a> {
         }
     }
 }
-impl IsSv2Message for JobNegotiation {
+impl<'a> IsSv2Message for JobNegotiation<'a> {
     fn message_type(&self) -> u8 {
         match self {
-            Self::CoinbaseOutputDataSize(_) => MESSAGE_TYPE_COINBASE_OUTPUT_DATA_SIZE_JN,
+            Self::SetCoinbase(_) => MESSAGE_TYPE_SET_COINBASE,
         }
     }
     fn channel_bit(&self) -> bool {
         match self {
-            Self::CoinbaseOutputDataSize(_) => CHANNEL_BIT_COINBASE_OUTPUT_DATA_SIZE_JN,
+            Self::SetCoinbase(_) => CHANNEL_BIT_SET_COINBASE,
         }
     }
 }
@@ -342,10 +342,10 @@ impl<'decoder> From<TemplateDistribution<'decoder>> for EncodableField<'decoder>
     }
 }
 #[cfg(not(feature = "with_serde"))]
-impl<'decoder> From<JobNegotiation> for EncodableField<'decoder> {
-    fn from(m: JobNegotiation) -> Self {
+impl<'decoder> From<JobNegotiation<'decoder>> for EncodableField<'decoder> {
+    fn from(m: JobNegotiation<'decoder>) -> Self {
         match m {
-            JobNegotiation::CoinbaseOutputDataSize(a) => a.into(),
+            JobNegotiation::SetCoinbase(a) => a.into(),
         }
     }
 }
@@ -403,10 +403,10 @@ impl GetSize for TemplateDistribution<'_> {
         }
     }
 }
-impl GetSize for JobNegotiation {
+impl<'a> GetSize for JobNegotiation<'a> {
     fn get_size(&self) -> usize {
         match self {
-            JobNegotiation::CoinbaseOutputDataSize(a) => a.get_size(),
+            JobNegotiation::SetCoinbase(a) => a.get_size(),
         }
     }
 }
@@ -462,7 +462,7 @@ impl<'decoder> Deserialize<'decoder> for TemplateDistribution<'decoder> {
     }
 }
 #[cfg(not(feature = "with_serde"))]
-impl<'decoder> Deserialize<'decoder> for JobNegotiation {
+impl<'decoder> Deserialize<'decoder> for JobNegotiation<'decoder> {
     fn get_structure(_v: &[u8]) -> std::result::Result<Vec<FieldMarker>, binary_sv2::Error> {
         unimplemented!()
     }
@@ -638,7 +638,7 @@ impl<'a> TryFrom<(u8, &'a mut [u8])> for TemplateDistribution<'a> {
 #[repr(u8)]
 #[allow(clippy::enum_variant_names)]
 pub enum JobNegotiationTypes {
-    CoinbaseOutputDataSize = MESSAGE_TYPE_COINBASE_OUTPUT_DATA_SIZE_JN,
+    CoinbaseOutputDataSize = MESSAGE_TYPE_SET_COINBASE,
 }
 
 impl TryFrom<u8> for JobNegotiationTypes {
@@ -646,7 +646,7 @@ impl TryFrom<u8> for JobNegotiationTypes {
 
     fn try_from(v: u8) -> Result<JobNegotiationTypes, Error> {
         match v {
-            MESSAGE_TYPE_COINBASE_OUTPUT_DATA_SIZE_JN => {
+            MESSAGE_TYPE_SET_COINBASE => {
                 Ok(JobNegotiationTypes::CoinbaseOutputDataSize)
             }
             _ => Err(Error::WrongMessageType(v)),
@@ -654,15 +654,15 @@ impl TryFrom<u8> for JobNegotiationTypes {
     }
 }
 
-impl<'a> TryFrom<(u8, &'a mut [u8])> for JobNegotiation {
+impl<'a> TryFrom<(u8, &'a mut [u8])> for JobNegotiation<'a> {
     type Error = Error;
 
     fn try_from(v: (u8, &'a mut [u8])) -> Result<Self, Self::Error> {
         let msg_type: JobNegotiationTypes = v.0.try_into()?;
         match msg_type {
             JobNegotiationTypes::CoinbaseOutputDataSize => {
-                let message: CoinbaseOutputDataSizeJn = from_bytes(v.1)?;
-                Ok(JobNegotiation::CoinbaseOutputDataSize(message))
+                let message: SetCoinbase = from_bytes(v.1)?;
+                Ok(JobNegotiation::SetCoinbase(message))
             }
         }
     }
@@ -888,7 +888,7 @@ pub enum PoolMessages<'a> {
     #[cfg_attr(feature = "with_serde", serde(borrow))]
     Mining(Mining<'a>),
     #[cfg_attr(feature = "with_serde", serde(borrow))]
-    JobNegotiation(JobNegotiation),
+    JobNegotiation(JobNegotiation<'a>),
     #[cfg_attr(feature = "with_serde", serde(borrow))]
     TemplateDistribution(TemplateDistribution<'a>),
 }

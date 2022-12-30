@@ -838,6 +838,7 @@ impl PoolChannelFactory {
             }
         }
     }
+
     pub fn on_submit_shares_extended(
         &mut self,
         m: SubmitSharesExtended,
@@ -1068,6 +1069,19 @@ impl ProxyExtendedChannelFactory {
         self.inner
             .extranonces
             .extranonce_from_downstream_extranonce(ext)
+    }
+
+    pub fn last_prev_hash(&self) -> Option<binary_sv2::U256<'static>> {
+        self.inner.last_prev_hash.as_ref().map(|f| f.0.prev_hash.clone())
+    }
+    pub fn last_min_ntime(&self) -> Option<u32> {
+        self.inner.last_prev_hash.as_ref().map(|f| f.0.min_ntime.clone())
+    }
+    pub fn last_nbits(&self) -> Option<u32> {
+        self.inner.last_prev_hash.as_ref().map(|f| f.0.nbits.clone())
+    }
+    pub fn extranonce_size(&self) -> usize {
+        self.inner.extranonces.get_len()
     }
 }
 

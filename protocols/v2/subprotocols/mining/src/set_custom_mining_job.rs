@@ -2,7 +2,7 @@
 use alloc::vec::Vec;
 #[cfg(not(feature = "with_serde"))]
 use binary_sv2::binary_codec_sv2;
-use binary_sv2::{Deserialize, Seq0255, Serialize, Str0255, B064K, U256};
+use binary_sv2::{Deserialize, Seq0255, Serialize, Str0255, B064K, U256,B0255};
 use core::convert::TryInto;
 
 /// # SetCustomMiningJob (Client -> Server)
@@ -19,7 +19,7 @@ pub struct SetCustomMiningJob<'decoder> {
     pub channel_id: u32,
     /// Client-specified identifier for pairing responses.
     pub request_id: u32,
-    pub coinbase_tx_output_additional_size: u32,
+    pub token: u64,
     /// Valid version field that reflects the current network
     /// consensus. The general purpose bits (as specified in
     /// BIP320) can be freely manipulated by the downstream
@@ -37,7 +37,7 @@ pub struct SetCustomMiningJob<'decoder> {
     /// Up to 8 bytes (not including the length byte) which are
     /// to be placed at the beginning of the coinbase field in
     /// the coinbase transaction.
-    pub coinbase_prefix: u32,
+    pub coinbase_prefix: B0255<'decoder>,
     /// The coinbase transaction input’s nSequence field.
     pub coinbase_tx_input_n_sequence: u32,
     /// The value, in satoshis, available for spending in
@@ -66,7 +66,7 @@ pub struct SetCustomMiningJob<'decoder> {
 /// the job immediately (by using the job_id provided within this response).
 ///
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct SetCustomMiningJobSuccess<'decoder> {
+pub struct SetCustomMiningJobSuccess {
     /// Extended channel identifier.
     pub channel_id: u32,
     /// Client-specified identifier for pairing responses. Value from the request
@@ -74,12 +74,6 @@ pub struct SetCustomMiningJobSuccess<'decoder> {
     pub request_id: u32,
     /// Server’s identification of the mining job.
     pub job_id: u32,
-    /// Prefix part of the coinbase transaction*.
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
-    pub coinbase_tx_prefix: B064K<'decoder>,
-    /// Suffix part of the coinbase transaction.
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
-    pub coinbase_tx_suffix: B064K<'decoder>,
 }
 
 /// # SetCustomMiningJob.Error (Server -> Client)
