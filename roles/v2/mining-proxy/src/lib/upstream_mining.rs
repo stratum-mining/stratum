@@ -713,22 +713,26 @@ impl
         let range_1 = (range_0.end)..EXTRANOUNCE_RAGE_1_LENGTH;
         let range_2 = range_1.end..(m.extranonce_size as usize);
         //Custom in ScripKind must be filled with the right value as soon as the data is available, otherwise shares will be invalid
-        let job_creator: JobsCreators = JobsCreators::new(m.extranonce_size as u8);
         //TODO: to review if to be used extranounce_prefix or else
         let kind = ExtendedChannelKind::Proxy {
             upstream_target: m.target.clone().try_into().unwrap(),
         };
-        let extranonces = if self.is_work_selection_enabled() {
-            ExtendedExtranonce::new(0..0, 0..16, 16..32)
+        let (extranonces, len) = if self.is_work_selection_enabled() {
+            (ExtendedExtranonce::new(0..0, 0..16, 16..32), 32)
         } else {
-            ExtendedExtranonce::from_upstream_extranonce(
-                extranonce_prefix,
-                range_0,
-                range_1,
-                range_2,
+            (
+                ExtendedExtranonce::from_upstream_extranonce(
+                    extranonce_prefix,
+                    range_0,
+                    range_1,
+                    range_2,
+                )
+                .unwrap(),
+                m.extranonce_size,
             )
-            .unwrap()
         };
+
+        let job_creator: JobsCreators = JobsCreators::new(len as u8);
 
         let channel_factory = ProxyExtendedChannelFactory::new(
             self.group_id.clone(),

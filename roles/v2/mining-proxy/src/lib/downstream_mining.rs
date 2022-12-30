@@ -258,8 +258,36 @@ impl DownstreamMiningNode {
                     .await
                     .unwrap();
             }
-            Ok(SendTo::Multiple(_sends_to)) => {
-                panic!();
+            Ok(SendTo::Multiple(sends_to)) => {
+                for message in sends_to {
+                    match message {
+                        roles_logic_sv2::handlers::SendTo_::Respond(m) => match m {
+                            Mining::NewMiningJob(_) => {
+                                let message = MiningDeviceMessages::Mining(m);
+                                let frame: StdFrame = message.try_into().unwrap();
+                                DownstreamMiningNode::send(self_mutex.clone(), frame)
+                                    .await
+                                    .unwrap();
+                            }
+                            Mining::OpenStandardMiningChannelSuccess(_) => {
+                                let message = MiningDeviceMessages::Mining(m);
+                                let frame: StdFrame = message.try_into().unwrap();
+                                DownstreamMiningNode::send(self_mutex.clone(), frame)
+                                    .await
+                                    .unwrap();
+                            }
+                            Mining::SetNewPrevHash(_) => {
+                                let message = MiningDeviceMessages::Mining(m);
+                                let frame: StdFrame = message.try_into().unwrap();
+                                DownstreamMiningNode::send(self_mutex.clone(), frame)
+                                    .await
+                                    .unwrap();
+                            }
+                            m @ _ => panic!("{:?}", m),
+                        },
+                        m @ _ => panic!("{:?}", m),
+                    }
+                }
             }
             Ok(SendTo::None(_)) => (),
             Ok(_) => panic!(),
@@ -325,6 +353,17 @@ impl
                         )
                     })
                     .unwrap();
+                for m in &messages {
+                    match m {
+                        Mining::OpenStandardMiningChannelSuccess(m) => {
+                            self.open_channel_for_down_hom_up_extended(
+                                m.channel_id,
+                                m.group_channel_id,
+                            );
+                        }
+                        _ => (),
+                    }
+                }
                 let messages = messages.into_iter().map(|m| SendTo::Respond(m)).collect();
                 Ok(SendTo::Multiple(messages))
             }
@@ -340,6 +379,17 @@ impl
                         )
                     })
                     .unwrap();
+                for m in &messages {
+                    match m {
+                        Mining::OpenStandardMiningChannelSuccess(m) => {
+                            self.open_channel_for_down_hom_up_extended(
+                                m.channel_id,
+                                m.group_channel_id,
+                            );
+                        }
+                        _ => (),
+                    }
+                }
                 let messages = messages.into_iter().map(|m| SendTo::Respond(m)).collect();
                 Ok(SendTo::Multiple(messages))
             }
@@ -378,7 +428,8 @@ impl
                 Ok(SendTo::RelayNewMessageToRemote(remote.clone(), message))
             }
             _ => {
-                todo!()
+                info!("Rceived share TODO send it somwhere");
+                Ok(SendTo::None(None))
             }
         }
     }
