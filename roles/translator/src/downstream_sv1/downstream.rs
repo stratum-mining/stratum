@@ -240,7 +240,6 @@ impl Downstream {
                 }
                 None => todo!(),
             }
-
         }
     }
 

@@ -1,4 +1,5 @@
-use crate::{ChannelKind, EXTRANOUNCE_RAGE_1_LENGTH, BLOCK_REWARD};
+use crate::{ChannelKind, BLOCK_REWARD, EXTRANOUNCE_RAGE_1_LENGTH};
+use roles_logic_sv2::utils::Id;
 
 use super::downstream_mining::{Channel, DownstreamMiningNode, StdFrame as DownstreamFrame};
 use async_channel::{Receiver, SendError, Sender};
@@ -7,7 +8,8 @@ use codec_sv2::{Frame, HandshakeRole, Initiator, StandardEitherFrame, StandardSv
 use network_helpers::noise_connection_tokio::Connection;
 use roles_logic_sv2::{
     channel_logic::{
-        channel_factory::{ProxyExtendedChannelFactory, ExtendedChannelKind,OpenStandardChannleRequester, ChannelFactory}, proxy_group_channel::GroupChannels,
+        channel_factory::{ExtendedChannelKind, ProxyExtendedChannelFactory},
+        proxy_group_channel::GroupChannels,
     },
     common_messages_sv2::{Protocol, SetupConnection},
     common_properties::{
@@ -15,16 +17,17 @@ use roles_logic_sv2::{
     },
     errors::Error,
     handlers::mining::{ParseUpstreamMiningMessages, SendTo, SupportedChannelTypes},
+    job_creator::JobsCreators,
     job_dispatcher::GroupChannelJobDispatcher,
     mining_sv2::*,
     parsers::{CommonMessages, Mining, MiningDeviceMessages, PoolMessages},
     routing_logic::MiningProxyRoutingLogic,
     selectors::{DownstreamMiningSelector, ProxyDownstreamMiningSelector as Prs},
-    utils::{Mutex, GroupId}, job_creator::JobsCreators, template_distribution_sv2::NewTemplate,
+    template_distribution_sv2::{NewTemplate, SetNewPrevHash as SetNewPrevHashTemplate},
+    utils::{GroupId, Mutex},
 };
 use std::{collections::HashMap, sync::Arc};
 use tokio::{net::TcpStream, task};
-use roles_logic_sv2::template_distribution_sv2::SetNewPrevHash as SetNewPrevHashTemplate;
 
 pub type Message = PoolMessages<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;
@@ -87,22 +90,31 @@ pub struct UpstreamMiningNode {
     request_id_mapper: RequestIdMapper,
     downstream_selector: ProxyRemoteSelector,
     pub group_channels: GroupChannels,
-    #[allow(dead_code)]
     channel_factory: Option<ProxyExtendedChannelFactory>,
     pub channel_kind: ChannelKind,
     group_id: Arc<Mutex<GroupId>>,
-    recv_tp: Option<Receiver<NewTemplate<'static>>>,
-    recv_ph: Option<Receiver<SetNewPrevHashTemplate<'static>>>
+    recv_tp: Option<Receiver<(NewTemplate<'static>, u64)>>,
+    recv_ph: Option<Receiver<(SetNewPrevHashTemplate<'static>, u64)>>,
+    request_ids: Arc<Mutex<Id>>,
 }
 
 use core::convert::TryInto;
 use std::net::SocketAddr;
-use tracing::debug;
+use tracing::{debug, info};
 
 /// It assume that endpoint NEVER change flags and version!
 /// I can open both extended and group channel with upstream.
 impl UpstreamMiningNode {
-    pub fn new(id: u32, address: SocketAddr, authority_public_key: [u8; 32], channel_kind: ChannelKind, group_id: Arc<Mutex<GroupId>>, recv_tp: Option<Receiver<NewTemplate<'static>>>, recv_ph: Option<Receiver<SetNewPrevHashTemplate<'static>>> ) -> Self {
+    pub fn new(
+        id: u32,
+        address: SocketAddr,
+        authority_public_key: [u8; 32],
+        channel_kind: ChannelKind,
+        group_id: Arc<Mutex<GroupId>>,
+        recv_tp: Option<Receiver<(NewTemplate<'static>, u64)>>,
+        recv_ph: Option<Receiver<(SetNewPrevHashTemplate<'static>, u64)>>,
+        request_ids: Arc<Mutex<Id>>,
+    ) -> Self {
         let request_id_mapper = RequestIdMapper::new();
         let downstream_selector = ProxyRemoteSelector::new();
         Self {
@@ -120,42 +132,133 @@ impl UpstreamMiningNode {
             channel_kind,
             group_id,
             recv_tp,
-            recv_ph
+            recv_ph,
+            request_ids,
         }
     }
 
     pub fn start_receiving_new_template(self_mutex: Arc<Mutex<Self>>) {
         task::spawn(async move {
-            let new_template_reciver = self_mutex.safe_lock(|a| a.recv_tp.clone()).unwrap().unwrap();
-            let mut res = vec![];
-            loop {
-                let mut message_new_template: NewTemplate = new_template_reciver.recv().await.unwrap();
-                let hash_map = self_mutex.safe_lock(|a| a.channel_factory.as_mut().unwrap().on_new_template(&mut message_new_template)).unwrap().unwrap();
-
-                for (id, message) in hash_map {
-                    let downstream = self_mutex.safe_lock(|a| a.downstream_selector.downstream_from_channel_id(id.clone())).unwrap().unwrap();
-                    res.push(SendTo::RelayNewMessageToRemote(
-                        downstream.clone(),
-                        message,
-                    ));
-                }
-                self_mutex.safe_lock(|s|
-               s.next_match(SendTo::Multiple(res)).await;
+            while self_mutex
+                .safe_lock(|s| s.channel_factory.is_none())
+                .unwrap()
+            {
+                tokio::time::sleep(std::time::Duration::from_secs(1)).await;
             }
+            let new_template_reciver = self_mutex
+                .safe_lock(|a| a.recv_tp.clone())
+                .unwrap()
+                .unwrap();
+            //let mut res = vec![];
+            loop {
+                let (mut message_new_template, token): (NewTemplate, u64) =
+                    new_template_reciver.recv().await.unwrap();
+                let (channel_id_to_new_job_msg, custom_job) = self_mutex
+                    .safe_lock(|a| {
+                        a.channel_factory
+                            .as_mut()
+                            .unwrap()
+                            .on_new_template(&mut message_new_template)
+                    })
+                    .unwrap()
+                    .unwrap();
+                if let Some(custom_job) = custom_job {
+                    let req_id = self_mutex
+                        .safe_lock(|s| s.request_ids.safe_lock(|r| r.next()).unwrap())
+                        .unwrap();
+                    let custom_mining_job =
+                        PoolMessages::Mining(Mining::SetCustomMiningJob(SetCustomMiningJob {
+                            channel_id: self_mutex.safe_lock(|s| s.id).unwrap(),
+                            request_id: req_id,
+                            version: custom_job.version,
+                            prev_hash: custom_job.prev_hash,
+                            min_ntime: custom_job.min_ntime,
+                            nbits: custom_job.nbits,
+                            coinbase_tx_version: custom_job.coinbase_tx_version,
+                            coinbase_prefix: custom_job.coinbase_prefix.clone(),
+                            coinbase_tx_input_n_sequence: custom_job.coinbase_tx_input_n_sequence,
+                            coinbase_tx_value_remaining: custom_job.coinbase_tx_value_remaining,
+                            coinbase_tx_outputs: custom_job.coinbase_tx_outputs.clone(),
+                            coinbase_tx_locktime: custom_job.coinbase_tx_locktime,
+                            merkle_path: custom_job.merkle_path,
+                            extranonce_size: custom_job.extranonce_size,
+                            future_job: message_new_template.future_template,
+                            token,
+                        }));
+                    Self::send(self_mutex.clone(), custom_mining_job.try_into().unwrap())
+                        .await
+                        .unwrap();
+                }
 
+                for (id, job) in channel_id_to_new_job_msg {
+                    let downstream = self_mutex
+                        .safe_lock(|a| a.downstream_selector.downstream_from_channel_id(id.clone()))
+                        .unwrap()
+                        .unwrap();
+                    let message = MiningDeviceMessages::Mining(job);
+                    DownstreamMiningNode::send(downstream, message.try_into().unwrap())
+                        .await
+                        .unwrap();
+                }
+            }
         });
+
+        //pub fn next_match()
     }
 
     pub fn start_receiving_new_prev_hash(self_mutex: Arc<Mutex<Self>>) {
         task::spawn(async move {
-            let prev_hash_reciver = self_mutex.safe_lock(|a| a.recv_ph.clone()).unwrap().unwrap();
+            while self_mutex
+                .safe_lock(|s| s.channel_factory.is_none())
+                .unwrap()
+            {
+                tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+            }
+            let prev_hash_reciver = self_mutex
+                .safe_lock(|a| a.recv_ph.clone())
+                .unwrap()
+                .unwrap();
             loop {
-                let message_prev_hash = prev_hash_reciver.recv().await.unwrap();
-                let channel_factory = self_mutex.safe_lock(|a| a.channel_factory.as_mut().unwrap().on_new_prev_hash_from_tp(&message_prev_hash)).unwrap();
+                let (message_prev_hash, token) = prev_hash_reciver.recv().await.unwrap();
+                let custom = self_mutex
+                    .safe_lock(|a| {
+                        a.channel_factory
+                            .as_mut()
+                            .unwrap()
+                            .on_new_prev_hash_from_tp(&message_prev_hash)
+                    })
+                    .unwrap();
+
+                if let Ok(Some(custom_job)) = custom {
+                    let req_id = self_mutex
+                        .safe_lock(|s| s.request_ids.safe_lock(|r| r.next()).unwrap())
+                        .unwrap();
+                    let custom_mining_job =
+                        PoolMessages::Mining(Mining::SetCustomMiningJob(SetCustomMiningJob {
+                            channel_id: self_mutex.safe_lock(|s| s.id).unwrap(),
+                            request_id: req_id,
+                            version: custom_job.version,
+                            prev_hash: custom_job.prev_hash,
+                            min_ntime: custom_job.min_ntime,
+                            nbits: custom_job.nbits,
+                            coinbase_tx_version: custom_job.coinbase_tx_version,
+                            coinbase_prefix: custom_job.coinbase_prefix.clone(),
+                            coinbase_tx_input_n_sequence: custom_job.coinbase_tx_input_n_sequence,
+                            coinbase_tx_value_remaining: custom_job.coinbase_tx_value_remaining,
+                            coinbase_tx_outputs: custom_job.coinbase_tx_outputs.clone(),
+                            coinbase_tx_locktime: custom_job.coinbase_tx_locktime,
+                            merkle_path: custom_job.merkle_path,
+                            extranonce_size: custom_job.extranonce_size,
+                            future_job: false,
+                            token,
+                        }));
+                    Self::send(self_mutex.clone(), custom_mining_job.try_into().unwrap())
+                        .await
+                        .unwrap();
+                }
             }
         });
     }
-
 
     /// Try send a message to the upstream node.
     /// If the node is connected and there are no error return Ok(())
@@ -316,7 +419,6 @@ impl UpstreamMiningNode {
             payload,
             routing_logic,
         );
-        // fn match_next(&mut self, send_to: SenDto)
         match next_message_to_send {
             Ok(SendTo::RelaySameMessageToRemote(downstream)) => {
                 let sv2_frame: codec_sv2::Sv2Frame<MiningDeviceMessages, buffer_sv2::Slice> =
@@ -373,7 +475,6 @@ impl UpstreamMiningNode {
             Ok(SendTo::None(_)) => (),
             Ok(_) => panic!(),
             Err(Error::NoDownstreamsConnected) => (),
-            Err(Error::UnexpectedMessage) => todo!(),
             Err(e) => panic!("{:?}", e),
         }
     }
@@ -416,8 +517,11 @@ impl UpstreamMiningNode {
                 Self::relay_incoming_messages(self_mutex.clone(), receiver);
                 let channel_kind = self_mutex.safe_lock(|s| s.channel_kind).unwrap();
                 match channel_kind {
-                    ChannelKind::Extended => {Self::open_extended_channel(self_mutex.clone()).await},
-                   _ => (),
+                    ChannelKind::Extended => Self::open_extended_channel(self_mutex.clone()).await,
+                    ChannelKind::ExtendedWithNegotiator => {
+                        Self::open_extended_channel(self_mutex.clone()).await
+                    }
+                    _ => (),
                 };
                 Ok(())
             }
@@ -438,15 +542,25 @@ impl UpstreamMiningNode {
         }
     }
     async fn open_extended_channel(self_mutex: Arc<Mutex<Self>>) {
-        let message = PoolMessages::Mining(Mining::OpenExtendedMiningChannel(OpenExtendedMiningChannel { 
-            request_id: 0, 
-            user_identity: "proxy".to_string().try_into().unwrap(), 
-            nominal_hash_rate: 100_000_000_000_000.0, 
-            max_target: [255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255].try_into().unwrap(), 
-            min_extranonce_size: crate::MIN_EXTRANOUNCE_SIZE, 
-        }));
+        let message = PoolMessages::Mining(Mining::OpenExtendedMiningChannel(
+            OpenExtendedMiningChannel {
+                request_id: 0,
+                user_identity: "proxy".to_string().try_into().unwrap(),
+                nominal_hash_rate: 100_000_000_000_000.0,
+                max_target: [
+                    255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+                    255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+                ]
+                .try_into()
+                .unwrap(),
+                min_extranonce_size: crate::MIN_EXTRANOUNCE_SIZE,
+            },
+        ));
         Self::send(self_mutex.clone(), message.try_into().unwrap()).await;
-        while self_mutex.safe_lock(|s| s.channel_factory.is_none()).unwrap() {
+        while self_mutex
+            .safe_lock(|s| s.channel_factory.is_none())
+            .unwrap()
+        {
             tokio::time::sleep(std::time::Duration::from_millis(10)).await;
         }
     }
@@ -484,23 +598,35 @@ impl UpstreamMiningNode {
         setup_connection.try_into().unwrap()
     }
 
-    pub fn open_standard_channel_down(&mut self, request_id: u32, downstream_hash_rate: f32, id_header_only: bool) -> Vec<Mining<'static>> {
+    pub fn open_standard_channel_down(
+        &mut self,
+        request_id: u32,
+        downstream_hash_rate: f32,
+        id_header_only: bool,
+    ) -> Vec<Mining<'static>> {
         match self.channel_kind {
             ChannelKind::Group => panic!(),
-            ChannelKind::Extended =>  {
-                let messages = self.channel_factory.as_mut().unwrap().add_standard_channel(request_id, downstream_hash_rate, id_header_only,todo!()).unwrap();
-                let messages = messages.into_iter().map(|x|x.into_static()).collect();
+            ChannelKind::Extended => {
+                let messages = self
+                    .channel_factory
+                    .as_mut()
+                    .unwrap()
+                    .add_standard_channel(request_id, downstream_hash_rate, id_header_only, todo!())
+                    .unwrap();
+                let messages = messages.into_iter().map(|x| x.into_static()).collect();
                 messages
-            },
-            ChannelKind::ExtendedWithNegotiator =>  {
-                let requester = match is_header_only {
-                    true => OpenStandardChannleRequester::HomRequester,
-                    false => todo!(),
-                };
-                let messages = self.channel_factory.as_mut().unwrap().add_standard_channel(request_id, downstream_hash_rate, requester).unwrap();
-                let messages = messages.into_iter().map(|x|x.into_static()).collect();
+            }
+            ChannelKind::ExtendedWithNegotiator => {
+                let messages = self
+                    .channel_factory
+                    .as_mut()
+                    .unwrap()
+                    // TODO which channel should I send instead of 0 or 0 is ok?
+                    .add_standard_channel(request_id, downstream_hash_rate, id_header_only, 0)
+                    .unwrap();
+                let messages = messages.into_iter().map(|x| x.into_static()).collect();
                 messages
-            },
+            }
         }
     }
 
@@ -541,7 +667,7 @@ impl
     }
 
     fn is_work_selection_enabled(&self) -> bool {
-        false
+        true
     }
 
     fn handle_open_standard_mining_channel_success(
@@ -589,10 +715,29 @@ impl
         //Custom in ScripKind must be filled with the right value as soon as the data is available, otherwise shares will be invalid
         let job_creator: JobsCreators = JobsCreators::new(m.extranonce_size as u8);
         //TODO: to review if to be used extranounce_prefix or else
-        let kind = ExtendedChannelKind::Proxy { upstream_target: m.target.clone().try_into().unwrap()};
-        let extranonces = ExtendedExtranonce::from_upstream_extranonce(extranonce_prefix, range_0, range_1, range_2).unwrap();
-        
-        let channel_factory = ProxyExtendedChannelFactory::new(self.group_id.clone(), extranonces, Some(job_creator), 10.0, kind,None);
+        let kind = ExtendedChannelKind::Proxy {
+            upstream_target: m.target.clone().try_into().unwrap(),
+        };
+        let extranonces = if self.is_work_selection_enabled() {
+            ExtendedExtranonce::new(0..0, 0..16, 16..32)
+        } else {
+            ExtendedExtranonce::from_upstream_extranonce(
+                extranonce_prefix,
+                range_0,
+                range_1,
+                range_2,
+            )
+            .unwrap()
+        };
+
+        let channel_factory = ProxyExtendedChannelFactory::new(
+            self.group_id.clone(),
+            extranonces,
+            Some(job_creator),
+            10.0,
+            kind,
+            Some(vec![]),
+        );
         self.channel_factory = Some(channel_factory);
         Ok(SendTo::None(None))
     }
@@ -652,7 +797,7 @@ impl
         &mut self,
         _m: NewMiningJob,
     ) -> Result<SendTo<DownstreamMiningNode>, Error> {
-        Err(Error::UnexpectedMessage)
+        todo!()
         //// One and only one downstream cause the message is not extended
         //match &self
         //    .downstream_selector
@@ -684,7 +829,6 @@ impl
 
         let mut res = vec![];
         for downstream in downstreams {
-            
             match downstream.safe_lock(|r| r.get_channel().clone()).unwrap() {
                 Channel::DowntreamHomUpstreamGroup {
                     channel_id,
@@ -730,7 +874,8 @@ impl
         &mut self,
         _m: SetCustomMiningJobSuccess,
     ) -> Result<SendTo<DownstreamMiningNode>, Error> {
-        todo!("550")
+        info!("SET CUSTOM MINIG JOB SUCCESS");
+        Ok(SendTo::None(None))
     }
 
     fn handle_set_custom_mining_job_error(
@@ -824,7 +969,16 @@ mod tests {
             190, 90, 169, 238, 89, 191, 183, 97, 63, 194, 119, 11, 31,
         ];
         let ids = Arc::new(Mutex::new(GroupId::new()));
-        let actual = UpstreamMiningNode::new(id, address, authority_public_key, ChannelKind::Group,ids, recv_tp, recv_ph);
+        let actual = UpstreamMiningNode::new(
+            id,
+            address,
+            authority_public_key,
+            ChannelKind::Group,
+            ids,
+            recv_tp,
+            recv_ph,
+            todo!(),
+        );
 
         assert_eq!(actual.id, id);
 
@@ -846,5 +1000,4 @@ mod tests {
         assert!(actual.channel_id_to_job_dispatcher.is_empty());
         assert_eq!(actual.request_id_mapper, RequestIdMapper::new());
     }
-
 }

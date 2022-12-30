@@ -32,9 +32,15 @@ where
             Ok(TemplateDistribution::RequestTransactionDataError(m)) => self_
                 .safe_lock(|x| x.handle_request_tx_data_error(m))
                 .unwrap(),
-            Ok(TemplateDistribution::CoinbaseOutputDataSize(_)) => Err(Error::UnexpectedMessage),
-            Ok(TemplateDistribution::RequestTransactionData(_)) => Err(Error::UnexpectedMessage),
-            Ok(TemplateDistribution::SubmitSolution(_)) => Err(Error::UnexpectedMessage),
+            Ok(TemplateDistribution::CoinbaseOutputDataSize(_)) => {
+                Err(Error::UnexpectedMessage(message_type))
+            }
+            Ok(TemplateDistribution::RequestTransactionData(_)) => {
+                Err(Error::UnexpectedMessage(message_type))
+            }
+            Ok(TemplateDistribution::SubmitSolution(_)) => {
+                Err(Error::UnexpectedMessage(message_type))
+            }
             Err(e) => Err(e),
         }
     }
@@ -70,13 +76,15 @@ where
             Ok(TemplateDistribution::SubmitSolution(m)) => self_
                 .safe_lock(|x| x.handle_request_submit_solution(m))
                 .unwrap(),
-            Ok(TemplateDistribution::NewTemplate(_)) => Err(Error::UnexpectedMessage),
-            Ok(TemplateDistribution::SetNewPrevHash(_)) => Err(Error::UnexpectedMessage),
+            Ok(TemplateDistribution::NewTemplate(_)) => Err(Error::UnexpectedMessage(message_type)),
+            Ok(TemplateDistribution::SetNewPrevHash(_)) => {
+                Err(Error::UnexpectedMessage(message_type))
+            }
             Ok(TemplateDistribution::RequestTransactionDataSuccess(_)) => {
-                Err(Error::UnexpectedMessage)
+                Err(Error::UnexpectedMessage(message_type))
             }
             Ok(TemplateDistribution::RequestTransactionDataError(_)) => {
-                Err(Error::UnexpectedMessage)
+                Err(Error::UnexpectedMessage(message_type))
             }
             Err(e) => Err(e),
         }

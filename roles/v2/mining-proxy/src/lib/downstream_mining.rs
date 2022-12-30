@@ -1,7 +1,7 @@
 use crate::ChannelKind;
 
 use super::upstream_mining::{StdFrame as UpstreamFrame, UpstreamMiningNode};
-use async_channel::{Receiver, SendError, Sender, Send};
+use async_channel::{Receiver, Send, SendError, Sender};
 use roles_logic_sv2::{
     common_messages_sv2::{SetupConnection, SetupConnectionSuccess},
     common_properties::{CommonDownstreamData, IsDownstream, IsMiningDownstream},
@@ -306,21 +306,44 @@ impl
         req: OpenStandardMiningChannel,
         mut up: Option<Arc<Mutex<UpstreamMiningNode>>>,
     ) -> Result<SendTo<UpstreamMiningNode>, Error> {
-        let channel_kind = up.as_ref().unwrap().safe_lock(|up| up.channel_kind).unwrap(); //remove unwrap
+        let channel_kind = up
+            .as_ref()
+            .unwrap()
+            .safe_lock(|up| up.channel_kind)
+            .unwrap(); //remove unwrap
         match channel_kind {
             ChannelKind::Group => Ok(SendTo::RelaySameMessageToRemote(up.unwrap())),
             ChannelKind::Extended => {
-                let messages = up.as_mut().unwrap().safe_lock(|up| up.open_standard_channel_down(req.request_id.as_u32(), req.nominal_hash_rate, true,)).unwrap();
+                let messages = up
+                    .as_mut()
+                    .unwrap()
+                    .safe_lock(|up| {
+                        up.open_standard_channel_down(
+                            req.request_id.as_u32(),
+                            req.nominal_hash_rate,
+                            true,
+                        )
+                    })
+                    .unwrap();
                 let messages = messages.into_iter().map(|m| SendTo::Respond(m)).collect();
                 Ok(SendTo::Multiple(messages))
-            },
+            }
             ChannelKind::ExtendedWithNegotiator => {
-                let messages = up.as_mut().unwrap().safe_lock(|up| up.open_standard_channel_down(req.request_id.as_u32(), req.nominal_hash_rate, true,)).unwrap();
+                let messages = up
+                    .as_mut()
+                    .unwrap()
+                    .safe_lock(|up| {
+                        up.open_standard_channel_down(
+                            req.request_id.as_u32(),
+                            req.nominal_hash_rate,
+                            true,
+                        )
+                    })
+                    .unwrap();
                 let messages = messages.into_iter().map(|m| SendTo::Respond(m)).collect();
                 Ok(SendTo::Multiple(messages))
             }
         }
-        
     }
 
     fn handle_open_extended_mining_channel(
@@ -341,7 +364,6 @@ impl
         &mut self,
         m: SubmitSharesStandard,
     ) -> Result<SendTo<UpstreamMiningNode>, Error> {
-        info!("{:?}", m);
         match &self.status {
             DownstreamMiningNodeStatus::Initializing => todo!(),
             DownstreamMiningNodeStatus::Paired(_) => todo!(),

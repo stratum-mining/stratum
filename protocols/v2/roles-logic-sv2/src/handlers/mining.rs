@@ -85,7 +85,7 @@ pub trait ParseDownstreamMiningMessages<
                     SupportedChannelTypes::Standard => self_mutex
                         .safe_lock(|self_| self_.handle_open_standard_mining_channel(m, upstream))
                         .unwrap(),
-                    SupportedChannelTypes::Extended => Err(Error::UnexpectedMessage),
+                    SupportedChannelTypes::Extended => Err(Error::UnexpectedMessage(message_type)),
                     SupportedChannelTypes::Group => self_mutex
                         .safe_lock(|self_| self_.handle_open_standard_mining_channel(m, upstream))
                         .unwrap(),
@@ -95,14 +95,14 @@ pub trait ParseDownstreamMiningMessages<
                 }
             }
             Ok(Mining::OpenExtendedMiningChannel(m)) => match channel_type {
-                SupportedChannelTypes::Standard => Err(Error::UnexpectedMessage),
+                SupportedChannelTypes::Standard => Err(Error::UnexpectedMessage(message_type)),
                 SupportedChannelTypes::Extended => {
                     debug!("Received OpenExtendedMiningChannel->Extended message");
                     self_mutex
                         .safe_lock(|self_| self_.handle_open_extended_mining_channel(m))
                         .unwrap()
                 }
-                SupportedChannelTypes::Group => Err(Error::UnexpectedMessage),
+                SupportedChannelTypes::Group => Err(Error::UnexpectedMessage(message_type)),
                 SupportedChannelTypes::GroupAndExtended => {
                     debug!("Received OpenExtendedMiningChannel->GroupAndExtended message");
                     self_mutex
@@ -143,7 +143,7 @@ pub trait ParseDownstreamMiningMessages<
                         .safe_lock(|self_| self_.handle_submit_shares_standard(m))
                         .unwrap()
                 }
-                SupportedChannelTypes::Extended => Err(Error::UnexpectedMessage),
+                SupportedChannelTypes::Extended => Err(Error::UnexpectedMessage(message_type)),
                 SupportedChannelTypes::Group => {
                     debug!("Received SubmitSharesStandard->Group message");
                     self_mutex
@@ -160,11 +160,11 @@ pub trait ParseDownstreamMiningMessages<
             Ok(Mining::SubmitSharesExtended(m)) => {
                 debug!("Received SubmitSharesExtended message");
                 match channel_type {
-                    SupportedChannelTypes::Standard => Err(Error::UnexpectedMessage),
+                    SupportedChannelTypes::Standard => Err(Error::UnexpectedMessage(message_type)),
                     SupportedChannelTypes::Extended => self_mutex
                         .safe_lock(|self_| self_.handle_submit_shares_extended(m))
                         .unwrap(),
-                    SupportedChannelTypes::Group => Err(Error::UnexpectedMessage),
+                    SupportedChannelTypes::Group => Err(Error::UnexpectedMessage(message_type)),
                     SupportedChannelTypes::GroupAndExtended => self_mutex
                         .safe_lock(|self_| self_.handle_submit_shares_extended(m))
                         .unwrap(),
@@ -176,16 +176,13 @@ pub trait ParseDownstreamMiningMessages<
                     (SupportedChannelTypes::Extended, true) => self_mutex
                         .safe_lock(|self_| self_.handle_set_custom_mining_job(m))
                         .unwrap(),
-                    (SupportedChannelTypes::Group, true) => self_mutex
-                        .safe_lock(|self_| self_.handle_set_custom_mining_job(m))
-                        .unwrap(),
                     (SupportedChannelTypes::GroupAndExtended, true) => self_mutex
                         .safe_lock(|self_| self_.handle_set_custom_mining_job(m))
                         .unwrap(),
-                    _ => Err(Error::UnexpectedMessage),
+                    _ => Err(Error::UnexpectedMessage(message_type)),
                 }
             }
-            Ok(_) => Err(Error::UnexpectedMessage),
+            Ok(_) => Err(Error::UnexpectedMessage(message_type)),
             Err(e) => Err(e),
         }
     }
@@ -265,7 +262,7 @@ pub trait ParseUpstreamMiningMessages<
                     SupportedChannelTypes::Standard => self_mutex
                         .safe_lock(|s| s.handle_open_standard_mining_channel_success(m, remote))
                         .unwrap(),
-                    SupportedChannelTypes::Extended => Err(Error::UnexpectedMessage),
+                    SupportedChannelTypes::Extended => Err(Error::UnexpectedMessage(message_type)),
                     SupportedChannelTypes::Group => self_mutex
                         .safe_lock(|s| s.handle_open_standard_mining_channel_success(m, remote))
                         .unwrap(),
@@ -275,11 +272,11 @@ pub trait ParseUpstreamMiningMessages<
                 }
             }
             Ok(Mining::OpenExtendedMiningChannelSuccess(m)) => match channel_type {
-                SupportedChannelTypes::Standard => Err(Error::UnexpectedMessage),
+                SupportedChannelTypes::Standard => Err(Error::UnexpectedMessage(message_type)),
                 SupportedChannelTypes::Extended => self_mutex
                     .safe_lock(|s| s.handle_open_extended_mining_channel_success(m))
                     .unwrap(),
-                SupportedChannelTypes::Group => Err(Error::UnexpectedMessage),
+                SupportedChannelTypes::Group => Err(Error::UnexpectedMessage(message_type)),
                 SupportedChannelTypes::GroupAndExtended => self_mutex
                     .safe_lock(|s| s.handle_open_extended_mining_channel_success(m))
                     .unwrap(),
@@ -372,14 +369,16 @@ pub trait ParseUpstreamMiningMessages<
                 SupportedChannelTypes::Standard => self_mutex
                     .safe_lock(|x| x.handle_new_mining_job(m))
                     .unwrap(),
-                SupportedChannelTypes::Extended => Err(Error::UnexpectedMessage),
-                SupportedChannelTypes::Group => Err(Error::UnexpectedMessage),
-                SupportedChannelTypes::GroupAndExtended => Err(Error::UnexpectedMessage),
+                SupportedChannelTypes::Extended => Err(Error::UnexpectedMessage(message_type)),
+                SupportedChannelTypes::Group => Err(Error::UnexpectedMessage(message_type)),
+                SupportedChannelTypes::GroupAndExtended => {
+                    Err(Error::UnexpectedMessage(message_type))
+                }
             },
             Ok(Mining::NewExtendedMiningJob(m)) => {
                 debug!("Received new extended mining job");
                 match channel_type {
-                    SupportedChannelTypes::Standard => Err(Error::UnexpectedMessage),
+                    SupportedChannelTypes::Standard => Err(Error::UnexpectedMessage(message_type)),
                     SupportedChannelTypes::Extended => self_mutex
                         .safe_lock(|x| x.handle_new_extended_mining_job(m))
                         .unwrap(),
@@ -413,13 +412,10 @@ pub trait ParseUpstreamMiningMessages<
                     (SupportedChannelTypes::Extended, true) => self_mutex
                         .safe_lock(|x| x.handle_set_custom_mining_job_success(m))
                         .unwrap(),
-                    (SupportedChannelTypes::Group, true) => self_mutex
-                        .safe_lock(|x| x.handle_set_custom_mining_job_success(m))
-                        .unwrap(),
                     (SupportedChannelTypes::GroupAndExtended, true) => self_mutex
                         .safe_lock(|x| x.handle_set_custom_mining_job_success(m))
                         .unwrap(),
-                    _ => Err(Error::UnexpectedMessage),
+                    _ => Err(Error::UnexpectedMessage(message_type)),
                 }
             }
             Ok(Mining::SetCustomMiningJobError(m)) => {
@@ -433,7 +429,7 @@ pub trait ParseUpstreamMiningMessages<
                     (SupportedChannelTypes::GroupAndExtended, true) => self_mutex
                         .safe_lock(|x| x.handle_set_custom_mining_job_error(m))
                         .unwrap(),
-                    _ => Err(Error::UnexpectedMessage),
+                    _ => Err(Error::UnexpectedMessage(message_type)),
                 }
             }
             Ok(Mining::SetTarget(m)) => match channel_type {
@@ -465,8 +461,8 @@ pub trait ParseUpstreamMiningMessages<
                 }
             },
             Ok(Mining::SetGroupChannel(m)) => match channel_type {
-                SupportedChannelTypes::Standard => Err(Error::UnexpectedMessage),
-                SupportedChannelTypes::Extended => Err(Error::UnexpectedMessage),
+                SupportedChannelTypes::Standard => Err(Error::UnexpectedMessage(message_type)),
+                SupportedChannelTypes::Extended => Err(Error::UnexpectedMessage(message_type)),
                 SupportedChannelTypes::Group => self_mutex
                     .safe_lock(|x| x.handle_set_group_channel(m))
                     .unwrap(),
@@ -474,7 +470,7 @@ pub trait ParseUpstreamMiningMessages<
                     .safe_lock(|x| x.handle_set_group_channel(m))
                     .unwrap(),
             },
-            Ok(_) => Err(Error::UnexpectedMessage),
+            Ok(_) => Err(Error::UnexpectedMessage(message_type)),
             Err(e) => Err(e),
         }
     }

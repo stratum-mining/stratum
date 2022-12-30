@@ -17,14 +17,11 @@ where
     ) -> Result<SendTo, Error> {
         // Is ok to unwrap a safe_lock result
         match (message_type, payload).try_into() {
-            Ok(JobNegotiation::SetCoinbase(message)) => self_
-                .safe_lock(|x| x.handle_set_coinbase(message))
-                .unwrap(),
+            Ok(JobNegotiation::SetCoinbase(message)) => {
+                self_.safe_lock(|x| x.handle_set_coinbase(message)).unwrap()
+            }
             Err(e) => Err(e),
         }
     }
-    fn handle_set_coinbase(
-        &mut self,
-        message: SetCoinbase,
-    ) -> Result<SendTo, Error>;
+    fn handle_set_coinbase(&mut self, message: SetCoinbase) -> Result<SendTo, Error>;
 }

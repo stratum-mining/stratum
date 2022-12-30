@@ -90,7 +90,7 @@ impl ParseUpstreamCommonMessages<NoRouting> for SetupConnectionHandler {
     ) -> Result<roles_logic_sv2::handlers::common::SendTo, Error> {
         error!("Setup template provider connection failed!");
         //return error result
-        Err(Error::UnexpectedMessage)
+        todo!()
     }
 
     fn handle_channel_endpoint_changed(
@@ -98,6 +98,8 @@ impl ParseUpstreamCommonMessages<NoRouting> for SetupConnectionHandler {
         _: roles_logic_sv2::common_messages_sv2::ChannelEndpointChanged,
     ) -> Result<roles_logic_sv2::handlers::common::SendTo, Error> {
         error!("Channel endpoint changed!");
-        Err(Error::UnexpectedMessage)
+        Err(Error::UnexpectedMessage(
+            const_sv2::MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED,
+        ))
     }
 }

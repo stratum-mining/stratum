@@ -7,13 +7,13 @@ use roles_logic_sv2::{
     parsers::{JobNegotiation, PoolMessages},
     utils::Mutex,
 };
-use std::{collections::HashMap, convert::TryInto, str::FromStr};
-use tracing::{debug, info};
+use std::{convert::TryInto, str::FromStr};
+use tracing::info;
 
 use codec_sv2::Frame;
 use roles_logic_sv2::{
     handlers::job_negotiation::ParseServerJobNegotiationMessages,
-    template_distribution_sv2::{CoinbaseOutputDataSize, NewTemplate, SetNewPrevHash},
+    template_distribution_sv2::CoinbaseOutputDataSize,
 };
 use std::{
     net::{IpAddr, SocketAddr},
@@ -22,7 +22,7 @@ use std::{
 use tokio::{net::TcpStream, task};
 
 pub type Message = PoolMessages<'static>;
-pub type SendTo = SendTo_<JobNegotiation, ()>;
+pub type SendTo = SendTo_<JobNegotiation<'static>, ()>;
 pub type EitherFrame = StandardEitherFrame<PoolMessages<'static>>;
 pub type StdFrame = StandardSv2Frame<Message>;
 use crate::Config;
@@ -31,18 +31,17 @@ mod setup_connection;
 use setup_connection::SetupConnectionHandler;
 
 pub struct JobNegotiator {
-    sender: Sender<StandardEitherFrame<PoolMessages<'static>>>,
     receiver: Receiver<StandardEitherFrame<PoolMessages<'static>>>,
-    sender_coinbase_output_max_additional_size: Sender<CoinbaseOutputDataSize>,
-    last_max_coinbase_out_size: Option<u32>,
+    _sender: Sender<StandardEitherFrame<PoolMessages<'static>>>,
+    sender_coinbase_output_max_additional_size: Sender<(CoinbaseOutputDataSize, u64)>,
 }
 
 impl JobNegotiator {
     pub async fn new(
         address: SocketAddr,
         authority_public_key: [u8; 32],
-        sender_coinbase_output_max_additional_size: Sender<CoinbaseOutputDataSize>,
-    ) {
+        sender_coinbase_output_max_additional_size: Sender<(CoinbaseOutputDataSize, u64)>,
+    ) -> Arc<Mutex<Self>> {
         let stream = TcpStream::connect(address).await.unwrap();
         let initiator = Initiator::from_raw_k(authority_public_key).unwrap();
         let (mut receiver, mut sender): (Receiver<EitherFrame>, Sender<EitherFrame>) =
@@ -56,7 +55,7 @@ impl JobNegotiator {
         );
 
         info!(
-            "JN proxy: setupconnection \nProxy address: {:?}",
+            "JN proxy: setupconnection Proxy address: {:?}",
             proxy_address
         );
 
@@ -64,71 +63,50 @@ impl JobNegotiator {
             .await
             .unwrap();
 
-        info!("\nJN CONNECTED");
+        info!("JN CONNECTED");
 
         let self_ = Arc::new(Mutex::new(JobNegotiator {
-            sender,
             receiver,
+            _sender: sender,
             sender_coinbase_output_max_additional_size,
-            last_max_coinbase_out_size: None,
         }));
 
-        let cloned = self_.clone();
-        Self::on_upstream_message(cloned.clone());
+        Self::on_upstream_message(self_.clone());
+        self_
     }
 
     pub fn on_upstream_message(self_mutex: Arc<Mutex<Self>>) {
         task::spawn(async move {
             loop {
                 let receiver = self_mutex.safe_lock(|d| d.receiver.clone()).unwrap();
-                let incoming: StdFrame = receiver.recv().await.unwrap().try_into().unwrap();
-                println!("next message {:?}", incoming);
-                JobNegotiator::next(self_mutex.clone(), incoming).await
+                let mut incoming: StdFrame = receiver.recv().await.unwrap().try_into().unwrap();
+                let message_type = incoming.get_header().unwrap().msg_type();
+                let payload = incoming.payload();
+
+                let next_message_to_send =
+                    ParseServerJobNegotiationMessages::handle_message_job_negotiation(
+                        self_mutex.clone(),
+                        message_type,
+                        payload,
+                    );
+                match next_message_to_send {
+                    Ok(SendTo::None(Some(JobNegotiation::SetCoinbase(m)))) => {
+                        let sender = self_mutex
+                            .safe_lock(|s| s.sender_coinbase_output_max_additional_size.clone())
+                            .unwrap();
+                        let coinbase_output_max_additional_size = CoinbaseOutputDataSize {
+                            coinbase_output_max_additional_size: m
+                                .coinbase_output_max_additional_size,
+                        };
+                        sender
+                            .send((coinbase_output_max_additional_size, m.token))
+                            .await
+                            .unwrap();
+                    }
+                    Ok(_) => unreachable!(),
+                    Err(_) => todo!(),
+                }
             }
         });
-    }
-
-    pub async fn next(self_mutex: Arc<Mutex<Self>>, mut incoming: StdFrame) {
-        let message_type = incoming.get_header().unwrap().msg_type();
-        let payload = incoming.payload();
-        let next_message_to_send =
-            ParseServerJobNegotiationMessages::handle_message_job_negotiation(
-                self_mutex.clone(),
-                message_type,
-                payload,
-            );
-        match next_message_to_send {
-            Ok(SendTo::Respond(message)) => Self::send(self_mutex, message).await.unwrap(),
-            Ok(SendTo::None(Some(m))) => match m {
-                // Coinbase_output_max_additional_size is received from pool ...
-                JobNegotiation::CoinbaseOutputDataSize(m) => {
-                    todo!()
-                    //let sender = self_mutex
-                    //    .safe_lock(|s| s.sender_coinbase_output_max_additional_size.clone())
-                    //    .unwrap();
-                    //let coinbase_output_max_additional_size = CoinbaseOutputDataSize {
-                    //    coinbase_output_max_additional_size: m.coinbase_output_max_additional_size,
-                    //};
-                    //// ... than coinbase_output_max_additional_size is sent to TP_receiver
-                    //sender
-                    //    .send(coinbase_output_max_additional_size)
-                    //    .await
-                    //    .unwrap();
-                    //self_mutex
-                    //    .safe_lock(|j| j.allocate_mining_job_message = m)
-                    //    .unwrap();
-                }
-                _ => unreachable!(),
-            },
-            Ok(_) => print!("MVP2 ENDS HERE"),
-            Err(_) => todo!(),
-        }
-    }
-
-    pub async fn send(self_mutex: Arc<Mutex<Self>>, message: JobNegotiation) -> Result<(), ()> {
-        let sv2_frame: StdFrame = PoolMessages::JobNegotiation(message).try_into().unwrap();
-        let sender = self_mutex.safe_lock(|self_| self_.sender.clone()).unwrap();
-        sender.send(sv2_frame.into()).await.map_err(|_| ())?;
-        Ok(())
     }
 }

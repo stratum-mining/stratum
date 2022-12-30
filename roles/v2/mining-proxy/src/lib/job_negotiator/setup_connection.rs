@@ -53,13 +53,9 @@ impl SetupConnectionHandler {
             .unwrap();
         let sv2_frame = sv2_frame.into();
 
-        println!("Sending sv2_frame...");
-
         sender.send(sv2_frame).await.map_err(|_| ())?;
 
-        println!("Receiving setupconnection message from pool...");
         let mut incoming: StdFrame = receiver.recv().await.unwrap().try_into().unwrap();
-        println!("Received setup connection message");
 
         let message_type = incoming.get_header().unwrap().msg_type();
         let payload = incoming.payload();
