@@ -1,7 +1,7 @@
 use crate::ChannelKind;
 
 use super::upstream_mining::{StdFrame as UpstreamFrame, UpstreamMiningNode};
-use async_channel::{Receiver, Send, SendError, Sender};
+use async_channel::{Receiver, SendError, Sender};
 use roles_logic_sv2::{
     common_messages_sv2::{SetupConnection, SetupConnectionSuccess},
     common_properties::{CommonDownstreamData, IsDownstream, IsMiningDownstream},
@@ -283,9 +283,9 @@ impl DownstreamMiningNode {
                                     .await
                                     .unwrap();
                             }
-                            m @ _ => panic!("{:?}", m),
+                            m => panic!("{:?}", m),
                         },
-                        m @ _ => panic!("{:?}", m),
+                        m => panic!("{:?}", m),
                     }
                 }
             }
@@ -354,17 +354,14 @@ impl
                     })
                     .unwrap();
                 for m in &messages {
-                    match m {
-                        Mining::OpenStandardMiningChannelSuccess(m) => {
-                            self.open_channel_for_down_hom_up_extended(
-                                m.channel_id,
-                                m.group_channel_id,
-                            );
-                        }
-                        _ => (),
+                    if let Mining::OpenStandardMiningChannelSuccess(m) = m {
+                        self.open_channel_for_down_hom_up_extended(
+                            m.channel_id,
+                            m.group_channel_id,
+                        );
                     }
                 }
-                let messages = messages.into_iter().map(|m| SendTo::Respond(m)).collect();
+                let messages = messages.into_iter().map(SendTo::Respond).collect();
                 Ok(SendTo::Multiple(messages))
             }
             ChannelKind::ExtendedWithNegotiator => {
@@ -380,17 +377,14 @@ impl
                     })
                     .unwrap();
                 for m in &messages {
-                    match m {
-                        Mining::OpenStandardMiningChannelSuccess(m) => {
-                            self.open_channel_for_down_hom_up_extended(
-                                m.channel_id,
-                                m.group_channel_id,
-                            );
-                        }
-                        _ => (),
+                    if let Mining::OpenStandardMiningChannelSuccess(m) = m {
+                        self.open_channel_for_down_hom_up_extended(
+                            m.channel_id,
+                            m.group_channel_id,
+                        );
                     }
                 }
-                let messages = messages.into_iter().map(|m| SendTo::Respond(m)).collect();
+                let messages = messages.into_iter().map(SendTo::Respond).collect();
                 Ok(SendTo::Multiple(messages))
             }
         }

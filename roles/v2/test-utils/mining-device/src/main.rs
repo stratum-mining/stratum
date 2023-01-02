@@ -1,4 +1,4 @@
-use async_std::{net::TcpStream, task};
+use async_std::net::TcpStream;
 use bitcoin::{
     blockdata::block::BlockHeader,
     hash_types::{BlockHash, TxMerkleNode},

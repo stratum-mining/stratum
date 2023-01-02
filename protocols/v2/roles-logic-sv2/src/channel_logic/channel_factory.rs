@@ -1152,16 +1152,10 @@ impl ProxyExtendedChannelFactory {
             .map(|f| f.0.prev_hash.clone())
     }
     pub fn last_min_ntime(&self) -> Option<u32> {
-        self.inner
-            .last_prev_hash
-            .as_ref()
-            .map(|f| f.0.min_ntime.clone())
+        self.inner.last_prev_hash.as_ref().map(|f| f.0.min_ntime)
     }
     pub fn last_nbits(&self) -> Option<u32> {
-        self.inner
-            .last_prev_hash
-            .as_ref()
-            .map(|f| f.0.nbits.clone())
+        self.inner.last_prev_hash.as_ref().map(|f| f.0.nbits)
     }
     pub fn extranonce_size(&self) -> usize {
         self.inner.extranonces.get_len()

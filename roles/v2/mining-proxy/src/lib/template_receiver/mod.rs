@@ -15,8 +15,7 @@ pub type EitherFrame = StandardEitherFrame<Message>;
 use async_channel::{Receiver, Sender};
 use network_helpers::plain_connection_tokio::PlainConnection;
 use std::{convert::TryInto, net::SocketAddr, sync::Arc};
-use tokio::{net::TcpStream, task};
-use tracing::info;
+use tokio::net::TcpStream;
 mod message_handler;
 mod setup_connection;
 use setup_connection::SetupConnectionHandler;
@@ -59,7 +58,7 @@ impl TemplateRx {
 
         let sv2_frame: StdFrame = PoolMessages::TemplateDistribution(
             roles_logic_sv2::parsers::TemplateDistribution::CoinbaseOutputDataSize(
-                coinbase_output_max_additional_size.clone(),
+                coinbase_output_max_additional_size,
             ),
         )
         .try_into()

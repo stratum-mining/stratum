@@ -1,19 +1,16 @@
 use crate::{Configuration, EitherFrame, StdFrame};
 use async_channel::{Receiver, Sender};
-use binary_sv2::{Seq064K, B0255, B064K, U256};
-use codec_sv2::{Frame, HandshakeRole, Responder};
+use codec_sv2::{HandshakeRole, Responder};
 use network_helpers::noise_connection_tokio::Connection;
 use roles_logic_sv2::{
     common_messages_sv2::SetupConnectionSuccess,
-    handlers::SendTo_,
     job_negotiation_sv2::SetCoinbase,
     parsers::{JobNegotiation, PoolMessages},
     utils::{Id, Mutex},
 };
-use std::{collections::HashMap, convert::TryInto, sync::Arc};
-use tokio::{net::TcpListener, task};
+use std::{convert::TryInto, sync::Arc};
+use tokio::net::TcpListener;
 use tracing::info;
-pub type SendTo = SendTo_<roles_logic_sv2::parsers::JobNegotiation<'static>, ()>;
 
 #[derive(Debug)]
 pub struct JobNegotiatorDownstream {

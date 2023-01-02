@@ -1,4 +1,4 @@
-use crate::{ChannelKind, BLOCK_REWARD, EXTRANOUNCE_RAGE_1_LENGTH};
+use crate::{ChannelKind, EXTRANOUNCE_RAGE_1_LENGTH};
 use roles_logic_sv2::utils::Id;
 
 use super::downstream_mining::{Channel, DownstreamMiningNode, StdFrame as DownstreamFrame};
@@ -105,6 +105,7 @@ use tracing::{debug, info};
 /// It assume that endpoint NEVER change flags and version!
 /// I can open both extended and group channel with upstream.
 impl UpstreamMiningNode {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         id: u32,
         address: SocketAddr,
@@ -192,7 +193,7 @@ impl UpstreamMiningNode {
 
                 for (id, job) in channel_id_to_new_job_msg {
                     let downstream = self_mutex
-                        .safe_lock(|a| a.downstream_selector.downstream_from_channel_id(id.clone()))
+                        .safe_lock(|a| a.downstream_selector.downstream_from_channel_id(id))
                         .unwrap()
                         .unwrap();
                     let message = MiningDeviceMessages::Mining(job);
@@ -556,6 +557,7 @@ impl UpstreamMiningNode {
                 min_extranonce_size: crate::MIN_EXTRANOUNCE_SIZE,
             },
         ));
+        #[warn(unused_must_use)]
         Self::send(self_mutex.clone(), message.try_into().unwrap()).await;
         while self_mutex
             .safe_lock(|s| s.channel_factory.is_none())
@@ -607,14 +609,15 @@ impl UpstreamMiningNode {
         match self.channel_kind {
             ChannelKind::Group => panic!(),
             ChannelKind::Extended => {
+                #[allow(unused_variables)]
+                #[allow(unreachable_code)]
                 let messages = self
                     .channel_factory
                     .as_mut()
                     .unwrap()
                     .add_standard_channel(request_id, downstream_hash_rate, id_header_only, todo!())
                     .unwrap();
-                let messages = messages.into_iter().map(|x| x.into_static()).collect();
-                messages
+                messages.into_iter().map(|x| x.into_static()).collect()
             }
             ChannelKind::ExtendedWithNegotiator => {
                 let messages = self
@@ -624,8 +627,8 @@ impl UpstreamMiningNode {
                     // TODO which channel should I send instead of 0 or 0 is ok?
                     .add_standard_channel(request_id, downstream_hash_rate, id_header_only, 0)
                     .unwrap();
-                let messages = messages.into_iter().map(|x| x.into_static()).collect();
-                messages
+                messages.into_iter().map(|x| x.into_static()).collect()
+                
             }
         }
     }
@@ -973,6 +976,9 @@ mod tests {
             190, 90, 169, 238, 89, 191, 183, 97, 63, 194, 119, 11, 31,
         ];
         let ids = Arc::new(Mutex::new(GroupId::new()));
+        let recv_tp = None;
+        let recv_ph = None;
+        let request_ids = Arc::new(Mutex::new(Id::new()));
         let actual = UpstreamMiningNode::new(
             id,
             address,
@@ -981,7 +987,7 @@ mod tests {
             ids,
             recv_tp,
             recv_ph,
-            todo!(),
+            request_ids,
         );
 
         assert_eq!(actual.id, id);

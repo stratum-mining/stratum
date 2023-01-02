@@ -8,7 +8,7 @@ use roles_logic_sv2::{
     utils::Mutex,
 };
 use std::{convert::TryInto, net::SocketAddr, sync::Arc};
-use tracing::{error, info, trace};
+use tracing::trace;
 pub type Message = PoolMessages<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;
 pub type EitherFrame = StandardEitherFrame<Message>;

@@ -23,7 +23,7 @@ use lib::{
     job_negotiator::JobNegotiator, template_receiver::TemplateRx,
     upstream_mining::UpstreamMiningNode,
 };
-use once_cell::sync::{Lazy, OnceCell};
+use once_cell::sync::OnceCell;
 use roles_logic_sv2::{
     routing_logic::{CommonRoutingLogic, MiningProxyRoutingLogic, MiningRoutingLogic},
     selectors::GeneralMiningSelector,
@@ -52,7 +52,6 @@ type RLogic = MiningProxyRoutingLogic<
 static ROUTING_LOGIC: OnceCell<Mutex<RLogic>> = OnceCell::new();
 static MIN_EXTRANOUNCE_SIZE: u16 = 6;
 static EXTRANOUNCE_RAGE_1_LENGTH: usize = 4;
-const BLOCK_REWARD: u64 = 5_000_000_000;
 
 async fn initialize_upstreams(min_version: u16, max_version: u16) {
     let upstreams = ROUTING_LOGIC
@@ -153,7 +152,7 @@ pub async fn initialize_r_logic(
                             .pub_key
                             .into_inner()
                             .as_bytes()
-                            .clone(),
+                            .to_owned(),
                         send_comas,
                     )
                 );
@@ -164,7 +163,7 @@ pub async fn initialize_r_logic(
             index as u32,
             socket,
             upstream.pub_key.clone().into_inner().to_bytes(),
-            upstream.channel_kind.clone(),
+            upstream.channel_kind,
             group_id.clone(),
             Some(recv_tp),
             Some(recv_ph),
