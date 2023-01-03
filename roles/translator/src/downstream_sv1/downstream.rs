@@ -6,20 +6,19 @@ use async_std::{
     prelude::*,
     task,
 };
+
 use roles_logic_sv2::{
     bitcoin::util::uint::Uint256,
     common_properties::{IsDownstream, IsMiningDownstream},
-    mining_sv2::ExtendedExtranonce,
     utils::Mutex,
 };
 use std::{net::SocketAddr, ops::Div, sync::Arc};
+use tracing::{debug, info};
 use v1::{
     client_to_server, json_rpc, server_to_client,
-    utils::{HexBytes, HexU32Be},
+    utils::{Extranonce, HexU32Be},
     IsServer,
 };
-
-use tracing::{debug, info};
 
 /// Handles the sending and receiving of messages to and from an SV2 Upstream role (most typically
 /// a SV2 Pool server).
@@ -27,7 +26,7 @@ use tracing::{debug, info};
 pub struct Downstream {
     /// List of authorized Downstream Mining Devices.
     authorized_names: Vec<String>,
-    extranonce: ExtendedExtranonce,
+    extranonce1: Vec<u8>,
     /// `extranonce1` to be sent to the Downstream in the SV1 `mining.subscribe` message response.
     //extranonce1: Vec<u8>,
     //extranonce2_size: usize,
@@ -35,51 +34,48 @@ pub struct Downstream {
     version_rolling_mask: Option<HexU32Be>,
     /// Minimum version rolling mask bits size
     version_rolling_min_bit: Option<HexU32Be>,
-    /// Sends SV1 `mining.submit` message received from the SV1 Downstream to the Bridge for
+    /// Sends a SV1 `mining.submit` message received from the Downstream role to the `Bridge` for
     /// translation into a SV2 `SubmitSharesExtended`.
-    submit_sender: Sender<(v1::client_to_server::Submit, ExtendedExtranonce)>,
+    tx_sv1_submit: Sender<(v1::client_to_server::Submit<'static>, Vec<u8>)>,
     /// Sends message to the SV1 Downstream role.
-    sender_outgoing: Sender<json_rpc::Message>,
-    /// Difficulty target for SV1 Downstream.
-    target: Arc<Mutex<Vec<u8>>>,
+    tx_outgoing: Sender<json_rpc::Message>,
     /// True if this is the first job received from `Upstream`.
     first_job_received: bool,
+    extranonce2_len: usize,
 }
 
 impl Downstream {
     /// Instantiate a new `Downstream`.
     pub async fn new(
         stream: TcpStream,
-        submit_sender: Sender<(v1::client_to_server::Submit, ExtendedExtranonce)>,
-        mining_notify_receiver: Receiver<server_to_client::Notify>,
-        extranonce: ExtendedExtranonce,
-        last_notify: Arc<Mutex<Option<server_to_client::Notify>>>,
-        target: Arc<Mutex<Vec<u8>>>,
-    ) -> ProxyResult<Arc<Mutex<Self>>> {
+        tx_sv1_submit: Sender<(v1::client_to_server::Submit<'static>, Vec<u8>)>,
+        rx_sv1_notify: Receiver<server_to_client::Notify<'static>>,
+        extranonce1: Vec<u8>,
+        last_notify: Option<server_to_client::Notify<'static>>,
+        target: Vec<u8>,
+        extranonce2_len: usize,
+    ) -> ProxyResult<'static, Arc<Mutex<Self>>> {
         let stream = std::sync::Arc::new(stream);
 
         // Reads and writes from Downstream SV1 Mining Device Client
         let (socket_reader, socket_writer) = (stream.clone(), stream);
-        let (sender_outgoing, receiver_outgoing) = bounded(10);
+        let (tx_outgoing, receiver_outgoing) = bounded(10);
 
         let socket_writer_clone = socket_writer.clone();
         let _socket_writer_set_difficulty_clone = socket_writer.clone();
         // Used to send SV1 `mining.notify` messages to the Downstreams
         let _socket_writer_notify = socket_writer;
 
-        //let extranonce: Vec<u8> = extranonce.try_into().unwrap();
-        //let (extranonce1, _) = extranonce.split_at(extranonce.len() - extranonce2_size);
-
         let downstream = Arc::new(Mutex::new(Downstream {
             authorized_names: vec![],
-            extranonce,
+            extranonce1,
             //extranonce1: extranonce1.to_vec(),
             version_rolling_mask: None,
             version_rolling_min_bit: None,
-            submit_sender,
-            sender_outgoing,
-            target: target.clone(),
+            tx_sv1_submit,
+            tx_outgoing,
             first_job_received: false,
+            extranonce2_len,
         }));
         let self_ = downstream.clone();
 
@@ -133,13 +129,11 @@ impl Downstream {
                     .safe_lock(|d| !d.authorized_names.is_empty())
                     .unwrap();
 
-                if is_a && !first_sent {
-                    let target = target.safe_lock(|t| t.clone()).unwrap();
-                    let message = Self::get_set_difficulty(target);
+                if is_a && !first_sent && last_notify.is_some() {
+                    let message = Self::get_set_difficulty(target.clone());
                     Downstream::send_message_downstream(downstream_clone.clone(), message).await;
 
-                    let sv1_mining_notify_msg =
-                        last_notify.safe_lock(|s| s.clone()).unwrap().unwrap();
+                    let sv1_mining_notify_msg = last_notify.as_ref().unwrap().clone();
                     let messsage: json_rpc::Message = sv1_mining_notify_msg.try_into().unwrap();
                     Downstream::send_message_downstream(downstream_clone.clone(), messsage).await;
                     downstream_clone
@@ -150,30 +144,10 @@ impl Downstream {
                         .unwrap();
                     first_sent = true;
                 } else if is_a {
-                    let sv1_mining_notify_msg =
-                        mining_notify_receiver.clone().recv().await.unwrap();
+                    let sv1_mining_notify_msg = rx_sv1_notify.clone().recv().await.unwrap();
                     let messsage: json_rpc::Message = sv1_mining_notify_msg.try_into().unwrap();
                     Downstream::send_message_downstream(downstream_clone.clone(), messsage).await;
-                }
-            }
-        });
-
-        // Task to update the target and send a new `mining.set_difficulty` to the SV1 Downstream
-        let downstream_clone = downstream.clone();
-        task::spawn(async move {
-            let target = downstream_clone.safe_lock(|t| t.target.clone()).unwrap();
-            let mut last_target = target.safe_lock(|t| t.clone()).unwrap();
-            loop {
-                let target = downstream_clone
-                    .clone()
-                    .safe_lock(|t| t.target.clone())
-                    .unwrap();
-                let target = target.safe_lock(|t| t.clone()).unwrap();
-                if target != last_target {
-                    last_target = target;
-                    let target_2 = last_target.to_vec();
-                    let message = Self::get_set_difficulty(target_2);
-                    Downstream::send_message_downstream(downstream_clone.clone(), message).await;
+                    first_sent = true;
                 }
             }
         });
@@ -194,8 +168,7 @@ impl Downstream {
 
     /// Converts target received by the `SetTarget` SV2 message from the Upstream role into the
     /// difficulty for the Downstream role sent via the SV1 `mining.set_difficulty` message.
-    fn difficulty_from_target(mut target: Vec<u8>) -> f64 {
-        target.reverse();
+    fn difficulty_from_target(target: Vec<u8>) -> f64 {
         let target = target.as_slice();
 
         // If received target is 0, return 0
@@ -209,8 +182,15 @@ impl Downstream {
         ];
         let pdiff = Uint256::from_be_bytes(pdiff);
 
-        let diff = pdiff.div(target);
-        diff.low_u64() as f64
+        if pdiff > target {
+            let diff = pdiff.div(target);
+            diff.low_u64() as f64
+        } else {
+            let diff = target.div(pdiff);
+            let diff = diff.low_u64() as f64;
+            // TODO still bring to too low difficulty shares
+            1.0 / diff
+        }
     }
 
     /// Converts target received by the `SetTarget` SV2 message from the Upstream role into the
@@ -227,33 +207,39 @@ impl Downstream {
     /// new `Downstream` for each connection.
     pub async fn accept_connections(
         downstream_addr: SocketAddr,
-        submit_sender: Sender<(v1::client_to_server::Submit, ExtendedExtranonce)>,
-        receiver_mining_notify: Receiver<server_to_client::Notify>,
-        mut extended_extranonce: ExtendedExtranonce,
-        last_notify: Arc<Mutex<Option<server_to_client::Notify>>>,
-        target: Arc<Mutex<Vec<u8>>>,
+        tx_sv1_submit: Sender<(v1::client_to_server::Submit<'static>, Vec<u8>)>,
+        receiver_mining_notify: Receiver<server_to_client::Notify<'static>>,
+        bridge: Arc<Mutex<crate::proxy::Bridge>>,
     ) {
         let downstream_listener = TcpListener::bind(downstream_addr).await.unwrap();
         let mut downstream_incoming = downstream_listener.incoming();
         while let Some(stream) = downstream_incoming.next().await {
             let stream = stream.expect("Err on SV1 Downstream connection stream");
-            extended_extranonce.next_extended(0).unwrap();
-            let extended_extranonce = extended_extranonce.clone();
-            info!(
-                "PROXY SERVER - ACCEPTING FROM DOWNSTREAM: {}",
-                stream.peer_addr().unwrap()
-            );
-            let server = Downstream::new(
-                stream,
-                submit_sender.clone(),
-                receiver_mining_notify.clone(),
-                extended_extranonce,
-                last_notify.clone(),
-                target.clone(),
-            )
-            .await
-            .unwrap();
-            Arc::new(Mutex::new(server));
+            // TODO where should I pick the below value??
+            let expected_hash_rate = 5_000_000.0;
+            match bridge
+                .safe_lock(|s| s.on_new_sv1_connection(expected_hash_rate))
+                .unwrap()
+            {
+                Some(opened) => {
+                    info!(
+                        "PROXY SERVER - ACCEPTING FROM DOWNSTREAM: {}",
+                        stream.peer_addr().unwrap()
+                    );
+                    Downstream::new(
+                        stream,
+                        tx_sv1_submit.clone(),
+                        receiver_mining_notify.clone(),
+                        opened.extranonce,
+                        opened.last_notify,
+                        opened.target,
+                        opened.extranonce2_len as usize,
+                    )
+                    .await
+                    .unwrap();
+                }
+                None => todo!(),
+            }
         }
     }
 
@@ -287,14 +273,14 @@ impl Downstream {
     /// Send SV1 response message that is generated by `Downstream` (as opposed to being received
     /// by `Bridge`) to be written to the SV1 Downstream role.
     async fn send_message_downstream(self_: Arc<Mutex<Self>>, response: json_rpc::Message) {
-        let sender = self_.safe_lock(|s| s.sender_outgoing.clone()).unwrap();
+        let sender = self_.safe_lock(|s| s.tx_outgoing.clone()).unwrap();
         debug!("To DOWN: {:?}", response);
         sender.send(response).await.unwrap();
     }
 }
 
 /// Implements `IsServer` for `Downstream` to handle the SV1 messages.
-impl IsServer for Downstream {
+impl IsServer<'static> for Downstream {
     /// Handle the incoming `mining.configure` message which is received after a Downstream role is
     /// subscribed and authorized. Contains the version rolling mask parameters.
     fn handle_configure(
@@ -344,15 +330,20 @@ impl IsServer for Downstream {
 
     /// When miner find the job which meets requested difficulty, it can submit share to the server.
     /// Only [Submit](client_to_server::Submit) requests for authorized user names can be submitted.
-    fn handle_submit(&self, request: &client_to_server::Submit) -> bool {
+    fn handle_submit(&self, request: &client_to_server::Submit<'static>) -> bool {
         //info!("Down: Submitting Share");
         //debug!("Down: Handling mining.submit: {:?}", &request);
 
         // TODO: Check if receiving valid shares by adding diff field to Downstream
 
         if self.first_job_received {
-            let to_send = (request.clone(), self.extranonce.clone());
-            self.submit_sender.try_send(to_send).unwrap();
+            let mut tproxy_part =
+                self.extranonce1[self.extranonce1.len() - crate::SELF_EXTRNONCE_LEN..].to_vec();
+            let mut downstream_part: Vec<u8> = request.extra_nonce2.clone().try_into().unwrap();
+            tproxy_part.append(&mut downstream_part);
+
+            let to_send = (request.clone(), tproxy_part);
+            self.tx_sv1_submit.try_send(to_send).unwrap();
         };
         true
     }
@@ -372,31 +363,27 @@ impl IsServer for Downstream {
 
     /// Sets the `extranonce1` field sent in the SV1 `mining.notify` message to the value specified
     /// by the SV2 `OpenExtendedMiningChannelSuccess` message sent from the Upstream role.
-    fn set_extranonce1(&mut self, _extranonce1: Option<HexBytes>) -> HexBytes {
-        let extranonce1: Vec<u8> = self.extranonce.upstream_part().try_into().unwrap();
-        extranonce1.try_into().unwrap()
+    fn set_extranonce1(
+        &mut self,
+        _extranonce1: Option<Extranonce<'static>>,
+    ) -> Extranonce<'static> {
+        self.extranonce1.clone().try_into().unwrap()
     }
 
     /// Returns the `Downstream`'s `extranonce1` value.
-    fn extranonce1(&self) -> HexBytes {
-        let downstream_ext: Vec<u8> = self
-            .extranonce
-            .without_upstream_part(None)
-            .unwrap()
-            .try_into()
-            .unwrap();
-        downstream_ext.try_into().unwrap()
+    fn extranonce1(&self) -> Extranonce<'static> {
+        self.extranonce1.clone().try_into().unwrap()
     }
 
     /// Sets the `extranonce2_size` field sent in the SV1 `mining.notify` message to the value
     /// specified by the SV2 `OpenExtendedMiningChannelSuccess` message sent from the Upstream role.
     fn set_extranonce2_size(&mut self, _extra_nonce2_size: Option<usize>) -> usize {
-        self.extranonce.get_range2_len()
+        self.extranonce2_len
     }
 
     /// Returns the `Downstream`'s `extranonce2_size` value.
     fn extranonce2_size(&self) -> usize {
-        self.extranonce.get_range2_len()
+        self.extranonce2_len
     }
 
     /// Returns the version rolling mask.
@@ -435,11 +422,11 @@ mod tests {
 
     #[test]
     fn gets_difficulty_from_target() {
-        let target = vec![
+        let mut target = vec![
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 255, 127,
             0, 0, 0, 0, 0,
         ];
-        println!("HERE");
+        target.reverse();
         let actual = Downstream::difficulty_from_target(target);
         let expect = 512.0;
         assert_eq!(actual, expect);

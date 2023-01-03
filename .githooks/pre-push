@@ -21,6 +21,8 @@ set -xe
 
 remote="$1"
 url="$2"
+# MG actions are finicky, disabling for now until we can stabilize.
+# act --job message_generator_check --reuse -P ubuntu-latest=ghcr.io/catthehacker/ubuntu:rust-latest
 act --job sv2_header_check --reuse -P ubuntu-latest=ghcr.io/catthehacker/ubuntu:rust-latest
 act --job fmt --reuse -P ubuntu-latest=ghcr.io/catthehacker/ubuntu:rust-latest
 act --job clippy-check --reuse -P ubuntu-latest=ghcr.io/catthehacker/ubuntu:rust-latest

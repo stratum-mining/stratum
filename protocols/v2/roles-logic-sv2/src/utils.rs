@@ -172,6 +172,88 @@ pub fn from_u128_to_uint256(input: u128) -> bitcoin::util::uint::Uint256 {
     bitcoin::util::uint::Uint256::from_be_bytes(be_bytes)
 }
 
+#[derive(Debug, Default)]
+pub struct GroupId {
+    group_ids: Id,
+    channel_ids: Id,
+}
+
+impl GroupId {
+    /// New GroupId it start with groups 0 that is reserved for hom downatreams
+    ///
+    pub fn new() -> Self {
+        Self {
+            group_ids: Id::new(),
+            channel_ids: Id::new(),
+        }
+    }
+
+    /// Create a group and return the id
+    pub fn new_group_id(&mut self) -> u32 {
+        self.group_ids.next()
+    }
+
+    /// Create a channel for a paricular group and return the channel id
+    /// _group_id is left for a future use of this API where we have an hirearchy of ids so that we
+    /// don't break old versions
+    pub fn new_channel_id(&mut self, _group_id: u32) -> u32 {
+        self.channel_ids.next()
+    }
+
+    /// Concatenate a group and a channel id into a complete id
+    pub fn into_complete_id(group_id: u32, channel_id: u32) -> u64 {
+        let part_1 = channel_id.to_le_bytes();
+        let part_2 = group_id.to_le_bytes();
+        u64::from_be_bytes([
+            part_2[3], part_2[2], part_2[1], part_2[0], part_1[3], part_1[2], part_1[1], part_1[0],
+        ])
+    }
+
+    /// Get the group part from a complete id
+    pub fn into_group_id(complete_id: u64) -> u32 {
+        let complete = complete_id.to_le_bytes();
+        u32::from_le_bytes([complete[4], complete[5], complete[6], complete[7]])
+    }
+
+    /// Get the channel part from a complete id
+    pub fn into_channel_id(complete_id: u64) -> u32 {
+        let complete = complete_id.to_le_bytes();
+        u32::from_le_bytes([complete[0], complete[1], complete[2], complete[3]])
+    }
+}
+
+#[test]
+fn test_group_id_new_group_id() {
+    let mut group_ids = GroupId::new();
+    let _ = group_ids.new_group_id();
+    let id = group_ids.new_group_id();
+    assert!(id == 2);
+}
+#[test]
+fn test_group_id_new_channel_id() {
+    let mut group_ids = GroupId::new();
+    let _ = group_ids.new_group_id();
+    let id = group_ids.new_group_id();
+    let channel_id = group_ids.new_channel_id(id);
+    assert!(channel_id == 1);
+}
+#[test]
+fn test_group_id_new_into_complete_id() {
+    let group_id = u32::from_le_bytes([0, 1, 2, 3]);
+    let channel_id = u32::from_le_bytes([10, 11, 12, 13]);
+    let complete_id = GroupId::into_complete_id(group_id, channel_id);
+    assert!([10, 11, 12, 13, 0, 1, 2, 3] == complete_id.to_le_bytes());
+}
+
+#[test]
+fn test_group_id_new_into_group_id() {
+    let group_id = u32::from_le_bytes([0, 1, 2, 3]);
+    let channel_id = u32::from_le_bytes([10, 11, 12, 13]);
+    let complete_id = GroupId::into_complete_id(group_id, channel_id);
+    let channel_from_complete = GroupId::into_channel_id(complete_id);
+    assert!(channel_id == channel_from_complete);
+}
+
 #[test]
 fn test_merkle_root_from_path() {
     let coinbase_bytes = vec![
@@ -236,7 +318,7 @@ fn test_merkle_root_from_path() {
         203, 112, 102, 31, 49, 147, 24, 25, 245, 61, 179, 146, 205, 127, 126, 100, 78, 204, 228,
         146, 209, 154, 89, 194, 209, 81, 57, 167, 88, 251, 44, 76,
     ];
-    let path = vec![a, b, c, d, e, f, g, h, i, l, m, n];
+    let mut path = vec![a, b, c, d, e, f, g, h, i, l, m, n];
     let expected_root = vec![
         73, 100, 41, 247, 106, 44, 1, 242, 3, 64, 100, 1, 98, 155, 40, 91, 170, 255, 170, 29, 193,
         255, 244, 71, 236, 29, 134, 218, 94, 45, 78, 77,
@@ -248,7 +330,35 @@ fn test_merkle_root_from_path() {
         &path,
     )
     .unwrap();
-    assert_eq!(expected_root, root)
+    assert_eq!(expected_root, root);
+
+    //Target coinbase_id return path
+    path.clear();
+    let coinbase_id = vec![
+        10, 66, 217, 241, 152, 86, 5, 234, 225, 85, 251, 215, 105, 1, 21, 126, 222, 69, 40, 157,
+        23, 177, 157, 106, 234, 164, 243, 206, 23, 241, 250, 166,
+    ];
+
+    let root = merkle_root_from_path(
+        &coinbase_bytes[..20],
+        &coinbase_bytes[30..],
+        &coinbase_bytes[20..30],
+        &path,
+    )
+    .unwrap();
+    assert_eq!(coinbase_id, root);
+
+    //Target None return path on serialization
+    assert_eq!(
+        merkle_root_from_path(&coinbase_bytes, &coinbase_bytes, &coinbase_bytes, &path),
+        None
+    );
+}
+
+pub fn u256_to_block_hash(v: U256<'static>) -> BlockHash {
+    let hash: [u8; 32] = v.to_vec().try_into().unwrap();
+    let hash = Hash::from_inner(hash);
+    BlockHash::from_hash(hash)
 }
 
 /// Returns a new `BlockHeader`.

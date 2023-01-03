@@ -30,9 +30,9 @@
 //! Handlers export the main traits needed in order to implement a valid Sv2 role.
 //! Routers in routing_logic are used by the traits in handlers for decide to which
 //! downstream/upstrem realy/send they use selectors in order to do that.
+pub mod channel_logic;
 pub mod common_properties;
 pub mod errors;
-pub mod group_channel_logic;
 pub mod handlers;
 pub mod job_creator;
 pub mod job_dispatcher;

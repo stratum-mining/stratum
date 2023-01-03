@@ -2,7 +2,7 @@
 use alloc::vec::Vec;
 #[cfg(not(feature = "with_serde"))]
 use binary_sv2::binary_codec_sv2;
-use binary_sv2::{Deserialize, Seq0255, Seq064K, Serialize, Str0255, B0255, B064K, U256};
+use binary_sv2::{Deserialize, Seq0255, Serialize, Str0255, B0255, B064K, U256};
 use core::convert::TryInto;
 
 /// # SetCustomMiningJob (Client -> Server)
@@ -52,7 +52,7 @@ pub struct SetCustomMiningJob<'decoder> {
     /// Bitcoin transaction outputs to be included as the last
     /// outputs in the coinbase transaction.
     #[cfg_attr(feature = "with_serde", serde(borrow))]
-    pub coinbase_tx_outputs: Seq064K<'decoder, B064K<'decoder>>,
+    pub coinbase_tx_outputs: B064K<'decoder>,
     /// The locktime field in the coinbase transaction.
     pub coinbase_tx_locktime: u32,
     /// Merkle path hashes ordered from deepest.
@@ -142,5 +142,32 @@ impl<'d> GetSize for SetCustomMiningJobSuccess<'d> {
 impl<'d> GetSize for SetCustomMiningJobError<'d> {
     fn get_size(&self) -> usize {
         self.channel_id.get_size() + self.request_id.get_size() + self.error_code.get_size()
+    }
+}
+#[cfg(feature = "with_serde")]
+impl<'a> SetCustomMiningJob<'a> {
+    pub fn into_static(self) -> SetCustomMiningJob<'static> {
+        panic!("This function shouldn't be called by the Messaege Generator");
+    }
+    pub fn as_static(&self) -> SetCustomMiningJob<'static> {
+        panic!("This function shouldn't be called by the Messaege Generator");
+    }
+}
+#[cfg(feature = "with_serde")]
+impl<'a> SetCustomMiningJobError<'a> {
+    pub fn into_static(self) -> SetCustomMiningJobError<'static> {
+        panic!("This function shouldn't be called by the Messaege Generator");
+    }
+    pub fn as_static(&self) -> SetCustomMiningJobError<'static> {
+        panic!("This function shouldn't be called by the Messaege Generator");
+    }
+}
+#[cfg(feature = "with_serde")]
+impl<'a> SetCustomMiningJobSuccess<'a> {
+    pub fn into_static(self) -> SetCustomMiningJobSuccess<'static> {
+        panic!("This function shouldn't be called by the Messaege Generator");
+    }
+    pub fn as_static(&self) -> SetCustomMiningJobSuccess<'static> {
+        panic!("This function shouldn't be called by the Messaege Generator");
     }
 }

@@ -8,7 +8,7 @@ use crate::{
     error::Error,
     json_rpc::{Message, Notification, Response},
     methods::ParsingMethodError,
-    utils::{HexBytes, HexU32Be, PrevHash},
+    utils::{Extranonce, HexBytes, HexU32Be, MerkleNode, PrevHash},
 };
 
 // client.get_version()
@@ -37,20 +37,20 @@ use crate::{
 ///   the current nonce range.
 ///
 #[derive(Debug, Clone)]
-pub struct Notify {
+pub struct Notify<'a> {
     pub job_id: String,
-    pub prev_hash: PrevHash,
+    pub prev_hash: PrevHash<'a>,
     pub coin_base1: HexBytes,
     pub coin_base2: HexBytes,
-    pub merkle_branch: Vec<HexBytes>,
+    pub merkle_branch: Vec<MerkleNode<'a>>,
     pub version: HexU32Be,
     pub bits: HexU32Be,
     pub time: HexU32Be,
     pub clean_jobs: bool,
 }
 
-impl TryFrom<Notify> for Message {
-    type Error = Error;
+impl<'a> TryFrom<Notify<'a>> for Message {
+    type Error = Error<'a>;
 
     fn try_from(notify: Notify) -> Result<Self, Error> {
         let prev_hash: Value = notify.prev_hash.try_into()?;
@@ -83,7 +83,7 @@ impl TryFrom<Notify> for Message {
     }
 }
 
-impl TryFrom<Notification> for Notify {
+impl<'a> TryFrom<Notification> for Notify<'a> {
     type Error = ParsingMethodError;
 
     #[allow(clippy::many_single_char_names)]
@@ -116,17 +116,22 @@ impl TryFrom<Notification> for Notify {
                     *i,
                 )
             }
-            _ => return Err(ParsingMethodError::wrong_args_from_value(msg.params)),
+            _ => {
+                return Err(ParsingMethodError::wrong_args_from_value(
+                    msg.params.clone(),
+                ))
+            }
         };
         let mut merkle_branch = vec![];
         for h in merkle_branch_ {
-            let h: HexBytes = h
+            let h: MerkleNode = h
                 .as_str()
                 .ok_or_else(|| ParsingMethodError::not_string_from_value(h.clone()))?
                 .try_into()?;
+
             merkle_branch.push(h);
         }
-        Ok(Notify {
+        let notify = Notify {
             job_id,
             prev_hash,
             coin_base1,
@@ -136,7 +141,8 @@ impl TryFrom<Notification> for Notify {
             bits,
             time,
             clean_jobs,
-        })
+        };
+        Ok(notify.clone())
     }
 }
 
@@ -152,7 +158,7 @@ pub struct SetDifficulty {
     pub value: f64,
 }
 
-impl From<SetDifficulty> for Message {
+impl<'a> From<SetDifficulty> for Message {
     fn from(sd: SetDifficulty) -> Self {
         let value: Value = sd.value.into();
         Message::Notification(Notification {
@@ -191,13 +197,13 @@ impl TryFrom<Notification> for SetDifficulty {
 /// Notification
 ///
 #[derive(Debug)]
-pub struct SetExtranonce {
-    pub extra_nonce1: HexBytes,
+pub struct SetExtranonce<'a> {
+    pub extra_nonce1: Extranonce<'a>,
     pub extra_nonce2_size: usize,
 }
 
-impl TryFrom<SetExtranonce> for Message {
-    type Error = Error;
+impl<'a> TryFrom<SetExtranonce<'a>> for Message {
+    type Error = Error<'a>;
 
     fn try_from(se: SetExtranonce) -> Result<Self, Error> {
         let extra_nonce1: Value = se.extra_nonce1.try_into()?;
@@ -209,7 +215,7 @@ impl TryFrom<SetExtranonce> for Message {
     }
 }
 
-impl TryFrom<Notification> for SetExtranonce {
+impl<'a> TryFrom<Notification> for SetExtranonce<'a> {
     type Error = ParsingMethodError;
 
     fn try_from(msg: Notification) -> Result<Self, Self::Error> {
@@ -219,7 +225,7 @@ impl TryFrom<Notification> for SetExtranonce {
             .ok_or_else(|| ParsingMethodError::not_array_from_value(msg.params.clone()))?;
         let (extra_nonce1, extra_nonce2_size) = match &params[..] {
             [JString(a), JNumber(b)] => (
-                a.as_str().try_into()?,
+                Extranonce::try_from(hex::decode(a)?)?,
                 b.as_u64()
                     .ok_or_else(|| ParsingMethodError::not_unsigned_from_value(b.clone()))?
                     as usize,
@@ -240,9 +246,9 @@ pub struct SetVersionMask {
 }
 
 impl TryFrom<SetVersionMask> for Message {
-    type Error = Error;
+    type Error = Error<'static>;
 
-    fn try_from(sv: SetVersionMask) -> Result<Self, Error> {
+    fn try_from(sv: SetVersionMask) -> Result<Self, Error<'static>> {
         let version_mask: Value = sv.version_mask.try_into()?;
         Ok(Message::Notification(Notification {
             method: "mining.set_version".to_string(),
@@ -353,14 +359,14 @@ impl Submit {
 ///    ExtraNonce2_size. - The number of bytes that the miner users for its ExtraNonce2 counter.
 ///
 #[derive(Debug)]
-pub struct Subscribe {
+pub struct Subscribe<'a> {
     pub id: String,
-    pub extra_nonce1: HexBytes,
+    pub extra_nonce1: Extranonce<'a>,
     pub extra_nonce2_size: usize,
     pub subscriptions: Vec<(String, String)>,
 }
 
-impl From<Subscribe> for Message {
+impl<'a> From<Subscribe<'a>> for Message {
     fn from(su: Subscribe) -> Self {
         let extra_nonce1: Value = su.extra_nonce1.into();
         let extra_nonce2_size: Value = su.extra_nonce2_size.into();
@@ -378,7 +384,7 @@ impl From<Subscribe> for Message {
     }
 }
 
-impl TryFrom<&Response> for Subscribe {
+impl<'a> TryFrom<&Response> for Subscribe<'a> {
     type Error = ParsingMethodError;
 
     fn try_from(msg: &Response) -> Result<Self, Self::Error> {
@@ -386,14 +392,14 @@ impl TryFrom<&Response> for Subscribe {
         let params = msg.result.as_array().ok_or_else(|| {
             ParsingMethodError::ImpossibleToParseResultField(Box::new(msg.clone()))
         })?;
-        let (extra_nonce1, extra_nonce2_size, subscriptions_) = match &params[..] {
-            [JString(a), JNumber(b), JArrary(d)] => (
+        let (subscriptions_, extra_nonce1, extra_nonce2_size) = match &params[..] {
+            [JArrary(a), JString(b), JNumber(c)] => (
+                a,
                 // infallible
-                a.as_str().try_into().unwrap(),
-                b.as_u64().ok_or_else(|| {
-                    ParsingMethodError::ImpossibleToParseAsU64(Box::new(b.clone()))
+                b.as_str().try_into()?,
+                c.as_u64().ok_or_else(|| {
+                    ParsingMethodError::ImpossibleToParseAsU64(Box::new(c.clone()))
                 })? as usize,
-                d,
             ),
             _ => return Err(ParsingMethodError::UnexpectedArrayParams(params.clone())),
         };
@@ -457,7 +463,7 @@ impl Configure {
     }
 }
 
-impl From<Configure> for Message {
+impl<'a> From<Configure> for Message {
     fn from(co: Configure) -> Self {
         let mut params = serde_json::Map::new();
         if let Some(version_rolling_) = co.version_rolling {
@@ -550,7 +556,7 @@ pub struct VersionRollingParams {
     pub version_rolling_min_bit_count: HexU32Be,
 }
 
-impl VersionRollingParams {
+impl<'a> VersionRollingParams {
     pub fn new(version_rolling_mask: HexU32Be, version_rolling_min_bit_count: HexU32Be) -> Self {
         VersionRollingParams {
             version_rolling: true,
@@ -561,9 +567,9 @@ impl VersionRollingParams {
 }
 
 impl TryFrom<VersionRollingParams> for serde_json::Map<String, Value> {
-    type Error = Error;
+    type Error = Error<'static>;
 
-    fn try_from(vp: VersionRollingParams) -> Result<Self, Error> {
+    fn try_from(vp: VersionRollingParams) -> Result<Self, Error<'static>> {
         let version_rolling: Value = vp.version_rolling.into();
         let version_rolling_mask: Value = vp.version_rolling_mask.try_into()?;
         let version_rolling_min_bit_count: Value = vp.version_rolling_min_bit_count.try_into()?;

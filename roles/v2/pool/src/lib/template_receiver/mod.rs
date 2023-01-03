@@ -5,7 +5,9 @@ use network_helpers::plain_connection_tokio::PlainConnection;
 use roles_logic_sv2::{
     handlers::template_distribution::ParseServerTemplateDistributionMessages,
     parsers::{PoolMessages, TemplateDistribution},
-    template_distribution_sv2::{NewTemplate, SetNewPrevHash, SubmitSolution},
+    template_distribution_sv2::{
+        CoinbaseOutputDataSize, NewTemplate, SetNewPrevHash, SubmitSolution,
+    },
     utils::Mutex,
 };
 use std::{convert::TryInto, net::SocketAddr, sync::Arc};
@@ -19,6 +21,7 @@ use setup_connection::SetupConnectionHandler;
 pub struct TemplateRx {
     receiver: Receiver<EitherFrame>,
     sender: Sender<EitherFrame>,
+    message_received_signal: Receiver<()>,
     new_template_sender: Sender<NewTemplate<'static>>,
     new_prev_hash_sender: Sender<SetNewPrevHash<'static>>,
 }
@@ -29,6 +32,7 @@ impl TemplateRx {
         templ_sender: Sender<NewTemplate<'static>>,
         prev_h_sender: Sender<SetNewPrevHash<'static>>,
         solution_receiver: Receiver<SubmitSolution<'static>>,
+        message_received_signal: Receiver<()>,
     ) {
         let stream = match TcpStream::connect(address).await {
             Ok(stream) => {
@@ -53,14 +57,29 @@ impl TemplateRx {
             sender,
             new_template_sender: templ_sender,
             new_prev_hash_sender: prev_h_sender,
+            message_received_signal,
         }));
         let cloned = self_.clone();
+
+        let c_additional_size = CoinbaseOutputDataSize {
+            coinbase_output_max_additional_size: crate::COINBASE_ADD_SZIE,
+        };
+        let frame = PoolMessages::TemplateDistribution(
+            TemplateDistribution::CoinbaseOutputDataSize(c_additional_size),
+        )
+        .try_into()
+        .unwrap();
+
+        Self::send(self_.clone(), frame).await.unwrap();
 
         task::spawn(async { Self::start(cloned).await });
         task::spawn(async { Self::on_new_solution(self_, solution_receiver).await });
     }
 
     pub async fn start(self_: Arc<Mutex<Self>>) {
+        let recv_msg_signal = self_
+            .safe_lock(|s| s.message_received_signal.clone())
+            .unwrap();
         let (receiver, new_template_sender, new_prev_hash_sender) = self_
             .safe_lock(|s| {
                 (
@@ -91,14 +110,19 @@ impl TemplateRx {
                             .send(m)
                             .await
                             .expect("Failed to send new template!");
+                        recv_msg_signal.recv().await.unwrap();
                     }
                     TemplateDistribution::RequestTransactionData(_) => todo!(),
                     TemplateDistribution::RequestTransactionDataError(_) => todo!(),
                     TemplateDistribution::RequestTransactionDataSuccess(_) => todo!(),
-                    TemplateDistribution::SetNewPrevHash(m) => new_prev_hash_sender
-                        .send(m)
-                        .await
-                        .expect("Failed to send new prev hash"),
+                    TemplateDistribution::SetNewPrevHash(m) => {
+                        new_prev_hash_sender
+                            .send(m)
+                            .await
+                            .expect("Failed to send new prev hash");
+
+                        recv_msg_signal.recv().await.unwrap();
+                    }
                     TemplateDistribution::SubmitSolution(_) => todo!(),
                 },
                 _ => todo!(),

@@ -174,3 +174,8 @@ impl<'a> TryFrom<alloc::vec::Vec<u8>> for U256<'a> {
         }
     }
 }
+impl<'a> AsRef<[u8]> for U256<'a> {
+    fn as_ref(&self) -> &[u8] {
+        todo!()
+    }
+}

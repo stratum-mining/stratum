@@ -2,14 +2,8 @@ use crate::methods::{Method, MethodError};
 
 #[derive(Debug)]
 #[non_exhaustive]
-pub enum Error {
-    // Previously expected HexBytes to never exceed 32 bytes in length, but when used with
-    // `coinbase_prefix` + `coinbase_suffix` in the translator proxy, the length exceeds 32
-    // bytes and this should be allowed. Leaving the commented out error checks in case we
-    // revert back and handle these coinbase values differently
-    // /// `HexBytes` should be less than or equal to 32 bytes. Errors on conversion to `Vec` if
-    // /// length is greater than 32 bytes.
-    // BadHexBytesConvert(usize),
+pub enum Error<'a> {
+    BadBytesConvert(binary_sv2::Error),
     BTCHashError(bitcoin_hashes::Error),
     /// Errors on bad hex decode/encode.
     HexError(hex::FromHexError),
@@ -23,11 +17,11 @@ pub enum Error {
     /// Errors if the client receives an invalid message that was intended to be sent from the
     /// client to the server, NOT from the server to the client.
     #[allow(clippy::upper_case_acronyms)]
-    InvalidReceiver(Method),
+    InvalidReceiver(Method<'a>),
     /// Errors if server receives and invalid `mining.submit` from the client.
     InvalidSubmission,
     /// Errors encountered during conversion between valid `json_rpc` messages and SV1 messages.
-    Method(MethodError),
+    Method(MethodError<'a>),
     /// Errors if action is attempted that requires the client to be authorized, but it is
     /// unauthorized. The client `id` is given in the error message.
     UnauthorizedClient(String),
@@ -35,14 +29,14 @@ pub enum Error {
     UnknownID(String),
 }
 
-impl std::fmt::Display for Error {
+impl<'a> std::fmt::Display for Error<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
-            // Error::BadHexBytesConvert(u) => write!(
-            //     f,
-            //     "Expected HexBytes to have length <= 32 bytes. Received `{}` bytes",
-            //     u
-            // ),
+            Error::BadBytesConvert(ref e) => write!(
+                f,
+                "Bad U256 or B032 conversion (U256 length must be exactly 32 bytes; B032 length must be <= 32 bytes): {:?}", 
+                e
+            ),
             Error::BTCHashError(ref e) => write!(f, "Bitcoin Hashes Error: `{:?}`", e),
             Error::HexError(ref e) => write!(f, "Bad hex encode/decode: `{:?}`", e),
             Error::IncorrectClientStatus(s) => {
@@ -79,26 +73,32 @@ impl std::fmt::Display for Error {
     }
 }
 
-impl From<bitcoin_hashes::Error> for Error {
+impl<'a> From<bitcoin_hashes::Error> for Error<'a> {
     fn from(e: bitcoin_hashes::Error) -> Self {
         Error::BTCHashError(e)
     }
 }
 
-impl From<hex::FromHexError> for Error {
+impl<'a> From<hex::FromHexError> for Error<'a> {
     fn from(e: hex::FromHexError) -> Self {
         Error::HexError(e)
     }
 }
 
-impl From<std::convert::Infallible> for Error {
+impl<'a> From<std::convert::Infallible> for Error<'a> {
     fn from(e: std::convert::Infallible) -> Self {
         Error::Infallible(e)
     }
 }
 
-impl From<MethodError> for Error {
-    fn from(inner: MethodError) -> Self {
+impl<'a> From<MethodError<'a>> for Error<'a> {
+    fn from(inner: MethodError<'a>) -> Self {
         Error::Method(inner)
+    }
+}
+
+impl<'a> From<binary_sv2::Error> for Error<'a> {
+    fn from(inner: binary_sv2::Error) -> Self {
+        Error::BadBytesConvert(inner)
     }
 }

@@ -23,18 +23,21 @@ struct CommonMessage<'a> {
     message: CommonMessages<'a>,
     id: String,
 }
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct JobNegotiationMessage<'a> {
     #[serde(borrow)]
     message: JobNegotiation<'a>,
     id: String,
 }
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct MiningMessage<'a> {
     #[serde(borrow)]
     message: Mining<'a>,
     id: String,
 }
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct TemplateDistributionMessage<'a> {
     #[serde(borrow)]
@@ -80,7 +83,7 @@ impl<'a> TestMessageParser<'a> {
     }
 
     pub fn from_str<'b: 'a>(test: &'b str) -> Self {
-        serde_json::from_str(&test).unwrap()
+        serde_json::from_str(test).unwrap()
     }
 }
 

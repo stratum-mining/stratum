@@ -1,9 +1,12 @@
+use alloc::string::ToString;
 #[cfg(not(feature = "with_serde"))]
 use alloc::vec::Vec;
 #[cfg(not(feature = "with_serde"))]
 use binary_sv2::{binary_codec_sv2, U32AsRef};
 use binary_sv2::{Deserialize, Serialize, Str0255, B032, U256};
 #[cfg(not(feature = "with_serde"))]
+use core::convert::TryInto;
+#[cfg(feature = "with_serde")]
 use core::convert::TryInto;
 
 /// # OpenStandardMiningChannel (Client -> Server)
@@ -71,22 +74,6 @@ impl<'decoder> OpenStandardMiningChannel<'decoder> {
         // DO NOT USE MEM SWAP HERE AS IT DO NOT UPDATE THE UNDERLING PAYLOAD
         // INSTEAD IMPLEMENT U32ASREF FOR SERDE
         todo!()
-    }
-}
-
-impl<'decoder> OpenStandardMiningChannel<'decoder> {
-    pub fn into_static_self(
-        s: OpenStandardMiningChannel<'decoder>,
-    ) -> OpenStandardMiningChannel<'static> {
-        OpenStandardMiningChannel {
-            #[cfg(not(feature = "with_serde"))]
-            request_id: s.request_id.into_static(),
-            #[cfg(feature = "with_serde")]
-            request_id: s.request_id,
-            user_identity: s.user_identity.into_static(),
-            nominal_hash_rate: s.nominal_hash_rate,
-            max_target: s.max_target.into_static(),
-        }
     }
 }
 
@@ -214,6 +201,22 @@ pub struct OpenMiningChannelError<'decoder> {
     #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub error_code: Str0255<'decoder>,
 }
+
+impl<'a> OpenMiningChannelError<'a> {
+    pub fn new_max_target_out_of_range(request_id: u32) -> Self {
+        Self {
+            request_id,
+            error_code: "max-target-out-of-range".to_string().try_into().unwrap(),
+        }
+    }
+    pub fn new_unknown_user(request_id: u32) -> Self {
+        Self {
+            request_id,
+            error_code: "unknown-user".to_string().try_into().unwrap(),
+        }
+    }
+}
+
 #[cfg(feature = "with_serde")]
 use binary_sv2::GetSize;
 #[cfg(feature = "with_serde")]
@@ -256,5 +259,151 @@ impl<'d> GetSize for OpenExtendedMiningChannelSuccess<'d> {
             + self.target.get_size()
             + self.extranonce_size.get_size()
             + self.extranonce_prefix.get_size()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+    use crate::tests::from_arbitrary_vec_to_array;
+    use alloc::{string::String, vec::Vec};
+    use core::convert::TryFrom;
+    use quickcheck_macros;
+
+    // *** OPEN STANDARD MINING CHANNEL ***
+    #[quickcheck_macros::quickcheck]
+    fn test_open_standard_mining_channel_fns(
+        request_id: u32,
+        user_identity: String,
+        nominal_hash_rate: f32,
+        max_target: Vec<u8>,
+        new_request_id: u32,
+    ) -> bool {
+        let max_target: [u8; 32] = from_arbitrary_vec_to_array(max_target);
+        let mut osmc = OpenStandardMiningChannel {
+            request_id: U32AsRef::from(request_id.clone()),
+            user_identity: Str0255::try_from(String::from(user_identity.clone()))
+                .expect("could not convert string to Str0255"),
+            nominal_hash_rate: nominal_hash_rate.clone(),
+            max_target: U256::from(max_target.clone()),
+        };
+        let test_request_id_1 = osmc.get_request_id_as_u32();
+        osmc.update_id(new_request_id);
+        let test_request_id_2 = osmc.get_request_id_as_u32();
+        request_id == test_request_id_1
+            && new_request_id == test_request_id_2
+            && helpers::compare_static_osmc(osmc)
+    }
+
+    #[quickcheck_macros::quickcheck]
+    fn test_open_standard_mining_channel_success(
+        request_id: u32,
+        channel_id: u32,
+        target: Vec<u8>,
+        extranonce_prefix: Vec<u8>,
+        group_channel_id: u32,
+        new_request_id: u32,
+    ) -> bool {
+        let target = from_arbitrary_vec_to_array(target);
+        let extranonce_prefix = from_arbitrary_vec_to_array(extranonce_prefix);
+        let mut osmcs = OpenStandardMiningChannelSuccess {
+            request_id: U32AsRef::from(request_id.clone()),
+            channel_id,
+            target: U256::from(target.clone()),
+            extranonce_prefix: B032::try_from(extranonce_prefix.to_vec()).expect(
+                "OpenStandardMiningChannelSuccess: failed to convert extranonce_prefix to B032",
+            ),
+            group_channel_id,
+        };
+        let test_request_id_1 = osmcs.get_request_id_as_u32();
+        osmcs.update_id(new_request_id);
+        let test_request_id_2 = osmcs.get_request_id_as_u32();
+        request_id == test_request_id_1 && new_request_id == test_request_id_2
+    }
+    // *** OPEN EXTENDED MINING CHANNEL SUCCESS ***
+    #[quickcheck_macros::quickcheck]
+    fn test_extended_standard_mining_channel_fns(
+        request_id: u32,
+        user_identity: String,
+        nominal_hash_rate: f32,
+        max_target: Vec<u8>,
+        min_extranonce_size: u16,
+    ) -> bool {
+        let max_target: [u8; 32] = from_arbitrary_vec_to_array(max_target);
+        let oemc = OpenExtendedMiningChannel {
+            request_id: request_id.clone(),
+            user_identity: Str0255::try_from(String::from(user_identity.clone()))
+                .expect("could not convert string to Str0255"),
+            nominal_hash_rate: nominal_hash_rate.clone(),
+            max_target: U256::from(max_target.clone()),
+            min_extranonce_size,
+        };
+        let test_request_id_1 = oemc.get_request_id_as_u32();
+        request_id == test_request_id_1
+    }
+
+    // *** HELPERS ***
+    mod helpers {
+        use super::*;
+        pub fn compare_static_osmc(osmc: OpenStandardMiningChannel) -> bool {
+            let static_osmc = OpenStandardMiningChannel::into_static(osmc.clone());
+            static_osmc.request_id == osmc.request_id
+                && static_osmc.user_identity == osmc.user_identity
+                && static_osmc.nominal_hash_rate.to_ne_bytes()
+                    == osmc.nominal_hash_rate.to_ne_bytes()
+                && static_osmc.max_target == osmc.max_target
+        }
+    }
+
+    #[test]
+    fn test() {
+        "placeholder to allow in file unit tests for quickcheck";
+    }
+}
+
+#[cfg(feature = "with_serde")]
+impl<'a> OpenExtendedMiningChannel<'a> {
+    pub fn into_static(self) -> OpenExtendedMiningChannel<'static> {
+        panic!("This function shouldn't be called by the Messaege Generator");
+    }
+    pub fn as_static(&self) -> OpenExtendedMiningChannel<'static> {
+        panic!("This function shouldn't be called by the Messaege Generator");
+    }
+}
+#[cfg(feature = "with_serde")]
+impl<'a> OpenExtendedMiningChannelSuccess<'a> {
+    pub fn into_static(self) -> OpenExtendedMiningChannelSuccess<'static> {
+        panic!("This function shouldn't be called by the Messaege Generator");
+    }
+    pub fn as_static(&self) -> OpenExtendedMiningChannelSuccess<'static> {
+        panic!("This function shouldn't be called by the Messaege Generator");
+    }
+}
+#[cfg(feature = "with_serde")]
+impl<'a> OpenMiningChannelError<'a> {
+    pub fn into_static(self) -> OpenMiningChannelError<'static> {
+        panic!("This function shouldn't be called by the Messaege Generator");
+    }
+    pub fn as_static(&self) -> OpenMiningChannelError<'static> {
+        panic!("This function shouldn't be called by the Messaege Generator");
+    }
+}
+#[cfg(feature = "with_serde")]
+impl<'a> OpenStandardMiningChannel<'a> {
+    pub fn into_static(self) -> OpenStandardMiningChannel<'static> {
+        panic!("This function shouldn't be called by the Messaege Generator");
+    }
+    pub fn as_static(&self) -> OpenStandardMiningChannel<'static> {
+        panic!("This function shouldn't be called by the Messaege Generator");
+    }
+}
+#[cfg(feature = "with_serde")]
+impl<'a> OpenStandardMiningChannelSuccess<'a> {
+    pub fn into_static(self) -> OpenStandardMiningChannelSuccess<'static> {
+        panic!("This function shouldn't be called by the Messaege Generator");
+    }
+    pub fn as_static(&self) -> OpenStandardMiningChannelSuccess<'static> {
+        panic!("This function shouldn't be called by the Messaege Generator");
     }
 }

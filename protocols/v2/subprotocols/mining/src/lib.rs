@@ -153,9 +153,14 @@ pub struct Target {
     tail: u128,
 }
 
+impl Target {
+    pub fn new(head: u128, tail: u128) -> Self {
+        Self { head, tail }
+    }
+}
+
 impl From<[u8; 32]> for Target {
-    fn from(mut v: [u8; 32]) -> Self {
-        v.reverse();
+    fn from(v: [u8; 32]) -> Self {
         // below unwraps never panics
         let head = u128::from_le_bytes(v[0..16].try_into().unwrap());
         let tail = u128::from_le_bytes(v[16..32].try_into().unwrap());
@@ -199,9 +204,9 @@ impl Ord for Target {
         if self.tail == other.tail && self.head == other.head {
             core::cmp::Ordering::Equal
         } else if self.head != other.head {
-            self.head.cmp(&other.head)
-        } else {
             self.tail.cmp(&other.tail)
+        } else {
+            self.head.cmp(&other.head)
         }
     }
 }
@@ -273,7 +278,7 @@ impl core::convert::TryFrom<alloc::vec::Vec<u8>> for Extranonce {
 
 impl Extranonce {
     pub fn new(len: usize) -> Option<Self> {
-        if len > 32 {
+        if len > MAX_EXTRANONCE_LEN {
             None
         } else {
             let extranonce = vec![0; len];
@@ -301,6 +306,20 @@ impl Extranonce {
 
     pub fn to_vec(self) -> alloc::vec::Vec<u8> {
         self.extranonce
+    }
+
+    /// Return only the prefix part of the extranonce
+    /// If the required size is greater than the extranonce len it return None
+    pub fn into_prefix(&self, prefix_len: usize) -> Option<B032<'static>> {
+        if prefix_len > self.extranonce.len() {
+            None
+        } else {
+            let mut prefix = self.extranonce.clone();
+            prefix.resize(prefix_len, 0);
+            // unwrap is sage as prefix_len can not be greater than 32 cause is not possible to
+            // contruct Extranonce with the inner vecto greater than 32.
+            Some(prefix.try_into().unwrap())
+        }
     }
 }
 
@@ -471,12 +490,32 @@ impl ExtendedExtranonce {
         }
     }
 
+    pub fn new_with_inner_only_test(
+        range_0: Range<usize>,
+        range_1: Range<usize>,
+        range_2: Range<usize>,
+        mut inner: alloc::vec::Vec<u8>,
+    ) -> Self {
+        inner.resize(MAX_EXTRANONCE_LEN, 0);
+        let inner = inner.try_into().unwrap();
+        Self {
+            inner,
+            range_0,
+            range_1,
+            range_2,
+        }
+    }
+
     pub fn get_len(&self) -> usize {
         self.range_2.end
     }
 
     pub fn get_range2_len(&self) -> usize {
         self.range_2.end - self.range_2.start
+    }
+
+    pub fn get_prefix_len(&self) -> usize {
+        self.range_1.end - self.range_0.start
     }
 
     /// Suppose that P receives from the upstream an extranonce that needs to be converted into any
@@ -491,7 +530,7 @@ impl ExtendedExtranonce {
         range_1: Range<usize>,
         range_2: Range<usize>,
     ) -> Option<Self> {
-        if range_2.end > 32 {
+        if range_2.end > MAX_EXTRANONCE_LEN {
             return None;
         }
         let mut inner = v.extranonce;
@@ -607,11 +646,118 @@ fn increment_bytes_be(bs: &mut [u8]) -> Result<(), ()> {
 }
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
     use super::*;
     use alloc::vec::Vec;
-    use quickcheck::{Arbitrary, Gen};
     use quickcheck_macros;
+
+    #[test]
+    fn test_extranonce_errors() {
+        let extranonce = Extranonce::try_from(vec![0; MAX_EXTRANONCE_LEN + 1]);
+        assert!(extranonce.is_err());
+
+        assert!(Extranonce::new(MAX_EXTRANONCE_LEN + 1) == None);
+    }
+
+    #[test]
+    fn test_from_upstream_extranonce_error() {
+        let range_0 = 0..0;
+        let range_1 = 0..0;
+        let range_2 = 0..MAX_EXTRANONCE_LEN + 1;
+        let extranonce = Extranonce::new(10).unwrap();
+
+        let extended_extranonce =
+            ExtendedExtranonce::from_upstream_extranonce(extranonce, range_0, range_1, range_2);
+        assert!(extended_extranonce.is_none());
+    }
+
+    #[test]
+    fn test_extranonce_from_downstream_extranonce() {
+        let downstream_len = 10;
+
+        let downstream_extranonce = Extranonce::new(downstream_len).unwrap();
+
+        let range_0 = 0..4;
+        let range_1 = 4..downstream_len;
+        let range_2 = downstream_len..(downstream_len * 2 + 1);
+
+        let extended_extraonce = ExtendedExtranonce::new(range_0, range_1, range_2);
+
+        let extranonce =
+            extended_extraonce.extranonce_from_downstream_extranonce(downstream_extranonce);
+
+        assert!(extranonce.is_none());
+
+        // Test with a valid downstream extranonce
+        let extra_content: Vec<u8> = vec![5; downstream_len];
+        let downstream_extranonce =
+            Extranonce::from_vec_with_len(extra_content.clone(), downstream_len);
+
+        let range_0 = 0..4;
+        let range_1 = 4..downstream_len;
+        let range_2 = downstream_len..(downstream_len * 2);
+
+        let extended_extraonce = ExtendedExtranonce::new(range_0, range_1, range_2);
+
+        let extranonce =
+            extended_extraonce.extranonce_from_downstream_extranonce(downstream_extranonce);
+
+        assert!(extranonce.is_some());
+
+        //validate that the extranonce is the concatenation of the upstream part and the downstream part
+        assert_eq!(
+            extra_content,
+            extranonce.unwrap().extranonce.to_vec()[downstream_len..downstream_len * 2]
+        );
+    }
+
+    // Test from_vec_with_len
+    #[test]
+    fn test_extranonce_from_vec_with_len() {
+        let extranonce = Extranonce::new(10).unwrap();
+        let extranonce2 = Extranonce::from_vec_with_len(extranonce.extranonce, 22);
+        assert_eq!(extranonce2.extranonce.len(), 22);
+    }
+
+    #[test]
+    fn test_extranonce_without_upstream_part() {
+        let downstream_len = 10;
+
+        let downstream_extranonce = Extranonce::new(downstream_len).unwrap();
+
+        let range_0 = 0..4;
+        let range_1 = 4..downstream_len;
+        let range_2 = downstream_len..(downstream_len * 2 + 1);
+
+        let extended_extraonce = ExtendedExtranonce::new(range_0, range_1, range_2);
+
+        assert_eq!(
+            extended_extraonce.without_upstream_part(Some(downstream_extranonce.clone())),
+            None
+        );
+
+        let range_0 = 0..4;
+        let range_1 = 4..downstream_len;
+        let range_2 = downstream_len..(downstream_len * 2);
+        let upstream_extranonce = Extranonce::from_vec_with_len(vec![5; 14], downstream_len);
+
+        let extended_extraonce = ExtendedExtranonce::from_upstream_extranonce(
+            upstream_extranonce.clone(),
+            range_0,
+            range_1.clone(),
+            range_2,
+        )
+        .unwrap();
+
+        let extranonce = extended_extraonce
+            .without_upstream_part(Some(downstream_extranonce.clone()))
+            .unwrap();
+        assert_eq!(
+            extranonce.extranonce[0..6],
+            upstream_extranonce.extranonce[0..6]
+        );
+        assert_eq!(extranonce.extranonce[7..], vec![0; 9]);
+    }
 
     // This test checks the behaviour of the function increment_bytes_be for a the MAX value
     // converted in be array of u8
@@ -680,6 +826,13 @@ mod tests {
             range_1: range_1.clone(),
             range_2: range_2.clone(),
         };
+
+        assert_eq!(extended_extranonce_start.get_len(), extranonce_len);
+        assert_eq!(
+            extended_extranonce_start.get_range2_len(),
+            extranonce_len - ranges[1]
+        );
+
         let extranonce = match extended_extranonce_start.next_extended(0) {
             Some(x) => x,
             None => return true,
@@ -899,8 +1052,16 @@ mod tests {
         target_start == target_final
     }
 
+    #[quickcheck_macros::quickcheck]
+    fn test_vec_from_extranonce(input: Vec<u8>) -> bool {
+        let input_start = from_arbitrary_vec_to_array(input).to_vec();
+        let extranonce_start = Extranonce::try_from(input_start.clone()).unwrap();
+        let vec_final = Vec::from(extranonce_start.clone());
+        input_start == vec_final
+    }
+
     use core::convert::TryInto;
-    fn from_arbitrary_vec_to_array(vec: Vec<u8>) -> [u8; 32] {
+    pub fn from_arbitrary_vec_to_array(vec: Vec<u8>) -> [u8; 32] {
         if vec.len() >= 32 {
             vec[0..32].try_into().unwrap()
         } else {
@@ -913,5 +1074,31 @@ mod tests {
             }
             result[..].try_into().unwrap()
         }
+    }
+
+    #[test]
+    fn test_extranonce_to_prefix() {
+        let inner = vec![1, 2, 3, 4, 5, 6, 7, 8, 9];
+        let extranone = Extranonce { extranonce: inner };
+        let prefix = extranone.into_prefix(4).unwrap();
+        assert!(vec![1, 2, 3, 4] == prefix.to_vec())
+    }
+
+    #[test]
+    fn test_extranonce_to_prefix_not_greater_than_inner() {
+        let inner = vec![1, 2, 3, 4, 5, 6, 7, 8, 9];
+        let extranone = Extranonce { extranonce: inner };
+        let prefix = extranone.into_prefix(20);
+        assert!(prefix.is_none())
+    }
+
+    #[test]
+    fn test_extended_extranonce_get_prefix_len() {
+        let range_0 = 0..2;
+        let range_1 = 2..4;
+        let range_2 = 4..9;
+        let extended = ExtendedExtranonce::new(range_0, range_1, range_2);
+        let prefix_len = extended.get_prefix_len();
+        assert!(prefix_len == 4);
     }
 }

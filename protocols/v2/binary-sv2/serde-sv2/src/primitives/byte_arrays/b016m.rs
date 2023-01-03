@@ -106,6 +106,23 @@ impl<'a> Visitor<'a> for B016MVisitor {
         formatter.write_str("a byte array shorter than 16M")
     }
 
+    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+    where
+        A: serde::de::SeqAccess<'a>,
+    {
+        let mut inner = vec![];
+        while let Ok(Some(x)) = seq.next_element() {
+            inner.push(x)
+        }
+        if inner.len() > 16777216 {
+            return Err(serde::de::Error::custom(
+                "Impossible deserialize B016M, len is bigger 16777216",
+            ));
+        }
+        let inner = Inner::Owned(inner);
+        Ok(B016M(inner))
+    }
+
     #[inline]
     fn visit_borrowed_bytes<E>(self, value: &'a [u8]) -> Result<Self::Value, E> {
         Ok(B016M(Inner::Ref(value)))

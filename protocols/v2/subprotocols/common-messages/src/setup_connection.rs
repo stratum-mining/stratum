@@ -13,6 +13,8 @@ use const_sv2::{
 use core::convert::TryFrom;
 #[cfg(not(feature = "with_serde"))]
 use core::convert::TryInto;
+#[cfg(feature = "with_serde")]
+use serde_repr::*;
 
 /// ## SetupConnection (Client -> Server)
 /// Initiates the connection. This MUST be the first message sent by the client on the newly
@@ -56,20 +58,20 @@ impl<'decoder> SetupConnection<'decoder> {
     }
 
     /// Check if passed flags support self flag
-    pub fn check_flags(protocol: Protocol, avaiable_flags: u32, required_flags: u32) -> bool {
+    pub fn check_flags(protocol: Protocol, available_flags: u32, required_flags: u32) -> bool {
         match protocol {
             // [0] [0] -> true
             // [0] [1] -> false
             // [1] [1] -> true
             // [0] [1] -> false
             Protocol::MiningProtocol => {
-                let avaiable_flags = avaiable_flags.reverse_bits();
+                let available = available_flags.reverse_bits();
                 let required_flags = required_flags.reverse_bits();
                 let requires_work_selection_passed = (required_flags >> 30) > 0;
                 let requires_version_rolling_passed = (required_flags >> 29) > 0;
 
-                let requires_work_selection_self = (avaiable_flags >> 30) > 0;
-                let requires_version_rolling_self = (avaiable_flags >> 29) > 0;
+                let requires_work_selection_self = (available >> 30) > 0;
+                let requires_version_rolling_self = (available >> 29) > 0;
 
                 let work_selection =
                     !requires_work_selection_self || requires_work_selection_passed;
@@ -83,7 +85,7 @@ impl<'decoder> SetupConnection<'decoder> {
         }
     }
 
-    /// Check if passed versions support self versions if yes return the biggest version avaiable
+    /// Check if passed versions support self versions if yes return the biggest version available
     pub fn get_version(&self, min_version: u16, max_version: u16) -> Option<u16> {
         if self.min_version > max_version || min_version > self.max_version {
             None
@@ -280,7 +282,7 @@ impl<'a> From<SetupConnectionError<'a>> for CSetupConnectionError {
 /// JobNegotiationProtocol = [`SV2_JOB_NEG_PROTOCOL_DISCRIMINANT`],
 /// TemplateDistributionProtocol = [`SV2_TEMPLATE_DISTR_PROTOCOL_DISCRIMINANT`],
 /// JobDistributionProtocol = [`SV2_JOB_DISTR_PROTOCOL_DISCRIMINANT`],
-#[cfg_attr(feature = "with_serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "with_serde", derive(Serialize_repr, Deserialize_repr))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
 #[allow(clippy::enum_variant_names)]
@@ -367,6 +369,8 @@ impl<'d> GetSize for SetupConnection<'d> {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::alloc::string::ToString;
+    use core::convert::TryInto;
 
     #[test]
     fn test_check_flag() {
@@ -379,9 +383,59 @@ mod test {
             flag_required
         ));
     }
+
     #[test]
     fn test_has_requires_std_job() {
         let flags = 0b_0000_0000_0000_0000_0000_0000_0000_0001;
-        assert!(has_requires_std_job(flags) == true);
+        assert_eq!(has_requires_std_job(flags), true);
+        let flags = 0b_0000_0000_0000_0000_0000_0000_0000_0010;
+        assert_eq!(has_requires_std_job(flags), false);
+    }
+
+    #[test]
+    fn test_has_version_rolling() {
+        let flags = 0b_0000_0000_0000_0000_0000_0000_0000_0010;
+        assert_eq!(has_version_rolling(flags), true);
+        let flags = 0b_0000_0000_0000_0000_0000_0000_0000_0001;
+        assert_eq!(has_version_rolling(flags), false);
+    }
+
+    #[test]
+    fn test_has_work_selection() {
+        let flags = 0b_0000_0000_0000_0000_0000_0000_0000_0100;
+        assert_eq!(has_work_selection(flags), true);
+        let flags = 0b_0000_0000_0000_0000_0000_0000_0000_0001;
+        assert_eq!(has_work_selection(flags), false);
+    }
+
+    fn create_setup_connection() -> SetupConnection<'static> {
+        SetupConnection {
+            protocol: Protocol::MiningProtocol,
+            min_version: 1,
+            max_version: 4,
+            flags: 0,
+            endpoint_host: "0.0.0.0".to_string().into_bytes().try_into().unwrap(),
+            endpoint_port: 0,
+            vendor: "vendor".to_string().into_bytes().try_into().unwrap(),
+            hardware_version: "hw_version".to_string().into_bytes().try_into().unwrap(),
+            firmware: "firmware".to_string().into_bytes().try_into().unwrap(),
+            device_id: "device_id".to_string().into_bytes().try_into().unwrap(),
+        }
+    }
+
+    #[test]
+    fn test_get_version() {
+        let setup_conn = create_setup_connection();
+        assert_eq!(setup_conn.get_version(1, 5).unwrap(), 4);
+        assert_eq!(setup_conn.get_version(6, 6), None);
+    }
+
+    // Test SetupConnection::set_requires_std_job
+    #[test]
+    fn test_set_requires_std_job() {
+        let mut setup_conn = create_setup_connection();
+        assert!(!setup_conn.requires_standard_job());
+        setup_conn.set_requires_standard_job();
+        assert!(setup_conn.requires_standard_job());
     }
 }

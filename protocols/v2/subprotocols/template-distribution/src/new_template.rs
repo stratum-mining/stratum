@@ -4,7 +4,7 @@ use alloc::vec::Vec;
 use binary_sv2::binary_codec_sv2::{self, free_vec, free_vec_2, CVec, CVec2};
 #[cfg(not(feature = "with_serde"))]
 use binary_sv2::Error;
-use binary_sv2::{Deserialize, Seq0255, Seq064K, Serialize, B0255, B064K, U256};
+use binary_sv2::{Deserialize, Seq0255, Serialize, B0255, B064K, U256};
 #[cfg(not(feature = "with_serde"))]
 use core::convert::TryInto;
 
@@ -45,30 +45,12 @@ pub struct NewTemplate<'decoder> {
     /// Bitcoin transaction outputs to be included as the last outputs in the
     /// coinbase transaction.
     #[cfg_attr(feature = "with_serde", serde(borrow))]
-    pub coinbase_tx_outputs: Seq064K<'decoder, B064K<'decoder>>,
+    pub coinbase_tx_outputs: B064K<'decoder>,
     /// The locktime field in the coinbase transaction.
     pub coinbase_tx_locktime: u32,
     /// Merkle path hashes ordered from deepest.
     #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub merkle_path: Seq0255<'decoder, U256<'decoder>>,
-}
-
-impl<'a> NewTemplate<'a> {
-    pub fn as_static(&self) -> NewTemplate<'static> {
-        NewTemplate {
-            template_id: self.template_id,
-            future_template: self.future_template,
-            version: self.version,
-            coinbase_tx_version: self.coinbase_tx_version,
-            coinbase_prefix: self.coinbase_prefix.clone().into_static(),
-            coinbase_tx_input_sequence: self.coinbase_tx_input_sequence,
-            coinbase_tx_value_remaining: self.coinbase_tx_value_remaining,
-            coinbase_tx_outputs_count: self.coinbase_tx_outputs_count,
-            coinbase_tx_outputs: self.coinbase_tx_outputs.clone().into_static(),
-            coinbase_tx_locktime: self.coinbase_tx_locktime,
-            merkle_path: self.merkle_path.clone().into_static(),
-        }
-    }
 }
 
 #[repr(C)]
@@ -82,7 +64,7 @@ pub struct CNewTemplate {
     coinbase_tx_input_sequence: u32,
     coinbase_tx_value_remaining: u64,
     coinbase_tx_outputs_count: u32,
-    coinbase_tx_outputs: CVec2,
+    coinbase_tx_outputs: CVec,
     coinbase_tx_locktime: u32,
     merkle_path: CVec2,
 }
@@ -97,7 +79,7 @@ pub extern "C" fn free_new_template(s: CNewTemplate) {
 impl Drop for CNewTemplate {
     fn drop(&mut self) {
         free_vec(&mut self.coinbase_prefix);
-        free_vec_2(&mut self.coinbase_tx_outputs);
+        free_vec(&mut self.coinbase_tx_outputs);
         free_vec_2(&mut self.merkle_path);
     }
 }
@@ -135,12 +117,7 @@ impl<'a> CNewTemplate {
         }
         let merkle_path = Seq0255::new(merkle_path)?;
 
-        let coinbase_tx_outputs_ = self.coinbase_tx_outputs.as_mut_slice();
-        let mut coinbase_tx_outputs: Vec<B064K> = Vec::new();
-        for cvec in coinbase_tx_outputs_ {
-            coinbase_tx_outputs.push(cvec.as_mut_slice().try_into()?);
-        }
-        let coinbase_tx_outputs = Seq064K::new(coinbase_tx_outputs)?;
+        let coinbase_tx_outputs = self.coinbase_tx_outputs.as_mut_slice().try_into()?;
 
         Ok(NewTemplate {
             template_id: self.template_id,
@@ -173,5 +150,79 @@ impl<'d> GetSize for NewTemplate<'d> {
             + self.coinbase_tx_outputs.get_size()
             + self.coinbase_tx_locktime.get_size()
             + self.merkle_path.get_size()
+    }
+}
+
+#[cfg(feature = "with_serde")]
+impl<'a> NewTemplate<'a> {
+    pub fn into_static(self) -> NewTemplate<'static> {
+        panic!("This function shouldn't be called by the Messaege Generator");
+    }
+    pub fn as_static(&self) -> NewTemplate<'static> {
+        panic!("This function shouldn't be called by the Messaege Generator");
+    }
+}
+
+#[cfg(feature = "prop_test")]
+use quickcheck::{Arbitrary, Gen};
+
+#[cfg(feature = "prop_test")]
+use alloc::vec;
+
+#[cfg(feature = "prop_test")]
+use core::cmp;
+
+#[cfg(feature = "prop_test")]
+impl Arbitrary for NewTemplate<'static> {
+    fn arbitrary(g: &mut Gen) -> NewTemplate<'static> {
+        let coinbase_tx_version = (u32::arbitrary(g) % 2) + 1;
+        let mut coinbase_prefix = vec::Vec::new();
+        let coinbase_prefix_len = match coinbase_tx_version {
+            1 => u8::arbitrary(g) as usize,
+            2 => u8::arbitrary(g).checked_add(4).unwrap_or(4) as usize,
+            _ => panic!(),
+        };
+        for _ in 0..coinbase_prefix_len {
+            coinbase_prefix.push(u8::arbitrary(g))
+        }
+        let coinbase_prefix: binary_sv2::B0255 = coinbase_prefix.try_into().unwrap();
+
+        // TODO uncomment when node provided outputs are supported
+        //let mut coinbase_tx_outputs = vec::Vec::new();
+        //let coinbase_tx_outputs_len = u16::arbitrary(g) as usize;
+        //for _ in 0..coinbase_tx_outputs_len {
+        //    coinbase_tx_outputs.push(u8::arbitrary(g))
+        //};
+        //coinbase_tx_outputs.resize(coinbase_tx_outputs.len() - coinbase_tx_outputs.len() % 36,0);
+        //let coinbase_tx_outputs: binary_sv2::B064K = coinbase_tx_outputs.try_into().unwrap();
+
+        let mut merkle_path = vec::Vec::new();
+        let merkle_path_len = u8::arbitrary(g);
+        for _ in 0..merkle_path_len {
+            let mut path = Vec::new();
+            for _ in 0..32 {
+                path.push(u8::arbitrary(g));
+            }
+            let path: binary_sv2::U256 = path.try_into().unwrap();
+            merkle_path.push(path);
+        }
+        let merkle_path: binary_sv2::Seq0255<binary_sv2::U256> = merkle_path.into();
+
+        NewTemplate {
+            template_id: u64::arbitrary(g) % u64::MAX,
+            future_template: bool::arbitrary(g),
+            version: u32::arbitrary(g),
+            coinbase_tx_version,
+            coinbase_prefix,
+            coinbase_tx_input_sequence: u32::arbitrary(g),
+            coinbase_tx_value_remaining: u64::arbitrary(g),
+            // the belows should be used when node provided outputs are enabled
+            //coinbase_tx_outputs_count: coinbase_tx_outputs.len().checked_div(36).unwrap_or(0) as u32,
+            //coinbase_tx_outputs,
+            coinbase_tx_outputs_count: 0,
+            coinbase_tx_outputs: Vec::new().try_into().unwrap(),
+            coinbase_tx_locktime: u32::arbitrary(g),
+            merkle_path,
+        }
     }
 }

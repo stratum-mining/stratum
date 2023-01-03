@@ -14,9 +14,8 @@ use codec_sv2::{
 use external_commands::*;
 use net::{setup_as_downstream, setup_as_upstream};
 use roles_logic_sv2::{common_messages_sv2::SetupConnectionSuccess, parsers::AnyMessage};
-use std::net::SocketAddr;
-//use serde::{Deserialize as SerdeDeserialize, Serialize as SerdeSerialize};
 use serde_json;
+use std::net::SocketAddr;
 
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 enum Sv2Type {
@@ -38,7 +37,6 @@ enum Sv2Type {
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 enum ActionResult {
     MatchMessageType(u8),
-    // subprotocol, message type, field_name, value
     MatchMessageField((String, String, String, Sv2Type)),
     MatchMessageLen(usize),
     MatchExtensionType(u16),
@@ -56,12 +54,14 @@ enum Role {
 #[derive(Debug, Clone)]
 struct Upstream {
     addr: SocketAddr,
+    /// If Some a noise connection is used, otherwise a plain connection is used.
     keys: Option<(EncodedEd25519PublicKey, EncodedEd25519SecretKey)>,
 }
 
 #[derive(Debug, Clone)]
 struct Downstream {
     addr: SocketAddr,
+    /// If Some a noise connection is used, otherwise a plain connection is used.
     key: Option<EncodedEd25519PublicKey>,
 }
 
@@ -72,17 +72,23 @@ pub struct Action<'a> {
     role: Role,
 }
 
+/// Represents a shell command to be executed on setup, after a connection is opened, or on
+/// cleanup.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Command {
     command: String,
     args: Vec<String>,
+    /// Stdout or Stderr conditions for when a command is considered a success or failure.
     conditions: ExternalCommandConditions,
 }
 
+/// Represents all of the parsed contents from the configuration file, ready for execution.
 #[derive(Debug)]
 pub struct Test<'a> {
     actions: Vec<Action<'a>>,
+    /// Some if role is upstream or proxy.
     as_upstream: Option<Upstream>,
+    /// Some if role is downstream or proxy.
     as_dowstream: Option<Downstream>,
     setup_commmands: Vec<Command>,
     execution_commands: Vec<Command>,
@@ -93,8 +99,11 @@ pub struct Test<'a> {
 async fn main() {
     let args: Vec<String> = std::env::args().collect();
     let test_path = &args[1];
+    // Load contents of `test.json`, then parse
     let test = load_str!(test_path);
-    let test = parser::Parser::parse_test(&test);
+    let test = parser::Parser::parse_test(test);
+    // Executes everything (the shell commands and actions)
+    // If the `executor` returns false, the test fails
     let executor = executor::Executor::new(test).await;
     executor.execute().await;
     println!("TEST OK");

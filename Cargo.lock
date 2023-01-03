@@ -173,9 +173,9 @@ dependencies = [
 
 [[package]]
 name = "async-std"
-version = "1.10.0"
+version = "1.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f8056f1455169ab86dd47b47391e4ab0cbd25410a70e9fe675544f49bafaf952"
+checksum = "62565bb4402e926b29953c785397c6dc0391b7b446e45008b0049eb43cec6f5d"
 dependencies = [
  "async-attributes",
  "async-channel",
@@ -191,7 +191,6 @@ dependencies = [
  "kv-log-macro",
  "log",
  "memchr",
- "num_cpus",
  "once_cell",
  "pin-project-lite",
  "pin-utils",
@@ -476,6 +475,7 @@ dependencies = [
  "quickcheck 1.0.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "quickcheck_macros 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde",
+ "serde_repr",
 ]
 
 [[package]]
@@ -924,9 +924,9 @@ dependencies = [
 
 [[package]]
 name = "hex"
-version = "0.3.2"
+version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "805026a5d0141ffc30abb3be3173848ad46a1b1664fe632428479619a3644d77"
+checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
 
 [[package]]
 name = "humantime"
@@ -1069,6 +1069,7 @@ dependencies = [
  "buffer_sv2",
  "codec_sv2",
  "const_sv2",
+ "futures",
  "network_helpers",
  "rand 0.8.5",
  "roles_logic_sv2",
@@ -1698,6 +1699,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde_repr"
+version = "0.1.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9a5ec9fa74a20ebbe5d9ac23dac1fc96ba0ecfe9f50f2843b52e537b10fbcb4e"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "serde_sv2"
 version = "0.1.0"
 dependencies = [
@@ -2073,6 +2085,7 @@ dependencies = [
 name = "v1"
 version = "0.1.0"
 dependencies = [
+ "binary_sv2",
  "bitcoin_hashes 0.3.2",
  "byteorder",
  "hex",

@@ -10,7 +10,7 @@ use crate::json_rpc::{Message, Response};
 
 /// Errors encountered during conversion between valid json_rpc messages and Sv1 messages.
 #[derive(Debug)]
-pub enum MethodError {
+pub enum MethodError<'a> {
     /// If the json_rpc message call a method not defined by Sv1. It contains the called method
     MethodNotFound(String),
     /// If the json_rpc Response co"ntain an error in this case the error should just be reported
@@ -19,7 +19,7 @@ pub enum MethodError {
     ParsingMethodError((ParsingMethodError, Message)),
     // Method can not be serialized
     // SerializeError(Box<Method>),
-    UnexpectedMethod(Method),
+    UnexpectedMethod(Method<'a>),
     // json_rpc message is not a request
     NotARequest,
 }
@@ -42,8 +42,15 @@ impl From<BTCHashError> for ParsingMethodError {
     }
 }
 
+impl From<binary_sv2::Error> for ParsingMethodError {
+    fn from(u256_err: binary_sv2::Error) -> Self {
+        ParsingMethodError::BadU256Convert(Box::new(u256_err))
+    }
+}
+
 #[derive(Debug)]
 pub enum ParsingMethodError {
+    BadU256Convert(Box<binary_sv2::Error>),
     HexError(Box<FromHexError>),
     #[allow(clippy::upper_case_acronyms)]
     BTCHashError(Box<BTCHashError>),
@@ -62,7 +69,7 @@ pub enum ParsingMethodError {
     Todo,
 }
 
-impl From<Error> for ParsingMethodError {
+impl<'a> From<Error<'a>> for ParsingMethodError {
     fn from(inner: Error) -> Self {
         match inner {
             Error::HexError(e) => ParsingMethodError::HexError(Box::new(e)),
@@ -72,8 +79,8 @@ impl From<Error> for ParsingMethodError {
     }
 }
 
-impl ParsingMethodError {
-    pub fn as_method_error(self, msg: Message) -> MethodError {
+impl<'a> ParsingMethodError {
+    pub fn as_method_error(self, msg: Message) -> MethodError<'a> {
         MethodError::ParsingMethodError((self, msg))
     }
 }
@@ -109,30 +116,30 @@ impl ParsingMethodError {
 }
 
 #[derive(Debug)]
-pub enum Method {
-    Client2Server(Client2Server),
-    Server2Client(Server2Client),
-    Server2ClientResponse(Server2ClientResponse),
+pub enum Method<'a> {
+    Client2Server(Client2Server<'a>),
+    Server2Client(Server2Client<'a>),
+    Server2ClientResponse(Server2ClientResponse<'a>),
     ErrorMessage(Message),
 }
 
 #[derive(Debug)]
-pub enum Client2Server {
-    Subscribe(client_to_server::Subscribe),
+pub enum Client2Server<'a> {
+    Subscribe(client_to_server::Subscribe<'a>),
     Authorize(client_to_server::Authorize),
     ExtranonceSubscribe(client_to_server::ExtranonceSubscribe),
-    Submit(client_to_server::Submit),
+    Submit(client_to_server::Submit<'a>),
     Configure(client_to_server::Configure),
 }
 
-impl From<Client2Server> for Method {
-    fn from(a: Client2Server) -> Self {
+impl<'a> From<Client2Server<'a>> for Method<'a> {
+    fn from(a: Client2Server<'a>) -> Self {
         Method::Client2Server(a)
     }
 }
 
-impl TryFrom<Message> for Client2Server {
-    type Error = MethodError;
+impl<'a> TryFrom<Message> for Client2Server<'a> {
+    type Error = MethodError<'a>;
 
     fn try_from(msg: Message) -> Result<Self, Self::Error> {
         let method: Method = msg.try_into()?;
@@ -146,21 +153,21 @@ impl TryFrom<Message> for Client2Server {
 }
 
 #[derive(Debug)]
-pub enum Server2Client {
-    Notify(server_to_client::Notify),
+pub enum Server2Client<'a> {
+    Notify(server_to_client::Notify<'a>),
     SetDifficulty(server_to_client::SetDifficulty),
-    SetExtranonce(server_to_client::SetExtranonce),
+    SetExtranonce(server_to_client::SetExtranonce<'a>),
     SetVersionMask(server_to_client::SetVersionMask),
 }
 
-impl From<Server2Client> for Method {
-    fn from(a: Server2Client) -> Self {
+impl<'a> From<Server2Client<'a>> for Method<'a> {
+    fn from(a: Server2Client<'a>) -> Self {
         Method::Server2Client(a)
     }
 }
 
-impl TryFrom<Message> for Server2Client {
-    type Error = MethodError;
+impl<'a> TryFrom<Message> for Server2Client<'a> {
+    type Error = MethodError<'a>;
 
     fn try_from(msg: Message) -> Result<Self, Self::Error> {
         let method: Method = msg.try_into()?;
@@ -174,23 +181,23 @@ impl TryFrom<Message> for Server2Client {
 }
 
 #[derive(Debug)]
-pub enum Server2ClientResponse {
+pub enum Server2ClientResponse<'a> {
     Configure(server_to_client::Configure),
-    Subscribe(server_to_client::Subscribe),
+    Subscribe(server_to_client::Subscribe<'a>),
     GeneralResponse(server_to_client::GeneralResponse),
     Authorize(server_to_client::Authorize),
     Submit(server_to_client::Submit),
     SetDifficulty(server_to_client::SetDifficulty),
 }
 
-impl From<Server2ClientResponse> for Method {
-    fn from(a: Server2ClientResponse) -> Self {
+impl<'a> From<Server2ClientResponse<'a>> for Method<'a> {
+    fn from(a: Server2ClientResponse<'a>) -> Self {
         Method::Server2ClientResponse(a)
     }
 }
 
-impl TryFrom<Message> for Server2ClientResponse {
-    type Error = MethodError;
+impl<'a> TryFrom<Message> for Server2ClientResponse<'a> {
+    type Error = MethodError<'a>;
 
     fn try_from(msg: Message) -> Result<Self, Self::Error> {
         let method: Method = msg.try_into()?;
@@ -203,10 +210,10 @@ impl TryFrom<Message> for Server2ClientResponse {
     }
 }
 
-impl TryFrom<Message> for Method {
-    type Error = MethodError;
+impl<'a> TryFrom<Message> for Method<'a> {
+    type Error = MethodError<'a>;
 
-    fn try_from(msg: Message) -> Result<Self, MethodError> {
+    fn try_from(msg: Message) -> Result<Self, MethodError<'a>> {
         match &msg {
             Message::StandardRequest(request) => match &request.method[..] {
                 "mining.subscribe" => {
@@ -283,7 +290,7 @@ impl TryFrom<Message> for Method {
     }
 }
 
-impl TryFrom<crate::json_rpc::Response> for Server2ClientResponse {
+impl<'a> TryFrom<crate::json_rpc::Response> for Server2ClientResponse<'a> {
     type Error = ParsingMethodError;
 
     fn try_from(msg: Response) -> Result<Self, Self::Error> {

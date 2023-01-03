@@ -12,16 +12,21 @@ use sv2_messages::TestMessageParser;
 
 #[derive(Debug)]
 pub enum Parser<'a> {
+    /// Parses any number or combination of messages to be later used by an action identified by
+    /// message id.
     Step1(HashMap<String, AnyMessage<'a>>),
+    /// Serializes messages into `Sv2Frames` identified by message id.
     Step2 {
         messages: HashMap<String, AnyMessage<'a>>,
         frames: HashMap<String, Sv2Frame<AnyMessage<'a>, Slice>>,
     },
+    /// Parses the setup, execution, and cleanup shell commands, roles, and actions.
     Step3 {
         messages: HashMap<String, AnyMessage<'a>>,
         frames: HashMap<String, Sv2Frame<AnyMessage<'a>, Slice>>,
         actions: Vec<Action<'a>>,
     },
+    /// Prepare for execution.
     Step4(Test<'a>),
 }
 
@@ -39,7 +44,8 @@ impl<'a> Parser<'a> {
 
     fn initialize<'b: 'a>(test: &'b str) -> Self {
         let messages = TestMessageParser::from_str(test);
-        Self::Step1(messages.into_map())
+        let step1 = Self::Step1(messages.into_map());
+        step1
     }
 
     fn next_step<'b: 'a>(self, test: &'b str) -> Self {
@@ -59,12 +65,12 @@ impl<'a> Parser<'a> {
                     actions,
                 }
             }
-            Parser::Step3 {
+            Self::Step3 {
                 messages: _,
                 frames: _,
                 actions,
             } => {
-                let test: Map<String, Value> = serde_json::from_str(&test).unwrap();
+                let test: Map<String, Value> = serde_json::from_str(test).unwrap();
                 let setup_commands = test.get("setup_commands").unwrap().as_array().unwrap();
                 let execution_commands =
                     test.get("execution_commands").unwrap().as_array().unwrap();
@@ -182,6 +188,25 @@ impl<'a> Parser<'a> {
 #[cfg(test)]
 mod test {
     use super::*;
+    use binary_sv2::*;
+
+    #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+    struct TestStruct<'decoder> {
+        #[serde(borrow)]
+        test_b016m: B016M<'decoder>,
+        #[serde(borrow)]
+        test_b0255: B0255<'decoder>,
+        #[serde(borrow)]
+        test_b032: B032<'decoder>,
+        #[serde(borrow)]
+        test_b064: B064K<'decoder>,
+        #[serde(borrow)]
+        test_seq_064k_bool: Seq064K<'decoder,bool>,
+        #[serde(borrow)]
+        test_seq_064k_b064k: Seq064K<'decoder,B064K<'decoder>>,
+    }
+
+
 
     #[test]
     fn it_parse_test() {
@@ -197,5 +222,30 @@ mod test {
             }
             _ => unreachable!(),
         }
+    }
+
+    #[test]
+    fn it_parse_sequences() {
+        let test_json = r#"
+        {
+            "test_b016m": [1,1],
+            "test_b0255": [1,1],
+            "test_b032": [1,1],
+            "test_b064": [1,1],
+            "test_seq_064k_bool": [true,false],
+            "test_seq_064k_b064k": [[1,2],[3,4]]
+        }
+        "#;
+        let test_struct: TestStruct = serde_json::from_str(test_json).unwrap();
+        assert!(test_struct.test_b016m == vec![1,1].try_into().unwrap());
+        assert!(test_struct.test_b0255 == vec![1,1].try_into().unwrap());
+        assert!(test_struct.test_b032 == vec![1,1].try_into().unwrap());
+        assert!(test_struct.test_b064 == vec![1,1].try_into().unwrap());
+        assert!(test_struct.test_b064 == vec![1,1].try_into().unwrap());
+        assert!(test_struct.test_seq_064k_bool.into_inner() == vec![true,false]);
+        assert!(test_struct.test_seq_064k_b064k.into_inner() == vec![
+                vec![1,2].try_into().unwrap(),
+                vec![3,4].try_into().unwrap(),
+        ]);
     }
 }

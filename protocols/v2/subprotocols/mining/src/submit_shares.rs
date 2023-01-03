@@ -97,6 +97,18 @@ pub struct SubmitSharesError<'decoder> {
     #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub error_code: Str0255<'decoder>,
 }
+
+impl<'a> SubmitSharesError<'a> {
+    pub fn invalid_channel_error_code() -> &'static str {
+        "invalid-channel-id"
+    }
+    pub fn stale_share_error_code() -> &'static str {
+        "stale-share"
+    }
+    pub fn difficulty_too_low_error_code() -> &'static str {
+        "difficulty-too-low"
+    }
+}
 #[cfg(feature = "with_serde")]
 use binary_sv2::GetSize;
 #[cfg(feature = "with_serde")]
@@ -135,5 +147,23 @@ impl GetSize for SubmitSharesSuccess {
 impl<'d> GetSize for SubmitSharesError<'d> {
     fn get_size(&self) -> usize {
         self.channel_id.get_size() + self.sequence_number.get_size() + self.error_code.get_size()
+    }
+}
+#[cfg(feature = "with_serde")]
+impl<'a> SubmitSharesError<'a> {
+    pub fn into_static(self) -> SubmitSharesError<'static> {
+        panic!("This function shouldn't be called by the Messaege Generator");
+    }
+    pub fn as_static(&self) -> SubmitSharesError<'static> {
+        panic!("This function shouldn't be called by the Messaege Generator");
+    }
+}
+#[cfg(feature = "with_serde")]
+impl<'a> SubmitSharesExtended<'a> {
+    pub fn into_static(self) -> SubmitSharesExtended<'static> {
+        panic!("This function shouldn't be called by the Messaege Generator");
+    }
+    pub fn as_static(&self) -> SubmitSharesExtended<'static> {
+        panic!("This function shouldn't be called by the Messaege Generator");
     }
 }

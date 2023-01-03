@@ -34,3 +34,13 @@ impl<'d> GetSize for CloseChannel<'d> {
         self.channel_id.get_size() + self.reason_code.get_size()
     }
 }
+
+#[cfg(feature = "with_serde")]
+impl<'a> CloseChannel<'a> {
+    pub fn into_static(self) -> CloseChannel<'static> {
+        panic!("This function shouldn't be called by the Messaege Generator");
+    }
+    pub fn as_static(&self) -> CloseChannel<'static> {
+        panic!("This function shouldn't be called by the Messaege Generator");
+    }
+}

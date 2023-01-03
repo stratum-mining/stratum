@@ -1,5 +1,5 @@
 use async_std::net::{TcpListener, TcpStream};
-use std::convert::TryInto;
+use std::convert::{TryFrom, TryInto};
 
 use async_channel::{bounded, Receiver, Sender};
 use async_std::{
@@ -17,12 +17,47 @@ use v1::{
     client_to_server,
     error::Error,
     json_rpc, server_to_client,
-    utils::{self, HexBytes, HexU32Be},
+    utils::{Extranonce, HexU32Be, MerkleNode, PrevHash},
     ClientStatus, IsClient, IsServer,
 };
 
-fn new_extranonce() -> HexBytes {
-    "08000002".try_into().unwrap()
+fn new_extranonce<'a>() -> Extranonce<'a> {
+    extranonce_from_hex("08000002")
+}
+
+fn extranonce_from_hex<'a>(hex: &str) -> Extranonce<'a> {
+    let data = utils::decode_hex(hex).unwrap();
+    Extranonce::try_from(data).expect("Failed to convert hex to U256")
+}
+
+fn merklenode_from_hex<'a>(hex: &str) -> MerkleNode<'a> {
+    let data = utils::decode_hex(hex).unwrap();
+    let len = data.len();
+    if hex.len() >= 64 {
+        // panic if hex is larger than 32 bytes
+        MerkleNode::try_from(hex).expect("Failed to convert hex to U256")
+    } else {
+        // prepend hex with zeros so that it is 32 bytes
+        let mut new_vec = vec![0_u8; 32 - len];
+        new_vec.extend(data.iter());
+        MerkleNode::try_from(utils::encode_hex(&new_vec).as_str())
+            .expect("Failed to convert hex to U256")
+    }
+}
+
+fn prevhash_from_hex<'a>(hex: &str) -> PrevHash<'a> {
+    let data = utils::decode_hex(hex).unwrap();
+    let len = data.len();
+    if hex.len() >= 64 {
+        // panic if hex is larger than 32 bytes
+        PrevHash::try_from(hex).expect("Failed to convert hex to U256")
+    } else {
+        // prepend hex with zeros so that it is 32 bytes
+        let mut new_vec = vec![0_u8; 32 - len];
+        new_vec.extend(data.iter());
+        PrevHash::try_from(utils::encode_hex(&new_vec).as_str())
+            .expect("Failed to convert hex to U256")
+    }
 }
 
 fn new_extranonce2_size() -> usize {
@@ -36,9 +71,9 @@ fn new_version_rolling_min() -> HexU32Be {
     HexU32Be(0x00000000)
 }
 
-struct Server {
+struct Server<'a> {
     authorized_names: Vec<String>,
-    extranonce1: HexBytes,
+    extranonce1: Extranonce<'a>,
     extranonce2_size: usize,
     version_rolling_mask: Option<HexU32Be>,
     version_rolling_min_bit: Option<HexU32Be>,
@@ -56,8 +91,8 @@ async fn server_pool_listen(listener: TcpListener) {
     }
 }
 
-impl Server {
-    pub async fn new(stream: TcpStream) -> Arc<Mutex<Self>> {
+impl<'a> Server<'a> {
+    pub async fn new(stream: TcpStream) -> Arc<Mutex<Server<'static>>> {
         let stream = Arc::new(stream);
 
         let (reader, writer) = (stream.clone(), stream);
@@ -83,7 +118,7 @@ impl Server {
 
         let server = Server {
             authorized_names: vec![],
-            extranonce1: "00000000".try_into().unwrap(),
+            extranonce1: extranonce_from_hex("00000000"),
             extranonce2_size: 2,
             version_rolling_mask: None,
             version_rolling_min_bit: None,
@@ -114,7 +149,9 @@ impl Server {
             loop {
                 let notify_time = 5;
                 if let Some(mut self_) = cloned.try_lock() {
-                    self_.send_notify().await;
+                    let sender = &self_.sender_outgoing.clone();
+                    let notify = self_.notify().unwrap();
+                    Server::send_message(sender, notify).await;
                     drop(self_);
                     task::sleep(Duration::from_secs(notify_time)).await;
                     //subtract notify_time from run_time
@@ -153,8 +190,11 @@ impl Server {
                     match self.handle_message(message) {
                         Ok(response) => {
                             if response.is_some() {
-                                self.send_message(json_rpc::Message::OkResponse(response.unwrap()))
-                                    .await;
+                                Self::send_message(
+                                    &self.sender_outgoing,
+                                    json_rpc::Message::OkResponse(response.unwrap()),
+                                )
+                                .await;
                             }
                         }
                         Err(_) => (),
@@ -165,18 +205,13 @@ impl Server {
         };
     }
 
-    async fn send_message(&mut self, msg: json_rpc::Message) {
+    async fn send_message(sender_outgoing: &Sender<String>, msg: json_rpc::Message) {
         let msg = format!("{}\n", serde_json::to_string(&msg).unwrap());
-        self.sender_outgoing.send(msg).await.unwrap();
-    }
-
-    async fn send_notify(&mut self) {
-        let notify = self.notify().unwrap();
-        self.send_message(notify).await;
+        sender_outgoing.send(msg).await.unwrap();
     }
 }
 
-impl IsServer for Server {
+impl<'a> IsServer<'a> for Server<'a> {
     fn handle_configure(
         &mut self,
         _request: &client_to_server::Configure,
@@ -222,12 +257,12 @@ impl IsServer for Server {
     }
 
     /// Set extranonce1 to extranonce1 if provided. If not create a new one and set it.
-    fn set_extranonce1(&mut self, extranonce1: Option<HexBytes>) -> HexBytes {
+    fn set_extranonce1(&mut self, extranonce1: Option<Extranonce<'a>>) -> Extranonce<'a> {
         self.extranonce1 = extranonce1.unwrap_or_else(new_extranonce);
         self.extranonce1.clone()
     }
 
-    fn extranonce1(&self) -> HexBytes {
+    fn extranonce1(&self) -> Extranonce<'a> {
         self.extranonce1.clone()
     }
 
@@ -253,13 +288,14 @@ impl IsServer for Server {
         self.version_rolling_min_bit = mask
     }
 
-    fn notify(&mut self) -> Result<json_rpc::Message, Error> {
+    fn notify(&mut self) -> Result<json_rpc::Message, Error<'a>> {
+        let hex = "ffff";
         server_to_client::Notify {
             job_id: "ciao".to_string(),
-            prev_hash: utils::PrevHash(vec![3_u8, 4, 5, 6]),
-            coin_base1: "ffff".try_into().unwrap(),
-            coin_base2: "ffff".try_into().unwrap(),
-            merkle_branch: vec!["fff".try_into().unwrap()],
+            prev_hash: prevhash_from_hex(hex),
+            coin_base1: hex.try_into()?,
+            coin_base2: hex.try_into()?,
+            merkle_branch: vec![merklenode_from_hex(hex)],
             version: HexU32Be(5667),
             bits: HexU32Be(5678),
             time: HexU32Be(5609),
@@ -269,22 +305,22 @@ impl IsServer for Server {
     }
 }
 
-struct Client {
+struct Client<'a> {
     client_id: u32,
-    extranonce1: HexBytes,
+    extranonce1: Extranonce<'a>,
     extranonce2_size: usize,
     version_rolling_mask: Option<HexU32Be>,
     version_rolling_min_bit: Option<HexU32Be>,
     status: ClientStatus,
-    last_notify: Option<server_to_client::Notify>,
+    last_notify: Option<server_to_client::Notify<'a>>,
     sented_authorize_request: Vec<(String, String)>, // (id, user_name)
     authorized: Vec<String>,
     receiver_incoming: Receiver<String>,
     sender_outgoing: Sender<String>,
 }
 
-impl Client {
-    pub async fn new(client_id: u32, socket: SocketAddr) -> Arc<Mutex<Self>> {
+impl<'a> Client<'static> {
+    pub async fn new(client_id: u32, socket: SocketAddr) -> Arc<Mutex<Client<'static>>> {
         let stream = loop {
             task::sleep(Duration::from_secs(1)).await;
 
@@ -325,7 +361,7 @@ impl Client {
 
         let client = Client {
             client_id,
-            extranonce1: "00000000".try_into().unwrap(),
+            extranonce1: extranonce_from_hex("00000000"),
             extranonce2_size: 2,
             version_rolling_mask: None,
             version_rolling_min_bit: None,
@@ -367,9 +403,9 @@ impl Client {
         };
     }
 
-    async fn send_message(&mut self, msg: json_rpc::Message) {
+    async fn send_message(sender_outgoing: &Sender<String>, msg: json_rpc::Message) {
         let msg = format!("{}\n", serde_json::to_string(&msg).unwrap());
-        self.sender_outgoing.send(msg).await.unwrap();
+        sender_outgoing.send(msg).await.unwrap();
     }
 
     pub async fn send_subscribe(&mut self) {
@@ -384,7 +420,7 @@ impl Client {
             .as_nanos()
             .to_string();
         let subscribe = self.subscribe(id, None).unwrap();
-        self.send_message(subscribe).await;
+        Self::send_message(&self.sender_outgoing, subscribe).await;
     }
 
     //pub async fn restore_subscribe(&mut self) {
@@ -403,11 +439,9 @@ impl Client {
             .unwrap()
             .as_nanos()
             .to_string();
-        let authorize = self
-            .authorize(id.clone(), "user".to_string(), "user".to_string())
-            .unwrap();
-        self.sented_authorize_request.push((id, "user".to_string()));
-        self.send_message(authorize).await;
+        if let Ok(authorize) = self.authorize(id.clone(), "user".to_string(), "user".to_string()) {
+            Self::send_message(&self.sender_outgoing, authorize).await;
+        }
     }
 
     pub async fn send_submit(&mut self) {
@@ -416,7 +450,7 @@ impl Client {
             .unwrap()
             .as_nanos()
             .to_string();
-        let extranonce2 = "00".try_into().unwrap();
+        let extranonce2 = extranonce_from_hex("00");
         let nonce = 78;
         let version_bits = None;
         let submit = self
@@ -429,7 +463,7 @@ impl Client {
                 version_bits,
             )
             .unwrap();
-        self.send_message(submit).await;
+        Self::send_message(&self.sender_outgoing, submit).await;
     }
 
     pub async fn send_configure(&mut self) {
@@ -439,29 +473,32 @@ impl Client {
             .as_nanos()
             .to_string();
         let configure = self.configure(id);
-        self.send_message(configure).await;
+        Self::send_message(&self.sender_outgoing, configure).await;
     }
 }
 
-impl IsClient for Client {
-    fn handle_notify(&mut self, notify: server_to_client::Notify) -> Result<(), Error> {
+impl<'a> IsClient<'a> for Client<'a> {
+    fn handle_notify(&mut self, notify: server_to_client::Notify<'a>) -> Result<(), Error<'a>> {
         self.last_notify = Some(notify);
         Ok(())
     }
 
-    fn handle_configure(&self, _conf: &mut server_to_client::Configure) -> Result<(), Error> {
+    fn handle_configure(&self, _conf: &mut server_to_client::Configure) -> Result<(), Error<'a>> {
         Ok(())
     }
 
-    fn handle_subscribe(&mut self, _subscribe: &server_to_client::Subscribe) -> Result<(), Error> {
+    fn handle_subscribe(
+        &mut self,
+        _subscribe: &server_to_client::Subscribe<'a>,
+    ) -> Result<(), Error<'a>> {
         Ok(())
     }
 
-    fn set_extranonce1(&mut self, extranonce1: HexBytes) {
+    fn set_extranonce1(&mut self, extranonce1: Extranonce<'a>) {
         self.extranonce1 = extranonce1;
     }
 
-    fn extranonce1(&self) -> HexBytes {
+    fn extranonce1(&self) -> Extranonce<'a> {
         self.extranonce1.clone()
     }
 
@@ -525,6 +562,22 @@ impl IsClient for Client {
         self.authorized.contains(name)
     }
 
+    fn authorize(
+        &mut self,
+        id: String,
+        name: String,
+        password: String,
+    ) -> Result<json_rpc::Message, Error> {
+        match self.status() {
+            ClientStatus::Init => Err(Error::IncorrectClientStatus("mining.authorize".to_string())),
+            _ => {
+                self.sented_authorize_request
+                    .push((id.clone(), "user".to_string()));
+                Ok(client_to_server::Authorize { id, name, password }.into())
+            }
+        }
+    }
+
     fn last_notify(&self) -> Option<server_to_client::Notify> {
         self.last_notify.clone()
     }
@@ -532,13 +585,13 @@ impl IsClient for Client {
     fn handle_error_message(
         &mut self,
         message: v1::Message,
-    ) -> Result<Option<json_rpc::Message>, Error> {
+    ) -> Result<Option<json_rpc::Message>, Error<'a>> {
         println!("{:?}", message);
         Ok(None)
     }
 }
 
-async fn initialize_client(client: Arc<Mutex<Client>>) {
+async fn initialize_client(client: Arc<Mutex<Client<'static>>>) {
     loop {
         let mut client_ = client.lock().await;
         match client_.status {
@@ -580,4 +633,54 @@ fn main() {
         let client = Client::new(80, socket).await;
         initialize_client(client).await;
     });
+}
+
+mod utils {
+    use std::fmt::Write;
+
+    pub fn decode_hex(s: &str) -> Result<Vec<u8>, core::num::ParseIntError> {
+        let s = match s.strip_prefix("0x") {
+            Some(s) => s,
+            None => s,
+        };
+        (0..s.len())
+            .step_by(2)
+            .map(|i| u8::from_str_radix(&s[i..i + 2], 16))
+            .collect()
+    }
+
+    pub fn encode_hex(bytes: &[u8]) -> String {
+        let mut s = String::with_capacity(bytes.len() * 2);
+        for &b in bytes {
+            write!(&mut s, "{:02x}", b).unwrap();
+        }
+        s
+    }
+
+    #[cfg(test)]
+    #[test]
+    fn test() {
+        let test_vec = vec![222, 173, 190, 239];
+        let hex_og = "deadbeef";
+        let hex_og_w_prefix = "0xdeadbeef";
+        // decode hex strings
+        let decoded = decode_hex(hex_og).unwrap();
+        let decoded_w_prefix = decode_hex(hex_og_w_prefix).unwrap();
+
+        assert_eq!(&decoded, &test_vec, "Hex not decoded correctly");
+        assert_eq!(
+            &decoded_w_prefix, &test_vec,
+            "Hex w/ prefix not decoded correctly"
+        );
+
+        // reencode
+        let reencoded = encode_hex(&decoded);
+        let reencoded_prefix = encode_hex(&decoded);
+
+        assert_eq!(&reencoded, hex_og, "Hex not encoded correctly");
+        assert_eq!(
+            &reencoded_prefix, &hex_og,
+            "Hex w/ prefix not encoded correctly"
+        );
+    }
 }

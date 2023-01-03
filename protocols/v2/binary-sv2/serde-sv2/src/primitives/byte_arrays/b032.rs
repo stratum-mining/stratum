@@ -112,6 +112,23 @@ impl<'a> Visitor<'a> for B032Visitor {
         Ok(B032(Inner::Ref(value)))
     }
 
+    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+    where
+        A: serde::de::SeqAccess<'a>,
+    {
+        let mut inner = vec![];
+        while let Ok(Some(x)) = seq.next_element() {
+            inner.push(x)
+        }
+        if inner.len() > 32 {
+            return Err(serde::de::Error::custom(
+                "Impossible deserialize B064K, len is bigger 32",
+            ));
+        }
+        let inner = Inner::Owned(inner);
+        Ok(B032(inner))
+    }
+
     fn visit_byte_buf<E>(self, v: Vec<u8>) -> Result<Self::Value, E>
     where
         E: serde::de::Error,

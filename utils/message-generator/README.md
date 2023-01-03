@@ -3,21 +3,37 @@
 Little utility to execute interoperability tests between SRI and other Sv2 complaint software.
 
 ## Try it
+1. Stop any `bitcoind` regtest processes running (the `message-generator` starts it for you).
+2. In `test.json` specify `bitcoind`, `bitcoin-cli`, and `datadir` paths:
+```
+...
+    "setup_commands": [
+        {
+            "command": "PATH TO bitcoind",
+            "args": ["--regtest", "--datadir=PATH TO bitcoin datadir"],
 
-`cargo run ../test.json`
+...
+
+        {
+            "command": "PATH TO bitcoin-cli",
+            "args": [
+                        "--regtest",
+                        "--datadir=PATH TO bitcoin datadir",
+...
+```
+3. `% cargo run ../test.json`
 
 ## Test execution
 
-The message generator execute a test following the below steps:
-1. execute some bash commands `setup_commands`
-2. setup one or two tcp connections the connections can be noise or plain connection
-3. execute some bash commands `execution_commands` (this are command that must be executed after
-   that connection is opened)
-   receive the expected messages.
-4. execute the actions, each action send zero or more Sv2 frames using the previously opened
-   connection, and the check if the received frame satisfy conditions (defined in the action).
-   If we expect to receive more than one message we can just define more than one condition.
-5. execute some bash commands `cleanup_commands`
+The message generator executes a test with the following steps:
+1. Setup Commands: Executes shell commands or bash scripts to be run on start up, e.g. a `bitcoind` a node.
+2. Role Connection: Setups up one or two TCP connections, both plain and noise are supported, e.g. a connection to an Upstream role.
+3. Execution Commands: Executes shell commands or bash scripts to be run after a connection has been opened between two roles, e.g. a mocked Pool to a test Proxy.
+4. Actions: Executes the actions. Using the previously opened connection, each action
+   sends zero or more `Sv2Frames` and checks if the received frame satisfies the conditions (defined
+   in the action). More than one condition can be defined if more than one message is expected to be
+   received.
+5. Cleanup Commands: Executes shell commands or bash scripts to be run on test completion, e.g. remove a `bitcoind` `datadir`.
 
 ## Test format
 
@@ -25,7 +41,7 @@ Tests are written in json and must follow the below format:
 
 ### doc
 
-doc is an array of string that explain what the test do, the doc is not mandatory.
+`doc` is an array of strings that explain what the test do. This field is optional.
 
 ```json
 {
@@ -40,26 +56,25 @@ doc is an array of string that explain what the test do, the doc is not mandator
 
 ### common_messages
 
-An array of messages (defined below) that belongs to the common (sub)protocol. This field is optional.
-Where the common subprotocol is composed by:
-SetupConnection and SetupConnectionSuccees and SetupConnectionError
+`common_messages` is an array of messages (defined below) belonging to the common (sub)protocol. This field is optional.
+Where the common subprotocol is composed by: `SetupConnection` and `SetupConnectionSuccees` and `SetupConnectionError`.
 
 ### mining_messages
 
-An array of messages (defined below) that belongs to the mining (sub)protocol. This field is optional.
+"mining_messages` is an array of messages (defined below) belonging to the mining (sub)protocol. This field is optional.
 
 ### job_negotiation_messages
 
-An array of messages (defined below) that belongs to the job negotiation (sub)protocol. This field is optional.
+`job_negotiation_messages` is an array of messages (defined below) that belongs to the job negotiation (sub)protocol. This field is optional.
 
 ### template_distribution_messages
 
-An array of messages (defined below) that belongs to the template distribution (sub)protocol. This field is optional.
+`template_distribution_messages` is an array of messages (defined below) that belongs to the template distribution (sub)protocol. This field is optional.
 
 **Definition of messages mentioned above**
 
-A message is an object with two field `message` and
-`id`. The `message` field contains the actual Sv2 message. The `id` field contains a unique id
+A message is an object with two field `message` and `id`.
+The `message` field contains the actual Sv2 message. The `id` field contains a unique id
 used to refer to the message in other part of the test.
 The `message` field is an object composed by:
 1. type: message type name as defined in the Sv2 spec is a string eg `SetupConnection`
@@ -96,22 +111,22 @@ The `message` field is an object composed by:
 Objects in `frame_builders` are used by the message generator to construct Sv2 frames in order to send the message
 to the tested software. Objects in `frame_builders` can be either **automatic** (where the sv2 frame header is
 constructed by the SRI libs and is supposed to be correct) or **manual** (if we want to test a software
-against an incorrect frame)
+against an incorrect frame).
 
 `frame_builders` is an array of objects. Every object in `frame_builders` must contain `message_id`, that is a 
 string with the id of the previously defined message. In the example below, the message id refers to
-the item setup_connection of common_messages. Every object in `frames` must have the
+the item `setup_connection` of `common_messages`. Every object in `frames` must have the
 field `type`, a string that can be either `automatic` or `manual` with meaning of the paragraph
 above.
 
 If `type` == `manual` the object must contain 3 additional fields:
-1. message_type: a string the must start with `0x` followed by an hex encoded integer not bigger
+1. `message_type`: a string the must start with `0x` followed by an hex encoded integer not bigger
    than `0xff`
-2. extension_type: a string composed by 16 elements, each element must be either `0` or `1`, the
+2. `extension_type`: a string composed by 16 elements, each element must be either `0` or `1`, the
    elements can be separated by `_` that is not counted as element so we can have as many
    separator as we want eg: `0000_0000_0000_0000`
    Separator are there only to human readability and are removed when the test is parsed.
-3. channel_msg: a bool
+3. `channel_msg`: a `bool`
 
 ```json
 {
@@ -137,7 +152,7 @@ If `type` == `manual` the object must contain 3 additional fields:
 `actions` is an array of objects. Each object is composed by:
 1. `role`: can be either `client` or `server`. This because the message generator can act at the
    same time as a client and as a server for example when we are mocking a proxy.
-2. `messagesn_ids`: and array of strings, that are ids of messages previously defined.
+2. `messages_ids`: an array of strings, that are ids of messages previously defined.
 3. `results`: is an array of objects, used by the message generator to test if certain property of
    the received frames are true or not.
 
@@ -145,7 +160,7 @@ If `type` == `manual` the object must contain 3 additional fields:
 {
     "actions": [
         {
-            "message_ids": ["open_standard_minig_channel"],
+            "message_ids": ["open_standard_mining_channel"],
             "role": "client",
             "results": [
                 {
@@ -183,24 +198,24 @@ TODO this commands should be executed not only if all the action pass but also i
 A command is an object with the following fields:
 1. `command`: the bash command that we want to execute
 2. `args`: the command's args
-3. `condition`: can be wither `WithConditions` or `None` in the first case the command executor
+3. `condition`: can be either `WithConditions` or `None` in the first case the command executor
    will wait for some condition before return in the latter it just launch the command and return
 
 `WithConditions` is an object composed by the following fields:
 1. `conditions`: an array of object that must be true or false on order for the executor to
    return
 2. `timer_secs`: number of seconds after then the command is considered stuck and the test fail
-3. `warn_no_panic`: bool if true the test do not fail with panic if timer secs terminate but it
+3. `warn_no_panic`: `bool` if true the test do not fail with panic if timer secs terminate but it
    just exit (passing) and emit a warning
 
 The objects contained in conditions are structured in the following way:
 1. `output_string`: a string that we need to check in the StdOut or StdErr
 2. `output_location`: say if the string is expected in StdOut or StdErr
-3. `condition`: a bool if true and we have `output_string` in `output_location` the executor return
+3. `condition`: a `bool` if true and we have `output_string` in `output_location` the executor return
    and keep going, if false the executor fail.
 
-In the below example we launch bitcoind we wait for "sv2 thread start" in StdOut and we fail if
-anything is writter in StdErr
+In the below example we launch `bitcoind` we wait for `"sv2 thread start"` in StdOut and we fail if
+anything is written in StdErr
 ```json
 {
     "setup_commands": [
@@ -239,15 +254,15 @@ anything is writter in StdErr
 
 ### downstream
 
-an object the contain the info need to open a connection as a downstream is composed by:
+`downstream` is an object the contain the info need to open a connection as a downstream is composed by:
 1. `ip`: a string with the upstream ip address
 2. `port`: a string with the port address
 3. `pub_key`: optional if present we open a noise connection if no we open a plain connection, is a
    string with the server public key
 
-### downstream
+### upstream
 
-an object the contain the info need to start listening:
+`upstream` is an object the contain the info need to start listening:
 1. `ip`: a string with the ip where we will accept connection
 2. `port`: a string with the port address
 3. `pub_key`: optional if present accept noise connection if no plain connection

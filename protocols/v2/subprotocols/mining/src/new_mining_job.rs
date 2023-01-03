@@ -87,33 +87,6 @@ pub struct NewExtendedMiningJob<'decoder> {
     pub coinbase_tx_suffix: B064K<'decoder>,
 }
 
-impl<'a> NewExtendedMiningJob<'a> {
-    pub fn as_static(&self) -> NewExtendedMiningJob<'static> {
-        NewExtendedMiningJob {
-            channel_id: self.channel_id,
-            job_id: self.job_id,
-            future_job: self.future_job,
-            version: self.version,
-            version_rolling_allowed: self.version_rolling_allowed,
-            merkle_path: self.merkle_path.clone().into_static(),
-            coinbase_tx_prefix: self.coinbase_tx_prefix.clone().into_static(),
-            coinbase_tx_suffix: self.coinbase_tx_suffix.clone().into_static(),
-        }
-    }
-}
-
-impl<'a> NewMiningJob<'a> {
-    pub fn as_static(&self) -> NewMiningJob<'static> {
-        NewMiningJob {
-            channel_id: self.channel_id,
-            job_id: self.job_id,
-            future_job: self.future_job,
-            version: self.version,
-            merkle_root: self.merkle_root.clone().into_static(),
-        }
-    }
-}
-
 #[cfg(feature = "with_serde")]
 use binary_sv2::GetSize;
 #[cfg(feature = "with_serde")]
@@ -137,5 +110,111 @@ impl<'d> GetSize for NewMiningJob<'d> {
             + self.future_job.get_size()
             + self.version.get_size()
             + self.merkle_root.get_size()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::tests::from_arbitrary_vec_to_array;
+    use binary_sv2::GetSize;
+    use core::convert::TryFrom;
+    use quickcheck_macros;
+
+    #[quickcheck_macros::quickcheck]
+    fn test_new_extended_mining_job(
+        channel_id: u32,
+        job_id: u32,
+        future_job: bool,
+        version: u32,
+        version_rolling_allowed: bool,
+        merkle_path: Vec<u8>,
+        mut coinbase_tx_prefix: Vec<u8>,
+        mut coinbase_tx_suffix: Vec<u8>,
+    ) -> bool {
+        let merkle_path = helpers::scan_to_u256_sequence(&merkle_path);
+        let coinbase_tx_prefix = helpers::bytes_to_b064k(&mut coinbase_tx_prefix);
+        let coinbase_tx_suffix = helpers::bytes_to_b064k(&mut coinbase_tx_suffix);
+        let nemj = NewExtendedMiningJob {
+            channel_id,
+            job_id,
+            future_job,
+            version,
+            version_rolling_allowed,
+            merkle_path: merkle_path.clone(),
+            coinbase_tx_prefix: coinbase_tx_prefix.clone(),
+            coinbase_tx_suffix: coinbase_tx_suffix.clone(),
+        };
+        let static_nmj = nemj.as_static();
+        static_nmj.channel_id == nemj.channel_id
+            && static_nmj.job_id == nemj.job_id
+            && static_nmj.future_job == nemj.future_job
+            && static_nmj.version == nemj.version
+            && static_nmj.version_rolling_allowed == nemj.version_rolling_allowed
+            && static_nmj.merkle_path == merkle_path
+            && static_nmj.coinbase_tx_prefix == coinbase_tx_prefix
+            && static_nmj.coinbase_tx_suffix == coinbase_tx_suffix
+    }
+
+    #[quickcheck_macros::quickcheck]
+    fn test_new_mining_job(
+        channel_id: u32,
+        job_id: u32,
+        future_job: bool,
+        version: u32,
+        merkle_root: Vec<u8>,
+    ) -> bool {
+        let merkle_root = from_arbitrary_vec_to_array(merkle_root);
+        let nmj = NewMiningJob {
+            channel_id,
+            job_id,
+            future_job,
+            version,
+            merkle_root: B032::try_from(merkle_root.to_vec())
+                .expect("NewMiningJob: failed to convert merkle_root to B032"),
+        };
+        let static_nmj = nmj.clone().as_static();
+        static_nmj.channel_id == nmj.channel_id
+            && static_nmj.job_id == nmj.job_id
+            && static_nmj.future_job == nmj.future_job
+            && static_nmj.version == nmj.version
+            && static_nmj.merkle_root == nmj.merkle_root
+    }
+
+    pub mod helpers {
+        use super::*;
+
+        pub fn scan_to_u256_sequence(bytes: &Vec<u8>) -> Seq0255<U256> {
+            let inner: Vec<U256> = bytes
+                .chunks(32)
+                .map(|chunk| {
+                    let data = from_arbitrary_vec_to_array(chunk.to_vec());
+                    return U256::from(data);
+                })
+                .collect();
+            Seq0255::new(inner).expect("Could not convert bytes to SEQ0255<U256")
+        }
+
+        pub fn bytes_to_b064k(bytes: &Vec<u8>) -> B064K {
+            B064K::try_from(bytes.clone()).expect("Failed to convert to B064K")
+        }
+    }
+}
+#[cfg(feature = "with_serde")]
+impl<'a> NewExtendedMiningJob<'a> {
+    pub fn into_static(self) -> NewExtendedMiningJob<'static> {
+        panic!("This function shouldn't be called by the Messaege Generator");
+    }
+    pub fn as_static(&self) -> NewExtendedMiningJob<'static> {
+        panic!("This function shouldn't be called by the Messaege Generator");
+    }
+}
+#[cfg(feature = "with_serde")]
+impl<'a> NewMiningJob<'a> {
+    pub fn into_static(self) -> NewMiningJob<'static> {
+        panic!("This function shouldn't be called by the Messaege Generator");
+    }
+    pub fn as_static(&self) -> NewMiningJob<'static> {
+        panic!("This function shouldn't be called by the Messaege Generator");
     }
 }

@@ -1,5 +1,6 @@
 use crate::{
     downstream_sv1::Downstream,
+    error::Error::CodecNoise,
     upstream_sv2::{EitherFrame, Message, StdFrame, UpstreamConnection},
     ProxyResult,
 };
@@ -9,10 +10,7 @@ use binary_sv2::u256_from_int;
 use codec_sv2::{Frame, HandshakeRole, Initiator};
 use network_helpers::Connection;
 use roles_logic_sv2::{
-    bitcoin::{
-        hashes::{sha256d::Hash as DHash, Hash},
-        BlockHash,
-    },
+    bitcoin::BlockHash,
     common_messages_sv2::{Protocol, SetupConnection},
     common_properties::{IsMiningUpstream, IsUpstream},
     handlers::{
@@ -21,29 +19,15 @@ use roles_logic_sv2::{
     },
     mining_sv2::{
         ExtendedExtranonce, Extranonce, NewExtendedMiningJob, OpenExtendedMiningChannel,
-        OpenExtendedMiningChannelSuccess, SetNewPrevHash, SubmitSharesExtended,
+        SetNewPrevHash, SubmitSharesExtended,
     },
     parsers::Mining,
     routing_logic::{CommonRoutingLogic, MiningRoutingLogic, NoRouting},
     selectors::NullDownstreamMiningSelector,
-    utils::{get_target, Mutex},
+    utils::Mutex,
 };
-use std::{net::SocketAddr, sync::Arc};
-use tracing::{debug, info, trace, warn};
-
-/// Represents the currently active mining job being worked on.
-#[allow(dead_code)]
-#[derive(Debug, Clone)]
-struct Job_ {
-    /// `job_id`, identifier of this mining job.
-    id: u32,
-    /// Prefix part of the coinbase transaction.
-    coinbase_tx_prefix: Vec<u8>,
-    /// Suffix part of the coinbase transaction.
-    coinbase_tx_suffix: Vec<u8>,
-    /// Merkle path hashes ordered from deepest
-    merkle_path: Vec<Vec<u8>>,
-}
+use std::{net::SocketAddr, sync::Arc, thread::sleep, time::Duration};
+use tracing::{debug, error, info, warn};
 
 /// Represents the currently active `prevhash` of the mining job being worked on OR being submitted
 /// from the Downstream role.
@@ -54,38 +38,6 @@ struct PrevHash {
     prev_hash: BlockHash,
     /// `nBits` encoded difficulty target.
     nbits: u32,
-}
-
-#[derive(Debug, Clone)]
-enum Job {
-    Void,
-    WithJobOnly(Job_),
-    WithJobAndPrevHash(Job_, PrevHash),
-}
-
-impl Job {
-    /// Calculates the candidate block hash of mining job.
-    #[allow(dead_code)]
-    pub fn get_candidate_hash(self, share: &SubmitSharesExtended) -> Option<[u8; 32]> {
-        match self {
-            Job::Void => None,
-            Job::WithJobOnly(_) => None,
-            Job::WithJobAndPrevHash(job, prev_hash) => {
-                let candidate_hash = get_target(
-                    share.nonce,
-                    share.version,
-                    share.ntime,
-                    &share.extranonce.to_vec(),
-                    &job.coinbase_tx_prefix,
-                    &job.coinbase_tx_suffix,
-                    prev_hash.prev_hash,
-                    job.merkle_path,
-                    prev_hash.nbits,
-                );
-                Some(candidate_hash)
-            }
-        }
-    }
 }
 
 #[derive(Debug, Clone)]
@@ -101,24 +53,22 @@ pub struct Upstream {
     connection: UpstreamConnection,
     /// Receives SV2 `SubmitSharesExtended` messages translated from SV1 `mining.submit` messages.
     /// Translated by and sent from the `Bridge`.
-    submit_from_dowstream: Receiver<SubmitSharesExtended<'static>>,
+    rx_sv2_submit_shares_ext: Receiver<SubmitSharesExtended<'static>>,
     /// Sends SV2 `SetNewPrevHash` messages to be translated (along with SV2 `NewExtendedMiningJob`
     /// messages) into SV1 `mining.notify` messages. Received and translated by the `Bridge`.
-    new_prev_hash_sender: Sender<SetNewPrevHash<'static>>,
+    tx_sv2_set_new_prev_hash: Sender<SetNewPrevHash<'static>>,
     /// Sends SV2 `NewExtendedMiningJob` messages to be translated (along with SV2 `SetNewPrevHash`
     /// messages) into SV1 `mining.notify` messages. Received and translated by the `Bridge`.
-    new_extended_mining_job_sender: Sender<NewExtendedMiningJob<'static>>,
+    tx_sv2_new_ext_mining_job: Sender<NewExtendedMiningJob<'static>>,
     /// Sends the extranonce1 received in the SV2 `OpenExtendedMiningChannelSuccess` message to be
     /// used by the `Downstream` and sent to the Downstream role in a SV2 `mining.subscribe`
     /// response message. Passed to the `Downstream` on connection creation.
-    extranonce_sender: Sender<ExtendedExtranonce>,
+    tx_sv2_extranonce: Sender<ExtendedExtranonce>,
     /// The first `target` is received by the Upstream role in the SV2
     /// `OpenExtendedMiningChannelSuccess` message, then updated periodically via SV2 `SetTarget`
     /// messages. Passed to the `Downstream` on connection creation and sent to the Downstream role
     /// via the SV1 `mining.set_difficulty` message.
     target: Arc<Mutex<Vec<u8>>>,
-    /// Represents the currently active mining job being worked on.
-    current_job: Job,
     /// Minimum `extranonce2` size. Initially requested in the `proxy-config.toml`, and ultimately
     /// set by the SV2 Upstream via the SV2 `OpenExtendedMiningChannelSuccess` message.
     pub min_extranonce_size: u16,
@@ -134,19 +84,31 @@ impl Upstream {
     pub async fn new(
         address: SocketAddr,
         authority_public_key: String,
-        submit_from_dowstream: Receiver<SubmitSharesExtended<'static>>,
-        new_prev_hash_sender: Sender<SetNewPrevHash<'static>>,
-        new_extended_mining_job_sender: Sender<NewExtendedMiningJob<'static>>,
+        rx_sv2_submit_shares_ext: Receiver<SubmitSharesExtended<'static>>,
+        tx_sv2_set_new_prev_hash: Sender<SetNewPrevHash<'static>>,
+        tx_sv2_new_ext_mining_job: Sender<NewExtendedMiningJob<'static>>,
         min_extranonce_size: u16,
-        extranonce_sender: Sender<ExtendedExtranonce>,
+        tx_sv2_extranonce: Sender<ExtendedExtranonce>,
         target: Arc<Mutex<Vec<u8>>>,
-    ) -> ProxyResult<Arc<Mutex<Self>>> {
-        // Connect to the SV2 Upstream role
-        let socket = TcpStream::connect(address).await?;
+    ) -> ProxyResult<'static, Arc<Mutex<Self>>> {
+        // Connect to the SV2 Upstream role retry connection every 5 seconds.
+        let socket = loop {
+            match TcpStream::connect(address).await {
+                Ok(socket) => break socket,
+                Err(e) => {
+                    error!(
+                        "Failed to connect to Upstream role at {}, retrying in 5s: {}",
+                        address, e
+                    );
 
-        // TODO: use this from the proxy-config.toml
-        let pub_key: codec_sv2::noise_sv2::formats::EncodedEd25519PublicKey =
-            authority_public_key.try_into().unwrap();
+                    sleep(Duration::from_secs(5));
+                }
+            }
+        };
+
+        let pub_key: codec_sv2::noise_sv2::formats::EncodedEd25519PublicKey = authority_public_key
+            .try_into()
+            .expect("Authority Public Key malformed in proxy-config");
         let initiator = Initiator::from_raw_k(*pub_key.into_inner().as_bytes()).unwrap();
 
         info!(
@@ -163,16 +125,15 @@ impl Upstream {
 
         Ok(Arc::new(Mutex::new(Self {
             connection,
-            submit_from_dowstream,
+            rx_sv2_submit_shares_ext,
             extranonce_prefix: None,
-            new_prev_hash_sender,
-            new_extended_mining_job_sender,
+            tx_sv2_set_new_prev_hash,
+            tx_sv2_new_ext_mining_job,
             channel_id: None,
             job_id: None,
             min_extranonce_size,
-            extranonce_sender,
+            tx_sv2_extranonce,
             target,
-            current_job: Job::Void,
         })))
     }
 
@@ -181,7 +142,7 @@ impl Upstream {
         self_: Arc<Mutex<Self>>,
         min_version: u16,
         max_version: u16,
-    ) -> ProxyResult<()> {
+    ) -> ProxyResult<'static, ()> {
         // Get the `SetupConnection` message with Mining Device information (currently hard coded)
         let setup_connection = Self::get_setup_connection_message(min_version, max_version)?;
         let mut connection = self_.safe_lock(|s| s.connection.clone()).unwrap();
@@ -197,7 +158,16 @@ impl Upstream {
         debug!("Sent SetupConnection to Upstream, waiting for response");
         // Wait for the SV2 Upstream to respond with either a `SetupConnectionSuccess` or a
         // `SetupConnectionError` inside a SV2 binary message frame
-        let mut incoming: StdFrame = connection.receiver.recv().await.unwrap().try_into()?;
+        let mut incoming: StdFrame = match connection.receiver.recv().await {
+            Ok(frame) => frame.try_into()?,
+            Err(e) => {
+                error!("Upstream connection closed: {}", e);
+                return Err(CodecNoise(
+                    codec_sv2::noise_sv2::Error::ExpectedIncomingHandshakeMessage,
+                ));
+            }
+        };
+
         info!("Up: Receiving: {:?}", &incoming);
         // Gets the binary frame message type from the message header
         let message_type = incoming.get_header().unwrap().msg_type();
@@ -293,30 +263,36 @@ impl Upstream {
                     Ok(SendTo::None(Some(m))) => {
                         match m {
                             Mining::OpenExtendedMiningChannelSuccess(m) => {
-                                let prefix_len = m.extranonce_prefix.len();
+                                let prefix_len = dbg!(m.extranonce_prefix.len());
                                 let extranonce: Extranonce = m
                                     .extranonce_prefix
                                     .try_into()
                                     .expect("Received and extranonce prefix bigger than 32 bytes");
 
+                                // Create the extended extranonce that will be saved in bridge and
+                                // it will be used to open downstream (sv1) channels
+                                // range 0 is extranonce1 with upstream
+                                // range 1 e range 2 are extranonce2 with upstream
+                                //
+                                // range0 and range1 are extranonce1 with downstream
+                                // range2 is extranonce2 with downstream
                                 let range_0 = 0..prefix_len;
                                 let range_1 = prefix_len..prefix_len + crate::SELF_EXTRNONCE_LEN;
                                 let range_2 = prefix_len + crate::SELF_EXTRNONCE_LEN
                                     ..prefix_len + m.extranonce_size as usize;
-
                                 let extended = ExtendedExtranonce::from_upstream_extranonce(
                                     extranonce.clone(), range_0.clone(), range_1.clone(), range_2.clone(),
                                 ).unwrap_or_else(|| panic!("Impossible to create a valid extended extranonce from {:?} {:?} {:?} {:?}", extranonce,range_0,range_1,range_2));
 
                                 let sender =
-                                    self_.safe_lock(|s| s.extranonce_sender.clone()).unwrap();
+                                    self_.safe_lock(|s| s.tx_sv2_extranonce.clone()).unwrap();
                                 sender.send(extended).await.unwrap();
                             }
                             Mining::NewExtendedMiningJob(m) => {
                                 debug!("parse_incoming Mining::NewExtendedMiningJob msg");
                                 let job_id = m.job_id;
                                 let sender = self_
-                                    .safe_lock(|s| s.new_extended_mining_job_sender.clone())
+                                    .safe_lock(|s| s.tx_sv2_new_ext_mining_job.clone())
                                     .unwrap();
                                 self_
                                     .safe_lock(|s| {
@@ -327,8 +303,9 @@ impl Upstream {
                             }
                             Mining::SetNewPrevHash(m) => {
                                 debug!("parse_incoming Mining::SetNewPrevHash msg");
-                                let sender =
-                                    self_.safe_lock(|s| s.new_prev_hash_sender.clone()).unwrap();
+                                let sender = self_
+                                    .safe_lock(|s| s.tx_sv2_set_new_prev_hash.clone())
+                                    .unwrap();
                                 sender.send(m).await.unwrap();
                             }
                             // impossible state
@@ -345,14 +322,9 @@ impl Upstream {
         });
     }
 
-    /// Receives a new SV2 `SubmitSharesExtended` message, checks that the submission target meets
-    /// the expected (TODO), and sends to the Upstream role.
     pub fn handle_submit(self_: Arc<Mutex<Self>>) {
-        // TODO
-        // check if submit meet the upstream target and if so send back (upstream target will
-        // likely be not the same of downstream target)
         let receiver = self_
-            .safe_lock(|s| s.submit_from_dowstream.clone())
+            .safe_lock(|s| s.rx_sv2_submit_shares_ext.clone())
             .unwrap();
         task::spawn(async move {
             loop {
@@ -361,20 +333,10 @@ impl Upstream {
                 sv2_submit.channel_id = self_.safe_lock(|s| s.channel_id.unwrap()).unwrap();
                 sv2_submit.job_id = self_.safe_lock(|s| s.job_id.unwrap()).unwrap();
 
+                println!("{:#?}", sv2_submit);
+
                 info!("Up: Submitting Share");
                 debug!("Up: Handling SubmitSharesExtended: {:?}", &sv2_submit);
-
-                //match self_
-                //    .safe_lock(|s| s.current_job.clone().get_candidate_hash(&sv2_submit))
-                //    .unwrap()
-                //{
-                //    Some(target) => {
-                //        debug!("Up: SubmitSharesExtended Target: {:?}", target);
-                //    }
-                //    None => {
-                //        println!("Err:: Up: Received share but no job is present");
-                //    }
-                //}
 
                 let message = Message::Mining(
                     roles_logic_sv2::parsers::Mining::SubmitSharesExtended(sv2_submit),
@@ -407,7 +369,7 @@ impl Upstream {
     fn get_setup_connection_message(
         min_version: u16,
         max_version: u16,
-    ) -> ProxyResult<SetupConnection<'static>> {
+    ) -> ProxyResult<'static, SetupConnection<'static>> {
         let endpoint_host = "0.0.0.0".to_string().into_bytes().try_into()?;
         let vendor = String::new().try_into()?;
         let hardware_version = String::new().try_into()?;
@@ -542,6 +504,7 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
                 self.min_extranonce_size, m.extranonce_size
             );
         }
+        self.target.safe_lock(|t| *t = m.target.to_vec()).unwrap();
         // Set the `min_extranonce_size` in accordance to the SV2 Pool
         self.min_extranonce_size = m.extranonce_size;
 
@@ -549,13 +512,7 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
         debug!("Up: Handling OpenExtendedMiningChannelSuccess: {:?}", &m);
         self.channel_id = Some(m.channel_id);
         self.extranonce_prefix = Some(m.extranonce_prefix.to_vec());
-        let m = Mining::OpenExtendedMiningChannelSuccess(OpenExtendedMiningChannelSuccess {
-            request_id: m.request_id,
-            channel_id: m.channel_id,
-            target: m.target.into_static(),
-            extranonce_size: m.extranonce_size,
-            extranonce_prefix: m.extranonce_prefix.into_static(),
-        });
+        let m = Mining::OpenExtendedMiningChannelSuccess(m.into_static());
         Ok(SendTo::None(Some(m)))
     }
 
@@ -592,15 +549,6 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
         _: roles_logic_sv2::mining_sv2::SetExtranoncePrefix,
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error>
     {
-        // let message = Mining::SetExtranoncePrefix(SetExtranoncePrefix {
-        //     // Channel identifier, stable for whole connection lifetime. Used for broadcasting new
-        //     // jobs by the connection. Can be extended of standard channel (always extended for SV1
-        //     // Translator Proxy)
-        //     channel_id: m.channel_id,
-        //     // Bytes used as implicit first part of extranonce.
-        //     extranonce_prefix: m.extranonce_prefix.clone().into_static(),
-        // });
-        // Ok(SendTo::Respond(message))
         todo!()
     }
 
@@ -621,17 +569,6 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
         m: roles_logic_sv2::mining_sv2::SubmitSharesError,
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error>
     {
-        // let message = Mining::SubmitSharesError(SubmitSharesError {
-        //     // Channel identifier, stable for whole connection lifetime. Used for broadcasting new
-        //     // jobs by the connection. Can be extended of standard channel (always extended for SV1
-        //     // Translator Proxy)
-        //     channel_id: m.channel_id,
-        //     // Sequence number
-        //     sequence_number: m.sequence_number,
-        //     // Relevant error reason code
-        //     error_code: m.error_code.clone().into_static(),
-        // });
-        // Ok(SendTo::Respond(message))
         info!("Up: Rejected Submitted Share");
         debug!("Up: Handling SubmitSharesError: {:?}", &m);
         Ok(SendTo::None(None))
@@ -663,34 +600,8 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
             warn!("VERSION ROLLING NOT ALLOWED IS A TODO");
             // todo!()
         }
-        let job = Job_ {
-            id: m.job_id,
-            coinbase_tx_prefix: m.coinbase_tx_prefix.to_vec(),
-            coinbase_tx_suffix: m.coinbase_tx_suffix.to_vec(),
-            merkle_path: m.merkle_path.to_vec(),
-        };
-        match self.current_job {
-            Job::Void => {
-                self.current_job = Job::WithJobOnly(job);
-            }
-            Job::WithJobOnly(_) => todo!(),
-            Job::WithJobAndPrevHash(_, _) => {
-                self.current_job = Job::WithJobOnly(job);
-            }
-        };
 
-        let message = Mining::NewExtendedMiningJob(NewExtendedMiningJob {
-            // Extended channel identifier, stable for whole connection lifetime. Used for broadcasting new
-            // jobs by the connection
-            channel_id: m.channel_id,
-            job_id: m.job_id,
-            future_job: m.future_job, // Maybe hard code to false for demo
-            version: m.version,
-            version_rolling_allowed: m.version_rolling_allowed,
-            merkle_path: m.merkle_path.clone().into_static(),
-            coinbase_tx_prefix: m.coinbase_tx_prefix.clone().into_static(),
-            coinbase_tx_suffix: m.coinbase_tx_suffix.clone().into_static(),
-        });
+        let message = Mining::NewExtendedMiningJob(m.into_static());
 
         info!("Up: New Extended Mining Job");
         debug!("Up: Handling NewExtendedMiningJob: {:?}", &message);
@@ -706,39 +617,10 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
         m: roles_logic_sv2::mining_sv2::SetNewPrevHash,
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error>
     {
-        trace!("handle_set_new_prev_hash msg");
-        let prev_hash: [u8; 32] = m.prev_hash.to_vec().try_into().unwrap();
-        let prev_hash = DHash::from_inner(prev_hash);
-        let prev_hash = BlockHash::from_hash(prev_hash);
-        match &self.current_job {
-            Job::Void => todo!(),
-            Job::WithJobOnly(job) => {
-                if job.id == m.job_id {
-                    let prev_hash = PrevHash {
-                        prev_hash,
-                        nbits: m.nbits,
-                    };
-                    self.current_job = Job::WithJobAndPrevHash(job.clone(), prev_hash);
-                } else {
-                    todo!()
-                }
-            }
-            Job::WithJobAndPrevHash(_, _) => todo!(),
-        };
-        let message = Mining::SetNewPrevHash(SetNewPrevHash {
-            // Channel identifier, stable for whole connection lifetime. Used for broadcasting new
-            // jobs by the connection. Can be extended of standard channel (always extended for SV1
-            // Translator Proxy)
-            channel_id: m.channel_id,
-            job_id: m.job_id,
-            prev_hash: m.prev_hash.clone().into_static(),
-            min_ntime: m.min_ntime,
-            nbits: m.nbits,
-        });
-
         info!("Up: Set New Prev Hash");
-        debug!("Up: Handling SetNewPrevHash: {:?}", &message);
+        debug!("Up: Handling SetNewPrevHash: {:?}", &m);
 
+        let message = Mining::SetNewPrevHash(m.into_static());
         Ok(SendTo::None(Some(message)))
     }
 
@@ -767,10 +649,7 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
         m: roles_logic_sv2::mining_sv2::SetTarget,
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, roles_logic_sv2::errors::Error>
     {
-        let m = roles_logic_sv2::mining_sv2::SetTarget {
-            channel_id: m.channel_id,
-            maximum_target: m.maximum_target.into_static(),
-        };
+        let m = m.into_static();
 
         info!("Up: Updating Target to: {:?}", &m.maximum_target);
         debug!("Up: Handling SetTarget: {:?}", &m);

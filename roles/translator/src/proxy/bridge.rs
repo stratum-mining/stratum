@@ -1,14 +1,18 @@
 use async_channel::{Receiver, Sender};
 use async_std::task;
 use roles_logic_sv2::{
-    mining_sv2::{ExtendedExtranonce, NewExtendedMiningJob, SetNewPrevHash, SubmitSharesExtended},
-    utils::{Id, Mutex},
+    channel_logic::channel_factory::{ExtendedChannelKind, ProxyExtendedChannelFactory},
+    mining_sv2::{
+        ExtendedExtranonce, NewExtendedMiningJob, SetNewPrevHash, SubmitSharesExtended, Target,
+    },
+    parsers::Mining,
+    utils::{GroupId, Id, Mutex},
 };
-use std::{collections::HashMap, sync::Arc};
+use std::sync::Arc;
 use v1::{client_to_server::Submit, server_to_client};
 
-use super::next_mining_notify::NextMiningNotify;
-use crate::{Error, ProxyResult};
+use crate::ProxyResult;
+use roles_logic_sv2::channel_logic::channel_factory::OnNewShare;
 use tracing::{debug, error};
 
 /// Bridge between the SV2 `Upstream` and SV1 `Downstream` responsible for the following messaging
@@ -18,24 +22,20 @@ use tracing::{debug, error};
 #[derive(Debug)]
 pub struct Bridge {
     /// Receives a SV1 `mining.submit` message from the Downstream role.
-    submit_from_sv1: Receiver<(Submit, ExtendedExtranonce)>,
+    rx_sv1_submit: Receiver<(Submit<'static>, Vec<u8>)>,
     /// Sends SV2 `SubmitSharesExtended` messages translated from SV1 `mining.submit` messages to
     /// the `Upstream`.
-    submit_to_sv2: Sender<SubmitSharesExtended<'static>>,
+    tx_sv2_submit_shares_ext: Sender<SubmitSharesExtended<'static>>,
     /// Receives a SV2 `SetNewPrevHash` message from the `Upstream` to be translated (along with a
     /// SV2 `NewExtendedMiningJob` message) to a SV1 `mining.submit` for the `Downstream`.
-    set_new_prev_hash: Receiver<SetNewPrevHash<'static>>,
+    rx_sv2_set_new_prev_hash: Receiver<SetNewPrevHash<'static>>,
     /// Receives a SV2 `NewExtendedMiningJob` message from the `Upstream` to be translated (along
     /// with a SV2 `SetNewPrevHash` message) to a SV1 `mining.submit` to be sent to the
     /// `Downstream`.
-    new_extended_mining_job: Receiver<NewExtendedMiningJob<'static>>,
-    /// Stores the received SV2 `SetNewPrevHash` and `NewExtendedMiningJob` messages in the
-    /// `NextMiningNotify` struct to be translated into a SV1 `mining.notify` message to be sent to
-    /// the `Downstream`.
-    next_mining_notify: Arc<Mutex<NextMiningNotify>>,
+    rx_sv2_new_ext_mining_job: Receiver<NewExtendedMiningJob<'static>>,
     /// Sends SV1 `mining.notify` message (translated from the SV2 `SetNewPrevHash` and
     /// `NewExtendedMiningJob` messages stored in the `NextMiningNotify`) to the `Downstream`.
-    sender_mining_notify: Sender<server_to_client::Notify>,
+    tx_sv1_notify: Sender<server_to_client::Notify<'static>>,
     /// Unique sequential identifier of the submit within the channel.
     channel_sequence_id: Id,
     /// Stores the most recent SV1 `mining.notify` values to be sent to the `Downstream` upon
@@ -48,41 +48,83 @@ pub struct Bridge {
     /// first notify values to be relayed to the `Downstream` once a Downstream role connects. Once
     /// a Downstream role connects and receives the first notify values, this member field is no
     /// longer used.
-    last_notify: Arc<Mutex<Option<server_to_client::Notify>>>,
-    /// Stores SV2 `NewExtendedMiningJob` messages intended for future SV2 `SetNewPrevHash`
-    /// messages (when the SV2 `NewExtendedMiningJob` message has a `future_job=false`). The
-    /// `job_id` is the key, and the `NewExtendedMiningJob` is the value.
-    job_mapper: HashMap<u32, NewExtendedMiningJob<'static>>,
+    last_notify: Option<server_to_client::Notify<'static>>,
+    pub(self) channel_factory: ProxyExtendedChannelFactory,
+    future_jobs: Vec<NewExtendedMiningJob<'static>>,
+    last_p_hash: Option<SetNewPrevHash<'static>>,
+    target: Arc<Mutex<Vec<u8>>>,
 }
 
 impl Bridge {
     /// Instantiate a new `Bridge`.
     pub fn new(
-        submit_from_sv1: Receiver<(Submit, ExtendedExtranonce)>,
-        submit_to_sv2: Sender<SubmitSharesExtended<'static>>,
-        set_new_prev_hash: Receiver<SetNewPrevHash<'static>>,
-        new_extended_mining_job: Receiver<NewExtendedMiningJob<'static>>,
-        next_mining_notify: Arc<Mutex<NextMiningNotify>>,
-        sender_mining_notify: Sender<server_to_client::Notify>,
-        last_notify: Arc<Mutex<Option<server_to_client::Notify>>>,
+        rx_sv1_submit: Receiver<(Submit<'static>, Vec<u8>)>,
+        tx_sv2_submit_shares_ext: Sender<SubmitSharesExtended<'static>>,
+        rx_sv2_set_new_prev_hash: Receiver<SetNewPrevHash<'static>>,
+        rx_sv2_new_ext_mining_job: Receiver<NewExtendedMiningJob<'static>>,
+        tx_sv1_notify: Sender<server_to_client::Notify<'static>>,
+        extranonces: ExtendedExtranonce,
+        target: Arc<Mutex<Vec<u8>>>,
     ) -> Self {
+        let ids = Arc::new(Mutex::new(GroupId::new()));
+        let share_per_min = 1.0;
+        let upstream_target: [u8; 32] =
+            target.safe_lock(|t| t.clone()).unwrap().try_into().unwrap();
+        let upstream_target: Target = upstream_target.into();
+        let kind = ExtendedChannelKind::Proxy { upstream_target };
         Self {
-            submit_from_sv1,
-            submit_to_sv2,
-            set_new_prev_hash,
-            new_extended_mining_job,
-            next_mining_notify,
-            sender_mining_notify,
+            rx_sv1_submit,
+            tx_sv2_submit_shares_ext,
+            rx_sv2_set_new_prev_hash,
+            rx_sv2_new_ext_mining_job,
+            tx_sv1_notify,
             channel_sequence_id: Id::new(),
-            last_notify,
-            job_mapper: HashMap::new(),
+            last_notify: None,
+            channel_factory: ProxyExtendedChannelFactory::new(
+                ids,
+                extranonces,
+                None,
+                share_per_min,
+                kind,
+                None,
+            ),
+            future_jobs: vec![],
+            last_p_hash: None,
+            target,
         }
+    }
+
+    pub fn on_new_sv1_connection(&mut self, hash_rate: f32) -> Option<OpenSv1Downstream> {
+        match self.channel_factory.new_extended_channel(0, hash_rate, 0) {
+            Some(messages) => {
+                for message in messages {
+                    match message {
+                        Mining::OpenExtendedMiningChannelSuccess(success) => {
+                            let extranonce = success.extranonce_prefix.to_vec();
+                            let extranonce2_len = success.extranonce_size;
+                            let target = success.target.to_vec();
+                            return Some(OpenSv1Downstream {
+                                last_notify: self.last_notify.clone(),
+                                extranonce,
+                                target,
+                                extranonce2_len,
+                            });
+                        }
+                        Mining::OpenMiningChannelError(_) => todo!(),
+                        Mining::SetNewPrevHash(_) => (),
+                        Mining::NewExtendedMiningJob(_) => (),
+                        _ => unreachable!(),
+                    }
+                }
+            }
+            None => todo!(),
+        };
+        None
     }
 
     /// Starts the tasks that receive SV1 and SV2 messages to be translated and sent to their
     /// respective roles.
-    pub fn start(self) {
-        let self_ = Arc::new(Mutex::new(self));
+    pub fn start(self_: Arc<Mutex<Self>>) {
         Self::handle_new_prev_hash(self_.clone());
         Self::handle_new_extended_mining_job(self_.clone());
         Self::handle_downstream_share_submission(self_);
@@ -91,34 +133,70 @@ impl Bridge {
     /// Receives a SV1 `mining.submit` message from the `Downstream`, translates it to a SV2
     /// `SubmitSharesExtended` message, and sends it to the `Upstream`.
     fn handle_downstream_share_submission(self_: Arc<Mutex<Self>>) {
-        let submit_recv = self_.safe_lock(|s| s.submit_from_sv1.clone()).unwrap();
-        let submit_to_sv2 = self_.safe_lock(|s| s.submit_to_sv2.clone()).unwrap();
+        let rx_sv1_submit = self_.safe_lock(|s| s.rx_sv1_submit.clone()).unwrap();
+        let tx_sv2_submit_shares_ext = self_
+            .safe_lock(|s| s.tx_sv2_submit_shares_ext.clone())
+            .unwrap();
+        let target = self_.safe_lock(|s| s.target.clone()).unwrap();
         task::spawn(async move {
             loop {
-                let (sv1_submit, extrnonce) = submit_recv.clone().recv().await.unwrap();
+                let upstream_target: [u8; 32] =
+                    target.safe_lock(|t| t.clone()).unwrap().try_into().unwrap();
+                let mut upstream_target: Target = upstream_target.into();
+                self_
+                    .safe_lock(|s| s.channel_factory.set_target(&mut upstream_target))
+                    .unwrap();
+
+                let (sv1_submit, extrnonce) = rx_sv1_submit.clone().recv().await.unwrap();
                 let channel_sequence_id =
                     self_.safe_lock(|s| s.channel_sequence_id.next()).unwrap() - 1;
-                let sv2_submit: SubmitSharesExtended =
-                    Self::translate_submit(channel_sequence_id, sv1_submit, &extrnonce).unwrap();
-                submit_to_sv2.send(sv2_submit).await.unwrap();
+                let sv2_submit: SubmitSharesExtended = self_
+                    .safe_lock(|s| s.translate_submit(channel_sequence_id, sv1_submit, extrnonce))
+                    .unwrap()
+                    .unwrap_or_else(|_| std::process::exit(1));
+                let mut send_upstream = false;
+                match self_
+                    .safe_lock(|s| {
+                        s.channel_factory.on_submit_shares_extended(
+                            sv2_submit.clone(),
+                            Some(crate::SELF_EXTRNONCE_LEN),
+                        )
+                    })
+                    .unwrap()
+                    .expect("todo")
+                {
+                    OnNewShare::SendErrorDowsntream(e) => {
+                        error!(
+                            "Submit share error {}",
+                            std::str::from_utf8(&e.error_code.to_vec()[..]).unwrap()
+                        );
+                    }
+                    OnNewShare::SendSubmitShareUpstream(_) => {
+                        send_upstream = true;
+                    }
+                    OnNewShare::RelaySubmitShareUpstream => {
+                        send_upstream = true;
+                    }
+                    OnNewShare::ShareMeetBitcoinTarget(_) => unreachable!(),
+                    OnNewShare::ShareMeetDownstreamTarget => (),
+                }
+                if send_upstream {
+                    tx_sv2_submit_shares_ext.send(sv2_submit).await.unwrap();
+                };
             }
         });
     }
 
     /// Translates a SV1 `mining.submit` message to a SV2 `SubmitSharesExtended` message.
     fn translate_submit(
+        &self,
         channel_sequence_id: u32,
         sv1_submit: Submit,
-        extranonce_1: &ExtendedExtranonce,
-    ) -> ProxyResult<SubmitSharesExtended<'static>> {
-        let extranonce_vec: Vec<u8> = sv1_submit.extra_nonce2.into();
-        let extranonce = extranonce_1
-            .without_upstream_part(Some(extranonce_vec.try_into().unwrap()))
-            .unwrap();
-
+        extranonce: Vec<u8>,
+    ) -> ProxyResult<'static, SubmitSharesExtended<'static>> {
         let version = match sv1_submit.version_bits {
             Some(vb) => vb.0,
-            None => return Err(Error::NoSv1VersionBits),
+            None => self.channel_factory.last_valid_job_version().unwrap(),
         };
 
         Ok(SubmitSharesExtended {
@@ -142,96 +220,45 @@ impl Bridge {
         task::spawn(async move {
             loop {
                 // Receive `SetNewPrevHash` from `Upstream`
-                let set_new_prev_hash_recv =
-                    self_.safe_lock(|r| r.set_new_prev_hash.clone()).unwrap();
+                let rx_sv2_set_new_prev_hash = self_
+                    .safe_lock(|r| r.rx_sv2_set_new_prev_hash.clone())
+                    .unwrap();
                 let sv2_set_new_prev_hash: SetNewPrevHash =
-                    set_new_prev_hash_recv.clone().recv().await.unwrap();
+                    rx_sv2_set_new_prev_hash.clone().recv().await.unwrap();
                 debug!(
                     "handle_new_prev_hash job_id: {:?}",
                     &sv2_set_new_prev_hash.job_id
                 );
-
-                // Store the prevhash value in the `NextMiningNotify` struct
+                self_
+                    .safe_lock(|s| s.last_p_hash = Some(sv2_set_new_prev_hash.clone()))
+                    .unwrap();
                 self_
                     .safe_lock(|s| {
-                        s.next_mining_notify
-                            .safe_lock(|nmn| {
-                                nmn.set_new_prev_hash_msg(sv2_set_new_prev_hash.clone());
-                                debug!("handle_new_prev_hash nmn set_new_prev_hash: {:?}", &nmn);
+                        s.channel_factory
+                            .on_new_prev_hash(sv2_set_new_prev_hash.clone())
+                    })
+                    .unwrap()
+                    .expect("todo");
+                let mut future_jobs = self_.safe_lock(|s| s.future_jobs.clone()).unwrap();
+                self_.safe_lock(|s| s.future_jobs = vec![]).unwrap();
+                while let Some(job) = future_jobs.pop() {
+                    if job.job_id == sv2_set_new_prev_hash.job_id {
+                        // Create the mining.notify to be sent to the Downstream.
+                        let notify = crate::proxy::next_mining_notify::create_notify(
+                            sv2_set_new_prev_hash,
+                            job,
+                        );
+                        // Get the sender to send the mining.notify to the Downstream
+                        let tx_sv1_notify = self_.safe_lock(|s| s.tx_sv1_notify.clone()).unwrap();
+                        tx_sv1_notify.send(notify.clone()).await.unwrap();
+                        self_
+                            .safe_lock(|s| {
+                                s.last_notify = Some(notify);
                             })
                             .unwrap();
-                    })
-                    .unwrap();
 
-                // Check the job_mapper to see if there is a NewExtendedMiningJob with a job id
-                // that matches this SetNewPrevHash's job id. If there is, remove it from the
-                // mapping and store this NewExtendedMiningJob in the NextMiningNotify for
-                // mining.notify creation. If there is not, the NewExtendedMiningJob that is
-                // already stored in the NextMiningNotify struct will be favored.
-                self_
-                    .safe_lock(|s| {
-                        if let Some(job) = s.job_mapper.remove(&sv2_set_new_prev_hash.job_id) {
-                            s.next_mining_notify
-                                .safe_lock(|nmn| {
-                                    nmn.new_extended_mining_job_msg(job);
-                                })
-                                .unwrap();
-                        }
-                    })
-                    .unwrap();
-
-                // Get the sender to send the mining.notify to the Downstream
-                let sender_mining_notify =
-                    self_.safe_lock(|s| s.sender_mining_notify.clone()).unwrap();
-
-                // Create the mining.notify to be sent to the Downstream. The create_notify method
-                // checks that this NewExtendedMiningJob and the previously stored SetNewPrevHash
-                // have matching job ids. If they are not matching, an error has occurred on the
-                // Upstream pool role. In this case, create_notify will return None and the
-                // connection will close.
-                let sv1_notify_msg = self_
-                    .safe_lock(|s| {
-                        s.next_mining_notify
-                            .safe_lock(|nmn| nmn.create_notify())
-                            .unwrap()
-                    })
-                    .unwrap();
-                debug!(
-                    "handle_new_prev_hash mining.notify to send: {:?}",
-                    &sv1_notify_msg
-                );
-
-                // If the current NewExtendedMiningJob and SetNewPrevHash are present and are
-                // intended to be used for the same job (both messages job_id's are the same), send
-                // the newly created `mining.notify` to the Downstream for mining. Otherwise, an
-                // error has occurred on the Upstream pool role and the connection will close.
-                if let Some(msg) = sv1_notify_msg {
-                    debug!(
-                        "handle_new_prev_hash sending mining.notify to Downstream: {:?}",
-                        &msg
-                    );
-                    // `last_notify` logic here is only relevant for SV2 `SetNewPrevHash` and
-                    // `NewExtendedMiningJob` messages received **before** a Downstream role
-                    // connects
-                    let last_notify = self_.safe_lock(|s| s.last_notify.clone()).unwrap();
-                    last_notify
-                        .safe_lock(|s| {
-                            let _ = s.insert(msg.clone());
-                        })
-                        .unwrap();
-                    sender_mining_notify.send(msg).await.unwrap();
-
-                    // Flush stale jobs from job_mapper (aka retain all values greater than
-                    // this job_id)
-                    let last_stale_job_id = sv2_set_new_prev_hash.job_id;
-                    self_
-                        .safe_lock(|s| {
-                            s.job_mapper.retain(|&k, _| k > last_stale_job_id);
-                        })
-                        .unwrap();
-                } else {
-                    error!("NewExtendedMiningJob and SetNewPrevHash job ids mismatch");
-                    panic!("NewExtendedMiningJob and SetNewPrevHash job ids mismatch");
+                        break;
+                    }
                 }
             }
         });
@@ -249,93 +276,179 @@ impl Bridge {
         task::spawn(async move {
             loop {
                 // Receive `NewExtendedMiningJob` from `Upstream`
-                let set_new_extended_mining_job_recv = self_
-                    .safe_lock(|r| r.new_extended_mining_job.clone())
+                let rx_sv2_new_ext_mining_job = self_
+                    .safe_lock(|r| r.rx_sv2_new_ext_mining_job.clone())
                     .unwrap();
                 let sv2_new_extended_mining_job: NewExtendedMiningJob =
-                    set_new_extended_mining_job_recv
-                        .clone()
-                        .recv()
-                        .await
-                        .unwrap();
+                    rx_sv2_new_ext_mining_job.clone().recv().await.unwrap();
                 debug!(
                     "handle_new_extended_mining_job job_id: {:?}",
                     &sv2_new_extended_mining_job.job_id
                 );
+                let _ = self_
+                    .safe_lock(|s| {
+                        s.channel_factory.on_new_extended_mining_job(
+                            sv2_new_extended_mining_job.as_static().clone(),
+                        )
+                    })
+                    .unwrap();
 
                 // If future_job=true, this job is meant for a future SetNewPrevHash that the proxy
-                // has yet to receive. Insert this new job into the job_mapper (will overwrite any
-                // previous jobs with the same job id).
-                // If future_job=false, this job is meant for the current SetNewPrevHash. The
-                // NextMiningNotify struct is updated with this job, and (after double checking
-                // this job's job_id matches the SetNewPrevHash job id stored in NextMiningNotify)
-                // a mining.notify is created and sent to the Downstream. If these job ids do not
-                // match, an error has occured on the Upstream pool role and the connection will
-                // close.
+                // has yet to receive. Insert this new job into the job_mapper .
                 if sv2_new_extended_mining_job.future_job {
                     self_
-                        .safe_lock(|s| {
-                            // Insert new future job, replaces value if already exists
-                            let _ = s.job_mapper.insert(
-                                sv2_new_extended_mining_job.job_id,
-                                sv2_new_extended_mining_job.clone(),
-                            );
-                        })
+                        .safe_lock(|s| s.future_jobs.push(sv2_new_extended_mining_job.clone()))
                         .unwrap();
+
+                // If future_job=false, this job is meant for the current SetNewPrevHash.
                 } else {
-                    // Get the sender to send the mining.notify to the Downstream
-                    let sender_mining_notify =
-                        self_.safe_lock(|s| s.sender_mining_notify.clone()).unwrap();
-
-                    // Insert the new job into the NextMiningNotify struct and create the
-                    // mining.notify to be sent to the Downstream. The create_notify method checks
-                    // that this NewExtendedMiningJob and the previously stored SetNewPrevHash have
-                    // matching job ids. If they are not matching, an error has occurred on the
-                    // Upstream pool role. In this case, create_notify will return None and the
-                    // connection will close.
-                    let sv1_notify_msg = self_
+                    let last_p_hash = self_
                         .safe_lock(|s| {
-                            s.next_mining_notify
-                                .safe_lock(|nmn| {
-                                    nmn.new_extended_mining_job_msg(
-                                        sv2_new_extended_mining_job.clone(),
-                                    );
-                                    nmn.create_notify()
+                            s.last_p_hash
+                                .as_ref()
+                                .unwrap_or_else(|| {
+                                    error!("Received a non future job but now a new prev hash");
+                                    panic!();
                                 })
-                                .unwrap()
+                                .clone()
                         })
                         .unwrap();
-
-                    // If the current NewExtendedMiningJob and SetNewPrevHash are present and are
-                    // intended to be used for the same job (both messages job_id's are the same), send
-                    // the newly created `mining.notify` to the Downstream for mining.
-                    if let Some(msg) = sv1_notify_msg {
-                        debug!(
-                            "handle_new_extended_mining_job sending mining.notify to Downstream"
-                        );
-                        // TODO: handle the last_notify using the job_mapper instead
-                        let last_notify = self_.safe_lock(|s| s.last_notify.clone()).unwrap();
-                        last_notify
-                            .safe_lock(|s| {
-                                let _ = s.insert(msg.clone());
-                            })
-                            .unwrap();
-                        sender_mining_notify.send(msg).await.unwrap();
-
-                        // Flush stale jobs from job_mapper (aka retain all values greater than
-                        // this job_id)
-                        let last_stale_job_id = sv2_new_extended_mining_job.job_id;
-                        self_
-                            .safe_lock(|s| {
-                                s.job_mapper.retain(|&k, _| k > last_stale_job_id);
-                            })
-                            .unwrap();
-                    } else {
-                        error!("NewExtendedMiningJob and SetNewPrevHash job ids mismatch");
-                        panic!("NewExtendedMiningJob and SetNewPrevHash job ids mismatch");
-                    }
+                    // Create the mining.notify to be sent to the Downstream.
+                    let notify = crate::proxy::next_mining_notify::create_notify(
+                        last_p_hash,
+                        sv2_new_extended_mining_job,
+                    );
+                    // Get the sender to send the mining.notify to the Downstream
+                    let tx_sv1_notify = self_.safe_lock(|s| s.tx_sv1_notify.clone()).unwrap();
+                    tx_sv1_notify.send(notify.clone()).await.unwrap();
+                    self_
+                        .safe_lock(|s| {
+                            s.last_notify = Some(notify);
+                        })
+                        .unwrap();
                 }
             }
         });
+    }
+}
+pub struct OpenSv1Downstream {
+    pub last_notify: Option<server_to_client::Notify<'static>>,
+    pub extranonce: Vec<u8>,
+    pub target: Vec<u8>,
+    pub extranonce2_len: u16,
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use async_channel::bounded;
+    use roles_logic_sv2::bitcoin::util::psbt::serialize::Serialize;
+    const EXTRANONCE_LEN: usize = 16;
+    pub mod test_utils {
+        use super::*;
+        pub fn create_bridge() -> Bridge {
+            let (_tx_sv1_submit, rx_sv1_submit) = bounded(1);
+            let (tx_sv2_submit_shares_ext, _rx_sv2_submit_shares_ext) = bounded(1);
+            let (_tx_sv2_set_new_prev_hash, rx_sv2_set_new_prev_hash) = bounded(1);
+            let (_tx_sv2_new_ext_mining_job, rx_sv2_new_ext_mining_job) = bounded(1);
+            let (tx_sv1_notify, _rx_sv1_notify) = bounded(1);
+            let extranonces = ExtendedExtranonce::new(0..6, 6..8, 8..EXTRANONCE_LEN);
+            let upstream_target = vec![
+                0, 0, 0, 0, 255, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0,
+            ];
+
+            Bridge::new(
+                rx_sv1_submit,
+                tx_sv2_submit_shares_ext,
+                rx_sv2_set_new_prev_hash,
+                rx_sv2_new_ext_mining_job,
+                tx_sv1_notify,
+                extranonces,
+                Arc::new(Mutex::new(upstream_target)),
+            )
+        }
+
+        pub fn create_sv1_submit(job_id: u32) -> Submit<'static> {
+            Submit {
+                user_name: "test_user".to_string(),
+                job_id: job_id.to_string(),
+                extra_nonce2: v1::utils::Extranonce::try_from([0; 32].to_vec()).unwrap(),
+                time: v1::utils::HexU32Be(1),
+                nonce: v1::utils::HexU32Be(1),
+                version_bits: None,
+                id: "test_id".to_string(),
+            }
+        }
+    }
+
+    #[test]
+    fn test_version_bits_insert() {
+        use roles_logic_sv2::bitcoin::hashes::Hash;
+        let mut bridge = test_utils::create_bridge();
+        let out_id = roles_logic_sv2::bitcoin::hashes::sha256d::Hash::from_slice(&[
+            0_u8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0,
+        ])
+        .unwrap();
+        let p_out = roles_logic_sv2::bitcoin::OutPoint {
+            txid: roles_logic_sv2::bitcoin::Txid::from_hash(out_id),
+            vout: 0xffff_ffff,
+        };
+        let in_ = roles_logic_sv2::bitcoin::TxIn {
+            previous_output: p_out,
+            script_sig: vec![89_u8; EXTRANONCE_LEN].into(),
+            sequence: 0,
+            witness: vec![].into(),
+        };
+        let tx = roles_logic_sv2::bitcoin::Transaction {
+            version: 1,
+            lock_time: 0,
+            input: vec![in_],
+            output: vec![],
+        };
+        let tx = tx.serialize();
+        let _down = bridge
+            .channel_factory
+            .add_standard_channel(0, 10_000_000_000.0, true, 1)
+            .unwrap();
+        let prev_hash = SetNewPrevHash {
+            channel_id: 1,
+            job_id: 0,
+            prev_hash: [
+                3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+                3, 3, 3, 3,
+            ]
+            .into(),
+            min_ntime: 989898,
+            nbits: 9,
+        };
+        bridge.channel_factory.on_new_prev_hash(prev_hash).unwrap();
+        let new_mining_job = NewExtendedMiningJob {
+            channel_id: 1,
+            job_id: 0,
+            future_job: false,
+            version: 0b0000_0000_0000_0000,
+            version_rolling_allowed: false,
+            merkle_path: vec![].into(),
+            coinbase_tx_prefix: tx[0..42].to_vec().try_into().unwrap(),
+            coinbase_tx_suffix: tx[58..].to_vec().try_into().unwrap(),
+        };
+        bridge
+            .channel_factory
+            .on_new_extended_mining_job(new_mining_job.clone())
+            .unwrap();
+
+        // pass sv1_submit into Bridge::translate_submit
+        let sv1_submit = test_utils::create_sv1_submit(0);
+        let channel_seq_id = bridge.channel_sequence_id.next() - 1;
+        let sv2_message = bridge
+            .translate_submit(channel_seq_id, sv1_submit, vec![0, 0, 0, 0, 0, 0, 0, 0])
+            .unwrap();
+        // assert sv2 message equals sv1 with version bits added
+        assert_eq!(
+            new_mining_job.version, sv2_message.version,
+            "Version bits were not inserted for non version rolling sv1 message"
+        );
     }
 }
