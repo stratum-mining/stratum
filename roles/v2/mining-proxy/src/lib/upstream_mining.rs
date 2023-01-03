@@ -557,8 +557,10 @@ impl UpstreamMiningNode {
                 min_extranonce_size: crate::MIN_EXTRANOUNCE_SIZE,
             },
         ));
-        #[warn(unused_must_use)]
-        Self::send(self_mutex.clone(), message.try_into().unwrap()).await;
+        #[allow(unused_must_use)]
+        Self::send(self_mutex.clone(), message.try_into().unwrap())
+            .await
+            .unwrap();
         while self_mutex
             .safe_lock(|s| s.channel_factory.is_none())
             .unwrap()
@@ -628,7 +630,6 @@ impl UpstreamMiningNode {
                     .add_standard_channel(request_id, downstream_hash_rate, id_header_only, 0)
                     .unwrap();
                 messages.into_iter().map(|x| x.into_static()).collect()
-                
             }
         }
     }
