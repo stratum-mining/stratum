@@ -247,7 +247,7 @@ pub trait ParseUpstreamMiningMessages<
 
         // Is fine to unwrap on safe_lock
         match (message_type, payload).try_into() {
-            //PANICS
+            // Can Panic
             Ok(Mining::OpenStandardMiningChannelSuccess(mut m)) => {
                 let remote = match routing_logic {
                     MiningRoutingLogic::None => None,
@@ -286,7 +286,7 @@ pub trait ParseUpstreamMiningMessages<
                     .safe_lock(|s| s.handle_open_extended_mining_channel_success(m))
                     .unwrap(),
             },
-            // Panics
+            // Can Panic
             Ok(Mining::OpenMiningChannelError(m)) => match channel_type {
                 SupportedChannelTypes::Standard => self_mutex
                     .safe_lock(|x| x.handle_open_mining_channel_error(m))
@@ -301,7 +301,7 @@ pub trait ParseUpstreamMiningMessages<
                     .safe_lock(|x| x.handle_open_mining_channel_error(m))
                     .unwrap(),
             },
-            // Panics
+            // Can Panic
             Ok(Mining::UpdateChannelError(m)) => match channel_type {
                 SupportedChannelTypes::Standard => self_mutex
                     .safe_lock(|x| x.handle_update_channel_error(m))
@@ -316,7 +316,7 @@ pub trait ParseUpstreamMiningMessages<
                     .safe_lock(|x| x.handle_update_channel_error(m))
                     .unwrap(),
             },
-            // Panics
+            // Can Panic
             Ok(Mining::CloseChannel(m)) => match channel_type {
                 SupportedChannelTypes::Standard => {
                     self_mutex.safe_lock(|x| x.handle_close_channel(m)).unwrap()
@@ -331,7 +331,7 @@ pub trait ParseUpstreamMiningMessages<
                     self_mutex.safe_lock(|x| x.handle_close_channel(m)).unwrap()
                 }
             },
-            //Panics
+            // Can Panic
             Ok(Mining::SetExtranoncePrefix(m)) => match channel_type {
                 SupportedChannelTypes::Standard => self_mutex
                     .safe_lock(|x| x.handle_set_extranonce_prefix(m))
@@ -376,7 +376,7 @@ pub trait ParseUpstreamMiningMessages<
                     .safe_lock(|x| x.handle_submit_shares_error(m))
                     .unwrap(),
             },
-            // Panics
+            // Can Panic
             Ok(Mining::NewMiningJob(m)) => match channel_type {
                 SupportedChannelTypes::Standard => self_mutex
                     .safe_lock(|x| x.handle_new_mining_job(m))
@@ -419,7 +419,7 @@ pub trait ParseUpstreamMiningMessages<
                         .unwrap(),
                 }
             }
-            //Panic
+            // Can Panic
             Ok(Mining::SetCustomMiningJobSuccess(m)) => {
                 match (channel_type, is_work_selection_enabled) {
                     (SupportedChannelTypes::Extended, true) => self_mutex
@@ -434,7 +434,7 @@ pub trait ParseUpstreamMiningMessages<
                     _ => Err(Error::UnexpectedMessage),
                 }
             }
-            //Panic
+            // Can Panic
             Ok(Mining::SetCustomMiningJobError(m)) => {
                 match (channel_type, is_work_selection_enabled) {
                     (SupportedChannelTypes::Extended, true) => self_mutex
@@ -464,7 +464,7 @@ pub trait ParseUpstreamMiningMessages<
                     self_mutex.safe_lock(|x| x.handle_set_target(m)).unwrap()
                 }
             },
-            // Panic
+            // Can Panic
             Ok(Mining::Reconnect(m)) => match channel_type {
                 SupportedChannelTypes::Standard => {
                     self_mutex.safe_lock(|x| x.handle_reconnect(m)).unwrap()
@@ -479,7 +479,7 @@ pub trait ParseUpstreamMiningMessages<
                     self_mutex.safe_lock(|x| x.handle_reconnect(m)).unwrap()
                 }
             },
-            //returns         Ok(SendTo::None(None))
+            // returns         Ok(SendTo::None(None))
             Ok(Mining::SetGroupChannel(m)) => match channel_type {
                 SupportedChannelTypes::Standard => Err(Error::UnexpectedMessage),
                 SupportedChannelTypes::Extended => Err(Error::UnexpectedMessage),
