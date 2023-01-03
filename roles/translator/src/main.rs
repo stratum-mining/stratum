@@ -150,6 +150,23 @@ async fn main() {
         proxy_config.downstream_port,
     );
 
+    // Check all tasks if is_finished() is true, if so exit
+    let status_loop = async_std::task::spawn(async move {
+        loop {
+            let task_status = rx_status.recv().await.unwrap();
+
+            match task_status.state {
+                State::Shutdown(err) => {
+                    error!("SHUTDOWN from: {}", err);
+                    break;
+                }
+                State::Healthy(msg) => {
+                    info!("HEALTHY message: {}", msg);
+                }
+            }
+        }
+    });
+
     // Accept connections from one or more SV1 Downstream roles (SV1 Mining Devices)
     downstream_sv1::Downstream::accept_connections(
         downstream_addr,
@@ -160,18 +177,5 @@ async fn main() {
     )
     .await;
 
-    // Check all tasks if is_finished() is true, if so exit
-    loop {
-        let task_status = rx_status.recv().await.unwrap();
-
-        match task_status.state {
-            State::Shutdown(err) => {
-                error!("SHUTDOWN from: {}", err);
-                break;
-            }
-            State::Healthy(msg) => {
-                info!("HEALTHY message: {}", msg);
-            }
-        }
-    }
+    status_loop.cancel().await;
 }
