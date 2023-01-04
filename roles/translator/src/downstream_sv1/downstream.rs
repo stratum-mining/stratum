@@ -211,44 +211,47 @@ impl Downstream {
 
     /// Accept connections from one or more SV1 Downstream roles (SV1 Mining Devices) and create a
     /// new `Downstream` for each connection.
-    pub async fn accept_connections(
+    pub fn accept_connections(
         downstream_addr: SocketAddr,
         tx_sv1_submit: Sender<(v1::client_to_server::Submit<'static>, Vec<u8>)>,
         receiver_mining_notify: Receiver<server_to_client::Notify<'static>>,
         tx_status: Sender<Status<'static>>,
         bridge: Arc<Mutex<crate::proxy::Bridge>>,
     ) {
-        let downstream_listener = TcpListener::bind(downstream_addr).await.unwrap();
-        let mut downstream_incoming = downstream_listener.incoming();
-        while let Some(stream) = downstream_incoming.next().await {
-            let stream = stream.expect("Err on SV1 Downstream connection stream");
-            // TODO where should I pick the below value??
-            let expected_hash_rate = 5_000_000.0;
-            match bridge
-                .safe_lock(|s| s.on_new_sv1_connection(expected_hash_rate))
-                .unwrap()
-            {
-                Some(opened) => {
-                    info!(
-                        "PROXY SERVER - ACCEPTING FROM DOWNSTREAM: {}",
-                        stream.peer_addr().unwrap()
-                    );
-                    Downstream::new(
-                        stream,
-                        tx_sv1_submit.clone(),
-                        receiver_mining_notify.clone(),
-                        tx_status.clone(),
-                        opened.extranonce,
-                        opened.last_notify,
-                        opened.target,
-                        opened.extranonce2_len as usize,
-                    )
-                    .await
+        task::spawn(async move {
+            let downstream_listener = TcpListener::bind(downstream_addr).await.unwrap();
+            let mut downstream_incoming = downstream_listener.incoming();
+
+            while let Some(stream) = downstream_incoming.next().await {
+                let stream = stream.expect("Err on SV1 Downstream connection stream");
+                // TODO where should I pick the below value??
+                let expected_hash_rate = 5_000_000.0;
+                let open_sv1_downstream = bridge
+                    .safe_lock(|s| s.on_new_sv1_connection(expected_hash_rate))
                     .unwrap();
+                match open_sv1_downstream {
+                    Some(opened) => {
+                        info!(
+                            "PROXY SERVER - ACCEPTING FROM DOWNSTREAM: {}",
+                            stream.peer_addr().unwrap()
+                        );
+                        Downstream::new(
+                            stream,
+                            tx_sv1_submit.clone(),
+                            receiver_mining_notify.clone(),
+                            tx_status.clone(),
+                            opened.extranonce,
+                            opened.last_notify,
+                            opened.target,
+                            opened.extranonce2_len as usize,
+                        )
+                        .await
+                        .unwrap();
+                    }
+                    None => todo!(),
                 }
-                None => todo!(),
             }
-        }
+        });
     }
 
     /// As SV1 messages come in, determines if the message response needs to be translated to SV2
