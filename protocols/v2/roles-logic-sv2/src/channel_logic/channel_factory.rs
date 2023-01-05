@@ -66,7 +66,7 @@ impl StagedPhash {
     ) -> SetNewPrevHash<'static> {
         SetNewPrevHash {
             channel_id,
-            job_id: new_job_id.ok_or_else(|| self.job_id).unwrap(),
+            job_id: new_job_id.unwrap_or(self.job_id),
             prev_hash: self.prev_hash.clone(),
             min_ntime: self.min_ntime,
             nbits: self.nbits,
