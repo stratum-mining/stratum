@@ -59,10 +59,14 @@ pub struct StagedPhash {
 }
 
 impl StagedPhash {
-    pub fn into_set_p_hash(&self, channel_id: u32, new_job_id: Option<u32>) -> SetNewPrevHash<'static> {
+    pub fn into_set_p_hash(
+        &self,
+        channel_id: u32,
+        new_job_id: Option<u32>,
+    ) -> SetNewPrevHash<'static> {
         SetNewPrevHash {
             channel_id,
-            job_id: new_job_id.ok_or_else(||self.job_id).unwrap(),
+            job_id: new_job_id.ok_or_else(|| self.job_id).unwrap(),
             prev_hash: self.prev_hash.clone(),
             min_ntime: self.min_ntime,
             nbits: self.nbits,
@@ -427,7 +431,6 @@ impl ChannelFactory {
             // the the valid job
             (Some((prev_h, group_id_p_hash_sent)), Some((job, group_id_job_sent)), true) => {
                 if !group_id_p_hash_sent.contains(&group_id) {
-
                     let prev_h = prev_h.into_set_p_hash(group_id, Some(job.job_id));
                     group_id_p_hash_sent.push(group_id);
                     result.push(Mining::SetNewPrevHash(prev_h));
