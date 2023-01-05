@@ -611,13 +611,12 @@ impl UpstreamMiningNode {
         match self.channel_kind {
             ChannelKind::Group => panic!(),
             ChannelKind::Extended => {
-                #[allow(unused_variables)]
-                #[allow(unreachable_code)]
+                //TODO: REVIEW id field set to 0
                 let messages = self
                     .channel_factory
                     .as_mut()
                     .unwrap()
-                    .add_standard_channel(request_id, downstream_hash_rate, id_header_only, todo!())
+                    .add_standard_channel(request_id, downstream_hash_rate, id_header_only, 0)
                     .unwrap();
                 messages.into_iter().map(|x| x.into_static()).collect()
             }
