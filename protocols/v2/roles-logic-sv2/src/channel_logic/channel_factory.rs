@@ -59,10 +59,10 @@ pub struct StagedPhash {
 }
 
 impl StagedPhash {
-    pub fn into_set_p_hash(&self, channel_id: u32) -> SetNewPrevHash<'static> {
+    pub fn into_set_p_hash(&self, channel_id: u32, new_job_id: Option<u32>) -> SetNewPrevHash<'static> {
         SetNewPrevHash {
             channel_id,
-            job_id: self.job_id,
+            job_id: new_job_id.ok_or_else(||self.job_id).unwrap(),
             prev_hash: self.prev_hash.clone(),
             min_ntime: self.min_ntime,
             nbits: self.nbits,
@@ -184,7 +184,7 @@ impl ChannelFactory {
             self.extended_channels.insert(channel_id, success.clone());
             let mut result = vec![Mining::OpenExtendedMiningChannelSuccess(success)];
             if let Some((new_prev_hash, _)) = &self.last_prev_hash {
-                let new_prev_hash = new_prev_hash.into_set_p_hash(channel_id);
+                let new_prev_hash = new_prev_hash.into_set_p_hash(channel_id, None);
                 result.push(Mining::SetNewPrevHash(new_prev_hash.clone()))
             };
             if let Some((job, _)) = &self.last_valid_job {
@@ -347,28 +347,28 @@ impl ChannelFactory {
             // If we have just a prev hash we need to send it after the SetupConnectionSuccess
             // message
             (Some((prev_h, _)), None, true) => {
-                let prev_h = prev_h.into_set_p_hash(channel_id);
+                let prev_h = prev_h.into_set_p_hash(channel_id, None);
                 result.push(Mining::SetNewPrevHash(prev_h.clone()));
                 Ok(())
             }
             // If we have a prev hash and a last valid job we need to send before the prev hash and
             // the the valid job
             (Some((prev_h, _)), Some(job), true) => {
-                let prev_h = prev_h.into_set_p_hash(channel_id);
-                result.push(Mining::SetNewPrevHash(prev_h.clone()));
+                let prev_h = prev_h.into_set_p_hash(channel_id, Some(job.job_id));
                 result.push(Mining::NewMiningJob(job));
+                result.push(Mining::SetNewPrevHash(prev_h.clone()));
                 Ok(())
             }
             // If we have everything we need, send before the prev hash and then all the jobs
             (Some((prev_h, _)), Some(job), false) => {
-                let prev_h = prev_h.into_set_p_hash(channel_id);
-                result.push(Mining::SetNewPrevHash(prev_h.clone()));
+                let prev_h = prev_h.into_set_p_hash(channel_id, Some(job.job_id));
                 result.push(Mining::NewMiningJob(job));
                 // Safe unwrap cause we check that self.future_jobs is not empty
                 let mut future_jobs = future_jobs.unwrap();
                 while let Some(job) = future_jobs.pop() {
                     result.push(Mining::NewMiningJob(job));
                 }
+                result.push(Mining::SetNewPrevHash(prev_h.clone()));
                 Ok(())
             }
             // This can not happen because we can not have a valid job without a prev hash
@@ -418,7 +418,7 @@ impl ChannelFactory {
             // message
             (Some((prev_h, group_id_p_hash_sent)), None, true) => {
                 if !group_id_p_hash_sent.contains(&group_id) {
-                    let prev_h = prev_h.into_set_p_hash(group_id);
+                    let prev_h = prev_h.into_set_p_hash(group_id, None);
                     group_id_p_hash_sent.push(group_id);
                     result.push(Mining::SetNewPrevHash(prev_h.clone()));
                 }
@@ -427,7 +427,8 @@ impl ChannelFactory {
             // the the valid job
             (Some((prev_h, group_id_p_hash_sent)), Some((job, group_id_job_sent)), true) => {
                 if !group_id_p_hash_sent.contains(&group_id) {
-                    let prev_h = prev_h.into_set_p_hash(group_id);
+
+                    let prev_h = prev_h.into_set_p_hash(group_id, Some(job.job_id));
                     group_id_p_hash_sent.push(group_id);
                     result.push(Mining::SetNewPrevHash(prev_h));
                 }
@@ -441,7 +442,7 @@ impl ChannelFactory {
             // If we have everything we need, send before the prev hash and then all the jobs
             (Some((prev_h, group_id_p_hash_sent)), Some((job, group_id_job_sent)), false) => {
                 if !group_id_p_hash_sent.contains(&group_id) {
-                    let prev_h = prev_h.into_set_p_hash(group_id);
+                    let prev_h = prev_h.into_set_p_hash(group_id, Some(job.job_id));
                     group_id_p_hash_sent.push(group_id);
                     result.push(Mining::SetNewPrevHash(prev_h));
                 }
