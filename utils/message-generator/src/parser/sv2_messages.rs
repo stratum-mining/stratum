@@ -5,15 +5,16 @@ use roles_logic_sv2::{
 };
 use std::collections::HashMap;
 
-/// Prende un path e un id se a `path` c'e' un file lo carica come stringa e prova a trasformarlo
-/// in `TestMessageParser` poi con into_map trasforma il `TestMessageParser` in 
-/// HashMap (id -> AnyMessage)e prova a prendere il valore che corrisponde ad id
+/// It takes a path and an id. If at `path` there is a file, then it loads it and tries to 
+/// transform it in `TestmessageParser`. Therefore, with into_map, trasforms the
+/// `TestMessageParser` in HashMap (id -> AnyMessage) and tries to take the value that corresponds
+/// to id
 pub fn message_from_path(path: & Vec<String>) -> AnyMessage<'static> {
     let id = path[1].clone();
     let path = path[0].clone();
     let messages = load_str!(&path);
     // Pa
-    let parsed = dbg!(TestMessageParser::from_str(messages));
+    let parsed = TestMessageParser::from_str(messages);
     parsed.into_map().get(&id).expect("There is no value matching the id {:?}").clone()
 }
 
@@ -172,7 +173,7 @@ mod test {
             }
         "#;
 
-        let v: TestMessageParser = dbg!(serde_json::from_str(data).unwrap());
+        let v: TestMessageParser = serde_json::from_str(data).unwrap();
         match v.common_messages.unwrap()[0].message {
             CommonMessages::SetupConnectionSuccess(m) => {
                 assert!(m.used_version == 2);
@@ -219,7 +220,7 @@ mod test {
             }
         "#;
 
-        let v: TestMessageParser = dbg!(serde_json::from_str(data).unwrap());
+        let v: TestMessageParser = serde_json::from_str(data).unwrap();
         let v = v.into_map();
         match v.get("setup_connection").unwrap() {
             AnyMessage::Common(
