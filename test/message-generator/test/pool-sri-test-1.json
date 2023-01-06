@@ -75,7 +75,8 @@
                     "type": "match_message_type",
                     "value": "0x01"
                 }
-            ] 
+            ],
+            "actiondoc": "questa e' la action di setup connection"
         },
         {
             "message_ids": ["open_standard_mining_channel"],
@@ -98,12 +99,14 @@
                     "type": "match_message_type",
                     "value": "0x1e"
                 }
-            ] 
+            ],
+            "actiondoc": "questa e' la action di open_standard_mining_channel" 
         },
         {
             "message_ids": ["submit_shares"],
             "role": "client",
-            "results": []
+            "results": [],
+            "actiondoc": "questa e' la action di submit shares"
         }
     ],
     "setup_commands": [
