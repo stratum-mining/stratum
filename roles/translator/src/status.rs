@@ -13,7 +13,7 @@ pub struct Status<'a> {
 
 // this is called by `error_handling::handle_result!`
 pub async fn handle_error(
-    sender: async_channel::Sender<Status<'static>>,
+    sender: &async_channel::Sender<Status<'static>>,
     e: error::Error<'static>,
 ) {
     match sender
