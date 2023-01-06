@@ -746,6 +746,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "error-handling"
+version = "0.1.0"
+
+[[package]]
 name = "event-listener"
 version = "2.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2056,6 +2060,7 @@ dependencies = [
  "binary_sv2",
  "buffer_sv2",
  "codec_sv2",
+ "error-handling",
  "framing_sv2",
  "network_helpers",
  "once_cell",

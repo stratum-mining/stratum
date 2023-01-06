@@ -1,4 +1,4 @@
-use crate::{downstream_sv1, handle_result, status::Status, ProxyResult};
+use crate::{downstream_sv1, status::Status, ProxyResult};
 use async_channel::{bounded, Receiver, Sender};
 use async_std::{
     io::BufReader,
@@ -6,6 +6,7 @@ use async_std::{
     prelude::*,
     task,
 };
+use error_handling::handle_result;
 
 use roles_logic_sv2::{
     bitcoin::util::uint::Uint256,

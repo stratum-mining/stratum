@@ -11,7 +11,8 @@ use roles_logic_sv2::{
 use std::sync::Arc;
 use v1::{client_to_server::Submit, server_to_client};
 
-use crate::{error::Error, handle_result, status::Status, ProxyResult};
+use crate::{error::Error, status::Status, ProxyResult};
+use error_handling::handle_result;
 use roles_logic_sv2::{channel_logic::channel_factory::OnNewShare, Error as RolesLogicError};
 use tracing::{debug, error, info};
 

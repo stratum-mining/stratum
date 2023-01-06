@@ -1,7 +1,6 @@
 use crate::{
     downstream_sv1::Downstream,
     error::Error::{CodecNoise, UpstreamIncoming},
-    handle_result,
     status::{State, Status},
     upstream_sv2::{EitherFrame, Message, StdFrame, UpstreamConnection},
     ProxyResult,
@@ -10,6 +9,7 @@ use async_channel::{Receiver, Sender};
 use async_std::{net::TcpStream, task};
 use binary_sv2::u256_from_int;
 use codec_sv2::{Frame, HandshakeRole, Initiator};
+use error_handling::handle_result;
 use network_helpers::Connection;
 use roles_logic_sv2::{
     bitcoin::BlockHash,
