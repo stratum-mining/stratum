@@ -11,7 +11,7 @@
 ///     of `e.into()`
 ///
 /// # Example
-/// ```
+/// ``` ignore
 /// let (tx_status: Sender<Status>, rx_status) = async_channel::unbounded();
 /// let variable = handle_result!(
 ///     tx_status,
