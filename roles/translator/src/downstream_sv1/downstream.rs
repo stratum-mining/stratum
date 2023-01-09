@@ -2,19 +2,25 @@ use crate::{downstream_sv1, status::Status, ProxyResult};
 use async_channel::{bounded, Receiver, Sender};
 use async_std::{
     io::BufReader,
-    net::{TcpListener, TcpStream},
+    net::{TcpListener, TcpStream, Incoming},
     prelude::*,
     task,
 };
 use error_handling::handle_result;
+use futures::FutureExt;
+
+use super::{kill, TaskIndex};
 
 use roles_logic_sv2::{
     bitcoin::util::uint::Uint256,
     common_properties::{IsDownstream, IsMiningDownstream},
     utils::Mutex,
 };
+
+use futures::select;
+
 use std::{net::SocketAddr, ops::Div, sync::Arc};
-use tracing::{debug, info};
+use tracing::{debug, info, warn};
 use v1::{
     client_to_server, json_rpc, server_to_client,
     utils::{Extranonce, HexU32Be},
@@ -47,8 +53,7 @@ pub struct Downstream {
 
 impl Downstream {
     /// Instantiate a new `Downstream`.
-    #[allow(clippy::too_many_arguments)]
-    pub async fn new(
+    pub async fn new_downstream(
         stream: TcpStream,
         tx_sv1_submit: Sender<(v1::client_to_server::Submit<'static>, Vec<u8>)>,
         rx_sv1_notify: Receiver<server_to_client::Notify<'static>>,
@@ -57,7 +62,7 @@ impl Downstream {
         last_notify: Option<server_to_client::Notify<'static>>,
         target: Vec<u8>,
         extranonce2_len: usize,
-    ) -> ProxyResult<'static, Arc<Mutex<Self>>> {
+    ) {
         let stream = std::sync::Arc::new(stream);
 
         // Reads and writes from Downstream SV1 Mining Device Client
@@ -65,7 +70,7 @@ impl Downstream {
         let (tx_outgoing, receiver_outgoing) = bounded(10);
 
         let socket_writer_clone = socket_writer.clone();
-        let _socket_writer_set_difficulty_clone = socket_writer.clone();
+        // let _socket_writer_set_difficulty_clone = socket_writer.clone();
         // Used to send SV1 `mining.notify` messages to the Downstreams
         let _socket_writer_notify = socket_writer;
 
@@ -82,84 +87,195 @@ impl Downstream {
         }));
         let self_ = downstream.clone();
 
+        let (tx_shutdown, rx_shutdown): (Sender<bool>, Receiver<bool>) = async_channel::bounded(3);
+        let task_state = Arc::new(Mutex::new([true, true, true]));
+
         // Task to read from SV1 Mining Device Client socket via `socket_reader`. Depending on the
         // SV1 message received, a message response is sent directly back to the SV1 Downstream
         // role, or the message is sent upwards to the Bridge for translation into a SV2 message
         // and then sent to the SV2 Upstream role.
-        let tx_status_bufreader = tx_status.clone();
-        task::spawn(async move {
+        let rx_shutdown_clone = rx_shutdown.clone();
+        let tx_shutdown_clone = tx_shutdown.clone();
+        let task_state_clone = task_state.clone();
+        let socket_reader_task = task::spawn(async move {
             loop {
+                task::sleep(std::time::Duration::from_millis(5)).await;
                 // Read message from SV1 Mining Device Client socket
                 let mut messages = BufReader::new(&*socket_reader).lines();
                 // On message receive, parse to `json_rpc:Message` and send to Upstream
                 // `Translator.receive_downstream` via `sender_upstream` done in
                 // `send_message_upstream`.
-                while let Some(incoming) = messages.next().await {
-                    let incoming = handle_result!(tx_status_bufreader, incoming);
-                    info!("Receiving from Mining Device: {:?}", &incoming);
-                    let incoming: Result<json_rpc::Message, _> = serde_json::from_str(&incoming);
-                    let incoming = handle_result!(tx_status_bufreader, incoming);
-                    // Handle what to do with message
-                    Self::handle_incoming_sv1(self_.clone(), incoming).await;
+                select! {
+                    res = messages.next().fuse() => {
+                        if let Some(Ok(incoming)) = res{
+                            info!("Receiving from Mining Device: {:?}", &incoming);
+                            let incoming: json_rpc::Message = match serde_json::from_str(&incoming) {
+                                Ok(msg) => msg,
+                                Err(_e) => {
+                                    tracing::error!("\nBAD MESSAGE\n");
+                                    kill(&tx_shutdown_clone).await;
+                                    break;
+                                }
+                            };
+                            // Handle what to do with message
+                            Self::handle_incoming_sv1(self_.clone(), incoming).await;
+                        }
+                    },
+                    _ = rx_shutdown_clone.recv().fuse() => {
+                            break;
+                        }
+                }; 
+
+                    
                 }
-            }
+                warn!("SHUTTING DOWN READER");
         });
 
+        let rx_shutdown_clone = rx_shutdown.clone();
+        let tx_shutdown_clone = tx_shutdown.clone();
+        let task_state_clone = task_state.clone();
         // Task to receive SV1 message responses to SV1 messages that do NOT need translation.
         // These response messages are sent directly to the SV1 Downstream role.
-        task::spawn(async move {
+        let socket_writer_task = task::spawn(async move {
             loop {
-                let to_send = receiver_outgoing.recv().await.unwrap();
-                let to_send = format!(
-                    "{}\n",
-                    serde_json::to_string(&to_send)
-                        .expect("Err deserializing JSON message for SV1 Downstream into `String`")
-                );
-                info!("Sending to Mining Device: {:?}", &to_send);
-                (&*socket_writer_clone)
-                    .write_all(to_send.as_bytes())
-                    .await
-                    .unwrap();
+                select! {
+                    res = receiver_outgoing.recv().fuse() => {
+                        match res {
+                            Ok(to_send) => {
+                                let to_send = match serde_json::to_string(&to_send) {
+                                    Ok(string) => format!("{}\n", string),
+                                    Err(_e) => {
+                                        kill(&tx_shutdown_clone).await;
+                                        break;
+                                    }
+                                };
+                                info!("Sending to Mining Device: {:?}", &to_send);
+                                let res = (&*socket_writer_clone)
+                                    .write_all(to_send.as_bytes())
+                                    .await;
+                                if let Err(_e) = res {
+                                    kill(&tx_shutdown_clone).await;
+                                    break
+                                }
+                            }
+                            Err(_e) => {
+                                // should this kill the downstream or just send a status update to the main thread?
+                                kill(&tx_shutdown_clone).await;
+                                break;
+                            }
+                        }
+                    },
+                    _ = rx_shutdown_clone.recv().fuse() => {
+                            break;
+                        }
+                }; 
+                
             }
+            warn!("SHUTTING DOWN WRITER");
         });
 
         let downstream_clone = downstream.clone();
-        let tx_status_notify = tx_status.clone();
-        task::spawn(async move {
+        let rx_shutdown_clone = rx_shutdown.clone();
+        let tx_shutdown_clone = tx_shutdown.clone();
+        let task_state_clone = task_state.clone();
+        let notify_task = task::spawn(async move {
             let mut first_sent = false;
             loop {
-                // Get receiver
-                let is_a: bool = downstream_clone
-                    .safe_lock(|d| !d.authorized_names.is_empty())
-                    .unwrap();
+                let is_a = if let Ok(is_a) =
+                    downstream_clone.safe_lock(|d| !d.authorized_names.is_empty())
+                {
+                    is_a
+                } else {
+                    // kill(&tx_shutdown).await;
+                    break;
+                };
 
                 if is_a && !first_sent && last_notify.is_some() {
                     let message =
                         handle_result!(tx_status_notify, Self::get_set_difficulty(target.clone()));
                     Downstream::send_message_downstream(downstream_clone.clone(), message).await;
-                    // safe unwrap since last_notify is checked in if statement
-                    let sv1_mining_notify_msg = last_notify.as_ref().unwrap().clone();
-                    let message: json_rpc::Message =
-                        handle_result!(tx_status_notify, sv1_mining_notify_msg.try_into());
-                    Downstream::send_message_downstream(downstream_clone.clone(), message).await;
-                    downstream_clone
-                        .clone()
-                        .safe_lock(|s| {
-                            s.first_job_received = true;
-                        })
-                        .unwrap();
-                    first_sent = true;
+
+                    match last_notify.clone() {
+                        Some(sv1_mining_notify_msg) => {
+                            let message: json_rpc::Message = match sv1_mining_notify_msg.try_into()
+                            {
+                                Ok(msg) => msg,
+                                Err(_e) => {
+                                    // should this kill the downstream connection or log a status to the main thread and continue
+                                    kill(&tx_shutdown).await;
+                                    break;
+                                }
+                            };
+
+                            Downstream::send_message_downstream(downstream_clone.clone(), message)
+                                .await;
+                            if let Err(_e) = downstream_clone.clone().safe_lock(|s| {
+                                s.first_job_received = true;
+                            }) {
+                                // kill(&tx_shutdown).await;
+                                break;
+                            }
+                            first_sent = true;
+                        }
+                        None => break,
+                    }
                 } else if is_a {
-                    let sv1_mining_notify_msg = rx_sv1_notify.clone().recv().await.unwrap();
-                    let message: json_rpc::Message =
-                        handle_result!(tx_status_notify, sv1_mining_notify_msg.try_into());
-                    Downstream::send_message_downstream(downstream_clone.clone(), message).await;
-                    first_sent = true;
+                    kill(&tx_shutdown_clone).await;
+                    select! {
+                        res = rx_sv1_notify.recv().fuse() => {
+                            match res {
+                                Ok(sv1_mining_notify_msg) => {
+                                    let message: json_rpc::Message = match sv1_mining_notify_msg.try_into()
+                                    {
+                                        Ok(msg) => msg,
+                                        Err(_e) => {
+                                            // should this kill the downstream connection or log a status to the main thread and continue
+                                            kill(&tx_shutdown).await;
+                                            break;
+                                        }
+                                    };
+        
+                                    Downstream::send_message_downstream(downstream_clone.clone(), message)
+                                        .await;
+                                    first_sent = true;
+                                }
+                                Err(_e) => {
+                                    kill(&tx_shutdown).await;
+                                    break;
+                                }
+                            }
+                        },
+                        _ = rx_shutdown_clone.recv().fuse() => {
+                                break;
+                            }
+                    };
+                } else {
+                    task::sleep(std::time::Duration::from_secs(1)).await;
                 }
             }
+            warn!("SHUTTING DOWN NOTIFIER");
         });
 
-        Ok(downstream)
+        // task to monitor the state of the Downstream tasks so that they can all
+        // be shut down if one of them drops, and the miner connection can be dropped
+        // task::spawn(async move {
+        //     // let task_arr = [socket_reader_task, socket_writer_task, notify_task];
+        //     loop {
+        //         let all_tasks_running = task_state.safe_lock(|t| *t).unwrap_or({
+        //             // send poison lock info to main thread
+        //             [false, false, false]
+        //         });
+        //         // println!("\n ALL TASKS RUNNING: {:?}", all_tasks_running);
+        //         if all_tasks_running.contains(&false) {
+        //             // _socket_writer_notify.shutdown(std::net::Shutdown::Both);
+        //             tx_shutdown.send(true).await.unwrap();
+        //             break;
+        //         }
+        //         task::sleep(std::time::Duration::from_millis(100)).await;
+        //     }
+        //     warn!("\n DOWNSTREAM SHUTDOWN");
+        // });
+
     }
 
     /// Helper function to check if target is set to zero for some reason (typically happens when
