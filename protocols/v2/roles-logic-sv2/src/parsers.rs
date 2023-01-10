@@ -728,10 +728,7 @@ impl TryFrom<u8> for MiningTypes {
             MESSAGE_TYPE_SUBMIT_SHARES_SUCCESS => Ok(MiningTypes::SubmitSharesSuccess),
             MESSAGE_TYPE_UPDATE_CHANNEL => Ok(MiningTypes::UpdateChannel),
             MESSAGE_TYPE_UPDATE_CHANNEL_ERROR => Ok(MiningTypes::UpdateChannelError),
-            MESSAGE_TYPE_SETUP_CONNECTION => {
-                error!("eot unexpected SETUP CONNECTION!! ");
-                Err(Error::UnexpectedMessage(v))
-            }
+            MESSAGE_TYPE_SETUP_CONNECTION => Err(Error::UnexpectedMessage(v)),
             _ => {
                 error!("Invalid message type: {}", v);
                 Err(Error::UnexpectedMessage(v))

@@ -7,6 +7,3 @@
 /test/bitcoin_data/regtest
 lcov.info
 
-
-/roles/v2/pool/pool-config.toml
-/roles/v2/mining-proxy/proxy-config.toml

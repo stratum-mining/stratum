@@ -1,4 +1,4 @@
-use crate::{ChannelKind, EXTRANOUNCE_RAGE_1_LENGTH};
+use crate::{ChannelKind, EXTRANONCE_RAGE_1_LENGTH};
 use roles_logic_sv2::utils::Id;
 
 use super::downstream_mining::{Channel, DownstreamMiningNode, StdFrame as DownstreamFrame};
@@ -150,7 +150,6 @@ impl UpstreamMiningNode {
                 .safe_lock(|a| a.recv_tp.clone())
                 .unwrap()
                 .unwrap();
-            //let mut res = vec![];
             loop {
                 let (mut message_new_template, token): (NewTemplate, u64) =
                     new_template_reciver.recv().await.unwrap();
@@ -203,8 +202,6 @@ impl UpstreamMiningNode {
                 }
             }
         });
-
-        //pub fn next_match()
     }
 
     pub fn start_receiving_new_prev_hash(self_mutex: Arc<Mutex<Self>>) {
@@ -554,7 +551,7 @@ impl UpstreamMiningNode {
                 ]
                 .try_into()
                 .unwrap(),
-                min_extranonce_size: crate::MIN_EXTRANOUNCE_SIZE,
+                min_extranonce_size: crate::MIN_EXTRANONCE_SIZE,
             },
         ));
         #[allow(unused_must_use)]
@@ -713,10 +710,10 @@ impl
     ) -> Result<SendTo<DownstreamMiningNode>, Error> {
         let extranonce_prefix: Extranonce = m.extranonce_prefix.clone().try_into().unwrap();
         let range_0 = 0..m.extranonce_prefix.clone().to_vec().len();
-        let range_1 = (range_0.end)..EXTRANOUNCE_RAGE_1_LENGTH;
+        let range_1 = (range_0.end)..EXTRANONCE_RAGE_1_LENGTH;
         let range_2 = range_1.end..(m.extranonce_size as usize);
         //Custom in ScripKind must be filled with the right value as soon as the data is available, otherwise shares will be invalid
-        //TODO: to review if to be used extranounce_prefix or else
+        //TODO: to review if to be used extranonce_prefix or else
         let kind = ExtendedChannelKind::Proxy {
             upstream_target: m.target.clone().try_into().unwrap(),
         };

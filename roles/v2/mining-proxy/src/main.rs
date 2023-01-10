@@ -50,8 +50,8 @@ type RLogic = MiningProxyRoutingLogic<
 /// So it make sense to use shared mutable memory to lower the complexity of the codebase and to
 /// have some performance gain.
 static ROUTING_LOGIC: OnceCell<Mutex<RLogic>> = OnceCell::new();
-static MIN_EXTRANOUNCE_SIZE: u16 = 6;
-static EXTRANOUNCE_RAGE_1_LENGTH: usize = 4;
+static MIN_EXTRANONCE_SIZE: u16 = 6;
+static EXTRANONCE_RAGE_1_LENGTH: usize = 4;
 
 async fn initialize_upstreams(min_version: u16, max_version: u16) {
     let upstreams = ROUTING_LOGIC
