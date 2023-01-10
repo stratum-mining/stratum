@@ -203,7 +203,7 @@ impl Ord for Target {
     fn cmp(&self, other: &Self) -> core::cmp::Ordering {
         if self.tail == other.tail && self.head == other.head {
             core::cmp::Ordering::Equal
-        } else if self.head == other.head {
+        } else if self.tail != other.tail {
             self.tail.cmp(&other.tail)
         } else {
             self.head.cmp(&other.head)
