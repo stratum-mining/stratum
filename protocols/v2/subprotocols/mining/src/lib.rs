@@ -1005,21 +1005,12 @@ pub mod tests {
 
     #[test]
     fn test_ord_with_equal_head_tail() {
-        let target_1 = Target {
-            head: 1,
-            tail: 1,
-        };
-        let target_2 = Target {
-            head: 1,
-            tail: 2,
-        };
+        let target_1 = Target { head: 1, tail: 1 };
+        let target_2 = Target { head: 1, tail: 2 };
         assert!(target_1 < target_2);
 
         //also test with equal tails
-        let target_3 = Target {
-            head: 2,
-            tail: 2,
-        };
+        let target_3 = Target { head: 2, tail: 2 };
         assert!(target_2 < target_3);
     }
 
