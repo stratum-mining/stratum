@@ -333,8 +333,6 @@ impl Upstream {
                 sv2_submit.channel_id = self_.safe_lock(|s| s.channel_id.unwrap()).unwrap();
                 sv2_submit.job_id = self_.safe_lock(|s| s.job_id.unwrap()).unwrap();
 
-                println!("{:#?}", sv2_submit);
-
                 info!("Up: Submitting Share");
                 debug!("Up: Handling SubmitSharesExtended: {:?}", &sv2_submit);
 
