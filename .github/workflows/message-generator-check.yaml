@@ -1,37 +1,29 @@
 on:
   push:
-    branches:
-      - main
-      - WIP_mg_gh_action
+    branches: [ main, WIP_mg_gh_action ]
   pull_request:
-    branches:
-      - main
+    branches: [ main ]
 
-name: Clippy Lint
+name: message generator check
 
 jobs:
-  clippy-check:
+  message_generator_check:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: 
-          - macos-latest
           - ubuntu-latest
         include:
-          - os: macos-latest
-            target: x86_64-apple-darwin
           - os: ubuntu-latest
             target: x86_64-unknown-linux-musl
 
     steps:
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
+
         with:
           profile: minimal
           toolchain: 1.57.0
           override: true
-          components: clippy
-      - uses: actions-rs/cargo@v1
-        with:
-          command: clippy
-          args: -- -D warnings -A dead-code
+      - name: Run message generator tests
+        run: sh ./message-generator-tests.sh

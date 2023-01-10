@@ -1,6 +1,6 @@
 on:
   push:
-    branches: [ main ]
+    branches: [ main, WIP_mg_gh_action ]
   pull_request:
     branches: [ main ]
 
