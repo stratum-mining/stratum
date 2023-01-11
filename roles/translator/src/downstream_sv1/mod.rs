@@ -1,5 +1,3 @@
-use roles_logic_sv2::utils::Mutex;
-use std::sync::Arc;
 use v1::utils::HexU32Be;
 pub mod downstream;
 pub use downstream::Downstream;

@@ -2,7 +2,7 @@ use crate::{downstream_sv1, status, ProxyResult};
 use async_channel::{bounded, Receiver, Sender};
 use async_std::{
     io::BufReader,
-    net::{TcpListener, TcpStream, Incoming},
+    net::{TcpListener, TcpStream},
     prelude::*,
     task,
 };
