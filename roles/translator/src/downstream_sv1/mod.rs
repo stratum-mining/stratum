@@ -1,16 +1,8 @@
-use roles_logic_sv2::utils::Mutex;
-use std::sync::Arc;
 use v1::utils::HexU32Be;
 pub mod downstream;
 pub use downstream::Downstream;
 
 const SUBSCRIBE_TIMOUT_SECS: u64 = 10;
-
-pub enum TaskIndex {
-    SocketReader,
-    SocketWriter,
-    Notifier,
-}
 
 pub async fn kill(sender: &async_channel::Sender<bool>) {
     sender.send(true).await.unwrap();
