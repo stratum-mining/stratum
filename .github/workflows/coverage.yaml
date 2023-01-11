@@ -16,7 +16,7 @@ name: Test Coverage
 
 on:
   push:
-    branches: [ main, WIP_mg_gh_action ]
+    branches: [ main ]
   pull_request:
     branches: [ main ]
 
