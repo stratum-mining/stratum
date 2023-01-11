@@ -147,10 +147,11 @@ pub use submit_shares::{
 pub use update_channel::{UpdateChannel, UpdateChannelError};
 const MAX_EXTRANONCE_LEN: usize = 32;
 
+/// Target is a 256-bit unsigned integer in little-endian
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Target {
-    head: u128,
-    tail: u128,
+    head: u128, // least significant bits
+    tail: u128, // most significant bits
 }
 
 impl Target {
