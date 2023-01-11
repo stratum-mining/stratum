@@ -4,6 +4,8 @@ use v1::utils::HexU32Be;
 pub mod downstream;
 pub use downstream::Downstream;
 
+const SUBSCRIBE_TIMOUT_SECS: u64 = 10;
+
 pub enum TaskIndex {
     SocketReader,
     SocketWriter,
