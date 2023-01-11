@@ -71,7 +71,6 @@ impl Downstream {
         let (tx_outgoing, receiver_outgoing) = bounded(10);
 
         let socket_writer_clone = socket_writer.clone();
-        // let _socket_writer_set_difficulty_clone = socket_writer.clone();
         // Used to send SV1 `mining.notify` messages to the Downstreams
         let _socket_writer_notify = socket_writer;
 
