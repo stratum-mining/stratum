@@ -274,7 +274,7 @@ impl InnerMemory {
     fn get_writable_raw_unchecked(&mut self, len: usize) -> *mut u8 {
         let writable_offset = self.raw_offset + self.raw_len;
         self.raw_len += len;
-        (&mut self.pool[writable_offset..writable_offset + len]).as_mut_ptr()
+        self.pool[writable_offset..writable_offset + len].as_mut_ptr()
     }
 
     #[inline(always)]
