@@ -336,9 +336,9 @@ impl
     ) -> Result<SendTo<UpstreamMiningNode>, Error> {
         let channel_kind = up
             .as_ref()
-            .unwrap()
+            .expect("No upstream initialized")
             .safe_lock(|up| up.channel_kind)
-            .unwrap(); //remove unwrap
+            .unwrap();
         match channel_kind {
             ChannelKind::Group => Ok(SendTo::RelaySameMessageToRemote(up.unwrap())),
             ChannelKind::Extended => {
