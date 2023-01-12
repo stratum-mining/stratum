@@ -5,6 +5,50 @@ use roles_logic_sv2::{
 };
 use std::collections::HashMap;
 
+/// It takes a path and an id. If at `path` there is a file, then it loads it and tries to 
+/// transform it in `TestmessageParser`. Therefore, with into_map, trasforms the
+/// `TestMessageParser` in HashMap (id -> AnyMessage) and tries to take the value that corresponds
+/// to id
+pub fn message_from_path(path: & Vec<String>) -> AnyMessage<'static> {
+    let id = path[1].clone();
+    let path = path[0].clone();
+    let messages = load_str!(&path);
+    // Pa
+    let parsed = TestMessageParser::from_str(messages);
+    parsed.into_map().get(&id).expect("There is no value matching the id {:?}").clone()
+}
+
+/// This parses a json object that may or may not (and in this case field is None) have a value
+/// with a particular key. While parsing the file below, the mining_message filed is None
+/// 
+//        {
+//            "common_messages": [
+//                {
+//                    "message": {
+//                        "type": "SetupConnection",
+//                        "protocol": 0,
+//                        "min_version": 2,
+//                        "max_version": 2,
+//                        "flags": 1,
+//                        "endpoint_host": "",
+//                        "endpoint_port": 0,
+//                        "vendor": "",
+//                        "hardware_version": "",
+//                        "firmware": "",
+//                        "device_id": ""
+//                    },
+//                    "id": "setup_connection_mining_hom"
+//                },
+//                {
+//                    "message": {
+//                        "type": "SetupConnectionSuccess",
+//                        "flags": 0,
+//                        "used_version": 2
+//                    },
+//                    "id": "setup_connection_success_flag_0"
+//                }
+//            ]
+//        }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TestMessageParser<'a> {
     #[serde(borrow)]
@@ -16,7 +60,18 @@ pub struct TestMessageParser<'a> {
     #[serde(borrow)]
     template_distribution_messages: Option<Vec<TemplateDistributionMessage<'a>>>,
 }
-
+/// This is not the same CommonMessages as the SRI, but the fiel message is. This structure is
+/// needed because we use the id as a key to retrieve the message; this key is not part of the SRI
+/// type CommonMessage<'a>
+///
+//                      {
+//Defines an SRI messag     "message": {
+//                              "type": "SetupConnectionSuccess",
+//                              "flags": 0,
+//                              "used_version": 2
+//                          },
+//This is contained         "id": "setup_connection_success_flag_0"
+//field "id"            }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct CommonMessage<'a> {
     #[serde(borrow)]
@@ -118,7 +173,7 @@ mod test {
             }
         "#;
 
-        let v: TestMessageParser = dbg!(serde_json::from_str(data).unwrap());
+        let v: TestMessageParser = serde_json::from_str(data).unwrap();
         match v.common_messages.unwrap()[0].message {
             CommonMessages::SetupConnectionSuccess(m) => {
                 assert!(m.used_version == 2);
@@ -165,7 +220,7 @@ mod test {
             }
         "#;
 
-        let v: TestMessageParser = dbg!(serde_json::from_str(data).unwrap());
+        let v: TestMessageParser = serde_json::from_str(data).unwrap();
         let v = v.into_map();
         match v.get("setup_connection").unwrap() {
             AnyMessage::Common(
