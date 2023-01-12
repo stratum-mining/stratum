@@ -3,6 +3,7 @@ mod downstream_sv1;
 mod error;
 mod proxy;
 mod proxy_config;
+mod status;
 mod upstream_sv2;
 use args::Args;
 use error::{Error, ProxyResult};
@@ -19,7 +20,8 @@ use std::{
 };
 use v1::server_to_client;
 
-use tracing::{error, info};
+use crate::status::State;
+use tracing::{debug, error, info};
 
 /// Process CLI args, if any.
 fn process_cli_args<'a>() -> ProxyResult<'a, ProxyConfig> {
@@ -40,6 +42,8 @@ async fn main() {
 
     let proxy_config = process_cli_args().unwrap();
     info!("PC: {:?}", &proxy_config);
+
+    let (tx_status, rx_status) = unbounded();
 
     // `tx_sv1_submit` sender is used by `Downstream` to send a `mining.submit` message to
     // `Bridge` via the `rx_sv1_submit` receiver
@@ -87,6 +91,7 @@ async fn main() {
         tx_sv2_new_ext_mining_job,
         proxy_config.min_extranonce2_size,
         tx_sv2_extranonce,
+        tx_status.clone(),
         target.clone(),
     )
     .await
@@ -110,6 +115,7 @@ async fn main() {
     // Start receiving messages from the SV2 Upstream role
     upstream_sv2::Upstream::parse_incoming(upstream.clone());
 
+    debug!("Finished starting upstream listener");
     // Start task handler to receive submits from the SV1 Downstream role once it connects
     upstream_sv2::Upstream::handle_submit(upstream.clone());
 
@@ -132,6 +138,7 @@ async fn main() {
         rx_sv2_set_new_prev_hash,
         rx_sv2_new_ext_mining_job,
         tx_sv1_notify,
+        tx_status.clone(),
         extended_extranonce,
         target,
     )));
@@ -148,7 +155,22 @@ async fn main() {
         downstream_addr,
         tx_sv1_submit,
         rx_sv1_notify,
+        tx_status.clone(),
         b,
-    )
-    .await;
+    );
+
+    // Check all tasks if is_finished() is true, if so exit
+    loop {
+        let task_status = rx_status.recv().await.unwrap();
+
+        match task_status.state {
+            State::Shutdown(err) => {
+                error!("SHUTDOWN from: {}", err);
+                break;
+            }
+            State::Healthy(msg) => {
+                info!("HEALTHY message: {}", msg);
+            }
+        }
+    }
 }
