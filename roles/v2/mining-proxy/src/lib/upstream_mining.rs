@@ -158,7 +158,7 @@ impl UpstreamMiningNode {
                         a.channel_factory
                             .as_mut()
                             .unwrap()
-                            .on_new_template(&mut message_new_template)
+                            .on_new_template(&mut message_new_template) // This is not efficient, to be changed if needed
                     })
                     .unwrap()
                     .unwrap();
