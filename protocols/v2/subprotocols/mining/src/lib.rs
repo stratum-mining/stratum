@@ -147,10 +147,11 @@ pub use submit_shares::{
 pub use update_channel::{UpdateChannel, UpdateChannelError};
 const MAX_EXTRANONCE_LEN: usize = 32;
 
+/// Target is a 256-bit unsigned integer in little-endian
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Target {
-    head: u128,
-    tail: u128,
+    head: u128, // least significant bits
+    tail: u128, // most significant bits
 }
 
 impl Target {
@@ -203,7 +204,7 @@ impl Ord for Target {
     fn cmp(&self, other: &Self) -> core::cmp::Ordering {
         if self.tail == other.tail && self.head == other.head {
             core::cmp::Ordering::Equal
-        } else if self.head != other.head {
+        } else if self.tail != other.tail {
             self.tail.cmp(&other.tail)
         } else {
             self.head.cmp(&other.head)
@@ -1001,6 +1002,17 @@ pub mod tests {
         let u256 = U256::<'static>::from(target_start.clone());
         let target_final = Target::from(u256);
         target_final == target_final
+    }
+
+    #[test]
+    fn test_ord_with_equal_head_tail() {
+        let target_1 = Target { head: 1, tail: 1 };
+        let target_2 = Target { head: 1, tail: 2 };
+        assert!(target_1 < target_2);
+
+        //also test with equal tails
+        let target_3 = Target { head: 2, tail: 2 };
+        assert!(target_2 < target_3);
     }
 
     #[quickcheck_macros::quickcheck]
