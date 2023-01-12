@@ -76,7 +76,7 @@
                     "value": "0x01"
                 }
             ],
-            "actiondoc": "questa e' la action di setup connection"
+            "actiondoc": "This action send a SetupConnection and check that receives a message type 0x01, that is SetupConnectionSuccess"
         },
         {
             "message_ids": ["open_standard_mining_channel"],
@@ -100,13 +100,13 @@
                     "value": "0x1e"
                 }
             ],
-            "actiondoc": "questa e' la action di open_standard_mining_channel" 
+            "actiondoc": "This action sends OpenStandardMiningChannel to the pool and checks that the reply is OpenStandardMiningChannelSuccess and the MiningProtocol" 
         },
         {
             "message_ids": ["submit_shares"],
             "role": "client",
             "results": [],
-            "actiondoc": "questa e' la action di submit shares"
+            "actiondoc": "This action sends the message SubmitSharesStandard to the pool, without checking the reply"
         }
     ],
     "setup_commands": [
