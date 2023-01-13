@@ -1,23 +1,20 @@
 {
     "doc": [
-        "This test do:",
-            "1) launch bitcoind in regtest and wait for TP initialization",
-            "2) create a bunch of block using bictoin-cli",
-            "3) launch SRI pool and wait for initialization",
-            "4) connect to the pool as a Downstream that use noise",
-            "5) send SetupConnection to the pool",
-            "6) check that SetupConnectionSuccess is received",
-            "7) check that NewExtendedJob is received",
-            "8) check that NewPrevHash is received",
-            "9) send OpenStandardMiningChannel with request id 89",
-            "10) check that OpenStandardMiningChannelSuccess with request 89 is received",
-            "11) remove bitcoind data"
+        "What this test does:",
+            "1) launch SRI pool and wait for initialization",
+            "2) connect to the pool as a Downstream that uses noise",
+            "3) send SetupConnection to the pool",
+            "4) check that SetupConnectionSuccess is received",
+            "5) check that NewExtendedJob is received",
+            "6) check that NewPrevHash is received",
+            "7) send OpenStandardMiningChannel with request id 89",
+            "8) check that OpenStandardMiningChannelSuccess with request 89 is received"
     ],
     "common_messages": [
         {
             "message": {
                 "type": "SetupConnection",
-                "protocol": "MiningProtocol",
+                "protocol": 0,
                 "min_version": 2,
                 "max_version": 2,
                 "flags": 0,
@@ -73,14 +70,6 @@
                 {
                     "type": "match_message_type",
                     "value": "0x01"
-                },
-                {
-                    "type": "match_message_type",
-                    "value": "0x1f"
-                },
-                {
-                    "type": "match_message_type",
-                    "value": "0x20"
                 }
             ] 
         },
@@ -96,44 +85,20 @@
                         "request_id",
                         {"U32": 89}
                     ]
+                },
+                {
+                    "type": "match_message_type",
+                    "value": "0x20"
+                },
+                {
+                    "type": "match_message_type",
+                    "value": "0x1f"
                 }
             ] 
         }
+        
     ],
     "setup_commands": [
-        {
-            "command": "./test/bin/bitcoind",
-            "args": ["--regtest", "--datadir=./test/appdata/bitcoin_data/"],
-            "conditions": {
-                "WithConditions": {
-                    "conditions": [
-                        {
-                            "output_string": "sv2 thread start",
-                            "output_location": "StdOut",
-                            "condition": true
-                        },
-                        {
-                            "output_string": "",
-                            "output_location": "StdErr",
-                            "condition": false
-                        }
-                    ],
-                    "timer_secs": 10,
-                    "warn_no_panic": false
-                }
-            }
-        },
-        {
-            "command": "./test/bin/bitcoin-cli",
-            "args": [
-                        "--regtest",
-                        "--datadir=./test/appdata/bitcoin_data/",
-                        "generatetoaddress",
-                        "16",
-                        "bcrt1qttuwhmpa7a0ls5kr3ye6pjc24ng685jvdrksxx"
-            ],
-            "conditions": "None"
-        },
         {
             "command": "cargo",
             "args": [
@@ -148,7 +113,7 @@
                 "WithConditions": {
                     "conditions": [
                         {
-                            "output_string": "Listening on 0.0.0.0:34254",
+                            "output_string": "Listening for encrypted connection on: 0.0.0.0:34254",
                             "output_location": "StdOut",
                             "condition": true
                         }
@@ -162,11 +127,6 @@
     "execution_commands": [
     ],
     "cleanup_commands": [
-        {
-            "command": "rm",
-            "args": [ "-rf", "./test/appdata/bitcoin_data/regtest"],
-            "conditions": "None"
-        }
     ],
     "role": "client",
     "downstream": {
