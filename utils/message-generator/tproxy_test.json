@@ -18,39 +18,6 @@
     ],
     "setup_commands": [
         {
-            "command": "./test/bin/bitcoind",
-            "args": ["--regtest"],
-            "conditions": {
-                "WithConditions": {
-                    "conditions": [
-                        {
-                            "output_string": "sv2 thread start",
-                            "output_location": "StdOut",
-                            "condition": true
-                        },
-                        {
-                            "output_string": "",
-                            "output_location": "StdErr",
-                            "condition": false
-                        }
-                    ],
-                    "timer_secs": 10,
-                    "warn_no_panic": false
-                }
-            }
-        },
-        {
-            "command": "./test/bin/bitcoin-cli",
-            "args": [
-                        "--regtest",
-                        "--datadir=./test/appdata/bitcoin_data/",
-                        "generatetoaddress",
-                        "16",
-                        "bcrt1qttuwhmpa7a0ls5kr3ye6pjc24ng685jvdrksxx"
-            ],
-            "conditions": "None"
-        },
-        {
             "command": "cargo",
             "args": [
                         "run",
@@ -99,7 +66,7 @@
             }
         },
         {
-            "command": "./test/bin/minerd",
+            "command": "/home/brent/code/bitcoin_stuff/cpuminer/minerd",
             "args": [
                         "-o",
                         "stratum+tcp://localhost:34255",
@@ -109,18 +76,20 @@
                         "-D",
                         "-P",
                         "-a",
-                        "sha256d"
+                        "sha256d",
+                        "-R",
+                        "10"
             ],
             "conditions": {
                 "WithConditions": {
                     "conditions": [
                         {
-                            "output_string": "\"method\":\"mining.notify\"",
+                            "output_string": "\"method\":\"mining.subscribe\"",
                             "output_location": "StdErr",
                             "condition": true
                         }
                     ],
-                    "timer_secs": 60,
+                    "timer_secs": 90,
                     "warn_no_panic": false
                 }
             }
@@ -129,16 +98,6 @@
     "execution_commands": [
     ],
     "cleanup_commands": [
-        {
-            "command": "rm",
-            "args": [ "-rf", "./test/appdata/bitcoin_data/regtest"],
-            "conditions": "None"
-        }
     ],
-    "role": "client",
-    "downstream": {
-        "ip": "0.0.0.0",
-        "port": 34258,
-        "pub_key": "2di19GHYQnAZJmEpoUeP7C3Eg9TCcksHr23rZCC83dvUiZgiDL"
-    }
+    "role": "None"
 }

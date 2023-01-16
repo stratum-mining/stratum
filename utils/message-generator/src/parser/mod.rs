@@ -166,6 +166,10 @@ impl<'a> Parser<'a> {
                             keys,
                         };
                         (Some(upstream), Some(downstream))
+                    },
+                    "None" => {
+                        println!("Running message generator with no role.");
+                        (None, None)
                     }
                     role @ _ => panic!("Unknown role: {}", role),
                 };

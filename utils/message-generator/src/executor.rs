@@ -82,7 +82,17 @@ impl Executor {
                     process,
                 }
             }
-            (None, None) => todo!(),
+            (None, None) => {
+                Self {
+                    send_to_down: None,
+                    recv_from_down: None,
+                    send_to_up: None,
+                    recv_from_up: None,
+                    actions: test.actions,
+                    cleanup_commmands: test.cleanup_commmands,
+                    process,
+                }
+            }
         }
     }
 
