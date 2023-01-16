@@ -285,15 +285,22 @@ mod tests {
         );
     }
 
+    use bitcoin::{Script, TxOut};
+
     #[test]
     fn test_group_channel_job_dispatcher() {
-        let mut jobs_creators = JobsCreators::new(BLOCK_REWARD, new_pub_key(), 32);
+        let out = TxOut {
+            value: BLOCK_REWARD,
+            script_pubkey: Script::new_p2pk(&new_pub_key()),
+        };
+        let mut jobs_creators = JobsCreators::new(32);
         let group_channel_id = 1;
         //Create a template
         let mut template = template_from_gen(&mut Gen::new(255));
+        template.template_id = template.template_id % u64::MAX;
         template.future_template = true;
         let extended_mining_job = jobs_creators
-            .on_new_template(&mut template, false)
+            .on_new_template(&mut template, false, vec![out])
             .expect("Failed to create new job");
 
         // create GroupChannelJobDispatcher

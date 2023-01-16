@@ -1,4 +1,4 @@
-search_dir="../../test/message-generator/"
+search_dir="../../test/message-generator/test/"
 message_generator_dir="./utils/message-generator/"
 
 cd $message_generator_dir

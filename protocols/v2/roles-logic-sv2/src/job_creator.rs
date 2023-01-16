@@ -1,10 +1,7 @@
 use crate::{utils::Id, Error};
 use binary_sv2::B064K;
 use bitcoin::{
-    blockdata::{
-        script::Script,
-        transaction::{OutPoint, Transaction, TxIn, TxOut},
-    },
+    blockdata::transaction::{OutPoint, Transaction, TxIn, TxOut},
     util::psbt::serialize::Serialize,
 };
 pub use bitcoin::{
@@ -22,9 +19,6 @@ const PREV_OUT_LEN: usize = 38;
 
 #[derive(Debug)]
 pub struct JobsCreators {
-    /// Computed by the pool
-    coinbase_outputs: Vec<TxOut>,
-    script_kind: ScriptKind,
     lasts_new_template: Vec<NewTemplate<'static>>,
     job_to_template_id: HashMap<u32, u64>,
     templte_to_job_id: HashMap<u64, u32>,
@@ -32,21 +26,29 @@ pub struct JobsCreators {
     last_target: mining_sv2::Target,
     extranonce_len: u8,
 }
-#[derive(Debug, Clone)]
-pub enum ScriptKind {
-    PayToPubKey(WPubkeyHash),
-    PayToPubKeyHash(PubkeyHash),
-    PayToScriptHash(ScriptHash),
-    PayToWitnessPublicKeyHash(WPubkeyHash),
-    PayToWitnessScriptHash(WScriptHash),
-    Custom(Vec<u8>),
+
+use bitcoin::consensus::Decodable;
+
+/// Transform the byte array `coinbase_outputs` in a vector of TxOut
+/// It assume the data to be valid data and do not do any kind of check
+pub fn tx_outputs_to_costum_scripts(tx_outputs: &[u8]) -> Vec<TxOut> {
+    let mut txs = vec![];
+    let mut cursor = 0;
+    while let Ok(out) = TxOut::consensus_decode(&tx_outputs[cursor..]) {
+        let len = match out.script_pubkey.len() {
+            a @ 0..=252 => 8 + 1 + a,
+            a @ 253..=10000 => 8 + 3 + a,
+            _ => break,
+        };
+        cursor += len;
+        txs.push(out)
+    }
+    txs
 }
 
 impl JobsCreators {
-    pub fn new(block_reward_staoshi: u64, script_kind: ScriptKind, extranonce_len: u8) -> Self {
+    pub fn new(extranonce_len: u8) -> Self {
         Self {
-            coinbase_outputs: vec![Self::new_output(block_reward_staoshi, script_kind.clone())],
-            script_kind,
             lasts_new_template: Vec::new(),
             job_to_template_id: HashMap::new(),
             templte_to_job_id: HashMap::new(),
@@ -54,28 +56,6 @@ impl JobsCreators {
             last_target: mining_sv2::Target::new(0, 0),
             extranonce_len,
         }
-    }
-
-    fn new_output(block_reward_staoshi: u64, script_kind: ScriptKind) -> TxOut {
-        let script = match script_kind {
-            ScriptKind::PayToPubKey(hash) => Script::new_v0_wpkh(&hash),
-            ScriptKind::PayToPubKeyHash(hash) => Script::new_p2pkh(&hash),
-            ScriptKind::PayToScriptHash(hash) => Script::new_p2sh(&hash),
-            ScriptKind::PayToWitnessPublicKeyHash(hash) => Script::new_v0_wpkh(&hash),
-            ScriptKind::PayToWitnessScriptHash(hash) => Script::new_v0_wsh(&hash),
-            ScriptKind::Custom(script) => script.into(),
-        };
-        TxOut {
-            value: block_reward_staoshi,
-            script_pubkey: script,
-        }
-    }
-
-    pub fn new_outputs(&self, block_reward_staoshi: u64) -> Vec<TxOut> {
-        vec![Self::new_output(
-            block_reward_staoshi,
-            self.script_kind.clone(),
-        )]
     }
 
     pub fn get_template_id_from_job(&self, job_id: u32) -> Option<u64> {
@@ -86,19 +66,24 @@ impl JobsCreators {
         &mut self,
         template: &mut NewTemplate,
         version_rolling_allowed: bool,
+        mut pool_coinbase_outputs: Vec<TxOut>,
     ) -> Result<NewExtendedMiningJob<'static>, Error> {
+        let server_tx_outputs = template.coinbase_tx_outputs.to_vec();
+        let mut outputs = tx_outputs_to_costum_scripts(&server_tx_outputs);
+        pool_coinbase_outputs.append(&mut outputs);
+        //self.coinbase_outputs = pool_coinbase_outputs;
+
         // This is to make sure that 0 is never used that is usefull so we can use 0 for
         // set_new_prev_hash that do not refer to any future job/template if needed
         // Then we will do the inverse (-1) where needed
         let template_id = template.template_id + 1;
-
         self.lasts_new_template.push(template.as_static());
         let next_job_id = self.ids.next();
         self.job_to_template_id.insert(next_job_id, template_id);
         self.templte_to_job_id.insert(template_id, next_job_id);
         new_extended_job(
             template,
-            &self.coinbase_outputs,
+            &pool_coinbase_outputs,
             next_job_id,
             version_rolling_allowed,
             self.extranonce_len,
@@ -209,12 +194,7 @@ fn new_extended_job(
         version_rolling_allowed,
         merkle_path: new_template.merkle_path.clone().into_static(),
         coinbase_tx_prefix: coinbase_tx_prefix(&coinbase, SCRIPT_PREFIX_LEN, tx_version)?,
-        coinbase_tx_suffix: coinbase_tx_suffix(
-            &coinbase,
-            SCRIPT_PREFIX_LEN,
-            extranonce_len,
-            tx_version,
-        )?,
+        coinbase_tx_suffix: coinbase_tx_suffix(&coinbase, extranonce_len, tx_version)?,
     };
 
     debug!(
@@ -237,7 +217,6 @@ fn coinbase_tx_prefix(
         coinbase_tx_input_script_prefix_byte_len = 0;
     }
     let encoded = coinbase.serialize();
-    // add 1 cause the script header (len of script) is 1 byte
     let r = encoded[0..SCRIPT_PREFIX_LEN + coinbase_tx_input_script_prefix_byte_len + PREV_OUT_LEN]
         .to_vec();
     r.try_into().map_err(Error::BinarySv2Error)
@@ -245,7 +224,6 @@ fn coinbase_tx_prefix(
 
 fn coinbase_tx_suffix(
     coinbase: &Transaction,
-    coinbase_tx_input_script_prefix_byte_len: usize,
     extranonce_len: u8,
     _tx_version: i32,
 ) -> Result<B064K<'static>, Error> {
@@ -256,9 +234,12 @@ fn coinbase_tx_suffix(
         script_prefix_len = 0;
     };
     let encoded = coinbase.serialize();
-    let r = encoded[script_prefix_len
-        + coinbase_tx_input_script_prefix_byte_len
-        + PREV_OUT_LEN
+    let r = encoded[4    // tx version
+        + 1  // number of inputs TODO can be also 3
+        + 32 // prev OutPoint
+        + 4  // index
+        + 1  // bytes in script TODO can be also 3
+        + script_prefix_len  // bip34_bytes
         + (extranonce_len as usize)..]
         .to_vec();
     r.try_into().map_err(Error::BinarySv2Error)
@@ -315,10 +296,7 @@ pub mod tests {
         let mut coinbase_tx_outputs_gen = Gen::new(32);
         let mut coinbase_tx_outputs_inner: vec::Vec<u8> = vec::Vec::new();
         coinbase_tx_outputs_inner.resize_with(32, || u8::arbitrary(&mut coinbase_tx_outputs_gen));
-        let coinbase_tx_outputs_inner: binary_sv2::B064K =
-            coinbase_tx_outputs_inner.try_into().unwrap();
-        let coinbase_tx_outputs: binary_sv2::Seq064K<binary_sv2::B064K> =
-            vec![coinbase_tx_outputs_inner].into();
+        let coinbase_tx_outputs: binary_sv2::B064K = coinbase_tx_outputs_inner.try_into().unwrap();
 
         let mut merkle_path_inner_gen = Gen::new(32);
         let mut merkle_path_inner: vec::Vec<u8> = vec::Vec::new();
@@ -346,25 +324,26 @@ pub mod tests {
 
     const BLOCK_REWARD: u64 = 625_000_000_000;
 
-    pub fn new_pub_key() -> ScriptKind {
+    pub fn new_pub_key() -> PublicKey {
         let priv_k = PrivateKey::from_slice(&PRIVATE_KEY_BTC, NETWORK).unwrap();
         let secp = Secp256k1::default();
         let pub_k = PublicKey::from_private_key(&secp, &priv_k);
-        ScriptKind::PayToPubKey(pub_k.wpubkey_hash().unwrap())
+        pub_k
     }
+    use bitcoin::Script;
 
     // Test job_id_from_template
-    #[test]
-    fn test_job_id_from_template() {
-        let mut jobs_creators = JobsCreators::new(BLOCK_REWARD, new_pub_key(), 32);
-
-        jobs_creators.new_outputs(5_000_000_000);
-
-        //Create a template
-        let mut template = template_from_gen(&mut Gen::new(255));
+    #[cfg(feature = "prop_test")]
+    #[quickcheck_macros::quickcheck]
+    fn test_job_id_from_template(mut template: NewTemplate<'static>) {
+        let out = TxOut {
+            value: BLOCK_REWARD,
+            script_pubkey: Script::new_p2pk(&new_pub_key()),
+        };
+        let mut jobs_creators = JobsCreators::new(32);
 
         let job = jobs_creators
-            .on_new_template(template.borrow_mut(), false)
+            .on_new_template(template.borrow_mut(), false, vec![out])
             .unwrap();
 
         assert_eq!(
@@ -377,21 +356,25 @@ pub mod tests {
     }
 
     // Test reset new template
-    #[test]
-    fn test_reset_new_template() {
-        let mut jobs_creators = JobsCreators::new(BLOCK_REWARD, new_pub_key(), 32);
+    #[cfg(feature = "prop_test")]
+    #[quickcheck_macros::quickcheck]
+    fn test_reset_new_template(mut template: NewTemplate<'static>) {
+        let out = TxOut {
+            value: BLOCK_REWARD,
+            script_pubkey: Script::new_p2pk(&new_pub_key()),
+        };
+        let mut jobs_creators = JobsCreators::new(32);
 
         assert_eq!(jobs_creators.lasts_new_template.len(), 0);
 
-        //Create a template
-        let mut template = template_from_gen(&mut Gen::new(255));
-        let _ = jobs_creators.on_new_template(template.borrow_mut(), false);
+        let _ = jobs_creators.on_new_template(template.borrow_mut(), false, vec![out]);
 
         assert_eq!(jobs_creators.lasts_new_template.len(), 1);
         assert_eq!(jobs_creators.lasts_new_template[0], template);
 
         //Create a 2nd template
-        let template2 = template_from_gen(&mut Gen::new(255));
+        let mut template2 = template_from_gen(&mut Gen::new(255));
+        template2.template_id = template.template_id.checked_sub(1).unwrap_or(0);
 
         // Reset new template
         jobs_creators.reset_new_templates(Some(template2.clone()));
@@ -408,13 +391,17 @@ pub mod tests {
     }
 
     // Test on_new_prev_hash
-    #[test]
-    fn test_on_new_prev_hash() {
-        let mut jobs_creators = JobsCreators::new(BLOCK_REWARD, new_pub_key(), 32);
+    #[cfg(feature = "prop_test")]
+    #[quickcheck_macros::quickcheck]
+    fn test_on_new_prev_hash(mut template: NewTemplate<'static>) {
+        let out = TxOut {
+            value: BLOCK_REWARD,
+            script_pubkey: Script::new_p2pk(&new_pub_key()),
+        };
+        let mut jobs_creators = JobsCreators::new(32);
 
         //Create a template
-        let mut template = template_from_gen(&mut Gen::new(255));
-        let _ = jobs_creators.on_new_template(template.borrow_mut(), false);
+        let _ = jobs_creators.on_new_template(template.borrow_mut(), false, vec![out]);
         let test_id = template.template_id;
 
         // Create a SetNewPrevHash with matching template_id
@@ -446,5 +433,38 @@ pub mod tests {
 
         //Validate that templates were cleared as we got a new templateId in setNewPrevHash
         assert_eq!(jobs_creators.lasts_new_template.len(), 0);
+    }
+
+    use bitcoin::consensus::Encodable;
+
+    #[quickcheck_macros::quickcheck]
+    fn it_parse_valid_tx_outs(
+        mut hash1: Vec<u8>,
+        mut hash2: Vec<u8>,
+        value1: u64,
+        value2: u64,
+        size1: u8,
+        size2: u8,
+    ) {
+        hash1.resize(size1 as usize + 2, 0);
+        hash2.resize(size2 as usize + 2, 0);
+        let tx1 = TxOut {
+            value: value1,
+            script_pubkey: hash1.into(),
+        };
+        let tx2 = TxOut {
+            value: value2,
+            script_pubkey: hash2.into(),
+        };
+        let mut encoded1 = vec![];
+        let mut encoded2 = vec![];
+        tx1.consensus_encode(&mut encoded1).unwrap();
+        tx2.consensus_encode(&mut encoded2).unwrap();
+        let mut encoded = vec![];
+        encoded.append(&mut encoded1.clone());
+        encoded.append(&mut encoded2.clone());
+        let outs = tx_outputs_to_costum_scripts(&encoded[..]);
+        assert!(&outs[0] == &tx1);
+        assert!(outs[1] == tx2);
     }
 }

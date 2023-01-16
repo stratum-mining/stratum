@@ -63,7 +63,7 @@ impl Connection {
                         }
                     }
                     Err(e) => {
-                        println!("{:#?}", e);
+                        error!("Shutting down noise stream reader! {:#?}", e);
                         let _ = reader.shutdown(async_std::net::Shutdown::Both);
                         break;
                     }

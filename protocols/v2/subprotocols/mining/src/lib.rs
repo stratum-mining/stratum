@@ -147,10 +147,11 @@ pub use submit_shares::{
 pub use update_channel::{UpdateChannel, UpdateChannelError};
 const MAX_EXTRANONCE_LEN: usize = 32;
 
+/// Target is a 256-bit unsigned integer in little-endian
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Target {
-    head: u128,
-    tail: u128,
+    head: u128, // least significant bits
+    tail: u128, // most significant bits
 }
 
 impl Target {
@@ -203,7 +204,7 @@ impl Ord for Target {
     fn cmp(&self, other: &Self) -> core::cmp::Ordering {
         if self.tail == other.tail && self.head == other.head {
             core::cmp::Ordering::Equal
-        } else if self.head != other.head {
+        } else if self.tail != other.tail {
             self.tail.cmp(&other.tail)
         } else {
             self.head.cmp(&other.head)
@@ -578,7 +579,7 @@ impl ExtendedExtranonce {
 
     /// This function calculates the next extranonce, but the output is ExtendedExtranonce. The
     /// required_len variable represents the range requested by the downstream to use. The part
-    /// incremented is range_1, as every downstream must have different jubs.
+    /// incremented is range_1, as every downstream must have different jobs.
     pub fn next_extended(&mut self, required_len: usize) -> Option<Extranonce> {
         if required_len > self.range_2.end - self.range_2.start {
             return None;
@@ -626,9 +627,9 @@ impl ExtendedExtranonce {
             .unwrap()
     }
 }
-/// This function is used to inctrement extranonces, and it is used in next_standard and in
-/// next_extended methods. If the input consists of an array of 255 as u8 (the maxmum value) then
-/// the input cannot be incremented. In this case, the input is not changed and the function returs
+/// This function is used to increment extranonces, and it is used in next_standard and in
+/// next_extended methods. If the input consists of an array of 255 as u8 (the maximum value) then
+/// the input cannot be incremented. In this case, the input is not changed and the function returns
 /// Err(()). In every other case, the function increments the input and returns Ok(())
 fn increment_bytes_be(bs: &mut [u8]) -> Result<(), ()> {
     for b in bs.iter_mut().rev() {
@@ -649,7 +650,6 @@ fn increment_bytes_be(bs: &mut [u8]) -> Result<(), ()> {
 pub mod tests {
     use super::*;
     use alloc::vec::Vec;
-    use quickcheck::{Arbitrary, Gen};
     use quickcheck_macros;
 
     #[test]
@@ -1004,6 +1004,17 @@ pub mod tests {
         target_final == target_final
     }
 
+    #[test]
+    fn test_ord_with_equal_head_tail() {
+        let target_1 = Target { head: 1, tail: 1 };
+        let target_2 = Target { head: 1, tail: 2 };
+        assert!(target_1 < target_2);
+
+        //also test with equal tails
+        let target_3 = Target { head: 2, tail: 2 };
+        assert!(target_2 < target_3);
+    }
+
     #[quickcheck_macros::quickcheck]
     fn test_ord_for_target_positive_increment(input: (u128, u128, u128, u128)) -> bool {
         let max = u128::MAX;
@@ -1054,7 +1065,7 @@ pub mod tests {
     }
 
     #[quickcheck_macros::quickcheck]
-    fn test_vec_from_extranonce(mut input: Vec<u8>) -> bool {
+    fn test_vec_from_extranonce(input: Vec<u8>) -> bool {
         let input_start = from_arbitrary_vec_to_array(input).to_vec();
         let extranonce_start = Extranonce::try_from(input_start.clone()).unwrap();
         let vec_final = Vec::from(extranonce_start.clone());

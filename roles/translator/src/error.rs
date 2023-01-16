@@ -1,9 +1,30 @@
-use std::fmt;
+use crate::proxy;
+use roles_logic_sv2::bitcoin::util::uint::ParseLengthError;
+use std::{
+    fmt,
+    sync::{MutexGuard, PoisonError},
+};
+use v1::server_to_client::{Notify, SetDifficulty};
 
 pub type ProxyResult<'a, T> = core::result::Result<T, Error<'a>>;
 
 #[derive(Debug)]
+pub enum LockError<'a> {
+    Bridge(PoisonError<MutexGuard<'a, proxy::Bridge>>),
+}
+
+#[derive(Debug)]
+pub enum ChannelSendError<'a> {
+    SubmitSharesExtended(
+        async_channel::SendError<roles_logic_sv2::mining_sv2::SubmitSharesExtended<'a>>,
+    ),
+    SetNewPrevHash(async_channel::SendError<roles_logic_sv2::mining_sv2::SetNewPrevHash<'a>>),
+    Notify(async_channel::SendError<Notify<'a>>),
+}
+
+#[derive(Debug)]
 pub enum Error<'a> {
+    VecToSlice32(Vec<u8>),
     /// Errors on bad CLI argument input.
     BadCliArgs,
     /// Errors on bad `serde_json` serialize/deserialize.
@@ -18,14 +39,23 @@ pub enum Error<'a> {
     FramingSv2(framing_sv2::Error),
     /// Errors on bad `TcpStream` connection.
     Io(std::io::Error),
-    /// Errors if SV1 downstream returns a `mining.submit` with no version bits.
-    NoSv1VersionBits,
     /// Errors on bad `String` to `int` conversion.
     ParseInt(std::num::ParseIntError),
     /// Errors from `roles_logic_sv2` crate.
     RolesSv2Logic(roles_logic_sv2::errors::Error),
+    UpstreamIncoming(roles_logic_sv2::errors::Error),
     /// SV1 protocol library error
     V1Protocol(v1::error::Error<'a>),
+    SubprotocolMining(String),
+    // Locking Errors
+    // PoisonLock(LockError<'a>),
+    // Channel Receiver Error
+    ChannelErrorReceiver(async_channel::RecvError),
+    // Channel Sender Errors
+    ChannelErrorSender(ChannelSendError<'a>),
+    Uint256Conversion(ParseLengthError),
+    SetDifficultyToMessage(SetDifficulty),
+    Infallible(std::convert::Infallible),
 }
 
 impl<'a> fmt::Display for Error<'a> {
@@ -39,13 +69,20 @@ impl<'a> fmt::Display for Error<'a> {
             CodecNoise(ref e) => write!(f, "Noise error: `{:?}", e),
             FramingSv2(ref e) => write!(f, "Framing SV2 error: `{:?}`", e),
             Io(ref e) => write!(f, "I/O error: `{:?}", e),
-            NoSv1VersionBits => write!(
-                f,
-                "`mining.submit` received from SV1 downstream does not contain `version_bits`"
-            ),
             ParseInt(ref e) => write!(f, "Bad convert from `String` to `int`: `{:?}`", e),
             RolesSv2Logic(ref e) => write!(f, "Roles SV2 Logic Error: `{:?}`", e),
             V1Protocol(ref e) => write!(f, "V1 Protocol Error: `{:?}`", e),
+            SubprotocolMining(ref e) => write!(f, "Subprotocol Mining Error: `{:?}`", e),
+            UpstreamIncoming(ref e) => write!(f, "Upstream parse incoming error: `{:?}`", e),
+            // PoisonLock(ref e) => write!(f, "Poison Lock error: `{:?}`", e),
+            ChannelErrorReceiver(ref e) => write!(f, "Channel receive error: `{:?}`", e),
+            ChannelErrorSender(ref e) => write!(f, "Channel send error: `{:?}`", e),
+            Uint256Conversion(ref e) => write!(f, "U256 Conversion Error: `{:?}`", e),
+            SetDifficultyToMessage(ref e) => {
+                write!(f, "Error converting SetDifficulty to Message: `{:?}`", e)
+            }
+            VecToSlice32(ref e) => write!(f, "Standard Error: `{:?}`", e),
+            Infallible(ref e) => write!(f, "Infallible Error:`{:?}`", e),
         }
     }
 }
@@ -101,5 +138,77 @@ impl<'a> From<toml::de::Error> for Error<'a> {
 impl<'a> From<v1::error::Error<'a>> for Error<'a> {
     fn from(e: v1::error::Error<'a>) -> Self {
         Error::V1Protocol(e)
+    }
+}
+
+impl<'a> From<async_channel::RecvError> for Error<'a> {
+    fn from(e: async_channel::RecvError) -> Self {
+        Error::ChannelErrorReceiver(e)
+    }
+}
+
+// *** LOCK ERRORS ***
+// impl<'a> From<PoisonError<MutexGuard<'a, proxy::Bridge>>> for Error<'a> {
+//     fn from(e: PoisonError<MutexGuard<'a, proxy::Bridge>>) -> Self {
+//         Error::PoisonLock(
+//             LockError::Bridge(e)
+//         )
+//     }
+// }
+
+// impl<'a> From<PoisonError<MutexGuard<'a, NextMiningNotify>>> for Error<'a> {
+//     fn from(e: PoisonError<MutexGuard<'a, NextMiningNotify>>) -> Self {
+//         Error::PoisonLock(
+//             LockError::NextMiningNotify(e)
+//         )
+//     }
+// }
+
+// *** CHANNEL SENDER ERRORS ***
+impl<'a> From<async_channel::SendError<roles_logic_sv2::mining_sv2::SubmitSharesExtended<'a>>>
+    for Error<'a>
+{
+    fn from(
+        e: async_channel::SendError<roles_logic_sv2::mining_sv2::SubmitSharesExtended<'a>>,
+    ) -> Self {
+        Error::ChannelErrorSender(ChannelSendError::SubmitSharesExtended(e))
+    }
+}
+
+impl<'a> From<async_channel::SendError<roles_logic_sv2::mining_sv2::SetNewPrevHash<'a>>>
+    for Error<'a>
+{
+    fn from(e: async_channel::SendError<roles_logic_sv2::mining_sv2::SetNewPrevHash<'a>>) -> Self {
+        Error::ChannelErrorSender(ChannelSendError::SetNewPrevHash(e))
+    }
+}
+
+impl<'a> From<async_channel::SendError<Notify<'a>>> for Error<'a> {
+    fn from(e: async_channel::SendError<Notify<'a>>) -> Self {
+        Error::ChannelErrorSender(ChannelSendError::Notify(e))
+    }
+}
+
+impl<'a> From<Vec<u8>> for Error<'a> {
+    fn from(e: Vec<u8>) -> Self {
+        Error::VecToSlice32(e)
+    }
+}
+
+impl<'a> From<ParseLengthError> for Error<'a> {
+    fn from(e: ParseLengthError) -> Self {
+        Error::Uint256Conversion(e)
+    }
+}
+
+impl<'a> From<SetDifficulty> for Error<'a> {
+    fn from(e: SetDifficulty) -> Self {
+        Error::SetDifficultyToMessage(e)
+    }
+}
+
+impl<'a> From<std::convert::Infallible> for Error<'a> {
+    fn from(e: std::convert::Infallible) -> Self {
+        Error::Infallible(e)
     }
 }

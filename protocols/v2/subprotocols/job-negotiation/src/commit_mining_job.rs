@@ -36,7 +36,7 @@ pub struct CommitMiningJob<'decoder> {
     /// Bitcoin transaction outputs to be included as the last outputs
     /// in the coinbase transaction.
     #[cfg_attr(feature = "with_serde", serde(borrow))]
-    pub coinbase_tx_outputs: Seq064K<'decoder, B064K<'decoder>>,
+    pub coinbase_tx_outputs: B064K<'decoder>,
     /// The locktime field in the coinbase transaction.
     pub coinbase_tx_locktime: u32,
     /// Extranonce size requested to be always available for the

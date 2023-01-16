@@ -3,10 +3,10 @@ mod downstream_sv1;
 mod error;
 mod proxy;
 mod proxy_config;
+mod status;
 mod upstream_sv2;
 use args::Args;
 use error::{Error, ProxyResult};
-use proxy::next_mining_notify::NextMiningNotify;
 use proxy_config::ProxyConfig;
 use roles_logic_sv2::utils::Mutex;
 
@@ -20,7 +20,8 @@ use std::{
 };
 use v1::server_to_client;
 
-use tracing::{error, info};
+use crate::status::State;
+use tracing::{debug, error, info};
 
 /// Process CLI args, if any.
 fn process_cli_args<'a>() -> ProxyResult<'a, ProxyConfig> {
@@ -41,6 +42,8 @@ async fn main() {
 
     let proxy_config = process_cli_args().unwrap();
     info!("PC: {:?}", &proxy_config);
+
+    let (tx_status, rx_status) = unbounded();
 
     // `tx_sv1_submit` sender is used by `Downstream` to send a `mining.submit` message to
     // `Bridge` via the `rx_sv1_submit` receiver
@@ -88,6 +91,7 @@ async fn main() {
         tx_sv2_new_ext_mining_job,
         proxy_config.min_extranonce2_size,
         tx_sv2_extranonce,
+        tx_status.clone(),
         target.clone(),
     )
     .await
@@ -111,25 +115,34 @@ async fn main() {
     // Start receiving messages from the SV2 Upstream role
     upstream_sv2::Upstream::parse_incoming(upstream.clone());
 
+    debug!("Finished starting upstream listener");
     // Start task handler to receive submits from the SV1 Downstream role once it connects
     upstream_sv2::Upstream::handle_submit(upstream.clone());
 
-    // Setup to store the latest SV2 `SetNewPrevHash` and `NewExtendedMiningJob` messages received
-    // from the Upstream role before any Downstream role connects
-    let next_mining_notify = Arc::new(Mutex::new(NextMiningNotify::new()));
-    let last_notify: Arc<Mutex<Option<server_to_client::Notify>>> = Arc::new(Mutex::new(None));
+    // Receive the extranonce information from the Upstream role to send to the Downstream role
+    // once it connects also used to initialize the bridge
+    let extended_extranonce = rx_sv2_extranonce.recv().await.unwrap();
+
+    loop {
+        let target: [u8; 32] = target.safe_lock(|t| t.clone()).unwrap().try_into().unwrap();
+        if target != [0; 32] {
+            break;
+        };
+        async_std::task::sleep(std::time::Duration::from_millis(100)).await;
+    }
 
     // Instantiate a new `Bridge` and begins handling incoming messages
-    proxy::Bridge::new(
+    let b = Arc::new(Mutex::new(proxy::Bridge::new(
         rx_sv1_submit,
         tx_sv2_submit_shares_ext,
         rx_sv2_set_new_prev_hash,
         rx_sv2_new_ext_mining_job,
-        next_mining_notify,
         tx_sv1_notify,
-        last_notify.clone(),
-    )
-    .start();
+        tx_status.clone(),
+        extended_extranonce,
+        target,
+    )));
+    proxy::Bridge::start(b.clone());
 
     // Format `Downstream` connection address
     let downstream_addr = SocketAddr::new(
@@ -137,18 +150,27 @@ async fn main() {
         proxy_config.downstream_port,
     );
 
-    // Receive the extranonce information from the Upstream role to send to the Downstream role
-    // once it connects
-    let extended_extranonce = rx_sv2_extranonce.recv().await.unwrap();
-
     // Accept connections from one or more SV1 Downstream roles (SV1 Mining Devices)
     downstream_sv1::Downstream::accept_connections(
         downstream_addr,
         tx_sv1_submit,
         rx_sv1_notify,
-        extended_extranonce,
-        last_notify,
-        target,
-    )
-    .await;
+        tx_status.clone(),
+        b,
+    );
+
+    // Check all tasks if is_finished() is true, if so exit
+    loop {
+        let task_status = rx_status.recv().await.unwrap();
+
+        match task_status.state {
+            State::Shutdown(err) => {
+                error!("SHUTDOWN from: {}", err);
+                break;
+            }
+            State::Healthy(msg) => {
+                info!("HEALTHY message: {}", msg);
+            }
+        }
+    }
 }

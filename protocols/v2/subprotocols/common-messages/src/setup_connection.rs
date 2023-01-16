@@ -13,6 +13,8 @@ use const_sv2::{
 use core::convert::TryFrom;
 #[cfg(not(feature = "with_serde"))]
 use core::convert::TryInto;
+#[cfg(feature = "with_serde")]
+use serde_repr::*;
 
 /// ## SetupConnection (Client -> Server)
 /// Initiates the connection. This MUST be the first message sent by the client on the newly
@@ -280,7 +282,7 @@ impl<'a> From<SetupConnectionError<'a>> for CSetupConnectionError {
 /// JobNegotiationProtocol = [`SV2_JOB_NEG_PROTOCOL_DISCRIMINANT`],
 /// TemplateDistributionProtocol = [`SV2_TEMPLATE_DISTR_PROTOCOL_DISCRIMINANT`],
 /// JobDistributionProtocol = [`SV2_JOB_DISTR_PROTOCOL_DISCRIMINANT`],
-#[cfg_attr(feature = "with_serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "with_serde", derive(Serialize_repr, Deserialize_repr))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
 #[allow(clippy::enum_variant_names)]
