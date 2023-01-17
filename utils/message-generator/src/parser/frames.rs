@@ -2,10 +2,12 @@ use codec_sv2::{buffer_sv2::Slice, Frame as _Frame, Sv2Frame};
 use roles_logic_sv2::parsers::AnyMessage;
 use serde_json::{Map, Value};
 use std::{collections::HashMap, convert::TryInto};
+use super::sv2_messages::message_from_path;
 
 pub struct Frames<'a> {
     pub frames: HashMap<String, Sv2Frame<AnyMessage<'a>, Slice>>,
 }
+
 
 impl<'a> Frames<'a> {
     pub fn from_step_1<'b: 'a>(test: &'b str, messages: HashMap<String, AnyMessage<'a>>) -> Self {
@@ -14,16 +16,36 @@ impl<'a> Frames<'a> {
 
         let mut result = HashMap::new();
         for frame in frames {
-            let id = frame
+            let id: Vec<String> = frame
                 .get("message_id")
                 .unwrap()
                 .as_str()
                 .unwrap()
-                .to_string();
-            let message = messages
-                .get(&id)
-                .unwrap_or_else(|| panic!("Missing messages message_id {}", id))
-                .clone();
+                .to_string()
+                .split("::")
+                .map(|s| s.to_string())
+                .collect();
+            // If id consists of a single element, the it is the id of a message contained in the
+            // present file, otherwise returs [path, id_], where the message appears in the file
+            // indicated by path and appears under the label "id_" 
+            //the length of id is at most 2 
+            let (message,id) = match &id.len() {
+                1 => {
+                    (messages
+                        .get(&id[0])
+                        .unwrap_or_else(|| panic!("Missing messages message_id {}", id[0]))
+                        .clone(),
+                        id[0].clone())
+                },
+                2 => {
+                    /// the function "message_from_id" returns a an AnyMessage from the path in
+                    /// input 
+                    let message = message_from_path(&id);
+                    let id = id[1].clone();
+                    (message, id)
+                }
+                _ => panic!("The length if id vector should have length equal or less than 2"),
+            };
             let type_ = frame.get("type").unwrap().as_str().unwrap();
             match type_ {
                 "automatic" => {

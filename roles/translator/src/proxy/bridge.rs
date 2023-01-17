@@ -11,9 +11,10 @@ use roles_logic_sv2::{
 use std::sync::Arc;
 use v1::{client_to_server::Submit, server_to_client};
 
-use crate::ProxyResult;
-use roles_logic_sv2::channel_logic::channel_factory::OnNewShare;
-use tracing::{debug, error};
+use crate::{error::Error, status::Status, ProxyResult};
+use error_handling::handle_result;
+use roles_logic_sv2::{channel_logic::channel_factory::OnNewShare, Error as RolesLogicError};
+use tracing::{debug, error, info};
 
 /// Bridge between the SV2 `Upstream` and SV1 `Downstream` responsible for the following messaging
 /// translation:
@@ -36,6 +37,9 @@ pub struct Bridge {
     /// Sends SV1 `mining.notify` message (translated from the SV2 `SetNewPrevHash` and
     /// `NewExtendedMiningJob` messages stored in the `NextMiningNotify`) to the `Downstream`.
     tx_sv1_notify: Sender<server_to_client::Notify<'static>>,
+    /// Allows the bridge the ability to communicate back to the main thread any status updates
+    /// that would interest the main thread for error handling
+    tx_status: Sender<Status<'static>>,
     /// Unique sequential identifier of the submit within the channel.
     channel_sequence_id: Id,
     /// Stores the most recent SV1 `mining.notify` values to be sent to the `Downstream` upon
@@ -56,6 +60,7 @@ pub struct Bridge {
 }
 
 impl Bridge {
+    #[allow(clippy::too_many_arguments)]
     /// Instantiate a new `Bridge`.
     pub fn new(
         rx_sv1_submit: Receiver<(Submit<'static>, Vec<u8>)>,
@@ -63,6 +68,7 @@ impl Bridge {
         rx_sv2_set_new_prev_hash: Receiver<SetNewPrevHash<'static>>,
         rx_sv2_new_ext_mining_job: Receiver<NewExtendedMiningJob<'static>>,
         tx_sv1_notify: Sender<server_to_client::Notify<'static>>,
+        tx_status: Sender<Status<'static>>,
         extranonces: ExtendedExtranonce,
         target: Arc<Mutex<Vec<u8>>>,
     ) -> Self {
@@ -78,6 +84,7 @@ impl Bridge {
             rx_sv2_set_new_prev_hash,
             rx_sv2_new_ext_mining_job,
             tx_sv1_notify,
+            tx_status,
             channel_sequence_id: Id::new(),
             last_notify: None,
             channel_factory: ProxyExtendedChannelFactory::new(
@@ -138,10 +145,11 @@ impl Bridge {
             .safe_lock(|s| s.tx_sv2_submit_shares_ext.clone())
             .unwrap();
         let target = self_.safe_lock(|s| s.target.clone()).unwrap();
+        let tx_status = self_.safe_lock(|s| s.tx_status.clone()).unwrap();
         task::spawn(async move {
             loop {
-                let upstream_target: [u8; 32] =
-                    target.safe_lock(|t| t.clone()).unwrap().try_into().unwrap();
+                let target = target.safe_lock(|t| t.clone()).unwrap().try_into();
+                let upstream_target: [u8; 32] = handle_result!(tx_status, target);
                 let mut upstream_target: Target = upstream_target.into();
                 self_
                     .safe_lock(|s| s.channel_factory.set_target(&mut upstream_target))
@@ -150,10 +158,10 @@ impl Bridge {
                 let (sv1_submit, extrnonce) = rx_sv1_submit.clone().recv().await.unwrap();
                 let channel_sequence_id =
                     self_.safe_lock(|s| s.channel_sequence_id.next()).unwrap() - 1;
-                let sv2_submit: SubmitSharesExtended = self_
+                let sv2_submit = self_
                     .safe_lock(|s| s.translate_submit(channel_sequence_id, sv1_submit, extrnonce))
-                    .unwrap()
-                    .unwrap_or_else(|_| std::process::exit(1));
+                    .unwrap();
+                let sv2_submit = handle_result!(tx_status, sv2_submit);
                 let mut send_upstream = false;
                 match self_
                     .safe_lock(|s| {
@@ -163,25 +171,29 @@ impl Bridge {
                         )
                     })
                     .unwrap()
-                    .expect("todo")
                 {
-                    OnNewShare::SendErrorDowsntream(e) => {
+                    Ok(OnNewShare::SendErrorDowsntream(e)) => {
                         error!(
                             "Submit share error {}",
                             std::str::from_utf8(&e.error_code.to_vec()[..]).unwrap()
                         );
                     }
-                    OnNewShare::SendSubmitShareUpstream(_) => {
+                    Ok(OnNewShare::SendSubmitShareUpstream(_)) => {
+                        info!("SHARE MEETS TARGET");
                         send_upstream = true;
                     }
-                    OnNewShare::RelaySubmitShareUpstream => {
+                    Ok(OnNewShare::RelaySubmitShareUpstream) => {
+                        info!("SHARE MEETS TARGET");
                         send_upstream = true;
                     }
-                    OnNewShare::ShareMeetBitcoinTarget(_) => unreachable!(),
-                    OnNewShare::ShareMeetDownstreamTarget => (),
+                    Ok(OnNewShare::ShareMeetBitcoinTarget(_)) => unreachable!(),
+                    Ok(OnNewShare::ShareMeetDownstreamTarget) => {
+                        info!("SHARE MEETS DOWNSTREAM TARGET")
+                    }
+                    Err(e) => error!("Error: {:?}", e),
                 }
                 if send_upstream {
-                    tx_sv2_submit_shares_ext.send(sv2_submit).await.unwrap();
+                    handle_result!(tx_status, tx_sv2_submit_shares_ext.send(sv2_submit).await)
                 };
             }
         });
@@ -196,7 +208,10 @@ impl Bridge {
     ) -> ProxyResult<'static, SubmitSharesExtended<'static>> {
         let version = match sv1_submit.version_bits {
             Some(vb) => vb.0,
-            None => self.channel_factory.last_valid_job_version().unwrap(),
+            None => self
+                .channel_factory
+                .last_valid_job_version()
+                .ok_or(Error::RolesSv2Logic(RolesLogicError::NoValidJob))?,
         };
 
         Ok(SubmitSharesExtended {
@@ -206,7 +221,7 @@ impl Bridge {
             nonce: sv1_submit.nonce.0,
             ntime: sv1_submit.time.0,
             version,
-            extranonce: extranonce.try_into().unwrap(),
+            extranonce: extranonce.try_into()?,
         })
     }
 
@@ -217,14 +232,16 @@ impl Bridge {
     /// corresponding `job_id` has already been received. If this is not the case, an error has
     /// occurred on the Upstream pool role and the connection will close.
     fn handle_new_prev_hash(self_: Arc<Mutex<Self>>) {
+        debug!("Starting handle_new_prev_hash task");
         task::spawn(async move {
+            let tx_status = self_.safe_lock(|s| s.tx_status.clone()).unwrap();
             loop {
                 // Receive `SetNewPrevHash` from `Upstream`
                 let rx_sv2_set_new_prev_hash = self_
                     .safe_lock(|r| r.rx_sv2_set_new_prev_hash.clone())
                     .unwrap();
                 let sv2_set_new_prev_hash: SetNewPrevHash =
-                    rx_sv2_set_new_prev_hash.clone().recv().await.unwrap();
+                    handle_result!(tx_status, rx_sv2_set_new_prev_hash.clone().recv().await);
                 debug!(
                     "handle_new_prev_hash job_id: {:?}",
                     &sv2_set_new_prev_hash.job_id
@@ -232,13 +249,13 @@ impl Bridge {
                 self_
                     .safe_lock(|s| s.last_p_hash = Some(sv2_set_new_prev_hash.clone()))
                     .unwrap();
-                self_
+                let on_new_prev_hash_res = self_
                     .safe_lock(|s| {
                         s.channel_factory
                             .on_new_prev_hash(sv2_set_new_prev_hash.clone())
                     })
-                    .unwrap()
-                    .expect("todo");
+                    .unwrap();
+                handle_result!(tx_status, on_new_prev_hash_res);
                 let mut future_jobs = self_.safe_lock(|s| s.future_jobs.clone()).unwrap();
                 self_.safe_lock(|s| s.future_jobs = vec![]).unwrap();
                 while let Some(job) = future_jobs.pop() {
@@ -273,7 +290,9 @@ impl Bridge {
     /// `SetNewPrevHash` `job_id`, an error has occurred on the Upstream pool role and the
     /// connection will close.
     fn handle_new_extended_mining_job(self_: Arc<Mutex<Self>>) {
+        debug!("Starting handle_new_extended_mining_job task");
         task::spawn(async move {
+            let tx_status = self_.safe_lock(|s| s.tx_status.clone()).unwrap();
             loop {
                 // Receive `NewExtendedMiningJob` from `Upstream`
                 let rx_sv2_new_ext_mining_job = self_
@@ -302,17 +321,13 @@ impl Bridge {
 
                 // If future_job=false, this job is meant for the current SetNewPrevHash.
                 } else {
-                    let last_p_hash = self_
-                        .safe_lock(|s| {
-                            s.last_p_hash
-                                .as_ref()
-                                .unwrap_or_else(|| {
-                                    error!("Received a non future job but now a new prev hash");
-                                    panic!();
-                                })
-                                .clone()
-                        })
-                        .unwrap();
+                    let last_p_hash = self_.safe_lock(|s| s.last_p_hash.clone()).unwrap();
+                    let last_p_hash = handle_result!(
+                        tx_status,
+                        last_p_hash.ok_or(Error::RolesSv2Logic(
+                            RolesLogicError::JobIsNotFutureButPrevHashNotPresent
+                        ))
+                    );
                     // Create the mining.notify to be sent to the Downstream.
                     let notify = crate::proxy::next_mining_notify::create_notify(
                         last_p_hash,
@@ -352,6 +367,7 @@ mod test {
             let (_tx_sv2_set_new_prev_hash, rx_sv2_set_new_prev_hash) = bounded(1);
             let (_tx_sv2_new_ext_mining_job, rx_sv2_new_ext_mining_job) = bounded(1);
             let (tx_sv1_notify, _rx_sv1_notify) = bounded(1);
+            let (tx_status, _rx_status) = bounded(1);
             let extranonces = ExtendedExtranonce::new(0..6, 6..8, 8..EXTRANONCE_LEN);
             let upstream_target = vec![
                 0, 0, 0, 0, 255, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -364,6 +380,7 @@ mod test {
                 rx_sv2_set_new_prev_hash,
                 rx_sv2_new_ext_mining_job,
                 tx_sv1_notify,
+                tx_status,
                 extranonces,
                 Arc::new(Mutex::new(upstream_target)),
             )

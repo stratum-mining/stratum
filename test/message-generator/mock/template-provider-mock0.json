@@ -6,16 +6,6 @@
         "Sends setup_connection_success",
         "Start listen that message 0x00 arrives, without dieing"
     ],
-    "common_messages": [
-        {
-            "message": {
-                "type": "SetupConnectionSuccess",
-                "flags": 0,
-                "used_version": 2
-            },
-            "id": "setup_connection_success"
-        }
-    ],
     "template_distribution_messages": [
         {
             "message": {
@@ -49,7 +39,7 @@
     "frame_builders": [
         {
             "type": "automatic",
-            "message_id": "setup_connection_success"
+            "message_id": "../../../../test/message-generator/messages/common_messages.json::setup_connection_success_flag_0"
         },
         {
             "type": "automatic",
@@ -73,7 +63,7 @@
             ]
         },
         {
-            "message_ids": ["setup_connection_success","new_template","set_new_prev_hash"],
+            "message_ids": ["setup_connection_success_flag_0","new_template","set_new_prev_hash"],
             "role": "server",
             "results": [
                 {

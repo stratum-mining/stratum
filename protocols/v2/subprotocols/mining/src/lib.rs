@@ -579,7 +579,7 @@ impl ExtendedExtranonce {
 
     /// This function calculates the next extranonce, but the output is ExtendedExtranonce. The
     /// required_len variable represents the range requested by the downstream to use. The part
-    /// incremented is range_1, as every downstream must have different jubs.
+    /// incremented is range_1, as every downstream must have different jobs.
     pub fn next_extended(&mut self, required_len: usize) -> Option<Extranonce> {
         if required_len > self.range_2.end - self.range_2.start {
             return None;
@@ -627,9 +627,9 @@ impl ExtendedExtranonce {
             .unwrap()
     }
 }
-/// This function is used to inctrement extranonces, and it is used in next_standard and in
-/// next_extended methods. If the input consists of an array of 255 as u8 (the maxmum value) then
-/// the input cannot be incremented. In this case, the input is not changed and the function returs
+/// This function is used to increment extranonces, and it is used in next_standard and in
+/// next_extended methods. If the input consists of an array of 255 as u8 (the maximum value) then
+/// the input cannot be incremented. In this case, the input is not changed and the function returns
 /// Err(()). In every other case, the function increments the input and returns Ok(())
 fn increment_bytes_be(bs: &mut [u8]) -> Result<(), ()> {
     for b in bs.iter_mut().rev() {
