@@ -4,7 +4,7 @@
             "cpuminer = https://github.com/pooler/cpuminer",
             "1) launch SRI pool and wait for initialization",
             "2) launch TProxy and wait for initialization with pool",
-            "3) launch cpuminer instance on 'downstream' TProxy port",
+            "3) launch 2 cpuminer instances on 'downstream' TProxy port",
             "4) wait for cpuminer to submit 5 blocks"
     ],
     "common_messages": [
@@ -63,6 +63,23 @@
                     "warn_no_panic": false
                 }
             }
+        },
+        {
+            "command": "/home/brent/code/bitcoin_stuff/cpuminer/minerd",
+            "args": [
+                        "-o",
+                        "stratum+tcp://localhost:34255",
+                        "-t",
+                        "1",
+                        "-q",
+                        "-D",
+                        "-P",
+                        "-a",
+                        "sha256d",
+                        "-R",
+                        "10"
+            ],
+            "conditions": "None"
         },
         {
             "command": "/home/brent/code/bitcoin_stuff/cpuminer/minerd",
