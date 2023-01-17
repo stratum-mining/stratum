@@ -119,7 +119,7 @@ impl Downstream {
                 select! {
                     res = messages.next().fuse() => {
                         if let Some(Ok(incoming)) = res {
-                            info!("Receiving from Mining Device: {:?}", &incoming);
+                            debug!("Receiving from Mining Device: {:?}", &incoming);
                             let incoming: json_rpc::Message = handle_result!(tx_status_reader, serde_json::from_str(&incoming));
                             // Handle what to do with message
                             let res = Self::handle_incoming_sv1(self_.clone(), incoming).await;
@@ -148,11 +148,11 @@ impl Downstream {
                         let to_send = match serde_json::to_string(&to_send) {
                             Ok(string) => format!("{}\n", string),
                             Err(_e) => {
-                                warn!("\nDownstream: Bad SV1 server message\n");
+                                debug!("\nDownstream: Bad SV1 server message\n");
                                 break;
                             }
                         };
-                        info!("Sending to Mining Device: {:?}", &to_send);
+                        debug!("Sending to Mining Device: {:?}", &to_send);
                         let res = (&*socket_writer_clone)
                                     .write_all(to_send.as_bytes())
                                     .await;
@@ -175,7 +175,7 @@ impl Downstream {
                 let is_a = match downstream.safe_lock(|d| !d.authorized_names.is_empty()) {
                     Ok(is_a) => is_a,
                     Err(_e) => {
-                        warn!("\nDownstream: Poison Lock - authorized_names\n");
+                        debug!("\nDownstream: Poison Lock - authorized_names\n");
                         break;
                     }
                 };
@@ -199,13 +199,13 @@ impl Downstream {
                             if let Err(_e) = downstream.clone().safe_lock(|s| {
                                 s.first_job_received = true;
                             }) {
-                                warn!("\nDownstream: Poison Lock - first_job_received\n");
+                                debug!("\nDownstream: Poison Lock - first_job_received\n");
                                 break;
                             }
                             first_sent = true;
                         }
                         None => {
-                            warn!("\nDownstream: last_notify never set\n");
+                            debug!("\nDownstream: last_notify never set\n");
                             break;
                         }
                     }
@@ -223,7 +223,7 @@ impl Downstream {
                 } else {
                     // timeout connection if miner does not send the authorize message after sending a subscribe
                     if timeout_timer.elapsed().as_secs() > SUBSCRIBE_TIMEOUT_SECS {
-                        warn!("Downstream: miner.subscribe/miner.authorize TIMOUT");
+                        debug!("Downstream: miner.subscribe/miner.authorize TIMOUT");
                         break;
                     }
                     task::sleep(std::time::Duration::from_secs(1)).await;
