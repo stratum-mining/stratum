@@ -1,12 +1,11 @@
 {
     "doc": [
         "This test do:",
-            "1) launch bitcoind in regtest and wait for TP initialization",
-            "2) create a bunch of block using bictoin-cli",
-            "3) launch SRI pool and wait for initialization",
-            "4) launch TProxy and wait for initialization with pool",
-            "5) launch cpuminer instance on 'downstream' TProxy port",
-            "6) wait for cpuminer to send a mining.notify message"
+            "cpuminer = https://github.com/pooler/cpuminer",
+            "1) launch SRI pool and wait for initialization",
+            "2) launch TProxy and wait for initialization with pool",
+            "3) launch cpuminer instance on 'downstream' TProxy port",
+            "4) wait for cpuminer to submit 5 blocks"
     ],
     "common_messages": [
     ],
@@ -55,7 +54,7 @@
                 "WithConditions": {
                     "conditions": [
                         {
-                            "output_string": "PROXY SERVER - ACCEPTING FROM UPSTREAM: 127.0.0.1:34254",
+                            "output_string": "Connected to Upstream!",
                             "output_location": "StdOut",
                             "condition": true
                         }
@@ -84,12 +83,12 @@
                 "WithConditions": {
                     "conditions": [
                         {
-                            "output_string": "\"method\":\"mining.subscribe\"",
+                            "output_string": "accepted: 5/5 ",
                             "output_location": "StdErr",
                             "condition": true
                         }
                     ],
-                    "timer_secs": 90,
+                    "timer_secs": 600,
                     "warn_no_panic": false
                 }
             }
