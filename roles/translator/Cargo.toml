@@ -21,6 +21,7 @@ toml = { git = "https://github.com/diondokter/toml-rs", default-features = false
 tracing = { version = "0.1" }
 tracing-subscriber = { version = "0.3" }
 v1 = { path = "../../protocols/v1" }
+error-handling = { path = "../../utils/error-handling" }
 
 [features]
 with_serde = []

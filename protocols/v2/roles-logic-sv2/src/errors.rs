@@ -40,6 +40,7 @@ pub enum Error {
     NotFoundChannelId,
     NoValidJob,
     NoTemplateForId,
+    InvalidExtranonceSize(u16, u16),
 }
 
 impl From<BinarySv2Error> for Error {
@@ -94,6 +95,13 @@ impl Display for Error {
                 before relaying open channel request to upstream",
                 id
             ),
+            InvalidExtranonceSize(required_min, requested) => {
+                write!(
+                    f,
+                    "Invalid extranonce size: required min {}, requested {}",
+                    required_min, requested
+                )
+            },
             NoMoreExtranonces => write!(f, "No more extranonces"),
             JobIsNotFutureButPrevHashNotPresent => write!(f, "A non future job always expect a previous new prev hash"),
             ChannelIsNeitherExtendedNeitherInAPool => write!(f, "If a channel is neither extended neither is part of a pool the only thing to do when a OpenStandardChannle is received is to relay it upstream with and updated request id"),
