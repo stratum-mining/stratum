@@ -177,6 +177,7 @@ async fn main() {
             }
             State::UpstreamShutdown(err) => {
                 error!("SHUTDOWN from: {}", err);
+                break;
             }
             State::Healthy(msg) => {
                 info!("HEALTHY message: {}", msg);

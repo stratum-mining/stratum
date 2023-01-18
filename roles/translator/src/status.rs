@@ -87,13 +87,13 @@ async fn send_status(
             .await
             .unwrap_or(());
         }
-        Err(_e) => outcome,
     }
+    outcome
 }
 
 // this is called by `error_handling::handle_result!`
 pub async fn handle_error(
-    sender: &async_channel::Sender<Status<'static>>,
+    sender: &Sender,
     e: error::Error<'static>,
 ) -> error_handling::ErrorBranch {
     tracing::error!("Error: {:?}", &e);
