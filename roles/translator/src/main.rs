@@ -93,7 +93,7 @@ async fn main() {
         tx_sv2_new_ext_mining_job,
         proxy_config.min_extranonce2_size,
         tx_sv2_extranonce,
-        tx_status.clone(),
+        status::Sender::Upstream(tx_status.clone()),
         target.clone(),
     )
     .await
@@ -140,7 +140,7 @@ async fn main() {
         rx_sv2_set_new_prev_hash,
         rx_sv2_new_ext_mining_job,
         tx_sv1_notify.clone(),
-        tx_status.clone(),
+        status::Sender::Bridge(tx_status.clone()),
         extended_extranonce,
         target,
     )));
@@ -157,7 +157,7 @@ async fn main() {
         downstream_addr,
         tx_sv1_submit,
         tx_sv1_notify,
-        tx_status.clone(),
+        status::Sender::DownstreamListener(tx_status.clone()),
         b,
     );
 
@@ -166,8 +166,18 @@ async fn main() {
         let task_status = rx_status.recv().await.unwrap();
 
         match task_status.state {
-            State::Shutdown(err) => {
+            // Should only be sent by the downstream listener
+            State::DownstreamShutdown(err) => {
                 error!("SHUTDOWN from: {}", err);
+                break;
+            }
+            State::BridgeShutdown(err) => {
+                error!("SHUTDOWN from: {}", err);
+                break;
+            }
+            State::UpstreamShutdown(err) => {
+                error!("SHUTDOWN from: {}", err);
+                break;
             }
             State::Healthy(msg) => {
                 info!("HEALTHY message: {}", msg);

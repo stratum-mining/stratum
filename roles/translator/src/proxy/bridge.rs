@@ -12,7 +12,7 @@ use std::sync::Arc;
 use tokio::sync::broadcast;
 use v1::{client_to_server::Submit, server_to_client};
 
-use crate::{error::Error, status::Status, ProxyResult};
+use crate::{error::Error, status, ProxyResult};
 use error_handling::{handle_result, ErrorBranch};
 use roles_logic_sv2::{channel_logic::channel_factory::OnNewShare, Error as RolesLogicError};
 use tracing::{debug, error, info};
@@ -40,7 +40,7 @@ pub struct Bridge {
     tx_sv1_notify: broadcast::Sender<server_to_client::Notify<'static>>,
     /// Allows the bridge the ability to communicate back to the main thread any status updates
     /// that would interest the main thread for error handling
-    tx_status: Sender<Status<'static>>,
+    tx_status: status::Sender,
     /// Unique sequential identifier of the submit within the channel.
     channel_sequence_id: Id,
     /// Stores the most recent SV1 `mining.notify` values to be sent to the `Downstream` upon
@@ -69,7 +69,7 @@ impl Bridge {
         rx_sv2_set_new_prev_hash: Receiver<SetNewPrevHash<'static>>,
         rx_sv2_new_ext_mining_job: Receiver<NewExtendedMiningJob<'static>>,
         tx_sv1_notify: broadcast::Sender<server_to_client::Notify<'static>>,
-        tx_status: Sender<Status<'static>>,
+        tx_status: status::Sender,
         extranonces: ExtendedExtranonce,
         target: Arc<Mutex<Vec<u8>>>,
     ) -> Self {
@@ -381,7 +381,7 @@ mod test {
                 rx_sv2_set_new_prev_hash,
                 rx_sv2_new_ext_mining_job,
                 tx_sv1_notify,
-                tx_status,
+                status::Sender::Bridge(tx_status),
                 extranonces,
                 Arc::new(Mutex::new(upstream_target)),
             )

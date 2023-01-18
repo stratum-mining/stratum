@@ -1,4 +1,4 @@
-use crate::{downstream_sv1, status::Status, ProxyResult};
+use crate::{downstream_sv1, status, ProxyResult};
 use async_channel::{bounded, Receiver, Sender};
 use async_std::{
     io::BufReader,
@@ -59,7 +59,7 @@ impl Downstream {
         stream: TcpStream,
         tx_sv1_submit: Sender<(v1::client_to_server::Submit<'static>, Vec<u8>)>,
         mut rx_sv1_notify: broadcast::Receiver<server_to_client::Notify<'static>>,
-        tx_status: Sender<Status<'static>>,
+        tx_status: status::Sender,
         extranonce1: Vec<u8>,
         last_notify: Option<server_to_client::Notify<'static>>,
         target: Vec<u8>,
@@ -186,29 +186,21 @@ impl Downstream {
                         tx_status_notify,
                         Downstream::send_message_downstream(downstream.clone(), message).await
                     );
-
-                    match last_notify.clone() {
-                        Some(sv1_mining_notify_msg) => {
-                            let message: json_rpc::Message =
-                                handle_result!(tx_status_notify, sv1_mining_notify_msg.try_into());
-                            handle_result!(
-                                tx_status_notify,
-                                Downstream::send_message_downstream(downstream.clone(), message)
-                                    .await
-                            );
-                            if let Err(_e) = downstream.clone().safe_lock(|s| {
-                                s.first_job_received = true;
-                            }) {
-                                debug!("\nDownstream: Poison Lock - first_job_received\n");
-                                break;
-                            }
-                            first_sent = true;
-                        }
-                        None => {
-                            debug!("\nDownstream: last_notify never set\n");
-                            break;
-                        }
+                    // unwrap is safe since last_notify is guaranteed to be `Some` above
+                    let sv1_mining_notify_msg = last_notify.clone().unwrap();
+                    let message: json_rpc::Message =
+                        handle_result!(tx_status_notify, sv1_mining_notify_msg.try_into());
+                    handle_result!(
+                        tx_status_notify,
+                        Downstream::send_message_downstream(downstream.clone(), message).await
+                    );
+                    if let Err(_e) = downstream.clone().safe_lock(|s| {
+                        s.first_job_received = true;
+                    }) {
+                        debug!("\nDownstream: Poison Lock - first_job_received\n");
+                        break;
                     }
+                    first_sent = true;
                 } else if is_a {
                     select! {
                         res = rx_sv1_notify.recv().fuse() => {
@@ -288,7 +280,7 @@ impl Downstream {
         downstream_addr: SocketAddr,
         tx_sv1_submit: Sender<(v1::client_to_server::Submit<'static>, Vec<u8>)>,
         tx_mining_notify: broadcast::Sender<server_to_client::Notify<'static>>,
-        tx_status: Sender<Status<'static>>,
+        tx_status: status::Sender,
         bridge: Arc<Mutex<crate::proxy::Bridge>>,
     ) {
         task::spawn(async move {
@@ -312,7 +304,7 @@ impl Downstream {
                             stream,
                             tx_sv1_submit.clone(),
                             tx_mining_notify.subscribe(),
-                            tx_status.clone(),
+                            tx_status.listener_to_connection(),
                             opened.extranonce,
                             opened.last_notify,
                             opened.target,

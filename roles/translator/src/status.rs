@@ -1,8 +1,50 @@
 use crate::error::{self, Error};
 
 #[derive(Debug)]
+pub enum Sender {
+    Downstream(async_channel::Sender<Status<'static>>),
+    DownstreamListener(async_channel::Sender<Status<'static>>),
+    Bridge(async_channel::Sender<Status<'static>>),
+    Upstream(async_channel::Sender<Status<'static>>),
+}
+
+impl Sender {
+    pub fn listener_to_connection(&self) -> Self {
+        match self {
+            Self::DownstreamListener(inner) => Self::Downstream(inner.clone()),
+            _ => unreachable!(),
+        }
+    }
+
+    pub async fn send(
+        &self,
+        status: Status<'static>,
+    ) -> Result<(), async_channel::SendError<Status<'_>>> {
+        match self {
+            Self::Downstream(inner) => inner.send(status).await,
+            Self::DownstreamListener(inner) => inner.send(status).await,
+            Self::Bridge(inner) => inner.send(status).await,
+            Self::Upstream(inner) => inner.send(status).await,
+        }
+    }
+}
+
+impl Clone for Sender {
+    fn clone(&self) -> Self {
+        match self {
+            Self::Downstream(inner) => Self::Downstream(inner.clone()),
+            Self::DownstreamListener(inner) => Self::DownstreamListener(inner.clone()),
+            Self::Bridge(inner) => Self::Bridge(inner.clone()),
+            Self::Upstream(inner) => Self::Upstream(inner.clone()),
+        }
+    }
+}
+
+#[derive(Debug)]
 pub enum State<'a> {
-    Shutdown(Error<'a>),
+    DownstreamShutdown(Error<'a>),
+    BridgeShutdown(Error<'a>),
+    UpstreamShutdown(Error<'a>),
     Healthy(String),
 }
 
@@ -12,27 +54,46 @@ pub struct Status<'a> {
 }
 
 async fn send_status(
-    sender: &async_channel::Sender<Status<'static>>,
+    sender: &Sender,
     e: error::Error<'static>,
     outcome: error_handling::ErrorBranch,
 ) -> error_handling::ErrorBranch {
-    match sender
-        .send(Status {
-            state: State::Shutdown(e),
-        })
-        .await
-    {
-        Ok(_) => {
-            // implement error specific handling here instead of panicking
-            outcome
+    match sender {
+        Sender::Downstream(tx) => {
+            tx.send(Status {
+                state: State::Healthy(e.to_string()),
+            })
+            .await
+            .unwrap_or(());
         }
-        Err(_e) => outcome,
+        Sender::DownstreamListener(tx) => {
+            tx.send(Status {
+                state: State::DownstreamShutdown(e),
+            })
+            .await
+            .unwrap_or(());
+        }
+        Sender::Bridge(tx) => {
+            tx.send(Status {
+                state: State::BridgeShutdown(e),
+            })
+            .await
+            .unwrap_or(());
+        }
+        Sender::Upstream(tx) => {
+            tx.send(Status {
+                state: State::UpstreamShutdown(e),
+            })
+            .await
+            .unwrap_or(());
+        }
     }
+    outcome
 }
 
 // this is called by `error_handling::handle_result!`
 pub async fn handle_error(
-    sender: &async_channel::Sender<Status<'static>>,
+    sender: &Sender,
     e: error::Error<'static>,
 ) -> error_handling::ErrorBranch {
     tracing::error!("Error: {:?}", &e);
