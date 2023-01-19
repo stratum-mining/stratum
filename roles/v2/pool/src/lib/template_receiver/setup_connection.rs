@@ -1,4 +1,7 @@
-use crate::{EitherFrame, StdFrame};
+use crate::{
+    error::{PoolError, PoolResult},
+    EitherFrame, StdFrame,
+};
 use async_channel::{Receiver, Sender};
 use codec_sv2::Frame;
 use roles_logic_sv2::{
@@ -15,13 +18,13 @@ use tracing::{error, info, trace};
 pub struct SetupConnectionHandler {}
 
 impl SetupConnectionHandler {
-    fn get_setup_connection_message(address: SocketAddr) -> SetupConnection<'static> {
-        let endpoint_host = address.ip().to_string().into_bytes().try_into().unwrap();
-        let vendor = String::new().try_into().unwrap();
-        let hardware_version = String::new().try_into().unwrap();
-        let firmware = String::new().try_into().unwrap();
-        let device_id = String::new().try_into().unwrap();
-        SetupConnection {
+    fn get_setup_connection_message(address: SocketAddr) -> PoolResult<SetupConnection<'static>> {
+        let endpoint_host = address.ip().to_string().into_bytes().try_into()?;
+        let vendor = String::new().try_into()?;
+        let hardware_version = String::new().try_into()?;
+        let firmware = String::new().try_into()?;
+        let device_id = String::new().try_into()?;
+        Ok(SetupConnection {
             protocol: Protocol::TemplateDistributionProtocol,
             min_version: 2,
             max_version: 2,
@@ -32,30 +35,27 @@ impl SetupConnectionHandler {
             hardware_version,
             firmware,
             device_id,
-        }
+        })
     }
 
     pub async fn setup(
         receiver: &mut Receiver<EitherFrame>,
         sender: &mut Sender<EitherFrame>,
         address: SocketAddr,
-    ) -> Result<(), ()> {
-        let setup_connection = Self::get_setup_connection_message(address);
+    ) -> PoolResult<()> {
+        let setup_connection = Self::get_setup_connection_message(address)?;
 
-        let sv2_frame: StdFrame = PoolMessages::Common(setup_connection.into())
-            .try_into()
-            .unwrap();
+        let sv2_frame: StdFrame = PoolMessages::Common(setup_connection.into()).try_into()?;
         let sv2_frame = sv2_frame.into();
         trace!("Sending setup connection message to template distribution server");
-        sender.send(sv2_frame).await.map_err(|_| ())?;
+        sender.send(sv2_frame).await?;
         trace!("Sent setup connection message, waiting for response");
 
         let mut incoming: StdFrame = receiver
             .recv()
-            .await
-            .expect("Connection to TP closed!")
+            .await?
             .try_into()
-            .expect("Failed to parse incoming SetupConnectionResponse");
+            .map_err(|e| PoolError::Codec(codec_sv2::Error::FramingSv2Error(e)))?;
         let message_type = incoming.get_header().unwrap().msg_type();
         let payload = incoming.payload();
 
@@ -69,8 +69,7 @@ impl SetupConnectionHandler {
             message_type,
             payload,
             CommonRoutingLogic::None,
-        )
-        .unwrap();
+        )?;
         Ok(())
     }
 }

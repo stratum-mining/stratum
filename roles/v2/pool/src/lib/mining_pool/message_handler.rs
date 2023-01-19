@@ -106,7 +106,7 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
                         header_nonce: share.get_nonce(),
                         coinbase_tx: coinbase.try_into().unwrap(),
                     };
-                    // TODO we can block everything with the below
+                    // TODO we can block everything with the below (looks like this will infinite loop??)
                     while self.solution_sender.try_send(solution.clone()).is_err() {};
                     let success = SubmitSharesSuccess {
                         channel_id: m.channel_id,
@@ -156,7 +156,7 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
                         header_nonce: share.get_nonce(),
                         coinbase_tx: coinbase.try_into().unwrap(),
                     };
-                    // TODO we can block everything with the below
+                    // TODO we can block everything with the below (looks like this will infinite loop??)
                     while self.solution_sender.try_send(solution.clone()).is_err() {};
                     let success = SubmitSharesSuccess {
                         channel_id: m.channel_id,

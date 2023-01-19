@@ -1401,6 +1401,7 @@ dependencies = [
  "buffer_sv2",
  "codec_sv2",
  "const_sv2",
+ "error-handling",
  "network_helpers",
  "noise_sv2",
  "rand 0.8.5",

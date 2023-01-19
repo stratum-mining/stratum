@@ -1,4 +1,4 @@
-use crate::{EitherFrame, StdFrame};
+use crate::{error::PoolResult, EitherFrame, StdFrame};
 use async_channel::{Receiver, Sender};
 use codec_sv2::Frame;
 use roles_logic_sv2::{
@@ -28,7 +28,7 @@ impl SetupConnectionHandler {
         self_: Arc<Mutex<Self>>,
         receiver: &mut Receiver<EitherFrame>,
         sender: &mut Sender<EitherFrame>,
-    ) -> Result<CommonDownstreamData, Error> {
+    ) -> PoolResult<CommonDownstreamData> {
         // read stdFrame from receiver
 
         let mut incoming: StdFrame = match receiver.recv().await {
@@ -42,7 +42,7 @@ impl SetupConnectionHandler {
             }
             Err(e) => {
                 error!("Error receiving message: {:?}", e);
-                return Err(Error::NoDownstreamsConnected);
+                return Err(Error::NoDownstreamsConnected.into());
             }
         };
 
@@ -53,14 +53,13 @@ impl SetupConnectionHandler {
             message_type,
             payload,
             CommonRoutingLogic::None,
-        )
-        .unwrap();
+        )?;
 
         let message = response.into_message().unwrap();
 
-        let sv2_frame: StdFrame = PoolMessages::Common(message.clone()).try_into().unwrap();
+        let sv2_frame: StdFrame = PoolMessages::Common(message.clone()).try_into()?;
         let sv2_frame = sv2_frame.into();
-        sender.send(sv2_frame).await.unwrap();
+        sender.send(sv2_frame).await?;
         self_.safe_lock(|s| s.header_only.unwrap()).unwrap();
 
         match message {

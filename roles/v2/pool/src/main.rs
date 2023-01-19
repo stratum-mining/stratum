@@ -1,4 +1,4 @@
-use async_channel::bounded;
+use async_channel::{bounded, unbounded};
 use codec_sv2::{
     noise_sv2::formats::{EncodedEd25519PublicKey, EncodedEd25519SecretKey},
     StandardEitherFrame, StandardSv2Frame,
@@ -10,7 +10,9 @@ use roles_logic_sv2::{
 use serde::Deserialize;
 
 use tracing::{error, info};
+mod error;
 mod lib;
+mod status;
 
 use lib::{mining_pool::Pool, template_receiver::TemplateRx};
 
@@ -135,17 +137,20 @@ async fn main() {
         }
     };
 
+    let (status_tx, status_rx) = unbounded();
     let (s_new_t, r_new_t) = bounded(10);
     let (s_prev_hash, r_prev_hash) = bounded(10);
     let (s_solution, r_solution) = bounded(10);
     let (s_message_recv_signal, r_message_recv_signal) = bounded(10);
     info!("Pool INITIALIZING with config: {:?}", &args.config_path);
+
     TemplateRx::connect(
         config.tp_address.parse().unwrap(),
         s_new_t,
         s_prev_hash,
         r_solution,
         r_message_recv_signal,
+        status::Sender::Upstream(status_tx.clone()),
     )
     .await;
 
@@ -158,7 +163,27 @@ async fn main() {
         r_prev_hash,
         s_solution,
         s_message_recv_signal,
+        status::Sender::DownstreamListener(status_tx),
     )
     .await;
+
+    loop {
+        let task_status = status_rx.recv().await.unwrap();
+
+        match task_status.state {
+            // Should only be sent by the downstream listener
+            status::State::DownstreamShutdown(err) => {
+                error!("SHUTDOWN from: {}", err);
+                break;
+            }
+            status::State::TemplateProviderShutdown(err) => {
+                error!("SHUTDOWN from: {}", err);
+                break;
+            }
+            status::State::Healthy(msg) => {
+                info!("HEALTHY message: {}", msg);
+            }
+        }
+    }
     info!("Pool INITIALIZED");
 }
