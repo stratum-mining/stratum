@@ -33,6 +33,7 @@ impl ActionParser {
                 action_frames.push(frame);
             }
 
+            let doc = action.get("actiondoc").unwrap().to_string();
             let mut action_results = vec![];
             let results = action.get("results").unwrap().as_array().unwrap();
             for result in results {
@@ -76,6 +77,7 @@ impl ActionParser {
                 messages: action_frames,
                 result: action_results,
                 role,
+                doc,
             };
             result.push(action);
         }
