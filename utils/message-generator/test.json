@@ -5,9 +5,9 @@
             "2) connect to the pool as a Downstream that uses noise",
             "3) send SetupConnection to the pool",
             "4) check that SetupConnectionSuccess is received",
-            "5) check that NewExtendedJob is received",
-            "6) check that NewPrevHash is received",
-            "7) send OpenStandardMiningChannel with request id 89",
+            "5) send OpenStandardMiningChannel with request id 89",
+            "6) check that NewExtendedJob is received",
+            "7) check that NewPrevHash is received",
             "8) check that OpenStandardMiningChannelSuccess with request 89 is received"
     ],
     "common_messages": [
