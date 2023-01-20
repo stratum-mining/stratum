@@ -25,9 +25,19 @@ macro_rules! handle_result {
             Ok(val) => val,
             Err(e) => {
                 // handle error
-                crate::status::handle_error(&$sender, e.into()).await;
-                continue;
+                let res = crate::status::handle_error(&$sender, e.into()).await;
+                match res {
+                    ErrorBranch::Break => break,
+                    ErrorBranch::Continue => continue,
+                    ErrorBranch::Return => return,
+                }
             }
         }
     };
+}
+
+pub enum ErrorBranch {
+    Break,
+    Continue,
+    Return,
 }
