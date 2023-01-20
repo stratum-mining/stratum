@@ -15,7 +15,8 @@
                     "type": "match_message_type",
                     "value": "0x00"
                 }
-            ]
+            ],
+            "actiondoc": "Action: listening message"
         }
     ],
     "setup_commands": [
