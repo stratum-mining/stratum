@@ -12,12 +12,14 @@ use roles_logic_sv2::utils::Mutex;
 
 const SELF_EXTRNONCE_LEN: usize = 2;
 
-use async_channel::{bounded, unbounded, Receiver, Sender};
+use async_channel::{bounded, unbounded};
 use std::{
     net::{IpAddr, SocketAddr},
     str::FromStr,
     sync::Arc,
 };
+
+use tokio::sync::broadcast;
 use v1::server_to_client;
 
 use crate::status::State;
@@ -70,10 +72,10 @@ async fn main() {
     let target = Arc::new(Mutex::new(vec![0; 32]));
 
     // Sender/Receiver to send SV1 `mining.notify` message from the `Bridge` to the `Downstream`
-    let (tx_sv1_notify, rx_sv1_notify): (
-        Sender<server_to_client::Notify>,
-        Receiver<server_to_client::Notify>,
-    ) = bounded(10);
+    let (tx_sv1_notify, _rx_sv1_notify): (
+        broadcast::Sender<server_to_client::Notify>,
+        broadcast::Receiver<server_to_client::Notify>,
+    ) = broadcast::channel(10);
 
     // Format `Upstream` connection address
     let upstream_addr = SocketAddr::new(
@@ -91,7 +93,7 @@ async fn main() {
         tx_sv2_new_ext_mining_job,
         proxy_config.min_extranonce2_size,
         tx_sv2_extranonce,
-        tx_status.clone(),
+        status::Sender::Upstream(tx_status.clone()),
         target.clone(),
     )
     .await
@@ -137,8 +139,8 @@ async fn main() {
         tx_sv2_submit_shares_ext,
         rx_sv2_set_new_prev_hash,
         rx_sv2_new_ext_mining_job,
-        tx_sv1_notify,
-        tx_status.clone(),
+        tx_sv1_notify.clone(),
+        status::Sender::Bridge(tx_status.clone()),
         extended_extranonce,
         target,
     )));
@@ -154,8 +156,8 @@ async fn main() {
     downstream_sv1::Downstream::accept_connections(
         downstream_addr,
         tx_sv1_submit,
-        rx_sv1_notify,
-        tx_status.clone(),
+        tx_sv1_notify,
+        status::Sender::DownstreamListener(tx_status.clone()),
         b,
     );
 
@@ -164,7 +166,16 @@ async fn main() {
         let task_status = rx_status.recv().await.unwrap();
 
         match task_status.state {
-            State::Shutdown(err) => {
+            // Should only be sent by the downstream listener
+            State::DownstreamShutdown(err) => {
+                error!("SHUTDOWN from: {}", err);
+                break;
+            }
+            State::BridgeShutdown(err) => {
+                error!("SHUTDOWN from: {}", err);
+                break;
+            }
+            State::UpstreamShutdown(err) => {
                 error!("SHUTDOWN from: {}", err);
                 break;
             }
