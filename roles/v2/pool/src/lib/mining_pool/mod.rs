@@ -373,8 +373,7 @@ impl Pool {
             value: crate::BLOCK_REWARD,
             script_pubkey: Script::new_p2pk(&crate::new_pub_key()),
         };
-        let extranonces =
-            ExtendedExtranonce::new(range_0.clone(), range_1.clone(), range_2.clone());
+        let extranonces = ExtendedExtranonce::new(range_0, range_1, range_2);
         let creator = JobsCreators::new(32);
         let share_per_min = 1.0;
         let kind = roles_logic_sv2::channel_logic::channel_factory::ExtendedChannelKind::Pool;
@@ -397,12 +396,12 @@ impl Pool {
 
         let cloned = pool.clone();
         let cloned2 = pool.clone();
-        let cloned3 = pool.clone();
+        let cloned3 = pool;
         #[cfg(feature = "test_only_allow_unencrypted")]
         let cloned4 = pool.clone();
 
         info!("Starting up pool listener");
-        task::spawn(Self::accept_incoming_connection(cloned, config.clone()));
+        task::spawn(Self::accept_incoming_connection(cloned, config));
         #[cfg(feature = "test_only_allow_unencrypted")]
         task::spawn(Self::accept_incoming_plain_connection(cloned4, config));
 

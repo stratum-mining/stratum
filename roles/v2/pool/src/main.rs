@@ -172,11 +172,14 @@ async fn main() {
         match task_status.state {
             // Should only be sent by the downstream listener
             status::State::DownstreamShutdown(err) => {
-                error!("SHUTDOWN from downstream: {}", err);
+                error!(
+                    "SHUTDOWN from Downstream: {}\nTry to restart the downstream listener",
+                    err
+                );
                 break;
             }
             status::State::TemplateProviderShutdown(err) => {
-                error!("SHUTDOWN from Upstream: {}", err);
+                error!("SHUTDOWN from Upstream: {}\nTry to reconnecting or connecting to a new upstream", err);
                 break;
             }
             status::State::Healthy(msg) => {
@@ -184,5 +187,4 @@ async fn main() {
             }
         }
     }
-    info!("Pool INITIALIZED");
 }

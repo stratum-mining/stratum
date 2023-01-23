@@ -51,7 +51,8 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
                     }
                     Err(e) => Err(e),
                 }
-            }).map_err(|_| roles_logic_sv2::Error::PoisonLock)??;
+            })
+            .map_err(|_| roles_logic_sv2::Error::PoisonLock)??;
         let mut result = vec![];
         for response in reposnses {
             result.push(SendTo::Respond(response.into_static()))
@@ -66,19 +67,17 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
         let request_id = m.request_id;
         let hash_rate = m.nominal_hash_rate;
         let min_extranonce_size = m.min_extranonce_size;
-        let messages_res= self
+        let messages_res = self
             .channel_factory
-            .safe_lock(|s| {
-                s.new_extended_channel(request_id, hash_rate, min_extranonce_size)
-            }).map_err(|_| roles_logic_sv2::Error::PoisonLock)?;
+            .safe_lock(|s| s.new_extended_channel(request_id, hash_rate, min_extranonce_size))
+            .map_err(|_| roles_logic_sv2::Error::PoisonLock)?;
         match messages_res {
             Some(messages) => {
                 let messages = messages.into_iter().map(SendTo::Respond).collect();
                 Ok(SendTo::Multiple(messages))
-            },
-           None => {return Err(roles_logic_sv2::Error::ChannelIsNeitherExtendedNeitherInAPool)}
+            }
+            None => Err(roles_logic_sv2::Error::ChannelIsNeitherExtendedNeitherInAPool),
         }
-        
     }
 
     fn handle_update_channel(&mut self, _: UpdateChannel) -> Result<SendTo<()>, Error> {

@@ -1,8 +1,9 @@
 use codec_sv2::StandardEitherFrame;
-use roles_logic_sv2::channel_logic::channel_factory::PoolChannelFactory;
-use roles_logic_sv2::parsers::PoolMessages;
-use std::convert::From;
-use std::sync::{MutexGuard, PoisonError};
+use roles_logic_sv2::{channel_logic::channel_factory::PoolChannelFactory, parsers::PoolMessages};
+use std::{
+    convert::From,
+    sync::{MutexGuard, PoisonError},
+};
 
 use crate::lib::mining_pool::{setup_connection::SetupConnectionHandler, Downstream, Pool};
 
