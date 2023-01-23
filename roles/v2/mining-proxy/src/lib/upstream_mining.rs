@@ -140,12 +140,7 @@ impl UpstreamMiningNode {
 
     pub fn start_receiving_new_template(self_mutex: Arc<Mutex<Self>>) {
         task::spawn(async move {
-            while self_mutex
-                .safe_lock(|s| s.channel_factory.is_none())
-                .unwrap()
-            {
-                tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-            }
+            Self::wait_for_channel_factory(self_mutex.clone()).await;
             let new_template_reciver = self_mutex
                 .safe_lock(|a| a.recv_tp.clone())
                 .unwrap()
@@ -206,12 +201,7 @@ impl UpstreamMiningNode {
 
     pub fn start_receiving_new_prev_hash(self_mutex: Arc<Mutex<Self>>) {
         task::spawn(async move {
-            while self_mutex
-                .safe_lock(|s| s.channel_factory.is_none())
-                .unwrap()
-            {
-                tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-            }
+            Self::wait_for_channel_factory(self_mutex.clone()).await;
             let prev_hash_reciver = self_mutex
                 .safe_lock(|a| a.recv_ph.clone())
                 .unwrap()
@@ -558,11 +548,16 @@ impl UpstreamMiningNode {
         Self::send(self_mutex.clone(), message.try_into().unwrap())
             .await
             .unwrap();
+
+        Self::wait_for_channel_factory(self_mutex).await;
+    }
+
+    async fn wait_for_channel_factory(self_mutex: Arc<Mutex<UpstreamMiningNode>>) {
         while self_mutex
             .safe_lock(|s| s.channel_factory.is_none())
             .unwrap()
         {
-            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+            tokio::time::sleep(std::time::Duration::from_secs(1)).await;
         }
     }
 
