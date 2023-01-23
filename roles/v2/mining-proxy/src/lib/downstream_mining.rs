@@ -334,11 +334,17 @@ impl
         req: OpenStandardMiningChannel,
         mut up: Option<Arc<Mutex<UpstreamMiningNode>>>,
     ) -> Result<SendTo<UpstreamMiningNode>, Error> {
+        let channel_id = up
+            .as_ref()
+            .expect("No upstream initialized")
+            .safe_lock(|s| s.channel_ids.safe_lock(|r| r.next()).unwrap())
+            .unwrap();
         let channel_kind = up
             .as_ref()
             .expect("No upstream initialized")
             .safe_lock(|up| up.channel_kind)
             .unwrap();
+        info!(channel_id);
         match channel_kind {
             ChannelKind::Group => Ok(SendTo::RelaySameMessageToRemote(up.unwrap())),
             ChannelKind::Extended => {
@@ -350,6 +356,7 @@ impl
                             req.request_id.as_u32(),
                             req.nominal_hash_rate,
                             true,
+                            channel_id,
                         )
                     })
                     .unwrap();
@@ -373,6 +380,7 @@ impl
                             req.request_id.as_u32(),
                             req.nominal_hash_rate,
                             true,
+                            channel_id,
                         )
                     })
                     .unwrap();

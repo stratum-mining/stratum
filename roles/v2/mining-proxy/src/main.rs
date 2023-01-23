@@ -120,6 +120,7 @@ pub async fn initialize_r_logic(
     config: Config,
 ) -> RLogic {
     let request_ids = Arc::new(Mutex::new(Id::new()));
+    let channel_ids = Arc::new(Mutex::new(Id::new()));
     let mut upstream_mining_nodes = Vec::with_capacity(upstreams.len());
     for (index, upstream) in upstreams.iter().enumerate() {
         let socket = SocketAddr::new(upstream.address.parse().unwrap(), upstream.port);
@@ -168,6 +169,7 @@ pub async fn initialize_r_logic(
             Some(recv_tp),
             Some(recv_ph),
             request_ids.clone(),
+            channel_ids.clone(),
         )));
         upstream_mining_nodes.push(upstream.clone());
 

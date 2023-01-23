@@ -96,6 +96,7 @@ pub struct UpstreamMiningNode {
     recv_tp: Option<Receiver<(NewTemplate<'static>, u64)>>,
     recv_ph: Option<Receiver<(SetNewPrevHashTemplate<'static>, u64)>>,
     request_ids: Arc<Mutex<Id>>,
+    pub channel_ids: Arc<Mutex<Id>>,
 }
 
 use core::convert::TryInto;
@@ -115,6 +116,7 @@ impl UpstreamMiningNode {
         recv_tp: Option<Receiver<(NewTemplate<'static>, u64)>>,
         recv_ph: Option<Receiver<(SetNewPrevHashTemplate<'static>, u64)>>,
         request_ids: Arc<Mutex<Id>>,
+        channel_ids: Arc<Mutex<Id>>,
     ) -> Self {
         let request_id_mapper = RequestIdMapper::new();
         let downstream_selector = ProxyRemoteSelector::new();
@@ -135,6 +137,7 @@ impl UpstreamMiningNode {
             recv_tp,
             recv_ph,
             request_ids,
+            channel_ids,
         }
     }
 
@@ -599,6 +602,7 @@ impl UpstreamMiningNode {
         request_id: u32,
         downstream_hash_rate: f32,
         id_header_only: bool,
+        channel_id: u32
     ) -> Vec<Mining<'static>> {
         match self.channel_kind {
             ChannelKind::Group => panic!(),
@@ -608,7 +612,7 @@ impl UpstreamMiningNode {
                     .channel_factory
                     .as_mut()
                     .unwrap()
-                    .add_standard_channel(request_id, downstream_hash_rate, id_header_only, 0)
+                    .add_standard_channel(request_id, downstream_hash_rate, id_header_only, channel_id)
                     .unwrap();
                 messages.into_iter().map(|x| x.into_static()).collect()
             }
@@ -618,7 +622,7 @@ impl UpstreamMiningNode {
                     .as_mut()
                     .unwrap()
                     // TODO which channel should I send instead of 0 or 0 is ok?
-                    .add_standard_channel(request_id, downstream_hash_rate, id_header_only, 0)
+                    .add_standard_channel(request_id, downstream_hash_rate, id_header_only, channel_id)
                     .unwrap();
                 messages.into_iter().map(|x| x.into_static()).collect()
             }
@@ -971,6 +975,7 @@ mod tests {
         let recv_tp = None;
         let recv_ph = None;
         let request_ids = Arc::new(Mutex::new(Id::new()));
+        let channel_ids = Arc::new(Mutex::new(Id::new()));
         let actual = UpstreamMiningNode::new(
             id,
             address,
@@ -980,6 +985,7 @@ mod tests {
             recv_tp,
             recv_ph,
             request_ids,
+            channel_ids,
         );
 
         assert_eq!(actual.id, id);
