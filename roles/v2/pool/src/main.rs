@@ -164,8 +164,7 @@ async fn main() {
         s_solution,
         s_message_recv_signal,
         status::Sender::DownstreamListener(status_tx),
-    )
-    .await;
+    );
 
     loop {
         let task_status = status_rx.recv().await.unwrap();
@@ -173,11 +172,11 @@ async fn main() {
         match task_status.state {
             // Should only be sent by the downstream listener
             status::State::DownstreamShutdown(err) => {
-                error!("SHUTDOWN from: {}", err);
+                error!("SHUTDOWN from downstream: {}", err);
                 break;
             }
             status::State::TemplateProviderShutdown(err) => {
-                error!("SHUTDOWN from: {}", err);
+                error!("SHUTDOWN from Upstream: {}", err);
                 break;
             }
             status::State::Healthy(msg) => {

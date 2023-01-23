@@ -1,4 +1,7 @@
-use crate::{error::PoolResult, EitherFrame, StdFrame};
+use crate::{
+    error::{PoolError, PoolResult},
+    EitherFrame, StdFrame,
+};
 use async_channel::{Receiver, Sender};
 use codec_sv2::Frame;
 use roles_logic_sv2::{
@@ -46,7 +49,10 @@ impl SetupConnectionHandler {
             }
         };
 
-        let message_type = incoming.get_header().unwrap().msg_type();
+        let message_type = incoming
+            .get_header()
+            .ok_or_else(|| PoolError::Framing(String::from("No header set")))?
+            .msg_type();
         let payload = incoming.payload();
         let response = ParseDownstreamCommonMessages::handle_message_common(
             self_.clone(),
@@ -55,12 +61,14 @@ impl SetupConnectionHandler {
             CommonRoutingLogic::None,
         )?;
 
-        let message = response.into_message().unwrap();
+        let message = response.into_message().ok_or(PoolError::RolesLogic(
+            roles_logic_sv2::Error::UnexpectedMessage,
+        ))?;
 
         let sv2_frame: StdFrame = PoolMessages::Common(message.clone()).try_into()?;
         let sv2_frame = sv2_frame.into();
         sender.send(sv2_frame).await?;
-        self_.safe_lock(|s| s.header_only.unwrap()).unwrap();
+        self_.safe_lock(|s| s.header_only)?;
 
         match message {
             CommonMessages::SetupConnectionSuccess(m) => {

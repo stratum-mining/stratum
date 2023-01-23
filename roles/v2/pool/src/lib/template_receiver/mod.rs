@@ -75,19 +75,18 @@ impl TemplateRx {
     }
 
     pub async fn start(self_: Arc<Mutex<Self>>) {
-        let recv_msg_signal = self_
-            .safe_lock(|s| s.message_received_signal.clone())
-            .unwrap();
-        let (receiver, new_template_sender, new_prev_hash_sender, status_tx) = self_
-            .safe_lock(|s| {
-                (
-                    s.receiver.clone(),
-                    s.new_template_sender.clone(),
-                    s.new_prev_hash_sender.clone(),
-                    s.status_tx.clone(),
-                )
-            })
-            .unwrap();
+        let (recv_msg_signal, receiver, new_template_sender, new_prev_hash_sender, status_tx) =
+            self_
+                .safe_lock(|s| {
+                    (
+                        s.message_received_signal.clone(),
+                        s.receiver.clone(),
+                        s.new_template_sender.clone(),
+                        s.new_prev_hash_sender.clone(),
+                        s.status_tx.clone(),
+                    )
+                })
+                .unwrap();
         loop {
             let message_from_tp = handle_result!(status_tx, receiver.recv().await);
             let mut message_from_tp: StdFrame = handle_result!(
@@ -96,7 +95,10 @@ impl TemplateRx {
                     .try_into()
                     .map_err(|e| PoolError::Codec(codec_sv2::Error::FramingSv2Error(e)))
             );
-            let message_type = message_from_tp.get_header().unwrap().msg_type();
+            let message_type_res = message_from_tp
+                .get_header()
+                .ok_or_else(|| PoolError::Framing(String::from("No header set")));
+            let message_type = handle_result!(status_tx, message_type_res).msg_type();
             let payload = message_from_tp.payload();
             let msg = handle_result!(
                 status_tx,
@@ -131,7 +133,9 @@ impl TemplateRx {
 
     pub async fn send(self_: Arc<Mutex<Self>>, sv2_frame: StdFrame) -> PoolResult<()> {
         let either_frame = sv2_frame.into();
-        let sender = self_.safe_lock(|self_| self_.sender.clone()).unwrap();
+        let sender = self_
+            .safe_lock(|self_| self_.sender.clone())
+            .map_err(|e| PoolError::PoisonLock(e.to_string()))?;
         sender.send(either_frame).await?;
         Ok(())
     }
@@ -142,8 +146,15 @@ impl TemplateRx {
             let sv2_frame_res: Result<StdFrame, _> =
                 PoolMessages::TemplateDistribution(TemplateDistribution::SubmitSolution(solution))
                     .try_into();
-            let sv2_frame = handle_result!(status_tx, sv2_frame_res);
-            handle_result!(status_tx, Self::send(self_.clone(), sv2_frame).await);
+            match sv2_frame_res {
+                Ok(frame) => {
+                    handle_result!(status_tx, Self::send(self_.clone(), frame).await);
+                }
+                Err(_e) => {
+                    // return submit error
+                    todo!()
+                }
+            };
         }
     }
 }

@@ -13,7 +13,7 @@ use tokio::sync::broadcast;
 use v1::{client_to_server::Submit, server_to_client};
 
 use crate::{error::Error, status, ProxyResult};
-use error_handling::{handle_result, ErrorBranch};
+use error_handling::handle_result;
 use roles_logic_sv2::{channel_logic::channel_factory::OnNewShare, Error as RolesLogicError};
 use tracing::{debug, error, info};
 

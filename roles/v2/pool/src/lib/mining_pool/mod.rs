@@ -67,10 +67,8 @@ impl Downstream {
             SetupConnectionHandler::setup(setup_connection, &mut receiver, &mut sender).await?;
 
         let id = match downstream_data.header_only {
-            false => channel_factory.safe_lock(|c| c.new_group_id()).unwrap(),
-            true => channel_factory
-                .safe_lock(|c| c.new_standard_id_for_hom())
-                .unwrap(),
+            false => channel_factory.safe_lock(|c| c.new_group_id())?,
+            true => channel_factory.safe_lock(|c| c.new_standard_id_for_hom())?,
         };
 
         let self_ = Arc::new(Mutex::new(Downstream {
@@ -88,7 +86,10 @@ impl Downstream {
         task::spawn(async move {
             debug!("Starting up downstream receiver");
             loop {
-                let receiver = cloned.safe_lock(|d| d.receiver.clone()).unwrap();
+                let receiver_res = cloned
+                    .safe_lock(|d| d.receiver.clone())
+                    .map_err(|e| PoolError::PoisonLock(e.to_string()));
+                let receiver = handle_result!(status_tx, receiver_res);
                 match receiver.recv().await {
                     Ok(received) => {
                         let received: Result<StdFrame, _> = received
@@ -101,7 +102,10 @@ impl Downstream {
                         );
                     }
                     _ => {
-                        pool.safe_lock(|p| p.downstreams.remove(&id)).unwrap();
+                        let res = pool
+                            .safe_lock(|p| p.downstreams.remove(&id))
+                            .map_err(|e| PoolError::PoisonLock(e.to_string()));
+                        handle_result!(status_tx, res);
                         error!("Downstream {} disconnected", id);
                         break;
                     }
@@ -112,7 +116,10 @@ impl Downstream {
     }
 
     pub async fn next(self_mutex: Arc<Mutex<Self>>, mut incoming: StdFrame) -> PoolResult<()> {
-        let message_type = incoming.get_header().unwrap().msg_type();
+        let message_type = incoming
+            .get_header()
+            .ok_or_else(|| PoolError::Framing(String::from("No header set")))?
+            .msg_type();
         let payload = incoming.payload();
         debug!(
             "Received downstream message type: {:?}, payload: {:?}",
@@ -158,7 +165,7 @@ impl Downstream {
         message: roles_logic_sv2::parsers::Mining<'static>,
     ) -> PoolResult<()> {
         let sv2_frame: StdFrame = PoolMessages::Mining(message).try_into()?;
-        let sender = self_mutex.safe_lock(|self_| self_.sender.clone()).unwrap();
+        let sender = self_mutex.safe_lock(|self_| self_.sender.clone())?;
         sender.send(sv2_frame.into()).await?;
         Ok(())
     }
@@ -199,21 +206,29 @@ impl Pool {
             config.listen_address
         );
         while let Ok((stream, _)) = listener.accept().await {
-            debug!("New connection from {}", stream.peer_addr().unwrap());
+            debug!(
+                "New connection from {:?}",
+                stream.peer_addr().map_err(PoolError::Io)
+            );
 
             let responder = Responder::from_authority_kp(
                 config.authority_public_key.clone().into_inner().as_bytes(),
                 config.authority_secret_key.clone().into_inner().as_bytes(),
                 std::time::Duration::from_secs(config.cert_validity_sec),
             );
-            let responder = handle_result!(status_tx, responder);
-
-            let (receiver, sender): (Receiver<EitherFrame>, Sender<EitherFrame>) =
-                Connection::new(stream, HandshakeRole::Responder(responder)).await;
-            handle_result!(
-                status_tx,
-                Self::accept_incoming_connection_(self_.clone(), receiver, sender).await
-            );
+            match responder {
+                Ok(resp) => {
+                    let (receiver, sender): (Receiver<EitherFrame>, Sender<EitherFrame>) =
+                        Connection::new(stream, HandshakeRole::Responder(resp)).await;
+                    handle_result!(
+                        status_tx,
+                        Self::accept_incoming_connection_(self_.clone(), receiver, sender).await
+                    );
+                }
+                Err(_e) => {
+                    todo!()
+                }
+            }
         }
     }
 
@@ -222,9 +237,9 @@ impl Pool {
         receiver: Receiver<EitherFrame>,
         sender: Sender<EitherFrame>,
     ) -> PoolResult<()> {
-        let solution_sender = self_.safe_lock(|p| p.solution_sender.clone()).unwrap();
-        let status_tx = self_.safe_lock(|s| s.status_tx.clone()).unwrap();
-        let channel_factory = self_.safe_lock(|s| s.channel_factory.clone()).unwrap();
+        let solution_sender = self_.safe_lock(|p| p.solution_sender.clone())?;
+        let status_tx = self_.safe_lock(|s| s.status_tx.clone())?;
+        let channel_factory = self_.safe_lock(|s| s.channel_factory.clone())?;
 
         let downstream = Downstream::new(
             receiver,
@@ -232,19 +247,16 @@ impl Pool {
             solution_sender,
             self_.clone(),
             channel_factory,
+            // convert Listener variant to Downstream variant
             status_tx.listener_to_connection(),
         )
         .await?;
 
-        let (_, channel_id) = downstream
-            .safe_lock(|d| (d.downstream_data.header_only, d.id))
-            .unwrap();
+        let (_, channel_id) = downstream.safe_lock(|d| (d.downstream_data.header_only, d.id))?;
 
-        self_
-            .safe_lock(|p| {
-                p.downstreams.insert(channel_id, downstream);
-            })
-            .unwrap();
+        self_.safe_lock(|p| {
+            p.downstreams.insert(channel_id, downstream);
+        })?;
         Ok(())
     }
 
@@ -256,21 +268,30 @@ impl Pool {
         let status_tx = self_.safe_lock(|s| s.status_tx.clone()).unwrap();
         while let Ok(new_prev_hash) = rx.recv().await {
             debug!("New prev hash received: {:?}", new_prev_hash);
-            self_
+            let res = self_
                 .safe_lock(|s| {
                     s.last_prev_hash_template_id = new_prev_hash.template_id;
                 })
-                .unwrap();
-            let x = self_
+                .map_err(|e| PoolError::PoisonLock(e.to_string()));
+            handle_result!(status_tx, res);
+
+            let x_res = self_
                 .safe_lock(|s| {
                     s.channel_factory
                         .safe_lock(|f| f.on_new_prev_hash_from_tp(&new_prev_hash))
-                        .unwrap()
+                        .map_err(|e| PoolError::PoisonLock(e.to_string()))
                 })
-                .unwrap();
+                .map_err(|e| PoolError::PoisonLock(e.to_string()));
+            let x_res = handle_result!(status_tx, x_res);
+            let x = handle_result!(status_tx, x_res);
+
             match x {
                 Ok(job_id) => {
-                    let downstreams = self_.safe_lock(|s| s.downstreams.clone()).unwrap();
+                    let downstreams = self_
+                        .safe_lock(|s| s.downstreams.clone())
+                        .map_err(|e| PoolError::PoisonLock(e.to_string()));
+                    let downstreams = handle_result!(status_tx, downstreams);
+
                     for (channel_id, downtream) in downstreams {
                         let message = Mining::SetNewPrevHash(SetNPH {
                             channel_id,
@@ -305,26 +326,38 @@ impl Pool {
                 new_template
             );
 
-            let channel_factory = self_.safe_lock(|s| s.channel_factory.clone()).unwrap();
+            let channel_factory = self_
+                .safe_lock(|s| s.channel_factory.clone())
+                .map_err(|e| PoolError::PoisonLock(e.to_string()));
+            let channel_factory = handle_result!(status_tx, channel_factory);
+
             let messages = channel_factory
                 .safe_lock(|cf| cf.on_new_template(&mut new_template))
-                .unwrap();
+                .map_err(|e| PoolError::PoisonLock(e.to_string()));
+            let messages = handle_result!(status_tx, messages);
             let mut messages = handle_result!(status_tx, messages);
-            let downstreams = self_.safe_lock(|s| s.downstreams.clone()).unwrap();
+
+            let downstreams = self_
+                .safe_lock(|s| s.downstreams.clone())
+                .map_err(|e| PoolError::PoisonLock(e.to_string()));
+            let downstreams = handle_result!(status_tx, downstreams);
+
             for (channel_id, downtream) in downstreams {
                 if let Some(to_send) = messages.remove(&channel_id) {
                     Downstream::match_send_to(downtream.clone(), Ok(SendTo::Respond(to_send)))
                         .await;
                 }
             }
-            self_
+            let res = self_
                 .safe_lock(|s| s.new_template_processed = true)
-                .unwrap();
+                .map_err(|e| PoolError::PoisonLock(e.to_string()));
+            handle_result!(status_tx, res);
+
             handle_result!(status_tx, sender_message_received_signal.send(()).await);
         }
     }
 
-    pub async fn start(
+    pub fn start(
         config: Configuration,
         new_template_rx: Receiver<NewTemplate<'static>>,
         new_prev_hash_rx: Receiver<SetNewPrevHash<'static>>,
@@ -376,11 +409,12 @@ impl Pool {
         let cloned = sender_message_received_signal.clone();
         task::spawn(async {
             Self::on_new_prev_hash(cloned2, new_prev_hash_rx, cloned).await;
+            // on_new_prev_hash shutdown
         });
 
         let _ = task::spawn(async move {
             Self::on_new_template(cloned3, new_template_rx, sender_message_received_signal).await;
-        })
-        .await;
+            // on_new_template shutdown
+        });
     }
 }

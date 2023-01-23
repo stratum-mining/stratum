@@ -1,9 +1,12 @@
-use codec_sv2::{StandardEitherFrame, StandardSv2Frame};
+use codec_sv2::StandardEitherFrame;
+use roles_logic_sv2::channel_logic::channel_factory::PoolChannelFactory;
 use roles_logic_sv2::parsers::PoolMessages;
 use std::convert::From;
+use std::sync::{MutexGuard, PoisonError};
+
+use crate::lib::mining_pool::{setup_connection::SetupConnectionHandler, Downstream, Pool};
 
 pub type Message = PoolMessages<'static>;
-pub type StdFrame = StandardSv2Frame<Message>;
 pub type EitherFrame = StandardEitherFrame<Message>;
 
 #[derive(std::fmt::Debug)]
@@ -23,13 +26,14 @@ pub enum ChannelSendVariant {
 #[derive(std::fmt::Debug)]
 pub enum PoolError {
     Io(std::io::Error),
-    ChannelSend(ChannelSendVariant),
+    ChannelSend(Box<ChannelSendVariant>),
     ChannelRecv(async_channel::RecvError),
     BinarySv2(binary_sv2::Error),
     Codec(codec_sv2::Error),
     Noise(noise_sv2::Error),
     RolesLogic(roles_logic_sv2::Error),
     Framing(String),
+    PoisonLock(String),
 }
 
 impl<'a> std::fmt::Display for PoolError {
@@ -44,6 +48,7 @@ impl<'a> std::fmt::Display for PoolError {
             Framing(ref e) => write!(f, "Framing SV2 error: `{:?}`", e),
             Noise(ref e) => write!(f, "Noise SV2 error: `{:?}", e),
             RolesLogic(ref e) => write!(f, "Roles Logic SV2 error: `{:?}`", e),
+            PoisonLock(ref e) => write!(f, "Poison lock: {:?}", e),
         }
     }
 }
@@ -88,13 +93,13 @@ impl From<roles_logic_sv2::Error> for PoolError {
 
 impl From<async_channel::SendError<EitherFrame>> for PoolError {
     fn from(e: async_channel::SendError<EitherFrame>) -> PoolError {
-        PoolError::ChannelSend(ChannelSendVariant::Frame(e))
+        PoolError::ChannelSend(Box::new(ChannelSendVariant::Frame(e)))
     }
 }
 
 impl From<async_channel::SendError<()>> for PoolError {
     fn from(e: async_channel::SendError<()>) -> PoolError {
-        PoolError::ChannelSend(ChannelSendVariant::Fn(e))
+        PoolError::ChannelSend(Box::new(ChannelSendVariant::Fn(e)))
     }
 }
 
@@ -107,7 +112,7 @@ impl
             roles_logic_sv2::template_distribution_sv2::NewTemplate<'static>,
         >,
     ) -> PoolError {
-        PoolError::ChannelSend(ChannelSendVariant::NewTemplate(e))
+        PoolError::ChannelSend(Box::new(ChannelSendVariant::NewTemplate(e)))
     }
 }
 
@@ -123,12 +128,36 @@ impl
             roles_logic_sv2::template_distribution_sv2::SetNewPrevHash<'static>,
         >,
     ) -> PoolError {
-        PoolError::ChannelSend(ChannelSendVariant::SetNewPrevHash(e))
+        PoolError::ChannelSend(Box::new(ChannelSendVariant::SetNewPrevHash(e)))
     }
 }
 
 impl From<String> for PoolError {
     fn from(e: String) -> PoolError {
         PoolError::Framing(e)
+    }
+}
+
+impl From<PoisonError<MutexGuard<'_, PoolChannelFactory>>> for PoolError {
+    fn from(e: PoisonError<MutexGuard<PoolChannelFactory>>) -> PoolError {
+        PoolError::PoisonLock(e.to_string())
+    }
+}
+
+impl From<PoisonError<MutexGuard<'_, Downstream>>> for PoolError {
+    fn from(e: PoisonError<MutexGuard<Downstream>>) -> PoolError {
+        PoolError::PoisonLock(e.to_string())
+    }
+}
+
+impl From<PoisonError<MutexGuard<'_, Pool>>> for PoolError {
+    fn from(e: PoisonError<MutexGuard<Pool>>) -> PoolError {
+        PoolError::PoisonLock(e.to_string())
+    }
+}
+
+impl From<PoisonError<MutexGuard<'_, SetupConnectionHandler>>> for PoolError {
+    fn from(e: PoisonError<MutexGuard<SetupConnectionHandler>>) -> PoolError {
+        PoolError::PoisonLock(e.to_string())
     }
 }

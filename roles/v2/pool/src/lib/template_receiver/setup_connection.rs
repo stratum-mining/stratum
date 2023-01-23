@@ -56,7 +56,10 @@ impl SetupConnectionHandler {
             .await?
             .try_into()
             .map_err(|e| PoolError::Codec(codec_sv2::Error::FramingSv2Error(e)))?;
-        let message_type = incoming.get_header().unwrap().msg_type();
+        let message_type = incoming
+            .get_header()
+            .ok_or_else(|| PoolError::Framing(String::from("No header set")))?
+            .msg_type();
         let payload = incoming.payload();
 
         trace!(

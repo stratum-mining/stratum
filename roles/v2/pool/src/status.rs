@@ -83,7 +83,7 @@ pub async fn handle_error(
     sender: &Sender,
     e: crate::error::PoolError,
 ) -> error_handling::ErrorBranch {
-    tracing::error!("Error: {:?}", &e);
+    tracing::debug!("Error: {:?}", &e);
     match e {
         PoolError::Io(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
         PoolError::ChannelSend(_) => {
@@ -94,10 +94,13 @@ pub async fn handle_error(
         }
         PoolError::BinarySv2(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
         PoolError::Codec(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
-        PoolError::Noise(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
+        PoolError::Noise(_) => send_status(sender, e, error_handling::ErrorBranch::Continue).await,
         PoolError::RolesLogic(_) => {
             send_status(sender, e, error_handling::ErrorBranch::Break).await
         }
         PoolError::Framing(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
+        PoolError::PoisonLock(_) => {
+            send_status(sender, e, error_handling::ErrorBranch::Break).await
+        }
     }
 }
