@@ -40,6 +40,7 @@ pub enum Error {
     NoValidJob,
     NoTemplateForId,
     InvalidExtranonceSize(u16, u16),
+    PoisonLock,
 }
 
 impl From<BinarySv2Error> for Error {
@@ -115,6 +116,7 @@ impl Display for Error {
             NotFoundChannelId => write!(f, "No downstream has been registred for this channel id"),
             NoValidJob => write!(f, "Impossible to create a standard job for channelA cause no valid job has been received from upstream yet"),
             NoTemplateForId => write!(f, "Impossible a template for the required job id"),
+            PoisonLock => write!(f, "Poison lock"),
         }
     }
 }

@@ -51,8 +51,7 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
                     }
                     Err(e) => Err(e),
                 }
-            })
-            .unwrap()?;
+            }).map_err(|_| roles_logic_sv2::Error::PoisonLock)??;
         let mut result = vec![];
         for response in reposnses {
             result.push(SendTo::Respond(response.into_static()))
@@ -67,15 +66,19 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
         let request_id = m.request_id;
         let hash_rate = m.nominal_hash_rate;
         let min_extranonce_size = m.min_extranonce_size;
-        let messages = self
+        let messages_res= self
             .channel_factory
             .safe_lock(|s| {
                 s.new_extended_channel(request_id, hash_rate, min_extranonce_size)
-                    .unwrap()
-            })
-            .unwrap();
-        let messages = messages.into_iter().map(SendTo::Respond).collect();
-        Ok(SendTo::Multiple(messages))
+            }).map_err(|_| roles_logic_sv2::Error::PoisonLock)?;
+        match messages_res {
+            Some(messages) => {
+                let messages = messages.into_iter().map(SendTo::Respond).collect();
+                Ok(SendTo::Multiple(messages))
+            },
+           None => {return Err(roles_logic_sv2::Error::ChannelIsNeitherExtendedNeitherInAPool)}
+        }
+        
     }
 
     fn handle_update_channel(&mut self, _: UpdateChannel) -> Result<SendTo<()>, Error> {
@@ -89,7 +92,7 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
         let res = self
             .channel_factory
             .safe_lock(|cf| cf.on_submit_shares_standard(m.clone()))
-            .unwrap();
+            .map_err(|_| roles_logic_sv2::Error::PoisonLock)?;
         match res {
             Ok(res) => match res  {
                 roles_logic_sv2::channel_logic::channel_factory::OnNewShare::SendErrorDowsntream(m) => {
@@ -104,7 +107,7 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
                         version: share.get_version(),
                         header_timestamp: share.get_n_time(),
                         header_nonce: share.get_nonce(),
-                        coinbase_tx: coinbase.try_into().unwrap(),
+                        coinbase_tx: coinbase.try_into()?,
                     };
                     // TODO we can block everything with the below (looks like this will infinite loop??)
                     while self.solution_sender.try_send(solution.clone()).is_err() {};
@@ -139,7 +142,7 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
         let res = self
             .channel_factory
             .safe_lock(|cf| cf.on_submit_shares_extended(m.clone()))
-            .unwrap();
+            .map_err(|_| roles_logic_sv2::Error::PoisonLock)?;
         match res {
             Ok(res) => match res  {
                 roles_logic_sv2::channel_logic::channel_factory::OnNewShare::SendErrorDowsntream(m) => {
@@ -154,7 +157,7 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
                         version: share.get_version(),
                         header_timestamp: share.get_n_time(),
                         header_nonce: share.get_nonce(),
-                        coinbase_tx: coinbase.try_into().unwrap(),
+                        coinbase_tx: coinbase.try_into()?,
                     };
                     // TODO we can block everything with the below (looks like this will infinite loop??)
                     while self.solution_sender.try_send(solution.clone()).is_err() {};
@@ -218,7 +221,7 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
                     self_.get_downstream_mining_data(),
                 )
             })
-            .unwrap();
+            .map_err(|_| roles_logic_sv2::Error::PoisonLock)?;
         // Is fine to unwrap on safe_lock
         match (message_type, payload).try_into() {
             Ok(Mining::OpenStandardMiningChannel(mut m)) => {
@@ -235,7 +238,7 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
                                     &downstream_mining_data,
                                 )
                             })
-                            .unwrap();
+                            .map_err(|_| roles_logic_sv2::Error::PoisonLock)?;
                         Some(up?)
                     }
                     // Variant just used for phantom data is ok to panic
@@ -244,14 +247,14 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
                 match channel_type {
                     SupportedChannelTypes::Standard => self_mutex
                         .safe_lock(|self_| self_.handle_open_standard_mining_channel(m, upstream))
-                        .unwrap(),
+                        .map_err(|_| roles_logic_sv2::Error::PoisonLock)?,
                     SupportedChannelTypes::Extended => Err(Error::UnexpectedMessage(message_type)),
                     SupportedChannelTypes::Group => self_mutex
                         .safe_lock(|self_| self_.handle_open_standard_mining_channel(m, upstream))
-                        .unwrap(),
+                        .map_err(|_| roles_logic_sv2::Error::PoisonLock)?,
                     SupportedChannelTypes::GroupAndExtended => self_mutex
                         .safe_lock(|self_| self_.handle_open_standard_mining_channel(m, upstream))
-                        .unwrap(),
+                        .map_err(|_| roles_logic_sv2::Error::PoisonLock)?,
                 }
             }
             Ok(Mining::OpenExtendedMiningChannel(m)) => match channel_type {
@@ -260,14 +263,14 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
                     debug!("Received OpenExtendedMiningChannel->Extended message");
                     self_mutex
                         .safe_lock(|self_| self_.handle_open_extended_mining_channel(m))
-                        .unwrap()
+                        .map_err(|_| roles_logic_sv2::Error::PoisonLock)?
                 }
                 SupportedChannelTypes::Group => Err(Error::UnexpectedMessage(message_type)),
                 SupportedChannelTypes::GroupAndExtended => {
                     debug!("Received OpenExtendedMiningChannel->GroupAndExtended message");
                     self_mutex
                         .safe_lock(|self_| self_.handle_open_extended_mining_channel(m))
-                        .unwrap()
+                        .map_err(|_| roles_logic_sv2::Error::PoisonLock)?
                 }
             },
             Ok(Mining::UpdateChannel(m)) => match channel_type {
@@ -275,25 +278,25 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
                     debug!("Received UpdateChannel->Standard message");
                     self_mutex
                         .safe_lock(|self_| self_.handle_update_channel(m))
-                        .unwrap()
+                        .map_err(|_| roles_logic_sv2::Error::PoisonLock)?
                 }
                 SupportedChannelTypes::Extended => {
                     debug!("Received UpdateChannel->Extended message");
                     self_mutex
                         .safe_lock(|self_| self_.handle_update_channel(m))
-                        .unwrap()
+                        .map_err(|_| roles_logic_sv2::Error::PoisonLock)?
                 }
                 SupportedChannelTypes::Group => {
                     debug!("Received UpdateChannel->Group message");
                     self_mutex
                         .safe_lock(|self_| self_.handle_update_channel(m))
-                        .unwrap()
+                        .map_err(|_| roles_logic_sv2::Error::PoisonLock)?
                 }
                 SupportedChannelTypes::GroupAndExtended => {
                     debug!("Received UpdateChannel->GroupAndExtended message");
                     self_mutex
                         .safe_lock(|self_| self_.handle_update_channel(m))
-                        .unwrap()
+                        .map_err(|_| roles_logic_sv2::Error::PoisonLock)?
                 }
             },
             Ok(Mining::SubmitSharesStandard(m)) => match channel_type {
@@ -301,20 +304,20 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
                     debug!("Received SubmitSharesStandard->Standard message");
                     self_mutex
                         .safe_lock(|self_| self_.handle_submit_shares_standard(m))
-                        .unwrap()
+                        .map_err(|_| roles_logic_sv2::Error::PoisonLock)?
                 }
                 SupportedChannelTypes::Extended => Err(Error::UnexpectedMessage(message_type)),
                 SupportedChannelTypes::Group => {
                     debug!("Received SubmitSharesStandard->Group message");
                     self_mutex
                         .safe_lock(|self_| self_.handle_submit_shares_standard(m))
-                        .unwrap()
+                        .map_err(|_| roles_logic_sv2::Error::PoisonLock)?
                 }
                 SupportedChannelTypes::GroupAndExtended => {
                     debug!("Received SubmitSharesStandard->GroupAndExtended message");
                     self_mutex
                         .safe_lock(|self_| self_.handle_submit_shares_standard(m))
-                        .unwrap()
+                        .map_err(|_| roles_logic_sv2::Error::PoisonLock)?
                 }
             },
             Ok(Mining::SubmitSharesExtended(m)) => {
@@ -323,11 +326,11 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
                     SupportedChannelTypes::Standard => Err(Error::UnexpectedMessage(message_type)),
                     SupportedChannelTypes::Extended => self_mutex
                         .safe_lock(|self_| self_.handle_submit_shares_extended(m))
-                        .unwrap(),
+                        .map_err(|_| roles_logic_sv2::Error::PoisonLock)?,
                     SupportedChannelTypes::Group => Err(Error::UnexpectedMessage(message_type)),
                     SupportedChannelTypes::GroupAndExtended => self_mutex
                         .safe_lock(|self_| self_.handle_submit_shares_extended(m))
-                        .unwrap(),
+                        .map_err(|_| roles_logic_sv2::Error::PoisonLock)?,
                 }
             }
             Ok(Mining::SetCustomMiningJob(m)) => {
@@ -335,13 +338,13 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
                 match (channel_type, is_work_selection_enabled) {
                     (SupportedChannelTypes::Extended, true) => self_mutex
                         .safe_lock(|self_| self_.handle_set_custom_mining_job(m))
-                        .unwrap(),
+                        .map_err(|_| roles_logic_sv2::Error::PoisonLock)?,
                     (SupportedChannelTypes::Group, true) => self_mutex
                         .safe_lock(|self_| self_.handle_set_custom_mining_job(m))
-                        .unwrap(),
+                        .map_err(|_| roles_logic_sv2::Error::PoisonLock)?,
                     (SupportedChannelTypes::GroupAndExtended, true) => self_mutex
                         .safe_lock(|self_| self_.handle_set_custom_mining_job(m))
-                        .unwrap(),
+                        .map_err(|_| roles_logic_sv2::Error::PoisonLock)?,
                     _ => Err(Error::UnexpectedMessage(message_type)),
                 }
             }
