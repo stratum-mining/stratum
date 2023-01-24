@@ -23,6 +23,15 @@
                 "used_version": 2
             },
             "id": "setup_connection_success_flag_0"
+        },
+        {
+            "message": {
+                "type": "SetupConnectionSuccess",
+                "flags": 2,
+                "used_version": 2
+            },
+            "id": "setup_connection_success_template_distribution"
         }
+
     ]
 }
