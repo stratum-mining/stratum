@@ -1,14 +1,14 @@
 {
     "doc": [
-        "What this test does:",
-            "1) launch SRI pool and wait for initialization",
-            "2) connect to the pool as a Downstream that uses noise",
-            "3) send SetupConnection to the pool",
-            "4) check that SetupConnectionSuccess is received",
-            "5) send OpenStandardMiningChannel with request id 89",
-            "6) check that NewExtendedJob is received",
-            "7) check that NewPrevHash is received",
-            "8) check that OpenStandardMiningChannelSuccess with request 89 is received"
+        "This test does",
+        "Mocking a mining device that connects to a pool and launchs a MG that mocks a template provider",
+        "Launchs a pool",
+        "Launchs a MG test that mocks a template provider",
+        "Sends setup_connection to the pool and waits that arrives a message 0x01",
+        "Sends open_standard_mining_channel to the pool and waits that the pool sends the following message with id",
+        "MiningProtocol",
+        "OpenStandardMiningChannelSuccess",
+        "request_id"
     ],
     "common_messages": [
         {
@@ -17,7 +17,7 @@
                 "protocol": 0,
                 "min_version": 2,
                 "max_version": 2,
-                "flags": 0,
+                "flags": 1,
                 "endpoint_host": "",
                 "endpoint_port": 0,
                 "vendor": "",
@@ -26,14 +26,6 @@
                 "device_id": ""
             },
             "id": "setup_connection"
-        },
-        {
-            "message": {
-                "type": "SetupConnectionSuccess",
-                "flags": 0,
-                "used_version": 2
-            },
-            "id": "setup_connection_success"
         }
     ],
     "mining_messages": [
@@ -46,13 +38,21 @@
                 "max_target": [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
             },
             "id": "open_standard_mining_channel"
+        },
+        {
+            "message": {
+                "type": "SubmitSharesStandard",
+                "channel_id": 1,
+                "sequence_number": 0,
+                "job_id": 0,
+                "nonce": 174,
+                "ntime": 1671116742,
+                "version": 536870912
+            },
+            "id": "submit_shares"
         }
     ],
     "frame_builders": [
-        {
-            "type": "automatic",
-            "message_id": "setup_connection_success"
-        },
         {
             "type": "automatic",
             "message_id": "setup_connection"
@@ -60,6 +60,10 @@
         {
             "type": "automatic",
             "message_id": "open_standard_mining_channel"
+        },
+        {
+            "type": "automatic",
+            "message_id": "submit_shares"
         }
     ],
     "actions": [
@@ -71,7 +75,8 @@
                     "type": "match_message_type",
                     "value": "0x01"
                 }
-            ] 
+            ],
+            "actiondoc": "This action send a SetupConnection and check that receives a message type 0x01, that is SetupConnectionSuccess"
         },
         {
             "message_ids": ["open_standard_mining_channel"],
@@ -92,13 +97,39 @@
                 },
                 {
                     "type": "match_message_type",
-                    "value": "0x1f"
+                    "value": "0x1e"
                 }
-            ] 
+            ],
+            "actiondoc": "This action sends OpenStandardMiningChannel to the pool and checks that the reply is OpenStandardMiningChannelSuccess and the MiningProtocol" 
+        },
+        {
+            "message_ids": ["submit_shares"],
+            "role": "client",
+            "results": [],
+            "actiondoc": "This action sends the message SubmitSharesStandard to the pool, without checking the reply"
         }
-        
     ],
     "setup_commands": [
+        {
+            "command": "cargo",
+            "args": [
+                        "run",
+                        "../../../test/message-generator/mock/template-provider-mock0.json"
+            ],
+            "conditions": {
+                "WithConditions": {
+                    "conditions": [
+                        {
+                            "output_string": "Running `target/debug/message_generator_sv2 ../../../test/message-generator/mock/template-provider-mock0.json`",
+                            "output_location": "StdErr",
+                            "condition": true
+                        }
+                    ],
+                    "timer_secs": 60,
+                    "warn_no_panic": false
+                }
+            }
+        },
         {
             "command": "cargo",
             "args": [

@@ -9,10 +9,11 @@ use roles_logic_sv2::{
     utils::{GroupId, Id, Mutex},
 };
 use std::sync::Arc;
+use tokio::sync::broadcast;
 use v1::{client_to_server::Submit, server_to_client};
 
-use crate::{error::Error, status::Status, ProxyResult};
-use error_handling::handle_result;
+use crate::{error::Error, status, ProxyResult};
+use error_handling::{handle_result, ErrorBranch};
 use roles_logic_sv2::{channel_logic::channel_factory::OnNewShare, Error as RolesLogicError};
 use tracing::{debug, error, info};
 
@@ -36,10 +37,10 @@ pub struct Bridge {
     rx_sv2_new_ext_mining_job: Receiver<NewExtendedMiningJob<'static>>,
     /// Sends SV1 `mining.notify` message (translated from the SV2 `SetNewPrevHash` and
     /// `NewExtendedMiningJob` messages stored in the `NextMiningNotify`) to the `Downstream`.
-    tx_sv1_notify: Sender<server_to_client::Notify<'static>>,
+    tx_sv1_notify: broadcast::Sender<server_to_client::Notify<'static>>,
     /// Allows the bridge the ability to communicate back to the main thread any status updates
     /// that would interest the main thread for error handling
-    tx_status: Sender<Status<'static>>,
+    tx_status: status::Sender,
     /// Unique sequential identifier of the submit within the channel.
     channel_sequence_id: Id,
     /// Stores the most recent SV1 `mining.notify` values to be sent to the `Downstream` upon
@@ -67,8 +68,8 @@ impl Bridge {
         tx_sv2_submit_shares_ext: Sender<SubmitSharesExtended<'static>>,
         rx_sv2_set_new_prev_hash: Receiver<SetNewPrevHash<'static>>,
         rx_sv2_new_ext_mining_job: Receiver<NewExtendedMiningJob<'static>>,
-        tx_sv1_notify: Sender<server_to_client::Notify<'static>>,
-        tx_status: Sender<Status<'static>>,
+        tx_sv1_notify: broadcast::Sender<server_to_client::Notify<'static>>,
+        tx_status: status::Sender,
         extranonces: ExtendedExtranonce,
         target: Arc<Mutex<Vec<u8>>>,
     ) -> Self {
@@ -267,7 +268,7 @@ impl Bridge {
                         );
                         // Get the sender to send the mining.notify to the Downstream
                         let tx_sv1_notify = self_.safe_lock(|s| s.tx_sv1_notify.clone()).unwrap();
-                        tx_sv1_notify.send(notify.clone()).await.unwrap();
+                        tx_sv1_notify.send(notify.clone()).unwrap();
                         self_
                             .safe_lock(|s| {
                                 s.last_notify = Some(notify);
@@ -335,7 +336,7 @@ impl Bridge {
                     );
                     // Get the sender to send the mining.notify to the Downstream
                     let tx_sv1_notify = self_.safe_lock(|s| s.tx_sv1_notify.clone()).unwrap();
-                    tx_sv1_notify.send(notify.clone()).await.unwrap();
+                    tx_sv1_notify.send(notify.clone()).unwrap();
                     self_
                         .safe_lock(|s| {
                             s.last_notify = Some(notify);
@@ -366,7 +367,7 @@ mod test {
             let (tx_sv2_submit_shares_ext, _rx_sv2_submit_shares_ext) = bounded(1);
             let (_tx_sv2_set_new_prev_hash, rx_sv2_set_new_prev_hash) = bounded(1);
             let (_tx_sv2_new_ext_mining_job, rx_sv2_new_ext_mining_job) = bounded(1);
-            let (tx_sv1_notify, _rx_sv1_notify) = bounded(1);
+            let (tx_sv1_notify, _rx_sv1_notify) = broadcast::channel(1);
             let (tx_status, _rx_status) = bounded(1);
             let extranonces = ExtendedExtranonce::new(0..6, 6..8, 8..EXTRANONCE_LEN);
             let upstream_target = vec![
@@ -380,7 +381,7 @@ mod test {
                 rx_sv2_set_new_prev_hash,
                 rx_sv2_new_ext_mining_job,
                 tx_sv1_notify,
-                tx_status,
+                status::Sender::Bridge(tx_status),
                 extranonces,
                 Arc::new(Mutex::new(upstream_target)),
             )

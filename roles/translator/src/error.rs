@@ -8,6 +8,7 @@ use v1::server_to_client::{Notify, SetDifficulty};
 
 pub type ProxyResult<'a, T> = core::result::Result<T, Error<'a>>;
 
+#[allow(dead_code)]
 #[derive(Debug)]
 pub enum LockError<'a> {
     Bridge(PoisonError<MutexGuard<'a, proxy::Bridge>>),
@@ -20,6 +21,7 @@ pub enum ChannelSendError<'a> {
     ),
     SetNewPrevHash(async_channel::SendError<roles_logic_sv2::mining_sv2::SetNewPrevHash<'a>>),
     Notify(async_channel::SendError<Notify<'a>>),
+    V1Message(async_channel::SendError<v1::Message>),
 }
 
 #[derive(Debug)]
@@ -51,6 +53,7 @@ pub enum Error<'a> {
     // PoisonLock(LockError<'a>),
     // Channel Receiver Error
     ChannelErrorReceiver(async_channel::RecvError),
+    TokioChannelErrorRecv(tokio::sync::broadcast::error::RecvError),
     // Channel Sender Errors
     ChannelErrorSender(ChannelSendError<'a>),
     Uint256Conversion(ParseLengthError),
@@ -76,6 +79,7 @@ impl<'a> fmt::Display for Error<'a> {
             UpstreamIncoming(ref e) => write!(f, "Upstream parse incoming error: `{:?}`", e),
             // PoisonLock(ref e) => write!(f, "Poison Lock error: `{:?}`", e),
             ChannelErrorReceiver(ref e) => write!(f, "Channel receive error: `{:?}`", e),
+            TokioChannelErrorRecv(ref e) => write!(f, "Channel receive error: `{:?}`", e),
             ChannelErrorSender(ref e) => write!(f, "Channel send error: `{:?}`", e),
             Uint256Conversion(ref e) => write!(f, "U256 Conversion Error: `{:?}`", e),
             SetDifficultyToMessage(ref e) => {
@@ -147,6 +151,12 @@ impl<'a> From<async_channel::RecvError> for Error<'a> {
     }
 }
 
+impl<'a> From<tokio::sync::broadcast::error::RecvError> for Error<'a> {
+    fn from(e: tokio::sync::broadcast::error::RecvError) -> Self {
+        Error::TokioChannelErrorRecv(e)
+    }
+}
+
 // *** LOCK ERRORS ***
 // impl<'a> From<PoisonError<MutexGuard<'a, proxy::Bridge>>> for Error<'a> {
 //     fn from(e: PoisonError<MutexGuard<'a, proxy::Bridge>>) -> Self {
@@ -186,6 +196,12 @@ impl<'a> From<async_channel::SendError<roles_logic_sv2::mining_sv2::SetNewPrevHa
 impl<'a> From<async_channel::SendError<Notify<'a>>> for Error<'a> {
     fn from(e: async_channel::SendError<Notify<'a>>) -> Self {
         Error::ChannelErrorSender(ChannelSendError::Notify(e))
+    }
+}
+
+impl<'a> From<async_channel::SendError<v1::Message>> for Error<'a> {
+    fn from(e: async_channel::SendError<v1::Message>) -> Self {
+        Error::ChannelErrorSender(ChannelSendError::V1Message(e))
     }
 }
 

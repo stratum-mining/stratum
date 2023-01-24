@@ -602,7 +602,7 @@ impl UpstreamMiningNode {
         request_id: u32,
         downstream_hash_rate: f32,
         id_header_only: bool,
-        channel_id: u32
+        channel_id: u32,
     ) -> Vec<Mining<'static>> {
         match self.channel_kind {
             ChannelKind::Group => panic!(),
@@ -612,7 +612,12 @@ impl UpstreamMiningNode {
                     .channel_factory
                     .as_mut()
                     .unwrap()
-                    .add_standard_channel(request_id, downstream_hash_rate, id_header_only, channel_id)
+                    .add_standard_channel(
+                        request_id,
+                        downstream_hash_rate,
+                        id_header_only,
+                        channel_id,
+                    )
                     .unwrap();
                 messages.into_iter().map(|x| x.into_static()).collect()
             }
@@ -622,7 +627,12 @@ impl UpstreamMiningNode {
                     .as_mut()
                     .unwrap()
                     // TODO which channel should I send instead of 0 or 0 is ok?
-                    .add_standard_channel(request_id, downstream_hash_rate, id_header_only, channel_id)
+                    .add_standard_channel(
+                        request_id,
+                        downstream_hash_rate,
+                        id_header_only,
+                        channel_id,
+                    )
                     .unwrap();
                 messages.into_iter().map(|x| x.into_static()).collect()
             }

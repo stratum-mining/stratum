@@ -1,7 +1,7 @@
 use crate::{
     downstream_sv1::Downstream,
     error::Error::{CodecNoise, UpstreamIncoming},
-    status::{State, Status},
+    status,
     upstream_sv2::{EitherFrame, Message, StdFrame, UpstreamConnection},
     ProxyResult,
 };
@@ -9,7 +9,7 @@ use async_channel::{Receiver, Sender};
 use async_std::{net::TcpStream, task};
 use binary_sv2::u256_from_int;
 use codec_sv2::{Frame, HandshakeRole, Initiator};
-use error_handling::handle_result;
+use error_handling::{handle_result, ErrorBranch};
 use network_helpers::Connection;
 use roles_logic_sv2::{
     bitcoin::BlockHash,
@@ -68,7 +68,7 @@ pub struct Upstream {
     tx_sv2_extranonce: Sender<ExtendedExtranonce>,
     /// This allows the upstream threads to be able to communicate back to the main thread its
     /// current status.
-    tx_status: Sender<Status<'static>>,
+    tx_status: status::Sender,
     /// The first `target` is received by the Upstream role in the SV2
     /// `OpenExtendedMiningChannelSuccess` message, then updated periodically via SV2 `SetTarget`
     /// messages. Passed to the `Downstream` on connection creation and sent to the Downstream role
@@ -94,7 +94,7 @@ impl Upstream {
         tx_sv2_new_ext_mining_job: Sender<NewExtendedMiningJob<'static>>,
         min_extranonce_size: u16,
         tx_sv2_extranonce: Sender<ExtendedExtranonce>,
-        tx_status: Sender<Status<'static>>,
+        tx_status: status::Sender,
         target: Arc<Mutex<Vec<u8>>>,
     ) -> ProxyResult<'static, Arc<Mutex<Self>>> {
         // Connect to the SV2 Upstream role retry connection every 5 seconds.
@@ -160,7 +160,7 @@ impl Upstream {
         let sv2_frame: StdFrame = Message::Common(setup_connection.into()).try_into()?;
         // Send the `SetupConnection` frame to the SV2 Upstream role
         // Only one Upstream role is supported, panics if multiple connections are encountered
-        connection.send(sv2_frame).await.unwrap();
+        connection.send(sv2_frame).await?;
 
         debug!("Sent SetupConnection to Upstream, waiting for response");
         // Wait for the SV2 Upstream to respond with either a `SetupConnectionSuccess` or a
@@ -323,8 +323,8 @@ impl Upstream {
                     // returns Ok(SendTo::None(None)) or Ok(SendTo::None(Some(m))), or returns Err
                     Ok(_) => panic!(),
                     Err(e) => {
-                        let status = Status {
-                            state: State::Shutdown(UpstreamIncoming(e)),
+                        let status = status::Status {
+                            state: status::State::UpstreamShutdown(UpstreamIncoming(e)),
                         };
                         error!(
                             "TERMINATING: Error handling pool role message: {:?}",
