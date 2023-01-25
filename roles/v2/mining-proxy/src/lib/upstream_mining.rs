@@ -28,6 +28,7 @@ use roles_logic_sv2::{
 };
 use std::{collections::HashMap, sync::Arc};
 use tokio::{net::TcpStream, task};
+use tracing::error;
 
 pub type Message = PoolMessages<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;
@@ -260,7 +261,7 @@ impl UpstreamMiningNode {
     pub async fn send(
         self_mutex: Arc<Mutex<Self>>,
         sv2_frame: StdFrame,
-    ) -> Result<(), SendError<EitherFrame>> {
+    ) -> Result<(), crate::lib::error::Error> {
         let (has_sv2_connetcion, mut connection) = self_mutex
             .safe_lock(|self_| (self_.sv2_connection.is_some(), self_.connection.clone()))
             .unwrap();
@@ -284,10 +285,10 @@ impl UpstreamMiningNode {
             // initialized upstream nodes!
             (Some(connection), false) => match connection.send(sv2_frame).await {
                 Ok(_) => Ok(()),
-                Err(e) => Err(e),
+                Err(e) => Err(e)?,
             },
             (None, _) => {
-                Self::connect(self_mutex.clone()).await.unwrap();
+                Self::connect(self_mutex.clone()).await?;
                 let mut connection = self_mutex
                     .safe_lock(|self_| self_.connection.clone())
                     .unwrap();
@@ -298,14 +299,14 @@ impl UpstreamMiningNode {
                     },
                     Err(e) => {
                         //Self::connect(self_mutex.clone()).await.unwrap();
-                        Err(e)
+                        Err(e)?
                     }
                 }
             }
         }
     }
 
-    async fn receive(self_mutex: Arc<Mutex<Self>>) -> Result<StdFrame, ()> {
+    async fn receive(self_mutex: Arc<Mutex<Self>>) -> Result<StdFrame, crate::lib::error::Error> {
         let mut connection = self_mutex
             .safe_lock(|self_| self_.connection.clone())
             .unwrap();
@@ -313,15 +314,15 @@ impl UpstreamMiningNode {
             Some(connection) => match connection.receiver.recv().await {
                 Ok(m) => Ok(m.try_into().unwrap()),
                 Err(_) => {
-                    Self::connect(self_mutex).await?;
-                    Err(())
+                    let address = self_mutex.safe_lock(|s| s.address.clone()).unwrap();
+                    Err(crate::lib::error::Error::UpstreamNotAvailabe(address))
                 }
             },
-            None => todo!("177"),
+            None => todo!(),
         }
     }
 
-    async fn connect(self_mutex: Arc<Mutex<Self>>) -> Result<(), ()> {
+    async fn connect(self_mutex: Arc<Mutex<Self>>) -> Result<(), crate::lib::error::Error> {
         let has_connection = self_mutex
             .safe_lock(|self_| self_.connection.is_some())
             .unwrap();
@@ -331,7 +332,9 @@ impl UpstreamMiningNode {
                 let (address, authority_public_key) = self_mutex
                     .safe_lock(|self_| (self_.address, self_.authority_public_key))
                     .unwrap();
-                let socket = TcpStream::connect(address).await.map_err(|_| ())?;
+                let socket = TcpStream::connect(address)
+                    .await
+                    .map_err(|_| crate::lib::error::Error::UpstreamNotAvailabe(address))?;
                 let initiator = Initiator::from_raw_k(authority_public_key).unwrap();
                 let (receiver, sender) =
                     Connection::new(socket, HandshakeRole::Initiator(initiator)).await;
@@ -476,14 +479,12 @@ impl UpstreamMiningNode {
         flags: Option<u32>,
         min_version: u16,
         max_version: u16,
-    ) -> Result<(), ()> {
+    ) -> Result<(), crate::lib::error::Error> {
         let flags = flags.unwrap_or(0b0000_0000_0000_0000_0000_0000_0000_0110);
         let frame = self_mutex
             .safe_lock(|self_| self_.new_setup_connection_frame(flags, min_version, max_version))
             .unwrap();
-        Self::send(self_mutex.clone(), frame)
-            .await
-            .map_err(|_| ())?;
+        Self::send(self_mutex.clone(), frame).await?;
 
         let cloned = self_mutex.clone();
         let mut response = task::spawn(async { Self::receive(cloned).await })
@@ -525,11 +526,16 @@ impl UpstreamMiningNode {
                     Self::setup_flag_and_version(self_mutex, Some(flags), min_version, max_version)
                         .await
                 } else {
-                    Err(())
+                    let error_message = std::str::from_utf8(m.error_code.inner_as_ref())
+                        .unwrap()
+                        .to_string();
+                    Err(crate::lib::error::Error::SetupConnectionError(
+                        error_message,
+                    ))
                 }
             }
-            Ok(_) => todo!("356"),
-            Err(_) => todo!("357"),
+            Ok(_) => todo!(),
+            Err(_) => todo!(),
         }
     }
     async fn open_extended_channel(self_mutex: Arc<Mutex<Self>>) {
@@ -909,21 +915,37 @@ impl
     }
 }
 
-pub async fn scan(nodes: Vec<Arc<Mutex<UpstreamMiningNode>>>, min_version: u16, max_version: u16) {
+pub async fn scan(
+    nodes: Vec<Arc<Mutex<UpstreamMiningNode>>>,
+    min_version: u16,
+    max_version: u16,
+) -> Vec<Arc<Mutex<UpstreamMiningNode>>> {
+    let mut res = Arc::new(Mutex::new(Vec::with_capacity(nodes.len())));
     let spawn_tasks: Vec<task::JoinHandle<()>> = nodes
         .iter()
         .map(|node| {
             let node = node.clone();
+            let cloned = res.clone();
             task::spawn(async move {
-                UpstreamMiningNode::setup_flag_and_version(node, None, min_version, max_version)
-                    .await
-                    .unwrap();
+                if let Err(e) = UpstreamMiningNode::setup_flag_and_version(
+                    node.clone(),
+                    None,
+                    min_version,
+                    max_version,
+                )
+                .await
+                {
+                    error!("{:?}", e)
+                } else {
+                    cloned.safe_lock(|r| r.push(node.clone()));
+                }
             })
         })
         .collect();
     for task in spawn_tasks {
-        task.await.unwrap();
+        task.await.unwrap()
     }
+    res.safe_lock(|r| r.clone()).unwrap()
 }
 
 impl IsUpstream<DownstreamMiningNode, ProxyRemoteSelector> for UpstreamMiningNode {

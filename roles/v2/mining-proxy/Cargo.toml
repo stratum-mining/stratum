@@ -5,7 +5,7 @@ authors = ["user"]
 edition = "2018"
 
 [dependencies]
-async-channel = "1.5.1"
+async-channel = "1.8.0"
 async-recursion = "0.3.2"
 binary_sv2 = { path = "../../../protocols/v2/binary-sv2/binary-sv2" }
 buffer_sv2 = { path = "../../../utils/buffer" }

@@ -96,13 +96,11 @@ impl Connection {
                         match (&writer).write_all(b).await {
                             Ok(_) => (),
                             Err(e) => {
-                                println!("UUUU {:#?}", e);
                                 let _ = writer.shutdown(async_std::net::Shutdown::Both);
                             }
                         }
                     }
                     Err(e) => {
-                        println!("EEEE {:#?}", e);
                         let _ = writer.shutdown(async_std::net::Shutdown::Both);
                         break;
                     }

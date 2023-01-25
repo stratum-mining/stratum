@@ -204,19 +204,19 @@ impl DownstreamMiningNode {
                 .await
                 .unwrap();
             }
+            let receiver = self_mutex
+                .safe_lock(|self_| self_.receiver.clone())
+                .unwrap();
+            let cloned = receiver.clone();
 
-            // TODO levare questo task
-            let _ = task::spawn(async move {
-                loop {
-                    let receiver = self_mutex
-                        .safe_lock(|self_| self_.receiver.clone())
-                        .unwrap();
-                    let message = receiver.recv().await.unwrap();
+            loop {
+                if let Ok(message) = receiver.recv().await {
                     let incoming: StdFrame = message.try_into().unwrap();
-                    Self::next(self_mutex.clone(), incoming).await
+                    Self::next(self_mutex.clone(), incoming).await;
+                } else {
+                    break;
                 }
-            })
-            .await;
+            }
         } else {
             panic!()
         }

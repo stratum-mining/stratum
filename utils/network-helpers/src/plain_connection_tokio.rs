@@ -73,10 +73,13 @@ impl PlainConnection {
                     Err(e) => {
                         // Just fail and force to reinitialize everything
                         error!("Failed to read from stream: {}", e);
+                        sender_incoming.close();
+                        task::yield_now().await;
                         break;
                     }
                 }
             }
+            println!("exit");
         });
 
         // ENCODE AND SEND INCOMING MESSAGES TO TCP STREAM
@@ -100,6 +103,7 @@ impl PlainConnection {
                         // Just fail and force to reinitilize everything
                         let _ = writer.shutdown().await;
                         error!("Failed to read from stream - terminating connection");
+                        task::yield_now().await;
                         break;
                     }
                 };

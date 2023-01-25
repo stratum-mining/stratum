@@ -195,6 +195,9 @@ impl<
             down: std::marker::PhantomData,
         }
     }
+    pub fn update_upstreams(&mut self, upstreams: Vec<Arc<Mutex<Up>>>) {
+        self.upstreams = upstreams;
+    }
 }
 impl<
         Sel: DownstreamMiningSelector<Down>,

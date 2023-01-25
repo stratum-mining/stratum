@@ -59,7 +59,13 @@ async fn initialize_upstreams(min_version: u16, max_version: u16) {
         .expect("BUG: ROUTING_LOGIC has not been set yet")
         .safe_lock(|r_logic| r_logic.upstream_selector.upstreams.clone())
         .unwrap();
-    crate::lib::upstream_mining::scan(upstreams, min_version, max_version).await;
+    let available_upstreams =
+        crate::lib::upstream_mining::scan(upstreams, min_version, max_version).await;
+    ROUTING_LOGIC
+        .get()
+        .unwrap()
+        .safe_lock(|rl| rl.upstream_selector.update_upstreams(available_upstreams))
+        .unwrap();
 }
 
 pub fn get_routing_logic() -> MiningRoutingLogic<
@@ -256,7 +262,6 @@ mod args {
 #[tokio::main]
 async fn main() {
     tracing_subscriber::fmt::init();
-
     let args = match args::Args::from_args() {
         Ok(cfg) => cfg,
         Err(help) => {

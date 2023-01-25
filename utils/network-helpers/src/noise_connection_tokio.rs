@@ -67,6 +67,7 @@ impl Connection {
                         error!("Disconnected from client: {}", e);
 
                         //kill thread without a panic - don't need to panic everytime a client disconnects
+                        task::yield_now().await;
                         break;
                     }
                 }
@@ -93,6 +94,7 @@ impl Connection {
                                 let _ = writer.shutdown().await;
                                 // Just fail and force to reinitialize everything
                                 error!("Disconnecting from client due to error: {}", e);
+                                task::yield_now().await;
                                 break;
                             }
                         }
@@ -101,6 +103,7 @@ impl Connection {
                         // Just fail and force to reinitilize everything
                         let _ = writer.shutdown().await;
                         error!("Disconnecting from client due to error: {}", e);
+                        task::yield_now().await;
                         break;
                     }
                 };
