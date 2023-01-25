@@ -607,7 +607,6 @@ impl UpstreamMiningNode {
         match self.channel_kind {
             ChannelKind::Group => panic!(),
             ChannelKind::Extended => {
-                //TODO: REVIEW id field set to 0
                 let messages = self
                     .channel_factory
                     .as_mut()
@@ -626,7 +625,6 @@ impl UpstreamMiningNode {
                     .channel_factory
                     .as_mut()
                     .unwrap()
-                    // TODO which channel should I send instead of 0 or 0 is ok?
                     .add_standard_channel(
                         request_id,
                         downstream_hash_rate,
