@@ -39,7 +39,7 @@ pub struct SetCoinbase<'decoder> {
 #[cfg(feature = "with_serde")]
 use binary_sv2::GetSize;
 #[cfg(feature = "with_serde")]
-impl GetSize for SetCoinbase {
+impl<'d> GetSize for SetCoinbase<'d> {
     fn get_size(&self) -> usize {
         self.token.get_size()
             + self.coinbase_output_max_additional_size.get_size()

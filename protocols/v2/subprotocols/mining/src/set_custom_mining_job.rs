@@ -101,7 +101,7 @@ impl<'d> GetSize for SetCustomMiningJob<'d> {
     fn get_size(&self) -> usize {
         self.channel_id.get_size()
             + self.request_id.get_size()
-            + self.coin.get_size()
+            + self.token.get_size()
             + self.version.get_size()
             + self.prev_hash.get_size()
             + self.min_ntime.get_size()
@@ -118,13 +118,9 @@ impl<'d> GetSize for SetCustomMiningJob<'d> {
     }
 }
 #[cfg(feature = "with_serde")]
-impl<'d> GetSize for SetCustomMiningJobSuccess<'d> {
+impl GetSize for SetCustomMiningJobSuccess {
     fn get_size(&self) -> usize {
-        self.channel_id.get_size()
-            + self.request_id.get_size()
-            + self.job_id.get_size()
-            + self.coinbase_tx_prefix.get_size()
-            + self.coinbase_tx_suffix.get_size()
+        self.channel_id.get_size() + self.request_id.get_size() + self.job_id.get_size()
     }
 }
 #[cfg(feature = "with_serde")]

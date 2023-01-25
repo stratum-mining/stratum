@@ -201,12 +201,10 @@ mod test {
         #[serde(borrow)]
         test_b064: B064K<'decoder>,
         #[serde(borrow)]
-        test_seq_064k_bool: Seq064K<'decoder,bool>,
+        test_seq_064k_bool: Seq064K<'decoder, bool>,
         #[serde(borrow)]
-        test_seq_064k_b064k: Seq064K<'decoder,B064K<'decoder>>,
+        test_seq_064k_b064k: Seq064K<'decoder, B064K<'decoder>>,
     }
-
-
 
     #[test]
     fn it_parse_test() {
@@ -237,15 +235,18 @@ mod test {
         }
         "#;
         let test_struct: TestStruct = serde_json::from_str(test_json).unwrap();
-        assert!(test_struct.test_b016m == vec![1,1].try_into().unwrap());
-        assert!(test_struct.test_b0255 == vec![1,1].try_into().unwrap());
-        assert!(test_struct.test_b032 == vec![1,1].try_into().unwrap());
-        assert!(test_struct.test_b064 == vec![1,1].try_into().unwrap());
-        assert!(test_struct.test_b064 == vec![1,1].try_into().unwrap());
-        assert!(test_struct.test_seq_064k_bool.into_inner() == vec![true,false]);
-        assert!(test_struct.test_seq_064k_b064k.into_inner() == vec![
-                vec![1,2].try_into().unwrap(),
-                vec![3,4].try_into().unwrap(),
-        ]);
+        assert!(test_struct.test_b016m == vec![1, 1].try_into().unwrap());
+        assert!(test_struct.test_b0255 == vec![1, 1].try_into().unwrap());
+        assert!(test_struct.test_b032 == vec![1, 1].try_into().unwrap());
+        assert!(test_struct.test_b064 == vec![1, 1].try_into().unwrap());
+        assert!(test_struct.test_b064 == vec![1, 1].try_into().unwrap());
+        assert!(test_struct.test_seq_064k_bool.into_inner() == vec![true, false]);
+        assert!(
+            test_struct.test_seq_064k_b064k.into_inner()
+                == vec![
+                    vec![1, 2].try_into().unwrap(),
+                    vec![3, 4].try_into().unwrap(),
+                ]
+        );
     }
 }
