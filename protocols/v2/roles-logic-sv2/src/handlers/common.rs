@@ -36,7 +36,7 @@ where
             Ok(CommonMessages::ChannelEndpointChanged(m)) => self_
                 .safe_lock(|x| x.handle_channel_endpoint_changed(m))
                 .unwrap(),
-            Ok(CommonMessages::SetupConnection(_)) => Err(Error::UnexpectedMessage),
+            Ok(CommonMessages::SetupConnection(_)) => Err(Error::UnexpectedMessage(message_type)),
             Err(e) => Err(e),
         }
     }
@@ -61,9 +61,15 @@ where
     fn parse_message(message_type: u8, payload: &mut [u8]) -> Result<SetupConnection, Error> {
         match (message_type, payload).try_into() {
             Ok(CommonMessages::SetupConnection(m)) => Ok(m),
-            Ok(CommonMessages::SetupConnectionSuccess(_)) => Err(Error::UnexpectedMessage),
-            Ok(CommonMessages::SetupConnectionError(_)) => Err(Error::UnexpectedMessage),
-            Ok(CommonMessages::ChannelEndpointChanged(_)) => Err(Error::UnexpectedMessage),
+            Ok(CommonMessages::SetupConnectionSuccess(_)) => Err(Error::UnexpectedMessage(
+                const_sv2::MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS,
+            )),
+            Ok(CommonMessages::SetupConnectionError(_)) => Err(Error::UnexpectedMessage(
+                const_sv2::MESSAGE_TYPE_SETUP_CONNECTION_ERROR,
+            )),
+            Ok(CommonMessages::ChannelEndpointChanged(_)) => Err(Error::UnexpectedMessage(
+                const_sv2::MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED,
+            )),
             Err(e) => Err(e),
         }
     }
@@ -90,9 +96,15 @@ where
                     .safe_lock(|x| x.handle_setup_connection(m, None))
                     .unwrap(),
             },
-            Ok(CommonMessages::SetupConnectionSuccess(_)) => Err(Error::UnexpectedMessage),
-            Ok(CommonMessages::SetupConnectionError(_)) => Err(Error::UnexpectedMessage),
-            Ok(CommonMessages::ChannelEndpointChanged(_)) => Err(Error::UnexpectedMessage),
+            Ok(CommonMessages::SetupConnectionSuccess(_)) => Err(Error::UnexpectedMessage(
+                const_sv2::MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS,
+            )),
+            Ok(CommonMessages::SetupConnectionError(_)) => Err(Error::UnexpectedMessage(
+                const_sv2::MESSAGE_TYPE_SETUP_CONNECTION_ERROR,
+            )),
+            Ok(CommonMessages::ChannelEndpointChanged(_)) => Err(Error::UnexpectedMessage(
+                const_sv2::MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED,
+            )),
             Err(e) => Err(e),
         }
     }

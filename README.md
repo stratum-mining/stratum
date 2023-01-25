@@ -9,10 +9,11 @@ the Bitcoin network.
 ## Table of Contents
 
 - [Stratum](#stratum)
+  - [Table of Contents](#table-of-contents)
   - [1. Goals](#1-goals)
   - [2. Common Use Cases](#2-common-use-cases)
-    - [2.1 Miners](#21-miners)
-    - [2.2 Pools](#22-pools)
+  - [2.1 Miners](#21-miners)
+  - [2.2 Pools](#22-pools)
   - [3. Structure](#3-structure)
     - [3.01 protocols](#301-protocols)
     - [3.02 protocols/v1](#302-protocolsv1)
@@ -41,12 +42,14 @@ the Bitcoin network.
     - [3.25 examples/template-provider-test](#325-examplestemplate-provider-test)
     - [3.26 test](#326-test)
     - [3.27 experimental](#327-experimental)
-  - [4. Build/Test/Run](#4-build-test-run)
-    - [4.01 build](#401-build)
-    - [4.02 test](#402-test)
-    - [4.03 run](#403-run)
+  - [4. Build/Run/Test](#4-buildruntest)
+    - [4.01 Build](#401-build)
+      - [Building/Updating sv2-ffi](#buildingupdating-sv2-ffi)
+    - [4.02 Test](#402-test)
+    - [4.03 Run](#403-run)
   - [5. Branches](#5-branches)
   - [6. Logging](#6-logging)
+  - [7. proxy-config.toml file](#7-proxy-configtoml-file)
 
 ## 1. Goals
 
@@ -532,3 +535,23 @@ log messages to std out. To manage the log level output specify your log level i
 on startup.
 For example to start the pool crate with `debug` logging activated start it with `RUST_LOG=debug cargo run`. We support 
 this order of logging granularity: `trace`, `debug`, `info`, `warn`, `error`.
+
+## 7. proxy-config.toml file
+
+"upstream" is a vector of Pools that the proxy will connect with.
+
+"channel_kind" is the field related to what kind of channel the Proxy requests to the Pool to open,
+For the use of Job Negotiator only ExtendedWithNegotiator is the valid channel; other type of channel_kind
+are: Extended and Group.
+
+"address" is the address of the pool and it will be used to start a new TCP connection between
+the Proxy and the Pool together with the next field "port".
+
+"pub_key" is the public key that the proxy gives to the Pool to start the connection.
+
+"upstreams_jn" is a vector of pool JN addresses with which proxy JN will connect.
+
+"tp_address" is the template provider address, is needed to open a TCP connection with a tempalte provider.
+
+"listen_address" and "listen_mining_port" are needed to connect the mining devices to the proxy,
+the proxy will listen to this IP/port for mining devices messages.

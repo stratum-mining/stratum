@@ -18,21 +18,24 @@
 //! A Downstream that signal the incapacity to handle group channels can open only one channel.
 //!
 mod lib;
-use std::net::SocketAddr;
-
-use tracing::{error, info};
-
-use lib::upstream_mining::UpstreamMiningNode;
+use async_channel::bounded;
+use lib::{
+    job_negotiator::JobNegotiator, template_receiver::TemplateRx,
+    upstream_mining::UpstreamMiningNode,
+};
 use once_cell::sync::OnceCell;
-use serde::Deserialize;
-
 use roles_logic_sv2::{
     routing_logic::{CommonRoutingLogic, MiningProxyRoutingLogic, MiningRoutingLogic},
     selectors::GeneralMiningSelector,
-    utils::{Id, Mutex},
+    utils::{GroupId, Id, Mutex},
 };
-use std::sync::Arc;
-
+use serde::Deserialize;
+use std::{
+    net::{IpAddr, SocketAddr},
+    str::FromStr,
+    sync::Arc,
+};
+use tracing::{error, info};
 type RLogic = MiningProxyRoutingLogic<
     crate::lib::downstream_mining::DownstreamMiningNode,
     crate::lib::upstream_mining::UpstreamMiningNode,
@@ -47,6 +50,8 @@ type RLogic = MiningProxyRoutingLogic<
 /// So it make sense to use shared mutable memory to lower the complexity of the codebase and to
 /// have some performance gain.
 static ROUTING_LOGIC: OnceCell<Mutex<RLogic>> = OnceCell::new();
+static MIN_EXTRANONCE_SIZE: u16 = 6;
+static EXTRANONCE_RAGE_1_LENGTH: usize = 4;
 
 async fn initialize_upstreams(min_version: u16, max_version: u16) {
     let upstreams = ROUTING_LOGIC
@@ -77,36 +82,100 @@ pub fn get_common_routing_logic() -> CommonRoutingLogic<RLogic> {
     )
 }
 
-#[derive(Debug, Deserialize)]
-pub struct UpstreamValues {
+#[derive(Debug, Deserialize, Clone)]
+pub struct UpstreamMiningValues {
+    address: String,
+    port: u16,
+    pub_key: codec_sv2::noise_sv2::formats::EncodedEd25519PublicKey,
+    channel_kind: ChannelKind,
+}
+#[derive(Debug, Deserialize, Clone)]
+pub struct UpstreamJNValues {
     address: String,
     port: u16,
     pub_key: codec_sv2::noise_sv2::formats::EncodedEd25519PublicKey,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone, Copy)]
+pub enum ChannelKind {
+    Group,
+    Extended,
+    ExtendedWithNegotiator,
+}
+
+#[derive(Debug, Deserialize, Clone)]
 pub struct Config {
-    upstreams: Vec<UpstreamValues>,
+    upstreams: Vec<UpstreamMiningValues>,
+    upstreams_jn: Vec<UpstreamJNValues>,
+    tp_address: String,
     listen_address: String,
     listen_mining_port: u16,
     max_supported_version: u16,
     min_supported_version: u16,
 }
 
-pub fn initialize_r_logic(upstreams: &[UpstreamValues]) -> RLogic {
-    let upstream_mining_nodes: Vec<Arc<Mutex<UpstreamMiningNode>>> = upstreams
-        .iter()
-        .enumerate()
-        .map(|(index, upstream)| {
-            let socket = SocketAddr::new(upstream.address.parse().unwrap(), upstream.port);
-            Arc::new(Mutex::new(UpstreamMiningNode::new(
-                index as u32,
-                socket,
-                upstream.pub_key.clone().into_inner().to_bytes(),
-            )))
-        })
-        .collect();
-    //crate::lib::upstream_mining::scan(upstream_mining_nodes.clone()).await;
+pub async fn initialize_r_logic(
+    upstreams: &[UpstreamMiningValues],
+    group_id: Arc<Mutex<GroupId>>,
+    config: Config,
+) -> RLogic {
+    let request_ids = Arc::new(Mutex::new(Id::new()));
+    let channel_ids = Arc::new(Mutex::new(Id::new()));
+    let mut upstream_mining_nodes = Vec::with_capacity(upstreams.len());
+    for (index, upstream) in upstreams.iter().enumerate() {
+        let socket = SocketAddr::new(upstream.address.parse().unwrap(), upstream.port);
+
+        // channel for template
+        let (send_tp, recv_tp) = bounded(10);
+        // channel for prev hash
+        let (send_ph, recv_ph) = bounded(10);
+        // channel to send coinbase_output_max_additional_size
+        let (send_comas, recv_comas) = bounded(10);
+
+        match upstream.channel_kind {
+            ChannelKind::Group => todo!(),
+            ChannelKind::Extended => todo!(),
+            ChannelKind::ExtendedWithNegotiator => {
+                tokio::join!(
+                    TemplateRx::connect(
+                        config.tp_address.parse().unwrap(),
+                        send_tp,
+                        send_ph,
+                        recv_comas,
+                    ),
+                    JobNegotiator::new(
+                        SocketAddr::new(
+                            IpAddr::from_str(&config.upstreams_jn[0].address).unwrap(),
+                            config.upstreams_jn[0].port,
+                        ),
+                        config.upstreams_jn[0]
+                            .clone()
+                            .pub_key
+                            .into_inner()
+                            .as_bytes()
+                            .to_owned(),
+                        send_comas,
+                    )
+                );
+            }
+        }
+
+        let upstream = Arc::new(Mutex::new(UpstreamMiningNode::new(
+            index as u32,
+            socket,
+            upstream.pub_key.clone().into_inner().to_bytes(),
+            upstream.channel_kind,
+            group_id.clone(),
+            Some(recv_tp),
+            Some(recv_ph),
+            request_ids.clone(),
+            channel_ids.clone(),
+        )));
+        upstream_mining_nodes.push(upstream.clone());
+
+        UpstreamMiningNode::start_receiving_new_template(upstream.clone());
+        UpstreamMiningNode::start_receiving_new_prev_hash(upstream);
+    }
     let upstream_selector = GeneralMiningSelector::new(upstream_mining_nodes);
     MiningProxyRoutingLogic {
         upstream_selector,
@@ -206,10 +275,13 @@ async fn main() {
             return;
         }
     };
-    ROUTING_LOGIC
-        .set(Mutex::new(initialize_r_logic(&config.upstreams)))
-        .expect("BUG: Failed to set ROUTING_LOGIC");
 
+    let group_id = Arc::new(Mutex::new(GroupId::new()));
+    ROUTING_LOGIC
+        .set(Mutex::new(
+            initialize_r_logic(&config.upstreams, group_id, config.clone()).await,
+        ))
+        .expect("BUG: Failed to set ROUTING_LOGIC");
     info!("PROXY INITIALIZING");
     initialize_upstreams(config.min_supported_version, config.max_supported_version).await;
 
@@ -218,6 +290,7 @@ async fn main() {
         config.listen_address.parse().unwrap(),
         config.listen_mining_port,
     );
+
     info!("PROXY INITIALIZED");
-    crate::lib::downstream_mining::listen_for_downstream_mining(socket).await;
+    crate::lib::downstream_mining::listen_for_downstream_mining(socket).await
 }

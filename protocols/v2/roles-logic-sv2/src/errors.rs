@@ -11,8 +11,7 @@ pub enum Error {
     /// Errors if a `SendTo::RelaySameMessageSv1` request is made on a SV2-only application.
     CannotRelaySv1Message,
     NoGroupsFound,
-    WrongMessageType(u8),
-    UnexpectedMessage,
+    UnexpectedMessage(u8),
     NoGroupIdOnExtendedChannel,
     /// (`min_v`, `max_v`, all flags supported)
     NoPairableUpstream((u16, u16, u32)),
@@ -70,8 +69,7 @@ impl Display for Error {
                 f,
                 "A channel was attempted to be added to an Upstream, but no groups are specified"
             ),
-            WrongMessageType(m) => write!(f, "Wrong message type: {}", m),
-            UnexpectedMessage => write!(f, "Error: Unexpected message received"),
+            UnexpectedMessage(type_) => write!(f, "Error: Unexpected message received. Recv m type: {:x}", type_),
             NoGroupIdOnExtendedChannel => write!(f, "Extended channels do not have group IDs"),
             NoPairableUpstream(a) => {
                 write!(f, "No pairable upstream node: {:?}", a)

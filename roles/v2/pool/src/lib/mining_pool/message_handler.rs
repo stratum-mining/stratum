@@ -19,7 +19,7 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
     }
 
     fn is_work_selection_enabled(&self) -> bool {
-        false
+        true
     }
 
     fn handle_open_standard_mining_channel(
@@ -185,8 +185,15 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
         }
     }
 
-    fn handle_set_custom_mining_job(&mut self, _: SetCustomMiningJob) -> Result<SendTo<()>, Error> {
-        todo!()
+    fn handle_set_custom_mining_job(&mut self, m: SetCustomMiningJob) -> Result<SendTo<()>, Error> {
+        // TODO
+        let m = SetCustomMiningJobSuccess {
+            channel_id: m.channel_id,
+            request_id: m.request_id,
+            // TODO save it somewhere so we can match shares (channel factory??)
+            job_id: 0,
+        };
+        Ok(SendTo::Respond(Mining::SetCustomMiningJobSuccess(m)))
     }
 
     fn handle_message_mining(
@@ -238,7 +245,7 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
                     SupportedChannelTypes::Standard => self_mutex
                         .safe_lock(|self_| self_.handle_open_standard_mining_channel(m, upstream))
                         .unwrap(),
-                    SupportedChannelTypes::Extended => Err(Error::UnexpectedMessage),
+                    SupportedChannelTypes::Extended => Err(Error::UnexpectedMessage(message_type)),
                     SupportedChannelTypes::Group => self_mutex
                         .safe_lock(|self_| self_.handle_open_standard_mining_channel(m, upstream))
                         .unwrap(),
@@ -248,14 +255,14 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
                 }
             }
             Ok(Mining::OpenExtendedMiningChannel(m)) => match channel_type {
-                SupportedChannelTypes::Standard => Err(Error::UnexpectedMessage),
+                SupportedChannelTypes::Standard => Err(Error::UnexpectedMessage(message_type)),
                 SupportedChannelTypes::Extended => {
                     debug!("Received OpenExtendedMiningChannel->Extended message");
                     self_mutex
                         .safe_lock(|self_| self_.handle_open_extended_mining_channel(m))
                         .unwrap()
                 }
-                SupportedChannelTypes::Group => Err(Error::UnexpectedMessage),
+                SupportedChannelTypes::Group => Err(Error::UnexpectedMessage(message_type)),
                 SupportedChannelTypes::GroupAndExtended => {
                     debug!("Received OpenExtendedMiningChannel->GroupAndExtended message");
                     self_mutex
@@ -296,7 +303,7 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
                         .safe_lock(|self_| self_.handle_submit_shares_standard(m))
                         .unwrap()
                 }
-                SupportedChannelTypes::Extended => Err(Error::UnexpectedMessage),
+                SupportedChannelTypes::Extended => Err(Error::UnexpectedMessage(message_type)),
                 SupportedChannelTypes::Group => {
                     debug!("Received SubmitSharesStandard->Group message");
                     self_mutex
@@ -313,11 +320,11 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
             Ok(Mining::SubmitSharesExtended(m)) => {
                 debug!("Received SubmitSharesExtended message");
                 match channel_type {
-                    SupportedChannelTypes::Standard => Err(Error::UnexpectedMessage),
+                    SupportedChannelTypes::Standard => Err(Error::UnexpectedMessage(message_type)),
                     SupportedChannelTypes::Extended => self_mutex
                         .safe_lock(|self_| self_.handle_submit_shares_extended(m))
                         .unwrap(),
-                    SupportedChannelTypes::Group => Err(Error::UnexpectedMessage),
+                    SupportedChannelTypes::Group => Err(Error::UnexpectedMessage(message_type)),
                     SupportedChannelTypes::GroupAndExtended => self_mutex
                         .safe_lock(|self_| self_.handle_submit_shares_extended(m))
                         .unwrap(),
@@ -335,10 +342,10 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
                     (SupportedChannelTypes::GroupAndExtended, true) => self_mutex
                         .safe_lock(|self_| self_.handle_set_custom_mining_job(m))
                         .unwrap(),
-                    _ => Err(Error::UnexpectedMessage),
+                    _ => Err(Error::UnexpectedMessage(message_type)),
                 }
             }
-            Ok(_) => Err(Error::UnexpectedMessage),
+            Ok(_) => todo!(),
             Err(e) => Err(e),
         }
     }

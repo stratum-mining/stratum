@@ -134,9 +134,8 @@ impl Downstream {
                 }
             }
             Ok(SendTo::None(_)) => (),
-            Ok(_) => panic!(),
-            Err(Error::UnexpectedMessage) => todo!(),
-            Err(_) => todo!(),
+            Ok(e) => panic!("{:?}", e),
+            Err(e) => panic!("{:?}", e),
         }
     }
 

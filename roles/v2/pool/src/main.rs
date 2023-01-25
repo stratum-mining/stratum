@@ -25,16 +25,23 @@ const BLOCK_REWARD: u64 = 5_000_000_000;
 
 const COINBASE_ADD_SZIE: u32 = 100;
 
+const COINBASE_PREFIX: Vec<u8> = vec![];
+const COINBASE_SUFFIX: Vec<u8> = vec![];
+
 fn new_pub_key() -> PublicKey {
     let priv_k = PrivateKey::from_slice(&PRIVATE_KEY_BTC, NETWORK).unwrap();
     let secp = Secp256k1::default();
     PublicKey::from_private_key(&secp, &priv_k)
 }
+use tokio::task;
+
+use crate::lib::job_negotiator::JobNegotiator;
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Configuration {
     pub listen_address: String,
     pub tp_address: String,
+    pub listen_jn_address: String,
     pub authority_public_key: EncodedEd25519PublicKey,
     pub authority_secret_key: EncodedEd25519SecretKey,
     pub cert_validity_sec: u64,
@@ -141,8 +148,12 @@ async fn main() {
         r_message_recv_signal,
     )
     .await;
+
+    let cloned = config.clone();
+    task::spawn(async move { JobNegotiator::start(cloned).await });
+
     Pool::start(
-        config,
+        config.clone(),
         r_new_t,
         r_prev_hash,
         s_solution,

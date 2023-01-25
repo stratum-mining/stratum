@@ -1,3 +1,5 @@
+use crate::ChannelKind;
+
 use super::upstream_mining::{StdFrame as UpstreamFrame, UpstreamMiningNode};
 use async_channel::{Receiver, SendError, Sender};
 use roles_logic_sv2::{
@@ -256,8 +258,36 @@ impl DownstreamMiningNode {
                     .await
                     .unwrap();
             }
-            Ok(SendTo::Multiple(_sends_to)) => {
-                panic!();
+            Ok(SendTo::Multiple(sends_to)) => {
+                for message in sends_to {
+                    match message {
+                        roles_logic_sv2::handlers::SendTo_::Respond(m) => match m {
+                            Mining::NewMiningJob(_) => {
+                                let message = MiningDeviceMessages::Mining(m);
+                                let frame: StdFrame = message.try_into().unwrap();
+                                DownstreamMiningNode::send(self_mutex.clone(), frame)
+                                    .await
+                                    .unwrap();
+                            }
+                            Mining::OpenStandardMiningChannelSuccess(_) => {
+                                let message = MiningDeviceMessages::Mining(m);
+                                let frame: StdFrame = message.try_into().unwrap();
+                                DownstreamMiningNode::send(self_mutex.clone(), frame)
+                                    .await
+                                    .unwrap();
+                            }
+                            Mining::SetNewPrevHash(_) => {
+                                let message = MiningDeviceMessages::Mining(m);
+                                let frame: StdFrame = message.try_into().unwrap();
+                                DownstreamMiningNode::send(self_mutex.clone(), frame)
+                                    .await
+                                    .unwrap();
+                            }
+                            m => panic!("{:?}", m),
+                        },
+                        m => panic!("{:?}", m),
+                    }
+                }
             }
             Ok(SendTo::None(_)) => (),
             Ok(_) => panic!(),
@@ -301,10 +331,71 @@ impl
 
     fn handle_open_standard_mining_channel(
         &mut self,
-        _: OpenStandardMiningChannel,
-        up: Option<Arc<Mutex<UpstreamMiningNode>>>,
+        req: OpenStandardMiningChannel,
+        mut up: Option<Arc<Mutex<UpstreamMiningNode>>>,
     ) -> Result<SendTo<UpstreamMiningNode>, Error> {
-        Ok(SendTo::RelaySameMessageToRemote(up.unwrap()))
+        let channel_id = up
+            .as_ref()
+            .expect("No upstream initialized")
+            .safe_lock(|s| s.channel_ids.safe_lock(|r| r.next()).unwrap())
+            .unwrap();
+        let channel_kind = up
+            .as_ref()
+            .expect("No upstream initialized")
+            .safe_lock(|up| up.channel_kind)
+            .unwrap();
+        info!(channel_id);
+        match channel_kind {
+            ChannelKind::Group => Ok(SendTo::RelaySameMessageToRemote(up.unwrap())),
+            ChannelKind::Extended => {
+                let messages = up
+                    .as_mut()
+                    .unwrap()
+                    .safe_lock(|up| {
+                        up.open_standard_channel_down(
+                            req.request_id.as_u32(),
+                            req.nominal_hash_rate,
+                            true,
+                            channel_id,
+                        )
+                    })
+                    .unwrap();
+                for m in &messages {
+                    if let Mining::OpenStandardMiningChannelSuccess(m) = m {
+                        self.open_channel_for_down_hom_up_extended(
+                            m.channel_id,
+                            m.group_channel_id,
+                        );
+                    }
+                }
+                let messages = messages.into_iter().map(SendTo::Respond).collect();
+                Ok(SendTo::Multiple(messages))
+            }
+            ChannelKind::ExtendedWithNegotiator => {
+                let messages = up
+                    .as_mut()
+                    .unwrap()
+                    .safe_lock(|up| {
+                        up.open_standard_channel_down(
+                            req.request_id.as_u32(),
+                            req.nominal_hash_rate,
+                            true,
+                            channel_id,
+                        )
+                    })
+                    .unwrap();
+                for m in &messages {
+                    if let Mining::OpenStandardMiningChannelSuccess(m) = m {
+                        self.open_channel_for_down_hom_up_extended(
+                            m.channel_id,
+                            m.group_channel_id,
+                        );
+                    }
+                }
+                let messages = messages.into_iter().map(SendTo::Respond).collect();
+                Ok(SendTo::Multiple(messages))
+            }
+        }
     }
 
     fn handle_open_extended_mining_channel(
@@ -325,7 +416,6 @@ impl
         &mut self,
         m: SubmitSharesStandard,
     ) -> Result<SendTo<UpstreamMiningNode>, Error> {
-        info!("{:?}", m);
         match &self.status {
             DownstreamMiningNodeStatus::Initializing => todo!(),
             DownstreamMiningNodeStatus::Paired(_) => todo!(),
@@ -340,7 +430,8 @@ impl
                 Ok(SendTo::RelayNewMessageToRemote(remote.clone(), message))
             }
             _ => {
-                todo!()
+                info!("Rceived share TODO send it somwhere");
+                Ok(SendTo::None(None))
             }
         }
     }
