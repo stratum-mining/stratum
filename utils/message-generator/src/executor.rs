@@ -314,62 +314,14 @@ impl Executor {
 
                             }
                         } else if subprotocol.as_str() == "JobNegotiationProtocol" {
-                            match (header.msg_type(),payload).try_into() {
-                                Ok(roles_logic_sv2::parsers::JobNegotiation::CommitMiningJob(m)) => {
-                                    if message_type.as_str() == "CommitMiningJob" {
+                            match (header.msg_type(), payload).try_into() {
+                                Ok(roles_logic_sv2::parsers::JobNegotiation::SetCoinbase(m)) => {
+                                    if message_type.as_str() == "SetCoinbase" {
                                         let msg = serde_json::to_value(&m).unwrap();
-                                        check_msg_field(msg,&field_name,&value_type,field);
+                                        check_msg_field(msg, &field_name, &value_type, field);
                                     }
-                                },
-                                Ok(roles_logic_sv2::parsers::JobNegotiation::AllocateMiningJobToken(m)) => {
-                                    if message_type.as_str() == "AllocateMiningJobToken" {
-                                        let msg = serde_json::to_value(&m).unwrap();
-                                        check_msg_field(msg,&field_name,&value_type,field);
-                                    }
-                                },
-                                Ok(roles_logic_sv2::parsers::JobNegotiation::AllocateMiningJobTokenSuccess(m)) => {
-                                    if message_type.as_str() == "AllocateMiningJobTokenSuccess" {
-                                        let msg = serde_json::to_value(&m).unwrap();
-                                        check_msg_field(msg,&field_name,&value_type,field);
-                                    }
-                                },
-                                Ok(roles_logic_sv2::parsers::JobNegotiation::CommitMiningJobSuccess(m)) => {
-                                    if message_type.as_str() == "CommitMiningJobSuccess" {
-                                        let msg = serde_json::to_value(&m).unwrap();
-                                        check_msg_field(msg,&field_name,&value_type,field);
-                                    }
-                                },
-                                Ok(roles_logic_sv2::parsers::JobNegotiation::CommitMiningJobError(m)) => {
-                                    if message_type.as_str() == "CommitMiningJobError" {
-                                        let msg = serde_json::to_value(&m).unwrap();
-                                        check_msg_field(msg,&field_name,&value_type,field);
-                                    }
-                                },
-                                Ok(roles_logic_sv2::parsers::JobNegotiation::IdentifyTransactions(m)) => {
-                                    if message_type.as_str() == "IdentifyTransactions" {
-                                        let msg = serde_json::to_value(&m).unwrap();
-                                        check_msg_field(msg,&field_name,&value_type,field);
-                                    }
-                                },
-                                Ok(roles_logic_sv2::parsers::JobNegotiation::IdentifyTransactionsSuccess(m)) => {
-                                    if message_type.as_str() == "IdentifyTransactionsSuccess" {
-                                        let msg = serde_json::to_value(&m).unwrap();
-                                        check_msg_field(msg,&field_name,&value_type,field);
-                                    }
-                                },
-                                Ok(roles_logic_sv2::parsers::JobNegotiation::ProvideMissingTransactions(m)) => {
-                                    if message_type.as_str() == "ProvideMissingTransactions" {
-                                        let msg = serde_json::to_value(&m).unwrap();
-                                        check_msg_field(msg,&field_name,&value_type,field);
-                                    }
-                                },
-                                Ok(roles_logic_sv2::parsers::JobNegotiation::ProvideMissingTransactionsSuccess(m)) => {
-                                    if message_type.as_str() == "ProvideMissingTransactionsSuccess" {
-                                        let msg = serde_json::to_value(&m).unwrap();
-                                        check_msg_field(msg,&field_name,&value_type,field);
-                                    }
-                                },
-                                Err(e) => panic!("err {:?}",e),
+                                }
+                                Err(e) => panic!("err {:?}", e),
                             }
                         } else if subprotocol.as_str() == "TemplateDistributionProtocol" {
                             match (header.msg_type(),payload).try_into() {
@@ -455,7 +407,11 @@ impl Executor {
                 command.conditions,
             )
             // Give time to the last cleanup command to return before exit from the process
-            .await.unwrap().wait().await.unwrap();
+            .await
+            .unwrap()
+            .wait()
+            .await
+            .unwrap();
         }
         for child in self.process {
             if let Some(mut child) = child {

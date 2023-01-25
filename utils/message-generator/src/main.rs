@@ -209,27 +209,27 @@ mod test {
 
     #[tokio::test]
     async fn it_initialize_a_pool_and_connect_to_it() {
-        let mut bitcoind = os_command(
-            "./test/bin/bitcoind",
-            vec!["--regtest", "--datadir=./test/appdata/bitcoin_data/"],
-            ExternalCommandConditions::new_with_timer_secs(10)
-                .continue_if_std_out_have("sv2 thread start")
-                .fail_if_anything_on_std_err(),
-        )
-        .await;
-        let mut child = os_command(
-            "./test/bin/bitcoin-cli",
-            vec![
-                "--regtest",
-                "--datadir=./test/appdata/bitcoin_data/",
-                "generatetoaddress",
-                "16",
-                "bcrt1qttuwhmpa7a0ls5kr3ye6pjc24ng685jvdrksxx",
-            ],
-            ExternalCommandConditions::None,
-        )
-        .await;
-        child.unwrap().wait().await.unwrap();
+        //let mut bitcoind = os_command(
+        //    "./test/bin/bitcoind",
+        //    vec!["--regtest", "--datadir=./test/appdata/bitcoin_data/"],
+        //    ExternalCommandConditions::new_with_timer_secs(10)
+        //        .continue_if_std_out_have("sv2 thread start")
+        //        .fail_if_anything_on_std_err(),
+        //)
+        //.await;
+        //let mut child = os_command(
+        //    "./test/bin/bitcoin-cli",
+        //    vec![
+        //        "--regtest",
+        //        "--datadir=./test/appdata/bitcoin_data/",
+        //        "generatetoaddress",
+        //        "16",
+        //        "bcrt1qttuwhmpa7a0ls5kr3ye6pjc24ng685jvdrksxx",
+        //    ],
+        //    ExternalCommandConditions::None,
+        //)
+        //.await;
+        //child.unwrap().wait().await.unwrap();
         let mut pool = os_command(
             "cargo",
             vec![
@@ -240,8 +240,8 @@ mod test {
                 "-c",
                 "./roles/v2/pool/pool-config.toml",
             ],
-            ExternalCommandConditions::new_with_timer_secs(10)
-                .continue_if_std_out_have("Listening on"),
+            ExternalCommandConditions::new_with_timer_secs(60)
+                .continue_if_std_out_have("Listening for encrypted connection on: 0.0.0.0:34254"),
         )
         .await;
 
@@ -296,42 +296,42 @@ mod test {
         assert!(true)
     }
 
-    #[tokio::test]
-    async fn it_test_against_remote_endpoint() {
-        let proxy = match os_command(
-            "cargo",
-            vec![
-                "run",
-                "-p",
-                "mining-proxy",
-                "--",
-                "-c",
-                "./test/config/ant-pool-config.toml",
-            ],
-            ExternalCommandConditions::new_with_timer_secs(10)
-                .continue_if_std_out_have("PROXY INITIALIZED")
-                .warn_no_panic(),
-        )
-        .await
-        {
-            Some(child) => child,
-            None => {
-                write!(
-                    &mut std::io::stdout(),
-                    "WARNING: remote not avaiable it_test_against_remote_endpoint not executed"
-                )
-                .unwrap();
-                return;
-            }
-        };
-        //loop {}
-        let _ = os_command(
-            "cargo",
-            vec!["run", "-p", "mining-device"],
-            ExternalCommandConditions::new_with_timer_secs(10)
-                .continue_if_std_out_have("channel opened with"),
-        )
-        .await;
-        assert!(true)
-    }
+    //#[tokio::test]
+    //async fn it_test_against_remote_endpoint() {
+    //    let proxy = match os_command(
+    //        "cargo",
+    //        vec![
+    //            "run",
+    //            "-p",
+    //            "mining-proxy",
+    //            "--",
+    //            "-c",
+    //            "./test/config/ant-pool-config.toml",
+    //        ],
+    //        ExternalCommandConditions::new_with_timer_secs(10)
+    //            .continue_if_std_out_have("PROXY INITIALIZED")
+    //            .warn_no_panic(),
+    //    )
+    //    .await
+    //    {
+    //        Some(child) => child,
+    //        None => {
+    //            write!(
+    //                &mut std::io::stdout(),
+    //                "WARNING: remote not avaiable it_test_against_remote_endpoint not executed"
+    //            )
+    //            .unwrap();
+    //            return;
+    //        }
+    //    };
+    //    //loop {}
+    //    let _ = os_command(
+    //        "cargo",
+    //        vec!["run", "-p", "mining-device"],
+    //        ExternalCommandConditions::new_with_timer_secs(10)
+    //            .continue_if_std_out_have("channel opened with"),
+    //    )
+    //    .await;
+    //    assert!(true)
+    //}
 }

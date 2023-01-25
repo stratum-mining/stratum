@@ -33,7 +33,8 @@ impl ActionParser {
                 action_frames.push(frame);
             }
 
-            let doc = action.get("actiondoc").unwrap().to_string();
+            let default_doc = serde_json::to_value("").unwrap();
+            let doc = action.get("actiondoc").unwrap_or(&default_doc).to_string();
             let mut action_results = vec![];
             let results = action.get("results").unwrap().as_array().unwrap();
             for result in results {

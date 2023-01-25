@@ -103,6 +103,7 @@ pub enum TemplateDistribution<'a> {
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "with_serde", derive(Serialize, Deserialize))]
 pub enum JobNegotiation<'a> {
+    #[cfg_attr(feature = "with_serde", serde(borrow))]
     SetCoinbase(SetCoinbase<'a>),
 }
 
@@ -131,7 +132,6 @@ pub enum Mining<'a> {
     SetCustomMiningJob(SetCustomMiningJob<'a>),
     #[cfg_attr(feature = "with_serde", serde(borrow))]
     SetCustomMiningJobError(SetCustomMiningJobError<'a>),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     SetCustomMiningJobSuccess(SetCustomMiningJobSuccess),
     #[cfg_attr(feature = "with_serde", serde(borrow))]
     SetExtranoncePrefix(SetExtranoncePrefix<'a>),
