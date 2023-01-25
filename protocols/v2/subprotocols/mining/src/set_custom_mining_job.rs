@@ -152,11 +152,11 @@ impl<'a> SetCustomMiningJobError<'a> {
     }
 }
 #[cfg(feature = "with_serde")]
-impl<'a> SetCustomMiningJobSuccess<'a> {
-    pub fn into_static(self) -> SetCustomMiningJobSuccess<'static> {
+impl SetCustomMiningJobSuccess {
+    pub fn into_static(self) -> SetCustomMiningJobSuccess {
         panic!("This function shouldn't be called by the Messaege Generator");
     }
-    pub fn as_static(&self) -> SetCustomMiningJobSuccess<'static> {
+    pub fn as_static(&self) -> SetCustomMiningJobSuccess {
         panic!("This function shouldn't be called by the Messaege Generator");
     }
 }

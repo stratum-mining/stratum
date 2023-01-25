@@ -48,6 +48,7 @@ pub enum Error<'a> {
     UpstreamIncoming(roles_logic_sv2::errors::Error),
     /// SV1 protocol library error
     V1Protocol(v1::error::Error<'a>),
+    #[allow(dead_code)]
     SubprotocolMining(String),
     // Locking Errors
     // PoisonLock(LockError<'a>),
