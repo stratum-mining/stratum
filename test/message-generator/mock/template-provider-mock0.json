@@ -73,7 +73,7 @@
             "message_ids": ["new_template","set_new_prev_hash"],
             "role": "server",
             "results": [],
-            "actiondoc": "diocane"
+            "actiondoc": "This action sends NewTemplate and SetNewPrevHash"
         },
         {
             "message_ids": [],
@@ -84,7 +84,7 @@
                     "value": "0x70"
                 }
             ],
-            "actiondoc": "ciaociao"
+            "actiondoc": "This action checks that SetCoinbaseDataSize is received"
         }
     ],
     "setup_commands": [],
