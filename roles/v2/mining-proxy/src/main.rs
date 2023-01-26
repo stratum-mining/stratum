@@ -68,6 +68,27 @@ async fn initialize_upstreams(min_version: u16, max_version: u16) {
         .unwrap();
 }
 
+
+fn remove_upstream(id: u32) {
+    let upstreams = ROUTING_LOGIC
+        .get()
+        .expect("BUG: ROUTING_LOGIC has not been set yet")
+        .safe_lock(|r_logic| r_logic.upstream_selector.upstreams.clone())
+        .unwrap();
+    let mut updated_upstreams = vec![];
+    for upstream in upstreams {
+        if upstream.safe_lock(|s| s.get_id()).unwrap() != id {
+            updated_upstreams.push(upstream)
+        }
+    }
+    ROUTING_LOGIC
+        .get()
+        .unwrap()
+        .safe_lock(|rl| rl.upstream_selector.update_upstreams(updated_upstreams))
+        .unwrap();
+
+}
+
 pub fn get_routing_logic() -> MiningRoutingLogic<
     crate::lib::downstream_mining::DownstreamMiningNode,
     crate::lib::upstream_mining::UpstreamMiningNode,

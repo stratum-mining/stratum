@@ -64,6 +64,12 @@ impl<Down: IsMiningDownstream> DownstreamMiningSelector<Down>
         self.channel_id_to_downstreams.get(&channel_id)
     }
 
+    fn remove_downstreams_in_channel(&mut self, channel_id: u32) -> Vec<Arc<Mutex<Down>>> {
+        self.channel_id_to_downstreams
+            .remove(&channel_id)
+            .unwrap_or(vec![])
+    }
+
     fn downstream_from_channel_id(&self, channel_id: u32) -> Option<Arc<Mutex<Down>>> {
         self.channel_id_to_downstream.get(&channel_id).cloned()
     }
@@ -92,6 +98,8 @@ pub trait DownstreamMiningSelector<Downstream: IsMiningDownstream>:
     // group / standard naming is terrible channel_id in this case can be  either the channel_id
     // or the group_channel_id
     fn get_downstreams_in_channel(&self, channel_id: u32) -> Option<&Vec<Arc<Mutex<Downstream>>>>;
+
+    fn remove_downstreams_in_channel(&mut self, channel_id: u32) -> Vec<Arc<Mutex<Downstream>>>;
 
     // only for standard
     fn downstream_from_channel_id(&self, channel_id: u32) -> Option<Arc<Mutex<Downstream>>>;
@@ -137,6 +145,9 @@ impl<Down: IsMiningDownstream + D> DownstreamMiningSelector<Down> for NullDownst
 
     fn get_downstreams_in_channel(&self, _channel_id: u32) -> Option<&Vec<Arc<Mutex<Down>>>> {
         unreachable!("get_downstreams_in_channel")
+    }
+    fn remove_downstreams_in_channel(&mut self, channel_id: u32) -> Vec<Arc<Mutex<Down>>> {
+        unreachable!("remove_downstreams_in_channel")
     }
 
     fn downstream_from_channel_id(&self, _channel_id: u32) -> Option<Arc<Mutex<Down>>> {

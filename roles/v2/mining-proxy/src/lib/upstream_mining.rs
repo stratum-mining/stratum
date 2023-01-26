@@ -394,11 +394,42 @@ impl UpstreamMiningNode {
     ) {
         task::spawn(async move {
             loop {
-                let message = receiver.recv().await.unwrap();
-                let incoming: StdFrame = message.try_into().unwrap();
-                Self::next(self_.clone(), incoming).await;
+                if let Ok(message) = receiver.recv().await {
+                    let incoming: StdFrame = message.try_into().unwrap();
+                    Self::next(self_.clone(), incoming).await;
+                } else {
+                    Self::exit(self_);
+                    break;
+                }
             }
         });
+    }
+    pub fn get_id(&self) -> u32 {
+        self.id
+    }
+
+    fn exit(self_: Arc<Mutex<Self>>) {
+        crate::remove_upstream(self_.safe_lock(|s| s.id).unwrap());
+        let mut group_channels: Vec<u32> = self_.safe_lock(|s| s.group_channels.ids()).unwrap();
+        let mut dowstreams: Vec<Arc<Mutex<DownstreamMiningNode>>> = vec![];
+        for id in group_channels {
+            for d in self_
+                .safe_lock(|s| s.downstream_selector.remove_downstreams_in_channel(id))
+                .unwrap()
+            {
+                dowstreams.push(d);
+            }
+        }
+        if self_.safe_lock(|s| s.channel_factory.is_some()).unwrap() {
+            todo!()
+        }
+        for d in dowstreams {
+            // TODO make sure that each reference have been dropped
+            if dbg!(Arc::strong_count(&d)) > 1 {
+                //todo!()
+            }
+            DownstreamMiningNode::exit(d);
+        }
     }
 
     pub async fn next(self_mutex: Arc<Mutex<Self>>, mut incoming: StdFrame) {

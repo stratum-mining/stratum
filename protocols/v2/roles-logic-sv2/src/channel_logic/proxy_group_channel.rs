@@ -61,6 +61,9 @@ impl GroupChannels {
             None => Err(Error::GroupIdNotFound),
         }
     }
+    pub fn ids(&self) -> Vec<u32> {
+        self.channels.keys().map(|id| *id).collect()
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -128,7 +131,6 @@ impl GroupChannel {
                 res.push(Mining::SetNewPrevHash(new_prev_hash.clone()))
             };
         }
-
 
         self.hom_downstreams.insert(channel_id, channel);
 

@@ -309,6 +309,12 @@ impl DownstreamMiningNode {
             }
         }
     }
+
+    pub fn exit(self_: Arc<Mutex<Self>>) {
+        self_.safe_lock(|s| {
+            s.receiver.close();
+        });
+    }
 }
 
 use super::upstream_mining::ProxyRemoteSelector;

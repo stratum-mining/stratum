@@ -53,6 +53,8 @@ impl PlainConnection {
                             Ok(frame) => {
                                 if let Err(e) = sender_incoming.send(frame.into()).await {
                                     error!("Failed to send incoming message: {}", e);
+                                    task::yield_now().await;
+                                    break;
                                 }
                             }
                             Err(MissingBytes(size)) => {
