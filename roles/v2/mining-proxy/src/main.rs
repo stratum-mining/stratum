@@ -139,6 +139,28 @@ pub struct Config {
     min_supported_version: u16,
 }
 
+//pub fn initialize_r_logic(upstreams: &[UpstreamValues]) -> RLogic {
+//    let upstream_mining_nodes: Vec<Arc<Mutex<UpstreamMiningNode>>> = upstreams
+//        .iter()
+//        .enumerate()
+//        .map(|(index, upstream)| {
+//            let socket = SocketAddr::new(upstream.address.parse().unwrap(), upstream.port);
+//            Arc::new(Mutex::new(UpstreamMiningNode::new(
+//                index as u32,
+//                socket,
+//                upstream.pub_key.clone().into_inner().to_bytes(),
+//            )))
+//        })
+//        .collect();
+//    //crate::lib::upstream_mining::scan(upstream_mining_nodes.clone()).await;
+//    let upstream_selector = GeneralMiningSelector::new(upstream_mining_nodes);
+//    MiningProxyRoutingLogic {
+//        upstream_selector,
+//        downstream_id_generator: Id::new(),
+//        downstream_to_upstream_map: std::collections::HashMap::new(),
+//    }
+//}
+
 pub async fn initialize_r_logic(
     upstreams: &[UpstreamMiningValues],
     group_id: Arc<Mutex<GroupId>>,
@@ -158,7 +180,7 @@ pub async fn initialize_r_logic(
         let (send_comas, recv_comas) = bounded(10);
 
         match upstream.channel_kind {
-            ChannelKind::Group => todo!(),
+            ChannelKind::Group => (),
             ChannelKind::Extended => todo!(),
             ChannelKind::ExtendedWithNegotiator => {
                 tokio::join!(

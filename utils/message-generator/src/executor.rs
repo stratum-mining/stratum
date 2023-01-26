@@ -20,15 +20,24 @@ pub struct Executor {
 
 impl Executor {
     pub async fn new(test: Test<'static>) -> Executor {
-        let mut process = vec![];
+        let mut process: Vec<Option<tokio::process::Child>> = vec![];
         for command in test.setup_commmands {
-            let p = os_command(
-                &command.command,
-                command.args.iter().map(String::as_str).collect(),
-                command.conditions,
-            )
-            .await;
-            process.push(p);
+            if command.command == "kill" {
+                let index: usize = command.args[0].parse().unwrap();
+                let p = process[index].as_mut();
+                p.unwrap().kill().await;
+            } else if command.command == "sleep" {
+                let ms: u64 = command.args[0].parse().unwrap();
+                tokio::time::sleep(std::time::Duration::from_millis(ms)).await;
+            } else {
+                let p = os_command(
+                    &command.command,
+                    command.args.iter().map(String::as_str).collect(),
+                    command.conditions,
+                )
+                .await;
+                process.push(p);
+            }
         }
         match (test.as_dowstream, test.as_upstream) {
             (Some(as_down), Some(as_up)) => {
@@ -82,7 +91,7 @@ impl Executor {
                     process,
                 }
             }
-            (None, None) => todo!(),
+            (None, None) => std::process::exit(0),
         }
     }
 
