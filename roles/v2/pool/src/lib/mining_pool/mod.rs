@@ -286,7 +286,8 @@ impl Pool {
             let downstreams = self_.safe_lock(|s| s.downstreams.clone()).unwrap();
             for (channel_id, downtream) in downstreams {
                 if let Some(to_send) = messages.remove(&channel_id) {
-                    Downstream::match_send_to(downtream.clone(), Ok(SendTo::Respond(to_send))).await;
+                    Downstream::match_send_to(downtream.clone(), Ok(SendTo::Respond(to_send)))
+                        .await;
                 }
             }
             self_

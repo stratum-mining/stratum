@@ -68,7 +68,6 @@ async fn initialize_upstreams(min_version: u16, max_version: u16) {
         .unwrap();
 }
 
-
 fn remove_upstream(id: u32) {
     let upstreams = ROUTING_LOGIC
         .get()
@@ -86,7 +85,6 @@ fn remove_upstream(id: u32) {
         .unwrap()
         .safe_lock(|rl| rl.upstream_selector.update_upstreams(updated_upstreams))
         .unwrap();
-
 }
 
 pub fn get_routing_logic() -> MiningRoutingLogic<
