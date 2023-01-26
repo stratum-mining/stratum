@@ -285,7 +285,7 @@ impl UpstreamMiningNode {
             // initialized upstream nodes!
             (Some(connection), false) => match connection.send(sv2_frame).await {
                 Ok(_) => Ok(()),
-                Err(e) => Err(e)?,
+                Err(e) => Err(e.into()),
             },
             (None, _) => {
                 Self::connect(self_mutex.clone()).await?;
@@ -299,7 +299,7 @@ impl UpstreamMiningNode {
                     },
                     Err(e) => {
                         //Self::connect(self_mutex.clone()).await.unwrap();
-                        Err(e)?
+                        Err(e.into())
                     }
                 }
             }
@@ -314,7 +314,7 @@ impl UpstreamMiningNode {
             Some(connection) => match connection.receiver.recv().await {
                 Ok(m) => Ok(m.try_into().unwrap()),
                 Err(_) => {
-                    let address = self_mutex.safe_lock(|s| s.address.clone()).unwrap();
+                    let address = self_mutex.safe_lock(|s| s.address).unwrap();
                     Err(crate::lib::error::Error::UpstreamNotAvailabe(address))
                 }
             },
@@ -410,7 +410,7 @@ impl UpstreamMiningNode {
 
     fn exit(self_: Arc<Mutex<Self>>) {
         crate::remove_upstream(self_.safe_lock(|s| s.id).unwrap());
-        let mut group_channels: Vec<u32> = self_.safe_lock(|s| s.group_channels.ids()).unwrap();
+        let group_channels: Vec<u32> = self_.safe_lock(|s| s.group_channels.ids()).unwrap();
         let mut dowstreams: Vec<Arc<Mutex<DownstreamMiningNode>>> = vec![];
         for id in group_channels {
             for d in self_
@@ -951,7 +951,7 @@ pub async fn scan(
     min_version: u16,
     max_version: u16,
 ) -> Vec<Arc<Mutex<UpstreamMiningNode>>> {
-    let mut res = Arc::new(Mutex::new(Vec::with_capacity(nodes.len())));
+    let res = Arc::new(Mutex::new(Vec::with_capacity(nodes.len())));
     let spawn_tasks: Vec<task::JoinHandle<()>> = nodes
         .iter()
         .map(|node| {
@@ -968,7 +968,7 @@ pub async fn scan(
                 {
                     error!("{:?}", e)
                 } else {
-                    cloned.safe_lock(|r| r.push(node.clone()));
+                    cloned.safe_lock(|r| r.push(node.clone())).unwrap();
                 }
             })
         })

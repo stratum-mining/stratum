@@ -167,7 +167,7 @@ impl<'a> Parser<'a> {
                         };
                         (Some(upstream), Some(downstream))
                     }
-                    "none" => (None,None),
+                    "none" => (None, None),
                     role @ _ => panic!("Unknown role: {}", role),
                 };
 

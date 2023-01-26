@@ -62,7 +62,7 @@ impl GroupChannels {
         }
     }
     pub fn ids(&self) -> Vec<u32> {
-        self.channels.keys().map(|id| *id).collect()
+        self.channels.keys().copied().collect()
     }
 }
 
@@ -126,10 +126,8 @@ impl GroupChannel {
             } else {
                 res.push(Mining::NewMiningJob(standard_job));
             }
-        } else {
-            if let Some(new_prev_hash) = &self.last_prev_hash {
-                res.push(Mining::SetNewPrevHash(new_prev_hash.clone()))
-            };
+        } else if let Some(new_prev_hash) = &self.last_prev_hash {
+            res.push(Mining::SetNewPrevHash(new_prev_hash.clone()))
         }
 
         self.hom_downstreams.insert(channel_id, channel);
