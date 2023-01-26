@@ -79,7 +79,6 @@ impl PlainConnection {
                     }
                 }
             }
-            println!("exit");
         });
 
         // ENCODE AND SEND INCOMING MESSAGES TO TCP STREAM
