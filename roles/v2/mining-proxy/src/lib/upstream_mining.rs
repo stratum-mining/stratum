@@ -1,4 +1,4 @@
-use crate::{ChannelKind, EXTRANONCE_RAGE_1_LENGTH};
+use crate::EXTRANONCE_RAGE_1_LENGTH;
 use roles_logic_sv2::utils::Id;
 
 use super::downstream_mining::{Channel, DownstreamMiningNode, StdFrame as DownstreamFrame};
@@ -34,6 +34,64 @@ pub type Message = PoolMessages<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;
 pub type EitherFrame = StandardEitherFrame<Message>;
 pub type ProxyRemoteSelector = Prs<DownstreamMiningNode>;
+
+#[derive(Debug)]
+pub enum ChannelKind {
+    Group(GroupChannels),
+    Extended(Option<ProxyExtendedChannelFactory>),
+    ExtendedWithNegotiator(Option<ProxyExtendedChannelFactory>),
+}
+impl ChannelKind {
+    pub fn is_extended(&self) -> bool {
+        match self {
+            ChannelKind::Group(_) => false,
+            ChannelKind::Extended(_) => true,
+            ChannelKind::ExtendedWithNegotiator(_) => true,
+        }
+    }
+
+    fn is_initialized(&self) -> bool {
+        match self {
+            ChannelKind::Extended(None) => false,
+            ChannelKind::ExtendedWithNegotiator(None) => false,
+            _ => true,
+        }
+    }
+
+    fn get_factory(&mut self) -> &mut ProxyExtendedChannelFactory {
+        match self {
+            ChannelKind::Extended(Some(f)) => f,
+            ChannelKind::ExtendedWithNegotiator(Some(f)) => f,
+            _ => panic!("Channel factory not available")
+        }
+    }
+
+    fn initialize_factory(&mut self, factory: ProxyExtendedChannelFactory) {
+        match self {
+            ChannelKind::Group(_) => panic!("Impossible to initialize factory for group channel"),
+            ChannelKind::Extended(Some(_)) => panic!("Factory already initialized"),
+            ChannelKind::ExtendedWithNegotiator(Some(_)) => panic!("Factory already initialized"),
+            ChannelKind::Extended(None) => {
+                let mut initialized = Self::Extended(Some(factory));
+                std::mem::swap(self, &mut initialized);
+            },
+            ChannelKind::ExtendedWithNegotiator(None) => {
+                let mut initialized = Self::ExtendedWithNegotiator(Some(factory));
+                std::mem::swap(self, &mut initialized);
+            }
+        }
+    }
+}
+
+impl From<crate::ChannelKind> for ChannelKind {
+    fn from(v: crate::ChannelKind) -> Self {
+        match v {
+            crate::ChannelKind::Group => Self::Group(GroupChannels::new()),
+            crate::ChannelKind::Extended => Self::Extended(None),
+            crate::ChannelKind::ExtendedWithNegotiator => Self::Extended(None),
+        }
+    }
+}
 
 /// 1 to 1 connection with a pool
 /// Can be either a mining pool or another proxy
@@ -90,14 +148,15 @@ pub struct UpstreamMiningNode {
     /// The `request_id` from the downstream is NOT guaranteed to be unique, so it must be changed.
     request_id_mapper: RequestIdMapper,
     downstream_selector: ProxyRemoteSelector,
-    pub group_channels: GroupChannels,
-    channel_factory: Option<ProxyExtendedChannelFactory>,
+    //pub group_channels: GroupChannels,
+    //channel_factory: Option<ProxyExtendedChannelFactory>,
     pub channel_kind: ChannelKind,
     group_id: Arc<Mutex<GroupId>>,
     recv_tp: Option<Receiver<(NewTemplate<'static>, u64)>>,
     recv_ph: Option<Receiver<(SetNewPrevHashTemplate<'static>, u64)>>,
     request_ids: Arc<Mutex<Id>>,
     pub channel_ids: Arc<Mutex<Id>>,
+    downstream_share_per_minute: f32,
 }
 
 use core::convert::TryInto;
@@ -112,12 +171,13 @@ impl UpstreamMiningNode {
         id: u32,
         address: SocketAddr,
         authority_public_key: [u8; 32],
-        channel_kind: ChannelKind,
+        channel_kind: crate::ChannelKind,
         group_id: Arc<Mutex<GroupId>>,
         recv_tp: Option<Receiver<(NewTemplate<'static>, u64)>>,
         recv_ph: Option<Receiver<(SetNewPrevHashTemplate<'static>, u64)>>,
         request_ids: Arc<Mutex<Id>>,
         channel_ids: Arc<Mutex<Id>>,
+        downstream_share_per_minute: f32,
     ) -> Self {
         let request_id_mapper = RequestIdMapper::new();
         let downstream_selector = ProxyRemoteSelector::new();
@@ -131,14 +191,15 @@ impl UpstreamMiningNode {
             channel_id_to_job_dispatcher: HashMap::new(),
             request_id_mapper,
             downstream_selector,
-            group_channels: GroupChannels::new(),
-            channel_factory: None,
-            channel_kind,
+            //group_channels: GroupChannels::new(),
+            //channel_factory: None,
+            channel_kind: channel_kind.into(),
             group_id,
             recv_tp,
             recv_ph,
             request_ids,
             channel_ids,
+            downstream_share_per_minute,
         }
     }
 
@@ -154,10 +215,7 @@ impl UpstreamMiningNode {
                     new_template_reciver.recv().await.unwrap();
                 let (channel_id_to_new_job_msg, custom_job) = self_mutex
                     .safe_lock(|a| {
-                        a.channel_factory
-                            .as_mut()
-                            .unwrap()
-                            .on_new_template(&mut message_new_template) // This is not efficient, to be changed if needed
+                        a.channel_kind.get_factory().on_new_template(&mut message_new_template) // This is not efficient, to be changed if needed
                     })
                     .unwrap()
                     .unwrap();
@@ -214,10 +272,7 @@ impl UpstreamMiningNode {
                 let (message_prev_hash, token) = prev_hash_reciver.recv().await.unwrap();
                 let custom = self_mutex
                     .safe_lock(|a| {
-                        a.channel_factory
-                            .as_mut()
-                            .unwrap()
-                            .on_new_prev_hash_from_tp(&message_prev_hash)
+                        a.channel_kind.get_factory().on_new_prev_hash_from_tp(&message_prev_hash)
                     })
                     .unwrap();
 
@@ -538,14 +593,9 @@ impl UpstreamMiningNode {
                     })
                     .unwrap();
                 Self::relay_incoming_messages(self_mutex.clone(), receiver);
-                let channel_kind = self_mutex.safe_lock(|s| s.channel_kind).unwrap();
-                match channel_kind {
-                    ChannelKind::Extended => Self::open_extended_channel(self_mutex.clone()).await,
-                    ChannelKind::ExtendedWithNegotiator => {
-                        Self::open_extended_channel(self_mutex.clone()).await
-                    }
-                    _ => (),
-                };
+                if self_mutex.safe_lock(|s| s.channel_kind.is_extended()).unwrap() {
+                    Self::open_extended_channel(self_mutex.clone()).await
+                }
                 Ok(())
             }
             Ok(CommonMessages::SetupConnectionError(m)) => {
@@ -569,6 +619,7 @@ impl UpstreamMiningNode {
             Err(_) => todo!(),
         }
     }
+
     async fn open_extended_channel(self_mutex: Arc<Mutex<Self>>) {
         let message = PoolMessages::Mining(Mining::OpenExtendedMiningChannel(
             OpenExtendedMiningChannel {
@@ -593,8 +644,8 @@ impl UpstreamMiningNode {
     }
 
     async fn wait_for_channel_factory(self_mutex: Arc<Mutex<UpstreamMiningNode>>) {
-        while self_mutex
-            .safe_lock(|s| s.channel_factory.is_none())
+        while ! self_mutex
+            .safe_lock(|s| s.channel_kind.is_initialized())
             .unwrap()
         {
             tokio::time::sleep(std::time::Duration::from_secs(1)).await;
@@ -641,13 +692,10 @@ impl UpstreamMiningNode {
         id_header_only: bool,
         channel_id: u32,
     ) -> Vec<Mining<'static>> {
-        match self.channel_kind {
-            ChannelKind::Group => panic!(),
-            ChannelKind::Extended => {
-                let messages = self
-                    .channel_factory
-                    .as_mut()
-                    .unwrap()
+        match &mut self.channel_kind {
+            ChannelKind::Group(_) => panic!("Open satandard channel down for group up not supported"),
+            ChannelKind::Extended(Some(factory)) => {
+                let messages = factory
                     .add_standard_channel(
                         request_id,
                         downstream_hash_rate,
@@ -657,11 +705,8 @@ impl UpstreamMiningNode {
                     .unwrap();
                 messages.into_iter().map(|x| x.into_static()).collect()
             }
-            ChannelKind::ExtendedWithNegotiator => {
-                let messages = self
-                    .channel_factory
-                    .as_mut()
-                    .unwrap()
+            ChannelKind::ExtendedWithNegotiator(Some(factory)) => {
+                let messages = factory
                     .add_standard_channel(
                         request_id,
                         downstream_hash_rate,
@@ -671,6 +716,7 @@ impl UpstreamMiningNode {
                     .unwrap();
                 messages.into_iter().map(|x| x.into_static()).collect()
             }
+            _ => panic!("Channel factory not initialized")
         }
     }
 
@@ -719,32 +765,35 @@ impl
         m: OpenStandardMiningChannelSuccess,
         remote: Option<Arc<Mutex<DownstreamMiningNode>>>,
     ) -> Result<SendTo<DownstreamMiningNode>, Error> {
-        let down_is_header_only = remote
-            .as_ref()
-            .unwrap()
-            .safe_lock(|remote| remote.is_header_only())
-            .unwrap();
-
-        let remote = remote.unwrap();
-        if down_is_header_only {
-            let mut res = vec![SendTo::RelaySameMessageToRemote(remote.clone())];
-            for message in self
-                .group_channels
-                .on_channel_success_for_hom_downtream(&m)?
-            {
-                res.push(SendTo::RelayNewMessageToRemote(remote.clone(), message));
-            }
-            remote
-                .safe_lock(|r| {
-                    r.open_channel_for_down_hom_up_group(m.channel_id, m.group_channel_id)
-                })
-                .unwrap();
-            Ok(SendTo::Multiple(res))
-        } else {
-            // Here we want to support only the case where downstream is non HOM and want to open
-            // extended channels with the proxy. Dowstream non HOM that try to open standard
-            // channel (grouped in groups) do not make much sense so for now is not supported
-            todo!()
+        match &mut self.channel_kind {
+            ChannelKind::Group(group) => {
+                let down_is_header_only = remote
+                    .as_ref()
+                    .unwrap()
+                    .safe_lock(|remote| remote.is_header_only())
+                    .unwrap();
+                let remote = remote.unwrap();
+                if down_is_header_only {
+                    let mut res = vec![SendTo::RelaySameMessageToRemote(remote.clone())];
+                    for message in group.on_channel_success_for_hom_downtream(&m)? {
+                        res.push(SendTo::RelayNewMessageToRemote(remote.clone(), message));
+                    }
+                    remote
+                        .safe_lock(|r| {
+                            r.open_channel_for_down_hom_up_group(m.channel_id, m.group_channel_id)
+                        })
+                        .unwrap();
+                    Ok(SendTo::Multiple(res))
+                } else {
+                    // Here we want to support only the case where downstream is non HOM and want to open
+                    // extended channels with the proxy. Dowstream non HOM that try to open standard
+                    // channel (grouped in groups) do not make much sense so for now is not supported
+                    panic!()
+                }
+            },
+            // If we opened and extended channel upstreams we should not receive this message
+            ChannelKind::Extended(_) => todo!(),
+            ChannelKind::ExtendedWithNegotiator(_) => todo!(),
         }
     }
 
@@ -756,8 +805,6 @@ impl
         let range_0 = 0..m.extranonce_prefix.clone().to_vec().len();
         let range_1 = (range_0.end)..EXTRANONCE_RAGE_1_LENGTH;
         let range_2 = range_1.end..(m.extranonce_size as usize);
-        //Custom in ScripKind must be filled with the right value as soon as the data is available, otherwise shares will be invalid
-        //TODO: to review if to be used extranonce_prefix or else
         let kind = ExtendedChannelKind::Proxy {
             upstream_target: m.target.clone().try_into().unwrap(),
         };
@@ -782,11 +829,11 @@ impl
             self.group_id.clone(),
             extranonces,
             Some(job_creator),
-            10.0,
+            self.downstream_share_per_minute,
             kind,
             Some(vec![]),
         );
-        self.channel_factory = Some(channel_factory);
+        self.channel_kind.initialize_factory(channel_factory);
         Ok(SendTo::None(None))
     }
 
@@ -869,32 +916,70 @@ impl
         m: NewExtendedMiningJob,
     ) -> Result<SendTo<DownstreamMiningNode>, Error> {
         debug!("Handling new extended mining job: {:?}", m);
-        self.group_channels.on_new_extended_mining_job(&m);
-        let downstreams = self
-            .downstream_selector
-            .get_downstreams_in_channel(m.channel_id)
-            .ok_or(Error::NoDownstreamsConnected)?;
 
         let mut res = vec![];
-        for downstream in downstreams {
-            match downstream.safe_lock(|r| r.get_channel().clone()).unwrap() {
-                Channel::DowntreamHomUpstreamGroup {
-                    channel_id,
-                    group_id,
-                    ..
-                } => {
-                    let message = self
-                        .group_channels
-                        .last_received_job_to_standard_job(channel_id, group_id)?;
+        match &mut self.channel_kind {
+            ChannelKind::Group(group) => {
+                group.on_new_extended_mining_job(&m);
+                let downstreams = self
+                    .downstream_selector
+                    .get_downstreams_in_channel(m.channel_id)
+                    .ok_or(Error::NoDownstreamsConnected)?;
+                for downstream in downstreams {
+                    match downstream.safe_lock(|r| r.get_channel().clone()).unwrap() {
+                        Channel::DowntreamHomUpstreamGroup {
+                            channel_id,
+                            group_id,
+                            ..
+                        } => {
+                            let message = group.last_received_job_to_standard_job(channel_id, group_id)?;
 
-                    res.push(SendTo::RelayNewMessageToRemote(
-                        downstream.clone(),
-                        Mining::NewMiningJob(message),
-                    ));
+                            res.push(SendTo::RelayNewMessageToRemote(
+                                downstream.clone(),
+                                Mining::NewMiningJob(message),
+                            ));
+                        }
+                        _ => unreachable!(),
+                    }
                 }
-                // TODO add support for the other two variants
-                _ => todo!(),
+            },
+            ChannelKind::Extended(Some(factory)) => {
+                if let Ok(messages) = factory.on_new_extended_mining_job(m.clone().as_static()) {
+                    for (id, message) in messages {
+                        let downstreams = self
+                            .downstream_selector
+                            .get_downstreams_in_channel(id)
+                            .ok_or(Error::NoDownstreamsConnected)?;
+                        for downstream in downstreams {
+                            match &message {
+                                Mining::NewExtendedMiningJob(m) => {
+                                    res.push(SendTo::RelayNewMessageToRemote(
+                                        downstream.clone(),
+                                        Mining::NewExtendedMiningJob(m.clone()),
+                                    ));
+                                },
+                                Mining::NewMiningJob(m) => {
+                                    res.push(SendTo::RelayNewMessageToRemote(
+                                        downstream.clone(),
+                                        Mining::NewMiningJob(m.clone()),
+                                    ));
+                                }
+                                Mining::SetNewPrevHash(m) => {
+                                    res.push(SendTo::RelayNewMessageToRemote(
+                                        downstream.clone(),
+                                        Mining::SetNewPrevHash(m.clone()),
+                                    ));
+                                }
+                                _ => todo!(),
+                            }
+                        }
+                    }
+                } else {
+                    todo!()
+                }
             }
+            ChannelKind::Extended(None) => panic!("Factory not initialized"),
+            ChannelKind::ExtendedWithNegotiator(_) => unreachable!(),
         }
         Ok(SendTo::Multiple(res))
     }
@@ -903,19 +988,32 @@ impl
         &mut self,
         m: SetNewPrevHash,
     ) -> Result<SendTo<DownstreamMiningNode>, Error> {
-        self.group_channels.update_new_prev_hash(&m);
+        match &mut self.channel_kind {
+            ChannelKind::Group(group) => {
+                group.update_new_prev_hash(&m);
 
-        let downstreams = self
-            .downstream_selector
-            .get_downstreams_in_channel(m.channel_id)
-            .ok_or(Error::NoDownstreamsConnected)?;
+                let downstreams = self
+                    .downstream_selector
+                    .get_downstreams_in_channel(m.channel_id)
+                    .ok_or(Error::NoDownstreamsConnected)?;
 
-        let mut res = vec![];
-        for downstream in downstreams {
-            let message = Mining::SetNewPrevHash(m.clone().into_static());
-            res.push(SendTo::RelayNewMessageToRemote(downstream.clone(), message));
+                let mut res = vec![];
+                for downstream in downstreams {
+                    let message = Mining::SetNewPrevHash(m.clone().into_static());
+                    res.push(SendTo::RelayNewMessageToRemote(downstream.clone(), message));
+                }
+                Ok(SendTo::Multiple(res))
+            }
+            ChannelKind::Extended(factory) => {
+                if let Ok(_) = factory.as_mut().expect("Factory not initialized").on_new_prev_hash(m.into_static()) {
+                } else {
+                }
+                Ok(SendTo::None(None))
+
+            }
+            // we shouldn't receive set new prev hash when we use the JN
+            ChannelKind::ExtendedWithNegotiator(_) => todo!(),
         }
-        Ok(SendTo::Multiple(res))
     }
 
     fn handle_set_custom_mining_job_success(
@@ -1041,12 +1139,13 @@ mod tests {
             id,
             address,
             authority_public_key,
-            ChannelKind::Group,
+            crate::ChannelKind::Group,
             ids,
             recv_tp,
             recv_ph,
             request_ids,
             channel_ids,
+            10.0
         );
 
         assert_eq!(actual.id, id);

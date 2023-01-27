@@ -137,29 +137,8 @@ pub struct Config {
     listen_mining_port: u16,
     max_supported_version: u16,
     min_supported_version: u16,
+    downstream_share_per_minute: f32,
 }
-
-//pub fn initialize_r_logic(upstreams: &[UpstreamValues]) -> RLogic {
-//    let upstream_mining_nodes: Vec<Arc<Mutex<UpstreamMiningNode>>> = upstreams
-//        .iter()
-//        .enumerate()
-//        .map(|(index, upstream)| {
-//            let socket = SocketAddr::new(upstream.address.parse().unwrap(), upstream.port);
-//            Arc::new(Mutex::new(UpstreamMiningNode::new(
-//                index as u32,
-//                socket,
-//                upstream.pub_key.clone().into_inner().to_bytes(),
-//            )))
-//        })
-//        .collect();
-//    //crate::lib::upstream_mining::scan(upstream_mining_nodes.clone()).await;
-//    let upstream_selector = GeneralMiningSelector::new(upstream_mining_nodes);
-//    MiningProxyRoutingLogic {
-//        upstream_selector,
-//        downstream_id_generator: Id::new(),
-//        downstream_to_upstream_map: std::collections::HashMap::new(),
-//    }
-//}
 
 pub async fn initialize_r_logic(
     upstreams: &[UpstreamMiningValues],
@@ -169,8 +148,8 @@ pub async fn initialize_r_logic(
     let request_ids = Arc::new(Mutex::new(Id::new()));
     let channel_ids = Arc::new(Mutex::new(Id::new()));
     let mut upstream_mining_nodes = Vec::with_capacity(upstreams.len());
-    for (index, upstream) in upstreams.iter().enumerate() {
-        let socket = SocketAddr::new(upstream.address.parse().unwrap(), upstream.port);
+    for (index, upstream_) in upstreams.iter().enumerate() {
+        let socket = SocketAddr::new(upstream_.address.parse().unwrap(), upstream_.port);
 
         // channel for template
         let (send_tp, recv_tp) = bounded(10);
@@ -179,9 +158,23 @@ pub async fn initialize_r_logic(
         // channel to send coinbase_output_max_additional_size
         let (send_comas, recv_comas) = bounded(10);
 
-        match upstream.channel_kind {
+
+        let upstream = Arc::new(Mutex::new(UpstreamMiningNode::new(
+            index as u32,
+            socket,
+            upstream_.pub_key.clone().into_inner().to_bytes(),
+            upstream_.channel_kind,
+            group_id.clone(),
+            Some(recv_tp),
+            Some(recv_ph),
+            request_ids.clone(),
+            channel_ids.clone(),
+            config.downstream_share_per_minute,
+        )));
+
+        match upstream_.channel_kind {
             ChannelKind::Group => (),
-            ChannelKind::Extended => todo!(),
+            ChannelKind::Extended => (),
             ChannelKind::ExtendedWithNegotiator => {
                 tokio::join!(
                     TemplateRx::connect(
@@ -204,24 +197,13 @@ pub async fn initialize_r_logic(
                         send_comas,
                     )
                 );
+                UpstreamMiningNode::start_receiving_new_template(upstream.clone());
+                UpstreamMiningNode::start_receiving_new_prev_hash(upstream.clone());
             }
         }
 
-        let upstream = Arc::new(Mutex::new(UpstreamMiningNode::new(
-            index as u32,
-            socket,
-            upstream.pub_key.clone().into_inner().to_bytes(),
-            upstream.channel_kind,
-            group_id.clone(),
-            Some(recv_tp),
-            Some(recv_ph),
-            request_ids.clone(),
-            channel_ids.clone(),
-        )));
-        upstream_mining_nodes.push(upstream.clone());
+        upstream_mining_nodes.push(upstream);
 
-        UpstreamMiningNode::start_receiving_new_template(upstream.clone());
-        UpstreamMiningNode::start_receiving_new_prev_hash(upstream);
     }
     let upstream_selector = GeneralMiningSelector::new(upstream_mining_nodes);
     MiningProxyRoutingLogic {

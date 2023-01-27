@@ -1,4 +1,4 @@
-use crate::ChannelKind;
+use super::upstream_mining::ChannelKind;
 
 use super::upstream_mining::{StdFrame as UpstreamFrame, UpstreamMiningNode};
 use async_channel::{Receiver, SendError, Sender};
@@ -342,15 +342,8 @@ impl
             .expect("No upstream initialized")
             .safe_lock(|s| s.channel_ids.safe_lock(|r| r.next()).unwrap())
             .unwrap();
-        let channel_kind = up
-            .as_ref()
-            .expect("No upstream initialized")
-            .safe_lock(|up| up.channel_kind)
-            .unwrap();
         info!(channel_id);
-        match channel_kind {
-            ChannelKind::Group => Ok(SendTo::RelaySameMessageToRemote(up.unwrap())),
-            ChannelKind::Extended => {
+        if up.as_ref().expect("No upstream initialized").safe_lock(|up| up.channel_kind.is_extended()).unwrap() {
                 let messages = up
                     .as_mut()
                     .unwrap()
@@ -373,31 +366,8 @@ impl
                 }
                 let messages = messages.into_iter().map(SendTo::Respond).collect();
                 Ok(SendTo::Multiple(messages))
-            }
-            ChannelKind::ExtendedWithNegotiator => {
-                let messages = up
-                    .as_mut()
-                    .unwrap()
-                    .safe_lock(|up| {
-                        up.open_standard_channel_down(
-                            req.request_id.as_u32(),
-                            req.nominal_hash_rate,
-                            true,
-                            channel_id,
-                        )
-                    })
-                    .unwrap();
-                for m in &messages {
-                    if let Mining::OpenStandardMiningChannelSuccess(m) = m {
-                        self.open_channel_for_down_hom_up_extended(
-                            m.channel_id,
-                            m.group_channel_id,
-                        );
-                    }
-                }
-                let messages = messages.into_iter().map(SendTo::Respond).collect();
-                Ok(SendTo::Multiple(messages))
-            }
+        } else {
+            Ok(SendTo::RelaySameMessageToRemote(up.unwrap()))
         }
     }
 
