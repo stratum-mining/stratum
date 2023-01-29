@@ -59,7 +59,32 @@ async fn initialize_upstreams(min_version: u16, max_version: u16) {
         .expect("BUG: ROUTING_LOGIC has not been set yet")
         .safe_lock(|r_logic| r_logic.upstream_selector.upstreams.clone())
         .unwrap();
-    crate::lib::upstream_mining::scan(upstreams, min_version, max_version).await;
+    let available_upstreams =
+        crate::lib::upstream_mining::scan(upstreams, min_version, max_version).await;
+    ROUTING_LOGIC
+        .get()
+        .unwrap()
+        .safe_lock(|rl| rl.upstream_selector.update_upstreams(available_upstreams))
+        .unwrap();
+}
+
+fn remove_upstream(id: u32) {
+    let upstreams = ROUTING_LOGIC
+        .get()
+        .expect("BUG: ROUTING_LOGIC has not been set yet")
+        .safe_lock(|r_logic| r_logic.upstream_selector.upstreams.clone())
+        .unwrap();
+    let mut updated_upstreams = vec![];
+    for upstream in upstreams {
+        if upstream.safe_lock(|s| s.get_id()).unwrap() != id {
+            updated_upstreams.push(upstream)
+        }
+    }
+    ROUTING_LOGIC
+        .get()
+        .unwrap()
+        .safe_lock(|rl| rl.upstream_selector.update_upstreams(updated_upstreams))
+        .unwrap();
 }
 
 pub fn get_routing_logic() -> MiningRoutingLogic<
@@ -114,6 +139,28 @@ pub struct Config {
     min_supported_version: u16,
 }
 
+//pub fn initialize_r_logic(upstreams: &[UpstreamValues]) -> RLogic {
+//    let upstream_mining_nodes: Vec<Arc<Mutex<UpstreamMiningNode>>> = upstreams
+//        .iter()
+//        .enumerate()
+//        .map(|(index, upstream)| {
+//            let socket = SocketAddr::new(upstream.address.parse().unwrap(), upstream.port);
+//            Arc::new(Mutex::new(UpstreamMiningNode::new(
+//                index as u32,
+//                socket,
+//                upstream.pub_key.clone().into_inner().to_bytes(),
+//            )))
+//        })
+//        .collect();
+//    //crate::lib::upstream_mining::scan(upstream_mining_nodes.clone()).await;
+//    let upstream_selector = GeneralMiningSelector::new(upstream_mining_nodes);
+//    MiningProxyRoutingLogic {
+//        upstream_selector,
+//        downstream_id_generator: Id::new(),
+//        downstream_to_upstream_map: std::collections::HashMap::new(),
+//    }
+//}
+
 pub async fn initialize_r_logic(
     upstreams: &[UpstreamMiningValues],
     group_id: Arc<Mutex<GroupId>>,
@@ -133,7 +180,7 @@ pub async fn initialize_r_logic(
         let (send_comas, recv_comas) = bounded(10);
 
         match upstream.channel_kind {
-            ChannelKind::Group => todo!(),
+            ChannelKind::Group => (),
             ChannelKind::Extended => todo!(),
             ChannelKind::ExtendedWithNegotiator => {
                 tokio::join!(
@@ -256,7 +303,6 @@ mod args {
 #[tokio::main]
 async fn main() {
     tracing_subscriber::fmt::init();
-
     let args = match args::Args::from_args() {
         Ok(cfg) => cfg,
         Err(help) => {

@@ -60,13 +60,18 @@ impl Connection {
                         let mut connection = cloned1.lock().await;
 
                         if let Ok(x) = decoder.next_frame(&mut connection.state) {
-                            sender_incoming.send(x).await.unwrap();
+                            if sender_incoming.send(x).await.is_err() {
+                                task::yield_now().await;
+                                break;
+                            }
                         }
                     }
                     Err(e) => {
                         error!("Disconnected from client: {}", e);
 
                         //kill thread without a panic - don't need to panic everytime a client disconnects
+                        sender_incoming.close();
+                        task::yield_now().await;
                         break;
                     }
                 }
@@ -93,6 +98,7 @@ impl Connection {
                                 let _ = writer.shutdown().await;
                                 // Just fail and force to reinitialize everything
                                 error!("Disconnecting from client due to error: {}", e);
+                                task::yield_now().await;
                                 break;
                             }
                         }
@@ -101,6 +107,7 @@ impl Connection {
                         // Just fail and force to reinitilize everything
                         let _ = writer.shutdown().await;
                         error!("Disconnecting from client due to error: {}", e);
+                        task::yield_now().await;
                         break;
                     }
                 };

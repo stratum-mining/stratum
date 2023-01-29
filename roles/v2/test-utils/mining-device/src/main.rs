@@ -22,8 +22,11 @@ async fn connect(address: SocketAddr, handicap: u32) {
 #[async_std::main]
 async fn main() {
     let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 34255);
+    //task::spawn(async move { connect(socket, 10000).await });
+    //task::spawn(async move { connect(socket, 11070).await });
+    //task::spawn(async move { connect(socket, 7040).await });
     println!("start");
-    connect(socket, 10008).await
+    connect(socket, 10000).await
 }
 
 use async_channel::{Receiver, Sender};

@@ -138,7 +138,7 @@
                         "pool",
                         "--",
                         "-c",
-                        "./roles/v2/pool/pool-config.toml"
+                        "./test/config/pool-mock-tp.toml"
             ],
             "conditions": {
                 "WithConditions": {

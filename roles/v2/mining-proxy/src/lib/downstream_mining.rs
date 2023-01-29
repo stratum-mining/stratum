@@ -204,19 +204,14 @@ impl DownstreamMiningNode {
                 .await
                 .unwrap();
             }
+            let receiver = self_mutex
+                .safe_lock(|self_| self_.receiver.clone())
+                .unwrap();
 
-            // TODO levare questo task
-            let _ = task::spawn(async move {
-                loop {
-                    let receiver = self_mutex
-                        .safe_lock(|self_| self_.receiver.clone())
-                        .unwrap();
-                    let message = receiver.recv().await.unwrap();
-                    let incoming: StdFrame = message.try_into().unwrap();
-                    Self::next(self_mutex.clone(), incoming).await
-                }
-            })
-            .await;
+            while let Ok(message) = receiver.recv().await {
+                let incoming: StdFrame = message.try_into().unwrap();
+                Self::next(self_mutex.clone(), incoming).await;
+            }
         } else {
             panic!()
         }
@@ -308,6 +303,14 @@ impl DownstreamMiningNode {
                 todo!()
             }
         }
+    }
+
+    pub fn exit(self_: Arc<Mutex<Self>>) {
+        self_
+            .safe_lock(|s| {
+                s.receiver.close();
+            })
+            .unwrap();
     }
 }
 

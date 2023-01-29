@@ -61,6 +61,9 @@ impl GroupChannels {
             None => Err(Error::GroupIdNotFound),
         }
     }
+    pub fn ids(&self) -> Vec<u32> {
+        self.channels.keys().copied().collect()
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -105,20 +108,27 @@ impl GroupChannel {
             res.push(Mining::NewMiningJob(standard_job));
         }
 
-        if let Some(new_prev_hash) = &self.last_prev_hash {
-            res.push(Mining::SetNewPrevHash(new_prev_hash.clone()))
-        };
-
         if let Some(last_valid_job) = &self.last_valid_job {
-            let standard_job = extended_to_standard_job(
+            let mut standard_job = extended_to_standard_job(
                 last_valid_job,
                 &channel.extranonce.clone().to_vec(),
                 channel.channel_id,
                 None,
             )
             .ok_or(Error::ImpossibleToCalculateMerkleRoot)?;
-            res.push(Mining::NewMiningJob(standard_job));
-        };
+
+            if let Some(new_prev_hash) = &self.last_prev_hash {
+                let mut new_prev_hash = new_prev_hash.clone();
+                standard_job.future_job = true;
+                new_prev_hash.job_id = standard_job.job_id;
+                res.push(Mining::NewMiningJob(standard_job));
+                res.push(Mining::SetNewPrevHash(new_prev_hash))
+            } else {
+                res.push(Mining::NewMiningJob(standard_job));
+            }
+        } else if let Some(new_prev_hash) = &self.last_prev_hash {
+            res.push(Mining::SetNewPrevHash(new_prev_hash.clone()))
+        }
 
         self.hom_downstreams.insert(channel_id, channel);
 
