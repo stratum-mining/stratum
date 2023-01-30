@@ -1311,7 +1311,7 @@ mod test {
             coinbase_tx_version: 1,
             coinbase_prefix: prefix.try_into().unwrap(),
             coinbase_tx_input_sequence: u32::MAX,
-            coinbase_tx_value_remaining: 0,
+            coinbase_tx_value_remaining: 5_000_000_000,
             coinbase_tx_outputs_count: 0,
             coinbase_tx_outputs: get_coinbase_outputs(),
             coinbase_tx_locktime: 0,
