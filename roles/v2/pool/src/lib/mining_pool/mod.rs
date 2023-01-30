@@ -39,7 +39,6 @@ pub struct Downstream {
     downstream_data: CommonDownstreamData,
     solution_sender: Sender<SubmitSolution<'static>>,
     channel_factory: Arc<Mutex<PoolChannelFactory>>,
-    status_tx: status::Sender,
 }
 
 /// Accept downstream connection
@@ -78,7 +77,6 @@ impl Downstream {
             downstream_data,
             solution_sender,
             channel_factory,
-            status_tx: status_tx.clone(),
         }));
 
         let cloned = self_.clone();
@@ -154,7 +152,7 @@ impl Downstream {
             }
             Ok(SendTo::None(_)) => {}
             Ok(_) => panic!(),
-            Err(Error::UnexpectedMessage) => todo!(),
+            Err(Error::UnexpectedMessage(_message_type)) => todo!(),
             Err(_) => todo!(),
         }
         Ok(())
@@ -344,8 +342,12 @@ impl Pool {
 
             for (channel_id, downtream) in downstreams {
                 if let Some(to_send) = messages.remove(&channel_id) {
-                    Downstream::match_send_to(downtream.clone(), Ok(SendTo::Respond(to_send)))
-                        .await;
+                    if let Err(e) =
+                        Downstream::match_send_to(downtream.clone(), Ok(SendTo::Respond(to_send)))
+                            .await
+                    {
+                        error!("Unknown template provider message: {:?}", e);
+                    }
                 }
             }
             let res = self_

@@ -152,7 +152,8 @@ async fn main() {
         r_message_recv_signal,
         status::Sender::Upstream(status_tx.clone()),
     )
-    .await;
+    .await
+    .unwrap();
 
     let cloned = config.clone();
     task::spawn(async move { JobNegotiator::start(cloned).await });
