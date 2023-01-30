@@ -75,6 +75,7 @@ impl Bridge {
         tx_status: status::Sender,
         extranonces: ExtendedExtranonce,
         target: Arc<Mutex<Vec<u8>>>,
+        up_id: u32,
     ) -> Self {
         let ids = Arc::new(Mutex::new(GroupId::new()));
         let share_per_min = 1.0;
@@ -98,6 +99,7 @@ impl Bridge {
                 share_per_min,
                 kind,
                 None,
+                up_id,
             ),
             future_jobs: vec![],
             last_p_hash: None,
@@ -188,7 +190,7 @@ impl Bridge {
                     .map_err(|_| PoisonLock);
 
                 match res {
-                    Ok(Ok(OnNewShare::SendErrorDowsntream(e))) => {
+                    Ok(Ok(OnNewShare::SendErrorDownstream(e))) => {
                         error!(
                             "Submit share error {:?}",
                             std::str::from_utf8(&e.error_code.to_vec()[..])
@@ -426,6 +428,7 @@ mod test {
                 status::Sender::Bridge(tx_status),
                 extranonces,
                 Arc::new(Mutex::new(upstream_target)),
+                1,
             )
         }
 
