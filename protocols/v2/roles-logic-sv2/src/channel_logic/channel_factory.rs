@@ -822,6 +822,11 @@ impl PoolChannelFactory {
         &mut self,
         m: &mut NewTemplate<'static>,
     ) -> Result<HashMap<u32, Mining<'static>>, Error> {
+        // From the spec the coinbase_tx_value_remaining is:
+        // The value, in satoshis, available for spending in coinbase outputs
+        // added by the client. Includes both transaction fees and block subsidy.
+        self.pool_coinbase_outputs[0].value = m.coinbase_tx_value_remaining.clone();
+
         let new_job =
             self.job_creator
                 .on_new_template(m, true, self.pool_coinbase_outputs.clone())?;
@@ -1180,7 +1185,7 @@ impl ExtendedChannelKind {
 #[cfg(test)]
 mod test {
     use super::*;
-    use binary_sv2::{Seq0255, Seq064K, B064K, U256};
+    use binary_sv2::{Seq0255, B064K, U256};
     use bitcoin::{hash_types::WPubkeyHash, PublicKey};
     use mining_sv2::OpenStandardMiningChannel;
 
