@@ -825,7 +825,11 @@ impl PoolChannelFactory {
         // From the spec the coinbase_tx_value_remaining is:
         // The value, in satoshis, available for spending in coinbase outputs
         // added by the client. Includes both transaction fees and block subsidy.
-        self.pool_coinbase_outputs[0].value = m.coinbase_tx_value_remaining.clone();
+        // Divide this amount by all outputs
+        let output_value = m.coinbase_tx_value_remaining / self.pool_coinbase_outputs.len() as u64;
+        for output in self.pool_coinbase_outputs.iter_mut() {
+            output.value = output_value;
+        }
 
         let new_job =
             self.job_creator
