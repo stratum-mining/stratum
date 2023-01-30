@@ -66,6 +66,13 @@ impl ChannelKind {
         }
     }
 
+    fn get_group(&mut self) -> &mut GroupChannels {
+        match self {
+            ChannelKind::Group(g) => g,
+            _ => panic!("Group not available")
+        }
+    }
+
     fn initialize_factory(&mut self, factory: ProxyExtendedChannelFactory) {
         match self {
             ChannelKind::Group(_) => panic!("Impossible to initialize factory for group channel"),
@@ -463,19 +470,25 @@ impl UpstreamMiningNode {
         self.id
     }
 
+//pub enum ChannelKind {
+//    Group(GroupChannels),
+//    Extended(Option<ProxyExtendedChannelFactory>),
+//    ExtendedWithNegotiator(Option<ProxyExtendedChannelFactory>),
+//}
     fn exit(self_: Arc<Mutex<Self>>) {
         crate::remove_upstream(self_.safe_lock(|s| s.id).unwrap());
-        let group_channels: Vec<u32> = self_.safe_lock(|s| s.group_channels.ids()).unwrap();
         let mut dowstreams: Vec<Arc<Mutex<DownstreamMiningNode>>> = vec![];
-        for id in group_channels {
-            for d in self_
-                .safe_lock(|s| s.downstream_selector.remove_downstreams_in_channel(id))
-                .unwrap()
-            {
-                dowstreams.push(d);
+        if ! self_.safe_lock(|s| s.channel_kind.is_extended()).unwrap() {
+            let group_channels: Vec<u32> = self_.safe_lock(|s| s.channel_kind.get_group().ids()).unwrap();
+            for id in group_channels {
+                for d in self_
+                    .safe_lock(|s| s.downstream_selector.remove_downstreams_in_channel(id))
+                    .unwrap()
+                {
+                    dowstreams.push(d);
+                }
             }
-        }
-        if self_.safe_lock(|s| s.channel_factory.is_some()).unwrap() {
+        } else {
             todo!()
         }
         for d in dowstreams {
