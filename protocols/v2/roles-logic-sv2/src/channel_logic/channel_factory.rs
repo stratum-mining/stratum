@@ -822,19 +822,29 @@ impl PoolChannelFactory {
         &mut self,
         m: &mut NewTemplate<'static>,
     ) -> Result<HashMap<u32, Mining<'static>>, Error> {
-        // From the spec the coinbase_tx_value_remaining is:
-        // The value, in satoshis, available for spending in coinbase outputs
-        // added by the client. Includes both transaction fees and block subsidy.
-        // Divide this amount by all outputs
-        let output_value = m.coinbase_tx_value_remaining / self.pool_coinbase_outputs.len() as u64;
-        for output in self.pool_coinbase_outputs.iter_mut() {
-            output.value = output_value;
-        }
+        PoolChannelFactory::split_outputs(
+            &mut self.pool_coinbase_outputs,
+            m.coinbase_tx_value_remaining,
+        );
 
         let new_job =
             self.job_creator
                 .on_new_template(m, true, self.pool_coinbase_outputs.clone())?;
         self.inner.on_new_extended_mining_job(new_job)
+    }
+
+    /// From the spec the coinbase_tx_value_remaining is:
+    /// The value, in satoshis, available for spending in coinbase outputs
+    /// added by the client. Includes both transaction fees and block subsidy.
+    /// Divide this amount by all outputs
+    pub fn split_outputs(pool_coinbase_outputs: &mut Vec<TxOut>, coinbase_tx_value_remaining: u64) {
+        if !pool_coinbase_outputs.is_empty() {
+            let output_value: u64 =
+                coinbase_tx_value_remaining / pool_coinbase_outputs.len() as u64;
+            for output in pool_coinbase_outputs.iter_mut() {
+                output.value = output_value;
+            }
+        }
     }
 
     pub fn on_submit_shares_standard(
@@ -1278,6 +1288,33 @@ mod test {
     }
 
     use bitcoin::TxOut;
+    use quickcheck::{Arbitrary, Gen};
+    use rand::Rng;
+
+    #[test]
+    fn test_output_splitting() {
+        let vec_size = rand::thread_rng().gen_range(1..100);
+        let mut coinbase_outputs = Vec::<TxOut>::with_capacity(vec_size);
+        for _ in 0..vec_size {
+            coinbase_outputs.push(TxOut {
+                value: BLOCK_REWARD,
+                script_pubkey: decode_hex("4104c6d0969c2d98a5c19ba7c36c7937c5edbd60ff2a01397c4afe54f16cd641667ea0049ba6f9e1796ba3c8e49e1b504c532ebbaaa1010c3f7d9b83a8ea7fd800e2ac").unwrap().into()
+            });
+        }
+
+        let mut u64_gen = Gen::new(64);
+        let subsidy = u64::arbitrary(&mut u64_gen);
+        PoolChannelFactory::split_outputs(&mut coinbase_outputs, subsidy);
+
+        for i in 0..vec_size {
+            assert_eq!(
+                coinbase_outputs[i].value,
+                subsidy / coinbase_outputs.capacity() as u64,
+                "Failed at index {}",
+                i
+            );
+        }
+    }
 
     #[test]
     fn test_complete_mining_round() {
