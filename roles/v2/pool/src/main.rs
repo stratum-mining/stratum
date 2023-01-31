@@ -167,6 +167,9 @@ async fn main() {
         status::Sender::DownstreamListener(status_tx),
     );
 
+
+    // Start the error handling loop
+    // See `./status.rs` and `utils/error_handling` for information on how this operates
     loop {
         let task_status = status_rx.recv().await.unwrap();
 

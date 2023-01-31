@@ -1,5 +1,8 @@
 use crate::error::PoolError;
 
+/// Each sending side of the status channel 
+/// should be wrapped with this enum to allow 
+/// the main thread to know which component sent the message
 #[derive(Debug)]
 pub enum Sender {
     Downstream(async_channel::Sender<Status>),
@@ -8,6 +11,8 @@ pub enum Sender {
 }
 
 impl Sender {
+    /// used to clone the sending side of the status channel used by the TCP Listener
+    /// into individual Sender's for each Downstream instance
     pub fn listener_to_connection(&self) -> Self {
         match self {
             Self::DownstreamListener(inner) => Self::Downstream(inner.clone()),
@@ -41,11 +46,15 @@ pub enum State {
     Healthy(String),
 }
 
+/// message to be sent to the status loop on the main thread
 #[derive(Debug)]
 pub struct Status {
     pub state: State,
 }
 
+/// this function is used to discern which componnent experienced the event.
+/// With this knowledge we can wrap the status message with information (`State` variants) so 
+/// the main status loop can decide what should happen
 async fn send_status(
     sender: &Sender,
     e: PoolError,
