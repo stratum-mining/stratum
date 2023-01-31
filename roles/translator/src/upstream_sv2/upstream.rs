@@ -1,6 +1,6 @@
 use crate::{
     downstream_sv1::Downstream,
-    error::Error::{CodecNoise, UpstreamIncoming},
+    error::Error::{CodecNoise, PoisonLock, UpstreamIncoming},
     status,
     upstream_sv2::{EitherFrame, Message, StdFrame, UpstreamConnection},
     ProxyResult,
@@ -152,7 +152,9 @@ impl Upstream {
     ) -> ProxyResult<'static, ()> {
         // Get the `SetupConnection` message with Mining Device information (currently hard coded)
         let setup_connection = Self::get_setup_connection_message(min_version, max_version)?;
-        let mut connection = self_.safe_lock(|s| s.connection.clone()).unwrap();
+        let mut connection = self_
+            .safe_lock(|s| s.connection.clone())
+            .map_err(|_e| PoisonLock)?;
 
         info!("Up: Sending: {:?}", &setup_connection);
 
@@ -196,7 +198,9 @@ impl Upstream {
 
         // Send open channel request before returning
         let user_identity = "ABC".to_string().try_into()?;
-        let min_extranonce_size = self_.safe_lock(|s| s.min_extranonce_size).unwrap();
+        let min_extranonce_size = self_
+            .safe_lock(|s| s.min_extranonce_size)
+            .map_err(|_e| PoisonLock)?;
         let open_channel = Mining::OpenExtendedMiningChannel(OpenExtendedMiningChannel {
             request_id: 0,                       // TODO
             user_identity,                       // TODO
@@ -215,21 +219,39 @@ impl Upstream {
     /// Parses the incoming SV2 message from the Upstream role and routes the message to the
     /// appropriate handler.
     pub fn parse_incoming(self_: Arc<Mutex<Self>>) {
+        let (
+            tx_frame,
+            tx_sv2_extranonce,
+            tx_sv2_new_ext_mining_job,
+            tx_sv2_set_new_prev_hash,
+            recv,
+            tx_status,
+        ) = self_
+            .safe_lock(|s| {
+                (
+                    s.connection.sender.clone(),
+                    s.tx_sv2_extranonce.clone(),
+                    s.tx_sv2_new_ext_mining_job.clone(),
+                    s.tx_sv2_set_new_prev_hash.clone(),
+                    s.connection.receiver.clone(),
+                    s.tx_status.clone(),
+                )
+            })
+            .unwrap();
+
         task::spawn(async move {
-            let tx_status = self_.safe_lock(|s| s.tx_status.clone()).unwrap();
             loop {
                 // Waiting to receive a message from the SV2 Upstream role
-                let recv = self_.safe_lock(|s| s.connection.receiver.clone()).unwrap();
-                let incoming = recv.recv().await.expect("Failed to receive from Upstream");
-                let mut incoming: StdFrame = incoming
-                    .try_into()
-                    .expect("Err converting received frame into `StdFrame`");
+                let incoming = handle_result!(tx_status, recv.recv().await);
+                let mut incoming: StdFrame = handle_result!(tx_status, incoming.try_into());
                 // On message receive, get the message type from the message header and get the
                 // message payload
-                let message_type = incoming
-                    .get_header()
-                    .expect("UnexpectedNoiseFrame: Expected `SV2Frame`, received `NoiseFrame`")
-                    .msg_type();
+                let message_type = incoming.get_header().ok_or(crate::error::Error::FramingSv2(
+                    framing_sv2::Error::ExpectedSv2Frame,
+                ));
+
+                let message_type = handle_result!(tx_status, message_type).msg_type();
+
                 let payload = incoming.payload();
 
                 // Since this is not communicating with an SV2 proxy, but instead a custom SV1
@@ -259,10 +281,14 @@ impl Upstream {
                         let frame: EitherFrame = handle_result!(tx_status, frame.try_into());
 
                         // Relay the response message to the Upstream role
-                        let sender = self_
-                            .safe_lock(|self_| self_.connection.sender.clone())
-                            .unwrap();
-                        sender.send(frame).await.unwrap();
+                        handle_result!(
+                            tx_status,
+                            tx_frame.send(frame).await.map_err(|e| {
+                                crate::Error::ChannelErrorSender(
+                                    crate::error::ChannelSendError::General(e.to_string()),
+                                )
+                            })
+                        );
                     }
                     // Does not send the messages anywhere, but instead handle them internally
                     Ok(SendTo::None(Some(m))) => {
@@ -287,29 +313,22 @@ impl Upstream {
                                     extranonce.clone(), range_0.clone(), range_1.clone(), range_2.clone(),
                                 ).unwrap_or_else(|| panic!("Impossible to create a valid extended extranonce from {:?} {:?} {:?} {:?}", extranonce,range_0,range_1,range_2));
 
-                                let sender =
-                                    self_.safe_lock(|s| s.tx_sv2_extranonce.clone()).unwrap();
-                                sender.send(extended).await.unwrap();
+                                handle_result!(tx_status, tx_sv2_extranonce.send(extended).await);
                             }
                             Mining::NewExtendedMiningJob(m) => {
                                 debug!("parse_incoming Mining::NewExtendedMiningJob msg");
                                 let job_id = m.job_id;
-                                let sender = self_
-                                    .safe_lock(|s| s.tx_sv2_new_ext_mining_job.clone())
-                                    .unwrap();
-                                self_
+                                let res = self_
                                     .safe_lock(|s| {
                                         let _ = s.job_id.insert(job_id);
                                     })
-                                    .unwrap();
-                                sender.send(m).await.unwrap();
+                                    .map_err(|_e| PoisonLock);
+                                handle_result!(tx_status, res);
+                                handle_result!(tx_status, tx_sv2_new_ext_mining_job.send(m).await);
                             }
                             Mining::SetNewPrevHash(m) => {
                                 debug!("parse_incoming Mining::SetNewPrevHash msg");
-                                let sender = self_
-                                    .safe_lock(|s| s.tx_sv2_set_new_prev_hash.clone())
-                                    .unwrap();
-                                sender.send(m).await.unwrap();
+                                handle_result!(tx_status, tx_sv2_set_new_prev_hash.send(m).await);
                             }
                             // impossible state: handle_message_mining only returns
                             // the above 3 messages in the Ok(SendTo::None(Some(m))) case to be sent
@@ -330,8 +349,9 @@ impl Upstream {
                             "TERMINATING: Error handling pool role message: {:?}",
                             status
                         );
-                        let sender = self_.safe_lock(|s| s.tx_status.clone()).unwrap();
-                        sender.send(status).await.unwrap();
+                        if let Err(e) = tx_status.send(status).await {
+                            error!("Status channel dowm: {:?}", e);
+                        }
 
                         break;
                     }
@@ -341,14 +361,20 @@ impl Upstream {
     }
 
     pub fn handle_submit(self_: Arc<Mutex<Self>>) {
-        let receiver = self_
-            .safe_lock(|s| s.rx_sv2_submit_shares_ext.clone())
+        let (tx_frame, receiver, tx_status) = self_
+            .safe_lock(|s| {
+                (
+                    s.connection.sender.clone(),
+                    s.rx_sv2_submit_shares_ext.clone(),
+                    s.tx_status.clone(),
+                )
+            })
             .unwrap();
         debug!("handle_submit: starting");
         task::spawn(async move {
-            let tx_status = self_.safe_lock(|s| s.tx_status.clone()).unwrap();
             loop {
-                let mut sv2_submit: SubmitSharesExtended = receiver.recv().await.unwrap();
+                let mut sv2_submit: SubmitSharesExtended =
+                    handle_result!(tx_status, receiver.recv().await);
 
                 let channel_id = self_
                     .safe_lock(|s| {
@@ -356,7 +382,8 @@ impl Upstream {
                             RolesLogicError::NotFoundChannelId,
                         ))
                     })
-                    .unwrap();
+                    .map_err(|_e| PoisonLock);
+                let channel_id = handle_result!(tx_status, channel_id);
                 sv2_submit.channel_id = handle_result!(tx_status, channel_id);
 
                 let job_id = self_
@@ -365,7 +392,8 @@ impl Upstream {
                             RolesLogicError::NoValidJob,
                         ))
                     })
-                    .unwrap();
+                    .map_err(|_e| PoisonLock);
+                let job_id = handle_result!(tx_status, job_id);
                 sv2_submit.job_id = handle_result!(tx_status, job_id);
 
                 info!("Up: Submitting Share");
@@ -375,19 +403,20 @@ impl Upstream {
                     roles_logic_sv2::parsers::Mining::SubmitSharesExtended(sv2_submit),
                 );
 
-                let frame: StdFrame = message
-                    .try_into()
-                    .expect("Err converting `PoolMessage` to `StdFrame`");
+                let frame: StdFrame = handle_result!(tx_status, message.try_into());
                 // Doesnt actually send because of Braiins Pool issue that needs to be fixed
                 info!("Up: Sending: {:?}", &frame);
 
-                let frame: EitherFrame = frame
-                    .try_into()
-                    .expect("Err converting `StdFrame` to `EitherFrame`");
-                let sender = self_
-                    .safe_lock(|self_| self_.connection.sender.clone())
-                    .unwrap();
-                sender.send(frame).await.unwrap();
+                let frame: EitherFrame = handle_result!(tx_status, frame.try_into());
+                handle_result!(
+                    tx_status,
+                    tx_frame
+                        .send(frame)
+                        .await
+                        .map_err(|e| crate::Error::ChannelErrorSender(
+                            crate::error::ChannelSendError::General(e.to_string())
+                        ))
+                );
             }
         });
     }
@@ -534,7 +563,9 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
                 m.extranonce_size,
             ));
         }
-        self.target.safe_lock(|t| *t = m.target.to_vec()).unwrap();
+        self.target
+            .safe_lock(|t| *t = m.target.to_vec())
+            .map_err(|_e| RolesLogicError::PoisonLock)?;
         // Set the `min_extranonce_size` in accordance to the SV2 Pool
         self.min_extranonce_size = m.extranonce_size;
 
@@ -674,7 +705,7 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
 
         self.target
             .safe_lock(|t| *t = m.maximum_target.to_vec())
-            .unwrap();
+            .map_err(|_e| RolesLogicError::PoisonLock)?;
         Ok(SendTo::None(None))
     }
 
