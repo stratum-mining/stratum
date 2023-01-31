@@ -1318,7 +1318,6 @@ mod test {
         let mut empty = Vec::<TxOut>::with_capacity(0);
         // This should not panic
         PoolChannelFactory::split_outputs(&mut empty, subsidy);
-
     }
 
     #[test]
