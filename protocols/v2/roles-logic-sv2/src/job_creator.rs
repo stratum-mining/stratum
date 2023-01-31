@@ -279,7 +279,10 @@ pub mod tests {
     use binary_sv2::u256_from_int;
     use bitcoin::{secp256k1::Secp256k1, util::ecdsa::PublicKey, Network};
     use quickcheck::{Arbitrary, Gen};
-    use std::{borrow::BorrowMut, cmp, vec};
+    use std::{cmp, vec};
+
+    #[cfg(feature = "prop_test")]
+    use std::borrow::BorrowMut;
 
     pub fn template_from_gen(g: &mut Gen) -> NewTemplate<'static> {
         let mut coinbase_prefix_gen = Gen::new(255);
