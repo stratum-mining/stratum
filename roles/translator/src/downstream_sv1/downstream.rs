@@ -121,8 +121,7 @@ impl Downstream {
                                 handle_result!(tx_status_reader, res);
                             }
                             Some(Err(error)) => {
-                                debug!("Error reading from Mining Device connection: {:?}", &error);
-                                break;
+                                handle_result!(tx_status_reader, Err(error));
                             }
                             None => {
                                 debug!("Mining Device disconnected");
@@ -131,8 +130,8 @@ impl Downstream {
                         }
                     },
                     _ = rx_shutdown_clone.recv().fuse() => {
-                            break;
-                        }
+                        break;
+                    }
                 };
             }
             kill(&tx_shutdown_clone).await;
