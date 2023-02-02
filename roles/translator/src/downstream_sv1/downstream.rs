@@ -124,8 +124,12 @@ impl Downstream {
                                 handle_result!(tx_status_reader, Err(error));
                             }
                             None => {
-                                debug!("Mining Device disconnected");
-                                break;
+                                handle_result!(tx_status_reader, Err(
+                                    std::io::Error::new(
+                                        std::io::ErrorKind::ConnectionAborted,
+                                        "Connection closed by client"
+                                    )
+                                ));
                             }
                         }
                     },
