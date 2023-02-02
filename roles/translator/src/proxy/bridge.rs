@@ -174,8 +174,7 @@ impl Bridge {
                 let sv2_submit = self_
                     .safe_lock(|s| s.translate_submit(channel_sequence_id, sv1_submit, extrnonce))
                     .map_err(|_| PoisonLock);
-                let sv2_submit = handle_result!(tx_status, sv2_submit);
-                let sv2_submit = handle_result!(tx_status, sv2_submit);
+                let sv2_submit = handle_result!(tx_status, handle_result!(tx_status, sv2_submit));
                 let mut send_upstream = false;
                 let res = self_
                     .safe_lock(|s| {
@@ -346,8 +345,8 @@ impl Bridge {
                         )
                     })
                     .map_err(|_| PoisonLock);
-                let res = handle_result!(tx_status, res);
-                handle_result!(tx_status, res);
+
+                handle_result!(tx_status, handle_result!(tx_status, res));
 
                 // If future_job=true, this job is meant for a future SetNewPrevHash that the proxy
                 // has yet to receive. Insert this new job into the job_mapper .
@@ -359,13 +358,14 @@ impl Bridge {
 
                 // If future_job=false, this job is meant for the current SetNewPrevHash.
                 } else {
-                    let last_p_hash = self_
+                    let last_p_hash_res = self_
                         .safe_lock(|s| s.last_p_hash.clone())
                         .map_err(|_| PoisonLock);
-                    let last_p_hash = handle_result!(tx_status, last_p_hash);
+                    let last_p_hash_option = handle_result!(tx_status, last_p_hash_res);
+                    // last_p_hash is an Option<SetNewPrevHash> so we need to map to the correct error type to be handled
                     let last_p_hash = handle_result!(
                         tx_status,
-                        last_p_hash.ok_or(Error::RolesSv2Logic(
+                        last_p_hash_option.ok_or(Error::RolesSv2Logic(
                             RolesLogicError::JobIsNotFutureButPrevHashNotPresent
                         ))
                     );

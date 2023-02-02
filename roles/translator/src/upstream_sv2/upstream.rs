@@ -218,7 +218,8 @@ impl Upstream {
 
     /// Parses the incoming SV2 message from the Upstream role and routes the message to the
     /// appropriate handler.
-    pub fn parse_incoming(self_: Arc<Mutex<Self>>) {
+    pub fn parse_incoming(self_: Arc<Mutex<Self>>) -> ProxyResult<'static, ()> {
+        let clone = self_.clone();
         let (
             tx_frame,
             tx_sv2_extranonce,
@@ -226,18 +227,16 @@ impl Upstream {
             tx_sv2_set_new_prev_hash,
             recv,
             tx_status,
-        ) = self_
-            .safe_lock(|s| {
-                (
-                    s.connection.sender.clone(),
-                    s.tx_sv2_extranonce.clone(),
-                    s.tx_sv2_new_ext_mining_job.clone(),
-                    s.tx_sv2_set_new_prev_hash.clone(),
-                    s.connection.receiver.clone(),
-                    s.tx_status.clone(),
-                )
-            })
-            .unwrap();
+        ) = clone.safe_lock(|s| {
+            (
+                s.connection.sender.clone(),
+                s.tx_sv2_extranonce.clone(),
+                s.tx_sv2_new_ext_mining_job.clone(),
+                s.tx_sv2_set_new_prev_hash.clone(),
+                s.connection.receiver.clone(),
+                s.tx_status.clone(),
+            )
+        }).map_err(|_| PoisonLock)?;
 
         task::spawn(async move {
             loop {
@@ -350,7 +349,7 @@ impl Upstream {
                             status
                         );
                         if let Err(e) = tx_status.send(status).await {
-                            error!("Status channel dowm: {:?}", e);
+                            error!("Status channel down: {:?}", e);
                         }
 
                         break;
@@ -358,18 +357,19 @@ impl Upstream {
                 }
             }
         });
+        Ok(())
     }
 
-    pub fn handle_submit(self_: Arc<Mutex<Self>>) {
-        let (tx_frame, receiver, tx_status) = self_
-            .safe_lock(|s| {
-                (
-                    s.connection.sender.clone(),
-                    s.rx_sv2_submit_shares_ext.clone(),
-                    s.tx_status.clone(),
-                )
-            })
-            .unwrap();
+    pub fn handle_submit(self_: Arc<Mutex<Self>>) -> ProxyResult<'static, ()> {
+        let clone = self_.clone();
+        let (tx_frame, receiver, tx_status) = clone.safe_lock(|s| {
+            (
+                s.connection.sender.clone(),
+                s.rx_sv2_submit_shares_ext.clone(),
+                s.tx_status.clone(),
+            )
+        }).map_err(|_| PoisonLock)?;
+
         debug!("handle_submit: starting");
         task::spawn(async move {
             loop {
@@ -383,8 +383,8 @@ impl Upstream {
                         ))
                     })
                     .map_err(|_e| PoisonLock);
-                let channel_id = handle_result!(tx_status, channel_id);
-                sv2_submit.channel_id = handle_result!(tx_status, channel_id);
+                sv2_submit.channel_id =
+                    handle_result!(tx_status, handle_result!(tx_status, channel_id));
 
                 let job_id = self_
                     .safe_lock(|s| {
@@ -393,8 +393,7 @@ impl Upstream {
                         ))
                     })
                     .map_err(|_e| PoisonLock);
-                let job_id = handle_result!(tx_status, job_id);
-                sv2_submit.job_id = handle_result!(tx_status, job_id);
+                sv2_submit.job_id = handle_result!(tx_status, handle_result!(tx_status, job_id));
 
                 info!("Up: Submitting Share");
                 debug!("Up: Handling SubmitSharesExtended: {:?}", &sv2_submit);
@@ -419,6 +418,7 @@ impl Upstream {
                 );
             }
         });
+        Ok(())
     }
 
     fn _is_contained_in_upstream_target(&self, _share: SubmitSharesExtended) -> bool {
