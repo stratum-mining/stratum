@@ -836,13 +836,21 @@ impl PoolChannelFactory {
     /// From the spec the coinbase_tx_value_remaining is:
     /// The value, in satoshis, available for spending in coinbase outputs
     /// added by the client. Includes both transaction fees and block subsidy.
-    /// Divide this amount by all outputs
+    /// Divide this amount as evenly as possible across all coinbase outputs.
     pub fn split_outputs(pool_coinbase_outputs: &mut Vec<TxOut>, coinbase_tx_value_remaining: u64) {
         if !pool_coinbase_outputs.is_empty() {
             let output_value: u64 =
                 coinbase_tx_value_remaining / pool_coinbase_outputs.len() as u64;
+            let mut remainder = coinbase_tx_value_remaining % pool_coinbase_outputs.len() as u64;
+
             for output in pool_coinbase_outputs.iter_mut() {
                 output.value = output_value;
+
+                if remainder > 0 {
+                    output.value += 1;
+                    remainder -= 1;
+                }
+                println!("output.value: {}", output.value);
             }
         }
     }
@@ -1306,14 +1314,23 @@ mod test {
         let subsidy = u64::arbitrary(&mut u64_gen);
         PoolChannelFactory::split_outputs(&mut coinbase_outputs, subsidy);
 
+        let mut total_subsidy = 0;
+
+        let base_subsidy = subsidy / vec_size as u64;
+
         for i in 0..vec_size {
-            assert_eq!(
-                coinbase_outputs[i].value,
-                subsidy / coinbase_outputs.capacity() as u64,
-                "Failed at index {}",
-                i
+            total_subsidy += coinbase_outputs[i].value;
+            assert!(
+                //should be equal the base or +1 for the remainder that some outputs get
+                coinbase_outputs[i].value == base_subsidy
+                    || coinbase_outputs[i].value == base_subsidy + 1,
+                "Failed at index {} base_subsidy {}",
+                i,
+                base_subsidy
             );
         }
+
+        assert_eq!(total_subsidy, subsidy);
 
         let mut empty = Vec::<TxOut>::with_capacity(0);
         // This should not panic
