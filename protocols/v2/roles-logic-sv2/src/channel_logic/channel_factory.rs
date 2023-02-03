@@ -850,7 +850,6 @@ impl PoolChannelFactory {
                     output.value += 1;
                     remainder -= 1;
                 }
-                println!("output.value: {}", output.value);
             }
         }
     }
