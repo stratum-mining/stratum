@@ -104,31 +104,38 @@ impl Downstream {
         // role, or the message is sent upwards to the Bridge for translation into a SV2 message
         // and then sent to the SV2 Upstream role.
         let _socket_reader_task = task::spawn(async move {
+            let mut messages = BufReader::new(&*socket_reader).lines();
             loop {
-                // ***TODO:  see https://github.com/stratum-mining/stratum/issues/399 ***
-                // Because the message readers return None while there is no data in the buffer/queue,
-                // this sleep is used to prevent infinite looping while no messages are being sent
-                // We are currently using 5msintervals since it allows many connections and a decent speed
-                // but we should find a better solution
-                task::sleep(std::time::Duration::from_millis(5)).await;
                 // Read message from SV1 Mining Device Client socket
-                let mut messages = BufReader::new(&*socket_reader).lines();
                 // On message receive, parse to `json_rpc:Message` and send to Upstream
                 // `Translator.receive_downstream` via `sender_upstream` done in
                 // `send_message_upstream`.
                 select! {
                     res = messages.next().fuse() => {
-                        if let Some(Ok(incoming)) = res {
-                            debug!("Receiving from Mining Device: {:?}", &incoming);
-                            let incoming: json_rpc::Message = handle_result!(tx_status_reader, serde_json::from_str(&incoming));
-                            // Handle what to do with message
-                            let res = Self::handle_incoming_sv1(self_.clone(), incoming).await;
-                            handle_result!(tx_status_reader, res);
+                        match res {
+                            Some(Ok(incoming)) => {
+                                debug!("Receiving from Mining Device: {:?}", &incoming);
+                                let incoming: json_rpc::Message = handle_result!(tx_status_reader, serde_json::from_str(&incoming));
+                                // Handle what to do with message
+                                let res = Self::handle_incoming_sv1(self_.clone(), incoming).await;
+                                handle_result!(tx_status_reader, res);
+                            }
+                            Some(Err(error)) => {
+                                handle_result!(tx_status_reader, Err(error));
+                            }
+                            None => {
+                                handle_result!(tx_status_reader, Err(
+                                    std::io::Error::new(
+                                        std::io::ErrorKind::ConnectionAborted,
+                                        "Connection closed by client"
+                                    )
+                                ));
+                            }
                         }
                     },
                     _ = rx_shutdown_clone.recv().fuse() => {
-                            break;
-                        }
+                        break;
+                    }
                 };
             }
             kill(&tx_shutdown_clone).await;
