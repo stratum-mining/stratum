@@ -1,5 +1,5 @@
 [package]
-name = "pool"
+name = "pool_sv2"
 version = "0.1.0"
 edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -21,7 +21,7 @@ toml = { git = "https://github.com/diondokter/toml-rs", default-features = false
 tracing = { version = "0.1" }
 tracing-subscriber = "0.3"
 async-recursion = "1.0.0"
-error-handling = { path = "../../../utils/error-handling" }
+error_handling = { path = "../../../utils/error-handling" }
 
 [features]
 test_only_allow_unencrypted = []

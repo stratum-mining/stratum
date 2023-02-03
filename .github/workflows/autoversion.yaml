@@ -1,0 +1,52 @@
+# This job will auto detect changes in crates and auto bump the patch versions if changes are detected.
+# Since cargo-smart-release does not yet support autodetection of MAJOR and MINOR changes with regards to Semver,
+# any MAJOR/MINOR versioning will need to be manually changed in the package Cargo.toml.
+
+on:
+  push:
+    branches: [ main ]
+
+name: publish crate updates
+
+jobs:
+  autoversion:
+    if: github.actor != 'GitHub Actions Bot'
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: 
+          - ubuntu-latest
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+
+    steps:
+      - uses: actions/checkout@v3
+
+        with:
+          fetch-depth: 2
+          profile: minimal
+          toolchain: 1.65.0
+          override: true
+      
+      - name: setup git config
+        run: |
+          # setup the username and email. I tend to use 'GitHub Actions Bot' with no email by default
+          git config user.name "GitHub Actions Bot"
+          git config user.email "<>"
+
+      # cargo-smart-release requires at least one object in the .git/objects database to detect changes
+      - name: Fetch
+        run: git fetch && git commit --allow-empty -m 'empty version commit'
+
+      - name: Install cargo-smart-release
+        run: cargo install cargo-smart-release
+
+      # only autobump versions 
+      - name: Commit version updates
+        run: sh ./sv2-publish.sh -e -u --no-publish --no-push --no-changelog
+
+      - name: Push version updates to main
+        run: git push -f --no-verify origin main:versioning
+
+      

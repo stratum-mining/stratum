@@ -454,7 +454,7 @@ dependencies = [
  "async-std",
  "serde",
  "serde_json",
- "v1",
+ "sv1_api",
 ]
 
 [[package]]
@@ -754,7 +754,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "error-handling"
+name = "error_handling"
 version = "0.1.0"
 
 [[package]]
@@ -1132,7 +1132,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "mining-proxy"
+name = "mining_proxy_sv2"
 version = "0.1.0"
 dependencies = [
  "async-channel",
@@ -1391,7 +1391,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "pool"
+name = "pool_sv2"
 version = "0.1.0"
 dependencies = [
  "async-channel",
@@ -1401,7 +1401,7 @@ dependencies = [
  "buffer_sv2",
  "codec_sv2",
  "const_sv2",
- "error-handling",
+ "error_handling",
  "network_helpers",
  "noise_sv2",
  "rand 0.8.5",
@@ -1856,7 +1856,24 @@ dependencies = [
  "roles_logic_sv2",
  "serde",
  "serde_json",
- "v1",
+ "sv1_api",
+]
+
+[[package]]
+name = "sv1_api"
+version = "0.1.0"
+dependencies = [
+ "binary_sv2",
+ "bitcoin_hashes 0.3.2",
+ "byteorder",
+ "hex",
+ "log",
+ "pretty_env_logger",
+ "quickcheck 1.0.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "quickcheck_macros 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde",
+ "serde_json",
+ "tracing",
 ]
 
 [[package]]
@@ -2060,7 +2077,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "translator"
+name = "translator_sv2"
 version = "0.1.0"
 dependencies = [
  "async-channel",
@@ -2069,7 +2086,7 @@ dependencies = [
  "binary_sv2",
  "buffer_sv2",
  "codec_sv2",
- "error-handling",
+ "error_handling",
  "framing_sv2",
  "futures",
  "network_helpers",
@@ -2077,11 +2094,11 @@ dependencies = [
  "roles_logic_sv2",
  "serde",
  "serde_json",
+ "sv1_api",
  "tokio",
  "toml",
  "tracing",
  "tracing-subscriber",
- "v1",
 ]
 
 [[package]]
@@ -2110,23 +2127,6 @@ checksum = "9f214e8f697e925001e66ec2c6e37a4ef93f0f78c2eed7814394e10c62025b05"
 dependencies = [
  "generic-array",
  "subtle",
-]
-
-[[package]]
-name = "v1"
-version = "0.1.0"
-dependencies = [
- "binary_sv2",
- "bitcoin_hashes 0.3.2",
- "byteorder",
- "hex",
- "log",
- "pretty_env_logger",
- "quickcheck 1.0.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "quickcheck_macros 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "serde",
- "serde_json",
- "tracing",
 ]
 
 [[package]]
