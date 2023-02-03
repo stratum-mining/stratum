@@ -35,9 +35,10 @@ fn new_pub_key() -> PublicKey {
     let secp = Secp256k1::default();
     PublicKey::from_private_key(&secp, &priv_k)
 }
-use tokio::task;
+use tokio::{select, task};
 
 use crate::lib::job_negotiator::JobNegotiator;
+use crate::status::Status;
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Configuration {
@@ -173,7 +174,22 @@ async fn main() {
     // Start the error handling loop
     // See `./status.rs` and `utils/error_handling` for information on how this operates
     loop {
-        let task_status = status_rx.recv().await.unwrap();
+        let task_status = select! {
+            task_status = status_rx.recv() => task_status,
+            interrupt_signal = tokio::signal::ctrl_c() => {
+                match interrupt_signal {
+                    Ok(()) => {
+                        println!("Interrupt received!");
+                    },
+                    Err(err) => {
+                        eprintln!("Unable to listen for interrupt signal: {}", err);
+                        // we also shut down in case of error
+                    },
+                }
+                break;
+            }
+        };
+        let task_status: Status = task_status.unwrap();
 
         match task_status.state {
             // Should only be sent by the downstream listener
