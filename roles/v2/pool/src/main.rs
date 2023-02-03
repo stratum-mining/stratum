@@ -144,7 +144,7 @@ async fn main() {
     let (s_message_recv_signal, r_message_recv_signal) = bounded(10);
     info!("Pool INITIALIZING with config: {:?}", &args.config_path);
 
-    TemplateRx::connect(
+    let template_rx_res = TemplateRx::connect(
         config.tp_address.parse().unwrap(),
         s_new_t,
         s_prev_hash,
@@ -152,8 +152,11 @@ async fn main() {
         r_message_recv_signal,
         status::Sender::Upstream(status_tx.clone()),
     )
-    .await
-    .unwrap();
+    .await;
+    if let Err(e) = template_rx_res {
+        error!("Could not connect to Template Provider: {}", e);
+        return;
+    }
 
     let cloned = config.clone();
     task::spawn(async move { JobNegotiator::start(cloned).await });
@@ -166,7 +169,6 @@ async fn main() {
         s_message_recv_signal,
         status::Sender::DownstreamListener(status_tx),
     );
-
 
     // Start the error handling loop
     // See `./status.rs` and `utils/error_handling` for information on how this operates

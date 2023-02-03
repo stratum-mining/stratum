@@ -1,7 +1,7 @@
 use crate::error::PoolError;
 
-/// Each sending side of the status channel 
-/// should be wrapped with this enum to allow 
+/// Each sending side of the status channel
+/// should be wrapped with this enum to allow
 /// the main thread to know which component sent the message
 #[derive(Debug)]
 pub enum Sender {
@@ -15,6 +15,7 @@ impl Sender {
     /// into individual Sender's for each Downstream instance
     pub fn listener_to_connection(&self) -> Self {
         match self {
+            // should only be used to clone the DownstreamListener(Sender) into Downstream(Sender)s
             Self::DownstreamListener(inner) => Self::Downstream(inner.clone()),
             _ => unreachable!(),
         }
@@ -53,7 +54,7 @@ pub struct Status {
 }
 
 /// this function is used to discern which componnent experienced the event.
-/// With this knowledge we can wrap the status message with information (`State` variants) so 
+/// With this knowledge we can wrap the status message with information (`State` variants) so
 /// the main status loop can decide what should happen
 async fn send_status(
     sender: &Sender,
@@ -109,6 +110,9 @@ pub async fn handle_error(
         }
         PoolError::Framing(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
         PoolError::PoisonLock(_) => {
+            send_status(sender, e, error_handling::ErrorBranch::Break).await
+        }
+        PoolError::ComponentShutdown(_) => {
             send_status(sender, e, error_handling::ErrorBranch::Break).await
         }
     }

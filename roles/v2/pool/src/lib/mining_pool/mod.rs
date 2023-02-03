@@ -83,11 +83,28 @@ impl Downstream {
 
         task::spawn(async move {
             debug!("Starting up downstream receiver");
+            let receiver_res = cloned
+                .safe_lock(|d| d.receiver.clone())
+                .map_err(|e| PoolError::PoisonLock(e.to_string()));
+            let receiver = match receiver_res {
+                Ok(recv) => recv,
+                Err(e) => {
+                    if let Err(e) = status_tx
+                        .send(status::Status {
+                            state: status::State::Healthy(format!(
+                                "Downstream connection dropped: {}",
+                                e.to_string()
+                            )),
+                        })
+                        .await
+                    {
+                        error!("Encountered Error but status channel is down: {}", e);
+                    }
+
+                    return;
+                }
+            };
             loop {
-                let receiver_res = cloned
-                    .safe_lock(|d| d.receiver.clone())
-                    .map_err(|e| PoolError::PoisonLock(e.to_string()));
-                let receiver = handle_result!(status_tx, receiver_res);
                 match receiver.recv().await {
                     Ok(received) => {
                         let received: Result<StdFrame, _> = received
@@ -196,9 +213,12 @@ impl Pool {
         }
     }
 
-    async fn accept_incoming_connection(self_: Arc<Mutex<Pool>>, config: Configuration) {
-        let status_tx = self_.safe_lock(|s| s.status_tx.clone()).unwrap();
-        let listener = TcpListener::bind(&config.listen_address).await.unwrap();
+    async fn accept_incoming_connection(
+        self_: Arc<Mutex<Pool>>,
+        config: Configuration,
+    ) -> PoolResult<()> {
+        let status_tx = self_.safe_lock(|s| s.status_tx.clone())?;
+        let listener = TcpListener::bind(&config.listen_address).await?;
         info!(
             "Listening for encrypted connection on: {}",
             config.listen_address
@@ -228,6 +248,7 @@ impl Pool {
                 }
             }
         }
+        Ok(())
     }
 
     async fn accept_incoming_connection_(
@@ -262,8 +283,10 @@ impl Pool {
         self_: Arc<Mutex<Self>>,
         rx: Receiver<SetNewPrevHash<'static>>,
         sender_message_received_signal: Sender<()>,
-    ) {
-        let status_tx = self_.safe_lock(|s| s.status_tx.clone()).unwrap();
+    ) -> PoolResult<()> {
+        let status_tx = self_
+            .safe_lock(|s| s.status_tx.clone())
+            .map_err(|e| PoolError::PoisonLock(e.to_string()))?;
         while let Ok(new_prev_hash) = rx.recv().await {
             debug!("New prev hash received: {:?}", new_prev_hash);
             let res = self_
@@ -273,17 +296,16 @@ impl Pool {
                 .map_err(|e| PoolError::PoisonLock(e.to_string()));
             handle_result!(status_tx, res);
 
-            let x_res = self_
+            let job_id_res = self_
                 .safe_lock(|s| {
                     s.channel_factory
                         .safe_lock(|f| f.on_new_prev_hash_from_tp(&new_prev_hash))
                         .map_err(|e| PoolError::PoisonLock(e.to_string()))
                 })
                 .map_err(|e| PoolError::PoisonLock(e.to_string()));
-            let x_res = handle_result!(status_tx, x_res);
-            let x = handle_result!(status_tx, x_res);
+            let job_id = handle_result!(status_tx, handle_result!(status_tx, job_id_res));
 
-            match x {
+            match job_id {
                 Ok(job_id) => {
                     let downstreams = self_
                         .safe_lock(|s| s.downstreams.clone())
@@ -310,24 +332,21 @@ impl Pool {
                 Err(_) => todo!(),
             }
         }
+        Ok(())
     }
 
     async fn on_new_template(
         self_: Arc<Mutex<Self>>,
         rx: Receiver<NewTemplate<'static>>,
         sender_message_received_signal: Sender<()>,
-    ) {
-        let status_tx = self_.safe_lock(|s| s.status_tx.clone()).unwrap();
+    ) -> PoolResult<()> {
+        let status_tx = self_.safe_lock(|s| s.status_tx.clone())?;
+        let channel_factory = self_.safe_lock(|s| s.channel_factory.clone())?;
         while let Ok(mut new_template) = rx.recv().await {
             debug!(
                 "New template received, creating a new mining job(s): {:?}",
                 new_template
             );
-
-            let channel_factory = self_
-                .safe_lock(|s| s.channel_factory.clone())
-                .map_err(|e| PoolError::PoisonLock(e.to_string()));
-            let channel_factory = handle_result!(status_tx, channel_factory);
 
             let messages = channel_factory
                 .safe_lock(|cf| cf.on_new_template(&mut new_template))
@@ -357,6 +376,7 @@ impl Pool {
 
             handle_result!(status_tx, sender_message_received_signal.send(()).await);
         }
+        Ok(())
     }
 
     pub fn start(
@@ -393,29 +413,89 @@ impl Pool {
             new_template_processed: false,
             channel_factory,
             last_prev_hash_template_id: 0,
-            status_tx,
+            status_tx: status_tx.clone(),
         }));
 
         let cloned = pool.clone();
         let cloned2 = pool.clone();
-        let cloned3 = pool;
         #[cfg(feature = "test_only_allow_unencrypted")]
         let cloned4 = pool.clone();
 
         info!("Starting up pool listener");
-        task::spawn(Self::accept_incoming_connection(cloned, config));
+        let status_tx_clone = status_tx.clone();
+        task::spawn(async move {
+            if let Err(e) = Self::accept_incoming_connection(cloned, config).await {
+                error!("{}", e);
+            }
+            if status_tx_clone
+                .send(status::Status {
+                    state: status::State::DownstreamShutdown(PoolError::ComponentShutdown(
+                        "Downstream no longer accepting incoming connections".to_string(),
+                    )),
+                })
+                .await
+                .is_err()
+            {
+                error!("Downstream shutdown and Status Channel dropped");
+            }
+        });
         #[cfg(feature = "test_only_allow_unencrypted")]
-        task::spawn(Self::accept_incoming_plain_connection(cloned4, config));
-
-        let cloned = sender_message_received_signal.clone();
         task::spawn(async {
-            Self::on_new_prev_hash(cloned2, new_prev_hash_rx, cloned).await;
-            // on_new_prev_hash shutdown
+            if let Err(e) = Self::accept_incoming_plain_connection(cloned4, config).await {
+                error!("{}", e);
+            }
+            if status_tx_clone
+                .send(status::Status {
+                    state: status::State::DownstreamShutdown(PoolError::ComponentShutdown(
+                        "Downstream no longer accepting incoming connections".to_string(),
+                    )),
+                })
+                .await
+                .is_err()
+            {
+                error!("Downstream shutdown and Status Channel dropped");
+            }
         });
 
+        let cloned = sender_message_received_signal.clone();
+        let status_tx_clone = status_tx.clone();
+        task::spawn(async move {
+            if let Err(e) = Self::on_new_prev_hash(cloned2, new_prev_hash_rx, cloned).await {
+                error!("{}", e);
+            }
+            // on_new_prev_hash shutdown
+            if status_tx_clone
+                .send(status::Status {
+                    state: status::State::DownstreamShutdown(PoolError::ComponentShutdown(
+                        "Downstream no longer accepting new prevhash".to_string(),
+                    )),
+                })
+                .await
+                .is_err()
+            {
+                error!("Downstream shutdown and Status Channel dropped");
+            }
+        });
+
+        let status_tx_clone = status_tx;
         let _ = task::spawn(async move {
-            Self::on_new_template(cloned3, new_template_rx, sender_message_received_signal).await;
+            if let Err(e) =
+                Self::on_new_template(pool, new_template_rx, sender_message_received_signal).await
+            {
+                error!("{}", e);
+            }
             // on_new_template shutdown
+            if status_tx_clone
+                .send(status::Status {
+                    state: status::State::DownstreamShutdown(PoolError::ComponentShutdown(
+                        "Downstream no longer accepting templates".to_string(),
+                    )),
+                })
+                .await
+                .is_err()
+            {
+                error!("Downstream shutdown and Status Channel dropped");
+            }
         });
     }
 }

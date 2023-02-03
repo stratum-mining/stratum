@@ -1,33 +1,13 @@
-use codec_sv2::StandardEitherFrame;
-use roles_logic_sv2::{channel_logic::channel_factory::PoolChannelFactory, parsers::PoolMessages};
 use std::{
     convert::From,
+    fmt::Debug,
     sync::{MutexGuard, PoisonError},
 };
-
-use crate::lib::mining_pool::{setup_connection::SetupConnectionHandler, Downstream, Pool};
-
-pub type Message = PoolMessages<'static>;
-pub type EitherFrame = StandardEitherFrame<Message>;
-
-#[derive(std::fmt::Debug)]
-pub enum ChannelSendVariant {
-    Frame(async_channel::SendError<EitherFrame>),
-    NewTemplate(
-        async_channel::SendError<roles_logic_sv2::template_distribution_sv2::NewTemplate<'static>>,
-    ),
-    SetNewPrevHash(
-        async_channel::SendError<
-            roles_logic_sv2::template_distribution_sv2::SetNewPrevHash<'static>,
-        >,
-    ),
-    Fn(async_channel::SendError<()>),
-}
 
 #[derive(std::fmt::Debug)]
 pub enum PoolError {
     Io(std::io::Error),
-    ChannelSend(Box<ChannelSendVariant>),
+    ChannelSend(Box<dyn std::marker::Send + Debug>),
     ChannelRecv(async_channel::RecvError),
     BinarySv2(binary_sv2::Error),
     Codec(codec_sv2::Error),
@@ -35,6 +15,7 @@ pub enum PoolError {
     RolesLogic(roles_logic_sv2::Error),
     Framing(String),
     PoisonLock(String),
+    ComponentShutdown(String),
 }
 
 impl<'a> std::fmt::Display for PoolError {
@@ -50,6 +31,7 @@ impl<'a> std::fmt::Display for PoolError {
             Noise(ref e) => write!(f, "Noise SV2 error: `{:?}", e),
             RolesLogic(ref e) => write!(f, "Roles Logic SV2 error: `{:?}`", e),
             PoisonLock(ref e) => write!(f, "Poison lock: {:?}", e),
+            ComponentShutdown(ref e) => write!(f, "Component shutdown: {:?}", e),
         }
     }
 }
@@ -92,44 +74,9 @@ impl From<roles_logic_sv2::Error> for PoolError {
     }
 }
 
-impl From<async_channel::SendError<EitherFrame>> for PoolError {
-    fn from(e: async_channel::SendError<EitherFrame>) -> PoolError {
-        PoolError::ChannelSend(Box::new(ChannelSendVariant::Frame(e)))
-    }
-}
-
-impl From<async_channel::SendError<()>> for PoolError {
-    fn from(e: async_channel::SendError<()>) -> PoolError {
-        PoolError::ChannelSend(Box::new(ChannelSendVariant::Fn(e)))
-    }
-}
-
-impl
-    From<async_channel::SendError<roles_logic_sv2::template_distribution_sv2::NewTemplate<'static>>>
-    for PoolError
-{
-    fn from(
-        e: async_channel::SendError<
-            roles_logic_sv2::template_distribution_sv2::NewTemplate<'static>,
-        >,
-    ) -> PoolError {
-        PoolError::ChannelSend(Box::new(ChannelSendVariant::NewTemplate(e)))
-    }
-}
-
-impl
-    From<
-        async_channel::SendError<
-            roles_logic_sv2::template_distribution_sv2::SetNewPrevHash<'static>,
-        >,
-    > for PoolError
-{
-    fn from(
-        e: async_channel::SendError<
-            roles_logic_sv2::template_distribution_sv2::SetNewPrevHash<'static>,
-        >,
-    ) -> PoolError {
-        PoolError::ChannelSend(Box::new(ChannelSendVariant::SetNewPrevHash(e)))
+impl<T: 'static + std::marker::Send + Debug> From<async_channel::SendError<T>> for PoolError {
+    fn from(e: async_channel::SendError<T>) -> PoolError {
+        PoolError::ChannelSend(Box::new(e))
     }
 }
 
@@ -139,26 +86,8 @@ impl From<String> for PoolError {
     }
 }
 
-impl From<PoisonError<MutexGuard<'_, PoolChannelFactory>>> for PoolError {
-    fn from(e: PoisonError<MutexGuard<PoolChannelFactory>>) -> PoolError {
-        PoolError::PoisonLock(e.to_string())
-    }
-}
-
-impl From<PoisonError<MutexGuard<'_, Downstream>>> for PoolError {
-    fn from(e: PoisonError<MutexGuard<Downstream>>) -> PoolError {
-        PoolError::PoisonLock(e.to_string())
-    }
-}
-
-impl From<PoisonError<MutexGuard<'_, Pool>>> for PoolError {
-    fn from(e: PoisonError<MutexGuard<Pool>>) -> PoolError {
-        PoolError::PoisonLock(e.to_string())
-    }
-}
-
-impl From<PoisonError<MutexGuard<'_, SetupConnectionHandler>>> for PoolError {
-    fn from(e: PoisonError<MutexGuard<SetupConnectionHandler>>) -> PoolError {
+impl<T> From<PoisonError<MutexGuard<'_, T>>> for PoolError {
+    fn from(e: PoisonError<MutexGuard<T>>) -> PoolError {
         PoolError::PoisonLock(e.to_string())
     }
 }

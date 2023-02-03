@@ -7,7 +7,7 @@
 /// 1. can only be used within async functions since status needs to be send over async channel
 /// 2. The macro must be used within a loop since it calls `continue` on error. If `unwraps/expects` are used within a function
 ///     without a lopo, you should make the function return a result and handle the result within a main loop
-/// 3. The macromust be able to reference the user defined function `crate::status::handle_error(T, U) -> ErrorBranch;` where U is the output
+/// 3. The macro must be able to reference the user defined function `crate::status::handle_error(T, U) -> ErrorBranch;` where U is the output
 ///     of `e.into()`
 ///
 /// # Example
@@ -29,7 +29,6 @@ macro_rules! handle_result {
                 match res {
                     error_handling::ErrorBranch::Break => break,
                     error_handling::ErrorBranch::Continue => continue,
-                    error_handling::ErrorBranch::Return => return,
                 }
             }
         }
@@ -39,5 +38,4 @@ macro_rules! handle_result {
 pub enum ErrorBranch {
     Break,
     Continue,
-    Return,
 }
