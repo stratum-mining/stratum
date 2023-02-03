@@ -6,7 +6,7 @@ use async_std::{
     prelude::*,
     task,
 };
-use error_handling::{handle_result, ErrorBranch};
+use error_handling::handle_result;
 use futures::FutureExt;
 use tokio::sync::broadcast;
 
