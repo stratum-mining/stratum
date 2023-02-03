@@ -1,4 +1,4 @@
-use async_channel::bounded;
+use async_channel::{bounded, unbounded};
 use codec_sv2::{
     noise_sv2::formats::{EncodedEd25519PublicKey, EncodedEd25519SecretKey},
     StandardEitherFrame, StandardSv2Frame,
@@ -10,7 +10,9 @@ use roles_logic_sv2::{
 use serde::Deserialize;
 
 use tracing::{error, info};
+mod error;
 mod lib;
+mod status;
 
 use lib::{mining_pool::Pool, template_receiver::TemplateRx};
 
@@ -25,16 +27,23 @@ const BLOCK_REWARD: u64 = 5_000_000_000;
 
 const COINBASE_ADD_SZIE: u32 = 100;
 
+const COINBASE_PREFIX: Vec<u8> = vec![];
+const COINBASE_SUFFIX: Vec<u8> = vec![];
+
 fn new_pub_key() -> PublicKey {
     let priv_k = PrivateKey::from_slice(&PRIVATE_KEY_BTC, NETWORK).unwrap();
     let secp = Secp256k1::default();
     PublicKey::from_private_key(&secp, &priv_k)
 }
+use tokio::task;
+
+use crate::lib::job_negotiator::JobNegotiator;
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Configuration {
     pub listen_address: String,
     pub tp_address: String,
+    pub listen_jn_address: String,
     pub authority_public_key: EncodedEd25519PublicKey,
     pub authority_secret_key: EncodedEd25519SecretKey,
     pub cert_validity_sec: u64,
@@ -128,26 +137,60 @@ async fn main() {
         }
     };
 
+    let (status_tx, status_rx) = unbounded();
     let (s_new_t, r_new_t) = bounded(10);
     let (s_prev_hash, r_prev_hash) = bounded(10);
     let (s_solution, r_solution) = bounded(10);
     let (s_message_recv_signal, r_message_recv_signal) = bounded(10);
     info!("Pool INITIALIZING with config: {:?}", &args.config_path);
-    TemplateRx::connect(
+
+    let template_rx_res = TemplateRx::connect(
         config.tp_address.parse().unwrap(),
         s_new_t,
         s_prev_hash,
         r_solution,
         r_message_recv_signal,
+        status::Sender::Upstream(status_tx.clone()),
     )
     .await;
+    if let Err(e) = template_rx_res {
+        error!("Could not connect to Template Provider: {}", e);
+        return;
+    }
+
+    let cloned = config.clone();
+    task::spawn(async move { JobNegotiator::start(cloned).await });
+
     Pool::start(
-        config,
+        config.clone(),
         r_new_t,
         r_prev_hash,
         s_solution,
         s_message_recv_signal,
-    )
-    .await;
-    info!("Pool INITIALIZED");
+        status::Sender::DownstreamListener(status_tx),
+    );
+
+    // Start the error handling loop
+    // See `./status.rs` and `utils/error_handling` for information on how this operates
+    loop {
+        let task_status = status_rx.recv().await.unwrap();
+
+        match task_status.state {
+            // Should only be sent by the downstream listener
+            status::State::DownstreamShutdown(err) => {
+                error!(
+                    "SHUTDOWN from Downstream: {}\nTry to restart the downstream listener",
+                    err
+                );
+                break;
+            }
+            status::State::TemplateProviderShutdown(err) => {
+                error!("SHUTDOWN from Upstream: {}\nTry to reconnecting or connecting to a new upstream", err);
+                break;
+            }
+            status::State::Healthy(msg) => {
+                info!("HEALTHY message: {}", msg);
+            }
+        }
+    }
 }

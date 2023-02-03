@@ -57,6 +57,10 @@ impl<'decoder> SetupConnection<'decoder> {
         self.flags |= 0b_0000_0000_0000_0000_0000_0000_0000_0001
     }
 
+    pub fn set_async_job_nogotiation(&mut self) {
+        self.flags |= 0b_0000_0000_0000_0000_0000_0000_0000_0001
+    }
+
     /// Check if passed flags support self flag
     pub fn check_flags(protocol: Protocol, available_flags: u32, required_flags: u32) -> bool {
         match protocol {

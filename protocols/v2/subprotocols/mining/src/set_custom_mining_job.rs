@@ -19,12 +19,7 @@ pub struct SetCustomMiningJob<'decoder> {
     pub channel_id: u32,
     /// Client-specified identifier for pairing responses.
     pub request_id: u32,
-    /// Token provided by the pool which uniquely identifies
-    /// the job that the Job Negotiator has negotiated with the
-    /// pool. See the Job Negotiation Protocol for more
-    /// details.
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
-    pub mining_job_token: B0255<'decoder>,
+    pub token: u64,
     /// Valid version field that reflects the current network
     /// consensus. The general purpose bits (as specified in
     /// BIP320) can be freely manipulated by the downstream
@@ -42,7 +37,7 @@ pub struct SetCustomMiningJob<'decoder> {
     /// Up to 8 bytes (not including the length byte) which are
     /// to be placed at the beginning of the coinbase field in
     /// the coinbase transaction.
-    pub coinbase_prefix: u32,
+    pub coinbase_prefix: B0255<'decoder>,
     /// The coinbase transaction input’s nSequence field.
     pub coinbase_tx_input_n_sequence: u32,
     /// The value, in satoshis, available for spending in
@@ -71,7 +66,7 @@ pub struct SetCustomMiningJob<'decoder> {
 /// the job immediately (by using the job_id provided within this response).
 ///
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct SetCustomMiningJobSuccess<'decoder> {
+pub struct SetCustomMiningJobSuccess {
     /// Extended channel identifier.
     pub channel_id: u32,
     /// Client-specified identifier for pairing responses. Value from the request
@@ -79,12 +74,6 @@ pub struct SetCustomMiningJobSuccess<'decoder> {
     pub request_id: u32,
     /// Server’s identification of the mining job.
     pub job_id: u32,
-    /// Prefix part of the coinbase transaction*.
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
-    pub coinbase_tx_prefix: B064K<'decoder>,
-    /// Suffix part of the coinbase transaction.
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
-    pub coinbase_tx_suffix: B064K<'decoder>,
 }
 
 /// # SetCustomMiningJob.Error (Server -> Client)
@@ -112,7 +101,7 @@ impl<'d> GetSize for SetCustomMiningJob<'d> {
     fn get_size(&self) -> usize {
         self.channel_id.get_size()
             + self.request_id.get_size()
-            + self.mining_job_token.get_size()
+            + self.token.get_size()
             + self.version.get_size()
             + self.prev_hash.get_size()
             + self.min_ntime.get_size()
@@ -129,13 +118,9 @@ impl<'d> GetSize for SetCustomMiningJob<'d> {
     }
 }
 #[cfg(feature = "with_serde")]
-impl<'d> GetSize for SetCustomMiningJobSuccess<'d> {
+impl GetSize for SetCustomMiningJobSuccess {
     fn get_size(&self) -> usize {
-        self.channel_id.get_size()
-            + self.request_id.get_size()
-            + self.job_id.get_size()
-            + self.coinbase_tx_prefix.get_size()
-            + self.coinbase_tx_suffix.get_size()
+        self.channel_id.get_size() + self.request_id.get_size() + self.job_id.get_size()
     }
 }
 #[cfg(feature = "with_serde")]
@@ -163,11 +148,11 @@ impl<'a> SetCustomMiningJobError<'a> {
     }
 }
 #[cfg(feature = "with_serde")]
-impl<'a> SetCustomMiningJobSuccess<'a> {
-    pub fn into_static(self) -> SetCustomMiningJobSuccess<'static> {
+impl SetCustomMiningJobSuccess {
+    pub fn into_static(self) -> SetCustomMiningJobSuccess {
         panic!("This function shouldn't be called by the Messaege Generator");
     }
-    pub fn as_static(&self) -> SetCustomMiningJobSuccess<'static> {
+    pub fn as_static(&self) -> SetCustomMiningJobSuccess {
         panic!("This function shouldn't be called by the Messaege Generator");
     }
 }

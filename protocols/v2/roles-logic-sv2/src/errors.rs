@@ -11,8 +11,7 @@ pub enum Error {
     /// Errors if a `SendTo::RelaySameMessageSv1` request is made on a SV2-only application.
     CannotRelaySv1Message,
     NoGroupsFound,
-    WrongMessageType(u8),
-    UnexpectedMessage,
+    UnexpectedMessage(u8),
     NoGroupIdOnExtendedChannel,
     /// (`min_v`, `max_v`, all flags supported)
     NoPairableUpstream((u16, u16, u32)),
@@ -41,6 +40,7 @@ pub enum Error {
     NoValidJob,
     NoTemplateForId,
     InvalidExtranonceSize(u16, u16),
+    PoisonLock(String),
 }
 
 impl From<BinarySv2Error> for Error {
@@ -70,8 +70,7 @@ impl Display for Error {
                 f,
                 "A channel was attempted to be added to an Upstream, but no groups are specified"
             ),
-            WrongMessageType(m) => write!(f, "Wrong message type: {}", m),
-            UnexpectedMessage => write!(f, "Error: Unexpected message received"),
+            UnexpectedMessage(type_) => write!(f, "Error: Unexpected message received. Recv m type: {:x}", type_),
             NoGroupIdOnExtendedChannel => write!(f, "Extended channels do not have group IDs"),
             NoPairableUpstream(a) => {
                 write!(f, "No pairable upstream node: {:?}", a)
@@ -117,6 +116,7 @@ impl Display for Error {
             NotFoundChannelId => write!(f, "No downstream has been registred for this channel id"),
             NoValidJob => write!(f, "Impossible to create a standard job for channelA cause no valid job has been received from upstream yet"),
             NoTemplateForId => write!(f, "Impossible a template for the required job id"),
+            PoisonLock(e) => write!(f, "Poison lock: {}", e),
         }
     }
 }

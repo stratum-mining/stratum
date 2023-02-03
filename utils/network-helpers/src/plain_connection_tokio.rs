@@ -53,6 +53,8 @@ impl PlainConnection {
                             Ok(frame) => {
                                 if let Err(e) = sender_incoming.send(frame.into()).await {
                                     error!("Failed to send incoming message: {}", e);
+                                    task::yield_now().await;
+                                    break;
                                 }
                             }
                             Err(MissingBytes(size)) => {
@@ -73,6 +75,8 @@ impl PlainConnection {
                     Err(e) => {
                         // Just fail and force to reinitialize everything
                         error!("Failed to read from stream: {}", e);
+                        sender_incoming.close();
+                        task::yield_now().await;
                         break;
                     }
                 }
@@ -100,6 +104,7 @@ impl PlainConnection {
                         // Just fail and force to reinitilize everything
                         let _ = writer.shutdown().await;
                         error!("Failed to read from stream - terminating connection");
+                        task::yield_now().await;
                         break;
                     }
                 };

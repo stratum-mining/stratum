@@ -8,6 +8,7 @@ use v1::server_to_client::{Notify, SetDifficulty};
 
 pub type ProxyResult<'a, T> = core::result::Result<T, Error<'a>>;
 
+#[allow(dead_code)]
 #[derive(Debug)]
 pub enum LockError<'a> {
     Bridge(PoisonError<MutexGuard<'a, proxy::Bridge>>),
@@ -47,6 +48,7 @@ pub enum Error<'a> {
     UpstreamIncoming(roles_logic_sv2::errors::Error),
     /// SV1 protocol library error
     V1Protocol(v1::error::Error<'a>),
+    #[allow(dead_code)]
     SubprotocolMining(String),
     // Locking Errors
     // PoisonLock(LockError<'a>),

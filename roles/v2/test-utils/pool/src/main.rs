@@ -286,7 +286,7 @@ impl Downstream {
                 //self.send(sv2_frame).await.unwrap();
             }
             Ok(_) => panic!(),
-            Err(Error::UnexpectedMessage) => todo!(),
+            Err(Error::UnexpectedMessage(_)) => todo!(),
             Err(_) => todo!(),
         }
     }

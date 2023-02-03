@@ -22,6 +22,22 @@ use bitcoin::{
 };
 use tracing::error;
 
+pub struct PartialSetCustomMiningJob {
+    pub version: u32,
+    pub prev_hash: binary_sv2::U256<'static>,
+    pub min_ntime: u32,
+    pub nbits: u32,
+    pub coinbase_tx_version: u32,
+    pub coinbase_prefix: binary_sv2::B0255<'static>,
+    pub coinbase_tx_input_n_sequence: u32,
+    pub coinbase_tx_value_remaining: u64,
+    pub coinbase_tx_outputs: binary_sv2::B064K<'static>,
+    pub coinbase_tx_locktime: u32,
+    pub merkle_path: binary_sv2::Seq0255<'static, binary_sv2::U256<'static>>,
+    pub extranonce_size: u16,
+    pub future_job: bool,
+}
+
 /// Rapresent the action that needs to be done when a new share is received.
 #[derive(Debug, Clone)]
 pub enum OnNewShare {
@@ -134,6 +150,7 @@ struct ChannelFactory {
     kind: ExtendedChannelKind,
     job_ids: Id,
     channel_to_group_id: HashMap<u32, u32>,
+    future_templates: HashMap<u32, NewTemplate<'static>>,
 }
 
 impl ChannelFactory {
@@ -759,7 +776,9 @@ impl PoolChannelFactory {
             kind,
             job_ids: Id::new(),
             channel_to_group_id: HashMap::new(),
+            future_templates: HashMap::new(),
         };
+
         Self {
             inner,
             job_creator,
@@ -841,6 +860,7 @@ impl PoolChannelFactory {
             }
         }
     }
+
     pub fn on_submit_shares_extended(
         &mut self,
         m: SubmitSharesExtended,
@@ -910,6 +930,7 @@ impl ProxyExtendedChannelFactory {
             kind,
             job_ids: Id::new(),
             channel_to_group_id: HashMap::new(),
+            future_templates: HashMap::new(),
         };
         ProxyExtendedChannelFactory {
             inner,
@@ -942,7 +963,7 @@ impl ProxyExtendedChannelFactory {
     pub fn on_new_prev_hash_from_tp(
         &mut self,
         m: &SetNewPrevHashFromTp<'static>,
-    ) -> Result<u32, Error> {
+    ) -> Result<Option<PartialSetCustomMiningJob>, Error> {
         if let Some(job_creator) = self.job_creator.as_mut() {
             let job_id = job_creator.on_new_prev_hash(m).unwrap_or(0);
             let new_prev_hash = StagedPhash {
@@ -951,8 +972,27 @@ impl ProxyExtendedChannelFactory {
                 min_ntime: m.header_timestamp,
                 nbits: m.n_bits,
             };
+            let mut custom_job = None;
+            if let Some(template) = self.inner.future_templates.get(&job_id) {
+                custom_job = Some(PartialSetCustomMiningJob {
+                    version: template.version,
+                    prev_hash: new_prev_hash.prev_hash.clone(),
+                    min_ntime: new_prev_hash.min_ntime,
+                    nbits: new_prev_hash.nbits,
+                    coinbase_tx_version: template.coinbase_tx_version,
+                    coinbase_prefix: template.coinbase_prefix.clone(),
+                    coinbase_tx_input_n_sequence: template.coinbase_tx_input_sequence,
+                    coinbase_tx_value_remaining: template.coinbase_tx_value_remaining,
+                    coinbase_tx_outputs: template.coinbase_tx_outputs.clone(),
+                    coinbase_tx_locktime: template.coinbase_tx_locktime,
+                    merkle_path: template.merkle_path.clone(),
+                    extranonce_size: self.inner.extranonces.get_len() as u16,
+                    future_job: template.future_template,
+                });
+            }
+            self.inner.future_templates = HashMap::new();
             self.inner.on_new_prev_hash(new_prev_hash)?;
-            Ok(job_id)
+            Ok(custom_job)
         } else {
             panic!("A channel factory without job creator do not have negotiation capabilities")
         }
@@ -961,13 +1001,49 @@ impl ProxyExtendedChannelFactory {
     pub fn on_new_template(
         &mut self,
         m: &mut NewTemplate<'static>,
-    ) -> Result<HashMap<u32, Mining>, Error> {
+    ) -> Result<
+        (
+            HashMap<u32, Mining<'static>>,
+            Option<PartialSetCustomMiningJob>,
+        ),
+        Error,
+    > {
         if let (Some(job_creator), Some(pool_coinbase_outputs)) = (
             self.job_creator.as_mut(),
             self.pool_coinbase_outputs.as_ref(),
         ) {
             let new_job = job_creator.on_new_template(m, true, pool_coinbase_outputs.clone())?;
-            self.inner.on_new_extended_mining_job(new_job)
+            if !new_job.future_job && self.inner.last_prev_hash.is_some() {
+                let prev_hash = self.last_prev_hash().unwrap();
+                let min_ntime = self.last_min_ntime().unwrap();
+                let nbits = self.last_nbits().unwrap();
+                let extranonce_size = self.extranonce_size() as u16;
+                let custom_mining_job = PartialSetCustomMiningJob {
+                    version: m.version,
+                    prev_hash,
+                    min_ntime,
+                    nbits,
+                    coinbase_tx_version: m.coinbase_tx_version,
+                    coinbase_prefix: m.coinbase_prefix.clone(),
+                    coinbase_tx_input_n_sequence: m.coinbase_tx_input_sequence,
+                    coinbase_tx_value_remaining: m.coinbase_tx_value_remaining,
+                    coinbase_tx_outputs: m.coinbase_tx_outputs.clone(),
+                    coinbase_tx_locktime: m.coinbase_tx_locktime,
+                    merkle_path: m.merkle_path.clone(),
+                    extranonce_size,
+                    future_job: m.future_template,
+                };
+                return Ok((
+                    self.inner.on_new_extended_mining_job(new_job)?,
+                    Some(custom_mining_job),
+                ));
+            }
+            if new_job.future_job {
+                self.inner
+                    .future_templates
+                    .insert(new_job.job_id, m.clone());
+            }
+            Ok((self.inner.on_new_extended_mining_job(new_job)?, None))
         } else {
             panic!("A channel factory without job creator do not have negotiation capabilities")
         }
@@ -1071,6 +1147,22 @@ impl ProxyExtendedChannelFactory {
         self.inner
             .extranonces
             .extranonce_from_downstream_extranonce(ext)
+    }
+
+    pub fn last_prev_hash(&self) -> Option<binary_sv2::U256<'static>> {
+        self.inner
+            .last_prev_hash
+            .as_ref()
+            .map(|f| f.0.prev_hash.clone())
+    }
+    pub fn last_min_ntime(&self) -> Option<u32> {
+        self.inner.last_prev_hash.as_ref().map(|f| f.0.min_ntime)
+    }
+    pub fn last_nbits(&self) -> Option<u32> {
+        self.inner.last_prev_hash.as_ref().map(|f| f.0.nbits)
+    }
+    pub fn extranonce_size(&self) -> usize {
+        self.inner.extranonces.get_len()
     }
 }
 

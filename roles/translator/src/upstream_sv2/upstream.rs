@@ -9,7 +9,7 @@ use async_channel::{Receiver, Sender};
 use async_std::{net::TcpStream, task};
 use binary_sv2::u256_from_int;
 use codec_sv2::{Frame, HandshakeRole, Initiator};
-use error_handling::{handle_result, ErrorBranch};
+use error_handling::handle_result;
 use network_helpers::Connection;
 use roles_logic_sv2::{
     bitcoin::BlockHash,
@@ -31,7 +31,6 @@ use roles_logic_sv2::{
 };
 use std::{net::SocketAddr, sync::Arc, thread::sleep, time::Duration};
 use tracing::{debug, error, info, warn};
-
 /// Represents the currently active `prevhash` of the mining job being worked on OR being submitted
 /// from the Downstream role.
 #[derive(Debug, Clone)]

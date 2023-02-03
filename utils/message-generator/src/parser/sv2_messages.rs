@@ -5,22 +5,26 @@ use roles_logic_sv2::{
 };
 use std::collections::HashMap;
 
-/// It takes a path and an id. If at `path` there is a file, then it loads it and tries to 
+/// It takes a path and an id. If at `path` there is a file, then it loads it and tries to
 /// transform it in `TestmessageParser`. Therefore, with into_map, trasforms the
 /// `TestMessageParser` in HashMap (id -> AnyMessage) and tries to take the value that corresponds
 /// to id
-pub fn message_from_path(path: & Vec<String>) -> AnyMessage<'static> {
+pub fn message_from_path(path: &Vec<String>) -> AnyMessage<'static> {
     let id = path[1].clone();
     let path = path[0].clone();
     let messages = load_str!(&path);
     // Pa
     let parsed = TestMessageParser::from_str(messages);
-    parsed.into_map().get(&id).expect("There is no value matching the id {:?}").clone()
+    parsed
+        .into_map()
+        .get(&id)
+        .expect("There is no value matching the id {:?}")
+        .clone()
 }
 
 /// This parses a json object that may or may not (and in this case field is None) have a value
 /// with a particular key. While parsing the file below, the mining_message filed is None
-/// 
+///
 //        {
 //            "common_messages": [
 //                {
@@ -313,40 +317,13 @@ impl<'a> From<TemplateDistribution<'a>> for roles_logic_sv2::parsers::TemplateDi
 #[serde(tag = "type")]
 pub enum JobNegotiation<'a> {
     #[serde(borrow)]
-    AllocateMiningJobToken(AllocateMiningJobToken<'a>),
-    #[serde(borrow)]
-    AllocateMiningJobTokenSuccess(AllocateMiningJobTokenSuccess<'a>),
-    #[serde(borrow)]
-    CommitMiningJob(CommitMiningJob<'a>),
-    #[serde(borrow)]
-    CommitMiningJobSuccess(CommitMiningJobSuccess<'a>),
-    #[serde(borrow)]
-    CommitMiningJobError(CommitMiningJobError<'a>),
-    IdentifyTransactions(IdentifyTransactions),
-    #[serde(borrow)]
-    IdentifyTransactionsSuccess(IdentifyTransactionsSuccess<'a>),
-    #[serde(borrow)]
-    ProvideMissingTransactions(ProvideMissingTransactions<'a>),
-    #[serde(borrow)]
-    ProvideMissingTransactionsSuccess(ProvideMissingTransactionsSuccess<'a>),
+    SetCoinbase(SetCoinbase<'a>),
 }
 
 impl<'a> From<JobNegotiation<'a>> for roles_logic_sv2::parsers::JobNegotiation<'a> {
     fn from(v: JobNegotiation<'a>) -> Self {
         match v {
-            JobNegotiation::AllocateMiningJobToken(m) => Self::AllocateMiningJobToken(m),
-            JobNegotiation::AllocateMiningJobTokenSuccess(m) => {
-                Self::AllocateMiningJobTokenSuccess(m)
-            }
-            JobNegotiation::CommitMiningJob(m) => Self::CommitMiningJob(m),
-            JobNegotiation::CommitMiningJobSuccess(m) => Self::CommitMiningJobSuccess(m),
-            JobNegotiation::CommitMiningJobError(m) => Self::CommitMiningJobError(m),
-            JobNegotiation::IdentifyTransactions(m) => Self::IdentifyTransactions(m),
-            JobNegotiation::IdentifyTransactionsSuccess(m) => Self::IdentifyTransactionsSuccess(m),
-            JobNegotiation::ProvideMissingTransactions(m) => Self::ProvideMissingTransactions(m),
-            JobNegotiation::ProvideMissingTransactionsSuccess(m) => {
-                Self::ProvideMissingTransactionsSuccess(m)
-            }
+            JobNegotiation::SetCoinbase(m) => Self::SetCoinbase(m),
         }
     }
 }
@@ -376,8 +353,7 @@ pub enum Mining<'a> {
     SetCustomMiningJob(SetCustomMiningJob<'a>),
     #[serde(borrow)]
     SetCustomMiningJobError(SetCustomMiningJobError<'a>),
-    #[serde(borrow)]
-    SetCustomMiningJobSuccess(SetCustomMiningJobSuccess<'a>),
+    SetCustomMiningJobSuccess(SetCustomMiningJobSuccess),
     #[serde(borrow)]
     SetExtranoncePrefix(SetExtranoncePrefix<'a>),
     #[serde(borrow)]

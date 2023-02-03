@@ -13,45 +13,38 @@ use binary_sv2::{from_bytes, Deserialize};
 use framing_sv2::framing2::{Frame, Sv2Frame};
 
 use const_sv2::{
-    CHANNEL_BIT_ALLOCATE_MINING_JOB_SUCCESS, CHANNEL_BIT_ALLOCATE_MINING_JOB_TOKEN,
     CHANNEL_BIT_CHANNEL_ENDPOINT_CHANGED, CHANNEL_BIT_CLOSE_CHANNEL,
-    CHANNEL_BIT_COINBASE_OUTPUT_DATA_SIZE, CHANNEL_BIT_COMMIT_MINING_JOB,
-    CHANNEL_BIT_COMMIT_MINING_JOB_ERROR, CHANNEL_BIT_COMMIT_MINING_JOB_SUCCESS,
-    CHANNEL_BIT_IDENTIFY_TRANSACTIONS, CHANNEL_BIT_IDENTIFY_TRANSACTIONS_SUCCESS,
-    CHANNEL_BIT_MINING_SET_NEW_PREV_HASH, CHANNEL_BIT_NEW_EXTENDED_MINING_JOB,
-    CHANNEL_BIT_NEW_MINING_JOB, CHANNEL_BIT_NEW_TEMPLATE, CHANNEL_BIT_OPEN_EXTENDED_MINING_CHANNEL,
-    CHANNEL_BIT_OPEN_EXTENDED_MINING_CHANNEL_SUCCES, CHANNEL_BIT_OPEN_MINING_CHANNEL_ERROR,
-    CHANNEL_BIT_OPEN_STANDARD_MINING_CHANNEL, CHANNEL_BIT_OPEN_STANDARD_MINING_CHANNEL_SUCCESS,
-    CHANNEL_BIT_PROVIDE_MISSING_TRANSACTION, CHANNEL_BIT_PROVIDE_MISSING_TRANSACTION_SUCCESS,
-    CHANNEL_BIT_RECONNECT, CHANNEL_BIT_REQUEST_TRANSACTION_DATA,
-    CHANNEL_BIT_REQUEST_TRANSACTION_DATA_ERROR, CHANNEL_BIT_REQUEST_TRANSACTION_DATA_SUCCESS,
-    CHANNEL_BIT_SETUP_CONNECTION, CHANNEL_BIT_SETUP_CONNECTION_ERROR,
-    CHANNEL_BIT_SETUP_CONNECTION_SUCCESS, CHANNEL_BIT_SET_CUSTOM_MINING_JOB,
+    CHANNEL_BIT_COINBASE_OUTPUT_DATA_SIZE, CHANNEL_BIT_MINING_SET_NEW_PREV_HASH,
+    CHANNEL_BIT_NEW_EXTENDED_MINING_JOB, CHANNEL_BIT_NEW_MINING_JOB, CHANNEL_BIT_NEW_TEMPLATE,
+    CHANNEL_BIT_OPEN_EXTENDED_MINING_CHANNEL, CHANNEL_BIT_OPEN_EXTENDED_MINING_CHANNEL_SUCCES,
+    CHANNEL_BIT_OPEN_MINING_CHANNEL_ERROR, CHANNEL_BIT_OPEN_STANDARD_MINING_CHANNEL,
+    CHANNEL_BIT_OPEN_STANDARD_MINING_CHANNEL_SUCCESS, CHANNEL_BIT_RECONNECT,
+    CHANNEL_BIT_REQUEST_TRANSACTION_DATA, CHANNEL_BIT_REQUEST_TRANSACTION_DATA_ERROR,
+    CHANNEL_BIT_REQUEST_TRANSACTION_DATA_SUCCESS, CHANNEL_BIT_SETUP_CONNECTION,
+    CHANNEL_BIT_SETUP_CONNECTION_ERROR, CHANNEL_BIT_SETUP_CONNECTION_SUCCESS,
+    CHANNEL_BIT_SET_COINBASE, CHANNEL_BIT_SET_CUSTOM_MINING_JOB,
     CHANNEL_BIT_SET_CUSTOM_MINING_JOB_ERROR, CHANNEL_BIT_SET_CUSTOM_MINING_JOB_SUCCESS,
     CHANNEL_BIT_SET_EXTRANONCE_PREFIX, CHANNEL_BIT_SET_GROUP_CHANNEL,
     CHANNEL_BIT_SET_NEW_PREV_HASH, CHANNEL_BIT_SET_TARGET, CHANNEL_BIT_SUBMIT_SHARES_ERROR,
     CHANNEL_BIT_SUBMIT_SHARES_EXTENDED, CHANNEL_BIT_SUBMIT_SHARES_STANDARD,
     CHANNEL_BIT_SUBMIT_SHARES_SUCCESS, CHANNEL_BIT_SUBMIT_SOLUTION, CHANNEL_BIT_UPDATE_CHANNEL,
-    CHANNEL_BIT_UPDATE_CHANNEL_ERROR, MESSAGE_TYPE_ALLOCATE_MINING_JOB_SUCCESS,
-    MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN, MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED,
+    CHANNEL_BIT_UPDATE_CHANNEL_ERROR, MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED,
     MESSAGE_TYPE_CLOSE_CHANNEL, MESSAGE_TYPE_COINBASE_OUTPUT_DATA_SIZE,
-    MESSAGE_TYPE_COMMIT_MINING_JOB, MESSAGE_TYPE_COMMIT_MINING_JOB_ERROR,
-    MESSAGE_TYPE_COMMIT_MINING_JOB_SUCCESS, MESSAGE_TYPE_IDENTIFY_TRANSACTIONS,
-    MESSAGE_TYPE_IDENTIFY_TRANSACTIONS_SUCCESS, MESSAGE_TYPE_MINING_SET_NEW_PREV_HASH,
-    MESSAGE_TYPE_NEW_EXTENDED_MINING_JOB, MESSAGE_TYPE_NEW_MINING_JOB, MESSAGE_TYPE_NEW_TEMPLATE,
+    MESSAGE_TYPE_MINING_SET_NEW_PREV_HASH, MESSAGE_TYPE_NEW_EXTENDED_MINING_JOB,
+    MESSAGE_TYPE_NEW_MINING_JOB, MESSAGE_TYPE_NEW_TEMPLATE,
     MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL, MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL_SUCCES,
     MESSAGE_TYPE_OPEN_MINING_CHANNEL_ERROR, MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL,
-    MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL_SUCCESS, MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTION,
-    MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTION_SUCCESS, MESSAGE_TYPE_RECONNECT,
+    MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL_SUCCESS, MESSAGE_TYPE_RECONNECT,
     MESSAGE_TYPE_REQUEST_TRANSACTION_DATA, MESSAGE_TYPE_REQUEST_TRANSACTION_DATA_ERROR,
     MESSAGE_TYPE_REQUEST_TRANSACTION_DATA_SUCCESS, MESSAGE_TYPE_SETUP_CONNECTION,
     MESSAGE_TYPE_SETUP_CONNECTION_ERROR, MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS,
-    MESSAGE_TYPE_SET_CUSTOM_MINING_JOB, MESSAGE_TYPE_SET_CUSTOM_MINING_JOB_ERROR,
-    MESSAGE_TYPE_SET_CUSTOM_MINING_JOB_SUCCESS, MESSAGE_TYPE_SET_EXTRANONCE_PREFIX,
-    MESSAGE_TYPE_SET_GROUP_CHANNEL, MESSAGE_TYPE_SET_NEW_PREV_HASH, MESSAGE_TYPE_SET_TARGET,
-    MESSAGE_TYPE_SUBMIT_SHARES_ERROR, MESSAGE_TYPE_SUBMIT_SHARES_EXTENDED,
-    MESSAGE_TYPE_SUBMIT_SHARES_STANDARD, MESSAGE_TYPE_SUBMIT_SHARES_SUCCESS,
-    MESSAGE_TYPE_SUBMIT_SOLUTION, MESSAGE_TYPE_UPDATE_CHANNEL, MESSAGE_TYPE_UPDATE_CHANNEL_ERROR,
+    MESSAGE_TYPE_SET_COINBASE, MESSAGE_TYPE_SET_CUSTOM_MINING_JOB,
+    MESSAGE_TYPE_SET_CUSTOM_MINING_JOB_ERROR, MESSAGE_TYPE_SET_CUSTOM_MINING_JOB_SUCCESS,
+    MESSAGE_TYPE_SET_EXTRANONCE_PREFIX, MESSAGE_TYPE_SET_GROUP_CHANNEL,
+    MESSAGE_TYPE_SET_NEW_PREV_HASH, MESSAGE_TYPE_SET_TARGET, MESSAGE_TYPE_SUBMIT_SHARES_ERROR,
+    MESSAGE_TYPE_SUBMIT_SHARES_EXTENDED, MESSAGE_TYPE_SUBMIT_SHARES_STANDARD,
+    MESSAGE_TYPE_SUBMIT_SHARES_SUCCESS, MESSAGE_TYPE_SUBMIT_SOLUTION, MESSAGE_TYPE_UPDATE_CHANNEL,
+    MESSAGE_TYPE_UPDATE_CHANNEL_ERROR,
 };
 
 use common_messages_sv2::{
@@ -63,11 +56,7 @@ use template_distribution_sv2::{
     RequestTransactionDataSuccess, SetNewPrevHash, SubmitSolution,
 };
 
-use job_negotiation_sv2::{
-    AllocateMiningJobToken, AllocateMiningJobTokenSuccess, CommitMiningJob, CommitMiningJobError,
-    CommitMiningJobSuccess, IdentifyTransactions, IdentifyTransactionsSuccess,
-    ProvideMissingTransactions, ProvideMissingTransactionsSuccess,
-};
+use job_negotiation_sv2::SetCoinbase;
 
 use mining_sv2::{
     CloseChannel, NewExtendedMiningJob, NewMiningJob, OpenExtendedMiningChannel,
@@ -115,22 +104,7 @@ pub enum TemplateDistribution<'a> {
 #[cfg_attr(feature = "with_serde", derive(Serialize, Deserialize))]
 pub enum JobNegotiation<'a> {
     #[cfg_attr(feature = "with_serde", serde(borrow))]
-    AllocateMiningJobToken(AllocateMiningJobToken<'a>),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
-    AllocateMiningJobTokenSuccess(AllocateMiningJobTokenSuccess<'a>),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
-    CommitMiningJob(CommitMiningJob<'a>),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
-    CommitMiningJobSuccess(CommitMiningJobSuccess<'a>),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
-    CommitMiningJobError(CommitMiningJobError<'a>),
-    IdentifyTransactions(IdentifyTransactions),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
-    IdentifyTransactionsSuccess(IdentifyTransactionsSuccess<'a>),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
-    ProvideMissingTransactions(ProvideMissingTransactions<'a>),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
-    ProvideMissingTransactionsSuccess(ProvideMissingTransactionsSuccess<'a>),
+    SetCoinbase(SetCoinbase<'a>),
 }
 
 #[derive(Clone, Debug)]
@@ -158,8 +132,7 @@ pub enum Mining<'a> {
     SetCustomMiningJob(SetCustomMiningJob<'a>),
     #[cfg_attr(feature = "with_serde", serde(borrow))]
     SetCustomMiningJobError(SetCustomMiningJobError<'a>),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
-    SetCustomMiningJobSuccess(SetCustomMiningJobSuccess<'a>),
+    SetCustomMiningJobSuccess(SetCustomMiningJobSuccess),
     #[cfg_attr(feature = "with_serde", serde(borrow))]
     SetExtranoncePrefix(SetExtranoncePrefix<'a>),
     #[cfg_attr(feature = "with_serde", serde(borrow))]
@@ -271,32 +244,12 @@ impl<'a> IsSv2Message for TemplateDistribution<'a> {
 impl<'a> IsSv2Message for JobNegotiation<'a> {
     fn message_type(&self) -> u8 {
         match self {
-            Self::AllocateMiningJobToken(_) => MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN,
-            Self::AllocateMiningJobTokenSuccess(_) => MESSAGE_TYPE_ALLOCATE_MINING_JOB_SUCCESS,
-            Self::CommitMiningJob(_) => MESSAGE_TYPE_COMMIT_MINING_JOB,
-            Self::CommitMiningJobSuccess(_) => MESSAGE_TYPE_COMMIT_MINING_JOB_SUCCESS,
-            Self::CommitMiningJobError(_) => MESSAGE_TYPE_COMMIT_MINING_JOB_ERROR,
-            Self::IdentifyTransactions(_) => MESSAGE_TYPE_IDENTIFY_TRANSACTIONS,
-            Self::IdentifyTransactionsSuccess(_) => MESSAGE_TYPE_IDENTIFY_TRANSACTIONS_SUCCESS,
-            Self::ProvideMissingTransactions(_) => MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTION,
-            Self::ProvideMissingTransactionsSuccess(_) => {
-                MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTION_SUCCESS
-            }
+            Self::SetCoinbase(_) => MESSAGE_TYPE_SET_COINBASE,
         }
     }
     fn channel_bit(&self) -> bool {
         match self {
-            Self::AllocateMiningJobToken(_) => CHANNEL_BIT_ALLOCATE_MINING_JOB_TOKEN,
-            Self::AllocateMiningJobTokenSuccess(_) => CHANNEL_BIT_ALLOCATE_MINING_JOB_SUCCESS,
-            Self::CommitMiningJob(_) => CHANNEL_BIT_COMMIT_MINING_JOB,
-            Self::CommitMiningJobSuccess(_) => CHANNEL_BIT_COMMIT_MINING_JOB_SUCCESS,
-            Self::CommitMiningJobError(_) => CHANNEL_BIT_COMMIT_MINING_JOB_ERROR,
-            Self::IdentifyTransactions(_) => CHANNEL_BIT_IDENTIFY_TRANSACTIONS,
-            Self::IdentifyTransactionsSuccess(_) => CHANNEL_BIT_IDENTIFY_TRANSACTIONS_SUCCESS,
-            Self::ProvideMissingTransactions(_) => CHANNEL_BIT_PROVIDE_MISSING_TRANSACTION,
-            Self::ProvideMissingTransactionsSuccess(_) => {
-                CHANNEL_BIT_PROVIDE_MISSING_TRANSACTION_SUCCESS
-            }
+            Self::SetCoinbase(_) => CHANNEL_BIT_SET_COINBASE,
         }
     }
 }
@@ -393,15 +346,7 @@ impl<'decoder> From<TemplateDistribution<'decoder>> for EncodableField<'decoder>
 impl<'decoder> From<JobNegotiation<'decoder>> for EncodableField<'decoder> {
     fn from(m: JobNegotiation<'decoder>) -> Self {
         match m {
-            JobNegotiation::AllocateMiningJobToken(a) => a.into(),
-            JobNegotiation::AllocateMiningJobTokenSuccess(a) => a.into(),
-            JobNegotiation::CommitMiningJob(a) => a.into(),
-            JobNegotiation::CommitMiningJobSuccess(a) => a.into(),
-            JobNegotiation::CommitMiningJobError(a) => a.into(),
-            JobNegotiation::IdentifyTransactions(a) => a.into(),
-            JobNegotiation::IdentifyTransactionsSuccess(a) => a.into(),
-            JobNegotiation::ProvideMissingTransactions(a) => a.into(),
-            JobNegotiation::ProvideMissingTransactionsSuccess(a) => a.into(),
+            JobNegotiation::SetCoinbase(a) => a.into(),
         }
     }
 }
@@ -459,18 +404,10 @@ impl GetSize for TemplateDistribution<'_> {
         }
     }
 }
-impl GetSize for JobNegotiation<'_> {
+impl<'a> GetSize for JobNegotiation<'a> {
     fn get_size(&self) -> usize {
         match self {
-            JobNegotiation::AllocateMiningJobToken(a) => a.get_size(),
-            JobNegotiation::AllocateMiningJobTokenSuccess(a) => a.get_size(),
-            JobNegotiation::CommitMiningJob(a) => a.get_size(),
-            JobNegotiation::CommitMiningJobSuccess(a) => a.get_size(),
-            JobNegotiation::CommitMiningJobError(a) => a.get_size(),
-            JobNegotiation::IdentifyTransactions(a) => a.get_size(),
-            JobNegotiation::IdentifyTransactionsSuccess(a) => a.get_size(),
-            JobNegotiation::ProvideMissingTransactions(a) => a.get_size(),
-            JobNegotiation::ProvideMissingTransactionsSuccess(a) => a.get_size(),
+            JobNegotiation::SetCoinbase(a) => a.get_size(),
         }
     }
 }
@@ -591,7 +528,7 @@ impl TryFrom<u8> for CommonMessageTypes {
             MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS => Ok(CommonMessageTypes::SetupConnectionSuccess),
             MESSAGE_TYPE_SETUP_CONNECTION_ERROR => Ok(CommonMessageTypes::SetupConnectionError),
             MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED => Ok(CommonMessageTypes::ChannelEndpointChanged),
-            _ => Err(Error::WrongMessageType(v)),
+            _ => Err(Error::UnexpectedMessage(v)),
         }
     }
 }
@@ -655,7 +592,7 @@ impl TryFrom<u8> for TemplateDistributionTypes {
                 Ok(TemplateDistributionTypes::RequestTransactionDataError)
             }
             MESSAGE_TYPE_SUBMIT_SOLUTION => Ok(TemplateDistributionTypes::SubmitSolution),
-            _ => Err(Error::WrongMessageType(v)),
+            _ => Err(Error::UnexpectedMessage(v)),
         }
     }
 }
@@ -702,15 +639,7 @@ impl<'a> TryFrom<(u8, &'a mut [u8])> for TemplateDistribution<'a> {
 #[repr(u8)]
 #[allow(clippy::enum_variant_names)]
 pub enum JobNegotiationTypes {
-    AllocateMiningJobToken = MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN,
-    AllocateMiningJobTokenSuccess = MESSAGE_TYPE_ALLOCATE_MINING_JOB_SUCCESS,
-    IdentifyTransactions = MESSAGE_TYPE_IDENTIFY_TRANSACTIONS,
-    IdentifyTransactionsSuccess = MESSAGE_TYPE_IDENTIFY_TRANSACTIONS_SUCCESS,
-    ProvideMissingTransactions = MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTION,
-    ProvideMissingTransactionsSuccess = MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTION_SUCCESS,
-    CommitMiningJob = MESSAGE_TYPE_COMMIT_MINING_JOB,
-    CommitMiningJobSuccess = MESSAGE_TYPE_COMMIT_MINING_JOB_SUCCESS,
-    CommitMiningJobError = MESSAGE_TYPE_COMMIT_MINING_JOB_ERROR,
+    CoinbaseOutputDataSize = MESSAGE_TYPE_SET_COINBASE,
 }
 
 impl TryFrom<u8> for JobNegotiationTypes {
@@ -718,28 +647,8 @@ impl TryFrom<u8> for JobNegotiationTypes {
 
     fn try_from(v: u8) -> Result<JobNegotiationTypes, Error> {
         match v {
-            MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN => {
-                Ok(JobNegotiationTypes::AllocateMiningJobToken)
-            }
-            MESSAGE_TYPE_ALLOCATE_MINING_JOB_SUCCESS => {
-                Ok(JobNegotiationTypes::AllocateMiningJobTokenSuccess)
-            }
-            MESSAGE_TYPE_IDENTIFY_TRANSACTIONS => Ok(JobNegotiationTypes::IdentifyTransactions),
-            MESSAGE_TYPE_IDENTIFY_TRANSACTIONS_SUCCESS => {
-                Ok(JobNegotiationTypes::IdentifyTransactionsSuccess)
-            }
-            MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTION => {
-                Ok(JobNegotiationTypes::ProvideMissingTransactions)
-            }
-            MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTION_SUCCESS => {
-                Ok(JobNegotiationTypes::ProvideMissingTransactionsSuccess)
-            }
-            MESSAGE_TYPE_COMMIT_MINING_JOB => Ok(JobNegotiationTypes::CommitMiningJob),
-            MESSAGE_TYPE_COMMIT_MINING_JOB_SUCCESS => {
-                Ok(JobNegotiationTypes::CommitMiningJobSuccess)
-            }
-            MESSAGE_TYPE_COMMIT_MINING_JOB_ERROR => Ok(JobNegotiationTypes::CommitMiningJobError),
-            _ => Err(Error::WrongMessageType(v)),
+            MESSAGE_TYPE_SET_COINBASE => Ok(JobNegotiationTypes::CoinbaseOutputDataSize),
+            _ => Err(Error::UnexpectedMessage(v)),
         }
     }
 }
@@ -750,41 +659,9 @@ impl<'a> TryFrom<(u8, &'a mut [u8])> for JobNegotiation<'a> {
     fn try_from(v: (u8, &'a mut [u8])) -> Result<Self, Self::Error> {
         let msg_type: JobNegotiationTypes = v.0.try_into()?;
         match msg_type {
-            JobNegotiationTypes::AllocateMiningJobToken => {
-                let message: AllocateMiningJobToken = from_bytes(v.1)?;
-                Ok(JobNegotiation::AllocateMiningJobToken(message))
-            }
-            JobNegotiationTypes::AllocateMiningJobTokenSuccess => {
-                let message: AllocateMiningJobTokenSuccess = from_bytes(v.1)?;
-                Ok(JobNegotiation::AllocateMiningJobTokenSuccess(message))
-            }
-            JobNegotiationTypes::CommitMiningJob => {
-                let message: CommitMiningJob = from_bytes(v.1)?;
-                Ok(JobNegotiation::CommitMiningJob(message))
-            }
-            JobNegotiationTypes::CommitMiningJobSuccess => {
-                let message: CommitMiningJobSuccess = from_bytes(v.1)?;
-                Ok(JobNegotiation::CommitMiningJobSuccess(message))
-            }
-            JobNegotiationTypes::CommitMiningJobError => {
-                let message: CommitMiningJobError = from_bytes(v.1)?;
-                Ok(JobNegotiation::CommitMiningJobError(message))
-            }
-            JobNegotiationTypes::IdentifyTransactions => {
-                let message: IdentifyTransactions = from_bytes(v.1)?;
-                Ok(JobNegotiation::IdentifyTransactions(message))
-            }
-            JobNegotiationTypes::IdentifyTransactionsSuccess => {
-                let message: IdentifyTransactionsSuccess = from_bytes(v.1)?;
-                Ok(JobNegotiation::IdentifyTransactionsSuccess(message))
-            }
-            JobNegotiationTypes::ProvideMissingTransactions => {
-                let message: ProvideMissingTransactions = from_bytes(v.1)?;
-                Ok(JobNegotiation::ProvideMissingTransactions(message))
-            }
-            JobNegotiationTypes::ProvideMissingTransactionsSuccess => {
-                let message: ProvideMissingTransactionsSuccess = from_bytes(v.1)?;
-                Ok(JobNegotiation::ProvideMissingTransactionsSuccess(message))
+            JobNegotiationTypes::CoinbaseOutputDataSize => {
+                let message: SetCoinbase = from_bytes(v.1)?;
+                Ok(JobNegotiation::SetCoinbase(message))
             }
         }
     }
@@ -851,13 +728,10 @@ impl TryFrom<u8> for MiningTypes {
             MESSAGE_TYPE_SUBMIT_SHARES_SUCCESS => Ok(MiningTypes::SubmitSharesSuccess),
             MESSAGE_TYPE_UPDATE_CHANNEL => Ok(MiningTypes::UpdateChannel),
             MESSAGE_TYPE_UPDATE_CHANNEL_ERROR => Ok(MiningTypes::UpdateChannelError),
-            MESSAGE_TYPE_SETUP_CONNECTION => {
-                error!("Got unexpected SETUP CONNECTION!! ");
-                Err(Error::WrongMessageType(v))
-            }
+            MESSAGE_TYPE_SETUP_CONNECTION => Err(Error::UnexpectedMessage(v)),
             _ => {
                 error!("Invalid message type: {}", v);
-                Err(Error::WrongMessageType(v))
+                Err(Error::UnexpectedMessage(v))
             }
         }
     }
@@ -1020,7 +894,7 @@ impl<'a> TryFrom<MiningDeviceMessages<'a>> for PoolMessages<'a> {
 
     fn try_from(value: MiningDeviceMessages<'a>) -> Result<Self, Self::Error> {
         match value {
-            MiningDeviceMessages::Common(_) => Err(Error::UnexpectedMessage),
+            MiningDeviceMessages::Common(m) => Ok(PoolMessages::Common(m)),
             MiningDeviceMessages::Mining(m) => Ok(PoolMessages::Mining(m)),
         }
     }
