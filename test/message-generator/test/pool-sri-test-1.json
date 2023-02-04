@@ -100,17 +100,53 @@
                     "value": "0x1e"
                 }
             ],
-            "actiondoc": "This action sends OpenStandardMiningChannel to the pool and checks that the reply is OpenStandardMiningChannelSuccess and the MiningProtocol" 
+            "actiondoc": "This action sends OpenStandardMiningChannel to the pool and checks that the reply is OpenStandardMiningChannelSuccess SetNewPrevHash and NewMiningJob" 
         },
         {
             "message_ids": ["submit_shares"],
             "role": "client",
-            "results": [],
-            "actiondoc": "This action sends the message SubmitSharesStandard to the pool, without checking the reply"
-        }
+            "results": [
+                {
+                    "type": "match_message_type",
+                    "value": "0x1c"
+                }
+             ],
+            "actiondoc": "This action sends the message SubmitSharesStandard to the pool anche checks that the pool replies with SubmitSharesStandard.Success"
+        },
+        {
+            "message_ids": [],
+            "role": "client",
+            "results": [
+                {
+                    "type": "match_message_type",
+                    "value": "0x20"
+                }
+             ],
+            "actiondoc": "This action checks that the messsage SetNewPrevhash is received"
+      }
     ],
     "setup_commands": [
-        {
+       {
+           "command": "cargo",
+           "args": [
+                       "run",
+                       "../../../test/message-generator/mock/template-provider-mock0.json"
+           ],
+           "conditions": {
+               "WithConditions": {
+                   "conditions": [
+                       {
+                           "output_string": "Running `target/debug/message_generator_sv2 ../../../test/message-generator/mock/template-provider-mock0.json`",
+                           "output_location": "StdErr",
+                           "condition": true
+                       }
+                   ],
+                   "timer_secs": 60,
+                   "warn_no_panic": false
+               }
+           }
+       },
+       {
             "command": "cargo",
             "args": [
                         "run",

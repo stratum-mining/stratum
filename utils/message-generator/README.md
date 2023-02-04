@@ -32,11 +32,6 @@ the following is the right command
 ```
 cargo run ../../../test/message-geneator/test/pool-sri-test-1.json
 ```
-5. To work with the mock of the Template Provider, recall to set 
-```
-tp_address = "127.0.0.1:8442"
-```
-in the pool's configuration file `pool-config.toml`.
 
 ## Test execution
 
@@ -160,16 +155,17 @@ If `type` == `manual` the object must contain 3 additional fields:
     ]
 }
 ```
-If the frame is defined is a different file (for example, some common_messages frames are defined in
-`/test/message-geneator/messages/common_messages.json`), to use it you have to use the syntax
-`<address::id>`. For example, if a test in `/test/message/generator/test`, the following message 
+If the frame relative to common messages is defined is a different file (for example, some 
+common_messages frames are defined in `/test/message-geneator/messages/common_messages.json`), to 
+use it you have to use the syntax `<address::id>`. For example, in the test 
+`/test/message/generator/test`, the following message 
 ```
    {
        "type": "automatic",
        "message_id": "../../../../test/message-generator/messages/common_messages.json::setup_connection_success_template_distribution"
    }
 ```
-Calls the id `setup_connection_success_template_distribution` that appears in the file 
+calls the id `setup_connection_success_template_distribution` that appears in the file 
 `../../../test/message-generator/messages/common_messages.json`. In the main file, the id of this
 message will be the abbreviated with `setup_connection_success_template_distribution`. 
  
