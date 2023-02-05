@@ -97,7 +97,7 @@ impl Executor {
 
     pub async fn execute(self) {
         for action in self.actions {
-            if let Some(T) = action.actiondoc{
+            if let Some(T) = action.actiondoc {
                 println!("{}", T);
             }
             let (sender, recv) = match action.role {

@@ -33,7 +33,7 @@ impl ActionParser {
                 action_frames.push(frame);
             }
 
-            let actiondoc = match action.get("actiondoc"){ 
+            let actiondoc = match action.get("actiondoc") {
                 Some(T) => Some(T.to_string()),
                 None => None,
             };

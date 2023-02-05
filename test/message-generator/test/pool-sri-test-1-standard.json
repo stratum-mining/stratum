@@ -1,32 +1,15 @@
 {
     "doc": [
         "This test does",
-        "Mocking a mining device that connects to a pool and launchs a MG that mocks a template provider",
-        "Launchs a pool",
-        "Launchs a MG test that mocks a template provider",
-        "Sends setup_connection to the pool and waits that arrives a message 0x01",
-        "Sends open_standard_mining_channel to the pool and waits that the pool sends the following message with id",
-        "MiningProtocol",
-        "OpenStandardMiningChannelSuccess",
-        "request_id"
-    ],
-    "common_messages": [
-        {
-            "message": {
-                "type": "SetupConnection",
-                "protocol": 0,
-                "min_version": 2,
-                "max_version": 2,
-                "flags": 1,
-                "endpoint_host": "",
-                "endpoint_port": 0,
-                "vendor": "",
-                "hardware_version": "",
-                "firmware": "",
-                "device_id": ""
-            },
-            "id": "setup_connection"
-        }
+        "Runs a mocked Template Provider",
+        "Runs the pool with a custom config file",
+        "Runs a mocked Job Negotiator",
+        "Mocks a mining device (without mining) that connects to a pool",
+        "Opens a standard channel with the pool",
+        "Checks that a NewMiningJob and a NewPrevHash are received",
+        "These last two messages are built in base of the NewTemplate and NewPrevHash provided by the mocked TP",
+        "Successfully submits a share that is a solution for the template supplied by the mocked TP",
+        "Checks that a second SetNewPrevHash is provided by the pool for the next roung of mining"
     ],
     "mining_messages": [
         {
@@ -169,7 +152,27 @@
                     "warn_no_panic": false
                 }
             }
-        }
+        },
+       {
+           "command": "cargo",
+           "args": [
+                       "run",
+                       "../../../test/message-generator/mock/job-negotiator-mock.json"
+           ],
+           "conditions": {
+               "WithConditions": {
+                   "conditions": [
+                       {
+                           "output_string": "Running `target/debug/message_generator_sv2 ../../../test/message-generator/mock/job-negotiator-mock.json`",
+                           "output_location": "StdErr",
+                           "condition": true
+                       }
+                   ],
+                   "timer_secs": 60,
+                   "warn_no_panic": false
+               }
+           }
+       }
     ],
     "execution_commands": [
     ],
