@@ -37,8 +37,7 @@ fn new_pub_key() -> PublicKey {
 }
 use tokio::{select, task};
 
-use crate::lib::job_negotiator::JobNegotiator;
-use crate::status::Status;
+use crate::{lib::job_negotiator::JobNegotiator, status::Status};
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Configuration {

@@ -13,12 +13,12 @@ use roles_logic_sv2::utils::Mutex;
 const SELF_EXTRNONCE_LEN: usize = 2;
 
 use async_channel::{bounded, unbounded};
+use futures::{select, FutureExt};
 use std::{
     net::{IpAddr, SocketAddr},
     str::FromStr,
     sync::Arc,
 };
-use futures::{FutureExt, select};
 
 use tokio::sync::broadcast;
 use v1::server_to_client;
