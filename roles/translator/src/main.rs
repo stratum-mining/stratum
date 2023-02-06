@@ -39,7 +39,7 @@ fn process_cli_args<'a>() -> ProxyResult<'a, ProxyConfig> {
     Ok(toml::from_str::<ProxyConfig>(&config_file)?)
 }
 
-#[async_std::main]
+#[tokio::main]
 async fn main() {
     tracing_subscriber::fmt::init();
 
