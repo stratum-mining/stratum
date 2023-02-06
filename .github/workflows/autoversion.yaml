@@ -1,4 +1,5 @@
-# This job will auto detect changes in crates and auto bump the patch versions if changes are detected.
+# This job will auto detect changes in crates and auto bump the patch versions if changes are detected, and push to 
+# the bot/versioning branch.
 # Since cargo-smart-release does not yet support autodetection of MAJOR and MINOR changes with regards to Semver,
 # any MAJOR/MINOR versioning will need to be manually changed in the package Cargo.toml.
 
@@ -10,7 +11,8 @@ name: publish crate updates
 
 jobs:
   autoversion:
-    if: github.actor != 'GitHub Actions Bot'
+    name: Autoversion
+    if: github.pusher != 'GitHub <noreply@github.com>'
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -22,12 +24,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
-
+      
         with:
-          fetch-depth: 2
-          profile: minimal
-          toolchain: 1.65.0
-          override: true
+          fetch-depth: 0
       
       - name: setup git config
         run: |
@@ -37,7 +36,7 @@ jobs:
 
       # cargo-smart-release requires at least one object in the .git/objects database to detect changes
       - name: Fetch
-        run: git fetch && git commit --allow-empty -m 'empty version commit'
+        run: git commit --allow-empty -m 'empty version commit'
 
       - name: Install cargo-smart-release
         run: cargo install cargo-smart-release
@@ -45,8 +44,21 @@ jobs:
       # only autobump versions 
       - name: Commit version updates
         run: sh ./sv2-publish.sh -e -u --no-publish --no-push --no-changelog
+      
+      - name: Rebase
+        run: git rebase origin/main
 
       - name: Push version updates to main
-        run: git push -f --no-verify origin main:versioning
+        run: git push -f --no-verify origin main:bot/versioning
 
-      
+      - name: Create pull request
+        uses: peter-evans/create-pull-request@v4
+        with:
+          base: main
+          branch: bot/versioning
+          
+
+    
+
+
+        
