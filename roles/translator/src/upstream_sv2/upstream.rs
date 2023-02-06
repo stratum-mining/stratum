@@ -227,16 +227,18 @@ impl Upstream {
             tx_sv2_set_new_prev_hash,
             recv,
             tx_status,
-        ) = clone.safe_lock(|s| {
-            (
-                s.connection.sender.clone(),
-                s.tx_sv2_extranonce.clone(),
-                s.tx_sv2_new_ext_mining_job.clone(),
-                s.tx_sv2_set_new_prev_hash.clone(),
-                s.connection.receiver.clone(),
-                s.tx_status.clone(),
-            )
-        }).map_err(|_| PoisonLock)?;
+        ) = clone
+            .safe_lock(|s| {
+                (
+                    s.connection.sender.clone(),
+                    s.tx_sv2_extranonce.clone(),
+                    s.tx_sv2_new_ext_mining_job.clone(),
+                    s.tx_sv2_set_new_prev_hash.clone(),
+                    s.connection.receiver.clone(),
+                    s.tx_status.clone(),
+                )
+            })
+            .map_err(|_| PoisonLock)?;
 
         task::spawn(async move {
             loop {
@@ -362,13 +364,15 @@ impl Upstream {
 
     pub fn handle_submit(self_: Arc<Mutex<Self>>) -> ProxyResult<'static, ()> {
         let clone = self_.clone();
-        let (tx_frame, receiver, tx_status) = clone.safe_lock(|s| {
-            (
-                s.connection.sender.clone(),
-                s.rx_sv2_submit_shares_ext.clone(),
-                s.tx_status.clone(),
-            )
-        }).map_err(|_| PoisonLock)?;
+        let (tx_frame, receiver, tx_status) = clone
+            .safe_lock(|s| {
+                (
+                    s.connection.sender.clone(),
+                    s.rx_sv2_submit_shares_ext.clone(),
+                    s.tx_status.clone(),
+                )
+            })
+            .map_err(|_| PoisonLock)?;
 
         debug!("handle_submit: starting");
         task::spawn(async move {
@@ -565,7 +569,7 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
         }
         self.target
             .safe_lock(|t| *t = m.target.to_vec())
-            .map_err(|_e| RolesLogicError::PoisonLock)?;
+            .map_err(|e| RolesLogicError::PoisonLock(e.to_string()))?;
         // Set the `min_extranonce_size` in accordance to the SV2 Pool
         self.min_extranonce_size = m.extranonce_size;
 
@@ -705,7 +709,7 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
 
         self.target
             .safe_lock(|t| *t = m.maximum_target.to_vec())
-            .map_err(|_e| RolesLogicError::PoisonLock)?;
+            .map_err(|e| RolesLogicError::PoisonLock(e.to_string()))?;
         Ok(SendTo::None(None))
     }
 
