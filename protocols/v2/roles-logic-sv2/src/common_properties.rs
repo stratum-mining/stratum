@@ -6,7 +6,7 @@ use common_messages_sv2::{has_requires_std_job, Protocol, SetupConnection};
 use mining_sv2::{Extranonce, Target};
 use std::{collections::HashMap, fmt::Debug as D};
 
-/// What define a mining downstream node at the very basic
+/// Defines a mining downstream node at the most basic level
 #[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
 pub struct CommonDownstreamData {
     pub header_only: bool,
@@ -23,10 +23,15 @@ pub struct PairSettings {
     pub flags: u32,
 }
 
+/// A trait that defines the basic properties of an upstream node.
 pub trait IsUpstream<Down: IsDownstream, Sel: DownstreamSelector<Down> + ?Sized> {
+    /// Used to bitcoin protocol version for the channel.
     fn get_version(&self) -> u16;
+    // Used to get flags for the defined sv2 message protocol
     fn get_flags(&self) -> u32;
+    /// Used to check if the upstream supports the protocol that the downstream wants to use
     fn get_supported_protocols(&self) -> Vec<Protocol>;
+    /// Checking if the upstream supports the protocol that the downstream wants to use.
     fn is_pairable(&self, pair_settings: &PairSettings) -> bool {
         let protocol = pair_settings.protocol;
         let min_v = pair_settings.min_v;
@@ -37,8 +42,11 @@ pub trait IsUpstream<Down: IsDownstream, Sel: DownstreamSelector<Down> + ?Sized>
         let check_flags = SetupConnection::check_flags(protocol, self.get_flags(), flags);
         check_version && check_flags
     }
+    /// Should return the channel id
     fn get_id(&self) -> u32;
+    /// Should return a request id mapper for viewing and handling request ids.
     fn get_mapper(&mut self) -> Option<&mut RequestIdMapper>;
+    /// Should return the selector of the Downstream node. See [`crate::selectors`].
     fn get_remote_selector(&mut self) -> &mut Sel;
 }
 
@@ -70,6 +78,7 @@ pub struct StandardChannel {
 pub trait IsMiningUpstream<Down: IsMiningDownstream, Sel: DownstreamMiningSelector<Down> + ?Sized>:
     IsUpstream<Down, Sel>
 {
+    /// should return total hash rate local to the node
     fn total_hash_rate(&self) -> u64;
     fn add_hash_rate(&mut self, to_add: u64);
     fn get_opened_channels(&mut self) -> &mut Vec<UpstreamChannel>;
