@@ -1,4 +1,7 @@
-use crate::{EitherFrame, StdFrame};
+use crate::{
+    error::{PoolError, PoolResult},
+    EitherFrame, StdFrame,
+};
 use async_channel::{Receiver, Sender};
 use codec_sv2::Frame;
 use roles_logic_sv2::{
@@ -28,7 +31,7 @@ impl SetupConnectionHandler {
         self_: Arc<Mutex<Self>>,
         receiver: &mut Receiver<EitherFrame>,
         sender: &mut Sender<EitherFrame>,
-    ) -> Result<CommonDownstreamData, Error> {
+    ) -> PoolResult<CommonDownstreamData> {
         // read stdFrame from receiver
 
         let mut incoming: StdFrame = match receiver.recv().await {
@@ -42,26 +45,30 @@ impl SetupConnectionHandler {
             }
             Err(e) => {
                 error!("Error receiving message: {:?}", e);
-                return Err(Error::NoDownstreamsConnected);
+                return Err(Error::NoDownstreamsConnected.into());
             }
         };
 
-        let message_type = incoming.get_header().unwrap().msg_type();
+        let message_type = incoming
+            .get_header()
+            .ok_or_else(|| PoolError::Framing(String::from("No header set")))?
+            .msg_type();
         let payload = incoming.payload();
         let response = ParseDownstreamCommonMessages::handle_message_common(
             self_.clone(),
             message_type,
             payload,
             CommonRoutingLogic::None,
-        )
-        .unwrap();
+        )?;
 
-        let message = response.into_message().unwrap();
+        let message = response.into_message().ok_or(PoolError::RolesLogic(
+            roles_logic_sv2::Error::UnexpectedMessage(message_type),
+        ))?;
 
-        let sv2_frame: StdFrame = PoolMessages::Common(message.clone()).try_into().unwrap();
+        let sv2_frame: StdFrame = PoolMessages::Common(message.clone()).try_into()?;
         let sv2_frame = sv2_frame.into();
-        sender.send(sv2_frame).await.unwrap();
-        self_.safe_lock(|s| s.header_only.unwrap()).unwrap();
+        sender.send(sv2_frame).await?;
+        self_.safe_lock(|s| s.header_only)?;
 
         match message {
             CommonMessages::SetupConnectionSuccess(m) => {
