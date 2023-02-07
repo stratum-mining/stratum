@@ -85,7 +85,7 @@ async fn main() {
     );
 
     // Instantiate a new `Upstream` (SV2 Pool)
-    let upstream = upstream_sv2::Upstream::new(
+    let upstream = match upstream_sv2::Upstream::new(
         upstream_addr,
         proxy_config.upstream_authority_pubkey,
         rx_sv2_submit_shares_ext,
@@ -97,7 +97,13 @@ async fn main() {
         target.clone(),
     )
     .await
-    .unwrap();
+    {
+        Ok(upstream) => upstream,
+        Err(e) => {
+            error!("Failed to create upstream: {}", e);
+            return;
+        }
+    };
 
     // Connect to the SV2 Upstream role
     match upstream_sv2::Upstream::connect(
@@ -115,11 +121,17 @@ async fn main() {
     }
 
     // Start receiving messages from the SV2 Upstream role
-    upstream_sv2::Upstream::parse_incoming(upstream.clone());
+    if let Err(e) = upstream_sv2::Upstream::parse_incoming(upstream.clone()) {
+        error!("failed to create sv2 parser: {}", e);
+        return;
+    }
 
     debug!("Finished starting upstream listener");
     // Start task handler to receive submits from the SV1 Downstream role once it connects
-    upstream_sv2::Upstream::handle_submit(upstream.clone());
+    if let Err(e) = upstream_sv2::Upstream::handle_submit(upstream.clone()) {
+        error!("Failed to create submit handler: {}", e);
+        return;
+    }
 
     // Receive the extranonce information from the Upstream role to send to the Downstream role
     // once it connects also used to initialize the bridge
