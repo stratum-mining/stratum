@@ -374,7 +374,6 @@ impl Upstream {
             })
             .map_err(|_| PoisonLock)?;
 
-        debug!("handle_submit: starting");
         task::spawn(async move {
             loop {
                 let mut sv2_submit: SubmitSharesExtended =
@@ -399,7 +398,6 @@ impl Upstream {
                     .map_err(|_e| PoisonLock);
                 sv2_submit.job_id = handle_result!(tx_status, handle_result!(tx_status, job_id));
 
-                info!("Up: Submitting Share");
                 debug!("Up: Handling SubmitSharesExtended: {:?}", &sv2_submit);
 
                 let message = Message::Mining(

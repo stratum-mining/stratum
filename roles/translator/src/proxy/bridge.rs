@@ -144,7 +144,7 @@ impl Bridge {
     /// Receives a SV1 `mining.submit` message from the `Downstream`, translates it to a SV2
     /// `SubmitSharesExtended` message, and sends it to the `Upstream`.
     fn handle_downstream_share_submission(self_: Arc<Mutex<Self>>) {
-        let (rx_sv1_submit, tx_sv2_submit_shares_ext, target, tx_status) = self_
+        let (rx_sv1_submit, tx_sv2_submit_shares_ext, target_mutex, tx_status) = self_
             .safe_lock(|s| {
                 (
                     s.rx_sv1_submit.clone(),
@@ -156,7 +156,9 @@ impl Bridge {
             .unwrap();
         task::spawn(async move {
             loop {
-                let target = target.safe_lock(|t| t.clone()).map_err(|_| PoisonLock);
+                let target = target_mutex
+                    .safe_lock(|t| t.clone())
+                    .map_err(|_| PoisonLock);
                 let target = handle_result!(tx_status, target).try_into();
                 let upstream_target: [u8; 32] = handle_result!(tx_status, target);
                 let mut upstream_target: Target = upstream_target.into();
