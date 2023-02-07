@@ -1,0 +1,82 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    tags:
+        - v[0-9]+.*
+
+jobs:
+  crates_release:
+    name: Release
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: 
+          - ubuntu-latest
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Install cargo-smart-release
+        run: cargo install cargo-smart-release
+
+      # publish and create changelogs
+      - name: Commit version updates
+        run: sh ./sv2-publish.sh -e -u --no-push
+      
+      # Push changes to bot/versioning branch
+      - name: Push version updates to main
+        run: git push -f --no-verify origin main:bot/versioning
+
+      # PR updates
+      - name: Create pull request
+        uses: peter-evans/create-pull-request@v4
+        with:
+          base: main
+          branch: bot/versioning
+
+#  github_release:
+#     runs-on: ubuntu-latest
+#     steps:
+#       - uses: actions/checkout@v3
+#       - uses: taiki-e/create-gh-release-action@v1
+#         #with:
+#           # (optional)
+#           #changelog: CHANGELOG.md
+#         env:
+#           # (required)
+#           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  upload_assets:
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+          - windows-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v3
+      - uses: taiki-e/upload-rust-binary-action@v1
+        with:
+          # (required)
+          bin: translator_sv2,pool_sv2,mining_proxy_sv2
+          # (optional) On which platform to distribute the `.tar.gz` file.
+          # [default value: unix]
+          # [possible values: all, unix, windows, none]
+          tar: unix
+          # (optional) On which platform to distribute the `.zip` file.
+          # [default value: windows]
+          # [possible values: all, unix, windows, none]
+          zip: windows
+        env:
+          # (required)
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    
+
+
+        

@@ -6,13 +6,14 @@
 on:
   push:
     branches: [ main ]
+    if: 
 
 name: publish crate updates
 
 jobs:
   autoversion:
     name: Autoversion
-    if: github.pusher != 'GitHub <noreply@github.com>'
+    if: github.event.commits[0].author.name != 'GitHub Actions Bot'
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -30,7 +31,6 @@ jobs:
       
       - name: setup git config
         run: |
-          # setup the username and email. I tend to use 'GitHub Actions Bot' with no email by default
           git config user.name "GitHub Actions Bot"
           git config user.email "<>"
 
@@ -56,7 +56,7 @@ jobs:
         with:
           base: main
           branch: bot/versioning
-          
+
 
     
 

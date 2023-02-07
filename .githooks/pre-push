@@ -27,4 +27,4 @@ url="$2"
 # act --job fmt --reuse -P ubuntu-latest=ghcr.io/catthehacker/ubuntu:rust-latest
 # act --job clippy-check --reuse -P ubuntu-latest=ghcr.io/catthehacker/ubuntu:rust-latest
 # act --job ci --reuse -P ubuntu-latest=ghcr.io/catthehacker/ubuntu:rust-latest
-act --job autoversion --reuse -P ubuntu-latest=ghcr.io/catthehacker/ubuntu:rust-latest
+act --job upload_assets --reuse -P ubuntu-latest=ghcr.io/catthehacker/ubuntu:rust-latest
