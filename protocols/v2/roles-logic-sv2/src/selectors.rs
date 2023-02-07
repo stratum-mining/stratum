@@ -33,8 +33,7 @@ impl<Down: IsDownstream> ProxyDownstreamMiningSelector<Down> {
 
 impl<Down: IsMiningDownstream> ProxyDownstreamMiningSelector<Down> {
     fn _remove_downstream(&mut self, d: &Arc<Mutex<Down>>) {
-        self.request_id_to_remotes
-            .retain(|_, v| !Arc::ptr_eq(v, d));
+        self.request_id_to_remotes.retain(|_, v| !Arc::ptr_eq(v, d));
         self.channel_id_to_downstream
             .retain(|_, v| !Arc::ptr_eq(v, d));
     }
