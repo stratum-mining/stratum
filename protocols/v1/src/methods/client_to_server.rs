@@ -79,6 +79,21 @@ impl Arbitrary for Authorize {
             id: String::arbitrary(g),
         }
     }
+    fn shrink(&self) -> Box<dyn Iterator<Item = Self>> {
+        let value = self.clone().0;
+        match value.template_id {
+            0 => empty_shrinker(),
+            _ => {
+                let mut shrinked_ids: Vec<NewTemplate> = vec![];
+                for id in 0..value.template_id {
+                    let mut shrinked_value = value.clone();
+                    shrinked_value.template_id = id;
+                    shrinked_ids.push(shrinked_value);
+                }
+                Box::new(shrinked_ids.into_iter().map(|x| RandomNewTemplate(x)))
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -239,6 +254,22 @@ impl Arbitrary for Submit<'static> {
             nonce: HexU32Be(u32::arbitrary(g)),
             version_bits: bits,
             id: String::arbitrary(g),
+        }
+    }
+
+    fn shrink(&self) -> Box<dyn Iterator<Item = Self>> {
+        let value = self.clone().0;
+        match value.template_id {
+            0 => empty_shrinker(),
+            _ => {
+                let mut shrinked_ids: Vec<NewTemplate> = vec![];
+                for id in 0..value.template_id {
+                    let mut shrinked_value = value.clone();
+                    shrinked_value.template_id = id;
+                    shrinked_ids.push(shrinked_value);
+                }
+                Box::new(shrinked_ids.into_iter().map(|x| RandomNewTemplate(x)))
+            }
         }
     }
 }
