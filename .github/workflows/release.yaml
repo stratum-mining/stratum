@@ -1,12 +1,25 @@
+# This workflow is used to publish SV2 crates to cratesio as well as releasing binaries of the roles
+# (translator, pool, mining_proxy) to github. The github releases will fail if there are no tags available
+# so the `autoversion` workflow must be ran and the resulting PR must be merged at least once before this will 
+# release the binaries to github. 
+
+# If the binary releases do fail to due to not having tags, force run the `autoversion` workflow
+# on the main branch and merge the resulting PR to create the tags and move them to the main branch.
+
+# This should be disabled for forks
+
 name: Release
 
-on:
+on: 
+  # Manually run by going to "Actions/Release" in Github and running the workflow
   workflow_dispatch:
-    tags:
-        - v[0-9]+.*
 
 jobs:
-  crates_release:
+  # Cannot run until we have necessary keys to publish crates to crates.io.
+  # This should not be run on forks since removing the `--no-changelog` flag in the "Commit version updates"
+  # step will create all changelog files with respect to the fork this was executed in, so each changlog file
+  # will log the forks history of the crate instead of the main repos history
+  crates_publish:
     name: Release
     runs-on: ${{ matrix.os }}
     strategy:
@@ -28,7 +41,7 @@ jobs:
 
       # # publish and create changelogs
       # - name: Commit version updates
-      #   run: sh ./sv2-publish.sh -e -u --no-push
+      #   run: sh ./sv2-publish.sh -e -u --no-push --no-changelog
       
       # # Push changes to bot/versioning branch
       # - name: Push version updates to main
@@ -41,55 +54,194 @@ jobs:
       #     base: main
       #     branch: bot/versioning
 
-#  github_release:
-#     runs-on: ubuntu-latest
-#     steps:
-#       - uses: actions/checkout@v3
-#       - uses: taiki-e/create-gh-release-action@v1
-#         #with:
-#           # (optional)
-#           #changelog: CHANGELOG.md
-#         env:
-#           # (required)
-#           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
   github_release_translator:
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os:
-          - ubuntu-latest
-          # - macos-latest
-          # - windows-latest
-    runs-on: ${{ matrix.os }}
+        # This defines what environments we will build on
+        include:
+          - os: ubuntu-latest
+            artifact_name: translator_sv2
+            asset_name: translator_sv2-linux-amd64
+          # - os: windows-latest
+          #   artifact_name: translator_sv2.exe
+          #   asset_name: translator_sv2-windows-amd64
+          - os: macos-latest
+            artifact_name: translator_sv2
+            asset_name: translator_sv2-macos-amd64
+              
+    
     steps:
       - uses: actions/checkout@v3
+      # The tags are not in scope until we fetch them from main
+      # This will fail if there are no tags available
       - name: fetch tags
         run: git fetch origin --tags
-
-      - name: set env
+      
+      # Find the latest translator tag by listing folders in `.git/refs/tags` with pattern `translator_sv2`,
+      # taking the last one, and setting to `TRANSLATOR_TAG` env variable. This will be used as the "tag" in the 
+      # Build step
+      - name: set env unix
+        if: matrix.os == 'ubuntu-latest' || matrix.os == 'macos-latest'
         run: echo "TRANSLATOR_TAG=$(echo refs/tags/$(ls .git/refs/tags | grep 'translator_sv2' | tail -n 1))" >> $GITHUB_ENV
+      
+      # This does not work
+      - name: set env windows
+        if: matrix.os == 'windows-latest'
+        run: echo "$(dir .git/refs/tags | findstr "translator_sv2")"
+
+      # This will fail on a Windows build. Must use if statement to check if running on Windows and use `dir` instead)
+      # `dir` will fail on mac builds
       - name: check refs
         run: ls .git/refs/tags
+      
+      # Debugging step to ensure tag is correct
       - name: check env
+        if: matrix.os == 'ubuntu-latest' || matrix.os == 'macos-latest'
         run: echo ${{ env.TRANSLATOR_TAG }}
-      # - name: build
-      #   uses: taiki-e/upload-rust-binary-action@v1
-      #   with:
-      #     # (required)
-      #     bin: translator_sv2
-      #     ref: ${{ env.TRANSLATOR_TAG }}
-      #     # (optional) On which platform to distribute the `.tar.gz` file.
-      #     # [default value: unix]
-      #     # [possible values: all, unix, windows, none]
-      #     tar: unix
-      #     # (optional) On which platform to distribute the `.zip` file.
-      #     # [default value: windows]
-      #     # [possible values: all, unix, windows, none]
-      #     zip: windows
-        
-      #   env:
-      #     # (required)
-      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Debugging step to ensure tag is correct
+      - name: check env
+        if: matrix.os == 'windows-latest'
+        run: echo "${{ env.TRANSLATOR_TAG }}"
+
+      # Action to release build by given tag
+      - name: Build
+        run: cargo build --release --locked --package translator_sv2
+      - name: Upload binaries to release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: target/release/${{ matrix.artifact_name }}
+          asset_name: ${{ matrix.asset_name }}
+          tag: ${{ env.TRANSLATOR_TAG }}
+
+  github_release_pool:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+      # This defines what environments we will build on
+        include:
+          - os: ubuntu-latest
+            artifact_name: pool_sv2
+            asset_name: pool_sv2-linux-amd64
+          # - os: windows-latest
+          #   artifact_name: pool_sv2.exe
+          #   asset_name: pool_sv2-windows-amd64
+          - os: macos-latest
+            artifact_name: pool_sv2
+            asset_name: pool_sv2-macos-amd64
+              
+    
+    steps:
+      - uses: actions/checkout@v3
+
+      # The tags are not in scope until we fetch them from main
+      # This will fail if there are no tags available
+      - name: fetch tags
+        run: git fetch origin --tags
+      
+      # Find the latest pool tag by listing folders in `.git/refs/tags` with pattern `pool_sv2`,
+      # taking the last one, and setting to `POOL_TAG` env variable. This will be used as the "tag" in the 
+      # Build step
+      - name: set env unix
+        if: matrix.os == 'ubuntu-latest' || matrix.os == 'macos-latest'
+        run: echo "POOL_TAG=$(echo refs/tags/$(ls .git/refs/tags | grep 'pool_sv2' | tail -n 1))" >> $GITHUB_ENV
+      
+      # This does not work
+      - name: set env windows
+        if: matrix.os == 'windows-latest'
+        run: echo "$(dir .git/refs/tags | findstr "pool_sv2")"
+
+      # This will fail on a Windows build. Must use if statement to check if running on Windows and use `dir` instead)
+      # `dir` will fail on mac builds
+      - name: check refs
+        run: ls .git/refs/tags
+
+      # Debugging step to ensure tag is correct
+      - name: check env
+        if: matrix.os == 'ubuntu-latest' || matrix.os == 'macos-latest'
+        run: echo ${{ env.POOL_TAG }}
+
+      # Debugging step to ensure tag is correct
+      - name: check env
+        if: matrix.os == 'windows-latest'
+        run: echo "${{ env.POOL_TAG }}"
+
+      # Action to release build by given tag
+      - name: Build
+        run: cargo build --release --locked --package pool_sv2
+      - name: Upload binaries to release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: target/release/${{ matrix.artifact_name }}
+          asset_name: ${{ matrix.asset_name }}
+          tag: ${{ env.POOL_TAG }}
+
+  github_release_mining_proxy:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+      # This defines what environments we will build on
+        include:
+          - os: ubuntu-latest
+            artifact_name: mining_proxy_sv2
+            asset_name: mining_proxy_sv2-linux-amd64
+          # - os: windows-latest
+          #   artifact_name: mining_proxy_sv2.exe
+          #   asset_name: mining_proxy_sv2-windows-amd64
+          - os: macos-latest
+            artifact_name: mining_proxy_sv2
+            asset_name: mining_proxy_sv2-macos-amd64
+              
+    
+    steps:
+      - uses: actions/checkout@v3
+
+      # The tags are not in scope until we fetch them from main
+      # This will fail if there are no tags available
+      - name: fetch tags
+        run: git fetch origin --tags
+      
+      # Find the latest mining proxy tag by listing folders in `.git/refs/tags` with pattern `mining_proxy_sv2`,
+      # taking the last one, and setting to `MINING_PROXY_TAG` env variable. This will be used as the "tag" in the 
+      # Build step
+      - name: set env unix
+        if: matrix.os == 'ubuntu-latest' || matrix.os == 'macos-latest'
+        run: echo "MINING_PROXY_TAG=$(echo refs/tags/$(ls .git/refs/tags | grep 'mining_proxy_sv2' | tail -n 1))" >> $GITHUB_ENV
+      
+      # This does not work
+      - name: set env windows
+        if: matrix.os == 'windows-latest'
+        run: echo "$(dir .git/refs/tags | findstr "mining_proxy_sv2")"
+
+      # This will fail on a Windows build. Must use if statement to check if running on Windows and use `dir` instead)
+      # `dir` will fail on mac builds
+      - name: check refs
+        run: ls .git/refs/tags
+
+      # Debugging step to ensure tag is correct
+      - name: check env
+        if: matrix.os == 'ubuntu-latest' || matrix.os == 'macos-latest'
+        run: echo ${{ env.MINING_PROXY_TAG }}
+
+      # Debugging step to ensure tag is correct
+      - name: check env
+        if: matrix.os == 'windows-latest'
+        run: echo "${{ env.MINING_PROXY_TAG }}"
+
+      # Action to release build by given tag
+      - name: Build
+        run: cargo build --release --locked --package mining_proxy_sv2
+      - name: Upload binaries to release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: target/release/${{ matrix.artifact_name }}
+          asset_name: ${{ matrix.asset_name }}
+          tag: ${{ env.MINING_PROXY_TAG }}
+
 
     
 
