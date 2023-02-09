@@ -138,6 +138,7 @@ impl GroupChannel {
         while let Some(job) = self.future_jobs.pop() {
             if job.job_id == m.job_id {
                 self.last_valid_job = Some(job);
+                break;
             }
         }
         self.future_jobs = vec![];
@@ -178,5 +179,46 @@ impl GroupChannel {
             }
             None => Err(Error::NoValidJob),
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use binary_sv2::B064K;
+    use std::convert::TryFrom;
+
+    #[test]
+    fn group_channel_new_prev_hash_ordering_test() {
+        let mut group_channel = GroupChannel::new();
+        let mut new_extended_mining_job = NewExtendedMiningJob {
+            channel_id: 1,
+            job_id: 0,
+            future_job: true,
+            version: 0,
+            version_rolling_allowed: false,
+            merkle_path: vec![].into(),
+            coinbase_tx_prefix: B064K::try_from(Vec::new()).unwrap(),
+            coinbase_tx_suffix: B064K::try_from(Vec::new()).unwrap(),
+        };
+
+        group_channel.on_new_extended_mining_job(new_extended_mining_job.clone());
+        new_extended_mining_job.version = 1;
+        group_channel.on_new_extended_mining_job(new_extended_mining_job);
+
+        // Make sure this returns the last job - the one where we updated the version.
+        group_channel.update_new_prev_hash(&SetNewPrevHash {
+            channel_id: 1,
+            job_id: 0,
+            prev_hash: [
+                3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+                3, 3, 3, 3,
+            ]
+            .into(),
+            min_ntime: 989898,
+            nbits: 9,
+        });
+
+        assert_eq!(group_channel.last_valid_job.unwrap().version, 1);
     }
 }

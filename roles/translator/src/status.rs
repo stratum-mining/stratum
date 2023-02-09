@@ -128,7 +128,7 @@ pub async fn handle_error(
             send_status(sender, e, error_handling::ErrorBranch::Break).await
         }
         // Locking Errors
-        // PoisonLock(LockError<'a>),
+        Error::PoisonLock => send_status(sender, e, error_handling::ErrorBranch::Break).await,
         // Channel Receiver Error
         Error::ChannelErrorReceiver(_) => {
             send_status(sender, e, error_handling::ErrorBranch::Break).await

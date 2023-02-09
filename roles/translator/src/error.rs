@@ -1,5 +1,8 @@
 use crate::proxy;
-use roles_logic_sv2::bitcoin::util::uint::ParseLengthError;
+use roles_logic_sv2::{
+    bitcoin::util::uint::ParseLengthError,
+    mining_sv2::{ExtendedExtranonce, NewExtendedMiningJob},
+};
 use std::{
     fmt,
     sync::{MutexGuard, PoisonError},
@@ -20,8 +23,11 @@ pub enum ChannelSendError<'a> {
         async_channel::SendError<roles_logic_sv2::mining_sv2::SubmitSharesExtended<'a>>,
     ),
     SetNewPrevHash(async_channel::SendError<roles_logic_sv2::mining_sv2::SetNewPrevHash<'a>>),
-    Notify(async_channel::SendError<Notify<'a>>),
+    NewExtendedMiningJob(async_channel::SendError<NewExtendedMiningJob<'a>>),
+    Notify(tokio::sync::broadcast::error::SendError<Notify<'a>>),
     V1Message(async_channel::SendError<v1::Message>),
+    General(String),
+    Extranonce(async_channel::SendError<ExtendedExtranonce>),
 }
 
 #[derive(Debug)]
@@ -51,7 +57,7 @@ pub enum Error<'a> {
     #[allow(dead_code)]
     SubprotocolMining(String),
     // Locking Errors
-    // PoisonLock(LockError<'a>),
+    PoisonLock,
     // Channel Receiver Error
     ChannelErrorReceiver(async_channel::RecvError),
     TokioChannelErrorRecv(tokio::sync::broadcast::error::RecvError),
@@ -78,7 +84,7 @@ impl<'a> fmt::Display for Error<'a> {
             V1Protocol(ref e) => write!(f, "V1 Protocol Error: `{:?}`", e),
             SubprotocolMining(ref e) => write!(f, "Subprotocol Mining Error: `{:?}`", e),
             UpstreamIncoming(ref e) => write!(f, "Upstream parse incoming error: `{:?}`", e),
-            // PoisonLock(ref e) => write!(f, "Poison Lock error: `{:?}`", e),
+            PoisonLock => write!(f, "Poison Lock error"),
             ChannelErrorReceiver(ref e) => write!(f, "Channel receive error: `{:?}`", e),
             TokioChannelErrorRecv(ref e) => write!(f, "Channel receive error: `{:?}`", e),
             ChannelErrorSender(ref e) => write!(f, "Channel send error: `{:?}`", e),
@@ -194,8 +200,8 @@ impl<'a> From<async_channel::SendError<roles_logic_sv2::mining_sv2::SetNewPrevHa
     }
 }
 
-impl<'a> From<async_channel::SendError<Notify<'a>>> for Error<'a> {
-    fn from(e: async_channel::SendError<Notify<'a>>) -> Self {
+impl<'a> From<tokio::sync::broadcast::error::SendError<Notify<'a>>> for Error<'a> {
+    fn from(e: tokio::sync::broadcast::error::SendError<Notify<'a>>) -> Self {
         Error::ChannelErrorSender(ChannelSendError::Notify(e))
     }
 }
@@ -203,6 +209,18 @@ impl<'a> From<async_channel::SendError<Notify<'a>>> for Error<'a> {
 impl<'a> From<async_channel::SendError<v1::Message>> for Error<'a> {
     fn from(e: async_channel::SendError<v1::Message>) -> Self {
         Error::ChannelErrorSender(ChannelSendError::V1Message(e))
+    }
+}
+
+impl<'a> From<async_channel::SendError<ExtendedExtranonce>> for Error<'a> {
+    fn from(e: async_channel::SendError<ExtendedExtranonce>) -> Self {
+        Error::ChannelErrorSender(ChannelSendError::Extranonce(e))
+    }
+}
+
+impl<'a> From<async_channel::SendError<NewExtendedMiningJob<'a>>> for Error<'a> {
+    fn from(e: async_channel::SendError<NewExtendedMiningJob<'a>>) -> Self {
+        Error::ChannelErrorSender(ChannelSendError::NewExtendedMiningJob(e))
     }
 }
 
