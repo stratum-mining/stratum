@@ -235,15 +235,15 @@ checksum = "cf9ff0bbfd639f15c74af777d81383cf53efb7c93613f6cab67c6c11e05bbf8b"
 
 [[package]]
 name = "binary_codec_sv2"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "buffer_sv2",
- "quickcheck 1.0.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "quickcheck 1.0.3",
 ]
 
 [[package]]
 name = "binary_sv2"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "binary_codec_sv2",
  "derive_codec_sv2",
@@ -348,7 +348,7 @@ dependencies = [
 
 [[package]]
 name = "buffer_sv2"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "criterion",
  "iai",
@@ -459,7 +459,7 @@ dependencies = [
 
 [[package]]
 name = "codec_sv2"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "binary_sv2",
  "buffer_sv2",
@@ -475,12 +475,12 @@ version = "0.1.0"
 
 [[package]]
 name = "common_messages_sv2"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "binary_sv2",
  "const_sv2",
- "quickcheck 1.0.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "quickcheck_macros 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "quickcheck 1.0.3",
+ "quickcheck_macros 1.0.0",
  "serde",
  "serde_repr",
 ]
@@ -505,7 +505,7 @@ dependencies = [
 
 [[package]]
 name = "const_sv2"
-version = "0.1.0"
+version = "0.1.1"
 
 [[package]]
 name = "cpufeatures"
@@ -675,7 +675,7 @@ dependencies = [
 
 [[package]]
 name = "derive_codec_sv2"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "binary_codec_sv2",
 ]
@@ -780,7 +780,7 @@ checksum = "a214f5bb88731d436478f3ae1f8a277b62124089ba9fb67f4f93fb100ef73c90"
 
 [[package]]
 name = "framing_sv2"
-version = "0.1.3"
+version = "0.1.4"
 dependencies = [
  "binary_sv2",
  "buffer_sv2",
@@ -1158,8 +1158,8 @@ version = "0.1.0"
 dependencies = [
  "binary_sv2",
  "const_sv2",
- "quickcheck 1.0.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "quickcheck_macros 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "quickcheck 1.0.3",
+ "quickcheck_macros 1.0.0",
  "serde",
 ]
 
@@ -1190,7 +1190,7 @@ dependencies = [
 
 [[package]]
 name = "noise_sv2"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "binary_sv2",
  "bs58",
@@ -1447,10 +1447,6 @@ checksum = "a1d01941d82fa2ab50be1e79e6714289dd7cde78eba4c074bc5a4374f650dfe0"
 [[package]]
 name = "quickcheck"
 version = "1.0.3"
-
-[[package]]
-name = "quickcheck"
-version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "588f6378e4dd99458b60ec275b4477add41ce4fa9f64dcba6f15adccb19b50d6"
 dependencies = [
@@ -1460,8 +1456,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "quickcheck_macros"
-version = "1.0.0"
+name = "quickcheck"
+version = "1.0.4"
 
 [[package]]
 name = "quickcheck_macros"
@@ -1473,6 +1469,10 @@ dependencies = [
  "quote",
  "syn",
 ]
+
+[[package]]
+name = "quickcheck_macros"
+version = "1.0.1"
 
 [[package]]
 name = "quote"
@@ -1622,8 +1622,8 @@ dependencies = [
  "framing_sv2",
  "job_negotiation_sv2",
  "mining_sv2",
- "quickcheck 1.0.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "quickcheck_macros 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "quickcheck 1.0.3",
+ "quickcheck_macros 1.0.0",
  "rand 0.8.5",
  "serde",
  "template_distribution_sv2",
@@ -1748,7 +1748,7 @@ dependencies = [
 
 [[package]]
 name = "serde_sv2"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "buffer_sv2",
  "serde",
@@ -1869,8 +1869,8 @@ dependencies = [
  "hex",
  "log",
  "pretty_env_logger",
- "quickcheck 1.0.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "quickcheck_macros 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "quickcheck 1.0.3",
+ "quickcheck_macros 1.0.0",
  "serde",
  "serde_json",
  "tracing",
@@ -1884,8 +1884,8 @@ dependencies = [
  "codec_sv2",
  "common_messages_sv2",
  "const_sv2",
- "quickcheck 1.0.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "quickcheck_macros 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "quickcheck 1.0.3",
+ "quickcheck_macros 1.0.0",
  "template_distribution_sv2",
 ]
 
@@ -1913,12 +1913,12 @@ dependencies = [
 
 [[package]]
 name = "template_distribution_sv2"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "binary_sv2",
  "const_sv2",
- "quickcheck 1.0.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "quickcheck_macros 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "quickcheck 1.0.3",
+ "quickcheck_macros 1.0.0",
  "serde",
 ]
 

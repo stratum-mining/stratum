@@ -19,24 +19,27 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
-      
-      - name: Install cargo-smart-release
-        run: cargo install cargo-smart-release
 
-      # publish and create changelogs
-      - name: Commit version updates
-        run: sh ./sv2-publish.sh -e -u --no-push
+      - name: 
+        run: echo TEST
       
-      # Push changes to bot/versioning branch
-      - name: Push version updates to main
-        run: git push -f --no-verify origin main:bot/versioning
+      # - name: Install cargo-smart-release
+      #   run: cargo install cargo-smart-release
 
-      # PR updates
-      - name: Create pull request
-        uses: peter-evans/create-pull-request@v4
-        with:
-          base: main
-          branch: bot/versioning
+      # # publish and create changelogs
+      # - name: Commit version updates
+      #   run: sh ./sv2-publish.sh -e -u --no-push
+      
+      # # Push changes to bot/versioning branch
+      # - name: Push version updates to main
+      #   run: git push -f --no-verify origin main:bot/versioning
+
+      # # PR updates
+      # - name: Create pull request
+      #   uses: peter-evans/create-pull-request@v4
+      #   with:
+      #     base: main
+      #     branch: bot/versioning
 
 #  github_release:
 #     runs-on: ubuntu-latest
@@ -50,31 +53,43 @@ jobs:
 #           # (required)
 #           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  upload_assets:
+  github_release_translator:
     strategy:
       matrix:
         os:
           - ubuntu-latest
-          - macos-latest
-          - windows-latest
+          # - macos-latest
+          # - windows-latest
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
-      - uses: taiki-e/upload-rust-binary-action@v1
-        with:
-          # (required)
-          bin: translator_sv2,pool_sv2,mining_proxy_sv2
-          # (optional) On which platform to distribute the `.tar.gz` file.
-          # [default value: unix]
-          # [possible values: all, unix, windows, none]
-          tar: unix
-          # (optional) On which platform to distribute the `.zip` file.
-          # [default value: windows]
-          # [possible values: all, unix, windows, none]
-          zip: windows
-        env:
-          # (required)
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: fetch tags
+        run: git fetch origin --tags
+
+      - name: set env
+        run: echo "TRANSLATOR_TAG=$(echo refs/tags/$(ls .git/refs/tags | grep 'translator_sv2' | tail -n 1))" >> $GITHUB_ENV
+      - name: check refs
+        run: ls .git/refs/tags
+      - name: check env
+        run: echo ${{ env.TRANSLATOR_TAG }}
+      # - name: build
+      #   uses: taiki-e/upload-rust-binary-action@v1
+      #   with:
+      #     # (required)
+      #     bin: translator_sv2
+      #     ref: ${{ env.TRANSLATOR_TAG }}
+      #     # (optional) On which platform to distribute the `.tar.gz` file.
+      #     # [default value: unix]
+      #     # [possible values: all, unix, windows, none]
+      #     tar: unix
+      #     # (optional) On which platform to distribute the `.zip` file.
+      #     # [default value: windows]
+      #     # [possible values: all, unix, windows, none]
+      #     zip: windows
+        
+      #   env:
+      #     # (required)
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     
 

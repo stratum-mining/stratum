@@ -6,7 +6,6 @@
 on:
   push:
     branches: [ main ]
-    if: 
 
 name: publish crate updates
 
@@ -49,7 +48,7 @@ jobs:
         run: git rebase origin/main
 
       - name: Push version updates to main
-        run: git push -f --no-verify origin main:bot/versioning
+        run: git push -f --no-verify origin --tags main:bot/versioning
 
       - name: Create pull request
         uses: peter-evans/create-pull-request@v4
