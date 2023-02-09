@@ -171,10 +171,10 @@ async fn main() {
             interrupt_signal = interrupt_signal_future => {
                 match interrupt_signal {
                     Ok(()) => {
-                        println!("Interrupt received!");
+                        info!("Interrupt received");
                     },
                     Err(err) => {
-                        eprintln!("Unable to listen for interrupt signal: {}", err);
+                        error!("Unable to listen for interrupt signal: {}", err);
                         // we also shut down in case of error
                     },
                 }
