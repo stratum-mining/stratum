@@ -13,6 +13,7 @@ use roles_logic_sv2::utils::Mutex;
 const SELF_EXTRNONCE_LEN: usize = 2;
 
 use async_channel::{bounded, unbounded};
+use futures::{select, FutureExt};
 use std::{
     net::{IpAddr, SocketAddr},
     str::FromStr,
@@ -22,7 +23,7 @@ use std::{
 use tokio::sync::broadcast;
 use v1::server_to_client;
 
-use crate::status::State;
+use crate::status::{State, Status};
 use tracing::{debug, error, info};
 
 /// Process CLI args, if any.
@@ -38,7 +39,7 @@ fn process_cli_args<'a>() -> ProxyResult<'a, ProxyConfig> {
     Ok(toml::from_str::<ProxyConfig>(&config_file)?)
 }
 
-#[async_std::main]
+#[tokio::main]
 async fn main() {
     tracing_subscriber::fmt::init();
 
@@ -173,9 +174,26 @@ async fn main() {
         b,
     );
 
+    let mut interrupt_signal_future = Box::pin(tokio::signal::ctrl_c().fuse());
+
     // Check all tasks if is_finished() is true, if so exit
     loop {
-        let task_status = rx_status.recv().await.unwrap();
+        let task_status = select! {
+            task_status = rx_status.recv().fuse() => task_status,
+            interrupt_signal = interrupt_signal_future => {
+                match interrupt_signal {
+                    Ok(()) => {
+                        info!("Interrupt received");
+                    },
+                    Err(err) => {
+                        error!("Unable to listen for interrupt signal: {}", err);
+                        // we also shut down in case of error
+                    },
+                }
+                break;
+            }
+        };
+        let task_status: Status = task_status.unwrap();
 
         match task_status.state {
             // Should only be sent by the downstream listener
