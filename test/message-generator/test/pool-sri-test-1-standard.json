@@ -9,7 +9,7 @@
         "Checks that a NewMiningJob and a NewPrevHash are received",
         "These last two messages are built in base of the NewTemplate and NewPrevHash provided by the mocked TP",
         "Successfully submits a share that is a solution for the template supplied by the mocked TP",
-        "Checks that a second SetNewPrevHash is provided by the pool for the next roung of mining"
+        "Checks that a second SetNewPrevHash is provided by the pool for the next round of mining"
     ],
     "mining_messages": [
         {
@@ -59,7 +59,7 @@
                     "value": "0x01"
                 }
             ],
-            "actiondoc": "This action send a SetupConnection and check that receives a message type 0x01, that is SetupConnectionSuccess"
+            "actiondoc": "This action sends a SetupConnection and check that receives a message type 0x01, that is SetupConnectionSuccess"
         },
         {
             "message_ids": ["open_standard_mining_channel"],
@@ -83,7 +83,7 @@
                     "value": "0x1e"
                 }
             ],
-            "actiondoc": "This action sends OpenStandardMiningChannel to the pool and checks that the reply is OpenStandardMiningChannelSuccess SetNewPrevHash and NewMiningJob" 
+            "actiondoc": "This action sends OpenStandardMiningChannel to the pool and checks that the reply is OpenStandardMiningChannelSuccess, SetNewPrevHash and NewMiningJob" 
         },
         {
             "message_ids": ["submit_shares"],
@@ -94,7 +94,7 @@
                     "value": "0x1c"
                 }
              ],
-            "actiondoc": "This action sends the message SubmitSharesStandard to the pool anche checks that the pool replies with SubmitSharesStandard.Success"
+            "actiondoc": "This action sends the message SubmitSharesStandard to the pool and checks that the pool replies with SubmitSharesStandard.Success"
         },
         {
             "message_ids": [],

@@ -37,7 +37,6 @@ impl ActionParser {
                 Some(T) => Some(T.to_string()),
                 None => None,
             };
-            //let actiondoc = action.get("actiondoc").unwrap_or(&default_doc).to_string();
             let mut action_results = vec![];
             let results = action.get("results").unwrap().as_array().unwrap();
             for result in results {
