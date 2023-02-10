@@ -1,4 +1,3 @@
-//! Useful struct used into this crate and by crates that want to interact with this one
 use std::{
     convert::TryInto,
     sync::{Mutex as Mutex_, MutexGuard, PoisonError},
@@ -28,6 +27,7 @@ impl Id {
     pub fn new() -> Self {
         Self { state: 0 }
     }
+    /// return current state and increment
     #[allow(clippy::should_implement_trait)]
     pub fn next(&mut self) -> u32 {
         self.state += 1;
@@ -46,6 +46,17 @@ impl Default for Id {
 pub struct Mutex<T: ?Sized>(Mutex_<T>);
 
 impl<T> Mutex<T> {
+    /// `safe_lock` takes a closure that takes a mutable reference to the inner value, and returns a
+    /// result that either contains the return value of the closure, or a `PoisonError` that contains a
+    /// `MutexGuard` to the inner value. This is used to ensure no async executions while locked. To prevent
+    /// `PoisonLock` errors, unwraps should never be used within the closure. Always return the result and
+    /// handle outside of the safe lock.
+    ///
+    /// Arguments:
+    ///
+    /// * `thunk`: A closure that takes a mutable reference to the value inside the Mutex and returns a
+    /// value of type Ret.
+    ///
     pub fn safe_lock<F, Ret>(&self, thunk: F) -> Result<Ret, PoisonError<MutexGuard<'_, T>>>
     where
         F: FnOnce(&mut T) -> Ret,
@@ -65,6 +76,23 @@ impl<T> Mutex<T> {
     }
 }
 
+/// It takes a coinbase transaction, a list of transactions, and a list of indices, and returns the
+/// merkle root of the transactions at the given indices
+///
+/// Arguments:
+///
+/// * `coinbase_tx_prefix`: the first part of the coinbase transaction, before the extranonce.
+/// This should be converted from [`binary_sv2::B064K`]
+/// * `coinbase_tx_suffix`: the coinbase transaction suffix, which is the part of the coinbase
+/// transaction after the extranonce. This should be converted from [`binary_sv2::B064K`]
+/// * `extranonce`: the extranonce that the miner is using this value should be converted from
+/// This should be converted from [`binary_sv2::B032`] and padded with zeros if not 32 bytes long
+/// * `path`: a list of transaction hashes that are used to calculate the merkle root.
+/// This should be converted from [`binary_sv2::U256`]
+///
+/// Returns:
+///
+/// A 32 byte merkle root as a vector if successful and None if the arguments are invalid.
 pub fn merkle_root_from_path<T: AsRef<[u8]>>(
     coinbase_tx_prefix: &[u8],
     coinbase_tx_suffix: &[u8],
@@ -84,8 +112,10 @@ pub fn merkle_root_from_path<T: AsRef<[u8]>>(
         }
     };
 
-    // below unwrap never panic
-    let coinbase_id: [u8; 32] = coinbase.txid().as_hash().to_vec().try_into().unwrap();
+    let coinbase_id: [u8; 32] = match coinbase.txid().as_hash().to_vec().try_into() {
+        Ok(id) => id,
+        Err(_e) => return None,
+    };
     Some(merkle_root_from_path_(coinbase_id, path).to_vec())
 }
 
@@ -172,6 +202,7 @@ pub fn from_u128_to_uint256(input: u128) -> bitcoin::util::uint::Uint256 {
     bitcoin::util::uint::Uint256::from_be_bytes(be_bytes)
 }
 
+/// Used to package multiple SV2 channels into a single group.
 #[derive(Debug, Default)]
 pub struct GroupId {
     group_ids: Id,
@@ -179,8 +210,7 @@ pub struct GroupId {
 }
 
 impl GroupId {
-    /// New GroupId it start with groups 0 that is reserved for hom downatreams
-    ///
+    /// New GroupId it starts with groups 0, since 0 is reserved for hom downstreams
     pub fn new() -> Self {
         Self {
             group_ids: Id::new(),
