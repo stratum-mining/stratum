@@ -11,7 +11,7 @@ pub trait ParseServerJobNegotiationMessages
 where
     Self: Sized,
 {
-    // Used to parse job negotiation message and route to the message's respected handler function
+    /// Used to parse job negotiation message and route to the message's respected handler function
     fn handle_message_job_negotiation(
         self_: Arc<Mutex<Self>>,
         message_type: u8,
@@ -24,6 +24,6 @@ where
             Err(e) => Err(e),
         }
     }
-    // Should construct a new coinbase transaction based on the message
+    /// Construct a new coinbase transaction based on the message
     fn handle_set_coinbase(&mut self, message: SetCoinbase) -> Result<SendTo, Error>;
 }

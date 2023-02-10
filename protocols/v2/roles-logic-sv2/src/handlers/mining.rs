@@ -232,19 +232,17 @@ pub trait ParseUpstreamMiningMessages<
     /// Used to parse and route SV2 mining messages from the upstream based on `message_type` and `payload`
     /// The implementor of DownstreamMining needs to pass a RequestIdMapper if needing to change the req id.
     /// Proxies likely would want to update a downstream req id to a new one as req id must be
-    /// connection-wide unique/
+    /// connection-wide unique
     fn handle_message_mining(
         self_mutex: Arc<Mutex<Self>>,
         message_type: u8,
         payload: &mut [u8],
         routing_logic: MiningRoutingLogic<Down, Self, Selector, Router>,
     ) -> Result<SendTo<Down>, Error> {
-        // Is fine to unwrap on safe_lock
         let (channel_type, is_work_selection_enabled) = self_mutex
             .safe_lock(|s| (s.get_channel_type(), s.is_work_selection_enabled()))
             .map_err(|e| crate::Error::PoisonLock(e.to_string()))?;
 
-        // Is fine to unwrap on safe_lock
         match (message_type, payload).try_into() {
             Ok(Mining::OpenStandardMiningChannelSuccess(mut m)) => {
                 let remote = match routing_logic {
