@@ -39,7 +39,7 @@
     "frame_builders": [
         {
             "type": "automatic",
-            "message_id": "../../../../test/message-generator/messages/common_messages.json::setup_connection_success_flag_0"
+            "message_id": "../../../../test/message-generator/messages/common_messages.json::setup_connection_success_template_distribution"
         },
         {
             "type": "automatic",
@@ -60,17 +60,41 @@
                     "type": "match_message_type",
                     "value": "0x00"
                 }
-            ]
+            ],
+            "actiondoc": "This action checks that a Setupconnection message is received"
         },
         {
-            "message_ids": ["setup_connection_success_flag_0","new_template","set_new_prev_hash"],
+            "message_ids": ["setup_connection_success_template_distribution"],
+            "role": "server",
+            "results": [
+                {
+                    "type": "match_message_type",
+                    "value": "0x70"
+                }
+            ],
+          "actiondoc": "This action sends SetupConnection.Success with flag 2 (TD protocol) and checks that a message SetCoinbaseDataSize is received"
+        },
+        {
+            "message_ids": ["new_template","set_new_prev_hash"],
             "role": "server",
             "results": [
                 {
                     "type": "match_message_type",
                     "value": "0x76"
                 }
-            ] 
+            ],
+            "actiondoc": "This action sends NewTemplate and SetNewPrevHash, and checks that SubmitSolution is received"
+       },
+        {
+            "message_ids": ["set_new_prev_hash"],
+            "role": "server",
+            "results": [
+                {
+                    "type": "match_message_type",
+                    "value": "0x76"
+                }
+            ],
+            "actiondoc": "This action checks that SetCoinbaseDataSize is received"
         }
     ],
     "setup_commands": [],
