@@ -20,18 +20,18 @@ where
     ) -> Result<SendTo, Error> {
         // Is ok to unwrap a safe_lock result
         match (message_type, payload).try_into() {
-            Ok(TemplateDistribution::NewTemplate(m)) => {
-                self_.safe_lock(|x| x.handle_new_template(m)).unwrap()
-            }
-            Ok(TemplateDistribution::SetNewPrevHash(m)) => {
-                self_.safe_lock(|x| x.handle_set_new_prev_hash(m)).unwrap()
-            }
+            Ok(TemplateDistribution::NewTemplate(m)) => self_
+                .safe_lock(|x| x.handle_new_template(m))
+                .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
+            Ok(TemplateDistribution::SetNewPrevHash(m)) => self_
+                .safe_lock(|x| x.handle_set_new_prev_hash(m))
+                .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
             Ok(TemplateDistribution::RequestTransactionDataSuccess(m)) => self_
                 .safe_lock(|x| x.handle_request_tx_data_success(m))
-                .unwrap(),
+                .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
             Ok(TemplateDistribution::RequestTransactionDataError(m)) => self_
                 .safe_lock(|x| x.handle_request_tx_data_error(m))
-                .unwrap(),
+                .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
             Ok(TemplateDistribution::CoinbaseOutputDataSize(_)) => {
                 Err(Error::UnexpectedMessage(message_type))
             }
@@ -69,13 +69,13 @@ where
         match (message_type, payload).try_into() {
             Ok(TemplateDistribution::CoinbaseOutputDataSize(m)) => self_
                 .safe_lock(|x| x.handle_coinbase_out_data_size(m))
-                .unwrap(),
-            Ok(TemplateDistribution::RequestTransactionData(m)) => {
-                self_.safe_lock(|x| x.handle_request_tx_data(m)).unwrap()
-            }
+                .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
+            Ok(TemplateDistribution::RequestTransactionData(m)) => self_
+                .safe_lock(|x| x.handle_request_tx_data(m))
+                .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
             Ok(TemplateDistribution::SubmitSolution(m)) => self_
                 .safe_lock(|x| x.handle_request_submit_solution(m))
-                .unwrap(),
+                .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
             Ok(TemplateDistribution::NewTemplate(_)) => Err(Error::UnexpectedMessage(message_type)),
             Ok(TemplateDistribution::SetNewPrevHash(_)) => {
                 Err(Error::UnexpectedMessage(message_type))
