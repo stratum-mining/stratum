@@ -22,6 +22,16 @@ Little utility to execute interoperability tests between SRI and other Sv2 compl
 ...
 ```
 3. `% cargo run ../test.json`
+4. If the test is in the `/test/message-geneator` folder, you have to put an additional `../` to
+   the test address to launch the test from `/utils/message-generator`. For example, if you want
+   to launch 
+```
+../../test/message-geneator/test/pool-sri-test-1.json
+```
+the following is the right command
+```
+cargo run ../../../test/message-geneator/test/pool-sri-test-1.json
+```
 
 ## Test execution
 
@@ -61,7 +71,7 @@ Where the common subprotocol is composed by: `SetupConnection` and `SetupConnect
 
 ### mining_messages
 
-"mining_messages` is an array of messages (defined below) belonging to the mining (sub)protocol. This field is optional.
+`mining_messages` is an array of messages (defined below) belonging to the mining (sub)protocol. This field is optional.
 
 ### job_negotiation_messages
 
@@ -145,6 +155,20 @@ If `type` == `manual` the object must contain 3 additional fields:
     ]
 }
 ```
+If the frame relative to common messages is defined is a different file (for example, some 
+common_messages frames are defined in `/test/message-geneator/messages/common_messages.json`), to 
+use it you have to use the syntax `<address::id>`. For example, in the test 
+`/test/message/generator/test`, the following message 
+```
+   {
+       "type": "automatic",
+       "message_id": "../../../../test/message-generator/messages/common_messages.json::setup_connection_success_template_distribution"
+   }
+```
+calls the id `setup_connection_success_template_distribution` that appears in the file 
+`../../../test/message-generator/messages/common_messages.json`. In the main file, the id of this
+message will be the abbreviated with `setup_connection_success_template_distribution`. 
+ 
 
 
 ### actions

@@ -70,7 +70,7 @@ pub struct Action<'a> {
     messages: Vec<EitherFrame<AnyMessage<'a>>>,
     result: Vec<ActionResult>,
     role: Role,
-    doc: String,
+    actiondoc: Option<String>,
 }
 
 /// Represents a shell command to be executed on setup, after a connection is opened, or on

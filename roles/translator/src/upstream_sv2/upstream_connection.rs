@@ -21,10 +21,9 @@ impl UpstreamConnection {
     /// Send a SV2 message to the Upstream role
     pub async fn send(&mut self, sv2_frame: StdFrame) -> ProxyResult<'static, ()> {
         let either_frame = sv2_frame.into();
-        self.sender
-            .send(either_frame)
-            .await
-            .expect("Error sending `EitherFrame` to the Upstream role");
+        self.sender.send(either_frame).await.map_err(|e| {
+            crate::Error::ChannelErrorSender(crate::error::ChannelSendError::General(e.to_string()))
+        })?;
         Ok(())
     }
 }
