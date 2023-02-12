@@ -69,7 +69,7 @@ impl TemplateRx {
         Self::send(self_mutex.clone(), sv2_frame).await;
         let cloned = self_mutex.clone();
 
-        tokio::task::spawn(async { Self::on_new_solution(cloned, solution_receiver).await });
+        tokio::task::spawn(Self::on_new_solution(cloned, solution_receiver));
         Self::start_templates(self_mutex, token);
     }
 

@@ -864,7 +864,6 @@ impl UpstreamMiningNode {
             let share = self_
                 .safe_lock(|s| {
                     let factory = s.channel_kind.get_factory();
-                    // TODO remove this unwrap
                     factory.on_submit_shares_standard(share_.clone())
                 })
                 .unwrap()?;
@@ -926,6 +925,9 @@ impl UpstreamMiningNode {
                         Ok(message)
                     }
                     Share::Standard(_) => {
+                        // on_submit_shares_standard call check_target that in the case of a Proxy
+                        // and a share that is below the bitcoin target if the share is a standard
+                        // share call share.into_extended making this branch unreachable.
                         unreachable!()
                     }
                 },
