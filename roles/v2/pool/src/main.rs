@@ -4,10 +4,11 @@ use codec_sv2::{
     StandardEitherFrame, StandardSv2Frame,
 };
 use roles_logic_sv2::{
-    bitcoin::{secp256k1::Secp256k1, Network, PrivateKey, PublicKey},
+    bitcoin::{secp256k1::Secp256k1, Network, PrivateKey, PublicKey, Script},
     parsers::PoolMessages,
 };
-use serde::Deserialize;
+use serde::{Deserialize, de::Visitor};
+use std::str::FromStr;
 
 use tracing::{error, info};
 mod error;
@@ -39,6 +40,40 @@ use tokio::{select, task};
 
 use crate::{lib::job_negotiator::JobNegotiator, status::Status};
 
+/// used to deserialize a string repesentation of an uncompressed secp256k1
+/// public key from the pool-config.toml
+#[derive(Debug, Clone)]
+pub struct PublicKeyWrapper {
+    pub pub_key: PublicKey
+}
+
+/// used by serde for deserialization
+struct PublicKeyVisitor;
+
+impl<'de> Visitor<'de> for PublicKeyVisitor {
+    type Value = bitcoin::PublicKey;
+    fn expecting(&self, formatter: &mut core::fmt::Formatter) -> core::fmt::Result {
+        formatter.write_str("a secp255k1 public key string")
+    }
+
+    fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+        where
+        E: serde::de::Error, {
+            match PublicKey::from_str(v) {
+                Ok(pub_key) => Ok(pub_key),
+                Err(e) => Err(E::custom(format!("Invalid coinbase output config public key: {:?}", e)))
+            }
+    }
+}
+
+impl<'de> Deserialize<'de> for PublicKeyWrapper {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where
+            D: serde::Deserializer<'de> {
+        Ok(Self {pub_key: deserializer.deserialize_str(PublicKeyVisitor)?})
+    }
+}
+
 #[derive(Debug, Deserialize, Clone)]
 pub struct Configuration {
     pub listen_address: String,
@@ -47,8 +82,7 @@ pub struct Configuration {
     pub authority_public_key: EncodedEd25519PublicKey,
     pub authority_secret_key: EncodedEd25519SecretKey,
     pub cert_validity_sec: u64,
-    pub coinbase_outputs: Vec<bitcoin::PublicKey>,
-    pub network: String,
+    pub coinbase_outputs: Vec<PublicKeyWrapper>,
     #[cfg(feature = "test_only_allow_unencrypted")]
     pub test_only_listen_adress_plain: String,
 }

@@ -443,5 +443,6 @@ fn check_msg_field(
     let value = serde_json::to_string(&value).unwrap();
     let value = format!(r#"{{"{}":{}}}"#, value_type, value);
     let value: crate::Sv2Type = serde_json::from_str(&value).unwrap();
+    println!("VALUE: {:?}", &value);
     assert!(field == &value)
 }
