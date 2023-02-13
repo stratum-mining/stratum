@@ -41,6 +41,7 @@ pub enum Error {
     NoTemplateForId,
     InvalidExtranonceSize(u16, u16),
     PoisonLock(String),
+    InvalidBip34Bytes(Vec<u8>),
 }
 
 impl From<BinarySv2Error> for Error {
@@ -117,6 +118,7 @@ impl Display for Error {
             NoValidJob => write!(f, "Impossible to create a standard job for channelA cause no valid job has been received from upstream yet"),
             NoTemplateForId => write!(f, "Impossible a template for the required job id"),
             PoisonLock(e) => write!(f, "Poison lock: {}", e),
+            InvalidBip34Bytes(e) => write!(f, "Invalid Bip34 bytes {:?}", e),
         }
     }
 }
