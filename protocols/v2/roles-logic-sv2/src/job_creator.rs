@@ -143,7 +143,7 @@ fn new_extended_job(
         .try_into()
         .map_err(|_| Error::TxVersionTooBig)?;
 
-    let bip34_bytes = get_bip_34_bytes(&new_template, tx_version)?;
+    let bip34_bytes = get_bip_34_bytes(new_template, tx_version)?;
     let script_prefix_len = bip34_bytes.len();
 
     let coinbase = coinbase(
@@ -178,7 +178,14 @@ fn coinbase_tx_prefix(
     script_prefix_len: usize,
 ) -> Result<B064K<'static>, Error> {
     let encoded = coinbase.serialize();
+    // If script_prefix_len is not 0 we are not in a test enviornment and the coinbase have the 0
+    // witness
+    let segwit_bytes = match script_prefix_len {
+        0 => 0,
+        _ => 2,
+    };
     let index = 4    // tx version
+        + segwit_bytes
         + 1  // number of inputs TODO can be also 3
         + 32 // prev OutPoint
         + 4  // index
@@ -194,7 +201,14 @@ fn coinbase_tx_suffix(
     script_prefix_len: usize,
 ) -> Result<B064K<'static>, Error> {
     let encoded = coinbase.serialize();
+    // If script_prefix_len is not 0 we are not in a test enviornment and the coinbase have the 0
+    // witness
+    let segwit_bytes = match script_prefix_len {
+        0 => 0,
+        _ => 2,
+    };
     let r = encoded[4    // tx version
+        + segwit_bytes
         + 1  // number of inputs TODO can be also 3
         + 32 // prev OutPoint
         + 4  // index
@@ -250,12 +264,18 @@ fn coinbase(
     coinbase_outputs: &[TxOut],
     extranonce_len: u8,
 ) -> Transaction {
+    // If script_prefix_len is not 0 we are not in a test enviornment and the coinbase have the 0
+    // witness
+    let witness = match bip34_bytes.len() {
+        0 => vec![],
+        _ => vec![vec![0; 32]],
+    };
     bip34_bytes.extend_from_slice(&vec![0; extranonce_len as usize]);
     let tx_in = TxIn {
         previous_output: OutPoint::null(),
         script_sig: bip34_bytes.into(),
         sequence,
-        witness: vec![],
+        witness,
     };
     Transaction {
         version,
