@@ -59,7 +59,7 @@ pub trait ParseDownstreamMiningMessages<
                     self_.get_downstream_mining_data(),
                 )
             })
-            .map_err(|e| crate::Error::PoisonLock(e.to_string()))?; 
+            .map_err(|e| crate::Error::PoisonLock(e.to_string()))?;
         match (message_type, payload).try_into() {
             Ok(Mining::OpenStandardMiningChannel(mut m)) => {
                 debug!("Received OpenStandardMiningChannel message");
