@@ -7,7 +7,7 @@ use crate::{
     status, Configuration, EitherFrame, StdFrame,
 };
 use async_channel::{Receiver, Sender};
-use bitcoin::{Script, TxOut, hashes::hex::ToHex};
+use bitcoin::{Script, TxOut};
 use codec_sv2::Frame;
 use error_handling::handle_result;
 use roles_logic_sv2::{
@@ -22,7 +22,7 @@ use roles_logic_sv2::{
     template_distribution_sv2::{NewTemplate, SetNewPrevHash, SubmitSolution},
     utils::Mutex,
 };
-use std::{collections::HashMap, convert::TryInto, sync::Arc, str::FromStr};
+use std::{collections::HashMap, convert::TryInto, sync::Arc};
 use tracing::{debug, error, info};
 
 pub mod setup_connection;
@@ -395,13 +395,17 @@ impl Pool {
             end: extranonce_len,
         };
         let ids = Arc::new(Mutex::new(roles_logic_sv2::utils::GroupId::new()));
-        let pool_coinbase_outputs = config.coinbase_outputs.iter().map(|pub_key_wrapper| {
-            TxOut {
-                // value will be updated by the addition of `ChannelFactory::split_outputs()` in PR #422
-                value: crate::BLOCK_REWARD,
-                script_pubkey: Script::new_p2pk(&pub_key_wrapper.pub_key),
-            }
-        }).collect();
+        let pool_coinbase_outputs = config
+            .coinbase_outputs
+            .iter()
+            .map(|pub_key_wrapper| {
+                TxOut {
+                    // value will be updated by the addition of `ChannelFactory::split_outputs()` in PR #422
+                    value: crate::BLOCK_REWARD,
+                    script_pubkey: Script::new_p2pk(&pub_key_wrapper.pub_key),
+                }
+            })
+            .collect();
         println!("PUB KEY: {:?}", pool_coinbase_outputs);
         let extranonces = ExtendedExtranonce::new(range_0, range_1, range_2);
         let creator = JobsCreators::new(extranonce_len as u8);
@@ -508,46 +512,46 @@ impl Pool {
     }
 }
 
-
 #[cfg(test)]
 mod test {
-    use bitcoin::Transaction;
-    use bitcoin::blockdata::script;
-    use bitcoin::util::psbt::serialize::Serialize;
     use binary_sv2::B064K;
+    use bitcoin::{util::psbt::serialize::Serialize, Transaction};
     use std::convert::TryInto;
 
     const SCRIPT_PREFIX_LEN: usize = 4;
     const PREV_OUT_LEN: usize = 38;
 
-    // this test is used to verify the `coinbase_tx_prefix` and `coinbase_tx_suffix` tested against in
+    // this test is used to verify the `coinbase_tx_prefix` and `coinbase_tx_suffix` values tested against in
     // message generator `stratum/test/message-generator/test/pool-sri-test-extended.json`
     #[test]
     fn test_coinbase_outputs_from_config() {
         // Load config
-        let config: crate::Configuration = toml::from_str(&std::fs::read_to_string("pool-config.toml").unwrap()).unwrap();
+        let config: crate::Configuration =
+            toml::from_str(&std::fs::read_to_string("pool-config.toml").unwrap()).unwrap();
 
-        // template from message generator
-        let extranonce_len = 3;
-        let coinbase_prefix: [u8; 4] = [3,1,45,0];
-        let version = 536870912;
+        // template from message generator test (mock TP template)
+        let _extranonce_len = 3;
+        let coinbase_prefix: [u8; 4] = [3, 1, 45, 0];
+        let _version = 536870912;
         let coinbase_tx_version = 2;
         let coinbase_tx_input_sequence = 4294967295;
         let _coinbase_tx_value_remaining: u64 = 5000000000;
         let _coinbase_tx_outputs_count = 0;
         let coinbase_tx_locktime = 0;
-        let coinbase_tx_outputs = config.coinbase_outputs.iter().map(|pub_key_wrapper| {
-            bitcoin::TxOut {
+        let coinbase_tx_outputs: Vec<bitcoin::TxOut> = config
+            .coinbase_outputs
+            .iter()
+            .map(|pub_key_wrapper| bitcoin::TxOut {
                 value: crate::BLOCK_REWARD,
                 script_pubkey: bitcoin::Script::new_p2pk(&pub_key_wrapper.pub_key),
-            }
-        }).collect();
-        // only len supported right now
-        let extranonce_len = 16;
-        
+            })
+            .collect();
+        // extranonce len set to max_extranonce_size in `ChannelFactory::new_extended_channel()`
+        let extranonce_len = 32;
+
         // build coinbase TX from 'job_creator::coinbase()'
         let script_prefix = coinbase_prefix.to_vec();
-        let mut  bip34_bytes: Vec<u8>;
+        let mut bip34_bytes: Vec<u8>;
         bip34_bytes = script_prefix[1..4].to_vec();
 
         bip34_bytes.extend_from_slice(&vec![0; extranonce_len as usize]);
@@ -558,21 +562,43 @@ mod test {
             witness: vec![],
         };
         let coinbase = bitcoin::Transaction {
-            version,
+            version: coinbase_tx_version,
             lock_time: coinbase_tx_locktime,
             input: vec![tx_in],
             output: coinbase_tx_outputs,
         };
 
-        let coinbase_tx_prefix = coinbase_tx_prefix(&coinbase, SCRIPT_PREFIX_LEN, coinbase_tx_version.clone());
-        let coinbase_tx_suffix = coinbase_tx_suffix(&coinbase, 16, coinbase_tx_version);
-        println!("PREFIX: {:?}", coinbase_tx_prefix);
-        println!("PREFIX: {:?}", coinbase_tx_suffix);
+        let coinbase_tx_prefix =
+            coinbase_tx_prefix(&coinbase, SCRIPT_PREFIX_LEN, coinbase_tx_version.clone());
+        let coinbase_tx_suffix = coinbase_tx_suffix(&coinbase, extranonce_len, coinbase_tx_version);
 
-        assert!(coinbase_tx_suffix == [255, 255, 255, 2, 0, 242, 5, 42, 1, 0, 0, 0, 67, 65, 4, 70, 109, 127, 202, 229, 99, 229, 203, 9, 160, 209, 135, 11, 181, 128, 52, 72, 4, 97, 120, 121, 161, 73, 73, 207, 34, 40, 95, 27, 174, 63, 39, 103, 40, 23, 108, 60, 100, 49, 248, 238, 218, 69, 56, 220, 55, 200, 101, 226, 120, 79, 58, 158, 119, 208, 68, 243, 62, 64, 119, 151, 225, 39, 138, 172, 0, 242, 5, 42, 1, 0, 0, 0, 35, 33, 2, 52, 221, 105, 197, 108, 54, 164, 18, 48, 213, 115, 214, 138, 222, 174, 0, 48, 201, 188, 11, 242, 111, 36, 211, 225, 182, 76, 96, 77, 41, 60, 104, 172, 0, 0, 0, 0].to_vec().try_into().unwrap(),
-        "coinbase_tx_suffix incorrect");
-
-
+        assert!(
+            coinbase_tx_prefix
+                == [
+                    2, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 35, 1, 45, 0, 0
+                ]
+                .to_vec()
+                .try_into()
+                .unwrap(),
+            "coinbase_tx_prefix incorrect"
+        );
+        assert!(
+            coinbase_tx_suffix
+                == [
+                    255, 255, 255, 2, 0, 242, 5, 42, 1, 0, 0, 0, 67, 65, 4, 70, 109, 127, 202, 229,
+                    99, 229, 203, 9, 160, 209, 135, 11, 181, 128, 52, 72, 4, 97, 120, 121, 161, 73,
+                    73, 207, 34, 40, 95, 27, 174, 63, 39, 103, 40, 23, 108, 60, 100, 49, 248, 238,
+                    218, 69, 56, 220, 55, 200, 101, 226, 120, 79, 58, 158, 119, 208, 68, 243, 62,
+                    64, 119, 151, 225, 39, 138, 172, 0, 242, 5, 42, 1, 0, 0, 0, 35, 33, 2, 52, 221,
+                    105, 197, 108, 54, 164, 18, 48, 213, 115, 214, 138, 222, 174, 0, 48, 201, 188,
+                    11, 242, 111, 36, 211, 225, 182, 76, 96, 77, 41, 60, 104, 172, 0, 0, 0, 0
+                ]
+                .to_vec()
+                .try_into()
+                .unwrap(),
+            "coinbase_tx_suffix incorrect"
+        );
     }
 
     // copied from roles-logic-sv2::job_creator
@@ -584,17 +610,18 @@ mod test {
         // Txs version lower or equal to 1 are not allowed in new blocks we need it only to test the
         // JobCreator against old bitcoin blocks
         let encoded = coinbase.serialize();
-        let r = encoded[0..SCRIPT_PREFIX_LEN + coinbase_tx_input_script_prefix_byte_len + PREV_OUT_LEN]
+        let r = encoded
+            [0..SCRIPT_PREFIX_LEN + coinbase_tx_input_script_prefix_byte_len + PREV_OUT_LEN]
             .to_vec();
         r.try_into().unwrap()
     }
-    
+
     // copied from roles-logic-sv2::job_creator
     fn coinbase_tx_suffix(
         coinbase: &Transaction,
         extranonce_len: u8,
         _tx_version: i32,
-    ) -> B064K<'static>{
+    ) -> B064K<'static> {
         #[allow(unused_mut)]
         let mut script_prefix_len = SCRIPT_PREFIX_LEN;
         #[cfg(test)]
@@ -613,5 +640,3 @@ mod test {
         r.try_into().unwrap()
     }
 }
-
-

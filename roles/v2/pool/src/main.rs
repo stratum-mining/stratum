@@ -4,10 +4,10 @@ use codec_sv2::{
     StandardEitherFrame, StandardSv2Frame,
 };
 use roles_logic_sv2::{
-    bitcoin::{secp256k1::Secp256k1, Network, PrivateKey, PublicKey, Script},
+    bitcoin::{secp256k1::Secp256k1, Network, PrivateKey, PublicKey},
     parsers::PoolMessages,
 };
-use serde::{Deserialize, de::Visitor};
+use serde::{de::Visitor, Deserialize};
 use std::str::FromStr;
 
 use tracing::{error, info};
@@ -44,7 +44,7 @@ use crate::{lib::job_negotiator::JobNegotiator, status::Status};
 /// public key from the pool-config.toml
 #[derive(Debug, Clone)]
 pub struct PublicKeyWrapper {
-    pub pub_key: PublicKey
+    pub pub_key: PublicKey,
 }
 
 /// used by serde for deserialization
@@ -57,20 +57,27 @@ impl<'de> Visitor<'de> for PublicKeyVisitor {
     }
 
     fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
-        where
-        E: serde::de::Error, {
-            match PublicKey::from_str(v) {
-                Ok(pub_key) => Ok(pub_key),
-                Err(e) => Err(E::custom(format!("Invalid coinbase output config public key: {:?}", e)))
-            }
+    where
+        E: serde::de::Error,
+    {
+        match PublicKey::from_str(v) {
+            Ok(pub_key) => Ok(pub_key),
+            Err(e) => Err(E::custom(format!(
+                "Invalid coinbase output config public key: {:?}",
+                e
+            ))),
+        }
     }
 }
 
 impl<'de> Deserialize<'de> for PublicKeyWrapper {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-        where
-            D: serde::Deserializer<'de> {
-        Ok(Self {pub_key: deserializer.deserialize_str(PublicKeyVisitor)?})
+    where
+        D: serde::Deserializer<'de>,
+    {
+        Ok(Self {
+            pub_key: deserializer.deserialize_str(PublicKeyVisitor)?,
+        })
     }
 }
 
