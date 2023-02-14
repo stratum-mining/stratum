@@ -889,36 +889,16 @@ impl PoolChannelFactory {
         &mut self,
         m: &mut NewTemplate<'static>,
     ) -> Result<HashMap<u32, Mining<'static>>, Error> {
-        PoolChannelFactory::split_outputs(
-            &mut self.pool_coinbase_outputs,
-            m.coinbase_tx_value_remaining,
-        );
+
+        // edit the last pool_coinbase_output
+        if let Some(last_pool_coinbase_output) = self.pool_coinbase_outputs.last_mut() {
+            last_pool_coinbase_output.value = m.coinbase_tx_value_remaining;
+        }
 
         let new_job =
             self.job_creator
                 .on_new_template(m, true, self.pool_coinbase_outputs.clone())?;
         self.inner.on_new_extended_mining_job(new_job)
-    }
-
-    /// From the spec the coinbase_tx_value_remaining is:
-    /// The value, in satoshis, available for spending in coinbase outputs
-    /// added by the client. Includes both transaction fees and block subsidy.
-    /// Divide this amount as evenly as possible across all coinbase outputs.
-    pub fn split_outputs(pool_coinbase_outputs: &mut Vec<TxOut>, coinbase_tx_value_remaining: u64) {
-        if !pool_coinbase_outputs.is_empty() {
-            let output_value: u64 =
-                coinbase_tx_value_remaining / pool_coinbase_outputs.len() as u64;
-            let mut remainder = coinbase_tx_value_remaining % pool_coinbase_outputs.len() as u64;
-
-            for output in pool_coinbase_outputs.iter_mut() {
-                output.value = output_value;
-
-                if remainder > 0 {
-                    output.value += 1;
-                    remainder -= 1;
-                }
-            }
-        }
     }
 
     pub fn on_submit_shares_standard(
@@ -1312,7 +1292,7 @@ mod test {
     use bitcoin::{hash_types::WPubkeyHash, PublicKey};
     use mining_sv2::OpenStandardMiningChannel;
 
-    const BLOCK_REWARD: u64 = 5_000_000_000;
+    const BLOCK_REWARD: u64 = 2_000_000_000;
 
     // Block 1296 data
     // 01000000
@@ -1399,44 +1379,6 @@ mod test {
     use bitcoin::TxOut;
     use quickcheck::{Arbitrary, Gen};
     use rand::Rng;
-
-    #[test]
-    fn test_output_splitting() {
-        let vec_size = rand::thread_rng().gen_range(1..100);
-        let mut coinbase_outputs = Vec::<TxOut>::with_capacity(vec_size);
-        for _ in 0..vec_size {
-            coinbase_outputs.push(TxOut {
-                value: BLOCK_REWARD,
-                script_pubkey: decode_hex("4104c6d0969c2d98a5c19ba7c36c7937c5edbd60ff2a01397c4afe54f16cd641667ea0049ba6f9e1796ba3c8e49e1b504c532ebbaaa1010c3f7d9b83a8ea7fd800e2ac").unwrap().into()
-            });
-        }
-
-        let mut u64_gen = Gen::new(64);
-        let subsidy = u64::arbitrary(&mut u64_gen);
-        PoolChannelFactory::split_outputs(&mut coinbase_outputs, subsidy);
-
-        let mut total_subsidy = 0;
-
-        let base_subsidy = subsidy / vec_size as u64;
-
-        for i in 0..vec_size {
-            total_subsidy += coinbase_outputs[i].value;
-            assert!(
-                //should be equal the base or +1 for the remainder that some outputs get
-                coinbase_outputs[i].value == base_subsidy
-                    || coinbase_outputs[i].value == base_subsidy + 1,
-                "Failed at index {} base_subsidy {}",
-                i,
-                base_subsidy
-            );
-        }
-
-        assert_eq!(total_subsidy, subsidy);
-
-        let mut empty = Vec::<TxOut>::with_capacity(0);
-        // This should not panic
-        PoolChannelFactory::split_outputs(&mut empty, subsidy);
-    }
 
     #[test]
     fn test_complete_mining_round() {
