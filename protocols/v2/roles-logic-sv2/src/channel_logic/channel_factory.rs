@@ -889,7 +889,6 @@ impl PoolChannelFactory {
         &mut self,
         m: &mut NewTemplate<'static>,
     ) -> Result<HashMap<u32, Mining<'static>>, Error> {
-
         // edit the last pool_coinbase_output
         if let Some(last_pool_coinbase_output) = self.pool_coinbase_outputs.last_mut() {
             last_pool_coinbase_output.value = m.coinbase_tx_value_remaining;
