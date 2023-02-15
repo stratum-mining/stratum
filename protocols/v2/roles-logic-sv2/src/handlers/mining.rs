@@ -60,7 +60,6 @@ pub trait ParseDownstreamMiningMessages<
                 )
             })
             .map_err(|e| crate::Error::PoisonLock(e.to_string()))?;
-        // Is fine to unwrap on safe_lock
         match (message_type, payload).try_into() {
             Ok(Mining::OpenStandardMiningChannel(mut m)) => {
                 debug!("Received OpenStandardMiningChannel message");
