@@ -27,7 +27,7 @@ pub enum ChannelSendError<'a> {
     Notify(tokio::sync::broadcast::error::SendError<Notify<'a>>),
     V1Message(async_channel::SendError<v1::Message>),
     General(String),
-    Extranonce(async_channel::SendError<ExtendedExtranonce>),
+    Extranonce(async_channel::SendError<(ExtendedExtranonce, u32)>),
 }
 
 #[derive(Debug)]
@@ -212,8 +212,8 @@ impl<'a> From<async_channel::SendError<v1::Message>> for Error<'a> {
     }
 }
 
-impl<'a> From<async_channel::SendError<ExtendedExtranonce>> for Error<'a> {
-    fn from(e: async_channel::SendError<ExtendedExtranonce>) -> Self {
+impl<'a> From<async_channel::SendError<(ExtendedExtranonce, u32)>> for Error<'a> {
+    fn from(e: async_channel::SendError<(ExtendedExtranonce, u32)>) -> Self {
         Error::ChannelErrorSender(ChannelSendError::Extranonce(e))
     }
 }

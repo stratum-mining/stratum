@@ -14,7 +14,7 @@
                 "future_template": true,
                 "version": 536870912,
                 "coinbase_tx_version": 2,
-                "coinbase_prefix": [3,1,45,0],
+                "coinbase_prefix": [1,16,0],
                 "coinbase_tx_input_sequence": 4294967295,
                 "coinbase_tx_value_remaining": 5000000000,
                 "coinbase_tx_outputs_count": 0,

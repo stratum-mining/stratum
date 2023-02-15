@@ -100,6 +100,9 @@ pub struct Test<'a> {
 async fn main() {
     let args: Vec<String> = std::env::args().collect();
     let test_path = &args[1];
+    println!();
+    println!("EXECUTING {}", test_path);
+    println!();
     // Load contents of `test.json`, then parse
     let test = load_str!(test_path);
     let test = parser::Parser::parse_test(test);
