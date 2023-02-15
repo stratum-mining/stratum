@@ -31,6 +31,14 @@ impl<Down: IsDownstream> ProxyDownstreamMiningSelector<Down> {
     }
 }
 
+impl<Down: IsMiningDownstream> ProxyDownstreamMiningSelector<Down> {
+    fn _remove_downstream(&mut self, d: &Arc<Mutex<Down>>) {
+        self.request_id_to_remotes.retain(|_, v| !Arc::ptr_eq(v, d));
+        self.channel_id_to_downstream
+            .retain(|_, v| !Arc::ptr_eq(v, d));
+    }
+}
+
 impl<Down: IsMiningDownstream> DownstreamMiningSelector<Down>
     for ProxyDownstreamMiningSelector<Down>
 {
@@ -65,13 +73,32 @@ impl<Down: IsMiningDownstream> DownstreamMiningSelector<Down>
     }
 
     fn remove_downstreams_in_channel(&mut self, channel_id: u32) -> Vec<Arc<Mutex<Down>>> {
-        self.channel_id_to_downstreams
+        let downs = self
+            .channel_id_to_downstreams
             .remove(&channel_id)
-            .unwrap_or_default()
+            .unwrap_or_default();
+        for d in &downs {
+            self._remove_downstream(d);
+        }
+        downs
+    }
+
+    fn remove_downstream(&mut self, d: &Arc<Mutex<Down>>) {
+        for dws in self.channel_id_to_downstreams.values_mut() {
+            dws.retain(|d| !Arc::ptr_eq(d, d));
+        }
+
+        self._remove_downstream(d);
     }
 
     fn downstream_from_channel_id(&self, channel_id: u32) -> Option<Arc<Mutex<Down>>> {
         self.channel_id_to_downstream.get(&channel_id).cloned()
+    }
+    fn get_all_downstreams(&self) -> Vec<Arc<Mutex<Down>>> {
+        self.channel_id_to_downstream
+            .iter()
+            .map(|(_, v)| v.clone())
+            .collect()
     }
 }
 
@@ -101,8 +128,12 @@ pub trait DownstreamMiningSelector<Downstream: IsMiningDownstream>:
 
     fn remove_downstreams_in_channel(&mut self, channel_id: u32) -> Vec<Arc<Mutex<Downstream>>>;
 
+    fn remove_downstream(&mut self, d: &Arc<Mutex<Downstream>>);
+
     // only for standard
     fn downstream_from_channel_id(&self, channel_id: u32) -> Option<Arc<Mutex<Downstream>>>;
+
+    fn get_all_downstreams(&self) -> Vec<Arc<Mutex<Downstream>>>;
 }
 
 pub trait DownstreamSelector<D: IsDownstream> {}
@@ -152,6 +183,13 @@ impl<Down: IsMiningDownstream + D> DownstreamMiningSelector<Down> for NullDownst
 
     fn downstream_from_channel_id(&self, _channel_id: u32) -> Option<Arc<Mutex<Down>>> {
         unreachable!("downstream_from_channel_id")
+    }
+    fn get_all_downstreams(&self) -> Vec<Arc<Mutex<Down>>> {
+        unreachable!("get_all_downstreams")
+    }
+
+    fn remove_downstream(&mut self, _d: &Arc<Mutex<Down>>) {
+        unreachable!("remove_downstream")
     }
 }
 

@@ -93,7 +93,7 @@ impl Downstream {
                         .send(status::Status {
                             state: status::State::Healthy(format!(
                                 "Downstream connection dropped: {}",
-                                e.to_string()
+                                e
                             )),
                         })
                         .await
@@ -387,16 +387,20 @@ impl Pool {
         sender_message_received_signal: Sender<()>,
         status_tx: status::Sender,
     ) {
+        let extranonce_len = 32;
         let range_0 = std::ops::Range { start: 0, end: 0 };
         let range_1 = std::ops::Range { start: 0, end: 16 };
-        let range_2 = std::ops::Range { start: 16, end: 32 };
+        let range_2 = std::ops::Range {
+            start: 16,
+            end: extranonce_len,
+        };
         let ids = Arc::new(Mutex::new(roles_logic_sv2::utils::GroupId::new()));
         let txout = TxOut {
             value: crate::BLOCK_REWARD,
             script_pubkey: Script::new_p2pk(&crate::new_pub_key()),
         };
         let extranonces = ExtendedExtranonce::new(range_0, range_1, range_2);
-        let creator = JobsCreators::new(32);
+        let creator = JobsCreators::new(extranonce_len as u8);
         let share_per_min = 1.0;
         let kind = roles_logic_sv2::channel_logic::channel_factory::ExtendedChannelKind::Pool;
         let channel_factory = Arc::new(Mutex::new(PoolChannelFactory::new(

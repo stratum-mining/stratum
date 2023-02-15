@@ -1,0 +1,158 @@
+{
+    "doc": [
+        "This test does",
+        "Launch 2 pool on differnet address",
+        "Launch mining-proxy",
+        "Connect proxy to the 2 above pool",
+        "Try connect proxy to non exsistent pool proxy must not panic",
+        "Launch MD and connect to proxy",
+        "Kill the pool that the proxy is using for the above MD, proxy must not panic",
+        "Kill the MD, proxy must not panic",
+        "Launch MD and connect to proxy, MD must start mine with the other avaiable pool"
+    ],
+    "frame_builders": [
+    ],
+    "actions": [
+    ],
+    "setup_commands": [
+        {
+            "command": "cargo",
+            "args": [
+                        "run",
+                        "-p",
+                        "pool",
+                        "--",
+                        "-c",
+                        "./test/config/pool-config-sri-tp.toml"
+            ],
+            "conditions": {
+                "WithConditions": {
+                    "conditions": [
+                        {
+                            "output_string": "Listening for encrypted connection on: 0.0.0.0:34254",
+                            "output_location": "StdOut",
+                            "condition": true
+                        }
+                    ],
+                    "timer_secs": 60,
+                    "warn_no_panic": false
+                }
+            }
+        },
+        {
+            "command": "cargo",
+            "args": [
+                        "run",
+                        "-p",
+                        "pool",
+                        "--",
+                        "-c",
+                        "./test/config/pool-config-sri-tp-different-port.toml"
+            ],
+            "conditions": {
+                "WithConditions": {
+                    "conditions": [
+                        {
+                            "output_string": "Listening for encrypted connection on: 0.0.0.0:44254",
+                            "output_location": "StdOut",
+                            "condition": true
+                        }
+                    ],
+                    "timer_secs": 60,
+                    "warn_no_panic": false
+                }
+            }
+        },
+        {
+            "command": "cargo",
+            "args": [
+                        "run",
+                        "-p",
+                        "mining-proxy",
+                        "--",
+                        "-c",
+                        "./test/config/proxy-config-test-multiple-upstreams-extended.toml"
+            ],
+            "conditions": {
+                "WithConditions": {
+                    "conditions": [
+                        {
+                            "output_string": "Listening for downstream mining connections on 127.0.0.1:34255",
+                            "output_location": "StdOut",
+                            "condition": true
+                        }
+                    ],
+                    "timer_secs": 60,
+                    "warn_no_panic": false
+                }
+            }
+        },
+        {
+            "command": "cargo",
+            "args": [
+                        "run",
+                        "-p",
+                        "mining-device"
+            ],
+            "conditions": {
+                "WithConditions": {
+                    "conditions": [
+                        {
+                            "output_string": "SUCCESS SubmitSharesSuccess",
+                            "output_location": "StdOut",
+                            "condition": true
+                        }
+                    ],
+                    "timer_secs": 60,
+                    "warn_no_panic": false
+                }
+            }
+        },
+        {
+            "command": "sleep",
+            "args": ["1000"],
+            "conditions": "None"
+        },
+        {
+            "command": "kill",
+            "args": ["0"],
+            "conditions": "None"
+        },
+        {
+            "command": "cargo",
+            "args": [
+                        "run",
+                        "-p",
+                        "mining-device"
+            ],
+            "conditions": {
+                "WithConditions": {
+                    "conditions": [
+                        {
+                            "output_string": "SUCCESS SubmitSharesSuccess",
+                            "output_location": "StdOut",
+                            "condition": true
+                        }
+                    ],
+                    "timer_secs": 60,
+                    "warn_no_panic": false
+                }
+            }
+        },
+        {
+            "command": "kill",
+            "args": ["1"],
+            "conditions": "None"
+        },
+        {
+            "command": "kill",
+            "args": ["2"],
+            "conditions": "None"
+        }
+    ],
+    "execution_commands": [
+    ],
+    "cleanup_commands": [
+    ],
+    "role": "none"
+}

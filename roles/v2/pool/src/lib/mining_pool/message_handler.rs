@@ -94,7 +94,7 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
             .map_err(|e| roles_logic_sv2::Error::PoisonLock(e.to_string()))?;
         match res {
             Ok(res) => match res  {
-                roles_logic_sv2::channel_logic::channel_factory::OnNewShare::SendErrorDowsntream(m) => {
+                roles_logic_sv2::channel_logic::channel_factory::OnNewShare::SendErrorDownstream(m) => {
                     Ok(SendTo::Respond(Mining::SubmitSharesError(m)))
                 }
                 roles_logic_sv2::channel_logic::channel_factory::OnNewShare::SendSubmitShareUpstream(_) => unreachable!(),
@@ -138,13 +138,14 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
         &mut self,
         m: SubmitSharesExtended,
     ) -> Result<SendTo<()>, Error> {
+        debug!("Handling submit share extended {:#?}", m);
         let res = self
             .channel_factory
             .safe_lock(|cf| cf.on_submit_shares_extended(m.clone()))
             .map_err(|e| roles_logic_sv2::Error::PoisonLock(e.to_string()))?;
         match res {
             Ok(res) => match res  {
-                roles_logic_sv2::channel_logic::channel_factory::OnNewShare::SendErrorDowsntream(m) => {
+                roles_logic_sv2::channel_logic::channel_factory::OnNewShare::SendErrorDownstream(m) => {
                     Ok(SendTo::Respond(Mining::SubmitSharesError(m)))
                 }
                 roles_logic_sv2::channel_logic::channel_factory::OnNewShare::SendSubmitShareUpstream(_) => unreachable!(),
