@@ -14,9 +14,6 @@ use std::{collections::HashMap, convert::TryInto};
 use template_distribution_sv2::{NewTemplate, SetNewPrevHash};
 use tracing::debug;
 
-const SCRIPT_PREFIX_LEN: usize = 4;
-const PREV_OUT_LEN: usize = 38;
-
 #[derive(Debug)]
 pub struct JobsCreators {
     lasts_new_template: Vec<NewTemplate<'static>>,
@@ -133,6 +130,7 @@ impl JobsCreators {
         self.last_target.clone()
     }
 }
+
 fn new_extended_job(
     new_template: &mut NewTemplate,
     coinbase_outputs: &[TxOut],
@@ -140,43 +138,13 @@ fn new_extended_job(
     version_rolling_allowed: bool,
     extranonce_len: u8,
 ) -> Result<NewExtendedMiningJob<'static>, Error> {
-    assert!(
-        new_template.coinbase_tx_outputs_count == 0,
-        "node provided outputs not supported yet"
-    );
     let tx_version = new_template
         .coinbase_tx_version
         .try_into()
         .map_err(|_| Error::TxVersionTooBig)?;
-    // Txs version lower or equal to 1 are not allowed in new blocks we need it only to test the
-    // JobCreator against old bitcoin blocks
-    #[cfg(not(test))]
-    if tx_version <= 1 {
-        return Err(Error::TxVersionTooLow);
-    };
-    let script_prefix = new_template.coinbase_prefix.to_vec();
-    // Is ok to panic here cause condition will be always true when not in a test chain
-    // (regtest ecc ecc)
-    #[cfg(not(test))]
-    assert!(
-        script_prefix.len() > 3,
-        "Bitcoin blockchain should be at least 16 block long"
-    );
 
-    // first byte is the push op code
-    // TODO explain why we remove it!!
-    #[allow(unused_mut)]
-    #[cfg(not(test))]
-    let bip34_bytes = script_prefix[1..4].to_vec();
-
-    #[cfg(test)]
-    let bip34_bytes: Vec<u8>;
-    #[cfg(test)]
-    if tx_version == 1 {
-        bip34_bytes = vec![];
-    } else {
-        bip34_bytes = script_prefix[1..4].to_vec();
-    }
+    let bip34_bytes = get_bip_34_bytes(new_template, tx_version)?;
+    let script_prefix_len = bip34_bytes.len();
 
     let coinbase = coinbase(
         bip34_bytes,
@@ -186,6 +154,7 @@ fn new_extended_job(
         coinbase_outputs,
         extranonce_len,
     );
+
     let new_extended_mining_job: NewExtendedMiningJob<'static> = NewExtendedMiningJob {
         channel_id: 0,
         job_id,
@@ -193,8 +162,8 @@ fn new_extended_job(
         version: new_template.version,
         version_rolling_allowed,
         merkle_path: new_template.merkle_path.clone().into_static(),
-        coinbase_tx_prefix: coinbase_tx_prefix(&coinbase, SCRIPT_PREFIX_LEN, tx_version)?,
-        coinbase_tx_suffix: coinbase_tx_suffix(&coinbase, extranonce_len, tx_version)?,
+        coinbase_tx_prefix: coinbase_tx_prefix(&coinbase, script_prefix_len)?,
+        coinbase_tx_suffix: coinbase_tx_suffix(&coinbase, extranonce_len, script_prefix_len)?,
     };
 
     debug!(
@@ -206,35 +175,40 @@ fn new_extended_job(
 
 fn coinbase_tx_prefix(
     coinbase: &Transaction,
-    #[cfg(test)] mut coinbase_tx_input_script_prefix_byte_len: usize,
-    #[cfg(not(test))] coinbase_tx_input_script_prefix_byte_len: usize,
-    _tx_version: i32,
+    script_prefix_len: usize,
 ) -> Result<B064K<'static>, Error> {
-    // Txs version lower or equal to 1 are not allowed in new blocks we need it only to test the
-    // JobCreator against old bitcoin blocks
-    #[cfg(test)]
-    if _tx_version == 1 {
-        coinbase_tx_input_script_prefix_byte_len = 0;
-    }
     let encoded = coinbase.serialize();
-    let r = encoded[0..SCRIPT_PREFIX_LEN + coinbase_tx_input_script_prefix_byte_len + PREV_OUT_LEN]
-        .to_vec();
+    // If script_prefix_len is not 0 we are not in a test enviornment and the coinbase have the 0
+    // witness
+    let segwit_bytes = match script_prefix_len {
+        0 => 0,
+        _ => 2,
+    };
+    let index = 4    // tx version
+        + segwit_bytes
+        + 1  // number of inputs TODO can be also 3
+        + 32 // prev OutPoint
+        + 4  // index
+        + 1  // bytes in script TODO can be also 3
+        + script_prefix_len; // bip34_bytes
+    let r = encoded[0..index].to_vec();
     r.try_into().map_err(Error::BinarySv2Error)
 }
 
 fn coinbase_tx_suffix(
     coinbase: &Transaction,
     extranonce_len: u8,
-    _tx_version: i32,
+    script_prefix_len: usize,
 ) -> Result<B064K<'static>, Error> {
-    #[allow(unused_mut)]
-    let mut script_prefix_len = SCRIPT_PREFIX_LEN;
-    #[cfg(test)]
-    if _tx_version == 1 {
-        script_prefix_len = 0;
-    };
     let encoded = coinbase.serialize();
+    // If script_prefix_len is not 0 we are not in a test enviornment and the coinbase have the 0
+    // witness
+    let segwit_bytes = match script_prefix_len {
+        0 => 0,
+        _ => 2,
+    };
     let r = encoded[4    // tx version
+        + segwit_bytes
         + 1  // number of inputs TODO can be also 3
         + 32 // prev OutPoint
         + 4  // index
@@ -243,6 +217,41 @@ fn coinbase_tx_suffix(
         + (extranonce_len as usize)..]
         .to_vec();
     r.try_into().map_err(Error::BinarySv2Error)
+}
+
+// Just double check if received coinbase_prefix is the right one can be removed or used only for
+// tests
+fn get_bip_34_bytes(new_template: &NewTemplate, tx_version: i32) -> Result<Vec<u8>, Error> {
+    #[cfg(test)]
+    if tx_version == 1 {
+        return Ok(vec![]);
+    };
+
+    let script_prefix = &new_template.coinbase_prefix.to_vec()[..];
+
+    // Is ok to panic here cause condition will be always true when not in a test chain
+    // (regtest ecc ecc)
+    #[cfg(not(test))]
+    assert!(
+        script_prefix.len() > 2,
+        "Bitcoin blockchain should be at least 16 block long"
+    );
+
+    // Txs version lower or equal to 1 are not allowed in new blocks we need it only to test the
+    // JobCreator against old bitcoin blocks
+    #[cfg(not(test))]
+    if tx_version <= 1 {
+        return Err(Error::TxVersionTooLow);
+    };
+
+    // add 1 cause 0 is push 1 2 is 1 is push 2 ecc ecc
+    // add 1 cause in the len there is also the op code itself
+    let bip34_len = script_prefix[0] as usize + 2;
+    if bip34_len == script_prefix.len() {
+        Ok(script_prefix[0..bip34_len].to_vec())
+    } else {
+        Err(Error::InvalidBip34Bytes(script_prefix.to_vec()))
+    }
 }
 
 /// coinbase_tx_input_script_prefix: extranonce prefix (script lenght + bip34 block height) provided by the node
@@ -255,12 +264,18 @@ fn coinbase(
     coinbase_outputs: &[TxOut],
     extranonce_len: u8,
 ) -> Transaction {
+    // If script_prefix_len is not 0 we are not in a test enviornment and the coinbase have the 0
+    // witness
+    let witness = match bip34_bytes.len() {
+        0 => vec![],
+        _ => vec![vec![0; 32]],
+    };
     bip34_bytes.extend_from_slice(&vec![0; extranonce_len as usize]);
     let tx_in = TxIn {
         previous_output: OutPoint::null(),
         script_sig: bip34_bytes.into(),
         sequence,
-        witness: vec![],
+        witness,
     };
     Transaction {
         version,
@@ -285,7 +300,9 @@ pub mod tests {
         let mut coinbase_prefix: vec::Vec<u8> = vec::Vec::new();
 
         let max_num_for_script_prefix = 253;
-        coinbase_prefix.resize_with(255, || {
+        let prefix_len = cmp::min(u8::arbitrary(&mut coinbase_prefix_gen), 6);
+        coinbase_prefix.push(prefix_len);
+        coinbase_prefix.resize_with(prefix_len as usize + 2, || {
             cmp::min(
                 u8::arbitrary(&mut coinbase_prefix_gen),
                 max_num_for_script_prefix,
@@ -336,6 +353,13 @@ pub mod tests {
     #[cfg(feature = "prop_test")]
     #[quickcheck_macros::quickcheck]
     fn test_job_id_from_template(mut template: NewTemplate<'static>) {
+        let mut prefix = template.coinbase_prefix.to_vec();
+        if prefix.len() > 0 {
+            let len = u8::min(prefix[0], 6);
+            prefix[0] = len;
+            prefix.resize(len as usize + 2, 0);
+            template.coinbase_prefix = prefix.try_into().unwrap();
+        };
         let out = TxOut {
             value: BLOCK_REWARD,
             script_pubkey: Script::new_p2pk(&new_pub_key()),

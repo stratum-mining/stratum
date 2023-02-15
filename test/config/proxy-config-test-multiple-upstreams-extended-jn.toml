@@ -3,10 +3,10 @@ upstreams = [
     { channel_kind = "Group", address = "127.0.0.1", port = 44254, pub_key = "2di19GHYQnAZJmEpoUeP7C3Eg9TCcksHr23rZCC83dvUiZgiDL", jn_values = { address = "127.0.0.1", port = 44264, pub_key = "2di19GHYQnAZJmEpoUeP7C3Eg9TCcksHr23rZCC83dvUiZgiDL"}},
     { channel_kind = "Group", address = "127.0.0.1", port = 54254, pub_key = "2di19GHYQnAZJmEpoUeP7C3Eg9TCcksHr23rZCC83dvUiZgiDL", jn_values = { address = "127.0.0.1", port = 54264, pub_key = "2di19GHYQnAZJmEpoUeP7C3Eg9TCcksHr23rZCC83dvUiZgiDL"}},
 ]
-tp_address = "127.0.0.1:8442" 
+upstreams_jn = [{ address = "127.0.0.1", port = 34264, pub_key = "2di19GHYQnAZJmEpoUeP7C3Eg9TCcksHr23rZCC83dvUiZgiDL"}]
+tp_address = "75.119.150.111:8442"
 listen_address = "127.0.0.1"
 listen_mining_port = 34255
 max_supported_version = 2
 min_supported_version = 2
-downstream_share_per_minute = 0.01
-coinbase_reward_sat = 5_000_000_000
+downstream_share_per_minute = 10

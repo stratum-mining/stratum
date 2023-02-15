@@ -5,7 +5,9 @@ use codec_sv2::Frame;
 use roles_logic_sv2::{
     handlers::{template_distribution::ParseServerTemplateDistributionMessages, SendTo_},
     parsers::{PoolMessages, TemplateDistribution},
-    template_distribution_sv2::{CoinbaseOutputDataSize, NewTemplate, SetNewPrevHash},
+    template_distribution_sv2::{
+        CoinbaseOutputDataSize, NewTemplate, SetNewPrevHash, SubmitSolution,
+    },
 };
 pub type SendTo = SendTo_<roles_logic_sv2::parsers::TemplateDistribution<'static>, ()>;
 //use messages_sv2::parsers::JobNegotiation;
@@ -33,6 +35,7 @@ impl TemplateRx {
         send_new_tp_to_negotiator: Sender<(NewTemplate<'static>, u64)>,
         send_new_ph_to_negotiator: Sender<(SetNewPrevHash<'static>, u64)>,
         receive_coinbase_output_max_additional_size: Receiver<(CoinbaseOutputDataSize, u64)>,
+        solution_receiver: Receiver<SubmitSolution<'static>>,
     ) {
         let stream = TcpStream::connect(address).await.unwrap();
 
@@ -64,7 +67,9 @@ impl TemplateRx {
         .try_into()
         .unwrap();
         Self::send(self_mutex.clone(), sv2_frame).await;
+        let cloned = self_mutex.clone();
 
+        tokio::task::spawn(Self::on_new_solution(cloned, solution_receiver));
         Self::start_templates(self_mutex, token);
     }
 
@@ -99,12 +104,19 @@ impl TemplateRx {
                 match next_message_to_send {
                     Ok(SendTo::None(m)) => match m {
                         Some(TemplateDistribution::NewTemplate(m)) => {
+                            super::upstream_mining::IS_NEW_TEMPLATE_HANDLED
+                                .store(false, std::sync::atomic::Ordering::SeqCst);
                             let sender = self_mutex
                                 .safe_lock(|s| s.send_new_tp_to_negotiator.clone())
                                 .unwrap();
                             sender.send((m, token)).await.unwrap();
                         }
                         Some(TemplateDistribution::SetNewPrevHash(m)) => {
+                            while !super::upstream_mining::IS_NEW_TEMPLATE_HANDLED
+                                .load(std::sync::atomic::Ordering::SeqCst)
+                            {
+                                tokio::task::yield_now().await;
+                            }
                             let sender = self_mutex
                                 .safe_lock(|s| s.send_new_ph_to_negotiator.clone())
                                 .unwrap();
@@ -117,5 +129,15 @@ impl TemplateRx {
                 }
             }
         });
+    }
+
+    async fn on_new_solution(self_: Arc<Mutex<Self>>, rx: Receiver<SubmitSolution<'static>>) {
+        while let Ok(solution) = rx.recv().await {
+            let sv2_frame: StdFrame =
+                PoolMessages::TemplateDistribution(TemplateDistribution::SubmitSolution(solution))
+                    .try_into()
+                    .expect("Failed to convert solution to sv2 frame!");
+            Self::send(self_.clone(), sv2_frame).await
+        }
     }
 }
