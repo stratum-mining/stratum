@@ -12,7 +12,7 @@ use tracing::info;
 
 use codec_sv2::Frame;
 use roles_logic_sv2::{
-    handlers::job_negotiation::ParseServerJobNegotiationMessages,
+    bitcoin::TxOut, handlers::job_negotiation::ParseServerJobNegotiationMessages,
     template_distribution_sv2::CoinbaseOutputDataSize,
 };
 use std::{
@@ -33,7 +33,10 @@ use setup_connection::SetupConnectionHandler;
 pub struct JobNegotiator {
     receiver: Receiver<StandardEitherFrame<PoolMessages<'static>>>,
     _sender: Sender<StandardEitherFrame<PoolMessages<'static>>>,
+    last_coinbase_out: Option<Vec<TxOut>>,
     sender_coinbase_output_max_additional_size: Sender<(CoinbaseOutputDataSize, u64)>,
+    sender_coinbase_out: Sender<(Vec<TxOut>, u64)>,
+    coinbase_reward_sat: u64,
 }
 
 impl JobNegotiator {
@@ -41,14 +44,14 @@ impl JobNegotiator {
         address: SocketAddr,
         authority_public_key: [u8; 32],
         sender_coinbase_output_max_additional_size: Sender<(CoinbaseOutputDataSize, u64)>,
+        sender_coinbase_out: Sender<(Vec<TxOut>, u64)>,
+        config: Config,
     ) -> Arc<Mutex<Self>> {
         let stream = TcpStream::connect(address).await.unwrap();
         let initiator = Initiator::from_raw_k(authority_public_key).unwrap();
         let (mut receiver, mut sender): (Receiver<EitherFrame>, Sender<EitherFrame>) =
             Connection::new(stream, HandshakeRole::Initiator(initiator)).await;
 
-        let config_file: String = std::fs::read_to_string("proxy-config.toml").unwrap();
-        let config: Config = toml::from_str(&config_file).unwrap();
         let proxy_address = SocketAddr::new(
             IpAddr::from_str(&config.listen_address).unwrap(),
             config.listen_mining_port,
@@ -69,6 +72,9 @@ impl JobNegotiator {
             receiver,
             _sender: sender,
             sender_coinbase_output_max_additional_size,
+            last_coinbase_out: None,
+            sender_coinbase_out,
+            coinbase_reward_sat: config.coinbase_reward_sat,
         }));
 
         Self::on_upstream_message(self_.clone());
@@ -77,8 +83,14 @@ impl JobNegotiator {
 
     pub fn on_upstream_message(self_mutex: Arc<Mutex<Self>>) {
         task::spawn(async move {
+            let sender_max_size = self_mutex
+                .safe_lock(|s| s.sender_coinbase_output_max_additional_size.clone())
+                .unwrap();
+            let sender_out_script = self_mutex
+                .safe_lock(|s| s.sender_coinbase_out.clone())
+                .unwrap();
+            let receiver = self_mutex.safe_lock(|d| d.receiver.clone()).unwrap();
             loop {
-                let receiver = self_mutex.safe_lock(|d| d.receiver.clone()).unwrap();
                 let mut incoming: StdFrame = receiver.recv().await.unwrap().try_into().unwrap();
                 let message_type = incoming.get_header().unwrap().msg_type();
                 let payload = incoming.payload();
@@ -91,17 +103,22 @@ impl JobNegotiator {
                     );
                 match next_message_to_send {
                     Ok(SendTo::None(Some(JobNegotiation::SetCoinbase(m)))) => {
-                        let sender = self_mutex
-                            .safe_lock(|s| s.sender_coinbase_output_max_additional_size.clone())
-                            .unwrap();
                         let coinbase_output_max_additional_size = CoinbaseOutputDataSize {
                             coinbase_output_max_additional_size: m
                                 .coinbase_output_max_additional_size,
                         };
-                        sender
+                        let out_script = self_mutex
+                            .safe_lock(|s| s.last_coinbase_out.clone())
+                            .unwrap()
+                            // Safe unwrap when we receive a coinbase_output we immediatly set
+                            // last_coinbase_out to that coinbase ouutput in the message handlers
+                            // message_handler::ParseServerJobNegotiationMessages::handle_set_coinbase
+                            .unwrap();
+                        sender_max_size
                             .send((coinbase_output_max_additional_size, m.token))
                             .await
                             .unwrap();
+                        sender_out_script.send((out_script, m.token)).await.unwrap();
                     }
                     Ok(_) => unreachable!(),
                     Err(_) => todo!(),

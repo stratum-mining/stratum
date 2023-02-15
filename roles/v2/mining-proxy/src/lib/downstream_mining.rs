@@ -1,5 +1,3 @@
-use crate::ChannelKind;
-
 use super::upstream_mining::{StdFrame as UpstreamFrame, UpstreamMiningNode};
 use async_channel::{Receiver, SendError, Sender};
 use roles_logic_sv2::{
@@ -29,6 +27,7 @@ pub type EitherFrame = StandardEitherFrame<Message>;
 /// downstream do no make much sense.
 #[derive(Debug)]
 pub struct DownstreamMiningNode {
+    id: u32,
     receiver: Receiver<EitherFrame>,
     sender: Sender<EitherFrame>,
     pub status: DownstreamMiningNodeStatus,
@@ -156,6 +155,12 @@ use core::convert::TryInto;
 use std::sync::Arc;
 use tokio::task;
 
+impl PartialEq for DownstreamMiningNode {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
 impl DownstreamMiningNode {
     /// Return mining channel specific data
     pub fn get_channel(&mut self) -> &mut Channel {
@@ -174,13 +179,14 @@ impl DownstreamMiningNode {
         self.status.add_extended_from_non_hom_for_up_extended(id);
     }
 
-    pub fn new(receiver: Receiver<EitherFrame>, sender: Sender<EitherFrame>) -> Self {
+    pub fn new(receiver: Receiver<EitherFrame>, sender: Sender<EitherFrame>, id: u32) -> Self {
         Self {
             receiver,
             sender,
             status: DownstreamMiningNodeStatus::Initializing,
             prev_job_id: None,
             upstream: None,
+            id,
         }
     }
 
@@ -212,6 +218,7 @@ impl DownstreamMiningNode {
                 let incoming: StdFrame = message.try_into().unwrap();
                 Self::next(self_mutex.clone(), incoming).await;
             }
+            Self::exit(self_mutex);
         } else {
             panic!()
         }
@@ -306,6 +313,9 @@ impl DownstreamMiningNode {
     }
 
     pub fn exit(self_: Arc<Mutex<Self>>) {
+        if let Some(up) = self_.safe_lock(|s| s.upstream.clone()).unwrap() {
+            super::upstream_mining::UpstreamMiningNode::remove_dowstream(up, &self_);
+        };
         self_
             .safe_lock(|s| {
                 s.receiver.close();
@@ -335,70 +345,40 @@ impl
     fn handle_open_standard_mining_channel(
         &mut self,
         req: OpenStandardMiningChannel,
-        mut up: Option<Arc<Mutex<UpstreamMiningNode>>>,
+        up: Option<Arc<Mutex<UpstreamMiningNode>>>,
     ) -> Result<SendTo<UpstreamMiningNode>, Error> {
         let channel_id = up
             .as_ref()
             .expect("No upstream initialized")
             .safe_lock(|s| s.channel_ids.safe_lock(|r| r.next()).unwrap())
             .unwrap();
-        let channel_kind = up
-            .as_ref()
-            .expect("No upstream initialized")
-            .safe_lock(|up| up.channel_kind)
-            .unwrap();
         info!(channel_id);
-        match channel_kind {
-            ChannelKind::Group => Ok(SendTo::RelaySameMessageToRemote(up.unwrap())),
-            ChannelKind::Extended => {
-                let messages = up
-                    .as_mut()
-                    .unwrap()
-                    .safe_lock(|up| {
-                        up.open_standard_channel_down(
-                            req.request_id.as_u32(),
-                            req.nominal_hash_rate,
-                            true,
-                            channel_id,
-                        )
-                    })
-                    .unwrap();
-                for m in &messages {
-                    if let Mining::OpenStandardMiningChannelSuccess(m) = m {
-                        self.open_channel_for_down_hom_up_extended(
-                            m.channel_id,
-                            m.group_channel_id,
-                        );
+        let cloned = up.as_ref().expect("No upstream initialized").clone();
+        up.as_ref()
+            .expect("No upstream initialized")
+            .safe_lock(|up| {
+                if up.channel_kind.is_extended() {
+                    let messages = up.open_standard_channel_down(
+                        req.request_id.as_u32(),
+                        req.nominal_hash_rate,
+                        true,
+                        channel_id,
+                    );
+                    for m in &messages {
+                        if let Mining::OpenStandardMiningChannelSuccess(m) = m {
+                            self.open_channel_for_down_hom_up_extended(
+                                m.channel_id,
+                                m.group_channel_id,
+                            );
+                        }
                     }
+                    let messages = messages.into_iter().map(SendTo::Respond).collect();
+                    Ok(SendTo::Multiple(messages))
+                } else {
+                    Ok(SendTo::RelaySameMessageToRemote(cloned))
                 }
-                let messages = messages.into_iter().map(SendTo::Respond).collect();
-                Ok(SendTo::Multiple(messages))
-            }
-            ChannelKind::ExtendedWithNegotiator => {
-                let messages = up
-                    .as_mut()
-                    .unwrap()
-                    .safe_lock(|up| {
-                        up.open_standard_channel_down(
-                            req.request_id.as_u32(),
-                            req.nominal_hash_rate,
-                            true,
-                            channel_id,
-                        )
-                    })
-                    .unwrap();
-                for m in &messages {
-                    if let Mining::OpenStandardMiningChannelSuccess(m) = m {
-                        self.open_channel_for_down_hom_up_extended(
-                            m.channel_id,
-                            m.group_channel_id,
-                        );
-                    }
-                }
-                let messages = messages.into_iter().map(SendTo::Respond).collect();
-                Ok(SendTo::Multiple(messages))
-            }
-        }
+            })
+            .unwrap()
     }
 
     fn handle_open_extended_mining_channel(
@@ -419,6 +399,9 @@ impl
         &mut self,
         m: SubmitSharesStandard,
     ) -> Result<SendTo<UpstreamMiningNode>, Error> {
+        // TODO maybe we want to check if shares meet target before
+        // sending them upstream If that is the case it should be
+        // done by GroupChannel not here
         match &self.status {
             DownstreamMiningNodeStatus::Initializing => todo!(),
             DownstreamMiningNodeStatus::Paired(_) => todo!(),
@@ -426,15 +409,23 @@ impl
                 ..
             }) => {
                 let remote = self.upstream.as_ref().unwrap();
-                // TODO maybe we want to check if shares meet target before
-                // sending them upstream If that is the case it should be
-                // done by GroupChannel not here
                 let message = Mining::SubmitSharesStandard(m);
                 Ok(SendTo::RelayNewMessageToRemote(remote.clone(), message))
             }
-            _ => {
-                info!("Rceived share TODO send it somwhere");
-                Ok(SendTo::None(None))
+            DownstreamMiningNodeStatus::ChannelOpened(Channel::DowntreamHomUpstreamExtended {
+                ..
+            }) => {
+                // Safe unwrap is channel have been opened it means that the dowsntream is paired
+                // with an upstream
+                let remote = self.upstream.as_ref().unwrap();
+                let res = UpstreamMiningNode::handle_std_shr(remote.clone(), m).unwrap();
+                Ok(SendTo::Respond(res))
+            }
+            DownstreamMiningNodeStatus::ChannelOpened(
+                Channel::DowntreamNonHomUpstreamExtended { .. },
+            ) => {
+                // unreachable cause the proxy do not support this kind of channel
+                unreachable!();
             }
         }
     }
@@ -490,11 +481,12 @@ use tokio::net::TcpListener;
 pub async fn listen_for_downstream_mining(address: SocketAddr) {
     info!("Listening for downstream mining connections on {}", address);
     let listner = TcpListener::bind(address).await.unwrap();
+    let mut ids = roles_logic_sv2::utils::Id::new();
 
     while let Ok((stream, _)) = listner.accept().await {
         let (receiver, sender): (Receiver<EitherFrame>, Sender<EitherFrame>) =
             PlainConnection::new(stream).await;
-        let node = DownstreamMiningNode::new(receiver, sender);
+        let node = DownstreamMiningNode::new(receiver, sender, ids.next());
 
         task::spawn(async move {
             let mut incoming: StdFrame = node.receiver.recv().await.unwrap().try_into().unwrap();

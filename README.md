@@ -536,22 +536,3 @@ on startup.
 For example to start the pool crate with `debug` logging activated start it with `RUST_LOG=debug cargo run`. We support 
 this order of logging granularity: `trace`, `debug`, `info`, `warn`, `error`.
 
-## 7. proxy-config.toml file
-
-"upstream" is a vector of Pools that the proxy will connect with.
-
-"channel_kind" is the field related to what kind of channel the Proxy requests to the Pool to open,
-For the use of Job Negotiator only ExtendedWithNegotiator is the valid channel; other type of channel_kind
-are: Extended and Group.
-
-"address" is the address of the pool and it will be used to start a new TCP connection between
-the Proxy and the Pool together with the next field "port".
-
-"pub_key" is the public key that the proxy gives to the Pool to start the connection.
-
-"upstreams_jn" is a vector of pool JN addresses with which proxy JN will connect.
-
-"tp_address" is the template provider address, is needed to open a TCP connection with a tempalte provider.
-
-"listen_address" and "listen_mining_port" are needed to connect the mining devices to the proxy,
-the proxy will listen to this IP/port for mining devices messages.

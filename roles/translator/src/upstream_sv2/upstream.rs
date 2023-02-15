@@ -62,10 +62,10 @@ pub struct Upstream {
     /// Sends SV2 `NewExtendedMiningJob` messages to be translated (along with SV2 `SetNewPrevHash`
     /// messages) into SV1 `mining.notify` messages. Received and translated by the `Bridge`.
     tx_sv2_new_ext_mining_job: Sender<NewExtendedMiningJob<'static>>,
-    /// Sends the extranonce1 received in the SV2 `OpenExtendedMiningChannelSuccess` message to be
+    /// Sends the extranonce1 and the channel id received in the SV2 `OpenExtendedMiningChannelSuccess` message to be
     /// used by the `Downstream` and sent to the Downstream role in a SV2 `mining.subscribe`
     /// response message. Passed to the `Downstream` on connection creation.
-    tx_sv2_extranonce: Sender<ExtendedExtranonce>,
+    tx_sv2_extranonce: Sender<(ExtendedExtranonce, u32)>,
     /// This allows the upstream threads to be able to communicate back to the main thread its
     /// current status.
     tx_status: status::Sender,
@@ -77,6 +77,12 @@ pub struct Upstream {
     /// Minimum `extranonce2` size. Initially requested in the `proxy-config.toml`, and ultimately
     /// set by the SV2 Upstream via the SV2 `OpenExtendedMiningChannelSuccess` message.
     pub min_extranonce_size: u16,
+}
+
+impl PartialEq for Upstream {
+    fn eq(&self, other: &Self) -> bool {
+        self.channel_id == other.channel_id
+    }
 }
 
 impl Upstream {
@@ -93,7 +99,7 @@ impl Upstream {
         tx_sv2_set_new_prev_hash: Sender<SetNewPrevHash<'static>>,
         tx_sv2_new_ext_mining_job: Sender<NewExtendedMiningJob<'static>>,
         min_extranonce_size: u16,
-        tx_sv2_extranonce: Sender<ExtendedExtranonce>,
+        tx_sv2_extranonce: Sender<(ExtendedExtranonce, u32)>,
         tx_status: status::Sender,
         target: Arc<Mutex<Vec<u8>>>,
     ) -> ProxyResult<'static, Arc<Mutex<Self>>> {
@@ -314,7 +320,10 @@ impl Upstream {
                                     extranonce.clone(), range_0.clone(), range_1.clone(), range_2.clone(),
                                 ).unwrap_or_else(|| panic!("Impossible to create a valid extended extranonce from {:?} {:?} {:?} {:?}", extranonce,range_0,range_1,range_2));
 
-                                handle_result!(tx_status, tx_sv2_extranonce.send(extended).await);
+                                handle_result!(
+                                    tx_status,
+                                    tx_sv2_extranonce.send((extended, m.channel_id)).await
+                                );
                             }
                             Mining::NewExtendedMiningJob(m) => {
                                 debug!("parse_incoming Mining::NewExtendedMiningJob msg");

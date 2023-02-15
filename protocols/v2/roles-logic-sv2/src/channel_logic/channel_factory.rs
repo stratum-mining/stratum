@@ -43,7 +43,7 @@ pub struct PartialSetCustomMiningJob {
 pub enum OnNewShare {
     /// Used when the received is malformed, is for an inexistent channel or do not meet downstream
     /// target.
-    SendErrorDowsntream(SubmitSharesError<'static>),
+    SendErrorDownstream(SubmitSharesError<'static>),
     /// Used when an exteded channel in a proxy receive a share, and the share meet upstream
     /// target, in this case a new share must be sent upstream.
     SendSubmitShareUpstream(Share),
@@ -52,10 +52,55 @@ pub enum OnNewShare {
     RelaySubmitShareUpstream,
     /// Indicate that the share meet bitcoin target, when there is an upstream the we should send
     /// the share upstream, whenever possible we should also notify the TP about it.
+    /// (share, template id, coinbase)
     ShareMeetBitcoinTarget((Share, u64, Vec<u8>)),
     /// Indicate that the share meet downstream target, in the case we could send a success
     /// response dowmstream.
     ShareMeetDownstreamTarget,
+}
+
+impl OnNewShare {
+    pub fn into_extended(&mut self, extranonce: Vec<u8>, up_id: u32) {
+        match self {
+            OnNewShare::SendErrorDownstream(_) => (),
+            OnNewShare::SendSubmitShareUpstream(share) => match share {
+                Share::Extended(_) => (),
+                Share::Standard((share, _)) => {
+                    let share = SubmitSharesExtended {
+                        channel_id: up_id,
+                        sequence_number: share.sequence_number,
+                        job_id: share.job_id,
+                        nonce: share.nonce,
+                        ntime: share.ntime,
+                        version: share.version,
+                        extranonce: extranonce.try_into().unwrap(),
+                    };
+                    *self = Self::SendSubmitShareUpstream(Share::Extended(share));
+                }
+            },
+            OnNewShare::RelaySubmitShareUpstream => (),
+            OnNewShare::ShareMeetBitcoinTarget((share, t_id, coinbase)) => match share {
+                Share::Extended(_) => (),
+                Share::Standard((share, _)) => {
+                    let share = SubmitSharesExtended {
+                        channel_id: up_id,
+                        sequence_number: share.sequence_number,
+                        job_id: share.job_id,
+                        nonce: share.nonce,
+                        ntime: share.ntime,
+                        version: share.version,
+                        extranonce: extranonce.try_into().unwrap(),
+                    };
+                    *self = Self::ShareMeetBitcoinTarget((
+                        Share::Extended(share),
+                        *t_id,
+                        coinbase.clone(),
+                    ));
+                }
+            },
+            OnNewShare::ShareMeetDownstreamTarget => todo!(),
+        }
+    }
 }
 
 /// A share can be both extended or standard
@@ -597,10 +642,14 @@ impl ChannelFactory {
         m: Share,
         bitcoin_target: mining_sv2::Target,
         template_id: u64,
+        up_id: u32,
     ) -> Result<OnNewShare, Error> {
         let upstream_target = match &self.kind {
             ExtendedChannelKind::Pool => Target::new(0, 0),
             ExtendedChannelKind::Proxy {
+                upstream_target, ..
+            }
+            | ExtendedChannelKind::ProxyJn {
                 upstream_target, ..
             } => upstream_target.clone(),
         };
@@ -662,13 +711,31 @@ impl ChannelFactory {
             let coinbase = [coinbase_tx_prefix, &extranonce[..], coinbase_tx_suffix]
                 .concat()
                 .to_vec();
-            Ok(OnNewShare::ShareMeetBitcoinTarget((
-                m,
-                template_id,
-                coinbase,
-            )))
+            match self.kind {
+                ExtendedChannelKind::Proxy { .. } | ExtendedChannelKind::ProxyJn { .. } => {
+                    let upstream_extranonce_space = self.extranonces.get_prefix_len();
+                    let extranonce = extranonce[upstream_extranonce_space..].to_vec();
+                    let mut res = OnNewShare::ShareMeetBitcoinTarget((m, template_id, coinbase));
+                    res.into_extended(extranonce, up_id);
+                    Ok(res)
+                }
+                ExtendedChannelKind::Pool => Ok(OnNewShare::ShareMeetBitcoinTarget((
+                    m,
+                    template_id,
+                    coinbase,
+                ))),
+            }
         } else if hash <= upstream_target {
-            Ok(OnNewShare::SendSubmitShareUpstream(m))
+            match self.kind {
+                ExtendedChannelKind::Proxy { .. } | ExtendedChannelKind::ProxyJn { .. } => {
+                    let upstream_extranonce_space = self.extranonces.get_prefix_len();
+                    let extranonce = extranonce[upstream_extranonce_space..].to_vec();
+                    let mut res = OnNewShare::SendSubmitShareUpstream(m);
+                    res.into_extended(extranonce, up_id);
+                    Ok(res)
+                }
+                ExtendedChannelKind::Pool => Ok(OnNewShare::SendSubmitShareUpstream(m)),
+            }
         } else if hash <= downstream_target {
             Ok(OnNewShare::ShareMeetDownstreamTarget)
         } else {
@@ -682,7 +749,7 @@ impl ChannelFactory {
                     .try_into()
                     .unwrap(),
             };
-            Ok(OnNewShare::SendErrorDowsntream(error))
+            Ok(OnNewShare::SendErrorDownstream(error))
         }
     }
 
@@ -720,7 +787,7 @@ impl ChannelFactory {
                         channel?.extranonce.clone().to_vec(),
                     ))
                 }
-                ExtendedChannelKind::Proxy { .. } => {
+                ExtendedChannelKind::Proxy { .. } | ExtendedChannelKind::ProxyJn { .. } => {
                     let complete_id = GroupId::into_complete_id(*group_id, share.channel_id);
                     let mut channel = self
                         .standard_channels_for_non_hom_downstreams
@@ -841,7 +908,7 @@ impl PoolChannelFactory {
                     .ok_or(Error::NoTemplateForId)?;
                 let target = self.job_creator.last_target();
                 self.inner
-                    .check_target(Share::Standard((m, *g_id)), target, template_id)
+                    .check_target(Share::Standard((m, *g_id)), target, template_id, 0)
             }
             None => {
                 let err = SubmitSharesError {
@@ -852,7 +919,7 @@ impl PoolChannelFactory {
                         .try_into()
                         .unwrap(),
                 };
-                Ok(OnNewShare::SendErrorDowsntream(err))
+                Ok(OnNewShare::SendErrorDownstream(err))
             }
         }
     }
@@ -867,7 +934,7 @@ impl PoolChannelFactory {
             .ok_or(Error::NoTemplateForId)?;
         let target = self.job_creator.last_target();
         self.inner
-            .check_target(Share::Extended(m.into_static()), target, template_id)
+            .check_target(Share::Extended(m.into_static()), target, template_id, 0)
     }
 
     pub fn new_group_id(&mut self) -> u32 {
@@ -901,6 +968,8 @@ pub struct ProxyExtendedChannelFactory {
     inner: ChannelFactory,
     job_creator: Option<JobsCreators>,
     pool_coinbase_outputs: Option<Vec<TxOut>>,
+    // Id assigned to the extended channel by upstream
+    extended_channel_id: u32,
 }
 
 impl ProxyExtendedChannelFactory {
@@ -911,7 +980,21 @@ impl ProxyExtendedChannelFactory {
         share_per_min: f32,
         kind: ExtendedChannelKind,
         pool_coinbase_outputs: Option<Vec<TxOut>>,
+        extended_channel_id: u32,
     ) -> Self {
+        match &kind {
+            ExtendedChannelKind::Proxy { .. } => {
+                if job_creator.is_some() {
+                    panic!("Channel factory of kind Proxy can not be initialized with a JobCreators");
+                };
+            },
+            ExtendedChannelKind::ProxyJn { .. } => {
+                if job_creator.is_none() {
+                    panic!("Channel factory of kind ProxyJn must be initialized with a JobCreators");
+                };
+            }
+            ExtendedChannelKind::Pool => panic!("Try to construct an ProxyExtendedChannelFactory with pool kind, kind must be Proxy or ProxyJn"),
+        };
         let inner = ChannelFactory {
             ids,
             standard_channels_for_non_hom_downstreams: HashMap::new(),
@@ -932,6 +1015,7 @@ impl ProxyExtendedChannelFactory {
             inner,
             job_creator,
             pool_coinbase_outputs,
+            extended_channel_id,
         }
     }
 
@@ -1064,14 +1148,22 @@ impl ProxyExtendedChannelFactory {
                 .get_template_id_from_job(self.inner.last_valid_job.as_ref().unwrap().0.job_id)
                 .ok_or(Error::NoTemplateForId)?;
             let bitcoin_target = job_creator.last_target();
-            self.inner
-                .check_target(Share::Extended(m), bitcoin_target, template_id)
+            self.inner.check_target(
+                Share::Extended(m),
+                bitcoin_target,
+                template_id,
+                self.extended_channel_id,
+            )
         } else {
             let bitcoin_target = [0; 32];
             // if there is not job_creator is not proxy duty to check if target is below or above
             // bitcoin target so we set bitcoin_target = 0.
-            self.inner
-                .check_target(Share::Extended(m), bitcoin_target.into(), 0)
+            self.inner.check_target(
+                Share::Extended(m),
+                bitcoin_target.into(),
+                0,
+                self.extended_channel_id,
+            )
         }
     }
 
@@ -1093,13 +1185,18 @@ impl ProxyExtendedChannelFactory {
                         Share::Standard((m, *g_id)),
                         bitcoin_target,
                         template_id,
+                        self.extended_channel_id,
                     )
                 } else {
                     let bitcoin_target = [0; 32];
                     // if there is not job_creator is not proxy duty to check if target is below or above
                     // bitcoin target so we set bitcoin_target = 0.
-                    self.inner
-                        .check_target(Share::Standard((m, *g_id)), bitcoin_target.into(), 0)
+                    self.inner.check_target(
+                        Share::Standard((m, *g_id)),
+                        bitcoin_target.into(),
+                        0,
+                        self.extended_channel_id,
+                    )
                 }
             }
             None => {
@@ -1111,7 +1208,7 @@ impl ProxyExtendedChannelFactory {
                         .try_into()
                         .unwrap(),
                 };
-                Ok(OnNewShare::SendErrorDowsntream(err))
+                Ok(OnNewShare::SendErrorDownstream(err))
             }
         }
     }
@@ -1160,17 +1257,22 @@ impl ProxyExtendedChannelFactory {
     pub fn extranonce_size(&self) -> usize {
         self.inner.extranonces.get_len()
     }
+    pub fn update_pool_outputs(&mut self, outs: Vec<TxOut>) {
+        self.pool_coinbase_outputs = Some(outs);
+    }
 }
 
 #[derive(Debug, Clone)]
 pub enum ExtendedChannelKind {
     Proxy { upstream_target: Target },
+    ProxyJn { upstream_target: Target },
     Pool,
 }
 impl ExtendedChannelKind {
     pub fn set_target(&mut self, new_target: &mut Target) {
         match self {
-            ExtendedChannelKind::Proxy { upstream_target } => {
+            ExtendedChannelKind::Proxy { upstream_target }
+            | ExtendedChannelKind::ProxyJn { upstream_target } => {
                 std::mem::swap(upstream_target, new_target)
             }
             ExtendedChannelKind::Pool => panic!("Try to set upstream target for a pool"),
@@ -1386,7 +1488,7 @@ mod test {
 
         // "Send" the Share to channel
         match channel.on_submit_shares_standard(share).unwrap() {
-            OnNewShare::SendErrorDowsntream(e) => panic!(
+            OnNewShare::SendErrorDownstream(e) => panic!(
                 "{:?} \n {}",
                 e,
                 std::str::from_utf8(&e.error_code.to_vec()[..]).unwrap()
