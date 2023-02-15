@@ -355,9 +355,9 @@ pub mod tests {
     fn test_job_id_from_template(mut template: NewTemplate<'static>) {
         let mut prefix = template.coinbase_prefix.to_vec();
         if prefix.len() > 0 {
-            let len = u8::min(prefix[0],6);
+            let len = u8::min(prefix[0], 6);
             prefix[0] = len;
-            prefix.resize(len as usize + 2,0);
+            prefix.resize(len as usize + 2, 0);
             template.coinbase_prefix = prefix.try_into().unwrap();
         };
         let out = TxOut {
