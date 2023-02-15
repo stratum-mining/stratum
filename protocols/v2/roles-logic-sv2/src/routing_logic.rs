@@ -222,7 +222,6 @@ impl<
                     request.channel_id,
                 )
             })
-            // Is fine to unwrap a safe_lock result
             .map_err(|e| Error::PoisonLock(e.to_string()))?;
         downstreams
     }
@@ -340,11 +339,11 @@ impl<
         select_upstream(ups)
     }
 
-    /// On setup conection the proxy finds all the upstreams that support the downstream connection,
+    /// On setup connection the proxy finds all the upstreams that support the downstream connection,
     /// creates a downstream message parser that points to all the possible upstreams, and then responds
     /// with suppported flags.
     ///
-    /// The upstream with min total_hash_rate is selected (TODO a method to let the caller wich
+    /// The upstream with min total_hash_rate is selected (TODO a method to let the caller which
     /// upstream select from the possible ones should be added
     /// on_setup_connection_mining_header_only_2 that return a Vec of possibe upstreams)
     ///
