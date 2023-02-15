@@ -353,6 +353,13 @@ pub mod tests {
     #[cfg(feature = "prop_test")]
     #[quickcheck_macros::quickcheck]
     fn test_job_id_from_template(mut template: NewTemplate<'static>) {
+        let mut prefix = template.coinbase_prefix.to_vec();
+        if prefix.len() > 0 {
+            let len = u8::min(prefix[0],6);
+            prefix[0] = len;
+            prefix.resize(len as usize + 2,0);
+            template.coinbase_prefix = prefix.try_into().unwrap();
+        };
         let out = TxOut {
             value: BLOCK_REWARD,
             script_pubkey: Script::new_p2pk(&new_pub_key()),
