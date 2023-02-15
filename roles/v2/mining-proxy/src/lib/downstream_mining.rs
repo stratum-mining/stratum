@@ -345,7 +345,7 @@ impl
     fn handle_open_standard_mining_channel(
         &mut self,
         req: OpenStandardMiningChannel,
-        mut up: Option<Arc<Mutex<UpstreamMiningNode>>>,
+        up: Option<Arc<Mutex<UpstreamMiningNode>>>,
     ) -> Result<SendTo<UpstreamMiningNode>, Error> {
         let channel_id = up
             .as_ref()
@@ -353,34 +353,32 @@ impl
             .safe_lock(|s| s.channel_ids.safe_lock(|r| r.next()).unwrap())
             .unwrap();
         info!(channel_id);
-        if up
-            .as_ref()
+        let cloned = up.as_ref().expect("No upstream initialized").clone();
+        up.as_ref()
             .expect("No upstream initialized")
-            .safe_lock(|up| up.channel_kind.is_extended())
-            .unwrap()
-        {
-            let messages = up
-                .as_mut()
-                .unwrap()
-                .safe_lock(|up| {
-                    up.open_standard_channel_down(
+            .safe_lock(|up| {
+                if up.channel_kind.is_extended() {
+                    let messages = up.open_standard_channel_down(
                         req.request_id.as_u32(),
                         req.nominal_hash_rate,
                         true,
                         channel_id,
-                    )
-                })
-                .unwrap();
-            for m in &messages {
-                if let Mining::OpenStandardMiningChannelSuccess(m) = m {
-                    self.open_channel_for_down_hom_up_extended(m.channel_id, m.group_channel_id);
+                    );
+                    for m in &messages {
+                        if let Mining::OpenStandardMiningChannelSuccess(m) = m {
+                            self.open_channel_for_down_hom_up_extended(
+                                m.channel_id,
+                                m.group_channel_id,
+                            );
+                        }
+                    }
+                    let messages = messages.into_iter().map(SendTo::Respond).collect();
+                    Ok(SendTo::Multiple(messages))
+                } else {
+                    Ok(SendTo::RelaySameMessageToRemote(cloned))
                 }
-            }
-            let messages = messages.into_iter().map(SendTo::Respond).collect();
-            Ok(SendTo::Multiple(messages))
-        } else {
-            Ok(SendTo::RelaySameMessageToRemote(up.unwrap()))
-        }
+            })
+            .unwrap()
     }
 
     fn handle_open_extended_mining_channel(
@@ -423,10 +421,11 @@ impl
                 let res = UpstreamMiningNode::handle_std_shr(remote.clone(), m).unwrap();
                 Ok(SendTo::Respond(res))
             }
-            _ => {
-                info!("Rceived share TODO send it somwhere");
-                panic!();
-                //Ok(SendTo::None(None))
+            DownstreamMiningNodeStatus::ChannelOpened(
+                Channel::DowntreamNonHomUpstreamExtended { .. },
+            ) => {
+                // unreachable cause the proxy do not support this kind of channel
+                unreachable!();
             }
         }
     }

@@ -36,6 +36,7 @@ pub struct JobNegotiator {
     last_coinbase_out: Option<Vec<TxOut>>,
     sender_coinbase_output_max_additional_size: Sender<(CoinbaseOutputDataSize, u64)>,
     sender_coinbase_out: Sender<(Vec<TxOut>, u64)>,
+    coinbase_reward_sat: u64,
 }
 
 impl JobNegotiator {
@@ -73,6 +74,7 @@ impl JobNegotiator {
             sender_coinbase_output_max_additional_size,
             last_coinbase_out: None,
             sender_coinbase_out,
+            coinbase_reward_sat: config.coinbase_reward_sat,
         }));
 
         Self::on_upstream_message(self_.clone());
@@ -87,8 +89,8 @@ impl JobNegotiator {
             let sender_out_script = self_mutex
                 .safe_lock(|s| s.sender_coinbase_out.clone())
                 .unwrap();
+            let receiver = self_mutex.safe_lock(|d| d.receiver.clone()).unwrap();
             loop {
-                let receiver = self_mutex.safe_lock(|d| d.receiver.clone()).unwrap();
                 let mut incoming: StdFrame = receiver.recv().await.unwrap().try_into().unwrap();
                 let message_type = incoming.get_header().unwrap().msg_type();
                 let payload = incoming.payload();

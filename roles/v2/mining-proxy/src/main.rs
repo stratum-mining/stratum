@@ -51,7 +51,7 @@ type RLogic = MiningProxyRoutingLogic<
 /// have some performance gain.
 static ROUTING_LOGIC: OnceCell<Mutex<RLogic>> = OnceCell::new();
 static MIN_EXTRANONCE_SIZE: u16 = 6;
-static EXTRANONCE_RAGE_1_LENGTH: usize = 4;
+static EXTRANONCE_RANGE_1_LENGTH: usize = 4;
 
 async fn initialize_upstreams(min_version: u16, max_version: u16) {
     let upstreams = ROUTING_LOGIC
@@ -138,6 +138,7 @@ pub struct Config {
     max_supported_version: u16,
     min_supported_version: u16,
     downstream_share_per_minute: f32,
+    coinbase_reward_sat: u64,
 }
 
 pub async fn initialize_r_logic(

@@ -16,7 +16,7 @@ impl ParseServerJobNegotiationMessages for JobNegotiator {
             message
         );
         let txout = TxOut {
-            value: 5_000_000_000,
+            value: self.coinbase_reward_sat,
             script_pubkey: message.coinbase_tx_suffix.to_vec().try_into().unwrap(),
         };
         // TODO this should be a message of the JN protocol so the JN can communicate to the proxy

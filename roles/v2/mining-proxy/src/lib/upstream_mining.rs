@@ -1,4 +1,4 @@
-use crate::EXTRANONCE_RAGE_1_LENGTH;
+use crate::EXTRANONCE_RANGE_1_LENGTH;
 use roles_logic_sv2::utils::Id;
 
 use super::downstream_mining::{Channel, DownstreamMiningNode, StdFrame as DownstreamFrame};
@@ -243,8 +243,6 @@ impl UpstreamMiningNode {
             channel_id_to_job_dispatcher: HashMap::new(),
             request_id_mapper,
             downstream_selector,
-            //group_channels: GroupChannels::new(),
-            //channel_factory: None,
             channel_kind: channel_kind.into(),
             group_id,
             recv_tp,
@@ -257,7 +255,6 @@ impl UpstreamMiningNode {
             tx_outs: HashMap::new(),
             first_ph_received: false,
             job_up_to_down_ids: HashMap::new(),
-            //is_new_template_handled: true,
         }
     }
 
@@ -1030,7 +1027,7 @@ impl
     ) -> Result<SendTo<DownstreamMiningNode>, Error> {
         let extranonce_prefix: Extranonce = m.extranonce_prefix.clone().try_into().unwrap();
         let range_0 = 0..m.extranonce_prefix.clone().to_vec().len();
-        let range_1 = (range_0.end)..EXTRANONCE_RAGE_1_LENGTH;
+        let range_1 = (range_0.end)..EXTRANONCE_RANGE_1_LENGTH;
         let range_2 = range_1.end..(m.extranonce_size as usize);
         let (extranonces, len) = if self.is_work_selection_enabled() {
             (ExtendedExtranonce::new(0..0, 0..16, 16..32), 32)
