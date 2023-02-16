@@ -109,7 +109,7 @@
                         "pool",
                         "--",
                         "-c",
-                        "./roles/v2/pool/pool-config.toml"
+                        "./test/config/pool-config-sri-tp.toml"
             ],
             "conditions": {
                 "WithConditions": {
