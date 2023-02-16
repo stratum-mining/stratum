@@ -1,22 +1,22 @@
-//! The routing is used by the handler to select am Downstream/Upstream to which realay or send a
-//! message
+//! The routing logic code is used by the handler to determine where a message should be relayed or responded to
+//!
 //! TODO It seems like a good idea to hide all the traits to the user and export marker traits
 //! check if possible
 //!
-//! CommonRouter -> implemented by routers used by the common (sub)protocol
+//! - CommonRouter -> implemented by routers used by the common (sub)protocol
 //!
-//! MiningRouter -> implemented by routers used by the mining (sub)protocol
+//! - MiningRouter -> implemented by routers used by the mining (sub)protocol
 //!
-//! CommonRoutingLogic -> enum that define the enum the various routing logic for the common
+//! - CommonRoutingLogic -> enum that define the enum the various routing logic for the common
 //!     (sub)protocol (eg Proxy None ...).
 //!
-//! MiningProxyRoutingLogic -> enum that define the enum the various routing logic for the common
+//! - MiningProxyRoutingLogic -> enum that define the enum the various routing logic for the common
 //!     (sub)protocol (eg Proxy None ...).
 //!
-//! NoRouting -> implement both CommonRouter and MiningRouter used when the routing logic needed is
+//! - NoRouting -> implement both CommonRouter and MiningRouter used when the routing logic needed is
 //!     only None
 //!
-//! MiningProxyRoutingLogic -> routing logic valid for a standard Sv2 mining proxy it is both a
+//! - MiningProxyRoutingLogic -> routing logic valid for a standard Sv2 mining proxy it is both a
 //!     CommonRouter and a MiningRouter
 //!
 use crate::{
@@ -34,9 +34,9 @@ use common_messages_sv2::{
 use mining_sv2::{OpenStandardMiningChannel, OpenStandardMiningChannelSuccess};
 use std::{collections::HashMap, fmt::Debug as D, marker::PhantomData, sync::Arc};
 
-/// CommonRouter trait it define a router needed by
-/// crate::handlers::common::ParseUpstreamCommonMessages and
-/// crate::handlers::common::ParseDownstreamCommonMessages
+/// The CommonRouter trait defines a router needed by
+/// [`crate::handlers::common::ParseUpstreamCommonMessages`] and
+/// [`crate::handlers::common::ParseDownstreamCommonMessages`]
 pub trait CommonRouter {
     fn on_setup_connection(
         &mut self,
@@ -44,9 +44,9 @@ pub trait CommonRouter {
     ) -> Result<(CommonDownstreamData, SetupConnectionSuccess), Error>;
 }
 
-/// MiningRouter trait it define a router needed by
-/// crate::handlers::mining::ParseDownstreamMiningMessages and
-/// crate::handlers::mining::ParseUpstreamMiningMessages
+/// The MiningRouter trait defines a router needed by
+/// [`crate::handlers::mining::ParseDownstreamMiningMessages`] and
+/// [`crate::handlers::mining::ParseUpstreamMiningMessages`]
 pub trait MiningRouter<
     Down: IsMiningDownstream,
     Up: IsMiningUpstream<Down, Sel>,
@@ -69,9 +69,9 @@ pub trait MiningRouter<
     ) -> Result<Arc<Mutex<Down>>, Error>;
 }
 
-/// NoRoutiung Router used when RoutingLogic::None and MiningRoutingLogic::None are needed
-/// It implementnt both CommonRouter and MiningRouter. It panic if used as an actual router the
-/// only pourpose of NoRouting is a marker trait for when RoutingLogic::None and MiningRoutingLogic::None
+/// NoRouting Router used when `RoutingLogic::None` and `MiningRoutingLogic::None` are needed.
+/// It implements both `CommonRouter` and `MiningRouter`, and panics if used as an actual router. The
+/// only purpose of `NoRouting` is a marker trait for when `RoutingLogic::None` and `MiningRoutingLogic::None`
 #[derive(Debug)]
 pub struct NoRouting();
 
@@ -106,7 +106,7 @@ impl<
     }
 }
 
-/// Enum that contains the possibles routing logic is usually contructed before calling
+/// Enum that contains the possible routing logic is usually contructed before calling
 /// handle_message_..()
 #[derive(Debug)]
 pub enum CommonRoutingLogic<Router: 'static + CommonRouter> {
@@ -116,18 +116,6 @@ pub enum CommonRoutingLogic<Router: 'static + CommonRouter> {
 
 /// Enum that contains the possibles routing logic is usually contructed before calling
 /// handle_message_..()
-//#[derive(Debug)]
-//pub enum MiningRoutingLogic<
-//    Down: IsMiningDownstream + D,
-//    Up: IsMiningUpstream<Down, Sel> + D,
-//    Sel: DownstreamMiningSelector<Down> + D,
-//    //Router: std::ops::DerefMut<Target= dyn MiningRouter<Down, Up, Sel>>,
-//    Router: MiningRouter<Down, Up, Sel>,
-//> {
-//    Proxy(Mutex<Router>),
-//    None,
-//    _P(PhantomData<(Down, Up, Sel)>),
-//}
 #[derive(Debug)]
 pub enum MiningRoutingLogic<
     Down: IsMiningDownstream + D,
@@ -216,11 +204,14 @@ impl<
     ) -> Result<Arc<Mutex<Down>>, Error> {
         let upstream_request_id = request.get_request_id_as_u32();
         let original_request_id = upstream
-            // if we are here get_mapper should always return Some(mappe) so below unwrap is ok
-            .safe_lock(|u| u.get_mapper().unwrap().remove(upstream_request_id))
-            // Is fine to unwrap a safe_lock result
-            .unwrap()
-            .ok_or(Error::RequestIdNotMapped(upstream_request_id))?;
+            .safe_lock(|u| {
+                u.get_mapper()
+                    .ok_or(crate::Error::RequestIdNotMapped(upstream_request_id))?
+                    .remove(upstream_request_id)
+                    .ok_or(Error::RequestIdNotMapped(upstream_request_id))
+            })
+            .map_err(|e| Error::PoisonLock(e.to_string()))??;
+
         request.update_id(original_request_id);
         let downstreams = upstream
             .safe_lock(|u| {
@@ -231,15 +222,14 @@ impl<
                     request.channel_id,
                 )
             })
-            // Is fine to unwrap a safe_lock result
-            .unwrap();
+            .map_err(|e| Error::PoisonLock(e.to_string()))?;
         downstreams
     }
 
     /// At this point the Sv2 connection with downstream is initialized that means that
     /// routing_logic has already preselected a set of upstreams pairable with downstream.
     ///
-    /// It update the request id from downstream to a connection-wide unique request id for
+    /// Updates the request id from downstream to a connection-wide unique request id for
     /// downstream.
     fn on_open_standard_channel(
         &mut self,
@@ -250,18 +240,15 @@ impl<
         let upstreams = self
             .downstream_to_upstream_map
             .get(downstream_mining_data)
-            // If we are here a list of possible upstream has been already selected so the below
-            // unwrap can not panic
-            .unwrap();
+            .ok_or(Error::NoCompatibleUpstream(*downstream_mining_data))?;
+        // If we are here a list of possible upstreams has been already selected
         // TODO the upstream selection logic should be specified by the caller
         let upstream =
             Self::select_upstreams(&mut upstreams.to_vec()).ok_or(Error::NoUpstreamsConnected)?;
         let old_id = request.get_request_id_as_u32();
         let new_req_id = upstream
-            // if we are here get_mapper should always return Some(mappe) so below unwrap is ok
             .safe_lock(|u| u.get_mapper().unwrap().on_open_channel(old_id))
-            // Is fine to unwrap a safe_lock result
-            .unwrap();
+            .map_err(|e| Error::PoisonLock(e.to_string()))?;
         request.update_id(new_req_id);
         self.on_open_standard_channel_request_header_only(downstream, request)
     }
@@ -310,15 +297,19 @@ where
     Sel: DownstreamMiningSelector<Down> + D,
 {
     ups.iter()
-        // Is fine to unwrap a safe_lock result
-        .filter(|up_mutex| up_mutex.safe_lock(|up| !up.is_header_only()).unwrap())
+        .filter(
+            |up_mutex| match up_mutex.safe_lock(|up| !up.is_header_only()) {
+                Ok(header_only) => header_only,
+                Err(_e) => false,
+            },
+        )
         .cloned()
         .collect()
 }
 
-/// If only one upstream is avaiable return it
-/// Try to return an upstream that is not header only
-/// Return the upstream that have got less hash rate from downstreams
+/// If only one upstream is avaiable return it.
+/// Try to return an upstream that is not header only.
+/// Return the upstream that has less hash rate from downstreams.
 fn select_upstream<Down, Up, Sel>(ups: &mut Vec<Arc<Mutex<Up>>>) -> Option<Arc<Mutex<Up>>>
 where
     Down: IsMiningDownstream + D,
@@ -348,15 +339,15 @@ impl<
         select_upstream(ups)
     }
 
-    /// On setup conection the proxy find all the upstreams that support the downstream connection
-    /// create a downstream message parser that points to all the possible upstreams and then respond
+    /// On setup connection the proxy finds all the upstreams that support the downstream connection,
+    /// creates a downstream message parser that points to all the possible upstreams, and then responds
     /// with suppported flags.
     ///
-    /// The upstream with min total_hash_rate is selected (TODO a method to let the caller wich
+    /// The upstream with min total_hash_rate is selected (TODO a method to let the caller which
     /// upstream select from the possible ones should be added
     /// on_setup_connection_mining_header_only_2 that return a Vec of possibe upstreams)
     ///
-    /// This function return downstream id that the new created downstream must return via the
+    /// This function returns a downstream id that the new created downstream must return via the
     /// trait function get_id and the flags of the paired upstream
     pub fn on_setup_connection_mining_header_only(
         &mut self,
@@ -373,8 +364,9 @@ impl<
         };
         let message = SetupConnectionSuccess {
             used_version: 2,
-            // Is fine to unwrap a safe_lock result
-            flags: upstream.safe_lock(|u| u.get_flags()).unwrap(),
+            flags: upstream
+                .safe_lock(|u| u.get_flags())
+                .map_err(|e| Error::PoisonLock(e.to_string()))?,
         };
         self.downstream_to_upstream_map
             .insert(downstream_data, vec![upstream]);
@@ -382,18 +374,18 @@ impl<
     }
 
     /// On open standard channel request:
-    /// 1. an upstream must be selected between the possibles upstreams for this downstream, if the
-    ///    downstream* is header only, just one upstream will be there so the choice is easy, if not
+    /// 1. an upstream must be selected between the possible upstreams for this downstream. If the
+    ///    downstream* is header only, just one upstream will be there, so the choice is easy, if not
     ///    (TODO on_open_standard_channel_request_no_standard_job must be used)
-    /// 2. request_id from downstream is updated to a connection-wide uniques request-id for
+    /// 2. request_id from downstream is updated to a connection-wide unique request-id for
     ///    upstreams
     ///
     ///    The selected upstream is returned
     ///
     ///
-    ///    * The downstream that want to open a channel did already connected with the proxy so a
-    ///    valid upstream has already been selected (other wise downstream can not be connected).
-    ///    If the downstream is header only only one valid upstream have beem selected (cause an
+    ///    * The downstream that wants to open a channel already connected with the proxy so a
+    ///    valid upstream has already been selected (otherwise downstream can not be connected).
+    ///    If the downstream is header only, only one valid upstream has been selected (cause a
     ///    header only mining device can be connected only with one pool)
     #[allow(clippy::result_unit_err)]
     pub fn on_open_standard_channel_request_header_only(
@@ -403,14 +395,12 @@ impl<
     ) -> Result<Arc<Mutex<Up>>, Error> {
         let downstream_mining_data = downstream
             .safe_lock(|d| d.get_downstream_mining_data())
-            // Is fine to unwrap a safe_lock result
-            .unwrap();
+            .map_err(|e| crate::Error::PoisonLock(e.to_string()))?;
         // header only downstream must map to only one upstream
         let upstream = self
             .downstream_to_upstream_map
             .get(&downstream_mining_data)
-            // if we are here upstream has already been selected so is ok to unwrap here
-            .unwrap()[0]
+            .ok_or(crate::Error::NoCompatibleUpstream(downstream_mining_data))?[0]
             .clone();
         #[cfg(feature = "with_serde")]
         upstream
@@ -418,16 +408,14 @@ impl<
                 let selector = u.get_remote_selector();
                 selector.on_open_standard_channel_request(request.request_id, downstream)
             })
-            // Is fine to unwrap a safe_lock result
-            .unwrap();
+            .map_err(|e| crate::Error::PoisonLock(e.to_string()))?;
         #[cfg(not(feature = "with_serde"))]
         upstream
             .safe_lock(|u| {
                 let selector = u.get_remote_selector();
                 selector.on_open_standard_channel_request(request.request_id.as_u32(), downstream)
             })
-            // Is fine to unwrap a safe_lock result
-            .unwrap();
+            .map_err(|e| Error::PoisonLock(e.to_string()))?;
         Ok(upstream)
     }
 }
