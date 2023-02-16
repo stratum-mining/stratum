@@ -76,14 +76,14 @@
                 },
                 {
                     "type": "match_message_type",
-                    "value": "0x20"
+                    "value": "0x1e"
                 },
                 {
                     "type": "match_message_type",
-                    "value": "0x1e"
+                    "value": "0x20"
                 }
             ],
-            "actiondoc": "This action sends OpenStandardMiningChannel to the pool and checks that the reply is OpenStandardMiningChannelSuccess, SetNewPrevHash and NewMiningJob" 
+            "actiondoc": "This action sends OpenStandardMiningChannel to the pool and checks that the reply is OpenStandardMiningChannelSuccess, NewMiningJob, and SetNewPrevHash"
         },
         {
             "message_ids": ["submit_shares"],
