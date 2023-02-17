@@ -1,3 +1,4 @@
+
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
@@ -10,4 +11,11 @@ pub struct ProxyConfig {
     pub max_supported_version: u16,
     pub min_supported_version: u16,
     pub min_extranonce2_size: u16,
+    pub jn_config: Option<JnConfig>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct JnConfig {
+    pub jn_address: String,
+    pub tp_address: String,
 }

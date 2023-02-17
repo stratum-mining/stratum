@@ -5,10 +5,12 @@ mod proxy;
 mod proxy_config;
 mod status;
 mod upstream_sv2;
+mod lib;
 use args::Args;
 use error::{Error, ProxyResult};
 use proxy_config::ProxyConfig;
 use roles_logic_sv2::utils::Mutex;
+use lib::{job_negotiator, template_receiver};
 
 const SELF_EXTRNONCE_LEN: usize = 2;
 
@@ -85,6 +87,19 @@ async fn main() {
         proxy_config.upstream_port,
     );
 
+    let upstream_kind = match proxy_config.jn_config {
+        None => upstream_sv2::UpstreamKind::Standard,
+        Some(jn_config) => {
+            // channel for template
+            let (send_tp, recv_tp) = bounded(10);
+            // channel for prev hash
+            let (send_ph, recv_ph) = bounded(10);
+            // channel to send coinbase_output_max_additional_size
+            // let (send_comas, recv_comas) = bounded(10);
+            upstream_sv2::UpstreamKind::WithNegotiator { recv_tp,recv_ph }
+        }
+    };
+
     // Instantiate a new `Upstream` (SV2 Pool)
     let upstream = match upstream_sv2::Upstream::new(
         upstream_addr,
@@ -96,6 +111,7 @@ async fn main() {
         tx_sv2_extranonce,
         status::Sender::Upstream(tx_status.clone()),
         target.clone(),
+        upstream_kind
     )
     .await
     {
