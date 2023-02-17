@@ -27,6 +27,9 @@ use roles_logic_sv2::{
     routing_logic::{CommonRoutingLogic, MiningRoutingLogic, NoRouting},
     selectors::NullDownstreamMiningSelector,
     utils::Mutex,
+    template_distribution_sv2::{
+        NewTemplate, SetNewPrevHash as SetNewPrevHashTemplate, SubmitSolution,
+    },
     Error as RolesLogicError,
 };
 use std::{net::SocketAddr, sync::Arc, thread::sleep, time::Duration};
@@ -40,6 +43,16 @@ struct PrevHash {
     prev_hash: BlockHash,
     /// `nBits` encoded difficulty target.
     nbits: u32,
+}
+
+#[derive(Debug, Clone)]
+pub enum UpstreamKind {
+    Standard,
+    WithNegotiator{
+      recv_tp: Receiver<(NewTemplate<'static>, u64)>,
+      recv_ph: Receiver<(SetNewPrevHashTemplate<'static>, u64)>,
+    },
+
 }
 
 #[derive(Debug, Clone)]
@@ -77,6 +90,7 @@ pub struct Upstream {
     /// Minimum `extranonce2` size. Initially requested in the `proxy-config.toml`, and ultimately
     /// set by the SV2 Upstream via the SV2 `OpenExtendedMiningChannelSuccess` message.
     pub min_extranonce_size: u16,
+    upstream_kind: UpstreamKind,
 }
 
 impl PartialEq for Upstream {
@@ -102,6 +116,7 @@ impl Upstream {
         tx_sv2_extranonce: Sender<(ExtendedExtranonce, u32)>,
         tx_status: status::Sender,
         target: Arc<Mutex<Vec<u8>>>,
+        upstream_kind: UpstreamKind,
     ) -> ProxyResult<'static, Arc<Mutex<Self>>> {
         // Connect to the SV2 Upstream role retry connection every 5 seconds.
         let socket = loop {
@@ -147,6 +162,7 @@ impl Upstream {
             tx_sv2_extranonce,
             tx_status,
             target,
+            upstream_kind,
         })))
     }
 
