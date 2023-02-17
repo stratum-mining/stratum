@@ -18,3 +18,8 @@ min_supported_version = 2
 
 # Minimum extranonce2 size
 min_extranonce2_size = 16
+
+# optional jn config, if set the tproxy start on JN mode
+[jn_config]
+jn_address = "127.0.0.1:8442"
+tp_address = "127.0.0.1:8442"
