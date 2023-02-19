@@ -140,7 +140,7 @@ pub struct Config {
     downstream_share_per_minute: f32,
     coinbase_reward_sat: u64,
 }
-
+// Upstreams are Pools and everyone has a specific channel_kind specified in proxy-config.toml
 pub async fn initialize_r_logic(
     upstreams: &[UpstreamMiningValues],
     group_id: Arc<Mutex<GroupId>>,
