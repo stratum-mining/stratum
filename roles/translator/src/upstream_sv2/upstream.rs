@@ -26,14 +26,22 @@ use roles_logic_sv2::{
     parsers::Mining,
     routing_logic::{CommonRoutingLogic, MiningRoutingLogic, NoRouting},
     selectors::NullDownstreamMiningSelector,
-    utils::Mutex,
     template_distribution_sv2::{
         NewTemplate, SetNewPrevHash as SetNewPrevHashTemplate, SubmitSolution,
     },
+    utils::Mutex,
     Error as RolesLogicError,
 };
-use std::{net::SocketAddr, sync::Arc, thread::sleep, time::Duration};
+use std::{
+    net::SocketAddr,
+    sync::{atomic::AtomicBool, Arc},
+    thread::sleep,
+    time::Duration,
+};
 use tracing::{debug, error, info, warn};
+/// USED to make sure that if a future new_temnplate and a set_new_prev_hash are received together
+/// the future new_temnplate is always handled before the set new prev hash.
+pub static IS_NEW_TEMPLATE_HANDLED: AtomicBool = AtomicBool::new(true);
 /// Represents the currently active `prevhash` of the mining job being worked on OR being submitted
 /// from the Downstream role.
 #[derive(Debug, Clone)]
@@ -48,11 +56,10 @@ struct PrevHash {
 #[derive(Debug, Clone)]
 pub enum UpstreamKind {
     Standard,
-    WithNegotiator{
-      recv_tp: Receiver<(NewTemplate<'static>, u64)>,
-      recv_ph: Receiver<(SetNewPrevHashTemplate<'static>, u64)>,
+    WithNegotiator {
+        recv_tp: Receiver<(NewTemplate<'static>, u64)>,
+        recv_ph: Receiver<(SetNewPrevHashTemplate<'static>, u64)>,
     },
-
 }
 
 #[derive(Debug, Clone)]
@@ -108,7 +115,7 @@ impl Upstream {
     #[cfg_attr(feature = "cargo-clippy", allow(clippy::too_many_arguments))]
     pub async fn new(
         address: SocketAddr,
-        authority_public_key: String,
+        authority_public_key: codec_sv2::noise_sv2::formats::EncodedEd25519PublicKey,
         rx_sv2_submit_shares_ext: Receiver<SubmitSharesExtended<'static>>,
         tx_sv2_set_new_prev_hash: Sender<SetNewPrevHash<'static>>,
         tx_sv2_new_ext_mining_job: Sender<NewExtendedMiningJob<'static>>,
@@ -133,9 +140,7 @@ impl Upstream {
             }
         };
 
-        let pub_key: codec_sv2::noise_sv2::formats::EncodedEd25519PublicKey = authority_public_key
-            .try_into()
-            .expect("Authority Public Key malformed in proxy-config");
+        let pub_key: codec_sv2::noise_sv2::formats::EncodedEd25519PublicKey = authority_public_key;
         let initiator = Initiator::from_raw_k(*pub_key.into_inner().as_bytes()).unwrap();
 
         info!(

@@ -25,10 +25,11 @@ pub type Message = PoolMessages<'static>;
 pub type SendTo = SendTo_<JobNegotiation<'static>, ()>;
 pub type EitherFrame = StandardEitherFrame<PoolMessages<'static>>;
 pub type StdFrame = StandardSv2Frame<Message>;
-use crate::Config;
 
 mod setup_connection;
 use setup_connection::SetupConnectionHandler;
+
+use crate::proxy_config::ProxyConfig;
 
 pub struct JobNegotiator {
     receiver: Receiver<StandardEitherFrame<PoolMessages<'static>>>,
@@ -45,7 +46,7 @@ impl JobNegotiator {
         authority_public_key: [u8; 32],
         sender_coinbase_output_max_additional_size: Sender<(CoinbaseOutputDataSize, u64)>,
         sender_coinbase_out: Sender<(Vec<TxOut>, u64)>,
-        config: Config,
+        config: ProxyConfig,
     ) -> Arc<Mutex<Self>> {
         let stream = TcpStream::connect(address).await.unwrap();
         let initiator = Initiator::from_raw_k(authority_public_key).unwrap();
@@ -53,8 +54,8 @@ impl JobNegotiator {
             Connection::new(stream, HandshakeRole::Initiator(initiator)).await;
 
         let proxy_address = SocketAddr::new(
-            IpAddr::from_str(&config.listen_address).unwrap(),
-            config.listen_mining_port,
+            IpAddr::from_str(&config.downstream_address).unwrap(),
+            config.downstream_port,
         );
 
         info!(
@@ -111,7 +112,7 @@ impl JobNegotiator {
                             .safe_lock(|s| s.last_coinbase_out.clone())
                             .unwrap()
                             // Safe unwrap when we receive a coinbase_output we immediatly set
-                            // last_coinbase_out to that coinbase ouutput in the message handlers
+                            // last_coinbase_out to that coinbase output in the message handlers
                             // message_handler::ParseServerJobNegotiationMessages::handle_set_coinbase
                             .unwrap();
                         sender_max_size

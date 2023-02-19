@@ -104,7 +104,7 @@ impl TemplateRx {
                 match next_message_to_send {
                     Ok(SendTo::None(m)) => match m {
                         Some(TemplateDistribution::NewTemplate(m)) => {
-                            super::upstream_mining::IS_NEW_TEMPLATE_HANDLED
+                            crate::upstream_sv2::upstream::IS_NEW_TEMPLATE_HANDLED
                                 .store(false, std::sync::atomic::Ordering::SeqCst);
                             let sender = self_mutex
                                 .safe_lock(|s| s.send_new_tp_to_negotiator.clone())
@@ -112,7 +112,7 @@ impl TemplateRx {
                             sender.send((m, token)).await.unwrap();
                         }
                         Some(TemplateDistribution::SetNewPrevHash(m)) => {
-                            while !super::upstream_mining::IS_NEW_TEMPLATE_HANDLED
+                            while !crate::upstream_sv2::upstream::IS_NEW_TEMPLATE_HANDLED
                                 .load(std::sync::atomic::Ordering::SeqCst)
                             {
                                 tokio::task::yield_now().await;
