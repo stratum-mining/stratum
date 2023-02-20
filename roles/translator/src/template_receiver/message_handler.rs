@@ -1,4 +1,4 @@
-use crate::lib::template_receiver::TemplateRx;
+use crate::template_receiver::TemplateRx;
 use roles_logic_sv2::{
     errors::Error,
     handlers::template_distribution::{ParseServerTemplateDistributionMessages, SendTo},
