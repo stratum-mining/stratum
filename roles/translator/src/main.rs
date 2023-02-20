@@ -94,11 +94,13 @@ async fn main() {
     // channel for prev hash
     let (send_ph, recv_ph) = bounded(10);
 
+    let (send_mining_job, recv_mining_job) = bounded(10);
+
     // If there is a jn_config in proxy_config creates a reciver for template and prev hash.
     // They will be used by the JN once is initialized
-    let upstream_kind = match proxy_config.jn_config.clone() {
-        None => upstream_sv2::UpstreamKind::Standard,
-        Some(jn_config) => upstream_sv2::UpstreamKind::WithNegotiator { recv_tp, recv_ph },
+    let (bridge_upstream_kind, upstream_upstream_kind) = match proxy_config.jn_config.clone() {
+        None => (proxy::bridge::UpstreamKind::Standard,upstream_sv2::UpstreamKind::Standard),
+        Some(jn_config) => (proxy::bridge::UpstreamKind::WithNegotiator {recv_tp,recv_ph,send_mining_job},upstream_sv2::UpstreamKind::WithNegotiator { recv_mining_job }),
     };
 
     // Instantiate a new `Upstream` (SV2 Pool)
@@ -112,7 +114,7 @@ async fn main() {
         tx_sv2_extranonce,
         status::Sender::Upstream(tx_status.clone()),
         target.clone(),
-        upstream_kind,
+        upstream_upstream_kind,
     )
     .await
     {
@@ -216,6 +218,7 @@ async fn main() {
         extended_extranonce,
         target,
         up_id,
+        bridge_upstream_kind,
     )));
     proxy::Bridge::start(b.clone());
 

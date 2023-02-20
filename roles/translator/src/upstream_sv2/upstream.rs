@@ -21,7 +21,7 @@ use roles_logic_sv2::{
     },
     mining_sv2::{
         ExtendedExtranonce, Extranonce, NewExtendedMiningJob, OpenExtendedMiningChannel,
-        SetNewPrevHash, SubmitSharesExtended,
+        SetNewPrevHash, SubmitSharesExtended,SetCustomMiningJob
     },
     parsers::Mining,
     routing_logic::{CommonRoutingLogic, MiningRoutingLogic, NoRouting},
@@ -57,9 +57,17 @@ struct PrevHash {
 pub enum UpstreamKind {
     Standard,
     WithNegotiator {
-        recv_tp: Receiver<(NewTemplate<'static>, u64)>,
-        recv_ph: Receiver<(SetNewPrevHashTemplate<'static>, u64)>,
+        recv_mining_job: Receiver<SetCustomMiningJob<'static>>,
     },
+}
+
+impl UpstreamKind {
+    pub fn is_work_selection_enabled(&self) -> bool {
+        match self {
+            UpstreamKind::Standard => false,
+            UpstreamKind::WithNegotiator { .. } => true,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -178,7 +186,7 @@ impl Upstream {
         max_version: u16,
     ) -> ProxyResult<'static, ()> {
         // Get the `SetupConnection` message with Mining Device information (currently hard coded)
-        let setup_connection = Self::get_setup_connection_message(min_version, max_version)?;
+        let setup_connection = Self::get_setup_connection_message(min_version, max_version, self_.safe_lock(|s| s.upstream_kind.is_work_selection_enabled()).unwrap())?;
         let mut connection = self_
             .safe_lock(|s| s.connection.clone())
             .map_err(|_e| PoisonLock)?;
@@ -322,7 +330,7 @@ impl Upstream {
                     Ok(SendTo::None(Some(m))) => {
                         match m {
                             Mining::OpenExtendedMiningChannelSuccess(m) => {
-                                let prefix_len = dbg!(m.extranonce_prefix.len());
+                                let prefix_len = m.extranonce_prefix.len();
                                 let extranonce: Extranonce =
                                     handle_result!(tx_status, m.extranonce_prefix.try_into());
 
@@ -356,7 +364,7 @@ impl Upstream {
                                     .map_err(|_e| PoisonLock);
                                 handle_result!(tx_status, res);
                                 handle_result!(tx_status, tx_sv2_new_ext_mining_job.send(m).await);
-                            }
+                           }
                             Mining::SetNewPrevHash(m) => {
                                 debug!("parse_incoming Mining::SetNewPrevHash msg");
                                 handle_result!(tx_status, tx_sv2_set_new_prev_hash.send(m).await);
@@ -463,13 +471,17 @@ impl Upstream {
     fn get_setup_connection_message(
         min_version: u16,
         max_version: u16,
+        is_work_selection_enabled: bool,
     ) -> ProxyResult<'static, SetupConnection<'static>> {
         let endpoint_host = "0.0.0.0".to_string().into_bytes().try_into()?;
         let vendor = String::new().try_into()?;
         let hardware_version = String::new().try_into()?;
         let firmware = String::new().try_into()?;
         let device_id = String::new().try_into()?;
-        let flags = 0b0000_0000_0000_0000_0000_0000_0000_1110;
+        let flags = match is_work_selection_enabled {
+            false => 0b0000_0000_0000_0000_0000_0000_0000_0100,
+            true => 0b0000_0000_0000_0000_0000_0000_0000_0110,
+        };
         Ok(SetupConnection {
             protocol: Protocol::MiningProtocol,
             min_version,

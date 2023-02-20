@@ -3,10 +3,10 @@ use async_std::task;
 use roles_logic_sv2::{
     channel_logic::channel_factory::{ExtendedChannelKind, ProxyExtendedChannelFactory},
     mining_sv2::{
-        ExtendedExtranonce, NewExtendedMiningJob, SetNewPrevHash, SubmitSharesExtended, Target,
+        ExtendedExtranonce, NewExtendedMiningJob, SetNewPrevHash, SubmitSharesExtended, Target, SetCustomMiningJob,
     },
     parsers::Mining,
-    utils::{GroupId, Id, Mutex},
+    utils::{GroupId, Id, Mutex}, template_distribution_sv2::{NewTemplate,SetNewPrevHash as SetNewPrevHashTemplate},
 };
 use std::sync::Arc;
 use tokio::sync::broadcast;
@@ -63,6 +63,25 @@ pub struct Bridge {
     target: Arc<Mutex<Vec<u8>>>,
 }
 
+#[derive(Debug, Clone)]
+pub enum UpstreamKind {
+    Standard,
+    WithNegotiator {
+        recv_tp: Receiver<(NewTemplate<'static>, u64)>,
+        recv_ph: Receiver<(SetNewPrevHashTemplate<'static>, u64)>,
+        send_mining_job: Sender<SetCustomMiningJob<'static>>,
+    },
+}
+
+impl UpstreamKind {
+    pub fn is_work_selection_enabled(&self) -> bool {
+        match self {
+            UpstreamKind::Standard => false,
+            UpstreamKind::WithNegotiator { .. } => true,
+        }
+    }
+}
+
 impl Bridge {
     #[allow(clippy::too_many_arguments)]
     /// Instantiate a new `Bridge`.
@@ -76,6 +95,7 @@ impl Bridge {
         extranonces: ExtendedExtranonce,
         target: Arc<Mutex<Vec<u8>>>,
         up_id: u32,
+        upstream_kind: UpstreamKind,
     ) -> Self {
         let ids = Arc::new(Mutex::new(GroupId::new()));
         let share_per_min = 1.0;
