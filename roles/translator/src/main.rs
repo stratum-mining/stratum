@@ -1,14 +1,16 @@
 mod args;
 mod downstream_sv1;
 mod error;
-mod lib;
 mod proxy;
 mod proxy_config;
 mod status;
 mod upstream_sv2;
+mod job_negotiator;
+mod template_receiver;
 use args::Args;
 use error::{Error, ProxyResult};
-use lib::{job_negotiator::JobNegotiator, template_receiver::TemplateRx};
+use job_negotiator::JobNegotiator;
+use template_receiver::TemplateRx;
 use proxy_config::ProxyConfig;
 use roles_logic_sv2::utils::Mutex;
 
