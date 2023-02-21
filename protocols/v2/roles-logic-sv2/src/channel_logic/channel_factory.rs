@@ -434,13 +434,22 @@ impl ChannelFactory {
             // If we have everything we need, send the future jobs and the the prev hash
             (Some((prev_h, _)), Some(job), false) => {
                 let prev_h = prev_h.into_set_p_hash(channel_id, Some(job.job_id));
-                result.push(Mining::NewMiningJob(job));
+
+                // set future_job to true
+                let future_job = NewMiningJob {
+                    future_job: true,
+                    ..job.clone()
+                };
+
+                result.push(Mining::NewMiningJob(future_job));
+                result.push(Mining::SetNewPrevHash(prev_h.clone()));
+
                 // Safe unwrap cause we check that self.future_jobs is not empty
                 let mut future_jobs = future_jobs.unwrap();
+
                 while let Some(job) = future_jobs.pop() {
                     result.push(Mining::NewMiningJob(job));
                 }
-                result.push(Mining::SetNewPrevHash(prev_h.clone()));
                 Ok(())
             }
             // This can not happen because we can not have a valid job without a prev hash
