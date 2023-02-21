@@ -7,6 +7,7 @@ use roles_logic_sv2::{
     },
     parsers::Mining,
     utils::{GroupId, Id, Mutex}, template_distribution_sv2::{NewTemplate,SetNewPrevHash as SetNewPrevHashTemplate},
+    job_creator::JobsCreators,
 };
 use std::sync::Arc;
 use tokio::sync::broadcast;
@@ -103,6 +104,10 @@ impl Bridge {
             target.safe_lock(|t| t.clone()).unwrap().try_into().unwrap();
         let upstream_target: Target = upstream_target.into();
         let kind = ExtendedChannelKind::Proxy { upstream_target };
+        let (job_creator,extranonces) = match upstream_kind {
+            UpstreamKind::Standard => (None,extranonces),
+            UpstreamKind::WithNegotiator { .. } => Some(JobsCreators::new(len)),
+        };
         Self {
             rx_sv1_submit,
             tx_sv2_submit_shares_ext,
