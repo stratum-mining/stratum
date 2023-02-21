@@ -457,7 +457,6 @@ impl Pool {
             });
         }
 
-
         info!("Starting up pool listener");
         let status_tx_clone = status_tx.clone();
         task::spawn(async move {
