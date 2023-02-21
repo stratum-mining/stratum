@@ -417,15 +417,14 @@ impl ChannelFactory {
                 result.push(Mining::SetNewPrevHash(prev_h.clone()));
                 Ok(())
             }
-            // If we have a prev hash and a last valid job we need to send before the prev hash and
-            // the the valid job
+            // If we have a prev hash and a last valid job we need to send new mining job before the prev hash
             (Some((prev_h, _)), Some(job), true) => {
                 let prev_h = prev_h.into_set_p_hash(channel_id, Some(job.job_id));
                 result.push(Mining::NewMiningJob(job));
                 result.push(Mining::SetNewPrevHash(prev_h.clone()));
                 Ok(())
             }
-            // If we have everything we need, send before the prev hash and then all the jobs
+            // If we have everything we need, send the future jobs and the the prev hash
             (Some((prev_h, _)), Some(job), false) => {
                 let prev_h = prev_h.into_set_p_hash(channel_id, Some(job.job_id));
                 result.push(Mining::NewMiningJob(job));
