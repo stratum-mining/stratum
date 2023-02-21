@@ -431,26 +431,6 @@ impl Pool {
 
         let cloned = pool.clone();
         let cloned2 = pool.clone();
-        let config_clone = config.clone();
-
-        info!("Starting up pool listener");
-        let status_tx_clone = status_tx.clone();
-        task::spawn(async move {
-            if let Err(e) = Self::accept_incoming_connection(cloned, config_clone).await {
-                error!("{}", e);
-            }
-            if status_tx_clone
-                .send(status::Status {
-                    state: status::State::DownstreamShutdown(PoolError::ComponentShutdown(
-                        "Downstream no longer accepting incoming connections".to_string(),
-                    )),
-                })
-                .await
-                .is_err()
-            {
-                error!("Downstream shutdown and Status Channel dropped");
-            }
-        });
 
         #[cfg(feature = "test_only_allow_unencrypted")]
         {
@@ -476,6 +456,27 @@ impl Pool {
                 }
             });
         }
+
+
+        info!("Starting up pool listener");
+        let status_tx_clone = status_tx.clone();
+        task::spawn(async move {
+            if let Err(e) = Self::accept_incoming_connection(cloned, config).await {
+                error!("{}", e);
+            }
+            if status_tx_clone
+                .send(status::Status {
+                    state: status::State::DownstreamShutdown(PoolError::ComponentShutdown(
+                        "Downstream no longer accepting incoming connections".to_string(),
+                    )),
+                })
+                .await
+                .is_err()
+            {
+                error!("Downstream shutdown and Status Channel dropped");
+            }
+        });
+
         let cloned = sender_message_received_signal.clone();
         let status_tx_clone = status_tx.clone();
         task::spawn(async move {
