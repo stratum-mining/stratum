@@ -195,8 +195,10 @@ impl IsMiningDownstream for Downstream {}
 
 impl Pool {
     #[cfg(feature = "test_only_allow_unencrypted")]
-    async fn accept_incoming_plain_connection(self_: Arc<Mutex<Pool>>, config: Configuration)
-        -> PoolResult<()> {
+    async fn accept_incoming_plain_connection(
+        self_: Arc<Mutex<Pool>>,
+        config: Configuration,
+    ) -> PoolResult<()> {
         let listner = TcpListener::bind(&config.test_only_listen_adress_plain)
             .await
             .unwrap();
@@ -450,13 +452,15 @@ impl Pool {
             }
         });
 
-        #[cfg(feature = "test_only_allow_unencrypted")] {
+        #[cfg(feature = "test_only_allow_unencrypted")]
+        {
             let cloned4 = pool.clone();
             let status_tx_clone_unenc = status_tx.clone();
             let config_unenc = config.clone();
 
             task::spawn(async move {
-                if let Err(e) = Self::accept_incoming_plain_connection(cloned4, config_unenc).await {
+                if let Err(e) = Self::accept_incoming_plain_connection(cloned4, config_unenc).await
+                {
                     error!("{}", e);
                 }
                 if status_tx_clone_unenc
