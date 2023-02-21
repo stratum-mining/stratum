@@ -15,10 +15,6 @@ on:
   workflow_dispatch:
 
 jobs:
-  # Cannot run until we have necessary keys to publish crates to crates.io.
-  # This should not be run on forks since removing the `--no-changelog` flag in the "Commit version updates"
-  # step will create all changelog files with respect to the fork this was executed in, so each changlog file
-  # will log the forks history of the crate instead of the main repos history
   crates_publish:
     name: Release
     runs-on: ${{ matrix.os }}
@@ -32,28 +28,20 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
-
-      # The following steps needs to be commented out until we
-      # set up the crates.io api key as a github secret or else it will
-      # create changelogs and fail on publish
+      - uses: actions-rs/toolchain@v1
+        with:
+            toolchain: stable
+            override: true
+            
+      - name: Login
+        run: cargo login ${{ secrets.CRATES_IO_DEPLOY_KEY }}
       
-      # - name: Install cargo-smart-release
-      #   run: cargo install cargo-smart-release
+      - name: Install cargo-release
+        run: cargo install cargo-release
 
-      # # publish and create changelogs
-      # - name: Commit version updates
-      #   run: sh ./sv2-publish.sh -e -u --no-push --no-changelog
-      
-      # # Push changes to bot/versioning branch
-      # - name: Push version updates to main
-      #   run: git push -f --no-verify origin main:bot/versioning
-
-      # # PR updates
-      # - name: Create pull request
-      #   uses: peter-evans/create-pull-request@v4
-      #   with:
-      #     base: main
-      #     branch: bot/versioning
+      # Need to exclude sv2_ffi to bypass else the 5 new crate limit. After this first publish, this can be removed
+      - name: Publish
+        run: cargo release publish -x --exclude sv2_ffi --all-features --no-confirm
 
   github_release_translator:
     runs-on: ${{ matrix.os }}

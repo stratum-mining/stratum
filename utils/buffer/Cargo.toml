@@ -5,6 +5,7 @@ authors = ["fi3 <email@email.org>"]
 edition = "2018"
 description = "buffer"
 license = "MIT"
+repository = "https://github.com/stratum-mining/stratum"
 
 [dependencies]
 criterion = {version = "0.3", optional = true}

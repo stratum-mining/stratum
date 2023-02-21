@@ -134,7 +134,7 @@
             "args": [
                         "run",
                         "-p",
-                        "pool",
+                        "pool_sv2",
                         "--",
                         "-c",
                         "./test/config/pool-mock-tp.toml"
