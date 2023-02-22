@@ -3,10 +3,7 @@ use codec_sv2::{
     noise_sv2::formats::{EncodedEd25519PublicKey, EncodedEd25519SecretKey},
     StandardEitherFrame, StandardSv2Frame,
 };
-use roles_logic_sv2::{
-    bitcoin::{secp256k1::Secp256k1, Network, PrivateKey, PublicKey},
-    parsers::PoolMessages,
-};
+use roles_logic_sv2::{bitcoin::PublicKey, parsers::PoolMessages};
 use serde::{de::Visitor, Deserialize};
 use std::str::FromStr;
 
@@ -21,9 +18,6 @@ pub type Message = PoolMessages<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;
 pub type EitherFrame = StandardEitherFrame<Message>;
 
-const PRIVATE_KEY_BTC: [u8; 32] = [34; 32];
-const NETWORK: Network = Network::Testnet;
-
 const BLOCK_REWARD: u64 = 5_000_000_000;
 
 const COINBASE_ADD_SZIE: u32 = 100;
@@ -31,11 +25,6 @@ const COINBASE_ADD_SZIE: u32 = 100;
 const COINBASE_PREFIX: Vec<u8> = vec![];
 const COINBASE_SUFFIX: Vec<u8> = vec![];
 
-fn new_pub_key() -> PublicKey {
-    let priv_k = PrivateKey::from_slice(&PRIVATE_KEY_BTC, NETWORK).unwrap();
-    let secp = Secp256k1::default();
-    PublicKey::from_private_key(&secp, &priv_k)
-}
 use tokio::{select, task};
 
 use crate::{lib::job_negotiator::JobNegotiator, status::Status};
