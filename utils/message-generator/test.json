@@ -118,6 +118,10 @@
                         "--",
                         "-c",
                         "./test/config/pool-config-sri-tp.toml"
+<<<<<<< HEAD
+=======
+
+>>>>>>> 536ed3e (Add documentation and last fixes)
             ],
             "conditions": {
                 "WithConditions": {

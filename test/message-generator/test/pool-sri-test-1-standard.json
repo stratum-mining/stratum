@@ -38,7 +38,7 @@
     "frame_builders": [
         {
             "type": "automatic",
-            "message_id": "../../../../test/message-generator/messages/common_messages.json::setup_connection_mining_hom"
+            "message_id": "test/message-generator/messages/common_messages.json::setup_connection_mining_hom"
         },
         {
             "type": "automatic",
@@ -167,7 +167,7 @@
                "WithConditions": {
                    "conditions": [
                        {
-                           "output_string": "This action sends SetupConnection and checks that SetCoinbase is received",
+                           "output_string": "Running `target/debug/message_generator_sv2 ../../test/message-generator/mock/job-negotiator-mock.json`",
                            "output_location": "StdErr",
                            "condition": true
                        }
