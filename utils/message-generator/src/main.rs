@@ -29,6 +29,7 @@ enum Sv2Type {
     B0255(Vec<u8>),
     B064K(Vec<u8>),
     B016m(Vec<u8>),
+    B032(Vec<Vec<u8>>),
     Pubkey(Vec<u8>),
     Seq0255(Vec<Vec<u8>>),
     Seq064k(Vec<Vec<u8>>),
@@ -37,7 +38,7 @@ enum Sv2Type {
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 enum ActionResult {
     MatchMessageType(u8),
-    MatchMessageField((String, String, String, Sv2Type)),
+    MatchMessageField((String, String, Vec<(String, Sv2Type)>)),
     MatchMessageLen(usize),
     MatchExtensionType(u16),
     CloseConnection,
@@ -75,7 +76,7 @@ pub struct Action<'a> {
 
 /// Represents a shell command to be executed on setup, after a connection is opened, or on
 /// cleanup.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct Command {
     command: String,
     args: Vec<String>,

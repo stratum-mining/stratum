@@ -12,7 +12,7 @@ pub enum OutputLocation {
     StdErr,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct ExternalCommandCondition {
     /// String that output must contain in order to fail or pass
     pub output_string: String,
@@ -22,7 +22,7 @@ pub struct ExternalCommandCondition {
     pub condition: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub enum ExternalCommandConditions {
     /// Just run the command and return
     None,
