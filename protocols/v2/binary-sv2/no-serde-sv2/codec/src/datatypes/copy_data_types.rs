@@ -23,7 +23,7 @@ impl Fixed for bool {
 impl<'a> Sv2DataType<'a> for bool {
     fn from_bytes_unchecked(data: &'a mut [u8]) -> Self {
         match data
-            .get(0)
+            .first()
             .map(|x: &u8| x << 7)
             .map(|x: u8| x >> 7)
             // This is an unchecked function is fine to panic

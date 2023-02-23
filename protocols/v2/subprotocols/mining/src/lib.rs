@@ -217,7 +217,7 @@ impl Ord for Target {
 /// Extranonce bytes which need to be added to the coinbase to form a fully valid submission:
 /// (full coinbase = coinbase_tx_prefix + extranonce + coinbase_tx_suffix).
 /// Representation is in big endian, so tail is for the digits relative to smaller powers
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Extranonce {
     extranonce: alloc::vec::Vec<u8>,
 }
