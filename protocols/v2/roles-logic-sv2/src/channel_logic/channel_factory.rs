@@ -889,6 +889,11 @@ impl PoolChannelFactory {
         &mut self,
         m: &mut NewTemplate<'static>,
     ) -> Result<HashMap<u32, Mining<'static>>, Error> {
+        // edit the last pool_coinbase_output
+        if let Some(last_pool_coinbase_output) = self.pool_coinbase_outputs.last_mut() {
+            last_pool_coinbase_output.value = m.coinbase_tx_value_remaining;
+        }
+
         let new_job =
             self.job_creator
                 .on_new_template(m, true, self.pool_coinbase_outputs.clone())?;
@@ -1282,11 +1287,11 @@ impl ExtendedChannelKind {
 #[cfg(test)]
 mod test {
     use super::*;
-    use binary_sv2::{Seq0255, Seq064K, B064K, U256};
+    use binary_sv2::{Seq0255, B064K, U256};
     use bitcoin::{hash_types::WPubkeyHash, PublicKey};
     use mining_sv2::OpenStandardMiningChannel;
 
-    const BLOCK_REWARD: u64 = 5_000_000_000;
+    const BLOCK_REWARD: u64 = 2_000_000_000;
 
     // Block 1296 data
     // 01000000
@@ -1371,6 +1376,8 @@ mod test {
     }
 
     use bitcoin::TxOut;
+    use quickcheck::{Arbitrary, Gen};
+    use rand::Rng;
 
     #[test]
     fn test_complete_mining_round() {
@@ -1408,7 +1415,7 @@ mod test {
             coinbase_tx_version: 1,
             coinbase_prefix: prefix.try_into().unwrap(),
             coinbase_tx_input_sequence: u32::MAX,
-            coinbase_tx_value_remaining: 0,
+            coinbase_tx_value_remaining: 5_000_000_000,
             coinbase_tx_outputs_count: 0,
             coinbase_tx_outputs: get_coinbase_outputs(),
             coinbase_tx_locktime: 0,

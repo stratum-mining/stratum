@@ -513,9 +513,8 @@ mod tests {
     use super::hash_rate_to_target;
     #[cfg(feature = "serde")]
     use super::*;
+    #[cfg(feature = "serde")]
     use binary_sv2::{Seq0255, B064K, U256};
-    use quickcheck::{Arbitrary, Gen};
-    use quickcheck_macros;
     use rand::Rng;
     #[cfg(feature = "serde")]
     use serde::Deserialize;
@@ -549,6 +548,7 @@ mod tests {
         path: Vec<String>,
     }
 
+    #[cfg(feature = "serde")]
     #[derive(Debug)]
     struct TestBlock<'decoder> {
         block_hash: U256<'decoder>,

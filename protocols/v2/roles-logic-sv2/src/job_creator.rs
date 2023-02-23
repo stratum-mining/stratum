@@ -290,10 +290,14 @@ fn coinbase(
 
 pub mod tests {
     use super::*;
+    #[cfg(feature = "prop_test")]
     use binary_sv2::u256_from_int;
     use bitcoin::{secp256k1::Secp256k1, util::ecdsa::PublicKey, Network};
     use quickcheck::{Arbitrary, Gen};
-    use std::{borrow::BorrowMut, cmp, vec};
+    use std::{cmp, vec};
+
+    #[cfg(feature = "prop_test")]
+    use std::borrow::BorrowMut;
 
     pub fn template_from_gen(g: &mut Gen) -> NewTemplate<'static> {
         let mut coinbase_prefix_gen = Gen::new(255);
@@ -339,6 +343,7 @@ pub mod tests {
     const PRIVATE_KEY_BTC: [u8; 32] = [34; 32];
     const NETWORK: Network = Network::Testnet;
 
+    #[cfg(feature = "prop_test")]
     const BLOCK_REWARD: u64 = 625_000_000_000;
 
     pub fn new_pub_key() -> PublicKey {
@@ -347,6 +352,8 @@ pub mod tests {
         let pub_k = PublicKey::from_private_key(&secp, &priv_k);
         pub_k
     }
+
+    #[cfg(feature = "prop_test")]
     use bitcoin::Script;
 
     // Test job_id_from_template
