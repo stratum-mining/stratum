@@ -146,26 +146,8 @@ impl Executor {
                     ActionResult::MatchMessageField((
                         subprotocol,
                         message_type,
-                        // field_name,
-                        // field,
                         field_data // Vec<(String, Sv2Type)>
                     )) => {
-
-                        fn check_each_field(msg: serde_json::Value, field_info: &Vec<(String, Sv2Type)>) {
-
-                            for field in field_info {
-                                let value_type = serde_json::to_value(&field.1)
-                                    .unwrap()
-                                    .as_object()
-                                    .unwrap()
-                                    .keys()
-                                    .next()
-                                    .unwrap()
-                                    .to_string();
-                                
-                                check_msg_field(msg.clone(),&field.0,&value_type,&field.1)
-                            }
-                        }
 
                         if subprotocol.as_str() == "CommonMessage" {
                             match (header.msg_type(),payload).try_into() {
@@ -391,7 +373,7 @@ impl Executor {
                                 Err(e) => panic!("err {:?}",e),
                             }
                         } else {
-                            panic!()
+                            panic!("match_message_field subprotocol not valid")
                         }
                         
                     }
@@ -408,7 +390,7 @@ impl Executor {
                     ActionResult::MatchExtensionType(ext_type) => {
                         if header.ext_type() != *ext_type {
                             println!(
-                                "WRONG EXTENCTION TYPE expcted: {} received: {}",
+                                "WRONG EXTENSION TYPE expcted: {} received: {}",
                                 ext_type,
                                 header.ext_type()
                             );
@@ -450,9 +432,25 @@ fn check_msg_field(
     field: &Sv2Type,
 ) {
     let msg = msg.as_object().unwrap();
-    let value = msg.get(field_name).expect("msg.field_name value is not correct").clone();
+    let value = msg.get(field_name).expect("match_message_field field name is not valid").clone();
     let value = serde_json::to_string(&value).unwrap();
     let value = format!(r#"{{"{}":{}}}"#, value_type, value);
     let value: crate::Sv2Type = serde_json::from_str(&value).unwrap();
     assert!(field == &value, "match_message_field value is incorrect. Expected = {:?}, Recieved = {:?}", field, value)
+}
+
+fn check_each_field(msg: serde_json::Value, field_info: &Vec<(String, Sv2Type)>) {
+
+    for field in field_info {
+        let value_type = serde_json::to_value(&field.1)
+            .unwrap()
+            .as_object()
+            .unwrap()
+            .keys()
+            .next()
+            .unwrap()
+            .to_string();
+        
+        check_msg_field(msg.clone(),&field.0,&value_type,&field.1)
+    }
 }

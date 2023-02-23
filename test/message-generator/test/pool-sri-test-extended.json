@@ -48,8 +48,12 @@
                     "value": [
                         "MiningProtocol",
                         "OpenExtendedMiningChannelSuccess",
-                        "request_id",
-                        {"U32": 90}
+                        [
+                            [
+                                "request_id",
+                                {"U32": 90}
+                            ]
+                        ]
                     ]
                 },
                 {
