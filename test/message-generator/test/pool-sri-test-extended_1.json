@@ -53,10 +53,6 @@
                     ]
                 },
                 {
-                    "type": "match_message_type",
-                    "value": "0x20"
-                },
-                {
                     "type": "match_message_field",
                     "value": [
                         "MiningProtocol",

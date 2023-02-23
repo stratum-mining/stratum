@@ -44,7 +44,7 @@ jobs:
           path: cobertura.xml
 
   message-generator-test:
-    needs: [tarpaulin-test, message_generator_check]
+    needs: tarpaulin-test
 
     name: MG Test
     runs-on: ubuntu-latest
