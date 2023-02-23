@@ -134,7 +134,7 @@
                         "--no-report",
                         "run",
                         "-p",
-                        "pool",
+                        "pool_sv2",
                         "--",
                         "-c",
                         "./test/config/pool-config-sri-tp.toml"
