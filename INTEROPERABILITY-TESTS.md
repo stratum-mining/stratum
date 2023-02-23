@@ -91,8 +91,8 @@ Start up your miner pointing either at the secure port `34254` or insecure port:
 Do this if you'd like to run your own TP instead of connecting to the hosted TP at 75.119.150.111:8442
 
 1. Clone and build core
-   1. clone https://github.com/ccdle12/bitcoin/ 
-   1. checkout 2022.11.01-NewTemplate-SEQ0_64K
+   1. clone git@github.com:Fi3/bitcoin.git 
+   1. checkout AddCoinbaseOutputAdditionalSize branch
    1. `./autogen.sh && ./configure --enable-template-provider`
    1. `make`
 1. Start and initialize bitcoind
