@@ -1,0 +1,75 @@
+{
+    "doc": [
+        "This test does"
+    ],
+    "mining_messages": [
+    ],
+    "frame_builders": [
+    ],
+    "actions": [
+    ],
+    "setup_commands": [
+       {
+            "command": "cargo",
+            "args": [
+                        "run",
+                        "-p",
+                        "pool",
+                        "--",
+                        "-c",
+                        "./test/config/pool-config-sri-tp.toml"
+            ],
+            "conditions": {
+                "WithConditions": {
+                    "conditions": [
+                        {
+                            "output_string": "Listening for encrypted connection on: 0.0.0.0:34254",
+                            "output_location": "StdOut",
+                            "condition": true
+                        }
+                    ],
+                    "timer_secs": 60,
+                    "warn_no_panic": false
+                }
+            }
+       },
+       {
+           "command": "cd",
+           "args": [
+                       "../../../roles/translator/"
+           ],
+           "conditions": "None" 
+       },
+       {
+            "command": "cargo",
+            "args": [
+                        "run",
+                        "-p",
+                        "translator"
+            ],
+            "conditions": {
+                "WithConditions": {
+                    "conditions": [
+                        {
+                            "output_string": "Running `/home/lorban/src/stratum/target/debug/translator`",
+                            "output_location": "StdOut",
+                            "condition": true
+                        }
+                    ],
+                    "timer_secs": 60,
+                    "warn_no_panic": false
+                }
+            }
+       }
+    ],
+    "execution_commands": [
+    ],
+    "cleanup_commands": [
+    ],
+    "role": "client",
+    "downstream": {
+        "ip": "127.0.0.1",
+        "port": 34254,
+        "pub_key": "2di19GHYQnAZJmEpoUeP7C3Eg9TCcksHr23rZCC83dvUiZgiDL"
+    }
+}

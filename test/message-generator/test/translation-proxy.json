@@ -1,0 +1,93 @@
+{
+    "doc": [
+        "This test does"
+    ],
+    "mining_messages": [
+    ],
+    "frame_builders": [
+        {
+            "type": "automatic",
+            "message_id": "test/message-generator/messages/common_messages.json::setup_connection_tproxy.success"
+        }
+    ],
+    "actions": [
+        {
+            "message_ids": ["setup_connection_tproxy.success"],
+            "role": "client",
+            "results": [
+                {
+                    "type": "TODO",
+                    ",
+                    "value": "TODO"
+                }
+            ],
+            "actiondoc": "TODO"
+        },
+        {
+            "message_ids": ["open_extended_mining_channel"],
+            "role": "client",
+            "results": [
+                {
+                    "type": "match_message_field",
+                    "value": [
+                        "MiningProtocol",
+                        "OpenExtendedMiningChannelSuccess",
+                        "request_id",
+                        {"U32": 89}
+                    ]
+                }
+            ],
+            "actiondoc": "TODO" 
+        }
+    ],
+    "setup_commands": [
+       {
+            "command": "cargo",
+            "args": [
+                        "run",
+                        "-p",
+                        "pool",
+                        "--",
+                        "-c",
+                        "./test/config/pool-sri-tp.toml"
+            ],
+            "conditions": {
+                "WithConditions": {
+                    "conditions": [
+                        {
+                            "output_string": "Listening for encrypted connection on: 0.0.0.0:34254",
+                            "output_location": "StdOut",
+                            "condition": true
+                        }
+                    ],
+                    "timer_secs": 60,
+                    "warn_no_panic": false
+                }
+            }
+       },
+       {
+           "command": "cd",
+           "args": [
+                       "../../roles/translator/"
+           ],
+           "conditions": {
+               "WithConditions": {
+                   "conditions": [
+                   ],
+                   "timer_secs": 60,
+                   "warn_no_panic": false
+               }
+           }
+       }
+    ],
+    "execution_commands": [
+    ],
+    "cleanup_commands": [
+    ],
+    "role": "client",
+    "downstream": {
+        "ip": "127.0.0.1",
+        "port": 34254,
+        "pub_key": "2di19GHYQnAZJmEpoUeP7C3Eg9TCcksHr23rZCC83dvUiZgiDL"
+    }
+}
