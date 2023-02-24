@@ -404,10 +404,18 @@ impl Pool {
             end: extranonce_len,
         };
         let ids = Arc::new(Mutex::new(roles_logic_sv2::utils::GroupId::new()));
-        let txout = TxOut {
-            value: crate::BLOCK_REWARD,
-            script_pubkey: Script::new_p2pk(&crate::new_pub_key()),
-        };
+        let pool_coinbase_outputs = config
+            .coinbase_outputs
+            .iter()
+            .map(|pub_key_wrapper| {
+                TxOut {
+                    // value will be updated by the addition of `ChannelFactory::split_outputs()` in PR #422
+                    value: crate::BLOCK_REWARD,
+                    script_pubkey: Script::new_p2pk(&pub_key_wrapper.pub_key),
+                }
+            })
+            .collect();
+        info!("PUB KEY: {:?}", pool_coinbase_outputs);
         let extranonces = ExtendedExtranonce::new(range_0, range_1, range_2);
         let creator = JobsCreators::new(extranonce_len as u8);
         let share_per_min = 1.0;
@@ -418,7 +426,7 @@ impl Pool {
             creator,
             share_per_min,
             kind,
-            vec![txout],
+            pool_coinbase_outputs,
         )));
         let pool = Arc::new(Mutex::new(Pool {
             downstreams: HashMap::new(),
@@ -516,5 +524,149 @@ impl Pool {
                 error!("Downstream shutdown and Status Channel dropped");
             }
         });
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use binary_sv2::{B0255, B064K};
+    use bitcoin::{util::psbt::serialize::Serialize, Transaction};
+    use std::convert::TryInto;
+    // this test is used to verify the `coinbase_tx_prefix` and `coinbase_tx_suffix` values tested against in
+    // message generator `stratum/test/message-generator/test/pool-sri-test-extended.json`
+    #[test]
+    fn test_coinbase_outputs_from_config() {
+        // Load config
+        let config: crate::Configuration =
+            toml::from_str(&std::fs::read_to_string("pool-config.toml").unwrap()).unwrap();
+        // template from message generator test (mock TP template)
+        let _extranonce_len = 3;
+        let coinbase_prefix = vec![1, 16, 0];
+        let _version = 536870912;
+        let coinbase_tx_version = 2;
+        let coinbase_tx_input_sequence = 4294967295;
+        let _coinbase_tx_value_remaining: u64 = 5000000000;
+        let _coinbase_tx_outputs_count = 0;
+        let coinbase_tx_locktime = 0;
+        let coinbase_tx_outputs: Vec<bitcoin::TxOut> = config
+            .coinbase_outputs
+            .iter()
+            .map(|pub_key_wrapper| bitcoin::TxOut {
+                value: crate::BLOCK_REWARD,
+                script_pubkey: bitcoin::Script::new_p2pk(&pub_key_wrapper.pub_key),
+            })
+            .collect();
+        // extranonce len set to max_extranonce_size in `ChannelFactory::new_extended_channel()`
+        let extranonce_len = 32;
+
+        // build coinbase TX from 'job_creator::coinbase()'
+
+        let mut bip34_bytes = get_bip_34_bytes(coinbase_prefix.try_into().unwrap());
+        let script_prefix_length = bip34_bytes.len();
+        bip34_bytes.extend_from_slice(&vec![0; extranonce_len as usize]);
+        let witness = match bip34_bytes.len() {
+            0 => vec![],
+            _ => vec![vec![0; 32]],
+        };
+
+        let tx_in = bitcoin::TxIn {
+            previous_output: bitcoin::OutPoint::null(),
+            script_sig: bip34_bytes.into(),
+            sequence: coinbase_tx_input_sequence,
+            witness,
+        };
+        let coinbase = bitcoin::Transaction {
+            version: coinbase_tx_version,
+            lock_time: coinbase_tx_locktime,
+            input: vec![tx_in],
+            output: coinbase_tx_outputs,
+        };
+
+        let coinbase_tx_prefix = coinbase_tx_prefix(&coinbase, script_prefix_length);
+        let coinbase_tx_suffix =
+            coinbase_tx_suffix(&coinbase, extranonce_len, script_prefix_length);
+        assert!(
+            coinbase_tx_prefix
+                == [
+                    2, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 35, 1, 16, 0
+                ]
+                .to_vec()
+                .try_into()
+                .unwrap(),
+            "coinbase_tx_prefix incorrect"
+        );
+        assert!(
+            coinbase_tx_suffix
+                == [
+                    255, 255, 255, 255, 1, 0, 242, 5, 42, 1, 0, 0, 0, 67, 65, 4, 70, 109, 127, 202,
+                    229, 99, 229, 203, 9, 160, 209, 135, 11, 181, 128, 52, 72, 4, 97, 120, 121,
+                    161, 73, 73, 207, 34, 40, 95, 27, 174, 63, 39, 103, 40, 23, 108, 60, 100, 49,
+                    248, 238, 218, 69, 56, 220, 55, 200, 101, 226, 120, 79, 58, 158, 119, 208, 68,
+                    243, 62, 64, 119, 151, 225, 39, 138, 172, 1, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+                ]
+                .to_vec()
+                .try_into()
+                .unwrap(),
+            "coinbase_tx_suffix incorrect"
+        );
+    }
+
+    // copied from roles-logic-sv2::job_creator
+    fn coinbase_tx_prefix(coinbase: &Transaction, script_prefix_len: usize) -> B064K<'static> {
+        let encoded = coinbase.serialize();
+        // If script_prefix_len is not 0 we are not in a test enviornment and the coinbase have the 0
+        // witness
+        let segwit_bytes = match script_prefix_len {
+            0 => 0,
+            _ => 2,
+        };
+        let index = 4    // tx version
+            + segwit_bytes
+            + 1  // number of inputs TODO can be also 3
+            + 32 // prev OutPoint
+            + 4  // index
+            + 1  // bytes in script TODO can be also 3
+            + script_prefix_len; // bip34_bytes
+        let r = encoded[0..index].to_vec();
+        r.try_into().unwrap()
+    }
+
+    // copied from roles-logic-sv2::job_creator
+    fn coinbase_tx_suffix(
+        coinbase: &Transaction,
+        extranonce_len: u8,
+        script_prefix_len: usize,
+    ) -> B064K<'static> {
+        let encoded = coinbase.serialize();
+        // If script_prefix_len is not 0 we are not in a test enviornment and the coinbase have the 0
+        // witness
+        let segwit_bytes = match script_prefix_len {
+            0 => 0,
+            _ => 2,
+        };
+        let r = encoded[4    // tx version
+        + segwit_bytes
+        + 1  // number of inputs TODO can be also 3
+        + 32 // prev OutPoint
+        + 4  // index
+        + 1  // bytes in script TODO can be also 3
+        + script_prefix_len  // bip34_bytes
+        + (extranonce_len as usize)..]
+            .to_vec();
+        r.try_into().unwrap()
+    }
+
+    fn get_bip_34_bytes(coinbase_prefix: B0255<'static>) -> Vec<u8> {
+        let script_prefix = &coinbase_prefix.to_vec()[..];
+        // add 1 cause 0 is push 1 2 is 1 is push 2 ecc ecc
+        // add 1 cause in the len there is also the op code itself
+        let bip34_len = script_prefix[0] as usize + 2;
+        if bip34_len == script_prefix.len() {
+            script_prefix[0..bip34_len].to_vec()
+        } else {
+            panic!("bip34 length does not match script prefix")
+        }
     }
 }
