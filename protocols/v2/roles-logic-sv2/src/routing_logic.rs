@@ -266,8 +266,7 @@ pub struct MiningProxyRoutingLogic<
     //pub upstream_startegy: MiningUpstreamSelectionStrategy<Up,Down,Sel>,
 }
 
-#[allow(clippy::ptr_arg)]
-fn minor_total_hr_upstream<Down, Up, Sel>(ups: &mut Vec<Arc<Mutex<Up>>>) -> Arc<Mutex<Up>>
+fn minor_total_hr_upstream<Down, Up, Sel>(ups: &mut [Arc<Mutex<Up>>]) -> Arc<Mutex<Up>>
 where
     Down: IsMiningDownstream + D,
     Up: IsMiningUpstream<Down, Sel> + D,
@@ -310,7 +309,7 @@ where
 /// If only one upstream is avaiable return it.
 /// Try to return an upstream that is not header only.
 /// Return the upstream that has less hash rate from downstreams.
-fn select_upstream<Down, Up, Sel>(ups: &mut Vec<Arc<Mutex<Up>>>) -> Option<Arc<Mutex<Up>>>
+fn select_upstream<Down, Up, Sel>(ups: &mut [Arc<Mutex<Up>>]) -> Option<Arc<Mutex<Up>>>
 where
     Down: IsMiningDownstream + D,
     Up: IsMiningUpstream<Down, Sel> + D,
@@ -335,7 +334,7 @@ impl<
 {
     /// TODO this should stay in a enum UpstreamSelectionLogic that get passed from the caller to
     /// the several methods
-    fn select_upstreams(ups: &mut Vec<Arc<Mutex<Up>>>) -> Option<Arc<Mutex<Up>>> {
+    fn select_upstreams(ups: &mut [Arc<Mutex<Up>>]) -> Option<Arc<Mutex<Up>>> {
         select_upstream(ups)
     }
 
