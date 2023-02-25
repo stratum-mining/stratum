@@ -23,10 +23,10 @@ pub enum Error<'a> {
     /// Errors encountered during conversion between valid `json_rpc` messages and SV1 messages.
     Method(MethodError<'a>),
     /// Errors if action is attempted that requires the client to be authorized, but it is
-    /// unauthorized. The client `id` is given in the error message.
+    /// unauthorized. The client username is given in the error message.
     UnauthorizedClient(String),
     /// Errors if server does not recognize the client's `id`.
-    UnknownID(String),
+    UnknownID(u64),
 }
 
 impl<'a> std::fmt::Display for Error<'a> {

@@ -278,7 +278,7 @@ impl TryFrom<Notification> for SetVersionMask {
 /// Authorize and Submit responsed are identical
 #[derive(Debug, Clone)]
 pub struct GeneralResponse {
-    pub id: String,
+    pub id: u64,
     result: bool,
 }
 
@@ -302,7 +302,7 @@ impl TryFrom<&Response> for GeneralResponse {
     type Error = ParsingMethodError;
 
     fn try_from(msg: &Response) -> Result<Self, Self::Error> {
-        let id = msg.id.clone();
+        let id = msg.id;
         let result = msg.result.as_bool().ok_or_else(|| {
             ParsingMethodError::ImpossibleToParseResultField(Box::new(msg.clone()))
         })?;
@@ -312,7 +312,7 @@ impl TryFrom<&Response> for GeneralResponse {
 
 #[derive(Debug, Clone)]
 pub struct Authorize {
-    pub id: String,
+    pub id: u64,
     authorized: bool,
     pub prev_request_name: String,
 }
@@ -329,7 +329,7 @@ impl Authorize {
 
 #[derive(Debug)]
 pub struct Submit {
-    pub id: String,
+    pub id: u64,
     is_ok: bool,
 }
 
@@ -360,7 +360,7 @@ impl Submit {
 ///
 #[derive(Debug)]
 pub struct Subscribe<'a> {
-    pub id: String,
+    pub id: u64,
     pub extra_nonce1: Extranonce<'a>,
     pub extra_nonce2_size: usize,
     pub subscriptions: Vec<(String, String)>,
@@ -388,7 +388,7 @@ impl<'a> TryFrom<&Response> for Subscribe<'a> {
     type Error = ParsingMethodError;
 
     fn try_from(msg: &Response) -> Result<Self, Self::Error> {
-        let id = msg.id.clone();
+        let id = msg.id;
         let params = msg.result.as_array().ok_or_else(|| {
             ParsingMethodError::ImpossibleToParseResultField(Box::new(msg.clone()))
         })?;
@@ -431,7 +431,7 @@ impl<'a> TryFrom<&Response> for Subscribe<'a> {
 
 #[derive(Debug)]
 pub struct Configure {
-    pub id: String,
+    pub id: u64,
     pub version_rolling: Option<VersionRollingParams>,
     pub minimum_difficulty: Option<bool>,
 }
@@ -488,7 +488,7 @@ impl TryFrom<&Response> for Configure {
     type Error = ParsingMethodError;
 
     fn try_from(msg: &Response) -> Result<Self, ParsingMethodError> {
-        let id = msg.id.clone();
+        let id = msg.id;
         let params = msg.result.as_object().ok_or_else(|| {
             ParsingMethodError::ImpossibleToParseResultField(Box::new(msg.clone()))
         })?;
