@@ -213,7 +213,7 @@ impl<
             .map_err(|e| Error::PoisonLock(e.to_string()))??;
 
         request.update_id(original_request_id);
-        let downstreams = upstream
+        upstream
             .safe_lock(|u| {
                 let selector = u.get_remote_selector();
                 selector.on_open_standard_channel_success(
@@ -222,8 +222,7 @@ impl<
                     request.channel_id,
                 )
             })
-            .map_err(|e| Error::PoisonLock(e.to_string()))?;
-        downstreams
+            .map_err(|e| Error::PoisonLock(e.to_string()))?
     }
 
     /// At this point the Sv2 connection with downstream is initialized that means that
@@ -267,6 +266,7 @@ pub struct MiningProxyRoutingLogic<
     //pub upstream_startegy: MiningUpstreamSelectionStrategy<Up,Down,Sel>,
 }
 
+#[allow(clippy::ptr_arg)]
 fn minor_total_hr_upstream<Down, Up, Sel>(ups: &mut Vec<Arc<Mutex<Up>>>) -> Arc<Mutex<Up>>
 where
     Down: IsMiningDownstream + D,
@@ -290,7 +290,7 @@ where
         .clone()
 }
 
-fn filter_header_only<Down, Up, Sel>(ups: &mut Vec<Arc<Mutex<Up>>>) -> Vec<Arc<Mutex<Up>>>
+fn filter_header_only<Down, Up, Sel>(ups: &mut [Arc<Mutex<Up>>]) -> Vec<Arc<Mutex<Up>>>
 where
     Down: IsMiningDownstream + D,
     Up: IsMiningUpstream<Down, Sel> + D,

@@ -79,6 +79,7 @@ impl<'decoder> OpenStandardMiningChannel<'decoder> {
 
 /// # OpenStandardMiningChannel.Success (Server -> Client)
 /// Sent as a response for opening a standard channel, if successful.
+#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct OpenStandardMiningChannelSuccess<'decoder> {
     /// Client-specified request ID from OpenStandardMiningChannel message,

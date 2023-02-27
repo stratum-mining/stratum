@@ -9,7 +9,7 @@ pub type Message = Vec<u8>;
 
 /// Describes the step result what the relevant party should do after sending out the
 /// provided message (if any)
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum StepResult {
     /// variant and expect a reply
     ExpectReply(Message),
