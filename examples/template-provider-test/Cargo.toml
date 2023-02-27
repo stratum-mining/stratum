@@ -8,7 +8,7 @@ publish = false
 
 [dependencies]
 codec_sv2 = { version = "0.1", path = "../../protocols/v2/codec-sv2", features=["noise_sv2"] }
-roles_logic_sv2 = { version = "0.1", path = "../../protocols/v2/roles-logic-sv2" }
-network_helpers = { version = "0.1", path = "../../utils/network-helpers", features=["async_std"] }
+roles_logic_sv2 = { version = "^0.1.0", path = "../../protocols/v2/roles-logic-sv2" }
+network_helpers = { version = "^0.1.0", path = "../../utils/network-helpers", features=["async_std"] }
 async-channel = "1.5.1"
 async-std={version = "1.8.0", features = ["attributes"]}
