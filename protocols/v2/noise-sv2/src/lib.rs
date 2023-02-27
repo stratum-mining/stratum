@@ -342,7 +342,11 @@ impl handshake::Step for Responder {
                     from_bytes(&mut in_msg);
                 match negotiation_message {
                     Ok(negotiation_message) => {
+                        println!("CCCCCCC");
+                        let _negotiation_message = negotiation_message.clone();
+                        dbg!(_negotiation_message);
                         let algos: Vec<EncryptionAlgorithm> = negotiation_message.get_algos()?;
+                        println!("EEEEEEE");
                         info!("-> suggested algorithms received {:?}", algos);
 
                         let chosen_algorithm = self

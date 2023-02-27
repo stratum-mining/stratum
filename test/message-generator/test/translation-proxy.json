@@ -1,43 +1,52 @@
 {
     "doc": [
-        "This test does"
+        "This test does",
+        "Runs a translator proxy",
+        "Waits that receives SetupConnection message",
+        "Reply with .Success"
+    ],
+    "common_messages": [
     ],
     "mining_messages": [
     ],
     "frame_builders": [
         {
             "type": "automatic",
-            "message_id": "test/message-generator/messages/common_messages.json::setup_connection_tproxy.success"
+            "message_id": "test/message-generator/messages/common_messages.json::setup_connection_success_tproxy"
+        },
+        {
+            "type": "automatic",
+            "message_id": "test/message-generator/messages/common_messages.json::setup_connection_success_tproxy"
         }
     ],
     "actions": [
         {
-            "message_ids": ["setup_connection_tproxy.success"],
-            "role": "client",
+            "message_ids": [],
+            "role": "server",
             "results": [
                 {
-                    "type": "TODO",
-                    ",
-                    "value": "TODO"
+                    "type": "match_message_type",
+                    "value": "0x00"
                 }
             ],
-            "actiondoc": "TODO"
+            "actiondoc": "This action checks that a Setupconnection message is received"
         },
         {
-            "message_ids": ["open_extended_mining_channel"],
-            "role": "client",
+            "message_ids": ["setup_connection_success_tproxy"],
+            "role": "server",
+            "results": [
+            ]
+        },
+        {
+            "message_ids": [],
+            "role": "server",
             "results": [
                 {
-                    "type": "match_message_field",
-                    "value": [
-                        "MiningProtocol",
-                        "OpenExtendedMiningChannelSuccess",
-                        "request_id",
-                        {"U32": 89}
-                    ]
+                    "type": "match_message_type",
+                    "value": "0x13"
                 }
             ],
-            "actiondoc": "TODO" 
+            "actiondoc": "Checks that OpenExtendedMiningChannel is received" 
         }
     ],
     "setup_commands": [
@@ -46,16 +55,17 @@
             "args": [
                         "run",
                         "-p",
-                        "pool",
+                        "translator_sv2",
                         "--",
                         "-c",
-                        "./test/config/pool-sri-tp.toml"
+                        "./test/config/tproxy-config.toml"
+
             ],
             "conditions": {
                 "WithConditions": {
                     "conditions": [
                         {
-                            "output_string": "Listening for encrypted connection on: 0.0.0.0:34254",
+                            "output_string": "2mtranslator_sv2",
                             "output_location": "StdOut",
                             "condition": true
                         }
@@ -64,30 +74,17 @@
                     "warn_no_panic": false
                 }
             }
-       },
-       {
-           "command": "cd",
-           "args": [
-                       "../../roles/translator/"
-           ],
-           "conditions": {
-               "WithConditions": {
-                   "conditions": [
-                   ],
-                   "timer_secs": 60,
-                   "warn_no_panic": false
-               }
-           }
        }
     ],
     "execution_commands": [
     ],
     "cleanup_commands": [
     ],
-    "role": "client",
-    "downstream": {
+    "role": "server",
+    "upstream": {
         "ip": "127.0.0.1",
         "port": 34254,
-        "pub_key": "2di19GHYQnAZJmEpoUeP7C3Eg9TCcksHr23rZCC83dvUiZgiDL"
+        "pub_key": "2di19GHYQnAZJmEpoUeP7C3Eg9TCcksHr23rZCC83dvUiZgiDL",
+        "secret_key": "2Z1FZug7mZNyM63ggkm37r4oKQ29khLjAvEx43rGkFN47RcJ2t"
     }
 }
