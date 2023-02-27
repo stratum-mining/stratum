@@ -25,7 +25,7 @@ impl<'a, T: Into<EncodableField<'a>>> Encodable for T {
     }
 
     #[cfg(not(feature = "no_std"))]
-    #[allow(clippy::wrong_self_convention)]
+    #[allow(clippy::wrong_self_convention, unconditional_recursion)]
     fn to_writer(self, dst: &mut impl Write) -> Result<(), E> {
         let encoded_field = self.into();
         encoded_field.to_writer(dst)

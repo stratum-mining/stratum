@@ -27,7 +27,7 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: 1.57.0
+          toolchain: 1.65.0
           override: true
           components: clippy
       - uses: actions-rs/cargo@v1

@@ -23,7 +23,7 @@ use quickcheck_macros;
 /// The result from an authorize request is usually true (successful), or false.
 /// The password may be omitted if the server does not require passwords.
 ///
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Authorize {
     pub id: String,
     pub name: String,
@@ -42,7 +42,7 @@ impl Authorize {
     }
 }
 
-impl<'a> From<Authorize> for Message {
+impl From<Authorize> for Message {
     fn from(auth: Authorize) -> Self {
         Message::StandardRequest(StandardRequest {
             id: auth.id.parse().unwrap(),
@@ -115,7 +115,7 @@ pub struct ExtranonceSubscribe();
 ///
 /// Server response is result: true for accepted, false for rejected (or you may get an error with
 /// more details).
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Submit<'a> {
     pub user_name: String,            // root
     pub job_id: String,               // 6
@@ -398,7 +398,7 @@ impl Configure {
     }
 }
 
-impl<'a> From<Configure> for Message {
+impl From<Configure> for Message {
     fn from(conf: Configure) -> Self {
         let mut params = serde_json::Map::new();
         let extension_names: Vec<Value> = conf
