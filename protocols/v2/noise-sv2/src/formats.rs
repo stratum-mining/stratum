@@ -9,8 +9,6 @@ use crate::{
     StaticPublicKey, StaticSecretKey,
 };
 
-use ed25519_dalek::ed25519::signature::Signature;
-
 /// Generates implementation for the encoded type, Display trait and the file format and
 macro_rules! impl_basic_type {
     ($encoded_struct_type:tt, $format_struct_type:ident, $inner_encoded_struct_type:ty,
@@ -36,6 +34,7 @@ macro_rules! impl_basic_type {
                 write!(f, "{}", String::from(self.clone()))
             }
         }
+        #[allow(clippy::derive_partial_eq_without_eq)]
         #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
         pub struct $format_struct_type {
             #[serde(rename = $format_struct_inner_rename)]
@@ -108,6 +107,7 @@ macro_rules! generate_noise_keypair_structs {
             $inner_encoded_struct_type,
             $format_struct_inner_rename,
             PartialEq,
+            Eq,
             Clone
         );
 
@@ -134,6 +134,7 @@ generate_ed25519_structs!(
     ed25519_dalek::PublicKey,
     "ed25519_public_key",
     PartialEq,
+    Eq,
     Clone
 );
 
@@ -171,6 +172,7 @@ generate_ed25519_structs!(
     ed25519_dalek::Signature,
     "ed25519_signature",
     PartialEq,
+    Eq,
     Clone
 );
 

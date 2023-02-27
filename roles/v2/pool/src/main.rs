@@ -1,13 +1,12 @@
+#![allow(special_module_name)]
 use async_channel::{bounded, unbounded};
 use codec_sv2::{
     noise_sv2::formats::{EncodedEd25519PublicKey, EncodedEd25519SecretKey},
     StandardEitherFrame, StandardSv2Frame,
 };
-use roles_logic_sv2::{
-    bitcoin::{secp256k1::Secp256k1, Network, PrivateKey, PublicKey},
-    parsers::PoolMessages,
-};
-use serde::Deserialize;
+use roles_logic_sv2::{bitcoin::PublicKey, parsers::PoolMessages};
+use serde::{de::Visitor, Deserialize};
+use std::str::FromStr;
 
 use tracing::{error, info};
 mod error;
@@ -20,9 +19,6 @@ pub type Message = PoolMessages<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;
 pub type EitherFrame = StandardEitherFrame<Message>;
 
-const PRIVATE_KEY_BTC: [u8; 32] = [34; 32];
-const NETWORK: Network = Network::Testnet;
-
 const BLOCK_REWARD: u64 = 5_000_000_000;
 
 const COINBASE_ADD_SZIE: u32 = 100;
@@ -30,14 +26,50 @@ const COINBASE_ADD_SZIE: u32 = 100;
 const COINBASE_PREFIX: Vec<u8> = vec![];
 const COINBASE_SUFFIX: Vec<u8> = vec![];
 
-fn new_pub_key() -> PublicKey {
-    let priv_k = PrivateKey::from_slice(&PRIVATE_KEY_BTC, NETWORK).unwrap();
-    let secp = Secp256k1::default();
-    PublicKey::from_private_key(&secp, &priv_k)
-}
 use tokio::{select, task};
 
 use crate::{lib::job_negotiator::JobNegotiator, status::Status};
+
+/// used to deserialize a string repesentation of an uncompressed secp256k1
+/// public key from the pool-config.toml
+#[derive(Debug, Clone)]
+pub struct PublicKeyWrapper {
+    pub pub_key: PublicKey,
+}
+
+/// used by serde for deserialization
+struct PublicKeyVisitor;
+
+impl<'de> Visitor<'de> for PublicKeyVisitor {
+    type Value = bitcoin::PublicKey;
+    fn expecting(&self, formatter: &mut core::fmt::Formatter) -> core::fmt::Result {
+        formatter.write_str("a secp255k1 public key string")
+    }
+
+    fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        match PublicKey::from_str(v) {
+            Ok(pub_key) => Ok(pub_key),
+            Err(e) => Err(E::custom(format!(
+                "Invalid coinbase output config public key: {:?}",
+                e
+            ))),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for PublicKeyWrapper {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        Ok(Self {
+            pub_key: deserializer.deserialize_str(PublicKeyVisitor)?,
+        })
+    }
+}
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Configuration {
@@ -47,6 +79,7 @@ pub struct Configuration {
     pub authority_public_key: EncodedEd25519PublicKey,
     pub authority_secret_key: EncodedEd25519SecretKey,
     pub cert_validity_sec: u64,
+    pub coinbase_outputs: Vec<PublicKeyWrapper>,
     #[cfg(feature = "test_only_allow_unencrypted")]
     pub test_only_listen_adress_plain: String,
 }

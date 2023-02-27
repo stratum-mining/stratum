@@ -92,7 +92,7 @@ impl Connection {
                         let b = encoder.encode(frame, &mut connection.state).unwrap();
                         let b = b.as_ref();
 
-                        match (&mut writer).write_all(b).await {
+                        match (writer).write_all(b).await {
                             Ok(_) => (),
                             Err(e) => {
                                 let _ = writer.shutdown().await;

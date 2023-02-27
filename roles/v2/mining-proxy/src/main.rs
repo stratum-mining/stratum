@@ -17,6 +17,7 @@
 //! A Downstream that signal the capacity to handle group channels can open more than one channel.
 //! A Downstream that signal the incapacity to handle group channels can open only one channel.
 //!
+#![allow(special_module_name)]
 mod lib;
 use async_channel::bounded;
 use lib::{

@@ -3,6 +3,9 @@ name = "network_helpers"
 version = "0.1.0"
 authors = ["fi3 <email@email.org>"]
 edition = "2018"
+description = "Networking utils for SV2 roles"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/stratum-mining/stratum"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -10,8 +13,8 @@ edition = "2018"
 async-std = { version = "1.8.0", optional = true }
 async-channel = { version = "1.8.0", optional = true }
 tokio = { version = "1", features = ["full"], optional = true }
-binary_sv2 = { path = "../../protocols/v2/binary-sv2/binary-sv2", optional = true }
-codec_sv2 = { path = "../../protocols/v2/codec-sv2", features=["noise_sv2"], optional = true }
+binary_sv2 = { version = "0.1", path = "../../protocols/v2/binary-sv2/binary-sv2", optional = true }
+codec_sv2 = { version = "0.1", path = "../../protocols/v2/codec-sv2", features=["noise_sv2"], optional = true }
 serde = { version = "1.0.89", features = ["derive"], default-features = false, optional = true }
 tracing = { version = "0.1" }
 

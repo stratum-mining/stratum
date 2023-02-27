@@ -23,7 +23,7 @@ jobs:
 
         with:
           profile: minimal
-          toolchain: 1.57.0
+          toolchain: 1.65.0
           override: true
       - name: Run message generator tests
         run: sh ./message-generator-tests.sh
