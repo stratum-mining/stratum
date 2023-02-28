@@ -175,7 +175,10 @@ impl Downstream {
                 };
             }
             kill(&tx_shutdown_clone).await;
-            warn!("Downstream: Shutting down sv1 downstream writer: {}", &host_);
+            warn!(
+                "Downstream: Shutting down sv1 downstream writer: {}",
+                &host_
+            );
         });
 
         let tx_status_notify = tx_status;
@@ -228,14 +231,20 @@ impl Downstream {
                 } else {
                     // timeout connection if miner does not send the authorize message after sending a subscribe
                     if timeout_timer.elapsed().as_secs() > SUBSCRIBE_TIMEOUT_SECS {
-                        debug!("Downstream: miner.subscribe/miner.authorize TIMOUT for {}", &host_);
+                        debug!(
+                            "Downstream: miner.subscribe/miner.authorize TIMOUT for {}",
+                            &host_
+                        );
                         break;
                     }
                     task::sleep(std::time::Duration::from_secs(1)).await;
                 }
             }
             kill(&tx_shutdown).await;
-            warn!("Downstream: Shutting down sv1 downstream job notifier for {}", &host_);
+            warn!(
+                "Downstream: Shutting down sv1 downstream job notifier for {}",
+                &host_
+            );
         });
     }
 
@@ -311,10 +320,7 @@ impl Downstream {
                 let host = stream.peer_addr().unwrap().to_string();
                 match open_sv1_downstream {
                     Some(opened) => {
-                        info!(
-                            "PROXY SERVER - ACCEPTING FROM DOWNSTREAM: {}",
-                            host
-                        );
+                        info!("PROXY SERVER - ACCEPTING FROM DOWNSTREAM: {}", host);
                         Downstream::new_downstream(
                             stream,
                             tx_sv1_submit.clone(),
