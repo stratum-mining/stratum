@@ -182,7 +182,6 @@ impl Downstream {
         });
 
         let tx_status_notify = tx_status;
-        let host_ = host.clone();
 
         let _notify_task = task::spawn(async move {
             let timeout_timer = std::time::Instant::now();
@@ -233,7 +232,7 @@ impl Downstream {
                     if timeout_timer.elapsed().as_secs() > SUBSCRIBE_TIMEOUT_SECS {
                         debug!(
                             "Downstream: miner.subscribe/miner.authorize TIMOUT for {}",
-                            &host_
+                            &host
                         );
                         break;
                     }
@@ -243,7 +242,7 @@ impl Downstream {
             kill(&tx_shutdown).await;
             warn!(
                 "Downstream: Shutting down sv1 downstream job notifier for {}",
-                &host_
+                &host
             );
         });
     }
