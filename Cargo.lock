@@ -1899,25 +1899,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "test-pool"
-version = "0.1.0"
-dependencies = [
- "async-channel",
- "async-recursion 0.3.2",
- "async-std",
- "binary_sv2",
- "buffer_sv2",
- "codec_sv2",
- "const_sv2",
- "network_helpers",
- "noise_sv2",
- "rand 0.8.5",
- "roles_logic_sv2",
- "serde",
- "toml",
-]
-
-[[package]]
 name = "textwrap"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
