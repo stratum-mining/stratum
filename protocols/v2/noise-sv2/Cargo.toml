@@ -20,9 +20,9 @@ serde_json = { version = "1.0.64", default-features = false, features = ["alloc"
 bytes = "1.0.1"
 serde = { version = "1.0.89", features = ["derive"], default-features = false }
 rand = "0.7.3" 
-const_sv2 = {version = "0.1", path = "../../../protocols/v2/const-sv2"}
-buffer_sv2 = {version = "0.1", path = "../../../utils/buffer"}
-binary_sv2 = { version = "0.1", path = "../../../protocols/v2/binary-sv2/binary-sv2" }
+const_sv2 = {version = "^0.1.1", path = "../../../protocols/v2/const-sv2"}
+buffer_sv2 = {version = "^0.1.1", path = "../../../utils/buffer"}
+binary_sv2 = { version = "^0.1.5", path = "../../../protocols/v2/binary-sv2/binary-sv2" }
 tracing = { version = "0.1"}
 
 [features]
