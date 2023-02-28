@@ -2,7 +2,7 @@ name = "stratum_v2"
 version = "0.0.0"
 authors = ["The Stratum v2 Developers"]
 edition = "2021"
-rust-version = "1.56.0"
+rust-version = "1.65.0"
 description = "The Stratum protocol defines how miners, proxies, and pools communicate to contribute hashrate to the Bitcoin network. Stratum v2 is a robust set of primitives which anyone can use to expand the protocol or implement a role."
 documentation = "https://github.com/stratum-mining/stratum"
 readme = "README.md"
@@ -37,6 +37,7 @@ members = [
     "roles/translator",
     "utils/network-helpers",
     "utils/buffer",
+    "utils/error-handling",
     "examples/sv1-client-and-server",
     "examples/sv1-mining-device",
     "examples/ping-pong-with-noise",
@@ -46,8 +47,10 @@ members = [
     "examples/interop-cpp/template-provider/example-of-guix-build/quickcheck_macros",
     "examples/template-provider-test",
     "experimental/coinbase-negotiator",
+    
 ]
 
 exclude = [
     "utils/message-generator",
+    
 ]

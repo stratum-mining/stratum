@@ -18,7 +18,7 @@
                 "protocol": 0,
                 "min_version": 2,
                 "max_version": 2,
-                "flags": 0,
+                "flags": 1,
                 "endpoint_host": "",
                 "endpoint_port": 0,
                 "vendor": "",
@@ -106,12 +106,12 @@
                 },
                 {
                     "type": "match_message_type",
-                    "value": "0x20"
+                    "value": "0x1e"
                 },
                 {
                     "type": "match_message_type",
-                    "value": "0x1f"
-                }
+                    "value": "0x20"
+                } 
             ],
             "actiondoc": ""
         },
@@ -130,14 +130,34 @@
     "setup_commands": [
         {
             "command": "cargo",
+            "args": [
+                        "run",
+                        "../../../test/message-generator/mock/template-provider-mock0.json"
+            ],
+            "conditions": {
+                "WithConditions": {
+                    "conditions": [
+                        {
+                            "output_string": "Running `target/debug/message_generator_sv2 ../../../test/message-generator/mock/template-provider-mock0.json`",
+                            "output_location": "StdErr",
+                            "condition": true
+                        }
+                    ],
+                    "timer_secs": 60,
+                    "warn_no_panic": false
+                }
+            }
+        },
+        {
+            "command": "cargo",
             "args": [   "llvm-cov",
                         "--no-report",
                         "run",
                         "-p",
-                        "pool",
+                        "pool_sv2",
                         "--",
                         "-c",
-                        "./test/config/pool-config-sri-tp.toml"
+                        "./test/config/pool-mock-tp.toml"
             ],
             "conditions": {
                 "WithConditions": {

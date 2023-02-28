@@ -195,10 +195,15 @@ impl IsMiningDownstream for Downstream {}
 
 impl Pool {
     #[cfg(feature = "test_only_allow_unencrypted")]
-    async fn accept_incoming_plain_connection(self_: Arc<Mutex<Pool>>, config: Configuration) {
+    async fn accept_incoming_plain_connection(
+        self_: Arc<Mutex<Pool>>,
+        config: Configuration,
+    ) -> PoolResult<()> {
         let listner = TcpListener::bind(&config.test_only_listen_adress_plain)
             .await
             .unwrap();
+        let status_tx = self_.safe_lock(|s| s.status_tx.clone())?;
+
         info!(
             "Listening for unencrypted connection on: {}",
             config.test_only_listen_adress_plain
@@ -206,11 +211,15 @@ impl Pool {
         while let Ok((stream, _)) = listner.accept().await {
             debug!("New connection from {}", stream.peer_addr().unwrap());
 
-            // Uncomment to allow unencrypted connections
             let (receiver, sender): (Receiver<EitherFrame>, Sender<EitherFrame>) =
                 network_helpers::plain_connection_tokio::PlainConnection::new(stream).await;
-            Self::accept_incoming_connection_(self_.clone(), receiver, sender).await;
+
+            handle_result!(
+                status_tx,
+                Self::accept_incoming_connection_(self_.clone(), receiver, sender).await
+            );
         }
+        Ok(())
     }
 
     async fn accept_incoming_connection(
@@ -430,30 +439,36 @@ impl Pool {
 
         let cloned = pool.clone();
         let cloned2 = pool.clone();
+
         #[cfg(feature = "test_only_allow_unencrypted")]
-        let cloned4 = pool.clone();
+        {
+            let cloned4 = pool.clone();
+            let status_tx_clone_unenc = status_tx.clone();
+            let config_unenc = config.clone();
+
+            task::spawn(async move {
+                if let Err(e) = Self::accept_incoming_plain_connection(cloned4, config_unenc).await
+                {
+                    error!("{}", e);
+                }
+                if status_tx_clone_unenc
+                    .send(status::Status {
+                        state: status::State::DownstreamShutdown(PoolError::ComponentShutdown(
+                            "Downstream no longer accepting incoming connections".to_string(),
+                        )),
+                    })
+                    .await
+                    .is_err()
+                {
+                    error!("Downstream shutdown and Status Channel dropped");
+                }
+            });
+        }
 
         info!("Starting up pool listener");
         let status_tx_clone = status_tx.clone();
         task::spawn(async move {
             if let Err(e) = Self::accept_incoming_connection(cloned, config).await {
-                error!("{}", e);
-            }
-            if status_tx_clone
-                .send(status::Status {
-                    state: status::State::DownstreamShutdown(PoolError::ComponentShutdown(
-                        "Downstream no longer accepting incoming connections".to_string(),
-                    )),
-                })
-                .await
-                .is_err()
-            {
-                error!("Downstream shutdown and Status Channel dropped");
-            }
-        });
-        #[cfg(feature = "test_only_allow_unencrypted")]
-        task::spawn(async {
-            if let Err(e) = Self::accept_incoming_plain_connection(cloned4, config).await {
                 error!("{}", e);
             }
             if status_tx_clone

@@ -1,8 +1,5 @@
 use bytes::{BufMut, BytesMut};
-use core::{
-    convert::{TryFrom, TryInto},
-    time::Duration,
-};
+use core::{convert::TryFrom, time::Duration};
 use serde::{Deserialize, Serialize};
 use std::time::SystemTime;
 
@@ -15,7 +12,7 @@ pub use crate::formats::*;
 use std::io::Write;
 
 /// Header of the `SignedPart` that will also be part of the `Certificate`
-#[derive(Serialize, Deserialize, PartialEq, Clone, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Eq, Clone, Debug)]
 pub struct SignedPartHeader {
     version: u16,
     // Validity start time (unix timestamp)
@@ -98,7 +95,7 @@ impl SignedPartHeader {
 }
 
 /// Helper struct for performing the actual signature of the relevant parts of the certificate
-#[derive(Serialize, Deserialize, PartialEq, Clone, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Eq, Clone, Debug)]
 pub struct SignedPart {
     pub(crate) header: SignedPartHeader,
     pub(crate) pubkey: StaticPublicKey,
@@ -173,7 +170,7 @@ impl SignedPart {
 
 /// The payload message that will be appended to the handshake message to proof static key
 /// authenticity
-#[derive(Serialize, Deserialize, PartialEq, Clone, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Eq, Clone, Debug)]
 pub struct SignatureNoiseMessage {
     pub(crate) header: SignedPartHeader,
     pub(crate) signature: ed25519_dalek::Signature,
@@ -223,11 +220,7 @@ impl TryFrom<&[u8]> for SignatureNoiseMessage {
         let header = &data[0..10];
         let siganture = &data[10..74];
         let header = SignedPartHeader::from_bytes(header);
-        let signature = ed25519_dalek::Signature::new(
-            siganture
-                .try_into()
-                .map_err(|_| Error::BinarySv2Error(binary_sv2::Error::PrimitiveConversionError))?,
-        );
+        let signature = ed25519_dalek::Signature::from_bytes(siganture)?;
         Ok(SignatureNoiseMessage { header, signature })
     }
 }

@@ -42,6 +42,7 @@ pub enum State {
     Transport(TransportMode),
 }
 
+#[allow(clippy::large_enum_variant)]
 #[cfg(feature = "noise_sv2")]
 #[derive(Debug)]
 pub enum HandshakeRole {

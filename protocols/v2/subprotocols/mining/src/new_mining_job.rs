@@ -11,6 +11,7 @@ use core::convert::TryInto;
 ///
 /// If the future_job field is set to *False*, the client MUST start to mine on the new job as soon as
 /// possible after receiving this message.
+#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct NewMiningJob<'decoder> {
     /// Channel identifier, this must be a standard channel.

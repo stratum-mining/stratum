@@ -1,10 +1,11 @@
 [package]
 name = "buffer_sv2"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["fi3 <email@email.org>"]
 edition = "2018"
 description = "buffer"
 license = "MIT"
+repository = "https://github.com/stratum-mining/stratum"
 
 [dependencies]
 criterion = {version = "0.3", optional = true}
