@@ -225,10 +225,13 @@ impl<'a> IsServer<'a> for Server<'a> {
             .clone()
             .map_or(Some(new_version_rolling_min()), Some);
         (
-            Some(server_to_client::VersionRollingParams::new(
-                self.version_rolling_mask.clone().unwrap(),
-                self.version_rolling_min_bit.clone().unwrap(),
-            )),
+            Some(
+                server_to_client::VersionRollingParams::new(
+                    self.version_rolling_mask.clone().unwrap(),
+                    self.version_rolling_min_bit.clone().unwrap(),
+                )
+                .unwrap(),
+            ),
             Some(false),
         )
     }

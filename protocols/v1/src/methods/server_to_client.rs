@@ -556,12 +556,36 @@ pub struct VersionRollingParams {
     pub version_rolling_min_bit_count: HexU32Be,
 }
 
-impl VersionRollingParams {
-    pub fn new(version_rolling_mask: HexU32Be, version_rolling_min_bit_count: HexU32Be) -> Self {
-        VersionRollingParams {
-            version_rolling: true,
-            version_rolling_mask,
-            version_rolling_min_bit_count,
+#[test]
+fn version_rollion_mask_fail_with_invalid_head() {
+    let err1 = VersionRollingParams::new(HexU32Be(0b00100000000000000000000000000000), HexU32Be(0));
+    let err2 = VersionRollingParams::new(HexU32Be(0b10000000000000000000000000000000), HexU32Be(0));
+    assert!(err1.is_err());
+    assert!(err2.is_err());
+}
+#[test]
+fn version_rollion_mask_fail_with_invalid_tail() {
+    let err1 = VersionRollingParams::new(HexU32Be(0b00000000000000000000000000000001), HexU32Be(0));
+    let err2 = VersionRollingParams::new(HexU32Be(0b00000000000000000001000000000000), HexU32Be(0));
+    assert!(err1.is_err());
+    assert!(err2.is_err());
+}
+
+impl<'a> VersionRollingParams {
+    pub fn new(
+        version_rolling_mask: HexU32Be,
+        version_rolling_min_bit_count: HexU32Be,
+    ) -> Result<Self, Error<'static>> {
+        let version_head_ok = version_rolling_mask.0 >> 29 == 0;
+        let version_tail_ok = version_rolling_mask.0 << 19 == 0;
+        if version_head_ok && version_tail_ok {
+            Ok(VersionRollingParams {
+                version_rolling: true,
+                version_rolling_mask,
+                version_rolling_min_bit_count,
+            })
+        } else {
+            Err(Error::InvalidVersionMask(version_rolling_mask))
         }
     }
 }

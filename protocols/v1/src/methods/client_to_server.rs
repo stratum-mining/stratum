@@ -1,7 +1,7 @@
 use bitcoin_hashes::hex::ToHex;
 use serde_json::{
     Value,
-    Value::{Array as JArrary, Number as JNumber, String as JString, Null},
+    Value::{Array as JArrary, Null, Number as JNumber, String as JString},
 };
 use std::convert::{TryFrom, TryInto};
 
@@ -320,9 +320,7 @@ impl<'a> TryFrom<StandardRequest> for Subscribe<'a> {
             Some(params) => {
                 let (agent_signature, extranonce1) = match &params[..] {
                     // bosminer subscribe message
-                    [JString(a), Null,JString(_),Null] => {
-                        (a.into(), None)
-                    },
+                    [JString(a), Null, JString(_), Null] => (a.into(), None),
                     [JString(a), JString(b)] => {
                         (a.into(), Some(Extranonce::try_from(hex::decode(b)?)?))
                     }
