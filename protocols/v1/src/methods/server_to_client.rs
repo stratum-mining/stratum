@@ -158,7 +158,7 @@ pub struct SetDifficulty {
     pub value: f64,
 }
 
-impl<'a> From<SetDifficulty> for Message {
+impl From<SetDifficulty> for Message {
     fn from(sd: SetDifficulty) -> Self {
         let value: Value = sd.value.into();
         Message::Notification(Notification {
@@ -463,7 +463,7 @@ impl Configure {
     }
 }
 
-impl<'a> From<Configure> for Message {
+impl From<Configure> for Message {
     fn from(co: Configure) -> Self {
         let mut params = serde_json::Map::new();
         if let Some(version_rolling_) = co.version_rolling {
@@ -556,7 +556,7 @@ pub struct VersionRollingParams {
     pub version_rolling_min_bit_count: HexU32Be,
 }
 
-impl<'a> VersionRollingParams {
+impl VersionRollingParams {
     pub fn new(version_rolling_mask: HexU32Be, version_rolling_min_bit_count: HexU32Be) -> Self {
         VersionRollingParams {
             version_rolling: true,

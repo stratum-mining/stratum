@@ -8,7 +8,7 @@ use std::{convert::TryFrom, mem::size_of};
 /// Helper type that allows simple serialization and deserialization of byte vectors
 /// that are represented as hex strings in JSON.
 /// Extranonce must be less than or equal to 32 bytes.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Extranonce<'a>(pub B032<'a>);
 
 impl<'a> Extranonce<'a> {
@@ -64,7 +64,7 @@ impl<'a> From<Extranonce<'a>> for String {
 }
 
 /// Big-endian alternative of the HexU32
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct HexU32Be(pub u32);
 
 impl HexU32Be {
@@ -97,7 +97,7 @@ impl From<HexU32Be> for String {
 
 /// PrevHash in Stratum V1 has brain-damaged serialization as it swaps bytes of every u32 word
 /// into big endian. Therefore, we need a special type for it
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PrevHash<'a>(pub U256<'a>);
 
 impl<'a> From<PrevHash<'a>> for Vec<u8> {
@@ -183,7 +183,7 @@ impl<'a> AsRef<[u8]> for Extranonce<'a> {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MerkleNode<'a>(pub U256<'a>);
 
 impl<'a> MerkleNode<'a> {
@@ -239,7 +239,7 @@ impl<'a> From<MerkleNode<'a>> for String {
 /// Helper type that allows simple serialization and deserialization of byte vectors
 /// that are represented as hex strings in JSON.
 /// HexBytes must be less than or equal to 32 bytes.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct HexBytes(Vec<u8>);
 
 impl HexBytes {

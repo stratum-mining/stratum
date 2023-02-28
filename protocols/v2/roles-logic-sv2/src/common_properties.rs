@@ -153,7 +153,7 @@ impl IsMiningDownstream for () {}
 
 /// Proxies likely need to change the request ids of the downsteam's messages. They also need to
 /// remember the original id to patch the upstream's response with it.
-#[derive(Debug, Default, PartialEq)]
+#[derive(Debug, Default, PartialEq, Eq)]
 pub struct RequestIdMapper {
     /// Mapping of upstream id -> downstream ids
     request_ids_map: HashMap<u32, u32>,

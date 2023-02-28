@@ -120,10 +120,14 @@ pub struct StagedPhash {
 }
 
 impl StagedPhash {
-    pub fn into_set_p_hash(&self, channel_id: u32) -> SetNewPrevHash<'static> {
+    pub fn into_set_p_hash(
+        &self,
+        channel_id: u32,
+        new_job_id: Option<u32>,
+    ) -> SetNewPrevHash<'static> {
         SetNewPrevHash {
             channel_id,
-            job_id: self.job_id,
+            job_id: new_job_id.unwrap_or(self.job_id),
             prev_hash: self.prev_hash.clone(),
             min_ntime: self.min_ntime,
             nbits: self.nbits,
@@ -246,7 +250,7 @@ impl ChannelFactory {
             self.extended_channels.insert(channel_id, success.clone());
             let mut result = vec![Mining::OpenExtendedMiningChannelSuccess(success)];
             if let Some((new_prev_hash, _)) = &self.last_prev_hash {
-                let new_prev_hash = new_prev_hash.into_set_p_hash(channel_id);
+                let new_prev_hash = new_prev_hash.into_set_p_hash(channel_id, None);
                 result.push(Mining::SetNewPrevHash(new_prev_hash.clone()))
             };
             if let Some((job, _)) = &self.last_valid_job {
@@ -409,25 +413,40 @@ impl ChannelFactory {
             // If we have just a prev hash we need to send it after the SetupConnectionSuccess
             // message
             (Some((prev_h, _)), None, true) => {
-                let prev_h = prev_h.into_set_p_hash(channel_id);
+                let prev_h = prev_h.into_set_p_hash(channel_id, None);
                 result.push(Mining::SetNewPrevHash(prev_h.clone()));
                 Ok(())
             }
-            // If we have a prev hash and a last valid job we need to send before the prev hash and
-            // the the valid job
+            // If we have a prev hash and a last valid job we need to send new mining job before the prev hash
             (Some((prev_h, _)), Some(job), true) => {
-                let prev_h = prev_h.into_set_p_hash(channel_id);
+                let prev_h = prev_h.into_set_p_hash(channel_id, Some(job.job_id));
+
+                // set future_job to true
+                let future_job = NewMiningJob {
+                    future_job: true,
+                    ..job.clone()
+                };
+
+                result.push(Mining::NewMiningJob(future_job));
                 result.push(Mining::SetNewPrevHash(prev_h.clone()));
-                result.push(Mining::NewMiningJob(job));
                 Ok(())
             }
-            // If we have everything we need, send before the prev hash and then all the jobs
+            // If we have everything we need, send the future jobs and the the prev hash
             (Some((prev_h, _)), Some(job), false) => {
-                let prev_h = prev_h.into_set_p_hash(channel_id);
+                let prev_h = prev_h.into_set_p_hash(channel_id, Some(job.job_id));
+
+                // set future_job to true
+                let future_job = NewMiningJob {
+                    future_job: true,
+                    ..job.clone()
+                };
+
+                result.push(Mining::NewMiningJob(future_job));
                 result.push(Mining::SetNewPrevHash(prev_h.clone()));
-                result.push(Mining::NewMiningJob(job));
+
                 // Safe unwrap cause we check that self.future_jobs is not empty
                 let mut future_jobs = future_jobs.unwrap();
+
                 while let Some(job) = future_jobs.pop() {
                     result.push(Mining::NewMiningJob(job));
                 }
@@ -480,7 +499,7 @@ impl ChannelFactory {
             // message
             (Some((prev_h, group_id_p_hash_sent)), None, true) => {
                 if !group_id_p_hash_sent.contains(&group_id) {
-                    let prev_h = prev_h.into_set_p_hash(group_id);
+                    let prev_h = prev_h.into_set_p_hash(group_id, None);
                     group_id_p_hash_sent.push(group_id);
                     result.push(Mining::SetNewPrevHash(prev_h.clone()));
                 }
@@ -489,7 +508,7 @@ impl ChannelFactory {
             // the the valid job
             (Some((prev_h, group_id_p_hash_sent)), Some((job, group_id_job_sent)), true) => {
                 if !group_id_p_hash_sent.contains(&group_id) {
-                    let prev_h = prev_h.into_set_p_hash(group_id);
+                    let prev_h = prev_h.into_set_p_hash(group_id, Some(job.job_id));
                     group_id_p_hash_sent.push(group_id);
                     result.push(Mining::SetNewPrevHash(prev_h));
                 }
@@ -503,7 +522,7 @@ impl ChannelFactory {
             // If we have everything we need, send before the prev hash and then all the jobs
             (Some((prev_h, group_id_p_hash_sent)), Some((job, group_id_job_sent)), false) => {
                 if !group_id_p_hash_sent.contains(&group_id) {
-                    let prev_h = prev_h.into_set_p_hash(group_id);
+                    let prev_h = prev_h.into_set_p_hash(group_id, Some(job.job_id));
                     group_id_p_hash_sent.push(group_id);
                     result.push(Mining::SetNewPrevHash(prev_h));
                 }
@@ -889,6 +908,11 @@ impl PoolChannelFactory {
         &mut self,
         m: &mut NewTemplate<'static>,
     ) -> Result<HashMap<u32, Mining<'static>>, Error> {
+        // edit the last pool_coinbase_output
+        if let Some(last_pool_coinbase_output) = self.pool_coinbase_outputs.last_mut() {
+            last_pool_coinbase_output.value = m.coinbase_tx_value_remaining;
+        }
+
         let new_job =
             self.job_creator
                 .on_new_template(m, true, self.pool_coinbase_outputs.clone())?;
@@ -899,7 +923,6 @@ impl PoolChannelFactory {
         &mut self,
         m: SubmitSharesStandard,
     ) -> Result<OnNewShare, Error> {
-        #[allow(mutable_borrow_reservation_conflict)]
         match self.inner.channel_to_group_id.get(&m.channel_id) {
             Some(g_id) => {
                 let template_id = self
@@ -1171,7 +1194,6 @@ impl ProxyExtendedChannelFactory {
         &mut self,
         m: SubmitSharesStandard,
     ) -> Result<OnNewShare, Error> {
-        #[allow(mutable_borrow_reservation_conflict)]
         match self.inner.channel_to_group_id.get(&m.channel_id) {
             Some(g_id) => {
                 if let Some(job_creator) = self.job_creator.as_mut() {
@@ -1282,11 +1304,11 @@ impl ExtendedChannelKind {
 #[cfg(test)]
 mod test {
     use super::*;
-    use binary_sv2::{Seq0255, Seq064K, B064K, U256};
+    use binary_sv2::{Seq0255, B064K, U256};
     use bitcoin::{hash_types::WPubkeyHash, PublicKey};
     use mining_sv2::OpenStandardMiningChannel;
 
-    const BLOCK_REWARD: u64 = 5_000_000_000;
+    const BLOCK_REWARD: u64 = 2_000_000_000;
 
     // Block 1296 data
     // 01000000
@@ -1371,6 +1393,8 @@ mod test {
     }
 
     use bitcoin::TxOut;
+    use quickcheck::{Arbitrary, Gen};
+    use rand::Rng;
 
     #[test]
     fn test_complete_mining_round() {
@@ -1408,7 +1432,7 @@ mod test {
             coinbase_tx_version: 1,
             coinbase_prefix: prefix.try_into().unwrap(),
             coinbase_tx_input_sequence: u32::MAX,
-            coinbase_tx_value_remaining: 0,
+            coinbase_tx_value_remaining: 5_000_000_000,
             coinbase_tx_outputs_count: 0,
             coinbase_tx_outputs: get_coinbase_outputs(),
             coinbase_tx_locktime: 0,
