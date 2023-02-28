@@ -1,4 +1,7 @@
 [package]
-name = "error-handling"
+name = "error_handling"
 version = "0.1.0"
 edition = "2021"
+description = "Macro used to clean and centralize error handling within async processes"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/stratum-mining/stratum"

@@ -32,7 +32,7 @@ impl NoiseParamsBuilder {
 /// fails.
 /// Made of the initiator message (the list of algorithms) and the responder message (the
 /// algorithm chosen). If both of them are None, no negotiation happened.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Prologue<'a> {
     pub possible_algos: &'a [EncryptionAlgorithm],
     pub chosen_algo: EncryptionAlgorithm,
@@ -51,7 +51,7 @@ impl<'d> Prologue<'d> {
 
 const MAGIC: u32 = u32::from_le_bytes(*b"STR3");
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EncryptionAlgorithm {
     AesGcm,
     ChaChaPoly,

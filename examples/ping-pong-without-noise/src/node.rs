@@ -151,7 +151,7 @@ impl Connection {
 
             loop {
                 let writable = decoder.writable();
-                let _r = reader.read_exact(writable).await.unwrap();
+                reader.read_exact(writable).await.unwrap();
                 if let Ok(x) = decoder.next_frame() {
                     sender_incoming.send(x).await.unwrap();
                 }
