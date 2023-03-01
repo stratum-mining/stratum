@@ -136,7 +136,7 @@ impl Executor {
                     ActionResult::MatchMessageType(message_type) => {
                         if header.msg_type() != *message_type {
                             println!(
-                                "WRONG MESSAGE TYPE expcted: {} received: {}",
+                                "WRONG MESSAGE TYPE expected: {} received: {}",
                                 message_type,
                                 header.msg_type()
                             );
@@ -373,14 +373,18 @@ impl Executor {
                                 Err(e) => panic!("err {:?}",e),
                             }
                         } else {
-                            panic!("match_message_field subprotocol not valid")
+                            println!(
+                                "match_message_field subprotocol not valid - received: {}",
+                                subprotocol
+                            );
+                            panic!()
                         }
                         
                     }
                     ActionResult::MatchMessageLen(message_len) => {
                         if payload.len() != *message_len {
                             println!(
-                                "WRONG MESSAGE len expcted: {} received: {}",
+                                "WRONG MESSAGE len expected: {} received: {}",
                                 message_len,
                                 payload.len()
                             );
@@ -390,7 +394,7 @@ impl Executor {
                     ActionResult::MatchExtensionType(ext_type) => {
                         if header.ext_type() != *ext_type {
                             println!(
-                                "WRONG EXTENSION TYPE expcted: {} received: {}",
+                                "WRONG EXTENSION TYPE expected: {} received: {}",
                                 ext_type,
                                 header.ext_type()
                             );
