@@ -16,6 +16,6 @@ buffer_sv2 = { version = "^0.1.1", path = "../../../../../utils/buffer", optiona
 
 [features]
 no_std = []
-deafult = ["no_std"]
+default = ["no_std"]
 prop_test = ["quickcheck"]
 with_buffer_pool = ["buffer_sv2"]
