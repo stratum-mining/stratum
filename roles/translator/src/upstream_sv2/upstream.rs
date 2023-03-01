@@ -21,7 +21,7 @@ use roles_logic_sv2::{
     },
     mining_sv2::{
         ExtendedExtranonce, Extranonce, NewExtendedMiningJob, OpenExtendedMiningChannel,
-        SetNewPrevHash, SubmitSharesExtended,SetCustomMiningJob
+        SetCustomMiningJob, SetNewPrevHash, SubmitSharesExtended,
     },
     parsers::Mining,
     routing_logic::{CommonRoutingLogic, MiningRoutingLogic, NoRouting},
@@ -186,7 +186,13 @@ impl Upstream {
         max_version: u16,
     ) -> ProxyResult<'static, ()> {
         // Get the `SetupConnection` message with Mining Device information (currently hard coded)
-        let setup_connection = Self::get_setup_connection_message(min_version, max_version, self_.safe_lock(|s| s.upstream_kind.is_work_selection_enabled()).unwrap())?;
+        let setup_connection = Self::get_setup_connection_message(
+            min_version,
+            max_version,
+            self_
+                .safe_lock(|s| s.upstream_kind.is_work_selection_enabled())
+                .unwrap(),
+        )?;
         let mut connection = self_
             .safe_lock(|s| s.connection.clone())
             .map_err(|_e| PoisonLock)?;
@@ -364,7 +370,7 @@ impl Upstream {
                                     .map_err(|_e| PoisonLock);
                                 handle_result!(tx_status, res);
                                 handle_result!(tx_status, tx_sv2_new_ext_mining_job.send(m).await);
-                           }
+                            }
                             Mining::SetNewPrevHash(m) => {
                                 debug!("parse_incoming Mining::SetNewPrevHash msg");
                                 handle_result!(tx_status, tx_sv2_set_new_prev_hash.send(m).await);

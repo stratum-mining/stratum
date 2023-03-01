@@ -1148,7 +1148,7 @@ impl ProxyExtendedChannelFactory {
             }
             Ok((self.inner.on_new_extended_mining_job(new_job)?, None))
         } else {
-            panic!("A channel factory without job creator do not have negotiation capabilities")
+            panic!("Either channel factory has no job creator or pool_coinbase_outputs are not yet set")
         }
     }
 
@@ -1281,6 +1281,10 @@ impl ProxyExtendedChannelFactory {
     }
     pub fn update_pool_outputs(&mut self, outs: Vec<TxOut>) {
         self.pool_coinbase_outputs = Some(outs);
+    }
+
+    pub fn get_this_channel_id(&self) -> u32 {
+        self.extended_channel_id
     }
 }
 

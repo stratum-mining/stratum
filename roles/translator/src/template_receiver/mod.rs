@@ -15,9 +15,8 @@ pub type Message = PoolMessages<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;
 pub type EitherFrame = StandardEitherFrame<Message>;
 use async_channel::{Receiver, Sender};
-use network_helpers::plain_connection_tokio::PlainConnection;
+use network_helpers::PlainConnection;
 use std::{convert::TryInto, net::SocketAddr, sync::Arc};
-use tokio::net::TcpStream;
 mod message_handler;
 mod setup_connection;
 use setup_connection::SetupConnectionHandler;
@@ -37,10 +36,10 @@ impl TemplateRx {
         receive_coinbase_output_max_additional_size: Receiver<(CoinbaseOutputDataSize, u64)>,
         solution_receiver: Receiver<SubmitSolution<'static>>,
     ) {
-        let stream = TcpStream::connect(address).await.unwrap();
+        let stream = async_std::net::TcpStream::connect(address).await.unwrap();
 
         let (mut receiver, mut sender): (Receiver<EitherFrame>, Sender<EitherFrame>) =
-            PlainConnection::new(stream).await;
+            PlainConnection::new(stream,10).await;
 
         SetupConnectionHandler::setup(&mut receiver, &mut sender, address)
             .await
