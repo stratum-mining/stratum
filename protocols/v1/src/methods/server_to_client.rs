@@ -571,7 +571,7 @@ fn version_rollion_mask_fail_with_invalid_tail() {
     assert!(err2.is_err());
 }
 
-impl<'a> VersionRollingParams {
+impl VersionRollingParams {
     pub fn new(
         version_rolling_mask: HexU32Be,
         version_rolling_min_bit_count: HexU32Be,
