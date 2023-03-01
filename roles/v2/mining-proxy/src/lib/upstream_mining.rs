@@ -1027,21 +1027,19 @@ impl
     ) -> Result<SendTo<DownstreamMiningNode>, Error> {
         let extranonce_prefix: Extranonce = m.extranonce_prefix.clone().try_into().unwrap();
         let range_0 = 0..m.extranonce_prefix.clone().to_vec().len();
-        let range_1 = (range_0.end)..EXTRANONCE_RANGE_1_LENGTH;
-        let range_2 = range_1.end..(m.extranonce_size as usize);
-        let (extranonces, len) = if self.is_work_selection_enabled() {
-            (ExtendedExtranonce::new(0..0, 0..16, 16..32), 32)
+        let range_1 = range_0.end..(range_0.end + EXTRANONCE_RANGE_1_LENGTH);
+        let range_2 = range_1.end..(range_0.end + m.extranonce_size as usize);
+        let extranonces = ExtendedExtranonce::from_upstream_extranonce(
+            extranonce_prefix,
+            range_0,
+            range_1,
+            range_2,
+        )
+        .unwrap();
+        let len = if self.is_work_selection_enabled() {
+            extranonces.get_len() as u16
         } else {
-            (
-                ExtendedExtranonce::from_upstream_extranonce(
-                    extranonce_prefix,
-                    range_0,
-                    range_1,
-                    range_2,
-                )
-                .unwrap(),
-                m.extranonce_size,
-            )
+            m.extranonce_size as u16
         };
 
         self.channel_kind.initialize_factory(
