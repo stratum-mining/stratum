@@ -1050,14 +1050,13 @@ impl
         let range_0 = 0..m.extranonce_prefix.clone().to_vec().len();
         let range_1 = range_0.end..(range_0.end + EXTRANONCE_RANGE_1_LENGTH);
         let range_2 = range_1.end..(range_0.end + m.extranonce_size as usize);
-        let extranonces =
-                ExtendedExtranonce::from_upstream_extranonce(
-                    extranonce_prefix,
-                    range_0,
-                    range_1,
-                    range_2,
-                )
-                .unwrap();
+        let extranonces = ExtendedExtranonce::from_upstream_extranonce(
+            extranonce_prefix,
+            range_0,
+            range_1,
+            range_2,
+        )
+        .unwrap();
         let len = if self.is_work_selection_enabled() {
             extranonces.get_len() as u16
         } else {

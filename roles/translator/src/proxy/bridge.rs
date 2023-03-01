@@ -1,13 +1,15 @@
 use async_channel::{Receiver, Sender};
 use async_std::task;
 use roles_logic_sv2::{
-    channel_logic::channel_factory::{ExtendedChannelKind, ProxyExtendedChannelFactory},
+    channel_logic::channel_factory::{ExtendedChannelKind, ProxyExtendedChannelFactory,Share},
+    job_creator::JobsCreators,
     mining_sv2::{
-        ExtendedExtranonce, NewExtendedMiningJob, SetNewPrevHash, SubmitSharesExtended, Target, SetCustomMiningJob,
+        ExtendedExtranonce, NewExtendedMiningJob, SetCustomMiningJob, SetNewPrevHash,
+        SubmitSharesExtended, Target,
     },
     parsers::Mining,
-    utils::{GroupId, Id, Mutex}, template_distribution_sv2::{NewTemplate,SetNewPrevHash as SetNewPrevHashTemplate},
-    job_creator::JobsCreators,
+    template_distribution_sv2::{NewTemplate, SetNewPrevHash as SetNewPrevHashTemplate,SubmitSolution},
+    utils::{GroupId, Id, Mutex},
 };
 use std::sync::Arc;
 use tokio::sync::broadcast;
@@ -18,8 +20,15 @@ use crate::{
     status, ProxyResult,
 };
 use error_handling::handle_result;
-use roles_logic_sv2::{channel_logic::channel_factory::OnNewShare, Error as RolesLogicError};
+use roles_logic_sv2::{
+    bitcoin::TxOut, channel_logic::channel_factory::OnNewShare, Error as RolesLogicError,
+};
 use tracing::{debug, error, info};
+
+use std::sync::atomic::AtomicBool;
+/// USED to make sure that if a future new_temnplate and a set_new_prev_hash are received together
+/// the future new_temnplate is always handled before the set new prev hash.
+pub static IS_NEW_TEMPLATE_HANDLED: AtomicBool = AtomicBool::new(true);
 
 /// Bridge between the SV2 `Upstream` and SV1 `Downstream` responsible for the following messaging
 /// translation:
@@ -62,6 +71,10 @@ pub struct Bridge {
     future_jobs: Vec<NewExtendedMiningJob<'static>>,
     last_p_hash: Option<SetNewPrevHash<'static>>,
     target: Arc<Mutex<Vec<u8>>>,
+    first_ph_received: bool,
+    pool_output_is_set: bool,
+    request_ids: Id,
+    solution_sender: Option<Sender<SubmitSolution<'static>>>,
 }
 
 #[derive(Debug, Clone)]
@@ -70,7 +83,9 @@ pub enum UpstreamKind {
     WithNegotiator {
         recv_tp: Receiver<(NewTemplate<'static>, u64)>,
         recv_ph: Receiver<(SetNewPrevHashTemplate<'static>, u64)>,
+        recv_coinbase_out: Receiver<(Vec<TxOut>, u64)>,
         send_mining_job: Sender<SetCustomMiningJob<'static>>,
+        send_solution: Sender<SubmitSolution<'static>>,
     },
 }
 
@@ -97,18 +112,22 @@ impl Bridge {
         target: Arc<Mutex<Vec<u8>>>,
         up_id: u32,
         upstream_kind: UpstreamKind,
-    ) -> Self {
+    ) -> Arc<Mutex<Self>> {
         let ids = Arc::new(Mutex::new(GroupId::new()));
         let share_per_min = 1.0;
         let upstream_target: [u8; 32] =
             target.safe_lock(|t| t.clone()).unwrap().try_into().unwrap();
         let upstream_target: Target = upstream_target.into();
-        let kind = ExtendedChannelKind::Proxy { upstream_target };
-        let (job_creator,extranonces) = match upstream_kind {
-            UpstreamKind::Standard => (None,extranonces),
-            UpstreamKind::WithNegotiator { .. } => Some(JobsCreators::new(len)),
+        let (job_creator,kind,solution_sender) = match upstream_kind {
+            UpstreamKind::Standard => (None,ExtendedChannelKind::Proxy { upstream_target },None),
+            UpstreamKind::WithNegotiator { ref send_solution, .. } => {
+                (Some(JobsCreators::new(extranonces.get_len() as u8)),
+                 ExtendedChannelKind::ProxyJn { upstream_target },
+                 Some(send_solution.clone())
+                )
+            }
         };
-        Self {
+        let self_ = Arc::new(Mutex::new(Self {
             rx_sv1_submit,
             tx_sv2_submit_shares_ext,
             rx_sv2_set_new_prev_hash,
@@ -120,7 +139,7 @@ impl Bridge {
             channel_factory: ProxyExtendedChannelFactory::new(
                 ids,
                 extranonces,
-                None,
+                job_creator,
                 share_per_min,
                 kind,
                 None,
@@ -129,7 +148,150 @@ impl Bridge {
             future_jobs: vec![],
             last_p_hash: None,
             target,
-        }
+            first_ph_received: false,
+            request_ids: Id::new(),
+            pool_output_is_set: false,
+            solution_sender,
+        }));
+        match upstream_kind {
+            UpstreamKind::Standard => (),
+            UpstreamKind::WithNegotiator {
+                recv_tp,
+                recv_ph,
+                recv_coinbase_out,
+                send_mining_job,
+                send_solution,
+            } => {
+                Self::start_receiving_pool_coinbase_outs(self_.clone(), recv_coinbase_out);
+                Self::start_receiving_new_template(self_.clone(), recv_tp,send_mining_job.clone());
+                Self::start_receiving_new_prev_hash(self_.clone(), recv_ph,send_mining_job);
+            }
+        };
+        self_
+    }
+
+
+    pub fn start_receiving_pool_coinbase_outs(
+        self_mutex: Arc<Mutex<Self>>,
+        recv: Receiver<(Vec<TxOut>, u64)>,
+    ) {
+        task::spawn(async move {
+            while let Ok((outs, _id)) = recv.recv().await {
+                // TODO assuming that only one coinbase is negotiated with the pool not handling
+                // different tokens, in order to do that we can use the out hashmap:
+                // self.tx_outs.insert(id, outs)
+                self_mutex
+                    .safe_lock(|s| {
+                        s.channel_factory.update_pool_outputs(outs);
+                        s.pool_output_is_set = true;
+                    })
+                    .unwrap();
+            }
+        });
+    }
+
+    pub fn start_receiving_new_template(self_mutex: Arc<Mutex<Self>>, new_template_reciver: Receiver<(NewTemplate<'static>, u64)>, send_mining_job: Sender<SetCustomMiningJob<'static>>) {
+        task::spawn(async move {
+            while !self_mutex.safe_lock(|s| (s.first_ph_received && s.pool_output_is_set)).unwrap()  {
+                tokio::task::yield_now().await;
+            }
+            loop {
+                let (mut message_new_template, token): (NewTemplate, u64) =
+                    new_template_reciver.recv().await.unwrap();
+                let (channel_id_to_new_job_msg, custom_job) = self_mutex
+                    .safe_lock(|a| {
+                        a.channel_factory
+                            .on_new_template(&mut message_new_template) // This is not efficient, to be changed if needed
+                    })
+                    .unwrap()
+                    .unwrap();
+                if let Some(custom_job) = custom_job {
+                    let req_id = self_mutex
+                        .safe_lock(|s| s.request_ids.next())
+                        .unwrap();
+                    let custom_mining_job =
+                        SetCustomMiningJob {
+                            channel_id: self_mutex.safe_lock(|s| s.channel_factory.get_this_channel_id()).unwrap(),
+                            request_id: req_id,
+                            version: custom_job.version,
+                            prev_hash: custom_job.prev_hash,
+                            min_ntime: custom_job.min_ntime,
+                            nbits: custom_job.nbits,
+                            coinbase_tx_version: custom_job.coinbase_tx_version,
+                            coinbase_prefix: custom_job.coinbase_prefix.clone(),
+                            coinbase_tx_input_n_sequence: custom_job.coinbase_tx_input_n_sequence,
+                            coinbase_tx_value_remaining: custom_job.coinbase_tx_value_remaining,
+                            coinbase_tx_outputs: custom_job.coinbase_tx_outputs.clone(),
+                            coinbase_tx_locktime: custom_job.coinbase_tx_locktime,
+                            merkle_path: custom_job.merkle_path,
+                            extranonce_size: custom_job.extranonce_size,
+                            future_job: message_new_template.future_template,
+                            token,
+                        };
+                    let tx_status = self_mutex.safe_lock(|s| s.tx_status.clone()).unwrap();
+                    handle_result!(tx_status,send_mining_job.send(custom_mining_job).await);
+                }
+
+                let (tx_sv1_notify, tx_status) = self_mutex
+                    .safe_lock(|s| {
+                        (
+                            s.tx_sv1_notify.clone(),
+                            s.tx_status.clone(),
+                        )
+                    })
+                    .unwrap();
+                for (_id, job) in channel_id_to_new_job_msg {
+                    if let Mining::NewExtendedMiningJob(job) = job {
+                        Self::handle_new_extended_mining_job_(self_mutex.clone(),&job.try_into().unwrap(),tx_status.clone(),tx_sv1_notify.clone()).await;
+                    }
+                }
+                IS_NEW_TEMPLATE_HANDLED.store(true, std::sync::atomic::Ordering::SeqCst);
+            }
+        });
+    }
+
+    pub fn start_receiving_new_prev_hash(self_mutex: Arc<Mutex<Self>>,prev_hash_reciver: Receiver<(SetNewPrevHashTemplate<'static>,u64)>,send_mining_job: Sender<SetCustomMiningJob<'static>>) {
+        task::spawn(async move {
+            loop {
+                let (message_prev_hash, token) = prev_hash_reciver.recv().await.unwrap();
+                let custom = self_mutex
+                    .safe_lock(|a| {
+                        a.channel_factory
+                            .on_new_prev_hash_from_tp(&message_prev_hash)
+                    })
+                    .unwrap();
+                self_mutex
+                    .safe_lock(|s| s.first_ph_received = true)
+                    .unwrap();
+
+                if let Ok(Some(custom_job)) = custom {
+                    let req_id = self_mutex
+                        .safe_lock(|s| s.request_ids.next())
+                        .unwrap();
+                    let custom_mining_job =
+                        SetCustomMiningJob {
+                            channel_id: self_mutex.safe_lock(|s| s.channel_factory.get_this_channel_id()).unwrap(),
+                            request_id: req_id,
+                            version: custom_job.version,
+                            prev_hash: custom_job.prev_hash,
+                            min_ntime: custom_job.min_ntime,
+                            nbits: custom_job.nbits,
+                            coinbase_tx_version: custom_job.coinbase_tx_version,
+                            coinbase_prefix: custom_job.coinbase_prefix.clone(),
+                            coinbase_tx_input_n_sequence: custom_job.coinbase_tx_input_n_sequence,
+                            coinbase_tx_value_remaining: custom_job.coinbase_tx_value_remaining,
+                            coinbase_tx_outputs: custom_job.coinbase_tx_outputs.clone(),
+                            coinbase_tx_locktime: custom_job.coinbase_tx_locktime,
+                            merkle_path: custom_job.merkle_path,
+                            extranonce_size: custom_job.extranonce_size,
+                            future_job: false,
+                            token,
+                        };
+                    let tx_status = self_mutex.safe_lock(|s| s.tx_status.clone()).unwrap();
+                    handle_result!(tx_status,send_mining_job.send(custom_mining_job).await);
+                }
+            }
+        });
     }
 
     pub fn on_new_sv1_connection(&mut self, hash_rate: f32) -> Option<OpenSv1Downstream> {
@@ -229,7 +391,22 @@ impl Bridge {
                         info!("SHARE MEETS TARGET");
                         send_upstream = true;
                     }
-                    Ok(Ok(OnNewShare::ShareMeetBitcoinTarget(_))) => unreachable!(),
+                    Ok(Ok(OnNewShare::ShareMeetBitcoinTarget((share,template_id,coinbase)))) => match share {
+                        Share::Extended(s) => {
+                            let solution_sender = self_.safe_lock(|s|s.solution_sender.clone()).unwrap().unwrap();
+                            let solution = SubmitSolution {
+                                template_id,
+                                version: s.version,
+                                header_timestamp: s.ntime,
+                                header_nonce: s.nonce,
+                                coinbase_tx: coinbase.try_into().unwrap(),
+                            };
+                            // The below channel should never be full is ok to block
+                            //solution_sender.send_blocking(solution).unwrap();
+                            send_upstream = true;
+                        },
+                        _ => unreachable!(),
+                    }
                     Ok(Ok(OnNewShare::ShareMeetDownstreamTarget)) => {
                         info!("SHARE MEETS DOWNSTREAM TARGET")
                     }
@@ -339,6 +516,57 @@ impl Bridge {
         });
     }
 
+    async fn handle_new_extended_mining_job_(self_: Arc<Mutex<Self>>, sv2_new_extended_mining_job: &NewExtendedMiningJob<'static>, tx_status: status::Sender, tx_sv1_notify: broadcast::Sender<server_to_client::Notify<'static>>) {
+        loop {
+            let res = self_
+                .safe_lock(|s| {
+                    s.channel_factory.on_new_extended_mining_job(
+                        sv2_new_extended_mining_job.as_static().clone(),
+                    )
+                })
+                .map_err(|_| PoisonLock);
+
+            handle_result!(tx_status, handle_result!(tx_status, res));
+
+            // If future_job=true, this job is meant for a future SetNewPrevHash that the proxy
+            // has yet to receive. Insert this new job into the job_mapper .
+            if sv2_new_extended_mining_job.future_job {
+                let res = self_
+                    .safe_lock(|s| s.future_jobs.push(sv2_new_extended_mining_job.clone()))
+                    .map_err(|_| PoisonLock);
+                handle_result!(tx_status, res);
+
+            // If future_job=false, this job is meant for the current SetNewPrevHash.
+            } else {
+                let last_p_hash_res = self_
+                    .safe_lock(|s| s.last_p_hash.clone())
+                    .map_err(|_| PoisonLock);
+                let last_p_hash_option = handle_result!(tx_status, last_p_hash_res);
+                // last_p_hash is an Option<SetNewPrevHash> so we need to map to the correct error type to be handled
+                let last_p_hash = handle_result!(
+                    tx_status,
+                    last_p_hash_option.ok_or(Error::RolesSv2Logic(
+                        RolesLogicError::JobIsNotFutureButPrevHashNotPresent
+                    ))
+                );
+                // Create the mining.notify to be sent to the Downstream.
+                let notify = crate::proxy::next_mining_notify::create_notify(
+                    last_p_hash,
+                     sv2_new_extended_mining_job.clone(),
+                );
+                // Get the sender to send the mining.notify to the Downstream
+                handle_result!(tx_status, tx_sv1_notify.send(notify.clone()));
+                let res = self_
+                    .safe_lock(|s| {
+                        s.last_notify = Some(notify);
+                    })
+                    .map_err(|_| PoisonLock);
+                handle_result!(tx_status, res);
+            }
+            break;
+        }
+    }
+
     /// Receives a SV2 `NewExtendedMiningJob` message from the `Upstream`. If `future_job=true`,
     /// this job is intended for a future SV2 `SetNewPrevHash` that has yet to be received. This
     /// job is stored until a SV2 `SetNewPrevHash` message with a corresponding `job_id` is
@@ -362,56 +590,12 @@ impl Bridge {
             loop {
                 // Receive `NewExtendedMiningJob` from `Upstream`
                 let sv2_new_extended_mining_job: NewExtendedMiningJob =
-                    handle_result!(tx_status, rx_sv2_new_ext_mining_job.clone().recv().await);
+                    handle_result!(tx_status.clone(), rx_sv2_new_ext_mining_job.clone().recv().await);
                 debug!(
                     "handle_new_extended_mining_job job_id: {:?}",
                     &sv2_new_extended_mining_job.job_id
                 );
-                let res = self_
-                    .safe_lock(|s| {
-                        s.channel_factory.on_new_extended_mining_job(
-                            sv2_new_extended_mining_job.as_static().clone(),
-                        )
-                    })
-                    .map_err(|_| PoisonLock);
-
-                handle_result!(tx_status, handle_result!(tx_status, res));
-
-                // If future_job=true, this job is meant for a future SetNewPrevHash that the proxy
-                // has yet to receive. Insert this new job into the job_mapper .
-                if sv2_new_extended_mining_job.future_job {
-                    let res = self_
-                        .safe_lock(|s| s.future_jobs.push(sv2_new_extended_mining_job.clone()))
-                        .map_err(|_| PoisonLock);
-                    handle_result!(tx_status, res);
-
-                // If future_job=false, this job is meant for the current SetNewPrevHash.
-                } else {
-                    let last_p_hash_res = self_
-                        .safe_lock(|s| s.last_p_hash.clone())
-                        .map_err(|_| PoisonLock);
-                    let last_p_hash_option = handle_result!(tx_status, last_p_hash_res);
-                    // last_p_hash is an Option<SetNewPrevHash> so we need to map to the correct error type to be handled
-                    let last_p_hash = handle_result!(
-                        tx_status,
-                        last_p_hash_option.ok_or(Error::RolesSv2Logic(
-                            RolesLogicError::JobIsNotFutureButPrevHashNotPresent
-                        ))
-                    );
-                    // Create the mining.notify to be sent to the Downstream.
-                    let notify = crate::proxy::next_mining_notify::create_notify(
-                        last_p_hash,
-                        sv2_new_extended_mining_job,
-                    );
-                    // Get the sender to send the mining.notify to the Downstream
-                    handle_result!(tx_status, tx_sv1_notify.send(notify.clone()));
-                    let res = self_
-                        .safe_lock(|s| {
-                            s.last_notify = Some(notify);
-                        })
-                        .map_err(|_| PoisonLock);
-                    handle_result!(tx_status, res);
-                }
+                Self::handle_new_extended_mining_job_(self_.clone(), &sv2_new_extended_mining_job, tx_status.clone(), tx_sv1_notify.clone()).await;
             }
         });
     }

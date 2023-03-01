@@ -1,7 +1,7 @@
 pub mod message_handler;
 use async_channel::{Receiver, Sender};
 use codec_sv2::{HandshakeRole, Initiator, StandardEitherFrame, StandardSv2Frame};
-use network_helpers::noise_connection_tokio::Connection;
+use network_helpers::Connection;
 use roles_logic_sv2::{
     handlers::SendTo_,
     parsers::{JobNegotiation, PoolMessages},
@@ -19,7 +19,6 @@ use std::{
     net::{IpAddr, SocketAddr},
     sync::Arc,
 };
-use tokio::{net::TcpStream, task};
 
 pub type Message = PoolMessages<'static>;
 pub type SendTo = SendTo_<JobNegotiation<'static>, ()>;
@@ -48,10 +47,10 @@ impl JobNegotiator {
         sender_coinbase_out: Sender<(Vec<TxOut>, u64)>,
         config: ProxyConfig,
     ) -> Arc<Mutex<Self>> {
-        let stream = TcpStream::connect(address).await.unwrap();
+        let stream = async_std::net::TcpStream::connect(address).await.unwrap();
         let initiator = Initiator::from_raw_k(authority_public_key).unwrap();
         let (mut receiver, mut sender): (Receiver<EitherFrame>, Sender<EitherFrame>) =
-            Connection::new(stream, HandshakeRole::Initiator(initiator)).await;
+            Connection::new(stream, HandshakeRole::Initiator(initiator),10).await;
 
         let proxy_address = SocketAddr::new(
             IpAddr::from_str(&config.downstream_address).unwrap(),
@@ -83,7 +82,7 @@ impl JobNegotiator {
     }
 
     pub fn on_upstream_message(self_mutex: Arc<Mutex<Self>>) {
-        task::spawn(async move {
+        async_std::task::spawn(async move {
             let sender_max_size = self_mutex
                 .safe_lock(|s| s.sender_coinbase_output_max_additional_size.clone())
                 .unwrap();

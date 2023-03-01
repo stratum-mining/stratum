@@ -22,5 +22,5 @@ coinbase_reward_sat = 5_000_000_000
 
 # optional jn config, if set the tproxy start on JN mode
 [jn_config]
-jn_address = "127.0.0.1:8442"
+jn_address = "127.0.0.1:34264"
 tp_address = "127.0.0.1:8442"

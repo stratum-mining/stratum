@@ -1,23 +1,23 @@
 mod args;
 mod downstream_sv1;
 mod error;
+mod job_negotiator;
 mod proxy;
 mod proxy_config;
 mod status;
-mod upstream_sv2;
-mod job_negotiator;
 mod template_receiver;
+mod upstream_sv2;
 use args::Args;
 use error::{Error, ProxyResult};
 use job_negotiator::JobNegotiator;
-use template_receiver::TemplateRx;
 use proxy_config::ProxyConfig;
 use roles_logic_sv2::utils::Mutex;
+use template_receiver::TemplateRx;
 
 const SELF_EXTRNONCE_LEN: usize = 2;
 
 use async_channel::{bounded, unbounded};
-use futures::{select, FutureExt};
+use futures::{select, FutureExt,join};
 use std::{
     net::{IpAddr, SocketAddr},
     str::FromStr,
@@ -96,11 +96,26 @@ async fn main() {
 
     let (send_mining_job, recv_mining_job) = bounded(10);
 
+    let (send_coinbase_out, recv_coinbase_out) = bounded(10);
+    let (send_solution, recv_solution) = bounded(10);
+
     // If there is a jn_config in proxy_config creates a reciver for template and prev hash.
     // They will be used by the JN once is initialized
     let (bridge_upstream_kind, upstream_upstream_kind) = match proxy_config.jn_config.clone() {
-        None => (proxy::bridge::UpstreamKind::Standard,upstream_sv2::UpstreamKind::Standard),
-        Some(jn_config) => (proxy::bridge::UpstreamKind::WithNegotiator {recv_tp,recv_ph,send_mining_job},upstream_sv2::UpstreamKind::WithNegotiator { recv_mining_job }),
+        None => (
+            proxy::bridge::UpstreamKind::Standard,
+            upstream_sv2::UpstreamKind::Standard,
+        ),
+        Some(_jn_config) => (
+            proxy::bridge::UpstreamKind::WithNegotiator {
+                recv_tp,
+                recv_ph,
+                send_mining_job,
+                recv_coinbase_out,
+                send_solution,
+            },
+            upstream_sv2::UpstreamKind::WithNegotiator { recv_mining_job },
+        ),
     };
 
     // Instantiate a new `Upstream` (SV2 Pool)
@@ -148,8 +163,6 @@ async fn main() {
             let (send_comas, recv_comas) = bounded(10);
 
             //channels for the upstream
-            let (send_solution, recv_solution) = bounded(10);
-            let (send_coinbase_out_script, recv_coinbase_out_script) = bounded(10);
 
             let mut parts = jn_config.tp_address.split(':');
             let ip_tp = parts.next().unwrap().to_string();
@@ -157,15 +170,7 @@ async fn main() {
             let mut parts = jn_config.jn_address.split(':');
             let ip_jn = parts.next().unwrap().to_string();
             let port_jn = parts.next().unwrap().parse::<u16>().unwrap();
-
-            tokio::join!(
-                TemplateRx::connect(
-                    SocketAddr::new(IpAddr::from_str(ip_tp.as_str()).unwrap(), port_tp,),
-                    send_tp,
-                    send_ph,
-                    recv_comas,
-                    recv_solution,
-                ),
+            join!(
                 JobNegotiator::new(
                     SocketAddr::new(IpAddr::from_str(ip_jn.as_str()).unwrap(), port_jn,),
                     proxy_config
@@ -175,9 +180,16 @@ async fn main() {
                         .as_bytes()
                         .to_owned(),
                     send_comas,
-                    send_coinbase_out_script,
+                    send_coinbase_out,
                     proxy_config.clone(),
-                )
+                ),
+                TemplateRx::connect(
+                    SocketAddr::new(IpAddr::from_str(ip_tp.as_str()).unwrap(), port_tp,),
+                    send_tp,
+                    send_ph,
+                    recv_comas,
+                    recv_solution,
+                ),
             );
         }
     }
@@ -208,7 +220,7 @@ async fn main() {
     }
 
     // Instantiate a new `Bridge` and begins handling incoming messages
-    let b = Arc::new(Mutex::new(proxy::Bridge::new(
+    let b = proxy::Bridge::new(
         rx_sv1_submit,
         tx_sv2_submit_shares_ext,
         rx_sv2_set_new_prev_hash,
@@ -219,7 +231,7 @@ async fn main() {
         target,
         up_id,
         bridge_upstream_kind,
-    )));
+    );
     proxy::Bridge::start(b.clone());
 
     // Format `Downstream` connection address
