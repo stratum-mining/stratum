@@ -732,7 +732,7 @@ impl ChannelFactory {
                 .to_vec();
             match self.kind {
                 ExtendedChannelKind::Proxy { .. } | ExtendedChannelKind::ProxyJn { .. } => {
-                    let upstream_extranonce_space = self.extranonces.get_prefix_len();
+                    let upstream_extranonce_space = self.extranonces.get_range0_len();
                     let extranonce = extranonce[upstream_extranonce_space..].to_vec();
                     let mut res = OnNewShare::ShareMeetBitcoinTarget((m, template_id, coinbase));
                     res.into_extended(extranonce, up_id);
@@ -747,7 +747,7 @@ impl ChannelFactory {
         } else if hash <= upstream_target {
             match self.kind {
                 ExtendedChannelKind::Proxy { .. } | ExtendedChannelKind::ProxyJn { .. } => {
-                    let upstream_extranonce_space = self.extranonces.get_prefix_len();
+                    let upstream_extranonce_space = self.extranonces.get_range0_len();
                     let extranonce = extranonce[upstream_extranonce_space..].to_vec();
                     let mut res = OnNewShare::SendSubmitShareUpstream(m);
                     res.into_extended(extranonce, up_id);
