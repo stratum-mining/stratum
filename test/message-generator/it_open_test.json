@@ -37,7 +37,7 @@
                             "condition": true
                         }
                     ],
-                    "timer_secs": 100,
+                    "timer_secs": 240,
                     "warn_no_panic": false
                 }
             }

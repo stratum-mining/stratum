@@ -70,8 +70,12 @@
                     "value": [
                         "MiningProtocol",
                         "OpenStandardMiningChannelSuccess",
-                        "request_id",
-                        {"U32": 89}
+                        [
+                            [
+                                "request_id",
+                                {"U32": 89}
+                            ]
+                        ]
                     ]
                 },
                 {
@@ -124,7 +128,7 @@
                            "condition": true
                        }
                    ],
-                   "timer_secs": 60,
+                   "timer_secs": 240,
                    "warn_no_panic": false
                }
            }
@@ -148,7 +152,7 @@
                             "condition": true
                         }
                     ],
-                    "timer_secs": 60,
+                    "timer_secs": 240,
                     "warn_no_panic": false
                 }
             }
@@ -168,7 +172,7 @@
                            "condition": true
                        }
                    ],
-                   "timer_secs": 60,
+                   "timer_secs": 240,
                    "warn_no_panic": false
                }
            }
