@@ -11,12 +11,34 @@ use std::{
     net::{IpAddr, Ipv4Addr, SocketAddr},
     sync::Arc,
 };
+use std::time::{Duration, Instant};
+use sha2::{Digest, Sha256};
+use rand::{thread_rng, Rng};
 
 async fn connect(address: SocketAddr, handicap: u32) {
     let stream = TcpStream::connect(address).await.unwrap();
     let (receiver, sender): (Receiver<EitherFrame>, Sender<EitherFrame>) =
         PlainConnection::new(stream, 10).await;
     Device::start(receiver, sender, address, handicap).await
+}
+
+fn measure_hashrate(duration_secs: u64) -> f64 {
+    let start_time = Instant::now();
+    let mut hashes: u64 = 0;
+    let duration = Duration::from_secs(duration_secs);
+
+    while start_time.elapsed() < duration {
+        let mut rng = thread_rng();
+        let number = rng.gen::<u64>();
+        let _hash = Sha256::digest(&number.to_le_bytes());
+        hashes += 1;
+    }
+
+    let elapsed_secs = start_time.elapsed().as_secs_f64();
+    let hashrate = hashes as f64 / elapsed_secs;
+
+    println!("Hashrate: {:.2} H/s", hashrate);
+    hashrate
 }
 
 #[async_std::main]
@@ -146,10 +168,13 @@ fn open_channel() -> OpenStandardMiningChannel<'static> {
     let user_identity = "ABC".to_string().try_into().unwrap();
     let id: u32 = 10;
     println!("MINING DEVICE: send open channel with request id {}", id);
+    let hashrate = measure_hashrate(10);
+    let nominal_hash_rate = (hashrate as f64 / 1_000_000_000_f64).round();
+    let nominal_hash_rate: f32 = nominal_hash_rate as f32;
     OpenStandardMiningChannel {
         request_id: id.into(),
         user_identity,
-        nominal_hash_rate: 5.4,
+        nominal_hash_rate,
         max_target: u256_from_int(567_u64),
     }
 }

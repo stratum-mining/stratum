@@ -1084,6 +1084,7 @@ dependencies = [
  "network_helpers",
  "rand 0.8.5",
  "roles_logic_sv2",
+ "sha2 0.10.6",
 ]
 
 [[package]]
