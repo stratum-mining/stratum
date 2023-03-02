@@ -47,8 +47,9 @@ impl ActionParser {
                     }
                     "match_message_field" => {
                         let sv2_type = result.get("value").unwrap().clone();
-                        let sv2_type: (String, String, String, Sv2Type) =
-                            serde_json::from_value(sv2_type).unwrap();
+                        let sv2_type: (String, String, Vec<(String, Sv2Type)>) =
+                            serde_json::from_value(sv2_type)
+                            .expect("match_message_field values not correct");
                         action_results.push(ActionResult::MatchMessageField(sv2_type));
                     }
                     "match_message_len" => {
