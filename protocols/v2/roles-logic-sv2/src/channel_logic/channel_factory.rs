@@ -10,7 +10,7 @@ use crate::{
 use mining_sv2::{
     ExtendedExtranonce, NewExtendedMiningJob, NewMiningJob, OpenExtendedMiningChannelSuccess,
     OpenMiningChannelError, OpenStandardMiningChannelSuccess, SetNewPrevHash, SubmitSharesError,
-    SubmitSharesExtended, SubmitSharesStandard, Target,
+    SubmitSharesExtended, SubmitSharesStandard, Target,SetCustomMiningJob,SetCustomMiningJobSuccess
 };
 
 use std::{collections::HashMap, convert::TryInto, sync::Arc};
@@ -52,7 +52,9 @@ pub enum OnNewShare {
     RelaySubmitShareUpstream,
     /// Indicate that the share meet bitcoin target, when there is an upstream the we should send
     /// the share upstream, whenever possible we should also notify the TP about it.
-    /// (share, template id, coinbase)
+    /// When a job is set with SetCustomMiningJob the job_id and the negotiated job_id with
+    /// upstream will not match 
+    //ShareMeetBitcoinTarget {share: Share, template_id: u64, coinbase: Vec<u8>, upstream_job_id: Option<u32>},
     ShareMeetBitcoinTarget((Share, u64, Vec<u8>)),
     /// Indicate that the share meet downstream target, in the case we could send a success
     /// response dowmstream.
@@ -833,6 +835,8 @@ pub struct PoolChannelFactory {
     inner: ChannelFactory,
     job_creator: JobsCreators,
     pool_coinbase_outputs: Vec<TxOut>,
+    // extedned_channel_id -> SetCustomMiningJob
+    negotiated_jobs: HashMap<u32,SetCustomMiningJob<'static>>,
 }
 
 impl PoolChannelFactory {
@@ -865,6 +869,7 @@ impl PoolChannelFactory {
             inner,
             job_creator,
             pool_coinbase_outputs,
+            negotiated_jobs: HashMap::new(),
         }
     }
 
@@ -951,13 +956,18 @@ impl PoolChannelFactory {
         &mut self,
         m: SubmitSharesExtended,
     ) -> Result<OnNewShare, Error> {
-        let template_id = self
-            .job_creator
-            .get_template_id_from_job(self.inner.last_valid_job.as_ref().unwrap().0.job_id)
-            .ok_or(Error::NoTemplateForId)?;
         let target = self.job_creator.last_target();
-        self.inner
-            .check_target(Share::Extended(m.into_static()), target, template_id, 0)
+        if self.negotiated_jobs.contains_key(&m.channel_id) {
+            self.inner
+                .check_target(Share::Extended(m.into_static()), target, 0, 0)
+        } else {
+            let template_id = self
+                .job_creator
+                .get_template_id_from_job(self.inner.last_valid_job.as_ref().unwrap().0.job_id)
+                .ok_or(Error::NoTemplateForId)?;
+            self.inner
+                .check_target(Share::Extended(m.into_static()), target, template_id, 0)
+        }
     }
 
     pub fn new_group_id(&mut self) -> u32 {
@@ -981,6 +991,23 @@ impl PoolChannelFactory {
         self.inner
             .extranonces
             .extranonce_from_downstream_extranonce(ext)
+    }
+
+    pub fn on_new_set_custom_mining_job(&mut self, set_custom_mining_job: SetCustomMiningJob<'static>) -> SetCustomMiningJobSuccess {
+        if self.check_set_custom_mining_job(&set_custom_mining_job) {
+            self.negotiated_jobs.insert(set_custom_mining_job.channel_id,set_custom_mining_job.clone());
+            SetCustomMiningJobSuccess {
+                channel_id: set_custom_mining_job.channel_id,
+                request_id: set_custom_mining_job.request_id,
+                job_id: 0,
+            }
+        } else {
+            todo!()
+        }
+    }
+
+    fn check_set_custom_mining_job(&self, _set_custom_mining_job: &SetCustomMiningJob<'static>) -> bool {
+        true
     }
 }
 
