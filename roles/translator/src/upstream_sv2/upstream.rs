@@ -23,12 +23,9 @@ use roles_logic_sv2::{
         ExtendedExtranonce, Extranonce, NewExtendedMiningJob, OpenExtendedMiningChannel,
         SetCustomMiningJob, SetNewPrevHash, SubmitSharesExtended,
     },
-    parsers::Mining,
+    parsers::{Mining, PoolMessages},
     routing_logic::{CommonRoutingLogic, MiningRoutingLogic, NoRouting},
     selectors::NullDownstreamMiningSelector,
-    template_distribution_sv2::{
-        NewTemplate, SetNewPrevHash as SetNewPrevHashTemplate, SubmitSolution,
-    },
     utils::Mutex,
     Error as RolesLogicError,
 };
@@ -66,6 +63,12 @@ impl UpstreamKind {
         match self {
             UpstreamKind::Standard => false,
             UpstreamKind::WithNegotiator { .. } => true,
+        }
+    }
+    pub fn get_receiver(&self) -> Option<Receiver<SetCustomMiningJob<'static>>> {
+        match self {
+            UpstreamKind::Standard => None,
+            UpstreamKind::WithNegotiator { recv_mining_job } => Some(recv_mining_job.clone()),
         }
     }
 }
@@ -254,7 +257,32 @@ impl Upstream {
 
         let sv2_frame: StdFrame = Message::Mining(open_channel).try_into()?;
         connection.send(sv2_frame).await?;
+        if self_
+            .safe_lock(|s| s.upstream_kind.is_work_selection_enabled())
+            .unwrap()
+        {
+            Self::set_custom_jobs(self_.clone());
+        }
         Ok(())
+    }
+
+    pub fn set_custom_jobs(self_: Arc<Mutex<Self>>) {
+        let set_c_job_recv = self_
+            .safe_lock(|s| s.upstream_kind.get_receiver().unwrap())
+            .unwrap();
+        let mut connection = self_.safe_lock(|s| s.connection.clone()).unwrap();
+        async_std::task::spawn(async move {
+            loop {
+                while let Ok(custom_job) = set_c_job_recv.recv().await {
+                    info!("Send custom job to upstream");
+                    let custom_job = PoolMessages::Mining(Mining::SetCustomMiningJob(custom_job));
+                    connection
+                        .send(custom_job.try_into().unwrap())
+                        .await
+                        .unwrap();
+                }
+            }
+        });
     }
 
     /// Parses the incoming SV2 message from the Upstream role and routes the message to the
@@ -405,6 +433,22 @@ impl Upstream {
         });
         Ok(())
     }
+    fn get_job_id(
+        self_: &Arc<Mutex<Self>>,
+    ) -> Result<Result<u32, crate::error::Error<'static>>, crate::error::Error<'static>> {
+        self_
+            .safe_lock(|s| {
+                if s.is_work_selection_enabled() {
+                    // TODO MVP3 this will be set by SetCustomMiningJobSuccess
+                    Ok(0)
+                } else {
+                    s.job_id.ok_or(crate::error::Error::RolesSv2Logic(
+                        RolesLogicError::NoValidJob,
+                    ))
+                }
+            })
+            .map_err(|_e| PoisonLock)
+    }
 
     pub fn handle_submit(self_: Arc<Mutex<Self>>) -> ProxyResult<'static, ()> {
         let clone = self_.clone();
@@ -432,14 +476,7 @@ impl Upstream {
                     .map_err(|_e| PoisonLock);
                 sv2_submit.channel_id =
                     handle_result!(tx_status, handle_result!(tx_status, channel_id));
-
-                let job_id = self_
-                    .safe_lock(|s| {
-                        s.job_id.ok_or(crate::error::Error::RolesSv2Logic(
-                            RolesLogicError::NoValidJob,
-                        ))
-                    })
-                    .map_err(|_e| PoisonLock);
+                let job_id = Self::get_job_id(&self_);
                 sv2_submit.job_id = handle_result!(tx_status, handle_result!(tx_status, job_id));
 
                 debug!("Up: Handling SubmitSharesExtended: {:?}", &sv2_submit);
@@ -585,7 +622,7 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
     /// Work selection is disabled for SV1/SV2 Translator Proxy and all work selection is performed
     /// by the SV2 Upstream role.
     fn is_work_selection_enabled(&self) -> bool {
-        false
+        self.upstream_kind.is_work_selection_enabled()
     }
 
     /// The SV2 `OpenStandardMiningChannelSuccess` message is NOT handled because it is NOT used
@@ -698,18 +735,21 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, RolesLogicError> {
         debug!("Received NewExtendedMiningJob: {:?}", &m);
         info!("Is future job: {}\n", &m.future_job);
+        if self.is_work_selection_enabled() {
+            Ok(SendTo::None(None))
+        } else {
+            if !m.version_rolling_allowed {
+                warn!("VERSION ROLLING NOT ALLOWED IS A TODO");
+                // todo!()
+            }
 
-        if !m.version_rolling_allowed {
-            warn!("VERSION ROLLING NOT ALLOWED IS A TODO");
-            // todo!()
+            let message = Mining::NewExtendedMiningJob(m.into_static());
+
+            info!("Up: New Extended Mining Job");
+            debug!("Up: Handling NewExtendedMiningJob: {:?}", &message);
+
+            Ok(SendTo::None(Some(message)))
         }
-
-        let message = Mining::NewExtendedMiningJob(m.into_static());
-
-        info!("Up: New Extended Mining Job");
-        debug!("Up: Handling NewExtendedMiningJob: {:?}", &message);
-
-        Ok(SendTo::None(Some(message)))
     }
 
     /// Handles the SV2 `SetNewPrevHash` message which is used (along with the SV2
@@ -721,9 +761,12 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, RolesLogicError> {
         info!("Up: Set New Prev Hash");
         debug!("Up: Handling SetNewPrevHash: {:?}", &m);
-
-        let message = Mining::SetNewPrevHash(m.into_static());
-        Ok(SendTo::None(Some(message)))
+        if self.is_work_selection_enabled() {
+            Ok(SendTo::None(None))
+        } else {
+            let message = Mining::SetNewPrevHash(m.into_static());
+            Ok(SendTo::None(Some(message)))
+        }
     }
 
     /// Handles the SV2 `SetCustomMiningJobSuccess` message (TODO).
@@ -731,7 +774,7 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
         &mut self,
         _m: roles_logic_sv2::mining_sv2::SetCustomMiningJobSuccess,
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, RolesLogicError> {
-        unimplemented!()
+        Ok(SendTo::None(None))
     }
 
     /// Handles the SV2 `SetCustomMiningJobError` message (TODO).

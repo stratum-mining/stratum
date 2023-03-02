@@ -39,7 +39,7 @@ impl TemplateRx {
         let stream = async_std::net::TcpStream::connect(address).await.unwrap();
 
         let (mut receiver, mut sender): (Receiver<EitherFrame>, Sender<EitherFrame>) =
-            PlainConnection::new(stream,10).await;
+            PlainConnection::new(stream, 10).await;
 
         SetupConnectionHandler::setup(&mut receiver, &mut sender, address)
             .await

@@ -1,7 +1,7 @@
 use crate::proxy;
 use roles_logic_sv2::{
     bitcoin::util::uint::ParseLengthError,
-    mining_sv2::{ExtendedExtranonce, NewExtendedMiningJob,SetCustomMiningJob},
+    mining_sv2::{ExtendedExtranonce, NewExtendedMiningJob, SetCustomMiningJob},
 };
 use std::{
     fmt,
@@ -28,7 +28,9 @@ pub enum ChannelSendError<'a> {
     V1Message(async_channel::SendError<v1::Message>),
     General(String),
     Extranonce(async_channel::SendError<(ExtendedExtranonce, u32)>),
-    SetCustomMiningJob(async_channel::SendError<roles_logic_sv2::mining_sv2::SetCustomMiningJob<'a>>),
+    SetCustomMiningJob(
+        async_channel::SendError<roles_logic_sv2::mining_sv2::SetCustomMiningJob<'a>>,
+    ),
 }
 
 #[derive(Debug)]

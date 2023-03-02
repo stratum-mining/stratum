@@ -17,7 +17,7 @@ use template_receiver::TemplateRx;
 const SELF_EXTRNONCE_LEN: usize = 2;
 
 use async_channel::{bounded, unbounded};
-use futures::{select, FutureExt,join};
+use futures::{join, select, FutureExt};
 use std::{
     net::{IpAddr, SocketAddr},
     str::FromStr,

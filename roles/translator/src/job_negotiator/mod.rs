@@ -50,7 +50,7 @@ impl JobNegotiator {
         let stream = async_std::net::TcpStream::connect(address).await.unwrap();
         let initiator = Initiator::from_raw_k(authority_public_key).unwrap();
         let (mut receiver, mut sender): (Receiver<EitherFrame>, Sender<EitherFrame>) =
-            Connection::new(stream, HandshakeRole::Initiator(initiator),10).await;
+            Connection::new(stream, HandshakeRole::Initiator(initiator), 10).await;
 
         let proxy_address = SocketAddr::new(
             IpAddr::from_str(&config.downstream_address).unwrap(),
