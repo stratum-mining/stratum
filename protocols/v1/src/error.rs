@@ -1,4 +1,7 @@
-use crate::methods::{Method, MethodError};
+use crate::{
+    methods::{Method, MethodError},
+    utils::HexU32Be,
+};
 
 #[derive(Debug)]
 #[non_exhaustive]
@@ -23,10 +26,11 @@ pub enum Error<'a> {
     /// Errors encountered during conversion between valid `json_rpc` messages and SV1 messages.
     Method(MethodError<'a>),
     /// Errors if action is attempted that requires the client to be authorized, but it is
-    /// unauthorized. The client `id` is given in the error message.
+    /// unauthorized. The client username is given in the error message.
     UnauthorizedClient(String),
     /// Errors if server does not recognize the client's `id`.
-    UnknownID(String),
+    UnknownID(u64),
+    InvalidVersionMask(HexU32Be),
 }
 
 impl<'a> std::fmt::Display for Error<'a> {
@@ -69,6 +73,7 @@ impl<'a> std::fmt::Display for Error<'a> {
                 id
             ),
             Error::UnknownID(e) => write!(f, "Server did not recognize the client id: `{}`.", e),
+            Error::InvalidVersionMask(e) => write!(f, "First 3 bits of version rolling mask must be 0 and last 13 bits of version rolling mask must be 0. Version rolling mask is: `{:b}`.", e.0),
         }
     }
 }
