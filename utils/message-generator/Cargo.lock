@@ -38,12 +38,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ahash"
-version = "0.3.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e8fd72866655d1904d6b0997d0b07ba561047d070fbe29de039031c641b61217"
-
-[[package]]
 name = "async-channel"
 version = "1.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -429,16 +423,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "hashbrown"
-version = "0.7.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "96282e96bfcd3da0d3aa9938bedf1e50df3269b6db08b4876d2da0bb1a0841cf"
-dependencies = [
- "ahash",
- "autocfg",
-]
-
-[[package]]
 name = "hermit-abi"
 version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -563,7 +547,6 @@ dependencies = [
  "buffer_sv2",
  "bytes",
  "const_sv2",
- "curve25519-dalek 4.0.0-rc.0",
  "ed25519-dalek",
  "rand",
  "serde",
@@ -758,7 +741,6 @@ dependencies = [
  "mining_sv2",
  "serde",
  "template_distribution_sv2",
- "toml",
  "tracing",
 ]
 
@@ -992,15 +974,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
-]
-
-[[package]]
-name = "toml"
-version = "0.5.6"
-source = "git+https://github.com/diondokter/toml-rs?rev=c4161aa#c4161aa70202b3992dbec79b76e7a8659713b604"
-dependencies = [
- "hashbrown",
- "serde",
 ]
 
 [[package]]

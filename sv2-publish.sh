@@ -9,7 +9,7 @@
 # *** For updating versions without publishing the following flags should be passed as arguments:
 # `-e -u --no-publish --no-push --no-changelog`
 
-cargo smart-release \
+output=$(cargo smart-release \
     sv1_api \
     binary_sv2 \
     binary_codec_sv2 \
@@ -31,4 +31,10 @@ cargo smart-release \
     translator_sv2 \
     pool_sv2 \
     mining_proxy_sv2 \
-    $@
+    $@)
+
+if echo "$output" | grep -q "Error: There is no crate eligible for publishing"; then
+    echo "No crate eligible for publishing. Exiting with success code."
+    exit 0
+fi
+echo "$output"

@@ -84,6 +84,8 @@ pub enum Error {
     UnInitializedDecoder,
     #[cfg(not(feature = "no_std"))]
     IoError(E),
+    #[cfg(feature = "no_std")]
+    IoError,
     ReadError(usize, usize),
     VoidFieldMarker,
     /// Error when `Inner` type value exceeds max size.
@@ -128,6 +130,8 @@ pub enum CError {
     DecodableConversionError,
     UnInitializedDecoder,
     #[cfg(not(feature = "no_std"))]
+    IoError(E),
+    #[cfg(feature = "no_std")]
     IoError,
     ReadError(usize, usize),
     VoidFieldMarker,
@@ -159,7 +163,10 @@ impl From<Error> for CError {
             Error::PrimitiveConversionError => CError::PrimitiveConversionError,
             Error::DecodableConversionError => CError::DecodableConversionError,
             Error::UnInitializedDecoder => CError::UnInitializedDecoder,
-            Error::IoError(_) => CError::IoError,
+            #[cfg(not(feature = "no_std"))]
+            Error::IoError(e) => CError::IoError(e),
+            #[cfg(feature = "no_std")]
+            Error::IoError => CError::IoError,
             Error::ReadError(u1, u2) => CError::ReadError(u1, u2),
             Error::VoidFieldMarker => CError::VoidFieldMarker,
             Error::ValueExceedsMaxSize(isfixed, size, headersize, maxsize, bad_value, bad_len) => {
@@ -193,6 +200,9 @@ impl Drop for CError {
             Self::PrimitiveConversionError => (),
             Self::DecodableConversionError => (),
             Self::UnInitializedDecoder => (),
+            #[cfg(not(feature = "no_std"))]
+            Self::IoError(_) => (),
+            #[cfg(feature = "no_std")]
             Self::IoError => (),
             Self::ReadError(_, _) => (),
             Self::VoidFieldMarker => (),

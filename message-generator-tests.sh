@@ -5,5 +5,5 @@ cd $message_generator_dir
 
 for entry in `ls $search_dir`; do
     echo $entry
-    cargo run -- ../$search_dir$entry
+    cargo run -- ../$search_dir$entry || { echo 'mg test failed' ; exit 1; }
 done
