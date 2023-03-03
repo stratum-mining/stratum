@@ -418,7 +418,11 @@ impl Bridge {
                         info!("SHARE MEETS TARGET");
                         send_upstream = true;
                     }
-                    Ok(Ok(OnNewShare::ShareMeetBitcoinTarget((share, template_id, coinbase)))) => {
+                    Ok(Ok(OnNewShare::ShareMeetBitcoinTarget((
+                        share,
+                        Some(template_id),
+                        coinbase,
+                    )))) => {
                         match share {
                             Share::Extended(s) => {
                                 let solution_sender = self_
@@ -439,6 +443,10 @@ impl Bridge {
                             _ => unreachable!(),
                         }
                     }
+                    // When we have a ShareMeetBitcoinTarget it means that the proxy know the bitcoin
+                    // target that means that the proxy must have JN capabilities that means that the
+                    // second tuple elements can not be None but must be Some(template_id)
+                    Ok(Ok(OnNewShare::ShareMeetBitcoinTarget(..))) => unreachable!(),
                     Ok(Ok(OnNewShare::ShareMeetDownstreamTarget)) => {
                         info!("SHARE MEETS DOWNSTREAM TARGET")
                     }
