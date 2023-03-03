@@ -53,10 +53,8 @@ pub enum OnNewShare {
     RelaySubmitShareUpstream,
     /// Indicate that the share meet bitcoin target, when there is an upstream the we should send
     /// the share upstream, whenever possible we should also notify the TP about it.
-    /// When a job is set with SetCustomMiningJob the job_id and the negotiated job_id with
-    /// upstream will not match
-    //ShareMeetBitcoinTarget {share: Share, template_id: u64, coinbase: Vec<u8>, upstream_job_id: Option<u32>},
-    ShareMeetBitcoinTarget((Share, u64, Vec<u8>)),
+    /// (share, template id, coinbase)
+    ShareMeetBitcoinTarget((Share, Option<u64>, Vec<u8>)),
     /// Indicate that the share meet downstream target, in the case we could send a success
     /// response dowmstream.
     ShareMeetDownstreamTarget,
@@ -663,7 +661,7 @@ impl ChannelFactory {
         &mut self,
         m: Share,
         bitcoin_target: mining_sv2::Target,
-        template_id: u64,
+        template_id: Option<u64>,
         up_id: u32,
     ) -> Result<OnNewShare, Error> {
         let upstream_target = match &self.kind {
@@ -937,7 +935,7 @@ impl PoolChannelFactory {
                     .ok_or(Error::NoTemplateForId)?;
                 let target = self.job_creator.last_target();
                 self.inner
-                    .check_target(Share::Standard((m, *g_id)), target, template_id, 0)
+                    .check_target(Share::Standard((m, *g_id)), target, Some(template_id), 0)
             }
             None => {
                 let err = SubmitSharesError {
@@ -958,16 +956,25 @@ impl PoolChannelFactory {
         m: SubmitSharesExtended,
     ) -> Result<OnNewShare, Error> {
         let target = self.job_creator.last_target();
+        // When downstream set a custom mining job we add the the job to the negotiated job
+        // hashmap, with the extended channel id as a key. Whenever the pool receive a share must
+        // first check if the channel have a negotiated job if so we can not retreive the template
+        // via the job creator (TODO MVP3 add a way to get the template for negotiated job create a
+        // block from the template and send to bitcoind via RPC).
         if self.negotiated_jobs.contains_key(&m.channel_id) {
             self.inner
-                .check_target(Share::Extended(m.into_static()), target, 0, 0)
+                .check_target(Share::Extended(m.into_static()), target, None, 0)
         } else {
             let template_id = self
                 .job_creator
                 .get_template_id_from_job(self.inner.last_valid_job.as_ref().unwrap().0.job_id)
                 .ok_or(Error::NoTemplateForId)?;
-            self.inner
-                .check_target(Share::Extended(m.into_static()), target, template_id, 0)
+            self.inner.check_target(
+                Share::Extended(m.into_static()),
+                target,
+                Some(template_id),
+                0,
+            )
         }
     }
 
@@ -1211,7 +1218,7 @@ impl ProxyExtendedChannelFactory {
             self.inner.check_target(
                 Share::Extended(m),
                 bitcoin_target,
-                template_id,
+                Some(template_id),
                 self.extended_channel_id,
             )
         } else {
@@ -1221,7 +1228,7 @@ impl ProxyExtendedChannelFactory {
             self.inner.check_target(
                 Share::Extended(m),
                 bitcoin_target.into(),
-                0,
+                None,
                 self.extended_channel_id,
             )
         }
@@ -1243,7 +1250,7 @@ impl ProxyExtendedChannelFactory {
                     self.inner.check_target(
                         Share::Standard((m, *g_id)),
                         bitcoin_target,
-                        template_id,
+                        Some(template_id),
                         self.extended_channel_id,
                     )
                 } else {
@@ -1253,7 +1260,7 @@ impl ProxyExtendedChannelFactory {
                     self.inner.check_target(
                         Share::Standard((m, *g_id)),
                         bitcoin_target.into(),
-                        0,
+                        None,
                         self.extended_channel_id,
                     )
                 }
