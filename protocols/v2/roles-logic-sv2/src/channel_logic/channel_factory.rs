@@ -53,6 +53,8 @@ pub enum OnNewShare {
     RelaySubmitShareUpstream,
     /// Indicate that the share meet bitcoin target, when there is an upstream the we should send
     /// the share upstream, whenever possible we should also notify the TP about it.
+    /// When a pool negotiate a job with downstream we do not have the template_id so we set it to
+    /// None
     /// (share, template id, coinbase)
     ShareMeetBitcoinTarget((Share, Option<u64>, Vec<u8>)),
     /// Indicate that the share meet downstream target, in the case we could send a success
@@ -655,8 +657,7 @@ impl ChannelFactory {
     }
 
     // If there is job creator  bitocin_target is retreived from there if not is set to 0
-    // If there is a job creator we pass the correct template id if not we pass 0 cause it wont be
-    // used
+    // If there is a job creator we pass the correct template id if not we pass None
     fn check_target(
         &mut self,
         m: Share,

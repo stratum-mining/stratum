@@ -15,7 +15,7 @@ use std::{
 async fn connect(address: SocketAddr, handicap: u32) {
     let stream = TcpStream::connect(address).await.unwrap();
     let (receiver, sender): (Receiver<EitherFrame>, Sender<EitherFrame>) =
-        PlainConnection::new(stream, 1).await;
+        PlainConnection::new(stream, 10).await;
     Device::start(receiver, sender, address, handicap).await
 }
 
@@ -26,7 +26,7 @@ async fn main() {
     //task::spawn(async move { connect(socket, 11070).await });
     //task::spawn(async move { connect(socket, 7040).await });
     println!("start");
-    connect(socket, 50).await
+    connect(socket, 5000).await
 }
 
 use async_channel::{Receiver, Sender};
