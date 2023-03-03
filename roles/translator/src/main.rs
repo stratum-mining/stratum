@@ -159,11 +159,7 @@ async fn main() {
     match proxy_config.jn_config.clone() {
         None => (),
         Some(jn_config) => {
-            // channel to send coinbase_output_max_additional_size
             let (send_comas, recv_comas) = bounded(10);
-
-            //channels for the upstream
-
             let mut parts = jn_config.tp_address.split(':');
             let ip_tp = parts.next().unwrap().to_string();
             let port_tp = parts.next().unwrap().parse::<u16>().unwrap();

@@ -177,7 +177,7 @@ impl Bridge {
     ) {
         task::spawn(async move {
             while let Ok((outs, _id)) = recv.recv().await {
-                // TODO assuming that only one coinbase is negotiated with the pool not handling
+                // TODO MVP3 assuming that only one coinbase is negotiated with the pool not handling
                 // different tokens, in order to do that we can use the out hashmap:
                 // self.tx_outs.insert(id, outs)
                 self_mutex
