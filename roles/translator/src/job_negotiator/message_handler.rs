@@ -19,8 +19,6 @@ impl ParseServerJobNegotiationMessages for JobNegotiator {
             value: self.coinbase_reward_sat,
             script_pubkey: message.coinbase_tx_suffix.to_vec().try_into().unwrap(),
         };
-        // TODO this should be a message of the JN protocol so the JN can communicate to the proxy
-        // the coinbase out when they are not part of the same program
         self.last_coinbase_out = Some(vec![txout]);
         Ok(SendTo::None(Some(JobNegotiation::SetCoinbase(
             message.into_static(),
