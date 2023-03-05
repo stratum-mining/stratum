@@ -178,7 +178,9 @@ message will be the abbreviated with `setup_connection_success_template_distribu
    same time as a client and as a server for example when we are mocking a proxy.
 2. `messages_ids`: an array of strings, that are ids of messages previously defined.
 3. `results`: is an array of objects, used by the message generator to test if certain property of
-   the received frames are true or not.
+   the received frames are true or not.  Accepts values:
+    - "type": String - match option - match_message_type, match_message_field, match_message_len, or match_extension_type
+    - "value": Array - varries depending on "type"
 
 ```json
 {
@@ -192,8 +194,10 @@ message will be the abbreviated with `setup_connection_success_template_distribu
                     "value": [
                         "MiningProtocol",
                         "OpenStandardMiningChannelSuccess",
-                        "request_id",
-                        {"U32": 89}
+                        [
+                            "request_id",
+                            {"U32": 89}
+                        ]
                     ]
                 }
             ] 

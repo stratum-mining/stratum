@@ -277,7 +277,7 @@ pub trait IsClient<'a> {
                     (None, false) => Ok(methods::Server2ClientResponse::Submit(
                         general.clone().into_submit(),
                     )),
-                    _ => Err(Error::UnknownID(general.id.clone())),
+                    _ => Err(Error::UnknownID(general.id)),
                 }
             }
             _ => Ok(response),
@@ -357,10 +357,10 @@ pub trait IsClient<'a> {
 
     /// Check if the client sent an Authorize request with the given id, if so it return the
     /// authorized name
-    fn id_is_authorize(&mut self, id: &str) -> Option<String>;
+    fn id_is_authorize(&mut self, id: &u64) -> Option<String>;
 
     /// Check if the client sent a Submit request with the given id
-    fn id_is_submit(&mut self, id: &str) -> bool;
+    fn id_is_submit(&mut self, id: &u64) -> bool;
 
     fn handle_notify(&mut self, notify: server_to_client::Notify<'a>) -> Result<(), Error<'a>>;
 
@@ -402,7 +402,7 @@ pub trait IsClient<'a> {
     /// Register the given user_name has authorized by the server
     fn authorize_user_name(&mut self, name: String);
 
-    fn configure(&mut self, id: String) -> json_rpc::Message {
+    fn configure(&mut self, id: u64) -> json_rpc::Message {
         client_to_server::Configure::new(
             id,
             self.version_rolling_mask(),
@@ -413,7 +413,7 @@ pub trait IsClient<'a> {
 
     fn subscribe(
         &mut self,
-        id: String,
+        id: u64,
         extranonce1: Option<Extranonce<'a>>,
     ) -> Result<json_rpc::Message, Error<'a>> {
         match self.status() {
@@ -429,7 +429,7 @@ pub trait IsClient<'a> {
 
     fn authorize(
         &mut self,
-        id: String,
+        id: u64,
         name: String,
         password: String,
     ) -> Result<json_rpc::Message, Error> {
@@ -441,7 +441,7 @@ pub trait IsClient<'a> {
 
     fn submit(
         &mut self,
-        id: String,
+        id: u64,
         user_name: String,
         extra_nonce2: Extranonce<'a>,
         time: i64,
@@ -453,7 +453,7 @@ pub trait IsClient<'a> {
             _ => {
                 if let Some(notify) = self.last_notify() {
                     if !self.is_authorized(&user_name) {
-                        return Err(Error::UnauthorizedClient(id));
+                        return Err(Error::UnauthorizedClient(user_name));
                     }
                     Ok(client_to_server::Submit {
                         job_id: notify.job_id,

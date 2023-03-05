@@ -83,8 +83,16 @@
                     "value": [
                         "MiningProtocol",
                         "OpenStandardMiningChannelSuccess",
-                        "request_id",
-                        {"U32": 89}
+                        [
+                            [   
+                                "request_id",
+                                {"U32": 89}
+                            ],
+                            [   
+                                "extranonce_prefix",
+                                {"B032": [[32], [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1]]}
+                            ]
+                        ]
                     ]
                 },
                 {
@@ -109,7 +117,7 @@
                         "pool",
                         "--",
                         "-c",
-                        "./roles/v2/pool/pool-config.toml"
+                        "./test/config/pool-config-sri-tp.toml"
             ],
             "conditions": {
                 "WithConditions": {
