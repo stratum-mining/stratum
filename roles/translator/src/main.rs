@@ -185,6 +185,7 @@ async fn main() {
                     send_ph,
                     recv_comas,
                     recv_solution,
+                    status::Sender::TemplateReceiver(tx_status.clone()),
                 ),
             );
         }
