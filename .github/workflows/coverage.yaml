@@ -40,7 +40,7 @@ jobs:
       - name: Archive Tarpaulin code coverage results
         uses: actions/upload-artifact@v3
         with:
-          name: tarpaulin-coverage-report
+          name: coverage-report
           path: cobertura.xml
 
   message-generator-test:
@@ -68,14 +68,20 @@ jobs:
       - name: Run mg codecov tests
         run: sh ./mg-codecov-tests.sh
 
-      - name: Open file
-        run: head -n 20 target/cobertura.xml | cat
+      - name: Archive MG code coverage results
+        uses: actions/upload-artifact@v3
+        with:
+          name: coverage-report
+          path: 'target/mg-standard.xml'
+
+      - name: Run message generator tests
+        run: sh ./message-generator-tests.sh
 
       - name: Archive MG code coverage results
         uses: actions/upload-artifact@v3
         with:
-          name: mg-coverage-report
-          path: target/cobertura.xml
+          name: coverage-report
+          path: 'target/*.xml'
 
   codecov:
     needs: message-generator-test
@@ -86,13 +92,17 @@ jobs:
     steps:
 
       - name: Checkout repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Download all workflow run artifacts
         uses: actions/download-artifact@v3
 
+      - name: Display structure of downloaded files
+        run: ls -R
+
       - name: Upload to codecov.io
-        uses: codecov/codecov-action@v2
+        uses: codecov/codecov-action@v3
         with:
-          files: ./tarpaulin-coverage-report/cobertura.xml,./mg-coverage-report/cobertura.xml
+          files: coverage-report/*.xml
           fail_ci_if_error: true
+          token: ${{ secrets.CODECOV_TOKEN }}
