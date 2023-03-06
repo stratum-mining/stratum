@@ -16,10 +16,16 @@
     ],
     "setup_commands": [
         {
-            "command": "bash",
+            "command": "cargo",
             "args": [
+                        "llvm-cov",
+                        "--no-report",
+                        "run",
+                        "-p",
+                        "pool_sv2",
+                        "--",
                         "-c",
-                        "cargo llvm-cov --no-report run -p pool_sv2 -- -c ./test/config/pool-config-sri-tp.toml | tee target/1-SAMPLE-POOL-RUN-1.log"
+                        "./test/config/pool-config-sri-tp.toml"
             ],
             "conditions": {
                 "WithConditions": {
@@ -36,10 +42,16 @@
             }
         },
         {
-            "command": "bash",
+            "command": "cargo",
             "args": [
+                        "llvm-cov",
+                        "--no-report",
+                        "run",
+                        "-p",
+                        "pool_sv2",
+                        "--",
                         "-c",
-                        "cargo llvm-cov --no-report run -p pool_sv2 -- -c ./test/config/pool-config-sri-tp-different-port.toml | tee target/1-SAMPLE-POOL-RUN-2.log"
+                        "./test/config/pool-config-sri-tp-different-port.toml"
             ],
             "conditions": {
                 "WithConditions": {
@@ -56,10 +68,21 @@
             }
         },
         {
-            "command": "bash",
+            "command": "sleep",
+            "args": ["1000"],
+            "conditions": "None"
+        },
+        {
+            "command": "cargo",
             "args": [
+                        "llvm-cov",
+                        "--no-report",
+                        "run",
+                        "-p",
+                        "mining_proxy_sv2",
+                        "--",
                         "-c",
-                        "RUST_BACKTRACE=1 cargo llvm-cov --no-report run -p mining_proxy_sv2 -- -c ./test/config/proxy-config-test-multiple-upstreams-extended-jn.toml | tee target/1-SAMPLE-PROXY.log"
+                        "./test/config/proxy-config-test-multiple-upstreams-extended-jn.toml"
             ],
             "conditions": {
                 "WithConditions": {
@@ -76,10 +99,11 @@
             }
         },
         {   
-            "command": "bash",
+            "command": "cargo",
             "args": [
-                        "-c",
-                        "cargo run -p mining-device | tee target/1-SAMPLE-MINER-RUN-1.log"
+                        "run",
+                        "-p",
+                        "mining-device"
             ],
             "conditions": {
                 "WithConditions": {
@@ -106,10 +130,11 @@
             "conditions": "None"
         },
         {
-            "command": "bash",
+            "command": "cargo",
             "args": [
-                        "-c",
-                        "cargo run -p mining-device | tee target/1-SAMPLE-MINER-RUN-2.log"
+                        "run",
+                        "-p",
+                        "mining-device"
             ],
             "conditions": {
                 "WithConditions": {
@@ -162,7 +187,7 @@
                     "utils/|experimental/|protocols/",
                     "--cobertura",
                     "--output-path",
-                    "target/pool-sri-test-extended_jn.xml",
+                    "target/interop-proxy-with-multi-ups-extended_jn.xml",
                     "report"
             ],
             "conditions": {

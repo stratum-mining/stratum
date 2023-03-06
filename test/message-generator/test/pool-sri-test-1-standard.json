@@ -134,10 +134,16 @@
             }
         },
         {
-            "command": "bash",
+            "command": "cargo",
             "args": [
+                        "llvm-cov",
+                        "--no-report",
+                        "run",
+                        "-p",
+                        "pool_sv2",
+                        "--",
                         "-c",
-                        "RUST_BACKTRACE=1 cargo llvm-cov --no-report run -p pool_sv2 -- -c ./test/config/pool-mock-tp.toml | tee target/5-SAMPLE-POOL-RUN-1.log"
+                        "./test/config/pool-mock-tp.toml"
             ],
             "conditions": {
                 "WithConditions": {

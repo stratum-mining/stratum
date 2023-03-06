@@ -470,7 +470,10 @@ impl UpstreamMiningNode {
                     Err(crate::lib::error::Error::UpstreamNotAvailabe(address))
                 }
             },
-            None => todo!(),
+            None => {
+                println!("No connection was found.");
+                todo!()
+            }
         }
     }
 
@@ -515,7 +518,7 @@ impl UpstreamMiningNode {
                     .unwrap();
                 Self::send(self_mutex.clone(), frame)
                     .await
-                    .map_err(|_| ())?;
+                    .map_err(|e| (error!("Failed to send {:?}", e)))?;
 
                 let cloned = self_mutex.clone();
                 let mut response = task::spawn(async { Self::receive(cloned).await })
