@@ -27,11 +27,6 @@ use roles_logic_sv2::{
 };
 use tracing::{debug, error, info};
 
-use std::sync::atomic::AtomicBool;
-/// USED to make sure that if a future new_temnplate and a set_new_prev_hash are received together
-/// the future new_temnplate is always handled before the set new prev hash.
-pub static IS_NEW_TEMPLATE_HANDLED: AtomicBool = AtomicBool::new(true);
-
 /// Bridge between the SV2 `Upstream` and SV1 `Downstream` responsible for the following messaging
 /// translation:
 /// 1. SV1 `mining.submit` -> SV2 `SubmitSharesExtended`
@@ -206,16 +201,16 @@ impl Bridge {
                 tokio::task::yield_now().await;
             }
             debug!("Bridge received first prev hash and first pool outputs");
+            let tx_status = self_mutex.safe_lock(|s| s.tx_status.clone()).unwrap();
             loop {
                 let (mut message_new_template, token): (NewTemplate, u64) =
-                    new_template_reciver.recv().await.unwrap();
-                let (channel_id_to_new_job_msg, custom_job) = self_mutex
-                    .safe_lock(|a| {
-                        a.channel_factory.on_new_template(&mut message_new_template)
-                        // This is not efficient, to be changed if needed
-                    })
-                    .unwrap()
-                    .unwrap();
+                    handle_result!(tx_status.clone(), new_template_reciver.recv().await);
+                let partial = self_mutex
+                    .safe_lock(|a| a.channel_factory.on_new_template(&mut message_new_template))
+                    .map_err(|_| PoisonLock);
+                let partial = handle_result!(tx_status.clone(), partial);
+                let (channel_id_to_new_job_msg, custom_job) =
+                    handle_result!(tx_status.clone(), partial);
                 if let Some(custom_job) = custom_job {
                     let req_id = self_mutex.safe_lock(|s| s.request_ids.next()).unwrap();
                     let custom_mining_job = SetCustomMiningJob {
@@ -238,8 +233,10 @@ impl Bridge {
                         future_job: message_new_template.future_template,
                         token,
                     };
-                    let tx_status = self_mutex.safe_lock(|s| s.tx_status.clone()).unwrap();
-                    handle_result!(tx_status, send_mining_job.send(custom_mining_job).await);
+                    handle_result!(
+                        tx_status.clone(),
+                        send_mining_job.send(custom_mining_job).await
+                    );
                 }
 
                 let (tx_sv1_notify, tx_status) = self_mutex
@@ -258,7 +255,8 @@ impl Bridge {
                         )
                     }
                 }
-                IS_NEW_TEMPLATE_HANDLED.store(true, std::sync::atomic::Ordering::SeqCst);
+                crate::upstream_sv2::upstream::IS_NEW_TEMPLATE_HANDLED
+                    .store(true, std::sync::atomic::Ordering::SeqCst);
             }
         });
     }

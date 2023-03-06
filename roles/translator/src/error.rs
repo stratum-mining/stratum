@@ -31,6 +31,12 @@ pub enum ChannelSendError<'a> {
     SetCustomMiningJob(
         async_channel::SendError<roles_logic_sv2::mining_sv2::SetCustomMiningJob<'a>>,
     ),
+    NewTemplate(
+        async_channel::SendError<(
+            roles_logic_sv2::template_distribution_sv2::SetNewPrevHash<'a>,
+            u64,
+        )>,
+    ),
 }
 
 #[derive(Debug)]
@@ -230,6 +236,24 @@ impl<'a> From<async_channel::SendError<NewExtendedMiningJob<'a>>> for Error<'a> 
 impl<'a> From<async_channel::SendError<SetCustomMiningJob<'a>>> for Error<'a> {
     fn from(e: async_channel::SendError<SetCustomMiningJob<'a>>) -> Self {
         Error::ChannelErrorSender(ChannelSendError::SetCustomMiningJob(e))
+    }
+}
+
+impl<'a>
+    From<
+        async_channel::SendError<(
+            roles_logic_sv2::template_distribution_sv2::SetNewPrevHash<'a>,
+            u64,
+        )>,
+    > for Error<'a>
+{
+    fn from(
+        e: async_channel::SendError<(
+            roles_logic_sv2::template_distribution_sv2::SetNewPrevHash<'a>,
+            u64,
+        )>,
+    ) -> Self {
+        Error::ChannelErrorSender(ChannelSendError::NewTemplate(e))
     }
 }
 
