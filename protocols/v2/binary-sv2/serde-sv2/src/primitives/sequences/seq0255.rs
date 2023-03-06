@@ -266,12 +266,12 @@ impl<'a> From<Seq0255<'a, u32>> for Vec<u32> {
         } else {
             let data = v.seq.unwrap().data;
             if data.len() % 4 != 0 {
-                panic!("{:?}",data);
+                panic!("{:?}", data);
             };
             let mut res = vec![];
             for v in data.chunks_exact(4) {
-                res.push(u32::from_le_bytes([v[0],v[1],v[2],v[3]]));
-            };
+                res.push(u32::from_le_bytes([v[0], v[1], v[2], v[3]]));
+            }
             res
         }
     }
