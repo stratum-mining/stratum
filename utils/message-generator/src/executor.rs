@@ -25,7 +25,19 @@ impl Executor {
             if command.command == "kill" {
                 let index: usize = command.args[0].parse().unwrap();
                 let p = process[index].as_mut();
+                let mut pid = p.as_ref().unwrap().id();
+                // Kill process
                 p.unwrap().kill().await;
+                // Wait until the process is killed to move on
+                while let Some(i) = pid {
+                    let p = process[index].as_mut();
+                    pid = p.as_ref().unwrap().id();
+                    println!("Child still alive (kill command) @{:?}", pid);
+                    p.unwrap().kill().await;
+                    tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
+                }
+                let p = process[index].as_mut();
+                println!("Child killed (kill command) @{:?}", &p.as_ref().unwrap().id());
             } else if command.command == "sleep" {
                 let ms: u64 = command.args[0].parse().unwrap();
                 tokio::time::sleep(std::time::Duration::from_millis(ms)).await;

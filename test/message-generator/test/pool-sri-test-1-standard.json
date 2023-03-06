@@ -113,35 +113,31 @@
       }
     ],
     "setup_commands": [
-       {
-           "command": "cargo",
-           "args": [
-                       "run",
-                       "../../../test/message-generator/mock/template-provider-mock0.json"
-           ],
-           "conditions": {
-               "WithConditions": {
-                   "conditions": [
-                       {
-                           "output_string": "Running `target/debug/message_generator_sv2 ../../../test/message-generator/mock/template-provider-mock0.json`",
-                           "output_location": "StdErr",
-                           "condition": true
-                       }
-                   ],
-                   "timer_secs": 240,
-                   "warn_no_panic": false
-               }
-           }
-       },
-       {
+        {
             "command": "cargo",
             "args": [
                         "run",
-                        "-p",
-                        "pool_sv2",
-                        "--",
+                        "../../../test/message-generator/mock/template-provider-mock0.json"
+            ],
+            "conditions": {
+                "WithConditions": {
+                    "conditions": [
+                        {
+                            "output_string": "Running `target/debug/message_generator_sv2 ../../../test/message-generator/mock/template-provider-mock0.json`",
+                            "output_location": "StdErr",
+                            "condition": true
+                        }
+                    ],
+                    "timer_secs": 240,
+                    "warn_no_panic": false
+                }
+            }
+        },
+        {
+            "command": "bash",
+            "args": [
                         "-c",
-                        "./test/config/pool-mock-tp.toml"
+                        "RUST_BACKTRACE=1 cargo llvm-cov --no-report run -p pool_sv2 -- -c ./test/config/pool-mock-tp.toml | tee target/5-SAMPLE-POOL-RUN-1.log"
             ],
             "conditions": {
                 "WithConditions": {
@@ -157,30 +153,60 @@
                 }
             }
         },
-       {
-           "command": "cargo",
-           "args": [
-                       "run",
-                       "../../../test/message-generator/mock/job-negotiator-mock.json"
-           ],
-           "conditions": {
-               "WithConditions": {
-                   "conditions": [
-                       {
-                           "output_string": "Running `target/debug/message_generator_sv2 ../../../test/message-generator/mock/job-negotiator-mock.json`",
-                           "output_location": "StdErr",
-                           "condition": true
-                       }
-                   ],
-                   "timer_secs": 240,
-                   "warn_no_panic": false
-               }
-           }
-       }
+        {
+            "command": "cargo",
+            "args": [
+                        "run",
+                        "../../../test/message-generator/mock/job-negotiator-mock.json"
+            ],
+            "conditions": {
+                "WithConditions": {
+                    "conditions": [
+                        {
+                            "output_string": "Running `target/debug/message_generator_sv2 ../../../test/message-generator/mock/job-negotiator-mock.json`",
+                            "output_location": "StdErr",
+                            "condition": true
+                        }
+                    ],
+                    "timer_secs": 240,
+                    "warn_no_panic": false
+                }
+            }
+        }
     ],
     "execution_commands": [
     ],
     "cleanup_commands": [
+        {
+            "command": "pkill",
+            "args":  ["-f", "pool_sv2", "-SIGINT"],
+            "conditions": "None"
+        },
+        {
+            "command": "cargo",
+            "args": [
+                    "llvm-cov",
+                    "--ignore-filename-regex",
+                    "utils/|experimental/|protocols/",
+                    "--cobertura",
+                    "--output-path",
+                    "target/pool-sri-test-1-standard.xml",
+                    "report"
+            ],
+            "conditions": {
+                "WithConditions": {
+                    "conditions": [
+                        {
+                            "output_string": "Finished report saved to ",
+                            "output_location": "StdErr",
+                            "condition": true
+                        }
+                    ],
+                    "timer_secs": 240,
+                    "warn_no_panic": false
+                }
+            }
+        }
     ],
     "role": "client",
     "downstream": {
