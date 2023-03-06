@@ -217,7 +217,7 @@ impl Ord for Target {
 /// Extranonce bytes which need to be added to the coinbase to form a fully valid submission:
 /// (full coinbase = coinbase_tx_prefix + extranonce + coinbase_tx_suffix).
 /// Representation is in big endian, so tail is for the digits relative to smaller powers
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Extranonce {
     extranonce: alloc::vec::Vec<u8>,
 }
@@ -515,6 +515,10 @@ impl ExtendedExtranonce {
         self.range_2.end - self.range_2.start
     }
 
+    pub fn get_range0_len(&self) -> usize {
+        self.range_0.end - self.range_0.start
+    }
+
     pub fn get_prefix_len(&self) -> usize {
         self.range_1.end - self.range_0.start
     }
@@ -531,6 +535,11 @@ impl ExtendedExtranonce {
         range_1: Range<usize>,
         range_2: Range<usize>,
     ) -> Option<Self> {
+        debug_assert!(range_0.start <= range_0.end);
+        debug_assert!(range_0.end <= range_1.start);
+        debug_assert!(range_1.start <= range_1.end);
+        debug_assert!(range_1.end <= range_2.start);
+        debug_assert!(range_2.start <= range_2.end);
         if range_2.end > MAX_EXTRANONCE_LEN {
             return None;
         }

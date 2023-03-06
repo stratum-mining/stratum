@@ -225,10 +225,13 @@ impl<'a> IsServer<'a> for Server<'a> {
             .clone()
             .map_or(Some(new_version_rolling_min()), Some);
         (
-            Some(server_to_client::VersionRollingParams::new(
-                self.version_rolling_mask.clone().unwrap(),
-                self.version_rolling_min_bit.clone().unwrap(),
-            )),
+            Some(
+                server_to_client::VersionRollingParams::new(
+                    self.version_rolling_mask.clone().unwrap(),
+                    self.version_rolling_min_bit.clone().unwrap(),
+                )
+                .unwrap(),
+            ),
             Some(false),
         )
     }
@@ -313,7 +316,7 @@ struct Client<'a> {
     version_rolling_min_bit: Option<HexU32Be>,
     status: ClientStatus,
     last_notify: Option<server_to_client::Notify<'a>>,
-    sented_authorize_request: Vec<(String, String)>, // (id, user_name)
+    sented_authorize_request: Vec<(u64, String)>, // (id, user_name)
     authorized: Vec<String>,
     receiver_incoming: Receiver<String>,
     sender_outgoing: Sender<String>,
@@ -417,8 +420,7 @@ impl<'a> Client<'static> {
         let id = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
             .unwrap()
-            .as_nanos()
-            .to_string();
+            .as_secs();
         let subscribe = self.subscribe(id, None).unwrap();
         Self::send_message(&self.sender_outgoing, subscribe).await;
     }
@@ -437,9 +439,8 @@ impl<'a> Client<'static> {
         let id = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
             .unwrap()
-            .as_nanos()
-            .to_string();
-        if let Ok(authorize) = self.authorize(id.clone(), "user".to_string(), "user".to_string()) {
+            .as_secs();
+        if let Ok(authorize) = self.authorize(id, "user".to_string(), "user".to_string()) {
             Self::send_message(&self.sender_outgoing, authorize).await;
         }
     }
@@ -448,8 +449,7 @@ impl<'a> Client<'static> {
         let id = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
             .unwrap()
-            .as_nanos()
-            .to_string();
+            .as_secs();
         let extranonce2 = extranonce_from_hex("00");
         let nonce = 78;
         let version_bits = None;
@@ -470,8 +470,7 @@ impl<'a> Client<'static> {
         let id = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
             .unwrap()
-            .as_nanos()
-            .to_string();
+            .as_secs();
         let configure = self.configure(id);
         Self::send_message(&self.sender_outgoing, configure).await;
     }
@@ -538,11 +537,11 @@ impl<'a> IsClient<'a> for Client<'a> {
         self.version_rolling_min_bit.clone()
     }
 
-    fn id_is_authorize(&mut self, id: &str) -> Option<String> {
-        let req: Vec<&(String, String)> = self
+    fn id_is_authorize(&mut self, id: &u64) -> Option<String> {
+        let req: Vec<&(u64, String)> = self
             .sented_authorize_request
             .iter()
-            .filter(|x| x.0 == id)
+            .filter(|x| x.0 == *id)
             .collect();
         match req.len() {
             0 => None,
@@ -550,7 +549,7 @@ impl<'a> IsClient<'a> for Client<'a> {
         }
     }
 
-    fn id_is_submit(&mut self, _: &str) -> bool {
+    fn id_is_submit(&mut self, _: &u64) -> bool {
         false
     }
 
@@ -564,15 +563,14 @@ impl<'a> IsClient<'a> for Client<'a> {
 
     fn authorize(
         &mut self,
-        id: String,
+        id: u64,
         name: String,
         password: String,
     ) -> Result<json_rpc::Message, Error> {
         match self.status() {
             ClientStatus::Init => Err(Error::IncorrectClientStatus("mining.authorize".to_string())),
             _ => {
-                self.sented_authorize_request
-                    .push((id.clone(), "user".to_string()));
+                self.sented_authorize_request.push((id, "user".to_string()));
                 Ok(client_to_server::Authorize { id, name, password }.into())
             }
         }

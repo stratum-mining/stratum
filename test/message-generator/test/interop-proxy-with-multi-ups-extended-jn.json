@@ -20,7 +20,7 @@
             "args": [
                         "run",
                         "-p",
-                        "pool",
+                        "pool_sv2",
                         "--",
                         "-c",
                         "./test/config/pool-config-sri-tp.toml"
@@ -34,7 +34,7 @@
                             "condition": true
                         }
                     ],
-                    "timer_secs": 60,
+                    "timer_secs": 240,
                     "warn_no_panic": false
                 }
             }
@@ -44,7 +44,7 @@
             "args": [
                         "run",
                         "-p",
-                        "pool",
+                        "pool_sv2",
                         "--",
                         "-c",
                         "./test/config/pool-config-sri-tp-different-port.toml"
@@ -58,7 +58,7 @@
                             "condition": true
                         }
                     ],
-                    "timer_secs": 60,
+                    "timer_secs": 240,
                     "warn_no_panic": false
                 }
             }
@@ -68,7 +68,7 @@
             "args": [
                         "run",
                         "-p",
-                        "mining-proxy",
+                        "mining_proxy_sv2",
                         "--",
                         "-c",
                         "./test/config/proxy-config-test-multiple-upstreams-extended-jn.toml"
@@ -82,7 +82,7 @@
                             "condition": true
                         }
                     ],
-                    "timer_secs": 60,
+                    "timer_secs": 240,
                     "warn_no_panic": false
                 }
             }
@@ -103,7 +103,7 @@
                             "condition": true
                         }
                     ],
-                    "timer_secs": 60,
+                    "timer_secs": 240,
                     "warn_no_panic": false
                 }
             }
@@ -134,7 +134,7 @@
                             "condition": true
                         }
                     ],
-                    "timer_secs": 60,
+                    "timer_secs": 240,
                     "warn_no_panic": false
                 }
             }

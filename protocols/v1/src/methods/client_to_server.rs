@@ -1,7 +1,7 @@
 use bitcoin_hashes::hex::ToHex;
 use serde_json::{
     Value,
-    Value::{Array as JArrary, Number as JNumber, String as JString},
+    Value::{Array as JArrary, Null, Number as JNumber, String as JString},
 };
 use std::convert::{TryFrom, TryInto};
 
@@ -23,9 +23,9 @@ use quickcheck_macros;
 /// The result from an authorize request is usually true (successful), or false.
 /// The password may be omitted if the server does not require passwords.
 ///
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Authorize {
-    pub id: String,
+    pub id: u64,
     pub name: String,
     pub password: String,
 }
@@ -42,10 +42,10 @@ impl Authorize {
     }
 }
 
-impl<'a> From<Authorize> for Message {
+impl From<Authorize> for Message {
     fn from(auth: Authorize) -> Self {
         Message::StandardRequest(StandardRequest {
-            id: auth.id.parse().unwrap(),
+            id: auth.id,
             method: "mining.authorize".into(),
             params: (&[auth.name, auth.password][..]).into(),
         })
@@ -76,7 +76,7 @@ impl Arbitrary for Authorize {
         Authorize {
             name: String::arbitrary(g),
             password: String::arbitrary(g),
-            id: String::arbitrary(g),
+            id: u64::arbitrary(g),
         }
     }
 }
@@ -115,7 +115,7 @@ pub struct ExtranonceSubscribe();
 ///
 /// Server response is result: true for accepted, false for rejected (or you may get an error with
 /// more details).
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Submit<'a> {
     pub user_name: String,            // root
     pub job_id: String,               // 6
@@ -123,7 +123,7 @@ pub struct Submit<'a> {
     pub time: HexU32Be,               //string
     pub nonce: HexU32Be,
     pub version_bits: Option<HexU32Be>,
-    pub id: String,
+    pub id: u64,
 }
 
 impl<'a> Submit<'a> {
@@ -238,7 +238,7 @@ impl Arbitrary for Submit<'static> {
             time: HexU32Be(u32::arbitrary(g)),
             nonce: HexU32Be(u32::arbitrary(g)),
             version_bits: bits,
-            id: String::arbitrary(g),
+            id: u64::arbitrary(g),
         }
     }
 }
@@ -268,7 +268,7 @@ fn submit_from_to_json_rpc(submit: Submit<'static>) -> bool {
 ///
 #[derive(Debug)]
 pub struct Subscribe<'a> {
-    pub id: String,
+    pub id: u64,
     pub agent_signature: String,
     pub extranonce1: Option<Extranonce<'a>>,
 }
@@ -319,6 +319,8 @@ impl<'a> TryFrom<StandardRequest> for Subscribe<'a> {
         match msg.params.as_array() {
             Some(params) => {
                 let (agent_signature, extranonce1) = match &params[..] {
+                    // bosminer subscribe message
+                    [JString(a), Null, JString(_), Null] => (a.into(), None),
                     [JString(a), JString(b)] => {
                         (a.into(), Some(Extranonce::try_from(hex::decode(b)?)?))
                     }
@@ -342,11 +344,11 @@ impl<'a> TryFrom<StandardRequest> for Subscribe<'a> {
 #[derive(Debug)]
 pub struct Configure {
     extensions: Vec<ConfigureExtension>,
-    id: String,
+    id: u64,
 }
 
 impl Configure {
-    pub fn new(id: String, mask: Option<HexU32Be>, min_bit_count: Option<HexU32Be>) -> Self {
+    pub fn new(id: u64, mask: Option<HexU32Be>, min_bit_count: Option<HexU32Be>) -> Self {
         let extension = ConfigureExtension::VersionRolling(VersionRollingParams {
             mask,
             min_bit_count,
@@ -398,7 +400,7 @@ impl Configure {
     }
 }
 
-impl<'a> From<Configure> for Message {
+impl From<Configure> for Message {
     fn from(conf: Configure) -> Self {
         let mut params = serde_json::Map::new();
         let extension_names: Vec<Value> = conf

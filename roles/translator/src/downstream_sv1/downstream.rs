@@ -400,7 +400,7 @@ impl IsServer<'static> for Downstream {
             Some(server_to_client::VersionRollingParams::new(
                 self.version_rolling_mask.clone().unwrap(),
                 self.version_rolling_min_bit.clone().unwrap(),
-            )),
+            ).expect("Version mask invalid, automatic version mask selection not supported, please change it in carte::downstream_sv1::mod.rs")),
             Some(false),
         )
     }

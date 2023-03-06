@@ -440,7 +440,7 @@ mod test {
                 time: v1::utils::HexU32Be(1),
                 nonce: v1::utils::HexU32Be(1),
                 version_bits: None,
-                id: "test_id".to_string(),
+                id: 0,
             }
         }
     }

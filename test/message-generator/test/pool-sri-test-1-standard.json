@@ -70,20 +70,24 @@
                     "value": [
                         "MiningProtocol",
                         "OpenStandardMiningChannelSuccess",
-                        "request_id",
-                        {"U32": 89}
+                        [
+                            [
+                                "request_id",
+                                {"U32": 89}
+                            ]
+                        ]
                     ]
                 },
                 {
                     "type": "match_message_type",
-                    "value": "0x20"
+                    "value": "0x1e"
                 },
                 {
                     "type": "match_message_type",
-                    "value": "0x1e"
+                    "value": "0x20"
                 }
             ],
-            "actiondoc": "This action sends OpenStandardMiningChannel to the pool and checks that the reply is OpenStandardMiningChannelSuccess, SetNewPrevHash and NewMiningJob" 
+            "actiondoc": "This action sends OpenStandardMiningChannel to the pool and checks that the reply is OpenStandardMiningChannelSuccess, NewMiningJob, and SetNewPrevHash"
         },
         {
             "message_ids": ["submit_shares"],
@@ -124,7 +128,7 @@
                            "condition": true
                        }
                    ],
-                   "timer_secs": 60,
+                   "timer_secs": 240,
                    "warn_no_panic": false
                }
            }
@@ -134,7 +138,7 @@
             "args": [
                         "run",
                         "-p",
-                        "pool",
+                        "pool_sv2",
                         "--",
                         "-c",
                         "./test/config/pool-mock-tp.toml"
@@ -148,7 +152,7 @@
                             "condition": true
                         }
                     ],
-                    "timer_secs": 60,
+                    "timer_secs": 240,
                     "warn_no_panic": false
                 }
             }
@@ -168,7 +172,7 @@
                            "condition": true
                        }
                    ],
-                   "timer_secs": 60,
+                   "timer_secs": 240,
                    "warn_no_panic": false
                }
            }

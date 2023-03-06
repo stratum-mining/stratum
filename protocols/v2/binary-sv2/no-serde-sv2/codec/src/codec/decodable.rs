@@ -224,7 +224,9 @@ impl PrimitiveMarker {
         }
     }
 
+    #[allow(clippy::wrong_self_convention)]
     #[cfg(not(feature = "no_std"))]
+    #[allow(clippy::wrong_self_convention)]
     fn from_reader<'a>(&self, reader: &mut impl Read) -> Result<DecodablePrimitive<'a>, Error> {
         match self {
             Self::U8 => Ok(DecodablePrimitive::U8(u8::from_reader_(reader)?)),
@@ -288,7 +290,9 @@ impl FieldMarker {
         }
     }
 
+    #[allow(clippy::wrong_self_convention)]
     #[cfg(not(feature = "no_std"))]
+    #[allow(clippy::wrong_self_convention)]
     pub(crate) fn from_reader<'a>(
         &self,
         reader: &mut impl Read,

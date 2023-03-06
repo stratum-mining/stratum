@@ -5,7 +5,7 @@ use serde::{de, ser};
 
 pub type Result<T> = core::result::Result<T, Error>;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Error {
     // One or more variants that can be created by data structures through the
     // `ser::Error` and `de::Error` traits. For example the Serialize impl for

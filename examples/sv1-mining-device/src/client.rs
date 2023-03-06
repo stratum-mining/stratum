@@ -30,7 +30,7 @@ pub(crate) struct Client {
     version_rolling_mask: Option<HexU32Be>,
     version_rolling_min_bit: Option<HexU32Be>,
     pub(crate) status: ClientStatus,
-    sented_authorize_request: Vec<(String, String)>, // (id, user_name)
+    sented_authorize_request: Vec<(u64, String)>, // (id, user_name)
     authorized: Vec<String>,
     /// Receives incoming messages from the SV1 Upstream node.
     receiver_incoming: Receiver<String>,
@@ -184,7 +184,7 @@ impl Client {
                         .unwrap();
                 let version = Some(HexU32Be(version));
                 let submit = client_to_server::Submit {
-                    id: "deadbeef".into(),
+                    id: 0,
                     user_name: "user".into(), // TODO: user name should NOT be hardcoded
                     job_id: job_id.to_string(),
                     extra_nonce2,
@@ -261,8 +261,7 @@ impl Client {
         let id = time::SystemTime::now()
             .duration_since(time::SystemTime::UNIX_EPOCH)
             .unwrap()
-            .as_nanos()
-            .to_string();
+            .as_secs();
         let configure = self_.safe_lock(|s| s.configure(id)).unwrap();
         let sender = self_.safe_lock(|s| s.sender_outgoing.clone()).unwrap();
         Self::send_message(sender, configure).await;
@@ -276,11 +275,10 @@ impl Client {
         let id = time::SystemTime::now()
             .duration_since(time::SystemTime::UNIX_EPOCH)
             .unwrap()
-            .as_nanos()
-            .to_string();
+            .as_secs();
         let authorize = self_
             .safe_lock(|s| {
-                s.authorize(id.clone(), "user".to_string(), "password".to_string())
+                s.authorize(id, "user".to_string(), "password".to_string())
                     .unwrap()
             })
             .unwrap();
@@ -362,11 +360,11 @@ impl IsClient<'static> for Client {
         self.version_rolling_min_bit.clone()
     }
 
-    fn id_is_authorize(&mut self, id: &str) -> Option<String> {
-        let req: Vec<&(String, String)> = self
+    fn id_is_authorize(&mut self, id: &u64) -> Option<String> {
+        let req: Vec<&(u64, String)> = self
             .sented_authorize_request
             .iter()
-            .filter(|x| x.0 == id)
+            .filter(|x| x.0 == *id)
             .collect();
         match req.len() {
             0 => None,
@@ -374,7 +372,7 @@ impl IsClient<'static> for Client {
         }
     }
 
-    fn id_is_submit(&mut self, _: &str) -> bool {
+    fn id_is_submit(&mut self, _: &u64) -> bool {
         false
     }
 
@@ -388,15 +386,14 @@ impl IsClient<'static> for Client {
 
     fn authorize(
         &mut self,
-        id: String,
+        id: u64,
         name: String,
         password: String,
     ) -> Result<json_rpc::Message, Error> {
         match self.status() {
             ClientStatus::Init => Err(Error::IncorrectClientStatus("mining.authorize".to_string())),
             _ => {
-                self.sented_authorize_request
-                    .push((id.clone(), "user".to_string()));
+                self.sented_authorize_request.push((id, "user".to_string()));
                 Ok(client_to_server::Authorize { id, name, password }.into())
             }
         }
