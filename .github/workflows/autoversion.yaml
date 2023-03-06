@@ -18,7 +18,7 @@ jobs:
   autoversion:
     name: Autoversion
     # Dont run if the last commit is due to versioning
-    if: github.event.commits[0].author.name != 'GitHub Actions Bot'
+    if: github.event.commits[0].author.name != 'github-actions[bot]' || github.event.commits[0].author.name != 'Github Actions Bot'
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:

@@ -5,8 +5,6 @@ edition = "2018"
 description = "SV2 pool role"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/stratum-mining/stratum"
-# remove when git repo based dependencies are removed
-publish = false
 
 [dependencies]
 async-channel = "1.5.1"
