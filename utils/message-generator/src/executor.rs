@@ -8,6 +8,9 @@ use codec_sv2::{Frame, StandardEitherFrame as EitherFrame, Sv2Frame};
 use roles_logic_sv2::parsers::AnyMessage;
 use std::convert::TryInto;
 
+use std::time::Duration;
+use tokio::time::timeout;
+
 pub struct Executor {
     send_to_down: Option<Sender<EitherFrame<AnyMessage<'static>>>>,
     recv_from_down: Option<Receiver<EitherFrame<AnyMessage<'static>>>>,
@@ -103,7 +106,17 @@ impl Executor {
                     process,
                 }
             }
-            (None, None) => std::process::exit(0),
+            (None, None) =>  {
+                Self {
+                    send_to_down: None,
+                    recv_from_down: None,
+                    send_to_up: None,
+                    recv_from_up: None,
+                    actions: test.actions,
+                    cleanup_commmands: test.cleanup_commmands,
+                    process,
+                }
+            }
         }
     }
 
@@ -435,7 +448,12 @@ impl Executor {
         }
         for child in self.process {
             if let Some(mut child) = child {
-                child.start_kill().unwrap()
+                while let Some(i) = &child.id() {
+                    println!("Child still alive @{:?}", &child.id());
+                    child.kill().await;
+                    tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
+                }
+                println!("Child killed @{:?}", &child.id());
             }
         }
     }
