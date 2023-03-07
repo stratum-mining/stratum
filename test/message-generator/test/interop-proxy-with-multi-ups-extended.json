@@ -69,11 +69,6 @@
             }
         },
         {
-            "command": "sleep",
-            "args": ["1000"],
-            "conditions": "None"
-        },
-        {
             "command": "cargo",
             "args": [
                         "llvm-cov",

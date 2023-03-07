@@ -65,15 +65,6 @@ jobs:
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
 
-      # - name: Run mg codecov tests
-      #   run: sh ./mg-codecov-tests.sh
-
-      # - name: Archive MG code coverage results
-      #   uses: actions/upload-artifact@v3
-      #   with:
-      #     name: coverage-report
-      #     path: 'target/mg-coverage-standard.xml'
-
       - name: Run message generator tests
         run: sh ./message-generator-tests.sh
 
