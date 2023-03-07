@@ -114,17 +114,14 @@ impl<'decoder> NegotiationMessage<'decoder> {
 
     pub fn get_algos(&self) -> Result<Vec<EncryptionAlgorithm>, crate::Error> {
         let mut algos = vec![];
-        dbg!(self.clone().encryption_algos);
         #[cfg(not(feature = "with_serde"))]
         let algos_: Vec<u32> = self.encryption_algos.0.clone();
         #[cfg(feature = "with_serde")]
         let algos_: Vec<u32> = self.encryption_algos.clone().into();
         for algo in algos_ {
             let algo: EncryptionAlgorithm = algo.try_into()?;
-            println!("for algo in algo");
             algos.push(algo);
         }
-        println!("ok(algos)");
         Ok(algos)
     }
 }

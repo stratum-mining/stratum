@@ -1,4 +1,4 @@
-//#![no_std]
+#![no_std]
 
 extern crate alloc;
 
@@ -61,12 +61,7 @@ impl HandshakeRole {
             }
 
             Self::Responder(stepper) => {
-                dbg!("stepper: AAAA {}", &stepper);
-                if let Some(vector) = in_msg.clone() {
-                    println!("FFFFFF il vettore e' {:?}", vector);
-                }
-                let _message = dbg!(stepper.step(in_msg));
-                let message = _message?.inner();
+                let message = stepper.step(in_msg)?.inner();
                 Ok(HandShakeFrame::from_message(message.into(), 0, 0, false)
                     .ok_or(())
                     .map_err(|_| Error::CodecTodo)?)
