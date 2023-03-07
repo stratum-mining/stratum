@@ -8,7 +8,8 @@
         "Launch MD and connect to proxy",
         "Kill the pool that the proxy is using for the above MD, proxy must not panic",
         "Kill the MD, proxy must not panic",
-        "Launch MD and connect to proxy, MD must start mine with the other avaiable pool"
+        "Launch MD and connect to proxy, MD must start mine with the other avaiable pool",
+        "Generates code coverage report for the pool and mining-proxy"
     ],
     "frame_builders": [
     ],

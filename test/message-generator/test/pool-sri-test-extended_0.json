@@ -2,7 +2,8 @@
     "doc": [
         "This test does",
         "Opens extended channel with the pool",
-        "Checks that NewMiningJob and SetNewPrevHash is sent by the pool"
+        "Checks that NewMiningJob and SetNewPrevHash is sent by the pool",
+        "Generates code coverage report for the pool"
     ],
     "mining_messages": [
         {

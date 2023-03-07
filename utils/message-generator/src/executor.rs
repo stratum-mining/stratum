@@ -35,12 +35,10 @@ impl Executor {
                 while let Some(i) = pid {
                     let p = process[index].as_mut();
                     pid = p.as_ref().unwrap().id();
-                    println!("Child still alive (kill command) @{:?}", pid);
                     p.unwrap().kill().await;
                     tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
                 }
                 let p = process[index].as_mut();
-                println!("Child killed (kill command) @{:?}", &p.as_ref().unwrap().id());
             } else if command.command == "sleep" {
                 let ms: u64 = command.args[0].parse().unwrap();
                 tokio::time::sleep(std::time::Duration::from_millis(ms)).await;
@@ -449,11 +447,10 @@ impl Executor {
         for child in self.process {
             if let Some(mut child) = child {
                 while let Some(i) = &child.id() {
-                    println!("Child still alive @{:?}", &child.id());
+                    // Sends kill signal and waits 1 second before checking to ensure child was killed
                     child.kill().await;
                     tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
                 }
-                println!("Child killed @{:?}", &child.id());
             }
         }
     }

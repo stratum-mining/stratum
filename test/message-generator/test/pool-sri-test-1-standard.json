@@ -9,7 +9,8 @@
         "Checks that a NewMiningJob and a NewPrevHash are received",
         "These last two messages are built in base of the NewTemplate and NewPrevHash provided by the mocked TP",
         "Successfully submits a share that is a solution for the template supplied by the mocked TP",
-        "Checks that a second SetNewPrevHash is provided by the pool for the next round of mining"
+        "Checks that a second SetNewPrevHash is provided by the pool for the next round of mining",
+        "Generates code coverage report for the pool"
     ],
     "mining_messages": [
         {
