@@ -11,7 +11,9 @@
 # --timeout 120: If unresponsive for 120 seconds, action will fail
 # --fail-under 30: If code coverage is less than 30%, action will fail
 # --out Xml: Required for codecov.io to generate coverage result
-# All message-generator test flags are in test/message-generator/cov/cov_test.json
+# All message-generator test flags are in tests in test/message-generator/test
+# This test loops through every test in test/message-generator/test, and runs each one, collecting
+# code coverage data for anything in the roles/ directory that is relevant to SV2(pool, mining-proxy)
 
 name: Test Coverage
 
