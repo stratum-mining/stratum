@@ -501,29 +501,39 @@ impl TryFrom<&Response> for Configure {
         // Deserialize version-rolling response.
         // Composed by 3 required fields
         let version_rolling: Option<VersionRollingParams>;
-        if version_rolling_.is_some()
-            && version_rolling_mask.is_some()
-            && version_rolling_min_bit_count.is_some()
+        if version_rolling_.is_some() && version_rolling_mask.is_some()
         {
             let vr: bool = version_rolling_
                 .unwrap()
                 .as_bool()
                 .ok_or_else(|| ParsingMethodError::UnexpectedObjectParams(params.clone()))?;
+            
             let version_rolling_mask: HexU32Be = version_rolling_mask
                 .unwrap()
                 .as_str()
                 .ok_or_else(|| ParsingMethodError::UnexpectedObjectParams(params.clone()))?
                 .try_into()?;
-            let version_rolling_min_bit_count: HexU32Be = version_rolling_min_bit_count
-                .unwrap()
-                .as_str()
-                .ok_or_else(|| ParsingMethodError::UnexpectedObjectParams(params.clone()))?
-                .try_into()?;
+
+            // version-rolling.min-bit-count is often not returned by stratum servers,
+            // but min-bit-count should be taken into consideration in the returned mask
+            let version_rolling_min_bit_count: HexU32Be = match version_rolling_min_bit_count {
+                Some(version_rolling_min_bit_count) => {
+                    version_rolling_min_bit_count
+                    .as_str()
+                    .ok_or_else(|| ParsingMethodError::UnexpectedObjectParams(params.clone()))?
+                    .try_into()?
+                },
+                None => {
+                    HexU32Be(0)
+                }
+            };
+
             version_rolling = Some(VersionRollingParams {
                 version_rolling: vr,
                 version_rolling_mask,
                 version_rolling_min_bit_count,
             });
+
         } else if version_rolling_.is_none()
             && version_rolling_mask.is_none()
             && version_rolling_min_bit_count.is_none()
