@@ -64,6 +64,7 @@ impl Downstream {
         last_notify: Option<server_to_client::Notify<'static>>,
         target: Vec<u8>,
         extranonce2_len: usize,
+        host: String,
     ) {
         let stream = std::sync::Arc::new(stream);
 
@@ -88,6 +89,7 @@ impl Downstream {
         }));
         let self_ = downstream.clone();
 
+        let host_ = host.clone();
         // The shutdown channel is used local to the `Downstream::new_downstream()` function.
         // Each task is set broadcast a shutdown message at the end of their lifecycle with `kill()`, and each task has a receiver to listen
         // for the shutdown message. When a shutdown message is received the task should `break` its loop. For any errors that should shut
@@ -114,7 +116,7 @@ impl Downstream {
                     res = messages.next().fuse() => {
                         match res {
                             Some(Ok(incoming)) => {
-                                debug!("Receiving from Mining Device: {:?}", &incoming);
+                                debug!("Receiving from Mining Device {}: {:?}", &host_, &incoming);
                                 let incoming: json_rpc::Message = handle_result!(tx_status_reader, serde_json::from_str(&incoming));
                                 // Handle what to do with message
                                 let res = Self::handle_incoming_sv1(self_.clone(), incoming).await;
@@ -145,6 +147,8 @@ impl Downstream {
         let rx_shutdown_clone = rx_shutdown.clone();
         let tx_shutdown_clone = tx_shutdown.clone();
         let tx_status_writer = tx_status.clone();
+        let host_ = host.clone();
+
         // Task to receive SV1 message responses to SV1 messages that do NOT need translation.
         // These response messages are sent directly to the SV1 Downstream role.
         let _socket_writer_task = task::spawn(async move {
@@ -159,7 +163,7 @@ impl Downstream {
                                 break;
                             }
                         };
-                        debug!("Sending to Mining Device: {:?}", &to_send);
+                        debug!("Sending to Mining Device: {} - {:?}", &host_, &to_send);
                         let res = (&*socket_writer_clone)
                                     .write_all(to_send.as_bytes())
                                     .await;
@@ -171,10 +175,14 @@ impl Downstream {
                 };
             }
             kill(&tx_shutdown_clone).await;
-            warn!("Downstream: Shutting down sv1 downstream writer");
+            warn!(
+                "Downstream: Shutting down sv1 downstream writer: {}",
+                &host_
+            );
         });
 
         let tx_status_notify = tx_status;
+
         let _notify_task = task::spawn(async move {
             let timeout_timer = std::time::Instant::now();
             let mut first_sent = false;
@@ -222,14 +230,20 @@ impl Downstream {
                 } else {
                     // timeout connection if miner does not send the authorize message after sending a subscribe
                     if timeout_timer.elapsed().as_secs() > SUBSCRIBE_TIMEOUT_SECS {
-                        debug!("Downstream: miner.subscribe/miner.authorize TIMOUT");
+                        debug!(
+                            "Downstream: miner.subscribe/miner.authorize TIMOUT for {}",
+                            &host
+                        );
                         break;
                     }
                     task::sleep(std::time::Duration::from_secs(1)).await;
                 }
             }
             kill(&tx_shutdown).await;
-            warn!("Downstream: Shutting down sv1 downstream job notifier");
+            warn!(
+                "Downstream: Shutting down sv1 downstream job notifier for {}",
+                &host
+            );
         });
     }
 
@@ -301,12 +315,11 @@ impl Downstream {
                 let open_sv1_downstream = bridge
                     .safe_lock(|s| s.on_new_sv1_connection(expected_hash_rate))
                     .unwrap();
+
+                let host = stream.peer_addr().unwrap().to_string();
                 match open_sv1_downstream {
                     Some(opened) => {
-                        info!(
-                            "PROXY SERVER - ACCEPTING FROM DOWNSTREAM: {}",
-                            stream.peer_addr().unwrap()
-                        );
+                        info!("PROXY SERVER - ACCEPTING FROM DOWNSTREAM: {}", host);
                         Downstream::new_downstream(
                             stream,
                             tx_sv1_submit.clone(),
@@ -316,6 +329,7 @@ impl Downstream {
                             opened.last_notify,
                             opened.target,
                             opened.extranonce2_len as usize,
+                            host,
                         )
                         .await;
                     }
