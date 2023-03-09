@@ -109,6 +109,7 @@ impl JobsCreators {
             .collect();
         match template.len() {
             0 => {
+                println!("ON NEW PREV HASH: {:?}", "None");
                 self.reset_new_templates(None);
                 None
             }

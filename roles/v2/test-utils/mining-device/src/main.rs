@@ -481,6 +481,7 @@ impl Miner {
             bits: set_new_prev_hash.nbits,
             nonce: 0,
         };
+        println!("HEADER: {:?}", &header);
         self.header = Some(header);
     }
     pub fn next_share(&mut self) -> Result<(), ()> {

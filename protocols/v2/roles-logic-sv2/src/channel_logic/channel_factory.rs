@@ -779,9 +779,6 @@ impl ChannelFactory {
         println!("COINBASE SUFFIX: {:?}\n", &coinbase_tx_suffix);
         println!("EXTRANONCE: {:?}\n", &extranonce);
 
-        
-        
-
         if hash <= bitcoin_target {
             let coinbase = [coinbase_tx_prefix, &extranonce[..], coinbase_tx_suffix]
                 .concat()
