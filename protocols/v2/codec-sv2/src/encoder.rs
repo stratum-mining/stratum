@@ -8,6 +8,7 @@ use core::marker::PhantomData;
 #[cfg(feature = "noise_sv2")]
 use framing_sv2::framing2::{build_noise_frame_header, EitherFrame, HandShakeFrame};
 use framing_sv2::framing2::{Frame as F_, Sv2Frame};
+#[cfg(feature = "noise_sv2")]
 use tracing::error;
 
 #[cfg(feature = "noise_sv2")]

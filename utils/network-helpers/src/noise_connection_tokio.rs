@@ -15,7 +15,7 @@ use codec_sv2::{
     StandardNoiseDecoder,
 };
 
-use tracing::{debug, error, info};
+use tracing::{debug, error};
 
 #[derive(Debug)]
 pub struct Connection {
