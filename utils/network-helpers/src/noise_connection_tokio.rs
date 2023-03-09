@@ -15,7 +15,7 @@ use codec_sv2::{
     StandardNoiseDecoder,
 };
 
-use tracing::error;
+use tracing::{debug, error, info};
 
 #[derive(Debug)]
 pub struct Connection {
@@ -31,6 +31,8 @@ impl Connection {
         Receiver<StandardEitherFrame<Message>>,
         Sender<StandardEitherFrame<Message>>,
     ) {
+        let address = stream.peer_addr().unwrap();
+
         let (mut reader, mut writer) = stream.into_split();
 
         let (sender_incoming, receiver_incoming): (
@@ -67,7 +69,10 @@ impl Connection {
                         }
                     }
                     Err(e) => {
-                        error!("Disconnected from client: {}", e);
+                        error!(
+                            "Disconnected from client while reading : {} - {}",
+                            e, &address
+                        );
 
                         //kill thread without a panic - don't need to panic everytime a client disconnects
                         sender_incoming.close();
@@ -85,11 +90,24 @@ impl Connection {
             let mut encoder = codec_sv2::NoiseEncoder::<Message>::new();
 
             loop {
-                let received = receiver_outgoing.recv().await;
+                //info!("Waiting for outgoing message to - {}", &address);
+
+                let received = receiver_outgoing_cloned.recv().await;
+
                 match received {
                     Ok(frame) => {
                         let mut connection = cloned2.lock().await;
+
                         let b = encoder.encode(frame, &mut connection.state).unwrap();
+
+                        // Handshake state means this is the last message so after
+                        //this is encoded we can move to transport mode!
+                        if connection.state.is_in_handshake() {
+                            connection.state =
+                                connection.state.take().into_transport_mode().unwrap();
+                        }
+                        drop(connection);
+
                         let b = b.as_ref();
 
                         match (writer).write_all(b).await {
@@ -97,16 +115,22 @@ impl Connection {
                             Err(e) => {
                                 let _ = writer.shutdown().await;
                                 // Just fail and force to reinitialize everything
-                                error!("Disconnecting from client due to error: {}", e);
+                                error!(
+                                    "Disconnecting from client due to error writing: {} - {}",
+                                    e, &address
+                                );
                                 task::yield_now().await;
                                 break;
                             }
                         }
                     }
                     Err(e) => {
-                        // Just fail and force to reinitilize everything
+                        // Just fail and force to reinitialize everything
                         let _ = writer.shutdown().await;
-                        error!("Disconnecting from client due to error: {}", e);
+                        error!(
+                            "Disconnecting from client due to error receiving: {} - {}",
+                            e, &address
+                        );
                         task::yield_now().await;
                         break;
                     }
@@ -115,9 +139,11 @@ impl Connection {
         });
 
         // DO THE NOISE HANDSHAKE
-        let transport_mode = match role {
+        match role {
             HandshakeRole::Initiator(_) => {
+                info!("Initializing as downstream for - {}", &address);
                 Self::initialize_as_downstream(
+                    connection.clone(),
                     role,
                     sender_outgoing.clone(),
                     receiver_incoming.clone(),
@@ -125,18 +151,20 @@ impl Connection {
                 .await
             }
             HandshakeRole::Responder(_) => {
+                info!("Initializing as upstream for - {}", &address);
                 Self::initialize_as_upstream(
+                    connection.clone(),
                     role,
                     sender_outgoing.clone(),
-                    receiver_outgoing_cloned,
                     receiver_incoming.clone(),
                 )
                 .await
             }
         };
 
-        Self::set_state(connection.clone(), transport_mode).await;
+        //Self::set_state(connection.clone(), transport_mode).await;
 
+        debug!("Noise handshake complete - {}", &address);
         (receiver_incoming, sender_outgoing)
     }
 
@@ -150,10 +178,11 @@ impl Connection {
     }
 
     async fn initialize_as_downstream<'a, Message: Serialize + Deserialize<'a> + GetSize>(
+        self_: Arc<Mutex<Self>>,
         role: HandshakeRole,
         sender_outgoing: Sender<StandardEitherFrame<Message>>,
         receiver_incoming: Receiver<StandardEitherFrame<Message>>,
-    ) -> codec_sv2::State {
+    ) {
         let mut state = codec_sv2::State::initialize(role);
 
         let first_message = state.step(None).unwrap();
@@ -174,15 +203,15 @@ impl Connection {
             .step(Some(fourth_message))
             .expect("Error on fourth message step");
 
-        state.into_transport_mode().unwrap()
+        Self::set_state(self_, state.into_transport_mode().unwrap()).await;
     }
 
     async fn initialize_as_upstream<'a, Message: Serialize + Deserialize<'a> + GetSize>(
+        self_: Arc<Mutex<Self>>,
         role: HandshakeRole,
         sender_outgoing: Sender<StandardEitherFrame<Message>>,
-        sender_incoming: Receiver<StandardEitherFrame<Message>>,
         receiver_incoming: Receiver<StandardEitherFrame<Message>>,
-    ) -> codec_sv2::State {
+    ) {
         let mut state = codec_sv2::State::initialize(role);
 
         let mut first_message: HandShakeFrame =
@@ -198,17 +227,12 @@ impl Connection {
         let thirth_message = thirth_message.payload().to_vec();
 
         let fourth_message = state.step(Some(thirth_message)).unwrap();
+
+        // This sets the state to Handshake state - this prompts the task above to move the state
+        // to transport mode so that the next incoming message will be decoded correctly
+        Self::set_state(self_, state).await;
+
         sender_outgoing.send(fourth_message.into()).await.unwrap();
-
-        // CHECK IF FOURTH MESSAGE HAS BEEN SENT
-        loop {
-            tokio::time::sleep(std::time::Duration::from_millis(1)).await;
-            if sender_incoming.is_empty() {
-                break;
-            }
-        }
-
-        state.into_transport_mode().unwrap()
     }
 }
 

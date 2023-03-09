@@ -8,6 +8,7 @@ use core::marker::PhantomData;
 #[cfg(feature = "noise_sv2")]
 use framing_sv2::framing2::{build_noise_frame_header, EitherFrame, HandShakeFrame};
 use framing_sv2::framing2::{Frame as F_, Sv2Frame};
+use tracing::error;
 
 #[cfg(feature = "noise_sv2")]
 use crate::{Error, Result, State, TransportMode};
@@ -57,7 +58,10 @@ impl<T: Serialize + GetSize> NoiseEncoder<T> {
                 let writable = self.sv2_buffer.get_writable(len);
 
                 // ENCODE THE SV2 FRAME
-                let i: Sv2Frame<T, Slice> = item.try_into().map_err(|_| Error::CodecTodo)?;
+                let i: Sv2Frame<T, Slice> = item.try_into().map_err(|e| {
+                    error!("Error while encoding frame: {:?}", e);
+                    Error::CodecTodo
+                })?;
                 i.serialize(writable)?;
 
                 // IF THE MESSAGE FIT INTO A NOISE FRAME ENCODE IT HOT PATH
@@ -129,7 +133,10 @@ impl<T: Serialize + GetSize> NoiseEncoder<T> {
     fn while_handshaking(&mut self, item: Item<T>) -> Result<()> {
         let len = item.encoded_length();
         // ENCODE THE SV2 FRAME
-        let i: HandShakeFrame = item.try_into().map_err(|_| Error::CodecTodo)?;
+        let i: HandShakeFrame = item.try_into().map_err(|e| {
+            error!("Error while encoding frame - while_handshaking: {:?}", e);
+            Error::CodecTodo
+        })?;
         i.serialize(self.noise_buffer.get_writable(len))?;
 
         Ok(())
