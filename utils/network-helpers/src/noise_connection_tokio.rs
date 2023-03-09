@@ -90,8 +90,6 @@ impl Connection {
             let mut encoder = codec_sv2::NoiseEncoder::<Message>::new();
 
             loop {
-                //info!("Waiting for outgoing message to - {}", &address);
-
                 let received = receiver_outgoing_cloned.recv().await;
 
                 match received {
@@ -141,7 +139,7 @@ impl Connection {
         // DO THE NOISE HANDSHAKE
         match role {
             HandshakeRole::Initiator(_) => {
-                info!("Initializing as downstream for - {}", &address);
+                debug!("Initializing as downstream for - {}", &address);
                 Self::initialize_as_downstream(
                     connection.clone(),
                     role,
@@ -151,7 +149,7 @@ impl Connection {
                 .await
             }
             HandshakeRole::Responder(_) => {
-                info!("Initializing as upstream for - {}", &address);
+                debug!("Initializing as upstream for - {}", &address);
                 Self::initialize_as_upstream(
                     connection.clone(),
                     role,
@@ -161,9 +159,6 @@ impl Connection {
                 .await
             }
         };
-
-        //Self::set_state(connection.clone(), transport_mode).await;
-
         debug!("Noise handshake complete - {}", &address);
         (receiver_incoming, sender_outgoing)
     }
@@ -192,8 +187,8 @@ impl Connection {
         let mut second_message: HandShakeFrame = second_message.try_into().unwrap();
         let second_message = second_message.payload().to_vec();
 
-        let thirth_message = state.step(Some(second_message)).unwrap();
-        sender_outgoing.send(thirth_message.into()).await.unwrap();
+        let third_message = state.step(Some(second_message)).unwrap();
+        sender_outgoing.send(third_message.into()).await.unwrap();
 
         let fourth_message = receiver_incoming.recv().await.unwrap();
         let mut fourth_message: HandShakeFrame = fourth_message.try_into().unwrap();
@@ -222,16 +217,16 @@ impl Connection {
 
         sender_outgoing.send(second_message.into()).await.unwrap();
 
-        let mut thirth_message: HandShakeFrame =
+        let mut third_message: HandShakeFrame =
             receiver_incoming.recv().await.unwrap().try_into().unwrap();
-        let thirth_message = thirth_message.payload().to_vec();
+        let third_message_vec = third_message.payload().to_vec();
 
-        let fourth_message = state.step(Some(thirth_message)).unwrap();
+        let fourth_message = state.step(Some(third_message_vec)).unwrap();
 
         // This sets the state to Handshake state - this prompts the task above to move the state
         // to transport mode so that the next incoming message will be decoded correctly
+        // It is important to do this directly before sending the fourth message
         Self::set_state(self_, state).await;
-
         sender_outgoing.send(fourth_message.into()).await.unwrap();
     }
 }
