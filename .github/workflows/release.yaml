@@ -41,7 +41,7 @@ jobs:
 
       # Need to exclude sv2_ffi to bypass else the 5 new crate limit. After this first publish, this can be removed
       - name: Publish
-        run: cargo release publish -x --exclude sv2_ffi --exclude error_handling --exclude mining_proxy_sv2 --exclude pool_sv2 --exclude translator_sv2 --all-features --no-confirm
+        run: cargo release publish -x --exclude mining_proxy_sv2 --exclude pool_sv2 --exclude translator_sv2 --all-features --no-confirm
 
   github_release_translator:
     runs-on: ${{ matrix.os }}

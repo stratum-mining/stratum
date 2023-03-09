@@ -1,6 +1,5 @@
 //! https://www.jsonrpc.org/specification#response_object
-use serde::{de, Deserialize, Deserializer, Serialize};
-use std::fmt;
+use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 #[serde(untagged)]
@@ -32,8 +31,7 @@ impl Message {
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct StandardRequest {
-    #[serde(deserialize_with = "deserialize_string_and_number_into_string")]
-    pub id: String, // can be number
+    pub id: u64,
     pub method: String,
     pub params: serde_json::Value,
 }
@@ -46,7 +44,7 @@ pub struct Notification {
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Response {
-    pub id: String, // can be number
+    pub id: u64,
     pub error: Option<JsonRpcError>,
     pub result: serde_json::Value,
 }
@@ -78,35 +76,4 @@ impl From<Notification> for Message {
     fn from(n: Notification) -> Self {
         Message::Notification(n)
     }
-}
-
-struct DeserializeStringAndNumberIntoString;
-
-impl<'de> de::Visitor<'de> for DeserializeStringAndNumberIntoString {
-    type Value = String;
-
-    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        formatter.write_str("an integer or a string")
-    }
-
-    fn visit_u64<E>(self, v: u64) -> Result<Self::Value, E>
-    where
-        E: de::Error,
-    {
-        Ok(v.to_string())
-    }
-
-    fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
-    where
-        E: de::Error,
-    {
-        Ok(v.to_string())
-    }
-}
-
-fn deserialize_string_and_number_into_string<'de, D>(deserializer: D) -> Result<String, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    deserializer.deserialize_any(DeserializeStringAndNumberIntoString)
 }
