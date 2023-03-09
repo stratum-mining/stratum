@@ -1,4 +1,4 @@
-listen_address = "0.0.0.0:34254"
+listen_address = "127.0.0.1:34254"
 tp_address = "75.119.150.111:8442"
 listen_jn_address = "127.0.0.1:34264"
 authority_public_key = "2di19GHYQnAZJmEpoUeP7C3Eg9TCcksHr23rZCC83dvUiZgiDL"
