@@ -74,6 +74,7 @@ pub struct Bridge {
     request_ids: Id,
     channel_extranonce_len: usize,
     solution_sender: Option<Sender<SubmitSolution<'static>>>,
+    channel_extranonce_len: usize,
 }
 
 #[derive(Debug, Clone)]
@@ -145,6 +146,7 @@ impl Bridge {
             pool_output_is_set: false,
             channel_extranonce_len,
             solution_sender,
+            channel_extranonce_len,
         }));
         match upstream_kind {
             UpstreamKind::Standard => (),
@@ -662,12 +664,13 @@ impl Bridge {
     /// `SetNewPrevHash` `job_id`, an error has occurred on the Upstream pool role and the
     /// connection will close.
     fn handle_new_extended_mining_job(self_: Arc<Mutex<Self>>) {
-        let (tx_sv1_notify, rx_sv2_new_ext_mining_job, tx_status) = self_
+        let (tx_sv1_notify, rx_sv2_new_ext_mining_job, tx_status, extended_extranonce_len) = self_
             .safe_lock(|s| {
                 (
                     s.tx_sv1_notify.clone(),
                     s.rx_sv2_new_ext_mining_job.clone(),
                     s.tx_status.clone(),
+                    s.channel_extranonce_len,
                 )
             })
             .unwrap();
