@@ -109,7 +109,6 @@ impl JobsCreators {
             .collect();
         match template.len() {
             0 => {
-                println!("ON NEW PREV HASH: {:?}", "None");
                 self.reset_new_templates(None);
                 None
             }
@@ -164,10 +163,6 @@ fn new_extended_job(
         extranonce_len,
     );
 
-    println!("COINBASE: {:?}", coinbase.serialize());
-
-    // let stripped_tx = StrippedCoinbaseTx::from_coinbase(coinbase);
-
     let new_extended_mining_job: NewExtendedMiningJob<'static> = NewExtendedMiningJob {
         channel_id: 0,
         job_id,
@@ -199,9 +194,6 @@ fn coinbase_tx_prefix(
         0 => 0,
         _ => 2,
     };
-    // remove segwit bytes
-    // encoded.splice(4..segwit_bytes, vec![]);
-    // remove marker and flag 4 bytes total after the tx version
     let index = 4    // tx version
         + segwit_bytes
         + 1  // number of inputs TODO can be also 3
@@ -227,7 +219,6 @@ fn coinbase_tx_suffix(
         0 => 0,
         _ => 2,
     };
-    println!("COINBASE SERIALIZED: {:?}", &encoded);
     let r = encoded[4    // tx version
         + segwit_bytes
         + 1  // number of inputs TODO can be also 3
