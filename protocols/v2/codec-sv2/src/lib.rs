@@ -103,14 +103,21 @@ impl State {
             Self::Transport(_) => false,
         }
     }
+
+    #[inline(always)]
+    pub fn is_in_handshake(&self) -> bool {
+        match self {
+            Self::NotInitialized => false,
+            Self::HandShake(_) => true,
+            Self::Transport(_) => false,
+        }
+    }
 }
 
 #[cfg(feature = "noise_sv2")]
 impl State {
     pub fn take(&mut self) -> Self {
-        let mut new_me = Self::NotInitialized;
-        core::mem::swap(&mut new_me, self);
-        new_me
+        core::mem::replace(self, Self::NotInitialized)
     }
 
     pub fn new() -> Self {

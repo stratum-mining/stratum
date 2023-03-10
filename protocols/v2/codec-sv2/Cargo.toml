@@ -18,6 +18,7 @@ noise_sv2 = { version = "0.1", path = "../../../protocols/v2/noise-sv2", optiona
 binary_sv2 = { version = "0.1", path = "../../../protocols/v2/binary-sv2/binary-sv2" }
 const_sv2 = { version = "0.1", path = "../../../protocols/v2/const-sv2"}
 buffer_sv2 = { version = "0.1", path = "../../../utils/buffer"}
+tracing = { version = "0.1"}
 
 
 
