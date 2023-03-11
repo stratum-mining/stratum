@@ -101,15 +101,17 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
                 roles_logic_sv2::channel_logic::channel_factory::OnNewShare::RelaySubmitShareUpstream => unreachable!(),
                 roles_logic_sv2::channel_logic::channel_factory::OnNewShare::ShareMeetBitcoinTarget((share,t_id,coinbase)) => {
                     info!("Found share that meet bitcoin target");
-                    let solution = SubmitSolution {
-                        template_id: t_id,
-                        version: share.get_version(),
-                        header_timestamp: share.get_n_time(),
-                        header_nonce: share.get_nonce(),
-                        coinbase_tx: coinbase.try_into()?,
-                    };
-                    // TODO we can block everything with the below (looks like this will infinite loop??)
-                    while self.solution_sender.try_send(solution.clone()).is_err() {};
+                    if let Some(template_id) = t_id {
+                        let solution = SubmitSolution {
+                            template_id,
+                            version: share.get_version(),
+                            header_timestamp: share.get_n_time(),
+                            header_nonce: share.get_nonce(),
+                            coinbase_tx: coinbase.try_into()?,
+                        };
+                        // TODO we can block everything with the below (looks like this will infinite loop??)
+                        while self.solution_sender.try_send(solution.clone()).is_err() {};
+                    }
                     let success = SubmitSharesSuccess {
                         channel_id: m.channel_id,
                         last_sequence_number: m.sequence_number,
@@ -152,15 +154,17 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
                 roles_logic_sv2::channel_logic::channel_factory::OnNewShare::RelaySubmitShareUpstream => unreachable!(),
                 roles_logic_sv2::channel_logic::channel_factory::OnNewShare::ShareMeetBitcoinTarget((share,t_id,coinbase)) => {
                     info!("Found share that meet bitcoin target");
-                    let solution = SubmitSolution {
-                        template_id: t_id,
-                        version: share.get_version(),
-                        header_timestamp: share.get_n_time(),
-                        header_nonce: share.get_nonce(),
-                        coinbase_tx: coinbase.try_into()?,
-                    };
-                    // TODO we can block everything with the below (looks like this will infinite loop??)
-                    while self.solution_sender.try_send(solution.clone()).is_err() {};
+                    if let Some(template_id) = t_id {
+                        let solution = SubmitSolution {
+                            template_id,
+                            version: share.get_version(),
+                            header_timestamp: share.get_n_time(),
+                            header_nonce: share.get_nonce(),
+                            coinbase_tx: coinbase.try_into()?,
+                        };
+                        // TODO we can block everything with the below (looks like this will infinite loop??)
+                        while self.solution_sender.try_send(solution.clone()).is_err() {};
+                    }
                     let success = SubmitSharesSuccess {
                         channel_id: m.channel_id,
                         last_sequence_number: m.sequence_number,

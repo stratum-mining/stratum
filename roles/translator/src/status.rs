@@ -6,6 +6,7 @@ pub enum Sender {
     DownstreamListener(async_channel::Sender<Status<'static>>),
     Bridge(async_channel::Sender<Status<'static>>),
     Upstream(async_channel::Sender<Status<'static>>),
+    TemplateReceiver(async_channel::Sender<Status<'static>>),
 }
 
 impl Sender {
@@ -25,6 +26,7 @@ impl Sender {
             Self::DownstreamListener(inner) => inner.send(status).await,
             Self::Bridge(inner) => inner.send(status).await,
             Self::Upstream(inner) => inner.send(status).await,
+            Self::TemplateReceiver(inner) => inner.send(status).await,
         }
     }
 }
@@ -36,6 +38,7 @@ impl Clone for Sender {
             Self::DownstreamListener(inner) => Self::DownstreamListener(inner.clone()),
             Self::Bridge(inner) => Self::Bridge(inner.clone()),
             Self::Upstream(inner) => Self::Upstream(inner.clone()),
+            Self::TemplateReceiver(inner) => Self::TemplateReceiver(inner.clone()),
         }
     }
 }
@@ -81,6 +84,13 @@ async fn send_status(
             .unwrap_or(());
         }
         Sender::Upstream(tx) => {
+            tx.send(Status {
+                state: State::UpstreamShutdown(e),
+            })
+            .await
+            .unwrap_or(());
+        }
+        Sender::TemplateReceiver(tx) => {
             tx.send(Status {
                 state: State::UpstreamShutdown(e),
             })
