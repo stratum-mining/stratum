@@ -218,7 +218,7 @@ checksum = "cf9ff0bbfd639f15c74af777d81383cf53efb7c93613f6cab67c6c11e05bbf8b"
 
 [[package]]
 name = "binary_codec_sv2"
-version = "0.1.3"
+version = "0.1.4"
 dependencies = [
  "buffer_sv2",
  "quickcheck 1.0.3",
@@ -1828,7 +1828,7 @@ dependencies = [
 
 [[package]]
 name = "sv1_api"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "binary_sv2",
  "bitcoin_hashes 0.3.2",
