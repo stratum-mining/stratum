@@ -32,7 +32,7 @@
                 "WithConditions": {
                     "conditions": [
                         {
-                            "output_string": "Listening for encrypted connection on: 0.0.0.0:34254",
+                            "output_string": "Listening for encrypted connection on: 127.0.0.1:34254",
                             "output_location": "StdOut",
                             "condition": true
                         }
@@ -58,7 +58,7 @@
                 "WithConditions": {
                     "conditions": [
                         {
-                            "output_string": "Listening for encrypted connection on: 0.0.0.0:44254",
+                            "output_string": "Listening for encrypted connection on: 127.0.0.1:44254",
                             "output_location": "StdOut",
                             "condition": true
                         }
