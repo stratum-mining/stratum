@@ -1,6 +1,7 @@
 use crate::{
     downstream_sv1::Downstream,
     error::Error::{CodecNoise, PoisonLock, UpstreamIncoming},
+    proxy_config::UpstreamDifficultyConfig,
     status,
     upstream_sv2::{EitherFrame, Message, StdFrame, UpstreamConnection},
     ProxyResult,
@@ -77,13 +78,13 @@ impl UpstreamKind {
 pub struct Upstream {
     /// Newly assigned identifier of the channel, stable for the whole lifetime of the connection,
     /// e.g. it is used for broadcasting new jobs by the `NewExtendedMiningJob` message.
-    channel_id: Option<u32>,
+    pub(super) channel_id: Option<u32>,
     /// Identifier of the job as provided by the `NewExtendedMiningJob` message.
     job_id: Option<u32>,
     /// Bytes used as implicit first part of `extranonce`.
     extranonce_prefix: Option<Vec<u8>>,
     /// Represents a connection to a SV2 Upstream role.
-    connection: UpstreamConnection,
+    pub(super) connection: UpstreamConnection,
     /// Receives SV2 `SubmitSharesExtended` messages translated from SV1 `mining.submit` messages.
     /// Translated by and sent from the `Bridge`.
     rx_sv2_submit_shares_ext: Receiver<SubmitSharesExtended<'static>>,
@@ -109,6 +110,11 @@ pub struct Upstream {
     /// set by the SV2 Upstream via the SV2 `OpenExtendedMiningChannelSuccess` message.
     pub min_extranonce_size: u16,
     upstream_kind: UpstreamKind,
+    // values used to update the channel with the correct nominal hashrate.
+    // each Downstream instance will add and subtract their hashrates as needed
+    // and the upstream just needs to occasionally check if it has changed more than
+    // than the configured percentage
+    pub(super) difficulty_config: Arc<Mutex<UpstreamDifficultyConfig>>,
 }
 
 impl PartialEq for Upstream {
@@ -135,6 +141,7 @@ impl Upstream {
         tx_status: status::Sender,
         target: Arc<Mutex<Vec<u8>>>,
         upstream_kind: UpstreamKind,
+        difficulty_config: Arc<Mutex<UpstreamDifficultyConfig>>,
     ) -> ProxyResult<'static, Arc<Mutex<Self>>> {
         // Connect to the SV2 Upstream role retry connection every 5 seconds.
         let socket = loop {
@@ -179,6 +186,7 @@ impl Upstream {
             tx_status,
             target,
             upstream_kind,
+            difficulty_config,
         })))
     }
 
@@ -241,14 +249,21 @@ impl Upstream {
         )?;
 
         // Send open channel request before returning
+        let nominal_hash_rate = self_
+            .safe_lock(|u| {
+                u.difficulty_config
+                    .safe_lock(|c| c.channel_nominal_hashrate)
+                    .map_err(|_e| PoisonLock)
+            })
+            .map_err(|_e| PoisonLock)??;
         let user_identity = "ABC".to_string().try_into()?;
         let min_extranonce_size = self_
             .safe_lock(|s| s.min_extranonce_size)
             .map_err(|_e| PoisonLock)?;
         let open_channel = Mining::OpenExtendedMiningChannel(OpenExtendedMiningChannel {
-            request_id: 0,                       // TODO
-            user_identity,                       // TODO
-            nominal_hash_rate: 10_000_000_000.0, // TODO
+            request_id: 0, // TODO
+            user_identity, // TODO
+            nominal_hash_rate,
             max_target: u256_from_int(u64::MAX), // TODO
             min_extranonce_size,
         });
@@ -313,6 +328,7 @@ impl Upstream {
             loop {
                 // Waiting to receive a message from the SV2 Upstream role
                 let incoming = handle_result!(tx_status, recv.recv().await);
+
                 let mut incoming: StdFrame = handle_result!(tx_status, incoming.try_into());
                 // On message receive, get the message type from the message header and get the
                 // message payload
@@ -429,8 +445,12 @@ impl Upstream {
                         break;
                     }
                 }
+
+                // check if channel needs to be updated
+                handle_result!(tx_status, Self::try_update_hashrate(self_.clone()).await);
             }
         });
+
         Ok(())
     }
     fn get_job_id(
@@ -507,6 +527,45 @@ impl Upstream {
     fn _is_contained_in_upstream_target(&self, _share: SubmitSharesExtended) -> bool {
         todo!()
     }
+
+    // async fn handle_update_hashrate(self_: Arc<Mutex<Self>>) -> ProxyResult<'static, ()> {
+    //     let (channel_id_option, difficulty_config, tx_frame) = self_.safe_lock(|u|
+    //         (
+    //             u.channel_id.clone(),
+    //             u.difficulty_config.clone(),
+    //             u.connection.sender.clone()
+    //         )
+    //     )
+    //     .map_err(|_e| PoisonLock)?;
+    //     let channel_id = channel_id_option.ok_or(crate::Error::RolesSv2Logic(RolesLogicError::NotFoundChannelId))?;
+
+    //     let should_update_channel_option = difficulty_config.safe_lock(|c| {
+    //         if c.actual_nominal_hashrate == 0.0 {
+    //             c.actual_nominal_hashrate = c.channel_nominal_hashrate;
+    //         }
+
+    //         if (c.channel_nominal_hashrate - c.actual_nominal_hashrate / c.channel_nominal_hashrate).abs() >= c.channel_hashrate_update_delta
+    //         && c.actual_nominal_hashrate != 0.0 {
+    //             c.channel_nominal_hashrate = c.actual_nominal_hashrate;
+    //             return Some(c.channel_nominal_hashrate.clone());
+    //         }
+    //         return None;
+    //     }).map_err(|_e| PoisonLock)?;
+
+    //     if let Some(new_hashrate) = should_update_channel_option {
+    //         // UPDATE CHANNEL
+    //         let update_channel = UpdateChannel {
+    //             channel_id,
+    //             nominal_hash_rate: new_hashrate,
+    //             maximum_target: u256_from_int(u64::MAX)
+    //         };
+    //         let message = Message::Mining(Mining::UpdateChannel(update_channel));
+    //         let either_frame: StdFrame = message.try_into()?;
+    //         let frame: EitherFrame = either_frame.try_into()?;
+    //         tx_frame.send(frame).await;
+    //     }
+    //     Ok(())
+    // }
 
     /// Creates the `SetupConnection` message to setup the connection with the SV2 Upstream role.
     /// TODO: The Mining Device information is hard coded here, need to receive from Downstream

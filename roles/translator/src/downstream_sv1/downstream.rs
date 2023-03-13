@@ -1,4 +1,8 @@
-use crate::{downstream_sv1, status, ProxyResult};
+use crate::{
+    downstream_sv1,
+    proxy_config::{DownstreamDifficultyConfig, UpstreamDifficultyConfig},
+    status,
+};
 use async_channel::{bounded, Receiver, Sender};
 use async_std::{
     io::BufReader,
@@ -13,17 +17,17 @@ use tokio::sync::broadcast;
 use super::{kill, SUBSCRIBE_TIMEOUT_SECS};
 
 use roles_logic_sv2::{
-    bitcoin::util::uint::Uint256,
     common_properties::{IsDownstream, IsMiningDownstream},
     utils::Mutex,
 };
 
 use futures::select;
 
-use std::{net::SocketAddr, ops::Div, sync::Arc};
+use std::{net::SocketAddr, sync::Arc};
 use tracing::{debug, info, warn};
 use v1::{
-    client_to_server, json_rpc, server_to_client,
+    client_to_server::{self, Submit},
+    json_rpc, server_to_client,
     utils::{Extranonce, HexU32Be},
     IsServer,
 };
@@ -50,9 +54,37 @@ pub struct Downstream {
     /// True if this is the first job received from `Upstream`.
     first_job_received: bool,
     extranonce2_len: usize,
+    pub(super) difficulty_mgmt: DownstreamDifficultyConfig,
+    pub(super) upstream_difficulty_config: Arc<Mutex<UpstreamDifficultyConfig>>,
 }
 
 impl Downstream {
+    #[cfg(test)]
+    pub fn new(
+        authorized_names: Vec<String>,
+        extranonce1: Vec<u8>,
+        version_rolling_mask: Option<HexU32Be>,
+        version_rolling_min_bit: Option<HexU32Be>,
+        tx_sv1_submit: Sender<(v1::client_to_server::Submit<'static>, Vec<u8>)>,
+        tx_outgoing: Sender<json_rpc::Message>,
+        first_job_received: bool,
+        extranonce2_len: usize,
+        difficulty_mgmt: DownstreamDifficultyConfig,
+        upstream_difficulty_config: Arc<Mutex<UpstreamDifficultyConfig>>,
+    ) -> Self {
+        Downstream {
+            authorized_names,
+            extranonce1,
+            version_rolling_mask,
+            version_rolling_min_bit,
+            tx_sv1_submit,
+            tx_outgoing,
+            first_job_received,
+            extranonce2_len,
+            difficulty_mgmt,
+            upstream_difficulty_config,
+        }
+    }
     /// Instantiate a new `Downstream`.
     #[allow(clippy::too_many_arguments)]
     pub async fn new_downstream(
@@ -62,9 +94,10 @@ impl Downstream {
         tx_status: status::Sender,
         extranonce1: Vec<u8>,
         last_notify: Option<server_to_client::Notify<'static>>,
-        target: Vec<u8>,
         extranonce2_len: usize,
         host: String,
+        difficulty_config: DownstreamDifficultyConfig,
+        upstream_difficulty_config: Arc<Mutex<UpstreamDifficultyConfig>>,
     ) {
         let stream = std::sync::Arc::new(stream);
 
@@ -86,6 +119,8 @@ impl Downstream {
             tx_outgoing,
             first_job_received: false,
             extranonce2_len,
+            difficulty_mgmt: difficulty_config,
+            upstream_difficulty_config,
         }));
         let self_ = downstream.clone();
 
@@ -119,6 +154,15 @@ impl Downstream {
                                 debug!("Receiving from Mining Device {}: {:?}", &host_, &incoming);
                                 let incoming: json_rpc::Message = handle_result!(tx_status_reader, serde_json::from_str(&incoming));
                                 // Handle what to do with message
+                                // if let json_rpc::Message
+
+                                // if message is Submit Shares update difficulty management
+                                if let v1::Message::StandardRequest(standard_req) = incoming.clone() {
+                                    if let Ok(Submit{..}) = standard_req.try_into() {
+                                        handle_result!(tx_status_reader, Self::save_share(self_.clone()));
+                                    }
+                                }
+
                                 let res = Self::handle_incoming_sv1(self_.clone(), incoming).await;
                                 handle_result!(tx_status_reader, res);
                             }
@@ -195,13 +239,22 @@ impl Downstream {
                     }
                 };
                 if is_a && !first_sent && last_notify.is_some() {
+                    let target = handle_result!(
+                        tx_status_notify,
+                        Self::hash_rate_to_target(downstream.clone())
+                    );
                     let message =
-                        handle_result!(tx_status_notify, Self::get_set_difficulty(target.clone()));
+                        handle_result!(tx_status_notify, Self::get_set_difficulty(target));
                     handle_result!(
                         tx_status_notify,
                         Downstream::send_message_downstream(downstream.clone(), message).await
                     );
-                    // unwrap is safe since last_notify is guaranteed to be `Some` above
+                    // make sure the mining start time is initialized and reset number of shares submitted
+                    handle_result!(
+                        tx_status_notify,
+                        Self::init_difficulty_management(downstream.clone())
+                    );
+
                     let sv1_mining_notify_msg = last_notify.clone().unwrap();
                     let message: json_rpc::Message =
                         handle_result!(tx_status_notify, sv1_mining_notify_msg.try_into());
@@ -219,6 +272,10 @@ impl Downstream {
                 } else if is_a {
                     select! {
                         res = rx_sv1_notify.recv().fuse() => {
+                            // if hashrate has changed, update difficulty management, and send new mining.set_difficulty
+                            handle_result!(tx_status_notify, Self::try_update_difficulty_settings(downstream.clone()).await);
+
+
                             let sv1_mining_notify_msg = handle_result!(tx_status_notify, res);
                             let message: json_rpc::Message = handle_result!(tx_status_notify, sv1_mining_notify_msg.try_into());
                             handle_result!(tx_status_notify, Downstream::send_message_downstream(downstream.clone(), message).await);
@@ -247,54 +304,6 @@ impl Downstream {
         });
     }
 
-    /// Helper function to check if target is set to zero for some reason (typically happens when
-    /// Downstream role first connects).
-    /// https://stackoverflow.com/questions/65367552/checking-a-vecu8-to-see-if-its-all-zero
-    fn is_zero(buf: &[u8]) -> bool {
-        let (prefix, aligned, suffix) = unsafe { buf.align_to::<u128>() };
-
-        prefix.iter().all(|&x| x == 0)
-            && suffix.iter().all(|&x| x == 0)
-            && aligned.iter().all(|&x| x == 0)
-    }
-
-    /// Converts target received by the `SetTarget` SV2 message from the Upstream role into the
-    /// difficulty for the Downstream role sent via the SV1 `mining.set_difficulty` message.
-    fn difficulty_from_target(target: Vec<u8>) -> ProxyResult<'static, f64> {
-        let target = target.as_slice();
-
-        // If received target is 0, return 0
-        if Downstream::is_zero(target) {
-            return Ok(0.0);
-        }
-        let target = Uint256::from_be_slice(target)?;
-        let pdiff: [u8; 32] = [
-            0, 0, 0, 0, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
-            255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
-        ];
-        let pdiff = Uint256::from_be_bytes(pdiff);
-
-        if pdiff > target {
-            let diff = pdiff.div(target);
-            Ok(diff.low_u64() as f64)
-        } else {
-            let diff = target.div(pdiff);
-            let diff = diff.low_u64() as f64;
-            // TODO still bring to too low difficulty shares
-            Ok(1.0 / diff)
-        }
-    }
-
-    /// Converts target received by the `SetTarget` SV2 message from the Upstream role into the
-    /// difficulty for the Downstream role and creates the SV1 `mining.set_difficulty` message to
-    /// be sent to the Downstream role.
-    fn get_set_difficulty(target: Vec<u8>) -> ProxyResult<'static, json_rpc::Message> {
-        let value = Downstream::difficulty_from_target(target)?;
-        let set_target = v1::methods::server_to_client::SetDifficulty { value };
-        let message: json_rpc::Message = set_target.into();
-        Ok(message)
-    }
-
     /// Accept connections from one or more SV1 Downstream roles (SV1 Mining Devices) and create a
     /// new `Downstream` for each connection.
     pub fn accept_connections(
@@ -303,6 +312,8 @@ impl Downstream {
         tx_mining_notify: broadcast::Sender<server_to_client::Notify<'static>>,
         tx_status: status::Sender,
         bridge: Arc<Mutex<crate::proxy::Bridge>>,
+        downstream_difficulty_config: DownstreamDifficultyConfig,
+        upstream_difficulty_config: Arc<Mutex<UpstreamDifficultyConfig>>,
     ) {
         task::spawn(async move {
             let downstream_listener = TcpListener::bind(downstream_addr).await.unwrap();
@@ -311,14 +322,14 @@ impl Downstream {
             while let Some(stream) = downstream_incoming.next().await {
                 let stream = stream.expect("Err on SV1 Downstream connection stream");
                 // TODO where should I pick the below value??
-                let expected_hash_rate = 5_000_000.0;
+                let expected_hash_rate = downstream_difficulty_config.min_individual_miner_hashrate;
                 let open_sv1_downstream = bridge
                     .safe_lock(|s| s.on_new_sv1_connection(expected_hash_rate))
                     .unwrap();
 
                 let host = stream.peer_addr().unwrap().to_string();
                 match open_sv1_downstream {
-                    Some(opened) => {
+                    Ok(opened) => {
                         info!("PROXY SERVER - ACCEPTING FROM DOWNSTREAM: {}", host);
                         Downstream::new_downstream(
                             stream,
@@ -327,13 +338,16 @@ impl Downstream {
                             tx_status.listener_to_connection(),
                             opened.extranonce,
                             opened.last_notify,
-                            opened.target,
                             opened.extranonce2_len as usize,
                             host,
+                            downstream_difficulty_config.clone(),
+                            upstream_difficulty_config.clone(),
                         )
                         .await;
                     }
-                    None => todo!(),
+                    Err(e) => {
+                        tracing::error!("Failed to create a new downstream connection: {:?}", e);
+                    }
                 }
             }
         });
@@ -373,7 +387,7 @@ impl Downstream {
 
     /// Send SV1 response message that is generated by `Downstream` (as opposed to being received
     /// by `Bridge`) to be written to the SV1 Downstream role.
-    async fn send_message_downstream(
+    pub(super) async fn send_message_downstream(
         self_: Arc<Mutex<Self>>,
         response: json_rpc::Message,
     ) -> Result<(), async_channel::SendError<v1::Message>> {
