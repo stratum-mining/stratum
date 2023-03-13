@@ -91,6 +91,12 @@ impl Connection {
                             }
                         };
 
+                        if connection.state.is_in_handshake() {
+                            connection.state =
+                                connection.state.take().into_transport_mode().unwrap();
+                        }
+                        drop(connection);
+
                         let b = b.as_ref();
 
                         match (&writer).write_all(b).await {
@@ -163,8 +169,8 @@ impl Connection {
         let mut second_message: HandShakeFrame = second_message.try_into().unwrap();
         let second_message = second_message.payload().to_vec();
 
-        let thirth_message = state.step(Some(second_message)).unwrap();
-        sender_outgoing.send(thirth_message.into()).await.unwrap();
+        let third_message = state.step(Some(second_message)).unwrap();
+        sender_outgoing.send(third_message.into()).await.unwrap();
 
         debug!("Sent third message to upstream");
         let fourth_message = receiver_incoming.recv().await.unwrap();
@@ -192,11 +198,11 @@ impl Connection {
 
         sender_outgoing.send(second_message.into()).await.unwrap();
 
-        let mut thirth_message: HandShakeFrame =
+        let mut third_message: HandShakeFrame =
             receiver_incoming.recv().await.unwrap().try_into().unwrap();
-        let thirth_message = thirth_message.payload().to_vec();
+        let third_message = third_message.payload().to_vec();
 
-        let fourth_message = state.step(Some(thirth_message)).unwrap();
+        let fourth_message = state.step(Some(third_message)).unwrap();
         sender_outgoing.send(fourth_message.into()).await.unwrap();
         debug!("Noise handshake finished");
 
