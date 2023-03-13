@@ -912,46 +912,52 @@ impl UpstreamMiningNode {
                     Share::Standard(_) => unreachable!(),
                 },
                 OnNewShare::RelaySubmitShareUpstream => todo!(),
-                OnNewShare::ShareMeetBitcoinTarget((share, template_id, coinbase)) => match share {
-                    Share::Extended(s) => {
-                        let solution = SubmitSolution {
-                            template_id,
-                            version: s.version,
-                            header_timestamp: s.ntime,
-                            header_nonce: s.nonce,
-                            coinbase_tx: coinbase.try_into().unwrap(),
-                        };
-                        let sender = self_
-                            .safe_lock(|s| s.solution_sender.clone())
-                            .unwrap()
-                            .unwrap();
-                        // The below channel should never be full is ok to block
-                        sender.send_blocking(solution).unwrap();
-
-                        let message = Mining::SubmitSharesExtended(s);
-                        let message = PoolMessages::Mining(message);
-                        let frame: StdFrame = message.try_into().unwrap();
-                        tokio::task::spawn(async move {
-                            UpstreamMiningNode::send(self_.clone(), frame)
-                                .await
+                OnNewShare::ShareMeetBitcoinTarget((share, Some(template_id), coinbase)) => {
+                    match share {
+                        Share::Extended(s) => {
+                            let solution = SubmitSolution {
+                                template_id,
+                                version: s.version,
+                                header_timestamp: s.ntime,
+                                header_nonce: s.nonce,
+                                coinbase_tx: coinbase.try_into().unwrap(),
+                            };
+                            let sender = self_
+                                .safe_lock(|s| s.solution_sender.clone())
+                                .unwrap()
                                 .unwrap();
-                        });
-                        let success = SubmitSharesSuccess {
-                            channel_id: share_.channel_id,
-                            last_sequence_number: share_.sequence_number,
-                            new_submits_accepted_count: 1,
-                            new_shares_sum: 1,
-                        };
-                        let message = Mining::SubmitSharesSuccess(success);
-                        Ok(message)
+                            // The below channel should never be full is ok to block
+                            sender.send_blocking(solution).unwrap();
+
+                            let message = Mining::SubmitSharesExtended(s);
+                            let message = PoolMessages::Mining(message);
+                            let frame: StdFrame = message.try_into().unwrap();
+                            tokio::task::spawn(async move {
+                                UpstreamMiningNode::send(self_.clone(), frame)
+                                    .await
+                                    .unwrap();
+                            });
+                            let success = SubmitSharesSuccess {
+                                channel_id: share_.channel_id,
+                                last_sequence_number: share_.sequence_number,
+                                new_submits_accepted_count: 1,
+                                new_shares_sum: 1,
+                            };
+                            let message = Mining::SubmitSharesSuccess(success);
+                            Ok(message)
+                        }
+                        Share::Standard(_) => {
+                            // on_submit_shares_standard call check_target that in the case of a Proxy
+                            // and a share that is below the bitcoin target if the share is a standard
+                            // share call share.into_extended making this branch unreachable.
+                            unreachable!()
+                        }
                     }
-                    Share::Standard(_) => {
-                        // on_submit_shares_standard call check_target that in the case of a Proxy
-                        // and a share that is below the bitcoin target if the share is a standard
-                        // share call share.into_extended making this branch unreachable.
-                        unreachable!()
-                    }
-                },
+                }
+                // When we have a ShareMeetBitcoinTarget it means that the proxy know the bitcoin
+                // target that means that the proxy must have JN capabilities that means that the
+                // second tuple elements can not be None but must be Some(template_id)
+                OnNewShare::ShareMeetBitcoinTarget(..) => unreachable!(),
                 OnNewShare::ShareMeetDownstreamTarget => {
                     let success = SubmitSharesSuccess {
                         channel_id: share_.channel_id,

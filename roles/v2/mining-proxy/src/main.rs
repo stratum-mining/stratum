@@ -141,7 +141,6 @@ pub struct Config {
     downstream_share_per_minute: f32,
     coinbase_reward_sat: u64,
 }
-
 pub async fn initialize_r_logic(
     upstreams: &[UpstreamMiningValues],
     group_id: Arc<Mutex<GroupId>>,

@@ -9,8 +9,9 @@ use crate::{
 
 use mining_sv2::{
     ExtendedExtranonce, NewExtendedMiningJob, NewMiningJob, OpenExtendedMiningChannelSuccess,
-    OpenMiningChannelError, OpenStandardMiningChannelSuccess, SetNewPrevHash, SubmitSharesError,
-    SubmitSharesExtended, SubmitSharesStandard, Target,
+    OpenMiningChannelError, OpenStandardMiningChannelSuccess, SetCustomMiningJob,
+    SetCustomMiningJobSuccess, SetNewPrevHash, SubmitSharesError, SubmitSharesExtended,
+    SubmitSharesStandard, Target,
 };
 
 use std::{collections::HashMap, convert::TryInto, sync::Arc};
@@ -52,8 +53,10 @@ pub enum OnNewShare {
     RelaySubmitShareUpstream,
     /// Indicate that the share meet bitcoin target, when there is an upstream the we should send
     /// the share upstream, whenever possible we should also notify the TP about it.
+    /// When a pool negotiate a job with downstream we do not have the template_id so we set it to
+    /// None
     /// (share, template id, coinbase)
-    ShareMeetBitcoinTarget((Share, u64, Vec<u8>)),
+    ShareMeetBitcoinTarget((Share, Option<u64>, Vec<u8>)),
     /// Indicate that the share meet downstream target, in the case we could send a success
     /// response dowmstream.
     ShareMeetDownstreamTarget,
@@ -654,13 +657,12 @@ impl ChannelFactory {
     }
 
     // If there is job creator  bitocin_target is retreived from there if not is set to 0
-    // If there is a job creator we pass the correct template id if not we pass 0 cause it wont be
-    // used
+    // If there is a job creator we pass the correct template id if not we pass None
     fn check_target(
         &mut self,
         m: Share,
         bitcoin_target: mining_sv2::Target,
-        template_id: u64,
+        template_id: Option<u64>,
         up_id: u32,
     ) -> Result<OnNewShare, Error> {
         let upstream_target = match &self.kind {
@@ -833,6 +835,8 @@ pub struct PoolChannelFactory {
     inner: ChannelFactory,
     job_creator: JobsCreators,
     pool_coinbase_outputs: Vec<TxOut>,
+    // extedned_channel_id -> SetCustomMiningJob
+    negotiated_jobs: HashMap<u32, SetCustomMiningJob<'static>>,
 }
 
 impl PoolChannelFactory {
@@ -865,6 +869,7 @@ impl PoolChannelFactory {
             inner,
             job_creator,
             pool_coinbase_outputs,
+            negotiated_jobs: HashMap::new(),
         }
     }
 
@@ -931,7 +936,7 @@ impl PoolChannelFactory {
                     .ok_or(Error::NoTemplateForId)?;
                 let target = self.job_creator.last_target();
                 self.inner
-                    .check_target(Share::Standard((m, *g_id)), target, template_id, 0)
+                    .check_target(Share::Standard((m, *g_id)), target, Some(template_id), 0)
             }
             None => {
                 let err = SubmitSharesError {
@@ -951,13 +956,27 @@ impl PoolChannelFactory {
         &mut self,
         m: SubmitSharesExtended,
     ) -> Result<OnNewShare, Error> {
-        let template_id = self
-            .job_creator
-            .get_template_id_from_job(self.inner.last_valid_job.as_ref().unwrap().0.job_id)
-            .ok_or(Error::NoTemplateForId)?;
         let target = self.job_creator.last_target();
-        self.inner
-            .check_target(Share::Extended(m.into_static()), target, template_id, 0)
+        // When downstream set a custom mining job we add the the job to the negotiated job
+        // hashmap, with the extended channel id as a key. Whenever the pool receive a share must
+        // first check if the channel have a negotiated job if so we can not retreive the template
+        // via the job creator (TODO MVP3 add a way to get the template for negotiated job create a
+        // block from the template and send to bitcoind via RPC).
+        if self.negotiated_jobs.contains_key(&m.channel_id) {
+            self.inner
+                .check_target(Share::Extended(m.into_static()), target, None, 0)
+        } else {
+            let template_id = self
+                .job_creator
+                .get_template_id_from_job(self.inner.last_valid_job.as_ref().unwrap().0.job_id)
+                .ok_or(Error::NoTemplateForId)?;
+            self.inner.check_target(
+                Share::Extended(m.into_static()),
+                target,
+                Some(template_id),
+                0,
+            )
+        }
     }
 
     pub fn new_group_id(&mut self) -> u32 {
@@ -981,6 +1000,32 @@ impl PoolChannelFactory {
         self.inner
             .extranonces
             .extranonce_from_downstream_extranonce(ext)
+    }
+
+    pub fn on_new_set_custom_mining_job(
+        &mut self,
+        set_custom_mining_job: SetCustomMiningJob<'static>,
+    ) -> SetCustomMiningJobSuccess {
+        if self.check_set_custom_mining_job(&set_custom_mining_job) {
+            self.negotiated_jobs.insert(
+                set_custom_mining_job.channel_id,
+                set_custom_mining_job.clone(),
+            );
+            SetCustomMiningJobSuccess {
+                channel_id: set_custom_mining_job.channel_id,
+                request_id: set_custom_mining_job.request_id,
+                job_id: 0,
+            }
+        } else {
+            todo!()
+        }
+    }
+
+    fn check_set_custom_mining_job(
+        &self,
+        _set_custom_mining_job: &SetCustomMiningJob<'static>,
+    ) -> bool {
+        true
     }
 }
 
@@ -1148,7 +1193,7 @@ impl ProxyExtendedChannelFactory {
             }
             Ok((self.inner.on_new_extended_mining_job(new_job)?, None))
         } else {
-            panic!("A channel factory without job creator do not have negotiation capabilities")
+            panic!("Either channel factory has no job creator or pool_coinbase_outputs are not yet set")
         }
     }
 
@@ -1174,7 +1219,7 @@ impl ProxyExtendedChannelFactory {
             self.inner.check_target(
                 Share::Extended(m),
                 bitcoin_target,
-                template_id,
+                Some(template_id),
                 self.extended_channel_id,
             )
         } else {
@@ -1184,7 +1229,7 @@ impl ProxyExtendedChannelFactory {
             self.inner.check_target(
                 Share::Extended(m),
                 bitcoin_target.into(),
-                0,
+                None,
                 self.extended_channel_id,
             )
         }
@@ -1206,7 +1251,7 @@ impl ProxyExtendedChannelFactory {
                     self.inner.check_target(
                         Share::Standard((m, *g_id)),
                         bitcoin_target,
-                        template_id,
+                        Some(template_id),
                         self.extended_channel_id,
                     )
                 } else {
@@ -1216,7 +1261,7 @@ impl ProxyExtendedChannelFactory {
                     self.inner.check_target(
                         Share::Standard((m, *g_id)),
                         bitcoin_target.into(),
-                        0,
+                        None,
                         self.extended_channel_id,
                     )
                 }
@@ -1281,6 +1326,10 @@ impl ProxyExtendedChannelFactory {
     }
     pub fn update_pool_outputs(&mut self, outs: Vec<TxOut>) {
         self.pool_coinbase_outputs = Some(outs);
+    }
+
+    pub fn get_this_channel_id(&self) -> u32 {
+        self.extended_channel_id
     }
 }
 
