@@ -44,8 +44,6 @@ impl PartialEq for DownstreamDifficultyConfig {
 pub struct UpstreamDifficultyConfig {
     pub channel_diff_update_interval: u32,
     pub channel_nominal_hashrate: f32,
-    #[serde(default = "f32::default")]
-    pub actual_nominal_hashrate: f32,
     #[serde(default = "u64::default")]
     pub timestamp_of_last_update: u64,
     #[serde(default = "bool::default")]

@@ -274,7 +274,7 @@ impl Upstream {
         self_
             .safe_lock(|u| {
                 u.difficulty_config
-                    .safe_lock(|d| d.actual_nominal_hashrate = 0.0)
+                    .safe_lock(|d| d.channel_nominal_hashrate = 0.0)
                     .map_err(|_e| PoisonLock)
             })
             .map_err(|_e| PoisonLock)??;

@@ -39,12 +39,7 @@ impl Upstream {
 
         let should_update_channel_option = diff_mgmt
             .safe_lock(|c| {
-                if c.actual_nominal_hashrate == 0.0 {
-                    c.actual_nominal_hashrate = c.channel_nominal_hashrate;
-                }
-
                 if is_outdated(c.timestamp_of_last_update, c.channel_diff_update_interval) {
-                    c.channel_nominal_hashrate = c.actual_nominal_hashrate;
                     return Some(c.channel_nominal_hashrate);
                 }
                 None

@@ -21,7 +21,7 @@ impl Downstream {
                 // add new connection hashrate to channel hashrate
                 d.upstream_difficulty_config
                     .safe_lock(|u| {
-                        u.actual_nominal_hashrate +=
+                        u.channel_nominal_hashrate +=
                             d.difficulty_mgmt.min_individual_miner_hashrate;
                     })
                     .map_err(|_e| Error::PoisonLock)
@@ -173,7 +173,7 @@ impl Downstream {
                 // update channel hashrate (read by upstream)
                 d.upstream_difficulty_config
                     .safe_lock(|c| {
-                        c.actual_nominal_hashrate += hashrate_delta;
+                        c.channel_nominal_hashrate += hashrate_delta;
                         Some(new_miner_hashrate)
                     })
                     .map_err(|_e| Error::PoisonLock)
@@ -221,7 +221,6 @@ mod test {
         let upstream_config = UpstreamDifficultyConfig {
             channel_diff_update_interval: 60,
             channel_nominal_hashrate: 0.0,
-            actual_nominal_hashrate: 0.0,
             timestamp_of_last_update: 0,
             should_aggregate: false,
         };
