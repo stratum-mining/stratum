@@ -16,7 +16,7 @@ use roles_logic_sv2::{
     routing_logic::{CommonRoutingLogic, NoRouting},
     utils::Mutex,
 };
-use std::{convert::TryInto, sync::Arc};
+use std::{convert::TryInto, net::SocketAddr, sync::Arc};
 use tracing::{debug, error};
 
 pub struct SetupConnectionHandler {
@@ -31,6 +31,7 @@ impl SetupConnectionHandler {
         self_: Arc<Mutex<Self>>,
         receiver: &mut Receiver<EitherFrame>,
         sender: &mut Sender<EitherFrame>,
+        address: SocketAddr,
     ) -> PoolResult<CommonDownstreamData> {
         // read stdFrame from receiver
 
@@ -39,8 +40,11 @@ impl SetupConnectionHandler {
                 debug!("Got sv2 message: {:?}", s);
                 s
             }
-            Ok(EitherFrame::HandShake(_)) => {
-                error!("Got unexpected handshake message");
+            Ok(EitherFrame::HandShake(s)) => {
+                error!(
+                    "Got unexpected handshake message from upstream: {:?} at {}",
+                    s, address
+                );
                 panic!()
             }
             Err(e) => {

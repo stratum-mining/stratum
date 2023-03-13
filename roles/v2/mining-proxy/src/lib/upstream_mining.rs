@@ -39,8 +39,8 @@ pub type EitherFrame = StandardEitherFrame<Message>;
 pub type ProxyRemoteSelector = Prs<DownstreamMiningNode>;
 
 use std::sync::atomic::AtomicBool;
-/// USED to make sure that if a future new_temnplate and a set_new_prev_hash are received together
-/// the future new_temnplate is always handled before the set new prev hash.
+/// USED to make sure that if a future new_template and a set_new_prev_hash are received together
+/// the future new_template is always handled before the set new prev hash.
 pub static IS_NEW_TEMPLATE_HANDLED: AtomicBool = AtomicBool::new(true);
 
 #[derive(Debug)]
@@ -200,7 +200,7 @@ pub struct UpstreamMiningNode {
     #[allow(dead_code)]
     tx_outs: HashMap<u64, Vec<TxOut>>,
     first_ph_received: bool,
-    // When a future job is recieved from an extended channel this is transformed to severla std
+    // When a future job is received from an extended channel this is transformed to severla std
     // job for HOM downstream. If the job is future we need to keep track of the original job id and
     // the new job ids used for the std job and also which downstream received which id. When a set
     // new prev hash is received if it refer one of these ids we use this map and build the right
@@ -210,7 +210,7 @@ pub struct UpstreamMiningNode {
 }
 
 use core::convert::TryInto;
-use std::net::SocketAddr;
+use std::{net::SocketAddr, time::Duration};
 use tracing::{debug, info};
 
 /// It assume that endpoint NEVER change flags and version!
@@ -414,15 +414,25 @@ impl UpstreamMiningNode {
         self_mutex: Arc<Mutex<Self>>,
         sv2_frame: StdFrame,
     ) -> Result<(), crate::lib::error::Error> {
-        let (has_sv2_connetcion, mut connection) = self_mutex
-            .safe_lock(|self_| (self_.sv2_connection.is_some(), self_.connection.clone()))
+        let (has_sv2_connection, mut connection, address) = self_mutex
+            .safe_lock(|self_| {
+                (
+                    self_.sv2_connection.is_some(),
+                    self_.connection.clone(),
+                    self_.address,
+                )
+            })
             .unwrap();
         //let mut self_ = self_mutex.lock().await;
 
-        match (connection.as_mut(), has_sv2_connetcion) {
+        match (connection.as_mut(), has_sv2_connection) {
             (Some(connection), true) => match connection.send(sv2_frame).await {
                 Ok(_) => Ok(()),
-                Err(_e) => {
+                Err(e) => {
+                    error!(
+                        "Error sending message to upstream node. Trying to reconnect to {}: {}",
+                        address, e
+                    );
                     Self::connect(self_mutex.clone()).await.unwrap();
                     // It assume that enpoint NEVER change flags and version!
                     match Self::setup_connection(self_mutex).await {
@@ -450,6 +460,10 @@ impl UpstreamMiningNode {
                         Err(()) => panic!(),
                     },
                     Err(e) => {
+                        error!(
+                            "Error sending message to upstream node at {} with error {}",
+                            address, e
+                        );
                         //Self::connect(self_mutex.clone()).await.unwrap();
                         Err(e.into())
                     }
@@ -467,6 +481,7 @@ impl UpstreamMiningNode {
                 Ok(m) => Ok(m.try_into().unwrap()),
                 Err(_) => {
                     let address = self_mutex.safe_lock(|s| s.address).unwrap();
+                    error!("Upstream node {} is not available", address);
                     Err(crate::lib::error::Error::UpstreamNotAvailabe(address))
                 }
             },
@@ -484,9 +499,15 @@ impl UpstreamMiningNode {
                 let (address, authority_public_key) = self_mutex
                     .safe_lock(|self_| (self_.address, self_.authority_public_key))
                     .unwrap();
-                let socket = TcpStream::connect(address)
-                    .await
-                    .map_err(|_| crate::lib::error::Error::UpstreamNotAvailabe(address))?;
+                let socket = TcpStream::connect(address).await.map_err(|_| {
+                    error!("Upstream node {} is not available", address);
+                    crate::lib::error::Error::UpstreamNotAvailabe(address)
+                })?;
+                info!(
+                    "Connected to upstream node {}: now handling noise handshake",
+                    address
+                );
+
                 let initiator = Initiator::from_raw_k(authority_public_key).unwrap();
                 let (receiver, sender) =
                     Connection::new(socket, HandshakeRole::Initiator(initiator)).await;
@@ -770,7 +791,7 @@ impl UpstreamMiningNode {
             .safe_lock(|s| s.channel_kind.is_initialized())
             .unwrap()
         {
-            tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+            tokio::time::sleep(Duration::from_secs(1)).await;
         }
     }
 
@@ -888,46 +909,52 @@ impl UpstreamMiningNode {
                     Share::Standard(_) => unreachable!(),
                 },
                 OnNewShare::RelaySubmitShareUpstream => todo!(),
-                OnNewShare::ShareMeetBitcoinTarget((share, template_id, coinbase)) => match share {
-                    Share::Extended(s) => {
-                        let solution = SubmitSolution {
-                            template_id,
-                            version: s.version,
-                            header_timestamp: s.ntime,
-                            header_nonce: s.nonce,
-                            coinbase_tx: coinbase.try_into().unwrap(),
-                        };
-                        let sender = self_
-                            .safe_lock(|s| s.solution_sender.clone())
-                            .unwrap()
-                            .unwrap();
-                        // The below channel should never be full is ok to block
-                        sender.send_blocking(solution).unwrap();
-
-                        let message = Mining::SubmitSharesExtended(s);
-                        let message = PoolMessages::Mining(message);
-                        let frame: StdFrame = message.try_into().unwrap();
-                        tokio::task::spawn(async move {
-                            UpstreamMiningNode::send(self_.clone(), frame)
-                                .await
+                OnNewShare::ShareMeetBitcoinTarget((share, Some(template_id), coinbase)) => {
+                    match share {
+                        Share::Extended(s) => {
+                            let solution = SubmitSolution {
+                                template_id,
+                                version: s.version,
+                                header_timestamp: s.ntime,
+                                header_nonce: s.nonce,
+                                coinbase_tx: coinbase.try_into().unwrap(),
+                            };
+                            let sender = self_
+                                .safe_lock(|s| s.solution_sender.clone())
+                                .unwrap()
                                 .unwrap();
-                        });
-                        let success = SubmitSharesSuccess {
-                            channel_id: share_.channel_id,
-                            last_sequence_number: share_.sequence_number,
-                            new_submits_accepted_count: 1,
-                            new_shares_sum: 1,
-                        };
-                        let message = Mining::SubmitSharesSuccess(success);
-                        Ok(message)
+                            // The below channel should never be full is ok to block
+                            sender.send_blocking(solution).unwrap();
+
+                            let message = Mining::SubmitSharesExtended(s);
+                            let message = PoolMessages::Mining(message);
+                            let frame: StdFrame = message.try_into().unwrap();
+                            tokio::task::spawn(async move {
+                                UpstreamMiningNode::send(self_.clone(), frame)
+                                    .await
+                                    .unwrap();
+                            });
+                            let success = SubmitSharesSuccess {
+                                channel_id: share_.channel_id,
+                                last_sequence_number: share_.sequence_number,
+                                new_submits_accepted_count: 1,
+                                new_shares_sum: 1,
+                            };
+                            let message = Mining::SubmitSharesSuccess(success);
+                            Ok(message)
+                        }
+                        Share::Standard(_) => {
+                            // on_submit_shares_standard call check_target that in the case of a Proxy
+                            // and a share that is below the bitcoin target if the share is a standard
+                            // share call share.into_extended making this branch unreachable.
+                            unreachable!()
+                        }
                     }
-                    Share::Standard(_) => {
-                        // on_submit_shares_standard call check_target that in the case of a Proxy
-                        // and a share that is below the bitcoin target if the share is a standard
-                        // share call share.into_extended making this branch unreachable.
-                        unreachable!()
-                    }
-                },
+                }
+                // When we have a ShareMeetBitcoinTarget it means that the proxy know the bitcoin
+                // target that means that the proxy must have JN capabilities that means that the
+                // second tuple elements can not be None but must be Some(template_id)
+                OnNewShare::ShareMeetBitcoinTarget(..) => unreachable!(),
                 OnNewShare::ShareMeetDownstreamTarget => {
                     let success = SubmitSharesSuccess {
                         channel_id: share_.channel_id,
