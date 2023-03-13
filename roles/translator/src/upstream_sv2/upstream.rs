@@ -159,7 +159,7 @@ impl Upstream {
         };
 
         let pub_key: codec_sv2::noise_sv2::formats::EncodedEd25519PublicKey = authority_public_key;
-        let initiator = Initiator::from_raw_k(*pub_key.into_inner().as_bytes()).unwrap();
+        let initiator = Initiator::from_raw_k(*pub_key.into_inner().as_bytes())?;
 
         info!(
             "PROXY SERVER - ACCEPTING FROM UPSTREAM: {}",
@@ -202,7 +202,7 @@ impl Upstream {
             max_version,
             self_
                 .safe_lock(|s| s.upstream_kind.is_work_selection_enabled())
-                .unwrap(),
+                .map_err(|_e| PoisonLock)?,
         )?;
         let mut connection = self_
             .safe_lock(|s| s.connection.clone())
@@ -270,22 +270,34 @@ impl Upstream {
 
         info!("Up: Sending: {:?}", &open_channel);
 
+        // reset channel hashrate so downstreams can manage from now on out
+        self_
+            .safe_lock(|u| {
+                u.difficulty_config
+                    .safe_lock(|d| d.actual_nominal_hashrate = 0.0)
+                    .map_err(|_e| PoisonLock)
+            })
+            .map_err(|_e| PoisonLock)??;
+
         let sv2_frame: StdFrame = Message::Mining(open_channel).try_into()?;
         connection.send(sv2_frame).await?;
         if self_
             .safe_lock(|s| s.upstream_kind.is_work_selection_enabled())
-            .unwrap()
+            .map_err(|_e| PoisonLock)?
         {
-            Self::set_custom_jobs(self_.clone());
+            Self::set_custom_jobs(self_.clone())?;
         }
+
         Ok(())
     }
 
-    pub fn set_custom_jobs(self_: Arc<Mutex<Self>>) {
+    pub fn set_custom_jobs(self_: Arc<Mutex<Self>>) -> ProxyResult<'static, ()> {
         let set_c_job_recv = self_
             .safe_lock(|s| s.upstream_kind.get_receiver().unwrap())
-            .unwrap();
-        let mut connection = self_.safe_lock(|s| s.connection.clone()).unwrap();
+            .map_err(|_e| PoisonLock)?;
+        let mut connection = self_
+            .safe_lock(|s| s.connection.clone())
+            .map_err(|_e| PoisonLock)?;
         async_std::task::spawn(async move {
             loop {
                 while let Ok(custom_job) = set_c_job_recv.recv().await {
@@ -298,6 +310,7 @@ impl Upstream {
                 }
             }
         });
+        Ok(())
     }
 
     /// Parses the incoming SV2 message from the Upstream role and routes the message to the
@@ -527,45 +540,6 @@ impl Upstream {
     fn _is_contained_in_upstream_target(&self, _share: SubmitSharesExtended) -> bool {
         todo!()
     }
-
-    // async fn handle_update_hashrate(self_: Arc<Mutex<Self>>) -> ProxyResult<'static, ()> {
-    //     let (channel_id_option, difficulty_config, tx_frame) = self_.safe_lock(|u|
-    //         (
-    //             u.channel_id.clone(),
-    //             u.difficulty_config.clone(),
-    //             u.connection.sender.clone()
-    //         )
-    //     )
-    //     .map_err(|_e| PoisonLock)?;
-    //     let channel_id = channel_id_option.ok_or(crate::Error::RolesSv2Logic(RolesLogicError::NotFoundChannelId))?;
-
-    //     let should_update_channel_option = difficulty_config.safe_lock(|c| {
-    //         if c.actual_nominal_hashrate == 0.0 {
-    //             c.actual_nominal_hashrate = c.channel_nominal_hashrate;
-    //         }
-
-    //         if (c.channel_nominal_hashrate - c.actual_nominal_hashrate / c.channel_nominal_hashrate).abs() >= c.channel_hashrate_update_delta
-    //         && c.actual_nominal_hashrate != 0.0 {
-    //             c.channel_nominal_hashrate = c.actual_nominal_hashrate;
-    //             return Some(c.channel_nominal_hashrate.clone());
-    //         }
-    //         return None;
-    //     }).map_err(|_e| PoisonLock)?;
-
-    //     if let Some(new_hashrate) = should_update_channel_option {
-    //         // UPDATE CHANNEL
-    //         let update_channel = UpdateChannel {
-    //             channel_id,
-    //             nominal_hash_rate: new_hashrate,
-    //             maximum_target: u256_from_int(u64::MAX)
-    //         };
-    //         let message = Message::Mining(Mining::UpdateChannel(update_channel));
-    //         let either_frame: StdFrame = message.try_into()?;
-    //         let frame: EitherFrame = either_frame.try_into()?;
-    //         tx_frame.send(frame).await;
-    //     }
-    //     Ok(())
-    // }
 
     /// Creates the `SetupConnection` message to setup the connection with the SV2 Upstream role.
     /// TODO: The Mining Device information is hard coded here, need to receive from Downstream

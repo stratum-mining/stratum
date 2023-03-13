@@ -737,72 +737,74 @@ mod test {
     #[test]
     fn test_version_bits_insert() {
         use roles_logic_sv2::bitcoin::hashes::Hash;
-        let mut bridge = test_utils::create_bridge();
-        bridge.safe_lock(|bridge| {
-            let out_id = roles_logic_sv2::bitcoin::hashes::sha256d::Hash::from_slice(&[
-                0_u8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                0, 0, 0, 0, 0,
-            ])
-            .unwrap();
-            let p_out = roles_logic_sv2::bitcoin::OutPoint {
-                txid: roles_logic_sv2::bitcoin::Txid::from_hash(out_id),
-                vout: 0xffff_ffff,
-            };
-            let in_ = roles_logic_sv2::bitcoin::TxIn {
-                previous_output: p_out,
-                script_sig: vec![89_u8; EXTRANONCE_LEN].into(),
-                sequence: 0,
-                witness: vec![].into(),
-            };
-            let tx = roles_logic_sv2::bitcoin::Transaction {
-                version: 1,
-                lock_time: 0,
-                input: vec![in_],
-                output: vec![],
-            };
-            let tx = tx.serialize();
-            let _down = bridge
-                .channel_factory
-                .add_standard_channel(0, 10_000_000_000.0, true, 1)
+        let bridge = test_utils::create_bridge();
+        bridge
+            .safe_lock(|bridge| {
+                let out_id = roles_logic_sv2::bitcoin::hashes::sha256d::Hash::from_slice(&[
+                    0_u8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    0, 0, 0, 0, 0, 0, 0,
+                ])
                 .unwrap();
-            let prev_hash = SetNewPrevHash {
-                channel_id: 1,
-                job_id: 0,
-                prev_hash: [
-                    3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-                    3, 3, 3, 3, 3, 3,
-                ]
-                .into(),
-                min_ntime: 989898,
-                nbits: 9,
-            };
-            bridge.channel_factory.on_new_prev_hash(prev_hash).unwrap();
-            let new_mining_job = NewExtendedMiningJob {
-                channel_id: 1,
-                job_id: 0,
-                future_job: false,
-                version: 0b0000_0000_0000_0000,
-                version_rolling_allowed: false,
-                merkle_path: vec![].into(),
-                coinbase_tx_prefix: tx[0..42].to_vec().try_into().unwrap(),
-                coinbase_tx_suffix: tx[58..].to_vec().try_into().unwrap(),
-            };
-            bridge
-                .channel_factory
-                .on_new_extended_mining_job(new_mining_job.clone())
-                .unwrap();
+                let p_out = roles_logic_sv2::bitcoin::OutPoint {
+                    txid: roles_logic_sv2::bitcoin::Txid::from_hash(out_id),
+                    vout: 0xffff_ffff,
+                };
+                let in_ = roles_logic_sv2::bitcoin::TxIn {
+                    previous_output: p_out,
+                    script_sig: vec![89_u8; EXTRANONCE_LEN].into(),
+                    sequence: 0,
+                    witness: vec![].into(),
+                };
+                let tx = roles_logic_sv2::bitcoin::Transaction {
+                    version: 1,
+                    lock_time: 0,
+                    input: vec![in_],
+                    output: vec![],
+                };
+                let tx = tx.serialize();
+                let _down = bridge
+                    .channel_factory
+                    .add_standard_channel(0, 10_000_000_000.0, true, 1)
+                    .unwrap();
+                let prev_hash = SetNewPrevHash {
+                    channel_id: 1,
+                    job_id: 0,
+                    prev_hash: [
+                        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+                        3, 3, 3, 3, 3, 3, 3,
+                    ]
+                    .into(),
+                    min_ntime: 989898,
+                    nbits: 9,
+                };
+                bridge.channel_factory.on_new_prev_hash(prev_hash).unwrap();
+                let new_mining_job = NewExtendedMiningJob {
+                    channel_id: 1,
+                    job_id: 0,
+                    future_job: false,
+                    version: 0b0000_0000_0000_0000,
+                    version_rolling_allowed: false,
+                    merkle_path: vec![].into(),
+                    coinbase_tx_prefix: tx[0..42].to_vec().try_into().unwrap(),
+                    coinbase_tx_suffix: tx[58..].to_vec().try_into().unwrap(),
+                };
+                bridge
+                    .channel_factory
+                    .on_new_extended_mining_job(new_mining_job.clone())
+                    .unwrap();
 
-            // pass sv1_submit into Bridge::translate_submit
-            let sv1_submit = test_utils::create_sv1_submit(0);
-            let channel_seq_id = bridge.channel_sequence_id.next() - 1;
-            let sv2_message = bridge
-                .translate_submit(channel_seq_id, sv1_submit, vec![0, 0, 0, 0, 0, 0, 0, 0])
-                .unwrap();
-            // assert sv2 message equals sv1 with version bits added
-            assert_eq!(
-                new_mining_job.version, sv2_message.version,
-                "Version bits were not inserted for non version rolling sv1 message"
-            );
-        });
+                // pass sv1_submit into Bridge::translate_submit
+                let sv1_submit = test_utils::create_sv1_submit(0);
+                let channel_seq_id = bridge.channel_sequence_id.next() - 1;
+                let sv2_message = bridge
+                    .translate_submit(channel_seq_id, sv1_submit, vec![0, 0, 0, 0, 0, 0, 0, 0])
+                    .unwrap();
+                // assert sv2 message equals sv1 with version bits added
+                assert_eq!(
+                    new_mining_job.version, sv2_message.version,
+                    "Version bits were not inserted for non version rolling sv1 message"
+                );
+            })
+            .unwrap();
     }
 }

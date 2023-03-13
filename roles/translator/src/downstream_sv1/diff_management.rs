@@ -18,8 +18,16 @@ impl Downstream {
                     .as_secs();
                 d.difficulty_mgmt.timestamp_of_last_update = timestamp_secs;
                 d.difficulty_mgmt.submits_since_last_update = 0;
+                // add new connection hashrate to channel hashrate
+                d.upstream_difficulty_config
+                    .safe_lock(|u| {
+                        u.actual_nominal_hashrate +=
+                            d.difficulty_mgmt.min_individual_miner_hashrate;
+                    })
+                    .map_err(|_e| Error::PoisonLock)
             })
-            .map_err(|_e| Error::PoisonLock)?;
+            .map_err(|_e| Error::PoisonLock)??;
+
         Ok(())
     }
 
@@ -47,20 +55,22 @@ impl Downstream {
             )
             .to_vec();
             tracing::debug!("TARGET FROM HASH RATE: {:?}", &prev_target);
-            if let Some(new_hash_rate) =
-                Self::update_miner_hashrate(self_.clone(), prev_target.clone())?
+            #[cfg(not(test))]
             {
-                #[cfg(not(test))]
-                let new_target = roles_logic_sv2::utils::hash_rate_to_target(
-                    new_hash_rate,
-                    diff_mgmt.shares_per_minute,
-                )
-                .to_vec();
-                #[cfg(not(test))]
-                let message = Self::get_set_difficulty(new_target)?;
-                #[cfg(not(test))]
-                Downstream::send_message_downstream(self_.clone(), message).await?;
+                if let Some(new_hash_rate) =
+                    Self::update_miner_hashrate(self_.clone(), prev_target.clone())?
+                {
+                    let new_target = roles_logic_sv2::utils::hash_rate_to_target(
+                        new_hash_rate,
+                        diff_mgmt.shares_per_minute,
+                    )
+                    .to_vec();
+                    let message = Self::get_set_difficulty(new_target)?;
+                    Downstream::send_message_downstream(self_.clone(), message).await?;
+                }
             }
+            #[cfg(test)]
+            Self::update_miner_hashrate(self_.clone(), prev_target.clone())?;
         }
         Ok(())
     }
@@ -81,7 +91,6 @@ impl Downstream {
 
     /// increments the number of shares since the last difficulty update
     pub(super) fn save_share(self_: Arc<Mutex<Self>>) -> ProxyResult<'static, ()> {
-        tracing::info!("SAVED SHARE");
         self_
             .safe_lock(|d| {
                 d.difficulty_mgmt.submits_since_last_update += 1;
@@ -241,7 +250,6 @@ mod test {
             initial_nominal_hashrate as f32,
             config_shares_per_minute,
         );
-        println!("INITIAL TARGET: {:?}", initial_target);
 
         downstream.difficulty_mgmt.min_individual_miner_hashrate = initial_nominal_hashrate as f32;
 
@@ -297,18 +305,13 @@ mod test {
     fn mock_mine(target: Target) -> U256<'static> {
         let mut share: Target = [255_u8; 32].into();
         while shares_is_gt(share.clone().into(), target.clone().into()) {
-            let mut rng = thread_rng();
-            let number = rng.gen::<u64>();
+            let number = rand_number();
             let digest: U256 = Sha256::digest(&number.to_le_bytes())
                 .to_vec()
                 .try_into()
                 .unwrap();
             share = u256_to_target(digest);
         }
-        let test_share: U256 = share.clone().into();
-        let test_target: U256 = target.into();
-        println!("\nSHARE: {:?}", test_share);
-        println!("TARGET: {:?}\n", test_target);
         share.into()
     }
 
@@ -319,8 +322,7 @@ mod test {
         let duration = Duration::from_secs(duration_secs);
 
         while start_time.elapsed() < duration {
-            let mut rng = thread_rng();
-            let number = rng.gen::<u64>();
+            let number = rand_number();
             let _hash: U256 = Sha256::digest(&number.to_le_bytes())
                 .to_vec()
                 .try_into()
@@ -350,5 +352,10 @@ mod test {
         let b = target.inner_as_ref();
         u128::from_be_bytes(a[0..16].try_into().unwrap())
             > u128::from_be_bytes(b[0..16].try_into().unwrap())
+    }
+
+    fn rand_number() -> u64 {
+        let mut rng = thread_rng();
+        rng.gen::<u64>()
     }
 }

@@ -321,7 +321,6 @@ impl Downstream {
 
             while let Some(stream) = downstream_incoming.next().await {
                 let stream = stream.expect("Err on SV1 Downstream connection stream");
-                // TODO where should I pick the below value??
                 let expected_hash_rate = downstream_difficulty_config.min_individual_miner_hashrate;
                 let open_sv1_downstream = bridge
                     .safe_lock(|s| s.on_new_sv1_connection(expected_hash_rate))
