@@ -2,7 +2,8 @@
     "doc": [
         "This test does",
         "Opens extended channel with the pool",
-        "Checks that NewMiningJob and SetNewPrevHash is sent by the pool"
+        "Checks that NewMiningJob and SetNewPrevHash is sent by the pool",
+        "Generates code coverage report for the pool"
     ],
     "mining_messages": [
         {
@@ -99,7 +100,7 @@
                             "condition": true
                         }
                     ],
-                    "timer_secs": 60,
+                    "timer_secs": 240,
                     "warn_no_panic": false
                 }
             }
@@ -107,12 +108,14 @@
         {
              "command": "cargo",
              "args": [
-                         "run",
-                         "-p",
-                         "pool_sv2",
-                         "--",
-                         "-c",
-                         "./test/config/pool-mock-tp.toml"
+                        "llvm-cov",
+                        "--no-report",
+                        "run",
+                        "-p", 
+                        "pool_sv2",
+                        "--",
+                        "-c",
+                        "./test/config/pool-mock-tp.toml"
              ],
              "conditions": {
                  "WithConditions": {
@@ -123,7 +126,7 @@
                              "condition": true
                          }
                      ],
-                     "timer_secs": 60,
+                     "timer_secs": 240,
                      "warn_no_panic": false
                  }
              }
@@ -132,6 +135,36 @@
     "execution_commands": [
     ],
     "cleanup_commands": [
+        {
+            "command": "pkill",
+            "args":  ["-f", "pool_sv2", "-SIGINT"],
+            "conditions": "None"
+        },
+        {
+            "command": "cargo",
+            "args": [
+                    "llvm-cov",
+                    "--ignore-filename-regex",
+                    "utils/|experimental/|protocols/",
+                    "--cobertura",
+                    "--output-path",
+                    "target/pool-sri-test-extended_1.xml",
+                    "report"
+            ],
+            "conditions": {
+                "WithConditions": {
+                    "conditions": [
+                        {
+                            "output_string": "Finished report saved to ",
+                            "output_location": "StdErr",
+                            "condition": true
+                        }
+                    ],
+                    "timer_secs": 240,
+                    "warn_no_panic": false
+                }
+            }
+        }
     ],
     "role": "client",
     "downstream": {
