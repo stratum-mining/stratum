@@ -213,8 +213,8 @@ mod test {
     async fn test_diff_management() {
         let downstream_conf = DownstreamDifficultyConfig {
             min_individual_miner_hashrate: 0.0,  // updated below
-            miner_num_submits_before_update: 10, // update after 5 submits
-            shares_per_minute: 10.0,             // 10 shares per minute
+            miner_num_submits_before_update: 15, // update after 5 submits
+            shares_per_minute: 100.0,            // 10 shares per minute
             submits_since_last_update: 0,
             timestamp_of_last_update: 0, // updated below
         };
@@ -241,10 +241,10 @@ mod test {
             Arc::new(Mutex::new(upstream_config)),
         );
 
-        let total_run_time = std::time::Duration::from_secs(300);
+        let total_run_time = std::time::Duration::from_secs(30);
         let config_shares_per_minute = downstream_conf.shares_per_minute;
         // get initial hashrate
-        let initial_nominal_hashrate = measure_hashrate(10);
+        let initial_nominal_hashrate = measure_hashrate(8);
         // get target from hashrate and shares_per_sec
         let initial_target = roles_logic_sv2::utils::hash_rate_to_target(
             initial_nominal_hashrate as f32,
@@ -293,9 +293,10 @@ mod test {
         );
         println!("Actual Share/Min {:?}", calculated_share_per_min);
         let calculated_share_per_min = count as f32 / (elapsed.as_secs_f32() / 60.0);
-        let err = 1.0
-            - (config_shares_per_minute - calculated_share_per_min / config_shares_per_minute)
-                .abs();
+        let err = ((config_shares_per_minute - calculated_share_per_min)
+            / config_shares_per_minute)
+            .abs();
+        println!("ERROR: {:?}", err);
         assert!(
             err < 0.2,
             "Calculated share_per_min does not meet 20% error"
