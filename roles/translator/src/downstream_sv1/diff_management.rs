@@ -320,12 +320,7 @@ mod test {
     fn mock_mine(target: Target) -> U256<'static> {
         let mut share: Target = [255_u8; 32].into();
         while shares_is_gt(share.clone().into(), target.clone().into()) {
-            let number = rand_number();
-            let digest: U256 = Sha256::digest(&number.to_le_bytes())
-                .to_vec()
-                .try_into()
-                .unwrap();
-            share = u256_to_target(digest);
+            share = gen_share();
         }
         share.into()
     }
@@ -337,13 +332,7 @@ mod test {
         let duration = Duration::from_secs(duration_secs);
 
         while start_time.elapsed() < duration {
-            let number = rand_number();
-            let _hash: U256 = Sha256::digest(&number.to_le_bytes())
-                .to_vec()
-                .try_into()
-                .unwrap();
-            // ops to make hashrate closer to mock mine
-            let _share: Target = u256_to_target(_hash);
+            gen_share();
             hashes += 1;
         }
 
@@ -369,8 +358,13 @@ mod test {
             > u128::from_be_bytes(b[0..16].try_into().unwrap())
     }
 
-    fn rand_number() -> u64 {
+    fn gen_share() -> Target {
         let mut rng = thread_rng();
-        rng.gen::<u64>()
+        let number = rng.gen::<u64>();
+        let hash: U256 = Sha256::digest(&number.to_le_bytes())
+            .to_vec()
+            .try_into()
+            .unwrap();
+        u256_to_target(hash)
     }
 }
