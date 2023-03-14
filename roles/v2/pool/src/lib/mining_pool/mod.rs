@@ -22,7 +22,7 @@ use roles_logic_sv2::{
     template_distribution_sv2::{NewTemplate, SetNewPrevHash, SubmitSolution},
     utils::Mutex,
 };
-use std::{collections::HashMap, convert::TryInto, sync::Arc};
+use std::{collections::HashMap, convert::TryInto, net::SocketAddr, sync::Arc};
 use tracing::{debug, error, info};
 
 pub mod setup_connection;
@@ -60,10 +60,12 @@ impl Downstream {
         pool: Arc<Mutex<Pool>>,
         channel_factory: Arc<Mutex<PoolChannelFactory>>,
         status_tx: status::Sender,
+        address: SocketAddr,
     ) -> PoolResult<Arc<Mutex<Self>>> {
         let setup_connection = Arc::new(Mutex::new(SetupConnectionHandler::new()));
         let downstream_data =
-            SetupConnectionHandler::setup(setup_connection, &mut receiver, &mut sender).await?;
+            SetupConnectionHandler::setup(setup_connection, &mut receiver, &mut sender, address)
+                .await?;
 
         let id = match downstream_data.header_only {
             false => channel_factory.safe_lock(|c| c.new_group_id())?,
@@ -209,14 +211,15 @@ impl Pool {
             config.test_only_listen_adress_plain
         );
         while let Ok((stream, _)) = listner.accept().await {
-            debug!("New connection from {}", stream.peer_addr().unwrap());
+            let address = stream.peer_addr().unwrap();
+            debug!("New connection from {}", address);
 
             let (receiver, sender): (Receiver<EitherFrame>, Sender<EitherFrame>) =
                 network_helpers::plain_connection_tokio::PlainConnection::new(stream).await;
 
             handle_result!(
                 status_tx,
-                Self::accept_incoming_connection_(self_.clone(), receiver, sender).await
+                Self::accept_incoming_connection_(self_.clone(), receiver, sender, address).await
             );
         }
         Ok(())
@@ -233,6 +236,7 @@ impl Pool {
             config.listen_address
         );
         while let Ok((stream, _)) = listener.accept().await {
+            let address = stream.peer_addr().unwrap();
             debug!(
                 "New connection from {:?}",
                 stream.peer_addr().map_err(PoolError::Io)
@@ -249,7 +253,8 @@ impl Pool {
                         Connection::new(stream, HandshakeRole::Responder(resp)).await;
                     handle_result!(
                         status_tx,
-                        Self::accept_incoming_connection_(self_.clone(), receiver, sender).await
+                        Self::accept_incoming_connection_(self_.clone(), receiver, sender, address)
+                            .await
                     );
                 }
                 Err(_e) => {
@@ -264,6 +269,7 @@ impl Pool {
         self_: Arc<Mutex<Pool>>,
         receiver: Receiver<EitherFrame>,
         sender: Sender<EitherFrame>,
+        address: SocketAddr,
     ) -> PoolResult<()> {
         let solution_sender = self_.safe_lock(|p| p.solution_sender.clone())?;
         let status_tx = self_.safe_lock(|s| s.status_tx.clone())?;
@@ -277,6 +283,7 @@ impl Pool {
             channel_factory,
             // convert Listener variant to Downstream variant
             status_tx.listener_to_connection(),
+            address,
         )
         .await?;
 
