@@ -499,7 +499,10 @@ impl TryFrom<&Response> for Configure {
         let minimum_difficulty = params.get("minimum-difficulty");
 
         // Deserialize version-rolling response.
-        // Composed by 3 required fields
+        // Composed by 3 fields: 
+        //   version-rolling (required), 
+        //   version-rolling.mask (required) 
+        //   version-rolling.min-bit-count (optional)
         let version_rolling: Option<VersionRollingParams>;
         if version_rolling_.is_some() && version_rolling_mask.is_some() {
             let vr: bool = version_rolling_
@@ -573,6 +576,51 @@ fn version_rollion_mask_fail_with_invalid_tail() {
     let err2 = VersionRollingParams::new(HexU32Be(0b00000000000000000001000000000000), HexU32Be(0));
     assert!(err1.is_err());
     assert!(err2.is_err());
+}
+
+#[test]
+fn configure_response_parsing_all_fields() {
+    let client_response_str = 
+        r#"{"id":0,
+            "result":{
+                "version-rolling":true,
+                "version-rolling.mask":"1fffe000",
+                "version-rolling.min-bit-count":"00000005",
+                "minimum-difficulty":false
+            }
+        }"#;
+    let client_response = serde_json::from_str(&client_response_str).unwrap();
+    let server_configure = Configure::try_from(&client_response).unwrap();
+    println!("{:?}", server_configure);
+    
+    let version_rolling = server_configure.version_rolling.unwrap();
+    assert_eq!(version_rolling.version_rolling, true);
+    assert_eq!(version_rolling.version_rolling_mask, HexU32Be(0x1fffe000));
+    assert_eq!(version_rolling.version_rolling_min_bit_count, HexU32Be(5));
+
+    assert_eq!(server_configure.minimum_difficulty, Some(false));
+}
+
+#[test]
+fn configure_response_parsing_no_vr_min_bit_count() {
+    let client_response_str = 
+        r#"{"id":0,
+            "result":{
+                "version-rolling":true,
+                "version-rolling.mask":"1fffe000",
+                "minimum-difficulty":false
+            }
+        }"#;
+    let client_response = serde_json::from_str(&client_response_str).unwrap();
+    let server_configure = Configure::try_from(&client_response).unwrap();
+    println!("{:?}", server_configure);
+    
+    let version_rolling = server_configure.version_rolling.unwrap();
+    assert_eq!(version_rolling.version_rolling, true);
+    assert_eq!(version_rolling.version_rolling_mask, HexU32Be(0x1fffe000));
+    assert_eq!(version_rolling.version_rolling_min_bit_count, HexU32Be(0));
+
+    assert_eq!(server_configure.minimum_difficulty, Some(false));
 }
 
 impl VersionRollingParams {
