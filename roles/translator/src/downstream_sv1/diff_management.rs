@@ -229,9 +229,9 @@ mod test {
     #[tokio::test]
     async fn test_diff_management() {
         let downstream_conf = DownstreamDifficultyConfig {
-            min_individual_miner_hashrate: 0.0,  // updated below
-            miner_num_submits_before_update: 15, // update after 5 submits
-            shares_per_minute: 100.0,            // 10 shares per minute
+            min_individual_miner_hashrate: 0.0,   // updated below
+            miner_num_submits_before_update: 150, // update after 5 submits
+            shares_per_minute: 1000.0,            // 10 shares per minute
             submits_since_last_update: 0,
             timestamp_of_last_update: 0, // updated below
         };
@@ -275,7 +275,9 @@ mod test {
         let mut elapsed = std::time::Duration::from_secs(0);
         let downstream = Arc::new(Mutex::new(downstream));
         Downstream::init_difficulty_management(downstream.clone()).unwrap();
-        let mut target = initial_target;
+        let mut target = initial_target.to_vec();
+        target.reverse();
+        let mut target: U256 = target.try_into().unwrap();
         let mut count = 0;
         while elapsed <= total_run_time {
             // start hashing util a target is met and submit to
@@ -322,7 +324,7 @@ mod test {
 
     fn mock_mine(target: Target) -> U256<'static> {
         let mut share: Target = [255_u8; 32].into();
-        while shares_is_gt(share.clone().into(), target.clone().into()) {
+        while share > target {
             share = gen_share();
         }
         share.into()
@@ -352,13 +354,6 @@ mod test {
         let head = u128::from_be_bytes(v[0..16].try_into().unwrap());
         let tail = u128::from_be_bytes(v[16..32].try_into().unwrap());
         Target::new(head, tail)
-    }
-
-    fn shares_is_gt(share: U256<'static>, target: U256<'static>) -> bool {
-        let a = share.inner_as_ref();
-        let b = target.inner_as_ref();
-        u128::from_be_bytes(a[0..16].try_into().unwrap())
-            > u128::from_be_bytes(b[0..16].try_into().unwrap())
     }
 
     fn gen_share() -> Target {
