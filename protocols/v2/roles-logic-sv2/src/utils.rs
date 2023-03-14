@@ -113,7 +113,7 @@ pub fn merkle_root_from_path<T: AsRef<[u8]>>(
         }
     };
 
-    let coinbase_id: [u8; 32] = match coinbase.txid().as_hash().to_vec().try_into() {
+    let coinbase_id: [u8; 32] = match coinbase.txid().to_vec().try_into() {
         Ok(id) => id,
         Err(_e) => return None,
     };
@@ -189,8 +189,9 @@ pub fn hash_rate_to_target(h: f32, share_per_min: f32) -> U256<'static> {
     let numerator = two_to_256_minus_one - h_times_s;
     let denominator = h_times_s_plus_one;
     let target = numerator / denominator;
-    let target = target.to_be_bytes();
-    U256::<'static>::from(target)
+    let mut target_be = target.to_be_bytes();
+    target_be.reverse();
+    U256::<'static>::from(target_be)
 }
 
 /// this function utilizes the equation used in [`hash_rate_to_target`], but

@@ -246,7 +246,7 @@ impl ChannelFactory {
                 .safe_lock(|ids| ids.new_channel_id(extended_channels_group))
                 .unwrap();
             self.channel_to_group_id.insert(channel_id, 0);
-            let target = crate::utils::hash_rate_to_target(hash_rate, self.share_per_min);
+            let target = crate::utils::hash_rate_to_target_le(hash_rate, self.share_per_min);
             let extranonce = self
                 .extranonces
                 .next_extended(max_extranonce_size as usize)?;
@@ -291,7 +291,7 @@ impl ChannelFactory {
         let hom_group_id = 0;
         let mut result = vec![];
         let channel_id = id;
-        let target = crate::utils::hash_rate_to_target(downstream_hash_rate, self.share_per_min);
+        let target = crate::utils::hash_rate_to_target_le(downstream_hash_rate, self.share_per_min);
         let extranonce = self
             .extranonces
             .next_standard()
@@ -334,7 +334,7 @@ impl ChannelFactory {
             .safe_lock(|ids| ids.new_channel_id(group_id))
             .unwrap();
         let complete_id = GroupId::into_complete_id(group_id, channel_id);
-        let target = crate::utils::hash_rate_to_target(downstream_hash_rate, self.share_per_min);
+        let target = crate::utils::hash_rate_to_target_le(downstream_hash_rate, self.share_per_min);
         let extranonce = self
             .extranonces
             .next_standard()
@@ -690,6 +690,29 @@ impl ChannelFactory {
                 upstream_target, ..
             } => upstream_target.clone(),
         };
+        let _last_job_id = self
+            .last_valid_job
+            .as_ref()
+            .ok_or(Error::ShareDoNotMatchAnyJob)?
+            .0
+            .job_id;
+        // *** TODO: uncomment code below when job management gets fixed
+        // if m.get_job_id() < last_job_id {
+        //     println!("JOB ID: {:?}", last_job_id);
+        //     let error = SubmitSharesError {
+        //         channel_id: m.get_channel_id(),
+        //         sequence_number: m.get_sequence_number(),
+        //         // Infallible unwrap we already know the len of the error code (is a
+        //         // static string)
+        //         error_code: SubmitSharesError::stale_share_error_code()
+        //             .to_string()
+        //             .try_into()
+        //             .unwrap(),
+        //     };
+        //     return Ok(OnNewShare::SendErrorDownstream(error));
+        // } else if m.get_job_id() > last_job_id {
+        //     return Err(Error::JobNotUpdated)
+        // }
         let (downstream_target, extranonce) = self
             .get_channel_specific_mining_info(&m)
             .ok_or(Error::ShareDoNotMatchAnyChannel)?;
@@ -742,6 +765,7 @@ impl ChannelFactory {
         };
         let hash_ = header.block_hash();
         let hash = hash_.as_hash().into_inner();
+        println!("\nSHARE HASH: {:?}", &hash);
         let hash: Target = hash.into();
 
         if hash <= bitcoin_target {
@@ -915,7 +939,8 @@ impl PoolChannelFactory {
         &mut self,
         m: &SetNewPrevHashFromTp<'static>,
     ) -> Result<u32, Error> {
-        let job_id = self.job_creator.on_new_prev_hash(m).unwrap_or(0);
+        // since we have staged phash 0 is no longer reserved and 1 is the default
+        let job_id = self.job_creator.on_new_prev_hash(m).unwrap_or(1);
         let new_prev_hash = StagedPhash {
             job_id,
             prev_hash: m.prev_hash.clone(),
@@ -1136,7 +1161,8 @@ impl ProxyExtendedChannelFactory {
         m: &SetNewPrevHashFromTp<'static>,
     ) -> Result<Option<PartialSetCustomMiningJob>, Error> {
         if let Some(job_creator) = self.job_creator.as_mut() {
-            let job_id = job_creator.on_new_prev_hash(m).unwrap_or(0);
+            // since we have staged phash 0 is no longer reserved and 1 is the default
+            let job_id = job_creator.on_new_prev_hash(m).unwrap_or(1);
             let new_prev_hash = StagedPhash {
                 job_id,
                 prev_hash: m.prev_hash.clone(),

@@ -1,4 +1,4 @@
-use v1::utils::HexU32Be;
+use v1::{client_to_server::Submit, utils::HexU32Be};
 pub mod diff_management;
 pub mod downstream;
 pub use downstream::Downstream;
@@ -9,6 +9,12 @@ pub use downstream::Downstream;
 /// receive jobs. Without the timeout the TProxy can be exploited by incoming
 /// `mining.subscribe` messages that init connections and take up compute
 const SUBSCRIBE_TIMEOUT_SECS: u64 = 10;
+
+pub struct SubmitShareWithChannelId {
+    pub channel_id: u32,
+    pub share: Submit<'static>,
+    pub extranonce: Vec<u8>,
+}
 
 /// This is just a wrapper function to send a message on the Downstream task shutdown channel
 /// it does not matter what message is sent because the receiving ends should shutdown on any message
