@@ -201,6 +201,7 @@ pub fn hash_rate_from_target(target: U256<'static>, share_per_min: f32) -> f32 {
 
     let mut target_arr: [u8; 32] = [0; 32];
     target_arr.as_mut().copy_from_slice(target.inner_as_ref());
+    target_arr.reverse();
     let mut target_plus_1 = bitcoin::util::uint::Uint256::from_be_bytes(target_arr);
     target_plus_1.increment();
 
@@ -738,11 +739,11 @@ mod tests {
         let mut rng = rand::thread_rng();
         let mut successes = 0;
 
-        let hr = 10.01; // 10 h/s
+        let hr = 10.0; // 10 h/s
         let hrs = hr * 60.0; // number of hashes in 1 minute
-        let mut target = hash_rate_to_target(hr, 1.0);
-        let target =
-            bitcoin::util::uint::Uint256::from_be_slice(&target.inner_as_mut()[..]).unwrap();
+        let mut target = hash_rate_to_target(hr, 1.0).to_vec();
+        target.reverse();
+        let target = bitcoin::util::uint::Uint256::from_be_slice(&target[..]).unwrap();
 
         let mut i: i64 = 0;
         let mut results = vec![];

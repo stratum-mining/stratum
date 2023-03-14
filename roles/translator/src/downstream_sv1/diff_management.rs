@@ -126,7 +126,9 @@ impl Downstream {
 
     /// Converts target received by the `SetTarget` SV2 message from the Upstream role into the
     /// difficulty for the Downstream role sent via the SV1 `mining.set_difficulty` message.
-    pub(super) fn difficulty_from_target(target: Vec<u8>) -> ProxyResult<'static, f64> {
+    pub(super) fn difficulty_from_target(mut target: Vec<u8>) -> ProxyResult<'static, f64> {
+        // reverse because target is LE and this function relies on BE
+        target.reverse();
         let target = target.as_slice();
 
         // If received target is 0, return 0
@@ -243,6 +245,7 @@ mod test {
         let (tx_outgoing, _rx_outgoing) = unbounded();
         // create Downstream instance
         let mut downstream = Downstream::new(
+            1,
             vec![],
             vec![],
             None,
