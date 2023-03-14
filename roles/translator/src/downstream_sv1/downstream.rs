@@ -226,7 +226,7 @@ impl Downstream {
         });
 
         let tx_status_notify = tx_status;
-
+        let self_ = downstream.clone();
         let _notify_task = task::spawn(async move {
             let timeout_timer = std::time::Instant::now();
             let mut first_sent = false;
@@ -296,6 +296,7 @@ impl Downstream {
                     task::sleep(std::time::Duration::from_secs(1)).await;
                 }
             }
+            let _ = Self::remove_miner_hashrate_from_channel(self_);
             kill(&tx_shutdown).await;
             warn!(
                 "Downstream: Shutting down sv1 downstream job notifier for {}",

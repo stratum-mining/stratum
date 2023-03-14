@@ -31,6 +31,21 @@ impl Downstream {
         Ok(())
     }
 
+    /// Called before a miner disconnects so we can remove the miner's hashrate from the aggregated channel hashrate
+    pub fn remove_miner_hashrate_from_channel(self_: Arc<Mutex<Self>>) -> ProxyResult<'static, ()> {
+        self_
+            .safe_lock(|d| {
+                d.upstream_difficulty_config
+                    .safe_lock(|u| {
+                        u.channel_nominal_hashrate -=
+                            d.difficulty_mgmt.min_individual_miner_hashrate
+                    })
+                    .map_err(|_e| Error::PoisonLock)
+            })
+            .map_err(|_e| Error::PoisonLock)??;
+        Ok(())
+    }
+
     /// if enough shares have been submitted according to the config, this function updates the difficulty for the connection and sends the new
     /// difficulty to the miner
     pub async fn try_update_difficulty_settings(
