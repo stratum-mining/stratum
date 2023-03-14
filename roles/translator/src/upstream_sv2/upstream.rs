@@ -1,6 +1,7 @@
 use crate::{
     downstream_sv1::Downstream,
     error::Error::{CodecNoise, PoisonLock, UpstreamIncoming},
+    proxy_config::UpstreamDifficultyConfig,
     status,
     upstream_sv2::{EitherFrame, Message, StdFrame, UpstreamConnection},
     ProxyResult,
@@ -77,13 +78,13 @@ impl UpstreamKind {
 pub struct Upstream {
     /// Newly assigned identifier of the channel, stable for the whole lifetime of the connection,
     /// e.g. it is used for broadcasting new jobs by the `NewExtendedMiningJob` message.
-    channel_id: Option<u32>,
+    pub(super) channel_id: Option<u32>,
     /// Identifier of the job as provided by the `NewExtendedMiningJob` message.
     job_id: Option<u32>,
     /// Bytes used as implicit first part of `extranonce`.
     extranonce_prefix: Option<Vec<u8>>,
     /// Represents a connection to a SV2 Upstream role.
-    connection: UpstreamConnection,
+    pub(super) connection: UpstreamConnection,
     /// Receives SV2 `SubmitSharesExtended` messages translated from SV1 `mining.submit` messages.
     /// Translated by and sent from the `Bridge`.
     rx_sv2_submit_shares_ext: Receiver<SubmitSharesExtended<'static>>,
@@ -109,6 +110,11 @@ pub struct Upstream {
     /// set by the SV2 Upstream via the SV2 `OpenExtendedMiningChannelSuccess` message.
     pub min_extranonce_size: u16,
     upstream_kind: UpstreamKind,
+    // values used to update the channel with the correct nominal hashrate.
+    // each Downstream instance will add and subtract their hashrates as needed
+    // and the upstream just needs to occasionally check if it has changed more than
+    // than the configured percentage
+    pub(super) difficulty_config: Arc<Mutex<UpstreamDifficultyConfig>>,
 }
 
 impl PartialEq for Upstream {
@@ -135,6 +141,7 @@ impl Upstream {
         tx_status: status::Sender,
         target: Arc<Mutex<Vec<u8>>>,
         upstream_kind: UpstreamKind,
+        difficulty_config: Arc<Mutex<UpstreamDifficultyConfig>>,
     ) -> ProxyResult<'static, Arc<Mutex<Self>>> {
         // Connect to the SV2 Upstream role retry connection every 5 seconds.
         let socket = loop {
@@ -152,7 +159,7 @@ impl Upstream {
         };
 
         let pub_key: codec_sv2::noise_sv2::formats::EncodedEd25519PublicKey = authority_public_key;
-        let initiator = Initiator::from_raw_k(*pub_key.into_inner().as_bytes()).unwrap();
+        let initiator = Initiator::from_raw_k(*pub_key.into_inner().as_bytes())?;
 
         info!(
             "PROXY SERVER - ACCEPTING FROM UPSTREAM: {}",
@@ -179,6 +186,7 @@ impl Upstream {
             tx_status,
             target,
             upstream_kind,
+            difficulty_config,
         })))
     }
 
@@ -194,7 +202,7 @@ impl Upstream {
             max_version,
             self_
                 .safe_lock(|s| s.upstream_kind.is_work_selection_enabled())
-                .unwrap(),
+                .map_err(|_e| PoisonLock)?,
         )?;
         let mut connection = self_
             .safe_lock(|s| s.connection.clone())
@@ -241,36 +249,55 @@ impl Upstream {
         )?;
 
         // Send open channel request before returning
+        let nominal_hash_rate = self_
+            .safe_lock(|u| {
+                u.difficulty_config
+                    .safe_lock(|c| c.channel_nominal_hashrate)
+                    .map_err(|_e| PoisonLock)
+            })
+            .map_err(|_e| PoisonLock)??;
         let user_identity = "ABC".to_string().try_into()?;
         let min_extranonce_size = self_
             .safe_lock(|s| s.min_extranonce_size)
             .map_err(|_e| PoisonLock)?;
         let open_channel = Mining::OpenExtendedMiningChannel(OpenExtendedMiningChannel {
-            request_id: 0,                       // TODO
-            user_identity,                       // TODO
-            nominal_hash_rate: 10_000_000_000.0, // TODO
+            request_id: 0, // TODO
+            user_identity, // TODO
+            nominal_hash_rate,
             max_target: u256_from_int(u64::MAX), // TODO
             min_extranonce_size,
         });
 
         info!("Up: Sending: {:?}", &open_channel);
 
+        // reset channel hashrate so downstreams can manage from now on out
+        self_
+            .safe_lock(|u| {
+                u.difficulty_config
+                    .safe_lock(|d| d.channel_nominal_hashrate = 0.0)
+                    .map_err(|_e| PoisonLock)
+            })
+            .map_err(|_e| PoisonLock)??;
+
         let sv2_frame: StdFrame = Message::Mining(open_channel).try_into()?;
         connection.send(sv2_frame).await?;
         if self_
             .safe_lock(|s| s.upstream_kind.is_work_selection_enabled())
-            .unwrap()
+            .map_err(|_e| PoisonLock)?
         {
-            Self::set_custom_jobs(self_.clone());
+            Self::set_custom_jobs(self_.clone())?;
         }
+
         Ok(())
     }
 
-    pub fn set_custom_jobs(self_: Arc<Mutex<Self>>) {
+    pub fn set_custom_jobs(self_: Arc<Mutex<Self>>) -> ProxyResult<'static, ()> {
         let set_c_job_recv = self_
             .safe_lock(|s| s.upstream_kind.get_receiver().unwrap())
-            .unwrap();
-        let mut connection = self_.safe_lock(|s| s.connection.clone()).unwrap();
+            .map_err(|_e| PoisonLock)?;
+        let mut connection = self_
+            .safe_lock(|s| s.connection.clone())
+            .map_err(|_e| PoisonLock)?;
         async_std::task::spawn(async move {
             loop {
                 while let Ok(custom_job) = set_c_job_recv.recv().await {
@@ -283,6 +310,7 @@ impl Upstream {
                 }
             }
         });
+        Ok(())
     }
 
     /// Parses the incoming SV2 message from the Upstream role and routes the message to the
@@ -313,6 +341,7 @@ impl Upstream {
             loop {
                 // Waiting to receive a message from the SV2 Upstream role
                 let incoming = handle_result!(tx_status, recv.recv().await);
+
                 let mut incoming: StdFrame = handle_result!(tx_status, incoming.try_into());
                 // On message receive, get the message type from the message header and get the
                 // message payload
@@ -429,8 +458,12 @@ impl Upstream {
                         break;
                     }
                 }
+
+                // check if channel needs to be updated
+                handle_result!(tx_status, Self::try_update_hashrate(self_.clone()).await);
             }
         });
+
         Ok(())
     }
     fn get_job_id(
