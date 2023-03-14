@@ -260,13 +260,19 @@ impl ChannelFactory {
             };
             self.extended_channels.insert(channel_id, success.clone());
             let mut result = vec![Mining::OpenExtendedMiningChannelSuccess(success)];
-            // should SNPH be pushed after NEMJ?
-            if let Some((new_prev_hash, _)) = &self.last_prev_hash {
+            if let Some((job, _)) = &self.last_valid_job {
+                let mut job = job.clone();
+                job.future_job = true;
+                let j_id = job.job_id;
+                result.push(Mining::NewExtendedMiningJob(job));
+                if let Some((new_prev_hash, _)) = &self.last_prev_hash {
+                    let mut new_prev_hash = new_prev_hash.into_set_p_hash(channel_id, None);
+                    new_prev_hash.job_id = j_id;
+                    result.push(Mining::SetNewPrevHash(new_prev_hash.clone()))
+                };
+            } else if let Some((new_prev_hash, _)) = &self.last_prev_hash {
                 let new_prev_hash = new_prev_hash.into_set_p_hash(channel_id, None);
                 result.push(Mining::SetNewPrevHash(new_prev_hash.clone()))
-            };
-            if let Some((job, _)) = &self.last_valid_job {
-                result.push(Mining::NewExtendedMiningJob(job.clone()))
             };
             for (job, _) in &self.future_jobs {
                 result.push(Mining::NewExtendedMiningJob(job.clone()))
@@ -765,7 +771,6 @@ impl ChannelFactory {
         };
         let hash_ = header.block_hash();
         let hash = hash_.as_hash().into_inner();
-        println!("\nSHARE HASH: {:?}", &hash);
         let hash: Target = hash.into();
 
         if hash <= bitcoin_target {
@@ -939,8 +944,7 @@ impl PoolChannelFactory {
         &mut self,
         m: &SetNewPrevHashFromTp<'static>,
     ) -> Result<u32, Error> {
-        // since we have staged phash 0 is no longer reserved and 1 is the default
-        let job_id = self.job_creator.on_new_prev_hash(m).unwrap_or(1);
+        let job_id = self.job_creator.on_new_prev_hash(m).unwrap_or(0);
         let new_prev_hash = StagedPhash {
             job_id,
             prev_hash: m.prev_hash.clone(),
@@ -1162,7 +1166,7 @@ impl ProxyExtendedChannelFactory {
     ) -> Result<Option<PartialSetCustomMiningJob>, Error> {
         if let Some(job_creator) = self.job_creator.as_mut() {
             // since we have staged phash 0 is no longer reserved and 1 is the default
-            let job_id = job_creator.on_new_prev_hash(m).unwrap_or(1);
+            let job_id = job_creator.on_new_prev_hash(m).unwrap_or(0);
             let new_prev_hash = StagedPhash {
                 job_id,
                 prev_hash: m.prev_hash.clone(),
