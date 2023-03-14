@@ -104,8 +104,11 @@ async fn main() {
     println!();
     println!("EXECUTING {}", test_path);
     println!();
+    let mut _test_path = args[1].clone();
+    _test_path.insert_str(0, "../");
+    let test_path_ = &_test_path;
     // Load contents of `test.json`, then parse
-    let test = load_str!(test_path);
+    let test = load_str!(test_path_);
     let test = parser::Parser::parse_test(test);
     // Executes everything (the shell commands and actions)
     // If the `executor` returns false, the test fails
