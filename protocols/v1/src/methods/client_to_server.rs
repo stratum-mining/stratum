@@ -448,7 +448,7 @@ impl ConfigureExtension {
         if root.is_empty() {
             return Err(ParsingMethodError::Todo);
         };
-        
+
         let version_rolling_mask = val.pointer("/1/version-rolling.mask");
         let version_rolling_min_bit = val.pointer("/1/version-rolling.min-bit-count");
         let info_connection_url = val.pointer("/1/info.connection-url");
