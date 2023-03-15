@@ -499,9 +499,9 @@ impl TryFrom<&Response> for Configure {
         let minimum_difficulty = params.get("minimum-difficulty");
 
         // Deserialize version-rolling response.
-        // Composed by 3 fields: 
-        //   version-rolling (required), 
-        //   version-rolling.mask (required) 
+        // Composed by 3 fields:
+        //   version-rolling (required),
+        //   version-rolling.mask (required)
         //   version-rolling.min-bit-count (optional)
         let version_rolling: Option<VersionRollingParams>;
         if version_rolling_.is_some() && version_rolling_mask.is_some() {
@@ -580,8 +580,7 @@ fn version_rollion_mask_fail_with_invalid_tail() {
 
 #[test]
 fn configure_response_parsing_all_fields() {
-    let client_response_str = 
-        r#"{"id":0,
+    let client_response_str = r#"{"id":0,
             "result":{
                 "version-rolling":true,
                 "version-rolling.mask":"1fffe000",
@@ -592,7 +591,7 @@ fn configure_response_parsing_all_fields() {
     let client_response = serde_json::from_str(&client_response_str).unwrap();
     let server_configure = Configure::try_from(&client_response).unwrap();
     println!("{:?}", server_configure);
-    
+
     let version_rolling = server_configure.version_rolling.unwrap();
     assert_eq!(version_rolling.version_rolling, true);
     assert_eq!(version_rolling.version_rolling_mask, HexU32Be(0x1fffe000));
@@ -603,8 +602,7 @@ fn configure_response_parsing_all_fields() {
 
 #[test]
 fn configure_response_parsing_no_vr_min_bit_count() {
-    let client_response_str = 
-        r#"{"id":0,
+    let client_response_str = r#"{"id":0,
             "result":{
                 "version-rolling":true,
                 "version-rolling.mask":"1fffe000",
@@ -614,7 +612,7 @@ fn configure_response_parsing_no_vr_min_bit_count() {
     let client_response = serde_json::from_str(&client_response_str).unwrap();
     let server_configure = Configure::try_from(&client_response).unwrap();
     println!("{:?}", server_configure);
-    
+
     let version_rolling = server_configure.version_rolling.unwrap();
     assert_eq!(version_rolling.version_rolling, true);
     assert_eq!(version_rolling.version_rolling_mask, HexU32Be(0x1fffe000));
