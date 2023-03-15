@@ -39,7 +39,7 @@
     "frame_builders": [
         {
             "type": "automatic",
-            "message_id": "../../../../test/message-generator/messages/common_messages.json::setup_connection_mining_hom"
+            "message_id": "test/message-generator/messages/common_messages.json::setup_connection_mining_hom"
         },
         {
             "type": "automatic",
@@ -114,7 +114,27 @@
       }
     ],
     "setup_commands": [
-        {
+       {
+           "command": "cargo",
+           "args": [
+                       "run",
+                       "../../test/message-generator/mock/template-provider-mock0.json"
+           ],
+           "conditions": {
+               "WithConditions": {
+                   "conditions": [
+                       {
+                           "output_string": "Running `target/debug/message_generator_sv2 ../../test/message-generator/mock/template-provider-mock0.json`",
+                           "output_location": "StdErr",
+                           "condition": true
+                       }
+                   ],
+                   "timer_secs": 240,
+                   "warn_no_panic": false
+               }
+           }
+       },
+       {
             "command": "cargo",
             "args": [
                         "run",
@@ -160,26 +180,26 @@
                 }
             }
         },
-        {
-            "command": "cargo",
-            "args": [
-                        "run",
-                        "../../../test/message-generator/mock/job-negotiator-mock.json"
-            ],
-            "conditions": {
-                "WithConditions": {
-                    "conditions": [
-                        {
-                            "output_string": "Running `target/debug/message_generator_sv2 ../../../test/message-generator/mock/job-negotiator-mock.json`",
-                            "output_location": "StdErr",
-                            "condition": true
-                        }
-                    ],
-                    "timer_secs": 240,
-                    "warn_no_panic": false
-                }
-            }
-        }
+       {
+           "command": "cargo",
+           "args": [
+                       "run",
+                       "../../test/message-generator/mock/job-negotiator-mock.json"
+           ],
+           "conditions": {
+               "WithConditions": {
+                   "conditions": [
+                       {
+                           "output_string": "Running `target/debug/message_generator_sv2 ../../test/message-generator/mock/job-negotiator-mock.json`",
+                           "output_location": "StdErr",
+                           "condition": true
+                       }
+                   ],
+                   "timer_secs": 240,
+                   "warn_no_panic": false
+               }
+           }
+       }
     ],
     "execution_commands": [
     ],
