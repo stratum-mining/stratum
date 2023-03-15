@@ -173,7 +173,7 @@ fn reduce_path<T: AsRef<[u8]>>(coinbase_id: [u8; 32], path: &[T]) -> [u8; 32] {
 /// [3] https://en.wikipedia.org/wiki/Negative_hypergeometric_distribution
 /// bdiff: 0x00000000ffff0000000000000000000000000000000000000000000000000000
 /// https://en.bitcoin.it/wiki/Difficulty#How_soon_might_I_expect_to_generate_a_block.3F
-fn _hash_rate_to_target(h: f32, share_per_min: f32) -> [u8; 32] {
+pub fn hash_rate_to_target(h: f32, share_per_min: f32) -> U256<'static> {
     // if we want 5 shares per minute, this means that s=60/5=12 seconds interval between shares
     let s: f32 = 60_f32 / share_per_min;
     let h_times_s = (h * s) as u128;
@@ -735,7 +735,7 @@ mod tests {
     }
 
     #[test]
-    fn test_hash_rate_to_target_be() {
+    fn test_hash_rate_to_target() {
         let mut rng = rand::thread_rng();
         let mut successes = 0;
 

@@ -187,11 +187,7 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
             },
             Err(e) => {
                 error!("{:?}",e);
-                match e {
-                    // remove when Job management is fixed
-                    Error::JobNotUpdated => Ok(SendTo::None(None)),
-                    _ => todo!()
-                }
+                todo!();
             }
         }
     }

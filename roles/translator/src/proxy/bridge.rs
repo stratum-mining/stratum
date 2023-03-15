@@ -72,7 +72,6 @@ pub struct Bridge {
     first_ph_received: bool,
     pool_output_is_set: bool,
     request_ids: Id,
-    channel_extranonce_len: usize,
     solution_sender: Option<Sender<SubmitSolution<'static>>>,
     channel_extranonce_len: usize,
     last_job_id: u32,
@@ -145,7 +144,6 @@ impl Bridge {
             first_ph_received: false,
             request_ids: Id::new(),
             pool_output_is_set: false,
-            channel_extranonce_len,
             solution_sender,
             channel_extranonce_len,
             last_job_id: 0,
@@ -678,13 +676,12 @@ impl Bridge {
     /// `SetNewPrevHash` `job_id`, an error has occurred on the Upstream pool role and the
     /// connection will close.
     fn handle_new_extended_mining_job(self_: Arc<Mutex<Self>>) {
-        let (tx_sv1_notify, rx_sv2_new_ext_mining_job, tx_status, _extended_extranonce_len) = self_
+        let (tx_sv1_notify, rx_sv2_new_ext_mining_job, tx_status) = self_
             .safe_lock(|s| {
                 (
                     s.tx_sv1_notify.clone(),
                     s.rx_sv2_new_ext_mining_job.clone(),
                     s.tx_status.clone(),
-                    s.channel_extranonce_len,
                 )
             })
             .unwrap();
