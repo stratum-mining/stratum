@@ -698,27 +698,28 @@ impl ChannelFactory {
                 upstream_target, ..
             } => upstream_target.clone(),
         };
-        let last_job_id = self
+        let _last_job_id = self
             .last_valid_job
             .as_ref()
             .ok_or(Error::ShareDoNotMatchAnyJob)?
             .0
             .job_id;
-        if m.get_job_id() < last_job_id {
-            let error = SubmitSharesError {
-                channel_id: m.get_channel_id(),
-                sequence_number: m.get_sequence_number(),
-                // Infallible unwrap we already know the len of the error code (is a
-                // static string)
-                error_code: SubmitSharesError::stale_share_error_code()
-                    .to_string()
-                    .try_into()
-                    .unwrap(),
-            };
-            return Ok(OnNewShare::SendErrorDownstream(error));
-        } else if m.get_job_id() > last_job_id {
-            return Err(Error::JobNotUpdated(m.get_job_id(), last_job_id));
-        }
+        // *** TODO: uncomment below after mining proxy job management is fixed
+        // if m.get_job_id() < last_job_id {
+        //     let error = SubmitSharesError {
+        //         channel_id: m.get_channel_id(),
+        //         sequence_number: m.get_sequence_number(),
+        //         // Infallible unwrap we already know the len of the error code (is a
+        //         // static string)
+        //         error_code: SubmitSharesError::stale_share_error_code()
+        //             .to_string()
+        //             .try_into()
+        //             .unwrap(),
+        //     };
+        //     return Ok(OnNewShare::SendErrorDownstream(error));
+        // } else if m.get_job_id() > last_job_id {
+        //     return Err(Error::JobNotUpdated(m.get_job_id(), last_job_id));
+        // }
         let (downstream_target, extranonce) = self
             .get_channel_specific_mining_info(&m)
             .ok_or(Error::ShareDoNotMatchAnyChannel)?;

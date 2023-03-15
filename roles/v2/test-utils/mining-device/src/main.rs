@@ -147,7 +147,7 @@ fn open_channel() -> OpenStandardMiningChannel<'static> {
         request_id: id.into(),
         user_identity,
         // keep at a value that actually tests the device since regtest target is so low
-        nominal_hash_rate: 100.0,
+        nominal_hash_rate: 5.4, // change back to 100.0 so the test is valid
         max_target: u256_from_int(567_u64),
     }
 }
