@@ -21,16 +21,11 @@ Little utility to execute interoperability tests between SRI and other Sv2 compl
                         "--datadir=PATH TO bitcoin datadir",
 ...
 ```
-3. `% cargo run ../test.json`
-4. If the test is in the `/test/message-geneator` folder, you have to put an additional `../` to
-   the test address to launch the test from `/utils/message-generator`. For example, if you want
-   to launch 
+3. `% cargo run test.json`
+4. If the test is in the `/test/message-geneator` directory, you have to lauch it from the MG
+   directory using relative path. For example, 
 ```
-../../test/message-geneator/test/pool-sri-test-1.json
-```
-the following is the right command
-```
-cargo run ../../../test/message-geneator/test/pool-sri-test-1.json
+cargo run ../../test/message-geneator/test/pool-sri-test-1.json
 ```
 
 ## Test execution
@@ -44,6 +39,24 @@ The message generator executes a test with the following steps:
    in the action). More than one condition can be defined if more than one message is expected to be
    received.
 5. Cleanup Commands: Executes shell commands or bash scripts to be run on test completion, e.g. remove a `bitcoind` `datadir`.
+
+## True tests, mocks and modules
+The true tests are located in `test/message-generator/test`. Some files have the structure of a 
+test but in fact they are not. 
+For example, the file in 
+`test/message-generator/mock` are mocks of application, namely they are tests whose purpose is 
+to pretend to be an SV2 role. Currently only the TemplateProvider and the JobNegotiator are the 
+only roles mocked. These mocks are usually used in the true tests. For example, in the test
+`test/message-generator/test/pool-sri-test-standard-1.json`
+the pool has a mocked environment, i.e. the JN and TP mocks.
+The files in `test/message-generator/messages` also are not true tests, but the are intended to be
+modules. For example, the `common_messages.json` is the module that contains the frame builders of
+the common messages for the true tests and the mocks.
+
+True tests are made to be run and produce positive outcome. 
+Mocks and common messages are meant to work as a part of a true test and they are not supposed to
+be run as standalone.
+
 
 ## Test format
 
@@ -66,8 +79,9 @@ Tests are written in json and must follow the below format:
 
 ### common_messages
 
-`common_messages` is an array of messages (defined below) belonging to the common (sub)protocol. This field is optional.
-Where the common subprotocol is composed by: `SetupConnection` and `SetupConnectionSuccees` and `SetupConnectionError`.
+`common_messages` is an array of messages (defined below) belonging to the common (sub)protocol, 
+where the common subprotocol is composed by: `SetupConnection` and `SetupConnectionSuccees` and `SetupConnectionError`.
+This field is optional.
 
 ### mining_messages
 
@@ -162,11 +176,11 @@ use it you have to use the syntax `<address::id>`. For example, in the test
 ```
    {
        "type": "automatic",
-       "message_id": "../../../../test/message-generator/messages/common_messages.json::setup_connection_success_template_distribution"
+       "message_id": "test/message-generator/messages/common_messages.json::setup_connection_success_template_distribution"
    }
 ```
 calls the id `setup_connection_success_template_distribution` that appears in the file 
-`../../../test/message-generator/messages/common_messages.json`. In the main file, the id of this
+`test/message-generator/messages/common_messages.json`. In the main file, the id of this
 message will be the abbreviated with `setup_connection_success_template_distribution`. 
  
 

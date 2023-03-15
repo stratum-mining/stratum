@@ -39,7 +39,9 @@ impl<'a> Frames<'a> {
                 2 => {
                     /// the function "message_from_id" returns a an AnyMessage from the path in
                     /// input
-                    let message = message_from_path(&id);
+                    let mut path = id[0].clone();
+                    std::string::String::insert_str(&mut path, 0, "../../../../");
+                    let message = message_from_path(&vec![path, id[1].clone()]);
                     let id = id[1].clone();
                     (message, id)
                 }

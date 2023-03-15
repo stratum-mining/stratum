@@ -9,7 +9,7 @@
     "frame_builders": [
         {
             "type": "automatic",
-            "message_id": "../../../../test/message-generator/messages/common_messages.json::setup_connection_job_negotiator"
+            "message_id": "test/message-generator/messages/common_messages.json::setup_connection_job_negotiator"
         }
     ],
     "actions": [
@@ -28,19 +28,20 @@
 
             ],
             "actiondoc": "This action sends SetupConnection and checks that .Success and SetCoinbase is received"
-        },   
-       {
-            "message_ids": [],
-            "role": "client",
-            "results": [
-                {
-                    "type": "match_message_type",
-                    "value": "0x50"
-                }
+        },
+        {
+             "message_ids": [],
+             "role": "client",
+             "results": [
+                 {
+                     "type": "match_message_type",
+                     "value": "0x50"
+                 }
+ 
+             ],
+             "actiondoc": "This action sends SetupConnection and checks that SetCoinbase is received"
+        }
 
-            ],
-            "actiondoc": "This action sends SetupConnection and checks that SetCoinbase is received"
-        }    
     ],
     "setup_commands": [],
     "execution_commands": [],
