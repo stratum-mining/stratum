@@ -8,3 +8,4 @@
 /test/bitcoin_data/regtest
 lcov.info
 .vscode
+*.py
