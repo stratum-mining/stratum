@@ -136,13 +136,13 @@
             "command": "cargo",
             "args": [
                         "run",
-                        "../../../test/message-generator/mock/template-provider-mock0.json"
+                        "../../test/message-generator/mock/template-provider-mock0.json"
             ],
             "conditions": {
                 "WithConditions": {
                     "conditions": [
                         {
-                            "output_string": "Running `target/debug/message_generator_sv2 ../../../test/message-generator/mock/template-provider-mock0.json`",
+                            "output_string": "Running `target/debug/message_generator_sv2 ../../test/message-generator/mock/template-provider-mock0.json`",
                             "output_location": "StdErr",
                             "condition": true
                         }

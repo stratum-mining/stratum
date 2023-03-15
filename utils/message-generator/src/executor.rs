@@ -1,7 +1,7 @@
 use crate::{
     external_commands::os_command,
     net::{setup_as_downstream, setup_as_upstream},
-    Action, ActionResult, Command, Role, Test, Sv2Type
+    Action, ActionResult, Command, Role, Sv2Type, Test,
 };
 use async_channel::{Receiver, Sender};
 use codec_sv2::{Frame, StandardEitherFrame as EitherFrame, Sv2Frame};
@@ -169,9 +169,8 @@ impl Executor {
                     ActionResult::MatchMessageField((
                         subprotocol,
                         message_type,
-                        field_data // Vec<(String, Sv2Type)>
+                        field_data, // Vec<(String, Sv2Type)>
                     )) => {
-
                         if subprotocol.as_str() == "CommonMessage" {
                             match (header.msg_type(),payload).try_into() {
                                 Ok(roles_logic_sv2::parsers::CommonMessages::SetupConnection(m)) => {
@@ -344,7 +343,7 @@ impl Executor {
                                 Ok(roles_logic_sv2::parsers::JobNegotiation::SetCoinbase(m)) => {
                                     if message_type.as_str() == "SetCoinbase" {
                                         let msg = serde_json::to_value(&m).unwrap();
-                                        check_each_field(msg,field_data);
+                                        check_each_field(msg, field_data);
                                     }
                                 }
                                 Err(e) => panic!("err {:?}", e),
@@ -402,7 +401,6 @@ impl Executor {
                             );
                             panic!()
                         }
-                        
                     }
                     ActionResult::MatchMessageLen(message_len) => {
                         if payload.len() != *message_len {
@@ -456,22 +454,24 @@ impl Executor {
     }
 }
 
-fn check_msg_field(
-    msg: serde_json::Value,
-    field_name: &str,
-    value_type: &str,
-    field: &Sv2Type,
-) {
+fn check_msg_field(msg: serde_json::Value, field_name: &str, value_type: &str, field: &Sv2Type) {
     let msg = msg.as_object().unwrap();
-    let value = msg.get(field_name).expect("match_message_field field name is not valid").clone();
+    let value = msg
+        .get(field_name)
+        .expect("match_message_field field name is not valid")
+        .clone();
     let value = serde_json::to_string(&value).unwrap();
     let value = format!(r#"{{"{}":{}}}"#, value_type, value);
     let value: crate::Sv2Type = serde_json::from_str(&value).unwrap();
-    assert!(field == &value, "match_message_field value is incorrect. Expected = {:?}, Recieved = {:?}", field, value)
+    assert!(
+        field == &value,
+        "match_message_field value is incorrect. Expected = {:?}, Recieved = {:?}",
+        field,
+        value
+    )
 }
 
 fn check_each_field(msg: serde_json::Value, field_info: &Vec<(String, Sv2Type)>) {
-
     for field in field_info {
         let value_type = serde_json::to_value(&field.1)
             .unwrap()
@@ -481,7 +481,7 @@ fn check_each_field(msg: serde_json::Value, field_info: &Vec<(String, Sv2Type)>)
             .next()
             .unwrap()
             .to_string();
-        
-        check_msg_field(msg.clone(),&field.0,&value_type,&field.1)
+
+        check_msg_field(msg.clone(), &field.0, &value_type, &field.1)
     }
 }

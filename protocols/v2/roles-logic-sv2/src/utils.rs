@@ -1,5 +1,6 @@
 use std::{
     convert::TryInto,
+    ops::Div,
     sync::{Mutex as Mutex_, MutexGuard, PoisonError},
 };
 
@@ -180,17 +181,32 @@ pub fn hash_rate_to_target(h: f32, share_per_min: f32) -> U256<'static> {
     let h_times_s_plus_one = h_times_s + 1;
     let h_times_s_plus_one: Uint256 = from_u128_to_uint256(h_times_s_plus_one);
 
-    let h_times_s_minus_one = h_times_s - 1;
-    let h_times_s_minus_one: Uint256 = from_u128_to_uint256(h_times_s_minus_one);
+    let h_times_s: Uint256 = from_u128_to_uint256(h_times_s);
 
     let two_to_256_minus_one = [255_u8; 32];
     let two_to_256_minus_one = bitcoin::util::uint::Uint256::from_be_bytes(two_to_256_minus_one);
 
-    let numerator = two_to_256_minus_one - h_times_s_minus_one;
+    let numerator = two_to_256_minus_one - h_times_s;
     let denominator = h_times_s_plus_one;
     let target = numerator / denominator;
     let target = target.to_be_bytes();
     U256::<'static>::from(target)
+}
+
+/// this function utilizes the equation used in [`hash_rate_to_target`], but
+/// translated to solve for hash_rate given a target: h = ((2^256 / (t+1)) - 1) / s
+pub fn hash_rate_from_target(target: U256<'static>, share_per_min: f32) -> f32 {
+    let s = 60_f64 / (share_per_min as f64);
+
+    let mut target_arr: [u8; 32] = [0; 32];
+    target_arr.as_mut().copy_from_slice(target.inner_as_ref());
+    let mut target_plus_1 = bitcoin::util::uint::Uint256::from_be_bytes(target_arr);
+    target_plus_1.increment();
+
+    let max_target = [255_u8; 32];
+    let max_target = bitcoin::util::uint::Uint256::from_be_bytes(max_target);
+
+    ((max_target.div(target_plus_1).low_u64() - 1) as f64 / s) as f32
 }
 
 pub fn from_u128_to_uint256(input: u128) -> bitcoin::util::uint::Uint256 {
@@ -510,9 +526,9 @@ pub fn get_target(
 
 #[cfg(test)]
 mod tests {
-    use super::hash_rate_to_target;
     #[cfg(feature = "serde")]
     use super::*;
+    use super::{hash_rate_from_target, hash_rate_to_target};
     #[cfg(feature = "serde")]
     use binary_sv2::{Seq0255, B064K, U256};
     use rand::Rng;
@@ -721,8 +737,8 @@ mod tests {
         let mut rng = rand::thread_rng();
         let mut successes = 0;
 
-        let hr = 10.0;
-        let hrs = hr * 60.0;
+        let hr = 10.01; // 10 h/s
+        let hrs = hr * 60.0; // number of hashes in 1 minute
         let mut target = hash_rate_to_target(hr, 1.0);
         let target =
             bitcoin::util::uint::Uint256::from_be_slice(&target.inner_as_mut()[..]).unwrap();
@@ -750,5 +766,20 @@ mod tests {
         }
         let delta = (hrs - average) as i64;
         assert!(delta.abs() < 100);
+    }
+
+    #[test]
+    fn test_hash_rate_from_target() {
+        let hr = 10.0;
+        let expected_share_per_min = 1.0;
+        let target = hash_rate_to_target(hr, expected_share_per_min);
+        let realized_share_per_min = expected_share_per_min * 10.0; // increase SPM by 10x
+        let hash_rate = hash_rate_from_target(target, realized_share_per_min);
+        // assert the hash_rate is the is the same as the initial set to ensure `hash_rate_from_target` is the
+        // inverse of `hash_rate_to_target`
+        assert!(
+            hash_rate == hr * 10.0,
+            "hash_rate_from_target equation was not properly transformed"
+        )
     }
 }

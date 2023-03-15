@@ -13,7 +13,6 @@ pub fn message_from_path(path: &Vec<String>) -> AnyMessage<'static> {
     let id = path[1].clone();
     let path = path[0].clone();
     let messages = load_str!(&path);
-    // Pa
     let parsed = TestMessageParser::from_str(messages);
     parsed
         .into_map()

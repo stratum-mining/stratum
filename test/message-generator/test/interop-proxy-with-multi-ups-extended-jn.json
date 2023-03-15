@@ -1,7 +1,7 @@
 {
     "doc": [
         "This test does",
-        "Launch 2 pool on differnet address",
+        "Launch 2 pools on differnet address",
         "Launch mining-proxy",
         "Connect proxy to the 2 above pool",
         "Try connect proxy to non exsistent pool proxy must not panic",

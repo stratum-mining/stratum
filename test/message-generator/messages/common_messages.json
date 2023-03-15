@@ -63,6 +63,14 @@
                 "used_version": 2
             },
             "id": "setup_connection_success_template_distribution"
+        },
+        {
+            "message": {
+                "type": "SetupConnectionSuccess",
+                "flags": 0,
+                "used_version": 2
+            },
+            "id": "setup_connection_success_tproxy"
         }
 
     ]

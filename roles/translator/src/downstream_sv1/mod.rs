@@ -1,4 +1,5 @@
 use v1::utils::HexU32Be;
+pub mod diff_management;
 pub mod downstream;
 pub use downstream::Downstream;
 
