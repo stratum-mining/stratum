@@ -486,7 +486,7 @@ impl UpstreamMiningNode {
                 }
             },
             None => {
-                println!("No connection was found.");
+                error!("No connection was found.");
                 todo!()
             }
         }

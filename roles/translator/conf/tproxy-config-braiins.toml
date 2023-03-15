@@ -1,12 +1,7 @@
 # Braiins Pool Upstream Connection
-# upstream_authority_pubkey = "u95GEReVMjK6k5YqiSFNqqTnKU4ypU2Wm8awa6tmbmDmk1bWt"
-# upstream_address = "18.196.32.109"
-# upstream_port = 3336
-
-# Local SRI Pool Upstream Connection
-upstream_address = "127.0.0.1"
-upstream_port = 34254
-upstream_authority_pubkey = "2di19GHYQnAZJmEpoUeP7C3Eg9TCcksHr23rZCC83dvUiZgiDL"
+upstream_authority_pubkey = "u95GEReVMjK6k5YqiSFNqqTnKU4ypU2Wm8awa6tmbmDmk1bWt"
+upstream_address = "18.196.32.109"
+upstream_port = 3336
 
 # Local Mining Device Downstream Connection
 downstream_address = "0.0.0.0"
@@ -21,9 +16,9 @@ min_extranonce2_size = 16
 coinbase_reward_sat = 5_000_000_000
 
 # optional jn config, if set the tproxy start on JN mode
-[jn_config]
-jn_address = "127.0.0.1:34264"
-tp_address = "127.0.0.1:8442"
+# [jn_config]
+# jn_address = "127.0.0.1:34264"
+# tp_address = "127.0.0.1:8442"
 
 # Difficulty params
 [downstream_difficulty_config]
