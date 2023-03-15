@@ -7,6 +7,7 @@ mod proxy_config;
 mod status;
 mod template_receiver;
 mod upstream_sv2;
+mod utils;
 use args::Args;
 use error::{Error, ProxyResult};
 use job_negotiator::JobNegotiator;
@@ -117,6 +118,7 @@ async fn main() {
             upstream_sv2::UpstreamKind::WithNegotiator { recv_mining_job },
         ),
     };
+    let diff_config = Arc::new(Mutex::new(proxy_config.upstream_difficulty_config.clone()));
 
     // Instantiate a new `Upstream` (SV2 Pool)
     let upstream = match upstream_sv2::Upstream::new(
@@ -130,6 +132,7 @@ async fn main() {
         status::Sender::Upstream(tx_status.clone()),
         target.clone(),
         upstream_upstream_kind,
+        diff_config.clone(),
     )
     .await
     {
@@ -244,6 +247,8 @@ async fn main() {
         tx_sv1_notify,
         status::Sender::DownstreamListener(tx_status.clone()),
         b,
+        proxy_config.downstream_difficulty_config,
+        diff_config,
     );
 
     let mut interrupt_signal_future = Box::pin(tokio::signal::ctrl_c().fuse());
