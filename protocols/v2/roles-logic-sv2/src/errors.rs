@@ -1,3 +1,5 @@
+//! Errors specific to this crate
+
 use crate::common_properties::CommonDownstreamData;
 use binary_sv2::Error as BinarySv2Error;
 use std::fmt::{self, Display, Formatter};
