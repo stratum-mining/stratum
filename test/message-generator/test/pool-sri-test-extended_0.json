@@ -2,7 +2,8 @@
     "doc": [
         "This test does",
         "Opens extended channel with the pool",
-        "Checks that NewMiningJob and SetNewPrevHash is sent by the pool"
+        "Checks that NewMiningJob and SetNewPrevHash is sent by the pool",
+        "Generates code coverage report for the pool"
     ],
     "mining_messages": [
         {
@@ -20,7 +21,7 @@
     "frame_builders": [
         {
             "type": "automatic",
-            "message_id": "../../../../test/message-generator/messages/common_messages.json::setup_connection_flag_0"
+            "message_id": "test/message-generator/messages/common_messages.json::setup_connection_flag_0"
         },
         {
             "type": "automatic",
@@ -72,6 +73,8 @@
        {
             "command": "cargo",
             "args": [
+                        "llvm-cov",
+                        "--no-report",
                         "run",
                         "-p",
                         "pool_sv2",
@@ -83,7 +86,7 @@
                 "WithConditions": {
                     "conditions": [
                         {
-                            "output_string": "Listening for encrypted connection on: 0.0.0.0:34254",
+                            "output_string": "Listening for encrypted connection on: 127.0.0.1:34254",
                             "output_location": "StdOut",
                             "condition": true
                         }
@@ -97,6 +100,36 @@
     "execution_commands": [
     ],
     "cleanup_commands": [
+        {
+            "command": "pkill",
+            "args":  ["-f", "pool_sv2", "-SIGINT"],
+            "conditions": "None"
+        },
+        {
+            "command": "cargo",
+            "args": [
+                    "llvm-cov",
+                    "--ignore-filename-regex",
+                    "utils/|experimental/|protocols/",
+                    "--cobertura",
+                    "--output-path",
+                    "target/pool-sri-test-extended_0.xml",
+                    "report"
+            ],
+            "conditions": {
+                "WithConditions": {
+                    "conditions": [
+                        {
+                            "output_string": "Finished report saved to ",
+                            "output_location": "StdErr",
+                            "condition": true
+                        }
+                    ],
+                    "timer_secs": 240,
+                    "warn_no_panic": false
+                }
+            }
+        }
     ],
     "role": "client",
     "downstream": {

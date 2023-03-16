@@ -136,13 +136,13 @@
             "command": "cargo",
             "args": [
                         "run",
-                        "../../../test/message-generator/mock/template-provider-mock0.json"
+                        "../../test/message-generator/mock/template-provider-mock0.json"
             ],
             "conditions": {
                 "WithConditions": {
                     "conditions": [
                         {
-                            "output_string": "Running `target/debug/message_generator_sv2 ../../../test/message-generator/mock/template-provider-mock0.json`",
+                            "output_string": "Running `target/debug/message_generator_sv2 ../../test/message-generator/mock/template-provider-mock0.json`",
                             "output_location": "StdErr",
                             "condition": true
                         }
@@ -167,7 +167,7 @@
                 "WithConditions": {
                     "conditions": [
                         {
-                            "output_string": "Listening for encrypted connection on: 0.0.0.0:34254",
+                            "output_string": "Listening for encrypted connection on: 127.0.0.1:34254",
                             "output_location": "StdOut",
                             "condition": true
                         }
@@ -194,7 +194,7 @@
                     "utils/|experimental/|protocols/",
                     "--cobertura",
                     "--output-path",
-                    "target/cobertura.xml",
+                    "target/mg-coverage-standard-.xml",
                     "report"
             ],
             "conditions": {
