@@ -1,4 +1,11 @@
-//! It exports traits that when implemented make the implementor a valid Sv2 role:
+//! Provides all relevant types, traits and functions to implement a valid SV2 role.
+//!
+//! - For channel and job management, see [`channel_logic`], which utilizes [`job_creator`] and [`job_dispatcher`]
+//! - For message handling, the traits in [`handlers`] should be implemented
+//! - For basic traits every implementation should use, see [`common_properties`]
+//! - Routers in [`routing_logic`] are used by the traits in `handlers` to decide which downstream/upstream to relay/send by using [`selectors`]
+//! - For serializing/deserializing messages, see [`parsers`]
+//! - see [`utils`] for helpers such as safe locking, target and merkle root calculations
 //!
 //!```txt
 //! MiningDevice:
@@ -25,11 +32,6 @@
 //!     handlers::common::ParseUpstreamCommonMessages +
 //!     handlers::mining::ParseUpstreamMiningMessages +
 //! ```
-//!
-//! In parser there is anything needed for serialize and deserialize messages.
-//! Handlers export the main traits needed in order to implement a valid Sv2 role.
-//! Routers in routing_logic are used by the traits in handlers for decide to which
-//! downstream/upstrem realy/send they use selectors in order to do that.
 pub mod channel_logic;
 pub mod common_properties;
 pub mod errors;
