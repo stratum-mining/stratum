@@ -207,7 +207,7 @@ impl Connection {
         let third_message_vec = third_message.payload().to_vec();
 
         let fourth_message = state.step(Some(third_message_vec)).unwrap();
-        
+
         // This sets the state to Handshake state - this prompts the task above to move the state
         // to transport mode so that the next incoming message will be decoded correctly
         // It is important to do this directly before sending the fourth message
