@@ -1,3 +1,5 @@
+//! The job creator module provides logic to create extended mining jobs given a template from
+//! a template provider as well as logic to clean up old templates when new blocks are mined
 use crate::{utils::Id, Error};
 use binary_sv2::B064K;
 use bitcoin::{
@@ -27,7 +29,7 @@ pub struct JobsCreators {
 use bitcoin::consensus::Decodable;
 
 /// Transform the byte array `coinbase_outputs` in a vector of TxOut
-/// It assume the data to be valid data and do not do any kind of check
+/// It assumes the data to be valid data and does not do any kind of check
 pub fn tx_outputs_to_costum_scripts(tx_outputs: &[u8]) -> Vec<TxOut> {
     let mut txs = vec![];
     let mut cursor = 0;
@@ -59,6 +61,7 @@ impl JobsCreators {
         self.job_to_template_id.get(&job_id).map(|x| x - 1)
     }
 
+    /// used to create new jobs when a new template arrives
     pub fn on_new_template(
         &mut self,
         template: &mut NewTemplate,
@@ -68,10 +71,9 @@ impl JobsCreators {
         let server_tx_outputs = template.coinbase_tx_outputs.to_vec();
         let mut outputs = tx_outputs_to_costum_scripts(&server_tx_outputs);
         pool_coinbase_outputs.append(&mut outputs);
-        //self.coinbase_outputs = pool_coinbase_outputs;
 
-        // This is to make sure that 0 is never used that is usefull so we can use 0 for
-        // set_new_prev_hash that do not refer to any future job/template if needed
+        // This is to make sure that 0 is never used, so we can use 0 for
+        // set_new_prev_hashes that do not refer to any future job/template if needed
         // Then we will do the inverse (-1) where needed
         let template_id = template.template_id + 1;
         self.lasts_new_template.push(template.as_static());
@@ -94,7 +96,7 @@ impl JobsCreators {
         }
     }
 
-    /// When we get a new SetNewPrevHash we need to clear all the other templates and only
+    /// When we get a new `SetNewPrevHash` we need to clear all the other templates and only
     /// keep the one that matches the template_id of the new prev hash. If none match then
     /// we clear all the saved templates.
     pub fn on_new_prev_hash(&mut self, prev_hash: &SetNewPrevHash<'static>) -> Option<u32> {
@@ -113,24 +115,30 @@ impl JobsCreators {
             1 => {
                 self.reset_new_templates(Some(template[0].clone()));
 
-                // unwrap is safe cause we always poulate the map on_new_template
-                Some(
-                    *self
-                        .templte_to_job_id
-                        .get(&(prev_hash.template_id + 1))
-                        .unwrap(),
-                )
+                self.templte_to_job_id
+                    .get(&(prev_hash.template_id + 1))
+                    .copied()
             }
             // TODO how many templates can we have at max
             _ => todo!("{:#?}", template.len()),
         }
     }
 
+    /// returns the latest mining target
     pub fn last_target(&self) -> mining_sv2::Target {
         self.last_target.clone()
     }
 }
 
+/// returns an extended job given the provided template from the Template Provider and other
+/// Pool role related fields.
+///
+/// Pool related arguments:
+///
+/// * `coinbase_outputs`: coinbase output transactions specified by the pool.
+/// * `job_id`: incremented job identifier specified by the pool.
+/// * `version_rolling_allowed`: boolean specified by the channel.
+/// * `extranonce_len`: extranonce length specified by the channel.
 fn new_extended_job(
     new_template: &mut NewTemplate,
     coinbase_outputs: &[TxOut],
@@ -173,12 +181,14 @@ fn new_extended_job(
     Ok(new_extended_mining_job)
 }
 
+/// used to extract the coinbase transaction prefix for extended jobs
+/// so the extranonce search space can be introduced
 fn coinbase_tx_prefix(
     coinbase: &Transaction,
     script_prefix_len: usize,
 ) -> Result<B064K<'static>, Error> {
     let encoded = coinbase.serialize();
-    // If script_prefix_len is not 0 we are not in a test enviornment and the coinbase have the 0
+    // If script_prefix_len is not 0 we are not in a test environment and the coinbase will have the 0
     // witness
     let segwit_bytes = match script_prefix_len {
         0 => 0,
@@ -195,6 +205,8 @@ fn coinbase_tx_prefix(
     r.try_into().map_err(Error::BinarySv2Error)
 }
 
+/// used to extract the coinbase transaction suffix for extended jobs
+/// so the extranonce search space can be introduced
 fn coinbase_tx_suffix(
     coinbase: &Transaction,
     extranonce_len: u8,
