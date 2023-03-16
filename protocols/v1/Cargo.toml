@@ -1,6 +1,6 @@
 [package]
 name = "sv1_api"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["user"]
 edition = "2018"
 description = "API for bridging SV1 miners to SV2 pools"
