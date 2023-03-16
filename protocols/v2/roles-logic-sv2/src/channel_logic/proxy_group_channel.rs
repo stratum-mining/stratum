@@ -7,6 +7,7 @@ use mining_sv2::{
 use super::extended_to_standard_job;
 use std::collections::HashMap;
 
+/// wrapper around `GroupChannel` for managing multiple group channels
 #[derive(Debug, Clone, Default)]
 pub struct GroupChannels {
     channels: HashMap<u32, GroupChannel>,
@@ -17,6 +18,8 @@ impl GroupChannels {
             channels: HashMap::new(),
         }
     }
+    /// Called when when a group channel created. We add the channel in its
+    /// respective group and call [`GroupChannel::on_channel_success_for_hom_downtream`]
     pub fn on_channel_success_for_hom_downtream(
         &mut self,
         m: &OpenStandardMiningChannelSuccess,
@@ -31,11 +34,13 @@ impl GroupChannels {
             None => unreachable!(),
         }
     }
+    /// Called when a new prev hash arrives. We loop through all group channels to update state within each group
     pub fn update_new_prev_hash(&mut self, m: &SetNewPrevHash) {
         for group in self.channels.values_mut() {
             group.update_new_prev_hash(m);
         }
     }
+    /// Called when a new extended job arrives. We loop through all group channels to update state within group
     pub fn on_new_extended_mining_job(&mut self, m: &NewExtendedMiningJob) {
         for group in &mut self.channels.values_mut() {
             let cloned = NewExtendedMiningJob {
@@ -51,6 +56,7 @@ impl GroupChannels {
             group.on_new_extended_mining_job(cloned);
         }
     }
+    /// Returns last valid job as a `NewMiningJob`
     pub fn last_received_job_to_standard_job(
         &mut self,
         channel_id: u32,
@@ -85,6 +91,8 @@ impl GroupChannel {
             last_received_job: None,
         }
     }
+    /// Called when a channel is successfully opened for header only mining on standard channels.
+    /// Here we store the new channel, and update state for jobs and return relevant SV2 messages (NewMiningJob and SNPH)
     fn on_channel_success_for_hom_downtream(
         &mut self,
         m: OpenStandardMiningChannelSuccess,
@@ -134,6 +142,9 @@ impl GroupChannel {
 
         Ok(res)
     }
+    /// If a matching job is already in the future job queue,
+    /// we set a new valid job, otherwise we clear the future jobs
+    /// queue and stage a prev hash to be used when the job arrives
     fn update_new_prev_hash(&mut self, m: &SetNewPrevHash) {
         while let Some(job) = self.future_jobs.pop() {
             if job.job_id == m.job_id {
@@ -151,6 +162,8 @@ impl GroupChannel {
         };
         self.last_prev_hash = Some(cloned.clone());
     }
+    /// Pushes new job to future_job queue if it is future,
+    /// otherwise we set it as the valid job
     fn on_new_extended_mining_job(&mut self, m: NewExtendedMiningJob<'static>) {
         self.last_received_job = Some(m.clone());
         if m.future_job {
@@ -159,6 +172,7 @@ impl GroupChannel {
             self.last_valid_job = Some(m)
         }
     }
+    /// Returns most recent job
     fn last_received_job_to_standard_job(
         &mut self,
         channel_id: u32,
