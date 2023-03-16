@@ -23,6 +23,7 @@ use bitcoin::{
 };
 use tracing::error;
 
+/// A stripped type of `SetCustomMiningJob` without the (`channel_id, `request_id` and `token`) fields
 pub struct PartialSetCustomMiningJob {
     pub version: u32,
     pub prev_hash: binary_sv2::U256<'static>,
@@ -39,7 +40,7 @@ pub struct PartialSetCustomMiningJob {
     pub future_job: bool,
 }
 
-/// Rapresent the action that needs to be done when a new share is received.
+/// Represent the action that needs to be done when a new share is received.
 #[derive(Debug, Clone)]
 pub enum OnNewShare {
     /// Used when the received is malformed, is for an inexistent channel or do not meet downstream
@@ -63,6 +64,7 @@ pub enum OnNewShare {
 }
 
 impl OnNewShare {
+    /// convert standard share into extended share
     pub fn into_extended(&mut self, extranonce: Vec<u8>, up_id: u32) {
         match self {
             OnNewShare::SendErrorDownstream(_) => (),
@@ -114,6 +116,7 @@ pub enum Share {
     Standard((SubmitSharesStandard, u32)),
 }
 
+/// helper type used before a `SetNewPrevHash` has a channel_id
 #[derive(Clone, Debug)]
 pub struct StagedPhash {
     job_id: u32,
@@ -220,7 +223,12 @@ impl ChannelFactory {
             ),
         }
     }
-
+    /// Called when a `OpenExtendedMiningChannel` message is received.
+    /// Here we save the downstream's target (based on hashrate) and the
+    /// channel's extranonce details before returning the relevant SV2 mining messages
+    /// to be sent downstream. For the mining messages, we will first return an `OpenExtendedMiningChannelSuccess`
+    /// if the channel is successfully opened. Then we add the `NewExtendedMiningJob` and `SetNewPrevHash` messages if
+    /// the relevant data is available. If the channel opening fails, we return `OpenExtenedMiningChannelError`.
     pub fn new_extended_channel(
         &mut self,
         request_id: u32,
@@ -252,6 +260,7 @@ impl ChannelFactory {
             };
             self.extended_channels.insert(channel_id, success.clone());
             let mut result = vec![Mining::OpenExtendedMiningChannelSuccess(success)];
+            // should SNPH be pushed after NEMJ?
             if let Some((new_prev_hash, _)) = &self.last_prev_hash {
                 let new_prev_hash = new_prev_hash.into_set_p_hash(channel_id, None);
                 result.push(Mining::SetNewPrevHash(new_prev_hash.clone()))
@@ -269,7 +278,10 @@ impl ChannelFactory {
             )])
         }
     }
-
+    /// Called when an `OpenStandardChannel` message is received for a header only mining channel.
+    /// Here we save the downstream's target (based on hashrate) and and the
+    /// channel's extranonce details before returning the relevant SV2 mining messages
+    /// to be sent downstream.
     fn new_standard_channel_for_hom_downstream(
         &mut self,
         request_id: u32,
@@ -308,7 +320,8 @@ impl ChannelFactory {
         Ok(result)
     }
 
-    // This function is called when downstream have a group channel
+    /// This function is called when downstream have a group channel
+    /// Shouldnt all standard channel's be non HOM??
     fn new_standard_channel_for_non_hom_downstream(
         &mut self,
         request_id: u32,
@@ -350,8 +363,8 @@ impl ChannelFactory {
         Ok(result)
     }
 
-    // When a hom dowmstream open a channel we use this function to prepare all the standard jobs
-    // (future and not) that we need to send downstream
+    // When a hom downstream opens a channel, we use this function to prepare all the standard jobs
+    // (future and not) that we need to be sent downstream
     fn prepare_standard_jobs_and_p_hash(
         &mut self,
         result: &mut Vec<Mining>,
@@ -465,8 +478,8 @@ impl ChannelFactory {
         }
     }
 
-    // When a new non HOM downstreams open a channel we use this function to prepare all the
-    // extended job (future and non) and the prev hash that we need to send dowmstream
+    // When a new non HOM downstream opens a channel, we use this function to prepare all the
+    // extended jobs (future and non) and the prev hash that we need to send dowmstream
     fn prepare_jobs_and_p_hash(&mut self, result: &mut Vec<Mining>, complete_id: u64) {
         // If group is 0 it means that we are preparing jobs and p hash for a non HOM downstream
         // that want to open a new extended channel in that case we want to use the channel id
@@ -556,6 +569,8 @@ impl ChannelFactory {
         }
     }
 
+    /// Called when a new prev hash is received. If the respective job is available in the future job queue,
+    /// we move the future job into the valid job slot and store the prev hash as the current prev hash to be referenced.
     fn on_new_prev_hash(&mut self, m: StagedPhash) -> Result<(), Error> {
         while let Some(mut job) = self.future_jobs.pop() {
             if job.0.job_id == m.job_id {
@@ -577,7 +592,8 @@ impl ChannelFactory {
         self.last_prev_hash = Some((m, ids));
         Ok(())
     }
-
+    /// Called when a `NewExtendedMiningJob` arrives. If the job is future, we add it to the future queue.
+    /// If the job is not future, we pair it with a the most recent prev hash
     fn on_new_extended_mining_job(
         &mut self,
         m: NewExtendedMiningJob<'static>,
@@ -656,8 +672,8 @@ impl ChannelFactory {
         Ok(())
     }
 
-    // If there is job creator  bitocin_target is retreived from there if not is set to 0
-    // If there is a job creator we pass the correct template id if not we pass None
+    // If there is job creator, bitcoin_target is retrieved from there. If not, it is set to 0.
+    // If there is a job creator we pass the correct template id. If not, we pass `None`
     fn check_target(
         &mut self,
         m: Share,
@@ -773,7 +789,7 @@ impl ChannelFactory {
             Ok(OnNewShare::SendErrorDownstream(error))
         }
     }
-
+    /// Returns the downstream target and extranonce for the channel
     fn get_channel_specific_mining_info(&self, m: &Share) -> Option<(mining_sv2::Target, Vec<u8>)> {
         match m {
             Share::Extended(share) => {
@@ -872,7 +888,7 @@ impl PoolChannelFactory {
             negotiated_jobs: HashMap::new(),
         }
     }
-
+    /// Calls [`ChannelFactory::add_standard_channel`]
     pub fn add_standard_channel(
         &mut self,
         request_id: u32,
@@ -883,7 +899,7 @@ impl PoolChannelFactory {
         self.inner
             .add_standard_channel(request_id, downstream_hash_rate, is_header_only, id)
     }
-
+    /// Calls [`ChannelFactory::new_extended_channel`]
     pub fn new_extended_channel(
         &mut self,
         request_id: u32,
@@ -893,7 +909,8 @@ impl PoolChannelFactory {
         self.inner
             .new_extended_channel(request_id, hash_rate, min_extranonce_size)
     }
-
+    /// Called only when a new prev hash is received by a Template Provider. It matches the
+    /// message with a `job_id` and calls [`ChannelFactory::on_new_prev_hash`]
     pub fn on_new_prev_hash_from_tp(
         &mut self,
         m: &SetNewPrevHashFromTp<'static>,
@@ -908,7 +925,7 @@ impl PoolChannelFactory {
         self.inner.on_new_prev_hash(new_prev_hash)?;
         Ok(job_id)
     }
-
+    /// Called only when a new template is received by a Template Provider
     pub fn on_new_template(
         &mut self,
         m: &mut NewTemplate<'static>,
@@ -923,7 +940,9 @@ impl PoolChannelFactory {
                 .on_new_template(m, true, self.pool_coinbase_outputs.clone())?;
         self.inner.on_new_extended_mining_job(new_job)
     }
-
+    /// Called when a `SubmitSharesStandard` message is received from the downstream. We check the shares
+    /// against the channel's respective target and return `OnNewShare` to let us know if and where the shares should
+    /// be relayed
     pub fn on_submit_shares_standard(
         &mut self,
         m: SubmitSharesStandard,
@@ -951,7 +970,9 @@ impl PoolChannelFactory {
             }
         }
     }
-
+    /// Called when a `SubmitSharesExtended` message is received from the downstream. We check the shares
+    /// against the channel's respective target and return `OnNewShare` to let us know if and where the shares should
+    /// be relayed
     pub fn on_submit_shares_extended(
         &mut self,
         m: SubmitSharesExtended,
@@ -978,11 +999,12 @@ impl PoolChannelFactory {
             )
         }
     }
-
+    /// Utility function to return a new group id
     pub fn new_group_id(&mut self) -> u32 {
         let new_id = self.inner.ids.safe_lock(|ids| ids.new_group_id()).unwrap();
         new_id
     }
+    /// Utility function to return a new standard channel id
     pub fn new_standard_id_for_hom(&mut self) -> u32 {
         let hom_group_id = 0;
         let new_id = self
@@ -992,7 +1014,7 @@ impl PoolChannelFactory {
             .unwrap();
         new_id
     }
-
+    /// Returns the full extranonce, extranonce1 (static for channel) + extranonce2 (miner nonce space)
     pub fn extranonce_from_downstream_extranonce(
         &self,
         ext: mining_sv2::Extranonce,
@@ -1001,7 +1023,7 @@ impl PoolChannelFactory {
             .extranonces
             .extranonce_from_downstream_extranonce(ext)
     }
-
+    /// Called when a new custom mining job arrives
     pub fn on_new_set_custom_mining_job(
         &mut self,
         set_custom_mining_job: SetCustomMiningJob<'static>,
@@ -1029,8 +1051,8 @@ impl PoolChannelFactory {
     }
 }
 
-/// Used by proxies that want to open extended channls with upstream. If the proxy have job
-/// negotiation capabilities we set the job creator and the coinbase outs.
+/// Used by proxies that want to open extended channls with upstream. If the proxy has job
+/// negotiation capabilities, we set the job creator and the coinbase outs.
 #[derive(Debug)]
 pub struct ProxyExtendedChannelFactory {
     inner: ChannelFactory,
@@ -1086,7 +1108,7 @@ impl ProxyExtendedChannelFactory {
             extended_channel_id,
         }
     }
-
+    /// Calls [`ChannelFactory::add_standard_channel`]
     pub fn add_standard_channel(
         &mut self,
         request_id: u32,
@@ -1097,7 +1119,7 @@ impl ProxyExtendedChannelFactory {
         self.inner
             .add_standard_channel(request_id, downstream_hash_rate, id_header_only, id)
     }
-
+    /// Calls [`ChannelFactory::new_extended_channel`]
     pub fn new_extended_channel(
         &mut self,
         request_id: u32,
@@ -1107,7 +1129,8 @@ impl ProxyExtendedChannelFactory {
         self.inner
             .new_extended_channel(request_id, hash_rate, min_extranonce_size)
     }
-
+    /// Called only when a new prev hash is received by a Template Provider when job negotiation is used.
+    /// It matches the message with a `job_id`, creates a new custom job, and calls [`ChannelFactory::on_new_prev_hash`]
     pub fn on_new_prev_hash_from_tp(
         &mut self,
         m: &SetNewPrevHashFromTp<'static>,
@@ -1145,7 +1168,8 @@ impl ProxyExtendedChannelFactory {
             panic!("A channel factory without job creator do not have negotiation capabilities")
         }
     }
-
+    /// Called only when a new template is received by a Template Provider when job negotiation is used.
+    /// It creates a new custom job and calls [`ChannelFactory::on_new_extended_mining_job`]
     pub fn on_new_template(
         &mut self,
         m: &mut NewTemplate<'static>,
@@ -1197,6 +1221,9 @@ impl ProxyExtendedChannelFactory {
         }
     }
 
+    /// Called when a `SubmitSharesStandard` message is received from the downstream. We check the shares
+    /// against the channel's respective target and return `OnNewShare` to let us know if and where the the
+    /// shares should be relayed
     pub fn on_submit_shares_extended(
         &mut self,
         mut m: SubmitSharesExtended<'static>,
@@ -1235,6 +1262,9 @@ impl ProxyExtendedChannelFactory {
         }
     }
 
+    /// Called when a `SubmitSharesStandard` message is received from the Downstream. We check the shares
+    /// against the channel's respective target and return `OnNewShare` to let us know if and where the shares should
+    /// be relayed
     pub fn on_submit_shares_standard(
         &mut self,
         m: SubmitSharesStandard,
@@ -1279,6 +1309,8 @@ impl ProxyExtendedChannelFactory {
             }
         }
     }
+
+    /// Calls [`ChannelFactory::on_new_prev_hash`]
     pub fn on_new_prev_hash(&mut self, m: SetNewPrevHash<'static>) -> Result<(), Error> {
         self.inner.on_new_prev_hash(StagedPhash {
             job_id: m.job_id,
@@ -1288,6 +1320,7 @@ impl ProxyExtendedChannelFactory {
         })
     }
 
+    /// Calls [`ChannelFactory::on_new_extended_mining_job`]
     pub fn on_new_extended_mining_job(
         &mut self,
         m: NewExtendedMiningJob<'static>,
@@ -1300,6 +1333,7 @@ impl ProxyExtendedChannelFactory {
     pub fn last_valid_job_version(&self) -> Option<u32> {
         self.inner.last_valid_job.as_ref().map(|j| j.0.version)
     }
+    /// Returns the full extranonce, extranonce1 (static for channel) + extranonce2 (miner nonce space)
     pub fn extranonce_from_downstream_extranonce(
         &self,
         ext: mining_sv2::Extranonce,
@@ -1308,7 +1342,7 @@ impl ProxyExtendedChannelFactory {
             .extranonces
             .extranonce_from_downstream_extranonce(ext)
     }
-
+    /// Returns the most recent prev hash
     pub fn last_prev_hash(&self) -> Option<binary_sv2::U256<'static>> {
         self.inner
             .last_prev_hash
@@ -1324,6 +1358,7 @@ impl ProxyExtendedChannelFactory {
     pub fn extranonce_size(&self) -> usize {
         self.inner.extranonces.get_len()
     }
+    /// Only used when the proxy is using Job Negotiation
     pub fn update_pool_outputs(&mut self, outs: Vec<TxOut>) {
         self.pool_coinbase_outputs = Some(outs);
     }
@@ -1333,6 +1368,7 @@ impl ProxyExtendedChannelFactory {
     }
 }
 
+/// Used by proxies for tracking upstream targets.
 #[derive(Debug, Clone)]
 pub enum ExtendedChannelKind {
     Proxy { upstream_target: Target },
