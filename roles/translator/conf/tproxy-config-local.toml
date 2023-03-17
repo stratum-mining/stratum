@@ -16,8 +16,11 @@ downstream_port = 34255
 max_supported_version = 2
 min_supported_version = 2
 
-# Minimum extranonce2 size
-min_extranonce2_size = 16
+# Minimum extranonce2 size for downstream
+# Max value: 16 (leaves 0 bytes for search space splitting of downstreams)
+# Max value for CGminer: 8
+# Min value: 2
+min_extranonce2_size = 2
 coinbase_reward_sat = 5_000_000_000
 
 # optional jn config, if set the tproxy start on JN mode
@@ -28,11 +31,11 @@ coinbase_reward_sat = 5_000_000_000
 # Difficulty params
 [downstream_difficulty_config]
 # hashes/s of the weakest miner that will be connecting
-min_individual_miner_hashrate=5_000_000.0
+min_individual_miner_hashrate=1_000_000_000.0
 # minimum number of shares needed before a mining.set_difficulty is sent for updating targets
-miner_num_submits_before_update=5
+miner_num_submits_before_update=10
 # target number of shares per minute the miner should be sending
-shares_per_minute = 1.0
+shares_per_minute = 2.0
 
 [upstream_difficulty_config]
 # interval in seconds to elapse before updating channel hashrate with the pool

@@ -309,6 +309,7 @@ pub fn extended_job_to_non_segwit(
     let extranonce = vec![0_u8; full_extranonce_len];
     encoded.extend_from_slice(&extranonce[..]);
     encoded.extend_from_slice(job.coinbase_tx_suffix.inner_as_ref());
+    println!("ENCODED: {:?}", &encoded);
     let coinbase = Transaction::deserialize(&encoded).map_err(|_| Error::InvalidCoinbase)?;
     let stripped_tx = StrippedCoinbaseTx::from_coinbase(coinbase, full_extranonce_len)?;
 

@@ -110,6 +110,7 @@ pub struct Upstream {
     /// Minimum `extranonce2` size. Initially requested in the `proxy-config.toml`, and ultimately
     /// set by the SV2 Upstream via the SV2 `OpenExtendedMiningChannelSuccess` message.
     pub min_extranonce_size: u16,
+    pub upstream_extranonce1_size: usize,
     upstream_kind: UpstreamKind,
     // values used to update the channel with the correct nominal hashrate.
     // each Downstream instance will add and subtract their hashrates as needed
@@ -183,6 +184,7 @@ impl Upstream {
             channel_id: None,
             job_id: None,
             min_extranonce_size,
+            upstream_extranonce1_size: 16, // 16 is the default since that is all the pool supports
             tx_sv2_extranonce,
             tx_status,
             target,
@@ -258,15 +260,12 @@ impl Upstream {
             })
             .map_err(|_e| PoisonLock)??;
         let user_identity = "ABC".to_string().try_into()?;
-        let min_extranonce_size = self_
-            .safe_lock(|s| s.min_extranonce_size)
-            .map_err(|_e| PoisonLock)?;
         let open_channel = Mining::OpenExtendedMiningChannel(OpenExtendedMiningChannel {
             request_id: 0, // TODO
             user_identity, // TODO
             nominal_hash_rate,
             max_target: u256_from_int(u64::MAX), // TODO
-            min_extranonce_size,
+            min_extranonce_size: 16, // pool only supports 16 byte (pool returns a 16 byte len extranonce1, so we will have 16 bytes for e1_tproxy & e2)
         });
 
         info!("Up: Sending: {:?}", &open_channel);
@@ -395,24 +394,37 @@ impl Upstream {
                         match m {
                             Mining::OpenExtendedMiningChannelSuccess(m) => {
                                 let prefix_len = m.extranonce_prefix.len();
-                                let extranonce: Extranonce =
+                                // update upstream_extranonce1_size for tracking
+                                let miner_extranonce2_size = self_.safe_lock(|u| {
+                                    u.upstream_extranonce1_size = prefix_len;
+                                    u.min_extranonce_size as usize
+                                }).map_err(|_e| PoisonLock);
+                                let miner_extranonce2_size = handle_result!(tx_status, miner_extranonce2_size);
+                                let extranonce_prefix: Extranonce =
                                     handle_result!(tx_status, m.extranonce_prefix.try_into());
-
+                                println!("\nEXTRANONCE PREFIX: {:?}", &extranonce_prefix);
                                 // Create the extended extranonce that will be saved in bridge and
                                 // it will be used to open downstream (sv1) channels
-                                // range 0 is extranonce1 with upstream
-                                // range 1 e range 2 are extranonce2 with upstream
-                                //
-                                // range0 and range1 are extranonce1 with downstream
-                                // range2 is extranonce2 with downstream
-                                let range_0 = 0..prefix_len;
-                                let range_1 = prefix_len..prefix_len + crate::SELF_EXTRNONCE_LEN;
-                                let range_2 = prefix_len + crate::SELF_EXTRNONCE_LEN
-                                    ..prefix_len + m.extranonce_size as usize;
+                                // range 0 is the extranonce1 from upstream
+                                // range 1 is the extranonce1 added by the tproxy
+                                // range 2 is the extranonce2 used by the miner for rolling
+                                // range 0 + range 1 is the extranonce1 sent to the miner
+                                let tproxy_e1_len =
+                                    crate::utils::proxy_extranonce1_len(prefix_len, miner_extranonce2_size);
+                                    println!("TPROXY LEN: {:?}", tproxy_e1_len);
+                                    println!("MINER LEN: {:?}", miner_extranonce2_size);
+                                    println!("UPSTREAM LEN: {:?}", prefix_len);
+                                let range_0 = 0..prefix_len; // upstream extranonce1
+                                let range_1 = prefix_len..prefix_len + tproxy_e1_len; // downstream extranonce1
+                                let range_2 = prefix_len + tproxy_e1_len
+                                    ..prefix_len + tproxy_e1_len + miner_extranonce2_size as usize; // extranonce2
+                                println!("RANGE 0: {:?}", &range_0);
+                                println!("RANGE 1: {:?}", &range_1);
+                                println!("RANGE 02 {:?}", &range_2);
                                 let extended = ExtendedExtranonce::from_upstream_extranonce(
-                                    extranonce.clone(), range_0.clone(), range_1.clone(), range_2.clone(),
-                                ).unwrap_or_else(|| panic!("Impossible to create a valid extended extranonce from {:?} {:?} {:?} {:?}", extranonce,range_0,range_1,range_2));
-
+                                    extranonce_prefix.clone(), range_0.clone(), range_1.clone(), range_2.clone(),
+                                ).unwrap_or_else(|| panic!("Impossible to create a valid extended extranonce from {:?} {:?} {:?} {:?}", extranonce_prefix,range_0,range_1,range_2));
+                                println!("FULL EXTRANONCE: {:?}\n", &extended);
                                 handle_result!(
                                     tx_status,
                                     tx_sv2_extranonce.send((extended, m.channel_id)).await
@@ -678,7 +690,9 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
         &mut self,
         m: roles_logic_sv2::mining_sv2::OpenExtendedMiningChannelSuccess,
     ) -> Result<SendTo<Downstream>, RolesLogicError> {
-        if self.min_extranonce_size < m.extranonce_size {
+        let tproxy_e1_len =
+            crate::utils::proxy_extranonce1_len(self.upstream_extranonce1_size, self.min_extranonce_size.into()) as u16;
+        if self.min_extranonce_size + tproxy_e1_len < m.extranonce_size {
             return Err(RolesLogicError::InvalidExtranonceSize(
                 self.min_extranonce_size,
                 m.extranonce_size,
@@ -687,8 +701,6 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
         self.target
             .safe_lock(|t| *t = m.target.to_vec())
             .map_err(|e| RolesLogicError::PoisonLock(e.to_string()))?;
-        // Set the `min_extranonce_size` in accordance to the SV2 Pool
-        self.min_extranonce_size = m.extranonce_size;
 
         info!("Up: Successfully Opened Extended Mining Channel");
         debug!("Up: Handling OpenExtendedMiningChannelSuccess: {:?}", &m);
