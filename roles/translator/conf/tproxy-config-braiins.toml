@@ -11,9 +11,12 @@ downstream_port = 34255
 max_supported_version = 2
 min_supported_version = 2
 
+# Braiins allows for a full extranonce space of 15 bytes
+# and they set a prefix of 7 bytes so that gives 8 bytes of space
+# for the proxy and the downstream
 # Minimum extranonce2 size for downstream
-# Max value: 16 (leaves 0 bytes for search space splitting of downstreams)
-# Max value for CGminer: 8
+# Max value: 6 (leaves 2 bytes for search space splitting of downstreams)
+# Max value for CGminer: 6
 # Min value: 2
 min_extranonce2_size = 4
 coinbase_reward_sat = 5_000_000_000
@@ -26,7 +29,7 @@ coinbase_reward_sat = 5_000_000_000
 # Difficulty params
 [downstream_difficulty_config]
 # hashes/s of the weakest miner that will be connecting
-min_individual_miner_hashrate=1_000_000_000.0
+min_individual_miner_hashrate=1_000_000_000_000.0
 # minimum number of shares needed before a mining.set_difficulty is sent for updating targets
 miner_num_submits_before_update=2
 # target number of shares per minute the miner should be sending
