@@ -440,7 +440,7 @@ impl Bridge {
                         s.channel_factory.set_target(&mut upstream_target.clone());
                         s.channel_factory.on_submit_shares_extended(
                             sv2_submit.clone(),
-                            Some(crate::utils::proxy_extranonce1_len(channel_extranonce1_len, extranonce2_len)),
+                            Some(crate::utils::proxy_extranonce1_len(s.channel_factory.channel_extranonce2_size(), extranonce2_len)),
                         )
                     })
                     .map_err(|_| PoisonLock);

@@ -768,6 +768,9 @@ impl ChannelFactory {
         };
         let hash_ = header.block_hash();
         let hash = hash_.as_hash().into_inner();
+        println!("HASH: {:?}", &hash);
+        println!("UPSTREAM TARGET: {:?}", &binary_sv2::U256::from(upstream_target.clone()));
+
         let hash: Target = hash.into();
         if hash <= bitcoin_target {
             let coinbase = [coinbase_tx_prefix, &extranonce[..], coinbase_tx_suffix]
@@ -1384,6 +1387,9 @@ impl ProxyExtendedChannelFactory {
     }
     pub fn extranonce_size(&self) -> usize {
         self.inner.extranonces.get_len()
+    }
+    pub fn channel_extranonce2_size(&self) -> usize {
+        self.inner.extranonces.get_len() - self.inner.extranonces.get_range0_len()
     }
     /// Only used when the proxy is using Job Negotiation
     pub fn update_pool_outputs(&mut self, outs: Vec<TxOut>) {
