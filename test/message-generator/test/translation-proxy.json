@@ -8,6 +8,17 @@
     "common_messages": [
     ],
     "mining_messages": [
+        {
+            "message": {
+                "type": "OpenExtendedMiningChannelSuccess",
+                "request_id": 0,
+                "channel_id": 1,
+                "target": [88, 190, 74, 45, 212, 33, 248, 47, 32, 222, 23, 112, 230, 43, 18, 139, 144, 135, 104, 178, 135, 218, 190, 102, 83, 235, 9, 81, 14, 0, 0, 0],
+                "extranonce_size": 16,
+                "extranonce_prefix": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]
+            },
+            "id": "open_extended_mining_channel_success"
+        }
     ],
     "frame_builders": [
         {
@@ -16,7 +27,7 @@
         },
         {
             "type": "automatic",
-            "message_id": "test/message-generator/messages/common_messages.json::setup_connection_success_tproxy"
+            "message_id": "open_extended_mining_channel_success"
         }
     ],
     "actions": [
@@ -42,11 +53,26 @@
             "role": "server",
             "results": [
                 {
-                    "type": "match_message_type",
-                    "value": "0x13"
+                    "type": "match_message_field",
+                    "value": [
+                        "MiningProtocol",
+                        "OpenExtendedMiningChannelSuccess",
+                        [
+                            [
+                                "request_id",
+                                {"U32": 1}
+                            ]
+                        ]
+                    ]
                 }
             ],
             "actiondoc": "Checks that OpenExtendedMiningChannel is received" 
+        },
+        {
+            "message_ids": ["open_extended_mining_channel_success"],
+            "role": "server",
+            "results": [
+            ]
         }
     ],
     "setup_commands": [
