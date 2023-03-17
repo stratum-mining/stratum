@@ -516,10 +516,10 @@ impl Bridge {
             .channel_factory
             .last_valid_job_version()
             .ok_or(Error::RolesSv2Logic(RolesLogicError::NoValidJob))?;
-        let version_mask = version_rolling_mask.unwrap();
-        let version = match sv1_submit.version_bits {
-            Some(vb) => (last_version & !version_mask.0) | (vb.0 & version_mask.0),
-            None => last_version,
+        let version = match (sv1_submit.version_bits, version_rolling_mask) {
+            (Some(vb), Some(mask)) => (last_version & !mask.0) | (vb.0 & mask.0),
+            (None, None) => last_version,
+            _ => return Err(Error::V1Protocol(v1::error::Error::InvalidSubmission))
         };
         let extranonce = self.channel_factory.get_extranonce_without_upstream_part(
             extranonce2.try_into().map_err(|_| Error::SubprotocolMining("invalid extranonce".to_string()))?
