@@ -33,7 +33,6 @@ members = [
     "roles/v2/mining-proxy",
     "roles/v2/pool",
     "roles/v2/test-utils/mining-device",
-    "roles/v2/test-utils/pool",
     "roles/translator",
     "utils/network-helpers",
     "utils/buffer",
