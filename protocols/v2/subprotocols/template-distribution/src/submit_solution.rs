@@ -1,3 +1,5 @@
+use alloc::format;
+use alloc::string::{String, ToString};
 #[cfg(not(feature = "with_serde"))]
 use alloc::vec::Vec;
 #[cfg(not(feature = "with_serde"))]
@@ -7,6 +9,7 @@ use binary_sv2::Error;
 use binary_sv2::{Deserialize, Serialize, B064K};
 #[cfg(not(feature = "with_serde"))]
 use core::convert::TryInto;
+use core::fmt::{self, Formatter};
 
 /// ## SubmitSolution (Client -> Server)
 /// Upon finding a coinbase transaction/nonce pair which double-SHA256 hashes at or below
@@ -32,6 +35,22 @@ pub struct SubmitSolution<'decoder> {
     /// the NewWork message, above.
     #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub coinbase_tx: B064K<'decoder>,
+}
+
+impl<'decoder> fmt::Display for SubmitSolution<'decoder> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), core::fmt::Error> {
+        let coinbase_tx_hex: String = self
+            .coinbase_tx
+            .to_vec()
+            .iter()
+            .rev()
+            .map(|b| format!("{:02x}", b).to_string())
+            .collect::<Vec<String>>()
+            .join("");
+
+        write!(f, "Solution {{ template_id: {}, version: {}, header_timestamp: {}, header_nonce: {}, coinbase_tx: {} }}",
+            self.template_id, self.version, self.header_timestamp, self.header_nonce, coinbase_tx_hex)
+    }
 }
 
 #[cfg(not(feature = "with_serde"))]
