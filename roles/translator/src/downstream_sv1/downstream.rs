@@ -32,6 +32,8 @@ use v1::{
     IsServer,
 };
 
+const MAX_LINE_LENGTH: usize = 1024 * 1024 * 1024;
+
 /// Handles the sending and receiving of messages to and from an SV2 Upstream role (most typically
 /// a SV2 Pool server).
 #[derive(Debug)]
@@ -146,7 +148,8 @@ impl Downstream {
         // role, or the message is sent upwards to the Bridge for translation into a SV2 message
         // and then sent to the SV2 Upstream role.
         let _socket_reader_task = task::spawn(async move {
-            let mut messages = BufReader::new(&*socket_reader).lines();
+            let mut messages =
+                crate::utils::LimitedLines::new(BufReader::new(&*socket_reader), MAX_LINE_LENGTH);
             loop {
                 // Read message from SV1 Mining Device Client socket
                 // On message receive, parse to `json_rpc:Message` and send to Upstream

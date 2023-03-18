@@ -2040,6 +2040,7 @@ dependencies = [
  "futures",
  "network_helpers",
  "once_cell",
+ "pin-project-lite",
  "rand 0.8.5",
  "roles_logic_sv2",
  "serde",
