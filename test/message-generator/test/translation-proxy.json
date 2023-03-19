@@ -13,7 +13,7 @@
                 "type": "OpenExtendedMiningChannelSuccess",
                 "request_id": 0,
                 "channel_id": 1,
-                "target": [88, 190, 74, 45, 212, 33, 248, 47, 32, 222, 23, 112, 230, 43, 18, 139, 144, 135, 104, 178, 135, 218, 190, 102, 83, 235, 9, 81, 14, 0, 0, 0],
+                "target": [88, 190, 74, 45, 212, 33, 248, 47, 32, 222, 23, 112, 230, 43, 18, 139, 144, 135, 104, 178, 135, 218, 190, 102, 83, 235, 9, 81, 14, 0, 255, 0],
                 "extranonce_size": 16,
                 "extranonce_prefix": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]
             },
@@ -72,35 +72,14 @@
             "message_ids": ["open_extended_mining_channel_success"],
             "role": "server",
             "results": [
+                {
+                    "type": "match_message_type",
+                    "value": "0x1b"
+                }
             ]
         }
     ],
     "setup_commands": [
-       {
-            "command": "cargo",
-            "args": [
-                        "run",
-                        "-p",
-                        "translator_sv2",
-                        "--",
-                        "-c",
-                        "./test/config/tproxy-config.toml"
-
-            ],
-            "conditions": {
-                "WithConditions": {
-                    "conditions": [
-                        {
-                            "output_string": "2mtranslator_sv2",
-                            "output_location": "StdOut",
-                            "condition": true
-                        }
-                    ],
-                    "timer_secs": 60,
-                    "warn_no_panic": false
-                }
-            }
-       }
     ],
     "execution_commands": [
     ],

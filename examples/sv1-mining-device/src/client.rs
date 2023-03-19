@@ -92,7 +92,7 @@ impl Client {
         // TODO: This is hard coded for the purposes of a demo, should be set by the SV1
         // `mining.set_difficulty` message received from the Upstream role
         let target_vec: [u8; 32] = [
-            0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0,
         ];
         let default_target = Uint256::from_be_bytes(target_vec);
