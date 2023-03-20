@@ -13,7 +13,7 @@ pub fn create_notify(
     new_job: NewExtendedMiningJob<'static>,
 ) -> server_to_client::Notify<'static> {
     // Make sure that SetNewPrevHash + NewExtendedMiningJob is matching (not future)
-    let job_id = new_prev_hash.job_id.to_string();
+    let job_id = new_job.job_id.to_string();
 
     // U256<'static> -> MerkleLeaf
     let prev_hash = PrevHash(new_prev_hash.prev_hash.clone());

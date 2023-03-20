@@ -260,13 +260,19 @@ impl ChannelFactory {
             };
             self.extended_channels.insert(channel_id, success.clone());
             let mut result = vec![Mining::OpenExtendedMiningChannelSuccess(success)];
-            // should SNPH be pushed after NEMJ?
-            if let Some((new_prev_hash, _)) = &self.last_prev_hash {
+            if let Some((job, _)) = &self.last_valid_job {
+                let mut job = job.clone();
+                job.future_job = true;
+                let j_id = job.job_id;
+                result.push(Mining::NewExtendedMiningJob(job));
+                if let Some((new_prev_hash, _)) = &self.last_prev_hash {
+                    let mut new_prev_hash = new_prev_hash.into_set_p_hash(channel_id, None);
+                    new_prev_hash.job_id = j_id;
+                    result.push(Mining::SetNewPrevHash(new_prev_hash.clone()))
+                };
+            } else if let Some((new_prev_hash, _)) = &self.last_prev_hash {
                 let new_prev_hash = new_prev_hash.into_set_p_hash(channel_id, None);
                 result.push(Mining::SetNewPrevHash(new_prev_hash.clone()))
-            };
-            if let Some((job, _)) = &self.last_valid_job {
-                result.push(Mining::NewExtendedMiningJob(job.clone()))
             };
             for (job, _) in &self.future_jobs {
                 result.push(Mining::NewExtendedMiningJob(job.clone()))
@@ -674,6 +680,8 @@ impl ChannelFactory {
 
     // If there is job creator, bitcoin_target is retrieved from there. If not, it is set to 0.
     // If there is a job creator we pass the correct template id. If not, we pass `None`
+    // allow comparison chain because clippy wants to make job management assertion into a match clause
+    #[allow(clippy::comparison_chain)]
     fn check_target(
         &mut self,
         m: Share,
@@ -690,6 +698,28 @@ impl ChannelFactory {
                 upstream_target, ..
             } => upstream_target.clone(),
         };
+        let _last_job_id = self
+            .last_valid_job
+            .as_ref()
+            .ok_or(Error::ShareDoNotMatchAnyJob)?
+            .0
+            .job_id;
+        // *** TODO: uncomment below after mining proxy job management is fixed
+        // if m.get_job_id() < last_job_id {
+        //     let error = SubmitSharesError {
+        //         channel_id: m.get_channel_id(),
+        //         sequence_number: m.get_sequence_number(),
+        //         // Infallible unwrap we already know the len of the error code (is a
+        //         // static string)
+        //         error_code: SubmitSharesError::stale_share_error_code()
+        //             .to_string()
+        //             .try_into()
+        //             .unwrap(),
+        //     };
+        //     return Ok(OnNewShare::SendErrorDownstream(error));
+        // } else if m.get_job_id() > last_job_id {
+        //     return Err(Error::JobNotUpdated(m.get_job_id(), last_job_id));
+        // }
         let (downstream_target, extranonce) = self
             .get_channel_specific_mining_info(&m)
             .ok_or(Error::ShareDoNotMatchAnyChannel)?;
@@ -743,7 +773,10 @@ impl ChannelFactory {
         let hash_ = header.block_hash();
         let hash = hash_.as_hash().into_inner();
         let hash: Target = hash.into();
-
+        println!(
+            "BITCOIN TARGET: {:?}",
+            binary_sv2::U256::from(bitcoin_target.clone()).inner_as_ref()
+        );
         if hash <= bitcoin_target {
             let coinbase = [coinbase_tx_prefix, &extranonce[..], coinbase_tx_suffix]
                 .concat()
@@ -1390,7 +1423,7 @@ impl ExtendedChannelKind {
 mod test {
     use super::*;
     use binary_sv2::{Seq0255, B064K, U256};
-    use bitcoin::{hash_types::WPubkeyHash, PublicKey};
+    use bitcoin::{hash_types::WPubkeyHash, PublicKey, TxOut};
     use mining_sv2::OpenStandardMiningChannel;
 
     const BLOCK_REWARD: u64 = 2_000_000_000;
@@ -1477,10 +1510,6 @@ mod test {
             .collect()
     }
 
-    use bitcoin::TxOut;
-    use quickcheck::{Arbitrary, Gen};
-    use rand::Rng;
-
     #[test]
     fn test_complete_mining_round() {
         let (prefix, coinbase_extranonce, _) = get_coinbase();
@@ -1510,7 +1539,7 @@ mod test {
         );
 
         // Build a NewTemplate
-        let mut new_template = NewTemplate {
+        let new_template = NewTemplate {
             template_id: 10,
             future_template: true,
             version: VERSION,
@@ -1525,7 +1554,7 @@ mod test {
         };
 
         // "Send" the NewTemplate to the channel
-        let _ = channel.on_new_template(&mut new_template);
+        let _ = channel.on_new_template(&mut (new_template.clone()));
 
         // Build a PrevHash
         let mut p_hash = decode_hex(PREV_HASH).unwrap();
@@ -1584,6 +1613,12 @@ mod test {
                 _ => panic!(),
             }
         };
+        // make sure job management in channel factory is updated
+        (0..job_id - 1).for_each(|_| {
+            channel.job_creator.reset_new_templates(None);
+            let _ = channel.on_new_template(&mut (new_template.clone()));
+            let _ = channel.on_new_prev_hash_from_tp(&prev_hash);
+        });
 
         // Build the success share
         let share = SubmitSharesStandard {
