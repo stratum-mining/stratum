@@ -4,7 +4,10 @@ use codec_sv2::{
     noise_sv2::formats::{EncodedEd25519PublicKey, EncodedEd25519SecretKey},
     StandardEitherFrame, StandardSv2Frame,
 };
-use roles_logic_sv2::{bitcoin::PublicKey, parsers::PoolMessages};
+use roles_logic_sv2::{
+    bitcoin::{PublicKey, Script, TxOut},
+    parsers::PoolMessages,
+};
 use serde::{de::Visitor, Deserialize};
 use std::str::FromStr;
 
@@ -23,8 +26,19 @@ const BLOCK_REWARD: u64 = 5_000_000_000;
 
 const COINBASE_ADD_SZIE: u32 = 100;
 
-const COINBASE_PREFIX: Vec<u8> = vec![];
-const COINBASE_SUFFIX: Vec<u8> = vec![];
+pub fn get_coinbase_output(config: &Configuration) -> Vec<TxOut> {
+    config
+        .coinbase_outputs
+        .iter()
+        .map(|pub_key_wrapper| {
+            TxOut {
+                // value will be updated by the addition of `ChannelFactory::split_outputs()` in PR #422
+                value: crate::BLOCK_REWARD,
+                script_pubkey: Script::new_p2pk(&pub_key_wrapper.pub_key),
+            }
+        })
+        .collect()
+}
 
 use tokio::{select, task};
 

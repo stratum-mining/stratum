@@ -4,7 +4,7 @@ use super::{
 };
 use crate::{
     primitives::{FixedSize, GetSize},
-    Error,
+    Error, ShortTxId,
 };
 use alloc::vec::Vec;
 use serde::{ser, ser::SerializeTuple, Deserialize, Deserializer, Serialize};
@@ -28,6 +28,7 @@ impl<'s, T: Clone + FixedSize + Serialize + TryFromBSlice<'s> + core::cmp::Parti
 }
 impl<'s> Eq for Seq064K<'s, B016M<'s>> {}
 impl<'s> Eq for Seq064K<'s, B064K<'s>> {}
+impl<'s> Eq for Seq064K<'s, ShortTxId<'s>> {}
 
 impl<'s> PartialEq for Seq064K<'s, B016M<'s>> {
     fn eq(&self, other: &Self) -> bool {
@@ -169,6 +170,27 @@ impl<'de: 'a, 'a> Deserialize<'de> for Seq064K<'a, U256<'a>> {
                     "Seq_064K_U256",
                     SeqVisitor {
                         inner_type_size: 32,
+                        max_len: SeqMaxLen::_2B,
+                        _a: core::marker::PhantomData,
+                    },
+                )
+                .map(|x| x.into()),
+            true => Seq064K::deserialize_json(deserializer),
+        }
+    }
+}
+impl<'de: 'a, 'a> Deserialize<'de> for Seq064K<'a, ShortTxId<'a>> {
+    #[inline]
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        match deserializer.is_human_readable() {
+            false => deserializer
+                .deserialize_newtype_struct(
+                    "Seq_064K_ShortTxId",
+                    SeqVisitor {
+                        inner_type_size: 6,
                         max_len: SeqMaxLen::_2B,
                         _a: core::marker::PhantomData,
                     },

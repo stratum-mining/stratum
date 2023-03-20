@@ -12,7 +12,10 @@ pub use inner::Inner;
 pub use seq_inner::{Seq0255, Seq064K, Sv2Option};
 
 pub type U32AsRef<'a> = Inner<'a, true, 4, 0, 0>;
+// TODO make it fixed
 pub type U256<'a> = Inner<'a, true, 32, 0, 0>;
+// TODO make it fixed
+pub type ShortTxId<'a> = Inner<'a, true, 6, 0, 0>;
 pub type PubKey<'a> = Inner<'a, true, 32, 0, 0>;
 pub type Signature<'a> = Inner<'a, true, 64, 0, 0>;
 pub type B032<'a> = Inner<'a, false, 1, 1, 32>;

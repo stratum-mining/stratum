@@ -1,4 +1,4 @@
-use super::{Signature, B016M, B0255, B064K, U24, U256};
+use super::{ShortTxId, Signature, B016M, B0255, B064K, U24, U256};
 use crate::Error;
 use core::convert::TryInto;
 use serde::{de::Visitor, Serialize};
@@ -140,6 +140,14 @@ impl<'a> TryFromBSlice<'a> for U256<'a> {
     }
 }
 
+impl<'a> TryFromBSlice<'a> for ShortTxId<'a> {
+    type Error = Error;
+
+    #[inline]
+    fn try_from_slice(val: &'a [u8]) -> Result<Self, Error> {
+        val.try_into()
+    }
+}
 impl<'a> TryFromBSlice<'a> for Signature<'a> {
     type Error = Error;
 

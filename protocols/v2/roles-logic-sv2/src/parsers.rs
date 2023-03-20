@@ -16,8 +16,10 @@ use binary_sv2::{from_bytes, Deserialize};
 use framing_sv2::framing2::{Frame, Sv2Frame};
 
 use const_sv2::{
+    CHANNEL_BIT_ALLOCATE_MINING_TOKEN, CHANNEL_BIT_ALLOCATE_MINING_TOKEN_SUCCESS,
     CHANNEL_BIT_CHANNEL_ENDPOINT_CHANGED, CHANNEL_BIT_CLOSE_CHANNEL,
-    CHANNEL_BIT_COINBASE_OUTPUT_DATA_SIZE, CHANNEL_BIT_MINING_SET_NEW_PREV_HASH,
+    CHANNEL_BIT_COINBASE_OUTPUT_DATA_SIZE, CHANNEL_BIT_COMMIT_MINING_JOB,
+    CHANNEL_BIT_COMMIT_MINING_JOB_SUCCESS, CHANNEL_BIT_MINING_SET_NEW_PREV_HASH,
     CHANNEL_BIT_NEW_EXTENDED_MINING_JOB, CHANNEL_BIT_NEW_MINING_JOB, CHANNEL_BIT_NEW_TEMPLATE,
     CHANNEL_BIT_OPEN_EXTENDED_MINING_CHANNEL, CHANNEL_BIT_OPEN_EXTENDED_MINING_CHANNEL_SUCCES,
     CHANNEL_BIT_OPEN_MINING_CHANNEL_ERROR, CHANNEL_BIT_OPEN_STANDARD_MINING_CHANNEL,
@@ -25,29 +27,29 @@ use const_sv2::{
     CHANNEL_BIT_REQUEST_TRANSACTION_DATA, CHANNEL_BIT_REQUEST_TRANSACTION_DATA_ERROR,
     CHANNEL_BIT_REQUEST_TRANSACTION_DATA_SUCCESS, CHANNEL_BIT_SETUP_CONNECTION,
     CHANNEL_BIT_SETUP_CONNECTION_ERROR, CHANNEL_BIT_SETUP_CONNECTION_SUCCESS,
-    CHANNEL_BIT_SET_COINBASE, CHANNEL_BIT_SET_CUSTOM_MINING_JOB,
-    CHANNEL_BIT_SET_CUSTOM_MINING_JOB_ERROR, CHANNEL_BIT_SET_CUSTOM_MINING_JOB_SUCCESS,
-    CHANNEL_BIT_SET_EXTRANONCE_PREFIX, CHANNEL_BIT_SET_GROUP_CHANNEL,
-    CHANNEL_BIT_SET_NEW_PREV_HASH, CHANNEL_BIT_SET_TARGET, CHANNEL_BIT_SUBMIT_SHARES_ERROR,
-    CHANNEL_BIT_SUBMIT_SHARES_EXTENDED, CHANNEL_BIT_SUBMIT_SHARES_STANDARD,
-    CHANNEL_BIT_SUBMIT_SHARES_SUCCESS, CHANNEL_BIT_SUBMIT_SOLUTION, CHANNEL_BIT_UPDATE_CHANNEL,
-    CHANNEL_BIT_UPDATE_CHANNEL_ERROR, MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED,
-    MESSAGE_TYPE_CLOSE_CHANNEL, MESSAGE_TYPE_COINBASE_OUTPUT_DATA_SIZE,
-    MESSAGE_TYPE_MINING_SET_NEW_PREV_HASH, MESSAGE_TYPE_NEW_EXTENDED_MINING_JOB,
-    MESSAGE_TYPE_NEW_MINING_JOB, MESSAGE_TYPE_NEW_TEMPLATE,
+    CHANNEL_BIT_SET_CUSTOM_MINING_JOB, CHANNEL_BIT_SET_CUSTOM_MINING_JOB_ERROR,
+    CHANNEL_BIT_SET_CUSTOM_MINING_JOB_SUCCESS, CHANNEL_BIT_SET_EXTRANONCE_PREFIX,
+    CHANNEL_BIT_SET_GROUP_CHANNEL, CHANNEL_BIT_SET_NEW_PREV_HASH, CHANNEL_BIT_SET_TARGET,
+    CHANNEL_BIT_SUBMIT_SHARES_ERROR, CHANNEL_BIT_SUBMIT_SHARES_EXTENDED,
+    CHANNEL_BIT_SUBMIT_SHARES_STANDARD, CHANNEL_BIT_SUBMIT_SHARES_SUCCESS,
+    CHANNEL_BIT_SUBMIT_SOLUTION, CHANNEL_BIT_UPDATE_CHANNEL, CHANNEL_BIT_UPDATE_CHANNEL_ERROR,
+    MESSAGE_TYPE_ALLOCATE_MINING_TOKEN, MESSAGE_TYPE_ALLOCATE_MINING_TOKEN_SUCCESS,
+    MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED, MESSAGE_TYPE_CLOSE_CHANNEL,
+    MESSAGE_TYPE_COINBASE_OUTPUT_DATA_SIZE, MESSAGE_TYPE_COMMIT_MINING_JOB,
+    MESSAGE_TYPE_COMMIT_MINING_JOB_SUCCESS, MESSAGE_TYPE_MINING_SET_NEW_PREV_HASH,
+    MESSAGE_TYPE_NEW_EXTENDED_MINING_JOB, MESSAGE_TYPE_NEW_MINING_JOB, MESSAGE_TYPE_NEW_TEMPLATE,
     MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL, MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL_SUCCES,
     MESSAGE_TYPE_OPEN_MINING_CHANNEL_ERROR, MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL,
     MESSAGE_TYPE_OPEN_STANDARD_MINING_CHANNEL_SUCCESS, MESSAGE_TYPE_RECONNECT,
     MESSAGE_TYPE_REQUEST_TRANSACTION_DATA, MESSAGE_TYPE_REQUEST_TRANSACTION_DATA_ERROR,
     MESSAGE_TYPE_REQUEST_TRANSACTION_DATA_SUCCESS, MESSAGE_TYPE_SETUP_CONNECTION,
     MESSAGE_TYPE_SETUP_CONNECTION_ERROR, MESSAGE_TYPE_SETUP_CONNECTION_SUCCESS,
-    MESSAGE_TYPE_SET_COINBASE, MESSAGE_TYPE_SET_CUSTOM_MINING_JOB,
-    MESSAGE_TYPE_SET_CUSTOM_MINING_JOB_ERROR, MESSAGE_TYPE_SET_CUSTOM_MINING_JOB_SUCCESS,
-    MESSAGE_TYPE_SET_EXTRANONCE_PREFIX, MESSAGE_TYPE_SET_GROUP_CHANNEL,
-    MESSAGE_TYPE_SET_NEW_PREV_HASH, MESSAGE_TYPE_SET_TARGET, MESSAGE_TYPE_SUBMIT_SHARES_ERROR,
-    MESSAGE_TYPE_SUBMIT_SHARES_EXTENDED, MESSAGE_TYPE_SUBMIT_SHARES_STANDARD,
-    MESSAGE_TYPE_SUBMIT_SHARES_SUCCESS, MESSAGE_TYPE_SUBMIT_SOLUTION, MESSAGE_TYPE_UPDATE_CHANNEL,
-    MESSAGE_TYPE_UPDATE_CHANNEL_ERROR,
+    MESSAGE_TYPE_SET_CUSTOM_MINING_JOB, MESSAGE_TYPE_SET_CUSTOM_MINING_JOB_ERROR,
+    MESSAGE_TYPE_SET_CUSTOM_MINING_JOB_SUCCESS, MESSAGE_TYPE_SET_EXTRANONCE_PREFIX,
+    MESSAGE_TYPE_SET_GROUP_CHANNEL, MESSAGE_TYPE_SET_NEW_PREV_HASH, MESSAGE_TYPE_SET_TARGET,
+    MESSAGE_TYPE_SUBMIT_SHARES_ERROR, MESSAGE_TYPE_SUBMIT_SHARES_EXTENDED,
+    MESSAGE_TYPE_SUBMIT_SHARES_STANDARD, MESSAGE_TYPE_SUBMIT_SHARES_SUCCESS,
+    MESSAGE_TYPE_SUBMIT_SOLUTION, MESSAGE_TYPE_UPDATE_CHANNEL, MESSAGE_TYPE_UPDATE_CHANNEL_ERROR,
 };
 
 use common_messages_sv2::{
@@ -59,7 +61,9 @@ use template_distribution_sv2::{
     RequestTransactionDataSuccess, SetNewPrevHash, SubmitSolution,
 };
 
-use job_negotiation_sv2::SetCoinbase;
+use job_negotiation_sv2::{
+    AllocateMiningJobToken, AllocateMiningJobTokenSuccess, CommitMiningJob, CommitMiningJobSuccess,
+};
 
 use mining_sv2::{
     CloseChannel, NewExtendedMiningJob, NewMiningJob, OpenExtendedMiningChannel,
@@ -107,7 +111,13 @@ pub enum TemplateDistribution<'a> {
 #[cfg_attr(feature = "with_serde", derive(Serialize, Deserialize))]
 pub enum JobNegotiation<'a> {
     #[cfg_attr(feature = "with_serde", serde(borrow))]
-    SetCoinbase(SetCoinbase<'a>),
+    AllocateMiningJobToken(AllocateMiningJobToken<'a>),
+    #[cfg_attr(feature = "with_serde", serde(borrow))]
+    AllocateMiningJobTokenSuccess(AllocateMiningJobTokenSuccess<'a>),
+    #[cfg_attr(feature = "with_serde", serde(borrow))]
+    CommitMiningJob(CommitMiningJob<'a>),
+    #[cfg_attr(feature = "with_serde", serde(borrow))]
+    CommitMiningJobSuccess(CommitMiningJobSuccess<'a>),
 }
 
 #[derive(Clone, Debug)]
@@ -247,12 +257,18 @@ impl<'a> IsSv2Message for TemplateDistribution<'a> {
 impl<'a> IsSv2Message for JobNegotiation<'a> {
     fn message_type(&self) -> u8 {
         match self {
-            Self::SetCoinbase(_) => MESSAGE_TYPE_SET_COINBASE,
+            Self::AllocateMiningJobToken(_) => MESSAGE_TYPE_ALLOCATE_MINING_TOKEN,
+            Self::AllocateMiningJobTokenSuccess(_) => MESSAGE_TYPE_ALLOCATE_MINING_TOKEN_SUCCESS,
+            Self::CommitMiningJob(_) => MESSAGE_TYPE_COMMIT_MINING_JOB,
+            Self::CommitMiningJobSuccess(_) => MESSAGE_TYPE_COMMIT_MINING_JOB_SUCCESS,
         }
     }
     fn channel_bit(&self) -> bool {
         match self {
-            Self::SetCoinbase(_) => CHANNEL_BIT_SET_COINBASE,
+            Self::AllocateMiningJobToken(_) => CHANNEL_BIT_ALLOCATE_MINING_TOKEN,
+            Self::AllocateMiningJobTokenSuccess(_) => CHANNEL_BIT_ALLOCATE_MINING_TOKEN_SUCCESS,
+            Self::CommitMiningJob(_) => CHANNEL_BIT_COMMIT_MINING_JOB,
+            Self::CommitMiningJobSuccess(_) => CHANNEL_BIT_COMMIT_MINING_JOB_SUCCESS,
         }
     }
 }
@@ -349,7 +365,10 @@ impl<'decoder> From<TemplateDistribution<'decoder>> for EncodableField<'decoder>
 impl<'decoder> From<JobNegotiation<'decoder>> for EncodableField<'decoder> {
     fn from(m: JobNegotiation<'decoder>) -> Self {
         match m {
-            JobNegotiation::SetCoinbase(a) => a.into(),
+            JobNegotiation::AllocateMiningJobToken(a) => a.into(),
+            JobNegotiation::AllocateMiningJobTokenSuccess(a) => a.into(),
+            JobNegotiation::CommitMiningJob(a) => a.into(),
+            JobNegotiation::CommitMiningJobSuccess(a) => a.into(),
         }
     }
 }
@@ -410,7 +429,10 @@ impl GetSize for TemplateDistribution<'_> {
 impl<'a> GetSize for JobNegotiation<'a> {
     fn get_size(&self) -> usize {
         match self {
-            JobNegotiation::SetCoinbase(a) => a.get_size(),
+            JobNegotiation::AllocateMiningJobToken(a) => a.get_size(),
+            JobNegotiation::AllocateMiningJobTokenSuccess(a) => a.get_size(),
+            JobNegotiation::CommitMiningJob(a) => a.get_size(),
+            JobNegotiation::CommitMiningJobSuccess(a) => a.get_size(),
         }
     }
 }
@@ -642,7 +664,10 @@ impl<'a> TryFrom<(u8, &'a mut [u8])> for TemplateDistribution<'a> {
 #[repr(u8)]
 #[allow(clippy::enum_variant_names)]
 pub enum JobNegotiationTypes {
-    CoinbaseOutputDataSize = MESSAGE_TYPE_SET_COINBASE,
+    AllocateMiningJobToken = MESSAGE_TYPE_ALLOCATE_MINING_TOKEN,
+    AllocateMiningJobTokenSuccess = MESSAGE_TYPE_ALLOCATE_MINING_TOKEN_SUCCESS,
+    CommitMiningJob = MESSAGE_TYPE_COMMIT_MINING_JOB,
+    CommitMiningJobSuccess = MESSAGE_TYPE_COMMIT_MINING_JOB_SUCCESS,
 }
 
 impl TryFrom<u8> for JobNegotiationTypes {
@@ -650,7 +675,14 @@ impl TryFrom<u8> for JobNegotiationTypes {
 
     fn try_from(v: u8) -> Result<JobNegotiationTypes, Error> {
         match v {
-            MESSAGE_TYPE_SET_COINBASE => Ok(JobNegotiationTypes::CoinbaseOutputDataSize),
+            MESSAGE_TYPE_ALLOCATE_MINING_TOKEN => Ok(JobNegotiationTypes::AllocateMiningJobToken),
+            MESSAGE_TYPE_ALLOCATE_MINING_TOKEN_SUCCESS => {
+                Ok(JobNegotiationTypes::AllocateMiningJobTokenSuccess)
+            }
+            MESSAGE_TYPE_COMMIT_MINING_JOB => Ok(JobNegotiationTypes::CommitMiningJob),
+            MESSAGE_TYPE_COMMIT_MINING_JOB_SUCCESS => {
+                Ok(JobNegotiationTypes::CommitMiningJobSuccess)
+            }
             _ => Err(Error::UnexpectedMessage(v)),
         }
     }
@@ -662,9 +694,21 @@ impl<'a> TryFrom<(u8, &'a mut [u8])> for JobNegotiation<'a> {
     fn try_from(v: (u8, &'a mut [u8])) -> Result<Self, Self::Error> {
         let msg_type: JobNegotiationTypes = v.0.try_into()?;
         match msg_type {
-            JobNegotiationTypes::CoinbaseOutputDataSize => {
-                let message: SetCoinbase = from_bytes(v.1)?;
-                Ok(JobNegotiation::SetCoinbase(message))
+            JobNegotiationTypes::AllocateMiningJobToken => {
+                let message: AllocateMiningJobToken = from_bytes(v.1)?;
+                Ok(JobNegotiation::AllocateMiningJobToken(message))
+            }
+            JobNegotiationTypes::AllocateMiningJobTokenSuccess => {
+                let message: AllocateMiningJobTokenSuccess = from_bytes(v.1)?;
+                Ok(JobNegotiation::AllocateMiningJobTokenSuccess(message))
+            }
+            JobNegotiationTypes::CommitMiningJob => {
+                let message: CommitMiningJob = from_bytes(v.1)?;
+                Ok(JobNegotiation::CommitMiningJob(message))
+            }
+            JobNegotiationTypes::CommitMiningJobSuccess => {
+                let message: CommitMiningJobSuccess = from_bytes(v.1)?;
+                Ok(JobNegotiation::CommitMiningJobSuccess(message))
             }
         }
     }

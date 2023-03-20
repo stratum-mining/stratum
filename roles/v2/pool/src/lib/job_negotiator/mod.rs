@@ -1,12 +1,15 @@
 use crate::{Configuration, EitherFrame, StdFrame};
 use async_channel::{Receiver, Sender};
-use codec_sv2::{HandshakeRole, Responder};
+use binary_sv2::B0255;
+use bitcoin::consensus::Encodable;
+use codec_sv2::{Frame, HandshakeRole, Responder};
 use network_helpers::noise_connection_tokio::Connection;
 use roles_logic_sv2::{
     common_messages_sv2::SetupConnectionSuccess,
-    job_negotiation_sv2::SetCoinbase,
+    handlers::job_negotiation::{ParseClientJobNegotiationMessages, SendTo},
+    job_negotiation_sv2::{AllocateMiningJobTokenSuccess, CommitMiningJobSuccess, *},
     parsers::{JobNegotiation, PoolMessages},
-    utils::{Id, Mutex},
+    utils::Mutex,
 };
 use std::{convert::TryInto, sync::Arc};
 use tokio::net::TcpListener;
@@ -16,11 +19,25 @@ use tracing::info;
 pub struct JobNegotiatorDownstream {
     sender: Sender<EitherFrame>,
     receiver: Receiver<EitherFrame>,
+    // TODO this should be computed for each new template so that fees are included
+    coinbase_output: Vec<u8>,
 }
 
 impl JobNegotiatorDownstream {
-    pub fn new(receiver: Receiver<EitherFrame>, sender: Sender<EitherFrame>) -> Self {
-        Self { receiver, sender }
+    pub fn new(
+        receiver: Receiver<EitherFrame>,
+        sender: Sender<EitherFrame>,
+        config: &Configuration,
+    ) -> Self {
+        let mut coinbase_output = vec![];
+        crate::get_coinbase_output(config)[0]
+            .consensus_encode(&mut coinbase_output)
+            .expect("invalid coinbase output in config");
+        Self {
+            receiver,
+            sender,
+            coinbase_output,
+        }
     }
 
     pub async fn send(
@@ -32,26 +49,76 @@ impl JobNegotiatorDownstream {
         sender.send(sv2_frame.into()).await.map_err(|_| ())?;
         Ok(())
     }
-    pub fn stay_alive(self_mutex: Arc<Mutex<Self>>) {
+    pub fn start(self_mutex: Arc<Mutex<Self>>) {
+        let recv = self_mutex.safe_lock(|s| s.receiver.clone()).unwrap();
         tokio::spawn(async move {
             loop {
-                let recv = self_mutex.safe_lock(|s| s.receiver.clone()).unwrap();
-                let _ = recv.recv().await;
+                if let Ok(message) = recv.recv().await {
+                    let mut frame: StdFrame = message.try_into().unwrap();
+                    let message_type = frame.get_header().unwrap().msg_type();
+                    let payload = frame.payload();
+                    let next_message_to_send =
+                        ParseClientJobNegotiationMessages::handle_message_job_negotiation(
+                            self_mutex.clone(),
+                            message_type,
+                            payload,
+                        );
+                    match next_message_to_send {
+                        Ok(SendTo::Respond(message)) => {
+                            Self::send(self_mutex.clone(), message).await.unwrap();
+                        }
+                        _ => unreachable!(),
+                    }
+                } else {
+                    todo!();
+                }
             }
         });
     }
 }
 
+impl ParseClientJobNegotiationMessages for JobNegotiatorDownstream {
+    fn handle_allocate_mining_job(
+        &mut self,
+        message: AllocateMiningJobToken,
+    ) -> Result<roles_logic_sv2::handlers::job_negotiation::SendTo, roles_logic_sv2::Error> {
+        let res = JobNegotiation::AllocateMiningJobTokenSuccess(AllocateMiningJobTokenSuccess {
+            request_id: message.request_id,
+            mining_job_token: get_random_token(),
+            coinbase_output_max_additional_size: crate::COINBASE_ADD_SZIE,
+            coinbase_output: self.coinbase_output.clone().try_into().unwrap(),
+            async_mining_allowed: true,
+        });
+        Ok(SendTo::Respond(res))
+    }
+
+    // Just accept any proposed job without veryfing it and rely only on the downstreams to make
+    // sure that jobs are valid
+    fn handle_commit_mining_job(
+        &mut self,
+        message: CommitMiningJob,
+    ) -> Result<roles_logic_sv2::handlers::job_negotiation::SendTo, roles_logic_sv2::Error> {
+        let res = JobNegotiation::CommitMiningJobSuccess(CommitMiningJobSuccess {
+            request_id: message.request_id,
+            new_mining_job_token: message.mining_job_token.into_static().clone(),
+        });
+        Ok(SendTo::Respond(res))
+    }
+}
+
+fn get_random_token() -> B0255<'static> {
+    let inner: [u8; 32] = rand::random();
+    inner.to_vec().try_into().unwrap()
+}
+
 pub struct JobNegotiator {
     downstreams: Vec<Arc<Mutex<JobNegotiatorDownstream>>>,
-    id: Id,
 }
 
 impl JobNegotiator {
     pub async fn start(config: Configuration) {
         let self_ = Arc::new(Mutex::new(Self {
             downstreams: Vec::new(),
-            id: Id::new(),
         }));
         info!("JN INITIALIZED");
         Self::accept_incoming_connection(self_, config).await;
@@ -76,6 +143,7 @@ impl JobNegotiator {
 
             let setup_connection_success_to_proxy = SetupConnectionSuccess {
                 used_version: 2,
+                // Setup flags for async_mining_allowed
                 flags: 0b_0000_0000_0000_0000_0000_0000_0000_0001,
             };
             let sv2_frame: StdFrame =
@@ -90,29 +158,14 @@ impl JobNegotiator {
             let jndownstream = Arc::new(Mutex::new(JobNegotiatorDownstream::new(
                 receiver.clone(),
                 sender.clone(),
+                &config,
             )));
 
             self_
                 .safe_lock(|job_negotiator| job_negotiator.downstreams.push(jndownstream.clone()))
                 .unwrap();
 
-            println!(
-                "NUMBER of proxies JN: {:?}",
-                self_
-                    .safe_lock(|job_negotiator| job_negotiator.downstreams.len())
-                    .unwrap()
-            );
-            let coinbase_add_size = JobNegotiation::SetCoinbase(SetCoinbase {
-                coinbase_output_max_additional_size: crate::COINBASE_ADD_SZIE,
-                token: self_.safe_lock(|s| s.id.next()).unwrap() as u64,
-
-                coinbase_tx_prefix: crate::COINBASE_PREFIX.try_into().unwrap(),
-                coinbase_tx_suffix: crate::COINBASE_SUFFIX.try_into().unwrap(),
-            });
-            JobNegotiatorDownstream::send(jndownstream.clone(), coinbase_add_size)
-                .await
-                .unwrap();
-            JobNegotiatorDownstream::stay_alive(jndownstream);
+            JobNegotiatorDownstream::start(jndownstream);
         }
     }
 }

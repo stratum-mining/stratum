@@ -12,7 +12,9 @@ use tracing::info;
 
 use codec_sv2::Frame;
 use roles_logic_sv2::{
-    bitcoin::TxOut, handlers::job_negotiation::ParseServerJobNegotiationMessages,
+    bitcoin::{consensus::Decodable, TxOut},
+    handlers::job_negotiation::ParseServerJobNegotiationMessages,
+    job_negotiation_sv2::AllocateMiningJobToken,
     template_distribution_sv2::CoinbaseOutputDataSize,
 };
 use std::{
@@ -32,19 +34,17 @@ use crate::proxy_config::ProxyConfig;
 
 pub struct JobNegotiator {
     receiver: Receiver<StandardEitherFrame<PoolMessages<'static>>>,
-    _sender: Sender<StandardEitherFrame<PoolMessages<'static>>>,
-    last_coinbase_out: Option<Vec<TxOut>>,
-    sender_coinbase_output_max_additional_size: Sender<(CoinbaseOutputDataSize, u64)>,
-    sender_coinbase_out: Sender<(Vec<TxOut>, u64)>,
-    coinbase_reward_sat: u64,
+    sender: Sender<StandardEitherFrame<PoolMessages<'static>>>,
+    sender_coinbase_output_max_additional_size: Sender<(CoinbaseOutputDataSize, Vec<u8>)>,
+    sender_coinbase_out: Sender<(Vec<TxOut>, Vec<u8>)>,
 }
 
 impl JobNegotiator {
     pub async fn new(
         address: SocketAddr,
         authority_public_key: [u8; 32],
-        sender_coinbase_output_max_additional_size: Sender<(CoinbaseOutputDataSize, u64)>,
-        sender_coinbase_out: Sender<(Vec<TxOut>, u64)>,
+        sender_coinbase_output_max_additional_size: Sender<(CoinbaseOutputDataSize, Vec<u8>)>,
+        sender_coinbase_out: Sender<(Vec<TxOut>, Vec<u8>)>,
         config: ProxyConfig,
     ) -> Arc<Mutex<Self>> {
         let stream = async_std::net::TcpStream::connect(address).await.unwrap();
@@ -70,13 +70,12 @@ impl JobNegotiator {
 
         let self_ = Arc::new(Mutex::new(JobNegotiator {
             receiver,
-            _sender: sender,
+            sender,
             sender_coinbase_output_max_additional_size,
-            last_coinbase_out: None,
             sender_coinbase_out,
-            coinbase_reward_sat: config.coinbase_reward_sat,
         }));
 
+        Self::allocate_token(self_.clone()).await;
         Self::on_upstream_message(self_.clone());
         self_
     }
@@ -102,28 +101,36 @@ impl JobNegotiator {
                         payload,
                     );
                 match next_message_to_send {
-                    Ok(SendTo::None(Some(JobNegotiation::SetCoinbase(m)))) => {
+                    Ok(SendTo::None(Some(JobNegotiation::AllocateMiningJobTokenSuccess(m)))) => {
                         let coinbase_output_max_additional_size = CoinbaseOutputDataSize {
                             coinbase_output_max_additional_size: m
                                 .coinbase_output_max_additional_size,
                         };
-                        let out_script = self_mutex
-                            .safe_lock(|s| s.last_coinbase_out.clone())
-                            .unwrap()
-                            // Safe unwrap when we receive a coinbase_output we immediatly set
-                            // last_coinbase_out to that coinbase output in the message handlers
-                            // message_handler::ParseServerJobNegotiationMessages::handle_set_coinbase
-                            .unwrap();
+                        let token = m.mining_job_token.to_vec();
                         sender_max_size
-                            .send((coinbase_output_max_additional_size, m.token))
+                            .send((coinbase_output_max_additional_size, token.clone()))
                             .await
                             .unwrap();
-                        sender_out_script.send((out_script, m.token)).await.unwrap();
+                        // Assume pool is sending only one output
+                        let out_script = vec![TxOut::consensus_decode(
+                            m.coinbase_output.inner_as_ref(),
+                        )
+                        .unwrap()];
+                        sender_out_script.send((out_script, token)).await.unwrap();
                     }
                     Ok(_) => unreachable!(),
                     Err(_) => todo!(),
                 }
             }
         });
+    }
+    async fn allocate_token(self_mutex: Arc<Mutex<Self>>) {
+        let message = JobNegotiation::AllocateMiningJobToken(AllocateMiningJobToken {
+            user_identifier: "todo".to_string().try_into().unwrap(),
+            request_id: 0,
+        });
+        let sender = self_mutex.safe_lock(|s| s.sender.clone()).unwrap();
+        let frame: StdFrame = PoolMessages::JobNegotiation(message).try_into().unwrap();
+        let _ = sender.send(frame.into()).await;
     }
 }

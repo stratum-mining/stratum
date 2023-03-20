@@ -4,7 +4,7 @@ pub type SendTo = SendTo_<JobNegotiation<'static>, ()>;
 use super::SendTo_;
 use crate::errors::Error;
 use core::convert::TryInto;
-use job_negotiation_sv2::SetCoinbase;
+use job_negotiation_sv2::*;
 
 /// A trait implemented by a downstream to handle SV2 job negotiation messages.
 pub trait ParseServerJobNegotiationMessages
@@ -18,12 +18,48 @@ where
         payload: &mut [u8],
     ) -> Result<SendTo, Error> {
         match (message_type, payload).try_into() {
-            Ok(JobNegotiation::SetCoinbase(message)) => self_
-                .safe_lock(|x| x.handle_set_coinbase(message))
+            Ok(JobNegotiation::AllocateMiningJobTokenSuccess(message)) => self_
+                .safe_lock(|x| x.handle_allocate_mining_job_sucess(message))
                 .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
+            Ok(JobNegotiation::CommitMiningJobSuccess(message)) => self_
+                .safe_lock(|x| x.handle_commit_mining_job_success(message))
+                .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
+            Ok(_) => todo!(),
             Err(e) => Err(e),
         }
     }
-    /// Construct a new coinbase transaction based on the message
-    fn handle_set_coinbase(&mut self, message: SetCoinbase) -> Result<SendTo, Error>;
+    fn handle_allocate_mining_job_sucess(
+        &mut self,
+        message: AllocateMiningJobTokenSuccess,
+    ) -> Result<SendTo, Error>;
+    fn handle_commit_mining_job_success(
+        &mut self,
+        message: CommitMiningJobSuccess,
+    ) -> Result<SendTo, Error>;
+}
+pub trait ParseClientJobNegotiationMessages
+where
+    Self: Sized,
+{
+    fn handle_message_job_negotiation(
+        self_: Arc<Mutex<Self>>,
+        message_type: u8,
+        payload: &mut [u8],
+    ) -> Result<SendTo, Error> {
+        match (message_type, payload).try_into() {
+            Ok(JobNegotiation::AllocateMiningJobToken(message)) => self_
+                .safe_lock(|x| x.handle_allocate_mining_job(message))
+                .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
+            Ok(JobNegotiation::CommitMiningJob(message)) => self_
+                .safe_lock(|x| x.handle_commit_mining_job(message))
+                .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
+            Ok(_) => todo!(),
+            Err(e) => Err(e),
+        }
+    }
+    fn handle_allocate_mining_job(
+        &mut self,
+        message: AllocateMiningJobToken,
+    ) -> Result<SendTo, Error>;
+    fn handle_commit_mining_job(&mut self, message: CommitMiningJob) -> Result<SendTo, Error>;
 }

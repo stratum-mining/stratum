@@ -316,13 +316,24 @@ impl<'a> From<TemplateDistribution<'a>> for roles_logic_sv2::parsers::TemplateDi
 #[serde(tag = "type")]
 pub enum JobNegotiation<'a> {
     #[serde(borrow)]
-    SetCoinbase(SetCoinbase<'a>),
+    AllocateMiningJobTokenSuccess(AllocateMiningJobTokenSuccess<'a>),
+    #[serde(borrow)]
+    AllocateMiningJobToken(AllocateMiningJobToken<'a>),
+    #[serde(borrow)]
+    CommitMiningJob(CommitMiningJob<'a>),
+    #[serde(borrow)]
+    CommitMiningJobSuccess(CommitMiningJobSuccess<'a>),
 }
 
 impl<'a> From<JobNegotiation<'a>> for roles_logic_sv2::parsers::JobNegotiation<'a> {
     fn from(v: JobNegotiation<'a>) -> Self {
         match v {
-            JobNegotiation::SetCoinbase(m) => Self::SetCoinbase(m),
+            JobNegotiation::AllocateMiningJobTokenSuccess(m) => {
+                Self::AllocateMiningJobTokenSuccess(m)
+            }
+            JobNegotiation::AllocateMiningJobToken(m) => Self::AllocateMiningJobToken(m),
+            JobNegotiation::CommitMiningJobSuccess(m) => Self::CommitMiningJobSuccess(m),
+            JobNegotiation::CommitMiningJob(m) => Self::CommitMiningJob(m),
         }
     }
 }
