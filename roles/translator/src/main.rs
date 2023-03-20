@@ -54,7 +54,7 @@ async fn main() {
     // `tx_sv1_submit` sender is used by `Downstream` to send a `mining.submit` message to
     // `Bridge` via the `rx_sv1_submit` receiver
     // (Sender<v1::client_to_server::Submit>, Receiver<Submit>)
-    let (tx_sv1_submit, rx_sv1_submit) = unbounded();
+    let (tx_sv1_bridge, rx_sv1_downstream) = unbounded();
 
     // Sender/Receiver to send a SV2 `SubmitSharesExtended` from the `Bridge` to the `Upstream`
     // (Sender<SubmitSharesExtended<'static>>, Receiver<SubmitSharesExtended<'static>>)
@@ -218,7 +218,7 @@ async fn main() {
 
     // Instantiate a new `Bridge` and begins handling incoming messages
     let b = proxy::Bridge::new(
-        rx_sv1_submit,
+        rx_sv1_downstream,
         tx_sv2_submit_shares_ext,
         rx_sv2_set_new_prev_hash,
         rx_sv2_new_ext_mining_job,
@@ -240,7 +240,7 @@ async fn main() {
     // Accept connections from one or more SV1 Downstream roles (SV1 Mining Devices)
     downstream_sv1::Downstream::accept_connections(
         downstream_addr,
-        tx_sv1_submit,
+        tx_sv1_bridge,
         tx_sv1_notify,
         status::Sender::DownstreamListener(tx_status.clone()),
         b,

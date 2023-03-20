@@ -867,6 +867,12 @@ impl ChannelFactory {
             },
         }
     }
+
+    fn update_target_for_channel(&mut self, channel_id: u32, new_target: Target) -> Option<bool> {
+        let channel = self.extended_channels.get_mut(&channel_id)?;
+        channel.target = new_target.into();
+        Some(true)
+    }
 }
 
 /// Used by a pool to in order to manage all downstream channel. It add job creation capabilities
@@ -1399,6 +1405,7 @@ impl ProxyExtendedChannelFactory {
     pub fn get_upstream_extranonce1_len(&self) -> usize {
         self.inner.extranonces.get_range0_len()
     }
+
     pub fn get_extranonce_without_upstream_part(
         &self,
         downstream_extranonce: mining_sv2::Extranonce,
@@ -1406,6 +1413,14 @@ impl ProxyExtendedChannelFactory {
         self.inner
             .extranonces
             .without_upstream_part(Some(downstream_extranonce))
+    }
+    
+    pub fn update_target_for_channel(
+        &mut self,
+        channel_id: u32,
+        new_target: Target,
+    ) -> Option<bool> {
+        self.inner.update_target_for_channel(channel_id, new_target)
     }
 }
 
