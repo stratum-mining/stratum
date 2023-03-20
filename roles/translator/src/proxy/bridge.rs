@@ -2,7 +2,7 @@ use async_channel::{Receiver, Sender};
 use async_std::task;
 use roles_logic_sv2::{
     channel_logic::channel_factory::{ExtendedChannelKind, ProxyExtendedChannelFactory, Share},
-    job_creator::{extended_job_to_non_segwit, JobsCreators},
+    job_creator::JobsCreators,
     mining_sv2::{
         ExtendedExtranonce, NewExtendedMiningJob, SetCustomMiningJob, SetNewPrevHash,
         SubmitSharesExtended, Target,
@@ -416,10 +416,9 @@ impl Bridge {
                     .map_err(|_| PoisonLock);
                 let channel_sequence_id = handle_result!(tx_status, channel_sequence_id) - 1;
 
-                let channel_extranonce1_len = self_
-                    .safe_lock(|s| s.channel_factory.get_upstream_extranonce1_len())
-                    .map_err(|_| PoisonLock);
-                let channel_extranonce1_len = handle_result!(tx_status, channel_extranonce1_len) ;
+                // let channel_extranonce1_len = self_
+                //     .safe_lock(|s| s.channel_factory.get_upstream_extranonce1_len())
+                //     .map_err(|_| PoisonLock);
 
                 let sv2_submit = self_
                     .safe_lock(|s| {
@@ -432,7 +431,6 @@ impl Bridge {
                         )
                     })
                     .map_err(|_| PoisonLock);
-                println!("SUBMIT: {:?}", &sv2_submit);
                 let sv2_submit = handle_result!(tx_status, handle_result!(tx_status, sv2_submit));
                 let mut send_upstream = false;
                 let res = self_
@@ -440,7 +438,10 @@ impl Bridge {
                         s.channel_factory.set_target(&mut upstream_target.clone());
                         s.channel_factory.on_submit_shares_extended(
                             sv2_submit.clone(),
-                            Some(crate::utils::proxy_extranonce1_len(s.channel_factory.channel_extranonce2_size(), extranonce2_len)),
+                            Some(crate::utils::proxy_extranonce1_len(
+                                s.channel_factory.channel_extranonce2_size(),
+                                extranonce2_len,
+                            )),
                         )
                     })
                     .map_err(|_| PoisonLock);
@@ -519,11 +520,20 @@ impl Bridge {
         let version = match (sv1_submit.version_bits, version_rolling_mask) {
             (Some(vb), Some(mask)) => (last_version & !mask.0) | (vb.0 & mask.0),
             (None, None) => last_version,
-            _ => return Err(Error::V1Protocol(v1::error::Error::InvalidSubmission))
+            _ => return Err(Error::V1Protocol(v1::error::Error::InvalidSubmission)),
         };
-        let extranonce = self.channel_factory.get_extranonce_without_upstream_part(
-            extranonce2.try_into().map_err(|_| Error::SubprotocolMining("invalid extranonce".to_string()))?
-        ).ok_or(Error::SubprotocolMining("Could not convert miner extranonce2 to proxy extranonce2".to_string()))?;
+        let extranonce = self
+            .channel_factory
+            .get_extranonce_without_upstream_part(
+                extranonce2
+                    .try_into()
+                    .map_err(|_| Error::SubprotocolMining("invalid extranonce".to_string()))?,
+            )
+            .ok_or_else(|| {
+                Error::SubprotocolMining(
+                    "Could not convert miner extranonce2 to proxy extranonce2".to_string(),
+                )
+            })?;
         Ok(SubmitSharesExtended {
             channel_id,
             // I put 0 below cause sequence_number is not what should be TODO
@@ -634,11 +644,7 @@ impl Bridge {
         sv2_new_extended_mining_job: NewExtendedMiningJob<'static>,
         tx_sv1_notify: broadcast::Sender<server_to_client::Notify<'static>>,
     ) -> Result<(), Error<'static>> {
-        let extended_extranonce_len = self_
-            .safe_lock(|b| b.channel_factory.extranonce_size())
-            .map_err(|_| PoisonLock)?;
         // convert to non segwit jobs so we dont have to depend if miner's support segwit or not
-        println!("\nEXTRANONCE LEN: {:?}\n", extended_extranonce_len);
         self_
             .safe_lock(|s| {
                 s.channel_factory

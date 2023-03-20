@@ -723,7 +723,6 @@ impl ChannelFactory {
         let (downstream_target, extranonce) = self
             .get_channel_specific_mining_info(&m)
             .ok_or(Error::ShareDoNotMatchAnyChannel)?;
-        println!("EXTRANONCE: {:?}", &extranonce);
         let coinbase_tx_prefix = self
             .last_valid_job
             .as_ref()
@@ -768,9 +767,7 @@ impl ChannelFactory {
         };
         let hash_ = header.block_hash();
         let hash = hash_.as_hash().into_inner();
-        println!("HASH: {:?}", &hash);
-        println!("UPSTREAM TARGET: {:?}", &binary_sv2::U256::from(upstream_target.clone()));
-
+        tracing::debug!("Share Hash: {:?}", &hash);
         let hash: Target = hash.into();
         if hash <= bitcoin_target {
             let coinbase = [coinbase_tx_prefix, &extranonce[..], coinbase_tx_suffix]
@@ -819,7 +816,6 @@ impl ChannelFactory {
     }
     /// Returns the downstream target and extranonce for the channel
     fn get_channel_specific_mining_info(&self, m: &Share) -> Option<(mining_sv2::Target, Vec<u8>)> {
-        println!("SHARE: {:?}", &m);
         match m {
             Share::Extended(share) => {
                 let channel = self.extended_channels.get(&m.get_channel_id())?;
@@ -1403,8 +1399,13 @@ impl ProxyExtendedChannelFactory {
     pub fn get_upstream_extranonce1_len(&self) -> usize {
         self.inner.extranonces.get_range0_len()
     }
-    pub fn get_extranonce_without_upstream_part(&self, downstream_extranonce: mining_sv2::Extranonce ) -> Option<mining_sv2::Extranonce> {
-        self.inner.extranonces.without_upstream_part(Some(downstream_extranonce))
+    pub fn get_extranonce_without_upstream_part(
+        &self,
+        downstream_extranonce: mining_sv2::Extranonce,
+    ) -> Option<mining_sv2::Extranonce> {
+        self.inner
+            .extranonces
+            .without_upstream_part(Some(downstream_extranonce))
     }
 }
 
