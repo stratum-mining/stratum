@@ -118,7 +118,6 @@ impl<'d> GetSize for NewMiningJob<'d> {
 mod tests {
     use super::*;
     use crate::tests::from_arbitrary_vec_to_array;
-    use binary_sv2::GetSize;
     use core::convert::TryFrom;
     use quickcheck_macros;
 

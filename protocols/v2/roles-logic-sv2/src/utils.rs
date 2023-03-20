@@ -113,7 +113,7 @@ pub fn merkle_root_from_path<T: AsRef<[u8]>>(
         }
     };
 
-    let coinbase_id: [u8; 32] = match coinbase.txid().as_hash().to_vec().try_into() {
+    let coinbase_id: [u8; 32] = match coinbase.txid().to_vec().try_into() {
         Ok(id) => id,
         Err(_e) => return None,
     };
@@ -189,8 +189,9 @@ pub fn hash_rate_to_target(h: f32, share_per_min: f32) -> U256<'static> {
     let numerator = two_to_256_minus_one - h_times_s;
     let denominator = h_times_s_plus_one;
     let target = numerator / denominator;
-    let target = target.to_be_bytes();
-    U256::<'static>::from(target)
+    let mut target_be = target.to_be_bytes();
+    target_be.reverse();
+    U256::<'static>::from(target_be)
 }
 
 /// this function utilizes the equation used in [`hash_rate_to_target`], but
@@ -200,6 +201,7 @@ pub fn hash_rate_from_target(target: U256<'static>, share_per_min: f32) -> f32 {
 
     let mut target_arr: [u8; 32] = [0; 32];
     target_arr.as_mut().copy_from_slice(target.inner_as_ref());
+    target_arr.reverse();
     let mut target_plus_1 = bitcoin::util::uint::Uint256::from_be_bytes(target_arr);
     target_plus_1.increment();
 
@@ -737,11 +739,11 @@ mod tests {
         let mut rng = rand::thread_rng();
         let mut successes = 0;
 
-        let hr = 10.01; // 10 h/s
+        let hr = 10.0; // 10 h/s
         let hrs = hr * 60.0; // number of hashes in 1 minute
-        let mut target = hash_rate_to_target(hr, 1.0);
-        let target =
-            bitcoin::util::uint::Uint256::from_be_slice(&target.inner_as_mut()[..]).unwrap();
+        let mut target = hash_rate_to_target(hr, 1.0).to_vec();
+        target.reverse();
+        let target = bitcoin::util::uint::Uint256::from_be_slice(&target[..]).unwrap();
 
         let mut i: i64 = 0;
         let mut results = vec![];

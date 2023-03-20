@@ -40,6 +40,7 @@ use tracing::{debug, error, info, warn};
 /// USED to make sure that if a future new_temnplate and a set_new_prev_hash are received together
 /// the future new_temnplate is always handled before the set new prev hash.
 pub static IS_NEW_TEMPLATE_HANDLED: AtomicBool = AtomicBool::new(true);
+pub static IS_NEW_JOB_HANDLED: AtomicBool = AtomicBool::new(true);
 /// Represents the currently active `prevhash` of the mining job being worked on OR being submitted
 /// from the Downstream role.
 #[derive(Debug, Clone)]
@@ -766,7 +767,8 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
         &mut self,
         m: roles_logic_sv2::mining_sv2::NewExtendedMiningJob,
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, RolesLogicError> {
-        debug!("Received NewExtendedMiningJob: {:?}", &m);
+        IS_NEW_JOB_HANDLED.store(false, std::sync::atomic::Ordering::SeqCst);
+
         info!("Is future job: {}\n", &m.future_job);
         if self.is_work_selection_enabled() {
             Ok(SendTo::None(None))

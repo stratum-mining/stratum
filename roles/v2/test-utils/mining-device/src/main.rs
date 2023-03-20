@@ -1,9 +1,6 @@
 use async_std::net::TcpStream;
 use bitcoin::{
-    blockdata::block::BlockHeader,
-    hash_types::{BlockHash, TxMerkleNode},
-    hashes::{sha256d::Hash as DHash, Hash},
-    util::uint::Uint256,
+    blockdata::block::BlockHeader, hash_types::BlockHash, hashes::Hash, util::uint::Uint256,
 };
 use network_helpers::PlainConnection;
 use roles_logic_sv2::utils::Id;
@@ -149,7 +146,8 @@ fn open_channel() -> OpenStandardMiningChannel<'static> {
     OpenStandardMiningChannel {
         request_id: id.into(),
         user_identity,
-        nominal_hash_rate: 5.4,
+        // keep at a value that actually tests the device since regtest target is so low
+        nominal_hash_rate: 5.4, // change back to 100.0 so the test is valid
         max_target: u256_from_int(567_u64),
     }
 }
@@ -456,7 +454,9 @@ impl Miner {
         }
     }
 
-    fn new_target(&mut self, target: Vec<u8>) {
+    fn new_target(&mut self, mut target: Vec<u8>) {
+        // target is sent in LE and comparisons in this file are done in BE
+        target.reverse();
         self.target = Some(Uint256::from_be_bytes(target.try_into().unwrap()));
     }
 
@@ -464,13 +464,14 @@ impl Miner {
         self.job_id = Some(new_job.job_id);
         self.version = Some(new_job.version);
         let prev_hash: [u8; 32] = set_new_prev_hash.prev_hash.to_vec().try_into().unwrap();
-        let prev_hash = DHash::from_inner(prev_hash);
+        let prev_hash = Hash::from_inner(prev_hash);
         let merkle_root: [u8; 32] = new_job.merkle_root.to_vec().try_into().unwrap();
-        let merkle_root = DHash::from_inner(merkle_root);
+        let merkle_root = Hash::from_inner(merkle_root);
+        // fields need to be added as BE and the are converted to LE in the background before hashing
         let header = BlockHeader {
             version: new_job.version as i32,
             prev_blockhash: BlockHash::from_hash(prev_hash),
-            merkle_root: TxMerkleNode::from_hash(merkle_root),
+            merkle_root,
             time: std::time::SystemTime::now()
                 .duration_since(
                     std::time::SystemTime::UNIX_EPOCH - std::time::Duration::from_secs(60),
