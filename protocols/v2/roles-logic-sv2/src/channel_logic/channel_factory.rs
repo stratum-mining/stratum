@@ -237,6 +237,7 @@ impl ChannelFactory {
     ) -> Option<Vec<Mining<'static>>> {
         let extended_channels_group = 0;
         let max_extranonce_size = self.extranonces.get_range2_len() as u16;
+        println!("MAX EXTRANONCE SIZE: {:?}", max_extranonce_size);
         if min_extranonce_size <= max_extranonce_size {
             // SECURITY is very unlikely to finish the ids btw this unwrap could be used by an attaccher that
             // want to dirsrupt the service maybe we should have a method to reuse ids that are no
@@ -247,10 +248,13 @@ impl ChannelFactory {
                 .unwrap();
             self.channel_to_group_id.insert(channel_id, 0);
             let target = crate::utils::hash_rate_to_target(hash_rate, self.share_per_min);
+            println!("CHANNEL TARGET: {:?}", target.inner_as_ref());
             let extranonce = self
                 .extranonces
                 .next_extended(max_extranonce_size as usize)?;
+            println!("CHANNEL EXTRANONCE: {:?}", extranonce);
             let extranonce_prefix = extranonce.into_prefix(self.extranonces.get_prefix_len())?;
+            println!("CHANNEL EXTRANONCE PREFIX: {:?}", extranonce_prefix);
             let success = OpenExtendedMiningChannelSuccess {
                 request_id,
                 channel_id,
