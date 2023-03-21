@@ -416,10 +416,6 @@ impl Bridge {
                     .map_err(|_| PoisonLock);
                 let channel_sequence_id = handle_result!(tx_status, channel_sequence_id) - 1;
 
-                // let channel_extranonce1_len = self_
-                //     .safe_lock(|s| s.channel_factory.get_upstream_extranonce1_len())
-                //     .map_err(|_| PoisonLock);
-
                 let sv2_submit = self_
                     .safe_lock(|s| {
                         s.translate_submit(
@@ -518,6 +514,7 @@ impl Bridge {
             .last_valid_job_version()
             .ok_or(Error::RolesSv2Logic(RolesLogicError::NoValidJob))?;
         let version = match (sv1_submit.version_bits, version_rolling_mask) {
+            // regarding version masking see https://github.com/slushpool/stratumprotocol/blob/master/stratum-extensions.mediawiki#changes-in-request-miningsubmit
             (Some(vb), Some(mask)) => (last_version & !mask.0) | (vb.0 & mask.0),
             (None, None) => last_version,
             _ => return Err(Error::V1Protocol(v1::error::Error::InvalidSubmission)),
