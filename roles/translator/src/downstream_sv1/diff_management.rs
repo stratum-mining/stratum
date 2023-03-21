@@ -65,6 +65,36 @@ impl Downstream {
 
     /// if enough shares have been submitted according to the config, this function updates the difficulty for the connection and sends the new
     /// difficulty to the miner
+    #[cfg(test)]
+    pub async fn try_update_difficulty_settings(
+        self_: Arc<Mutex<Self>>,
+    ) -> ProxyResult<'static, ()> {
+        let (diff_mgmt, _channel_id) = self_
+            .clone()
+            .safe_lock(|d| (d.difficulty_mgmt.clone(), d.connection_id))
+            .map_err(|_e| Error::PoisonLock)?;
+        tracing::debug!(
+            "Time of last diff update: {:?}",
+            diff_mgmt.timestamp_of_last_update
+        );
+        tracing::debug!(
+            "Number of shares submitted: {:?}",
+            diff_mgmt.submits_since_last_update
+        );
+        if diff_mgmt.submits_since_last_update >= diff_mgmt.miner_num_submits_before_update {
+            let prev_target = roles_logic_sv2::utils::hash_rate_to_target(
+                diff_mgmt.min_individual_miner_hashrate,
+                diff_mgmt.shares_per_minute,
+            )
+            .to_vec();
+            Self::update_miner_hashrate(self_.clone(), prev_target.clone())?;
+        }
+        Ok(())
+    }
+
+    /// if enough shares have been submitted according to the config, this function updates the difficulty for the connection and sends the new
+    /// difficulty to the miner
+    #[cfg(not(test))]
     pub async fn try_update_difficulty_settings(
         self_: Arc<Mutex<Self>>,
     ) -> ProxyResult<'static, ()> {
@@ -86,33 +116,28 @@ impl Downstream {
                 diff_mgmt.shares_per_minute,
             )
             .to_vec();
-            #[cfg(not(test))]
+            if let Some(new_hash_rate) =
+                Self::update_miner_hashrate(self_.clone(), prev_target.clone())?
             {
-                if let Some(new_hash_rate) =
-                    Self::update_miner_hashrate(self_.clone(), prev_target.clone())?
-                {
-                    let new_target = roles_logic_sv2::utils::hash_rate_to_target(
-                        new_hash_rate,
-                        diff_mgmt.shares_per_minute,
-                    );
-                    tracing::debug!("New target from hashrate: {:?}", new_target.inner_as_ref());
-                    let message = Self::get_set_difficulty(new_target.to_vec())?;
-                    // send mining.set_difficulty to miner
-                    Downstream::send_message_downstream(self_.clone(), message).await?;
-                    let update_target_msg = SetDownstreamTarget {
-                        channel_id,
-                        new_target: new_target.into(),
-                    };
-                    // notify bridge of target update
-                    Downstream::send_message_upstream(
-                        self_.clone(),
-                        DownstreamMessages::SetDownstreamTarget(update_target_msg),
-                    )
-                    .await?;
-                }
+                let new_target = roles_logic_sv2::utils::hash_rate_to_target(
+                    new_hash_rate,
+                    diff_mgmt.shares_per_minute,
+                );
+                tracing::debug!("New target from hashrate: {:?}", new_target.inner_as_ref());
+                let message = Self::get_set_difficulty(new_target.to_vec())?;
+                // send mining.set_difficulty to miner
+                Downstream::send_message_downstream(self_.clone(), message).await?;
+                let update_target_msg = SetDownstreamTarget {
+                    channel_id,
+                    new_target: new_target.into(),
+                };
+                // notify bridge of target update
+                Downstream::send_message_upstream(
+                    self_.clone(),
+                    DownstreamMessages::SetDownstreamTarget(update_target_msg),
+                )
+                .await?;
             }
-            #[cfg(test)]
-            Self::update_miner_hashrate(self_.clone(), prev_target.clone())?;
         }
         Ok(())
     }
