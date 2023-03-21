@@ -462,15 +462,12 @@ impl IsServer<'static> for Downstream {
         // TODO: Check if receiving valid shares by adding diff field to Downstream
 
         if self.first_job_received {
-            let mut tproxy_part =
-                self.extranonce1[self.extranonce1.len() - crate::SELF_EXTRNONCE_LEN..].to_vec();
-            let mut downstream_part: Vec<u8> = request.extra_nonce2.clone().into();
-            tproxy_part.append(&mut downstream_part);
-
             let to_send = SubmitShareWithChannelId {
                 channel_id: self.connection_id,
                 share: request.clone(),
-                extranonce: tproxy_part,
+                extranonce: request.extra_nonce2.clone().into(),
+                extranonce2_len: self.extranonce2_len,
+                version_rolling_mask: self.version_rolling_mask.clone(),
             };
             self.tx_sv1_submit.try_send(to_send).unwrap();
         };

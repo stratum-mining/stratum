@@ -15,8 +15,6 @@ use proxy_config::ProxyConfig;
 use roles_logic_sv2::utils::Mutex;
 use template_receiver::TemplateRx;
 
-const SELF_EXTRNONCE_LEN: usize = 2;
-
 use async_channel::{bounded, unbounded};
 use futures::{join, select, FutureExt};
 use std::{
