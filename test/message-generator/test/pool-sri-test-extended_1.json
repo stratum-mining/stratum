@@ -21,7 +21,7 @@
     "frame_builders": [
         {
             "type": "automatic",
-            "message_id": "../../../../test/message-generator/messages/common_messages.json::setup_connection_flag_0"
+            "message_id": "test/message-generator/messages/common_messages.json::setup_connection_flag_0"
         },
         {
             "type": "automatic",
@@ -65,17 +65,16 @@
                         [
                             [
                                 "coinbase_tx_prefix",
-                                {"Seq064k": [[47, 0], [2, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                                {"Seq064k": [[45, 0], [2, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 35, 1, 16, 0]]}
                             ],
                             [
                                 "coinbase_tx_suffix",
-                                {"Seq064k": [[119, 0],  [255, 255, 255, 255, 1, 0, 242, 5, 42, 1, 0, 0, 0, 67, 65, 4, 70, 109, 127, 202,
+                                {"Seq064k": [[85, 0],  [255, 255, 255, 255, 1, 0, 242, 5, 42, 1, 0, 0, 0, 67, 65, 4, 70, 109, 127, 202,
                                 229, 99, 229, 203, 9, 160, 209, 135, 11, 181, 128, 52, 72, 4, 97, 120, 121,
                                 161, 73, 73, 207, 34, 40, 95, 27, 174, 63, 39, 103, 40, 23, 108, 60, 100, 49,
                                 248, 238, 218, 69, 56, 220, 55, 200, 101, 226, 120, 79, 58, 158, 119, 208, 68,
-                                243, 62, 64, 119, 151, 225, 39, 138, 172, 1, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]]}
+                                243, 62, 64, 119, 151, 225, 39, 138, 172, 0, 0, 0, 0]]}
                             ]
                         ]
                     ]
@@ -89,13 +88,13 @@
             "command": "cargo",
             "args": [
                         "run",
-                        "../../../test/message-generator/mock/template-provider-mock0.json"
+                        "../../test/message-generator/mock/template-provider-mock0.json"
             ],
             "conditions": {
                 "WithConditions": {
                     "conditions": [
                         {
-                            "output_string": "Running `target/debug/message_generator_sv2 ../../../test/message-generator/mock/template-provider-mock0.json`",
+                            "output_string": "Running `target/debug/message_generator_sv2 ../../test/message-generator/mock/template-provider-mock0.json`",
                             "output_location": "StdErr",
                             "condition": true
                         }

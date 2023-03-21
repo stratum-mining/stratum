@@ -15,8 +15,6 @@ use proxy_config::ProxyConfig;
 use roles_logic_sv2::utils::Mutex;
 use template_receiver::TemplateRx;
 
-const SELF_EXTRNONCE_LEN: usize = 2;
-
 use async_channel::{bounded, unbounded};
 use futures::{join, select, FutureExt};
 use std::{
@@ -210,7 +208,6 @@ async fn main() {
     // Receive the extranonce information from the Upstream role to send to the Downstream role
     // once it connects also used to initialize the bridge
     let (extended_extranonce, up_id) = rx_sv2_extranonce.recv().await.unwrap();
-
     loop {
         let target: [u8; 32] = target.safe_lock(|t| t.clone()).unwrap().try_into().unwrap();
         if target != [0; 32] {

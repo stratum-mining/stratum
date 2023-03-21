@@ -15,9 +15,10 @@ use roles_logic_sv2::{
 };
 use std::sync::Arc;
 use tokio::sync::broadcast;
-use v1::{client_to_server::Submit, server_to_client};
+use v1::{client_to_server::Submit, server_to_client, utils::HexU32Be};
 
 use crate::{
+    downstream_sv1::SubmitShareWithChannelId,
     error::Error::{self, PoisonLock},
     status, ProxyResult,
 };
@@ -34,7 +35,7 @@ use tracing::{debug, error, info};
 #[derive(Debug)]
 pub struct Bridge {
     /// Receives a SV1 `mining.submit` message from the Downstream role.
-    rx_sv1_submit: Receiver<(Submit<'static>, Vec<u8>)>,
+    rx_sv1_submit: Receiver<SubmitShareWithChannelId>,
     /// Sends SV2 `SubmitSharesExtended` messages translated from SV1 `mining.submit` messages to
     /// the `Upstream`.
     tx_sv2_submit_shares_ext: Sender<SubmitSharesExtended<'static>>,
@@ -72,6 +73,7 @@ pub struct Bridge {
     pool_output_is_set: bool,
     request_ids: Id,
     solution_sender: Option<Sender<SubmitSolution<'static>>>,
+    last_job_id: u32,
 }
 
 #[derive(Debug, Clone)]
@@ -90,7 +92,7 @@ impl Bridge {
     #[allow(clippy::too_many_arguments)]
     /// Instantiate a new `Bridge`.
     pub fn new(
-        rx_sv1_submit: Receiver<(Submit<'static>, Vec<u8>)>,
+        rx_sv1_submit: Receiver<SubmitShareWithChannelId>,
         tx_sv2_submit_shares_ext: Sender<SubmitSharesExtended<'static>>,
         rx_sv2_set_new_prev_hash: Receiver<SetNewPrevHash<'static>>,
         rx_sv2_new_ext_mining_job: Receiver<NewExtendedMiningJob<'static>>,
@@ -141,6 +143,7 @@ impl Bridge {
             request_ids: Id::new(),
             pool_output_is_set: false,
             solution_sender,
+            last_job_id: 0,
         }));
         match upstream_kind {
             UpstreamKind::Standard => (),
@@ -248,7 +251,7 @@ impl Bridge {
                             tx_status.clone(),
                             Self::handle_new_extended_mining_job_(
                                 self_mutex.clone(),
-                                &job,
+                                job,
                                 tx_sv1_notify.clone(),
                             )
                             .await
@@ -342,6 +345,7 @@ impl Bridge {
                                 .safe_lock(|t| *t = success.target.to_vec())
                                 .map_err(|_e| PoisonLock)?;
                             return Ok(OpenSv1Downstream {
+                                channel_id: success.channel_id,
                                 last_notify: self.last_notify.clone(),
                                 extranonce,
                                 target: self.target.clone(),
@@ -400,14 +404,28 @@ impl Bridge {
                     .map_err(|_| PoisonLock);
                 handle_result!(tx_status, res);
 
-                let (sv1_submit, extrnonce) =
-                    handle_result!(tx_status, rx_sv1_submit.clone().recv().await);
+                let SubmitShareWithChannelId {
+                    channel_id,
+                    share: sv1_submit,
+                    extranonce,
+                    extranonce2_len,
+                    version_rolling_mask,
+                } = handle_result!(tx_status, rx_sv1_submit.clone().recv().await);
                 let channel_sequence_id = self_
                     .safe_lock(|s| s.channel_sequence_id.next())
                     .map_err(|_| PoisonLock);
                 let channel_sequence_id = handle_result!(tx_status, channel_sequence_id) - 1;
+
                 let sv2_submit = self_
-                    .safe_lock(|s| s.translate_submit(channel_sequence_id, sv1_submit, extrnonce))
+                    .safe_lock(|s| {
+                        s.translate_submit(
+                            channel_id,
+                            channel_sequence_id,
+                            sv1_submit,
+                            extranonce,
+                            version_rolling_mask,
+                        )
+                    })
                     .map_err(|_| PoisonLock);
                 let sv2_submit = handle_result!(tx_status, handle_result!(tx_status, sv2_submit));
                 let mut send_upstream = false;
@@ -416,7 +434,10 @@ impl Bridge {
                         s.channel_factory.set_target(&mut upstream_target.clone());
                         s.channel_factory.on_submit_shares_extended(
                             sv2_submit.clone(),
-                            Some(crate::SELF_EXTRNONCE_LEN),
+                            Some(crate::utils::proxy_extranonce1_len(
+                                s.channel_factory.channel_extranonce2_size(),
+                                extranonce2_len,
+                            )),
                         )
                     })
                     .map_err(|_| PoisonLock);
@@ -466,7 +487,7 @@ impl Bridge {
                     // second tuple elements can not be None but must be Some(template_id)
                     Ok(Ok(OnNewShare::ShareMeetBitcoinTarget(..))) => unreachable!(),
                     Ok(Ok(OnNewShare::ShareMeetDownstreamTarget)) => {
-                        info!("SHARE MEETS DOWNSTREAM TARGET")
+                        info!("SHARE MEETS DOWNSTREAM TARGET");
                     }
                     Ok(Err(e)) => error!("Error: {:?}", e),
                     Err(e) => handle_result!(tx_status, Err(e)),
@@ -481,21 +502,39 @@ impl Bridge {
     /// Translates a SV1 `mining.submit` message to a SV2 `SubmitSharesExtended` message.
     fn translate_submit(
         &self,
-        channel_sequence_id: u32,
+        channel_id: u32,
+        // TODO remove it sequence id is another thing
+        _channel_sequence_id: u32,
         sv1_submit: Submit,
-        extranonce: Vec<u8>,
+        extranonce2: Vec<u8>,
+        version_rolling_mask: Option<HexU32Be>,
     ) -> ProxyResult<'static, SubmitSharesExtended<'static>> {
-        let version = match sv1_submit.version_bits {
-            Some(vb) => vb.0,
-            None => self
-                .channel_factory
-                .last_valid_job_version()
-                .ok_or(Error::RolesSv2Logic(RolesLogicError::NoValidJob))?,
+        let last_version = self
+            .channel_factory
+            .last_valid_job_version()
+            .ok_or(Error::RolesSv2Logic(RolesLogicError::NoValidJob))?;
+        let version = match (sv1_submit.version_bits, version_rolling_mask) {
+            // regarding version masking see https://github.com/slushpool/stratumprotocol/blob/master/stratum-extensions.mediawiki#changes-in-request-miningsubmit
+            (Some(vb), Some(mask)) => (last_version & !mask.0) | (vb.0 & mask.0),
+            (None, None) => last_version,
+            _ => return Err(Error::V1Protocol(v1::error::Error::InvalidSubmission)),
         };
-
+        let extranonce = self
+            .channel_factory
+            .get_extranonce_without_upstream_part(
+                extranonce2
+                    .try_into()
+                    .map_err(|_| Error::SubprotocolMining("invalid extranonce".to_string()))?,
+            )
+            .ok_or_else(|| {
+                Error::SubprotocolMining(
+                    "Could not convert miner extranonce2 to proxy extranonce2".to_string(),
+                )
+            })?;
         Ok(SubmitSharesExtended {
-            channel_id: 1,
-            sequence_number: channel_sequence_id,
+            channel_id,
+            // I put 0 below cause sequence_number is not what should be TODO
+            sequence_number: 0,
             job_id: sv1_submit.job_id.parse::<u32>()?,
             nonce: sv1_submit.nonce.0,
             ntime: sv1_submit.time.0,
@@ -509,6 +548,11 @@ impl Bridge {
         sv2_set_new_prev_hash: SetNewPrevHash<'static>,
         tx_sv1_notify: broadcast::Sender<server_to_client::Notify<'static>>,
     ) -> Result<(), Error<'static>> {
+        while !crate::upstream_sv2::upstream::IS_NEW_JOB_HANDLED
+            .load(std::sync::atomic::Ordering::SeqCst)
+        {
+            tokio::task::yield_now().await;
+        }
         self_
             .safe_lock(|s| s.last_p_hash = Some(sv2_set_new_prev_hash.clone()))
             .map_err(|_| PoisonLock)?;
@@ -531,16 +575,19 @@ impl Bridge {
 
         while let Some(job) = future_jobs.pop() {
             if job.job_id == sv2_set_new_prev_hash.job_id {
+                let j_id = job.job_id;
                 // Create the mining.notify to be sent to the Downstream.
                 let notify = crate::proxy::next_mining_notify::create_notify(
                     sv2_set_new_prev_hash.clone(),
                     job,
                 );
+
                 // Get the sender to send the mining.notify to the Downstream
                 tx_sv1_notify.send(notify.clone())?;
                 self_
                     .safe_lock(|s| {
                         s.last_notify = Some(notify);
+                        s.last_job_id = j_id;
                     })
                     .map_err(|_| PoisonLock)?;
                 break;
@@ -591,9 +638,10 @@ impl Bridge {
 
     async fn handle_new_extended_mining_job_(
         self_: Arc<Mutex<Self>>,
-        sv2_new_extended_mining_job: &NewExtendedMiningJob<'static>,
+        sv2_new_extended_mining_job: NewExtendedMiningJob<'static>,
         tx_sv1_notify: broadcast::Sender<server_to_client::Notify<'static>>,
     ) -> Result<(), Error<'static>> {
+        // convert to non segwit jobs so we dont have to depend if miner's support segwit or not
         self_
             .safe_lock(|s| {
                 s.channel_factory
@@ -620,6 +668,7 @@ impl Bridge {
                 RolesLogicError::JobIsNotFutureButPrevHashNotPresent,
             ))?;
 
+            let j_id = sv2_new_extended_mining_job.job_id;
             // Create the mining.notify to be sent to the Downstream.
             let notify = crate::proxy::next_mining_notify::create_notify(
                 last_p_hash,
@@ -630,6 +679,7 @@ impl Bridge {
             self_
                 .safe_lock(|s| {
                     s.last_notify = Some(notify);
+                    s.last_job_id = j_id;
                 })
                 .map_err(|_| PoisonLock)?;
             Ok(())
@@ -670,16 +720,19 @@ impl Bridge {
                     tx_status,
                     Self::handle_new_extended_mining_job_(
                         self_.clone(),
-                        &sv2_new_extended_mining_job,
+                        sv2_new_extended_mining_job,
                         tx_sv1_notify.clone(),
                     )
                     .await
                 );
+                crate::upstream_sv2::upstream::IS_NEW_JOB_HANDLED
+                    .store(true, std::sync::atomic::Ordering::SeqCst);
             }
         });
     }
 }
 pub struct OpenSv1Downstream {
+    pub channel_id: u32,
     pub last_notify: Option<server_to_client::Notify<'static>>,
     pub extranonce: Vec<u8>,
     pub target: Arc<Mutex<Vec<u8>>>,
@@ -740,6 +793,7 @@ mod test {
         let bridge = test_utils::create_bridge();
         bridge
             .safe_lock(|bridge| {
+                let channel_id = 1;
                 let out_id = roles_logic_sv2::bitcoin::hashes::sha256d::Hash::from_slice(&[
                     0_u8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                     0, 0, 0, 0, 0, 0, 0,
@@ -767,7 +821,7 @@ mod test {
                     .add_standard_channel(0, 10_000_000_000.0, true, 1)
                     .unwrap();
                 let prev_hash = SetNewPrevHash {
-                    channel_id: 1,
+                    channel_id,
                     job_id: 0,
                     prev_hash: [
                         3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
@@ -779,7 +833,7 @@ mod test {
                 };
                 bridge.channel_factory.on_new_prev_hash(prev_hash).unwrap();
                 let new_mining_job = NewExtendedMiningJob {
-                    channel_id: 1,
+                    channel_id,
                     job_id: 0,
                     future_job: false,
                     version: 0b0000_0000_0000_0000,
@@ -797,7 +851,13 @@ mod test {
                 let sv1_submit = test_utils::create_sv1_submit(0);
                 let channel_seq_id = bridge.channel_sequence_id.next() - 1;
                 let sv2_message = bridge
-                    .translate_submit(channel_seq_id, sv1_submit, vec![0, 0, 0, 0, 0, 0, 0, 0])
+                    .translate_submit(
+                        channel_id,
+                        channel_seq_id,
+                        sv1_submit,
+                        vec![0, 0, 0, 0, 0, 0, 0, 0],
+                        None,
+                    )
                     .unwrap();
                 // assert sv2 message equals sv1 with version bits added
                 assert_eq!(

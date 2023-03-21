@@ -21,7 +21,7 @@
     "frame_builders": [
         {
             "type": "automatic",
-            "message_id": "../../../../test/message-generator/messages/common_messages.json::setup_connection_flag_0"
+            "message_id": "test/message-generator/messages/common_messages.json::setup_connection_flag_0"
         },
         {
             "type": "automatic",
