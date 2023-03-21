@@ -170,5 +170,8 @@ pub async fn handle_error(
                 _ => send_status(sender, e, error_handling::ErrorBranch::Break).await,
             }
         }
+        Error::MaxLineLengthExceeded => {
+            send_status(sender, e, error_handling::ErrorBranch::Break).await
+        }
     }
 }

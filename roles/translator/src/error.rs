@@ -80,6 +80,8 @@ pub enum Error<'a> {
     Infallible(std::convert::Infallible),
     // used to handle SV2 protocol error messages from pool
     Sv2ProtocolError(Mining<'a>),
+    /// Dangerous long lines
+    MaxLineLengthExceeded,
 }
 
 impl<'a> fmt::Display for Error<'a> {
@@ -112,6 +114,7 @@ impl<'a> fmt::Display for Error<'a> {
             Sv2ProtocolError(ref e) => {
                 write!(f, "Received Sv2 Protocol Error from upstream: `{:?}`", e)
             }
+            MaxLineLengthExceeded => write!(f, "Dangerous long line received"),
         }
     }
 }
@@ -179,6 +182,17 @@ impl<'a> From<async_channel::RecvError> for Error<'a> {
 impl<'a> From<tokio::sync::broadcast::error::RecvError> for Error<'a> {
     fn from(e: tokio::sync::broadcast::error::RecvError) -> Self {
         Error::TokioChannelErrorRecv(e)
+    }
+}
+
+impl<'a> From<tokio_util::codec::LinesCodecError> for Error<'a> {
+    fn from(e: tokio_util::codec::LinesCodecError) -> Self {
+        match e {
+            tokio_util::codec::LinesCodecError::MaxLineLengthExceeded => {
+                Self::MaxLineLengthExceeded
+            }
+            tokio_util::codec::LinesCodecError::Io(e) => e.into(),
+        }
     }
 }
 

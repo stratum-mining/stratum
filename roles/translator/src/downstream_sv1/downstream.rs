@@ -14,6 +14,7 @@ use async_std::{
 use error_handling::handle_result;
 use futures::FutureExt;
 use tokio::sync::broadcast;
+use tokio_util::codec::{FramedRead, LinesCodec};
 
 use super::{kill, DownstreamMessages, SubmitShareWithChannelId, SUBSCRIBE_TIMEOUT_SECS};
 
@@ -32,6 +33,8 @@ use v1::{
     utils::{Extranonce, HexU32Be},
     IsServer,
 };
+
+const MAX_LINE_LENGTH: usize = 1024;
 
 /// Handles the sending and receiving of messages to and from an SV2 Upstream role (most typically
 /// a SV2 Pool server).
@@ -147,7 +150,13 @@ impl Downstream {
         // role, or the message is sent upwards to the Bridge for translation into a SV2 message
         // and then sent to the SV2 Upstream role.
         let _socket_reader_task = task::spawn(async move {
-            let mut messages = BufReader::new(&*socket_reader).lines();
+            let mut messages = {
+                let reader = BufReader::new(&*socket_reader);
+                FramedRead::new(
+                    async_compat::Compat::new(reader),
+                    LinesCodec::new_with_max_length(MAX_LINE_LENGTH),
+                )
+            };
             loop {
                 // Read message from SV1 Mining Device Client socket
                 // On message receive, parse to `json_rpc:Message` and send to Upstream

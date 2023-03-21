@@ -26,6 +26,8 @@ tracing = { version = "0.1" }
 tracing-subscriber = { version = "0.3" }
 v1 = { version = "^0.1.1", path = "../../protocols/v1", package="sv1_api" }
 error_handling = { version = "0.1", path = "../../utils/error-handling" }
+tokio-util = { version = "0.7.7", features = ["codec"] }
+async-compat = "0.2.1"
 
 [dev-dependencies]
 rand = "0.8.4"

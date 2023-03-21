@@ -74,6 +74,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "async-compat"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9b48b4ff0c2026db683dea961cd8ea874737f56cffca86fa84415eaddc51c00d"
+dependencies = [
+ "futures-core",
+ "futures-io",
+ "once_cell",
+ "pin-project-lite",
+ "tokio",
+]
+
+[[package]]
 name = "async-executor"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2029,6 +2042,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "tokio-util"
+version = "0.7.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5427d89453009325de0d8f342c9490009f76e999cb7672d77e46267448f7e6b2"
+dependencies = [
+ "bytes",
+ "futures-core",
+ "futures-sink",
+ "pin-project-lite",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "toml"
 version = "0.5.6"
 source = "git+https://github.com/diondokter/toml-rs?rev=c4161aa#c4161aa70202b3992dbec79b76e7a8659713b604"
@@ -2100,6 +2127,7 @@ name = "translator_sv2"
 version = "0.1.0"
 dependencies = [
  "async-channel",
+ "async-compat",
  "async-recursion 0.3.2",
  "async-std",
  "binary_sv2",
@@ -2117,6 +2145,7 @@ dependencies = [
  "sha2 0.10.6",
  "sv1_api",
  "tokio",
+ "tokio-util",
  "toml",
  "tracing",
  "tracing-subscriber",
