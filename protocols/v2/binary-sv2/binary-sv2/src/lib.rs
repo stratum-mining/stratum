@@ -758,7 +758,6 @@ mod test {
 
         #[test]
         fn test_sv2_option_none() {
-
             let val = None;
             let s = Sv2Option::new(val);
 

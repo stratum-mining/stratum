@@ -681,7 +681,7 @@ impl Bridge {
 
         // If future_job=true, this job is meant for a future SetNewPrevHash that the proxy
         // has yet to receive. Insert this new job into the job_mapper .
-        if sv2_new_extended_mining_job.future_job {
+        if sv2_new_extended_mining_job.is_future() {
             self_
                 .safe_lock(|s| s.future_jobs.push(sv2_new_extended_mining_job.clone()))
                 .map_err(|_| PoisonLock)?;
@@ -862,10 +862,14 @@ mod test {
                     nbits: 9,
                 };
                 bridge.channel_factory.on_new_prev_hash(prev_hash).unwrap();
+                let now = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs() as u32;
                 let new_mining_job = NewExtendedMiningJob {
                     channel_id,
                     job_id: 0,
-                    future_job: false,
+                    min_ntime: binary_sv2::Sv2Option::new(Some(now)),
                     version: 0b0000_0000_0000_0000,
                     version_rolling_allowed: false,
                     merkle_path: vec![].into(),

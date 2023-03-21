@@ -347,7 +347,6 @@ impl<'a, const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const 
     }
 }
 
-
 /// The liftime is here only for type compatibility with serde-sv2
 #[repr(C)]
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -393,10 +392,8 @@ impl<'a, T: 'a> Sv2Option<'a, T> {
 
     pub fn new(inner: Option<T>) -> Self {
         match inner {
-            Some(x) => {
-                Self(vec![x], PhantomData)
-            },
-            None => Self(vec![],PhantomData)
+            Some(x) => Self(vec![x], PhantomData),
+            None => Self(vec![], PhantomData),
         }
     }
 

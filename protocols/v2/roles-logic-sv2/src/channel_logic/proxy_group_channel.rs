@@ -46,7 +46,7 @@ impl GroupChannels {
             let cloned = NewExtendedMiningJob {
                 channel_id: m.channel_id,
                 job_id: m.job_id,
-                future_job: m.future_job,
+                min_ntime: m.min_ntime.clone().into_static(),
                 version: m.version,
                 version_rolling_allowed: m.version_rolling_allowed,
                 merkle_path: m.merkle_path.clone().into_static(),
@@ -127,7 +127,7 @@ impl GroupChannel {
 
             if let Some(new_prev_hash) = &self.last_prev_hash {
                 let mut new_prev_hash = new_prev_hash.clone();
-                standard_job.future_job = true;
+                standard_job.set_future();
                 new_prev_hash.job_id = standard_job.job_id;
                 res.push(Mining::NewMiningJob(standard_job));
                 res.push(Mining::SetNewPrevHash(new_prev_hash))
@@ -166,7 +166,7 @@ impl GroupChannel {
     /// otherwise we set it as the valid job
     fn on_new_extended_mining_job(&mut self, m: NewExtendedMiningJob<'static>) {
         self.last_received_job = Some(m.clone());
-        if m.future_job {
+        if m.is_future() {
             self.future_jobs.push(m)
         } else {
             self.last_valid_job = Some(m)
@@ -208,7 +208,7 @@ mod test {
         let mut new_extended_mining_job = NewExtendedMiningJob {
             channel_id: 1,
             job_id: 0,
-            future_job: true,
+            min_ntime: binary_sv2::Sv2Option::new(None),
             version: 0,
             version_rolling_allowed: false,
             merkle_path: vec![].into(),

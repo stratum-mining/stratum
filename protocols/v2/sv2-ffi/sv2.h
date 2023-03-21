@@ -58,7 +58,9 @@ static const uint8_t MESSAGE_TYPE_CLOSE_CHANNEL = 24;
 
 static const uint8_t MESSAGE_TYPE_NEW_EXTENDED_MINING_JOB = 31;
 
-static const uint8_t MESSAGE_TYPE_NEW_MINING_JOB = 30;
+static const uint8_t _MESSAGE_TYPE_NEW_MINING_JOB_OLD = 30;
+
+static const uint8_t MESSAGE_TYPE_NEW_MINING_JOB = 21;
 
 static const uint8_t MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL = 19;
 

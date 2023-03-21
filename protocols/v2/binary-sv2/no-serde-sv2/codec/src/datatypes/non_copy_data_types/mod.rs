@@ -9,7 +9,7 @@ trait IntoOwned {
 }
 
 pub use inner::Inner;
-pub use seq_inner::{Seq0255, Seq064K,Sv2Option};
+pub use seq_inner::{Seq0255, Seq064K, Sv2Option};
 
 pub type U32AsRef<'a> = Inner<'a, true, 4, 0, 0>;
 pub type U256<'a> = Inner<'a, true, 32, 0, 0>;

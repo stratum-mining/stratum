@@ -3,6 +3,7 @@ use crate::Error;
 use core::convert::TryInto;
 use serde::{de::Visitor, Serialize};
 
+pub mod option;
 pub mod seq0255;
 pub mod seq064k;
 

@@ -779,7 +779,7 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, RolesLogicError> {
         IS_NEW_JOB_HANDLED.store(false, std::sync::atomic::Ordering::SeqCst);
 
-        info!("Is future job: {}\n", &m.future_job);
+        info!("Is future job: {}\n", &m.is_future());
         if self.is_work_selection_enabled() {
             Ok(SendTo::None(None))
         } else {
