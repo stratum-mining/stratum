@@ -14,6 +14,8 @@ pub struct SubmitShareWithChannelId {
     pub channel_id: u32,
     pub share: Submit<'static>,
     pub extranonce: Vec<u8>,
+    pub extranonce2_len: usize,
+    pub version_rolling_mask: Option<HexU32Be>,
 }
 
 /// This is just a wrapper function to send a message on the Downstream task shutdown channel

@@ -2,7 +2,7 @@ use async_channel::{Receiver, Sender};
 use async_std::task;
 use roles_logic_sv2::{
     channel_logic::channel_factory::{ExtendedChannelKind, ProxyExtendedChannelFactory, Share},
-    job_creator::{extended_job_to_non_segwit, JobsCreators},
+    job_creator::JobsCreators,
     mining_sv2::{
         ExtendedExtranonce, NewExtendedMiningJob, SetCustomMiningJob, SetNewPrevHash,
         SubmitSharesExtended, Target,
@@ -15,7 +15,7 @@ use roles_logic_sv2::{
 };
 use std::sync::Arc;
 use tokio::sync::broadcast;
-use v1::{client_to_server::Submit, server_to_client};
+use v1::{client_to_server::Submit, server_to_client, utils::HexU32Be};
 
 use crate::{
     downstream_sv1::SubmitShareWithChannelId,
@@ -73,7 +73,6 @@ pub struct Bridge {
     pool_output_is_set: bool,
     request_ids: Id,
     solution_sender: Option<Sender<SubmitSolution<'static>>>,
-    channel_extranonce_len: usize,
     last_job_id: u32,
 }
 
@@ -119,7 +118,6 @@ impl Bridge {
                 Some(send_solution.clone()),
             ),
         };
-        let channel_extranonce_len = extranonces.get_len();
         let self_ = Arc::new(Mutex::new(Self {
             rx_sv1_submit,
             tx_sv2_submit_shares_ext,
@@ -145,7 +143,6 @@ impl Bridge {
             request_ids: Id::new(),
             pool_output_is_set: false,
             solution_sender,
-            channel_extranonce_len,
             last_job_id: 0,
         }));
         match upstream_kind {
@@ -411,14 +408,23 @@ impl Bridge {
                     channel_id,
                     share: sv1_submit,
                     extranonce,
+                    extranonce2_len,
+                    version_rolling_mask,
                 } = handle_result!(tx_status, rx_sv1_submit.clone().recv().await);
                 let channel_sequence_id = self_
                     .safe_lock(|s| s.channel_sequence_id.next())
                     .map_err(|_| PoisonLock);
                 let channel_sequence_id = handle_result!(tx_status, channel_sequence_id) - 1;
+
                 let sv2_submit = self_
                     .safe_lock(|s| {
-                        s.translate_submit(channel_id, channel_sequence_id, sv1_submit, extranonce)
+                        s.translate_submit(
+                            channel_id,
+                            channel_sequence_id,
+                            sv1_submit,
+                            extranonce,
+                            version_rolling_mask,
+                        )
                     })
                     .map_err(|_| PoisonLock);
                 let sv2_submit = handle_result!(tx_status, handle_result!(tx_status, sv2_submit));
@@ -428,7 +434,10 @@ impl Bridge {
                         s.channel_factory.set_target(&mut upstream_target.clone());
                         s.channel_factory.on_submit_shares_extended(
                             sv2_submit.clone(),
-                            Some(crate::SELF_EXTRNONCE_LEN),
+                            Some(crate::utils::proxy_extranonce1_len(
+                                s.channel_factory.channel_extranonce2_size(),
+                                extranonce2_len,
+                            )),
                         )
                     })
                     .map_err(|_| PoisonLock);
@@ -497,16 +506,31 @@ impl Bridge {
         // TODO remove it sequence id is another thing
         _channel_sequence_id: u32,
         sv1_submit: Submit,
-        extranonce: Vec<u8>,
+        extranonce2: Vec<u8>,
+        version_rolling_mask: Option<HexU32Be>,
     ) -> ProxyResult<'static, SubmitSharesExtended<'static>> {
-        let version = match sv1_submit.version_bits {
-            Some(vb) => vb.0,
-            None => self
-                .channel_factory
-                .last_valid_job_version()
-                .ok_or(Error::RolesSv2Logic(RolesLogicError::NoValidJob))?,
+        let last_version = self
+            .channel_factory
+            .last_valid_job_version()
+            .ok_or(Error::RolesSv2Logic(RolesLogicError::NoValidJob))?;
+        let version = match (sv1_submit.version_bits, version_rolling_mask) {
+            // regarding version masking see https://github.com/slushpool/stratumprotocol/blob/master/stratum-extensions.mediawiki#changes-in-request-miningsubmit
+            (Some(vb), Some(mask)) => (last_version & !mask.0) | (vb.0 & mask.0),
+            (None, None) => last_version,
+            _ => return Err(Error::V1Protocol(v1::error::Error::InvalidSubmission)),
         };
-
+        let extranonce = self
+            .channel_factory
+            .get_extranonce_without_upstream_part(
+                extranonce2
+                    .try_into()
+                    .map_err(|_| Error::SubprotocolMining("invalid extranonce".to_string()))?,
+            )
+            .ok_or_else(|| {
+                Error::SubprotocolMining(
+                    "Could not convert miner extranonce2 to proxy extranonce2".to_string(),
+                )
+            })?;
         Ok(SubmitSharesExtended {
             channel_id,
             // I put 0 below cause sequence_number is not what should be TODO
@@ -617,12 +641,7 @@ impl Bridge {
         sv2_new_extended_mining_job: NewExtendedMiningJob<'static>,
         tx_sv1_notify: broadcast::Sender<server_to_client::Notify<'static>>,
     ) -> Result<(), Error<'static>> {
-        let extended_extranonce_len = self_
-            .safe_lock(|b| b.channel_extranonce_len)
-            .map_err(|_| PoisonLock)?;
         // convert to non segwit jobs so we dont have to depend if miner's support segwit or not
-        let sv2_new_extended_mining_job =
-            extended_job_to_non_segwit(sv2_new_extended_mining_job, extended_extranonce_len)?;
         self_
             .safe_lock(|s| {
                 s.channel_factory
@@ -837,6 +856,7 @@ mod test {
                         channel_seq_id,
                         sv1_submit,
                         vec![0, 0, 0, 0, 0, 0, 0, 0],
+                        None,
                     )
                     .unwrap();
                 // assert sv2 message equals sv1 with version bits added
