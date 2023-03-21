@@ -41,4 +41,4 @@ shares_per_minute = 2.0
 # interval in seconds to elapse before updating channel hashrate with the pool
 channel_diff_update_interval = 60
 # estimated accumulated hashrate of all downstream miners
-channel_nominal_hashrate = 15_000_000.0
+channel_nominal_hashrate = 15_000_000_000.0

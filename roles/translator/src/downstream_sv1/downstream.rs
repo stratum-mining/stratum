@@ -249,16 +249,16 @@ impl Downstream {
                         tx_status_notify,
                         Self::hash_rate_to_target(downstream.clone())
                     );
+                    // make sure the mining start time is initialized and reset number of shares submitted
+                    handle_result!(
+                        tx_status_notify,
+                        Self::init_difficulty_management(downstream.clone(), &target).await
+                    );
                     let message =
                         handle_result!(tx_status_notify, Self::get_set_difficulty(target));
                     handle_result!(
                         tx_status_notify,
                         Downstream::send_message_downstream(downstream.clone(), message).await
-                    );
-                    // make sure the mining start time is initialized and reset number of shares submitted
-                    handle_result!(
-                        tx_status_notify,
-                        Self::init_difficulty_management(downstream.clone())
                     );
 
                     let sv1_mining_notify_msg = last_notify.clone().unwrap();
@@ -482,7 +482,9 @@ impl IsServer<'static> for Downstream {
                 extranonce2_len: self.extranonce2_len,
                 version_rolling_mask: self.version_rolling_mask.clone(),
             };
-            self.tx_sv1_bridge.try_send(to_send).unwrap();
+            self.tx_sv1_bridge
+                .try_send(DownstreamMessages::SubmitShares(to_send))
+                .unwrap();
         };
         true
     }

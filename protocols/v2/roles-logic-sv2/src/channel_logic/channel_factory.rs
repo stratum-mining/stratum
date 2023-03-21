@@ -1414,7 +1414,7 @@ impl ProxyExtendedChannelFactory {
             .extranonces
             .without_upstream_part(Some(downstream_extranonce))
     }
-    
+
     pub fn update_target_for_channel(
         &mut self,
         channel_id: u32,

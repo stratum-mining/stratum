@@ -9,8 +9,11 @@ impl Downstream {
     /// initializes the timestamp and resets the number of submits for a connection.
     /// Should only be called once for the lifetime of a connection since `try_update_difficulty_settings()`
     /// also does this during this update
-    pub fn init_difficulty_management(self_: Arc<Mutex<Self>>) -> ProxyResult<'static, ()> {
-        self_
+    pub async fn init_difficulty_management(
+        self_: Arc<Mutex<Self>>,
+        init_target: &[u8],
+    ) -> ProxyResult<'static, ()> {
+        let (connection_id, upstream_difficulty_config, miner_hashrate) = self_
             .safe_lock(|d| {
                 let timestamp_secs = std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
@@ -18,15 +21,29 @@ impl Downstream {
                     .as_secs();
                 d.difficulty_mgmt.timestamp_of_last_update = timestamp_secs;
                 d.difficulty_mgmt.submits_since_last_update = 0;
-                // add new connection hashrate to channel hashrate
-                d.upstream_difficulty_config
-                    .safe_lock(|u| {
-                        u.channel_nominal_hashrate +=
-                            d.difficulty_mgmt.min_individual_miner_hashrate;
-                    })
-                    .map_err(|_e| Error::PoisonLock)
+                (
+                    d.connection_id,
+                    d.upstream_difficulty_config.clone(),
+                    d.difficulty_mgmt.min_individual_miner_hashrate,
+                )
             })
-            .map_err(|_e| Error::PoisonLock)??;
+            .map_err(|_e| Error::PoisonLock)?;
+        // add new connection hashrate to channel hashrate
+        upstream_difficulty_config
+            .safe_lock(|u| {
+                u.channel_nominal_hashrate += miner_hashrate;
+            })
+            .map_err(|_e| Error::PoisonLock)?;
+        // update downstream target with bridge
+        let init_target = binary_sv2::U256::try_from(init_target.to_vec())?;
+        Self::send_message_upstream(
+            self_,
+            DownstreamMessages::SetDownstreamTarget(SetDownstreamTarget {
+                channel_id: connection_id,
+                new_target: init_target.into(),
+            }),
+        )
+        .await?;
 
         Ok(())
     }
@@ -284,7 +301,9 @@ mod test {
         let timer = std::time::Instant::now();
         let mut elapsed = std::time::Duration::from_secs(0);
         let downstream = Arc::new(Mutex::new(downstream));
-        Downstream::init_difficulty_management(downstream.clone()).unwrap();
+        Downstream::init_difficulty_management(downstream.clone(), initial_target.inner_as_ref())
+            .await
+            .unwrap();
         let mut target = initial_target.to_vec();
         target.reverse();
         let mut target: U256 = target.try_into().unwrap();
