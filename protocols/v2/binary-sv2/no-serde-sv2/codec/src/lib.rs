@@ -25,7 +25,7 @@ use std::io::{Error as E, ErrorKind};
 mod codec;
 mod datatypes;
 pub use datatypes::{
-    PubKey, Seq0255, Seq064K, Signature, Str0255, U32AsRef, B016M, B0255, B032, B064K, U24, U256,
+    PubKey, Seq0255, Seq064K, Signature, Str0255, U32AsRef, B016M, B0255, B032, B064K, U24, U256,Sv2Option
 };
 
 pub use crate::codec::{
@@ -96,6 +96,7 @@ pub enum Error {
     NoDecodableFieldPassed,
     ValueIsNotAValidProtocol(u8),
     UnknownMessageType(u8),
+    Sv2OptionHaveMoreThenOneElement(u8),
 }
 
 #[cfg(not(feature = "no_std"))]
@@ -143,6 +144,7 @@ pub enum CError {
     NoDecodableFieldPassed,
     ValueIsNotAValidProtocol(u8),
     UnknownMessageType(u8),
+    Sv2OptionHaveMoreThenOneElement(u8),
 }
 
 impl From<Error> for CError {
@@ -178,6 +180,7 @@ impl From<Error> for CError {
             Error::NoDecodableFieldPassed => CError::NoDecodableFieldPassed,
             Error::ValueIsNotAValidProtocol(u) => CError::ValueIsNotAValidProtocol(u),
             Error::UnknownMessageType(u) => CError::UnknownMessageType(u),
+            Error::Sv2OptionHaveMoreThenOneElement(u) => CError::Sv2OptionHaveMoreThenOneElement(u),
         }
     }
 }
@@ -211,6 +214,7 @@ impl Drop for CError {
             Self::NoDecodableFieldPassed => (),
             Self::ValueIsNotAValidProtocol(_) => (),
             Self::UnknownMessageType(_) => (),
+            Self::Sv2OptionHaveMoreThenOneElement(_) => (),
         };
     }
 }

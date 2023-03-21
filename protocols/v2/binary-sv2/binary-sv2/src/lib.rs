@@ -711,4 +711,72 @@ mod test {
             assert_eq!(deserialized, expected);
         }
     }
+    mod test_sv2_option_u256 {
+        use super::*;
+        use core::convert::TryInto;
+
+        #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
+        struct Test<'decoder> {
+            #[cfg_attr(feature = "with_serde", serde(borrow))]
+            a: Sv2Option<'decoder, U256<'decoder>>,
+        }
+
+        #[test]
+        fn test_sv2_option_u256() {
+            let mut u256_1 = [6; 32];
+            let u256_1: U256 = (&mut u256_1[..]).try_into().unwrap();
+
+            let val = Some(u256_1);
+            let s = Sv2Option::new(val);
+
+            let test = Test { a: s };
+
+            #[cfg(not(feature = "with_serde"))]
+            let mut bytes = to_bytes(test.clone()).unwrap();
+            #[cfg(feature = "with_serde")]
+            let mut bytes = to_bytes(&test.clone()).unwrap();
+
+            let deserialized: Test = from_bytes(&mut bytes[..]).unwrap();
+
+            #[cfg(not(feature = "with_serde"))]
+            let bytes_2 = to_bytes(deserialized.clone()).unwrap();
+            #[cfg(feature = "with_serde")]
+            let bytes_2 = to_bytes(&deserialized.clone()).unwrap();
+
+            assert_eq!(bytes, bytes_2);
+        }
+    }
+    mod test_sv2_option_none {
+        use super::*;
+        use core::convert::TryInto;
+
+        #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
+        struct Test<'decoder> {
+            #[cfg_attr(feature = "with_serde", serde(borrow))]
+            a: Sv2Option<'decoder, U256<'decoder>>,
+        }
+
+        #[test]
+        fn test_sv2_option_none() {
+
+            let val = None;
+            let s = Sv2Option::new(val);
+
+            let test = Test { a: s };
+
+            #[cfg(not(feature = "with_serde"))]
+            let mut bytes = to_bytes(test.clone()).unwrap();
+            #[cfg(feature = "with_serde")]
+            let mut bytes = to_bytes(&test.clone()).unwrap();
+
+            let deserialized: Test = from_bytes(&mut bytes[..]).unwrap();
+
+            #[cfg(not(feature = "with_serde"))]
+            let bytes_2 = to_bytes(deserialized.clone()).unwrap();
+            #[cfg(feature = "with_serde")]
+            let bytes_2 = to_bytes(&deserialized.clone()).unwrap();
+
+            assert_eq!(bytes, bytes_2);
+        }
+    }
 }
