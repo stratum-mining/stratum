@@ -11,11 +11,15 @@ pub use downstream::Downstream;
 /// `mining.subscribe` messages that init connections and take up compute
 const SUBSCRIBE_TIMEOUT_SECS: u64 = 10;
 
+/// enum of messages sent to the Bridge
 #[derive(Debug)]
 pub enum DownstreamMessages {
     SubmitShares(SubmitShareWithChannelId),
     SetDownstreamTarget(SetDownstreamTarget),
 }
+
+/// wrapper around a `mining.submit` with extra channel informationfor the Bridge to
+/// process
 #[derive(Debug)]
 pub struct SubmitShareWithChannelId {
     pub channel_id: u32,
@@ -24,6 +28,9 @@ pub struct SubmitShareWithChannelId {
     pub extranonce2_len: usize,
     pub version_rolling_mask: Option<HexU32Be>,
 }
+
+/// message for notifying the bridge that a downstream target has updated
+/// so the Bridge can process the update
 #[derive(Debug)]
 pub struct SetDownstreamTarget {
     pub channel_id: u32,

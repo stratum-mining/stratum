@@ -51,9 +51,9 @@ async fn main() {
 
     let (tx_status, rx_status) = unbounded();
 
-    // `tx_sv1_submit` sender is used by `Downstream` to send a `mining.submit` message to
-    // `Bridge` via the `rx_sv1_submit` receiver
-    // (Sender<v1::client_to_server::Submit>, Receiver<Submit>)
+    // `tx_sv1_bridge` sender is used by `Downstream` to send a `DownstreamMessages` message to
+    // `Bridge` via the `rx_sv1_downstream` receiver
+    // (Sender<downstream_sv1::DownstreamMessages>, Receiver<downstream_sv1::DownstreamMessages>)
     let (tx_sv1_bridge, rx_sv1_downstream) = unbounded();
 
     // Sender/Receiver to send a SV2 `SubmitSharesExtended` from the `Bridge` to the `Upstream`

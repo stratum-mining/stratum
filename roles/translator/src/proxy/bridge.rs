@@ -378,8 +378,8 @@ impl Bridge {
         Self::handle_downstream_messages(self_);
     }
 
-    /// Receives a SV1 `mining.submit` message from the `Downstream`, translates it to a SV2
-    /// `SubmitSharesExtended` message, and sends it to the `Upstream`.
+    /// Receives a `DownstreamMessages` message from the `Downstream`, handles based on the
+    /// variant received.
     fn handle_downstream_messages(self_: Arc<Mutex<Self>>) {
         let (rx_sv1_downstream, tx_status) = self_
             .safe_lock(|s| (s.rx_sv1_downstream.clone(), s.tx_status.clone()))
@@ -405,7 +405,7 @@ impl Bridge {
             }
         });
     }
-
+    /// receives a `SetDownstreamTarget` and updates the downstream target for the channel
     fn handle_update_downstream_target(
         self_: Arc<Mutex<Self>>,
         new_target: SetDownstreamTarget,
@@ -418,7 +418,8 @@ impl Bridge {
             .map_err(|_| PoisonLock)?;
         Ok(())
     }
-
+    /// receives a `SubmitShareWithChannelId` and validates the shares and sends to `Upstream` if
+    /// the share meets the upstream target
     async fn handle_submit_shares(
         self_: Arc<Mutex<Self>>,
         share: SubmitShareWithChannelId,
