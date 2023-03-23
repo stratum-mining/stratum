@@ -778,7 +778,6 @@ impl ChannelFactory {
             debug!("Share Hash: {:?}", print_hash.to_vec().to_hex());
         }
 
-
         let hash: Target = hash.into();
         if hash <= bitcoin_target {
             let coinbase = [coinbase_tx_prefix, &extranonce[..], coinbase_tx_suffix]
