@@ -770,7 +770,7 @@ impl ChannelFactory {
         let hash = hash_.as_hash().into_inner();
 
         //if debug mode print share hash
-        if tracing::log_enabled!(tracing::Level::DEBUG)
+        if tracing::level_enabled!(tracing::Level::DEBUG)
             || tracing::level_enabled!(tracing::Level::TRACE)
         {
             let mut print_hash = hash.clone();
