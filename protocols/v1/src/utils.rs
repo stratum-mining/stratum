@@ -293,7 +293,6 @@ impl From<HexBytes> for String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use quickcheck::{Arbitrary, Gen};
 
     #[quickcheck_macros::quickcheck]
     fn test_prev_hash(mut bytes: Vec<u8>) -> bool {
