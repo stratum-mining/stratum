@@ -771,7 +771,8 @@ impl ChannelFactory {
 
         //if debug mode print share hash
         if tracing::log_enabled!(tracing::Level::DEBUG)
-            || tracing::level_enabled!(tracing::Level::TRACE) {
+            || tracing::level_enabled!(tracing::Level::TRACE)
+        {
             let mut print_hash = hash.clone();
             print_hash.reverse();
             debug!("Share Hash: {:?}", print_hash.to_vec().to_hex());
