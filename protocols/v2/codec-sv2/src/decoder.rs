@@ -21,12 +21,10 @@ use buffer_sv2::{Buffer as IsBuffer, BufferFromSystemMemory, BufferPool};
 #[cfg(feature = "with_buffer_pool")]
 type Buffer = BufferPool<BufferFromSystemMemory>;
 
-use crate::error::Result;
 #[cfg(feature = "noise_sv2")]
 use crate::error::Error;
 
-
-
+use crate::error::Result;
 use crate::Error::MissingBytes;
 #[cfg(feature = "noise_sv2")]
 use crate::{State, TransportMode};
