@@ -88,9 +88,7 @@ pub trait IsServer<'a> {
         Self: std::marker::Sized,
     {
         match request {
-            methods::Client2Server::Suggest_Difficulty() => {
-                Ok(None)
-            }
+            methods::Client2Server::SuggestDifficulty() => Ok(None),
             methods::Client2Server::Authorize(authorize) => {
                 let authorized = self.handle_authorize(&authorize);
                 if authorized {
