@@ -297,7 +297,6 @@ impl<'a, T: Fixed> Seq0255<'a, T> {
 }
 impl<'a, T: Fixed> Sv2Option<'a, T> {
     pub fn into_static(self) -> Sv2Option<'static, T> {
-        // Safe unwrap cause the initial value is a valid Seq0255
         Sv2Option::new(self.into_inner())
     }
 }

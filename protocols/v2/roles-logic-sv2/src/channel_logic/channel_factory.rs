@@ -1247,8 +1247,7 @@ impl ProxyExtendedChannelFactory {
                     self.inner.on_new_extended_mining_job(new_job)?,
                     Some(custom_mining_job),
                 ));
-            }
-            if new_job.is_future() {
+            } else if new_job.is_future() {
                 self.inner
                     .future_templates
                     .insert(new_job.job_id, m.clone());
