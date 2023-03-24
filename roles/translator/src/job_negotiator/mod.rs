@@ -1,4 +1,5 @@
 pub mod message_handler;
+use crate::Error;
 use async_channel::{Receiver, Sender};
 use codec_sv2::{HandshakeRole, Initiator, StandardEitherFrame, StandardSv2Frame};
 use network_helpers::Connection;
@@ -130,6 +131,7 @@ impl JobNegotiator {
             request_id: 0,
         });
         let sender = self_mutex.safe_lock(|s| s.sender.clone()).unwrap();
+        // Safe unwrap message is build above and is valid, below can never panic
         let frame: StdFrame = PoolMessages::JobNegotiation(message).try_into().unwrap();
         let _ = sender.send(frame.into()).await;
     }

@@ -95,6 +95,7 @@ impl<'a> Visitor<'a> for ShortTxIdVisitor {
     {
         if v.len() >= 6 {
             let v = v[..6].to_vec();
+            // Safe unwrap v is a 6 bytes slice can not panic
             Ok(ShortTxId(Inner::Owned(Box::new(v.try_into().unwrap()))))
         } else {
             Err(serde::de::Error::custom("Impossible deserialize ShortTxId"))
@@ -144,6 +145,8 @@ use core::convert::TryInto;
 impl<'a> ShortTxId<'a> {
     pub fn into_static(self) -> ShortTxId<'static> {
         match self.0 {
+            // Safe unwrap, is impossible to construct a ShortTxId::Ref that contain a slice with
+            // len different then 6
             Inner::Ref(inner) => ShortTxId(Inner::Owned(Box::new(inner.try_into().unwrap()))),
             Inner::Owned(inner) => ShortTxId(Inner::Owned(inner)),
         }
@@ -167,6 +170,7 @@ impl<'a> TryFrom<alloc::vec::Vec<u8>> for ShortTxId<'a> {
 
     fn try_from(value: alloc::vec::Vec<u8>) -> Result<Self, Self::Error> {
         if value.len() == 6 {
+            // Safe unwrap value has len equal to 6 below can not panic
             let inner: [u8; 6] = value.try_into().unwrap();
             Ok(Self(Inner::Owned(Box::new(inner))))
         } else {
@@ -176,6 +180,9 @@ impl<'a> TryFrom<alloc::vec::Vec<u8>> for ShortTxId<'a> {
 }
 impl<'a> AsRef<[u8]> for ShortTxId<'a> {
     fn as_ref(&self) -> &[u8] {
-        todo!()
+        match &self.0 {
+            Inner::Ref(v) => v,
+            Inner::Owned(v) => v.as_ref(),
+        }
     }
 }

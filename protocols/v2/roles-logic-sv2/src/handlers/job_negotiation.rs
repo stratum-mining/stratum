@@ -28,10 +28,15 @@ where
             Err(e) => Err(e),
         }
     }
+    // When upstream send AllocateMiningJobTokenSuccess self should use the received token to
+    // negotiate the next job
     fn handle_allocate_mining_job_sucess(
         &mut self,
         message: AllocateMiningJobTokenSuccess,
     ) -> Result<SendTo, Error>;
+
+    // When upstream send CommitMiningJobSuccess if the token is different from the one negotiated
+    // self must use the new token to refer to the committed job
     fn handle_commit_mining_job_success(
         &mut self,
         message: CommitMiningJobSuccess,
