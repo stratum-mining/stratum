@@ -23,8 +23,9 @@ type Buffer = BufferPool<BufferFromSystemMemory>;
 
 #[cfg(feature = "noise_sv2")]
 use crate::error::Error;
+use crate::error::Result;
 
-use crate::{error::Result, Error::MissingBytes};
+use crate::Error::MissingBytes;
 #[cfg(feature = "noise_sv2")]
 use crate::{State, TransportMode};
 
