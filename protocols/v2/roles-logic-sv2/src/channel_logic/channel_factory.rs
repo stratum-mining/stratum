@@ -18,10 +18,11 @@ use std::{collections::HashMap, convert::TryInto, sync::Arc};
 use template_distribution_sv2::{NewTemplate, SetNewPrevHash as SetNewPrevHashFromTp};
 
 use bitcoin::{
-    hashes::{sha256d::Hash, Hash as Hash_},
+    hashes::{hex::ToHex, sha256d::Hash, Hash as Hash_},
     TxOut,
 };
-use tracing::error;
+
+use tracing::{debug, error};
 
 /// A stripped type of `SetCustomMiningJob` without the (`channel_id, `request_id` and `token`) fields
 pub struct PartialSetCustomMiningJob {
@@ -685,7 +686,7 @@ impl ChannelFactory {
     fn check_target(
         &mut self,
         m: Share,
-        bitcoin_target: mining_sv2::Target,
+        bitcoin_target: Target,
         template_id: Option<u64>,
         up_id: u32,
     ) -> Result<OnNewShare, Error> {
@@ -767,7 +768,16 @@ impl ChannelFactory {
         };
         let hash_ = header.block_hash();
         let hash = hash_.as_hash().into_inner();
-        tracing::debug!("Share Hash: {:?}", &hash);
+
+        //if debug mode print share hash
+        if tracing::level_enabled!(tracing::Level::DEBUG)
+            || tracing::level_enabled!(tracing::Level::TRACE)
+        {
+            let mut print_hash = hash;
+            print_hash.reverse();
+            debug!("Share Hash: {:?}", print_hash.to_vec().to_hex());
+        }
+
         let hash: Target = hash.into();
         if hash <= bitcoin_target {
             let coinbase = [coinbase_tx_prefix, &extranonce[..], coinbase_tx_suffix]
