@@ -44,7 +44,6 @@ pub const MESSAGE_TYPE_CLOSE_CHANNEL: u8 = 0x18;
 /// This has been cahnged before was 0x1e it can be that old Sv2 implementation still use the old
 /// one but this means that old impl are not following Sv2 spec
 pub const MESSAGE_TYPE_NEW_EXTENDED_MINING_JOB: u8 = 0x1f;
-pub const _MESSAGE_TYPE_NEW_MINING_JOB_OLD: u8 = 0x1e;
 pub const MESSAGE_TYPE_NEW_MINING_JOB: u8 = 0x15;
 pub const MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL: u8 = 0x13;
 pub const MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL_SUCCES: u8 = 0x14;
