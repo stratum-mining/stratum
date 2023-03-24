@@ -18,7 +18,7 @@ use tokio::sync::broadcast;
 use v1::{client_to_server::Submit, server_to_client, utils::HexU32Be};
 
 use crate::{
-    downstream_sv1::SubmitShareWithChannelId,
+    downstream_sv1::{DownstreamMessages, SetDownstreamTarget, SubmitShareWithChannelId},
     error::Error::{self, PoisonLock},
     status, ProxyResult,
 };
@@ -35,7 +35,7 @@ use tracing::{debug, error, info};
 #[derive(Debug)]
 pub struct Bridge {
     /// Receives a SV1 `mining.submit` message from the Downstream role.
-    rx_sv1_submit: Receiver<SubmitShareWithChannelId>,
+    rx_sv1_downstream: Receiver<DownstreamMessages>,
     /// Sends SV2 `SubmitSharesExtended` messages translated from SV1 `mining.submit` messages to
     /// the `Upstream`.
     tx_sv2_submit_shares_ext: Sender<SubmitSharesExtended<'static>>,
@@ -92,7 +92,7 @@ impl Bridge {
     #[allow(clippy::too_many_arguments)]
     /// Instantiate a new `Bridge`.
     pub fn new(
-        rx_sv1_submit: Receiver<SubmitShareWithChannelId>,
+        rx_sv1_downstream: Receiver<DownstreamMessages>,
         tx_sv2_submit_shares_ext: Sender<SubmitSharesExtended<'static>>,
         rx_sv2_set_new_prev_hash: Receiver<SetNewPrevHash<'static>>,
         rx_sv2_new_ext_mining_job: Receiver<NewExtendedMiningJob<'static>>,
@@ -119,7 +119,7 @@ impl Bridge {
             ),
         };
         let self_ = Arc::new(Mutex::new(Self {
-            rx_sv1_submit,
+            rx_sv1_downstream,
             tx_sv2_submit_shares_ext,
             rx_sv2_set_new_prev_hash,
             rx_sv2_new_ext_mining_job,
@@ -375,128 +375,158 @@ impl Bridge {
     pub fn start(self_: Arc<Mutex<Self>>) {
         Self::handle_new_prev_hash(self_.clone());
         Self::handle_new_extended_mining_job(self_.clone());
-        Self::handle_downstream_share_submission(self_);
+        Self::handle_downstream_messages(self_);
     }
 
-    /// Receives a SV1 `mining.submit` message from the `Downstream`, translates it to a SV2
-    /// `SubmitSharesExtended` message, and sends it to the `Upstream`.
-    fn handle_downstream_share_submission(self_: Arc<Mutex<Self>>) {
-        let (rx_sv1_submit, tx_sv2_submit_shares_ext, target_mutex, tx_status) = self_
+    /// Receives a `DownstreamMessages` message from the `Downstream`, handles based on the
+    /// variant received.
+    fn handle_downstream_messages(self_: Arc<Mutex<Self>>) {
+        let (rx_sv1_downstream, tx_status) = self_
+            .safe_lock(|s| (s.rx_sv1_downstream.clone(), s.tx_status.clone()))
+            .unwrap();
+        task::spawn(async move {
+            loop {
+                let msg = handle_result!(tx_status, rx_sv1_downstream.clone().recv().await);
+
+                match msg {
+                    DownstreamMessages::SubmitShares(share) => {
+                        handle_result!(
+                            tx_status,
+                            Self::handle_submit_shares(self_.clone(), share).await
+                        );
+                    }
+                    DownstreamMessages::SetDownstreamTarget(new_target) => {
+                        handle_result!(
+                            tx_status,
+                            Self::handle_update_downstream_target(self_.clone(), new_target)
+                        );
+                    }
+                };
+            }
+        });
+    }
+    /// receives a `SetDownstreamTarget` and updates the downstream target for the channel
+    fn handle_update_downstream_target(
+        self_: Arc<Mutex<Self>>,
+        new_target: SetDownstreamTarget,
+    ) -> ProxyResult<'static, ()> {
+        self_
+            .safe_lock(|b| {
+                b.channel_factory
+                    .update_target_for_channel(new_target.channel_id, new_target.new_target);
+            })
+            .map_err(|_| PoisonLock)?;
+        Ok(())
+    }
+    /// receives a `SubmitShareWithChannelId` and validates the shares and sends to `Upstream` if
+    /// the share meets the upstream target
+    async fn handle_submit_shares(
+        self_: Arc<Mutex<Self>>,
+        share: SubmitShareWithChannelId,
+    ) -> ProxyResult<'static, ()> {
+        let (tx_sv2_submit_shares_ext, target_mutex, tx_status) = self_
             .safe_lock(|s| {
                 (
-                    s.rx_sv1_submit.clone(),
                     s.tx_sv2_submit_shares_ext.clone(),
                     s.target.clone(),
                     s.tx_status.clone(),
                 )
             })
-            .unwrap();
-        task::spawn(async move {
-            loop {
-                let target = target_mutex
-                    .safe_lock(|t| t.clone())
-                    .map_err(|_| PoisonLock);
-                let target = handle_result!(tx_status, target).try_into();
-                let upstream_target: [u8; 32] = handle_result!(tx_status, target);
-                let mut upstream_target: Target = upstream_target.into();
-                let res = self_
-                    .safe_lock(|s| s.channel_factory.set_target(&mut upstream_target))
-                    .map_err(|_| PoisonLock);
-                handle_result!(tx_status, res);
+            .map_err(|_| PoisonLock)?;
+        let upstream_target: [u8; 32] = target_mutex
+            .safe_lock(|t| t.clone())
+            .map_err(|_| PoisonLock)?
+            .try_into()?;
+        let mut upstream_target: Target = upstream_target.into();
+        self_
+            .safe_lock(|s| s.channel_factory.set_target(&mut upstream_target))
+            .map_err(|_| PoisonLock)?;
 
-                let SubmitShareWithChannelId {
-                    channel_id,
-                    share: sv1_submit,
-                    extranonce,
-                    extranonce2_len,
-                    version_rolling_mask,
-                } = handle_result!(tx_status, rx_sv1_submit.clone().recv().await);
-                let channel_sequence_id = self_
-                    .safe_lock(|s| s.channel_sequence_id.next())
-                    .map_err(|_| PoisonLock);
-                let channel_sequence_id = handle_result!(tx_status, channel_sequence_id) - 1;
+        let channel_sequence_id = self_
+            .safe_lock(|s| s.channel_sequence_id.next())
+            .map_err(|_| PoisonLock)?
+            - 1;
+        let sv2_submit = self_
+            .safe_lock(|s| {
+                s.translate_submit(
+                    share.channel_id,
+                    channel_sequence_id,
+                    share.share,
+                    share.extranonce,
+                    share.version_rolling_mask,
+                )
+            })
+            .map_err(|_| PoisonLock)??;
+        let mut send_upstream = false;
+        let res = self_
+            .safe_lock(|s| {
+                s.channel_factory.set_target(&mut upstream_target);
+                s.channel_factory.on_submit_shares_extended(
+                    sv2_submit.clone(),
+                    Some(crate::utils::proxy_extranonce1_len(
+                        s.channel_factory.channel_extranonce2_size(),
+                        share.extranonce2_len,
+                    )),
+                )
+            })
+            .map_err(|_| PoisonLock);
 
-                let sv2_submit = self_
-                    .safe_lock(|s| {
-                        s.translate_submit(
-                            channel_id,
-                            channel_sequence_id,
-                            sv1_submit,
-                            extranonce,
-                            version_rolling_mask,
-                        )
-                    })
-                    .map_err(|_| PoisonLock);
-                let sv2_submit = handle_result!(tx_status, handle_result!(tx_status, sv2_submit));
-                let mut send_upstream = false;
-                let res = self_
-                    .safe_lock(|s| {
-                        s.channel_factory.set_target(&mut upstream_target.clone());
-                        s.channel_factory.on_submit_shares_extended(
-                            sv2_submit.clone(),
-                            Some(crate::utils::proxy_extranonce1_len(
-                                s.channel_factory.channel_extranonce2_size(),
-                                extranonce2_len,
-                            )),
-                        )
-                    })
-                    .map_err(|_| PoisonLock);
-
-                match res {
-                    Ok(Ok(OnNewShare::SendErrorDownstream(e))) => {
-                        error!(
-                            "Submit share error {:?}",
-                            std::str::from_utf8(&e.error_code.to_vec()[..])
-                        );
-                    }
-                    Ok(Ok(OnNewShare::SendSubmitShareUpstream(_))) => {
-                        info!("SHARE MEETS TARGET");
-                        send_upstream = true;
-                    }
-                    Ok(Ok(OnNewShare::RelaySubmitShareUpstream)) => {
-                        info!("SHARE MEETS TARGET");
-                        send_upstream = true;
-                    }
-                    Ok(Ok(OnNewShare::ShareMeetBitcoinTarget((
-                        share,
-                        Some(template_id),
-                        coinbase,
-                    )))) => {
-                        match share {
-                            Share::Extended(s) => {
-                                let solution_sender = self_
-                                    .safe_lock(|s| s.solution_sender.clone())
-                                    .unwrap()
-                                    .unwrap();
-                                let solution = SubmitSolution {
-                                    template_id,
-                                    version: s.version,
-                                    header_timestamp: s.ntime,
-                                    header_nonce: s.nonce,
-                                    coinbase_tx: coinbase.try_into().unwrap(),
-                                };
-                                // The below channel should never be full is ok to block
-                                solution_sender.send_blocking(solution).unwrap();
-                                send_upstream = true;
-                            }
-                            _ => unreachable!(),
-                        }
-                    }
-                    // When we have a ShareMeetBitcoinTarget it means that the proxy know the bitcoin
-                    // target that means that the proxy must have JN capabilities that means that the
-                    // second tuple elements can not be None but must be Some(template_id)
-                    Ok(Ok(OnNewShare::ShareMeetBitcoinTarget(..))) => unreachable!(),
-                    Ok(Ok(OnNewShare::ShareMeetDownstreamTarget)) => {
-                        info!("SHARE MEETS DOWNSTREAM TARGET");
-                    }
-                    Ok(Err(e)) => error!("Error: {:?}", e),
-                    Err(e) => handle_result!(tx_status, Err(e)),
-                }
-                if send_upstream {
-                    handle_result!(tx_status, tx_sv2_submit_shares_ext.send(sv2_submit).await)
-                };
+        match res {
+            Ok(Ok(OnNewShare::SendErrorDownstream(e))) => {
+                error!(
+                    "Submit share error {:?}",
+                    std::str::from_utf8(&e.error_code.to_vec()[..])
+                );
             }
-        });
+            Ok(Ok(OnNewShare::SendSubmitShareUpstream(_))) => {
+                info!("SHARE MEETS TARGET");
+                send_upstream = true;
+            }
+            Ok(Ok(OnNewShare::RelaySubmitShareUpstream)) => {
+                info!("SHARE MEETS TARGET");
+                send_upstream = true;
+            }
+            Ok(Ok(OnNewShare::ShareMeetBitcoinTarget((share, Some(template_id), coinbase)))) => {
+                match share {
+                    Share::Extended(s) => {
+                        let solution_sender = self_
+                            .safe_lock(|s| s.solution_sender.clone())
+                            .map_err(|_| PoisonLock)?
+                            .unwrap();
+                        let solution = SubmitSolution {
+                            template_id,
+                            version: s.version,
+                            header_timestamp: s.ntime,
+                            header_nonce: s.nonce,
+                            coinbase_tx: coinbase.try_into()?,
+                        };
+                        // The below channel should never be full is ok to block
+                        solution_sender.send_blocking(solution).unwrap();
+                        send_upstream = true;
+                    }
+                    _ => unreachable!(),
+                }
+            }
+            // When we have a ShareMeetBitcoinTarget it means that the proxy know the bitcoin
+            // target that means that the proxy must have JN capabilities that means that the
+            // second tuple elements can not be None but must be Some(template_id)
+            Ok(Ok(OnNewShare::ShareMeetBitcoinTarget(..))) => unreachable!(),
+            Ok(Ok(OnNewShare::ShareMeetDownstreamTarget)) => {
+                info!("SHARE MEETS DOWNSTREAM TARGET");
+            }
+            Ok(Err(e)) => error!("Error: {:?}", e),
+            Err(e) => {
+                let _ = tx_status
+                    .send(status::Status {
+                        state: status::State::BridgeShutdown(e),
+                    })
+                    .await;
+            }
+        }
+        if send_upstream {
+            tx_sv2_submit_shares_ext.send(sv2_submit).await?
+        };
+        Ok(())
     }
 
     /// Translates a SV1 `mining.submit` message to a SV2 `SubmitSharesExtended` message.
