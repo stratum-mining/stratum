@@ -22,6 +22,9 @@ pub trait Decodable<'a>: Sized {
 
         for field in structure {
             let field_size = field.size_hint_(tail, 0)?;
+            if field_size > tail.len() {
+                return Err(Error::DecodableConversionError);
+            }
             let (head, t) = tail.split_at_mut(field_size);
             tail = t;
             fields.push(field.decode(head)?);

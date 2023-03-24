@@ -18,10 +18,11 @@ use std::{collections::HashMap, convert::TryInto, sync::Arc};
 use template_distribution_sv2::{NewTemplate, SetNewPrevHash as SetNewPrevHashFromTp};
 
 use bitcoin::{
-    hashes::{sha256d::Hash, Hash as Hash_},
+    hashes::{hex::ToHex, sha256d::Hash, Hash as Hash_},
     TxOut,
 };
-use tracing::error;
+
+use tracing::{debug, error};
 
 /// A stripped type of `SetCustomMiningJob` without the (`channel_id, `request_id` and `token`) fields
 pub struct PartialSetCustomMiningJob {
@@ -685,7 +686,7 @@ impl ChannelFactory {
     fn check_target(
         &mut self,
         m: Share,
-        bitcoin_target: mining_sv2::Target,
+        bitcoin_target: Target,
         template_id: Option<u64>,
         up_id: u32,
     ) -> Result<OnNewShare, Error> {
@@ -723,7 +724,6 @@ impl ChannelFactory {
         let (downstream_target, extranonce) = self
             .get_channel_specific_mining_info(&m)
             .ok_or(Error::ShareDoNotMatchAnyChannel)?;
-
         let coinbase_tx_prefix = self
             .last_valid_job
             .as_ref()
@@ -749,14 +749,10 @@ impl ChannelFactory {
         .ok_or(Error::InvalidCoinbase)?
         .try_into()
         .unwrap();
-        let version: i32 = self
-            .last_valid_job
-            .as_ref()
-            .ok_or(Error::ShareDoNotMatchAnyJob)?
-            .0
-            .version
-            .try_into()
-            .map_err(|_| Error::VersionTooBig)?;
+        let version = match &m {
+            Share::Extended(share) => share.version as i32,
+            Share::Standard(share) => share.0.version as i32,
+        };
         let header = bitcoin::blockdata::block::BlockHeader {
             version,
             prev_blockhash: self.last_prev_hash_.ok_or(Error::ShareDoNotMatchAnyJob)?,
@@ -772,11 +768,17 @@ impl ChannelFactory {
         };
         let hash_ = header.block_hash();
         let hash = hash_.as_hash().into_inner();
+
+        //if debug mode print share hash
+        if tracing::level_enabled!(tracing::Level::DEBUG)
+            || tracing::level_enabled!(tracing::Level::TRACE)
+        {
+            let mut print_hash = hash;
+            print_hash.reverse();
+            debug!("Share Hash: {:?}", print_hash.to_vec().to_hex());
+        }
+
         let hash: Target = hash.into();
-        println!(
-            "BITCOIN TARGET: {:?}",
-            binary_sv2::U256::from(bitcoin_target.clone()).inner_as_ref()
-        );
         if hash <= bitcoin_target {
             let coinbase = [coinbase_tx_prefix, &extranonce[..], coinbase_tx_suffix]
                 .concat()
@@ -874,6 +876,12 @@ impl ChannelFactory {
                 }
             },
         }
+    }
+    /// updates the downstream target for the given channel_id
+    fn update_target_for_channel(&mut self, channel_id: u32, new_target: Target) -> Option<bool> {
+        let channel = self.extended_channels.get_mut(&channel_id)?;
+        channel.target = new_target.into();
+        Some(true)
     }
 }
 
@@ -1271,6 +1279,7 @@ impl ProxyExtendedChannelFactory {
             extranonce.reverse();
             m.extranonce = extranonce.try_into().unwrap();
         };
+
         if let Some(job_creator) = self.job_creator.as_mut() {
             let template_id = job_creator
                 .get_template_id_from_job(self.inner.last_valid_job.as_ref().unwrap().0.job_id)
@@ -1391,6 +1400,9 @@ impl ProxyExtendedChannelFactory {
     pub fn extranonce_size(&self) -> usize {
         self.inner.extranonces.get_len()
     }
+    pub fn channel_extranonce2_size(&self) -> usize {
+        self.inner.extranonces.get_len() - self.inner.extranonces.get_range0_len()
+    }
     /// Only used when the proxy is using Job Negotiation
     pub fn update_pool_outputs(&mut self, outs: Vec<TxOut>) {
         self.pool_coinbase_outputs = Some(outs);
@@ -1398,6 +1410,29 @@ impl ProxyExtendedChannelFactory {
 
     pub fn get_this_channel_id(&self) -> u32 {
         self.extended_channel_id
+    }
+    /// returns the extranonce1 len of the upstream. For a proxy, this would
+    /// be the extranonce_prefix len
+    pub fn get_upstream_extranonce1_len(&self) -> usize {
+        self.inner.extranonces.get_range0_len()
+    }
+
+    /// returns the extranonce2 for the channel
+    pub fn get_extranonce_without_upstream_part(
+        &self,
+        downstream_extranonce: mining_sv2::Extranonce,
+    ) -> Option<mining_sv2::Extranonce> {
+        self.inner
+            .extranonces
+            .without_upstream_part(Some(downstream_extranonce))
+    }
+    /// calls [`ChannelFactory::update_target_for_channel`]
+    pub fn update_target_for_channel(
+        &mut self,
+        channel_id: u32,
+        new_target: Target,
+    ) -> Option<bool> {
+        self.inner.update_target_for_channel(channel_id, new_target)
     }
 }
 

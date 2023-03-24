@@ -449,12 +449,12 @@ impl ConfigureExtension {
             return Err(ParsingMethodError::Todo);
         };
 
-        let version_rolling_mask = val.pointer("/1/version-rolling.mask");
-        let version_rolling_min_bit = val.pointer("/1/version-rolling.min-bit-count");
-        let info_connection_url = val.pointer("/1/info.connection-url");
-        let info_hw_version = val.pointer("/1/info.hw-version");
-        let info_sw_version = val.pointer("/1/info.sw-version");
-        let info_hw_id = val.pointer("/1/info.hw-id");
+        let version_rolling_mask = val.pointer("1/version-rolling.mask");
+        let version_rolling_min_bit = val.pointer("1/version-rolling.min-bit-count");
+        let info_connection_url = val.pointer("1/info.connection-url");
+        let info_hw_version = val.pointer("1/info.hw-version");
+        let info_sw_version = val.pointer("1/info.sw-version");
+        let info_hw_id = val.pointer("1/info.hw-id");
         let minimum_difficulty_value = val.pointer("/1/minimum-difficulty.value");
 
         if root[0]
