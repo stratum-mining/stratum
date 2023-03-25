@@ -9,3 +9,4 @@
 lcov.info
 .vscode
 *.py
+**/conf/**
