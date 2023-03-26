@@ -40,8 +40,15 @@ The configuration file contains the following information:
 1. The Job Negotiator information which includes the Pool JN connection address (`jn_address`) and the Template Provider connection address to which to connect (`tp_address`).
 1. The difficulty params such as the hashrate (hashes/s) of the weakest Mining Device that will be connecting to the Translator Proxy (`min_individual_miner_hashrate`), the number of shares needed before a mining.set_difficulty update (`miner_num_submits_before_update`) and the number of shares per minute that Mining Devices should be sending to the Translator Proxy (`shares_per_minute`). Ultimately, the estimated aggregate hashrate of all SV1 Downstream roles (Mining
    Devices) (`channel_nominal_hashrate`), which is communicated to the SV2 Upstream to help it decide a proper difficulty target.
+1. The Job Negotiator information which includes the Pool JN connection address (`jn_address`) and the Template Provider connection address to which to connect (`tp_address`).
+1. The difficulty params such as the hashrate (hashes/s) of the weakest Mining Device that will be connecting to the Translator Proxy (`min_individual_miner_hashrate`), the number of shares needed before a mining.set_difficulty update (`miner_num_submits_before_update`) and the number of shares per minute that Mining Devices should be sending to the Translator Proxy (`shares_per_minute`). Ultimately, the estimated aggregate hashrate of all SV1 Downstream roles (Mining
+   Devices) (`channel_nominal_hashrate`), which is communicated to the SV2 Upstream to help it decide a proper difficulty target.
 
 ### Run
+1. Copy the `tproxy-config-example.toml` into `conf/` directory.
+2. Edit it with custom desired configuration and rename it `tproxy-config.toml`
+3. Point the SV1 Downstream Mining Device(s) to the Translator Proxy IP address and port.
+4. Run the Translator Proxy:
 1. Copy the `tproxy-config-example.toml` into `conf/` directory.
 2. Edit it with custom desired configuration and rename it `tproxy-config.toml`
 3. Point the SV1 Downstream Mining Device(s) to the Translator Proxy IP address and port.
