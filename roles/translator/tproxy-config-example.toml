@@ -23,11 +23,11 @@ min_supported_version = 2
 min_extranonce2_size = 8
 coinbase_reward_sat = 5_000_000_000
 
-# JN config (optional), if set the tproxy starts on JN mode
-[jn_config]
+# JN config (optional), if set (uncommented) the tProxy starts on JN mode
+# [jn_config]
 # local pool JN (local pool must be run before tProxy to work)
 jn_address = "127.0.0.1:34264"
-# local TP (must run a TP locally for this to run)
+# local TP (this is pointing to localhost so you must run a TP locally for this configuration to work)
 tp_address = "127.0.0.1:8442"
 # hosted testnet TP 
 # tp_address = "89.116.25.191:8442"
