@@ -21,7 +21,7 @@ The most typical high level configuration is:
 
 ## Setup
 ### Configuration File
-The `proxy-config-example.toml` is a configuration example which can be modified by the party that is running the Translator Proxy (most
+The `proxy-config-example.toml` is a configuration example which can be copy/paste into `/conf` directory by the party that is running the Translator Proxy (most
 typically the mining farm/miner hobbyist) to address the most preferred customization.
 
 The configuration file contains the following information:
@@ -49,14 +49,10 @@ The configuration file contains the following information:
 2. Edit it with custom desired configuration and rename it `tproxy-config.toml`
 3. Point the SV1 Downstream Mining Device(s) to the Translator Proxy IP address and port.
 4. Run the Translator Proxy:
-1. Copy the `tproxy-config-example.toml` into `conf/` directory.
-2. Edit it with custom desired configuration and rename it `tproxy-config.toml`
-3. Point the SV1 Downstream Mining Device(s) to the Translator Proxy IP address and port.
-4. Run the Translator Proxy:
 
-```
-cd roles/translator
-```
-```
-cargo run -p translator_sv2 -- -c conf/tproxy-config.toml
-```
+   ```
+   cd roles/translator
+   ```
+   ```
+   cargo run -p translator_sv2 -- -c conf/tproxy-config.toml
+   ```
