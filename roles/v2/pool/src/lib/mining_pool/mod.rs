@@ -528,16 +528,18 @@ impl Pool {
 
 #[cfg(test)]
 mod test {
+    use crate::PublicKeyWrapper;
     use binary_sv2::{B0255, B064K};
-    use bitcoin::{util::psbt::serialize::Serialize, Transaction};
+    use bitcoin::{util::psbt::serialize::Serialize, PublicKey, Transaction};
+    use hex;
     use std::convert::TryInto;
     // this test is used to verify the `coinbase_tx_prefix` and `coinbase_tx_suffix` values tested against in
     // message generator `stratum/test/message-generator/test/pool-sri-test-extended.json`
     #[test]
     fn test_coinbase_outputs_from_config() {
         // Load config
-        let config: crate::Configuration =
-            toml::from_str(&std::fs::read_to_string("pool-config.toml").unwrap()).unwrap();
+        let output: PublicKey = PublicKey::from_slice(&hex::decode("04466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f276728176c3c6431f8eeda4538dc37c865e2784f3a9e77d044f33e407797e1278a").unwrap()).unwrap();
+        let outputs = vec![PublicKeyWrapper { pub_key: output }];
         // template from message generator test (mock TP template)
         let _extranonce_len = 3;
         let coinbase_prefix = vec![1, 16, 0];

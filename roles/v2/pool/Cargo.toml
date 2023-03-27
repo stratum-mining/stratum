@@ -25,5 +25,8 @@ tracing-subscriber = "0.3"
 async-recursion = "1.0.0"
 error_handling = { version = "0.1", path = "../../../utils/error-handling" }
 
+[dev-dependencies]
+hex = "0.4.3"
+
 [features]
 test_only_allow_unencrypted = []
