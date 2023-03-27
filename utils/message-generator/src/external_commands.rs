@@ -228,18 +228,16 @@ impl ExternalCommandConditions {
         }
     }
     pub async fn check_std_out(&self, std_out: &mut ChildStdout) -> Result<(), ()> {
-        timeout(self.get_timer(), self.check_std_out_(std_out))
-            .await
-            .map_err(|error| {
-                if let error = TimeoutError => {
-                    eprintln!("Test failed due to Timeout");
-                }
-                else if self.get_warn_no_panic() {
-                    Err::<(), ()>(())
-                } else {
-                    panic!()
-                };
-            })
+    timeout(self.get_timer(), self.check_std_out_(std_out))
+        .await
+        .map_err(|_| {
+            if self.get_warn_no_panic() {
+                eprintln!("Test failed due to timeout");
+                Err::<(), ()>(())
+            } else {
+                panic!("Test failed due to timeout");
+            };
+        })
     }
 
     async fn check_std_err_(&self, std_err: &mut ChildStderr) {
@@ -258,21 +256,16 @@ impl ExternalCommandConditions {
         }
     }
     pub async fn check_std_err(&self, std_err: &mut ChildStderr) -> Result<(), ()> {
-        timeout(self.get_timer(), self.check_std_err_(std_err))
-            .await
-            .map_err(|error| {
-                if let error = TimeoutError => {
-                    eprintln!("Test failed due to Timeout");
-                }
-                else if let error = StringMismatchError(ref expected, ref actual) => {
-                    eprintln!("STDERR did not match expected case: expected={}, actual={}", expected, actual);
-                }
-                else if self.get_warn_no_panic() {
-                    Err::<(), ()>(())
-                } else {
-                    panic!()
-                };
-            })
+    timeout(self.get_timer(), self.check_std_err_(std_err))
+        .await
+        .map_err(|_| {
+            if self.get_warn_no_panic() {
+                eprintln!("STDERR did not match expected case: ");
+                Err::<(), ()>(())
+            } else {
+                panic!("STDERR did not match expected case: ");
+            };
+        })
     }
     fn get_warn_no_panic(&self) -> bool {
         match self {
