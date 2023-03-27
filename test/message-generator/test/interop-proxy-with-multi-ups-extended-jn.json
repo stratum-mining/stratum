@@ -179,31 +179,6 @@
             "command": "pkill",
             "args":  ["-f", "mining-device", "-SIGINT"],
             "conditions": "None"
-        },
-        {
-            "command": "cargo",
-            "args": [
-                    "llvm-cov",
-                    "--ignore-filename-regex",
-                    "utils/|experimental/|protocols/",
-                    "--cobertura",
-                    "--output-path",
-                    "target/interop-proxy-with-multi-ups-extended_jn.xml",
-                    "report"
-            ],
-            "conditions": {
-                "WithConditions": {
-                    "conditions": [
-                        {
-                            "output_string": "Finished report saved to ",
-                            "output_location": "StdErr",
-                            "condition": true
-                        }
-                    ],
-                    "timer_secs": 240,
-                    "warn_no_panic": false
-                }
-            }
         }
     ],
     "role": "none"

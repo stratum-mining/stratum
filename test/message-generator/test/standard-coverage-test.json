@@ -185,31 +185,6 @@
             "command": "pkill",
             "args":  ["pool", "-SIGINT"],
             "conditions": "None"
-        },
-        {
-            "command": "cargo",
-            "args": [
-                    "llvm-cov",
-                    "--ignore-filename-regex",
-                    "utils/|experimental/|protocols/",
-                    "--cobertura",
-                    "--output-path",
-                    "target/mg-coverage-standard-.xml",
-                    "report"
-            ],
-            "conditions": {
-                "WithConditions": {
-                    "conditions": [
-                        {
-                            "output_string": "Finished report saved to ",
-                            "output_location": "StdErr",
-                            "condition": true
-                        }
-                    ],
-                    "timer_secs": 60,
-                    "warn_no_panic": false
-                }
-            }
         }
     ],
     "role": "client",
