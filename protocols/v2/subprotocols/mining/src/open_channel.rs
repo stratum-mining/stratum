@@ -210,6 +210,15 @@ impl<'a> OpenMiningChannelError<'a> {
             error_code: "max-target-out-of-range".to_string().try_into().unwrap(),
         }
     }
+    pub fn unsupported_extranonce_size(request_id: u32) -> Self {
+        Self {
+            request_id,
+            error_code: "unsupported-min-extranonce-size"
+                .to_string()
+                .try_into()
+                .unwrap(),
+        }
+    }
     pub fn new_unknown_user(request_id: u32) -> Self {
         Self {
             request_id,
