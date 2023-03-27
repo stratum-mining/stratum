@@ -1420,6 +1420,7 @@ dependencies = [
  "codec_sv2",
  "const_sv2",
  "error_handling",
+ "hex",
  "network_helpers",
  "noise_sv2",
  "rand 0.8.5",
