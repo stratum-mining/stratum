@@ -59,6 +59,18 @@
                 "version": 536870912
             },
             "id": "submit_shares"
+        },
+        {
+            "message": {
+                "type": "SubmitSharesStandard",
+                "channel_id": 1,
+                "sequence_number": 0,
+                "job_id": 0,
+                "nonce": 175,
+                "ntime": 1671116742,
+                "version": 536870912
+            },
+            "id": "submit_shares_error"
         }
     ],
     "frame_builders": [
@@ -77,6 +89,10 @@
         {
             "type": "automatic",
             "message_id": "submit_shares"
+        },
+        {
+            "type": "automatic",
+            "message_id": "submit_shares_error"
         }
     ],
     "actions": [
@@ -129,6 +145,21 @@
                 }
              ],
             "actiondoc": "This action sends the message SubmitSharesStandard to the pool and checks that the pool replies with SubmitSharesStandard.Success"
+        },
+        {
+            "message_ids": ["submit_shares_error"],
+            "role": "client",
+            "results": [
+                {
+                    "type": "match_message_type",
+                    "value": "0x20"
+                },
+                {
+                    "type": "match_message_type",
+                    "value": "0x1d"
+                }
+             ],
+            "actiondoc": "This action sends the bad message SubmitSharesStandard to the pool and checks that the pool replies with SubmitSharesError"
         }
     ],
     "setup_commands": [
