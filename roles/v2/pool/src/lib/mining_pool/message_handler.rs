@@ -22,6 +22,13 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
         true
     }
 
+    fn downstream_is_authorized(
+        _self_mutex: Arc<Mutex<Self>>,
+        _user_identity: &binary_sv2::Str0255,
+    ) -> Result<bool, Error> {
+        Ok(true)
+    }
+
     fn handle_open_standard_mining_channel(
         &mut self,
         incoming: OpenStandardMiningChannel,
@@ -228,6 +235,12 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
             .map_err(|e| roles_logic_sv2::Error::PoisonLock(e.to_string()))?;
         match (message_type, payload).try_into() {
             Ok(Mining::OpenStandardMiningChannel(mut m)) => {
+                // check user auth
+                if !Self::downstream_is_authorized(self_mutex.clone(), &m.user_identity)? {
+                    return Ok(SendTo::Respond(Mining::OpenMiningChannelError(
+                        OpenMiningChannelError::new_unknown_user(m.get_request_id_as_u32()),
+                    )));
+                }
                 debug!("Received OpenStandardMiningChannel message");
                 let upstream = match routing_logic {
                     roles_logic_sv2::routing_logic::MiningRoutingLogic::None => None,
@@ -260,22 +273,30 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
                         .map_err(|e| roles_logic_sv2::Error::PoisonLock(e.to_string()))?,
                 }
             }
-            Ok(Mining::OpenExtendedMiningChannel(m)) => match channel_type {
-                SupportedChannelTypes::Standard => Err(Error::UnexpectedMessage(message_type)),
-                SupportedChannelTypes::Extended => {
-                    debug!("Received OpenExtendedMiningChannel->Extended message");
-                    self_mutex
-                        .safe_lock(|self_| self_.handle_open_extended_mining_channel(m))
-                        .map_err(|e| roles_logic_sv2::Error::PoisonLock(e.to_string()))?
+            Ok(Mining::OpenExtendedMiningChannel(m)) => {
+                // check user auth
+                if !Self::downstream_is_authorized(self_mutex.clone(), &m.user_identity)? {
+                    return Ok(SendTo::Respond(Mining::OpenMiningChannelError(
+                        OpenMiningChannelError::new_unknown_user(m.get_request_id_as_u32()),
+                    )));
+                };
+                match channel_type {
+                    SupportedChannelTypes::Standard => Err(Error::UnexpectedMessage(message_type)),
+                    SupportedChannelTypes::Extended => {
+                        debug!("Received OpenExtendedMiningChannel->Extended message");
+                        self_mutex
+                            .safe_lock(|self_| self_.handle_open_extended_mining_channel(m))
+                            .map_err(|e| roles_logic_sv2::Error::PoisonLock(e.to_string()))?
+                    }
+                    SupportedChannelTypes::Group => Err(Error::UnexpectedMessage(message_type)),
+                    SupportedChannelTypes::GroupAndExtended => {
+                        debug!("Received OpenExtendedMiningChannel->GroupAndExtended message");
+                        self_mutex
+                            .safe_lock(|self_| self_.handle_open_extended_mining_channel(m))
+                            .map_err(|e| roles_logic_sv2::Error::PoisonLock(e.to_string()))?
+                    }
                 }
-                SupportedChannelTypes::Group => Err(Error::UnexpectedMessage(message_type)),
-                SupportedChannelTypes::GroupAndExtended => {
-                    debug!("Received OpenExtendedMiningChannel->GroupAndExtended message");
-                    self_mutex
-                        .safe_lock(|self_| self_.handle_open_extended_mining_channel(m))
-                        .map_err(|e| roles_logic_sv2::Error::PoisonLock(e.to_string()))?
-                }
-            },
+            }
             Ok(Mining::UpdateChannel(m)) => match channel_type {
                 SupportedChannelTypes::Standard => {
                     debug!("Received UpdateChannel->Standard message");

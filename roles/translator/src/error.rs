@@ -2,6 +2,7 @@ use crate::proxy;
 use roles_logic_sv2::{
     bitcoin::util::uint::ParseLengthError,
     mining_sv2::{ExtendedExtranonce, NewExtendedMiningJob, SetCustomMiningJob},
+    parsers::Mining,
 };
 use std::{
     fmt,
@@ -75,6 +76,7 @@ pub enum Error<'a> {
     Uint256Conversion(ParseLengthError),
     SetDifficultyToMessage(SetDifficulty),
     Infallible(std::convert::Infallible),
+    Sv2ProtocolError(Mining<'a>),
 }
 
 impl<'a> fmt::Display for Error<'a> {
@@ -103,6 +105,9 @@ impl<'a> fmt::Display for Error<'a> {
             }
             VecToSlice32(ref e) => write!(f, "Standard Error: `{:?}`", e),
             Infallible(ref e) => write!(f, "Infallible Error:`{:?}`", e),
+            Sv2ProtocolError(ref e) => {
+                write!(f, "Received Sv2 Protocol Error from upstream: `{:?}`", e)
+            }
         }
     }
 }

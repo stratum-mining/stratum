@@ -282,7 +282,7 @@ impl ChannelFactory {
             Some(result)
         } else {
             Some(vec![Mining::OpenMiningChannelError(
-                OpenMiningChannelError::new_max_target_out_of_range(request_id),
+                OpenMiningChannelError::unsupported_extranonce_size(request_id),
             )])
         }
     }
