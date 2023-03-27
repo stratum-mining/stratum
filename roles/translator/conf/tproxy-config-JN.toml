@@ -29,7 +29,7 @@ tp_address = "75.119.150.111:8442"
 # hashes/s of the weakest miner that will be connecting
 min_individual_miner_hashrate=5_000_000.0
 # minimum number of shares needed before a mining.set_difficulty is sent for updating targets
-miner_num_submits_before_update=5
+miner_num_submits_before_update=20
 # target number of shares per minute the miner should be sending
 shares_per_minute = 6.0
 

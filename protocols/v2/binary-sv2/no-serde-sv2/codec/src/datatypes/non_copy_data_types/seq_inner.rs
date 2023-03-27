@@ -169,6 +169,9 @@ macro_rules! impl_codec_for_sequence {
 
                 for _ in 0..len {
                     let element_size = T::size_hint(tail, 0)?;
+                    if element_size > tail.len() {
+                        return Err(Error::OutOfBound);
+                    }
                     let (head, t) = tail.split_at_mut(element_size);
                     tail = t;
                     inner.push(T::from_bytes_unchecked(head));

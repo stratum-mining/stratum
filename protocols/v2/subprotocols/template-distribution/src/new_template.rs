@@ -170,9 +170,6 @@ use quickcheck::{Arbitrary, Gen};
 use alloc::vec;
 
 #[cfg(feature = "prop_test")]
-use core::cmp;
-
-#[cfg(feature = "prop_test")]
 impl Arbitrary for NewTemplate<'static> {
     fn arbitrary(g: &mut Gen) -> NewTemplate<'static> {
         let coinbase_tx_version = (u32::arbitrary(g) % 2) + 1;
