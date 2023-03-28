@@ -45,8 +45,8 @@ The configuration file contains the following information:
    Devices) (`channel_nominal_hashrate`), which is communicated to the SV2 Upstream to help it decide a proper difficulty target.
 
 ### Run
-1. Copy the `tproxy-config-example.toml` into `conf/` directory.
-2. Edit it with custom desired configuration and rename it `tproxy-config.toml`
+1. Copy the `proxy-config-example.toml` into `conf/` directory.
+2. Edit it with custom desired configuration and rename it `proxy-config.toml`
 3. Point the SV1 Downstream Mining Device(s) to the Translator Proxy IP address and port.
 4. Run the Translator Proxy:
 
@@ -54,5 +54,5 @@ The configuration file contains the following information:
    cd roles/translator
    ```
    ```
-   cargo run -p translator_sv2 -- -c conf/tproxy-config.toml
+   cargo run -p translator_sv2 -- -c conf/proxy-config.toml
    ```
