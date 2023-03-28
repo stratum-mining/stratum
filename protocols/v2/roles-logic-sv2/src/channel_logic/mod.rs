@@ -21,7 +21,7 @@ pub fn extended_to_standard_job<'a>(
     Some(NewMiningJob {
         channel_id,
         job_id: job_id.unwrap_or(extended.job_id),
-        future_job: extended.future_job,
+        min_ntime: extended.min_ntime.clone().into_static(),
         version: extended.version,
         merkle_root: merkle_root?.try_into().ok()?,
     })

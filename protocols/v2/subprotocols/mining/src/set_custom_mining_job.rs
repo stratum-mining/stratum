@@ -19,7 +19,7 @@ pub struct SetCustomMiningJob<'decoder> {
     pub channel_id: u32,
     /// Client-specified identifier for pairing responses.
     pub request_id: u32,
-    pub token: u64,
+    pub token: B0255<'decoder>,
     /// Valid version field that reflects the current network
     /// consensus. The general purpose bits (as specified in
     /// BIP320) can be freely manipulated by the downstream
