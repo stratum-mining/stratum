@@ -1,7 +1,6 @@
-use crate::error::Error::InvalidExtranonce;
 use crate::{
     downstream_sv1::Downstream,
-    error::Error::{CodecNoise, PoisonLock, UpstreamIncoming},
+    error::Error::{CodecNoise, InvalidExtranonce, PoisonLock, UpstreamIncoming},
     proxy_config::UpstreamDifficultyConfig,
     status,
     upstream_sv2::{EitherFrame, Message, StdFrame, UpstreamConnection},

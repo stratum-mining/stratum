@@ -23,8 +23,7 @@ use std::{
     sync::Arc,
 };
 
-use tokio::sync::broadcast;
-use tokio::task;
+use tokio::{sync::broadcast, task};
 use v1::server_to_client;
 
 use crate::status::{State, Status};
