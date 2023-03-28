@@ -78,6 +78,7 @@ pub enum Error<'a> {
     Uint256Conversion(ParseLengthError),
     SetDifficultyToMessage(SetDifficulty),
     Infallible(std::convert::Infallible),
+    // used to handle SV2 protocol error messages from pool
     Sv2ProtocolError(Mining<'a>),
 }
 
@@ -286,5 +287,11 @@ impl<'a> From<SetDifficulty> for Error<'a> {
 impl<'a> From<std::convert::Infallible> for Error<'a> {
     fn from(e: std::convert::Infallible) -> Self {
         Error::Infallible(e)
+    }
+}
+
+impl<'a> From<Mining<'a>> for Error<'a> {
+    fn from(e: Mining<'a>) -> Self {
+        Error::Sv2ProtocolError(e)
     }
 }

@@ -161,8 +161,14 @@ pub async fn handle_error(
             send_status(sender, e, error_handling::ErrorBranch::Break).await
         }
         Error::Infallible(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
-        Error::Sv2ProtocolError(_) => {
-            send_status(sender, e, error_handling::ErrorBranch::Break).await
+        Error::Sv2ProtocolError(ref inner) => {
+            match inner {
+                // dont notify main thread just continue
+                roles_logic_sv2::parsers::Mining::SubmitSharesError(_) => {
+                    error_handling::ErrorBranch::Continue
+                }
+                _ => send_status(sender, e, error_handling::ErrorBranch::Break).await,
+            }
         }
     }
 }
