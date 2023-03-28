@@ -547,14 +547,7 @@ mod test {
         let _coinbase_tx_value_remaining: u64 = 5000000000;
         let _coinbase_tx_outputs_count = 0;
         let coinbase_tx_locktime = 0;
-        let coinbase_tx_outputs: Vec<bitcoin::TxOut> = config
-            .coinbase_outputs
-            .iter()
-            .map(|pub_key_wrapper| bitcoin::TxOut {
-                value: crate::BLOCK_REWARD,
-                script_pubkey: bitcoin::Script::new_p2pk(&pub_key_wrapper.pub_key),
-            })
-            .collect();
+        let coinbase_tx_outputs: Vec<bitcoin::TxOut> = crate::get_coinbase_output(&config);
         // extranonce len set to max_extranonce_size in `ChannelFactory::new_extended_channel()`
         let extranonce_len = 32;
 
@@ -588,7 +581,7 @@ mod test {
             coinbase_tx_prefix
                 == [
                     2, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 35, 1, 16, 0
+                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 35, 1, 16, 0,
                 ]
                 .to_vec()
                 .try_into()
@@ -598,12 +591,10 @@ mod test {
         assert!(
             coinbase_tx_suffix
                 == [
-                    255, 255, 255, 255, 1, 0, 242, 5, 42, 1, 0, 0, 0, 67, 65, 4, 70, 109, 127, 202,
-                    229, 99, 229, 203, 9, 160, 209, 135, 11, 181, 128, 52, 72, 4, 97, 120, 121,
-                    161, 73, 73, 207, 34, 40, 95, 27, 174, 63, 39, 103, 40, 23, 108, 60, 100, 49,
-                    248, 238, 218, 69, 56, 220, 55, 200, 101, 226, 120, 79, 58, 158, 119, 208, 68,
-                    243, 62, 64, 119, 151, 225, 39, 138, 172, 1, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+                    255, 255, 255, 255, 1, 0, 242, 5, 42, 1, 0, 0, 0, 25, 118, 169, 20, 85, 162,
+                    233, 20, 174, 185, 114, 155, 76, 210, 101, 36, 140, 182, 122, 134, 94, 174,
+                    149, 253, 136, 172, 1, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                 ]
                 .to_vec()
                 .try_into()
