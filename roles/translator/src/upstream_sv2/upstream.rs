@@ -446,6 +446,7 @@ impl Upstream {
                             | Mining::SubmitSharesError(_)
                             | Mining::SetCustomMiningJobError(_) => {
                                 error!("parse_incoming SV2 protocol error Message");
+                                handle_result!(tx_status, Err(m));
                             }
                             // impossible state: handle_message_mining only returns
                             // the above 3 messages in the Ok(SendTo::None(Some(m))) case to be sent
