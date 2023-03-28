@@ -69,11 +69,6 @@
             }
         },
         {
-            "command": "sleep",
-            "args": ["1000"],
-            "conditions": "None"
-        },
-        {
             "command": "cargo",
             "args": [
                         "llvm-cov",
@@ -167,17 +162,17 @@
     "cleanup_commands": [
         {
             "command": "pkill",
+            "args":  ["-f", "mining-device", "-SIGINT"],
+            "conditions": "None"
+        },
+        {
+            "command": "pkill",
             "args":  ["-f", "pool_sv2", "-SIGINT"],
             "conditions": "None"
         },
         {
             "command": "pkill",
             "args":  ["-f", "mining_proxy_sv2", "-SIGINT"],
-            "conditions": "None"
-        },
-        {
-            "command": "pkill",
-            "args":  ["-f", "mining-device", "-SIGINT"],
             "conditions": "None"
         }
     ],
