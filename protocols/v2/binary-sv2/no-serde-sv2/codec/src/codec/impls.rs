@@ -697,11 +697,6 @@ impl<'a> TryFrom<EncodableField<'a>> for B016M<'a> {
         }
     }
 }
-//impl<'a> From<&'a Seq0255<'a, U24>> for EncodableField<'a> {
-//    fn from(v: &'a Seq0255<'a, U24>) -> Self {
-//        EncodableField::Primitive(EncodablePrimitive::Seq0255u24(v))
-//    }
-//}
 impl<'a> From<U32AsRef<'a>> for EncodableField<'a> {
     fn from(v: U32AsRef<'a>) -> Self {
         EncodableField::Primitive(EncodablePrimitive::U32AsRef(v))

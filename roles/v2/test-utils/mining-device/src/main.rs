@@ -367,7 +367,7 @@ impl ParseUpstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> fo
     }
 
     fn handle_new_mining_job(&mut self, m: NewMiningJob) -> Result<SendTo<()>, Error> {
-        match (m.future_job, self.prev_hash.as_ref()) {
+        match (m.is_future(), self.prev_hash.as_ref()) {
             (false, Some(p_h)) => {
                 self.miner
                     .safe_lock(|miner| miner.new_header(p_h, &m))
@@ -393,7 +393,7 @@ impl ParseUpstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> fo
         let jobs: Vec<&NewMiningJob<'static>> = self
             .jobs
             .iter()
-            .filter(|j| j.job_id == m.job_id && j.future_job)
+            .filter(|j| j.job_id == m.job_id && j.is_future())
             .collect();
         match jobs.len() {
             0 => {

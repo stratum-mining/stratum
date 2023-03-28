@@ -56,9 +56,11 @@ static const uint8_t MESSAGE_TYPE_SET_COINBASE = 80;
 
 static const uint8_t MESSAGE_TYPE_CLOSE_CHANNEL = 24;
 
+/// This has been cahnged before was 0x1e it can be that old Sv2 implementation still use the old
+/// one but this means that old impl are not following Sv2 spec
 static const uint8_t MESSAGE_TYPE_NEW_EXTENDED_MINING_JOB = 31;
 
-static const uint8_t MESSAGE_TYPE_NEW_MINING_JOB = 30;
+static const uint8_t MESSAGE_TYPE_NEW_MINING_JOB = 21;
 
 static const uint8_t MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL = 19;
 

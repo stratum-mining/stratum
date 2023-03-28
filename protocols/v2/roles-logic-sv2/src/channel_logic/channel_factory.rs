@@ -263,7 +263,7 @@ impl ChannelFactory {
             let mut result = vec![Mining::OpenExtendedMiningChannelSuccess(success)];
             if let Some((job, _)) = &self.last_valid_job {
                 let mut job = job.clone();
-                job.future_job = true;
+                job.set_future();
                 let j_id = job.job_id;
                 result.push(Mining::NewExtendedMiningJob(job));
                 if let Some((new_prev_hash, _)) = &self.last_prev_hash {
@@ -441,30 +441,23 @@ impl ChannelFactory {
                 Ok(())
             }
             // If we have a prev hash and a last valid job we need to send new mining job before the prev hash
-            (Some((prev_h, _)), Some(job), true) => {
+            (Some((prev_h, _)), Some(mut job), true) => {
                 let prev_h = prev_h.into_set_p_hash(channel_id, Some(job.job_id));
 
                 // set future_job to true
-                let future_job = NewMiningJob {
-                    future_job: true,
-                    ..job.clone()
-                };
+                job.set_future();
 
-                result.push(Mining::NewMiningJob(future_job));
+                result.push(Mining::NewMiningJob(job));
                 result.push(Mining::SetNewPrevHash(prev_h.clone()));
                 Ok(())
             }
             // If we have everything we need, send the future jobs and the the prev hash
-            (Some((prev_h, _)), Some(job), false) => {
+            (Some((prev_h, _)), Some(mut job), false) => {
                 let prev_h = prev_h.into_set_p_hash(channel_id, Some(job.job_id));
 
-                // set future_job to true
-                let future_job = NewMiningJob {
-                    future_job: true,
-                    ..job.clone()
-                };
+                job.set_future();
 
-                result.push(Mining::NewMiningJob(future_job));
+                result.push(Mining::NewMiningJob(job));
                 result.push(Mining::SetNewPrevHash(prev_h.clone()));
 
                 // Safe unwrap cause we check that self.future_jobs is not empty
@@ -581,7 +574,11 @@ impl ChannelFactory {
     fn on_new_prev_hash(&mut self, m: StagedPhash) -> Result<(), Error> {
         while let Some(mut job) = self.future_jobs.pop() {
             if job.0.job_id == m.job_id {
-                job.0.future_job = false;
+                let now = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs() as u32;
+                job.0.set_no_future(now);
                 self.last_valid_job = Some(job);
                 break;
             }
@@ -605,7 +602,7 @@ impl ChannelFactory {
         &mut self,
         m: NewExtendedMiningJob<'static>,
     ) -> Result<HashMap<u32, Mining<'static>>, Error> {
-        match (m.future_job, &self.last_prev_hash) {
+        match (m.is_future(), &self.last_prev_hash) {
             (true, _) => {
                 let mut result = HashMap::new();
                 self.prepare_jobs_for_downstream_on_new_extended(&mut result, &m)?;
@@ -1226,7 +1223,7 @@ impl ProxyExtendedChannelFactory {
             self.pool_coinbase_outputs.as_ref(),
         ) {
             let new_job = job_creator.on_new_template(m, true, pool_coinbase_outputs.clone())?;
-            if !new_job.future_job && self.inner.last_prev_hash.is_some() {
+            if !new_job.is_future() && self.inner.last_prev_hash.is_some() {
                 let prev_hash = self.last_prev_hash().unwrap();
                 let min_ntime = self.last_min_ntime().unwrap();
                 let nbits = self.last_nbits().unwrap();
@@ -1250,8 +1247,7 @@ impl ProxyExtendedChannelFactory {
                     self.inner.on_new_extended_mining_job(new_job)?,
                     Some(custom_mining_job),
                 ));
-            }
-            if new_job.future_job {
+            } else if new_job.is_future() {
                 self.inner
                     .future_templates
                     .insert(new_job.job_id, m.clone());

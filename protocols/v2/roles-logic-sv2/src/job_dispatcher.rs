@@ -34,7 +34,7 @@ pub fn extended_to_standard_job_for_group_channel<'a>(
     Some(NewMiningJob {
         channel_id,
         job_id,
-        future_job: extended.future_job,
+        min_ntime: extended.min_ntime.clone().into_static(),
         version: extended.version,
         merkle_root: merkle_root?.try_into().ok()?,
     })
@@ -144,7 +144,7 @@ impl GroupChannelJobDispatcher {
         channel: &StandardChannel,
         // should be changed to return a Result<Option<NewMiningJob>>
     ) -> Option<NewMiningJob<'static>> {
-        if extended.future_job {
+        if extended.is_future() {
             self.future_jobs
                 .entry(extended.job_id)
                 .or_insert_with(HashMap::new);
@@ -167,7 +167,7 @@ impl GroupChannelJobDispatcher {
             merkle_root: new_mining_job_message.merkle_root.to_vec(),
             extended_job_id: extended.job_id,
         };
-        if extended.future_job {
+        if extended.is_future() {
             self.future_jobs
                 .get_mut(&extended.job_id)
                 .map(|future_jobs| {
@@ -348,7 +348,7 @@ mod tests {
             standard_channel_id,
         );
         // on_new_prev_hash assertions
-        if extended_mining_job.future_job {
+        if extended_mining_job.is_future() {
             assert_on_new_prev_hash(
                 &mut group_channel_dispatcher,
                 standard_channel_id,
@@ -392,7 +392,7 @@ mod tests {
             "version did not convert correctly"
         );
         assert_eq!(
-            new_mining_job.future_job, extended_mining_job.future_job,
+            new_mining_job.min_ntime, extended_mining_job.min_ntime,
             "future_job did not convert correctly"
         );
         assert_eq!(
@@ -401,7 +401,7 @@ mod tests {
             "merkle_root did not convert correctly"
         );
         let mut future_job_id: u32 = 0;
-        if new_mining_job.future_job {
+        if new_mining_job.is_future() {
             // assert job_id counter
             let job_ids = group_channel_job_dispatcher
                 .extended_id_to_job_id

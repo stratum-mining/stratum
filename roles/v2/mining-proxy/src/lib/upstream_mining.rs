@@ -1196,7 +1196,7 @@ impl
             ChannelKind::Extended(Some(factory)) => {
                 if let Ok(messages) = factory.on_new_extended_mining_job(m.clone().as_static()) {
                     let mut new_p_hash_added = false;
-                    let is_future = m.future_job;
+                    let is_future = m.is_future();
                     let original_job_id = m.job_id;
                     if is_future {
                         self.job_up_to_down_ids.insert(original_job_id, vec![]);
