@@ -1,8 +1,9 @@
-use crate::{Configuration, EitherFrame, StdFrame};
+use crate::{error::PoolError, Configuration, EitherFrame, StdFrame};
 use async_channel::{Receiver, Sender};
 use binary_sv2::B0255;
 use bitcoin::consensus::Encodable;
 use codec_sv2::{Frame, HandshakeRole, Responder};
+use error_handling::handle_result;
 use network_helpers::noise_connection_tokio::Connection;
 use roles_logic_sv2::{
     common_messages_sv2::SetupConnectionSuccess,
@@ -49,13 +50,17 @@ impl JobNegotiatorDownstream {
         sender.send(sv2_frame.into()).await.map_err(|_| ())?;
         Ok(())
     }
-    pub fn start(self_mutex: Arc<Mutex<Self>>) {
+    pub fn start(self_mutex: Arc<Mutex<Self>>, tx_status: crate::status::Sender) {
         let recv = self_mutex.safe_lock(|s| s.receiver.clone()).unwrap();
         tokio::spawn(async move {
             loop {
                 if let Ok(message) = recv.recv().await {
-                    let mut frame: StdFrame = message.try_into().unwrap();
-                    let message_type = frame.get_header().unwrap().msg_type();
+                    let mut frame: StdFrame = handle_result!(tx_status, message.try_into());
+                    let header = frame
+                        .get_header()
+                        .ok_or_else(|| PoolError::Custom(String::from("No header set")));
+                    let header = handle_result!(tx_status, header);
+                    let message_type = header.msg_type();
                     let payload = frame.payload();
                     let next_message_to_send =
                         ParseClientJobNegotiationMessages::handle_message_job_negotiation(
@@ -118,14 +123,18 @@ pub struct JobNegotiator {
 }
 
 impl JobNegotiator {
-    pub async fn start(config: Configuration) {
+    pub async fn start(config: Configuration, status_tx: crate::status::Sender) {
         let self_ = Arc::new(Mutex::new(Self {
             downstreams: Vec::new(),
         }));
         info!("JN INITIALIZED");
-        Self::accept_incoming_connection(self_, config).await;
+        Self::accept_incoming_connection(self_, config, status_tx).await;
     }
-    async fn accept_incoming_connection(self_: Arc<Mutex<JobNegotiator>>, config: Configuration) {
+    async fn accept_incoming_connection(
+        self_: Arc<Mutex<JobNegotiator>>,
+        config: Configuration,
+        status_tx: crate::status::Sender,
+    ) {
         let listner = TcpListener::bind(&config.listen_jn_address).await.unwrap();
         while let Ok((stream, _)) = listner.accept().await {
             let responder = Responder::from_authority_kp(
@@ -167,7 +176,7 @@ impl JobNegotiator {
                 .safe_lock(|job_negotiator| job_negotiator.downstreams.push(jndownstream.clone()))
                 .unwrap();
 
-            JobNegotiatorDownstream::start(jndownstream);
+            JobNegotiatorDownstream::start(jndownstream, status_tx.clone());
         }
     }
 }

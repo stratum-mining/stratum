@@ -97,7 +97,7 @@ impl TemplateRx {
             );
             let message_type_res = message_from_tp
                 .get_header()
-                .ok_or_else(|| PoolError::Framing(String::from("No header set")));
+                .ok_or_else(|| PoolError::Custom(String::from("No header set")));
             let message_type = handle_result!(status_tx, message_type_res).msg_type();
             let payload = message_from_tp.payload();
             let msg = handle_result!(

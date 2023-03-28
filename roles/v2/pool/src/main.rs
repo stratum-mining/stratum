@@ -206,7 +206,8 @@ async fn main() {
     }
 
     let cloned = config.clone();
-    task::spawn(async move { JobNegotiator::start(cloned).await });
+    let sender = status::Sender::Downstream(status_tx.clone());
+    task::spawn(async move { JobNegotiator::start(cloned, sender).await });
 
     Pool::start(
         config.clone(),

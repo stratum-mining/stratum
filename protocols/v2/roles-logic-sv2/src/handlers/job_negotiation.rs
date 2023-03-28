@@ -31,7 +31,7 @@ where
     /// When upstream send AllocateMiningJobTokenSuccess self should use the received token to
     /// negotiate the next job
     ///
-    /// "[`job_negotiation_sv2::AllocateMiningJobToken`]" 
+    /// "[`job_negotiation_sv2::AllocateMiningJobToken`]"
     fn handle_allocate_mining_job_sucess(
         &mut self,
         message: AllocateMiningJobTokenSuccess,
