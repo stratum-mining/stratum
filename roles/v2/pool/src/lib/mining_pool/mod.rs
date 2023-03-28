@@ -1,15 +1,11 @@
-use codec_sv2::{HandshakeRole, Responder};
-use network_helpers::noise_connection_tokio::Connection;
-use tokio::{net::TcpListener, task};
-
 use crate::{
     error::{PoolError, PoolResult},
     status, Configuration, EitherFrame, StdFrame,
 };
 use async_channel::{Receiver, Sender};
-use bitcoin::{Script, TxOut};
-use codec_sv2::Frame;
+use codec_sv2::{Frame, HandshakeRole, Responder};
 use error_handling::handle_result;
+use network_helpers::noise_connection_tokio::Connection;
 use roles_logic_sv2::{
     channel_logic::channel_factory::PoolChannelFactory,
     common_properties::{CommonDownstreamData, IsDownstream, IsMiningDownstream},
@@ -23,6 +19,7 @@ use roles_logic_sv2::{
     utils::Mutex,
 };
 use std::{collections::HashMap, convert::TryInto, net::SocketAddr, sync::Arc};
+use tokio::{net::TcpListener, task};
 use tracing::{debug, error, info};
 
 pub mod setup_connection;
@@ -135,7 +132,7 @@ impl Downstream {
     pub async fn next(self_mutex: Arc<Mutex<Self>>, mut incoming: StdFrame) -> PoolResult<()> {
         let message_type = incoming
             .get_header()
-            .ok_or_else(|| PoolError::Framing(String::from("No header set")))?
+            .ok_or_else(|| PoolError::Custom(String::from("No header set")))?
             .msg_type();
         let payload = incoming.payload();
         debug!(
@@ -416,17 +413,7 @@ impl Pool {
             end: extranonce_len,
         };
         let ids = Arc::new(Mutex::new(roles_logic_sv2::utils::GroupId::new()));
-        let pool_coinbase_outputs = config
-            .coinbase_outputs
-            .iter()
-            .map(|pub_key_wrapper| {
-                TxOut {
-                    // value will be updated by the addition of `ChannelFactory::split_outputs()` in PR #422
-                    value: crate::BLOCK_REWARD,
-                    script_pubkey: Script::new_p2pk(&pub_key_wrapper.pub_key),
-                }
-            })
-            .collect();
+        let pool_coinbase_outputs = crate::get_coinbase_output(&config);
         info!("PUB KEY: {:?}", pool_coinbase_outputs);
         let extranonces = ExtendedExtranonce::new(range_0, range_1, range_2);
         let creator = JobsCreators::new(extranonce_len as u8);

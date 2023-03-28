@@ -163,10 +163,21 @@ fn new_extended_job(
         extranonce_len,
     );
 
+    let min_ntime = match new_template.future_template {
+        true => binary_sv2::Sv2Option::new(None),
+        false => {
+            let now = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs() as u32;
+            binary_sv2::Sv2Option::new(Some(now))
+        }
+    };
+
     let new_extended_mining_job: NewExtendedMiningJob<'static> = NewExtendedMiningJob {
         channel_id: 0,
         job_id,
-        future_job: new_template.future_template,
+        min_ntime,
         version: new_template.version,
         version_rolling_allowed,
         merkle_path: new_template.merkle_path.clone().into_static(),
@@ -315,7 +326,7 @@ pub fn extended_job_to_non_segwit(
     Ok(NewExtendedMiningJob {
         channel_id: job.channel_id,
         job_id: job.job_id,
-        future_job: job.future_job,
+        min_ntime: job.min_ntime,
         version: job.version,
         version_rolling_allowed: job.version_rolling_allowed,
         merkle_path: job.merkle_path,

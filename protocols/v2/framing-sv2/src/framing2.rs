@@ -300,6 +300,7 @@ impl<'a> Frame<'a, Slice> for NoiseFrame {
             let payload = [&header.to_le_bytes()[..], &message[..]].concat();
             Some(Self {
                 header,
+                #[allow(clippy::useless_conversion)]
                 payload: payload.into(),
             })
         } else {

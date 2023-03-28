@@ -55,7 +55,7 @@ impl SetupConnectionHandler {
 
         let message_type = incoming
             .get_header()
-            .ok_or_else(|| PoolError::Framing(String::from("No header set")))?
+            .ok_or_else(|| PoolError::Custom(String::from("No header set")))?
             .msg_type();
         let payload = incoming.payload();
         let response = ParseDownstreamCommonMessages::handle_message_common(

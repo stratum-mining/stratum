@@ -13,9 +13,10 @@ pub enum PoolError {
     Codec(codec_sv2::Error),
     Noise(noise_sv2::Error),
     RolesLogic(roles_logic_sv2::Error),
-    Framing(String),
+    Framing(codec_sv2::framing_sv2::Error),
     PoisonLock(String),
     ComponentShutdown(String),
+    Custom(String),
 }
 
 impl std::fmt::Display for PoolError {
@@ -32,6 +33,7 @@ impl std::fmt::Display for PoolError {
             RolesLogic(ref e) => write!(f, "Roles Logic SV2 error: `{:?}`", e),
             PoisonLock(ref e) => write!(f, "Poison lock: {:?}", e),
             ComponentShutdown(ref e) => write!(f, "Component shutdown: {:?}", e),
+            Custom(ref e) => write!(f, "Custom SV2 error: `{:?}`", e),
         }
     }
 }
@@ -82,6 +84,11 @@ impl<T: 'static + std::marker::Send + Debug> From<async_channel::SendError<T>> f
 
 impl From<String> for PoolError {
     fn from(e: String) -> PoolError {
+        PoolError::Custom(e)
+    }
+}
+impl From<codec_sv2::framing_sv2::Error> for PoolError {
+    fn from(e: codec_sv2::framing_sv2::Error) -> PoolError {
         PoolError::Framing(e)
     }
 }

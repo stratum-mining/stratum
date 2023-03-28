@@ -1,6 +1,8 @@
 use crate::{
     codec::GetSize,
-    datatypes::{Signature, Sv2DataType, U32AsRef, B016M, B0255, B032, B064K, U24, U256},
+    datatypes::{
+        ShortTxId, Signature, Sv2DataType, U32AsRef, B016M, B0255, B032, B064K, U24, U256,
+    },
     Error,
 };
 use alloc::vec::Vec;
@@ -40,6 +42,7 @@ pub enum EncodablePrimitive<'a> {
     Bool(bool),
     U24(U24),
     U256(U256<'a>),
+    ShortTxId(ShortTxId<'a>),
     Signature(Signature<'a>),
     U32(u32),
     U32AsRef(U32AsRef<'a>),
@@ -60,6 +63,7 @@ impl<'a> EncodablePrimitive<'a> {
             Self::Bool(v) => v.to_slice(dst),
             Self::U24(v) => v.to_slice(dst),
             Self::U256(v) => v.to_slice(dst),
+            Self::ShortTxId(v) => v.to_slice(dst),
             Self::Signature(v) => v.to_slice(dst),
             Self::U32(v) => v.to_slice(dst),
             Self::U32AsRef(v) => v.to_slice(dst),
@@ -81,6 +85,7 @@ impl<'a> EncodablePrimitive<'a> {
             Self::Bool(v) => v.to_writer_(writer),
             Self::U24(v) => v.to_writer_(writer),
             Self::U256(v) => v.to_writer_(writer),
+            Self::ShortTxId(v) => v.to_writer_(writer),
             Self::Signature(v) => v.to_writer_(writer),
             Self::U32(v) => v.to_writer_(writer),
             Self::U32AsRef(v) => v.to_writer_(writer),
@@ -103,6 +108,7 @@ impl<'a> GetSize for EncodablePrimitive<'a> {
             Self::Bool(v) => v.get_size(),
             Self::U24(v) => v.get_size(),
             Self::U256(v) => v.get_size(),
+            Self::ShortTxId(v) => v.get_size(),
             Self::Signature(v) => v.get_size(),
             Self::U32(v) => v.get_size(),
             Self::U32AsRef(v) => v.get_size(),

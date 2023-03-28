@@ -110,7 +110,7 @@
                 },
                 {
                     "type": "match_message_type",
-                    "value": "0x1e"
+                    "value": "0x15"
                 },
                 {
                     "type": "match_message_type",
