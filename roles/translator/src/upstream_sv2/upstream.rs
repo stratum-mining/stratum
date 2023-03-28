@@ -777,12 +777,11 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
         &mut self,
         m: roles_logic_sv2::mining_sv2::NewExtendedMiningJob,
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, RolesLogicError> {
-        IS_NEW_JOB_HANDLED.store(false, std::sync::atomic::Ordering::SeqCst);
-
         info!("Is future job: {}\n", &m.is_future());
         if self.is_work_selection_enabled() {
             Ok(SendTo::None(None))
         } else {
+            IS_NEW_JOB_HANDLED.store(false, std::sync::atomic::Ordering::SeqCst);
             if !m.version_rolling_allowed {
                 warn!("VERSION ROLLING NOT ALLOWED IS A TODO");
                 // todo!()

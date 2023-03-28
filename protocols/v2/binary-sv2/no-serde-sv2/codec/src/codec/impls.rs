@@ -52,6 +52,11 @@ impl<'a> GetMarker for U256<'a> {
         FieldMarker::Primitive(PrimitiveMarker::U256)
     }
 }
+impl<'a> GetMarker for ShortTxId<'a> {
+    fn get_marker() -> FieldMarker {
+        FieldMarker::Primitive(PrimitiveMarker::ShortTxId)
+    }
+}
 impl<'a> GetMarker for Signature<'a> {
     fn get_marker() -> FieldMarker {
         FieldMarker::Primitive(PrimitiveMarker::Signature)
@@ -151,6 +156,15 @@ impl<'a> Decodable<'a> for U24 {
 impl<'a> Decodable<'a> for U256<'a> {
     fn get_structure(_: &[u8]) -> Result<Vec<FieldMarker>, Error> {
         Ok(vec![PrimitiveMarker::U256.into()])
+    }
+
+    fn from_decoded_fields(mut data: Vec<DecodableField<'a>>) -> Result<Self, Error> {
+        data.pop().ok_or(Error::NoDecodableFieldPassed)?.try_into()
+    }
+}
+impl<'a> Decodable<'a> for ShortTxId<'a> {
+    fn get_structure(_: &[u8]) -> Result<Vec<FieldMarker>, Error> {
+        Ok(vec![PrimitiveMarker::ShortTxId.into()])
     }
 
     fn from_decoded_fields(mut data: Vec<DecodableField<'a>>) -> Result<Self, Error> {
@@ -296,6 +310,16 @@ impl<'a> TryFrom<DecodablePrimitive<'a>> for U256<'a> {
         }
     }
 }
+impl<'a> TryFrom<DecodablePrimitive<'a>> for ShortTxId<'a> {
+    type Error = Error;
+
+    fn try_from(value: DecodablePrimitive<'a>) -> Result<Self, Self::Error> {
+        match value {
+            DecodablePrimitive::ShortTxId(val) => Ok(val),
+            _ => Err(Error::PrimitiveConversionError),
+        }
+    }
+}
 impl<'a> TryFrom<DecodablePrimitive<'a>> for Signature<'a> {
     type Error = Error;
 
@@ -430,6 +454,16 @@ impl<'a> TryFrom<DecodableField<'a>> for U24 {
     }
 }
 impl<'a> TryFrom<DecodableField<'a>> for U256<'a> {
+    type Error = Error;
+
+    fn try_from(value: DecodableField<'a>) -> Result<Self, Self::Error> {
+        match value {
+            DecodableField::Primitive(p) => p.try_into(),
+            _ => Err(Error::DecodableConversionError),
+        }
+    }
+}
+impl<'a> TryFrom<DecodableField<'a>> for ShortTxId<'a> {
     type Error = Error;
 
     fn try_from(value: DecodableField<'a>) -> Result<Self, Self::Error> {
@@ -622,6 +656,21 @@ impl<'a> TryFrom<EncodableField<'a>> for U256<'a> {
         }
     }
 }
+impl<'a> From<ShortTxId<'a>> for EncodableField<'a> {
+    fn from(v: ShortTxId<'a>) -> Self {
+        EncodableField::Primitive(EncodablePrimitive::ShortTxId(v))
+    }
+}
+impl<'a> TryFrom<EncodableField<'a>> for ShortTxId<'a> {
+    type Error = Error;
+
+    fn try_from(value: EncodableField<'a>) -> Result<Self, Self::Error> {
+        match value {
+            EncodableField::Primitive(EncodablePrimitive::ShortTxId(v)) => Ok(v),
+            _ => Err(Error::NonPrimitiveTypeCannotBeEncoded),
+        }
+    }
+}
 impl<'a> From<Signature<'a>> for EncodableField<'a> {
     fn from(v: Signature<'a>) -> Self {
         EncodableField::Primitive(EncodablePrimitive::Signature(v))
@@ -758,6 +807,11 @@ impl From<U24> for FieldMarker {
 impl<'a> From<Inner<'a, true, 32, 0, 0>> for FieldMarker {
     fn from(_: Inner<'a, true, 32, 0, 0>) -> Self {
         FieldMarker::Primitive(PrimitiveMarker::U256)
+    }
+}
+impl<'a> From<Inner<'a, true, 6, 0, 0>> for FieldMarker {
+    fn from(_: Inner<'a, true, 6, 0, 0>) -> Self {
+        FieldMarker::Primitive(PrimitiveMarker::ShortTxId)
     }
 }
 

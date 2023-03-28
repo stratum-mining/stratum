@@ -25,6 +25,7 @@ use bitcoin::{
 use tracing::{debug, error};
 
 /// A stripped type of `SetCustomMiningJob` without the (`channel_id, `request_id` and `token`) fields
+#[derive(Debug)]
 pub struct PartialSetCustomMiningJob {
     pub version: u32,
     pub prev_hash: binary_sv2::U256<'static>,
@@ -1172,7 +1173,7 @@ impl ProxyExtendedChannelFactory {
     pub fn on_new_prev_hash_from_tp(
         &mut self,
         m: &SetNewPrevHashFromTp<'static>,
-    ) -> Result<Option<PartialSetCustomMiningJob>, Error> {
+    ) -> Result<Option<(PartialSetCustomMiningJob, u32)>, Error> {
         if let Some(job_creator) = self.job_creator.as_mut() {
             let job_id = job_creator.on_new_prev_hash(m).unwrap_or(0);
             let new_prev_hash = StagedPhash {
@@ -1183,21 +1184,24 @@ impl ProxyExtendedChannelFactory {
             };
             let mut custom_job = None;
             if let Some(template) = self.inner.future_templates.get(&job_id) {
-                custom_job = Some(PartialSetCustomMiningJob {
-                    version: template.version,
-                    prev_hash: new_prev_hash.prev_hash.clone(),
-                    min_ntime: new_prev_hash.min_ntime,
-                    nbits: new_prev_hash.nbits,
-                    coinbase_tx_version: template.coinbase_tx_version,
-                    coinbase_prefix: template.coinbase_prefix.clone(),
-                    coinbase_tx_input_n_sequence: template.coinbase_tx_input_sequence,
-                    coinbase_tx_value_remaining: template.coinbase_tx_value_remaining,
-                    coinbase_tx_outputs: template.coinbase_tx_outputs.clone(),
-                    coinbase_tx_locktime: template.coinbase_tx_locktime,
-                    merkle_path: template.merkle_path.clone(),
-                    extranonce_size: self.inner.extranonces.get_len() as u16,
-                    future_job: template.future_template,
-                });
+                custom_job = Some((
+                    PartialSetCustomMiningJob {
+                        version: template.version,
+                        prev_hash: new_prev_hash.prev_hash.clone(),
+                        min_ntime: new_prev_hash.min_ntime,
+                        nbits: new_prev_hash.nbits,
+                        coinbase_tx_version: template.coinbase_tx_version,
+                        coinbase_prefix: template.coinbase_prefix.clone(),
+                        coinbase_tx_input_n_sequence: template.coinbase_tx_input_sequence,
+                        coinbase_tx_value_remaining: template.coinbase_tx_value_remaining,
+                        coinbase_tx_outputs: template.coinbase_tx_outputs.clone(),
+                        coinbase_tx_locktime: template.coinbase_tx_locktime,
+                        merkle_path: template.merkle_path.clone(),
+                        extranonce_size: self.inner.extranonces.get_len() as u16,
+                        future_job: template.future_template,
+                    },
+                    job_id,
+                ));
             }
             self.inner.future_templates = HashMap::new();
             self.inner.on_new_prev_hash(new_prev_hash)?;
@@ -1399,7 +1403,8 @@ impl ProxyExtendedChannelFactory {
     pub fn channel_extranonce2_size(&self) -> usize {
         self.inner.extranonces.get_len() - self.inner.extranonces.get_range0_len()
     }
-    /// Only used when the proxy is using Job Negotiation
+
+    // Only used when the proxy is using Job Negotiation
     pub fn update_pool_outputs(&mut self, outs: Vec<TxOut>) {
         self.pool_coinbase_outputs = Some(outs);
     }

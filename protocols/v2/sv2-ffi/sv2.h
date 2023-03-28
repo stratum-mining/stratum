@@ -52,7 +52,13 @@ static const uint8_t MESSAGE_TYPE_REQUEST_TRANSACTION_DATA_ERROR = 117;
 
 static const uint8_t MESSAGE_TYPE_SUBMIT_SOLUTION = 118;
 
-static const uint8_t MESSAGE_TYPE_SET_COINBASE = 80;
+static const uint8_t MESSAGE_TYPE_ALLOCATE_MINING_TOKEN = 80;
+
+static const uint8_t MESSAGE_TYPE_ALLOCATE_MINING_TOKEN_SUCCESS = 81;
+
+static const uint8_t MESSAGE_TYPE_COMMIT_MINING_JOB = 87;
+
+static const uint8_t MESSAGE_TYPE_COMMIT_MINING_JOB_SUCCESS = 88;
 
 static const uint8_t MESSAGE_TYPE_CLOSE_CHANNEL = 24;
 
@@ -122,7 +128,13 @@ static const bool CHANNEL_BIT_REQUEST_TRANSACTION_DATA_ERROR = false;
 
 static const bool CHANNEL_BIT_SUBMIT_SOLUTION = false;
 
-static const bool CHANNEL_BIT_SET_COINBASE = false;
+static const bool CHANNEL_BIT_ALLOCATE_MINING_TOKEN = false;
+
+static const bool CHANNEL_BIT_ALLOCATE_MINING_TOKEN_SUCCESS = false;
+
+static const bool CHANNEL_BIT_COMMIT_MINING_JOB = false;
+
+static const bool CHANNEL_BIT_COMMIT_MINING_JOB_SUCCESS = false;
 
 static const bool CHANNEL_BIT_CLOSE_CHANNEL = true;
 

@@ -190,15 +190,15 @@ pub struct UpstreamMiningNode {
     downstream_selector: ProxyRemoteSelector,
     pub channel_kind: ChannelKind,
     group_id: Arc<Mutex<GroupId>>,
-    recv_tp: Option<Receiver<(NewTemplate<'static>, u64)>>,
-    recv_ph: Option<Receiver<(SetNewPrevHashTemplate<'static>, u64)>>,
+    recv_tp: Option<Receiver<(NewTemplate<'static>, Vec<u8>)>>,
+    recv_ph: Option<Receiver<(SetNewPrevHashTemplate<'static>, Vec<u8>)>>,
     request_ids: Arc<Mutex<Id>>,
     pub channel_ids: Arc<Mutex<Id>>,
     downstream_share_per_minute: f32,
     pub solution_sender: Option<Sender<SubmitSolution<'static>>>,
-    pub recv_coinbase_out: Option<Receiver<(Vec<TxOut>, u64)>>,
+    pub recv_coinbase_out: Option<Receiver<(Vec<TxOut>, Vec<u8>)>>,
     #[allow(dead_code)]
-    tx_outs: HashMap<u64, Vec<TxOut>>,
+    tx_outs: HashMap<Vec<u8>, Vec<TxOut>>,
     first_ph_received: bool,
     // When a future job is received from an extended channel this is transformed to severla std
     // job for HOM downstream. If the job is future we need to keep track of the original job id and
@@ -223,13 +223,13 @@ impl UpstreamMiningNode {
         authority_public_key: [u8; 32],
         channel_kind: crate::ChannelKind,
         group_id: Arc<Mutex<GroupId>>,
-        recv_tp: Option<Receiver<(NewTemplate<'static>, u64)>>,
-        recv_ph: Option<Receiver<(SetNewPrevHashTemplate<'static>, u64)>>,
+        recv_tp: Option<Receiver<(NewTemplate<'static>, Vec<u8>)>>,
+        recv_ph: Option<Receiver<(SetNewPrevHashTemplate<'static>, Vec<u8>)>>,
         request_ids: Arc<Mutex<Id>>,
         channel_ids: Arc<Mutex<Id>>,
         downstream_share_per_minute: f32,
         solution_sender: Option<Sender<SubmitSolution<'static>>>,
-        recv_coinbase_out: Option<Receiver<(Vec<TxOut>, u64)>>,
+        recv_coinbase_out: Option<Receiver<(Vec<TxOut>, Vec<u8>)>>,
     ) -> Self {
         let request_id_mapper = RequestIdMapper::new();
         let downstream_selector = ProxyRemoteSelector::new();
@@ -300,7 +300,7 @@ impl UpstreamMiningNode {
                 tokio::task::yield_now().await;
             }
             loop {
-                let (mut message_new_template, token): (NewTemplate, u64) =
+                let (mut message_new_template, token): (NewTemplate, Vec<u8>) =
                     new_template_reciver.recv().await.unwrap();
                 let (channel_id_to_new_job_msg, custom_job) = self_mutex
                     .safe_lock(|a| {
@@ -331,7 +331,9 @@ impl UpstreamMiningNode {
                             merkle_path: custom_job.merkle_path,
                             extranonce_size: custom_job.extranonce_size,
                             future_job: message_new_template.future_template,
-                            token,
+                            // token come from a valid Sv2 message so it can always be serialized safe
+                            // unwrap
+                            token: token.try_into().unwrap(),
                         }));
                     Self::send(self_mutex.clone(), custom_mining_job.try_into().unwrap())
                         .await
@@ -373,7 +375,7 @@ impl UpstreamMiningNode {
                     .safe_lock(|s| s.first_ph_received = true)
                     .unwrap();
 
-                if let Ok(Some(custom_job)) = custom {
+                if let Ok(Some((custom_job, _job_id))) = custom {
                     let req_id = self_mutex
                         .safe_lock(|s| s.request_ids.safe_lock(|r| r.next()).unwrap())
                         .unwrap();
@@ -394,7 +396,9 @@ impl UpstreamMiningNode {
                             merkle_path: custom_job.merkle_path,
                             extranonce_size: custom_job.extranonce_size,
                             future_job: false,
-                            token,
+                            // token come from a valid Sv2 message so it can always be serialized safe
+                            // unwrap
+                            token: token.try_into().unwrap(),
                         }));
                     Self::send(self_mutex.clone(), custom_mining_job.try_into().unwrap())
                         .await

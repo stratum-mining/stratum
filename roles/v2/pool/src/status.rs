@@ -108,6 +108,7 @@ pub async fn handle_error(
         PoolError::RolesLogic(_) => {
             send_status(sender, e, error_handling::ErrorBranch::Break).await
         }
+        PoolError::Custom(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
         PoolError::Framing(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
         PoolError::PoisonLock(_) => {
             send_status(sender, e, error_handling::ErrorBranch::Break).await
