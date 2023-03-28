@@ -93,9 +93,6 @@ pub async fn handle_error(sender: &Sender, e: PoolError) -> error_handling::Erro
     tracing::debug!("Error: {:?}", &e);
     match e {
         PoolError::Io(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
-        PoolError::InvalidExtranonce(_) => {
-            send_status(sender, e, error_handling::ErrorBranch::Break).await
-        }
         PoolError::ChannelSend(_) => {
             send_status(sender, e, error_handling::ErrorBranch::Break).await
         }
