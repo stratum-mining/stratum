@@ -1,6 +1,5 @@
 #![allow(special_module_name)]
 use async_channel::{bounded, unbounded};
-use bitcoin::consensus::Decodable;
 use codec_sv2::{
     noise_sv2::formats::{EncodedEd25519PublicKey, EncodedEd25519SecretKey},
     StandardEitherFrame, StandardSv2Frame,
