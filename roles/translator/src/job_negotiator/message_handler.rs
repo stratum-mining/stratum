@@ -1,27 +1,26 @@
 use crate::job_negotiator::JobNegotiator;
 use roles_logic_sv2::{
     handlers::{job_negotiation::ParseServerJobNegotiationMessages, SendTo_},
-    job_negotiation_sv2::SetCoinbase,
     parsers::JobNegotiation,
 };
-use tracing::info;
 pub type SendTo = SendTo_<JobNegotiation<'static>, ()>;
-use core::convert::TryInto;
-use roles_logic_sv2::{bitcoin::TxOut, errors::Error};
+use roles_logic_sv2::errors::Error;
 
 impl ParseServerJobNegotiationMessages for JobNegotiator {
-    fn handle_set_coinbase(&mut self, message: SetCoinbase) -> Result<SendTo, Error> {
-        info!(
-            "Received allocate mining job token success message: {:?}",
-            message
-        );
-        let txout = TxOut {
-            value: self.coinbase_reward_sat,
-            script_pubkey: message.coinbase_tx_suffix.to_vec().try_into().unwrap(),
-        };
-        self.last_coinbase_out = Some(vec![txout]);
-        Ok(SendTo::None(Some(JobNegotiation::SetCoinbase(
-            message.into_static(),
-        ))))
+    fn handle_allocate_mining_job_sucess(
+        &mut self,
+        message: roles_logic_sv2::job_negotiation_sv2::AllocateMiningJobTokenSuccess,
+    ) -> Result<roles_logic_sv2::handlers::job_negotiation::SendTo, Error> {
+        Ok(SendTo::None(Some(
+            JobNegotiation::AllocateMiningJobTokenSuccess(message.into_static()),
+        )))
+    }
+
+    // We assume that server send success so we are already working on that job, notthing to do.
+    fn handle_commit_mining_job_success(
+        &mut self,
+        _message: roles_logic_sv2::job_negotiation_sv2::CommitMiningJobSuccess,
+    ) -> Result<roles_logic_sv2::handlers::job_negotiation::SendTo, Error> {
+        Ok(SendTo::None(None))
     }
 }

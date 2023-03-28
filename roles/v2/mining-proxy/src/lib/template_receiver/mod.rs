@@ -25,16 +25,16 @@ use setup_connection::SetupConnectionHandler;
 pub struct TemplateRx {
     receiver: Receiver<EitherFrame>,
     sender: Sender<EitherFrame>,
-    send_new_tp_to_negotiator: Sender<(NewTemplate<'static>, u64)>,
-    send_new_ph_to_negotiator: Sender<(SetNewPrevHash<'static>, u64)>,
+    send_new_tp: Sender<(NewTemplate<'static>, Vec<u8>)>,
+    send_new_ph: Sender<(SetNewPrevHash<'static>, Vec<u8>)>,
 }
 
 impl TemplateRx {
     pub async fn connect(
         address: SocketAddr,
-        send_new_tp_to_negotiator: Sender<(NewTemplate<'static>, u64)>,
-        send_new_ph_to_negotiator: Sender<(SetNewPrevHash<'static>, u64)>,
-        receive_coinbase_output_max_additional_size: Receiver<(CoinbaseOutputDataSize, u64)>,
+        send_new_tp: Sender<(NewTemplate<'static>, Vec<u8>)>,
+        send_new_ph: Sender<(SetNewPrevHash<'static>, Vec<u8>)>,
+        receive_coinbase_output_max_additional_size: Receiver<(CoinbaseOutputDataSize, Vec<u8>)>,
         solution_receiver: Receiver<SubmitSolution<'static>>,
     ) {
         let stream = TcpStream::connect(address).await.unwrap();
@@ -55,8 +55,8 @@ impl TemplateRx {
         let self_mutex = Arc::new(Mutex::new(Self {
             receiver: receiver.clone(),
             sender: sender.clone(),
-            send_new_tp_to_negotiator,
-            send_new_ph_to_negotiator,
+            send_new_tp,
+            send_new_ph,
         }));
 
         let sv2_frame: StdFrame = PoolMessages::TemplateDistribution(
@@ -69,7 +69,7 @@ impl TemplateRx {
         Self::send(self_mutex.clone(), sv2_frame).await;
         let cloned = self_mutex.clone();
 
-        tokio::task::spawn(Self::on_new_solution(cloned, solution_receiver));
+        tokio::task::spawn(async { Self::on_new_solution(cloned, solution_receiver).await });
         Self::start_templates(self_mutex, token);
     }
 
@@ -82,7 +82,7 @@ impl TemplateRx {
         }
     }
 
-    pub fn start_templates(self_mutex: Arc<Mutex<Self>>, token: u64) {
+    pub fn start_templates(self_mutex: Arc<Mutex<Self>>, token: Vec<u8>) {
         tokio::task::spawn(async move {
             // Send CoinbaseOutputDataSize size to TP
             loop {
@@ -106,10 +106,8 @@ impl TemplateRx {
                         Some(TemplateDistribution::NewTemplate(m)) => {
                             super::upstream_mining::IS_NEW_TEMPLATE_HANDLED
                                 .store(false, std::sync::atomic::Ordering::SeqCst);
-                            let sender = self_mutex
-                                .safe_lock(|s| s.send_new_tp_to_negotiator.clone())
-                                .unwrap();
-                            sender.send((m, token)).await.unwrap();
+                            let sender = self_mutex.safe_lock(|s| s.send_new_tp.clone()).unwrap();
+                            sender.send((m, token.clone())).await.unwrap();
                         }
                         Some(TemplateDistribution::SetNewPrevHash(m)) => {
                             while !super::upstream_mining::IS_NEW_TEMPLATE_HANDLED
@@ -117,10 +115,8 @@ impl TemplateRx {
                             {
                                 tokio::task::yield_now().await;
                             }
-                            let sender = self_mutex
-                                .safe_lock(|s| s.send_new_ph_to_negotiator.clone())
-                                .unwrap();
-                            sender.send((m, token)).await.unwrap();
+                            let sender = self_mutex.safe_lock(|s| s.send_new_ph.clone()).unwrap();
+                            sender.send((m, token.clone())).await.unwrap();
                         }
                         _ => todo!(),
                     },

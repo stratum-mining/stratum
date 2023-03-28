@@ -27,8 +27,8 @@ use tracing::info;
 pub struct TemplateRx {
     receiver: Receiver<EitherFrame>,
     sender: Sender<EitherFrame>,
-    send_new_tp_to_negotiator: Sender<(NewTemplate<'static>, u64)>,
-    send_new_ph_to_negotiator: Sender<(SetNewPrevHash<'static>, u64)>,
+    send_new_tp: Sender<(NewTemplate<'static>, Vec<u8>)>,
+    send_new_ph: Sender<(SetNewPrevHash<'static>, Vec<u8>)>,
     /// Allows the tp recv to communicate back to the main thread any status updates
     /// that would interest the main thread for error handling
     tx_status: status::Sender,
@@ -37,9 +37,9 @@ pub struct TemplateRx {
 impl TemplateRx {
     pub async fn connect(
         address: SocketAddr,
-        send_new_tp_to_negotiator: Sender<(NewTemplate<'static>, u64)>,
-        send_new_ph_to_negotiator: Sender<(SetNewPrevHash<'static>, u64)>,
-        receive_coinbase_output_max_additional_size: Receiver<(CoinbaseOutputDataSize, u64)>,
+        send_new_tp: Sender<(NewTemplate<'static>, Vec<u8>)>,
+        send_new_ph: Sender<(SetNewPrevHash<'static>, Vec<u8>)>,
+        receive_coinbase_output_max_additional_size: Receiver<(CoinbaseOutputDataSize, Vec<u8>)>,
         solution_receiver: Receiver<SubmitSolution<'static>>,
         tx_status: status::Sender,
     ) {
@@ -63,8 +63,8 @@ impl TemplateRx {
         let self_mutex = Arc::new(Mutex::new(Self {
             receiver: receiver.clone(),
             sender: sender.clone(),
-            send_new_tp_to_negotiator,
-            send_new_ph_to_negotiator,
+            send_new_tp,
+            send_new_ph,
             tx_status,
         }));
 
@@ -91,7 +91,7 @@ impl TemplateRx {
         }
     }
 
-    pub fn start_templates(self_mutex: Arc<Mutex<Self>>, token: u64) {
+    pub fn start_templates(self_mutex: Arc<Mutex<Self>>, token: Vec<u8>) {
         let tx_status = self_mutex.safe_lock(|s| s.tx_status.clone()).unwrap();
         tokio::task::spawn(async move {
             // Send CoinbaseOutputDataSize size to TP
@@ -118,9 +118,10 @@ impl TemplateRx {
                             crate::upstream_sv2::upstream::IS_NEW_TEMPLATE_HANDLED
                                 .store(false, std::sync::atomic::Ordering::SeqCst);
                             let sender = self_mutex
-                                .safe_lock(|s| s.send_new_tp_to_negotiator.clone())
-                                .unwrap();
-                            sender.send((m, token)).await.unwrap();
+                                .safe_lock(|s| s.send_new_tp.clone())
+                                .map_err(|_| PoisonLock);
+                            let sender = handle_result!(tx_status.clone(), sender);
+                            sender.send((m, token.clone())).await.unwrap();
                         }
                         Some(TemplateDistribution::SetNewPrevHash(m)) => {
                             info!("Received SetNewPrevHash, waiting for IS_NEW_TEMPLATE_HANDLED");
@@ -131,10 +132,13 @@ impl TemplateRx {
                             }
                             info!("IS_NEW_TEMPLATE_HANDLED ok");
                             let partial = self_mutex
-                                .safe_lock(|s| s.send_new_ph_to_negotiator.clone())
+                                .safe_lock(|s| s.send_new_ph.clone())
                                 .map_err(|_| PoisonLock);
                             let sender = handle_result!(tx_status.clone(), partial);
-                            handle_result!(tx_status.clone(), sender.send((m, token)).await);
+                            handle_result!(
+                                tx_status.clone(),
+                                sender.send((m, token.clone())).await
+                            );
                         }
                         _ => todo!(),
                     },

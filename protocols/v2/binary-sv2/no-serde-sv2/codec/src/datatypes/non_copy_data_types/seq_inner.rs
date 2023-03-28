@@ -62,18 +62,6 @@ impl<'a, T: 'a> Seq0255<'a, T> {
     pub fn into_inner(self) -> Vec<T> {
         self.0
     }
-
-    //pub fn try_from_slice(inner: &'a mut [T]) -> Result<Self, Error> {
-    //    if inner.len() <= 255 {
-    //        let inner_: Vec<T> = vec![];
-    //        for v in inner {
-    //            inner_.push(v);
-    //        }
-    //        Ok(Self(inner_, PhantomData))
-    //    } else {
-    //        Err(Error::SeqExceedsMaxSize)
-    //    }
-    //}
 }
 
 impl<'a, T: GetSize> GetSize for Seq0255<'a, T> {
@@ -199,6 +187,7 @@ macro_rules! impl_codec_for_sequence {
 
 impl_codec_for_sequence!(Seq0255<'a, T>);
 impl_codec_for_sequence!(Seq064K<'a, T>);
+impl_codec_for_sequence!(Sv2Option<'a, T>);
 
 macro_rules! impl_into_encodable_field_for_seq {
     ($a:ty) => {
@@ -234,6 +223,21 @@ macro_rules! impl_into_encodable_field_for_seq {
                 EncodableField::Struct(as_encodable)
             }
         }
+
+        impl<'a> From<Sv2Option<'a, $a>> for EncodableField<'a> {
+            fn from(v: Sv2Option<$a>) -> Self {
+                let inner_len = v.0.len() as u8;
+                let mut as_encodable: Vec<EncodableField> =
+                    Vec::with_capacity((inner_len + 1) as usize);
+                as_encodable.push(EncodableField::Primitive(EncodablePrimitive::OwnedU8(
+                    inner_len,
+                )));
+                for element in v.0 {
+                    as_encodable.push(element.into());
+                }
+                EncodableField::Struct(as_encodable)
+            }
+        }
     };
 }
 
@@ -244,6 +248,7 @@ impl_into_encodable_field_for_seq!(U24);
 impl_into_encodable_field_for_seq!(u32);
 impl_into_encodable_field_for_seq!(u64);
 impl_into_encodable_field_for_seq!(U256<'a>);
+impl_into_encodable_field_for_seq!(ShortTxId<'a>);
 impl_into_encodable_field_for_seq!(Signature<'a>);
 impl_into_encodable_field_for_seq!(B0255<'a>);
 impl_into_encodable_field_for_seq!(B064K<'a>);
@@ -291,6 +296,11 @@ impl<'a, T: Fixed> Seq0255<'a, T> {
         Seq0255::new(self.0).unwrap()
     }
 }
+impl<'a, T: Fixed> Sv2Option<'a, T> {
+    pub fn into_static(self) -> Sv2Option<'static, T> {
+        Sv2Option::new(self.into_inner())
+    }
+}
 
 impl<'a, const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize>
     Seq0255<'a, Inner<'a, ISFIXED, SIZE, HEADERSIZE, MAXSIZE>>
@@ -302,6 +312,18 @@ impl<'a, const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const 
         let static_seq = seq.into_iter().map(|x| x.into_static()).collect();
         // Safe unwrap cause the initial value is a valid Seq0255
         Seq0255::new(static_seq).unwrap()
+    }
+}
+
+impl<'a, const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const MAXSIZE: usize>
+    Sv2Option<'a, Inner<'a, ISFIXED, SIZE, HEADERSIZE, MAXSIZE>>
+{
+    pub fn into_static(
+        self,
+    ) -> Sv2Option<'static, Inner<'static, ISFIXED, SIZE, HEADERSIZE, MAXSIZE>> {
+        let inner = self.into_inner();
+        let static_inner = inner.map(|x| x.into_static());
+        Sv2Option::new(static_inner)
     }
 }
 
@@ -322,5 +344,77 @@ impl<'a, const ISFIXED: bool, const SIZE: usize, const HEADERSIZE: usize, const 
         let static_seq = seq.into_iter().map(|x| x.into_static()).collect();
         // Safe unwrap cause the initial value is a valid Seq064K
         Seq064K::new(static_seq).unwrap()
+    }
+}
+
+/// The liftime is here only for type compatibility with serde-sv2
+#[repr(C)]
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct Sv2Option<'a, T>(pub Vec<T>, PhantomData<&'a T>);
+
+// TODO add test for that and implement it also with serde!!!!
+impl<'a, const SIZE: usize> Sv2Option<'a, super::inner::Inner<'a, true, SIZE, 0, 0>> {
+    pub fn to_option(&self) -> Option<Vec<u8>> {
+        let v: Vec<Vec<u8>> = self.0.iter().map(|x| x.to_vec()).collect();
+        match v.len() {
+            0 => None,
+            1 => Some(v[0].clone()),
+            // is impossible to deserialize Sv2Options with len bigger than 1
+            _ => unreachable!(),
+        }
+    }
+    pub fn inner_as_ref(&self) -> Option<&[u8]> {
+        let v: Vec<&[u8]> = self.0.iter().map(|x| x.inner_as_ref()).collect();
+        match v.len() {
+            0 => None,
+            1 => Some(v[0]),
+            // is impossible to deserialize Sv2Options with len bigger than 1
+            _ => unreachable!(),
+        }
+    }
+}
+
+impl<'a, T: 'a> Sv2Option<'a, T> {
+    const HEADERSIZE: usize = 1;
+
+    /// Return the len of the inner vector
+    fn expected_len(data: &[u8]) -> Result<usize, Error> {
+        if data.len() >= Self::HEADERSIZE {
+            match data[0] {
+                0 => Ok(0),
+                1 => Ok(1),
+                _ => Err(Error::Sv2OptionHaveMoreThenOneElement(data[0])),
+            }
+        } else {
+            Err(Error::ReadError(data.len(), Self::HEADERSIZE))
+        }
+    }
+
+    pub fn new(inner: Option<T>) -> Self {
+        match inner {
+            Some(x) => Self(vec![x], PhantomData),
+            None => Self(vec![], PhantomData),
+        }
+    }
+
+    pub fn into_inner(mut self) -> Option<T> {
+        let len = self.0.len();
+        match len {
+            0 => None,
+            // safe unwrap we already checked the len
+            1 => Some(self.0.pop().unwrap()),
+            // is impossible to deserialize Sv2Options with len bigger than 1
+            _ => unreachable!(),
+        }
+    }
+}
+
+impl<'a, T: GetSize> GetSize for Sv2Option<'a, T> {
+    fn get_size(&self) -> usize {
+        let mut size = Self::HEADERSIZE;
+        for with_size in &self.0 {
+            size += with_size.get_size()
+        }
+        size
     }
 }
