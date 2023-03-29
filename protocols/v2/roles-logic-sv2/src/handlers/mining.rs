@@ -65,6 +65,7 @@ pub trait ParseDownstreamMiningMessages<
                 debug!("Received OpenStandardMiningChannel message");
                 // check user auth
                 if !Self::downstream_is_authorized(self_mutex.clone(), &m.user_identity)? {
+                    tracing::info!("Client not authorized: {:?}", &m.user_identity);
                     return Ok(SendTo::Respond(Mining::OpenMiningChannelError(
                         OpenMiningChannelError::new_unknown_user(m.get_request_id_as_u32()),
                     )));
@@ -85,7 +86,7 @@ pub trait ParseDownstreamMiningMessages<
                         Some(up?)
                     }
                     // Variant just used for phantom data is ok to panic
-                    MiningRoutingLogic::_P(_) => panic!(),
+                    MiningRoutingLogic::_P(_) => panic!("Must use either MiningRoutingLogic::None or MiningRoutingLogic::Proxy for `routing_logic` param"),
                 };
                 match channel_type {
                     SupportedChannelTypes::Standard => self_mutex
@@ -103,6 +104,7 @@ pub trait ParseDownstreamMiningMessages<
             Ok(Mining::OpenExtendedMiningChannel(m)) => {
                 // check user auth
                 if !Self::downstream_is_authorized(self_mutex.clone(), &m.user_identity)? {
+                    tracing::info!("Client not authorized: {:?}", &m.user_identity);
                     return Ok(SendTo::Respond(Mining::OpenMiningChannelError(
                         OpenMiningChannelError::new_unknown_user(m.get_request_id_as_u32()),
                     )));
@@ -274,8 +276,7 @@ pub trait ParseUpstreamMiningMessages<
                             .map_err(|e| crate::Error::PoisonLock(e.to_string()))?;
                         Some(up?)
                     }
-                    // Variant just used for phantom data is ok to panic
-                    MiningRoutingLogic::_P(_) => panic!(),
+                    MiningRoutingLogic::_P(_) => panic!("Must use either MiningRoutingLogic::None or MiningRoutingLogic::Proxy for `routing_logic` param"),
                 };
                 match channel_type {
                     SupportedChannelTypes::Standard => self_mutex
