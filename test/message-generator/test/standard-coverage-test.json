@@ -131,9 +131,9 @@
                 {
                     "type": "match_message_type",
                     "value": "0x20"
-                } 
+                }
             ],
-            "actiondoc": ""
+            "actiondoc": "Opens standard mining channel and expects to receive NMJ and SNPH"
         },
         {
             "message_ids": ["submit_shares"],
@@ -142,6 +142,14 @@
                 {
                     "type": "match_message_type",
                     "value": "0x1c"
+                },
+                {
+                    "type": "match_message_type",
+                    "value": "0x15"
+                },
+                {
+                    "type": "match_message_type",
+                    "value": "0x20"
                 }
              ],
             "actiondoc": "This action sends the message SubmitSharesStandard to the pool and checks that the pool replies with SubmitSharesStandard.Success"
@@ -150,10 +158,6 @@
             "message_ids": ["submit_shares_error"],
             "role": "client",
             "results": [
-                {
-                    "type": "match_message_type",
-                    "value": "0x20"
-                },
                 {
                     "type": "match_message_type",
                     "value": "0x1d"
@@ -167,18 +171,18 @@
             "command": "cargo",
             "args": [
                         "run",
-                        "../../test/message-generator/mock/template-provider-mock0.json"
+                        "../../test/message-generator/mock/template-provider-mock1.json"
             ],
             "conditions": {
                 "WithConditions": {
                     "conditions": [
                         {
-                            "output_string": "Running `target/debug/message_generator_sv2 ../../test/message-generator/mock/template-provider-mock0.json`",
+                            "output_string": "Running `target/debug/message_generator_sv2 ../../test/message-generator/mock/template-provider-mock1.json`",
                             "output_location": "StdErr",
                             "condition": true
                         }
                     ],
-                    "timer_secs": 60,
+                    "timer_secs": 240,
                     "warn_no_panic": false
                 }
             }
@@ -214,7 +218,7 @@
     "cleanup_commands": [
         {
             "command": "pkill",
-            "args":  ["pool", "-SIGINT"],
+            "args":  ["-f", "pool_sv2", "-SIGINT"],
             "conditions": "None"
         }
     ],

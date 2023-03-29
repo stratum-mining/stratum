@@ -78,7 +78,11 @@
                             ]
                         ]
                     ]
-                }  
+                },
+                {
+                    "type": "match_message_type",
+                    "value": "0x20"
+                } 
             ],
             "actiondoc":  "This action opens an ExtendedMiningChannel and checks that are received a .Success, SetNewPrevHash and NewExtendedMiningJob"
        }
