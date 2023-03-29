@@ -8,11 +8,12 @@ publish = false
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-codec_sv2 = { path = "../../protocols/v2/codec-sv2" }
-const_sv2 = { path = "../../protocols/v2/const-sv2" }
-binary_sv2 = { path = "../../protocols/v2/binary-sv2/binary-sv2" }
-common_messages_sv2 = { path = "../../protocols/v2/subprotocols/common-messages" }
-template_distribution_sv2 = { path = "../../protocols/v2/subprotocols/template-distribution" }
+codec_sv2 ="0.1.4"
+const_sv2 = "0.1.1"
+binary_sv2 = "0.1.5"
+common_messages_sv2 = "0.1.1"
+
+template_distribution_sv2 = "0.1.1"
 
 [features]
 with_serde = []
