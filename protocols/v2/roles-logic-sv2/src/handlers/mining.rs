@@ -207,9 +207,11 @@ pub trait ParseDownstreamMiningMessages<
 
     /// returns None if the user is authorized and Open
     fn downstream_is_authorized(
-        self_mutex: Arc<Mutex<Self>>,
-        user_identity: &binary_sv2::Str0255,
-    ) -> Result<bool, Error>;
+        _self_mutex: Arc<Mutex<Self>>,
+        _user_identity: &binary_sv2::Str0255,
+    ) -> Result<bool, Error> {
+        Ok(true)
+    }
 
     fn handle_open_standard_mining_channel(
         &mut self,

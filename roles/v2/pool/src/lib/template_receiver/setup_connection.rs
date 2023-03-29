@@ -18,6 +18,7 @@ use tracing::{error, info, trace};
 pub struct SetupConnectionHandler {}
 
 impl SetupConnectionHandler {
+    #[allow(clippy::result_large_err)]
     fn get_setup_connection_message(address: SocketAddr) -> PoolResult<SetupConnection<'static>> {
         let endpoint_host = address.ip().to_string().into_bytes().try_into()?;
         let vendor = String::new().try_into()?;

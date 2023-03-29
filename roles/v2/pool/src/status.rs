@@ -1,3 +1,5 @@
+use roles_logic_sv2::parsers::Mining;
+
 use crate::error::PoolError;
 
 /// Each sending side of the status channel
@@ -44,6 +46,7 @@ impl Clone for Sender {
 pub enum State {
     DownstreamShutdown(PoolError),
     TemplateProviderShutdown(PoolError),
+    DownstreamInstanceDropped(u32),
     Healthy(String),
 }
 
@@ -62,14 +65,23 @@ async fn send_status(
     outcome: error_handling::ErrorBranch,
 ) -> error_handling::ErrorBranch {
     match sender {
-        Sender::Downstream(tx) => {
-            let string_err = e.to_string();
-            tx.send(Status {
-                state: State::Healthy(string_err),
-            })
-            .await
-            .unwrap_or(());
-        }
+        Sender::Downstream(tx) => match e {
+            PoolError::Sv2ProtocolError((id, Mining::OpenMiningChannelError(_))) => {
+                tx.send(Status {
+                    state: State::DownstreamInstanceDropped(id),
+                })
+                .await
+                .unwrap_or(());
+            }
+            _ => {
+                let string_err = e.to_string();
+                tx.send(Status {
+                    state: State::Healthy(string_err),
+                })
+                .await
+                .unwrap_or(());
+            }
+        },
         Sender::DownstreamListener(tx) => {
             tx.send(Status {
                 state: State::DownstreamShutdown(e),
@@ -111,6 +123,9 @@ pub async fn handle_error(sender: &Sender, e: PoolError) -> error_handling::Erro
             send_status(sender, e, error_handling::ErrorBranch::Break).await
         }
         PoolError::ComponentShutdown(_) => {
+            send_status(sender, e, error_handling::ErrorBranch::Break).await
+        }
+        PoolError::Sv2ProtocolError(_) => {
             send_status(sender, e, error_handling::ErrorBranch::Break).await
         }
     }

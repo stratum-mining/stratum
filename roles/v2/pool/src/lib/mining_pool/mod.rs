@@ -20,7 +20,7 @@ use roles_logic_sv2::{
 };
 use std::{collections::HashMap, convert::TryInto, net::SocketAddr, sync::Arc};
 use tokio::{net::TcpListener, task};
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, warn};
 
 pub mod setup_connection;
 use setup_connection::SetupConnectionHandler;
@@ -125,6 +125,7 @@ impl Downstream {
                     }
                 }
             }
+            warn!("Downstream connection dropped");
         });
         Ok(self_)
     }
@@ -145,8 +146,7 @@ impl Downstream {
             payload,
             MiningRoutingLogic::None,
         );
-        Self::match_send_to(self_mutex, next_message_to_send).await?;
-        Ok(())
+        Self::match_send_to(self_mutex, next_message_to_send).await
     }
 
     #[async_recursion::async_recursion]
@@ -157,7 +157,20 @@ impl Downstream {
         match send_to {
             Ok(SendTo::Respond(message)) => {
                 debug!("Sending to downstream: {:?}", message);
-                Self::send(self_, message).await?;
+                // returning an error will send the error to the main thread,
+                // and the main thread will drop the downstream from the pool
+                if let &Mining::OpenMiningChannelError(_) = &message {
+                    Self::send(self_.clone(), message.clone()).await?;
+                    let downstream_id = self_
+                        .safe_lock(|d| d.id)
+                        .map_err(|e| Error::PoisonLock(e.to_string()))?;
+                    return Err(PoolError::Sv2ProtocolError((
+                        downstream_id,
+                        message.clone(),
+                    )));
+                } else {
+                    Self::send(self_, message.clone()).await?;
+                }
             }
             Ok(SendTo::Multiple(messages)) => {
                 debug!("Sending multiple messages to downstream");
@@ -404,7 +417,7 @@ impl Pool {
         solution_sender: Sender<SubmitSolution<'static>>,
         sender_message_received_signal: Sender<()>,
         status_tx: status::Sender,
-    ) {
+    ) -> Arc<Mutex<Self>> {
         let extranonce_len = 32;
         let range_0 = std::ops::Range { start: 0, end: 0 };
         let range_1 = std::ops::Range { start: 0, end: 16 };
@@ -438,6 +451,7 @@ impl Pool {
 
         let cloned = pool.clone();
         let cloned2 = pool.clone();
+        let cloned3 = pool.clone();
 
         #[cfg(feature = "test_only_allow_unencrypted")]
         {
@@ -523,6 +537,11 @@ impl Pool {
                 error!("Downstream shutdown and Status Channel dropped");
             }
         });
+        cloned3
+    }
+
+    pub fn drop_downstream(&mut self, downstream_id: u32) {
+        self.downstreams.remove(&downstream_id);
     }
 }
 

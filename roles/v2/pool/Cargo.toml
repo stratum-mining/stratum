@@ -30,3 +30,5 @@ hex = "0.4.3"
 
 [features]
 test_only_allow_unencrypted = []
+# reject opening channels due to failed auth, should only be used for testing
+MG_reject_auth = []
