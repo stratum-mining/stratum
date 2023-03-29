@@ -11,7 +11,7 @@ use roles_logic_sv2::{
 use serde::{de::Visitor, Deserialize};
 use std::str::FromStr;
 
-use tracing::{error, info};
+use tracing::{error, info, warn};
 mod error;
 mod lib;
 mod status;
@@ -209,7 +209,7 @@ async fn main() {
     let sender = status::Sender::Downstream(status_tx.clone());
     task::spawn(async move { JobNegotiator::start(cloned, sender).await });
 
-    Pool::start(
+    let pool = Pool::start(
         config.clone(),
         r_new_t,
         r_prev_hash,
@@ -253,6 +253,15 @@ async fn main() {
             }
             status::State::Healthy(msg) => {
                 info!("HEALTHY message: {}", msg);
+            }
+            status::State::DownstreamInstanceDropped(downstream_id) => {
+                warn!("Dropping downstream instance {} from pool", downstream_id);
+                if pool
+                    .safe_lock(|p| p.drop_downstream(downstream_id))
+                    .is_err()
+                {
+                    break;
+                }
             }
         }
     }
