@@ -18,17 +18,6 @@
                 "max_target": [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
             },
             "id": "open_standard_mining_channel"
-        },
-        {
-            "message": {
-                "type": "OpenExtendedMiningChannel",
-                "request_id": 90,
-                "user_identity": "",
-                "nominal_hash_rate": 10,
-                "max_target": [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-                "min_extranonce_size": 3
-            },
-            "id": "open_extended_mining_channel"
         }
     ],
     "frame_builders": [
