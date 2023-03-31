@@ -25,6 +25,7 @@ use bitcoin::{
 use tracing::{debug, error};
 
 /// A stripped type of `SetCustomMiningJob` without the (`channel_id, `request_id` and `token`) fields
+#[derive(Debug)]
 pub struct PartialSetCustomMiningJob {
     pub version: u32,
     pub prev_hash: binary_sv2::U256<'static>,
@@ -263,7 +264,7 @@ impl ChannelFactory {
             let mut result = vec![Mining::OpenExtendedMiningChannelSuccess(success)];
             if let Some((job, _)) = &self.last_valid_job {
                 let mut job = job.clone();
-                job.future_job = true;
+                job.set_future();
                 let j_id = job.job_id;
                 result.push(Mining::NewExtendedMiningJob(job));
                 if let Some((new_prev_hash, _)) = &self.last_prev_hash {
@@ -441,30 +442,23 @@ impl ChannelFactory {
                 Ok(())
             }
             // If we have a prev hash and a last valid job we need to send new mining job before the prev hash
-            (Some((prev_h, _)), Some(job), true) => {
+            (Some((prev_h, _)), Some(mut job), true) => {
                 let prev_h = prev_h.into_set_p_hash(channel_id, Some(job.job_id));
 
                 // set future_job to true
-                let future_job = NewMiningJob {
-                    future_job: true,
-                    ..job.clone()
-                };
+                job.set_future();
 
-                result.push(Mining::NewMiningJob(future_job));
+                result.push(Mining::NewMiningJob(job));
                 result.push(Mining::SetNewPrevHash(prev_h.clone()));
                 Ok(())
             }
             // If we have everything we need, send the future jobs and the the prev hash
-            (Some((prev_h, _)), Some(job), false) => {
+            (Some((prev_h, _)), Some(mut job), false) => {
                 let prev_h = prev_h.into_set_p_hash(channel_id, Some(job.job_id));
 
-                // set future_job to true
-                let future_job = NewMiningJob {
-                    future_job: true,
-                    ..job.clone()
-                };
+                job.set_future();
 
-                result.push(Mining::NewMiningJob(future_job));
+                result.push(Mining::NewMiningJob(job));
                 result.push(Mining::SetNewPrevHash(prev_h.clone()));
 
                 // Safe unwrap cause we check that self.future_jobs is not empty
@@ -581,7 +575,11 @@ impl ChannelFactory {
     fn on_new_prev_hash(&mut self, m: StagedPhash) -> Result<(), Error> {
         while let Some(mut job) = self.future_jobs.pop() {
             if job.0.job_id == m.job_id {
-                job.0.future_job = false;
+                let now = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs() as u32;
+                job.0.set_no_future(now);
                 self.last_valid_job = Some(job);
                 break;
             }
@@ -605,7 +603,7 @@ impl ChannelFactory {
         &mut self,
         m: NewExtendedMiningJob<'static>,
     ) -> Result<HashMap<u32, Mining<'static>>, Error> {
-        match (m.future_job, &self.last_prev_hash) {
+        match (m.is_future(), &self.last_prev_hash) {
             (true, _) => {
                 let mut result = HashMap::new();
                 self.prepare_jobs_for_downstream_on_new_extended(&mut result, &m)?;
@@ -1175,7 +1173,7 @@ impl ProxyExtendedChannelFactory {
     pub fn on_new_prev_hash_from_tp(
         &mut self,
         m: &SetNewPrevHashFromTp<'static>,
-    ) -> Result<Option<PartialSetCustomMiningJob>, Error> {
+    ) -> Result<Option<(PartialSetCustomMiningJob, u32)>, Error> {
         if let Some(job_creator) = self.job_creator.as_mut() {
             let job_id = job_creator.on_new_prev_hash(m).unwrap_or(0);
             let new_prev_hash = StagedPhash {
@@ -1186,21 +1184,24 @@ impl ProxyExtendedChannelFactory {
             };
             let mut custom_job = None;
             if let Some(template) = self.inner.future_templates.get(&job_id) {
-                custom_job = Some(PartialSetCustomMiningJob {
-                    version: template.version,
-                    prev_hash: new_prev_hash.prev_hash.clone(),
-                    min_ntime: new_prev_hash.min_ntime,
-                    nbits: new_prev_hash.nbits,
-                    coinbase_tx_version: template.coinbase_tx_version,
-                    coinbase_prefix: template.coinbase_prefix.clone(),
-                    coinbase_tx_input_n_sequence: template.coinbase_tx_input_sequence,
-                    coinbase_tx_value_remaining: template.coinbase_tx_value_remaining,
-                    coinbase_tx_outputs: template.coinbase_tx_outputs.clone(),
-                    coinbase_tx_locktime: template.coinbase_tx_locktime,
-                    merkle_path: template.merkle_path.clone(),
-                    extranonce_size: self.inner.extranonces.get_len() as u16,
-                    future_job: template.future_template,
-                });
+                custom_job = Some((
+                    PartialSetCustomMiningJob {
+                        version: template.version,
+                        prev_hash: new_prev_hash.prev_hash.clone(),
+                        min_ntime: new_prev_hash.min_ntime,
+                        nbits: new_prev_hash.nbits,
+                        coinbase_tx_version: template.coinbase_tx_version,
+                        coinbase_prefix: template.coinbase_prefix.clone(),
+                        coinbase_tx_input_n_sequence: template.coinbase_tx_input_sequence,
+                        coinbase_tx_value_remaining: template.coinbase_tx_value_remaining,
+                        coinbase_tx_outputs: template.coinbase_tx_outputs.clone(),
+                        coinbase_tx_locktime: template.coinbase_tx_locktime,
+                        merkle_path: template.merkle_path.clone(),
+                        extranonce_size: self.inner.extranonces.get_len() as u16,
+                        future_job: template.future_template,
+                    },
+                    job_id,
+                ));
             }
             self.inner.future_templates = HashMap::new();
             self.inner.on_new_prev_hash(new_prev_hash)?;
@@ -1226,7 +1227,7 @@ impl ProxyExtendedChannelFactory {
             self.pool_coinbase_outputs.as_ref(),
         ) {
             let new_job = job_creator.on_new_template(m, true, pool_coinbase_outputs.clone())?;
-            if !new_job.future_job && self.inner.last_prev_hash.is_some() {
+            if !new_job.is_future() && self.inner.last_prev_hash.is_some() {
                 let prev_hash = self.last_prev_hash().unwrap();
                 let min_ntime = self.last_min_ntime().unwrap();
                 let nbits = self.last_nbits().unwrap();
@@ -1250,8 +1251,7 @@ impl ProxyExtendedChannelFactory {
                     self.inner.on_new_extended_mining_job(new_job)?,
                     Some(custom_mining_job),
                 ));
-            }
-            if new_job.future_job {
+            } else if new_job.is_future() {
                 self.inner
                     .future_templates
                     .insert(new_job.job_id, m.clone());
@@ -1403,7 +1403,8 @@ impl ProxyExtendedChannelFactory {
     pub fn channel_extranonce2_size(&self) -> usize {
         self.inner.extranonces.get_len() - self.inner.extranonces.get_range0_len()
     }
-    /// Only used when the proxy is using Job Negotiation
+
+    // Only used when the proxy is using Job Negotiation
     pub fn update_pool_outputs(&mut self, outs: Vec<TxOut>) {
         self.pool_coinbase_outputs = Some(outs);
     }

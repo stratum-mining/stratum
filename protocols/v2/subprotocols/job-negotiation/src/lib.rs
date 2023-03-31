@@ -9,6 +9,8 @@
 //!
 
 extern crate alloc;
-mod set_coinbase;
+mod allocate_mining_job_token;
+mod commit_mining_job;
 
-pub use set_coinbase::SetCoinbase;
+pub use allocate_mining_job_token::{AllocateMiningJobToken, AllocateMiningJobTokenSuccess};
+pub use commit_mining_job::{CommitMiningJob, CommitMiningJobSuccess};

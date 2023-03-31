@@ -34,7 +34,7 @@ pub enum ChannelSendError<'a> {
     NewTemplate(
         async_channel::SendError<(
             roles_logic_sv2::template_distribution_sv2::SetNewPrevHash<'a>,
-            u64,
+            Vec<u8>,
         )>,
     ),
 }
@@ -243,14 +243,14 @@ impl<'a>
     From<
         async_channel::SendError<(
             roles_logic_sv2::template_distribution_sv2::SetNewPrevHash<'a>,
-            u64,
+            Vec<u8>,
         )>,
     > for Error<'a>
 {
     fn from(
         e: async_channel::SendError<(
             roles_logic_sv2::template_distribution_sv2::SetNewPrevHash<'a>,
-            u64,
+            Vec<u8>,
         )>,
     ) -> Self {
         Error::ChannelErrorSender(ChannelSendError::NewTemplate(e))

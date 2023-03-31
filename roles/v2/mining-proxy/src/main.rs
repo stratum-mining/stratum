@@ -139,7 +139,6 @@ pub struct Config {
     max_supported_version: u16,
     min_supported_version: u16,
     downstream_share_per_minute: f32,
-    coinbase_reward_sat: u64,
 }
 pub async fn initialize_r_logic(
     upstreams: &[UpstreamMiningValues],

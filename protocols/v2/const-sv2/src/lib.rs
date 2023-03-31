@@ -35,11 +35,16 @@ pub const MESSAGE_TYPE_REQUEST_TRANSACTION_DATA_SUCCESS: u8 = 0x74;
 pub const MESSAGE_TYPE_REQUEST_TRANSACTION_DATA_ERROR: u8 = 0x75;
 pub const MESSAGE_TYPE_SUBMIT_SOLUTION: u8 = 0x76;
 // JOB NEGOTIATION PROTOCOL MESSAGES TYPES
-pub const MESSAGE_TYPE_SET_COINBASE: u8 = 0x50;
+pub const MESSAGE_TYPE_ALLOCATE_MINING_TOKEN: u8 = 0x50;
+pub const MESSAGE_TYPE_ALLOCATE_MINING_TOKEN_SUCCESS: u8 = 0x51;
+pub const MESSAGE_TYPE_COMMIT_MINING_JOB: u8 = 0x57;
+pub const MESSAGE_TYPE_COMMIT_MINING_JOB_SUCCESS: u8 = 0x58;
 // MINING PROTOCOL MESSAGES TYPES
 pub const MESSAGE_TYPE_CLOSE_CHANNEL: u8 = 0x18;
+/// This has been cahnged before was 0x1e it can be that old Sv2 implementation still use the old
+/// one but this means that old impl are not following Sv2 spec
 pub const MESSAGE_TYPE_NEW_EXTENDED_MINING_JOB: u8 = 0x1f;
-pub const MESSAGE_TYPE_NEW_MINING_JOB: u8 = 0x1e;
+pub const MESSAGE_TYPE_NEW_MINING_JOB: u8 = 0x15;
 pub const MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL: u8 = 0x13;
 pub const MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL_SUCCES: u8 = 0x14;
 // in the spec page 21 is defined OpenMiningChannelError valid for both extended and standard
@@ -77,7 +82,10 @@ pub const CHANNEL_BIT_REQUEST_TRANSACTION_DATA_SUCCESS: bool = false;
 pub const CHANNEL_BIT_REQUEST_TRANSACTION_DATA_ERROR: bool = false;
 pub const CHANNEL_BIT_SUBMIT_SOLUTION: bool = false;
 // JOB NEGOTIATION PROTOCOL MESSAGES CHANNEL BIT
-pub const CHANNEL_BIT_SET_COINBASE: bool = false;
+pub const CHANNEL_BIT_ALLOCATE_MINING_TOKEN: bool = false;
+pub const CHANNEL_BIT_ALLOCATE_MINING_TOKEN_SUCCESS: bool = false;
+pub const CHANNEL_BIT_COMMIT_MINING_JOB: bool = false;
+pub const CHANNEL_BIT_COMMIT_MINING_JOB_SUCCESS: bool = false;
 // MINING PROTOCOL MESSAGES CHANNEL BIT
 pub const CHANNEL_BIT_CLOSE_CHANNEL: bool = true;
 pub const CHANNEL_BIT_NEW_EXTENDED_MINING_JOB: bool = true;
