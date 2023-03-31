@@ -19,6 +19,9 @@
 //!
 #![allow(special_module_name)]
 mod lib;
+mod status;
+use crate::status::State;
+use crate::status::Status;
 use async_channel::bounded;
 use lib::{
     job_negotiator::JobNegotiator, template_receiver::TemplateRx,
@@ -31,11 +34,7 @@ use roles_logic_sv2::{
     utils::{GroupId, Id, Mutex},
 };
 use serde::Deserialize;
-use std::{
-    net::{IpAddr, SocketAddr},
-    str::FromStr,
-    sync::Arc,
-};
+use std::{net::SocketAddr, sync::Arc};
 use tracing::{error, info};
 type RLogic = MiningProxyRoutingLogic<
     crate::lib::downstream_mining::DownstreamMiningNode,
@@ -55,37 +54,104 @@ static MIN_EXTRANONCE_SIZE: u16 = 6;
 static EXTRANONCE_RANGE_1_LENGTH: usize = 4;
 
 async fn initialize_upstreams(min_version: u16, max_version: u16) {
-    let upstreams = ROUTING_LOGIC
-        .get()
-        .expect("BUG: ROUTING_LOGIC has not been set yet")
-        .safe_lock(|r_logic| r_logic.upstream_selector.upstreams.clone())
-        .unwrap();
+    let (status_sender, mut status_receiver) = tokio::sync::mpsc::channel::<Status>(10);
+    let upstreams = match ROUTING_LOGIC.get() {
+        Some(routing_) => routing_
+            .safe_lock(|r_logic| r_logic.upstream_selector.upstreams.clone())
+            .unwrap_or_default(),
+        None => {
+            error!("BUG: ROUTING_LOGIC has not been set yet");
+            let _ = status_sender.send(Status {
+                state: status::State::TemplateProviderShutdown(
+                    "ROUTING_LOGIC has not been set yet".into(),
+                ),
+            });
+            vec![]
+        }
+    };
+
     let available_upstreams =
         crate::lib::upstream_mining::scan(upstreams, min_version, max_version).await;
-    ROUTING_LOGIC
-        .get()
-        .unwrap()
-        .safe_lock(|rl| rl.upstream_selector.update_upstreams(available_upstreams))
-        .unwrap();
+
+    while let Some(task_status) = status_receiver.recv().await {
+        match task_status.state {
+            State::DownstreamShutdown(err) => {
+                error!(
+                    "SHUTDOWN from Downstream: {}\nTry to restart the downstream listener",
+                    err
+                );
+                let _ = status_sender
+                    .send(Status {
+                        state: State::DownstreamShutdown(err),
+                    })
+                    .await;
+                break;
+            }
+            State::TemplateProviderShutdown(err) => {
+                error!("SHUTDOWN from Upstream: {}\nTry to reconnecting or connecting to a new upstream", err);
+                let _ = status_sender
+                    .send(Status {
+                        state: State::TemplateProviderShutdown(err),
+                    })
+                    .await;
+                break;
+            }
+            State::Healthy(msg) => {
+                info!("HEALTHY message: {}", msg);
+            }
+        }
+    }
+
+    match ROUTING_LOGIC.get() {
+        Some(routing_) => routing_
+            .safe_lock(|rl| rl.upstream_selector.update_upstreams(available_upstreams))
+            .unwrap_or_default(),
+        None => {
+            error!("BUG: ROUTING_LOGIC has not been set yet");
+            let _ = status_sender.send(Status {
+                state: status::State::TemplateProviderShutdown(
+                    "ROUTING_LOGIC has not been set yet".into(),
+                ),
+            });
+        }
+    };
 }
 
 fn remove_upstream(id: u32) {
-    let upstreams = ROUTING_LOGIC
-        .get()
-        .expect("BUG: ROUTING_LOGIC has not been set yet")
-        .safe_lock(|r_logic| r_logic.upstream_selector.upstreams.clone())
-        .unwrap();
+    let upstreams = match ROUTING_LOGIC.get() {
+        Some(routing_) => {
+            match routing_.safe_lock(|r_logic| r_logic.upstream_selector.upstreams.clone()) {
+                Ok(upstreams) => upstreams,
+                Err(e) => {
+                    error!("Error getting upstreams: {}", e);
+                    Vec::new()
+                }
+            }
+        }
+        None => {
+            error!("BUG: ROUTING_LOGIC has not been set yet");
+            Vec::new()
+        }
+    };
+
     let mut updated_upstreams = vec![];
     for upstream in upstreams {
         if upstream.safe_lock(|s| s.get_id()).unwrap() != id {
             updated_upstreams.push(upstream)
         }
     }
-    ROUTING_LOGIC
+    match ROUTING_LOGIC
         .get()
-        .unwrap()
-        .safe_lock(|rl| rl.upstream_selector.update_upstreams(updated_upstreams))
-        .unwrap();
+        .map(|rl| rl.safe_lock(|rl| rl.upstream_selector.update_upstreams(updated_upstreams)))
+    {
+        Some(Ok(())) => (),
+        Some(Err(e)) => {
+            error!("Error updating upstreams: {}", e);
+        }
+        None => {
+            error!("Error getting routing logic");
+        }
+    };
 }
 
 pub fn get_routing_logic() -> MiningRoutingLogic<
@@ -94,18 +160,18 @@ pub fn get_routing_logic() -> MiningRoutingLogic<
     crate::lib::upstream_mining::ProxyRemoteSelector,
     RLogic,
 > {
-    MiningRoutingLogic::Proxy(
-        ROUTING_LOGIC
-            .get()
-            .expect("BUG: ROUTING_LOGIC was not set yet"),
-    )
+    if let Some(r_logic) = ROUTING_LOGIC.get() {
+        MiningRoutingLogic::Proxy(r_logic)
+    } else {
+        MiningRoutingLogic::new()
+    }
 }
-pub fn get_common_routing_logic() -> CommonRoutingLogic<RLogic> {
-    CommonRoutingLogic::Proxy(
-        ROUTING_LOGIC
-            .get()
-            .expect("BUG: ROUTING_LOGIC was not set yet"),
-    )
+
+pub fn get_common_routing_logic() -> Result<CommonRoutingLogic<RLogic>, String> {
+    ROUTING_LOGIC
+        .get()
+        .map(|r_logic| CommonRoutingLogic::Proxy(r_logic))
+        .ok_or_else(|| "BUG: ROUTING_LOGIC was not set yet".to_string())
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -139,6 +205,7 @@ pub struct Config {
     max_supported_version: u16,
     min_supported_version: u16,
     downstream_share_per_minute: f32,
+    coinbase_reward_sat: u64,
 }
 pub async fn initialize_r_logic(
     upstreams: &[UpstreamMiningValues],
@@ -151,6 +218,7 @@ pub async fn initialize_r_logic(
     for (index, upstream_) in upstreams.iter().enumerate() {
         let socket = SocketAddr::new(upstream_.address.parse().unwrap(), upstream_.port);
 
+        let (status_sender, status_receiver) = async_channel::bounded::<Status>(10);
         // channel for template
         let (send_tp, recv_tp) = bounded(10);
         // channel for prev hash
@@ -171,6 +239,7 @@ pub async fn initialize_r_logic(
             config.downstream_share_per_minute,
             None,
             None,
+            Some(status_sender.clone()),
         )));
 
         match upstream_.channel_kind {
@@ -179,58 +248,57 @@ pub async fn initialize_r_logic(
             ChannelKind::ExtendedWithNegotiator => {
                 let (send_solution, recv_solution) = bounded(10);
                 let (send_coinbase_out_script, recv_coinbase_out_script) = bounded(10);
-                upstream
-                    .safe_lock(|s| {
-                        s.solution_sender = Some(send_solution);
-                        s.recv_coinbase_out = Some(recv_coinbase_out_script);
-                    })
-                    .unwrap();
-                tokio::join!(
-                    TemplateRx::connect(
-                        config
-                            .tp_address
-                            .clone()
-                            .expect("Template provider address not provided in config.toml")
-                            .parse()
-                            .unwrap(),
-                        send_tp,
-                        send_ph,
-                        recv_comas,
-                        recv_solution,
-                    ),
-                    JobNegotiator::new(
-                        SocketAddr::new(
-                            IpAddr::from_str(
-                                &upstream_
-                                    .jn_values
-                                    .clone()
-                                    .expect("JN values not provided")
-                                    .address
-                            )
-                            .unwrap(),
-                            upstream_
-                                .jn_values
-                                .clone()
-                                .expect("JN values not provided")
-                                .port,
-                        ),
-                        upstream_
-                            .jn_values
-                            .clone()
-                            .expect("JN values not provided")
-                            .clone()
-                            .pub_key
-                            .into_inner()
-                            .as_bytes()
-                            .to_owned(),
-                        send_comas,
-                        send_coinbase_out_script,
-                        config.clone(),
-                    )
-                );
-                UpstreamMiningNode::start_receiving_pool_coinbase_outs(upstream.clone());
-                UpstreamMiningNode::start_receiving_new_template(upstream.clone());
-                UpstreamMiningNode::start_receiving_new_prev_hash(upstream.clone());
+                let tp_address = match config.tp_address.as_ref() {
+                    Some(address) => address.parse().ok(),
+                    None => None,
+                };
+                if let Some(tp_address) = tp_address {
+                    let jn_values = upstream_.jn_values.clone();
+                    if let Some(jn_values) = jn_values {
+                        let address = jn_values.address.parse().ok();
+                        if let Some(address) = address {
+                            let pub_key =
+                                jn_values.clone().pub_key.into_inner().as_bytes().to_owned();
+                            upstream
+                                .safe_lock(|s| {
+                                    s.solution_sender = Some(send_solution);
+                                    s.recv_coinbase_out = Some(recv_coinbase_out_script);
+                                })
+                                .unwrap_or_else(|err| {
+                                    error!("Failed to acquire safe lock: {}", err);
+                                });
+                            let template_rx_task = TemplateRx::connect(
+                                tp_address,
+                                send_tp,
+                                send_ph,
+                                recv_comas,
+                                recv_solution,
+                            );
+                            let job_negotiator_task = JobNegotiator::new(
+                                SocketAddr::new(address, jn_values.port),
+                                pub_key,
+                                send_comas,
+                                send_coinbase_out_script,
+                                config.clone(),
+                            );
+                            tokio::select! {
+                                _ = template_rx_task => (),
+                                _ = job_negotiator_task => (),
+                            }
+                            UpstreamMiningNode::start_receiving_pool_coinbase_outs(
+                                upstream.clone(),
+                            );
+                            UpstreamMiningNode::start_receiving_new_template(upstream.clone());
+                            UpstreamMiningNode::start_receiving_new_prev_hash(upstream.clone());
+                        } else {
+                            error!("Failed to parse JN address");
+                        }
+                    } else {
+                        error!("JN values not provided");
+                    }
+                } else {
+                    error!("Template provider address not provided in config.toml");
+                }
             }
         }
 
@@ -325,8 +393,13 @@ async fn main() {
     };
 
     // Scan all the upstreams and map them
-    let config_file = std::fs::read_to_string(args.config_path.clone())
-        .unwrap_or_else(|_| panic!("Can not open {:?}", args.config_path));
+    let config_file = match std::fs::read_to_string(args.config_path.clone()) {
+        Ok(file_contents) => file_contents,
+        Err(e) => {
+            error!("Can not open {:?}: {}", args.config_path, e);
+            return;
+        }
+    };
     let config = match toml::from_str::<Config>(&config_file) {
         Ok(cfg) => cfg,
         Err(e) => {
@@ -336,12 +409,16 @@ async fn main() {
     };
 
     let group_id = Arc::new(Mutex::new(GroupId::new()));
-    ROUTING_LOGIC
-        .set(Mutex::new(
-            initialize_r_logic(&config.upstreams, group_id, config.clone()).await,
-        ))
-        .expect("BUG: Failed to set ROUTING_LOGIC");
-    info!("PROXY INITIALIZING");
+    match ROUTING_LOGIC.set(Mutex::new(
+        initialize_r_logic(&config.upstreams, group_id, config.clone()).await,
+    )) {
+        Ok(_) => {
+            info!("PROXY INITIALIZING");
+        }
+        Err(err) => {
+            error!("Failed to set ROUTING_LOGIC: {:?}", err);
+        }
+    }
     initialize_upstreams(config.min_supported_version, config.max_supported_version).await;
 
     // Wait for downstream connection
@@ -351,5 +428,5 @@ async fn main() {
     );
 
     info!("PROXY INITIALIZED");
-    crate::lib::downstream_mining::listen_for_downstream_mining(socket).await
+    crate::lib::downstream_mining::listen_for_downstream_mining(socket).await;
 }

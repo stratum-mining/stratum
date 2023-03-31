@@ -2,6 +2,7 @@ use crate::EXTRANONCE_RANGE_1_LENGTH;
 use roles_logic_sv2::utils::Id;
 
 use super::downstream_mining::{Channel, DownstreamMiningNode, StdFrame as DownstreamFrame};
+use crate::Status;
 use async_channel::{Receiver, SendError, Sender};
 use async_recursion::async_recursion;
 use codec_sv2::{Frame, HandshakeRole, Initiator, StandardEitherFrame, StandardSv2Frame};
@@ -190,15 +191,15 @@ pub struct UpstreamMiningNode {
     downstream_selector: ProxyRemoteSelector,
     pub channel_kind: ChannelKind,
     group_id: Arc<Mutex<GroupId>>,
-    recv_tp: Option<Receiver<(NewTemplate<'static>, Vec<u8>)>>,
-    recv_ph: Option<Receiver<(SetNewPrevHashTemplate<'static>, Vec<u8>)>>,
+    recv_tp: Option<Receiver<(NewTemplate<'static>, u64)>>,
+    recv_ph: Option<Receiver<(SetNewPrevHashTemplate<'static>, u64)>>,
     request_ids: Arc<Mutex<Id>>,
     pub channel_ids: Arc<Mutex<Id>>,
     downstream_share_per_minute: f32,
     pub solution_sender: Option<Sender<SubmitSolution<'static>>>,
-    pub recv_coinbase_out: Option<Receiver<(Vec<TxOut>, Vec<u8>)>>,
+    pub recv_coinbase_out: Option<Receiver<(Vec<TxOut>, u64)>>,
     #[allow(dead_code)]
-    tx_outs: HashMap<Vec<u8>, Vec<TxOut>>,
+    tx_outs: HashMap<u64, Vec<TxOut>>,
     first_ph_received: bool,
     // When a future job is received from an extended channel this is transformed to severla std
     // job for HOM downstream. If the job is future we need to keep track of the original job id and
@@ -207,6 +208,7 @@ pub struct UpstreamMiningNode {
     // set new pre hash for each downstream.
     #[allow(clippy::type_complexity)]
     job_up_to_down_ids: HashMap<u32, Vec<(Arc<Mutex<DownstreamMiningNode>>, u32)>>,
+    status_sender: Option<Sender<Status>>,
 }
 
 use core::convert::TryInto;
@@ -223,13 +225,14 @@ impl UpstreamMiningNode {
         authority_public_key: [u8; 32],
         channel_kind: crate::ChannelKind,
         group_id: Arc<Mutex<GroupId>>,
-        recv_tp: Option<Receiver<(NewTemplate<'static>, Vec<u8>)>>,
-        recv_ph: Option<Receiver<(SetNewPrevHashTemplate<'static>, Vec<u8>)>>,
+        recv_tp: Option<Receiver<(NewTemplate<'static>, u64)>>,
+        recv_ph: Option<Receiver<(SetNewPrevHashTemplate<'static>, u64)>>,
         request_ids: Arc<Mutex<Id>>,
         channel_ids: Arc<Mutex<Id>>,
         downstream_share_per_minute: f32,
         solution_sender: Option<Sender<SubmitSolution<'static>>>,
-        recv_coinbase_out: Option<Receiver<(Vec<TxOut>, Vec<u8>)>>,
+        recv_coinbase_out: Option<Receiver<(Vec<TxOut>, u64)>>,
+        status_sender: Option<Sender<Status>>,
     ) -> Self {
         let request_id_mapper = RequestIdMapper::new();
         let downstream_selector = ProxyRemoteSelector::new();
@@ -255,6 +258,7 @@ impl UpstreamMiningNode {
             tx_outs: HashMap::new(),
             first_ph_received: false,
             job_up_to_down_ids: HashMap::new(),
+            status_sender,
         }
     }
 
@@ -300,7 +304,7 @@ impl UpstreamMiningNode {
                 tokio::task::yield_now().await;
             }
             loop {
-                let (mut message_new_template, token): (NewTemplate, Vec<u8>) =
+                let (mut message_new_template, token): (NewTemplate, u64) =
                     new_template_reciver.recv().await.unwrap();
                 let (channel_id_to_new_job_msg, custom_job) = self_mutex
                     .safe_lock(|a| {
@@ -331,9 +335,7 @@ impl UpstreamMiningNode {
                             merkle_path: custom_job.merkle_path,
                             extranonce_size: custom_job.extranonce_size,
                             future_job: message_new_template.future_template,
-                            // token come from a valid Sv2 message so it can always be serialized safe
-                            // unwrap
-                            token: token.try_into().unwrap(),
+                            token,
                         }));
                     Self::send(self_mutex.clone(), custom_mining_job.try_into().unwrap())
                         .await
@@ -375,7 +377,7 @@ impl UpstreamMiningNode {
                     .safe_lock(|s| s.first_ph_received = true)
                     .unwrap();
 
-                if let Ok(Some((custom_job, _job_id))) = custom {
+                if let Ok(Some(custom_job)) = custom {
                     let req_id = self_mutex
                         .safe_lock(|s| s.request_ids.safe_lock(|r| r.next()).unwrap())
                         .unwrap();
@@ -396,9 +398,7 @@ impl UpstreamMiningNode {
                             merkle_path: custom_job.merkle_path,
                             extranonce_size: custom_job.extranonce_size,
                             future_job: false,
-                            // token come from a valid Sv2 message so it can always be serialized safe
-                            // unwrap
-                            token: token.try_into().unwrap(),
+                            token,
                         }));
                     Self::send(self_mutex.clone(), custom_mining_job.try_into().unwrap())
                         .await
@@ -1200,7 +1200,7 @@ impl
             ChannelKind::Extended(Some(factory)) => {
                 if let Ok(messages) = factory.on_new_extended_mining_job(m.clone().as_static()) {
                     let mut new_p_hash_added = false;
-                    let is_future = m.is_future();
+                    let is_future = m.future_job;
                     let original_job_id = m.job_id;
                     if is_future {
                         self.job_up_to_down_ids.insert(original_job_id, vec![]);
@@ -1421,6 +1421,8 @@ impl IsMiningUpstream<DownstreamMiningNode, ProxyRemoteSelector> for UpstreamMin
 
 #[cfg(test)]
 mod tests {
+    use crate::status;
+
     use super::*;
     use std::net::{IpAddr, Ipv4Addr};
 
@@ -1448,6 +1450,7 @@ mod tests {
             request_ids,
             channel_ids,
             10.0,
+            None,
             None,
             None,
         );
