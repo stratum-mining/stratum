@@ -83,7 +83,7 @@ pub struct Upstream {
     /// Identifier of the job as provided by the `NewExtendedMiningJob` message.
     job_id: Option<u32>,
     /// Identifier of the job as provided by the ` SetCustomMiningJobSucces` message
-    last_upstream_job_id: Option<u32>,
+    last_job_id: Option<u32>,
     /// Bytes used as implicit first part of `extranonce`.
     extranonce_prefix: Option<Vec<u8>>,
     /// Represents a connection to a SV2 Upstream role.
@@ -185,7 +185,7 @@ impl Upstream {
             tx_sv2_new_ext_mining_job,
             channel_id: None,
             job_id: None,
-            last_upstream_job_id: None,
+            last_job_id: None,
             min_extranonce_size,
             upstream_extranonce1_size: 16, // 16 is the default since that is the only value the pool supports currently
             tx_sv2_extranonce,
@@ -484,9 +484,9 @@ impl Upstream {
         self_
             .safe_lock(|s| {
                 if s.is_work_selection_enabled() {
-                    info!("BBBBBB last_upstream_job_id in get_job_id function {:?}", {s.last_upstream_job_id.unwrap()});
-                    s.last_upstream_job_id.ok_or(crate::error::Error::RolesSv2Logic(
-                        RolesLogicError::NoValidJob,
+                    info!("BBBBBB last_job_id in get_job_id function {:?}", {s.last_job_id.unwrap()});
+                    s.last_job_id.ok_or(crate::error::Error::RolesSv2Logic(
+                        RolesLogicError::NoValidTranslatorJob,
                     ))                    
                 } else {
                     s.job_id.ok_or(crate::error::Error::RolesSv2Logic(
@@ -823,8 +823,8 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
         &mut self,
         m: roles_logic_sv2::mining_sv2::SetCustomMiningJobSuccess,
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, RolesLogicError> {
-        self.last_upstream_job_id = Some(m.job_id);
-        info!("AAAAAA last_upstream_job_id: {:?}", {self.last_upstream_job_id.unwrap()});
+        self.last_job_id = Some(m.job_id);
+        info!("AAAAAA last_job_id: {:?}", {self.last_job_id.unwrap()});
         Ok(SendTo::None(None))
     }
 

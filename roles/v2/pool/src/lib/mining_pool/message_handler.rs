@@ -8,7 +8,7 @@ use roles_logic_sv2::{
     routing_logic::{MiningRouter, NoRouting},
     selectors::NullDownstreamMiningSelector,
     template_distribution_sv2::SubmitSolution,
-    utils::{Mutex, Id},
+    utils::Mutex,
 };
 use std::{convert::TryInto, sync::Arc};
 use tracing::{debug, error, info};
@@ -193,12 +193,10 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
     }
 
     fn handle_set_custom_mining_job(&mut self, m: SetCustomMiningJob) -> Result<SendTo<()>, Error> {
-        // TODO
-        let job_id = Arc::new(Mutex::new(Id::new()));
         let m = SetCustomMiningJobSuccess {
             channel_id: m.channel_id,
             request_id: m.request_id,
-            job_id:  job_id.safe_lock(|i| i.next()).unwrap(),
+            job_id:  self.channel_factory.safe_lock(|cf| cf.on_new_set_custom_mining_job(m.into_static()).job_id).unwrap(),
         };
         Ok(SendTo::Respond(Mining::SetCustomMiningJobSuccess(m)))
     }

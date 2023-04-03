@@ -892,6 +892,7 @@ pub struct PoolChannelFactory {
     pool_coinbase_outputs: Vec<TxOut>,
     // extedned_channel_id -> SetCustomMiningJob
     negotiated_jobs: HashMap<u32, SetCustomMiningJob<'static>>,
+    job_ids: Id,
 }
 
 impl PoolChannelFactory {
@@ -925,6 +926,7 @@ impl PoolChannelFactory {
             job_creator,
             pool_coinbase_outputs,
             negotiated_jobs: HashMap::new(),
+            job_ids: Id::new(),
         }
     }
     /// Calls [`ChannelFactory::add_standard_channel`]
@@ -1075,7 +1077,7 @@ impl PoolChannelFactory {
             SetCustomMiningJobSuccess {
                 channel_id: set_custom_mining_job.channel_id,
                 request_id: set_custom_mining_job.request_id,
-                job_id: 0,
+                job_id: self.job_ids.next(),
             }
         } else {
             todo!()
