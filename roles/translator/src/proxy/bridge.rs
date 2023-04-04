@@ -52,8 +52,6 @@ pub struct Bridge {
     /// Allows the bridge the ability to communicate back to the main thread any status updates
     /// that would interest the main thread for error handling
     tx_status: status::Sender,
-    /// Unique sequential identifier of the submit within the channel.
-    channel_sequence_id: Id,
     /// Stores the most recent SV1 `mining.notify` values to be sent to the `Downstream` upon
     /// receiving a new SV2 `SetNewPrevHash` and `NewExtendedMiningJob` messages **before** any
     /// Downstream role connects to the proxy.
@@ -76,6 +74,7 @@ pub struct Bridge {
     last_job_id: u32,
     has_negotiator: bool,
     first_job_handled: bool,
+    withhold: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -113,6 +112,7 @@ impl Bridge {
         target: Arc<Mutex<Vec<u8>>>,
         up_id: u32,
         upstream_kind: UpstreamKind,
+        withhold: bool,
     ) -> Arc<Mutex<Self>> {
         let ids = Arc::new(Mutex::new(GroupId::new()));
         let share_per_min = 1.0;
@@ -136,7 +136,6 @@ impl Bridge {
             rx_sv2_new_ext_mining_job,
             tx_sv1_notify,
             tx_status,
-            channel_sequence_id: Id::new(),
             last_notify: None,
             channel_factory: ProxyExtendedChannelFactory::new(
                 ids,
@@ -157,6 +156,7 @@ impl Bridge {
             last_job_id: 0,
             has_negotiator: upstream_kind.has_negotiator(),
             first_job_handled: false,
+            withhold,
         }));
         match upstream_kind {
             UpstreamKind::Standard => (),
@@ -455,6 +455,7 @@ impl Bridge {
         self_: Arc<Mutex<Self>>,
         share: SubmitShareWithChannelId,
     ) -> ProxyResult<'static, ()> {
+        let withhold = self_.safe_lock(|s| s.withhold).map_err(|_| PoisonLock)?;
         let (tx_sv2_submit_shares_ext, target_mutex, tx_status) = self_
             .safe_lock(|s| {
                 (
@@ -473,15 +474,10 @@ impl Bridge {
             .safe_lock(|s| s.channel_factory.set_target(&mut upstream_target))
             .map_err(|_| PoisonLock)?;
 
-        let channel_sequence_id = self_
-            .safe_lock(|s| s.channel_sequence_id.next())
-            .map_err(|_| PoisonLock)?
-            - 1;
         let sv2_submit = self_
             .safe_lock(|s| {
                 s.translate_submit(
                     share.channel_id,
-                    channel_sequence_id,
                     share.share,
                     share.extranonce,
                     share.version_rolling_mask,
@@ -537,7 +533,7 @@ impl Bridge {
                         };
                         // The below channel should never be full is ok to block
                         solution_sender.send_blocking(solution).unwrap();
-                        send_upstream = true;
+                        send_upstream = !withhold;
                     }
                     _ => unreachable!(),
                 }
@@ -565,8 +561,6 @@ impl Bridge {
     fn translate_submit(
         &self,
         channel_id: u32,
-        // TODO remove it sequence id is another thing
-        _channel_sequence_id: u32,
         sv1_submit: Submit,
         extranonce2: Vec<u8>,
         version_rolling_mask: Option<HexU32Be>,
@@ -837,6 +831,7 @@ mod test {
                 Arc::new(Mutex::new(upstream_target)),
                 1,
                 UpstreamKind::Standard,
+                false,
             )
         }
 
@@ -919,15 +914,8 @@ mod test {
 
                 // pass sv1_submit into Bridge::translate_submit
                 let sv1_submit = test_utils::create_sv1_submit(0);
-                let channel_seq_id = bridge.channel_sequence_id.next() - 1;
                 let sv2_message = bridge
-                    .translate_submit(
-                        channel_id,
-                        channel_seq_id,
-                        sv1_submit,
-                        vec![0, 0, 0, 0, 0, 0, 0, 0],
-                        None,
-                    )
+                    .translate_submit(channel_id, sv1_submit, vec![0, 0, 0, 0, 0, 0, 0, 0], None)
                     .unwrap();
                 // assert sv2 message equals sv1 with version bits added
                 assert_eq!(
