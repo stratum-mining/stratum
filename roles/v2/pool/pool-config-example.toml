@@ -14,7 +14,7 @@ coinbase_outputs = [
 tp_address = "127.0.0.1:8442"
 # hosted testnet TP 
 # tp_address = "89.116.25.191:8442"
-# hosted regnet TP 
+# hosted regtest TP 
 # tp_address = "75.119.150.111:8442"
 
 # SRI Pool JN config
