@@ -7,5 +7,5 @@ cert_validity_sec = 3600
 test_only_listen_adress_plain =  "0.0.0.0:34250"
 # list of compressed or uncompressed pubkeys for coinbase payout (only supports 1 item in the array at this point)
 coinbase_outputs = [
-    "04466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f276728176c3c6431f8eeda4538dc37c865e2784f3a9e77d044f33e407797e1278a",
+    "02e13cef1348924c49dd1f708bf38eb79ae4648c16f0301085f37547d1d25e33e0",
 ]
