@@ -11,3 +11,4 @@ max_supported_version = 2
 min_supported_version = 2
 downstream_share_per_minute = 10
 coinbase_reward_sat = 5_000_000_000
+expected_total_downstream_hr = 10_000
