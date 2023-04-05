@@ -142,7 +142,6 @@ impl Executor {
             };
             for message in action.messages {
                 println!("SEND {:#?}", message);
-                dbg!(&message);
                 match sender.send(message).await {
                     Ok(_) => (),
                     Err(_) => panic!(),

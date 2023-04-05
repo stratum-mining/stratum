@@ -118,30 +118,58 @@
         }
     ],
     "setup_commands": [
-        {
+    ],
+    "execution_commands": [
+       {
             "command": "cargo",
             "args": [
                         "run",
                         "-p",
-                        "translation_sv2",
+                        "translator_sv2",
+                        "--",
+                        "-c",
                         "./test/config/tproxy-config.toml"
+
             ],
             "conditions": {
                 "WithConditions": {
                     "conditions": [
                         {
-                            "output_string": "Starting Stratum on stratum+tcp",
-                            "output_location": "Std",
+                            "output_string": "PROXY SERVER - ACCEPTING FROM UPSTREAM:",
+                            "output_location": "StdOut",
                             "condition": true
                         }
                     ],
-                    "timer_secs": 240,
+                    "timer_secs": 60,
                     "warn_no_panic": false
                 }
             }
-        }
-    ],
-    "execution_commands": [
+       },
+       {
+           "command": "./minerd",
+           "args": [
+                       "-a",
+                       "sha256d",
+                       "-o",
+                       "stratum+tcp://localhost:34255",
+                       "-q",
+                       "-D",
+                       "-P"
+           ],
+           "conditions": {
+               "WithConditions": {
+                   "conditions": [
+                       {
+                           "output_string": "Starting Stratum on stratum+tcp",
+                           "output_location": "StdErr",
+                           "condition": true
+                       }
+                   ],
+                   "timer_secs": 240,
+                   "warn_no_panic": false
+               }
+           }
+       }
     ],
     "cleanup_commands": [
     ],
