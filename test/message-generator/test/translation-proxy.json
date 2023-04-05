@@ -22,9 +22,9 @@
         {
             "message": {
                 "type": "NewExtendedMiningJob",
-                "job_id": 0,
-                "channel_id": 1,
-                "future_job": true, 
+                "job_id": 1,
+                "channel_id": 0,
+                "min_ntime": [], 
                 "version": 536870912, 
                 "version_rolling_allowed": true, 
                 "merkle_path": [],
@@ -89,11 +89,11 @@
                     "type": "match_message_field",
                     "value": [
                         "MiningProtocol",
-                        "OpenExtendedMiningChannelSuccess",
+                        "OpenExtendedMiningChannel",
                         [
                             [
                                 "request_id",
-                                {"U32": 1}
+                                {"U32": 0}
                             ]
                         ]
                     ]
@@ -118,6 +118,28 @@
         }
     ],
     "setup_commands": [
+        {
+            "command": "cargo",
+            "args": [
+                        "run",
+                        "-p",
+                        "translation_sv2",
+                        "./test/config/tproxy-config.toml"
+            ],
+            "conditions": {
+                "WithConditions": {
+                    "conditions": [
+                        {
+                            "output_string": "Starting Stratum on stratum+tcp",
+                            "output_location": "Std",
+                            "condition": true
+                        }
+                    ],
+                    "timer_secs": 240,
+                    "warn_no_panic": false
+                }
+            }
+        }
     ],
     "execution_commands": [
     ],

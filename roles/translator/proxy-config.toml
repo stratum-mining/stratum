@@ -24,9 +24,9 @@ min_extranonce2_size = 8
 coinbase_reward_sat = 5_000_000_000
 
 # optional jn config, if set the tproxy start on JN mode
-#[jn_config]
-#jn_address = "127.0.0.1:34264"
-#tp_address = "127.0.0.1:8442"
+[jn_config]
+jn_address = "127.0.0.1:34264"
+tp_address = "127.0.0.1:8442"
 
 # Difficulty params
 [downstream_difficulty_config]
@@ -35,7 +35,7 @@ min_individual_miner_hashrate=100_000.0
 # minimum number of shares needed before a mining.set_difficulty is sent for updating targets
 miner_num_submits_before_update=5
 # target number of shares per minute the miner should be sending
-shares_per_minute = 6.0
+shares_per_minute = 10.0
 
 [upstream_difficulty_config]
 # interval in seconds to elapse before updating channel hashrate with the pool
