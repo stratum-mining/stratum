@@ -2,8 +2,14 @@
     "doc": [
         "This test does",
         "Runs a translator proxy",
+        "Runs /example/sv1-mining-device",
         "Waits that receives SetupConnection message",
-        "Reply with .Success"
+        "Reply with .Success",
+        "Waits that the tproxy sends OpenExtendedMiningChannel",
+        "Responds with OpenExtendedMiningChannelSuccess",
+        "Sends NewExtendedMiningJob and SetNewPrevHash to the tproxy",
+        "Waits a SubmitsSolutionExtended",
+        "You can use any miner you want, by changing the execution command or by launching it separately"
     ],
     "common_messages": [
     ],
@@ -104,7 +110,8 @@
         {
             "message_ids": ["open_extended_mining_channel_success"],
             "role": "server",
-            "results": []
+            "results": [],
+            "actiondoc": "This action responds with OpenExtendedMiningChannelSuccess" 
         },
         {
             "message_ids": ["new_extended_mining_job", "set_new_prev_hash"],
@@ -114,7 +121,8 @@
                     "type": "match_message_type",
                     "value": "0x1b"
                 }
-            ]
+            ],
+            "actiondoc": "Sends NewExtendedMiningJob and SetNewPrevHash and waits that a SubmitsShareExtended is submitted" 
         }
     ],
     "setup_commands": [
@@ -128,7 +136,7 @@
                         "translator_sv2",
                         "--",
                         "-c",
-                        "./test/config/tproxy-config.toml"
+                        "./test/config/tproxy-config-no-jn-sv1-cpu-md.toml"
 
             ],
             "conditions": {
@@ -146,29 +154,13 @@
             }
        },
        {
-           "command": "./minerd",
+           "command": "cargo",
            "args": [
-                       "-a",
-                       "sha256d",
-                       "-o",
-                       "stratum+tcp://localhost:34255",
-                       "-q",
-                       "-D",
-                       "-P"
+                       "run",
+                       "-p",
+                       "sv1-mining-device"
            ],
-           "conditions": {
-               "WithConditions": {
-                   "conditions": [
-                       {
-                           "output_string": "Starting Stratum on stratum+tcp",
-                           "output_location": "StdErr",
-                           "condition": true
-                       }
-                   ],
-                   "timer_secs": 240,
-                   "warn_no_panic": false
-               }
-           }
+           "conditions": "None"
        }
     ],
     "cleanup_commands": [

@@ -111,14 +111,12 @@ pub trait IsServer<'a> {
                 let has_valid_version_bits = match &submit.version_bits {
                     Some(a) => {
                         if let Some(version_rolling_mask) = self.version_rolling_mask() {
-                            println!("AAAAAAAAAAA");
                             version_rolling_mask.check_mask(a)
                         } else {
-                            println!("BBBBBBBBBBB");
                             false
                         }
                     }
-                    None => dbg!(self.version_rolling_mask().is_none()),
+                    None => self.version_rolling_mask().is_none(),
                 };
 
                 let is_valid_submission = self.is_authorized(&submit.user_name)

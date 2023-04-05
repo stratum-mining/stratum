@@ -24,7 +24,7 @@ pub(crate) struct Job {
 }
 
 impl Job {
-    pub fn from_notify<'a>(notify_msg: server_to_client::Notify<'a>, extranonce: Vec<u8>) -> Self {
+    pub fn from_notify(notify_msg: server_to_client::Notify<'_>, extranonce: Vec<u8>) -> Self {
         // TODO: Hard coded for demo. Should be properly translated from received Notify message
         // Right now, Notify.job_id is a string, but the Job.job_id is a u32 here.
         let job_id = 1u32;
@@ -37,10 +37,20 @@ impl Job {
 
         let coinbase_tx_prefix: Vec<u8> = notify_msg.coin_base1.into();
         let coinbase_tx_suffix: Vec<u8> = notify_msg.coin_base2.into();
-        let path: Vec<Vec<u8>> = notify_msg.merkle_branch.into_iter().map(|node| node.into()).collect();
+        let path: Vec<Vec<u8>> = notify_msg
+            .merkle_branch
+            .into_iter()
+            .map(|node| node.into())
+            .collect();
 
-        let merkle_root = roles_logic_sv2::utils::merkle_root_from_path(&coinbase_tx_prefix, &coinbase_tx_suffix, &extranonce, &path).unwrap();
-        let merkle_root: [u8;32] = merkle_root.try_into().unwrap();
+        let merkle_root = roles_logic_sv2::utils::merkle_root_from_path(
+            &coinbase_tx_prefix,
+            &coinbase_tx_suffix,
+            &extranonce,
+            &path,
+        )
+        .unwrap();
+        let merkle_root: [u8; 32] = merkle_root.try_into().unwrap();
 
         Job {
             job_id,
