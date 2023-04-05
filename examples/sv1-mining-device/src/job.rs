@@ -23,8 +23,8 @@ pub(crate) struct Job {
     pub(crate) nbits: u32,
 }
 
-impl<'a> From<server_to_client::Notify<'a>> for Job {
-    fn from(notify_msg: v1::methods::server_to_client::Notify) -> Self {
+impl Job {
+    pub fn from_notify<'a>(notify_msg: server_to_client::Notify<'a>, extranonce: Vec<u8>) -> Self {
         // TODO: Hard coded for demo. Should be properly translated from received Notify message
         // Right now, Notify.job_id is a string, but the Job.job_id is a u32 here.
         let job_id = 1u32;
@@ -35,15 +35,13 @@ impl<'a> From<server_to_client::Notify<'a>> for Job {
         let prev_hash: &[u8; 32] = prev_hash_slice.try_into().expect("Expected len 32");
         let prev_hash = *prev_hash;
 
-        // Make a fake merkle root for the demo
-        // TODO: Should instead update Job to have cb1, cb2, and merkle_branches instead of
-        // merkle_root, then generate a random extranonce, build the cb by concatenating cb1 +
-        // extranonce + cb2, then calculate the merkle_root with the full branches
-        let merkle_root: [u8; 32] = [
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00,
-        ];
+        let coinbase_tx_prefix: Vec<u8> = notify_msg.coin_base1.into();
+        let coinbase_tx_suffix: Vec<u8> = notify_msg.coin_base2.into();
+        let path: Vec<Vec<u8>> = notify_msg.merkle_branch.into_iter().map(|node| node.into()).collect();
+
+        let merkle_root = roles_logic_sv2::utils::merkle_root_from_path(&coinbase_tx_prefix, &coinbase_tx_suffix, &extranonce, &path).unwrap();
+        let merkle_root: [u8;32] = merkle_root.try_into().unwrap();
+
         Job {
             job_id,
             prev_hash,
