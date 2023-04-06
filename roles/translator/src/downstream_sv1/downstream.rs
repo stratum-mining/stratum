@@ -426,13 +426,13 @@ impl IsServer<'static> for Downstream {
     ) -> (Option<server_to_client::VersionRollingParams>, Option<bool>) {
         info!("Down: Configuring");
         debug!("Down: Handling mining.configure: {:?}", &request);
-        self.version_rolling_mask = Some(downstream_sv1::new_version_rolling_mask());
-        self.version_rolling_min_bit = Some(downstream_sv1::new_version_rolling_min());
+        self.version_rolling_mask = request.version_rolling_mask();
+        self.version_rolling_min_bit = request.version_rolling_min_bit_count();
         (
             // unwraps safe since values are set above
             Some(server_to_client::VersionRollingParams::new(
-                self.version_rolling_mask.clone().unwrap(),
-                self.version_rolling_min_bit.clone().unwrap(),
+                self.version_rolling_mask.clone().unwrap_or(HexU32Be(0)),
+                self.version_rolling_min_bit.clone().unwrap_or(HexU32Be(0)),
             ).expect("Version mask invalid, automatic version mask selection not supported, please change it in carte::downstream_sv1::mod.rs")),
             Some(false),
         )

@@ -174,7 +174,7 @@ impl Client {
         task::spawn(async move {
             let recv = receiver_share.clone();
             loop {
-                let (nonce, job_id, version, ntime) = recv.recv().await.unwrap();
+                let (nonce, job_id, _version, ntime) = recv.recv().await.unwrap();
                 if cloned.clone().safe_lock(|c| c.status).unwrap() != ClientStatus::Subscribed {
                     continue;
                 }
@@ -182,7 +182,6 @@ impl Client {
                     vec![0; cloned.safe_lock(|c| c.extranonce2_size.unwrap()).unwrap()]
                         .try_into()
                         .unwrap();
-                let version = Some(HexU32Be(version));
                 let submit = client_to_server::Submit {
                     id: 0,
                     user_name: "user".into(), // TODO: user name should NOT be hardcoded
@@ -190,7 +189,7 @@ impl Client {
                     extra_nonce2,
                     time: HexU32Be(ntime),
                     nonce: HexU32Be(nonce),
-                    version_bits: version,
+                    version_bits: None,
                 };
                 let message: json_rpc::Message = submit.into();
                 let message = format!("{}\n", serde_json::to_string(&message).unwrap());
@@ -297,7 +296,12 @@ impl IsClient<'static> for Client {
         &mut self,
         notify: server_to_client::Notify<'static>,
     ) -> Result<(), Error<'static>> {
-        let new_job: Job = notify.into();
+        let mut extranonce: Vec<u8> = self.extranonce1.clone().unwrap().into();
+        for _ in 0..self.extranonce2_size.unwrap() {
+            extranonce.push(0)
+        }
+
+        let new_job = Job::from_notify(notify, extranonce);
         self.miner.safe_lock(|m| m.new_header(new_job)).unwrap();
         Ok(())
     }
