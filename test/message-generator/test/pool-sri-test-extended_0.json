@@ -59,14 +59,14 @@
                 },
                 {
                     "type": "match_message_type",
-                    "value": "0x20"
+                    "value": "0x1f"
                 },
                 {
                     "type": "match_message_type",
-                    "value": "0x1f"
+                    "value": "0x20"
                 }
             ],
-            "actiondoc":  "This action opens an ExtendedMiningChannel and checks that are received a .Success, SetNewPrevHash and NewExtendedMiningJob"
+            "actiondoc":  "This action opens an ExtendedMiningChannel and checks that are received a .Success, NewExtendedMiningJob and SetNewPrevHash"
        }
     ],
     "setup_commands": [
