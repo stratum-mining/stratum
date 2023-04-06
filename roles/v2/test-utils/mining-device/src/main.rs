@@ -146,7 +146,7 @@ fn open_channel() -> OpenStandardMiningChannel<'static> {
     OpenStandardMiningChannel {
         request_id: id.into(),
         user_identity,
-        nominal_hash_rate: 100_000.0, // use 1000 or 10000 to test group channels
+        nominal_hash_rate: 1000.0, // use 1000 or 10000 to test group channels
         max_target: u256_from_int(567_u64),
     }
 }
