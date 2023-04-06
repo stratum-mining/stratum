@@ -1075,7 +1075,7 @@ impl PoolChannelFactory {
             SetCustomMiningJobSuccess {
                 channel_id: set_custom_mining_job.channel_id,
                 request_id: set_custom_mining_job.request_id,
-                job_id: 0,
+                job_id: self.inner.job_ids.next(),
             }
         } else {
             todo!()
