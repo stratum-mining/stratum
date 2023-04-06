@@ -179,6 +179,7 @@ impl Downstream {
         message: roles_logic_sv2::parsers::Mining<'static>,
     ) -> PoolResult<()> {
         let message = if let Mining::NewExtendedMiningJob(job) = message {
+            // TODO do not hardcode this number!
             Mining::NewExtendedMiningJob(extended_job_to_non_segwit(job, 32)?)
         } else {
             message

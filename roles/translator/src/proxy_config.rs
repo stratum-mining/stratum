@@ -14,6 +14,7 @@ pub struct ProxyConfig {
     pub coinbase_reward_sat: u64,
     pub downstream_difficulty_config: DownstreamDifficultyConfig,
     pub upstream_difficulty_config: UpstreamDifficultyConfig,
+    pub test_only_share_withhold: bool,
 }
 
 #[derive(Debug, Deserialize, Clone)]
