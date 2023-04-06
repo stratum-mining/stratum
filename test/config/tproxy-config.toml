@@ -20,8 +20,6 @@ min_supported_version = 2
 min_extranonce2_size = 16
 coinbase_reward_sat = 5_000_000_000
 
-test_only_share_withhold=false
-
 # Difficulty params
 [downstream_difficulty_config]
 # hashes/s of the weakest miner that will be connecting
@@ -36,4 +34,3 @@ shares_per_minute = 6.0
 channel_diff_update_interval = 60
 # estimated accumulated hashrate of all downstream miners
 channel_nominal_hashrate = 5_000_000.0
-

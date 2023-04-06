@@ -16,15 +16,11 @@ downstream_port = 34255
 max_supported_version = 2
 min_supported_version = 2
 
-# When testing we need to make sure that the tproxy is able to send valid solution to the TP, so we
-# force the tproxy to not set the solution to the pool so that only the tproxy can send it to the TP
-test_only_share_withhold=true
-
 # Minimum extranonce2 size for downstream
 # Max value: 16 (leaves 0 bytes for search space splitting of downstreams)
 # Max value for CGminer: 8
 # Min value: 2
-min_extranonce2_size = 6
+min_extranonce2_size = 8
 coinbase_reward_sat = 5_000_000_000
 
 # optional jn config, if set the tproxy start on JN mode
@@ -35,17 +31,14 @@ tp_address = "127.0.0.1:8442"
 # Difficulty params
 [downstream_difficulty_config]
 # hashes/s of the weakest miner that will be connecting
-# possible values are:
-# cpu miner 500_000.0
-# s9 low power mode: 3_000_000_000_000.0
-min_individual_miner_hashrate=500_000.0 
+min_individual_miner_hashrate=500_000.0
 # minimum number of shares needed before a mining.set_difficulty is sent for updating targets
 miner_num_submits_before_update=5
 # target number of shares per minute the miner should be sending
-shares_per_minute = 30.0
+shares_per_minute = 6.0
 
 [upstream_difficulty_config]
 # interval in seconds to elapse before updating channel hashrate with the pool
-channel_diff_update_interval = 5
+channel_diff_update_interval = 60
 # estimated accumulated hashrate of all downstream miners
-channel_nominal_hashrate = 500.0
+channel_nominal_hashrate = 5_000_000.0

@@ -228,7 +228,6 @@ async fn main() {
         target,
         up_id,
         bridge_upstream_kind,
-        proxy_config.test_only_share_withhold,
     );
     proxy::Bridge::start(b.clone());
 
