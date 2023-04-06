@@ -76,6 +76,7 @@ pub struct Bridge {
     last_job_id: u32,
     has_negotiator: bool,
     first_job_handled: bool,
+    up_to_down_job_ids: std::collections::hash_map::HashMap<u32, Vec<u32>>,
 }
 
 #[derive(Debug, Clone)]
@@ -157,6 +158,7 @@ impl Bridge {
             last_job_id: 0,
             has_negotiator: upstream_kind.has_negotiator(),
             first_job_handled: false,
+            up_to_down_job_ids: std::collections::hash_map::HashMap::new(),
         }));
         match upstream_kind {
             UpstreamKind::Standard => (),
@@ -171,7 +173,7 @@ impl Bridge {
                 // dowsntream connected
                 self_
                     .safe_lock(|s| {
-                        s.channel_factory.new_extended_channel(0, 1.0, 0);
+                        s.channel_factory.new_extended_channel(0, 1.0, 8);
                     })
                     .unwrap();
                 Self::start_receiving_pool_coinbase_outs(self_.clone(), recv_coinbase_out);
@@ -210,10 +212,7 @@ impl Bridge {
     ) {
         task::spawn(async move {
             debug!("Bridge waiting to receive first prev hash and first pool outputs");
-            while !self_mutex
-                .safe_lock(|s| (s.first_ph_received && s.pool_output_is_set))
-                .unwrap()
-            {
+            while !self_mutex.safe_lock(|s| (s.pool_output_is_set)).unwrap() {
                 tokio::task::yield_now().await;
             }
             debug!("Bridge received first prev hash and first pool outputs");
@@ -225,7 +224,7 @@ impl Bridge {
                     .safe_lock(|a| a.channel_factory.on_new_template(&mut message_new_template))
                     .map_err(|_| PoisonLock);
                 let partial = handle_result!(tx_status.clone(), partial);
-                let (channel_id_to_new_job_msg, custom_job) =
+                let (channel_id_to_new_job_msg, custom_job, upstream_id) =
                     handle_result!(tx_status.clone(), partial);
                 if let Some(custom_job) = custom_job {
                     let req_id = self_mutex.safe_lock(|s| s.request_ids.next()).unwrap();
@@ -261,6 +260,10 @@ impl Bridge {
                     .safe_lock(|s| (s.tx_sv1_notify.clone(), s.tx_status.clone()))
                     .unwrap();
                 for (id, job) in channel_id_to_new_job_msg {
+                    let job_id = match &job {
+                        Mining::NewExtendedMiningJob(j) => j.job_id,
+                        _ => unreachable!(),
+                    };
                     let should_ignore_first_channel = self_mutex
                         .safe_lock(|s| s.has_negotiator && s.first_job_handled)
                         .map_err(|_| PoisonLock);
@@ -269,6 +272,13 @@ impl Bridge {
                     if handle_result!(tx_status.clone(), should_ignore_first_channel) && id == 1 {
                         continue;
                     }
+                    let map_job_id = self_mutex
+                        .safe_lock(|s| {
+                            let x = s.up_to_down_job_ids.entry(upstream_id).or_default();
+                            x.push(job_id);
+                        })
+                        .map_err(|_| PoisonLock);
+                    handle_result!(tx_status.clone(), map_job_id);
                     self_mutex
                         .safe_lock(|s| s.first_job_handled = true)
                         .unwrap();
@@ -311,7 +321,7 @@ impl Bridge {
                     .safe_lock(|s| s.first_ph_received = true)
                     .unwrap();
 
-                let new_p_hash = SetNewPrevHash {
+                let mut new_p_hash = SetNewPrevHash {
                     channel_id: 0,
                     job_id: match custom {
                         Ok(Some((_, id))) => id,
@@ -321,15 +331,19 @@ impl Bridge {
                     min_ntime: message_prev_hash.header_timestamp,
                     nbits: message_prev_hash.n_bits,
                 };
-                handle_result!(
-                    tx_status.clone(),
-                    Self::handle_new_prev_hash_(
-                        self_mutex.clone(),
-                        new_p_hash,
-                        tx_sv1_notify.clone(),
-                    )
-                    .await
-                );
+
+                // assumes only one downstream connected for channel
+                let job_id = self_mutex
+                    .safe_lock(|s| match s.up_to_down_job_ids.get(&new_p_hash.job_id) {
+                        Some(downstream_ids) => match downstream_ids.len() {
+                            0 => 0,
+                            1 => downstream_ids[0],
+                            _ => unreachable!(),
+                        },
+                        _ => 0,
+                    })
+                    .unwrap();
+
                 if let Ok(Some((custom_job, _))) = custom {
                     let req_id = self_mutex.safe_lock(|s| s.request_ids.next()).unwrap();
                     let custom_mining_job = SetCustomMiningJob {
@@ -357,6 +371,17 @@ impl Bridge {
                     let tx_status = self_mutex.safe_lock(|s| s.tx_status.clone()).unwrap();
                     handle_result!(tx_status, send_mining_job.send(custom_mining_job).await);
                 }
+                new_p_hash.job_id = job_id;
+
+                handle_result!(
+                    tx_status.clone(),
+                    Self::handle_new_prev_hash_(
+                        self_mutex.clone(),
+                        new_p_hash,
+                        tx_sv1_notify.clone(),
+                    )
+                    .await
+                );
             }
         });
     }
