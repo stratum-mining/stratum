@@ -48,3 +48,11 @@ pub async fn kill(sender: &async_channel::Sender<bool>) {
 pub fn new_subscription_id() -> String {
     "ae6812eb4cd7735a302a8a9dd95cf71f".into()
 }
+
+pub fn new_version_rolling_mask() -> HexU32Be {
+    HexU32Be(0b00011111111111111110000000000000)
+}
+
+pub fn new_version_rolling_min() -> HexU32Be {
+    HexU32Be(0)
+}

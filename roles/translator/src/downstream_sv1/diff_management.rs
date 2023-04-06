@@ -226,9 +226,6 @@ impl Downstream {
                     return Ok(None);
                 }
                 let delta_time = timestamp_secs - d.difficulty_mgmt.timestamp_of_last_update;
-                if delta_time == 0 {
-                    return Ok(None);
-                }
                 tracing::debug!("\nDELTA TIME: {:?}", delta_time);
                 let realized_share_per_min =
                     d.difficulty_mgmt.submits_since_last_update as f32 / (delta_time as f32 / 60.0);
