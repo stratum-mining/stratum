@@ -196,7 +196,10 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
         let m = SetCustomMiningJobSuccess {
             channel_id: m.channel_id,
             request_id: m.request_id,
-            job_id:  self.channel_factory.safe_lock(|cf| cf.on_new_set_custom_mining_job(m.into_static()).job_id).unwrap(),
+            job_id: self
+                .channel_factory
+                .safe_lock(|cf| cf.on_new_set_custom_mining_job(m.into_static()).job_id)
+                .unwrap(),
         };
         Ok(SendTo::Respond(Mining::SetCustomMiningJobSuccess(m)))
     }

@@ -484,10 +484,12 @@ impl Upstream {
         self_
             .safe_lock(|s| {
                 if s.is_work_selection_enabled() {
-                    info!("BBBBBB last_job_id in get_job_id function {:?}", {s.last_job_id.unwrap()});
+                    info!("BBBBBB last_job_id in get_job_id function {:?}", {
+                        s.last_job_id.unwrap()
+                    });
                     s.last_job_id.ok_or(crate::error::Error::RolesSv2Logic(
                         RolesLogicError::NoValidTranslatorJob,
-                    ))                    
+                    ))
                 } else {
                     s.job_id.ok_or(crate::error::Error::RolesSv2Logic(
                         RolesLogicError::NoValidJob,
@@ -824,7 +826,7 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
         m: roles_logic_sv2::mining_sv2::SetCustomMiningJobSuccess,
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, RolesLogicError> {
         self.last_job_id = Some(m.job_id);
-        info!("AAAAAA last_job_id: {:?}", {self.last_job_id.unwrap()});
+        info!("AAAAAA last_job_id: {:?}", { self.last_job_id.unwrap() });
         Ok(SendTo::None(None))
     }
 
