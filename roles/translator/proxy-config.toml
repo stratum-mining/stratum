@@ -21,7 +21,6 @@ min_supported_version = 2
 # Max value for CGminer: 8
 # Min value: 2
 min_extranonce2_size = 8
-coinbase_reward_sat = 5_000_000_000
 
 # optional jn config, if set the tproxy start on JN mode
 [jn_config]
@@ -41,4 +40,5 @@ shares_per_minute = 6.0
 # interval in seconds to elapse before updating channel hashrate with the pool
 channel_diff_update_interval = 60
 # estimated accumulated hashrate of all downstream miners
-channel_nominal_hashrate = 5_000_000.0
+channel_nominal_hashrate = 500.0
+

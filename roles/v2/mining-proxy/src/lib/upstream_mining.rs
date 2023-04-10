@@ -199,14 +199,14 @@ pub struct UpstreamMiningNode {
     pub recv_coinbase_out: Option<Receiver<(Vec<TxOut>, Vec<u8>)>>,
     #[allow(dead_code)]
     tx_outs: HashMap<Vec<u8>, Vec<TxOut>>,
-    first_ph_received: bool,
     // When a future job is received from an extended channel this is transformed to severla std
     // job for HOM downstream. If the job is future we need to keep track of the original job id and
     // the new job ids used for the std job and also which downstream received which id. When a set
     // new prev hash is received if it refer one of these ids we use this map and build the right
-    // set new pre hash for each downstream.
+    // set new pre hash for each downstream. TODO who is clearing the map?
     #[allow(clippy::type_complexity)]
     job_up_to_down_ids: HashMap<u32, Vec<(Arc<Mutex<DownstreamMiningNode>>, u32)>>,
+    downstream_hash_rate: f32,
 }
 
 use core::convert::TryInto;
@@ -230,6 +230,7 @@ impl UpstreamMiningNode {
         downstream_share_per_minute: f32,
         solution_sender: Option<Sender<SubmitSolution<'static>>>,
         recv_coinbase_out: Option<Receiver<(Vec<TxOut>, Vec<u8>)>>,
+        downstream_hash_rate: f32,
     ) -> Self {
         let request_id_mapper = RequestIdMapper::new();
         let downstream_selector = ProxyRemoteSelector::new();
@@ -253,8 +254,39 @@ impl UpstreamMiningNode {
             solution_sender,
             recv_coinbase_out,
             tx_outs: HashMap::new(),
-            first_ph_received: false,
             job_up_to_down_ids: HashMap::new(),
+            downstream_hash_rate,
+        }
+    }
+    fn on_p_hash(
+        &mut self,
+        mut m: SetNewPrevHash<'static>,
+    ) -> Result<SendTo<DownstreamMiningNode>, Error> {
+        match self.job_up_to_down_ids.get(&m.job_id) {
+            Some(downstreams) => {
+                let mut res = vec![];
+                for (downstream, job_id) in downstreams {
+                    m.job_id = *job_id;
+                    let message = Mining::SetNewPrevHash(m.clone().into_static());
+                    res.push(SendTo::RelayNewMessageToRemote(
+                        downstream.clone(),
+                        message.clone(),
+                    ));
+                }
+                self.job_up_to_down_ids = HashMap::new();
+                Ok(SendTo::Multiple(res))
+            }
+            None => {
+                let downstrems = self.downstream_selector.get_all_downstreams();
+                let mut res = vec![];
+                m.job_id = 0;
+                let message = Mining::SetNewPrevHash(m.into_static());
+                for downstream in downstrems {
+                    res.push(SendTo::RelayNewMessageToRemote(downstream, message.clone()));
+                }
+                self.job_up_to_down_ids = HashMap::new();
+                Ok(SendTo::Multiple(res))
+            }
         }
     }
 
@@ -271,9 +303,6 @@ impl UpstreamMiningNode {
                 tokio::task::yield_now().await;
             }
             while let Ok((outs, _id)) = recv.recv().await {
-                // TODO assuming that only one coinbase is negotiated with the pool not handling
-                // different tokens, in order to do that we can use the out hashmap:
-                // self.tx_outs.insert(id, outs)
                 self_mutex
                     .safe_lock(|s| {
                         match &mut s.channel_kind {
@@ -296,13 +325,10 @@ impl UpstreamMiningNode {
                 .safe_lock(|a| a.recv_tp.clone())
                 .unwrap()
                 .unwrap();
-            while !self_mutex.safe_lock(|s| s.first_ph_received).unwrap() {
-                tokio::task::yield_now().await;
-            }
             loop {
                 let (mut message_new_template, token): (NewTemplate, Vec<u8>) =
                     new_template_reciver.recv().await.unwrap();
-                let (channel_id_to_new_job_msg, custom_job) = self_mutex
+                let (channel_id_to_new_job_msg, custom_job, upstream_id) = self_mutex
                     .safe_lock(|a| {
                         a.channel_kind
                             .get_factory()
@@ -341,9 +367,20 @@ impl UpstreamMiningNode {
                 }
 
                 for (id, job) in channel_id_to_new_job_msg {
+                    let job_id = match &job {
+                        Mining::NewExtendedMiningJob(j) => j.job_id,
+                        Mining::NewMiningJob(j) => j.job_id,
+                        _ => unreachable!(),
+                    };
                     let downstream = self_mutex
                         .safe_lock(|a| a.downstream_selector.downstream_from_channel_id(id))
                         .unwrap()
+                        .unwrap();
+                    self_mutex
+                        .safe_lock(|s| {
+                            let x = s.job_up_to_down_ids.entry(upstream_id).or_default();
+                            x.push((downstream.clone(), job_id));
+                        })
                         .unwrap();
                     let message = MiningDeviceMessages::Mining(job);
                     DownstreamMiningNode::send(downstream, message.try_into().unwrap())
@@ -371,9 +408,16 @@ impl UpstreamMiningNode {
                             .on_new_prev_hash_from_tp(&message_prev_hash)
                     })
                     .unwrap();
-                self_mutex
-                    .safe_lock(|s| s.first_ph_received = true)
-                    .unwrap();
+                let new_p_hash = SetNewPrevHash {
+                    channel_id: 0,
+                    job_id: match custom {
+                        Ok(Some((_, id))) => id,
+                        _ => 0,
+                    },
+                    prev_hash: message_prev_hash.prev_hash,
+                    min_ntime: message_prev_hash.header_timestamp,
+                    nbits: message_prev_hash.n_bits,
+                };
 
                 if let Ok(Some((custom_job, _job_id))) = custom {
                     let req_id = self_mutex
@@ -404,6 +448,8 @@ impl UpstreamMiningNode {
                         .await
                         .unwrap();
                 }
+                let to_send = self_mutex.safe_lock(|s| s.on_p_hash(new_p_hash)).unwrap();
+                Self::match_next_message(self_mutex.clone(), to_send, StdFrame::default()).await;
             }
         });
     }
@@ -634,19 +680,12 @@ impl UpstreamMiningNode {
         }
     }
 
-    pub async fn next(self_mutex: Arc<Mutex<Self>>, mut incoming: StdFrame) {
-        let message_type = incoming.get_header().unwrap().msg_type();
-        let payload = incoming.payload();
-
-        let routing_logic = crate::get_routing_logic();
-
-        let next_message_to_send = UpstreamMiningNode::handle_message_mining(
-            self_mutex.clone(),
-            message_type,
-            payload,
-            routing_logic,
-        );
-        match next_message_to_send {
+    async fn match_next_message(
+        self_mutex: Arc<Mutex<Self>>,
+        to_send: Result<SendTo<DownstreamMiningNode>, Error>,
+        incoming: StdFrame,
+    ) {
+        match to_send {
             Ok(SendTo::RelaySameMessageToRemote(downstream)) => {
                 let sv2_frame: codec_sv2::Sv2Frame<MiningDeviceMessages, buffer_sv2::Slice> =
                     incoming.map(|payload| payload.try_into().unwrap());
@@ -706,6 +745,21 @@ impl UpstreamMiningNode {
         }
     }
 
+    pub async fn next(self_mutex: Arc<Mutex<Self>>, mut incoming: StdFrame) {
+        let message_type = incoming.get_header().unwrap().msg_type();
+        let payload = incoming.payload();
+
+        let routing_logic = crate::get_routing_logic();
+
+        let next_message_to_send = UpstreamMiningNode::handle_message_mining(
+            self_mutex.clone(),
+            message_type,
+            payload,
+            routing_logic,
+        );
+        Self::match_next_message(self_mutex, next_message_to_send, incoming).await;
+    }
+
     #[async_recursion]
     async fn setup_flag_and_version(
         self_mutex: Arc<Mutex<Self>>,
@@ -714,8 +768,13 @@ impl UpstreamMiningNode {
         max_version: u16,
     ) -> Result<(), crate::lib::error::Error> {
         let flags = flags.unwrap_or(0b0000_0000_0000_0000_0000_0000_0000_0110);
-        let frame = self_mutex
-            .safe_lock(|self_| self_.new_setup_connection_frame(flags, min_version, max_version))
+        let (frame, downstream_hr) = self_mutex
+            .safe_lock(|self_| {
+                (
+                    self_.new_setup_connection_frame(flags, min_version, max_version),
+                    self_.downstream_hash_rate,
+                )
+            })
             .unwrap();
         Self::send(self_mutex.clone(), frame).await?;
 
@@ -744,7 +803,7 @@ impl UpstreamMiningNode {
                     .safe_lock(|s| s.channel_kind.is_extended())
                     .unwrap()
                 {
-                    Self::open_extended_channel(self_mutex.clone()).await
+                    Self::open_extended_channel(self_mutex.clone(), downstream_hr).await
                 }
                 Ok(())
             }
@@ -770,12 +829,12 @@ impl UpstreamMiningNode {
         }
     }
 
-    async fn open_extended_channel(self_mutex: Arc<Mutex<Self>>) {
+    async fn open_extended_channel(self_mutex: Arc<Mutex<Self>>, nominal_hash_rate: f32) {
         let message = PoolMessages::Mining(Mining::OpenExtendedMiningChannel(
             OpenExtendedMiningChannel {
                 request_id: 0,
                 user_identity: "proxy".to_string().try_into().unwrap(),
-                nominal_hash_rate: 100_000_000_000_000.0,
+                nominal_hash_rate,
                 max_target: [
                     255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
                     255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
@@ -893,7 +952,10 @@ impl UpstreamMiningNode {
                 })
                 .unwrap()?;
             match share {
-                OnNewShare::SendErrorDownstream(e) => Ok(Mining::SubmitSharesError(e)),
+                OnNewShare::SendErrorDownstream(e) => {
+                    tracing::error!("Received invalid share");
+                    Ok(Mining::SubmitSharesError(e))
+                }
                 OnNewShare::SendSubmitShareUpstream(s) => match s {
                     Share::Extended(s) => {
                         let message = Mining::SubmitSharesExtended(s);
@@ -1119,6 +1181,9 @@ impl
         &mut self,
         m: SubmitSharesSuccess,
     ) -> Result<SendTo<DownstreamMiningNode>, Error> {
+        if let ChannelKind::ExtendedWithNegotiator(_) = self.channel_kind {
+            return Ok(SendTo::None(None));
+        };
         match &self
             .downstream_selector
             .downstream_from_channel_id(m.channel_id)
@@ -1255,7 +1320,7 @@ impl
 
     fn handle_set_new_prev_hash(
         &mut self,
-        mut m: SetNewPrevHash,
+        m: SetNewPrevHash,
     ) -> Result<SendTo<DownstreamMiningNode>, Error> {
         match &mut self.channel_kind {
             ChannelKind::Group(group) => {
@@ -1280,35 +1345,7 @@ impl
                     .on_new_prev_hash(m.clone().into_static())
                     .is_ok()
                 {
-                    match self.job_up_to_down_ids.get(&m.job_id) {
-                        Some(downstreams) => {
-                            let mut res = vec![];
-                            for (downstream, job_id) in downstreams {
-                                m.job_id = *job_id;
-                                let message = Mining::SetNewPrevHash(m.clone().into_static());
-                                res.push(SendTo::RelayNewMessageToRemote(
-                                    downstream.clone(),
-                                    message.clone(),
-                                ));
-                            }
-                            self.job_up_to_down_ids = HashMap::new();
-                            Ok(SendTo::Multiple(res))
-                        }
-                        None => {
-                            let downstrems = self.downstream_selector.get_all_downstreams();
-                            let mut res = vec![];
-                            m.job_id = 0;
-                            let message = Mining::SetNewPrevHash(m.into_static());
-                            for downstream in downstrems {
-                                res.push(SendTo::RelayNewMessageToRemote(
-                                    downstream,
-                                    message.clone(),
-                                ));
-                            }
-                            self.job_up_to_down_ids = HashMap::new();
-                            Ok(SendTo::Multiple(res))
-                        }
-                    }
+                    self.on_p_hash(m.into_static().clone())
                 } else {
                     todo!()
                 }
@@ -1450,6 +1487,7 @@ mod tests {
             10.0,
             None,
             None,
+            100_000.0,
         );
 
         assert_eq!(actual.id, id);

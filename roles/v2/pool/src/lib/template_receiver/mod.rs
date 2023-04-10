@@ -39,6 +39,7 @@ impl TemplateRx {
         solution_receiver: Receiver<SubmitSolution<'static>>,
         message_received_signal: Receiver<()>,
         status_tx: status::Sender,
+        coinbase_out_len: u32,
     ) -> PoolResult<()> {
         let stream = TcpStream::connect(address).await?;
         info!("Connected to template distribution server at {}", address);
@@ -59,7 +60,7 @@ impl TemplateRx {
         let cloned = self_.clone();
 
         let c_additional_size = CoinbaseOutputDataSize {
-            coinbase_output_max_additional_size: crate::COINBASE_ADD_SZIE,
+            coinbase_output_max_additional_size: coinbase_out_len,
         };
         let frame = PoolMessages::TemplateDistribution(
             TemplateDistribution::CoinbaseOutputDataSize(c_additional_size),

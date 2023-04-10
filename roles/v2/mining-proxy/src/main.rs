@@ -139,6 +139,7 @@ pub struct Config {
     max_supported_version: u16,
     min_supported_version: u16,
     downstream_share_per_minute: f32,
+    expected_total_downstream_hr: f32,
 }
 pub async fn initialize_r_logic(
     upstreams: &[UpstreamMiningValues],
@@ -171,6 +172,7 @@ pub async fn initialize_r_logic(
             config.downstream_share_per_minute,
             None,
             None,
+            config.expected_total_downstream_hr,
         )));
 
         match upstream_.channel_kind {
