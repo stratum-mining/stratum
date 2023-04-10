@@ -1201,7 +1201,8 @@ impl ProxyExtendedChannelFactory {
             HashMap<u32, Mining<'static>>,
             // PartialSetCustomMiningJob to send to the pool
             Option<PartialSetCustomMiningJob>,
-            // job_id registered in the channel, the one that SetNewPrevHash refer to
+            // job_id registered in the channel, the one that SetNewPrevHash refer to (upstsream
+            // job id)
             u32,
         ),
         Error,
