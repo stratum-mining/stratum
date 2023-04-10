@@ -76,8 +76,8 @@ impl Miner {
         let hash = Uint256::from_be_bytes(hash);
         if hash < *self.target.as_ref().ok_or(())? {
             println!(
-                "Found share with nonce: {}, for target: {:?}",
-                header.nonce, self.target
+                "Found share with nonce: {}, for target: {:?}, hash: {:?}",
+                header.nonce, self.target, hash
             );
             Ok(())
         } else {

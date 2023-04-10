@@ -90,7 +90,7 @@ impl ParseClientJobNegotiationMessages for JobNegotiatorDownstream {
         let res = JobNegotiation::AllocateMiningJobTokenSuccess(AllocateMiningJobTokenSuccess {
             request_id: message.request_id,
             mining_job_token: get_random_token(),
-            coinbase_output_max_additional_size: crate::COINBASE_ADD_SZIE,
+            coinbase_output_max_additional_size: self.coinbase_output.len() as u32,
             // Pool do not construct ouputs bigger than 64K bytes so, self.coinbase_output can be
             // safly transformed in B064K.
             coinbase_output: self.coinbase_output.clone().try_into().unwrap(),

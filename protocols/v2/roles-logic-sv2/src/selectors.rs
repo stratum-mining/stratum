@@ -95,10 +95,7 @@ impl<Down: IsMiningDownstream> DownstreamMiningSelector<Down>
         self.channel_id_to_downstream.get(&channel_id).cloned()
     }
     fn get_all_downstreams(&self) -> Vec<Arc<Mutex<Down>>> {
-        self.channel_id_to_downstream
-            .iter()
-            .map(|(_, v)| v.clone())
-            .collect()
+        self.channel_id_to_downstream.values().cloned().collect()
     }
 }
 

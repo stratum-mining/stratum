@@ -23,7 +23,7 @@ async fn main() {
     //task::spawn(async move { connect(socket, 11070).await });
     //task::spawn(async move { connect(socket, 7040).await });
     println!("start");
-    connect(socket, 5000).await
+    connect(socket, 0).await
 }
 
 use async_channel::{Receiver, Sender};
@@ -146,8 +146,7 @@ fn open_channel() -> OpenStandardMiningChannel<'static> {
     OpenStandardMiningChannel {
         request_id: id.into(),
         user_identity,
-        // keep at a value that actually tests the device since regtest target is so low
-        nominal_hash_rate: 5.4, // change back to 100.0 so the test is valid
+        nominal_hash_rate: 1000.0, // use 1000 or 10000 to test group channels
         max_target: u256_from_int(567_u64),
     }
 }
@@ -490,8 +489,8 @@ impl Miner {
         let hash = Uint256::from_be_bytes(hash);
         if hash < *self.target.as_ref().ok_or(())? {
             println!(
-                "Found share with nonce: {}, for target: {:?}",
-                header.nonce, self.target
+                "Found share with nonce: {}, for target: {:?}, with hash: {:?}",
+                header.nonce, self.target, hash,
             );
             Ok(())
         } else {

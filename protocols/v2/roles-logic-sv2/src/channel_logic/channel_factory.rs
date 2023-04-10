@@ -697,28 +697,7 @@ impl ChannelFactory {
                 upstream_target, ..
             } => upstream_target.clone(),
         };
-        let _last_job_id = self
-            .last_valid_job
-            .as_ref()
-            .ok_or(Error::ShareDoNotMatchAnyJob)?
-            .0
-            .job_id;
-        // *** TODO: uncomment below after mining proxy job management is fixed
-        // if m.get_job_id() < last_job_id {
-        //     let error = SubmitSharesError {
-        //         channel_id: m.get_channel_id(),
-        //         sequence_number: m.get_sequence_number(),
-        //         // Infallible unwrap we already know the len of the error code (is a
-        //         // static string)
-        //         error_code: SubmitSharesError::stale_share_error_code()
-        //             .to_string()
-        //             .try_into()
-        //             .unwrap(),
-        //     };
-        //     return Ok(OnNewShare::SendErrorDownstream(error));
-        // } else if m.get_job_id() > last_job_id {
-        //     return Err(Error::JobNotUpdated(m.get_job_id(), last_job_id));
-        // }
+
         let (downstream_target, extranonce) = self
             .get_channel_specific_mining_info(&m)
             .ok_or(Error::ShareDoNotMatchAnyChannel)?;
@@ -1075,7 +1054,7 @@ impl PoolChannelFactory {
             SetCustomMiningJobSuccess {
                 channel_id: set_custom_mining_job.channel_id,
                 request_id: set_custom_mining_job.request_id,
-                job_id: 0,
+                job_id: self.inner.job_ids.next(),
             }
         } else {
             todo!()
@@ -1212,21 +1191,30 @@ impl ProxyExtendedChannelFactory {
     }
     /// Called only when a new template is received by a Template Provider when job negotiation is used.
     /// It creates a new custom job and calls [`ChannelFactory::on_new_extended_mining_job`]
+    #[allow(clippy::type_complexity)]
     pub fn on_new_template(
         &mut self,
         m: &mut NewTemplate<'static>,
     ) -> Result<
         (
+            // downstream job_id -> downstream message (newextjob or newjob)
             HashMap<u32, Mining<'static>>,
+            // PartialSetCustomMiningJob to send to the pool
             Option<PartialSetCustomMiningJob>,
+            // job_id registered in the channel, the one that SetNewPrevHash refer to
+            u32,
         ),
         Error,
     > {
         if let (Some(job_creator), Some(pool_coinbase_outputs)) = (
             self.job_creator.as_mut(),
-            self.pool_coinbase_outputs.as_ref(),
+            self.pool_coinbase_outputs.as_mut(),
         ) {
+            if let Some(last_pool_coinbase_output) = pool_coinbase_outputs.last_mut() {
+                last_pool_coinbase_output.value = m.coinbase_tx_value_remaining;
+            }
             let new_job = job_creator.on_new_template(m, true, pool_coinbase_outputs.clone())?;
+            let id = new_job.job_id;
             if !new_job.is_future() && self.inner.last_prev_hash.is_some() {
                 let prev_hash = self.last_prev_hash().unwrap();
                 let min_ntime = self.last_min_ntime().unwrap();
@@ -1250,13 +1238,14 @@ impl ProxyExtendedChannelFactory {
                 return Ok((
                     self.inner.on_new_extended_mining_job(new_job)?,
                     Some(custom_mining_job),
+                    id,
                 ));
             } else if new_job.is_future() {
                 self.inner
                     .future_templates
                     .insert(new_job.job_id, m.clone());
             }
-            Ok((self.inner.on_new_extended_mining_job(new_job)?, None))
+            Ok((self.inner.on_new_extended_mining_job(new_job)?, None, id))
         } else {
             panic!("Either channel factory has no job creator or pool_coinbase_outputs are not yet set")
         }

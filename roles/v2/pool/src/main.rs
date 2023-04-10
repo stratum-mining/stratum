@@ -24,17 +24,18 @@ pub type EitherFrame = StandardEitherFrame<Message>;
 
 const BLOCK_REWARD: u64 = 5_000_000_000;
 
-const COINBASE_ADD_SZIE: u32 = 100;
+//const COINBASE_ADD_SZIE: u32 = 100;
 
 pub fn get_coinbase_output(config: &Configuration) -> Vec<TxOut> {
     config
         .coinbase_outputs
         .iter()
         .map(|pub_key_wrapper| {
+            let hashed = pub_key_wrapper.pub_key.pubkey_hash();
             TxOut {
                 // value will be updated by the addition of `ChannelFactory::split_outputs()` in PR #422
                 value: crate::BLOCK_REWARD,
-                script_pubkey: Script::new_p2pk(&pub_key_wrapper.pub_key),
+                script_pubkey: Script::new_p2pkh(&hashed),
             }
         })
         .collect()
@@ -190,6 +191,7 @@ async fn main() {
     let (s_solution, r_solution) = bounded(10);
     let (s_message_recv_signal, r_message_recv_signal) = bounded(10);
     info!("Pool INITIALIZING with config: {:?}", &args.config_path);
+    let coinbase_output_len = get_coinbase_output(&config).len() as u32;
 
     let template_rx_res = TemplateRx::connect(
         config.tp_address.parse().unwrap(),
@@ -198,6 +200,7 @@ async fn main() {
         r_solution,
         r_message_recv_signal,
         status::Sender::Upstream(status_tx.clone()),
+        coinbase_output_len,
     )
     .await;
     if let Err(e) = template_rx_res {
