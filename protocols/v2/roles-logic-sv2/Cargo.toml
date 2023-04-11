@@ -10,13 +10,13 @@ repository = "https://github.com/stratum-mining/stratum"
 
 [dependencies]
 serde = { version = "1.0.89", features = ["derive", "alloc"], default-features = false, optional = true}
-binary_sv2 = {version = "^0.1.5", path = "../../../protocols/v2/binary-sv2/binary-sv2", default-features = true }
+binary_sv2 = {version = "^0.1.6", path = "../../../protocols/v2/binary-sv2/binary-sv2", default-features = true }
 common_messages_sv2 = { path = "../../../protocols/v2/subprotocols/common-messages", version = "^0.1.5" }
 mining_sv2 = { path = "../../../protocols/v2/subprotocols/mining", version = "^0.1.0" }
 template_distribution_sv2 = { path = "../../../protocols/v2/subprotocols/template-distribution", version = "^0.1.5" }
 job_negotiation_sv2 = { path = "../../../protocols/v2/subprotocols/job-negotiation", version = "^0.1.0" }
-const_sv2 = { version = "^0.1.1", path = "../../../protocols/v2/const-sv2"}
-framing_sv2 = { version = "^0.1.4", path = "../../../protocols/v2/framing-sv2" }
+const_sv2 = { version = "^0.1.2", path = "../../../protocols/v2/const-sv2"}
+framing_sv2 = { version = "^0.1.5", path = "../../../protocols/v2/framing-sv2" }
 bitcoin = "0.27.1"
 tracing = { version = "0.1"}
 

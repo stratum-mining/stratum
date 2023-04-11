@@ -1,6 +1,6 @@
 [package]
 name = "binary_sv2"
-version = "0.1.5"
+version = "0.1.6"
 authors = ["fi3 <email@email.org>"]
 edition = "2018"
 description = "Sv2 data format"
@@ -10,9 +10,9 @@ repository = "https://github.com/stratum-mining/stratum"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-serde_sv2 = {version = "^0.1.1", path = "../serde-sv2", optional = true}
+serde_sv2 = {version = "^0.1.2", path = "../serde-sv2", optional = true}
 serde = { version = "1.0.89", features = ["derive", "alloc"], default-features = false, optional = true }
-binary_codec_sv2 = {version = "^0.1.3", path = "../no-serde-sv2/codec", optional = true}
+binary_codec_sv2 = {version = "^0.1.4", path = "../no-serde-sv2/codec", optional = true}
 derive_codec_sv2 = {version = "^0.1.3", path = "../no-serde-sv2/derive_codec", optional = true}
 tracing = {version = "0.1"}
 
