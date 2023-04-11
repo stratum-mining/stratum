@@ -3,6 +3,9 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+  pull_request_review:
+    types: [submitted]
+    branches: [bot/versioning]
 
 # Check sv2.h file is up to date with commit
 name: sv2.h Header Check

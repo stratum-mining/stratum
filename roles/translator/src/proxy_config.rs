@@ -13,6 +13,7 @@ pub struct ProxyConfig {
     pub jn_config: Option<JnConfig>,
     pub downstream_difficulty_config: DownstreamDifficultyConfig,
     pub upstream_difficulty_config: UpstreamDifficultyConfig,
+    pub test_only_share_withhold: bool,
 }
 
 #[derive(Debug, Deserialize, Clone)]

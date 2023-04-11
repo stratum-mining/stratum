@@ -22,6 +22,9 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+  pull_request_review:
+    types: [submitted]
+    branches: [bot/versioning]
 
 jobs:
   tarpaulin-test:

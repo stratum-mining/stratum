@@ -429,7 +429,6 @@ impl IsServer<'static> for Downstream {
         self.version_rolling_mask = request.version_rolling_mask();
         self.version_rolling_min_bit = request.version_rolling_min_bit_count();
         (
-            // unwraps safe since values are set above
             Some(server_to_client::VersionRollingParams::new(
                 self.version_rolling_mask.clone().unwrap_or(HexU32Be(0)),
                 self.version_rolling_min_bit.clone().unwrap_or(HexU32Be(0)),
