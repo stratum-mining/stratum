@@ -12,8 +12,8 @@ crate-type = ["staticlib"]
 
 [dependencies]
 codec_sv2 = { path = "../../../protocols/v2/codec-sv2", version = "^0.1.5" }
-const_sv2 = { path = "../../../protocols/v2/const-sv2", version = "^0.1.1" }
-binary_sv2 = { path = "../../../protocols/v2/binary-sv2/binary-sv2", version = "^0.1.5" }
+const_sv2 = { path = "../../../protocols/v2/const-sv2", version = "^0.1.2" }
+binary_sv2 = { path = "../../../protocols/v2/binary-sv2/binary-sv2", version = "^0.1.6" }
 common_messages_sv2 = { path = "../../../protocols/v2/subprotocols/common-messages", version = "^0.1.5" }
 template_distribution_sv2 = { path = "../../../protocols/v2/subprotocols/template-distribution", version = "^0.1.5" }
 

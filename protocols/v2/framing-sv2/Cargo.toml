@@ -1,6 +1,6 @@
 [package]
 name = "framing_sv2"
-version = "0.1.4"
+version = "0.1.5"
 authors = ["fi3 <email@email.org>"]
 edition = "2018"
 description = "Sv2 frames"
@@ -12,9 +12,9 @@ repository = "https://github.com/stratum-mining/stratum"
 
 [dependencies]
 serde = { version = "1.0.89", default-features = false, optional = true }
-const_sv2 = { version = "^0.1.1", path = "../../../protocols/v2/const-sv2"}
-binary_sv2 = { version = "^0.1.5", path = "../../../protocols/v2/binary-sv2/binary-sv2" }
-buffer_sv2 = { version = "^0.1.1", path = "../../../utils/buffer", optional=true }
+const_sv2 = { version = "^0.1.2", path = "../../../protocols/v2/const-sv2"}
+binary_sv2 = { version = "^0.1.6", path = "../../../protocols/v2/binary-sv2/binary-sv2" }
+buffer_sv2 = { version = "^0.1.2", path = "../../../utils/buffer", optional=true }
 
 [features]
 with_serde = ["binary_sv2/with_serde", "serde", "buffer_sv2/with_serde"]
