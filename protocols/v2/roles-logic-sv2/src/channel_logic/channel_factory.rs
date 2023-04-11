@@ -681,13 +681,13 @@ impl ChannelFactory {
     // If there is a job creator we pass the correct template id. If not, we pass `None`
     // allow comparison chain because clippy wants to make job management assertion into a match clause
     #[allow(clippy::comparison_chain)]
-    fn check_target(
+    fn check_target<TxHash: std::convert::AsRef<[u8]>>(
         &mut self,
         m: Share,
         bitcoin_target: Target,
         template_id: Option<u64>,
         up_id: u32,
-        merkle_path: Vec<Vec<u8>>,
+        merkle_path: Vec<TxHash>,
     ) -> Result<OnNewShare, Error> {
         let upstream_target = match &self.kind {
             ExtendedChannelKind::Pool => Target::new(0, 0),
