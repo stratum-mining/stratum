@@ -1,4 +1,5 @@
 pub mod message_handler;
+use crate::Error;
 use async_channel::{Receiver, Sender};
 use codec_sv2::{HandshakeRole, Initiator, StandardEitherFrame, StandardSv2Frame};
 use network_helpers::Connection;
