@@ -25,8 +25,8 @@ use std::io::{Error as E, ErrorKind};
 mod codec;
 mod datatypes;
 pub use datatypes::{
-    PubKey, Seq0255, Seq064K, ShortTxId, Signature, Str0255, Sv2Option, U32AsRef, B016M, B0255,
-    B032, B064K, U24, U256, Sv2Option
+    PubKey, Seq0255, Seq064K, ShortTxId, Signature, Str0255, Sv2Option, U32AsRef, B016M, B0255, B032, B064K,
+    U24, U256,
 };
 
 pub use crate::codec::{
