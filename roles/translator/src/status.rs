@@ -123,6 +123,10 @@ pub async fn handle_error(
         Error::CodecNoise(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
         // Errors from `framing_sv2` crate.
         Error::FramingSv2(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
+        //If the pool sends the tproxy an invalid extranonce
+        Error::InvalidExtranonce(_) => {
+            send_status(sender, e, error_handling::ErrorBranch::Break).await
+        }
         // Errors on bad `TcpStream` connection.
         Error::Io(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
         // Errors on bad `String` to `int` conversion.
