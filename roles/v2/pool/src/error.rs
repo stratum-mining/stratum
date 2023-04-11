@@ -7,6 +7,7 @@ use std::{
 #[derive(std::fmt::Debug)]
 pub enum PoolError {
     Io(std::io::Error),
+    InvalidExtranonce(String),
     ChannelSend(Box<dyn std::marker::Send + Debug>),
     ChannelRecv(async_channel::RecvError),
     BinarySv2(binary_sv2::Error),
@@ -24,6 +25,7 @@ impl std::fmt::Display for PoolError {
         use PoolError::*;
         match self {
             Io(ref e) => write!(f, "I/O error: `{:?}", e),
+            InvalidExtranonce(ref e) => write!(f, "Invalid Extranonce error: `{:?}", e),
             ChannelSend(ref e) => write!(f, "Channel send failed: `{:?}`", e),
             ChannelRecv(ref e) => write!(f, "Channel recv failed: `{:?}`", e),
             BinarySv2(ref e) => write!(f, "Binary SV2 error: `{:?}`", e),

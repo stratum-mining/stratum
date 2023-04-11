@@ -1,3 +1,4 @@
+use crate::error::Error::InvalidExtranonce;
 use crate::{
     downstream_sv1::Downstream,
     error::Error::{CodecNoise, PoisonLock, UpstreamIncoming},
@@ -37,6 +38,7 @@ use std::{
     time::Duration,
 };
 use tracing::{debug, error, info, warn};
+
 /// USED to make sure that if a future new_temnplate and a set_new_prev_hash are received together
 /// the future new_temnplate is always handled before the set new prev hash.
 pub static IS_NEW_TEMPLATE_HANDLED: AtomicBool = AtomicBool::new(true);
@@ -421,9 +423,10 @@ impl Upstream {
                                 let range_1 = prefix_len..prefix_len + tproxy_e1_len; // downstream extranonce1
                                 let range_2 = prefix_len + tproxy_e1_len
                                     ..prefix_len + m.extranonce_size as usize; // extranonce2
-                                let extended = ExtendedExtranonce::from_upstream_extranonce(
+                                let extended = handle_result!(tx_status, ExtendedExtranonce::from_upstream_extranonce(
                                     extranonce_prefix.clone(), range_0.clone(), range_1.clone(), range_2.clone(),
-                                ).unwrap_or_else(|| panic!("Impossible to create a valid extended extranonce from {:?} {:?} {:?} {:?}", extranonce_prefix,range_0,range_1,range_2));
+                                ).ok_or(InvalidExtranonce(format!("Impossible to create a valid extended extranonce from {:?} {:?} {:?} {:?}",
+                                    extranonce_prefix,range_0,range_1,range_2))));
                                 handle_result!(
                                     tx_status,
                                     tx_sv2_extranonce.send((extended, m.channel_id)).await
