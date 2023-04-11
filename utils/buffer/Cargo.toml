@@ -1,6 +1,6 @@
 [package]
 name = "buffer_sv2"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["fi3 <email@email.org>"]
 edition = "2018"
 description = "buffer"
