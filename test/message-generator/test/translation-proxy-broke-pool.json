@@ -68,7 +68,7 @@
                         "translator_sv2",
                         "--",
                         "-c",
-                        "./test/config/tproxy-config.toml"
+                        "./test/config/tproxy-config-no-jn-sv1-cpu-md.toml"
 
             ],
             "conditions": {
