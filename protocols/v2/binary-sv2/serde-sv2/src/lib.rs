@@ -88,6 +88,7 @@ pub use primitives::{
     Bool, Bytes, GetSize, Pubkey, Seq0255, Seq064K, ShortTxId, Signature, Str0255, Sv2Option,
     B016M, B0255, B032, B064K, U16, U24, U256, U32, U64, U8,
 };
+pub type Sv2Option<'a, T> = Seq0255<'a, T>;
 pub use ser::{to_bytes, to_writer, Serializer};
 
 impl GetSize for buffer_sv2::Slice {
