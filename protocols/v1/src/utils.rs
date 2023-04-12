@@ -83,7 +83,14 @@ impl TryFrom<&str> for HexU32Be {
     type Error = Error<'static>;
 
     fn try_from(value: &str) -> Result<Self, Error<'static>> {
-        let parsed_bytes: [u8; 4] = FromHex::from_hex(value)?;
+        let expected_len = 8;
+        let delta_len = expected_len - value.len();
+        let mut prefix = "".to_string();
+        for _ in 0..delta_len {
+            prefix.push('0');
+        }
+        prefix.push_str(value);
+        let parsed_bytes: [u8; 4] = FromHex::from_hex(&prefix)?;
         Ok(HexU32Be(u32::from_be_bytes(parsed_bytes)))
     }
 }

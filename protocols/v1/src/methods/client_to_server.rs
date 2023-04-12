@@ -449,12 +449,12 @@ impl ConfigureExtension {
             return Err(ParsingMethodError::Todo);
         };
 
-        let version_rolling_mask = val.pointer("1/version-rolling.mask");
-        let version_rolling_min_bit = val.pointer("1/version-rolling.min-bit-count");
-        let info_connection_url = val.pointer("1/info.connection-url");
-        let info_hw_version = val.pointer("1/info.hw-version");
-        let info_sw_version = val.pointer("1/info.sw-version");
-        let info_hw_id = val.pointer("1/info.hw-id");
+        let version_rolling_mask = val.pointer("/1/version-rolling.mask");
+        let version_rolling_min_bit = val.pointer("/1/version-rolling.min-bit-count");
+        let info_connection_url = val.pointer("/1/info.connection-url");
+        let info_hw_version = val.pointer("/1/info.hw-version");
+        let info_sw_version = val.pointer("/1/info.sw-version");
+        let info_hw_id = val.pointer("/1/info.hw-id");
         let minimum_difficulty_value = val.pointer("/1/minimum-difficulty.value");
 
         if root[0]
@@ -659,3 +659,22 @@ impl From<InfoParams> for serde_json::Map<String, Value> {
 // mining.suggest_target
 
 // mining.minimum_difficulty (extension)
+#[test]
+fn test_version_extension_with_broken_bit_count() {
+    let client_message = r#"{"id":0,
+            "method": "mining.configure",
+            "params":[
+                ["version-rolling"],
+                {"version-rolling.mask":"1fffe000",
+                "version-rolling.min-bit-count":"16"}
+            ]
+        }"#;
+    let client_message: StandardRequest = serde_json::from_str(&client_message).unwrap();
+    let server_configure = Configure::try_from(client_message).unwrap();
+    match &server_configure.extensions[0] {
+        ConfigureExtension::VersionRolling(params) => {
+            assert!(params.min_bit_count.as_ref().unwrap().0 == 0x16)
+        }
+        _ => panic!(),
+    };
+}
