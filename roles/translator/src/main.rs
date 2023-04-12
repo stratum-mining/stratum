@@ -23,7 +23,7 @@ use std::{
     sync::Arc,
 };
 
-use tokio::sync::broadcast;
+use tokio::{sync::broadcast, task};
 use v1::server_to_client;
 
 use crate::status::{State, Status};
@@ -141,115 +141,123 @@ async fn main() {
         }
     };
 
-    // Connect to the SV2 Upstream role
-    match upstream_sv2::Upstream::connect(
-        upstream.clone(),
-        proxy_config.min_supported_version,
-        proxy_config.max_supported_version,
-    )
-    .await
-    {
-        Ok(_) => info!("Connected to Upstream!"),
-        Err(e) => {
-            error!("Failed to connect to Upstream EXITING! : {}", e);
+    // Spawn a task to do all of this init work so that the main thread
+    // can listen for signals and failures on the status channel. This
+    // allows for the tproxy to fail gracefully if any of these init tasks
+    //fail
+    task::spawn(async move {
+        // Connect to the SV2 Upstream role
+        match upstream_sv2::Upstream::connect(
+            upstream.clone(),
+            proxy_config.min_supported_version,
+            proxy_config.max_supported_version,
+        )
+        .await
+        {
+            Ok(_) => info!("Connected to Upstream!"),
+            Err(e) => {
+                error!("Failed to connect to Upstream EXITING! : {}", e);
+                return;
+            }
+        }
+
+        // If jn_config start JN and TempalteRx
+        match proxy_config.jn_config.clone() {
+            None => (),
+            Some(jn_config) => {
+                let (send_comas, recv_comas) = bounded(10);
+                let mut parts = jn_config.tp_address.split(':');
+                let ip_tp = parts.next().unwrap().to_string();
+                let port_tp = parts.next().unwrap().parse::<u16>().unwrap();
+                let mut parts = jn_config.jn_address.split(':');
+                let ip_jn = parts.next().unwrap().to_string();
+                let port_jn = parts.next().unwrap().parse::<u16>().unwrap();
+                join!(
+                    JobNegotiator::new(
+                        SocketAddr::new(IpAddr::from_str(ip_jn.as_str()).unwrap(), port_jn,),
+                        proxy_config
+                            .upstream_authority_pubkey
+                            .clone()
+                            .into_inner()
+                            .as_bytes()
+                            .to_owned(),
+                        send_comas,
+                        send_coinbase_out,
+                        proxy_config.clone(),
+                    ),
+                    TemplateRx::connect(
+                        SocketAddr::new(IpAddr::from_str(ip_tp.as_str()).unwrap(), port_tp,),
+                        send_tp,
+                        send_ph,
+                        recv_comas,
+                        recv_solution,
+                        status::Sender::TemplateReceiver(tx_status.clone()),
+                    ),
+                );
+            }
+        }
+
+        // Start receiving messages from the SV2 Upstream role
+        if let Err(e) = upstream_sv2::Upstream::parse_incoming(upstream.clone()) {
+            error!("failed to create sv2 parser: {}", e);
             return;
         }
-    }
 
-    // If jn_config start JN and TempalteRx
-    match proxy_config.jn_config.clone() {
-        None => (),
-        Some(jn_config) => {
-            let (send_comas, recv_comas) = bounded(10);
-            let mut parts = jn_config.tp_address.split(':');
-            let ip_tp = parts.next().unwrap().to_string();
-            let port_tp = parts.next().unwrap().parse::<u16>().unwrap();
-            let mut parts = jn_config.jn_address.split(':');
-            let ip_jn = parts.next().unwrap().to_string();
-            let port_jn = parts.next().unwrap().parse::<u16>().unwrap();
-            join!(
-                JobNegotiator::new(
-                    SocketAddr::new(IpAddr::from_str(ip_jn.as_str()).unwrap(), port_jn,),
-                    proxy_config
-                        .upstream_authority_pubkey
-                        .clone()
-                        .into_inner()
-                        .as_bytes()
-                        .to_owned(),
-                    send_comas,
-                    send_coinbase_out,
-                    proxy_config.clone(),
-                ),
-                TemplateRx::connect(
-                    SocketAddr::new(IpAddr::from_str(ip_tp.as_str()).unwrap(), port_tp,),
-                    send_tp,
-                    send_ph,
-                    recv_comas,
-                    recv_solution,
-                    status::Sender::TemplateReceiver(tx_status.clone()),
-                ),
-            );
+        debug!("Finished starting upstream listener");
+        // Start task handler to receive submits from the SV1 Downstream role once it connects
+        if let Err(e) = upstream_sv2::Upstream::handle_submit(upstream.clone()) {
+            error!("Failed to create submit handler: {}", e);
+            return;
         }
-    }
 
-    // Start receiving messages from the SV2 Upstream role
-    if let Err(e) = upstream_sv2::Upstream::parse_incoming(upstream.clone()) {
-        error!("failed to create sv2 parser: {}", e);
-        return;
-    }
+        // Receive the extranonce information from the Upstream role to send to the Downstream role
+        // once it connects also used to initialize the bridge
+        let (extended_extranonce, up_id) = rx_sv2_extranonce.recv().await.unwrap();
+        loop {
+            let target: [u8; 32] = target.safe_lock(|t| t.clone()).unwrap().try_into().unwrap();
+            if target != [0; 32] {
+                break;
+            };
+            async_std::task::sleep(std::time::Duration::from_millis(100)).await;
+        }
 
-    debug!("Finished starting upstream listener");
-    // Start task handler to receive submits from the SV1 Downstream role once it connects
-    if let Err(e) = upstream_sv2::Upstream::handle_submit(upstream.clone()) {
-        error!("Failed to create submit handler: {}", e);
-        return;
-    }
+        // Instantiate a new `Bridge` and begins handling incoming messages
+        let b = proxy::Bridge::new(
+            rx_sv1_downstream,
+            tx_sv2_submit_shares_ext,
+            rx_sv2_set_new_prev_hash,
+            rx_sv2_new_ext_mining_job,
+            tx_sv1_notify.clone(),
+            status::Sender::Bridge(tx_status.clone()),
+            extended_extranonce,
+            target,
+            up_id,
+            bridge_upstream_kind,
+            proxy_config.test_only_share_withhold,
+        );
+        proxy::Bridge::start(b.clone());
 
-    // Receive the extranonce information from the Upstream role to send to the Downstream role
-    // once it connects also used to initialize the bridge
-    let (extended_extranonce, up_id) = rx_sv2_extranonce.recv().await.unwrap();
-    loop {
-        let target: [u8; 32] = target.safe_lock(|t| t.clone()).unwrap().try_into().unwrap();
-        if target != [0; 32] {
-            break;
-        };
-        async_std::task::sleep(std::time::Duration::from_millis(100)).await;
-    }
+        // Format `Downstream` connection address
+        let downstream_addr = SocketAddr::new(
+            IpAddr::from_str(&proxy_config.downstream_address).unwrap(),
+            proxy_config.downstream_port,
+        );
 
-    // Instantiate a new `Bridge` and begins handling incoming messages
-    let b = proxy::Bridge::new(
-        rx_sv1_downstream,
-        tx_sv2_submit_shares_ext,
-        rx_sv2_set_new_prev_hash,
-        rx_sv2_new_ext_mining_job,
-        tx_sv1_notify.clone(),
-        status::Sender::Bridge(tx_status.clone()),
-        extended_extranonce,
-        target,
-        up_id,
-        bridge_upstream_kind,
-        proxy_config.test_only_share_withhold,
-    );
-    proxy::Bridge::start(b.clone());
+        // Accept connections from one or more SV1 Downstream roles (SV1 Mining Devices)
+        downstream_sv1::Downstream::accept_connections(
+            downstream_addr,
+            tx_sv1_bridge,
+            tx_sv1_notify,
+            status::Sender::DownstreamListener(tx_status.clone()),
+            b,
+            proxy_config.downstream_difficulty_config,
+            diff_config,
+        );
+    }); // End of init task
 
-    // Format `Downstream` connection address
-    let downstream_addr = SocketAddr::new(
-        IpAddr::from_str(&proxy_config.downstream_address).unwrap(),
-        proxy_config.downstream_port,
-    );
-
-    // Accept connections from one or more SV1 Downstream roles (SV1 Mining Devices)
-    downstream_sv1::Downstream::accept_connections(
-        downstream_addr,
-        tx_sv1_bridge,
-        tx_sv1_notify,
-        status::Sender::DownstreamListener(tx_status.clone()),
-        b,
-        proxy_config.downstream_difficulty_config,
-        diff_config,
-    );
-
+    debug!("Starting up signal listener");
     let mut interrupt_signal_future = Box::pin(tokio::signal::ctrl_c().fuse());
+    debug!("Starting up status listener");
 
     // Check all tasks if is_finished() is true, if so exit
     loop {

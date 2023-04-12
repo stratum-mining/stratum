@@ -56,6 +56,8 @@ pub enum Error<'a> {
     FramingSv2(framing_sv2::Error),
     /// Errors on bad `TcpStream` connection.
     Io(std::io::Error),
+    /// Errors due to invalid extranonce from upstream
+    InvalidExtranonce(String),
     /// Errors on bad `String` to `int` conversion.
     ParseInt(std::num::ParseIntError),
     /// Errors from `roles_logic_sv2` crate.
@@ -87,6 +89,7 @@ impl<'a> fmt::Display for Error<'a> {
             BinarySv2(ref e) => write!(f, "Binary SV2 error: `{:?}`", e),
             CodecNoise(ref e) => write!(f, "Noise error: `{:?}", e),
             FramingSv2(ref e) => write!(f, "Framing SV2 error: `{:?}`", e),
+            InvalidExtranonce(ref e) => write!(f, "Invalid Extranonce error: `{:?}", e),
             Io(ref e) => write!(f, "I/O error: `{:?}", e),
             ParseInt(ref e) => write!(f, "Bad convert from `String` to `int`: `{:?}`", e),
             RolesSv2Logic(ref e) => write!(f, "Roles SV2 Logic Error: `{:?}`", e),
