@@ -18,11 +18,11 @@ use std::{collections::HashMap, convert::TryInto, sync::Arc};
 use template_distribution_sv2::{NewTemplate, SetNewPrevHash as SetNewPrevHashFromTp};
 
 use bitcoin::{
-    hashes::{sha256d::Hash, Hash as Hash_},
+    hashes::{hex::ToHex, sha256d::Hash, Hash as Hash_},
     TxOut,
 };
 
-use tracing::{debug, error};
+use tracing::{debug, error, info};
 
 /// A stripped type of `SetCustomMiningJob` without the (`channel_id, `request_id` and `token`) fields
 #[derive(Debug)]
@@ -748,8 +748,11 @@ impl ChannelFactory {
 
         let hash: Target = hash.into();
         debug!("HASH: {:?}", hash);
+        debug!("TARGET: {:?}", bitcoin_target);
         if hash <= bitcoin_target {
-            println!("HASH: {:?}", hash);
+            let mut print_hash = hash_.as_hash().into_inner();
+            print_hash.reverse();
+            info!("HASH: {:?}", print_hash.to_vec().to_hex());
             let coinbase = [coinbase_tx_prefix, &extranonce[..], coinbase_tx_suffix]
                 .concat()
                 .to_vec();
