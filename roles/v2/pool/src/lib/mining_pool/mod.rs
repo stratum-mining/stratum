@@ -537,7 +537,7 @@ mod test {
     fn test_coinbase_outputs_from_config() {
         // Load config
         let config: crate::Configuration =
-            toml::from_str(&std::fs::read_to_string("pool-config.toml").unwrap()).unwrap();
+            toml::from_str(&std::fs::read_to_string("pool-config-example.toml").unwrap()).unwrap();
         // template from message generator test (mock TP template)
         let _extranonce_len = 3;
         let coinbase_prefix = vec![1, 16, 0];

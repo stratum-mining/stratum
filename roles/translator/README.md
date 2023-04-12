@@ -21,8 +21,8 @@ The most typical high level configuration is:
 
 ## Setup
 ### Configuration File
-The `proxy-config.toml` is modified by the party that is running the Translator Proxy (most
-typically the mining farm/miner hobbyist).
+The `proxy-config-example.toml` is a configuration example which can be copy/paste into `/conf` directory by the party that is running the Translator Proxy (most
+typically the mining farm/miner hobbyist) to address the most preferred customization.
 
 The configuration file contains the following information:
 
@@ -37,16 +37,19 @@ The configuration file contains the following information:
    (`min_extranonce2_size`). The `extranonce2` size is ultimately decided by the SV2 Upstream role,
    but if the specified size meets the SV2 Upstream role's requirements, the size specified in this
    configuration file should be favored.
-1. (NOT YET IMPLEMENTED) The estimated aggregate hashrate of all SV1 Downstream roles (Mining
-   Devices) (`est_aggregate_hashrate`), which is communicated to the SV2 Upstream to help it decide
-   a proper difficulty target.
+1. The Job Negotiator information which includes the Pool JN connection address (`jn_address`) and the Template Provider connection address to which to connect (`tp_address`).
+1. The difficulty params such as the hashrate (hashes/s) of the weakest Mining Device that will be connecting to the Translator Proxy (`min_individual_miner_hashrate`), the number of shares needed before a mining.set_difficulty update (`miner_num_submits_before_update`) and the number of shares per minute that Mining Devices should be sending to the Translator Proxy (`shares_per_minute`). Ultimately, the estimated aggregate hashrate of all SV1 Downstream roles (Mining
+   Devices) (`channel_nominal_hashrate`), which is communicated to the SV2 Upstream to help it decide a proper difficulty target.
 
 ### Run
-1. Setup the `proxy-config.toml`.
-1. Point the SV1 Downstream Mining Device(s) to the Translator Proxy IP address and port.
-1. Run the Translator Proxy:
+1. Copy the `proxy-config-example.toml` into `conf/` directory.
+2. Edit it with custom desired configuration and rename it `proxy-config.toml`
+3. Point the SV1 Downstream Mining Device(s) to the Translator Proxy IP address and port.
+4. Run the Translator Proxy:
 
-```
-% cd roles/translator
-% cargo run -p translator
-```
+   ```
+   cd roles/translator
+   ```
+   ```
+   cargo run -p translator_sv2 -- -c conf/proxy-config.toml
+   ```
