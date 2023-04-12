@@ -22,7 +22,7 @@ use bitcoin::{
     TxOut,
 };
 
-use tracing::{debug, error};
+use tracing::{debug, error, info};
 
 /// A stripped type of `SetCustomMiningJob` without the (`channel_id, `request_id` and `token`) fields
 #[derive(Debug)]
@@ -681,12 +681,13 @@ impl ChannelFactory {
     // If there is a job creator we pass the correct template id. If not, we pass `None`
     // allow comparison chain because clippy wants to make job management assertion into a match clause
     #[allow(clippy::comparison_chain)]
-    fn check_target(
+    fn check_target<TxHash: std::convert::AsRef<[u8]>>(
         &mut self,
         m: Share,
         bitcoin_target: Target,
         template_id: Option<u64>,
         up_id: u32,
+        merkle_path: Vec<TxHash>,
     ) -> Result<OnNewShare, Error> {
         let upstream_target = match &self.kind {
             ExtendedChannelKind::Pool => Target::new(0, 0),
@@ -715,7 +716,6 @@ impl ChannelFactory {
             .0
             .coinbase_tx_suffix
             .as_ref();
-        let merkle_path = self.last_valid_job.as_ref().unwrap().0.merkle_path.to_vec();
         // Safe unwrap a sha256 can always be converted into [u8;32]
         let merkle_root: [u8; 32] = crate::utils::merkle_root_from_path(
             coinbase_tx_prefix,
@@ -746,17 +746,13 @@ impl ChannelFactory {
         let hash_ = header.block_hash();
         let hash = hash_.as_hash().into_inner();
 
-        //if debug mode print share hash
-        if tracing::level_enabled!(tracing::Level::DEBUG)
-            || tracing::level_enabled!(tracing::Level::TRACE)
-        {
-            let mut print_hash = hash;
-            print_hash.reverse();
-            debug!("Share Hash: {:?}", print_hash.to_vec().to_hex());
-        }
-
         let hash: Target = hash.into();
+        debug!("HASH: {:?}", hash);
+        debug!("TARGET: {:?}", bitcoin_target);
         if hash <= bitcoin_target {
+            let mut print_hash = hash_.as_hash().into_inner();
+            print_hash.reverse();
+            info!("HASH: {:?}", print_hash.to_vec().to_hex());
             let coinbase = [coinbase_tx_prefix, &extranonce[..], coinbase_tx_suffix]
                 .concat()
                 .to_vec();
@@ -967,13 +963,26 @@ impl PoolChannelFactory {
     ) -> Result<OnNewShare, Error> {
         match self.inner.channel_to_group_id.get(&m.channel_id) {
             Some(g_id) => {
+                let merkle_path = self
+                    .inner
+                    .last_valid_job
+                    .as_ref()
+                    .ok_or(Error::ShareDoNotMatchAnyJob)?
+                    .0
+                    .merkle_path
+                    .to_vec();
                 let template_id = self
                     .job_creator
                     .get_template_id_from_job(self.inner.last_valid_job.as_ref().unwrap().0.job_id)
                     .ok_or(Error::NoTemplateForId)?;
                 let target = self.job_creator.last_target();
-                self.inner
-                    .check_target(Share::Standard((m, *g_id)), target, Some(template_id), 0)
+                self.inner.check_target(
+                    Share::Standard((m, *g_id)),
+                    target,
+                    Some(template_id),
+                    0,
+                    merkle_path,
+                )
             }
             None => {
                 let err = SubmitSharesError {
@@ -1002,9 +1011,28 @@ impl PoolChannelFactory {
         // via the job creator (TODO MVP3 add a way to get the template for negotiated job create a
         // block from the template and send to bitcoind via RPC).
         if self.negotiated_jobs.contains_key(&m.channel_id) {
-            self.inner
-                .check_target(Share::Extended(m.into_static()), target, None, 0)
+            let merkle_path = self
+                .negotiated_jobs
+                .get(&m.channel_id)
+                .unwrap()
+                .merkle_path
+                .to_vec();
+            self.inner.check_target(
+                Share::Extended(m.into_static()),
+                target,
+                None,
+                0,
+                merkle_path,
+            )
         } else {
+            let merkle_path = self
+                .inner
+                .last_valid_job
+                .as_ref()
+                .ok_or(Error::ShareDoNotMatchAnyJob)?
+                .0
+                .merkle_path
+                .to_vec();
             let template_id = self
                 .job_creator
                 .get_template_id_from_job(self.inner.last_valid_job.as_ref().unwrap().0.job_id)
@@ -1014,6 +1042,7 @@ impl PoolChannelFactory {
                 target,
                 Some(template_id),
                 0,
+                merkle_path,
             )
         }
     }
@@ -1269,6 +1298,14 @@ impl ProxyExtendedChannelFactory {
             extranonce.reverse();
             m.extranonce = extranonce.try_into().unwrap();
         };
+        let merkle_path = self
+            .inner
+            .last_valid_job
+            .as_ref()
+            .ok_or(Error::ShareDoNotMatchAnyJob)?
+            .0
+            .merkle_path
+            .to_vec();
 
         if let Some(job_creator) = self.job_creator.as_mut() {
             let template_id = job_creator
@@ -1280,6 +1317,7 @@ impl ProxyExtendedChannelFactory {
                 bitcoin_target,
                 Some(template_id),
                 self.extended_channel_id,
+                merkle_path,
             )
         } else {
             let bitcoin_target = [0; 32];
@@ -1290,6 +1328,7 @@ impl ProxyExtendedChannelFactory {
                 bitcoin_target.into(),
                 None,
                 self.extended_channel_id,
+                merkle_path,
             )
         }
     }
@@ -1301,6 +1340,14 @@ impl ProxyExtendedChannelFactory {
         &mut self,
         m: SubmitSharesStandard,
     ) -> Result<OnNewShare, Error> {
+        let merkle_path = self
+            .inner
+            .last_valid_job
+            .as_ref()
+            .ok_or(Error::ShareDoNotMatchAnyJob)?
+            .0
+            .merkle_path
+            .to_vec();
         match self.inner.channel_to_group_id.get(&m.channel_id) {
             Some(g_id) => {
                 if let Some(job_creator) = self.job_creator.as_mut() {
@@ -1315,6 +1362,7 @@ impl ProxyExtendedChannelFactory {
                         bitcoin_target,
                         Some(template_id),
                         self.extended_channel_id,
+                        merkle_path,
                     )
                 } else {
                     let bitcoin_target = [0; 32];
@@ -1325,6 +1373,7 @@ impl ProxyExtendedChannelFactory {
                         bitcoin_target.into(),
                         None,
                         self.extended_channel_id,
+                        merkle_path,
                     )
                 }
             }
