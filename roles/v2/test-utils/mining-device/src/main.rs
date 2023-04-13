@@ -1,6 +1,6 @@
 use async_std::net::TcpStream;
 use bitcoin::{
-    blockdata::block::BlockHeader, hash_types::BlockHash, hashes::Hash, util::uint::Uint256,
+    blockdata::block::BlockHeader, hash_types::BlockHash, hashes::{Hash, sha256}, util::uint::Uint256,
 };
 use network_helpers::PlainConnection;
 use roles_logic_sv2::utils::Id;
@@ -9,6 +9,19 @@ use std::{
     sync::Arc,
 };
 
+fn measure_hashrate() -> f64 {
+    let start = std::time::Instant::now();
+    let mut cnt = 0;
+    let time_dur= std::time::Duration::from_secs(5);
+    while start.elapsed() < time_dur {
+        let data = vec![0u8; 32];
+        let _hash = sha256::Hash::hash(&data);
+        cnt += 1;
+    }
+    let elapsed_time = start.elapsed().as_secs_f64();
+    let hash_rate = (cnt as f64) / elapsed_time;
+    hash_rate
+}
 async fn connect(address: SocketAddr, handicap: u32) {
     let stream = TcpStream::connect(address).await.unwrap();
     let (receiver, sender): (Receiver<EitherFrame>, Sender<EitherFrame>) =
@@ -23,6 +36,8 @@ async fn main() {
     //task::spawn(async move { connect(socket, 11070).await });
     //task::spawn(async move { connect(socket, 7040).await });
     println!("start");
+    let hashrate = measure_hashrate();
+    println!("Estimated hashrate: {} hashes per second", hashrate);
     connect(socket, 0).await
 }
 
