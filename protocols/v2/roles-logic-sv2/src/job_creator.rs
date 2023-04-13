@@ -82,7 +82,7 @@ impl JobsCreators {
         self.templte_to_job_id.insert(template_id, next_job_id);
         new_extended_job(
             template,
-            &pool_coinbase_outputs,
+            &mut pool_coinbase_outputs,
             next_job_id,
             version_rolling_allowed,
             self.extranonce_len,
@@ -130,6 +130,35 @@ impl JobsCreators {
     }
 }
 
+pub fn extended_job_from_custom_job(
+    referenced_job: &mining_sv2::SetCustomMiningJob,
+    mut pool_coinbase_outputs: Vec<TxOut>,
+    extranonce_len: u8,
+) -> Result<NewExtendedMiningJob<'static>, Error> {
+    let mut template = NewTemplate {
+        template_id: 0,
+        future_template: false,
+        version: referenced_job.version,
+        coinbase_tx_version: referenced_job.coinbase_tx_version,
+        coinbase_prefix: referenced_job.coinbase_prefix.clone(),
+        coinbase_tx_input_sequence: referenced_job.coinbase_tx_input_n_sequence,
+        coinbase_tx_value_remaining: referenced_job.coinbase_tx_value_remaining,
+        coinbase_tx_outputs_count: 1,
+        coinbase_tx_outputs: referenced_job.coinbase_tx_outputs.clone(),
+        coinbase_tx_locktime: referenced_job.coinbase_tx_locktime,
+        merkle_path: referenced_job.merkle_path.clone(),
+    };
+    let server_tx_outputs = template.coinbase_tx_outputs.to_vec();
+    let mut outputs = tx_outputs_to_costum_scripts(&server_tx_outputs);
+    pool_coinbase_outputs.append(&mut outputs);
+    new_extended_job(
+        &mut template,
+        &mut pool_coinbase_outputs,
+        0,
+        true,
+        extranonce_len,
+    )
+}
 /// returns an extended job given the provided template from the Template Provider and other
 /// Pool role related fields.
 ///
@@ -141,11 +170,12 @@ impl JobsCreators {
 /// * `extranonce_len`: extranonce length specified by the channel.
 fn new_extended_job(
     new_template: &mut NewTemplate,
-    coinbase_outputs: &[TxOut],
+    coinbase_outputs: &mut [TxOut],
     job_id: u32,
     version_rolling_allowed: bool,
     extranonce_len: u8,
 ) -> Result<NewExtendedMiningJob<'static>, Error> {
+    coinbase_outputs[0].value = new_template.coinbase_tx_value_remaining;
     let tx_version = new_template
         .coinbase_tx_version
         .try_into()
