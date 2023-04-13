@@ -752,9 +752,9 @@ impl ChannelFactory {
             let mut upstream_target = upstream_target.to_vec();
             upstream_target.reverse();
             debug!("Upstream target: {:?}", upstream_target.to_vec().to_hex());
-            let mut print_hash = hash.clone();
-            print_hash.reverse();
-            debug!("Hash: {:?}", print_hash.to_vec().to_hex());
+            let mut hash = hash;
+            hash.reverse();
+            debug!("Hash: {:?}", hash.to_vec().to_hex());
         }
         let hash: Target = hash.into();
 
