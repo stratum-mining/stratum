@@ -434,7 +434,6 @@ impl IsServer<'static> for Downstream {
         self.version_rolling_min_bit = request.version_rolling_min_bit_count();
 
         debug!("Negotiated version_rolling_mask is {:?}", self.version_rolling_mask);
-
         (
             Some(server_to_client::VersionRollingParams::new(
                 self.version_rolling_mask.clone().unwrap_or(HexU32Be(0)),
