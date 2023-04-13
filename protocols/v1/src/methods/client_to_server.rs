@@ -125,6 +125,7 @@ pub struct Submit<'a> {
     pub version_bits: Option<HexU32Be>,
     pub id: u64,
 }
+//"{"params": ["spotbtc1.m30s40x16", "2", "147a3f0000000000", "6436eddf", "41d5deb0", "00000000"], "id": 2196, "method": "mining.submit"}"
 
 impl<'a> Submit<'a> {
     pub fn respond(self, is_ok: bool) -> Response {
@@ -464,42 +465,38 @@ impl ConfigureExtension {
         {
             res.push(ConfigureExtension::SubcribeExtraNonce)
         }
-        if version_rolling_mask.is_some() || version_rolling_min_bit.is_some() {
-            let mask: Option<HexU32Be> = if version_rolling_mask.is_some()
-                // infallible
-                && version_rolling_mask.unwrap().as_str().is_some()
-            {
-                // infallible
-                Some(version_rolling_mask.unwrap().as_str().unwrap().try_into()?)
-            } else if version_rolling_mask.is_some() {
-                return Err(ParsingMethodError::Todo);
-            } else {
-                None
-            };
-            let min_bit_count: Option<HexU32Be> = if version_rolling_min_bit.is_some()
-                // infallible
-                && version_rolling_min_bit.unwrap().as_str().is_some()
-            {
-                Some(
-                    version_rolling_min_bit
-                        // infallible
-                        .unwrap()
-                        .as_str()
-                        // infallible
-                        .unwrap()
-                        .try_into()?,
-                )
-            } else if version_rolling_mask.is_some() {
-                return Err(ParsingMethodError::Todo);
-            } else {
-                None
-            };
-            let params = VersionRollingParams {
-                mask,
-                min_bit_count,
-            };
-            res.push(ConfigureExtension::VersionRolling(params));
+        let (mask, min_bit_count) = match (version_rolling_mask, version_rolling_min_bit) {
+            (None, None) => (None, None),
+            // WhatsMiner sent mask without min bit count
+            (Some(JString(mask)), None) => {
+                let mask: HexU32Be = mask.as_str().try_into()?;
+                (Some(mask), None)
+            }
+            // Min bit can be a string cpuminer
+            (Some(JString(mask)), Some(JString(min_bit))) => {
+                let mask: HexU32Be = mask.as_str().try_into()?;
+                let min_bit: HexU32Be = min_bit.as_str().try_into()?;
+                (Some(mask), Some(min_bit))
+            }
+            // Min bit can be a number s9, s19
+            (Some(JString(mask)), Some(JNumber(min_bit))) => {
+                let mask: HexU32Be = mask.as_str().try_into()?;
+                // min_bit is a json number checked above so as_u64 can not fail
+                let min_bit: HexU32Be = HexU32Be(min_bit.as_u64().unwrap() as u32);
+                (Some(mask), Some(min_bit))
+            }
+            // We can not have min bit count without a mask
+            (None, Some(_)) => return Err(ParsingMethodError::Todo),
+            // Mask need to be a JString
+            (Some(_), None) => return Err(ParsingMethodError::Todo),
+            // Min bit need to be a string or a number
+            (Some(_), Some(_)) => return Err(ParsingMethodError::Todo),
         };
+        let params = VersionRollingParams {
+            mask,
+            min_bit_count,
+        };
+        res.push(ConfigureExtension::VersionRolling(params));
 
         if let Some(minimum_difficulty_value) = minimum_difficulty_value {
             let min_diff = match minimum_difficulty_value {
@@ -674,6 +671,25 @@ fn test_version_extension_with_broken_bit_count() {
     match &server_configure.extensions[0] {
         ConfigureExtension::VersionRolling(params) => {
             assert!(params.min_bit_count.as_ref().unwrap().0 == 0x16)
+        }
+        _ => panic!(),
+    };
+}
+#[test]
+fn test_version_extension_with_non_string_bit_count() {
+    let client_message = r#"{"id":0,
+            "method": "mining.configure",
+            "params":[
+                ["version-rolling"],
+                {"version-rolling.mask":"1fffe000",
+                "version-rolling.min-bit-count":16}
+            ]
+        }"#;
+    let client_message: StandardRequest = serde_json::from_str(&client_message).unwrap();
+    let server_configure = Configure::try_from(client_message).unwrap();
+    match &server_configure.extensions[0] {
+        ConfigureExtension::VersionRolling(params) => {
+            assert!(params.min_bit_count.as_ref().unwrap().0 == 16)
         }
         _ => panic!(),
     };
