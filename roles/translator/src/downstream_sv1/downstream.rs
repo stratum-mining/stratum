@@ -428,12 +428,17 @@ impl IsServer<'static> for Downstream {
         debug!("Down: Handling mining.configure: {:?}", &request);
 
         // TODO 0x1FFFE000 should be configured
-        let negotiated_mask = Some(HexU32Be(request.version_rolling_mask().unwrap() & 0x1FFFE000));
+        let negotiated_mask = Some(HexU32Be(
+            request.version_rolling_mask().unwrap() & 0x1FFFE000
+        ));
 
         self.version_rolling_mask = negotiated_mask;
         self.version_rolling_min_bit = request.version_rolling_min_bit_count();
 
-        debug!("Negotiated version_rolling_mask is {:?}", self.version_rolling_mask);
+        debug!(
+            "Negotiated version_rolling_mask is {:?}",
+            self.version_rolling_mask
+        );
         (
             Some(server_to_client::VersionRollingParams::new(
                 self.version_rolling_mask.clone().unwrap_or(HexU32Be(0)),
