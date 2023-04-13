@@ -140,7 +140,7 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
         &mut self,
         m: SubmitSharesExtended,
     ) -> Result<SendTo<()>, Error> {
-        debug!("Handling submit share extended {:#?}", m);
+        debug!("Handling submit share extended {:?}", m);
         let res = self
             .channel_factory
             .safe_lock(|cf| cf.on_submit_shares_extended(m.clone()))
