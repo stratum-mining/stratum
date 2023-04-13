@@ -626,16 +626,12 @@ impl VersionRollingParams {
         version_rolling_mask: HexU32Be,
         version_rolling_min_bit_count: HexU32Be,
     ) -> Result<Self, Error<'static>> {
-
-        // 0x1FFFE000 should be configured
-        let negotiated_mask = HexU32Be(version_rolling_mask.clone() & 0x1FFFE000);
-
-        let version_head_ok = negotiated_mask.0 >> 29 == 0;
-        let version_tail_ok = negotiated_mask.0 << 19 == 0;
+        let version_head_ok = version_rolling_mask.0 >> 29 == 0;
+        let version_tail_ok = version_rolling_mask.0 << 19 == 0;
         if version_head_ok && version_tail_ok {
             Ok(VersionRollingParams {
                 version_rolling: true,
-                version_rolling_mask: negotiated_mask,
+                version_rolling_mask,
                 version_rolling_min_bit_count,
             })
         } else {
