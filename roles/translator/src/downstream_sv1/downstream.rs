@@ -429,7 +429,7 @@ impl IsServer<'static> for Downstream {
 
         // TODO 0x1FFFE000 should be configured
         let negotiated_mask = Some(HexU32Be(
-            request.version_rolling_mask().unwrap() & 0x1FFFE000
+            request.version_rolling_mask().unwrap() & 0x1FFFE000,
         ));
 
         self.version_rolling_mask = negotiated_mask;
