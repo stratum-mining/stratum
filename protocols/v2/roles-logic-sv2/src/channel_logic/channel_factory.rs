@@ -757,11 +757,9 @@ impl ChannelFactory {
             debug!("Hash: {:?}", hash.to_vec().to_hex());
         }
         let hash: Target = hash.into();
-
         if hash <= bitcoin_target {
             let mut print_hash = hash_.as_hash().into_inner();
             print_hash.reverse();
-
             info!(
                 "Share hash meet bitcoin target: {:?}",
                 print_hash.to_vec().to_hex()
@@ -1021,6 +1019,8 @@ impl PoolChannelFactory {
         // via the job creator (TODO MVP3 add a way to get the template for negotiated job create a
         // block from the template and send to bitcoind via RPC).
         if self.negotiated_jobs.contains_key(&m.channel_id) {
+            debug!("Checking against negotiated jobs");
+
             let referenced_job = self.negotiated_jobs.get(&m.channel_id).unwrap();
             let merkle_path = referenced_job.merkle_path.to_vec();
             let coinbase_outputs = self.pool_coinbase_outputs.clone();
@@ -1037,6 +1037,8 @@ impl PoolChannelFactory {
                 extended_job.coinbase_tx_suffix.as_ref(),
             )
         } else {
+            debug!("Checking against last job");
+
             let referenced_job = self
                 .inner
                 .last_valid_job
@@ -1318,6 +1320,8 @@ impl ProxyExtendedChannelFactory {
                 .get_template_id_from_job(referenced_job.job_id)
                 .ok_or(Error::NoTemplateForId)?;
             let bitcoin_target = job_creator.last_target();
+
+            debug!("Checking with job creator");
             self.inner.check_target(
                 Share::Extended(m),
                 bitcoin_target,
@@ -1328,6 +1332,8 @@ impl ProxyExtendedChannelFactory {
                 referenced_job.coinbase_tx_suffix.as_ref(),
             )
         } else {
+            debug!("Checking with no job creator");
+
             let bitcoin_target = [0; 32];
             // if there is not job_creator is not proxy duty to check if target is below or above
             // bitcoin target so we set bitcoin_target = 0.
