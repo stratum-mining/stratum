@@ -152,7 +152,9 @@ impl Executor {
                 // If the connection should drop at this point then let's just break the loop
                 // Can't do anything else after the connection drops.
                 if *result == ActionResult::CloseConnection {
-                    recv.recv().await.expect_err("Expecting the connection to be closed: wasn't");
+                    recv.recv()
+                        .await
+                        .expect_err("Expecting the connection to be closed: wasn't");
                     break;
                 }
 

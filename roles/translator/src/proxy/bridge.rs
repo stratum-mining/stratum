@@ -475,25 +475,13 @@ impl Bridge {
 
         let sv2_submit = self_
             .safe_lock(|s| {
-                s.translate_submit(
-                    share.channel_id,
-                    share.share,
-                    share.extranonce,
-                    share.version_rolling_mask,
-                )
+                s.translate_submit(share.channel_id, share.share, share.version_rolling_mask)
             })
             .map_err(|_| PoisonLock)??;
-        let mut send_upstream = false;
         let res = self_
             .safe_lock(|s| {
                 s.channel_factory.set_target(&mut upstream_target);
-                s.channel_factory.on_submit_shares_extended(
-                    sv2_submit.clone(),
-                    Some(crate::utils::proxy_extranonce1_len(
-                        s.channel_factory.channel_extranonce2_size(),
-                        share.extranonce2_len,
-                    )),
-                )
+                s.channel_factory.on_submit_shares_extended(sv2_submit)
             })
             .map_err(|_| PoisonLock);
 
@@ -505,14 +493,18 @@ impl Bridge {
                 );
                 error!("Make sure to set `min_individual_miner_hashrate` in the config file");
             }
-            Ok(Ok(OnNewShare::SendSubmitShareUpstream(_))) => {
+            Ok(Ok(OnNewShare::SendSubmitShareUpstream(share))) => {
                 info!("SHARE MEETS TARGET");
-                send_upstream = true;
+                match share {
+                    Share::Extended(share) => {
+                        tx_sv2_submit_shares_ext.send(share).await?;
+                    }
+                    // We are in an extended channel shares are extended
+                    Share::Standard(_) => unreachable!(),
+                }
             }
-            Ok(Ok(OnNewShare::RelaySubmitShareUpstream)) => {
-                info!("SHARE MEETS TARGET");
-                send_upstream = true;
-            }
+            // We are in an extended channel this variant is group channle only
+            Ok(Ok(OnNewShare::RelaySubmitShareUpstream)) => unreachable!(),
             Ok(Ok(OnNewShare::ShareMeetDownstreamTarget)) => {
                 info!("SHARE MEETS DOWNSTREAM TARGET");
             }
@@ -533,9 +525,12 @@ impl Bridge {
                         };
                         // The below channel should never be full is ok to block
                         solution_sender.send_blocking(solution).unwrap();
-                        send_upstream = !withhold;
+                        if !withhold {
+                            tx_sv2_submit_shares_ext.send(s).await?;
+                        }
                     }
-                    _ => unreachable!(),
+                    // We are in an extended channel shares are extended
+                    Share::Standard(_) => unreachable!(),
                 }
             }
             // When we have a ShareMeetBitcoinTarget it means that the proxy know the bitcoin
@@ -551,9 +546,6 @@ impl Bridge {
                     .await;
             }
         }
-        if send_upstream {
-            tx_sv2_submit_shares_ext.send(sv2_submit).await?
-        };
         Ok(())
     }
 
@@ -562,7 +554,6 @@ impl Bridge {
         &self,
         channel_id: u32,
         sv1_submit: Submit,
-        extranonce2: Vec<u8>,
         version_rolling_mask: Option<HexU32Be>,
     ) -> ProxyResult<'static, SubmitSharesExtended<'static>> {
         let last_version = self
@@ -575,18 +566,8 @@ impl Bridge {
             (None, None) => last_version,
             _ => return Err(Error::V1Protocol(v1::error::Error::InvalidSubmission)),
         };
-        let extranonce = self
-            .channel_factory
-            .get_extranonce_without_upstream_part(
-                extranonce2
-                    .try_into()
-                    .map_err(|_| Error::SubprotocolMining("invalid extranonce".to_string()))?,
-            )
-            .ok_or_else(|| {
-                Error::SubprotocolMining(
-                    "Could not convert miner extranonce2 to proxy extranonce2".to_string(),
-                )
-            })?;
+        let mining_device_extranonce: Vec<u8> = sv1_submit.extra_nonce2.into();
+        let extranonce2 = mining_device_extranonce;
         Ok(SubmitSharesExtended {
             channel_id,
             // I put 0 below cause sequence_number is not what should be TODO
@@ -595,7 +576,7 @@ impl Bridge {
             nonce: sv1_submit.nonce.0,
             ntime: sv1_submit.time.0,
             version,
-            extranonce: extranonce.try_into()?,
+            extranonce: extranonce2.try_into()?,
         })
     }
 
@@ -967,7 +948,7 @@ mod test {
                 // pass sv1_submit into Bridge::translate_submit
                 let sv1_submit = test_utils::create_sv1_submit(0);
                 let sv2_message = bridge
-                    .translate_submit(channel_id, sv1_submit, vec![0, 0, 0, 0, 0, 0, 0, 0], None)
+                    .translate_submit(channel_id, sv1_submit, None)
                     .unwrap();
                 // assert sv2 message equals sv1 with version bits added
                 assert_eq!(

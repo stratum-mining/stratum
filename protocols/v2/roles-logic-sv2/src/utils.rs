@@ -14,7 +14,7 @@ use bitcoin::{
 
 use binary_sv2::U256;
 //compact_target_from_u256
-use tracing::{error, info};
+use tracing::error;
 
 use crate::errors::Error;
 
@@ -131,7 +131,6 @@ fn merkle_root_from_path_<T: AsRef<[u8]>>(coinbase_id: [u8; 32], path: &[T]) -> 
 // TODO remove when we have https://github.com/rust-bitcoin/rust-bitcoin/issues/1319
 fn reduce_path<T: AsRef<[u8]>>(coinbase_id: [u8; 32], path: &[T]) -> [u8; 32] {
     let mut root = coinbase_id;
-    info!("reduce_path: coinbase_id: {:?}", root);
     for node in path {
         let to_hash = [&root[..], node.as_ref()].concat();
         root = bitcoin::hashes::sha256d::Hash::hash(&to_hash)

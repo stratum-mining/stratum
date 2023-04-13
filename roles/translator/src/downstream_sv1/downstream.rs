@@ -477,7 +477,7 @@ impl IsServer<'static> for Downstream {
             let to_send = SubmitShareWithChannelId {
                 channel_id: self.connection_id,
                 share: request.clone(),
-                extranonce: request.extra_nonce2.clone().into(),
+                extranonce: self.extranonce1.clone(),
                 extranonce2_len: self.extranonce2_len,
                 version_rolling_mask: self.version_rolling_mask.clone(),
             };
