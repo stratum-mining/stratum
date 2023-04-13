@@ -730,6 +730,9 @@ impl ChannelFactory {
             Share::Extended(share) => share.version as i32,
             Share::Standard(share) => share.0.version as i32,
         };
+
+        debug!("Version is {:?}", version);
+
         let header = bitcoin::blockdata::block::BlockHeader {
             version,
             prev_blockhash: self.last_prev_hash_.ok_or(Error::ShareDoNotMatchAnyJob)?,
@@ -755,13 +758,15 @@ impl ChannelFactory {
             debug!("Upstream target: {:?}", upstream_target.to_vec().to_hex());
         }
         let hash: Target = hash.into();
-        if hash <= bitcoin_target {
-            let mut print_hash = hash_.as_hash().into_inner();
-            print_hash.reverse();
-            info!(
-                "Share hash meet bitcoin target: {:?}",
+        let mut print_hash = hash_.as_hash().into_inner();
+        print_hash.reverse();
+        info!(
+                "Share hash: {:?}",
                 print_hash.to_vec().to_hex()
             );
+
+
+        if hash <= bitcoin_target {
             let coinbase = [coinbase_tx_prefix, &extranonce[..], coinbase_tx_suffix]
                 .concat()
                 .to_vec();
@@ -1020,6 +1025,8 @@ impl PoolChannelFactory {
         // via the job creator (TODO MVP3 add a way to get the template for negotiated job create a
         // block from the template and send to bitcoind via RPC).
         if self.negotiated_jobs.contains_key(&m.channel_id) {
+            debug!("Checking against negotiated jobs");
+
             let merkle_path = self
                 .negotiated_jobs
                 .get(&m.channel_id)
@@ -1034,6 +1041,8 @@ impl PoolChannelFactory {
                 merkle_path,
             )
         } else {
+            debug!("Checking against last job");
+
             let merkle_path = self
                 .inner
                 .last_valid_job
@@ -1321,6 +1330,8 @@ impl ProxyExtendedChannelFactory {
                 .get_template_id_from_job(self.inner.last_valid_job.as_ref().unwrap().0.job_id)
                 .ok_or(Error::NoTemplateForId)?;
             let bitcoin_target = job_creator.last_target();
+
+            debug!("Checking with job creator");
             self.inner.check_target(
                 Share::Extended(m),
                 bitcoin_target,
@@ -1329,6 +1340,8 @@ impl ProxyExtendedChannelFactory {
                 merkle_path,
             )
         } else {
+            debug!("Checking with no job creator");
+
             let bitcoin_target = [0; 32];
             // if there is not job_creator is not proxy duty to check if target is below or above
             // bitcoin target so we set bitcoin_target = 0.
