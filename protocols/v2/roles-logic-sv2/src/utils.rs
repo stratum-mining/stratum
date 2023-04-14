@@ -1,7 +1,6 @@
 use std::{
     convert::TryInto,
-    ops::Div,
-    ops::Mul,
+    ops::{Div, Mul},
     sync::{Mutex as Mutex_, MutexGuard, PoisonError},
 };
 
