@@ -428,6 +428,11 @@ impl IsServer<'static> for Downstream {
         debug!("Down: Handling mining.configure: {:?}", &request);
 
         // TODO 0x1FFFE000 should be configured
+        // = 11111111111111110000000000000
+        // this is a reasonable default as it allows all 16 version bits to be used
+        // If the tproxy/pool needs to use some version bits this needs to be configurable
+        // so upstreams can negotiate with downstreams. When that happens this should consider
+        // the min_bit_count in the mining.configure message
         let negotiated_mask = Some(HexU32Be(
             request.version_rolling_mask().unwrap() & 0x1FFFE000,
         ));
