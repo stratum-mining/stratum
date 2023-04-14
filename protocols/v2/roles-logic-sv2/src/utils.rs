@@ -1,6 +1,7 @@
 use std::{
     convert::TryInto,
-    ops::Div, ops::Mul,
+    ops::Div,
+    ops::Mul,
     sync::{Mutex as Mutex_, MutexGuard, PoisonError},
 };
 
@@ -196,8 +197,8 @@ pub fn hash_rate_to_target(h: f32, share_per_min: f32) -> U256<'static> {
 /// this function utilizes the equation used in [`hash_rate_to_target`], but
 /// translated to solve for hash_rate given a target: h = (2^256-t)/s(t+1)
 pub fn hash_rate_from_target(target: U256<'static>, share_per_min: f32) -> f32 {
-    let s : u64 = (60_f64 / (share_per_min as f64)) as u64;
-    let s = Uint256::from_u64(s as u64).unwrap();
+    let s: u64 = 60_u64 / (share_per_min as u64);
+    let s = Uint256::from_u64(s).unwrap();
 
     let mut target_arr: [u8; 32] = [0; 32];
     target_arr.as_mut().copy_from_slice(target.inner_as_ref());
