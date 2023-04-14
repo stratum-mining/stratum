@@ -1,6 +1,6 @@
 use std::{
     convert::TryInto,
-    ops::Div,
+    ops::Div, ops::Mul,
     sync::{Mutex as Mutex_, MutexGuard, PoisonError},
 };
 
@@ -194,29 +194,32 @@ pub fn hash_rate_to_target(h: f32, share_per_min: f32) -> U256<'static> {
 }
 
 /// this function utilizes the equation used in [`hash_rate_to_target`], but
-/// translated to solve for hash_rate given a target: h = ((2^256 / (t+1)) - 1) / s
+/// translated to solve for hash_rate given a target: h = (2^256-t)/s(t+1)
 pub fn hash_rate_from_target(target: U256<'static>, share_per_min: f32) -> f32 {
-    let s = 60_f64 / (share_per_min as f64);
+    let s : u64 = (60_f64 / (share_per_min as f64)) as u64;
+    let s = Uint256::from_u64(s as u64).unwrap();
 
     let mut target_arr: [u8; 32] = [0; 32];
     target_arr.as_mut().copy_from_slice(target.inner_as_ref());
     target_arr.reverse();
-    let mut target_plus_1 = bitcoin::util::uint::Uint256::from_be_bytes(target_arr);
-    target_plus_1.increment();
+
+    let target = Uint256::from_be_bytes(target_arr);
+    let mut target_plus_one = Uint256::from_be_bytes(target_arr);
+    target_plus_one.increment();
 
     let max_target = [255_u8; 32];
-    let max_target = bitcoin::util::uint::Uint256::from_be_bytes(max_target);
+    let max_target = Uint256::from_be_bytes(max_target);
 
-    ((max_target.div(target_plus_1).low_u64() - 1) as f64 / s) as f32
+    ((max_target - target).div(s.mul(target_plus_one)).low_u64()) as f32
 }
 
-pub fn from_u128_to_uint256(input: u128) -> bitcoin::util::uint::Uint256 {
+pub fn from_u128_to_uint256(input: u128) -> Uint256 {
     let input: [u8; 16] = input.to_be_bytes();
     let mut be_bytes = [0_u8; 32];
     for (i, b) in input.iter().enumerate() {
         be_bytes[16 + i] = *b;
     }
-    bitcoin::util::uint::Uint256::from_be_bytes(be_bytes)
+    Uint256::from_be_bytes(be_bytes)
 }
 
 /// Used to package multiple SV2 channels into a single group.
