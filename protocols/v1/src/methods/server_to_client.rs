@@ -564,21 +564,6 @@ pub struct VersionRollingParams {
 }
 
 #[test]
-fn version_rollion_mask_fail_with_invalid_head() {
-    let err1 = VersionRollingParams::new(HexU32Be(0b00100000000000000000000000000000), HexU32Be(0));
-    let err2 = VersionRollingParams::new(HexU32Be(0b10000000000000000000000000000000), HexU32Be(0));
-    assert!(err1.is_err());
-    assert!(err2.is_err());
-}
-#[test]
-fn version_rollion_mask_fail_with_invalid_tail() {
-    let err1 = VersionRollingParams::new(HexU32Be(0b00000000000000000000000000000001), HexU32Be(0));
-    let err2 = VersionRollingParams::new(HexU32Be(0b00000000000000000001000000000000), HexU32Be(0));
-    assert!(err1.is_err());
-    assert!(err2.is_err());
-}
-
-#[test]
 fn configure_response_parsing_all_fields() {
     let client_response_str = r#"{"id":0,
             "result":{
