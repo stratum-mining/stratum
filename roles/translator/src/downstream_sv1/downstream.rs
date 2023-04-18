@@ -433,7 +433,9 @@ impl IsServer<'static> for Downstream {
         // If the tproxy/pool needs to use some version bits this needs to be configurable
         // so upstreams can negotiate with downstreams. When that happens this should consider
         // the min_bit_count in the mining.configure message
-        self.version_rolling_mask = request.version_rolling_mask().map(|mask| HexU32Be(mask & 0x1FFFE000));
+        self.version_rolling_mask = request
+            .version_rolling_mask()
+            .map(|mask| HexU32Be(mask & 0x1FFFE000));
         self.version_rolling_min_bit = request.version_rolling_min_bit_count();
 
         debug!(
