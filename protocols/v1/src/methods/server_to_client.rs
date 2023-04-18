@@ -626,7 +626,6 @@ impl VersionRollingParams {
         version_rolling_mask: HexU32Be,
         version_rolling_min_bit_count: HexU32Be,
     ) -> Result<Self, Error<'static>> {
-
         // 0x1FFFE000 should be configured
         let negotiated_mask = HexU32Be(version_rolling_mask.clone() & 0x1FFFE000);
 
