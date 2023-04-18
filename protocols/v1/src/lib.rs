@@ -404,12 +404,16 @@ pub trait IsClient<'a> {
     fn authorize_user_name(&mut self, name: String);
 
     fn configure(&mut self, id: u64) -> json_rpc::Message {
-        client_to_server::Configure::new(
-            id,
-            self.version_rolling_mask(),
-            self.version_rolling_min_bit(),
-        )
-        .into()
+        if self.version_rolling_min_bit().is_none() && self.version_rolling_mask().is_none() {
+            client_to_server::Configure::void(id).into()
+        } else {
+            client_to_server::Configure::new(
+                id,
+                self.version_rolling_mask(),
+                self.version_rolling_min_bit(),
+            )
+            .into()
+        }
     }
 
     fn subscribe(

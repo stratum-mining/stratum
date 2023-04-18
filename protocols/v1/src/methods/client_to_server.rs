@@ -360,6 +360,13 @@ impl Configure {
         }
     }
 
+    pub fn void(id: u64) -> Self {
+        Configure {
+            extensions: vec![],
+            id,
+        }
+    }
+
     pub fn respond(
         self,
         version_rolling: Option<crate::server_to_client::VersionRollingParams>,
@@ -383,7 +390,7 @@ impl Configure {
         let mut res = None;
         for ext in &self.extensions {
             if let ConfigureExtension::VersionRolling(p) = ext {
-                res = Some(p.mask.clone().unwrap_or(HexU32Be(0xffffffff)));
+                res = Some(p.mask.clone().unwrap_or(HexU32Be(0x1FFFE000)));
             };
         }
         res
@@ -492,11 +499,13 @@ impl ConfigureExtension {
             // Min bit need to be a string or a number
             (Some(_), Some(_)) => return Err(ParsingMethodError::Todo),
         };
-        let params = VersionRollingParams {
-            mask,
-            min_bit_count,
-        };
-        res.push(ConfigureExtension::VersionRolling(params));
+        if mask.is_some() || min_bit_count.is_some() {
+            let params = VersionRollingParams {
+                mask,
+                min_bit_count,
+            };
+            res.push(ConfigureExtension::VersionRolling(params));
+        }
 
         if let Some(minimum_difficulty_value) = minimum_difficulty_value {
             let min_diff = match minimum_difficulty_value {
