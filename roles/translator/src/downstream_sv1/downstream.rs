@@ -426,8 +426,22 @@ impl IsServer<'static> for Downstream {
     ) -> (Option<server_to_client::VersionRollingParams>, Option<bool>) {
         info!("Down: Configuring");
         debug!("Down: Handling mining.configure: {:?}", &request);
-        self.version_rolling_mask = request.version_rolling_mask();
+
+        // TODO 0x1FFFE000 should be configured
+        // = 11111111111111110000000000000
+        // this is a reasonable default as it allows all 16 version bits to be used
+        // If the tproxy/pool needs to use some version bits this needs to be configurable
+        // so upstreams can negotiate with downstreams. When that happens this should consider
+        // the min_bit_count in the mining.configure message
+        self.version_rolling_mask = request
+            .version_rolling_mask()
+            .map(|mask| HexU32Be(mask & 0x1FFFE000));
         self.version_rolling_min_bit = request.version_rolling_min_bit_count();
+
+        debug!(
+            "Negotiated version_rolling_mask is {:?}",
+            self.version_rolling_mask
+        );
         (
             Some(server_to_client::VersionRollingParams::new(
                 self.version_rolling_mask.clone().unwrap_or(HexU32Be(0)),
