@@ -727,6 +727,7 @@ impl ChannelFactory {
             Share::Extended(share) => share.version as i32,
             Share::Standard(share) => share.0.version as i32,
         };
+
         let header = bitcoin::blockdata::block::BlockHeader {
             version,
             prev_blockhash: self.last_prev_hash_.ok_or(Error::ShareDoNotMatchAnyJob)?,
@@ -746,7 +747,7 @@ impl ChannelFactory {
         if tracing::level_enabled!(tracing::Level::DEBUG)
             || tracing::level_enabled!(tracing::Level::TRACE)
         {
-            println!("Bitcoin target: {:?}", bitcoin_target);
+            debug!("Bitcoin target: {:?}", bitcoin_target);
             let upstream_target: binary_sv2::U256 = upstream_target.clone().try_into().unwrap();
             let mut upstream_target = upstream_target.to_vec();
             upstream_target.reverse();
@@ -756,13 +757,16 @@ impl ChannelFactory {
             debug!("Hash: {:?}", hash.to_vec().to_hex());
         }
         let hash: Target = hash.into();
+
         if hash <= bitcoin_target {
             let mut print_hash = hash_.as_hash().into_inner();
             print_hash.reverse();
+
             info!(
                 "Share hash meet bitcoin target: {:?}",
                 print_hash.to_vec().to_hex()
             );
+
             let coinbase = [coinbase_tx_prefix, &extranonce[..], coinbase_tx_suffix]
                 .concat()
                 .to_vec();

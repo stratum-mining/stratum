@@ -703,3 +703,22 @@ fn test_version_extension_with_non_string_bit_count() {
         _ => panic!(),
     };
 }
+
+#[test]
+fn test_version_extension_with_no_bit_count() {
+    let client_message = r#"{"id":0,
+            "method": "mining.configure",
+            "params":[
+                ["version-rolling"],
+                {"version-rolling.mask":"ffffffff"}
+            ]
+        }"#;
+    let client_message: StandardRequest = serde_json::from_str(&client_message).unwrap();
+    let server_configure = Configure::try_from(client_message).unwrap();
+    match &server_configure.extensions[0] {
+        ConfigureExtension::VersionRolling(params) => {
+            assert!(params.min_bit_count.as_ref() == None);
+        }
+        _ => panic!(),
+    };
+}
