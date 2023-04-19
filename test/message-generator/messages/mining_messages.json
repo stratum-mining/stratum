@@ -1,0 +1,15 @@
+{
+  "mining_messages": [
+    {
+      "message": {
+        "type": "OpenExtendedMiningChannelSuccess",
+        "request_id": 1,
+        "channel_id": 1,
+        "target": [88, 190, 74, 45, 212, 33, 248, 47, 32, 222, 23, 112, 230, 43, 18, 139, 144, 135, 104, 178, 135, 218, 190, 102, 83, 235, 9, 81, 14, 0, 0, 0],
+        "extranonce_prefix": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2],
+        "extranonce_size": 44
+      },
+      "id": "openEMC_success_tproxy_bad_extranonce"
+    }
+  ]
+}

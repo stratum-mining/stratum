@@ -2,7 +2,7 @@
 
 How to test Sv2 compliant software against the SRI implementation.
 
-## With Message Generator
+## With Message Generator (MG)
 
 First thing you need to write a test that can be executed by the message generator. In order to do
 that read the [message generator doc](https://github.com/stratum-mining/stratum/blob/main/utils/message-generator/README.md)
@@ -17,6 +17,16 @@ or fork the project and add the [test here](https://github.com/stratum-mining/st
 and if needed the binaries [here](https://github.com/stratum-mining/stratum/tree/main/test/bin). Then you can ran
 the test with `./message-generator-tests.sh`. If you keep the codebase unchanged you should be able
 to easly merge the updates from upstream main so that test are always against the last SRI version.
+
+### TProxy test with MG
+As many people may try the SRI with a sv1 mining device (MD), a MG test for the translation proxy has
+been added:
+`test/message-generator/test/transation-proxy.json`
+You can try this test with your desired sv1 mining device in two ways.
+ 1. launching it from the test itself, editing the part of `execution_commands` relative to the
+    launch of the MD.
+ 2. removing the part of the test that launches the `/examples/sv1-mining-device` within the SRI.
+    Then launch the test and therefore launch separately your desired sv1 MD. 
 
 ## Using the SRI role implementations
 

@@ -89,10 +89,7 @@ async fn send_status(
 }
 
 // this is called by `error_handling::handle_result!`
-pub async fn handle_error(
-    sender: &Sender,
-    e: crate::error::PoolError,
-) -> error_handling::ErrorBranch {
+pub async fn handle_error(sender: &Sender, e: PoolError) -> error_handling::ErrorBranch {
     tracing::debug!("Error: {:?}", &e);
     match e {
         PoolError::Io(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,

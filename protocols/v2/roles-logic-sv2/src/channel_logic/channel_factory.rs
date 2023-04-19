@@ -1,7 +1,7 @@
 use super::extended_to_standard_job;
 use crate::{
     common_properties::StandardChannel,
-    job_creator::JobsCreators,
+    job_creator::{self, JobsCreators},
     parsers::Mining,
     utils::{GroupId, Id, Mutex},
     Error,
@@ -22,7 +22,7 @@ use bitcoin::{
     TxOut,
 };
 
-use tracing::{debug, error};
+use tracing::{debug, error, info};
 
 /// A stripped type of `SetCustomMiningJob` without the (`channel_id, `request_id` and `token`) fields
 #[derive(Debug)]
@@ -681,12 +681,16 @@ impl ChannelFactory {
     // If there is a job creator we pass the correct template id. If not, we pass `None`
     // allow comparison chain because clippy wants to make job management assertion into a match clause
     #[allow(clippy::comparison_chain)]
-    fn check_target(
+    #[allow(clippy::too_many_arguments)]
+    fn check_target<TxHash: std::convert::AsRef<[u8]>>(
         &mut self,
-        m: Share,
+        mut m: Share,
         bitcoin_target: Target,
         template_id: Option<u64>,
         up_id: u32,
+        merkle_path: Vec<TxHash>,
+        coinbase_tx_prefix: &[u8],
+        coinbase_tx_suffix: &[u8],
     ) -> Result<OnNewShare, Error> {
         let upstream_target = match &self.kind {
             ExtendedChannelKind::Pool => Target::new(0, 0),
@@ -697,46 +701,18 @@ impl ChannelFactory {
                 upstream_target, ..
             } => upstream_target.clone(),
         };
-        let _last_job_id = self
-            .last_valid_job
-            .as_ref()
-            .ok_or(Error::ShareDoNotMatchAnyJob)?
-            .0
-            .job_id;
-        // *** TODO: uncomment below after mining proxy job management is fixed
-        // if m.get_job_id() < last_job_id {
-        //     let error = SubmitSharesError {
-        //         channel_id: m.get_channel_id(),
-        //         sequence_number: m.get_sequence_number(),
-        //         // Infallible unwrap we already know the len of the error code (is a
-        //         // static string)
-        //         error_code: SubmitSharesError::stale_share_error_code()
-        //             .to_string()
-        //             .try_into()
-        //             .unwrap(),
-        //     };
-        //     return Ok(OnNewShare::SendErrorDownstream(error));
-        // } else if m.get_job_id() > last_job_id {
-        //     return Err(Error::JobNotUpdated(m.get_job_id(), last_job_id));
-        // }
+
         let (downstream_target, extranonce) = self
             .get_channel_specific_mining_info(&m)
             .ok_or(Error::ShareDoNotMatchAnyChannel)?;
-        let coinbase_tx_prefix = self
-            .last_valid_job
-            .as_ref()
-            .ok_or(Error::ShareDoNotMatchAnyJob)?
-            .0
-            .coinbase_tx_prefix
-            .as_ref();
-        let coinbase_tx_suffix = self
-            .last_valid_job
-            .as_ref()
-            .ok_or(Error::ShareDoNotMatchAnyJob)?
-            .0
-            .coinbase_tx_suffix
-            .as_ref();
-        let merkle_path = self.last_valid_job.as_ref().unwrap().0.merkle_path.to_vec();
+        let extranonce_1_len = self.extranonces.get_range0_len();
+        let extranonce_2 = extranonce[extranonce_1_len..].to_vec();
+        match &mut m {
+            Share::Extended(extended_share) => {
+                extended_share.extranonce = extranonce_2.try_into()?;
+            }
+            Share::Standard(_) => (),
+        };
         // Safe unwrap a sha256 can always be converted into [u8;32]
         let merkle_root: [u8; 32] = crate::utils::merkle_root_from_path(
             coinbase_tx_prefix,
@@ -751,6 +727,7 @@ impl ChannelFactory {
             Share::Extended(share) => share.version as i32,
             Share::Standard(share) => share.0.version as i32,
         };
+
         let header = bitcoin::blockdata::block::BlockHeader {
             version,
             prev_blockhash: self.last_prev_hash_.ok_or(Error::ShareDoNotMatchAnyJob)?,
@@ -767,17 +744,29 @@ impl ChannelFactory {
         let hash_ = header.block_hash();
         let hash = hash_.as_hash().into_inner();
 
-        //if debug mode print share hash
         if tracing::level_enabled!(tracing::Level::DEBUG)
             || tracing::level_enabled!(tracing::Level::TRACE)
         {
-            let mut print_hash = hash;
-            print_hash.reverse();
-            debug!("Share Hash: {:?}", print_hash.to_vec().to_hex());
+            debug!("Bitcoin target: {:?}", bitcoin_target);
+            let upstream_target: binary_sv2::U256 = upstream_target.clone().try_into().unwrap();
+            let mut upstream_target = upstream_target.to_vec();
+            upstream_target.reverse();
+            debug!("Upstream target: {:?}", upstream_target.to_vec().to_hex());
+            let mut hash = hash;
+            hash.reverse();
+            debug!("Hash: {:?}", hash.to_vec().to_hex());
         }
-
         let hash: Target = hash.into();
+
         if hash <= bitcoin_target {
+            let mut print_hash = hash_.as_hash().into_inner();
+            print_hash.reverse();
+
+            info!(
+                "Share hash meet bitcoin target: {:?}",
+                print_hash.to_vec().to_hex()
+            );
+
             let coinbase = [coinbase_tx_prefix, &extranonce[..], coinbase_tx_suffix]
                 .concat()
                 .to_vec();
@@ -969,11 +958,6 @@ impl PoolChannelFactory {
         &mut self,
         m: &mut NewTemplate<'static>,
     ) -> Result<HashMap<u32, Mining<'static>>, Error> {
-        // edit the last pool_coinbase_output
-        if let Some(last_pool_coinbase_output) = self.pool_coinbase_outputs.last_mut() {
-            last_pool_coinbase_output.value = m.coinbase_tx_value_remaining;
-        }
-
         let new_job =
             self.job_creator
                 .on_new_template(m, true, self.pool_coinbase_outputs.clone())?;
@@ -988,13 +972,27 @@ impl PoolChannelFactory {
     ) -> Result<OnNewShare, Error> {
         match self.inner.channel_to_group_id.get(&m.channel_id) {
             Some(g_id) => {
+                let referenced_job = self
+                    .inner
+                    .last_valid_job
+                    .clone()
+                    .ok_or(Error::ShareDoNotMatchAnyJob)?
+                    .0;
+                let merkle_path = referenced_job.merkle_path.to_vec();
                 let template_id = self
                     .job_creator
-                    .get_template_id_from_job(self.inner.last_valid_job.as_ref().unwrap().0.job_id)
+                    .get_template_id_from_job(referenced_job.job_id)
                     .ok_or(Error::NoTemplateForId)?;
                 let target = self.job_creator.last_target();
-                self.inner
-                    .check_target(Share::Standard((m, *g_id)), target, Some(template_id), 0)
+                self.inner.check_target(
+                    Share::Standard((m, *g_id)),
+                    target,
+                    Some(template_id),
+                    0,
+                    merkle_path,
+                    referenced_job.coinbase_tx_prefix.as_ref(),
+                    referenced_job.coinbase_tx_suffix.as_ref(),
+                )
             }
             None => {
                 let err = SubmitSharesError {
@@ -1023,18 +1021,41 @@ impl PoolChannelFactory {
         // via the job creator (TODO MVP3 add a way to get the template for negotiated job create a
         // block from the template and send to bitcoind via RPC).
         if self.negotiated_jobs.contains_key(&m.channel_id) {
-            self.inner
-                .check_target(Share::Extended(m.into_static()), target, None, 0)
+            let referenced_job = self.negotiated_jobs.get(&m.channel_id).unwrap();
+            let merkle_path = referenced_job.merkle_path.to_vec();
+            let coinbase_outputs = self.pool_coinbase_outputs.clone();
+            let extended_job =
+                job_creator::extended_job_from_custom_job(referenced_job, coinbase_outputs, 32)
+                    .unwrap();
+            self.inner.check_target(
+                Share::Extended(m.into_static()),
+                target,
+                None,
+                0,
+                merkle_path,
+                extended_job.coinbase_tx_prefix.as_ref(),
+                extended_job.coinbase_tx_suffix.as_ref(),
+            )
         } else {
+            let referenced_job = self
+                .inner
+                .last_valid_job
+                .clone()
+                .ok_or(Error::ShareDoNotMatchAnyJob)?
+                .0;
+            let merkle_path = referenced_job.merkle_path.to_vec();
             let template_id = self
                 .job_creator
-                .get_template_id_from_job(self.inner.last_valid_job.as_ref().unwrap().0.job_id)
+                .get_template_id_from_job(referenced_job.job_id)
                 .ok_or(Error::NoTemplateForId)?;
             self.inner.check_target(
                 Share::Extended(m.into_static()),
                 target,
                 Some(template_id),
                 0,
+                merkle_path,
+                referenced_job.coinbase_tx_prefix.as_ref(),
+                referenced_job.coinbase_tx_suffix.as_ref(),
             )
         }
     }
@@ -1075,7 +1096,7 @@ impl PoolChannelFactory {
             SetCustomMiningJobSuccess {
                 channel_id: set_custom_mining_job.channel_id,
                 request_id: set_custom_mining_job.request_id,
-                job_id: 0,
+                job_id: self.inner.job_ids.next(),
             }
         } else {
             todo!()
@@ -1212,21 +1233,28 @@ impl ProxyExtendedChannelFactory {
     }
     /// Called only when a new template is received by a Template Provider when job negotiation is used.
     /// It creates a new custom job and calls [`ChannelFactory::on_new_extended_mining_job`]
+    #[allow(clippy::type_complexity)]
     pub fn on_new_template(
         &mut self,
         m: &mut NewTemplate<'static>,
     ) -> Result<
         (
+            // downstream job_id -> downstream message (newextjob or newjob)
             HashMap<u32, Mining<'static>>,
+            // PartialSetCustomMiningJob to send to the pool
             Option<PartialSetCustomMiningJob>,
+            // job_id registered in the channel, the one that SetNewPrevHash refer to (upstsream
+            // job id)
+            u32,
         ),
         Error,
     > {
         if let (Some(job_creator), Some(pool_coinbase_outputs)) = (
             self.job_creator.as_mut(),
-            self.pool_coinbase_outputs.as_ref(),
+            self.pool_coinbase_outputs.as_mut(),
         ) {
             let new_job = job_creator.on_new_template(m, true, pool_coinbase_outputs.clone())?;
+            let id = new_job.job_id;
             if !new_job.is_future() && self.inner.last_prev_hash.is_some() {
                 let prev_hash = self.last_prev_hash().unwrap();
                 let min_ntime = self.last_min_ntime().unwrap();
@@ -1250,13 +1278,14 @@ impl ProxyExtendedChannelFactory {
                 return Ok((
                     self.inner.on_new_extended_mining_job(new_job)?,
                     Some(custom_mining_job),
+                    id,
                 ));
             } else if new_job.is_future() {
                 self.inner
                     .future_templates
                     .insert(new_job.job_id, m.clone());
             }
-            Ok((self.inner.on_new_extended_mining_job(new_job)?, None))
+            Ok((self.inner.on_new_extended_mining_job(new_job)?, None, id))
         } else {
             panic!("Either channel factory has no job creator or pool_coinbase_outputs are not yet set")
         }
@@ -1267,22 +1296,26 @@ impl ProxyExtendedChannelFactory {
     /// shares should be relayed
     pub fn on_submit_shares_extended(
         &mut self,
-        mut m: SubmitSharesExtended<'static>,
-        trim_extranonce: Option<usize>,
+        m: SubmitSharesExtended<'static>,
     ) -> Result<OnNewShare, Error> {
-        if let Some(size) = trim_extranonce {
-            let mut extranonce = m.extranonce.to_vec();
-            extranonce.reverse();
-            for _ in 0..size {
-                extranonce.pop();
-            }
-            extranonce.reverse();
-            m.extranonce = extranonce.try_into().unwrap();
-        };
+        let merkle_path = self
+            .inner
+            .last_valid_job
+            .as_ref()
+            .ok_or(Error::ShareDoNotMatchAnyJob)?
+            .0
+            .merkle_path
+            .to_vec();
 
+        let referenced_job = self
+            .inner
+            .last_valid_job
+            .clone()
+            .ok_or(Error::ShareDoNotMatchAnyJob)?
+            .0;
         if let Some(job_creator) = self.job_creator.as_mut() {
             let template_id = job_creator
-                .get_template_id_from_job(self.inner.last_valid_job.as_ref().unwrap().0.job_id)
+                .get_template_id_from_job(referenced_job.job_id)
                 .ok_or(Error::NoTemplateForId)?;
             let bitcoin_target = job_creator.last_target();
             self.inner.check_target(
@@ -1290,6 +1323,9 @@ impl ProxyExtendedChannelFactory {
                 bitcoin_target,
                 Some(template_id),
                 self.extended_channel_id,
+                merkle_path,
+                referenced_job.coinbase_tx_prefix.as_ref(),
+                referenced_job.coinbase_tx_suffix.as_ref(),
             )
         } else {
             let bitcoin_target = [0; 32];
@@ -1300,6 +1336,9 @@ impl ProxyExtendedChannelFactory {
                 bitcoin_target.into(),
                 None,
                 self.extended_channel_id,
+                merkle_path,
+                referenced_job.coinbase_tx_prefix.as_ref(),
+                referenced_job.coinbase_tx_suffix.as_ref(),
             )
         }
     }
@@ -1311,6 +1350,20 @@ impl ProxyExtendedChannelFactory {
         &mut self,
         m: SubmitSharesStandard,
     ) -> Result<OnNewShare, Error> {
+        let merkle_path = self
+            .inner
+            .last_valid_job
+            .as_ref()
+            .ok_or(Error::ShareDoNotMatchAnyJob)?
+            .0
+            .merkle_path
+            .to_vec();
+        let referenced_job = self
+            .inner
+            .last_valid_job
+            .clone()
+            .ok_or(Error::ShareDoNotMatchAnyJob)?
+            .0;
         match self.inner.channel_to_group_id.get(&m.channel_id) {
             Some(g_id) => {
                 if let Some(job_creator) = self.job_creator.as_mut() {
@@ -1325,6 +1378,9 @@ impl ProxyExtendedChannelFactory {
                         bitcoin_target,
                         Some(template_id),
                         self.extended_channel_id,
+                        merkle_path,
+                        referenced_job.coinbase_tx_prefix.as_ref(),
+                        referenced_job.coinbase_tx_suffix.as_ref(),
                     )
                 } else {
                     let bitcoin_target = [0; 32];
@@ -1335,6 +1391,9 @@ impl ProxyExtendedChannelFactory {
                         bitcoin_target.into(),
                         None,
                         self.extended_channel_id,
+                        merkle_path,
+                        referenced_job.coinbase_tx_prefix.as_ref(),
+                        referenced_job.coinbase_tx_suffix.as_ref(),
                     )
                 }
             }
@@ -1418,15 +1477,6 @@ impl ProxyExtendedChannelFactory {
         self.inner.extranonces.get_range0_len()
     }
 
-    /// returns the extranonce2 for the channel
-    pub fn get_extranonce_without_upstream_part(
-        &self,
-        downstream_extranonce: mining_sv2::Extranonce,
-    ) -> Option<mining_sv2::Extranonce> {
-        self.inner
-            .extranonces
-            .without_upstream_part(Some(downstream_extranonce))
-    }
     /// calls [`ChannelFactory::update_target_for_channel`]
     pub fn update_target_for_channel(
         &mut self,

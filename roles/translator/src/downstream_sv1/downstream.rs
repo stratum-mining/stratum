@@ -426,13 +426,26 @@ impl IsServer<'static> for Downstream {
     ) -> (Option<server_to_client::VersionRollingParams>, Option<bool>) {
         info!("Down: Configuring");
         debug!("Down: Handling mining.configure: {:?}", &request);
-        self.version_rolling_mask = Some(downstream_sv1::new_version_rolling_mask());
-        self.version_rolling_min_bit = Some(downstream_sv1::new_version_rolling_min());
+
+        // TODO 0x1FFFE000 should be configured
+        // = 11111111111111110000000000000
+        // this is a reasonable default as it allows all 16 version bits to be used
+        // If the tproxy/pool needs to use some version bits this needs to be configurable
+        // so upstreams can negotiate with downstreams. When that happens this should consider
+        // the min_bit_count in the mining.configure message
+        self.version_rolling_mask = request
+            .version_rolling_mask()
+            .map(|mask| HexU32Be(mask & 0x1FFFE000));
+        self.version_rolling_min_bit = request.version_rolling_min_bit_count();
+
+        debug!(
+            "Negotiated version_rolling_mask is {:?}",
+            self.version_rolling_mask
+        );
         (
-            // unwraps safe since values are set above
             Some(server_to_client::VersionRollingParams::new(
-                self.version_rolling_mask.clone().unwrap(),
-                self.version_rolling_min_bit.clone().unwrap(),
+                self.version_rolling_mask.clone().unwrap_or(HexU32Be(0)),
+                self.version_rolling_min_bit.clone().unwrap_or(HexU32Be(0)),
             ).expect("Version mask invalid, automatic version mask selection not supported, please change it in carte::downstream_sv1::mod.rs")),
             Some(false),
         )
@@ -478,7 +491,7 @@ impl IsServer<'static> for Downstream {
             let to_send = SubmitShareWithChannelId {
                 channel_id: self.connection_id,
                 share: request.clone(),
-                extranonce: request.extra_nonce2.clone().into(),
+                extranonce: self.extranonce1.clone(),
                 extranonce2_len: self.extranonce2_len,
                 version_rolling_mask: self.version_rolling_mask.clone(),
             };

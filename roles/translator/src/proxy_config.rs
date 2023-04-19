@@ -11,9 +11,10 @@ pub struct ProxyConfig {
     pub min_supported_version: u16,
     pub min_extranonce2_size: u16,
     pub jn_config: Option<JnConfig>,
-    pub coinbase_reward_sat: u64,
     pub downstream_difficulty_config: DownstreamDifficultyConfig,
     pub upstream_difficulty_config: UpstreamDifficultyConfig,
+    #[serde(default)]
+    pub test_only_share_withhold: bool,
 }
 
 #[derive(Debug, Deserialize, Clone)]
