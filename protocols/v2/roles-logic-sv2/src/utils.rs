@@ -535,7 +535,6 @@ pub fn get_target(
 mod tests {
     use binary_sv2::U256;
 
-
     #[cfg(feature = "serde")]
     use super::*;
     use super::{hash_rate_from_target, hash_rate_to_target};
