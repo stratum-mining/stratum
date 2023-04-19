@@ -196,8 +196,8 @@ pub fn hash_rate_to_target(h: f32, share_per_min: f32) -> U256<'static> {
 /// this function utilizes the equation used in [`hash_rate_to_target`], but
 /// translated to solve for hash_rate given a target: h = (2^256-t)/s(t+1)
 pub fn hash_rate_from_target(target: U256<'static>, share_per_min: f32) -> f32 {
-    let s: u64 = 60_u64 / (share_per_min as u64);
-    let s = Uint256::from_u64(s).unwrap();
+    // *100 here to move the fractional bit up so we can make this an int later
+    let s_times_100 = 60_f64 / (share_per_min as f64) * 100.0;
 
     let mut target_arr: [u8; 32] = [0; 32];
     target_arr.as_mut().copy_from_slice(target.inner_as_ref());
@@ -209,8 +209,11 @@ pub fn hash_rate_from_target(target: U256<'static>, share_per_min: f32) -> f32 {
 
     let max_target = [255_u8; 32];
     let max_target = Uint256::from_be_bytes(max_target);
+    let share_times_target = u128_as_u256(s_times_100 as u128)
+        .mul(target_plus_one)
+        .div(Uint256::from_u64(100.0 as u64).unwrap()); //now divide the 100 back out
 
-    ((max_target - target).div(s.mul(target_plus_one)).low_u64()) as f32
+    ((max_target - target).div(share_times_target).low_u32()) as f32
 }
 
 pub fn from_u128_to_uint256(input: u128) -> Uint256 {
@@ -530,6 +533,9 @@ pub fn get_target(
 
 #[cfg(test)]
 mod tests {
+    use binary_sv2::U256;
+
+
     #[cfg(feature = "serde")]
     use super::*;
     use super::{hash_rate_from_target, hash_rate_to_target};
@@ -774,16 +780,19 @@ mod tests {
 
     #[test]
     fn test_hash_rate_from_target() {
-        let hr = 10.0;
+        let hr = 202470.828;
         let expected_share_per_min = 1.0;
         let target = hash_rate_to_target(hr, expected_share_per_min);
         let realized_share_per_min = expected_share_per_min * 10.0; // increase SPM by 10x
         let hash_rate = hash_rate_from_target(target, realized_share_per_min);
         // assert the hash_rate is the is the same as the initial set to ensure `hash_rate_from_target` is the
         // inverse of `hash_rate_to_target`
+        let new_hr = (hr * 10.0).trunc();
+
         assert!(
-            hash_rate == hr * 10.0,
+            hash_rate == new_hr,
             "hash_rate_from_target equation was not properly transformed"
         )
     }
+
 }
