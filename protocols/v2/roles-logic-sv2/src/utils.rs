@@ -793,5 +793,4 @@ mod tests {
             "hash_rate_from_target equation was not properly transformed"
         )
     }
-
 }
