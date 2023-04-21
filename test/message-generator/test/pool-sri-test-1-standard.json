@@ -107,10 +107,10 @@
             "results": [
                 {
                     "type": "match_message_type",
-                    "value": "0x15"
+                    "value": "0x20"
                 }
              ],
-            "actiondoc": "This action checks that the messsage NewMiningJob is received"
+            "actiondoc": "This action checks that the messsage SetNewPrevhash is received"
         },
         {
             "message_ids": [],
@@ -118,10 +118,10 @@
             "results": [
                 {
                     "type": "match_message_type",
-                    "value": "0x20"
+                    "value": "0x15"
                 }
-             ],
-            "actiondoc": "This action checks that the messsage SetNewPrevhash is received"
+            ],
+            "actiondoc": "This action checks that the messsage NewMiningJob is received"
         }
     ],
     "setup_commands": [
