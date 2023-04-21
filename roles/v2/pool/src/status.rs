@@ -106,7 +106,10 @@ pub async fn handle_error(sender: &Sender, e: PoolError) -> error_handling::Erro
     match e {
         PoolError::Io(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
         PoolError::ChannelSend(_) => {
-            send_status(sender, e, error_handling::ErrorBranch::Break).await
+            //This should be a continue because if we fail to send to 1 downstream we should continue
+            //processing the other downstreams in the loop we are in. Otherwise if a downstream fails
+            //to send to then subsequent downstreams in the map won't get send called on them
+            send_status(sender, e, error_handling::ErrorBranch::Continue).await
         }
         PoolError::ChannelRecv(_) => {
             send_status(sender, e, error_handling::ErrorBranch::Break).await

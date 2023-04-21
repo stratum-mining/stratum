@@ -64,7 +64,7 @@ pub trait ParseDownstreamMiningMessages<
             Ok(Mining::OpenStandardMiningChannel(mut m)) => {
                 debug!("Received OpenStandardMiningChannel message");
                 // check user auth
-                if !Self::downstream_is_authorized(self_mutex.clone(), &m.user_identity)? {
+                if !Self::is_downstream_authorized(self_mutex.clone(), &m.user_identity)? {
                     tracing::info!("Client not authorized: {:?}", &m.user_identity);
                     return Ok(SendTo::Respond(Mining::OpenMiningChannelError(
                         OpenMiningChannelError::new_unknown_user(m.get_request_id_as_u32()),
@@ -103,7 +103,7 @@ pub trait ParseDownstreamMiningMessages<
             }
             Ok(Mining::OpenExtendedMiningChannel(m)) => {
                 // check user auth
-                if !Self::downstream_is_authorized(self_mutex.clone(), &m.user_identity)? {
+                if !Self::is_downstream_authorized(self_mutex.clone(), &m.user_identity)? {
                     tracing::info!("Client not authorized: {:?}", &m.user_identity);
                     return Ok(SendTo::Respond(Mining::OpenMiningChannelError(
                         OpenMiningChannelError::new_unknown_user(m.get_request_id_as_u32()),
@@ -206,7 +206,7 @@ pub trait ParseDownstreamMiningMessages<
     fn is_work_selection_enabled(&self) -> bool;
 
     /// returns None if the user is authorized and Open
-    fn downstream_is_authorized(
+    fn is_downstream_authorized(
         _self_mutex: Arc<Mutex<Self>>,
         _user_identity: &binary_sv2::Str0255,
     ) -> Result<bool, Error> {
