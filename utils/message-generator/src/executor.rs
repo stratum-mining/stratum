@@ -162,8 +162,6 @@ impl Executor {
                     break;
                 }
 
-
-
                 let message = recv.recv().await.unwrap();
                 let mut message: Sv2Frame<AnyMessage<'static>, _> = message.try_into().unwrap();
                 println!("RECV {:#?}", message);
