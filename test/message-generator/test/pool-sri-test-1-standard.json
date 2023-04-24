@@ -99,7 +99,7 @@
                     "value": "0x1c"
                 }
             ],
-            "actiondoc": "This action sends the message SubmitSharesStandard to the pool and checks that the pool replies with SubmitSharesStandard.Success"
+            "actiondoc": "This action sends the message SubmitSharesStandard to the pool and checks that the pool replies with SubmitSharesStandard.Success2"
         }
     ],
     "setup_commands": [
