@@ -130,7 +130,13 @@
     ],
     "setup_commands": [],
     "execution_commands": [],
-    "cleanup_commands": [],
+    "cleanup_commands": [
+        {
+            "command": "sleep",
+            "args": ["3000"],
+            "conditions": "None"
+        }
+    ],
     "role": "server",
     "upstream": {
         "ip": "0.0.0.0",

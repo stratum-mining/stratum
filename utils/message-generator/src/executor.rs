@@ -148,7 +148,7 @@ impl Executor {
                 }
             }
             for result in &action.result {
-                println!("Working on result: {:?}", result);
+                println!("Working on result: {}", result);
                 // If the connection should drop at this point then let's just break the loop
                 // Can't do anything else after the connection drops.
                 if *result == ActionResult::CloseConnection {

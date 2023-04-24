@@ -45,6 +45,27 @@ enum ActionResult {
     None,
 }
 
+impl std::fmt::Display for ActionResult {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            ActionResult::MatchMessageType(message_type) => {
+                write!(f, "MatchMessageType: {} ({:#x})", message_type, message_type)
+            }
+            ActionResult::MatchMessageField(message_field) => {
+                write!(f, "MatchMessageField: {:?}", message_field)
+            }
+            ActionResult::MatchMessageLen(message_len) => {
+                write!(f, "MatchMessageLen: {}", message_len)
+            }
+            ActionResult::MatchExtensionType(extension_type) => {
+                write!(f, "MatchExtensionType: {}", extension_type)
+            }
+            ActionResult::CloseConnection => write!(f, "Close connection"),
+            ActionResult::None => write!(f, "None"),
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize, Copy)]
 enum Role {
     Upstream,
