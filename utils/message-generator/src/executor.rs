@@ -151,6 +151,8 @@ impl Executor {
             for result in &action.result {
                 rs += 1;
                 println!("Working on result {}/{}: {}", rs, action.result.len(), result);
+                println!("Num msg in q: {}", recv.len());
+
                 // If the connection should drop at this point then let's just break the loop
                 // Can't do anything else after the connection drops.
                 if *result == ActionResult::CloseConnection {
@@ -159,6 +161,8 @@ impl Executor {
                         .expect_err("Expecting the connection to be closed: wasn't");
                     break;
                 }
+
+
 
                 let message = recv.recv().await.unwrap();
                 let mut message: Sv2Frame<AnyMessage<'static>, _> = message.try_into().unwrap();
