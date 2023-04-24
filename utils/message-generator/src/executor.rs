@@ -172,6 +172,8 @@ impl Executor {
                                 header.msg_type()
                             );
                             panic!()
+                        } else {
+                            println!("MATCHED MESSAGE TYPE {} - going to wait on next message", message_type);
                         }
                     }
                     ActionResult::MatchMessageField((

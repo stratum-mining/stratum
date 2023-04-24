@@ -125,7 +125,7 @@
             "message_ids": ["new_template2","set_new_prev_hash2"],
             "role": "server",
             "results": [],
-            "actiondoc": "This action checks that SetCoinbaseDataSize is received"
+            "actiondoc": "This action checks that new template2 and new prev hash2 is received"
         }
     ],
     "setup_commands": [],
