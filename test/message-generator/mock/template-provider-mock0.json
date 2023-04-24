@@ -124,7 +124,12 @@
         {
             "message_ids": ["new_template2","set_new_prev_hash2"],
             "role": "server",
-            "results": [],
+            "results": [
+                {
+                    "type": "match_message_type",
+                    "value": "0x76"
+                }
+            ],
             "actiondoc": "This action checks that new template2 and new prev hash2 is received"
         }
     ],
@@ -133,7 +138,7 @@
     "cleanup_commands": [
         {
             "command": "sleep",
-            "args": ["3000"],
+            "args": ["10"],
             "conditions": "None"
         }
     ],
