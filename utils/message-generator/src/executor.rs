@@ -151,7 +151,6 @@ impl Executor {
             for result in &action.result {
                 rs += 1;
                 println!("Working on result {}/{}: {}", rs, action.result.len(), result);
-                println!("Num msg in q: {}", recv.len());
 
                 // If the connection should drop at this point then let's just break the loop
                 // Can't do anything else after the connection drops.
@@ -177,7 +176,7 @@ impl Executor {
                             );
                             panic!()
                         } else {
-                            println!("MATCHED MESSAGE TYPE {} - going to wait on next message", message_type);
+                            println!("MATCHED MESSAGE TYPE {}", message_type);
                         }
                     }
                     ActionResult::MatchMessageField((
