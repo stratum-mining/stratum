@@ -97,14 +97,6 @@
                 {
                     "type": "match_message_type",
                     "value": "0x1c"
-                },
-                {
-                    "type": "match_message_type",
-                    "value": "0x15"
-                },
-                {
-                    "type": "match_message_type",
-                    "value": "0x20"
                 }
             ],
             "actiondoc": "This action sends the message SubmitSharesStandard to the pool and checks that the pool replies with SubmitSharesStandard.Success"
