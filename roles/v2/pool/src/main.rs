@@ -260,7 +260,7 @@ async fn main() {
             status::State::DownstreamInstanceDropped(downstream_id) => {
                 warn!("Dropping downstream instance {} from pool", downstream_id);
                 if pool
-                    .safe_lock(|p| p.drop_downstream(downstream_id))
+                    .safe_lock(|p| p.remove_downstream(downstream_id))
                     .is_err()
                 {
                     break;

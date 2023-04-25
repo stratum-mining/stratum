@@ -540,7 +540,12 @@ impl Pool {
         cloned3
     }
 
-    pub fn drop_downstream(&mut self, downstream_id: u32) {
+    /// This removes the downstream from the list of downstreams
+    /// due to a race condition it's possible for downstreams to have been cloned right before
+    /// this remove happens which will cause the cloning task to still attempt to communicate with the
+    /// downstream. This is going to be rare and will won't cause any issues as the attempt to communicate
+    /// will fail but continue with the next downstream.
+    pub fn remove_downstream(&mut self, downstream_id: u32) {
         self.downstreams.remove(&downstream_id);
     }
 }
