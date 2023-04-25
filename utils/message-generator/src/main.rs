@@ -131,9 +131,10 @@ async fn main() {
     // Load contents of `test.json`, then parse
     let test = load_str!(test_path_);
     let test = parser::Parser::parse_test(test);
+    let test_name : String = test_path.split("/").collect::<Vec<&str>>().last().unwrap().to_string();
     // Executes everything (the shell commands and actions)
     // If the `executor` returns false, the test fails
-    let executor = executor::Executor::new(test).await;
+    let executor = executor::Executor::new(test, test_name).await;
     executor.execute().await;
     println!("TEST OK");
     std::process::exit(0);
