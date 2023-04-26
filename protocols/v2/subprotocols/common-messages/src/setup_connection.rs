@@ -283,7 +283,7 @@ impl<'a> From<SetupConnectionError<'a>> for CSetupConnectionError {
 }
 
 /// MiningProtocol = [`SV2_MINING_PROTOCOL_DISCRIMINANT`],
-/// JobNegotiationProtocol = [`SV2_JOB_NEG_PROTOCOL_DISCRIMINANT`],
+/// JobDeclarationProtocol = [`SV2_JOB_NEG_PROTOCOL_DISCRIMINANT`],
 /// TemplateDistributionProtocol = [`SV2_TEMPLATE_DISTR_PROTOCOL_DISCRIMINANT`],
 /// JobDistributionProtocol = [`SV2_JOB_DISTR_PROTOCOL_DISCRIMINANT`],
 #[cfg_attr(feature = "with_serde", derive(Serialize_repr, Deserialize_repr))]
@@ -292,7 +292,7 @@ impl<'a> From<SetupConnectionError<'a>> for CSetupConnectionError {
 #[allow(clippy::enum_variant_names)]
 pub enum Protocol {
     MiningProtocol = SV2_MINING_PROTOCOL_DISCRIMINANT,
-    JobNegotiationProtocol = SV2_JOB_NEG_PROTOCOL_DISCRIMINANT,
+    JobDeclarationProtocol = SV2_JOB_NEG_PROTOCOL_DISCRIMINANT,
     TemplateDistributionProtocol = SV2_TEMPLATE_DISTR_PROTOCOL_DISCRIMINANT,
     JobDistributionProtocol = SV2_JOB_DISTR_PROTOCOL_DISCRIMINANT,
 }
@@ -329,7 +329,7 @@ impl TryFrom<u8> for Protocol {
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         match value {
             SV2_MINING_PROTOCOL_DISCRIMINANT => Ok(Protocol::MiningProtocol),
-            SV2_JOB_NEG_PROTOCOL_DISCRIMINANT => Ok(Protocol::JobNegotiationProtocol),
+            SV2_JOB_NEG_PROTOCOL_DISCRIMINANT => Ok(Protocol::JobDeclarationProtocol),
             SV2_TEMPLATE_DISTR_PROTOCOL_DISCRIMINANT => Ok(Protocol::TemplateDistributionProtocol),
             SV2_JOB_DISTR_PROTOCOL_DISCRIMINANT => Ok(Protocol::JobDistributionProtocol),
             _ => Err(()),

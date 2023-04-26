@@ -1,23 +1,24 @@
-//! The defines a sv1 `Client` struct that handles message exchange with the server.
-//! It includes methods for initializing the client, parsing messages, and sending various types of messages.
-//! It also provides a trait implementation for handling server messages and managing client state.
-
-use async_channel::{bounded, Receiver, Sender};
 use async_std::net::TcpStream;
+use std::{
+    net::SocketAddr,
+    time,
+    time::Duration,
+};
+use time::SystemTime;
+use async_channel::{bounded, Receiver, Sender};
 use async_std::{
     io::BufReader,
     prelude::*,
     sync::{Arc, Mutex},
     task,
 };
-use std::{net::SocketAddr, time, time::Duration};
-use time::SystemTime;
 use v1::{
     client_to_server,
     error::Error,
-    json_rpc, server_to_client,
+    json_rpc,
+    server_to_client,
     utils::{Extranonce, HexU32Be},
-    ClientStatus, IsClient,
+    ClientStatus, IsClient
 };
 
 pub struct Client<'a> {
@@ -207,7 +208,9 @@ impl<'a> IsClient<'a> for Client<'a> {
         self.extranonce2_size = extra_nonce2_size;
     }
 
-    fn extranonce2_size(&self) -> usize {
+    fn extranonce2_size(&self) -> usize
+
+ {
         self.extranonce2_size
     }
 
@@ -290,12 +293,12 @@ impl<'a> IsClient<'a> for Client<'a> {
         Ok(None)
     }
 }
-fn extranonce_from_hex<'a>(hex: &str) -> Extranonce<'a> {
+   fn extranonce_from_hex<'a>(hex: &str) -> Extranonce<'a> {
     let data = utils::decode_hex(hex).unwrap();
     Extranonce::try_from(data).expect("Failed to convert hex to U256")
-}
+  }
 
-mod utils {
+  mod utils {
 
     pub fn decode_hex(s: &str) -> Result<Vec<u8>, core::num::ParseIntError> {
         let s = match s.strip_prefix("0x") {

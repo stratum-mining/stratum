@@ -3,7 +3,7 @@
         "This test does",
         "Runs a mocked Template Provider",
         "Runs the pool with a custom config file",
-        "Runs a mocked Job Negotiator",
+        "Runs a mocked Job Declarator",
         "Mocks a mining device (without mining) that connects to a pool",
         "Opens a standard channel with the pool",
         "Checks that a NewMiningJob and a NewPrevHash are received",
@@ -173,13 +173,13 @@
            "command": "cargo",
            "args": [
                        "run",
-                       "../../test/message-generator/mock/job-negotiator-mock.json"
+                       "../../test/message-generator/mock/job-declarator-mock.json"
            ],
            "conditions": {
                "WithConditions": {
                    "conditions": [
                        {
-                           "output_string": "Running `target/debug/message_generator_sv2 ../../test/message-generator/mock/job-negotiator-mock.json`",
+                           "output_string": "Running `target/debug/message_generator_sv2 ../../test/message-generator/mock/job-declarator-mock.json`",
                            "output_location": "StdErr",
                            "condition": true
                        }

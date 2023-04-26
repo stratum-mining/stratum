@@ -19,9 +19,9 @@ name: Test Coverage
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, dev ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, dev ]
   pull_request_review:
     types: [submitted]
     branches: [bot/versioning]

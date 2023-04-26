@@ -27,19 +27,21 @@ members = [
     "protocols/v2/subprotocols/common-messages",
     "protocols/v2/subprotocols/template-distribution",
     "protocols/v2/subprotocols/mining",
-    "protocols/v2/subprotocols/job-negotiation",
+    "protocols/v2/subprotocols/job-declaration",
     "protocols/v2/sv2-ffi",
     "protocols/v2/roles-logic-sv2",
-    "roles/v2/mining-proxy",
-    "roles/v2/pool",
-    "roles/v2/test-utils/mining-device",
+    "roles/mining-proxy",
+    "roles/pool",
+    "roles/test-utils/mining-device",
+    "roles/test-utils/sv1-mining-device",
     "roles/translator",
     "test/scale",
+    "roles/jd-client",
+    "roles/jd-server",
     "utils/network-helpers",
     "utils/buffer",
     "utils/error-handling",
     "examples/sv1-client-and-server",
-    "examples/sv1-mining-device",
     "examples/ping-pong-with-noise",
     "examples/ping-pong-without-noise",
     "examples/interop-cpp",
@@ -52,7 +54,6 @@ members = [
 
 exclude = [
     "utils/message-generator",
-
 ]
 
 [profile.dev]

@@ -1,18 +1,13 @@
-//! The provided code is a sv1 server implementation that handles JSON-RPC messages over a
-//! TCP connection. It sets up a server instance, receives incoming messages, parses and processes them,
-//! and sends appropriate responses if needed. It includes methods for configuring the server,
-//! handling different message types, and managing server state.
-
+use async_std::net:: TcpStream;
+use std::convert::TryInto;
 use async_channel::{bounded, Receiver, Sender};
-use async_std::net::TcpStream;
 use async_std::{
     io::BufReader,
     prelude::*,
     sync::{Arc, Mutex},
     task,
 };
-use std::convert::TryInto;
-use std::time::Duration;
+use std:: time::Duration;
 use v1::{
     client_to_server,
     error::Error,
@@ -94,10 +89,11 @@ impl<'a> Server<'a> {
                     Server::send_message(sender, notify).await;
                     drop(self_);
                     // task::sleep(Duration::from_millis(100)).await;
+
                 };
-                if i == 4 {
-                    break;
-                }
+				if i == 4 {
+                break;
+				}
             }
         });
 
@@ -218,21 +214,21 @@ impl<'a> IsServer<'a> for Server<'a> {
         self.version_rolling_min_bit = mask
     }
 
-    fn notify(&mut self) -> Result<json_rpc::Message, Error<'a>> {
-        let hex = "ffff";
-        Ok(server_to_client::Notify {
-            job_id: "ciao".to_string(),
-            prev_hash: prevhash_from_hex(hex),
-            coin_base1: hex.try_into()?,
-            coin_base2: hex.try_into()?,
-            merkle_branch: vec![merklenode_from_hex(hex)],
-            version: HexU32Be(5667),
-            bits: HexU32Be(5678),
-            time: HexU32Be(5609),
-            clean_jobs: true,
-        }
-        .try_into()?)
-    }
+	fn notify(&mut self) -> Result<json_rpc::Message, Error<'a>> {
+		let hex = "ffff";
+		Ok(server_to_client::Notify {
+			job_id: "ciao".to_string(),
+			prev_hash: prevhash_from_hex(hex),
+			coin_base1: hex.try_into()?,
+			coin_base2: hex.try_into()?,
+			merkle_branch: vec![merklenode_from_hex(hex)],
+			version: HexU32Be(5667),
+			bits: HexU32Be(5678),
+			time: HexU32Be(5609),
+			clean_jobs: true,
+		}
+		.try_into()?)
+	}
 }
 
 pub fn new_extranonce<'a>() -> v1::utils::Extranonce<'a> {
@@ -244,7 +240,7 @@ fn extranonce_from_hex<'a>(hex: &str) -> Extranonce<'a> {
     Extranonce::try_from(data).expect("Failed to convert hex to U256")
 }
 
-fn merklenode_from_hex<'a>(hex: &str) -> v1::utils::MerkleNode<'a> {
+ fn merklenode_from_hex<'a>(hex: &str) -> v1::utils::MerkleNode<'a> {
     let data = utils::decode_hex(hex).unwrap();
     let len = data.len();
     if hex.len() >= 64 {
@@ -288,7 +284,7 @@ pub fn new_version_rolling_min() -> HexU32Be {
 mod utils {
     use std::fmt::Write;
 
-    pub fn decode_hex(s: &str) -> Result<Vec<u8>, core::num::ParseIntError> {
+  pub fn decode_hex(s: &str) -> Result<Vec<u8>, core::num::ParseIntError> {
         let s = match s.strip_prefix("0x") {
             Some(s) => s,
             None => s,
@@ -299,11 +295,12 @@ mod utils {
             .collect()
     }
 
-    pub fn encode_hex(bytes: &[u8]) -> String {
+   pub fn encode_hex(bytes: &[u8]) -> String {
         let mut s = String::with_capacity(bytes.len() * 2);
         for &b in bytes {
             write!(&mut s, "{:02x}", b).unwrap();
         }
         s
     }
+
 }

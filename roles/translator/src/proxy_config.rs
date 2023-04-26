@@ -10,17 +10,8 @@ pub struct ProxyConfig {
     pub max_supported_version: u16,
     pub min_supported_version: u16,
     pub min_extranonce2_size: u16,
-    pub jn_config: Option<JnConfig>,
     pub downstream_difficulty_config: DownstreamDifficultyConfig,
     pub upstream_difficulty_config: UpstreamDifficultyConfig,
-    #[serde(default)]
-    pub test_only_share_withhold: bool,
-}
-
-#[derive(Debug, Deserialize, Clone)]
-pub struct JnConfig {
-    pub jn_address: String,
-    pub tp_address: String,
 }
 
 #[derive(Debug, Deserialize, Clone)]

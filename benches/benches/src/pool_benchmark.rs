@@ -1,19 +1,15 @@
-//! This code is a benchmarking tool for a sv1. It measures the latency, CPU usage,
-//! and memory usage of the application under load using the `async_std`, `criterion`, and `psutil` libraries.
-//! It sets up a TCP listener, spawns a server, and creates a client to interact with the server.
-//! The `server_pool_listen` function handles incoming connections and spawns a new server for each connection.
-//! The `calculate_cpu_usage` function calculates the CPU usage percentage based on CPU times.
-//! The benchmark results are written to a file and printed to the con
-
 use async_std::net::TcpListener;
-use async_std::{prelude::*, task};
+use async_std::{
+    prelude::*,
+    task,
+};
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use psutil::cpu::cpu_times_percpu;
-use psutil::cpu::os::unix::CpuTimesExt;
 use psutil::memory::virtual_memory;
+use psutil::cpu::os::unix::CpuTimesExt;
+use std::time::{Instant, Duration};
 use std::fs::File;
 use std::io::Write;
-use std::time::{Duration, Instant};
 
 #[path = "./lib/server.rs"]
 mod server;
@@ -41,14 +37,17 @@ fn calculate_cpu_usage(cpu_times: &[psutil::cpu::CpuTimes]) -> f64 {
     let total_cpu_time: f64 = cpu_times
         .iter()
         .map(|cpu| {
-            cpu.user().as_secs_f64()
-                + cpu.system().as_secs_f64()
-                + cpu.idle().as_secs_f64()
-                + cpu.nice().as_secs_f64()
+            cpu.user().as_secs_f64() +
+            cpu.system().as_secs_f64() +
+            cpu.idle().as_secs_f64() +
+            cpu.nice().as_secs_f64()
         })
         .sum();
 
-    let idle_cpu_time: f64 = cpu_times.iter().map(|cpu| cpu.idle().as_secs_f64()).sum();
+    let idle_cpu_time: f64 = cpu_times
+        .iter()
+        .map(|cpu| cpu.idle().as_secs_f64())
+        .sum();
 
     let cpu_usage = 100.0 - (idle_cpu_time / total_cpu_time) * 100.0;
     cpu_usage

@@ -61,7 +61,7 @@ use template_distribution_sv2::{
     RequestTransactionDataSuccess, SetNewPrevHash, SubmitSolution,
 };
 
-use job_negotiation_sv2::{
+use job_declaration_sv2::{
     AllocateMiningJobToken, AllocateMiningJobTokenSuccess, CommitMiningJob, CommitMiningJobSuccess,
 };
 
@@ -109,7 +109,7 @@ pub enum TemplateDistribution<'a> {
 
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "with_serde", derive(Serialize, Deserialize))]
-pub enum JobNegotiation<'a> {
+pub enum JobDeclaration<'a> {
     #[cfg_attr(feature = "with_serde", serde(borrow))]
     AllocateMiningJobToken(AllocateMiningJobToken<'a>),
     #[cfg_attr(feature = "with_serde", serde(borrow))]
@@ -254,7 +254,7 @@ impl<'a> IsSv2Message for TemplateDistribution<'a> {
         }
     }
 }
-impl<'a> IsSv2Message for JobNegotiation<'a> {
+impl<'a> IsSv2Message for JobDeclaration<'a> {
     fn message_type(&self) -> u8 {
         match self {
             Self::AllocateMiningJobToken(_) => MESSAGE_TYPE_ALLOCATE_MINING_TOKEN,
@@ -362,13 +362,13 @@ impl<'decoder> From<TemplateDistribution<'decoder>> for EncodableField<'decoder>
     }
 }
 #[cfg(not(feature = "with_serde"))]
-impl<'decoder> From<JobNegotiation<'decoder>> for EncodableField<'decoder> {
-    fn from(m: JobNegotiation<'decoder>) -> Self {
+impl<'decoder> From<JobDeclaration<'decoder>> for EncodableField<'decoder> {
+    fn from(m: JobDeclaration<'decoder>) -> Self {
         match m {
-            JobNegotiation::AllocateMiningJobToken(a) => a.into(),
-            JobNegotiation::AllocateMiningJobTokenSuccess(a) => a.into(),
-            JobNegotiation::CommitMiningJob(a) => a.into(),
-            JobNegotiation::CommitMiningJobSuccess(a) => a.into(),
+            JobDeclaration::AllocateMiningJobToken(a) => a.into(),
+            JobDeclaration::AllocateMiningJobTokenSuccess(a) => a.into(),
+            JobDeclaration::CommitMiningJob(a) => a.into(),
+            JobDeclaration::CommitMiningJobSuccess(a) => a.into(),
         }
     }
 }
@@ -426,13 +426,13 @@ impl GetSize for TemplateDistribution<'_> {
         }
     }
 }
-impl<'a> GetSize for JobNegotiation<'a> {
+impl<'a> GetSize for JobDeclaration<'a> {
     fn get_size(&self) -> usize {
         match self {
-            JobNegotiation::AllocateMiningJobToken(a) => a.get_size(),
-            JobNegotiation::AllocateMiningJobTokenSuccess(a) => a.get_size(),
-            JobNegotiation::CommitMiningJob(a) => a.get_size(),
-            JobNegotiation::CommitMiningJobSuccess(a) => a.get_size(),
+            JobDeclaration::AllocateMiningJobToken(a) => a.get_size(),
+            JobDeclaration::AllocateMiningJobTokenSuccess(a) => a.get_size(),
+            JobDeclaration::CommitMiningJob(a) => a.get_size(),
+            JobDeclaration::CommitMiningJobSuccess(a) => a.get_size(),
         }
     }
 }
@@ -488,7 +488,7 @@ impl<'decoder> Deserialize<'decoder> for TemplateDistribution<'decoder> {
     }
 }
 #[cfg(not(feature = "with_serde"))]
-impl<'decoder> Deserialize<'decoder> for JobNegotiation<'decoder> {
+impl<'decoder> Deserialize<'decoder> for JobDeclaration<'decoder> {
     fn get_structure(_v: &[u8]) -> std::result::Result<Vec<FieldMarker>, binary_sv2::Error> {
         unimplemented!()
     }
@@ -663,52 +663,52 @@ impl<'a> TryFrom<(u8, &'a mut [u8])> for TemplateDistribution<'a> {
 #[derive(Debug, Clone, Copy)]
 #[repr(u8)]
 #[allow(clippy::enum_variant_names)]
-pub enum JobNegotiationTypes {
+pub enum JobDeclarationTypes {
     AllocateMiningJobToken = MESSAGE_TYPE_ALLOCATE_MINING_TOKEN,
     AllocateMiningJobTokenSuccess = MESSAGE_TYPE_ALLOCATE_MINING_TOKEN_SUCCESS,
     CommitMiningJob = MESSAGE_TYPE_COMMIT_MINING_JOB,
     CommitMiningJobSuccess = MESSAGE_TYPE_COMMIT_MINING_JOB_SUCCESS,
 }
 
-impl TryFrom<u8> for JobNegotiationTypes {
+impl TryFrom<u8> for JobDeclarationTypes {
     type Error = Error;
 
-    fn try_from(v: u8) -> Result<JobNegotiationTypes, Error> {
+    fn try_from(v: u8) -> Result<JobDeclarationTypes, Error> {
         match v {
-            MESSAGE_TYPE_ALLOCATE_MINING_TOKEN => Ok(JobNegotiationTypes::AllocateMiningJobToken),
+            MESSAGE_TYPE_ALLOCATE_MINING_TOKEN => Ok(JobDeclarationTypes::AllocateMiningJobToken),
             MESSAGE_TYPE_ALLOCATE_MINING_TOKEN_SUCCESS => {
-                Ok(JobNegotiationTypes::AllocateMiningJobTokenSuccess)
+                Ok(JobDeclarationTypes::AllocateMiningJobTokenSuccess)
             }
-            MESSAGE_TYPE_COMMIT_MINING_JOB => Ok(JobNegotiationTypes::CommitMiningJob),
+            MESSAGE_TYPE_COMMIT_MINING_JOB => Ok(JobDeclarationTypes::CommitMiningJob),
             MESSAGE_TYPE_COMMIT_MINING_JOB_SUCCESS => {
-                Ok(JobNegotiationTypes::CommitMiningJobSuccess)
+                Ok(JobDeclarationTypes::CommitMiningJobSuccess)
             }
             _ => Err(Error::UnexpectedMessage(v)),
         }
     }
 }
 
-impl<'a> TryFrom<(u8, &'a mut [u8])> for JobNegotiation<'a> {
+impl<'a> TryFrom<(u8, &'a mut [u8])> for JobDeclaration<'a> {
     type Error = Error;
 
     fn try_from(v: (u8, &'a mut [u8])) -> Result<Self, Self::Error> {
-        let msg_type: JobNegotiationTypes = v.0.try_into()?;
+        let msg_type: JobDeclarationTypes = v.0.try_into()?;
         match msg_type {
-            JobNegotiationTypes::AllocateMiningJobToken => {
+            JobDeclarationTypes::AllocateMiningJobToken => {
                 let message: AllocateMiningJobToken = from_bytes(v.1)?;
-                Ok(JobNegotiation::AllocateMiningJobToken(message))
+                Ok(JobDeclaration::AllocateMiningJobToken(message))
             }
-            JobNegotiationTypes::AllocateMiningJobTokenSuccess => {
+            JobDeclarationTypes::AllocateMiningJobTokenSuccess => {
                 let message: AllocateMiningJobTokenSuccess = from_bytes(v.1)?;
-                Ok(JobNegotiation::AllocateMiningJobTokenSuccess(message))
+                Ok(JobDeclaration::AllocateMiningJobTokenSuccess(message))
             }
-            JobNegotiationTypes::CommitMiningJob => {
+            JobDeclarationTypes::CommitMiningJob => {
                 let message: CommitMiningJob = from_bytes(v.1)?;
-                Ok(JobNegotiation::CommitMiningJob(message))
+                Ok(JobDeclaration::CommitMiningJob(message))
             }
-            JobNegotiationTypes::CommitMiningJobSuccess => {
+            JobDeclarationTypes::CommitMiningJobSuccess => {
                 let message: CommitMiningJobSuccess = from_bytes(v.1)?;
-                Ok(JobNegotiation::CommitMiningJobSuccess(message))
+                Ok(JobDeclaration::CommitMiningJobSuccess(message))
             }
         }
     }
@@ -931,7 +931,7 @@ pub enum PoolMessages<'a> {
     #[cfg_attr(feature = "with_serde", serde(borrow))]
     Mining(Mining<'a>),
     #[cfg_attr(feature = "with_serde", serde(borrow))]
-    JobNegotiation(JobNegotiation<'a>),
+    JobDeclaration(JobDeclaration<'a>),
     #[cfg_attr(feature = "with_serde", serde(borrow))]
     TemplateDistribution(TemplateDistribution<'a>),
 }
@@ -953,7 +953,7 @@ impl<'decoder> From<PoolMessages<'decoder>> for EncodableField<'decoder> {
         match m {
             PoolMessages::Common(a) => a.into(),
             PoolMessages::Mining(a) => a.into(),
-            PoolMessages::JobNegotiation(a) => a.into(),
+            PoolMessages::JobDeclaration(a) => a.into(),
             PoolMessages::TemplateDistribution(a) => a.into(),
         }
     }
@@ -963,7 +963,7 @@ impl GetSize for PoolMessages<'_> {
         match self {
             PoolMessages::Common(a) => a.get_size(),
             PoolMessages::Mining(a) => a.get_size(),
-            PoolMessages::JobNegotiation(a) => a.get_size(),
+            PoolMessages::JobDeclaration(a) => a.get_size(),
             PoolMessages::TemplateDistribution(a) => a.get_size(),
         }
     }
@@ -974,7 +974,7 @@ impl<'a> IsSv2Message for PoolMessages<'a> {
         match self {
             PoolMessages::Common(a) => a.message_type(),
             PoolMessages::Mining(a) => a.message_type(),
-            PoolMessages::JobNegotiation(a) => a.message_type(),
+            PoolMessages::JobDeclaration(a) => a.message_type(),
             PoolMessages::TemplateDistribution(a) => a.message_type(),
         }
     }
@@ -983,7 +983,7 @@ impl<'a> IsSv2Message for PoolMessages<'a> {
         match self {
             PoolMessages::Common(a) => a.channel_bit(),
             PoolMessages::Mining(a) => a.channel_bit(),
-            PoolMessages::JobNegotiation(a) => a.channel_bit(),
+            PoolMessages::JobDeclaration(a) => a.channel_bit(),
             PoolMessages::TemplateDistribution(a) => a.channel_bit(),
         }
     }
@@ -1011,11 +1011,11 @@ impl<'a> TryFrom<(u8, &'a mut [u8])> for PoolMessages<'a> {
     fn try_from(v: (u8, &'a mut [u8])) -> Result<Self, Self::Error> {
         let is_common: Result<CommonMessageTypes, Error> = v.0.try_into();
         let is_mining: Result<MiningTypes, Error> = v.0.try_into();
-        let is_job_negotiation: Result<JobNegotiationTypes, Error> = v.0.try_into();
-        match (is_common, is_mining, is_job_negotiation) {
+        let is_job_declaration: Result<JobDeclarationTypes, Error> = v.0.try_into();
+        match (is_common, is_mining, is_job_declaration) {
             (Ok(_), Err(_), Err(_)) => Ok(Self::Common(v.try_into()?)),
             (Err(_), Ok(_), Err(_)) => Ok(Self::Mining(v.try_into()?)),
-            (Err(_), Err(_), Ok(_)) => Ok(Self::JobNegotiation(v.try_into()?)),
+            (Err(_), Err(_), Ok(_)) => Ok(Self::JobDeclaration(v.try_into()?)),
             (Err(e), Err(_), Err(_)) => Err(e),
             // This is an impossible state is safe to panic here
             _ => panic!(),
@@ -1118,7 +1118,7 @@ impl<'a> TryFrom<PoolMessages<'a>> for MiningDeviceMessages<'a> {
         match value {
             PoolMessages::Common(message) => Ok(Self::Common(message)),
             PoolMessages::Mining(message) => Ok(Self::Mining(message)),
-            PoolMessages::JobNegotiation(_) => Err(Error::UnexpectedPoolMessage),
+            PoolMessages::JobDeclaration(_) => Err(Error::UnexpectedPoolMessage),
             PoolMessages::TemplateDistribution(_) => Err(Error::UnexpectedPoolMessage),
         }
     }

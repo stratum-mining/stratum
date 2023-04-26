@@ -1,5 +1,6 @@
 mod executor;
 mod external_commands;
+mod into_static;
 mod net;
 mod parser;
 
@@ -39,6 +40,11 @@ enum Sv2Type {
 enum ActionResult {
     MatchMessageType(u8),
     MatchMessageField((String, String, Vec<(String, Sv2Type)>)),
+    GetMessageField {
+        subprotocol: String,
+        message_type: String,
+        fields: Vec<(String, String)>,
+    },
     MatchMessageLen(usize),
     MatchExtensionType(u16),
     CloseConnection,
@@ -49,7 +55,11 @@ impl std::fmt::Display for ActionResult {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
             ActionResult::MatchMessageType(message_type) => {
-                write!(f, "MatchMessageType: {} ({:#x})", message_type, message_type)
+                write!(
+                    f,
+                    "MatchMessageType: {} ({:#x})",
+                    message_type, message_type
+                )
             }
             ActionResult::MatchMessageField(message_field) => {
                 write!(f, "MatchMessageField: {:?}", message_field)
@@ -61,6 +71,13 @@ impl std::fmt::Display for ActionResult {
                 write!(f, "MatchExtensionType: {}", extension_type)
             }
             ActionResult::CloseConnection => write!(f, "Close connection"),
+            ActionResult::GetMessageField {
+                subprotocol,
+                fields,
+                ..
+            } => {
+                write!(f, "GetMessageField: {:?} {:?}", subprotocol, fields)
+            }
             ActionResult::None => write!(f, "None"),
         }
     }
@@ -89,7 +106,11 @@ struct Downstream {
 
 #[derive(Debug)]
 pub struct Action<'a> {
-    messages: Vec<EitherFrame<AnyMessage<'a>>>,
+    messages: Vec<(
+        EitherFrame<AnyMessage<'a>>,
+        AnyMessage<'a>,
+        Vec<(String, String)>,
+    )>,
     result: Vec<ActionResult>,
     role: Role,
     actiondoc: Option<String>,
@@ -131,7 +152,12 @@ async fn main() {
     // Load contents of `test.json`, then parse
     let test = load_str!(test_path_);
     let test = parser::Parser::parse_test(test);
-    let test_name : String = test_path.split("/").collect::<Vec<&str>>().last().unwrap().to_string();
+    let test_name: String = test_path
+        .split("/")
+        .collect::<Vec<&str>>()
+        .last()
+        .unwrap()
+        .to_string();
     // Executes everything (the shell commands and actions)
     // If the `executor` returns false, the test fails
     let executor = executor::Executor::new(test, test_name).await;
