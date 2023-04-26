@@ -80,7 +80,7 @@ jobs:
           path: 'target/*.xml'
 
       - name: Archive log files
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: logs
           path: |
