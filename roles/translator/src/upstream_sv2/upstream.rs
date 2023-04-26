@@ -12,7 +12,6 @@ use binary_sv2::u256_from_int;
 use codec_sv2::{Frame, HandshakeRole, Initiator};
 use error_handling::handle_result;
 use network_helpers::Connection;
-use roles_logic_sv2::Error::NoUpstreamsConnected;
 use roles_logic_sv2::{
     bitcoin::BlockHash,
     common_messages_sv2::{Protocol, SetupConnection},
@@ -30,6 +29,7 @@ use roles_logic_sv2::{
     selectors::NullDownstreamMiningSelector,
     utils::Mutex,
     Error as RolesLogicError,
+    Error::NoUpstreamsConnected,
 };
 use std::{
     net::SocketAddr,
@@ -447,7 +447,7 @@ impl Upstream {
                                 debug!("parse_incoming Mining::SetNewPrevHash msg");
                                 handle_result!(tx_status, tx_sv2_set_new_prev_hash.send(m).await);
                             }
-                            Mining::CloseChannel(m) => {
+                            Mining::CloseChannel(_m) => {
                                 error!("Received Mining::CloseChannel msg from upstream!");
                                 handle_result!(tx_status, Err(NoUpstreamsConnected));
                             }
