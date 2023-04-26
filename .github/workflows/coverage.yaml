@@ -79,6 +79,13 @@ jobs:
           name: coverage-report
           path: 'target/*.xml'
 
+      - name: Archive log files
+        uses: actions/upload-artifact@v3
+        with:
+          name: logs
+          path: |
+            *.log
+
   codecov:
     needs: message-generator-test
 
