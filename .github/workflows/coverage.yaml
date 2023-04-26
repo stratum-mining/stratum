@@ -32,7 +32,7 @@ jobs:
     name: Tarpaulin Test
     runs-on: ubuntu-latest
     container:
-      image: xd009642/tarpaulin:develop-nightly
+      image: xd009642/tarpaulin:0.25.1
       options: --security-opt seccomp=unconfined
     steps:
       - name: Checkout repository
