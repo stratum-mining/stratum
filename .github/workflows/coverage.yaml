@@ -79,6 +79,13 @@ jobs:
           name: coverage-report
           path: 'target/*.xml'
 
+      - name: Archive log files
+        uses: actions/upload-artifact@v2
+        with:
+          name: logs
+          path: |
+            *.log
+
   codecov:
     needs: message-generator-test
 
@@ -95,13 +102,6 @@ jobs:
 
       - name: Display structure of downloaded files
         run: ls -R
-
-      - name: Archive log files
-        uses: actions/upload-artifact@v2
-        with:
-          name: logs
-          path: |
-            *.log
 
       - name: Upload to codecov.io
         uses: codecov/codecov-action@v3
