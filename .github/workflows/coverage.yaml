@@ -79,12 +79,14 @@ jobs:
           name: coverage-report
           path: 'target/*.xml'
 
+      - name: Display structure files
+        run: ls -R
+
       - name: Archive log files
         uses: actions/upload-artifact@v3
         with:
           name: logs
-          path: |
-            *.log
+          path: '*.log'
 
   codecov:
     needs: message-generator-test
