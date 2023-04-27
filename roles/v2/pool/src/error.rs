@@ -4,6 +4,8 @@ use std::{
     sync::{MutexGuard, PoisonError},
 };
 
+use roles_logic_sv2::parsers::Mining;
+
 #[derive(std::fmt::Debug)]
 pub enum PoolError {
     Io(std::io::Error),
@@ -17,6 +19,7 @@ pub enum PoolError {
     PoisonLock(String),
     ComponentShutdown(String),
     Custom(String),
+    Sv2ProtocolError((u32, Mining<'static>)),
 }
 
 impl std::fmt::Display for PoolError {
@@ -34,6 +37,9 @@ impl std::fmt::Display for PoolError {
             PoisonLock(ref e) => write!(f, "Poison lock: {:?}", e),
             ComponentShutdown(ref e) => write!(f, "Component shutdown: {:?}", e),
             Custom(ref e) => write!(f, "Custom SV2 error: `{:?}`", e),
+            Sv2ProtocolError(ref e) => {
+                write!(f, "Received Sv2 Protocol Error from upstream: `{:?}`", e)
+            }
         }
     }
 }
@@ -96,5 +102,11 @@ impl From<codec_sv2::framing_sv2::Error> for PoolError {
 impl<T> From<PoisonError<MutexGuard<'_, T>>> for PoolError {
     fn from(e: PoisonError<MutexGuard<T>>) -> PoolError {
         PoolError::PoisonLock(e.to_string())
+    }
+}
+
+impl From<(u32, Mining<'static>)> for PoolError {
+    fn from(e: (u32, Mining<'static>)) -> Self {
+        PoolError::Sv2ProtocolError(e)
     }
 }

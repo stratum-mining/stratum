@@ -10,6 +10,17 @@
         "extranonce_size": 44
       },
       "id": "openEMC_success_tproxy_bad_extranonce"
+    },
+    {
+      "message": {
+        "type": "OpenExtendedMiningChannelSuccess",
+        "request_id": 0,
+        "channel_id": 1,
+        "target": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 255, 255, 255, 255],
+        "extranonce_size": 16,
+        "extranonce_prefix": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]
+      },
+      "id": "open_extended_mining_channel_success"
     }
   ]
 }

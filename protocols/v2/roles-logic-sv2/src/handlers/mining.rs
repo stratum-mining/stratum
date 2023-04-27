@@ -63,6 +63,13 @@ pub trait ParseDownstreamMiningMessages<
         match (message_type, payload).try_into() {
             Ok(Mining::OpenStandardMiningChannel(mut m)) => {
                 debug!("Received OpenStandardMiningChannel message");
+                // check user auth
+                if !Self::is_downstream_authorized(self_mutex.clone(), &m.user_identity)? {
+                    tracing::info!("Client not authorized: {:?}", &m.user_identity);
+                    return Ok(SendTo::Respond(Mining::OpenMiningChannelError(
+                        OpenMiningChannelError::new_unknown_user(m.get_request_id_as_u32()),
+                    )));
+                }
                 let upstream = match routing_logic {
                     MiningRoutingLogic::None => None,
                     MiningRoutingLogic::Proxy(r_logic) => {
@@ -79,7 +86,7 @@ pub trait ParseDownstreamMiningMessages<
                         Some(up?)
                     }
                     // Variant just used for phantom data is ok to panic
-                    MiningRoutingLogic::_P(_) => panic!(),
+                    MiningRoutingLogic::_P(_) => panic!("Must use either MiningRoutingLogic::None or MiningRoutingLogic::Proxy for `routing_logic` param"),
                 };
                 match channel_type {
                     SupportedChannelTypes::Standard => self_mutex
@@ -94,22 +101,31 @@ pub trait ParseDownstreamMiningMessages<
                         .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
                 }
             }
-            Ok(Mining::OpenExtendedMiningChannel(m)) => match channel_type {
-                SupportedChannelTypes::Standard => Err(Error::UnexpectedMessage(message_type)),
-                SupportedChannelTypes::Extended => {
-                    debug!("Received OpenExtendedMiningChannel->Extended message");
-                    self_mutex
-                        .safe_lock(|self_| self_.handle_open_extended_mining_channel(m))
-                        .map_err(|e| crate::Error::PoisonLock(e.to_string()))?
+            Ok(Mining::OpenExtendedMiningChannel(m)) => {
+                // check user auth
+                if !Self::is_downstream_authorized(self_mutex.clone(), &m.user_identity)? {
+                    tracing::info!("Client not authorized: {:?}", &m.user_identity);
+                    return Ok(SendTo::Respond(Mining::OpenMiningChannelError(
+                        OpenMiningChannelError::new_unknown_user(m.get_request_id_as_u32()),
+                    )));
+                };
+                match channel_type {
+                    SupportedChannelTypes::Standard => Err(Error::UnexpectedMessage(message_type)),
+                    SupportedChannelTypes::Extended => {
+                        debug!("Received OpenExtendedMiningChannel->Extended message");
+                        self_mutex
+                            .safe_lock(|self_| self_.handle_open_extended_mining_channel(m))
+                            .map_err(|e| crate::Error::PoisonLock(e.to_string()))?
+                    }
+                    SupportedChannelTypes::Group => Err(Error::UnexpectedMessage(message_type)),
+                    SupportedChannelTypes::GroupAndExtended => {
+                        debug!("Received OpenExtendedMiningChannel->GroupAndExtended message");
+                        self_mutex
+                            .safe_lock(|self_| self_.handle_open_extended_mining_channel(m))
+                            .map_err(|e| crate::Error::PoisonLock(e.to_string()))?
+                    }
                 }
-                SupportedChannelTypes::Group => Err(Error::UnexpectedMessage(message_type)),
-                SupportedChannelTypes::GroupAndExtended => {
-                    debug!("Received OpenExtendedMiningChannel->GroupAndExtended message");
-                    self_mutex
-                        .safe_lock(|self_| self_.handle_open_extended_mining_channel(m))
-                        .map_err(|e| crate::Error::PoisonLock(e.to_string()))?
-                }
-            },
+            }
             Ok(Mining::UpdateChannel(m)) => match channel_type {
                 SupportedChannelTypes::Standard => {
                     debug!("Received UpdateChannel->Standard message");
@@ -189,6 +205,14 @@ pub trait ParseDownstreamMiningMessages<
 
     fn is_work_selection_enabled(&self) -> bool;
 
+    /// returns None if the user is authorized and Open
+    fn is_downstream_authorized(
+        _self_mutex: Arc<Mutex<Self>>,
+        _user_identity: &binary_sv2::Str0255,
+    ) -> Result<bool, Error> {
+        Ok(true)
+    }
+
     fn handle_open_standard_mining_channel(
         &mut self,
         m: OpenStandardMiningChannel,
@@ -254,8 +278,7 @@ pub trait ParseUpstreamMiningMessages<
                             .map_err(|e| crate::Error::PoisonLock(e.to_string()))?;
                         Some(up?)
                     }
-                    // Variant just used for phantom data is ok to panic
-                    MiningRoutingLogic::_P(_) => panic!(),
+                    MiningRoutingLogic::_P(_) => panic!("Must use either MiningRoutingLogic::None or MiningRoutingLogic::Proxy for `routing_logic` param"),
                 };
                 match channel_type {
                     SupportedChannelTypes::Standard => self_mutex
