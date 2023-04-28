@@ -1,15 +1,15 @@
 {
     "doc": [
-        "This test does",
-        "Launch 2 pool on differnet address",
-        "Launch mining-proxy",
-        "Connect proxy to the 2 above pool",
-        "Try connect proxy to non exsistent pool proxy must not panic",
-        "Launch MD and connect to proxy",
-        "Kill the pool that the proxy is using for the above MD, proxy must not panic",
-        "Kill the MD, proxy must not panic",
-        "Launch MD and connect to proxy, MD must start mine with the other avaiable pool",
-        "Generates code coverage report for the pool and mining-proxy"
+        "What this test does:",
+        "1) launch SRI pool with llvm-cov (Fails with bad coinbase config)",
+        "2) launch SRI pool with llvm-cov and -h flag (Displays `help` options)",
+        "3) launch SRI pool with llvm-cov (Fails because of invalid config)",
+        "4) launch SRI pool with llvm-cov (Fails because of no config file at path)",
+        "4) launch SRI pool with llvm-cov (Successfully runs pool)"
+    ],
+    "common_messages": [
+    ],
+    "mining_messages": [
     ],
     "frame_builders": [
     ],
@@ -19,14 +19,134 @@
         {
             "command": "cargo",
             "args": [
-                        "llvm-cov",
+                        "run",
+                        "../../test/message-generator/mock/template-provider-mock0.json"
+            ],
+            "conditions": {
+                "WithConditions": {
+                    "conditions": [
+                        {
+                            "output_string": "Running `target/debug/message_generator_sv2 ../../test/message-generator/mock/template-provider-mock0.json`",
+                            "output_location": "StdErr",
+                            "condition": true
+                        }
+                    ],
+                    "timer_secs": 60,
+                    "warn_no_panic": false
+                }
+            }
+        },
+        {
+            "command": "cargo",
+            "args": [   "llvm-cov",
                         "--no-report",
                         "run",
                         "-p",
                         "pool_sv2",
                         "--",
                         "-c",
-                        "./test/config/pool-config-sri-tp.toml"
+                        "./test/config/pool-mock-tp-bad-coinbase.toml"
+            ],
+            "conditions": {
+                "WithConditions": {
+                    "conditions": [
+                        {
+                            "output_string": "Invalid coinbase output config public key:",
+                            "output_location": "StdOut",
+                            "condition": true
+                        }
+                    ],
+                    "timer_secs": 240,
+                    "warn_no_panic": false
+                }
+            }
+        },
+        {
+            "command": "cargo",
+            "args": [   "llvm-cov",
+                        "--no-report",
+                        "run",
+                        "-p",
+                        "pool_sv2",
+                        "--",
+                        "-h",
+                        "-c",
+                        "./test/config/pool-mock-tp.toml"
+            ],
+            "conditions": {
+                "WithConditions": {
+                    "conditions": [
+                        {
+                            "output_string": "Usage: -h/--help, -c/--config <path|default pool-config.toml>",
+                            "output_location": "StdOut",
+                            "condition": true
+                        }
+                    ],
+                    "timer_secs": 240,
+                    "warn_no_panic": false
+                }
+            }
+        },
+        {
+            "command": "cargo",
+            "args": [   "llvm-cov",
+                        "--no-report",
+                        "run",
+                        "-p",
+                        "pool_sv2",
+                        "--",
+                        "-c",
+                        "./test/config/pool-mock-tp-bad-config.toml"
+            ],
+            "conditions": {
+                "WithConditions": {
+                    "conditions": [
+                        {
+                            "output_string": "Failed to parse config:",
+                            "output_location": "StdOut",
+                            "condition": true
+                        }
+                    ],
+                    "timer_secs": 240,
+                    "warn_no_panic": false
+                }
+            }
+        },
+        {
+            "command": "cargo",
+            "args": [   "llvm-cov",
+                        "--no-report",
+                        "run",
+                        "-p",
+                        "pool_sv2",
+                        "--",
+                        "-c",
+                        "./test/config/no-config-at-this-path.toml"
+            ],
+            "conditions": {
+                "WithConditions": {
+                    "conditions": [
+                        {
+                            "output_string": "Failed to read config:",
+                            "output_location": "StdOut",
+                            "condition": true
+                        }
+                    ],
+                    "timer_secs": 240,
+                    "warn_no_panic": false
+                }
+            }
+        },
+        {
+            "command": "cargo",
+            "args": [   "llvm-cov",
+                        "--no-report",
+                        "run",
+                        "-p",
+                        "pool_sv2",
+                        "--",
+                        "-c",
+                        "./test/config/pool-mock-tp.toml"
             ],
             "conditions": {
                 "WithConditions": {
@@ -41,115 +161,6 @@
                     "warn_no_panic": false
                 }
             }
-        },
-        {
-            "command": "cargo",
-            "args": [
-                        "llvm-cov",
-                        "--no-report",
-                        "run",
-                        "-p",
-                        "pool_sv2",
-                        "--",
-                        "-c",
-                        "./test/config/pool-config-sri-tp-different-port.toml"
-            ],
-            "conditions": {
-                "WithConditions": {
-                    "conditions": [
-                        {
-                            "output_string": "Listening for encrypted connection on: 127.0.0.1:44254",
-                            "output_location": "StdOut",
-                            "condition": true
-                        }
-                    ],
-                    "timer_secs": 240,
-                    "warn_no_panic": false
-                }
-            }
-        },
-        {
-            "command": "cargo",
-            "args": [
-                        "llvm-cov",
-                        "--no-report",
-                        "run",
-                        "-p",
-                        "mining_proxy_sv2",
-                        "--",
-                        "-c",
-                        "./test/config/proxy-config-test-multiple-upstreams-extended.toml"
-            ],
-            "conditions": {
-                "WithConditions": {
-                    "conditions": [
-                        {
-                            "output_string": "Listening for downstream mining connections on 127.0.0.1:34255",
-                            "output_location": "StdOut",
-                            "condition": true
-                        }
-                    ],
-                    "timer_secs": 240,
-                    "warn_no_panic": false
-                }
-            }
-        },
-        {
-            "command": "cargo",
-            "args": [
-                        "run",
-                        "-p",
-                        "mining-device"
-            ],
-            "conditions": {
-                "WithConditions": {
-                    "conditions": [
-                        {
-                            "output_string": "SUCCESS SubmitSharesSuccess",
-                            "output_location": "StdOut",
-                            "condition": true
-                        }
-                    ],
-                    "timer_secs": 240,
-                    "warn_no_panic": false
-                }
-            }
-        },
-        {
-            "command": "kill",
-            "args": ["0"],
-            "conditions": "None"
-        },
-        {
-            "command": "cargo",
-            "args": [
-                        "run",
-                        "-p",
-                        "mining-device"
-            ],
-            "conditions": {
-                "WithConditions": {
-                    "conditions": [
-                        {
-                            "output_string": "SUCCESS SubmitSharesSuccess",
-                            "output_location": "StdOut",
-                            "condition": true
-                        }
-                    ],
-                    "timer_secs": 240,
-                    "warn_no_panic": false
-                }
-            }
-        },
-        {
-            "command": "kill",
-            "args": ["1"],
-            "conditions": "None"
-        },
-        {
-            "command": "kill",
-            "args": ["2"],
-            "conditions": "None"
         }
     ],
     "execution_commands": [
@@ -157,19 +168,14 @@
     "cleanup_commands": [
         {
             "command": "pkill",
-            "args":  ["-f", "pool_sv2", "-SIGINT"],
-            "conditions": "None"
-        },
-        {
-            "command": "pkill",
-            "args":  ["-f", "mining_proxy_sv2", "-SIGINT"],
-            "conditions": "None"
-        },
-        {
-            "command": "pkill",
-            "args":  ["-f", "mining-device", "-SIGINT"],
+            "args":  ["pool", "-SIGINT"],
             "conditions": "None"
         }
     ],
-    "role": "none"
+    "role": "client",
+    "downstream": {
+        "ip": "0.0.0.0",
+        "port": 34254,
+        "pub_key": "2di19GHYQnAZJmEpoUeP7C3Eg9TCcksHr23rZCC83dvUiZgiDL"
+    }
 }

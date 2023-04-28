@@ -34,34 +34,6 @@
                 "target": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,255,255,127]
             },
             "id": "set_new_prev_hash"
-        },
-        {
-            "message": {
-                "type": "NewTemplate",
-                "template_id": 30,
-                "future_template": true,
-                "version": 536870912,
-                "coinbase_tx_version": 2,
-                "coinbase_prefix": [1,16,0],
-                "coinbase_tx_input_sequence": 4294967295,
-                "coinbase_tx_value_remaining": 5000000000,
-                "coinbase_tx_outputs_count": 0,
-                "coinbase_tx_outputs": [],
-                "coinbase_tx_locktime": 0,
-                "merkle_path": []
-            },
-            "id": "new_template2"
-        },
-        {
-            "message": {
-                "type": "SetNewPrevHash",
-                "template_id": 30,
-                "prev_hash": [145, 77, 225, 26, 186, 5, 16, 125, 174, 40, 238, 200, 210, 191, 188, 87, 191, 246, 242, 221, 8, 20, 202, 200, 97, 139, 241, 73, 137, 201, 28, 0],
-                "header_timestamp": 1671039088,
-                "n_bits": 545259519,
-                "target": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,255,255,127]
-            },
-            "id": "set_new_prev_hash2"
         }
     ],
     "frame_builders": [
@@ -76,14 +48,6 @@
         {
             "type": "automatic",
             "message_id": "set_new_prev_hash"
-        },
-        {
-            "type": "automatic",
-            "message_id": "new_template2"
-        },
-        {
-            "type": "automatic",
-            "message_id": "set_new_prev_hash2"
         }
 
     ],
@@ -120,18 +84,7 @@
                 }
             ],
             "actiondoc": "This action sends NewTemplate and SetNewPrevHash, and checks that SubmitSolution is received"
-       },
-        {
-            "message_ids": ["new_template2","set_new_prev_hash2"],
-            "role": "server",
-            "results": [
-                {
-                    "type": "match_message_type",
-                    "value": "0x76"
-                }
-            ],
-            "actiondoc": "This action checks that new template2 and new prev hash2 is received"
-        }
+       }
     ],
     "setup_commands": [],
     "execution_commands": [],

@@ -7,11 +7,14 @@ use async_channel::{Receiver, Sender};
 use codec_sv2::{Frame, StandardEitherFrame as EitherFrame, Sv2Frame};
 use roles_logic_sv2::parsers::AnyMessage;
 use std::convert::TryInto;
+use std::sync::Arc;
+use tokio::sync::Mutex;
 
 use std::time::Duration;
-use tokio::time::timeout;
+use tokio::{fs::File, io::{copy, BufWriter, BufReader}, time::timeout};
 
 pub struct Executor {
+    name: Arc<String>,
     send_to_down: Option<Sender<EitherFrame<AnyMessage<'static>>>>,
     recv_from_down: Option<Receiver<EitherFrame<AnyMessage<'static>>>>,
     send_to_up: Option<Sender<EitherFrame<AnyMessage<'static>>>>,
@@ -22,7 +25,7 @@ pub struct Executor {
 }
 
 impl Executor {
-    pub async fn new(test: Test<'static>) -> Executor {
+    pub async fn new(test: Test<'static>, test_name: String) -> Executor {
         let mut process: Vec<Option<tokio::process::Child>> = vec![];
         for command in test.setup_commmands {
             if command.command == "kill" {
@@ -64,6 +67,7 @@ impl Executor {
                 let (recv_from_up, send_to_up) =
                     setup_as_downstream(as_down.addr, as_down.key).await;
                 Self {
+                    name: Arc::new(test_name.clone()),
                     send_to_down: Some(send_to_down),
                     recv_from_down: Some(recv_from_down),
                     send_to_up: Some(send_to_up),
@@ -82,6 +86,7 @@ impl Executor {
                 )
                 .await;
                 Self {
+                    name: Arc::new(test_name.clone()),
                     send_to_down: Some(send_to_down),
                     recv_from_down: Some(recv_from_down),
                     send_to_up: None,
@@ -95,6 +100,7 @@ impl Executor {
                 let (recv_from_up, send_to_up) =
                     setup_as_downstream(as_down.addr, as_down.key).await;
                 Self {
+                    name: Arc::new(test_name.clone()),
                     send_to_down: None,
                     recv_from_down: None,
                     send_to_up: Some(send_to_up),
@@ -105,6 +111,7 @@ impl Executor {
                 }
             }
             (None, None) => Self {
+                name: Arc::new(test_name.clone()),
                 send_to_down: None,
                 recv_from_down: None,
                 send_to_up: None,
@@ -117,6 +124,7 @@ impl Executor {
     }
 
     pub async fn execute(self) {
+        let mut success = true;
         for action in self.actions {
             if let Some(T) = action.actiondoc {
                 println!("{}", T);
@@ -147,8 +155,11 @@ impl Executor {
                     Err(_) => panic!(),
                 }
             }
+            let mut rs = 0;
             for result in &action.result {
-                println!("Working on result: {:?}", result);
+                rs += 1;
+                println!("Working on result {}/{}: {}", rs, action.result.len(), result);
+
                 // If the connection should drop at this point then let's just break the loop
                 // Can't do anything else after the connection drops.
                 if *result == ActionResult::CloseConnection {
@@ -158,7 +169,15 @@ impl Executor {
                     break;
                 }
 
-                let message = recv.recv().await.unwrap();
+                let message = match recv.recv().await {
+                    Ok(message) => message,
+                    Err(_) => {
+                        success = false;
+                        println!("Connection closed before receiving the message");
+                        break;
+                    },
+                };
+
                 let mut message: Sv2Frame<AnyMessage<'static>, _> = message.try_into().unwrap();
                 println!("RECV {:#?}", message);
                 let header = message.get_header().unwrap();
@@ -171,7 +190,10 @@ impl Executor {
                                 message_type,
                                 header.msg_type()
                             );
-                            panic!()
+                            success = false;
+                            break;
+                        } else {
+                            println!("MATCHED MESSAGE TYPE {}", message_type);
                         }
                     }
                     ActionResult::MatchMessageField((
@@ -432,7 +454,8 @@ impl Executor {
                                 message_len,
                                 payload.len()
                             );
-                            panic!()
+                            success = false;
+                            break;
                         }
                     }
                     ActionResult::MatchExtensionType(ext_type) => {
@@ -442,7 +465,8 @@ impl Executor {
                                 ext_type,
                                 header.ext_type()
                             );
-                            panic!()
+                            success = false;
+                            break;
                         }
                     }
                     ActionResult::CloseConnection => {
@@ -465,14 +489,33 @@ impl Executor {
             .await
             .unwrap();
         }
+        let mut child_no = 0;
+
         for child in self.process {
             if let Some(mut child) = child {
+                // Spawn a task to read the child process's stdout and write it to the file
+                let stdout = child.stdout.take().unwrap();
+                let mut stdout_reader = BufReader::new(stdout);
+                child_no = child_no + 1;
+                let test_name = self.name.clone();
+                tokio::spawn(async move {
+                    let test_name = &*test_name;
+                    let mut file = File::create(format!("{}.child-{}.log", test_name, child_no)).await.unwrap();
+                    let mut stdout_writer = BufWriter::new(&mut file);
+
+                    copy(&mut stdout_reader, &mut stdout_writer).await.unwrap();
+                });
+
+
                 while let Some(i) = &child.id() {
                     // Sends kill signal and waits 1 second before checking to ensure child was killed
                     child.kill().await;
                     tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
                 }
             }
+        }
+        if !success {
+            panic!("test failed!!!");
         }
     }
 }
