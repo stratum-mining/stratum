@@ -29,6 +29,7 @@ use roles_logic_sv2::{
     selectors::NullDownstreamMiningSelector,
     utils::Mutex,
     Error as RolesLogicError,
+    Error::NoUpstreamsConnected,
 };
 use std::{
     net::SocketAddr,
@@ -446,6 +447,17 @@ impl Upstream {
                                 debug!("parse_incoming Mining::SetNewPrevHash msg");
                                 handle_result!(tx_status, tx_sv2_set_new_prev_hash.send(m).await);
                             }
+                            Mining::CloseChannel(_m) => {
+                                error!("Received Mining::CloseChannel msg from upstream!");
+                                handle_result!(tx_status, Err(NoUpstreamsConnected));
+                            }
+                            Mining::OpenMiningChannelError(_)
+                            | Mining::UpdateChannelError(_)
+                            | Mining::SubmitSharesError(_)
+                            | Mining::SetCustomMiningJobError(_) => {
+                                error!("parse_incoming SV2 protocol error Message");
+                                handle_result!(tx_status, Err(m));
+                            }
                             // impossible state: handle_message_mining only returns
                             // the above 3 messages in the Ok(SendTo::None(Some(m))) case to be sent
                             // to the bridge for translation.
@@ -717,25 +729,29 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
     /// Handles the SV2 `OpenExtendedMiningChannelError` message (TODO).
     fn handle_open_mining_channel_error(
         &mut self,
-        _: roles_logic_sv2::mining_sv2::OpenMiningChannelError,
+        m: roles_logic_sv2::mining_sv2::OpenMiningChannelError,
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, RolesLogicError> {
-        todo!()
+        Ok(SendTo::None(Some(Mining::OpenMiningChannelError(
+            m.as_static(),
+        ))))
     }
 
     /// Handles the SV2 `UpdateChannelError` message (TODO).
     fn handle_update_channel_error(
         &mut self,
-        _m: roles_logic_sv2::mining_sv2::UpdateChannelError,
+        m: roles_logic_sv2::mining_sv2::UpdateChannelError,
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, RolesLogicError> {
-        todo!()
+        Ok(SendTo::None(Some(Mining::UpdateChannelError(
+            m.as_static(),
+        ))))
     }
 
     /// Handles the SV2 `CloseChannel` message (TODO).
     fn handle_close_channel(
         &mut self,
-        _m: roles_logic_sv2::mining_sv2::CloseChannel,
+        m: roles_logic_sv2::mining_sv2::CloseChannel,
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, RolesLogicError> {
-        todo!()
+        Ok(SendTo::None(Some(Mining::CloseChannel(m.as_static()))))
     }
 
     /// Handles the SV2 `SetExtranoncePrefix` message (TODO).
