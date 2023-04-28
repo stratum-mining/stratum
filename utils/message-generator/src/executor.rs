@@ -124,6 +124,7 @@ impl Executor {
     }
 
     pub async fn execute(self) {
+        let mut success = true;
         for action in self.actions {
             if let Some(T) = action.actiondoc {
                 println!("{}", T);
@@ -168,7 +169,15 @@ impl Executor {
                     break;
                 }
 
-                let message = recv.recv().await.unwrap();
+                let message = match recv.recv().await {
+                    Ok(message) => message,
+                    Err(_) => {
+                        success = false;
+                        println!("Connection closed before receiving the message");
+                        break;
+                    },
+                };
+
                 let mut message: Sv2Frame<AnyMessage<'static>, _> = message.try_into().unwrap();
                 println!("RECV {:#?}", message);
                 let header = message.get_header().unwrap();
@@ -181,7 +190,8 @@ impl Executor {
                                 message_type,
                                 header.msg_type()
                             );
-                            panic!()
+                            success = false;
+                            break;
                         } else {
                             println!("MATCHED MESSAGE TYPE {}", message_type);
                         }
@@ -444,7 +454,8 @@ impl Executor {
                                 message_len,
                                 payload.len()
                             );
-                            panic!()
+                            success = false;
+                            break;
                         }
                     }
                     ActionResult::MatchExtensionType(ext_type) => {
@@ -454,7 +465,8 @@ impl Executor {
                                 ext_type,
                                 header.ext_type()
                             );
-                            panic!()
+                            success = false;
+                            break;
                         }
                     }
                     ActionResult::CloseConnection => {
@@ -501,6 +513,9 @@ impl Executor {
                     tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
                 }
             }
+        }
+        if !success {
+            panic!("test failed!!!");
         }
     }
 }
