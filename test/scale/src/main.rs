@@ -56,12 +56,11 @@ async fn main() {
     let (tx, rx) = bounded(1);
 
     if hops > 0 {
-        orig_port = hop_server(encrypt, hops, tx, total_messages).await;
+        orig_port = spawn_proxies(encrypt, hops, tx, total_messages).await;
     } else {
         println!("Usage: ./program -h <hops> -e");
     }
     println!("Connecting to localhost:{}", orig_port);
-    //
     setup_driver(orig_port, encrypt, rx, total_messages, hops).await;
 }
 
@@ -180,7 +179,7 @@ async fn create_proxy(name: String, listen_port: u16, server_port: u16, encrypt:
 }
 
 
-async fn hop_server(encrypt: bool, hops: u16, tx: Sender<String>, total_messages: i32) -> u16 {
+async fn spawn_proxies(encrypt: bool, hops: u16, tx: Sender<String>, total_messages: i32) -> u16 {
     let orig_port : u16 = 19000;
     let final_server_port = orig_port + (hops - 1);
     let mut listen_port = final_server_port;
@@ -190,10 +189,8 @@ async fn hop_server(encrypt: bool, hops: u16, tx: Sender<String>, total_messages
         let tx_clone = tx.clone();
         let name_clone = name.to_string();
 
-        //let port_clone = server_port.clone();
         task::spawn(async move {
             create_proxy(name_clone, listen_port, server_port, encrypt, total_messages, tx_clone).await;
-
         });
 
         thread::sleep(std::time::Duration::from_secs(1));
