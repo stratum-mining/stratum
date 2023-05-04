@@ -12,7 +12,6 @@ use codec_sv2::{HandshakeRole, Initiator, Responder,
                 StandardSv2Frame, StandardEitherFrame
 };
 
-use codec_sv2::Frame;
 use network_helpers::plain_connection_tokio::PlainConnection;
 use network_helpers::noise_connection_tokio::Connection;
 
@@ -38,7 +37,7 @@ static HOST: &'static str = "127.0.0.1";
 
 #[tokio::main]
 async fn main() {
-    let matches = App::new("Example program")
+    let matches = App::new("ScaleTest")
         .arg(Arg::with_name("encrypt")
             .short("e")
             .help("Use encryption"))
