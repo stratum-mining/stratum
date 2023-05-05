@@ -33,7 +33,7 @@ pub const AUTHORITY_PRIVATE_K: [u8; 32] = [
     5, 173, 0, 234, 59, 15, 127, 31, 160, 136, 131,
 ];
 
-static HOST: &'static str = "127.0.0.1";
+static HOST: &str = "127.0.0.1";
 
 #[tokio::main]
 async fn main() {
@@ -112,7 +112,7 @@ async fn send_messages(stream: Sender<EitherFrame>, total_messages: i32) {
         let binary: EitherFrame = frame.into();
 
         stream.send(binary).await.unwrap();
-        number = number + 1;
+        number += 1;
     }
 }
 
@@ -130,7 +130,7 @@ async fn handle_messages<Mining: Serialize + Deserialize<'static> + GetSize + Se
         if server.is_some() {
             server.as_ref().unwrap().send(binary).await.unwrap();
         } else {
-            messages_received = messages_received + 1;
+            messages_received += 1;
             println!("last server: {} got msg {}", name, messages_received);
         }
 
@@ -139,7 +139,7 @@ async fn handle_messages<Mining: Serialize + Deserialize<'static> + GetSize + Se
 }
 
 async fn create_proxy(name: String, listen_port: u16, server_port: u16, encrypt: bool, total_messages: i32, tx: Sender<String>) {
-    println!("Creating proxy listener {}: {} connecting to: {}", name, listen_port.to_string(), server_port.to_string());
+    println!("Creating proxy listener {}: {} connecting to: {}", name, listen_port, server_port);
     let listener = TcpListener::bind(format!("0.0.0.0:{}", listen_port)).await.unwrap();
     println!("Bound - now waiting for connection...");
     let cli_stream = listener.accept().await.unwrap().0;
@@ -159,7 +159,7 @@ async fn create_proxy(name: String, listen_port: u16, server_port: u16, encrypt:
 
     let mut server = None;
     if server_port > 0 {
-        println!("Proxy {} Connecting to server: {}", name, server_port.to_string());
+        println!("Proxy {} Connecting to server: {}", name, server_port);
         let server_stream = TcpStream::connect(format!("{}:{}", HOST, server_port)).await.unwrap();
         let (_server_receiver, server_sender): (Receiver<EitherFrame>, Sender<EitherFrame>);
 
@@ -195,7 +195,7 @@ async fn spawn_proxies(encrypt: bool, hops: u16, tx: Sender<String>, total_messa
 
         thread::sleep(std::time::Duration::from_secs(1));
         server_port = listen_port;
-        listen_port = listen_port - 1;
+        listen_port -= 1;
     }
-    return orig_port;
+    orig_port
 }
