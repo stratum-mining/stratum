@@ -98,20 +98,9 @@
                     "type": "match_message_type",
                     "value": "0x1c"
                 }
-             ],
-            "actiondoc": "This action sends the message SubmitSharesStandard to the pool and checks that the pool replies with SubmitSharesStandard.Success"
-        },
-        {
-            "message_ids": [],
-            "role": "client",
-            "results": [
-                {
-                    "type": "match_message_type",
-                    "value": "0x20"
-                }
-             ],
-            "actiondoc": "This action checks that the messsage SetNewPrevhash is received"
-      }
+            ],
+            "actiondoc": "This action sends the message SubmitSharesStandard to the pool and checks that the pool replies with SubmitSharesStandard.Success2"
+        }
     ],
     "setup_commands": [
        {
@@ -208,31 +197,6 @@
             "command": "pkill",
             "args":  ["-f", "pool_sv2", "-SIGINT"],
             "conditions": "None"
-        },
-        {
-            "command": "cargo",
-            "args": [
-                    "llvm-cov",
-                    "--ignore-filename-regex",
-                    "utils/|experimental/|protocols/",
-                    "--cobertura",
-                    "--output-path",
-                    "target/pool-sri-test-1-standard.xml",
-                    "report"
-            ],
-            "conditions": {
-                "WithConditions": {
-                    "conditions": [
-                        {
-                            "output_string": "Finished report saved to ",
-                            "output_location": "StdErr",
-                            "condition": true
-                        }
-                    ],
-                    "timer_secs": 240,
-                    "warn_no_panic": false
-                }
-            }
         }
     ],
     "role": "client",

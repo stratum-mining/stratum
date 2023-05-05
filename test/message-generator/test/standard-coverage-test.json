@@ -59,6 +59,18 @@
                 "version": 536870912
             },
             "id": "submit_shares"
+        },
+        {
+            "message": {
+                "type": "SubmitSharesStandard",
+                "channel_id": 1,
+                "sequence_number": 0,
+                "job_id": 0,
+                "nonce": 17511,
+                "ntime": 1671116742,
+                "version": 536870912
+            },
+            "id": "submit_shares_error"
         }
     ],
     "frame_builders": [
@@ -77,6 +89,10 @@
         {
             "type": "automatic",
             "message_id": "submit_shares"
+        },
+        {
+            "type": "automatic",
+            "message_id": "submit_shares_error"
         }
     ],
     "actions": [
@@ -115,9 +131,9 @@
                 {
                     "type": "match_message_type",
                     "value": "0x20"
-                } 
+                }
             ],
-            "actiondoc": ""
+            "actiondoc": "Opens standard mining channel and expects to receive NMJ and SNPH"
         },
         {
             "message_ids": ["submit_shares"],
@@ -129,6 +145,17 @@
                 }
              ],
             "actiondoc": "This action sends the message SubmitSharesStandard to the pool and checks that the pool replies with SubmitSharesStandard.Success"
+        },
+        {
+            "message_ids": ["submit_shares_error"],
+            "role": "client",
+            "results": [
+                {
+                    "type": "match_message_type",
+                    "value": "0x1d"
+                }
+             ],
+            "actiondoc": "This action sends the bad message SubmitSharesStandard to the pool and checks that the pool replies with SubmitSharesError"
         }
     ],
     "setup_commands": [
@@ -136,18 +163,18 @@
             "command": "cargo",
             "args": [
                         "run",
-                        "../../test/message-generator/mock/template-provider-mock0.json"
+                        "../../test/message-generator/mock/template-provider-mock1.json"
             ],
             "conditions": {
                 "WithConditions": {
                     "conditions": [
                         {
-                            "output_string": "Running `target/debug/message_generator_sv2 ../../test/message-generator/mock/template-provider-mock0.json`",
+                            "output_string": "Running `target/debug/message_generator_sv2 ../../test/message-generator/mock/template-provider-mock1.json`",
                             "output_location": "StdErr",
                             "condition": true
                         }
                     ],
-                    "timer_secs": 60,
+                    "timer_secs": 240,
                     "warn_no_panic": false
                 }
             }
@@ -183,33 +210,8 @@
     "cleanup_commands": [
         {
             "command": "pkill",
-            "args":  ["pool", "-SIGINT"],
+            "args":  ["-f", "pool_sv2", "-SIGINT"],
             "conditions": "None"
-        },
-        {
-            "command": "cargo",
-            "args": [
-                    "llvm-cov",
-                    "--ignore-filename-regex",
-                    "utils/|experimental/|protocols/",
-                    "--cobertura",
-                    "--output-path",
-                    "target/mg-coverage-standard-.xml",
-                    "report"
-            ],
-            "conditions": {
-                "WithConditions": {
-                    "conditions": [
-                        {
-                            "output_string": "Finished report saved to ",
-                            "output_location": "StdErr",
-                            "condition": true
-                        }
-                    ],
-                    "timer_secs": 60,
-                    "warn_no_panic": false
-                }
-            }
         }
     ],
     "role": "client",

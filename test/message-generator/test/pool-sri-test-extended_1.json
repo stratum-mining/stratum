@@ -78,7 +78,11 @@
                             ]
                         ]
                     ]
-                }  
+                },
+                {
+                    "type": "match_message_type",
+                    "value": "0x20"
+                } 
             ],
             "actiondoc":  "This action opens an ExtendedMiningChannel and checks that are received a .Success, SetNewPrevHash and NewExtendedMiningJob"
        }
@@ -138,31 +142,6 @@
             "command": "pkill",
             "args":  ["-f", "pool_sv2", "-SIGINT"],
             "conditions": "None"
-        },
-        {
-            "command": "cargo",
-            "args": [
-                    "llvm-cov",
-                    "--ignore-filename-regex",
-                    "utils/|experimental/|protocols/",
-                    "--cobertura",
-                    "--output-path",
-                    "target/pool-sri-test-extended_1.xml",
-                    "report"
-            ],
-            "conditions": {
-                "WithConditions": {
-                    "conditions": [
-                        {
-                            "output_string": "Finished report saved to ",
-                            "output_location": "StdErr",
-                            "condition": true
-                        }
-                    ],
-                    "timer_secs": 240,
-                    "warn_no_panic": false
-                }
-            }
         }
     ],
     "role": "client",
