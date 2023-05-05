@@ -11,8 +11,7 @@ use clap::{App, Arg};
 use codec_sv2::{HandshakeRole, Initiator, Responder, StandardEitherFrame, StandardSv2Frame};
 use std::time::Duration;
 
-use network_helpers::noise_connection_tokio::Connection;
-use network_helpers::plain_connection_tokio::PlainConnection;
+use network_helpers::{noise_connection_tokio::Connection, plain_connection_tokio::PlainConnection};
 
 use roles_logic_sv2::{
     mining_sv2::*,
