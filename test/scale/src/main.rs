@@ -1,19 +1,18 @@
-use tokio::{
-    task,
-    net::{TcpListener, TcpStream}};
 use std::thread;
+use tokio::{
+    net::{TcpListener, TcpStream},
+    task,
+};
 
 use async_channel::{bounded, Receiver, Sender};
 
-use clap::{Arg, App};
-use std::time::Duration;
 use binary_sv2::{Deserialize, GetSize, Serialize};
-use codec_sv2::{HandshakeRole, Initiator, Responder,
-                StandardSv2Frame, StandardEitherFrame
-};
+use clap::{App, Arg};
+use codec_sv2::{HandshakeRole, Initiator, Responder, StandardEitherFrame, StandardSv2Frame};
+use std::time::Duration;
 
-use network_helpers::plain_connection_tokio::PlainConnection;
 use network_helpers::noise_connection_tokio::Connection;
+use network_helpers::plain_connection_tokio::PlainConnection;
 
 use roles_logic_sv2::{
     mining_sv2::*,
@@ -21,7 +20,6 @@ use roles_logic_sv2::{
 };
 
 pub type EitherFrame = StandardEitherFrame<Message>;
-
 
 pub const AUTHORITY_PUBLIC_K: [u8; 32] = [
     215, 11, 47, 78, 34, 232, 25, 192, 195, 168, 170, 209, 95, 181, 40, 114, 154, 226, 176, 190,
@@ -38,13 +36,13 @@ static HOST: &str = "127.0.0.1";
 #[tokio::main]
 async fn main() {
     let matches = App::new("ScaleTest")
-        .arg(Arg::with_name("encrypt")
-            .short("e")
-            .help("Use encryption"))
-        .arg(Arg::with_name("hops")
-            .short("h")
-            .takes_value(true)
-            .help("Number of hops"))
+        .arg(Arg::with_name("encrypt").short("e").help("Use encryption"))
+        .arg(
+            Arg::with_name("hops")
+                .short("h")
+                .takes_value(true)
+                .help("Number of hops"),
+        )
         .get_matches();
 
     let total_messages = 1_000_000;
@@ -64,15 +62,23 @@ async fn main() {
     setup_driver(orig_port, encrypt, rx, total_messages, hops).await;
 }
 
-async fn setup_driver(server_port: u16, encrypt: bool, rx: Receiver<String>, total_messages: i32,
-    hops: u16) {
-    let server_stream = TcpStream::connect(format!("{}:{}", HOST, server_port)).await.unwrap();
+async fn setup_driver(
+    server_port: u16,
+    encrypt: bool,
+    rx: Receiver<String>,
+    total_messages: i32,
+    hops: u16,
+) {
+    let server_stream = TcpStream::connect(format!("{}:{}", HOST, server_port))
+        .await
+        .unwrap();
     let (_server_receiver, server_sender): (Receiver<EitherFrame>, Sender<EitherFrame>);
 
     if encrypt {
         let initiator = Initiator::from_raw_k(AUTHORITY_PUBLIC_K).unwrap();
 
-        (_server_receiver, server_sender) = Connection::new(server_stream, HandshakeRole::Initiator(initiator)).await;
+        (_server_receiver, server_sender) =
+            Connection::new(server_stream, HandshakeRole::Initiator(initiator)).await;
     } else {
         (_server_receiver, server_sender) = PlainConnection::new(server_stream).await;
     }
@@ -86,9 +92,13 @@ async fn setup_driver(server_port: u16, encrypt: bool, rx: Receiver<String>, tot
 
     let end = std::time::Instant::now();
 
-    println!("client: {} - Took {}s hops: {} encryption: {}", msg, (end - start).as_secs(),
-        hops, encrypt);
-
+    println!(
+        "client: {} - Took {}s hops: {} encryption: {}",
+        msg,
+        (end - start).as_secs(),
+        hops,
+        encrypt
+    );
 }
 
 pub type Message = MiningDeviceMessages<'static>;
@@ -117,9 +127,12 @@ async fn send_messages(stream: Sender<EitherFrame>, total_messages: i32) {
 }
 
 async fn handle_messages<Mining: Serialize + Deserialize<'static> + GetSize + Send + 'static>(
-    name: String, client: Receiver<EitherFrame>, server: Option<Sender<EitherFrame>>,
-    total_messages: i32, tx: Sender<String>) {
-
+    name: String,
+    client: Receiver<EitherFrame>,
+    server: Option<Sender<EitherFrame>>,
+    total_messages: i32,
+    tx: Sender<String>,
+) {
     let mut messages_received = 0;
 
     while messages_received <= total_messages {
@@ -133,14 +146,25 @@ async fn handle_messages<Mining: Serialize + Deserialize<'static> + GetSize + Se
             messages_received += 1;
             println!("last server: {} got msg {}", name, messages_received);
         }
-
     }
     tx.send("got all messages".to_string()).await.unwrap();
 }
 
-async fn create_proxy(name: String, listen_port: u16, server_port: u16, encrypt: bool, total_messages: i32, tx: Sender<String>) {
-    println!("Creating proxy listener {}: {} connecting to: {}", name, listen_port, server_port);
-    let listener = TcpListener::bind(format!("0.0.0.0:{}", listen_port)).await.unwrap();
+async fn create_proxy(
+    name: String,
+    listen_port: u16,
+    server_port: u16,
+    encrypt: bool,
+    total_messages: i32,
+    tx: Sender<String>,
+) {
+    println!(
+        "Creating proxy listener {}: {} connecting to: {}",
+        name, listen_port, server_port
+    );
+    let listener = TcpListener::bind(format!("0.0.0.0:{}", listen_port))
+        .await
+        .unwrap();
     println!("Bound - now waiting for connection...");
     let cli_stream = listener.accept().await.unwrap().0;
     let (cli_receiver, _cli_sender): (Receiver<EitherFrame>, Sender<EitherFrame>);
@@ -151,8 +175,9 @@ async fn create_proxy(name: String, listen_port: u16, server_port: u16, encrypt:
             &AUTHORITY_PRIVATE_K[..],
             Duration::from_secs(3600),
         )
-            .unwrap();
-        (cli_receiver, _cli_sender) = Connection::new(cli_stream, HandshakeRole::Responder(responder)).await;
+        .unwrap();
+        (cli_receiver, _cli_sender) =
+            Connection::new(cli_stream, HandshakeRole::Responder(responder)).await;
     } else {
         (cli_receiver, _cli_sender) = PlainConnection::new(cli_stream).await;
     }
@@ -160,13 +185,15 @@ async fn create_proxy(name: String, listen_port: u16, server_port: u16, encrypt:
     let mut server = None;
     if server_port > 0 {
         println!("Proxy {} Connecting to server: {}", name, server_port);
-        let server_stream = TcpStream::connect(format!("{}:{}", HOST, server_port)).await.unwrap();
+        let server_stream = TcpStream::connect(format!("{}:{}", HOST, server_port))
+            .await
+            .unwrap();
         let (_server_receiver, server_sender): (Receiver<EitherFrame>, Sender<EitherFrame>);
 
         if encrypt {
             let initiator = Initiator::from_raw_k(AUTHORITY_PUBLIC_K).unwrap();
-            (_server_receiver, server_sender) = Connection::new(server_stream,
-                                                                HandshakeRole::Initiator(initiator)).await;
+            (_server_receiver, server_sender) =
+                Connection::new(server_stream, HandshakeRole::Initiator(initiator)).await;
         } else {
             (_server_receiver, server_sender) = PlainConnection::new(server_stream).await;
         }
@@ -175,12 +202,10 @@ async fn create_proxy(name: String, listen_port: u16, server_port: u16, encrypt:
 
     println!("Proxy {} has a client", name);
     handle_messages::<Mining>(name, cli_receiver, server, total_messages, tx).await;
-
 }
 
-
 async fn spawn_proxies(encrypt: bool, hops: u16, tx: Sender<String>, total_messages: i32) -> u16 {
-    let orig_port : u16 = 19000;
+    let orig_port: u16 = 19000;
     let final_server_port = orig_port + (hops - 1);
     let mut listen_port = final_server_port;
     let mut server_port: u16 = 0;
@@ -190,7 +215,15 @@ async fn spawn_proxies(encrypt: bool, hops: u16, tx: Sender<String>, total_messa
         let name_clone = name.to_string();
 
         task::spawn(async move {
-            create_proxy(name_clone, listen_port, server_port, encrypt, total_messages, tx_clone).await;
+            create_proxy(
+                name_clone,
+                listen_port,
+                server_port,
+                encrypt,
+                total_messages,
+                tx_clone,
+            )
+            .await;
         });
 
         thread::sleep(std::time::Duration::from_secs(1));
