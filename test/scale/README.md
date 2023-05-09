@@ -10,11 +10,12 @@ network_helpers that the pool, and proxies use so it should be a good approximat
 of the work they do. 
 
 The test is run with the following command:
+NOTE: running without `--release` dramatically slows down the test.
 
-```cargo run -- -h 4 -e```
+```cargo run --release -- -h 4 -e```
 This runs the test with 4 hops and encryption on.
 
-```cargo run -- -h 4```
+```cargo run --release -- -h 4```
 This runs the test with 4 hops and encryption off.
 
 
