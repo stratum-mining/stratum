@@ -70,6 +70,9 @@ jobs:
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
 
+      - name: Pre build everything
+        uses: cargo build
+
       - name: Run message generator tests
         run: sh ./message-generator-tests.sh
 
