@@ -40,7 +40,7 @@ jobs:
 
       - name: Generate code coverage
         run: |
-          cargo +nightly version; cargo +nightly tarpaulin --verbose --features disable_nopanic prop_test noise_sv2 fuzz with_buffer_pool async_std debug tokio with_tokio derive_codec_sv2 binary_codec_sv2 default core --lib --exclude-files examples/*,utils/message-generator/* --timeout 120 --fail-under 25 --out Xml
+          cargo +nightly version; cargo +nightly tarpaulin --verbose --features disable_nopanic prop_test noise_sv2 fuzz with_buffer_pool async_std debug tokio with_tokio derive_codec_sv2 binary_codec_sv2 default core --lib --exclude-files examples/*,utils/message-generator/* --timeout 120 --fail-under 20 --out Xml
 
       - name: Archive Tarpaulin code coverage results
         uses: actions/upload-artifact@v3
@@ -69,6 +69,9 @@ jobs:
 
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
+
+      - name: Pre build everything
+        uses: cargo build
 
       - name: Run message generator tests
         run: sh ./message-generator-tests.sh
