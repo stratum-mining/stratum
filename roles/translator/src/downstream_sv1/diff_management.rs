@@ -243,12 +243,10 @@ impl Downstream {
                 d.difficulty_mgmt.timestamp_of_last_update = timestamp_secs;
                 d.difficulty_mgmt.submits_since_last_update = 0;
                 // update channel hashrate (read by upstream)
-                d.upstream_difficulty_config
-                    .safe_lock(|c| {
-                        c.channel_nominal_hashrate += hashrate_delta;
-                        Some(new_miner_hashrate)
-                    })
-                    .map_err(|_e| Error::PoisonLock)
+                d.upstream_difficulty_config.super_safe_lock(|c| {
+                    c.channel_nominal_hashrate += hashrate_delta;
+                });
+                Ok(Some(new_miner_hashrate))
             })
             .map_err(|_e| Error::PoisonLock)?
     }

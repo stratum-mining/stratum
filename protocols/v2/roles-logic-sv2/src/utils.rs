@@ -68,6 +68,38 @@ impl<T> Mutex<T> {
         Ok(return_value)
     }
 
+    pub fn super_safe_lock<F, Ret>(&self, thunk: F) -> Ret
+    where
+        F: FnOnce(&mut T) -> Ret,
+    {
+        #[cfg(feature = "disable_nopanic")]
+        {
+            self.safe_lock(thunk).unwrap()
+        }
+        #[cfg(not(feature = "disable_nopanic"))]
+        {
+            // based on https://github.com/dtolnay/no-panic
+            struct __NoPanic;
+            extern "C" {
+                #[link_name = "super_safe_lock called on a function that may panic"]
+                fn trigger() -> !;
+            }
+            impl core::ops::Drop for __NoPanic {
+                fn drop(&mut self) {
+                    unsafe {
+                        trigger();
+                    }
+                }
+            }
+            let mut lock = self.0.lock().expect("threads to never panic");
+            let __guard = __NoPanic;
+            let return_value = thunk(&mut *lock);
+            core::mem::forget(__guard);
+            drop(lock);
+            return_value
+        }
+    }
+
     pub fn new(v: T) -> Self {
         Mutex(Mutex_::new(v))
     }
@@ -792,5 +824,13 @@ mod tests {
             hash_rate == new_hr,
             "hash_rate_from_target equation was not properly transformed"
         )
+    }
+
+    #[test]
+    fn test_super_safe_lock() {
+        let m = super::Mutex::new(1u32);
+        m.safe_lock(|i| *i += 1).unwrap();
+        // m.super_safe_lock(|i| *i = (*i).checked_add(1).unwrap()); // will not compile
+        m.super_safe_lock(|i| *i = (*i).checked_add(1).unwrap_or_default()); // compiles
     }
 }
