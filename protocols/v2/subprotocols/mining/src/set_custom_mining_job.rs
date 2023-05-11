@@ -44,8 +44,7 @@ pub struct SetCustomMiningJob<'decoder> {
     /// coinbase outputs added by the client. Includes both
     /// transaction fees and block subsidy.
     pub coinbase_tx_value_remaining: u64,
-    /// Bitcoin transaction outputs to be included as the last
-    /// outputs in the coinbase transaction.
+    /// All the outputs that will be included in the coinbase txs
     #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub coinbase_tx_outputs: B064K<'decoder>,
     /// The locktime field in the coinbase transaction.
@@ -56,7 +55,6 @@ pub struct SetCustomMiningJob<'decoder> {
     /// Size of extranonce in bytes that will be provided by the
     /// downstream node.
     pub extranonce_size: u16,
-    /// TBD: Can be custom job ever future?
     pub future_job: bool,
 }
 

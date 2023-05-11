@@ -36,6 +36,7 @@ members = [
     "roles/test-utils/sv1-mining-device",
     "roles/translator",
     "test/scale",
+    "roles/jd-client",
     "utils/network-helpers",
     "utils/buffer",
     "utils/error-handling",

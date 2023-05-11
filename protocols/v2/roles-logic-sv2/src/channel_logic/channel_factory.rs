@@ -286,6 +286,28 @@ impl ChannelFactory {
             )])
         }
     }
+    /// Called when we want to replicate a channel already opened by another actor.
+    /// is used only in the jd client from the template provider module to mock a pool.
+    /// Anything else should open channel with the new_extended_channel function
+    pub fn replicate_upstream_extended_channel_only_jd(
+        &mut self,
+        target: binary_sv2::U256<'static>,
+        extranonce: mining_sv2::Extranonce,
+        channel_id: u32,
+        extranonce_size: u16,
+    ) -> Option<()> {
+        self.channel_to_group_id.insert(channel_id, 0);
+        let extranonce_prefix = extranonce.into_prefix(self.extranonces.get_prefix_len())?;
+        let success = OpenExtendedMiningChannelSuccess {
+            request_id: 0,
+            channel_id,
+            target,
+            extranonce_size,
+            extranonce_prefix,
+        };
+        self.extended_channels.insert(channel_id, success.clone());
+        Some(())
+    }
     /// Called when an `OpenStandardChannel` message is received for a header only mining channel.
     /// Here we save the downstream's target (based on hashrate) and and the
     /// channel's extranonce details before returning the relevant SV2 mining messages
@@ -937,8 +959,26 @@ impl PoolChannelFactory {
         self.inner
             .new_extended_channel(request_id, hash_rate, min_extranonce_size)
     }
+    /// Called when we want to replicate a channel already opened by another actor.
+    /// is used only in the jd client from the template provider module to mock a pool.
+    /// Anything else should open channel with the new_extended_channel function
+    pub fn replicate_upstream_extended_channel_only_jd(
+        &mut self,
+        target: binary_sv2::U256<'static>,
+        extranonce: mining_sv2::Extranonce,
+        channel_id: u32,
+        extranonce_size: u16,
+    ) -> Option<()> {
+        self.inner.replicate_upstream_extended_channel_only_jd(
+            target,
+            extranonce,
+            channel_id,
+            extranonce_size,
+        )
+    }
     /// Called only when a new prev hash is received by a Template Provider. It matches the
     /// message with a `job_id` and calls [`ChannelFactory::on_new_prev_hash`]
+    /// it return the job_id
     pub fn on_new_prev_hash_from_tp(
         &mut self,
         m: &SetNewPrevHashFromTp<'static>,
@@ -1108,6 +1148,10 @@ impl PoolChannelFactory {
         _set_custom_mining_job: &SetCustomMiningJob<'static>,
     ) -> bool {
         true
+    }
+
+    pub fn get_extended_channels_ids(&self) -> Vec<u32> {
+        self.inner.extended_channels.keys().copied().collect()
     }
 }
 

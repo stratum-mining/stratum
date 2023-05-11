@@ -153,7 +153,7 @@ pub fn merkle_root_from_path<T: AsRef<[u8]>>(
 }
 
 // TODO remove when we have https://github.com/rust-bitcoin/rust-bitcoin/issues/1319
-fn merkle_root_from_path_<T: AsRef<[u8]>>(coinbase_id: [u8; 32], path: &[T]) -> [u8; 32] {
+pub fn merkle_root_from_path_<T: AsRef<[u8]>>(coinbase_id: [u8; 32], path: &[T]) -> [u8; 32] {
     match path.len() {
         0 => coinbase_id,
         _ => reduce_path(coinbase_id, path),

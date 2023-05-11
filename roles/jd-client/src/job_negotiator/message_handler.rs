@@ -1,4 +1,4 @@
-use crate::lib::job_negotiator::JobNegotiator;
+use crate::job_negotiator::JobNegotiator;
 use roles_logic_sv2::{
     handlers::{job_negotiation::ParseServerJobNegotiationMessages, SendTo_},
     parsers::JobNegotiation,
@@ -11,16 +11,16 @@ impl ParseServerJobNegotiationMessages for JobNegotiator {
         &mut self,
         message: roles_logic_sv2::job_negotiation_sv2::AllocateMiningJobTokenSuccess,
     ) -> Result<roles_logic_sv2::handlers::job_negotiation::SendTo, Error> {
-        Ok(SendTo::None(Some(
-            JobNegotiation::AllocateMiningJobTokenSuccess(message.into_static()),
-        )))
+        self.allocated_tokens.push(message.into_static());
+        Ok(SendTo::None(None))
     }
 
     // We assume that server send success so we are already working on that job, notthing to do.
     fn handle_commit_mining_job_success(
         &mut self,
-        _message: roles_logic_sv2::job_negotiation_sv2::CommitMiningJobSuccess,
+        message: roles_logic_sv2::job_negotiation_sv2::CommitMiningJobSuccess,
     ) -> Result<roles_logic_sv2::handlers::job_negotiation::SendTo, Error> {
-        Ok(SendTo::None(None))
+        let message = JobNegotiation::CommitMiningJobSuccess(message.into_static());
+        Ok(SendTo::None(Some(message)))
     }
 }

@@ -19,7 +19,7 @@ where
     ) -> Result<SendTo, Error> {
         match (message_type, payload).try_into() {
             Ok(JobNegotiation::AllocateMiningJobTokenSuccess(message)) => self_
-                .safe_lock(|x| x.handle_allocate_mining_job_sucess(message))
+                .safe_lock(|x| x.handle_allocate_mining_job_token_sucess(message))
                 .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
             Ok(JobNegotiation::CommitMiningJobSuccess(message)) => self_
                 .safe_lock(|x| x.handle_commit_mining_job_success(message))
@@ -32,7 +32,7 @@ where
     /// negotiate the next job
     ///
     /// "[`job_negotiation_sv2::AllocateMiningJobToken`]"
-    fn handle_allocate_mining_job_sucess(
+    fn handle_allocate_mining_job_token_sucess(
         &mut self,
         message: AllocateMiningJobTokenSuccess,
     ) -> Result<SendTo, Error>;

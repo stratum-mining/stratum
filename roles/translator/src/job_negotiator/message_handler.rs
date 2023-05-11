@@ -7,7 +7,7 @@ pub type SendTo = SendTo_<JobNegotiation<'static>, ()>;
 use roles_logic_sv2::errors::Error;
 
 impl ParseServerJobNegotiationMessages for JobNegotiator {
-    fn handle_allocate_mining_job_sucess(
+    fn handle_allocate_mining_job_token_sucess(
         &mut self,
         message: roles_logic_sv2::job_negotiation_sv2::AllocateMiningJobTokenSuccess,
     ) -> Result<roles_logic_sv2::handlers::job_negotiation::SendTo, Error> {
