@@ -427,11 +427,16 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
         m: roles_logic_sv2::mining_sv2::OpenExtendedMiningChannelSuccess,
     ) -> Result<SendTo<Downstream>, RolesLogicError> {
         let ids = Arc::new(Mutex::new(roles_logic_sv2::utils::GroupId::new()));
-        let range_0 = 0..0;
-        let range_1 = 0..m.extranonce_prefix.to_vec().len();
-        let range_2 = m.extranonce_prefix.to_vec().len()..(m.extranonce_size as usize);
+
+        let prefix_len = m.extranonce_prefix.to_vec().len();
+        let self_len = 0;
+        let total_len = prefix_len + m.extranonce_size as usize;
+        let range_0 = 0..prefix_len;
+        let range_1 = prefix_len..prefix_len + self_len;
+        let range_2 = prefix_len + self_len..total_len;
+
         let extranonces = ExtendedExtranonce::new(range_0, range_1, range_2);
-        let creator = roles_logic_sv2::job_creator::JobsCreators::new(7);
+        let creator = roles_logic_sv2::job_creator::JobsCreators::new(total_len as u8);
         let share_per_min = 1.0;
         let channel_kind =
             roles_logic_sv2::channel_logic::channel_factory::ExtendedChannelKind::Pool;
@@ -450,12 +455,14 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
             .try_into()
             .unwrap();
         self.channel_id = Some(m.channel_id);
-        channel_factory.replicate_upstream_extended_channel_only_jd(
-            m.target.into_static(),
-            extranonce,
-            m.channel_id,
-            m.extranonce_size,
-        );
+        channel_factory
+            .replicate_upstream_extended_channel_only_jd(
+                m.target.into_static(),
+                extranonce,
+                m.channel_id,
+                m.extranonce_size,
+            )
+            .expect("Impossible to open downstream channel");
         self.channel_factory_sender
             .send_blocking(channel_factory)
             .unwrap();

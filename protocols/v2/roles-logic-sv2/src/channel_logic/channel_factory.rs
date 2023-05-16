@@ -297,7 +297,7 @@ impl ChannelFactory {
         extranonce_size: u16,
     ) -> Option<()> {
         self.channel_to_group_id.insert(channel_id, 0);
-        let extranonce_prefix = extranonce.into_prefix(self.extranonces.get_prefix_len())?;
+        let extranonce_prefix = extranonce.try_into().unwrap();
         let success = OpenExtendedMiningChannelSuccess {
             request_id: 0,
             channel_id,
@@ -1152,6 +1152,10 @@ impl PoolChannelFactory {
 
     pub fn get_extended_channels_ids(&self) -> Vec<u32> {
         self.inner.extended_channels.keys().copied().collect()
+    }
+
+    pub fn update_pool_outputs(&mut self, outs: Vec<TxOut>) {
+        self.pool_coinbase_outputs = outs;
     }
 }
 

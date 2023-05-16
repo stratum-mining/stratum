@@ -1,6 +1,7 @@
 use crate::upstream_sv2::Upstream as UpstreamMiningNode;
 use async_channel::{Receiver, SendError, Sender};
 use roles_logic_sv2::{
+    bitcoin::TxOut,
     channel_logic::channel_factory::{OnNewShare, PoolChannelFactory, Share},
     common_messages_sv2::{SetupConnection, SetupConnectionSuccess},
     common_properties::{CommonDownstreamData, IsDownstream, IsMiningDownstream},
@@ -9,6 +10,7 @@ use roles_logic_sv2::{
         common::{ParseDownstreamCommonMessages, SendTo as SendToCommon},
         mining::{ParseDownstreamMiningMessages, SendTo, SupportedChannelTypes},
     },
+    job_creator::Decodable,
     mining_sv2::*,
     parsers::{Mining, MiningDeviceMessages, PoolMessages},
     template_distribution_sv2::{NewTemplate, SubmitSolution},
@@ -217,10 +219,14 @@ impl DownstreamMiningNode {
     pub async fn on_new_template(
         self_mutex: &Arc<Mutex<Self>>,
         mut new_template: NewTemplate<'static>,
+        pool_output: &[u8],
     ) -> Result<(), Error> {
+        let pool_output =
+            TxOut::consensus_decode(pool_output).expect("Upstream sent an invalid coinbase");
         let to_send = self_mutex
             .safe_lock(|s| {
                 let channel = s.status.get_channel();
+                channel.update_pool_outputs(vec![pool_output]);
                 channel.on_new_template(&mut new_template)
             })
             .unwrap()?;
@@ -229,10 +235,16 @@ impl DownstreamMiningNode {
         // map and send them downstream.
         let to_send = to_send.into_values();
         for message in to_send {
+            //let message = if let Mining::NewExtendedMiningJob(job) = message {
+            //    Mining::NewExtendedMiningJob(extended_job_to_non_segwit(job, 32)?)
+            //} else {
+            //    message
+            //};
             let message = MiningDeviceMessages::Mining(message);
             let frame: StdFrame = message.try_into().unwrap();
             Self::send(self_mutex, frame).await.unwrap();
         }
+        crate::IS_NEW_TEMPLATE_HANDLED.store(true, std::sync::atomic::Ordering::SeqCst);
         Ok(())
     }
 

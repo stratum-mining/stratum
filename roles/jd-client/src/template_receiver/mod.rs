@@ -130,9 +130,13 @@ impl TemplateRx {
                                     &jd,
                                     m.clone(),
                                     mining_token,
-                                    pool_output,
+                                    pool_output.clone(),
                                 ),
-                                crate::downstream::DownstreamMiningNode::on_new_template(&down, m),
+                                crate::downstream::DownstreamMiningNode::on_new_template(
+                                    &down,
+                                    m,
+                                    &pool_output[..]
+                                ),
                             );
                             down_res.unwrap();
                         }
