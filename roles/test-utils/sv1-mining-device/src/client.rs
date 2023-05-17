@@ -1,5 +1,5 @@
 use async_std::net::TcpStream;
-use std::convert::TryInto;
+use std::{convert::TryInto, ops::Div};
 
 use bitcoin::util::uint::Uint256;
 
@@ -19,6 +19,8 @@ use v1::{
 
 use crate::{job::Job, miner::Miner};
 const ADDR: &str = "127.0.0.1:34255";
+use num_bigint::BigUint;
+use num_traits::FromPrimitive;
 
 /// Represents the Mining Device client which is connected to a Upstream node (either a SV1 Pool
 /// server or a SV1 <-> SV2 Translator Proxy server).
@@ -92,8 +94,8 @@ impl Client {
         // TODO: This is hard coded for the purposes of a demo, should be set by the SV1
         // `mining.set_difficulty` message received from the Upstream role
         let target_vec: [u8; 32] = [
-            0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0,
+            0, 0, 0, 0, 255, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0,
         ];
         let default_target = Uint256::from_be_bytes(target_vec);
         miner.safe_lock(|m| m.new_target(default_target)).unwrap();
@@ -307,7 +309,7 @@ impl IsClient<'static> for Client {
     }
 
     fn handle_configure(
-        &self,
+        &mut self,
         _conf: &mut server_to_client::Configure,
     ) -> Result<(), Error<'static>> {
         Ok(())
@@ -409,26 +411,55 @@ impl IsClient<'static> for Client {
 
     fn handle_error_message(
         &mut self,
-        message: v1::Message,
+        _message: v1::Message,
     ) -> Result<Option<json_rpc::Message>, Error<'static>> {
-        println!("{:?}", message);
         Ok(None)
+    }
+
+    fn handle_set_difficulty(
+        &mut self,
+        conf: &mut server_to_client::SetDifficulty,
+    ) -> Result<(), Error<'static>> {
+        let dif = conf.value;
+        let target =
+            target_from_difficulty(dif).unwrap_or_else(|| panic!("Invalid difficulty: {}", dif));
+        self.miner.safe_lock(|m| m.target = Some(target)).unwrap();
+        Ok(())
+    }
+
+    fn handle_set_extranonce(
+        &mut self,
+        _conf: &mut server_to_client::SetExtranonce,
+    ) -> Result<(), Error<'static>> {
+        Ok(())
+    }
+
+    fn handle_set_version_mask(
+        &mut self,
+        _conf: &mut server_to_client::SetVersionMask,
+    ) -> Result<(), Error<'static>> {
+        Ok(())
     }
 }
 
-// /// Represents a new outgoing `mining.submit` solution submission to be sent to the Upstream
-// /// server.
-// struct Submit {
-//     // worker_name: String,
-//     /// ID of the job used while submitting share generated from this job.
-//     /// TODO: Currently is `u32` and is hardcoded, but should be String and set by the incoming
-//     /// `mining.notify` message.
-//     job_id: u32,
-//     // /// TODO: Hard coded for demo
-//     // extranonce_2: u32,
-//     /// Current time
-//     ntime: u32,
-//     /// Nonce
-//     /// TODO: Hard coded for the demo
-//     nonce: u32,
-// }
+fn target_from_difficulty(diff: f64) -> Option<Uint256> {
+    let pdiff = 26959946667150639794667015087019630673637144422540572481103610249215.0;
+    if diff == 0.0 {
+        Some(Uint256::from_be_bytes([0; 32]))
+    } else {
+        let t = pdiff.div(diff);
+        let as_big_int: BigUint = match t > 0.0 {
+            true => BigUint::from_f64(t)?,
+            false => BigUint::from_f64(1.0 / t)?,
+        };
+        let mut bytes = as_big_int.to_bytes_be();
+        if bytes.len() > 32 {
+            None
+        } else {
+            let mut front_padding = vec![0; 32 - bytes.len()];
+            front_padding.append(&mut bytes);
+            let as_u256: [u8; 32] = front_padding.try_into().unwrap();
+            Some(Uint256::from_be_bytes(as_u256))
+        }
+    }
+}

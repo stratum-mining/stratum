@@ -1,4 +1,7 @@
-use crate::upstream_sv2::Upstream as UpstreamMiningNode;
+use crate::{
+    status::{self, State},
+    upstream_sv2::Upstream as UpstreamMiningNode,
+};
 use async_channel::{Receiver, SendError, Sender};
 use roles_logic_sv2::{
     bitcoin::TxOut,
@@ -41,6 +44,8 @@ pub struct DownstreamMiningNode {
     recv_channel_factory: Receiver<PoolChannelFactory>,
     solution_sender: Sender<SubmitSolution<'static>>,
     withhold: bool,
+    task_collector: Arc<Mutex<Vec<AbortHandle>>>,
+    tx_status: status::Sender,
 }
 
 #[allow(clippy::large_enum_variant)]
@@ -95,6 +100,7 @@ use core::convert::TryInto;
 use std::sync::Arc;
 
 impl DownstreamMiningNode {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         receiver: Receiver<EitherFrame>,
         sender: Sender<EitherFrame>,
@@ -102,6 +108,8 @@ impl DownstreamMiningNode {
         recv_channel_factory: Receiver<PoolChannelFactory>,
         solution_sender: Sender<SubmitSolution<'static>>,
         withhold: bool,
+        task_collector: Arc<Mutex<Vec<AbortHandle>>>,
+        tx_status: status::Sender,
     ) -> Self {
         Self {
             receiver,
@@ -112,6 +120,8 @@ impl DownstreamMiningNode {
             recv_channel_factory,
             solution_sender,
             withhold,
+            task_collector,
+            tx_status,
         }
     }
 
@@ -144,6 +154,12 @@ impl DownstreamMiningNode {
                 let incoming: StdFrame = message.try_into().unwrap();
                 Self::next(self_mutex, incoming).await;
             }
+            let tx_status = self_mutex.safe_lock(|s| s.tx_status.clone()).unwrap();
+            let err = Error::DownstreamDown;
+            let status = status::Status {
+                state: State::DownstreamShutdown(err.into()),
+            };
+            tx_status.send(status).await.unwrap();
         } else {
             panic!()
         }
@@ -152,17 +168,27 @@ impl DownstreamMiningNode {
     // Whenever we have a channel factory avaibale in self.recv_channel_factory we set the status
     // to ChannelOpened and we exit
     fn set_channel_factory(self_mutex: Arc<Mutex<Self>>) {
-        tokio::task::spawn(async move {
-            let receiver = self_mutex
-                .safe_lock(|s| s.recv_channel_factory.clone())
-                .unwrap();
-            let factory = receiver.recv().await.unwrap();
-            self_mutex
-                .safe_lock(|s| {
-                    s.status.set_channel(factory);
-                })
-                .unwrap();
-        });
+        let recv_channel_factory = {
+            let self_mutex = self_mutex.clone();
+            tokio::task::spawn(async move {
+                let receiver = self_mutex
+                    .safe_lock(|s| s.recv_channel_factory.clone())
+                    .unwrap();
+                let factory = receiver.recv().await.unwrap();
+                self_mutex
+                    .safe_lock(|s| {
+                        s.status.set_channel(factory);
+                    })
+                    .unwrap();
+            })
+        };
+        self_mutex
+            .safe_lock(|s| {
+                s.task_collector
+                    .safe_lock(|c| c.push(recv_channel_factory.abort_handle()))
+                    .unwrap()
+            })
+            .unwrap();
     }
 
     /// Parse the received message and relay it to the right upstream
@@ -196,6 +222,7 @@ impl DownstreamMiningNode {
                     .await
                     .unwrap();
             }
+            Ok(SendTo::None(None)) => (),
             Ok(_) => unreachable!(),
             Err(_) => todo!(),
         }
@@ -353,7 +380,6 @@ impl
             }
             OnNewShare::RelaySubmitShareUpstream => unreachable!(),
             OnNewShare::ShareMeetBitcoinTarget((share, Some(template_id), coinbase)) => {
-                let new_id = self.upstream.safe_lock(|s| s.last_job_id).unwrap();
                 match share {
                     Share::Extended(mut share) => {
                         info!("SHARE MEETS BITCOIN TARGET");
@@ -365,11 +391,11 @@ impl
                             header_nonce: share.nonce,
                             coinbase_tx: coinbase.try_into()?,
                         };
+                        // The below channel should never be full is ok to block
+                        solution_sender.send_blocking(solution).unwrap();
 
                         if !self.withhold {
-                            // The below channel should never be full is ok to block
-                            solution_sender.send_blocking(solution).unwrap();
-
+                            let new_id = self.upstream.safe_lock(|s| s.last_job_id).unwrap();
                             share.job_id = new_id;
                             let for_upstream = Mining::SubmitSharesExtended(share);
                             Ok(SendTo::RelayNewMessage(for_upstream))
@@ -423,7 +449,7 @@ impl ParseDownstreamCommonMessages<roles_logic_sv2::routing_logic::NoRouting>
 
 use network_helpers::noise_connection_tokio::Connection;
 use std::net::SocketAddr;
-use tokio::net::TcpListener;
+use tokio::{net::TcpListener, task::AbortHandle};
 
 /// Strat listen for downstream mining node. Return as soon as one downstream connect.
 #[allow(clippy::too_many_arguments)]
@@ -436,6 +462,8 @@ pub async fn listen_for_downstream_mining(
     authority_public_key: EncodedEd25519PublicKey,
     authority_secret_key: EncodedEd25519SecretKey,
     cert_validity_sec: u64,
+    task_collector: Arc<Mutex<Vec<AbortHandle>>>,
+    tx_status: status::Sender,
 ) -> Result<Arc<Mutex<DownstreamMiningNode>>, Error> {
     info!("Listening for downstream mining connections on {}", address);
     let listner = TcpListener::bind(address).await.unwrap();
@@ -456,6 +484,8 @@ pub async fn listen_for_downstream_mining(
             recv_channel_factory,
             solution_sender,
             withhold,
+            task_collector,
+            tx_status,
         );
 
         let mut incoming: StdFrame = node.receiver.recv().await.unwrap().try_into().unwrap();
@@ -479,12 +509,18 @@ pub async fn listen_for_downstream_mining(
                     roles_logic_sv2::parsers::CommonMessages::SetupConnectionSuccess(m) => m,
                     _ => panic!(),
                 };
-                tokio::task::spawn({
+                let main_task = tokio::task::spawn({
                     let node = node.clone();
                     async move {
                         DownstreamMiningNode::start(&node, message).await;
                     }
                 });
+                node.safe_lock(|n| {
+                    n.task_collector
+                        .safe_lock(|c| c.push(main_task.abort_handle()))
+                        .unwrap()
+                })
+                .unwrap();
                 Ok(node)
             }
             Ok(_) => todo!(),

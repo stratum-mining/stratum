@@ -10,6 +10,7 @@ use args::Args;
 use error::{Error, ProxyResult};
 use job_negotiator::JobNegotiator;
 use proxy_config::ProxyConfig;
+use roles_logic_sv2::utils::Mutex;
 use template_receiver::TemplateRx;
 
 use async_channel::{bounded, unbounded};
@@ -17,11 +18,13 @@ use futures::{select, FutureExt};
 use std::{
     net::{IpAddr, SocketAddr},
     str::FromStr,
+    sync::Arc,
 };
+use tokio::task::AbortHandle;
 
 use crate::status::{State, Status};
 use std::sync::atomic::AtomicBool;
-use tracing::{debug, error, info};
+use tracing::{error, info};
 
 /// USED to make sure that if a future new_temnplate and a set_new_prev_hash are received together
 /// the future new_temnplate is always handled before the set new prev hash.
@@ -37,7 +40,7 @@ fn process_cli_args<'a>() -> ProxyResult<'a, ProxyConfig> {
             return Err(Error::BadCliArgs);
         }
     };
-    let config_file = dbg!(std::fs::read_to_string(args.config_path)?);
+    let config_file = std::fs::read_to_string(args.config_path)?;
     Ok(toml::from_str::<ProxyConfig>(&config_file)?)
 }
 
@@ -98,11 +101,97 @@ fn process_cli_args<'a>() -> ProxyResult<'a, ProxyConfig> {
 async fn main() {
     tracing_subscriber::fmt::init();
 
-    let proxy_config = process_cli_args().unwrap();
-    info!("PC: {:?}", &proxy_config);
+    let mut failed = 0;
+    let mut interrupt_signal_future = Box::pin(tokio::signal::ctrl_c().fuse());
 
     // Channel used to manage failed tasks
     let (tx_status, rx_status) = unbounded();
+
+    let task_collector = Arc::new(Mutex::new(vec![]));
+
+    let proxy_config = process_cli_args().unwrap();
+
+    while failed < proxy_config.retry {
+        {
+            let task_collector = task_collector.clone();
+            let tx_status = tx_status.clone();
+            let initialize = initialize_jd(tx_status.clone(), task_collector.clone());
+            tokio::task::spawn(async move { initialize.await });
+        }
+        // Check all tasks if is_finished() is true, if so exit
+        loop {
+            let task_status = select! {
+                task_status = rx_status.recv().fuse() => task_status,
+                interrupt_signal = interrupt_signal_future => {
+                    match interrupt_signal {
+                        Ok(()) => {
+                            info!("Interrupt received");
+                        },
+                        Err(err) => {
+                            error!("Unable to listen for interrupt signal: {}", err);
+                            // we also shut down in case of error
+                        },
+                    }
+                    std::process::exit(0);
+                }
+            };
+            let task_status: Status = task_status.unwrap();
+
+            match task_status.state {
+                // Should only be sent by the downstream listener
+                State::DownstreamShutdown(err) => {
+                    error!("SHUTDOWN from: {}", err);
+                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                    task_collector
+                        .safe_lock(|s| {
+                            for handle in s {
+                                handle.abort();
+                            }
+                        })
+                        .unwrap();
+                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                    break;
+                }
+                State::BridgeShutdown(err) => {
+                    error!("SHUTDOWN from: {}", err);
+                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                    task_collector
+                        .safe_lock(|s| {
+                            for handle in s {
+                                handle.abort();
+                            }
+                        })
+                        .unwrap();
+                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                    break;
+                }
+                State::UpstreamShutdown(err) => {
+                    error!("SHUTDOWN from: {}", err);
+                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                    task_collector
+                        .safe_lock(|s| {
+                            for handle in s {
+                                handle.abort();
+                            }
+                        })
+                        .unwrap();
+                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                    break;
+                }
+                State::Healthy(msg) => {
+                    info!("HEALTHY message: {}", msg);
+                }
+            }
+        }
+        failed += 1;
+    }
+}
+
+async fn initialize_jd(
+    tx_status: async_channel::Sender<Status<'static>>,
+    task_collector: Arc<Mutex<Vec<AbortHandle>>>,
+) {
+    let proxy_config = process_cli_args().unwrap();
 
     // Format `Upstream` connection address
     let upstream_addr = SocketAddr::new(
@@ -129,20 +218,21 @@ async fn main() {
         0, // TODO
         status::Sender::Upstream(tx_status.clone()),
         send_channel_factory,
+        task_collector.clone(),
     )
     .await
     {
         Ok(upstream) => upstream,
         Err(e) => {
             error!("Failed to create upstream: {}", e);
-            return;
+            panic!()
         }
     };
 
     // Start receiving messages from the SV2 Upstream role
     if let Err(e) = upstream_sv2::Upstream::parse_incoming(upstream.clone()) {
         error!("failed to create sv2 parser: {}", e);
-        return;
+        panic!()
     }
 
     match upstream_sv2::Upstream::setup_connection(
@@ -155,7 +245,7 @@ async fn main() {
         Ok(_) => info!("Connected to Upstream!"),
         Err(e) => {
             error!("Failed to connect to Upstream EXITING! : {}", e);
-            return;
+            panic!()
         }
     }
 
@@ -175,6 +265,8 @@ async fn main() {
         proxy_config.authority_public_key.clone(),
         proxy_config.authority_secret_key.clone(),
         proxy_config.cert_validity_sec,
+        task_collector.clone(),
+        status::Sender::Downstream(tx_status.clone()),
     )
     .await
     .unwrap();
@@ -197,6 +289,7 @@ async fn main() {
             .to_owned(),
         proxy_config.clone(),
         upstream,
+        task_collector.clone(),
     )
     .await;
     TemplateRx::connect(
@@ -205,49 +298,7 @@ async fn main() {
         status::Sender::TemplateReceiver(tx_status.clone()),
         jd.clone(),
         downstream,
+        task_collector,
     )
     .await;
-
-    debug!("Starting up signal listener");
-    let mut interrupt_signal_future = Box::pin(tokio::signal::ctrl_c().fuse());
-    debug!("Starting up status listener");
-
-    // Check all tasks if is_finished() is true, if so exit
-    loop {
-        let task_status = select! {
-            task_status = rx_status.recv().fuse() => task_status,
-            interrupt_signal = interrupt_signal_future => {
-                match interrupt_signal {
-                    Ok(()) => {
-                        info!("Interrupt received");
-                    },
-                    Err(err) => {
-                        error!("Unable to listen for interrupt signal: {}", err);
-                        // we also shut down in case of error
-                    },
-                }
-                break;
-            }
-        };
-        let task_status: Status = task_status.unwrap();
-
-        match task_status.state {
-            // Should only be sent by the downstream listener
-            State::DownstreamShutdown(err) => {
-                error!("SHUTDOWN from: {}", err);
-                break;
-            }
-            State::BridgeShutdown(err) => {
-                error!("SHUTDOWN from: {}", err);
-                break;
-            }
-            State::UpstreamShutdown(err) => {
-                error!("SHUTDOWN from: {}", err);
-                break;
-            }
-            State::Healthy(msg) => {
-                info!("HEALTHY message: {}", msg);
-            }
-        }
-    }
 }

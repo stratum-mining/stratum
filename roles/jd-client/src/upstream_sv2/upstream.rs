@@ -28,7 +28,7 @@ use roles_logic_sv2::{
     Error as RolesLogicError,
 };
 use std::{net::SocketAddr, sync::Arc, thread::sleep, time::Duration};
-use tokio::{net::TcpStream, task};
+use tokio::{net::TcpStream, task, task::AbortHandle};
 use tracing::{debug, error, info};
 
 #[derive(Debug, Clone)]
@@ -40,7 +40,7 @@ struct PrevHash {
     nbits: u32,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Upstream {
     /// Newly assigned identifier of the channel, stable for the whole lifetime of the connection,
     /// e.g. it is used for broadcasting new jobs by the `NewExtendedMiningJob` message.
@@ -60,6 +60,7 @@ pub struct Upstream {
     pub sender: Sender<EitherFrame>,
     pub downstream: Option<Arc<Mutex<Downstream>>>,
     pub channel_factory_sender: Sender<PoolChannelFactory>,
+    task_collector: Arc<Mutex<Vec<AbortHandle>>>,
 }
 
 impl Upstream {
@@ -85,6 +86,7 @@ impl Upstream {
         min_extranonce_size: u16,
         tx_status: status::Sender,
         channel_factory_sender: Sender<PoolChannelFactory>,
+        task_collector: Arc<Mutex<Vec<AbortHandle>>>,
     ) -> ProxyResult<'static, Arc<Mutex<Self>>> {
         // Connect to the SV2 Upstream role retry connection every 5 seconds.
         let socket = loop {
@@ -122,6 +124,7 @@ impl Upstream {
             sender,
             downstream: None,
             channel_factory_sender,
+            task_collector,
         })))
     }
 
@@ -219,73 +222,82 @@ impl Upstream {
             .safe_lock(|s| (s.receiver.clone(), s.tx_status.clone()))
             .map_err(|_| PoisonLock)?;
 
-        task::spawn(async move {
-            loop {
-                // Waiting to receive a message from the SV2 Upstream role
-                let incoming = handle_result!(tx_status, recv.recv().await);
-                let mut incoming: StdFrame = handle_result!(tx_status, incoming.try_into());
-                // On message receive, get the message type from the message header and get the
-                // message payload
-                let message_type = incoming.get_header().ok_or(crate::error::Error::FramingSv2(
-                    framing_sv2::Error::ExpectedSv2Frame,
-                ));
+        let main_task = {
+            let self_ = self_.clone();
+            task::spawn(async move {
+                loop {
+                    // Waiting to receive a message from the SV2 Upstream role
+                    let incoming = handle_result!(tx_status, recv.recv().await);
+                    let mut incoming: StdFrame = handle_result!(tx_status, incoming.try_into());
+                    // On message receive, get the message type from the message header and get the
+                    // message payload
+                    let message_type = incoming.get_header().ok_or(
+                        crate::error::Error::FramingSv2(framing_sv2::Error::ExpectedSv2Frame),
+                    );
 
-                let message_type = handle_result!(tx_status, message_type).msg_type();
+                    let message_type = handle_result!(tx_status, message_type).msg_type();
 
-                let payload = incoming.payload();
+                    let payload = incoming.payload();
 
-                // Since this is not communicating with an SV2 proxy, but instead a custom SV1
-                // proxy where the routing logic is handled via the `Upstream`'s communication
-                // channels, we do not use the mining routing logic in the SV2 library and specify
-                // no mining routing logic here
-                let routing_logic = MiningRoutingLogic::None;
+                    // Since this is not communicating with an SV2 proxy, but instead a custom SV1
+                    // proxy where the routing logic is handled via the `Upstream`'s communication
+                    // channels, we do not use the mining routing logic in the SV2 library and specify
+                    // no mining routing logic here
+                    let routing_logic = MiningRoutingLogic::None;
 
-                // Gets the response message for the received SV2 Upstream role message
-                // `handle_message_mining` takes care of the SetupConnection +
-                // SetupConnection.Success
-                let next_message_to_send = Upstream::handle_message_mining(
-                    self_.clone(),
-                    message_type,
-                    payload,
-                    routing_logic,
-                );
+                    // Gets the response message for the received SV2 Upstream role message
+                    // `handle_message_mining` takes care of the SetupConnection +
+                    // SetupConnection.Success
+                    let next_message_to_send = Upstream::handle_message_mining(
+                        self_.clone(),
+                        message_type,
+                        payload,
+                        routing_logic,
+                    );
 
-                // Routes the incoming messages accordingly
-                match next_message_to_send {
-                    // This is a transparent proxy it will only relay messages as received
-                    Ok(SendTo::RelaySameMessageToRemote(downstream_mutex)) => {
-                        let sv2_frame: codec_sv2::Sv2Frame<
-                            MiningDeviceMessages,
-                            buffer_sv2::Slice,
-                        > = incoming.map(|payload| payload.try_into().unwrap());
-                        Downstream::send(&downstream_mutex, sv2_frame)
-                            .await
-                            .unwrap();
-                    }
-                    Ok(SendTo::None(None)) => (),
-                    // No need to handle impossible state just panic cause are impossible and we
-                    // will never panic ;-) Verified: handle_message_mining only either panics,
-                    // returns Ok(SendTo::None(None)) or Ok(SendTo::None(Some(m))), or returns Err
-                    // This is a transparent proxy it will only relay messages as received
-                    Ok(_) => panic!(),
-                    Err(e) => {
-                        let status = status::Status {
-                            state: status::State::UpstreamShutdown(UpstreamIncoming(e)),
-                        };
-                        error!(
-                            "TERMINATING: Error handling pool role message: {:?}",
-                            status
-                        );
-                        if let Err(e) = tx_status.send(status).await {
-                            error!("Status channel down: {:?}", e);
+                    // Routes the incoming messages accordingly
+                    match next_message_to_send {
+                        // This is a transparent proxy it will only relay messages as received
+                        Ok(SendTo::RelaySameMessageToRemote(downstream_mutex)) => {
+                            let sv2_frame: codec_sv2::Sv2Frame<
+                                MiningDeviceMessages,
+                                buffer_sv2::Slice,
+                            > = incoming.map(|payload| payload.try_into().unwrap());
+                            Downstream::send(&downstream_mutex, sv2_frame)
+                                .await
+                                .unwrap();
                         }
+                        Ok(SendTo::None(None)) => (),
+                        // No need to handle impossible state just panic cause are impossible and we
+                        // will never panic ;-) Verified: handle_message_mining only either panics,
+                        // returns Ok(SendTo::None(None)) or Ok(SendTo::None(Some(m))), or returns Err
+                        // This is a transparent proxy it will only relay messages as received
+                        Ok(_) => panic!(),
+                        Err(e) => {
+                            let status = status::Status {
+                                state: status::State::UpstreamShutdown(UpstreamIncoming(e)),
+                            };
+                            error!(
+                                "TERMINATING: Error handling pool role message: {:?}",
+                                status
+                            );
+                            if let Err(e) = tx_status.send(status).await {
+                                error!("Status channel down: {:?}", e);
+                            }
 
-                        break;
+                            break;
+                        }
                     }
                 }
-            }
-        });
-
+            })
+        };
+        self_
+            .safe_lock(|s| {
+                s.task_collector
+                    .safe_lock(|c| c.push(main_task.abort_handle()))
+                    .unwrap()
+            })
+            .unwrap();
         Ok(())
     }
     /// Creates the `SetupConnection` message to setup the connection with the SV2 Upstream role.

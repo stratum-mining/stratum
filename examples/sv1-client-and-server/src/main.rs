@@ -477,12 +477,36 @@ impl<'a> Client<'static> {
 }
 
 impl<'a> IsClient<'a> for Client<'a> {
+    fn handle_set_difficulty(
+        &mut self,
+        _conf: &mut server_to_client::SetDifficulty,
+    ) -> Result<(), Error<'a>> {
+        Ok(())
+    }
+
+    fn handle_set_extranonce(
+        &mut self,
+        _conf: &mut server_to_client::SetExtranonce,
+    ) -> Result<(), Error<'a>> {
+        Ok(())
+    }
+
+    fn handle_set_version_mask(
+        &mut self,
+        _conf: &mut server_to_client::SetVersionMask,
+    ) -> Result<(), Error<'a>> {
+        Ok(())
+    }
+
     fn handle_notify(&mut self, notify: server_to_client::Notify<'a>) -> Result<(), Error<'a>> {
         self.last_notify = Some(notify);
         Ok(())
     }
 
-    fn handle_configure(&self, _conf: &mut server_to_client::Configure) -> Result<(), Error<'a>> {
+    fn handle_configure(
+        &mut self,
+        _conf: &mut server_to_client::Configure,
+    ) -> Result<(), Error<'a>> {
         Ok(())
     }
 
