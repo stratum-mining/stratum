@@ -4,7 +4,7 @@ use roles_logic_sv2::parsers::PoolMessages;
 pub mod diff_management;
 pub mod upstream;
 pub mod upstream_connection;
-pub use upstream::{Upstream, UpstreamKind};
+pub use upstream::Upstream;
 pub use upstream_connection::UpstreamConnection;
 
 pub type Message = PoolMessages<'static>;
