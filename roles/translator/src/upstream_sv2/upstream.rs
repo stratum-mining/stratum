@@ -22,9 +22,9 @@ use roles_logic_sv2::{
     },
     mining_sv2::{
         ExtendedExtranonce, Extranonce, NewExtendedMiningJob, OpenExtendedMiningChannel,
-        SetCustomMiningJob, SetNewPrevHash, SubmitSharesExtended,
+        SetNewPrevHash, SubmitSharesExtended,
     },
-    parsers::{Mining, PoolMessages},
+    parsers::Mining,
     routing_logic::{CommonRoutingLogic, MiningRoutingLogic, NoRouting},
     selectors::NullDownstreamMiningSelector,
     utils::Mutex,
@@ -39,9 +39,6 @@ use std::{
 };
 use tracing::{debug, error, info, warn};
 
-/// USED to make sure that if a future new_temnplate and a set_new_prev_hash are received together
-/// the future new_temnplate is always handled before the set new prev hash.
-pub static IS_NEW_TEMPLATE_HANDLED: AtomicBool = AtomicBool::new(true);
 pub static IS_NEW_JOB_HANDLED: AtomicBool = AtomicBool::new(true);
 /// Represents the currently active `prevhash` of the mining job being worked on OR being submitted
 /// from the Downstream role.
@@ -52,29 +49,6 @@ struct PrevHash {
     prev_hash: BlockHash,
     /// `nBits` encoded difficulty target.
     nbits: u32,
-}
-
-#[derive(Debug, Clone)]
-pub enum UpstreamKind {
-    Standard,
-    WithNegotiator {
-        recv_mining_job: Receiver<SetCustomMiningJob<'static>>,
-    },
-}
-
-impl UpstreamKind {
-    pub fn is_work_selection_enabled(&self) -> bool {
-        match self {
-            UpstreamKind::Standard => false,
-            UpstreamKind::WithNegotiator { .. } => true,
-        }
-    }
-    pub fn get_receiver(&self) -> Option<Receiver<SetCustomMiningJob<'static>>> {
-        match self {
-            UpstreamKind::Standard => None,
-            UpstreamKind::WithNegotiator { recv_mining_job } => Some(recv_mining_job.clone()),
-        }
-    }
 }
 
 #[derive(Debug, Clone)]
@@ -115,7 +89,6 @@ pub struct Upstream {
     /// set by the SV2 Upstream via the SV2 `OpenExtendedMiningChannelSuccess` message.
     pub min_extranonce_size: u16,
     pub upstream_extranonce1_size: usize,
-    upstream_kind: UpstreamKind,
     // values used to update the channel with the correct nominal hashrate.
     // each Downstream instance will add and subtract their hashrates as needed
     // and the upstream just needs to occasionally check if it has changed more than
@@ -146,7 +119,6 @@ impl Upstream {
         tx_sv2_extranonce: Sender<(ExtendedExtranonce, u32)>,
         tx_status: status::Sender,
         target: Arc<Mutex<Vec<u8>>>,
-        upstream_kind: UpstreamKind,
         difficulty_config: Arc<Mutex<UpstreamDifficultyConfig>>,
     ) -> ProxyResult<'static, Arc<Mutex<Self>>> {
         // Connect to the SV2 Upstream role retry connection every 5 seconds.
@@ -193,7 +165,6 @@ impl Upstream {
             tx_sv2_extranonce,
             tx_status,
             target,
-            upstream_kind,
             difficulty_config,
         })))
     }
@@ -205,13 +176,7 @@ impl Upstream {
         max_version: u16,
     ) -> ProxyResult<'static, ()> {
         // Get the `SetupConnection` message with Mining Device information (currently hard coded)
-        let setup_connection = Self::get_setup_connection_message(
-            min_version,
-            max_version,
-            self_
-                .safe_lock(|s| s.upstream_kind.is_work_selection_enabled())
-                .map_err(|_e| PoisonLock)?,
-        )?;
+        let setup_connection = Self::get_setup_connection_message(min_version, max_version, false)?;
         let mut connection = self_
             .safe_lock(|s| s.connection.clone())
             .map_err(|_e| PoisonLock)?;
@@ -286,35 +251,7 @@ impl Upstream {
 
         let sv2_frame: StdFrame = Message::Mining(open_channel).try_into()?;
         connection.send(sv2_frame).await?;
-        if self_
-            .safe_lock(|s| s.upstream_kind.is_work_selection_enabled())
-            .map_err(|_e| PoisonLock)?
-        {
-            Self::set_custom_jobs(self_.clone())?;
-        }
 
-        Ok(())
-    }
-
-    pub fn set_custom_jobs(self_: Arc<Mutex<Self>>) -> ProxyResult<'static, ()> {
-        let set_c_job_recv = self_
-            .safe_lock(|s| s.upstream_kind.get_receiver().unwrap())
-            .map_err(|_e| PoisonLock)?;
-        let mut connection = self_
-            .safe_lock(|s| s.connection.clone())
-            .map_err(|_e| PoisonLock)?;
-        async_std::task::spawn(async move {
-            loop {
-                while let Ok(custom_job) = set_c_job_recv.recv().await {
-                    info!("Send custom job to upstream");
-                    let custom_job = PoolMessages::Mining(Mining::SetCustomMiningJob(custom_job));
-                    connection
-                        .send(custom_job.try_into().unwrap())
-                        .await
-                        .unwrap();
-                }
-            }
-        });
         Ok(())
     }
 
@@ -682,7 +619,7 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
     /// Work selection is disabled for SV1/SV2 Translator Proxy and all work selection is performed
     /// by the SV2 Upstream role.
     fn is_work_selection_enabled(&self) -> bool {
-        self.upstream_kind.is_work_selection_enabled()
+        false
     }
 
     /// The SV2 `OpenStandardMiningChannelSuccess` message is NOT handled because it is NOT used

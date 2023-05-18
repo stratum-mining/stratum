@@ -2,16 +2,11 @@ use async_channel::{Receiver, Sender};
 use async_std::task;
 use roles_logic_sv2::{
     channel_logic::channel_factory::{ExtendedChannelKind, ProxyExtendedChannelFactory, Share},
-    job_creator::JobsCreators,
     mining_sv2::{
-        ExtendedExtranonce, NewExtendedMiningJob, SetCustomMiningJob, SetNewPrevHash,
-        SubmitSharesExtended, Target,
+        ExtendedExtranonce, NewExtendedMiningJob, SetNewPrevHash, SubmitSharesExtended, Target,
     },
     parsers::Mining,
-    template_distribution_sv2::{
-        NewTemplate, SetNewPrevHash as SetNewPrevHashTemplate, SubmitSolution,
-    },
-    utils::{GroupId, Id, Mutex},
+    utils::{GroupId, Mutex},
 };
 use std::sync::Arc;
 use tokio::sync::broadcast;
@@ -23,9 +18,7 @@ use crate::{
     status, ProxyResult,
 };
 use error_handling::handle_result;
-use roles_logic_sv2::{
-    bitcoin::TxOut, channel_logic::channel_factory::OnNewShare, Error as RolesLogicError,
-};
+use roles_logic_sv2::{channel_logic::channel_factory::OnNewShare, Error as RolesLogicError};
 use tracing::{debug, error, info};
 
 /// Bridge between the SV2 `Upstream` and SV1 `Downstream` responsible for the following messaging
@@ -67,36 +60,7 @@ pub struct Bridge {
     future_jobs: Vec<NewExtendedMiningJob<'static>>,
     last_p_hash: Option<SetNewPrevHash<'static>>,
     target: Arc<Mutex<Vec<u8>>>,
-    first_ph_received: bool,
-    pool_output_is_set: bool,
-    request_ids: Id,
-    solution_sender: Option<Sender<SubmitSolution<'static>>>,
     last_job_id: u32,
-    has_negotiator: bool,
-    first_job_handled: bool,
-    //up_to_down_job_ids: std::collections::hash_map::HashMap<u32, Vec<u32>>,
-    withhold: bool,
-}
-
-#[derive(Debug, Clone)]
-pub enum UpstreamKind {
-    Standard,
-    WithNegotiator {
-        recv_tp: Receiver<(NewTemplate<'static>, Vec<u8>)>,
-        recv_ph: Receiver<(SetNewPrevHashTemplate<'static>, Vec<u8>)>,
-        recv_coinbase_out: Receiver<(Vec<TxOut>, Vec<u8>)>,
-        send_mining_job: Sender<SetCustomMiningJob<'static>>,
-        send_solution: Sender<SubmitSolution<'static>>,
-    },
-}
-
-impl UpstreamKind {
-    pub fn has_negotiator(&self) -> bool {
-        match self {
-            UpstreamKind::Standard => false,
-            UpstreamKind::WithNegotiator { .. } => true,
-        }
-    }
 }
 
 impl Bridge {
@@ -112,25 +76,13 @@ impl Bridge {
         extranonces: ExtendedExtranonce,
         target: Arc<Mutex<Vec<u8>>>,
         up_id: u32,
-        upstream_kind: UpstreamKind,
-        withhold: bool,
     ) -> Arc<Mutex<Self>> {
         let ids = Arc::new(Mutex::new(GroupId::new()));
         let share_per_min = 1.0;
         let upstream_target: [u8; 32] =
             target.safe_lock(|t| t.clone()).unwrap().try_into().unwrap();
         let upstream_target: Target = upstream_target.into();
-        let (job_creator, kind, solution_sender) = match upstream_kind {
-            UpstreamKind::Standard => (None, ExtendedChannelKind::Proxy { upstream_target }, None),
-            UpstreamKind::WithNegotiator {
-                ref send_solution, ..
-            } => (
-                Some(JobsCreators::new(extranonces.get_len() as u8)),
-                ExtendedChannelKind::ProxyJn { upstream_target },
-                Some(send_solution.clone()),
-            ),
-        };
-        let self_ = Arc::new(Mutex::new(Self {
+        Arc::new(Mutex::new(Self {
             rx_sv1_downstream,
             tx_sv2_submit_shares_ext,
             rx_sv2_set_new_prev_hash,
@@ -141,223 +93,17 @@ impl Bridge {
             channel_factory: ProxyExtendedChannelFactory::new(
                 ids,
                 extranonces,
-                job_creator,
+                None,
                 share_per_min,
-                kind,
+                ExtendedChannelKind::Proxy { upstream_target },
                 None,
                 up_id,
             ),
             future_jobs: vec![],
             last_p_hash: None,
             target,
-            first_ph_received: false,
-            request_ids: Id::new(),
-            pool_output_is_set: false,
-            solution_sender,
             last_job_id: 0,
-            has_negotiator: upstream_kind.has_negotiator(),
-            first_job_handled: false,
-            withhold,
-        }));
-        match upstream_kind {
-            UpstreamKind::Standard => (),
-            UpstreamKind::WithNegotiator {
-                recv_tp,
-                recv_ph,
-                recv_coinbase_out,
-                send_mining_job,
-                ..
-            } => {
-                // open a channel so that jobs are created and last notify is updated also if no
-                // dowsntream connected
-                self_
-                    .safe_lock(|s| {
-                        s.channel_factory.new_extended_channel(0, 1.0, 8);
-                    })
-                    .unwrap();
-                Self::start_receiving_pool_coinbase_outs(self_.clone(), recv_coinbase_out);
-                Self::start_receiving_new_template(self_.clone(), recv_tp, send_mining_job.clone());
-                Self::start_receiving_new_prev_hash(self_.clone(), recv_ph, send_mining_job);
-            }
-        };
-        self_
-    }
-
-    pub fn start_receiving_pool_coinbase_outs(
-        self_mutex: Arc<Mutex<Self>>,
-        recv: Receiver<(Vec<TxOut>, Vec<u8>)>,
-    ) {
-        let tx_status = self_mutex.safe_lock(|s| s.tx_status.clone()).unwrap();
-        task::spawn(async move {
-            while let Ok((outs, _id)) = recv.recv().await {
-                // TODO assuming that only one coinbase is negotiated with the pool not handling
-                // different tokens, in order to do that we can use the out hashmap:
-                // self.tx_outs.insert(id, outs)
-                let to_handle = self_mutex
-                    .safe_lock(|s| {
-                        s.channel_factory.update_pool_outputs(outs);
-                        s.pool_output_is_set = true;
-                    })
-                    .map_err(|_| PoisonLock);
-                handle_result!(tx_status, to_handle);
-            }
-        });
-    }
-
-    pub fn start_receiving_new_template(
-        self_mutex: Arc<Mutex<Self>>,
-        new_template_reciver: Receiver<(NewTemplate<'static>, Vec<u8>)>,
-        send_mining_job: Sender<SetCustomMiningJob<'static>>,
-    ) {
-        task::spawn(async move {
-            debug!("Bridge waiting to receive first prev hash and first pool outputs");
-            while !self_mutex.safe_lock(|s| (s.pool_output_is_set)).unwrap() {
-                tokio::task::yield_now().await;
-            }
-            debug!("Bridge received first prev hash and first pool outputs");
-            let tx_status = self_mutex.safe_lock(|s| s.tx_status.clone()).unwrap();
-            loop {
-                let (mut message_new_template, token): (NewTemplate, Vec<u8>) =
-                    handle_result!(tx_status.clone(), new_template_reciver.recv().await);
-                let partial = self_mutex
-                    .safe_lock(|a| a.channel_factory.on_new_template(&mut message_new_template))
-                    .map_err(|_| PoisonLock);
-                let partial = handle_result!(tx_status.clone(), partial);
-                let (channel_id_to_new_job_msg, custom_job, _) =
-                    handle_result!(tx_status.clone(), partial);
-                if let Some(custom_job) = custom_job {
-                    let req_id = self_mutex.safe_lock(|s| s.request_ids.next()).unwrap();
-                    let custom_mining_job = SetCustomMiningJob {
-                        channel_id: self_mutex
-                            .safe_lock(|s| s.channel_factory.get_this_channel_id())
-                            .unwrap(),
-                        request_id: req_id,
-                        version: custom_job.version,
-                        prev_hash: custom_job.prev_hash,
-                        min_ntime: custom_job.min_ntime,
-                        nbits: custom_job.nbits,
-                        coinbase_tx_version: custom_job.coinbase_tx_version,
-                        coinbase_prefix: custom_job.coinbase_prefix.clone(),
-                        coinbase_tx_input_n_sequence: custom_job.coinbase_tx_input_n_sequence,
-                        coinbase_tx_value_remaining: custom_job.coinbase_tx_value_remaining,
-                        coinbase_tx_outputs: custom_job.coinbase_tx_outputs.clone(),
-                        coinbase_tx_locktime: custom_job.coinbase_tx_locktime,
-                        merkle_path: custom_job.merkle_path,
-                        extranonce_size: custom_job.extranonce_size,
-                        future_job: message_new_template.future_template,
-                        // token come from a valid Sv2 message so it can always be serialized safe
-                        // unwrap
-                        token: token.try_into().unwrap(),
-                    };
-                    handle_result!(
-                        tx_status.clone(),
-                        send_mining_job.send(custom_mining_job).await
-                    );
-                }
-
-                let (tx_sv1_notify, tx_status) = self_mutex
-                    .safe_lock(|s| (s.tx_sv1_notify.clone(), s.tx_status.clone()))
-                    .unwrap();
-                for (id, job) in channel_id_to_new_job_msg {
-                    let should_ignore_first_channel = self_mutex
-                        .safe_lock(|s| s.has_negotiator && s.first_job_handled)
-                        .map_err(|_| PoisonLock);
-                    // If we have negotiator the first job is for an inexistend channel created
-                    // only for initialize the channel factory when no dowstream are connected
-                    if handle_result!(tx_status.clone(), should_ignore_first_channel) && id == 1 {
-                        continue;
-                    }
-                    self_mutex
-                        .safe_lock(|s| s.first_job_handled = true)
-                        .unwrap();
-                    if let Mining::NewExtendedMiningJob(job) = job {
-                        handle_result!(
-                            tx_status.clone(),
-                            Self::handle_new_extended_mining_job_(
-                                self_mutex.clone(),
-                                job,
-                                tx_sv1_notify.clone(),
-                            )
-                            .await
-                        )
-                    }
-                }
-                crate::upstream_sv2::upstream::IS_NEW_TEMPLATE_HANDLED
-                    .store(true, std::sync::atomic::Ordering::SeqCst);
-            }
-        });
-    }
-
-    pub fn start_receiving_new_prev_hash(
-        self_mutex: Arc<Mutex<Self>>,
-        prev_hash_reciver: Receiver<(SetNewPrevHashTemplate<'static>, Vec<u8>)>,
-        send_mining_job: Sender<SetCustomMiningJob<'static>>,
-    ) {
-        task::spawn(async move {
-            let (tx_sv1_notify, tx_status) = self_mutex
-                .safe_lock(|s| (s.tx_sv1_notify.clone(), s.tx_status.clone()))
-                .unwrap();
-            loop {
-                let (message_prev_hash, token) = prev_hash_reciver.recv().await.unwrap();
-                let custom = self_mutex
-                    .safe_lock(|a| {
-                        a.channel_factory
-                            .on_new_prev_hash_from_tp(&message_prev_hash)
-                    })
-                    .unwrap();
-                self_mutex
-                    .safe_lock(|s| s.first_ph_received = true)
-                    .unwrap();
-
-                let new_p_hash = SetNewPrevHash {
-                    channel_id: 0,
-                    job_id: match custom {
-                        Ok(Some((_, id))) => id,
-                        _ => 0,
-                    },
-                    prev_hash: message_prev_hash.prev_hash,
-                    min_ntime: message_prev_hash.header_timestamp,
-                    nbits: message_prev_hash.n_bits,
-                };
-
-                if let Ok(Some((custom_job, _))) = custom {
-                    let req_id = self_mutex.safe_lock(|s| s.request_ids.next()).unwrap();
-                    let custom_mining_job = SetCustomMiningJob {
-                        channel_id: self_mutex
-                            .safe_lock(|s| s.channel_factory.get_this_channel_id())
-                            .unwrap(),
-                        request_id: req_id,
-                        version: custom_job.version,
-                        prev_hash: custom_job.prev_hash,
-                        min_ntime: custom_job.min_ntime,
-                        nbits: custom_job.nbits,
-                        coinbase_tx_version: custom_job.coinbase_tx_version,
-                        coinbase_prefix: custom_job.coinbase_prefix.clone(),
-                        coinbase_tx_input_n_sequence: custom_job.coinbase_tx_input_n_sequence,
-                        coinbase_tx_value_remaining: custom_job.coinbase_tx_value_remaining,
-                        coinbase_tx_outputs: custom_job.coinbase_tx_outputs.clone(),
-                        coinbase_tx_locktime: custom_job.coinbase_tx_locktime,
-                        merkle_path: custom_job.merkle_path,
-                        extranonce_size: custom_job.extranonce_size,
-                        future_job: false,
-                        // token come from a valid Sv2 message so it can always be serialized safe
-                        // unwrap
-                        token: token.try_into().unwrap(),
-                    };
-                    let tx_status = self_mutex.safe_lock(|s| s.tx_status.clone()).unwrap();
-                    handle_result!(tx_status, send_mining_job.send(custom_mining_job).await);
-                }
-                handle_result!(
-                    tx_status.clone(),
-                    Self::handle_new_prev_hash_(
-                        self_mutex.clone(),
-                        new_p_hash,
-                        tx_sv1_notify.clone(),
-                    )
-                    .await
-                );
-            }
-        });
+        }))
     }
 
     pub fn on_new_sv1_connection(
@@ -454,7 +200,6 @@ impl Bridge {
         self_: Arc<Mutex<Self>>,
         share: SubmitShareWithChannelId,
     ) -> ProxyResult<'static, ()> {
-        let withhold = self_.safe_lock(|s| s.withhold).map_err(|_| PoisonLock)?;
         let (tx_sv2_submit_shares_ext, target_mutex, tx_status) = self_
             .safe_lock(|s| {
                 (
@@ -508,34 +253,7 @@ impl Bridge {
             Ok(Ok(OnNewShare::ShareMeetDownstreamTarget)) => {
                 info!("SHARE MEETS DOWNSTREAM TARGET");
             }
-            Ok(Ok(OnNewShare::ShareMeetBitcoinTarget((share, Some(template_id), coinbase)))) => {
-                match share {
-                    Share::Extended(s) => {
-                        info!("SHARE MEETS BITCOIN TARGET");
-                        let solution_sender = self_
-                            .safe_lock(|s| s.solution_sender.clone())
-                            .map_err(|_| PoisonLock)?
-                            .unwrap();
-                        let solution = SubmitSolution {
-                            template_id,
-                            version: s.version,
-                            header_timestamp: s.ntime,
-                            header_nonce: s.nonce,
-                            coinbase_tx: coinbase.try_into()?,
-                        };
-                        // The below channel should never be full is ok to block
-                        solution_sender.send_blocking(solution).unwrap();
-                        if !withhold {
-                            tx_sv2_submit_shares_ext.send(s).await?;
-                        }
-                    }
-                    // We are in an extended channel shares are extended
-                    Share::Standard(_) => unreachable!(),
-                }
-            }
-            // When we have a ShareMeetBitcoinTarget it means that the proxy know the bitcoin
-            // target that means that the proxy must have JN capabilities that means that the
-            // second tuple elements can not be None but must be Some(template_id)
+            // Proxy do not have JD capabilities
             Ok(Ok(OnNewShare::ShareMeetBitcoinTarget(..))) => unreachable!(),
             Ok(Err(e)) => error!("Error: {:?}", e),
             Err(e) => {
@@ -783,8 +501,8 @@ pub struct OpenSv1Downstream {
 #[cfg(test)]
 mod test {
     use super::*;
-    use async_channel::{bounded, unbounded};
-    use roles_logic_sv2::{bitcoin::util::psbt::serialize::Serialize, job_creator::Decodable};
+    use async_channel::bounded;
+    use roles_logic_sv2::bitcoin::util::psbt::serialize::Serialize;
 
     pub mod test_utils {
         use super::*;
@@ -796,41 +514,8 @@ mod test {
             pub tx_sv2_new_ext_mining_job: Sender<NewExtendedMiningJob<'static>>,
             pub rx_sv1_notify: broadcast::Receiver<server_to_client::Notify<'static>>,
         }
-        pub struct BridgeNegotiatorInterface {
-            pub send_tp: Sender<(NewTemplate<'static>, Vec<u8>)>,
-            pub send_ph: Sender<(SetNewPrevHashTemplate<'static>, Vec<u8>)>,
-            pub send_cb_out: Sender<(Vec<TxOut>, Vec<u8>)>,
-            pub recv_mining_job: Receiver<SetCustomMiningJob<'static>>,
-            pub recv_solution: Receiver<SubmitSolution<'static>>,
-        }
-
-        pub fn create_upstream_kind_neg() -> (UpstreamKind, BridgeNegotiatorInterface) {
-            let (send_tp, recv_tp) = unbounded();
-            let (send_ph, recv_ph) = unbounded();
-            let (send_cb_out, recv_coinbase_out) = unbounded();
-            let (send_mining_job, recv_mining_job) = unbounded();
-            let (send_solution, recv_solution) = unbounded();
-
-            let upstream_kind = UpstreamKind::WithNegotiator {
-                recv_tp,
-                recv_ph,
-                recv_coinbase_out,
-                send_mining_job,
-                send_solution,
-            };
-
-            let jn_interface = test_utils::BridgeNegotiatorInterface {
-                send_tp,
-                send_ph,
-                send_cb_out,
-                recv_mining_job,
-                recv_solution,
-            };
-            (upstream_kind, jn_interface)
-        }
 
         pub fn create_bridge(
-            upstream_kind: UpstreamKind,
             extranonces: ExtendedExtranonce,
         ) -> (Arc<Mutex<Bridge>>, BridgeInterface) {
             let (tx_sv1_submit, rx_sv1_submit) = bounded(1);
@@ -861,8 +546,6 @@ mod test {
                 extranonces,
                 Arc::new(Mutex::new(upstream_target)),
                 1,
-                upstream_kind,
-                false,
             );
             (b, interface)
         }
@@ -884,7 +567,7 @@ mod test {
     fn test_version_bits_insert() {
         use roles_logic_sv2::bitcoin::hashes::Hash;
         let extranonces = ExtendedExtranonce::new(0..6, 6..8, 8..16);
-        let (bridge, _) = test_utils::create_bridge(UpstreamKind::Standard, extranonces);
+        let (bridge, _) = test_utils::create_bridge(extranonces);
         bridge
             .safe_lock(|bridge| {
                 let channel_id = 1;
@@ -957,263 +640,5 @@ mod test {
                 );
             })
             .unwrap();
-    }
-    use std::convert::TryInto;
-
-    #[tokio::test]
-    async fn get_two_jobs_within_the_same_p_hash_jn() {
-        let extranonces = ExtendedExtranonce::new(0..6, 6..8, 8..32);
-        let tx_out_ = vec![
-            0_u8, 0, 0, 0, 0, 0, 0, 0, 38, 106, 36, 170, 33, 169, 237, 226, 246, 28, 63, 113, 209,
-            222, 253, 63, 169, 153, 223, 163, 105, 83, 117, 92, 105, 6, 137, 121, 153, 98, 180,
-            139, 235, 216, 54, 151, 78, 140, 249,
-        ];
-        let tx_out_1 = [
-            0, 242, 5, 42, 1, 0, 0, 0, 25, 118, 169, 20, 85, 162, 233, 20, 174, 185, 114, 155, 76,
-            210, 101, 36, 140, 182, 122, 134, 94, 174, 149, 253, 136, 172,
-        ];
-
-        // Create bridge
-        let (upstream_kind, neg_interface) = test_utils::create_upstream_kind_neg();
-        // interface must not dropped or channels will broks
-        let (bridge, _interface) = test_utils::create_bridge(upstream_kind, extranonces);
-        let tx_out_1 = roles_logic_sv2::bitcoin::TxOut::consensus_decode(&tx_out_1[..]).unwrap();
-
-        // Send first cb out
-        neg_interface
-            .send_cb_out
-            .send((vec![tx_out_1], vec![0; 4]))
-            .await
-            .unwrap();
-
-        let first_templ = NewTemplate {
-            template_id: 78,
-            future_template: true,
-            version: 805306368,
-            coinbase_tx_version: 2,
-            coinbase_prefix: vec![2, 65, 1, 0].try_into().unwrap(),
-            coinbase_tx_input_sequence: 4294967295,
-            coinbase_tx_value_remaining: 1250000000,
-            coinbase_tx_outputs_count: 1,
-            coinbase_tx_outputs: tx_out_.try_into().unwrap(),
-            coinbase_tx_locktime: 0,
-            merkle_path: vec![].try_into().unwrap(),
-        };
-        let first_ph = SetNewPrevHashTemplate {
-            template_id: 78,
-            prev_hash: vec![0; 32].try_into().unwrap(),
-            header_timestamp: 98,
-            n_bits: 67,
-            target: vec![0; 32].try_into().unwrap(),
-        };
-
-        // Send first template and prev hash
-        neg_interface
-            .send_tp
-            .send((first_templ.clone(), vec![0; 4]))
-            .await
-            .unwrap();
-        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
-        neg_interface
-            .send_ph
-            .send((first_ph.clone(), vec![0; 4]))
-            .await
-            .unwrap();
-        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-
-        // Open downstream connection
-        bridge
-            .safe_lock(|b| b.on_new_sv1_connection(100_000.0))
-            .unwrap()
-            .unwrap();
-
-        let mut second_templ = first_templ.clone();
-        second_templ.template_id = 90;
-
-        let mut second_ph = first_ph.clone();
-        second_ph.template_id = 90;
-
-        // Send second template and prev hash
-        neg_interface
-            .send_tp
-            .send((second_templ.clone(), vec![0; 4]))
-            .await
-            .unwrap();
-        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
-        neg_interface
-            .send_ph
-            .send((second_ph.clone(), vec![0; 4]))
-            .await
-            .unwrap();
-        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-
-        let mut thirth_templ = first_templ.clone();
-        thirth_templ.template_id = 34;
-
-        // Thirth template
-        neg_interface
-            .send_tp
-            .send((second_templ.clone(), vec![0; 4]))
-            .await
-            .unwrap();
-        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-
-        let mut forth_templ = first_templ.clone();
-        forth_templ.template_id = 74;
-
-        let mut forth_ph = first_ph.clone();
-        forth_ph.template_id = 74;
-
-        // Forth second template and prev hash
-        neg_interface
-            .send_tp
-            .send((forth_templ.clone(), vec![0; 4]))
-            .await
-            .unwrap();
-        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
-        neg_interface
-            .send_ph
-            .send((forth_ph.clone(), vec![0; 4]))
-            .await
-            .unwrap();
-        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-        match bridge.safe_lock(|_| {}) {
-            Ok(_) => println!("ok"),
-            Err(_) => println!("err"),
-        };
-    }
-    #[tokio::test]
-    async fn support_multi_downs_jn() {
-        let extranonces = ExtendedExtranonce::new(0..6, 6..8, 8..32);
-        let tx_out_ = vec![
-            0_u8, 0, 0, 0, 0, 0, 0, 0, 38, 106, 36, 170, 33, 169, 237, 226, 246, 28, 63, 113, 209,
-            222, 253, 63, 169, 153, 223, 163, 105, 83, 117, 92, 105, 6, 137, 121, 153, 98, 180,
-            139, 235, 216, 54, 151, 78, 140, 249,
-        ];
-        let tx_out_1 = [
-            0, 242, 5, 42, 1, 0, 0, 0, 25, 118, 169, 20, 85, 162, 233, 20, 174, 185, 114, 155, 76,
-            210, 101, 36, 140, 182, 122, 134, 94, 174, 149, 253, 136, 172,
-        ];
-
-        // Create bridge
-        let (upstream_kind, neg_interface) = test_utils::create_upstream_kind_neg();
-        // interface must not dropped or channels will broks
-        let (bridge, _interface) = test_utils::create_bridge(upstream_kind, extranonces);
-        let tx_out_1 = roles_logic_sv2::bitcoin::TxOut::consensus_decode(&tx_out_1[..]).unwrap();
-
-        // Send first cb out
-        neg_interface
-            .send_cb_out
-            .send((vec![tx_out_1], vec![0; 4]))
-            .await
-            .unwrap();
-
-        let first_templ = NewTemplate {
-            template_id: 78,
-            future_template: true,
-            version: 805306368,
-            coinbase_tx_version: 2,
-            coinbase_prefix: vec![2, 65, 1, 0].try_into().unwrap(),
-            coinbase_tx_input_sequence: 4294967295,
-            coinbase_tx_value_remaining: 1250000000,
-            coinbase_tx_outputs_count: 1,
-            coinbase_tx_outputs: tx_out_.try_into().unwrap(),
-            coinbase_tx_locktime: 0,
-            merkle_path: vec![].try_into().unwrap(),
-        };
-        let first_ph = SetNewPrevHashTemplate {
-            template_id: 78,
-            prev_hash: vec![0; 32].try_into().unwrap(),
-            header_timestamp: 98,
-            n_bits: 67,
-            target: vec![0; 32].try_into().unwrap(),
-        };
-
-        // Send first template and prev hash
-        neg_interface
-            .send_tp
-            .send((first_templ.clone(), vec![0; 4]))
-            .await
-            .unwrap();
-        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
-        neg_interface
-            .send_ph
-            .send((first_ph.clone(), vec![0; 4]))
-            .await
-            .unwrap();
-        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-
-        // Open downstream connection
-        bridge
-            .safe_lock(|b| b.on_new_sv1_connection(100_000.0))
-            .unwrap()
-            .unwrap();
-        bridge
-            .safe_lock(|b| b.on_new_sv1_connection(100_000.0))
-            .unwrap()
-            .unwrap();
-        bridge
-            .safe_lock(|b| b.on_new_sv1_connection(100_000.0))
-            .unwrap()
-            .unwrap();
-        bridge
-            .safe_lock(|b| b.on_new_sv1_connection(100_000.0))
-            .unwrap()
-            .unwrap();
-
-        let mut second_templ = first_templ.clone();
-        second_templ.template_id = 90;
-
-        let mut second_ph = first_ph.clone();
-        second_ph.template_id = 90;
-
-        // Send second template and prev hash
-        neg_interface
-            .send_tp
-            .send((second_templ.clone(), vec![0; 4]))
-            .await
-            .unwrap();
-        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
-        neg_interface
-            .send_ph
-            .send((second_ph.clone(), vec![0; 4]))
-            .await
-            .unwrap();
-        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-
-        let mut thirth_templ = first_templ.clone();
-        thirth_templ.template_id = 34;
-
-        // Thirth template
-        neg_interface
-            .send_tp
-            .send((second_templ.clone(), vec![0; 4]))
-            .await
-            .unwrap();
-        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-
-        let mut forth_templ = first_templ.clone();
-        forth_templ.template_id = 74;
-
-        let mut forth_ph = first_ph.clone();
-        forth_ph.template_id = 74;
-
-        // Forth second template and prev hash
-        neg_interface
-            .send_tp
-            .send((forth_templ.clone(), vec![0; 4]))
-            .await
-            .unwrap();
-        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
-        neg_interface
-            .send_ph
-            .send((forth_ph.clone(), vec![0; 4]))
-            .await
-            .unwrap();
-        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-        match bridge.safe_lock(|_| {}) {
-            Ok(_) => println!("ok"),
-            Err(_) => println!("err"),
-        };
     }
 }
