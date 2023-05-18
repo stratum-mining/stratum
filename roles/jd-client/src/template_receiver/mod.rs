@@ -15,6 +15,7 @@ pub type EitherFrame = StandardEitherFrame<Message>;
 use async_channel::{Receiver, Sender};
 use network_helpers::plain_connection_tokio::PlainConnection;
 use std::{convert::TryInto, net::SocketAddr, sync::Arc};
+use tokio::task::AbortHandle;
 mod message_handler;
 mod setup_connection;
 use crate::status;
@@ -30,6 +31,7 @@ pub struct TemplateRx {
     tx_status: status::Sender,
     jd: Arc<Mutex<crate::job_negotiator::JobNegotiator>>,
     down: Arc<Mutex<crate::downstream::DownstreamMiningNode>>,
+    task_collector: Arc<Mutex<Vec<AbortHandle>>>,
 }
 
 impl TemplateRx {
@@ -39,6 +41,7 @@ impl TemplateRx {
         tx_status: status::Sender,
         jd: Arc<Mutex<crate::job_negotiator::JobNegotiator>>,
         down: Arc<Mutex<crate::downstream::DownstreamMiningNode>>,
+        task_collector: Arc<Mutex<Vec<AbortHandle>>>,
     ) {
         let stream = tokio::net::TcpStream::connect(address).await.unwrap();
 
@@ -57,9 +60,13 @@ impl TemplateRx {
             tx_status,
             jd,
             down,
+            task_collector: task_collector.clone(),
         }));
 
-        tokio::task::spawn(Self::on_new_solution(self_mutex.clone(), solution_receiver));
+        let task = tokio::task::spawn(Self::on_new_solution(self_mutex.clone(), solution_receiver));
+        task_collector
+            .safe_lock(|c| c.push(task.abort_handle()))
+            .unwrap();
         Self::start_templates(self_mutex);
     }
 
@@ -87,79 +94,96 @@ impl TemplateRx {
         let down = self_mutex.safe_lock(|s| s.down.clone()).unwrap();
         let tx_status = self_mutex.safe_lock(|s| s.tx_status.clone()).unwrap();
         let mut coinbase_output_max_additional_size_sent = false;
-        tokio::task::spawn(async move {
-            // Send CoinbaseOutputDataSize size to TP
-            loop {
-                let token = crate::job_negotiator::JobNegotiator::get_last_token(&jd).await;
-                if !coinbase_output_max_additional_size_sent {
-                    coinbase_output_max_additional_size_sent = true;
-                    Self::send_max_coinbase_size(
-                        &self_mutex,
-                        token.coinbase_output_max_additional_size,
-                    )
-                    .await;
-                }
+        let main_task = {
+            let self_mutex = self_mutex.clone();
+            tokio::task::spawn(async move {
+                // Send CoinbaseOutputDataSize size to TP
+                loop {
+                    let token = crate::job_negotiator::JobNegotiator::get_last_token(&jd).await;
+                    if !coinbase_output_max_additional_size_sent {
+                        coinbase_output_max_additional_size_sent = true;
+                        Self::send_max_coinbase_size(
+                            &self_mutex,
+                            token.coinbase_output_max_additional_size,
+                        )
+                        .await;
+                    }
 
-                // Receive Templates and SetPrevHash from TP to send to JN
-                let receiver = self_mutex
-                    .clone()
-                    .safe_lock(|s| s.receiver.clone())
-                    .unwrap();
-                let received = handle_result!(tx_status.clone(), receiver.recv().await);
-                let mut frame: StdFrame = handle_result!(tx_status.clone(), received.try_into());
-                let message_type = frame.get_header().unwrap().msg_type();
-                let payload = frame.payload();
+                    // Receive Templates and SetPrevHash from TP to send to JN
+                    let receiver = self_mutex
+                        .clone()
+                        .safe_lock(|s| s.receiver.clone())
+                        .unwrap();
+                    let received = handle_result!(tx_status.clone(), receiver.recv().await);
+                    let mut frame: StdFrame =
+                        handle_result!(tx_status.clone(), received.try_into());
+                    let message_type = frame.get_header().unwrap().msg_type();
+                    let payload = frame.payload();
 
-                let next_message_to_send =
-                    ParseServerTemplateDistributionMessages::handle_message_template_distribution(
-                        self_mutex.clone(),
-                        message_type,
-                        payload,
-                    );
-                match next_message_to_send {
-                    Ok(SendTo::None(m)) => match m {
-                        // Send the new template along with the token to the JD so that JD can
-                        // declare the mining job
-                        Some(TemplateDistribution::NewTemplate(m)) => {
-                            crate::IS_NEW_TEMPLATE_HANDLED
-                                .store(false, std::sync::atomic::Ordering::SeqCst);
-                            let mining_token = token.mining_job_token.to_vec();
-                            let pool_output = token.coinbase_output.to_vec();
-                            let (_jd_res, down_res) = tokio::join!(
-                                crate::job_negotiator::JobNegotiator::on_new_template(
-                                    &jd,
-                                    m.clone(),
-                                    mining_token,
-                                    pool_output,
-                                ),
-                                crate::downstream::DownstreamMiningNode::on_new_template(&down, m),
-                            );
-                            down_res.unwrap();
-                        }
-                        Some(TemplateDistribution::SetNewPrevHash(m)) => {
-                            info!("Received SetNewPrevHash, waiting for IS_NEW_TEMPLATE_HANDLED");
-                            while !crate::IS_NEW_TEMPLATE_HANDLED
-                                .load(std::sync::atomic::Ordering::SeqCst)
-                            {
-                                tokio::task::yield_now().await;
+                    let next_message_to_send =
+                        ParseServerTemplateDistributionMessages::handle_message_template_distribution(
+                            self_mutex.clone(),
+                            message_type,
+                            payload,
+                        );
+                    match next_message_to_send {
+                        Ok(SendTo::None(m)) => {
+                            match m {
+                                // Send the new template along with the token to the JD so that JD can
+                                // declare the mining job
+                                Some(TemplateDistribution::NewTemplate(m)) => {
+                                    crate::IS_NEW_TEMPLATE_HANDLED
+                                        .store(false, std::sync::atomic::Ordering::SeqCst);
+                                    let mining_token = token.mining_job_token.to_vec();
+                                    let pool_output = token.coinbase_output.to_vec();
+                                    let (_jd_res, down_res) = tokio::join!(
+                                        crate::job_negotiator::JobNegotiator::on_new_template(
+                                            &jd,
+                                            m.clone(),
+                                            mining_token,
+                                            pool_output.clone(),
+                                        ),
+                                        crate::downstream::DownstreamMiningNode::on_new_template(
+                                            &down,
+                                            m,
+                                            &pool_output[..]
+                                        ),
+                                    );
+                                    down_res.unwrap();
+                                }
+                                Some(TemplateDistribution::SetNewPrevHash(m)) => {
+                                    info!("Received SetNewPrevHash, waiting for IS_NEW_TEMPLATE_HANDLED");
+                                    while !crate::IS_NEW_TEMPLATE_HANDLED
+                                        .load(std::sync::atomic::Ordering::SeqCst)
+                                    {
+                                        tokio::task::yield_now().await;
+                                    }
+                                    info!("IS_NEW_TEMPLATE_HANDLED ok");
+                                    let (res_down, _) = tokio::join!(
+                                    crate::downstream::DownstreamMiningNode::on_set_new_prev_hash(
+                                        &down,
+                                        m.clone()
+                                    ),
+                                    crate::job_negotiator::JobNegotiator::on_set_new_prev_hash(&jd, m),
+                                );
+                                    res_down.unwrap();
+                                }
+                                _ => todo!(),
                             }
-                            info!("IS_NEW_TEMPLATE_HANDLED ok");
-                            let (res_down, _) = tokio::join!(
-                                crate::downstream::DownstreamMiningNode::on_set_new_prev_hash(
-                                    &down,
-                                    m.clone()
-                                ),
-                                crate::job_negotiator::JobNegotiator::on_set_new_prev_hash(&jd, m),
-                            );
-                            res_down.unwrap();
                         }
-                        _ => todo!(),
-                    },
-                    Ok(_) => panic!(),
-                    Err(_) => todo!(),
+                        Ok(_) => panic!(),
+                        Err(_) => todo!(),
+                    }
                 }
-            }
-        });
+            })
+        };
+        self_mutex
+            .safe_lock(|s| {
+                s.task_collector
+                    .safe_lock(|c| c.push(main_task.abort_handle()))
+                    .unwrap()
+            })
+            .unwrap();
     }
 
     async fn on_new_solution(self_: Arc<Mutex<Self>>, rx: Receiver<SubmitSolution<'static>>) {

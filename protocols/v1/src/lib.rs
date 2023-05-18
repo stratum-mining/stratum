@@ -299,9 +299,18 @@ pub trait IsClient<'a> {
                 self.handle_notify(notify)?;
                 Ok(None)
             }
-            methods::Server2Client::SetDifficulty(_set_diff) => Ok(None),
-            methods::Server2Client::SetExtranonce(_set_extra_nonce) => todo!(),
-            methods::Server2Client::SetVersionMask(_set_version_mask) => todo!(),
+            methods::Server2Client::SetDifficulty(mut set_diff) => {
+                self.handle_set_difficulty(&mut set_diff)?;
+                Ok(None)
+            }
+            methods::Server2Client::SetExtranonce(mut set_extra_nonce) => {
+                self.handle_set_extranonce(&mut set_extra_nonce)?;
+                Ok(None)
+            }
+            methods::Server2Client::SetVersionMask(mut set_version_mask) => {
+                self.handle_set_version_mask(&mut set_version_mask)?;
+                Ok(None)
+            }
         }
     }
 
@@ -365,7 +374,23 @@ pub trait IsClient<'a> {
 
     fn handle_notify(&mut self, notify: server_to_client::Notify<'a>) -> Result<(), Error<'a>>;
 
-    fn handle_configure(&self, conf: &mut server_to_client::Configure) -> Result<(), Error<'a>>;
+    fn handle_configure(&mut self, conf: &mut server_to_client::Configure)
+        -> Result<(), Error<'a>>;
+
+    fn handle_set_difficulty(
+        &mut self,
+        m: &mut server_to_client::SetDifficulty,
+    ) -> Result<(), Error<'a>>;
+
+    fn handle_set_extranonce(
+        &mut self,
+        m: &mut server_to_client::SetExtranonce,
+    ) -> Result<(), Error<'a>>;
+
+    fn handle_set_version_mask(
+        &mut self,
+        m: &mut server_to_client::SetVersionMask,
+    ) -> Result<(), Error<'a>>;
 
     fn handle_subscribe(
         &mut self,

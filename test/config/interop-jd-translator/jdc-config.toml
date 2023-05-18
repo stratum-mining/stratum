@@ -30,4 +30,4 @@ retry = 10
 
 [jn_config]
 jn_address = "127.0.0.1:34264"
-tp_address = "127.0.0.1:8442"
+tp_address = "75.119.150.111:8442"

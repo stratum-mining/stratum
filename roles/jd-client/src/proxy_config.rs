@@ -16,6 +16,7 @@ pub struct ProxyConfig {
     pub authority_secret_key: EncodedEd25519SecretKey,
     pub jn_config: JnConfig,
     pub cert_validity_sec: u64,
+    pub retry: u32,
 }
 
 #[derive(Debug, Deserialize, Clone)]
