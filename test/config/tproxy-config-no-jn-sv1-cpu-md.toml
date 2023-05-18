@@ -27,11 +27,6 @@ min_supported_version = 2
 min_extranonce2_size = 8
 coinbase_reward_sat = 5_000_000_000
 
-# optional jn config, if set the tproxy start on JN mode
-#[jn_config]
-#jn_address = "127.0.0.1:34264"
-#tp_address = "127.0.0.1:8442"
-
 # Difficulty params
 [downstream_difficulty_config]
 # hashes/s of the weakest miner that will be connecting

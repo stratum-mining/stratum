@@ -19,11 +19,7 @@
 //!
 #![allow(special_module_name)]
 mod lib;
-use async_channel::bounded;
-use lib::{
-    job_negotiator::JobNegotiator, template_receiver::TemplateRx,
-    upstream_mining::UpstreamMiningNode,
-};
+use lib::upstream_mining::UpstreamMiningNode;
 use once_cell::sync::OnceCell;
 use roles_logic_sv2::{
     routing_logic::{CommonRoutingLogic, MiningProxyRoutingLogic, MiningRoutingLogic},
@@ -31,11 +27,7 @@ use roles_logic_sv2::{
     utils::{GroupId, Id, Mutex},
 };
 use serde::Deserialize;
-use std::{
-    net::{IpAddr, SocketAddr},
-    str::FromStr,
-    sync::Arc,
-};
+use std::{net::SocketAddr, sync::Arc};
 use tracing::{error, info};
 type RLogic = MiningProxyRoutingLogic<
     crate::lib::downstream_mining::DownstreamMiningNode,
@@ -114,26 +106,17 @@ pub struct UpstreamMiningValues {
     port: u16,
     pub_key: codec_sv2::noise_sv2::formats::EncodedEd25519PublicKey,
     channel_kind: ChannelKind,
-    jn_values: Option<UpstreamJNValues>,
-}
-#[derive(Debug, Deserialize, Clone)]
-pub struct UpstreamJNValues {
-    address: String,
-    port: u16,
-    pub_key: codec_sv2::noise_sv2::formats::EncodedEd25519PublicKey,
 }
 
 #[derive(Debug, Deserialize, Clone, Copy)]
 pub enum ChannelKind {
     Group,
     Extended,
-    ExtendedWithNegotiator,
 }
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Config {
     upstreams: Vec<UpstreamMiningValues>,
-    tp_address: Option<String>,
     listen_address: String,
     listen_mining_port: u16,
     max_supported_version: u16,
@@ -146,18 +129,10 @@ pub async fn initialize_r_logic(
     group_id: Arc<Mutex<GroupId>>,
     config: Config,
 ) -> RLogic {
-    let request_ids = Arc::new(Mutex::new(Id::new()));
     let channel_ids = Arc::new(Mutex::new(Id::new()));
     let mut upstream_mining_nodes = Vec::with_capacity(upstreams.len());
     for (index, upstream_) in upstreams.iter().enumerate() {
         let socket = SocketAddr::new(upstream_.address.parse().unwrap(), upstream_.port);
-
-        // channel for template
-        let (send_tp, recv_tp) = bounded(10);
-        // channel for prev hash
-        let (send_ph, recv_ph) = bounded(10);
-        // channel to send coinbase_output_max_additional_size
-        let (send_comas, recv_comas) = bounded(10);
 
         let upstream = Arc::new(Mutex::new(UpstreamMiningNode::new(
             index as u32,
@@ -165,9 +140,6 @@ pub async fn initialize_r_logic(
             upstream_.pub_key.clone().into_inner().to_bytes(),
             upstream_.channel_kind,
             group_id.clone(),
-            Some(recv_tp),
-            Some(recv_ph),
-            request_ids.clone(),
             channel_ids.clone(),
             config.downstream_share_per_minute,
             None,
@@ -178,62 +150,6 @@ pub async fn initialize_r_logic(
         match upstream_.channel_kind {
             ChannelKind::Group => (),
             ChannelKind::Extended => (),
-            ChannelKind::ExtendedWithNegotiator => {
-                let (send_solution, recv_solution) = bounded(10);
-                let (send_coinbase_out_script, recv_coinbase_out_script) = bounded(10);
-                upstream
-                    .safe_lock(|s| {
-                        s.solution_sender = Some(send_solution);
-                        s.recv_coinbase_out = Some(recv_coinbase_out_script);
-                    })
-                    .unwrap();
-                tokio::join!(
-                    TemplateRx::connect(
-                        config
-                            .tp_address
-                            .clone()
-                            .expect("Template provider address not provided in config.toml")
-                            .parse()
-                            .unwrap(),
-                        send_tp,
-                        send_ph,
-                        recv_comas,
-                        recv_solution,
-                    ),
-                    JobNegotiator::new(
-                        SocketAddr::new(
-                            IpAddr::from_str(
-                                &upstream_
-                                    .jn_values
-                                    .clone()
-                                    .expect("JN values not provided")
-                                    .address
-                            )
-                            .unwrap(),
-                            upstream_
-                                .jn_values
-                                .clone()
-                                .expect("JN values not provided")
-                                .port,
-                        ),
-                        upstream_
-                            .jn_values
-                            .clone()
-                            .expect("JN values not provided")
-                            .clone()
-                            .pub_key
-                            .into_inner()
-                            .as_bytes()
-                            .to_owned(),
-                        send_comas,
-                        send_coinbase_out_script,
-                        config.clone(),
-                    )
-                );
-                UpstreamMiningNode::start_receiving_pool_coinbase_outs(upstream.clone());
-                UpstreamMiningNode::start_receiving_new_template(upstream.clone());
-                UpstreamMiningNode::start_receiving_new_prev_hash(upstream.clone());
-            }
         }
 
         upstream_mining_nodes.push(upstream);

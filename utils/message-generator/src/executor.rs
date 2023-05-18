@@ -6,12 +6,15 @@ use crate::{
 use async_channel::{Receiver, Sender};
 use codec_sv2::{Frame, StandardEitherFrame as EitherFrame, Sv2Frame};
 use roles_logic_sv2::parsers::AnyMessage;
-use std::convert::TryInto;
-use std::sync::Arc;
+use std::{convert::TryInto, sync::Arc};
 use tokio::sync::Mutex;
 
 use std::time::Duration;
-use tokio::{fs::File, io::{copy, BufWriter, BufReader}, time::timeout};
+use tokio::{
+    fs::File,
+    io::{copy, BufReader, BufWriter},
+    time::timeout,
+};
 
 pub struct Executor {
     name: Arc<String>,
@@ -158,7 +161,12 @@ impl Executor {
             let mut rs = 0;
             for result in &action.result {
                 rs += 1;
-                println!("Working on result {}/{}: {}", rs, action.result.len(), result);
+                println!(
+                    "Working on result {}/{}: {}",
+                    rs,
+                    action.result.len(),
+                    result
+                );
 
                 // If the connection should drop at this point then let's just break the loop
                 // Can't do anything else after the connection drops.
@@ -175,7 +183,7 @@ impl Executor {
                         success = false;
                         println!("Connection closed before receiving the message");
                         break;
-                    },
+                    }
                 };
 
                 let mut message: Sv2Frame<AnyMessage<'static>, _> = message.try_into().unwrap();
@@ -500,12 +508,13 @@ impl Executor {
                 let test_name = self.name.clone();
                 tokio::spawn(async move {
                     let test_name = &*test_name;
-                    let mut file = File::create(format!("{}.child-{}.log", test_name, child_no)).await.unwrap();
+                    let mut file = File::create(format!("{}.child-{}.log", test_name, child_no))
+                        .await
+                        .unwrap();
                     let mut stdout_writer = BufWriter::new(&mut file);
 
                     copy(&mut stdout_reader, &mut stdout_writer).await.unwrap();
                 });
-
 
                 while let Some(i) = &child.id() {
                     // Sends kill signal and waits 1 second before checking to ensure child was killed
