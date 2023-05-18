@@ -49,7 +49,11 @@ impl std::fmt::Display for ActionResult {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
             ActionResult::MatchMessageType(message_type) => {
-                write!(f, "MatchMessageType: {} ({:#x})", message_type, message_type)
+                write!(
+                    f,
+                    "MatchMessageType: {} ({:#x})",
+                    message_type, message_type
+                )
             }
             ActionResult::MatchMessageField(message_field) => {
                 write!(f, "MatchMessageField: {:?}", message_field)
@@ -131,7 +135,12 @@ async fn main() {
     // Load contents of `test.json`, then parse
     let test = load_str!(test_path_);
     let test = parser::Parser::parse_test(test);
-    let test_name : String = test_path.split("/").collect::<Vec<&str>>().last().unwrap().to_string();
+    let test_name: String = test_path
+        .split("/")
+        .collect::<Vec<&str>>()
+        .last()
+        .unwrap()
+        .to_string();
     // Executes everything (the shell commands and actions)
     // If the `executor` returns false, the test fails
     let executor = executor::Executor::new(test, test_name).await;

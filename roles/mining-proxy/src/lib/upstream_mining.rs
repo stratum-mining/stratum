@@ -18,15 +18,12 @@ use roles_logic_sv2::{
     },
     errors::Error,
     handlers::mining::{ParseUpstreamMiningMessages, SendTo, SupportedChannelTypes},
-    job_creator::JobsCreators,
     job_dispatcher::GroupChannelJobDispatcher,
     mining_sv2::*,
     parsers::{CommonMessages, Mining, MiningDeviceMessages, PoolMessages},
     routing_logic::MiningProxyRoutingLogic,
     selectors::{DownstreamMiningSelector, ProxyDownstreamMiningSelector as Prs},
-    template_distribution_sv2::{
-        NewTemplate, SetNewPrevHash as SetNewPrevHashTemplate, SubmitSolution,
-    },
+    template_distribution_sv2::SubmitSolution,
     utils::{GroupId, Mutex},
 };
 use std::{collections::HashMap, sync::Arc};
@@ -38,46 +35,29 @@ pub type StdFrame = StandardSv2Frame<Message>;
 pub type EitherFrame = StandardEitherFrame<Message>;
 pub type ProxyRemoteSelector = Prs<DownstreamMiningNode>;
 
-use std::sync::atomic::AtomicBool;
-/// USED to make sure that if a future new_template and a set_new_prev_hash are received together
-/// the future new_template is always handled before the set new prev hash.
-pub static IS_NEW_TEMPLATE_HANDLED: AtomicBool = AtomicBool::new(true);
-
 #[derive(Debug)]
+#[allow(clippy::large_enum_variant)]
 pub enum ChannelKind {
     Group(GroupChannels),
     Extended(Option<ProxyExtendedChannelFactory>),
-    ExtendedWithNegotiator(Option<ProxyExtendedChannelFactory>),
 }
 impl ChannelKind {
     pub fn is_extended(&self) -> bool {
         match self {
             ChannelKind::Group(_) => false,
             ChannelKind::Extended(_) => true,
-            ChannelKind::ExtendedWithNegotiator(_) => true,
         }
     }
 
     fn is_initialized(&self) -> bool {
-        !matches!(
-            self,
-            ChannelKind::Extended(None) | ChannelKind::ExtendedWithNegotiator(None)
-        )
+        !matches!(self, ChannelKind::Extended(None))
     }
 
     fn get_factory(&mut self) -> &mut ProxyExtendedChannelFactory {
         match self {
             ChannelKind::Extended(Some(f)) => f,
-            ChannelKind::ExtendedWithNegotiator(Some(f)) => f,
             _ => panic!("Channel factory not available"),
         }
-    }
-
-    fn has_factory(&mut self) -> bool {
-        matches!(
-            self,
-            ChannelKind::Extended(Some(_)) | ChannelKind::ExtendedWithNegotiator(Some(_))
-        )
     }
 
     fn initialize_factory(
@@ -86,13 +66,11 @@ impl ChannelKind {
         extranonces: ExtendedExtranonce,
         downstream_share_per_minute: f32,
         upstream_target: Target,
-        len: u16,
         up_id: u32,
     ) {
         match self {
             ChannelKind::Group(_) => panic!("Impossible to initialize factory for group channel"),
             ChannelKind::Extended(Some(_)) => panic!("Factory already initialized"),
-            ChannelKind::ExtendedWithNegotiator(Some(_)) => panic!("Factory already initialized"),
             ChannelKind::Extended(None) => {
                 let kind = ExtendedChannelKind::Proxy { upstream_target };
                 let factory = ProxyExtendedChannelFactory::new(
@@ -106,20 +84,6 @@ impl ChannelKind {
                 );
                 *self = Self::Extended(Some(factory));
             }
-            ChannelKind::ExtendedWithNegotiator(None) => {
-                let kind = ExtendedChannelKind::ProxyJn { upstream_target };
-                let job_creator: JobsCreators = JobsCreators::new(len as u8);
-                let factory = ProxyExtendedChannelFactory::new(
-                    group_id,
-                    extranonces,
-                    Some(job_creator),
-                    downstream_share_per_minute,
-                    kind,
-                    Some(vec![]),
-                    up_id,
-                );
-                *self = Self::ExtendedWithNegotiator(Some(factory));
-            }
         }
     }
 }
@@ -129,7 +93,6 @@ impl From<crate::ChannelKind> for ChannelKind {
         match v {
             crate::ChannelKind::Group => Self::Group(GroupChannels::new()),
             crate::ChannelKind::Extended => Self::Extended(None),
-            crate::ChannelKind::ExtendedWithNegotiator => Self::ExtendedWithNegotiator(None),
         }
     }
 }
@@ -190,9 +153,6 @@ pub struct UpstreamMiningNode {
     downstream_selector: ProxyRemoteSelector,
     pub channel_kind: ChannelKind,
     group_id: Arc<Mutex<GroupId>>,
-    recv_tp: Option<Receiver<(NewTemplate<'static>, Vec<u8>)>>,
-    recv_ph: Option<Receiver<(SetNewPrevHashTemplate<'static>, Vec<u8>)>>,
-    request_ids: Arc<Mutex<Id>>,
     pub channel_ids: Arc<Mutex<Id>>,
     downstream_share_per_minute: f32,
     pub solution_sender: Option<Sender<SubmitSolution<'static>>>,
@@ -223,9 +183,6 @@ impl UpstreamMiningNode {
         authority_public_key: [u8; 32],
         channel_kind: crate::ChannelKind,
         group_id: Arc<Mutex<GroupId>>,
-        recv_tp: Option<Receiver<(NewTemplate<'static>, Vec<u8>)>>,
-        recv_ph: Option<Receiver<(SetNewPrevHashTemplate<'static>, Vec<u8>)>>,
-        request_ids: Arc<Mutex<Id>>,
         channel_ids: Arc<Mutex<Id>>,
         downstream_share_per_minute: f32,
         solution_sender: Option<Sender<SubmitSolution<'static>>>,
@@ -246,9 +203,6 @@ impl UpstreamMiningNode {
             downstream_selector,
             channel_kind: channel_kind.into(),
             group_id,
-            recv_tp,
-            recv_ph,
-            request_ids,
             channel_ids,
             downstream_share_per_minute,
             solution_sender,
@@ -288,170 +242,6 @@ impl UpstreamMiningNode {
                 Ok(SendTo::Multiple(res))
             }
         }
-    }
-
-    pub fn start_receiving_pool_coinbase_outs(self_mutex: Arc<Mutex<Self>>) {
-        task::spawn(async move {
-            let recv = self_mutex
-                .safe_lock(|s| s.recv_coinbase_out.clone())
-                .unwrap()
-                .unwrap();
-            while !self_mutex
-                .safe_lock(|s| s.channel_kind.has_factory())
-                .unwrap()
-            {
-                tokio::task::yield_now().await;
-            }
-            while let Ok((outs, _id)) = recv.recv().await {
-                self_mutex
-                    .safe_lock(|s| {
-                        match &mut s.channel_kind {
-                            ChannelKind::Group(_) => unreachable!(),
-                            ChannelKind::Extended(_) => unreachable!(),
-                            ChannelKind::ExtendedWithNegotiator(factory) => {
-                                factory.as_mut().unwrap().update_pool_outputs(outs)
-                            }
-                        };
-                    })
-                    .unwrap();
-            }
-        });
-    }
-
-    pub fn start_receiving_new_template(self_mutex: Arc<Mutex<Self>>) {
-        task::spawn(async move {
-            Self::wait_for_channel_factory(self_mutex.clone()).await;
-            let new_template_reciver = self_mutex
-                .safe_lock(|a| a.recv_tp.clone())
-                .unwrap()
-                .unwrap();
-            loop {
-                let (mut message_new_template, token): (NewTemplate, Vec<u8>) =
-                    new_template_reciver.recv().await.unwrap();
-                let (channel_id_to_new_job_msg, custom_job, upstream_id) = self_mutex
-                    .safe_lock(|a| {
-                        a.channel_kind
-                            .get_factory()
-                            .on_new_template(&mut message_new_template) // This is not efficient, to be changed if needed
-                    })
-                    .unwrap()
-                    .unwrap();
-                if let Some(custom_job) = custom_job {
-                    let req_id = self_mutex
-                        .safe_lock(|s| s.request_ids.safe_lock(|r| r.next()).unwrap())
-                        .unwrap();
-                    let custom_mining_job =
-                        PoolMessages::Mining(Mining::SetCustomMiningJob(SetCustomMiningJob {
-                            channel_id: self_mutex.safe_lock(|s| s.id).unwrap(),
-                            request_id: req_id,
-                            version: custom_job.version,
-                            prev_hash: custom_job.prev_hash,
-                            min_ntime: custom_job.min_ntime,
-                            nbits: custom_job.nbits,
-                            coinbase_tx_version: custom_job.coinbase_tx_version,
-                            coinbase_prefix: custom_job.coinbase_prefix.clone(),
-                            coinbase_tx_input_n_sequence: custom_job.coinbase_tx_input_n_sequence,
-                            coinbase_tx_value_remaining: custom_job.coinbase_tx_value_remaining,
-                            coinbase_tx_outputs: custom_job.coinbase_tx_outputs.clone(),
-                            coinbase_tx_locktime: custom_job.coinbase_tx_locktime,
-                            merkle_path: custom_job.merkle_path,
-                            extranonce_size: custom_job.extranonce_size,
-                            future_job: message_new_template.future_template,
-                            // token come from a valid Sv2 message so it can always be serialized safe
-                            // unwrap
-                            token: token.try_into().unwrap(),
-                        }));
-                    Self::send(self_mutex.clone(), custom_mining_job.try_into().unwrap())
-                        .await
-                        .unwrap();
-                }
-
-                for (id, job) in channel_id_to_new_job_msg {
-                    let job_id = match &job {
-                        Mining::NewExtendedMiningJob(j) => j.job_id,
-                        Mining::NewMiningJob(j) => j.job_id,
-                        _ => unreachable!(),
-                    };
-                    let downstream = self_mutex
-                        .safe_lock(|a| a.downstream_selector.downstream_from_channel_id(id))
-                        .unwrap()
-                        .unwrap();
-                    self_mutex
-                        .safe_lock(|s| {
-                            let x = s.job_up_to_down_ids.entry(upstream_id).or_default();
-                            x.push((downstream.clone(), job_id));
-                        })
-                        .unwrap();
-                    let message = MiningDeviceMessages::Mining(job);
-                    DownstreamMiningNode::send(downstream, message.try_into().unwrap())
-                        .await
-                        .unwrap();
-                }
-                IS_NEW_TEMPLATE_HANDLED.store(true, std::sync::atomic::Ordering::SeqCst);
-            }
-        });
-    }
-
-    pub fn start_receiving_new_prev_hash(self_mutex: Arc<Mutex<Self>>) {
-        task::spawn(async move {
-            Self::wait_for_channel_factory(self_mutex.clone()).await;
-            let prev_hash_reciver = self_mutex
-                .safe_lock(|a| a.recv_ph.clone())
-                .unwrap()
-                .unwrap();
-            loop {
-                let (message_prev_hash, token) = prev_hash_reciver.recv().await.unwrap();
-                let custom = self_mutex
-                    .safe_lock(|a| {
-                        a.channel_kind
-                            .get_factory()
-                            .on_new_prev_hash_from_tp(&message_prev_hash)
-                    })
-                    .unwrap();
-                let new_p_hash = SetNewPrevHash {
-                    channel_id: 0,
-                    job_id: match custom {
-                        Ok(Some((_, id))) => id,
-                        _ => 0,
-                    },
-                    prev_hash: message_prev_hash.prev_hash,
-                    min_ntime: message_prev_hash.header_timestamp,
-                    nbits: message_prev_hash.n_bits,
-                };
-
-                if let Ok(Some((custom_job, _job_id))) = custom {
-                    let req_id = self_mutex
-                        .safe_lock(|s| s.request_ids.safe_lock(|r| r.next()).unwrap())
-                        .unwrap();
-                    let custom_mining_job =
-                        PoolMessages::Mining(Mining::SetCustomMiningJob(SetCustomMiningJob {
-                            channel_id: self_mutex.safe_lock(|s| s.id).unwrap(),
-                            request_id: req_id,
-                            version: custom_job.version,
-                            prev_hash: custom_job.prev_hash,
-                            min_ntime: custom_job.min_ntime,
-                            nbits: custom_job.nbits,
-                            coinbase_tx_version: custom_job.coinbase_tx_version,
-                            coinbase_prefix: custom_job.coinbase_prefix.clone(),
-                            coinbase_tx_input_n_sequence: custom_job.coinbase_tx_input_n_sequence,
-                            coinbase_tx_value_remaining: custom_job.coinbase_tx_value_remaining,
-                            coinbase_tx_outputs: custom_job.coinbase_tx_outputs.clone(),
-                            coinbase_tx_locktime: custom_job.coinbase_tx_locktime,
-                            merkle_path: custom_job.merkle_path,
-                            extranonce_size: custom_job.extranonce_size,
-                            future_job: false,
-                            // token come from a valid Sv2 message so it can always be serialized safe
-                            // unwrap
-                            token: token.try_into().unwrap(),
-                        }));
-                    Self::send(self_mutex.clone(), custom_mining_job.try_into().unwrap())
-                        .await
-                        .unwrap();
-                }
-                let to_send = self_mutex.safe_lock(|s| s.on_p_hash(new_p_hash)).unwrap();
-                Self::match_next_message(self_mutex.clone(), to_send, StdFrame::default()).await;
-            }
-        });
     }
 
     /// Try send a message to the upstream node.
@@ -922,20 +712,6 @@ impl UpstreamMiningNode {
                     .unwrap();
                 messages.into_iter().map(|x| x.into_static()).collect()
             }
-            ChannelKind::ExtendedWithNegotiator(Some(factory)) => {
-                self.downstream_selector
-                    .on_open_standard_channel_success(request_id, 0, channel_id)
-                    .unwrap();
-                let messages = factory
-                    .add_standard_channel(
-                        request_id,
-                        downstream_hash_rate,
-                        id_header_only,
-                        channel_id,
-                    )
-                    .unwrap();
-                messages.into_iter().map(|x| x.into_static()).collect()
-            }
             _ => panic!("Channel factory not initialized"),
         }
     }
@@ -1113,7 +889,6 @@ impl
             }
             // If we opened and extended channel upstreams we should not receive this message
             ChannelKind::Extended(_) => todo!(),
-            ChannelKind::ExtendedWithNegotiator(_) => todo!(),
         }
     }
 
@@ -1132,18 +907,12 @@ impl
             range_2,
         )
         .unwrap();
-        let len = if self.is_work_selection_enabled() {
-            extranonces.get_len() as u16
-        } else {
-            m.extranonce_size as u16
-        };
 
         self.channel_kind.initialize_factory(
             self.group_id.clone(),
             extranonces,
             self.downstream_share_per_minute,
             m.target.clone().try_into().unwrap(),
-            len,
             m.channel_id,
         );
         Ok(SendTo::None(None))
@@ -1181,9 +950,6 @@ impl
         &mut self,
         m: SubmitSharesSuccess,
     ) -> Result<SendTo<DownstreamMiningNode>, Error> {
-        if let ChannelKind::ExtendedWithNegotiator(_) = self.channel_kind {
-            return Ok(SendTo::None(None));
-        };
         match &self
             .downstream_selector
             .downstream_from_channel_id(m.channel_id)
@@ -1312,8 +1078,6 @@ impl
                 }
             }
             ChannelKind::Extended(None) => panic!("Factory not initialized"),
-            // Just ignore it we use the negotiator
-            ChannelKind::ExtendedWithNegotiator(_) => (),
         }
         Ok(SendTo::Multiple(res))
     }
@@ -1350,8 +1114,6 @@ impl
                     todo!()
                 }
             }
-            // we ignore set new prev hash when we use the JN
-            ChannelKind::ExtendedWithNegotiator(_) => Ok(SendTo::None(None)),
         }
     }
 
@@ -1470,9 +1232,6 @@ mod tests {
             190, 90, 169, 238, 89, 191, 183, 97, 63, 194, 119, 11, 31,
         ];
         let ids = Arc::new(Mutex::new(GroupId::new()));
-        let recv_tp = None;
-        let recv_ph = None;
-        let request_ids = Arc::new(Mutex::new(Id::new()));
         let channel_ids = Arc::new(Mutex::new(Id::new()));
         let actual = UpstreamMiningNode::new(
             id,
@@ -1480,9 +1239,6 @@ mod tests {
             authority_public_key,
             crate::ChannelKind::Group,
             ids,
-            recv_tp,
-            recv_ph,
-            request_ids,
             channel_ids,
             10.0,
             None,
