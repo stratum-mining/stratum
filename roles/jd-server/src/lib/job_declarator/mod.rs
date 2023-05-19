@@ -17,14 +17,14 @@ use tokio::net::TcpListener;
 use tracing::info;
 
 #[derive(Debug)]
-pub struct JobNegotiatorDownstream {
+pub struct JobDeclaratorDownstream {
     sender: Sender<EitherFrame>,
     receiver: Receiver<EitherFrame>,
     // TODO this should be computed for each new template so that fees are included
     coinbase_output: Vec<u8>,
 }
 
-impl JobNegotiatorDownstream {
+impl JobDeclaratorDownstream {
     pub fn new(
         receiver: Receiver<EitherFrame>,
         sender: Sender<EitherFrame>,
@@ -82,7 +82,7 @@ impl JobNegotiatorDownstream {
     }
 }
 
-impl ParseClientJobNegotiationMessages for JobNegotiatorDownstream {
+impl ParseClientJobNegotiationMessages for JobDeclaratorDownstream {
     fn handle_allocate_mining_job(
         &mut self,
         message: AllocateMiningJobToken,
@@ -118,11 +118,11 @@ fn get_random_token() -> B0255<'static> {
     inner.to_vec().try_into().unwrap()
 }
 
-pub struct JobNegotiator {
-    downstreams: Vec<Arc<Mutex<JobNegotiatorDownstream>>>,
+pub struct JobDeclarator {
+    downstreams: Vec<Arc<Mutex<JobDeclaratorDownstream>>>,
 }
 
-impl JobNegotiator {
+impl JobDeclarator {
     pub async fn start(config: Configuration, status_tx: crate::status::Sender) {
         let self_ = Arc::new(Mutex::new(Self {
             downstreams: Vec::new(),
@@ -131,7 +131,7 @@ impl JobNegotiator {
         Self::accept_incoming_connection(self_, config, status_tx).await;
     }
     async fn accept_incoming_connection(
-        self_: Arc<Mutex<JobNegotiator>>,
+        self_: Arc<Mutex<JobDeclarator>>,
         config: Configuration,
         status_tx: crate::status::Sender,
     ) {
@@ -166,7 +166,7 @@ impl JobNegotiator {
             info!("Sending success message for proxy");
             sender.send(sv2_frame).await.unwrap();
 
-            let jndownstream = Arc::new(Mutex::new(JobNegotiatorDownstream::new(
+            let jndownstream = Arc::new(Mutex::new(JobDeclaratorDownstream::new(
                 receiver.clone(),
                 sender.clone(),
                 &config,
@@ -176,7 +176,7 @@ impl JobNegotiator {
                 .safe_lock(|job_negotiator| job_negotiator.downstreams.push(jndownstream.clone()))
                 .unwrap();
 
-            JobNegotiatorDownstream::start(jndownstream, status_tx.clone());
+            JobDeclaratorDownstream::start(jndownstream, status_tx.clone());
         }
     }
 }

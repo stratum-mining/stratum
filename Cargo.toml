@@ -37,6 +37,7 @@ members = [
     "roles/translator",
     "test/scale",
     "roles/jd-client",
+    "roles/jd-server",
     "utils/network-helpers",
     "utils/buffer",
     "utils/error-handling",
