@@ -439,7 +439,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fad582f4b9e86b6caa621cabeb0963332d92eea04729ab12892c2533951e6440"
 
 [[package]]
-name = "job_negotiation_sv2"
+name = "job_declaration_sv2"
 version = "0.1.0"
 dependencies = [
  "binary_sv2",
@@ -738,7 +738,7 @@ dependencies = [
  "common_messages_sv2",
  "const_sv2",
  "framing_sv2",
- "job_negotiation_sv2",
+ "job_declaration_sv2",
  "mining_sv2",
  "serde",
  "template_distribution_sv2",

@@ -28,7 +28,7 @@ Due to either github dependencies or a crate failing the build stage during publ
 - [] codec_sv2 - noise dependency
 - [] template_distribution_sv2 - build failure
 - [] mining_sv2 - publishes after template_distribution_sv2
-- [] job-negotiation_sv2 - publishes after template_distribution_sv2
+- [] job-declaration_sv2 - publishes after template_distribution_sv2
 - [] roles_logic_sv2 - publishes after template_distribution_sv2
 - [] network_helpers - publishes after template_distribution_sv2
 - [] error_handling - had to exclude to bypass rate limit but will probably publish now

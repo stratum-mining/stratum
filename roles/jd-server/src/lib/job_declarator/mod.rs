@@ -7,9 +7,9 @@ use error_handling::handle_result;
 use network_helpers::noise_connection_tokio::Connection;
 use roles_logic_sv2::{
     common_messages_sv2::SetupConnectionSuccess,
-    handlers::job_negotiation::{ParseClientJobNegotiationMessages, SendTo},
-    job_negotiation_sv2::{AllocateMiningJobTokenSuccess, CommitMiningJobSuccess, *},
-    parsers::{JobNegotiation, PoolMessages},
+    handlers::job_declaration::{ParseClientJobDeclarationMessages, SendTo},
+    job_declaration_sv2::{AllocateMiningJobTokenSuccess, CommitMiningJobSuccess, *},
+    parsers::{JobDeclaration, PoolMessages},
     utils::Mutex,
 };
 use std::{convert::TryInto, sync::Arc};
@@ -43,9 +43,9 @@ impl JobDeclaratorDownstream {
 
     pub async fn send(
         self_mutex: Arc<Mutex<Self>>,
-        message: roles_logic_sv2::parsers::JobNegotiation<'static>,
+        message: roles_logic_sv2::parsers::JobDeclaration<'static>,
     ) -> Result<(), ()> {
-        let sv2_frame: StdFrame = PoolMessages::JobNegotiation(message).try_into().unwrap();
+        let sv2_frame: StdFrame = PoolMessages::JobDeclaration(message).try_into().unwrap();
         let sender = self_mutex.safe_lock(|self_| self_.sender.clone()).unwrap();
         sender.send(sv2_frame.into()).await.map_err(|_| ())?;
         Ok(())
@@ -63,7 +63,7 @@ impl JobDeclaratorDownstream {
                     let message_type = header.msg_type();
                     let payload = frame.payload();
                     let next_message_to_send =
-                        ParseClientJobNegotiationMessages::handle_message_job_negotiation(
+                        ParseClientJobDeclarationMessages::handle_message_job_declaration(
                             self_mutex.clone(),
                             message_type,
                             payload,
@@ -82,12 +82,12 @@ impl JobDeclaratorDownstream {
     }
 }
 
-impl ParseClientJobNegotiationMessages for JobDeclaratorDownstream {
+impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
     fn handle_allocate_mining_job(
         &mut self,
         message: AllocateMiningJobToken,
-    ) -> Result<roles_logic_sv2::handlers::job_negotiation::SendTo, roles_logic_sv2::Error> {
-        let res = JobNegotiation::AllocateMiningJobTokenSuccess(AllocateMiningJobTokenSuccess {
+    ) -> Result<roles_logic_sv2::handlers::job_declaration::SendTo, roles_logic_sv2::Error> {
+        let res = JobDeclaration::AllocateMiningJobTokenSuccess(AllocateMiningJobTokenSuccess {
             request_id: message.request_id,
             mining_job_token: get_random_token(),
             coinbase_output_max_additional_size: self.coinbase_output.len() as u32,
@@ -104,8 +104,8 @@ impl ParseClientJobNegotiationMessages for JobDeclaratorDownstream {
     fn handle_commit_mining_job(
         &mut self,
         message: CommitMiningJob,
-    ) -> Result<roles_logic_sv2::handlers::job_negotiation::SendTo, roles_logic_sv2::Error> {
-        let res = JobNegotiation::CommitMiningJobSuccess(CommitMiningJobSuccess {
+    ) -> Result<roles_logic_sv2::handlers::job_declaration::SendTo, roles_logic_sv2::Error> {
+        let res = JobDeclaration::CommitMiningJobSuccess(CommitMiningJobSuccess {
             request_id: message.request_id,
             new_mining_job_token: message.mining_job_token.into_static().clone(),
         });
@@ -127,7 +127,7 @@ impl JobDeclarator {
         let self_ = Arc::new(Mutex::new(Self {
             downstreams: Vec::new(),
         }));
-        info!("JN INITIALIZED");
+        info!("JD INITIALIZED");
         Self::accept_incoming_connection(self_, config, status_tx).await;
     }
     async fn accept_incoming_connection(
@@ -135,7 +135,7 @@ impl JobDeclarator {
         config: Configuration,
         status_tx: crate::status::Sender,
     ) {
-        let listner = TcpListener::bind(&config.listen_jn_address).await.unwrap();
+        let listner = TcpListener::bind(&config.listen_jd_address).await.unwrap();
         while let Ok((stream, _)) = listner.accept().await {
             let responder = Responder::from_authority_kp(
                 config.authority_public_key.clone().into_inner().as_bytes(),
@@ -146,10 +146,10 @@ impl JobDeclarator {
 
             let (receiver, sender): (Receiver<EitherFrame>, Sender<EitherFrame>) =
                 Connection::new(stream, HandshakeRole::Responder(responder)).await;
-            let setup_message_from_proxy_jn = receiver.recv().await.unwrap();
+            let setup_message_from_proxy_jd = receiver.recv().await.unwrap();
             info!(
                 "Setup connection message from proxy: {:?}",
-                setup_message_from_proxy_jn
+                setup_message_from_proxy_jd
             );
 
             let setup_connection_success_to_proxy = SetupConnectionSuccess {
@@ -166,17 +166,17 @@ impl JobDeclarator {
             info!("Sending success message for proxy");
             sender.send(sv2_frame).await.unwrap();
 
-            let jndownstream = Arc::new(Mutex::new(JobDeclaratorDownstream::new(
+            let jddownstream = Arc::new(Mutex::new(JobDeclaratorDownstream::new(
                 receiver.clone(),
                 sender.clone(),
                 &config,
             )));
 
             self_
-                .safe_lock(|job_negotiator| job_negotiator.downstreams.push(jndownstream.clone()))
+                .safe_lock(|job_declarator| job_declarator.downstreams.push(jddownstream.clone()))
                 .unwrap();
 
-            JobDeclaratorDownstream::start(jndownstream, status_tx.clone());
+            JobDeclaratorDownstream::start(jddownstream, status_tx.clone());
         }
     }
 }

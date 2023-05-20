@@ -719,7 +719,7 @@ impl ChannelFactory {
             ExtendedChannelKind::Proxy {
                 upstream_target, ..
             }
-            | ExtendedChannelKind::ProxyJn {
+            | ExtendedChannelKind::ProxyJd {
                 upstream_target, ..
             } => upstream_target.clone(),
         };
@@ -793,7 +793,7 @@ impl ChannelFactory {
                 .concat()
                 .to_vec();
             match self.kind {
-                ExtendedChannelKind::Proxy { .. } | ExtendedChannelKind::ProxyJn { .. } => {
+                ExtendedChannelKind::Proxy { .. } | ExtendedChannelKind::ProxyJd { .. } => {
                     let upstream_extranonce_space = self.extranonces.get_range0_len();
                     let extranonce = extranonce[upstream_extranonce_space..].to_vec();
                     let mut res = OnNewShare::ShareMeetBitcoinTarget((m, template_id, coinbase));
@@ -808,7 +808,7 @@ impl ChannelFactory {
             }
         } else if hash <= upstream_target {
             match self.kind {
-                ExtendedChannelKind::Proxy { .. } | ExtendedChannelKind::ProxyJn { .. } => {
+                ExtendedChannelKind::Proxy { .. } | ExtendedChannelKind::ProxyJd { .. } => {
                     let upstream_extranonce_space = self.extranonces.get_range0_len();
                     let extranonce = extranonce[upstream_extranonce_space..].to_vec();
                     let mut res = OnNewShare::SendSubmitShareUpstream(m);
@@ -868,7 +868,7 @@ impl ChannelFactory {
                         channel?.extranonce.clone().to_vec(),
                     ))
                 }
-                ExtendedChannelKind::Proxy { .. } | ExtendedChannelKind::ProxyJn { .. } => {
+                ExtendedChannelKind::Proxy { .. } | ExtendedChannelKind::ProxyJd { .. } => {
                     let complete_id = GroupId::into_complete_id(*group_id, share.channel_id);
                     let mut channel = self
                         .standard_channels_for_non_hom_downstreams
@@ -1160,7 +1160,7 @@ impl PoolChannelFactory {
 }
 
 /// Used by proxies that want to open extended channls with upstream. If the proxy has job
-/// negotiation capabilities, we set the job creator and the coinbase outs.
+/// declaration capabilities, we set the job creator and the coinbase outs.
 #[derive(Debug)]
 pub struct ProxyExtendedChannelFactory {
     inner: ChannelFactory,
@@ -1186,12 +1186,12 @@ impl ProxyExtendedChannelFactory {
                     panic!("Channel factory of kind Proxy can not be initialized with a JobCreators");
                 };
             },
-            ExtendedChannelKind::ProxyJn { .. } => {
+            ExtendedChannelKind::ProxyJd { .. } => {
                 if job_creator.is_none() {
-                    panic!("Channel factory of kind ProxyJn must be initialized with a JobCreators");
+                    panic!("Channel factory of kind ProxyJd must be initialized with a JobCreators");
                 };
             }
-            ExtendedChannelKind::Pool => panic!("Try to construct an ProxyExtendedChannelFactory with pool kind, kind must be Proxy or ProxyJn"),
+            ExtendedChannelKind::Pool => panic!("Try to construct an ProxyExtendedChannelFactory with pool kind, kind must be Proxy or ProxyJd"),
         };
         let inner = ChannelFactory {
             ids,
@@ -1237,7 +1237,7 @@ impl ProxyExtendedChannelFactory {
         self.inner
             .new_extended_channel(request_id, hash_rate, min_extranonce_size)
     }
-    /// Called only when a new prev hash is received by a Template Provider when job negotiation is used.
+    /// Called only when a new prev hash is received by a Template Provider when job declaration is used.
     /// It matches the message with a `job_id`, creates a new custom job, and calls [`ChannelFactory::on_new_prev_hash`]
     pub fn on_new_prev_hash_from_tp(
         &mut self,
@@ -1276,10 +1276,10 @@ impl ProxyExtendedChannelFactory {
             self.inner.on_new_prev_hash(new_prev_hash)?;
             Ok(custom_job)
         } else {
-            panic!("A channel factory without job creator do not have negotiation capabilities")
+            panic!("A channel factory without job creator do not have declaration capabilities")
         }
     }
-    /// Called only when a new template is received by a Template Provider when job negotiation is used.
+    /// Called only when a new template is received by a Template Provider when job declaration is used.
     /// It creates a new custom job and calls [`ChannelFactory::on_new_extended_mining_job`]
     #[allow(clippy::type_complexity)]
     pub fn on_new_template(
@@ -1511,7 +1511,7 @@ impl ProxyExtendedChannelFactory {
         self.inner.extranonces.get_len() - self.inner.extranonces.get_range0_len()
     }
 
-    // Only used when the proxy is using Job Negotiation
+    // Only used when the proxy is using Job Declaration
     pub fn update_pool_outputs(&mut self, outs: Vec<TxOut>) {
         self.pool_coinbase_outputs = Some(outs);
     }
@@ -1539,14 +1539,14 @@ impl ProxyExtendedChannelFactory {
 #[derive(Debug, Clone)]
 pub enum ExtendedChannelKind {
     Proxy { upstream_target: Target },
-    ProxyJn { upstream_target: Target },
+    ProxyJd { upstream_target: Target },
     Pool,
 }
 impl ExtendedChannelKind {
     pub fn set_target(&mut self, new_target: &mut Target) {
         match self {
             ExtendedChannelKind::Proxy { upstream_target }
-            | ExtendedChannelKind::ProxyJn { upstream_target } => {
+            | ExtendedChannelKind::ProxyJd { upstream_target } => {
                 std::mem::swap(upstream_target, new_target)
             }
             ExtendedChannelKind::Pool => panic!("Try to set upstream target for a pool"),

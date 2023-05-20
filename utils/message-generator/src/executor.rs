@@ -373,27 +373,27 @@ impl Executor {
                                 },
                                 Err(e) => panic!("err {:?}", e),
                             }
-                        } else if subprotocol.as_str() == "JobNegotiationProtocol" {
+                        } else if subprotocol.as_str() == "JobDeclarationProtocol" {
                             match (header.msg_type(), payload).try_into() {
-                                Ok(roles_logic_sv2::parsers::JobNegotiation::AllocateMiningJobTokenSuccess(m)) => {
+                                Ok(roles_logic_sv2::parsers::JobDeclaration::AllocateMiningJobTokenSuccess(m)) => {
                                     if message_type.as_str() == "AllocateMiningJobTokenSuccess" {
                                         let msg = serde_json::to_value(&m).unwrap();
                                         check_each_field(msg, field_data);
                                     }
                                 }
-                                Ok(roles_logic_sv2::parsers::JobNegotiation::AllocateMiningJobToken(m)) => {
+                                Ok(roles_logic_sv2::parsers::JobDeclaration::AllocateMiningJobToken(m)) => {
                                     if message_type.as_str() == "AllocateMiningJobToken" {
                                         let msg = serde_json::to_value(&m).unwrap();
                                         check_each_field(msg, field_data);
                                     }
                                 }
-                                Ok(roles_logic_sv2::parsers::JobNegotiation::CommitMiningJob(m)) => {
+                                Ok(roles_logic_sv2::parsers::JobDeclaration::CommitMiningJob(m)) => {
                                     if message_type.as_str() == "CommitMiningJob" {
                                         let msg = serde_json::to_value(&m).unwrap();
                                         check_each_field(msg, field_data);
                                     }
                                 }
-                                Ok(roles_logic_sv2::parsers::JobNegotiation::CommitMiningJobSuccess(m)) => {
+                                Ok(roles_logic_sv2::parsers::JobDeclaration::CommitMiningJobSuccess(m)) => {
                                     if message_type.as_str() == "CommitMiningJobSuccess" {
                                         let msg = serde_json::to_value(&m).unwrap();
                                         check_each_field(msg, field_data);

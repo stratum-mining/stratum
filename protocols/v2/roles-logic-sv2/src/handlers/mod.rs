@@ -23,7 +23,7 @@
 //! message.
 //!
 pub mod common;
-pub mod job_negotiation;
+pub mod job_declaration;
 pub mod mining;
 pub mod template_distribution;
 use crate::utils::Mutex;

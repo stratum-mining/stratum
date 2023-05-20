@@ -8,7 +8,7 @@ use roles_logic_sv2::{
     template_distribution_sv2::{CoinbaseOutputDataSize, SubmitSolution},
 };
 pub type SendTo = SendTo_<roles_logic_sv2::parsers::TemplateDistribution<'static>, ()>;
-//use messages_sv2::parsers::JobNegotiation;
+//use messages_sv2::parsers::JobDeclaration;
 pub type Message = PoolMessages<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;
 pub type EitherFrame = StandardEitherFrame<Message>;
@@ -29,7 +29,7 @@ pub struct TemplateRx {
     /// Allows the tp recv to communicate back to the main thread any status updates
     /// that would interest the main thread for error handling
     tx_status: status::Sender,
-    jd: Arc<Mutex<crate::job_negotiator::JobNegotiator>>,
+    jd: Arc<Mutex<crate::job_declarator::JobDeclarator>>,
     down: Arc<Mutex<crate::downstream::DownstreamMiningNode>>,
     task_collector: Arc<Mutex<Vec<AbortHandle>>>,
 }
@@ -39,7 +39,7 @@ impl TemplateRx {
         address: SocketAddr,
         solution_receiver: Receiver<SubmitSolution<'static>>,
         tx_status: status::Sender,
-        jd: Arc<Mutex<crate::job_negotiator::JobNegotiator>>,
+        jd: Arc<Mutex<crate::job_declarator::JobDeclarator>>,
         down: Arc<Mutex<crate::downstream::DownstreamMiningNode>>,
         task_collector: Arc<Mutex<Vec<AbortHandle>>>,
     ) {
@@ -99,7 +99,7 @@ impl TemplateRx {
             tokio::task::spawn(async move {
                 // Send CoinbaseOutputDataSize size to TP
                 loop {
-                    let token = crate::job_negotiator::JobNegotiator::get_last_token(&jd).await;
+                    let token = crate::job_declarator::JobDeclarator::get_last_token(&jd).await;
                     if !coinbase_output_max_additional_size_sent {
                         coinbase_output_max_additional_size_sent = true;
                         Self::send_max_coinbase_size(
@@ -109,7 +109,7 @@ impl TemplateRx {
                         .await;
                     }
 
-                    // Receive Templates and SetPrevHash from TP to send to JN
+                    // Receive Templates and SetPrevHash from TP to send to JD
                     let receiver = self_mutex
                         .clone()
                         .safe_lock(|s| s.receiver.clone())
@@ -137,7 +137,7 @@ impl TemplateRx {
                                     let mining_token = token.mining_job_token.to_vec();
                                     let pool_output = token.coinbase_output.to_vec();
                                     let (_jd_res, down_res) = tokio::join!(
-                                        crate::job_negotiator::JobNegotiator::on_new_template(
+                                        crate::job_declarator::JobDeclarator::on_new_template(
                                             &jd,
                                             m.clone(),
                                             mining_token,
@@ -164,7 +164,7 @@ impl TemplateRx {
                                         &down,
                                         m.clone()
                                     ),
-                                    crate::job_negotiator::JobNegotiator::on_set_new_prev_hash(&jd, m),
+                                    crate::job_declarator::JobDeclarator::on_set_new_prev_hash(&jd, m),
                                 );
                                     res_down.unwrap();
                                 }

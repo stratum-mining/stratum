@@ -19,7 +19,7 @@ use roles_logic_sv2::{
         common::{ParseUpstreamCommonMessages, SendTo as SendToCommon},
         mining::{ParseUpstreamMiningMessages, SendTo},
     },
-    job_negotiation_sv2::CommitMiningJob,
+    job_declaration_sv2::CommitMiningJob,
     mining_sv2::{ExtendedExtranonce, Extranonce, SetCustomMiningJob},
     parsers::{Mining, MiningDeviceMessages, PoolMessages},
     routing_logic::{CommonRoutingLogic, MiningRoutingLogic, NoRouting},

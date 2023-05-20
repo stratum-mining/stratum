@@ -9,7 +9,7 @@ use binary_sv2::{Deserialize, Seq064K, Serialize, Str0255, B016M, B064K};
 use core::convert::TryInto;
 
 /// ## RequestTransactionData (Client -> Server)
-/// A request sent by the Job Negotiator to the Template Provider which requests the set of
+/// A request sent by the Job Declarator to the Template Provider which requests the set of
 /// transaction data for all transactions (excluding the coinbase transaction) included in a block, as
 /// well as any additional data which may be required by the Pool to validate the work.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Copy)]
@@ -22,7 +22,7 @@ pub struct RequestTransactionData {
 /// ## RequestTransactionData.Success (Server->Client)
 /// A response to [`RequestTransactionData`] which contains the set of full transaction data and
 /// excess data required for validation. For practical purposes, the excess data is usually the
-/// SegWit commitment, however the Job Negotiator MUST NOT parse or interpret the excess data
+/// SegWit commitment, however the Job Declarator MUST NOT parse or interpret the excess data
 /// in any way. Note that the transaction data MUST be treated as opaque blobs and MUST include
 /// any SegWit or other data which the Pool may require to verify the transaction. For practical
 /// purposes, the transaction data is likely the witness-encoded transaction today. However, to
@@ -44,7 +44,7 @@ pub struct RequestTransactionData {
 /// scheme, the format of the opaque data in RequestTransactionData.Success messages MAY be
 /// changed in non-compatible ways at the time a fork activates, given sufficient time from
 /// code-release to activation (as any sane fork would have to have) and there being some
-/// in-Template Negotiation Protocol signaling of support for the new fork (e.g. for soft-forks
+/// in-Template Declaration Protocol signaling of support for the new fork (e.g. for soft-forks
 /// activated using [BIP 9]).
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct RequestTransactionDataSuccess<'decoder> {

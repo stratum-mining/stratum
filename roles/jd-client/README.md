@@ -1,7 +1,7 @@
-# JN Client
-The JN Client is a Sv2 proxy that support one extended channel upstream and one extended channel
-dowstream, and do job negotiation. On start it will:
-* connect to the jn-server
+# JD Client
+The JD Client is a Sv2 proxy that support one extended channel upstream and one extended channel
+dowstream, and do job declaration. On start it will:
+* connect to the jd-server
 * connect to the template-provider
 * listen for and `OpenExtendedChannel` from downstream
 * transparently relay the `OpenExtendedChannel` to upstream 
@@ -18,7 +18,7 @@ The configuration file contains the following information:
    (`upstream_authority_pubkey`) and the SV2 Pool connection address (`upstream_address`) and port
    (`upstream_port`).
 1. The maximum and minimum SV2 versions (`max_supported_version` and `min_supported_version`)
-1. The Job Negotiator information which includes the Pool JN connection address (`jn_address`) and the Template Provider connection address to which to connect (`tp_address`).
+1. The Job Declarator information which includes the Pool JD connection address (`jd_address`) and the Template Provider connection address to which to connect (`tp_address`).
 
 ### Run
 1. Copy the `proxy-config-example.toml` into `conf/` directory.
