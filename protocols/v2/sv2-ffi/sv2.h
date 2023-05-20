@@ -233,12 +233,12 @@ void _c_export_cvec2(CVec2 _a);
 #include <new>
 
 /// MiningProtocol = [`SV2_MINING_PROTOCOL_DISCRIMINANT`],
-/// JobNegotiationProtocol = [`SV2_JOB_NEG_PROTOCOL_DISCRIMINANT`],
+/// JobDeclarationProtocol = [`SV2_JOB_NEG_PROTOCOL_DISCRIMINANT`],
 /// TemplateDistributionProtocol = [`SV2_TEMPLATE_DISTR_PROTOCOL_DISCRIMINANT`],
 /// JobDistributionProtocol = [`SV2_JOB_DISTR_PROTOCOL_DISCRIMINANT`],
 enum class Protocol : uint8_t {
   MiningProtocol = SV2_MINING_PROTOCOL_DISCRIMINANT,
-  JobNegotiationProtocol = SV2_JOB_NEG_PROTOCOL_DISCRIMINANT,
+  JobDeclarationProtocol = SV2_JOB_NEG_PROTOCOL_DISCRIMINANT,
   TemplateDistributionProtocol = SV2_TEMPLATE_DISTR_PROTOCOL_DISCRIMINANT,
   JobDistributionProtocol = SV2_JOB_DISTR_PROTOCOL_DISCRIMINANT,
 };

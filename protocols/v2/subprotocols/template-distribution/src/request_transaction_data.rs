@@ -44,7 +44,7 @@ pub struct RequestTransactionData {
 /// scheme, the format of the opaque data in RequestTransactionData.Success messages MAY be
 /// changed in non-compatible ways at the time a fork activates, given sufficient time from
 /// code-release to activation (as any sane fork would have to have) and there being some
-/// in-Template Negotiation Protocol signaling of support for the new fork (e.g. for soft-forks
+/// in-Template Declaration Protocol signaling of support for the new fork (e.g. for soft-forks
 /// activated using [BIP 9]).
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct RequestTransactionDataSuccess<'decoder> {

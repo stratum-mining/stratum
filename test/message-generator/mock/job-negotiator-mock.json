@@ -1,7 +1,7 @@
 {
     "doc": [
         "This test does",
-        "Soft mock of JN",
+        "Soft mock of JD",
         "Sends SetupConnection to the pool and waits for .Success",
         "Waits that SetCoinbase is received",
         "Waits that one more SetCoinbase is received"
@@ -9,12 +9,12 @@
     "frame_builders": [
         {
             "type": "automatic",
-            "message_id": "test/message-generator/messages/common_messages.json::setup_connection_job_negotiator"
+            "message_id": "test/message-generator/messages/common_messages.json::setup_connection_job_declarator"
         }
     ],
     "actions": [
        {
-            "message_ids": ["setup_connection_job_negotiator"],
+            "message_ids": ["setup_connection_job_declarator"],
             "role": "client",
             "results": [
                 {

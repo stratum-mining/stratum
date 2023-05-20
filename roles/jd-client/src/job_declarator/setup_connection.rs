@@ -26,7 +26,7 @@ impl SetupConnectionHandler {
         let firmware = String::new().try_into().unwrap();
         let device_id = String::new().try_into().unwrap();
         let mut setup_connection = SetupConnection {
-            protocol: Protocol::JobNegotiationProtocol,
+            protocol: Protocol::JobDeclarationProtocol,
             min_version: 2,
             max_version: 2,
             flags: 0b0000_0000_0000_0000_0000_0000_0000_0000,

@@ -10,7 +10,6 @@ use roles_logic_sv2::{
     utils::Mutex,
 };
 use std::{collections::HashMap, convert::TryInto, str::FromStr};
-use tokio::task::AbortHandle;
 use tracing::info;
 
 use async_recursion::async_recursion;
@@ -47,7 +46,6 @@ pub struct JobDeclarator {
     last_set_new_prev_hash: Option<SetNewPrevHash<'static>>,
     future_jobs: HashMap<u64, CommitMiningJob<'static>>,
     up: Arc<Mutex<Upstream>>,
-    task_collector: Arc<Mutex<Vec<AbortHandle>>>,
 }
 
 impl JobDeclarator {
@@ -56,7 +54,6 @@ impl JobDeclarator {
         authority_public_key: [u8; 32],
         config: ProxyConfig,
         up: Arc<Mutex<Upstream>>,
-        task_collector: Arc<Mutex<Vec<AbortHandle>>>,
     ) -> Arc<Mutex<Self>> {
         let stream = tokio::net::TcpStream::connect(address).await.unwrap();
         let initiator = Initiator::from_raw_k(authority_public_key).unwrap();
@@ -91,7 +88,6 @@ impl JobDeclarator {
             last_set_new_prev_hash: None,
             future_jobs: HashMap::new(),
             up,
-            task_collector,
         }));
 
         Self::allocate_tokens(&self_, 2).await;
@@ -118,38 +114,20 @@ impl JobDeclarator {
         match token_len {
             0 => {
                 {
-                    let task = {
-                        let self_mutex = self_mutex.clone();
-                        tokio::task::spawn(async move {
-                            Self::allocate_tokens(&self_mutex, 2).await;
-                        })
-                    };
-                    self_mutex
-                        .safe_lock(|s| {
-                            s.task_collector
-                                .safe_lock(|c| c.push(task.abort_handle()))
-                                .unwrap()
-                        })
-                        .unwrap();
+                    let self_mutex = self_mutex.clone();
+                    tokio::task::spawn(async move {
+                        Self::allocate_tokens(&self_mutex, 2).await;
+                    });
                 }
                 tokio::task::yield_now().await;
                 Self::get_last_token(self_mutex).await
             }
             1 => {
                 {
-                    let task = {
-                        let self_mutex = self_mutex.clone();
-                        tokio::task::spawn(async move {
-                            Self::allocate_tokens(&self_mutex, 1).await;
-                        })
-                    };
-                    self_mutex
-                        .safe_lock(|s| {
-                            s.task_collector
-                                .safe_lock(|c| c.push(task.abort_handle()))
-                                .unwrap()
-                        })
-                        .unwrap();
+                    let self_mutex = self_mutex.clone();
+                    tokio::task::spawn(async move {
+                        Self::allocate_tokens(&self_mutex, 1).await;
+                    });
                 }
                 self_mutex
                     .safe_lock(|s| s.allocated_tokens.pop())
@@ -210,57 +188,47 @@ impl JobDeclarator {
 
     pub fn on_upstream_message(self_mutex: Arc<Mutex<Self>>) {
         let up = self_mutex.safe_lock(|s| s.up.clone()).unwrap();
-        let main_task = {
-            let self_mutex = self_mutex.clone();
-            tokio::task::spawn(async move {
-                let receiver = self_mutex.safe_lock(|d| d.receiver.clone()).unwrap();
-                loop {
-                    let mut incoming: StdFrame = receiver.recv().await.unwrap().try_into().unwrap();
-                    let message_type = incoming.get_header().unwrap().msg_type();
-                    let payload = incoming.payload();
+        tokio::task::spawn(async move {
+            let receiver = self_mutex.safe_lock(|d| d.receiver.clone()).unwrap();
+            loop {
+                let mut incoming: StdFrame = receiver.recv().await.unwrap().try_into().unwrap();
+                let message_type = incoming.get_header().unwrap().msg_type();
+                let payload = incoming.payload();
 
-                    let next_message_to_send =
-                        ParseServerJobDeclarationMessages::handle_message_job_declaration(
-                            self_mutex.clone(),
-                            message_type,
-                            payload,
-                        );
-                    match next_message_to_send {
-                        Ok(SendTo::None(Some(JobDeclaration::CommitMiningJobSuccess(m)))) => {
-                            let new_token = m.new_mining_job_token;
-                            let (mut last_commit_mining_job_sent, is_future, id) =
-                                Self::get_last_commit_job_sent(&self_mutex);
-                            if is_future {
-                                last_commit_mining_job_sent.mining_job_token = new_token;
-                                self_mutex
-                                    .safe_lock(|s| {
-                                        s.future_jobs.insert(id, last_commit_mining_job_sent)
-                                    })
-                                    .unwrap();
-                            } else {
-                                let set_new_prev_hash = self_mutex
-                                    .safe_lock(|s| s.last_set_new_prev_hash.clone())
-                                    .unwrap();
-                                match set_new_prev_hash {
-                                    Some(p) => Upstream::set_custom_jobs(&up, last_commit_mining_job_sent, p, Some(new_token)).await.unwrap(),
-                                    None => panic!("Invalid state we received a NewTemplate not future, without having received a set new prev hash")
-                                }
+                let next_message_to_send =
+                    ParseServerJobDeclarationMessages::handle_message_job_declaration(
+                        self_mutex.clone(),
+                        message_type,
+                        payload,
+                    );
+                match next_message_to_send {
+                    Ok(SendTo::None(Some(JobDeclaration::CommitMiningJobSuccess(m)))) => {
+                        let new_token = m.new_mining_job_token;
+                        let (mut last_commit_mining_job_sent, is_future, id) =
+                            Self::get_last_commit_job_sent(&self_mutex);
+                        if is_future {
+                            last_commit_mining_job_sent.mining_job_token = new_token;
+                            self_mutex
+                                .safe_lock(|s| {
+                                    s.future_jobs.insert(id, last_commit_mining_job_sent)
+                                })
+                                .unwrap();
+                        } else {
+                            let set_new_prev_hash = self_mutex
+                                .safe_lock(|s| s.last_set_new_prev_hash.clone())
+                                .unwrap();
+                            match set_new_prev_hash {
+                                Some(p) => Upstream::set_custom_jobs(&up, last_commit_mining_job_sent, p, Some(new_token)).await.unwrap(),
+                                None => panic!("Invalid state we received a NewTemplate not future, without having received a set new prev hash")
                             }
                         }
-                        Ok(SendTo::None(None)) => (),
-                        Ok(_) => unreachable!(),
-                        Err(_) => todo!(),
                     }
+                    Ok(SendTo::None(None)) => (),
+                    Ok(_) => unreachable!(),
+                    Err(_) => todo!(),
                 }
-            })
-        };
-        self_mutex
-            .safe_lock(|s| {
-                s.task_collector
-                    .safe_lock(|c| c.push(main_task.abort_handle()))
-                    .unwrap()
-            })
-            .unwrap();
+            }
+        });
     }
 
     pub async fn on_set_new_prev_hash(

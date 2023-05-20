@@ -54,7 +54,7 @@
                 "WithConditions": {
                     "conditions": [
                         {
-                            "output_string": "JN INITIALIZED",
+                            "output_string": "JD INITIALIZED",
                             "output_location": "StdOut",
                             "condition": true
                         }
