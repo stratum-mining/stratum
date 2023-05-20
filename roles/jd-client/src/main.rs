@@ -289,6 +289,7 @@ async fn initialize_jd(
             .to_owned(),
         proxy_config.clone(),
         upstream,
+        task_collector.clone(),
     )
     .await;
     TemplateRx::connect(

@@ -310,7 +310,7 @@ void free_setup_connection_error(CSetupConnectionError s);
 /// Thus, this message is used to indicate that some additional space in the block/coinbase
 /// transaction be reserved for the pool’s use (while always assuming the pool will use the entirety
 /// of available coinbase space).
-/// The Job Negotiator MUST discover the maximum serialized size of the additional outputs which
+/// The Job Declarator MUST discover the maximum serialized size of the additional outputs which
 /// will be added by the pool(s) it intends to use this work. It then MUST communicate the
 /// maximum such size to the Template Provider via this message. The Template Provider MUST
 /// NOT provide NewWork messages which would represent consensus-invalid blocks once this
@@ -324,7 +324,7 @@ struct CoinbaseOutputDataSize {
 };
 
 /// ## RequestTransactionData (Client -> Server)
-/// A request sent by the Job Negotiator to the Template Provider which requests the set of
+/// A request sent by the Job Declarator to the Template Provider which requests the set of
 /// transaction data for all transactions (excluding the coinbase transaction) included in a block, as
 /// well as any additional data which may be required by the Pool to validate the work.
 struct RequestTransactionData {
