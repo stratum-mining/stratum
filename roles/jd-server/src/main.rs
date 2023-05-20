@@ -1,5 +1,5 @@
 #![allow(special_module_name)]
-use async_channel::{bounded, unbounded};
+use async_channel::unbounded;
 use codec_sv2::{
     noise_sv2::formats::{EncodedEd25519PublicKey, EncodedEd25519SecretKey},
     StandardEitherFrame, StandardSv2Frame,
@@ -16,15 +16,13 @@ mod error;
 mod lib;
 mod status;
 
-use lib::{mining_pool::Pool, template_receiver::TemplateRx};
+use lib::template_receiver::TemplateRx;
 
 pub type Message = PoolMessages<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;
 pub type EitherFrame = StandardEitherFrame<Message>;
 
 const BLOCK_REWARD: u64 = 5_000_000_000;
-
-//const COINBASE_ADD_SZIE: u32 = 100;
 
 pub fn get_coinbase_output(config: &Configuration) -> Vec<TxOut> {
     config
@@ -41,9 +39,9 @@ pub fn get_coinbase_output(config: &Configuration) -> Vec<TxOut> {
         .collect()
 }
 
-use tokio::select;
+use tokio::{select, task};
 
-use crate::status::Status;
+use crate::{lib::job_declarator::JobDeclarator, status::Status};
 
 /// used to deserialize a string repesentation of an uncompressed secp256k1
 /// public key from the pool-config.toml
@@ -90,6 +88,7 @@ impl<'de> Deserialize<'de> for PublicKeyWrapper {
 pub struct Configuration {
     pub listen_address: String,
     pub tp_address: String,
+    pub listen_jn_address: String,
     pub authority_public_key: EncodedEd25519PublicKey,
     pub authority_secret_key: EncodedEd25519SecretKey,
     pub cert_validity_sec: u64,
@@ -119,7 +118,7 @@ mod args {
     }
 
     impl Args {
-        const DEFAULT_CONFIG_PATH: &'static str = "pool-config.toml";
+        const DEFAULT_CONFIG_PATH: &'static str = "jds-config.toml";
 
         pub fn from_args() -> Result<Self, String> {
             let cli_args = std::env::args();
@@ -185,19 +184,11 @@ async fn main() {
     };
 
     let (status_tx, status_rx) = unbounded();
-    let (s_new_t, r_new_t) = bounded(10);
-    let (s_prev_hash, r_prev_hash) = bounded(10);
-    let (s_solution, r_solution) = bounded(10);
-    let (s_message_recv_signal, r_message_recv_signal) = bounded(10);
     info!("Pool INITIALIZING with config: {:?}", &args.config_path);
     let coinbase_output_len = get_coinbase_output(&config).len() as u32;
 
     let template_rx_res = TemplateRx::connect(
         config.tp_address.parse().unwrap(),
-        s_new_t,
-        s_prev_hash,
-        r_solution,
-        r_message_recv_signal,
         status::Sender::Upstream(status_tx.clone()),
         coinbase_output_len,
     )
@@ -207,14 +198,9 @@ async fn main() {
         return;
     }
 
-    let pool = Pool::start(
-        config.clone(),
-        r_new_t,
-        r_prev_hash,
-        s_solution,
-        s_message_recv_signal,
-        status::Sender::DownstreamListener(status_tx),
-    );
+    let cloned = config.clone();
+    let sender = status::Sender::Downstream(status_tx.clone());
+    task::spawn(async move { JobDeclarator::start(cloned, sender).await });
 
     // Start the error handling loop
     // See `./status.rs` and `utils/error_handling` for information on how this operates
@@ -254,12 +240,7 @@ async fn main() {
             }
             status::State::DownstreamInstanceDropped(downstream_id) => {
                 warn!("Dropping downstream instance {} from pool", downstream_id);
-                if pool
-                    .safe_lock(|p| p.remove_downstream(downstream_id))
-                    .is_err()
-                {
-                    break;
-                }
+                todo!()
             }
         }
     }

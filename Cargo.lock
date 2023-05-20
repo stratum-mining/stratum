@@ -1062,6 +1062,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "jd_server"
+version = "0.1.0"
+dependencies = [
+ "async-channel",
+ "async-recursion 1.0.4",
+ "binary_sv2",
+ "bitcoin",
+ "buffer_sv2",
+ "codec_sv2",
+ "const_sv2",
+ "error_handling",
+ "hex",
+ "network_helpers",
+ "noise_sv2",
+ "rand 0.8.5",
+ "roles_logic_sv2",
+ "serde",
+ "tokio",
+ "toml",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "job_negotiation_sv2"
 version = "0.1.0"
 dependencies = [

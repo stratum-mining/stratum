@@ -45,6 +45,32 @@
                         "--no-report",
                         "run",
                         "-p",
+                        "jd_server",
+                        "--",
+                        "-c",
+                        "./test/config/interop-jd-translator/jds-config.toml"
+            ],
+            "conditions": {
+                "WithConditions": {
+                    "conditions": [
+                        {
+                            "output_string": "JN INITIALIZED",
+                            "output_location": "StdOut",
+                            "condition": true
+                        }
+                    ],
+                    "timer_secs": 240,
+                    "warn_no_panic": false
+                }
+            }
+        },
+        {
+            "command": "cargo",
+            "args": [
+                        "llvm-cov",
+                        "--no-report",
+                        "run",
+                        "-p",
                         "jd_client",
                         "--",
                         "-c",
