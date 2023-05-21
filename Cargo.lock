@@ -1127,6 +1127,7 @@ dependencies = [
  "buffer_sv2",
  "codec_sv2",
  "const_sv2",
+ "ed25519-dalek",
  "error_handling",
  "hex",
  "network_helpers",

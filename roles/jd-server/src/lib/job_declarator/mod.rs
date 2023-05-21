@@ -1,9 +1,11 @@
 use crate::{error::PoolError, Configuration, EitherFrame, StdFrame};
 use async_channel::{Receiver, Sender};
-use binary_sv2::B0255;
+use binary_sv2::{Seq0255, B0255, U256};
 use bitcoin::consensus::Encodable;
 use codec_sv2::{Frame, HandshakeRole, Responder};
+use ed25519_dalek::{Keypair, PublicKey, Signature, SignatureError, Signer, Verifier};
 use error_handling::handle_result;
+use hex;
 use network_helpers::noise_connection_tokio::Connection;
 use roles_logic_sv2::{
     common_messages_sv2::SetupConnectionSuccess,
@@ -12,9 +14,9 @@ use roles_logic_sv2::{
     parsers::{JobDeclaration, PoolMessages},
     utils::Mutex,
 };
-use std::{convert::TryInto, sync::Arc};
+use std::{convert::TryInto, str, sync::Arc};
 use tokio::net::TcpListener;
-use tracing::info;
+use tracing::{debug, info};
 
 #[derive(Debug)]
 pub struct JobDeclaratorDownstream {
@@ -107,7 +109,7 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
     ) -> Result<roles_logic_sv2::handlers::job_declaration::SendTo, roles_logic_sv2::Error> {
         let res = JobDeclaration::CommitMiningJobSuccess(CommitMiningJobSuccess {
             request_id: message.request_id,
-            new_mining_job_token: message.mining_job_token.into_static().clone(),
+            new_mining_job_token: signed_token(message.merkle_path),
         });
         Ok(SendTo::Respond(res))
     }
@@ -116,6 +118,77 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
 fn get_random_token() -> B0255<'static> {
     let inner: [u8; 32] = rand::random();
     inner.to_vec().try_into().unwrap()
+}
+
+pub fn signed_token(merkle_path: Seq0255<U256>) -> B0255<'static> {
+    // secret and public keys
+    let secret_key_hex = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+    let public_key_hex = "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210";
+
+    // Convert the hexadecimal strings to byte arrays
+    let secret_key_bytes = hex::decode(secret_key_hex).expect("Failed to decode secret key hex");
+    let public_key_bytes = hex::decode(public_key_hex).expect("Failed to decode public key hex");
+
+    // Create the SecretKey and PublicKey instances
+    let secret_key =
+        ed25519_dalek::SecretKey::from_bytes(&secret_key_bytes).expect("Invalid public key bytes");
+    let public_key = PublicKey::from_bytes(&public_key_bytes).expect("Invalid public key bytes");
+
+    let keypair: Keypair = Keypair {
+        secret: secret_key,
+        public: public_key,
+    };
+
+    let message: Vec<u8> =
+        merkle_path
+            .to_vec()
+            .iter()
+            .map(|v| v.to_vec())
+            .fold(vec![], |mut acc, bs| {
+                for b in bs {
+                    acc.push(b)
+                }
+                acc
+            });
+
+    // Sign message
+    let signature: Signature = keypair.sign(&message);
+    println!("signature is: {:?}", signature);
+    signature.to_bytes().to_vec().try_into().unwrap()
+}
+#[allow(dead_code)]
+pub fn verify_token(
+    merkle_path: Seq0255<U256>,
+    signature: Signature,
+) -> Result<(), SignatureError> {
+    // public key
+    let public_key_hex = "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210";
+
+    // Convert the hexadecimal strings to byte arrays
+    let public_key_bytes = hex::decode(public_key_hex).expect("Failed to decode public key hex");
+
+    // Create PublicKey instance
+    let public_key = PublicKey::from_bytes(&public_key_bytes).expect("Invalid public key bytes");
+
+    let message: Vec<u8> =
+        merkle_path
+            .to_vec()
+            .iter()
+            .map(|v| v.to_vec())
+            .fold(vec![], |mut acc, bs| {
+                for b in bs {
+                    acc.push(b)
+                }
+                acc
+            });
+
+    // Verify signature
+    let is_verified = public_key.verify(&message, &signature);
+
+    // debug
+    debug!("Message: {}", str::from_utf8(&message).unwrap());
+    debug!("Verified signature {:?}", is_verified);
+    is_verified
 }
 
 pub struct JobDeclarator {
