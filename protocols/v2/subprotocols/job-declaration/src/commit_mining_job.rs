@@ -6,7 +6,7 @@ use binary_sv2::{Deserialize, Seq0255, Seq064K, Serialize, ShortTxId, B0255, B06
 use core::convert::TryInto;
 
 /// ## CommitMiningJob (Client -> Server)
-/// A request sent by the Job Negotiator that proposes a selected set of transactions to the upstream (pool) node.
+/// A request sent by the Job Declarator that proposes a selected set of transactions to the upstream (pool) node.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[repr(C)]
 pub struct CommitMiningJob<'decoder> {

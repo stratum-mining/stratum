@@ -125,7 +125,7 @@ stratum
   │       └─ roles-logic-sv2
   │       └─ subprotocols
   │       │   └─ common-messages
-  │       │   └─ job-negotiation
+  │       │   └─ job-declaration
   │       │   └─ mining
   │       │   └─ template-distribution
   │       └─ sv2-ffi
@@ -252,7 +252,7 @@ For a noise decoder, it returns a `Sv2Frame`, which can be composed of several `
 
 ### 3.08 protocols/v2/subprotocols
 
-`subprotocols` has four crates (`common-messages`, `job-negotiation`, `mining`, and
+`subprotocols` has four crates (`common-messages`, `job-declaration`, `mining`, and
 `template-distribution`) which are the Rust translation of the messages defined by each Sv2
 (sub)protocol. They all have the same internal/external dependencies.
 
@@ -324,7 +324,7 @@ The user is required to use a safe `Mutex` defined in `messages_sv2::utils::Mute
 - `subprotocols/common_messages_sv2`
 - `subprotocols/mining_sv2`
 - `subprotocols/template_distribution_sv2`
-- `subprotocols/job_negotiation_sv2`
+- `subprotocols/job_declaration_sv2`
 
 ### 3.12 utils/buffer
 

@@ -46,7 +46,7 @@
                 "firmware": "",
                 "device_id": ""
             },
-            "id": "setup_connection_job_negotiator"
+            "id": "setup_connection_job_declarator"
         },
         {
             "message": {

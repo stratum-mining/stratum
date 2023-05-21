@@ -1,14 +1,14 @@
 mod args;
 mod downstream;
 mod error;
-mod job_negotiator;
+mod job_declarator;
 mod proxy_config;
 mod status;
 mod template_receiver;
 mod upstream_sv2;
 use args::Args;
 use error::{Error, ProxyResult};
-use job_negotiator::JobNegotiator;
+use job_declarator::JobDeclarator;
 use proxy_config::ProxyConfig;
 use roles_logic_sv2::utils::Mutex;
 use template_receiver::TemplateRx;
@@ -272,15 +272,15 @@ async fn initialize_jd(
     .unwrap();
 
     // Initialize JD part
-    let jn_config = proxy_config.jn_config.clone();
-    let mut parts = jn_config.tp_address.split(':');
+    let jd_config = proxy_config.jd_config.clone();
+    let mut parts = jd_config.tp_address.split(':');
     let ip_tp = parts.next().unwrap().to_string();
     let port_tp = parts.next().unwrap().parse::<u16>().unwrap();
-    let mut parts = jn_config.jn_address.split(':');
-    let ip_jn = parts.next().unwrap().to_string();
-    let port_jn = parts.next().unwrap().parse::<u16>().unwrap();
-    let jd = JobNegotiator::new(
-        SocketAddr::new(IpAddr::from_str(ip_jn.as_str()).unwrap(), port_jn),
+    let mut parts = jd_config.jd_address.split(':');
+    let ip_jd = parts.next().unwrap().to_string();
+    let port_jd = parts.next().unwrap().parse::<u16>().unwrap();
+    let jd = JobDeclarator::new(
+        SocketAddr::new(IpAddr::from_str(ip_jd.as_str()).unwrap(), port_jd),
         proxy_config
             .upstream_authority_pubkey
             .clone()

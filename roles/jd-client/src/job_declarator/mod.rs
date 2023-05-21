@@ -4,8 +4,8 @@ use codec_sv2::{HandshakeRole, Initiator, StandardEitherFrame, StandardSv2Frame}
 use network_helpers::noise_connection_tokio::Connection;
 use roles_logic_sv2::{
     handlers::SendTo_,
-    job_negotiation_sv2::AllocateMiningJobTokenSuccess,
-    parsers::{JobNegotiation, PoolMessages},
+    job_declaration_sv2::AllocateMiningJobTokenSuccess,
+    parsers::{JobDeclaration, PoolMessages},
     template_distribution_sv2::SetNewPrevHash,
     utils::Mutex,
 };
@@ -16,8 +16,8 @@ use tracing::info;
 use async_recursion::async_recursion;
 use codec_sv2::Frame;
 use roles_logic_sv2::{
-    handlers::job_negotiation::ParseServerJobNegotiationMessages,
-    job_negotiation_sv2::{AllocateMiningJobToken, CommitMiningJob},
+    handlers::job_declaration::ParseServerJobDeclarationMessages,
+    job_declaration_sv2::{AllocateMiningJobToken, CommitMiningJob},
     template_distribution_sv2::NewTemplate,
     utils::Id,
 };
@@ -27,7 +27,7 @@ use std::{
 };
 
 pub type Message = PoolMessages<'static>;
-pub type SendTo = SendTo_<JobNegotiation<'static>, ()>;
+pub type SendTo = SendTo_<JobDeclaration<'static>, ()>;
 pub type EitherFrame = StandardEitherFrame<PoolMessages<'static>>;
 pub type StdFrame = StandardSv2Frame<Message>;
 
@@ -36,7 +36,7 @@ use setup_connection::SetupConnectionHandler;
 
 use crate::{proxy_config::ProxyConfig, upstream_sv2::Upstream};
 
-pub struct JobNegotiator {
+pub struct JobDeclarator {
     receiver: Receiver<StandardEitherFrame<PoolMessages<'static>>>,
     sender: Sender<StandardEitherFrame<PoolMessages<'static>>>,
     allocated_tokens: Vec<AllocateMiningJobTokenSuccess<'static>>,
@@ -50,7 +50,7 @@ pub struct JobNegotiator {
     task_collector: Arc<Mutex<Vec<AbortHandle>>>,
 }
 
-impl JobNegotiator {
+impl JobDeclarator {
     pub async fn new(
         address: SocketAddr,
         authority_public_key: [u8; 32],
@@ -69,7 +69,7 @@ impl JobNegotiator {
         );
 
         info!(
-            "JN proxy: setupconnection Proxy address: {:?}",
+            "JD proxy: setupconnection Proxy address: {:?}",
             proxy_address
         );
 
@@ -77,11 +77,11 @@ impl JobNegotiator {
             .await
             .unwrap();
 
-        info!("JN CONNECTED");
+        info!("JD CONNECTED");
 
         let min_extranonce_size = config.min_extranonce2_size;
 
-        let self_ = Arc::new(Mutex::new(JobNegotiator {
+        let self_ = Arc::new(Mutex::new(JobDeclarator {
             receiver,
             sender,
             allocated_tokens: vec![],
@@ -202,7 +202,7 @@ impl JobNegotiator {
             })
             .unwrap();
         let frame: StdFrame =
-            PoolMessages::JobNegotiation(JobNegotiation::CommitMiningJob(commit_job))
+            PoolMessages::JobDeclaration(JobDeclaration::CommitMiningJob(commit_job))
                 .try_into()
                 .unwrap();
         sender.send(frame.into()).await.unwrap();
@@ -220,13 +220,13 @@ impl JobNegotiator {
                     let payload = incoming.payload();
 
                     let next_message_to_send =
-                        ParseServerJobNegotiationMessages::handle_message_job_negotiation(
+                        ParseServerJobDeclarationMessages::handle_message_job_declaration(
                             self_mutex.clone(),
                             message_type,
                             payload,
                         );
                     match next_message_to_send {
-                        Ok(SendTo::None(Some(JobNegotiation::CommitMiningJobSuccess(m)))) => {
+                        Ok(SendTo::None(Some(JobDeclaration::CommitMiningJobSuccess(m)))) => {
                             let new_token = m.new_mining_job_token;
                             let (mut last_commit_mining_job_sent, is_future, id) =
                                 Self::get_last_commit_job_sent(&self_mutex);
@@ -289,13 +289,13 @@ impl JobNegotiator {
 
     async fn allocate_tokens(self_mutex: &Arc<Mutex<Self>>, token_to_allocate: u32) {
         for i in 0..token_to_allocate {
-            let message = JobNegotiation::AllocateMiningJobToken(AllocateMiningJobToken {
+            let message = JobDeclaration::AllocateMiningJobToken(AllocateMiningJobToken {
                 user_identifier: "todo".to_string().try_into().unwrap(),
                 request_id: i,
             });
             let sender = self_mutex.safe_lock(|s| s.sender.clone()).unwrap();
             // Safe unwrap message is build above and is valid, below can never panic
-            let frame: StdFrame = PoolMessages::JobNegotiation(message).try_into().unwrap();
+            let frame: StdFrame = PoolMessages::JobDeclaration(message).try_into().unwrap();
             // TODO join re
             sender.send(frame.into()).await.unwrap();
         }

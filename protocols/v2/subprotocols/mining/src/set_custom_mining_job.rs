@@ -9,9 +9,9 @@ use core::convert::TryInto;
 ///
 /// Can be sent only on extended channel. SetupConnection.flags MUST contain
 /// *REQUIRES_WORK_SELECTION* flag (work selection feature successfully negotiated).
-/// The downstream node has a custom job negotiated by a trusted external Job Negotiator. The
+/// The downstream node has a custom job negotiated by a trusted external Job Declarator. The
 /// mining_job_token provides the information for the pool to authorize the custom job that has
-/// been or will be negotiated between the Job Negotiator and Pool.
+/// been or will be negotiated between the Job Declarator and Pool.
 ///
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SetCustomMiningJob<'decoder> {

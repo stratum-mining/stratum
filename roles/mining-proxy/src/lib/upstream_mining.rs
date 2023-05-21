@@ -797,7 +797,7 @@ impl UpstreamMiningNode {
                     }
                 }
                 // When we have a ShareMeetBitcoinTarget it means that the proxy know the bitcoin
-                // target that means that the proxy must have JN capabilities that means that the
+                // target that means that the proxy must have JD capabilities that means that the
                 // second tuple elements can not be None but must be Some(template_id)
                 OnNewShare::ShareMeetBitcoinTarget(..) => unreachable!(),
                 OnNewShare::ShareMeetDownstreamTarget => {

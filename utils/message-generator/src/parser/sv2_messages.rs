@@ -57,7 +57,7 @@ pub struct TestMessageParser<'a> {
     #[serde(borrow)]
     common_messages: Option<Vec<CommonMessage<'a>>>,
     #[serde(borrow)]
-    job_negotiation_messages: Option<Vec<JobNegotiationMessage<'a>>>,
+    job_declaration_messages: Option<Vec<JobDeclarationMessage<'a>>>,
     #[serde(borrow)]
     mining_messages: Option<Vec<MiningMessage<'a>>>,
     #[serde(borrow)]
@@ -83,9 +83,9 @@ struct CommonMessage<'a> {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct JobNegotiationMessage<'a> {
+struct JobDeclarationMessage<'a> {
     #[serde(borrow)]
-    message: JobNegotiation<'a>,
+    message: JobDeclaration<'a>,
     id: String,
 }
 
@@ -113,11 +113,11 @@ impl<'a> TestMessageParser<'a> {
                 map.insert(id, message);
             }
         };
-        if let Some(job_negotiation_messages) = self.job_negotiation_messages {
-            for message in job_negotiation_messages {
+        if let Some(job_declaration_messages) = self.job_declaration_messages {
+            for message in job_declaration_messages {
                 let id = message.id;
                 let message = message.message.into();
-                let message = AnyMessage::JobNegotiation(message);
+                let message = AnyMessage::JobDeclaration(message);
                 map.insert(id, message);
             }
         };
@@ -247,7 +247,7 @@ mod test {
 }
 use roles_logic_sv2::{
     common_messages_sv2::*,
-    job_negotiation_sv2::*,
+    job_declaration_sv2::*,
     mining_sv2::*,
     template_distribution_sv2::{
         CoinbaseOutputDataSize, NewTemplate, RequestTransactionData, RequestTransactionDataError,
@@ -314,7 +314,7 @@ impl<'a> From<TemplateDistribution<'a>> for roles_logic_sv2::parsers::TemplateDi
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "type")]
-pub enum JobNegotiation<'a> {
+pub enum JobDeclaration<'a> {
     #[serde(borrow)]
     AllocateMiningJobTokenSuccess(AllocateMiningJobTokenSuccess<'a>),
     #[serde(borrow)]
@@ -325,15 +325,15 @@ pub enum JobNegotiation<'a> {
     CommitMiningJobSuccess(CommitMiningJobSuccess<'a>),
 }
 
-impl<'a> From<JobNegotiation<'a>> for roles_logic_sv2::parsers::JobNegotiation<'a> {
-    fn from(v: JobNegotiation<'a>) -> Self {
+impl<'a> From<JobDeclaration<'a>> for roles_logic_sv2::parsers::JobDeclaration<'a> {
+    fn from(v: JobDeclaration<'a>) -> Self {
         match v {
-            JobNegotiation::AllocateMiningJobTokenSuccess(m) => {
+            JobDeclaration::AllocateMiningJobTokenSuccess(m) => {
                 Self::AllocateMiningJobTokenSuccess(m)
             }
-            JobNegotiation::AllocateMiningJobToken(m) => Self::AllocateMiningJobToken(m),
-            JobNegotiation::CommitMiningJobSuccess(m) => Self::CommitMiningJobSuccess(m),
-            JobNegotiation::CommitMiningJob(m) => Self::CommitMiningJob(m),
+            JobDeclaration::AllocateMiningJobToken(m) => Self::AllocateMiningJobToken(m),
+            JobDeclaration::CommitMiningJobSuccess(m) => Self::CommitMiningJobSuccess(m),
+            JobDeclaration::CommitMiningJob(m) => Self::CommitMiningJob(m),
         }
     }
 }

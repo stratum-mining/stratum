@@ -14,13 +14,13 @@ pub struct ProxyConfig {
     pub withhold: bool,
     pub authority_public_key: EncodedEd25519PublicKey,
     pub authority_secret_key: EncodedEd25519SecretKey,
-    pub jn_config: JnConfig,
+    pub jd_config: JdConfig,
     pub cert_validity_sec: u64,
     pub retry: u32,
 }
 
 #[derive(Debug, Deserialize, Clone)]
-pub struct JnConfig {
-    pub jn_address: String,
+pub struct JdConfig {
+    pub jd_address: String,
     pub tp_address: String,
 }

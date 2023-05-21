@@ -1,27 +1,27 @@
-use crate::{parsers::JobNegotiation, utils::Mutex};
+use crate::{parsers::JobDeclaration, utils::Mutex};
 use std::sync::Arc;
-pub type SendTo = SendTo_<JobNegotiation<'static>, ()>;
+pub type SendTo = SendTo_<JobDeclaration<'static>, ()>;
 use super::SendTo_;
 use crate::errors::Error;
 use core::convert::TryInto;
-use job_negotiation_sv2::*;
+use job_declaration_sv2::*;
 
-/// A trait implemented by a downstream to handle SV2 job negotiation messages.
-pub trait ParseServerJobNegotiationMessages
+/// A trait implemented by a downstream to handle SV2 job declaration messages.
+pub trait ParseServerJobDeclarationMessages
 where
     Self: Sized,
 {
-    /// Used to parse job negotiation message and route to the message's respected handler function
-    fn handle_message_job_negotiation(
+    /// Used to parse job declaration message and route to the message's respected handler function
+    fn handle_message_job_declaration(
         self_: Arc<Mutex<Self>>,
         message_type: u8,
         payload: &mut [u8],
     ) -> Result<SendTo, Error> {
         match (message_type, payload).try_into() {
-            Ok(JobNegotiation::AllocateMiningJobTokenSuccess(message)) => self_
+            Ok(JobDeclaration::AllocateMiningJobTokenSuccess(message)) => self_
                 .safe_lock(|x| x.handle_allocate_mining_job_token_sucess(message))
                 .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
-            Ok(JobNegotiation::CommitMiningJobSuccess(message)) => self_
+            Ok(JobDeclaration::CommitMiningJobSuccess(message)) => self_
                 .safe_lock(|x| x.handle_commit_mining_job_success(message))
                 .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
             Ok(_) => todo!(),
@@ -31,7 +31,7 @@ where
     /// When upstream send AllocateMiningJobTokenSuccess self should use the received token to
     /// negotiate the next job
     ///
-    /// "[`job_negotiation_sv2::AllocateMiningJobToken`]"
+    /// "[`job_declaration_sv2::AllocateMiningJobToken`]"
     fn handle_allocate_mining_job_token_sucess(
         &mut self,
         message: AllocateMiningJobTokenSuccess,
@@ -44,20 +44,20 @@ where
         message: CommitMiningJobSuccess,
     ) -> Result<SendTo, Error>;
 }
-pub trait ParseClientJobNegotiationMessages
+pub trait ParseClientJobDeclarationMessages
 where
     Self: Sized,
 {
-    fn handle_message_job_negotiation(
+    fn handle_message_job_declaration(
         self_: Arc<Mutex<Self>>,
         message_type: u8,
         payload: &mut [u8],
     ) -> Result<SendTo, Error> {
         match (message_type, payload).try_into() {
-            Ok(JobNegotiation::AllocateMiningJobToken(message)) => self_
+            Ok(JobDeclaration::AllocateMiningJobToken(message)) => self_
                 .safe_lock(|x| x.handle_allocate_mining_job(message))
                 .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
-            Ok(JobNegotiation::CommitMiningJob(message)) => self_
+            Ok(JobDeclaration::CommitMiningJob(message)) => self_
                 .safe_lock(|x| x.handle_commit_mining_job(message))
                 .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
             Ok(_) => todo!(),

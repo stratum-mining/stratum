@@ -26,7 +26,7 @@ The configuration file contains the following information:
 
 1. The SRI Pool information which includes the SRI Pool authority public key 
    (`authority_pubkey`), the SRI Pool authority secret key (`authority_secret_key`), along with its certificate validity (`cert_validity_sec`). In addition to this, it contains the address which it will use to listen to new connection from downstream roles (`listen_address`) and the list of uncompressed pubkeys for coinbase payout (`coinbase_outputs`).
-2. The SRI Pool Job Negatiator information which includes the Template Provider address (`tp_address`) and the address it uses to listen new request from the downstream JNs (`jn_address`).
+2. The SRI Pool Job Negatiator information which includes the Template Provider address (`tp_address`) and the address it uses to listen new request from the downstream JDs (`jd_address`).
 
 ### Run
 1. Copy the `pool-config-example.toml` into `conf/` directory.

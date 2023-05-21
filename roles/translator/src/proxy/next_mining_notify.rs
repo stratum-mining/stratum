@@ -12,8 +12,8 @@ pub fn create_notify(
     new_prev_hash: SetNewPrevHash<'static>,
     new_job: NewExtendedMiningJob<'static>,
 ) -> server_to_client::Notify<'static> {
-    // ATTENTION do not remove it if the tproxy have job negotiation capabilities. When we have the
-    // standalone JN and we have removed JN from tproxy we can safly delete the below line
+    // ATTENTION do not remove it if the tproxy have job declaration capabilities. When we have the
+    // standalone JD and we have removed JD from tproxy we can safly delete the below line
     let new_job = roles_logic_sv2::job_creator::extended_job_to_non_segwit(new_job, 32).unwrap();
     // Make sure that SetNewPrevHash + NewExtendedMiningJob is matching (not future)
     let job_id = new_job.job_id.to_string();

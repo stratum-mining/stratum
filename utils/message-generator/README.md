@@ -45,10 +45,10 @@ The true tests are located in `test/message-generator/test`. Some files have the
 test but in fact they are not. 
 For example, the file in 
 `test/message-generator/mock` are mocks of application, namely they are tests whose purpose is 
-to pretend to be an SV2 role. Currently only the TemplateProvider and the JobNegotiator are the 
+to pretend to be an SV2 role. Currently only the TemplateProvider and the JobDeclarator are the 
 only roles mocked. These mocks are usually used in the true tests. For example, in the test
 `test/message-generator/test/pool-sri-test-standard-1.json`
-the pool has a mocked environment, i.e. the JN and TP mocks.
+the pool has a mocked environment, i.e. the JD and TP mocks.
 The files in `test/message-generator/messages` also are not true tests, but the are intended to be
 modules. For example, the `common_messages.json` is the module that contains the frame builders of
 the common messages for the true tests and the mocks.
@@ -87,9 +87,9 @@ This field is optional.
 
 `mining_messages` is an array of messages (defined below) belonging to the mining (sub)protocol. This field is optional.
 
-### job_negotiation_messages
+### job_declaration_messages
 
-`job_negotiation_messages` is an array of messages (defined below) that belongs to the job negotiation (sub)protocol. This field is optional.
+`job_declaration_messages` is an array of messages (defined below) that belongs to the job declaration (sub)protocol. This field is optional.
 
 ### template_distribution_messages
 
