@@ -15,7 +15,6 @@ const_sv2 = { version = "^0.1.2", path = "../../protocols/v2/const-sv2" }
 network_helpers = { version = "0.1", path = "../../utils/network-helpers", features = ["with_tokio"] }
 noise_sv2 = { version = "0.1", path = "../../protocols/v2/noise-sv2" }
 rand = "0.8.4"
-hex = "0.4.3"
 roles_logic_sv2 = { version = "^0.1.0", path = "../../protocols/v2/roles-logic-sv2" }
 serde = { version = "1.0.89", features = ["derive", "alloc"], default-features = false }
 tokio = { version = "1", features = ["full"] }

@@ -5,8 +5,8 @@ use bitcoin::consensus::Encodable;
 use codec_sv2::{Frame, HandshakeRole, Responder};
 use ed25519_dalek::{Keypair, PublicKey, Signature, SignatureError, Signer, Verifier};
 use error_handling::handle_result;
-use hex;
 use network_helpers::noise_connection_tokio::Connection;
+use noise_sv2::formats::{EncodedEd25519PublicKey, EncodedEd25519SecretKey};
 use roles_logic_sv2::{
     common_messages_sv2::SetupConnectionSuccess,
     handlers::job_declaration::{ParseClientJobDeclarationMessages, SendTo},
@@ -24,6 +24,7 @@ pub struct JobDeclaratorDownstream {
     receiver: Receiver<EitherFrame>,
     // TODO this should be computed for each new template so that fees are included
     coinbase_output: Vec<u8>,
+    config: Configuration,
 }
 
 impl JobDeclaratorDownstream {
@@ -40,6 +41,7 @@ impl JobDeclaratorDownstream {
             receiver,
             sender,
             coinbase_output,
+            config: config.to_owned(),
         }
     }
 
@@ -109,7 +111,11 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
     ) -> Result<roles_logic_sv2::handlers::job_declaration::SendTo, roles_logic_sv2::Error> {
         let res = JobDeclaration::CommitMiningJobSuccess(CommitMiningJobSuccess {
             request_id: message.request_id,
-            new_mining_job_token: signed_token(message.merkle_path),
+            new_mining_job_token: signed_token(
+                message.merkle_path,
+                &self.config.authority_public_key.clone(),
+                &self.config.authority_secret_key.clone(),
+            ),
         });
         Ok(SendTo::Respond(res))
     }
@@ -120,19 +126,18 @@ fn get_random_token() -> B0255<'static> {
     inner.to_vec().try_into().unwrap()
 }
 
-pub fn signed_token(merkle_path: Seq0255<U256>) -> B0255<'static> {
+pub fn signed_token(
+    merkle_path: Seq0255<U256>,
+    pub_key: &EncodedEd25519PublicKey,
+    prv_key: &EncodedEd25519SecretKey,
+) -> B0255<'static> {
     // secret and public keys
-    let secret_key_hex = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
-    let public_key_hex = "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210";
-
-    // Convert the hexadecimal strings to byte arrays
-    let secret_key_bytes = hex::decode(secret_key_hex).expect("Failed to decode secret key hex");
-    let public_key_bytes = hex::decode(public_key_hex).expect("Failed to decode public key hex");
 
     // Create the SecretKey and PublicKey instances
-    let secret_key =
-        ed25519_dalek::SecretKey::from_bytes(&secret_key_bytes).expect("Invalid public key bytes");
-    let public_key = PublicKey::from_bytes(&public_key_bytes).expect("Invalid public key bytes");
+    let secret_key = ed25519_dalek::SecretKey::from_bytes(prv_key.clone().into_inner().as_bytes())
+        .expect("Invalid public key bytes");
+    let public_key = PublicKey::from_bytes(pub_key.clone().into_inner().as_bytes())
+        .expect("Invalid public key bytes");
 
     let keypair: Keypair = Keypair {
         secret: secret_key,
@@ -160,15 +165,11 @@ pub fn signed_token(merkle_path: Seq0255<U256>) -> B0255<'static> {
 pub fn verify_token(
     merkle_path: Seq0255<U256>,
     signature: Signature,
+    pub_key: EncodedEd25519PublicKey,
 ) -> Result<(), SignatureError> {
-    // public key
-    let public_key_hex = "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210";
-
-    // Convert the hexadecimal strings to byte arrays
-    let public_key_bytes = hex::decode(public_key_hex).expect("Failed to decode public key hex");
-
     // Create PublicKey instance
-    let public_key = PublicKey::from_bytes(&public_key_bytes).expect("Invalid public key bytes");
+    let public_key = PublicKey::from_bytes(pub_key.into_inner().as_bytes())
+        .expect("Invalid public key bytes");
 
     let message: Vec<u8> =
         merkle_path
