@@ -3,7 +3,7 @@ use async_channel::{Receiver, Sender};
 use binary_sv2::{Seq0255, B0255, U256};
 use bitcoin::consensus::Encodable;
 use codec_sv2::{Frame, HandshakeRole, Responder};
-use ed25519_dalek::{Keypair, PublicKey, Signature, SignatureError, Signer, Verifier};
+use ed25519_dalek::{Keypair, PublicKey, Signature, Signer};
 use error_handling::handle_result;
 use network_helpers::noise_connection_tokio::Connection;
 use noise_sv2::formats::{EncodedEd25519PublicKey, EncodedEd25519SecretKey};
@@ -14,9 +14,9 @@ use roles_logic_sv2::{
     parsers::{JobDeclaration, PoolMessages},
     utils::Mutex,
 };
-use std::{convert::TryInto, str, sync::Arc};
+use std::{convert::TryInto, sync::Arc};
 use tokio::net::TcpListener;
-use tracing::{debug, info};
+use tracing::info;
 
 #[derive(Debug)]
 pub struct JobDeclaratorDownstream {
@@ -24,7 +24,8 @@ pub struct JobDeclaratorDownstream {
     receiver: Receiver<EitherFrame>,
     // TODO this should be computed for each new template so that fees are included
     coinbase_output: Vec<u8>,
-    config: Configuration,
+    public_key: EncodedEd25519PublicKey,
+    private_key: EncodedEd25519SecretKey,
 }
 
 impl JobDeclaratorDownstream {
@@ -41,7 +42,8 @@ impl JobDeclaratorDownstream {
             receiver,
             sender,
             coinbase_output,
-            config: config.to_owned(),
+            public_key: config.authority_public_key.clone(),
+            private_key: config.authority_secret_key.clone(),
         }
     }
 
@@ -113,8 +115,8 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
             request_id: message.request_id,
             new_mining_job_token: signed_token(
                 message.merkle_path,
-                &self.config.authority_public_key.clone(),
-                &self.config.authority_secret_key.clone(),
+                &self.public_key.clone(),
+                &self.private_key.clone(),
             ),
         });
         Ok(SendTo::Respond(res))
@@ -158,38 +160,8 @@ pub fn signed_token(
 
     // Sign message
     let signature: Signature = keypair.sign(&message);
-    println!("signature is: {:?}", signature);
+    info!("signature is: {:?}", signature);
     signature.to_bytes().to_vec().try_into().unwrap()
-}
-#[allow(dead_code)]
-pub fn verify_token(
-    merkle_path: Seq0255<U256>,
-    signature: Signature,
-    pub_key: EncodedEd25519PublicKey,
-) -> Result<(), SignatureError> {
-    // Create PublicKey instance
-    let public_key = PublicKey::from_bytes(pub_key.into_inner().as_bytes())
-        .expect("Invalid public key bytes");
-
-    let message: Vec<u8> =
-        merkle_path
-            .to_vec()
-            .iter()
-            .map(|v| v.to_vec())
-            .fold(vec![], |mut acc, bs| {
-                for b in bs {
-                    acc.push(b)
-                }
-                acc
-            });
-
-    // Verify signature
-    let is_verified = public_key.verify(&message, &signature);
-
-    // debug
-    debug!("Message: {}", str::from_utf8(&message).unwrap());
-    debug!("Verified signature {:?}", is_verified);
-    is_verified
 }
 
 pub struct JobDeclarator {

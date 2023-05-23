@@ -24,6 +24,7 @@ tracing = { version = "0.1" }
 tracing-subscriber = "0.3"
 async-recursion = "1.0.0"
 error_handling = { version = "0.1", path = "../../utils/error-handling" }
+ed25519-dalek = { git = "https://github.com/dalek-cryptography/ed25519-dalek", branch = "develop", commit = "431e699", features = ["rand", "serde", "alloc", "u64_backend"], default-features = false }
 
 [dev-dependencies]
 hex = "0.4.3"
