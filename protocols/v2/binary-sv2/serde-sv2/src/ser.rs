@@ -51,6 +51,10 @@ impl<'a, W: Write> ser::Serializer for &'a mut Serializer<W> {
     type SerializeStruct = Self;
     type SerializeStructVariant = Self;
 
+    fn is_human_readable(&self) -> bool {
+        false
+    }
+
     #[inline]
     fn serialize_bool(self, v: bool) -> Result<()> {
         match v {
