@@ -1,13 +1,35 @@
 use crate::{
     external_commands::os_command,
+    into_static::into_static,
     net::{setup_as_downstream, setup_as_upstream},
     Action, ActionResult, Command, Role, Sv2Type, Test,
 };
 use async_channel::{Receiver, Sender};
 use codec_sv2::{Frame, StandardEitherFrame as EitherFrame, Sv2Frame};
-use roles_logic_sv2::parsers::AnyMessage;
-use std::{convert::TryInto, sync::Arc};
-use tokio::sync::Mutex;
+use roles_logic_sv2::{
+    common_messages_sv2::{
+        ChannelEndpointChanged, SetupConnection, SetupConnectionError, SetupConnectionSuccess,
+    },
+    job_declaration_sv2::{
+        AllocateMiningJobToken, AllocateMiningJobTokenSuccess, CommitMiningJob,
+        CommitMiningJobSuccess,
+    },
+    mining_sv2::{
+        CloseChannel, NewExtendedMiningJob, NewMiningJob, OpenExtendedMiningChannel,
+        OpenExtendedMiningChannelSuccess, OpenMiningChannelError, OpenStandardMiningChannel,
+        OpenStandardMiningChannelSuccess, Reconnect, SetCustomMiningJob, SetCustomMiningJobError,
+        SetCustomMiningJobSuccess, SetExtranoncePrefix, SetGroupChannel,
+        SetNewPrevHash as MiningSetNewPrevHash, SetTarget, SubmitSharesError, SubmitSharesExtended,
+        SubmitSharesStandard, SubmitSharesSuccess, UpdateChannel, UpdateChannelError,
+    },
+    parsers::{self, AnyMessage, CommonMessages, IsSv2Message, PoolMessages},
+    template_distribution_sv2::{
+        CoinbaseOutputDataSize, NewTemplate, RequestTransactionData, RequestTransactionDataError,
+        RequestTransactionDataSuccess, SetNewPrevHash, SubmitSolution,
+    },
+};
+use serde_json::json;
+use std::{collections::HashMap, convert::TryInto, sync::Arc};
 
 use std::time::Duration;
 use tokio::{
@@ -25,10 +47,12 @@ pub struct Executor {
     actions: Vec<Action<'static>>,
     cleanup_commmands: Vec<Command>,
     process: Vec<Option<tokio::process::Child>>,
+    save: HashMap<String, String>,
 }
 
 impl Executor {
     pub async fn new(test: Test<'static>, test_name: String) -> Executor {
+        let mut save: HashMap<String, String> = HashMap::new();
         let mut process: Vec<Option<tokio::process::Child>> = vec![];
         for command in test.setup_commmands {
             if command.command == "kill" {
@@ -78,6 +102,7 @@ impl Executor {
                     actions: test.actions,
                     cleanup_commmands: test.cleanup_commmands,
                     process,
+                    save,
                 }
             }
             (None, Some(as_up)) => {
@@ -97,6 +122,7 @@ impl Executor {
                     actions: test.actions,
                     cleanup_commmands: test.cleanup_commmands,
                     process,
+                    save,
                 }
             }
             (Some(as_down), None) => {
@@ -111,6 +137,7 @@ impl Executor {
                     actions: test.actions,
                     cleanup_commmands: test.cleanup_commmands,
                     process,
+                    save,
                 }
             }
             (None, None) => Self {
@@ -122,15 +149,16 @@ impl Executor {
                 actions: test.actions,
                 cleanup_commmands: test.cleanup_commmands,
                 process,
+                save,
             },
         }
     }
 
-    pub async fn execute(self) {
+    pub async fn execute(mut self) {
         let mut success = true;
         for action in self.actions {
-            if let Some(T) = action.actiondoc {
-                println!("{}", T);
+            if let Some(doc) = action.actiondoc {
+                println!("actiondoc: {}", doc);
             }
             let (sender, recv) = match action.role {
                 Role::Upstream => (
@@ -151,11 +179,26 @@ impl Executor {
                 ),
                 Role::Proxy => panic!("Action can be either executed as Downstream or Upstream"),
             };
-            for message in action.messages {
-                println!("SEND {:#?}", message);
-                match sender.send(message).await {
-                    Ok(_) => (),
-                    Err(_) => panic!(),
+            for message_ in action.messages {
+                let replace_fields = message_.2.clone();
+                let message = message_.1.clone();
+                let frame = message_.0;
+                if replace_fields.len() == 0 {
+                    println!("SEND {:#?}", message);
+                    match sender.send(frame).await {
+                        Ok(_) => (),
+                        Err(_) => panic!(),
+                    }
+                } else {
+                    let message_modified =
+                        change_fields(message, replace_fields, self.save.clone());
+                    let modified_frame =
+                        EitherFrame::Sv2(message_modified.clone().try_into().unwrap());
+                    println!("SEND {:#?}", message_modified);
+                    match sender.send(modified_frame).await {
+                        Ok(_) => (),
+                        Err(_) => panic!(),
+                    };
                 }
             }
             let mut rs = 0;
@@ -190,6 +233,8 @@ impl Executor {
                 println!("RECV {:#?}", message);
                 let header = message.get_header().unwrap();
                 let payload = message.payload();
+                let mut message_hashmap: HashMap<std::string::String, PoolMessages<'static>> =
+                    HashMap::new();
                 match result {
                     ActionResult::MatchMessageType(message_type) => {
                         if header.msg_type() != *message_type {
@@ -455,6 +500,188 @@ impl Executor {
                             panic!()
                         }
                     }
+                    ActionResult::GetMessageField {
+                        subprotocol,
+                        message_type,
+                        fields,
+                    } => {
+                        if subprotocol.as_str() == "CommonMessage" {
+                            match (header.msg_type(), payload).try_into() {
+                                Ok(parsers::CommonMessages::SetupConnection(m)) => {
+                                    let mess = serde_json::to_value(&m).unwrap();
+                                    self.save = save_message_field(mess, self.save.clone(), fields);
+                                }
+                                Ok(parsers::CommonMessages::SetupConnectionError(m)) => {
+                                    let mess = serde_json::to_value(&m).unwrap();
+                                    self.save = save_message_field(mess, self.save.clone(), fields);
+                                }
+                                Ok(parsers::CommonMessages::ChannelEndpointChanged(m)) => {
+                                    let mess = serde_json::to_value(&m).unwrap();
+                                    self.save = save_message_field(mess, self.save.clone(), fields);
+                                }
+                                Ok(parsers::CommonMessages::SetupConnectionSuccess(m)) => {
+                                    let mess = serde_json::to_value(&m).unwrap();
+                                    self.save = save_message_field(mess, self.save.clone(), fields);
+                                }
+                                Err(e) => panic!("err {:?}", e),
+                            }
+                        } else if subprotocol.as_str() == "MiningProtocol" {
+                            match (header.msg_type(), payload).try_into() {
+                                Ok(parsers::Mining::OpenExtendedMiningChannel(m)) => {
+                                    let mess = serde_json::to_value(&m).unwrap();
+                                    self.save = save_message_field(mess, self.save.clone(), fields);
+                                }
+                                Ok(parsers::Mining::OpenExtendedMiningChannelSuccess(m)) => {
+                                    let mess = serde_json::to_value(&m).unwrap();
+                                    self.save = save_message_field(mess, self.save.clone(), fields);
+                                }
+                                Ok(parsers::Mining::OpenStandardMiningChannel(m)) => {
+                                    let mess = serde_json::to_value(&m).unwrap();
+                                    self.save = save_message_field(mess, self.save.clone(), fields);
+                                }
+                                Ok(parsers::Mining::OpenStandardMiningChannelSuccess(m)) => {
+                                    let mess = serde_json::to_value(&m).unwrap();
+                                    self.save = save_message_field(mess, self.save.clone(), fields);
+                                }
+                                Ok(parsers::Mining::CloseChannel(m)) => {
+                                    let mess = serde_json::to_value(&m).unwrap();
+                                    self.save = save_message_field(mess, self.save.clone(), fields);
+                                }
+                                Ok(parsers::Mining::NewMiningJob(m)) => {
+                                    let mess = serde_json::to_value(&m).unwrap();
+                                    self.save = save_message_field(mess, self.save.clone(), fields);
+                                }
+                                Ok(parsers::Mining::NewExtendedMiningJob(m)) => {
+                                    let mess = serde_json::to_value(&m).unwrap();
+                                    self.save = save_message_field(mess, self.save.clone(), fields);
+                                }
+                                Ok(parsers::Mining::SetTarget(m)) => {
+                                    let mess = serde_json::to_value(&m).unwrap();
+                                    self.save = save_message_field(mess, self.save.clone(), fields);
+                                }
+                                Ok(parsers::Mining::SubmitSharesError(m)) => {
+                                    let mess = serde_json::to_value(&m).unwrap();
+                                    self.save = save_message_field(mess, self.save.clone(), fields);
+                                }
+                                Ok(parsers::Mining::SubmitSharesStandard(m)) => {
+                                    let mess = serde_json::to_value(&m).unwrap();
+                                    self.save = save_message_field(mess, self.save.clone(), fields);
+                                }
+                                Ok(parsers::Mining::SubmitSharesSuccess(m)) => {
+                                    let mess = serde_json::to_value(&m).unwrap();
+                                    self.save = save_message_field(mess, self.save.clone(), fields);
+                                }
+                                Ok(parsers::Mining::SubmitSharesExtended(m)) => {
+                                    let mess = serde_json::to_value(&m).unwrap();
+                                    self.save = save_message_field(mess, self.save.clone(), fields);
+                                }
+                                Ok(parsers::Mining::OpenMiningChannelError(m)) => {
+                                    let mess = serde_json::to_value(&m).unwrap();
+                                    self.save = save_message_field(mess, self.save.clone(), fields);
+                                }
+                                Ok(parsers::Mining::Reconnect(m)) => {
+                                    let mess = serde_json::to_value(&m).unwrap();
+                                    self.save = save_message_field(mess, self.save.clone(), fields);
+                                }
+                                Ok(parsers::Mining::SetCustomMiningJobSuccess(m)) => {
+                                    let mess = serde_json::to_value(&m).unwrap();
+                                    self.save = save_message_field(mess, self.save.clone(), fields);
+                                }
+                                Ok(parsers::Mining::SetExtranoncePrefix(m)) => {
+                                    let mess = serde_json::to_value(&m).unwrap();
+                                    self.save = save_message_field(mess, self.save.clone(), fields);
+                                }
+                                Ok(parsers::Mining::SetGroupChannel(m)) => {
+                                    let mess = serde_json::to_value(&m).unwrap();
+                                    self.save = save_message_field(mess, self.save.clone(), fields);
+                                }
+                                Ok(parsers::Mining::SetNewPrevHash(m)) => {
+                                    let mess = serde_json::to_value(&m).unwrap();
+                                    self.save = save_message_field(mess, self.save.clone(), fields);
+                                }
+                                Ok(parsers::Mining::UpdateChannel(m)) => {
+                                    let mess = serde_json::to_value(&m).unwrap();
+                                    self.save = save_message_field(mess, self.save.clone(), fields);
+                                }
+                                Ok(parsers::Mining::UpdateChannelError(m)) => {
+                                    let mess = serde_json::to_value(&m).unwrap();
+                                    self.save = save_message_field(mess, self.save.clone(), fields);
+                                }
+                                Ok(parsers::Mining::SetCustomMiningJob(m)) => {
+                                    let mess = serde_json::to_value(&m).unwrap();
+                                    self.save = save_message_field(mess, self.save.clone(), fields);
+                                }
+                                Ok(parsers::Mining::SetCustomMiningJobSuccess(m)) => {
+                                    let mess = serde_json::to_value(&m).unwrap();
+                                    self.save = save_message_field(mess, self.save.clone(), fields);
+                                }
+                                Ok(parsers::Mining::SetCustomMiningJobError(m)) => {
+                                    let mess = serde_json::to_value(&m).unwrap();
+                                    self.save = save_message_field(mess, self.save.clone(), fields);
+                                }
+                                Err(e) => panic!("err {:?}", e),
+                            }
+                        } else if subprotocol.as_str() == "JobNegotiationProtocol" {
+                            match (header.msg_type(), payload).try_into() {
+                                Ok(parsers::JobDeclaration::AllocateMiningJobTokenSuccess(m)) => {
+                                    let mess = serde_json::to_value(&m).unwrap();
+                                    self.save = save_message_field(mess, self.save.clone(), fields);
+                                }
+                                Ok(parsers::JobDeclaration::AllocateMiningJobToken(m)) => {
+                                    let mess = serde_json::to_value(&m).unwrap();
+                                    self.save = save_message_field(mess, self.save.clone(), fields);
+                                }
+                                Ok(parsers::JobDeclaration::CommitMiningJob(m)) => {
+                                    let mess = serde_json::to_value(&m).unwrap();
+                                    self.save = save_message_field(mess, self.save.clone(), fields);
+                                }
+                                Ok(parsers::JobDeclaration::CommitMiningJobSuccess(m)) => {
+                                    let mess = serde_json::to_value(&m).unwrap();
+                                    self.save = save_message_field(mess, self.save.clone(), fields);
+                                }
+                                Err(e) => panic!("err {:?}", e),
+                            }
+                        } else if subprotocol.as_str() == "TemplateDistributionProtocol" {
+                            match (header.msg_type(), payload).try_into() {
+                                Ok(parsers::TemplateDistribution::SubmitSolution(m)) => {
+                                    let mess = serde_json::to_value(&m).unwrap();
+                                    self.save = save_message_field(mess, self.save.clone(), fields);
+                                }
+                                Ok(parsers::TemplateDistribution::NewTemplate(m)) => {
+                                    let mess = serde_json::to_value(&m).unwrap();
+                                    self.save = save_message_field(mess, self.save.clone(), fields);
+                                }
+                                Ok(parsers::TemplateDistribution::SetNewPrevHash(m)) => {
+                                    let mess = serde_json::to_value(&m).unwrap();
+                                    self.save = save_message_field(mess, self.save.clone(), fields);
+                                }
+                                Ok(parsers::TemplateDistribution::CoinbaseOutputDataSize(m)) => {
+                                    let mess = serde_json::to_value(&m).unwrap();
+                                    self.save = save_message_field(mess, self.save.clone(), fields);
+                                }
+                                Ok(parsers::TemplateDistribution::RequestTransactionData(m)) => {
+                                    let mess = serde_json::to_value(&m).unwrap();
+                                    self.save = save_message_field(mess, self.save.clone(), fields);
+                                }
+                                Ok(parsers::TemplateDistribution::RequestTransactionDataError(
+                                    m,
+                                )) => {
+                                    let mess = serde_json::to_value(&m).unwrap();
+                                    self.save = save_message_field(mess, self.save.clone(), fields);
+                                }
+                                Ok(
+                                    parsers::TemplateDistribution::RequestTransactionDataSuccess(m),
+                                ) => {
+                                    let mess = serde_json::to_value(&m).unwrap();
+                                    self.save = save_message_field(mess, self.save.clone(), fields);
+                                }
+                                Err(e) => panic!("err {:?}", e),
+                            }
+                        } else {
+                            println!("GetMessageField not implemented for this protocol",);
+                            panic!()
+                        };
+                    }
                     ActionResult::MatchMessageLen(message_len) => {
                         if payload.len() != *message_len {
                             println!(
@@ -529,6 +756,170 @@ impl Executor {
     }
 }
 
+fn change_fields<'a>(
+    m: AnyMessage<'a>,
+    replace_fields: Vec<(String, String)>,
+    values: HashMap<String, String>,
+) -> AnyMessage<'static> {
+    let mut replace_fields = replace_fields.clone();
+    let next = replace_fields
+        .pop()
+        .expect("replace_fields cannot be empty");
+    let keyword = next.1;
+    let field_name = next.0;
+    let value = values
+        .get(&keyword)
+        .expect("value not found for the keyword");
+
+    match m.clone() {
+        AnyMessage::Common(m) => {
+            let path = match m {
+                CommonMessages::ChannelEndpointChanged(_) => "ChannelEndpointChanged",
+                CommonMessages::SetupConnection(_) => "SetupConnection",
+                CommonMessages::SetupConnectionError(_) => "SetupConnectionError",
+                CommonMessages::SetupConnectionSuccess(_) => "SetupConnectionSuccess",
+            };
+            let mut message_as_serde_value = serde_json::to_value(&m).unwrap();
+            let m_ = change_value_of_serde_field(message_as_serde_value, path, value, field_name);
+            if replace_fields.len() == 0 {
+                return m_;
+            } else {
+                return change_fields(m_, replace_fields, values);
+            }
+        }
+        AnyMessage::Mining(m) => {
+            let path = match m {
+                parsers::Mining::CloseChannel(_) => "CloseChannel",
+                parsers::Mining::NewExtendedMiningJob(_) => "NewExtendedMiningJob",
+                parsers::Mining::NewMiningJob(_) => "NewMiningJob",
+                parsers::Mining::OpenExtendedMiningChannel(_) => "OpenExtendedMiningChannel",
+                parsers::Mining::OpenExtendedMiningChannelSuccess(_) => {
+                    "OpenExtendedMiningChannelSuccess"
+                }
+                parsers::Mining::OpenMiningChannelError(_) => "OpenMiningChannelError",
+                parsers::Mining::OpenStandardMiningChannel(_) => "OpenStandardMiningChannel",
+                parsers::Mining::OpenStandardMiningChannelSuccess(_) => "",
+                parsers::Mining::Reconnect(_) => "Reconnect",
+                parsers::Mining::SetCustomMiningJob(_) => "SetCustomMiningJob",
+                parsers::Mining::SetCustomMiningJobError(_) => "",
+                parsers::Mining::SetCustomMiningJobSuccess(_) => "",
+                parsers::Mining::SetExtranoncePrefix(_) => "SetExtranoncePrefix",
+                parsers::Mining::SetGroupChannel(_) => "SetGroupChannel",
+                parsers::Mining::SetNewPrevHash(_) => "SetNewPrevHash",
+                parsers::Mining::SetTarget(_) => "SetTarget",
+                parsers::Mining::SubmitSharesError(_) => "SubmitSharesError",
+                parsers::Mining::SubmitSharesExtended(_) => "SubmitSharesExtended",
+                parsers::Mining::SubmitSharesStandard(_) => "SubmitSharesStandard",
+                parsers::Mining::SubmitSharesSuccess(_) => "SubmitSharesSuccess",
+                parsers::Mining::UpdateChannel(_) => "UpdateChannel",
+                parsers::Mining::UpdateChannelError(_) => "UpdateChannelError",
+            };
+            let mut message_as_serde_value = serde_json::to_value(&m).unwrap();
+            match message_as_serde_value.pointer_mut(&format!("/{}/{}", path, field_name.as_str()))
+            {
+                Some(field_value) => {
+                    let value = value.parse::<i32>().unwrap();
+                    *field_value = json!(value);
+                }
+                _ => panic!("value not found"),
+            }
+            let message_as_string = serde_json::to_string(&message_as_serde_value).unwrap();
+            let m_ = into_static(AnyMessage::Mining(
+                serde_json::from_str(&message_as_string).unwrap(),
+            ));
+            if replace_fields.len() == 0 {
+                return m_;
+            } else {
+                return change_fields(m_, replace_fields, values);
+            }
+        }
+        AnyMessage::JobDeclaration(m) => {
+            let path = match m {
+                roles_logic_sv2::parsers::JobDeclaration::AllocateMiningJobToken(_) => {
+                    "AllocateMiningJobToken"
+                }
+                roles_logic_sv2::parsers::JobDeclaration::AllocateMiningJobTokenSuccess(_) => {
+                    "AllocateMiningJobTokenSuccess"
+                }
+                roles_logic_sv2::parsers::JobDeclaration::CommitMiningJob(_) => "CommitMiningJob",
+                roles_logic_sv2::parsers::JobDeclaration::CommitMiningJobSuccess(_) => {
+                    "CommitMiningJobSuccess"
+                }
+            };
+            let mut message_as_serde_value = serde_json::to_value(&m).unwrap();
+            let m_ = change_value_of_serde_field(message_as_serde_value, path, value, field_name);
+            if replace_fields.len() == 0 {
+                return m_;
+            } else {
+                return change_fields(m_, replace_fields, values);
+            }
+        }
+        AnyMessage::TemplateDistribution(m) => {
+            let path = match m {
+                roles_logic_sv2::parsers::TemplateDistribution::CoinbaseOutputDataSize(_) => {
+                    "CoinbaseOutputDataSize"
+                }
+                roles_logic_sv2::parsers::TemplateDistribution::NewTemplate(_) => "NewTemplate",
+                roles_logic_sv2::parsers::TemplateDistribution::RequestTransactionData(_) => {
+                    "RequestTransactionData"
+                }
+                roles_logic_sv2::parsers::TemplateDistribution::RequestTransactionDataError(_) => {
+                    "RequestTransactionDataError"
+                }
+                roles_logic_sv2::parsers::TemplateDistribution::RequestTransactionDataSuccess(
+                    _,
+                ) => "RequestTransactionDataSuccess",
+                roles_logic_sv2::parsers::TemplateDistribution::SetNewPrevHash(_) => {
+                    "SetNewPrevHash"
+                }
+                roles_logic_sv2::parsers::TemplateDistribution::SubmitSolution(_) => {
+                    "SubmitSolution"
+                }
+            };
+            let mut message_as_serde_value = serde_json::to_value(&m).unwrap();
+            let m_ = change_value_of_serde_field(message_as_serde_value, path, value, field_name);
+            if replace_fields.len() == 0 {
+                return m_;
+            } else {
+                return change_fields(m_, replace_fields, values);
+            }
+        }
+    }
+}
+
+fn change_value_of_serde_field(
+    mut message_as_serde_value: serde_json::Value,
+    path: &str,
+    value: &str,
+    field_name: String,
+) -> AnyMessage<'static> {
+    match message_as_serde_value.pointer_mut(&format!("/{}/{}", path, field_name.as_str())) {
+        Some(field_value) => {
+            let value = value.parse::<i32>().unwrap();
+            *field_value = json!(value);
+        }
+        _ => panic!("value not found"),
+    }
+    let message_as_string = serde_json::to_string(&message_as_serde_value).unwrap();
+    into_static(AnyMessage::Mining(
+        serde_json::from_str(&message_as_string).unwrap(),
+    ))
+}
+
+fn save_message_field(
+    mess: serde_json::Value,
+    mut save: HashMap<String, String>,
+    fields: &Vec<(String, String)>,
+) -> HashMap<String, String> {
+    for field in fields {
+        let key = field.1.clone();
+        let field_name = &field.0;
+        let to_save = message_to_value(&mess, field_name);
+        save.insert(key, to_save);
+    }
+    save
+}
+
 fn check_msg_field(msg: serde_json::Value, field_name: &str, value_type: &str, field: &Sv2Type) {
     let msg = msg.as_object().unwrap();
     let value = msg
@@ -559,4 +950,9 @@ fn check_each_field(msg: serde_json::Value, field_info: &Vec<(String, Sv2Type)>)
 
         check_msg_field(msg.clone(), &field.0, &value_type, &field.1)
     }
+}
+fn message_to_value(m: &serde_json::Value, field: &str) -> String {
+    let msg = m.as_object().unwrap();
+    let value = msg.get(field).unwrap();
+    value.to_string()
 }

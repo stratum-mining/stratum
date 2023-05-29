@@ -1,13 +1,35 @@
-use roles_logic_sv2::{parsers::{AnyMessage, PoolMessages, CommonMessages, IsSv2Message, self}, common_messages_sv2::{SetupConnection, ChannelEndpointChanged, SetupConnectionError, SetupConnectionSuccess}, mining_sv2::{CloseChannel, NewExtendedMiningJob, NewMiningJob, OpenExtendedMiningChannel, OpenExtendedMiningChannelSuccess, OpenMiningChannelError, OpenStandardMiningChannel, OpenStandardMiningChannelSuccess, Reconnect, SetCustomMiningJob, SetCustomMiningJobError, SetCustomMiningJobSuccess, SetExtranoncePrefix, SetGroupChannel, SetNewPrevHash as MiningSetNewPrevHash, SetTarget, SubmitSharesError, SubmitSharesExtended, SubmitSharesStandard, SubmitSharesSuccess, UpdateChannel, UpdateChannelError}, job_negotiation_sv2::{AllocateMiningJobToken, AllocateMiningJobTokenSuccess, CommitMiningJob, CommitMiningJobSuccess}, template_distribution_sv2::{CoinbaseOutputDataSize, NewTemplate, RequestTransactionData, RequestTransactionDataError, RequestTransactionDataSuccess, SetNewPrevHash, SubmitSolution}};
+use codec_sv2::{Frame, StandardEitherFrame as EitherFrame, Sv2Frame};
+use roles_logic_sv2::{
+    common_messages_sv2::{
+        ChannelEndpointChanged, SetupConnection, SetupConnectionError, SetupConnectionSuccess,
+    },
+    job_declaration_sv2::{
+        AllocateMiningJobToken, AllocateMiningJobTokenSuccess, CommitMiningJob,
+        CommitMiningJobSuccess,
+    },
+    mining_sv2::{
+        CloseChannel, NewExtendedMiningJob, NewMiningJob, OpenExtendedMiningChannel,
+        OpenExtendedMiningChannelSuccess, OpenMiningChannelError, OpenStandardMiningChannel,
+        OpenStandardMiningChannelSuccess, Reconnect, SetCustomMiningJob, SetCustomMiningJobError,
+        SetCustomMiningJobSuccess, SetExtranoncePrefix, SetGroupChannel,
+        SetNewPrevHash as MiningSetNewPrevHash, SetTarget, SubmitSharesError, SubmitSharesExtended,
+        SubmitSharesStandard, SubmitSharesSuccess, UpdateChannel, UpdateChannelError,
+    },
+    parsers::{self, AnyMessage, CommonMessages, IsSv2Message, PoolMessages},
+    template_distribution_sv2::{
+        CoinbaseOutputDataSize, NewTemplate, RequestTransactionData, RequestTransactionDataError,
+        RequestTransactionDataSuccess, SetNewPrevHash, SubmitSolution,
+    },
+};
 
 pub fn into_static<'a>(m: AnyMessage<'a>) -> AnyMessage<'static> {
     match m {
         PoolMessages::Common(m) => match m {
-            CommonMessages::ChannelEndpointChanged(m) => {
-                PoolMessages::Common(CommonMessages::ChannelEndpointChanged(ChannelEndpointChanged {
+            CommonMessages::ChannelEndpointChanged(m) => PoolMessages::Common(
+                CommonMessages::ChannelEndpointChanged(ChannelEndpointChanged {
                     channel_id: m.channel_id,
-                }))
-            },
+                }),
+            ),
             CommonMessages::SetupConnection(m) => {
                 let m = SetupConnection {
                     protocol: m.protocol,
@@ -22,21 +44,21 @@ pub fn into_static<'a>(m: AnyMessage<'a>) -> AnyMessage<'static> {
                     device_id: m.device_id.into_static(),
                 };
                 PoolMessages::Common(CommonMessages::SetupConnection(m))
-            },
+            }
             CommonMessages::SetupConnectionError(m) => {
-                let m = SetupConnectionError{
+                let m = SetupConnectionError {
                     flags: m.flags,
                     error_code: m.error_code.into_static(),
                 };
                 PoolMessages::Common(CommonMessages::SetupConnectionError(m))
-            },
+            }
             CommonMessages::SetupConnectionSuccess(m) => {
                 let m = SetupConnectionSuccess {
                     used_version: m.used_version,
                     flags: m.flags,
                 };
                 PoolMessages::Common(CommonMessages::SetupConnectionSuccess(m))
-            },
+            }
         },
         PoolMessages::Mining(m) => match m {
             parsers::Mining::CloseChannel(m) => {
@@ -45,7 +67,7 @@ pub fn into_static<'a>(m: AnyMessage<'a>) -> AnyMessage<'static> {
                     reason_code: m.reason_code.into_static(),
                 };
                 PoolMessages::Mining(parsers::Mining::CloseChannel(m))
-            },
+            }
             parsers::Mining::NewExtendedMiningJob(m) => {
                 let m = NewExtendedMiningJob {
                     channel_id: m.channel_id,
@@ -58,7 +80,7 @@ pub fn into_static<'a>(m: AnyMessage<'a>) -> AnyMessage<'static> {
                     coinbase_tx_suffix: m.coinbase_tx_suffix.into_static(),
                 };
                 PoolMessages::Mining(parsers::Mining::NewExtendedMiningJob(m))
-            },
+            }
             parsers::Mining::NewMiningJob(m) => {
                 let m = NewMiningJob {
                     channel_id: m.channel_id,
@@ -68,7 +90,7 @@ pub fn into_static<'a>(m: AnyMessage<'a>) -> AnyMessage<'static> {
                     merkle_root: m.merkle_root.into_static(),
                 };
                 PoolMessages::Mining(parsers::Mining::NewMiningJob(m))
-            },
+            }
             parsers::Mining::OpenExtendedMiningChannel(m) => {
                 let m = OpenExtendedMiningChannel {
                     request_id: m.request_id,
@@ -78,7 +100,7 @@ pub fn into_static<'a>(m: AnyMessage<'a>) -> AnyMessage<'static> {
                     min_extranonce_size: m.min_extranonce_size,
                 };
                 PoolMessages::Mining(parsers::Mining::OpenExtendedMiningChannel(m))
-            },
+            }
             parsers::Mining::OpenExtendedMiningChannelSuccess(m) => {
                 let m = OpenExtendedMiningChannelSuccess {
                     request_id: m.request_id,
@@ -88,14 +110,14 @@ pub fn into_static<'a>(m: AnyMessage<'a>) -> AnyMessage<'static> {
                     extranonce_prefix: m.extranonce_prefix.into_static(),
                 };
                 PoolMessages::Mining(parsers::Mining::OpenExtendedMiningChannelSuccess(m))
-            },
+            }
             parsers::Mining::OpenMiningChannelError(m) => {
                 let m = OpenMiningChannelError {
                     request_id: m.request_id,
                     error_code: m.error_code.into_static(),
                 };
                 PoolMessages::Mining(parsers::Mining::OpenMiningChannelError(m))
-            },
+            }
             parsers::Mining::OpenStandardMiningChannel(m) => {
                 let m = OpenStandardMiningChannel {
                     request_id: m.request_id,
@@ -104,7 +126,7 @@ pub fn into_static<'a>(m: AnyMessage<'a>) -> AnyMessage<'static> {
                     max_target: m.max_target.into_static(),
                 };
                 PoolMessages::Mining(parsers::Mining::OpenStandardMiningChannel(m))
-            },
+            }
             parsers::Mining::OpenStandardMiningChannelSuccess(m) => {
                 let m = OpenStandardMiningChannelSuccess {
                     request_id: m.request_id,
@@ -114,14 +136,14 @@ pub fn into_static<'a>(m: AnyMessage<'a>) -> AnyMessage<'static> {
                     group_channel_id: m.group_channel_id,
                 };
                 PoolMessages::Mining(parsers::Mining::OpenStandardMiningChannelSuccess(m))
-            },
+            }
             parsers::Mining::Reconnect(m) => {
                 let m = Reconnect {
                     new_host: m.new_host.into_static(),
                     new_port: m.new_port,
                 };
                 PoolMessages::Mining(parsers::Mining::Reconnect(m))
-            },
+            }
             parsers::Mining::SetCustomMiningJob(m) => {
                 let m = SetCustomMiningJob {
                     channel_id: m.channel_id,
@@ -142,7 +164,7 @@ pub fn into_static<'a>(m: AnyMessage<'a>) -> AnyMessage<'static> {
                     future_job: m.future_job,
                 };
                 PoolMessages::Mining(parsers::Mining::SetCustomMiningJob(m))
-            },
+            }
             parsers::Mining::SetCustomMiningJobError(m) => {
                 let m = SetCustomMiningJobError {
                     channel_id: m.channel_id,
@@ -150,7 +172,7 @@ pub fn into_static<'a>(m: AnyMessage<'a>) -> AnyMessage<'static> {
                     error_code: m.error_code.into_static(),
                 };
                 PoolMessages::Mining(parsers::Mining::SetCustomMiningJobError(m))
-            },
+            }
             parsers::Mining::SetCustomMiningJobSuccess(m) => {
                 let m = SetCustomMiningJobSuccess {
                     channel_id: m.channel_id,
@@ -158,21 +180,21 @@ pub fn into_static<'a>(m: AnyMessage<'a>) -> AnyMessage<'static> {
                     job_id: m.job_id,
                 };
                 PoolMessages::Mining(parsers::Mining::SetCustomMiningJobSuccess(m))
-            },
+            }
             parsers::Mining::SetExtranoncePrefix(m) => {
                 let m = SetExtranoncePrefix {
                     channel_id: m.channel_id,
                     extranonce_prefix: m.extranonce_prefix.into_static(),
                 };
                 PoolMessages::Mining(parsers::Mining::SetExtranoncePrefix(m))
-            },
+            }
             parsers::Mining::SetGroupChannel(m) => {
                 let m = SetGroupChannel {
                     group_channel_id: m.group_channel_id,
                     channel_ids: m.channel_ids.into_static(),
                 };
                 PoolMessages::Mining(parsers::Mining::SetGroupChannel(m))
-            },
+            }
             parsers::Mining::SetNewPrevHash(m) => {
                 let m = MiningSetNewPrevHash {
                     channel_id: m.channel_id,
@@ -182,14 +204,14 @@ pub fn into_static<'a>(m: AnyMessage<'a>) -> AnyMessage<'static> {
                     nbits: m.nbits,
                 };
                 PoolMessages::Mining(parsers::Mining::SetNewPrevHash(m))
-            },
+            }
             parsers::Mining::SetTarget(m) => {
                 let m = SetTarget {
                     channel_id: m.channel_id,
                     maximum_target: m.maximum_target.into_static(),
                 };
                 PoolMessages::Mining(parsers::Mining::SetTarget(m))
-            },
+            }
             parsers::Mining::SubmitSharesError(m) => {
                 let m = SubmitSharesError {
                     channel_id: m.channel_id,
@@ -197,7 +219,7 @@ pub fn into_static<'a>(m: AnyMessage<'a>) -> AnyMessage<'static> {
                     error_code: m.error_code.into_static(),
                 };
                 PoolMessages::Mining(parsers::Mining::SubmitSharesError(m))
-            },
+            }
             parsers::Mining::SubmitSharesExtended(m) => {
                 let m = SubmitSharesExtended {
                     channel_id: m.channel_id,
@@ -209,7 +231,7 @@ pub fn into_static<'a>(m: AnyMessage<'a>) -> AnyMessage<'static> {
                     extranonce: m.extranonce.into_static(),
                 };
                 PoolMessages::Mining(parsers::Mining::SubmitSharesExtended(m))
-            },
+            }
             parsers::Mining::SubmitSharesStandard(m) => {
                 let m = SubmitSharesStandard {
                     channel_id: m.channel_id,
@@ -220,7 +242,7 @@ pub fn into_static<'a>(m: AnyMessage<'a>) -> AnyMessage<'static> {
                     version: m.version,
                 };
                 PoolMessages::Mining(parsers::Mining::SubmitSharesStandard(m))
-            },
+            }
             parsers::Mining::SubmitSharesSuccess(m) => {
                 let m = SubmitSharesSuccess {
                     channel_id: m.channel_id,
@@ -229,32 +251,32 @@ pub fn into_static<'a>(m: AnyMessage<'a>) -> AnyMessage<'static> {
                     new_shares_sum: m.new_shares_sum,
                 };
                 PoolMessages::Mining(parsers::Mining::SubmitSharesSuccess(m))
-            },
+            }
             parsers::Mining::UpdateChannel(m) => {
                 let m = UpdateChannel {
-                   channel_id: m.channel_id,
+                    channel_id: m.channel_id,
                     nominal_hash_rate: m.nominal_hash_rate,
                     maximum_target: m.maximum_target.into_static(),
                 };
                 PoolMessages::Mining(parsers::Mining::UpdateChannel(m))
-            },
+            }
             parsers::Mining::UpdateChannelError(m) => {
                 let m = UpdateChannelError {
                     channel_id: m.channel_id,
                     error_code: m.error_code.into_static(),
                 };
                 PoolMessages::Mining(parsers::Mining::UpdateChannelError(m))
-            },
+            }
         },
-        PoolMessages::JobNegotiation(m) => match m {
-            parsers::JobNegotiation::AllocateMiningJobToken(m) => {
+        PoolMessages::JobDeclaration(m) => match m {
+            parsers::JobDeclaration::AllocateMiningJobToken(m) => {
                 let m = AllocateMiningJobToken {
                     user_identifier: m.user_identifier.into_static(),
                     request_id: m.request_id,
                 };
-                PoolMessages::JobNegotiation(parsers::JobNegotiation::AllocateMiningJobToken(m))
-            },
-            parsers::JobNegotiation::AllocateMiningJobTokenSuccess(m) => {
+                PoolMessages::JobDeclaration(parsers::JobDeclaration::AllocateMiningJobToken(m))
+            }
+            parsers::JobDeclaration::AllocateMiningJobTokenSuccess(m) => {
                 let m = AllocateMiningJobTokenSuccess {
                     request_id: m.request_id,
                     mining_job_token: m.mining_job_token.into_static(),
@@ -262,9 +284,11 @@ pub fn into_static<'a>(m: AnyMessage<'a>) -> AnyMessage<'static> {
                     coinbase_output: m.coinbase_output.into_static(),
                     async_mining_allowed: m.async_mining_allowed,
                 };
-                PoolMessages::JobNegotiation(parsers::JobNegotiation::AllocateMiningJobTokenSuccess(m))
-            },
-            parsers::JobNegotiation::CommitMiningJob(m) => {
+                PoolMessages::JobDeclaration(
+                    parsers::JobDeclaration::AllocateMiningJobTokenSuccess(m),
+                )
+            }
+            parsers::JobDeclaration::CommitMiningJob(m) => {
                 let m = CommitMiningJob {
                     request_id: m.request_id,
                     mining_job_token: m.mining_job_token.into_static(),
@@ -280,24 +304,27 @@ pub fn into_static<'a>(m: AnyMessage<'a>) -> AnyMessage<'static> {
                     tx_short_hash_list: m.tx_short_hash_list.into_static(),
                     tx_hash_list_hash: m.tx_hash_list_hash.into_static(),
                     excess_data: m.excess_data.into_static(),
+                    merkle_path: m.merkle_path.into_static(),
                 };
-                PoolMessages::JobNegotiation(parsers::JobNegotiation::CommitMiningJob(m))
-            },
-            parsers::JobNegotiation::CommitMiningJobSuccess(m) => {
+                PoolMessages::JobDeclaration(parsers::JobDeclaration::CommitMiningJob(m))
+            }
+            parsers::JobDeclaration::CommitMiningJobSuccess(m) => {
                 let m = CommitMiningJobSuccess {
                     request_id: m.request_id,
                     new_mining_job_token: m.new_mining_job_token.into_static(),
                 };
-                PoolMessages::JobNegotiation(parsers::JobNegotiation::CommitMiningJobSuccess(m))
-            },
+                PoolMessages::JobDeclaration(parsers::JobDeclaration::CommitMiningJobSuccess(m))
+            }
         },
         PoolMessages::TemplateDistribution(m) => match m {
             parsers::TemplateDistribution::CoinbaseOutputDataSize(m) => {
                 let m = CoinbaseOutputDataSize {
                     coinbase_output_max_additional_size: m.coinbase_output_max_additional_size,
                 };
-                PoolMessages::TemplateDistribution(parsers::TemplateDistribution::CoinbaseOutputDataSize(m))
-            },
+                PoolMessages::TemplateDistribution(
+                    parsers::TemplateDistribution::CoinbaseOutputDataSize(m),
+                )
+            }
             parsers::TemplateDistribution::NewTemplate(m) => {
                 let m = NewTemplate {
                     template_id: m.template_id,
@@ -313,28 +340,34 @@ pub fn into_static<'a>(m: AnyMessage<'a>) -> AnyMessage<'static> {
                     merkle_path: m.merkle_path.into_static(),
                 };
                 PoolMessages::TemplateDistribution(parsers::TemplateDistribution::NewTemplate(m))
-            },
+            }
             parsers::TemplateDistribution::RequestTransactionData(m) => {
                 let m = RequestTransactionData {
                     template_id: m.template_id,
                 };
-                PoolMessages::TemplateDistribution(parsers::TemplateDistribution::RequestTransactionData(m))
-            },
+                PoolMessages::TemplateDistribution(
+                    parsers::TemplateDistribution::RequestTransactionData(m),
+                )
+            }
             parsers::TemplateDistribution::RequestTransactionDataError(m) => {
                 let m = RequestTransactionDataError {
                     template_id: m.template_id,
                     error_code: m.error_code.into_static(),
                 };
-                PoolMessages::TemplateDistribution(parsers::TemplateDistribution::RequestTransactionDataError(m))
-            },
+                PoolMessages::TemplateDistribution(
+                    parsers::TemplateDistribution::RequestTransactionDataError(m),
+                )
+            }
             parsers::TemplateDistribution::RequestTransactionDataSuccess(m) => {
                 let m = RequestTransactionDataSuccess {
                     template_id: m.template_id,
                     excess_data: m.excess_data.into_static(),
                     transaction_list: m.transaction_list.into_static(), // TODO! DA RIVEDERE!
                 };
-                PoolMessages::TemplateDistribution(parsers::TemplateDistribution::RequestTransactionDataSuccess(m))
-            },
+                PoolMessages::TemplateDistribution(
+                    parsers::TemplateDistribution::RequestTransactionDataSuccess(m),
+                )
+            }
             parsers::TemplateDistribution::SetNewPrevHash(m) => {
                 let m = roles_logic_sv2::template_distribution_sv2::SetNewPrevHash {
                     template_id: m.template_id,
@@ -344,7 +377,7 @@ pub fn into_static<'a>(m: AnyMessage<'a>) -> AnyMessage<'static> {
                     target: m.target.into_static(),
                 };
                 PoolMessages::TemplateDistribution(parsers::TemplateDistribution::SetNewPrevHash(m))
-            },
+            }
             parsers::TemplateDistribution::SubmitSolution(m) => {
                 let m = SubmitSolution {
                     template_id: m.template_id,
@@ -354,7 +387,7 @@ pub fn into_static<'a>(m: AnyMessage<'a>) -> AnyMessage<'static> {
                     coinbase_tx: m.coinbase_tx.into_static(),
                 };
                 PoolMessages::TemplateDistribution(parsers::TemplateDistribution::SubmitSolution(m))
-            },
+            }
         },
     }
 }

@@ -14,15 +14,16 @@ use sv2_messages::TestMessageParser;
 pub enum Parser<'a> {
     /// Parses any number or combination of messages to be later used by an action identified by
     /// message id.
-    Step1(HashMap<String, AnyMessage<'a>>),
+    /// they are saved as (field_name, keyword)
+    Step1(HashMap<String, (AnyMessage<'a>, Vec<(String, String)>)>),
     /// Serializes messages into `Sv2Frames` identified by message id.
     Step2 {
-        messages: HashMap<String, AnyMessage<'a>>,
+        messages: HashMap<String, (AnyMessage<'a>, Vec<(String, String)>)>,
         frames: HashMap<String, Sv2Frame<AnyMessage<'a>, Slice>>,
     },
     /// Parses the setup, execution, and cleanup shell commands, roles, and actions.
     Step3 {
-        messages: HashMap<String, AnyMessage<'a>>,
+        messages: HashMap<String, (AnyMessage<'a>, Vec<(String, String)>)>,
         frames: HashMap<String, Sv2Frame<AnyMessage<'a>, Slice>>,
         actions: Vec<Action<'a>>,
     },
@@ -51,14 +52,15 @@ impl<'a> Parser<'a> {
     fn next_step<'b: 'a>(self, test: &'b str) -> Self {
         match self {
             Self::Step1(messages) => {
-                let frames = Frames::from_step_1(test, messages.clone());
+                let (frames, messages) = Frames::from_step_1(test, messages.clone());
                 Self::Step2 {
                     messages,
                     frames: frames.frames,
                 }
             }
             Self::Step2 { messages, frames } => {
-                let actions = actions::ActionParser::from_step_3(test, frames.clone());
+                let actions =
+                    actions::ActionParser::from_step_2(test, frames.clone(), messages.clone());
                 Self::Step3 {
                     messages,
                     frames,

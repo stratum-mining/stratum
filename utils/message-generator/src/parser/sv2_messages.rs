@@ -18,6 +18,7 @@ pub fn message_from_path(path: &Vec<String>) -> AnyMessage<'static> {
         .into_map()
         .get(&id)
         .expect("There is no value matching the id {:?}")
+        .0
         .clone()
 }
 
@@ -80,6 +81,7 @@ struct CommonMessage<'a> {
     #[serde(borrow)]
     message: CommonMessages<'a>,
     id: String,
+    replace_fields: Option<Vec<(String, String)>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -87,6 +89,8 @@ struct JobDeclarationMessage<'a> {
     #[serde(borrow)]
     message: JobDeclaration<'a>,
     id: String,
+    // filed_name, keyword
+    replace_fields: Option<Vec<(String, String)>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -94,6 +98,8 @@ struct MiningMessage<'a> {
     #[serde(borrow)]
     message: Mining<'a>,
     id: String,
+    // filed_name, keyword
+    replace_fields: Option<Vec<(String, String)>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -101,40 +107,58 @@ struct TemplateDistributionMessage<'a> {
     #[serde(borrow)]
     message: TemplateDistribution<'a>,
     id: String,
+    // filed_name, keyword
+    replace_fields: Option<Vec<(String, String)>>,
 }
 
 impl<'a> TestMessageParser<'a> {
-    pub fn into_map(self) -> HashMap<String, AnyMessage<'a>> {
+    pub fn into_map(self) -> HashMap<String, (AnyMessage<'a>, Vec<(String, String)>)> {
         let mut map = HashMap::new();
         if let Some(common_messages) = self.common_messages {
             for message in common_messages {
                 let id = message.id;
+                let replace_fields = match message.replace_fields {
+                    Some(replace_fields) => replace_fields,
+                    None => vec![],
+                };
                 let message = message.message.into();
-                map.insert(id, message);
+                map.insert(id, (message, replace_fields));
             }
         };
         if let Some(job_declaration_messages) = self.job_declaration_messages {
             for message in job_declaration_messages {
                 let id = message.id;
+                let replace_fields = match message.replace_fields {
+                    Some(replace_fields) => replace_fields,
+                    None => vec![],
+                };
                 let message = message.message.into();
                 let message = AnyMessage::JobDeclaration(message);
-                map.insert(id, message);
+                map.insert(id, (message, replace_fields));
             }
         };
         if let Some(mining_messages) = self.mining_messages {
             for message in mining_messages {
                 let id = message.id;
+                let replace_fields = match message.replace_fields {
+                    Some(replace_fields) => replace_fields,
+                    None => vec![],
+                };
                 let message = message.message.into();
                 let message = AnyMessage::Mining(message);
-                map.insert(id, message);
+                map.insert(id, (message, replace_fields));
             }
         };
         if let Some(template_distribution_messages) = self.template_distribution_messages {
             for message in template_distribution_messages {
                 let id = message.id;
+                let replace_fields = match message.replace_fields {
+                    Some(replace_fields) => replace_fields,
+                    None => vec![],
+                };
                 let message = message.message.into();
                 let message = AnyMessage::TemplateDistribution(message);
-                map.insert(id, message);
+                map.insert(id, (message, replace_fields));
             }
         };
         map
@@ -225,7 +249,7 @@ mod test {
 
         let v: TestMessageParser = serde_json::from_str(data).unwrap();
         let v = v.into_map();
-        match v.get("setup_connection").unwrap() {
+        match v.get("setup_connection").unwrap().0 {
             AnyMessage::Common(
                 roles_logic_sv2::parsers::CommonMessages::SetupConnectionSuccess(m),
             ) => {

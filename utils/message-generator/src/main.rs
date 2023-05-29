@@ -1,5 +1,6 @@
 mod executor;
 mod external_commands;
+mod into_static;
 mod net;
 mod parser;
 
@@ -39,6 +40,11 @@ enum Sv2Type {
 enum ActionResult {
     MatchMessageType(u8),
     MatchMessageField((String, String, Vec<(String, Sv2Type)>)),
+    GetMessageField {
+        subprotocol: String,
+        message_type: String,
+        fields: Vec<(String, String)>,
+    },
     MatchMessageLen(usize),
     MatchExtensionType(u16),
     CloseConnection,
@@ -65,6 +71,13 @@ impl std::fmt::Display for ActionResult {
                 write!(f, "MatchExtensionType: {}", extension_type)
             }
             ActionResult::CloseConnection => write!(f, "Close connection"),
+            ActionResult::GetMessageField {
+                subprotocol,
+                fields,
+                ..
+            } => {
+                write!(f, "GetMessageField: {:?} {:?}", subprotocol, fields)
+            }
             ActionResult::None => write!(f, "None"),
         }
     }
@@ -93,7 +106,11 @@ struct Downstream {
 
 #[derive(Debug)]
 pub struct Action<'a> {
-    messages: Vec<EitherFrame<AnyMessage<'a>>>,
+    messages: Vec<(
+        EitherFrame<AnyMessage<'a>>,
+        AnyMessage<'a>,
+        Vec<(String, String)>,
+    )>,
     result: Vec<ActionResult>,
     role: Role,
     actiondoc: Option<String>,
