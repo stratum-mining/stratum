@@ -86,7 +86,6 @@
                 "--",
                 "-c",
                 "./test/config/tproxy-config-no-jd-sv1-cpu-md.toml"
-
             ],
             "conditions": {
                 "WithConditions": {
