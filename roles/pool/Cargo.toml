@@ -30,3 +30,4 @@ hex = "0.4.3"
 
 [features]
 test_only_allow_unencrypted = []
+MG_reject_auth = []
