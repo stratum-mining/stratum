@@ -1,15 +1,12 @@
 use async_std::net::TcpListener;
-use async_std::{
-    prelude::*,
-    task,
-};
+use async_std::{prelude::*, task};
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use psutil::cpu::cpu_times_percpu;
-use psutil::memory::virtual_memory;
 use psutil::cpu::os::unix::CpuTimesExt;
-use std::time::{Instant, Duration};
+use psutil::memory::virtual_memory;
 use std::fs::File;
 use std::io::Write;
+use std::time::{Duration, Instant};
 
 #[path = "./lib/server.rs"]
 mod server;
@@ -37,22 +34,18 @@ fn calculate_cpu_usage(cpu_times: &[psutil::cpu::CpuTimes]) -> f64 {
     let total_cpu_time: f64 = cpu_times
         .iter()
         .map(|cpu| {
-            cpu.user().as_secs_f64() +
-            cpu.system().as_secs_f64() +
-            cpu.idle().as_secs_f64() +
-            cpu.nice().as_secs_f64()
+            cpu.user().as_secs_f64()
+                + cpu.system().as_secs_f64()
+                + cpu.idle().as_secs_f64()
+                + cpu.nice().as_secs_f64()
         })
         .sum();
 
-    let idle_cpu_time: f64 = cpu_times
-        .iter()
-        .map(|cpu| cpu.idle().as_secs_f64())
-        .sum();
+    let idle_cpu_time: f64 = cpu_times.iter().map(|cpu| cpu.idle().as_secs_f64()).sum();
 
     let cpu_usage = 100.0 - (idle_cpu_time / total_cpu_time) * 100.0;
     cpu_usage
 }
-
 
 fn server_client_benchmark(c: &mut Criterion) {
     c.bench_function("server_client_benchmark", |b| {
@@ -119,7 +112,6 @@ fn server_client_benchmark(c: &mut Criterion) {
 
     });
 }
-
 
 criterion_group! {
     name = benches;
