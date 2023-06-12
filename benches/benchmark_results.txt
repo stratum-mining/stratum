@@ -1,0 +1,8 @@
+Latency: 7.013267021 seconds
+CPU Usage: 25.88%
+Memory Usage: 65.64%
+Instructions per Cycle: Not available yet
+
+Average Latency: 7.013267021 seconds
+Average CPU Usage: 25.88%
+Average Memory Usage: 65.64%

@@ -47,12 +47,12 @@ members = [
     "examples/interop-cpp/template-provider/example-of-guix-build/quickcheck_macros",
     "examples/template-provider-test",
     "experimental/coinbase-negotiator",
-    
+    "benches",
 ]
 
 exclude = [
     "utils/message-generator",
-    
+
 ]
 
 [profile.dev]

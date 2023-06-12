@@ -1,0 +1,19 @@
+[package]
+name = "benchmark"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+async-std = "1.10.0"
+criterion = "0.5.1"
+# prometheus = "0.13.3"
+tokio = "1.28.2"
+async-channel = "1.4.0"
+serde_json = "1.0.70"
+v1={path="../protocols/v1", package="sv1_api"}
+psutil = "3.2.2"
+
+[[bench]]
+name = "pool_benchmark"
+path="benches/src/pool_benchmark.rs"
+harness = false
