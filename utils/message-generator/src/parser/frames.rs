@@ -1,4 +1,4 @@
-use super::sv2_messages::message_from_path;
+use super::sv2_messages::{message_from_path, ReplaceField};
 use codec_sv2::{buffer_sv2::Slice, Frame as _Frame, Sv2Frame};
 use roles_logic_sv2::parsers::AnyMessage;
 use serde_json::{Map, Value};
@@ -11,10 +11,10 @@ pub struct Frames<'a> {
 impl<'a> Frames<'a> {
     pub fn from_step_1<'b: 'a>(
         test: &'b str,
-        messages: HashMap<String, (AnyMessage<'a>, Vec<(String, String)>)>,
+        messages: HashMap<String, (AnyMessage<'a>, Vec<ReplaceField>)>,
     ) -> (
         Self,
-        HashMap<String, (AnyMessage<'a>, Vec<(String, String)>)>,
+        HashMap<String, (AnyMessage<'a>, Vec<ReplaceField>)>,
     ) {
         let test: Map<String, Value> = serde_json::from_str(test).unwrap();
         let frames = test.get("frame_builders").unwrap().as_array().unwrap();

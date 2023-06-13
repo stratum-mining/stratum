@@ -2,7 +2,7 @@ use crate::{
     external_commands::os_command,
     into_static::into_static,
     net::{setup_as_downstream, setup_as_upstream},
-    Action, ActionResult, Command, Role, Sv2Type, Test,
+    Action, ActionResult, Command, Role, Sv2Type, Test, parser::sv2_messages::ReplaceField,
 };
 use async_channel::{Receiver, Sender};
 use codec_sv2::{Frame, StandardEitherFrame as EitherFrame, Sv2Frame};
@@ -808,15 +808,15 @@ impl Executor {
 
 fn change_fields<'a>(
     m: AnyMessage<'a>,
-    replace_fields: Vec<(String, String)>,
+    replace_fields: Vec<ReplaceField>,
     values: HashMap<String, String>,
 ) -> AnyMessage<'static> {
     let mut replace_fields = replace_fields.clone();
     let next = replace_fields
         .pop()
         .expect("replace_fields cannot be empty");
-    let keyword = next.1;
-    let field_name = next.0;
+    let keyword = next.keyword;
+    let field_name = next.field_name;
     let value = values
         .get(&keyword)
         .expect("value not found for the keyword");

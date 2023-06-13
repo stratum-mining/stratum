@@ -17,6 +17,7 @@ use net::{setup_as_downstream, setup_as_upstream};
 use roles_logic_sv2::{common_messages_sv2::SetupConnectionSuccess, parsers::AnyMessage};
 use serde_json;
 use std::net::SocketAddr;
+use crate::parser::sv2_messages::ReplaceField;
 
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 enum Sv2Type {
@@ -109,7 +110,7 @@ pub struct Action<'a> {
     messages: Vec<(
         EitherFrame<AnyMessage<'a>>,
         AnyMessage<'a>,
-        Vec<(String, String)>,
+        Vec<ReplaceField>,
     )>,
     result: Vec<ActionResult>,
     role: Role,

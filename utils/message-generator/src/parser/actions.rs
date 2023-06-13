@@ -4,6 +4,8 @@ use roles_logic_sv2::parsers::AnyMessage;
 use serde_json::{Map, Value};
 use std::collections::HashMap;
 
+use super::sv2_messages::ReplaceField;
+
 pub struct ActionParser {}
 
 impl ActionParser {
@@ -11,7 +13,7 @@ impl ActionParser {
         test: &'b str,
         frames: HashMap<String, Sv2Frame<AnyMessage<'a>, Slice>>,
         //Action.messages: Vec<(EitherFrame<AnyMessage<'a>>,AnyMessage<'a>,Vec<(String,String)>)>
-        messages: HashMap<String, (AnyMessage<'a>, Vec<(String, String)>)>,
+        messages: HashMap<String, (AnyMessage<'a>, Vec<ReplaceField>)>,
     ) -> Vec<Action<'a>> {
         let test: Map<String, Value> = serde_json::from_str(test).unwrap();
         let actions = test.get("actions").unwrap().as_array().unwrap();

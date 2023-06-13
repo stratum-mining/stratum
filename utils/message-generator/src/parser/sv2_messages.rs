@@ -76,12 +76,24 @@ pub struct TestMessageParser<'a> {
 //                          },
 //This is contained         "id": "setup_connection_success_flag_0"
 //field "id"            }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReplaceField {
+    pub field_name: String,
+    pub keyword: String,
+}
+impl ReplaceField {
+    fn from_vec_string_string(input: (String, String)) -> ReplaceField {
+        ReplaceField { field_name: input.0, keyword: input.1 }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct CommonMessage<'a> {
     #[serde(borrow)]
     message: CommonMessages<'a>,
     id: String,
-    replace_fields: Option<Vec<(String, String)>>,
+    replace_fields: Option<Vec<ReplaceField>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -90,7 +102,7 @@ struct JobDeclarationMessage<'a> {
     message: JobDeclaration<'a>,
     id: String,
     // filed_name, keyword
-    replace_fields: Option<Vec<(String, String)>>,
+    replace_fields: Option<Vec<ReplaceField>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -99,7 +111,7 @@ struct MiningMessage<'a> {
     message: Mining<'a>,
     id: String,
     // filed_name, keyword
-    replace_fields: Option<Vec<(String, String)>>,
+    replace_fields: Option<Vec<ReplaceField>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -108,11 +120,11 @@ struct TemplateDistributionMessage<'a> {
     message: TemplateDistribution<'a>,
     id: String,
     // filed_name, keyword
-    replace_fields: Option<Vec<(String, String)>>,
+    replace_fields: Option<Vec<ReplaceField>>,
 }
 
 impl<'a> TestMessageParser<'a> {
-    pub fn into_map(self) -> HashMap<String, (AnyMessage<'a>, Vec<(String, String)>)> {
+    pub fn into_map(self) -> HashMap<String, (AnyMessage<'a>, Vec<ReplaceField>)> {
         let mut map = HashMap::new();
         if let Some(common_messages) = self.common_messages {
             for message in common_messages {
