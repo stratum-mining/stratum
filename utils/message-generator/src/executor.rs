@@ -2,7 +2,8 @@ use crate::{
     external_commands::os_command,
     into_static::into_static,
     net::{setup_as_downstream, setup_as_upstream},
-    Action, ActionResult, Command, Role, Sv2Type, Test, parser::sv2_messages::ReplaceField,
+    parser::sv2_messages::ReplaceField,
+    Action, ActionResult, Command, Role, Sv2Type, Test,
 };
 use async_channel::{Receiver, Sender};
 use codec_sv2::{Frame, StandardEitherFrame as EitherFrame, Sv2Frame};
@@ -820,6 +821,8 @@ fn change_fields<'a>(
     let value = values
         .get(&keyword)
         .expect("value not found for the keyword");
+
+    let message_as_string = serde_json::to_string(&m.clone()).unwrap();
 
     match m.clone() {
         AnyMessage::Common(m) => {

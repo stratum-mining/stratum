@@ -2,8 +2,7 @@ mod actions;
 mod frames;
 pub mod sv2_messages;
 
-use crate::{Action, Command, Test};
-use crate::parser::sv2_messages::ReplaceField;
+use crate::{parser::sv2_messages::ReplaceField, Action, Command, Test};
 use codec_sv2::{buffer_sv2::Slice, Frame, Sv2Frame};
 use frames::Frames;
 use roles_logic_sv2::parsers::AnyMessage;

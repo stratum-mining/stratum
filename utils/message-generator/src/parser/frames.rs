@@ -12,10 +12,7 @@ impl<'a> Frames<'a> {
     pub fn from_step_1<'b: 'a>(
         test: &'b str,
         messages: HashMap<String, (AnyMessage<'a>, Vec<ReplaceField>)>,
-    ) -> (
-        Self,
-        HashMap<String, (AnyMessage<'a>, Vec<ReplaceField>)>,
-    ) {
+    ) -> (Self, HashMap<String, (AnyMessage<'a>, Vec<ReplaceField>)>) {
         let test: Map<String, Value> = serde_json::from_str(test).unwrap();
         let frames = test.get("frame_builders").unwrap().as_array().unwrap();
         let mut messages = messages.clone();

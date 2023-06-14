@@ -84,7 +84,10 @@ pub struct ReplaceField {
 }
 impl ReplaceField {
     fn from_vec_string_string(input: (String, String)) -> ReplaceField {
-        ReplaceField { field_name: input.0, keyword: input.1 }
+        ReplaceField {
+            field_name: input.0,
+            keyword: input.1,
+        }
     }
 }
 
@@ -270,7 +273,7 @@ mod test {
             }
             _ => panic!(),
         }
-        match v.get("close_channel").unwrap() {
+        match &v.get("close_channel").unwrap().0 {
             AnyMessage::Mining(roles_logic_sv2::parsers::Mining::CloseChannel(m)) => {
                 assert!(m.channel_id == 78);
                 let reason_code = m.reason_code.to_vec().clone();
