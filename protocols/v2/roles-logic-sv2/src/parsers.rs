@@ -19,7 +19,9 @@ use const_sv2::{
     CHANNEL_BIT_ALLOCATE_MINING_TOKEN, CHANNEL_BIT_ALLOCATE_MINING_TOKEN_SUCCESS,
     CHANNEL_BIT_CHANNEL_ENDPOINT_CHANGED, CHANNEL_BIT_CLOSE_CHANNEL,
     CHANNEL_BIT_COINBASE_OUTPUT_DATA_SIZE, CHANNEL_BIT_COMMIT_MINING_JOB,
-    CHANNEL_BIT_COMMIT_MINING_JOB_SUCCESS, CHANNEL_BIT_MINING_SET_NEW_PREV_HASH,
+    CHANNEL_BIT_COMMIT_MINING_JOB_SUCCESS,CHANNEL_BIT_COMMIT_MINING_JOB_ERROR, CHANNEL_BIT_IDENTIFY_TRANSACTIONS,
+    CHANNEL_BIT_IDENTIFY_TRANSACTIONS_SUCCESS, CHANNEL_BIT_PROVIDE_MISSING_TRANSACTIONS,
+    CHANNEL_BIT_PROVIDE_MISSING_TRANSACTIONS_SUCCESS, CHANNEL_BIT_MINING_SET_NEW_PREV_HASH,
     CHANNEL_BIT_NEW_EXTENDED_MINING_JOB, CHANNEL_BIT_NEW_MINING_JOB, CHANNEL_BIT_NEW_TEMPLATE,
     CHANNEL_BIT_OPEN_EXTENDED_MINING_CHANNEL, CHANNEL_BIT_OPEN_EXTENDED_MINING_CHANNEL_SUCCES,
     CHANNEL_BIT_OPEN_MINING_CHANNEL_ERROR, CHANNEL_BIT_OPEN_STANDARD_MINING_CHANNEL,
@@ -49,7 +51,7 @@ use const_sv2::{
     MESSAGE_TYPE_SET_GROUP_CHANNEL, MESSAGE_TYPE_SET_NEW_PREV_HASH, MESSAGE_TYPE_SET_TARGET,
     MESSAGE_TYPE_SUBMIT_SHARES_ERROR, MESSAGE_TYPE_SUBMIT_SHARES_EXTENDED,
     MESSAGE_TYPE_SUBMIT_SHARES_STANDARD, MESSAGE_TYPE_SUBMIT_SHARES_SUCCESS,
-    MESSAGE_TYPE_SUBMIT_SOLUTION, MESSAGE_TYPE_UPDATE_CHANNEL, MESSAGE_TYPE_UPDATE_CHANNEL_ERROR,
+    MESSAGE_TYPE_SUBMIT_SOLUTION, MESSAGE_TYPE_UPDATE_CHANNEL, MESSAGE_TYPE_UPDATE_CHANNEL_ERROR, MESSAGE_TYPE_COMMIT_MINING_JOB_ERROR, MESSAGE_TYPE_IDENTIFY_TRANSACTIONS, MESSAGE_TYPE_IDENTIFY_TRANSACTIONS_SUCCESS, MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS, MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS_SUCCESS,
 };
 
 use common_messages_sv2::{
@@ -62,7 +64,7 @@ use template_distribution_sv2::{
 };
 
 use job_declaration_sv2::{
-    AllocateMiningJobToken, AllocateMiningJobTokenSuccess, CommitMiningJob, CommitMiningJobSuccess,
+    AllocateMiningJobToken, AllocateMiningJobTokenSuccess, CommitMiningJob, CommitMiningJobSuccess, CommitMiningJobError,
 };
 
 use mining_sv2::{
@@ -117,7 +119,17 @@ pub enum JobDeclaration<'a> {
     #[cfg_attr(feature = "with_serde", serde(borrow))]
     CommitMiningJob(CommitMiningJob<'a>),
     #[cfg_attr(feature = "with_serde", serde(borrow))]
+    CommitMiningJobError(CommitMiningJobError<'a>),
+    #[cfg_attr(feature = "with_serde", serde(borrow))]
     CommitMiningJobSuccess(CommitMiningJobSuccess<'a>),
+    #[cfg_attr(feature = "with_serde", serde(borrow))]
+    IdentifyTransactions(CommitMiningJobSuccess<'a>),
+    #[cfg_attr(feature = "with_serde", serde(borrow))]
+    IdentifyTransactionsSuccess(CommitMiningJobSuccess<'a>),
+    #[cfg_attr(feature = "with_serde", serde(borrow))]
+    ProvideMissingTransactions(CommitMiningJobSuccess<'a>),
+    #[cfg_attr(feature = "with_serde", serde(borrow))]
+    ProvideMissingTransactionsSuccess(CommitMiningJobSuccess<'a>),
 }
 
 #[derive(Clone, Debug)]
@@ -261,6 +273,12 @@ impl<'a> IsSv2Message for JobDeclaration<'a> {
             Self::AllocateMiningJobTokenSuccess(_) => MESSAGE_TYPE_ALLOCATE_MINING_TOKEN_SUCCESS,
             Self::CommitMiningJob(_) => MESSAGE_TYPE_COMMIT_MINING_JOB,
             Self::CommitMiningJobSuccess(_) => MESSAGE_TYPE_COMMIT_MINING_JOB_SUCCESS,
+            Self::CommitMiningJobError(_) => MESSAGE_TYPE_COMMIT_MINING_JOB_ERROR,
+            Self::IdentifyTransactions(_) => MESSAGE_TYPE_IDENTIFY_TRANSACTIONS,
+            Self::IdentifyTransactionsSuccess(_) => MESSAGE_TYPE_IDENTIFY_TRANSACTIONS_SUCCESS,
+            Self::ProvideMissingTransactions(_) => MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS,
+            Self::ProvideMissingTransactionsSuccess(_) => MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS_SUCCESS,
+           
         }
     }
     fn channel_bit(&self) -> bool {
@@ -269,6 +287,11 @@ impl<'a> IsSv2Message for JobDeclaration<'a> {
             Self::AllocateMiningJobTokenSuccess(_) => CHANNEL_BIT_ALLOCATE_MINING_TOKEN_SUCCESS,
             Self::CommitMiningJob(_) => CHANNEL_BIT_COMMIT_MINING_JOB,
             Self::CommitMiningJobSuccess(_) => CHANNEL_BIT_COMMIT_MINING_JOB_SUCCESS,
+            Self::CommitMiningJobError(_) => CHANNEL_BIT_COMMIT_MINING_JOB_ERROR,
+            Self::IdentifyTransactions(_) => CHANNEL_BIT_IDENTIFY_TRANSACTIONS,
+            Self::IdentifyTransactionsSuccess(_) => CHANNEL_BIT_IDENTIFY_TRANSACTIONS_SUCCESS,
+            Self::ProvideMissingTransactions(_) => CHANNEL_BIT_PROVIDE_MISSING_TRANSACTIONS,
+            Self::ProvideMissingTransactionsSuccess(_) => CHANNEL_BIT_PROVIDE_MISSING_TRANSACTIONS_SUCCESS,
         }
     }
 }
@@ -369,6 +392,11 @@ impl<'decoder> From<JobDeclaration<'decoder>> for EncodableField<'decoder> {
             JobDeclaration::AllocateMiningJobTokenSuccess(a) => a.into(),
             JobDeclaration::CommitMiningJob(a) => a.into(),
             JobDeclaration::CommitMiningJobSuccess(a) => a.into(),
+            JobDeclaration::CommitMiningJobError(a) => a.into(),
+            JobDeclaration::IdentifyTransactions(a) => a.into(),
+            JobDeclaration::IdentifyTransactionsSuccess(a) => a.into(),
+            JobDeclaration::ProvideMissingTransactions(a) => a.into(),
+            JobDeclaration::ProvideMissingTransactionsSuccess(a) => a.into(),
         }
     }
 }
@@ -433,6 +461,11 @@ impl<'a> GetSize for JobDeclaration<'a> {
             JobDeclaration::AllocateMiningJobTokenSuccess(a) => a.get_size(),
             JobDeclaration::CommitMiningJob(a) => a.get_size(),
             JobDeclaration::CommitMiningJobSuccess(a) => a.get_size(),
+            JobDeclaration::CommitMiningJobError(a) => a.get_size(),
+            JobDeclaration::IdentifyTransactions(a) => a.get_size(),
+            JobDeclaration::IdentifyTransactionsSuccess(a) => a.get_size(),
+            JobDeclaration::ProvideMissingTransactions(a) => a.get_size(),
+            JobDeclaration::ProvideMissingTransactionsSuccess(a) => a.get_size(),
         }
     }
 }

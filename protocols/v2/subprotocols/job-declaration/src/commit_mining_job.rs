@@ -2,7 +2,7 @@
 use alloc::vec::Vec;
 #[cfg(not(feature = "with_serde"))]
 use binary_sv2::binary_codec_sv2;
-use binary_sv2::{Deserialize, Seq0255, Seq064K, Serialize, ShortTxId, B0255, B064K, U256};
+use binary_sv2::{Deserialize, Seq0255, Seq064K, Serialize, ShortTxId, B0255, B064K, U256, Str0255};
 use core::convert::TryInto;
 
 /// ## CommitMiningJob (Client -> Server)
@@ -33,13 +33,22 @@ pub struct CommitMiningJob<'decoder> {
     pub merkle_path: Seq0255<'decoder, U256<'decoder>>,
 }
 
-/// ## CommitMiningJob (Server -> Client)
+/// ## CommitMiningJobSuccess (Server -> Client)
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[repr(C)]
 pub struct CommitMiningJobSuccess<'decoder> {
     pub request_id: u32,
     #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub new_mining_job_token: B0255<'decoder>,
+}
+
+/// ## CommitMiningJobError (Server -> Client)
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+#[repr(C)]
+pub struct CommitMiningJobError<'decoder> {
+    pub request_id: u32,
+    pub error_code: Str0255<'decoder>,
+    pub error_details: B064K<'decoder>,
 }
 
 #[cfg(feature = "with_serde")]
@@ -68,5 +77,13 @@ impl<'d> GetSize for CommitMiningJob<'d> {
 impl<'d> GetSize for CommitMiningJobSuccess<'d> {
     fn get_size(&self) -> usize {
         self.request_id.get_size() + self.new_mining_job_token.get_size()
+    }
+}
+#[cfg(feature = "with_serde")]
+impl<'d> GetSize for CommitMiningJobError<'d> {
+    fn get_size(&self) -> usize {
+        self.request_id.get_size() 
+            + self.error_code.get_size() 
+            + self.error_details.get_size()
     }
 }

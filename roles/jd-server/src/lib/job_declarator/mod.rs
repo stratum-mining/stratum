@@ -1,3 +1,4 @@
+pub mod message_handler;
 use crate::{error::PoolError, Configuration, EitherFrame, StdFrame};
 use async_channel::{Receiver, Sender};
 use binary_sv2::B0255;
