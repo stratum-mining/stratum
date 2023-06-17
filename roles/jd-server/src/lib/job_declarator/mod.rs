@@ -9,8 +9,7 @@ use network_helpers::noise_connection_tokio::Connection;
 use roles_logic_sv2::{
     common_messages_sv2::SetupConnectionSuccess,
     handlers::job_declaration::{ParseClientJobDeclarationMessages, SendTo},
-    job_declaration_sv2::{AllocateMiningJobTokenSuccess, CommitMiningJobSuccess, *},
-    parsers::{JobDeclaration, PoolMessages},
+    parsers::{PoolMessages},
     utils::Mutex,
 };
 use std::{convert::TryInto, sync::Arc};
@@ -23,6 +22,7 @@ pub struct JobDeclaratorDownstream {
     receiver: Receiver<EitherFrame>,
     // TODO this should be computed for each new template so that fees are included
     coinbase_output: Vec<u8>,
+    token_to_job_map: [u8],
 }
 
 impl JobDeclaratorDownstream {
@@ -83,36 +83,6 @@ impl JobDeclaratorDownstream {
     }
 }
 
-impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
-    fn handle_allocate_mining_job(
-        &mut self,
-        message: AllocateMiningJobToken,
-    ) -> Result<roles_logic_sv2::handlers::job_declaration::SendTo, roles_logic_sv2::Error> {
-        let res = JobDeclaration::AllocateMiningJobTokenSuccess(AllocateMiningJobTokenSuccess {
-            request_id: message.request_id,
-            mining_job_token: get_random_token(),
-            coinbase_output_max_additional_size: self.coinbase_output.len() as u32,
-            // Pool do not construct ouputs bigger than 64K bytes so, self.coinbase_output can be
-            // safly transformed in B064K.
-            coinbase_output: self.coinbase_output.clone().try_into().unwrap(),
-            async_mining_allowed: true,
-        });
-        Ok(SendTo::Respond(res))
-    }
-
-    // Just accept any proposed job without veryfing it and rely only on the downstreams to make
-    // sure that jobs are valid
-    fn handle_commit_mining_job(
-        &mut self,
-        message: CommitMiningJob,
-    ) -> Result<roles_logic_sv2::handlers::job_declaration::SendTo, roles_logic_sv2::Error> {
-        let res = JobDeclaration::CommitMiningJobSuccess(CommitMiningJobSuccess {
-            request_id: message.request_id,
-            new_mining_job_token: message.mining_job_token.into_static().clone(),
-        });
-        Ok(SendTo::Respond(res))
-    }
-}
 
 fn get_random_token() -> B0255<'static> {
     let inner: [u8; 32] = rand::random();

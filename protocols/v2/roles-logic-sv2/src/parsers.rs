@@ -64,7 +64,7 @@ use template_distribution_sv2::{
 };
 
 use job_declaration_sv2::{
-    AllocateMiningJobToken, AllocateMiningJobTokenSuccess, CommitMiningJob, CommitMiningJobSuccess, CommitMiningJobError,
+    AllocateMiningJobToken, AllocateMiningJobTokenSuccess, CommitMiningJob, CommitMiningJobSuccess, CommitMiningJobError, IdentifyTransactions, IdentifyTransactionsSuccess, ProvideMissingTransactions, ProvideMissingTransactionsSuccess,
 };
 
 use mining_sv2::{
@@ -123,13 +123,13 @@ pub enum JobDeclaration<'a> {
     #[cfg_attr(feature = "with_serde", serde(borrow))]
     CommitMiningJobSuccess(CommitMiningJobSuccess<'a>),
     #[cfg_attr(feature = "with_serde", serde(borrow))]
-    IdentifyTransactions(CommitMiningJobSuccess<'a>),
+    IdentifyTransactions(IdentifyTransactions<'a>),
     #[cfg_attr(feature = "with_serde", serde(borrow))]
-    IdentifyTransactionsSuccess(CommitMiningJobSuccess<'a>),
+    IdentifyTransactionsSuccess(IdentifyTransactionsSuccess<'a>),
     #[cfg_attr(feature = "with_serde", serde(borrow))]
-    ProvideMissingTransactions(CommitMiningJobSuccess<'a>),
+    ProvideMissingTransactions(ProvideMissingTransactions<'a>),
     #[cfg_attr(feature = "with_serde", serde(borrow))]
-    ProvideMissingTransactionsSuccess(CommitMiningJobSuccess<'a>),
+    ProvideMissingTransactionsSuccess(ProvideMissingTransactionsSuccess<'a>),
 }
 
 #[derive(Clone, Debug)]

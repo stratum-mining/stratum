@@ -1,3 +1,15 @@
+
+use std::convert::TryInto;
+
+use roles_logic_sv2::{
+    handlers::{job_declaration::ParseClientJobDeclarationMessages, SendTo_},
+    parsers::JobDeclaration, job_declaration_sv2::{CommitMiningJob, AllocateMiningJobToken, AllocateMiningJobTokenSuccess, CommitMiningJobSuccess, CommitMiningJobError, IdentifyTransactionsSuccess, ProvideMissingTransactionsSuccess},
+};
+pub type SendTo = SendTo_<JobDeclaration<'static>, ()>;
+use roles_logic_sv2::errors::Error;
+
+use super::JobDeclaratorDownstream;
+
 impl JobDeclaratorDownstream {
     fn verify_job(&mut self, message: &CommitMiningJob) -> bool {
         let is_token_allocated = self
@@ -14,7 +26,7 @@ impl JobDeclaratorDownstream {
 }
 
 impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
-    fn allocate_mining_job_token(
+    fn handle_allocate_mining_job_token(
         &mut self,
         message: AllocateMiningJobToken,
     ) -> Result<SendTo, Error> {
@@ -25,8 +37,9 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
             mining_job_token: token,
             coinbase_output_max_additional_size: 0,
             async_mining_allowed: true,
+            coinbase_output: todo!(),
         };
-        let message_enum = JobNegotiation::AllocateMiningJobTokenSuccess(message_success);
+        let message_enum = JobDeclaration::AllocateMiningJobTokenSuccess(message_success);
         println!(
             "Sending AllocateMiningJobTokenSuccess to proxy {:?}",
             message_enum
@@ -34,13 +47,13 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
         Ok(SendTo::Respond(message_enum))
     }
 
-    fn commit_mining_job(&mut self, message: CommitMiningJob) -> Result<SendTo, Error> {
+    fn handle_commit_mining_job(&mut self, message: CommitMiningJob) -> Result<SendTo, Error> {
         if self.verify_job(&message) {
             let message_success = CommitMiningJobSuccess {
                 request_id: message.request_id,
                 new_mining_job_token: message.mining_job_token,
             };
-            let message_enum_success = JobNegotiation::CommitMiningJobSuccess(message_success);
+            let message_enum_success = JobDeclaration::CommitMiningJobSuccess(message_success);
             self.token_to_job_map
                 .insert(message.mining_job_token, Some(message.into()));
                 println!(
@@ -50,70 +63,74 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
             Ok(SendTo::Respond(message_enum_success))
         } else {
             let message_error = CommitMiningJobError {
-                /// possible errors:
-                /// invalid-mining-job-token
-                /// invalid-job-param-value-{} - {} is replaced by a particular field name from CommitMiningJob message
                 request_id: message.request_id,
                 error_code: todo!(),
                 error_details: todo!(),
             };
-            let message_enum_error = JobNegotiation::CommitMiningJobError(message_error);
+            let message_enum_error = JobDeclaration::CommitMiningJobError(message_error);
             Ok(SendTo::Respond(message_enum_error))
         }
     }
 
-    fn identify_transactions_success(
+    fn handle_identify_transactions_success(
         &mut self,
         message: IdentifyTransactionsSuccess,
     ) -> Result<SendTo, Error> {
         let message_success = IdentifyTransactionsSuccess {
             request_id: message.request_id,
-            tx_hash_list: todo!(),
+            mining_job_token: todo!(),
+            coinbase_output_max_additional_size: todo!(),
+            coinbase_output: todo!(),
+            async_mining_allowed: todo!(),
         };
-        let message_enum = JobNegotiation::IdentifyTransactionsSuccess(message_success);
+        let message_enum = JobDeclaration::IdentifyTransactionsSuccess(message_success);
         Ok(SendTo::Respond(message_enum))
     }
 
-    fn provide_missing_transactions_success(
+    fn handle_provide_missing_transactions_success(
         &mut self,
         message: ProvideMissingTransactionsSuccess,
     ) -> Result<SendTo, Error> {
         let message_success = ProvideMissingTransactionsSuccess {
             request_id: message.request_id,
-            transaction_list: todo!(),
+            mining_job_token: todo!(),
+            coinbase_output_max_additional_size: todo!(),
+            coinbase_output: todo!(),
+            async_mining_allowed: todo!(),
         };
-        let message_enum = JobNegotiation::ProvideMissingTransactionsSuccess(message_success);
+        let message_enum = JobDeclaration::ProvideMissingTransactionsSuccess(message_success);
         Ok(SendTo::Respond(message_enum))
     }
 
-    fn handle_message_job_negotiation(
+    fn handle_message_job_declaration(
         self_: std::sync::Arc<roles_logic_sv2::utils::Mutex<Self>>,
         message_type: u8,
         payload: &mut [u8],
     ) -> Result<SendTo, Error> {
         // Is ok to unwrap a safe_lock result
         match (message_type, payload).try_into() {
-            Ok(JobNegotiation::AllocateMiningJobToken(message)) => {
+            Ok(JobDeclaration::AllocateMiningJobToken(message)) => {
                 println!("Allocate mining job token message sent to Proxy");
                 self_
-                    .safe_lock(|x| x.allocate_mining_job_token(message))
+                    .safe_lock(|x| x.hanlde_allocate_mining_job_token(message))
                     .unwrap()
             }
-            Ok(JobNegotiation::CommitMiningJob(message)) => {
-                self_.safe_lock(|x| x.commit_mining_job(message)).unwrap()
+            Ok(JobDeclaration::CommitMiningJob(message)) => {
+                self_.safe_lock(|x| x.hanlde_commit_mining_job(message)).unwrap()
             }
-            Ok(JobNegotiation::IdentifyTransactionsSuccess(message)) => self_
-                .safe_lock(|x| x.identify_transactions_success(message))
+            Ok(JobDeclaration::IdentifyTransactionsSuccess(message)) => self_
+                .safe_lock(|x| x.hanlde_identify_transactions_success(message))
                 .unwrap(),
-            Ok(JobNegotiation::ProvideMissingTransactionsSuccess(message)) => self_
-                .safe_lock(|x| x.provide_missing_transactions_success(message))
+            Ok(JobDeclaration::ProvideMissingTransactionsSuccess(message)) => self_
+                .safe_lock(|x| x.hanlde_provide_missing_transactions_success(message))
                 .unwrap(),
-            Ok(JobNegotiation::AllocateMiningJobTokenSuccess(_)) => Err(Error::UnexpectedMessage),
-            Ok(JobNegotiation::CommitMiningJobSuccess(_)) => Err(Error::UnexpectedMessage),
-            Ok(JobNegotiation::CommitMiningJobError(_)) => Err(Error::UnexpectedMessage),
-            Ok(JobNegotiation::IdentifyTransactions(_)) => Err(Error::UnexpectedMessage),
-            Ok(JobNegotiation::ProvideMissingTransactions(_)) => Err(Error::UnexpectedMessage),
+            Ok(JobDeclaration::AllocateMiningJobTokenSuccess(_)) => Err(Error::UnexpectedMessage),
+            Ok(JobDeclaration::CommitMiningJobSuccess(_)) => Err(Error::UnexpectedMessage),
+            Ok(JobDeclaration::CommitMiningJobError(_)) => Err(Error::UnexpectedMessage),
+            Ok(JobDeclaration::IdentifyTransactions(_)) => Err(Error::UnexpectedMessage),
+            Ok(JobDeclaration::ProvideMissingTransactions(_)) => Err(Error::UnexpectedMessage),
             Err(e) => Err(e),
         }
     }
+
 }
