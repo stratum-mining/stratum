@@ -12,16 +12,19 @@ use super::JobDeclaratorDownstream;
 
 impl JobDeclaratorDownstream {
     fn verify_job(&mut self, message: &CommitMiningJob) -> bool {
-        let is_token_allocated = self
+        // TODO: check if there is a token
+        /* let is_token_allocated = self
             .token_to_job_map
-            .contains_key(&message.mining_job_token);
+            .contains_key(&message.mining_job_token); */
         // TODO Function to implement, it must be checked if the requested job has:
         // 1. right coinbase
         // 2. right version field
         // 3. right prev-hash
         // 4. right nbits
         // 5. a valid merkletpath
-        is_token_allocated
+        // is_token_allocated
+        // TODO:use is_token_allocated for this bool
+        false
     }
 }
 
@@ -34,7 +37,7 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
         self.token_to_job_map.insert(token, None);
         let message_success = AllocateMiningJobTokenSuccess {
             request_id: message.request_id,
-            mining_job_token: token,
+            mining_job_token: todo!(),
             coinbase_output_max_additional_size: 0,
             async_mining_allowed: true,
             coinbase_output: todo!(),
@@ -54,8 +57,9 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
                 new_mining_job_token: message.mining_job_token,
             };
             let message_enum_success = JobDeclaration::CommitMiningJobSuccess(message_success);
-            self.token_to_job_map
-                .insert(message.mining_job_token, Some(message.into()));
+            // TODO: token map
+            /* self.token_to_job_map
+                .insert(message.mining_job_token, Some(message.into())); */
                 println!(
                     "Commit mining job was a success: {:?}",
                     message_enum_success
@@ -112,23 +116,23 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
             Ok(JobDeclaration::AllocateMiningJobToken(message)) => {
                 println!("Allocate mining job token message sent to Proxy");
                 self_
-                    .safe_lock(|x| x.hanlde_allocate_mining_job_token(message))
+                    .safe_lock(|x| x.handle_allocate_mining_job_token(message))
                     .unwrap()
             }
             Ok(JobDeclaration::CommitMiningJob(message)) => {
-                self_.safe_lock(|x| x.hanlde_commit_mining_job(message)).unwrap()
+                self_.safe_lock(|x| x.handle_commit_mining_job(message)).unwrap()
             }
             Ok(JobDeclaration::IdentifyTransactionsSuccess(message)) => self_
-                .safe_lock(|x| x.hanlde_identify_transactions_success(message))
+                .safe_lock(|x| x.handle_identify_transactions_success(message))
                 .unwrap(),
             Ok(JobDeclaration::ProvideMissingTransactionsSuccess(message)) => self_
-                .safe_lock(|x| x.hanlde_provide_missing_transactions_success(message))
+                .safe_lock(|x| x.handle_provide_missing_transactions_success(message))
                 .unwrap(),
-            Ok(JobDeclaration::AllocateMiningJobTokenSuccess(_)) => Err(Error::UnexpectedMessage),
-            Ok(JobDeclaration::CommitMiningJobSuccess(_)) => Err(Error::UnexpectedMessage),
-            Ok(JobDeclaration::CommitMiningJobError(_)) => Err(Error::UnexpectedMessage),
-            Ok(JobDeclaration::IdentifyTransactions(_)) => Err(Error::UnexpectedMessage),
-            Ok(JobDeclaration::ProvideMissingTransactions(_)) => Err(Error::UnexpectedMessage),
+            Ok(JobDeclaration::AllocateMiningJobTokenSuccess(_)) => Err(Error::UnexpectedMessage(u8::from_str_radix("51", 16).unwrap())),
+            Ok(JobDeclaration::CommitMiningJobSuccess(_)) => Err(Error::UnexpectedMessage(u8::from_str_radix("58", 16).unwrap())),
+            Ok(JobDeclaration::CommitMiningJobError(_)) => Err(Error::UnexpectedMessage(u8::from_str_radix("59", 16).unwrap())),
+            Ok(JobDeclaration::IdentifyTransactions(_)) => Err(Error::UnexpectedMessage(u8::from_str_radix("60", 16).unwrap())),
+            Ok(JobDeclaration::ProvideMissingTransactions(_)) => Err(Error::UnexpectedMessage(u8::from_str_radix("62", 16).unwrap())),
             Err(e) => Err(e),
         }
     }

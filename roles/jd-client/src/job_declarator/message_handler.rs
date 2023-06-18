@@ -2,6 +2,9 @@ use crate::job_declarator::JobDeclarator;
 use roles_logic_sv2::{
     handlers::{job_declaration::ParseServerJobDeclarationMessages, SendTo_},
     parsers::JobDeclaration,
+    job_declaration_sv2::{AllocateMiningJobTokenSuccess, CommitMiningJob, CommitMiningJobSuccess,
+    CommitMiningJobError, IdentifyTransactions, IdentifyTransactionsSuccess, ProvideMissingTransactions,
+    ProvideMissingTransactionsSuccess},
 };
 pub type SendTo = SendTo_<JobDeclaration<'static>, ()>;
 use roles_logic_sv2::errors::Error;
@@ -13,7 +16,7 @@ impl ParseServerJobDeclarationMessages for JobDeclarator {
     ) -> Result<SendTo, Error> {
         let coinbase_output_max_additional_size = message.coinbase_output_max_additional_size;
 
-        let new_template = self.last_new_template.as_ref().unwrap();
+        let new_template = self.new_template.as_ref().unwrap();
 
         let message_commit_mining_job = CommitMiningJob {
             request_id: message.request_id,
@@ -30,6 +33,7 @@ impl ParseServerJobDeclarationMessages for JobDeclarator {
             tx_short_hash_list: todo!(),
             tx_hash_list_hash: todo!(),
             excess_data: todo!(),
+            merkle_path: todo!(),
         };
         let commit_mining_job = JobDeclaration::CommitMiningJob(message_commit_mining_job);
         println!(
@@ -53,7 +57,10 @@ impl ParseServerJobDeclarationMessages for JobDeclarator {
     fn handle_identify_transactions(&mut self, message: IdentifyTransactions) -> Result<SendTo, Error> {
         let message_identify_transactions = IdentifyTransactionsSuccess {
             request_id: message.request_id,
-            tx_hash_list: todo!(),
+            mining_job_token: todo!(),
+            coinbase_output_max_additional_size: todo!(),
+            coinbase_output: todo!(),
+            async_mining_allowed: todo!(),
         };
         let message_enum =
             JobDeclaration::IdentifyTransactionsSuccess(message_identify_transactions);
@@ -66,7 +73,10 @@ impl ParseServerJobDeclarationMessages for JobDeclarator {
     ) -> Result<SendTo, Error> {
         let message_provide_missing_transactions = ProvideMissingTransactionsSuccess {
             request_id: message.request_id,
-            transaction_list: todo!(),
+            mining_job_token: todo!(),
+            coinbase_output_max_additional_size: todo!(),
+            coinbase_output: todo!(),
+            async_mining_allowed: todo!(),
         };
         let message_enum =
             JobDeclaration::ProvideMissingTransactionsSuccess(message_provide_missing_transactions);
@@ -96,10 +106,10 @@ impl ParseServerJobDeclarationMessages for JobDeclarator {
             Ok(JobDeclaration::ProvideMissingTransactions(message)) => self_
                 .safe_lock(|x| x.handle_provide_missing_transactions(message))
                 .unwrap(),
-            Ok(JobDeclaration::AllocateMiningJobToken(_)) => Err(Error::UnexpectedMessage),
-            Ok(JobDeclaration::CommitMiningJob(_)) => Err(Error::UnexpectedMessage),
-            Ok(JobDeclaration::IdentifyTransactionsSuccess(_)) => Err(Error::UnexpectedMessage),
-            Ok(JobDeclaration::ProvideMissingTransactionsSuccess(_)) => Err(Error::UnexpectedMessage),
+            Ok(JobDeclaration::AllocateMiningJobToken(_)) => Err(Error::UnexpectedMessage(u8::from_str_radix("0x50", 16).unwrap())),
+            Ok(JobDeclaration::CommitMiningJob(_)) => Err(Error::UnexpectedMessage(u8::from_str_radix("0x57", 16).unwrap())),
+            Ok(JobDeclaration::IdentifyTransactionsSuccess(_)) => Err(Error::UnexpectedMessage(u8::from_str_radix("0x61", 16).unwrap())),
+            Ok(JobDeclaration::ProvideMissingTransactionsSuccess(_)) => Err(Error::UnexpectedMessage(u8::from_str_radix("0x63", 16).unwrap())),
             Err(e) => Err(e),
         }
     }

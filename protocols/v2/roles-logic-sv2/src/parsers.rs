@@ -16,7 +16,7 @@ use binary_sv2::{from_bytes, Deserialize};
 use framing_sv2::framing2::{Frame, Sv2Frame};
 
 use const_sv2::{
-    CHANNEL_BIT_ALLOCATE_MINING_TOKEN, CHANNEL_BIT_ALLOCATE_MINING_TOKEN_SUCCESS,
+    CHANNEL_BIT_ALLOCATE_MINING_JOB_TOKEN, CHANNEL_BIT_ALLOCATE_MINING_JOB_TOKEN_SUCCESS,
     CHANNEL_BIT_CHANNEL_ENDPOINT_CHANGED, CHANNEL_BIT_CLOSE_CHANNEL,
     CHANNEL_BIT_COINBASE_OUTPUT_DATA_SIZE, CHANNEL_BIT_COMMIT_MINING_JOB,
     CHANNEL_BIT_COMMIT_MINING_JOB_SUCCESS,CHANNEL_BIT_COMMIT_MINING_JOB_ERROR, CHANNEL_BIT_IDENTIFY_TRANSACTIONS,
@@ -35,7 +35,7 @@ use const_sv2::{
     CHANNEL_BIT_SUBMIT_SHARES_ERROR, CHANNEL_BIT_SUBMIT_SHARES_EXTENDED,
     CHANNEL_BIT_SUBMIT_SHARES_STANDARD, CHANNEL_BIT_SUBMIT_SHARES_SUCCESS,
     CHANNEL_BIT_SUBMIT_SOLUTION, CHANNEL_BIT_UPDATE_CHANNEL, CHANNEL_BIT_UPDATE_CHANNEL_ERROR,
-    MESSAGE_TYPE_ALLOCATE_MINING_TOKEN, MESSAGE_TYPE_ALLOCATE_MINING_TOKEN_SUCCESS,
+    MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN, MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN_SUCCESS,
     MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED, MESSAGE_TYPE_CLOSE_CHANNEL,
     MESSAGE_TYPE_COINBASE_OUTPUT_DATA_SIZE, MESSAGE_TYPE_COMMIT_MINING_JOB,
     MESSAGE_TYPE_COMMIT_MINING_JOB_SUCCESS, MESSAGE_TYPE_MINING_SET_NEW_PREV_HASH,
@@ -269,8 +269,8 @@ impl<'a> IsSv2Message for TemplateDistribution<'a> {
 impl<'a> IsSv2Message for JobDeclaration<'a> {
     fn message_type(&self) -> u8 {
         match self {
-            Self::AllocateMiningJobToken(_) => MESSAGE_TYPE_ALLOCATE_MINING_TOKEN,
-            Self::AllocateMiningJobTokenSuccess(_) => MESSAGE_TYPE_ALLOCATE_MINING_TOKEN_SUCCESS,
+            Self::AllocateMiningJobToken(_) => MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN,
+            Self::AllocateMiningJobTokenSuccess(_) => MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN_SUCCESS,
             Self::CommitMiningJob(_) => MESSAGE_TYPE_COMMIT_MINING_JOB,
             Self::CommitMiningJobSuccess(_) => MESSAGE_TYPE_COMMIT_MINING_JOB_SUCCESS,
             Self::CommitMiningJobError(_) => MESSAGE_TYPE_COMMIT_MINING_JOB_ERROR,
@@ -283,8 +283,8 @@ impl<'a> IsSv2Message for JobDeclaration<'a> {
     }
     fn channel_bit(&self) -> bool {
         match self {
-            Self::AllocateMiningJobToken(_) => CHANNEL_BIT_ALLOCATE_MINING_TOKEN,
-            Self::AllocateMiningJobTokenSuccess(_) => CHANNEL_BIT_ALLOCATE_MINING_TOKEN_SUCCESS,
+            Self::AllocateMiningJobToken(_) => CHANNEL_BIT_ALLOCATE_MINING_JOB_TOKEN,
+            Self::AllocateMiningJobTokenSuccess(_) => CHANNEL_BIT_ALLOCATE_MINING_JOB_TOKEN_SUCCESS,
             Self::CommitMiningJob(_) => CHANNEL_BIT_COMMIT_MINING_JOB,
             Self::CommitMiningJobSuccess(_) => CHANNEL_BIT_COMMIT_MINING_JOB_SUCCESS,
             Self::CommitMiningJobError(_) => CHANNEL_BIT_COMMIT_MINING_JOB_ERROR,
@@ -697,8 +697,8 @@ impl<'a> TryFrom<(u8, &'a mut [u8])> for TemplateDistribution<'a> {
 #[repr(u8)]
 #[allow(clippy::enum_variant_names)]
 pub enum JobDeclarationTypes {
-    AllocateMiningJobToken = MESSAGE_TYPE_ALLOCATE_MINING_TOKEN,
-    AllocateMiningJobTokenSuccess = MESSAGE_TYPE_ALLOCATE_MINING_TOKEN_SUCCESS,
+    AllocateMiningJobToken = MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN,
+    AllocateMiningJobTokenSuccess = MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN_SUCCESS,
     CommitMiningJob = MESSAGE_TYPE_COMMIT_MINING_JOB,
     CommitMiningJobSuccess = MESSAGE_TYPE_COMMIT_MINING_JOB_SUCCESS,
 }

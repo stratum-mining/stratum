@@ -10,9 +10,9 @@ use roles_logic_sv2::{
     common_messages_sv2::SetupConnectionSuccess,
     handlers::job_declaration::{ParseClientJobDeclarationMessages, SendTo},
     parsers::{PoolMessages},
-    utils::Mutex,
+    utils::{Mutex, Id},
 };
-use std::{convert::TryInto, sync::Arc};
+use std::{convert::TryInto, sync::Arc, collections::HashMap};
 use tokio::net::TcpListener;
 use tracing::info;
 
@@ -22,7 +22,8 @@ pub struct JobDeclaratorDownstream {
     receiver: Receiver<EitherFrame>,
     // TODO this should be computed for each new template so that fees are included
     coinbase_output: Vec<u8>,
-    token_to_job_map: [u8],
+    token_to_job_map: HashMap<u32, std::option::Option<u8>>,
+    tokens: Id,
 }
 
 impl JobDeclaratorDownstream {
@@ -32,6 +33,8 @@ impl JobDeclaratorDownstream {
         config: &Configuration,
     ) -> Self {
         let mut coinbase_output = vec![];
+        let mut token_to_job_map = HashMap::new();
+        let mut tokens = Id::new();
         crate::get_coinbase_output(config)[0]
             .consensus_encode(&mut coinbase_output)
             .expect("invalid coinbase output in config");
@@ -39,6 +42,8 @@ impl JobDeclaratorDownstream {
             receiver,
             sender,
             coinbase_output,
+            token_to_job_map,
+            tokens,
         }
     }
 
