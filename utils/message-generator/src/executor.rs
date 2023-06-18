@@ -832,8 +832,9 @@ fn change_fields<'a>(
                 CommonMessages::SetupConnectionError(_) => "SetupConnectionError",
                 CommonMessages::SetupConnectionSuccess(_) => "SetupConnectionSuccess",
             };
-            let mut message_as_serde_value = serde_json::to_value(&m).unwrap();
+            let message_as_serde_value = serde_json::to_value(&m).unwrap();
             let m_ = change_value_of_serde_field(message_as_serde_value, path, value, field_name);
+            let m_ = into_static(AnyMessage::Common(serde_json::from_str(&m_).unwrap()));
             if replace_fields.len() == 0 {
                 return m_;
             } else {
@@ -867,19 +868,9 @@ fn change_fields<'a>(
                 parsers::Mining::UpdateChannel(_) => "UpdateChannel",
                 parsers::Mining::UpdateChannelError(_) => "UpdateChannelError",
             };
-            let mut message_as_serde_value = serde_json::to_value(&m).unwrap();
-            match message_as_serde_value.pointer_mut(&format!("/{}/{}", path, field_name.as_str()))
-            {
-                Some(field_value) => {
-                    let value = value.parse::<i32>().unwrap();
-                    *field_value = json!(value);
-                }
-                _ => panic!("value not found"),
-            }
-            let message_as_string = serde_json::to_string(&message_as_serde_value).unwrap();
-            let m_ = into_static(AnyMessage::Mining(
-                serde_json::from_str(&message_as_string).unwrap(),
-            ));
+            let message_as_serde_value = serde_json::to_value(&m).unwrap();
+            let m_ = change_value_of_serde_field(message_as_serde_value, path, value, field_name);
+            let m_ = into_static(AnyMessage::Mining(serde_json::from_str(&m_).unwrap()));
             if replace_fields.len() == 0 {
                 return m_;
             } else {
@@ -914,8 +905,11 @@ fn change_fields<'a>(
                     "ProvideMissingTransactionsSuccess"
                 }
             };
-            let mut message_as_serde_value = serde_json::to_value(&m).unwrap();
+            let message_as_serde_value = serde_json::to_value(&m).unwrap();
             let m_ = change_value_of_serde_field(message_as_serde_value, path, value, field_name);
+            let m_ = into_static(AnyMessage::JobDeclaration(
+                serde_json::from_str(&m_).unwrap(),
+            ));
             if replace_fields.len() == 0 {
                 return m_;
             } else {
@@ -944,8 +938,11 @@ fn change_fields<'a>(
                     "SubmitSolution"
                 }
             };
-            let mut message_as_serde_value = serde_json::to_value(&m).unwrap();
+            let message_as_serde_value = serde_json::to_value(&m).unwrap();
             let m_ = change_value_of_serde_field(message_as_serde_value, path, value, field_name);
+            let m_ = into_static(AnyMessage::TemplateDistribution(
+                serde_json::from_str(&m_).unwrap(),
+            ));
             if replace_fields.len() == 0 {
                 return m_;
             } else {
@@ -960,7 +957,7 @@ fn change_value_of_serde_field(
     path: &str,
     value: &str,
     field_name: String,
-) -> AnyMessage<'static> {
+) -> String {
     match message_as_serde_value.pointer_mut(&format!("/{}/{}", path, field_name.as_str())) {
         Some(field_value) => {
             let value = value.parse::<i32>().unwrap();
@@ -969,9 +966,7 @@ fn change_value_of_serde_field(
         _ => panic!("value not found"),
     }
     let message_as_string = serde_json::to_string(&message_as_serde_value).unwrap();
-    into_static(AnyMessage::Mining(
-        serde_json::from_str(&message_as_string).unwrap(),
-    ))
+    message_as_string
 }
 
 fn save_message_field(
