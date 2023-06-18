@@ -38,13 +38,19 @@ enum Sv2Type {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
+pub struct SaveField {
+    field_name: String,
+    keyword: String,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 enum ActionResult {
     MatchMessageType(u8),
     MatchMessageField((String, String, Vec<(String, Sv2Type)>)),
     GetMessageField {
         subprotocol: String,
         message_type: String,
-        fields: Vec<(String, String)>,
+        fields: Vec<SaveField>,
     },
     MatchMessageLen(usize),
     MatchExtensionType(u16),
@@ -179,7 +185,7 @@ mod test {
     use std::{convert::TryInto, io::Write};
     use tokio::join;
 
-    // The following test see that the composition serialise fist and deserialize 
+    // The following test see that the composition serialise fist and deserialize
     // second is the identity function (on an example message)
     #[test]
     fn test_serialise_and_deserialize() {

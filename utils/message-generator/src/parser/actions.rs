@@ -1,4 +1,4 @@
-use crate::{Action, ActionResult, Role, Sv2Type};
+use crate::{Action, ActionResult, Role, SaveField, Sv2Type};
 use codec_sv2::{buffer_sv2::Slice, StandardEitherFrame, Sv2Frame};
 use roles_logic_sv2::parsers::AnyMessage;
 use serde_json::{Map, Value};
@@ -57,7 +57,7 @@ impl ActionParser {
                     }
                     "get_message_field" => {
                         let sv2_type = result.get("value").unwrap().clone();
-                        let sv2_type: (String, String, Vec<(String, String)>) =
+                        let sv2_type: (String, String, Vec<SaveField>) =
                             serde_json::from_value(sv2_type)
                                 .expect("match_message_field values not correct");
                         let get_message_field = ActionResult::GetMessageField {

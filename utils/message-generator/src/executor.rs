@@ -3,7 +3,7 @@ use crate::{
     into_static::into_static,
     net::{setup_as_downstream, setup_as_upstream},
     parser::sv2_messages::ReplaceField,
-    Action, ActionResult, Command, Role, Sv2Type, Test,
+    Action, ActionResult, Command, Role, SaveField, Sv2Type, Test,
 };
 use async_channel::{Receiver, Sender};
 use codec_sv2::{Frame, StandardEitherFrame as EitherFrame, Sv2Frame};
@@ -977,11 +977,11 @@ fn change_value_of_serde_field(
 fn save_message_field(
     mess: serde_json::Value,
     mut save: HashMap<String, String>,
-    fields: &Vec<(String, String)>,
+    fields: &Vec<SaveField>,
 ) -> HashMap<String, String> {
     for field in fields {
-        let key = field.1.clone();
-        let field_name = &field.0;
+        let key = field.keyword.clone();
+        let field_name = &field.field_name;
         let to_save = message_to_value(&mess, field_name);
         save.insert(key, to_save);
     }
