@@ -33,7 +33,7 @@ where
             Ok(JobDeclaration::ProvideMissingTransactions(message)) => self_
                 .safe_lock(|x| x.handle_provide_missing_transactions(message))
                 .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
-            
+
             Ok(_) => todo!(),
             Err(e) => Err(e),
         }
@@ -66,13 +66,11 @@ where
         message: IdentifyTransactions,
     ) -> Result<SendTo, Error>;
 
-
     // TODO: comment
     fn handle_provide_missing_transactions(
         &mut self,
         message: ProvideMissingTransactions,
     ) -> Result<SendTo, Error>;
-
 }
 pub trait ParseClientJobDeclarationMessages
 where
@@ -103,23 +101,18 @@ where
     // TODO: comment
     fn handle_allocate_mining_job_token(
         &mut self,
-        message: AllocateMiningJobToken
+        message: AllocateMiningJobToken,
     ) -> Result<SendTo, Error>;
     // TODO: comment
-    fn handle_commit_mining_job(
-        &mut self,
-        message: CommitMiningJob
-    ) -> Result<SendTo, Error>;
+    fn handle_commit_mining_job(&mut self, message: CommitMiningJob) -> Result<SendTo, Error>;
     // TODO: comment
     fn handle_identify_transactions_success(
-        &mut self, 
-        message: IdentifyTransactionsSuccess
+        &mut self,
+        message: IdentifyTransactionsSuccess,
     ) -> Result<SendTo, Error>;
     // TODO: comment
     fn handle_provide_missing_transactions_success(
         &mut self,
-        message: ProvideMissingTransactionsSuccess
+        message: ProvideMissingTransactionsSuccess,
     ) -> Result<SendTo, Error>;
-
-    
 }

@@ -1,9 +1,13 @@
-
 use std::convert::TryInto;
 
 use roles_logic_sv2::{
     handlers::{job_declaration::ParseClientJobDeclarationMessages, SendTo_},
-    parsers::JobDeclaration, job_declaration_sv2::{CommitMiningJob, AllocateMiningJobToken, AllocateMiningJobTokenSuccess, CommitMiningJobSuccess, CommitMiningJobError, IdentifyTransactionsSuccess, ProvideMissingTransactionsSuccess},
+    job_declaration_sv2::{
+        AllocateMiningJobToken, AllocateMiningJobTokenSuccess, CommitMiningJob,
+        CommitMiningJobError, CommitMiningJobSuccess, IdentifyTransactionsSuccess,
+        ProvideMissingTransactionsSuccess,
+    },
+    parsers::JobDeclaration,
 };
 pub type SendTo = SendTo_<JobDeclaration<'static>, ()>;
 use roles_logic_sv2::errors::Error;
@@ -14,8 +18,8 @@ impl JobDeclaratorDownstream {
     fn verify_job(&mut self, message: &CommitMiningJob) -> bool {
         // TODO: check if there is a token
         /* let is_token_allocated = self
-            .token_to_job_map
-            .contains_key(&message.mining_job_token); */
+        .token_to_job_map
+        .contains_key(&message.mining_job_token); */
         // TODO Function to implement, it must be checked if the requested job has:
         // 1. right coinbase
         // 2. right version field
@@ -54,16 +58,16 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
         if self.verify_job(&message) {
             let message_success = CommitMiningJobSuccess {
                 request_id: message.request_id,
-                new_mining_job_token: message.mining_job_token,
+                new_mining_job_token: message.mining_job_token.into_static(),
             };
             let message_enum_success = JobDeclaration::CommitMiningJobSuccess(message_success);
             // TODO: token map
             /* self.token_to_job_map
-                .insert(message.mining_job_token, Some(message.into())); */
-                println!(
-                    "Commit mining job was a success: {:?}",
-                    message_enum_success
-                );
+            .insert(message.mining_job_token, Some(message.into())); */
+            println!(
+                "Commit mining job was a success: {:?}",
+                message_enum_success
+            );
             Ok(SendTo::Respond(message_enum_success))
         } else {
             let message_error = CommitMiningJobError {
@@ -119,22 +123,31 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
                     .safe_lock(|x| x.handle_allocate_mining_job_token(message))
                     .unwrap()
             }
-            Ok(JobDeclaration::CommitMiningJob(message)) => {
-                self_.safe_lock(|x| x.handle_commit_mining_job(message)).unwrap()
-            }
+            Ok(JobDeclaration::CommitMiningJob(message)) => self_
+                .safe_lock(|x| x.handle_commit_mining_job(message))
+                .unwrap(),
             Ok(JobDeclaration::IdentifyTransactionsSuccess(message)) => self_
                 .safe_lock(|x| x.handle_identify_transactions_success(message))
                 .unwrap(),
             Ok(JobDeclaration::ProvideMissingTransactionsSuccess(message)) => self_
                 .safe_lock(|x| x.handle_provide_missing_transactions_success(message))
                 .unwrap(),
-            Ok(JobDeclaration::AllocateMiningJobTokenSuccess(_)) => Err(Error::UnexpectedMessage(u8::from_str_radix("51", 16).unwrap())),
-            Ok(JobDeclaration::CommitMiningJobSuccess(_)) => Err(Error::UnexpectedMessage(u8::from_str_radix("58", 16).unwrap())),
-            Ok(JobDeclaration::CommitMiningJobError(_)) => Err(Error::UnexpectedMessage(u8::from_str_radix("59", 16).unwrap())),
-            Ok(JobDeclaration::IdentifyTransactions(_)) => Err(Error::UnexpectedMessage(u8::from_str_radix("60", 16).unwrap())),
-            Ok(JobDeclaration::ProvideMissingTransactions(_)) => Err(Error::UnexpectedMessage(u8::from_str_radix("62", 16).unwrap())),
+            Ok(JobDeclaration::AllocateMiningJobTokenSuccess(_)) => Err(Error::UnexpectedMessage(
+                u8::from_str_radix("51", 16).unwrap(),
+            )),
+            Ok(JobDeclaration::CommitMiningJobSuccess(_)) => Err(Error::UnexpectedMessage(
+                u8::from_str_radix("58", 16).unwrap(),
+            )),
+            Ok(JobDeclaration::CommitMiningJobError(_)) => Err(Error::UnexpectedMessage(
+                u8::from_str_radix("59", 16).unwrap(),
+            )),
+            Ok(JobDeclaration::IdentifyTransactions(_)) => Err(Error::UnexpectedMessage(
+                u8::from_str_radix("60", 16).unwrap(),
+            )),
+            Ok(JobDeclaration::ProvideMissingTransactions(_)) => Err(Error::UnexpectedMessage(
+                u8::from_str_radix("62", 16).unwrap(),
+            )),
             Err(e) => Err(e),
         }
     }
-
 }

@@ -2,7 +2,9 @@
 use alloc::vec::Vec;
 #[cfg(not(feature = "with_serde"))]
 use binary_sv2::binary_codec_sv2;
-use binary_sv2::{Deserialize, Seq0255, Seq064K, Serialize, ShortTxId, B0255, B064K, U256, Str0255};
+use binary_sv2::{
+    Deserialize, Seq0255, Seq064K, Serialize, ShortTxId, Str0255, B0255, B064K, U256,
+};
 use core::convert::TryInto;
 
 /// ## CommitMiningJob (Client -> Server)
@@ -82,8 +84,6 @@ impl<'d> GetSize for CommitMiningJobSuccess<'d> {
 #[cfg(feature = "with_serde")]
 impl<'d> GetSize for CommitMiningJobError<'d> {
     fn get_size(&self) -> usize {
-        self.request_id.get_size() 
-            + self.error_code.get_size() 
-            + self.error_details.get_size()
+        self.request_id.get_size() + self.error_code.get_size() + self.error_details.get_size()
     }
 }

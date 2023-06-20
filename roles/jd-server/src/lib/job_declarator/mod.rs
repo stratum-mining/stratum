@@ -9,10 +9,10 @@ use network_helpers::noise_connection_tokio::Connection;
 use roles_logic_sv2::{
     common_messages_sv2::SetupConnectionSuccess,
     handlers::job_declaration::{ParseClientJobDeclarationMessages, SendTo},
-    parsers::{PoolMessages},
-    utils::{Mutex, Id},
+    parsers::PoolMessages,
+    utils::{Id, Mutex},
 };
-use std::{convert::TryInto, sync::Arc, collections::HashMap};
+use std::{collections::HashMap, convert::TryInto, sync::Arc};
 use tokio::net::TcpListener;
 use tracing::info;
 
@@ -87,7 +87,6 @@ impl JobDeclaratorDownstream {
         });
     }
 }
-
 
 fn get_random_token() -> B0255<'static> {
     let inner: [u8; 32] = rand::random();

@@ -1,10 +1,12 @@
 use crate::job_declarator::JobDeclarator;
 use roles_logic_sv2::{
     handlers::{job_declaration::ParseServerJobDeclarationMessages, SendTo_},
+    job_declaration_sv2::{
+        AllocateMiningJobTokenSuccess, CommitMiningJob, CommitMiningJobError,
+        CommitMiningJobSuccess, IdentifyTransactions, IdentifyTransactionsSuccess,
+        ProvideMissingTransactions, ProvideMissingTransactionsSuccess,
+    },
     parsers::JobDeclaration,
-    job_declaration_sv2::{AllocateMiningJobTokenSuccess, CommitMiningJob, CommitMiningJobSuccess,
-    CommitMiningJobError, IdentifyTransactions, IdentifyTransactionsSuccess, ProvideMissingTransactions,
-    ProvideMissingTransactionsSuccess},
 };
 pub type SendTo = SendTo_<JobDeclaration<'static>, ()>;
 use roles_logic_sv2::errors::Error;
@@ -36,10 +38,7 @@ impl ParseServerJobDeclarationMessages for JobDeclarator {
             merkle_path: todo!(),
         };
         let commit_mining_job = JobDeclaration::CommitMiningJob(message_commit_mining_job);
-        println!(
-            "Send commit mining job to pool: {:?}",
-            commit_mining_job
-        );
+        println!("Send commit mining job to pool: {:?}", commit_mining_job);
         Ok(SendTo::Respond(commit_mining_job))
     }
 
@@ -50,11 +49,17 @@ impl ParseServerJobDeclarationMessages for JobDeclarator {
         todo!()
     }
 
-    fn handle_commit_mining_job_error(&mut self, message: CommitMiningJobError) -> Result<SendTo, Error> {
+    fn handle_commit_mining_job_error(
+        &mut self,
+        message: CommitMiningJobError,
+    ) -> Result<SendTo, Error> {
         todo!();
     }
 
-    fn handle_identify_transactions(&mut self, message: IdentifyTransactions) -> Result<SendTo, Error> {
+    fn handle_identify_transactions(
+        &mut self,
+        message: IdentifyTransactions,
+    ) -> Result<SendTo, Error> {
         let message_identify_transactions = IdentifyTransactionsSuccess {
             request_id: message.request_id,
             mining_job_token: todo!(),
@@ -83,7 +88,6 @@ impl ParseServerJobDeclarationMessages for JobDeclarator {
         Ok(SendTo::Respond(message_enum))
     }
 
-
     fn handle_message_job_declaration(
         self_: std::sync::Arc<roles_logic_sv2::utils::Mutex<Self>>,
         message_type: u8,
@@ -106,10 +110,18 @@ impl ParseServerJobDeclarationMessages for JobDeclarator {
             Ok(JobDeclaration::ProvideMissingTransactions(message)) => self_
                 .safe_lock(|x| x.handle_provide_missing_transactions(message))
                 .unwrap(),
-            Ok(JobDeclaration::AllocateMiningJobToken(_)) => Err(Error::UnexpectedMessage(u8::from_str_radix("0x50", 16).unwrap())),
-            Ok(JobDeclaration::CommitMiningJob(_)) => Err(Error::UnexpectedMessage(u8::from_str_radix("0x57", 16).unwrap())),
-            Ok(JobDeclaration::IdentifyTransactionsSuccess(_)) => Err(Error::UnexpectedMessage(u8::from_str_radix("0x61", 16).unwrap())),
-            Ok(JobDeclaration::ProvideMissingTransactionsSuccess(_)) => Err(Error::UnexpectedMessage(u8::from_str_radix("0x63", 16).unwrap())),
+            Ok(JobDeclaration::AllocateMiningJobToken(_)) => Err(Error::UnexpectedMessage(
+                u8::from_str_radix("0x50", 16).unwrap(),
+            )),
+            Ok(JobDeclaration::CommitMiningJob(_)) => Err(Error::UnexpectedMessage(
+                u8::from_str_radix("0x57", 16).unwrap(),
+            )),
+            Ok(JobDeclaration::IdentifyTransactionsSuccess(_)) => Err(Error::UnexpectedMessage(
+                u8::from_str_radix("0x61", 16).unwrap(),
+            )),
+            Ok(JobDeclaration::ProvideMissingTransactionsSuccess(_)) => Err(
+                Error::UnexpectedMessage(u8::from_str_radix("0x63", 16).unwrap()),
+            ),
             Err(e) => Err(e),
         }
     }
