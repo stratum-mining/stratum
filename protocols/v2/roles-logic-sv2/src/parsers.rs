@@ -718,8 +718,8 @@ impl TryFrom<u8> for JobDeclarationTypes {
 
     fn try_from(v: u8) -> Result<JobDeclarationTypes, Error> {
         match v {
-            MESSAGE_TYPE_ALLOCATE_MINING_TOKEN => Ok(JobDeclarationTypes::AllocateMiningJobToken),
-            MESSAGE_TYPE_ALLOCATE_MINING_TOKEN_SUCCESS => {
+            MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN => Ok(JobDeclarationTypes::AllocateMiningJobToken),
+            MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN_SUCCESS => {
                 Ok(JobDeclarationTypes::AllocateMiningJobTokenSuccess)
             }
             MESSAGE_TYPE_COMMIT_MINING_JOB => Ok(JobDeclarationTypes::CommitMiningJob),
