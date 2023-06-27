@@ -15,7 +15,7 @@ use roles_logic_sv2::errors::Error;
 use super::JobDeclaratorDownstream;
 
 impl JobDeclaratorDownstream {
-    fn verify_job(&mut self, message: &CommitMiningJob) -> bool {
+    fn verify_job(&mut self, _message: &CommitMiningJob) -> bool {
         // TODO: check if there is a token
         /* let is_token_allocated = self
         .token_to_job_map
@@ -41,10 +41,10 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
         self.token_to_job_map.insert(token, None);
         let message_success = AllocateMiningJobTokenSuccess {
             request_id: message.request_id,
-            mining_job_token: todo!(),
+            mining_job_token: Vec::new().try_into().unwrap(),
             coinbase_output_max_additional_size: 0,
             async_mining_allowed: true,
-            coinbase_output: todo!(),
+            coinbase_output: Vec::new().try_into().unwrap(),
         };
         let message_enum = JobDeclaration::AllocateMiningJobTokenSuccess(message_success);
         println!(
@@ -72,8 +72,8 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
         } else {
             let message_error = CommitMiningJobError {
                 request_id: message.request_id,
-                error_code: todo!(),
-                error_details: todo!(),
+                error_code: Vec::new().try_into().unwrap(),
+                error_details: Vec::new().try_into().unwrap(),
             };
             let message_enum_error = JobDeclaration::CommitMiningJobError(message_error);
             Ok(SendTo::Respond(message_enum_error))
@@ -86,10 +86,10 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
     ) -> Result<SendTo, Error> {
         let message_success = IdentifyTransactionsSuccess {
             request_id: message.request_id,
-            mining_job_token: todo!(),
-            coinbase_output_max_additional_size: todo!(),
-            coinbase_output: todo!(),
-            async_mining_allowed: todo!(),
+            mining_job_token: Vec::new().try_into().unwrap(),
+            coinbase_output_max_additional_size: 0,
+            coinbase_output: Vec::new().try_into().unwrap(),
+            async_mining_allowed: false,
         };
         let message_enum = JobDeclaration::IdentifyTransactionsSuccess(message_success);
         Ok(SendTo::Respond(message_enum))
@@ -101,10 +101,10 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
     ) -> Result<SendTo, Error> {
         let message_success = ProvideMissingTransactionsSuccess {
             request_id: message.request_id,
-            mining_job_token: todo!(),
-            coinbase_output_max_additional_size: todo!(),
-            coinbase_output: todo!(),
-            async_mining_allowed: todo!(),
+            mining_job_token: Vec::new().try_into().unwrap(),
+            coinbase_output_max_additional_size: 0,
+            coinbase_output: Vec::new().try_into().unwrap(),
+            async_mining_allowed: false,
         };
         let message_enum = JobDeclaration::ProvideMissingTransactionsSuccess(message_success);
         Ok(SendTo::Respond(message_enum))

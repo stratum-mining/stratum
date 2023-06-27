@@ -16,13 +16,14 @@ impl ParseServerJobDeclarationMessages for JobDeclarator {
         &mut self,
         message: AllocateMiningJobTokenSuccess,
     ) -> Result<SendTo, Error> {
-        let coinbase_output_max_additional_size = message.coinbase_output_max_additional_size;
+        // TODO: use or discard
+        let _coinbase_output_max_additional_size = message.coinbase_output_max_additional_size;
 
         let new_template = self.new_template.as_ref().unwrap();
 
         let message_commit_mining_job = CommitMiningJob {
             request_id: message.request_id,
-            mining_job_token: message.mining_job_token,
+            mining_job_token: message.mining_job_token.into_static(),
             version: 2,
             coinbase_tx_version: new_template.clone().coinbase_tx_version,
             coinbase_prefix: new_template.clone().coinbase_prefix,
@@ -32,10 +33,10 @@ impl ParseServerJobDeclarationMessages for JobDeclarator {
             coinbase_tx_locktime: new_template.clone().coinbase_tx_locktime,
             min_extranonce_size: 0,
             tx_short_hash_nonce: 0,
-            tx_short_hash_list: todo!(),
-            tx_hash_list_hash: todo!(),
-            excess_data: todo!(),
-            merkle_path: todo!(),
+            tx_short_hash_list: Vec::new().try_into().unwrap(),
+            tx_hash_list_hash: Vec::new().try_into().unwrap(),
+            excess_data: Vec::new().try_into().unwrap(),
+            merkle_path: Vec::new().try_into().unwrap(),
         };
         let commit_mining_job = JobDeclaration::CommitMiningJob(message_commit_mining_job);
         println!("Send commit mining job to pool: {:?}", commit_mining_job);
@@ -44,16 +45,16 @@ impl ParseServerJobDeclarationMessages for JobDeclarator {
 
     fn handle_commit_mining_job_success(
         &mut self,
-        message: CommitMiningJobSuccess,
+        _message: CommitMiningJobSuccess,
     ) -> Result<SendTo, Error> {
-        todo!()
+        Ok(SendTo::None(None))
     }
 
     fn handle_commit_mining_job_error(
         &mut self,
-        message: CommitMiningJobError,
+        _message: CommitMiningJobError,
     ) -> Result<SendTo, Error> {
-        todo!();
+        Ok(SendTo::None(None))
     }
 
     fn handle_identify_transactions(
@@ -62,10 +63,10 @@ impl ParseServerJobDeclarationMessages for JobDeclarator {
     ) -> Result<SendTo, Error> {
         let message_identify_transactions = IdentifyTransactionsSuccess {
             request_id: message.request_id,
-            mining_job_token: todo!(),
-            coinbase_output_max_additional_size: todo!(),
-            coinbase_output: todo!(),
-            async_mining_allowed: todo!(),
+            mining_job_token: Vec::new().try_into().unwrap(),
+            coinbase_output_max_additional_size: 0,
+            coinbase_output: Vec::new().try_into().unwrap(),
+            async_mining_allowed: false,
         };
         let message_enum =
             JobDeclaration::IdentifyTransactionsSuccess(message_identify_transactions);
@@ -78,10 +79,10 @@ impl ParseServerJobDeclarationMessages for JobDeclarator {
     ) -> Result<SendTo, Error> {
         let message_provide_missing_transactions = ProvideMissingTransactionsSuccess {
             request_id: message.request_id,
-            mining_job_token: todo!(),
-            coinbase_output_max_additional_size: todo!(),
-            coinbase_output: todo!(),
-            async_mining_allowed: todo!(),
+            mining_job_token: Vec::new().try_into().unwrap(),
+            coinbase_output_max_additional_size: 0,
+            coinbase_output: Vec::new().try_into().unwrap(),
+            async_mining_allowed: false,
         };
         let message_enum =
             JobDeclaration::ProvideMissingTransactionsSuccess(message_provide_missing_transactions);

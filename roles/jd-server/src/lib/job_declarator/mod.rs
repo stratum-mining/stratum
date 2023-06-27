@@ -21,6 +21,8 @@ pub struct JobDeclaratorDownstream {
     sender: Sender<EitherFrame>,
     receiver: Receiver<EitherFrame>,
     // TODO this should be computed for each new template so that fees are included
+    #[allow(dead_code)]
+    // TODO: use coinbase output
     coinbase_output: Vec<u8>,
     token_to_job_map: HashMap<u32, std::option::Option<u8>>,
     tokens: Id,
@@ -33,7 +35,10 @@ impl JobDeclaratorDownstream {
         config: &Configuration,
     ) -> Self {
         let mut coinbase_output = vec![];
+        #[allow(unused_mut)]
+        // TODO: use next variables
         let mut token_to_job_map = HashMap::new();
+        #[allow(unused_mut)]
         let mut tokens = Id::new();
         crate::get_coinbase_output(config)[0]
             .consensus_encode(&mut coinbase_output)
@@ -88,7 +93,7 @@ impl JobDeclaratorDownstream {
     }
 }
 
-fn get_random_token() -> B0255<'static> {
+fn _get_random_token() -> B0255<'static> {
     let inner: [u8; 32] = rand::random();
     inner.to_vec().try_into().unwrap()
 }
