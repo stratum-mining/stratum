@@ -48,12 +48,12 @@ pub struct Executor {
     actions: Vec<Action<'static>>,
     cleanup_commmands: Vec<Command>,
     process: Vec<Option<tokio::process::Child>>,
-    save: HashMap<String, String>,
+    save: HashMap<String, serde_json::Value>,
 }
 
 impl Executor {
     pub async fn new(test: Test<'static>, test_name: String) -> Executor {
-        let mut save: HashMap<String, String> = HashMap::new();
+        let mut save: HashMap<String, serde_json::Value> = HashMap::new();
         let mut process: Vec<Option<tokio::process::Child>> = vec![];
         for command in test.setup_commmands {
             if command.command == "kill" {
@@ -255,7 +255,7 @@ impl Executor {
                         message_type,
                         field_data, // Vec<(String, Sv2Type)>
                     )) => {
-                        if subprotocol.as_str() == "CommonMessage" {
+                        if subprotocol.as_str() == "CommonMessages" {
                             match (header.msg_type(), payload).try_into() {
                                 Ok(roles_logic_sv2::parsers::CommonMessages::SetupConnection(m)) => {
                                     if message_type.as_str() == "SetupConnection" {
@@ -536,7 +536,7 @@ impl Executor {
                         message_type,
                         fields,
                     } => {
-                        if subprotocol.as_str() == "CommonMessage" {
+                        if subprotocol.as_str() == "CommonMessages" {
                             match (header.msg_type(), payload).try_into() {
                                 Ok(parsers::CommonMessages::SetupConnection(m)) => {
                                     let mess = serde_json::to_value(&m).unwrap();
@@ -810,7 +810,7 @@ impl Executor {
 fn change_fields<'a>(
     m: AnyMessage<'a>,
     replace_fields: Vec<ReplaceField>,
-    values: HashMap<String, String>,
+    values: HashMap<String, serde_json::Value>,
 ) -> AnyMessage<'static> {
     let mut replace_fields = replace_fields.clone();
     let next = replace_fields
@@ -955,30 +955,26 @@ fn change_fields<'a>(
 fn change_value_of_serde_field(
     mut message_as_serde_value: serde_json::Value,
     path: &str,
-    value: &str,
+    value: &serde_json::Value,
     field_name: String,
 ) -> String {
-    match message_as_serde_value.pointer_mut(&format!("/{}/{}", path, field_name.as_str())) {
-        Some(field_value) => {
-            let value = value.parse::<i32>().unwrap();
-            *field_value = json!(value);
-        }
-        _ => panic!("value not found"),
-    }
+    *message_as_serde_value
+        .pointer_mut(&format!("/{}/{}", path, field_name.as_str()))
+        .unwrap() = value.clone();
     let message_as_string = serde_json::to_string(&message_as_serde_value).unwrap();
     message_as_string
 }
 
 fn save_message_field(
     mess: serde_json::Value,
-    mut save: HashMap<String, String>,
+    mut save: HashMap<String, serde_json::Value>,
     fields: &Vec<SaveField>,
-) -> HashMap<String, String> {
+) -> HashMap<String, serde_json::Value> {
     for field in fields {
         let key = field.keyword.clone();
         let field_name = &field.field_name;
         let to_save = message_to_value(&mess, field_name);
-        save.insert(key, to_save);
+        save.insert(key, to_save.clone());
     }
     save
 }
@@ -1014,8 +1010,8 @@ fn check_each_field(msg: serde_json::Value, field_info: &Vec<(String, Sv2Type)>)
         check_msg_field(msg.clone(), &field.0, &value_type, &field.1)
     }
 }
-fn message_to_value(m: &serde_json::Value, field: &str) -> String {
+fn message_to_value<'a>(m: &'a serde_json::Value, field: &str) -> &'a serde_json::Value {
     let msg = m.as_object().unwrap();
     let value = msg.get(field).unwrap();
-    value.to_string()
+    value
 }
