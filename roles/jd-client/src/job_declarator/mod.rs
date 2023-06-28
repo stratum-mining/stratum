@@ -45,6 +45,7 @@ pub struct JobDeclarator {
     // (Sented CommitMiningJob, is future, template id)
     last_commit_mining_job_sent: Vec<(CommitMiningJob<'static>, bool, u64)>,
     last_set_new_prev_hash: Option<SetNewPrevHash<'static>>,
+    new_template: Option<NewTemplate<'static>>,
     future_jobs: HashMap<u64, CommitMiningJob<'static>>,
     up: Arc<Mutex<Upstream>>,
     task_collector: Arc<Mutex<Vec<AbortHandle>>>,
@@ -92,6 +93,7 @@ impl JobDeclarator {
             future_jobs: HashMap::new(),
             up,
             task_collector,
+            new_template: None,
         }));
 
         Self::allocate_tokens(&self_, 2).await;
@@ -179,10 +181,10 @@ impl JobDeclarator {
             request_id: id,
             mining_job_token: token.try_into().unwrap(),
             version: template.version,
-            coninbase_tx_version: template.coinbase_tx_version,
-            coninbase_prefix: template.coinbase_prefix,
-            coninbase_tx_input_nsequence: template.coinbase_tx_input_sequence,
-            coninbase_tx_value_remaining: template.coinbase_tx_value_remaining,
+            coinbase_tx_version: template.coinbase_tx_version,
+            coinbase_prefix: template.coinbase_prefix,
+            coinbase_tx_input_n_sequence: template.coinbase_tx_input_sequence,
+            coinbase_tx_value_remaining: template.coinbase_tx_value_remaining,
             coinbase_tx_outputs: outputs.try_into().unwrap(),
             coinbase_tx_locktime: template.coinbase_tx_locktime,
             min_extranonce_size,
