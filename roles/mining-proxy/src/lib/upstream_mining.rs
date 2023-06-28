@@ -6,6 +6,7 @@ use async_channel::{Receiver, SendError, Sender};
 use async_recursion::async_recursion;
 use codec_sv2::{Frame, HandshakeRole, Initiator, StandardEitherFrame, StandardSv2Frame};
 use network_helpers::noise_connection_tokio::Connection;
+use nohash_hasher::BuildNoHashHasher;
 use roles_logic_sv2::{
     bitcoin::TxOut,
     channel_logic::{
@@ -145,7 +146,7 @@ pub struct UpstreamMiningNode {
     sv2_connection: Option<Sv2MiningConnection>,
     authority_public_key: [u8; 32],
     /// group_channel id/channel_id -> dispatcher
-    pub channel_id_to_job_dispatcher: HashMap<u32, JobDispatcher>,
+    pub channel_id_to_job_dispatcher: HashMap<u32, JobDispatcher, BuildNoHashHasher<u32>>,
     /// Each relayed message that has a `request_id` field must have a unique `request_id` number,
     /// connection-wise.
     /// The `request_id` from the downstream is NOT guaranteed to be unique, so it must be changed.
@@ -165,7 +166,8 @@ pub struct UpstreamMiningNode {
     // new prev hash is received if it refer one of these ids we use this map and build the right
     // set new pre hash for each downstream. TODO who is clearing the map?
     #[allow(clippy::type_complexity)]
-    job_up_to_down_ids: HashMap<u32, Vec<(Arc<Mutex<DownstreamMiningNode>>, u32)>>,
+    job_up_to_down_ids:
+        HashMap<u32, Vec<(Arc<Mutex<DownstreamMiningNode>>, u32)>, BuildNoHashHasher<u32>>,
     downstream_hash_rate: f32,
 }
 
@@ -198,7 +200,7 @@ impl UpstreamMiningNode {
             connection: None,
             sv2_connection: None,
             authority_public_key,
-            channel_id_to_job_dispatcher: HashMap::new(),
+            channel_id_to_job_dispatcher: HashMap::with_hasher(BuildNoHashHasher::default()),
             request_id_mapper,
             downstream_selector,
             channel_kind: channel_kind.into(),
@@ -208,7 +210,7 @@ impl UpstreamMiningNode {
             solution_sender,
             recv_coinbase_out,
             tx_outs: HashMap::new(),
-            job_up_to_down_ids: HashMap::new(),
+            job_up_to_down_ids: HashMap::with_hasher(BuildNoHashHasher::default()),
             downstream_hash_rate,
         }
     }
@@ -227,7 +229,7 @@ impl UpstreamMiningNode {
                         message.clone(),
                     ));
                 }
-                self.job_up_to_down_ids = HashMap::new();
+                self.job_up_to_down_ids = HashMap::with_hasher(BuildNoHashHasher::default());
                 Ok(SendTo::Multiple(res))
             }
             None => {
@@ -238,7 +240,7 @@ impl UpstreamMiningNode {
                 for downstream in downstrems {
                     res.push(SendTo::RelayNewMessageToRemote(downstream, message.clone()));
                 }
-                self.job_up_to_down_ids = HashMap::new();
+                self.job_up_to_down_ids = HashMap::with_hasher(BuildNoHashHasher::default());
                 Ok(SendTo::Multiple(res))
             }
         }

@@ -5,22 +5,23 @@ use crate::{
     utils::Mutex,
     Error,
 };
+use nohash_hasher::BuildNoHashHasher;
 use std::{collections::HashMap, fmt::Debug as D, sync::Arc};
 
 /// A DownstreamMiningSelector useful for routing messages in a mining proxy
 #[derive(Debug, Clone, Default)]
 pub struct ProxyDownstreamMiningSelector<Down: IsDownstream> {
-    request_id_to_remotes: HashMap<u32, Arc<Mutex<Down>>>,
-    channel_id_to_downstreams: HashMap<u32, Vec<Arc<Mutex<Down>>>>,
-    channel_id_to_downstream: HashMap<u32, Arc<Mutex<Down>>>,
+    request_id_to_remotes: HashMap<u32, Arc<Mutex<Down>>, BuildNoHashHasher<u32>>,
+    channel_id_to_downstreams: HashMap<u32, Vec<Arc<Mutex<Down>>>, BuildNoHashHasher<u32>>,
+    channel_id_to_downstream: HashMap<u32, Arc<Mutex<Down>>, BuildNoHashHasher<u32>>,
 }
 
 impl<Down: IsDownstream> ProxyDownstreamMiningSelector<Down> {
     pub fn new() -> Self {
         Self {
-            request_id_to_remotes: HashMap::new(),
-            channel_id_to_downstreams: HashMap::new(),
-            channel_id_to_downstream: HashMap::new(),
+            request_id_to_remotes: HashMap::with_hasher(BuildNoHashHasher::default()),
+            channel_id_to_downstreams: HashMap::with_hasher(BuildNoHashHasher::default()),
+            channel_id_to_downstream: HashMap::with_hasher(BuildNoHashHasher::default()),
         }
     }
     pub fn new_as_mutex() -> Arc<Mutex<Self>>
@@ -217,7 +218,7 @@ pub struct GeneralMiningSelector<
     Up: IsMiningUpstream<Down, Sel>,
 > {
     pub upstreams: Vec<Arc<Mutex<Up>>>,
-    pub id_to_upstream: HashMap<u32, Arc<Mutex<Up>>>,
+    pub id_to_upstream: HashMap<u32, Arc<Mutex<Up>>, BuildNoHashHasher<u32>>,
     sel: std::marker::PhantomData<Sel>,
     down: std::marker::PhantomData<Down>,
 }
@@ -229,7 +230,7 @@ impl<
     > GeneralMiningSelector<Sel, Down, Up>
 {
     pub fn new(upstreams: Vec<Arc<Mutex<Up>>>) -> Self {
-        let mut id_to_upstream = HashMap::new();
+        let mut id_to_upstream = HashMap::with_hasher(BuildNoHashHasher::default());
         for up in &upstreams {
             // Is ok to unwrap safe_lock result
             id_to_upstream.insert(up.safe_lock(|u| u.get_id()).unwrap(), up.clone());

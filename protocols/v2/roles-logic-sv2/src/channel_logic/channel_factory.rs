@@ -14,6 +14,7 @@ use mining_sv2::{
     SubmitSharesStandard, Target,
 };
 
+use nohash_hasher::BuildNoHashHasher;
 use std::{collections::HashMap, convert::TryInto, sync::Arc};
 use template_distribution_sv2::{NewTemplate, SetNewPrevHash as SetNewPrevHashFromTp};
 
@@ -188,9 +189,11 @@ impl Share {
 /// Basic logic shared between all the channel factory.
 struct ChannelFactory {
     ids: Arc<Mutex<GroupId>>,
-    standard_channels_for_non_hom_downstreams: HashMap<u64, StandardChannel>,
-    standard_channels_for_hom_downstreams: HashMap<u32, StandardChannel>,
-    extended_channels: HashMap<u32, OpenExtendedMiningChannelSuccess<'static>>,
+    standard_channels_for_non_hom_downstreams:
+        HashMap<u64, StandardChannel, BuildNoHashHasher<u64>>,
+    standard_channels_for_hom_downstreams: HashMap<u32, StandardChannel, BuildNoHashHasher<u32>>,
+    extended_channels:
+        HashMap<u32, OpenExtendedMiningChannelSuccess<'static>, BuildNoHashHasher<u32>>,
     extranonces: ExtendedExtranonce,
     share_per_min: f32,
     // (NewExtendedMiningJob,group ids that already received the future job)
@@ -202,8 +205,8 @@ struct ChannelFactory {
     last_valid_job: Option<(NewExtendedMiningJob<'static>, Vec<u32>)>,
     kind: ExtendedChannelKind,
     job_ids: Id,
-    channel_to_group_id: HashMap<u32, u32>,
-    future_templates: HashMap<u32, NewTemplate<'static>>,
+    channel_to_group_id: HashMap<u32, u32, BuildNoHashHasher<u32>>,
+    future_templates: HashMap<u32, NewTemplate<'static>, BuildNoHashHasher<u32>>,
 }
 
 impl ChannelFactory {
@@ -624,10 +627,10 @@ impl ChannelFactory {
     fn on_new_extended_mining_job(
         &mut self,
         m: NewExtendedMiningJob<'static>,
-    ) -> Result<HashMap<u32, Mining<'static>>, Error> {
+    ) -> Result<HashMap<u32, Mining<'static>, BuildNoHashHasher<u32>>, Error> {
         match (m.is_future(), &self.last_prev_hash) {
             (true, _) => {
-                let mut result = HashMap::new();
+                let mut result = HashMap::with_hasher(BuildNoHashHasher::default());
                 self.prepare_jobs_for_downstream_on_new_extended(&mut result, &m)?;
                 let mut ids = vec![];
                 for complete_id in self.standard_channels_for_non_hom_downstreams.keys() {
@@ -640,7 +643,7 @@ impl ChannelFactory {
                 Ok(result)
             }
             (false, Some(_)) => {
-                let mut result = HashMap::new();
+                let mut result = HashMap::with_hasher(BuildNoHashHasher::default());
                 self.prepare_jobs_for_downstream_on_new_extended(&mut result, &m)?;
                 // If job is not future it must always be paired with the last received prev hash
                 let mut ids = vec![];
@@ -667,7 +670,7 @@ impl ChannelFactory {
     // downstream (standard for hom and this job for non hom)
     fn prepare_jobs_for_downstream_on_new_extended(
         &mut self,
-        result: &mut HashMap<u32, Mining>,
+        result: &mut HashMap<u32, Mining, BuildNoHashHasher<u32>>,
         m: &NewExtendedMiningJob<'static>,
     ) -> Result<(), Error> {
         for (id, channel) in &self.standard_channels_for_hom_downstreams {
@@ -902,7 +905,7 @@ pub struct PoolChannelFactory {
     job_creator: JobsCreators,
     pool_coinbase_outputs: Vec<TxOut>,
     // extedned_channel_id -> SetCustomMiningJob
-    negotiated_jobs: HashMap<u32, SetCustomMiningJob<'static>>,
+    negotiated_jobs: HashMap<u32, SetCustomMiningJob<'static>, BuildNoHashHasher<u32>>,
 }
 
 impl PoolChannelFactory {
@@ -916,9 +919,13 @@ impl PoolChannelFactory {
     ) -> Self {
         let inner = ChannelFactory {
             ids,
-            standard_channels_for_non_hom_downstreams: HashMap::new(),
-            standard_channels_for_hom_downstreams: HashMap::new(),
-            extended_channels: HashMap::new(),
+            standard_channels_for_non_hom_downstreams: HashMap::with_hasher(
+                BuildNoHashHasher::default(),
+            ),
+            standard_channels_for_hom_downstreams: HashMap::with_hasher(
+                BuildNoHashHasher::default(),
+            ),
+            extended_channels: HashMap::with_hasher(BuildNoHashHasher::default()),
             extranonces,
             share_per_min,
             future_jobs: Vec::new(),
@@ -927,15 +934,15 @@ impl PoolChannelFactory {
             last_valid_job: None,
             kind,
             job_ids: Id::new(),
-            channel_to_group_id: HashMap::new(),
-            future_templates: HashMap::new(),
+            channel_to_group_id: HashMap::with_hasher(BuildNoHashHasher::default()),
+            future_templates: HashMap::with_hasher(BuildNoHashHasher::default()),
         };
 
         Self {
             inner,
             job_creator,
             pool_coinbase_outputs,
-            negotiated_jobs: HashMap::new(),
+            negotiated_jobs: HashMap::with_hasher(BuildNoHashHasher::default()),
         }
     }
     /// Calls [`ChannelFactory::add_standard_channel`]
@@ -997,7 +1004,7 @@ impl PoolChannelFactory {
     pub fn on_new_template(
         &mut self,
         m: &mut NewTemplate<'static>,
-    ) -> Result<HashMap<u32, Mining<'static>>, Error> {
+    ) -> Result<HashMap<u32, Mining<'static>, BuildNoHashHasher<u32>>, Error> {
         let new_job =
             self.job_creator
                 .on_new_template(m, true, self.pool_coinbase_outputs.clone())?;
@@ -1195,9 +1202,13 @@ impl ProxyExtendedChannelFactory {
         };
         let inner = ChannelFactory {
             ids,
-            standard_channels_for_non_hom_downstreams: HashMap::new(),
-            standard_channels_for_hom_downstreams: HashMap::new(),
-            extended_channels: HashMap::new(),
+            standard_channels_for_non_hom_downstreams: HashMap::with_hasher(
+                BuildNoHashHasher::default(),
+            ),
+            standard_channels_for_hom_downstreams: HashMap::with_hasher(
+                BuildNoHashHasher::default(),
+            ),
+            extended_channels: HashMap::with_hasher(BuildNoHashHasher::default()),
             extranonces,
             share_per_min,
             future_jobs: Vec::new(),
@@ -1206,8 +1217,8 @@ impl ProxyExtendedChannelFactory {
             last_valid_job: None,
             kind,
             job_ids: Id::new(),
-            channel_to_group_id: HashMap::new(),
-            future_templates: HashMap::new(),
+            channel_to_group_id: HashMap::with_hasher(BuildNoHashHasher::default()),
+            future_templates: HashMap::with_hasher(BuildNoHashHasher::default()),
         };
         ProxyExtendedChannelFactory {
             inner,
@@ -1272,7 +1283,7 @@ impl ProxyExtendedChannelFactory {
                     job_id,
                 ));
             }
-            self.inner.future_templates = HashMap::new();
+            self.inner.future_templates = HashMap::with_hasher(BuildNoHashHasher::default());
             self.inner.on_new_prev_hash(new_prev_hash)?;
             Ok(custom_job)
         } else {
@@ -1288,7 +1299,7 @@ impl ProxyExtendedChannelFactory {
     ) -> Result<
         (
             // downstream job_id -> downstream message (newextjob or newjob)
-            HashMap<u32, Mining<'static>>,
+            HashMap<u32, Mining<'static>, BuildNoHashHasher<u32>>,
             // PartialSetCustomMiningJob to send to the pool
             Option<PartialSetCustomMiningJob>,
             // job_id registered in the channel, the one that SetNewPrevHash refer to (upstsream
@@ -1473,7 +1484,7 @@ impl ProxyExtendedChannelFactory {
     pub fn on_new_extended_mining_job(
         &mut self,
         m: NewExtendedMiningJob<'static>,
-    ) -> Result<HashMap<u32, Mining<'static>>, Error> {
+    ) -> Result<HashMap<u32, Mining<'static>, BuildNoHashHasher<u32>>, Error> {
         self.inner.on_new_extended_mining_job(m)
     }
     pub fn set_target(&mut self, new_target: &mut Target) {
