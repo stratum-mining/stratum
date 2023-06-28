@@ -1,17 +1,21 @@
-use async_std::net::TcpStream;
-use std::{
-    net::SocketAddr,
-    time,
-    time::Duration,
-};
-use time::SystemTime;
+//! The defines a sv1 `Client` struct that handles message exchange with the server.
+//! It includes methods for initializing the client, parsing messages, and sending various types of messages.
+//! It also provides a trait implementation for handling server messages and managing client state.
+
 use async_channel::{bounded, Receiver, Sender};
 use async_std::{
     io::BufReader,
+    net::TcpStream,
     prelude::*,
     sync::{Arc, Mutex},
     task,
 };
+use std::{
+    net::SocketAddr,
+    time,
+    time::{Duration, Instant},
+};
+use time::SystemTime;
 use v1::{
     client_to_server,
     error::Error,
@@ -27,7 +31,7 @@ pub struct Client<'a> {
     extranonce2_size: usize,
     version_rolling_mask: Option<HexU32Be>,
     version_rolling_min_bit: Option<HexU32Be>,
-    status: ClientStatus,
+    pub status: ClientStatus,
     last_notify: Option<server_to_client::Notify<'a>>,
     sented_authorize_request: Vec<(u64, String)>, // (id, user_name)
     authorized: Vec<String>,
@@ -38,11 +42,16 @@ pub struct Client<'a> {
 impl<'a> Client<'static> {
     pub async fn new(client_id: u32, socket: SocketAddr) -> Arc<Mutex<Client<'static>>> {
         let stream = loop {
-            task::sleep(Duration::from_secs(1)).await;
-
+            // task::sleep(Duration::from_secs(1)).await;
+            let start_time = Instant::now();
             match TcpStream::connect(socket).await {
                 Ok(st) => {
+                    println!(
+                        "Connection time: {} micro secs",
+                        start_time.elapsed().as_micros()
+                    );
                     println!("CLIENT - connected to server at {}", socket);
+
                     break st;
                 }
                 Err(_) => {
@@ -63,7 +72,6 @@ impl<'a> Client<'static> {
             let mut messages = BufReader::new(&*reader).lines();
             while let Some(message) = messages.next().await {
                 let message = message.unwrap();
-                // println!("{}", message);
                 sender_incoming.send(message).await.unwrap();
             }
         });
@@ -81,7 +89,7 @@ impl<'a> Client<'static> {
             extranonce2_size: 2,
             version_rolling_mask: None,
             version_rolling_min_bit: None,
-            status: ClientStatus::Subscribed,
+            status: ClientStatus::Init,
             last_notify: None,
             sented_authorize_request: vec![],
             authorized: vec![],
@@ -138,17 +146,17 @@ impl<'a> Client<'static> {
         Self::send_message(&self.sender_outgoing, subscribe).await;
     }
 
-    pub async fn send_authorize(&mut self) {
+    pub async fn send_authorize(&mut self, username: String, password: String) {
         let id = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
             .unwrap()
             .as_secs();
-        if let Ok(authorize) = self.authorize(id, "user".to_string(), "user".to_string()) {
+        if let Ok(authorize) = self.authorize(id, username, password) {
             Self::send_message(&self.sender_outgoing, authorize).await;
         }
     }
 
-    pub async fn send_submit(&mut self) {
+    pub async fn send_submit(&mut self, username: &str) {
         let id = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
             .unwrap()
@@ -159,7 +167,7 @@ impl<'a> Client<'static> {
         let submit = self
             .submit(
                 id,
-                "user".to_string(),
+                username.to_string(),
                 extranonce2,
                 nonce,
                 nonce,
@@ -180,12 +188,35 @@ impl<'a> Client<'static> {
 }
 
 impl<'a> IsClient<'a> for Client<'a> {
+    fn handle_set_difficulty(
+        &mut self,
+        _conf: &mut server_to_client::SetDifficulty,
+    ) -> Result<(), Error<'a>> {
+        Ok(())
+    }
+    fn handle_set_version_mask(
+        &mut self,
+        _conf: &mut server_to_client::SetVersionMask,
+    ) -> Result<(), Error<'a>> {
+        Ok(())
+    }
+
+    fn handle_set_extranonce(
+        &mut self,
+        _conf: &mut server_to_client::SetExtranonce,
+    ) -> Result<(), Error<'a>> {
+        Ok(())
+    }
+
     fn handle_notify(&mut self, notify: server_to_client::Notify<'a>) -> Result<(), Error<'a>> {
         self.last_notify = Some(notify);
         Ok(())
     }
 
-    fn handle_configure(&self, _conf: &mut server_to_client::Configure) -> Result<(), Error<'a>> {
+    fn handle_configure(
+        &mut self,
+        _conf: &mut server_to_client::Configure,
+    ) -> Result<(), Error<'a>> {
         Ok(())
     }
 
@@ -309,26 +340,5 @@ impl<'a> IsClient<'a> for Client<'a> {
             .step_by(2)
             .map(|i| u8::from_str_radix(&s[i..i + 2], 16))
             .collect()
-    }
-}
-pub async fn initialize_client(client: Arc<Mutex<Client<'static>>>) {
-    loop {
-        let mut client_ = client.lock().await;
-        match client_.status {
-            ClientStatus::Init => client_.send_configure().await,
-            ClientStatus::Configured => client_.send_subscribe().await,
-            ClientStatus::Subscribed => {
-                client_.send_authorize().await;
-                break;
-            }
-        }
-        drop(client_);
-        task::sleep(Duration::from_millis(1000)).await;
-    }
-    task::sleep(Duration::from_millis(2000)).await;
-    for _ in 0..2 {
-        let mut client_ = client.lock().await;
-        client_.send_submit().await;
-        task::sleep(Duration::from_millis(2000)).await;
     }
 }

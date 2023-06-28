@@ -7,13 +7,17 @@ edition = "2021"
 async-std = "1.10.0"
 criterion = "0.5.1"
 # prometheus = "0.13.3"
-tokio = "1.28.2"
 async-channel = "1.4.0"
-serde_json = "1.0.70"
 v1={path="../protocols/v1", package="sv1_api"}
-psutil = "3.2.2"
+serde_json = "1.0.70"
+iai="0.1"
 
 [[bench]]
-name = "pool_benchmark"
-path="benches/src/pool_benchmark.rs"
+name = "criterion_sv1_benchmark"
+path="benches/src/sv1/criterion_sv1_benchmark.rs"
+harness = false
+
+[[bench]]
+name = "iai_sv1_benchmark"
+path="benches/src/sv1/iai_sv1_benchmark.rs"
 harness = false

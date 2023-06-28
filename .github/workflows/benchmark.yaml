@@ -1,0 +1,28 @@
+name: Benchmark
+
+on:
+  push:
+    branches:
+      - dev
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Run benchmarks
+        run: cargo test --release --benches
+
+      - name: Publish benchmark results
+        uses: actions-rs/cargo@v1
+        with:
+          command: bench
