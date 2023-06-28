@@ -550,11 +550,11 @@ mod tests {
         let expect = GroupChannelJobDispatcher {
             target: [0_u8; 32].into(),
             prev_hash: Vec::new(),
-            future_jobs: HashMap::new(),
-            jobs: HashMap::new(),
+            future_jobs: HashMap::with_hasher(BuildNoHashHasher::default()),
+            jobs: HashMap::with_hasher(BuildNoHashHasher::default()),
             ids: Arc::new(Mutex::new(Id::new())),
             nbits: 0,
-            extended_id_to_job_id: HashMap::new(),
+            extended_id_to_job_id: HashMap::with_hasher(BuildNoHashHasher::default()),
         };
 
         let ids = Arc::new(Mutex::new(Id::new()));
