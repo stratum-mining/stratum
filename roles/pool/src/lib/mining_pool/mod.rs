@@ -6,6 +6,7 @@ use async_channel::{Receiver, Sender};
 use codec_sv2::{Frame, HandshakeRole, Responder};
 use error_handling::handle_result;
 use network_helpers::noise_connection_tokio::Connection;
+use nohash_hasher::BuildNoHashHasher;
 use roles_logic_sv2::{
     channel_logic::channel_factory::PoolChannelFactory,
     common_properties::{CommonDownstreamData, IsDownstream, IsMiningDownstream},
@@ -40,7 +41,7 @@ pub struct Downstream {
 
 /// Accept downstream connection
 pub struct Pool {
-    downstreams: HashMap<u32, Arc<Mutex<Downstream>>>,
+    downstreams: HashMap<u32, Arc<Mutex<Downstream>>, BuildNoHashHasher<u32>>,
     solution_sender: Sender<SubmitSolution<'static>>,
     new_template_processed: bool,
     channel_factory: Arc<Mutex<PoolChannelFactory>>,
@@ -441,7 +442,7 @@ impl Pool {
             pool_coinbase_outputs,
         )));
         let pool = Arc::new(Mutex::new(Pool {
-            downstreams: HashMap::new(),
+            downstreams: HashMap::with_hasher(BuildNoHashHasher::default()),
             solution_sender,
             new_template_processed: false,
             channel_factory,

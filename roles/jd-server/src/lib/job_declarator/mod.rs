@@ -6,6 +6,7 @@ use bitcoin::consensus::Encodable;
 use codec_sv2::{Frame, HandshakeRole, Responder};
 use error_handling::handle_result;
 use network_helpers::noise_connection_tokio::Connection;
+use nohash_hasher::BuildNoHashHasher;
 use roles_logic_sv2::{
     common_messages_sv2::SetupConnectionSuccess,
     handlers::job_declaration::{ParseClientJobDeclarationMessages, SendTo},
@@ -24,7 +25,7 @@ pub struct JobDeclaratorDownstream {
     #[allow(dead_code)]
     // TODO: use coinbase output
     coinbase_output: Vec<u8>,
-    token_to_job_map: HashMap<u32, std::option::Option<u8>>,
+    token_to_job_map: HashMap<u32, std::option::Option<u8>, BuildNoHashHasher<u32>>,
     tokens: Id,
 }
 
@@ -35,11 +36,9 @@ impl JobDeclaratorDownstream {
         config: &Configuration,
     ) -> Self {
         let mut coinbase_output = vec![];
-        #[allow(unused_mut)]
         // TODO: use next variables
-        let mut token_to_job_map = HashMap::new();
-        #[allow(unused_mut)]
-        let mut tokens = Id::new();
+        let token_to_job_map = HashMap::with_hasher(BuildNoHashHasher::default());
+        let tokens = Id::new();
         crate::get_coinbase_output(config)[0]
             .consensus_encode(&mut coinbase_output)
             .expect("invalid coinbase output in config");

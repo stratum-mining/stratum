@@ -1108,6 +1108,7 @@ dependencies = [
  "framing_sv2",
  "futures",
  "network_helpers",
+ "nohash-hasher",
  "roles_logic_sv2",
  "serde",
  "tokio",
@@ -1130,6 +1131,7 @@ dependencies = [
  "error_handling",
  "hex",
  "network_helpers",
+ "nohash-hasher",
  "noise_sv2",
  "rand 0.8.5",
  "roles_logic_sv2",
@@ -1256,6 +1258,7 @@ dependencies = [
  "const_sv2",
  "futures",
  "network_helpers",
+ "nohash-hasher",
  "once_cell",
  "roles_logic_sv2",
  "serde",
@@ -1300,6 +1303,12 @@ dependencies = [
  "tokio",
  "tracing",
 ]
+
+[[package]]
+name = "nohash-hasher"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2bf50223579dc7cdcfb3bfcacf7069ff68243f8c363f62ffa99cf000a6b9c451"
 
 [[package]]
 name = "noise_sv2"
@@ -1568,6 +1577,7 @@ dependencies = [
  "error_handling",
  "hex",
  "network_helpers",
+ "nohash-hasher",
  "noise_sv2",
  "rand 0.8.5",
  "roles_logic_sv2",
@@ -1779,6 +1789,7 @@ dependencies = [
  "framing_sv2",
  "job_declaration_sv2",
  "mining_sv2",
+ "nohash-hasher",
  "quickcheck 1.0.3",
  "quickcheck_macros 1.0.0",
  "rand 0.8.5",

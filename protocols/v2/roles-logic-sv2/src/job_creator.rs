@@ -14,6 +14,7 @@ pub use bitcoin::{
     util::ecdsa::PrivateKey,
 };
 use mining_sv2::NewExtendedMiningJob;
+use nohash_hasher::BuildNoHashHasher;
 use std::{collections::HashMap, convert::TryInto};
 use template_distribution_sv2::{NewTemplate, SetNewPrevHash};
 use tracing::debug;
@@ -21,8 +22,8 @@ use tracing::debug;
 #[derive(Debug)]
 pub struct JobsCreators {
     lasts_new_template: Vec<NewTemplate<'static>>,
-    job_to_template_id: HashMap<u32, u64>,
-    templte_to_job_id: HashMap<u64, u32>,
+    job_to_template_id: HashMap<u32, u64, BuildNoHashHasher<u32>>,
+    templte_to_job_id: HashMap<u64, u32, BuildNoHashHasher<u64>>,
     ids: Id,
     last_target: mining_sv2::Target,
     extranonce_len: u8,
@@ -49,8 +50,8 @@ impl JobsCreators {
     pub fn new(extranonce_len: u8) -> Self {
         Self {
             lasts_new_template: Vec::new(),
-            job_to_template_id: HashMap::new(),
-            templte_to_job_id: HashMap::new(),
+            job_to_template_id: HashMap::with_hasher(BuildNoHashHasher::default()),
+            templte_to_job_id: HashMap::with_hasher(BuildNoHashHasher::default()),
             ids: Id::new(),
             last_target: mining_sv2::Target::new(0, 0),
             extranonce_len,
