@@ -15,6 +15,7 @@ use tracing::info;
 
 use async_recursion::async_recursion;
 use codec_sv2::Frame;
+use nohash_hasher::BuildNoHashHasher;
 use roles_logic_sv2::{
     handlers::job_declaration::ParseServerJobDeclarationMessages,
     job_declaration_sv2::{AllocateMiningJobToken, CommitMiningJob},
@@ -45,7 +46,8 @@ pub struct JobDeclarator {
     // (Sented CommitMiningJob, is future, template id)
     last_commit_mining_job_sent: Vec<(CommitMiningJob<'static>, bool, u64)>,
     last_set_new_prev_hash: Option<SetNewPrevHash<'static>>,
-    future_jobs: HashMap<u64, CommitMiningJob<'static>>,
+    new_template: Option<NewTemplate<'static>>,
+    future_jobs: HashMap<u64, CommitMiningJob<'static>, BuildNoHashHasher<u64>>,
     up: Arc<Mutex<Upstream>>,
     task_collector: Arc<Mutex<Vec<AbortHandle>>>,
 }
@@ -89,9 +91,10 @@ impl JobDeclarator {
             min_extranonce_size,
             last_commit_mining_job_sent: vec![],
             last_set_new_prev_hash: None,
-            future_jobs: HashMap::new(),
+            future_jobs: HashMap::with_hasher(BuildNoHashHasher::default()),
             up,
             task_collector,
+            new_template: None,
         }));
 
         Self::allocate_tokens(&self_, 2).await;
@@ -179,10 +182,10 @@ impl JobDeclarator {
             request_id: id,
             mining_job_token: token.try_into().unwrap(),
             version: template.version,
-            coninbase_tx_version: template.coinbase_tx_version,
-            coninbase_prefix: template.coinbase_prefix,
-            coninbase_tx_input_nsequence: template.coinbase_tx_input_sequence,
-            coninbase_tx_value_remaining: template.coinbase_tx_value_remaining,
+            coinbase_tx_version: template.coinbase_tx_version,
+            coinbase_prefix: template.coinbase_prefix,
+            coinbase_tx_input_n_sequence: template.coinbase_tx_input_sequence,
+            coinbase_tx_value_remaining: template.coinbase_tx_value_remaining,
             coinbase_tx_outputs: outputs.try_into().unwrap(),
             coinbase_tx_locktime: template.coinbase_tx_locktime,
             min_extranonce_size,
@@ -273,7 +276,7 @@ impl JobDeclarator {
                 s.last_set_new_prev_hash = Some(set_new_prev_hash.clone());
                 match s.future_jobs.remove(&id) {
                     Some(job) => {
-                        s.future_jobs = HashMap::new();
+                        s.future_jobs = HashMap::with_hasher(BuildNoHashHasher::default());
                         Some((job, s.up.clone()))
                     }
                     None => None,

@@ -5,6 +5,7 @@ use mining_sv2::{
 };
 
 use super::extended_to_standard_job;
+use nohash_hasher::BuildNoHashHasher;
 use std::collections::HashMap;
 
 /// wrapper around `GroupChannel` for managing multiple group channels
@@ -74,7 +75,7 @@ impl GroupChannels {
 
 #[derive(Debug, Clone)]
 struct GroupChannel {
-    hom_downstreams: HashMap<u32, StandardChannel>,
+    hom_downstreams: HashMap<u32, StandardChannel, BuildNoHashHasher<u32>>,
     future_jobs: Vec<NewExtendedMiningJob<'static>>,
     last_prev_hash: Option<SetNewPrevHash<'static>>,
     last_valid_job: Option<NewExtendedMiningJob<'static>>,
@@ -84,7 +85,7 @@ struct GroupChannel {
 impl GroupChannel {
     fn new() -> Self {
         Self {
-            hom_downstreams: HashMap::new(),
+            hom_downstreams: HashMap::with_hasher(BuildNoHashHasher::default()),
             future_jobs: vec![],
             last_prev_hash: None,
             last_valid_job: None,

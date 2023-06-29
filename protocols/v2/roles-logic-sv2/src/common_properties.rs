@@ -4,6 +4,7 @@ use crate::selectors::{
 };
 use common_messages_sv2::{has_requires_std_job, Protocol, SetupConnection};
 use mining_sv2::{Extranonce, Target};
+use nohash_hasher::BuildNoHashHasher;
 use std::{collections::HashMap, fmt::Debug as D};
 
 /// Defines a mining downstream node at the most basic level
@@ -156,7 +157,7 @@ impl IsMiningDownstream for () {}
 #[derive(Debug, Default, PartialEq, Eq)]
 pub struct RequestIdMapper {
     /// Mapping of upstream id -> downstream ids
-    request_ids_map: HashMap<u32, u32>,
+    request_ids_map: HashMap<u32, u32, BuildNoHashHasher<u32>>,
     next_id: u32,
 }
 
@@ -165,7 +166,7 @@ impl RequestIdMapper {
     /// to `0`.
     pub fn new() -> Self {
         Self {
-            request_ids_map: HashMap::new(),
+            request_ids_map: HashMap::with_hasher(BuildNoHashHasher::default()),
             next_id: 0,
         }
     }
@@ -192,7 +193,7 @@ mod tests {
     #[test]
     fn builds_request_id_mapper() {
         let expect = RequestIdMapper {
-            request_ids_map: HashMap::<u32, u32>::new(),
+            request_ids_map: HashMap::with_hasher(BuildNoHashHasher::default()),
             next_id: 0,
         };
         let actual = RequestIdMapper::new();
@@ -204,7 +205,7 @@ mod tests {
     fn updates_request_id_mapper_on_open_channel() {
         let id = 0;
         let mut expect = RequestIdMapper {
-            request_ids_map: HashMap::<u32, u32>::new(),
+            request_ids_map: HashMap::with_hasher(BuildNoHashHasher::default()),
             next_id: id,
         };
         let new_id = expect.next_id;

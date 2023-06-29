@@ -14,6 +14,7 @@ use mining_sv2::{
     NewExtendedMiningJob, NewMiningJob, SetNewPrevHash, SubmitSharesError, SubmitSharesStandard,
     Target,
 };
+use nohash_hasher::BuildNoHashHasher;
 use std::{collections::HashMap, convert::TryInto, sync::Arc};
 
 /// Used to convert an extended mining job to a standard mining job. The `extranonce` field must
@@ -104,12 +105,14 @@ pub struct GroupChannelJobDispatcher {
     target: Target,
     prev_hash: Vec<u8>,
     // extended_job_id -> standard_job_id -> standard_job
-    future_jobs: HashMap<u32, HashMap<u32, DownstreamJob>>,
+    future_jobs:
+        HashMap<u32, HashMap<u32, DownstreamJob, BuildNoHashHasher<u32>>, BuildNoHashHasher<u32>>,
     // standard_job_id -> standard_job
-    jobs: HashMap<u32, DownstreamJob>,
+    jobs: HashMap<u32, DownstreamJob, BuildNoHashHasher<u32>>,
     ids: Arc<Mutex<Id>>,
     // extended_id -> channel_id -> standard_id
-    extended_id_to_job_id: HashMap<u32, HashMap<u32, u32>>,
+    extended_id_to_job_id:
+        HashMap<u32, HashMap<u32, u32, BuildNoHashHasher<u32>>, BuildNoHashHasher<u32>>,
     nbits: u32,
 }
 
@@ -124,11 +127,11 @@ impl GroupChannelJobDispatcher {
         Self {
             target: [0_u8; 32].into(),
             prev_hash: Vec::new(),
-            future_jobs: HashMap::new(),
-            jobs: HashMap::new(),
+            future_jobs: HashMap::with_hasher(BuildNoHashHasher::default()),
+            jobs: HashMap::with_hasher(BuildNoHashHasher::default()),
             ids,
             nbits: 0,
-            extended_id_to_job_id: HashMap::new(),
+            extended_id_to_job_id: HashMap::with_hasher(BuildNoHashHasher::default()),
         }
     }
 
@@ -147,10 +150,10 @@ impl GroupChannelJobDispatcher {
         if extended.is_future() {
             self.future_jobs
                 .entry(extended.job_id)
-                .or_insert_with(HashMap::new);
+                .or_insert_with(|| HashMap::with_hasher(BuildNoHashHasher::default()));
             self.extended_id_to_job_id
                 .entry(extended.job_id)
-                .or_insert_with(HashMap::new);
+                .or_insert_with(|| HashMap::with_hasher(BuildNoHashHasher::default()));
         }
 
         // Is fine to unwrap a safe_lock result
@@ -193,7 +196,7 @@ impl GroupChannelJobDispatcher {
     pub fn on_new_prev_hash(
         &mut self,
         message: &SetNewPrevHash,
-    ) -> Result<HashMap<u32, u32>, Error> {
+    ) -> Result<HashMap<u32, u32, BuildNoHashHasher<u32>>, Error> {
         let jobs = self
             .future_jobs
             .get_mut(&message.job_id)
@@ -209,7 +212,7 @@ impl GroupChannelJobDispatcher {
             }
             None => {
                 self.extended_id_to_job_id.clear();
-                Ok(HashMap::new())
+                Ok(HashMap::with_hasher(BuildNoHashHasher::default()))
             }
         }
     }
@@ -547,11 +550,11 @@ mod tests {
         let expect = GroupChannelJobDispatcher {
             target: [0_u8; 32].into(),
             prev_hash: Vec::new(),
-            future_jobs: HashMap::new(),
-            jobs: HashMap::new(),
+            future_jobs: HashMap::with_hasher(BuildNoHashHasher::default()),
+            jobs: HashMap::with_hasher(BuildNoHashHasher::default()),
             ids: Arc::new(Mutex::new(Id::new())),
             nbits: 0,
-            extended_id_to_job_id: HashMap::new(),
+            extended_id_to_job_id: HashMap::with_hasher(BuildNoHashHasher::default()),
         };
 
         let ids = Arc::new(Mutex::new(Id::new()));

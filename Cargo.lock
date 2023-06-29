@@ -456,6 +456,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "chacha20poly1305"
+version = "0.10.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "10cd79432192d1c0f4e1a0fef9527696cc039165d729fb41b3f4f4f354c2dc35"
+dependencies = [
+ "aead 0.5.2",
+ "chacha20 0.9.1",
+ "cipher 0.4.4",
+ "poly1305 0.8.0",
+ "zeroize",
+]
+
+[[package]]
 name = "ciborium"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1233,6 +1246,7 @@ dependencies = [
  "framing_sv2",
  "futures",
  "network_helpers",
+ "nohash-hasher",
  "roles_logic_sv2",
  "serde",
  "tokio",
@@ -1255,6 +1269,7 @@ dependencies = [
  "error_handling",
  "hex",
  "network_helpers",
+ "nohash-hasher",
  "noise_sv2",
  "rand 0.8.5",
  "roles_logic_sv2",
@@ -1300,9 +1315,9 @@ checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
 
 [[package]]
 name = "libc"
-version = "0.2.147"
+version = "0.2.144"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b4668fb0ea861c1df094127ac5f1da3409a82116a4ba74fca2e58ef927159bb3"
+checksum = "2b00cc1c228a6782d0f076e7b232802e0c5689d41bb5df366f2a6b6621cfdfe1"
 
 [[package]]
 name = "libm"
@@ -1381,6 +1396,7 @@ dependencies = [
  "const_sv2",
  "futures",
  "network_helpers",
+ "nohash-hasher",
  "once_cell",
  "roles_logic_sv2",
  "serde",
@@ -1425,6 +1441,12 @@ dependencies = [
  "tokio",
  "tracing",
 ]
+
+[[package]]
+name = "nohash-hasher"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2bf50223579dc7cdcfb3bfcacf7069ff68243f8c363f62ffa99cf000a6b9c451"
 
 [[package]]
 name = "noise_sv2"
@@ -1693,6 +1715,7 @@ dependencies = [
  "error_handling",
  "hex",
  "network_helpers",
+ "nohash-hasher",
  "noise_sv2",
  "rand 0.8.5",
  "roles_logic_sv2",
@@ -1904,6 +1927,7 @@ dependencies = [
  "framing_sv2",
  "job_declaration_sv2",
  "mining_sv2",
+ "nohash-hasher",
  "quickcheck 1.0.3",
  "quickcheck_macros 1.0.0",
  "rand 0.8.5",
@@ -2296,9 +2320,10 @@ dependencies = [
 
 [[package]]
 name = "tokio"
-version = "1.28.2"
+version = "1.28.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "94d7b1cfd2aa4011f2de74c2c4c63665e27a71006b0a192dcd2710272e73dfa2"
+checksum = "0aa32867d44e6f2ce3385e89dceb990188b8bb0fb25b0cf576647a6f98ac5105"
+
 dependencies = [
  "autocfg",
  "bytes",

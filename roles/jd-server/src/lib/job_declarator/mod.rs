@@ -1,3 +1,4 @@
+pub mod message_handler;
 use crate::{error::PoolError, Configuration, EitherFrame, StdFrame};
 use async_channel::{Receiver, Sender};
 use binary_sv2::B0255;
@@ -5,14 +6,14 @@ use bitcoin::consensus::Encodable;
 use codec_sv2::{Frame, HandshakeRole, Responder};
 use error_handling::handle_result;
 use network_helpers::noise_connection_tokio::Connection;
+use nohash_hasher::BuildNoHashHasher;
 use roles_logic_sv2::{
     common_messages_sv2::SetupConnectionSuccess,
     handlers::job_declaration::{ParseClientJobDeclarationMessages, SendTo},
-    job_declaration_sv2::{AllocateMiningJobTokenSuccess, CommitMiningJobSuccess, *},
-    parsers::{JobDeclaration, PoolMessages},
-    utils::Mutex,
+    parsers::PoolMessages,
+    utils::{Id, Mutex},
 };
-use std::{convert::TryInto, sync::Arc};
+use std::{collections::HashMap, convert::TryInto, sync::Arc};
 use tokio::net::TcpListener;
 use tracing::info;
 
@@ -21,7 +22,11 @@ pub struct JobDeclaratorDownstream {
     sender: Sender<EitherFrame>,
     receiver: Receiver<EitherFrame>,
     // TODO this should be computed for each new template so that fees are included
+    #[allow(dead_code)]
+    // TODO: use coinbase output
     coinbase_output: Vec<u8>,
+    token_to_job_map: HashMap<u32, std::option::Option<u8>, BuildNoHashHasher<u32>>,
+    tokens: Id,
 }
 
 impl JobDeclaratorDownstream {
@@ -31,6 +36,9 @@ impl JobDeclaratorDownstream {
         config: &Configuration,
     ) -> Self {
         let mut coinbase_output = vec![];
+        // TODO: use next variables
+        let token_to_job_map = HashMap::with_hasher(BuildNoHashHasher::default());
+        let tokens = Id::new();
         crate::get_coinbase_output(config)[0]
             .consensus_encode(&mut coinbase_output)
             .expect("invalid coinbase output in config");
@@ -38,6 +46,8 @@ impl JobDeclaratorDownstream {
             receiver,
             sender,
             coinbase_output,
+            token_to_job_map,
+            tokens,
         }
     }
 
@@ -82,38 +92,7 @@ impl JobDeclaratorDownstream {
     }
 }
 
-impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
-    fn handle_allocate_mining_job(
-        &mut self,
-        message: AllocateMiningJobToken,
-    ) -> Result<roles_logic_sv2::handlers::job_declaration::SendTo, roles_logic_sv2::Error> {
-        let res = JobDeclaration::AllocateMiningJobTokenSuccess(AllocateMiningJobTokenSuccess {
-            request_id: message.request_id,
-            mining_job_token: get_random_token(),
-            coinbase_output_max_additional_size: self.coinbase_output.len() as u32,
-            // Pool do not construct ouputs bigger than 64K bytes so, self.coinbase_output can be
-            // safly transformed in B064K.
-            coinbase_output: self.coinbase_output.clone().try_into().unwrap(),
-            async_mining_allowed: true,
-        });
-        Ok(SendTo::Respond(res))
-    }
-
-    // Just accept any proposed job without veryfing it and rely only on the downstreams to make
-    // sure that jobs are valid
-    fn handle_commit_mining_job(
-        &mut self,
-        message: CommitMiningJob,
-    ) -> Result<roles_logic_sv2::handlers::job_declaration::SendTo, roles_logic_sv2::Error> {
-        let res = JobDeclaration::CommitMiningJobSuccess(CommitMiningJobSuccess {
-            request_id: message.request_id,
-            new_mining_job_token: message.mining_job_token.into_static().clone(),
-        });
-        Ok(SendTo::Respond(res))
-    }
-}
-
-fn get_random_token() -> B0255<'static> {
+fn _get_random_token() -> B0255<'static> {
     let inner: [u8; 32] = rand::random();
     inner.to_vec().try_into().unwrap()
 }

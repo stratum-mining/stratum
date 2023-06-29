@@ -19,11 +19,21 @@ where
     ) -> Result<SendTo, Error> {
         match (message_type, payload).try_into() {
             Ok(JobDeclaration::AllocateMiningJobTokenSuccess(message)) => self_
-                .safe_lock(|x| x.handle_allocate_mining_job_token_sucess(message))
+                .safe_lock(|x| x.handle_allocate_mining_job_token_success(message))
                 .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
             Ok(JobDeclaration::CommitMiningJobSuccess(message)) => self_
                 .safe_lock(|x| x.handle_commit_mining_job_success(message))
                 .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
+            Ok(JobDeclaration::CommitMiningJobError(message)) => self_
+                .safe_lock(|x| x.handle_commit_mining_job_error(message))
+                .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
+            Ok(JobDeclaration::IdentifyTransactions(message)) => self_
+                .safe_lock(|x| x.handle_identify_transactions(message))
+                .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
+            Ok(JobDeclaration::ProvideMissingTransactions(message)) => self_
+                .safe_lock(|x| x.handle_provide_missing_transactions(message))
+                .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
+
             Ok(_) => todo!(),
             Err(e) => Err(e),
         }
@@ -32,7 +42,7 @@ where
     /// negotiate the next job
     ///
     /// "[`job_declaration_sv2::AllocateMiningJobToken`]"
-    fn handle_allocate_mining_job_token_sucess(
+    fn handle_allocate_mining_job_token_success(
         &mut self,
         message: AllocateMiningJobTokenSuccess,
     ) -> Result<SendTo, Error>;
@@ -42,6 +52,25 @@ where
     fn handle_commit_mining_job_success(
         &mut self,
         message: CommitMiningJobSuccess,
+    ) -> Result<SendTo, Error>;
+
+
+    // TODO: comment
+    fn handle_commit_mining_job_error(
+        &mut self,
+        message: CommitMiningJobError,
+    ) -> Result<SendTo, Error>;
+
+    // TODO: comment
+    fn handle_identify_transactions(
+        &mut self,
+        message: IdentifyTransactions,
+    ) -> Result<SendTo, Error>;
+
+    // TODO: comment
+    fn handle_provide_missing_transactions(
+        &mut self,
+        message: ProvideMissingTransactions,
     ) -> Result<SendTo, Error>;
 }
 pub trait ParseClientJobDeclarationMessages
@@ -55,18 +84,40 @@ where
     ) -> Result<SendTo, Error> {
         match (message_type, payload).try_into() {
             Ok(JobDeclaration::AllocateMiningJobToken(message)) => self_
-                .safe_lock(|x| x.handle_allocate_mining_job(message))
+                .safe_lock(|x| x.handle_allocate_mining_job_token(message))
                 .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
             Ok(JobDeclaration::CommitMiningJob(message)) => self_
                 .safe_lock(|x| x.handle_commit_mining_job(message))
                 .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
+
+            Ok(JobDeclaration::IdentifyTransactionsSuccess(message)) => self_
+                .safe_lock(|x| x.handle_identify_transactions_success(message))
+                .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
+            Ok(JobDeclaration::ProvideMissingTransactionsSuccess(message)) => self_
+                .safe_lock(|x| x.handle_provide_missing_transactions_success(message))
+                .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
+          
             Ok(_) => todo!(),
             Err(e) => Err(e),
         }
     }
-    fn handle_allocate_mining_job(
+  
+    // TODO: comment
+    fn handle_allocate_mining_job_token(
         &mut self,
         message: AllocateMiningJobToken,
     ) -> Result<SendTo, Error>;
+    // TODO: comment
     fn handle_commit_mining_job(&mut self, message: CommitMiningJob) -> Result<SendTo, Error>;
+    // TODO: comment
+    fn handle_identify_transactions_success(
+        &mut self,
+        message: IdentifyTransactionsSuccess,
+    ) -> Result<SendTo, Error>;
+    // TODO: comment
+    fn handle_provide_missing_transactions_success(
+        &mut self,
+        message: ProvideMissingTransactionsSuccess,
+    ) -> Result<SendTo, Error>;
+
 }
