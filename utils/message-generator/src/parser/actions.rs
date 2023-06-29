@@ -43,10 +43,7 @@ impl ActionParser {
                 action_frames.push((frame, message.0, message.1));
             }
 
-            let actiondoc = match action.get("actiondoc") {
-                Some(T) => Some(T.to_string()),
-                None => None,
-            };
+            let actiondoc = action.get("actiondoc").map(|t| t.to_string());
             let mut action_results = vec![];
             let results = action.get("results").unwrap().as_array().unwrap();
             for result in results {

@@ -1,4 +1,3 @@
-use codec_sv2::{Frame, StandardEitherFrame as EitherFrame, Sv2Frame};
 use roles_logic_sv2::{
     common_messages_sv2::{
         ChannelEndpointChanged, SetupConnection, SetupConnectionError, SetupConnectionSuccess,
@@ -16,10 +15,10 @@ use roles_logic_sv2::{
         SetNewPrevHash as MiningSetNewPrevHash, SetTarget, SubmitSharesError, SubmitSharesExtended,
         SubmitSharesStandard, SubmitSharesSuccess, UpdateChannel, UpdateChannelError,
     },
-    parsers::{self, AnyMessage, CommonMessages, IsSv2Message, PoolMessages},
+    parsers::{self, AnyMessage, CommonMessages, PoolMessages},
     template_distribution_sv2::{
         CoinbaseOutputDataSize, NewTemplate, RequestTransactionData, RequestTransactionDataError,
-        RequestTransactionDataSuccess, SetNewPrevHash, SubmitSolution,
+        RequestTransactionDataSuccess, SubmitSolution,
     },
 };
 

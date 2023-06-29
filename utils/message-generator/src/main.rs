@@ -8,15 +8,13 @@ mod parser;
 extern crate load_file;
 
 use crate::parser::sv2_messages::ReplaceField;
-use binary_sv2::{Deserialize, GetSize, Serialize};
+use binary_sv2::{Deserialize, Serialize};
 use codec_sv2::{
     noise_sv2::formats::{EncodedEd25519PublicKey, EncodedEd25519SecretKey},
-    Frame, StandardEitherFrame as EitherFrame, Sv2Frame,
+    StandardEitherFrame as EitherFrame,
 };
 use external_commands::*;
-use net::{setup_as_downstream, setup_as_upstream};
-use roles_logic_sv2::{common_messages_sv2::SetupConnectionSuccess, parsers::AnyMessage};
-use serde_json;
+use roles_logic_sv2::parsers::AnyMessage;
 use std::net::SocketAddr;
 
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
