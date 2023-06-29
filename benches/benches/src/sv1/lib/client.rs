@@ -19,10 +19,9 @@ use time::SystemTime;
 use v1::{
     client_to_server,
     error::Error,
-    json_rpc,
-    server_to_client,
+    json_rpc, server_to_client,
     utils::{Extranonce, HexU32Be},
-    ClientStatus, IsClient
+    ClientStatus, IsClient,
 };
 
 pub struct Client<'a> {
@@ -239,9 +238,7 @@ impl<'a> IsClient<'a> for Client<'a> {
         self.extranonce2_size = extra_nonce2_size;
     }
 
-    fn extranonce2_size(&self) -> usize
-
- {
+    fn extranonce2_size(&self) -> usize {
         self.extranonce2_size
     }
 
@@ -324,12 +321,12 @@ impl<'a> IsClient<'a> for Client<'a> {
         Ok(None)
     }
 }
-   fn extranonce_from_hex<'a>(hex: &str) -> Extranonce<'a> {
+fn extranonce_from_hex<'a>(hex: &str) -> Extranonce<'a> {
     let data = utils::decode_hex(hex).unwrap();
     Extranonce::try_from(data).expect("Failed to convert hex to U256")
-  }
+}
 
-  mod utils {
+mod utils {
 
     pub fn decode_hex(s: &str) -> Result<Vec<u8>, core::num::ParseIntError> {
         let s = match s.strip_prefix("0x") {

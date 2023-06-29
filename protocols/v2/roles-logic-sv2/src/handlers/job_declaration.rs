@@ -54,7 +54,6 @@ where
         message: CommitMiningJobSuccess,
     ) -> Result<SendTo, Error>;
 
-
     // TODO: comment
     fn handle_commit_mining_job_error(
         &mut self,
@@ -96,12 +95,12 @@ where
             Ok(JobDeclaration::ProvideMissingTransactionsSuccess(message)) => self_
                 .safe_lock(|x| x.handle_provide_missing_transactions_success(message))
                 .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
-          
+
             Ok(_) => todo!(),
             Err(e) => Err(e),
         }
     }
-  
+
     // TODO: comment
     fn handle_allocate_mining_job_token(
         &mut self,
@@ -119,5 +118,4 @@ where
         &mut self,
         message: ProvideMissingTransactionsSuccess,
     ) -> Result<SendTo, Error>;
-
 }

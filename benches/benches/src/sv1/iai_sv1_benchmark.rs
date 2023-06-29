@@ -1,9 +1,9 @@
 //! The code uses iai library to measure the system requirements of sv1 client.
 
 use async_std::task;
+use iai::{black_box, main};
 use std::time::Duration;
 use v1::ClientStatus;
-use iai::{black_box, main};
 
 #[path = "./lib/client.rs"]
 mod client;
