@@ -49,7 +49,9 @@ pub struct CommitMiningJobSuccess<'decoder> {
 #[repr(C)]
 pub struct CommitMiningJobError<'decoder> {
     pub request_id: u32,
+    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub error_code: Str0255<'decoder>,
+    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub error_details: B064K<'decoder>,
 }
 
@@ -61,10 +63,10 @@ impl<'d> GetSize for CommitMiningJob<'d> {
         self.request_id.get_size()
             + self.mining_job_token.get_size()
             + self.version.get_size()
-            + self.coninbase_tx_version.get_size()
-            + self.coninbase_prefix.get_size()
-            + self.coninbase_tx_input_nsequence.get_size()
-            + self.coninbase_tx_value_remaining.get_size()
+            + self.coinbase_tx_version.get_size()
+            + self.coinbase_prefix.get_size()
+            + self.coinbase_tx_input_n_sequence.get_size()
+            + self.coinbase_tx_value_remaining.get_size()
             + self.coinbase_tx_outputs.get_size()
             + self.coinbase_tx_locktime.get_size()
             + self.min_extranonce_size.get_size()
