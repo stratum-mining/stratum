@@ -444,6 +444,36 @@ impl Executor {
                                         check_each_field(msg, field_data);
                                     }
                                 }
+                                Ok(roles_logic_sv2::parsers::JobDeclaration::CommitMiningJobError(m)) => {
+                                    if message_type.as_str() == "CommitMiningJobSuccess" {
+                                        let msg = serde_json::to_value(&m).unwrap();
+                                        check_each_field(msg, field_data);
+                                    }
+                                }
+                                Ok(roles_logic_sv2::parsers::JobDeclaration::IdentifyTransactions(m)) => {
+                                    if message_type.as_str() == "AllocateMiningJobTokenSuccess" {
+                                        let msg = serde_json::to_value(&m).unwrap();
+                                        check_each_field(msg, field_data);
+                                    }
+                                }
+                                Ok(roles_logic_sv2::parsers::JobDeclaration::IdentifyTransactionsSuccess(m)) => {
+                                    if message_type.as_str() == "AllocateMiningJobTokenSuccess" {
+                                        let msg = serde_json::to_value(&m).unwrap();
+                                        check_each_field(msg, field_data);
+                                    }
+                                }
+                                Ok(roles_logic_sv2::parsers::JobDeclaration::ProvideMissingTransactions(m)) => {
+                                    if message_type.as_str() == "AllocateMiningJobTokenSuccess" {
+                                        let msg = serde_json::to_value(&m).unwrap();
+                                        check_each_field(msg, field_data);
+                                    }
+                                }
+                                Ok(roles_logic_sv2::parsers::JobDeclaration::ProvideMissingTransactionsSuccess(m)) => {
+                                    if message_type.as_str() == "AllocateMiningJobTokenSuccess" {
+                                        let msg = serde_json::to_value(&m).unwrap();
+                                        check_each_field(msg, field_data);
+                                    }
+                                }
                                 Err(e) => panic!("err {:?}", e),
                             }
                         } else if subprotocol.as_str() == "TemplateDistributionProtocol" {
@@ -636,6 +666,26 @@ impl Executor {
                                     self.save = save_message_field(mess, self.save.clone(), fields);
                                 }
                                 Ok(parsers::JobDeclaration::CommitMiningJobSuccess(m)) => {
+                                    let mess = serde_json::to_value(&m).unwrap();
+                                    self.save = save_message_field(mess, self.save.clone(), fields);
+                                }
+                                Ok(roles_logic_sv2::parsers::JobDeclaration::CommitMiningJobError(m)) => {
+                                    let mess = serde_json::to_value(&m).unwrap();
+                                    self.save = save_message_field(mess, self.save.clone(), fields);
+                                }
+                                Ok(roles_logic_sv2::parsers::JobDeclaration::IdentifyTransactions(m)) => {
+                                    let mess = serde_json::to_value(&m).unwrap();
+                                    self.save = save_message_field(mess, self.save.clone(), fields);
+                                }
+                                Ok(roles_logic_sv2::parsers::JobDeclaration::IdentifyTransactionsSuccess(m)) => {
+                                    let mess = serde_json::to_value(&m).unwrap();
+                                    self.save = save_message_field(mess, self.save.clone(), fields);
+                                }
+                                Ok(roles_logic_sv2::parsers::JobDeclaration::ProvideMissingTransactions(m)) => {
+                                    let mess = serde_json::to_value(&m).unwrap();
+                                    self.save = save_message_field(mess, self.save.clone(), fields);
+                                }
+                                Ok(roles_logic_sv2::parsers::JobDeclaration::ProvideMissingTransactionsSuccess(m)) => {
                                     let mess = serde_json::to_value(&m).unwrap();
                                     self.save = save_message_field(mess, self.save.clone(), fields);
                                 }
@@ -844,6 +894,21 @@ fn change_fields<'a>(
                 roles_logic_sv2::parsers::JobDeclaration::CommitMiningJob(_) => "CommitMiningJob",
                 roles_logic_sv2::parsers::JobDeclaration::CommitMiningJobSuccess(_) => {
                     "CommitMiningJobSuccess"
+                }
+                roles_logic_sv2::parsers::JobDeclaration::CommitMiningJobError(_) => {
+                    "CommitMiningJobError"
+                }
+                roles_logic_sv2::parsers::JobDeclaration::IdentifyTransactions(_) => {
+                    "IdentifyTransactions"
+                }
+                roles_logic_sv2::parsers::JobDeclaration::IdentifyTransactionsSuccess(_) => {
+                    "IdentifyTransactionsSuccess"
+                }
+                roles_logic_sv2::parsers::JobDeclaration::ProvideMissingTransactions(_) => {
+                    "ProvideMissingTransactions"
+                }
+                roles_logic_sv2::parsers::JobDeclaration::ProvideMissingTransactionsSuccess(_) => {
+                    "ProvideMissingTransactionsSuccess"
                 }
             };
             let mut message_as_serde_value = serde_json::to_value(&m).unwrap();
