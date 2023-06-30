@@ -7,15 +7,14 @@ mod parser;
 #[macro_use]
 extern crate load_file;
 
-use binary_sv2::{Deserialize, GetSize, Serialize};
+use crate::parser::sv2_messages::ReplaceField;
+use binary_sv2::{Deserialize, Serialize};
 use codec_sv2::{
     noise_sv2::formats::{EncodedEd25519PublicKey, EncodedEd25519SecretKey},
-    Frame, StandardEitherFrame as EitherFrame, Sv2Frame,
+    StandardEitherFrame as EitherFrame,
 };
 use external_commands::*;
-use net::{setup_as_downstream, setup_as_upstream};
-use roles_logic_sv2::{common_messages_sv2::SetupConnectionSuccess, parsers::AnyMessage};
-use serde_json;
+use roles_logic_sv2::parsers::AnyMessage;
 use std::net::SocketAddr;
 
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
@@ -37,13 +36,19 @@ enum Sv2Type {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
+pub struct SaveField {
+    field_name: String,
+    keyword: String,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 enum ActionResult {
     MatchMessageType(u8),
     MatchMessageField((String, String, Vec<(String, Sv2Type)>)),
     GetMessageField {
         subprotocol: String,
         message_type: String,
-        fields: Vec<(String, String)>,
+        fields: Vec<SaveField>,
     },
     MatchMessageLen(usize),
     MatchExtensionType(u16),
@@ -109,7 +114,7 @@ pub struct Action<'a> {
     messages: Vec<(
         EitherFrame<AnyMessage<'a>>,
         AnyMessage<'a>,
-        Vec<(String, String)>,
+        Vec<ReplaceField>,
     )>,
     result: Vec<ActionResult>,
     role: Role,
@@ -169,6 +174,7 @@ async fn main() {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::into_static::into_static;
     use roles_logic_sv2::{
         common_messages_sv2::{Protocol, SetupConnection},
         mining_sv2::{CloseChannel, SetTarget},
@@ -176,6 +182,52 @@ mod test {
     };
     use std::{convert::TryInto, io::Write};
     use tokio::join;
+
+    // The following test see that the composition serialise fist and deserialize
+    // second is the identity function (on an example message)
+    #[test]
+    fn test_serialise_and_deserialize() {
+        let message_string = r#"{"Mining":{"OpenExtendedMiningChannelSuccess":{"request_id":666666,"channel_id":1,"target":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,255,255,255,255,255,255,255,255],"extranonce_size":16,"extranonce_prefix":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1]}}}"#;
+        let message_: AnyMessage<'_> = serde_json::from_str(&message_string).unwrap();
+        let message_as_serde_value = serde_json::to_value(&message_).unwrap();
+        let message_as_string = serde_json::to_string(&message_as_serde_value).unwrap();
+        let message: AnyMessage<'_> = serde_json::from_str(&message_as_string).unwrap();
+        let m_ = into_static(message);
+        let message_as_string_ = serde_json::to_string(&m_).unwrap();
+
+        let message_ = match message_ {
+            AnyMessage::Mining(m) => m,
+            _ => panic!(),
+        };
+        let message_ = match message_ {
+            Mining::OpenExtendedMiningChannelSuccess(m) => m,
+            _ => panic!(),
+        };
+
+        let m_ = match m_ {
+            AnyMessage::Mining(m) => m,
+            _ => panic!(),
+        };
+        let m_ = match m_ {
+            Mining::OpenExtendedMiningChannelSuccess(m) => m,
+            _ => panic!(),
+        };
+        if message_.request_id != m_.request_id {
+            panic!();
+        };
+        if message_.channel_id != m_.channel_id {
+            panic!();
+        };
+        if message_.target != m_.target {
+            panic!();
+        };
+        if message_.extranonce_size != m_.extranonce_size {
+            panic!();
+        };
+        if message_.extranonce_prefix != m_.extranonce_prefix {
+            panic!();
+        };
+    }
 
     #[tokio::test]
     async fn it_send_and_receive() {
@@ -288,15 +340,17 @@ mod test {
         let mut pool = os_command(
             "cargo",
             vec![
+                "llvm-cov",
+                "--no-report",
                 "run",
                 "-p",
-                "pool",
+                "pool_sv2",
                 "--",
                 "-c",
-                "./roles/v2/pool/pool-config.toml",
+                "./test/config/pool-config-sri-tp.toml",
             ],
             ExternalCommandConditions::new_with_timer_secs(60)
-                .continue_if_std_out_have("Listening for encrypted connection on: 0.0.0.0:34254"),
+                .continue_if_std_out_have("Listening for encrypted connection on: 127.0.0.1:34254"),
         )
         .await;
 

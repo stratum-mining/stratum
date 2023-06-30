@@ -1,9 +1,9 @@
 mod actions;
 mod frames;
-mod sv2_messages;
+pub mod sv2_messages;
 
-use crate::{Action, Command, Test};
-use codec_sv2::{buffer_sv2::Slice, Frame, Sv2Frame};
+use crate::{parser::sv2_messages::ReplaceField, Action, Command, Test};
+use codec_sv2::{buffer_sv2::Slice, Sv2Frame};
 use frames::Frames;
 use roles_logic_sv2::parsers::AnyMessage;
 use serde_json::{Map, Value};
@@ -15,15 +15,15 @@ pub enum Parser<'a> {
     /// Parses any number or combination of messages to be later used by an action identified by
     /// message id.
     /// they are saved as (field_name, keyword)
-    Step1(HashMap<String, (AnyMessage<'a>, Vec<(String, String)>)>),
+    Step1(HashMap<String, (AnyMessage<'a>, Vec<ReplaceField>)>),
     /// Serializes messages into `Sv2Frames` identified by message id.
     Step2 {
-        messages: HashMap<String, (AnyMessage<'a>, Vec<(String, String)>)>,
+        messages: HashMap<String, (AnyMessage<'a>, Vec<ReplaceField>)>,
         frames: HashMap<String, Sv2Frame<AnyMessage<'a>, Slice>>,
     },
     /// Parses the setup, execution, and cleanup shell commands, roles, and actions.
     Step3 {
-        messages: HashMap<String, (AnyMessage<'a>, Vec<(String, String)>)>,
+        messages: HashMap<String, (AnyMessage<'a>, Vec<ReplaceField>)>,
         frames: HashMap<String, Sv2Frame<AnyMessage<'a>, Slice>>,
         actions: Vec<Action<'a>>,
     },
