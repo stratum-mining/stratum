@@ -6,6 +6,7 @@ use crate::{
     Action, ActionResult, Command, Role, SaveField, Sv2Type, Test,
 };
 use async_channel::{Receiver, Sender};
+use binary_sv2::Serialize;
 use codec_sv2::{Frame, StandardEitherFrame as EitherFrame, Sv2Frame};
 use roles_logic_sv2::{
     common_messages_sv2::{
@@ -184,7 +185,7 @@ impl Executor {
                 let replace_fields = message_.2.clone();
                 let message = message_.1.clone();
                 let frame = message_.0;
-                if replace_fields.len() == 0 {
+                if replace_fields.is_empty() {
                     println!("SEND {:#?}", message);
                     match sender.send(frame).await {
                         Ok(_) => (),
@@ -822,128 +823,54 @@ fn change_fields<'a>(
         .get(&keyword)
         .expect("value not found for the keyword");
 
-    let message_as_string = serde_json::to_string(&m.clone()).unwrap();
-
     match m.clone() {
         AnyMessage::Common(m) => {
-            let path = match m {
-                CommonMessages::ChannelEndpointChanged(_) => "ChannelEndpointChanged",
-                CommonMessages::SetupConnection(_) => "SetupConnection",
-                CommonMessages::SetupConnectionError(_) => "SetupConnectionError",
-                CommonMessages::SetupConnectionSuccess(_) => "SetupConnectionSuccess",
-            };
-            let message_as_serde_value = serde_json::to_value(&m).unwrap();
-            let m_ = change_value_of_serde_field(message_as_serde_value, path, value, field_name);
+            let mut message_as_serde_value = serde_json::to_value(&m)
+                .unwrap()
+                .as_object()
+                .unwrap()
+                .values()
+                .next()
+                .unwrap()
+                .clone();
+            *message_as_serde_value
+                .pointer_mut(&format!("/{}", field_name.as_str()))
+                .unwrap() = value.clone();
+            let m_ = serde_json::to_string(&message_as_serde_value).unwrap();
+
             let m_ = into_static(AnyMessage::Common(serde_json::from_str(&m_).unwrap()));
-            if replace_fields.len() == 0 {
+            if replace_fields.is_empty() {
                 return m_;
             } else {
                 return change_fields(m_, replace_fields, values);
             }
         }
         AnyMessage::Mining(m) => {
-            let path = match m {
-                parsers::Mining::CloseChannel(_) => "CloseChannel",
-                parsers::Mining::NewExtendedMiningJob(_) => "NewExtendedMiningJob",
-                parsers::Mining::NewMiningJob(_) => "NewMiningJob",
-                parsers::Mining::OpenExtendedMiningChannel(_) => "OpenExtendedMiningChannel",
-                parsers::Mining::OpenExtendedMiningChannelSuccess(_) => {
-                    "OpenExtendedMiningChannelSuccess"
-                }
-                parsers::Mining::OpenMiningChannelError(_) => "OpenMiningChannelError",
-                parsers::Mining::OpenStandardMiningChannel(_) => "OpenStandardMiningChannel",
-                parsers::Mining::OpenStandardMiningChannelSuccess(_) => "",
-                parsers::Mining::Reconnect(_) => "Reconnect",
-                parsers::Mining::SetCustomMiningJob(_) => "SetCustomMiningJob",
-                parsers::Mining::SetCustomMiningJobError(_) => "",
-                parsers::Mining::SetCustomMiningJobSuccess(_) => "",
-                parsers::Mining::SetExtranoncePrefix(_) => "SetExtranoncePrefix",
-                parsers::Mining::SetGroupChannel(_) => "SetGroupChannel",
-                parsers::Mining::SetNewPrevHash(_) => "SetNewPrevHash",
-                parsers::Mining::SetTarget(_) => "SetTarget",
-                parsers::Mining::SubmitSharesError(_) => "SubmitSharesError",
-                parsers::Mining::SubmitSharesExtended(_) => "SubmitSharesExtended",
-                parsers::Mining::SubmitSharesStandard(_) => "SubmitSharesStandard",
-                parsers::Mining::SubmitSharesSuccess(_) => "SubmitSharesSuccess",
-                parsers::Mining::UpdateChannel(_) => "UpdateChannel",
-                parsers::Mining::UpdateChannelError(_) => "UpdateChannelError",
-            };
-            let message_as_serde_value = serde_json::to_value(&m).unwrap();
-            let m_ = change_value_of_serde_field(message_as_serde_value, path, value, field_name);
+            let m_ = change_value_of_serde_field(m, value, field_name);
             let m_ = into_static(AnyMessage::Mining(serde_json::from_str(&m_).unwrap()));
-            if replace_fields.len() == 0 {
+            if replace_fields.is_empty() {
                 return m_;
             } else {
                 return change_fields(m_, replace_fields, values);
             }
         }
         AnyMessage::JobDeclaration(m) => {
-            let path = match m {
-                roles_logic_sv2::parsers::JobDeclaration::AllocateMiningJobToken(_) => {
-                    "AllocateMiningJobToken"
-                }
-                roles_logic_sv2::parsers::JobDeclaration::AllocateMiningJobTokenSuccess(_) => {
-                    "AllocateMiningJobTokenSuccess"
-                }
-                roles_logic_sv2::parsers::JobDeclaration::CommitMiningJob(_) => "CommitMiningJob",
-                roles_logic_sv2::parsers::JobDeclaration::CommitMiningJobSuccess(_) => {
-                    "CommitMiningJobSuccess"
-                }
-                roles_logic_sv2::parsers::JobDeclaration::CommitMiningJobError(_) => {
-                    "CommitMiningJobError"
-                }
-                roles_logic_sv2::parsers::JobDeclaration::IdentifyTransactions(_) => {
-                    "IdentifyTransactions"
-                }
-                roles_logic_sv2::parsers::JobDeclaration::IdentifyTransactionsSuccess(_) => {
-                    "IdentifyTransactionsSuccess"
-                }
-                roles_logic_sv2::parsers::JobDeclaration::ProvideMissingTransactions(_) => {
-                    "ProvideMissingTransactions"
-                }
-                roles_logic_sv2::parsers::JobDeclaration::ProvideMissingTransactionsSuccess(_) => {
-                    "ProvideMissingTransactionsSuccess"
-                }
-            };
-            let message_as_serde_value = serde_json::to_value(&m).unwrap();
-            let m_ = change_value_of_serde_field(message_as_serde_value, path, value, field_name);
+            let m_ = change_value_of_serde_field(m, value, field_name);
             let m_ = into_static(AnyMessage::JobDeclaration(
                 serde_json::from_str(&m_).unwrap(),
             ));
-            if replace_fields.len() == 0 {
+            if replace_fields.is_empty() {
                 return m_;
             } else {
                 return change_fields(m_, replace_fields, values);
             }
         }
         AnyMessage::TemplateDistribution(m) => {
-            let path = match m {
-                roles_logic_sv2::parsers::TemplateDistribution::CoinbaseOutputDataSize(_) => {
-                    "CoinbaseOutputDataSize"
-                }
-                roles_logic_sv2::parsers::TemplateDistribution::NewTemplate(_) => "NewTemplate",
-                roles_logic_sv2::parsers::TemplateDistribution::RequestTransactionData(_) => {
-                    "RequestTransactionData"
-                }
-                roles_logic_sv2::parsers::TemplateDistribution::RequestTransactionDataError(_) => {
-                    "RequestTransactionDataError"
-                }
-                roles_logic_sv2::parsers::TemplateDistribution::RequestTransactionDataSuccess(
-                    _,
-                ) => "RequestTransactionDataSuccess",
-                roles_logic_sv2::parsers::TemplateDistribution::SetNewPrevHash(_) => {
-                    "SetNewPrevHash"
-                }
-                roles_logic_sv2::parsers::TemplateDistribution::SubmitSolution(_) => {
-                    "SubmitSolution"
-                }
-            };
-            let message_as_serde_value = serde_json::to_value(&m).unwrap();
-            let m_ = change_value_of_serde_field(message_as_serde_value, path, value, field_name);
+            let m_ = change_value_of_serde_field(m, value, field_name);
             let m_ = into_static(AnyMessage::TemplateDistribution(
                 serde_json::from_str(&m_).unwrap(),
             ));
-            if replace_fields.len() == 0 {
+            if replace_fields.is_empty() {
                 return m_;
             } else {
                 return change_fields(m_, replace_fields, values);
@@ -952,12 +879,19 @@ fn change_fields<'a>(
     }
 }
 
-fn change_value_of_serde_field(
-    mut message_as_serde_value: serde_json::Value,
-    path: &str,
+fn change_value_of_serde_field<T: Serialize>(
+    message: T,
     value: &serde_json::Value,
     field_name: String,
 ) -> String {
+    let mut message_as_serde_value = serde_json::to_value(&message).unwrap();
+    let path = message_as_serde_value
+        .as_object()
+        .unwrap()
+        .keys()
+        .next()
+        .unwrap()
+        .clone();
     *message_as_serde_value
         .pointer_mut(&format!("/{}/{}", path, field_name.as_str()))
         .unwrap() = value.clone();
