@@ -7,11 +7,11 @@ use binary_sv2::{
 };
 use core::convert::TryInto;
 
-/// ## CommitMiningJob (Client -> Server)
+/// ## DeclareMiningJob (Client -> Server)
 /// A request sent by the Job Declarator that proposes a selected set of transactions to the upstream (pool) node.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[repr(C)]
-pub struct CommitMiningJob<'decoder> {
+pub struct DeclareMiningJob<'decoder> {
     pub request_id: u32,
     #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub mining_job_token: B0255<'decoder>,
@@ -35,19 +35,19 @@ pub struct CommitMiningJob<'decoder> {
     pub merkle_path: Seq0255<'decoder, U256<'decoder>>,
 }
 
-/// ## CommitMiningJobSuccess (Server -> Client)
+/// ## DeclareMiningJobSuccess (Server -> Client)
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[repr(C)]
-pub struct CommitMiningJobSuccess<'decoder> {
+pub struct DeclareMiningJobSuccess<'decoder> {
     pub request_id: u32,
     #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub new_mining_job_token: B0255<'decoder>,
 }
 
-/// ## CommitMiningJobError (Server -> Client)
+/// ## DeclareMiningJobError (Server -> Client)
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[repr(C)]
-pub struct CommitMiningJobError<'decoder> {
+pub struct DeclareMiningJobError<'decoder> {
     pub request_id: u32,
     #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub error_code: Str0255<'decoder>,
@@ -58,7 +58,7 @@ pub struct CommitMiningJobError<'decoder> {
 #[cfg(feature = "with_serde")]
 use binary_sv2::GetSize;
 #[cfg(feature = "with_serde")]
-impl<'d> GetSize for CommitMiningJob<'d> {
+impl<'d> GetSize for DeclareMiningJob<'d> {
     fn get_size(&self) -> usize {
         self.request_id.get_size()
             + self.mining_job_token.get_size()
@@ -78,13 +78,13 @@ impl<'d> GetSize for CommitMiningJob<'d> {
     }
 }
 #[cfg(feature = "with_serde")]
-impl<'d> GetSize for CommitMiningJobSuccess<'d> {
+impl<'d> GetSize for DeclareMiningJobSuccess<'d> {
     fn get_size(&self) -> usize {
         self.request_id.get_size() + self.new_mining_job_token.get_size()
     }
 }
 #[cfg(feature = "with_serde")]
-impl<'d> GetSize for CommitMiningJobError<'d> {
+impl<'d> GetSize for DeclareMiningJobError<'d> {
     fn get_size(&self) -> usize {
         self.request_id.get_size() + self.error_code.get_size() + self.error_details.get_size()
     }

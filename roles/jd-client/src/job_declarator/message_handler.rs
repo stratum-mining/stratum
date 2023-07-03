@@ -2,8 +2,8 @@ use crate::job_declarator::JobDeclarator;
 use roles_logic_sv2::{
     handlers::{job_declaration::ParseServerJobDeclarationMessages, SendTo_},
     job_declaration_sv2::{
-        AllocateMiningJobTokenSuccess, CommitMiningJob, CommitMiningJobError,
-        CommitMiningJobSuccess, IdentifyTransactions, IdentifyTransactionsSuccess,
+        AllocateMiningJobTokenSuccess, DeclareMiningJob, DeclareMiningJobError,
+        DeclareMiningJobSuccess, IdentifyTransactions, IdentifyTransactionsSuccess,
         ProvideMissingTransactions, ProvideMissingTransactionsSuccess,
     },
     parsers::JobDeclaration,
@@ -21,7 +21,7 @@ impl ParseServerJobDeclarationMessages for JobDeclarator {
 
         let new_template = self.new_template.as_ref().unwrap();
 
-        let message_commit_mining_job = CommitMiningJob {
+        let message_declare_mining_job = DeclareMiningJob {
             request_id: message.request_id,
             mining_job_token: message.mining_job_token.into_static(),
             version: 2,
@@ -38,21 +38,21 @@ impl ParseServerJobDeclarationMessages for JobDeclarator {
             excess_data: Vec::new().try_into().unwrap(),
             merkle_path: Vec::new().try_into().unwrap(),
         };
-        let commit_mining_job = JobDeclaration::CommitMiningJob(message_commit_mining_job);
-        println!("Send commit mining job to pool: {:?}", commit_mining_job);
-        Ok(SendTo::Respond(commit_mining_job))
+        let declare_mining_job = JobDeclaration::DeclareMiningJob(message_declare_mining_job);
+        println!("Send declare mining job to pool: {:?}", declare_mining_job);
+        Ok(SendTo::Respond(declare_mining_job))
     }
 
-    fn handle_commit_mining_job_success(
+    fn handle_declare_mining_job_success(
         &mut self,
-        _message: CommitMiningJobSuccess,
+        _message: DeclareMiningJobSuccess,
     ) -> Result<SendTo, Error> {
         Ok(SendTo::None(None))
     }
 
-    fn handle_commit_mining_job_error(
+    fn handle_declare_mining_job_error(
         &mut self,
-        _message: CommitMiningJobError,
+        _message: DeclareMiningJobError,
     ) -> Result<SendTo, Error> {
         Ok(SendTo::None(None))
     }
@@ -63,10 +63,7 @@ impl ParseServerJobDeclarationMessages for JobDeclarator {
     ) -> Result<SendTo, Error> {
         let message_identify_transactions = IdentifyTransactionsSuccess {
             request_id: message.request_id,
-            mining_job_token: Vec::new().try_into().unwrap(),
-            coinbase_output_max_additional_size: 0,
-            coinbase_output: Vec::new().try_into().unwrap(),
-            async_mining_allowed: false,
+            tx_data_hashes: Vec::new().try_into().unwrap(),
         };
         let message_enum =
             JobDeclaration::IdentifyTransactionsSuccess(message_identify_transactions);
@@ -79,10 +76,7 @@ impl ParseServerJobDeclarationMessages for JobDeclarator {
     ) -> Result<SendTo, Error> {
         let message_provide_missing_transactions = ProvideMissingTransactionsSuccess {
             request_id: message.request_id,
-            mining_job_token: Vec::new().try_into().unwrap(),
-            coinbase_output_max_additional_size: 0,
-            coinbase_output: Vec::new().try_into().unwrap(),
-            async_mining_allowed: false,
+            transaction_list: Vec::new().try_into().unwrap(),
         };
         let message_enum =
             JobDeclaration::ProvideMissingTransactionsSuccess(message_provide_missing_transactions);
@@ -99,11 +93,11 @@ impl ParseServerJobDeclarationMessages for JobDeclarator {
             Ok(JobDeclaration::AllocateMiningJobTokenSuccess(message)) => self_
                 .safe_lock(|x| x.handle_allocate_mining_job_token_success(message))
                 .unwrap(),
-            Ok(JobDeclaration::CommitMiningJobSuccess(message)) => self_
-                .safe_lock(|x| x.handle_commit_mining_job_success(message))
+            Ok(JobDeclaration::DeclareMiningJobSuccess(message)) => self_
+                .safe_lock(|x| x.handle_declare_mining_job_success(message))
                 .unwrap(),
-            Ok(JobDeclaration::CommitMiningJobError(message)) => self_
-                .safe_lock(|x| x.handle_commit_mining_job_error(message))
+            Ok(JobDeclaration::DeclareMiningJobError(message)) => self_
+                .safe_lock(|x| x.handle_declare_mining_job_error(message))
                 .unwrap(),
             Ok(JobDeclaration::IdentifyTransactions(message)) => self_
                 .safe_lock(|x| x.handle_identify_transactions(message))
@@ -114,7 +108,7 @@ impl ParseServerJobDeclarationMessages for JobDeclarator {
             Ok(JobDeclaration::AllocateMiningJobToken(_)) => Err(Error::UnexpectedMessage(
                 u8::from_str_radix("0x50", 16).unwrap(),
             )),
-            Ok(JobDeclaration::CommitMiningJob(_)) => Err(Error::UnexpectedMessage(
+            Ok(JobDeclaration::DeclareMiningJob(_)) => Err(Error::UnexpectedMessage(
                 u8::from_str_radix("0x57", 16).unwrap(),
             )),
             Ok(JobDeclaration::IdentifyTransactionsSuccess(_)) => Err(Error::UnexpectedMessage(
