@@ -3,7 +3,7 @@ use alloc::vec::Vec;
 #[cfg(not(feature = "with_serde"))]
 use binary_sv2::binary_codec_sv2;
 use binary_sv2::{
-    Deserialize, Seq0255, Seq064K, Serialize, ShortTxId, Str0255, B0255, B064K, U256,
+    Deserialize, Seq064K, Serialize, ShortTxId, Str0255, B0255, B064K, U256,
 };
 use core::convert::TryInto;
 
@@ -30,9 +30,6 @@ pub struct DeclareMiningJob<'decoder> {
     pub tx_hash_list_hash: U256<'decoder>,
     #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub excess_data: B064K<'decoder>,
-    /// Merkle path hashes ordered from deepest.
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
-    pub merkle_path: Seq0255<'decoder, U256<'decoder>>,
 }
 
 /// ## DeclareMiningJobSuccess (Server -> Client)

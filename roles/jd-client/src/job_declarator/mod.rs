@@ -192,8 +192,7 @@ impl JobDeclarator {
             tx_short_hash_nonce: 0, // TODO should be sent to bitcoind when session start
             tx_short_hash_list: vec![].try_into().unwrap(), // TODO this come wither in a separeta message or in newtemplate
             tx_hash_list_hash: vec![0; 32].try_into().unwrap(), // TODO
-            excess_data: vec![].try_into().unwrap(),
-            merkle_path: template.merkle_path,
+            excess_data: vec![].try_into().unwrap()
         };
         self_mutex
             .safe_lock(|s| {

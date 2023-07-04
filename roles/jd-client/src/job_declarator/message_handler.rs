@@ -36,7 +36,6 @@ impl ParseServerJobDeclarationMessages for JobDeclarator {
             tx_short_hash_list: Vec::new().try_into().unwrap(),
             tx_hash_list_hash: Vec::new().try_into().unwrap(),
             excess_data: Vec::new().try_into().unwrap(),
-            merkle_path: Vec::new().try_into().unwrap(),
         };
         let declare_mining_job = JobDeclaration::DeclareMiningJob(message_declare_mining_job);
         println!("Send declare mining job to pool: {:?}", declare_mining_job);
