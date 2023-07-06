@@ -185,6 +185,7 @@ impl Upstream {
         self_: &Arc<Mutex<Self>>,
         declare_mining_job: DeclareMiningJob<'static>,
         set_new_prev_hash: roles_logic_sv2::template_distribution_sv2::SetNewPrevHash<'static>,
+        new_template: roles_logic_sv2::template_distribution_sv2::NewTemplate<'static>,
         new_token: Option<binary_sv2::B0255<'static>>,
     ) -> ProxyResult<'static, ()> {
         let new_token = new_token.unwrap_or(declare_mining_job.mining_job_token);
@@ -204,7 +205,7 @@ impl Upstream {
             coinbase_tx_value_remaining: declare_mining_job.coinbase_tx_value_remaining,
             coinbase_tx_outputs: declare_mining_job.coinbase_tx_outputs,
             coinbase_tx_locktime: declare_mining_job.coinbase_tx_locktime,
-            merkle_path: declare_mining_job.merkle_path,
+            merkle_path: new_template.merkle_path,
             extranonce_size: declare_mining_job.min_extranonce_size,
             future_job: false, // TODO remove this field
         };

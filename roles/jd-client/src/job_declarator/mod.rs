@@ -192,7 +192,7 @@ impl JobDeclarator {
             tx_short_hash_nonce: 0, // TODO should be sent to bitcoind when session start
             tx_short_hash_list: vec![].try_into().unwrap(), // TODO this come wither in a separeta message or in newtemplate
             tx_hash_list_hash: vec![0; 32].try_into().unwrap(), // TODO
-            excess_data: vec![].try_into().unwrap()
+            excess_data: vec![].try_into().unwrap(),
         };
         self_mutex
             .safe_lock(|s| {
@@ -227,6 +227,10 @@ impl JobDeclarator {
                             message_type,
                             payload,
                         );
+                    let new_template = self_mutex
+                        .safe_lock(|s| s.new_template.clone())
+                        .unwrap()
+                        .unwrap();
                     match next_message_to_send {
                         Ok(SendTo::None(Some(JobDeclaration::DeclareMiningJobSuccess(m)))) => {
                             let new_token = m.new_mining_job_token;
@@ -244,7 +248,7 @@ impl JobDeclarator {
                                     .safe_lock(|s| s.last_set_new_prev_hash.clone())
                                     .unwrap();
                                 match set_new_prev_hash {
-                                    Some(p) => Upstream::set_custom_jobs(&up, last_declare_mining_job_sent, p, Some(new_token)).await.unwrap(),
+                                    Some(p) => Upstream::set_custom_jobs(&up, last_declare_mining_job_sent, p, new_template, Some(new_token)).await.unwrap(),
                                     None => panic!("Invalid state we received a NewTemplate not future, without having received a set new prev hash")
                                 }
                             }
@@ -282,8 +286,12 @@ impl JobDeclarator {
                 }
             })
             .unwrap();
+        let new_template = self_mutex
+            .safe_lock(|j| j.new_template.clone())
+            .unwrap()
+            .unwrap();
         if let Some((job, up)) = future_job {
-            Upstream::set_custom_jobs(&up, job, set_new_prev_hash, None)
+            Upstream::set_custom_jobs(&up, job, set_new_prev_hash, new_template, None)
                 .await
                 .unwrap();
         };
