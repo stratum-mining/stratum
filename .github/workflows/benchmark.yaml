@@ -3,7 +3,7 @@ name: Benchmark
 on:
   push:
     branches:
-      - dev
+      - benchmark
 
 jobs:
   benchmark:
@@ -19,8 +19,23 @@ jobs:
           toolchain: stable
           override: true
 
+      - name: Install Valgrind
+        run: sudo apt-get update && sudo apt-get install -y valgrind
+
+      - name: Install dependencies
+        run: cargo fetch
+
+      - name: Start Server
+        working-directory: ./benches/docker-foundationV2
+        run: docker-compose -f "docker-compose.yml" up -d --build
+
       - name: Run benchmarks
-        run: cargo test --release --benches
+        working-directory: ./benches
+        run: cargo bench
+
+      - name: Stop Server
+        if: always()
+        run: docker-compose -f "docker-compose.yml" down
 
       - name: Publish benchmark results
         uses: actions-rs/cargo@v1

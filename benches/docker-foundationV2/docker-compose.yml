@@ -1,0 +1,39 @@
+version: '3.8'
+services:
+  postgres:
+    image: postgres
+    restart: always
+    environment:
+      POSTGRES_USER: Prisca
+      POSTGRES_PASSWORD: 12345
+      POSTGRES_DB: foundation
+
+  bitcoin-core:
+    image: ruimarinho/bitcoin-core
+    command:
+     - bitcoind
+     - server=1
+     - listen=1
+     - daemon=1
+     - rpcuser=Prisca
+     - rpcpassword=12345
+     - rpcallowip=0.0.0.0/0
+     - printtoconsole
+     - regtest=1
+
+  foundation-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: always
+    depends_on:
+      - postgres
+      - bitcoin-core
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: Prisca
+      DB_PASSWORD: 12345
+      DB_NAME: foundation
+    ports:
+      - 3002:3002
