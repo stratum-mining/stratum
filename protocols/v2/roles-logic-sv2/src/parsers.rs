@@ -18,8 +18,8 @@ use framing_sv2::framing2::{Frame, Sv2Frame};
 use const_sv2::{
     CHANNEL_BIT_ALLOCATE_MINING_JOB_TOKEN, CHANNEL_BIT_ALLOCATE_MINING_JOB_TOKEN_SUCCESS,
     CHANNEL_BIT_CHANNEL_ENDPOINT_CHANGED, CHANNEL_BIT_CLOSE_CHANNEL,
-    CHANNEL_BIT_COINBASE_OUTPUT_DATA_SIZE, CHANNEL_BIT_COMMIT_MINING_JOB,
-    CHANNEL_BIT_COMMIT_MINING_JOB_ERROR, CHANNEL_BIT_COMMIT_MINING_JOB_SUCCESS,
+    CHANNEL_BIT_COINBASE_OUTPUT_DATA_SIZE, CHANNEL_BIT_DECLARE_MINING_JOB,
+    CHANNEL_BIT_DECLARE_MINING_JOB_ERROR, CHANNEL_BIT_DECLARE_MINING_JOB_SUCCESS,
     CHANNEL_BIT_IDENTIFY_TRANSACTIONS, CHANNEL_BIT_IDENTIFY_TRANSACTIONS_SUCCESS,
     CHANNEL_BIT_MINING_SET_NEW_PREV_HASH, CHANNEL_BIT_NEW_EXTENDED_MINING_JOB,
     CHANNEL_BIT_NEW_MINING_JOB, CHANNEL_BIT_NEW_TEMPLATE, CHANNEL_BIT_OPEN_EXTENDED_MINING_CHANNEL,
@@ -38,8 +38,8 @@ use const_sv2::{
     CHANNEL_BIT_UPDATE_CHANNEL_ERROR, MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN,
     MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN_SUCCESS, MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED,
     MESSAGE_TYPE_CLOSE_CHANNEL, MESSAGE_TYPE_COINBASE_OUTPUT_DATA_SIZE,
-    MESSAGE_TYPE_COMMIT_MINING_JOB, MESSAGE_TYPE_COMMIT_MINING_JOB_ERROR,
-    MESSAGE_TYPE_COMMIT_MINING_JOB_SUCCESS, MESSAGE_TYPE_IDENTIFY_TRANSACTIONS,
+    MESSAGE_TYPE_DECLARE_MINING_JOB, MESSAGE_TYPE_DECLARE_MINING_JOB_ERROR,
+    MESSAGE_TYPE_DECLARE_MINING_JOB_SUCCESS, MESSAGE_TYPE_IDENTIFY_TRANSACTIONS,
     MESSAGE_TYPE_IDENTIFY_TRANSACTIONS_SUCCESS, MESSAGE_TYPE_MINING_SET_NEW_PREV_HASH,
     MESSAGE_TYPE_NEW_EXTENDED_MINING_JOB, MESSAGE_TYPE_NEW_MINING_JOB, MESSAGE_TYPE_NEW_TEMPLATE,
     MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL, MESSAGE_TYPE_OPEN_EXTENDED_MINING_CHANNEL_SUCCES,
@@ -67,8 +67,8 @@ use template_distribution_sv2::{
 };
 
 use job_declaration_sv2::{
-    AllocateMiningJobToken, AllocateMiningJobTokenSuccess, CommitMiningJob, CommitMiningJobError,
-    CommitMiningJobSuccess, IdentifyTransactions, IdentifyTransactionsSuccess,
+    AllocateMiningJobToken, AllocateMiningJobTokenSuccess, DeclareMiningJob, DeclareMiningJobError,
+    DeclareMiningJobSuccess, IdentifyTransactions, IdentifyTransactionsSuccess,
     ProvideMissingTransactions, ProvideMissingTransactionsSuccess,
 };
 
@@ -122,13 +122,13 @@ pub enum JobDeclaration<'a> {
     #[cfg_attr(feature = "with_serde", serde(borrow))]
     AllocateMiningJobTokenSuccess(AllocateMiningJobTokenSuccess<'a>),
     #[cfg_attr(feature = "with_serde", serde(borrow))]
-    CommitMiningJob(CommitMiningJob<'a>),
+    DeclareMiningJob(DeclareMiningJob<'a>),
     #[cfg_attr(feature = "with_serde", serde(borrow))]
-    CommitMiningJobError(CommitMiningJobError<'a>),
+    DeclareMiningJobError(DeclareMiningJobError<'a>),
     #[cfg_attr(feature = "with_serde", serde(borrow))]
-    CommitMiningJobSuccess(CommitMiningJobSuccess<'a>),
+    DeclareMiningJobSuccess(DeclareMiningJobSuccess<'a>),
     #[cfg_attr(feature = "with_serde", serde(borrow))]
-    IdentifyTransactions(IdentifyTransactions<'a>),
+    IdentifyTransactions(IdentifyTransactions),
     #[cfg_attr(feature = "with_serde", serde(borrow))]
     IdentifyTransactionsSuccess(IdentifyTransactionsSuccess<'a>),
     #[cfg_attr(feature = "with_serde", serde(borrow))]
@@ -278,9 +278,9 @@ impl<'a> IsSv2Message for JobDeclaration<'a> {
             Self::AllocateMiningJobTokenSuccess(_) => {
                 MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN_SUCCESS
             }
-            Self::CommitMiningJob(_) => MESSAGE_TYPE_COMMIT_MINING_JOB,
-            Self::CommitMiningJobSuccess(_) => MESSAGE_TYPE_COMMIT_MINING_JOB_SUCCESS,
-            Self::CommitMiningJobError(_) => MESSAGE_TYPE_COMMIT_MINING_JOB_ERROR,
+            Self::DeclareMiningJob(_) => MESSAGE_TYPE_DECLARE_MINING_JOB,
+            Self::DeclareMiningJobSuccess(_) => MESSAGE_TYPE_DECLARE_MINING_JOB_SUCCESS,
+            Self::DeclareMiningJobError(_) => MESSAGE_TYPE_DECLARE_MINING_JOB_ERROR,
             Self::IdentifyTransactions(_) => MESSAGE_TYPE_IDENTIFY_TRANSACTIONS,
             Self::IdentifyTransactionsSuccess(_) => MESSAGE_TYPE_IDENTIFY_TRANSACTIONS_SUCCESS,
             Self::ProvideMissingTransactions(_) => MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS,
@@ -293,9 +293,9 @@ impl<'a> IsSv2Message for JobDeclaration<'a> {
         match self {
             Self::AllocateMiningJobToken(_) => CHANNEL_BIT_ALLOCATE_MINING_JOB_TOKEN,
             Self::AllocateMiningJobTokenSuccess(_) => CHANNEL_BIT_ALLOCATE_MINING_JOB_TOKEN_SUCCESS,
-            Self::CommitMiningJob(_) => CHANNEL_BIT_COMMIT_MINING_JOB,
-            Self::CommitMiningJobSuccess(_) => CHANNEL_BIT_COMMIT_MINING_JOB_SUCCESS,
-            Self::CommitMiningJobError(_) => CHANNEL_BIT_COMMIT_MINING_JOB_ERROR,
+            Self::DeclareMiningJob(_) => CHANNEL_BIT_DECLARE_MINING_JOB,
+            Self::DeclareMiningJobSuccess(_) => CHANNEL_BIT_DECLARE_MINING_JOB_SUCCESS,
+            Self::DeclareMiningJobError(_) => CHANNEL_BIT_DECLARE_MINING_JOB_ERROR,
             Self::IdentifyTransactions(_) => CHANNEL_BIT_IDENTIFY_TRANSACTIONS,
             Self::IdentifyTransactionsSuccess(_) => CHANNEL_BIT_IDENTIFY_TRANSACTIONS_SUCCESS,
             Self::ProvideMissingTransactions(_) => CHANNEL_BIT_PROVIDE_MISSING_TRANSACTIONS,
@@ -400,9 +400,9 @@ impl<'decoder> From<JobDeclaration<'decoder>> for EncodableField<'decoder> {
         match m {
             JobDeclaration::AllocateMiningJobToken(a) => a.into(),
             JobDeclaration::AllocateMiningJobTokenSuccess(a) => a.into(),
-            JobDeclaration::CommitMiningJob(a) => a.into(),
-            JobDeclaration::CommitMiningJobSuccess(a) => a.into(),
-            JobDeclaration::CommitMiningJobError(a) => a.into(),
+            JobDeclaration::DeclareMiningJob(a) => a.into(),
+            JobDeclaration::DeclareMiningJobSuccess(a) => a.into(),
+            JobDeclaration::DeclareMiningJobError(a) => a.into(),
             JobDeclaration::IdentifyTransactions(a) => a.into(),
             JobDeclaration::IdentifyTransactionsSuccess(a) => a.into(),
             JobDeclaration::ProvideMissingTransactions(a) => a.into(),
@@ -469,9 +469,9 @@ impl<'a> GetSize for JobDeclaration<'a> {
         match self {
             JobDeclaration::AllocateMiningJobToken(a) => a.get_size(),
             JobDeclaration::AllocateMiningJobTokenSuccess(a) => a.get_size(),
-            JobDeclaration::CommitMiningJob(a) => a.get_size(),
-            JobDeclaration::CommitMiningJobSuccess(a) => a.get_size(),
-            JobDeclaration::CommitMiningJobError(a) => a.get_size(),
+            JobDeclaration::DeclareMiningJob(a) => a.get_size(),
+            JobDeclaration::DeclareMiningJobSuccess(a) => a.get_size(),
+            JobDeclaration::DeclareMiningJobError(a) => a.get_size(),
             JobDeclaration::IdentifyTransactions(a) => a.get_size(),
             JobDeclaration::IdentifyTransactionsSuccess(a) => a.get_size(),
             JobDeclaration::ProvideMissingTransactions(a) => a.get_size(),
@@ -709,8 +709,8 @@ impl<'a> TryFrom<(u8, &'a mut [u8])> for TemplateDistribution<'a> {
 pub enum JobDeclarationTypes {
     AllocateMiningJobToken = MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN,
     AllocateMiningJobTokenSuccess = MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN_SUCCESS,
-    CommitMiningJob = MESSAGE_TYPE_COMMIT_MINING_JOB,
-    CommitMiningJobSuccess = MESSAGE_TYPE_COMMIT_MINING_JOB_SUCCESS,
+    DeclareMiningJob = MESSAGE_TYPE_DECLARE_MINING_JOB,
+    DeclareMiningJobSuccess = MESSAGE_TYPE_DECLARE_MINING_JOB_SUCCESS,
 }
 
 impl TryFrom<u8> for JobDeclarationTypes {
@@ -724,9 +724,9 @@ impl TryFrom<u8> for JobDeclarationTypes {
             MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN_SUCCESS => {
                 Ok(JobDeclarationTypes::AllocateMiningJobTokenSuccess)
             }
-            MESSAGE_TYPE_COMMIT_MINING_JOB => Ok(JobDeclarationTypes::CommitMiningJob),
-            MESSAGE_TYPE_COMMIT_MINING_JOB_SUCCESS => {
-                Ok(JobDeclarationTypes::CommitMiningJobSuccess)
+            MESSAGE_TYPE_DECLARE_MINING_JOB => Ok(JobDeclarationTypes::DeclareMiningJob),
+            MESSAGE_TYPE_DECLARE_MINING_JOB_SUCCESS => {
+                Ok(JobDeclarationTypes::DeclareMiningJobSuccess)
             }
             _ => Err(Error::UnexpectedMessage(v)),
         }
@@ -747,13 +747,13 @@ impl<'a> TryFrom<(u8, &'a mut [u8])> for JobDeclaration<'a> {
                 let message: AllocateMiningJobTokenSuccess = from_bytes(v.1)?;
                 Ok(JobDeclaration::AllocateMiningJobTokenSuccess(message))
             }
-            JobDeclarationTypes::CommitMiningJob => {
-                let message: CommitMiningJob = from_bytes(v.1)?;
-                Ok(JobDeclaration::CommitMiningJob(message))
+            JobDeclarationTypes::DeclareMiningJob => {
+                let message: DeclareMiningJob = from_bytes(v.1)?;
+                Ok(JobDeclaration::DeclareMiningJob(message))
             }
-            JobDeclarationTypes::CommitMiningJobSuccess => {
-                let message: CommitMiningJobSuccess = from_bytes(v.1)?;
-                Ok(JobDeclaration::CommitMiningJobSuccess(message))
+            JobDeclarationTypes::DeclareMiningJobSuccess => {
+                let message: DeclareMiningJobSuccess = from_bytes(v.1)?;
+                Ok(JobDeclaration::DeclareMiningJobSuccess(message))
             }
         }
     }

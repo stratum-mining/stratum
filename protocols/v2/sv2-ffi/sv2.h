@@ -56,11 +56,11 @@ static const uint8_t MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN = 80;
 
 static const uint8_t MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN_SUCCESS = 81;
 
-static const uint8_t MESSAGE_TYPE_COMMIT_MINING_JOB = 87;
+static const uint8_t MESSAGE_TYPE_DECLARE_MINING_JOB = 87;
 
-static const uint8_t MESSAGE_TYPE_COMMIT_MINING_JOB_SUCCESS = 88;
+static const uint8_t MESSAGE_TYPE_DECLARE_MINING_JOB_SUCCESS = 88;
 
-static const uint8_t MESSAGE_TYPE_COMMIT_MINING_JOB_ERROR = 89;
+static const uint8_t MESSAGE_TYPE_DECLARE_MINING_JOB_ERROR = 89;
 
 static const uint8_t MESSAGE_TYPE_IDENTIFY_TRANSACTIONS = 96;
 
@@ -142,11 +142,11 @@ static const bool CHANNEL_BIT_ALLOCATE_MINING_JOB_TOKEN = false;
 
 static const bool CHANNEL_BIT_ALLOCATE_MINING_JOB_TOKEN_SUCCESS = false;
 
-static const bool CHANNEL_BIT_COMMIT_MINING_JOB = false;
+static const bool CHANNEL_BIT_DECLARE_MINING_JOB = false;
 
-static const bool CHANNEL_BIT_COMMIT_MINING_JOB_SUCCESS = false;
+static const bool CHANNEL_BIT_DECLARE_MINING_JOB_SUCCESS = false;
 
-static const bool CHANNEL_BIT_COMMIT_MINING_JOB_ERROR = false;
+static const bool CHANNEL_BIT_DECLARE_MINING_JOB_ERROR = false;
 
 static const bool CHANNEL_BIT_IDENTIFY_TRANSACTIONS = false;
 

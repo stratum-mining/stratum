@@ -18,7 +18,7 @@ use codec_sv2::Frame;
 use nohash_hasher::BuildNoHashHasher;
 use roles_logic_sv2::{
     handlers::job_declaration::ParseServerJobDeclarationMessages,
-    job_declaration_sv2::{AllocateMiningJobToken, CommitMiningJob},
+    job_declaration_sv2::{AllocateMiningJobToken, DeclareMiningJob},
     template_distribution_sv2::NewTemplate,
     utils::Id,
 };
@@ -43,11 +43,11 @@ pub struct JobDeclarator {
     allocated_tokens: Vec<AllocateMiningJobTokenSuccess<'static>>,
     req_ids: Id,
     min_extranonce_size: u16,
-    // (Sented CommitMiningJob, is future, template id)
-    last_commit_mining_job_sent: Vec<(CommitMiningJob<'static>, bool, u64)>,
+    // (Sented DeclareMiningJob, is future, template id)
+    last_declare_mining_job_sent: Vec<(DeclareMiningJob<'static>, bool, u64)>,
     last_set_new_prev_hash: Option<SetNewPrevHash<'static>>,
     new_template: Option<NewTemplate<'static>>,
-    future_jobs: HashMap<u64, CommitMiningJob<'static>, BuildNoHashHasher<u64>>,
+    future_jobs: HashMap<u64, DeclareMiningJob<'static>, BuildNoHashHasher<u64>>,
     up: Arc<Mutex<Upstream>>,
     task_collector: Arc<Mutex<Vec<AbortHandle>>>,
 }
@@ -89,7 +89,7 @@ impl JobDeclarator {
             allocated_tokens: vec![],
             req_ids: Id::new(),
             min_extranonce_size,
-            last_commit_mining_job_sent: vec![],
+            last_declare_mining_job_sent: vec![],
             last_set_new_prev_hash: None,
             future_jobs: HashMap::with_hasher(BuildNoHashHasher::default()),
             up,
@@ -102,12 +102,12 @@ impl JobDeclarator {
         self_
     }
 
-    pub fn get_last_commit_job_sent(
+    pub fn get_last_declare_job_sent(
         self_mutex: &Arc<Mutex<Self>>,
-    ) -> (CommitMiningJob<'static>, bool, u64) {
+    ) -> (DeclareMiningJob<'static>, bool, u64) {
         self_mutex
-            .safe_lock(|s| match s.last_commit_mining_job_sent.len() {
-                1 => s.last_commit_mining_job_sent.pop().unwrap(),
+            .safe_lock(|s| match s.last_declare_mining_job_sent.len() {
+                1 => s.last_declare_mining_job_sent.pop().unwrap(),
                 _ => unreachable!(),
             })
             .unwrap()
@@ -178,7 +178,7 @@ impl JobDeclarator {
         let mut outputs = pool_output;
         let mut tp_outputs: Vec<u8> = template.coinbase_tx_outputs.to_vec();
         outputs.append(&mut tp_outputs);
-        let commit_job = CommitMiningJob {
+        let declare_job = DeclareMiningJob {
             request_id: id,
             mining_job_token: token.try_into().unwrap(),
             version: template.version,
@@ -193,19 +193,18 @@ impl JobDeclarator {
             tx_short_hash_list: vec![].try_into().unwrap(), // TODO this come wither in a separeta message or in newtemplate
             tx_hash_list_hash: vec![0; 32].try_into().unwrap(), // TODO
             excess_data: vec![].try_into().unwrap(),
-            merkle_path: template.merkle_path,
         };
         self_mutex
             .safe_lock(|s| {
-                s.last_commit_mining_job_sent.push((
-                    commit_job.clone(),
+                s.last_declare_mining_job_sent.push((
+                    declare_job.clone(),
                     template.future_template,
                     template.template_id,
                 ))
             })
             .unwrap();
         let frame: StdFrame =
-            PoolMessages::JobDeclaration(JobDeclaration::CommitMiningJob(commit_job))
+            PoolMessages::JobDeclaration(JobDeclaration::DeclareMiningJob(declare_job))
                 .try_into()
                 .unwrap();
         sender.send(frame.into()).await.unwrap();
@@ -228,16 +227,20 @@ impl JobDeclarator {
                             message_type,
                             payload,
                         );
+                    let new_template = self_mutex
+                        .safe_lock(|s| s.new_template.clone())
+                        .unwrap()
+                        .unwrap();
                     match next_message_to_send {
-                        Ok(SendTo::None(Some(JobDeclaration::CommitMiningJobSuccess(m)))) => {
+                        Ok(SendTo::None(Some(JobDeclaration::DeclareMiningJobSuccess(m)))) => {
                             let new_token = m.new_mining_job_token;
-                            let (mut last_commit_mining_job_sent, is_future, id) =
-                                Self::get_last_commit_job_sent(&self_mutex);
+                            let (mut last_declare_mining_job_sent, is_future, id) =
+                                Self::get_last_declare_job_sent(&self_mutex);
                             if is_future {
-                                last_commit_mining_job_sent.mining_job_token = new_token;
+                                last_declare_mining_job_sent.mining_job_token = new_token;
                                 self_mutex
                                     .safe_lock(|s| {
-                                        s.future_jobs.insert(id, last_commit_mining_job_sent)
+                                        s.future_jobs.insert(id, last_declare_mining_job_sent)
                                     })
                                     .unwrap();
                             } else {
@@ -245,7 +248,7 @@ impl JobDeclarator {
                                     .safe_lock(|s| s.last_set_new_prev_hash.clone())
                                     .unwrap();
                                 match set_new_prev_hash {
-                                    Some(p) => Upstream::set_custom_jobs(&up, last_commit_mining_job_sent, p, Some(new_token)).await.unwrap(),
+                                    Some(p) => Upstream::set_custom_jobs(&up, last_declare_mining_job_sent, p, new_template, Some(new_token)).await.unwrap(),
                                     None => panic!("Invalid state we received a NewTemplate not future, without having received a set new prev hash")
                                 }
                             }
@@ -283,8 +286,12 @@ impl JobDeclarator {
                 }
             })
             .unwrap();
+        let new_template = self_mutex
+            .safe_lock(|j| j.new_template.clone())
+            .unwrap()
+            .unwrap();
         if let Some((job, up)) = future_job {
-            Upstream::set_custom_jobs(&up, job, set_new_prev_hash, None)
+            Upstream::set_custom_jobs(&up, job, set_new_prev_hash, new_template, None)
                 .await
                 .unwrap();
         };
