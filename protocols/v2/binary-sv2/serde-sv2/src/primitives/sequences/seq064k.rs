@@ -459,7 +459,7 @@ impl<'s> Seq064K<'s, u32> {
         }
     }
 }
-impl <'s> Seq064K<'s, u16> {
+impl<'s> Seq064K<'s, u16> {
     pub fn into_static(self) -> Seq064K<'static, u16> {
         if let Some(inner) = self.data {
             Seq064K {
@@ -490,8 +490,7 @@ impl<'s> Seq064K<'s, U256<'s>> {
     pub fn into_static(self) -> Seq064K<'static, U256<'static>> {
         if let Some(inner) = self.data {
             let inner = inner.clone();
-            let data: Vec<U256<'static>> = 
-                inner.into_iter().map(|i| i.into_static()).collect();
+            let data: Vec<U256<'static>> = inner.into_iter().map(|i| i.into_static()).collect();
             Seq064K {
                 seq: None,
                 data: Some(data),

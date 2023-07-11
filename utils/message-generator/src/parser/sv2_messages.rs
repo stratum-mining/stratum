@@ -359,9 +359,18 @@ pub enum JobDeclaration<'a> {
     #[serde(borrow)]
     AllocateMiningJobToken(AllocateMiningJobToken<'a>),
     #[serde(borrow)]
-    CommitMiningJob(CommitMiningJob<'a>),
+    DeclareMiningJob(DeclareMiningJob<'a>),
     #[serde(borrow)]
-    CommitMiningJobSuccess(CommitMiningJobSuccess<'a>),
+    DeclareMiningJobSuccess(DeclareMiningJobSuccess<'a>),
+    #[serde(borrow)]
+    DeclareMiningJobError(DeclareMiningJobError<'a>),
+    IdentifyTransactions(IdentifyTransactions),
+    #[serde(borrow)]
+    IdentifyTransactionsSuccess(IdentifyTransactionsSuccess<'a>),
+    #[serde(borrow)]
+    ProvideMissingTransactions(ProvideMissingTransactions<'a>),
+    #[serde(borrow)]
+    ProvideMissingTransactionsSuccess(ProvideMissingTransactionsSuccess<'a>),
 }
 
 impl<'a> From<JobDeclaration<'a>> for roles_logic_sv2::parsers::JobDeclaration<'a> {
@@ -371,8 +380,15 @@ impl<'a> From<JobDeclaration<'a>> for roles_logic_sv2::parsers::JobDeclaration<'
                 Self::AllocateMiningJobTokenSuccess(m)
             }
             JobDeclaration::AllocateMiningJobToken(m) => Self::AllocateMiningJobToken(m),
-            JobDeclaration::CommitMiningJobSuccess(m) => Self::CommitMiningJobSuccess(m),
-            JobDeclaration::CommitMiningJob(m) => Self::CommitMiningJob(m),
+            JobDeclaration::DeclareMiningJobSuccess(m) => Self::DeclareMiningJobSuccess(m),
+            JobDeclaration::DeclareMiningJob(m) => Self::DeclareMiningJob(m),
+            JobDeclaration::DeclareMiningJobError(m) => Self::DeclareMiningJobError(m),
+            JobDeclaration::IdentifyTransactions(m) => Self::IdentifyTransactions(m),
+            JobDeclaration::IdentifyTransactionsSuccess(m) => Self::IdentifyTransactionsSuccess(m),
+            JobDeclaration::ProvideMissingTransactions(m) => Self::ProvideMissingTransactions(m),
+            JobDeclaration::ProvideMissingTransactionsSuccess(m) => {
+                Self::ProvideMissingTransactionsSuccess(m)
+            }
         }
     }
 }
