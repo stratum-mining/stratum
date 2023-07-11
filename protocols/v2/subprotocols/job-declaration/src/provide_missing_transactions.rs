@@ -6,8 +6,8 @@ use binary_sv2::{Seq064K, Serialize, B016M};
 #[derive(Serialize, Clone, Debug, PartialEq, Eq)]
 #[repr(C)]
 pub struct ProvideMissingTransactions<'decoder> {
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub request_id: u32,
+    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub unknown_tx_position_list: Seq064K<'decoder, u16>,
 }
 
