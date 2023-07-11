@@ -29,6 +29,8 @@ impl<'s, T: Clone + FixedSize + Serialize + TryFromBSlice<'s> + core::cmp::Parti
 impl<'s> Eq for Seq064K<'s, B016M<'s>> {}
 impl<'s> Eq for Seq064K<'s, B064K<'s>> {}
 impl<'s> Eq for Seq064K<'s, ShortTxId<'s>> {}
+impl<'s> Eq for Seq064K<'s, U256<'s>> {}
+impl<'s> Eq for Seq064K<'s, u16> {}
 
 impl<'s> PartialEq for Seq064K<'s, B016M<'s>> {
     fn eq(&self, other: &Self) -> bool {
@@ -39,7 +41,6 @@ impl<'s> PartialEq for Seq064K<'s, B016M<'s>> {
         }
     }
 }
-impl<'s> Eq for Seq064K<'s, U256<'s>> {}
 impl<'s> PartialEq for Seq064K<'s, B064K<'s>> {
     fn eq(&self, other: &Self) -> bool {
         match (&self.seq, &self.data, &other.seq, &other.data) {

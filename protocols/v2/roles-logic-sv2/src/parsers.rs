@@ -127,7 +127,6 @@ pub enum JobDeclaration<'a> {
     DeclareMiningJobError(DeclareMiningJobError<'a>),
     #[cfg_attr(feature = "with_serde", serde(borrow))]
     DeclareMiningJobSuccess(DeclareMiningJobSuccess<'a>),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     IdentifyTransactions(IdentifyTransactions),
     #[cfg_attr(feature = "with_serde", serde(borrow))]
     IdentifyTransactionsSuccess(IdentifyTransactionsSuccess<'a>),
