@@ -85,7 +85,7 @@ impl<'a> Client<'static> {
         let client = Client {
             client_id,
             extranonce1: extranonce_from_hex("00000000"),
-            extranonce2_size: 2,
+            extranonce2_size: 4,
             version_rolling_mask: None,
             version_rolling_min_bit: None,
             status: ClientStatus::Init,
@@ -163,6 +163,7 @@ impl<'a> Client<'static> {
         let extranonce2 = extranonce_from_hex("00");
         let nonce = 78;
         let version_bits = None;
+        self.authorize_user_name(username.to_string());
         let submit = self
             .submit(
                 id,

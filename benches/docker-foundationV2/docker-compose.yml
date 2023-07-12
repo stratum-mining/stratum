@@ -11,7 +11,6 @@ services:
   bitcoin-core:
     image: ruimarinho/bitcoin-core
     command:
-     - bitcoind
      - server=1
      - listen=1
      - daemon=1
