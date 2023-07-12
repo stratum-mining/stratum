@@ -1,6 +1,7 @@
 mod actions;
 mod frames;
 mod sv2_messages;
+mod sv1_messages;
 
 use crate::{Action, Command, Test};
 use codec_sv2::{buffer_sv2::Slice, Frame, Sv2Frame};
