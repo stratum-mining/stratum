@@ -69,7 +69,6 @@ impl<'d> GetSize for DeclareMiningJob<'d> {
             + self.tx_short_hash_list.get_size()
             + self.tx_hash_list_hash.get_size()
             + self.excess_data.get_size()
-            + self.merkle_path.get_size()
     }
 }
 #[cfg(feature = "with_serde")]

@@ -408,20 +408,20 @@ impl Executor {
                                         check_each_field(msg, field_data);
                                     }
                                 }
-                                Ok(roles_logic_sv2::parsers::JobDeclaration::CommitMiningJob(m)) => {
-                                    if message_type.as_str() == "CommitMiningJob" {
+                                Ok(roles_logic_sv2::parsers::JobDeclaration::DeclareMiningJob(m)) => {
+                                    if message_type.as_str() == "DeclareMiningJob" {
                                         let msg = serde_json::to_value(m).unwrap();
                                         check_each_field(msg, field_data);
                                     }
                                 }
-                                Ok(roles_logic_sv2::parsers::JobDeclaration::CommitMiningJobSuccess(m)) => {
-                                    if message_type.as_str() == "CommitMiningJobSuccess" {
+                                Ok(roles_logic_sv2::parsers::JobDeclaration::DeclareMiningJobSuccess(m)) => {
+                                    if message_type.as_str() == "DeclareMiningJobSuccess" {
                                         let msg = serde_json::to_value(m).unwrap();
                                         check_each_field(msg, field_data);
                                     }
                                 }
-                                Ok(roles_logic_sv2::parsers::JobDeclaration::CommitMiningJobError(m)) => {
-                                    if message_type.as_str() == "CommitMiningJobSuccess" {
+                                Ok(roles_logic_sv2::parsers::JobDeclaration::DeclareMiningJobError(m)) => {
+                                    if message_type.as_str() == "DeclareMiningJobSuccess" {
                                         let msg = serde_json::to_value(&m).unwrap();
                                         check_each_field(msg, field_data);
                                     }
@@ -637,15 +637,15 @@ impl Executor {
                                     let mess = serde_json::to_value(&m).unwrap();
                                     self.save = save_message_field(mess, self.save.clone(), fields);
                                 }
-                                Ok(parsers::JobDeclaration::CommitMiningJob(m)) => {
+                                Ok(parsers::JobDeclaration::DeclareMiningJob(m)) => {
                                     let mess = serde_json::to_value(&m).unwrap();
                                     self.save = save_message_field(mess, self.save.clone(), fields);
                                 }
-                                Ok(parsers::JobDeclaration::CommitMiningJobSuccess(m)) => {
+                                Ok(parsers::JobDeclaration::DeclareMiningJobSuccess(m)) => {
                                     let mess = serde_json::to_value(&m).unwrap();
                                     self.save = save_message_field(mess, self.save.clone(), fields);
                                 }
-                                Ok(roles_logic_sv2::parsers::JobDeclaration::CommitMiningJobError(m)) => {
+                                Ok(roles_logic_sv2::parsers::JobDeclaration::DeclareMiningJobError(m)) => {
                                     let mess = serde_json::to_value(&m).unwrap();
                                     self.save = save_message_field(mess, self.save.clone(), fields);
                                 }

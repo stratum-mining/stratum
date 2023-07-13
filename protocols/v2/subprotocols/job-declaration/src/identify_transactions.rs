@@ -9,7 +9,6 @@ use core::convert::TryInto;
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[repr(C)]
 pub struct IdentifyTransactions {
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub request_id: u32,
 }
 
@@ -18,15 +17,16 @@ pub struct IdentifyTransactions {
 #[repr(C)]
 pub struct IdentifyTransactionsSuccess<'decoder> {
     pub request_id: u32,
+    #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub tx_data_hashes: Seq064K<'decoder, U256<'decoder>>,
 }
 
 #[cfg(feature = "with_serde")]
 use binary_sv2::GetSize;
 #[cfg(feature = "with_serde")]
-impl<'d> GetSize for IdentifyTransactions<'d> {
+impl GetSize for IdentifyTransactions {
     fn get_size(&self) -> usize {
-        self.user_identifier.get_size() + self.request_id.get_size()
+        self.request_id.get_size() + self.request_id.get_size()
     }
 }
 #[cfg(feature = "with_serde")]
