@@ -3,7 +3,7 @@ use alloc::vec::Vec;
 use core::convert::{TryFrom, TryInto};
 use serde::{de::Visitor, ser, ser::SerializeTuple, Deserialize, Deserializer, Serialize};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq)]
 enum Inner<'a> {
     Ref(&'a [u8]),
     Owned(Vec<u8>),
@@ -39,7 +39,7 @@ impl<'a> Inner<'a> {
     }
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Eq)]
 pub struct B032<'b>(Inner<'b>);
 
 impl<'b> TryFrom<&'b [u8]> for B032<'b> {
@@ -98,6 +98,15 @@ impl<'b> Serialize for B032<'b> {
             seq.serialize_element(&tuple.0)?;
             seq.serialize_element(tuple.1)?;
             seq.end()
+        }
+    }
+}
+
+impl<'b> AsRef<[u8]> for B032<'b> {
+    fn as_ref(&self) -> &[u8] {
+        match &self.0 {
+            Inner::Ref(v) => v,
+            Inner::Owned(v) => v.as_ref(),
         }
     }
 }
