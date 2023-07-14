@@ -75,6 +75,15 @@ impl<'u> Serialize for U256<'u> {
     }
 }
 
+impl<'u> U256<'u> {
+    pub fn len(&self) -> usize {
+        match &self.0 {
+            Inner::Ref(v) => v.len(),
+            Inner::Owned(_) => 32,
+        }
+    }
+}
+
 struct U256Visitor;
 
 impl<'a> Visitor<'a> for U256Visitor {
