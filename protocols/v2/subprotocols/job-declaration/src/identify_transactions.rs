@@ -26,7 +26,7 @@ use binary_sv2::GetSize;
 #[cfg(feature = "with_serde")]
 impl GetSize for IdentifyTransactions {
     fn get_size(&self) -> usize {
-        self.request_id.get_size() + self.request_id.get_size()
+        self.request_id.get_size()
     }
 }
 #[cfg(feature = "with_serde")]
