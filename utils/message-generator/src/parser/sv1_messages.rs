@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use v1::methods::*;
 
 
@@ -66,5 +67,43 @@ impl<'a> From<Sv1ServerResponses<'a>> for Server2ClientResponse<'a> {
             Sv1ServerResponses::Authorize(m) => Self::Authorize(m),
             Sv1ServerResponses::Submit(m) => Self::Submit(m)
         }
+    }
+}
+
+
+pub struct Sv1TestMessageParser<'a>{
+    sv1_client_messages: Option<Vec<Sv1ClientMessage<'a>>>,
+    sv1_server_messages: Option<Vec<Sv1ServerMessage<'a>>>,
+    sv1_server_responses: Option<Vec<Sv1ServerResponse<'a>>>
+}
+
+impl<'a> Sv1TestMessageParser<'a>{
+    pub fn into_map(self) -> HashMap<String, Method<'a>> {
+        let mut map = HashMap::new();
+        if let Some(sv1_client_messages) = self.sv1_client_messages{
+            for message in sv1_client_messages{
+                let id = message.id;
+                let message = message.message.into();
+                let message = Method::Client2Server(message);
+                map.insert(id, message);
+            }
+        };
+        if let Some(sv1_server_messages) = self.sv1_server_messages{
+            for message in sv1_server_messages{
+                let id = message.id;
+                let message = message.message.into();
+                let message = Method::Server2Client(message);
+                map.insert(id, message);
+            }
+        };
+        if let Some(sv1_server_responses) = self.sv1_server_responses{
+            for message in sv1_server_responses{
+                let id = message.id;
+                let message = message.message.into();
+                let message = Method::Server2ClientResponse(message);
+                map.insert(id, message);
+            }
+        };
+        map
     }
 }
