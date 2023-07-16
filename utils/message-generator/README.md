@@ -135,7 +135,7 @@ The `message` field is an object composed by:
 Objects in `frame_builders` are used by the message generator to construct Sv2 frames in order to send the message
 to the tested software. Objects in `frame_builders` can be either **automatic** (where the sv2 frame header is
 constructed by the SRI libs and is supposed to be correct) or **manual** (if we want to test a software
-against an incorrect frame).
+against an incorrect frame). 
 
 `frame_builders` is an array of objects. Every object in `frame_builders` must contain `message_id`, that is a 
 string with the id of the previously defined message. In the example below, the message id refers to
