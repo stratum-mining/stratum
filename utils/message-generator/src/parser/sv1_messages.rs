@@ -1,23 +1,28 @@
 use std::collections::HashMap;
 use v1::methods::*;
+use serde::{Serialize, Deserialize};
 
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct Sv1ClientMessage<'a> {
     message: Sv1ClientMessages<'a>,
     id: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct Sv1ServerMessage<'a> {
     message: Sv1ServerMessages<'a>,
     id: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct Sv1ServerResponse<'a> {
     message: Sv1ServerResponses<'a>,
     id: String,
 }
 
 //CLIENT TO SERVER
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Sv1ClientMessages<'a> {
     Subscribe(client_to_server::Subscribe<'a>),
     Authorize(client_to_server::Authorize),
@@ -36,6 +41,7 @@ impl<'a> From<Sv1ClientMessages<'a>> for Client2Server<'a>{
 
 
 //SERVER TO CLIENT
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Sv1ServerMessages<'a> {
     Notify(server_to_client::Notify<'a>),
     SetDifficulty(server_to_client::SetDifficulty),
@@ -54,6 +60,7 @@ impl<'a> From<Sv1ServerMessages<'a>> for Server2Client<'a> {
 
 
 //SERVER TO CLIENT RESPONSES
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Sv1ServerResponses<'a> {
     Subscribe(server_to_client::Subscribe<'a>),
     Authorize(server_to_client::Authorize),
@@ -71,6 +78,7 @@ impl<'a> From<Sv1ServerResponses<'a>> for Server2ClientResponse<'a> {
 }
 
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Sv1TestMessageParser<'a>{
     sv1_client_messages: Option<Vec<Sv1ClientMessage<'a>>>,
     sv1_server_messages: Option<Vec<Sv1ServerMessage<'a>>>,
@@ -105,5 +113,9 @@ impl<'a> Sv1TestMessageParser<'a>{
             }
         };
         map
+    }
+
+    pub fn from_str<'b: 'a>(test: &'b str) -> Self {
+        serde_json::from_str(test).unwrap()
     }
 }

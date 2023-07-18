@@ -214,7 +214,7 @@ impl<'a> TryFrom<Vec<u8>> for MerkleNode<'a> {
     type Error = Error<'a>;
 
     fn try_from(value: Vec<u8>) -> Result<Self, Error<'a>> {
-        Ok(MerkleNode(U256::try_from(value)?))
+        Ok(MerkleNode(U256::try_from(value).unwrap()))
     }
 }
 
@@ -241,7 +241,7 @@ impl<'a> TryFrom<&str> for MerkleNode<'a> {
     type Error = Error<'a>;
 
     fn try_from(value: &str) -> Result<Self, Error<'a>> {
-        Ok(MerkleNode(U256::try_from(hex_decode(value)?)?))
+        Ok(MerkleNode(U256::try_from(hex_decode(value)?).unwrap()))
     }
 }
 
