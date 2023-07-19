@@ -219,9 +219,7 @@ pub fn verify_token(
     let public_key = ed25519_dalek::PublicKey::from_bytes(pub_key.into_inner().as_bytes())
         .expect("Invalid public key bytes");
 
-    let message: Vec<u8> =
-        tx_hash_list_hash
-            .to_vec();
+    let message: Vec<u8> = tx_hash_list_hash.to_vec();
 
     // Verify signature
     let is_verified = public_key.verify(&message, &signature);
