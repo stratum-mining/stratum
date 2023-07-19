@@ -3,9 +3,12 @@ use crate::{
     status, Configuration, EitherFrame, StdFrame,
 };
 use async_channel::{Receiver, Sender};
+use binary_sv2::{Seq0255, U256};
 use codec_sv2::{Frame, HandshakeRole, Responder};
+use ed25519_dalek::{Signature, SignatureError, Verifier};
 use error_handling::handle_result;
 use network_helpers::noise_connection_tokio::Connection;
+use noise_sv2::formats::EncodedEd25519PublicKey;
 use nohash_hasher::BuildNoHashHasher;
 use roles_logic_sv2::{
     channel_logic::channel_factory::PoolChannelFactory,
@@ -203,6 +206,40 @@ impl Downstream {
         Ok(())
     }
 }
+
+// Verifies token for a custom job which is the signed merkle path by Job Declarator Server
+    //TODO: implement the use of this fuction in main.rs
+    #[allow(dead_code)]
+    pub fn verify_token(
+        merkle_path: Seq0255<U256>,
+        signature: Signature,
+        pub_key: EncodedEd25519PublicKey,
+    ) -> Result<(), SignatureError> {
+        // Create PublicKey instance
+        let public_key = ed25519_dalek::PublicKey::from_bytes(pub_key.into_inner().as_bytes())
+            .expect("Invalid public key bytes");
+
+        let message: Vec<u8> =
+            merkle_path
+                .to_vec()
+                .iter()
+                .map(|v| v.to_vec())
+                .fold(vec![], |mut acc, bs| {
+                    for b in bs {
+                        acc.push(b)
+                    }
+                    acc
+                });
+
+        // Verify signature
+        let is_verified = public_key.verify(&message, &signature);
+
+        // debug
+        debug!("Message: {}", std::str::from_utf8(&message).unwrap());
+        debug!("Verified signature {:?}", is_verified);
+        is_verified
+    }
+
 impl IsDownstream for Downstream {
     fn get_downstream_mining_data(&self) -> CommonDownstreamData {
         self.downstream_data

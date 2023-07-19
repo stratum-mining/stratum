@@ -12,6 +12,8 @@ use roles_logic_sv2::{
 pub type SendTo = SendTo_<JobDeclaration<'static>, ()>;
 use roles_logic_sv2::errors::Error;
 
+use crate::lib::job_declarator::signed_token;
+
 use super::JobDeclaratorDownstream;
 
 impl JobDeclaratorDownstream {
@@ -64,8 +66,11 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
         if self.verify_job(&message) {
             let message_success = DeclareMiningJobSuccess {
                 request_id: message.request_id,
-                //TODO sign tx_hash_list_hash and previous token
-                new_mining_job_token: message.mining_job_token.into_static(),
+                new_mining_job_token: signed_token(
+                    message.tx_hash_list_hash,
+                    &self.public_key.clone(),
+                    &self.private_key.clone(),
+                ),
             };
             let message_enum_success = JobDeclaration::DeclareMiningJobSuccess(message_success);
             // TODO: token map
