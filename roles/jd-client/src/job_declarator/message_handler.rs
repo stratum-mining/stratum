@@ -2,9 +2,9 @@ use crate::job_declarator::JobDeclarator;
 use roles_logic_sv2::{
     handlers::{job_declaration::ParseServerJobDeclarationMessages, SendTo_},
     job_declaration_sv2::{
-        AllocateMiningJobTokenSuccess, DeclareMiningJob, DeclareMiningJobError,
-        DeclareMiningJobSuccess, IdentifyTransactions, IdentifyTransactionsSuccess,
-        ProvideMissingTransactions, ProvideMissingTransactionsSuccess,
+        AllocateMiningJobTokenSuccess, DeclareMiningJobError, DeclareMiningJobSuccess,
+        IdentifyTransactions, IdentifyTransactionsSuccess, ProvideMissingTransactions,
+        ProvideMissingTransactionsSuccess,
     },
     parsers::JobDeclaration,
 };
@@ -16,30 +16,10 @@ impl ParseServerJobDeclarationMessages for JobDeclarator {
         &mut self,
         message: AllocateMiningJobTokenSuccess,
     ) -> Result<SendTo, Error> {
-        // TODO: use or discard
         let _coinbase_output_max_additional_size = message.coinbase_output_max_additional_size;
+        self.allocated_tokens.push(message.into_static());
 
-        let new_template = self.new_template.as_ref().unwrap();
-
-        let message_declare_mining_job = DeclareMiningJob {
-            request_id: message.request_id,
-            mining_job_token: message.mining_job_token.into_static(),
-            version: 2,
-            coinbase_tx_version: new_template.clone().coinbase_tx_version,
-            coinbase_prefix: new_template.clone().coinbase_prefix,
-            coinbase_tx_input_n_sequence: new_template.clone().coinbase_tx_input_sequence,
-            coinbase_tx_value_remaining: new_template.clone().coinbase_tx_value_remaining,
-            coinbase_tx_outputs: new_template.clone().coinbase_tx_outputs,
-            coinbase_tx_locktime: new_template.clone().coinbase_tx_locktime,
-            min_extranonce_size: 0,
-            tx_short_hash_nonce: 0,
-            tx_short_hash_list: Vec::new().try_into().unwrap(),
-            tx_hash_list_hash: Vec::new().try_into().unwrap(),
-            excess_data: Vec::new().try_into().unwrap(),
-        };
-        let declare_mining_job = JobDeclaration::DeclareMiningJob(message_declare_mining_job);
-        println!("Send declare mining job to pool: {:?}", declare_mining_job);
-        Ok(SendTo::Respond(declare_mining_job))
+        Ok(SendTo::None(None))
     }
 
     fn handle_declare_mining_job_success(
