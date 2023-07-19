@@ -2,9 +2,9 @@ use crate::job_declarator::JobDeclarator;
 use roles_logic_sv2::{
     handlers::{job_declaration::ParseServerJobDeclarationMessages, SendTo_},
     job_declaration_sv2::{
-        AllocateMiningJobTokenSuccess, DeclareMiningJobError,
-        DeclareMiningJobSuccess, IdentifyTransactions, IdentifyTransactionsSuccess,
-        ProvideMissingTransactions, ProvideMissingTransactionsSuccess,
+        AllocateMiningJobTokenSuccess, DeclareMiningJobError, DeclareMiningJobSuccess,
+        IdentifyTransactions, IdentifyTransactionsSuccess, ProvideMissingTransactions,
+        ProvideMissingTransactionsSuccess,
     },
     parsers::JobDeclaration,
 };
