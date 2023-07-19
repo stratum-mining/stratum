@@ -1,4 +1,6 @@
+use binary_sv2::B032;
 use bitcoin_hashes::hex::ToHex;
+use serde::{Serialize, Deserialize};
 use serde_json::{
     Value,
     Value::{Array as JArrary, Null, Number as JNumber, String as JString},
@@ -23,7 +25,7 @@ use quickcheck_macros;
 /// The result from an authorize request is usually true (successful), or false.
 /// The password may be omitted if the server does not require passwords.
 ///
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Authorize {
     pub id: u64,
     pub name: String,
@@ -115,14 +117,15 @@ pub struct ExtranonceSubscribe();
 ///
 /// Server response is result: true for accepted, false for rejected (or you may get an error with
 /// more details).
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Submit<'a> {
     pub user_name: String,            // root
     pub job_id: String,               // 6
-    pub extra_nonce2: Extranonce<'a>, // "8a.."
-    pub time: HexU32Be,               //string
-    pub nonce: HexU32Be,
-    pub version_bits: Option<HexU32Be>,
+    #[serde(borrow)]
+    pub extra_nonce2: B032<'a>, // "8a.."
+    pub time: u32,               //string
+    pub nonce: u32,
+    pub version_bits: Option<u32>,
     pub id: u64,
 }
 //"{"params": ["spotbtc1.m30s40x16", "2", "147a3f0000000000", "6436eddf", "41d5deb0", "00000000"], "id": 2196, "method": "mining.submit"}"
@@ -141,7 +144,7 @@ impl<'a> Submit<'a> {
 
 impl<'a> From<Submit<'a>> for Message {
     fn from(submit: Submit) -> Self {
-        let ex: String = submit.extra_nonce2.0.inner_as_ref().to_hex();
+        let ex: String = submit.extra_nonce2.as_ref().to_hex();
         let mut params: Vec<Value> = vec![
             submit.user_name.into(),
             submit.job_id.into(),
@@ -150,7 +153,7 @@ impl<'a> From<Submit<'a>> for Message {
             submit.nonce.into(),
         ];
         if let Some(a) = submit.version_bits {
-            let a: String = a.into();
+            let a: String = a.to_string();
             params.push(a.into());
         };
         Message::StandardRequest(StandardRequest {
@@ -173,33 +176,33 @@ impl<'a> TryFrom<StandardRequest> for Submit<'a> {
                     [JString(a), JString(b), JString(c), JNumber(d), JNumber(e), JString(f)] => (
                         a.into(),
                         b.into(),
-                        Extranonce::try_from(hex::decode(c)?)?,
-                        HexU32Be(d.as_u64().unwrap() as u32),
-                        HexU32Be(e.as_u64().unwrap() as u32),
-                        Some((f.as_str()).try_into()?),
+                        B032::try_from(hex::decode(c)?)?,
+                        (d.as_u64().unwrap() as u32),
+                        (e.as_u64().unwrap() as u32),
+                        Some((f.as_str()).parse::<u32>().unwrap()),
                     ),
                     [JString(a), JString(b), JString(c), JString(d), JString(e), JString(f)] => (
                         a.into(),
                         b.into(),
-                        Extranonce::try_from(hex::decode(c)?)?,
-                        (d.as_str()).try_into()?,
-                        (e.as_str()).try_into()?,
-                        Some((f.as_str()).try_into()?),
+                        B032::try_from(hex::decode(c)?)?,
+                        d.as_str().parse::<u32>().unwrap(),
+                        e.as_str().parse::<u32>().unwrap(),
+                        Some((f.as_str()).parse::<u32>().unwrap()),
                     ),
                     [JString(a), JString(b), JString(c), JNumber(d), JNumber(e)] => (
                         a.into(),
                         b.into(),
-                        Extranonce::try_from(hex::decode(c)?)?,
-                        HexU32Be(d.as_u64().unwrap() as u32),
-                        HexU32Be(e.as_u64().unwrap() as u32),
+                        B032::try_from(hex::decode(c)?)?,
+                        (d.as_u64().unwrap() as u32),
+                        (e.as_u64().unwrap() as u32),
                         None,
                     ),
                     [JString(a), JString(b), JString(c), JString(d), JString(e)] => (
                         a.into(),
                         b.into(),
-                        Extranonce::try_from(hex::decode(c)?)?,
-                        (d.as_str()).try_into()?,
-                        (e.as_str()).try_into()?,
+                        B032::try_from(hex::decode(c)?)?,
+                        d.as_str().parse::<u32>().unwrap(),
+                        e.as_str().parse::<u32>().unwrap(),
                         None,
                     ),
                     _ => return Err(ParsingMethodError::wrong_args_from_value(msg.params)),
@@ -267,11 +270,12 @@ fn submit_from_to_json_rpc(submit: Submit<'static>) -> bool {
 /// [a]: crate::methods::server_to_client::Notify
 ///
 ///
-#[derive(Debug)]
+#[derive(Debug,Serialize,Deserialize)]
 pub struct Subscribe<'a> {
     pub id: u64,
     pub agent_signature: String,
-    pub extranonce1: Option<Extranonce<'a>>,
+    #[serde(borrow)]
+    pub extranonce1: Option<B032<'a>>,
 }
 
 impl<'a> Subscribe<'a> {
@@ -302,7 +306,7 @@ impl<'a> TryFrom<Subscribe<'a>> for Message {
 
     fn try_from(subscribe: Subscribe) -> Result<Self, Error> {
         let params = match (subscribe.agent_signature, subscribe.extranonce1) {
-            (a, Some(b)) => vec![a, b.0.inner_as_ref().to_hex()],
+            (a, Some(b)) => vec![a, b.as_ref().to_hex()],
             (a, None) => vec![a],
         };
         Ok(Message::StandardRequest(StandardRequest {
@@ -323,7 +327,7 @@ impl<'a> TryFrom<StandardRequest> for Subscribe<'a> {
                     // bosminer subscribe message
                     [JString(a), Null, JString(_), Null] => (a.into(), None),
                     [JString(a), JString(b)] => {
-                        (a.into(), Some(Extranonce::try_from(hex::decode(b)?)?))
+                        (a.into(), Some(B032::try_from(hex::decode(b)?)?))
                     }
                     [JString(a)] => (a.into(), None),
                     [] => ("".to_string(), None),

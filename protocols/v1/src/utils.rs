@@ -71,6 +71,12 @@ impl BitAnd<u32> for HexU32Be {
     }
 }
 
+impl<'a> From<B032<'a>> for Extranonce<'a> {
+    fn from(b: B032<'a>) -> Self {
+        Extranonce(b)
+    }
+}
+
 /// Big-endian alternative of the HexU32
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct HexU32Be(pub u32);
@@ -107,6 +113,12 @@ impl TryFrom<&str> for HexU32Be {
 impl From<HexU32Be> for String {
     fn from(v: HexU32Be) -> Self {
         v.0.to_be_bytes().to_hex()
+    }
+}
+
+impl From<&u32> for HexU32Be {
+    fn from(a: &u32) -> Self {
+        HexU32Be(*a)
     }
 }
 

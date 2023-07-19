@@ -42,6 +42,7 @@ pub mod methods;
 pub mod utils;
 
 use std::convert::{TryFrom, TryInto};
+use binary_sv2::B032;
 use tracing::debug;
 
 // use error::Result;
@@ -111,7 +112,7 @@ pub trait IsServer<'a> {
                 let has_valid_version_bits = match &submit.version_bits {
                     Some(a) => {
                         if let Some(version_rolling_mask) = self.version_rolling_mask() {
-                            version_rolling_mask.check_mask(a)
+                            version_rolling_mask.check_mask(&(a.into()))
                         } else {
                             false
                         }
@@ -120,7 +121,7 @@ pub trait IsServer<'a> {
                 };
 
                 let is_valid_submission = self.is_authorized(&submit.user_name)
-                    && self.extranonce2_size() == submit.extra_nonce2.len()
+                    && self.extranonce2_size() == 32
                     && has_valid_version_bits;
 
                 if is_valid_submission {
@@ -335,7 +336,7 @@ pub trait IsClient<'a> {
                 let subscribe = self
                     .subscribe(
                         configure.id,
-                        Some(Extranonce::try_from(hex::decode("08000002")?)?),
+                        Some(B032::try_from(hex::decode("08000002")?)?),
                     )
                     .ok();
                 Ok(subscribe)
@@ -444,7 +445,7 @@ pub trait IsClient<'a> {
     fn subscribe(
         &mut self,
         id: u64,
-        extranonce1: Option<Extranonce<'a>>,
+        extranonce1: Option<B032<'a>>,
     ) -> Result<json_rpc::Message, Error<'a>> {
         match self.status() {
             ClientStatus::Init => Err(Error::IncorrectClientStatus("mining.subscribe".to_string())),
@@ -473,10 +474,10 @@ pub trait IsClient<'a> {
         &mut self,
         id: u64,
         user_name: String,
-        extra_nonce2: Extranonce<'a>,
+        extra_nonce2: B032<'a>,
         time: i64,
         nonce: i64,
-        version_bits: Option<HexU32Be>,
+        version_bits: Option<u32>,
     ) -> Result<json_rpc::Message, Error<'a>> {
         match self.status() {
             ClientStatus::Init => Err(Error::IncorrectClientStatus("mining.submit".to_string())),
@@ -489,8 +490,8 @@ pub trait IsClient<'a> {
                         job_id: notify.job_id,
                         user_name,
                         extra_nonce2,
-                        time: HexU32Be(time as u32),
-                        nonce: HexU32Be(nonce as u32),
+                        time: (time as u32),
+                        nonce: (nonce as u32),
                         version_bits,
                         id,
                     }

@@ -54,6 +54,7 @@ members = [
 
 exclude = [
     "utils/message-generator",
+    "protocols/v1",
 ]
 
 [profile.dev]
