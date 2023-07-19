@@ -2,9 +2,9 @@ use crate::job_declarator::JobDeclarator;
 use roles_logic_sv2::{
     handlers::{job_declaration::ParseServerJobDeclarationMessages, SendTo_},
     job_declaration_sv2::{
-        AllocateMiningJobTokenSuccess, DeclareMiningJobError, DeclareMiningJobSuccess,
-        IdentifyTransactions, IdentifyTransactionsSuccess, ProvideMissingTransactions,
-        ProvideMissingTransactionsSuccess,
+        AllocateMiningJobTokenSuccess, DeclareMiningJobError,
+        DeclareMiningJobSuccess, IdentifyTransactions, IdentifyTransactionsSuccess,
+        ProvideMissingTransactions, ProvideMissingTransactionsSuccess,
     },
     parsers::JobDeclaration,
 };
@@ -17,7 +17,9 @@ impl ParseServerJobDeclarationMessages for JobDeclarator {
         message: AllocateMiningJobTokenSuccess,
     ) -> Result<SendTo, Error> {
         let _coinbase_output_max_additional_size = message.coinbase_output_max_additional_size;
+
         self.allocated_tokens.push(message.into_static());
+
         Ok(SendTo::None(None))
     }
 
