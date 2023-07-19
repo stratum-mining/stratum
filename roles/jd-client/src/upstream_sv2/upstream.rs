@@ -207,7 +207,6 @@ impl Upstream {
             coinbase_tx_locktime: declare_mining_job.coinbase_tx_locktime,
             merkle_path: new_template.merkle_path,
             extranonce_size: declare_mining_job.min_extranonce_size,
-            future_job: false, // TODO remove this field
         };
         let message = PoolMessages::Mining(Mining::SetCustomMiningJob(to_send));
         let frame: StdFrame = message.try_into().unwrap();

@@ -55,7 +55,6 @@ pub struct SetCustomMiningJob<'decoder> {
     /// Size of extranonce in bytes that will be provided by the
     /// downstream node.
     pub extranonce_size: u16,
-    pub future_job: bool,
 }
 
 /// # SetCustomMiningJob.Success (Server -> Client)
