@@ -207,11 +207,11 @@ impl Downstream {
     }
 }
 
-// Verifies token for a custom job which is the signed merkle path by Job Declarator Server
+// Verifies token for a custom job which is the signed tx_hash_list_hash by Job Declarator Server
 //TODO: implement the use of this fuction in main.rs
 #[allow(dead_code)]
 pub fn verify_token(
-    merkle_path: Seq0255<U256>,
+    tx_hash_list_hash: U256,
     signature: Signature,
     pub_key: EncodedEd25519PublicKey,
 ) -> Result<(), SignatureError> {
@@ -220,16 +220,8 @@ pub fn verify_token(
         .expect("Invalid public key bytes");
 
     let message: Vec<u8> =
-        merkle_path
-            .to_vec()
-            .iter()
-            .map(|v| v.to_vec())
-            .fold(vec![], |mut acc, bs| {
-                for b in bs {
-                    acc.push(b)
-                }
-                acc
-            });
+        tx_hash_list_hash
+            .to_vec();
 
     // Verify signature
     let is_verified = public_key.verify(&message, &signature);
