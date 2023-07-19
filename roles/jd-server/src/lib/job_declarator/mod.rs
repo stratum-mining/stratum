@@ -3,8 +3,8 @@ use crate::{error::PoolError, Configuration, EitherFrame, StdFrame};
 use async_channel::{Receiver, Sender};
 use binary_sv2::{Seq0255, B0255, U256};
 use bitcoin::consensus::Encodable;
-use ed25519_dalek::{Keypair, PublicKey, Signature, Signer};
 use codec_sv2::{Frame, HandshakeRole, Responder};
+use ed25519_dalek::{Keypair, PublicKey, Signature, Signer};
 use error_handling::handle_result;
 use network_helpers::noise_connection_tokio::Connection;
 use nohash_hasher::BuildNoHashHasher;
@@ -116,9 +116,7 @@ pub fn signed_token(
         public: public_key,
     };
 
-    let message: Vec<u8> =
-        tx_hash_list_hash
-            .to_vec();
+    let message: Vec<u8> = tx_hash_list_hash.to_vec();
 
     // Sign message
     let signature: Signature = keypair.sign(&message);
