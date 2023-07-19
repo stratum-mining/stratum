@@ -1,7 +1,7 @@
 pub mod message_handler;
 use crate::{error::PoolError, Configuration, EitherFrame, StdFrame};
 use async_channel::{Receiver, Sender};
-use binary_sv2::{Seq0255, B0255, U256};
+use binary_sv2::{B0255, U256};
 use bitcoin::consensus::Encodable;
 use codec_sv2::{Frame, HandshakeRole, Responder};
 use ed25519_dalek::{Keypair, PublicKey, Signature, Signer};
