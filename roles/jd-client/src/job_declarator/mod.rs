@@ -45,9 +45,18 @@ pub struct JobDeclarator {
     req_ids: Id,
     min_extranonce_size: u16,
     // (Sented DeclareMiningJob, is future, template id, merkle path)
-    last_declare_mining_job_sent: Vec<(DeclareMiningJob<'static>, bool, u64, Seq0255<'static, U256<'static>>)>,
+    last_declare_mining_job_sent: Vec<(
+        DeclareMiningJob<'static>,
+        bool,
+        u64,
+        Seq0255<'static, U256<'static>>,
+    )>,
     last_set_new_prev_hash: Option<SetNewPrevHash<'static>>,
-    future_jobs: HashMap<u64, (DeclareMiningJob<'static>, Seq0255<'static, U256<'static>>), BuildNoHashHasher<u64>>,
+    future_jobs: HashMap<
+        u64,
+        (DeclareMiningJob<'static>, Seq0255<'static, U256<'static>>),
+        BuildNoHashHasher<u64>,
+    >,
     up: Arc<Mutex<Upstream>>,
     task_collector: Arc<Mutex<Vec<AbortHandle>>>,
 }
@@ -103,7 +112,12 @@ impl JobDeclarator {
 
     pub fn get_last_declare_job_sent(
         self_mutex: &Arc<Mutex<Self>>,
-    ) -> (DeclareMiningJob<'static>, bool, u64, Seq0255<'static, U256<'static>>) {
+    ) -> (
+        DeclareMiningJob<'static>,
+        bool,
+        u64,
+        Seq0255<'static, U256<'static>>,
+    ) {
         self_mutex
             .safe_lock(|s| match s.last_declare_mining_job_sent.len() {
                 1 => s.last_declare_mining_job_sent.pop().unwrap(),
@@ -236,7 +250,8 @@ impl JobDeclarator {
                                 last_declare_mining_job_sent.mining_job_token = new_token;
                                 self_mutex
                                     .safe_lock(|s| {
-                                        s.future_jobs.insert(id, (last_declare_mining_job_sent, merkle_path))
+                                        s.future_jobs
+                                            .insert(id, (last_declare_mining_job_sent, merkle_path))
                                     })
                                     .unwrap();
                             } else {
@@ -282,7 +297,7 @@ impl JobDeclarator {
                 }
             })
             .unwrap();
-        if let Some((job, up,merkle_path)) = future_job_tuple {
+        if let Some((job, up, merkle_path)) = future_job_tuple {
             // the declare_job token has already been signed in sefl.on_upstream_message
             // due to that we use job.token as signed_token
             let signed_token = job.mining_job_token.clone();

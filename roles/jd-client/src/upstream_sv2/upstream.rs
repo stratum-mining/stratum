@@ -205,7 +205,7 @@ impl Upstream {
             coinbase_tx_value_remaining: declare_mining_job.coinbase_tx_value_remaining,
             coinbase_tx_outputs: declare_mining_job.coinbase_tx_outputs,
             coinbase_tx_locktime: declare_mining_job.coinbase_tx_locktime,
-            merkle_path: merkle_path,
+            merkle_path,
             extranonce_size: declare_mining_job.min_extranonce_size,
         };
         let message = PoolMessages::Mining(Mining::SetCustomMiningJob(to_send));
