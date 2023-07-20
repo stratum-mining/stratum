@@ -44,7 +44,7 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
             mining_job_token: Vec::new().try_into().unwrap(),
             coinbase_output_max_additional_size: 0,
             async_mining_allowed: true,
-            coinbase_output: Vec::new().try_into().unwrap(),
+            coinbase_output: self.coinbase_output.clone().try_into().unwrap(),
         };
         let message_enum = JobDeclaration::AllocateMiningJobTokenSuccess(message_success);
         println!(
