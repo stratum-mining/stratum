@@ -5,28 +5,6 @@ use bitcoin::{
 use roles_logic_sv2::utils::Id;
 use std::{net::SocketAddr, sync::Arc};
 
-// pub const AUTHORITY_PUBLIC_K: [u8; 32] = [
-//     215, 11, 47, 78, 34, 232, 25, 192, 195, 168, 170, 209, 95, 181, 40, 114, 154, 226, 176, 190,
-//     90, 169, 238, 89, 191, 183, 97, 63, 194, 119, 11, 31,
-// ];
-// async fn connect_(address: SocketAddr, handicap: u32) {
-//     let stream = TcpStream::connect(address).await.unwrap();
-
-//     let (receiver, sender): (Receiver<EitherFrame>, Sender<EitherFrame>) =
-//         Connection::new(stream, HandshakeRole::Initiator(Initiator::from_raw_k(AUTHORITY_PUBLIC_K).unwrap()), 10).await;
-//     Device::connect(address, receiver, sender).await
-// }
-
-// #[async_std::main]
-// async fn main() {
-//     let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 34254);
-//     //task::spawn(async move { connect(socket, 10000).await });
-//     //task::spawn(async move { connect(socket, 11070).await });
-//     //task::spawn(async move { connect(socket, 7040).await });
-//     println!("start");
-//     connect_(socket, 0).await
-// }
-
 use async_channel::{Receiver, Sender};
 use binary_sv2::u256_from_int;
 use codec_sv2::{Frame, StandardEitherFrame, StandardSv2Frame};
@@ -162,6 +140,8 @@ impl Device {
         SetupConnectionHandler::setup(setup_connection_handler, &mut receiver, &mut sender, addr)
             .await;
     }
+
+
     pub async fn share_submission(
         addr: SocketAddr,
         mut receiver: Receiver<EitherFrame>,
@@ -169,7 +149,7 @@ impl Device {
         handicap: u32,
     ) {
         let setup_connection_handler = Arc::new(Mutex::new(SetupConnectionHandler::new()));
-        SetupConnectionHandler::setup(setup_connection_handler, &mut receiver, &mut sender, addr)
+        SetupConnectionHandler::setup(setup_connection_handler.clone(), &mut receiver, &mut sender, addr)
             .await;
         let miner = Arc::new(Mutex::new(Miner::new(handicap)));
         let self_ = Self {
@@ -183,13 +163,11 @@ impl Device {
             sequence_numbers: Id::new(),
         };
 
-        let open_channel =
-            MiningDeviceMessages::Mining(Mining::OpenStandardMiningChannel(open_channel()));
+        let open_channel = MiningDeviceMessages::Mining(Mining::OpenStandardMiningChannel(open_channel()));
         let frame: StdFrame = open_channel.try_into().unwrap();
         self_.sender.send(frame.into()).await.unwrap();
-        let self_mutex = std::sync::Arc::new(Mutex::new(self_));
+        let self_mutex = Arc::new(Mutex::new(self_));
         let cloned = self_mutex.clone();
-
         let (share_send, share_recv) = async_channel::unbounded();
 
         let handicap = miner.safe_lock(|m| m.handicap).unwrap();
@@ -200,24 +178,30 @@ impl Device {
                 let time = miner.safe_lock(|m| m.header.unwrap().time).unwrap();
                 let job_id = miner.safe_lock(|m| m.job_id).unwrap();
                 let version = miner.safe_lock(|m| m.version).unwrap();
-                share_send
-                    .try_send((nonce, job_id.unwrap(), version.unwrap(), time))
-                    .unwrap();
+                match share_send.try_send((nonce, job_id.unwrap(), version.unwrap(), time)) {
+                    Ok(_) => {
+                    break},
+                    Err(e) => {
+                        eprintln!("An error occurred while sending share: {}", e);
+                        break; // Break the loop if the channel is closed
+                    }
+                }
             }
             miner
                 .safe_lock(|m| m.header.as_mut().map(|h| h.nonce += 1))
                 .unwrap();
         });
 
-        async_std::task::spawn(async move {
+         async_std::task::spawn(async move {
             let recv = share_recv.clone();
-            while let Ok((nonce, job_id, version, ntime)) = recv.try_recv() {
+            for _ in 0..1 {
+                let (nonce, job_id, version, ntime) = recv.recv().await.unwrap();
                 Self::send_share(cloned.clone(), nonce, job_id, version, ntime).await;
             }
-        })
-        .await;
+        });
 
-        loop {
+
+        for _ in 0..4 {
             let mut incoming: StdFrame = receiver.recv().await.unwrap().try_into().unwrap();
             let message_type = incoming.get_header().unwrap().msg_type();
             let payload = incoming.payload();
@@ -238,6 +222,8 @@ impl Device {
                 _ => panic!(),
             }
         }
+        drop(receiver);
+        drop(sender);
     }
 
     async fn send_share(

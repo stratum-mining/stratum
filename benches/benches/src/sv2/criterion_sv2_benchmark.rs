@@ -72,7 +72,7 @@ fn handle_share_submission_benchmark(c: &mut Criterion) {
 
 criterion_group!(
     benches,
-    // handle_connection_benchmark,
-    handle_share_submission_benchmark
+    handle_connection_benchmark,
+    // handle_share_submission_benchmark
 );
 criterion_main!(benches);

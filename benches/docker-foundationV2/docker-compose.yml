@@ -4,8 +4,8 @@ services:
     image: postgres
     restart: always
     environment:
-      POSTGRES_USER: Prisca
-      POSTGRES_PASSWORD: 12345
+      POSTGRES_USER: benchmark
+      POSTGRES_PASSWORD: password
       POSTGRES_DB: foundation
 
   bitcoin-core:
@@ -15,7 +15,7 @@ services:
      - listen=1
      - daemon=1
      - rpcuser=Prisca
-     - rpcpassword=12345
+     - rpcpassword=password
      - rpcallowip=0.0.0.0/0
      - printtoconsole
      - regtest=1
@@ -31,8 +31,8 @@ services:
     environment:
       DB_HOST: postgres
       DB_PORT: 5432
-      DB_USER: Prisca
-      DB_PASSWORD: 12345
+      DB_USER: benchmark
+      DB_PASSWORD: password
       DB_NAME: foundation
     ports:
       - 3002:3002

@@ -16,28 +16,35 @@ jobs:
       - name: Set up Rust
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: stable
+          profile: minimal
+          toolchain: 1.65.0
           override: true
 
-      - name: Install Valgrind
-        run: sudo apt-get update && sudo apt-get install -y valgrind
+      - name: Install Valgrind && Docker Compose
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y valgrind &&
+          sudo apt-get install -y docker-compose
+
 
       - name: Install dependencies
         run: cargo fetch
 
-      - name: Start Server
+      - name: Start Sv1 Server
         working-directory: ./benches/docker-foundationV2
         run: docker-compose -f "docker-compose.yml" up -d --build
+
+      - name: Start Sv2 Server
+        id: start-server
+        working-directory: ./roles/pool
+        run: |
+          nohup bash -c 'cargo run -- --c pool-config.toml > /dev/null 2>&1 &' && sleep 5
+          echo "Server started successfully"
 
       - name: Run benchmarks
         working-directory: ./benches
         run: cargo bench
 
       - name: Stop Server
-        if: always()
+        working-directory: ./benches/docker-foundationV2
         run: docker-compose -f "docker-compose.yml" down
-
-      - name: Publish benchmark results
-        uses: actions-rs/cargo@v1
-        with:
-          command: bench

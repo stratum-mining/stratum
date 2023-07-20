@@ -252,8 +252,16 @@ version = "0.1.0"
 dependencies = [
  "async-channel",
  "async-std",
+ "binary_sv2",
+ "bitcoin",
+ "codec_sv2",
  "criterion 0.5.1",
  "iai",
+ "network_helpers",
+ "num-bigint",
+ "num-traits",
+ "roles_logic_sv2",
+ "serde",
  "serde_json",
  "sv1_api",
 ]

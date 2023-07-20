@@ -53,8 +53,8 @@ impl<'a> Client<'static> {
 
                     break st;
                 }
-                Err(_) => {
-                    println!("Server not ready... retry");
+                Err(e) => {
+                    println!("Server not ready... {}", e);
                     continue;
                 }
             }
