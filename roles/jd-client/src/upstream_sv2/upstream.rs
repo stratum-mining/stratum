@@ -7,6 +7,7 @@ use crate::{
     ProxyResult,
 };
 use async_channel::{Receiver, Sender};
+use binary_sv2::{Seq0255, U256};
 use codec_sv2::{Frame, HandshakeRole, Initiator};
 use error_handling::handle_result;
 use network_helpers::noise_connection_tokio::Connection;
@@ -185,16 +186,15 @@ impl Upstream {
         self_: &Arc<Mutex<Self>>,
         declare_mining_job: DeclareMiningJob<'static>,
         set_new_prev_hash: roles_logic_sv2::template_distribution_sv2::SetNewPrevHash<'static>,
-        new_template: roles_logic_sv2::template_distribution_sv2::NewTemplate<'static>,
-        new_token: Option<binary_sv2::B0255<'static>>,
+        merkle_path: Seq0255<'static, U256<'static>>,
+        signed_token: binary_sv2::B0255<'static>,
     ) -> ProxyResult<'static, ()> {
-        let new_token = new_token.unwrap_or(declare_mining_job.mining_job_token);
         let to_send = SetCustomMiningJob {
             channel_id: self_
                 .safe_lock(|s| *s.channel_id.as_ref().unwrap())
                 .unwrap(),
             request_id: 0,
-            token: new_token,
+            token: signed_token,
             version: declare_mining_job.version,
             prev_hash: set_new_prev_hash.prev_hash,
             min_ntime: set_new_prev_hash.header_timestamp,
@@ -205,7 +205,7 @@ impl Upstream {
             coinbase_tx_value_remaining: declare_mining_job.coinbase_tx_value_remaining,
             coinbase_tx_outputs: declare_mining_job.coinbase_tx_outputs,
             coinbase_tx_locktime: declare_mining_job.coinbase_tx_locktime,
-            merkle_path: new_template.merkle_path,
+            merkle_path: merkle_path,
             extranonce_size: declare_mining_job.min_extranonce_size,
         };
         let message = PoolMessages::Mining(Mining::SetCustomMiningJob(to_send));

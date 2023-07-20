@@ -1,5 +1,6 @@
 pub mod message_handler;
 use async_channel::{Receiver, Sender};
+use binary_sv2::{Seq0255, U256};
 use codec_sv2::{HandshakeRole, Initiator, StandardEitherFrame, StandardSv2Frame};
 use network_helpers::noise_connection_tokio::Connection;
 use roles_logic_sv2::{
@@ -43,11 +44,10 @@ pub struct JobDeclarator {
     allocated_tokens: Vec<AllocateMiningJobTokenSuccess<'static>>,
     req_ids: Id,
     min_extranonce_size: u16,
-    // (Sented DeclareMiningJob, is future, template id)
-    last_declare_mining_job_sent: Vec<(DeclareMiningJob<'static>, bool, u64)>,
+    // (Sented DeclareMiningJob, is future, template id, merkle path)
+    last_declare_mining_job_sent: Vec<(DeclareMiningJob<'static>, bool, u64, Seq0255<'static, U256<'static>>)>,
     last_set_new_prev_hash: Option<SetNewPrevHash<'static>>,
-    new_template: Option<NewTemplate<'static>>,
-    future_jobs: HashMap<u64, DeclareMiningJob<'static>, BuildNoHashHasher<u64>>,
+    future_jobs: HashMap<u64, (DeclareMiningJob<'static>, Seq0255<'static, U256<'static>>), BuildNoHashHasher<u64>>,
     up: Arc<Mutex<Upstream>>,
     task_collector: Arc<Mutex<Vec<AbortHandle>>>,
 }
@@ -94,7 +94,6 @@ impl JobDeclarator {
             future_jobs: HashMap::with_hasher(BuildNoHashHasher::default()),
             up,
             task_collector,
-            new_template: None,
         }));
 
         Self::allocate_tokens(&self_, 2).await;
@@ -104,7 +103,7 @@ impl JobDeclarator {
 
     pub fn get_last_declare_job_sent(
         self_mutex: &Arc<Mutex<Self>>,
-    ) -> (DeclareMiningJob<'static>, bool, u64) {
+    ) -> (DeclareMiningJob<'static>, bool, u64, Seq0255<'static, U256<'static>>) {
         self_mutex
             .safe_lock(|s| match s.last_declare_mining_job_sent.len() {
                 1 => s.last_declare_mining_job_sent.pop().unwrap(),
@@ -200,6 +199,7 @@ impl JobDeclarator {
                     declare_job.clone(),
                     template.future_template,
                     template.template_id,
+                    template.merkle_path,
                 ))
             })
             .unwrap();
@@ -227,20 +227,16 @@ impl JobDeclarator {
                             message_type,
                             payload,
                         );
-                    let new_template = self_mutex
-                        .safe_lock(|s| s.new_template.clone())
-                        .unwrap()
-                        .unwrap();
                     match next_message_to_send {
                         Ok(SendTo::None(Some(JobDeclaration::DeclareMiningJobSuccess(m)))) => {
                             let new_token = m.new_mining_job_token;
-                            let (mut last_declare_mining_job_sent, is_future, id) =
+                            let (mut last_declare_mining_job_sent, is_future, id, merkle_path) =
                                 Self::get_last_declare_job_sent(&self_mutex);
                             if is_future {
                                 last_declare_mining_job_sent.mining_job_token = new_token;
                                 self_mutex
                                     .safe_lock(|s| {
-                                        s.future_jobs.insert(id, last_declare_mining_job_sent)
+                                        s.future_jobs.insert(id, (last_declare_mining_job_sent, merkle_path))
                                     })
                                     .unwrap();
                             } else {
@@ -248,7 +244,7 @@ impl JobDeclarator {
                                     .safe_lock(|s| s.last_set_new_prev_hash.clone())
                                     .unwrap();
                                 match set_new_prev_hash {
-                                    Some(p) => Upstream::set_custom_jobs(&up, last_declare_mining_job_sent, p, new_template, Some(new_token)).await.unwrap(),
+                                    Some(p) => Upstream::set_custom_jobs(&up, last_declare_mining_job_sent, p, merkle_path, new_token).await.unwrap(),
                                     None => panic!("Invalid state we received a NewTemplate not future, without having received a set new prev hash")
                                 }
                             }
@@ -274,24 +270,23 @@ impl JobDeclarator {
         set_new_prev_hash: SetNewPrevHash<'static>,
     ) {
         let id = set_new_prev_hash.template_id;
-        let future_job = self_mutex
+        let future_job_tuple = self_mutex
             .safe_lock(|s| {
                 s.last_set_new_prev_hash = Some(set_new_prev_hash.clone());
                 match s.future_jobs.remove(&id) {
-                    Some(job) => {
+                    Some((job, merkle_path)) => {
                         s.future_jobs = HashMap::with_hasher(BuildNoHashHasher::default());
-                        Some((job, s.up.clone()))
+                        Some((job, s.up.clone(), merkle_path))
                     }
                     None => None,
                 }
             })
             .unwrap();
-        let new_template = self_mutex
-            .safe_lock(|j| j.new_template.clone())
-            .unwrap()
-            .unwrap();
-        if let Some((job, up)) = future_job {
-            Upstream::set_custom_jobs(&up, job, set_new_prev_hash, new_template, None)
+        if let Some((job, up,merkle_path)) = future_job_tuple {
+            // the declare_job token has already been signed in sefl.on_upstream_message
+            // due to that we use job.token as signed_token
+            let signed_token = job.mining_job_token.clone();
+            Upstream::set_custom_jobs(&up, job, set_new_prev_hash, merkle_path, signed_token)
                 .await
                 .unwrap();
         };
