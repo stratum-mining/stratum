@@ -28,7 +28,7 @@ impl JobDeclaratorDownstream {
         // 5. a valid merkletpath
         // is_token_allocated
         // TODO:use is_token_allocated for this bool
-        false
+        true
     }
 }
 
