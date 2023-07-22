@@ -75,7 +75,7 @@ impl<'a> Client<'static> {
             }
         });
 
-        task::spawn(async move {
+        task::block_on(async move {
             loop {
                 let message: String = receiver_outgoing.recv().await.unwrap();
                 (&*writer).write_all(message.as_bytes()).await.unwrap();
