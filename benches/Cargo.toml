@@ -10,7 +10,7 @@ criterion = "0.5.1"
 async-channel = "1.4.0"
 v1={path="../protocols/v1", package="sv1_api"}
 serde_json = "1.0.70"
-iai="0.1"
+iai="0.1.1"
 roles_logic_sv2 = { path = "../protocols/v2/roles-logic-sv2" }
 serde = { version = "1.0.89", default-features = false, features = ["derive", "alloc"] }
 num-bigint = "0.4.3"
@@ -25,17 +25,17 @@ name = "criterion_sv1_benchmark"
 path="benches/src/sv1/criterion_sv1_benchmark.rs"
 harness = false
 
-# [[bench]]
-# name = "iai_sv1_benchmark"
-# path="benches/src/sv1/iai_sv1_benchmark.rs"
-# harness = false
+[[bench]]
+name = "iai_sv1_benchmark"
+path="benches/src/sv1/iai_sv1_benchmark.rs"
+harness = false
 
-# [[bench]]
-# name = "criterion_sv2_benchmark"
-# path = "benches/src/sv2/criterion_sv2_benchmark.rs"
-# harness = false
+[[bench]]
+name = "criterion_sv2_benchmark"
+path = "benches/src/sv2/criterion_sv2_benchmark.rs"
+harness = false
 
-# [[bench]]
-# name = "iai_sv2_pool_benchmark"
-# path = "benches/src/sv2/iai_sv2_pool_benchmark.rs"
-# harness = false
+[[bench]]
+name = "iai_sv2_pool_benchmark"
+path = "benches/src/sv2/iai_sv2_pool_benchmark.rs"
+harness = false

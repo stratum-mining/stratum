@@ -141,7 +141,6 @@ impl Device {
             .await;
     }
 
-
     pub async fn share_submission(
         addr: SocketAddr,
         mut receiver: Receiver<EitherFrame>,
@@ -149,8 +148,13 @@ impl Device {
         handicap: u32,
     ) {
         let setup_connection_handler = Arc::new(Mutex::new(SetupConnectionHandler::new()));
-        SetupConnectionHandler::setup(setup_connection_handler.clone(), &mut receiver, &mut sender, addr)
-            .await;
+        SetupConnectionHandler::setup(
+            setup_connection_handler.clone(),
+            &mut receiver,
+            &mut sender,
+            addr,
+        )
+        .await;
         let miner = Arc::new(Mutex::new(Miner::new(handicap)));
         let self_ = Self {
             channel_opened: false,
@@ -163,7 +167,8 @@ impl Device {
             sequence_numbers: Id::new(),
         };
 
-        let open_channel = MiningDeviceMessages::Mining(Mining::OpenStandardMiningChannel(open_channel()));
+        let open_channel =
+            MiningDeviceMessages::Mining(Mining::OpenStandardMiningChannel(open_channel()));
         let frame: StdFrame = open_channel.try_into().unwrap();
         self_.sender.send(frame.into()).await.unwrap();
         let self_mutex = Arc::new(Mutex::new(self_));
@@ -179,8 +184,7 @@ impl Device {
                 let job_id = miner.safe_lock(|m| m.job_id).unwrap();
                 let version = miner.safe_lock(|m| m.version).unwrap();
                 match share_send.try_send((nonce, job_id.unwrap(), version.unwrap(), time)) {
-                    Ok(_) => {
-                    break},
+                    Ok(_) => break,
                     Err(e) => {
                         eprintln!("An error occurred while sending share: {}", e);
                         break; // Break the loop if the channel is closed
@@ -192,14 +196,13 @@ impl Device {
                 .unwrap();
         });
 
-         async_std::task::spawn(async move {
+        async_std::task::spawn(async move {
             let recv = share_recv.clone();
             for _ in 0..1 {
                 let (nonce, job_id, version, ntime) = recv.recv().await.unwrap();
                 Self::send_share(cloned.clone(), nonce, job_id, version, ntime).await;
             }
         });
-
 
         for _ in 0..4 {
             let mut incoming: StdFrame = receiver.recv().await.unwrap().try_into().unwrap();
