@@ -711,13 +711,10 @@ pub enum JobDeclarationTypes {
     DeclareMiningJob = MESSAGE_TYPE_DECLARE_MINING_JOB,
     DeclareMiningJobSuccess = MESSAGE_TYPE_DECLARE_MINING_JOB_SUCCESS,
     DeclareMiningJobError = MESSAGE_TYPE_DECLARE_MINING_JOB_ERROR,
-    IdentifyTransactions =  MESSAGE_TYPE_IDENTIFY_TRANSACTIONS,
+    IdentifyTransactions = MESSAGE_TYPE_IDENTIFY_TRANSACTIONS,
     IdentifyTransactionsSuccess = MESSAGE_TYPE_IDENTIFY_TRANSACTIONS_SUCCESS,
     ProvideMissingTransactions = MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS,
     ProvideMissingTransactionsSuccess = MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS_SUCCESS,
-
-
-
 }
 
 impl TryFrom<u8> for JobDeclarationTypes {
