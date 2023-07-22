@@ -710,6 +710,14 @@ pub enum JobDeclarationTypes {
     AllocateMiningJobTokenSuccess = MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN_SUCCESS,
     DeclareMiningJob = MESSAGE_TYPE_DECLARE_MINING_JOB,
     DeclareMiningJobSuccess = MESSAGE_TYPE_DECLARE_MINING_JOB_SUCCESS,
+    DeclareMiningJobError = MESSAGE_TYPE_DECLARE_MINING_JOB_ERROR,
+    IdentifyTransactions =  MESSAGE_TYPE_IDENTIFY_TRANSACTIONS,
+    IdentifyTransactionsSuccess = MESSAGE_TYPE_IDENTIFY_TRANSACTIONS_SUCCESS,
+    ProvideMissingTransactions = MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS,
+    ProvideMissingTransactionsSuccess = MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS_SUCCESS,
+
+
+
 }
 
 impl TryFrom<u8> for JobDeclarationTypes {
@@ -726,6 +734,17 @@ impl TryFrom<u8> for JobDeclarationTypes {
             MESSAGE_TYPE_DECLARE_MINING_JOB => Ok(JobDeclarationTypes::DeclareMiningJob),
             MESSAGE_TYPE_DECLARE_MINING_JOB_SUCCESS => {
                 Ok(JobDeclarationTypes::DeclareMiningJobSuccess)
+            }
+            MESSAGE_TYPE_DECLARE_MINING_JOB_ERROR => Ok(JobDeclarationTypes::DeclareMiningJobError),
+            MESSAGE_TYPE_IDENTIFY_TRANSACTIONS => Ok(JobDeclarationTypes::IdentifyTransactions),
+            MESSAGE_TYPE_IDENTIFY_TRANSACTIONS_SUCCESS => {
+                Ok(JobDeclarationTypes::IdentifyTransactionsSuccess)
+            }
+            MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS => {
+                Ok(JobDeclarationTypes::ProvideMissingTransactions)
+            }
+            MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS_SUCCESS => {
+                Ok(JobDeclarationTypes::IdentifyTransactionsSuccess)
             }
             _ => Err(Error::UnexpectedMessage(v)),
         }
@@ -753,6 +772,26 @@ impl<'a> TryFrom<(u8, &'a mut [u8])> for JobDeclaration<'a> {
             JobDeclarationTypes::DeclareMiningJobSuccess => {
                 let message: DeclareMiningJobSuccess = from_bytes(v.1)?;
                 Ok(JobDeclaration::DeclareMiningJobSuccess(message))
+            }
+            JobDeclarationTypes::DeclareMiningJobError => {
+                let message: DeclareMiningJobError = from_bytes(v.1)?;
+                Ok(JobDeclaration::DeclareMiningJobError(message))
+            }
+            JobDeclarationTypes::IdentifyTransactions => {
+                let message: IdentifyTransactions = from_bytes(v.1)?;
+                Ok(JobDeclaration::IdentifyTransactions(message))
+            }
+            JobDeclarationTypes::IdentifyTransactionsSuccess => {
+                let message: IdentifyTransactionsSuccess = from_bytes(v.1)?;
+                Ok(JobDeclaration::IdentifyTransactionsSuccess(message))
+            }
+            JobDeclarationTypes::ProvideMissingTransactions => {
+                let message: ProvideMissingTransactions = from_bytes(v.1)?;
+                Ok(JobDeclaration::ProvideMissingTransactions(message))
+            }
+            JobDeclarationTypes::ProvideMissingTransactionsSuccess => {
+                let message: ProvideMissingTransactionsSuccess = from_bytes(v.1)?;
+                Ok(JobDeclaration::ProvideMissingTransactionsSuccess(message))
             }
         }
     }
