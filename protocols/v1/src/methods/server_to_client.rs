@@ -1,7 +1,9 @@
+use binary_sv2::U256;
 use serde_json::{
     Value,
     Value::{Array as JArrary, Bool as JBool, Number as JNumber, String as JString},
 };
+use serde::{Serialize, Deserialize};
 use std::convert::{TryFrom, TryInto};
 
 use crate::{
@@ -36,12 +38,14 @@ use crate::{
 ///   If false, they can still use the current job, but should move to the new one after exhausting
 ///   the current nonce range.
 ///
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Notify<'a> {
     pub job_id: String,
+    #[serde(borrow)]
     pub prev_hash: PrevHash<'a>,
     pub coin_base1: HexBytes,
     pub coin_base2: HexBytes,
+    #[serde(borrow)]
     pub merkle_branch: Vec<MerkleNode<'a>>,
     pub version: HexU32Be,
     pub bits: HexU32Be,
@@ -644,4 +648,30 @@ impl TryFrom<VersionRollingParams> for serde_json::Map<String, Value> {
         );
         Ok(params)
     }
+}
+
+#[test]
+fn test_notify_serialization(){
+    let server_message = r#"{"job_id":"4f","prev_hash":"4d16b6f85af6e2198f44ae2a6de67f78","coin_base1":"01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff20020862062f503253482f04b8864e5008","coin_base2":"072f736c7573682f000000000100f2052a010000001976a914d23fcdf86f7e756a64a7a9688ef9903327048ed988ac00000000","merkle_branch":["4d16b6f85af6e2198f44ae2a6de67f78"],"version":"00000002","bits":"1c2ac4af","time":"504e86b9","clean_jobs":false}"#;
+    let notify: Notify = Notify { 
+        job_id: "4f".to_string(), 
+        prev_hash: PrevHash(U256::try_from([52, 100, 49, 54, 98, 54, 102, 56, 53, 97, 102, 54, 101, 50, 49, 57, 56, 102, 52, 52, 97, 101, 50, 97, 54, 100, 101, 54, 55, 102, 55, 56].to_vec()).unwrap()), 
+        coin_base1: HexBytes::from(
+            [48, 49, 48, 48, 48, 48, 48, 48, 48, 49, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 102, 102, 102, 102, 102, 102, 102, 102, 50, 48, 48, 50, 48, 56, 54, 50, 48, 54, 50, 102, 53, 48, 51, 50, 53, 51, 52, 56, 50, 102, 48, 52, 98, 56, 56, 54, 52, 101, 53, 48, 48, 56].to_vec()), 
+        coin_base2: HexBytes::from([48, 55, 50, 102, 55, 51, 54, 99, 55, 53, 55, 51, 54, 56, 50, 102, 48, 48, 48, 48, 48, 48, 48, 48, 48, 49, 48, 48, 102, 50, 48, 53, 50, 97, 48, 49, 48, 48, 48, 48, 48, 48, 49, 57, 55, 54, 97, 57, 49, 52, 100, 50, 51, 102, 99, 100, 102, 56, 54, 102, 55, 101, 55, 53, 54, 97, 54, 52, 97, 55, 97, 57, 54, 56, 56, 101, 102, 57, 57, 48, 51, 51, 50, 55, 48, 52, 56, 101, 100, 57, 56, 56, 97, 99, 48, 48, 48, 48, 48, 48, 48, 48].to_vec()), 
+        merkle_branch: [MerkleNode(U256::try_from([52, 100, 49, 54, 98, 54, 102, 56, 53, 97, 102, 54, 101, 50, 49, 57, 56, 102, 52, 52, 97, 101, 50, 97, 54, 100, 101, 54, 55, 102, 55, 56].to_vec()).unwrap())].to_vec(), 
+        version: HexU32Be(2), 
+        bits: HexU32Be(472564911), 
+        time: HexU32Be(1347323577), 
+        clean_jobs: false };
+    let serialized_string = serde_json::to_string(&notify).unwrap();
+    assert_eq!(server_message, serialized_string);
+}
+
+#[test]
+fn test_notify_serde(){
+    let server_message = r#"{"job_id":"4f","prev_hash":"4d16b6f85af6e2198f44ae2a6de67f78","coin_base1":"01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff20020862062f503253482f04b8864e5008","coin_base2":"072f736c7573682f000000000100f2052a010000001976a914d23fcdf86f7e756a64a7a9688ef9903327048ed988ac00000000","merkle_branch":["4d16b6f85af6e2198f44ae2a6de67f78"],"version":"00000002","bits":"1c2ac4af","time":"504e86b9","clean_jobs":false}"#;
+    let notify: Notify = serde_json::from_str(&server_message).unwrap();
+    let serialized_message = serde_json::to_string(&notify).unwrap();
+    assert_eq!(server_message, serialized_message);
 }

@@ -259,6 +259,29 @@ impl<'a> AsRef<[u8]> for Extranonce<'a> {
     }
 }
 
+impl<'a> Serialize for PrevHash<'a> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: serde::Serializer {
+        let bytes = self.0.as_ref();
+        let serialized_string = String::from_utf8_lossy(bytes);
+        serializer.serialize_str(&serialized_string)
+    }
+}
+
+impl<'a, 'de> Deserialize<'de> for PrevHash<'a> 
+    where 'de: 'a
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let u = U256::deserialize(deserializer)?;
+        Ok(PrevHash(u))
+    }
+}
+
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MerkleNode<'a>(pub U256<'a>);
 
@@ -314,6 +337,28 @@ impl<'a> From<MerkleNode<'a>> for String {
     }
 }
 
+impl<'a> Serialize for MerkleNode<'a> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: serde::Serializer {
+        let bytes = self.0.as_ref();
+        let serialized_string = String::from_utf8_lossy(bytes);
+        serializer.serialize_str(&serialized_string)
+    }
+}
+
+impl<'a, 'de> Deserialize<'de> for MerkleNode<'a> 
+    where 'de: 'a
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let u = U256::deserialize(deserializer)?;
+        Ok(MerkleNode(u))
+    }
+}
+
 /// Helper type that allows simple serialization and deserialization of byte vectors
 /// that are represented as hex strings in JSON.
 /// HexBytes must be less than or equal to 32 bytes.
@@ -365,6 +410,27 @@ impl TryFrom<&str> for HexBytes {
 impl From<HexBytes> for String {
     fn from(bytes: HexBytes) -> String {
         hex::encode(bytes.0)
+    }
+}
+
+impl Serialize for HexBytes {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: serde::Serializer {
+        let bytes = self.0.as_ref();
+        let serialized_string = String::from_utf8_lossy(bytes);
+        serializer.serialize_str(&serialized_string)
+    }
+}
+
+impl<'de> Deserialize<'de> for HexBytes {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let hex_string: String = Deserialize::deserialize(deserializer)?;
+        let bytes = hex_string.as_bytes().to_vec();
+        Ok(HexBytes(bytes))
     }
 }
 
