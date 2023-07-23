@@ -42,7 +42,6 @@ pub mod methods;
 pub mod utils;
 
 use std::convert::{TryFrom, TryInto};
-use binary_sv2::B032;
 use tracing::debug;
 
 // use error::Result;
@@ -112,7 +111,7 @@ pub trait IsServer<'a> {
                 let has_valid_version_bits = match &submit.version_bits {
                     Some(a) => {
                         if let Some(version_rolling_mask) = self.version_rolling_mask() {
-                            version_rolling_mask.check_mask(&(a.into()))
+                            version_rolling_mask.check_mask(a)
                         } else {
                             false
                         }
@@ -121,7 +120,7 @@ pub trait IsServer<'a> {
                 };
 
                 let is_valid_submission = self.is_authorized(&submit.user_name)
-                    && self.extranonce2_size() == 32
+                    && self.extranonce2_size() == submit.extra_nonce2.len()
                     && has_valid_version_bits;
 
                 if is_valid_submission {
@@ -474,10 +473,10 @@ pub trait IsClient<'a> {
         &mut self,
         id: u64,
         user_name: String,
-        extra_nonce2: B032<'a>,
+        extra_nonce2: Extranonce<'a>,
         time: i64,
         nonce: i64,
-        version_bits: Option<u32>,
+        version_bits: Option<HexU32Be>,
     ) -> Result<json_rpc::Message, Error<'a>> {
         match self.status() {
             ClientStatus::Init => Err(Error::IncorrectClientStatus("mining.submit".to_string())),
@@ -490,8 +489,8 @@ pub trait IsClient<'a> {
                         job_id: notify.job_id,
                         user_name,
                         extra_nonce2,
-                        time: (time as u32),
-                        nonce: (nonce as u32),
+                        time: HexU32Be(time as u32),
+                        nonce: HexU32Be(nonce as u32),
                         version_bits,
                         id,
                     }

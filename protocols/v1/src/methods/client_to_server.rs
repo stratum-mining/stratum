@@ -122,10 +122,10 @@ pub struct Submit<'a> {
     pub user_name: String,            // root
     pub job_id: String,               // 6
     #[serde(borrow)]
-    pub extra_nonce2: B032<'a>, // "8a.."
-    pub time: u32,               //string
-    pub nonce: u32,
-    pub version_bits: Option<u32>,
+    pub extra_nonce2: Extranonce<'a>, // "8a.."
+    pub time: HexU32Be,               //string
+    pub nonce: HexU32Be,
+    pub version_bits: Option<HexU32Be>,
     pub id: u64,
 }
 //"{"params": ["spotbtc1.m30s40x16", "2", "147a3f0000000000", "6436eddf", "41d5deb0", "00000000"], "id": 2196, "method": "mining.submit"}"
@@ -144,7 +144,7 @@ impl<'a> Submit<'a> {
 
 impl<'a> From<Submit<'a>> for Message {
     fn from(submit: Submit) -> Self {
-        let ex: String = submit.extra_nonce2.as_ref().to_hex();
+        let ex: String = submit.extra_nonce2.0.inner_as_ref().to_hex();
         let mut params: Vec<Value> = vec![
             submit.user_name.into(),
             submit.job_id.into(),
@@ -153,7 +153,7 @@ impl<'a> From<Submit<'a>> for Message {
             submit.nonce.into(),
         ];
         if let Some(a) = submit.version_bits {
-            let a: String = a.to_string();
+            let a: String = a.into();
             params.push(a.into());
         };
         Message::StandardRequest(StandardRequest {
@@ -176,33 +176,33 @@ impl<'a> TryFrom<StandardRequest> for Submit<'a> {
                     [JString(a), JString(b), JString(c), JNumber(d), JNumber(e), JString(f)] => (
                         a.into(),
                         b.into(),
-                        B032::try_from(hex::decode(c)?)?,
-                        (d.as_u64().unwrap() as u32),
-                        (e.as_u64().unwrap() as u32),
-                        Some((f.as_str()).parse::<u32>().unwrap()),
+                        Extranonce::try_from(hex::decode(c)?)?,
+                        HexU32Be(d.as_u64().unwrap() as u32),
+                        HexU32Be(e.as_u64().unwrap() as u32),
+                        Some((f.as_str()).try_into()?),
                     ),
                     [JString(a), JString(b), JString(c), JString(d), JString(e), JString(f)] => (
                         a.into(),
                         b.into(),
-                        B032::try_from(hex::decode(c)?)?,
-                        d.as_str().parse::<u32>().unwrap(),
-                        e.as_str().parse::<u32>().unwrap(),
-                        Some((f.as_str()).parse::<u32>().unwrap()),
+                        Extranonce::try_from(hex::decode(c)?)?,
+                        (d.as_str()).try_into()?,
+                        (e.as_str()).try_into()?,
+                        Some((f.as_str()).try_into()?),
                     ),
                     [JString(a), JString(b), JString(c), JNumber(d), JNumber(e)] => (
                         a.into(),
                         b.into(),
-                        B032::try_from(hex::decode(c)?)?,
-                        (d.as_u64().unwrap() as u32),
-                        (e.as_u64().unwrap() as u32),
+                        Extranonce::try_from(hex::decode(c)?)?,
+                        HexU32Be(d.as_u64().unwrap() as u32),
+                        HexU32Be(e.as_u64().unwrap() as u32),
                         None,
                     ),
                     [JString(a), JString(b), JString(c), JString(d), JString(e)] => (
                         a.into(),
                         b.into(),
-                        B032::try_from(hex::decode(c)?)?,
-                        d.as_str().parse::<u32>().unwrap(),
-                        e.as_str().parse::<u32>().unwrap(),
+                        Extranonce::try_from(hex::decode(c)?)?,
+                        (d.as_str()).try_into()?,
+                        (e.as_str()).try_into()?,
                         None,
                     ),
                     _ => return Err(ParsingMethodError::wrong_args_from_value(msg.params)),
@@ -745,8 +745,23 @@ fn test_subscribe_serde(){
 
 #[test]
 fn test_submit_serde(){
-    let client_message = r#"{"user_name":"username","job_id":"4f","extra_nonce2":[102,101,51,54,97,51,49,98],"time":1321,"nonce":534,"version_bits":null,"id":2}"#;
+    let client_message = r#"{"user_name":"username","job_id":"4f","extra_nonce2":"fe36a31b","time":"504e86ed","nonce":"e9695791","version_bits":null,"id":2}"#;
     let submit: Submit = serde_json::from_str(&client_message).unwrap();
     let serialized_message = serde_json::to_string(&submit).unwrap();
     assert_eq!(client_message, serialized_message);
+}
+
+#[test]
+fn test_submit_serialization(){
+    let client_message = r#"{"user_name":"username","job_id":"4f","extra_nonce2":"fe36a31b","time":"504e86ed","nonce":"e9695791","version_bits":null,"id":2}"#;
+    let submit: Submit = Submit { 
+        user_name: "username".to_string(), 
+        job_id: "4f".to_string(), 
+        extra_nonce2: Extranonce(B032::try_from([102,101,51,54,97,51,49,98].to_vec()).unwrap()), 
+        time: HexU32Be(1347323629), 
+        nonce: HexU32Be(3915995025), 
+        version_bits: None,
+        id: 2 };
+    let serialized_string = serde_json::to_string(&submit).unwrap();
+    assert_eq!(client_message, serialized_string);
 }

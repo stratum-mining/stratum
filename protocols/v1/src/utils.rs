@@ -140,11 +140,36 @@ impl From<HexU32Be> for String {
     }
 }
 
-impl From<&u32> for HexU32Be {
-    fn from(a: &u32) -> Self {
-        HexU32Be(*a)
+impl From<u32> for HexU32Be {
+    fn from(a: u32) -> Self {
+        HexU32Be(a)
     }
 }
+
+impl Serialize for HexU32Be {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: serde::Serializer {
+        let serialized_string = self.0.to_be_bytes().to_hex();
+        serializer.serialize_str(&serialized_string)
+    }
+}
+
+impl<'de> Deserialize<'de> for HexU32Be {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let hex_string: String = Deserialize::deserialize(deserializer)?;
+
+        match u32::from_str_radix(&hex_string, 16) {
+            Ok(value) => Ok(HexU32Be(value)),
+            Err(_) => Err(serde::de::Error::custom(
+                "Invalid hex value")),
+        }
+    }
+}
+
 
 /// PrevHash in Stratum V1 has brain-damaged serialization as it swaps bytes of every u32 word
 /// into big endian. Therefore, we need a special type for it
