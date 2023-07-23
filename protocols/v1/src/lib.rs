@@ -336,7 +336,7 @@ pub trait IsClient<'a> {
                 let subscribe = self
                     .subscribe(
                         configure.id,
-                        Some(B032::try_from(hex::decode("08000002")?)?),
+                        Some(Extranonce::try_from(hex::decode("08000002")?)?),
                     )
                     .ok();
                 Ok(subscribe)
@@ -445,7 +445,7 @@ pub trait IsClient<'a> {
     fn subscribe(
         &mut self,
         id: u64,
-        extranonce1: Option<B032<'a>>,
+        extranonce1: Option<Extranonce<'a>>,
     ) -> Result<json_rpc::Message, Error<'a>> {
         match self.status() {
             ClientStatus::Init => Err(Error::IncorrectClientStatus("mining.subscribe".to_string())),

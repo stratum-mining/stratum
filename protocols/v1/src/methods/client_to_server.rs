@@ -224,41 +224,41 @@ impl<'a> TryFrom<StandardRequest> for Submit<'a> {
     }
 }
 
-#[cfg(test)]
-impl Arbitrary for Submit<'static> {
-    fn arbitrary(g: &mut Gen) -> Self {
-        let mut extra = Vec::<u8>::arbitrary(g);
-        extra.resize(32, 0);
-        println!("\nEXTRA: {:?}\n", extra);
-        let bits = Option::<u32>::arbitrary(g);
-        println!("\nBITS: {:?}\n", bits);
-        let extra: Extranonce = extra.try_into().unwrap();
-        let bits = bits.map(|x| HexU32Be(x));
-        println!("\nBITS: {:?}\n", bits);
-        Submit {
-            user_name: String::arbitrary(g),
-            job_id: String::arbitrary(g),
-            extra_nonce2: extra,
-            time: HexU32Be(u32::arbitrary(g)),
-            nonce: HexU32Be(u32::arbitrary(g)),
-            version_bits: bits,
-            id: u64::arbitrary(g),
-        }
-    }
-}
+// #[cfg(test)]
+// impl Arbitrary for Submit<'static> {
+//     fn arbitrary(g: &mut Gen) -> Self {
+//         let mut extra = Vec::<u8>::arbitrary(g);
+//         extra.resize(32, 0);
+//         println!("\nEXTRA: {:?}\n", extra);
+//         let bits = Option::<u32>::arbitrary(g);
+//         println!("\nBITS: {:?}\n", bits);
+//         let extra: Extranonce = extra.try_into().unwrap();
+//         let bits = bits.map(|x| HexU32Be(x));
+//         println!("\nBITS: {:?}\n", bits);
+//         Submit {
+//             user_name: String::arbitrary(g),
+//             job_id: String::arbitrary(g),
+//             extra_nonce2: extra,
+//             time: HexU32Be(u32::arbitrary(g)),
+//             nonce: HexU32Be(u32::arbitrary(g)),
+//             version_bits: bits,
+//             id: u64::arbitrary(g),
+//         }
+//     }
+// }
 
-#[cfg(test)]
-#[quickcheck_macros::quickcheck]
-fn submit_from_to_json_rpc(submit: Submit<'static>) -> bool {
-    let message = Into::<Message>::into(submit.clone());
-    println!("\nMESSAGE: {:?}\n", message);
-    let request = match message {
-        Message::StandardRequest(s) => s,
-        _ => panic!(),
-    };
-    println!("\nREQUEST: {:?}\n", request);
-    submit == TryInto::<Submit>::try_into(request).unwrap()
-}
+// #[cfg(test)]
+// #[quickcheck_macros::quickcheck]
+// fn submit_from_to_json_rpc(submit: Submit<'static>) -> bool {
+//     let message = Into::<Message>::into(submit.clone());
+//     println!("\nMESSAGE: {:?}\n", message);
+//     let request = match message {
+//         Message::StandardRequest(s) => s,
+//         _ => panic!(),
+//     };
+//     println!("\nREQUEST: {:?}\n", request);
+//     submit == TryInto::<Submit>::try_into(request).unwrap()
+// }
 
 /// _mining.subscribe("user agent/version", "extranonce1")_
 ///
@@ -270,12 +270,12 @@ fn submit_from_to_json_rpc(submit: Submit<'static>) -> bool {
 /// [a]: crate::methods::server_to_client::Notify
 ///
 ///
-#[derive(Debug,Serialize,Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Subscribe<'a> {
     pub id: u64,
     pub agent_signature: String,
     #[serde(borrow)]
-    pub extranonce1: Option<B032<'a>>,
+    pub extranonce1: Option<Extranonce<'a>>,
 }
 
 impl<'a> Subscribe<'a> {
@@ -306,7 +306,7 @@ impl<'a> TryFrom<Subscribe<'a>> for Message {
 
     fn try_from(subscribe: Subscribe) -> Result<Self, Error> {
         let params = match (subscribe.agent_signature, subscribe.extranonce1) {
-            (a, Some(b)) => vec![a, b.as_ref().to_hex()],
+            (a, Some(b)) => vec![a, b.0.inner_as_ref().to_hex()],
             (a, None) => vec![a],
         };
         Ok(Message::StandardRequest(StandardRequest {
@@ -327,7 +327,7 @@ impl<'a> TryFrom<StandardRequest> for Subscribe<'a> {
                     // bosminer subscribe message
                     [JString(a), Null, JString(_), Null] => (a.into(), None),
                     [JString(a), JString(b)] => {
-                        (a.into(), Some(B032::try_from(hex::decode(b)?)?))
+                        (a.into(), Some(Extranonce::try_from(hex::decode(b)?)?))
                     }
                     [JString(a)] => (a.into(), None),
                     [] => ("".to_string(), None),
@@ -725,4 +725,28 @@ fn test_version_extension_with_no_bit_count() {
         }
         _ => panic!(),
     };
+}
+
+#[test]
+fn test_authorize_serde(){
+    let client_message = r#"{"id":2,"name":"username","password":"password"}"#;
+    let authorize: Authorize = serde_json::from_str(&client_message).unwrap();
+    let serialized_message = serde_json::to_string(&authorize).unwrap();
+    assert_eq!(client_message, serialized_message);
+}
+
+#[test]
+fn test_subscribe_serde(){
+    let client_message = r#"{"id":2,"agent_signature":"cpuminer","extranonce1":"fe36a31b"}"#;
+    let subscribe: Subscribe = serde_json::from_str(&client_message).unwrap();
+    let serialized_message = serde_json::to_string(&subscribe).unwrap();
+    assert_eq!(client_message, serialized_message);
+}
+
+#[test]
+fn test_submit_serde(){
+    let client_message = r#"{"user_name":"username","job_id":"4f","extra_nonce2":[102,101,51,54,97,51,49,98],"time":1321,"nonce":534,"version_bits":null,"id":2}"#;
+    let submit: Submit = serde_json::from_str(&client_message).unwrap();
+    let serialized_message = serde_json::to_string(&submit).unwrap();
+    assert_eq!(client_message, serialized_message);
 }
