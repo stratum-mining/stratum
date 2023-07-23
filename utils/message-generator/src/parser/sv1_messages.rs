@@ -22,10 +22,12 @@ struct Sv1ServerResponse<'a> {
 }
 
 //CLIENT TO SERVER
-//#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Sv1ClientMessages<'a> {
+    #[serde(borrow)]
     Subscribe(client_to_server::Subscribe<'a>),
     Authorize(client_to_server::Authorize),
+    #[serde(borrow)]
     Submit(client_to_server::Submit<'a>),
 }
 

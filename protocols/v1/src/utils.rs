@@ -2,6 +2,7 @@ use crate::error::{self, Error};
 use binary_sv2::{B032, U256};
 use bitcoin_hashes::hex::{FromHex, ToHex};
 use byteorder::{BigEndian, ByteOrder, LittleEndian, WriteBytesExt};
+use serde::{Serialize, Deserialize};
 use serde_json::Value;
 use std::{convert::TryFrom, mem::size_of, ops::BitAnd};
 
@@ -76,6 +77,29 @@ impl<'a> From<B032<'a>> for Extranonce<'a> {
         Extranonce(b)
     }
 }
+
+impl<'a> Serialize for Extranonce<'a> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: serde::Serializer {
+        let bytes = self.0.as_ref();
+        let serialized_string = String::from_utf8_lossy(bytes);
+        serializer.serialize_str(&serialized_string)
+    }
+}
+
+impl<'a, 'de> Deserialize<'de> for Extranonce<'a> 
+    where 'de: 'a
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let b = B032::deserialize(deserializer)?;
+        Ok(Extranonce(b))
+    }
+}
+
 
 /// Big-endian alternative of the HexU32
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -226,6 +250,7 @@ impl<'a> TryFrom<Vec<u8>> for MerkleNode<'a> {
     type Error = Error<'a>;
 
     fn try_from(value: Vec<u8>) -> Result<Self, Error<'a>> {
+        //TODO handle error
         Ok(MerkleNode(U256::try_from(value).unwrap()))
     }
 }
@@ -253,6 +278,7 @@ impl<'a> TryFrom<&str> for MerkleNode<'a> {
     type Error = Error<'a>;
 
     fn try_from(value: &str) -> Result<Self, Error<'a>> {
+        //TODO handle error
         Ok(MerkleNode(U256::try_from(hex_decode(value)?).unwrap()))
     }
 }
