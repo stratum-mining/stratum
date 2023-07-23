@@ -157,7 +157,7 @@ impl<'a> TryFrom<Notification> for Notify<'a> {
 /// may force a new job out when set_difficulty is sent, using clean_jobs to force the miner to
 /// begin using the new difficulty immediately.
 ///
-#[derive(Debug)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SetDifficulty {
     pub value: f64,
 }
@@ -200,8 +200,9 @@ impl TryFrom<Notification> for SetDifficulty {
 /// check if it is a Notification or a StandardRequest this implementation assume that it is a
 /// Notification
 ///
-#[derive(Debug)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SetExtranonce<'a> {
+    #[serde(borrow)]
     pub extra_nonce1: Extranonce<'a>,
     pub extra_nonce2_size: usize,
 }
@@ -280,7 +281,7 @@ impl TryFrom<Notification> for SetVersionMask {
 //pub struct Authorize(pub crate::json_rpc::Response, pub String);
 
 /// Authorize and Submit responsed are identical
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GeneralResponse {
     pub id: u64,
     result: bool,
@@ -314,7 +315,7 @@ impl TryFrom<&Response> for GeneralResponse {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Authorize {
     pub id: u64,
     authorized: bool,
@@ -331,7 +332,7 @@ impl Authorize {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Submit {
     pub id: u64,
     is_ok: bool,
@@ -362,9 +363,10 @@ impl Submit {
 ///
 ///    ExtraNonce2_size. - The number of bytes that the miner users for its ExtraNonce2 counter.
 ///
-#[derive(Debug)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Subscribe<'a> {
     pub id: u64,
+    #[serde(borrow)]
     pub extra_nonce1: Extranonce<'a>,
     pub extra_nonce2_size: usize,
     pub subscriptions: Vec<(String, String)>,
@@ -673,5 +675,45 @@ fn test_notify_serde(){
     let server_message = r#"{"job_id":"4f","prev_hash":"4d16b6f85af6e2198f44ae2a6de67f78","coin_base1":"01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff20020862062f503253482f04b8864e5008","coin_base2":"072f736c7573682f000000000100f2052a010000001976a914d23fcdf86f7e756a64a7a9688ef9903327048ed988ac00000000","merkle_branch":["4d16b6f85af6e2198f44ae2a6de67f78"],"version":"00000002","bits":"1c2ac4af","time":"504e86b9","clean_jobs":false}"#;
     let notify: Notify = serde_json::from_str(&server_message).unwrap();
     let serialized_message = serde_json::to_string(&notify).unwrap();
+    assert_eq!(server_message, serialized_message);
+}
+
+#[test]
+fn test_setdifficulty_serde(){
+    let server_message = r#"{"value":2.0}"#;
+    let setdifficulty: SetDifficulty = serde_json::from_str(&server_message).unwrap();
+    let serialized_message = serde_json::to_string(&setdifficulty).unwrap();
+    assert_eq!(server_message, serialized_message);
+}
+
+#[test]
+fn test_setextranonce_serde(){
+    let server_message = r#"{"extra_nonce1":"e9695791","extra_nonce2_size":4}"#;
+    let setextranonce: SetExtranonce = serde_json::from_str(&server_message).unwrap();
+    let serialized_message = serde_json::to_string(&setextranonce).unwrap();
+    assert_eq!(server_message, serialized_message);
+}
+
+#[test]
+fn test_authorize_serde(){
+    let server_message = r#"{"id":2,"authorized":true,"prev_request_name":"username"}"#;
+    let authorize: Authorize = serde_json::from_str(&server_message).unwrap();
+    let serialized_message = serde_json::to_string(&authorize).unwrap();
+    assert_eq!(server_message, serialized_message);
+}
+
+#[test]
+fn test_submit_serde(){
+    let server_message = r#"{"id":2,"is_ok":true}"#;
+    let submit: Submit = serde_json::from_str(&server_message).unwrap();
+    let serialized_message = serde_json::to_string(&submit).unwrap();
+    assert_eq!(server_message, serialized_message);
+}
+
+#[test]
+fn test_subscribe_serde(){
+    let server_message = r#"{"id":2,"extra_nonce1":"e9695791","extra_nonce2_size":4,"subscriptions":[["mining.set_difficulty","731ec5e0649606ff"],["mining.notify","731ec5e0649606ff"]]}"#;
+    let subscribe: Subscribe = serde_json::from_str(&server_message).unwrap();
+    let serialized_message = serde_json::to_string(&subscribe).unwrap();
     assert_eq!(server_message, serialized_message);
 }
