@@ -25,14 +25,13 @@ impl JobDeclaratorDownstream {
             .try_into()
             .unwrap();
         let token_u32 = u32::from_le_bytes(four_byte_array);
-        let is_token_allocated = self.token_to_job_map.contains_key(&(token_u32));
+        self.token_to_job_map.contains_key(&(token_u32))
         // TODO Function to implement, it must be checked if the requested job has:
         // 1. right coinbase
         // 2. right version field
         // 3. right prev-hash
         // 4. right nbits
         // 5. a valid merkletpath
-        is_token_allocated
     }
 }
 
