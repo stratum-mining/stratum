@@ -8,19 +8,7 @@ use roles_logic_sv2::{
 
 impl ParseServerTemplateDistributionMessages for TemplateRx {
     fn handle_new_template(&mut self, m: NewTemplate) -> Result<SendTo, Error> {
-        let new_template = NewTemplate {
-            template_id: m.template_id,
-            future_template: m.future_template,
-            version: m.version,
-            coinbase_tx_version: m.coinbase_tx_version,
-            coinbase_prefix: m.coinbase_prefix.into_static(),
-            coinbase_tx_input_sequence: m.coinbase_tx_input_sequence,
-            coinbase_tx_value_remaining: m.coinbase_tx_value_remaining,
-            coinbase_tx_outputs_count: m.coinbase_tx_outputs_count,
-            coinbase_tx_outputs: m.coinbase_tx_outputs.into_static(),
-            coinbase_tx_locktime: m.coinbase_tx_locktime,
-            merkle_path: m.merkle_path.into_static(),
-        };
+        let new_template = m.into_static();
         let new_template = TemplateDistribution::NewTemplate(new_template);
         Ok(SendTo::None(Some(new_template)))
     }

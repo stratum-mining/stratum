@@ -94,17 +94,24 @@ impl TemplateRx {
         let down = self_mutex.safe_lock(|s| s.down.clone()).unwrap();
         let tx_status = self_mutex.safe_lock(|s| s.tx_status.clone()).unwrap();
         let mut coinbase_output_max_additional_size_sent = false;
+        let mut last_token = None;
         let main_task = {
             let self_mutex = self_mutex.clone();
             tokio::task::spawn(async move {
                 // Send CoinbaseOutputDataSize size to TP
                 loop {
-                    let token = crate::job_declarator::JobDeclarator::get_last_token(&jd).await;
+                    if last_token.is_none() {
+                        last_token =
+                            Some(crate::job_declarator::JobDeclarator::get_last_token(&jd).await);
+                    }
                     if !coinbase_output_max_additional_size_sent {
                         coinbase_output_max_additional_size_sent = true;
                         Self::send_max_coinbase_size(
                             &self_mutex,
-                            token.coinbase_output_max_additional_size,
+                            last_token
+                                .clone()
+                                .unwrap()
+                                .coinbase_output_max_additional_size,
                         )
                         .await;
                     }
@@ -134,6 +141,8 @@ impl TemplateRx {
                                 Some(TemplateDistribution::NewTemplate(m)) => {
                                     crate::IS_NEW_TEMPLATE_HANDLED
                                         .store(false, std::sync::atomic::Ordering::SeqCst);
+                                    let token = last_token.unwrap();
+                                    last_token = None;
                                     let mining_token = token.mining_job_token.to_vec();
                                     let pool_output = token.coinbase_output.to_vec();
                                     let (_jd_res, down_res) = tokio::join!(

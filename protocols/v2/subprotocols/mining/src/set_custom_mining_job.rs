@@ -55,7 +55,6 @@ pub struct SetCustomMiningJob<'decoder> {
     /// Size of extranonce in bytes that will be provided by the
     /// downstream node.
     pub extranonce_size: u16,
-    pub future_job: bool,
 }
 
 /// # SetCustomMiningJob.Success (Server -> Client)
@@ -112,7 +111,6 @@ impl<'d> GetSize for SetCustomMiningJob<'d> {
             + self.coinbase_tx_locktime.get_size()
             + self.merkle_path.get_size()
             + self.extranonce_size.get_size()
-            + self.future_job.get_size()
     }
 }
 #[cfg(feature = "with_serde")]

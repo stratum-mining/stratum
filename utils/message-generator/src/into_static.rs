@@ -161,7 +161,6 @@ pub fn into_static<'a>(m: AnyMessage<'a>) -> AnyMessage<'static> {
                     coinbase_tx_locktime: m.coinbase_tx_locktime,
                     merkle_path: m.merkle_path.into_static(),
                     extranonce_size: m.extranonce_size,
-                    future_job: m.future_job,
                 };
                 PoolMessages::Mining(parsers::Mining::SetCustomMiningJob(m))
             }
