@@ -3,7 +3,7 @@ use crate::{
     status, Configuration, EitherFrame, StdFrame,
 };
 use async_channel::{Receiver, Sender};
-use binary_sv2::{Seq0255, U256};
+use binary_sv2::U256;
 use codec_sv2::{Frame, HandshakeRole, Responder};
 use ed25519_dalek::{Signature, SignatureError, Verifier};
 use error_handling::handle_result;
