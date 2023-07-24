@@ -18,7 +18,6 @@ impl ParseServerJobDeclarationMessages for JobDeclarator {
     ) -> Result<SendTo, Error> {
         let _coinbase_output_max_additional_size = message.coinbase_output_max_additional_size;
         self.allocated_tokens.push(message.into_static());
-
         Ok(SendTo::None(None))
     }
 

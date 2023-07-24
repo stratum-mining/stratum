@@ -12,7 +12,7 @@ use roles_logic_sv2::{
 };
 use std::{collections::HashMap, convert::TryInto, str::FromStr};
 use tokio::task::AbortHandle;
-use tracing::info;
+use tracing::{error, info};
 
 use async_recursion::async_recursion;
 use codec_sv2::Frame;
@@ -167,11 +167,13 @@ impl JobDeclarator {
                         })
                         .unwrap();
                 }
+                // There is a token, unwrap is safe
                 self_mutex
                     .safe_lock(|s| s.allocated_tokens.pop())
                     .unwrap()
                     .unwrap()
             }
+            // There are tokens, unwrap is safe
             _ => self_mutex
                 .safe_lock(|s| s.allocated_tokens.pop())
                 .unwrap()
@@ -234,7 +236,6 @@ impl JobDeclarator {
                     let mut incoming: StdFrame = receiver.recv().await.unwrap().try_into().unwrap();
                     let message_type = incoming.get_header().unwrap().msg_type();
                     let payload = incoming.payload();
-
                     let next_message_to_send =
                         ParseServerJobDeclarationMessages::handle_message_job_declaration(
                             self_mutex.clone(),
@@ -263,6 +264,9 @@ impl JobDeclarator {
                                     None => panic!("Invalid state we received a NewTemplate not future, without having received a set new prev hash")
                                 }
                             }
+                        }
+                        Ok(SendTo::None(Some(JobDeclaration::DeclareMiningJobError(m)))) => {
+                            error!("Job is not verified: {:?}", m);
                         }
                         Ok(SendTo::None(None)) => (),
                         Ok(_) => unreachable!(),

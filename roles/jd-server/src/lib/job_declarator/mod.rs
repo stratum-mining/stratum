@@ -141,7 +141,6 @@ impl JobDeclarator {
                     .try_into()
                     .unwrap();
             let sv2_frame = sv2_frame.into();
-
             info!("Sending success message for proxy");
             sender.send(sv2_frame).await.unwrap();
 
