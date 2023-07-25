@@ -1,6 +1,4 @@
-use binary_sv2::B032;
 use bitcoin_hashes::hex::ToHex;
-use serde::{Serialize, Deserialize};
 use serde_json::{
     Value,
     Value::{Array as JArrary, Null, Number as JNumber, String as JString},
@@ -25,7 +23,7 @@ use quickcheck_macros;
 /// The result from an authorize request is usually true (successful), or false.
 /// The password may be omitted if the server does not require passwords.
 ///
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Authorize {
     pub id: u64,
     pub name: String,
@@ -117,11 +115,10 @@ pub struct ExtranonceSubscribe();
 ///
 /// Server response is result: true for accepted, false for rejected (or you may get an error with
 /// more details).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Submit<'a> {
     pub user_name: String,            // root
     pub job_id: String,               // 6
-    #[serde(borrow)]
     pub extra_nonce2: Extranonce<'a>, // "8a.."
     pub time: HexU32Be,               //string
     pub nonce: HexU32Be,
@@ -270,11 +267,10 @@ impl<'a> TryFrom<StandardRequest> for Submit<'a> {
 /// [a]: crate::methods::server_to_client::Notify
 ///
 ///
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct Subscribe<'a> {
     pub id: u64,
     pub agent_signature: String,
-    #[serde(borrow)]
     pub extranonce1: Option<Extranonce<'a>>,
 }
 
@@ -725,43 +721,4 @@ fn test_version_extension_with_no_bit_count() {
         }
         _ => panic!(),
     };
-}
-
-#[test]
-fn test_authorize_serde(){
-    let client_message = r#"{"id":2,"name":"username","password":"password"}"#;
-    let authorize: Authorize = serde_json::from_str(&client_message).unwrap();
-    let serialized_message = serde_json::to_string(&authorize).unwrap();
-    assert_eq!(client_message, serialized_message);
-}
-
-#[test]
-fn test_subscribe_serde(){
-    let client_message = r#"{"id":2,"agent_signature":"cpuminer","extranonce1":"fe36a31b"}"#;
-    let subscribe: Subscribe = serde_json::from_str(&client_message).unwrap();
-    let serialized_message = serde_json::to_string(&subscribe).unwrap();
-    assert_eq!(client_message, serialized_message);
-}
-
-#[test]
-fn test_submit_serde(){
-    let client_message = r#"{"user_name":"username","job_id":"4f","extra_nonce2":"fe36a31b","time":"504e86ed","nonce":"e9695791","version_bits":null,"id":2}"#;
-    let submit: Submit = serde_json::from_str(&client_message).unwrap();
-    let serialized_message = serde_json::to_string(&submit).unwrap();
-    assert_eq!(client_message, serialized_message);
-}
-
-#[test]
-fn test_submit_serialization(){
-    let client_message = r#"{"user_name":"username","job_id":"4f","extra_nonce2":"fe36a31b","time":"504e86ed","nonce":"e9695791","version_bits":null,"id":2}"#;
-    let submit: Submit = Submit { 
-        user_name: "username".to_string(), 
-        job_id: "4f".to_string(), 
-        extra_nonce2: Extranonce(B032::try_from([102,101,51,54,97,51,49,98].to_vec()).unwrap()), 
-        time: HexU32Be(1347323629), 
-        nonce: HexU32Be(3915995025), 
-        version_bits: None,
-        id: 2 };
-    let serialized_string = serde_json::to_string(&submit).unwrap();
-    assert_eq!(client_message, serialized_string);
 }
