@@ -2,7 +2,7 @@ use crate::error::{self, Error};
 use binary_sv2::{B032, U256};
 use bitcoin_hashes::hex::{FromHex, ToHex};
 use byteorder::{BigEndian, ByteOrder, LittleEndian, WriteBytesExt};
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::{convert::TryFrom, mem::size_of, ops::BitAnd};
 
@@ -78,18 +78,22 @@ impl<'a> From<B032<'a>> for Extranonce<'a> {
     }
 }
 
+//Example of serialization for testing purpose
 impl<'a> Serialize for Extranonce<'a> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-        where
-            S: serde::Serializer {
+    where
+        S: serde::Serializer,
+    {
         let bytes = self.0.as_ref();
         let serialized_string = String::from_utf8_lossy(bytes);
         serializer.serialize_str(&serialized_string)
     }
 }
 
-impl<'a, 'de> Deserialize<'de> for Extranonce<'a> 
-    where 'de: 'a
+//Example of deserialization for testing purpose
+impl<'a, 'de> Deserialize<'de> for Extranonce<'a>
+where
+    'de: 'a,
 {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -99,7 +103,6 @@ impl<'a, 'de> Deserialize<'de> for Extranonce<'a>
         Ok(Extranonce(b))
     }
 }
-
 
 /// Big-endian alternative of the HexU32
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -146,15 +149,18 @@ impl From<u32> for HexU32Be {
     }
 }
 
+//Example of serialization for testing purpose
 impl Serialize for HexU32Be {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-        where
-            S: serde::Serializer {
+    where
+        S: serde::Serializer,
+    {
         let serialized_string = self.0.to_be_bytes().to_hex();
         serializer.serialize_str(&serialized_string)
     }
 }
 
+//Example of deserialization for testing purpose
 impl<'de> Deserialize<'de> for HexU32Be {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -164,12 +170,10 @@ impl<'de> Deserialize<'de> for HexU32Be {
 
         match u32::from_str_radix(&hex_string, 16) {
             Ok(value) => Ok(HexU32Be(value)),
-            Err(_) => Err(serde::de::Error::custom(
-                "Invalid hex value")),
+            Err(_) => Err(serde::de::Error::custom("Invalid hex value")),
         }
     }
 }
-
 
 /// PrevHash in Stratum V1 has brain-damaged serialization as it swaps bytes of every u32 word
 /// into big endian. Therefore, we need a special type for it
@@ -259,18 +263,22 @@ impl<'a> AsRef<[u8]> for Extranonce<'a> {
     }
 }
 
+//Example of serialization for testing purpose
 impl<'a> Serialize for PrevHash<'a> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-        where
-            S: serde::Serializer {
+    where
+        S: serde::Serializer,
+    {
         let bytes = self.0.as_ref();
         let serialized_string = String::from_utf8_lossy(bytes);
         serializer.serialize_str(&serialized_string)
     }
 }
 
-impl<'a, 'de> Deserialize<'de> for PrevHash<'a> 
-    where 'de: 'a
+//Example of deserialization for testing purpose
+impl<'a, 'de> Deserialize<'de> for PrevHash<'a>
+where
+    'de: 'a,
 {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -280,7 +288,6 @@ impl<'a, 'de> Deserialize<'de> for PrevHash<'a>
         Ok(PrevHash(u))
     }
 }
-
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MerkleNode<'a>(pub U256<'a>);
@@ -337,18 +344,22 @@ impl<'a> From<MerkleNode<'a>> for String {
     }
 }
 
+//Example of serialization for testing purpose
 impl<'a> Serialize for MerkleNode<'a> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-        where
-            S: serde::Serializer {
+    where
+        S: serde::Serializer,
+    {
         let bytes = self.0.as_ref();
         let serialized_string = String::from_utf8_lossy(bytes);
         serializer.serialize_str(&serialized_string)
     }
 }
 
-impl<'a, 'de> Deserialize<'de> for MerkleNode<'a> 
-    where 'de: 'a
+//Example of deserialization for testing purpose
+impl<'a, 'de> Deserialize<'de> for MerkleNode<'a>
+where
+    'de: 'a,
 {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -413,16 +424,19 @@ impl From<HexBytes> for String {
     }
 }
 
+//Example of serialization for testing purpose
 impl Serialize for HexBytes {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-        where
-            S: serde::Serializer {
+    where
+        S: serde::Serializer,
+    {
         let bytes = self.0.as_ref();
         let serialized_string = String::from_utf8_lossy(bytes);
         serializer.serialize_str(&serialized_string)
     }
 }
 
+//Example of deserialization for testing purpose
 impl<'de> Deserialize<'de> for HexBytes {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
