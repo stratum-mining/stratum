@@ -1,0 +1,3 @@
+cargo:rerun-if-changed=build.rs
+cargo:rustc-cfg=no_source_text
+cargo:rustc-cfg=wrap_proc_macro

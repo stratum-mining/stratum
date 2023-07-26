@@ -78,32 +78,6 @@ impl<'a> From<B032<'a>> for Extranonce<'a> {
     }
 }
 
-//Example of serialization for testing purpose
-impl<'a> Serialize for Extranonce<'a> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        let bytes = self.0.as_ref();
-        let serialized_string = String::from_utf8_lossy(bytes);
-        serializer.serialize_str(&serialized_string)
-    }
-}
-
-//Example of deserialization for testing purpose
-impl<'a, 'de> Deserialize<'de> for Extranonce<'a>
-where
-    'de: 'a,
-{
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let b = B032::deserialize(deserializer)?;
-        Ok(Extranonce(b))
-    }
-}
-
 /// Big-endian alternative of the HexU32
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct HexU32Be(pub u32);
@@ -263,32 +237,6 @@ impl<'a> AsRef<[u8]> for Extranonce<'a> {
     }
 }
 
-//Example of serialization for testing purpose
-impl<'a> Serialize for PrevHash<'a> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        let bytes = self.0.as_ref();
-        let serialized_string = String::from_utf8_lossy(bytes);
-        serializer.serialize_str(&serialized_string)
-    }
-}
-
-//Example of deserialization for testing purpose
-impl<'a, 'de> Deserialize<'de> for PrevHash<'a>
-where
-    'de: 'a,
-{
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let u = U256::deserialize(deserializer)?;
-        Ok(PrevHash(u))
-    }
-}
-
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MerkleNode<'a>(pub U256<'a>);
 
@@ -341,32 +289,6 @@ impl<'a> TryFrom<&str> for MerkleNode<'a> {
 impl<'a> From<MerkleNode<'a>> for String {
     fn from(bytes: MerkleNode<'a>) -> String {
         hex::encode(bytes.0)
-    }
-}
-
-//Example of serialization for testing purpose
-impl<'a> Serialize for MerkleNode<'a> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        let bytes = self.0.as_ref();
-        let serialized_string = String::from_utf8_lossy(bytes);
-        serializer.serialize_str(&serialized_string)
-    }
-}
-
-//Example of deserialization for testing purpose
-impl<'a, 'de> Deserialize<'de> for MerkleNode<'a>
-where
-    'de: 'a,
-{
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let u = U256::deserialize(deserializer)?;
-        Ok(MerkleNode(u))
     }
 }
 
