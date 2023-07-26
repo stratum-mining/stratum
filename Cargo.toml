@@ -15,6 +15,7 @@ keywords = ["stratum", "mining", "bitcoin", "protocol"]
 [workspace]
 
 members = [
+    "protocols/v1",
     "protocols/v2/binary-sv2/serde-sv2",
     "protocols/v2/binary-sv2/no-serde-sv2/codec",
     "protocols/v2/binary-sv2/no-serde-sv2/derive_codec",
@@ -53,7 +54,6 @@ members = [
 
 exclude = [
     "utils/message-generator",
-    "protocols/v1",
 ]
 
 [profile.dev]
