@@ -2131,6 +2131,8 @@ dependencies = [
  "hex",
  "log",
  "pretty_env_logger",
+ "quickcheck 1.0.3",
+ "quickcheck_macros 1.0.0",
  "serde",
  "serde_json",
  "tracing",
