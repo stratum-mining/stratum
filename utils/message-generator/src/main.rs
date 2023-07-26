@@ -18,8 +18,9 @@ use external_commands::*;
 use roles_logic_sv2::parsers::AnyMessage;
 use v1::json_rpc::StandardRequest;
 use std::net::SocketAddr;
+use arbitrary::Arbitrary;
 
-#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize, Arbitrary)]
 enum Sv2Type {
     Bool(bool),
     U8(u8),
