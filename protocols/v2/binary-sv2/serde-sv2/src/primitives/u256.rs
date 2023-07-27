@@ -75,7 +75,6 @@ impl<'u> Serialize for U256<'u> {
     }
 }
 
-
 struct U256Visitor;
 
 impl<'a> Visitor<'a> for U256Visitor {
