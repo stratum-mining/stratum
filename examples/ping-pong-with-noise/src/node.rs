@@ -39,7 +39,7 @@ impl Node {
         role: HandshakeRole,
         test_count: u32,
     ) -> Arc<Mutex<Self>> {
-        let (receiver, sender) = Connection::new(socket, role, 10).await;
+        let (receiver, sender) = Connection::new(socket, role, 10).await.unwrap();
 
         let node = Arc::new(Mutex::new(Node {
             last_id: 0,

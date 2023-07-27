@@ -1,3 +1,9 @@
+# Local SRI Pool Upstream Connection
+upstream_address = "127.0.0.1"
+upstream_port = 34254
+upstream_authority_pubkey = "3VANfft6ei6jQq1At7d8nmiZzVhBFS4CiQujdgim1ign"
+
+# Local Mining Device Downstream Connection
 downstream_address = "0.0.0.0"
 downstream_port = 34265
 
@@ -12,11 +18,11 @@ min_supported_version = 2
 min_extranonce2_size = 8
 
 # Withhold
-withhold = false
+withhold = true
 
 # Auth keys for open encrypted connection downstream
-authority_public_key = "2di19GHYQnAZJmEpoUeP7C3Eg9TCcksHr23rZCC83dvUiZgiDL"
-authority_secret_key = "2Z1FZug7mZNyM63ggkm37r4oKQ29khLjAvEx43rGkFN47RcJ2t"
+authority_public_key = "3VANfft6ei6jQq1At7d8nmiZzVhBFS4CiQujdgim1ign"
+authority_secret_key = "7qbpUjScc865jyX2kiB4NVJANoC7GA7TAJupdzXWkc62"
 cert_validity_sec = 3600
 
 # How many time the JDC try to reinitialize itself after a failure 

@@ -22,10 +22,8 @@ use roles_logic_sv2::{
 };
 use tracing::info;
 
-use codec_sv2::{
-    noise_sv2::formats::{EncodedEd25519PublicKey, EncodedEd25519SecretKey},
-    Frame, HandshakeRole, Responder, StandardEitherFrame, StandardSv2Frame,
-};
+use codec_sv2::{Frame, HandshakeRole, Responder, StandardEitherFrame, StandardSv2Frame};
+use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 
 use stratum_common::bitcoin::{consensus::Decodable, TxOut};
 
@@ -645,8 +643,8 @@ pub async fn listen_for_downstream_mining(
     upstream: Option<Arc<Mutex<UpstreamMiningNode>>>,
     solution_sender: Sender<SubmitSolution<'static>>,
     withhold: bool,
-    authority_public_key: EncodedEd25519PublicKey,
-    authority_secret_key: EncodedEd25519SecretKey,
+    authority_public_key: Secp256k1PublicKey,
+    authority_secret_key: Secp256k1SecretKey,
     cert_validity_sec: u64,
     task_collector: Arc<Mutex<Vec<AbortHandle>>>,
     tx_status: status::Sender,
@@ -658,13 +656,13 @@ pub async fn listen_for_downstream_mining(
 
     if let Ok((stream, _)) = listner.accept().await {
         let responder = Responder::from_authority_kp(
-            authority_public_key.clone().into_inner().as_bytes(),
-            authority_secret_key.clone().into_inner().as_bytes(),
+            &authority_public_key.clone().into_bytes(),
+            &authority_secret_key.clone().into_bytes(),
             std::time::Duration::from_secs(cert_validity_sec),
         )
         .unwrap();
         let (receiver, sender, recv_task_abort_handler, send_task_abort_handler) =
-            Connection::new(stream, HandshakeRole::Responder(responder)).await;
+            Connection::new(stream, HandshakeRole::Responder(responder)).await.expect("impossible to connect");
         let node = DownstreamMiningNode::new(
             receiver,
             sender,
