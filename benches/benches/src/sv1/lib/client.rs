@@ -65,20 +65,32 @@ impl<'a> Client<'static> {
         let (reader, writer) = (arc_stream.clone(), arc_stream);
 
         let (sender_incoming, receiver_incoming) = bounded(10);
-        let (sender_outgoing, receiver_outgoing) = bounded(10);
-
+        let (sender_outgoing, receiver_outgoing): (Sender<String>, Receiver<String>) = bounded(10);
+        let reader_clone = reader.clone();
         task::spawn(async move {
-            let mut messages = BufReader::new(&*reader).lines();
+            let mut messages = BufReader::new(&*reader_clone).lines();
             while let Some(message) = messages.next().await {
-                let message = message.unwrap();
-                sender_incoming.send(message).await.unwrap();
+                match message {
+                    Ok(message) => {
+                        if let Err(send_error) = sender_incoming.send(message).await {
+                            eprintln!("Error sending message: {}", send_error);
+                            // Handle the error gracefully, e.g., logging, retrying, etc.
+                        }
+                    }
+                    Err(read_error) => {
+                        eprintln!("Error reading message: {}", read_error);
+                        // Handle the error gracefully, e.g., logging, retrying, etc.
+                    }
+                }
             }
         });
 
         task::spawn(async move {
-            loop {
-                let message: String = receiver_outgoing.recv().await.unwrap();
-                (&*writer).write_all(message.as_bytes()).await.unwrap();
+            while let Ok(message) = receiver_outgoing.recv().await {
+                if let Err(e) = (&*writer).write_all(message.as_bytes()).await {
+                    eprintln!("An error occured: {}", e);
+                    continue;
+                }
             }
         });
 
@@ -121,14 +133,32 @@ impl<'a> Client<'static> {
     ) {
         if let Ok(line) = incoming_message {
             println!("CLIENT {} - message: {}", self.client_id, line);
-            let message: json_rpc::Message = serde_json::from_str(&line).unwrap();
-            self.handle_message(message).unwrap();
-        };
+            match serde_json::from_str::<json_rpc::Message>(&line) {
+                Ok(message) => {
+                    if let Err(err) = self.handle_message(message) {
+                        eprintln!("{:?}", err);
+                    }
+                }
+                Err(err) => {
+                    eprintln!("Error while deserializing JSON-RPC message: {}", err)
+                }
+            }
+        }
     }
 
     async fn send_message(sender_outgoing: &Sender<String>, msg: json_rpc::Message) {
-        let msg = format!("{}\n", serde_json::to_string(&msg).unwrap());
-        sender_outgoing.send(msg).await.unwrap();
+        let json_msg = serde_json::to_string(&msg);
+        match json_msg {
+            Ok(json_str) => {
+                let msg = format!("{}\n", json_str);
+                if let Err(err) = sender_outgoing.send(msg).await {
+                    eprintln!("Error sending JSON-RPC message: {:?}", err);
+                }
+            }
+            Err(err) => {
+                eprintln!("Error serializing JSON-RPC message: {:?}", err);
+            }
+        }
     }
 
     pub async fn send_subscribe(&mut self) {
@@ -304,7 +334,7 @@ impl<'a> IsClient<'a> for Client<'a> {
         match self.status() {
             ClientStatus::Init => Err(Error::IncorrectClientStatus("mining.authorize".to_string())),
             _ => {
-                self.sented_authorize_request.push((id, "user".to_string()));
+                self.sented_authorize_request.push((id, name.to_string()));
                 Ok(client_to_server::Authorize { id, name, password }.into())
             }
         }

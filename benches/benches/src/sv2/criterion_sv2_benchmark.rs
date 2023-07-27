@@ -1,6 +1,6 @@
 use async_channel::{Receiver, Sender};
 use codec_sv2::{StandardEitherFrame, StandardSv2Frame};
-use criterion::{criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, Throughput};
 use roles_logic_sv2::parsers::MiningDeviceMessages;
 
 use async_std::net::TcpStream;
@@ -22,8 +22,7 @@ pub const AUTHORITY_PUBLIC_K: [u8; 32] = [
     90, 169, 238, 89, 191, 183, 97, 63, 194, 119, 11, 31,
 ];
 
-fn handle_connection_benchmark(c: &mut Criterion) {
-    // Define the benchmark function
+fn benchmark_connection_time(c: &mut Criterion) {
     c.bench_function("handle_connection", |b| {
         b.iter(|| {
             async_std::task::block_on(async {
@@ -45,9 +44,12 @@ fn handle_connection_benchmark(c: &mut Criterion) {
     });
 }
 
-fn handle_share_submission_benchmark(c: &mut Criterion) {
-    // Define the benchmark function
-    c.bench_function("handle_share_submission", |b| {
+fn benchmark_share_submission(c: &mut Criterion) {
+    const SUBSCRIBE_MESSAGE_SIZE: u64 = 8;
+    let mut group = c.benchmark_group("sv2");
+    group.throughput(Throughput::Bytes(SUBSCRIBE_MESSAGE_SIZE));
+
+    group.bench_function("share_submission", |b| {
         b.iter(|| {
             async_std::task::block_on(async {
                 let addr: SocketAddr =
@@ -70,9 +72,10 @@ fn handle_share_submission_benchmark(c: &mut Criterion) {
     });
 }
 
-criterion_group!(
-    benches,
-    handle_connection_benchmark,
-    handle_share_submission_benchmark
-);
-criterion_main!(benches);
+fn main() {
+    let mut criterion = Criterion::default().sample_size(50);
+    benchmark_connection_time(&mut criterion);
+    benchmark_share_submission(&mut criterion);
+    criterion.final_summary();
+}
+

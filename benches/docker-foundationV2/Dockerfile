@@ -12,7 +12,7 @@ WORKDIR /foundation-server
 RUN npm install
 
 #copy config file
-WORKDIR /docker-foundationV2
+WORKDIR /foundation-server
 COPY config.js /foundation-server/configs/main/config.js
 
 #Add templates
@@ -20,7 +20,7 @@ WORKDIR /foundation-server
 RUN npm install --save foundation-v2-bitcoin
 
 #config template
-WORKDIR /docker-foundationV2
+WORKDIR /foundation-server
 COPY bitcoin.js configs/pools/bitcoin.js
 
 # Expose ports

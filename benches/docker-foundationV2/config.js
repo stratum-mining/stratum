@@ -23,18 +23,18 @@ config.client.tls = false;
 
 // Master Database
 config.client.master = {};
-config.client.master.host = '127.0.0.1';
+config.client.master.host = 'postgres';
 config.client.master.port = 5432;
-config.client.master.username = 'Prisca';
-config.client.master.password = '12345';
+config.client.master.username = 'foundation';
+config.client.master.password = 'password';
 config.client.master.database = 'foundation';
 
 // Worker Database
 config.client.worker = {};
-config.client.worker.host = '127.0.0.1';
+config.client.worker.host = 'postgres';
 config.client.worker.port = 5432;
-config.client.worker.username = 'Prisca';
-config.client.worker.password = '123456';
+config.client.worker.username = 'foundation';
+config.client.worker.password = 'password';
 config.client.worker.database = 'foundation';
 
 // Clustering Configuration

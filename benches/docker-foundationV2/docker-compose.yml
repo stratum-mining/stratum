@@ -4,21 +4,21 @@ services:
     image: postgres
     restart: always
     environment:
-      POSTGRES_USER: benchmark
+      POSTGRES_USER: foundation
       POSTGRES_PASSWORD: password
       POSTGRES_DB: foundation
 
   bitcoin-core:
     image: ruimarinho/bitcoin-core
     command:
-     - server=1
-     - listen=1
-     - daemon=1
-     - rpcuser=Prisca
-     - rpcpassword=password
-     - rpcallowip=0.0.0.0/0
-     - printtoconsole
-     - regtest=1
+      -printtoconsole
+      -regtest=1
+      -rest
+      -rpcallowip=0.0.0.0/0
+      -rpcpassword=password
+      -rpcport=18443
+      -rpcuser=foundation
+      -server
 
   foundation-server:
     build:
@@ -28,11 +28,5 @@ services:
     depends_on:
       - postgres
       - bitcoin-core
-    environment:
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_USER: benchmark
-      DB_PASSWORD: password
-      DB_NAME: foundation
     ports:
       - 3002:3002

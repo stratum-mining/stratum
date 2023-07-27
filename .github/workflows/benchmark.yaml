@@ -45,9 +45,6 @@ jobs:
         working-directory: ./benches
         run: cargo bench
 
-      - name: View container logs
-        run: docker logs docker-foundationv2_foundation-server_1
-
       - name: Stop Server
         working-directory: ./benches/docker-foundationV2
         run: docker-compose -f "docker-compose.yml" down
