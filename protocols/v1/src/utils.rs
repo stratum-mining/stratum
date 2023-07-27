@@ -241,9 +241,6 @@ impl<'a> AsRef<[u8]> for Extranonce<'a> {
 pub struct MerkleNode<'a>(pub U256<'a>);
 
 impl<'a> MerkleNode<'a> {
-    // pub fn len(&self) -> usize {
-    //     self.0.len()
-    // }
     pub fn is_empty(&self) -> bool {
         self.0.inner_as_ref().is_empty()
     }
