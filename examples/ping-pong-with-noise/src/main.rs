@@ -28,12 +28,9 @@ async fn server_pool_listen(listener: TcpListener) {
     while let Some(stream) = incoming.next().await {
         let stream = stream.unwrap();
         println!("SERVER - Accepting from: {}", stream.peer_addr().unwrap());
-        let responder = Responder::from_authority_kp(
-            &AUTHORITY_PUBLIC_K[..],
-            &AUTHORITY_PRIVATE_K[..],
-            CERT_VALIDITY,
-        )
-        .unwrap();
+        let responder =
+            Responder::from_authority_kp(&AUTHORITY_PUBLIC_K, &AUTHORITY_PRIVATE_K, CERT_VALIDITY)
+                .unwrap();
         let _server = node::Node::new(
             "server".to_string(),
             stream,
