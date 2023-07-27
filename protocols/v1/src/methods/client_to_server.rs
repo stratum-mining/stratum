@@ -221,41 +221,41 @@ impl<'a> TryFrom<StandardRequest> for Submit<'a> {
     }
 }
 
-// #[cfg(test)]
-// impl Arbitrary for Submit<'static> {
-//     fn arbitrary(g: &mut Gen) -> Self {
-//         let mut extra = Vec::<u8>::arbitrary(g);
-//         extra.resize(32, 0);
-//         println!("\nEXTRA: {:?}\n", extra);
-//         let bits = Option::<u32>::arbitrary(g);
-//         println!("\nBITS: {:?}\n", bits);
-//         let extra: Extranonce = extra.try_into().unwrap();
-//         let bits = bits.map(|x| HexU32Be(x));
-//         println!("\nBITS: {:?}\n", bits);
-//         Submit {
-//             user_name: String::arbitrary(g),
-//             job_id: String::arbitrary(g),
-//             extra_nonce2: extra,
-//             time: HexU32Be(u32::arbitrary(g)),
-//             nonce: HexU32Be(u32::arbitrary(g)),
-//             version_bits: bits,
-//             id: u64::arbitrary(g),
-//         }
-//     }
-// }
+#[cfg(test)]
+impl Arbitrary for Submit<'static> {
+    fn arbitrary(g: &mut Gen) -> Self {
+        let mut extra = Vec::<u8>::arbitrary(g);
+        extra.resize(32, 0);
+        println!("\nEXTRA: {:?}\n", extra);
+        let bits = Option::<u32>::arbitrary(g);
+        println!("\nBITS: {:?}\n", bits);
+        let extra: Extranonce = extra.try_into().unwrap();
+        let bits = bits.map(|x| HexU32Be(x));
+        println!("\nBITS: {:?}\n", bits);
+        Submit {
+            user_name: String::arbitrary(g),
+            job_id: String::arbitrary(g),
+            extra_nonce2: extra,
+            time: HexU32Be(u32::arbitrary(g)),
+            nonce: HexU32Be(u32::arbitrary(g)),
+            version_bits: bits,
+            id: u64::arbitrary(g),
+        }
+    }
+}
 
-// #[cfg(test)]
-// #[quickcheck_macros::quickcheck]
-// fn submit_from_to_json_rpc(submit: Submit<'static>) -> bool {
-//     let message = Into::<Message>::into(submit.clone());
-//     println!("\nMESSAGE: {:?}\n", message);
-//     let request = match message {
-//         Message::StandardRequest(s) => s,
-//         _ => panic!(),
-//     };
-//     println!("\nREQUEST: {:?}\n", request);
-//     submit == TryInto::<Submit>::try_into(request).unwrap()
-// }
+#[cfg(test)]
+#[quickcheck_macros::quickcheck]
+fn submit_from_to_json_rpc(submit: Submit<'static>) -> bool {
+    let message = Into::<Message>::into(submit.clone());
+    println!("\nMESSAGE: {:?}\n", message);
+    let request = match message {
+        Message::StandardRequest(s) => s,
+        _ => panic!(),
+    };
+    println!("\nREQUEST: {:?}\n", request);
+    submit == TryInto::<Submit>::try_into(request).unwrap()
+}
 
 /// _mining.subscribe("user agent/version", "extranonce1")_
 ///
