@@ -94,7 +94,7 @@ pub struct Configuration {
     pub cert_validity_sec: u64,
     pub coinbase_outputs: Vec<PublicKeyWrapper>,
     #[cfg(feature = "test_only_allow_unencrypted")]
-    pub test_only_listen_adress_plain: String,
+    pub test_only_listen_address_plain: String,
 }
 
 mod args {
