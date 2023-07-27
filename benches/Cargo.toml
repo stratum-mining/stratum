@@ -20,10 +20,10 @@ codec_sv2 = { path = "../protocols/v2/codec-sv2", features=["noise_sv2"] }
 binary_sv2 = { path = "../protocols/v2/binary-sv2/binary-sv2" }
 network_helpers = { path = "../utils/network-helpers", features=["async_std"] }
 
-[[bench]]
-name = "criterion_sv1_benchmark"
-path="benches/src/sv1/criterion_sv1_benchmark.rs"
-harness = false
+#[[bench]]
+#name = "criterion_sv1_benchmark"
+#path="benches/src/sv1/criterion_sv1_benchmark.rs"
+#harness = false
 
 [[bench]]
 name = "iai_sv1_benchmark"
