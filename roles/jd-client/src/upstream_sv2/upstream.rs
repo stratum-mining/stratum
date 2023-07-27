@@ -10,6 +10,7 @@ use async_channel::{Receiver, Sender};
 use binary_sv2::{Seq0255, U256};
 use codec_sv2::{Frame, HandshakeRole, Initiator};
 use error_handling::handle_result;
+use key_utils::Secp256k1PublicKey;
 use network_helpers::noise_connection_tokio::Connection;
 use roles_logic_sv2::{
     bitcoin::BlockHash,
@@ -83,7 +84,7 @@ impl Upstream {
     #[cfg_attr(feature = "cargo-clippy", allow(clippy::too_many_arguments))]
     pub async fn new(
         address: SocketAddr,
-        authority_public_key: codec_sv2::noise_sv2::formats::EncodedEd25519PublicKey,
+        authority_public_key: Secp256k1PublicKey,
         min_extranonce_size: u16,
         tx_status: status::Sender,
         channel_factory_sender: Sender<PoolChannelFactory>,
@@ -104,8 +105,8 @@ impl Upstream {
             }
         };
 
-        let pub_key: codec_sv2::noise_sv2::formats::EncodedEd25519PublicKey = authority_public_key;
-        let initiator = Initiator::from_raw_k(*pub_key.into_inner().as_bytes())?;
+        let pub_key: Secp256k1PublicKey = authority_public_key;
+        let initiator = Initiator::from_raw_k(pub_key.into_bytes())?;
 
         info!(
             "PROXY SERVER - ACCEPTING FROM UPSTREAM: {}",
@@ -113,7 +114,9 @@ impl Upstream {
         );
 
         // Channel to send and receive messages to the SV2 Upstream role
-        let (receiver, sender) = Connection::new(socket, HandshakeRole::Initiator(initiator)).await;
+        let (receiver, sender) = Connection::new(socket, HandshakeRole::Initiator(initiator))
+            .await
+            .unwrap();
 
         Ok(Arc::new(Mutex::new(Self {
             channel_id: None,

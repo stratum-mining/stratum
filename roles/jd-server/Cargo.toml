@@ -10,10 +10,10 @@ async-channel = "1.5.1"
 binary_sv2 = { version = "^0.1.6", path = "../../protocols/v2/binary-sv2/binary-sv2" }
 bitcoin = "0.27.1"
 buffer_sv2 = { version = "^0.1.2", path = "../../utils/buffer" }
-codec_sv2 = { version = "0.1", path = "../../protocols/v2/codec-sv2", features = ["noise_sv2"] }
+codec_sv2 = { version = "1.0", path = "../../protocols/v2/codec-sv2", features = ["noise_sv2","with_buffer_pool"] }
 const_sv2 = { version = "^0.1.2", path = "../../protocols/v2/const-sv2" }
 network_helpers = { version = "0.1", path = "../../utils/network-helpers", features = ["with_tokio"] }
-noise_sv2 = { version = "0.1", path = "../../protocols/v2/noise-sv2" }
+noise_sv2 = { version = "1.0", path = "../../protocols/v2/noise-sv2" }
 rand = "0.8.4"
 roles_logic_sv2 = { version = "^0.1.0", path = "../../protocols/v2/roles-logic-sv2" }
 serde = { version = "1.0.89", features = ["derive", "alloc"], default-features = false }
@@ -24,7 +24,8 @@ tracing-subscriber = "0.3"
 async-recursion = "1.0.0"
 error_handling = { version = "0.1", path = "../../utils/error-handling" }
 nohash-hasher = "0.2.0"
-ed25519-dalek = { git = "https://github.com/dalek-cryptography/ed25519-dalek", branch = "develop", commit = "431e699", features = ["rand", "serde", "alloc", "u64_backend"], default-features = false }
+key-utils = { version = "^1.0.0", path = "../../utils/key-utils" }
+secp256k1 = { version = "0.27.0", default-features = false, features =["bitcoin_hashes","alloc","rand","rand-std"] }
 
 [dev-dependencies]
 hex = "0.4.3"

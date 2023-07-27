@@ -5,11 +5,9 @@ use crate::{
 use async_channel::{Receiver, Sender};
 use binary_sv2::U256;
 use codec_sv2::{Frame, HandshakeRole, Responder};
-use ed25519_dalek::{Signature, SignatureError, Verifier};
 use error_handling::handle_result;
 use network_helpers::noise_connection_tokio::Connection;
 use nohash_hasher::BuildNoHashHasher;
-use noise_sv2::formats::EncodedEd25519PublicKey;
 use roles_logic_sv2::{
     channel_logic::channel_factory::PoolChannelFactory,
     common_properties::{CommonDownstreamData, IsDownstream, IsMiningDownstream},
@@ -212,17 +210,21 @@ impl Downstream {
 #[allow(dead_code)]
 pub fn verify_token(
     tx_hash_list_hash: U256,
-    signature: Signature,
-    pub_key: EncodedEd25519PublicKey,
-) -> Result<(), SignatureError> {
+    signature: secp256k1::schnorr::Signature,
+    pub_key: key_utils::Secp256k1PublicKey,
+) -> Result<(), secp256k1::Error> {
+    let secp = secp256k1::Secp256k1::verification_only();
     // Create PublicKey instance
-    let public_key = ed25519_dalek::PublicKey::from_bytes(pub_key.into_inner().as_bytes())
-        .expect("Invalid public key bytes");
+    let x_only_public_key = pub_key.0;
 
     let message: Vec<u8> = tx_hash_list_hash.to_vec();
 
     // Verify signature
-    let is_verified = public_key.verify(&message, &signature);
+    let is_verified = secp.verify_schnorr(
+        &signature,
+        &secp256k1::Message::from_slice(&message)?,
+        &x_only_public_key,
+    );
 
     // debug
     debug!("Message: {}", std::str::from_utf8(&message).unwrap());
@@ -286,14 +288,16 @@ impl Pool {
             );
 
             let responder = Responder::from_authority_kp(
-                config.authority_public_key.clone().into_inner().as_bytes(),
-                config.authority_secret_key.clone().into_inner().as_bytes(),
+                &config.authority_public_key.clone().into_bytes(),
+                &config.authority_secret_key.clone().into_bytes(),
                 std::time::Duration::from_secs(config.cert_validity_sec),
             );
             match responder {
                 Ok(resp) => {
                     let (receiver, sender): (Receiver<EitherFrame>, Sender<EitherFrame>) =
-                        Connection::new(stream, HandshakeRole::Responder(resp)).await;
+                        Connection::new(stream, HandshakeRole::Responder(resp))
+                            .await
+                            .unwrap();
                     handle_result!(
                         status_tx,
                         Self::accept_incoming_connection_(self_.clone(), receiver, sender, address)

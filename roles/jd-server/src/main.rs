@@ -1,9 +1,7 @@
 #![allow(special_module_name)]
 use async_channel::unbounded;
-use codec_sv2::{
-    noise_sv2::formats::{EncodedEd25519PublicKey, EncodedEd25519SecretKey},
-    StandardEitherFrame, StandardSv2Frame,
-};
+use codec_sv2::{StandardEitherFrame, StandardSv2Frame};
+use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 use roles_logic_sv2::{
     bitcoin::{PublicKey, Script, TxOut},
     parsers::PoolMessages,
@@ -89,8 +87,8 @@ pub struct Configuration {
     pub listen_address: String,
     pub tp_address: String,
     pub listen_jd_address: String,
-    pub authority_public_key: EncodedEd25519PublicKey,
-    pub authority_secret_key: EncodedEd25519SecretKey,
+    pub authority_public_key: Secp256k1PublicKey,
+    pub authority_secret_key: Secp256k1SecretKey,
     pub cert_validity_sec: u64,
     pub coinbase_outputs: Vec<PublicKeyWrapper>,
     #[cfg(feature = "test_only_allow_unencrypted")]

@@ -309,6 +309,18 @@ impl<'a> Frame<'a, Slice> for NoiseFrame {
     }
 }
 
+pub fn handshake_message_to_frame<T: AsRef<[u8]>>(message: T) -> HandShakeFrame {
+    let mut payload = Vec::new();
+    let len = message.as_ref().len().to_le_bytes();
+    payload.push(len[0]);
+    payload.push(len[1]);
+    payload.extend_from_slice(message.as_ref());
+    HandShakeFrame {
+        header: message.as_ref().len() as u16,
+        payload: payload.into(),
+    }
+}
+
 fn update_extension_type(extension_type: u16, channel_msg: bool) -> u16 {
     if channel_msg {
         let mask = 0b1000_0000_0000_0000;

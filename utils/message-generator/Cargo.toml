@@ -16,3 +16,4 @@ roles_logic_sv2 = { path = "../../protocols/v2/roles-logic-sv2", features = ["wi
 serde = { version = "*", features = ["derive", "alloc"], default-features = false }
 serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
 tokio = { version = "1", features = ["full"] }
+key-utils = { path = "../key-utils" }

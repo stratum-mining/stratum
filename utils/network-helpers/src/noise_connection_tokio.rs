@@ -1,19 +1,17 @@
+use crate::Error;
 use async_channel::{bounded, Receiver, Sender};
+use async_trait::async_trait;
 use binary_sv2::{Deserialize, Serialize};
-use core::convert::TryInto;
+use futures::lock::Mutex;
 use std::{sync::Arc, time::Duration};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::{TcpListener, TcpStream},
-    sync::Mutex,
     task,
 };
 
 use binary_sv2::GetSize;
-use codec_sv2::{
-    Frame, HandShakeFrame, HandshakeRole, Initiator, Responder, StandardEitherFrame,
-    StandardNoiseDecoder,
-};
+use codec_sv2::{HandshakeRole, Initiator, Responder, StandardEitherFrame, StandardNoiseDecoder};
 
 use tracing::{debug, error};
 
@@ -22,15 +20,34 @@ pub struct Connection {
     pub state: codec_sv2::State,
 }
 
+#[async_trait]
+impl crate::SetState for Connection {
+    async fn set_state(self_: Arc<Mutex<Self>>, state: codec_sv2::State) {
+        loop {
+            if crate::HANDSHAKE_READY.load(std::sync::atomic::Ordering::SeqCst) {
+                if let Some(mut connection) = self_.try_lock() {
+                    connection.state = state;
+                    crate::TRANSPORT_READY.store(true, std::sync::atomic::Ordering::Relaxed);
+                    break;
+                };
+            }
+            task::yield_now().await;
+        }
+    }
+}
+
 impl Connection {
     #[allow(clippy::new_ret_no_self)]
     pub async fn new<'a, Message: Serialize + Deserialize<'a> + GetSize + Send + 'static>(
         stream: TcpStream,
         role: HandshakeRole,
-    ) -> (
-        Receiver<StandardEitherFrame<Message>>,
-        Sender<StandardEitherFrame<Message>>,
-    ) {
+    ) -> Result<
+        (
+            Receiver<StandardEitherFrame<Message>>,
+            Sender<StandardEitherFrame<Message>>,
+        ),
+        Error,
+    > {
         let address = stream.peer_addr().unwrap();
 
         let (mut reader, mut writer) = stream.into_split();
@@ -98,12 +115,6 @@ impl Connection {
 
                         let b = encoder.encode(frame, &mut connection.state).unwrap();
 
-                        // Handshake state means this is the last message so after
-                        //this is encoded we can move to transport mode!
-                        if connection.state.is_in_handshake() {
-                            connection.state =
-                                connection.state.take().into_transport_mode().unwrap();
-                        }
                         drop(connection);
 
                         let b = b.as_ref();
@@ -133,6 +144,7 @@ impl Connection {
                         break;
                     }
                 };
+                crate::HANDSHAKE_READY.store(true, std::sync::atomic::Ordering::Relaxed);
             }
         });
 
@@ -140,94 +152,27 @@ impl Connection {
         match role {
             HandshakeRole::Initiator(_) => {
                 debug!("Initializing as downstream for - {}", &address);
-                Self::initialize_as_downstream(
+                crate::initialize_as_downstream(
                     connection.clone(),
                     role,
                     sender_outgoing.clone(),
                     receiver_incoming.clone(),
                 )
-                .await
+                .await?
             }
             HandshakeRole::Responder(_) => {
                 debug!("Initializing as upstream for - {}", &address);
-                Self::initialize_as_upstream(
+                crate::initialize_as_upstream(
                     connection.clone(),
                     role,
                     sender_outgoing.clone(),
                     receiver_incoming.clone(),
                 )
-                .await
+                .await?
             }
         };
         debug!("Noise handshake complete - {}", &address);
-        (receiver_incoming, sender_outgoing)
-    }
-
-    async fn set_state(self_: Arc<Mutex<Self>>, state: codec_sv2::State) {
-        loop {
-            if let Ok(mut connection) = self_.try_lock() {
-                connection.state = state;
-                break;
-            };
-        }
-    }
-
-    async fn initialize_as_downstream<'a, Message: Serialize + Deserialize<'a> + GetSize>(
-        self_: Arc<Mutex<Self>>,
-        role: HandshakeRole,
-        sender_outgoing: Sender<StandardEitherFrame<Message>>,
-        receiver_incoming: Receiver<StandardEitherFrame<Message>>,
-    ) {
-        let mut state = codec_sv2::State::initialize(role);
-
-        let first_message = state.step(None).unwrap();
-        sender_outgoing.send(first_message.into()).await.unwrap();
-
-        let second_message = receiver_incoming.recv().await.unwrap();
-        let mut second_message: HandShakeFrame = second_message.try_into().unwrap();
-        let second_message = second_message.payload().to_vec();
-
-        let third_message = state.step(Some(second_message)).unwrap();
-        sender_outgoing.send(third_message.into()).await.unwrap();
-
-        let fourth_message = receiver_incoming.recv().await.unwrap();
-        let mut fourth_message: HandShakeFrame = fourth_message.try_into().unwrap();
-        let fourth_message = fourth_message.payload().to_vec();
-
-        state
-            .step(Some(fourth_message))
-            .expect("Error on fourth message step");
-
-        Self::set_state(self_, state.into_transport_mode().unwrap()).await;
-    }
-
-    async fn initialize_as_upstream<'a, Message: Serialize + Deserialize<'a> + GetSize>(
-        self_: Arc<Mutex<Self>>,
-        role: HandshakeRole,
-        sender_outgoing: Sender<StandardEitherFrame<Message>>,
-        receiver_incoming: Receiver<StandardEitherFrame<Message>>,
-    ) {
-        let mut state = codec_sv2::State::initialize(role);
-
-        let mut first_message: HandShakeFrame =
-            receiver_incoming.recv().await.unwrap().try_into().unwrap();
-        let first_message = first_message.payload().to_vec();
-
-        let second_message = state.step(Some(first_message)).unwrap();
-
-        sender_outgoing.send(second_message.into()).await.unwrap();
-
-        let mut third_message: HandShakeFrame =
-            receiver_incoming.recv().await.unwrap().try_into().unwrap();
-        let third_message_vec = third_message.payload().to_vec();
-
-        let fourth_message = state.step(Some(third_message_vec)).unwrap();
-
-        // This sets the state to Handshake state - this prompts the task above to move the state
-        // to transport mode so that the next incoming message will be decoded correctly
-        // It is important to do this directly before sending the fourth message
-        Self::set_state(self_, state).await;
-        sender_outgoing.send(fourth_message.into()).await.unwrap();
+        Ok((receiver_incoming, sender_outgoing))
     }
 }
 
@@ -242,8 +187,8 @@ pub async fn listen(
     loop {
         if let Ok((stream, _)) = listner.accept().await {
             let responder = Responder::from_authority_kp(
-                &authority_public_key[..],
-                &authority_private_key[..],
+                &authority_public_key,
+                &authority_private_key,
                 cert_validity,
             )
             .unwrap();

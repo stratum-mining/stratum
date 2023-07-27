@@ -3,7 +3,7 @@ use core::fmt;
 
 // pub type FramingResult<T> = core::result::Result<T, Error>;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum Error {
     BinarySv2Error(binary_sv2::Error),
     ExpectedHandshakeFrame,

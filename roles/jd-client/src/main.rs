@@ -281,12 +281,7 @@ async fn initialize_jd(
     let port_jd = parts.next().unwrap().parse::<u16>().unwrap();
     let jd = JobDeclarator::new(
         SocketAddr::new(IpAddr::from_str(ip_jd.as_str()).unwrap(), port_jd),
-        proxy_config
-            .upstream_authority_pubkey
-            .clone()
-            .into_inner()
-            .as_bytes()
-            .to_owned(),
+        proxy_config.upstream_authority_pubkey.clone().into_bytes(),
         proxy_config.clone(),
         upstream,
         task_collector.clone(),

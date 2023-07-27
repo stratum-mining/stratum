@@ -4,17 +4,17 @@ use async_channel::{Receiver, Sender};
 use binary_sv2::{B0255, U256};
 use bitcoin::consensus::Encodable;
 use codec_sv2::{Frame, HandshakeRole, Responder};
-use ed25519_dalek::{Keypair, PublicKey, Signature, Signer};
 use error_handling::handle_result;
+use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 use network_helpers::noise_connection_tokio::Connection;
 use nohash_hasher::BuildNoHashHasher;
-use noise_sv2::formats::{EncodedEd25519PublicKey, EncodedEd25519SecretKey};
 use roles_logic_sv2::{
     common_messages_sv2::SetupConnectionSuccess,
     handlers::job_declaration::{ParseClientJobDeclarationMessages, SendTo},
     parsers::PoolMessages,
     utils::{Id, Mutex},
 };
+use secp256k1::{KeyPair, Message as SecpMessage, Secp256k1};
 use std::{collections::HashMap, convert::TryInto, sync::Arc};
 use tokio::net::TcpListener;
 use tracing::info;
@@ -29,8 +29,8 @@ pub struct JobDeclaratorDownstream {
     coinbase_output: Vec<u8>,
     token_to_job_map: HashMap<u32, std::option::Option<u8>, BuildNoHashHasher<u32>>,
     tokens: Id,
-    public_key: EncodedEd25519PublicKey,
-    private_key: EncodedEd25519SecretKey,
+    public_key: Secp256k1PublicKey,
+    private_key: Secp256k1SecretKey,
 }
 
 impl JobDeclaratorDownstream {
@@ -100,28 +100,21 @@ impl JobDeclaratorDownstream {
 
 pub fn signed_token(
     tx_hash_list_hash: U256,
-    pub_key: &EncodedEd25519PublicKey,
-    prv_key: &EncodedEd25519SecretKey,
+    _pub_key: &Secp256k1PublicKey,
+    prv_key: &Secp256k1SecretKey,
 ) -> B0255<'static> {
-    // secret and public keys
+    let secp = Secp256k1::signing_only();
 
     // Create the SecretKey and PublicKey instances
-    let secret_key = ed25519_dalek::SecretKey::from_bytes(prv_key.clone().into_inner().as_bytes())
-        .expect("Invalid public key bytes");
-    let public_key = PublicKey::from_bytes(pub_key.clone().into_inner().as_bytes())
-        .expect("Invalid public key bytes");
-
-    let keypair: Keypair = Keypair {
-        secret: secret_key,
-        public: public_key,
-    };
+    let secret_key = prv_key.0;
+    let kp = KeyPair::from_secret_key(&secp, &secret_key);
 
     let message: Vec<u8> = tx_hash_list_hash.to_vec();
 
+    let signature = secp.sign_schnorr(&SecpMessage::from_slice(&message).unwrap(), &kp);
+
     // Sign message
-    let signature: Signature = keypair.sign(&message);
-    info!("signature is: {:?}", signature);
-    signature.to_bytes().to_vec().try_into().unwrap()
+    signature.as_ref().to_vec().try_into().unwrap()
 }
 
 fn _get_random_token() -> B0255<'static> {
@@ -149,14 +142,16 @@ impl JobDeclarator {
         let listner = TcpListener::bind(&config.listen_jd_address).await.unwrap();
         while let Ok((stream, _)) = listner.accept().await {
             let responder = Responder::from_authority_kp(
-                config.authority_public_key.clone().into_inner().as_bytes(),
-                config.authority_secret_key.clone().into_inner().as_bytes(),
+                &config.authority_public_key.clone().into_bytes(),
+                &config.authority_secret_key.clone().into_bytes(),
                 std::time::Duration::from_secs(config.cert_validity_sec),
             )
             .unwrap();
 
             let (receiver, sender): (Receiver<EitherFrame>, Sender<EitherFrame>) =
-                Connection::new(stream, HandshakeRole::Responder(responder)).await;
+                Connection::new(stream, HandshakeRole::Responder(responder))
+                    .await
+                    .unwrap();
             let setup_message_from_proxy_jd = receiver.recv().await.unwrap();
             info!(
                 "Setup connection message from proxy: {:?}",

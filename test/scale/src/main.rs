@@ -79,7 +79,9 @@ async fn setup_driver(
         let initiator = Initiator::from_raw_k(AUTHORITY_PUBLIC_K).unwrap();
 
         (_server_receiver, server_sender) =
-            Connection::new(server_stream, HandshakeRole::Initiator(initiator)).await;
+            Connection::new(server_stream, HandshakeRole::Initiator(initiator))
+                .await
+                .unwrap();
     } else {
         (_server_receiver, server_sender) = PlainConnection::new(server_stream).await;
     }
@@ -172,13 +174,15 @@ async fn create_proxy(
 
     if encrypt {
         let responder = Responder::from_authority_kp(
-            &AUTHORITY_PUBLIC_K[..],
-            &AUTHORITY_PRIVATE_K[..],
+            &AUTHORITY_PUBLIC_K,
+            &AUTHORITY_PRIVATE_K,
             Duration::from_secs(3600),
         )
         .unwrap();
         (cli_receiver, _cli_sender) =
-            Connection::new(cli_stream, HandshakeRole::Responder(responder)).await;
+            Connection::new(cli_stream, HandshakeRole::Responder(responder))
+                .await
+                .unwrap();
     } else {
         (cli_receiver, _cli_sender) = PlainConnection::new(cli_stream).await;
     }
@@ -194,7 +198,9 @@ async fn create_proxy(
         if encrypt {
             let initiator = Initiator::from_raw_k(AUTHORITY_PUBLIC_K).unwrap();
             (_server_receiver, server_sender) =
-                Connection::new(server_stream, HandshakeRole::Initiator(initiator)).await;
+                Connection::new(server_stream, HandshakeRole::Initiator(initiator))
+                    .await
+                    .unwrap();
         } else {
             (_server_receiver, server_sender) = PlainConnection::new(server_stream).await;
         }
