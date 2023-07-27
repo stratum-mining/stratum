@@ -1,4 +1,4 @@
-#![cfg_attr(not(feature = "debug"), no_std)]
+//#![cfg_attr(not(feature = "debug"), no_std)]
 //#![feature(backtrace)]
 
 mod buffer;
@@ -11,6 +11,7 @@ extern crate alloc;
 use alloc::vec::Vec;
 
 pub use crate::buffer::BufferFromSystemMemory;
+pub use aes_gcm::aead::Buffer as AeadBuffer;
 pub use buffer_pool::BufferPool;
 pub use slice::Slice;
 
@@ -70,6 +71,9 @@ pub trait Buffer {
 
     // Caller need a view in the written part of the buffer
     fn get_data_by_ref(&mut self, len: usize) -> &mut [u8];
+
+    // Caller need a view in the written part of the buffer
+    fn get_data_by_ref_(&self, len: usize) -> &[u8];
 
     // Return the size of the written part of the buffer that is still owned by the Buffer
     fn len(&self) -> usize;
