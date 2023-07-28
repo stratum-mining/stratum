@@ -3,7 +3,7 @@ mod frames;
 pub mod sv2_messages;
 mod sv1_messages;
 
-use crate::{parser::sv2_messages::ReplaceField, Action, Command, Test};
+use crate::{parser::sv2_messages::ReplaceField, Action, Command, Test, TestVersion};
 use codec_sv2::{buffer_sv2::Slice, Sv2Frame};
 use frames::Frames;
 use roles_logic_sv2::parsers::AnyMessage;
@@ -16,14 +16,18 @@ pub enum Parser<'a> {
     /// Parses any number or combination of messages to be later used by an action identified by
     /// message id.
     /// they are saved as (field_name, keyword)
-    Step1(HashMap<String, (AnyMessage<'a>, Vec<ReplaceField>)>),
+    Step1{
+        version: TestVersion,
+        messages: HashMap<String, (AnyMessage<'a>, Vec<ReplaceField>)>},
     /// Serializes messages into `Sv2Frames` identified by message id.
     Step2 {
+        version: TestVersion,
         messages: HashMap<String, (AnyMessage<'a>, Vec<ReplaceField>)>,
         frames: HashMap<String, Sv2Frame<AnyMessage<'a>, Slice>>,
     },
     /// Parses the setup, execution, and cleanup shell commands, roles, and actions.
     Step3 {
+        version: TestVersion,
         messages: HashMap<String, (AnyMessage<'a>, Vec<ReplaceField>)>,
         frames: HashMap<String, Sv2Frame<AnyMessage<'a>, Slice>>,
         actions: Vec<Action<'a>>,
@@ -45,30 +49,41 @@ impl<'a> Parser<'a> {
     }
 
     fn initialize<'b: 'a>(test: &'b str) -> Self {
+        let test_map: Map<String, Value> = serde_json::from_str(test).unwrap();
+        let version: TestVersion = match test_map.get("version").unwrap().as_str().unwrap() {
+            "1" => TestVersion::V1,
+            "2" => TestVersion::V2,
+            _ => panic!("no version specified")
+        };
         let messages = TestMessageParser::from_str(test);
-        let step1 = Self::Step1(messages.into_map());
+        let step1 = Self::Step1{
+            version,
+            messages: messages.into_map()};
         step1
     }
 
     fn next_step<'b: 'a>(self, test: &'b str) -> Self {
         match self {
-            Self::Step1(messages) => {
+            Self::Step1{version, messages} => {
                 let (frames, messages) = Frames::from_step_1(test, messages.clone());
                 Self::Step2 {
+                    version,
                     messages,
                     frames: frames.frames,
                 }
             }
-            Self::Step2 { messages, frames } => {
+            Self::Step2 { version, messages, frames } => {
                 let actions =
                     actions::ActionParser::from_step_2(test, frames.clone(), messages.clone());
                 Self::Step3 {
+                    version,
                     messages,
                     frames,
                     actions,
                 }
             }
             Self::Step3 {
+                version,
                 messages: _,
                 frames: _,
                 actions,
@@ -175,6 +190,7 @@ impl<'a> Parser<'a> {
                 };
 
                 let test = Test {
+                    version,
                     actions,
                     as_upstream,
                     as_dowstream,
@@ -221,6 +237,7 @@ mod test {
         match step4 {
             Parser::Step4(test) => {
                 assert!(test.actions.len() == 2);
+                assert_eq!(test.version, TestVersion::V2);
             }
             _ => unreachable!(),
         }

@@ -95,6 +95,12 @@ enum Role {
     Proxy,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum TestVersion {
+    V1,
+    V2
+}
+
 #[derive(Debug, Clone)]
 struct Upstream {
     addr: SocketAddr,
@@ -134,6 +140,7 @@ pub struct Command {
 /// Represents all of the parsed contents from the configuration file, ready for execution.
 #[derive(Debug)]
 pub struct Test<'a> {
+    version: TestVersion,
     actions: Vec<Action<'a>>,
     /// Some if role is upstream or proxy.
     as_upstream: Option<Upstream>,
@@ -173,6 +180,10 @@ async fn main() {
 
 #[cfg(test)]
 mod test {
+    use codec_sv2::Frame;
+    use crate::net::setup_as_downstream;
+    use crate::net::setup_as_upstream;
+    use codec_sv2::Sv2Frame;
     use super::*;
     use crate::into_static::into_static;
     use roles_logic_sv2::{
