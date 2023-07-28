@@ -1,15 +1,25 @@
 mod actions;
 mod frames;
 pub mod sv2_messages;
-mod sv1_messages;
+pub mod sv1_messages;
 
 use crate::{parser::sv2_messages::ReplaceField, Action, Command, Test, TestVersion};
 use codec_sv2::{buffer_sv2::Slice, Sv2Frame};
 use frames::Frames;
 use roles_logic_sv2::parsers::AnyMessage;
 use serde_json::{Map, Value};
+use v1::json_rpc::StandardRequest;
 use std::{collections::HashMap, convert::TryInto};
 use sv2_messages::TestMessageParser;
+
+use self::sv1_messages::Sv1TestMessageParser;
+
+#[derive(Debug, Clone)]
+pub enum MessageMap<'a> {
+    V1MessageMap(HashMap<String, (StandardRequest, Vec<ReplaceField>)>),
+    V2MessageMap(HashMap<String, (AnyMessage<'a>, Vec<ReplaceField>)>),
+}
+
 
 #[derive(Debug)]
 pub enum Parser<'a> {
@@ -18,18 +28,19 @@ pub enum Parser<'a> {
     /// they are saved as (field_name, keyword)
     Step1{
         version: TestVersion,
-        messages: HashMap<String, (AnyMessage<'a>, Vec<ReplaceField>)>},
+        messages: MessageMap<'a>,
+    },
     /// Serializes messages into `Sv2Frames` identified by message id.
     Step2 {
         version: TestVersion,
-        messages: HashMap<String, (AnyMessage<'a>, Vec<ReplaceField>)>,
-        frames: HashMap<String, Sv2Frame<AnyMessage<'a>, Slice>>,
+        messages: MessageMap<'a>,
+        frames: Option<HashMap<String, Sv2Frame<AnyMessage<'a>, Slice>>>,
     },
     /// Parses the setup, execution, and cleanup shell commands, roles, and actions.
     Step3 {
         version: TestVersion,
-        messages: HashMap<String, (AnyMessage<'a>, Vec<ReplaceField>)>,
-        frames: HashMap<String, Sv2Frame<AnyMessage<'a>, Slice>>,
+        messages: MessageMap<'a>,
+        frames: Option<HashMap<String, Sv2Frame<AnyMessage<'a>, Slice>>>,
         actions: Vec<Action<'a>>,
     },
     /// Prepare for execution.
@@ -55,32 +66,48 @@ impl<'a> Parser<'a> {
             "2" => TestVersion::V2,
             _ => panic!("no version specified")
         };
-        let messages = TestMessageParser::from_str(test);
+        let messages = match version {
+            TestVersion::V1 => MessageMap::V1MessageMap(Sv1TestMessageParser::from_str(test).into_map()),
+            TestVersion::V2 => MessageMap::V2MessageMap(TestMessageParser::from_str(test).into_map())
+        };
+        
         let step1 = Self::Step1{
             version,
-            messages: messages.into_map()};
+            messages};
         step1
     }
 
     fn next_step<'b: 'a>(self, test: &'b str) -> Self {
         match self {
             Self::Step1{version, messages} => {
-                let (frames, messages) = Frames::from_step_1(test, messages.clone());
-                Self::Step2 {
-                    version,
-                    messages,
-                    frames: frames.frames,
+                match messages {
+                    MessageMap::V1MessageMap(_) => Self::Step2 { version, messages, frames: None},
+                    MessageMap::V2MessageMap(m) => {
+                        let (frames, messages) = Frames::from_step_1(test, m.clone());
+                        Self::Step2 {
+                            version,
+                            messages: MessageMap::V2MessageMap(messages),
+                            frames: Some(frames.frames)
+                        }
+                    }
                 }
+                
             }
             Self::Step2 { version, messages, frames } => {
-                let actions =
-                    actions::ActionParser::from_step_2(test, frames.clone(), messages.clone());
-                Self::Step3 {
-                    version,
-                    messages,
-                    frames,
-                    actions,
+                match messages {
+                    MessageMap::V1MessageMap(_) => todo!(),
+                    MessageMap::V2MessageMap(m) => {
+                        let actions =
+                        actions::ActionParser::from_step_2(test, frames.clone().unwrap(), m.clone());
+                        Self::Step3 {
+                            version,
+                            messages: MessageMap::V2MessageMap(m),
+                            frames,
+                            actions,
+                        }
+                    }
                 }
+                
             }
             Self::Step3 {
                 version,
