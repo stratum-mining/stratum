@@ -43,7 +43,15 @@ jobs:
 
       - name: Run benchmarks
         working-directory: ./benches
-        run: cargo bench
+        run: cargo bench > benchmark_results.txt 2>&1
+
+      - name: Publish benchmark result
+        uses: actions/upload-artifact@v2
+        with:
+          name: benchmark_results
+          path: |
+           ./benches/benchmark_results.txt
+           ./target/criterion
 
       - name: Stop Server
         working-directory: ./benches/docker-foundationV2
