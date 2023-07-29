@@ -32,7 +32,7 @@
                 "extranonce_size": 16,
                 "extranonce_prefix": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]
             },
-            "replace_fields": [["request_id","open_extended_mining_channel_success_request_id"], ["target", "open_extended_mining_channel_success_target"]],
+            "replace_fields": [["channel_id", "ARBITRARY"], ["request_id","open_extended_mining_channel_success_request_id"], ["target", "open_extended_mining_channel_success_target"]],
             "id": "open_extended_mining_channel_success"
         },
         {

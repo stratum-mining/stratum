@@ -161,23 +161,34 @@ impl Executor {
                 let replace_fields = message_.2.clone();
                 let message = message_.1.clone();
                 let frame = message_.0;
-                if replace_fields.is_empty() {
-                    println!("SEND {:#?}", message);
-                    match sender.send(frame).await {
-                        Ok(_) => (),
-                        Err(_) => panic!(),
-                    }
-                } else {
-                    let message_modified =
-                        change_fields(message, replace_fields, self.save.clone());
-                    let modified_frame =
-                        EitherFrame::Sv2(message_modified.clone().try_into().unwrap());
-                    println!("SEND {:#?}", message_modified);
-                    match sender.send(modified_frame).await {
-                        Ok(_) => (),
-                        Err(_) => panic!(),
-                    };
-                }
+                let arbitrary_fields: Vec<ReplaceField> = replace_fields.clone().into_iter().filter(|s| s.keyword == "ARBITRARY").collect();
+                let replace_fields: Vec<ReplaceField> = replace_fields.clone().into_iter().filter(|s| s.keyword != "ARBITRARY").collect();    
+                
+                if arbitrary_fields.len() > 0 {
+                        println!("QUI FACCIO QUALCOSA");
+                };
+                if replace_fields.len() > 0 {
+                    let message = change_fields(message.clone(), replace_fields, self.save.clone());
+                };
+                let frame = EitherFrame::Sv2(message.clone().try_into().unwrap());
+                println!("SEND {:#?}", message);
+                match sender.send(frame).await {
+                    Ok(_) => (),
+                    Err(_) => panic!(),
+                };
+
+
+
+
+                    //let message_modified =
+                    //    change_fields(message, replace_fields, self.save.clone());
+                    //let modified_frame =
+                    //    EitherFrame::Sv2(message_modified.clone().try_into().unwrap());
+                    //println!("SEND {:#?}", message_modified);
+                    //match sender.send(modified_frame).await {
+                    //    Ok(_) => (),
+                    //    Err(_) => panic!(),
+                    //};
             }
             let mut rs = 0;
             for result in &action.result {
