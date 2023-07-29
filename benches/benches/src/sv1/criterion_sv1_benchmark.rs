@@ -2,7 +2,7 @@
 //! It measures connection time, send subscription latency and share submission time.
 
 use async_std::task;
-use criterion::{ Criterion, Throughput};
+use criterion::{Criterion, Throughput};
 use v1::ClientStatus;
 
 #[path = "./lib/client.rs"]

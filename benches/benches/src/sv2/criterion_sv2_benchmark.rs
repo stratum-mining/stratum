@@ -78,4 +78,3 @@ fn main() {
     benchmark_share_submission(&mut criterion);
     criterion.final_summary();
 }
-
