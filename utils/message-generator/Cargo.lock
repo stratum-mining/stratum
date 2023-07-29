@@ -69,6 +69,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "43f6cb1bf222025340178f382c426f13757b2960e89779dfcb319c32542a5a41"
 dependencies = [
  "memchr",
+ ]
+
+[[package]]
+name = "arbitrary"
+version = "1.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e2d098ff73c1ca148721f37baad5ea6a465a13f9573aba8641fbbbae8164a54e"
+dependencies = [
+ "derive_arbitrary",
 ]
 
 [[package]]
@@ -411,6 +420,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "derive_arbitrary"
+version = "1.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "53e0efad4403bfc52dc201159c4b842a246a14b98c64b55dfd0f2d89729dfeb8"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.27",
+]
+
+[[package]]
 name = "derive_codec_sv2"
 version = "0.1.3"
 dependencies = [
@@ -648,6 +668,7 @@ checksum = "2dffe52ecf27772e601905b7522cb4ef790d2cc203488bbd0e2fe85fcb74566d"
 name = "message_generator_sv2"
 version = "0.1.0"
 dependencies = [
+ "arbitrary",
  "async-channel",
  "binary_sv2",
  "codec_sv2",
@@ -1058,7 +1079,7 @@ checksum = "be02f6cb0cd3a5ec20bbcfbcbd749f57daddb1a0882dc2e46a6c236c90b977ed"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 1.0.108",
 ]
 
 [[package]]
@@ -1080,7 +1101,7 @@ checksum = "8725e1dfadb3a50f7e5ce0b1a540466f6ed3fe7a0fca2ac2b8b831d31316bd00"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 1.0.108",
 ]
 
 [[package]]
@@ -1195,6 +1216,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "syn"
+version = "2.0.27"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b60f673f44a8255b9c8c657daf66a596d435f2da81a555b06dc644d080ba45e0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "unicode-ident",
+]
+
+[[package]]
 name = "template_distribution_sv2"
 version = "0.1.5"
 dependencies = [
@@ -1240,7 +1272,7 @@ checksum = "630bdcf245f78637c13ec01ffae6187cca34625e8c63150d424b59e55af2675e"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 1.0.108",
 ]
 
 [[package]]
@@ -1263,7 +1295,7 @@ checksum = "5f4f31f56159e98206da9efd823404b79b6ef3143b4a7ab76e67b1751b25a4ab"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 1.0.108",
 ]
 
 [[package]]
