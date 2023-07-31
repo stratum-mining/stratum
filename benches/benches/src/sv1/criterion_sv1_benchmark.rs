@@ -3,6 +3,7 @@
 
 use async_std::task;
 use criterion::{Criterion, Throughput};
+use std::env;
 use v1::ClientStatus;
 
 #[path = "./lib/client.rs"]
@@ -30,15 +31,15 @@ async fn send_subscribe_benchmark(client: &mut Arc<Mutex<Client<'static>>>) {
 
 async fn send_authorize_benchmark(client: &mut Arc<Mutex<Client<'static>>>) {
     let mut client = client.lock().await;
-    let username = "user";
+    let username = env::var("WALLET_ADDRESS").unwrap_or("user".to_string());
     client
         .send_authorize(username.to_string(), "12345".to_string())
         .await;
 }
 async fn send_submit_benchmark(client: &mut Arc<Mutex<Client<'static>>>) {
     let mut client = client.lock().await;
-    let username = "user";
-    client.send_submit(username).await;
+    let username = env::var("WALLET_ADDRESS").unwrap_or("user".to_string());
+    client.send_submit(username.as_str()).await;
 }
 
 fn benchmark_connection_time(c: &mut Criterion) {
@@ -78,41 +79,25 @@ fn benchmark_subscribe(c: &mut Criterion) {
     });
     group.finish();
 }
+
+async fn share_submit() {
+    let mut client = client_connect().await;
+    send_configure_benchmark(&mut client).await;
+    send_subscribe_benchmark(&mut client).await;
+    task::sleep(Duration::from_millis(1000)).await;
+    send_authorize_benchmark(&mut client).await;
+    send_submit_benchmark(&mut client).await
+}
+
 fn benchmark_share_submit(c: &mut Criterion) {
     const SUBSCRIBE_MESSAGE_SIZE: u64 = 112;
     let mut group = c.benchmark_group("sv1");
     group.throughput(Throughput::Bytes(SUBSCRIBE_MESSAGE_SIZE));
-
-    group.bench_function("share_submission", |b| {
+    group.bench_function("test_submit", |b| {
         b.iter(|| {
-            task::block_on(async {
-                let client_ = Client::new(0, "127.0.0.1:3002".parse().unwrap()).await;
-                for _ in 0..3 {
-                    let mut client = client_.lock().await;
-                    let username = "tb1qcpztf26r85y9jhr5q0y0ghu257qcmf0vn88fy5.Prisca";
-                    match client.status {
-                        ClientStatus::Init => client.send_configure().await,
-                        ClientStatus::Configured => client.send_subscribe().await,
-                        ClientStatus::Subscribed => {
-                            client
-                                .send_authorize(username.to_string(), "12345".to_string())
-                                .await;
-                            task::sleep(Duration::from_millis(1000)).await;
-                            drop(client);
-                            task::sleep(Duration::from_millis(1000)).await;
-                            let mut client = client_.lock().await;
-                            client.send_submit(username).await;
-                            task::sleep(Duration::from_millis(1000)).await;
-                            break;
-                        }
-                    }
-                    drop(client);
-                    task::sleep(Duration::from_millis(1000)).await;
-                }
-            });
-        });
+            task::block_on(share_submit());
+        })
     });
-
     group.finish();
 }
 

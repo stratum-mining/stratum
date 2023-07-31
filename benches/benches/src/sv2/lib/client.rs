@@ -175,7 +175,7 @@ impl Device {
         let cloned = self_mutex.clone();
         let (share_send, share_recv) = async_channel::unbounded();
 
-        let handicap = miner.safe_lock(|m| m.handicap).unwrap();
+        let _handicap = miner.safe_lock(|m| m.handicap).unwrap();
         std::thread::spawn(move || loop {
             //std::thread::sleep(std::time::Duration::from_micros(handicap.into()));
             if miner.safe_lock(|m| m.next_share()).unwrap().is_ok() {
