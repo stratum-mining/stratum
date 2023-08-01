@@ -2,110 +2,129 @@
 //! It measures connection time, send subscription latency and share submission time.
 
 use async_std::task;
-use criterion::{Criterion, Throughput};
+use criterion::{Criterion, Throughput,black_box};
 use std::env;
 use v1::ClientStatus;
+use v1::IsClient;
 
 #[path = "./lib/client.rs"]
 mod client;
 use crate::client::*;
-use async_std::sync::{Arc, Mutex};
+use async_std::sync::{Arc, Mutex,MutexGuard};
 use std::time::Duration;
 
-async fn client_connect() -> Arc<Mutex<Client<'static>>> {
-    let client = Client::new(0, "127.0.0.1:3002".parse().unwrap()).await;
-    task::sleep(Duration::from_millis(200)).await;
-    client
-}
-async fn send_configure_benchmark(client: &mut Arc<Mutex<Client<'static>>>) {
-    let mut client = client.lock().await;
-    client.send_configure().await;
-    client.status = ClientStatus::Configured;
-}
+fn benchmark_get_subscribe(c: &mut Criterion, mut client: Client) {
+    let mut group = c.benchmark_group("client-sv1-get-subscribe");
 
-async fn send_subscribe_benchmark(client: &mut Arc<Mutex<Client<'static>>>) {
-    let mut client = client.lock().await;
-    client.send_subscribe().await;
-    return client.status = ClientStatus::Subscribed;
-}
-
-async fn send_authorize_benchmark(client: &mut Arc<Mutex<Client<'static>>>) {
-    let mut client = client.lock().await;
-    let username = env::var("WALLET_ADDRESS").unwrap_or("user".to_string());
-    client
-        .send_authorize(username.to_string(), "12345".to_string())
-        .await;
-}
-async fn send_submit_benchmark(client: &mut Arc<Mutex<Client<'static>>>) {
-    let mut client = client.lock().await;
-    let username = env::var("WALLET_ADDRESS").unwrap_or("user".to_string());
-    client.send_submit(username.as_str()).await;
-}
-
-fn benchmark_connection_time(c: &mut Criterion) {
-    c.bench_function("connection_time", |b| {
+    group.bench_function("client-sv1-get-subscribe", |b| {
         b.iter(|| {
-            let client = task::block_on(client_connect());
-            drop(client);
+            client.status = ClientStatus::Configured;
+            // TODO add bench also for Some(extranonce)
+            client.subscribe(black_box(10), None).unwrap();
         });
     });
 }
 
-fn benchmark_configure(c: &mut Criterion) {
-    const SUBSCRIBE_MESSAGE_SIZE: u64 = 112;
-    let mut group = c.benchmark_group("sv1");
-    group.throughput(Throughput::Bytes(SUBSCRIBE_MESSAGE_SIZE));
+fn benchmark_subscribe_serialize(c: &mut Criterion, mut client: Client) {
+    let mut group = c.benchmark_group("client-sv1-subscribe-serialize");
 
-    group.bench_function("configure", |b| {
+    group.bench_function("client-sv1-subscribe-serialize", |b| {
         b.iter(|| {
-            let mut client = task::block_on(client_connect());
-            task::block_on(send_configure_benchmark(&mut client));
-            drop(client);
+            client.status = ClientStatus::Configured;
+            // TODO add bench also for Some(extranonce)
+            let mut subscribe = client.subscribe(black_box(10), None).unwrap();
+            Client::serialize_message(black_box(subscribe));
         });
     });
 }
-fn benchmark_subscribe(c: &mut Criterion) {
-    const SUBSCRIBE_MESSAGE_SIZE: u64 = 112;
-    let mut group = c.benchmark_group("sv1");
-    group.throughput(Throughput::Bytes(SUBSCRIBE_MESSAGE_SIZE));
 
-    group.bench_function("subscribe", |b| {
+fn benchmark_subscribe_serialize_deserialize(c: &mut Criterion, mut client: Client) {
+    let mut group = c.benchmark_group("client-sv1-subscribe-serialize-deserialize");
+
+    group.bench_function("client-sv1-subscribe-serialize-deserialize", |b| {
         b.iter(|| {
-            let mut client = task::block_on(client_connect());
-            task::block_on(send_configure_benchmark(&mut client));
-            task::block_on(send_subscribe_benchmark(&mut client));
-            drop(client);
+            client.status = ClientStatus::Configured;
+            let mut subscribe = client.subscribe(black_box(10), None).unwrap();
+            let mut serialized = Client::serialize_message(black_box(subscribe));
+            Client::parse_message(black_box(serialized));
         });
     });
-    group.finish();
 }
 
-async fn share_submit() {
-    let mut client = client_connect().await;
-    send_configure_benchmark(&mut client).await;
-    send_subscribe_benchmark(&mut client).await;
-    task::sleep(Duration::from_millis(1000)).await;
-    send_authorize_benchmark(&mut client).await;
-    send_submit_benchmark(&mut client).await
-}
+fn benchmark_subscribe_serialize_deserialize_handle(c: &mut Criterion, mut client: Client) {
+    let mut group = c.benchmark_group("client-sv1-subscribe-serialize-deserialize-handle");
 
-fn benchmark_share_submit(c: &mut Criterion) {
-    const SUBSCRIBE_MESSAGE_SIZE: u64 = 112;
-    let mut group = c.benchmark_group("sv1");
-    group.throughput(Throughput::Bytes(SUBSCRIBE_MESSAGE_SIZE));
-    group.bench_function("test_submit", |b| {
+    group.bench_function("client-sv1-subscribe-serialize-deserialize-handle", |b| {
         b.iter(|| {
-            task::block_on(share_submit());
-        })
+            client.status = ClientStatus::Configured;
+            let mut subscribe = client.subscribe(black_box(10), None).unwrap();
+            let mut serialized = Client::serialize_message(black_box(subscribe));
+            let deserilized = Client::parse_message(black_box(serialized));
+            client.handle_message(black_box(deserilized));
+        });
     });
-    group.finish();
+}
+
+fn benchmark_get_authorize(c: &mut Criterion, mut client: Client) {
+    let mut group = c.benchmark_group("client-sv1-get-authorize");
+
+    group.bench_function("client-sv1-get-authorize", |b| {
+        b.iter(|| {
+            client.status = ClientStatus::Configured;
+            let authorize = client.authorize(black_box(10),black_box("user".to_string()),black_box("passowrd".to_string())).unwrap();
+        });
+    });
+}
+
+fn benchmark_authorize_serialize(c: &mut Criterion, mut client: Client) {
+    let mut group = c.benchmark_group("client-sv1-authorize-serialize");
+
+    group.bench_function("client-sv1-authorize-serialize", |b| {
+        b.iter(|| {
+            client.status = ClientStatus::Configured;
+            let authorize = client.authorize(black_box(10),black_box("user".to_string()),black_box("passowrd".to_string())).unwrap();
+            let serialized = Client::serialize_message(black_box(authorize));
+        });
+    });
+}
+
+fn benchmark_authorize_serialize_deserialize(c: &mut Criterion, mut client: Client) {
+    let mut group = c.benchmark_group("client-sv1-authorize-serialize-deserialize");
+
+    group.bench_function("client-sv1-authorize-serialize-deserialize", |b| {
+        b.iter(|| {
+            client.status = ClientStatus::Configured;
+            let authorize = client.authorize(black_box(10),black_box("user".to_string()),black_box("passowrd".to_string())).unwrap();
+            let serialized = Client::serialize_message(black_box(authorize));
+            Client::parse_message(black_box(serialized));
+        });
+    });
+}
+
+fn benchmark_authorize_serialize_deserialize_handle(c: &mut Criterion, mut client: Client) {
+    let mut group = c.benchmark_group("client-sv1-authorize-serialize-deserialize-handle");
+
+    group.bench_function("client-sv1-authorize-serialize-deserialize-handle", |b| {
+        b.iter(|| {
+            client.status = ClientStatus::Configured;
+            let authorize = client.authorize(black_box(10),black_box("user".to_string()),black_box("passowrd".to_string())).unwrap();
+            let serialized = Client::serialize_message(black_box(authorize));
+            let deserilized = Client::parse_message(black_box(serialized));
+            client.handle_message(black_box(deserilized));
+        });
+    });
 }
 
 fn main() {
-    let mut criterion = Criterion::default().sample_size(50);
-    benchmark_connection_time(&mut criterion);
-    benchmark_configure(&mut criterion);
-    benchmark_subscribe(&mut criterion);
-    benchmark_share_submit(&mut criterion);
+    let mut criterion = Criterion::default().sample_size(50).measurement_time(std::time::Duration::from_secs(5));
+    let client = Client::new(90);
+    benchmark_get_subscribe(&mut criterion, client.clone());
+    benchmark_subscribe_serialize(&mut criterion, client.clone());
+    benchmark_subscribe_serialize_deserialize(&mut criterion, client.clone());
+    benchmark_subscribe_serialize_deserialize_handle(&mut criterion, client.clone());
+    benchmark_get_authorize(&mut criterion, client.clone());
+    benchmark_authorize_serialize(&mut criterion, client.clone());
+    benchmark_authorize_serialize_deserialize(&mut criterion, client.clone());
+    benchmark_authorize_serialize_deserialize_handle(&mut criterion, client.clone());
     criterion.final_summary();
 }
