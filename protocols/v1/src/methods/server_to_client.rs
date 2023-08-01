@@ -153,7 +153,7 @@ impl<'a> TryFrom<Notification> for Notify<'a> {
 /// may force a new job out when set_difficulty is sent, using clean_jobs to force the miner to
 /// begin using the new difficulty immediately.
 ///
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SetDifficulty {
     pub value: f64,
 }
@@ -196,7 +196,7 @@ impl TryFrom<Notification> for SetDifficulty {
 /// check if it is a Notification or a StandardRequest this implementation assume that it is a
 /// Notification
 ///
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SetExtranonce<'a> {
     pub extra_nonce1: Extranonce<'a>,
     pub extra_nonce2_size: usize,
@@ -327,7 +327,7 @@ impl Authorize {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Submit {
     pub id: u64,
     is_ok: bool,
@@ -358,7 +358,7 @@ impl Submit {
 ///
 ///    ExtraNonce2_size. - The number of bytes that the miner users for its ExtraNonce2 counter.
 ///
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Subscribe<'a> {
     pub id: u64,
     pub extra_nonce1: Extranonce<'a>,

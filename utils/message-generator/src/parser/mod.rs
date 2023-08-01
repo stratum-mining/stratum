@@ -1,6 +1,7 @@
 mod actions;
 mod frames;
 pub mod sv2_messages;
+mod sv1_messages;
 
 use crate::{parser::sv2_messages::ReplaceField, Action, Command, Test};
 use codec_sv2::{buffer_sv2::Slice, Sv2Frame};

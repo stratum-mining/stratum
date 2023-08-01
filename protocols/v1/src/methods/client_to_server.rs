@@ -267,7 +267,7 @@ fn submit_from_to_json_rpc(submit: Submit<'static>) -> bool {
 /// [a]: crate::methods::server_to_client::Notify
 ///
 ///
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Subscribe<'a> {
     pub id: u64,
     pub agent_signature: String,

@@ -2,6 +2,7 @@ use crate::error::{self, Error};
 use binary_sv2::{B032, U256};
 use bitcoin_hashes::hex::{FromHex, ToHex};
 use byteorder::{BigEndian, ByteOrder, LittleEndian, WriteBytesExt};
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::{convert::TryFrom, mem::size_of, ops::BitAnd};
 
@@ -71,6 +72,12 @@ impl BitAnd<u32> for HexU32Be {
     }
 }
 
+impl<'a> From<B032<'a>> for Extranonce<'a> {
+    fn from(b: B032<'a>) -> Self {
+        Extranonce(b)
+    }
+}
+
 /// Big-endian alternative of the HexU32
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct HexU32Be(pub u32);
@@ -107,6 +114,38 @@ impl TryFrom<&str> for HexU32Be {
 impl From<HexU32Be> for String {
     fn from(v: HexU32Be) -> Self {
         v.0.to_be_bytes().to_hex()
+    }
+}
+
+impl From<u32> for HexU32Be {
+    fn from(a: u32) -> Self {
+        HexU32Be(a)
+    }
+}
+
+//Example of serialization for testing purpose
+impl Serialize for HexU32Be {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let serialized_string = self.0.to_be_bytes().to_hex();
+        serializer.serialize_str(&serialized_string)
+    }
+}
+
+//Example of deserialization for testing purpose
+impl<'de> Deserialize<'de> for HexU32Be {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let hex_string: String = Deserialize::deserialize(deserializer)?;
+
+        match u32::from_str_radix(&hex_string, 16) {
+            Ok(value) => Ok(HexU32Be(value)),
+            Err(_) => Err(serde::de::Error::custom("Invalid hex value")),
+        }
     }
 }
 
@@ -202,9 +241,6 @@ impl<'a> AsRef<[u8]> for Extranonce<'a> {
 pub struct MerkleNode<'a>(pub U256<'a>);
 
 impl<'a> MerkleNode<'a> {
-    pub fn len(&self) -> usize {
-        self.0.len()
-    }
     pub fn is_empty(&self) -> bool {
         self.0.inner_as_ref().is_empty()
     }
@@ -214,7 +250,8 @@ impl<'a> TryFrom<Vec<u8>> for MerkleNode<'a> {
     type Error = Error<'a>;
 
     fn try_from(value: Vec<u8>) -> Result<Self, Error<'a>> {
-        Ok(MerkleNode(U256::try_from(value)?))
+        //TODO handle error
+        Ok(MerkleNode(U256::try_from(value).unwrap()))
     }
 }
 
@@ -241,7 +278,8 @@ impl<'a> TryFrom<&str> for MerkleNode<'a> {
     type Error = Error<'a>;
 
     fn try_from(value: &str) -> Result<Self, Error<'a>> {
-        Ok(MerkleNode(U256::try_from(hex_decode(value)?)?))
+        //TODO handle error
+        Ok(MerkleNode(U256::try_from(hex_decode(value)?).unwrap()))
     }
 }
 
@@ -302,6 +340,30 @@ impl TryFrom<&str> for HexBytes {
 impl From<HexBytes> for String {
     fn from(bytes: HexBytes) -> String {
         hex::encode(bytes.0)
+    }
+}
+
+//Example of serialization for testing purpose
+impl Serialize for HexBytes {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let bytes = self.0.as_ref();
+        let serialized_string = String::from_utf8_lossy(bytes);
+        serializer.serialize_str(&serialized_string)
+    }
+}
+
+//Example of deserialization for testing purpose
+impl<'de> Deserialize<'de> for HexBytes {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let hex_string: String = Deserialize::deserialize(deserializer)?;
+        let bytes = hex_string.as_bytes().to_vec();
+        Ok(HexBytes(bytes))
     }
 }
 
