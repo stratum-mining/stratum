@@ -4,13 +4,13 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-async-std = "1.10.0"
+async-std={version = "1.10.0", features = ["attributes"]}
 criterion = "0.5.1"
 # prometheus = "0.13.3"
 async-channel = "1.4.0"
 v1={path="../protocols/v1", package="sv1_api"}
 serde_json = "1.0.70"
-iai="0.1.1"
+iai="0.1"
 roles_logic_sv2 = { path = "../protocols/v2/roles-logic-sv2" }
 serde = { version = "1.0.89", default-features = false, features = ["derive", "alloc"] }
 num-bigint = "0.4.3"
@@ -19,6 +19,7 @@ bitcoin="0.27.1"
 codec_sv2 = { path = "../protocols/v2/codec-sv2", features=["noise_sv2"] }
 binary_sv2 = { path = "../protocols/v2/binary-sv2/binary-sv2" }
 network_helpers = { path = "../utils/network-helpers", features=["async_std"] }
+rand = "0.8.4"
 
 [[bench]]
 name = "criterion_sv1_benchmark"
@@ -35,7 +36,7 @@ name = "criterion_sv2_benchmark"
 path = "benches/src/sv2/criterion_sv2_benchmark.rs"
 harness = false
 
-[[bench]]
-name = "iai_sv2_pool_benchmark"
-path = "benches/src/sv2/iai_sv2_pool_benchmark.rs"
-harness = false
+# [[bench]]
+# name = "iai_sv2_pool_benchmark"
+# path = "benches/src/sv2/iai_sv2_pool_benchmark.rs"
+# harness = false
