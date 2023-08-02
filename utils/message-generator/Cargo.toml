@@ -18,3 +18,5 @@ serde = { version = "*", features = ["derive", "alloc"], default-features = fals
 serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
 tokio = { version = "1", features = ["full"] }
 arbitrary = { version = "1", features = ["derive"] }
+rand = "0.8.5"
+secp256k1 = "0.27.0"

@@ -19,8 +19,13 @@ use roles_logic_sv2::parsers::AnyMessage;
 use v1::json_rpc::StandardRequest;
 use std::net::SocketAddr;
 use arbitrary::Arbitrary;
+use rand::Rng;
+use std::vec::Vec;
+use std::convert::TryInto;
+use secp256k1::{KeyPair, Secp256k1, SecretKey};
 
-#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize, Arbitrary)]
+
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 enum Sv2Type {
     Bool(bool),
     U8(u8),
@@ -36,6 +41,102 @@ enum Sv2Type {
     Pubkey(Vec<u8>),
     Seq0255(Vec<Vec<u8>>),
     Seq064k(Vec<Vec<u8>>),
+}
+
+impl Sv2Type {
+    fn arbitrary(mut self) -> Self  {
+        let mut rng = rand::thread_rng();
+        match self {
+            Sv2Type::Bool(_) => Sv2Type::Bool(rng.gen::<bool>()),
+            Sv2Type::U8(_) => Sv2Type::U8(rng.gen::<u8>()),
+            Sv2Type::U16(_) => Sv2Type::U16(rng.gen::<u16>()),
+            Sv2Type::U24(_) => {
+                //let length: u8 = rng.gen::<u8>() % 3;
+                let length: u8 = 3;
+                crate::Sv2Type::U24((0..length).map(|_| rng.gen::<u8>()).collect())
+            },
+            Sv2Type::U32(_) => Sv2Type::U32(rng.gen::<u32>()),
+            Sv2Type::U256(_) => {
+                let length: u8 = 32;
+                //let length: u8 = rng.gen::<u8>() % max_len_in_bytes;
+                Sv2Type::U256((0..length).map(|_| rng.gen::<u8>()).collect())
+            },
+            Sv2Type::Str0255(_) => todo!(),
+            Sv2Type::B0255(_) => {
+                let length: u8 = rng.gen::<u8>();
+                let mut vector_suffix = vec![0; length.try_into().unwrap()];
+                let mut vector_suffix: Vec<u8> = vector_suffix.into_iter().map(|_| rng.gen::<u8>()).collect(); 
+                let mut vector = vec![length];
+                vector.append(&mut vector_suffix);
+                Sv2Type::B0255(vector)
+            },
+            Sv2Type::B064K(_) => {
+                let length: u16 = rng.gen::<u16>();
+                let mut vector_suffix = vec![0; length.try_into().unwrap()];
+                let mut vector_suffix: Vec<u8> = vector_suffix.into_iter().map(|_| rng.gen::<u8>()).collect(); 
+                let mut vector: Vec<u8> = length.to_le_bytes().into();
+                vector.append(&mut vector_suffix);
+                Sv2Type::B064K(vector)
+            },
+            Sv2Type::B016m(_) => {
+                let mut vector: Vec<u8> = match Sv2Type::U24(vec![1]).arbitrary() {
+                    Self::U24(vector) => vector,
+                    _ => panic!(),
+                }; 
+                // why do I have to use 8 bytes instead of 4?
+                let mut length_8_bytes = vector.clone();
+                for i in 0..5 {
+                    length_8_bytes.push(0);
+                }
+                let length_8_bytes_array: [u8; 8] = length_8_bytes.clone().try_into().unwrap(); 
+                let length = u64::from_le_bytes(length_8_bytes_array);
+                let mut vector_suffix = Vec::new();
+                for i in 0..length {
+                    vector_suffix.push(0);
+                }
+                let mut vector_suffix: Vec<u8> = vector_suffix.into_iter().map(|_| rng.gen::<u8>()).collect(); 
+                vector.append(&mut vector_suffix);
+                Sv2Type::B016m(vector)
+            },
+            Sv2Type::B032(_) => {
+                let length: u8 = rng.gen::<u8>();
+                let mut vector_suffix = vec![0; length.try_into().unwrap()];
+                let mut vector_suffix = (0..length).map(|_| rng.gen::<u8>()).collect();
+                let mut vector: Vec<u8> = length.to_le_bytes().into();
+                vector.append(&mut vector_suffix);
+                Sv2Type::B032(vec![vector])
+                
+            },
+            Sv2Type::Pubkey(_) => {
+                let mut vector: Vec<u8> = (0..32).map(|_| rng.gen::<u8>()).collect();
+                let secret_key = SecretKey::from_slice(&vector[..]).unwrap();
+                let secp = Secp256k1::new();
+                let pubkey_as_vec = secret_key.public_key(&secp).serialize().to_vec();
+                Sv2Type::Pubkey(pubkey_as_vec)
+
+            },
+            Sv2Type::Seq0255(_) => {
+                // we assume the type T to be at most 128bits
+                let number_of_elements_of_type_t: u8 = rng.gen::<u8>();
+                let mut vector_suffix = vec![0; number_of_elements_of_type_t.try_into().unwrap()];
+                let mut vector_suffix: Vec<u128> = (0..number_of_elements_of_type_t).map(|_| rng.gen::<u128>()).collect();
+                let mut vector_suffix: Vec<Vec<u8>> = vector_suffix.iter().map(|s| s.to_le_bytes().to_vec()).collect();
+                let mut vector: Vec<Vec<u8>> = vec![number_of_elements_of_type_t.to_le_bytes().into()];
+                vector.append(&mut vector_suffix);
+                Sv2Type::Seq0255(vector)
+            },
+            Sv2Type::Seq064k(_) => {
+                let number_of_elements_of_type_t: u16 = rng.gen::<u16>();
+                let mut vector_suffix = vec![0; number_of_elements_of_type_t.try_into().unwrap()];
+                let mut vector_suffix: Vec<u128> = (0..number_of_elements_of_type_t).map(|_| rng.gen::<u128>()).collect();
+                let mut vector_suffix: Vec<Vec<u8>> = vector_suffix.iter().map(|s| s.to_le_bytes().to_vec()).collect();
+                let mut vector: Vec<Vec<u8>> = vec![number_of_elements_of_type_t.to_le_bytes().into()];
+                vector.append(&mut vector_suffix);
+                Sv2Type::Seq0255(vector)
+            },
+        }
+        
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
