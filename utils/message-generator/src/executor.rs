@@ -164,11 +164,17 @@ impl Executor {
                 let arbitrary_fields: Vec<ReplaceField> = replace_fields.clone().into_iter().filter(|s| s.keyword == "ARBITRARY").collect();
                 let replace_fields: Vec<ReplaceField> = replace_fields.clone().into_iter().filter(|s| s.keyword != "ARBITRARY").collect();    
                 
-                if arbitrary_fields.len() > 0 {
-                        println!("QUI FACCIO QUALCOSA");
+                let message = if arbitrary_fields.len() > 0 {
+                    let message = change_fields_with_arbitrary_value(message, arbitrary_fields);
+                    println!("QUI FACCIO QUALCOSA");
+                    message
+                } else {
+                    message
                 };
-                if replace_fields.len() > 0 {
-                    let message = change_fields(message.clone(), replace_fields, self.save.clone());
+                let message = if replace_fields.len() > 0 {
+                    change_fields(message.clone(), replace_fields, self.save.clone())
+                } else {
+                    message
                 };
                 let frame = EitherFrame::Sv2(message.clone().try_into().unwrap());
                 println!("SEND {:#?}", message);
@@ -883,6 +889,42 @@ fn change_value_of_serde_field<T: Serialize>(
     serde_json::to_string(&message_as_serde_value).unwrap()
 }
 
+
+fn change_fields_with_arbitrary_value<'a>(
+    m: AnyMessage<'a>,
+    mut arbitrary_fields: Vec<ReplaceField>,
+) -> AnyMessage<'a> {
+    let m_ = m.clone();
+    let next = arbitrary_fields
+        .pop()
+        .expect("replace_fields cannot be empty");
+    let field_name = next.field_name;
+    let m = if let parsers::PoolMessages::Mining(message) = m.clone() {
+        println!("BBBB");
+        let mut message_as_serde_value = serde_json::to_value(&message)
+            .unwrap()
+            .as_object()
+            .unwrap()
+            .values()
+            .next()
+            .unwrap()
+            .clone();
+        let message_as_string = serde_json::to_string(&message_as_serde_value).unwrap();
+        let message: AnyMessage<'_> = serde_json::from_str(&message_as_string).unwrap();
+        into_static(message)
+    } else {
+        todo!()
+    };
+    //let m: AnyMessage<'_> = match m.clone() {
+    //    parsers::PoolMessages::Common(${0:_}) => todo!(),
+    //    parsers::PoolMessages::Mining(_) => todo!(),
+    //    parsers::PoolMessages::JobDeclaration(_) => todo!(),
+    //    parsers::PoolMessages::TemplateDistribution(_) => todo!(),
+    //};
+
+    println!("AAAAA");
+    m
+}
 fn save_message_field(
     mess: serde_json::Value,
     mut save: HashMap<String, serde_json::Value>,
