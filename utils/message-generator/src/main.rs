@@ -15,6 +15,7 @@ use codec_sv2::{
 };
 use external_commands::*;
 use roles_logic_sv2::parsers::AnyMessage;
+use v1::json_rpc::StandardRequest;
 use std::net::SocketAddr;
 
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
@@ -52,6 +53,21 @@ enum ActionResult {
     },
     MatchMessageLen(usize),
     MatchExtensionType(u16),
+    CloseConnection,
+    None,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
+enum Sv1ActionResult {
+    MatchMessageType(String),
+    MatchMessageField{
+        message_type: String,
+        fields: Vec<(String, serde_json::Value)>
+    },
+    GetMessageField {
+        message_type: String,
+        fields: Vec<SaveField>
+    },
     CloseConnection,
     None,
 }
@@ -115,6 +131,8 @@ struct Downstream {
     key: Option<EncodedEd25519PublicKey>,
 }
 
+
+//TODO: change name to Sv2Action
 #[derive(Debug)]
 pub struct Action<'a> {
     messages: Vec<(
@@ -126,6 +144,16 @@ pub struct Action<'a> {
     role: Role,
     actiondoc: Option<String>,
 }
+#[derive(Debug)]
+pub struct Sv1Action {
+    messages: Vec<(
+        StandardRequest,
+        Vec<ReplaceField>,
+    )>,
+    result: Vec<Sv1ActionResult>,
+    actiondoc: Option<String>,
+}
+
 
 /// Represents a shell command to be executed on setup, after a connection is opened, or on
 /// cleanup.
@@ -141,7 +169,8 @@ pub struct Command {
 #[derive(Debug)]
 pub struct Test<'a> {
     version: TestVersion,
-    actions: Vec<Action<'a>>,
+    actions: Option<Vec<Action<'a>>>,
+    sv1_actions: Option<Vec<Sv1Action>>,
     /// Some if role is upstream or proxy.
     as_upstream: Option<Upstream>,
     /// Some if role is downstream or proxy.
@@ -180,10 +209,8 @@ async fn main() {
 
 #[cfg(test)]
 mod test {
-    use codec_sv2::Frame;
-    use crate::net::setup_as_downstream;
-    use crate::net::setup_as_upstream;
-    use codec_sv2::Sv2Frame;
+    use codec_sv2::{Frame, Sv2Frame};
+    use crate::net::{setup_as_downstream, setup_as_upstream};
     use super::*;
     use crate::into_static::into_static;
     use roles_logic_sv2::{

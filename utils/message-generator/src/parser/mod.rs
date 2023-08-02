@@ -3,7 +3,7 @@ mod frames;
 pub mod sv2_messages;
 pub mod sv1_messages;
 
-use crate::{parser::sv2_messages::ReplaceField, Action, Command, Test, TestVersion};
+use crate::{parser::sv2_messages::ReplaceField, Action, Command, Test, TestVersion, Sv1Action};
 use codec_sv2::{buffer_sv2::Slice, Sv2Frame};
 use frames::Frames;
 use roles_logic_sv2::parsers::AnyMessage;
@@ -18,6 +18,12 @@ use self::sv1_messages::Sv1TestMessageParser;
 pub enum MessageMap<'a> {
     V1MessageMap(HashMap<String, (StandardRequest, Vec<ReplaceField>)>),
     V2MessageMap(HashMap<String, (AnyMessage<'a>, Vec<ReplaceField>)>),
+}
+
+#[derive(Debug)]
+pub enum ActionVec<'a> {
+    Sv1Action(Vec<Sv1Action>),
+    Sv2Action(Vec<Action<'a>>)
 }
 
 
@@ -41,7 +47,7 @@ pub enum Parser<'a> {
         version: TestVersion,
         messages: MessageMap<'a>,
         frames: Option<HashMap<String, Sv2Frame<AnyMessage<'a>, Slice>>>,
-        actions: Vec<Action<'a>>,
+        actions: ActionVec<'a>
     },
     /// Prepare for execution.
     Step4(Test<'a>),
@@ -95,15 +101,22 @@ impl<'a> Parser<'a> {
             }
             Self::Step2 { version, messages, frames } => {
                 match messages {
-                    MessageMap::V1MessageMap(_) => todo!(),
+                    MessageMap::V1MessageMap(m) => {
+                        let actions = actions::Sv1ActionParser::from_step_2(test, m.clone());
+                        Self::Step3 { 
+                            version, 
+                            messages: MessageMap::V1MessageMap(m), 
+                            frames: None, 
+                            actions: ActionVec::Sv1Action(actions)
+                        }
+                    },
                     MessageMap::V2MessageMap(m) => {
-                        let actions =
-                        actions::ActionParser::from_step_2(test, frames.clone().unwrap(), m.clone());
+                        let actions = actions::Sv2ActionParser::from_step_2(test, frames.clone().unwrap(), m.clone());
                         Self::Step3 {
                             version,
                             messages: MessageMap::V2MessageMap(m),
                             frames,
-                            actions,
+                            actions: ActionVec::Sv2Action(actions),
                         }
                     }
                 }
@@ -216,15 +229,29 @@ impl<'a> Parser<'a> {
                     role @ _ => panic!("Unknown role: {}", role),
                 };
 
-                let test = Test {
-                    version,
-                    actions,
-                    as_upstream,
-                    as_dowstream,
-                    setup_commmands,
-                    execution_commands,
-                    cleanup_commmands,
+                let test = match actions {
+                    ActionVec::Sv1Action(a) => Test {
+                        version,
+                        actions: None,
+                        sv1_actions: Some(a),
+                        as_upstream,
+                        as_dowstream,
+                        setup_commmands,
+                        execution_commands,
+                        cleanup_commmands,
+                    },
+                    ActionVec::Sv2Action(a) => Test {
+                        version,
+                        actions: Some(a),
+                        sv1_actions: None,
+                        as_upstream,
+                        as_dowstream,
+                        setup_commmands,
+                        execution_commands,
+                        cleanup_commmands,
+                    },
                 };
+
                 Self::Step4(test)
             }
             Parser::Step4(test) => Parser::Step4(test),
@@ -234,8 +261,13 @@ impl<'a> Parser<'a> {
 
 #[cfg(test)]
 mod test {
+    use std::hash::Hash;
+
+    use crate::Sv1ActionResult;
+
     use super::*;
     use binary_sv2::*;
+    use serde_json::json;
 
     #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
     struct TestStruct<'decoder> {
@@ -263,7 +295,7 @@ mod test {
         let step4 = step3.next_step(&test);
         match step4 {
             Parser::Step4(test) => {
-                assert!(test.actions.len() == 2);
+                assert!(test.actions.unwrap().len() == 2);
                 assert_eq!(test.version, TestVersion::V2);
             }
             _ => unreachable!(),
@@ -296,5 +328,103 @@ mod test {
                     vec![3, 4].try_into().unwrap(),
                 ]
         );
+    }
+
+    #[test]
+    fn it_parse_sv1_messages(){
+        let test_json = r#"
+        {
+            "version": "1",
+            "sv1_messages": [
+                {
+                    "message": {
+                        "id": 1,
+                        "method": "mining.subscribe",
+                        "params": ["cpuminer/1.0.0"]
+                    },
+                    "id": "mining.subscribe"
+                },
+                {
+                    "message": {
+                        "id": 2,
+                        "method": "mining.authorize",
+                        "params": ["username", "password"]
+                    },
+                    "id": "mining.authorize"
+                }
+            ]
+        }
+        "#;
+        let step1 = Parser::initialize(test_json);
+        let step2 = step1.next_step(test_json);
+
+        let message1 = StandardRequest{id: 1, method: "mining.subscribe".to_string(), params: json!(["cpuminer/1.0.0".to_string()])};
+        let message2 = StandardRequest{id: 2, method: "mining.authorize".to_string(), params: json!(["username".to_string(), "password".to_string()])};
+
+        match step2{
+            Parser::Step2 { version, messages, frames: _ } => {
+                assert_eq!(version, TestVersion::V1);
+                match messages {
+                    MessageMap::V1MessageMap(m) => {
+                        assert_eq!(m.get("mining.subscribe").unwrap().0, message1);
+                        assert_eq!(m.get("mining.authorize").unwrap().0, message2);
+                    }
+                    MessageMap::V2MessageMap(_) => unreachable!(),
+                }
+            },
+            _ => unreachable!()
+        }
+    }
+
+    #[test]
+    fn it_parse_sv1_actions(){
+        let test_json = r#"
+        {
+            "version": "1",
+            "sv1_messages": [
+                {
+                    "message": {
+                        "id": 1,
+                        "method": "mining.subscribe",
+                        "params": ["cpuminer/1.0.0"]
+                    },
+                    "id": "mining.subscribe"
+                }
+            ],
+            "actions": [
+                {
+                    "message_ids": ["mining.subscribe"],
+                    "results": [
+                        {
+                            "type": "match_message_type",
+                            "value": "mining.subscribe"
+                        }
+                    ],
+                    "actiondoc": ""
+                }
+            ]
+        }
+        "#;
+
+        let message = StandardRequest{id: 1, method: "mining.subscribe".to_string(), params: json!(["cpuminer/1.0.0".to_string()])};
+        let result = Sv1ActionResult::MatchMessageType("mining.subscribe".to_string());
+        let step1 = Parser::initialize(test_json);
+        let step2 = step1.next_step(test_json);
+        let step3 = step2.next_step(test_json);
+        
+        match step3 {
+            Parser::Step3 { version, messages: _, frames, actions } => {
+                assert_eq!(version, TestVersion::V1);
+                assert!(frames.is_none());
+                match actions {
+                    ActionVec::Sv1Action(a) => {
+                        assert_eq!(a.get(0).unwrap().messages.get(0).unwrap().0, message);
+                        assert_eq!(a.get(0).unwrap().result.get(0).unwrap(), &result);
+                    },
+                    _ => unreachable!()
+                }
+            }
+            _ => unreachable!(),
+        }
     }
 }

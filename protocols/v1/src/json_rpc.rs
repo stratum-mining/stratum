@@ -29,7 +29,7 @@ impl Message {
     //}
 }
 
-#[derive(Clone, Serialize, Deserialize, Debug)]
+#[derive(Clone, Serialize, Deserialize, Debug, PartialEq, Eq)]
 pub struct StandardRequest {
     pub id: u64,
     pub method: String,
