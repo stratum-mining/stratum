@@ -12,6 +12,7 @@ v1={path="../protocols/v1", package="sv1_api"}
 serde_json = "1.0.70"
 iai="0.1"
 roles_logic_sv2 = { path = "../protocols/v2/roles-logic-sv2" }
+framing_sv2 = { version = "0.1", path = "../protocols/v2/framing-sv2" }
 serde = { version = "1.0.89", default-features = false, features = ["derive", "alloc"] }
 num-bigint = "0.4.3"
 num-traits = "0.2.15"

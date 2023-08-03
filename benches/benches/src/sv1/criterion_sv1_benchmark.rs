@@ -1,17 +1,15 @@
 //! This code uses `criterion` crate to benchmark the performance sv1.
 //! It measures connection time, send subscription latency and share submission time.
 
-use async_std::task;
-use criterion::{Criterion, Throughput,black_box};
-use std::env;
+use criterion::{Criterion, black_box};
 use v1::ClientStatus;
 use v1::IsClient;
 
 #[path = "./lib/client.rs"]
 mod client;
 use crate::client::*;
-use async_std::sync::{Arc, Mutex,MutexGuard};
-use std::time::Duration;
+use crate::client::extranonce_from_hex;
+
 
 fn benchmark_get_subscribe(c: &mut Criterion, mut client: Client) {
     let mut group = c.benchmark_group("client-sv1-get-subscribe");
@@ -19,7 +17,7 @@ fn benchmark_get_subscribe(c: &mut Criterion, mut client: Client) {
     group.bench_function("client-sv1-get-subscribe", |b| {
         b.iter(|| {
             client.status = ClientStatus::Configured;
-            // TODO add bench also for Some(extranonce)
+            let extranonce = Some(extranonce_from_hex("0000"));
             client.subscribe(black_box(10), None).unwrap();
         });
     });
@@ -32,7 +30,8 @@ fn benchmark_subscribe_serialize(c: &mut Criterion, mut client: Client) {
         b.iter(|| {
             client.status = ClientStatus::Configured;
             // TODO add bench also for Some(extranonce)
-            let mut subscribe = client.subscribe(black_box(10), None).unwrap();
+            let extranonce = Some(extranonce_from_hex("0000"));
+            let subscribe = client.subscribe(black_box(10), None).unwrap();
             Client::serialize_message(black_box(subscribe));
         });
     });
@@ -44,8 +43,8 @@ fn benchmark_subscribe_serialize_deserialize(c: &mut Criterion, mut client: Clie
     group.bench_function("client-sv1-subscribe-serialize-deserialize", |b| {
         b.iter(|| {
             client.status = ClientStatus::Configured;
-            let mut subscribe = client.subscribe(black_box(10), None).unwrap();
-            let mut serialized = Client::serialize_message(black_box(subscribe));
+            let subscribe = client.subscribe(black_box(10), None).unwrap();
+            let serialized = Client::serialize_message(black_box(subscribe));
             Client::parse_message(black_box(serialized));
         });
     });
@@ -57,8 +56,8 @@ fn benchmark_subscribe_serialize_deserialize_handle(c: &mut Criterion, mut clien
     group.bench_function("client-sv1-subscribe-serialize-deserialize-handle", |b| {
         b.iter(|| {
             client.status = ClientStatus::Configured;
-            let mut subscribe = client.subscribe(black_box(10), None).unwrap();
-            let mut serialized = Client::serialize_message(black_box(subscribe));
+            let subscribe = client.subscribe(black_box(10), None).unwrap();
+            let serialized = Client::serialize_message(black_box(subscribe));
             let deserilized = Client::parse_message(black_box(serialized));
             client.handle_message(black_box(deserilized));
         });
@@ -71,7 +70,7 @@ fn benchmark_get_authorize(c: &mut Criterion, mut client: Client) {
     group.bench_function("client-sv1-get-authorize", |b| {
         b.iter(|| {
             client.status = ClientStatus::Configured;
-            let authorize = client.authorize(black_box(10),black_box("user".to_string()),black_box("passowrd".to_string())).unwrap();
+            client.authorize(black_box(10),black_box("user".to_string()),black_box("passowrd".to_string())).unwrap();
         });
     });
 }
@@ -83,7 +82,7 @@ fn benchmark_authorize_serialize(c: &mut Criterion, mut client: Client) {
         b.iter(|| {
             client.status = ClientStatus::Configured;
             let authorize = client.authorize(black_box(10),black_box("user".to_string()),black_box("passowrd".to_string())).unwrap();
-            let serialized = Client::serialize_message(black_box(authorize));
+            Client::serialize_message(black_box(authorize));
         });
     });
 }
@@ -115,6 +114,53 @@ fn benchmark_authorize_serialize_deserialize_handle(c: &mut Criterion, mut clien
     });
 }
 
+fn benchmark_get_submit(c: &mut Criterion, mut client: Client) {
+let mut group = c.benchmark_group("client-sv1-get-submit");
+
+        group.bench_function("client-sv1-get-submit", |b| {
+        b.iter(|| {
+        client.status = ClientStatus::Subscribed;
+         client.submit(0, "user".to_string(), extranonce_from_hex("00"), 78, 78, None).unwrap();
+});
+});
+}
+
+fn benchmark_submit_serialize(c: &mut Criterion, mut client: Client) {
+let mut group = c.benchmark_group("client-submit-serialize");
+group.bench_function("client-submit-serialize", |b| {
+b.iter(|| {
+    client.status = ClientStatus::Subscribed;
+    let submit = client.submit(0, "user".to_string(), extranonce_from_hex("00"), 78, 78, None).unwrap();
+    Client::serialize_message(black_box(submit));
+});
+});
+}
+
+fn benchmark_submit_serialize_deserialize(c: &mut Criterion, mut client: Client) {
+    let mut group = c.benchmark_group("client-submit-serialize-deserialize");
+    group.bench_function("client-submit-serialize-deserialize", |b| {
+    b.iter(|| {
+        client.status = ClientStatus::Subscribed;
+        let submit = client.submit(0, "user".to_string(), extranonce_from_hex("00"), 78, 78, None).unwrap();
+        let serialized = Client::serialize_message(black_box(submit));
+        Client::parse_message(black_box(serialized));
+    });
+    });
+    }
+
+    fn benchmark_submit_serialize_deserialize_handle(c: &mut Criterion, mut client: Client) {
+        let mut group = c.benchmark_group("client-submit-serialize-deserialize-handle");
+        group.bench_function("client-submit-serialize-deserialize-handle", |b| {
+        b.iter(|| {
+            client.status = ClientStatus::Subscribed;
+            let submit = client.submit(0, "user".to_string(), extranonce_from_hex("00"), 78, 78, None).unwrap();
+            let serialized = Client::serialize_message(black_box(submit));
+            let deserialized = Client::parse_message(serialized);
+            client.handle_message(black_box(deserialized));
+        });
+        });
+        }
+
 fn main() {
     let mut criterion = Criterion::default().sample_size(50).measurement_time(std::time::Duration::from_secs(5));
     let client = Client::new(90);
@@ -126,5 +172,9 @@ fn main() {
     benchmark_authorize_serialize(&mut criterion, client.clone());
     benchmark_authorize_serialize_deserialize(&mut criterion, client.clone());
     benchmark_authorize_serialize_deserialize_handle(&mut criterion, client.clone());
+    benchmark_get_submit(&mut criterion, client.clone());
+    benchmark_submit_serialize(&mut criterion, client.clone());
+    benchmark_submit_serialize_deserialize(&mut criterion, client.clone());
+    benchmark_submit_serialize_deserialize_handle(&mut criterion, client.clone());
     criterion.final_summary();
 }

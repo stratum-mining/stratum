@@ -27,7 +27,7 @@ pub type Message = MiningDeviceMessages<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;
 pub type EitherFrame = StandardEitherFrame<Message>;
 
-struct SetupConnectionHandler {}
+pub struct SetupConnectionHandler {}
 use std::convert::TryInto;
 
 impl SetupConnectionHandler {
@@ -107,18 +107,18 @@ impl ParseUpstreamCommonMessages<NoRouting> for SetupConnectionHandler {
 #[derive(Debug)]
 pub struct Device {
     #[allow(dead_code)]
-    receiver: Receiver<EitherFrame>,
-    sender: Sender<EitherFrame>,
+    pub receiver: Receiver<EitherFrame>,
+    pub sender: Sender<EitherFrame>,
     #[allow(dead_code)]
-    channel_opened: bool,
-    channel_id: Option<u32>,
-    miner: Arc<Mutex<Miner>>,
-    jobs: Vec<NewMiningJob<'static>>,
-    prev_hash: Option<SetNewPrevHash<'static>>,
-    sequence_numbers: Id,
+    pub channel_opened: bool,
+    pub channel_id: Option<u32>,
+    pub miner: Arc<Mutex<Miner>>,
+    pub jobs: Vec<NewMiningJob<'static>>,
+    pub prev_hash: Option<SetNewPrevHash<'static>>,
+    pub sequence_numbers: Id,
 }
 
-fn open_channel() -> OpenStandardMiningChannel<'static> {
+pub fn open_channel() -> OpenStandardMiningChannel<'static> {
     let user_identity = "ABC".to_string().try_into().unwrap();
     let id: u32 = 10;
     println!("MINING DEVICE: send open channel with request id {}", id);
@@ -200,7 +200,7 @@ impl Device {
             let recv = share_recv.clone();
             for _ in 0..1 {
                 let (nonce, job_id, version, ntime) = recv.recv().await.unwrap();
-                Self::send_share(cloned.clone(), nonce, job_id, version, ntime).await;
+                Self::send_share(cloned.clone(), nonce, job_id, version, ntime);
             }
         });
 
@@ -229,7 +229,7 @@ impl Device {
         drop(sender);
     }
 
-    async fn send_share(
+    pub fn send_share(
         self_mutex: Arc<Mutex<Self>>,
         nonce: u32,
         job_id: u32,
@@ -247,7 +247,7 @@ impl Device {
             }));
         let frame: StdFrame = share.try_into().unwrap();
         let sender = self_mutex.safe_lock(|s| s.sender.clone()).unwrap();
-        sender.send(frame.into()).await.unwrap();
+        sender.send(frame.into());
     }
 }
 
@@ -434,7 +434,7 @@ impl ParseUpstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> fo
 }
 
 #[derive(Debug)]
-struct Miner {
+pub struct Miner {
     header: Option<BlockHeader>,
     target: Option<Uint256>,
     job_id: Option<u32>,
@@ -443,7 +443,7 @@ struct Miner {
 }
 
 impl Miner {
-    fn new(handicap: u32) -> Self {
+    pub fn new(handicap: u32) -> Self {
         Self {
             target: None,
             header: None,
