@@ -18,7 +18,7 @@ fn benchmark_get_subscribe(c: &mut Criterion, mut client: Client) {
         b.iter(|| {
             client.status = ClientStatus::Configured;
             let extranonce = Some(extranonce_from_hex("0000"));
-            client.subscribe(black_box(10), None).unwrap();
+            client.subscribe(black_box(10), extranonce).unwrap();
         });
     });
 }
@@ -31,7 +31,7 @@ fn benchmark_subscribe_serialize(c: &mut Criterion, mut client: Client) {
             client.status = ClientStatus::Configured;
             // TODO add bench also for Some(extranonce)
             let extranonce = Some(extranonce_from_hex("0000"));
-            let subscribe = client.subscribe(black_box(10), None).unwrap();
+            let subscribe = client.subscribe(black_box(10), extranonce).unwrap();
             Client::serialize_message(black_box(subscribe));
         });
     });

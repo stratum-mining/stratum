@@ -2,20 +2,6 @@
 //! It includes methods for initializing the client, parsing messages, and sending various types of messages.
 //! It also provides a trait implementation for handling server messages and managing client state.
 
-use async_channel::{bounded, Receiver, Sender};
-use async_std::{
-    io::BufReader,
-    net::TcpStream,
-    prelude::*,
-    sync::{Arc, Mutex},
-    task,
-};
-use std::{
-    net::SocketAddr,
-    time,
-    time::{Duration, Instant},
-};
-use time::SystemTime;
 use v1::{
     client_to_server,
     error::Error,
@@ -62,7 +48,7 @@ impl Client {
             match serde_json::from_str::<json_rpc::Message>(&incoming_message) {
                 Ok(message) => message,
                 // no need to handle errors in benchmarks
-                Err(err) => panic!(),
+                Err(_err) => panic!(),
             }
     }
 
@@ -72,7 +58,7 @@ impl Client {
         match json_msg {
             Ok(json_str) => json_str,
             // no need to handle errors in benchmarks
-            Err(err) => panic!(),
+            Err(_err) => panic!(),
         }
     }
 
@@ -207,12 +193,12 @@ impl IsClient<'static> for Client {
 
     fn handle_error_message(
         &mut self,
-        message: v1::Message,
+        _message: v1::Message,
     ) -> Result<Option<json_rpc::Message>, Error<'static>> {
         Ok(None)
     }
 }
-fn extranonce_from_hex(hex: &str) -> Extranonce<'static> {
+pub fn extranonce_from_hex(hex: &str) -> Extranonce<'static> {
     let data = utils::decode_hex(hex).unwrap();
     Extranonce::try_from(data).expect("Failed to convert hex to U256")
 }

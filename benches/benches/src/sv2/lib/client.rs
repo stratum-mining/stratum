@@ -30,55 +30,55 @@ pub type EitherFrame = StandardEitherFrame<Message>;
 pub struct SetupConnectionHandler {}
 use std::convert::TryInto;
 
-impl SetupConnectionHandler {
-    pub fn new() -> Self {
-        SetupConnectionHandler {}
-    }
-    fn get_setup_connection_message(address: SocketAddr) -> SetupConnection<'static> {
-        let endpoint_host = address.ip().to_string().into_bytes().try_into().unwrap();
-        let vendor = String::new().try_into().unwrap();
-        let hardware_version = String::new().try_into().unwrap();
-        let firmware = String::new().try_into().unwrap();
-        let device_id = String::new().try_into().unwrap();
-        SetupConnection {
-            protocol: Protocol::MiningProtocol,
-            min_version: 2,
-            max_version: 2,
-            flags: 0b0000_0000_0000_0000_0000_0000_0000_0001,
-            endpoint_host,
-            endpoint_port: address.port(),
-            vendor,
-            hardware_version,
-            firmware,
-            device_id,
-        }
-    }
-    pub async fn setup(
-        self_: Arc<Mutex<Self>>,
-        receiver: &mut Receiver<EitherFrame>,
-        sender: &mut Sender<EitherFrame>,
-        address: SocketAddr,
-    ) {
-        let setup_connection = Self::get_setup_connection_message(address);
+// impl SetupConnectionHandler {
+//     pub fn new() -> Self {
+//         SetupConnectionHandler {}
+//     }
+//     fn get_setup_connection_message(address: SocketAddr) -> SetupConnection<'static> {
+//         let endpoint_host = address.ip().to_string().into_bytes().try_into().unwrap();
+//         let vendor = String::new().try_into().unwrap();
+//         let hardware_version = String::new().try_into().unwrap();
+//         let firmware = String::new().try_into().unwrap();
+//         let device_id = String::new().try_into().unwrap();
+//         SetupConnection {
+//             protocol: Protocol::MiningProtocol,
+//             min_version: 2,
+//             max_version: 2,
+//             flags: 0b0000_0000_0000_0000_0000_0000_0000_0001,
+//             endpoint_host,
+//             endpoint_port: address.port(),
+//             vendor,
+//             hardware_version,
+//             firmware,
+//             device_id,
+//         }
+//     }
+//     pub async fn setup(
+//         self_: Arc<Mutex<Self>>,
+//         receiver: &mut Receiver<EitherFrame>,
+//         sender: &mut Sender<EitherFrame>,
+//         address: SocketAddr,
+//     ) {
+//         let setup_connection = Self::get_setup_connection_message(address);
 
-        let sv2_frame: StdFrame = MiningDeviceMessages::Common(setup_connection.into())
-            .try_into()
-            .unwrap();
-        let sv2_frame = sv2_frame.into();
-        sender.send(sv2_frame).await.unwrap();
+//         let sv2_frame: StdFrame = MiningDeviceMessages::Common(setup_connection.into())
+//             .try_into()
+//             .unwrap();
+//         let sv2_frame = sv2_frame.into();
+//         sender.send(sv2_frame).await.unwrap();
 
-        let mut incoming: StdFrame = receiver.recv().await.unwrap().try_into().unwrap();
-        let message_type = incoming.get_header().unwrap().msg_type();
-        let payload = incoming.payload();
-        ParseUpstreamCommonMessages::handle_message_common(
-            self_,
-            message_type,
-            payload,
-            CommonRoutingLogic::None,
-        )
-        .unwrap();
-    }
-}
+//         let mut incoming: StdFrame = receiver.recv().await.unwrap().try_into().unwrap();
+//         let message_type = incoming.get_header().unwrap().msg_type();
+//         let payload = incoming.payload();
+//         ParseUpstreamCommonMessages::handle_message_common(
+//             self_,
+//             message_type,
+//             payload,
+//             CommonRoutingLogic::None,
+//         )
+//         .unwrap();
+//     }
+// }
 
 impl ParseUpstreamCommonMessages<NoRouting> for SetupConnectionHandler {
     fn handle_setup_connection_success(
@@ -131,103 +131,103 @@ pub fn open_channel() -> OpenStandardMiningChannel<'static> {
 }
 
 impl Device {
-    pub async fn connect(
-        addr: SocketAddr,
-        mut receiver: Receiver<EitherFrame>,
-        mut sender: Sender<EitherFrame>,
-    ) {
-        let setup_connection_handler = Arc::new(Mutex::new(SetupConnectionHandler::new()));
-        SetupConnectionHandler::setup(setup_connection_handler, &mut receiver, &mut sender, addr)
-            .await;
-    }
+    // pub async fn connect(
+    //     addr: SocketAddr,
+    //     mut receiver: Receiver<EitherFrame>,
+    //     mut sender: Sender<EitherFrame>,
+    // ) {
+    //     let setup_connection_handler = Arc::new(Mutex::new(SetupConnectionHandler::new()));
+    //     SetupConnectionHandler::setup(setup_connection_handler, &mut receiver, &mut sender, addr)
+    //         .await;
+    // }
 
-    pub async fn share_submission(
-        addr: SocketAddr,
-        mut receiver: Receiver<EitherFrame>,
-        mut sender: Sender<EitherFrame>,
-        handicap: u32,
-    ) {
-        let setup_connection_handler = Arc::new(Mutex::new(SetupConnectionHandler::new()));
-        SetupConnectionHandler::setup(
-            setup_connection_handler.clone(),
-            &mut receiver,
-            &mut sender,
-            addr,
-        )
-        .await;
-        let miner = Arc::new(Mutex::new(Miner::new(handicap)));
-        let self_ = Self {
-            channel_opened: false,
-            receiver: receiver.clone(),
-            sender: sender.clone(),
-            miner: miner.clone(),
-            jobs: Vec::new(),
-            prev_hash: None,
-            channel_id: None,
-            sequence_numbers: Id::new(),
-        };
+    // pub async fn share_submission(
+    //     addr: SocketAddr,
+    //     mut receiver: Receiver<EitherFrame>,
+    //     mut sender: Sender<EitherFrame>,
+    //     handicap: u32,
+    // ) {
+    //     let setup_connection_handler = Arc::new(Mutex::new(SetupConnectionHandler::new()));
+    //     SetupConnectionHandler::setup(
+    //         setup_connection_handler.clone(),
+    //         &mut receiver,
+    //         &mut sender,
+    //         addr,
+    //     )
+    //     .await;
+    //     let miner = Arc::new(Mutex::new(Miner::new(handicap)));
+    //     let self_ = Self {
+    //         channel_opened: false,
+    //         receiver: receiver.clone(),
+    //         sender: sender.clone(),
+    //         miner: miner.clone(),
+    //         jobs: Vec::new(),
+    //         prev_hash: None,
+    //         channel_id: None,
+    //         sequence_numbers: Id::new(),
+    //     };
 
-        let open_channel =
-            MiningDeviceMessages::Mining(Mining::OpenStandardMiningChannel(open_channel()));
-        let frame: StdFrame = open_channel.try_into().unwrap();
-        self_.sender.send(frame.into()).await.unwrap();
-        let self_mutex = Arc::new(Mutex::new(self_));
-        let cloned = self_mutex.clone();
-        let (share_send, share_recv) = async_channel::unbounded();
+    //     let open_channel =
+    //         MiningDeviceMessages::Mining(Mining::OpenStandardMiningChannel(open_channel()));
+    //     let frame: StdFrame = open_channel.try_into().unwrap();
+    //     self_.sender.send(frame.into()).await.unwrap();
+    //     let self_mutex = Arc::new(Mutex::new(self_));
+    //     let cloned = self_mutex.clone();
+    //     let (share_send, share_recv) = async_channel::unbounded();
 
-        let _handicap = miner.safe_lock(|m| m.handicap).unwrap();
-        std::thread::spawn(move || loop {
-            //std::thread::sleep(std::time::Duration::from_micros(handicap.into()));
-            if miner.safe_lock(|m| m.next_share()).unwrap().is_ok() {
-                let nonce = miner.safe_lock(|m| m.header.unwrap().nonce).unwrap();
-                let time = miner.safe_lock(|m| m.header.unwrap().time).unwrap();
-                let job_id = miner.safe_lock(|m| m.job_id).unwrap();
-                let version = miner.safe_lock(|m| m.version).unwrap();
-                match share_send.try_send((nonce, job_id.unwrap(), version.unwrap(), time)) {
-                    Ok(_) => break,
-                    Err(e) => {
-                        eprintln!("An error occurred while sending share: {}", e);
-                        break; // Break the loop if the channel is closed
-                    }
-                }
-            }
-            miner
-                .safe_lock(|m| m.header.as_mut().map(|h| h.nonce += 1))
-                .unwrap();
-        });
+    //     let _handicap = miner.safe_lock(|m| m.handicap).unwrap();
+    //     std::thread::spawn(move || loop {
+    //         //std::thread::sleep(std::time::Duration::from_micros(handicap.into()));
+    //         if miner.safe_lock(|m| m.next_share()).unwrap().is_ok() {
+    //             let nonce = miner.safe_lock(|m| m.header.unwrap().nonce).unwrap();
+    //             let time = miner.safe_lock(|m| m.header.unwrap().time).unwrap();
+    //             let job_id = miner.safe_lock(|m| m.job_id).unwrap();
+    //             let version = miner.safe_lock(|m| m.version).unwrap();
+    //             match share_send.try_send((nonce, job_id.unwrap(), version.unwrap(), time)) {
+    //                 Ok(_) => break,
+    //                 Err(e) => {
+    //                     eprintln!("An error occurred while sending share: {}", e);
+    //                     break; // Break the loop if the channel is closed
+    //                 }
+    //             }
+    //         }
+    //         miner
+    //             .safe_lock(|m| m.header.as_mut().map(|h| h.nonce += 1))
+    //             .unwrap();
+    //     });
 
-        async_std::task::spawn(async move {
-            let recv = share_recv.clone();
-            for _ in 0..1 {
-                let (nonce, job_id, version, ntime) = recv.recv().await.unwrap();
-                Self::send_share(cloned.clone(), nonce, job_id, version, ntime);
-            }
-        });
+    //     async_std::task::spawn(async move {
+    //         let recv = share_recv.clone();
+    //         for _ in 0..1 {
+    //             let (nonce, job_id, version, ntime) = recv.recv().await.unwrap();
+    //             Self::send_share(cloned.clone(), nonce, job_id, version, ntime);
+    //         }
+    //     });
 
-        for _ in 0..4 {
-            let mut incoming: StdFrame = receiver.recv().await.unwrap().try_into().unwrap();
-            let message_type = incoming.get_header().unwrap().msg_type();
-            let payload = incoming.payload();
-            let next = Device::handle_message_mining(
-                self_mutex.clone(),
-                message_type,
-                payload,
-                MiningRoutingLogic::None,
-            )
-            .unwrap();
-            match next {
-                SendTo::RelayNewMessageToRemote(_, m) => {
-                    let sv2_frame: StdFrame = MiningDeviceMessages::Mining(m).try_into().unwrap();
-                    let either_frame: EitherFrame = sv2_frame.into();
-                    sender.send(either_frame).await.unwrap();
-                }
-                SendTo::None(_) => (),
-                _ => panic!(),
-            }
-        }
-        drop(receiver);
-        drop(sender);
-    }
+    //     for _ in 0..4 {
+    //         let mut incoming: StdFrame = receiver.recv().await.unwrap().try_into().unwrap();
+    //         let message_type = incoming.get_header().unwrap().msg_type();
+    //         let payload = incoming.payload();
+    //         let next = Device::handle_message_mining(
+    //             self_mutex.clone(),
+    //             message_type,
+    //             payload,
+    //             MiningRoutingLogic::None,
+    //         )
+    //         .unwrap();
+    //         match next {
+    //             SendTo::RelayNewMessageToRemote(_, m) => {
+    //                 let sv2_frame: StdFrame = MiningDeviceMessages::Mining(m).try_into().unwrap();
+    //                 let either_frame: EitherFrame = sv2_frame.into();
+    //                 sender.send(either_frame).await.unwrap();
+    //             }
+    //             SendTo::None(_) => (),
+    //             _ => panic!(),
+    //         }
+    //     }
+    //     drop(receiver);
+    //     drop(sender);
+    // }
 
     pub fn send_share(
         self_mutex: Arc<Mutex<Self>>,
