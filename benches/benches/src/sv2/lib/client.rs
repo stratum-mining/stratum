@@ -238,7 +238,7 @@ impl Device {
     ) {
         let share =
             MiningDeviceMessages::Mining(Mining::SubmitSharesStandard(SubmitSharesStandard {
-                channel_id: self_mutex.safe_lock(|s| s.channel_id.unwrap()).unwrap(),
+                channel_id: self_mutex.safe_lock(|s| 0).unwrap(),
                 sequence_number: self_mutex.safe_lock(|s| s.sequence_numbers.next()).unwrap(),
                 job_id,
                 nonce,

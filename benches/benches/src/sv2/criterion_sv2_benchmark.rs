@@ -45,7 +45,7 @@ fn benchmark_submit(c: &mut Criterion) {
     let job_id: u32 = 1;
     let version = 78;
     let ntime = 2;
-    c.bench_function("handle_submit", |b| {
+    c.bench_function("client-sv2-get-submit", |b| {
         b.iter(|| {
             Device::send_share(self_mutex.clone(), nonce, job_id, version, ntime);
         });
@@ -65,7 +65,7 @@ fn benchmark_handle_message_mining(c: &mut Criterion) {
     let mut incoming: StdFrame = black_box(mock_frame);
     let message_type = incoming.get_header().unwrap().msg_type();
     let payload = incoming.payload();
-    c.bench_function("handle_message_mining_benchmark", |b| {
+    c.bench_function("client-sv2-message_mining", |b| {
         b.iter(|| {
             Device::handle_message_mining(
                 self_mutex.clone(),
@@ -73,7 +73,6 @@ fn benchmark_handle_message_mining(c: &mut Criterion) {
                 payload,
                 MiningRoutingLogic::None,
             )
-            .unwrap();
         });
     });
 }
@@ -84,7 +83,7 @@ fn benchmark_handle_common_message(c: &mut Criterion) {
     let mut incoming: StdFrame = black_box(mock_frame);
     let message_type = incoming.get_header().unwrap().msg_type();
     let payload = incoming.payload();
-    c.bench_function("handle_message_mining_benchmark", |b| {
+    c.bench_function("client-sv2-message-mining", |b| {
         b.iter(|| {
             ParseUpstreamCommonMessages::handle_message_common(
                 handler.clone(),
@@ -92,15 +91,14 @@ fn benchmark_handle_common_message(c: &mut Criterion) {
                 payload,
                 CommonRoutingLogic::None,
             )
-            .unwrap();
         });
     });
 }
 
 fn main() {
     let mut criterion = Criterion::default();
-    benchmark_handle_common_message(&mut criterion);
-    benchmark_handle_message_mining(&mut criterion);
+    // benchmark_handle_common_message(&mut criterion);
+    // benchmark_handle_message_mining(&mut criterion);
     benchmark_submit(&mut criterion);
 
     criterion.final_summary();

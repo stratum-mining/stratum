@@ -44,11 +44,7 @@ jobs:
       - name: Run benchmarks
         working-directory: ./benches
         run: |
-          cargo bench > output.txt
-
-      - name: Get iai result
-        working-directory: ./benches
-        run: tail -n 15 output.txt > benchmark_results.txt
+          cargo bench > benchmark_results.txt
 
       - name: Publish benchmark result
         uses: actions/upload-artifact@v2
