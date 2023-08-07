@@ -27,13 +27,18 @@ impl JobDeclaratorDownstream {
             .try_into()
             .unwrap();
         let token_u32 = u32::from_le_bytes(four_byte_array);
-        self.token_to_job_map.contains_key(&(token_u32))
         // TODO Function to implement, it must be checked if the requested job has:
         // 1. right coinbase
         // 2. right version field
         // 3. right prev-hash
         // 4. right nbits
-        // 5. a valid merkletpath
+        if self.token_to_job_map.contains_key(&(token_u32)) {
+            true
+        }
+        else {
+            false
+        }
+
     }
 }
 
@@ -73,9 +78,6 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
                 ),
             };
             let message_enum_success = JobDeclaration::DeclareMiningJobSuccess(message_success);
-            // TODO: token map
-            /* self.token_to_job_map
-            .insert(message.mining_job_token, Some(message.into())); */
             Ok(SendTo::Respond(message_enum_success))
         } else {
             let message_error = DeclareMiningJobError {
