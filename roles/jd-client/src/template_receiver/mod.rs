@@ -1,5 +1,6 @@
+use binary_sv2::{Seq064K, B064K, B016M};
 use codec_sv2::{StandardEitherFrame, StandardSv2Frame};
-use roles_logic_sv2::utils::Mutex;
+use roles_logic_sv2::{utils::Mutex, template_distribution_sv2::{RequestTransactionData, NewTemplate}};
 
 use codec_sv2::Frame;
 use roles_logic_sv2::{
@@ -32,6 +33,8 @@ pub struct TemplateRx {
     jd: Arc<Mutex<crate::job_declarator::JobDeclarator>>,
     down: Arc<Mutex<crate::downstream::DownstreamMiningNode>>,
     task_collector: Arc<Mutex<Vec<AbortHandle>>>,
+    transactions_data: Seq064K<'static, B016M<'static>>,
+    excess_data: B064K<'static>,
 }
 
 impl TemplateRx {
@@ -61,6 +64,8 @@ impl TemplateRx {
             jd,
             down,
             task_collector: task_collector.clone(),
+            transactions_data: Vec::new().try_into().unwrap(),
+            excess_data:  Vec::new().try_into().unwrap(),
         }));
 
         let task = tokio::task::spawn(Self::on_new_solution(self_mutex.clone(), solution_receiver));
@@ -71,6 +76,7 @@ impl TemplateRx {
     }
 
     pub async fn send(self_: &Arc<Mutex<Self>>, sv2_frame: StdFrame) {
+        info!("sending some data.");
         let either_frame = sv2_frame.into();
         let sender_to_tp = self_.safe_lock(|self_| self_.sender.clone()).unwrap();
         match sender_to_tp.send(either_frame).await {
@@ -86,6 +92,16 @@ impl TemplateRx {
             }),
         );
         let frame: StdFrame = coinbase_output_data_size.try_into().unwrap();
+        Self::send(self_mutex, frame).await;
+    }
+
+    pub async fn send_tx_data_request(self_mutex: &Arc<Mutex<Self>>, new_template: NewTemplate<'static>) {
+        let tx_data_request = PoolMessages::TemplateDistribution(
+            TemplateDistribution::RequestTransactionData(RequestTransactionData {
+                template_id: new_template.template_id.clone(),
+            }),
+        );
+        let frame: StdFrame = tx_data_request.try_into().unwrap();
         Self::send(self_mutex, frame).await;
     }
 
@@ -141,6 +157,13 @@ impl TemplateRx {
                                 Some(TemplateDistribution::NewTemplate(m)) => {
                                     crate::IS_NEW_TEMPLATE_HANDLED
                                         .store(false, std::sync::atomic::Ordering::SeqCst);
+                                    let data = Self::send_tx_data_request(
+                                        &self_mutex,
+                                        m.clone(),
+                                    )
+                                    .await;
+                                    let transactions_data = self_mutex.safe_lock(|t| t.transactions_data.clone()).unwrap();
+                                    let excess_data = self_mutex.safe_lock(|t| t.excess_data.clone()).unwrap();
                                     let token = last_token.unwrap();
                                     last_token = None;
                                     let mining_token = token.mining_job_token.to_vec();
@@ -151,6 +174,8 @@ impl TemplateRx {
                                             m.clone(),
                                             mining_token,
                                             pool_output.clone(),
+                                            transactions_data,
+                                            excess_data,
                                         ),
                                         crate::downstream::DownstreamMiningNode::on_new_template(
                                             &down,

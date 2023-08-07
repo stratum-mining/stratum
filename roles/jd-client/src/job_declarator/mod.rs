@@ -1,6 +1,6 @@
 pub mod message_handler;
 use async_channel::{Receiver, Sender};
-use binary_sv2::{Seq0255, U256};
+use binary_sv2::{Seq0255, U256, Seq064K, B016M, B064K, ShortTxId};
 use codec_sv2::{HandshakeRole, Initiator, StandardEitherFrame, StandardSv2Frame};
 use network_helpers::noise_connection_tokio::Connection;
 use roles_logic_sv2::{
@@ -186,6 +186,8 @@ impl JobDeclarator {
         template: NewTemplate<'static>,
         token: Vec<u8>,
         pool_output: Vec<u8>,
+        tx_list: Seq064K<'static, B016M<'static>>,
+        excess_data: B064K<'static>,
     ) {
         let (id, min_extranonce_size, sender) = self_mutex
             .safe_lock(|s| (s.req_ids.next(), s.min_extranonce_size, s.sender.clone()))
@@ -205,9 +207,10 @@ impl JobDeclarator {
             coinbase_tx_locktime: template.coinbase_tx_locktime,
             min_extranonce_size,
             tx_short_hash_nonce: 0, // TODO should be sent to bitcoind when session start
-            tx_short_hash_list: vec![].try_into().unwrap(), // TODO this come wither in a separeta message or in newtemplate
-            tx_hash_list_hash: vec![0; 32].try_into().unwrap(), // TODO
-            excess_data: vec![].try_into().unwrap(),
+            // call to TP request transaction data  bip-0152 
+            tx_short_hash_list: Self::short_hash_list(tx_list.clone()).0, 
+            tx_hash_list_hash: Self::short_hash_list(tx_list.clone()).1,
+            excess_data, // request transaction data
         };
         self_mutex
             .safe_lock(|s| {
@@ -323,5 +326,11 @@ impl JobDeclarator {
             // TODO join re
             sender.send(frame.into()).await.unwrap();
         }
+    }
+
+    fn short_hash_list(tx_data: Seq064K<'static, B016M<'static>>) -> (Seq064K<'static, ShortTxId<'static>>, U256<'static> ){
+        let tx_short_hash_list = vec![].try_into().unwrap();
+        let tx_hash_list_hash = vec![0; 32].try_into().unwrap();
+        (tx_short_hash_list, tx_hash_list_hash)
     }
 }
