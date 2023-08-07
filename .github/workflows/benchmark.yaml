@@ -44,7 +44,13 @@ jobs:
       - name: Run benchmarks
         working-directory: ./benches
         run: |
-          cargo bench > benchmark_results.txt
+          cargo bench --message-format json > benchmark_results.json
+
+      - name: Generate HTML report
+        working-directory: ./benches
+        run: |
+          cargo install benchee_json 
+          benchee_json benchmark_results.json --output bench_report.html
 
       - name: Publish benchmark result
         uses: actions/upload-artifact@v2
