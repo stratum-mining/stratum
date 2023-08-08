@@ -104,6 +104,32 @@ impl std::fmt::Display for ActionResult {
     }
 }
 
+impl std::fmt::Display for Sv1ActionResult {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Sv1ActionResult::MatchMessageType(message_type) => {
+                write!(
+                    f,
+                    "MatchMessageType: {}",
+                    message_type
+                )
+            }
+            Sv1ActionResult::MatchMessageField { message_type, fields } => {
+                write!(f, "MatchMessageField: {:?} {:?}", message_type, fields)
+            }
+            Sv1ActionResult::CloseConnection => write!(f, "Close connection"),
+            Sv1ActionResult::GetMessageField {
+                message_type,
+                fields,
+                ..
+            } => {
+                write!(f, "GetMessageField: {:?} {:?}", message_type, fields)
+            }
+            Sv1ActionResult::None => write!(f, "None"),
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize, Copy)]
 enum Role {
     Upstream,
@@ -201,8 +227,16 @@ async fn main() {
         .to_string();
     // Executes everything (the shell commands and actions)
     // If the `executor` returns false, the test fails
-    let executor = executor::Executor::new(test, test_name).await;
-    executor.execute().await;
+    match test.version {
+        TestVersion::V1 => {
+            let executor = executor::Sv1Executor::new(test, test_name).await;
+            executor.execute().await;
+        },
+        TestVersion::V2 => {
+            let executor = executor::Executor::new(test, test_name).await;
+            executor.execute().await;
+        }
+    }
     println!("TEST OK");
     std::process::exit(0);
 }

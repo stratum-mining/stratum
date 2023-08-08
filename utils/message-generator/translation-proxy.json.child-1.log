@@ -1,0 +1,17 @@
+[2m2023-08-07T09:33:19.491179Z[0m [32m INFO[0m [2mtranslator_sv2::upstream_sv2::upstream[0m[2m:[0m Up: Sending: SetupConnection { protocol: MiningProtocol, min_version: 2, max_version: 2, flags: 4, endpoint_host: Owned([48, 46, 48, 46, 48, 46, 48]), endpoint_port: 50, vendor: Owned([]), hardware_version: Owned([]), firmware: Owned([]), device_id: Owned([]) }
+[2m2023-08-07T09:33:19.492786Z[0m [32m INFO[0m [2mtranslator_sv2::upstream_sv2::upstream[0m[2m:[0m Up: Receiving: Sv2Frame { header: Header { extension_type: 0, msg_type: 1, msg_length: U24(6) }, payload: None, serialized: Some(Slice { offset: 0x7fbaa165b000, len: 12, index: 1, shared_state: SharedState(128), owned: None }) }
+[2m2023-08-07T09:33:19.492868Z[0m [32m INFO[0m [2mtranslator_sv2::upstream_sv2::upstream[0m[2m:[0m Up: Sending: OpenExtendedMiningChannel(OpenExtendedMiningChannel { request_id: 0, user_identity: Owned([65, 66, 67]), nominal_hash_rate: 500.0, max_target: Owned([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 255, 255, 255, 255]), min_extranonce_size: 8 })
+[2m2023-08-07T09:33:19.492923Z[0m [32m INFO[0m [2mtranslator_sv2[0m[2m:[0m Connected to Upstream!
+[2m2023-08-07T09:33:19.495497Z[0m [32m INFO[0m [2mtranslator_sv2::upstream_sv2::upstream[0m[2m:[0m Up: Successfully Opened Extended Mining Channel
+[2m2023-08-07T09:33:19.500768Z[0m [32m INFO[0m [2mtranslator_sv2::upstream_sv2::upstream[0m[2m:[0m Is future job: true
+
+[2m2023-08-07T09:33:19.500807Z[0m [32m INFO[0m [2mtranslator_sv2::upstream_sv2::upstream[0m[2m:[0m Up: New Extended Mining Job
+[2m2023-08-07T09:33:19.501161Z[0m [32m INFO[0m [2mtranslator_sv2::upstream_sv2::upstream[0m[2m:[0m Up: Set New Prev Hash
+[2m2023-08-07T09:33:20.086985Z[0m [32m INFO[0m [2mtranslator_sv2::downstream_sv1::downstream[0m[2m:[0m PROXY SERVER - ACCEPTING FROM DOWNSTREAM: 127.0.0.1:51228
+[2m2023-08-07T09:33:20.087267Z[0m [32m INFO[0m [2mtranslator_sv2::downstream_sv1::downstream[0m[2m:[0m Down: Configuring
+[2m2023-08-07T09:33:20.087747Z[0m [32m INFO[0m [2mtranslator_sv2::downstream_sv1::downstream[0m[2m:[0m Down: Subscribing
+[2m2023-08-07T09:33:20.088134Z[0m [32m INFO[0m [2mtranslator_sv2::downstream_sv1::downstream[0m[2m:[0m Down: Authorizing
+[2m2023-08-07T09:33:21.202746Z[0m [32m INFO[0m [2mtranslator_sv2::proxy::bridge[0m[2m:[0m SHARE MEETS TARGET
+[2m2023-08-07T09:33:21.202772Z[0m [32m INFO[0m [2mtranslator_sv2::proxy::bridge[0m[2m:[0m SHARE MEETS TARGET
+[2m2023-08-07T09:33:21.202781Z[0m [32m INFO[0m [2mtranslator_sv2::upstream_sv2::upstream[0m[2m:[0m Up: Sending: Sv2Frame { header: Header { extension_type: 32768, msg_type: 27, msg_length: U24(41) }, payload: Some(Mining(SubmitSharesExtended(SubmitSharesExtended { channel_id: 1, sequence_number: 0, job_id: 1, nonce: 85331, ntime: 1691400861, version: 536870912, extranonce: Owned([0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0]) }))), serialized: None }
+[2m2023-08-07T09:33:21.202808Z[0m [32m INFO[0m [2mtranslator_sv2::upstream_sv2::upstream[0m[2m:[0m Up: Sending: Sv2Frame { header: Header { extension_type: 32768, msg_type: 27, msg_length: U24(41) }, payload: Some(Mining(SubmitSharesExtended(SubmitSharesExtended { channel_id: 1, sequence_number: 0, job_id: 1, nonce: 85381, ntime: 1691400861, version: 536870912, extranonce: Owned([0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0]) }))), serialized: None }

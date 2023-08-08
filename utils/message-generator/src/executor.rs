@@ -1,14 +1,15 @@
 use crate::{
     external_commands::os_command,
     into_static::into_static,
-    net::{setup_as_downstream, setup_as_upstream},
+    net::{setup_as_downstream, setup_as_upstream, setup_as_sv1_downstream},
     parser::sv2_messages::ReplaceField,
-    Action, ActionResult, Command, Role, SaveField, Sv2Type, Test,
+    Action, ActionResult, Command, Role, SaveField, Sv2Type, Test, Sv1Action, Sv1ActionResult,
 };
 use async_channel::{Receiver, Sender};
 use binary_sv2::Serialize;
 use codec_sv2::{Frame, StandardEitherFrame as EitherFrame, Sv2Frame};
 use roles_logic_sv2::parsers::{self, AnyMessage};
+use v1::{json_rpc::StandardRequest, Message};
 use std::{collections::HashMap, convert::TryInto, sync::Arc};
 
 use tokio::{
@@ -26,6 +27,216 @@ pub struct Executor {
     cleanup_commmands: Vec<Command>,
     process: Vec<Option<tokio::process::Child>>,
     save: HashMap<String, serde_json::Value>,
+}
+
+pub struct Sv1Executor {
+    name: Arc<String>,
+    send_to_up: Option<Sender<String>>,
+    recv_from_up: Option<Receiver<String>>,
+    actions: Vec<Sv1Action>,
+    cleanup_commmands: Vec<Command>,
+    process: Vec<Option<tokio::process::Child>>,
+    save: HashMap<String, serde_json::Value>,
+}
+
+
+impl Sv1Executor {
+    pub async fn new(test: Test<'static>, test_name: String) -> Sv1Executor {
+        let save: HashMap<String, serde_json::Value> = HashMap::new();
+        let mut process: Vec<Option<tokio::process::Child>> = vec![];
+        for command in test.setup_commmands {
+            if command.command == "kill" {
+                let index: usize = command.args[0].parse().unwrap();
+                let p = process[index].as_mut();
+                let mut pid = p.as_ref().unwrap().id();
+                // Kill process
+                p.unwrap().kill().await;
+                // Wait until the process is killed to move on
+                while let Some(i) = pid {
+                    let p = process[index].as_mut();
+                    pid = p.as_ref().unwrap().id();
+                    p.unwrap().kill().await;
+                    tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
+                }
+                let p = process[index].as_mut();
+            } else if command.command == "sleep" {
+                let ms: u64 = command.args[0].parse().unwrap();
+                tokio::time::sleep(std::time::Duration::from_millis(ms)).await;
+            } else {
+                let p = os_command(
+                    &command.command,
+                    command.args.iter().map(String::as_str).collect(),
+                    command.conditions,
+                )
+                .await;
+                
+                process.push(p);
+            }
+        }
+        
+        match (test.as_dowstream, test.as_upstream) {
+            (Some(as_down), None) => {
+                let (recv_from_up, send_to_up) =
+                    setup_as_sv1_downstream(as_down.addr).await;
+                Self {
+                    name: Arc::new(test_name.clone()),
+                    send_to_up: Some(send_to_up),
+                    recv_from_up: Some(recv_from_up),
+                    actions: test.sv1_actions.unwrap(),
+                    cleanup_commmands: test.cleanup_commmands,
+                    process,
+                    save,
+                }
+            },
+            _ => unreachable!()
+        }
+    }
+
+    pub async fn execute(self) {
+        let mut success = true;
+        for action in self.actions {
+            if let Some(doc) = action.actiondoc {
+                println!("actiondoc: {}", doc);
+            }
+            let (sender, recv) = (self.send_to_up
+                .as_ref()
+                .expect("Action require executor to act as downstream"),
+            self.recv_from_up
+                .as_ref()
+                .expect("Action require executor to act as downstream"),);
+            for message_ in action.messages {
+                let replace_fields = message_.1.clone();
+                let message = serde_json::to_string(&message_.0).unwrap();
+                if replace_fields.is_empty() {
+                    println!("SEND {:#?}", message);
+                    match sender.send(message).await {
+                        Ok(_) => (),
+                        Err(_) => panic!(),
+                    } 
+                } else {
+                    //TODO: modified message
+                }
+            }
+            let mut rs = 0;
+            for result in &action.result {
+                rs += 1;
+                println!(
+                    "Working on result {}/{}: {}",
+                    rs,
+                    action.result.len(),
+                    result
+                );
+
+                // If the connection should drop at this point then let's just break the loop
+                // Can't do anything else after the connection drops.
+                if *result == Sv1ActionResult::CloseConnection {
+                    recv.recv()
+                        .await
+                        .expect_err("Expecting the connection to be closed: wasn't");
+                    break;
+                }
+
+                let message = match recv.recv().await {
+                    Ok(message) => message,
+                    Err(_) => {
+                        success = false;
+                        println!("Connection closed before receiving the message");
+                        break;
+                    }
+                };
+                let message: Message = serde_json::from_str(&message).unwrap();
+                println!("RECV {:#?}", message);
+                match message {
+                    // Message::Notification(notification) => {
+                    //     match result {
+                    //         Sv1ActionResult::MatchMessageType(message_type) => {
+                    //             if notification.method != *message_type {
+                    //                 println!(
+                    //                     "WRONG MESSAGE TYPE expected: {} received: {}",
+                    //                     message_type,
+                    //                     notification.method
+                    //                 );
+                    //                 success = false;
+                    //                 break;
+                    //             } else {
+                    //                 println!("MATCHED MESSAGE TYPE {}", message_type);
+                    //             }
+                    //         },
+                    //         Sv1ActionResult::MatchMessageField { message_type, fields } => {
+                    //             if notification.method != *message_type {
+                    //                 println!(
+                    //                     "WRONG MESSAGE TYPE expected: {} received: {}",
+                    //                     message_type,
+                    //                     notification.method
+                    //                 );
+                    //                 success = false;
+                    //                 break;
+                    //             } else {
+                    //                 let msg = serde_json::to_value(notification).unwrap();
+                    //                 check_sv1_fields(msg, fields);
+                    //             }
+                    //         },
+                    //         _ => todo!()
+                    //     }
+                    // },
+                    Message::OkResponse(response) | Message::ErrorResponse(response) => {
+                        match result {
+                            //TODO: add MatchMessageId
+                            Sv1ActionResult::MatchMessageField { message_type, fields } => {
+                                let msg = serde_json::to_value(response).unwrap();
+                                check_sv1_fields(msg, fields);
+                            },
+                            _ => todo!()
+                        }
+                    },
+                    _ => unreachable!()
+                }
+            }
+        }
+
+        for command in self.cleanup_commmands {
+            os_command(
+                &command.command,
+                command.args.iter().map(String::as_str).collect(),
+                command.conditions,
+            )
+            // Give time to the last cleanup command to return before exit from the process
+            .await
+            .unwrap()
+            .wait()
+            .await
+            .unwrap();
+        }
+        let mut child_no = 0;
+
+        for child in self.process {
+            if let Some(mut child) = child {
+                // Spawn a task to read the child process's stdout and write it to the file
+                let stdout = child.stdout.take().unwrap();
+                let mut stdout_reader = BufReader::new(stdout);
+                child_no = child_no + 1;
+                let test_name = self.name.clone();
+                tokio::spawn(async move {
+                    let test_name = &*test_name;
+                    let mut file = File::create(format!("{}.child-{}.log", test_name, child_no))
+                        .await
+                        .unwrap();
+                    let mut stdout_writer = BufWriter::new(&mut file);
+
+                    copy(&mut stdout_reader, &mut stdout_writer).await.unwrap();
+                });
+
+                while let Some(i) = &child.id() {
+                    // Sends kill signal and waits 1 second before checking to ensure child was killed
+                    child.kill().await;
+                    tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
+                }
+            }
+        }
+        if !success {
+            panic!("test failed!!!");
+        }
+    }
 }
 
 impl Executor {
@@ -921,4 +1132,20 @@ fn message_to_value<'a>(m: &'a serde_json::Value, field: &str) -> &'a serde_json
     let msg = m.as_object().unwrap();
     let value = msg.get(field).unwrap();
     value
+}
+
+fn check_sv1_fields(msg: serde_json::Value, field_info: &Vec<(String, serde_json::Value)>) {
+    for field in field_info {
+        let msg = msg.as_object().unwrap();
+        let value = msg
+            .get(&field.0)
+            .expect("match_message_field field name is not valid")
+            .clone();
+        assert!(
+            field.1 == value,
+            "match_message_field value is incorrect. Expected = {:?}, Recieved = {:?}",
+            field.1,
+            value
+        )
+    }
 }

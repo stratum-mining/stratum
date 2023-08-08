@@ -1,0 +1,18 @@
+[2m2023-08-08T07:57:18.842689Z[0m [32m INFO[0m [2mtranslator_sv2::upstream_sv2::upstream[0m[2m:[0m Up: Sending: SetupConnection { protocol: MiningProtocol, min_version: 2, max_version: 2, flags: 4, endpoint_host: Owned([48, 46, 48, 46, 48, 46, 48]), endpoint_port: 50, vendor: Owned([]), hardware_version: Owned([]), firmware: Owned([]), device_id: Owned([]) }
+[2m2023-08-08T07:57:18.843181Z[0m [32m INFO[0m [2mtranslator_sv2::upstream_sv2::upstream[0m[2m:[0m Up: Receiving: Sv2Frame { header: Header { extension_type: 0, msg_type: 1, msg_length: U24(6) }, payload: None, serialized: Some(Slice { offset: 0x7f8e60eab000, len: 12, index: 1, shared_state: SharedState(128), owned: None }) }
+[2m2023-08-08T07:57:18.843257Z[0m [32m INFO[0m [2mtranslator_sv2::upstream_sv2::upstream[0m[2m:[0m Up: Sending: OpenExtendedMiningChannel(OpenExtendedMiningChannel { request_id: 0, user_identity: Owned([65, 66, 67]), nominal_hash_rate: 500.0, max_target: Owned([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 255, 255, 255, 255]), min_extranonce_size: 8 })
+[2m2023-08-08T07:57:18.843305Z[0m [32m INFO[0m [2mtranslator_sv2[0m[2m:[0m Connected to Upstream!
+[2m2023-08-08T07:57:18.843946Z[0m [32m INFO[0m [2mtranslator_sv2::upstream_sv2::upstream[0m[2m:[0m Up: Successfully Opened Extended Mining Channel
+[2m2023-08-08T07:57:18.844067Z[0m [32m INFO[0m [2mtranslator_sv2::upstream_sv2::upstream[0m[2m:[0m Is future job: true
+
+[2m2023-08-08T07:57:18.844091Z[0m [32m INFO[0m [2mtranslator_sv2::upstream_sv2::upstream[0m[2m:[0m Up: New Extended Mining Job
+[2m2023-08-08T07:57:18.844143Z[0m [32m INFO[0m [2mtranslator_sv2::upstream_sv2::upstream[0m[2m:[0m Up: Set New Prev Hash
+[2m2023-08-08T07:57:19.841583Z[0m [32m INFO[0m [2mtranslator_sv2::downstream_sv1::downstream[0m[2m:[0m PROXY SERVER - ACCEPTING FROM DOWNSTREAM: 127.0.0.1:52430
+[2m2023-08-08T07:57:30.852821Z[0m [33m WARN[0m [2mtranslator_sv2::downstream_sv1::downstream[0m[2m:[0m Downstream: Shutting down sv1 downstream job notifier for 127.0.0.1:52430
+[2m2023-08-08T07:57:30.852960Z[0m [33m WARN[0m [2mtranslator_sv2::downstream_sv1::downstream[0m[2m:[0m Downstream: Shutting down sv1 downstream reader
+[2m2023-08-08T07:57:30.853024Z[0m [33m WARN[0m [2mtranslator_sv2::downstream_sv1::downstream[0m[2m:[0m Downstream: Shutting down sv1 downstream writer: 127.0.0.1:52430
+[2m2023-08-08T07:58:30.854171Z[0m [31mERROR[0m [2mnetwork_helpers::noise_connection_async_std[0m[2m:[0m Shutting down noise stream reader! Kind(
+    UnexpectedEof,
+)
+[2m2023-08-08T07:58:30.854244Z[0m [31mERROR[0m [2mtranslator_sv2::status[0m[2m:[0m Error: ChannelErrorReceiver(RecvError)
+[2m2023-08-08T07:58:30.854287Z[0m [31mERROR[0m [2mtranslator_sv2[0m[2m:[0m SHUTDOWN from: Channel receive error: `RecvError`
