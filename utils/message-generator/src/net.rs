@@ -6,10 +6,10 @@ use codec_sv2::{
     HandshakeRole, Initiator, Responder, StandardEitherFrame as EitherFrame,
 };
 use network_helpers::{
-    noise_connection_tokio::Connection, plain_connection_tokio::PlainConnection
+    noise_connection_tokio::Connection, plain_connection_tokio::PlainConnection, sv1_connection_tokio::Sv1Connection
 };
 use std::{net::SocketAddr, clone};
-use tokio::{net::{TcpListener, TcpStream}, io::{BufStream, AsyncBufReadExt, AsyncWriteExt, AsyncReadExt}};
+use tokio::{net::{TcpListener, TcpStream}, io::{BufStream, AsyncBufReadExt, AsyncWriteExt, AsyncReadExt, self}};
 use std::{time, time::Duration};
 
 use async_std::{
@@ -71,50 +71,19 @@ pub async fn setup_as_downstream<
 }
 
 pub async fn setup_as_sv1_downstream(socket: SocketAddr) -> (Receiver<String>, Sender<String>){
-    let socket = loop {
-        tokio::time::sleep(Duration::from_secs(1)).await;
-        match TcpStream::connect(socket).await {
-            Ok(st) => {
-                println!("CLIENT - connected to server at {}", socket);
-                break st;
-            }
-            Err(_) => {
-                println!("Server not ready... retry");
-                continue;
-            }
-        }
-    };
-
-    let (mut reader, mut writer) = socket.into_split();
-
-    let (sender_incoming, receiver_incoming): (Sender<String>, Receiver<String>) = bounded(10);
-    let (sender_outgoing, receiver_outgoing): (Sender<String>, Receiver<String>) = bounded(10);
-  
-    // RECEIVE INCOMING MESSAGES FROM TCP STREAM
-    tokio::spawn(async move {
-        let mut buf = vec![0; 128]; 
-        loop {
-            if let Ok(n) = reader.read(&mut buf).await {
-                let message = String::from_utf8_lossy(&buf[..n]).to_string();
-                println!("RECEIVED INCOMING MESSAGE: {}", message);
-                sender_incoming.send(message).await.unwrap();
-                buf.clear();
-            }
-        }
-    });
-
-    // SEND INCOMING MESSAGES TO TCP STREAM
-    tokio::spawn(async move {
-        while let Ok(message) = receiver_outgoing.recv().await {
-            if let Err(e) = writer.write_all(message.as_bytes()).await {
-                println!("Failed to write to stream: {}", e);
-                task::yield_now().await;
-                break;
-            }else {
-                println!("SENT INCOMING MESSAGE: {}", message);  
-            }  
-        }
-    });
-
-    (receiver_incoming, sender_outgoing)
+    // let socket = loop {
+    //     tokio::time::sleep(Duration::from_secs(1)).await;
+    //     match TcpStream::connect(socket).await {
+    //         Ok(st) => {
+    //             println!("CLIENT - connected to server at {}", socket);
+    //             break st;
+    //         }
+    //         Err(_) => {
+    //             println!("Server not ready... retry");
+    //             continue;
+    //         }
+    //     }
+    // };
+    let stream = TcpStream::connect(socket).await.unwrap();
+    Sv1Connection::new(stream).await
 }

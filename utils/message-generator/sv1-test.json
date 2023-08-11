@@ -7,8 +7,8 @@
         {
             "message": {
                 "id": 1,
-                "method": "mining.configure",
-                "params": [[],{}]
+                "method": "mining.subscribe",
+                "params": ["cpuminer/1.0.0"]
             },
             "id": "mining.subscribe"
         }
@@ -20,7 +20,7 @@
                 {
                     "type": "match_message_field",
                     "value": [
-                        "mining.configure",
+                        "mining.subscribe",
                         [
                             [
                                 "id",
@@ -34,54 +34,6 @@
         }
     ],
     "setup_commands": [
-        {
-            "command": "cargo",
-            "args": [
-                        "run",
-                        "-p",
-                        "pool_sv2",
-                        "--",
-                        "-c",
-                        "./test/config/interop-jd-translator/pool-config.toml"
-            ],
-            "conditions": {
-                "WithConditions": {
-                    "conditions": [
-                        {
-                            "output_string": "Listening for encrypted connection on: 0.0.0.0:34254",
-                            "output_location": "StdOut",
-                            "condition": true
-                        }
-                    ],
-                    "timer_secs": 240,
-                    "warn_no_panic": false
-                }
-            }
-        },
-        {
-            "command": "cargo",
-            "args": [
-                        "run",
-                        "-p",
-                        "translator_sv2",
-                        "--",
-                        "-c",
-                        "./test/config/tproxy-config-no-jd-sv1-cpu-md.toml"
-            ],
-            "conditions": {
-                "WithConditions": {
-                    "conditions": [
-                        {
-                            "output_string": "PROXY SERVER - ACCEPTING FROM UPSTREAM:",
-                            "output_location": "StdOut",
-                            "condition": true
-                        }
-                    ],
-                    "timer_secs": 60,
-                    "warn_no_panic": false
-                }
-            }
-       }
     ],
     "execution_commands": [
     ],
