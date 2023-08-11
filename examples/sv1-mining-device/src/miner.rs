@@ -45,6 +45,10 @@ impl Miner {
     /// `Client` calls `new_header` when it receives a new `mining.notify` message from the
     /// Upstream node indicating the `Miner` should start mining on a new job.
     pub(crate) fn new_header(&mut self, new_job: Job) {
+
+        // Sleep for half a second (to not trigger timestamps errors in bitcoind)
+        std::thread::sleep(std::time::Duration::from_millis(500));
+
         self.job_id = Some(new_job.job_id);
         self.version = Some(new_job.version);
         let prev_hash: [u8; 32] = new_job.prev_hash;
