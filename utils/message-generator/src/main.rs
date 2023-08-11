@@ -1,4 +1,5 @@
 mod executor;
+mod executor_sv1;
 mod external_commands;
 mod into_static;
 mod net;
@@ -229,7 +230,7 @@ async fn main() {
     // If the `executor` returns false, the test fails
     match test.version {
         TestVersion::V1 => {
-            let executor = executor::Sv1Executor::new(test, test_name).await;
+            let executor = executor_sv1::Sv1Executor::new(test, test_name).await;
             executor.execute().await;
         },
         TestVersion::V2 => {

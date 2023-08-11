@@ -11,5 +11,3 @@ pub use plain_connection_async_std::{plain_connect, plain_listen, PlainConnectio
 pub mod noise_connection_tokio;
 #[cfg(feature = "tokio")]
 pub mod plain_connection_tokio;
-#[cfg(feature = "tokio")]
-pub mod sv1_connection_tokio;
