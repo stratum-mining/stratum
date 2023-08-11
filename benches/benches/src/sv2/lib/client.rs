@@ -3,11 +3,14 @@ use bitcoin::{
 };
 
 use async_channel::{Receiver, Sender};
+use async_std::channel::unbounded;
 use binary_sv2::u256_from_int;
 use codec_sv2::{Frame, StandardEitherFrame, StandardSv2Frame};
 use framing_sv2::framing2::NoiseFrame;
 use roles_logic_sv2::{
-    common_messages_sv2::{Protocol, SetupConnection, SetupConnectionSuccess},
+    common_messages_sv2::{
+        Protocol, SetupConnection, SetupConnectionError, SetupConnectionSuccess,
+    },
     common_properties::{IsMiningUpstream, IsUpstream},
     errors::Error,
     handlers::{
@@ -21,10 +24,35 @@ use roles_logic_sv2::{
     utils::{Id, Mutex},
 };
 use std::{net::SocketAddr, sync::Arc};
-
 pub type Message = MiningDeviceMessages<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;
 pub type EitherFrame = StandardEitherFrame<Message>;
+
+pub fn create_client() -> Device {
+    let (sender, receiver): (
+        Sender<framing_sv2::framing2::EitherFrame<MiningDeviceMessages<'static>, Vec<_>>>,
+        Receiver<framing_sv2::framing2::EitherFrame<MiningDeviceMessages<'static>, Vec<_>>>,
+    ) = unbounded();
+    let miner = Arc::new(Mutex::new(Miner::new(10)));
+
+    Device {
+        channel_opened: false,
+        receiver: receiver.clone(),
+        sender: sender.clone(),
+        miner: miner.clone(),
+        jobs: Vec::new(),
+        prev_hash: None,
+        channel_id: None,
+        sequence_numbers: Id::new(),
+    }
+}
+
+pub fn create_mock_frame() -> StdFrame {
+    let client = create_client();
+    let open_channel =
+        MiningDeviceMessages::Mining(Mining::OpenStandardMiningChannel(open_channel()));
+    open_channel.try_into().unwrap()
+}
 
 pub struct SetupConnectionHandler {}
 use std::convert::TryInto;
@@ -95,7 +123,6 @@ pub struct Device {
 pub fn open_channel() -> OpenStandardMiningChannel<'static> {
     let user_identity = "ABC".to_string().try_into().unwrap();
     let id: u32 = 10;
-    println!("MINING DEVICE: send open channel with request id {}", id);
     OpenStandardMiningChannel {
         request_id: id.into(),
         user_identity,
@@ -105,14 +132,14 @@ pub fn open_channel() -> OpenStandardMiningChannel<'static> {
 }
 
 impl Device {
-    pub fn send_share(
+    pub fn send_mining_message(
         self_mutex: Arc<Mutex<Self>>,
         nonce: u32,
         job_id: u32,
         version: u32,
         ntime: u32,
-    ) {
-        let share =
+    ) -> MiningDeviceMessages<'static> {
+        let share: MiningDeviceMessages<'_> =
             MiningDeviceMessages::Mining(Mining::SubmitSharesStandard(SubmitSharesStandard {
                 channel_id: self_mutex.safe_lock(|s| 0).unwrap(),
                 sequence_number: self_mutex.safe_lock(|s| s.sequence_numbers.next()).unwrap(),
@@ -121,9 +148,7 @@ impl Device {
                 ntime,
                 version,
             }));
-        let frame: StdFrame = share.try_into().unwrap();
-        let sender = self_mutex.safe_lock(|s| s.sender.clone()).unwrap();
-        sender.send(frame.into());
+        share
     }
 }
 
