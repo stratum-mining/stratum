@@ -6,15 +6,23 @@
     "sv1_messages": [
         {
             "message": {
-                "id": 1,
+                "id":1,
+                "method":"mining.configure",
+                "params":[[],{}]
+            },
+            "id": "mining.configure"
+        },
+        {
+            "message": {
+                "id": 2,
                 "method": "mining.subscribe",
-                "params": ["cpuminer/1.0.0"]
+                "params": ["cpuminer"]
             },
             "id": "mining.subscribe"
         },
         {
             "message": {
-                "id": 2,
+                "id": 3,
                 "method": "mining.authorize",
                 "params": ["username", "password"]
             },
@@ -23,7 +31,7 @@
     ],
     "actions": [
         {
-            "message_ids": ["mining.subscribe"],
+            "message_ids": ["mining.configure"],
             "results": [
                 {
                     "type": "match_message_id",
@@ -33,11 +41,21 @@
             "actiondoc": "This action checks that the request and the response have the same id"
         },
         {
-            "message_ids": ["mining.authorize"],
+            "message_ids": ["mining.subscribe"],
             "results": [
                 {
                     "type": "match_message_id",
                     "value": 2
+                }
+            ],
+            "actiondoc": "This action checks that the request and the response have the same id"
+        },
+        {
+            "message_ids": ["mining.authorize"],
+            "results": [
+                {
+                    "type": "match_message_id",
+                    "value": 3
                 }
             ],
             "actiondoc": "This action checks that the request and the response have the same id"
@@ -58,7 +76,7 @@
                     ]
                 }
             ],
-            "actiondoc": "This action checks that the request and the response have the same id"
+            "actiondoc": "This action checks that the response returns true as a result"
         }
     ],
     "setup_commands": [

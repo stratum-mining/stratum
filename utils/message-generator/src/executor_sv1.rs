@@ -131,38 +131,6 @@ impl Sv1Executor {
                 let message: Message = serde_json::from_str(&message).unwrap();
                 println!("RECV {:#?}", message);
                 match message {
-                    // Message::Notification(notification) => {
-                    //     match result {
-                    //         Sv1ActionResult::MatchMessageType(message_type) => {
-                    //             if notification.method != *message_type {
-                    //                 println!(
-                    //                     "WRONG MESSAGE TYPE expected: {} received: {}",
-                    //                     message_type,
-                    //                     notification.method
-                    //                 );
-                    //                 success = false;
-                    //                 break;
-                    //             } else {
-                    //                 println!("MATCHED MESSAGE TYPE {}", message_type);
-                    //             }
-                    //         },
-                    //         Sv1ActionResult::MatchMessageField { message_type, fields } => {
-                    //             if notification.method != *message_type {
-                    //                 println!(
-                    //                     "WRONG MESSAGE TYPE expected: {} received: {}",
-                    //                     message_type,
-                    //                     notification.method
-                    //                 );
-                    //                 success = false;
-                    //                 break;
-                    //             } else {
-                    //                 let msg = serde_json::to_value(notification).unwrap();
-                    //                 check_sv1_fields(msg, fields);
-                    //             }
-                    //         },
-                    //         _ => todo!()
-                    //     }
-                    // },
                     Message::OkResponse(response) | Message::ErrorResponse(response) => {
                         match result {
                             Sv1ActionResult::MatchMessageId(message_id) => {
@@ -185,7 +153,7 @@ impl Sv1Executor {
                             _ => todo!()
                         }
                     },
-                    _ => unreachable!()
+                    _ => println!("WRONG MESSAGE TYPE RECEIVED: expected Response")
                 }
             }
         }

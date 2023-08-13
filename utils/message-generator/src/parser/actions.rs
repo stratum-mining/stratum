@@ -147,17 +147,6 @@ impl Sv1ActionParser {
                                 .expect("match_message_field values not correct");
                         action_results.push(Sv1ActionResult::MatchMessageField { message_type: sv1_value.0, fields: sv1_value.1 });
                     },
-                    "get_message_field" => {
-                        let sv1_value = result.get("value").unwrap().clone();
-                        let sv1_value: (String, Vec<SaveField>) =
-                            serde_json::from_value(sv1_value)
-                                .expect("match_message_field values not correct");
-                        let get_message_field = Sv1ActionResult::GetMessageField {
-                            message_type: sv1_value.0,
-                            fields: sv1_value.1,
-                        };
-                        action_results.push(get_message_field);
-                    },
                     "close_connection" => {
                         action_results.push(Sv1ActionResult::CloseConnection);
                     }

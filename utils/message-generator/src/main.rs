@@ -65,10 +65,6 @@ enum Sv1ActionResult {
         message_type: String,
         fields: Vec<(String, serde_json::Value)>
     },
-    GetMessageField {
-        message_type: String,
-        fields: Vec<SaveField>
-    },
     CloseConnection,
     None,
 }
@@ -119,13 +115,6 @@ impl std::fmt::Display for Sv1ActionResult {
                 write!(f, "MatchMessageField: {:?} {:?}", message_type, fields)
             }
             Sv1ActionResult::CloseConnection => write!(f, "Close connection"),
-            Sv1ActionResult::GetMessageField {
-                message_type,
-                fields,
-                ..
-            } => {
-                write!(f, "GetMessageField: {:?} {:?}", message_type, fields)
-            }
             Sv1ActionResult::None => write!(f, "None"),
         }
     }
