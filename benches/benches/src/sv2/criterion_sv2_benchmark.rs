@@ -31,7 +31,6 @@ pub type EitherFrame = StandardEitherFrame<Message>;
 fn client_sv2_setup_connection(c: &mut Criterion) {
     c.bench_function("client_sv2_setup_connection", |b| {
         let address: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 34254);
-
         b.iter(|| {
             SetupConnectionHandler::get_setup_connection_message(address);
         });
@@ -42,7 +41,6 @@ fn client_sv2_setup_connection(c: &mut Criterion) {
 fn client_sv2_setup_connection_serialize(c: &mut Criterion) {
     c.bench_function("client_sv2_setup_connection_serialize", |b| {
         let address: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 34254);
-
         b.iter(|| {
             let setup_message: roles_logic_sv2::common_messages_sv2::SetupConnection<'_> =
                 SetupConnectionHandler::get_setup_connection_message(address);
@@ -60,7 +58,6 @@ fn client_sv2_setup_connection_serialize_deserialize(c: &mut Criterion) {
             SetupConnectionHandler::get_setup_connection_message(address);
         let mut serialized_data = Vec::new();
         setup_message.to_bytes(&mut serialized_data);
-
         b.iter(|| {
             let deserialized: Result<roles_logic_sv2::parsers::CommonMessages, Error> =
                 black_box(from_bytes(&mut serialized_data));
@@ -71,7 +68,6 @@ fn client_sv2_setup_connection_serialize_deserialize(c: &mut Criterion) {
 fn client_sv2_open_channel(c: &mut Criterion) {
     c.bench_function("client_sv2_open_channel", |b| {
         let address: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 34254);
-
         b.iter(|| {
             black_box(open_channel());
         });
@@ -81,7 +77,6 @@ fn client_sv2_open_channel(c: &mut Criterion) {
 fn client_sv2_open_channel_serialize(c: &mut Criterion) {
     c.bench_function("client_sv2_open_channel_serialize", |b| {
         let address: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 34254);
-
         b.iter(|| {
             let mut serialized_data = Vec::new();
             let open_channel_message = black_box(open_channel());
@@ -93,7 +88,6 @@ fn client_sv2_open_channel_serialize(c: &mut Criterion) {
 fn client_sv2_open_channel_serialize_deserialize(c: &mut Criterion) {
     c.bench_function("client_sv2_open_channel_serialize_deserialize", |b| {
         let address: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 34254);
-
         b.iter(|| {
             let mut serialized_data = Vec::new();
             let open_channel_message = black_box(open_channel());
@@ -144,7 +138,6 @@ fn client_sv2_update_channel_serialize(c: &mut Criterion) {
         nominal_hash_rate,
         maximum_target,
     };
-
     c.bench_function("client_sv2_update_channel_serialize", |b| {
         b.iter(|| {
             let mut serialized_data = Vec::new();
@@ -157,7 +150,6 @@ fn benchmark_handle_message_mining(c: &mut Criterion) {
     let client = create_client();
     let self_mutex = Arc::new(Mutex::new(client));
     let frame = create_mock_frame();
-
     let message_type = u8::from_str_radix("8", 16).unwrap();
     let mut payload: u8 = 200;
     let payload: &mut [u8] = &mut [payload];
@@ -178,7 +170,6 @@ fn benchmark_handle_common_message(c: &mut Criterion) {
     let message_type = u8::from_str_radix("8", 16).unwrap();
     let mut payload: u8 = 200;
     let payload: &mut [u8] = &mut [payload];
-
     c.bench_function("client-sv2-message-common", |b| {
         b.iter(|| {
             black_box(ParseUpstreamCommonMessages::handle_message_common(
@@ -192,17 +183,18 @@ fn benchmark_handle_common_message(c: &mut Criterion) {
 }
 
 fn main() {
-    let mut criterion = Criterion::default();
+    let mut criterion = Criterion::default()
+        .sample_size(50)
+        .measurement_time(std::time::Duration::from_secs(5));
     client_sv2_setup_connection(&mut criterion);
     client_sv2_setup_connection_serialize(&mut criterion);
-    client_sv2_mining_message_standard_serialize(&mut criterion);
     // client_sv2_setup_connection_serialize_deserialize(&mut criterion);
+    client_sv2_mining_message_standard(&mut criterion);
+    client_sv2_mining_message_standard_serialize(&mut criterion);
     client_sv2_open_channel(&mut criterion);
     client_sv2_open_channel_serialize(&mut criterion);
     //client_sv2_open_channel_serialize_deserialize(&mut criterion);
     client_sv2_update_channel_serialize(&mut criterion);
-    client_sv2_mining_message_standard(&mut criterion);
-
     benchmark_handle_common_message(&mut criterion);
     benchmark_handle_message_mining(&mut criterion);
     criterion.final_summary();
