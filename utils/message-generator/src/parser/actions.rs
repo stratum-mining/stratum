@@ -136,9 +136,9 @@ impl Sv1ActionParser {
             let results = action.get("results").unwrap().as_array().unwrap();
             for result in results {
                 match result.get("type").unwrap().as_str().unwrap() {
-                    "match_message_type" => {
-                        let message_type = result.get("value").unwrap().as_str().unwrap();
-                        action_results.push(Sv1ActionResult::MatchMessageType(message_type.to_string()));
+                    "match_message_id" => {
+                        let message_id = result.get("value").unwrap().as_u64().unwrap();
+                        action_results.push(Sv1ActionResult::MatchMessageId(serde_json::to_value(message_id).unwrap()));
                     },
                     "match_message_field" => {
                         let sv1_value = result.get("value").unwrap().clone();

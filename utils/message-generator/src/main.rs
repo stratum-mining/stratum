@@ -60,7 +60,7 @@ enum ActionResult {
 
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 enum Sv1ActionResult {
-    MatchMessageType(String),
+    MatchMessageId(serde_json::Value),
     MatchMessageField{
         message_type: String,
         fields: Vec<(String, serde_json::Value)>
@@ -108,11 +108,11 @@ impl std::fmt::Display for ActionResult {
 impl std::fmt::Display for Sv1ActionResult {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
-            Sv1ActionResult::MatchMessageType(message_type) => {
+            Sv1ActionResult::MatchMessageId(message_id) => {
                 write!(
                     f,
-                    "MatchMessageType: {}",
-                    message_type
+                    "MatchMessageId: {}",
+                    message_id
                 )
             }
             Sv1ActionResult::MatchMessageField { message_type, fields } => {

@@ -165,7 +165,19 @@ impl Sv1Executor {
                     // },
                     Message::OkResponse(response) | Message::ErrorResponse(response) => {
                         match result {
-                            //TODO: add MatchMessageId
+                            Sv1ActionResult::MatchMessageId(message_id) => {
+                                if response.id != *message_id {
+                                    println!(
+                                        "WRONG MESSAGE ID expected: {} received: {}",
+                                        message_id,
+                                        response.id
+                                    );
+                                    success = false;
+                                    break;
+                                } else {
+                                    println!("MATCHED MESSAGE ID {}", message_id);
+                                }
+                            },
                             Sv1ActionResult::MatchMessageField { message_type, fields } => {
                                 let msg = serde_json::to_value(response).unwrap();
                                 check_sv1_fields(msg, fields);

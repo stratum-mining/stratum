@@ -407,7 +407,7 @@ mod test {
         "#;
 
         let message = StandardRequest{id: 1, method: "mining.subscribe".to_string(), params: json!(["cpuminer/1.0.0".to_string()])};
-        let result = Sv1ActionResult::MatchMessageType("mining.subscribe".to_string());
+        let result = Sv1ActionResult::MatchMessageId(serde_json::to_value(1).unwrap());
         let step1 = Parser::initialize(test_json);
         let step2 = step1.next_step(test_json);
         let step3 = step2.next_step(test_json);
