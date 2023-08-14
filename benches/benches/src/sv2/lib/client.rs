@@ -9,7 +9,7 @@ use codec_sv2::{Frame, StandardEitherFrame, StandardSv2Frame};
 use framing_sv2::framing2::NoiseFrame;
 use roles_logic_sv2::{
     common_messages_sv2::{
-        Protocol, SetupConnection, SetupConnectionError, SetupConnectionSuccess,
+        Protocol, SetupConnection, SetupConnectionSuccess,
     },
     common_properties::{IsMiningUpstream, IsUpstream},
     errors::Error,

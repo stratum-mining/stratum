@@ -88,9 +88,7 @@ After running the benchmarks, the `criterion` crate will generate detailed perfo
 
 Here are the sample benchmark results for both sv1 and sv2 client functions:
 
-Certainly, here are the tables with the benchmark metrics combined and the time range column renamed to "Latency":
-
-**Combined Table: Benchmark Metrics and Latency**
+**Combined Table: Benchmark Metrics**
 
 | Benchmark Function           | Latency (µs)   | Instructions | L1 Accesses | L2 Accesses | RAM Accesses | Estimated Cycles |
 |------------------------------|----------------|--------------|-------------|-------------|--------------|------------------|
@@ -113,8 +111,6 @@ Certainly, here are the tables with the benchmark metrics combined and the time 
 | client-sv2-update_channel_serialize | 0.3145 | 1833 | 2704 | 11 | 91 | 5944 |
 | client-sv2-message_common    | 0.0454         | 390          | 572         | 3           | 31           | 1672             |
 | client-sv2-message_mining    | 0.0794         | 5334         | 7642        | 55          | 215          | 15442            |
-
-In this combined table, the "Latency" column represents the middle value of the time range in microseconds.
 
 
 Lets Analyze some these results:
@@ -142,9 +138,12 @@ Lets Analyze some these results:
 | Estimated Cycles  | 17571                       | 8205                        | 53.26%                               |
 
 
-The formula used here is:
+The Performance Index is calculated using the formula:
 
-\[\text{Performance Index} = \frac{\text{SV1 Value} - \text{SV2 Value}}{\text{SV1 Value}} \times 100\]
+```markdown
+Performance Index = (SV1 Value - SV2 Value) / SV1 Value * 100
+
+```
 
 **Implications**
 

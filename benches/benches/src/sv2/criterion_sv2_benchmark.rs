@@ -1,16 +1,10 @@
-use async_channel::{unbounded, Receiver, Sender};
-use binary_sv2::{
-    binary_codec_sv2::from_bytes, u256_from_int, Decodable, Deserialize, Error, Serialize,
-};
 use codec_sv2::{Frame, StandardEitherFrame, StandardSv2Frame};
 use criterion::{black_box, Criterion};
-use framing_sv2::framing2::NoiseFrame;
-use mining_sv2::{CloseChannel, SetCustomMiningJob, UpdateChannel};
 use roles_logic_sv2::{
     handlers::{common::ParseUpstreamCommonMessages, mining::ParseUpstreamMiningMessages},
-    parsers::{Mining, MiningDeviceMessages},
+    parsers::{AnyMessage, Mining, MiningDeviceMessages},
     routing_logic::{CommonRoutingLogic, MiningRoutingLogic},
-    utils::{Id, Mutex},
+    utils::Mutex,
 };
 use std::{
     convert::TryInto,
@@ -37,30 +31,32 @@ fn client_sv2_setup_connection(c: &mut Criterion) {
     });
 }
 
-// I get error `Err(WriteError(4, 0))` on thus serialize as well as all other serilaize function.
 fn client_sv2_setup_connection_serialize(c: &mut Criterion) {
     c.bench_function("client_sv2_setup_connection_serialize", |b| {
         let address: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 34254);
-        b.iter(|| {
-            let setup_message: roles_logic_sv2::common_messages_sv2::SetupConnection<'_> =
-                SetupConnectionHandler::get_setup_connection_message(address);
-            let mut serialized_data = Vec::new();
-            setup_message.to_bytes(&mut serialized_data);
-        });
+        let setup_message = SetupConnectionHandler::get_setup_connection_message(address);
+        let setup_message: Message = setup_message.into();
+        let frame: StdFrame = setup_message.try_into().unwrap();
+        let size = frame.encoded_length();
+        let mut dst = vec![0; size];
+        b.iter(move || black_box(frame.clone()).serialize(&mut dst));
     });
 }
 
-// deserialize::from_bytes() is unimplemented
 fn client_sv2_setup_connection_serialize_deserialize(c: &mut Criterion) {
     c.bench_function("client_sv2_setup_connection_serialize_deserialize", |b| {
         let address: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 34254);
-        let setup_message: roles_logic_sv2::common_messages_sv2::SetupConnection<'_> =
-            SetupConnectionHandler::get_setup_connection_message(address);
-        let mut serialized_data = Vec::new();
-        setup_message.to_bytes(&mut serialized_data);
+        let setup_message = SetupConnectionHandler::get_setup_connection_message(address);
+        let setup_message: Message = setup_message.into();
+        let frame: StdFrame = setup_message.try_into().unwrap();
+        let size = frame.encoded_length();
+        let mut dst = vec![0; size];
+        let serialized = frame.serialize(&mut dst);
         b.iter(|| {
-            let deserialized: Result<roles_logic_sv2::parsers::CommonMessages, Error> =
-                black_box(from_bytes(&mut serialized_data));
+            let mut frame = StdFrame::from_bytes(black_box(dst.clone())).unwrap();
+            let type_ = frame.get_header().unwrap().msg_type().clone();
+            let payload = frame.payload();
+            let _ = AnyMessage::try_from((type_, payload)).unwrap();
         });
     });
 }
@@ -69,7 +65,9 @@ fn client_sv2_open_channel(c: &mut Criterion) {
     c.bench_function("client_sv2_open_channel", |b| {
         let address: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 34254);
         b.iter(|| {
-            black_box(open_channel());
+            black_box(MiningDeviceMessages::Mining(
+                Mining::OpenStandardMiningChannel(open_channel()),
+            ));
         });
     });
 }
@@ -77,83 +75,99 @@ fn client_sv2_open_channel(c: &mut Criterion) {
 fn client_sv2_open_channel_serialize(c: &mut Criterion) {
     c.bench_function("client_sv2_open_channel_serialize", |b| {
         let address: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 34254);
-        b.iter(|| {
-            let mut serialized_data = Vec::new();
-            let open_channel_message = black_box(open_channel());
-            black_box(open_channel_message.to_bytes(&mut serialized_data))
-        });
+        let open_channel =
+            MiningDeviceMessages::Mining(Mining::OpenStandardMiningChannel(open_channel()));
+        let frame: StdFrame = open_channel.try_into().unwrap();
+        let size = frame.encoded_length();
+        let mut dst = vec![0; size];
+        b.iter(|| black_box(frame.clone().serialize(&mut dst)));
     });
 }
 
 fn client_sv2_open_channel_serialize_deserialize(c: &mut Criterion) {
     c.bench_function("client_sv2_open_channel_serialize_deserialize", |b| {
         let address: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 34254);
+        let open_channel =
+            MiningDeviceMessages::Mining(Mining::OpenStandardMiningChannel(open_channel()));
+        let frame: StdFrame = open_channel.try_into().unwrap();
+        let size = frame.encoded_length();
+        let mut dst = vec![0; size];
+        frame.serialize(&mut dst);
         b.iter(|| {
-            let mut serialized_data = Vec::new();
-            let open_channel_message = black_box(open_channel());
-            let serialized = black_box(open_channel_message.to_bytes(&mut serialized_data));
-            let deserialized: Result<roles_logic_sv2::parsers::CommonMessages, Error> =
-                black_box(from_bytes(&mut serialized_data));
+            let mut frame = StdFrame::from_bytes(black_box(dst.clone())).unwrap();
+            let type_ = frame.get_header().unwrap().msg_type().clone();
+            let payload = frame.payload();
+            black_box(AnyMessage::try_from((type_, payload)).unwrap());
         });
     });
 }
 
-fn client_sv2_mining_message_standard(c: &mut Criterion) {
+fn client_sv2_mining_message_submit_standard(c: &mut Criterion) {
     let client = create_client();
     let self_mutex = Arc::new(Mutex::new(client));
     let nonce: u32 = 96;
     let job_id: u32 = 1;
     let version = 78;
     let ntime = 2;
-    c.bench_function("client_sv2_mining_message_standard", |b| {
+    c.bench_function("client_sv2_mining_message_submit_standard", |b| {
         b.iter(|| {
             Device::send_mining_message(self_mutex.clone(), nonce, job_id, version, ntime);
         });
     });
 }
 
-fn client_sv2_mining_message_standard_serialize(c: &mut Criterion) {
+fn client_sv2_mining_message_submit_standard_serialize(c: &mut Criterion) {
     let client = create_client();
     let self_mutex = Arc::new(Mutex::new(client));
     let nonce: u32 = 96;
     let job_id: u32 = 1;
     let version = 78;
     let ntime = 2;
-    c.bench_function("client_sv2_mining_message_standard_serialize", |b| {
-        b.iter(|| {
-            let submit_share_message =
-                Device::send_mining_message(self_mutex.clone(), nonce, job_id, version, ntime);
-            let mut serialized_data = Vec::new();
-            submit_share_message.to_bytes(&mut serialized_data);
-        });
+    let submit_share_message =
+        Device::send_mining_message(self_mutex.clone(), nonce, job_id, version, ntime);
+    let frame: StdFrame = submit_share_message.try_into().unwrap();
+    let size = frame.encoded_length();
+    let mut dst = vec![0; size];
+    c.bench_function("client_sv2_mining_message_submit_standard_serialize", |b| {
+
+        b.iter(|| black_box(frame.clone().serialize(&mut dst)));
     });
 }
 
-fn client_sv2_update_channel_serialize(c: &mut Criterion) {
-    let channel_id = 123;
-    let nominal_hash_rate = 42.5;
-    let maximum_target = u256_from_int(u64::MAX);
-    let update_channel = UpdateChannel {
-        channel_id,
-        nominal_hash_rate,
-        maximum_target,
-    };
-    c.bench_function("client_sv2_update_channel_serialize", |b| {
-        b.iter(|| {
-            let mut serialized_data = Vec::new();
-            black_box(update_channel.clone().to_bytes(&mut serialized_data));
-        });
-    });
+fn client_sv2_mining_message_submit_standard_serialize_deserialize(c: &mut Criterion) {
+    let client = create_client();
+    let self_mutex = Arc::new(Mutex::new(client));
+    let nonce: u32 = 96;
+    let job_id: u32 = 1;
+    let version = 78;
+    let ntime = 2;
+    let submit_share_message =
+        Device::send_mining_message(self_mutex.clone(), nonce, job_id, version, ntime);
+    let frame: StdFrame = submit_share_message.try_into().unwrap();
+    let size = frame.encoded_length();
+    let mut dst = vec![0; size];
+    frame.serialize(&mut dst);
+    c.bench_function(
+        "client_sv2_mining_message_submit_standard_serialize_deserialize",
+        |b| {
+            b.iter(|| {
+                let mut frame = StdFrame::from_bytes(black_box(dst.clone())).unwrap();
+                let type_ = frame.get_header().unwrap().msg_type().clone();
+                let payload = frame.payload();
+                black_box(AnyMessage::try_from((type_, payload)).unwrap());
+            });
+        },
+    );
 }
 
-fn benchmark_handle_message_mining(c: &mut Criterion) {
+fn client_sv2_handle_message_mining(c: &mut Criterion) {
     let client = create_client();
     let self_mutex = Arc::new(Mutex::new(client));
     let frame = create_mock_frame();
     let message_type = u8::from_str_radix("8", 16).unwrap();
     let mut payload: u8 = 200;
     let payload: &mut [u8] = &mut [payload];
-    c.bench_function("client-sv2-message_mining", |b| {
+    c.bench_function("client_sv2_handle_message_mining", |b| {
         b.iter(|| {
             black_box(Device::handle_message_mining(
                 self_mutex.clone(),
@@ -165,7 +179,7 @@ fn benchmark_handle_message_mining(c: &mut Criterion) {
     });
 }
 
-fn benchmark_handle_common_message(c: &mut Criterion) {
+fn client_sv2_handle_message_common(c: &mut Criterion) {
     let self_ = Arc::new(Mutex::new(SetupConnectionHandler {}));
     let message_type = u8::from_str_radix("8", 16).unwrap();
     let mut payload: u8 = 200;
@@ -188,14 +202,14 @@ fn main() {
         .measurement_time(std::time::Duration::from_secs(5));
     client_sv2_setup_connection(&mut criterion);
     client_sv2_setup_connection_serialize(&mut criterion);
-    // client_sv2_setup_connection_serialize_deserialize(&mut criterion);
-    client_sv2_mining_message_standard(&mut criterion);
-    client_sv2_mining_message_standard_serialize(&mut criterion);
+    client_sv2_setup_connection_serialize_deserialize(&mut criterion);
     client_sv2_open_channel(&mut criterion);
     client_sv2_open_channel_serialize(&mut criterion);
-    //client_sv2_open_channel_serialize_deserialize(&mut criterion);
-    client_sv2_update_channel_serialize(&mut criterion);
-    benchmark_handle_common_message(&mut criterion);
-    benchmark_handle_message_mining(&mut criterion);
+    client_sv2_open_channel_serialize_deserialize(&mut criterion);
+    client_sv2_mining_message_submit_standard(&mut criterion);
+    client_sv2_mining_message_submit_standard_serialize(&mut criterion);
+    client_sv2_mining_message_submit_standard_serialize_deserialize(&mut criterion);
+    client_sv2_handle_message_common(&mut criterion);
+    client_sv2_handle_message_mining(&mut criterion);
     criterion.final_summary();
 }
