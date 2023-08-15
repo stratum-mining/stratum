@@ -129,7 +129,6 @@ fn client_sv2_mining_message_submit_standard_serialize(c: &mut Criterion) {
     let size = frame.encoded_length();
     let mut dst = vec![0; size];
     c.bench_function("client_sv2_mining_message_submit_standard_serialize", |b| {
-
         b.iter(|| black_box(frame.clone().serialize(&mut dst)));
     });
 }

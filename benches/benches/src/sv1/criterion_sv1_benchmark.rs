@@ -13,9 +13,7 @@ fn benchmark_get_subscribe(c: &mut Criterion, mut client: Client) {
     group.bench_function("client-sv1-get-subscribe", |b| {
         client.status = ClientStatus::Configured;
         let extranonce = Some(extranonce_from_hex("0000"));
-        b.iter(|| {
-            black_box(client.subscribe(black_box(10), extranonce.clone()).unwrap())
-        });
+        b.iter(|| black_box(client.subscribe(black_box(10), extranonce.clone()).unwrap()));
     });
 }
 
@@ -65,13 +63,15 @@ fn benchmark_get_authorize(c: &mut Criterion, mut client: Client) {
     group.bench_function("client-sv1-get-authorize", |b| {
         client.status = ClientStatus::Configured;
         b.iter(|| {
-            black_box(client
-                .authorize(
-                    black_box(10),
-                    black_box("user".to_string()),
-                    black_box("passowrd".to_string()),
-                )
-                .unwrap());
+            black_box(
+                client
+                    .authorize(
+                        black_box(10),
+                        black_box("user".to_string()),
+                        black_box("passowrd".to_string()),
+                    )
+                    .unwrap(),
+            );
         });
     });
 }
@@ -137,16 +137,18 @@ fn benchmark_get_submit(c: &mut Criterion, mut client: Client) {
         notify(&mut client);
         client.authorize_user_name("user".to_string());
         b.iter(|| {
-            black_box(client
-                .submit(
-                    0,
-                    "user".to_string(),
-                    extranonce_from_hex("00"),
-                    78,
-                    78,
-                    None,
-                )
-                .unwrap());
+            black_box(
+                client
+                    .submit(
+                        0,
+                        "user".to_string(),
+                        extranonce_from_hex("00"),
+                        78,
+                        78,
+                        None,
+                    )
+                    .unwrap(),
+            );
         });
     });
 }

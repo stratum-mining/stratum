@@ -29,7 +29,7 @@ fn client_sv2_setup_connection() {
     ));
 }
 
-fn client_sv2_setup_connection_serialize() -> Result<(), framing_sv2::Error>{
+fn client_sv2_setup_connection_serialize() -> Result<(), framing_sv2::Error> {
     let address: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 34254);
     let setup_message = SetupConnectionHandler::get_setup_connection_message(address);
     let setup_message: Message = setup_message.into();
@@ -134,22 +134,20 @@ fn client_sv2_mining_message_submit_standard_serialize_deserialize() {
     black_box(AnyMessage::try_from((type_, payload)));
 }
 
-fn client_sv2_handle_message_mining() -> Result<SendTo_<roles_logic_sv2::parsers::Mining<'static>, 'static>, roles_logic_sv2::Error> {
+fn client_sv2_handle_message_mining(
+) -> Result<SendTo_<roles_logic_sv2::parsers::Mining<'static>, ()>, roles_logic_sv2::Error> {
     let client = create_client();
     let self_mutex = Arc::new(Mutex::new(client));
     let frame = create_mock_frame();
     let message_type = u8::from_str_radix("8", 16).unwrap();
     let mut payload: u8 = 200;
     let payload: &mut [u8] = &mut [payload];
-    black_box(
-        Device::handle_message_mining(
-            self_mutex.clone(),
-            message_type,
-            payload,
-            MiningRoutingLogic::None,
-        )
-        ,
-    )
+    black_box(Device::handle_message_mining(
+        self_mutex.clone(),
+        message_type,
+        payload,
+        MiningRoutingLogic::None,
+    ))
 }
 
 fn client_sv2_handle_message_common() {
