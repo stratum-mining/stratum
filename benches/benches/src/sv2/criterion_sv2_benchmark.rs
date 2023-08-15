@@ -183,7 +183,7 @@ fn client_sv2_handle_message_common(c: &mut Criterion) {
     let message_type = u8::from_str_radix("8", 16).unwrap();
     let mut payload: u8 = 200;
     let payload: &mut [u8] = &mut [payload];
-    c.bench_function("client-sv2-message-common", |b| {
+    c.bench_function("client_sv2_handle_message_common", |b| {
         b.iter(|| {
             black_box(ParseUpstreamCommonMessages::handle_message_common(
                 self_.clone(),
