@@ -29,6 +29,9 @@ use tracing::{error, info};
 /// USED to make sure that if a future new_template and a set_new_prev_hash are received together
 /// the future new_temnplate is always handled before the set new prev hash.
 pub static IS_NEW_TEMPLATE_HANDLED: AtomicBool = AtomicBool::new(true);
+// Used to wait for transaction data to be stored before continue with the creation of the
+// new DeclareMiningJob message
+pub static IS_TX_DATA_RECEIVED: AtomicBool = AtomicBool::new(false);
 
 /// Process CLI args, if any.
 #[allow(clippy::result_large_err)]
