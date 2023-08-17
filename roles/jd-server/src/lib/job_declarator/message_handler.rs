@@ -33,7 +33,6 @@ impl JobDeclaratorDownstream {
         // 3. right prev-hash
         // 4. right nbits
         self.token_to_job_map.contains_key(&(token_u32))
-
     }
 }
 
