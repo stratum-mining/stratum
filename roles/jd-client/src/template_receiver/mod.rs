@@ -1,6 +1,9 @@
-use binary_sv2::{Seq064K, B064K, B016M};
+use binary_sv2::{Seq064K, B016M, B064K};
 use codec_sv2::{StandardEitherFrame, StandardSv2Frame};
-use roles_logic_sv2::{utils::Mutex, template_distribution_sv2::{RequestTransactionData, NewTemplate}};
+use roles_logic_sv2::{
+    template_distribution_sv2::{NewTemplate, RequestTransactionData},
+    utils::Mutex,
+};
 
 use codec_sv2::Frame;
 use roles_logic_sv2::{
@@ -14,6 +17,7 @@ pub type Message = PoolMessages<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;
 pub type EitherFrame = StandardEitherFrame<Message>;
 use async_channel::{Receiver, Sender};
+use core::time;
 use network_helpers::plain_connection_tokio::PlainConnection;
 use std::{convert::TryInto, net::SocketAddr, sync::Arc};
 use tokio::task::AbortHandle;
@@ -65,7 +69,7 @@ impl TemplateRx {
             down,
             task_collector: task_collector.clone(),
             transactions_data: Vec::new().try_into().unwrap(),
-            excess_data:  Vec::new().try_into().unwrap(),
+            excess_data: Vec::new().try_into().unwrap(),
         }));
 
         let task = tokio::task::spawn(Self::on_new_solution(self_mutex.clone(), solution_receiver));
@@ -76,7 +80,6 @@ impl TemplateRx {
     }
 
     pub async fn send(self_: &Arc<Mutex<Self>>, sv2_frame: StdFrame) {
-        info!("sending some data.");
         let either_frame = sv2_frame.into();
         let sender_to_tp = self_.safe_lock(|self_| self_.sender.clone()).unwrap();
         match sender_to_tp.send(either_frame).await {
@@ -95,10 +98,13 @@ impl TemplateRx {
         Self::send(self_mutex, frame).await;
     }
 
-    pub async fn send_tx_data_request(self_mutex: &Arc<Mutex<Self>>, new_template: NewTemplate<'static>) {
+    pub async fn send_tx_data_request(
+        self_mutex: &Arc<Mutex<Self>>,
+        new_template: NewTemplate<'static>,
+    ) {
         let tx_data_request = PoolMessages::TemplateDistribution(
             TemplateDistribution::RequestTransactionData(RequestTransactionData {
-                template_id: new_template.template_id.clone(),
+                template_id: new_template.template_id,
             }),
         );
         let frame: StdFrame = tx_data_request.try_into().unwrap();
@@ -138,6 +144,7 @@ impl TemplateRx {
                         .safe_lock(|s| s.receiver.clone())
                         .unwrap();
                     let received = handle_result!(tx_status.clone(), receiver.recv().await);
+                    info!("MESSAGE RECEIVED {:?}", received);
                     let mut frame: StdFrame =
                         handle_result!(tx_status.clone(), received.try_into());
                     let message_type = frame.get_header().unwrap().msg_type();
@@ -157,13 +164,21 @@ impl TemplateRx {
                                 Some(TemplateDistribution::NewTemplate(m)) => {
                                     crate::IS_NEW_TEMPLATE_HANDLED
                                         .store(false, std::sync::atomic::Ordering::SeqCst);
-                                    let data = Self::send_tx_data_request(
-                                        &self_mutex,
-                                        m.clone(),
-                                    )
-                                    .await;
-                                    let transactions_data = self_mutex.safe_lock(|t| t.transactions_data.clone()).unwrap();
-                                    let excess_data = self_mutex.safe_lock(|t| t.excess_data.clone()).unwrap();
+                                    Self::send_tx_data_request(&self_mutex, m.clone()).await;
+                                    while !crate::IS_TX_DATA_RECEIVED
+                                        .load(std::sync::atomic::Ordering::SeqCst)
+                                    {
+                                        info!("WAITING");
+                                        tokio::task::yield_now().await;
+                                        tokio::time::sleep(time::Duration::from_millis(1000)).await;
+                                    }
+                                    let transactions_data = self_mutex
+                                        .safe_lock(|t| t.transactions_data.clone())
+                                        .unwrap();
+                                    let excess_data =
+                                        self_mutex.safe_lock(|t| t.excess_data.clone()).unwrap();
+                                    info!("TRANSACTION DATA: {:?}", crate::IS_TX_DATA_RECEIVED);
+                                    info!("TRANSACTION DATA: {:?}", transactions_data);
                                     let token = last_token.unwrap();
                                     last_token = None;
                                     let mining_token = token.mining_job_token.to_vec();

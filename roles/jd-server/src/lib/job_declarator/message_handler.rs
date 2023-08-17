@@ -32,12 +32,7 @@ impl JobDeclaratorDownstream {
         // 2. right version field
         // 3. right prev-hash
         // 4. right nbits
-        if self.token_to_job_map.contains_key(&(token_u32)) {
-            true
-        }
-        else {
-            false
-        }
+        self.token_to_job_map.contains_key(&(token_u32))
 
     }
 }

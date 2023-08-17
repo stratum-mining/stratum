@@ -5,6 +5,7 @@ use roles_logic_sv2::{
     parsers::TemplateDistribution,
     template_distribution_sv2::*,
 };
+use tracing::info;
 
 impl ParseServerTemplateDistributionMessages for TemplateRx {
     fn handle_new_template(&mut self, m: NewTemplate) -> Result<SendTo, Error> {
@@ -29,8 +30,10 @@ impl ParseServerTemplateDistributionMessages for TemplateRx {
         &mut self,
         m: RequestTransactionDataSuccess,
     ) -> Result<SendTo, Error> {
+        info!("TX DATA SUCCESS RECEIVED");
         self.transactions_data = m.transaction_list.into_static();
         self.excess_data = m.excess_data.into_static();
+        crate::IS_TX_DATA_RECEIVED.store(true, std::sync::atomic::Ordering::SeqCst);
         Ok(SendTo::None(None))
     }
 
