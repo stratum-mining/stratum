@@ -17,7 +17,6 @@ pub type Message = PoolMessages<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;
 pub type EitherFrame = StandardEitherFrame<Message>;
 use async_channel::{Receiver, Sender};
-use core::time;
 use network_helpers::plain_connection_tokio::PlainConnection;
 use std::{convert::TryInto, net::SocketAddr, sync::Arc};
 use tokio::task::AbortHandle;
@@ -39,6 +38,7 @@ pub struct TemplateRx {
     task_collector: Arc<Mutex<Vec<AbortHandle>>>,
     transactions_data: Seq064K<'static, B016M<'static>>,
     excess_data: B064K<'static>,
+    new_template_message: Option<NewTemplate<'static>>,
 }
 
 impl TemplateRx {
@@ -70,6 +70,7 @@ impl TemplateRx {
             task_collector: task_collector.clone(),
             transactions_data: Vec::new().try_into().unwrap(),
             excess_data: Vec::new().try_into().unwrap(),
+            new_template_message: None,
         }));
 
         let task = tokio::task::spawn(Self::on_new_solution(self_mutex.clone(), solution_receiver));
@@ -108,6 +109,7 @@ impl TemplateRx {
             }),
         );
         let frame: StdFrame = tx_data_request.try_into().unwrap();
+        info!("sending RequestTransactionData...");
         Self::send(self_mutex, frame).await;
     }
 
@@ -165,18 +167,44 @@ impl TemplateRx {
                                     crate::IS_NEW_TEMPLATE_HANDLED
                                         .store(false, std::sync::atomic::Ordering::SeqCst);
                                     Self::send_tx_data_request(&self_mutex, m.clone()).await;
-                                    while !crate::IS_TX_DATA_RECEIVED
+                                    self_mutex
+                                        .safe_lock(|t| t.new_template_message = Some(m.clone()))
+                                        .unwrap();
+                                    info!(
+                                        "NEW_TEMPLATE: {:?}",
+                                        self_mutex
+                                            .safe_lock(|t| t.new_template_message.clone())
+                                            .unwrap()
+                                            .unwrap()
+                                    )
+                                }
+                                Some(TemplateDistribution::SetNewPrevHash(m)) => {
+                                    info!("Received SetNewPrevHash, waiting for IS_NEW_TEMPLATE_HANDLED");
+                                    while !crate::IS_NEW_TEMPLATE_HANDLED
                                         .load(std::sync::atomic::Ordering::SeqCst)
                                     {
-                                        info!("WAITING");
                                         tokio::task::yield_now().await;
-                                        tokio::time::sleep(time::Duration::from_millis(1000)).await;
                                     }
-                                    let transactions_data = self_mutex
-                                        .safe_lock(|t| t.transactions_data.clone())
+                                    info!("IS_NEW_TEMPLATE_HANDLED ok");
+                                    let (res_down, _) = tokio::join!(
+                                    crate::downstream::DownstreamMiningNode::on_set_new_prev_hash(
+                                        &down,
+                                        m.clone()
+                                    ),
+                                    crate::job_declarator::JobDeclarator::on_set_new_prev_hash(&jd, m),
+                                );
+                                    res_down.unwrap();
+                                }
+
+                                Some(TemplateDistribution::RequestTransactionDataSuccess(m)) => {
+                                    // safe to unwrap because this message is received after the new
+                                    // template message
+                                    let transactions_data = m.transaction_list;
+                                    let excess_data = m.excess_data;
+                                    let m = self_mutex
+                                        .safe_lock(|t| t.new_template_message.clone())
+                                        .unwrap()
                                         .unwrap();
-                                    let excess_data =
-                                        self_mutex.safe_lock(|t| t.excess_data.clone()).unwrap();
                                     info!("TRANSACTION DATA: {:?}", crate::IS_TX_DATA_RECEIVED);
                                     info!("TRANSACTION DATA: {:?}", transactions_data);
                                     let token = last_token.unwrap();
@@ -199,23 +227,6 @@ impl TemplateRx {
                                         ),
                                     );
                                     down_res.unwrap();
-                                }
-                                Some(TemplateDistribution::SetNewPrevHash(m)) => {
-                                    info!("Received SetNewPrevHash, waiting for IS_NEW_TEMPLATE_HANDLED");
-                                    while !crate::IS_NEW_TEMPLATE_HANDLED
-                                        .load(std::sync::atomic::Ordering::SeqCst)
-                                    {
-                                        tokio::task::yield_now().await;
-                                    }
-                                    info!("IS_NEW_TEMPLATE_HANDLED ok");
-                                    let (res_down, _) = tokio::join!(
-                                    crate::downstream::DownstreamMiningNode::on_set_new_prev_hash(
-                                        &down,
-                                        m.clone()
-                                    ),
-                                    crate::job_declarator::JobDeclarator::on_set_new_prev_hash(&jd, m),
-                                );
-                                    res_down.unwrap();
                                 }
                                 _ => todo!(),
                             }
