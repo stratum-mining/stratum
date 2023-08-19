@@ -35,7 +35,6 @@ impl ParseServerTemplateDistributionMessages for TemplateRx {
         info!("TX DATA SUCCESS RECEIVED");
         self.transactions_data = m.transaction_list.into_static();
         self.excess_data = m.excess_data.into_static();
-        crate::IS_TX_DATA_RECEIVED.store(true, std::sync::atomic::Ordering::SeqCst);
         Ok(SendTo::None(None))
     }
 
