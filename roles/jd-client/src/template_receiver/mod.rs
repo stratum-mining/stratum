@@ -130,14 +130,7 @@ impl TemplateRx {
                     }
                     if !coinbase_output_max_additional_size_sent {
                         coinbase_output_max_additional_size_sent = true;
-                        Self::send_max_coinbase_size(
-                            &self_mutex,
-                            last_token
-                                .clone()
-                                .unwrap()
-                                .coinbase_output_max_additional_size,
-                        )
-                        .await;
+                        Self::send_max_coinbase_size(&self_mutex, 100).await;
                     }
 
                     // Receive Templates and SetPrevHash from TP to send to JD
@@ -205,7 +198,6 @@ impl TemplateRx {
                                         .safe_lock(|t| t.new_template_message.clone())
                                         .unwrap()
                                         .unwrap();
-                                    info!("TRANSACTION DATA: {:?}", crate::IS_TX_DATA_RECEIVED);
                                     info!("TRANSACTION DATA: {:?}", transactions_data);
                                     let token = last_token.unwrap();
                                     last_token = None;
