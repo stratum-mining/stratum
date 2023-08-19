@@ -11,6 +11,7 @@ impl ParseServerTemplateDistributionMessages for TemplateRx {
     fn handle_new_template(&mut self, m: NewTemplate) -> Result<SendTo, Error> {
         let new_template = m.into_static();
         let new_template = TemplateDistribution::NewTemplate(new_template);
+        info!("BBBB new template message received");
         Ok(SendTo::None(Some(new_template)))
     }
 
@@ -22,6 +23,7 @@ impl ParseServerTemplateDistributionMessages for TemplateRx {
             n_bits: m.n_bits,
             target: m.target.into_static(),
         };
+        info!("AAAA new prev hash message received");
         let new_prev_hash = TemplateDistribution::SetNewPrevHash(new_prev_hash);
         Ok(SendTo::None(Some(new_prev_hash)))
     }

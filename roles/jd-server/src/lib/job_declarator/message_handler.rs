@@ -49,7 +49,8 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
             // From u32 token is transformed into B0255 in
             // AllocateMiningJobTokenSuccess message
             mining_job_token: token.to_le_bytes().to_vec().try_into().unwrap(),
-            coinbase_output_max_additional_size: 0,
+            // Mock value of coinbase_max_additional_size. Must be changed
+            coinbase_output_max_additional_size: 100,
             async_mining_allowed: true,
             coinbase_output: self.coinbase_output.clone().try_into().unwrap(),
         };
