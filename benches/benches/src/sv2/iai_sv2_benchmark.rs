@@ -14,9 +14,7 @@ use std::{
 
 #[path = "./lib/client.rs"]
 mod client;
-use crate::client::{
-    create_client, create_mock_frame, open_channel, Device, SetupConnectionHandler,
-};
+use crate::client::{create_client, open_channel, Device, SetupConnectionHandler};
 
 pub type Message = MiningDeviceMessages<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;
@@ -46,22 +44,22 @@ fn client_sv2_setup_connection_serialize_deserialize() {
     let frame: StdFrame = setup_message.try_into().unwrap();
     let size = frame.encoded_length();
     let mut dst = vec![0; size];
-    let serialized = frame.serialize(&mut dst);
-    let mut frame = StdFrame::from_bytes(black_box(dst.clone())).unwrap();
+    frame.serialize(&mut dst);
+    let mut frame = StdFrame::from_bytes(black_box(dst.clone().into())).unwrap();
     let type_ = frame.get_header().unwrap().msg_type().clone();
     let payload = frame.payload();
     black_box(AnyMessage::try_from((type_, payload)));
 }
 
 fn client_sv2_open_channel() {
-    let address: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 34254);
+    let _address: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 34254);
     black_box(MiningDeviceMessages::Mining(
         Mining::OpenStandardMiningChannel(open_channel()),
     ));
 }
 
 fn client_sv2_open_channel_serialize() -> Result<(), framing_sv2::Error> {
-    let address: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 34254);
+    let _address: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 34254);
     let open_channel =
         MiningDeviceMessages::Mining(Mining::OpenStandardMiningChannel(open_channel()));
     let frame: StdFrame = open_channel.try_into().unwrap();
@@ -71,14 +69,14 @@ fn client_sv2_open_channel_serialize() -> Result<(), framing_sv2::Error> {
 }
 
 fn client_sv2_open_channel_serialize_deserialize() {
-    let address: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 34254);
+    let _address: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 34254);
     let open_channel =
         MiningDeviceMessages::Mining(Mining::OpenStandardMiningChannel(open_channel()));
     let frame: StdFrame = open_channel.try_into().unwrap();
     let size = frame.encoded_length();
     let mut dst = vec![0; size];
     frame.serialize(&mut dst);
-    let mut frame = StdFrame::from_bytes(black_box(dst.clone())).unwrap();
+    let mut frame = StdFrame::from_bytes(black_box(dst.clone().into())).unwrap();
     let type_ = frame.get_header().unwrap().msg_type().clone();
     let payload = frame.payload();
     black_box(AnyMessage::try_from((type_, payload)));
@@ -128,7 +126,7 @@ fn client_sv2_mining_message_submit_standard_serialize_deserialize() {
     let size = frame.encoded_length();
     let mut dst = vec![0; size];
     frame.serialize(&mut dst);
-    let mut frame = StdFrame::from_bytes(black_box(dst.clone())).unwrap();
+    let mut frame = StdFrame::from_bytes(black_box(dst.clone().into())).unwrap();
     let type_ = frame.get_header().unwrap().msg_type().clone();
     let payload = frame.payload();
     black_box(AnyMessage::try_from((type_, payload)));
@@ -138,9 +136,8 @@ fn client_sv2_handle_message_mining(
 ) -> Result<SendTo_<roles_logic_sv2::parsers::Mining<'static>, ()>, roles_logic_sv2::Error> {
     let client = create_client();
     let self_mutex = Arc::new(Mutex::new(client));
-    let frame = create_mock_frame();
     let message_type = u8::from_str_radix("8", 16).unwrap();
-    let mut payload: u8 = 200;
+    let payload: u8 = 200;
     let payload: &mut [u8] = &mut [payload];
     black_box(Device::handle_message_mining(
         self_mutex.clone(),
@@ -153,7 +150,7 @@ fn client_sv2_handle_message_mining(
 fn client_sv2_handle_message_common() {
     let self_ = Arc::new(Mutex::new(SetupConnectionHandler {}));
     let message_type = u8::from_str_radix("8", 16).unwrap();
-    let mut payload: u8 = 200;
+    let payload: u8 = 200;
     let payload: &mut [u8] = &mut [payload];
     black_box(ParseUpstreamCommonMessages::handle_message_common(
         self_.clone(),

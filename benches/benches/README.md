@@ -35,6 +35,8 @@ cargo bench
 The benchmark results will be displayed in the terminal. `target/criterion` and `target/iai` will also be created, which contains more detailed results.
 
 ## Benchmarking
+It is important to note that for now, sv2 does not count encryption and decryption.
+
 The following benchmark functions are available:
 
 ### sv1

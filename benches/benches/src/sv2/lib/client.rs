@@ -5,8 +5,7 @@ use bitcoin::{
 use async_channel::{Receiver, Sender};
 use async_std::channel::unbounded;
 use binary_sv2::u256_from_int;
-use codec_sv2::{Frame, StandardEitherFrame, StandardSv2Frame};
-use framing_sv2::framing2::NoiseFrame;
+use codec_sv2::{buffer_sv2::Slice, StandardEitherFrame, StandardSv2Frame};
 use roles_logic_sv2::{
     common_messages_sv2::{Protocol, SetupConnection, SetupConnectionSuccess},
     common_properties::{IsMiningUpstream, IsUpstream},
@@ -27,10 +26,7 @@ pub type StdFrame = StandardSv2Frame<Message>;
 pub type EitherFrame = StandardEitherFrame<Message>;
 
 pub fn create_client() -> Device {
-    let (sender, receiver): (
-        Sender<framing_sv2::framing2::EitherFrame<MiningDeviceMessages<'static>, Vec<_>>>,
-        Receiver<framing_sv2::framing2::EitherFrame<MiningDeviceMessages<'static>, Vec<_>>>,
-    ) = unbounded();
+    let (sender, receiver) = unbounded();
     let miner = Arc::new(Mutex::new(Miner::new(10)));
 
     Device {
@@ -46,7 +42,7 @@ pub fn create_client() -> Device {
 }
 
 pub fn create_mock_frame() -> StdFrame {
-    let client = create_client();
+    let _client = create_client();
     let open_channel =
         MiningDeviceMessages::Mining(Mining::OpenStandardMiningChannel(open_channel()));
     open_channel.try_into().unwrap()
@@ -56,9 +52,6 @@ pub struct SetupConnectionHandler {}
 use std::convert::TryInto;
 
 impl SetupConnectionHandler {
-    pub fn new() -> Self {
-        SetupConnectionHandler {}
-    }
     pub fn get_setup_connection_message(address: SocketAddr) -> SetupConnection<'static> {
         let endpoint_host = address.ip().to_string().into_bytes().try_into().unwrap();
         let vendor = String::new().try_into().unwrap();
@@ -139,7 +132,7 @@ impl Device {
     ) -> MiningDeviceMessages<'static> {
         let share: MiningDeviceMessages<'_> =
             MiningDeviceMessages::Mining(Mining::SubmitSharesStandard(SubmitSharesStandard {
-                channel_id: self_mutex.safe_lock(|s| 0).unwrap(),
+                channel_id: self_mutex.safe_lock(|_: &mut Device| 0).unwrap(),
                 sequence_number: self_mutex.safe_lock(|s| s.sequence_numbers.next()).unwrap(),
                 job_id,
                 nonce,
@@ -381,28 +374,4 @@ impl Miner {
         };
         self.header = Some(header);
     }
-    pub fn next_share(&mut self) -> Result<(), ()> {
-        let header = self.header.as_ref().ok_or(())?;
-        let mut hash = header.block_hash().as_hash().into_inner();
-        hash.reverse();
-        let hash = Uint256::from_be_bytes(hash);
-        if hash < *self.target.as_ref().ok_or(())? {
-            println!(
-                "Found share with nonce: {}, for target: {:?}, with hash: {:?}",
-                header.nonce, self.target, hash,
-            );
-            Ok(())
-        } else {
-            Err(())
-        }
-    }
-}
-
-pub fn create_noise_frame() -> NoiseFrame {
-    let message_type: u8 = 0;
-    let extension_type: u16 = 0;
-    let message_data: Vec<u8> = vec![1, 2, 3];
-    let channel_msg: bool = false;
-    // let message: Slice = message_data.into();
-    NoiseFrame::from_message(message_data, message_type, extension_type, channel_msg).unwrap()
 }

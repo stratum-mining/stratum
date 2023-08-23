@@ -51,9 +51,9 @@ fn client_sv2_setup_connection_serialize_deserialize(c: &mut Criterion) {
         let frame: StdFrame = setup_message.try_into().unwrap();
         let size = frame.encoded_length();
         let mut dst = vec![0; size];
-        let serialized = frame.serialize(&mut dst);
+        let _serialized = frame.serialize(&mut dst);
         b.iter(|| {
-            let mut frame = StdFrame::from_bytes(black_box(dst.clone())).unwrap();
+            let mut frame = StdFrame::from_bytes(black_box(dst.clone().into())).unwrap();
             let type_ = frame.get_header().unwrap().msg_type().clone();
             let payload = frame.payload();
             let _ = AnyMessage::try_from((type_, payload)).unwrap();
@@ -63,7 +63,7 @@ fn client_sv2_setup_connection_serialize_deserialize(c: &mut Criterion) {
 
 fn client_sv2_open_channel(c: &mut Criterion) {
     c.bench_function("client_sv2_open_channel", |b| {
-        let address: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 34254);
+        let _address: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 34254);
         b.iter(|| {
             black_box(MiningDeviceMessages::Mining(
                 Mining::OpenStandardMiningChannel(open_channel()),
@@ -74,7 +74,7 @@ fn client_sv2_open_channel(c: &mut Criterion) {
 
 fn client_sv2_open_channel_serialize(c: &mut Criterion) {
     c.bench_function("client_sv2_open_channel_serialize", |b| {
-        let address: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 34254);
+        let _address: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 34254);
         let open_channel =
             MiningDeviceMessages::Mining(Mining::OpenStandardMiningChannel(open_channel()));
         let frame: StdFrame = open_channel.try_into().unwrap();
@@ -86,7 +86,7 @@ fn client_sv2_open_channel_serialize(c: &mut Criterion) {
 
 fn client_sv2_open_channel_serialize_deserialize(c: &mut Criterion) {
     c.bench_function("client_sv2_open_channel_serialize_deserialize", |b| {
-        let address: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 34254);
+        let _address: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 34254);
         let open_channel =
             MiningDeviceMessages::Mining(Mining::OpenStandardMiningChannel(open_channel()));
         let frame: StdFrame = open_channel.try_into().unwrap();
@@ -94,7 +94,7 @@ fn client_sv2_open_channel_serialize_deserialize(c: &mut Criterion) {
         let mut dst = vec![0; size];
         frame.serialize(&mut dst);
         b.iter(|| {
-            let mut frame = StdFrame::from_bytes(black_box(dst.clone())).unwrap();
+            let mut frame = StdFrame::from_bytes(black_box(dst.clone().into())).unwrap();
             let type_ = frame.get_header().unwrap().msg_type().clone();
             let payload = frame.payload();
             black_box(AnyMessage::try_from((type_, payload)).unwrap());
@@ -150,7 +150,7 @@ fn client_sv2_mining_message_submit_standard_serialize_deserialize(c: &mut Crite
         "client_sv2_mining_message_submit_standard_serialize_deserialize",
         |b| {
             b.iter(|| {
-                let mut frame = StdFrame::from_bytes(black_box(dst.clone())).unwrap();
+                let mut frame = StdFrame::from_bytes(black_box(dst.clone().into())).unwrap();
                 let type_ = frame.get_header().unwrap().msg_type().clone();
                 let payload = frame.payload();
                 black_box(AnyMessage::try_from((type_, payload)).unwrap());
@@ -162,9 +162,9 @@ fn client_sv2_mining_message_submit_standard_serialize_deserialize(c: &mut Crite
 fn client_sv2_handle_message_mining(c: &mut Criterion) {
     let client = create_client();
     let self_mutex = Arc::new(Mutex::new(client));
-    let frame = create_mock_frame();
+    let _frame = create_mock_frame();
     let message_type = u8::from_str_radix("8", 16).unwrap();
-    let mut payload: u8 = 200;
+    let payload: u8 = 200;
     let payload: &mut [u8] = &mut [payload];
     c.bench_function("client_sv2_handle_message_mining", |b| {
         b.iter(|| {
@@ -181,7 +181,7 @@ fn client_sv2_handle_message_mining(c: &mut Criterion) {
 fn client_sv2_handle_message_common(c: &mut Criterion) {
     let self_ = Arc::new(Mutex::new(SetupConnectionHandler {}));
     let message_type = u8::from_str_radix("8", 16).unwrap();
-    let mut payload: u8 = 200;
+    let payload: u8 = 200;
     let payload: &mut [u8] = &mut [payload];
     c.bench_function("client_sv2_handle_message_common", |b| {
         b.iter(|| {
