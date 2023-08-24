@@ -166,6 +166,7 @@ jobs:
           --github-actions ${{ secrets.GITHUB_TOKEN }} \
           "cargo bench --bench iai_sv2_benchmark"
 
+          
       #- name: Publish benchmark result
       #uses: actions/upload-artifact@v2
       #with:
