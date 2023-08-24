@@ -21,11 +21,13 @@ jobs:
           toolchain: 1.65.0
           override: true
 
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
       - name: Start Sv2 Server
         id: start-server
-        #working-directory: roles/pool
+        working-directory: ./roles/pool
         run: |
-          cd roles/pool
           nohup bash -c 'cargo run -- --c pool-config.toml > /dev/null 2>&1 &' && sleep 5
           echo "Server started successfully"
 
@@ -59,12 +61,14 @@ jobs:
           profile: minimal
           toolchain: 1.65.0
           override: true
-  
+
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
       - name: Start Sv2 Server
         id: start-server
-        #working-directory: roles/pool
+        working-directory: ./roles/pool
         run: |
-          cd roles/pool
           nohup bash -c 'cargo run -- --c pool-config.toml > /dev/null 2>&1 &' && sleep 5
           echo "Server started successfully"
 
@@ -98,11 +102,13 @@ jobs:
           profile: minimal
           toolchain: 1.65.0
           override: true
-  
+
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
       - name: Start Sv2 Server
-        #working-directory: roles/pool
+        working-directory: ./roles/pool
         run: |
-          cd roles/pool
           nohup bash -c 'cargo run -- --c pool-config.toml > /dev/null 2>&1 &' && sleep 5
           echo "Server started successfully"
 
@@ -135,12 +141,14 @@ jobs:
           profile: minimal
           toolchain: 1.65.0
           override: true
-  
+
+      - name: Checkout repository
+        uses: actions/checkout@v2
+        
       - name: Start Sv2 Server
         id: start-server
-        #working-directory: roles/pool
+        working-directory: ./roles/pool
         run: |
-          cd roles/pool
           nohup bash -c 'cargo run -- --c pool-config.toml > /dev/null 2>&1 &' && sleep 5
           echo "Server started successfully"
           
