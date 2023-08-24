@@ -151,7 +151,7 @@ jobs:
           cd benches 
           bencher run \
           --github-actions ${{ secrets.GITHUB_TOKEN }} \
-          "cargo bench --bench iai_sv2_pool_benchmark"
+          "cargo bench --bench iai_sv2_benchmark"
 
 
       #- name: Publish benchmark result
