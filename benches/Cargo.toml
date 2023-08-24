@@ -37,7 +37,7 @@ name = "criterion_sv2_benchmark"
 path = "benches/src/sv2/criterion_sv2_benchmark.rs"
 harness = false
 
-# [[bench]]
-# name = "iai_sv2_pool_benchmark"
-# path = "benches/src/sv2/iai_sv2_pool_benchmark.rs"
-# harness = false
+[[bench]]
+name = "iai_sv2_pool_benchmark"
+path = "benches/src/sv2/iai_sv2_pool_benchmark.rs"
+harness = false
