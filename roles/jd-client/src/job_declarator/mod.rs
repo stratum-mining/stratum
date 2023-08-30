@@ -206,7 +206,8 @@ impl JobDeclarator {
             coinbase_tx_outputs: outputs.try_into().unwrap(),
             coinbase_tx_locktime: template.coinbase_tx_locktime,
             min_extranonce_size,
-            tx_short_hash_nonce: 0, // TODO should be sent to bitcoind when session start
+            tx_short_hash_nonce: 0, // TODO: should be sent to bitcoind when session start,
+            // it must be random o timestamp based
             // call to TP request transaction data  bip-0152
             tx_short_hash_list: Self::short_hash_list(tx_list.clone()).0,
             tx_hash_list_hash: Self::short_hash_list(tx_list.clone()).1,
@@ -328,6 +329,7 @@ impl JobDeclarator {
         }
     }
 
+    // TODO: to be put in roles_logic_sv2 utils
     fn short_hash_list(
         _tx_data: Seq064K<'static, B016M<'static>>,
     ) -> (Seq064K<'static, ShortTxId<'static>>, U256<'static>) {
