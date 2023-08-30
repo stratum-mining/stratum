@@ -1,4 +1,3 @@
-use binary_sv2::{Seq064K, B016M, B064K};
 use codec_sv2::{StandardEitherFrame, StandardSv2Frame};
 use roles_logic_sv2::{
     template_distribution_sv2::{NewTemplate, RequestTransactionData},
@@ -36,8 +35,6 @@ pub struct TemplateRx {
     jd: Arc<Mutex<crate::job_declarator::JobDeclarator>>,
     down: Arc<Mutex<crate::downstream::DownstreamMiningNode>>,
     task_collector: Arc<Mutex<Vec<AbortHandle>>>,
-    transactions_data: Seq064K<'static, B016M<'static>>,
-    excess_data: B064K<'static>,
     new_template_message: Option<NewTemplate<'static>>,
 }
 
@@ -68,8 +65,6 @@ impl TemplateRx {
             jd,
             down,
             task_collector: task_collector.clone(),
-            transactions_data: Vec::new().try_into().unwrap(),
-            excess_data: Vec::new().try_into().unwrap(),
             new_template_message: None,
         }));
 
@@ -130,7 +125,14 @@ impl TemplateRx {
                     }
                     if !coinbase_output_max_additional_size_sent {
                         coinbase_output_max_additional_size_sent = true;
-                        Self::send_max_coinbase_size(&self_mutex, 100).await;
+                        Self::send_max_coinbase_size(
+                            &self_mutex,
+                            last_token
+                                .clone()
+                                .unwrap()
+                                .coinbase_output_max_additional_size,
+                        )
+                        .await;
                     }
 
                     // Receive Templates and SetPrevHash from TP to send to JD
@@ -139,7 +141,6 @@ impl TemplateRx {
                         .safe_lock(|s| s.receiver.clone())
                         .unwrap();
                     let received = handle_result!(tx_status.clone(), receiver.recv().await);
-                    info!("MESSAGE RECEIVED {:?}", received);
                     let mut frame: StdFrame =
                         handle_result!(tx_status.clone(), received.try_into());
                     let message_type = frame.get_header().unwrap().msg_type();
@@ -169,10 +170,23 @@ impl TemplateRx {
                                             .safe_lock(|t| t.new_template_message.clone())
                                             .unwrap()
                                             .unwrap()
-                                    )
+                                    );
+                                    let token = last_token.clone().unwrap();
+                                    let pool_output = token.coinbase_output.to_vec();
+                                    let res_down =
+                                        crate::downstream::DownstreamMiningNode::on_new_template(
+                                            &down,
+                                            m,
+                                            &pool_output[..],
+                                        )
+                                        .await;
+                                    res_down.unwrap();
                                 }
                                 Some(TemplateDistribution::SetNewPrevHash(m)) => {
                                     info!("Received SetNewPrevHash, waiting for IS_NEW_TEMPLATE_HANDLED");
+                                    // TODO: change SeqCst with release and acquire ordering
+                                    // since template and prev hash don't need a total ordering
+                                    // with other SeqCst operation in other parts of the code
                                     while !crate::IS_NEW_TEMPLATE_HANDLED
                                         .load(std::sync::atomic::Ordering::SeqCst)
                                     {
@@ -198,27 +212,19 @@ impl TemplateRx {
                                         .safe_lock(|t| t.new_template_message.clone())
                                         .unwrap()
                                         .unwrap();
-                                    info!("TRANSACTION DATA: {:?}", transactions_data);
                                     let token = last_token.unwrap();
                                     last_token = None;
                                     let mining_token = token.mining_job_token.to_vec();
                                     let pool_output = token.coinbase_output.to_vec();
-                                    let (_jd_res, down_res) = tokio::join!(
-                                        crate::job_declarator::JobDeclarator::on_new_template(
-                                            &jd,
-                                            m.clone(),
-                                            mining_token,
-                                            pool_output.clone(),
-                                            transactions_data,
-                                            excess_data,
-                                        ),
-                                        crate::downstream::DownstreamMiningNode::on_new_template(
-                                            &down,
-                                            m,
-                                            &pool_output[..]
-                                        ),
-                                    );
-                                    down_res.unwrap();
+                                    crate::job_declarator::JobDeclarator::on_new_template(
+                                        &jd,
+                                        m.clone(),
+                                        mining_token,
+                                        pool_output.clone(),
+                                        transactions_data,
+                                        excess_data,
+                                    )
+                                    .await;
                                 }
                                 _ => todo!(),
                             }

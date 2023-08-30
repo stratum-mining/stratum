@@ -5,13 +5,11 @@ use roles_logic_sv2::{
     parsers::TemplateDistribution,
     template_distribution_sv2::*,
 };
-use tracing::info;
 
 impl ParseServerTemplateDistributionMessages for TemplateRx {
     fn handle_new_template(&mut self, m: NewTemplate) -> Result<SendTo, Error> {
         let new_template = m.into_static();
         let new_template = TemplateDistribution::NewTemplate(new_template);
-        info!("BBBB new template message received");
         Ok(SendTo::None(Some(new_template)))
     }
 
@@ -23,7 +21,6 @@ impl ParseServerTemplateDistributionMessages for TemplateRx {
             n_bits: m.n_bits,
             target: m.target.into_static(),
         };
-        info!("AAAA new prev hash message received");
         let new_prev_hash = TemplateDistribution::SetNewPrevHash(new_prev_hash);
         Ok(SendTo::None(Some(new_prev_hash)))
     }
@@ -32,10 +29,13 @@ impl ParseServerTemplateDistributionMessages for TemplateRx {
         &mut self,
         m: RequestTransactionDataSuccess,
     ) -> Result<SendTo, Error> {
-        info!("TX DATA SUCCESS RECEIVED");
-        self.transactions_data = m.transaction_list.into_static();
-        self.excess_data = m.excess_data.into_static();
-        Ok(SendTo::None(None))
+        let m = RequestTransactionDataSuccess {
+            transaction_list: m.transaction_list.into_static(),
+            excess_data: m.excess_data.into_static(),
+            template_id: m.template_id,
+        };
+        let tx_received = TemplateDistribution::RequestTransactionDataSuccess(m);
+        Ok(SendTo::None(Some(tx_received)))
     }
 
     fn handle_request_tx_data_error(
