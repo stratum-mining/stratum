@@ -25,7 +25,7 @@ Little utility to execute interoperability tests between SRI and other Sv2 compl
 4. If the test is in the `/test/message-geneator` directory, you have to lauch it from the MG
    directory using relative path. For example, 
 ```
-cargo run ../../test/message-geneator/test/pool-sri-test-1.json
+cargo run ../../test/message-generator/test/pool-sri-test-1-standard.json
 ```
 
 ## Test execution
@@ -34,9 +34,9 @@ The message generator executes a test with the following steps:
 1. Setup Commands: Executes shell commands or bash scripts to be run on start up, e.g. a `bitcoind` a node.
 2. Role Connection: Setups up one or two TCP connections, both plain and noise are supported, e.g. a connection to an Upstream role.
 3. Execution Commands: Executes shell commands or bash scripts to be run after a connection has been opened between two roles, e.g. a mocked Pool to a test Proxy.
-4. Actions: Executes the actions. Using the previously opened connection, each action
+4. Actions: Executes the actions using the previously opened connection. If a SV2 test is executing, each action
    sends zero or more `Sv2Frames` and checks if the received frame satisfies the conditions (defined
-   in the action). More than one condition can be defined if more than one message is expected to be
+   in the action). If a SV1 test is executing, each action sends one or more JSON-RPC Requests and checks if the received Response satisfies the conditions. More than one condition can be defined if more than one message is expected to be
    received.
 5. Cleanup Commands: Executes shell commands or bash scripts to be run on test completion, e.g. remove a `bitcoind` `datadir`.
 
@@ -61,6 +61,10 @@ be run as standalone.
 ## Test format
 
 Tests are written in json and must follow the below format:
+
+### version
+
+`version` is a string that indicates if the test is a SV1 test or a SV2 test. It can be either `"1"` or `"2"`.
 
 ### doc
 
@@ -95,12 +99,16 @@ This field is optional.
 
 `template_distribution_messages` is an array of messages (defined below) that belongs to the template distribution (sub)protocol. This field is optional.
 
+### sv1_messages
+
+`sv1_messages` is an array of messages that belongs to the SV1 protocol. If `version` is `"2"` this field should be empty.
+
 **Definition of messages mentioned above**
 
 A message is an object with two field `message` and `id`.
-The `message` field contains the actual Sv2 message. The `id` field contains a unique id
+The `message` field contains the actual message. The `id` field contains a unique id
 used to refer to the message in other part of the test.
-The `message` field is an object composed by:
+For SV2 messages, the `message` field is an object composed by:
 1. type: message type name as defined in the Sv2 spec is a string eg `SetupConnection`
 2. all the other field of that specific message as defined in the Sv2 spec with the only exception
    of the field `protocol` that is a string and not a number eg instead of `0` we have
@@ -129,6 +137,33 @@ The `message` field is an object composed by:
     ]
 }
 ```
+
+For SV1 messages, the `message` field is a JSON-RPC StandardRequest, composed by the fields `id`, `method` and `params`.
+
+
+```json
+{
+    "sv1_messages": [
+        {
+            "message": {
+                "id": 1,
+                "method": "mining.subscribe",
+                "params": ["cpuminer"]
+            },
+            "id": "mining.subscribe"
+        },
+        {
+            "message": {
+                "id": 2,
+                "method": "mining.authorize",
+                "params": ["username", "password"]
+            },
+            "id": "mining.authorize"
+        }
+    ]
+}
+```
+
 
 ### frame_builders
 
@@ -187,7 +222,7 @@ message will be the abbreviated with `setup_connection_success_template_distribu
 
 ### actions
 
-`actions` is an array of objects. Each object is composed by:
+`actions` is an array of objects. If the test version is "2", each object is composed by:
 1. `role`: can be either `client` or `server`. This because the message generator can act at the
    same time as a client and as a server for example when we are mocking a proxy.
 2. `messages_ids`: an array of strings, that are ids of messages previously defined.
@@ -219,6 +254,13 @@ message will be the abbreviated with `setup_connection_success_template_distribu
     ]
 }
 ```
+
+If the test version is "1", each object is composed by:
+1. `messages_ids`: an array of strings, that are ids of sv1_messages previously defined.
+2. `results`: is an array of objects, used by the message generator to test if certain property of
+   the received Responses are true or not.  Accepts values:
+    - "type": String - match option - match_message_id, match_message_field
+    - "value": Array - varries depending on "type"
 
 ### setup commands
 
