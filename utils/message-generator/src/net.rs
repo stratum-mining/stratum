@@ -89,7 +89,6 @@ pub async fn setup_as_sv1_downstream(socket: SocketAddr) -> (Receiver<String>, S
                 match reader.read(&mut buf).await {
                     Ok(n) => {
                         let message = String::from_utf8_lossy(&buf[..n]).to_string();
-                        println!("RECEIVED INCOMING MESSAGE: {}", message);
                         sender_incoming.send(message).await.unwrap();
                         buf.clear();
                     },

@@ -1,7 +1,11 @@
 {
     "version": "1",
     "doc": [
-        "sv1 test"
+        "This test does",
+        "Runs a Sv2 pool",
+        "Runs the translator proxy",
+        "Sends sv1 messages to the translator proxy",
+        "Checks that the correct responses are received"
     ],
     "sv1_messages": [
         {
