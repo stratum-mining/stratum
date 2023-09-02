@@ -86,18 +86,21 @@ impl<'b> Serialize for B0255<'b> {
         let len = self.0.len();
         let inner = self.0.as_ref();
 
-        // tuple is: (byte array len, byte array)
-        let tuple = (len, &inner);
+        if serializer.is_human_readable() {
+            serializer.serialize_bytes(inner)
+        } else {
+            // tuple is: (byte array len, byte array)
+            let tuple = (len, &inner);
 
-        let tuple_len = 2;
-        let mut seq = serializer.serialize_tuple(tuple_len)?;
+            let tuple_len = 2;
+            let mut seq = serializer.serialize_tuple(tuple_len)?;
 
-        seq.serialize_element(&tuple.0)?;
-        seq.serialize_element(tuple.1)?;
-        seq.end()
+            seq.serialize_element(&tuple.0)?;
+            seq.serialize_element(tuple.1)?;
+            seq.end()
+        }
     }
 }
-
 struct B0255Visitor;
 
 impl<'a> Visitor<'a> for B0255Visitor {
