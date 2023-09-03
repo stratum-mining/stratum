@@ -184,11 +184,10 @@ impl TemplateRx {
                                 }
                                 Some(TemplateDistribution::SetNewPrevHash(m)) => {
                                     info!("Received SetNewPrevHash, waiting for IS_NEW_TEMPLATE_HANDLED");
-                                    // TODO: change SeqCst with release and acquire ordering
-                                    // since template and prev hash don't need a total ordering
-                                    // with other SeqCst operation in other parts of the code
+                                    // use Acquire-Release for IS_NEW_TEMPLATE_HANDLED because
+                                    // is not needed a total order with other atomics in the code
                                     while !crate::IS_NEW_TEMPLATE_HANDLED
-                                        .load(std::sync::atomic::Ordering::SeqCst)
+                                        .load(std::sync::atomic::Ordering::Acquire)
                                     {
                                         tokio::task::yield_now().await;
                                     }

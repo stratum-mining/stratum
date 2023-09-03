@@ -271,7 +271,7 @@ impl DownstreamMiningNode {
             let frame: StdFrame = message.try_into().unwrap();
             Self::send(self_mutex, frame).await.unwrap();
         }
-        crate::IS_NEW_TEMPLATE_HANDLED.store(true, std::sync::atomic::Ordering::SeqCst);
+        crate::IS_NEW_TEMPLATE_HANDLED.store(true, std::sync::atomic::Ordering::Release);
         Ok(())
     }
 
