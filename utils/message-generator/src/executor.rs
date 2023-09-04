@@ -9,17 +9,17 @@ use async_channel::{Receiver, Sender};
 use binary_sv2::Serialize;
 use codec_sv2::{Frame, StandardEitherFrame as EitherFrame, Sv2Frame};
 use roles_logic_sv2::{
+    mining_sv2::{
+        CloseChannel, NewExtendedMiningJob, NewMiningJob, OpenExtendedMiningChannel,
+        OpenExtendedMiningChannelSuccess, OpenMiningChannelError, OpenStandardMiningChannel,
+        OpenStandardMiningChannelSuccess, Reconnect, SetCustomMiningJob, SetCustomMiningJobError,
+        SetCustomMiningJobSuccess, SetExtranoncePrefix, SetGroupChannel,
+        SetNewPrevHash as MiningSetNewPrevHash, SetTarget, SubmitSharesError, SubmitSharesExtended,
+        SubmitSharesStandard, SubmitSharesSuccess, UpdateChannel, UpdateChannelError,
+    },
     parsers::{self, AnyMessage},
 };
 use std::{collections::HashMap, convert::TryInto, sync::Arc};
-use roles_logic_sv2::mining_sv2::{
-    CloseChannel, NewExtendedMiningJob, NewMiningJob, OpenExtendedMiningChannel,
-    OpenExtendedMiningChannelSuccess, OpenMiningChannelError, OpenStandardMiningChannel,
-    OpenStandardMiningChannelSuccess, Reconnect, SetCustomMiningJob, SetCustomMiningJobError,
-    SetCustomMiningJobSuccess, SetExtranoncePrefix, SetGroupChannel,
-    SetNewPrevHash as MiningSetNewPrevHash, SetTarget, SubmitSharesError, SubmitSharesExtended,
-    SubmitSharesStandard, SubmitSharesSuccess, UpdateChannel, UpdateChannelError,
-};
 
 use tokio::{
     fs::File,
@@ -825,7 +825,7 @@ fn change_fields<'a>(
     let keyword = next.keyword;
     let field_name = next.field_name;
     let value = values
-        .get(dbg!(&keyword))
+        .get(&keyword)
         .expect("value not found for the keyword");
 
     match m.clone() {
@@ -1045,7 +1045,8 @@ fn get_arbitrary_message_value_from_string_id(
                         };
                         value_new_serde
                     } else if field_id == "hardware_version" {
-                        let value_new = Sv2Type::B0255(message.hardware_version.to_vec()).arbitrary();
+                        let value_new =
+                            Sv2Type::B0255(message.hardware_version.to_vec()).arbitrary();
                         let value_new_serde = if let Sv2Type::Str0255(inner) = value_new {
                             serde_json::to_value(inner).unwrap()
                         } else {
@@ -1148,8 +1149,7 @@ fn get_arbitrary_message_value_from_string_id(
                     } else if field_id == "nominal_hashrate" {
                         panic!("f32 not implemented yet as Sv2Type for the message generator")
                     } else if field_id == "max_target" {
-                        let value_new =
-                            Sv2Type::U256(message.max_target.to_vec()).arbitrary();
+                        let value_new = Sv2Type::U256(message.max_target.to_vec()).arbitrary();
                         let value_new_serde = if let Sv2Type::U256(inner) = value_new {
                             serde_json::to_value(inner).unwrap()
                         } else {
@@ -1157,8 +1157,7 @@ fn get_arbitrary_message_value_from_string_id(
                         };
                         value_new_serde
                     } else if field_id == "min_extranonce_size" {
-                        let value_new =
-                            Sv2Type::U16(message.min_extranonce_size).arbitrary();
+                        let value_new = Sv2Type::U16(message.min_extranonce_size).arbitrary();
                         let value_new_serde = if let Sv2Type::U256(inner) = value_new {
                             serde_json::to_value(inner).unwrap()
                         } else {
@@ -1169,7 +1168,7 @@ fn get_arbitrary_message_value_from_string_id(
                         panic!("unknown message field");
                     };
                     value_new_serde
-                },
+                }
                 roles_logic_sv2::parsers::Mining::OpenExtendedMiningChannelSuccess(message) => {
                     let field_id = field_id.as_str();
                     let value_new_serde = if field_id == "channel_id" {
@@ -1230,24 +1229,8 @@ fn get_arbitrary_message_value_from_string_id(
             };
             value_new_serde
         }
-        roles_logic_sv2::parsers::PoolMessages::JobDeclaration(m) => {
-            let message_to_serde = serde_json::to_value(&m).unwrap();
-            let msg = message_to_serde.as_object().unwrap();
-            let value_old_serde = msg.get(&field_id).unwrap();
-            let value_old: Sv2Type = serde_json::from_value(value_old_serde.clone()).unwrap();
-            let value_new = value_old.arbitrary();
-            let value_new_serde = serde_json::to_value(&value_new).unwrap();
-            value_new_serde
-        }
-        roles_logic_sv2::parsers::PoolMessages::TemplateDistribution(m) => {
-            let message_to_serde = serde_json::to_value(&m).unwrap();
-            let msg = message_to_serde.as_object().unwrap();
-            let value_old_serde = msg.get(&field_id).unwrap();
-            let value_old: Sv2Type = serde_json::from_value(value_old_serde.clone()).unwrap();
-            let value_new = value_old.arbitrary();
-            let value_new_serde = serde_json::to_value(&value_new).unwrap();
-            value_new_serde
-        }
+        roles_logic_sv2::parsers::PoolMessages::JobDeclaration(_) => todo!(),
+        roles_logic_sv2::parsers::PoolMessages::TemplateDistribution(_) => todo!(),
     };
     value_new_serde
 }

@@ -30,7 +30,7 @@ cargo run ../../test/message-geneator/test/pool-sri-test-1.json
 
 ## Test execution
 
-The message generator executes a test with the following steps:
+The message generator executes a test with the following steps: 
 1. Setup Commands: Executes shell commands or bash scripts to be run on start up, e.g. a `bitcoind` a node.
 2. Role Connection: Setups up one or two TCP connections, both plain and noise are supported, e.g. a connection to an Upstream role.
 3. Execution Commands: Executes shell commands or bash scripts to be run after a connection has been opened between two roles, e.g. a mocked Pool to a test Proxy.

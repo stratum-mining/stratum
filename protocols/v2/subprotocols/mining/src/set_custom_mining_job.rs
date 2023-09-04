@@ -13,7 +13,7 @@ use core::convert::TryInto;
 /// mining_job_token provides the information for the pool to authorize the custom job that has
 /// been or will be negotiated between the Job Declarator and Pool.
 ///
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct SetCustomMiningJob<'decoder> {
     /// Extended channel identifier.
     pub channel_id: u32,
