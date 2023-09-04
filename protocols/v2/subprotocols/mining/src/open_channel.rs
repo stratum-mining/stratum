@@ -171,7 +171,7 @@ impl<'decoder> OpenExtendedMiningChannel<'decoder> {
 
 /// # OpenExtendedMiningChannel.Success (Server -> Client)
 /// Sent as a response for opening an extended channel.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct OpenExtendedMiningChannelSuccess<'decoder> {
     /// Client-specified request ID from OpenStandardMiningChannel message,
     /// so that the client can pair responses with open channel requests.

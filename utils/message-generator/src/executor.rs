@@ -825,7 +825,7 @@ fn change_fields<'a>(
     let keyword = next.keyword;
     let field_name = next.field_name;
     let value = values
-        .get(dbg!(&keyword))
+        .get(&keyword)
         .expect("value not found for the keyword");
 
     match m.clone() {
@@ -1229,24 +1229,8 @@ fn get_arbitrary_message_value_from_string_id(
             };
             value_new_serde
         }
-        roles_logic_sv2::parsers::PoolMessages::JobDeclaration(m) => {
-            let message_to_serde = serde_json::to_value(&m).unwrap();
-            let msg = message_to_serde.as_object().unwrap();
-            let value_old_serde = msg.get(&field_id).unwrap();
-            let value_old: Sv2Type = serde_json::from_value(value_old_serde.clone()).unwrap();
-            let value_new = value_old.arbitrary();
-            let value_new_serde = serde_json::to_value(&value_new).unwrap();
-            value_new_serde
-        }
-        roles_logic_sv2::parsers::PoolMessages::TemplateDistribution(m) => {
-            let message_to_serde = serde_json::to_value(&m).unwrap();
-            let msg = message_to_serde.as_object().unwrap();
-            let value_old_serde = msg.get(&field_id).unwrap();
-            let value_old: Sv2Type = serde_json::from_value(value_old_serde.clone()).unwrap();
-            let value_new = value_old.arbitrary();
-            let value_new_serde = serde_json::to_value(&value_new).unwrap();
-            value_new_serde
-        }
+        roles_logic_sv2::parsers::PoolMessages::JobDeclaration(_) => todo!(),
+        roles_logic_sv2::parsers::PoolMessages::TemplateDistribution(_) => todo!(),
     };
     value_new_serde
 }

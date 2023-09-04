@@ -101,6 +101,7 @@ impl<'b> Serialize for B0255<'b> {
         }
     }
 }
+
 struct B0255Visitor;
 
 impl<'a> Visitor<'a> for B0255Visitor {

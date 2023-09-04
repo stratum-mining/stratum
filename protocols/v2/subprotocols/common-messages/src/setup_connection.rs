@@ -343,7 +343,6 @@ impl GetSize for Protocol {
     }
 }
 
-
 #[cfg(feature = "with_serde")]
 impl From<Protocol> for u8 {
     fn from(val: Protocol) -> Self {
