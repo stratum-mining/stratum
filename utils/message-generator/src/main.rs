@@ -298,11 +298,12 @@ mod test {
     use crate::into_static::into_static;
     use roles_logic_sv2::{
         common_messages_sv2::{Protocol, SetupConnection},
-        mining_sv2::{CloseChannel, SetTarget},
-        parsers::{CommonMessages, Mining},
+        mining_sv2::{CloseChannel, SetTarget, OpenExtendedMiningChannelSuccess, SetCustomMiningJob, SetCustomMiningJobSuccess, SetCustomMiningJobError},
+        parsers::{CommonMessages, Mining}, job_declaration_sv2::DeclareMiningJob,
     };
     use std::{convert::TryInto, io::Write};
     use tokio::join;
+    use roles_logic_sv2::mining_sv2::{OpenExtendedMiningChannel, NewExtendedMiningJob};
 
     // The following test see that the composition serialise fist and deserialize
     // second is the identity function (on an example message)
@@ -348,6 +349,110 @@ mod test {
         if message_.extranonce_prefix != m_.extranonce_prefix {
             panic!();
         };
+    }
+    
+    //here oemc stands for OpenExtendedMiningChannel
+    #[test]
+    fn test_serialize_and_deserialize_2_oemc() {
+        let message = OpenExtendedMiningChannel{
+            request_id: 90,
+            user_identity: binary_sv2::B0255::try_from(vec![3, 0, 0, 0]).unwrap(),
+            nominal_hash_rate: 10.0,
+            max_target: binary_sv2::U256::try_from(vec![1; 32]).unwrap(),
+            min_extranonce_size: 3,
+        };
+        let message_as_serde_value = serde_json::to_value(message.clone()).unwrap();
+        let message_as_string = serde_json::to_string(&message_as_serde_value).unwrap();
+        let message_new: OpenExtendedMiningChannel = serde_json::from_str(&message_as_string).unwrap();
+        assert!(message_new == message); 
+    }
+    
+    // oemcs is oemc.Success
+    #[test]
+    fn test_serialize_and_deserialize_3_oemcs() {
+        let message = OpenExtendedMiningChannelSuccess{
+            request_id: 666666,
+            channel_id: 1,
+            target: binary_sv2::U256::try_from(vec![0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,255,255,255,255,255,255,255,255]).unwrap(),
+            extranonce_size: 3,
+            extranonce_prefix: vec![0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,255,255,255,255,255,255,255,255].try_into().unwrap(),
+        };
+        let message_as_serde_value = dbg!(serde_json::to_value(message.clone()).unwrap());
+        let message_as_string = dbg!(serde_json::to_string(&message_as_serde_value).unwrap());
+        let message_new: OpenExtendedMiningChannelSuccess = dbg!(serde_json::from_str(&message_as_string).unwrap());
+
+        assert!(message_new == message); 
+    }
+
+    // nemj NewExtendedMiningJob
+    #[test]
+    fn test_serialize_and_deserialize_4_nemj() {
+        let message = NewExtendedMiningJob {
+            channel_id: 1,
+            job_id: 1,
+            min_ntime: binary_sv2::Sv2Option::try_from(vec![0,0,0,0]).unwrap(),
+            version: 1,
+            version_rolling_allowed: true,
+            merkle_path: binary_sv2::Seq0255::new(vec![binary_sv2::U256::from([1; 32])]).unwrap(),
+            coinbase_tx_prefix: binary_sv2::B064K::try_from(vec![0,1,1]).unwrap(),
+            coinbase_tx_suffix: binary_sv2::B064K::try_from(vec![0,1,1]).unwrap(),
+        };
+        let message_as_serde_value = dbg!(serde_json::to_value(message.clone()).unwrap());
+        let message_as_string = dbg!(serde_json::to_string(&message_as_serde_value).unwrap());
+        let message_new: NewExtendedMiningJob = dbg!(serde_json::from_str(&message_as_string).unwrap());
+
+        assert!(message_new == message); 
+    }
+
+    fn test_serialize_and_deserialize_5_scmj() {
+        let message = SetCustomMiningJob {
+            channel_id: 1,
+            request_id: 1,
+            token: binary_sv2::B0255::try_from(vec![3, 0, 0, 0]).unwrap(),
+            version: 2,
+            prev_hash: binary_sv2::U256::from([1; 32]),
+            min_ntime: 0,
+            nbits: 1,
+            coinbase_tx_version: 2,
+            coinbase_prefix: binary_sv2::B0255::try_from(vec![3, 0, 0, 0]).unwrap(),
+            coinbase_tx_input_n_sequence: 1,
+            coinbase_tx_value_remaining: 1,
+            coinbase_tx_outputs: binary_sv2::B064K::try_from(vec![0,1,1]).unwrap(),
+            coinbase_tx_locktime: 1,
+            merkle_path: binary_sv2::Seq0255::new(vec![binary_sv2::U256::from([1; 32])]).unwrap(),
+            extranonce_size: 20,
+        };
+        let message_as_serde_value = dbg!(serde_json::to_value(message.clone()).unwrap());
+        let message_as_string = dbg!(serde_json::to_string(&message_as_serde_value).unwrap());
+        let message_new: SetCustomMiningJob = dbg!(serde_json::from_str(&message_as_string).unwrap());
+
+        assert!(message_new == message); 
+    }
+
+    //DeclareMiningJob in Declaration Protocol
+    // TODO! MAKE THIS TEST COMPILE AND PASS!
+    fn test_serialize_and_deserialize_6_dmj() {
+        let message = DeclareMiningJob {
+            request_id: 1,
+            mining_job_token: binary_sv2::B0255::try_from(vec![3, 0, 0, 0]).unwrap(),
+            version: 2,
+            coinbase_tx_version: 2,
+            coinbase_prefix: todo!(),
+            coinbase_tx_input_n_sequence: 1,
+            coinbase_tx_value_remaining: 1,
+            coinbase_tx_outputs: binary_sv2::B064K::try_from(vec![0,1,1]).unwrap(),
+            coinbase_tx_locktime: 1,
+            min_extranonce_size: 1,
+            tx_short_hash_nonce: 1,
+            tx_short_hash_list: binary_sv2::Seq064K::new(vec![binary_sv2::ShortTxId::try_from([1; 32])]),
+            tx_hash_list_hash: todo!(),
+            excess_data: todo!(),
+        };
+        let message_as_serde_value = dbg!(serde_json::to_value(message.clone()).unwrap());
+        let message_as_string = dbg!(serde_json::to_string(&message_as_serde_value).unwrap());
+        let message_new: DeclareMiningJob = dbg!(serde_json::from_str(&message_as_string).unwrap());
+
+        assert!(message_new == message); 
     }
 
     #[tokio::test]

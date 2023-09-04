@@ -64,7 +64,7 @@ impl<'d> NewMiningJob<'d> {
 /// that they accept extended mining jobs in the SetupConnection message (intended and
 /// expected behaviour for end mining devices).
 ///
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct NewExtendedMiningJob<'decoder> {
     /// For a group channel, the message is broadcasted to all standard
     /// channels belonging to the group. Otherwise, it is addressed to
