@@ -5,6 +5,7 @@ use super::SendTo_;
 use crate::errors::Error;
 use core::convert::TryInto;
 use job_declaration_sv2::*;
+use mining_sv2::{SubmitSharesError, SubmitSharesExtended, SubmitSharesSuccess};
 
 /// A trait implemented by a downstream to handle SV2 job declaration messages.
 pub trait ParseServerJobDeclarationMessages
@@ -32,6 +33,12 @@ where
                 .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
             Ok(JobDeclaration::ProvideMissingTransactions(message)) => self_
                 .safe_lock(|x| x.handle_provide_missing_transactions(message))
+                .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
+            Ok(JobDeclaration::SubmitSharesSuccess(message)) => self_
+                .safe_lock(|x| x.handle_submit_shares_success(message))
+                .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
+            Ok(JobDeclaration::SubmitSharesError(message)) => self_
+                .safe_lock(|x| x.handle_submit_shares_error(message))
                 .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
 
             Ok(_) => todo!(),
@@ -71,6 +78,14 @@ where
         &mut self,
         message: ProvideMissingTransactions,
     ) -> Result<SendTo, Error>;
+    // TODO: comment
+    fn handle_submit_shares_success(
+        &mut self,
+        message: SubmitSharesSuccess,
+    ) -> Result<SendTo, Error>;
+
+    // TODO: comment
+    fn handle_submit_shares_error(&mut self, message: SubmitSharesError) -> Result<SendTo, Error>;
 }
 pub trait ParseClientJobDeclarationMessages
 where
@@ -95,7 +110,9 @@ where
             Ok(JobDeclaration::ProvideMissingTransactionsSuccess(message)) => self_
                 .safe_lock(|x| x.handle_provide_missing_transactions_success(message))
                 .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
-
+            Ok(JobDeclaration::SubmitSharesExtended(message)) => self_
+                .safe_lock(|x| x.handle_submit_shares_extended(message))
+                .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
             Ok(_) => todo!(),
             Err(e) => Err(e),
         }
@@ -117,5 +134,11 @@ where
     fn handle_provide_missing_transactions_success(
         &mut self,
         message: ProvideMissingTransactionsSuccess,
+    ) -> Result<SendTo, Error>;
+
+    // TODO: comment
+    fn handle_submit_shares_extended(
+        &mut self,
+        message: SubmitSharesExtended,
     ) -> Result<SendTo, Error>;
 }

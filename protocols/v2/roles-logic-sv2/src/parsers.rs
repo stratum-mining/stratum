@@ -134,6 +134,11 @@ pub enum JobDeclaration<'a> {
     ProvideMissingTransactions(ProvideMissingTransactions<'a>),
     #[cfg_attr(feature = "with_serde", serde(borrow))]
     ProvideMissingTransactionsSuccess(ProvideMissingTransactionsSuccess<'a>),
+    #[cfg_attr(feature = "with_serde", serde(borrow))]
+    SubmitSharesExtended(SubmitSharesExtended<'a>),
+    SubmitSharesSuccess(SubmitSharesSuccess),
+    #[cfg_attr(feature = "with_serde", serde(borrow))]
+    SubmitSharesError(SubmitSharesError<'a>),
 }
 
 #[derive(Clone, Debug)]
@@ -286,6 +291,9 @@ impl<'a> IsSv2Message for JobDeclaration<'a> {
             Self::ProvideMissingTransactionsSuccess(_) => {
                 MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS_SUCCESS
             }
+            Self::SubmitSharesExtended(_) => MESSAGE_TYPE_SUBMIT_SHARES_EXTENDED,
+            Self::SubmitSharesSuccess(_) => MESSAGE_TYPE_SUBMIT_SHARES_SUCCESS,
+            Self::SubmitSharesError(_) => MESSAGE_TYPE_SUBMIT_SHARES_ERROR,
         }
     }
     fn channel_bit(&self) -> bool {
@@ -301,6 +309,9 @@ impl<'a> IsSv2Message for JobDeclaration<'a> {
             Self::ProvideMissingTransactionsSuccess(_) => {
                 CHANNEL_BIT_PROVIDE_MISSING_TRANSACTIONS_SUCCESS
             }
+            Self::SubmitSharesExtended(_) => CHANNEL_BIT_SUBMIT_SHARES_EXTENDED,
+            Self::SubmitSharesSuccess(_) => CHANNEL_BIT_SUBMIT_SHARES_SUCCESS,
+            Self::SubmitSharesError(_) => CHANNEL_BIT_SUBMIT_SHARES_ERROR,
         }
     }
 }
@@ -406,6 +417,9 @@ impl<'decoder> From<JobDeclaration<'decoder>> for EncodableField<'decoder> {
             JobDeclaration::IdentifyTransactionsSuccess(a) => a.into(),
             JobDeclaration::ProvideMissingTransactions(a) => a.into(),
             JobDeclaration::ProvideMissingTransactionsSuccess(a) => a.into(),
+            JobDeclaration::SubmitSharesExtended(a) => a.into(),
+            JobDeclaration::SubmitSharesSuccess(a) => a.into(),
+            JobDeclaration::SubmitSharesError(a) => a.into(),
         }
     }
 }
@@ -475,6 +489,9 @@ impl<'a> GetSize for JobDeclaration<'a> {
             JobDeclaration::IdentifyTransactionsSuccess(a) => a.get_size(),
             JobDeclaration::ProvideMissingTransactions(a) => a.get_size(),
             JobDeclaration::ProvideMissingTransactionsSuccess(a) => a.get_size(),
+            JobDeclaration::SubmitSharesExtended(a) => a.get_size(),
+            JobDeclaration::SubmitSharesSuccess(a) => a.get_size(),
+            JobDeclaration::SubmitSharesError(a) => a.get_size(),
         }
     }
 }

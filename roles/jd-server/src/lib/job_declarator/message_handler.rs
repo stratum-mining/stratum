@@ -7,6 +7,7 @@ use roles_logic_sv2::{
         DeclareMiningJobError, DeclareMiningJobSuccess, IdentifyTransactionsSuccess,
         ProvideMissingTransactionsSuccess,
     },
+    mining_sv2::{SubmitSharesError, SubmitSharesExtended, SubmitSharesSuccess},
     parsers::JobDeclaration,
 };
 pub type SendTo = SendTo_<JobDeclaration<'static>, ()>;
@@ -109,6 +110,29 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
         Ok(SendTo::Respond(message_enum))
     }
 
+    fn handle_submit_shares_extended(
+        &mut self,
+        message: SubmitSharesExtended,
+    ) -> Result<SendTo, Error> {
+        //TODO: implement logic for success or error
+
+        let message_success = SubmitSharesSuccess {
+            channel_id: message.channel_id,
+            last_sequence_number: 0,
+            new_submits_accepted_count: 0,
+            new_shares_sum: 0,
+        };
+        let _message_enum = JobDeclaration::SubmitSharesSuccess(message_success);
+
+        let message_error = SubmitSharesError {
+            channel_id: message.channel_id,
+            sequence_number: 0,
+            error_code: Vec::new().try_into().unwrap(),
+        };
+        let message_enum = JobDeclaration::SubmitSharesError(message_error);
+        Ok(SendTo::Respond(message_enum))
+    }
+
     fn handle_message_job_declaration(
         self_: std::sync::Arc<roles_logic_sv2::utils::Mutex<Self>>,
         message_type: u8,
@@ -131,20 +155,29 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
             Ok(JobDeclaration::ProvideMissingTransactionsSuccess(message)) => self_
                 .safe_lock(|x| x.handle_provide_missing_transactions_success(message))
                 .unwrap(),
+            Ok(JobDeclaration::SubmitSharesExtended(message)) => self_
+                .safe_lock(|x| x.handle_submit_shares_extended(message))
+                .unwrap(),
             Ok(JobDeclaration::AllocateMiningJobTokenSuccess(_)) => Err(Error::UnexpectedMessage(
-                u8::from_str_radix("51", 16).unwrap(),
+                u8::from_str_radix("0x51", 16).unwrap(),
             )),
             Ok(JobDeclaration::DeclareMiningJobSuccess(_)) => Err(Error::UnexpectedMessage(
-                u8::from_str_radix("58", 16).unwrap(),
+                u8::from_str_radix("0x58", 16).unwrap(),
             )),
             Ok(JobDeclaration::DeclareMiningJobError(_)) => Err(Error::UnexpectedMessage(
-                u8::from_str_radix("59", 16).unwrap(),
+                u8::from_str_radix("0x59", 16).unwrap(),
             )),
             Ok(JobDeclaration::IdentifyTransactions(_)) => Err(Error::UnexpectedMessage(
-                u8::from_str_radix("60", 16).unwrap(),
+                u8::from_str_radix("0x54", 16).unwrap(),
             )),
             Ok(JobDeclaration::ProvideMissingTransactions(_)) => Err(Error::UnexpectedMessage(
-                u8::from_str_radix("62", 16).unwrap(),
+                u8::from_str_radix("0x55", 16).unwrap(),
+            )),
+            Ok(JobDeclaration::SubmitSharesSuccess(_)) => Err(Error::UnexpectedMessage(
+                u8::from_str_radix("0x1c", 16).unwrap(),
+            )),
+            Ok(JobDeclaration::SubmitSharesError(_)) => Err(Error::UnexpectedMessage(
+                u8::from_str_radix("0x1d", 16).unwrap(),
             )),
             Err(e) => Err(e),
         }

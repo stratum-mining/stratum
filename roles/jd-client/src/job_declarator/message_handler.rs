@@ -6,6 +6,7 @@ use roles_logic_sv2::{
         IdentifyTransactions, IdentifyTransactionsSuccess, ProvideMissingTransactions,
         ProvideMissingTransactionsSuccess,
     },
+    mining_sv2::{SubmitSharesError, SubmitSharesSuccess},
     parsers::JobDeclaration,
 };
 pub type SendTo = SendTo_<JobDeclaration<'static>, ()>;
@@ -61,6 +62,17 @@ impl ParseServerJobDeclarationMessages for JobDeclarator {
         Ok(SendTo::Respond(message_enum))
     }
 
+    fn handle_submit_shares_success(
+        &mut self,
+        _message: SubmitSharesSuccess,
+    ) -> Result<SendTo, Error> {
+        Ok(SendTo::None(None))
+    }
+
+    fn handle_submit_shares_error(&mut self, _message: SubmitSharesError) -> Result<SendTo, Error> {
+        Ok(SendTo::None(None))
+    }
+
     fn handle_message_job_declaration(
         self_: std::sync::Arc<roles_logic_sv2::utils::Mutex<Self>>,
         message_type: u8,
@@ -83,6 +95,12 @@ impl ParseServerJobDeclarationMessages for JobDeclarator {
             Ok(JobDeclaration::ProvideMissingTransactions(message)) => self_
                 .safe_lock(|x| x.handle_provide_missing_transactions(message))
                 .unwrap(),
+            Ok(JobDeclaration::SubmitSharesSuccess(message)) => self_
+                .safe_lock(|x| x.handle_submit_shares_success(message))
+                .unwrap(),
+            Ok(JobDeclaration::SubmitSharesError(message)) => self_
+                .safe_lock(|x| x.handle_submit_shares_error(message))
+                .unwrap(),
             Ok(JobDeclaration::AllocateMiningJobToken(_)) => Err(Error::UnexpectedMessage(
                 u8::from_str_radix("0x50", 16).unwrap(),
             )),
@@ -90,11 +108,14 @@ impl ParseServerJobDeclarationMessages for JobDeclarator {
                 u8::from_str_radix("0x57", 16).unwrap(),
             )),
             Ok(JobDeclaration::IdentifyTransactionsSuccess(_)) => Err(Error::UnexpectedMessage(
-                u8::from_str_radix("0x61", 16).unwrap(),
+                u8::from_str_radix("0x53", 16).unwrap(),
             )),
             Ok(JobDeclaration::ProvideMissingTransactionsSuccess(_)) => Err(
-                Error::UnexpectedMessage(u8::from_str_radix("0x63", 16).unwrap()),
+                Error::UnexpectedMessage(u8::from_str_radix("0x56", 16).unwrap()),
             ),
+            Ok(JobDeclaration::SubmitSharesExtended(_)) => Err(Error::UnexpectedMessage(
+                u8::from_str_radix("0x1b", 16).unwrap(),
+            )),
             Err(e) => Err(e),
         }
     }
