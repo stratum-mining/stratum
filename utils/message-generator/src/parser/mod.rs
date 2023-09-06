@@ -396,8 +396,8 @@ mod test {
                     "message_ids": ["mining.subscribe"],
                     "results": [
                         {
-                            "type": "match_message_type",
-                            "value": "mining.subscribe"
+                            "type": "match_message_id",
+                            "value": 1
                         }
                     ],
                     "actiondoc": ""
