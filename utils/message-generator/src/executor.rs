@@ -10,6 +10,14 @@ use binary_sv2::Serialize;
 use codec_sv2::{Frame, StandardEitherFrame as EitherFrame, Sv2Frame};
 use roles_logic_sv2::parsers::{self, AnyMessage};
 use std::{collections::HashMap, convert::TryInto, sync::Arc};
+use roles_logic_sv2::mining_sv2::{
+    CloseChannel, NewExtendedMiningJob, NewMiningJob, OpenExtendedMiningChannel,
+    OpenExtendedMiningChannelSuccess, OpenMiningChannelError, OpenStandardMiningChannel,
+    OpenStandardMiningChannelSuccess, Reconnect, SetCustomMiningJob, SetCustomMiningJobError,
+    SetCustomMiningJobSuccess, SetExtranoncePrefix, SetGroupChannel,
+    SetNewPrevHash as MiningSetNewPrevHash, SetTarget, SubmitSharesError, SubmitSharesExtended,
+    SubmitSharesStandard, SubmitSharesSuccess, UpdateChannel, UpdateChannelError,
+};
 
 use tokio::{
     fs::File,
@@ -161,12 +169,19 @@ impl Executor {
                 let replace_fields = message_.2.clone();
                 let message = message_.1.clone();
                 let frame = message_.0;
-                let arbitrary_fields: Vec<ReplaceField> = replace_fields.clone().into_iter().filter(|s| s.keyword == "ARBITRARY").collect();
-                let replace_fields: Vec<ReplaceField> = replace_fields.clone().into_iter().filter(|s| s.keyword != "ARBITRARY").collect();    
-                
+                let arbitrary_fields: Vec<ReplaceField> = replace_fields
+                    .clone()
+                    .into_iter()
+                    .filter(|s| s.keyword == "ARBITRARY")
+                    .collect();
+                let replace_fields: Vec<ReplaceField> = replace_fields
+                    .clone()
+                    .into_iter()
+                    .filter(|s| s.keyword != "ARBITRARY")
+                    .collect();
+
                 let message = if arbitrary_fields.len() > 0 {
                     let message = change_fields_with_arbitrary_value(message, arbitrary_fields);
-                    println!("QUI FACCIO QUALCOSA");
                     message
                 } else {
                     message
@@ -183,18 +198,15 @@ impl Executor {
                     Err(_) => panic!(),
                 };
 
-
-
-
-                    //let message_modified =
-                    //    change_fields(message, replace_fields, self.save.clone());
-                    //let modified_frame =
-                    //    EitherFrame::Sv2(message_modified.clone().try_into().unwrap());
-                    //println!("SEND {:#?}", message_modified);
-                    //match sender.send(modified_frame).await {
-                    //    Ok(_) => (),
-                    //    Err(_) => panic!(),
-                    //};
+                //let message_modified =
+                //    change_fields(message, replace_fields, self.save.clone());
+                //let modified_frame =
+                //    EitherFrame::Sv2(message_modified.clone().try_into().unwrap());
+                //println!("SEND {:#?}", message_modified);
+                //match sender.send(modified_frame).await {
+                //    Ok(_) => (),
+                //    Err(_) => panic!(),
+                //};
             }
             let mut rs = 0;
             for result in &action.result {
@@ -811,24 +823,12 @@ fn change_fields<'a>(
     let keyword = next.keyword;
     let field_name = next.field_name;
     let value = values
-        .get(&keyword)
+        .get(dbg!(&keyword))
         .expect("value not found for the keyword");
 
     match m.clone() {
         AnyMessage::Common(m) => {
-            let mut message_as_serde_value = serde_json::to_value(&m)
-                .unwrap()
-                .as_object()
-                .unwrap()
-                .values()
-                .next()
-                .unwrap()
-                .clone();
-            *message_as_serde_value
-                .pointer_mut(&format!("/{}", field_name.as_str()))
-                .unwrap() = value.clone();
-            let m_ = serde_json::to_string(&message_as_serde_value).unwrap();
-
+            let m_ = change_value_of_serde_field(m, value, field_name);
             let m_ = into_static(AnyMessage::Common(serde_json::from_str(&m_).unwrap()));
             if replace_fields.is_empty() {
                 m_
@@ -889,41 +889,26 @@ fn change_value_of_serde_field<T: Serialize>(
     serde_json::to_string(&message_as_serde_value).unwrap()
 }
 
-
 fn change_fields_with_arbitrary_value<'a>(
     m: AnyMessage<'a>,
-    mut arbitrary_fields: Vec<ReplaceField>,
+    arbitrary_fields: Vec<ReplaceField>,
 ) -> AnyMessage<'a> {
-    let m_ = m.clone();
-    let next = arbitrary_fields
-        .pop()
-        .expect("replace_fields cannot be empty");
-    let field_name = next.field_name;
-    let m = if let parsers::PoolMessages::Mining(message) = m.clone() {
-        println!("BBBB");
-        let mut message_as_serde_value = serde_json::to_value(&message)
-            .unwrap()
-            .as_object()
-            .unwrap()
-            .values()
-            .next()
-            .unwrap()
-            .clone();
-        let message_as_string = serde_json::to_string(&message_as_serde_value).unwrap();
-        let message: AnyMessage<'_> = serde_json::from_str(&message_as_string).unwrap();
-        into_static(message)
-    } else {
-        todo!()
-    };
-    //let m: AnyMessage<'_> = match m.clone() {
-    //    parsers::PoolMessages::Common(${0:_}) => todo!(),
-    //    parsers::PoolMessages::Mining(_) => todo!(),
-    //    parsers::PoolMessages::JobDeclaration(_) => todo!(),
-    //    parsers::PoolMessages::TemplateDistribution(_) => todo!(),
-    //};
+    let mut replace_fields: Vec<ReplaceField> = Vec::new();
+    let mut save: HashMap<String, serde_json::Value> = HashMap::new();
 
-    println!("AAAAA");
-    m
+    for field_to_be_replaced in arbitrary_fields.iter() {
+        let replace_field = ReplaceField {
+            field_name: field_to_be_replaced.clone().field_name,
+            keyword: field_to_be_replaced.clone().field_name,
+        };
+        replace_fields.push(replace_field);
+        let value = get_arbitrary_message_value_from_string_id(
+            m.clone(),
+            field_to_be_replaced.field_name.clone(),
+        );
+        save.insert(field_to_be_replaced.clone().field_name, value);
+    }
+    change_fields(m, replace_fields, save)
 }
 fn save_message_field(
     mess: serde_json::Value,
@@ -974,4 +959,293 @@ fn message_to_value<'a>(m: &'a serde_json::Value, field: &str) -> &'a serde_json
     let msg = m.as_object().unwrap();
     let value = msg.get(field).unwrap();
     value
+}
+
+// to be unified with GetMessageField logic
+fn get_arbitrary_message_value_from_string_id(
+    message: AnyMessage<'_>,
+    field_id: String,
+) -> serde_json::Value {
+    let value_new_serde = match message {
+        roles_logic_sv2::parsers::PoolMessages::Common(m) => {
+            let value_new_serde = match m {
+                roles_logic_sv2::parsers::CommonMessages::ChannelEndpointChanged(message) => {
+                    let field_id = field_id.as_str();
+                    let value_new_serde = if field_id == "channel_id" {
+                        let value_new = Sv2Type::U32(message.channel_id).arbitrary();
+                        let value_new_serde = if let Sv2Type::U32(inner) = value_new {
+                            serde_json::to_value(inner).unwrap()
+                        } else {
+                            todo!()
+                        };
+                        value_new_serde
+                    } else {
+                        panic!("unknown message field");
+                    };
+                    value_new_serde
+                }
+                roles_logic_sv2::parsers::CommonMessages::SetupConnection(message) => {
+                    let field_id = field_id.as_str();
+                    let value_new_serde = if field_id == "flags" {
+                        let value_new = Sv2Type::U32(message.flags).arbitrary();
+                        let value_new_serde = if let Sv2Type::U32(inner) = value_new {
+                            serde_json::to_value(inner).unwrap()
+                        } else {
+                            todo!()
+                        };
+                        value_new_serde
+                    } else if field_id == "protocol" {
+                        let value_new = Sv2Type::U8(message.protocol.into()).arbitrary();
+                        let value_new_serde = if let Sv2Type::U8(inner) = value_new {
+                            serde_json::to_value(inner).unwrap()
+                        } else {
+                            todo!()
+                        };
+                        value_new_serde
+                    } else if field_id == "max_version" {
+                        let value_new = Sv2Type::U16(message.max_version).arbitrary();
+                        let value_new_serde = if let Sv2Type::U16(inner) = value_new {
+                            serde_json::to_value(inner).unwrap()
+                        } else {
+                            todo!()
+                        };
+                        value_new_serde
+                    } else if field_id == "min_version" {
+                        let value_new = Sv2Type::U16(message.min_version).arbitrary();
+                        let value_new_serde = if let Sv2Type::U16(inner) = value_new {
+                            serde_json::to_value(inner).unwrap()
+                        } else {
+                            todo!()
+                        };
+                        value_new_serde
+                    } else if field_id == "endpoint_host" {
+                        let value_new = Sv2Type::B0255(message.endpoint_host.to_vec()).arbitrary();
+                        let value_new_serde = if let Sv2Type::Str0255(inner) = value_new {
+                            serde_json::to_value(inner).unwrap()
+                        } else {
+                            todo!()
+                        };
+                        value_new_serde
+                    } else if field_id == "endpoint_port" {
+                        let value_new = Sv2Type::U16(message.endpoint_port).arbitrary();
+                        let value_new_serde = if let Sv2Type::U16(inner) = value_new {
+                            serde_json::to_value(inner).unwrap()
+                        } else {
+                            todo!()
+                        };
+                        value_new_serde
+                    } else if field_id == "vendor" {
+                        let value_new = Sv2Type::B0255(message.vendor.to_vec()).arbitrary();
+                        let value_new_serde = if let Sv2Type::Str0255(inner) = value_new {
+                            serde_json::to_value(inner).unwrap()
+                        } else {
+                            todo!()
+                        };
+                        value_new_serde
+                    } else if field_id == "hardware_version" {
+                        let value_new = Sv2Type::B0255(message.hardware_version.to_vec()).arbitrary();
+                        let value_new_serde = if let Sv2Type::Str0255(inner) = value_new {
+                            serde_json::to_value(inner).unwrap()
+                        } else {
+                            todo!()
+                        };
+                        value_new_serde
+                    } else if field_id == "firmware" {
+                        let value_new = Sv2Type::B0255(message.firmware.to_vec()).arbitrary();
+                        let value_new_serde = if let Sv2Type::Str0255(inner) = value_new {
+                            serde_json::to_value(inner).unwrap()
+                        } else {
+                            todo!()
+                        };
+                        value_new_serde
+                    } else if field_id == "device_id" {
+                        let value_new = Sv2Type::B0255(message.device_id.to_vec()).arbitrary();
+                        let value_new_serde = if let Sv2Type::Str0255(inner) = value_new {
+                            serde_json::to_value(inner).unwrap()
+                        } else {
+                            todo!()
+                        };
+                        value_new_serde
+                    } else {
+                        panic!("unknown message field");
+                    };
+                    value_new_serde
+                }
+                roles_logic_sv2::parsers::CommonMessages::SetupConnectionError(message) => {
+                    let field_id = field_id.as_str();
+                    let value_new_serde = if field_id == "flags" {
+                        let value_new = Sv2Type::U32(message.flags).arbitrary();
+                        let value_new_serde = if let Sv2Type::U32(inner) = value_new {
+                            serde_json::to_value(inner).unwrap()
+                        } else {
+                            todo!()
+                        };
+                        value_new_serde
+                    } else if field_id == "error_code" {
+                        let value_new = Sv2Type::B0255(message.error_code.to_vec()).arbitrary();
+                        let value_new_serde = if let Sv2Type::Str0255(inner) = value_new {
+                            serde_json::to_value(inner).unwrap()
+                        } else {
+                            todo!()
+                        };
+                        value_new_serde
+                    } else {
+                        panic!("unknown message field");
+                    };
+                    value_new_serde
+                }
+                roles_logic_sv2::parsers::CommonMessages::SetupConnectionSuccess(message) => {
+                    let field_id = field_id.as_str();
+                    let value_new_serde = if field_id == "flags" {
+                        let value_new = Sv2Type::U32(message.flags).arbitrary();
+                        let value_new_serde = if let Sv2Type::U32(inner) = value_new {
+                            serde_json::to_value(inner).unwrap()
+                        } else {
+                            todo!()
+                        };
+                        value_new_serde
+                    } else if field_id == "used_version" {
+                        let value_new = Sv2Type::U16(message.used_version).arbitrary();
+                        let value_new_serde = if let Sv2Type::U16(inner) = value_new {
+                            serde_json::to_value(inner).unwrap()
+                        } else {
+                            todo!()
+                        };
+                        value_new_serde
+                    } else {
+                        panic!("unknown message field");
+                    };
+                    value_new_serde
+                }
+            };
+            value_new_serde
+        }
+        roles_logic_sv2::parsers::PoolMessages::Mining(m) => {
+            let value_new_serde = match m {
+                roles_logic_sv2::parsers::Mining::CloseChannel(_) => todo!(),
+                roles_logic_sv2::parsers::Mining::NewExtendedMiningJob(_) => todo!(),
+                roles_logic_sv2::parsers::Mining::NewMiningJob(_) => todo!(),
+                roles_logic_sv2::parsers::Mining::OpenExtendedMiningChannel(message) => {
+                    let field_id = field_id.as_str();
+                    let value_new_serde = if field_id == "request_id" {
+                        let value_new = Sv2Type::U32(message.request_id).arbitrary();
+                        let value_new_serde = if let Sv2Type::U32(inner) = value_new {
+                            serde_json::to_value(inner).unwrap()
+                        } else {
+                            todo!()
+                        };
+                        value_new_serde
+                    } else if field_id == "user_identity" {
+                        let value_new = Sv2Type::B0255(message.user_identity.to_vec()).arbitrary();
+                        let value_new_serde = if let Sv2Type::B0255(inner) = value_new {
+                            serde_json::to_value(inner).unwrap()
+                        } else {
+                            todo!()
+                        };
+                        value_new_serde
+                    } else if field_id == "nominal_hashrate" {
+                        panic!("f32 not implemented yet as Sv2Type for the message generator")
+                    } else if field_id == "max_target" {
+                        let value_new =
+                            Sv2Type::U256(message.max_target.to_vec()).arbitrary();
+                        let value_new_serde = if let Sv2Type::U256(inner) = value_new {
+                            serde_json::to_value(inner).unwrap()
+                        } else {
+                            todo!()
+                        };
+                        value_new_serde
+                    } else if field_id == "min_extranonce_size" {
+                        let value_new =
+                            Sv2Type::U16(message.min_extranonce_size).arbitrary();
+                        let value_new_serde = if let Sv2Type::U256(inner) = value_new {
+                            serde_json::to_value(inner).unwrap()
+                        } else {
+                            todo!()
+                        };
+                        value_new_serde
+                    } else {
+                        panic!("unknown message field");
+                    };
+                    value_new_serde
+                },
+                roles_logic_sv2::parsers::Mining::OpenExtendedMiningChannelSuccess(message) => {
+                    let field_id = field_id.as_str();
+                    let value_new_serde = if field_id == "channel_id" {
+                        let value_new = Sv2Type::U32(message.channel_id).arbitrary();
+                        let value_new_serde = if let Sv2Type::U32(inner) = value_new {
+                            serde_json::to_value(inner).unwrap()
+                        } else {
+                            todo!()
+                        };
+                        value_new_serde
+                    } else if field_id == "request_id" {
+                        let value_new = Sv2Type::U32(message.request_id).arbitrary();
+                        let value_new_serde = if let Sv2Type::U32(inner) = value_new {
+                            serde_json::to_value(inner).unwrap()
+                        } else {
+                            todo!()
+                        };
+                        value_new_serde
+                    } else if field_id == "target" {
+                        let value_new = Sv2Type::U256(message.target.to_vec()).arbitrary();
+                        let value_new_serde = if let Sv2Type::U256(inner) = value_new {
+                            serde_json::to_value(inner).unwrap()
+                        } else {
+                            todo!()
+                        };
+                        value_new_serde
+                    } else if field_id == "extranonce_prefix" {
+                        let value_new =
+                            Sv2Type::B032(message.extranonce_prefix.to_vec()).arbitrary();
+                        let value_new_serde = if let Sv2Type::U256(inner) = value_new {
+                            serde_json::to_value(inner).unwrap()
+                        } else {
+                            todo!()
+                        };
+                        value_new_serde
+                    } else {
+                        panic!("unknown message field");
+                    };
+                    value_new_serde
+                }
+                roles_logic_sv2::parsers::Mining::OpenMiningChannelError(_) => todo!(),
+                roles_logic_sv2::parsers::Mining::OpenStandardMiningChannel(_) => todo!(),
+                roles_logic_sv2::parsers::Mining::OpenStandardMiningChannelSuccess(_) => todo!(),
+                roles_logic_sv2::parsers::Mining::Reconnect(_) => todo!(),
+                roles_logic_sv2::parsers::Mining::SetCustomMiningJob(_) => todo!(),
+                roles_logic_sv2::parsers::Mining::SetCustomMiningJobError(_) => todo!(),
+                roles_logic_sv2::parsers::Mining::SetCustomMiningJobSuccess(_) => todo!(),
+                roles_logic_sv2::parsers::Mining::SetExtranoncePrefix(_) => todo!(),
+                roles_logic_sv2::parsers::Mining::SetGroupChannel(_) => todo!(),
+                roles_logic_sv2::parsers::Mining::SetNewPrevHash(_) => todo!(),
+                roles_logic_sv2::parsers::Mining::SetTarget(_) => todo!(),
+                roles_logic_sv2::parsers::Mining::SubmitSharesError(_) => todo!(),
+                roles_logic_sv2::parsers::Mining::SubmitSharesExtended(_) => todo!(),
+                roles_logic_sv2::parsers::Mining::SubmitSharesStandard(_) => todo!(),
+                roles_logic_sv2::parsers::Mining::SubmitSharesSuccess(_) => todo!(),
+                roles_logic_sv2::parsers::Mining::UpdateChannel(_) => todo!(),
+                roles_logic_sv2::parsers::Mining::UpdateChannelError(_) => todo!(),
+            };
+            value_new_serde
+        }
+        roles_logic_sv2::parsers::PoolMessages::JobDeclaration(m) => {
+            let message_to_serde = serde_json::to_value(&m).unwrap();
+            let msg = message_to_serde.as_object().unwrap();
+            let value_old_serde = msg.get(&field_id).unwrap();
+            let value_old: Sv2Type = serde_json::from_value(value_old_serde.clone()).unwrap();
+            let value_new = value_old.arbitrary();
+            let value_new_serde = serde_json::to_value(&value_new).unwrap();
+            value_new_serde
+        }
+        roles_logic_sv2::parsers::PoolMessages::TemplateDistribution(m) => {
+            let message_to_serde = serde_json::to_value(&m).unwrap();
+            let msg = message_to_serde.as_object().unwrap();
+            let value_old_serde = msg.get(&field_id).unwrap();
+            let value_old: Sv2Type = serde_json::from_value(value_old_serde.clone()).unwrap();
+            let value_new = value_old.arbitrary();
+            let value_new_serde = serde_json::to_value(&value_new).unwrap();
+            value_new_serde
+        }
+    };
+    value_new_serde
 }
