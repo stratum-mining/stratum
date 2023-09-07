@@ -352,6 +352,35 @@ pub fn into_static<'a>(m: AnyMessage<'a>) -> AnyMessage<'static> {
                     parsers::JobDeclaration::ProvideMissingTransactionsSuccess(m),
                 )
             }
+            parsers::JobDeclaration::SubmitSharesError(m) => {
+                let m = SubmitSharesError {
+                    channel_id: m.channel_id,
+                    sequence_number: m.sequence_number,
+                    error_code: m.error_code.into_static(),
+                };
+                PoolMessages::JobDeclaration(parsers::JobDeclaration::SubmitSharesError(m))
+            }
+            parsers::JobDeclaration::SubmitSharesExtended(m) => {
+                let m = SubmitSharesExtended {
+                    channel_id: m.channel_id,
+                    sequence_number: m.sequence_number,
+                    job_id: m.job_id,
+                    nonce: m.nonce,
+                    ntime: m.ntime,
+                    version: m.version,
+                    extranonce: m.extranonce.into_static(),
+                };
+                PoolMessages::JobDeclaration(parsers::JobDeclaration::SubmitSharesExtended(m))
+            }
+            parsers::JobDeclaration::SubmitSharesSuccess(m) => {
+                let m = SubmitSharesSuccess {
+                    channel_id: m.channel_id,
+                    last_sequence_number: m.last_sequence_number,
+                    new_submits_accepted_count: m.new_submits_accepted_count,
+                    new_shares_sum: m.new_shares_sum,
+                };
+                PoolMessages::JobDeclaration(parsers::JobDeclaration::SubmitSharesSuccess(m))
+            }
         },
         PoolMessages::TemplateDistribution(m) => match m {
             parsers::TemplateDistribution::CoinbaseOutputDataSize(m) => {
