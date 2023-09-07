@@ -3,21 +3,23 @@ use crate::{
     into_static::into_static,
     net::{setup_as_downstream, setup_as_upstream},
     parser::sv2_messages::ReplaceField,
-    Action, ActionResult, Command, Role, SaveField, Sv2Type, Test
+    Action, ActionResult, Command, Role, SaveField, Sv2Type, Test,
 };
 use async_channel::{Receiver, Sender};
 use binary_sv2::Serialize;
 use codec_sv2::{Frame, StandardEitherFrame as EitherFrame, Sv2Frame};
-use roles_logic_sv2::parsers::{self, AnyMessage};
-use std::{collections::HashMap, convert::TryInto, sync::Arc};
-use roles_logic_sv2::mining_sv2::{
-    CloseChannel, NewExtendedMiningJob, NewMiningJob, OpenExtendedMiningChannel,
-    OpenExtendedMiningChannelSuccess, OpenMiningChannelError, OpenStandardMiningChannel,
-    OpenStandardMiningChannelSuccess, Reconnect, SetCustomMiningJob, SetCustomMiningJobError,
-    SetCustomMiningJobSuccess, SetExtranoncePrefix, SetGroupChannel,
-    SetNewPrevHash as MiningSetNewPrevHash, SetTarget, SubmitSharesError, SubmitSharesExtended,
-    SubmitSharesStandard, SubmitSharesSuccess, UpdateChannel, UpdateChannelError,
+use roles_logic_sv2::{
+    mining_sv2::{
+        CloseChannel, NewExtendedMiningJob, NewMiningJob, OpenExtendedMiningChannel,
+        OpenExtendedMiningChannelSuccess, OpenMiningChannelError, OpenStandardMiningChannel,
+        OpenStandardMiningChannelSuccess, Reconnect, SetCustomMiningJob, SetCustomMiningJobError,
+        SetCustomMiningJobSuccess, SetExtranoncePrefix, SetGroupChannel,
+        SetNewPrevHash as MiningSetNewPrevHash, SetTarget, SubmitSharesError, SubmitSharesExtended,
+        SubmitSharesStandard, SubmitSharesSuccess, UpdateChannel, UpdateChannelError,
+    },
+    parsers::{self, AnyMessage},
 };
+use std::{collections::HashMap, convert::TryInto, sync::Arc};
 
 use tokio::{
     fs::File,
@@ -1043,7 +1045,8 @@ fn get_arbitrary_message_value_from_string_id(
                         };
                         value_new_serde
                     } else if field_id == "hardware_version" {
-                        let value_new = Sv2Type::B0255(message.hardware_version.to_vec()).arbitrary();
+                        let value_new =
+                            Sv2Type::B0255(message.hardware_version.to_vec()).arbitrary();
                         let value_new_serde = if let Sv2Type::Str0255(inner) = value_new {
                             serde_json::to_value(inner).unwrap()
                         } else {
@@ -1146,8 +1149,7 @@ fn get_arbitrary_message_value_from_string_id(
                     } else if field_id == "nominal_hashrate" {
                         panic!("f32 not implemented yet as Sv2Type for the message generator")
                     } else if field_id == "max_target" {
-                        let value_new =
-                            Sv2Type::U256(message.max_target.to_vec()).arbitrary();
+                        let value_new = Sv2Type::U256(message.max_target.to_vec()).arbitrary();
                         let value_new_serde = if let Sv2Type::U256(inner) = value_new {
                             serde_json::to_value(inner).unwrap()
                         } else {
@@ -1155,8 +1157,7 @@ fn get_arbitrary_message_value_from_string_id(
                         };
                         value_new_serde
                     } else if field_id == "min_extranonce_size" {
-                        let value_new =
-                            Sv2Type::U16(message.min_extranonce_size).arbitrary();
+                        let value_new = Sv2Type::U16(message.min_extranonce_size).arbitrary();
                         let value_new_serde = if let Sv2Type::U256(inner) = value_new {
                             serde_json::to_value(inner).unwrap()
                         } else {
@@ -1167,7 +1168,7 @@ fn get_arbitrary_message_value_from_string_id(
                         panic!("unknown message field");
                     };
                     value_new_serde
-                },
+                }
                 roles_logic_sv2::parsers::Mining::OpenExtendedMiningChannelSuccess(message) => {
                     let field_id = field_id.as_str();
                     let value_new_serde = if field_id == "channel_id" {

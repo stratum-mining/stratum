@@ -1,11 +1,10 @@
 use crate::{
-    external_commands::os_command,
-    net::setup_as_sv1_downstream,
-    Command, Test, Sv1Action, Sv1ActionResult,
+    external_commands::os_command, net::setup_as_sv1_downstream, Command, Sv1Action,
+    Sv1ActionResult, Test,
 };
 use async_channel::{Receiver, Sender};
-use v1::Message;
 use std::{collections::HashMap, sync::Arc};
+use v1::Message;
 
 use tokio::{
     fs::File,
@@ -21,7 +20,6 @@ pub struct Sv1Executor {
     process: Vec<Option<tokio::process::Child>>,
     save: HashMap<String, serde_json::Value>,
 }
-
 
 impl Sv1Executor {
     pub async fn new(test: Test<'static>, test_name: String) -> Sv1Executor {
@@ -52,15 +50,14 @@ impl Sv1Executor {
                     command.conditions,
                 )
                 .await;
-                
+
                 process.push(p);
             }
         }
-        
+
         match (test.as_dowstream, test.as_upstream) {
             (Some(as_down), None) => {
-                let (recv_from_up, send_to_up) =
-                    setup_as_sv1_downstream(as_down.addr).await;
+                let (recv_from_up, send_to_up) = setup_as_sv1_downstream(as_down.addr).await;
                 Self {
                     name: Arc::new(test_name.clone()),
                     send_to_up: Some(send_to_up),
@@ -70,8 +67,8 @@ impl Sv1Executor {
                     process,
                     save,
                 }
-            },
-            _ => unreachable!()
+            }
+            _ => unreachable!(),
         }
     }
 
@@ -81,12 +78,14 @@ impl Sv1Executor {
             if let Some(doc) = action.actiondoc {
                 println!("actiondoc: {}", doc);
             }
-            let (sender, recv) = (self.send_to_up
-                .as_ref()
-                .expect("Action require executor to act as downstream"),
-            self.recv_from_up
-                .as_ref()
-                .expect("Action require executor to act as downstream"),);
+            let (sender, recv) = (
+                self.send_to_up
+                    .as_ref()
+                    .expect("Action require executor to act as downstream"),
+                self.recv_from_up
+                    .as_ref()
+                    .expect("Action require executor to act as downstream"),
+            );
             for message_ in action.messages {
                 let replace_fields = message_.1.clone();
                 let message = serde_json::to_string(&message_.0).unwrap();
@@ -96,7 +95,7 @@ impl Sv1Executor {
                     match sender.send(message).await {
                         Ok(_) => (),
                         Err(_) => panic!(),
-                    } 
+                    }
                 } else {
                     //TODO: modified message
                 }
@@ -137,23 +136,25 @@ impl Sv1Executor {
                                 if response.id != *message_id {
                                     println!(
                                         "WRONG MESSAGE ID expected: {} received: {}",
-                                        message_id,
-                                        response.id
+                                        message_id, response.id
                                     );
                                     success = false;
                                     break;
                                 } else {
                                     println!("MATCHED MESSAGE ID {}", message_id);
                                 }
-                            },
-                            Sv1ActionResult::MatchMessageField { message_type, fields } => {
+                            }
+                            Sv1ActionResult::MatchMessageField {
+                                message_type,
+                                fields,
+                            } => {
                                 let msg = serde_json::to_value(response).unwrap();
                                 check_sv1_fields(msg, fields);
-                            },
-                            _ => todo!()
+                            }
+                            _ => todo!(),
                         }
-                    },
-                    _ => println!("WRONG MESSAGE TYPE RECEIVED: expected Response")
+                    }
+                    _ => println!("WRONG MESSAGE TYPE RECEIVED: expected Response"),
                 }
             }
         }

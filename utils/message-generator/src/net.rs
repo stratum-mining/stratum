@@ -1,5 +1,5 @@
 use crate::{os_command, Command};
-use async_channel::{Receiver, Sender, bounded};
+use async_channel::{bounded, Receiver, Sender};
 use binary_sv2::{Deserialize, GetSize, Serialize};
 use codec_sv2::{
     noise_sv2::formats::{EncodedEd25519PublicKey, EncodedEd25519SecretKey},
@@ -8,9 +8,12 @@ use codec_sv2::{
 use network_helpers::{
     noise_connection_tokio::Connection, plain_connection_tokio::PlainConnection,
 };
-use std::net::SocketAddr;
-use tokio::{net::{TcpListener, TcpStream}, io::{AsyncWriteExt, AsyncReadExt}, task};
-use std::time::Duration;
+use std::{net::SocketAddr, time::Duration};
+use tokio::{
+    io::{AsyncReadExt, AsyncWriteExt},
+    net::{TcpListener, TcpStream},
+    task,
+};
 
 pub async fn setup_as_upstream<
     'a,
@@ -63,7 +66,7 @@ pub async fn setup_as_downstream<
     }
 }
 
-pub async fn setup_as_sv1_downstream(socket: SocketAddr) -> (Receiver<String>, Sender<String>){
+pub async fn setup_as_sv1_downstream(socket: SocketAddr) -> (Receiver<String>, Sender<String>) {
     let socket = loop {
         tokio::time::sleep(Duration::from_secs(1)).await;
         match TcpStream::connect(socket).await {
@@ -78,54 +81,51 @@ pub async fn setup_as_sv1_downstream(socket: SocketAddr) -> (Receiver<String>, S
         }
     };
     let (mut reader, mut writer) = socket.into_split();
-        
-        let (sender_incoming, receiver_incoming): (Sender<String>, Receiver<String>) = bounded(10);
-        let (sender_outgoing, receiver_outgoing): (Sender<String>, Receiver<String>) = bounded(10);
-      
-        // RECEIVE INCOMING MESSAGES FROM TCP STREAM
-        task::spawn(async move {
-            loop {
-                let mut buf = vec![0; 1024]; 
-                match reader.read(&mut buf).await {
-                    Ok(n) => {
-                        let message = String::from_utf8_lossy(&buf[..n]).to_string();
-                        sender_incoming.send(message).await.unwrap();
-                        buf.clear();
-                    },
-                    Err(e) => {
-                        // Just fail and force to reinitialize everything
-                        println!("Failed to read from stream: {}", e);
-                        sender_incoming.close();
-                        task::yield_now().await;
-                        break;
-                    }
+
+    let (sender_incoming, receiver_incoming): (Sender<String>, Receiver<String>) = bounded(10);
+    let (sender_outgoing, receiver_outgoing): (Sender<String>, Receiver<String>) = bounded(10);
+
+    // RECEIVE INCOMING MESSAGES FROM TCP STREAM
+    task::spawn(async move {
+        loop {
+            let mut buf = vec![0; 1024];
+            match reader.read(&mut buf).await {
+                Ok(n) => {
+                    let message = String::from_utf8_lossy(&buf[..n]).to_string();
+                    sender_incoming.send(message).await.unwrap();
+                    buf.clear();
                 }
-                
+                Err(e) => {
+                    // Just fail and force to reinitialize everything
+                    println!("Failed to read from stream: {}", e);
+                    sender_incoming.close();
+                    task::yield_now().await;
+                    break;
+                }
             }
-        });
-    
-        // SEND INCOMING MESSAGES TO TCP STREAM
-        task::spawn(async move {
-            loop{
-                let received = receiver_outgoing.recv().await;
-                match received {
-                    Ok(msg) => {
-                        match (writer).write_all(msg.as_bytes()).await {
-                            Ok(_) => (),
-                            Err(_) => {
-                                let _ = writer.shutdown().await;
-                            }
-                        }
-                    },
+        }
+    });
+
+    // SEND INCOMING MESSAGES TO TCP STREAM
+    task::spawn(async move {
+        loop {
+            let received = receiver_outgoing.recv().await;
+            match received {
+                Ok(msg) => match (writer).write_all(msg.as_bytes()).await {
+                    Ok(_) => (),
                     Err(_) => {
-                        // Just fail and force to reinitilize everything
                         let _ = writer.shutdown().await;
-                        println!("Failed to read from stream - terminating connection");
-                        task::yield_now().await;
-                        break;
                     }
-                };
-            }
-        });
-        (receiver_incoming, sender_outgoing)
+                },
+                Err(_) => {
+                    // Just fail and force to reinitilize everything
+                    let _ = writer.shutdown().await;
+                    println!("Failed to read from stream - terminating connection");
+                    task::yield_now().await;
+                    break;
+                }
+            };
+        }
+    });
+    (receiver_incoming, sender_outgoing)
 }

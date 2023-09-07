@@ -16,12 +16,11 @@ use codec_sv2::{
     StandardEitherFrame as EitherFrame,
 };
 use external_commands::*;
-use v1::json_rpc::StandardRequest;
-use arbitrary::Arbitrary;
 use rand::Rng;
 use roles_logic_sv2::parsers::AnyMessage;
 use secp256k1::{KeyPair, Secp256k1, SecretKey};
 use std::{convert::TryInto, net::SocketAddr, vec::Vec};
+use v1::json_rpc::StandardRequest;
 
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 enum Sv2Type {
@@ -183,9 +182,9 @@ enum ActionResult {
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 enum Sv1ActionResult {
     MatchMessageId(serde_json::Value),
-    MatchMessageField{
+    MatchMessageField {
         message_type: String,
-        fields: Vec<(String, serde_json::Value)>
+        fields: Vec<(String, serde_json::Value)>,
     },
     CloseConnection,
     None,
@@ -227,13 +226,12 @@ impl std::fmt::Display for Sv1ActionResult {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
             Sv1ActionResult::MatchMessageId(message_id) => {
-                write!(
-                    f,
-                    "MatchMessageId: {}",
-                    message_id
-                )
+                write!(f, "MatchMessageId: {}", message_id)
             }
-            Sv1ActionResult::MatchMessageField { message_type, fields } => {
+            Sv1ActionResult::MatchMessageField {
+                message_type,
+                fields,
+            } => {
                 write!(f, "MatchMessageField: {:?} {:?}", message_type, fields)
             }
             Sv1ActionResult::CloseConnection => write!(f, "Close connection"),
@@ -252,7 +250,7 @@ enum Role {
 #[derive(Debug, Clone, PartialEq)]
 pub enum TestVersion {
     V1,
-    V2
+    V2,
 }
 
 #[derive(Debug, Clone)]
@@ -269,7 +267,6 @@ struct Downstream {
     key: Option<EncodedEd25519PublicKey>,
 }
 
-
 //TODO: change name to Sv2Action
 #[derive(Debug)]
 pub struct Action<'a> {
@@ -284,14 +281,10 @@ pub struct Action<'a> {
 }
 #[derive(Debug)]
 pub struct Sv1Action {
-    messages: Vec<(
-        StandardRequest,
-        Vec<ReplaceField>,
-    )>,
+    messages: Vec<(StandardRequest, Vec<ReplaceField>)>,
     result: Vec<Sv1ActionResult>,
     actiondoc: Option<String>,
 }
-
 
 /// Represents a shell command to be executed on setup, after a connection is opened, or on
 /// cleanup.
@@ -343,7 +336,7 @@ async fn main() {
         TestVersion::V1 => {
             let executor = executor_sv1::Sv1Executor::new(test, test_name).await;
             executor.execute().await;
-        },
+        }
         TestVersion::V2 => {
             let executor = executor::Executor::new(test, test_name).await;
             executor.execute().await;
@@ -355,10 +348,12 @@ async fn main() {
 
 #[cfg(test)]
 mod test {
-    use codec_sv2::{Frame, Sv2Frame};
-    use crate::net::{setup_as_downstream, setup_as_upstream};
     use super::*;
-    use crate::into_static::into_static;
+    use crate::{
+        into_static::into_static,
+        net::{setup_as_downstream, setup_as_upstream},
+    };
+    use codec_sv2::{Frame, Sv2Frame};
     use roles_logic_sv2::{
         common_messages_sv2::{Protocol, SetupConnection},
         mining_sv2::{CloseChannel, SetTarget},
