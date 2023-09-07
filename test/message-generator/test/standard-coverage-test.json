@@ -1,4 +1,5 @@
 {
+    "version": "2",
     "doc": [
         "What this test does:",
         "1) launch SRI pool with llvm-cov arguments(no report - see cargo-llvm-cov for options)",

@@ -1,4 +1,5 @@
 {
+    "version": "2",
     "doc": [
         "This test does",
         "Runs a regnet hosted template provider",

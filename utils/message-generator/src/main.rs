@@ -1,4 +1,5 @@
 mod executor;
+mod executor_sv1;
 mod external_commands;
 mod into_static;
 mod net;
@@ -15,6 +16,7 @@ use codec_sv2::{
 };
 use external_commands::*;
 use roles_logic_sv2::parsers::AnyMessage;
+use v1::json_rpc::StandardRequest;
 use std::net::SocketAddr;
 
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
@@ -56,6 +58,17 @@ enum ActionResult {
     None,
 }
 
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
+enum Sv1ActionResult {
+    MatchMessageId(serde_json::Value),
+    MatchMessageField{
+        message_type: String,
+        fields: Vec<(String, serde_json::Value)>
+    },
+    CloseConnection,
+    None,
+}
+
 impl std::fmt::Display for ActionResult {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
@@ -88,11 +101,36 @@ impl std::fmt::Display for ActionResult {
     }
 }
 
+impl std::fmt::Display for Sv1ActionResult {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Sv1ActionResult::MatchMessageId(message_id) => {
+                write!(
+                    f,
+                    "MatchMessageId: {}",
+                    message_id
+                )
+            }
+            Sv1ActionResult::MatchMessageField { message_type, fields } => {
+                write!(f, "MatchMessageField: {:?} {:?}", message_type, fields)
+            }
+            Sv1ActionResult::CloseConnection => write!(f, "Close connection"),
+            Sv1ActionResult::None => write!(f, "None"),
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize, Copy)]
 enum Role {
     Upstream,
     Downstream,
     Proxy,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum TestVersion {
+    V1,
+    V2
 }
 
 #[derive(Debug, Clone)]
@@ -109,6 +147,8 @@ struct Downstream {
     key: Option<EncodedEd25519PublicKey>,
 }
 
+
+//TODO: change name to Sv2Action
 #[derive(Debug)]
 pub struct Action<'a> {
     messages: Vec<(
@@ -120,6 +160,16 @@ pub struct Action<'a> {
     role: Role,
     actiondoc: Option<String>,
 }
+#[derive(Debug)]
+pub struct Sv1Action {
+    messages: Vec<(
+        StandardRequest,
+        Vec<ReplaceField>,
+    )>,
+    result: Vec<Sv1ActionResult>,
+    actiondoc: Option<String>,
+}
+
 
 /// Represents a shell command to be executed on setup, after a connection is opened, or on
 /// cleanup.
@@ -134,7 +184,9 @@ pub struct Command {
 /// Represents all of the parsed contents from the configuration file, ready for execution.
 #[derive(Debug)]
 pub struct Test<'a> {
-    actions: Vec<Action<'a>>,
+    version: TestVersion,
+    actions: Option<Vec<Action<'a>>>,
+    sv1_actions: Option<Vec<Sv1Action>>,
     /// Some if role is upstream or proxy.
     as_upstream: Option<Upstream>,
     /// Some if role is downstream or proxy.
@@ -165,14 +217,24 @@ async fn main() {
         .to_string();
     // Executes everything (the shell commands and actions)
     // If the `executor` returns false, the test fails
-    let executor = executor::Executor::new(test, test_name).await;
-    executor.execute().await;
+    match test.version {
+        TestVersion::V1 => {
+            let executor = executor_sv1::Sv1Executor::new(test, test_name).await;
+            executor.execute().await;
+        },
+        TestVersion::V2 => {
+            let executor = executor::Executor::new(test, test_name).await;
+            executor.execute().await;
+        }
+    }
     println!("TEST OK");
     std::process::exit(0);
 }
 
 #[cfg(test)]
 mod test {
+    use codec_sv2::{Frame, Sv2Frame};
+    use crate::net::{setup_as_downstream, setup_as_upstream};
     use super::*;
     use crate::into_static::into_static;
     use roles_logic_sv2::{
