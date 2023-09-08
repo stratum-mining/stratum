@@ -43,7 +43,7 @@ The following benchmark functions are available:
 1. **Subscription Benchmarks**:
    - `client_sv1_get_subscribe`: Measures the latency and system requirements of a subscription request.
    - `client_sv1_subscribe_serialize`: Measures the latency and system requirements it takes to serialize a subscription message.
-   - `client_sv1_serialize_deserialize`: Measures the latency and system requirements it takes to serialize and then deserialize a subscription message.
+   - `client_sv1_subscribe_serialize_deserialize`: Measures the latency and system requirements it takes to serialize and then deserialize a subscription message.
    - `client_sv1_subscribe_serialize_deserialize_handle`: Measures the latency and system requirements it takes to serialize, deserialize, and handle a subscription message.
 
 2. **Authorization Benchmarks**:
