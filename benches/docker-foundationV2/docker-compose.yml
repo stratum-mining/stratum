@@ -1,0 +1,32 @@
+version: '3.8'
+services:
+  postgres:
+    image: postgres
+    restart: always
+    environment:
+      POSTGRES_USER: foundation
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: foundation
+
+  bitcoin-core:
+    image: ruimarinho/bitcoin-core
+    command:
+      -printtoconsole
+      -regtest=1
+      -rest
+      -rpcallowip=0.0.0.0/0
+      -rpcpassword=password
+      -rpcport=18443
+      -rpcuser=foundation
+      -server
+
+  foundation-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: always
+    depends_on:
+      - postgres
+      - bitcoin-core
+    ports:
+      - 3002:3002
