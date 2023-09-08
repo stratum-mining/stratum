@@ -52,13 +52,6 @@ jobs:
 
       - name: Checkout repository
         uses: actions/checkout@v2
-
-      - name: Start Sv2 Server
-        id: start-server
-        working-directory: ./roles/pool
-        run: |
-          nohup bash -c 'cargo run -- --c pool-config.toml > /dev/null 2>&1 &' && sleep 5
-          echo "Server started successfully"
           
       - uses: actions/checkout@v3
       - uses: bencherdev/bencher@v0.3.10
@@ -121,13 +114,6 @@ jobs:
 
       - name: Checkout repository
         uses: actions/checkout@v2
-        
-      - name: Start Sv2 Server
-        id: start-server
-        working-directory: ./roles/pool
-        run: |
-          nohup bash -c 'cargo run -- --c pool-config.toml > /dev/null 2>&1 &' && sleep 5
-          echo "Server started successfully"
           
       - name: Install Valgrind
         run: |
@@ -142,13 +128,3 @@ jobs:
           bencher run \
           --github-actions ${{ secrets.GITHUB_TOKEN }} \
           "cargo bench --bench iai_sv2_benchmark"
-
-
-      #- name: Publish benchmark result
-      #uses: actions/upload-artifact@v2
-      #with:
-        #name: benchmark_results
-        #path: |
-          #./benches/benchmark_results.txt
-          #./target/criterion
-          #./target/iai
