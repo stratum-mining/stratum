@@ -1,11 +1,11 @@
-use codec_sv2::{Frame, StandardEitherFrame as EitherFrame, Sv2Frame};
 use roles_logic_sv2::{
     common_messages_sv2::{
         ChannelEndpointChanged, SetupConnection, SetupConnectionError, SetupConnectionSuccess,
     },
     job_declaration_sv2::{
-        AllocateMiningJobToken, AllocateMiningJobTokenSuccess, CommitMiningJob,
-        CommitMiningJobSuccess,
+        AllocateMiningJobToken, AllocateMiningJobTokenSuccess, DeclareMiningJob,
+        DeclareMiningJobError, DeclareMiningJobSuccess, IdentifyTransactions,
+        IdentifyTransactionsSuccess, ProvideMissingTransactions, ProvideMissingTransactionsSuccess,
     },
     mining_sv2::{
         CloseChannel, NewExtendedMiningJob, NewMiningJob, OpenExtendedMiningChannel,
@@ -15,10 +15,10 @@ use roles_logic_sv2::{
         SetNewPrevHash as MiningSetNewPrevHash, SetTarget, SubmitSharesError, SubmitSharesExtended,
         SubmitSharesStandard, SubmitSharesSuccess, UpdateChannel, UpdateChannelError,
     },
-    parsers::{self, AnyMessage, CommonMessages, IsSv2Message, PoolMessages},
+    parsers::{self, AnyMessage, CommonMessages, PoolMessages},
     template_distribution_sv2::{
         CoinbaseOutputDataSize, NewTemplate, RequestTransactionData, RequestTransactionDataError,
-        RequestTransactionDataSuccess, SetNewPrevHash, SubmitSolution,
+        RequestTransactionDataSuccess, SubmitSolution,
     },
 };
 
@@ -161,7 +161,6 @@ pub fn into_static<'a>(m: AnyMessage<'a>) -> AnyMessage<'static> {
                     coinbase_tx_locktime: m.coinbase_tx_locktime,
                     merkle_path: m.merkle_path.into_static(),
                     extranonce_size: m.extranonce_size,
-                    future_job: m.future_job,
                 };
                 PoolMessages::Mining(parsers::Mining::SetCustomMiningJob(m))
             }
@@ -288,15 +287,15 @@ pub fn into_static<'a>(m: AnyMessage<'a>) -> AnyMessage<'static> {
                     parsers::JobDeclaration::AllocateMiningJobTokenSuccess(m),
                 )
             }
-            parsers::JobDeclaration::CommitMiningJob(m) => {
-                let m = CommitMiningJob {
+            parsers::JobDeclaration::DeclareMiningJob(m) => {
+                let m = DeclareMiningJob {
                     request_id: m.request_id,
                     mining_job_token: m.mining_job_token.into_static(),
                     version: m.version,
-                    coninbase_tx_version: m.coninbase_tx_version,
-                    coninbase_prefix: m.coninbase_prefix.into_static(),
-                    coninbase_tx_input_nsequence: m.coninbase_tx_input_nsequence,
-                    coninbase_tx_value_remaining: m.coninbase_tx_value_remaining,
+                    coinbase_tx_version: m.coinbase_tx_version,
+                    coinbase_prefix: m.coinbase_prefix.into_static(),
+                    coinbase_tx_input_n_sequence: m.coinbase_tx_input_n_sequence,
+                    coinbase_tx_value_remaining: m.coinbase_tx_value_remaining,
                     coinbase_tx_outputs: m.coinbase_tx_outputs.into_static(),
                     coinbase_tx_locktime: m.coinbase_tx_locktime,
                     min_extranonce_size: m.min_extranonce_size,
@@ -304,16 +303,54 @@ pub fn into_static<'a>(m: AnyMessage<'a>) -> AnyMessage<'static> {
                     tx_short_hash_list: m.tx_short_hash_list.into_static(),
                     tx_hash_list_hash: m.tx_hash_list_hash.into_static(),
                     excess_data: m.excess_data.into_static(),
-                    merkle_path: m.merkle_path.into_static(),
                 };
-                PoolMessages::JobDeclaration(parsers::JobDeclaration::CommitMiningJob(m))
+                PoolMessages::JobDeclaration(parsers::JobDeclaration::DeclareMiningJob(m))
             }
-            parsers::JobDeclaration::CommitMiningJobSuccess(m) => {
-                let m = CommitMiningJobSuccess {
+            parsers::JobDeclaration::DeclareMiningJobSuccess(m) => {
+                let m = DeclareMiningJobSuccess {
                     request_id: m.request_id,
                     new_mining_job_token: m.new_mining_job_token.into_static(),
                 };
-                PoolMessages::JobDeclaration(parsers::JobDeclaration::CommitMiningJobSuccess(m))
+                PoolMessages::JobDeclaration(parsers::JobDeclaration::DeclareMiningJobSuccess(m))
+            }
+            parsers::JobDeclaration::DeclareMiningJobError(m) => {
+                let m = DeclareMiningJobError {
+                    request_id: m.request_id,
+                    error_code: m.error_code.into_static(),
+                    error_details: m.error_details.into_static(),
+                };
+                PoolMessages::JobDeclaration(parsers::JobDeclaration::DeclareMiningJobError(m))
+            }
+            parsers::JobDeclaration::IdentifyTransactions(m) => {
+                let m = IdentifyTransactions {
+                    request_id: m.request_id,
+                };
+                PoolMessages::JobDeclaration(parsers::JobDeclaration::IdentifyTransactions(m))
+            }
+            parsers::JobDeclaration::IdentifyTransactionsSuccess(m) => {
+                let m = IdentifyTransactionsSuccess {
+                    request_id: m.request_id,
+                    tx_data_hashes: m.tx_data_hashes.into_static(),
+                };
+                PoolMessages::JobDeclaration(parsers::JobDeclaration::IdentifyTransactionsSuccess(
+                    m,
+                ))
+            }
+            parsers::JobDeclaration::ProvideMissingTransactions(m) => {
+                let m = ProvideMissingTransactions {
+                    request_id: m.request_id,
+                    unknown_tx_position_list: m.unknown_tx_position_list.into_static(),
+                };
+                PoolMessages::JobDeclaration(parsers::JobDeclaration::ProvideMissingTransactions(m))
+            }
+            parsers::JobDeclaration::ProvideMissingTransactionsSuccess(m) => {
+                let m = ProvideMissingTransactionsSuccess {
+                    request_id: m.request_id,
+                    transaction_list: m.transaction_list.into_static(),
+                };
+                PoolMessages::JobDeclaration(
+                    parsers::JobDeclaration::ProvideMissingTransactionsSuccess(m),
+                )
             }
         },
         PoolMessages::TemplateDistribution(m) => match m {

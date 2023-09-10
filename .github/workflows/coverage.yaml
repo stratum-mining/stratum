@@ -71,7 +71,7 @@ jobs:
         uses: taiki-e/install-action@cargo-llvm-cov
 
       - name: Pre build everything
-        uses: cargo build
+        run: cargo build
 
       - name: Run message generator tests
         run: sh ./message-generator-tests.sh
@@ -89,26 +89,26 @@ jobs:
           name: logs
           path: './utils/message-generator/*.log'
 
-  codecov:
-    needs: message-generator-test
+            # codecov:
+            #   needs: message-generator-test
 
-    name: Codecov Upload
-    runs-on: ubuntu-latest
+            #   name: Codecov Upload
+            #   runs-on: ubuntu-latest
 
-    steps:
+            #   steps:
 
-      - name: Checkout repository
-        uses: actions/checkout@v3
+            #     - name: Checkout repository
+            #       uses: actions/checkout@v3
 
-      - name: Download all workflow run artifacts
-        uses: actions/download-artifact@v3
+            #     - name: Download all workflow run artifacts
+            #       uses: actions/download-artifact@v3
 
-      - name: Display structure of downloaded files
-        run: ls -R
+            #     - name: Display structure of downloaded files
+            #       run: ls -R
 
-      - name: Upload to codecov.io
-        uses: codecov/codecov-action@v3
-        with:
-          files: coverage-report/*.xml, tarpaulin-report/*.xml
-          fail_ci_if_error: true
-          token: ${{ secrets.CODECOV_TOKEN }}
+            #     - name: Upload to codecov.io
+            #       uses: codecov/codecov-action@v3
+            #       with:
+            #         files: coverage-report/*.xml, tarpaulin-report/*.xml
+            #         fail_ci_if_error: true
+            #         token: ${{ secrets.CODECOV_TOKEN }}

@@ -1,12 +1,14 @@
 pub mod message_handler;
 use crate::{error::PoolError, Configuration, EitherFrame, StdFrame};
 use async_channel::{Receiver, Sender};
-use binary_sv2::B0255;
+use binary_sv2::{B0255, U256};
 use bitcoin::consensus::Encodable;
 use codec_sv2::{Frame, HandshakeRole, Responder};
+use ed25519_dalek::{Keypair, PublicKey, Signature, Signer};
 use error_handling::handle_result;
 use network_helpers::noise_connection_tokio::Connection;
 use nohash_hasher::BuildNoHashHasher;
+use noise_sv2::formats::{EncodedEd25519PublicKey, EncodedEd25519SecretKey};
 use roles_logic_sv2::{
     common_messages_sv2::SetupConnectionSuccess,
     handlers::job_declaration::{ParseClientJobDeclarationMessages, SendTo},
@@ -27,6 +29,8 @@ pub struct JobDeclaratorDownstream {
     coinbase_output: Vec<u8>,
     token_to_job_map: HashMap<u32, std::option::Option<u8>, BuildNoHashHasher<u32>>,
     tokens: Id,
+    public_key: EncodedEd25519PublicKey,
+    private_key: EncodedEd25519SecretKey,
 }
 
 impl JobDeclaratorDownstream {
@@ -48,6 +52,8 @@ impl JobDeclaratorDownstream {
             coinbase_output,
             token_to_job_map,
             tokens,
+            public_key: config.authority_public_key.clone(),
+            private_key: config.authority_secret_key.clone(),
         }
     }
 
@@ -90,6 +96,32 @@ impl JobDeclaratorDownstream {
             }
         });
     }
+}
+
+pub fn signed_token(
+    tx_hash_list_hash: U256,
+    pub_key: &EncodedEd25519PublicKey,
+    prv_key: &EncodedEd25519SecretKey,
+) -> B0255<'static> {
+    // secret and public keys
+
+    // Create the SecretKey and PublicKey instances
+    let secret_key = ed25519_dalek::SecretKey::from_bytes(prv_key.clone().into_inner().as_bytes())
+        .expect("Invalid public key bytes");
+    let public_key = PublicKey::from_bytes(pub_key.clone().into_inner().as_bytes())
+        .expect("Invalid public key bytes");
+
+    let keypair: Keypair = Keypair {
+        secret: secret_key,
+        public: public_key,
+    };
+
+    let message: Vec<u8> = tx_hash_list_hash.to_vec();
+
+    // Sign message
+    let signature: Signature = keypair.sign(&message);
+    info!("signature is: {:?}", signature);
+    signature.to_bytes().to_vec().try_into().unwrap()
 }
 
 fn _get_random_token() -> B0255<'static> {
@@ -141,7 +173,6 @@ impl JobDeclarator {
                     .try_into()
                     .unwrap();
             let sv2_frame = sv2_frame.into();
-
             info!("Sending success message for proxy");
             sender.send(sv2_frame).await.unwrap();
 

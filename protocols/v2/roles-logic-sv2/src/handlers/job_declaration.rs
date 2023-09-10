@@ -21,11 +21,11 @@ where
             Ok(JobDeclaration::AllocateMiningJobTokenSuccess(message)) => self_
                 .safe_lock(|x| x.handle_allocate_mining_job_token_success(message))
                 .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
-            Ok(JobDeclaration::CommitMiningJobSuccess(message)) => self_
-                .safe_lock(|x| x.handle_commit_mining_job_success(message))
+            Ok(JobDeclaration::DeclareMiningJobSuccess(message)) => self_
+                .safe_lock(|x| x.handle_declare_mining_job_success(message))
                 .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
-            Ok(JobDeclaration::CommitMiningJobError(message)) => self_
-                .safe_lock(|x| x.handle_commit_mining_job_error(message))
+            Ok(JobDeclaration::DeclareMiningJobError(message)) => self_
+                .safe_lock(|x| x.handle_declare_mining_job_error(message))
                 .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
             Ok(JobDeclaration::IdentifyTransactions(message)) => self_
                 .safe_lock(|x| x.handle_identify_transactions(message))
@@ -47,17 +47,17 @@ where
         message: AllocateMiningJobTokenSuccess,
     ) -> Result<SendTo, Error>;
 
-    // When upstream send CommitMiningJobSuccess if the token is different from the one negotiated
+    // When upstream send DeclareMiningJobSuccess if the token is different from the one negotiated
     // self must use the new token to refer to the committed job
-    fn handle_commit_mining_job_success(
+    fn handle_declare_mining_job_success(
         &mut self,
-        message: CommitMiningJobSuccess,
+        message: DeclareMiningJobSuccess,
     ) -> Result<SendTo, Error>;
 
     // TODO: comment
-    fn handle_commit_mining_job_error(
+    fn handle_declare_mining_job_error(
         &mut self,
-        message: CommitMiningJobError,
+        message: DeclareMiningJobError,
     ) -> Result<SendTo, Error>;
 
     // TODO: comment
@@ -85,8 +85,8 @@ where
             Ok(JobDeclaration::AllocateMiningJobToken(message)) => self_
                 .safe_lock(|x| x.handle_allocate_mining_job_token(message))
                 .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
-            Ok(JobDeclaration::CommitMiningJob(message)) => self_
-                .safe_lock(|x| x.handle_commit_mining_job(message))
+            Ok(JobDeclaration::DeclareMiningJob(message)) => self_
+                .safe_lock(|x| x.handle_declare_mining_job(message))
                 .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
 
             Ok(JobDeclaration::IdentifyTransactionsSuccess(message)) => self_
@@ -107,7 +107,7 @@ where
         message: AllocateMiningJobToken,
     ) -> Result<SendTo, Error>;
     // TODO: comment
-    fn handle_commit_mining_job(&mut self, message: CommitMiningJob) -> Result<SendTo, Error>;
+    fn handle_declare_mining_job(&mut self, message: DeclareMiningJob) -> Result<SendTo, Error>;
     // TODO: comment
     fn handle_identify_transactions_success(
         &mut self,

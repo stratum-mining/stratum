@@ -12,18 +12,27 @@
         "You can use any miner you want, by changing the execution command or by launching it separately"
     ],
     "common_messages": [
+        {
+            "message": {
+                "type": "SetupConnectionSuccess",
+                "flags": 300,
+                "used_version": 180
+            },
+            "replace_fields": [["flags", "setup_connection_success_flag"],["used_version", "setup_connection_success_used_version"]],
+            "id": "setup_connection_success_tproxy"
+        }
     ],
     "mining_messages": [
         {
             "message": {
                 "type": "OpenExtendedMiningChannelSuccess",
-                "request_id": 666666,
+                "request_id": 666,
                 "channel_id": 1,
-                "target": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 255, 255, 255, 255],
+                "target": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 55, 55, 55, 55, 25, 25, 0, 0],
                 "extranonce_size": 16,
                 "extranonce_prefix": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]
             },
-            "replace_fields": [["request_id","variable_name"]],
+            "replace_fields": [["request_id","open_extended_mining_channel_success_request_id"], ["target", "open_extended_mining_channel_success_target"]],
             "id": "open_extended_mining_channel_success"
         },
         {
@@ -76,8 +85,21 @@
             "role": "server",
             "results": [
                 {
-                    "type": "match_message_type",
-                    "value": "0x00"
+                    "type": "get_message_field",
+                    "value": [
+                        "CommonMessages",
+                        "SetupConnection",
+                        [
+                            [
+                                "flags",
+                                "setup_connection_success_flag"
+                            ],
+                            [
+                                "min_version",
+                                "setup_connection_success_used_version"
+                            ]
+                        ]
+                    ]
                 }
             ],
             "actiondoc": "This action checks that a Setupconnection message is received"
@@ -100,7 +122,11 @@
                         [
                             [
                                 "request_id",
-                                "variable_name"
+                                "open_extended_mining_channel_success_request_id"
+                            ],
+                            [
+                                "max_target",
+                                "open_extended_mining_channel_success_target"
                             ]
                         ]
                     ]

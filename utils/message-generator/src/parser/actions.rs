@@ -1,8 +1,10 @@
-use crate::{Action, ActionResult, Role, Sv2Type};
+use crate::{Action, ActionResult, Role, SaveField, Sv2Type};
 use codec_sv2::{buffer_sv2::Slice, StandardEitherFrame, Sv2Frame};
 use roles_logic_sv2::parsers::AnyMessage;
 use serde_json::{Map, Value};
 use std::collections::HashMap;
+
+use super::sv2_messages::ReplaceField;
 
 pub struct ActionParser {}
 
@@ -11,7 +13,7 @@ impl ActionParser {
         test: &'b str,
         frames: HashMap<String, Sv2Frame<AnyMessage<'a>, Slice>>,
         //Action.messages: Vec<(EitherFrame<AnyMessage<'a>>,AnyMessage<'a>,Vec<(String,String)>)>
-        messages: HashMap<String, (AnyMessage<'a>, Vec<(String, String)>)>,
+        messages: HashMap<String, (AnyMessage<'a>, Vec<ReplaceField>)>,
     ) -> Vec<Action<'a>> {
         let test: Map<String, Value> = serde_json::from_str(test).unwrap();
         let actions = test.get("actions").unwrap().as_array().unwrap();
@@ -41,10 +43,7 @@ impl ActionParser {
                 action_frames.push((frame, message.0, message.1));
             }
 
-            let actiondoc = match action.get("actiondoc") {
-                Some(T) => Some(T.to_string()),
-                None => None,
-            };
+            let actiondoc = action.get("actiondoc").map(|t| t.to_string());
             let mut action_results = vec![];
             let results = action.get("results").unwrap().as_array().unwrap();
             for result in results {
@@ -55,7 +54,7 @@ impl ActionParser {
                     }
                     "get_message_field" => {
                         let sv2_type = result.get("value").unwrap().clone();
-                        let sv2_type: (String, String, Vec<(String, String)>) =
+                        let sv2_type: (String, String, Vec<SaveField>) =
                             serde_json::from_value(sv2_type)
                                 .expect("match_message_field values not correct");
                         let get_message_field = ActionResult::GetMessageField {

@@ -29,6 +29,8 @@ impl<'s, T: Clone + FixedSize + Serialize + TryFromBSlice<'s> + core::cmp::Parti
 impl<'s> Eq for Seq064K<'s, B016M<'s>> {}
 impl<'s> Eq for Seq064K<'s, B064K<'s>> {}
 impl<'s> Eq for Seq064K<'s, ShortTxId<'s>> {}
+impl<'s> Eq for Seq064K<'s, U256<'s>> {}
+impl<'s> Eq for Seq064K<'s, u16> {}
 
 impl<'s> PartialEq for Seq064K<'s, B016M<'s>> {
     fn eq(&self, other: &Self) -> bool {
@@ -457,12 +459,38 @@ impl<'s> Seq064K<'s, u32> {
         }
     }
 }
+impl<'s> Seq064K<'s, u16> {
+    pub fn into_static(self) -> Seq064K<'static, u16> {
+        if let Some(inner) = self.data {
+            Seq064K {
+                seq: None,
+                data: Some(inner),
+            }
+        } else {
+            panic!()
+        }
+    }
+}
 impl<'s> Seq064K<'s, ShortTxId<'s>> {
     pub fn into_static(self) -> Seq064K<'static, ShortTxId<'static>> {
         if let Some(inner) = self.data {
             let inner = inner.clone();
             let data: Vec<ShortTxId<'static>> =
                 inner.into_iter().map(|i| i.into_static()).collect();
+            Seq064K {
+                seq: None,
+                data: Some(data),
+            }
+        } else {
+            panic!()
+        }
+    }
+}
+impl<'s> Seq064K<'s, U256<'s>> {
+    pub fn into_static(self) -> Seq064K<'static, U256<'static>> {
+        if let Some(inner) = self.data {
+            let inner = inner.clone();
+            let data: Vec<U256<'static>> = inner.into_iter().map(|i| i.into_static()).collect();
             Seq064K {
                 seq: None,
                 data: Some(data),

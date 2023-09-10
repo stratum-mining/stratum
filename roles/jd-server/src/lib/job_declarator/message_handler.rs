@@ -3,8 +3,8 @@ use std::convert::TryInto;
 use roles_logic_sv2::{
     handlers::{job_declaration::ParseClientJobDeclarationMessages, SendTo_},
     job_declaration_sv2::{
-        AllocateMiningJobToken, AllocateMiningJobTokenSuccess, CommitMiningJob,
-        CommitMiningJobError, CommitMiningJobSuccess, IdentifyTransactionsSuccess,
+        AllocateMiningJobToken, AllocateMiningJobTokenSuccess, DeclareMiningJob,
+        DeclareMiningJobError, DeclareMiningJobSuccess, IdentifyTransactionsSuccess,
         ProvideMissingTransactionsSuccess,
     },
     parsers::JobDeclaration,
@@ -12,23 +12,28 @@ use roles_logic_sv2::{
 pub type SendTo = SendTo_<JobDeclaration<'static>, ()>;
 use roles_logic_sv2::errors::Error;
 
+use crate::lib::job_declarator::signed_token;
+
 use super::JobDeclaratorDownstream;
 
 impl JobDeclaratorDownstream {
-    fn verify_job(&mut self, _message: &CommitMiningJob) -> bool {
-        // TODO: check if there is a token
-        /* let is_token_allocated = self
-        .token_to_job_map
-        .contains_key(&message.mining_job_token); */
+    fn verify_job(&mut self, message: &DeclareMiningJob) -> bool {
+        // Convert token from B0255 to u32
+        let four_byte_array: [u8; 4] = message
+            .mining_job_token
+            .clone()
+            .to_vec()
+            .as_slice()
+            .try_into()
+            .unwrap();
+        let token_u32 = u32::from_le_bytes(four_byte_array);
+        self.token_to_job_map.contains_key(&(token_u32))
         // TODO Function to implement, it must be checked if the requested job has:
         // 1. right coinbase
         // 2. right version field
         // 3. right prev-hash
         // 4. right nbits
         // 5. a valid merkletpath
-        // is_token_allocated
-        // TODO:use is_token_allocated for this bool
-        false
     }
 }
 
@@ -38,13 +43,16 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
         message: AllocateMiningJobToken,
     ) -> Result<SendTo, Error> {
         let token = self.tokens.next();
+        // Token is saved in JobDeclaratorDownstream as u32
         self.token_to_job_map.insert(token, None);
         let message_success = AllocateMiningJobTokenSuccess {
             request_id: message.request_id,
-            mining_job_token: Vec::new().try_into().unwrap(),
+            // From u32 token is transformed into B0255 in
+            // AllocateMiningJobTokenSuccess message
+            mining_job_token: token.to_le_bytes().to_vec().try_into().unwrap(),
             coinbase_output_max_additional_size: 0,
             async_mining_allowed: true,
-            coinbase_output: Vec::new().try_into().unwrap(),
+            coinbase_output: self.coinbase_output.clone().try_into().unwrap(),
         };
         let message_enum = JobDeclaration::AllocateMiningJobTokenSuccess(message_success);
         println!(
@@ -54,28 +62,28 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
         Ok(SendTo::Respond(message_enum))
     }
 
-    fn handle_commit_mining_job(&mut self, message: CommitMiningJob) -> Result<SendTo, Error> {
+    fn handle_declare_mining_job(&mut self, message: DeclareMiningJob) -> Result<SendTo, Error> {
         if self.verify_job(&message) {
-            let message_success = CommitMiningJobSuccess {
+            let message_success = DeclareMiningJobSuccess {
                 request_id: message.request_id,
-                new_mining_job_token: message.mining_job_token.into_static(),
+                new_mining_job_token: signed_token(
+                    message.tx_hash_list_hash,
+                    &self.public_key.clone(),
+                    &self.private_key.clone(),
+                ),
             };
-            let message_enum_success = JobDeclaration::CommitMiningJobSuccess(message_success);
+            let message_enum_success = JobDeclaration::DeclareMiningJobSuccess(message_success);
             // TODO: token map
             /* self.token_to_job_map
             .insert(message.mining_job_token, Some(message.into())); */
-            println!(
-                "Commit mining job was a success: {:?}",
-                message_enum_success
-            );
             Ok(SendTo::Respond(message_enum_success))
         } else {
-            let message_error = CommitMiningJobError {
+            let message_error = DeclareMiningJobError {
                 request_id: message.request_id,
                 error_code: Vec::new().try_into().unwrap(),
                 error_details: Vec::new().try_into().unwrap(),
             };
-            let message_enum_error = JobDeclaration::CommitMiningJobError(message_error);
+            let message_enum_error = JobDeclaration::DeclareMiningJobError(message_error);
             Ok(SendTo::Respond(message_enum_error))
         }
     }
@@ -86,10 +94,7 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
     ) -> Result<SendTo, Error> {
         let message_success = IdentifyTransactionsSuccess {
             request_id: message.request_id,
-            mining_job_token: Vec::new().try_into().unwrap(),
-            coinbase_output_max_additional_size: 0,
-            coinbase_output: Vec::new().try_into().unwrap(),
-            async_mining_allowed: false,
+            tx_data_hashes: Vec::new().try_into().unwrap(),
         };
         let message_enum = JobDeclaration::IdentifyTransactionsSuccess(message_success);
         Ok(SendTo::Respond(message_enum))
@@ -101,10 +106,7 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
     ) -> Result<SendTo, Error> {
         let message_success = ProvideMissingTransactionsSuccess {
             request_id: message.request_id,
-            mining_job_token: Vec::new().try_into().unwrap(),
-            coinbase_output_max_additional_size: 0,
-            coinbase_output: Vec::new().try_into().unwrap(),
-            async_mining_allowed: false,
+            transaction_list: Vec::new().try_into().unwrap(),
         };
         let message_enum = JobDeclaration::ProvideMissingTransactionsSuccess(message_success);
         Ok(SendTo::Respond(message_enum))
@@ -123,8 +125,8 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
                     .safe_lock(|x| x.handle_allocate_mining_job_token(message))
                     .unwrap()
             }
-            Ok(JobDeclaration::CommitMiningJob(message)) => self_
-                .safe_lock(|x| x.handle_commit_mining_job(message))
+            Ok(JobDeclaration::DeclareMiningJob(message)) => self_
+                .safe_lock(|x| x.handle_declare_mining_job(message))
                 .unwrap(),
             Ok(JobDeclaration::IdentifyTransactionsSuccess(message)) => self_
                 .safe_lock(|x| x.handle_identify_transactions_success(message))
@@ -135,10 +137,10 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
             Ok(JobDeclaration::AllocateMiningJobTokenSuccess(_)) => Err(Error::UnexpectedMessage(
                 u8::from_str_radix("51", 16).unwrap(),
             )),
-            Ok(JobDeclaration::CommitMiningJobSuccess(_)) => Err(Error::UnexpectedMessage(
+            Ok(JobDeclaration::DeclareMiningJobSuccess(_)) => Err(Error::UnexpectedMessage(
                 u8::from_str_radix("58", 16).unwrap(),
             )),
-            Ok(JobDeclaration::CommitMiningJobError(_)) => Err(Error::UnexpectedMessage(
+            Ok(JobDeclaration::DeclareMiningJobError(_)) => Err(Error::UnexpectedMessage(
                 u8::from_str_radix("59", 16).unwrap(),
             )),
             Ok(JobDeclaration::IdentifyTransactions(_)) => Err(Error::UnexpectedMessage(

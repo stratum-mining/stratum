@@ -7,6 +7,7 @@ use crate::{
     ProxyResult,
 };
 use async_channel::{Receiver, Sender};
+use binary_sv2::{Seq0255, U256};
 use codec_sv2::{Frame, HandshakeRole, Initiator};
 use error_handling::handle_result;
 use network_helpers::noise_connection_tokio::Connection;
@@ -19,7 +20,7 @@ use roles_logic_sv2::{
         common::{ParseUpstreamCommonMessages, SendTo as SendToCommon},
         mining::{ParseUpstreamMiningMessages, SendTo},
     },
-    job_declaration_sv2::CommitMiningJob,
+    job_declaration_sv2::DeclareMiningJob,
     mining_sv2::{ExtendedExtranonce, Extranonce, SetCustomMiningJob},
     parsers::{Mining, MiningDeviceMessages, PoolMessages},
     routing_logic::{CommonRoutingLogic, MiningRoutingLogic, NoRouting},
@@ -183,30 +184,29 @@ impl Upstream {
 
     pub async fn set_custom_jobs(
         self_: &Arc<Mutex<Self>>,
-        commit_mining_job: CommitMiningJob<'static>,
+        declare_mining_job: DeclareMiningJob<'static>,
         set_new_prev_hash: roles_logic_sv2::template_distribution_sv2::SetNewPrevHash<'static>,
-        new_token: Option<binary_sv2::B0255<'static>>,
+        merkle_path: Seq0255<'static, U256<'static>>,
+        signed_token: binary_sv2::B0255<'static>,
     ) -> ProxyResult<'static, ()> {
-        let new_token = new_token.unwrap_or(commit_mining_job.mining_job_token);
         let to_send = SetCustomMiningJob {
             channel_id: self_
                 .safe_lock(|s| *s.channel_id.as_ref().unwrap())
                 .unwrap(),
             request_id: 0,
-            token: new_token,
-            version: commit_mining_job.version,
+            token: signed_token,
+            version: declare_mining_job.version,
             prev_hash: set_new_prev_hash.prev_hash,
             min_ntime: set_new_prev_hash.header_timestamp,
             nbits: set_new_prev_hash.n_bits,
-            coinbase_tx_version: commit_mining_job.coinbase_tx_version,
-            coinbase_prefix: commit_mining_job.coinbase_prefix,
-            coinbase_tx_input_n_sequence: commit_mining_job.coinbase_tx_input_n_sequence,
-            coinbase_tx_value_remaining: commit_mining_job.coinbase_tx_value_remaining,
-            coinbase_tx_outputs: commit_mining_job.coinbase_tx_outputs,
-            coinbase_tx_locktime: commit_mining_job.coinbase_tx_locktime,
-            merkle_path: commit_mining_job.merkle_path,
-            extranonce_size: commit_mining_job.min_extranonce_size,
-            future_job: false, // TODO remove this field
+            coinbase_tx_version: declare_mining_job.coinbase_tx_version,
+            coinbase_prefix: declare_mining_job.coinbase_prefix,
+            coinbase_tx_input_n_sequence: declare_mining_job.coinbase_tx_input_n_sequence,
+            coinbase_tx_value_remaining: declare_mining_job.coinbase_tx_value_remaining,
+            coinbase_tx_outputs: declare_mining_job.coinbase_tx_outputs,
+            coinbase_tx_locktime: declare_mining_job.coinbase_tx_locktime,
+            merkle_path,
+            extranonce_size: declare_mining_job.min_extranonce_size,
         };
         let message = PoolMessages::Mining(Mining::SetCustomMiningJob(to_send));
         let frame: StdFrame = message.try_into().unwrap();
