@@ -1,8 +1,9 @@
 name: Benchmark
 
 on:
-  pull_request:
+  pull_request_target:
     branches: [main, dev]
+    types: [assigned, opened, synchronize, reopened]
 
 jobs:
   benchmark_sv1_criterion_with_bencher:
@@ -18,7 +19,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: 1.65.0
+          toolchain: 1.70.0
           override: true
 
       - name: Checkout repository
@@ -47,7 +48,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: 1.65.0
+          toolchain: 1.70.0
           override: true
 
       - name: Checkout repository
@@ -76,7 +77,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: 1.65.0
+          toolchain: 1.70.0
           override: true
 
       - name: Checkout repository
@@ -109,7 +110,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: 1.65.0
+          toolchain: 1.70.0
           override: true
 
       - name: Checkout repository

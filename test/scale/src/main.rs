@@ -6,7 +6,6 @@ use tokio::{
 
 use async_channel::{bounded, Receiver, Sender};
 
-use binary_sv2::{Deserialize, GetSize, Serialize};
 use clap::{App, Arg};
 use codec_sv2::{HandshakeRole, Initiator, Responder, StandardEitherFrame, StandardSv2Frame};
 use std::time::Duration;
@@ -127,7 +126,7 @@ async fn send_messages(stream: Sender<EitherFrame>, total_messages: i32) {
     }
 }
 
-async fn handle_messages<Mining: Serialize + Deserialize<'static> + GetSize + Send + 'static>(
+async fn handle_messages(
     name: String,
     client: Receiver<EitherFrame>,
     server: Option<Sender<EitherFrame>>,
@@ -202,7 +201,7 @@ async fn create_proxy(
     }
 
     println!("Proxy {} has a client", name);
-    handle_messages::<Mining>(name, cli_receiver, server, total_messages, tx).await;
+    handle_messages(name, cli_receiver, server, total_messages, tx).await;
 }
 
 async fn spawn_proxies(encrypt: bool, hops: u16, tx: Sender<String>, total_messages: i32) -> u16 {

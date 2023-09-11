@@ -1,14 +1,16 @@
-use crate::{Action, ActionResult, Role, SaveField, Sv2Type};
+use crate::{Action, ActionResult, Role, SaveField, Sv2Type, Sv1ActionResult, Sv1Action};
 use codec_sv2::{buffer_sv2::Slice, StandardEitherFrame, Sv2Frame};
 use roles_logic_sv2::parsers::AnyMessage;
 use serde_json::{Map, Value};
+use v1::json_rpc::StandardRequest;
 use std::collections::HashMap;
 
 use super::sv2_messages::ReplaceField;
 
-pub struct ActionParser {}
+pub struct Sv2ActionParser {}
+pub struct Sv1ActionParser {}
 
-impl ActionParser {
+impl Sv2ActionParser {
     pub fn from_step_2<'a, 'b: 'a>(
         test: &'b str,
         frames: HashMap<String, Sv2Frame<AnyMessage<'a>, Slice>>,
@@ -101,6 +103,64 @@ impl ActionParser {
                 result: action_results,
                 role,
                 actiondoc,
+            };
+            result.push(action);
+        }
+        result
+    }
+}
+
+
+impl Sv1ActionParser {
+    pub fn from_step_2<'b>(
+        test: &'b str,
+        messages: HashMap<String, (StandardRequest, Vec<ReplaceField>)>,
+    ) -> Vec<Sv1Action> {
+        let test: Map<String, Value> = serde_json::from_str(test).unwrap();
+        let actions = test.get("actions").unwrap().as_array().unwrap();
+        let mut result = vec![];
+        for action in actions {
+            let mut action_requests = vec![];
+            let ids = action.get("message_ids").unwrap().as_array().unwrap();
+            for id in ids {
+                let message = messages.get(id.as_str().unwrap());
+                let message = message
+                    .unwrap_or_else(|| {
+                        panic!("Message id not found: {} Impossible to parse action", id)
+                    })
+                    .clone();
+                action_requests.push(message);
+            }
+            let actiondoc = action.get("actiondoc").map(|t| t.to_string());
+            let mut action_results = vec![];
+            let results = action.get("results").unwrap().as_array().unwrap();
+            for result in results {
+                match result.get("type").unwrap().as_str().unwrap() {
+                    "match_message_id" => {
+                        let message_id = result.get("value").unwrap().as_u64().unwrap();
+                        action_results.push(Sv1ActionResult::MatchMessageId(serde_json::to_value(message_id).unwrap()));
+                    },
+                    "match_message_field" => {
+                        let sv1_value = result.get("value").unwrap().clone();
+                        let sv1_value: (String, Vec<(String, Value)>) =
+                            serde_json::from_value(sv1_value)
+                                .expect("match_message_field values not correct");
+                        action_results.push(Sv1ActionResult::MatchMessageField { message_type: sv1_value.0, fields: sv1_value.1 });
+                    },
+                    "close_connection" => {
+                        action_results.push(Sv1ActionResult::CloseConnection);
+                    }
+                    "none" => {
+                        action_results.push(Sv1ActionResult::None);
+                    },
+                    type_ @ _ => panic!("Unknown result type {}", type_)
+                }
+            }
+
+            let action = Sv1Action {
+                messages: action_requests,
+                result: action_results,
+                actiondoc
             };
             result.push(action);
         }

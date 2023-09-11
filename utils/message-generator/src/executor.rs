@@ -3,7 +3,7 @@ use crate::{
     into_static::into_static,
     net::{setup_as_downstream, setup_as_upstream},
     parser::sv2_messages::ReplaceField,
-    Action, ActionResult, Command, Role, SaveField, Sv2Type, Test,
+    Action, ActionResult, Command, Role, SaveField, Sv2Type, Test
 };
 use async_channel::{Receiver, Sender};
 use binary_sv2::Serialize;
@@ -77,7 +77,7 @@ impl Executor {
                     recv_from_down: Some(recv_from_down),
                     send_to_up: Some(send_to_up),
                     recv_from_up: Some(recv_from_up),
-                    actions: test.actions,
+                    actions: test.actions.unwrap(),
                     cleanup_commmands: test.cleanup_commmands,
                     process,
                     save,
@@ -97,7 +97,7 @@ impl Executor {
                     recv_from_down: Some(recv_from_down),
                     send_to_up: None,
                     recv_from_up: None,
-                    actions: test.actions,
+                    actions: test.actions.unwrap(),
                     cleanup_commmands: test.cleanup_commmands,
                     process,
                     save,
@@ -112,7 +112,7 @@ impl Executor {
                     recv_from_down: None,
                     send_to_up: Some(send_to_up),
                     recv_from_up: Some(recv_from_up),
-                    actions: test.actions,
+                    actions: test.actions.unwrap(),
                     cleanup_commmands: test.cleanup_commmands,
                     process,
                     save,
@@ -124,7 +124,7 @@ impl Executor {
                 recv_from_down: None,
                 send_to_up: None,
                 recv_from_up: None,
-                actions: test.actions,
+                actions: test.actions.unwrap(),
                 cleanup_commmands: test.cleanup_commmands,
                 process,
                 save,

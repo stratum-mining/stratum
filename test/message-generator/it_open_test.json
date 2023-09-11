@@ -1,4 +1,5 @@
 {
+    "version":"2",
     "doc": [
         "Just test that the message_generato.sh can run tests in this direcotry",
             "1) start listen as a server for plain connections",

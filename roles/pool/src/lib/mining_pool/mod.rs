@@ -546,7 +546,7 @@ impl Pool {
         });
 
         let status_tx_clone = status_tx;
-        let _ = task::spawn(async move {
+        task::spawn(async move {
             if let Err(e) =
                 Self::on_new_template(pool, new_template_rx, sender_message_received_signal).await
             {

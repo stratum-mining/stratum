@@ -1,4 +1,5 @@
 {
+    "version": "2",
     "doc": [
         "This test runs a tproxy and a mock pool. The mock pool responds with SetupConnectionSuccess",
         "And then a OpenExtendedMiningChannelSuccess but this message has a bad extranonce size which is way too big.",
