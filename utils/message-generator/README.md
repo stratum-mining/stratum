@@ -1,6 +1,6 @@
 # Message Generator
 
-Little utility to execute interoperability tests between SRI and other Sv2 complaint software.
+Little utility to execute interoperability tests between SRI and other Sv2 complaint software.   
 
 ## Try it
 1. Stop any `bitcoind` regtest processes running (the `message-generator` starts it for you).

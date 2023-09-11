@@ -347,10 +347,10 @@ impl GetSize for Protocol {
 impl From<Protocol> for u8 {
     fn from(val: Protocol) -> Self {
         match val {
-            MiningProtocol => SV2_MINING_PROTOCOL_DISCRIMINANT,
-            JobDeclarationProtocol => SV2_JOB_NEG_PROTOCOL_DISCRIMINANT,
-            TemplateDistributionProtocol => SV2_TEMPLATE_DISTR_PROTOCOL_DISCRIMINANT,
-            JobDistributionProtocol => SV2_JOB_DISTR_PROTOCOL_DISCRIMINANT,
+            Protocol::MiningProtocol => SV2_MINING_PROTOCOL_DISCRIMINANT,
+            Protocol::JobDeclarationProtocol => SV2_JOB_NEG_PROTOCOL_DISCRIMINANT,
+            Protocol::TemplateDistributionProtocol => SV2_TEMPLATE_DISTR_PROTOCOL_DISCRIMINANT,
+            Protocol::JobDistributionProtocol => SV2_JOB_DISTR_PROTOCOL_DISCRIMINANT,
         }
     }
 }
