@@ -7,6 +7,7 @@
 /sv2.h
 /test/bitcoin_data/regtest
 lcov.info
+/target
 .vscode
 *.py
 **/conf/**
