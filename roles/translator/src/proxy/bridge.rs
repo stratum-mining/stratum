@@ -106,6 +106,7 @@ impl Bridge {
         }))
     }
 
+    #[allow(clippy::result_large_err)]
     pub fn on_new_sv1_connection(
         &mut self,
         hash_rate: f32,
@@ -182,6 +183,7 @@ impl Bridge {
         });
     }
     /// receives a `SetDownstreamTarget` and updates the downstream target for the channel
+    #[allow(clippy::result_large_err)]
     fn handle_update_downstream_target(
         self_: Arc<Mutex<Self>>,
         new_target: SetDownstreamTarget,
@@ -268,6 +270,7 @@ impl Bridge {
     }
 
     /// Translates a SV1 `mining.submit` message to a SV2 `SubmitSharesExtended` message.
+    #[allow(clippy::result_large_err)]
     fn translate_submit(
         &self,
         channel_id: u32,
