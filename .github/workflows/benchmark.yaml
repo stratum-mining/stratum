@@ -5,6 +5,8 @@ on:
     workflows: [Test Coverage]
     types:
       - completed
+      
+  pull_request:
 
 jobs:
   benchmark_sv1_criterion_with_bencher:
