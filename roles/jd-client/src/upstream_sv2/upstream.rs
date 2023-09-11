@@ -217,8 +217,7 @@ impl Upstream {
     /// appropriate handler.
     #[allow(clippy::result_large_err)]
     pub fn parse_incoming(self_: Arc<Mutex<Self>>) -> ProxyResult<'static, ()> {
-        let clone = self_.clone();
-        let (recv, tx_status) = clone
+        let (recv, tx_status) = self_
             .safe_lock(|s| (s.receiver.clone(), s.tx_status.clone()))
             .map_err(|_| PoisonLock)?;
 

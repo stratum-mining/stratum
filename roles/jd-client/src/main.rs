@@ -116,7 +116,7 @@ async fn main() {
             let task_collector = task_collector.clone();
             let tx_status = tx_status.clone();
             let initialize = initialize_jd(tx_status.clone(), task_collector.clone());
-            tokio::task::spawn(async move { initialize.await });
+            tokio::task::spawn(initialize);
         }
         // Check all tasks if is_finished() is true, if so exit
         loop {
