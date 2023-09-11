@@ -3,6 +3,8 @@ name: Benchmark
 on:
   pull_request_target:
     branches: [main, dev]
+    types:
+      - opened
 
 jobs:
   benchmark_sv1_criterion_with_bencher:
