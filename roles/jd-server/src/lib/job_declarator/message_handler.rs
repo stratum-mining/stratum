@@ -119,8 +119,8 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
         let message_success = SubmitSharesSuccess {
             channel_id: message.channel_id,
             last_sequence_number: 0,
-            new_submits_accepted_count: 0,
-            new_shares_sum: 0,
+            new_submits_accepted_count: 1,
+            new_shares_sum: 1,
         };
         let _message_enum = JobDeclaration::SubmitSharesSuccess(message_success);
 
