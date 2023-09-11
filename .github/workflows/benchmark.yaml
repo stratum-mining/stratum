@@ -1,9 +1,10 @@
 name: Benchmark
 
 on:
-  pull_request_target:
-    branches: [main, dev]
-    types: [assigned, opened, synchronize, reopened]
+  workflow_run:
+    workflows: [Test Coverage]
+    types:
+      - completed
 
 jobs:
   benchmark_sv1_criterion_with_bencher:
