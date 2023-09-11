@@ -1,12 +1,6 @@
 name: Benchmark
 
-on:
-  workflow_run:
-    workflows: [Test Coverage]
-    types:
-      - completed
-      
-  pull_request:
+on: pull_request_target
 
 jobs:
   benchmark_sv1_criterion_with_bencher:
