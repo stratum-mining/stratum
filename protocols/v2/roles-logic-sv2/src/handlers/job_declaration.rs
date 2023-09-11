@@ -88,16 +88,19 @@ where
             Ok(JobDeclaration::DeclareMiningJob(message)) => self_
                 .safe_lock(|x| x.handle_declare_mining_job(message))
                 .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
+
             Ok(JobDeclaration::IdentifyTransactionsSuccess(message)) => self_
                 .safe_lock(|x| x.handle_identify_transactions_success(message))
                 .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
             Ok(JobDeclaration::ProvideMissingTransactionsSuccess(message)) => self_
                 .safe_lock(|x| x.handle_provide_missing_transactions_success(message))
                 .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
+
             Ok(_) => todo!(),
             Err(e) => Err(e),
         }
     }
+
     // TODO: comment
     fn handle_allocate_mining_job_token(
         &mut self,

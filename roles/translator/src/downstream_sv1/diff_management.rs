@@ -49,6 +49,7 @@ impl Downstream {
     }
 
     /// Called before a miner disconnects so we can remove the miner's hashrate from the aggregated channel hashrate
+    #[allow(clippy::result_large_err)]
     pub fn remove_miner_hashrate_from_channel(self_: Arc<Mutex<Self>>) -> ProxyResult<'static, ()> {
         self_
             .safe_lock(|d| {
@@ -143,6 +144,7 @@ impl Downstream {
     }
 
     /// calculates the target according to the current stored hashrate of the miner
+    #[allow(clippy::result_large_err)]
     pub fn hash_rate_to_target(self_: Arc<Mutex<Self>>) -> ProxyResult<'static, Vec<u8>> {
         let target = self_
             .safe_lock(|d| {
@@ -157,6 +159,7 @@ impl Downstream {
     }
 
     /// increments the number of shares since the last difficulty update
+    #[allow(clippy::result_large_err)]
     pub(super) fn save_share(self_: Arc<Mutex<Self>>) -> ProxyResult<'static, ()> {
         self_
             .safe_lock(|d| {
@@ -169,6 +172,7 @@ impl Downstream {
     /// Converts target received by the `SetTarget` SV2 message from the Upstream role into the
     /// difficulty for the Downstream role and creates the SV1 `mining.set_difficulty` message to
     /// be sent to the Downstream role.
+    #[allow(clippy::result_large_err)]
     pub(super) fn get_set_difficulty(target: Vec<u8>) -> ProxyResult<'static, json_rpc::Message> {
         let value = Downstream::difficulty_from_target(target)?;
         let set_target = v1::methods::server_to_client::SetDifficulty { value };
@@ -178,6 +182,7 @@ impl Downstream {
 
     /// Converts target received by the `SetTarget` SV2 message from the Upstream role into the
     /// difficulty for the Downstream role sent via the SV1 `mining.set_difficulty` message.
+    #[allow(clippy::result_large_err)]
     pub(super) fn difficulty_from_target(mut target: Vec<u8>) -> ProxyResult<'static, f64> {
         // reverse because target is LE and this function relies on BE
         target.reverse();
@@ -208,6 +213,7 @@ impl Downstream {
     /// This function updates the miner hashrate and resets difficulty management params. To calculate hashrate it calculates the realized shares per minute from the number of shares submitted
     /// and the delta time since last update. It then uses the realized shares per minute and the target those shares where mined on to calculate an estimated hashrate during that period with the
     /// function [`roles_logic_sv2::utils::hash_rate_from_target`]. Lastly, it adjusts the `channel_nominal_hashrate` according to the change in estimated miner hashrate
+    #[allow(clippy::result_large_err)]
     pub fn update_miner_hashrate(
         self_: Arc<Mutex<Self>>,
         miner_target: Vec<u8>,
@@ -237,9 +243,9 @@ impl Downstream {
                     realized_share_per_min,
                 );
                 let hashrate_delta =
-                    new_miner_hashrate as f32 - d.difficulty_mgmt.min_individual_miner_hashrate;
+                    new_miner_hashrate - d.difficulty_mgmt.min_individual_miner_hashrate;
                 tracing::debug!("\nMINER HASHRATE: {:?}", new_miner_hashrate);
-                d.difficulty_mgmt.min_individual_miner_hashrate = new_miner_hashrate as f32;
+                d.difficulty_mgmt.min_individual_miner_hashrate = new_miner_hashrate;
                 d.difficulty_mgmt.timestamp_of_last_update = timestamp_secs;
                 d.difficulty_mgmt.submits_since_last_update = 0;
                 // update channel hashrate (read by upstream)

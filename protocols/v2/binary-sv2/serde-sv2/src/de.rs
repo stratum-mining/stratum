@@ -69,14 +69,14 @@ impl<'de> Deserializer<'de> {
     fn parse_seq0255(&mut self, element_size: u8) -> Result<&'de [u8]> {
         let len = self.parse_u8()?;
         let len = len as usize * element_size as usize;
-        self.get_slice(len as usize)
+        self.get_slice(len)
     }
 
     #[inline]
     fn parse_seq064k(&mut self, element_size: u8) -> Result<&'de [u8]> {
         let len = self.parse_u16()?;
         let len = len as usize * element_size as usize;
-        self.get_slice(len as usize)
+        self.get_slice(len)
     }
 
     #[inline]

@@ -257,6 +257,7 @@ impl Upstream {
 
     /// Parses the incoming SV2 message from the Upstream role and routes the message to the
     /// appropriate handler.
+    #[allow(clippy::result_large_err)]
     pub fn parse_incoming(self_: Arc<Mutex<Self>>) -> ProxyResult<'static, ()> {
         let clone = self_.clone();
         let (
@@ -429,6 +430,7 @@ impl Upstream {
 
         Ok(())
     }
+    #[allow(clippy::result_large_err)]
     fn get_job_id(
         self_: &Arc<Mutex<Self>>,
     ) -> Result<Result<u32, crate::error::Error<'static>>, crate::error::Error<'static>> {
@@ -447,6 +449,7 @@ impl Upstream {
             .map_err(|_e| PoisonLock)
     }
 
+    #[allow(clippy::result_large_err)]
     pub fn handle_submit(self_: Arc<Mutex<Self>>) -> ProxyResult<'static, ()> {
         let clone = self_.clone();
         let (tx_frame, receiver, tx_status) = clone
@@ -508,6 +511,7 @@ impl Upstream {
     /// Creates the `SetupConnection` message to setup the connection with the SV2 Upstream role.
     /// TODO: The Mining Device information is hard coded here, need to receive from Downstream
     /// instead.
+    #[allow(clippy::result_large_err)]
     fn get_setup_connection_message(
         min_version: u16,
         max_version: u16,
