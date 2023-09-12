@@ -1,9 +1,6 @@
 name: Benchmark
 
-on:
-  pull_request_target:
-    branches: [main, dev]
-    types: [assigned, opened, synchronize, reopened]
+on: pull_request_target
 
 jobs:
   benchmark_sv1_criterion_with_bencher:
