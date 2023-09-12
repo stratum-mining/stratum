@@ -189,7 +189,8 @@ impl Initiator {
         self.decrypt_and_hash(&mut to_decrypt)?;
         let plaintext: [u8; 74] = to_decrypt.try_into().unwrap();
         let signature_message: SignatureNoiseMessage = plaintext.into();
-        if signature_message.verify(&self.pk) {
+        let rs_pk_xonly = XOnlyPublicKey::from_slice(&rs_pub_key).unwrap();
+        if signature_message.verify(&rs_pk_xonly) {
             let (temp_k1, temp_k2) = Self::hkdf_2(self.get_ck(), &[]);
             let c1 = ChaCha20Poly1305::new(&temp_k1.into());
             let c2 = ChaCha20Poly1305::new(&temp_k2.into());
