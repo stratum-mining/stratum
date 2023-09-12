@@ -22,6 +22,7 @@ pub struct Initiator {
     // ephemeral keypair
     e: KeyPair,
     // upstream pub key
+    #[allow(unused)]
     pk: XOnlyPublicKey,
     c1: Option<GenericCipher>,
     c2: Option<GenericCipher>,
@@ -167,6 +168,7 @@ impl Initiator {
     /// | 0x47534541 (b"AESG") | AES-256 with with GCM from [7] |
     ///
     pub fn step_2(&mut self, message: [u8; 170]) -> Result<[u8; 5], Error> {
+        println!("start step 2");
         // 2. interprets first 32 bytes as `re.public_key`
         // 3. calls `MixHash(re.public_key)`
         let remote_pub_key = &message[0..32];
@@ -198,6 +200,7 @@ impl Initiator {
             let c2: Cipher<ChaCha20Poly1305> = Cipher::from_key_and_cipher(temp_k2, c2);
             self.c1 = Some(GenericCipher::ChaCha20Poly1305(c1));
             self.c2 = Some(GenericCipher::ChaCha20Poly1305(c2));
+            println!("end step 2");
             Ok(NOISE_SUPPORTED_CIPHERS_MESSAGE)
         } else {
             Err(Error::InvalidCertificate(plaintext))
@@ -212,9 +215,11 @@ impl Initiator {
     /// 2. New keys `key_new` are derived from the original CipherState keys `key_orig` by taking the first 32 bytes from `ENCRYPT(key_orig, maxnonce, zero_len, zeros)` using the negotiated cipher function where `maxnonce` is 2<sup>64</sup> - 1, `zerolen` is a zero-length byte sequence, and `zeros` is a sequence of 32 bytes filled with zeros. (see `Rekey(k)` function<sup>[8](#reference-8)</sup>)
     /// 3. New CipherState objects are reinitialized: `InitializeKey(key_new)`.
     pub fn step_4(mut self, cipher_chosed: Vec<u8>) -> Result<NoiseCodec, Error> {
+        println!("start step 4");
         match cipher_chosed.len() {
             0 => Err(Error::InvalidCipherList(cipher_chosed)),
             1 => {
+                println!("uuuuuuuuuu");
                 if cipher_chosed[0] == 0 {
                     let mut encryptor = None;
                     std::mem::swap(&mut encryptor, &mut self.c1);
@@ -229,8 +234,10 @@ impl Initiator {
                         encryptor,
                         decryptor,
                     };
+                    println!("end step 4");
                     Ok(codec)
                 } else {
+                    println!("IIIIIIIIII");
                     Err(Error::InvalidCipherList(cipher_chosed))
                 }
             }
