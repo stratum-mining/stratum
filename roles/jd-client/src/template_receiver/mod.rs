@@ -1,5 +1,8 @@
 use codec_sv2::{StandardEitherFrame, StandardSv2Frame};
-use roles_logic_sv2::utils::Mutex;
+use roles_logic_sv2::{
+    template_distribution_sv2::{NewTemplate, RequestTransactionData},
+    utils::Mutex,
+};
 
 use codec_sv2::Frame;
 use roles_logic_sv2::{
@@ -32,6 +35,7 @@ pub struct TemplateRx {
     jd: Arc<Mutex<crate::job_declarator::JobDeclarator>>,
     down: Arc<Mutex<crate::downstream::DownstreamMiningNode>>,
     task_collector: Arc<Mutex<Vec<AbortHandle>>>,
+    new_template_message: Option<NewTemplate<'static>>,
 }
 
 impl TemplateRx {
@@ -61,6 +65,7 @@ impl TemplateRx {
             jd,
             down,
             task_collector: task_collector.clone(),
+            new_template_message: None,
         }));
 
         let task = tokio::task::spawn(Self::on_new_solution(self_mutex.clone(), solution_receiver));
@@ -86,6 +91,20 @@ impl TemplateRx {
             }),
         );
         let frame: StdFrame = coinbase_output_data_size.try_into().unwrap();
+        Self::send(self_mutex, frame).await;
+    }
+
+    pub async fn send_tx_data_request(
+        self_mutex: &Arc<Mutex<Self>>,
+        new_template: NewTemplate<'static>,
+    ) {
+        let tx_data_request = PoolMessages::TemplateDistribution(
+            TemplateDistribution::RequestTransactionData(RequestTransactionData {
+                template_id: new_template.template_id,
+            }),
+        );
+        let frame: StdFrame = tx_data_request.try_into().unwrap();
+        info!("sending RequestTransactionData...");
         Self::send(self_mutex, frame).await;
     }
 
@@ -141,29 +160,34 @@ impl TemplateRx {
                                 Some(TemplateDistribution::NewTemplate(m)) => {
                                     crate::IS_NEW_TEMPLATE_HANDLED
                                         .store(false, std::sync::atomic::Ordering::SeqCst);
-                                    let token = last_token.unwrap();
-                                    last_token = None;
-                                    let mining_token = token.mining_job_token.to_vec();
+                                    Self::send_tx_data_request(&self_mutex, m.clone()).await;
+                                    self_mutex
+                                        .safe_lock(|t| t.new_template_message = Some(m.clone()))
+                                        .unwrap();
+                                    info!(
+                                        "NEW_TEMPLATE: {:?}",
+                                        self_mutex
+                                            .safe_lock(|t| t.new_template_message.clone())
+                                            .unwrap()
+                                            .unwrap()
+                                    );
+                                    let token = last_token.clone().unwrap();
                                     let pool_output = token.coinbase_output.to_vec();
-                                    let (_jd_res, down_res) = tokio::join!(
-                                        crate::job_declarator::JobDeclarator::on_new_template(
-                                            &jd,
-                                            m.clone(),
-                                            mining_token,
-                                            pool_output.clone(),
-                                        ),
+                                    let res_down =
                                         crate::downstream::DownstreamMiningNode::on_new_template(
                                             &down,
                                             m,
-                                            &pool_output[..]
-                                        ),
-                                    );
-                                    down_res.unwrap();
+                                            &pool_output[..],
+                                        )
+                                        .await;
+                                    res_down.unwrap();
                                 }
                                 Some(TemplateDistribution::SetNewPrevHash(m)) => {
                                     info!("Received SetNewPrevHash, waiting for IS_NEW_TEMPLATE_HANDLED");
+                                    // use Acquire-Release for IS_NEW_TEMPLATE_HANDLED because
+                                    // is not needed a total order with other atomics in the code
                                     while !crate::IS_NEW_TEMPLATE_HANDLED
-                                        .load(std::sync::atomic::Ordering::SeqCst)
+                                        .load(std::sync::atomic::Ordering::Acquire)
                                     {
                                         tokio::task::yield_now().await;
                                     }
@@ -176,6 +200,30 @@ impl TemplateRx {
                                     crate::job_declarator::JobDeclarator::on_set_new_prev_hash(&jd, m),
                                 );
                                     res_down.unwrap();
+                                }
+
+                                Some(TemplateDistribution::RequestTransactionDataSuccess(m)) => {
+                                    // safe to unwrap because this message is received after the new
+                                    // template message
+                                    let transactions_data = m.transaction_list;
+                                    let excess_data = m.excess_data;
+                                    let m = self_mutex
+                                        .safe_lock(|t| t.new_template_message.clone())
+                                        .unwrap()
+                                        .unwrap();
+                                    let token = last_token.unwrap();
+                                    last_token = None;
+                                    let mining_token = token.mining_job_token.to_vec();
+                                    let pool_output = token.coinbase_output.to_vec();
+                                    crate::job_declarator::JobDeclarator::on_new_template(
+                                        &jd,
+                                        m.clone(),
+                                        mining_token,
+                                        pool_output.clone(),
+                                        transactions_data,
+                                        excess_data,
+                                    )
+                                    .await;
                                 }
                                 _ => todo!(),
                             }

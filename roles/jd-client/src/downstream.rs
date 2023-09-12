@@ -11,11 +11,12 @@ use roles_logic_sv2::{
     errors::Error,
     handlers::{
         common::{ParseDownstreamCommonMessages, SendTo as SendToCommon},
+        job_declaration::SendTo as SendToJD,
         mining::{ParseDownstreamMiningMessages, SendTo, SupportedChannelTypes},
     },
     job_creator::Decodable,
     mining_sv2::*,
-    parsers::{Mining, MiningDeviceMessages, PoolMessages},
+    parsers::{JobDeclaration, Mining, MiningDeviceMessages, PoolMessages},
     template_distribution_sv2::{NewTemplate, SubmitSolution},
     utils::Mutex,
 };
@@ -271,7 +272,7 @@ impl DownstreamMiningNode {
             let frame: StdFrame = message.try_into().unwrap();
             Self::send(self_mutex, frame).await.unwrap();
         }
-        crate::IS_NEW_TEMPLATE_HANDLED.store(true, std::sync::atomic::Ordering::SeqCst);
+        crate::IS_NEW_TEMPLATE_HANDLED.store(true, std::sync::atomic::Ordering::Release);
         Ok(())
     }
 
@@ -383,6 +384,10 @@ impl
                 match share {
                     Share::Extended(mut share) => {
                         info!("SHARE MEETS BITCOIN TARGET");
+                        // send found share to JD and pool
+                        let for_jd_server = JobDeclaration::SubmitSharesExtended(share.clone());
+                        #[allow(clippy::no_effect)]
+                        SendToJD::RelayNewMessage(for_jd_server);
                         let solution_sender = self.solution_sender.clone();
                         let solution = SubmitSolution {
                             template_id,

@@ -27,9 +27,15 @@ impl ParseServerTemplateDistributionMessages for TemplateRx {
 
     fn handle_request_tx_data_success(
         &mut self,
-        _m: RequestTransactionDataSuccess,
+        m: RequestTransactionDataSuccess,
     ) -> Result<SendTo, Error> {
-        todo!()
+        let m = RequestTransactionDataSuccess {
+            transaction_list: m.transaction_list.into_static(),
+            excess_data: m.excess_data.into_static(),
+            template_id: m.template_id,
+        };
+        let tx_received = TemplateDistribution::RequestTransactionDataSuccess(m);
+        Ok(SendTo::None(Some(tx_received)))
     }
 
     fn handle_request_tx_data_error(
