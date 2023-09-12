@@ -18,8 +18,8 @@ where
         let mut res = [0u8; 12];
         let n = self.get_n();
         let bytes = n.to_le_bytes();
-        for b in bytes {
-            res[1 + 4] = b;
+        for i in 4..res.len() {
+            res[i] = bytes[i - 4];
         }
         res
     }
