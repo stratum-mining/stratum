@@ -11,12 +11,12 @@ use roles_logic_sv2::{
     errors::Error,
     handlers::{
         common::{ParseDownstreamCommonMessages, SendTo as SendToCommon},
-        mining::{ParseDownstreamMiningMessages, SendTo, SupportedChannelTypes},
         job_declaration::SendTo as SendToJD,
+        mining::{ParseDownstreamMiningMessages, SendTo, SupportedChannelTypes},
     },
     job_creator::Decodable,
     mining_sv2::*,
-    parsers::{Mining, MiningDeviceMessages, PoolMessages, JobDeclaration},
+    parsers::{JobDeclaration, Mining, MiningDeviceMessages, PoolMessages},
     template_distribution_sv2::{NewTemplate, SubmitSolution},
     utils::Mutex,
 };
