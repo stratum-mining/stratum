@@ -14,8 +14,9 @@
                 "user_identity": "",
                 "nominal_hash_rate": 10,
                 "max_target": [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-                "min_extranonce_size": 3
+                "min_extranonce_size": 16
             },
+            "replace_fields": [["request_id", "ARBITRARY"]],
             "id": "open_extended_mining_channel"
         }
     ],
@@ -52,8 +53,8 @@
                         "OpenExtendedMiningChannelSuccess",
                         [
                             [
-                                "request_id",
-                                {"U32": 90}
+                                "extranonce_size",
+                                {"U16": 16}
                             ]
                         ]
                     ]

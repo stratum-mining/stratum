@@ -9,15 +9,18 @@ mod parser;
 extern crate load_file;
 
 use crate::parser::sv2_messages::ReplaceField;
+use arbitrary::Arbitrary;
 use binary_sv2::{Deserialize, Serialize};
 use codec_sv2::{
     noise_sv2::formats::{EncodedEd25519PublicKey, EncodedEd25519SecretKey},
     StandardEitherFrame as EitherFrame,
 };
 use external_commands::*;
+use rand::Rng;
 use roles_logic_sv2::parsers::AnyMessage;
+use secp256k1::{KeyPair, Secp256k1, SecretKey};
+use std::{convert::TryInto, net::SocketAddr, vec::Vec};
 use v1::json_rpc::StandardRequest;
-use std::net::SocketAddr;
 
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 enum Sv2Type {
@@ -27,14 +30,132 @@ enum Sv2Type {
     U24(Vec<u8>),
     U32(u32),
     U256(Vec<u8>),
-    Str0255(String),
+    Str0255(Vec<u8>),
     B0255(Vec<u8>),
     B064K(Vec<u8>),
     B016m(Vec<u8>),
-    B032(Vec<Vec<u8>>),
+    B032(Vec<u8>),
     Pubkey(Vec<u8>),
     Seq0255(Vec<Vec<u8>>),
     Seq064k(Vec<Vec<u8>>),
+}
+
+impl Sv2Type {
+    fn arbitrary(mut self) -> Self {
+        let mut rng = rand::thread_rng();
+        match self {
+            Sv2Type::Bool(_) => Sv2Type::Bool(rng.gen::<bool>()),
+            Sv2Type::U8(_) => Sv2Type::U8(rng.gen::<u8>()),
+            Sv2Type::U16(_) => Sv2Type::U16(rng.gen::<u16>()),
+            Sv2Type::U24(_) => {
+                //let length: u8 = rng.gen::<u8>() % 3;
+                let length: u8 = 3;
+                crate::Sv2Type::U24((0..length).map(|_| rng.gen::<u8>()).collect())
+            }
+            Sv2Type::U32(_) => Sv2Type::U32(rng.gen::<u32>()),
+            Sv2Type::U256(_) => {
+                let length: u8 = 32;
+                //let length: u8 = rng.gen::<u8>() % max_len_in_bytes;
+                Sv2Type::U256((0..length).map(|_| rng.gen::<u8>()).collect())
+            }
+            // seems that also in the SRI Str0255 is defined as a B0255, so the same implementation
+            // of arbitrary is used
+            Sv2Type::Str0255(_) => {
+                let length: u8 = rng.gen::<u8>();
+                let mut vector_suffix = vec![0; length.try_into().unwrap()];
+                let mut vector_suffix: Vec<u8> =
+                    vector_suffix.into_iter().map(|_| rng.gen::<u8>()).collect();
+                let mut vector = vec![length];
+                vector.append(&mut vector_suffix);
+                Sv2Type::Str0255(vector)
+            }
+            Sv2Type::B0255(_) => {
+                let length: u8 = rng.gen::<u8>();
+                let mut vector_suffix = vec![0; length.try_into().unwrap()];
+                let mut vector_suffix: Vec<u8> =
+                    vector_suffix.into_iter().map(|_| rng.gen::<u8>()).collect();
+                let mut vector = vec![length];
+                vector.append(&mut vector_suffix);
+                Sv2Type::B0255(vector)
+            }
+            Sv2Type::B064K(_) => {
+                let length: u16 = rng.gen::<u16>();
+                let mut vector_suffix = vec![0; length.try_into().unwrap()];
+                let mut vector_suffix: Vec<u8> =
+                    vector_suffix.into_iter().map(|_| rng.gen::<u8>()).collect();
+                let mut vector: Vec<u8> = length.to_le_bytes().into();
+                vector.append(&mut vector_suffix);
+                Sv2Type::B064K(vector)
+            }
+            Sv2Type::B016m(_) => {
+                let mut vector: Vec<u8> = match Sv2Type::U24(vec![1]).arbitrary() {
+                    Self::U24(vector) => vector,
+                    _ => panic!(),
+                };
+                // why do I have to use 8 bytes instead of 4?
+                let mut length_8_bytes = vector.clone();
+                for i in 0..5 {
+                    length_8_bytes.push(0);
+                }
+                let length_8_bytes_array: [u8; 8] = length_8_bytes.clone().try_into().unwrap();
+                let length = u64::from_le_bytes(length_8_bytes_array);
+                let mut vector_suffix = Vec::new();
+                for i in 0..length {
+                    vector_suffix.push(0);
+                }
+                let mut vector_suffix: Vec<u8> =
+                    vector_suffix.into_iter().map(|_| rng.gen::<u8>()).collect();
+                vector.append(&mut vector_suffix);
+                Sv2Type::B016m(vector)
+            }
+            Sv2Type::B032(_) => {
+                let length: u8 = rng.gen::<u8>();
+                let mut vector_suffix = vec![0; length.try_into().unwrap()];
+                let mut vector_suffix = (0..length).map(|_| rng.gen::<u8>()).collect();
+                let mut vector: Vec<u8> = length.to_le_bytes().into();
+                vector.append(&mut vector_suffix);
+                Sv2Type::B032(vector)
+            }
+            Sv2Type::Pubkey(_) => {
+                let mut vector: Vec<u8> = (0..32).map(|_| rng.gen::<u8>()).collect();
+                let secret_key = SecretKey::from_slice(&vector[..]).unwrap();
+                let secp = Secp256k1::new();
+                let pubkey_as_vec = secret_key.public_key(&secp).serialize().to_vec();
+                Sv2Type::Pubkey(pubkey_as_vec)
+            }
+            Sv2Type::Seq0255(_) => {
+                // we assume the type T to be at most 128bits
+                let number_of_elements_of_type_t: u8 = rng.gen::<u8>();
+                let mut vector_suffix = vec![0; number_of_elements_of_type_t.try_into().unwrap()];
+                let mut vector_suffix: Vec<u128> = (0..number_of_elements_of_type_t)
+                    .map(|_| rng.gen::<u128>())
+                    .collect();
+                let mut vector_suffix: Vec<Vec<u8>> = vector_suffix
+                    .iter()
+                    .map(|s| s.to_le_bytes().to_vec())
+                    .collect();
+                let mut vector: Vec<Vec<u8>> =
+                    vec![number_of_elements_of_type_t.to_le_bytes().into()];
+                vector.append(&mut vector_suffix);
+                Sv2Type::Seq0255(vector)
+            }
+            Sv2Type::Seq064k(_) => {
+                let number_of_elements_of_type_t: u16 = rng.gen::<u16>();
+                let mut vector_suffix = vec![0; number_of_elements_of_type_t.try_into().unwrap()];
+                let mut vector_suffix: Vec<u128> = (0..number_of_elements_of_type_t)
+                    .map(|_| rng.gen::<u128>())
+                    .collect();
+                let mut vector_suffix: Vec<Vec<u8>> = vector_suffix
+                    .iter()
+                    .map(|s| s.to_le_bytes().to_vec())
+                    .collect();
+                let mut vector: Vec<Vec<u8>> =
+                    vec![number_of_elements_of_type_t.to_le_bytes().into()];
+                vector.append(&mut vector_suffix);
+                Sv2Type::Seq0255(vector)
+            }
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
@@ -61,9 +182,9 @@ enum ActionResult {
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 enum Sv1ActionResult {
     MatchMessageId(serde_json::Value),
-    MatchMessageField{
+    MatchMessageField {
         message_type: String,
-        fields: Vec<(String, serde_json::Value)>
+        fields: Vec<(String, serde_json::Value)>,
     },
     CloseConnection,
     None,
@@ -105,13 +226,12 @@ impl std::fmt::Display for Sv1ActionResult {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
             Sv1ActionResult::MatchMessageId(message_id) => {
-                write!(
-                    f,
-                    "MatchMessageId: {}",
-                    message_id
-                )
+                write!(f, "MatchMessageId: {}", message_id)
             }
-            Sv1ActionResult::MatchMessageField { message_type, fields } => {
+            Sv1ActionResult::MatchMessageField {
+                message_type,
+                fields,
+            } => {
                 write!(f, "MatchMessageField: {:?} {:?}", message_type, fields)
             }
             Sv1ActionResult::CloseConnection => write!(f, "Close connection"),
@@ -130,7 +250,7 @@ enum Role {
 #[derive(Debug, Clone, PartialEq)]
 pub enum TestVersion {
     V1,
-    V2
+    V2,
 }
 
 #[derive(Debug, Clone)]
@@ -147,7 +267,6 @@ struct Downstream {
     key: Option<EncodedEd25519PublicKey>,
 }
 
-
 //TODO: change name to Sv2Action
 #[derive(Debug)]
 pub struct Action<'a> {
@@ -162,14 +281,10 @@ pub struct Action<'a> {
 }
 #[derive(Debug)]
 pub struct Sv1Action {
-    messages: Vec<(
-        StandardRequest,
-        Vec<ReplaceField>,
-    )>,
+    messages: Vec<(StandardRequest, Vec<ReplaceField>)>,
     result: Vec<Sv1ActionResult>,
     actiondoc: Option<String>,
 }
-
 
 /// Represents a shell command to be executed on setup, after a connection is opened, or on
 /// cleanup.
@@ -221,7 +336,7 @@ async fn main() {
         TestVersion::V1 => {
             let executor = executor_sv1::Sv1Executor::new(test, test_name).await;
             executor.execute().await;
-        },
+        }
         TestVersion::V2 => {
             let executor = executor::Executor::new(test, test_name).await;
             executor.execute().await;
@@ -233,13 +348,20 @@ async fn main() {
 
 #[cfg(test)]
 mod test {
-    use codec_sv2::{Frame, Sv2Frame};
-    use crate::net::{setup_as_downstream, setup_as_upstream};
     use super::*;
-    use crate::into_static::into_static;
+    use crate::{
+        into_static::into_static,
+        net::{setup_as_downstream, setup_as_upstream},
+    };
+    use codec_sv2::{Frame, Sv2Frame};
     use roles_logic_sv2::{
         common_messages_sv2::{Protocol, SetupConnection},
-        mining_sv2::{CloseChannel, SetTarget},
+        job_declaration_sv2::DeclareMiningJob,
+        mining_sv2::{
+            CloseChannel, NewExtendedMiningJob, OpenExtendedMiningChannel,
+            OpenExtendedMiningChannelSuccess, SetCustomMiningJob, SetCustomMiningJobError,
+            SetCustomMiningJobSuccess, SetTarget,
+        },
         parsers::{CommonMessages, Mining},
     };
     use std::{convert::TryInto, io::Write};
@@ -289,6 +411,123 @@ mod test {
         if message_.extranonce_prefix != m_.extranonce_prefix {
             panic!();
         };
+    }
+
+    //here oemc stands for OpenExtendedMiningChannel
+    #[test]
+    fn test_serialize_and_deserialize_2_oemc() {
+        let message = OpenExtendedMiningChannel {
+            request_id: 90,
+            user_identity: binary_sv2::B0255::try_from(vec![3, 0, 0, 0]).unwrap(),
+            nominal_hash_rate: 10.0,
+            max_target: binary_sv2::U256::try_from(vec![1; 32]).unwrap(),
+            min_extranonce_size: 3,
+        };
+        let message_as_serde_value = serde_json::to_value(message.clone()).unwrap();
+        let message_as_string = serde_json::to_string(&message_as_serde_value).unwrap();
+        let message_new: OpenExtendedMiningChannel =
+            serde_json::from_str(&message_as_string).unwrap();
+        assert!(message_new == message);
+    }
+
+    // oemcs is oemc.Success
+    #[test]
+    fn test_serialize_and_deserialize_3_oemcs() {
+        let message = OpenExtendedMiningChannelSuccess {
+            request_id: 666666,
+            channel_id: 1,
+            target: binary_sv2::U256::try_from(vec![
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255,
+                255, 255, 255, 255, 255, 255,
+            ])
+            .unwrap(),
+            extranonce_size: 3,
+            extranonce_prefix: vec![
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255,
+                255, 255, 255, 255, 255, 255,
+            ]
+            .try_into()
+            .unwrap(),
+        };
+        let message_as_serde_value = serde_json::to_value(message.clone()).unwrap();
+        let message_as_string = serde_json::to_string(&message_as_serde_value).unwrap();
+        let message_new: OpenExtendedMiningChannelSuccess =
+            serde_json::from_str(&message_as_string).unwrap();
+
+        assert!(message_new == message);
+    }
+
+    // nemj NewExtendedMiningJob
+    #[test]
+    fn test_serialize_and_deserialize_4_nemj() {
+        let message = NewExtendedMiningJob {
+            channel_id: 1,
+            job_id: 1,
+            min_ntime: binary_sv2::Sv2Option::try_from(vec![0, 0, 0, 0]).unwrap(),
+            version: 1,
+            version_rolling_allowed: true,
+            merkle_path: binary_sv2::Seq0255::new(vec![binary_sv2::U256::from([1; 32])]).unwrap(),
+            coinbase_tx_prefix: binary_sv2::B064K::try_from(vec![0, 1, 1]).unwrap(),
+            coinbase_tx_suffix: binary_sv2::B064K::try_from(vec![0, 1, 1]).unwrap(),
+        };
+        let message_as_serde_value = serde_json::to_value(message.clone()).unwrap();
+        let message_as_string = serde_json::to_string(&message_as_serde_value).unwrap();
+        let message_new: NewExtendedMiningJob = serde_json::from_str(&message_as_string).unwrap();
+
+        assert!(message_new == message);
+    }
+
+    fn test_serialize_and_deserialize_5_scmj() {
+        let message = SetCustomMiningJob {
+            channel_id: 1,
+            request_id: 1,
+            token: binary_sv2::B0255::try_from(vec![3, 0, 0, 0]).unwrap(),
+            version: 2,
+            prev_hash: binary_sv2::U256::from([1; 32]),
+            min_ntime: 0,
+            nbits: 1,
+            coinbase_tx_version: 2,
+            coinbase_prefix: binary_sv2::B0255::try_from(vec![3, 0, 0, 0]).unwrap(),
+            coinbase_tx_input_n_sequence: 1,
+            coinbase_tx_value_remaining: 1,
+            coinbase_tx_outputs: binary_sv2::B064K::try_from(vec![0, 1, 1]).unwrap(),
+            coinbase_tx_locktime: 1,
+            merkle_path: binary_sv2::Seq0255::new(vec![binary_sv2::U256::from([1; 32])]).unwrap(),
+            extranonce_size: 20,
+        };
+        let message_as_serde_value = serde_json::to_value(message.clone()).unwrap();
+        let message_as_string = serde_json::to_string(&message_as_serde_value).unwrap();
+        let message_new: SetCustomMiningJob = serde_json::from_str(&message_as_string).unwrap();
+
+        assert!(message_new == message);
+    }
+
+    //DeclareMiningJob in Declaration Protocol
+    // TODO! MAKE THIS TEST COMPILE AND PASS!
+    fn test_serialize_and_deserialize_6_dmj() {
+        let message = DeclareMiningJob {
+            request_id: 1,
+            mining_job_token: binary_sv2::B0255::try_from(vec![3, 0, 0, 0]).unwrap(),
+            version: 2,
+            coinbase_tx_version: 2,
+            coinbase_prefix: todo!(),
+            coinbase_tx_input_n_sequence: 1,
+            coinbase_tx_value_remaining: 1,
+            coinbase_tx_outputs: binary_sv2::B064K::try_from(vec![0, 1, 1]).unwrap(),
+            coinbase_tx_locktime: 1,
+            min_extranonce_size: 1,
+            tx_short_hash_nonce: 1,
+            tx_short_hash_list: binary_sv2::Seq064K::new(vec![binary_sv2::ShortTxId::try_from(
+                [1; 32],
+            )]),
+            tx_hash_list_hash: todo!(),
+            excess_data: todo!(),
+        };
+        let message_as_serde_value = serde_json::to_value(message.clone()).unwrap();
+        let message_as_string = serde_json::to_string(&message_as_serde_value).unwrap();
+        let message_new: DeclareMiningJob = serde_json::from_str(&message_as_string).unwrap();
+
+        assert!(message_new == message);
     }
 
     #[tokio::test]

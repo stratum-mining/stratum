@@ -4,6 +4,7 @@ use roles_logic_sv2::parsers::AnyMessage;
 use serde_json::{Map, Value};
 use std::{collections::HashMap, convert::TryInto};
 
+#[derive(Debug, Clone)]
 pub struct Frames<'a> {
     pub frames: HashMap<String, Sv2Frame<AnyMessage<'a>, Slice>>,
 }

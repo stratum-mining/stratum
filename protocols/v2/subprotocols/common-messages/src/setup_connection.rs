@@ -344,6 +344,18 @@ impl GetSize for Protocol {
 }
 
 #[cfg(feature = "with_serde")]
+impl From<Protocol> for u8 {
+    fn from(val: Protocol) -> Self {
+        match val {
+            Protocol::MiningProtocol => SV2_MINING_PROTOCOL_DISCRIMINANT,
+            Protocol::JobDeclarationProtocol => SV2_JOB_NEG_PROTOCOL_DISCRIMINANT,
+            Protocol::TemplateDistributionProtocol => SV2_TEMPLATE_DISTR_PROTOCOL_DISCRIMINANT,
+            Protocol::JobDistributionProtocol => SV2_JOB_DISTR_PROTOCOL_DISCRIMINANT,
+        }
+    }
+}
+
+#[cfg(feature = "with_serde")]
 impl<'d> GetSize for SetupConnectionError<'d> {
     fn get_size(&self) -> usize {
         self.flags.get_size() + self.error_code.get_size()

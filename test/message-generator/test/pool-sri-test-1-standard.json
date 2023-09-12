@@ -13,6 +13,25 @@
         "Checks that a second SetNewPrevHash is provided by the pool for the next round of mining",
         "Generates code coverage report for the pool"
     ],
+    "common_messages": [
+        {
+            "message": {
+                "type": "SetupConnection",
+                "protocol": 0,
+                "min_version": 2,
+                "max_version": 2,
+                "flags": 1,
+                "endpoint_host": "",
+                "endpoint_port": 0,
+                "vendor": "",
+                "hardware_version": "",
+                "firmware": "",
+                "device_id": ""
+            },
+            "replace_fields": [["endpoint_port", "ARBITRARY"]],
+            "id": "setup_connection_mining_hom"
+        }
+    ],
     "mining_messages": [
         {
             "message": {
@@ -40,7 +59,7 @@
     "frame_builders": [
         {
             "type": "automatic",
-            "message_id": "test/message-generator/messages/common_messages.json::setup_connection_mining_hom"
+            "message_id": "setup_connection_mining_hom"
         },
         {
             "type": "automatic",

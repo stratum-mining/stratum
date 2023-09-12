@@ -1,9 +1,9 @@
-use crate::{Action, ActionResult, Role, SaveField, Sv2Type, Sv1ActionResult, Sv1Action};
+use crate::{Action, ActionResult, Role, SaveField, Sv1Action, Sv1ActionResult, Sv2Type};
 use codec_sv2::{buffer_sv2::Slice, StandardEitherFrame, Sv2Frame};
 use roles_logic_sv2::parsers::AnyMessage;
 use serde_json::{Map, Value};
-use v1::json_rpc::StandardRequest;
 use std::collections::HashMap;
+use v1::json_rpc::StandardRequest;
 
 use super::sv2_messages::ReplaceField;
 
@@ -110,7 +110,6 @@ impl Sv2ActionParser {
     }
 }
 
-
 impl Sv1ActionParser {
     pub fn from_step_2<'b>(
         test: &'b str,
@@ -138,29 +137,34 @@ impl Sv1ActionParser {
                 match result.get("type").unwrap().as_str().unwrap() {
                     "match_message_id" => {
                         let message_id = result.get("value").unwrap().as_u64().unwrap();
-                        action_results.push(Sv1ActionResult::MatchMessageId(serde_json::to_value(message_id).unwrap()));
-                    },
+                        action_results.push(Sv1ActionResult::MatchMessageId(
+                            serde_json::to_value(message_id).unwrap(),
+                        ));
+                    }
                     "match_message_field" => {
                         let sv1_value = result.get("value").unwrap().clone();
                         let sv1_value: (String, Vec<(String, Value)>) =
                             serde_json::from_value(sv1_value)
                                 .expect("match_message_field values not correct");
-                        action_results.push(Sv1ActionResult::MatchMessageField { message_type: sv1_value.0, fields: sv1_value.1 });
-                    },
+                        action_results.push(Sv1ActionResult::MatchMessageField {
+                            message_type: sv1_value.0,
+                            fields: sv1_value.1,
+                        });
+                    }
                     "close_connection" => {
                         action_results.push(Sv1ActionResult::CloseConnection);
                     }
                     "none" => {
                         action_results.push(Sv1ActionResult::None);
-                    },
-                    type_ @ _ => panic!("Unknown result type {}", type_)
+                    }
+                    type_ @ _ => panic!("Unknown result type {}", type_),
                 }
             }
 
             let action = Sv1Action {
                 messages: action_requests,
                 result: action_results,
-                actiondoc
+                actiondoc,
             };
             result.push(action);
         }

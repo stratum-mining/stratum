@@ -1,16 +1,16 @@
 mod actions;
 mod frames;
-pub mod sv2_messages;
 pub mod sv1_messages;
+pub mod sv2_messages;
 
-use crate::{parser::sv2_messages::ReplaceField, Action, Command, Test, TestVersion, Sv1Action};
+use crate::{parser::sv2_messages::ReplaceField, Action, Command, Sv1Action, Test, TestVersion};
 use codec_sv2::{buffer_sv2::Slice, Sv2Frame};
 use frames::Frames;
 use roles_logic_sv2::parsers::AnyMessage;
 use serde_json::{Map, Value};
-use v1::json_rpc::StandardRequest;
 use std::{collections::HashMap, convert::TryInto};
 use sv2_messages::TestMessageParser;
+use v1::json_rpc::StandardRequest;
 
 use self::sv1_messages::Sv1TestMessageParser;
 
@@ -23,16 +23,15 @@ pub enum MessageMap<'a> {
 #[derive(Debug)]
 pub enum ActionVec<'a> {
     Sv1Action(Vec<Sv1Action>),
-    Sv2Action(Vec<Action<'a>>)
+    Sv2Action(Vec<Action<'a>>),
 }
-
 
 #[derive(Debug)]
 pub enum Parser<'a> {
     /// Parses any number or combination of messages to be later used by an action identified by
     /// message id.
     /// they are saved as (field_name, keyword)
-    Step1{
+    Step1 {
         version: TestVersion,
         messages: MessageMap<'a>,
     },
@@ -47,7 +46,7 @@ pub enum Parser<'a> {
         version: TestVersion,
         messages: MessageMap<'a>,
         frames: Option<HashMap<String, Sv2Frame<AnyMessage<'a>, Slice>>>,
-        actions: ActionVec<'a>
+        actions: ActionVec<'a>,
     },
     /// Prepare for execution.
     Step4(Test<'a>),
@@ -70,58 +69,66 @@ impl<'a> Parser<'a> {
         let version: TestVersion = match test_map.get("version").unwrap().as_str().unwrap() {
             "1" => TestVersion::V1,
             "2" => TestVersion::V2,
-            _ => panic!("no version specified")
+            _ => panic!("no version specified"),
         };
         let messages = match version {
-            TestVersion::V1 => MessageMap::V1MessageMap(Sv1TestMessageParser::from_str(test).into_map()),
-            TestVersion::V2 => MessageMap::V2MessageMap(TestMessageParser::from_str(test).into_map())
+            TestVersion::V1 => {
+                MessageMap::V1MessageMap(Sv1TestMessageParser::from_str(test).into_map())
+            }
+            TestVersion::V2 => {
+                MessageMap::V2MessageMap(TestMessageParser::from_str(test).into_map())
+            }
         };
-        
-        let step1 = Self::Step1{
-            version,
-            messages};
+
+        let step1 = Self::Step1 { version, messages };
         step1
     }
 
     fn next_step<'b: 'a>(self, test: &'b str) -> Self {
         match self {
-            Self::Step1{version, messages} => {
-                match messages {
-                    MessageMap::V1MessageMap(_) => Self::Step2 { version, messages, frames: None},
-                    MessageMap::V2MessageMap(m) => {
-                        let (frames, messages) = Frames::from_step_1(test, m.clone());
-                        Self::Step2 {
-                            version,
-                            messages: MessageMap::V2MessageMap(messages),
-                            frames: Some(frames.frames)
-                        }
+            Self::Step1 { version, messages } => match messages {
+                MessageMap::V1MessageMap(_) => Self::Step2 {
+                    version,
+                    messages,
+                    frames: None,
+                },
+                MessageMap::V2MessageMap(m) => {
+                    let (frames, messages) = Frames::from_step_1(test, m.clone());
+                    Self::Step2 {
+                        version,
+                        messages: MessageMap::V2MessageMap(messages),
+                        frames: Some(frames.frames),
                     }
                 }
-                
-            }
-            Self::Step2 { version, messages, frames } => {
-                match messages {
-                    MessageMap::V1MessageMap(m) => {
-                        let actions = actions::Sv1ActionParser::from_step_2(test, m.clone());
-                        Self::Step3 { 
-                            version, 
-                            messages: MessageMap::V1MessageMap(m), 
-                            frames: None, 
-                            actions: ActionVec::Sv1Action(actions)
-                        }
-                    },
-                    MessageMap::V2MessageMap(m) => {
-                        let actions = actions::Sv2ActionParser::from_step_2(test, frames.clone().unwrap(), m.clone());
-                        Self::Step3 {
-                            version,
-                            messages: MessageMap::V2MessageMap(m),
-                            frames,
-                            actions: ActionVec::Sv2Action(actions),
-                        }
+            },
+            Self::Step2 {
+                version,
+                messages,
+                frames,
+            } => match messages {
+                MessageMap::V1MessageMap(m) => {
+                    let actions = actions::Sv1ActionParser::from_step_2(test, m.clone());
+                    Self::Step3 {
+                        version,
+                        messages: MessageMap::V1MessageMap(m),
+                        frames: None,
+                        actions: ActionVec::Sv1Action(actions),
                     }
                 }
-                
-            }
+                MessageMap::V2MessageMap(m) => {
+                    let actions = actions::Sv2ActionParser::from_step_2(
+                        test,
+                        frames.clone().unwrap(),
+                        m.clone(),
+                    );
+                    Self::Step3 {
+                        version,
+                        messages: MessageMap::V2MessageMap(m),
+                        frames,
+                        actions: ActionVec::Sv2Action(actions),
+                    }
+                }
+            },
             Self::Step3 {
                 version,
                 messages: _,
@@ -331,7 +338,7 @@ mod test {
     }
 
     #[test]
-    fn it_parse_sv1_messages(){
+    fn it_parse_sv1_messages() {
         let test_json = r#"
         {
             "version": "1",
@@ -358,11 +365,23 @@ mod test {
         let step1 = Parser::initialize(test_json);
         let step2 = step1.next_step(test_json);
 
-        let message1 = StandardRequest{id: 1, method: "mining.subscribe".to_string(), params: json!(["cpuminer/1.0.0".to_string()])};
-        let message2 = StandardRequest{id: 2, method: "mining.authorize".to_string(), params: json!(["username".to_string(), "password".to_string()])};
+        let message1 = StandardRequest {
+            id: 1,
+            method: "mining.subscribe".to_string(),
+            params: json!(["cpuminer/1.0.0".to_string()]),
+        };
+        let message2 = StandardRequest {
+            id: 2,
+            method: "mining.authorize".to_string(),
+            params: json!(["username".to_string(), "password".to_string()]),
+        };
 
-        match step2{
-            Parser::Step2 { version, messages, frames: _ } => {
+        match step2 {
+            Parser::Step2 {
+                version,
+                messages,
+                frames: _,
+            } => {
                 assert_eq!(version, TestVersion::V1);
                 match messages {
                     MessageMap::V1MessageMap(m) => {
@@ -371,13 +390,13 @@ mod test {
                     }
                     MessageMap::V2MessageMap(_) => unreachable!(),
                 }
-            },
-            _ => unreachable!()
+            }
+            _ => unreachable!(),
         }
     }
 
     #[test]
-    fn it_parse_sv1_actions(){
+    fn it_parse_sv1_actions() {
         let test_json = r#"
         {
             "version": "1",
@@ -406,22 +425,31 @@ mod test {
         }
         "#;
 
-        let message = StandardRequest{id: 1, method: "mining.subscribe".to_string(), params: json!(["cpuminer/1.0.0".to_string()])};
+        let message = StandardRequest {
+            id: 1,
+            method: "mining.subscribe".to_string(),
+            params: json!(["cpuminer/1.0.0".to_string()]),
+        };
         let result = Sv1ActionResult::MatchMessageId(serde_json::to_value(1).unwrap());
         let step1 = Parser::initialize(test_json);
         let step2 = step1.next_step(test_json);
         let step3 = step2.next_step(test_json);
-        
+
         match step3 {
-            Parser::Step3 { version, messages: _, frames, actions } => {
+            Parser::Step3 {
+                version,
+                messages: _,
+                frames,
+                actions,
+            } => {
                 assert_eq!(version, TestVersion::V1);
                 assert!(frames.is_none());
                 match actions {
                     ActionVec::Sv1Action(a) => {
                         assert_eq!(a.get(0).unwrap().messages.get(0).unwrap().0, message);
                         assert_eq!(a.get(0).unwrap().result.get(0).unwrap(), &result);
-                    },
-                    _ => unreachable!()
+                    }
+                    _ => unreachable!(),
                 }
             }
             _ => unreachable!(),
