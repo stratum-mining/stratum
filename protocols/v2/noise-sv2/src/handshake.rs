@@ -1,9 +1,9 @@
 use crate::{aed_cipher::AeadCipher, cipher_state::CipherState, NOISE_HASHED_PROTOCOL_NAME_CHACHA};
 use chacha20poly1305::ChaCha20Poly1305;
 use secp256k1::{
-    ecdh::shared_secret_point,
+    ecdh::SharedSecret,
     hashes::{sha256::Hash as Sha256Hash, Hash},
-    rand, KeyPair, Secp256k1, SecretKey, XOnlyPublicKey,
+    rand, KeyPair, Secp256k1, SecretKey ,XOnlyPublicKey,
 };
 
 pub trait HandshakeOp<Cipher: AeadCipher>: CipherState<Cipher> {
@@ -106,10 +106,11 @@ pub trait HandshakeOp<Cipher: AeadCipher>: CipherState<Cipher> {
         Ok(())
     }
 
-    fn ecdh(private: &[u8], public: &[u8]) -> [u8; 64] {
+    fn ecdh(private: &[u8], public: &[u8]) -> [u8; 32] {
         let private = SecretKey::from_slice(private).expect("Wrong key");
         let x_public = XOnlyPublicKey::from_slice(public).expect("Wrong key");
-        shared_secret_point(&x_public.public_key(crate::PARITY), &private)
+        let res = SharedSecret::new(&x_public.public_key(crate::PARITY), &private);
+        res.secret_bytes()
     }
 
     /// Prior to starting first round of NX-handshake, both initiator and responder initializes
