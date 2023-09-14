@@ -4,7 +4,7 @@ on:
   workflow_run:
     workflows: [Run and Cache Benchmarks]
     types:
-      - completed
+     - completed
   
 jobs:
     track_sv1_criterion_with_bencher:
