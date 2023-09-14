@@ -19,7 +19,7 @@ jobs:
           
       - name: Benchmark 
         run: |
-          cd benches \
+          cd benches 
           cargo bench --bench criterion_sv1_benchmark > criterion_sv1_benchmarks.txt
 
       - uses: actions/upload-artifact@v3
@@ -43,7 +43,7 @@ jobs:
           
       - name: Benchmark 
         run: |
-          cd benches \
+          cd benches 
           cargo bench --bench criterion_sv2_benchmark > criterion_sv2_benchmarks.txt
       
       - uses: actions/upload-artifact@v3
@@ -72,7 +72,7 @@ jobs:
           
       - name: Benchmark 
         run: |
-          cd benches \
+          cd benches 
           cargo bench --bench iai_sv1_benchmark > iai_sv1_benchmarks.txt
       
       - uses: actions/upload-artifact@v3
@@ -101,7 +101,7 @@ jobs:
           
       - name: Benchmark 
         run: |
-          cd benches \
+          cd benches 
           cargo bench --bench iai_sv2_benchmark > iai_sv2_benchmarks.txt
       
       - uses: actions/upload-artifact@v3
