@@ -52,7 +52,6 @@ jobs:
         - name: Track Benchmarks with Bencher
           run: |
             cat criterion_sv1_benchmarks.txt | bencher run \
-            --err \
             --github-actions ${{ secrets.GITHUB_TOKEN }}
 
     track_sv2_criterion_with_bencher:
@@ -100,7 +99,6 @@ jobs:
             - name: Track Benchmarks with Bencher
               run: |
                 cat criterion_sv2_benchmarks.txt | bencher run \
-                --err \
                 --github-actions ${{ secrets.GITHUB_TOKEN }}
 
     track_sv1_iai_with_bencher:
@@ -148,7 +146,6 @@ jobs:
             - name: Track Benchmarks with Bencher
               run: |
                 cat iai_sv1_benchmarks.txt | bencher run \
-                --err \
                 --github-actions ${{ secrets.GITHUB_TOKEN }}
 
     track_sv2_iai_with_bencher:
@@ -196,5 +193,4 @@ jobs:
             - name: Track Benchmarks with Bencher
               run: |
                 cat iai_sv2_benchmarks.txt | bencher run \
-                --err \
                 --github-actions ${{ secrets.GITHUB_TOKEN }}
