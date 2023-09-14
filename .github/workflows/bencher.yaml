@@ -1,4 +1,4 @@
-name: Bencher
+name: Tracking benchmarks with Bencher
 
 on:
   workflow_run:
