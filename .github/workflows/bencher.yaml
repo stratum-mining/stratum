@@ -27,7 +27,7 @@ jobs:
                 run_id: context.payload.workflow_run.id,
                 });
                 let matchArtifact = allArtifacts.data.artifacts.filter((artifact) => {
-                return artifact.name == "criterion_sv1_benchmarks"
+                return artifact.name == "criterion_sv1_benchmarks.txt"
                 })[0];
                 let download = await github.rest.actions.downloadArtifact({
                 owner: context.repo.owner,
@@ -75,7 +75,7 @@ jobs:
                     run_id: context.payload.workflow_run.id,
                     });
                     let matchArtifact = allArtifacts.data.artifacts.filter((artifact) => {
-                    return artifact.name == "criterion_sv2_benchmarks"
+                    return artifact.name == "criterion_sv2_benchmarks.txt"
                     })[0];
                     let download = await github.rest.actions.downloadArtifact({
                     owner: context.repo.owner,
@@ -123,7 +123,7 @@ jobs:
                     run_id: context.payload.workflow_run.id,
                     });
                     let matchArtifact = allArtifacts.data.artifacts.filter((artifact) => {
-                    return artifact.name == "iai_sv1_benchmarks"
+                    return artifact.name == "iai_sv1_benchmarks.txt"
                     })[0];
                     let download = await github.rest.actions.downloadArtifact({
                     owner: context.repo.owner,
@@ -171,7 +171,7 @@ jobs:
                     run_id: context.payload.workflow_run.id,
                     });
                     let matchArtifact = allArtifacts.data.artifacts.filter((artifact) => {
-                    return artifact.name == "iai_sv2_benchmarks"
+                    return artifact.name == "iai_sv2_benchmarks.txt"
                     })[0];
                     let download = await github.rest.actions.downloadArtifact({
                     owner: context.repo.owner,
