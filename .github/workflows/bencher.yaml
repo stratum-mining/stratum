@@ -16,6 +16,7 @@ jobs:
         BENCHER_API_TOKEN: ${{ secrets.BENCHER_API_TOKEN }}
         BENCHER_ADAPTER: rust_criterion
         BENCHER_TESTBED: sv1
+        BENCHMARK_RESULTS: criterion_sv1_benchmarks.txt
       steps:
         - name: Download Benchmark Results
           uses: actions/github-script@v6
@@ -27,7 +28,7 @@ jobs:
                 run_id: context.payload.workflow_run.id,
                 });
                 let matchArtifact = allArtifacts.data.artifacts.filter((artifact) => {
-                return artifact.name == "criterion_sv1_benchmarks.txt"
+                return artifact.name == process.env.BENCHMARK_RESULTS
                 })[0];
                 let download = await github.rest.actions.downloadArtifact({
                 owner: context.repo.owner,
@@ -63,6 +64,7 @@ jobs:
             BENCHER_API_TOKEN: ${{ secrets.BENCHER_API_TOKEN }}
             BENCHER_ADAPTER: rust_criterion
             BENCHER_TESTBED: sv2
+            BENCHMARK_RESULTS: criterion_sv2_benchmarks.txt
         steps:
             - name: Download Benchmark Results
               uses: actions/github-script@v6
@@ -74,7 +76,7 @@ jobs:
                     run_id: context.payload.workflow_run.id,
                     });
                     let matchArtifact = allArtifacts.data.artifacts.filter((artifact) => {
-                    return artifact.name == "criterion_sv2_benchmarks.txt"
+                    return artifact.name == process.env.BENCHMARK_RESULTS
                     })[0];
                     let download = await github.rest.actions.downloadArtifact({
                     owner: context.repo.owner,
@@ -110,6 +112,7 @@ jobs:
             BENCHER_API_TOKEN: ${{ secrets.BENCHER_API_TOKEN }}
             BENCHER_ADAPTER: rust_iai
             BENCHER_TESTBED: sv1
+            BENCHMARK_RESULTS: iai_sv1_benchmarks.txt
         steps:
             - name: Download Benchmark Results
               uses: actions/github-script@v6
@@ -121,7 +124,7 @@ jobs:
                     run_id: context.payload.workflow_run.id,
                     });
                     let matchArtifact = allArtifacts.data.artifacts.filter((artifact) => {
-                    return artifact.name == "iai_sv1_benchmarks.txt"
+                    return artifact.name == process.env.BENCHMARK_RESULTS
                     })[0];
                     let download = await github.rest.actions.downloadArtifact({
                     owner: context.repo.owner,
@@ -157,6 +160,7 @@ jobs:
             BENCHER_API_TOKEN: ${{ secrets.BENCHER_API_TOKEN }}
             BENCHER_ADAPTER: rust_iai
             BENCHER_TESTBED: sv2
+            BENCHMARK_RESULTS: iai_sv2_benchmarks.txt
         steps:
             - name: Download Benchmark Results
               uses: actions/github-script@v6
@@ -168,7 +172,7 @@ jobs:
                     run_id: context.payload.workflow_run.id,
                     });
                     let matchArtifact = allArtifacts.data.artifacts.filter((artifact) => {
-                    return artifact.name == "iai_sv2_benchmarks.txt"
+                    return artifact.name == process.env.BENCHMARK_RESULTS
                     })[0];
                     let download = await github.rest.actions.downloadArtifact({
                     owner: context.repo.owner,
