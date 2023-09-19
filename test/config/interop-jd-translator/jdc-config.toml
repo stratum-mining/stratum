@@ -1,8 +1,3 @@
-# Local SRI Pool Upstream Connection
-upstream_address = "127.0.0.1"
-upstream_port = 34254
-upstream_authority_pubkey = "2di19GHYQnAZJmEpoUeP7C3Eg9TCcksHr23rZCC83dvUiZgiDL"
-
 # Local Mining Device Downstream Connection
 downstream_address = "0.0.0.0"
 downstream_port = 34265
@@ -28,10 +23,13 @@ cert_validity_sec = 3600
 # How many time the JDC try to reinitialize itself after a failure 
 retry = 10
 
-[jd_config]
-jd_address = "127.0.0.1:34264"
 tp_address = "75.119.150.111:8442"
 
 # Pool signature (string to be included in coinbase tx) 
 # e.g. "Foundry USA", "Antpool", "/ViaBTC/Mined by gitgab19", etc
 pool_signature = "Stratum v2 SRI Pool - gitgab19"
+
+[[upstreams]]
+authority_pubkey = "2di19GHYQnAZJmEpoUeP7C3Eg9TCcksHr23rZCC83dvUiZgiDL"
+pool_address = "127.0.0.1:34254"
+jd_address = "127.0.0.1:34264"

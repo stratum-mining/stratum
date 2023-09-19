@@ -121,7 +121,8 @@ fn process_cli_args<'a>() -> ProxyResult<'a, ProxyConfig> {
 async fn main() {
     tracing_subscriber::fmt::init();
 
-    let mut failed = 0;
+    let mut failed: i32 = 0;
+    let mut upstream_index = 0;
     let mut interrupt_signal_future = Box::pin(tokio::signal::ctrl_c().fuse());
 
     // Channel used to manage failed tasks
@@ -131,11 +132,19 @@ async fn main() {
 
     let proxy_config = process_cli_args().unwrap();
 
-    while failed < proxy_config.retry {
+    while failed < proxy_config.retry as i32 {
         {
             let task_collector = task_collector.clone();
             let tx_status = tx_status.clone();
-            let initialize = initialize_jd(tx_status.clone(), task_collector.clone());
+            let initialize = initialize_jd(
+                tx_status.clone(),
+                task_collector.clone(),
+                proxy_config
+                    .upstreams
+                    .get(upstream_index)
+                    .expect("No more upstreams in config")
+                    .clone(),
+            );
             tokio::task::spawn(initialize);
         }
         // Check all tasks if is_finished() is true, if so exit
@@ -198,6 +207,20 @@ async fn main() {
                     tokio::time::sleep(std::time::Duration::from_secs(1)).await;
                     break;
                 }
+                State::UpstreamRogue => {
+                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                    task_collector
+                        .safe_lock(|s| {
+                            for handle in s {
+                                handle.abort();
+                            }
+                        })
+                        .unwrap();
+                    failed -= 1;
+                    upstream_index += 1;
+                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                    break;
+                }
                 State::Healthy(msg) => {
                     info!("HEALTHY message: {}", msg);
                 }
@@ -210,33 +233,22 @@ async fn main() {
 async fn initialize_jd(
     tx_status: async_channel::Sender<Status<'static>>,
     task_collector: Arc<Mutex<Vec<AbortHandle>>>,
+    upstream_config: proxy_config::Upstream,
 ) {
     let proxy_config = process_cli_args().unwrap();
 
     // Format `Upstream` connection address
-    let mut parts = proxy_config.upstreams[0].pool_address.split(':');
-    let address = parts.next().unwrap_or_else(|| {
-        panic!(
-            "Invalid pool address {}",
-            proxy_config.upstreams[0].pool_address
-        )
-    });
+    let mut parts = upstream_config.pool_address.split(':');
+    let address = parts
+        .next()
+        .unwrap_or_else(|| panic!("Invalid pool address {}", upstream_config.pool_address));
     let port = parts
         .next()
         .and_then(|p| p.parse::<u16>().ok())
-        .unwrap_or_else(|| {
-            panic!(
-                "Invalid pool address {}",
-                proxy_config.upstreams[0].pool_address
-            )
-        });
+        .unwrap_or_else(|| panic!("Invalid pool address {}", upstream_config.pool_address));
     let upstream_addr = SocketAddr::new(
-        IpAddr::from_str(address).unwrap_or_else(|_| {
-            panic!(
-                "Invalid pool address {}",
-                proxy_config.upstreams[0].pool_address
-            )
-        }),
+        IpAddr::from_str(address)
+            .unwrap_or_else(|_| panic!("Invalid pool address {}", upstream_config.pool_address)),
         port,
     );
 
@@ -254,7 +266,7 @@ async fn initialize_jd(
     // Instantiate a new `Upstream` (SV2 Pool)
     let upstream = match upstream_sv2::Upstream::new(
         upstream_addr,
-        proxy_config.upstreams[0].authority_pubkey.clone(),
+        upstream_config.authority_pubkey.clone(),
         0, // TODO
         proxy_config.jd_config.pool_signature.clone(),
         status::Sender::Upstream(tx_status.clone()),
@@ -317,12 +329,12 @@ async fn initialize_jd(
     let ip_tp = parts.next().unwrap().to_string();
     let port_tp = parts.next().unwrap().parse::<u16>().unwrap();
 
-    let mut parts = proxy_config.upstreams[0].jd_address.split(':');
+    let mut parts = upstream_config.jd_address.split(':');
     let ip_jd = parts.next().unwrap().to_string();
     let port_jd = parts.next().unwrap().parse::<u16>().unwrap();
     let jd = JobDeclarator::new(
         SocketAddr::new(IpAddr::from_str(ip_jd.as_str()).unwrap(), port_jd),
-        proxy_config.upstreams[0]
+        upstream_config
             .authority_pubkey
             .clone()
             .into_inner()

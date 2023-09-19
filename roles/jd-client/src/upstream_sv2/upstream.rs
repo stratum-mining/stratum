@@ -271,7 +271,15 @@ impl Upstream {
                                 .await
                                 .unwrap();
                         }
-                        Ok(SendTo::None(None)) => (),
+                        // Used when we receive s submit share error
+                        Ok(SendTo::None(None)) => {
+                            let sender = self_.safe_lock(|s| s.tx_status.clone()).unwrap();
+                            let _ = sender
+                                .send(status::Status {
+                                    state: status::State::UpstreamRogue,
+                                })
+                                .await;
+                        }
                         // No need to handle impossible state just panic cause are impossible and we
                         // will never panic ;-) Verified: handle_message_mining only either panics,
                         // returns Ok(SendTo::None(None)) or Ok(SendTo::None(Some(m))), or returns Err
@@ -548,9 +556,7 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, RolesLogicError> {
         info!("Up: Rejected Submitted Share");
         debug!("Up: Handling SubmitSharesError: {:?}", &m);
-        Ok(SendTo::RelaySameMessageToRemote(
-            self.downstream.as_ref().unwrap().clone(),
-        ))
+        Ok(SendTo::None(None))
     }
 
     /// The SV2 `NewMiningJob` message is NOT handled because it is NOT used for the Translator
