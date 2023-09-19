@@ -26,8 +26,6 @@ use crate::status::{State, Status};
 use std::sync::atomic::AtomicBool;
 use tracing::{error, info};
 
-/// USED to make sure that if a future new_temnplate and a set_new_prev_hash are received together
-/// the future new_temnplate is always handled before the set new prev hash.
 ///
 /// Is used by the template receiver and the downstream. When a NewTemplate is received the context
 /// that is running the template receiver set this value to false and then the message is sent to
@@ -216,10 +214,30 @@ async fn initialize_jd(
     let proxy_config = process_cli_args().unwrap();
 
     // Format `Upstream` connection address
+    let mut parts = proxy_config.upstreams[0].pool_address.split(':');
+    let address = parts.next().unwrap_or_else(|| {
+        panic!(
+            "Invalid pool address {}",
+            proxy_config.upstreams[0].pool_address
+        )
+    });
+    let port = parts
+        .next()
+        .and_then(|p| p.parse::<u16>().ok())
+        .unwrap_or_else(|| {
+            panic!(
+                "Invalid pool address {}",
+                proxy_config.upstreams[0].pool_address
+            )
+        });
     let upstream_addr = SocketAddr::new(
-        IpAddr::from_str(&proxy_config.upstream_address)
-            .expect("Failed to parse upstream address!"),
-        proxy_config.upstream_port,
+        IpAddr::from_str(address).unwrap_or_else(|_| {
+            panic!(
+                "Invalid pool address {}",
+                proxy_config.upstreams[0].pool_address
+            )
+        }),
+        port,
     );
 
     // When Downstream receive a share that meets bitcoin target it transformit in a
@@ -236,7 +254,7 @@ async fn initialize_jd(
     // Instantiate a new `Upstream` (SV2 Pool)
     let upstream = match upstream_sv2::Upstream::new(
         upstream_addr,
-        proxy_config.upstream_authority_pubkey.clone(),
+        proxy_config.upstreams[0].authority_pubkey.clone(),
         0, // TODO
         proxy_config.jd_config.pool_signature.clone(),
         status::Sender::Upstream(tx_status.clone()),
@@ -295,17 +313,17 @@ async fn initialize_jd(
     .unwrap();
 
     // Initialize JD part
-    let jd_config = proxy_config.jd_config.clone();
-    let mut parts = jd_config.tp_address.split(':');
+    let mut parts = proxy_config.tp_address.split(':');
     let ip_tp = parts.next().unwrap().to_string();
     let port_tp = parts.next().unwrap().parse::<u16>().unwrap();
-    let mut parts = jd_config.jd_address.split(':');
+
+    let mut parts = proxy_config.upstreams[0].jd_address.split(':');
     let ip_jd = parts.next().unwrap().to_string();
     let port_jd = parts.next().unwrap().parse::<u16>().unwrap();
     let jd = JobDeclarator::new(
         SocketAddr::new(IpAddr::from_str(ip_jd.as_str()).unwrap(), port_jd),
-        proxy_config
-            .upstream_authority_pubkey
+        proxy_config.upstreams[0]
+            .authority_pubkey
             .clone()
             .into_inner()
             .as_bytes()
