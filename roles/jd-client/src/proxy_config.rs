@@ -3,9 +3,6 @@ use serde::Deserialize;
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct ProxyConfig {
-    pub upstream_address: String,
-    pub upstream_port: u16,
-    pub upstream_authority_pubkey: EncodedEd25519PublicKey,
     pub downstream_address: String,
     pub downstream_port: u16,
     pub max_supported_version: u16,
@@ -14,13 +11,15 @@ pub struct ProxyConfig {
     pub withhold: bool,
     pub authority_public_key: EncodedEd25519PublicKey,
     pub authority_secret_key: EncodedEd25519SecretKey,
-    pub jd_config: JdConfig,
     pub cert_validity_sec: u64,
+    pub tp_address: String,
     pub retry: u32,
+    pub upstreams: Vec<Upstream>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
-pub struct JdConfig {
+pub struct Upstream {
+    pub authority_pubkey: EncodedEd25519PublicKey,
+    pub pool_address: String,
     pub jd_address: String,
-    pub tp_address: String,
 }
