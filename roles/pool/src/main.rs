@@ -8,8 +8,9 @@ use roles_logic_sv2::{
     bitcoin::{PublicKey, Script, TxOut},
     parsers::PoolMessages,
 };
-use serde::{de::Visitor, Deserialize};
+use serde::Deserialize;
 use std::str::FromStr;
+use std::convert::TryFrom;
 
 use tracing::{error, info, warn};
 mod error;
@@ -26,33 +27,63 @@ const BLOCK_REWARD: u64 = 5_000_000_000;
 
 //const COINBASE_ADD_SZIE: u32 = 100;
 
+pub enum ScriptType {
+    P2PK,
+    P2PKH,
+    P2SH,
+    P2WSH,
+    P2WPKH,
+    P2TR
+}
+
+impl FromStr for ScriptType {
+    type Err = &'static str;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "P2PK" => Ok(ScriptType::P2PK),
+            "P2PKH" => Ok(ScriptType::P2PKH),
+            "P2SH" => Ok(ScriptType::P2SH),
+            "P2WSH" => Ok(ScriptType::P2WSH),
+            "P2WPKH" => Ok(ScriptType::P2WPKH),
+            "P2TR" => Ok(ScriptType::P2TR),
+            _ => Err("Invalid script type"),
+        }
+    }
+}
+
+
 pub fn get_coinbase_output(config: &Configuration) -> Vec<TxOut> {
     config
         .coinbase_outputs
         .iter()
         .map(|coinbase_output| {
-            let script_pubkey = match coinbase_output.output_type.as_str() {
+            let _valid_output_script_value = ScriptType::try_from(coinbase_output.clone())
+                .expect("Invalid coinbase output script.");
+            let output_script = match coinbase_output.output_script_value.as_str() {
                 "P2PK" => {
-                    let pub_key = PublicKey::from_str(&coinbase_output.script_value).unwrap();
+                    let pub_key = PublicKey::from_str(&coinbase_output.output_script_value).unwrap();
                     Script::new_p2pk(&pub_key)
                 },
                 "P2PKH" => {
-                    let pub_key_hashed = PublicKey::from_str(&coinbase_output.script_value).unwrap().pubkey_hash();
+                    let pub_key_hashed = PublicKey::from_str(&coinbase_output.output_script_value).unwrap().pubkey_hash();
                     Script::new_p2pkh(&pub_key_hashed)
                 },
                 "P2SH" => {
-                    let script_hashed = Script::from_str(&coinbase_output.script_value).unwrap().script_hash();
+                    let script_hashed = Script::from_str(&coinbase_output.output_script_value).unwrap().script_hash();
                     Script::new_p2sh(&script_hashed)
-                } 
+                }, 
                 "P2WSH" => {
-                    let script_hashed = Script::from_str(&coinbase_output.script_value).unwrap().wscript_hash();
+                    let script_hashed = Script::from_str(&coinbase_output.output_script_value).unwrap().wscript_hash();
                     Script::new_v0_p2wsh(&script_hashed)
-                } 
+                }, 
                 "P2WPKH" => {
-                    let script_hashed = PublicKey::from_str(&coinbase_output.script_value).unwrap().wpubkey_hash().unwrap();
-                    Script::new_v0_p2wpkh(&script_hashed)
+                    let pub_key_hashed = PublicKey::from_str(&coinbase_output.output_script_value).unwrap().wpubkey_hash().unwrap();
+                    Script::new_v0_p2wpkh(&pub_key_hashed)
                 },
-                &_ => todo!()
+                _ => {
+                    unimplemented!("Unknown output script type: {}", &coinbase_output.output_script_type);
+                }
                 /* TO DO */
                 /* 
                 "P2TR" => {
@@ -64,74 +95,57 @@ pub fn get_coinbase_output(config: &Configuration) -> Vec<TxOut> {
 
             TxOut {
                 value: crate::BLOCK_REWARD,  // Aggiorna il valore se necessario
-                script_pubkey,
+                script_pubkey: output_script,
             }    
         })
         .collect()
+} 
+
+impl TryFrom<CoinbaseOutput> for ScriptType {
+    type Error = &'static str; 
+
+    fn try_from(value: CoinbaseOutput) -> Result<Self, Self::Error> {
+        match value.output_script_type.as_str() {
+            "P2PK" | "P2PKH" | "P2WPKH" => {
+                // Verifica che lo script_value sia una PublicKey
+                if is_public_key(&value.output_script_value) {
+                    Ok(ScriptType::from_str(value.output_script_type.as_str()).unwrap())
+                } else {
+                    Err("Invalid script_value for P2PK, P2PKH, or P2WPKH")
+                }
+            }
+            "P2SH" | "P2WSH" => {
+                // Verifica che lo script_value sia uno script valido
+                if is_script(&value.output_script_value) {
+                    Ok(ScriptType::from_str(value.output_script_type.as_str()).unwrap())
+                } else {
+                    Err("Invalid script_value for P2SH or P2WSH")
+                }
+            }
+            _ => {
+                unimplemented!("Unknown output script type: {}", value.output_script_type);
+            }
+        }
+    }
+}
+
+fn is_public_key(output_script_value: &str) -> bool {
+    PublicKey::from_str(output_script_value).is_ok()
+}
+
+fn is_script(output_script_value: &str) -> bool {
+    Script::from_str(output_script_value).is_ok()
 }
 
 use tokio::select;
 
 use crate::status::Status;
 
-/// used to deserialize a string repesentation of an uncompressed secp256k1
-/// public key from the pool-config.toml
-#[derive(Debug, Clone)]
-pub struct PublicKeyWrapper {
-    pub pub_key: PublicKey,
-}
-
 #[derive(Debug, Deserialize, Clone)]
-pub struct CoinbaseOutputsWrapper {
-    pub output_type: String,
-    pub script_value: String
+pub struct CoinbaseOutput {
+    output_script_type: String,
+    output_script_value: String
 }
-
-/// used by serde for deserialization
-struct PublicKeyVisitor;
-
-impl<'de> Visitor<'de> for PublicKeyVisitor {
-    type Value = bitcoin::PublicKey;
-    fn expecting(&self, formatter: &mut core::fmt::Formatter) -> core::fmt::Result {
-        formatter.write_str("a secp255k1 public key string")
-    }
-
-    fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
-    where
-        E: serde::de::Error,
-    {
-        match PublicKey::from_str(v) {
-            Ok(pub_key) => Ok(pub_key),
-            Err(e) => Err(E::custom(format!(
-                "Invalid coinbase output config public key: {:?}",
-                e
-            ))),
-        }
-    }
-}
-
-/* impl<'de> Deserialize<'de> for PublicKeyWrapper {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        Ok(Self {
-            pub_key: deserializer.deserialize_str(PublicKeyVisitor)?,
-        })
-    }
-} */
-/* impl<'de> Deserialize<'de> for CoinbaseOutputsWrapper {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        Ok(Self {
-            output_type: deserializer.deserialize_str(visitor),
-            script_value: deserializer.deserialize_str(visitor),
-            //pub_key: deserializer.deserialize_str(PublicKeyVisitor)?,
-        })
-    }
-} */
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Configuration {
@@ -141,7 +155,7 @@ pub struct Configuration {
     pub authority_secret_key: EncodedEd25519SecretKey,
     pub cert_validity_sec: u64,
     //pub coinbase_outputs: Vec<PublicKeyWrapper>,
-    pub coinbase_outputs: Vec<CoinbaseOutputsWrapper>,
+    pub coinbase_outputs: Vec<CoinbaseOutput>,
     #[cfg(feature = "test_only_allow_unencrypted")]
     pub test_only_listen_adress_plain: String,
 }
