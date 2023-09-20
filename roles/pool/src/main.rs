@@ -30,13 +30,42 @@ pub fn get_coinbase_output(config: &Configuration) -> Vec<TxOut> {
     config
         .coinbase_outputs
         .iter()
-        .map(|pub_key_wrapper| {
-            let hashed = pub_key_wrapper.pub_key.pubkey_hash();
+        .map(|coinbase_output| {
+            let script_pubkey = match coinbase_output.output_type.as_str() {
+                "P2PK" => {
+                    let pub_key = PublicKey::from_str(&coinbase_output.script_value).unwrap();
+                    Script::new_p2pk(&pub_key)
+                },
+                "P2PKH" => {
+                    let pub_key_hashed = PublicKey::from_str(&coinbase_output.script_value).unwrap().pubkey_hash();
+                    Script::new_p2pkh(&pub_key_hashed)
+                },
+                "P2SH" => {
+                    let script_hashed = Script::from_str(&coinbase_output.script_value).unwrap().script_hash();
+                    Script::new_p2sh(&script_hashed)
+                } 
+                "P2WSH" => {
+                    let script_hashed = Script::from_str(&coinbase_output.script_value).unwrap().wscript_hash();
+                    Script::new_v0_p2wsh(&script_hashed)
+                } 
+                "P2WPKH" => {
+                    let script_hashed = PublicKey::from_str(&coinbase_output.script_value).unwrap().wpubkey_hash().unwrap();
+                    Script::new_v0_p2wpkh(&script_hashed)
+                },
+                &_ => todo!()
+                /* TO DO */
+                /* 
+                "P2TR" => {
+                    let tweaked_pub_key = PublicKey::from_str(&coinbase_output.script_value).unwrap().pubkey_hash();
+                    Script::new_v1_p2tr_tweaked(tweaked_pub_key)  // Modifica in base alle esigenze
+                }
+                */
+            };
+
             TxOut {
-                // value will be updated by the addition of `ChannelFactory::split_outputs()` in PR #422
-                value: crate::BLOCK_REWARD,
-                script_pubkey: Script::new_p2pkh(&hashed),
-            }
+                value: crate::BLOCK_REWARD,  // Aggiorna il valore se necessario
+                script_pubkey,
+            }    
         })
         .collect()
 }
@@ -50,6 +79,12 @@ use crate::status::Status;
 #[derive(Debug, Clone)]
 pub struct PublicKeyWrapper {
     pub pub_key: PublicKey,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct CoinbaseOutputsWrapper {
+    pub output_type: String,
+    pub script_value: String
 }
 
 /// used by serde for deserialization
@@ -75,7 +110,7 @@ impl<'de> Visitor<'de> for PublicKeyVisitor {
     }
 }
 
-impl<'de> Deserialize<'de> for PublicKeyWrapper {
+/* impl<'de> Deserialize<'de> for PublicKeyWrapper {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
@@ -84,7 +119,19 @@ impl<'de> Deserialize<'de> for PublicKeyWrapper {
             pub_key: deserializer.deserialize_str(PublicKeyVisitor)?,
         })
     }
-}
+} */
+/* impl<'de> Deserialize<'de> for CoinbaseOutputsWrapper {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        Ok(Self {
+            output_type: deserializer.deserialize_str(visitor),
+            script_value: deserializer.deserialize_str(visitor),
+            //pub_key: deserializer.deserialize_str(PublicKeyVisitor)?,
+        })
+    }
+} */
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Configuration {
@@ -93,7 +140,8 @@ pub struct Configuration {
     pub authority_public_key: EncodedEd25519PublicKey,
     pub authority_secret_key: EncodedEd25519SecretKey,
     pub cert_validity_sec: u64,
-    pub coinbase_outputs: Vec<PublicKeyWrapper>,
+    //pub coinbase_outputs: Vec<PublicKeyWrapper>,
+    pub coinbase_outputs: Vec<CoinbaseOutputsWrapper>,
     #[cfg(feature = "test_only_allow_unencrypted")]
     pub test_only_listen_adress_plain: String,
 }
