@@ -22,6 +22,7 @@ use roles_logic_sv2::{
     template_distribution_sv2::{NewTemplate, SetNewPrevHash, SubmitSolution},
     utils::Mutex,
 };
+use bitcoin::blockdata::witness::Witness;
 use std::{collections::HashMap, convert::TryInto, net::SocketAddr, sync::Arc};
 use tokio::{net::TcpListener, task};
 use tracing::{debug, error, info, warn};
@@ -581,7 +582,7 @@ impl Pool {
 #[cfg(test)]
 mod test {
     use binary_sv2::{B0255, B064K};
-    use bitcoin::{util::psbt::serialize::Serialize, Transaction};
+    use bitcoin::{util::psbt::serialize::Serialize, Transaction, Witness};
     use std::convert::TryInto;
     // this test is used to verify the `coinbase_tx_prefix` and `coinbase_tx_suffix` values tested against in
     // message generator `stratum/test/message-generator/test/pool-sri-test-extended.json`
@@ -609,8 +610,8 @@ mod test {
         let script_prefix_length = bip34_bytes.len();
         bip34_bytes.extend_from_slice(&vec![0; extranonce_len as usize]);
         let witness = match bip34_bytes.len() {
-            0 => vec![],
-            _ => vec![vec![0; 32]],
+            0 => Witness::from_vec(vec![]),
+            _ => Witness::from_vec(vec![vec![0; 32]]),
         };
 
         let tx_in = bitcoin::TxIn {
