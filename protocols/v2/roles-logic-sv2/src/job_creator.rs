@@ -4,6 +4,7 @@ use crate::{errors, utils::Id, Error};
 use binary_sv2::B064K;
 use bitcoin::{
     blockdata::transaction::{OutPoint, Transaction, TxIn, TxOut},
+    blockdata::witness::Witness,
     util::psbt::serialize::{Deserialize, Serialize},
 };
 pub use bitcoin::{
@@ -11,7 +12,7 @@ pub use bitcoin::{
     hash_types::{PubkeyHash, ScriptHash, WPubkeyHash, WScriptHash},
     hashes::Hash,
     secp256k1::SecretKey,
-    util::ecdsa::PrivateKey,
+    util::key::PrivateKey,
 };
 use mining_sv2::NewExtendedMiningJob;
 use nohash_hasher::BuildNoHashHasher;
@@ -321,8 +322,8 @@ fn coinbase(
     // If script_prefix_len is not 0 we are not in a test enviornment and the coinbase have the 0
     // witness
     let witness = match bip34_bytes.len() {
-        0 => vec![],
-        _ => vec![vec![0; 32]],
+        0 => Witness::from_vec(vec![]),
+        _ => Witness::from_vec(vec![vec![0; 32]]),
     };
     bip34_bytes.extend_from_slice(&vec![0; extranonce_len as usize]);
     let tx_in = TxIn {
@@ -459,7 +460,7 @@ pub mod tests {
     use crate::utils::merkle_root_from_path;
     #[cfg(feature = "prop_test")]
     use binary_sv2::u256_from_int;
-    use bitcoin::{secp256k1::Secp256k1, util::ecdsa::PublicKey, Network};
+    use bitcoin::{secp256k1::Secp256k1, util::key::PublicKey, Network};
     use quickcheck::{Arbitrary, Gen};
     use std::{cmp, vec};
 
