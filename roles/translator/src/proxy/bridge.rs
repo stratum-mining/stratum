@@ -568,7 +568,10 @@ mod test {
 
     #[test]
     fn test_version_bits_insert() {
-        use roles_logic_sv2::bitcoin::hashes::Hash;
+        use roles_logic_sv2::bitcoin::{
+            hashes::Hash,
+            blockdata::witness::Witness
+        };
         let extranonces = ExtendedExtranonce::new(0..6, 6..8, 8..16);
         let (bridge, _) = test_utils::create_bridge(extranonces);
         bridge
@@ -587,7 +590,7 @@ mod test {
                     previous_output: p_out,
                     script_sig: vec![89_u8; 16].into(),
                     sequence: 0,
-                    witness: vec![].into(),
+                    witness: Witness::from_vec(vec![]).into(),
                 };
                 let tx = roles_logic_sv2::bitcoin::Transaction {
                     version: 1,
