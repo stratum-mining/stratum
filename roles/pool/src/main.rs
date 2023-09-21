@@ -4,12 +4,13 @@ use codec_sv2::{
     noise_sv2::formats::{EncodedEd25519PublicKey, EncodedEd25519SecretKey},
     StandardEitherFrame, StandardSv2Frame,
 };
+use error::OutputScriptError;
 use roles_logic_sv2::{
     bitcoin::{PublicKey, Script, TxOut},
     parsers::PoolMessages,
 };
 use serde::Deserialize;
-use std::str::FromStr;
+use std::{str::FromStr, convert::TryInto};
 use std::convert::TryFrom;
 
 use tracing::{error, info, warn};
@@ -27,72 +28,12 @@ const BLOCK_REWARD: u64 = 5_000_000_000;
 
 //const COINBASE_ADD_SZIE: u32 = 100;
 
-pub enum ScriptType {
-    P2PK,
-    P2PKH,
-    P2SH,
-    P2WSH,
-    P2WPKH,
-    P2TR
-}
-
-impl FromStr for ScriptType {
-    type Err = &'static str;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "P2PK" => Ok(ScriptType::P2PK),
-            "P2PKH" => Ok(ScriptType::P2PKH),
-            "P2SH" => Ok(ScriptType::P2SH),
-            "P2WSH" => Ok(ScriptType::P2WSH),
-            "P2WPKH" => Ok(ScriptType::P2WPKH),
-            "P2TR" => Ok(ScriptType::P2TR),
-            _ => Err("Invalid script type"),
-        }
-    }
-}
-
-
 pub fn get_coinbase_output(config: &Configuration) -> Vec<TxOut> {
     config
         .coinbase_outputs
         .iter()
         .map(|coinbase_output| {
-            let _valid_output_script_value = ScriptType::try_from(coinbase_output.clone())
-                .expect("Invalid coinbase output script.");
-            let output_script = match coinbase_output.output_script_value.as_str() {
-                "P2PK" => {
-                    let pub_key = PublicKey::from_str(&coinbase_output.output_script_value).unwrap();
-                    Script::new_p2pk(&pub_key)
-                },
-                "P2PKH" => {
-                    let pub_key_hashed = PublicKey::from_str(&coinbase_output.output_script_value).unwrap().pubkey_hash();
-                    Script::new_p2pkh(&pub_key_hashed)
-                },
-                "P2SH" => {
-                    let script_hashed = Script::from_str(&coinbase_output.output_script_value).unwrap().script_hash();
-                    Script::new_p2sh(&script_hashed)
-                }, 
-                "P2WSH" => {
-                    let script_hashed = Script::from_str(&coinbase_output.output_script_value).unwrap().wscript_hash();
-                    Script::new_v0_p2wsh(&script_hashed)
-                }, 
-                "P2WPKH" => {
-                    let pub_key_hashed = PublicKey::from_str(&coinbase_output.output_script_value).unwrap().wpubkey_hash().unwrap();
-                    Script::new_v0_p2wpkh(&pub_key_hashed)
-                },
-                _ => {
-                    unimplemented!("Unknown output script type: {}", &coinbase_output.output_script_type);
-                }
-                /* TO DO */
-                /* 
-                "P2TR" => {
-                    let tweaked_pub_key = PublicKey::from_str(&coinbase_output.script_value).unwrap().pubkey_hash();
-                    Script::new_v1_p2tr_tweaked(tweaked_pub_key)  // Modifica in base alle esigenze
-                }
-                */
-            };
-
+            let output_script: Script = coinbase_output.try_into().unwrap();
             TxOut {
                 value: crate::BLOCK_REWARD,  // Aggiorna il valore se necessario
                 script_pubkey: output_script,
@@ -101,29 +42,70 @@ pub fn get_coinbase_output(config: &Configuration) -> Vec<TxOut> {
         .collect()
 } 
 
-impl TryFrom<CoinbaseOutput> for ScriptType {
-    type Error = &'static str; 
+impl TryFrom<&CoinbaseOutput> for Script {
+    type Error = OutputScriptError;
 
-    fn try_from(value: CoinbaseOutput) -> Result<Self, Self::Error> {
+    fn try_from(value: &CoinbaseOutput) -> Result<Self, Self::Error> {
         match value.output_script_type.as_str() {
-            "P2PK" | "P2PKH" | "P2WPKH" => {
-                // Verifica che lo script_value sia una PublicKey
+            "P2PK" => {
                 if is_public_key(&value.output_script_value) {
-                    Ok(ScriptType::from_str(value.output_script_type.as_str()).unwrap())
+                    Ok({
+                        let pub_key = PublicKey::from_str(value.output_script_value.as_str()).unwrap();
+                        Script::new_p2pk(&pub_key)
+                    })
                 } else {
-                    Err("Invalid script_value for P2PK, P2PKH, or P2WPKH")
+                    Err(OutputScriptError::InvalidScript(("Invalid output_script_value for P2PK").to_string()))
                 }
             }
-            "P2SH" | "P2WSH" => {
-                // Verifica che lo script_value sia uno script valido
+            "P2PKH" => {
+                if is_public_key(&value.output_script_value) {
+                    Ok({
+                        let pub_key_hash = PublicKey::from_str(value.output_script_value.as_str()).unwrap().pubkey_hash();
+                        Script::new_p2pkh(&pub_key_hash)
+                    })
+                } else {
+                    Err(OutputScriptError::InvalidScript(("Invalid output_script_value for P2PKH").to_string()))
+                }
+            }
+            "P2WPKH" => {
+                if is_public_key(&value.output_script_value) {
+                    Ok({
+                        let w_pub_key_hash = PublicKey::from_str(value.output_script_value.as_str()).unwrap().wpubkey_hash().unwrap();
+                        Script::new_v0_p2wpkh(&w_pub_key_hash)
+                    })
+                } else {
+                    Err(OutputScriptError::InvalidScript(("Invalid output_script_value for P2WPKH").to_string()))
+                }
+            }
+            "P2SH" => {
                 if is_script(&value.output_script_value) {
-                    Ok(ScriptType::from_str(value.output_script_type.as_str()).unwrap())
+                    Ok({
+                        let script_hashed = Script::from_str(&value.output_script_value).unwrap().script_hash();
+                        Script::new_p2sh(&script_hashed)
+                    })
                 } else {
-                    Err("Invalid script_value for P2SH or P2WSH")
+                    Err(OutputScriptError::InvalidScript(("Invalid output_script_value for P2SH or P2WSH").to_string()))
                 }
             }
+            "P2WSH" => {
+                if is_script(&value.output_script_value) {
+                    Ok({
+                        let w_script_hashed = Script::from_str(&value.output_script_value).unwrap().wscript_hash();
+                        Script::new_v0_p2wsh(&w_script_hashed)
+                    })
+                } else {
+                    Err(OutputScriptError::InvalidScript(("Invalid output_script_value for P2SH or P2WSH").to_string()))
+                }
+            }
+            /* "P2TR" => {
+                if is_script(&value.output_script_value) {
+                    Ok(Script::from_str(value.output_script_type.as_str()).unwrap())
+                } else {
+                    Err(OutputScriptError::InvalidScript(("Invalid output_script_value for P2SH or P2WSH").to_string()))
+                }
+            } */
             _ => {
-                unimplemented!("Unknown output script type: {}", value.output_script_type);
+                Err(OutputScriptError::UnknownScriptType(value.output_script_type.clone()))
             }
         }
     }

@@ -20,6 +20,13 @@ pub enum PoolError {
     ComponentShutdown(String),
     Custom(String),
     Sv2ProtocolError((u32, Mining<'static>)),
+    
+}
+
+#[derive(Debug)]
+pub enum OutputScriptError {
+    UnknownScriptType(String),
+    InvalidScript(String),
 }
 
 impl std::fmt::Display for PoolError {

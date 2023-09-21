@@ -5,14 +5,15 @@ cert_validity_sec = 3600
 test_only_listen_adress_plain =  "0.0.0.0:34250"
 listen_address = "0.0.0.0:34254"
 
-# list of compressed or uncompressed pubkeys for coinbase payout (only supports 1 item in the array at this point)
+# list of coinbase outputs 
+# P2PK -> uncompressed pubkey | P2PKH -> 
 coinbase_outputs = [
     { output_script_type = "P2PK", output_script_value = "02e13cef1348924c49dd1f708bf38eb79ae4648c16f0301085f37547d1d25e33e0" },
     { output_script_type = "P2PKH", output_script_value = "02e13cef1348924c49dd1f708bf38eb79ae4648c16f0301085f37547d1d25e33e0" },
     { output_script_type = "P2SH", output_script_value = "02e13cef1348924c49dd1f708bf38eb79ae4648c16f0301085f37547d1d25e33e0" },
     { output_script_type = "P2WSH", output_script_value = "02e13cef1348924c49dd1f708bf38eb79ae4648c16f0301085f37547d1d25e33e0" },
     { output_script_type = "P2WPKH", output_script_value = "02e13cef1348924c49dd1f708bf38eb79ae4648c16f0301085f37547d1d25e33e0" },
-    { output_script_type = "P2TR", output_script_value = "02e13cef1348924c49dd1f708bf38eb79ae4648c16f0301085f37547d1d25e33e0" },
+    #{ output_script_type = "P2TR", output_script_value = "02e13cef1348924c49dd1f708bf38eb79ae4648c16f0301085f37547d1d25e33e0" },
 ]
 
 # Template Provider config

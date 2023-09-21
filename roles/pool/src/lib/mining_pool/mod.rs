@@ -22,7 +22,6 @@ use roles_logic_sv2::{
     template_distribution_sv2::{NewTemplate, SetNewPrevHash, SubmitSolution},
     utils::Mutex,
 };
-use bitcoin::blockdata::witness::Witness;
 use std::{collections::HashMap, convert::TryInto, net::SocketAddr, sync::Arc};
 use tokio::{net::TcpListener, task};
 use tracing::{debug, error, info, warn};
