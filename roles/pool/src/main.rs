@@ -24,9 +24,7 @@ pub type Message = PoolMessages<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;
 pub type EitherFrame = StandardEitherFrame<Message>;
 
-const BLOCK_REWARD: u64 = 5_000_000_000;
-
-//const COINBASE_ADD_SZIE: u32 = 100;
+const BLOCK_REWARD: u64 = 625_000_000;
 
 pub fn get_coinbase_output(config: &Configuration) -> Vec<TxOut> {
     config
@@ -35,7 +33,7 @@ pub fn get_coinbase_output(config: &Configuration) -> Vec<TxOut> {
         .map(|coinbase_output| {
             let output_script: Script = coinbase_output.try_into().unwrap();
             TxOut {
-                value: crate::BLOCK_REWARD,  // Aggiorna il valore se necessario
+                value: crate::BLOCK_REWARD,  // It's not important here, since it will be updated by NewTemplate from TP
                 script_pubkey: output_script,
             }    
         })
@@ -235,7 +233,6 @@ async fn main() {
     let (s_message_recv_signal, r_message_recv_signal) = bounded(10);
     info!("Pool INITIALIZING with config: {:?}", &args.config_path);
     let coinbase_output_len = get_coinbase_output(&config).len() as u32;
-
     let template_rx_res = TemplateRx::connect(
         config.tp_address.parse().unwrap(),
         s_new_t,
@@ -246,6 +243,7 @@ async fn main() {
         coinbase_output_len,
     )
     .await;
+    
     if let Err(e) = template_rx_res {
         error!("Could not connect to Template Provider: {}", e);
         return;
@@ -259,6 +257,7 @@ async fn main() {
         s_message_recv_signal,
         status::Sender::DownstreamListener(status_tx),
     );
+    print!("Pool -> {:?}\n\n", pool);
 
     // Start the error handling loop
     // See `./status.rs` and `utils/error_handling` for information on how this operates
