@@ -10,8 +10,7 @@ use roles_logic_sv2::{
     parsers::PoolMessages,
 };
 use serde::Deserialize;
-use std::{str::FromStr, convert::TryInto};
-use std::convert::TryFrom;
+use std::{str::FromStr, convert::{TryFrom, TryInto}};
 
 use tracing::{error, info, warn};
 mod error;
@@ -134,7 +133,6 @@ pub struct Configuration {
     pub authority_public_key: EncodedEd25519PublicKey,
     pub authority_secret_key: EncodedEd25519SecretKey,
     pub cert_validity_sec: u64,
-    //pub coinbase_outputs: Vec<PublicKeyWrapper>,
     pub coinbase_outputs: Vec<CoinbaseOutput>,
     #[cfg(feature = "test_only_allow_unencrypted")]
     pub test_only_listen_adress_plain: String,
@@ -257,7 +255,6 @@ async fn main() {
         s_message_recv_signal,
         status::Sender::DownstreamListener(status_tx),
     );
-    print!("Pool -> {:?}\n\n", pool);
 
     // Start the error handling loop
     // See `./status.rs` and `utils/error_handling` for information on how this operates

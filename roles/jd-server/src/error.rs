@@ -21,6 +21,12 @@ pub enum PoolError {
     Sv2ProtocolError((u32, Mining<'static>)),
 }
 
+#[derive(Debug)]
+pub enum OutputScriptError {
+    UnknownScriptType(String),
+    InvalidScript(String),
+}
+
 impl std::fmt::Display for PoolError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         use PoolError::*;
