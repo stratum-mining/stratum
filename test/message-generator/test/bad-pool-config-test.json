@@ -103,7 +103,7 @@
                 "WithConditions": {
                     "conditions": [
                         {
-                            "output_string": "Failed to parse config:",
+                            "output_string": "Failed to get coinbase output:",
                             "output_location": "StdOut",
                             "condition": true
                         }

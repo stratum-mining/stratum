@@ -466,7 +466,7 @@ impl Pool {
             creator,
             share_per_min,
             kind,
-            pool_coinbase_outputs,
+            pool_coinbase_outputs.unwrap(),
         )));
         let pool = Arc::new(Mutex::new(Pool {
             downstreams: HashMap::with_hasher(BuildNoHashHasher::default()),
@@ -599,7 +599,7 @@ mod test {
         let _coinbase_tx_value_remaining: u64 = 5000000000;
         let _coinbase_tx_outputs_count = 0;
         let coinbase_tx_locktime = 0;
-        let coinbase_tx_outputs: Vec<bitcoin::TxOut> = crate::get_coinbase_output(&config);
+        let coinbase_tx_outputs: Vec<bitcoin::TxOut> = crate::get_coinbase_output(&config).unwrap();
         // extranonce len set to max_extranonce_size in `ChannelFactory::new_extended_channel()`
         let extranonce_len = 32;
 
