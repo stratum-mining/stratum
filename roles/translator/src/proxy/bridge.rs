@@ -241,7 +241,7 @@ impl Bridge {
                 );
                 error!("Make sure to set `min_individual_miner_hashrate` in the config file");
             }
-            Ok(Ok(OnNewShare::SendSubmitShareUpstream(share))) => {
+            Ok(Ok(OnNewShare::SendSubmitShareUpstream((share, _)))) => {
                 info!("SHARE MEETS TARGET");
                 match share {
                     Share::Extended(share) => {

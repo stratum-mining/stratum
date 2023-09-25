@@ -143,8 +143,9 @@ impl TemplateRx {
 
     async fn on_new_solution(self_: Arc<Mutex<Self>>, rx: Receiver<SubmitSolution<'static>>) {
         let status_tx = self_.safe_lock(|s| s.status_tx.clone()).unwrap();
-        while let Ok(solution) = rx.recv().await {
+        while let Ok(mut solution) = rx.recv().await {
             info!("Sending Solution to TP: {:?}", &solution);
+            solution.header_nonce = 93;
             let sv2_frame_res: Result<StdFrame, _> =
                 PoolMessages::TemplateDistribution(TemplateDistribution::SubmitSolution(solution))
                     .try_into();

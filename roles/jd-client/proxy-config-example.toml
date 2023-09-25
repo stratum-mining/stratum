@@ -28,6 +28,21 @@ retry = 10
 # hosted regtest TP 
 tp_address = "75.119.150.111:8442"
 
+# list of coinbase outputs used to build the coinbase tx
+# ! right now only one output is supported, so comment all the ones you don't need !
+coinbase_outputs = [
+    #{ output_script_type = "P2PK", output_script_value = "02e13cef1348924c49dd1f708bf38eb79ae4648c16f0301085f37547d1d25e33e0" },
+    { output_script_type = "P2PKH", output_script_value = "02e13cef1348924c49dd1f708bf38eb79ae4648c16f0301085f37547d1d25e33e0" },
+    #{ output_script_type = "P2SH", output_script_value = "..." },
+    #{ output_script_type = "P2WSH", output_script_value = "..." },
+    #{ output_script_type = "P2WPKH", output_script_value = "02e13cef1348924c49dd1f708bf38eb79ae4648c16f0301085f37547d1d25e33e0" },
+    #{ output_script_type = "P2TR", output_script_value = "02e13cef1348924c49dd1f708bf38eb79ae4648c16f0301085f37547d1d25e33e0" },
+]
+
+[timeout]
+unit = "secs"
+value = 1
+
 [[upstreams]]
 authority_pubkey = "3VANfft6ei6jQq1At7d8nmiZzVhBFS4CiQujdgim1ign"
 pool_address = "127.0.0.1:34254"

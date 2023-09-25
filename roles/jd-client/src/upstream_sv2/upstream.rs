@@ -4,7 +4,7 @@ use crate::{
     error::Error::{CodecNoise, PoisonLock, UpstreamIncoming},
     status,
     upstream_sv2::{EitherFrame, Message, StdFrame},
-    ProxyResult,
+    PoolChangerTrigger, ProxyResult,
 };
 use async_channel::{Receiver, Sender};
 use binary_sv2::{Seq0255, U256};
@@ -24,22 +24,40 @@ use roles_logic_sv2::{
     parsers::{Mining, MiningDeviceMessages, PoolMessages},
     routing_logic::{CommonRoutingLogic, MiningRoutingLogic, NoRouting},
     selectors::NullDownstreamMiningSelector,
-    utils::Mutex,
+    utils::{Id, Mutex},
     Error as RolesLogicError,
 };
-use std::{net::SocketAddr, sync::Arc, thread::sleep, time::Duration};
+use std::{collections::HashMap, net::SocketAddr, sync::Arc, thread::sleep, time::Duration};
 use tokio::{net::TcpStream, task, task::AbortHandle};
 use tracing::{debug, error, info};
 
-use stratum_common::bitcoin::BlockHash;
+#[derive(Debug, Default)]
+struct TemplateToJobId {
+    template_id_to_job_id: HashMap<u64, u32>,
+    request_id_to_template_id: HashMap<u32, u64>,
+}
 
-#[derive(Debug, Clone)]
-#[allow(dead_code)]
-struct PrevHash {
-    /// `prevhash` of mining job.
-    prev_hash: BlockHash,
-    /// `nBits` encoded difficulty target.
-    nbits: u32,
+impl TemplateToJobId {
+    fn register_template_id(&mut self, template_id: u64, request_id: u32) {
+        self.request_id_to_template_id
+            .insert(request_id, template_id);
+    }
+
+    fn register_job_id(&mut self, template_id: u64, job_id: u32) {
+        self.template_id_to_job_id.insert(template_id, job_id);
+    }
+
+    fn take_job_id(&mut self, template_id: u64) -> Option<u32> {
+        self.template_id_to_job_id.remove(&template_id)
+    }
+
+    fn take_template_id(&mut self, request_id: u32) -> Option<u64> {
+        self.request_id_to_template_id.remove(&request_id)
+    }
+
+    fn new() -> Self {
+        Self::default()
+    }
 }
 
 #[derive(Debug)]
@@ -47,8 +65,6 @@ pub struct Upstream {
     /// Newly assigned identifier of the channel, stable for the whole lifetime of the connection,
     /// e.g. it is used for broadcasting new jobs by the `NewExtendedMiningJob` message.
     channel_id: Option<u32>,
-    /// Identifier of the job as provided by the ` SetCustomMiningJobSucces` message
-    pub last_job_id: u32,
     /// This allows the upstream threads to be able to communicate back to the main thread its
     /// current status.
     tx_status: status::Sender,
@@ -63,8 +79,11 @@ pub struct Upstream {
     /// Sends messages to the SV2 Upstream role
     pub sender: Sender<EitherFrame>,
     pub downstream: Option<Arc<Mutex<Downstream>>>,
-    pub channel_factory_sender: Sender<PoolChannelFactory>,
     task_collector: Arc<Mutex<Vec<AbortHandle>>>,
+    pool_chaneger_trigger: Arc<Mutex<PoolChangerTrigger>>,
+    channel_factory: Option<PoolChannelFactory>,
+    template_to_job_id: TemplateToJobId,
+    req_ids: Id,
 }
 
 impl Upstream {
@@ -90,8 +109,8 @@ impl Upstream {
         min_extranonce_size: u16,
         pool_signature: String,
         tx_status: status::Sender,
-        channel_factory_sender: Sender<PoolChannelFactory>,
         task_collector: Arc<Mutex<Vec<AbortHandle>>>,
+        pool_chaneger_trigger: Arc<Mutex<PoolChangerTrigger>>,
     ) -> ProxyResult<'static, Arc<Mutex<Self>>> {
         // Connect to the SV2 Upstream role retry connection every 5 seconds.
         let socket = loop {
@@ -117,11 +136,11 @@ impl Upstream {
         );
 
         // Channel to send and receive messages to the SV2 Upstream role
-        let (receiver, sender) = Connection::new(socket, HandshakeRole::Initiator(initiator)).await;
+        let (receiver, sender, _, _) =
+            Connection::new(socket, HandshakeRole::Initiator(initiator)).await;
 
         Ok(Arc::new(Mutex::new(Self {
             channel_id: None,
-            last_job_id: 0,
             min_extranonce_size,
             upstream_extranonce1_size: 16, // 16 is the default since that is the only value the pool supports currently
             pool_signature,
@@ -129,8 +148,11 @@ impl Upstream {
             receiver,
             sender,
             downstream: None,
-            channel_factory_sender,
             task_collector,
+            pool_chaneger_trigger,
+            channel_factory: None,
+            template_to_job_id: TemplateToJobId::new(),
+            req_ids: Id::new(),
         })))
     }
 
@@ -194,11 +216,13 @@ impl Upstream {
         merkle_path: Seq0255<'static, U256<'static>>,
         signed_token: binary_sv2::B0255<'static>,
     ) -> ProxyResult<'static, ()> {
+        info!("Sending set custom mining job");
+        let request_id = self_.safe_lock(|s| s.req_ids.next()).unwrap();
         let to_send = SetCustomMiningJob {
             channel_id: self_
                 .safe_lock(|s| *s.channel_id.as_ref().unwrap())
                 .unwrap(),
-            request_id: 0,
+            request_id,
             token: signed_token,
             version: declare_mining_job.version,
             prev_hash: set_new_prev_hash.prev_hash,
@@ -215,6 +239,12 @@ impl Upstream {
         };
         let message = PoolMessages::Mining(Mining::SetCustomMiningJob(to_send));
         let frame: StdFrame = message.try_into().unwrap();
+        self_
+            .safe_lock(|s| {
+                s.template_to_job_id
+                    .register_template_id(set_new_prev_hash.template_id, request_id)
+            })
+            .unwrap();
         Self::send(self_, frame).await
     }
 
@@ -271,20 +301,12 @@ impl Upstream {
                                 .await
                                 .unwrap();
                         }
-                        // Used when we receive s submit share error
-                        Ok(SendTo::None(None)) => {
-                            let sender = self_.safe_lock(|s| s.tx_status.clone()).unwrap();
-                            let _ = sender
-                                .send(status::Status {
-                                    state: status::State::UpstreamRogue,
-                                })
-                                .await;
-                        }
                         // No need to handle impossible state just panic cause are impossible and we
                         // will never panic ;-) Verified: handle_message_mining only either panics,
                         // returns Ok(SendTo::None(None)) or Ok(SendTo::None(Some(m))), or returns Err
                         // This is a transparent proxy it will only relay messages as received
-                        Ok(_) => panic!(),
+                        Ok(SendTo::None(_)) => (),
+                        Ok(_) => unreachable!(),
                         Err(e) => {
                             let status = status::Status {
                                 state: status::State::UpstreamShutdown(UpstreamIncoming(e)),
@@ -342,6 +364,31 @@ impl Upstream {
             firmware,
             device_id,
         })
+    }
+
+    pub async fn take_channel_factory(self_: Arc<Mutex<Self>>) -> PoolChannelFactory {
+        while self_.safe_lock(|s| s.channel_factory.is_none()).unwrap() {
+            tokio::task::yield_now().await;
+        }
+        self_
+            .safe_lock(|s| {
+                let mut factory = None;
+                std::mem::swap(&mut s.channel_factory, &mut factory);
+                factory.unwrap()
+            })
+            .unwrap()
+    }
+
+    pub async fn get_job_id(self_: &Arc<Mutex<Self>>, template_id: u64) -> u32 {
+        loop {
+            if let Some(id) = self_
+                .safe_lock(|s| s.template_to_job_id.take_job_id(template_id))
+                .unwrap()
+            {
+                return id;
+            }
+            tokio::task::yield_now().await;
+        }
     }
 }
 
@@ -450,6 +497,7 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
         &mut self,
         m: roles_logic_sv2::mining_sv2::OpenExtendedMiningChannelSuccess,
     ) -> Result<SendTo<Downstream>, RolesLogicError> {
+        info!("Receive open extended mining channel success");
         let ids = Arc::new(Mutex::new(roles_logic_sv2::utils::GroupId::new()));
         let pool_signature = self.pool_signature.clone();
         let prefix_len = m.extranonce_prefix.to_vec().len();
@@ -488,9 +536,7 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
                 m.extranonce_size,
             )
             .expect("Impossible to open downstream channel");
-        self.channel_factory_sender
-            .send_blocking(channel_factory)
-            .unwrap();
+        self.channel_factory = Some(channel_factory);
 
         Ok(SendTo::RelaySameMessageToRemote(
             self.downstream.as_ref().unwrap().clone(),
@@ -556,6 +602,9 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, RolesLogicError> {
         info!("Up: Rejected Submitted Share");
         debug!("Up: Handling SubmitSharesError: {:?}", &m);
+        self.pool_chaneger_trigger
+            .safe_lock(|t| t.start(self.tx_status.clone()))
+            .unwrap();
         Ok(SendTo::None(None))
     }
 
@@ -597,8 +646,15 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
         m: roles_logic_sv2::mining_sv2::SetCustomMiningJobSuccess,
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, RolesLogicError> {
         // TODO
-        self.last_job_id = m.job_id;
-        Ok(SendTo::None(None))
+        info!("Set custom mining job success {}", m.job_id);
+        if let Some(template_id) = self.template_to_job_id.take_template_id(m.request_id) {
+            self.template_to_job_id
+                .register_job_id(template_id, m.job_id);
+            Ok(SendTo::None(None))
+        } else {
+            error!("Attention received a SetupConnectionSuccess with unknown request_id");
+            Ok(SendTo::None(None))
+        }
     }
 
     /// Handles the SV2 `SetCustomMiningJobError` message (TODO).

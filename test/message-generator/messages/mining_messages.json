@@ -21,6 +21,25 @@
         "extranonce_prefix": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]
       },
       "id": "open_extended_mining_channel_success"
+    },
+    {
+      "message": {
+        "type": "SubmitSharesError",
+        "channel_id": 1,
+        "sequence_number": 1,
+        "error_code": "invalid-channel-id"
+      },
+      "id": "submit_shares_error"
+    },
+    {
+      "message": {
+        "type": "SetCustomMiningJobSuccess",
+        "channel_id": 1,
+        "request_id": 1,
+        "job_id": 1
+      },
+      "replace_fields": [["request_id", "custom_job_req_id"]],
+      "id": "set_custom_mining_job_success"
     }
   ]
 }

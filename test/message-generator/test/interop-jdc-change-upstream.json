@@ -2,36 +2,60 @@
     "version": "2",
     "doc": [
         "This test does",
-        "Launch the pool",
-        "Launch the jd-client",
-        "Launch the jd-server",
-        "Launch tproxy",
-        "Launch sv1-mining-device",
-        "Found a share"
+        "Launch a pool mocks",
+        "Launch jds",
+        "Launch jdc",
+        "Launch mining-proxy",
+        "Launch a mining device",
+        "Act like a pool",
+        "Connect jdc to the first pool",
+        "Receive an submit share error from first pool",
+        "Close jdc connection with first pool",
+        "Connect jdc the pool mocked by this test"
     ],
     "frame_builders": [
+        {
+            "type": "automatic",
+            "message_id": "test/message-generator/messages/common_messages.json::setup_connection_success_tproxy"
+        }
     ],
     "actions": [
+       {
+            "message_ids": [],
+            "role": "server",
+            "results": [
+                {
+                    "type": "match_message_type",
+                    "value": "0x00"
+                }
+            ],
+            "actiondoc": "This action checks that a Setupconnection message is received"
+        },
+        {
+            "message_ids": ["setup_connection_success_tproxy"],
+            "role": "server",
+            "results": [
+                {
+                    "type": "match_message_type",
+                    "value": "0x13"
+                }
+            ],
+          "actiondoc": "This action sends SetupConnection.Success and check that a open_extended_mining_channel is received"
+        }
     ],
     "setup_commands": [
         {
             "command": "cargo",
             "args": [
-                        "llvm-cov",
-                        "--no-report",
                         "run",
-                        "-p",
-                        "pool_sv2",
-                        "--",
-                        "-c",
-                        "./test/config/interop-jd-translator/pool-config.toml"
+                        "../../test/message-generator/mock/pool-mock-invalid-share.json"
             ],
             "conditions": {
                 "WithConditions": {
                     "conditions": [
                         {
-                            "output_string": "Listening for encrypted connection on: 0.0.0.0:34254",
-                            "output_location": "StdOut",
+                            "output_string": "Running `target/debug/message_generator_sv2 ../../test/message-generator/mock/pool-mock-invalid-share.json`",
+                            "output_location": "StdErr",
                             "condition": true
                         }
                     ],
@@ -50,7 +74,7 @@
                         "jd_server",
                         "--",
                         "-c",
-                        "./test/config/interop-jd-translator/jds-config.toml"
+                        "./test/config/interop-jd-change-upstream/jds-config.toml"
             ],
             "conditions": {
                 "WithConditions": {
@@ -76,13 +100,13 @@
                         "jd_client",
                         "--",
                         "-c",
-                        "./test/config/interop-jd-translator/jdc-config.toml"
+                        "./test/config/interop-jd-change-upstream/jdc-config.toml"
             ],
             "conditions": {
                 "WithConditions": {
                     "conditions": [
                         {
-                            "output_string": "Listening for downstream mining connections on 0.0.0.0:34265",
+                            "output_string": "Listening for downstream mining connections on",
                             "output_location": "StdOut",
                             "condition": true
                         }
@@ -99,16 +123,16 @@
                         "--no-report",
                         "run",
                         "-p",
-                        "translator_sv2",
+                        "mining_proxy_sv2",
                         "--",
                         "-c",
-                        "./test/config/interop-jd-translator/proxy-config.toml"
+                        "./test/config/interop-jd-change-upstream/proxy-config.toml"
             ],
             "conditions": {
                 "WithConditions": {
                     "conditions": [
                         {
-                            "output_string": "Up: Set New Prev Hash",
+                            "output_string": "Listening for downstream mining connections on 127.0.0.1:34255",
                             "output_location": "StdOut",
                             "condition": true
                         }
@@ -123,13 +147,13 @@
             "args": [
                         "run",
                         "-p",
-                        "sv1-mining-device"
+                        "mining-device"
             ],
             "conditions": {
                 "WithConditions": {
                     "conditions": [
                         {
-                            "output_string": "Found share with nonce:",
+                            "output_string": "SUCCESS SubmitSharesSuccess",
                             "output_location": "StdOut",
                             "condition": true
                         }
@@ -145,12 +169,7 @@
     "cleanup_commands": [
         {
             "command": "pkill",
-            "args":  ["-f", "mining-device", "-SIGINT"],
-            "conditions": "None"
-        },
-        {
-            "command": "pkill",
-            "args":  ["-f", "translator_sv2", "-SIGINT"],
+            "args":  ["-f", "jd_server", "-SIGINT"],
             "conditions": "None"
         },
         {
@@ -160,14 +179,16 @@
         },
         {
             "command": "pkill",
-            "args":  ["-f", "jd_server", "-SIGINT"],
-            "conditions": "None"
-        },
-        {
-            "command": "pkill",
-            "args":  ["-f", "pool_sv2", "-SIGINT"],
+            "args":  ["-f", "mining_proxy_sv2", "-SIGINT"],
             "conditions": "None"
         }
     ],
-    "role": "none"
+    "role": "none",
+    "role": "server",
+    "upstream": {
+        "ip": "127.0.0.1",
+        "port": 44255,
+        "pub_key": "2di19GHYQnAZJmEpoUeP7C3Eg9TCcksHr23rZCC83dvUiZgiDL",
+        "secret_key": "2Z1FZug7mZNyM63ggkm37r4oKQ29khLjAvEx43rGkFN47RcJ2t"
+    }
 }

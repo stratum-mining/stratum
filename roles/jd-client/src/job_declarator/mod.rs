@@ -30,7 +30,6 @@ use std::{
 
 pub type Message = PoolMessages<'static>;
 pub type SendTo = SendTo_<JobDeclaration<'static>, ()>;
-pub type EitherFrame = StandardEitherFrame<PoolMessages<'static>>;
 pub type StdFrame = StandardSv2Frame<Message>;
 
 mod setup_connection;
@@ -71,7 +70,7 @@ impl JobDeclarator {
     ) -> Arc<Mutex<Self>> {
         let stream = tokio::net::TcpStream::connect(address).await.unwrap();
         let initiator = Initiator::from_raw_k(authority_public_key).unwrap();
-        let (mut receiver, mut sender): (Receiver<EitherFrame>, Sender<EitherFrame>) =
+        let (mut receiver, mut sender, _, _) =
             Connection::new(stream, HandshakeRole::Initiator(initiator)).await;
 
         let proxy_address = SocketAddr::new(
@@ -251,12 +250,18 @@ impl JobDeclarator {
                             let new_token = m.new_mining_job_token;
                             let (mut last_declare_mining_job_sent, is_future, id, merkle_path) =
                                 Self::get_last_declare_job_sent(&self_mutex);
+
+                            // TODO where we should have a sort of signaling that is green after
+                            // that the token has been updated so that on_set_new_prev_hash know it
+                            // and can decide if send the set_custom_job or not
                             if is_future {
                                 last_declare_mining_job_sent.mining_job_token = new_token;
                                 self_mutex
                                     .safe_lock(|s| {
-                                        s.future_jobs
-                                            .insert(id, (last_declare_mining_job_sent, merkle_path))
+                                        s.future_jobs.insert(
+                                            id,
+                                            (last_declare_mining_job_sent, merkle_path),
+                                        );
                                     })
                                     .unwrap();
                             } else {
@@ -288,31 +293,35 @@ impl JobDeclarator {
             .unwrap();
     }
 
-    pub async fn on_set_new_prev_hash(
-        self_mutex: &Arc<Mutex<Self>>,
+    pub fn on_set_new_prev_hash(
+        self_mutex: Arc<Mutex<Self>>,
         set_new_prev_hash: SetNewPrevHash<'static>,
     ) {
-        let id = set_new_prev_hash.template_id;
-        let future_job_tuple = self_mutex
-            .safe_lock(|s| {
-                s.last_set_new_prev_hash = Some(set_new_prev_hash.clone());
-                match s.future_jobs.remove(&id) {
-                    Some((job, merkle_path)) => {
-                        s.future_jobs = HashMap::with_hasher(BuildNoHashHasher::default());
-                        Some((job, s.up.clone(), merkle_path))
-                    }
-                    None => None,
-                }
-            })
-            .unwrap();
-        if let Some((job, up, merkle_path)) = future_job_tuple {
-            // the declare_job token has already been signed in self.on_upstream_message
-            // due to that we use job.token as signed_token
+        tokio::task::spawn(async move {
+            let id = set_new_prev_hash.template_id;
+            let (job, up, merkle_path) = loop {
+                if let Some(future_job_tuple) = self_mutex
+                    .safe_lock(|s| {
+                        s.last_set_new_prev_hash = Some(set_new_prev_hash.clone());
+                        match s.future_jobs.remove(&id) {
+                            Some((job, merkle_path)) => {
+                                s.future_jobs = HashMap::with_hasher(BuildNoHashHasher::default());
+                                Some((job, s.up.clone(), merkle_path))
+                            }
+                            None => None,
+                        }
+                    })
+                    .unwrap()
+                {
+                    break future_job_tuple;
+                };
+                tokio::task::yield_now().await;
+            };
             let signed_token = job.mining_job_token.clone();
             Upstream::set_custom_jobs(&up, job, set_new_prev_hash, merkle_path, signed_token)
                 .await
                 .unwrap();
-        };
+        });
     }
 
     async fn allocate_tokens(self_mutex: &Arc<Mutex<Self>>, token_to_allocate: u32) {

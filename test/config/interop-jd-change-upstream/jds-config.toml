@@ -1,0 +1,22 @@
+# SRI Pool config
+authority_public_key = "2di19GHYQnAZJmEpoUeP7C3Eg9TCcksHr23rZCC83dvUiZgiDL"
+authority_secret_key = "2Z1FZug7mZNyM63ggkm37r4oKQ29khLjAvEx43rGkFN47RcJ2t"
+cert_validity_sec = 3600
+test_only_listen_adress_plain =  "0.0.0.0:34250"
+listen_address = "0.0.0.0:34254"
+# list of compressed or uncompressed pubkeys for coinbase payout (only supports 1 item in the array at this point)
+coinbase_outputs = [
+    { output_script_type = "P2PKH", output_script_value = "02e13cef1348924c49dd1f708bf38eb79ae4648c16f0301085f37547d1d25e33e0" },
+]
+
+# Template Provider config
+# local TP (this is pointing to localhost so you must run a TP locally for this configuration to work)
+# tp_address = "127.0.0.1:8442"
+# hosted testnet TP 
+# tp_address = "89.116.25.191:8442"
+# hosted regtest TP 
+#tp_address = "75.119.150.111:8442"
+tp_address = "127.0.0.1:8442"
+
+# SRI Pool JD config
+listen_jd_address = "127.0.0.1:34264"

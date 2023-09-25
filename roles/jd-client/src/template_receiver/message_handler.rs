@@ -22,6 +22,7 @@ impl ParseServerTemplateDistributionMessages for TemplateRx {
             target: m.target.into_static(),
         };
         let new_prev_hash = TemplateDistribution::SetNewPrevHash(new_prev_hash);
+        self.pool_chaneger_trigger.safe_lock(|t| t.stop()).unwrap();
         Ok(SendTo::None(Some(new_prev_hash)))
     }
 

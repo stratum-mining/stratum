@@ -1,5 +1,5 @@
 use crate::{
-    error::{PoolError, PoolResult},
+    error::{JdsError, JdsResult},
     status, EitherFrame, StdFrame,
 };
 use async_channel::{Receiver, Sender};
@@ -8,7 +8,7 @@ use error_handling::handle_result;
 use network_helpers::plain_connection_tokio::PlainConnection;
 use roles_logic_sv2::{
     handlers::template_distribution::ParseServerTemplateDistributionMessages,
-    parsers::{PoolMessages, TemplateDistribution},
+    parsers::{PoolMessages as JdsMessages, TemplateDistribution},
     template_distribution_sv2::CoinbaseOutputDataSize,
     utils::Mutex,
 };
@@ -31,7 +31,7 @@ impl TemplateRx {
         address: SocketAddr,
         status_tx: status::Sender,
         coinbase_out_len: u32,
-    ) -> PoolResult<()> {
+    ) -> JdsResult<()> {
         let stream = TcpStream::connect(address).await?;
         info!("Connected to template distribution server at {}", address);
 
@@ -50,7 +50,7 @@ impl TemplateRx {
         let c_additional_size = CoinbaseOutputDataSize {
             coinbase_output_max_additional_size: coinbase_out_len,
         };
-        let frame = PoolMessages::TemplateDistribution(
+        let frame = JdsMessages::TemplateDistribution(
             TemplateDistribution::CoinbaseOutputDataSize(c_additional_size),
         )
         .try_into()?;
@@ -72,11 +72,11 @@ impl TemplateRx {
                 status_tx,
                 message_from_tp
                     .try_into()
-                    .map_err(|e| PoolError::Codec(codec_sv2::Error::FramingSv2Error(e)))
+                    .map_err(|e| JdsError::Codec(codec_sv2::Error::FramingSv2Error(e)))
             );
             let message_type_res = message_from_tp
                 .get_header()
-                .ok_or_else(|| PoolError::Custom(String::from("No header set")));
+                .ok_or_else(|| JdsError::Custom(String::from("No header set")));
             let message_type = handle_result!(status_tx, message_type_res).msg_type();
             let payload = message_from_tp.payload();
             let msg = handle_result!(
@@ -103,11 +103,11 @@ impl TemplateRx {
         }
     }
 
-    pub async fn send(self_: Arc<Mutex<Self>>, sv2_frame: StdFrame) -> PoolResult<()> {
+    pub async fn send(self_: Arc<Mutex<Self>>, sv2_frame: StdFrame) -> JdsResult<()> {
         let either_frame = sv2_frame.into();
         let sender = self_
             .safe_lock(|self_| self_.sender.clone())
-            .map_err(|e| PoolError::PoisonLock(e.to_string()))?;
+            .map_err(|e| JdsError::PoisonLock(e.to_string()))?;
         sender.send(either_frame).await?;
         Ok(())
     }

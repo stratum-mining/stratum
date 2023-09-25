@@ -7,7 +7,7 @@ use std::{
 use roles_logic_sv2::parsers::Mining;
 
 #[derive(std::fmt::Debug)]
-pub enum PoolError {
+pub enum JdsError {
     Io(std::io::Error),
     ChannelSend(Box<dyn std::marker::Send + Debug>),
     ChannelRecv(async_channel::RecvError),
@@ -21,9 +21,9 @@ pub enum PoolError {
     Sv2ProtocolError((u32, Mining<'static>)),
 }
 
-impl std::fmt::Display for PoolError {
+impl std::fmt::Display for JdsError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        use PoolError::*;
+        use JdsError::*;
         match self {
             Io(ref e) => write!(f, "I/O error: `{:?}", e),
             ChannelSend(ref e) => write!(f, "Channel send failed: `{:?}`", e),
@@ -42,69 +42,69 @@ impl std::fmt::Display for PoolError {
     }
 }
 
-pub type PoolResult<T> = Result<T, PoolError>;
+pub type JdsResult<T> = Result<T, JdsError>;
 
-impl From<std::io::Error> for PoolError {
-    fn from(e: std::io::Error) -> PoolError {
-        PoolError::Io(e)
+impl From<std::io::Error> for JdsError {
+    fn from(e: std::io::Error) -> JdsError {
+        JdsError::Io(e)
     }
 }
 
-impl From<async_channel::RecvError> for PoolError {
-    fn from(e: async_channel::RecvError) -> PoolError {
-        PoolError::ChannelRecv(e)
+impl From<async_channel::RecvError> for JdsError {
+    fn from(e: async_channel::RecvError) -> JdsError {
+        JdsError::ChannelRecv(e)
     }
 }
 
-impl From<binary_sv2::Error> for PoolError {
-    fn from(e: binary_sv2::Error) -> PoolError {
-        PoolError::BinarySv2(e)
+impl From<binary_sv2::Error> for JdsError {
+    fn from(e: binary_sv2::Error) -> JdsError {
+        JdsError::BinarySv2(e)
     }
 }
 
-impl From<codec_sv2::Error> for PoolError {
-    fn from(e: codec_sv2::Error) -> PoolError {
-        PoolError::Codec(e)
+impl From<codec_sv2::Error> for JdsError {
+    fn from(e: codec_sv2::Error) -> JdsError {
+        JdsError::Codec(e)
     }
 }
 
-impl From<noise_sv2::Error> for PoolError {
-    fn from(e: noise_sv2::Error) -> PoolError {
-        PoolError::Noise(e)
+impl From<noise_sv2::Error> for JdsError {
+    fn from(e: noise_sv2::Error) -> JdsError {
+        JdsError::Noise(e)
     }
 }
 
-impl From<roles_logic_sv2::Error> for PoolError {
-    fn from(e: roles_logic_sv2::Error) -> PoolError {
-        PoolError::RolesLogic(e)
+impl From<roles_logic_sv2::Error> for JdsError {
+    fn from(e: roles_logic_sv2::Error) -> JdsError {
+        JdsError::RolesLogic(e)
     }
 }
 
-impl<T: 'static + std::marker::Send + Debug> From<async_channel::SendError<T>> for PoolError {
-    fn from(e: async_channel::SendError<T>) -> PoolError {
-        PoolError::ChannelSend(Box::new(e))
+impl<T: 'static + std::marker::Send + Debug> From<async_channel::SendError<T>> for JdsError {
+    fn from(e: async_channel::SendError<T>) -> JdsError {
+        JdsError::ChannelSend(Box::new(e))
     }
 }
 
-impl From<String> for PoolError {
-    fn from(e: String) -> PoolError {
-        PoolError::Custom(e)
+impl From<String> for JdsError {
+    fn from(e: String) -> JdsError {
+        JdsError::Custom(e)
     }
 }
-impl From<codec_sv2::framing_sv2::Error> for PoolError {
-    fn from(e: codec_sv2::framing_sv2::Error) -> PoolError {
-        PoolError::Framing(e)
-    }
-}
-
-impl<T> From<PoisonError<MutexGuard<'_, T>>> for PoolError {
-    fn from(e: PoisonError<MutexGuard<T>>) -> PoolError {
-        PoolError::PoisonLock(e.to_string())
+impl From<codec_sv2::framing_sv2::Error> for JdsError {
+    fn from(e: codec_sv2::framing_sv2::Error) -> JdsError {
+        JdsError::Framing(e)
     }
 }
 
-impl From<(u32, Mining<'static>)> for PoolError {
+impl<T> From<PoisonError<MutexGuard<'_, T>>> for JdsError {
+    fn from(e: PoisonError<MutexGuard<T>>) -> JdsError {
+        JdsError::PoisonLock(e.to_string())
+    }
+}
+
+impl From<(u32, Mining<'static>)> for JdsError {
     fn from(e: (u32, Mining<'static>)) -> Self {
-        PoolError::Sv2ProtocolError(e)
+        JdsError::Sv2ProtocolError(e)
     }
 }

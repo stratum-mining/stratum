@@ -292,7 +292,7 @@ impl Pool {
             );
             match responder {
                 Ok(resp) => {
-                    let (receiver, sender): (Receiver<EitherFrame>, Sender<EitherFrame>) =
+                    let (receiver, sender, _, _) =
                         Connection::new(stream, HandshakeRole::Responder(resp)).await;
                     handle_result!(
                         status_tx,
