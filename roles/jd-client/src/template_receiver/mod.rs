@@ -184,8 +184,9 @@ impl TemplateRx {
                                 }
                                 Some(TemplateDistribution::SetNewPrevHash(m)) => {
                                     info!("Received SetNewPrevHash, waiting for IS_NEW_TEMPLATE_HANDLED");
-                                    // use Acquire-Release for IS_NEW_TEMPLATE_HANDLED because
-                                    // is not needed a total order with other atomics in the code
+                                    // use Acquire-Release for IS_NEW_TEMPLATE_HANDLED to wait until the
+                                    // NEW_TEMPLATE message is arrived. Acquire-Release ordering is used
+                                    // because only this two messages must be ordered in this context.
                                     while !crate::IS_NEW_TEMPLATE_HANDLED
                                         .load(std::sync::atomic::Ordering::Acquire)
                                     {

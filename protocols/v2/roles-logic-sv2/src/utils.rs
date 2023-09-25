@@ -12,7 +12,8 @@ use bitcoin::{
     Transaction,
 };
 
-use binary_sv2::U256;
+use binary_sv2::{Seq064K, ShortTxId, B016M, U256};
+use siphasher::sip::SipHasher24;
 //compact_target_from_u256
 use tracing::error;
 
@@ -561,6 +562,37 @@ pub fn get_target(
     let mut hash = hash_.as_hash().into_inner();
     hash.reverse();
     hash
+}
+
+pub fn short_hash_list(
+    tx_data: Seq064K<'static, B016M<'static>>,
+    tx_short_hash_nonce: u64,
+) -> (Seq064K<'static, ShortTxId<'static>>, U256<'static>) {
+    // hash the short hash nonce
+    let nonce_hash = DHash::from_inner(
+        tx_short_hash_nonce
+            .to_le_bytes()
+            .to_vec()
+            .try_into()
+            .unwrap(),
+    );
+    // take first two bytes of the hash
+    let k0 = u64::from_le_bytes(nonce_hash[0..8].try_into().unwrap());
+    let k1 = u64::from_le_bytes(nonce_hash[8..16].try_into().unwrap());
+    let mut tx_short_hash_list = vec![];
+    // make a vector of ShortTxID [u8; 6]
+    for tx in tx_data.to_vec() {
+        let hasher = SipHasher24::new_with_keys(k0, k1);
+        let tx_hashed = hasher.hash(&tx);
+        let tx_hashed_bytes: Vec<u8> = tx_hashed.to_le_bytes().to_vec().drain(0..2).collect();
+        let tx_hashed_bytes: ShortTxId = tx_hashed_bytes.try_into().unwrap();
+        tx_short_hash_list.push(tx_hashed_bytes);
+    }
+    let tx_short_hash_list1 = Seq064K::from(tx_short_hash_list);
+    // TODO: let mut tx_hash_list_hash = DHash::from(tx_data.to_vec().try_into().unwrap());
+    let tx_hash_list_hash = vec![0; 32].try_into().unwrap();
+
+    (tx_short_hash_list1, tx_hash_list_hash)
 }
 
 #[cfg(test)]

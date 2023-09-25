@@ -1,6 +1,6 @@
 pub mod message_handler;
 use async_channel::{Receiver, Sender};
-use binary_sv2::{Seq0255, Seq064K, ShortTxId, B016M, B064K, U256};
+use binary_sv2::{Seq0255, Seq064K, B016M, B064K, U256};
 use codec_sv2::{HandshakeRole, Initiator, StandardEitherFrame, StandardSv2Frame};
 use network_helpers::noise_connection_tokio::Connection;
 use roles_logic_sv2::{
@@ -8,7 +8,7 @@ use roles_logic_sv2::{
     job_declaration_sv2::AllocateMiningJobTokenSuccess,
     parsers::{JobDeclaration, PoolMessages},
     template_distribution_sv2::SetNewPrevHash,
-    utils::Mutex,
+    utils::{short_hash_list, Mutex},
 };
 use std::{collections::HashMap, convert::TryInto, str::FromStr};
 use tokio::task::AbortHandle;
@@ -195,6 +195,8 @@ impl JobDeclarator {
         let mut outputs = pool_output;
         let mut tp_outputs: Vec<u8> = template.coinbase_tx_outputs.to_vec();
         outputs.append(&mut tp_outputs);
+        // TODO: create right nonce
+        let tx_short_hash_nonce = 0;
         let declare_job = DeclareMiningJob {
             request_id: id,
             mining_job_token: token.try_into().unwrap(),
@@ -206,11 +208,9 @@ impl JobDeclarator {
             coinbase_tx_outputs: outputs.try_into().unwrap(),
             coinbase_tx_locktime: template.coinbase_tx_locktime,
             min_extranonce_size,
-            tx_short_hash_nonce: 0, // TODO: should be sent to bitcoind when session start,
-            // it must be random o timestamp based
-            // call to TP request transaction data  bip-0152
-            tx_short_hash_list: Self::short_hash_list(tx_list.clone()).0,
-            tx_hash_list_hash: Self::short_hash_list(tx_list.clone()).1,
+            tx_short_hash_nonce,
+            tx_short_hash_list: short_hash_list(tx_list.clone(), tx_short_hash_nonce).0,
+            tx_hash_list_hash: short_hash_list(tx_list.clone(), tx_short_hash_nonce).1,
             excess_data, // request transaction data
         };
         self_mutex
@@ -306,7 +306,7 @@ impl JobDeclarator {
             })
             .unwrap();
         if let Some((job, up, merkle_path)) = future_job_tuple {
-            // the declare_job token has already been signed in sefl.on_upstream_message
+            // the declare_job token has already been signed in self.on_upstream_message
             // due to that we use job.token as signed_token
             let signed_token = job.mining_job_token.clone();
             Upstream::set_custom_jobs(&up, job, set_new_prev_hash, merkle_path, signed_token)
@@ -327,14 +327,5 @@ impl JobDeclarator {
             // TODO join re
             sender.send(frame.into()).await.unwrap();
         }
-    }
-
-    // TODO: to be put in roles_logic_sv2 utils
-    fn short_hash_list(
-        _tx_data: Seq064K<'static, B016M<'static>>,
-    ) -> (Seq064K<'static, ShortTxId<'static>>, U256<'static>) {
-        let tx_short_hash_list = vec![].try_into().unwrap();
-        let tx_hash_list_hash = vec![0; 32].try_into().unwrap();
-        (tx_short_hash_list, tx_hash_list_hash)
     }
 }
