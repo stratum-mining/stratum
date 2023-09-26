@@ -39,15 +39,15 @@ pub fn get_coinbase_output(config: &Configuration) -> Result<Vec<TxOut>, OutputS
             })
         })
         .collect::<Result<Vec<TxOut>, OutputScriptError>>();
-    
-        if result.is_ok() && result.as_ref().unwrap().is_empty() {
-            Err(OutputScriptError::EmptyCoinbaseOutputs(
-                "Empty coinbase outputs".to_string(),
-            ))
-        } else {
-            result
-        }
-} 
+
+    if result.is_ok() && result.as_ref().unwrap().is_empty() {
+        Err(OutputScriptError::EmptyCoinbaseOutputs(
+            "Empty coinbase outputs".to_string(),
+        ))
+    } else {
+        result
+    }
+}
 
 impl TryFrom<&CoinbaseOutput> for Script {
     type Error = OutputScriptError;
@@ -57,7 +57,7 @@ impl TryFrom<&CoinbaseOutput> for Script {
             "P2PK" => {
                 if is_public_key(&value.output_script_value) {
                     Ok({
-                        let pub_key = 
+                        let pub_key =
                             PublicKey::from_str(value.output_script_value.as_str()).unwrap();
                         Script::new_p2pk(&pub_key)
                     })
@@ -71,8 +71,8 @@ impl TryFrom<&CoinbaseOutput> for Script {
                 if is_public_key(&value.output_script_value) {
                     Ok({
                         let pub_key_hash = PublicKey::from_str(value.output_script_value.as_str())
-                        .unwrap()
-                        .pubkey_hash();
+                            .unwrap()
+                            .pubkey_hash();
                         Script::new_p2pkh(&pub_key_hash)
                     })
                 } else {
@@ -84,10 +84,11 @@ impl TryFrom<&CoinbaseOutput> for Script {
             "P2WPKH" => {
                 if is_public_key(&value.output_script_value) {
                     Ok({
-                        let w_pub_key_hash = PublicKey::from_str(value.output_script_value.as_str())
-                        .unwrap()
-                        .wpubkey_hash()
-                        .unwrap();
+                        let w_pub_key_hash =
+                            PublicKey::from_str(value.output_script_value.as_str())
+                                .unwrap()
+                                .wpubkey_hash()
+                                .unwrap();
                         Script::new_v0_p2wpkh(&w_pub_key_hash)
                     })
                 } else {
@@ -100,8 +101,8 @@ impl TryFrom<&CoinbaseOutput> for Script {
                 if is_script(&value.output_script_value) {
                     Ok({
                         let script_hashed = Script::from_str(&value.output_script_value)
-                        .unwrap()
-                        .script_hash();
+                            .unwrap()
+                            .script_hash();
                         Script::new_p2sh(&script_hashed)
                     })
                 } else {
@@ -114,8 +115,8 @@ impl TryFrom<&CoinbaseOutput> for Script {
                 if is_script(&value.output_script_value) {
                     Ok({
                         let w_script_hashed = Script::from_str(&value.output_script_value)
-                        .unwrap()
-                        .wscript_hash();
+                            .unwrap()
+                            .wscript_hash();
                         Script::new_v0_p2wsh(&w_script_hashed)
                     })
                 } else {
@@ -131,11 +132,9 @@ impl TryFrom<&CoinbaseOutput> for Script {
                     Err(OutputScriptError::InvalidScript(("Invalid output_script_value for P2SH or P2WSH").to_string()))
                 }
             } */
-            _ => {
-                Err(OutputScriptError::UnknownScriptType(
-                    value.output_script_type.clone(),
-                ))
-            }
+            _ => Err(OutputScriptError::UnknownScriptType(
+                value.output_script_type.clone(),
+            )),
         }
     }
 }
@@ -264,9 +263,7 @@ async fn main() {
     info!("Pool INITIALIZING with config: {:?}", &args.config_path);
     let coinbase_output_result = get_coinbase_output(&config);
     let coinbase_output_len = match coinbase_output_result {
-        Ok(coinbase_output) => {
-            coinbase_output.len() as u32
-        }
+        Ok(coinbase_output) => coinbase_output.len() as u32,
         Err(err) => {
             error!("Failed to get coinbase output: {:?}", err);
             return;
@@ -282,7 +279,7 @@ async fn main() {
         coinbase_output_len,
     )
     .await;
-    
+
     if let Err(e) = template_rx_res {
         error!("Could not connect to Template Provider: {}", e);
         return;

@@ -12,7 +12,7 @@ use roles_logic_sv2::{
 use serde::Deserialize;
 use std::{
     convert::{TryFrom, TryInto},
-    str::FromStr, 
+    str::FromStr,
 };
 
 use tracing::{error, info, warn};
@@ -39,14 +39,15 @@ pub fn get_coinbase_output(config: &Configuration) -> Result<Vec<TxOut>, OutputS
             })
         })
         .collect::<Result<Vec<TxOut>, OutputScriptError>>();
-    
-        if result.is_ok() && result.as_ref().unwrap().is_empty() {
-            Err(OutputScriptError::EmptyCoinbaseOutputs(
-                "Empty coinbase outputs".to_string(),))
-        } else {
-            result
-        }
-}  
+
+    if result.is_ok() && result.as_ref().unwrap().is_empty() {
+        Err(OutputScriptError::EmptyCoinbaseOutputs(
+            "Empty coinbase outputs".to_string(),
+        ))
+    } else {
+        result
+    }
+}
 
 impl TryFrom<&CoinbaseOutput> for Script {
     type Error = OutputScriptError;
@@ -83,10 +84,11 @@ impl TryFrom<&CoinbaseOutput> for Script {
             "P2WPKH" => {
                 if is_public_key(&value.output_script_value) {
                     Ok({
-                        let w_pub_key_hash = PublicKey::from_str(value.output_script_value.as_str())
-                            .unwrap()
-                            .wpubkey_hash()
-                            .unwrap();
+                        let w_pub_key_hash =
+                            PublicKey::from_str(value.output_script_value.as_str())
+                                .unwrap()
+                                .wpubkey_hash()
+                                .unwrap();
                         Script::new_v0_p2wpkh(&w_pub_key_hash)
                     })
                 } else {
@@ -130,11 +132,9 @@ impl TryFrom<&CoinbaseOutput> for Script {
                     Err(OutputScriptError::InvalidScript(("Invalid output_script_value for P2SH or P2WSH").to_string()))
                 }
             } */
-            _ => {
-                Err(OutputScriptError::UnknownScriptType(
-                    value.output_script_type.clone(),
-                ))
-            }
+            _ => Err(OutputScriptError::UnknownScriptType(
+                value.output_script_type.clone(),
+            )),
         }
     }
 }
@@ -154,7 +154,7 @@ use crate::{lib::job_declarator::JobDeclarator, status::Status};
 #[derive(Debug, Deserialize, Clone)]
 pub struct CoinbaseOutput {
     output_script_type: String,
-    output_script_value: String, 
+    output_script_value: String,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -260,9 +260,7 @@ async fn main() {
     info!("Pool INITIALIZING with config: {:?}", &args.config_path);
     let coinbase_output_result = get_coinbase_output(&config);
     let coinbase_output_len = match coinbase_output_result {
-        Ok(coinbase_output) => {
-            coinbase_output.len() as u32
-        }
+        Ok(coinbase_output) => coinbase_output.len() as u32,
         Err(err) => {
             error!("Failed to get coinbase output: {:?}", err);
             return;

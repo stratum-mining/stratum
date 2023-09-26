@@ -20,7 +20,6 @@ pub enum PoolError {
     ComponentShutdown(String),
     Custom(String),
     Sv2ProtocolError((u32, Mining<'static>)),
-    
 }
 
 #[derive(Debug)]
