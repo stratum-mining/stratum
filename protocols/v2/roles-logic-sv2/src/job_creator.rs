@@ -4,8 +4,8 @@ use crate::{errors, utils::Id, Error};
 use binary_sv2::B064K;
 use bitcoin::{
     blockdata::{
-    transaction::{OutPoint, Transaction, TxIn, TxOut},
-    witness::Witness,
+        transaction::{OutPoint, Transaction, TxIn, TxOut},
+        witness::Witness,
     },
     util::psbt::serialize::{Deserialize, Serialize},
 };
