@@ -3,8 +3,10 @@
 use crate::{errors, utils::Id, Error};
 use binary_sv2::B064K;
 use bitcoin::{
-    blockdata::transaction::{OutPoint, Transaction, TxIn, TxOut},
-    blockdata::witness::Witness,
+    blockdata::{
+    transaction::{OutPoint, Transaction, TxIn, TxOut},
+    witness::Witness,
+    },
     util::psbt::serialize::{Deserialize, Serialize},
 };
 pub use bitcoin::{
