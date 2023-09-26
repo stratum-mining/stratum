@@ -43,7 +43,7 @@ impl JobDeclaratorDownstream {
         // TODO: use next variables
         let token_to_job_map = HashMap::with_hasher(BuildNoHashHasher::default());
         let tokens = Id::new();
-        crate::get_coinbase_output(config)[0]
+        crate::get_coinbase_output(config).unwrap()[0]
             .consensus_encode(&mut coinbase_output)
             .expect("invalid coinbase output in config");
         Self {

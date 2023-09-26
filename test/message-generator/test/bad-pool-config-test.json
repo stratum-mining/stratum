@@ -52,7 +52,7 @@
                 "WithConditions": {
                     "conditions": [
                         {
-                            "output_string": "Invalid coinbase output config public key:",
+                            "output_string": "Failed to get coinbase output:",
                             "output_location": "StdOut",
                             "condition": true
                         }
@@ -103,7 +103,7 @@
                 "WithConditions": {
                     "conditions": [
                         {
-                            "output_string": "Failed to get coinbase output:",
+                            "output_string": "Failed to parse config:",
                             "output_location": "StdOut",
                             "condition": true
                         }

@@ -1,0 +1,13 @@
+[2m2023-09-26T10:10:17.379249Z[0m [32m INFO[0m [2mnoise_sv2[0m[2m:[0m -> suggested algorithms received [ChaChaPoly, AesGcm]
+[2m2023-09-26T10:10:17.397347Z[0m [32m INFO[0m [2mjd_client::upstream_sv2::upstream[0m[2m:[0m Extended job received from upstream, proxy ignore it, and use the one declared by JOB DECLARATOR
+[2m2023-09-26T10:10:17.397377Z[0m [32m INFO[0m [2mjd_client::upstream_sv2::upstream[0m[2m:[0m SNPH received from upstream, proxy ignore it, and use the one declared by JOB DECLARATOR
+[2m2023-09-26T10:10:17.399434Z[0m [32m INFO[0m [2mjd_client::job_declarator[0m[2m:[0m JD proxy: setupconnection Proxy address: 0.0.0.0:34265
+[2m2023-09-26T10:10:17.400088Z[0m [32m INFO[0m [2mjd_client::job_declarator[0m[2m:[0m JD CONNECTED
+[2m2023-09-26T10:10:17.455271Z[0m [32m INFO[0m [2mjd_client::template_receiver[0m[2m:[0m Template Receiver try to set up connection
+[2m2023-09-26T10:10:17.568452Z[0m [32m INFO[0m [2mjd_client::template_receiver[0m[2m:[0m Template Receiver connection set up
+[2m2023-09-26T10:10:17.721602Z[0m [32m INFO[0m [2mjd_client::template_receiver[0m[2m:[0m sending RequestTransactionData...
+[2m2023-09-26T10:10:17.721628Z[0m [32m INFO[0m [2mjd_client::template_receiver[0m[2m:[0m NEW_TEMPLATE: NewTemplate { template_id: 7957688413927517599, future_template: true, version: 536870912, coinbase_tx_version: 2, coinbase_prefix: Owned([2, 14, 13, 0]), coinbase_tx_input_sequence: 4294967295, coinbase_tx_value_remaining: 1192, coinbase_tx_outputs_count: 1, coinbase_tx_outputs: Owned([0, 0, 0, 0, 0, 0, 0, 0, 38, 106, 36, 170, 33, 169, 237, 226, 246, 28, 63, 113, 209, 222, 253, 63, 169, 153, 223, 163, 105, 83, 117, 92, 105, 6, 137, 121, 153, 98, 180, 139, 235, 216, 54, 151, 78, 140, 249]), coinbase_tx_locktime: 0, merkle_path: Seq0255([], PhantomData<&binary_codec_sv2::datatypes::non_copy_data_types::inner::Inner<true, 32, 0, 0>>) }
+[2m2023-09-26T10:10:17.722751Z[0m [32m INFO[0m [2mjd_client::template_receiver[0m[2m:[0m Received SetNewPrevHash, waiting for IS_NEW_TEMPLATE_HANDLED
+[2m2023-09-26T10:10:17.722812Z[0m [32m INFO[0m [2mjd_client::template_receiver[0m[2m:[0m IS_NEW_TEMPLATE_HANDLED ok
+[2m2023-09-26T10:10:44.437068Z[0m [31mERROR[0m [2mnetwork_helpers::noise_connection_tokio[0m[2m:[0m Disconnected from client while reading : early eof - 127.0.0.1:50759
+[2m2023-09-26T10:10:44.437386Z[0m [31mERROR[0m [2mjd_client[0m[2m:[0m SHUTDOWN from: Roles SV2 Logic Error: `DownstreamDown`

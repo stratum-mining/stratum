@@ -25,19 +25,24 @@ pub type EitherFrame = StandardEitherFrame<Message>;
 
 const BLOCK_REWARD: u64 = 625_000_000;
 
-pub fn get_coinbase_output(config: &Configuration) -> Vec<TxOut> {
-    config
+pub fn get_coinbase_output(config: &Configuration) -> Result<Vec<TxOut>, OutputScriptError> {
+    let result = config
         .coinbase_outputs
         .iter()
         .map(|coinbase_output| {
-            let output_script: Script = coinbase_output.try_into().unwrap();
-            TxOut {
-                value: crate::BLOCK_REWARD,  // It's not important here, since it will be updated by NewTemplate from TP
+            coinbase_output.try_into().map(|output_script| TxOut {
+                value: crate::BLOCK_REWARD,
                 script_pubkey: output_script,
-            }    
+            })
         })
-        .collect()
-} 
+        .collect::<Result<Vec<TxOut>, OutputScriptError>>();
+    
+        if result.is_ok() && result.as_ref().unwrap().is_empty() {
+            Err(OutputScriptError::EmptyCoinbaseOutputs("Empty coinbase outputs".to_string()))
+        } else {
+            result
+        }
+}  
 
 impl TryFrom<&CoinbaseOutput> for Script {
     type Error = OutputScriptError;
@@ -227,8 +232,17 @@ async fn main() {
 
     let (status_tx, status_rx) = unbounded();
     info!("Pool INITIALIZING with config: {:?}", &args.config_path);
-    let coinbase_output_len = get_coinbase_output(&config).len() as u32;
-
+    let coinbase_output_result = get_coinbase_output(&config);
+    let coinbase_output_len;
+    match coinbase_output_result {
+        Ok(coinbase_output) => {
+            coinbase_output_len = coinbase_output.len() as u32;
+        }
+        Err(err) => {
+            error!("Failed to get coinbase output: {:?}", err);
+            return;
+        }
+    }
     let template_rx_res = TemplateRx::connect(
         config.tp_address.parse().unwrap(),
         status::Sender::Upstream(status_tx.clone()),

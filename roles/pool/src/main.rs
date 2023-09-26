@@ -246,7 +246,6 @@ async fn main() {
             return;
         }
     }
-    //let coinbase_output_len = get_coinbase_output(&config).unwrap().len() as u32;
     let template_rx_res = TemplateRx::connect(
         config.tp_address.parse().unwrap(),
         s_new_t,
