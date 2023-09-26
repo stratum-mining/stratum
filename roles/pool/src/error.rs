@@ -27,7 +27,7 @@ pub enum PoolError {
 pub enum OutputScriptError {
     UnknownScriptType(String),
     InvalidScript(String),
-    EmptyCoinbaseOutputs(String)
+    EmptyCoinbaseOutputs(String),
 }
 
 impl std::fmt::Display for PoolError {

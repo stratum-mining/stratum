@@ -10,7 +10,10 @@ use roles_logic_sv2::{
     parsers::PoolMessages,
 };
 use serde::Deserialize;
-use std::{str::FromStr, convert::{TryFrom, TryInto}};
+use std::{
+    convert::{TryFrom, TryInto},
+    str::FromStr, 
+};
 
 use tracing::{error, info, warn};
 mod error;
@@ -38,7 +41,8 @@ pub fn get_coinbase_output(config: &Configuration) -> Result<Vec<TxOut>, OutputS
         .collect::<Result<Vec<TxOut>, OutputScriptError>>();
     
         if result.is_ok() && result.as_ref().unwrap().is_empty() {
-            Err(OutputScriptError::EmptyCoinbaseOutputs("Empty coinbase outputs".to_string()))
+            Err(OutputScriptError::EmptyCoinbaseOutputs(
+                "Empty coinbase outputs".to_string(),))
         } else {
             result
         }
@@ -52,51 +56,71 @@ impl TryFrom<&CoinbaseOutput> for Script {
             "P2PK" => {
                 if is_public_key(&value.output_script_value) {
                     Ok({
-                        let pub_key = PublicKey::from_str(value.output_script_value.as_str()).unwrap();
+                        let pub_key =
+                            PublicKey::from_str(value.output_script_value.as_str()).unwrap();
                         Script::new_p2pk(&pub_key)
                     })
                 } else {
-                    Err(OutputScriptError::InvalidScript(("Invalid output_script_value for P2PK").to_string()))
+                    Err(OutputScriptError::InvalidScript(
+                        ("Invalid output_script_value for P2PK").to_string(),
+                    ))
                 }
             }
             "P2PKH" => {
                 if is_public_key(&value.output_script_value) {
                     Ok({
-                        let pub_key_hash = PublicKey::from_str(value.output_script_value.as_str()).unwrap().pubkey_hash();
+                        let pub_key_hash = PublicKey::from_str(value.output_script_value.as_str())
+                            .unwrap()
+                            .pubkey_hash();
                         Script::new_p2pkh(&pub_key_hash)
                     })
                 } else {
-                    Err(OutputScriptError::InvalidScript(("Invalid output_script_value for P2PKH").to_string()))
+                    Err(OutputScriptError::InvalidScript(
+                        ("Invalid output_script_value for P2PKH").to_string(),
+                    ))
                 }
             }
             "P2WPKH" => {
                 if is_public_key(&value.output_script_value) {
                     Ok({
-                        let w_pub_key_hash = PublicKey::from_str(value.output_script_value.as_str()).unwrap().wpubkey_hash().unwrap();
+                        let w_pub_key_hash = PublicKey::from_str(value.output_script_value.as_str())
+                            .unwrap()
+                            .wpubkey_hash()
+                            .unwrap();
                         Script::new_v0_p2wpkh(&w_pub_key_hash)
                     })
                 } else {
-                    Err(OutputScriptError::InvalidScript(("Invalid output_script_value for P2WPKH").to_string()))
+                    Err(OutputScriptError::InvalidScript(
+                        ("Invalid output_script_value for P2WPKH").to_string(),
+                    ))
                 }
             }
             "P2SH" => {
                 if is_script(&value.output_script_value) {
                     Ok({
-                        let script_hashed = Script::from_str(&value.output_script_value).unwrap().script_hash();
+                        let script_hashed = Script::from_str(&value.output_script_value)
+                            .unwrap()
+                            .script_hash();
                         Script::new_p2sh(&script_hashed)
                     })
                 } else {
-                    Err(OutputScriptError::InvalidScript(("Invalid output_script_value for P2SH or P2WSH").to_string()))
+                    Err(OutputScriptError::InvalidScript(
+                        ("Invalid output_script_value for P2SH or P2WSH").to_string(),
+                    ))
                 }
             }
             "P2WSH" => {
                 if is_script(&value.output_script_value) {
                     Ok({
-                        let w_script_hashed = Script::from_str(&value.output_script_value).unwrap().wscript_hash();
+                        let w_script_hashed = Script::from_str(&value.output_script_value)
+                            .unwrap()
+                            .wscript_hash();
                         Script::new_v0_p2wsh(&w_script_hashed)
                     })
                 } else {
-                    Err(OutputScriptError::InvalidScript(("Invalid output_script_value for P2SH or P2WSH").to_string()))
+                    Err(OutputScriptError::InvalidScript(
+                        ("Invalid output_script_value for P2SH or P2WSH").to_string(),
+                    ))
                 }
             }
             /* "P2TR" => {
@@ -107,7 +131,9 @@ impl TryFrom<&CoinbaseOutput> for Script {
                 }
             } */
             _ => {
-                Err(OutputScriptError::UnknownScriptType(value.output_script_type.clone()))
+                Err(OutputScriptError::UnknownScriptType(
+                    value.output_script_type.clone(),
+                ))
             }
         }
     }
@@ -128,7 +154,7 @@ use crate::{lib::job_declarator::JobDeclarator, status::Status};
 #[derive(Debug, Deserialize, Clone)]
 pub struct CoinbaseOutput {
     output_script_type: String,
-    output_script_value: String
+    output_script_value: String, 
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -233,16 +259,15 @@ async fn main() {
     let (status_tx, status_rx) = unbounded();
     info!("Pool INITIALIZING with config: {:?}", &args.config_path);
     let coinbase_output_result = get_coinbase_output(&config);
-    let coinbase_output_len;
-    match coinbase_output_result {
+    let coinbase_output_len = match coinbase_output_result {
         Ok(coinbase_output) => {
-            coinbase_output_len = coinbase_output.len() as u32;
+            coinbase_output.len() as u32
         }
         Err(err) => {
             error!("Failed to get coinbase output: {:?}", err);
             return;
         }
-    }
+    };
     let template_rx_res = TemplateRx::connect(
         config.tp_address.parse().unwrap(),
         status::Sender::Upstream(status_tx.clone()),

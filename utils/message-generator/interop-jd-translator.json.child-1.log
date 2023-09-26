@@ -1,5 +1,0 @@
-[2m2023-09-26T10:08:33.510141Z[0m [32m INFO[0m [2mnoise_sv2[0m[2m:[0m -> suggested algorithms received [ChaChaPoly, AesGcm]
-[2m2023-09-26T10:10:44.459483Z[0m [31mERROR[0m [2mnetwork_helpers::noise_connection_tokio[0m[2m:[0m Disconnected from client while reading : early eof - 127.0.0.1:50714
-[2m2023-09-26T10:10:44.459808Z[0m [31mERROR[0m [2mpool_sv2::lib::mining_pool[0m[2m:[0m Downstream 1 disconnected
-[2m2023-09-26T10:10:44.459818Z[0m [33m WARN[0m [2mpool_sv2::lib::mining_pool[0m[2m:[0m Downstream connection dropped
-[2m2023-09-26T10:10:44.460276Z[0m [31mERROR[0m [2mnetwork_helpers::noise_connection_tokio[0m[2m:[0m Disconnecting from client due to error receiving: receiving from an empty and closed channel - 127.0.0.1:50714

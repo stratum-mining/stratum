@@ -1,8 +1,0 @@
-[2m2023-09-26T10:10:17.393055Z[0m [32m INFO[0m [2mnoise_sv2[0m[2m:[0m -> suggested algorithms received [ChaChaPoly, AesGcm]
-[2m2023-09-26T10:10:17.399863Z[0m [32m INFO[0m [2mjd_server::lib::job_declarator[0m[2m:[0m Setup connection message from proxy: Sv2(Sv2Frame { header: Header { extension_type: 0, msg_type: 0, msg_length: U24(23) }, payload: None, serialized: Some([0, 0, 0, 23, 0, 0, 1, 2, 0, 2, 0, 1, 0, 0, 0, 7, 48, 46, 48, 46, 48, 46, 48, 217, 133, 0, 0, 0, 0]) })
-[2m2023-09-26T10:10:17.399889Z[0m [32m INFO[0m [2mjd_server::lib::job_declarator[0m[2m:[0m Sending success message for proxy
-Allocate mining job token message sent to Proxy
-Sending AllocateMiningJobTokenSuccess to proxy AllocateMiningJobTokenSuccess(AllocateMiningJobTokenSuccess { request_id: 0, mining_job_token: Owned([1, 0, 0, 0]), coinbase_output_max_additional_size: 100, coinbase_output: Owned([64, 190, 64, 37, 0, 0, 0, 0, 25, 118, 169, 20, 85, 162, 233, 20, 174, 185, 114, 155, 76, 210, 101, 36, 140, 182, 122, 134, 94, 174, 149, 253, 136, 172]), async_mining_allowed: true })
-Allocate mining job token message sent to Proxy
-Sending AllocateMiningJobTokenSuccess to proxy AllocateMiningJobTokenSuccess(AllocateMiningJobTokenSuccess { request_id: 1, mining_job_token: Owned([2, 0, 0, 0]), coinbase_output_max_additional_size: 100, coinbase_output: Owned([64, 190, 64, 37, 0, 0, 0, 0, 25, 118, 169, 20, 85, 162, 233, 20, 174, 185, 114, 155, 76, 210, 101, 36, 140, 182, 122, 134, 94, 174, 149, 253, 136, 172]), async_mining_allowed: true })
-[2m2023-09-26T10:10:44.459470Z[0m [31mERROR[0m [2mnetwork_helpers::noise_connection_tokio[0m[2m:[0m Disconnected from client while reading : early eof - 127.0.0.1:50760
