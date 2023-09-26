@@ -9,7 +9,7 @@ repository = "https://github.com/stratum-mining/stratum"
 [dependencies]
 async-channel = "1.5.1"
 binary_sv2 = { version = "^0.1.6", path = "../../protocols/v2/binary-sv2/binary-sv2" }
-bitcoin = "0.28.1"
+bitcoin = "0.29.1"
 buffer_sv2 = { version = "^0.1.2", path = "../../utils/buffer" }
 codec_sv2 = { version = "0.1", path = "../../protocols/v2/codec-sv2", features = ["noise_sv2"] }
 const_sv2 = { version = "^0.1.2", path = "../../protocols/v2/const-sv2" }

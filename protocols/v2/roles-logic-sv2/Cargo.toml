@@ -17,7 +17,7 @@ template_distribution_sv2 = { path = "../../../protocols/v2/subprotocols/templat
 job_declaration_sv2 = { path = "../../../protocols/v2/subprotocols/job-declaration", version = "^0.1.0" }
 const_sv2 = { version = "^0.1.2", path = "../../../protocols/v2/const-sv2"}
 framing_sv2 = { version = "^0.1.5", path = "../../../protocols/v2/framing-sv2" }
-bitcoin = "0.28.1"
+bitcoin = "0.29.1"
 tracing = { version = "0.1"}
 chacha20poly1305 = { version = "0.10.1"}
 nohash-hasher = "0.2.0"

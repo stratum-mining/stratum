@@ -37,7 +37,8 @@ pub struct JobsCreators {
 pub fn tx_outputs_to_costum_scripts(tx_outputs: &[u8]) -> Vec<TxOut> {
     let mut txs = vec![];
     let mut cursor = 0;
-    while let Ok(out) = TxOut::consensus_decode(&tx_outputs[cursor..]) {
+    let mut txouts = &tx_outputs[cursor..];
+    while let Ok(out) = TxOut::consensus_decode(&mut txouts) {
         let len = match out.script_pubkey.len() {
             a @ 0..=252 => 8 + 1 + a,
             a @ 253..=10000 => 8 + 3 + a,
@@ -331,12 +332,12 @@ fn coinbase(
     let tx_in = TxIn {
         previous_output: OutPoint::null(),
         script_sig: bip34_bytes.into(),
-        sequence,
+        sequence: bitcoin::Sequence(sequence),
         witness,
     };
     Transaction {
         version,
-        lock_time,
+        lock_time: bitcoin::PackedLockTime(lock_time),
         input: vec![tx_in],
         output: coinbase_outputs.to_vec(),
     }
@@ -400,12 +401,12 @@ impl StrippedCoinbaseTx {
                     ser.extend_from_slice(&txin.previous_output.vout.to_le_bytes());
                     ser.push(txin.script_sig.len() as u8);
                     ser.extend_from_slice(txin.script_sig.as_bytes());
-                    ser.extend_from_slice(&txin.sequence.to_le_bytes());
+                    ser.extend_from_slice(&txin.sequence.0.to_le_bytes());
                     ser
                 })
                 .collect(),
             outputs: tx.output.iter().map(|o| o.serialize()).collect(),
-            lock_time: tx.lock_time,
+            lock_time: tx.lock_time.into(),
             bip141_bytes_len,
         })
     }
