@@ -49,8 +49,8 @@
                 "channel_id": 1,
                 "sequence_number": 0,
                 "job_id": 0,
-                "nonce": 174,
-                "ntime": 1671116742,
+                "nonce": 341808546,
+                "ntime": 1695837693,
                 "version": 536870912
             },
             "id": "submit_shares"
