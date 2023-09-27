@@ -106,7 +106,7 @@ impl TryFrom<&CoinbaseOutput> for Script {
                     })
                 } else {
                     Err(OutputScriptError::InvalidScript(
-                        ("Invalid output_script_value for P2SH or P2WSH").to_string(),
+                        ("Invalid output_script_value for P2SH").to_string(),
                     ))
                 }
             }
@@ -120,23 +120,27 @@ impl TryFrom<&CoinbaseOutput> for Script {
                     })
                 } else {
                     Err(OutputScriptError::InvalidScript(
-                        ("Invalid output_script_value for P2SH or P2WSH").to_string(),
+                        ("Invalid output_script_value for P2WSH").to_string(),
                     ))
                 }
             }
             "P2TR" => {
-                if is_script(&value.output_script_value) {
-                    // From the bip
-                    //
-                    // Conceptually, every Taproot output corresponds to a combination of
-                    // a single public key condition (the internal key),
-                    // and zero or more general conditions encoded in scripts organized in a tree.
-                    let pub_key = PublicKey::from_str(value.output_script_value.as_str()).unwrap();
-                    let (pubkey_only, _) = pub_key.inner.x_only_public_key();
-                    let p2tr_script = Script::new_v1_p2tr::<All>(&Secp256k1::<All>::new(), pubkey_only, None);
-                    Ok(p2tr_script)
+                // From the bip
+                //
+                // Conceptually, every Taproot output corresponds to a combination of
+                // a single public key condition (the internal key),
+                // and zero or more general conditions encoded in scripts organized in a tree.
+                if is_public_key(&value.output_script_value) {
+                    Ok({
+                        let pub_key =
+                            PublicKey::from_str(value.output_script_value.as_str()).unwrap();
+                        let (pubkey_only, _) = pub_key.inner.x_only_public_key();
+                        Script::new_v1_p2tr::<All>(&Secp256k1::<All>::new(), pubkey_only, None)
+                    })
                 } else {
-                    Err(OutputScriptError::InvalidScript(("Invalid output_script_value for P2SH or P2WSH").to_string()))
+                    Err(OutputScriptError::InvalidScript(
+                        ("Invalid output_script_value for P2TR").to_string(),
+                    ))
                 }
             }
             _ => Err(OutputScriptError::UnknownScriptType(

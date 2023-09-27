@@ -586,12 +586,12 @@ mod test {
                 let in_ = roles_logic_sv2::bitcoin::TxIn {
                     previous_output: p_out,
                     script_sig: vec![89_u8; 16].into(),
-                    sequence: 0,
+                    sequence: roles_logic_sv2::bitcoin::Sequence(0),
                     witness: Witness::from_vec(vec![]).into(),
                 };
                 let tx = roles_logic_sv2::bitcoin::Transaction {
                     version: 1,
-                    lock_time: 0,
+                    lock_time: roles_logic_sv2::bitcoin::PackedLockTime(0),
                     input: vec![in_],
                     output: vec![],
                 };

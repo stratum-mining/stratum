@@ -616,12 +616,12 @@ mod test {
         let tx_in = bitcoin::TxIn {
             previous_output: bitcoin::OutPoint::null(),
             script_sig: bip34_bytes.into(),
-            sequence: coinbase_tx_input_sequence,
+            sequence: bitcoin::Sequence(coinbase_tx_input_sequence),
             witness,
         };
         let coinbase = bitcoin::Transaction {
             version: coinbase_tx_version,
-            lock_time: coinbase_tx_locktime,
+            lock_time: bitcoin::PackedLockTime(coinbase_tx_locktime),
             input: vec![tx_in],
             output: coinbase_tx_outputs,
         };
