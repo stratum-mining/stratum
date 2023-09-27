@@ -75,6 +75,18 @@ impl<'s, T: Clone + Serialize + TryFromBSlice<'s>> From<Seq<'s, T>> for Seq064K<
     }
 }
 
+impl<'s, T: Clone + Serialize + TryFromBSlice<'s>> From<Vec<T>> for Seq064K<'s, T> {
+    #[inline]
+    fn from(val: Vec<T>) -> Self {
+        Self {
+            seq: None,
+            data: Some(val),
+        }
+    }
+}
+
+
+
 impl<'s, T: Clone + FixedSize + Serialize + TryFromBSlice<'s>> Serialize for Seq064K<'s, T> {
     #[inline]
     fn serialize<S>(&self, serializer: S) -> core::result::Result<S::Ok, S::Error>
@@ -446,6 +458,9 @@ impl<'s> Seq064K<'s, B016M<'s>> {
             panic!()
         }
     }
+    pub fn to_vec(&self) -> Vec<Vec<u8>> {
+        self.data.clone().unwrap().iter().map(|x| x.clone().to_vec()).collect()
+    }
 }
 impl<'s> Seq064K<'s, u32> {
     pub fn into_static(self) -> Seq064K<'static, u32> {
@@ -484,6 +499,9 @@ impl<'s> Seq064K<'s, ShortTxId<'s>> {
         } else {
             panic!()
         }
+    }
+    pub fn to_vec(&self) -> Vec<Vec<u8>> {
+        self.data.clone().unwrap().iter().map(|x| x.to_vec()).collect()
     }
 }
 impl<'s> Seq064K<'s, U256<'s>> {

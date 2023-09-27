@@ -196,4 +196,10 @@ impl<'a> B016M<'a> {
             Inner::Owned(inner) => B016M(Inner::Owned(inner)),
         }
     }
+    pub fn to_vec(self) -> Vec<u8> {
+        match self.0 {
+            Inner::Ref(v) => v.to_vec(),
+            Inner::Owned(_) => todo!(),
+        }
+    }
 }
