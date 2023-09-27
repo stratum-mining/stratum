@@ -1,12 +1,12 @@
 #![allow(special_module_name)]
 use async_channel::{bounded, unbounded};
-use bitcoin::secp256k1::{Secp256k1, All};
+use bitcoin::secp256k1::{All, Secp256k1};
+use bitcoin::{PublicKey, Script, TxOut};
 use codec_sv2::{
     noise_sv2::formats::{EncodedEd25519PublicKey, EncodedEd25519SecretKey},
     StandardEitherFrame, StandardSv2Frame,
 };
 use error::OutputScriptError;
-use bitcoin::{PublicKey, Script, TxOut};
 use roles_logic_sv2::parsers::PoolMessages;
 use serde::Deserialize;
 use std::{
