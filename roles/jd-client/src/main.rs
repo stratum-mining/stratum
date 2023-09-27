@@ -40,13 +40,13 @@ use tracing::{error, info};
 ///
 /// Memory Ordering Explanation:
 /// We use Acquire-Release ordering instead of SeqCst or Relaxed for the following reasons:
-/// 1. Acquire in template receiver context ensures we see all operations before the Release store 
+/// 1. Acquire in template receiver context ensures we see all operations before the Release store
 ///    the downstream.
-/// 2. Within the same execution context (template receiver), a Relaxed store followed by an Acquire 
-///    load is sufficient. This is because operations within the same context execute in the order 
+/// 2. Within the same execution context (template receiver), a Relaxed store followed by an Acquire
+///    load is sufficient. This is because operations within the same context execute in the order
 ///    they appear in the code.
-/// 3. The combination of Release in downstream and Acquire in template receiver contexts establishes 
-///    a happens-before relationship, guaranteeing that we handle the SetNewPrevHash message after 
+/// 3. The combination of Release in downstream and Acquire in template receiver contexts establishes
+///    a happens-before relationship, guaranteeing that we handle the SetNewPrevHash message after
 ///    that downstream have finished handling the NewTemplate.
 /// 3. SeqCst is overkill we only need to synchronize two contexts, a globally agreed-upon order
 ///    between all the contexts is not necessary.

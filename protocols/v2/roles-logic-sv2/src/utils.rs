@@ -7,7 +7,7 @@ use std::{
 use bitcoin::{
     blockdata::block::BlockHeader,
     hash_types::{BlockHash, TxMerkleNode},
-    hashes::{sha256d::Hash as DHash, Hash, sha256},
+    hashes::{sha256, sha256d::Hash as DHash, Hash},
     util::{psbt::serialize::Deserialize, uint::Uint256},
     Transaction,
 };
@@ -573,17 +573,17 @@ pub fn short_hash_list(
     (tx_short_hash_list, tx_hash_list_hash)
 }
 
-fn short_hash_list_builder(tx_short_hash_nonce: u64, tx_data: Seq064K<'static, B016M<'static>>) -> Seq064K<'static, ShortTxId<'static>>{
+fn short_hash_list_builder(
+    tx_short_hash_nonce: u64,
+    tx_data: Seq064K<'static, B016M<'static>>,
+) -> Seq064K<'static, ShortTxId<'static>> {
     // hash the short hash nonce
-    let nonce_hash = sha256::Hash::hash(
-        &tx_short_hash_nonce
-            .to_le_bytes(),
-    );
+    let nonce_hash = sha256::Hash::hash(&tx_short_hash_nonce.to_le_bytes());
     // take first two integers from the hash
     let k0 = u64::from_le_bytes(nonce_hash[0..8].try_into().unwrap());
     let k1 = u64::from_le_bytes(nonce_hash[8..16].try_into().unwrap());
     let mut tx_short_hash_list = vec![];
-     // get every transaction, hash it, remove first two bytes and push the ShortTxId in a vector
+    // get every transaction, hash it, remove first two bytes and push the ShortTxId in a vector
     for tx in tx_data.to_vec() {
         let hasher = SipHasher24::new_with_keys(k0, k1);
         let tx_hashed = hasher.hash(&tx);
@@ -594,8 +594,7 @@ fn short_hash_list_builder(tx_short_hash_nonce: u64, tx_data: Seq064K<'static, B
     Seq064K::from(tx_short_hash_list)
 }
 
-fn tx_hash_list_hash_builder(_tx_data: Seq064K<'static, B016M<'static>>) -> U256{
-
+fn tx_hash_list_hash_builder(_tx_data: Seq064K<'static, B016M<'static>>) -> U256 {
     // TODO: understand if this field is redunant and to be deleted since
     // the full coinbase is known
     /*
@@ -603,8 +602,7 @@ fn tx_hash_list_hash_builder(_tx_data: Seq064K<'static, B016M<'static>>) -> U256
     let hash = sha256::Hash::hash(&vec_concatenated_txs.as_ref()).as_inner().to_owned();
     hash.to_vec().try_into().unwrap()
     */
-    vec![0;32].try_into().unwrap()
-    
+    vec![0; 32].try_into().unwrap()
 }
 
 #[cfg(test)]
