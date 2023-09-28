@@ -7,6 +7,7 @@ publish = false
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+stratum-common = { path = "../../../common" }
 codec_sv2 = { path = "../../../protocols/v2/codec-sv2", features=["noise_sv2"] }
 roles_logic_sv2 = { path = "../../../protocols/v2/roles-logic-sv2" }
 const_sv2 = { path = "../../../protocols/v2/const-sv2" }
@@ -17,5 +18,4 @@ network_helpers = { path = "../../../utils/network-helpers", features=["async_st
 buffer_sv2 = { path = "../../../utils/buffer"}
 async-recursion = "0.3.2"
 rand = "0.8.4"
-bitcoin = "0.28.1"
 futures = "0.3.5"

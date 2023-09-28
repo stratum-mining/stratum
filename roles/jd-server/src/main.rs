@@ -1,15 +1,11 @@
 #![allow(special_module_name)]
 use async_channel::unbounded;
-use bitcoin::secp256k1::{All, Secp256k1};
 use codec_sv2::{
     noise_sv2::formats::{EncodedEd25519PublicKey, EncodedEd25519SecretKey},
     StandardEitherFrame, StandardSv2Frame,
 };
 use error::OutputScriptError;
-use roles_logic_sv2::{
-    bitcoin::{PublicKey, Script, TxOut},
-    parsers::PoolMessages,
-};
+use roles_logic_sv2::parsers::PoolMessages;
 use serde::Deserialize;
 use std::{
     convert::{TryFrom, TryInto},
@@ -17,6 +13,12 @@ use std::{
 };
 
 use tracing::{error, info, warn};
+
+use stratum_common::bitcoin::{
+    secp256k1::{All, Secp256k1},
+    PublicKey, Script, TxOut,
+};
+
 mod error;
 mod lib;
 mod status;

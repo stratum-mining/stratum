@@ -260,12 +260,6 @@ dependencies = [
 
 [[package]]
 name = "bech32"
-version = "0.8.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cf9ff0bbfd639f15c74af777d81383cf53efb7c93613f6cab67c6c11e05bbf8b"
-
-[[package]]
-name = "bech32"
 version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d86b93f97252c47b41663388e6d155714a9d0c398b99f1005cbc5f978b29f445"
@@ -291,24 +285,13 @@ dependencies = [
 
 [[package]]
 name = "bitcoin"
-version = "0.28.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d4d30fb43d287492017964a1fd7d3f82e8cc760818471c6ef2d44111e317d5c3"
-dependencies = [
- "bech32 0.8.1",
- "bitcoin_hashes 0.10.0",
- "secp256k1 0.22.2",
-]
-
-[[package]]
-name = "bitcoin"
 version = "0.29.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0694ea59225b0c5f3cb405ff3f670e4828358ed26aec49dc352f730f0cb1a8a3"
 dependencies = [
- "bech32 0.9.1",
+ "bech32",
  "bitcoin_hashes 0.11.0",
- "secp256k1 0.24.3",
+ "secp256k1",
 ]
 
 [[package]]
@@ -319,12 +302,6 @@ checksum = "2b7a2e9773ee7ae7f2560f0426c938f57902dcb9e39321b0cbd608f47ed579a4"
 dependencies = [
  "byteorder",
 ]
-
-[[package]]
-name = "bitcoin_hashes"
-version = "0.10.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "006cc91e1a1d99819bc5b8214be3555c1f0611b169f527a1fdc54ed1f2b745b0"
 
 [[package]]
 name = "bitcoin_hashes"
@@ -1154,6 +1131,7 @@ dependencies = [
  "nohash-hasher",
  "roles_logic_sv2",
  "serde",
+ "stratum-common",
  "tokio",
  "toml",
  "tracing",
@@ -1167,7 +1145,6 @@ dependencies = [
  "async-channel",
  "async-recursion 1.0.5",
  "binary_sv2",
- "bitcoin 0.29.2",
  "buffer_sv2",
  "codec_sv2",
  "const_sv2",
@@ -1180,6 +1157,7 @@ dependencies = [
  "rand 0.8.5",
  "roles_logic_sv2",
  "serde",
+ "stratum-common",
  "tokio",
  "toml",
  "tracing",
@@ -1279,7 +1257,6 @@ dependencies = [
  "async-recursion 0.3.2",
  "async-std",
  "binary_sv2",
- "bitcoin 0.28.2",
  "buffer_sv2",
  "codec_sv2",
  "const_sv2",
@@ -1287,6 +1264,7 @@ dependencies = [
  "network_helpers",
  "rand 0.8.5",
  "roles_logic_sv2",
+ "stratum-common",
 ]
 
 [[package]]
@@ -1305,6 +1283,7 @@ dependencies = [
  "once_cell",
  "roles_logic_sv2",
  "serde",
+ "stratum-common",
  "tokio",
  "toml",
  "tracing",
@@ -1630,7 +1609,6 @@ dependencies = [
  "async-channel",
  "async-recursion 1.0.5",
  "binary_sv2",
- "bitcoin 0.29.2",
  "buffer_sv2",
  "codec_sv2",
  "const_sv2",
@@ -1643,6 +1621,7 @@ dependencies = [
  "rand 0.8.5",
  "roles_logic_sv2",
  "serde",
+ "stratum-common",
  "tokio",
  "toml",
  "tracing",
@@ -1855,7 +1834,6 @@ name = "roles_logic_sv2"
 version = "0.1.0"
 dependencies = [
  "binary_sv2",
- "bitcoin 0.29.2",
  "chacha20poly1305 0.10.1",
  "common_messages_sv2",
  "const_sv2",
@@ -1868,6 +1846,7 @@ dependencies = [
  "rand 0.8.5",
  "serde",
  "siphasher",
+ "stratum-common",
  "template_distribution_sv2",
  "toml",
  "tracing",
@@ -1941,30 +1920,12 @@ checksum = "94143f37725109f92c262ed2cf5e59bce7498c01bcc1502d7b9afe439a4e9f49"
 
 [[package]]
 name = "secp256k1"
-version = "0.22.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "295642060261c80709ac034f52fca8e5a9fa2c7d341ded5cdb164b7c33768b2a"
-dependencies = [
- "secp256k1-sys 0.5.2",
-]
-
-[[package]]
-name = "secp256k1"
 version = "0.24.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6b1629c9c557ef9b293568b338dddfc8208c98a18c59d722a9d53f859d9c9b62"
 dependencies = [
  "bitcoin_hashes 0.11.0",
- "secp256k1-sys 0.6.1",
-]
-
-[[package]]
-name = "secp256k1-sys"
-version = "0.5.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "152e20a0fd0519390fc43ab404663af8a0b794273d2a91d60ad4a39f13ffe110"
-dependencies = [
- "cc",
+ "secp256k1-sys",
 ]
 
 [[package]]
@@ -2157,6 +2118,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "stratum-common"
+version = "0.1.0"
+dependencies = [
+ "bitcoin",
+]
+
+[[package]]
 name = "strsim"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2174,12 +2142,12 @@ version = "0.1.0"
 dependencies = [
  "async-channel",
  "async-std",
- "bitcoin 0.28.2",
  "num-bigint",
  "num-traits",
  "roles_logic_sv2",
  "serde",
  "serde_json",
+ "stratum-common",
  "sv1_api",
 ]
 
@@ -2412,6 +2380,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.10.7",
+ "stratum-common",
  "sv1_api",
  "tokio",
  "toml",

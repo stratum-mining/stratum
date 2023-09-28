@@ -1,0 +1,10 @@
+[package]
+name = "stratum-common"
+version = "0.1.0"
+edition = "2018"
+description = "SV2 pool role"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/stratum-mining/stratum"
+
+[dependencies]
+bitcoin = "0.29.1"

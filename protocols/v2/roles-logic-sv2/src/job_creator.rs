@@ -2,25 +2,23 @@
 //! a template provider as well as logic to clean up old templates when new blocks are mined
 use crate::{errors, utils::Id, Error};
 use binary_sv2::B064K;
-use bitcoin::{
-    blockdata::{
-        transaction::{OutPoint, Transaction, TxIn, TxOut},
-        witness::Witness,
-    },
-    util::psbt::serialize::{Deserialize, Serialize},
-};
-pub use bitcoin::{
-    consensus::{deserialize, serialize, Decodable, Encodable},
-    hash_types::{PubkeyHash, ScriptHash, WPubkeyHash, WScriptHash},
-    hashes::Hash,
-    secp256k1::SecretKey,
-    util::key::PrivateKey,
-};
 use mining_sv2::NewExtendedMiningJob;
 use nohash_hasher::BuildNoHashHasher;
 use std::{collections::HashMap, convert::TryInto};
 use template_distribution_sv2::{NewTemplate, SetNewPrevHash};
 use tracing::debug;
+
+use stratum_common::{
+    bitcoin,
+    bitcoin::{
+        blockdata::{
+            transaction::{OutPoint, Transaction, TxIn, TxOut},
+            witness::Witness,
+        },
+        consensus::Decodable,
+        util::psbt::serialize::{Deserialize, Serialize},
+    },
+};
 
 #[derive(Debug)]
 pub struct JobsCreators {
@@ -463,12 +461,15 @@ pub mod tests {
     use crate::utils::merkle_root_from_path;
     #[cfg(feature = "prop_test")]
     use binary_sv2::u256_from_int;
-    use bitcoin::{secp256k1::Secp256k1, util::key::PublicKey, Network};
     use quickcheck::{Arbitrary, Gen};
     use std::{cmp, vec};
 
     #[cfg(feature = "prop_test")]
     use std::borrow::BorrowMut;
+
+    use stratum_common::bitcoin::{
+        consensus::Encodable, secp256k1::Secp256k1, Network, PrivateKey, PublicKey,
+    };
 
     pub fn template_from_gen(g: &mut Gen) -> NewTemplate<'static> {
         let mut coinbase_prefix_gen = Gen::new(255);
@@ -525,7 +526,7 @@ pub mod tests {
     }
 
     #[cfg(feature = "prop_test")]
-    use bitcoin::Script;
+    use stratum_common::bitcoin::Script;
 
     // Test job_id_from_template
     #[cfg(feature = "prop_test")]
@@ -636,8 +637,6 @@ pub mod tests {
         //Validate that templates were cleared as we got a new templateId in setNewPrevHash
         assert_eq!(jobs_creators.lasts_new_template.len(), 0);
     }
-
-    use bitcoin::consensus::Encodable;
 
     #[quickcheck_macros::quickcheck]
     fn it_parse_valid_tx_outs(

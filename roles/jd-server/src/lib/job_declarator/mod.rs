@@ -2,7 +2,6 @@ pub mod message_handler;
 use crate::{error::PoolError, Configuration, EitherFrame, StdFrame};
 use async_channel::{Receiver, Sender};
 use binary_sv2::{B0255, U256};
-use bitcoin::consensus::Encodable;
 use codec_sv2::{Frame, HandshakeRole, Responder};
 use ed25519_dalek::{Keypair, PublicKey, Signature, Signer};
 use error_handling::handle_result;
@@ -18,6 +17,8 @@ use roles_logic_sv2::{
 use std::{collections::HashMap, convert::TryInto, sync::Arc};
 use tokio::net::TcpListener;
 use tracing::info;
+
+use stratum_common::bitcoin::consensus::Encodable;
 
 #[derive(Debug)]
 pub struct JobDeclaratorDownstream {

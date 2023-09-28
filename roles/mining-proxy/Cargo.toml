@@ -8,6 +8,7 @@ license = "MIT OR Apache-2.0"
 repository = "https://github.com/stratum-mining/stratum"
 
 [dependencies]
+stratum-common = { path = "../../common" }
 async-channel = "1.8.0"
 async-recursion = "0.3.2"
 binary_sv2 = { version = "^0.1.6", path = "../../protocols/v2/binary-sv2/binary-sv2" }

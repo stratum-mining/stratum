@@ -8,7 +8,6 @@ use codec_sv2::{Frame, HandshakeRole, Initiator, StandardEitherFrame, StandardSv
 use network_helpers::noise_connection_tokio::Connection;
 use nohash_hasher::BuildNoHashHasher;
 use roles_logic_sv2::{
-    bitcoin::TxOut,
     channel_logic::{
         channel_factory::{ExtendedChannelKind, OnNewShare, ProxyExtendedChannelFactory, Share},
         proxy_group_channel::GroupChannels,
@@ -30,6 +29,8 @@ use roles_logic_sv2::{
 use std::{collections::HashMap, sync::Arc};
 use tokio::{net::TcpStream, task};
 use tracing::error;
+
+use stratum_common::bitcoin::TxOut;
 
 pub type Message = PoolMessages<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;

@@ -13,7 +13,6 @@ use codec_sv2::{Frame, HandshakeRole, Initiator};
 use error_handling::handle_result;
 use network_helpers::Connection;
 use roles_logic_sv2::{
-    bitcoin::BlockHash,
     common_messages_sv2::{Protocol, SetupConnection},
     common_properties::{IsMiningUpstream, IsUpstream},
     handlers::{
@@ -38,6 +37,8 @@ use std::{
     time::Duration,
 };
 use tracing::{debug, error, info, warn};
+
+use stratum_common::bitcoin::BlockHash;
 
 pub static IS_NEW_JOB_HANDLED: AtomicBool = AtomicBool::new(true);
 /// Represents the currently active `prevhash` of the mining job being worked on OR being submitted

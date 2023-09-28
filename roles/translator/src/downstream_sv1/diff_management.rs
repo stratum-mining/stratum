@@ -1,9 +1,11 @@
 use super::{Downstream, DownstreamMessages, SetDownstreamTarget};
 
 use crate::{error::Error, ProxyResult};
-use roles_logic_sv2::{bitcoin::util::uint::Uint256, utils::Mutex};
+use roles_logic_sv2::utils::Mutex;
 use std::{ops::Div, sync::Arc};
 use v1::json_rpc;
+
+use stratum_common::bitcoin::util::uint::Uint256;
 
 impl Downstream {
     /// initializes the timestamp and resets the number of submits for a connection.

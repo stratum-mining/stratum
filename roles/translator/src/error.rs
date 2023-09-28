@@ -1,6 +1,5 @@
 use crate::proxy;
 use roles_logic_sv2::{
-    bitcoin::util::uint::ParseLengthError,
     mining_sv2::{ExtendedExtranonce, NewExtendedMiningJob, SetCustomMiningJob},
     parsers::Mining,
 };
@@ -9,6 +8,8 @@ use std::{
     sync::{MutexGuard, PoisonError},
 };
 use v1::server_to_client::{Notify, SetDifficulty};
+
+use stratum_common::bitcoin::util::uint::ParseLengthError;
 
 pub type ProxyResult<'a, T> = core::result::Result<T, Error<'a>>;
 
