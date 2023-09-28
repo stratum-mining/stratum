@@ -27,26 +27,21 @@ pub type Message = PoolMessages<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;
 pub type EitherFrame = StandardEitherFrame<Message>;
 
-const BLOCK_REWARD: u64 = 625_000_000;
-
 pub fn get_coinbase_output(config: &Configuration) -> Result<Vec<TxOut>, OutputScriptError> {
     let result = config
         .coinbase_outputs
         .iter()
         .map(|coinbase_output| {
             coinbase_output.try_into().map(|output_script| TxOut {
-                value: crate::BLOCK_REWARD,
+                value: 0, //setting value to 0 in order to check that it is correctly updated by TP value_remaining
                 script_pubkey: output_script,
             })
         })
         .collect::<Result<Vec<TxOut>, OutputScriptError>>();
 
-    if result.is_ok() && result.as_ref().unwrap().is_empty() {
-        Err(OutputScriptError::EmptyCoinbaseOutputs(
-            "Empty coinbase outputs".to_string(),
-        ))
-    } else {
-        result
+    match result.as_deref() {
+        Ok([]) => Err(OutputScriptError::EmptyCoinbaseOutputs("Empty coinbase outputs".to_string())),
+        _ => result,
     }
 }
 
@@ -56,75 +51,35 @@ impl TryFrom<&CoinbaseOutput> for Script {
     fn try_from(value: &CoinbaseOutput) -> Result<Self, Self::Error> {
         match value.output_script_type.as_str() {
             "P2PK" => {
-                if is_public_key(&value.output_script_value) {
-                    Ok({
-                        let pub_key =
-                            PublicKey::from_str(value.output_script_value.as_str()).unwrap();
-                        Script::new_p2pk(&pub_key)
-                    })
-                } else {
-                    Err(OutputScriptError::InvalidScript(
-                        ("Invalid output_script_value for P2PK").to_string(),
-                    ))
-                }
+                let pub_key =
+                    PublicKey::from_str(value.output_script_value.as_str()).expect("Invalid output_script_value for P2PK. It must be a valid public key.");
+                Ok(Script::new_p2pk(&pub_key))
             }
             "P2PKH" => {
-                if is_public_key(&value.output_script_value) {
-                    Ok({
-                        let pub_key_hash = PublicKey::from_str(value.output_script_value.as_str())
-                            .unwrap()
-                            .pubkey_hash();
-                        Script::new_p2pkh(&pub_key_hash)
-                    })
-                } else {
-                    Err(OutputScriptError::InvalidScript(
-                        ("Invalid output_script_value for P2PKH").to_string(),
-                    ))
-                }
+                let pub_key_hash = PublicKey::from_str(value.output_script_value.as_str())
+                    .expect("Invalid output_script_value for P2PKH. It must be a valid public key.")
+                    .pubkey_hash();
+                Ok(Script::new_p2pkh(&pub_key_hash))  
             }
             "P2WPKH" => {
-                if is_public_key(&value.output_script_value) {
-                    Ok({
-                        let w_pub_key_hash =
-                            PublicKey::from_str(value.output_script_value.as_str())
-                                .unwrap()
-                                .wpubkey_hash()
-                                .unwrap();
-                        Script::new_v0_p2wpkh(&w_pub_key_hash)
-                    })
-                } else {
-                    Err(OutputScriptError::InvalidScript(
-                        ("Invalid output_script_value for P2WPKH").to_string(),
-                    ))
-                }
+                let w_pub_key_hash =
+                    PublicKey::from_str(value.output_script_value.as_str())
+                        .expect("Invalid output_script_value for P2WPKH. It must be a valid public key.")
+                        .wpubkey_hash()
+                        .unwrap();
+                Ok(Script::new_v0_p2wpkh(&w_pub_key_hash))
             }
             "P2SH" => {
-                if is_script(&value.output_script_value) {
-                    Ok({
-                        let script_hashed = Script::from_str(&value.output_script_value)
-                            .unwrap()
-                            .script_hash();
-                        Script::new_p2sh(&script_hashed)
-                    })
-                } else {
-                    Err(OutputScriptError::InvalidScript(
-                        ("Invalid output_script_value for P2SH").to_string(),
-                    ))
-                }
+                let script_hashed = Script::from_str(&value.output_script_value)
+                    .expect("Invalid output_script_value for P2SH. It must be a valid script.")
+                    .script_hash();
+                Ok(Script::new_p2sh(&script_hashed))
             }
             "P2WSH" => {
-                if is_script(&value.output_script_value) {
-                    Ok({
-                        let w_script_hashed = Script::from_str(&value.output_script_value)
-                            .unwrap()
-                            .wscript_hash();
-                        Script::new_v0_p2wsh(&w_script_hashed)
-                    })
-                } else {
-                    Err(OutputScriptError::InvalidScript(
-                        ("Invalid output_script_value for P2WSH").to_string(),
-                    ))
-                }
+                let w_script_hashed = Script::from_str(&value.output_script_value)
+                    .expect("Invalid output_script_value for P2WSH. It must be a valid script.")
+                    .wscript_hash();
+                Ok(Script::new_v0_p2wsh(&w_script_hashed))
             }
             "P2TR" => {
                 // From the bip
@@ -132,32 +87,19 @@ impl TryFrom<&CoinbaseOutput> for Script {
                 // Conceptually, every Taproot output corresponds to a combination of
                 // a single public key condition (the internal key),
                 // and zero or more general conditions encoded in scripts organized in a tree.
-                if is_public_key(&value.output_script_value) {
-                    Ok({
-                        let pub_key =
-                            PublicKey::from_str(value.output_script_value.as_str()).unwrap();
-                        let (pubkey_only, _) = pub_key.inner.x_only_public_key();
-                        Script::new_v1_p2tr::<All>(&Secp256k1::<All>::new(), pubkey_only, None)
-                    })
-                } else {
-                    Err(OutputScriptError::InvalidScript(
-                        ("Invalid output_script_value for P2TR").to_string(),
-                    ))
-                }
+                let pub_key =
+                    PublicKey::from_str(value.output_script_value.as_str())
+                    .expect("Invalid output_script_value for P2TR. It must be a valid public key.");
+                Ok({
+                    let (pubkey_only, _) = pub_key.inner.x_only_public_key();
+                    Script::new_v1_p2tr::<All>(&Secp256k1::<All>::new(), pubkey_only, None)
+                })
             }
             _ => Err(OutputScriptError::UnknownScriptType(
                 value.output_script_type.clone(),
             )),
         }
     }
-}
-
-fn is_public_key(output_script_value: &str) -> bool {
-    PublicKey::from_str(output_script_value).is_ok()
-}
-
-fn is_script(output_script_value: &str) -> bool {
-    Script::from_str(output_script_value).is_ok()
 }
 
 use tokio::{select, task};

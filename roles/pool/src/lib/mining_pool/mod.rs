@@ -466,7 +466,7 @@ impl Pool {
             creator,
             share_per_min,
             kind,
-            pool_coinbase_outputs.unwrap(),
+            pool_coinbase_outputs.expect("Invalid coinbase output in config"),
         )));
         let pool = Arc::new(Mutex::new(Pool {
             downstreams: HashMap::with_hasher(BuildNoHashHasher::default()),
