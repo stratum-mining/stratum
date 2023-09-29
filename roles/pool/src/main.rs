@@ -40,7 +40,9 @@ pub fn get_coinbase_output(config: &Configuration) -> Result<Vec<TxOut>, OutputS
         .collect::<Result<Vec<TxOut>, OutputScriptError>>();
 
     match result.as_deref() {
-        Ok([]) => Err(OutputScriptError::EmptyCoinbaseOutputs("Empty coinbase outputs".to_string())),
+        Ok([]) => Err(OutputScriptError::EmptyCoinbaseOutputs(
+            "Empty coinbase outputs".to_string(),
+        )),
         _ => result,
     }
 }
@@ -51,22 +53,23 @@ impl TryFrom<&CoinbaseOutput> for Script {
     fn try_from(value: &CoinbaseOutput) -> Result<Self, Self::Error> {
         match value.output_script_type.as_str() {
             "P2PK" => {
-                let pub_key =
-                    PublicKey::from_str(value.output_script_value.as_str()).expect("Invalid output_script_value for P2PK. It must be a valid public key.");
+                let pub_key = PublicKey::from_str(value.output_script_value.as_str())
+                    .expect("Invalid output_script_value for P2PK. It must be a valid public key.");
                 Ok(Script::new_p2pk(&pub_key))
             }
             "P2PKH" => {
                 let pub_key_hash = PublicKey::from_str(value.output_script_value.as_str())
                     .expect("Invalid output_script_value for P2PKH. It must be a valid public key.")
                     .pubkey_hash();
-                Ok(Script::new_p2pkh(&pub_key_hash))  
+                Ok(Script::new_p2pkh(&pub_key_hash))
             }
             "P2WPKH" => {
-                let w_pub_key_hash =
-                    PublicKey::from_str(value.output_script_value.as_str())
-                        .expect("Invalid output_script_value for P2WPKH. It must be a valid public key.")
-                        .wpubkey_hash()
-                        .unwrap();
+                let w_pub_key_hash = PublicKey::from_str(value.output_script_value.as_str())
+                    .expect(
+                        "Invalid output_script_value for P2WPKH. It must be a valid public key.",
+                    )
+                    .wpubkey_hash()
+                    .unwrap();
                 Ok(Script::new_v0_p2wpkh(&w_pub_key_hash))
             }
             "P2SH" => {
@@ -87,8 +90,7 @@ impl TryFrom<&CoinbaseOutput> for Script {
                 // Conceptually, every Taproot output corresponds to a combination of
                 // a single public key condition (the internal key),
                 // and zero or more general conditions encoded in scripts organized in a tree.
-                let pub_key =
-                    PublicKey::from_str(value.output_script_value.as_str())
+                let pub_key = PublicKey::from_str(value.output_script_value.as_str())
                     .expect("Invalid output_script_value for P2TR. It must be a valid public key.");
                 Ok({
                     let (pubkey_only, _) = pub_key.inner.x_only_public_key();
