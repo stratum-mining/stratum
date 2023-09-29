@@ -12,7 +12,6 @@ use codec_sv2::{Frame, HandshakeRole, Initiator};
 use error_handling::handle_result;
 use network_helpers::noise_connection_tokio::Connection;
 use roles_logic_sv2::{
-    bitcoin::BlockHash,
     channel_logic::channel_factory::PoolChannelFactory,
     common_messages_sv2::{Protocol, SetupConnection},
     common_properties::{IsMiningUpstream, IsUpstream},
@@ -31,6 +30,8 @@ use roles_logic_sv2::{
 use std::{net::SocketAddr, sync::Arc, thread::sleep, time::Duration};
 use tokio::{net::TcpStream, task, task::AbortHandle};
 use tracing::{debug, error, info};
+
+use stratum_common::bitcoin::BlockHash;
 
 #[derive(Debug, Clone)]
 #[allow(dead_code)]

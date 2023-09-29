@@ -9,13 +9,14 @@ use crate::{
     utils::{merkle_root_from_path, Id, Mutex},
     Error,
 };
-use bitcoin::hashes::{sha256d, Hash, HashEngine};
 use mining_sv2::{
     NewExtendedMiningJob, NewMiningJob, SetNewPrevHash, SubmitSharesError, SubmitSharesStandard,
     Target,
 };
 use nohash_hasher::BuildNoHashHasher;
 use std::{collections::HashMap, convert::TryInto, sync::Arc};
+
+use stratum_common::bitcoin::hashes::{sha256d, Hash, HashEngine};
 
 /// Used to convert an extended mining job to a standard mining job. The `extranonce` field must
 /// be exactly 32 bytes.
@@ -259,6 +260,8 @@ mod tests {
     use quickcheck::{Arbitrary, Gen};
     use std::convert::TryFrom;
 
+    use stratum_common::bitcoin::{Script, TxOut};
+
     const BLOCK_REWARD: u64 = 625_000_000_000;
 
     #[test]
@@ -304,8 +307,6 @@ mod tests {
             "Computed block hash does not equal the actaul block hash"
         );
     }
-
-    use bitcoin::{Script, TxOut};
 
     #[test]
     fn test_group_channel_job_dispatcher() {

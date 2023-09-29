@@ -505,7 +505,8 @@ pub struct OpenSv1Downstream {
 mod test {
     use super::*;
     use async_channel::bounded;
-    use roles_logic_sv2::bitcoin::util::psbt::serialize::Serialize;
+
+    use stratum_common::bitcoin::util::psbt::serialize::Serialize;
 
     pub mod test_utils {
         use super::*;
@@ -568,30 +569,34 @@ mod test {
 
     #[test]
     fn test_version_bits_insert() {
-        use roles_logic_sv2::bitcoin::{blockdata::witness::Witness, hashes::Hash};
+        use stratum_common::{
+            bitcoin,
+            bitcoin::{blockdata::witness::Witness, hashes::Hash},
+        };
+
         let extranonces = ExtendedExtranonce::new(0..6, 6..8, 8..16);
         let (bridge, _) = test_utils::create_bridge(extranonces);
         bridge
             .safe_lock(|bridge| {
                 let channel_id = 1;
-                let out_id = roles_logic_sv2::bitcoin::hashes::sha256d::Hash::from_slice(&[
+                let out_id = bitcoin::hashes::sha256d::Hash::from_slice(&[
                     0_u8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                     0, 0, 0, 0, 0, 0, 0,
                 ])
                 .unwrap();
-                let p_out = roles_logic_sv2::bitcoin::OutPoint {
-                    txid: roles_logic_sv2::bitcoin::Txid::from_hash(out_id),
+                let p_out = bitcoin::OutPoint {
+                    txid: bitcoin::Txid::from_hash(out_id),
                     vout: 0xffff_ffff,
                 };
-                let in_ = roles_logic_sv2::bitcoin::TxIn {
+                let in_ = bitcoin::TxIn {
                     previous_output: p_out,
                     script_sig: vec![89_u8; 16].into(),
-                    sequence: roles_logic_sv2::bitcoin::Sequence(0),
+                    sequence: bitcoin::Sequence(0),
                     witness: Witness::from_vec(vec![]).into(),
                 };
-                let tx = roles_logic_sv2::bitcoin::Transaction {
+                let tx = bitcoin::Transaction {
                     version: 1,
-                    lock_time: roles_logic_sv2::bitcoin::PackedLockTime(0),
+                    lock_time: bitcoin::PackedLockTime(0),
                     input: vec![in_],
                     output: vec![],
                 };

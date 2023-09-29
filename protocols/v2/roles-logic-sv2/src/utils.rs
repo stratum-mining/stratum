@@ -4,18 +4,21 @@ use std::{
     sync::{Mutex as Mutex_, MutexGuard, PoisonError},
 };
 
-use bitcoin::{
-    blockdata::block::BlockHeader,
-    hash_types::{BlockHash, TxMerkleNode},
-    hashes::{sha256, sha256d::Hash as DHash, Hash},
-    util::{psbt::serialize::Deserialize, uint::Uint256},
-    Transaction,
-};
-
 use binary_sv2::{Seq064K, ShortTxId, B016M, U256};
 use siphasher::sip::SipHasher24;
 //compact_target_from_u256
 use tracing::error;
+
+use stratum_common::{
+    bitcoin,
+    bitcoin::{
+        blockdata::block::BlockHeader,
+        hash_types::{BlockHash, TxMerkleNode},
+        hashes::{sha256, sha256d::Hash as DHash, Hash},
+        util::{psbt::serialize::Deserialize, uint::Uint256},
+        Transaction,
+    },
+};
 
 use crate::errors::Error;
 
@@ -609,8 +612,6 @@ fn tx_hash_list_hash_builder(vec_tx_hashes: Vec<u64>) -> U256<'static> {
 
 #[cfg(test)]
 mod tests {
-    use binary_sv2::U256;
-
     #[cfg(feature = "serde")]
     use super::*;
     use super::{hash_rate_from_target, hash_rate_to_target};
@@ -624,6 +625,8 @@ mod tests {
     use std::convert::TryInto;
     #[cfg(feature = "serde")]
     use std::num::ParseIntError;
+
+    use stratum_common::bitcoin;
 
     #[cfg(feature = "serde")]
     fn decode_hex(s: &str) -> Result<Vec<u8>, ParseIntError> {

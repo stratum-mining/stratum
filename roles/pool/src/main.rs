@@ -1,9 +1,5 @@
 #![allow(special_module_name)]
 use async_channel::{bounded, unbounded};
-use bitcoin::{
-    secp256k1::{All, Secp256k1},
-    PublicKey, Script, TxOut,
-};
 use codec_sv2::{
     noise_sv2::formats::{EncodedEd25519PublicKey, EncodedEd25519SecretKey},
     StandardEitherFrame, StandardSv2Frame,
@@ -14,6 +10,11 @@ use serde::Deserialize;
 use std::{
     convert::{TryFrom, TryInto},
     str::FromStr,
+};
+
+use stratum_common::bitcoin::{
+    secp256k1::{All, Secp256k1},
+    PublicKey, Script, TxOut,
 };
 
 use tracing::{error, info, warn};

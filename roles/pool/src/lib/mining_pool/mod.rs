@@ -581,8 +581,13 @@ impl Pool {
 #[cfg(test)]
 mod test {
     use binary_sv2::{B0255, B064K};
-    use bitcoin::{util::psbt::serialize::Serialize, Transaction, Witness};
     use std::convert::TryInto;
+
+    use stratum_common::{
+        bitcoin,
+        bitcoin::{util::psbt::serialize::Serialize, Transaction, Witness},
+    };
+
     // this test is used to verify the `coinbase_tx_prefix` and `coinbase_tx_suffix` values tested against in
     // message generator `stratum/test/message-generator/test/pool-sri-test-extended.json`
     #[test]

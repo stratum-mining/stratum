@@ -1,11 +1,11 @@
 use crate::job::Job;
-use bitcoin::{
+use std::convert::TryInto;
+use stratum_common::bitcoin::{
     blockdata::block::BlockHeader,
     hash_types::{BlockHash, TxMerkleNode},
     hashes::{sha256d::Hash as DHash, Hash},
     util::uint::Uint256,
 };
-use std::convert::TryInto;
 
 /// A mock representation of a Mining Device that produces block header hashes to be submitted by
 /// the `Client` to the Upstream node (either a SV1 Pool server or a SV1 <-> SV2 Translator Proxy

@@ -1,8 +1,7 @@
-use roles_logic_sv2::{
-    bitcoin::util::uint::ParseLengthError,
-    mining_sv2::{ExtendedExtranonce, NewExtendedMiningJob, SetCustomMiningJob},
-};
 use std::fmt;
+
+use roles_logic_sv2::mining_sv2::{ExtendedExtranonce, NewExtendedMiningJob, SetCustomMiningJob};
+use stratum_common::bitcoin::util::uint::ParseLengthError;
 
 pub type ProxyResult<'a, T> = core::result::Result<T, Error<'a>>;
 

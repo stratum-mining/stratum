@@ -42,7 +42,6 @@ pub mod parsers;
 pub mod routing_logic;
 pub mod selectors;
 pub mod utils;
-pub use bitcoin;
 pub use common_messages_sv2;
 pub use errors::Error;
 pub use job_declaration_sv2;

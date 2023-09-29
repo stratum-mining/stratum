@@ -1,14 +1,14 @@
 use async_std::net::TcpStream;
 use std::{convert::TryInto, ops::Div};
 
-use bitcoin::util::uint::Uint256;
-
 use async_channel::{bounded, Receiver, Sender};
-
 use async_std::{io::BufReader, prelude::*, task};
+use num_bigint::BigUint;
+use num_traits::FromPrimitive;
 use roles_logic_sv2::utils::Mutex;
 use std::{sync::Arc, time};
 
+use stratum_common::bitcoin::util::uint::Uint256;
 use v1::{
     client_to_server,
     error::Error,
@@ -18,9 +18,8 @@ use v1::{
 };
 
 use crate::{job::Job, miner::Miner};
+
 const ADDR: &str = "127.0.0.1:34255";
-use num_bigint::BigUint;
-use num_traits::FromPrimitive;
 
 /// Represents the Mining Device client which is connected to a Upstream node (either a SV1 Pool
 /// server or a SV1 <-> SV2 Translator Proxy server).

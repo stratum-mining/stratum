@@ -1,12 +1,13 @@
 use async_std::net::TcpStream;
-use bitcoin::{
-    blockdata::block::BlockHeader, hash_types::BlockHash, hashes::Hash, util::uint::Uint256,
-};
 use network_helpers::PlainConnection;
 use roles_logic_sv2::utils::Id;
 use std::{
     net::{IpAddr, Ipv4Addr, SocketAddr},
     sync::Arc,
+};
+
+use stratum_common::bitcoin::{
+    blockdata::block::BlockHeader, hash_types::BlockHash, hashes::Hash, util::uint::Uint256,
 };
 
 async fn connect(address: SocketAddr, handicap: u32) {

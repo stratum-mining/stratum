@@ -4,7 +4,6 @@ use crate::{
 };
 use async_channel::{Receiver, SendError, Sender};
 use roles_logic_sv2::{
-    bitcoin::TxOut,
     channel_logic::channel_factory::{OnNewShare, PoolChannelFactory, Share},
     common_messages_sv2::{SetupConnection, SetupConnectionSuccess},
     common_properties::{CommonDownstreamData, IsDownstream, IsMiningDownstream},
@@ -14,7 +13,6 @@ use roles_logic_sv2::{
         job_declaration::SendTo as SendToJD,
         mining::{ParseDownstreamMiningMessages, SendTo, SupportedChannelTypes},
     },
-    job_creator::Decodable,
     mining_sv2::*,
     parsers::{JobDeclaration, Mining, MiningDeviceMessages, PoolMessages},
     template_distribution_sv2::{NewTemplate, SubmitSolution},
@@ -26,6 +24,8 @@ use codec_sv2::{
     noise_sv2::formats::{EncodedEd25519PublicKey, EncodedEd25519SecretKey},
     Frame, HandshakeRole, Responder, StandardEitherFrame, StandardSv2Frame,
 };
+
+use stratum_common::bitcoin::{consensus::Decodable, TxOut};
 
 pub type Message = MiningDeviceMessages<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;

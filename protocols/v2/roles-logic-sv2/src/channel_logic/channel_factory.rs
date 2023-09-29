@@ -18,12 +18,15 @@ use nohash_hasher::BuildNoHashHasher;
 use std::{collections::HashMap, convert::TryInto, sync::Arc};
 use template_distribution_sv2::{NewTemplate, SetNewPrevHash as SetNewPrevHashFromTp};
 
-use bitcoin::{
-    hashes::{hex::ToHex, sha256d::Hash, Hash as Hash_},
-    TxOut,
-};
-
 use tracing::{debug, error, info};
+
+use stratum_common::{
+    bitcoin,
+    bitcoin::{
+        hashes::{hex::ToHex, sha256d::Hash, Hash as Hash_},
+        TxOut,
+    },
+};
 
 /// A stripped type of `SetCustomMiningJob` without the (`channel_id, `request_id` and `token`) fields
 #[derive(Debug)]
