@@ -8,7 +8,7 @@ use roles_logic_sv2::{
     job_declaration_sv2::AllocateMiningJobTokenSuccess,
     parsers::{JobDeclaration, PoolMessages},
     template_distribution_sv2::SetNewPrevHash,
-    utils::{short_hash_list, Mutex},
+    utils::{hash_lists_tuple, Mutex},
 };
 use std::{collections::HashMap, convert::TryInto, str::FromStr};
 use tokio::task::AbortHandle;
@@ -209,8 +209,8 @@ impl JobDeclarator {
             coinbase_tx_locktime: template.coinbase_tx_locktime,
             min_extranonce_size,
             tx_short_hash_nonce,
-            tx_short_hash_list: short_hash_list(tx_list.clone(), tx_short_hash_nonce).0,
-            tx_hash_list_hash: short_hash_list(tx_list.clone(), tx_short_hash_nonce).1,
+            tx_short_hash_list: hash_lists_tuple(tx_list.clone(), tx_short_hash_nonce).0,
+            tx_hash_list_hash: hash_lists_tuple(tx_list.clone(), tx_short_hash_nonce).1,
             excess_data, // request transaction data
         };
         self_mutex
