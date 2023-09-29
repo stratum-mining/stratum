@@ -158,8 +158,10 @@ impl TemplateRx {
                                 // Send the new template along with the token to the JD so that JD can
                                 // declare the mining job
                                 Some(TemplateDistribution::NewTemplate(m)) => {
+                                    // See coment on the definition of the global for memory
+                                    // ordering
                                     crate::IS_NEW_TEMPLATE_HANDLED
-                                        .store(false, std::sync::atomic::Ordering::SeqCst);
+                                        .store(false, std::sync::atomic::Ordering::Relaxed);
                                     Self::send_tx_data_request(&self_mutex, m.clone()).await;
                                     self_mutex
                                         .safe_lock(|t| t.new_template_message = Some(m.clone()))
@@ -184,8 +186,8 @@ impl TemplateRx {
                                 }
                                 Some(TemplateDistribution::SetNewPrevHash(m)) => {
                                     info!("Received SetNewPrevHash, waiting for IS_NEW_TEMPLATE_HANDLED");
-                                    // use Acquire-Release for IS_NEW_TEMPLATE_HANDLED because
-                                    // is not needed a total order with other atomics in the code
+                                    // See coment on the definition of the global for memory
+                                    // ordering
                                     while !crate::IS_NEW_TEMPLATE_HANDLED
                                         .load(std::sync::atomic::Ordering::Acquire)
                                     {

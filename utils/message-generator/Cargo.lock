@@ -1021,6 +1021,7 @@ dependencies = [
  "mining_sv2",
  "nohash-hasher",
  "serde",
+ "siphasher",
  "template_distribution_sv2",
  "tracing",
 ]
@@ -1192,6 +1193,12 @@ name = "signature"
 version = "1.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "74233d3b3b2f6d4b006dc19dee745e73e2a6bfb6f93607cd3b02bd5b00797d7c"
+
+[[package]]
+name = "siphasher"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "54ac45299ccbd390721be55b412d41931911f654fa99e2cb8bfb57184b2061fe"
 
 [[package]]
 name = "smallvec"

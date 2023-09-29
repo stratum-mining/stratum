@@ -26,8 +26,30 @@ use crate::status::{State, Status};
 use std::sync::atomic::AtomicBool;
 use tracing::{error, info};
 
-/// USED to make sure that if a future new_template and a set_new_prev_hash are received together
-/// the future new_template is always handled before the set new prev hash.
+/// USED to make sure that if a future new_temnplate and a set_new_prev_hash are received together
+/// the future new_temnplate is always handled before the set new prev hash.
+///
+/// Is used by the template receiver and the downstream. When a NewTemplate is received the context
+/// that is running the template receiver set this value to false and then the message is sent to
+/// the context that is running the Downstream that do something and then set it back to true.
+///
+/// In the meantime if the context that is running the template receiver receives a SetNewPrevHash
+/// it wait until the value of this global is true before doing anything.
+///
+/// Acuire and Release memory ordering is used.
+///
+/// Memory Ordering Explanation:
+/// We use Acquire-Release ordering instead of SeqCst or Relaxed for the following reasons:
+/// 1. Acquire in template receiver context ensures we see all operations before the Release store
+///    the downstream.
+/// 2. Within the same execution context (template receiver), a Relaxed store followed by an Acquire
+///    load is sufficient. This is because operations within the same context execute in the order
+///    they appear in the code.
+/// 3. The combination of Release in downstream and Acquire in template receiver contexts establishes
+///    a happens-before relationship, guaranteeing that we handle the SetNewPrevHash message after
+///    that downstream have finished handling the NewTemplate.
+/// 3. SeqCst is overkill we only need to synchronize two contexts, a globally agreed-upon order
+///    between all the contexts is not necessary.
 pub static IS_NEW_TEMPLATE_HANDLED: AtomicBool = AtomicBool::new(true);
 
 /// Process CLI args, if any.
