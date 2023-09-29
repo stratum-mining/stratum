@@ -53,8 +53,7 @@ impl TryFrom<&CoinbaseOutput> for Script {
     fn try_from(value: &CoinbaseOutput) -> Result<Self, Self::Error> {
         match value.output_script_type.as_str() {
             "P2PK" => {
-                let pub_key =
-                    PublicKey::from_str(value.output_script_value.as_str())
+                let pub_key = PublicKey::from_str(value.output_script_value.as_str())
                     .expect("Invalid output_script_value for P2PK. It must be a valid public key.");
                 Ok(Script::new_p2pk(&pub_key))
             }
@@ -62,16 +61,15 @@ impl TryFrom<&CoinbaseOutput> for Script {
                 let pub_key_hash = PublicKey::from_str(value.output_script_value.as_str())
                     .expect("Invalid output_script_value for P2PKH. It must be a valid public key.")
                     .pubkey_hash();
-                Ok(Script::new_p2pkh(&pub_key_hash))  
+                Ok(Script::new_p2pkh(&pub_key_hash))
             }
             "P2WPKH" => {
-                let w_pub_key_hash =
-                    PublicKey::from_str(value.output_script_value.as_str())
-                        .expect(
-                            "Invalid output_script_value for P2WPKH. It must be a valid public key."
-                        )
-                        .wpubkey_hash()
-                        .unwrap();
+                let w_pub_key_hash = PublicKey::from_str(value.output_script_value.as_str())
+                    .expect(
+                        "Invalid output_script_value for P2WPKH. It must be a valid public key.",
+                    )
+                    .wpubkey_hash()
+                    .unwrap();
                 Ok(Script::new_v0_p2wpkh(&w_pub_key_hash))
             }
             "P2SH" => {
