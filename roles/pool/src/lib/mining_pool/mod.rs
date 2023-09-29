@@ -466,7 +466,7 @@ impl Pool {
             creator,
             share_per_min,
             kind,
-            pool_coinbase_outputs,
+            pool_coinbase_outputs.expect("Invalid coinbase output in config"),
         )));
         let pool = Arc::new(Mutex::new(Pool {
             downstreams: HashMap::with_hasher(BuildNoHashHasher::default()),
@@ -581,7 +581,7 @@ impl Pool {
 #[cfg(test)]
 mod test {
     use binary_sv2::{B0255, B064K};
-    use bitcoin::{util::psbt::serialize::Serialize, Transaction};
+    use bitcoin::{util::psbt::serialize::Serialize, Transaction, Witness};
     use std::convert::TryInto;
     // this test is used to verify the `coinbase_tx_prefix` and `coinbase_tx_suffix` values tested against in
     // message generator `stratum/test/message-generator/test/pool-sri-test-extended.json`
@@ -599,7 +599,7 @@ mod test {
         let _coinbase_tx_value_remaining: u64 = 5000000000;
         let _coinbase_tx_outputs_count = 0;
         let coinbase_tx_locktime = 0;
-        let coinbase_tx_outputs: Vec<bitcoin::TxOut> = crate::get_coinbase_output(&config);
+        let coinbase_tx_outputs: Vec<bitcoin::TxOut> = crate::get_coinbase_output(&config).unwrap();
         // extranonce len set to max_extranonce_size in `ChannelFactory::new_extended_channel()`
         let extranonce_len = 32;
 
@@ -609,19 +609,19 @@ mod test {
         let script_prefix_length = bip34_bytes.len();
         bip34_bytes.extend_from_slice(&vec![0; extranonce_len as usize]);
         let witness = match bip34_bytes.len() {
-            0 => vec![],
-            _ => vec![vec![0; 32]],
+            0 => Witness::from_vec(vec![]),
+            _ => Witness::from_vec(vec![vec![0; 32]]),
         };
 
         let tx_in = bitcoin::TxIn {
             previous_output: bitcoin::OutPoint::null(),
             script_sig: bip34_bytes.into(),
-            sequence: coinbase_tx_input_sequence,
+            sequence: bitcoin::Sequence(coinbase_tx_input_sequence),
             witness,
         };
         let coinbase = bitcoin::Transaction {
             version: coinbase_tx_version,
-            lock_time: coinbase_tx_locktime,
+            lock_time: bitcoin::PackedLockTime(coinbase_tx_locktime),
             input: vec![tx_in],
             output: coinbase_tx_outputs,
         };
@@ -643,10 +643,10 @@ mod test {
         assert!(
             coinbase_tx_suffix
                 == [
-                    255, 255, 255, 255, 1, 0, 242, 5, 42, 1, 0, 0, 0, 25, 118, 169, 20, 85, 162,
-                    233, 20, 174, 185, 114, 155, 76, 210, 101, 36, 140, 182, 122, 134, 94, 174,
-                    149, 253, 136, 172, 1, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    255, 255, 255, 255, 1, 0, 0, 0, 0, 0, 0, 0, 0, 25, 118, 169, 20, 85, 162, 
+                    233, 20, 174, 185, 114, 155, 76, 210, 101, 36, 140, 182, 122, 134, 94, 174, 
+                    149, 253, 136, 172, 1, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
+                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
                 ]
                 .to_vec()
                 .try_into()

@@ -249,8 +249,9 @@ impl DownstreamMiningNode {
         mut new_template: NewTemplate<'static>,
         pool_output: &[u8],
     ) -> Result<(), Error> {
+        let mut pool_out = &pool_output[0..];
         let pool_output =
-            TxOut::consensus_decode(pool_output).expect("Upstream sent an invalid coinbase");
+            TxOut::consensus_decode(&mut pool_out).expect("Upstream sent an invalid coinbase");
         let to_send = self_mutex
             .safe_lock(|s| {
                 let channel = s.status.get_channel();

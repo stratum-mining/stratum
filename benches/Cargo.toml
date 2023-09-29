@@ -16,7 +16,7 @@ framing_sv2 = { version = "0.1", path = "../protocols/v2/framing-sv2" }
 serde = { version = "1.0.89", default-features = false, features = ["derive", "alloc"] }
 num-bigint = "0.4.3"
 num-traits = "0.2.15"
-bitcoin="0.27.1"
+bitcoin="0.28.1"
 codec_sv2 = { path = "../protocols/v2/codec-sv2", features=["noise_sv2"] }
 binary_sv2 = { path = "../protocols/v2/binary-sv2/binary-sv2" }
 network_helpers = { path = "../utils/network-helpers", features=["async_std"] }

@@ -1,16 +1,11 @@
-name: Benchmark
+name: Run and Cache Benchmarks
 
-on: pull_request_target
+on: pull_request
 
 jobs:
-  benchmark_sv1_criterion_with_bencher:
-    name: Track sv1 criterion benchmarks with Bencher
+  benchmark_sv1_criterion:
+    name: Run and cache criterion sv1 benchmarks 
     runs-on: ubuntu-latest
-    env:
-      BENCHER_PROJECT: stratum
-      BENCHER_API_TOKEN: ${{ secrets.BENCHER_API_TOKEN }}
-      BENCHER_ADAPTER: rust_criterion
-      BENCHER_TESTBED: sv1
     steps:
       - name: Set up Rust
         uses: actions-rs/toolchain@v1
@@ -22,25 +17,20 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v2
           
-      - uses: actions/checkout@v3
-      - uses: bencherdev/bencher@v0.3.10
-      - name: Benchmark with Bencher
+      - name: Benchmark 
         run: |
           cd benches 
-          bencher run \
-          --github-actions ${{ secrets.GITHUB_TOKEN }} \
-          "cargo bench --bench criterion_sv1_benchmark"
+          cargo bench --bench criterion_sv1_benchmark > criterion_sv1_benchmarks.txt
 
-  benchmark_sv2_criterion_with_bencher:
-    name: Track sv2 criterion benchmarks with Bencher
+      - uses: actions/upload-artifact@v3
+        with:
+          name: criterion_sv1_benchmarks.txt
+          path: ./benches/criterion_sv1_benchmarks.txt
+
+  benchmark_sv2_criterion:
+    name: Run and cache criterion sv2 benchmarks 
     runs-on: ubuntu-latest
-    env:
-      BENCHER_PROJECT: stratum
-      BENCHER_API_TOKEN: ${{ secrets.BENCHER_API_TOKEN }}
-      BENCHER_ADAPTER: rust_criterion
-      BENCHER_TESTBED: sv2
     steps:
-
       - name: Set up Rust
         uses: actions-rs/toolchain@v1
         with:
@@ -51,25 +41,20 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v2
           
-      - uses: actions/checkout@v3
-      - uses: bencherdev/bencher@v0.3.10
-      - name: Benchmark with Bencher
+      - name: Benchmark 
         run: |
           cd benches 
-          bencher run \
-          --github-actions ${{ secrets.GITHUB_TOKEN }} \
-          "cargo bench --bench criterion_sv2_benchmark"
-    
-  benchmark_sv1_iai_with_bencher:
-    name: Track sv1 iai benchmarks with Bencher
-    runs-on: ubuntu-latest
-    env:
-      BENCHER_PROJECT: stratum
-      BENCHER_API_TOKEN: ${{ secrets.BENCHER_API_TOKEN }}
-      BENCHER_ADAPTER: rust_iai
-      BENCHER_TESTBED: sv1
-    steps:
+          cargo bench --bench criterion_sv2_benchmark > criterion_sv2_benchmarks.txt
+      
+      - uses: actions/upload-artifact@v3
+        with:
+          name: criterion_sv2_benchmarks.txt
+          path: ./benches/criterion_sv2_benchmarks.txt
 
+  benchmark_sv1_iai:
+    name: Run and cache iai sv1 benchmarks 
+    runs-on: ubuntu-latest
+    steps:
       - name: Set up Rust
         uses: actions-rs/toolchain@v1
         with:
@@ -85,23 +70,19 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y valgrind=1:3.18.1-1ubuntu2 
           
-      - uses: actions/checkout@v3
-      - uses: bencherdev/bencher@v0.3.10
-      - name: Benchmark with Bencher
+      - name: Benchmark 
         run: |
           cd benches 
-          bencher run \
-          --github-actions ${{ secrets.GITHUB_TOKEN }} \
-          "cargo bench --bench iai_sv1_benchmark"
-
-  benchmark_sv2_iai_with_bencher:
-    name: Track sv2 iai benchmarks with Bencher
+          cargo bench --bench iai_sv1_benchmark > iai_sv1_benchmarks.txt
+      
+      - uses: actions/upload-artifact@v3
+        with:
+          name: iai_sv1_benchmarks.txt
+          path: ./benches/iai_sv1_benchmarks.txt
+  
+  benchmark_sv2_iai:
+    name: Run and cache iai sv2 benchmarks 
     runs-on: ubuntu-latest
-    env:
-      BENCHER_PROJECT: stratum
-      BENCHER_API_TOKEN: ${{ secrets.BENCHER_API_TOKEN }}
-      BENCHER_ADAPTER: rust_iai
-      BENCHER_TESTBED: sv2
     steps:
       - name: Set up Rust
         uses: actions-rs/toolchain@v1
@@ -112,17 +93,18 @@ jobs:
 
       - name: Checkout repository
         uses: actions/checkout@v2
-          
+
       - name: Install Valgrind
         run: |
           sudo apt-get update
           sudo apt-get install -y valgrind=1:3.18.1-1ubuntu2 
           
-      - uses: actions/checkout@v3
-      - uses: bencherdev/bencher@v0.3.10
-      - name: Benchmark with Bencher
+      - name: Benchmark 
         run: |
           cd benches 
-          bencher run \
-          --github-actions ${{ secrets.GITHUB_TOKEN }} \
-          "cargo bench --bench iai_sv2_benchmark"
+          cargo bench --bench iai_sv2_benchmark > iai_sv2_benchmarks.txt
+      
+      - uses: actions/upload-artifact@v3
+        with:
+          name: iai_sv2_benchmarks.txt
+          path: ./benches/iai_sv2_benchmarks.txt

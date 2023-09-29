@@ -3,7 +3,10 @@
 use crate::{errors, utils::Id, Error};
 use binary_sv2::B064K;
 use bitcoin::{
-    blockdata::transaction::{OutPoint, Transaction, TxIn, TxOut},
+    blockdata::{
+        transaction::{OutPoint, Transaction, TxIn, TxOut},
+        witness::Witness,
+    },
     util::psbt::serialize::{Deserialize, Serialize},
 };
 pub use bitcoin::{
@@ -11,7 +14,7 @@ pub use bitcoin::{
     hash_types::{PubkeyHash, ScriptHash, WPubkeyHash, WScriptHash},
     hashes::Hash,
     secp256k1::SecretKey,
-    util::ecdsa::PrivateKey,
+    util::key::PrivateKey,
 };
 use mining_sv2::NewExtendedMiningJob;
 use nohash_hasher::BuildNoHashHasher;
@@ -34,7 +37,8 @@ pub struct JobsCreators {
 pub fn tx_outputs_to_costum_scripts(tx_outputs: &[u8]) -> Vec<TxOut> {
     let mut txs = vec![];
     let mut cursor = 0;
-    while let Ok(out) = TxOut::consensus_decode(&tx_outputs[cursor..]) {
+    let mut txouts = &tx_outputs[cursor..];
+    while let Ok(out) = TxOut::consensus_decode(&mut txouts) {
         let len = match out.script_pubkey.len() {
             a @ 0..=252 => 8 + 1 + a,
             a @ 253..=10000 => 8 + 3 + a,
@@ -321,19 +325,19 @@ fn coinbase(
     // If script_prefix_len is not 0 we are not in a test enviornment and the coinbase have the 0
     // witness
     let witness = match bip34_bytes.len() {
-        0 => vec![],
-        _ => vec![vec![0; 32]],
+        0 => Witness::from_vec(vec![]),
+        _ => Witness::from_vec(vec![vec![0; 32]]),
     };
     bip34_bytes.extend_from_slice(&vec![0; extranonce_len as usize]);
     let tx_in = TxIn {
         previous_output: OutPoint::null(),
         script_sig: bip34_bytes.into(),
-        sequence,
+        sequence: bitcoin::Sequence(sequence),
         witness,
     };
     Transaction {
         version,
-        lock_time,
+        lock_time: bitcoin::PackedLockTime(lock_time),
         input: vec![tx_in],
         output: coinbase_outputs.to_vec(),
     }
@@ -397,12 +401,12 @@ impl StrippedCoinbaseTx {
                     ser.extend_from_slice(&txin.previous_output.vout.to_le_bytes());
                     ser.push(txin.script_sig.len() as u8);
                     ser.extend_from_slice(txin.script_sig.as_bytes());
-                    ser.extend_from_slice(&txin.sequence.to_le_bytes());
+                    ser.extend_from_slice(&txin.sequence.0.to_le_bytes());
                     ser
                 })
                 .collect(),
             outputs: tx.output.iter().map(|o| o.serialize()).collect(),
-            lock_time: tx.lock_time,
+            lock_time: tx.lock_time.into(),
             bip141_bytes_len,
         })
     }
@@ -459,7 +463,7 @@ pub mod tests {
     use crate::utils::merkle_root_from_path;
     #[cfg(feature = "prop_test")]
     use binary_sv2::u256_from_int;
-    use bitcoin::{secp256k1::Secp256k1, util::ecdsa::PublicKey, Network};
+    use bitcoin::{secp256k1::Secp256k1, util::key::PublicKey, Network};
     use quickcheck::{Arbitrary, Gen};
     use std::{cmp, vec};
 

@@ -1,15 +1,20 @@
 #![allow(special_module_name)]
 use async_channel::{bounded, unbounded};
+use bitcoin::{
+    secp256k1::{All, Secp256k1},
+    PublicKey, Script, TxOut,
+};
 use codec_sv2::{
     noise_sv2::formats::{EncodedEd25519PublicKey, EncodedEd25519SecretKey},
     StandardEitherFrame, StandardSv2Frame,
 };
-use roles_logic_sv2::{
-    bitcoin::{PublicKey, Script, TxOut},
-    parsers::PoolMessages,
+use error::OutputScriptError;
+use roles_logic_sv2::parsers::PoolMessages;
+use serde::Deserialize;
+use std::{
+    convert::{TryFrom, TryInto},
+    str::FromStr,
 };
-use serde::{de::Visitor, Deserialize};
-use std::str::FromStr;
 
 use tracing::{error, info, warn};
 mod error;
@@ -22,68 +27,89 @@ pub type Message = PoolMessages<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;
 pub type EitherFrame = StandardEitherFrame<Message>;
 
-const BLOCK_REWARD: u64 = 5_000_000_000;
-
-//const COINBASE_ADD_SZIE: u32 = 100;
-
-pub fn get_coinbase_output(config: &Configuration) -> Vec<TxOut> {
-    config
+pub fn get_coinbase_output(config: &Configuration) -> Result<Vec<TxOut>, OutputScriptError> {
+    let result = config
         .coinbase_outputs
         .iter()
-        .map(|pub_key_wrapper| {
-            let hashed = pub_key_wrapper.pub_key.pubkey_hash();
-            TxOut {
-                // value will be updated by the addition of `ChannelFactory::split_outputs()` in PR #422
-                value: crate::BLOCK_REWARD,
-                script_pubkey: Script::new_p2pkh(&hashed),
-            }
+        .map(|coinbase_output| {
+            coinbase_output.try_into().map(|output_script| TxOut {
+                value: 0, //setting value to 0 in order to check that it is correctly updated by TP value_remaining
+                script_pubkey: output_script,
+            })
         })
-        .collect()
+        .collect::<Result<Vec<TxOut>, OutputScriptError>>();
+
+    match result.as_deref() {
+        Ok([]) => Err(OutputScriptError::EmptyCoinbaseOutputs("Empty coinbase outputs".to_string())),
+        _ => result,
+    }
+}
+
+impl TryFrom<&CoinbaseOutput> for Script {
+    type Error = OutputScriptError;
+
+    fn try_from(value: &CoinbaseOutput) -> Result<Self, Self::Error> {
+        match value.output_script_type.as_str() {
+            "P2PK" => {
+                let pub_key =
+                    PublicKey::from_str(value.output_script_value.as_str()).expect("Invalid output_script_value for P2PK. It must be a valid public key.");
+                Ok(Script::new_p2pk(&pub_key))
+            }
+            "P2PKH" => {
+                let pub_key_hash = PublicKey::from_str(value.output_script_value.as_str())
+                    .expect("Invalid output_script_value for P2PKH. It must be a valid public key.")
+                    .pubkey_hash();
+                Ok(Script::new_p2pkh(&pub_key_hash))  
+            }
+            "P2WPKH" => {
+                let w_pub_key_hash =
+                    PublicKey::from_str(value.output_script_value.as_str())
+                        .expect("Invalid output_script_value for P2WPKH. It must be a valid public key.")
+                        .wpubkey_hash()
+                        .unwrap();
+                Ok(Script::new_v0_p2wpkh(&w_pub_key_hash))
+            }
+            "P2SH" => {
+                let script_hashed = Script::from_str(&value.output_script_value)
+                    .expect("Invalid output_script_value for P2SH. It must be a valid script.")
+                    .script_hash();
+                Ok(Script::new_p2sh(&script_hashed))
+            }
+            "P2WSH" => {
+                let w_script_hashed = Script::from_str(&value.output_script_value)
+                    .expect("Invalid output_script_value for P2WSH. It must be a valid script.")
+                    .wscript_hash();
+                Ok(Script::new_v0_p2wsh(&w_script_hashed))
+            }
+            "P2TR" => {
+                // From the bip
+                //
+                // Conceptually, every Taproot output corresponds to a combination of
+                // a single public key condition (the internal key),
+                // and zero or more general conditions encoded in scripts organized in a tree.
+                let pub_key =
+                    PublicKey::from_str(value.output_script_value.as_str())
+                    .expect("Invalid output_script_value for P2TR. It must be a valid public key.");
+                Ok({
+                    let (pubkey_only, _) = pub_key.inner.x_only_public_key();
+                    Script::new_v1_p2tr::<All>(&Secp256k1::<All>::new(), pubkey_only, None)
+                })
+            }
+            _ => Err(OutputScriptError::UnknownScriptType(
+                value.output_script_type.clone(),
+            )),
+        }
+    }
 }
 
 use tokio::select;
 
 use crate::status::Status;
 
-/// used to deserialize a string repesentation of an uncompressed secp256k1
-/// public key from the pool-config.toml
-#[derive(Debug, Clone)]
-pub struct PublicKeyWrapper {
-    pub pub_key: PublicKey,
-}
-
-/// used by serde for deserialization
-struct PublicKeyVisitor;
-
-impl<'de> Visitor<'de> for PublicKeyVisitor {
-    type Value = bitcoin::PublicKey;
-    fn expecting(&self, formatter: &mut core::fmt::Formatter) -> core::fmt::Result {
-        formatter.write_str("a secp255k1 public key string")
-    }
-
-    fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
-    where
-        E: serde::de::Error,
-    {
-        match PublicKey::from_str(v) {
-            Ok(pub_key) => Ok(pub_key),
-            Err(e) => Err(E::custom(format!(
-                "Invalid coinbase output config public key: {:?}",
-                e
-            ))),
-        }
-    }
-}
-
-impl<'de> Deserialize<'de> for PublicKeyWrapper {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        Ok(Self {
-            pub_key: deserializer.deserialize_str(PublicKeyVisitor)?,
-        })
-    }
+#[derive(Debug, Deserialize, Clone)]
+pub struct CoinbaseOutput {
+    output_script_type: String,
+    output_script_value: String,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -93,7 +119,7 @@ pub struct Configuration {
     pub authority_public_key: EncodedEd25519PublicKey,
     pub authority_secret_key: EncodedEd25519SecretKey,
     pub cert_validity_sec: u64,
-    pub coinbase_outputs: Vec<PublicKeyWrapper>,
+    pub coinbase_outputs: Vec<CoinbaseOutput>,
     #[cfg(feature = "test_only_allow_unencrypted")]
     pub test_only_listen_adress_plain: String,
 }
@@ -190,8 +216,14 @@ async fn main() {
     let (s_solution, r_solution) = bounded(10);
     let (s_message_recv_signal, r_message_recv_signal) = bounded(10);
     info!("Pool INITIALIZING with config: {:?}", &args.config_path);
-    let coinbase_output_len = get_coinbase_output(&config).len() as u32;
-
+    let coinbase_output_result = get_coinbase_output(&config);
+    let coinbase_output_len = match coinbase_output_result {
+        Ok(coinbase_output) => coinbase_output.len() as u32,
+        Err(err) => {
+            error!("Failed to get coinbase output: {:?}", err);
+            return;
+        }
+    };
     let template_rx_res = TemplateRx::connect(
         config.tp_address.parse().unwrap(),
         s_new_t,
@@ -202,6 +234,7 @@ async fn main() {
         coinbase_output_len,
     )
     .await;
+
     if let Err(e) = template_rx_res {
         error!("Could not connect to Template Provider: {}", e);
         return;
