@@ -178,7 +178,10 @@ fn new_extended_job(
     version_rolling_allowed: bool,
     extranonce_len: u8,
 ) -> Result<NewExtendedMiningJob<'static>, Error> {
-    coinbase_outputs[0].value = new_template.coinbase_tx_value_remaining;
+    coinbase_outputs[0].value = match new_template.coinbase_tx_value_remaining.checked_mul(1) { //check that value_remaining is updated by TP
+        Some(result) => result,
+        None => return Err(Error::ValueRemainingNotUpdated),
+    };
     let tx_version = new_template
         .coinbase_tx_version
         .try_into()
