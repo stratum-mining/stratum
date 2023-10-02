@@ -15,7 +15,7 @@ network_helpers = { path = "../../utils/network-helpers", features = ["with_toki
 roles_logic_sv2 = { path = "../../protocols/v2/roles-logic-sv2", features = ["with_serde"] }
 v1 = { version = "^0.1.1", path = "../../protocols/v1", package="sv1_api" }
 serde = { version = "*", features = ["derive", "alloc"], default-features = false }
-serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
+serde_json = { version = "*", default-features = true, features = ["alloc"] }
 tokio = { version = "1", features = ["full"] }
 arbitrary = { version = "1", features = ["derive"] }
 rand = "0.8.5"

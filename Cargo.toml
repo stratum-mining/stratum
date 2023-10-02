@@ -49,6 +49,7 @@ members = [
     "examples/interop-cpp/template-provider/example-of-guix-build/quickcheck_macros",
     "examples/template-provider-test",
     "experimental/coinbase-negotiator",
+    #"vendored/rust-jsonrpc"
 ]
 
 exclude = [
