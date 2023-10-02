@@ -1,0 +1,39 @@
+[package]
+name = "jsonrpc"
+version = "0.16.0"
+authors = ["Andrew Poelstra <apoelstra@wpsoftware.net>"]
+license = "CC0-1.0"
+homepage = "https://github.com/apoelstra/rust-jsonrpc/"
+repository = "https://github.com/apoelstra/rust-jsonrpc/"
+documentation = "https://docs.rs/jsonrpc/"
+description = "Rust support for the JSON-RPC 2.0 protocol"
+keywords = [ "protocol", "json", "http", "jsonrpc" ]
+readme	 = "README.md"
+edition = "2018"
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+[features]
+default = [ "simple_http", "simple_tcp" ]
+# A bare-minimum HTTP transport.
+simple_http = [ "base64" ]
+# A transport that uses `minreq` as the HTTP client.
+minreq_http = [ "base64", "minreq" ]
+# Basic transport over a raw TcpListener
+simple_tcp = []
+# Basic transport over a raw UnixStream
+simple_uds = []
+# Enable Socks5 Proxy in transport
+proxy = ["socks"]
+
+
+[dependencies]
+serde = { version = "*", features = ["derive", "alloc"], default-features = false }
+serde_json = { version = "1.0", default-features = false, features = ["alloc","raw_value"] }
+
+base64 = { version = "0.13.0", optional = true }
+minreq = { version = "2.7.0", features = ["json-using-serde"], optional = true }
+socks = { version = "0.3.4", optional = true}
+
