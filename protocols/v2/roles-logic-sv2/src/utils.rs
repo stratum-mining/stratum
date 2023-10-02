@@ -1,13 +1,13 @@
 use std::{
-    convert::{TryInto, TryFrom},
+    convert::{TryFrom, TryInto},
     ops::{Div, Mul},
-    sync::{Mutex as Mutex_, MutexGuard, PoisonError}, str::FromStr,
+    str::FromStr,
+    sync::{Mutex as Mutex_, MutexGuard, PoisonError},
 };
 
 use binary_sv2::{Seq064K, ShortTxId, B016M, U256};
 use siphasher::sip::SipHasher24;
 //compact_target_from_u256
-use tracing::error;
 use stratum_common::{
     bitcoin,
     bitcoin::{
@@ -16,9 +16,10 @@ use stratum_common::{
         hashes::{sha256, sha256d::Hash as DHash, Hash},
         secp256k1::{All, Secp256k1},
         util::{psbt::serialize::Deserialize, uint::Uint256},
-        Transaction, Script, PublicKey,
+        PublicKey, Script, Transaction,
     },
 };
+use tracing::error;
 
 use crate::errors::Error;
 

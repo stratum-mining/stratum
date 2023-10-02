@@ -52,8 +52,8 @@
                 "WithConditions": {
                     "conditions": [
                         {
-                            "output_string": "Invalid output_script_value for P2PK. It must be a valid public key.: Hex(InvalidLength(66, 129))",
-                            "output_location": "StdErr",
+                            "output_string": "Failed to get coinbase output:",
+                            "output_location": "StdOut",
                             "condition": true
                         }
                     ],

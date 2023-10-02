@@ -6,17 +6,12 @@ use codec_sv2::{
 };
 //use error::OutputScriptError;
 use roles_logic_sv2::{
-    parsers::PoolMessages,
-    utils::CoinbaseOutput as CoinbaseOutput_,
-    errors::Error,
+    errors::Error, parsers::PoolMessages, utils::CoinbaseOutput as CoinbaseOutput_,
 };
 use serde::Deserialize;
-use std::convert::{TryFrom,TryInto};
+use std::convert::{TryFrom, TryInto};
 
-use stratum_common::bitcoin::{
-    Script,
-    TxOut
-};
+use stratum_common::bitcoin::{Script, TxOut};
 use tracing::{error, info, warn};
 mod error;
 mod lib;
@@ -49,12 +44,10 @@ impl TryFrom<&CoinbaseOutput> for CoinbaseOutput_ {
 
     fn try_from(pool_output: &CoinbaseOutput) -> Result<Self, Self::Error> {
         match pool_output.output_script_type.as_str() {
-            "P2PK" | "P2PKH" | "P2WPKH" | "P2SH" | "P2WSH" | "P2TR" => {
-                Ok(CoinbaseOutput_ {
-                    output_script_type: pool_output.clone().output_script_type,
-                    output_script_value: pool_output.clone().output_script_value,
-                })
-            }
+            "P2PK" | "P2PKH" | "P2WPKH" | "P2SH" | "P2WSH" | "P2TR" => Ok(CoinbaseOutput_ {
+                output_script_type: pool_output.clone().output_script_type,
+                output_script_value: pool_output.clone().output_script_value,
+            }),
             _ => Err(Error::UnknownOutputScriptType),
         }
     }
@@ -65,7 +58,7 @@ use tokio::select;
 use crate::status::Status;
 
 #[derive(Debug, Deserialize, Clone)]
-pub struct CoinbaseOutput{
+pub struct CoinbaseOutput {
     output_script_type: String,
     output_script_value: String,
 }
