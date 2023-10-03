@@ -314,6 +314,7 @@ mod tests {
             value: BLOCK_REWARD,
             script_pubkey: Script::new_p2pk(&new_pub_key()),
         };
+        let pool_signature = "Stratum v2 SRI Pool".to_string();
         let mut jobs_creators = JobsCreators::new(32);
         let group_channel_id = 1;
         //Create a template
@@ -321,7 +322,7 @@ mod tests {
         template.template_id = template.template_id % u64::MAX;
         template.future_template = true;
         let extended_mining_job = jobs_creators
-            .on_new_template(&mut template, false, vec![out])
+            .on_new_template(&mut template, false, vec![out], pool_signature)
             .expect("Failed to create new job");
 
         // create GroupChannelJobDispatcher

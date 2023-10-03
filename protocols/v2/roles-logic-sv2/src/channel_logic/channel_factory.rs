@@ -907,6 +907,7 @@ pub struct PoolChannelFactory {
     inner: ChannelFactory,
     job_creator: JobsCreators,
     pool_coinbase_outputs: Vec<TxOut>,
+    pool_signature: String,
     // extedned_channel_id -> SetCustomMiningJob
     negotiated_jobs: HashMap<u32, SetCustomMiningJob<'static>, BuildNoHashHasher<u32>>,
 }
@@ -919,6 +920,7 @@ impl PoolChannelFactory {
         share_per_min: f32,
         kind: ExtendedChannelKind,
         pool_coinbase_outputs: Vec<TxOut>,
+        pool_signature: String,
     ) -> Self {
         let inner = ChannelFactory {
             ids,
@@ -945,6 +947,7 @@ impl PoolChannelFactory {
             inner,
             job_creator,
             pool_coinbase_outputs,
+            pool_signature,
             negotiated_jobs: HashMap::with_hasher(BuildNoHashHasher::default()),
         }
     }
@@ -1010,7 +1013,7 @@ impl PoolChannelFactory {
     ) -> Result<HashMap<u32, Mining<'static>, BuildNoHashHasher<u32>>, Error> {
         let new_job =
             self.job_creator
-                .on_new_template(m, true, self.pool_coinbase_outputs.clone())?;
+                .on_new_template(m, true, self.pool_coinbase_outputs.clone(), self.pool_signature.clone())?;
         self.inner.on_new_extended_mining_job(new_job)
     }
     /// Called when a `SubmitSharesStandard` message is received from the downstream. We check the shares
@@ -1074,8 +1077,9 @@ impl PoolChannelFactory {
             let referenced_job = self.negotiated_jobs.get(&m.channel_id).unwrap();
             let merkle_path = referenced_job.merkle_path.to_vec();
             let coinbase_outputs = self.pool_coinbase_outputs.clone();
+            let pool_signature = self.pool_signature.clone();
             let extended_job =
-                job_creator::extended_job_from_custom_job(referenced_job, coinbase_outputs, 32)
+                job_creator::extended_job_from_custom_job(referenced_job, coinbase_outputs, pool_signature, 32)
                     .unwrap();
             self.inner.check_target(
                 Share::Extended(m.into_static()),
@@ -1176,6 +1180,7 @@ pub struct ProxyExtendedChannelFactory {
     inner: ChannelFactory,
     job_creator: Option<JobsCreators>,
     pool_coinbase_outputs: Option<Vec<TxOut>>,
+    pool_signature: String,
     // Id assigned to the extended channel by upstream
     extended_channel_id: u32,
 }
@@ -1188,6 +1193,7 @@ impl ProxyExtendedChannelFactory {
         share_per_min: f32,
         kind: ExtendedChannelKind,
         pool_coinbase_outputs: Option<Vec<TxOut>>,
+        pool_signature: String,
         extended_channel_id: u32,
     ) -> Self {
         match &kind {
@@ -1227,6 +1233,7 @@ impl ProxyExtendedChannelFactory {
             inner,
             job_creator,
             pool_coinbase_outputs,
+            pool_signature,
             extended_channel_id,
         }
     }
@@ -1315,7 +1322,7 @@ impl ProxyExtendedChannelFactory {
             self.job_creator.as_mut(),
             self.pool_coinbase_outputs.as_mut(),
         ) {
-            let new_job = job_creator.on_new_template(m, true, pool_coinbase_outputs.clone())?;
+            let new_job = job_creator.on_new_template(m, true, pool_coinbase_outputs.clone(), self.pool_signature.clone())?;
             let id = new_job.job_id;
             if !new_job.is_future() && self.inner.last_prev_hash.is_some() {
                 let prev_hash = self.last_prev_hash().unwrap();
@@ -1664,6 +1671,7 @@ mod test {
 
         // Initialize a Channel of type Pool
         let out = TxOut {value: BLOCK_REWARD, script_pubkey: decode_hex("4104c6d0969c2d98a5c19ba7c36c7937c5edbd60ff2a01397c4afe54f16cd641667ea0049ba6f9e1796ba3c8e49e1b504c532ebbaaa1010c3f7d9b83a8ea7fd800e2ac").unwrap().into()};
+        let pool_signature = "Stratum v2 SRI Pool".to_string();
         let creator = JobsCreators::new(7);
         let share_per_min = 1.0;
         // Create an ExtendedExtranonce of len 7:
@@ -1684,6 +1692,7 @@ mod test {
             share_per_min,
             channel_kind,
             vec![out],
+            pool_signature
         );
 
         // Build a NewTemplate
