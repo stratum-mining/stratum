@@ -1,24 +1,25 @@
 use std::{
-    convert::TryInto,
+    convert::{TryFrom, TryInto},
     ops::{Div, Mul},
+    str::FromStr,
     sync::{Mutex as Mutex_, MutexGuard, PoisonError},
 };
 
 use binary_sv2::{Seq064K, ShortTxId, B016M, U256};
 use siphasher::sip::SipHasher24;
 //compact_target_from_u256
-use tracing::error;
-
 use stratum_common::{
     bitcoin,
     bitcoin::{
         blockdata::block::BlockHeader,
         hash_types::{BlockHash, TxMerkleNode},
         hashes::{sha256, sha256d::Hash as DHash, Hash},
+        secp256k1::{All, Secp256k1},
         util::{psbt::serialize::Deserialize, uint::Uint256},
-        Transaction,
+        PublicKey, Script, Transaction,
     },
 };
+use tracing::error;
 
 use crate::errors::Error;
 
@@ -175,6 +176,68 @@ fn reduce_path<T: AsRef<[u8]>>(coinbase_id: [u8; 32], path: &[T]) -> [u8; 32] {
             .unwrap();
     }
     root
+}
+
+//
+// Coinbase output construction utils
+//
+#[derive(Debug, Clone)]
+pub struct CoinbaseOutput {
+    pub output_script_type: String,
+    pub output_script_value: String,
+}
+
+impl TryFrom<CoinbaseOutput> for Script {
+    type Error = Error;
+
+    fn try_from(value: CoinbaseOutput) -> Result<Self, Self::Error> {
+        match value.output_script_type.as_str() {
+            "P2PK" => {
+                let pub_key = PublicKey::from_str(value.output_script_value.as_str())
+                    .map_err(|_| Error::InvalidOutputScript)?;
+                Ok(Script::new_p2pk(&pub_key))
+            }
+            "P2PKH" => {
+                let pub_key_hash = PublicKey::from_str(value.output_script_value.as_str())
+                    .map_err(|_| Error::InvalidOutputScript)?
+                    .pubkey_hash();
+                Ok(Script::new_p2pkh(&pub_key_hash))
+            }
+            "P2WPKH" => {
+                let w_pub_key_hash = PublicKey::from_str(value.output_script_value.as_str())
+                    .map_err(|_| Error::InvalidOutputScript)?
+                    .wpubkey_hash()
+                    .unwrap();
+                Ok(Script::new_v0_p2wpkh(&w_pub_key_hash))
+            }
+            "P2SH" => {
+                let script_hashed = Script::from_str(&value.output_script_value)
+                    .map_err(|_| Error::InvalidOutputScript)?
+                    .script_hash();
+                Ok(Script::new_p2sh(&script_hashed))
+            }
+            "P2WSH" => {
+                let w_script_hashed = Script::from_str(&value.output_script_value)
+                    .map_err(|_| Error::InvalidOutputScript)?
+                    .wscript_hash();
+                Ok(Script::new_v0_p2wsh(&w_script_hashed))
+            }
+            "P2TR" => {
+                // From the bip
+                //
+                // Conceptually, every Taproot output corresponds to a combination of
+                // a single public key condition (the internal key),
+                // and zero or more general conditions encoded in scripts organized in a tree.
+                let pub_key = PublicKey::from_str(value.output_script_value.as_str())
+                    .map_err(|_| Error::InvalidOutputScript)?;
+                Ok({
+                    let (pubkey_only, _) = pub_key.inner.x_only_public_key();
+                    Script::new_v1_p2tr::<All>(&Secp256k1::<All>::new(), pubkey_only, None)
+                })
+            }
+            _ => Err(Error::UnknownOutputScriptType),
+        }
+    }
 }
 
 /// The pool set a target for each miner. Each target is calibrated on the hashrate of the miner.

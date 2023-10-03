@@ -4,20 +4,15 @@ use codec_sv2::{
     noise_sv2::formats::{EncodedEd25519PublicKey, EncodedEd25519SecretKey},
     StandardEitherFrame, StandardSv2Frame,
 };
-use error::OutputScriptError;
-use roles_logic_sv2::parsers::PoolMessages;
-use serde::Deserialize;
-use std::{
-    convert::{TryFrom, TryInto},
-    str::FromStr,
+use roles_logic_sv2::{
+    errors::Error, parsers::PoolMessages, utils::CoinbaseOutput as CoinbaseOutput_,
 };
+use serde::Deserialize;
+use std::convert::{TryFrom, TryInto};
 
 use tracing::{error, info, warn};
 
-use stratum_common::bitcoin::{
-    secp256k1::{All, Secp256k1},
-    PublicKey, Script, TxOut,
-};
+use stratum_common::bitcoin::{Script, TxOut};
 
 mod error;
 mod lib;
@@ -29,79 +24,32 @@ pub type Message = PoolMessages<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;
 pub type EitherFrame = StandardEitherFrame<Message>;
 
-pub fn get_coinbase_output(config: &Configuration) -> Result<Vec<TxOut>, OutputScriptError> {
-    let result = config
-        .coinbase_outputs
-        .iter()
-        .map(|coinbase_output| {
-            coinbase_output.try_into().map(|output_script| TxOut {
-                value: 0, //setting value to 0 in order to check that it is correctly updated by TP value_remaining
-                script_pubkey: output_script,
-            })
-        })
-        .collect::<Result<Vec<TxOut>, OutputScriptError>>();
-
-    match result.as_deref() {
-        Ok([]) => Err(OutputScriptError::EmptyCoinbaseOutputs(
-            "Empty coinbase outputs".to_string(),
-        )),
-        _ => result,
+pub fn get_coinbase_output(config: &Configuration) -> Result<Vec<TxOut>, Error> {
+    let mut result = Vec::new();
+    for coinbase_output_pool in &config.coinbase_outputs {
+        let coinbase_output: CoinbaseOutput_ = coinbase_output_pool.try_into()?;
+        let output_script: Script = coinbase_output.try_into()?;
+        result.push(TxOut {
+            value: 0,
+            script_pubkey: output_script,
+        });
+    }
+    match result.is_empty() {
+        true => Err(Error::EmptyCoinbaseOutputs),
+        _ => Ok(result),
     }
 }
 
-impl TryFrom<&CoinbaseOutput> for Script {
-    type Error = OutputScriptError;
+impl TryFrom<&CoinbaseOutput> for CoinbaseOutput_ {
+    type Error = Error;
 
-    fn try_from(value: &CoinbaseOutput) -> Result<Self, Self::Error> {
-        match value.output_script_type.as_str() {
-            "P2PK" => {
-                let pub_key = PublicKey::from_str(value.output_script_value.as_str())
-                    .expect("Invalid output_script_value for P2PK. It must be a valid public key.");
-                Ok(Script::new_p2pk(&pub_key))
-            }
-            "P2PKH" => {
-                let pub_key_hash = PublicKey::from_str(value.output_script_value.as_str())
-                    .expect("Invalid output_script_value for P2PKH. It must be a valid public key.")
-                    .pubkey_hash();
-                Ok(Script::new_p2pkh(&pub_key_hash))
-            }
-            "P2WPKH" => {
-                let w_pub_key_hash = PublicKey::from_str(value.output_script_value.as_str())
-                    .expect(
-                        "Invalid output_script_value for P2WPKH. It must be a valid public key.",
-                    )
-                    .wpubkey_hash()
-                    .unwrap();
-                Ok(Script::new_v0_p2wpkh(&w_pub_key_hash))
-            }
-            "P2SH" => {
-                let script_hashed = Script::from_str(&value.output_script_value)
-                    .expect("Invalid output_script_value for P2SH. It must be a valid script.")
-                    .script_hash();
-                Ok(Script::new_p2sh(&script_hashed))
-            }
-            "P2WSH" => {
-                let w_script_hashed = Script::from_str(&value.output_script_value)
-                    .expect("Invalid output_script_value for P2WSH. It must be a valid script.")
-                    .wscript_hash();
-                Ok(Script::new_v0_p2wsh(&w_script_hashed))
-            }
-            "P2TR" => {
-                // From the bip
-                //
-                // Conceptually, every Taproot output corresponds to a combination of
-                // a single public key condition (the internal key),
-                // and zero or more general conditions encoded in scripts organized in a tree.
-                let pub_key = PublicKey::from_str(value.output_script_value.as_str())
-                    .expect("Invalid output_script_value for P2TR. It must be a valid public key.");
-                Ok({
-                    let (pubkey_only, _) = pub_key.inner.x_only_public_key();
-                    Script::new_v1_p2tr::<All>(&Secp256k1::<All>::new(), pubkey_only, None)
-                })
-            }
-            _ => Err(OutputScriptError::UnknownScriptType(
-                value.output_script_type.clone(),
-            )),
+    fn try_from(pool_output: &CoinbaseOutput) -> Result<Self, Self::Error> {
+        match pool_output.output_script_type.as_str() {
+            "P2PK" | "P2PKH" | "P2WPKH" | "P2SH" | "P2WSH" | "P2TR" => Ok(CoinbaseOutput_ {
+                output_script_type: pool_output.clone().output_script_type,
+                output_script_value: pool_output.clone().output_script_value,
+            }),
+            _ => Err(Error::UnknownOutputScriptType),
         }
     }
 }
