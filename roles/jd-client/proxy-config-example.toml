@@ -30,4 +30,5 @@ retry = 10
 
 [jd_config]
 jd_address = "127.0.0.1:34264"
-tp_address = "75.119.150.111:8442"
+#tp_address = "75.119.150.111:8442"
+tp_address = "89.116.25.191:8442"

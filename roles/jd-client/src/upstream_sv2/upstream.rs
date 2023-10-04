@@ -56,6 +56,8 @@ pub struct Upstream {
     /// set by the SV2 Upstream via the SV2 `OpenExtendedMiningChannelSuccess` message.
     pub min_extranonce_size: u16,
     pub upstream_extranonce1_size: usize,
+    /// String be included in coinbase tx input scriptsig
+    pub pool_signature: String,
     /// Receives messages from the SV2 Upstream role
     pub receiver: Receiver<EitherFrame>,
     /// Sends messages to the SV2 Upstream role
@@ -86,6 +88,7 @@ impl Upstream {
         address: SocketAddr,
         authority_public_key: codec_sv2::noise_sv2::formats::EncodedEd25519PublicKey,
         min_extranonce_size: u16,
+        pool_signature: String,
         tx_status: status::Sender,
         channel_factory_sender: Sender<PoolChannelFactory>,
         task_collector: Arc<Mutex<Vec<AbortHandle>>>,
@@ -121,6 +124,7 @@ impl Upstream {
             last_job_id: 0,
             min_extranonce_size,
             upstream_extranonce1_size: 16, // 16 is the default since that is the only value the pool supports currently
+            pool_signature,
             tx_status,
             receiver,
             sender,
@@ -439,7 +443,7 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
         m: roles_logic_sv2::mining_sv2::OpenExtendedMiningChannelSuccess,
     ) -> Result<SendTo<Downstream>, RolesLogicError> {
         let ids = Arc::new(Mutex::new(roles_logic_sv2::utils::GroupId::new()));
-
+        let pool_signature = self.pool_signature.clone();
         let prefix_len = m.extranonce_prefix.to_vec().len();
         let self_len = 0;
         let total_len = prefix_len + m.extranonce_size as usize;
@@ -459,7 +463,7 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
             share_per_min,
             channel_kind,
             vec![],
-            String::from(""),
+            pool_signature,
         );
         let extranonce: Extranonce = m
             .extranonce_prefix

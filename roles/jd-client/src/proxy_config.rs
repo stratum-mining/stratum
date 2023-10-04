@@ -23,4 +23,5 @@ pub struct ProxyConfig {
 pub struct JdConfig {
     pub jd_address: String,
     pub tp_address: String,
+    pub pool_signature: String, // string be included in coinbase tx input scriptsig
 }
