@@ -459,6 +459,7 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
             share_per_min,
             channel_kind,
             vec![],
+            String::from(""),
         );
         let extranonce: Extranonce = m
             .extranonce_prefix

@@ -97,6 +97,7 @@ impl Bridge {
                 share_per_min,
                 ExtendedChannelKind::Proxy { upstream_target },
                 None,
+                String::from(""),
                 up_id,
             ),
             future_jobs: vec![],
