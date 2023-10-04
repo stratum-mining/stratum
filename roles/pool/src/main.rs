@@ -191,7 +191,7 @@ async fn main() {
         error!("Could not connect to Template Provider: {}", e);
         return;
     }
-    
+
     let pool = Pool::start(
         config.clone(),
         r_new_t,

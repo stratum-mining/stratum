@@ -1011,9 +1011,12 @@ impl PoolChannelFactory {
         &mut self,
         m: &mut NewTemplate<'static>,
     ) -> Result<HashMap<u32, Mining<'static>, BuildNoHashHasher<u32>>, Error> {
-        let new_job =
-            self.job_creator
-                .on_new_template(m, true, self.pool_coinbase_outputs.clone(), self.pool_signature.clone())?;
+        let new_job = self.job_creator.on_new_template(
+            m,
+            true,
+            self.pool_coinbase_outputs.clone(),
+            self.pool_signature.clone(),
+        )?;
         self.inner.on_new_extended_mining_job(new_job)
     }
     /// Called when a `SubmitSharesStandard` message is received from the downstream. We check the shares
@@ -1078,9 +1081,13 @@ impl PoolChannelFactory {
             let merkle_path = referenced_job.merkle_path.to_vec();
             let coinbase_outputs = self.pool_coinbase_outputs.clone();
             let pool_signature = self.pool_signature.clone();
-            let extended_job =
-                job_creator::extended_job_from_custom_job(referenced_job, coinbase_outputs, pool_signature, 32)
-                    .unwrap();
+            let extended_job = job_creator::extended_job_from_custom_job(
+                referenced_job,
+                coinbase_outputs,
+                pool_signature,
+                32,
+            )
+            .unwrap();
             self.inner.check_target(
                 Share::Extended(m.into_static()),
                 target,
@@ -1322,7 +1329,12 @@ impl ProxyExtendedChannelFactory {
             self.job_creator.as_mut(),
             self.pool_coinbase_outputs.as_mut(),
         ) {
-            let new_job = job_creator.on_new_template(m, true, pool_coinbase_outputs.clone(), self.pool_signature.clone())?;
+            let new_job = job_creator.on_new_template(
+                m,
+                true,
+                pool_coinbase_outputs.clone(),
+                self.pool_signature.clone(),
+            )?;
             let id = new_job.job_id;
             if !new_job.is_future() && self.inner.last_prev_hash.is_some() {
                 let prev_hash = self.last_prev_hash().unwrap();
@@ -1692,7 +1704,7 @@ mod test {
             share_per_min,
             channel_kind,
             vec![out],
-            pool_signature
+            pool_signature,
         );
 
         // Build a NewTemplate
