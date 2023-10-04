@@ -250,7 +250,6 @@ impl SimpleHttpTransport {
             Some(n) => sock.take(n),
         };
 
-
         let mut message_reader = BufReader::new(reader).lines();
         let message_r = message_reader.next().unwrap().unwrap();
         // Attempt to parse the response. Don't check the HTTP error code until
@@ -597,7 +596,7 @@ impl error::Error for Error {
                 ..
             } => None,
             SocketError(ref e) => Some(e),
-            Json(ref _e) => todo!()//Some(e),
+            Json(ref _e) => todo!(), //Some(e),
         }
     }
 }

@@ -3,7 +3,7 @@
 //! This module implements a synchronous transport over a raw [`std::net::TcpListener`].
 //! Note that it does not handle TCP over Unix Domain Sockets, see `simple_uds` for this.
 
-use std::io::{BufWriter, BufReader, BufRead, Write};
+use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::{error, fmt, io, net, time};
 
 use crate::client::Transport;
@@ -47,7 +47,7 @@ impl TcpTransport {
 
         let mut message_reader = BufReader::new(sock).lines();
         let message_w = message_reader.next().unwrap().unwrap();
-        
+
         let resp: R = serde_json::Deserializer::from_str(&message_w)
             .into_iter()
             .next()
@@ -100,7 +100,7 @@ impl error::Error for Error {
         match *self {
             SocketError(ref e) => Some(e),
             Timeout => None,
-            Json(ref _e) => todo!()//Some(e),
+            Json(ref _e) => todo!(), //Some(e),
         }
     }
 }

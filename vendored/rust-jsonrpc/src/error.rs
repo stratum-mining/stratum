@@ -77,7 +77,7 @@ impl error::Error for Error {
             | BatchDuplicateResponseId(_)
             | WrongBatchResponseId(_) => None,
             Transport(ref e) => Some(&**e),
-            Json(ref _e) => todo!()//Some(e),
+            Json(ref _e) => todo!(), //Some(e),
         }
     }
 }
