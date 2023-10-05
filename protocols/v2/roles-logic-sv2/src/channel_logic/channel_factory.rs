@@ -1684,7 +1684,7 @@ mod test {
 
         // Initialize a Channel of type Pool
         let out = TxOut {value: BLOCK_REWARD, script_pubkey: decode_hex("4104c6d0969c2d98a5c19ba7c36c7937c5edbd60ff2a01397c4afe54f16cd641667ea0049ba6f9e1796ba3c8e49e1b504c532ebbaaa1010c3f7d9b83a8ea7fd800e2ac").unwrap().into()};
-        let pool_signature = "Stratum v2 SRI Pool".to_string();
+        let pool_signature = "".to_string();
         let creator = JobsCreators::new(7);
         let share_per_min = 1.0;
         // Create an ExtendedExtranonce of len 7:
