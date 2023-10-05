@@ -24,9 +24,10 @@ impl ParseServerJobDeclarationMessages for JobDeclarator {
 
     fn handle_declare_mining_job_success(
         &mut self,
-        _message: DeclareMiningJobSuccess,
+        message: DeclareMiningJobSuccess,
     ) -> Result<SendTo, Error> {
-        Ok(SendTo::None(None))
+        let message = JobDeclaration::DeclareMiningJobSuccess(message.into_static());
+        Ok(SendTo::None(Some(message)))
     }
 
     fn handle_declare_mining_job_error(
@@ -71,52 +72,5 @@ impl ParseServerJobDeclarationMessages for JobDeclarator {
 
     fn handle_submit_shares_error(&mut self, _message: SubmitSharesError) -> Result<SendTo, Error> {
         Ok(SendTo::None(None))
-    }
-
-    fn handle_message_job_declaration(
-        self_: std::sync::Arc<roles_logic_sv2::utils::Mutex<Self>>,
-        message_type: u8,
-        payload: &mut [u8],
-    ) -> Result<SendTo, Error> {
-        // Is ok to unwrap a safe_lock result
-        match (message_type, payload).try_into() {
-            Ok(JobDeclaration::AllocateMiningJobTokenSuccess(message)) => self_
-                .safe_lock(|x| x.handle_allocate_mining_job_token_success(message))
-                .unwrap(),
-            Ok(JobDeclaration::DeclareMiningJobSuccess(message)) => self_
-                .safe_lock(|x| x.handle_declare_mining_job_success(message))
-                .unwrap(),
-            Ok(JobDeclaration::DeclareMiningJobError(message)) => self_
-                .safe_lock(|x| x.handle_declare_mining_job_error(message))
-                .unwrap(),
-            Ok(JobDeclaration::IdentifyTransactions(message)) => self_
-                .safe_lock(|x| x.handle_identify_transactions(message))
-                .unwrap(),
-            Ok(JobDeclaration::ProvideMissingTransactions(message)) => self_
-                .safe_lock(|x| x.handle_provide_missing_transactions(message))
-                .unwrap(),
-            Ok(JobDeclaration::SubmitSharesSuccess(message)) => self_
-                .safe_lock(|x| x.handle_submit_shares_success(message))
-                .unwrap(),
-            Ok(JobDeclaration::SubmitSharesError(message)) => self_
-                .safe_lock(|x| x.handle_submit_shares_error(message))
-                .unwrap(),
-            Ok(JobDeclaration::AllocateMiningJobToken(_)) => Err(Error::UnexpectedMessage(
-                u8::from_str_radix("0x50", 16).unwrap(),
-            )),
-            Ok(JobDeclaration::DeclareMiningJob(_)) => Err(Error::UnexpectedMessage(
-                u8::from_str_radix("0x57", 16).unwrap(),
-            )),
-            Ok(JobDeclaration::IdentifyTransactionsSuccess(_)) => Err(Error::UnexpectedMessage(
-                u8::from_str_radix("0x53", 16).unwrap(),
-            )),
-            Ok(JobDeclaration::ProvideMissingTransactionsSuccess(_)) => Err(
-                Error::UnexpectedMessage(u8::from_str_radix("0x56", 16).unwrap()),
-            ),
-            Ok(JobDeclaration::SubmitSharesExtended(_)) => Err(Error::UnexpectedMessage(
-                u8::from_str_radix("0x1b", 16).unwrap(),
-            )),
-            Err(e) => Err(e),
-        }
     }
 }

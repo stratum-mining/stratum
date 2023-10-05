@@ -53,8 +53,10 @@ pub enum OnNewShare {
     /// target.
     SendErrorDownstream(SubmitSharesError<'static>),
     /// Used when an exteded channel in a proxy receive a share, and the share meet upstream
-    /// target, in this case a new share must be sent upstream.
-    SendSubmitShareUpstream(Share),
+    /// target, in this case a new share must be sent upstream. Also an optional template id is
+    /// returned, when a job declarator want to send a valid share upstream could use the
+    /// template for get the up job id.
+    SendSubmitShareUpstream((Share, Option<u64>)),
     /// Used when a group channel in a proxy receive a share that is not malformed and is for a
     /// valid channel in that case we relay the same exact share upstream with a new request id.
     RelaySubmitShareUpstream,
@@ -74,7 +76,7 @@ impl OnNewShare {
     pub fn into_extended(&mut self, extranonce: Vec<u8>, up_id: u32) {
         match self {
             OnNewShare::SendErrorDownstream(_) => (),
-            OnNewShare::SendSubmitShareUpstream(share) => match share {
+            OnNewShare::SendSubmitShareUpstream((share, template_id)) => match share {
                 Share::Extended(_) => (),
                 Share::Standard((share, _)) => {
                     let share = SubmitSharesExtended {
@@ -86,7 +88,7 @@ impl OnNewShare {
                         version: share.version,
                         extranonce: extranonce.try_into().unwrap(),
                     };
-                    *self = Self::SendSubmitShareUpstream(Share::Extended(share));
+                    *self = Self::SendSubmitShareUpstream((Share::Extended(share), *template_id));
                 }
             },
             OnNewShare::RelaySubmitShareUpstream => (),
@@ -719,6 +721,8 @@ impl ChannelFactory {
         merkle_path: Vec<TxHash>,
         coinbase_tx_prefix: &[u8],
         coinbase_tx_suffix: &[u8],
+        prev_blockhash: bitcoin::hash_types::BlockHash,
+        bits: u32,
     ) -> Result<OnNewShare, Error> {
         let upstream_target = match &self.kind {
             ExtendedChannelKind::Pool => Target::new(0, 0),
@@ -758,15 +762,10 @@ impl ChannelFactory {
 
         let header = bitcoin::blockdata::block::BlockHeader {
             version,
-            prev_blockhash: self.last_prev_hash_.ok_or(Error::ShareDoNotMatchAnyJob)?,
+            prev_blockhash,
             merkle_root: Hash::from_inner(merkle_root).into(),
             time: m.get_n_time(),
-            bits: self
-                .last_prev_hash
-                .as_ref()
-                .ok_or(Error::ShareDoNotMatchAnyJob)?
-                .0
-                .nbits,
+            bits,
             nonce: m.get_nonce(),
         };
         let hash_ = header.block_hash();
@@ -817,11 +816,13 @@ impl ChannelFactory {
                 ExtendedChannelKind::Proxy { .. } | ExtendedChannelKind::ProxyJd { .. } => {
                     let upstream_extranonce_space = self.extranonces.get_range0_len();
                     let extranonce = extranonce[upstream_extranonce_space..].to_vec();
-                    let mut res = OnNewShare::SendSubmitShareUpstream(m);
+                    let mut res = OnNewShare::SendSubmitShareUpstream((m, template_id));
                     res.into_extended(extranonce, up_id);
                     Ok(res)
                 }
-                ExtendedChannelKind::Pool => Ok(OnNewShare::SendSubmitShareUpstream(m)),
+                ExtendedChannelKind::Pool => {
+                    Ok(OnNewShare::SendSubmitShareUpstream((m, template_id)))
+                }
             }
         } else if hash <= downstream_target {
             Ok(OnNewShare::ShareMeetDownstreamTarget)
@@ -1040,6 +1041,17 @@ impl PoolChannelFactory {
                     .get_template_id_from_job(referenced_job.job_id)
                     .ok_or(Error::NoTemplateForId)?;
                 let target = self.job_creator.last_target();
+                let prev_blockhash = self
+                    .inner
+                    .last_prev_hash_
+                    .ok_or(Error::ShareDoNotMatchAnyJob)?;
+                let bits = self
+                    .inner
+                    .last_prev_hash
+                    .as_ref()
+                    .ok_or(Error::ShareDoNotMatchAnyJob)?
+                    .0
+                    .nbits;
                 self.inner.check_target(
                     Share::Standard((m, *g_id)),
                     target,
@@ -1048,6 +1060,8 @@ impl PoolChannelFactory {
                     merkle_path,
                     referenced_job.coinbase_tx_prefix.as_ref(),
                     referenced_job.coinbase_tx_suffix.as_ref(),
+                    prev_blockhash,
+                    bits,
                 )
             }
             None => {
@@ -1071,23 +1085,19 @@ impl PoolChannelFactory {
         m: SubmitSharesExtended,
     ) -> Result<OnNewShare, Error> {
         let target = self.job_creator.last_target();
-        // When downstream set a custom mining job we add the the job to the negotiated job
+        // When downstream set a custom mining job we add the job to the negotiated job
         // hashmap, with the extended channel id as a key. Whenever the pool receive a share must
         // first check if the channel have a negotiated job if so we can not retreive the template
-        // via the job creator (TODO MVP3 add a way to get the template for negotiated job create a
-        // block from the template and send to bitcoind via RPC).
+        // via the job creator but we create a new one from the set custom job.
         if self.negotiated_jobs.contains_key(&m.channel_id) {
             let referenced_job = self.negotiated_jobs.get(&m.channel_id).unwrap();
             let merkle_path = referenced_job.merkle_path.to_vec();
-            let coinbase_outputs = self.pool_coinbase_outputs.clone();
             let pool_signature = self.pool_signature.clone();
-            let extended_job = job_creator::extended_job_from_custom_job(
-                referenced_job,
-                coinbase_outputs,
-                pool_signature,
-                32,
-            )
-            .unwrap();
+            let extended_job =
+                job_creator::extended_job_from_custom_job(referenced_job, pool_signature, 32)
+                    .unwrap();
+            let prev_blockhash = crate::utils::u256_to_block_hash(referenced_job.prev_hash.clone());
+            let bits = referenced_job.nbits;
             self.inner.check_target(
                 Share::Extended(m.into_static()),
                 target,
@@ -1096,6 +1106,8 @@ impl PoolChannelFactory {
                 merkle_path,
                 extended_job.coinbase_tx_prefix.as_ref(),
                 extended_job.coinbase_tx_suffix.as_ref(),
+                prev_blockhash,
+                bits,
             )
         } else {
             let referenced_job = self
@@ -1109,6 +1121,17 @@ impl PoolChannelFactory {
                 .job_creator
                 .get_template_id_from_job(referenced_job.job_id)
                 .ok_or(Error::NoTemplateForId)?;
+            let prev_blockhash = self
+                .inner
+                .last_prev_hash_
+                .ok_or(Error::ShareDoNotMatchAnyJob)?;
+            let bits = self
+                .inner
+                .last_prev_hash
+                .as_ref()
+                .ok_or(Error::ShareDoNotMatchAnyJob)?
+                .0
+                .nbits;
             self.inner.check_target(
                 Share::Extended(m.into_static()),
                 target,
@@ -1117,6 +1140,8 @@ impl PoolChannelFactory {
                 merkle_path,
                 referenced_job.coinbase_tx_prefix.as_ref(),
                 referenced_job.coinbase_tx_suffix.as_ref(),
+                prev_blockhash,
+                bits,
             )
         }
     }
@@ -1400,6 +1425,17 @@ impl ProxyExtendedChannelFactory {
                 .get_template_id_from_job(referenced_job.job_id)
                 .ok_or(Error::NoTemplateForId)?;
             let bitcoin_target = job_creator.last_target();
+            let prev_blockhash = self
+                .inner
+                .last_prev_hash_
+                .ok_or(Error::ShareDoNotMatchAnyJob)?;
+            let bits = self
+                .inner
+                .last_prev_hash
+                .as_ref()
+                .ok_or(Error::ShareDoNotMatchAnyJob)?
+                .0
+                .nbits;
             self.inner.check_target(
                 Share::Extended(m),
                 bitcoin_target,
@@ -1408,11 +1444,24 @@ impl ProxyExtendedChannelFactory {
                 merkle_path,
                 referenced_job.coinbase_tx_prefix.as_ref(),
                 referenced_job.coinbase_tx_suffix.as_ref(),
+                prev_blockhash,
+                bits,
             )
         } else {
             let bitcoin_target = [0; 32];
             // if there is not job_creator is not proxy duty to check if target is below or above
             // bitcoin target so we set bitcoin_target = 0.
+            let prev_blockhash = self
+                .inner
+                .last_prev_hash_
+                .ok_or(Error::ShareDoNotMatchAnyJob)?;
+            let bits = self
+                .inner
+                .last_prev_hash
+                .as_ref()
+                .ok_or(Error::ShareDoNotMatchAnyJob)?
+                .0
+                .nbits;
             self.inner.check_target(
                 Share::Extended(m),
                 bitcoin_target.into(),
@@ -1421,6 +1470,8 @@ impl ProxyExtendedChannelFactory {
                 merkle_path,
                 referenced_job.coinbase_tx_prefix.as_ref(),
                 referenced_job.coinbase_tx_suffix.as_ref(),
+                prev_blockhash,
+                bits,
             )
         }
     }
@@ -1455,6 +1506,17 @@ impl ProxyExtendedChannelFactory {
                         )
                         .ok_or(Error::NoTemplateForId)?;
                     let bitcoin_target = job_creator.last_target();
+                    let prev_blockhash = self
+                        .inner
+                        .last_prev_hash_
+                        .ok_or(Error::ShareDoNotMatchAnyJob)?;
+                    let bits = self
+                        .inner
+                        .last_prev_hash
+                        .as_ref()
+                        .ok_or(Error::ShareDoNotMatchAnyJob)?
+                        .0
+                        .nbits;
                     self.inner.check_target(
                         Share::Standard((m, *g_id)),
                         bitcoin_target,
@@ -1463,9 +1525,22 @@ impl ProxyExtendedChannelFactory {
                         merkle_path,
                         referenced_job.coinbase_tx_prefix.as_ref(),
                         referenced_job.coinbase_tx_suffix.as_ref(),
+                        prev_blockhash,
+                        bits,
                     )
                 } else {
                     let bitcoin_target = [0; 32];
+                    let prev_blockhash = self
+                        .inner
+                        .last_prev_hash_
+                        .ok_or(Error::ShareDoNotMatchAnyJob)?;
+                    let bits = self
+                        .inner
+                        .last_prev_hash
+                        .as_ref()
+                        .ok_or(Error::ShareDoNotMatchAnyJob)?
+                        .0
+                        .nbits;
                     // if there is not job_creator is not proxy duty to check if target is below or above
                     // bitcoin target so we set bitcoin_target = 0.
                     self.inner.check_target(
@@ -1476,6 +1551,8 @@ impl ProxyExtendedChannelFactory {
                         merkle_path,
                         referenced_job.coinbase_tx_prefix.as_ref(),
                         referenced_job.coinbase_tx_suffix.as_ref(),
+                        prev_blockhash,
+                        bits,
                     )
                 }
             }

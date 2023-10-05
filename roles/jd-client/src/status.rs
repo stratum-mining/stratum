@@ -41,6 +41,7 @@ pub enum State<'a> {
     DownstreamShutdown(Error<'a>),
     BridgeShutdown(Error<'a>),
     UpstreamShutdown(Error<'a>),
+    UpstreamRogue,
     Healthy(String),
 }
 

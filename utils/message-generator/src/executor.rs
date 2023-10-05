@@ -989,7 +989,7 @@ fn check_each_field(msg: serde_json::Value, field_info: &Vec<(String, Sv2Type)>)
 }
 fn message_to_value<'a>(m: &'a serde_json::Value, field: &str) -> &'a serde_json::Value {
     let msg = m.as_object().unwrap();
-    let value = msg.get(field).unwrap();
+    let value = msg.get(field).expect(&format!("Fail with message {:?} for field {}",m,field).to_string());
     value
 }
 

@@ -89,6 +89,17 @@ impl ChannelKind {
             }
         }
     }
+
+    fn reset(&mut self) {
+        match self {
+            ChannelKind::Group(_) => {
+                *self = ChannelKind::Group(GroupChannels::new());
+            }
+            ChannelKind::Extended(_) => {
+                *self = ChannelKind::Extended(None);
+            }
+        }
+    }
 }
 
 impl From<crate::ChannelKind> for ChannelKind {
@@ -171,6 +182,7 @@ pub struct UpstreamMiningNode {
     job_up_to_down_ids:
         HashMap<u32, Vec<(Arc<Mutex<DownstreamMiningNode>>, u32)>, BuildNoHashHasher<u32>>,
     downstream_hash_rate: f32,
+    reconnect: bool,
 }
 
 use core::convert::TryInto;
@@ -192,6 +204,7 @@ impl UpstreamMiningNode {
         solution_sender: Option<Sender<SubmitSolution<'static>>>,
         recv_coinbase_out: Option<Receiver<(Vec<TxOut>, Vec<u8>)>>,
         downstream_hash_rate: f32,
+        reconnect: bool,
     ) -> Self {
         let request_id_mapper = RequestIdMapper::new();
         let downstream_selector = ProxyRemoteSelector::new();
@@ -214,6 +227,7 @@ impl UpstreamMiningNode {
             tx_outs: HashMap::new(),
             job_up_to_down_ids: HashMap::with_hasher(BuildNoHashHasher::default()),
             downstream_hash_rate,
+            reconnect,
         }
     }
     fn on_p_hash(
@@ -356,7 +370,7 @@ impl UpstreamMiningNode {
                 );
 
                 let initiator = Initiator::from_raw_k(authority_public_key).unwrap();
-                let (receiver, sender) =
+                let (receiver, sender, _, _) =
                     Connection::new(socket, HandshakeRole::Initiator(initiator)).await;
                 let connection = UpstreamMiningConnection { receiver, sender };
                 self_mutex
@@ -435,7 +449,9 @@ impl UpstreamMiningNode {
     }
 
     fn exit(self_: Arc<Mutex<Self>>) {
-        crate::remove_upstream(self_.safe_lock(|s| s.id).unwrap());
+        if !self_.safe_lock(|s| s.reconnect).unwrap() {
+            crate::remove_upstream(self_.safe_lock(|s| s.id).unwrap());
+        }
         let downstreams = self_
             .safe_lock(|s| s.downstream_selector.get_all_downstreams())
             .unwrap();
@@ -471,6 +487,20 @@ impl UpstreamMiningNode {
                 //todo!()
             }
             DownstreamMiningNode::exit(d);
+        }
+        if self_.safe_lock(|s| s.reconnect).unwrap() {
+            self_.safe_lock(|s| s.connection = None).unwrap();
+            let flags = self_
+                .safe_lock(|s| s.sv2_connection.unwrap().setup_connection_flags)
+                .unwrap();
+            self_.safe_lock(|s| s.sv2_connection = None).unwrap();
+            self_.safe_lock(|s| s.channel_kind.reset()).unwrap();
+            tokio::task::spawn(async move {
+                tokio::time::sleep(std::time::Duration::from_secs(10)).await;
+                Self::setup_flag_and_version(self_, Some(flags), 2, 2)
+                    .await
+                    .unwrap();
+            });
         }
     }
 
@@ -638,7 +668,6 @@ impl UpstreamMiningNode {
                 min_extranonce_size: crate::MIN_EXTRANONCE_SIZE,
             },
         ));
-        #[allow(unused_must_use)]
         Self::send(self_mutex.clone(), message.try_into().unwrap())
             .await
             .unwrap();
@@ -736,7 +765,7 @@ impl UpstreamMiningNode {
                     tracing::error!("Received invalid share");
                     Ok(Mining::SubmitSharesError(e))
                 }
-                OnNewShare::SendSubmitShareUpstream(s) => match s {
+                OnNewShare::SendSubmitShareUpstream((s, _)) => match s {
                     Share::Extended(s) => {
                         let message = Mining::SubmitSharesExtended(s);
                         let message = PoolMessages::Mining(message);
@@ -1248,6 +1277,7 @@ mod tests {
             None,
             None,
             100_000.0,
+            false,
         );
 
         assert_eq!(actual.id, id);

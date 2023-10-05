@@ -132,6 +132,14 @@ impl<'de> Deserializer<'de> {
     }
 
     #[inline]
+    fn parse_u64(&mut self) -> Result<u64> {
+        let u32_ = self.get_slice(8)?;
+        Ok(u64::from_le_bytes([
+            u32_[0], u32_[1], u32_[2], u32_[3], u32_[0], u32_[1], u32_[2], u32_[3],
+        ]))
+    }
+
+    #[inline]
     fn parse_f32(&mut self) -> Result<f32> {
         let f32_ = self.get_slice(4)?;
         Ok(f32::from_le_bytes([f32_[0], f32_[1], f32_[2], f32_[3]]))
@@ -294,6 +302,13 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         visitor.visit_bool(self.parse_bool()?)
     }
 
+    fn deserialize_u64<V>(self, visitor: V) -> Result<V::Value>
+    where
+        V: Visitor<'de>,
+    {
+        visitor.visit_u64(self.parse_u64()?)
+    }
+
     ///// UNIMPLEMENTED /////
 
     fn deserialize_option<V>(self, _visitor: V) -> Result<V::Value>
@@ -346,13 +361,6 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     }
 
     fn deserialize_i64<V>(self, _visitor: V) -> Result<V::Value>
-    where
-        V: Visitor<'de>,
-    {
-        unimplemented!()
-    }
-
-    fn deserialize_u64<V>(self, _visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {

@@ -43,7 +43,8 @@ pub async fn setup_as_upstream<
                 std::time::Duration::from_secs(6000),
             )
             .unwrap();
-            Connection::new(stream, HandshakeRole::Responder(responder)).await
+            let (recv, sender,_,_) = Connection::new(stream, HandshakeRole::Responder(responder)).await;
+            (recv,sender)
         }
         None => PlainConnection::new(stream).await,
     }
@@ -60,7 +61,8 @@ pub async fn setup_as_downstream<
     match key {
         Some(publ) => {
             let initiator = Initiator::from_raw_k(*publ.into_inner().as_bytes()).unwrap();
-            Connection::new(stream, HandshakeRole::Initiator(initiator)).await
+            let (recv, sender,_,_) =  Connection::new(stream, HandshakeRole::Initiator(initiator)).await;
+            (recv,sender)
         }
         None => PlainConnection::new(stream).await,
     }

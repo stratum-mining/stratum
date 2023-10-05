@@ -1,5 +1,5 @@
 pub mod message_handler;
-use crate::{error::PoolError, Configuration, EitherFrame, StdFrame};
+use crate::{error::JdsError, status, Configuration, EitherFrame, StdFrame};
 use async_channel::{Receiver, Sender};
 use binary_sv2::{B0255, U256};
 use codec_sv2::{Frame, HandshakeRole, Responder};
@@ -11,7 +11,7 @@ use noise_sv2::formats::{EncodedEd25519PublicKey, EncodedEd25519SecretKey};
 use roles_logic_sv2::{
     common_messages_sv2::SetupConnectionSuccess,
     handlers::job_declaration::{ParseClientJobDeclarationMessages, SendTo},
-    parsers::PoolMessages,
+    parsers::PoolMessages as JdsMessages,
     utils::{Id, Mutex},
 };
 use std::{collections::HashMap, convert::TryInto, sync::Arc};
@@ -62,37 +62,41 @@ impl JobDeclaratorDownstream {
         self_mutex: Arc<Mutex<Self>>,
         message: roles_logic_sv2::parsers::JobDeclaration<'static>,
     ) -> Result<(), ()> {
-        let sv2_frame: StdFrame = PoolMessages::JobDeclaration(message).try_into().unwrap();
+        let sv2_frame: StdFrame = JdsMessages::JobDeclaration(message).try_into().unwrap();
         let sender = self_mutex.safe_lock(|self_| self_.sender.clone()).unwrap();
         sender.send(sv2_frame.into()).await.map_err(|_| ())?;
         Ok(())
     }
-    pub fn start(self_mutex: Arc<Mutex<Self>>, tx_status: crate::status::Sender) {
+    pub fn start(self_mutex: Arc<Mutex<Self>>, tx_status: status::Sender) {
         let recv = self_mutex.safe_lock(|s| s.receiver.clone()).unwrap();
         tokio::spawn(async move {
             loop {
-                if let Ok(message) = recv.recv().await {
-                    let mut frame: StdFrame = handle_result!(tx_status, message.try_into());
-                    let header = frame
-                        .get_header()
-                        .ok_or_else(|| PoolError::Custom(String::from("No header set")));
-                    let header = handle_result!(tx_status, header);
-                    let message_type = header.msg_type();
-                    let payload = frame.payload();
-                    let next_message_to_send =
-                        ParseClientJobDeclarationMessages::handle_message_job_declaration(
-                            self_mutex.clone(),
-                            message_type,
-                            payload,
-                        );
-                    match next_message_to_send {
-                        Ok(SendTo::Respond(message)) => {
-                            Self::send(self_mutex.clone(), message).await.unwrap();
+                match recv.recv().await {
+                    Ok(message) => {
+                        let mut frame: StdFrame = handle_result!(tx_status, message.try_into());
+                        let header = frame
+                            .get_header()
+                            .ok_or_else(|| JdsError::Custom(String::from("No header set")));
+                        let header = handle_result!(tx_status, header);
+                        let message_type = header.msg_type();
+                        let payload = frame.payload();
+                        let next_message_to_send =
+                            ParseClientJobDeclarationMessages::handle_message_job_declaration(
+                                self_mutex.clone(),
+                                message_type,
+                                payload,
+                            );
+                        match next_message_to_send {
+                            Ok(SendTo::Respond(message)) => {
+                                Self::send(self_mutex.clone(), message).await.unwrap();
+                            }
+                            _ => unreachable!(),
                         }
-                        _ => unreachable!(),
                     }
-                } else {
-                    todo!();
+                    Err(err) => {
+                        handle_result!(tx_status, Err(JdsError::ChannelRecv(err)));
+                        break;
+                    }
                 }
             }
         });
@@ -156,7 +160,7 @@ impl JobDeclarator {
             )
             .unwrap();
 
-            let (receiver, sender): (Receiver<EitherFrame>, Sender<EitherFrame>) =
+            let (receiver, sender, _, _) =
                 Connection::new(stream, HandshakeRole::Responder(responder)).await;
             let setup_message_from_proxy_jd = receiver.recv().await.unwrap();
             info!(
@@ -169,10 +173,9 @@ impl JobDeclarator {
                 // Setup flags for async_mining_allowed
                 flags: 0b_0000_0000_0000_0000_0000_0000_0000_0001,
             };
-            let sv2_frame: StdFrame =
-                PoolMessages::Common(setup_connection_success_to_proxy.into())
-                    .try_into()
-                    .unwrap();
+            let sv2_frame: StdFrame = JdsMessages::Common(setup_connection_success_to_proxy.into())
+                .try_into()
+                .unwrap();
             let sv2_frame = sv2_frame.into();
             info!("Sending success message for proxy");
             sender.send(sv2_frame).await.unwrap();

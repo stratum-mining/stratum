@@ -6,7 +6,7 @@ use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::{TcpListener, TcpStream},
     sync::Mutex,
-    task,
+    task::{self, AbortHandle},
 };
 
 use binary_sv2::GetSize;
@@ -30,6 +30,8 @@ impl Connection {
     ) -> (
         Receiver<StandardEitherFrame<Message>>,
         Sender<StandardEitherFrame<Message>>,
+        AbortHandle,
+        AbortHandle,
     ) {
         let address = stream.peer_addr().unwrap();
 
@@ -52,7 +54,7 @@ impl Connection {
         let cloned2 = connection.clone();
 
         // RECEIVE AND PARSE INCOMING MESSAGES FROM TCP STREAM
-        task::spawn(async move {
+        let recv_task = task::spawn(async move {
             let mut decoder = StandardNoiseDecoder::<Message>::new();
 
             loop {
@@ -86,7 +88,7 @@ impl Connection {
         let receiver_outgoing_cloned = receiver_outgoing.clone();
 
         // ENCODE AND SEND INCOMING MESSAGES TO TCP STREAM
-        task::spawn(async move {
+        let send_task = task::spawn(async move {
             let mut encoder = codec_sv2::NoiseEncoder::<Message>::new();
 
             loop {
@@ -160,7 +162,12 @@ impl Connection {
             }
         };
         debug!("Noise handshake complete - {}", &address);
-        (receiver_incoming, sender_outgoing)
+        (
+            receiver_incoming,
+            sender_outgoing,
+            recv_task.abort_handle(),
+            send_task.abort_handle(),
+        )
     }
 
     async fn set_state(self_: Arc<Mutex<Self>>, state: codec_sv2::State) {

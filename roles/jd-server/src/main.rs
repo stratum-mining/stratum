@@ -5,7 +5,7 @@ use codec_sv2::{
     StandardEitherFrame, StandardSv2Frame,
 };
 use roles_logic_sv2::{
-    errors::Error, parsers::PoolMessages, utils::CoinbaseOutput as CoinbaseOutput_,
+    errors::Error, parsers::PoolMessages as JdsMessages, utils::CoinbaseOutput as CoinbaseOutput_,
 };
 use serde::Deserialize;
 use std::convert::{TryFrom, TryInto};
@@ -20,7 +20,7 @@ mod status;
 
 use lib::template_receiver::TemplateRx;
 
-pub type Message = PoolMessages<'static>;
+pub type Message = JdsMessages<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;
 pub type EitherFrame = StandardEitherFrame<Message>;
 
@@ -164,7 +164,7 @@ async fn main() {
     };
 
     let (status_tx, status_rx) = unbounded();
-    info!("Pool INITIALIZING with config: {:?}", &args.config_path);
+    info!("Jds INITIALIZING with config: {:?}", &args.config_path);
     let coinbase_output_result = get_coinbase_output(&config);
     let coinbase_output_len = match coinbase_output_result {
         Ok(coinbase_output) => coinbase_output.len() as u32,
@@ -215,7 +215,6 @@ async fn main() {
                     "SHUTDOWN from Downstream: {}\nTry to restart the downstream listener",
                     err
                 );
-                break;
             }
             status::State::TemplateProviderShutdown(err) => {
                 error!("SHUTDOWN from Upstream: {}\nTry to reconnecting or connecting to a new upstream", err);
@@ -225,8 +224,7 @@ async fn main() {
                 info!("HEALTHY message: {}", msg);
             }
             status::State::DownstreamInstanceDropped(downstream_id) => {
-                warn!("Dropping downstream instance {} from pool", downstream_id);
-                todo!()
+                warn!("Dropping downstream instance {} from jds", downstream_id);
             }
         }
     }

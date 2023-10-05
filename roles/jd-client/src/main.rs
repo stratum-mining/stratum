@@ -19,6 +19,7 @@ use std::{
     net::{IpAddr, SocketAddr},
     str::FromStr,
     sync::Arc,
+    time::Duration,
 };
 use tokio::task::AbortHandle;
 
@@ -26,8 +27,6 @@ use crate::status::{State, Status};
 use std::sync::atomic::AtomicBool;
 use tracing::{error, info};
 
-/// USED to make sure that if a future new_temnplate and a set_new_prev_hash are received together
-/// the future new_temnplate is always handled before the set new prev hash.
 ///
 /// Is used by the template receiver and the downstream. When a NewTemplate is received the context
 /// that is running the template receiver set this value to false and then the message is sent to
@@ -51,6 +50,40 @@ use tracing::{error, info};
 /// 3. SeqCst is overkill we only need to synchronize two contexts, a globally agreed-upon order
 ///    between all the contexts is not necessary.
 pub static IS_NEW_TEMPLATE_HANDLED: AtomicBool = AtomicBool::new(true);
+
+#[derive(Debug)]
+pub struct PoolChangerTrigger {
+    timeout: Duration,
+    task: Option<tokio::task::JoinHandle<()>>,
+}
+
+impl PoolChangerTrigger {
+    pub fn new(timeout: Duration) -> Self {
+        Self {
+            timeout,
+            task: None,
+        }
+    }
+
+    pub fn start(&mut self, sender: status::Sender) {
+        let timeout = self.timeout;
+        let task = tokio::task::spawn(async move {
+            tokio::time::sleep(timeout).await;
+            let _ = sender
+                .send(status::Status {
+                    state: status::State::UpstreamRogue,
+                })
+                .await;
+        });
+        self.task = Some(task);
+    }
+
+    pub fn stop(&mut self) {
+        if let Some(task) = self.task.take() {
+            task.abort();
+        }
+    }
+}
 
 /// Process CLI args, if any.
 #[allow(clippy::result_large_err)]
@@ -123,7 +156,7 @@ fn process_cli_args<'a>() -> ProxyResult<'a, ProxyConfig> {
 async fn main() {
     tracing_subscriber::fmt::init();
 
-    let mut failed = 0;
+    let mut upstream_index = 0;
     let mut interrupt_signal_future = Box::pin(tokio::signal::ctrl_c().fuse());
 
     // Channel used to manage failed tasks
@@ -133,12 +166,27 @@ async fn main() {
 
     let proxy_config = process_cli_args().unwrap();
 
-    while failed < proxy_config.retry {
+    loop {
         {
             let task_collector = task_collector.clone();
             let tx_status = tx_status.clone();
-            let initialize = initialize_jd(tx_status.clone(), task_collector.clone());
-            tokio::task::spawn(initialize);
+
+            if let Some(upstream) = dbg!(proxy_config.upstreams.get(dbg!(upstream_index))) {
+                let initialize = initialize_jd(
+                    tx_status.clone(),
+                    task_collector,
+                    upstream.clone(),
+                    proxy_config.timeout,
+                );
+                tokio::task::spawn(initialize);
+            } else {
+                let initialize = initialize_jd_as_solo_miner(
+                    tx_status.clone(),
+                    task_collector,
+                    proxy_config.timeout,
+                );
+                tokio::task::spawn(initialize);
+            }
         }
         // Check all tasks if is_finished() is true, if so exit
         loop {
@@ -200,48 +248,114 @@ async fn main() {
                     tokio::time::sleep(std::time::Duration::from_secs(1)).await;
                     break;
                 }
+                State::UpstreamRogue => {
+                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                    task_collector
+                        .safe_lock(|s| {
+                            for handle in s {
+                                handle.abort();
+                            }
+                        })
+                        .unwrap();
+                    upstream_index += 1;
+                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                    break;
+                }
                 State::Healthy(msg) => {
                     info!("HEALTHY message: {}", msg);
                 }
             }
         }
-        failed += 1;
     }
+}
+async fn initialize_jd_as_solo_miner(
+    tx_status: async_channel::Sender<Status<'static>>,
+    task_collector: Arc<Mutex<Vec<AbortHandle>>>,
+    timeout: Duration,
+) {
+    let proxy_config = process_cli_args().unwrap();
+    let miner_tx_out = crate::proxy_config::get_coinbase_output(&proxy_config).unwrap();
+
+    // When Downstream receive a share that meets bitcoin target it transformit in a
+    // SubmitSolution and send it to the TemplateReceiver
+    let (send_solution, recv_solution) = bounded(10);
+
+    // Format `Downstream` connection address
+    let downstream_addr = SocketAddr::new(
+        IpAddr::from_str(&proxy_config.downstream_address).unwrap(),
+        proxy_config.downstream_port,
+    );
+
+    // Wait for downstream to connect
+    let downstream = downstream::listen_for_downstream_mining(
+        downstream_addr,
+        None,
+        send_solution,
+        proxy_config.withhold,
+        proxy_config.authority_public_key.clone(),
+        proxy_config.authority_secret_key.clone(),
+        proxy_config.cert_validity_sec,
+        task_collector.clone(),
+        status::Sender::Downstream(tx_status.clone()),
+        miner_tx_out.clone(),
+    )
+    .await
+    .unwrap();
+
+    // Initialize JD part
+    let mut parts = proxy_config.tp_address.split(':');
+    let ip_tp = parts.next().unwrap().to_string();
+    let port_tp = parts.next().unwrap().parse::<u16>().unwrap();
+
+    TemplateRx::connect(
+        SocketAddr::new(IpAddr::from_str(ip_tp.as_str()).unwrap(), port_tp),
+        recv_solution,
+        status::Sender::TemplateReceiver(tx_status.clone()),
+        None,
+        downstream,
+        task_collector,
+        Arc::new(Mutex::new(PoolChangerTrigger::new(timeout))),
+        miner_tx_out.clone(),
+    )
+    .await;
 }
 
 async fn initialize_jd(
     tx_status: async_channel::Sender<Status<'static>>,
     task_collector: Arc<Mutex<Vec<AbortHandle>>>,
+    upstream_config: proxy_config::Upstream,
+    timeout: Duration,
 ) {
     let proxy_config = process_cli_args().unwrap();
 
     // Format `Upstream` connection address
+    let mut parts = upstream_config.pool_address.split(':');
+    let address = parts
+        .next()
+        .unwrap_or_else(|| panic!("Invalid pool address {}", upstream_config.pool_address));
+    let port = parts
+        .next()
+        .and_then(|p| p.parse::<u16>().ok())
+        .unwrap_or_else(|| panic!("Invalid pool address {}", upstream_config.pool_address));
     let upstream_addr = SocketAddr::new(
-        IpAddr::from_str(&proxy_config.upstream_address)
-            .expect("Failed to parse upstream address!"),
-        proxy_config.upstream_port,
+        IpAddr::from_str(address)
+            .unwrap_or_else(|_| panic!("Invalid pool address {}", upstream_config.pool_address)),
+        port,
     );
 
     // When Downstream receive a share that meets bitcoin target it transformit in a
     // SubmitSolution and send it to the TemplateReceiver
     let (send_solution, recv_solution) = bounded(10);
 
-    // When Upstream receive OpenExtendedMiningChannelSuccess it create a PoolChannelFactory that
-    // is mirror the one in the pool, and send it to Downstream. With that factory Downstream when
-    // receive templates and p_hash from the TemplateReceiver can create jobs like the one that
-    // would have been created by the pool that opened the extended channel. That means the this
-    // can be a completly transparent proxy for the downstream.
-    let (send_channel_factory, recv_channel_factory) = bounded(1);
-
     // Instantiate a new `Upstream` (SV2 Pool)
     let upstream = match upstream_sv2::Upstream::new(
         upstream_addr,
-        proxy_config.upstream_authority_pubkey.clone(),
+        upstream_config.authority_pubkey.clone(),
         0, // TODO
-        proxy_config.jd_config.pool_signature.clone(),
+        upstream_config.pool_signature.clone(),
         status::Sender::Upstream(tx_status.clone()),
-        send_channel_factory,
         task_collector.clone(),
+        Arc::new(Mutex::new(PoolChangerTrigger::new(timeout))),
     )
     .await
     {
@@ -281,8 +395,7 @@ async fn initialize_jd(
     // Wait for downstream to connect
     let downstream = downstream::listen_for_downstream_mining(
         downstream_addr,
-        &upstream,
-        recv_channel_factory,
+        Some(upstream.clone()),
         send_solution,
         proxy_config.withhold,
         proxy_config.authority_public_key.clone(),
@@ -290,22 +403,23 @@ async fn initialize_jd(
         proxy_config.cert_validity_sec,
         task_collector.clone(),
         status::Sender::Downstream(tx_status.clone()),
+        vec![],
     )
     .await
     .unwrap();
 
     // Initialize JD part
-    let jd_config = proxy_config.jd_config.clone();
-    let mut parts = jd_config.tp_address.split(':');
+    let mut parts = proxy_config.tp_address.split(':');
     let ip_tp = parts.next().unwrap().to_string();
     let port_tp = parts.next().unwrap().parse::<u16>().unwrap();
-    let mut parts = jd_config.jd_address.split(':');
+
+    let mut parts = upstream_config.jd_address.split(':');
     let ip_jd = parts.next().unwrap().to_string();
     let port_jd = parts.next().unwrap().parse::<u16>().unwrap();
     let jd = JobDeclarator::new(
         SocketAddr::new(IpAddr::from_str(ip_jd.as_str()).unwrap(), port_jd),
-        proxy_config
-            .upstream_authority_pubkey
+        upstream_config
+            .authority_pubkey
             .clone()
             .into_inner()
             .as_bytes()
@@ -319,9 +433,11 @@ async fn initialize_jd(
         SocketAddr::new(IpAddr::from_str(ip_tp.as_str()).unwrap(), port_tp),
         recv_solution,
         status::Sender::TemplateReceiver(tx_status.clone()),
-        jd.clone(),
+        Some(jd.clone()),
         downstream,
         task_collector,
+        Arc::new(Mutex::new(PoolChangerTrigger::new(timeout))),
+        vec![],
     )
     .await;
 }
