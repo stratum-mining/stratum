@@ -582,7 +582,7 @@ pub mod tests {
 
         assert_eq!(jobs_creators.lasts_new_template.len(), 0);
 
-        let _ = jobs_creators.on_new_template(template.borrow_mut(), false, vec![out]);
+        let _ = jobs_creators.on_new_template(template.borrow_mut(), false, vec![out], "".to_string());
 
         assert_eq!(jobs_creators.lasts_new_template.len(), 1);
         assert_eq!(jobs_creators.lasts_new_template[0], template);
@@ -616,7 +616,7 @@ pub mod tests {
         let mut jobs_creators = JobsCreators::new(32);
 
         //Create a template
-        let _ = jobs_creators.on_new_template(template.borrow_mut(), false, vec![out]);
+        let _ = jobs_creators.on_new_template(template.borrow_mut(), false, vec![out], "".to_string());
         let test_id = template.template_id;
 
         // Create a SetNewPrevHash with matching template_id
