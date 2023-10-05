@@ -140,7 +140,8 @@ pub fn extended_job_from_custom_job(
     pool_signature: String,
     extranonce_len: u8,
 ) -> Result<NewExtendedMiningJob<'static>, Error> {
-    let mut outputs = tx_outputs_to_costum_scripts(referenced_job.coinbase_tx_outputs.clone().as_ref());
+    let mut outputs =
+        tx_outputs_to_costum_scripts(referenced_job.coinbase_tx_outputs.clone().as_ref());
     let mut template = NewTemplate {
         template_id: 0,
         future_template: false,
