@@ -71,6 +71,7 @@ pub struct Configuration {
     pub authority_secret_key: EncodedEd25519SecretKey,
     pub cert_validity_sec: u64,
     pub coinbase_outputs: Vec<CoinbaseOutput>,
+    pub pool_signature: String,
     #[cfg(feature = "test_only_allow_unencrypted")]
     pub test_only_listen_adress_plain: String,
 }

@@ -1012,7 +1012,6 @@ name = "roles_logic_sv2"
 version = "0.1.0"
 dependencies = [
  "binary_sv2",
- "bitcoin",
  "chacha20poly1305 0.10.1",
  "common_messages_sv2",
  "const_sv2",
@@ -1022,6 +1021,7 @@ dependencies = [
  "nohash-hasher",
  "serde",
  "siphasher",
+ "stratum-common",
  "template_distribution_sv2",
  "tracing",
 ]
@@ -1230,6 +1230,13 @@ checksum = "2538b18701741680e0322a2302176d3253a35388e2e62f172f64f4f16605f877"
 dependencies = [
  "libc",
  "windows-sys",
+]
+
+[[package]]
+name = "stratum-common"
+version = "0.1.0"
+dependencies = [
+ "bitcoin",
 ]
 
 [[package]]

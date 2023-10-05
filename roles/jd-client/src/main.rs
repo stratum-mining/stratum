@@ -238,6 +238,7 @@ async fn initialize_jd(
         upstream_addr,
         proxy_config.upstream_authority_pubkey.clone(),
         0, // TODO
+        proxy_config.jd_config.pool_signature.clone(),
         status::Sender::Upstream(tx_status.clone()),
         send_channel_factory,
         task_collector.clone(),
