@@ -481,6 +481,7 @@ mod test {
 
             let val = vec![u256_1, u256_2, u256_3];
             let s = Seq064K::new(val).unwrap();
+
             let test = Test { a: s };
 
             #[cfg(not(feature = "with_serde"))]

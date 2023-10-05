@@ -354,7 +354,7 @@ impl UpstreamMiningNode {
         let has_connection = self_mutex
             .safe_lock(|self_| self_.connection.is_some())
             .unwrap();
-        match dbg!(has_connection) {
+        match has_connection {
             true => Ok(()),
             false => {
                 let (address, authority_public_key) = self_mutex

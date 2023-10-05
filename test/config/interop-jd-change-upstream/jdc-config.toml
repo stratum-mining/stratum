@@ -25,9 +25,7 @@ retry = 10
 
 tp_address = "75.119.150.111:8442"
 
-# Pool signature (string to be included in coinbase tx) 
-# e.g. "Foundry USA", "Antpool", "/ViaBTC/Mined by gitgab19", etc
-pool_signature = "Stratum v2 SRI Pool - gitgab19"
+
 
 coinbase_outputs = [
     { output_script_type = "P2PKH", output_script_value = "02e13cef1348924c49dd1f708bf38eb79ae4648c16f0301085f37547d1d25e33e0" },
@@ -41,8 +39,10 @@ value = 1
 authority_pubkey = "2di19GHYQnAZJmEpoUeP7C3Eg9TCcksHr23rZCC83dvUiZgiDL"
 pool_address = "127.0.0.1:44254"
 jd_address = "127.0.0.1:34264"
+pool_signature = "Stratum v2 SRI Pool - gitgab19"
 
 [[upstreams]]
 authority_pubkey = "2di19GHYQnAZJmEpoUeP7C3Eg9TCcksHr23rZCC83dvUiZgiDL"
 pool_address = "127.0.0.1:44255"
 jd_address = "127.0.0.1:34264"
+pool_signature = "Stratum v2 SRI Pool - gitgab19"

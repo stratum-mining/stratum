@@ -48,7 +48,6 @@ pub struct Upstream {
     pub authority_pubkey: EncodedEd25519PublicKey,
     pub pool_address: String,
     pub jd_address: String,
-    pub tp_address: String,
     pub pool_signature: String, // string be included in coinbase tx input scriptsig
 }
 

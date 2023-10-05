@@ -42,3 +42,4 @@ value = 1
 authority_pubkey = "2di19GHYQnAZJmEpoUeP7C3Eg9TCcksHr23rZCC83dvUiZgiDL"
 pool_address = "127.0.0.1:34254"
 jd_address = "127.0.0.1:34264"
+pool_signature = "Stratum v2 SRI Pool - gitgab19"

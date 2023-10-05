@@ -768,7 +768,7 @@ impl ChannelFactory {
             bits,
             nonce: m.get_nonce(),
         };
-        let hash_ = dbg!(header).block_hash();
+        let hash_ = header.block_hash();
         let hash = hash_.as_hash().into_inner();
 
         if tracing::level_enabled!(tracing::Level::DEBUG)
@@ -783,7 +783,7 @@ impl ChannelFactory {
             hash.reverse();
             debug!("Hash: {:?}", hash.to_vec().to_hex());
         }
-        let hash: Target = dbg!(hash.into());
+        let hash: Target = hash.into();
 
         if hash <= bitcoin_target {
             let mut print_hash = hash_.as_hash().into_inner();
@@ -1092,11 +1092,9 @@ impl PoolChannelFactory {
         if self.negotiated_jobs.contains_key(&m.channel_id) {
             let referenced_job = self.negotiated_jobs.get(&m.channel_id).unwrap();
             let merkle_path = referenced_job.merkle_path.to_vec();
-            let coinbase_outputs = self.pool_coinbase_outputs.clone();
             let pool_signature = self.pool_signature.clone();
             let extended_job = job_creator::extended_job_from_custom_job(
                 referenced_job,
-                coinbase_outputs,
                 pool_signature,
                 32,
             )
@@ -1104,8 +1102,8 @@ impl PoolChannelFactory {
             let prev_blockhash = crate::utils::u256_to_block_hash(referenced_job.prev_hash.clone());
             let bits = referenced_job.nbits;
             self.inner.check_target(
-                dbg!(Share::Extended(m.into_static())),
-                dbg!(target),
+                Share::Extended(m.into_static()),
+                target,
                 None,
                 0,
                 merkle_path,
@@ -1138,8 +1136,8 @@ impl PoolChannelFactory {
                 .0
                 .nbits;
             self.inner.check_target(
-                dbg!(Share::Extended(m.into_static())),
-                dbg!(target),
+                Share::Extended(m.into_static()),
+                target,
                 Some(template_id),
                 0,
                 merkle_path,

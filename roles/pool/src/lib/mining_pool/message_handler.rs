@@ -147,7 +147,7 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
         &mut self,
         m: SubmitSharesExtended,
     ) -> Result<SendTo<()>, Error> {
-        info!("Handling submit share extended {:?}", m);
+        debug!("Handling submit share extended {:?}", m);
         let res = self
             .channel_factory
             .safe_lock(|cf| cf.on_submit_shares_extended(m.clone()))
@@ -200,7 +200,6 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
     }
 
     fn handle_set_custom_mining_job(&mut self, m: SetCustomMiningJob) -> Result<SendTo<()>, Error> {
-        info!("New set custom mining job");
         let m = SetCustomMiningJobSuccess {
             channel_id: m.channel_id,
             request_id: m.request_id,
