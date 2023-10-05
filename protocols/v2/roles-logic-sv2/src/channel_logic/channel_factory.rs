@@ -1193,6 +1193,7 @@ pub struct ProxyExtendedChannelFactory {
 }
 
 impl ProxyExtendedChannelFactory {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         ids: Arc<Mutex<GroupId>>,
         extranonces: ExtendedExtranonce,
