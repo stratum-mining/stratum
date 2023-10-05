@@ -558,7 +558,7 @@ pub mod tests {
         let mut jobs_creators = JobsCreators::new(32);
 
         let job = jobs_creators
-            .on_new_template(template.borrow_mut(), false, vec![out])
+            .on_new_template(template.borrow_mut(), false, vec![out], "".to_string())
             .unwrap();
 
         assert_eq!(
