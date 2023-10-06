@@ -16,7 +16,6 @@ use stratum_common::bitcoin::{Script, TxOut};
 
 mod error;
 mod lib;
-mod mempool;
 mod status;
 
 use lib::template_receiver::TemplateRx;
