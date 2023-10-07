@@ -155,12 +155,13 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
         match res {
             Ok(res) => match res  {
                 roles_logic_sv2::channel_logic::channel_factory::OnNewShare::SendErrorDownstream(m) => {
+                    info!("Share error");
                     Ok(SendTo::Respond(Mining::SubmitSharesError(m)))
                 }
                 roles_logic_sv2::channel_logic::channel_factory::OnNewShare::SendSubmitShareUpstream(_) => unreachable!(),
                 roles_logic_sv2::channel_logic::channel_factory::OnNewShare::RelaySubmitShareUpstream => unreachable!(),
                 roles_logic_sv2::channel_logic::channel_factory::OnNewShare::ShareMeetBitcoinTarget((share,t_id,coinbase)) => {
-                    info!("Found share that meet bitcoin target");
+                    info!("Share meet bitcoin target");
                     if let Some(template_id) = t_id {
                         let solution = SubmitSolution {
                             template_id,
@@ -183,7 +184,8 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
 
                 },
                 roles_logic_sv2::channel_logic::channel_factory::OnNewShare::ShareMeetDownstreamTarget => {
-                 let success = SubmitSharesSuccess {
+                info!("Share ok");
+                let success = SubmitSharesSuccess {
                         channel_id: m.channel_id,
                         last_sequence_number: m.sequence_number,
                         new_submits_accepted_count: 1,

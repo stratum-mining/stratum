@@ -222,19 +222,6 @@ async fn main() {
                     tokio::time::sleep(std::time::Duration::from_secs(1)).await;
                     break;
                 }
-                State::BridgeShutdown(err) => {
-                    error!("SHUTDOWN from: {}", err);
-                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-                    task_collector
-                        .safe_lock(|s| {
-                            for handle in s {
-                                handle.abort();
-                            }
-                        })
-                        .unwrap();
-                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-                    break;
-                }
                 State::UpstreamShutdown(err) => {
                     error!("SHUTDOWN from: {}", err);
                     tokio::time::sleep(std::time::Duration::from_secs(1)).await;
@@ -249,6 +236,7 @@ async fn main() {
                     break;
                 }
                 State::UpstreamRogue => {
+                    error!("Changin Pool");
                     tokio::time::sleep(std::time::Duration::from_secs(1)).await;
                     task_collector
                         .safe_lock(|s| {
@@ -298,6 +286,7 @@ async fn initialize_jd_as_solo_miner(
         task_collector.clone(),
         status::Sender::Downstream(tx_status.clone()),
         miner_tx_out.clone(),
+        None,
     )
     .await
     .unwrap();
@@ -392,22 +381,6 @@ async fn initialize_jd(
         proxy_config.downstream_port,
     );
 
-    // Wait for downstream to connect
-    let downstream = downstream::listen_for_downstream_mining(
-        downstream_addr,
-        Some(upstream.clone()),
-        send_solution,
-        proxy_config.withhold,
-        proxy_config.authority_public_key.clone(),
-        proxy_config.authority_secret_key.clone(),
-        proxy_config.cert_validity_sec,
-        task_collector.clone(),
-        status::Sender::Downstream(tx_status.clone()),
-        vec![],
-    )
-    .await
-    .unwrap();
-
     // Initialize JD part
     let mut parts = proxy_config.tp_address.split(':');
     let ip_tp = parts.next().unwrap().to_string();
@@ -416,7 +389,7 @@ async fn initialize_jd(
     let mut parts = upstream_config.jd_address.split(':');
     let ip_jd = parts.next().unwrap().to_string();
     let port_jd = parts.next().unwrap().parse::<u16>().unwrap();
-    let jd = JobDeclarator::new(
+    let jd = match JobDeclarator::new(
         SocketAddr::new(IpAddr::from_str(ip_jd.as_str()).unwrap(), port_jd),
         upstream_config
             .authority_pubkey
@@ -425,10 +398,39 @@ async fn initialize_jd(
             .as_bytes()
             .to_owned(),
         proxy_config.clone(),
-        upstream,
+        upstream.clone(),
         task_collector.clone(),
     )
-    .await;
+    .await
+    {
+        Ok(c) => c,
+        Err(e) => {
+            let _ = tx_status
+                .send(Status {
+                    state: State::UpstreamShutdown(e),
+                })
+                .await;
+            return;
+        }
+    };
+
+    // Wait for downstream to connect
+    let downstream = downstream::listen_for_downstream_mining(
+        downstream_addr,
+        Some(upstream),
+        send_solution,
+        proxy_config.withhold,
+        proxy_config.authority_public_key.clone(),
+        proxy_config.authority_secret_key.clone(),
+        proxy_config.cert_validity_sec,
+        task_collector.clone(),
+        status::Sender::Downstream(tx_status.clone()),
+        vec![],
+        Some(jd.clone()),
+    )
+    .await
+    .unwrap();
+
     TemplateRx::connect(
         SocketAddr::new(IpAddr::from_str(ip_tp.as_str()).unwrap(), port_tp),
         recv_solution,

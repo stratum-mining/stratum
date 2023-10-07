@@ -1,4 +1,5 @@
 use crate::{
+    job_declarator::JobDeclarator,
     status::{self, State},
     upstream_sv2::Upstream as UpstreamMiningNode,
 };
@@ -10,12 +11,11 @@ use roles_logic_sv2::{
     errors::Error,
     handlers::{
         common::{ParseDownstreamCommonMessages, SendTo as SendToCommon},
-        job_declaration::SendTo as SendToJD,
         mining::{ParseDownstreamMiningMessages, SendTo, SupportedChannelTypes},
     },
     job_creator::JobsCreators,
     mining_sv2::*,
-    parsers::{JobDeclaration, Mining, MiningDeviceMessages, PoolMessages},
+    parsers::{Mining, MiningDeviceMessages, PoolMessages},
     template_distribution_sv2::{NewTemplate, SubmitSolution},
     utils::Mutex,
 };
@@ -49,6 +49,7 @@ pub struct DownstreamMiningNode {
     miner_coinbase_output: Vec<TxOut>,
     // used to retreive the job id of the share that we send upstream
     last_template_id: u64,
+    jd: Option<Arc<Mutex<JobDeclarator>>>,
 }
 
 #[allow(clippy::large_enum_variant)]
@@ -162,6 +163,7 @@ impl DownstreamMiningNode {
         task_collector: Arc<Mutex<Vec<AbortHandle>>>,
         tx_status: status::Sender,
         miner_coinbase_output: Vec<TxOut>,
+        jd: Option<Arc<Mutex<JobDeclarator>>>,
     ) -> Self {
         Self {
             receiver,
@@ -177,6 +179,7 @@ impl DownstreamMiningNode {
             // Is used before sending the share to upstream in the main loop when we have a share.
             // Is upated in the message handler that si called earlier in the main loop.
             last_template_id: 0,
+            jd,
         }
     }
 
@@ -291,6 +294,10 @@ impl DownstreamMiningNode {
                 let job_id =
                     UpstreamMiningNode::get_job_id(&upstream_mutex, last_template_id).await;
                 share.job_id = job_id;
+                info!(
+                    "Sending valid block solution upstream, with job_id {}",
+                    job_id
+                );
                 let message = Mining::SubmitSharesExtended(share);
                 let message: PoolMessages = PoolMessages::Mining(message);
                 let sv2_frame: codec_sv2::Sv2Frame<PoolMessages, buffer_sv2::Slice> =
@@ -545,10 +552,6 @@ impl
                 match share {
                     Share::Extended(share) => {
                         info!("SHARE MEETS BITCOIN TARGET");
-                        // send found share to JD and pool
-                        let for_jd_server = JobDeclaration::SubmitSharesExtended(share.clone());
-                        #[allow(clippy::no_effect)]
-                        SendToJD::RelayNewMessage(for_jd_server);
                         let solution_sender = self.solution_sender.clone();
                         let solution = SubmitSolution {
                             template_id,
@@ -562,6 +565,14 @@ impl
 
                         // Safe unwrap alreay checked if it cointains upstream with is_solo_miner
                         if !self.withhold && !self.status.is_solo_miner() {
+                            {
+                                let jd = self.jd.clone();
+                                let share = share.clone();
+                                tokio::task::spawn(async move {
+                                    JobDeclarator::on_solution(&jd.unwrap(), share).await
+                                });
+                            }
+
                             self.last_template_id = template_id;
                             let for_upstream = Mining::SubmitSharesExtended(share);
                             Ok(SendTo::RelayNewMessage(for_upstream))
@@ -631,6 +642,7 @@ pub async fn listen_for_downstream_mining(
     task_collector: Arc<Mutex<Vec<AbortHandle>>>,
     tx_status: status::Sender,
     miner_coinbase_output: Vec<TxOut>,
+    jd: Option<Arc<Mutex<JobDeclarator>>>,
 ) -> Result<Arc<Mutex<DownstreamMiningNode>>, Error> {
     info!("Listening for downstream mining connections on {}", address);
     let listner = TcpListener::bind(address).await.unwrap();
@@ -653,6 +665,7 @@ pub async fn listen_for_downstream_mining(
             task_collector,
             tx_status,
             miner_coinbase_output,
+            jd,
         );
 
         let mut incoming: StdFrame = node.receiver.recv().await.unwrap().try_into().unwrap();

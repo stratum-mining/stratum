@@ -90,6 +90,7 @@ impl JobDeclaratorDownstream {
                             Ok(SendTo::Respond(message)) => {
                                 Self::send(self_mutex.clone(), message).await.unwrap();
                             }
+                            Err(e) => info!("Error: {:?}", e),
                             _ => unreachable!(),
                         }
                     }

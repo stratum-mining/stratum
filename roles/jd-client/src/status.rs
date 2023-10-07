@@ -4,7 +4,6 @@ use crate::error::{self, Error};
 pub enum Sender {
     Downstream(async_channel::Sender<Status<'static>>),
     DownstreamListener(async_channel::Sender<Status<'static>>),
-    Bridge(async_channel::Sender<Status<'static>>),
     Upstream(async_channel::Sender<Status<'static>>),
     TemplateReceiver(async_channel::Sender<Status<'static>>),
 }
@@ -17,7 +16,6 @@ impl Sender {
         match self {
             Self::Downstream(inner) => inner.send(status).await,
             Self::DownstreamListener(inner) => inner.send(status).await,
-            Self::Bridge(inner) => inner.send(status).await,
             Self::Upstream(inner) => inner.send(status).await,
             Self::TemplateReceiver(inner) => inner.send(status).await,
         }
@@ -29,7 +27,6 @@ impl Clone for Sender {
         match self {
             Self::Downstream(inner) => Self::Downstream(inner.clone()),
             Self::DownstreamListener(inner) => Self::DownstreamListener(inner.clone()),
-            Self::Bridge(inner) => Self::Bridge(inner.clone()),
             Self::Upstream(inner) => Self::Upstream(inner.clone()),
             Self::TemplateReceiver(inner) => Self::TemplateReceiver(inner.clone()),
         }
@@ -39,7 +36,6 @@ impl Clone for Sender {
 #[derive(Debug)]
 pub enum State<'a> {
     DownstreamShutdown(Error<'a>),
-    BridgeShutdown(Error<'a>),
     UpstreamShutdown(Error<'a>),
     UpstreamRogue,
     Healthy(String),
@@ -66,13 +62,6 @@ async fn send_status(
         Sender::DownstreamListener(tx) => {
             tx.send(Status {
                 state: State::DownstreamShutdown(e),
-            })
-            .await
-            .unwrap_or(());
-        }
-        Sender::Bridge(tx) => {
-            tx.send(Status {
-                state: State::BridgeShutdown(e),
             })
             .await
             .unwrap_or(());
