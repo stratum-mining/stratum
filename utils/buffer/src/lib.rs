@@ -78,6 +78,10 @@ pub trait Buffer {
     // Return the size of the written part of the buffer that is still owned by the Buffer
     fn len(&self) -> usize;
 
+    // Set the first element of the buffer to the element at the given index (here only for
+    // perfomnce do not use unless you are really sure about what it do)
+    fn danger_set_start(&mut self, index: usize);
+
     fn is_empty(&self) -> bool {
         self.len() == 0
     }

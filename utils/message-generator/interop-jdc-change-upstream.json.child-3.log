@@ -1,0 +1,37 @@
+[2m2023-10-06T07:18:32.854327Z[0m [32m INFO[0m [2mnoise_sv2[0m[2m:[0m -> suggested algorithms received [ChaChaPoly, AesGcm]
+[2m2023-10-06T07:18:32.856062Z[0m [32m INFO[0m [2mjd_client::downstream[0m[2m:[0m Opening exteneded mining channel
+[2m2023-10-06T07:18:32.857048Z[0m [32m INFO[0m [2mjd_client::upstream_sv2::upstream[0m[2m:[0m Receive open extended mining channel success
+[2m2023-10-06T07:18:32.859368Z[0m [32m INFO[0m [2mjd_client::job_declarator[0m[2m:[0m JD proxy: setupconnection Proxy address: 127.0.0.1:34265
+[2m2023-10-06T07:18:32.860045Z[0m [32m INFO[0m [2mjd_client::job_declarator[0m[2m:[0m JD CONNECTED
+[2m2023-10-06T07:18:32.892933Z[0m [32m INFO[0m [2mjd_client::template_receiver[0m[2m:[0m Template Receiver try to set up connection
+[2m2023-10-06T07:18:33.002482Z[0m [32m INFO[0m [2mjd_client::template_receiver[0m[2m:[0m Template Receiver connection set up
+[2m2023-10-06T07:18:33.053572Z[0m [32m INFO[0m [2mjd_client::template_receiver[0m[2m:[0m sending RequestTransactionData...
+[2m2023-10-06T07:18:33.053600Z[0m [32m INFO[0m [2mjd_client::template_receiver[0m[2m:[0m NEW_TEMPLATE: NewTemplate { template_id: 6645661980305940967, future_template: true, version: 536870912, coinbase_tx_version: 2, coinbase_prefix: Owned([2, 189, 18, 0]), coinbase_tx_input_sequence: 4294967295, coinbase_tx_value_remaining: 2, coinbase_tx_outputs_count: 1, coinbase_tx_outputs: Owned([0, 0, 0, 0, 0, 0, 0, 0, 38, 106, 36, 170, 33, 169, 237, 226, 246, 28, 63, 113, 209, 222, 253, 63, 169, 153, 223, 163, 105, 83, 117, 92, 105, 6, 137, 121, 153, 98, 180, 139, 235, 216, 54, 151, 78, 140, 249]), coinbase_tx_locktime: 0, merkle_path: Seq0255([], PhantomData<&binary_codec_sv2::datatypes::non_copy_data_types::inner::Inner<true, 32, 0, 0>>) }
+[2m2023-10-06T07:18:33.054584Z[0m [32m INFO[0m [2mjd_client::template_receiver[0m[2m:[0m Received SetNewPrevHash, waiting for IS_NEW_TEMPLATE_HANDLED
+[2m2023-10-06T07:18:33.054606Z[0m [32m INFO[0m [2mjd_client::template_receiver[0m[2m:[0m IS_NEW_TEMPLATE_HANDLED ok
+[2m2023-10-06T07:18:33.104769Z[0m [32m INFO[0m [2mjd_client::upstream_sv2::upstream[0m[2m:[0m Sending set custom mining job
+[2m2023-10-06T07:18:33.105854Z[0m [32m INFO[0m [2mjd_client::upstream_sv2::upstream[0m[2m:[0m Set custom mining job success 1
+[2m2023-10-06T07:18:42.035396Z[0m [32m INFO[0m [2mjd_client::downstream[0m[2m:[0m Receive share extended
+[2m2023-10-06T07:18:42.035461Z[0m [32m INFO[0m [2mroles_logic_sv2::channel_logic::channel_factory[0m[2m:[0m Share hash meet bitcoin target: "00000593ac847777fcfdefc1282ab042e6c5ecec1fd7291e8d9b706419eb4092"
+[2m2023-10-06T07:18:42.035479Z[0m [32m INFO[0m [2mjd_client::downstream[0m[2m:[0m SHARE MEETS BITCOIN TARGET
+[2m2023-10-06T07:18:42.036477Z[0m [32m INFO[0m [2mjd_client::upstream_sv2::upstream[0m[2m:[0m Up: Rejected Submitted Share
+[2m2023-10-06T07:18:42.315938Z[0m [32m INFO[0m [2mjd_client::template_receiver[0m[2m:[0m sending RequestTransactionData...
+[2m2023-10-06T07:18:42.315973Z[0m [32m INFO[0m [2mjd_client::template_receiver[0m[2m:[0m NEW_TEMPLATE: NewTemplate { template_id: 6645661980305940970, future_template: true, version: 536870912, coinbase_tx_version: 2, coinbase_prefix: Owned([2, 190, 18, 0]), coinbase_tx_input_sequence: 4294967295, coinbase_tx_value_remaining: 2, coinbase_tx_outputs_count: 1, coinbase_tx_outputs: Owned([0, 0, 0, 0, 0, 0, 0, 0, 38, 106, 36, 170, 33, 169, 237, 226, 246, 28, 63, 113, 209, 222, 253, 63, 169, 153, 223, 163, 105, 83, 117, 92, 105, 6, 137, 121, 153, 98, 180, 139, 235, 216, 54, 151, 78, 140, 249]), coinbase_tx_locktime: 0, merkle_path: Seq0255([], PhantomData<&binary_codec_sv2::datatypes::non_copy_data_types::inner::Inner<true, 32, 0, 0>>) }
+[2m2023-10-06T07:18:42.316068Z[0m [32m INFO[0m [2mjd_client::template_receiver[0m[2m:[0m Received SetNewPrevHash, waiting for IS_NEW_TEMPLATE_HANDLED
+[2m2023-10-06T07:18:42.316081Z[0m [32m INFO[0m [2mjd_client::template_receiver[0m[2m:[0m IS_NEW_TEMPLATE_HANDLED ok
+[2m2023-10-06T07:18:42.348793Z[0m [32m INFO[0m [2mjd_client::upstream_sv2::upstream[0m[2m:[0m Sending set custom mining job
+[2m2023-10-06T07:18:44.038932Z[0m [31mERROR[0m [2mnetwork_helpers::noise_connection_tokio[0m[2m:[0m Disconnecting from client due to error receiving: receiving from an empty and closed channel - 127.0.0.1:34264
+[2m2023-10-06T07:18:44.041759Z[0m [31mERROR[0m [2mnetwork_helpers::plain_connection_tokio[0m[2m:[0m Failed to read from stream - terminating connection
+[2m2023-10-06T07:18:44.104569Z[0m [31mERROR[0m [2mnetwork_helpers::plain_connection_tokio[0m[2m:[0m Failed to read from stream: early eof
+[2m2023-10-06T07:18:45.045357Z[0m [32m INFO[0m [2mjd_client::upstream_sv2::upstream[0m[2m:[0m PROXY SERVER - ACCEPTING FROM UPSTREAM: 127.0.0.1:44255
+[2m2023-10-06T07:18:45.052634Z[0m [32m INFO[0m [2mjd_client::upstream_sv2::upstream[0m[2m:[0m Up: Receiving: Sv2Frame { header: Header { extension_type: 0, msg_type: 1, msg_length: U24(6) }, payload: None, serialized: Some(Slice { offset: 0x7f03fc05b3b0, len: 12, index: 1, shared_state: SharedState(128), owned: None }) }
+[2m2023-10-06T07:18:45.052671Z[0m [32m INFO[0m [2mjd_client[0m[2m:[0m Connected to Upstream!
+[2m2023-10-06T07:18:45.052682Z[0m [32m INFO[0m [2mjd_client::downstream[0m[2m:[0m Listening for downstream mining connections on 127.0.0.1:34265
+[2m2023-10-06T07:18:54.041519Z[0m [32m INFO[0m [2mnoise_sv2[0m[2m:[0m -> suggested algorithms received [ChaChaPoly, AesGcm]
+[2m2023-10-06T07:18:54.044054Z[0m [32m INFO[0m [2mjd_client::downstream[0m[2m:[0m Opening exteneded mining channel
+[2m2023-10-06T07:18:54.045950Z[0m [32m INFO[0m [2mjd_client::job_declarator[0m[2m:[0m JD proxy: setupconnection Proxy address: 127.0.0.1:34265
+[2m2023-10-06T07:18:54.046296Z[0m [32m INFO[0m [2mjd_client::job_declarator[0m[2m:[0m JD CONNECTED
+[2m2023-10-06T07:18:54.073164Z[0m [31mERROR[0m [2mnetwork_helpers::noise_connection_tokio[0m[2m:[0m Disconnected from client while reading : early eof - 127.0.0.1:34264
+[2m2023-10-06T07:18:54.073210Z[0m [31mERROR[0m [2mnetwork_helpers::noise_connection_tokio[0m[2m:[0m Disconnected from client while reading : early eof - 127.0.0.1:34264
+[2m2023-10-06T07:18:54.077087Z[0m [32m INFO[0m [2mjd_client::template_receiver[0m[2m:[0m Template Receiver try to set up connection
+[2m2023-10-06T07:18:54.110723Z[0m [32m INFO[0m [2mjd_client[0m[2m:[0m Interrupt received
