@@ -3,6 +3,7 @@ use bitcoin::{blockdata::transaction::Transaction, consensus::Decodable};
 use hashbrown::hash_map::HashMap;
 use jsonrpc::{error::Error as JsonRpcError, Client as JosnRpcClient};
 use serde::Deserialize;
+use stratum_common::bitcoin;
 
 pub enum Auth {
     None,

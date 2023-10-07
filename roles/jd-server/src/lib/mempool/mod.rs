@@ -1,7 +1,8 @@
 pub mod hex_iterator;
 pub mod rpc_client;
 use binary_sv2::ShortTxId;
-use bitcoin::{self, blockdata::transaction::Transaction};
+use bitcoin::blockdata::transaction::Transaction;
+use stratum_common::bitcoin;
 //use bitcoin::hashes::Hash;
 use rpc_client::{Auth, RpcApi, RpcClient};
 use serde::{Deserialize, Serialize};
@@ -25,7 +26,7 @@ struct TransacrtionWithHash {
 
 fn get_profitability(tx_fee: (Transaction, Amount)) -> usize {
     let tx: Transaction = tx_fee.0;
-    let size: usize = Transaction::get_size(&tx);
+    let size: usize = Transaction::size(&tx);
     let fee = tx_fee.1 .0;
     fee / size
 }
@@ -98,7 +99,7 @@ impl JDsMempool {
 
     fn order_mempool_by_profitability(mut self) -> JDsMempool {
         self.mempool
-            .sort_by(|a, b| b.tx.get_weight().cmp(&a.tx.get_weight()));
+            .sort_by(|a, b| b.tx.weight().cmp(&a.tx.weight()));
         self
     }
 
