@@ -133,53 +133,17 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
         Ok(SendTo::Respond(message_enum))
     }
 
-    fn handle_message_job_declaration(
-        self_: std::sync::Arc<roles_logic_sv2::utils::Mutex<Self>>,
-        message_type: u8,
-        payload: &mut [u8],
-    ) -> Result<SendTo, Error> {
-        // Is ok to unwrap a safe_lock result
-        match (message_type, payload).try_into() {
-            Ok(JobDeclaration::AllocateMiningJobToken(message)) => {
-                println!("Allocate mining job token message sent to Proxy");
-                self_
-                    .safe_lock(|x| x.handle_allocate_mining_job_token(message))
-                    .unwrap()
-            }
-            Ok(JobDeclaration::DeclareMiningJob(message)) => self_
-                .safe_lock(|x| x.handle_declare_mining_job(message))
-                .unwrap(),
-            Ok(JobDeclaration::IdentifyTransactionsSuccess(message)) => self_
-                .safe_lock(|x| x.handle_identify_transactions_success(message))
-                .unwrap(),
-            Ok(JobDeclaration::ProvideMissingTransactionsSuccess(message)) => self_
-                .safe_lock(|x| x.handle_provide_missing_transactions_success(message))
-                .unwrap(),
-            Ok(JobDeclaration::SubmitSharesExtended(message)) => self_
-                .safe_lock(|x| x.handle_submit_shares_extended(message))
-                .unwrap(),
-            Ok(JobDeclaration::AllocateMiningJobTokenSuccess(_)) => Err(Error::UnexpectedMessage(
-                u8::from_str_radix("0x51", 16).unwrap(),
-            )),
-            Ok(JobDeclaration::DeclareMiningJobSuccess(_)) => Err(Error::UnexpectedMessage(
-                u8::from_str_radix("0x58", 16).unwrap(),
-            )),
-            Ok(JobDeclaration::DeclareMiningJobError(_)) => Err(Error::UnexpectedMessage(
-                u8::from_str_radix("0x59", 16).unwrap(),
-            )),
-            Ok(JobDeclaration::IdentifyTransactions(_)) => Err(Error::UnexpectedMessage(
-                u8::from_str_radix("0x54", 16).unwrap(),
-            )),
-            Ok(JobDeclaration::ProvideMissingTransactions(_)) => Err(Error::UnexpectedMessage(
-                u8::from_str_radix("0x55", 16).unwrap(),
-            )),
-            Ok(JobDeclaration::SubmitSharesSuccess(_)) => Err(Error::UnexpectedMessage(
-                u8::from_str_radix("0x1c", 16).unwrap(),
-            )),
-            Ok(JobDeclaration::SubmitSharesError(_)) => Err(Error::UnexpectedMessage(
-                u8::from_str_radix("0x1d", 16).unwrap(),
-            )),
-            Err(e) => Err(e),
-        }
+    fn handle_submit_shares_success(
+        &mut self,
+        _message: SubmitSharesSuccess,
+    ) -> Result<roles_logic_sv2::handlers::job_declaration::SendTo, Error> {
+        todo!()
+    }
+
+    fn handle_submit_shares_error(
+        &mut self,
+        _message: SubmitSharesError,
+    ) -> Result<roles_logic_sv2::handlers::job_declaration::SendTo, Error> {
+        todo!()
     }
 }

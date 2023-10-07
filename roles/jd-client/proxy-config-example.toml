@@ -47,8 +47,10 @@ value = 1
 authority_pubkey = "3VANfft6ei6jQq1At7d8nmiZzVhBFS4CiQujdgim1ign"
 pool_address = "127.0.0.1:34254"
 jd_address = "127.0.0.1:34264"
+pool_signature = "Stratum v2 SRI Pool - gitgab19"
 
 [[upstreams]]
 authority_pubkey = "3VANfft6ei6jQq1At7d8nmiZzVhBFS4CiQujdgim1ign"
 pool_address = "127.0.0.1:34254"
 jd_address = "127.0.0.1:34264"
+pool_signature = "Stratum v2 SRI Pool - gitgab19"

@@ -103,7 +103,6 @@ where
             Ok(JobDeclaration::DeclareMiningJob(message)) => self_
                 .safe_lock(|x| x.handle_declare_mining_job(message))
                 .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
-
             Ok(JobDeclaration::IdentifyTransactionsSuccess(message)) => self_
                 .safe_lock(|x| x.handle_identify_transactions_success(message))
                 .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
@@ -113,32 +112,43 @@ where
             Ok(JobDeclaration::SubmitSharesExtended(message)) => self_
                 .safe_lock(|x| x.handle_submit_shares_extended(message))
                 .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
+            Ok(JobDeclaration::SubmitSharesSuccess(message)) => self_
+                .safe_lock(|x| x.handle_submit_shares_success(message))
+                .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
+            Ok(JobDeclaration::SubmitSharesError(message)) => self_
+                .safe_lock(|x| x.handle_submit_shares_error(message))
+                .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
             Ok(_) => todo!(),
             Err(e) => Err(e),
         }
     }
 
-    // TODO: comment
     fn handle_allocate_mining_job_token(
         &mut self,
         message: AllocateMiningJobToken,
     ) -> Result<SendTo, Error>;
-    // TODO: comment
+
     fn handle_declare_mining_job(&mut self, message: DeclareMiningJob) -> Result<SendTo, Error>;
-    // TODO: comment
+
     fn handle_identify_transactions_success(
         &mut self,
         message: IdentifyTransactionsSuccess,
     ) -> Result<SendTo, Error>;
-    // TODO: comment
+
     fn handle_provide_missing_transactions_success(
         &mut self,
         message: ProvideMissingTransactionsSuccess,
     ) -> Result<SendTo, Error>;
 
-    // TODO: comment
     fn handle_submit_shares_extended(
         &mut self,
         message: SubmitSharesExtended,
     ) -> Result<SendTo, Error>;
+
+    fn handle_submit_shares_success(
+        &mut self,
+        message: SubmitSharesSuccess,
+    ) -> Result<SendTo, Error>;
+
+    fn handle_submit_shares_error(&mut self, message: SubmitSharesError) -> Result<SendTo, Error>;
 }

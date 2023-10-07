@@ -6,6 +6,7 @@ use network_helpers::noise_connection_tokio::Connection;
 use roles_logic_sv2::{
     handlers::SendTo_,
     job_declaration_sv2::AllocateMiningJobTokenSuccess,
+    mining_sv2::SubmitSharesExtended,
     parsers::{JobDeclaration, PoolMessages},
     template_distribution_sv2::SetNewPrevHash,
     utils::{hash_lists_tuple, Mutex},
@@ -35,8 +36,9 @@ pub type StdFrame = StandardSv2Frame<Message>;
 mod setup_connection;
 use setup_connection::SetupConnectionHandler;
 
-use crate::{proxy_config::ProxyConfig, upstream_sv2::Upstream};
+use crate::{error::Error, proxy_config::ProxyConfig, upstream_sv2::Upstream};
 
+#[derive(Debug)]
 pub struct JobDeclarator {
     receiver: Receiver<StandardEitherFrame<PoolMessages<'static>>>,
     sender: Sender<StandardEitherFrame<PoolMessages<'static>>>,
@@ -67,9 +69,9 @@ impl JobDeclarator {
         config: ProxyConfig,
         up: Arc<Mutex<Upstream>>,
         task_collector: Arc<Mutex<Vec<AbortHandle>>>,
-    ) -> Arc<Mutex<Self>> {
-        let stream = tokio::net::TcpStream::connect(address).await.unwrap();
-        let initiator = Initiator::from_raw_k(authority_public_key).unwrap();
+    ) -> Result<Arc<Mutex<Self>>, Error<'static>> {
+        let stream = tokio::net::TcpStream::connect(address).await?;
+        let initiator = Initiator::from_raw_k(authority_public_key)?;
         let (mut receiver, mut sender, _, _) =
             Connection::new(stream, HandshakeRole::Initiator(initiator)).await;
 
@@ -106,7 +108,7 @@ impl JobDeclarator {
 
         Self::allocate_tokens(&self_, 2).await;
         Self::on_upstream_message(self_.clone());
-        self_
+        Ok(self_)
     }
 
     pub fn get_last_declare_job_sent(
@@ -336,5 +338,16 @@ impl JobDeclarator {
             // TODO join re
             sender.send(frame.into()).await.unwrap();
         }
+    }
+    pub async fn on_solution(
+        self_mutex: &Arc<Mutex<Self>>,
+        solution: SubmitSharesExtended<'static>,
+    ) {
+        let frame: StdFrame =
+            PoolMessages::JobDeclaration(JobDeclaration::SubmitSharesExtended(solution))
+                .try_into()
+                .unwrap();
+        let sender = self_mutex.safe_lock(|s| s.sender.clone()).unwrap();
+        sender.send(frame.into()).await.unwrap();
     }
 }
