@@ -6,6 +6,7 @@ use alloc::vec::Vec;
 pub struct BufferFromSystemMemory {
     inner: Vec<u8>,
     cursor: usize,
+    start: usize,
 }
 
 impl BufferFromSystemMemory {
@@ -13,6 +14,7 @@ impl BufferFromSystemMemory {
         Self {
             inner: Vec::new(),
             cursor: 0,
+            start: 0,
         }
     }
 }
@@ -63,6 +65,11 @@ impl Buffer for BufferFromSystemMemory {
     fn len(&self) -> usize {
         self.cursor
     }
+
+    #[inline]
+    fn danger_set_start(&mut self, index: usize) {
+        self.start = index;
+    }
 }
 
 #[cfg(test)]
@@ -91,16 +98,21 @@ impl Buffer for TestBufferFromMemory {
     fn len(&self) -> usize {
         0
     }
+    fn danger_set_start(&mut self, index: usize) {
+        todo!()
+    }
 }
 
 impl AsRef<[u8]> for BufferFromSystemMemory {
     fn as_ref(&self) -> &[u8] {
-        self.get_data_by_ref_(Buffer::len(self))
+        let start = self.start;
+        &self.get_data_by_ref_(Buffer::len(self))[start..]
     }
 }
 impl AsMut<[u8]> for BufferFromSystemMemory {
     fn as_mut(&mut self) -> &mut [u8] {
-        self.get_data_by_ref(Buffer::len(self))
+        let start = self.start;
+        self.get_data_by_ref(Buffer::len(self))[start..].as_mut()
     }
 }
 impl AeadBuffer for BufferFromSystemMemory {
@@ -110,6 +122,7 @@ impl AeadBuffer for BufferFromSystemMemory {
     }
 
     fn truncate(&mut self, len: usize) {
+        let len = len + self.start;
         self.cursor = len;
     }
 }

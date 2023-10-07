@@ -328,6 +328,9 @@ pub struct BufferPool<T: Buffer> {
     shared_state: SharedState,
     inner_memory: InnerMemory,
     system_memory: T,
+    // Used only when we need as_ref or as_mut, set the first element to the one with index equal
+    // to start
+    start: usize,
 }
 
 impl BufferPool<BufferFromSystemMemory> {
@@ -338,6 +341,7 @@ impl BufferPool<BufferFromSystemMemory> {
             shared_state: SharedState::new(),
             inner_memory: InnerMemory::new(capacity),
             system_memory: BufferFromSystemMemory::default(),
+            start:0,
         }
     }
 }
@@ -664,6 +668,10 @@ impl<T: Buffer> Buffer for BufferPool<T> {
             PoolMode::Alloc => self.system_memory.len(),
         }
     }
+
+    fn danger_set_start(&mut self, index: usize) {
+        self.start = index;
+    }
 }
 
 #[cfg(not(test))]
@@ -675,12 +683,13 @@ impl<T: Buffer> Drop for BufferPool<T> {
 
 impl<T: Buffer> AsRef<[u8]> for BufferPool<T> {
     fn as_ref(&self) -> &[u8] {
-        self.get_data_by_ref_(Buffer::len(self))
+        &self.get_data_by_ref_(Buffer::len(self))[self.start..]
     }
 }
 impl<T: Buffer> AsMut<[u8]> for BufferPool<T> {
     fn as_mut(&mut self) -> &mut [u8] {
-        self.get_data_by_ref(Buffer::len(self))
+        let start = self.start;
+        self.get_data_by_ref(Buffer::len(self))[start..].as_mut()
     }
 }
 impl<T: Buffer + AeadBuffer> AeadBuffer for BufferPool<T> {
@@ -690,6 +699,7 @@ impl<T: Buffer + AeadBuffer> AeadBuffer for BufferPool<T> {
     }
 
     fn truncate(&mut self, len: usize) {
+        let len = len + self.start;
         match self.mode {
             PoolMode::Back => self.inner_memory.raw_len = len,
             PoolMode::Front(_) => self.inner_memory.raw_len = len,
