@@ -3,21 +3,21 @@ use crate::{
     status, EitherFrame, StdFrame,
 };
 use async_channel::{Receiver, Sender};
-use codec_sv2::{Frame,HandshakeRole,Initiator};
+use codec_sv2::{Frame, HandshakeRole, Initiator};
 use error_handling::handle_result;
+use key_utils::Secp256k1PublicKey;
 use network_helpers::plain_connection_tokio::PlainConnection;
 use roles_logic_sv2::{
     handlers::template_distribution::ParseServerTemplateDistributionMessages,
     parsers::{PoolMessages, TemplateDistribution},
     template_distribution_sv2::{
-        CoinbaseOutputDataSize, NewTemplate, SetNewPrevHash, SubmitSolution, RequestTransactionData,
+        CoinbaseOutputDataSize, NewTemplate, RequestTransactionData, SetNewPrevHash, SubmitSolution,
     },
     utils::Mutex,
 };
 use std::{convert::TryInto, net::SocketAddr, sync::Arc};
 use tokio::{net::TcpStream, task};
-use tracing::{info, debug};
-use key_utils::Secp256k1PublicKey;
+use tracing::{debug, info};
 
 mod message_handler;
 mod setup_connection;
@@ -33,6 +33,7 @@ pub struct TemplateRx {
 }
 
 impl TemplateRx {
+    #[allow(clippy::too_many_arguments)]
     pub async fn connect(
         address: SocketAddr,
         templ_sender: Sender<NewTemplate<'static>>,
@@ -47,9 +48,8 @@ impl TemplateRx {
         info!("Connected to template distribution server at {}", address);
 
         let pub_key: Secp256k1PublicKey = authority_public_key;
-        let initiator = Initiator::from_raw_k(pub_key.into_bytes())?;
-        let (mut receiver, mut sender) =
-            PlainConnection::new(stream).await;
+        let _initiator = Initiator::from_raw_k(pub_key.into_bytes())?;
+        let (mut receiver, mut sender) = PlainConnection::new(stream).await;
 
         SetupConnectionHandler::setup(&mut receiver, &mut sender, address).await?;
 
@@ -158,11 +158,12 @@ impl TemplateRx {
             //let sv2_frame_res: Result<StdFrame, _> =
             //    PoolMessages::TemplateDistribution(TemplateDistribution::SubmitSolution(solution))
             //        .try_into();
-            let sv2_frame_res: Result<StdFrame, _> =
-                PoolMessages::TemplateDistribution(TemplateDistribution::RequestTransactionData(RequestTransactionData {
+            let sv2_frame_res: Result<StdFrame, _> = PoolMessages::TemplateDistribution(
+                TemplateDistribution::RequestTransactionData(RequestTransactionData {
                     template_id: solution.template_id,
-                }))
-                    .try_into();
+                }),
+            )
+            .try_into();
             match sv2_frame_res {
                 Ok(frame) => {
                     handle_result!(status_tx, Self::send(self_.clone(), frame).await);

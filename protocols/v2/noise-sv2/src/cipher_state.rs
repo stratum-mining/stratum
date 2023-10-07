@@ -18,9 +18,8 @@ where
         let mut res = [0u8; 12];
         let n = self.get_n();
         let bytes = n.to_le_bytes();
-        for i in 4..res.len() {
-            res[i] = bytes[i - 4];
-        }
+        let len = res.len();
+        res[4..].copy_from_slice(&bytes[..(len - 4)]);
         res
     }
 

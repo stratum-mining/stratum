@@ -295,11 +295,17 @@ impl Pool {
             match responder {
                 Ok(resp) => {
                     if let Ok((receiver, sender, _, _)) =
-                        Connection::new(stream, HandshakeRole::Responder(resp)).await {
+                        Connection::new(stream, HandshakeRole::Responder(resp)).await
+                    {
                         handle_result!(
                             status_tx,
-                            Self::accept_incoming_connection_(self_.clone(), receiver, sender, address)
-                                .await
+                            Self::accept_incoming_connection_(
+                                self_.clone(),
+                                receiver,
+                                sender,
+                                address
+                            )
+                            .await
                         );
                     }
                 }

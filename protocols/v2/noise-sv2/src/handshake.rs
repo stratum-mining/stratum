@@ -3,7 +3,7 @@ use chacha20poly1305::ChaCha20Poly1305;
 use secp256k1::{
     ecdh::SharedSecret,
     hashes::{sha256::Hash as Sha256Hash, Hash},
-    rand, KeyPair, Secp256k1, SecretKey ,XOnlyPublicKey,
+    rand, KeyPair, Secp256k1, SecretKey, XOnlyPublicKey,
 };
 
 pub trait HandshakeOp<Cipher: AeadCipher>: CipherState<Cipher> {

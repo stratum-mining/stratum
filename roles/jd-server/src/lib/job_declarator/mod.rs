@@ -175,7 +175,9 @@ impl JobDeclarator {
             .unwrap();
 
             let (receiver, sender, _, _) =
-                Connection::new(stream, HandshakeRole::Responder(responder)).await.expect("impossible to connect");
+                Connection::new(stream, HandshakeRole::Responder(responder))
+                    .await
+                    .expect("impossible to connect");
             let setup_message_from_proxy_jd = receiver.recv().await.unwrap();
             info!(
                 "Setup connection message from proxy: {:?}",

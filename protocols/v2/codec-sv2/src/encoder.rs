@@ -1,20 +1,21 @@
 use alloc::vec::Vec;
 use binary_sv2::{GetSize, Serialize};
-use const_sv2::{SV2_FRAME_HEADER_SIZE, SV2_FRAME_CHUNK_SIZE};
+#[cfg(feature = "noise_sv2")]
+use const_sv2::{SV2_FRAME_CHUNK_SIZE, SV2_FRAME_HEADER_SIZE};
 #[cfg(feature = "noise_sv2")]
 use core::convert::TryInto;
 use core::marker::PhantomData;
 #[cfg(feature = "noise_sv2")]
 use framing_sv2::framing2::{EitherFrame, HandShakeFrame};
-use framing_sv2::{framing2::{Frame as F_, Sv2Frame}, header::{NoiseHeader, Header}};
+use framing_sv2::{
+    framing2::{Frame as F_, Sv2Frame},
+    header::NoiseHeader,
+};
 #[cfg(feature = "noise_sv2")]
 use tracing::error;
 
 #[cfg(feature = "noise_sv2")]
 use crate::{Error, Result, State};
-
-#[cfg(feature = "noise_sv2")]
-const MAC_LEN: usize = const_sv2::AEAD_MAC_LEN;
 
 #[cfg(feature = "noise_sv2")]
 #[cfg(not(feature = "with_buffer_pool"))]
@@ -70,10 +71,10 @@ impl<T: Serialize + GetSize> NoiseEncoder<T> {
 
                 // ENCRYPT THE PAYLOAD IN CHUNKS
                 let mut start = SV2_FRAME_HEADER_SIZE;
-                let mut end = if sv2.len() - start < SV2_FRAME_CHUNK_SIZE{
+                let mut end = if sv2.len() - start < SV2_FRAME_CHUNK_SIZE {
                     sv2.len()
                 } else {
-                     SV2_FRAME_CHUNK_SIZE + start
+                    SV2_FRAME_CHUNK_SIZE + start
                 };
                 let mut encrypted_len = NoiseHeader::SIZE;
 
@@ -87,7 +88,6 @@ impl<T: Serialize + GetSize> NoiseEncoder<T> {
                     end = (start + SV2_FRAME_CHUNK_SIZE).min(sv2.len());
                 }
                 self.noise_buffer.danger_set_start(0);
-
             }
             State::HandShake(_) => self.while_handshaking(item)?,
             State::NotInitialized => self.while_handshaking(item)?,

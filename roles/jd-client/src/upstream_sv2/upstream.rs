@@ -138,8 +138,9 @@ impl Upstream {
         );
 
         // Channel to send and receive messages to the SV2 Upstream role
-        let (receiver, sender, _, _) =
-            Connection::new(socket, HandshakeRole::Initiator(initiator)).await.expect("Failed to create connection");
+        let (receiver, sender, _, _) = Connection::new(socket, HandshakeRole::Initiator(initiator))
+            .await
+            .expect("Failed to create connection");
 
         Ok(Arc::new(Mutex::new(Self {
             channel_id: None,

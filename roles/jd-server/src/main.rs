@@ -1,10 +1,7 @@
 #![allow(special_module_name)]
 use async_channel::unbounded;
+use codec_sv2::{StandardEitherFrame, StandardSv2Frame};
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
-use codec_sv2::{
-    StandardEitherFrame, StandardSv2Frame,
-};
-use stratum_common::bitcoin::secp256k1::{All, Secp256k1};
 use roles_logic_sv2::{
     errors::Error, parsers::PoolMessages as JdsMessages, utils::CoinbaseOutput as CoinbaseOutput_,
 };
