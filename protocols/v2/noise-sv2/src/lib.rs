@@ -15,9 +15,7 @@ mod signature_message;
 #[cfg(test)]
 mod test;
 
-pub use const_sv2::{
-    NOISE_HASHED_PROTOCOL_NAME_CHACHA, NOISE_SUPPORTED_CIPHERS_MESSAGE,
-};
+pub use const_sv2::{NOISE_HASHED_PROTOCOL_NAME_CHACHA, NOISE_SUPPORTED_CIPHERS_MESSAGE};
 
 const PARITY: secp256k1::Parity = secp256k1::Parity::Even;
 

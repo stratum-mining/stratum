@@ -73,7 +73,9 @@ impl JobDeclarator {
         let stream = tokio::net::TcpStream::connect(address).await?;
         let initiator = Initiator::from_raw_k(authority_public_key)?;
         let (mut receiver, mut sender, _, _) =
-            Connection::new(stream, HandshakeRole::Initiator(initiator)).await.expect("impossible to connect");
+            Connection::new(stream, HandshakeRole::Initiator(initiator))
+                .await
+                .expect("impossible to connect");
 
         let proxy_address = SocketAddr::new(
             IpAddr::from_str(&config.downstream_address).unwrap(),

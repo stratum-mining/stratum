@@ -1,8 +1,6 @@
 #![allow(special_module_name)]
 use async_channel::{bounded, unbounded};
-use codec_sv2::{
-    StandardEitherFrame, StandardSv2Frame,
-};
+use codec_sv2::{StandardEitherFrame, StandardSv2Frame};
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 //use error::OutputScriptError;
 use roles_logic_sv2::{
@@ -10,11 +8,7 @@ use roles_logic_sv2::{
 };
 use serde::Deserialize;
 use std::convert::{TryFrom, TryInto};
-use std::str::FromStr;
-use stratum_common::bitcoin::{
-    secp256k1::{All, Secp256k1},
-    PublicKey, Script, TxOut,
-};
+use stratum_common::bitcoin::{Script, TxOut};
 
 use tracing::{error, info, warn};
 mod error;

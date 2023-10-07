@@ -662,7 +662,9 @@ pub async fn listen_for_downstream_mining(
         )
         .unwrap();
         let (receiver, sender, recv_task_abort_handler, send_task_abort_handler) =
-            Connection::new(stream, HandshakeRole::Responder(responder)).await.expect("impossible to connect");
+            Connection::new(stream, HandshakeRole::Responder(responder))
+                .await
+                .expect("impossible to connect");
         let node = DownstreamMiningNode::new(
             receiver,
             sender,

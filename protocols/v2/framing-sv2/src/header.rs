@@ -4,7 +4,7 @@ use alloc::vec::Vec;
 #[cfg(not(feature = "with_serde"))]
 use binary_sv2::binary_codec_sv2;
 use binary_sv2::{Deserialize, Serialize, U24};
-use const_sv2::{SV2_FRAME_CHUNK_SIZE, AEAD_MAC_LEN};
+use const_sv2::{AEAD_MAC_LEN, SV2_FRAME_CHUNK_SIZE};
 use core::convert::TryInto;
 
 #[derive(Debug, Serialize, Deserialize, Copy, Clone)]

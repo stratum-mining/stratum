@@ -6,9 +6,8 @@ use async_std::{
     task,
 };
 use codec_sv2::{HandshakeRole, Initiator, Responder};
-use std::{env, net::SocketAddr, time};
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
-use std::convert::TryInto;
+use std::{convert::TryInto, env, net::SocketAddr, time};
 
 //Pick any unused port
 const ADDR: &str = "127.0.0.1:0";
@@ -24,8 +23,8 @@ async fn server_pool_listen(listener: TcpListener) {
     while let Some(stream) = incoming.next().await {
         let stream = stream.unwrap();
         println!("SERVER - Accepting from: {}", stream.peer_addr().unwrap());
-        let k_pub : Secp256k1PublicKey = AUTHORITY_PUBLIC_K.to_string().try_into().unwrap();
-        let k_priv : Secp256k1SecretKey = AUTHORITY_PRIVATE_K.to_string().try_into().unwrap();
+        let k_pub: Secp256k1PublicKey = AUTHORITY_PUBLIC_K.to_string().try_into().unwrap();
+        let k_priv: Secp256k1SecretKey = AUTHORITY_PRIVATE_K.to_string().try_into().unwrap();
         let responder =
             Responder::from_authority_kp(&k_pub.into_bytes(), &k_priv.into_bytes(), CERT_VALIDITY)
                 .unwrap();
@@ -49,7 +48,7 @@ async fn new_client(name: String, test_count: u32, socket: SocketAddr) {
             }
         }
     };
-    let k_pub : Secp256k1PublicKey = AUTHORITY_PUBLIC_K.to_string().try_into().unwrap();
+    let k_pub: Secp256k1PublicKey = AUTHORITY_PUBLIC_K.to_string().try_into().unwrap();
     let initiator = Initiator::from_raw_k(k_pub.into_bytes()).unwrap();
     let client = node::Node::new(
         name,

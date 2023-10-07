@@ -14,16 +14,16 @@ use network_helpers::{
     noise_connection_tokio::Connection, plain_connection_tokio::PlainConnection,
 };
 
+use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 use roles_logic_sv2::{
     mining_sv2::*,
     parsers::{Mining, MiningDeviceMessages},
 };
-use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 
 pub type EitherFrame = StandardEitherFrame<Message>;
-pub const AUTHORITY_PUBLIC_K: &str =  "3VANfft6ei6jQq1At7d8nmiZzVhBFS4CiQujdgim1ign";
+pub const AUTHORITY_PUBLIC_K: &str = "3VANfft6ei6jQq1At7d8nmiZzVhBFS4CiQujdgim1ign";
 
-pub const AUTHORITY_PRIVATE_K: &str =  "7qbpUjScc865jyX2kiB4NVJANoC7GA7TAJupdzXWkc62";
+pub const AUTHORITY_PRIVATE_K: &str = "7qbpUjScc865jyX2kiB4NVJANoC7GA7TAJupdzXWkc62";
 
 static HOST: &str = "127.0.0.1";
 
@@ -69,11 +69,13 @@ async fn setup_driver(
     let (_server_receiver, server_sender): (Receiver<EitherFrame>, Sender<EitherFrame>);
 
     if encrypt {
-        let k : Secp256k1PublicKey = AUTHORITY_PUBLIC_K.to_string().try_into().unwrap();
+        let k: Secp256k1PublicKey = AUTHORITY_PUBLIC_K.to_string().try_into().unwrap();
         let initiator = Initiator::from_raw_k(k.into_bytes()).unwrap();
 
         (_, server_sender, _, _) =
-            Connection::new(server_stream, HandshakeRole::Initiator(initiator)).await.unwrap();
+            Connection::new(server_stream, HandshakeRole::Initiator(initiator))
+                .await
+                .unwrap();
     } else {
         (_server_receiver, server_sender) = PlainConnection::new(server_stream).await;
     }
@@ -122,7 +124,7 @@ async fn send_messages(stream: Sender<EitherFrame>, total_messages: i32) {
 }
 
 async fn handle_messages(
-    name: String,
+    _name: String,
     client: Receiver<EitherFrame>,
     server: Option<Sender<EitherFrame>>,
     total_messages: i32,
@@ -165,16 +167,17 @@ async fn create_proxy(
     let (cli_receiver, _cli_sender): (Receiver<EitherFrame>, Sender<EitherFrame>);
 
     if encrypt {
-        let k_pub : Secp256k1PublicKey = AUTHORITY_PUBLIC_K.to_string().try_into().unwrap();
-        let k_priv : Secp256k1SecretKey = AUTHORITY_PRIVATE_K.to_string().try_into().unwrap();
+        let k_pub: Secp256k1PublicKey = AUTHORITY_PUBLIC_K.to_string().try_into().unwrap();
+        let k_priv: Secp256k1SecretKey = AUTHORITY_PRIVATE_K.to_string().try_into().unwrap();
         let responder = Responder::from_authority_kp(
             &k_pub.into_bytes(),
             &k_priv.into_bytes(),
             Duration::from_secs(3600),
         )
         .unwrap();
-        (cli_receiver, _, _, _) =
-            Connection::new(cli_stream, HandshakeRole::Responder(responder)).await.unwrap();
+        (cli_receiver, _, _, _) = Connection::new(cli_stream, HandshakeRole::Responder(responder))
+            .await
+            .unwrap();
     } else {
         (cli_receiver, _cli_sender) = PlainConnection::new(cli_stream).await;
     }
@@ -186,13 +189,14 @@ async fn create_proxy(
             .await
             .unwrap();
         let (_server_receiver, server_sender): (Receiver<EitherFrame>, Sender<EitherFrame>);
-        let k_pub : Secp256k1PublicKey = AUTHORITY_PUBLIC_K.to_string().try_into().unwrap();
-        let k_priv : Secp256k1SecretKey = AUTHORITY_PRIVATE_K.to_string().try_into().unwrap();
+        let k_pub: Secp256k1PublicKey = AUTHORITY_PUBLIC_K.to_string().try_into().unwrap();
 
         if encrypt {
             let initiator = Initiator::from_raw_k(k_pub.into_bytes()).unwrap();
             (_, server_sender, _, _) =
-                Connection::new(server_stream, HandshakeRole::Initiator(initiator)).await.unwrap();
+                Connection::new(server_stream, HandshakeRole::Initiator(initiator))
+                    .await
+                    .unwrap();
         } else {
             (_server_receiver, server_sender) = PlainConnection::new(server_stream).await;
         }

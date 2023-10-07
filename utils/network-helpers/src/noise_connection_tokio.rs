@@ -7,8 +7,7 @@ use std::{sync::Arc, time::Duration};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::{TcpListener, TcpStream},
-    task::{self,AbortHandle},
-
+    task::{self, AbortHandle},
 };
 
 use binary_sv2::GetSize;
@@ -175,7 +174,12 @@ impl Connection {
             }
         };
         debug!("Noise handshake complete - {}", &address);
-        Ok((receiver_incoming, sender_outgoing, recv_task.abort_handle(),send_task.abort_handle()))
+        Ok((
+            receiver_incoming,
+            sender_outgoing,
+            recv_task.abort_handle(),
+            send_task.abort_handle(),
+        ))
     }
 }
 

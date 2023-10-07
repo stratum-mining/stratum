@@ -372,7 +372,9 @@ impl UpstreamMiningNode {
 
                 let initiator = Initiator::from_raw_k(authority_public_key).unwrap();
                 let (receiver, sender, _, _) =
-                    Connection::new(socket, HandshakeRole::Initiator(initiator)).await.expect("impossible to conenct");
+                    Connection::new(socket, HandshakeRole::Initiator(initiator))
+                        .await
+                        .expect("impossible to conenct");
                 let connection = UpstreamMiningConnection { receiver, sender };
                 self_mutex
                     .safe_lock(|self_| {

@@ -341,7 +341,7 @@ impl BufferPool<BufferFromSystemMemory> {
             shared_state: SharedState::new(),
             inner_memory: InnerMemory::new(capacity),
             system_memory: BufferFromSystemMemory::default(),
-            start:0,
+            start: 0,
         }
     }
 }
