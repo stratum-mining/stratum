@@ -5,12 +5,12 @@ use crate::{
 use async_channel::{Receiver, Sender};
 use codec_sv2::{Frame,HandshakeRole,Initiator};
 use error_handling::handle_result;
-use network_helpers::noise_connection_tokio::Connection;
+use network_helpers::plain_connection_tokio::PlainConnection;
 use roles_logic_sv2::{
     handlers::template_distribution::ParseServerTemplateDistributionMessages,
     parsers::{PoolMessages, TemplateDistribution},
     template_distribution_sv2::{
-        CoinbaseOutputDataSize, NewTemplate, SetNewPrevHash, SubmitSolution,
+        CoinbaseOutputDataSize, NewTemplate, SetNewPrevHash, SubmitSolution, RequestTransactionData,
     },
     utils::Mutex,
 };
@@ -48,8 +48,8 @@ impl TemplateRx {
 
         let pub_key: Secp256k1PublicKey = authority_public_key;
         let initiator = Initiator::from_raw_k(pub_key.into_bytes())?;
-        let (mut receiver, mut sender): (Receiver<EitherFrame>, Sender<EitherFrame>) =
-            Connection::new(stream,HandshakeRole::Initiator(initiator)).await.unwrap();
+        let (mut receiver, mut sender) =
+            PlainConnection::new(stream).await;
 
         SetupConnectionHandler::setup(&mut receiver, &mut sender, address).await?;
 
@@ -132,7 +132,11 @@ impl TemplateRx {
                     }
                     TemplateDistribution::SubmitSolution(_) => todo!(),
                 },
-                _ => todo!(),
+                roles_logic_sv2::handlers::SendTo_::None(None) => (),
+                _ => {
+                    info!("Error: {:?}", msg);
+                    std::process::abort();
+                }
             }
         }
     }
@@ -150,8 +154,14 @@ impl TemplateRx {
         let status_tx = self_.safe_lock(|s| s.status_tx.clone()).unwrap();
         while let Ok(solution) = rx.recv().await {
             info!("Sending Solution to TP: {:?}", &solution);
+            //solution.header_nonce = 10;
+            //let sv2_frame_res: Result<StdFrame, _> =
+            //    PoolMessages::TemplateDistribution(TemplateDistribution::SubmitSolution(solution))
+            //        .try_into();
             let sv2_frame_res: Result<StdFrame, _> =
-                PoolMessages::TemplateDistribution(TemplateDistribution::SubmitSolution(solution))
+                PoolMessages::TemplateDistribution(TemplateDistribution::RequestTransactionData(RequestTransactionData {
+                    template_id: solution.template_id,
+                }))
                     .try_into();
             match sv2_frame_res {
                 Ok(frame) => {
