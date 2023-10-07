@@ -13,7 +13,7 @@ binary_sv2 = { version = "^0.1.6", path = "../../protocols/v2/binary-sv2/binary-
 buffer_sv2 = { version = "^0.1.2", path = "../../utils/buffer" }
 codec_sv2 = { version = "1.0", path = "../../protocols/v2/codec-sv2", features = ["noise_sv2"] }
 const_sv2 = { version = "^0.1.2", path = "../../protocols/v2/const-sv2" }
-network_helpers = { version = "0.1", path = "../../utils/network-helpers", features = ["with_tokio"] }
+network_helpers = { version = "0.1", path = "../../utils/network-helpers", features =["with_tokio","with_buffer_pool"] }
 noise_sv2 = { version = "1.0", path = "../../protocols/v2/noise-sv2" }
 rand = "0.8.4"
 roles_logic_sv2 = { version = "^0.1.0", path = "../../protocols/v2/roles-logic-sv2" }
