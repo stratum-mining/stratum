@@ -7,19 +7,15 @@ use async_std::{
 };
 use codec_sv2::{HandshakeRole, Initiator, Responder};
 use std::{env, net::SocketAddr, time};
+use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
+use std::convert::TryInto;
 
 //Pick any unused port
 const ADDR: &str = "127.0.0.1:0";
 
-pub const AUTHORITY_PUBLIC_K: [u8; 32] = [
-    215, 11, 47, 78, 34, 232, 25, 192, 195, 168, 170, 209, 95, 181, 40, 114, 154, 226, 176, 190,
-    90, 169, 238, 89, 191, 183, 97, 63, 194, 119, 11, 31,
-];
+pub const AUTHORITY_PUBLIC_K: &str = "3VANfft6ei6jQq1At7d8nmiZzVhBFS4CiQujdgim1ign";
 
-pub const AUTHORITY_PRIVATE_K: [u8; 32] = [
-    204, 93, 167, 220, 169, 204, 172, 35, 9, 84, 174, 208, 171, 89, 25, 53, 196, 209, 161, 148, 4,
-    5, 173, 0, 234, 59, 15, 127, 31, 160, 136, 131,
-];
+pub const AUTHORITY_PRIVATE_K: &str = "7qbpUjScc865jyX2kiB4NVJANoC7GA7TAJupdzXWkc62";
 
 const CERT_VALIDITY: time::Duration = time::Duration::from_secs(3600);
 
@@ -28,8 +24,10 @@ async fn server_pool_listen(listener: TcpListener) {
     while let Some(stream) = incoming.next().await {
         let stream = stream.unwrap();
         println!("SERVER - Accepting from: {}", stream.peer_addr().unwrap());
+        let k_pub : Secp256k1PublicKey = AUTHORITY_PUBLIC_K.to_string().try_into().unwrap();
+        let k_priv : Secp256k1SecretKey = AUTHORITY_PRIVATE_K.to_string().try_into().unwrap();
         let responder =
-            Responder::from_authority_kp(&AUTHORITY_PUBLIC_K, &AUTHORITY_PRIVATE_K, CERT_VALIDITY)
+            Responder::from_authority_kp(&k_pub.into_bytes(), &k_priv.into_bytes(), CERT_VALIDITY)
                 .unwrap();
         let _server = node::Node::new(
             "server".to_string(),
@@ -51,7 +49,8 @@ async fn new_client(name: String, test_count: u32, socket: SocketAddr) {
             }
         }
     };
-    let initiator = Initiator::from_raw_k(AUTHORITY_PUBLIC_K).unwrap();
+    let k_pub : Secp256k1PublicKey = AUTHORITY_PUBLIC_K.to_string().try_into().unwrap();
+    let initiator = Initiator::from_raw_k(k_pub.into_bytes()).unwrap();
     let client = node::Node::new(
         name,
         stream,
