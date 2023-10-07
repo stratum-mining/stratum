@@ -1398,6 +1398,7 @@ dependencies = [
  "binary_sv2",
  "bytes",
  "codec_sv2",
+ "key-utils",
  "network_helpers",
  "rand",
  "serde",

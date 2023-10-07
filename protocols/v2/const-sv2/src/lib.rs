@@ -6,10 +6,11 @@ pub const EXTENSION_TYPE_NO_EXTENSION: u16 = 0;
 pub const SV2_FRAME_HEADER_SIZE: usize = 6;
 pub const SV2_FRAME_HEADER_LEN_OFFSET: usize = 3;
 pub const SV2_FRAME_HEADER_LEN_END: usize = 3;
+pub const SV2_FRAME_CHUNK_SIZE: usize = 65519;
 
+pub const ENCRYPTED_SV2_FRAME_HEADER_SIZE: usize = SV2_FRAME_HEADER_SIZE + AEAD_MAC_LEN;
 pub const NOISE_FRAME_HEADER_SIZE: usize = 2;
 pub const NOISE_FRAME_HEADER_LEN_OFFSET: usize = 0;
-pub const NOISE_FRAME_HEADER_LEN_END: usize = 2;
 pub const NOISE_FRAME_MAX_SIZE: usize = u16::MAX as usize;
 
 /// If protocolName is less than or equal to 32 bytes in length, use protocolName with zero bytes
