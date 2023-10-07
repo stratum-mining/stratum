@@ -239,7 +239,7 @@ impl<'a> Frame<'a, Slice> for NoiseFrame {
 
     #[inline]
     fn payload(&'a mut self) -> &'a mut [u8] {
-        &mut self.payload[NoiseHeader::SIZE..]
+        &mut self.payload[NoiseHeader::HANDSHAKE_HEADER_SIZE..]
     }
 
     /// If is an Sv2 frame return the Some(header) if it is a noise frame return None
@@ -254,7 +254,7 @@ impl<'a> Frame<'a, Slice> for NoiseFrame {
 
     #[inline]
     fn from_bytes_unchecked(bytes: Self::Buffer) -> Self {
-        let len_b = &bytes[NoiseHeader::LEN_OFFSET..NoiseHeader::SIZE];
+        let len_b = &bytes[NoiseHeader::LEN_OFFSET..NoiseHeader::HANDSHAKE_HEADER_SIZE];
         let expected_len = u16::from_le_bytes([len_b[0], len_b[1]]) as usize;
 
         Self {
@@ -265,17 +265,17 @@ impl<'a> Frame<'a, Slice> for NoiseFrame {
 
     #[inline]
     fn size_hint(bytes: &[u8]) -> isize {
-        if bytes.len() < NoiseHeader::SIZE {
-            return (NoiseHeader::SIZE - bytes.len()) as isize;
+        if bytes.len() < NoiseHeader::HANDSHAKE_HEADER_SIZE {
+            return (NoiseHeader::HANDSHAKE_HEADER_SIZE - bytes.len()) as isize;
         };
 
-        let len_b = &bytes[NoiseHeader::LEN_OFFSET..NoiseHeader::SIZE];
+        let len_b = &bytes[NoiseHeader::LEN_OFFSET..NoiseHeader::HANDSHAKE_HEADER_SIZE];
         let expected_len = u16::from_le_bytes([len_b[0], len_b[1]]) as usize;
 
-        if bytes.len() - NoiseHeader::SIZE == expected_len {
+        if bytes.len() - NoiseHeader::HANDSHAKE_HEADER_SIZE == expected_len {
             0
         } else {
-            expected_len as isize - (bytes.len() - NoiseHeader::SIZE) as isize
+            expected_len as isize - (bytes.len() - NoiseHeader::HANDSHAKE_HEADER_SIZE) as isize
         }
     }
 
