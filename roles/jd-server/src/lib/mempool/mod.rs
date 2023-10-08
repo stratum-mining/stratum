@@ -3,9 +3,15 @@ pub mod rpc_client;
 use binary_sv2::ShortTxId;
 use bitcoin::blockdata::transaction::Transaction;
 use stratum_common::bitcoin;
-//use bitcoin::hashes::Hash;
+use bitcoin::hashes::HashEngine as HashEngineTrait;
+use bitcoin::hashes::sha256::HashEngine as HashEngineStruct;
+use bitcoin::hashes::sha256::Hash as HashStruct;
+use bitcoin::hashes::Hash as HashTrait;
+use bitcoin::hashes::sha256::Midstate;
 use rpc_client::{Auth, RpcApi, RpcClient};
 use serde::{Deserialize, Serialize};
+use siphasher::sip::SipHasher24;
+use std::{hash::Hasher, collections::hash_map::DefaultHasher};
 
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Hash([u8; 32]);
@@ -51,11 +57,11 @@ fn get_profitability(tx_fee: (Transaction, Amount)) -> usize {
 //    and not just the Txid + genealogy of txid
 // 2. if the message in 1. is not present, we must
 //    2.1 change the message from GetRawMempoolVerbose to GetRawMempool
-//    2.2 uncomment GetRawTransaction message below (maked with a TODO) and make this
-//      compile (DONE)
+//    2.2 (DONE) uncomment GetRawTransaction message below (maked with a TODO) and make this
+//      compile 
 // 3. work on the TODO above, about the function verify_shor_id (this task is already
 //    assigned to 4ss0.
-// 4. rebase (assigned to 4ss0)
+// 4. (DONE) rebase (assigned to 4ss0)
 // 5. the method order_mempool_by_profitability is misleading, because actially it order by
 //    size. Correct and use the function above order_mempool_by_fee_over_size
 //
@@ -75,17 +81,29 @@ impl JDsMempool {
     //TODO write this function that takes a short hash transaction id (the sip hash with 6 bytes
     //length) and a mempool in input and returns as output Some(Transaction) if the transaction is
     //present in the mempool and None otherwise.
-    fn verify_short_id(&self, tx_short_id: ShortTxId) -> Option<&Transaction> {
-        //for transaction_with_hash in self.mempool.iter() {
-        //    if transaction_with_hash.id == tx_short_id {
-        //        return Some(&transaction_with_hash.tx);
-        //    } else {
-        //        continue;
-        //    }
-        //}
-        //None
-        todo!()
-    }
+
+    //fn verify_short_id<'a>(&self, tx_short_id: ShortTxId<'a>, tx_short_hash_nonce: u64) -> Option<&Transaction> {
+    //    // hash the short hash nonce
+    //    //let mut hasher = DefaultHasher::new();
+    //    //let nonce_hash = HashEngineStruct::from(&tx_short_hash_nonce.to_le_bytes());
+    //    let nonce_hash: HashStruct = HashTrait::hash(&tx_short_hash_nonce.to_le_bytes());
+    //    // take first two integers from the hash
+    //    let k0 = u64::from_le_bytes(nonce_hash[0..8]);
+    //    let k1 = u64::from_le_bytes(nonce_hash[8..16]);
+    //    let hasher = SipHasher24::new_with_keys(k0, k1);
+    //    for transaction_with_hash in self.mempool.iter() {
+    //        let tx_hashed = hasher.hash(&transaction_with_hash.id);
+    //        let tx_hashed_bytes: Vec<u8> = transaction_with_hash.id.0.0.to_le_bytes().to_vec().drain(0..2).collect();
+    //        let short_txid_mempool: ShortTxId = tx_hashed_bytes.try_into().unwrap();
+    //        if short_txid_mempool == tx_short_id {
+    //            return Some(&transaction_with_hash.tx);
+    //        } else {
+    //           continue;
+    //        }
+    //    }
+    //    // ShortTxId doesn't match, need to ask JD client for this transaction
+    //    None
+    //}
 
     fn new(url: String, username: String, password: String) -> Self {
         let auth = Auth::UserPass(username, password);
