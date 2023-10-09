@@ -2,21 +2,25 @@ pub mod hex_iterator;
 pub mod rpc_client;
 use binary_sv2::ShortTxId;
 use bitcoin::blockdata::transaction::Transaction;
+use hashbrown::HashMap;
 use stratum_common::bitcoin;
-use bitcoin::hashes::HashEngine as HashEngineTrait;
-use bitcoin::hashes::sha256::HashEngine as HashEngineStruct;
-use bitcoin::hashes::sha256::Hash as HashStruct;
-use bitcoin::hashes::Hash as HashTrait;
-use bitcoin::hashes::sha256::Midstate;
-use rpc_client::{Auth, RpcApi, RpcClient};
+// DO NOT REMOVE THESE COMMENTS
+//use bitcoin::hashes::HashEngine as HashEngineTrait;
+//use bitcoin::hashes::sha256::HashEngine as HashEngineStruct;
+//use bitcoin::hashes::sha256::Hash as HashStruct;
+//use bitcoin::hashes::Hash as HashTrait;
+//use bitcoin::hashes::sha256::Midstate;
+use rpc_client::{Auth, GetMempoolEntryResult, RpcApi, RpcClient};
 use serde::{Deserialize, Serialize};
-use siphasher::sip::SipHasher24;
-use std::{hash::Hasher, collections::hash_map::DefaultHasher};
+//use siphasher::sip::SipHasher24;
+//use std::{hash::Hasher, collections::hash_map::DefaultHasher};
+use roles_logic_sv2::utils::Mutex;
+use std::sync::Arc;
 
-#[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Hash([u8; 32]);
 
-#[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Txid(Hash);
 
 #[derive(Clone, Deserialize)]
@@ -25,7 +29,8 @@ pub struct Amount(usize);
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct BlockHash(Hash);
 
-struct TransacrtionWithHash {
+#[derive(Debug)]
+pub struct TransacrtionWithHash {
     id: Txid,
     tx: Transaction,
 }
@@ -58,7 +63,7 @@ fn get_profitability(tx_fee: (Transaction, Amount)) -> usize {
 // 2. if the message in 1. is not present, we must
 //    2.1 change the message from GetRawMempoolVerbose to GetRawMempool
 //    2.2 (DONE) uncomment GetRawTransaction message below (maked with a TODO) and make this
-//      compile 
+//      compile
 // 3. work on the TODO above, about the function verify_shor_id (this task is already
 //    assigned to 4ss0.
 // 4. (DONE) rebase (assigned to 4ss0)
@@ -72,9 +77,11 @@ fn get_profitability(tx_fee: (Transaction, Amount)) -> usize {
 // NOTE the transaction in the mempool are
 // NOTE oredered as fee/weight in descending order
 // NOTE
+#[derive(Debug)]
 pub struct JDsMempool {
-    mempool: Vec<TransacrtionWithHash>,
-    client: RpcClient,
+    pub mempool: Vec<TransacrtionWithHash>,
+    auth: Auth,
+    url: String,
 }
 
 impl JDsMempool {
@@ -82,69 +89,86 @@ impl JDsMempool {
     //length) and a mempool in input and returns as output Some(Transaction) if the transaction is
     //present in the mempool and None otherwise.
 
-    //fn verify_short_id<'a>(&self, tx_short_id: ShortTxId<'a>, tx_short_hash_nonce: u64) -> Option<&Transaction> {
-    //    // hash the short hash nonce
-    //    //let mut hasher = DefaultHasher::new();
-    //    //let nonce_hash = HashEngineStruct::from(&tx_short_hash_nonce.to_le_bytes());
-    //    let nonce_hash: HashStruct = HashTrait::hash(&tx_short_hash_nonce.to_le_bytes());
-    //    // take first two integers from the hash
-    //    let k0 = u64::from_le_bytes(nonce_hash[0..8]);
-    //    let k1 = u64::from_le_bytes(nonce_hash[8..16]);
-    //    let hasher = SipHasher24::new_with_keys(k0, k1);
-    //    for transaction_with_hash in self.mempool.iter() {
-    //        let tx_hashed = hasher.hash(&transaction_with_hash.id);
-    //        let tx_hashed_bytes: Vec<u8> = transaction_with_hash.id.0.0.to_le_bytes().to_vec().drain(0..2).collect();
-    //        let short_txid_mempool: ShortTxId = tx_hashed_bytes.try_into().unwrap();
-    //        if short_txid_mempool == tx_short_id {
-    //            return Some(&transaction_with_hash.tx);
-    //        } else {
-    //           continue;
-    //        }
-    //    }
-    //    // ShortTxId doesn't match, need to ask JD client for this transaction
-    //    None
-    //}
-
-    fn new(url: String, username: String, password: String) -> Self {
+    fn get_client(&self) -> RpcClient {
+        let url = self.url.as_str();
+        RpcClient::new(url, self.auth.clone()).unwrap()
+    }
+    pub fn new(url: String, username: String, password: String) -> Self {
         let auth = Auth::UserPass(username, password);
-        let rpc = RpcClient::new(&url, auth).unwrap();
         let empty_mempool: Vec<TransacrtionWithHash> = Vec::new();
         JDsMempool {
             mempool: empty_mempool,
-            client: rpc,
+            auth,
+            url,
         }
     }
 
-    fn order_mempool_by_profitability(mut self) -> JDsMempool {
-        self.mempool
-            .sort_by(|a, b| b.tx.weight().cmp(&a.tx.weight()));
-        self
-    }
+    //fn order_mempool_by_profitability(mut self) -> JDsMempool {
+    //    self.mempool
+    //        .sort_by(|a, b| b.tx.weight().cmp(&a.tx.weight()));
+    //    self
+    //}
 
-    fn update_mempool(self) -> Result<JDsMempool, JdsMempoolError> {
+    pub async fn update_mempool(self_: Arc<Mutex<Self>>) -> Result<(), JdsMempoolError> {
         let mut mempool_ordered: Vec<TransacrtionWithHash> = Vec::new();
-        let client = self.client;
-        let mempool = client.get_raw_mempool_verbose().unwrap();
-        for txid in mempool.keys() {
-            let transaction = client.get_raw_transaction(txid, None).unwrap();
-            mempool_ordered.push(TransacrtionWithHash {
-                id: txid.clone(),
-                tx: transaction,
-            });
-        }
+        let client = self_.safe_lock(|x| x.get_client()).unwrap();
+        let new_mempool: Result<Vec<TransacrtionWithHash>, JdsMempoolError> =
+            tokio::task::spawn(async move {
+                let mempool: HashMap<Txid, GetMempoolEntryResult> =
+                    client.get_raw_mempool_verbose().unwrap();
+                for id in mempool.keys() {
+                    let tx: Transaction = client.get_raw_transaction(id, None).unwrap();
+                    mempool_ordered.push(TransacrtionWithHash { id: id.clone(), tx });
+                }
+                if mempool_ordered.is_empty() {
+                    Err(JdsMempoolError::EmptyMempool)
+                } else {
+                    Ok(mempool_ordered)
+                }
+            })
+            .await
+            .unwrap();
 
-        if mempool_ordered.is_empty() {
-            Err(JdsMempoolError::EmptyMempool)
-        } else {
-            Ok(JDsMempool {
-                mempool: mempool_ordered,
-                client,
+        match new_mempool {
+            Ok(new_mempool_) => {
+                let _ = self_.safe_lock(|x| {
+                    x.mempool = new_mempool_;
+                });
+                Ok(())
             }
-            .order_mempool_by_profitability())
+            Err(a) => Err(a),
         }
     }
 }
 
 pub enum JdsMempoolError {
     EmptyMempool,
+}
+
+pub fn verify_short_id<'a>(
+    tx: TransacrtionWithHash,
+    tx_short_id: ShortTxId<'a>,
+    nonce: u64,
+) -> bool {
+    //// hash the short hash nonce
+    ////let mut hasher = DefaultHasher::new();
+    ////let nonce_hash = HashEngineStruct::from(&tx_short_hash_nonce.to_le_bytes());
+    //let nonce_hash: HashStruct = HashTrait::hash(&tx_short_hash_nonce.to_le_bytes());
+    //// take first two integers from the hash
+    //let k0 = u64::from_le_bytes(nonce_hash[0..8]);
+    //let k1 = u64::from_le_bytes(nonce_hash[8..16]);
+    //let hasher = SipHasher24::new_with_keys(k0, k1);
+    //for transaction_with_hash in self.mempool.iter() {
+    //    let tx_hashed = hasher.hash(&transaction_with_hash.id);
+    //    let tx_hashed_bytes: Vec<u8> = transaction_with_hash.id.0.0.to_le_bytes().to_vec().drain(0..2).collect();
+    //    let short_txid_mempool: ShortTxId = tx_hashed_bytes.try_into().unwrap();
+    //    if short_txid_mempool == tx_short_id {
+    //        return Some(&transaction_with_hash.tx);
+    //    } else {
+    //       continue;
+    //    }
+    //}
+    //// ShortTxId doesn't match, need to ask JD client for this transaction
+    //None
+    true
 }

@@ -5,8 +5,9 @@ use jsonrpc::{error::Error as JsonRpcError, Client as JosnRpcClient};
 use serde::Deserialize;
 use stratum_common::bitcoin;
 
+#[derive(Clone, Debug)]
 pub enum Auth {
-    None,
+    //None,
     UserPass(String, String),
     //CookieFile(PathBuf),
 }
@@ -16,7 +17,7 @@ impl Auth {
     pub fn get_user_pass(self) -> (Option<String>, Option<String>) {
         //use std::io::Read;
         match self {
-            Auth::None => (None, None),
+            //Auth::None => (None, None),
             Auth::UserPass(u, p) => (Some(u), Some(p)),
             //Auth::CookieFile(path) => {
             //    let mut file = File::open(path)?;

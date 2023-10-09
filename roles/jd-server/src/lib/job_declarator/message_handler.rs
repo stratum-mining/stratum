@@ -1,5 +1,6 @@
 use std::convert::TryInto;
 
+use binary_sv2::ShortTxId;
 use roles_logic_sv2::{
     handlers::{job_declaration::ParseClientJobDeclarationMessages, SendTo_},
     job_declaration_sv2::{
@@ -13,7 +14,7 @@ use roles_logic_sv2::{
 pub type SendTo = SendTo_<JobDeclaration<'static>, ()>;
 use roles_logic_sv2::errors::Error;
 
-use crate::lib::job_declarator::signed_token;
+use crate::lib::{job_declarator::signed_token, mempool};
 
 use super::JobDeclaratorDownstream;
 
@@ -65,6 +66,23 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
 
     fn handle_declare_mining_job(&mut self, message: DeclareMiningJob) -> Result<SendTo, Error> {
         if self.verify_job(&message) {
+            let short_hash_list: Vec<ShortTxId> = message.tx_short_hash_list.try_into().unwrap();
+            let nonce = message.tx_short_hash_nonce;
+            let mempool = self.mempool.safe_lock(|x| x).unwrap();
+            // TODO perhaps the coinbase does not get included
+            let mut transactions_in_block: Vec<mempool::TransacrtionWithHash> = Vec::new();
+            for tx_short_id in short_hash_list.iter() {
+                for transaction_with_hash in mempool.mempool {
+                    if mempool::verify_short_id(transaction_with_hash, tx_short_id.clone(), nonce) {
+                        transactions_in_block.push(transaction_with_hash);
+                    } else {
+                        // TODO ask downstream with the message ProvideMissingTransactions
+                        // and add these transactions to the job the client is working onto
+                        todo!()
+                    }
+                }
+            }
+            self.declared_job = Some(transactions_in_block);
             let message_success = DeclareMiningJobSuccess {
                 request_id: message.request_id,
                 new_mining_job_token: signed_token(
@@ -73,6 +91,7 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
                     &self.private_key.clone(),
                 ),
             };
+            let transactions = self.mempool;
             let message_enum_success = JobDeclaration::DeclareMiningJobSuccess(message_success);
             Ok(SendTo::Respond(message_enum_success))
         } else {
