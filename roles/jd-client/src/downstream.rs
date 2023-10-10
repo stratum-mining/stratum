@@ -1,7 +1,8 @@
 use crate::{
+    error,
     job_declarator::JobDeclarator,
     status::{self, State},
-    upstream_sv2::Upstream as UpstreamMiningNode, error,
+    upstream_sv2::Upstream as UpstreamMiningNode,
 };
 use async_channel::{Receiver, SendError, Sender};
 use roles_logic_sv2::{
@@ -13,7 +14,7 @@ use roles_logic_sv2::{
         common::{ParseDownstreamCommonMessages, SendTo as SendToCommon},
         mining::{ParseDownstreamMiningMessages, SendTo, SupportedChannelTypes},
     },
-    job_creator::{JobsCreators, extended_job_to_non_segwit},
+    job_creator::{extended_job_to_non_segwit, JobsCreators},
     mining_sv2::*,
     parsers::{Mining, MiningDeviceMessages, PoolMessages},
     template_distribution_sv2::{NewTemplate, SubmitSolution},
@@ -539,7 +540,7 @@ impl
             OnNewShare::SendErrorDownstream(s) => {
                 error!("Share do not meet downstream target");
                 Ok(SendTo::Respond(Mining::SubmitSharesError(s)))
-            },
+            }
             OnNewShare::SendSubmitShareUpstream((m, Some(template_id))) => {
                 if !self.status.is_solo_miner() {
                     match m {
