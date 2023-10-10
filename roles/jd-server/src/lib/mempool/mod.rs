@@ -29,20 +29,22 @@ pub struct Amount(usize);
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct BlockHash(Hash);
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct TransacrtionWithHash {
     id: Txid,
     tx: Transaction,
 }
 
-fn get_profitability(tx_fee: (Transaction, Amount)) -> usize {
-    let tx: Transaction = tx_fee.0;
-    let size: usize = Transaction::size(&tx);
-    let fee = tx_fee.1 .0;
-    fee / size
-}
+// TODO if we want to order transactions in memepool by profitability (i.e. fees/weight) we must
+// use this function
+//fn get_profitability(tx_fee: (Transaction, Amount)) -> usize {
+//    let tx: Transaction = tx_fee.0;
+//    let size: usize = Transaction::size(&tx);
+//    let fee = tx_fee.1 .0;
+//    fee / size
+//}
 
-//TODO make the function below work with get_profitability
+// TODO make the function below work with get_profitability
 //fn order_mempool_by_fee_over_size(mut vector: Vec<(Transaction, Amount)>) -> Vec<Transaction> {
 //    vector.sort_by(|a, b| b.get_profitability().cmp(&a.get_profitability()));
 //    vector
@@ -77,7 +79,7 @@ fn get_profitability(tx_fee: (Transaction, Amount)) -> usize {
 // NOTE the transaction in the mempool are
 // NOTE oredered as fee/weight in descending order
 // NOTE
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct JDsMempool {
     pub mempool: Vec<TransacrtionWithHash>,
     auth: Auth,
@@ -145,11 +147,7 @@ pub enum JdsMempoolError {
     EmptyMempool,
 }
 
-pub fn verify_short_id<'a>(
-    tx: TransacrtionWithHash,
-    tx_short_id: ShortTxId<'a>,
-    nonce: u64,
-) -> bool {
+pub fn verify_short_id(tx: &TransacrtionWithHash, tx_short_id: ShortTxId<'_>, nonce: u64) -> bool {
     //// hash the short hash nonce
     ////let mut hasher = DefaultHasher::new();
     ////let nonce_hash = HashEngineStruct::from(&tx_short_hash_nonce.to_le_bytes());

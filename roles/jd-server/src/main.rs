@@ -150,9 +150,10 @@ async fn main() {
     let mempool = Arc::new(Mutex::new(mempool::JDsMempool::new(
         url, username, password,
     )));
+    let mempool_cloned_ = mempool.clone();
     task::spawn(async move {
         loop {
-            mempool::JDsMempool::update_mempool(mempool.clone()).await;
+            let _ = mempool::JDsMempool::update_mempool(mempool_cloned_.clone()).await;
             // TODO this should be configurable by the user
             tokio::time::sleep(Duration::from_millis(1000)).await;
         }
@@ -206,7 +207,8 @@ async fn main() {
 
     let cloned = config.clone();
     let sender = status::Sender::Downstream(status_tx.clone());
-    task::spawn(async move { JobDeclarator::start(cloned, sender, mempool).await });
+    let mempool_cloned = mempool.clone();
+    task::spawn(async move { JobDeclarator::start(cloned, sender, mempool_cloned).await });
 
     // Start the error handling loop
     // See `./status.rs` and `utils/error_handling` for information on how this operates

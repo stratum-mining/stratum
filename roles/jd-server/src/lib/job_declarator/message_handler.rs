@@ -66,15 +66,16 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
 
     fn handle_declare_mining_job(&mut self, message: DeclareMiningJob) -> Result<SendTo, Error> {
         if self.verify_job(&message) {
-            let short_hash_list: Vec<ShortTxId> = message.tx_short_hash_list.try_into().unwrap();
+            let short_hash_list: Vec<ShortTxId> = Vec::from(message.tx_short_hash_list);
             let nonce = message.tx_short_hash_nonce;
-            let mempool = self.mempool.safe_lock(|x| x).unwrap();
+            let mempool = self.mempool.safe_lock(|x| x.clone()).unwrap();
             // TODO perhaps the coinbase does not get included
             let mut transactions_in_block: Vec<mempool::TransacrtionWithHash> = Vec::new();
             for tx_short_id in short_hash_list.iter() {
-                for transaction_with_hash in mempool.mempool {
-                    if mempool::verify_short_id(transaction_with_hash, tx_short_id.clone(), nonce) {
-                        transactions_in_block.push(transaction_with_hash);
+                for transaction_with_hash in mempool.mempool.clone() {
+                    if mempool::verify_short_id(&transaction_with_hash, tx_short_id.clone(), nonce)
+                    {
+                        transactions_in_block.push(transaction_with_hash.clone());
                     } else {
                         // TODO ask downstream with the message ProvideMissingTransactions
                         // and add these transactions to the job the client is working onto
@@ -91,7 +92,6 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
                     &self.private_key.clone(),
                 ),
             };
-            let transactions = self.mempool;
             let message_enum_success = JobDeclaration::DeclareMiningJobSuccess(message_success);
             Ok(SendTo::Respond(message_enum_success))
         } else {

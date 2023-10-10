@@ -200,7 +200,7 @@ impl JobDeclarator {
                 receiver.clone(),
                 sender.clone(),
                 &config,
-                mempool,
+                mempool.clone(),
             )));
 
             self_
