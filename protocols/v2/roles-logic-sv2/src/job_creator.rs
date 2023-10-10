@@ -192,7 +192,7 @@ fn new_extended_job(
         .map_err(|_| Error::TxVersionTooBig)?;
 
     let bip34_bytes = get_bip_34_bytes(new_template, tx_version)?;
-    let script_prefix_len = bip34_bytes.len();
+    let script_prefix_len = bip34_bytes.len() + pool_signature.as_bytes().len();
 
     let coinbase = coinbase(
         bip34_bytes,
@@ -335,7 +335,7 @@ fn coinbase(
         0 => Witness::from_vec(vec![]),
         _ => Witness::from_vec(vec![vec![0; 32]]),
     };
-    bip34_bytes.extend_from_slice(pool_signature.as_bytes()); //add pool_signature to script_sig
+    bip34_bytes.extend_from_slice(pool_signature.as_bytes());
     bip34_bytes.extend_from_slice(&vec![0; extranonce_len as usize]);
     let tx_in = TxIn {
         previous_output: OutPoint::null(),

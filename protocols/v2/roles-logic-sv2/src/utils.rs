@@ -77,32 +77,32 @@ impl<T> Mutex<T> {
     where
         F: FnOnce(&mut T) -> Ret,
     {
-        #[cfg(feature = "disable_nopanic")]
+        //#[cfg(feature = "disable_nopanic")]
         {
             self.safe_lock(thunk).unwrap()
         }
-        #[cfg(not(feature = "disable_nopanic"))]
-        {
-            // based on https://github.com/dtolnay/no-panic
-            struct __NoPanic;
-            extern "C" {
-                #[link_name = "super_safe_lock called on a function that may panic"]
-                fn trigger() -> !;
-            }
-            impl core::ops::Drop for __NoPanic {
-                fn drop(&mut self) {
-                    unsafe {
-                        trigger();
-                    }
-                }
-            }
-            let mut lock = self.0.lock().expect("threads to never panic");
-            let __guard = __NoPanic;
-            let return_value = thunk(&mut *lock);
-            core::mem::forget(__guard);
-            drop(lock);
-            return_value
-        }
+        //#[cfg(not(feature = "disable_nopanic"))]
+        //{
+        //    // based on https://github.com/dtolnay/no-panic
+        //    struct __NoPanic;
+        //    extern "C" {
+        //        #[link_name = "super_safe_lock called on a function that may panic"]
+        //        fn trigger() -> !;
+        //    }
+        //    impl core::ops::Drop for __NoPanic {
+        //        fn drop(&mut self) {
+        //            unsafe {
+        //                trigger();
+        //            }
+        //        }
+        //    }
+        //    let mut lock = self.0.lock().expect("threads to never panic");
+        //    let __guard = __NoPanic;
+        //    let return_value = thunk(&mut *lock);
+        //    core::mem::forget(__guard);
+        //    drop(lock);
+        //    return_value
+        //}
     }
 
     pub fn new(v: T) -> Self {
