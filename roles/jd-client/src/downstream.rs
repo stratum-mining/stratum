@@ -1,4 +1,5 @@
 use crate::{
+    error,
     job_declarator::JobDeclarator,
     status::{self, State},
     upstream_sv2::Upstream as UpstreamMiningNode,
@@ -13,7 +14,7 @@ use roles_logic_sv2::{
         common::{ParseDownstreamCommonMessages, SendTo as SendToCommon},
         mining::{ParseDownstreamMiningMessages, SendTo, SupportedChannelTypes},
     },
-    job_creator::JobsCreators,
+    job_creator::{extended_job_to_non_segwit, JobsCreators},
     mining_sv2::*,
     parsers::{Mining, MiningDeviceMessages, PoolMessages},
     template_distribution_sv2::{NewTemplate, SubmitSolution},
@@ -371,6 +372,11 @@ impl DownstreamMiningNode {
         // map and send them downstream.
         let to_send = to_send.into_values();
         for message in to_send {
+            let message = if let Mining::NewExtendedMiningJob(job) = message {
+                Mining::NewExtendedMiningJob(extended_job_to_non_segwit(job, 32)?)
+            } else {
+                message
+            };
             let message = MiningDeviceMessages::Mining(message);
             let frame: StdFrame = message.try_into().unwrap();
             Self::send(self_mutex, frame).await.unwrap();
@@ -531,7 +537,10 @@ impl
             .on_submit_shares_extended(m.clone())
             .unwrap()
         {
-            OnNewShare::SendErrorDownstream(_) => todo!(),
+            OnNewShare::SendErrorDownstream(s) => {
+                error!("Share do not meet downstream target");
+                Ok(SendTo::Respond(Mining::SubmitSharesError(s)))
+            }
             OnNewShare::SendSubmitShareUpstream((m, Some(template_id))) => {
                 if !self.status.is_solo_miner() {
                     match m {
