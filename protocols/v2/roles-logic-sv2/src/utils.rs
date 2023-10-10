@@ -655,7 +655,7 @@ pub fn hash_lists_tuple(
 fn short_hash_list_builder(vec_tx_hashes: Vec<u64>) -> Seq064K<'static, ShortTxId<'static>> {
     let mut tx_short_hash_list = vec![];
     for tx_hashed in vec_tx_hashes {
-        let tx_hashed_bytes: Vec<u8> = tx_hashed.to_le_bytes().to_vec().drain(0..2).collect();
+        let tx_hashed_bytes: Vec<u8> = tx_hashed.to_le_bytes()[2..].to_vec();
         let tx_hashed_bytes: ShortTxId = tx_hashed_bytes.try_into().unwrap();
         tx_short_hash_list.push(tx_hashed_bytes);
     }
