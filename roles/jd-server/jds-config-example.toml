@@ -17,9 +17,6 @@ coinbase_outputs = [
     #{ output_script_type = "P2TR", output_script_value = "vpub5XzEwP9YWe4cKKZAmbiBUxC7eL5HaZhbquBYzP3vDSDJJegb7CSCRphAPmwpGHzAyH1as9MRnXFWDcZozXA1K3sQqyKdTagooPfCVDhiwnr" },
 ]
 
-# Pool signature (string to be included in coinbase tx)
-pool_signature = "Stratum v2 SRI Pool"
-
 # Template Provider config
 # Local TP (this is pointing to localhost so you must run a TP locally for this configuration to work)
 # tp_address = "127.0.0.1:8442"
@@ -27,3 +24,6 @@ pool_signature = "Stratum v2 SRI Pool"
 tp_address = "89.116.25.191:8442"
 # Hosted regtest TP 
 # tp_address = "75.119.150.111:8442"
+
+# SRI Pool JD config
+listen_jd_address = "127.0.0.1:34264"
