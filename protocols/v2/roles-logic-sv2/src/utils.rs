@@ -211,14 +211,9 @@ impl TryFrom<CoinbaseOutput> for Script {
                 let compressed_pub_key =
                     bip32_extended_to_compressed(value.output_script_value.as_str())?;
                 let w_pub_key_hash = PublicKey::from_str(compressed_pub_key.as_str())
-                    //ExtendedPubKey::from_str(&value.output_script_value.as_str())
                     .map_err(|_| Error::InvalidOutputScript)?
                     .wpubkey_hash()
                     .unwrap();
-                /* let w_pub_key_hash = PublicKey::from_str(value.output_script_value.as_str())
-                .map_err(|_| Error::InvalidOutputScript)?
-                .wpubkey_hash()
-                .unwrap(); */
                 Ok(Script::new_v0_p2wpkh(&w_pub_key_hash))
             }
             "P2SH" => {
