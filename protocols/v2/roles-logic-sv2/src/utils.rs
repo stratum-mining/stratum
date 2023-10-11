@@ -15,7 +15,7 @@ use stratum_common::{
         hash_types::{BlockHash, TxMerkleNode},
         hashes::{sha256, sha256d::Hash as DHash, Hash},
         secp256k1::{All, Secp256k1},
-        util::{psbt::serialize::Deserialize, uint::Uint256},
+        util::{psbt::serialize::Deserialize, uint::Uint256, base58},
         PublicKey, Script, Transaction,
     },
 };
@@ -193,21 +193,29 @@ impl TryFrom<CoinbaseOutput> for Script {
     fn try_from(value: CoinbaseOutput) -> Result<Self, Self::Error> {
         match value.output_script_type.as_str() {
             "P2PK" => {
-                let pub_key = PublicKey::from_str(value.output_script_value.as_str())
+                let compressed_pub_key = bip32_extended_to_compressed(value.output_script_value.as_str())?;
+                let pub_key = PublicKey::from_str(&compressed_pub_key.as_str())
                     .map_err(|_| Error::InvalidOutputScript)?;
                 Ok(Script::new_p2pk(&pub_key))
             }
             "P2PKH" => {
-                let pub_key_hash = PublicKey::from_str(value.output_script_value.as_str())
+                let compressed_pub_key = bip32_extended_to_compressed(value.output_script_value.as_str())?;
+                let pub_key_hash = PublicKey::from_str(&compressed_pub_key.as_str())
                     .map_err(|_| Error::InvalidOutputScript)?
                     .pubkey_hash();
                 Ok(Script::new_p2pkh(&pub_key_hash))
             }
             "P2WPKH" => {
-                let w_pub_key_hash = PublicKey::from_str(value.output_script_value.as_str())
+                let compressed_pub_key = bip32_extended_to_compressed(value.output_script_value.as_str())?;
+                let w_pub_key_hash = PublicKey::from_str(&compressed_pub_key.as_str())
+                //ExtendedPubKey::from_str(&value.output_script_value.as_str())
                     .map_err(|_| Error::InvalidOutputScript)?
                     .wpubkey_hash()
                     .unwrap();
+                /* let w_pub_key_hash = PublicKey::from_str(value.output_script_value.as_str())
+                    .map_err(|_| Error::InvalidOutputScript)?
+                    .wpubkey_hash()
+                    .unwrap(); */
                 Ok(Script::new_v0_p2wpkh(&w_pub_key_hash))
             }
             "P2SH" => {
@@ -228,7 +236,8 @@ impl TryFrom<CoinbaseOutput> for Script {
                 // Conceptually, every Taproot output corresponds to a combination of
                 // a single public key condition (the internal key),
                 // and zero or more general conditions encoded in scripts organized in a tree.
-                let pub_key = PublicKey::from_str(value.output_script_value.as_str())
+                let compressed_pub_key = bip32_extended_to_compressed(value.output_script_value.as_str())?;
+                let pub_key = PublicKey::from_str(&compressed_pub_key.as_str())
                     .map_err(|_| Error::InvalidOutputScript)?;
                 Ok({
                     let (pubkey_only, _) = pub_key.inner.x_only_public_key();
@@ -238,6 +247,13 @@ impl TryFrom<CoinbaseOutput> for Script {
             _ => Err(Error::UnknownOutputScriptType),
         }
     }
+}
+
+fn bip32_extended_to_compressed(bip32_extended_public_key: &str) -> Result<String, Error> {
+    let decoded_bytes = base58::from_check(bip32_extended_public_key).map_err(|_| Error::InvalidOutputScript)?;
+    let compressed_public_key = &decoded_bytes[decoded_bytes.len() - 33..];
+    let result = compressed_public_key.iter().map(|&byte| format!("{:02x}", byte)).collect();
+    Ok(result)
 }
 
 /// The pool set a target for each miner. Each target is calibrated on the hashrate of the miner.
