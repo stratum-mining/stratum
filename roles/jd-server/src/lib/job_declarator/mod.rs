@@ -22,8 +22,6 @@ use tracing::info;
 
 use stratum_common::bitcoin::consensus::Encodable;
 
-use super::mempool::TransacrtionWithHash;
-
 #[derive(Debug)]
 pub struct JobDeclaratorDownstream {
     sender: Sender<EitherFrame>,
@@ -37,7 +35,13 @@ pub struct JobDeclaratorDownstream {
     public_key: EncodedEd25519PublicKey,
     private_key: EncodedEd25519SecretKey,
     mempool: Arc<Mutex<JDsMempool>>,
-    declared_job: Option<Vec<TransacrtionWithHash>>,
+    identified_txs: Option<
+        Vec<(
+            stratum_common::bitcoin::Txid,
+            stratum_common::bitcoin::Transaction,
+        )>,
+    >,
+    number_of_unidentified_txs: u32,
 }
 
 impl JobDeclaratorDownstream {
@@ -64,7 +68,8 @@ impl JobDeclaratorDownstream {
             public_key: config.authority_public_key.clone(),
             private_key: config.authority_secret_key.clone(),
             mempool,
-            declared_job: None,
+            identified_txs: None,
+            number_of_unidentified_txs: 0,
         }
     }
 

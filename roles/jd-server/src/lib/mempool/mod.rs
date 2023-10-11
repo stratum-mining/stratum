@@ -3,25 +3,30 @@ pub mod rpc_client;
 use binary_sv2::ShortTxId;
 use bitcoin::blockdata::transaction::Transaction;
 use hashbrown::HashMap;
-use stratum_common::bitcoin;
-// DO NOT REMOVE THESE COMMENTS
-//use bitcoin::hashes::HashEngine as HashEngineTrait;
-//use bitcoin::hashes::sha256::HashEngine as HashEngineStruct;
-//use bitcoin::hashes::sha256::Hash as HashStruct;
-//use bitcoin::hashes::Hash as HashTrait;
-//use bitcoin::hashes::sha256::Midstate;
+use roles_logic_sv2::utils::Mutex;
 use rpc_client::{Auth, GetMempoolEntryResult, RpcApi, RpcClient};
 use serde::{Deserialize, Serialize};
-//use siphasher::sip::SipHasher24;
-//use std::{hash::Hasher, collections::hash_map::DefaultHasher};
-use roles_logic_sv2::utils::Mutex;
 use std::sync::Arc;
+use stratum_common::bitcoin::{self, consensus::Decodable};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Hash([u8; 32]);
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Txid(Hash);
+
+impl Txid {
+    fn get_inner(self) -> [u8; 32] {
+        self.0 .0
+    }
+}
+
+fn to_btc_txid(value: Txid) -> bitcoin::Txid {
+    let inner = value.get_inner();
+    let inner_: &[u8] = &inner;
+    let mut inner_mut = &inner_[0..];
+    bitcoin::Txid::consensus_decode(&mut inner_mut).unwrap()
+}
 
 #[derive(Clone, Deserialize)]
 pub struct Amount(usize);
@@ -141,32 +146,25 @@ impl JDsMempool {
             Err(a) => Err(a),
         }
     }
+
+    pub fn verify_short_id(
+        &self,
+        tx_short_id: ShortTxId<'_>,
+        nonce: u64,
+    ) -> Option<(bitcoin::Txid, bitcoin::Transaction)> {
+        let mempool: Vec<TransacrtionWithHash> = self.clone().mempool;
+        for tx_with_hash in mempool {
+            let btc_txid = to_btc_txid(tx_with_hash.id);
+            if roles_logic_sv2::utils::get_short_hash(btc_txid, nonce) == tx_short_id {
+                return Some((btc_txid, tx_with_hash.tx));
+            } else {
+                continue;
+            }
+        }
+        None
+    }
 }
 
 pub enum JdsMempoolError {
     EmptyMempool,
-}
-
-pub fn verify_short_id(tx: &TransacrtionWithHash, tx_short_id: ShortTxId<'_>, nonce: u64) -> bool {
-    //// hash the short hash nonce
-    ////let mut hasher = DefaultHasher::new();
-    ////let nonce_hash = HashEngineStruct::from(&tx_short_hash_nonce.to_le_bytes());
-    //let nonce_hash: HashStruct = HashTrait::hash(&tx_short_hash_nonce.to_le_bytes());
-    //// take first two integers from the hash
-    //let k0 = u64::from_le_bytes(nonce_hash[0..8]);
-    //let k1 = u64::from_le_bytes(nonce_hash[8..16]);
-    //let hasher = SipHasher24::new_with_keys(k0, k1);
-    //for transaction_with_hash in self.mempool.iter() {
-    //    let tx_hashed = hasher.hash(&transaction_with_hash.id);
-    //    let tx_hashed_bytes: Vec<u8> = transaction_with_hash.id.0.0.to_le_bytes().to_vec().drain(0..2).collect();
-    //    let short_txid_mempool: ShortTxId = tx_hashed_bytes.try_into().unwrap();
-    //    if short_txid_mempool == tx_short_id {
-    //        return Some(&transaction_with_hash.tx);
-    //    } else {
-    //       continue;
-    //    }
-    //}
-    //// ShortTxId doesn't match, need to ask JD client for this transaction
-    //None
-    true
 }
