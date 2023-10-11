@@ -44,11 +44,12 @@ impl TemplateToJobId {
     }
 
     fn register_job_id(&mut self, template_id: u64, job_id: u32) {
+        self.template_id_to_job_id = HashMap::new();
         self.template_id_to_job_id.insert(template_id, job_id);
     }
 
-    fn take_job_id(&mut self, template_id: u64) -> Option<u32> {
-        self.template_id_to_job_id.remove(&template_id)
+    fn get_job_id(&mut self, template_id: u64) -> Option<&u32> {
+        self.template_id_to_job_id.get(&template_id)
     }
 
     fn take_template_id(&mut self, request_id: u32) -> Option<u64> {
@@ -382,7 +383,7 @@ impl Upstream {
     pub async fn get_job_id(self_: &Arc<Mutex<Self>>, template_id: u64) -> u32 {
         loop {
             if let Some(id) = self_
-                .safe_lock(|s| s.template_to_job_id.take_job_id(template_id))
+                .safe_lock(|s| s.template_to_job_id.get_job_id(template_id).copied())
                 .unwrap()
             {
                 return id;
@@ -511,7 +512,9 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
         let creator = roles_logic_sv2::job_creator::JobsCreators::new(total_len as u8);
         let share_per_min = 1.0;
         let channel_kind =
-            roles_logic_sv2::channel_logic::channel_factory::ExtendedChannelKind::Pool;
+            roles_logic_sv2::channel_logic::channel_factory::ExtendedChannelKind::ProxyJd {
+                upstream_target: m.target.clone().into(),
+            };
         let mut channel_factory = PoolChannelFactory::new(
             ids,
             extranonces,

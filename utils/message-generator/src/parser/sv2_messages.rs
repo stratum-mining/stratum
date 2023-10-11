@@ -17,7 +17,7 @@ pub fn message_from_path(path: &Vec<String>) -> AnyMessage<'static> {
     parsed
         .into_map()
         .get(&id)
-        .expect(format!("There is no value matching the id {:?}",id).as_str())
+        .expect(format!("There is no value matching the id {:?}", id).as_str())
         .0
         .clone()
 }
