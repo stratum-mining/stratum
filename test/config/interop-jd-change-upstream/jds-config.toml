@@ -6,7 +6,7 @@ test_only_listen_adress_plain =  "0.0.0.0:34250"
 listen_address = "0.0.0.0:34254"
 # list of compressed or uncompressed pubkeys for coinbase payout (only supports 1 item in the array at this point)
 coinbase_outputs = [
-    { output_script_type = "P2PKH", output_script_value = "02e13cef1348924c49dd1f708bf38eb79ae4648c16f0301085f37547d1d25e33e0" },
+   { output_script_type = "P2WPKH", output_script_value = "vpub5XzEwP9YWe4cKKZAmbiBUxC7eL5HaZhbquBYzP3vDSDJJegb7CSCRphAPmwpGHzAyH1as9MRnXFWDcZozXA1K3sQqyKdTagooPfCVDhiwnr" },
 ]
 
 tp_address = "75.119.150.111:8442"
