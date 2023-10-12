@@ -22,8 +22,6 @@ mod error;
 mod lib;
 mod status;
 
-use lib::template_receiver::TemplateRx;
-
 pub type Message = JdsMessages<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;
 pub type EitherFrame = StandardEitherFrame<Message>;
@@ -184,14 +182,6 @@ async fn main() {
 
     let (status_tx, status_rx) = unbounded();
     info!("Jds INITIALIZING with config: {:?}", &args.config_path);
-    let coinbase_output_result = get_coinbase_output(&config);
-    let coinbase_output_len = match coinbase_output_result {
-        Ok(coinbase_output) => coinbase_output.len() as u32,
-        Err(err) => {
-            error!("Failed to get coinbase output: {:?}", err);
-            return;
-        }
-    };
 
     let cloned = config.clone();
     let sender = status::Sender::Downstream(status_tx.clone());
