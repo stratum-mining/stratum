@@ -7,29 +7,16 @@ use roles_logic_sv2::utils::Mutex;
 use rpc_client::{Auth, GetMempoolEntryResult, RpcApi, RpcClient};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use stratum_common::bitcoin::{self, consensus::Decodable};
+use stratum_common::bitcoin;
+use stratum_common::bitcoin::hash_types::Txid;
+use stratum_common::bitcoin::consensus::encode::deserialize;
+use stratum_common::bitcoin::hashes::hex::FromHex;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Hash([u8; 32]);
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct Txid(Hash);
-
-impl Txid {
-    fn get_inner(self) -> [u8; 32] {
-        self.0 .0
-    }
-}
-
-fn to_btc_txid(value: Txid) -> bitcoin::Txid {
-    let inner = value.get_inner();
-    let inner_: &[u8] = &inner;
-    let mut inner_mut = &inner_[0..];
-    bitcoin::Txid::consensus_decode(&mut inner_mut).unwrap()
-}
-
 #[derive(Clone, Deserialize)]
-pub struct Amount(usize);
+pub struct Amount(f64);
 
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct BlockHash(Hash);
@@ -121,11 +108,13 @@ impl JDsMempool {
         let client = self_.safe_lock(|x| x.get_client()).unwrap();
         let new_mempool: Result<Vec<TransacrtionWithHash>, JdsMempoolError> =
             tokio::task::spawn(async move {
-                let mempool: HashMap<Txid, GetMempoolEntryResult> =
+                let mempool: HashMap<String, GetMempoolEntryResult> =
                     client.get_raw_mempool_verbose().unwrap();
                 for id in mempool.keys() {
                     let tx: Transaction = client.get_raw_transaction(id, None).unwrap();
-                    mempool_ordered.push(TransacrtionWithHash { id: id.clone(), tx });
+                    let id = Vec::from_hex(id).expect("Invalid hex string");
+                    let id: Txid = deserialize(&id).expect("Failed to deserialize txid");
+                    mempool_ordered.push(TransacrtionWithHash { id, tx });
                 }
                 if mempool_ordered.is_empty() {
                     Err(JdsMempoolError::EmptyMempool)
@@ -154,7 +143,7 @@ impl JDsMempool {
     ) -> Option<(bitcoin::Txid, bitcoin::Transaction)> {
         let mempool: Vec<TransacrtionWithHash> = self.clone().mempool;
         for tx_with_hash in mempool {
-            let btc_txid = to_btc_txid(tx_with_hash.id);
+            let btc_txid = tx_with_hash.id;
             if roles_logic_sv2::utils::get_short_hash(btc_txid, nonce) == tx_short_id {
                 return Some((btc_txid, tx_with_hash.tx));
             } else {
@@ -165,6 +154,7 @@ impl JDsMempool {
     }
 }
 
+#[derive(Debug)]
 pub enum JdsMempoolError {
     EmptyMempool,
 }

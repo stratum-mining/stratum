@@ -1,4 +1,4 @@
-use crate::lib::mempool::{hex_iterator::HexIterator, Amount, BlockHash, Txid};
+use crate::lib::mempool::{hex_iterator::HexIterator, Amount, BlockHash};
 use bitcoin::{blockdata::transaction::Transaction, consensus::Decodable};
 use hashbrown::hash_map::HashMap;
 use jsonrpc::{error::Error as JsonRpcError, Client as JosnRpcClient};
@@ -60,13 +60,13 @@ pub trait RpcApi: Sized {
     /// Get details for the transactions in a memory pool
     fn get_raw_mempool_verbose(
         &self,
-    ) -> Result<HashMap<Txid, GetMempoolEntryResult>, BitcoincoreRpcError> {
+    ) -> Result<HashMap<String, GetMempoolEntryResult>, BitcoincoreRpcError> {
         self.call("getrawmempool", &[serde_json::to_value(true).unwrap()])
     }
 
     fn get_raw_transaction(
         &self,
-        txid: &Txid,
+        txid: &String,
         block_hash: Option<&BlockHash>,
     ) -> Result<Transaction, JsonRpcError> {
         let mut args = [
@@ -115,18 +115,14 @@ impl RpcApi for RpcClient {
         let raw_args: Vec<_> = args
             .iter()
             .map(|a| {
-                let json_string = serde_json::to_string(a).map_err(BitcoincoreRpcError::Json)?;
-                serde_json::value::RawValue::from_string(json_string)
-                    .map_err(BitcoincoreRpcError::Json) // we can't use to_raw_value here due to compat with Rust 1.29
+                let json_string = serde_json::to_string(a)?;
+                serde_json::value::RawValue::from_string(json_string) // we can't use to_raw_value here due to compat with Rust 1.29
             })
+            .map(|a| a.map_err(|e| BitcoincoreRpcError::Json(e)))
             .collect::<RResult<Vec<_>>>()?;
         let req = self.client.build_request(cmd, &raw_args);
-        //if log_enabled!(Debug) {
-        //    debug!(target: "bitcoincore_rpc", "JSON-RPC request: {} {}", cmd, serde_json::Value::from(args));
-        //}
 
         let resp = self.client.send_request(req).map_err(JsonRpcError::from);
-        //log_response(cmd, &resp);
         Ok(resp?.result()?)
     }
 }
@@ -246,16 +242,16 @@ pub struct GetMempoolEntryResult {
     pub ancestor_size: u64,
     /// Hash of serialized transaction, including witness data
     /// before was pub wtxid: bitcoin::Txid,
-    pub wtxid: Vec<u8>,
+    pub wtxid: String,
     //Fee information
     pub fees: GetMempoolEntryResultFees,
     /// Unconfirmed transactions used as inputs for this transaction
     /// before was pub depends: Vec<bitcoin::Txid>,
-    pub depends: Vec<Vec<u8>>,
+    pub depends: Vec<String>,
     /// Unconfirmed transactions spending outputs from this transaction
     /// before was pub spent_by: Vec<bitcoin::Txid>,
     #[serde(rename = "spentby")]
-    pub spent_by: Vec<Vec<u8>>,
+    pub spent_by: Vec<String>,
     /// Whether this transaction could be replaced due to BIP125 (replace-by-fee)
     #[serde(rename = "bip125-replaceable")]
     pub bip125_replaceable: bool,

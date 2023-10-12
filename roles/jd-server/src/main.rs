@@ -144,9 +144,7 @@ mod args {
 async fn main() {
     tracing_subscriber::fmt::init();
 
-    // NOTE here insert the address of your desired node
-    // TODO this should be configurable
-    let url = "http://127.0.0.1:18443".to_string();
+    let url = "http://127.0.0.1:18332".to_string();
     let username = "username".to_string();
     let password = "password".to_string();
     let mempool = Arc::new(Mutex::new(mempool::JDsMempool::new(
@@ -157,7 +155,7 @@ async fn main() {
         loop {
             let _ = mempool::JDsMempool::update_mempool(mempool_cloned_.clone()).await;
             // TODO this should be configurable by the user
-            tokio::time::sleep(Duration::from_millis(1000)).await;
+            tokio::time::sleep(Duration::from_millis(10000)).await;
         }
     });
 
@@ -194,18 +192,6 @@ async fn main() {
             return;
         }
     };
-    //TODO why the JDS is connecting to the template provider? perhaps this is a residuale code
-    //from a previuous version
-    let template_rx_res = TemplateRx::connect(
-        config.tp_address.parse().unwrap(),
-        status::Sender::Upstream(status_tx.clone()),
-        coinbase_output_len,
-    )
-    .await;
-    if let Err(e) = template_rx_res {
-        error!("Could not connect to Template Provider: {}", e);
-        return;
-    }
 
     let cloned = config.clone();
     let sender = status::Sender::Downstream(status_tx.clone());
