@@ -68,15 +68,15 @@ pub struct CoinbaseOutput {
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Configuration {
-    pub listen_address: String,
-    pub tp_address: String,
     pub listen_jd_address: String,
     pub authority_public_key: EncodedEd25519PublicKey,
     pub authority_secret_key: EncodedEd25519SecretKey,
     pub cert_validity_sec: u64,
     pub coinbase_outputs: Vec<CoinbaseOutput>,
-    #[cfg(feature = "test_only_allow_unencrypted")]
-    pub test_only_listen_address_plain: String,
+    pub core_rpc_url: String,
+    pub core_rpc_port: u16,
+    pub core_rpc_user: String,
+    pub core_rpc_pass: String,
 }
 
 mod args {
@@ -141,22 +141,6 @@ mod args {
 #[tokio::main]
 async fn main() {
     tracing_subscriber::fmt::init();
-
-    let url = "http://127.0.0.1:18332".to_string();
-    let username = "username".to_string();
-    let password = "password".to_string();
-    let mempool = Arc::new(Mutex::new(mempool::JDsMempool::new(
-        url, username, password,
-    )));
-    let mempool_cloned_ = mempool.clone();
-    task::spawn(async move {
-        loop {
-            let _ = mempool::JDsMempool::update_mempool(mempool_cloned_.clone()).await;
-            // TODO this should be configurable by the user
-            tokio::time::sleep(Duration::from_millis(10000)).await;
-        }
-    });
-
     let args = match args::Args::from_args() {
         Ok(cfg) => cfg,
         Err(help) => {
@@ -179,6 +163,22 @@ async fn main() {
             return;
         }
     };
+
+    let url = config.core_rpc_url.clone() + ":" + &config.core_rpc_port.clone().to_string();
+    let username = config.core_rpc_user.clone();
+    let password = config.core_rpc_pass.clone();
+    let mempool = Arc::new(Mutex::new(mempool::JDsMempool::new(
+        url, username, password,
+    )));
+    let mempool_cloned_ = mempool.clone();
+    task::spawn(async move {
+        loop {
+            let _ = mempool::JDsMempool::update_mempool(mempool_cloned_.clone()).await;
+            // TODO this should be configurable by the user
+            tokio::time::sleep(Duration::from_millis(10000)).await;
+        }
+    });
+
 
     let (status_tx, status_rx) = unbounded();
     info!("Jds INITIALIZING with config: {:?}", &args.config_path);
