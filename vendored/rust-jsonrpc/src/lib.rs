@@ -13,13 +13,6 @@ pub extern crate serde;
 /// Re-export `serde_json` crate.
 pub extern crate serde_json;
 
-/// Re-export `base64` crate.
-#[cfg(feature = "base64")]
-pub extern crate base64;
-
-/// Re-export `minreq` crate if the feature is set.
-#[cfg(feature = "minreq")]
-pub extern crate minreq;
 
 pub mod client;
 pub mod error;
@@ -27,15 +20,6 @@ pub mod http;
 
 #[cfg(feature = "simple_http")]
 pub use http::simple_http;
-
-#[cfg(feature = "minreq_http")]
-pub use http::minreq_http;
-
-#[cfg(feature = "simple_tcp")]
-pub mod simple_tcp;
-
-#[cfg(all(feature = "simple_uds", not(windows)))]
-pub mod simple_uds;
 
 use serde::{Deserialize, Serialize};
 use serde_json::value::RawValue;
