@@ -1,5 +1,6 @@
 use std::convert::TryInto;
 
+use binary_sv2::ShortTxId;
 use roles_logic_sv2::{
     handlers::{job_declaration::ParseClientJobDeclarationMessages, SendTo_},
     job_declaration_sv2::{
@@ -65,6 +66,45 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
 
     fn handle_declare_mining_job(&mut self, message: DeclareMiningJob) -> Result<SendTo, Error> {
         if self.verify_job(&message) {
+            // gT
+            //let mut short_hash_list: Vec<ShortTxId> = Vec::new();
+            //let tx_short_hashlist_vec = message.tx_short_hash_list.to_vec();
+            //for inner in message.tx_short_hash_list.inner_as_ref( {
+            //    let mut inner_vec: Vec<u8> = inner.to_vec();
+            //    let slice: &mut [u8] = inner_vec.as_mut_slice();
+            //    let short_hash_id: ShortTxId= slice.try_into().unwrap();
+            //    short_hash_list.push(short_hash_id);
+            //};
+            let short_hash_list: Vec<ShortTxId> = message
+                .tx_short_hash_list
+                .inner_as_ref()
+                .iter()
+                .map(|x| x.to_vec().try_into().unwrap())
+                .collect();
+            let nonce = message.tx_short_hash_nonce;
+            let mempool = self.mempool.safe_lock(|x| x.clone()).unwrap();
+            // TODO perhaps the coinbase does not get included
+            let mut unidentified_txs: Vec<ShortTxId> = Vec::new();
+            let mut identified_txs: Vec<(
+                stratum_common::bitcoin::Txid,
+                stratum_common::bitcoin::Transaction,
+            )> = Vec::new();
+            //TODO use references insted cloning!!!!
+            for tx_short_id in short_hash_list {
+                match mempool.verify_short_id(tx_short_id.clone(), nonce) {
+                    Some(tx_with_id) => identified_txs.push(tx_with_id.clone()),
+                    None => unidentified_txs.push(tx_short_id),
+                }
+            }
+
+            if !unidentified_txs.is_empty() {
+                // TODO ask downstream with the message ProvideMissingTransactions
+                // and add these transactions to the job the client is working onto
+                todo!()
+            }
+
+            self.identified_txs = Some(identified_txs);
+            self.number_of_unidentified_txs = unidentified_txs.len() as u32;
             let message_success = DeclareMiningJobSuccess {
                 request_id: message.request_id,
                 new_mining_job_token: signed_token(

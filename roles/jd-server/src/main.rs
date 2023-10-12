@@ -14,6 +14,10 @@ use tracing::{error, info, warn};
 
 use stratum_common::bitcoin::{Script, TxOut};
 
+use crate::lib::mempool;
+use roles_logic_sv2::utils::Mutex;
+use std::{sync::Arc, time::Duration};
+
 mod error;
 mod lib;
 mod status;
@@ -140,6 +144,23 @@ mod args {
 async fn main() {
     tracing_subscriber::fmt::init();
 
+    // NOTE here insert the address of your desired node
+    // TODO this should be configurable
+    let url = "http://127.0.0.1:18443".to_string();
+    let username = "username".to_string();
+    let password = "password".to_string();
+    let mempool = Arc::new(Mutex::new(mempool::JDsMempool::new(
+        url, username, password,
+    )));
+    let mempool_cloned_ = mempool.clone();
+    task::spawn(async move {
+        loop {
+            let _ = mempool::JDsMempool::update_mempool(mempool_cloned_.clone()).await;
+            // TODO this should be configurable by the user
+            tokio::time::sleep(Duration::from_millis(1000)).await;
+        }
+    });
+
     let args = match args::Args::from_args() {
         Ok(cfg) => cfg,
         Err(help) => {
@@ -173,6 +194,8 @@ async fn main() {
             return;
         }
     };
+    //TODO why the JDS is connecting to the template provider? perhaps this is a residuale code
+    //from a previuous version
     let template_rx_res = TemplateRx::connect(
         config.tp_address.parse().unwrap(),
         status::Sender::Upstream(status_tx.clone()),
@@ -186,7 +209,8 @@ async fn main() {
 
     let cloned = config.clone();
     let sender = status::Sender::Downstream(status_tx.clone());
-    task::spawn(async move { JobDeclarator::start(cloned, sender).await });
+    let mempool_cloned = mempool.clone();
+    task::spawn(async move { JobDeclarator::start(cloned, sender, mempool_cloned).await });
 
     // Start the error handling loop
     // See `./status.rs` and `utils/error_handling` for information on how this operates
