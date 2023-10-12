@@ -1,4 +1,5 @@
-use codec_sv2::{StandardEitherFrame, StandardSv2Frame};
+use codec_sv2::{StandardEitherFrame, StandardSv2Frame, Initiator, HandshakeRole};
+use key_utils::Secp256k1PublicKey;
 use roles_logic_sv2::{
     job_declaration_sv2::AllocateMiningJobTokenSuccess,
     template_distribution_sv2::{NewTemplate, RequestTransactionData},
@@ -17,7 +18,7 @@ pub type Message = PoolMessages<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;
 pub type EitherFrame = StandardEitherFrame<Message>;
 use async_channel::{Receiver, Sender};
-use network_helpers::plain_connection_tokio::PlainConnection;
+use network_helpers::noise_connection_tokio::Connection;
 use std::{convert::TryInto, net::SocketAddr, sync::Arc};
 use tokio::task::AbortHandle;
 mod message_handler;
@@ -53,6 +54,7 @@ impl TemplateRx {
         task_collector: Arc<Mutex<Vec<AbortHandle>>>,
         pool_chaneger_trigger: Arc<Mutex<PoolChangerTrigger>>,
         miner_coinbase_outputs: Vec<TxOut>,
+        authority_public_key: Secp256k1PublicKey,
     ) {
         let mut encoded_outputs = vec![];
         miner_coinbase_outputs
@@ -60,8 +62,10 @@ impl TemplateRx {
             .expect("Invalid coinbase output in config");
         let stream = tokio::net::TcpStream::connect(address).await.unwrap();
 
-        let (mut receiver, mut sender): (Receiver<EitherFrame>, Sender<EitherFrame>) =
-            PlainConnection::new(stream).await;
+        let pub_key: Secp256k1PublicKey = authority_public_key;
+        let initiator = Initiator::from_raw_k(pub_key.into_bytes()).unwrap();
+        let (mut receiver, mut sender, _,_) =
+            Connection::new(stream,HandshakeRole::Initiator(initiator)).await.unwrap();
 
         info!("Template Receiver try to set up connection");
         SetupConnectionHandler::setup(&mut receiver, &mut sender, address)

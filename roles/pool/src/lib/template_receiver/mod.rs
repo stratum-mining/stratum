@@ -11,7 +11,7 @@ use roles_logic_sv2::{
     handlers::template_distribution::ParseServerTemplateDistributionMessages,
     parsers::{PoolMessages, TemplateDistribution},
     template_distribution_sv2::{
-        CoinbaseOutputDataSize, NewTemplate, RequestTransactionData, SetNewPrevHash, SubmitSolution,
+        CoinbaseOutputDataSize, NewTemplate, SetNewPrevHash, SubmitSolution,
     },
     utils::Mutex,
 };

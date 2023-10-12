@@ -28,6 +28,7 @@ retry = 10
 # tp_address = "127.0.0.1:8442"
 # Hosted testnet TP 
 tp_address = "89.116.25.191:8442"
+tp_authority_pub_key = "2di19GHYQnAZJmEpoUeP7C3Eg9TCcksHr23rZCC83dvUiZgiDL"
 # Hosted regtest TP 
 # tp_address = "75.119.150.111:8442"
 
