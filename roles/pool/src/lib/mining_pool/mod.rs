@@ -598,11 +598,11 @@ mod test {
             toml::from_str(&std::fs::read_to_string("pool-config-example.toml").unwrap()).unwrap();
         // template from message generator test (mock TP template)
         let _extranonce_len = 3;
-        let coinbase_prefix = vec![1, 16, 0];
+        let coinbase_prefix = vec![3, 76, 163, 38, 0];
         let _version = 536870912;
         let coinbase_tx_version = 2;
         let coinbase_tx_input_sequence = 4294967295;
-        let _coinbase_tx_value_remaining: u64 = 5000000000;
+        let _coinbase_tx_value_remaining: u64 = 625000000;
         let _coinbase_tx_outputs_count = 0;
         let coinbase_tx_locktime = 0;
         let coinbase_tx_outputs: Vec<bitcoin::TxOut> = crate::get_coinbase_output(&config).unwrap();
@@ -612,7 +612,8 @@ mod test {
         // build coinbase TX from 'job_creator::coinbase()'
 
         let mut bip34_bytes = get_bip_34_bytes(coinbase_prefix.try_into().unwrap());
-        let script_prefix_length = bip34_bytes.len();
+        let script_prefix_length = bip34_bytes.len() + config.pool_signature.as_bytes().len();
+        bip34_bytes.extend_from_slice(config.pool_signature.as_bytes());
         bip34_bytes.extend_from_slice(&vec![0; extranonce_len as usize]);
         let witness = match bip34_bytes.len() {
             0 => Witness::from_vec(vec![]),
@@ -639,7 +640,9 @@ mod test {
             coinbase_tx_prefix
                 == [
                     2, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 35, 1, 16, 0,
+                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 56, 3, 76, 163, 38,
+                    0, 83, 116, 114, 97, 116, 117, 109, 32, 118, 50, 32, 83, 82, 73, 32, 80, 111,
+                    111, 108
                 ]
                 .to_vec()
                 .try_into()
@@ -649,10 +652,10 @@ mod test {
         assert!(
             coinbase_tx_suffix
                 == [
-                    255, 255, 255, 255, 1, 0, 0, 0, 0, 0, 0, 0, 0, 25, 118, 169, 20, 85, 162, 233,
-                    20, 174, 185, 114, 155, 76, 210, 101, 36, 140, 182, 122, 134, 94, 174, 149,
-                    253, 136, 172, 1, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+                    255, 255, 255, 255, 1, 0, 0, 0, 0, 0, 0, 0, 0, 22, 0, 20, 52, 109, 166, 15,
+                    152, 118, 139, 176, 201, 181, 188, 3, 22, 5, 97, 249, 228, 77, 64, 86, 1, 32,
+                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0
                 ]
                 .to_vec()
                 .try_into()

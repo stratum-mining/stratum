@@ -1,0 +1,14 @@
+upstreams = [
+    { channel_kind = "Extended", address = "0.0.0.0", port = 34265, pub_key = "2di19GHYQnAZJmEpoUeP7C3Eg9TCcksHr23rZCC83dvUiZgiDL"}
+]
+listen_address = "127.0.0.1"
+listen_mining_port = 34255
+max_supported_version = 2
+min_supported_version = 2
+downstream_share_per_minute = 1
+coinbase_reward_sat = 5_000_000_000
+# This value is used by the proxy to communicate to the pool the expected hash rate when we open an
+# extended channel, based on it the pool will set a target for the channel
+expected_total_downstream_hr = 10_000
+# If set to true the proxy will try to reconnect to an upstream that drop the connection
+reconnect = true
