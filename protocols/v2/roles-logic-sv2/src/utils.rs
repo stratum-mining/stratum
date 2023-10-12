@@ -659,7 +659,6 @@ pub fn get_target(
     hash.reverse();
     hash
 }
-// RIFATTA seconda volta
 pub fn hash_lists_tuple(
     tx_data: Seq064K<'static, B016M<'static>>,
     tx_short_hash_nonce: u64,
@@ -678,7 +677,7 @@ pub fn hash_lists_tuple(
     let tx_hash_list_hash = tx_hash_list_hash_builder(txid_list);
     (tx_short_hash_list, tx_hash_list_hash)
 }
-//RIFATTA seconda volta
+
 pub fn get_short_hash(txid: bitcoin::Txid, tx_short_hash_nonce: u64) -> ShortTxId<'static> {
     // hash the short hash nonce
     let nonce_hash = sha256::Hash::hash(&tx_short_hash_nonce.to_le_bytes());
@@ -692,7 +691,7 @@ pub fn get_short_hash(txid: bitcoin::Txid, tx_short_hash_nonce: u64) -> ShortTxI
     let short_tx_id: ShortTxId = tx_hashed_bytes.try_into().unwrap();
     short_tx_id
 }
-// rifatta
+
 fn tx_hash_list_hash_builder(txid_list: Vec<bitcoin::Txid>) -> U256<'static> {
     // TODO: understand if this field is redunant and to be deleted since
     // the full coinbase is known

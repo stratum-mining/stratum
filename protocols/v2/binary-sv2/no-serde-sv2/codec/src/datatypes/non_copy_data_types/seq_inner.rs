@@ -130,24 +130,6 @@ impl<'a, T: GetSize> GetSize for Seq064K<'a, T> {
     }
 }
 
-impl<'a, T> From<Seq064K<'a, T>> for Vec<T> {
-    fn from(seq: Seq064K<'a, T>) -> Self {
-        seq.0 // Restituisci il campo interno Vec<T> dalla tua struttura
-    }
-}
-//impl<'a, T> TryFrom<Vec<T>> for Seq064K<'a, T> {
-//    fn try_from(value: Vec<T>) -> Result<Self, Error> {
-//        todo!()
-//        // Implementa la logica per la conversione da Vec<T> a Seq064K<'a, T> qui
-//        // Assicurati di gestire i casi in cui la conversione potrebbe fallire.
-//    }
-//}
-
-//impl<'a> TryFrom<Vec<ShortTxId>> for Seq064K<'a, ShortTxId> {
-//    fn try_from(value: Vec<ShortTxId>) -> Result<self, Error>
-//        todo!()
-//}
-
 macro_rules! impl_codec_for_sequence {
     ($a:ty) => {
         impl<'a, T: 'a + Sv2DataType<'a> + GetMarker + GetSize + Decodable<'a>> Decodable<'a>
@@ -305,7 +287,6 @@ impl<'a, T> std::convert::TryFrom<Seq0255<'a, T>> for Vec<T> {
     }
 }
 
-#[cfg(feature = "prop_test")]
 impl<'a, T> std::convert::TryFrom<Seq064K<'a, T>> for Vec<T> {
     type Error = &'static str;
     fn try_from(v: Seq064K<'a, T>) -> Result<Self, Self::Error> {

@@ -144,6 +144,8 @@ mod args {
 async fn main() {
     tracing_subscriber::fmt::init();
 
+    // NOTE here insert the address of your desired node
+    // TODO this should be configurable
     let url = "http://127.0.0.1:18443".to_string();
     let username = "username".to_string();
     let password = "password".to_string();

@@ -66,7 +66,21 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
 
     fn handle_declare_mining_job(&mut self, message: DeclareMiningJob) -> Result<SendTo, Error> {
         if self.verify_job(&message) {
-            let short_hash_list: Vec<ShortTxId> = Vec::from(message.tx_short_hash_list);
+            // gT
+            //let mut short_hash_list: Vec<ShortTxId> = Vec::new();
+            //let tx_short_hashlist_vec = message.tx_short_hash_list.to_vec();
+            //for inner in message.tx_short_hash_list.inner_as_ref( {
+            //    let mut inner_vec: Vec<u8> = inner.to_vec();
+            //    let slice: &mut [u8] = inner_vec.as_mut_slice();
+            //    let short_hash_id: ShortTxId= slice.try_into().unwrap();
+            //    short_hash_list.push(short_hash_id);
+            //};
+            let short_hash_list: Vec<ShortTxId> = message
+                .tx_short_hash_list
+                .inner_as_ref()
+                .iter()
+                .map(|x| x.to_vec().try_into().unwrap())
+                .collect();
             let nonce = message.tx_short_hash_nonce;
             let mempool = self.mempool.safe_lock(|x| x.clone()).unwrap();
             // TODO perhaps the coinbase does not get included

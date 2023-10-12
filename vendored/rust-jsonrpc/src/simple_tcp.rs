@@ -38,15 +38,17 @@ impl TcpTransport {
         let mut message_writer = BufWriter::new(sock.try_clone().unwrap());
         let message_w = serde_json::to_string(&req).unwrap();
         let message_w = message_w.into_bytes();
-        let _n = message_writer.write(&message_w)?;
+        message_writer.write_all(&message_w)?;
+        message_writer.flush()?;
         //serde_json::to_writer(&mut sock, &req)?;
 
         // NOTE: we don't check the id there, so it *must* be synchronous
         // memo reader and writer are changed because the serde import is custom, therefore we do
         // bnot have serde::json::to_writer or serde_json::from_reader
 
-        let mut message_reader = BufReader::new(sock).lines();
-        let message_w = message_reader.next().unwrap().unwrap();
+        let mut message_reader = BufReader::new(sock);
+        let mut message_w = String::new();
+        let _ = message_reader.read_line(&mut message_w);
 
         let resp: R = serde_json::Deserializer::from_str(&message_w)
             .into_iter()
@@ -179,7 +181,7 @@ mod tests {
 
         stream.write_all(&dummy_resp_ser).unwrap();
         stream.flush().unwrap();
-        let recv_resp = client_thread.join().unwrap();
+        let recv_resp = client_thread.join().unwrap(); //line 184
         assert_eq!(serde_json::to_vec(&recv_resp).unwrap(), dummy_resp_ser);
     }
 }
