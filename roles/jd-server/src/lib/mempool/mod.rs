@@ -7,10 +7,10 @@ use roles_logic_sv2::utils::Mutex;
 use rpc_client::{Auth, GetMempoolEntryResult, RpcApi, RpcClient};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use stratum_common::bitcoin;
-use stratum_common::bitcoin::hash_types::Txid;
-use stratum_common::bitcoin::consensus::encode::deserialize;
-use stratum_common::bitcoin::hashes::hex::FromHex;
+use stratum_common::{
+    bitcoin,
+    bitcoin::{consensus::encode::deserialize, hash_types::Txid, hashes::hex::FromHex},
+};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Hash([u8; 32]);
@@ -35,7 +35,6 @@ pub struct JDsMempool {
 }
 
 impl JDsMempool {
-
     fn get_client(&self) -> RpcClient {
         let url = self.url.as_str();
         RpcClient::new(url, self.auth.clone()).unwrap()

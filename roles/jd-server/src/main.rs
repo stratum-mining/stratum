@@ -168,17 +168,18 @@ async fn main() {
     let username = config.core_rpc_user.clone();
     let password = config.core_rpc_pass.clone();
     let mempool = Arc::new(Mutex::new(mempool::JDsMempool::new(
-        url, username, password,
+        url.clone(), username, password,
     )));
     let mempool_cloned_ = mempool.clone();
-    task::spawn(async move {
-        loop {
-            let _ = mempool::JDsMempool::update_mempool(mempool_cloned_.clone()).await;
-            // TODO this should be configurable by the user
-            tokio::time::sleep(Duration::from_millis(10000)).await;
-        }
-    });
-
+    if url.contains("http") {
+        task::spawn(async move {
+            loop {
+                let _ = mempool::JDsMempool::update_mempool(mempool_cloned_.clone()).await;
+                // TODO this should be configurable by the user
+                tokio::time::sleep(Duration::from_millis(10000)).await;
+            }
+        });
+    };
 
     let (status_tx, status_rx) = unbounded();
     info!("Jds INITIALIZING with config: {:?}", &args.config_path);

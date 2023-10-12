@@ -6,19 +6,21 @@
 
 #[cfg(feature = "proxy")]
 use socks::Socks5Stream;
-use std::io::{BufRead, BufReader, Read, Write};
 #[cfg(not(jsonrpc_fuzz))]
 use std::net::TcpStream;
-use std::net::{SocketAddr, ToSocketAddrs};
-use std::sync::{Arc, Mutex, MutexGuard};
-use std::time::Duration;
-use std::{error, fmt, io, net, num};
+use std::{
+    error, fmt, io,
+    io::{BufRead, BufReader, Read, Write},
+    net,
+    net::{SocketAddr, ToSocketAddrs},
+    num,
+    sync::{Arc, Mutex, MutexGuard},
+    time::Duration,
+};
 
-use crate::client::Transport;
-use crate::http::DEFAULT_PORT;
 #[cfg(feature = "proxy")]
 use crate::http::DEFAULT_PROXY_PORT;
-use crate::{Request, Response};
+use crate::{client::Transport, http::DEFAULT_PORT, Request, Response};
 
 /// Absolute maximum content length allowed before cutting off the response.
 const FINAL_RESP_ALLOC: u64 = 1024 * 1024 * 1024;
@@ -198,7 +200,9 @@ impl SimpleHttpTransport {
             });
         }
         if !header_buf.as_bytes()[..12].is_ascii() {
-            return Err(Error::HttpResponseNonAsciiHello(header_buf.as_bytes()[..12].to_vec()));
+            return Err(Error::HttpResponseNonAsciiHello(
+                header_buf.as_bytes()[..12].to_vec(),
+            ));
         }
         if !header_buf.starts_with("HTTP/1.1 ") {
             return Err(Error::HttpResponseBadHello {
@@ -331,7 +335,10 @@ fn check_url(url: &str) -> Result<(SocketAddr, String), Error> {
 
     match addr.next() {
         Some(a) => Ok((a, path.to_owned())),
-        None => Err(Error::url(url, "invalid hostname: error extracting socket address")),
+        None => Err(Error::url(
+            url,
+            "invalid hostname: error extracting socket address",
+        )),
     }
 }
 
@@ -345,7 +352,13 @@ impl Transport for SimpleHttpTransport {
     }
 
     fn fmt_target(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "http://{}:{}{}", self.addr.ip(), self.addr.port(), self.path)
+        write!(
+            f,
+            "http://{}:{}{}",
+            self.addr.ip(),
+            self.addr.port(),
+            self.path
+        )
     }
 }
 
@@ -388,7 +401,10 @@ impl Builder {
 
     /// Adds authentication information to the transport using a cookie string ('user:pass').
     pub fn cookie_auth<S: AsRef<str>>(mut self, cookie: S) -> Self {
-        self.tp.basic_auth = Some(format!("Basic {}", &base64::encode(cookie.as_ref().as_bytes())));
+        self.tp.basic_auth = Some(format!(
+            "Basic {}",
+            &base64::encode(cookie.as_ref().as_bytes())
+        ));
         self
     }
 
@@ -532,7 +548,11 @@ impl fmt::Display for Error {
                 ref actual,
                 ref needed,
             } => {
-                write!(f, "HTTP response too short: length {}, needed {}.", actual, needed)
+                write!(
+                    f,
+                    "HTTP response too short: length {}, needed {}.",
+                    actual, needed
+                )
             }
             HttpResponseNonAsciiHello(ref bytes) => {
                 write!(f, "HTTP response started with non-ASCII {:?}", bytes)
@@ -541,19 +561,32 @@ impl fmt::Display for Error {
                 ref actual,
                 ref expected,
             } => {
-                write!(f, "HTTP response started with `{}`; expected `{}`.", actual, expected)
+                write!(
+                    f,
+                    "HTTP response started with `{}`; expected `{}`.",
+                    actual, expected
+                )
             }
             HttpResponseBadStatus(ref status, ref err) => {
-                write!(f, "HTTP response had bad status code `{}`: {}.", status, err)
+                write!(
+                    f,
+                    "HTTP response had bad status code `{}`: {}.",
+                    status, err
+                )
             }
             HttpResponseBadContentLength(ref len, ref err) => {
-                write!(f, "HTTP response had bad content length `{}`: {}.", len, err)
+                write!(
+                    f,
+                    "HTTP response had bad content length `{}`: {}.",
+                    len, err
+                )
             }
-            HttpResponseContentLengthTooLarge {
-                length,
-                max,
-            } => {
-                write!(f, "HTTP response content length {} exceeds our max {}.", length, max)
+            HttpResponseContentLengthTooLarge { length, max } => {
+                write!(
+                    f,
+                    "HTTP response content length {} exceeds our max {}.",
+                    length, max
+                )
             }
             HttpErrorCode(c) => write!(f, "unexpected HTTP code: {}", c),
             IncompleteResponse {
@@ -576,25 +609,15 @@ impl error::Error for Error {
         use self::Error::*;
 
         match *self {
-            InvalidUrl {
-                ..
-            }
-            | HttpResponseTooShort {
-                ..
-            }
+            InvalidUrl { .. }
+            | HttpResponseTooShort { .. }
             | HttpResponseNonAsciiHello(..)
-            | HttpResponseBadHello {
-                ..
-            }
+            | HttpResponseBadHello { .. }
             | HttpResponseBadStatus(..)
             | HttpResponseBadContentLength(..)
-            | HttpResponseContentLengthTooLarge {
-                ..
-            }
+            | HttpResponseContentLengthTooLarge { .. }
             | HttpErrorCode(_)
-            | IncompleteResponse {
-                ..
-            } => None,
+            | IncompleteResponse { .. } => None,
             SocketError(ref e) => Some(e),
             Json(ref _e) => todo!(), //Some(e),
         }
@@ -690,11 +713,18 @@ mod tests {
         let addr: net::SocketAddr = ("localhost", 80).to_socket_addrs().unwrap().next().unwrap();
         let tp = Builder::new().url("http://localhost/").unwrap().build();
         assert_eq!(tp.addr, addr);
-        let addr: net::SocketAddr = ("localhost", 443).to_socket_addrs().unwrap().next().unwrap();
+        let addr: net::SocketAddr = ("localhost", 443)
+            .to_socket_addrs()
+            .unwrap()
+            .next()
+            .unwrap();
         let tp = Builder::new().url("https://localhost/").unwrap().build();
         assert_eq!(tp.addr, addr);
-        let addr: net::SocketAddr =
-            ("localhost", super::DEFAULT_PORT).to_socket_addrs().unwrap().next().unwrap();
+        let addr: net::SocketAddr = ("localhost", super::DEFAULT_PORT)
+            .to_socket_addrs()
+            .unwrap()
+            .next()
+            .unwrap();
         let tp = Builder::new().url("localhost").unwrap().build();
         assert_eq!(tp.addr, addr);
 
@@ -709,13 +739,18 @@ mod tests {
         ];
         for u in &valid_urls {
             let (addr, path) = check_url(u).unwrap();
-            let builder = Builder::new().url(u).unwrap_or_else(|_| panic!("error for: {}", u));
+            let builder = Builder::new()
+                .url(u)
+                .unwrap_or_else(|_| panic!("error for: {}", u));
             assert_eq!(builder.tp.addr, addr);
             assert_eq!(builder.tp.path, path);
             assert_eq!(builder.tp.timeout, DEFAULT_TIMEOUT);
             assert_eq!(builder.tp.basic_auth, None);
             #[cfg(feature = "proxy")]
-            assert_eq!(builder.tp.proxy_addr, SocketAddr::from_str("127.0.0.1:9050").unwrap());
+            assert_eq!(
+                builder.tp.proxy_addr,
+                SocketAddr::from_str("127.0.0.1:9050").unwrap()
+            );
         }
 
         let invalid_urls = [
@@ -775,9 +810,11 @@ mod tests {
     #[test]
     fn request_to_closed_socket() {
         use serde_json::{Number, Value};
-        use std::net::{Shutdown, TcpListener};
-        use std::sync::mpsc;
-        use std::thread;
+        use std::{
+            net::{Shutdown, TcpListener},
+            sync::mpsc,
+            thread,
+        };
 
         let (tx, rx) = mpsc::sync_channel(1);
 
@@ -805,7 +842,9 @@ mod tests {
 
                 stream.write_all(b"HTTP/1.1 200\r\n").unwrap();
                 stream.write_all(b"Content-Length: ").unwrap();
-                stream.write_all(response_str.len().to_string().as_bytes()).unwrap();
+                stream
+                    .write_all(response_str.len().to_string().as_bytes())
+                    .unwrap();
                 stream.write_all(b"\r\n").unwrap();
                 stream.write_all(b"\r\n").unwrap();
                 stream.write_all(response_str.as_bytes()).unwrap();

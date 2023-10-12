@@ -85,8 +85,7 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
             }
 
             // TODO
-            if !unidentified_txs.is_empty() {
-            }
+            if !unidentified_txs.is_empty() {}
 
             self.identified_txs = Some(identified_txs);
             self.number_of_unidentified_txs = unidentified_txs.len() as u32;

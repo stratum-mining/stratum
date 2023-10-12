@@ -5,17 +5,17 @@
 //! Support for connecting to JSONRPC servers over HTTP, sending requests,
 //! and parsing responses
 
-use std::borrow::Cow;
-use std::collections::HashMap;
-use std::fmt;
-use std::hash::{Hash, Hasher};
-use std::sync::atomic;
+use std::{
+    borrow::Cow,
+    collections::HashMap,
+    fmt,
+    hash::{Hash, Hasher},
+    sync::atomic,
+};
 
-use serde_json::value::RawValue;
-use serde_json::Value;
+use serde_json::{value::RawValue, Value};
 
-use crate::error::Error;
-use crate::{Request, Response};
+use crate::{error::Error, Request, Response};
 
 /// An interface for a transport over which to use the JSONRPC protocol.
 pub trait Transport: Send + Sync + 'static {
@@ -96,8 +96,10 @@ impl Client {
             }
         }
         // Match responses to the requests.
-        let results =
-            requests.iter().map(|r| by_id.remove(&HashableValue(Cow::Borrowed(&r.id)))).collect();
+        let results = requests
+            .iter()
+            .map(|r| by_id.remove(&HashableValue(Cow::Borrowed(&r.id))))
+            .collect();
 
         // Since we're also just producing the first duplicate ID, we can also just produce the
         // first incorrect ID in case there are multiple.
@@ -202,10 +204,7 @@ impl<'a> Hash for HashableValue<'a> {
 mod tests {
     use super::*;
 
-    use std::borrow::Cow;
-    use std::collections::HashSet;
-    use std::str::FromStr;
-    use std::sync;
+    use std::{borrow::Cow, collections::HashSet, str::FromStr, sync};
 
     struct DummyTransport;
     impl Transport for DummyTransport {
@@ -236,10 +235,12 @@ mod tests {
         let val = HashableValue(Cow::Owned(Value::from_str("null").unwrap()));
         let t = HashableValue(Cow::Owned(Value::from_str("true").unwrap()));
         let f = HashableValue(Cow::Owned(Value::from_str("false").unwrap()));
-        let ns =
-            HashableValue(Cow::Owned(Value::from_str("[0, -0, 123.4567, -100000000]").unwrap()));
-        let m =
-            HashableValue(Cow::Owned(Value::from_str("{ \"field\": 0, \"field\": -0 }").unwrap()));
+        let ns = HashableValue(Cow::Owned(
+            Value::from_str("[0, -0, 123.4567, -100000000]").unwrap(),
+        ));
+        let m = HashableValue(Cow::Owned(
+            Value::from_str("{ \"field\": 0, \"field\": -0 }").unwrap(),
+        ));
 
         let mut coll = HashSet::new();
 

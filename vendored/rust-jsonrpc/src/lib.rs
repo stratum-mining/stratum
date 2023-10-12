@@ -13,7 +13,6 @@ pub extern crate serde;
 /// Re-export `serde_json` crate.
 pub extern crate serde_json;
 
-
 pub mod client;
 pub mod error;
 pub mod http;
@@ -24,8 +23,10 @@ pub use http::simple_http;
 use serde::{Deserialize, Serialize};
 use serde_json::value::RawValue;
 
-pub use crate::client::{Client, Transport};
-pub use crate::error::Error;
+pub use crate::{
+    client::{Client, Transport},
+    error::Error,
+};
 
 /// Shorthand method to convert an argument into a boxed [`serde_json::value::RawValue`].
 ///
