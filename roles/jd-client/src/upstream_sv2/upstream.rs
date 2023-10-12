@@ -69,7 +69,7 @@ pub struct Upstream {
     /// This allows the upstream threads to be able to communicate back to the main thread its
     /// current status.
     tx_status: status::Sender,
-    /// Minimum `extranonce2` size. Initially requested in the `proxy-config.toml`, and ultimately
+    /// Minimum `extranonce2` size. Initially requested in the `jdc-config.toml`, and ultimately
     /// set by the SV2 Upstream via the SV2 `OpenExtendedMiningChannelSuccess` message.
     pub min_extranonce_size: u16,
     pub upstream_extranonce1_size: usize,
