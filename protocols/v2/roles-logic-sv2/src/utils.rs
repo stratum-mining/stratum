@@ -259,7 +259,6 @@ fn bip32_extended_to_compressed(bip32_extended_public_key: &str) -> Result<Strin
     Ok(result)
 }
 
-
 /// The pool set a target for each miner. Each target is calibrated on the hashrate of the miner.
 /// The following function takes as input a miner hashrate and the shares per minute requested by
 /// the pool. The output t is the target (in big endian) for the miner with that hashrate. The
