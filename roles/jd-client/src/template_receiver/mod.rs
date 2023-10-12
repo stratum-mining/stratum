@@ -1,4 +1,4 @@
-use codec_sv2::{StandardEitherFrame, StandardSv2Frame, Initiator, HandshakeRole};
+use codec_sv2::{HandshakeRole, Initiator, StandardEitherFrame, StandardSv2Frame};
 use key_utils::Secp256k1PublicKey;
 use roles_logic_sv2::{
     job_declaration_sv2::AllocateMiningJobTokenSuccess,
@@ -64,8 +64,10 @@ impl TemplateRx {
 
         let pub_key: Secp256k1PublicKey = authority_public_key;
         let initiator = Initiator::from_raw_k(pub_key.into_bytes()).unwrap();
-        let (mut receiver, mut sender, _,_) =
-            Connection::new(stream,HandshakeRole::Initiator(initiator)).await.unwrap();
+        let (mut receiver, mut sender, _, _) =
+            Connection::new(stream, HandshakeRole::Initiator(initiator))
+                .await
+                .unwrap();
 
         info!("Template Receiver try to set up connection");
         SetupConnectionHandler::setup(&mut receiver, &mut sender, address)
@@ -273,7 +275,7 @@ impl TemplateRx {
                             }
                         }
                         Ok(_) => panic!(),
-                        Err(_) => todo!(),
+                        Err(e) => panic!("{:?}", e),
                     }
                 }
             })

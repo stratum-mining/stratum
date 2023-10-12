@@ -42,10 +42,12 @@ impl TryFrom<&CoinbaseOutput> for CoinbaseOutput_ {
 
     fn try_from(pool_output: &CoinbaseOutput) -> Result<Self, Self::Error> {
         match pool_output.output_script_type.as_str() {
-            "TEST" | "P2PK" | "P2PKH" | "P2WPKH" | "P2SH" | "P2WSH" | "P2TR" => Ok(CoinbaseOutput_ {
-                output_script_type: pool_output.clone().output_script_type,
-                output_script_value: pool_output.clone().output_script_value,
-            }),
+            "TEST" | "P2PK" | "P2PKH" | "P2WPKH" | "P2SH" | "P2WSH" | "P2TR" => {
+                Ok(CoinbaseOutput_ {
+                    output_script_type: pool_output.clone().output_script_type,
+                    output_script_value: pool_output.clone().output_script_value,
+                })
+            }
             _ => Err(Error::UnknownOutputScriptType),
         }
     }

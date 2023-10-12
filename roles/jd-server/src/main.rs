@@ -166,7 +166,9 @@ async fn main() {
     let username = config.core_rpc_user.clone();
     let password = config.core_rpc_pass.clone();
     let mempool = Arc::new(Mutex::new(mempool::JDsMempool::new(
-        url.clone(), username, password,
+        url.clone(),
+        username,
+        password,
     )));
     let mempool_cloned_ = mempool.clone();
     if url.contains("http") {

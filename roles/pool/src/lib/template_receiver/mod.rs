@@ -49,8 +49,10 @@ impl TemplateRx {
 
         let pub_key: Secp256k1PublicKey = authority_public_key;
         let initiator = Initiator::from_raw_k(pub_key.into_bytes())?;
-        let (mut receiver, mut sender, _,_) =
-            Connection::new(stream,HandshakeRole::Initiator(initiator)).await.unwrap();
+        let (mut receiver, mut sender, _, _) =
+            Connection::new(stream, HandshakeRole::Initiator(initiator))
+                .await
+                .unwrap();
 
         SetupConnectionHandler::setup(&mut receiver, &mut sender, address).await?;
 
