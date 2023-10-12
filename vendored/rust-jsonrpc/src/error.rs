@@ -190,10 +190,10 @@ pub fn result_to_response(
 
 #[cfg(test)]
 mod tests {
-    use super::StandardError::{
-        InternalError, InvalidParams, InvalidRequest, MethodNotFound, ParseError,
+    use super::{
+        result_to_response, standard_error,
+        StandardError::{InternalError, InvalidParams, InvalidRequest, MethodNotFound, ParseError},
     };
-    use super::{result_to_response, standard_error};
     use serde_json;
 
     #[test]

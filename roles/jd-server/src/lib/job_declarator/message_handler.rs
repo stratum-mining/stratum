@@ -44,14 +44,10 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
         message: AllocateMiningJobToken,
     ) -> Result<SendTo, Error> {
         let token = self.tokens.next();
-        // Token is saved in JobDeclaratorDownstream as u32
         self.token_to_job_map.insert(token, None);
         let message_success = AllocateMiningJobTokenSuccess {
             request_id: message.request_id,
-            // From u32 token is transformed into B0255 in
-            // AllocateMiningJobTokenSuccess message
             mining_job_token: token.to_le_bytes().to_vec().try_into().unwrap(),
-            // Mock value of coinbase_max_additional_size. Must be changed
             coinbase_output_max_additional_size: 100,
             async_mining_allowed: true,
             coinbase_output: self.coinbase_output.clone().try_into().unwrap(),
@@ -66,15 +62,6 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
 
     fn handle_declare_mining_job(&mut self, message: DeclareMiningJob) -> Result<SendTo, Error> {
         if self.verify_job(&message) {
-            // gT
-            //let mut short_hash_list: Vec<ShortTxId> = Vec::new();
-            //let tx_short_hashlist_vec = message.tx_short_hash_list.to_vec();
-            //for inner in message.tx_short_hash_list.inner_as_ref( {
-            //    let mut inner_vec: Vec<u8> = inner.to_vec();
-            //    let slice: &mut [u8] = inner_vec.as_mut_slice();
-            //    let short_hash_id: ShortTxId= slice.try_into().unwrap();
-            //    short_hash_list.push(short_hash_id);
-            //};
             let short_hash_list: Vec<ShortTxId> = message
                 .tx_short_hash_list
                 .inner_as_ref()
@@ -83,7 +70,7 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
                 .collect();
             let nonce = message.tx_short_hash_nonce;
             let mempool = self.mempool.safe_lock(|x| x.clone()).unwrap();
-            // TODO perhaps the coinbase does not get included
+
             let mut unidentified_txs: Vec<ShortTxId> = Vec::new();
             let mut identified_txs: Vec<(
                 stratum_common::bitcoin::Txid,
@@ -97,11 +84,8 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
                 }
             }
 
-            if !unidentified_txs.is_empty() {
-                // TODO ask downstream with the message ProvideMissingTransactions
-                // and add these transactions to the job the client is working onto
-                todo!()
-            }
+            // TODO
+            if !unidentified_txs.is_empty() {}
 
             self.identified_txs = Some(identified_txs);
             self.number_of_unidentified_txs = unidentified_txs.len() as u32;

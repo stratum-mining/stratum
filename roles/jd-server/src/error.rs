@@ -42,8 +42,6 @@ impl std::fmt::Display for JdsError {
     }
 }
 
-pub type JdsResult<T> = Result<T, JdsError>;
-
 impl From<std::io::Error> for JdsError {
     fn from(e: std::io::Error) -> JdsError {
         JdsError::Io(e)

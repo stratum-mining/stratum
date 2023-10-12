@@ -287,6 +287,7 @@ impl<'a, T> std::convert::TryFrom<Seq0255<'a, T>> for Vec<T> {
     }
 }
 
+#[cfg(feature = "prop_test")]
 impl<'a, T> std::convert::TryFrom<Seq064K<'a, T>> for Vec<T> {
     type Error = &'static str;
     fn try_from(v: Seq064K<'a, T>) -> Result<Self, Self::Error> {

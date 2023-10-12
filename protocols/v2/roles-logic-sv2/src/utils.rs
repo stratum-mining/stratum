@@ -192,6 +192,12 @@ impl TryFrom<CoinbaseOutput> for Script {
 
     fn try_from(value: CoinbaseOutput) -> Result<Self, Self::Error> {
         match value.output_script_type.as_str() {
+            "TEST" => {
+                let pub_key_hash = PublicKey::from_str(value.output_script_value.as_str())
+                    .map_err(|_| Error::InvalidOutputScript)?
+                    .pubkey_hash();
+                Ok(Script::new_p2pkh(&pub_key_hash))
+            }
             "P2PK" => {
                 let compressed_pub_key =
                     bip32_extended_to_compressed(value.output_script_value.as_str())?;
