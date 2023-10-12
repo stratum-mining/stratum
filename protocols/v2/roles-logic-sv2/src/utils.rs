@@ -259,6 +259,7 @@ fn bip32_extended_to_compressed(bip32_extended_public_key: &str) -> Result<Strin
     Ok(result)
 }
 
+
 /// The pool set a target for each miner. Each target is calibrated on the hashrate of the miner.
 /// The following function takes as input a miner hashrate and the shares per minute requested by
 /// the pool. The output t is the target (in big endian) for the miner with that hashrate. The
@@ -530,6 +531,17 @@ pub fn u256_to_block_hash(v: U256<'static>) -> BlockHash {
     let hash: [u8; 32] = v.to_vec().try_into().unwrap();
     let hash = Hash::from_inner(hash);
     BlockHash::from_hash(hash)
+}
+
+#[test]
+fn test_bip32_extended_to_compressed() {
+    let input = "vpub5XzEwP9YWe4cKKZAmbiBUxC7eL5HaZhbquBYzP3vDSDJJegb7CSCRphAPmwpGHzAyH1as9MRnXFWDcZozXA1K3sQqyKdTagooPfCVDhiwnr";
+    let expected_output = "02e3c73b75fa0949872c8479c3af2ec9f0d3631b1c606039035e8daf8ec6da9c34";
+    let result = bip32_extended_to_compressed(input).unwrap();
+    assert_eq!(result, expected_output);
+
+    let invalid_input = "invalid_extended_public_key";
+    assert!(bip32_extended_to_compressed(invalid_input).is_err());
 }
 
 /// Returns a new `BlockHeader`.
