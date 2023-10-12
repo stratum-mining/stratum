@@ -305,7 +305,7 @@ async fn initialize_jd_as_solo_miner(
         task_collector,
         Arc::new(Mutex::new(PoolChangerTrigger::new(timeout))),
         miner_tx_out.clone(),
-        proxy_config.tp_authority_public_key,
+        proxy_config.tp_authority_pub_key,
     )
     .await;
 }
@@ -436,7 +436,7 @@ async fn initialize_jd(
         task_collector,
         Arc::new(Mutex::new(PoolChangerTrigger::new(timeout))),
         vec![],
-        proxy_config.tp_authority_public_key,
+        proxy_config.tp_authority_pub_key,
     )
     .await;
 }

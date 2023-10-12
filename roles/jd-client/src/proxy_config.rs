@@ -26,8 +26,6 @@ impl TryFrom<&CoinbaseOutput> for CoinbaseOutput_ {
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct ProxyConfig {
-    pub upstream_address: String,
-    pub upstream_port: u16,
     pub downstream_address: String,
     pub downstream_port: u16,
     pub max_supported_version: u16,
@@ -38,7 +36,7 @@ pub struct ProxyConfig {
     pub authority_secret_key: Secp256k1SecretKey,
     pub cert_validity_sec: u64,
     pub tp_address: String,
-    pub tp_authority_public_key: Secp256k1PublicKey,
+    pub tp_authority_pub_key: Secp256k1PublicKey,
     pub retry: u32,
     pub upstreams: Vec<Upstream>,
     #[serde(deserialize_with = "duration_from_toml")]
