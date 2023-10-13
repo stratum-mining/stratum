@@ -28,6 +28,7 @@ retry = 10
 # tp_address = "127.0.0.1:8442"
 # Hosted testnet TP 
 tp_address = "89.116.25.191:8442"
+tp_authority_pub_key = "3VANfft6ei6jQq1At7d8nmiZzVhBFS4CiQujdgim1ign"
 # Hosted regtest TP 
 # tp_address = "75.119.150.111:8442"
 
@@ -52,7 +53,7 @@ value = 1
 # List of upstreams (JDS) used as backup endpoints
 # In case of shares refused by the JDS, the fallback system will propose the same job to the next upstream in this list
 [[upstreams]]
-authority_pubkey = "2di19GHYQnAZJmEpoUeP7C3Eg9TCcksHr23rZCC83dvUiZgiDL"
+authority_pubkey = "3VANfft6ei6jQq1At7d8nmiZzVhBFS4CiQujdgim1ign"
 pool_address = "127.0.0.1:34254"
 jd_address = "127.0.0.1:34264"
 # Pool signature (string to be included in coinbase tx)

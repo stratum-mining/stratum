@@ -1,0 +1,4 @@
+Found share with nonce: 18988, for target: Some(0x0001179d9861a761ffdadd11c307c4fc04eea3a418f7d687584e4434af158205), with hash: 0x000063e22ec5e38fd5e6e20f25d827fc626f3e3a5b89326e9c96268b5cef0579
+SUCCESS SubmitSharesSuccess { channel_id: 1, last_sequence_number: 2, new_submits_accepted_count: 1, new_shares_sum: 1 }
+Found share with nonce: 6035, for target: Some(0x0001179d9861a761ffdadd11c307c4fc04eea3a418f7d687584e4434af158205), with hash: 0x00002fd615b4483f83c57ff20c82d10a1bfa025ff03d5f250ad8c4a2253eb24d
+SUCCESS SubmitSharesSuccess { channel_id: 1, last_sequence_number: 3, new_submits_accepted_count: 1, new_shares_sum: 1 }

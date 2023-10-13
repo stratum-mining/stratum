@@ -6,7 +6,7 @@
         "2) launch SRI pool with llvm-cov and -h flag (Displays `help` options)",
         "3) launch SRI pool with llvm-cov (Fails because of invalid config)",
         "4) launch SRI pool with llvm-cov (Fails because of no config file at path)",
-        "4) launch SRI pool with llvm-cov (Successfully runs pool)"
+        "5) launch SRI pool with llvm-cov (Successfully runs pool)"
     ],
     "common_messages": [
     ],

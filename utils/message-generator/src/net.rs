@@ -42,7 +42,7 @@ pub async fn setup_as_upstream<
             )
             .unwrap();
             let (recv, sender, _, _) =
-                Connection::new(stream, HandshakeRole::Responder(responder)).await;
+                Connection::new(stream, HandshakeRole::Responder(responder)).await.unwrap();
             (recv, sender)
         }
         None => PlainConnection::new(stream).await,
@@ -59,9 +59,9 @@ pub async fn setup_as_downstream<
     let stream = TcpStream::connect(socket).await.unwrap();
     match key {
         Some(publ) => {
-            let initiator = Initiator::from_raw_k(*publ.into_inner().as_bytes()).unwrap();
+            let initiator = Initiator::from_raw_k(publ.into_bytes()).unwrap();
             let (recv, sender, _, _) =
-                Connection::new(stream, HandshakeRole::Initiator(initiator)).await;
+                Connection::new(stream, HandshakeRole::Initiator(initiator)).await.unwrap();
             (recv, sender)
         }
         None => PlainConnection::new(stream).await,

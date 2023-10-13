@@ -1,3 +1,4 @@
+
 # SRI Pool config
 authority_public_key = "3VANfft6ei6jQq1At7d8nmiZzVhBFS4CiQujdgim1ign"
 authority_secret_key = "7qbpUjScc865jyX2kiB4NVJANoC7GA7TAJupdzXWkc62"
@@ -16,5 +17,7 @@ listen_jd_address = "127.0.0.1:34264"
 
 core_rpc_url =  "http://127.0.0.1"
 core_rpc_port = 18443
+#core_rpc_port = 18332
 core_rpc_user =  "username"
 core_rpc_pass =  "password"
+ore_rpc_pass =  "password"

@@ -356,6 +356,7 @@ impl BufferPool<TestBufferFromMemory> {
             shared_state: SharedState::new(),
             inner_memory: InnerMemory::new(capacity),
             system_memory: TestBufferFromMemory(Vec::new()),
+            start: 0,
         }
     }
 }

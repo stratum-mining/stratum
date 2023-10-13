@@ -1,8 +1,14 @@
-[2m2023-10-06T07:18:40.207347Z[0m [32m INFO[0m [2mmining_proxy_sv2::lib::downstream_mining[0m[2m:[0m [3mchannel_id[0m[2m=[0m1
-[2m2023-10-06T07:18:44.039016Z[0m [31mERROR[0m [2mnetwork_helpers::noise_connection_tokio[0m[2m:[0m Disconnected from client while reading : early eof - 127.0.0.1:34265
-[2m2023-10-06T07:18:44.039210Z[0m [31mERROR[0m [2mnetwork_helpers::plain_connection_tokio[0m[2m:[0m Failed to read from stream - terminating connection
-[2m2023-10-06T07:18:44.039304Z[0m [31mERROR[0m [2mnetwork_helpers::noise_connection_tokio[0m[2m:[0m Disconnecting from client due to error receiving: receiving from an empty and closed channel - 127.0.0.1:34265
-[2m2023-10-06T07:18:44.039329Z[0m [31mERROR[0m [2mnetwork_helpers::plain_connection_tokio[0m[2m:[0m Failed to read from stream: early eof
-[2m2023-10-06T07:18:54.041111Z[0m [32m INFO[0m [2mmining_proxy_sv2::lib::upstream_mining[0m[2m:[0m Connected to upstream node 127.0.0.1:34265: now handling noise handshake
-[2m2023-10-06T07:18:54.129253Z[0m [31mERROR[0m [2mnetwork_helpers::noise_connection_tokio[0m[2m:[0m Disconnected from client while reading : early eof - 127.0.0.1:34265
-[2m2023-10-06T07:18:54.129335Z[0m [31mERROR[0m [2mnetwork_helpers::noise_connection_tokio[0m[2m:[0m Disconnecting from client due to error receiving: receiving from an empty and closed channel - 127.0.0.1:34265
+[2m2023-10-13T07:16:44.561559Z[0m [32m INFO[0m [2mmining_proxy_sv2::lib::downstream_mining[0m[2m:[0m [3mchannel_id[0m[2m=[0m1
+[2m2023-10-13T07:16:52.434808Z[0m [32m INFO[0m [2mmining_proxy_sv2::lib::upstream_mining[0m[2m:[0m SEND
+[2m2023-10-13T07:16:53.796675Z[0m [32m INFO[0m [2mmining_proxy_sv2::lib::upstream_mining[0m[2m:[0m SEND
+[2m2023-10-13T07:16:54.284717Z[0m [32m INFO[0m [2mmining_proxy_sv2::lib::upstream_mining[0m[2m:[0m SEND
+[2m2023-10-13T07:16:54.437413Z[0m [31mERROR[0m [2mnetwork_helpers::noise_connection_tokio[0m[2m:[0m Disconnected from client while reading : early eof - 127.0.0.1:34265
+[2m2023-10-13T07:16:54.437549Z[0m [31mERROR[0m [2mnetwork_helpers::plain_connection_tokio[0m[2m:[0m Failed to read from stream - terminating connection
+[2m2023-10-13T07:16:54.437582Z[0m [31mERROR[0m [2mnetwork_helpers::noise_connection_tokio[0m[2m:[0m Disconnecting from client due to error receiving: receiving from an empty and closed channel - 127.0.0.1:34265
+[2m2023-10-13T07:16:54.437631Z[0m [31mERROR[0m [2mnetwork_helpers::plain_connection_tokio[0m[2m:[0m Failed to read from stream: early eof
+[2m2023-10-13T07:17:04.438899Z[0m [32m INFO[0m [2mmining_proxy_sv2::lib::upstream_mining[0m[2m:[0m Connected to upstream node 127.0.0.1:34265: now handling noise handshake
+[2m2023-10-13T07:17:04.459649Z[0m [32m INFO[0m [2mmining_proxy_sv2::lib::upstream_mining[0m[2m:[0m handshare done
+[2m2023-10-13T07:17:04.459660Z[0m [32m INFO[0m [2mmining_proxy_sv2::lib::upstream_mining[0m[2m:[0m SEND
+[2m2023-10-13T07:17:04.460050Z[0m [32m INFO[0m [2mmining_proxy_sv2::lib::upstream_mining[0m[2m:[0m SEND
+[2m2023-10-13T07:17:04.525694Z[0m [31mERROR[0m [2mnetwork_helpers::noise_connection_tokio[0m[2m:[0m Disconnected from client while reading : early eof - 127.0.0.1:34265
+[2m2023-10-13T07:17:04.525782Z[0m [31mERROR[0m [2mnetwork_helpers::noise_connection_tokio[0m[2m:[0m Disconnecting from client due to error receiving: receiving from an empty and closed channel - 127.0.0.1:34265
