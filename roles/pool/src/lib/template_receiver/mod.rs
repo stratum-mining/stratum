@@ -17,7 +17,7 @@ use roles_logic_sv2::{
 };
 use std::{convert::TryInto, net::SocketAddr, sync::Arc};
 use tokio::{net::TcpStream, task};
-use tracing::{debug, info};
+use tracing::info;
 
 mod message_handler;
 mod setup_connection;
@@ -120,7 +120,6 @@ impl TemplateRx {
                 roles_logic_sv2::handlers::SendTo_::RelayNewMessageToRemote(_, m) => match m {
                     TemplateDistribution::CoinbaseOutputDataSize(_) => todo!(),
                     TemplateDistribution::NewTemplate(m) => {
-                        debug!("Got new template: {:?}", m);
                         let res = new_template_sender.send(m).await;
                         handle_result!(status_tx, res);
                         handle_result!(status_tx, recv_msg_signal.recv().await);

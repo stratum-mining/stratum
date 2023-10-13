@@ -20,7 +20,7 @@ use roles_logic_sv2::{
     template_distribution_sv2::{NewTemplate, SubmitSolution},
     utils::Mutex,
 };
-use tracing::info;
+use tracing::{info, warn};
 
 use codec_sv2::{Frame, HandshakeRole, Responder, StandardEitherFrame, StandardSv2Frame};
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
@@ -442,7 +442,7 @@ impl
         _: OpenStandardMiningChannel,
         _: Option<Arc<Mutex<UpstreamMiningNode>>>,
     ) -> Result<SendTo<UpstreamMiningNode>, Error> {
-        info!("Ignoring OpenStandardMiningChannel");
+        warn!("Ignoring OpenStandardMiningChannel");
         Ok(SendTo::None(None))
     }
 
@@ -450,7 +450,6 @@ impl
         &mut self,
         m: OpenExtendedMiningChannel,
     ) -> Result<SendTo<UpstreamMiningNode>, Error> {
-        info!("Opening exteneded mining channel");
         if !self.status.is_solo_miner() {
             // Safe unwrap alreay checked if it cointains upstream with is_solo_miner
             Ok(SendTo::RelaySameMessageToRemote(
@@ -520,7 +519,7 @@ impl
         &mut self,
         _: SubmitSharesStandard,
     ) -> Result<SendTo<UpstreamMiningNode>, Error> {
-        info!("Ignoring SubmitSharesStandard");
+        warn!("Ignoring SubmitSharesStandard");
         Ok(SendTo::None(None))
     }
 
@@ -528,7 +527,6 @@ impl
         &mut self,
         m: SubmitSharesExtended,
     ) -> Result<SendTo<UpstreamMiningNode>, Error> {
-        info!("Receive share extended");
         match self
             .status
             .get_channel()
@@ -558,7 +556,6 @@ impl
             OnNewShare::ShareMeetBitcoinTarget((share, Some(template_id), coinbase)) => {
                 match share {
                     Share::Extended(share) => {
-                        info!("SHARE MEETS BITCOIN TARGET");
                         let solution_sender = self.solution_sender.clone();
                         let solution = SubmitSolution {
                             template_id,
@@ -604,7 +601,7 @@ impl
         &mut self,
         _: SetCustomMiningJob,
     ) -> Result<SendTo<UpstreamMiningNode>, Error> {
-        info!("Ignoring SetCustomMiningJob");
+        warn!("Ignoring SetCustomMiningJob");
         Ok(SendTo::None(None))
     }
 }

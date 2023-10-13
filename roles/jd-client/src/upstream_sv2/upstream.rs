@@ -30,7 +30,7 @@ use roles_logic_sv2::{
 };
 use std::{collections::HashMap, net::SocketAddr, sync::Arc, thread::sleep, time::Duration};
 use tokio::{net::TcpStream, task, task::AbortHandle};
-use tracing::{debug, error, info};
+use tracing::{error, info, warn};
 
 #[derive(Debug, Default)]
 struct TemplateToJobId {
@@ -178,7 +178,6 @@ impl Upstream {
             .safe_lock(|s| s.receiver.clone())
             .map_err(|_| PoisonLock)?;
 
-        debug!("Sent SetupConnection to Upstream, waiting for response");
         // Wait for the SV2 Upstream to respond with either a `SetupConnectionSuccess` or a
         // `SetupConnectionError` inside a SV2 binary message frame
         let mut incoming: StdFrame = match recv.recv().await {
@@ -191,7 +190,6 @@ impl Upstream {
             }
         };
 
-        info!("Up: Receiving: {:?}", &incoming);
         // Gets the binary frame message type from the message header
         let message_type = if let Some(header) = incoming.get_header() {
             header.msg_type()
@@ -446,7 +444,6 @@ impl ParseUpstreamCommonMessages<NoRouting> for Upstream {
         &mut self,
         _: roles_logic_sv2::common_messages_sv2::SetupConnectionSuccess,
     ) -> Result<SendToCommon, RolesLogicError> {
-        debug!("Up: Handling SetupConnectionSuccess");
         Ok(SendToCommon::None(None))
     }
 
@@ -591,10 +588,8 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
     /// Handles the SV2 `SubmitSharesSuccess` message.
     fn handle_submit_shares_success(
         &mut self,
-        m: roles_logic_sv2::mining_sv2::SubmitSharesSuccess,
+        _m: roles_logic_sv2::mining_sv2::SubmitSharesSuccess,
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, RolesLogicError> {
-        info!("Up: Successfully Submitted Share");
-        debug!("Up: Handling SubmitSharesSuccess: {:?}", &m);
         Ok(SendTo::RelaySameMessageToRemote(
             self.downstream.as_ref().unwrap().clone(),
         ))
@@ -603,10 +598,8 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
     /// Handles the SV2 `SubmitSharesError` message.
     fn handle_submit_shares_error(
         &mut self,
-        m: roles_logic_sv2::mining_sv2::SubmitSharesError,
+        _m: roles_logic_sv2::mining_sv2::SubmitSharesError,
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, RolesLogicError> {
-        info!("Up: Rejected Submitted Share");
-        debug!("Up: Handling SubmitSharesError: {:?}", &m);
         self.pool_chaneger_trigger
             .safe_lock(|t| t.start(self.tx_status.clone()))
             .unwrap();
@@ -630,7 +623,7 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
         &mut self,
         _: roles_logic_sv2::mining_sv2::NewExtendedMiningJob,
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, RolesLogicError> {
-        info!("Extended job received from upstream, proxy ignore it, and use the one declared by JOB DECLARATOR");
+        warn!("Extended job received from upstream, proxy ignore it, and use the one declared by JOB DECLARATOR");
         Ok(SendTo::None(None))
     }
 
@@ -641,7 +634,7 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
         &mut self,
         _: roles_logic_sv2::mining_sv2::SetNewPrevHash,
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, RolesLogicError> {
-        info!("SNPH received from upstream, proxy ignore it, and use the one declared by JOB DECLARATOR");
+        warn!("SNPH received from upstream, proxy ignore it, and use the one declared by JOB DECLARATOR");
         Ok(SendTo::None(None))
     }
 

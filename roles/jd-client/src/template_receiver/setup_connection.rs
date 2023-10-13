@@ -8,7 +8,6 @@ use roles_logic_sv2::{
     utils::Mutex,
 };
 use std::{convert::TryInto, net::SocketAddr, sync::Arc};
-use tracing::trace;
 pub type Message = PoolMessages<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;
 pub type EitherFrame = StandardEitherFrame<Message>;
@@ -56,10 +55,6 @@ impl SetupConnectionHandler {
             .expect("Failed to parse incoming SetupConnectionResponse");
         let message_type = incoming.get_header().unwrap().msg_type();
         let payload = incoming.payload();
-        trace!(
-            "Received {} response to setup connection message",
-            message_type
-        );
         ParseUpstreamCommonMessages::handle_message_common(
             Arc::new(Mutex::new(SetupConnectionHandler {})),
             message_type,

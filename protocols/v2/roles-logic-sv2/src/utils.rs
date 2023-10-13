@@ -693,7 +693,7 @@ pub fn get_short_hash(txid: bitcoin::Txid, tx_short_hash_nonce: u64) -> ShortTxI
     // get every transaction, hash it, remove first two bytes and push the ShortTxId in a vector
     let hasher = SipHasher24::new_with_keys(k0, k1);
     let tx_hashed = hasher.hash(&txid);
-    let tx_hashed_bytes: Vec<u8> = tx_hashed.to_le_bytes().to_vec().drain(0..2).collect();
+    let tx_hashed_bytes: Vec<u8> = tx_hashed.to_le_bytes()[2..].to_vec();
     let short_tx_id: ShortTxId = tx_hashed_bytes.try_into().unwrap();
     short_tx_id
 }
