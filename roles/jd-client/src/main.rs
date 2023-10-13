@@ -171,7 +171,7 @@ async fn main() {
             let task_collector = task_collector.clone();
             let tx_status = tx_status.clone();
 
-            if let Some(upstream) = dbg!(proxy_config.upstreams.get(dbg!(upstream_index))) {
+            if let Some(upstream) = proxy_config.upstreams.get(upstream_index) {
                 let initialize = initialize_jd(
                     tx_status.clone(),
                     task_collector,

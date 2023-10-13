@@ -13,7 +13,6 @@ use roles_logic_sv2::{
     utils::Mutex,
 };
 use std::{convert::TryInto, net::SocketAddr, sync::Arc};
-use tracing::{error, info, trace};
 
 pub struct SetupConnectionHandler {}
 
@@ -48,9 +47,7 @@ impl SetupConnectionHandler {
 
         let sv2_frame: StdFrame = PoolMessages::Common(setup_connection.into()).try_into()?;
         let sv2_frame = sv2_frame.into();
-        trace!("Sending setup connection message to template distribution server");
         sender.send(sv2_frame).await?;
-        trace!("Sent setup connection message, waiting for response");
 
         let mut incoming: StdFrame = receiver
             .recv()
@@ -62,11 +59,6 @@ impl SetupConnectionHandler {
             .ok_or_else(|| PoolError::Custom(String::from("No header set")))?
             .msg_type();
         let payload = incoming.payload();
-
-        trace!(
-            "Received {} response to setup connection message",
-            message_type
-        );
 
         ParseUpstreamCommonMessages::handle_message_common(
             Arc::new(Mutex::new(SetupConnectionHandler {})),
@@ -83,7 +75,6 @@ impl ParseUpstreamCommonMessages<NoRouting> for SetupConnectionHandler {
         &mut self,
         _: roles_logic_sv2::common_messages_sv2::SetupConnectionSuccess,
     ) -> Result<roles_logic_sv2::handlers::common::SendTo, Error> {
-        info!("Setup template provider connection success!");
         Ok(SendTo::None(None))
     }
 
@@ -91,7 +82,6 @@ impl ParseUpstreamCommonMessages<NoRouting> for SetupConnectionHandler {
         &mut self,
         _: roles_logic_sv2::common_messages_sv2::SetupConnectionError,
     ) -> Result<roles_logic_sv2::handlers::common::SendTo, Error> {
-        error!("Setup template provider connection failed!");
         //return error result
         todo!()
     }
@@ -100,7 +90,6 @@ impl ParseUpstreamCommonMessages<NoRouting> for SetupConnectionHandler {
         &mut self,
         _: roles_logic_sv2::common_messages_sv2::ChannelEndpointChanged,
     ) -> Result<roles_logic_sv2::handlers::common::SendTo, Error> {
-        error!("Channel endpoint changed!");
         Err(Error::UnexpectedMessage(
             const_sv2::MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED,
         ))

@@ -10,7 +10,7 @@ use roles_logic_sv2::{
     utils::Mutex,
 };
 use std::{convert::TryInto, sync::Arc};
-use tracing::{debug, error, info};
+use tracing::error;
 
 impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> for Downstream {
     fn get_channel_type(&self) -> SupportedChannelTypes {
@@ -34,11 +34,6 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
         incoming: OpenStandardMiningChannel,
         _m: Option<Arc<Mutex<()>>>,
     ) -> Result<SendTo<()>, Error> {
-        debug!(
-            "Handling open standard mining channel request_id: {} for hash_rate: {}",
-            incoming.request_id.as_u32(),
-            incoming.nominal_hash_rate
-        );
         let header_only = self.downstream_data.header_only;
         let reposnses = self
             .channel_factory
@@ -107,7 +102,6 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
                 roles_logic_sv2::channel_logic::channel_factory::OnNewShare::SendSubmitShareUpstream(_) => unreachable!(),
                 roles_logic_sv2::channel_logic::channel_factory::OnNewShare::RelaySubmitShareUpstream => unreachable!(),
                 roles_logic_sv2::channel_logic::channel_factory::OnNewShare::ShareMeetBitcoinTarget((share,t_id,coinbase)) => {
-                    info!("Found share that meet bitcoin target");
                     if let Some(template_id) = t_id {
                         let solution = SubmitSolution {
                             template_id,
@@ -147,7 +141,6 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
         &mut self,
         m: SubmitSharesExtended,
     ) -> Result<SendTo<()>, Error> {
-        debug!("Handling submit share extended {:?}", m);
         let res = self
             .channel_factory
             .safe_lock(|cf| cf.on_submit_shares_extended(m.clone()))
@@ -155,13 +148,11 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
         match res {
             Ok(res) => match res  {
                 roles_logic_sv2::channel_logic::channel_factory::OnNewShare::SendErrorDownstream(m) => {
-                    info!("Share error");
                     Ok(SendTo::Respond(Mining::SubmitSharesError(m)))
                 }
                 roles_logic_sv2::channel_logic::channel_factory::OnNewShare::SendSubmitShareUpstream(_) => unreachable!(),
                 roles_logic_sv2::channel_logic::channel_factory::OnNewShare::RelaySubmitShareUpstream => unreachable!(),
                 roles_logic_sv2::channel_logic::channel_factory::OnNewShare::ShareMeetBitcoinTarget((share,t_id,coinbase)) => {
-                    info!("Share meet bitcoin target");
                     if let Some(template_id) = t_id {
                         let solution = SubmitSolution {
                             template_id,
@@ -184,7 +175,6 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
 
                 },
                 roles_logic_sv2::channel_logic::channel_factory::OnNewShare::ShareMeetDownstreamTarget => {
-                info!("Share ok");
                 let success = SubmitSharesSuccess {
                         channel_id: m.channel_id,
                         last_sequence_number: m.sequence_number,

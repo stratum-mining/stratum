@@ -123,7 +123,6 @@ impl TemplateRx {
             }),
         );
         let frame: StdFrame = tx_data_request.try_into().unwrap();
-        info!("sending RequestTransactionData...");
         Self::send(self_mutex, frame).await;
     }
 
@@ -206,13 +205,6 @@ impl TemplateRx {
                                     self_mutex
                                         .safe_lock(|t| t.new_template_message = Some(m.clone()))
                                         .unwrap();
-                                    info!(
-                                        "NEW_TEMPLATE: {:?}",
-                                        self_mutex
-                                            .safe_lock(|t| t.new_template_message.clone())
-                                            .unwrap()
-                                            .unwrap()
-                                    );
                                     let token = last_token.clone().unwrap();
                                     let pool_output = token.coinbase_output.to_vec();
                                     crate::downstream::DownstreamMiningNode::on_new_template(
