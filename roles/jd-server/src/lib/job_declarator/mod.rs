@@ -41,7 +41,9 @@ pub struct JobDeclaratorDownstream {
             stratum_common::bitcoin::Transaction,
         )>,
     >,
-    number_of_unidentified_txs: u32,
+    // indexes of unidentified transactions, with respect to the order in which they are sent from
+    // the downstream in DeclareMiningJob. This is used in ProvideMissingTransaction
+    unidentified_txs_indexes: Vec<u16>,
 }
 
 impl JobDeclaratorDownstream {
@@ -69,7 +71,7 @@ impl JobDeclaratorDownstream {
             private_key: config.authority_secret_key.clone(),
             mempool,
             identified_txs: None,
-            number_of_unidentified_txs: 0,
+            unidentified_txs_indexes: Vec::new(),
         }
     }
 

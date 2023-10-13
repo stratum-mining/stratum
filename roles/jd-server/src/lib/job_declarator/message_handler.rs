@@ -6,7 +6,7 @@ use roles_logic_sv2::{
     job_declaration_sv2::{
         AllocateMiningJobToken, AllocateMiningJobTokenSuccess, DeclareMiningJob,
         DeclareMiningJobError, DeclareMiningJobSuccess, IdentifyTransactionsSuccess,
-        ProvideMissingTransactionsSuccess,
+        ProvideMissingTransactionsSuccess, ProvideMissingTransactions,
     },
     mining_sv2::{SubmitSharesError, SubmitSharesExtended, SubmitSharesSuccess},
     parsers::JobDeclaration,
@@ -71,24 +71,32 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
             let nonce = message.tx_short_hash_nonce;
             let mempool = self.mempool.safe_lock(|x| x.clone()).unwrap();
 
-            let mut unidentified_txs: Vec<ShortTxId> = Vec::new();
+            let mut unidentified_txs: Vec<u16> = Vec::new();
             let mut identified_txs: Vec<(
                 stratum_common::bitcoin::Txid,
                 stratum_common::bitcoin::Transaction,
             )> = Vec::new();
             //TODO use references insted cloning!!!!
-            for tx_short_id in short_hash_list {
-                match mempool.verify_short_id(tx_short_id.clone(), nonce) {
+            for i in 0..short_hash_list.len() {
+                let tx_short_id = short_hash_list.get(i).unwrap();
+                match mempool.verify_short_id(tx_short_id, nonce) {
                     Some(tx_with_id) => identified_txs.push(tx_with_id.clone()),
-                    None => unidentified_txs.push(tx_short_id),
+                    None => unidentified_txs.push(i.try_into().unwrap()),
                 }
             }
 
             // TODO
-            if !unidentified_txs.is_empty() {}
+            if !unidentified_txs.is_empty() {
+                let message_provide_missing_txs = ProvideMissingTransactions {
+                    request_id: message.request_id,
+                    unknown_tx_position_list: {
+                       unidentified_txs.clone().try_into().unwrap() 
+                    },
+                };
+            };
 
             self.identified_txs = Some(identified_txs);
-            self.number_of_unidentified_txs = unidentified_txs.len() as u32;
+            self.unidentified_txs_indexes = unidentified_txs;
             let message_success = DeclareMiningJobSuccess {
                 request_id: message.request_id,
                 new_mining_job_token: signed_token(

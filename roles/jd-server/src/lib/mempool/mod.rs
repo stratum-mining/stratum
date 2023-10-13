@@ -84,13 +84,13 @@ impl JDsMempool {
 
     pub fn verify_short_id(
         &self,
-        tx_short_id: ShortTxId<'_>,
+        tx_short_id: &ShortTxId<'_>,
         nonce: u64,
     ) -> Option<(bitcoin::Txid, bitcoin::Transaction)> {
         let mempool: Vec<TransacrtionWithHash> = self.clone().mempool;
         for tx_with_hash in mempool {
             let btc_txid = tx_with_hash.id;
-            if roles_logic_sv2::utils::get_short_hash(btc_txid, nonce) == tx_short_id {
+            if &roles_logic_sv2::utils::get_short_hash(btc_txid, nonce) == tx_short_id {
                 return Some((btc_txid, tx_with_hash.tx));
             } else {
                 continue;
