@@ -14,11 +14,13 @@ use tracing::{error, info, warn};
 
 use stratum_common::bitcoin::{Script, TxOut};
 
+use crate::lib::mempool;
+use roles_logic_sv2::utils::Mutex;
+use std::{sync::Arc, time::Duration};
+
 mod error;
 mod lib;
 mod status;
-
-use lib::template_receiver::TemplateRx;
 
 pub type Message = JdsMessages<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;
@@ -66,15 +68,15 @@ pub struct CoinbaseOutput {
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Configuration {
-    pub listen_address: String,
-    pub tp_address: String,
     pub listen_jd_address: String,
     pub authority_public_key: EncodedEd25519PublicKey,
     pub authority_secret_key: EncodedEd25519SecretKey,
     pub cert_validity_sec: u64,
     pub coinbase_outputs: Vec<CoinbaseOutput>,
-    #[cfg(feature = "test_only_allow_unencrypted")]
-    pub test_only_listen_address_plain: String,
+    pub core_rpc_url: String,
+    pub core_rpc_port: u16,
+    pub core_rpc_user: String,
+    pub core_rpc_pass: String,
 }
 
 mod args {
@@ -139,7 +141,6 @@ mod args {
 #[tokio::main]
 async fn main() {
     tracing_subscriber::fmt::init();
-
     let args = match args::Args::from_args() {
         Ok(cfg) => cfg,
         Err(help) => {
@@ -163,30 +164,30 @@ async fn main() {
         }
     };
 
+    let url = config.core_rpc_url.clone() + ":" + &config.core_rpc_port.clone().to_string();
+    let username = config.core_rpc_user.clone();
+    let password = config.core_rpc_pass.clone();
+    let mempool = Arc::new(Mutex::new(mempool::JDsMempool::new(
+        url.clone(), username, password,
+    )));
+    let mempool_cloned_ = mempool.clone();
+    if url.contains("http") {
+        task::spawn(async move {
+            loop {
+                let _ = mempool::JDsMempool::update_mempool(mempool_cloned_.clone()).await;
+                // TODO this should be configurable by the user
+                tokio::time::sleep(Duration::from_millis(10000)).await;
+            }
+        });
+    };
+
     let (status_tx, status_rx) = unbounded();
     info!("Jds INITIALIZING with config: {:?}", &args.config_path);
-    let coinbase_output_result = get_coinbase_output(&config);
-    let coinbase_output_len = match coinbase_output_result {
-        Ok(coinbase_output) => coinbase_output.len() as u32,
-        Err(err) => {
-            error!("Failed to get coinbase output: {:?}", err);
-            return;
-        }
-    };
-    let template_rx_res = TemplateRx::connect(
-        config.tp_address.parse().unwrap(),
-        status::Sender::Upstream(status_tx.clone()),
-        coinbase_output_len,
-    )
-    .await;
-    if let Err(e) = template_rx_res {
-        error!("Could not connect to Template Provider: {}", e);
-        return;
-    }
 
     let cloned = config.clone();
     let sender = status::Sender::Downstream(status_tx.clone());
-    task::spawn(async move { JobDeclarator::start(cloned, sender).await });
+    let mempool_cloned = mempool.clone();
+    task::spawn(async move { JobDeclarator::start(cloned, sender, mempool_cloned).await });
 
     // Start the error handling loop
     // See `./status.rs` and `utils/error_handling` for information on how this operates

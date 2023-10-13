@@ -2,14 +2,15 @@
 authority_public_key = "2di19GHYQnAZJmEpoUeP7C3Eg9TCcksHr23rZCC83dvUiZgiDL"
 authority_secret_key = "2Z1FZug7mZNyM63ggkm37r4oKQ29khLjAvEx43rGkFN47RcJ2t"
 cert_validity_sec = 3600
-test_only_listen_adress_plain =  "0.0.0.0:34250"
-listen_address = "0.0.0.0:34254"
+
 # list of compressed or uncompressed pubkeys for coinbase payout (only supports 1 item in the array at this point)
 coinbase_outputs = [
    { output_script_type = "P2WPKH", output_script_value = "vpub5XzEwP9YWe4cKKZAmbiBUxC7eL5HaZhbquBYzP3vDSDJJegb7CSCRphAPmwpGHzAyH1as9MRnXFWDcZozXA1K3sQqyKdTagooPfCVDhiwnr" },
 ]
 
-tp_address = "75.119.150.111:8442"
-
-# SRI Pool JD config
 listen_jd_address = "127.0.0.1:34264"
+
+core_rpc_url =  ""
+core_rpc_port = 18332
+core_rpc_user =  ""
+core_rpc_pass =  ""

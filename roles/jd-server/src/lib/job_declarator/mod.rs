@@ -1,5 +1,7 @@
 pub mod message_handler;
-use crate::{error::JdsError, status, Configuration, EitherFrame, StdFrame};
+use crate::{
+    error::JdsError, lib::mempool::JDsMempool, status, Configuration, EitherFrame, StdFrame,
+};
 use async_channel::{Receiver, Sender};
 use binary_sv2::{B0255, U256};
 use codec_sv2::{Frame, HandshakeRole, Responder};
@@ -32,6 +34,14 @@ pub struct JobDeclaratorDownstream {
     tokens: Id,
     public_key: EncodedEd25519PublicKey,
     private_key: EncodedEd25519SecretKey,
+    mempool: Arc<Mutex<JDsMempool>>,
+    identified_txs: Option<
+        Vec<(
+            stratum_common::bitcoin::Txid,
+            stratum_common::bitcoin::Transaction,
+        )>,
+    >,
+    number_of_unidentified_txs: u32,
 }
 
 impl JobDeclaratorDownstream {
@@ -39,6 +49,7 @@ impl JobDeclaratorDownstream {
         receiver: Receiver<EitherFrame>,
         sender: Sender<EitherFrame>,
         config: &Configuration,
+        mempool: Arc<Mutex<JDsMempool>>,
     ) -> Self {
         let mut coinbase_output = vec![];
         // TODO: use next variables
@@ -47,6 +58,7 @@ impl JobDeclaratorDownstream {
         crate::get_coinbase_output(config).expect("Invalid coinbase output in config")[0]
             .consensus_encode(&mut coinbase_output)
             .expect("Invalid coinbase output in config");
+
         Self {
             receiver,
             sender,
@@ -55,6 +67,9 @@ impl JobDeclaratorDownstream {
             tokens,
             public_key: config.authority_public_key.clone(),
             private_key: config.authority_secret_key.clone(),
+            mempool,
+            identified_txs: None,
+            number_of_unidentified_txs: 0,
         }
     }
 
@@ -140,17 +155,22 @@ pub struct JobDeclarator {
 }
 
 impl JobDeclarator {
-    pub async fn start(config: Configuration, status_tx: crate::status::Sender) {
+    pub async fn start(
+        config: Configuration,
+        status_tx: crate::status::Sender,
+        mempool: Arc<Mutex<JDsMempool>>,
+    ) {
         let self_ = Arc::new(Mutex::new(Self {
             downstreams: Vec::new(),
         }));
         info!("JD INITIALIZED");
-        Self::accept_incoming_connection(self_, config, status_tx).await;
+        Self::accept_incoming_connection(self_, config, status_tx, mempool).await;
     }
     async fn accept_incoming_connection(
         self_: Arc<Mutex<JobDeclarator>>,
         config: Configuration,
         status_tx: crate::status::Sender,
+        mempool: Arc<Mutex<JDsMempool>>,
     ) {
         let listner = TcpListener::bind(&config.listen_jd_address).await.unwrap();
         while let Ok((stream, _)) = listner.accept().await {
@@ -185,6 +205,7 @@ impl JobDeclarator {
                 receiver.clone(),
                 sender.clone(),
                 &config,
+                mempool.clone(),
             )));
 
             self_
