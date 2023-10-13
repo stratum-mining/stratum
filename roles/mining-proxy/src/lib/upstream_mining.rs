@@ -123,6 +123,7 @@ struct UpstreamMiningConnection {
 
 impl UpstreamMiningConnection {
     async fn send(&mut self, sv2_frame: StdFrame) -> Result<(), SendError<EitherFrame>> {
+        info!("SEND");
         let either_frame = sv2_frame.into();
         match self.sender.send(either_frame).await {
             Ok(_) => Ok(()),
@@ -371,13 +372,16 @@ impl UpstreamMiningNode {
 
                 let initiator = Initiator::from_raw_k(authority_public_key).unwrap();
                 let (receiver, sender, _, _) =
-                    Connection::new(socket, HandshakeRole::Initiator(initiator)).await;
+                    Connection::new(socket, HandshakeRole::Initiator(initiator))
+                        .await
+                        .expect("impossible to conenct");
                 let connection = UpstreamMiningConnection { receiver, sender };
                 self_mutex
                     .safe_lock(|self_| {
                         self_.connection = Some(connection);
                     })
                     .unwrap();
+                info!("handshare done");
                 Ok(())
             }
         }
@@ -429,7 +433,8 @@ impl UpstreamMiningNode {
         task::spawn(async move {
             loop {
                 if let Ok(message) = receiver.recv().await {
-                    let incoming: StdFrame = message.try_into().unwrap();
+                    let m: StdFrame = message.try_into().unwrap();
+                    let incoming: StdFrame = m;
                     Self::next(self_.clone(), incoming).await;
                 } else {
                     Self::exit(self_);
@@ -483,7 +488,7 @@ impl UpstreamMiningNode {
         }
         for d in dowstreams_ {
             // TODO make sure that each reference have been dropped
-            if dbg!(Arc::strong_count(&d)) > 1 {
+            if Arc::strong_count(&d) > 1 {
                 //todo!()
             }
             DownstreamMiningNode::exit(d);
@@ -1206,7 +1211,7 @@ pub async fn scan(
         })
         .collect();
     for task in spawn_tasks {
-        task.await.unwrap()
+        task.await.unwrap();
     }
     res.safe_lock(|r| r.clone()).unwrap()
 }

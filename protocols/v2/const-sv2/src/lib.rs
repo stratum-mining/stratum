@@ -6,15 +6,27 @@ pub const EXTENSION_TYPE_NO_EXTENSION: u16 = 0;
 pub const SV2_FRAME_HEADER_SIZE: usize = 6;
 pub const SV2_FRAME_HEADER_LEN_OFFSET: usize = 3;
 pub const SV2_FRAME_HEADER_LEN_END: usize = 3;
+pub const SV2_FRAME_CHUNK_SIZE: usize = 65519;
 
+pub const ENCRYPTED_SV2_FRAME_HEADER_SIZE: usize = SV2_FRAME_HEADER_SIZE + AEAD_MAC_LEN;
 pub const NOISE_FRAME_HEADER_SIZE: usize = 2;
 pub const NOISE_FRAME_HEADER_LEN_OFFSET: usize = 0;
-pub const NOISE_FRAME_HEADER_LEN_END: usize = 2;
 pub const NOISE_FRAME_MAX_SIZE: usize = u16::MAX as usize;
 
-pub const NOISE_PARAMS: &str = "Noise_NX_25519_ChaChaPoly_BLAKE2s";
-pub const SNOW_PSKLEN: usize = 32;
-pub const SNOW_TAGLEN: usize = 16;
+/// If protocolName is less than or equal to 32 bytes in length, use protocolName with zero bytes
+/// appended to make 32 bytes. Otherwise, apply HASH to it. For name =
+/// "Noise_NX_secp256k1_ChaChaPoly_SHA256", we need the hash.
+pub const NOISE_HASHED_PROTOCOL_NAME_CHACHA: [u8; 32] = [
+    168, 246, 65, 106, 218, 197, 235, 205, 62, 183, 118, 131, 234, 247, 6, 174, 180, 164, 162, 125,
+    30, 121, 156, 182, 95, 117, 218, 138, 122, 135, 4, 65,
+];
+
+// len = 1
+// 47,53,45,41 = AESG
+pub const NOISE_SUPPORTED_CIPHERS_MESSAGE: [u8; 5] = [1, 0x47, 0x53, 0x45, 0x41];
+
+// For now only CHACHA and AES are supported both have a MAC of 16 bytes
+pub const AEAD_MAC_LEN: usize = 16;
 
 pub const SV2_MINING_PROTOCOL_DISCRIMINANT: u8 = 0;
 pub const SV2_JOB_NEG_PROTOCOL_DISCRIMINANT: u8 = 1;

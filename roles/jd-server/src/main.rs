@@ -1,9 +1,7 @@
 #![allow(special_module_name)]
 use async_channel::unbounded;
-use codec_sv2::{
-    noise_sv2::formats::{EncodedEd25519PublicKey, EncodedEd25519SecretKey},
-    StandardEitherFrame, StandardSv2Frame,
-};
+use codec_sv2::{StandardEitherFrame, StandardSv2Frame};
+use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 use roles_logic_sv2::{
     errors::Error, parsers::PoolMessages as JdsMessages, utils::CoinbaseOutput as CoinbaseOutput_,
 };
@@ -69,8 +67,8 @@ pub struct CoinbaseOutput {
 #[derive(Debug, Deserialize, Clone)]
 pub struct Configuration {
     pub listen_jd_address: String,
-    pub authority_public_key: EncodedEd25519PublicKey,
-    pub authority_secret_key: EncodedEd25519SecretKey,
+    pub authority_public_key: Secp256k1PublicKey,
+    pub authority_secret_key: Secp256k1SecretKey,
     pub cert_validity_sec: u64,
     pub coinbase_outputs: Vec<CoinbaseOutput>,
     pub core_rpc_url: String,
@@ -168,7 +166,9 @@ async fn main() {
     let username = config.core_rpc_user.clone();
     let password = config.core_rpc_pass.clone();
     let mempool = Arc::new(Mutex::new(mempool::JDsMempool::new(
-        url.clone(), username, password,
+        url.clone(),
+        username,
+        password,
     )));
     let mempool_cloned_ = mempool.clone();
     if url.contains("http") {

@@ -1,0 +1,217 @@
+
+EXECUTING ../../test/message-generator/mock/pool-mock-invalid-share.json
+
+actiondoc: "This action checks that a Setupconnection message is received"
+Working on result 1/1: MatchMessageType: 0 (0x0)
+RECV Sv2Frame {
+    header: Header {
+        extension_type: 0,
+        msg_type: 0,
+        msg_length: U24(
+            23,
+        ),
+    },
+    payload: None,
+    serialized: Some(
+        Slice {
+            offset: 0x00007f945d9fd010,
+            len: 29,
+            index: 1,
+            shared_state: SharedState(
+                128,
+            ),
+            owned: None,
+        },
+    ),
+}
+MATCHED MESSAGE TYPE 0
+actiondoc: "This action sends SetupConnection.Success and check that a open_extended_mining_channel is received"
+SEND Common(
+    SetupConnectionSuccess(
+        SetupConnectionSuccess {
+            used_version: 2,
+            flags: 0,
+        },
+    ),
+)
+Working on result 1/1: MatchMessageType: 19 (0x13)
+RECV Sv2Frame {
+    header: Header {
+        extension_type: 0,
+        msg_type: 19,
+        msg_length: U24(
+            48,
+        ),
+    },
+    payload: None,
+    serialized: Some(
+        Slice {
+            offset: 0x00007f945d9fd010,
+            len: 54,
+            index: 1,
+            shared_state: SharedState(
+                128,
+            ),
+            owned: None,
+        },
+    ),
+}
+MATCHED MESSAGE TYPE 19
+actiondoc: "This action sends open_extended_mining_channel_success, and a wait for a SetCustomMiningJoband get the req id"
+SEND Mining(
+    OpenExtendedMiningChannelSuccess(
+        OpenExtendedMiningChannelSuccess {
+            request_id: 0,
+            channel_id: 1,
+            target: U256(
+                Owned(
+                    [
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        255,
+                        255,
+                        255,
+                        255,
+                        255,
+                        255,
+                        255,
+                        255,
+                    ],
+                ),
+            ),
+            extranonce_size: 16,
+            extranonce_prefix: B032(
+                Owned(
+                    [
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        1,
+                    ],
+                ),
+            ),
+        },
+    ),
+)
+Working on result 1/1: GetMessageField: "MiningProtocol" [SaveField { field_name: "request_id", keyword: "custom_job_req_id" }]
+RECV Sv2Frame {
+    header: Header {
+        extension_type: 0,
+        msg_type: 34,
+        msg_length: U24(
+            225,
+        ),
+    },
+    payload: None,
+    serialized: Some(
+        Slice {
+            offset: 0x00007f945d9fd010,
+            len: 231,
+            index: 1,
+            shared_state: SharedState(
+                128,
+            ),
+            owned: None,
+        },
+    ),
+}
+actiondoc: "This action sends a SetCustomMiningJob.Success and check that a ssubmit_shares is received"
+SEND Mining(
+    SetCustomMiningJobSuccess(
+        SetCustomMiningJobSuccess {
+            channel_id: 1,
+            request_id: 1,
+            job_id: 1,
+        },
+    ),
+)
+Working on result 1/1: MatchMessageType: 27 (0x1b)
+RECV Sv2Frame {
+    header: Header {
+        extension_type: 32768,
+        msg_type: 27,
+        msg_length: U24(
+            41,
+        ),
+    },
+    payload: None,
+    serialized: Some(
+        Slice {
+            offset: 0x00007f945d9fd010,
+            len: 47,
+            index: 1,
+            shared_state: SharedState(
+                128,
+            ),
+            owned: None,
+        },
+    ),
+}
+MATCHED MESSAGE TYPE 27
+actiondoc: "This action a submit_shares_error"
+SEND Mining(
+    SubmitSharesError(
+        SubmitSharesError {
+            channel_id: 1,
+            sequence_number: 1,
+            error_code: B0255(
+                Owned(
+                    [
+                        105,
+                        110,
+                        118,
+                        97,
+                        108,
+                        105,
+                        100,
+                        45,
+                        99,
+                        104,
+                        97,
+                        110,
+                        110,
+                        101,
+                        108,
+                        45,
+                        105,
+                        100,
+                    ],
+                ),
+            ),
+        },
+    ),
+)

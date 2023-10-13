@@ -104,7 +104,7 @@ pub fn get_common_routing_logic() -> CommonRoutingLogic<RLogic> {
 pub struct UpstreamMiningValues {
     address: String,
     port: u16,
-    pub_key: codec_sv2::noise_sv2::formats::EncodedEd25519PublicKey,
+    pub_key: key_utils::Secp256k1PublicKey,
     channel_kind: ChannelKind,
 }
 
@@ -138,7 +138,7 @@ pub async fn initialize_r_logic(
         let upstream = Arc::new(Mutex::new(UpstreamMiningNode::new(
             index as u32,
             socket,
-            upstream_.pub_key.clone().into_inner().to_bytes(),
+            upstream_.pub_key.clone().into_bytes(),
             upstream_.channel_kind,
             group_id.clone(),
             channel_ids.clone(),
@@ -263,6 +263,7 @@ async fn main() {
         .expect("BUG: Failed to set ROUTING_LOGIC");
     info!("PROXY INITIALIZING");
     initialize_upstreams(config.min_supported_version, config.max_supported_version).await;
+    info!("PROXY INITIALIZED");
 
     // Wait for downstream connection
     let socket = SocketAddr::new(

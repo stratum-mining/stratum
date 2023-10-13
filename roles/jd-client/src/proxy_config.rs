@@ -1,4 +1,4 @@
-use codec_sv2::noise_sv2::formats::{EncodedEd25519PublicKey, EncodedEd25519SecretKey};
+use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 use roles_logic_sv2::{errors::Error, utils::CoinbaseOutput as CoinbaseOutput_};
 use serde::Deserialize;
 use std::time::Duration;
@@ -32,10 +32,11 @@ pub struct ProxyConfig {
     pub min_supported_version: u16,
     pub min_extranonce2_size: u16,
     pub withhold: bool,
-    pub authority_public_key: EncodedEd25519PublicKey,
-    pub authority_secret_key: EncodedEd25519SecretKey,
+    pub authority_public_key: Secp256k1PublicKey,
+    pub authority_secret_key: Secp256k1SecretKey,
     pub cert_validity_sec: u64,
     pub tp_address: String,
+    pub tp_authority_pub_key: Secp256k1PublicKey,
     pub retry: u32,
     pub upstreams: Vec<Upstream>,
     #[serde(deserialize_with = "duration_from_toml")]
@@ -45,7 +46,7 @@ pub struct ProxyConfig {
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Upstream {
-    pub authority_pubkey: EncodedEd25519PublicKey,
+    pub authority_pubkey: Secp256k1PublicKey,
     pub pool_address: String,
     pub jd_address: String,
     pub pool_signature: String, // string be included in coinbase tx input scriptsig

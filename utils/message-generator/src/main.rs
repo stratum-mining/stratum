@@ -11,12 +11,10 @@ extern crate load_file;
 use crate::parser::sv2_messages::ReplaceField;
 use arbitrary::Arbitrary;
 use binary_sv2::{Deserialize, Serialize};
-use codec_sv2::{
-    noise_sv2::formats::{EncodedEd25519PublicKey, EncodedEd25519SecretKey},
-    StandardEitherFrame as EitherFrame,
-};
+use codec_sv2::StandardEitherFrame as EitherFrame;
 use external_commands::*;
 use rand::Rng;
+use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 use roles_logic_sv2::parsers::AnyMessage;
 use secp256k1::{KeyPair, Secp256k1, SecretKey};
 use std::{convert::TryInto, net::SocketAddr, vec::Vec};
@@ -257,14 +255,14 @@ pub enum TestVersion {
 struct Upstream {
     addr: SocketAddr,
     /// If Some a noise connection is used, otherwise a plain connection is used.
-    keys: Option<(EncodedEd25519PublicKey, EncodedEd25519SecretKey)>,
+    keys: Option<(Secp256k1PublicKey, Secp256k1SecretKey)>,
 }
 
 #[derive(Debug, Clone)]
 struct Downstream {
     addr: SocketAddr,
     /// If Some a noise connection is used, otherwise a plain connection is used.
-    key: Option<EncodedEd25519PublicKey>,
+    key: Option<Secp256k1PublicKey>,
 }
 
 //TODO: change name to Sv2Action

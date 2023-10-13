@@ -1,0 +1,41 @@
+[2m2023-10-13T07:16:43.420393Z[0m [32m INFO[0m [2mjd_client::downstream[0m[2m:[0m Opening exteneded mining channel
+[2m2023-10-13T07:16:43.421224Z[0m [32m INFO[0m [2mjd_client::upstream_sv2::upstream[0m[2m:[0m Receive open extended mining channel success
+[2m2023-10-13T07:16:43.585884Z[0m [32m INFO[0m [2mjd_client::template_receiver[0m[2m:[0m Template Receiver try to set up connection
+[2m2023-10-13T07:16:43.636091Z[0m [32m INFO[0m [2mjd_client::template_receiver[0m[2m:[0m Template Receiver connection set up
+[2m2023-10-13T07:16:43.687632Z[0m [32m INFO[0m [2mjd_client::template_receiver[0m[2m:[0m sending RequestTransactionData...
+[2m2023-10-13T07:16:43.687654Z[0m [32m INFO[0m [2mjd_client::template_receiver[0m[2m:[0m NEW_TEMPLATE: NewTemplate { template_id: 8247328311250795046, future_template: true, version: 536870912, coinbase_tx_version: 2, coinbase_prefix: Owned([2, 152, 19, 0]), coinbase_tx_input_sequence: 4294967295, coinbase_tx_value_remaining: 0, coinbase_tx_outputs_count: 1, coinbase_tx_outputs: Owned([0, 0, 0, 0, 0, 0, 0, 0, 38, 106, 36, 170, 33, 169, 237, 226, 246, 28, 63, 113, 209, 222, 253, 63, 169, 153, 223, 163, 105, 83, 117, 92, 105, 6, 137, 121, 153, 98, 180, 139, 235, 216, 54, 151, 78, 140, 249]), coinbase_tx_locktime: 0, merkle_path: Seq0255([], PhantomData<&binary_codec_sv2::datatypes::non_copy_data_types::inner::Inner<true, 32, 0, 0>>) }
+[2m2023-10-13T07:16:43.687805Z[0m [32m INFO[0m [2mjd_client::template_receiver[0m[2m:[0m Received SetNewPrevHash, waiting for IS_NEW_TEMPLATE_HANDLED
+[2m2023-10-13T07:16:43.687815Z[0m [32m INFO[0m [2mjd_client::template_receiver[0m[2m:[0m IS_NEW_TEMPLATE_HANDLED ok
+[2m2023-10-13T07:16:43.740740Z[0m [32m INFO[0m [2mjd_client::upstream_sv2::upstream[0m[2m:[0m Sending set custom mining job
+[2m2023-10-13T07:16:43.741775Z[0m [32m INFO[0m [2mjd_client::upstream_sv2::upstream[0m[2m:[0m Set custom mining job success 1
+[2m2023-10-13T07:16:52.435107Z[0m [32m INFO[0m [2mjd_client::downstream[0m[2m:[0m Receive share extended
+[2m2023-10-13T07:16:52.435198Z[0m [32m INFO[0m [2mroles_logic_sv2::channel_logic::channel_factory[0m[2m:[0m Share hash meet bitcoin target: "00006ca34885340b2e7cdf0239062c759fe38d2f55a55dbe8b4a700677526bfc"
+[2m2023-10-13T07:16:52.435219Z[0m [32m INFO[0m [2mjd_client::downstream[0m[2m:[0m SHARE MEETS BITCOIN TARGET
+[2m2023-10-13T07:16:52.435261Z[0m [32m INFO[0m [2mjd_client::downstream[0m[2m:[0m Sending valid block solution upstream, with job_id 1
+[2m2023-10-13T07:16:52.436189Z[0m [32m INFO[0m [2mjd_client::upstream_sv2::upstream[0m[2m:[0m Up: Rejected Submitted Share
+[2m2023-10-13T07:16:52.530682Z[0m [32m INFO[0m [2mjd_client::template_receiver[0m[2m:[0m sending RequestTransactionData...
+[2m2023-10-13T07:16:52.530706Z[0m [32m INFO[0m [2mjd_client::template_receiver[0m[2m:[0m NEW_TEMPLATE: NewTemplate { template_id: 8247328311250795048, future_template: true, version: 536870912, coinbase_tx_version: 2, coinbase_prefix: Owned([2, 153, 19, 0]), coinbase_tx_input_sequence: 4294967295, coinbase_tx_value_remaining: 0, coinbase_tx_outputs_count: 1, coinbase_tx_outputs: Owned([0, 0, 0, 0, 0, 0, 0, 0, 38, 106, 36, 170, 33, 169, 237, 226, 246, 28, 63, 113, 209, 222, 253, 63, 169, 153, 223, 163, 105, 83, 117, 92, 105, 6, 137, 121, 153, 98, 180, 139, 235, 216, 54, 151, 78, 140, 249]), coinbase_tx_locktime: 0, merkle_path: Seq0255([], PhantomData<&binary_codec_sv2::datatypes::non_copy_data_types::inner::Inner<true, 32, 0, 0>>) }
+[2m2023-10-13T07:16:52.531694Z[0m [32m INFO[0m [2mjd_client::template_receiver[0m[2m:[0m Received SetNewPrevHash, waiting for IS_NEW_TEMPLATE_HANDLED
+[2m2023-10-13T07:16:52.531719Z[0m [32m INFO[0m [2mjd_client::template_receiver[0m[2m:[0m IS_NEW_TEMPLATE_HANDLED ok
+[2m2023-10-13T07:16:52.562659Z[0m [32m INFO[0m [2mjd_client::upstream_sv2::upstream[0m[2m:[0m Sending set custom mining job
+[2m2023-10-13T07:16:53.437130Z[0m [31mERROR[0m [2mjd_client[0m[2m:[0m Changin Pool
+[2m2023-10-13T07:16:53.796893Z[0m [32m INFO[0m [2mjd_client::downstream[0m[2m:[0m Receive share extended
+[2m2023-10-13T07:16:53.796948Z[0m [32m INFO[0m [2mroles_logic_sv2::channel_logic::channel_factory[0m[2m:[0m Share hash meet bitcoin target: "000063e22ec5e38fd5e6e20f25d827fc626f3e3a5b89326e9c96268b5cef0579"
+[2m2023-10-13T07:16:53.796962Z[0m [32m INFO[0m [2mjd_client::downstream[0m[2m:[0m SHARE MEETS BITCOIN TARGET
+[2m2023-10-13T07:16:53.889413Z[0m [32m INFO[0m [2mjd_client::template_receiver[0m[2m:[0m sending RequestTransactionData...
+[2m2023-10-13T07:16:53.889446Z[0m [32m INFO[0m [2mjd_client::template_receiver[0m[2m:[0m NEW_TEMPLATE: NewTemplate { template_id: 8247328311250795050, future_template: true, version: 536870912, coinbase_tx_version: 2, coinbase_prefix: Owned([2, 154, 19, 0]), coinbase_tx_input_sequence: 4294967295, coinbase_tx_value_remaining: 0, coinbase_tx_outputs_count: 1, coinbase_tx_outputs: Owned([0, 0, 0, 0, 0, 0, 0, 0, 38, 106, 36, 170, 33, 169, 237, 226, 246, 28, 63, 113, 209, 222, 253, 63, 169, 153, 223, 163, 105, 83, 117, 92, 105, 6, 137, 121, 153, 98, 180, 139, 235, 216, 54, 151, 78, 140, 249]), coinbase_tx_locktime: 0, merkle_path: Seq0255([], PhantomData<&binary_codec_sv2::datatypes::non_copy_data_types::inner::Inner<true, 32, 0, 0>>) }
+[2m2023-10-13T07:16:53.890362Z[0m [32m INFO[0m [2mjd_client::template_receiver[0m[2m:[0m Received SetNewPrevHash, waiting for IS_NEW_TEMPLATE_HANDLED
+[2m2023-10-13T07:16:53.890384Z[0m [32m INFO[0m [2mjd_client::template_receiver[0m[2m:[0m IS_NEW_TEMPLATE_HANDLED ok
+[2m2023-10-13T07:16:53.921366Z[0m [32m INFO[0m [2mjd_client::upstream_sv2::upstream[0m[2m:[0m Sending set custom mining job
+[2m2023-10-13T07:16:54.437356Z[0m [31mERROR[0m [2mnetwork_helpers::noise_connection_tokio[0m[2m:[0m Disconnecting from client due to error receiving: receiving from an empty and closed channel - 75.119.150.111:8442
+[2m2023-10-13T07:16:54.472564Z[0m [31mERROR[0m [2mnetwork_helpers::noise_connection_tokio[0m[2m:[0m Disconnected from client while reading : early eof - 75.119.150.111:8442
+[2m2023-10-13T07:16:55.440958Z[0m [32m INFO[0m [2mjd_client::upstream_sv2::upstream[0m[2m:[0m PROXY SERVER - ACCEPTING FROM UPSTREAM: 127.0.0.1:44255
+[2m2023-10-13T07:16:55.446819Z[0m [32m INFO[0m [2mjd_client::upstream_sv2::upstream[0m[2m:[0m Up: Receiving: Sv2Frame { header: Header { extension_type: 0, msg_type: 1, msg_length: U24(6) }, payload: None, serialized: Some(Slice { offset: 0x7f1304052fe0, len: 12, index: 1, shared_state: SharedState(128), owned: None }) }
+[2m2023-10-13T07:16:55.446844Z[0m [32m INFO[0m [2mjd_client[0m[2m:[0m Connected to Upstream!
+[2m2023-10-13T07:16:55.448966Z[0m [32m INFO[0m [2mjd_client::job_declarator[0m[2m:[0m JD proxy: setupconnection Proxy address: 127.0.0.1:34265
+[2m2023-10-13T07:16:55.449257Z[0m [32m INFO[0m [2mjd_client::job_declarator[0m[2m:[0m JD CONNECTED
+[2m2023-10-13T07:16:55.449293Z[0m [32m INFO[0m [2mjd_client::downstream[0m[2m:[0m Listening for downstream mining connections on 127.0.0.1:34265
+[2m2023-10-13T07:17:04.460132Z[0m [32m INFO[0m [2mjd_client::downstream[0m[2m:[0m Opening exteneded mining channel
+[2m2023-10-13T07:17:04.498737Z[0m [31mERROR[0m [2mnetwork_helpers::noise_connection_tokio[0m[2m:[0m Disconnected from client while reading : early eof - 127.0.0.1:34264
+[2m2023-10-13T07:17:04.498742Z[0m [31mERROR[0m [2mnetwork_helpers::noise_connection_tokio[0m[2m:[0m Disconnected from client while reading : early eof - 127.0.0.1:34264
+[2m2023-10-13T07:17:04.517939Z[0m [32m INFO[0m [2mjd_client[0m[2m:[0m Interrupt received

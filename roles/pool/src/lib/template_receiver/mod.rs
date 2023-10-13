@@ -3,9 +3,10 @@ use crate::{
     status, EitherFrame, StdFrame,
 };
 use async_channel::{Receiver, Sender};
-use codec_sv2::Frame;
+use codec_sv2::{Frame, HandshakeRole, Initiator};
 use error_handling::handle_result;
-use network_helpers::plain_connection_tokio::PlainConnection;
+use key_utils::Secp256k1PublicKey;
+use network_helpers::noise_connection_tokio::Connection;
 use roles_logic_sv2::{
     handlers::template_distribution::ParseServerTemplateDistributionMessages,
     parsers::{PoolMessages, TemplateDistribution},
@@ -16,7 +17,7 @@ use roles_logic_sv2::{
 };
 use std::{convert::TryInto, net::SocketAddr, sync::Arc};
 use tokio::{net::TcpStream, task};
-use tracing::info;
+use tracing::{debug, info};
 
 mod message_handler;
 mod setup_connection;
@@ -32,6 +33,7 @@ pub struct TemplateRx {
 }
 
 impl TemplateRx {
+    #[allow(clippy::too_many_arguments)]
     pub async fn connect(
         address: SocketAddr,
         templ_sender: Sender<NewTemplate<'static>>,
@@ -40,12 +42,17 @@ impl TemplateRx {
         message_received_signal: Receiver<()>,
         status_tx: status::Sender,
         coinbase_out_len: u32,
+        authority_public_key: Secp256k1PublicKey,
     ) -> PoolResult<()> {
         let stream = TcpStream::connect(address).await?;
         info!("Connected to template distribution server at {}", address);
 
-        let (mut receiver, mut sender): (Receiver<EitherFrame>, Sender<EitherFrame>) =
-            PlainConnection::new(stream).await;
+        let pub_key: Secp256k1PublicKey = authority_public_key;
+        let initiator = Initiator::from_raw_k(pub_key.into_bytes())?;
+        let (mut receiver, mut sender, _, _) =
+            Connection::new(stream, HandshakeRole::Initiator(initiator))
+                .await
+                .unwrap();
 
         SetupConnectionHandler::setup(&mut receiver, &mut sender, address).await?;
 
@@ -113,6 +120,7 @@ impl TemplateRx {
                 roles_logic_sv2::handlers::SendTo_::RelayNewMessageToRemote(_, m) => match m {
                     TemplateDistribution::CoinbaseOutputDataSize(_) => todo!(),
                     TemplateDistribution::NewTemplate(m) => {
+                        debug!("Got new template: {:?}", m);
                         let res = new_template_sender.send(m).await;
                         handle_result!(status_tx, res);
                         handle_result!(status_tx, recv_msg_signal.recv().await);
@@ -127,7 +135,11 @@ impl TemplateRx {
                     }
                     TemplateDistribution::SubmitSolution(_) => todo!(),
                 },
-                _ => todo!(),
+                roles_logic_sv2::handlers::SendTo_::None(None) => (),
+                _ => {
+                    info!("Error: {:?}", msg);
+                    std::process::abort();
+                }
             }
         }
     }

@@ -14,22 +14,16 @@ use network_helpers::{
     noise_connection_tokio::Connection, plain_connection_tokio::PlainConnection,
 };
 
+use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 use roles_logic_sv2::{
     mining_sv2::*,
     parsers::{Mining, MiningDeviceMessages},
 };
 
 pub type EitherFrame = StandardEitherFrame<Message>;
+pub const AUTHORITY_PUBLIC_K: &str = "3VANfft6ei6jQq1At7d8nmiZzVhBFS4CiQujdgim1ign";
 
-pub const AUTHORITY_PUBLIC_K: [u8; 32] = [
-    215, 11, 47, 78, 34, 232, 25, 192, 195, 168, 170, 209, 95, 181, 40, 114, 154, 226, 176, 190,
-    90, 169, 238, 89, 191, 183, 97, 63, 194, 119, 11, 31,
-];
-
-pub const AUTHORITY_PRIVATE_K: [u8; 32] = [
-    204, 93, 167, 220, 169, 204, 172, 35, 9, 84, 174, 208, 171, 89, 25, 53, 196, 209, 161, 148, 4,
-    5, 173, 0, 234, 59, 15, 127, 31, 160, 136, 131,
-];
+pub const AUTHORITY_PRIVATE_K: &str = "7qbpUjScc865jyX2kiB4NVJANoC7GA7TAJupdzXWkc62";
 
 static HOST: &str = "127.0.0.1";
 
@@ -75,10 +69,13 @@ async fn setup_driver(
     let (_server_receiver, server_sender): (Receiver<EitherFrame>, Sender<EitherFrame>);
 
     if encrypt {
-        let initiator = Initiator::from_raw_k(AUTHORITY_PUBLIC_K).unwrap();
+        let k: Secp256k1PublicKey = AUTHORITY_PUBLIC_K.to_string().try_into().unwrap();
+        let initiator = Initiator::from_raw_k(k.into_bytes()).unwrap();
 
         (_, server_sender, _, _) =
-            Connection::new(server_stream, HandshakeRole::Initiator(initiator)).await;
+            Connection::new(server_stream, HandshakeRole::Initiator(initiator))
+                .await
+                .unwrap();
     } else {
         (_server_receiver, server_sender) = PlainConnection::new(server_stream).await;
     }
@@ -117,7 +114,7 @@ async fn send_messages(stream: Sender<EitherFrame>, total_messages: i32) {
     }));
 
     while number <= total_messages {
-        println!("client: sending msg-{}", number);
+        //println!("client: sending msg-{}", number);
         let frame: StdFrame = share.clone().try_into().unwrap();
         let binary: EitherFrame = frame.into();
 
@@ -127,7 +124,7 @@ async fn send_messages(stream: Sender<EitherFrame>, total_messages: i32) {
 }
 
 async fn handle_messages(
-    name: String,
+    _name: String,
     client: Receiver<EitherFrame>,
     server: Option<Sender<EitherFrame>>,
     total_messages: i32,
@@ -144,7 +141,7 @@ async fn handle_messages(
             server.as_ref().unwrap().send(binary).await.unwrap();
         } else {
             messages_received += 1;
-            println!("last server: {} got msg {}", name, messages_received);
+            //println!("last server: {} got msg {}", name, messages_received);
         }
     }
     tx.send("got all messages".to_string()).await.unwrap();
@@ -170,14 +167,17 @@ async fn create_proxy(
     let (cli_receiver, _cli_sender): (Receiver<EitherFrame>, Sender<EitherFrame>);
 
     if encrypt {
+        let k_pub: Secp256k1PublicKey = AUTHORITY_PUBLIC_K.to_string().try_into().unwrap();
+        let k_priv: Secp256k1SecretKey = AUTHORITY_PRIVATE_K.to_string().try_into().unwrap();
         let responder = Responder::from_authority_kp(
-            &AUTHORITY_PUBLIC_K[..],
-            &AUTHORITY_PRIVATE_K[..],
+            &k_pub.into_bytes(),
+            &k_priv.into_bytes(),
             Duration::from_secs(3600),
         )
         .unwrap();
-        (cli_receiver, _, _, _) =
-            Connection::new(cli_stream, HandshakeRole::Responder(responder)).await;
+        (cli_receiver, _, _, _) = Connection::new(cli_stream, HandshakeRole::Responder(responder))
+            .await
+            .unwrap();
     } else {
         (cli_receiver, _cli_sender) = PlainConnection::new(cli_stream).await;
     }
@@ -189,11 +189,14 @@ async fn create_proxy(
             .await
             .unwrap();
         let (_server_receiver, server_sender): (Receiver<EitherFrame>, Sender<EitherFrame>);
+        let k_pub: Secp256k1PublicKey = AUTHORITY_PUBLIC_K.to_string().try_into().unwrap();
 
         if encrypt {
-            let initiator = Initiator::from_raw_k(AUTHORITY_PUBLIC_K).unwrap();
+            let initiator = Initiator::from_raw_k(k_pub.into_bytes()).unwrap();
             (_, server_sender, _, _) =
-                Connection::new(server_stream, HandshakeRole::Initiator(initiator)).await;
+                Connection::new(server_stream, HandshakeRole::Initiator(initiator))
+                    .await
+                    .unwrap();
         } else {
             (_server_receiver, server_sender) = PlainConnection::new(server_stream).await;
         }

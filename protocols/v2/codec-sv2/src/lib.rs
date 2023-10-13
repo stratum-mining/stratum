@@ -26,94 +26,92 @@ pub use framing_sv2::framing2::{Frame, Sv2Frame};
 pub use framing_sv2::framing2::{HandShakeFrame, NoiseFrame};
 
 #[cfg(feature = "noise_sv2")]
-pub use noise_sv2::{self, handshake::Step, Initiator, Responder, TransportMode};
+pub use noise_sv2::{self, Initiator, NoiseCodec, Responder};
 
 pub use buffer_sv2;
 
 pub use framing_sv2;
+use framing_sv2::framing2::handshake_message_to_frame as h2f;
 
 #[cfg(feature = "noise_sv2")]
 #[derive(Debug)]
+#[allow(clippy::large_enum_variant)]
 pub enum State {
     /// Not yet initialized
     NotInitialized,
     /// Handshake mode where codec is negotiating keys
-    HandShake(Box<HandshakeRole>),
+    HandShake(HandshakeRole),
     /// Transport mode where AEAD is fully operational. The `TransportMode` object in this variant
     /// as able to perform encryption and decryption resp.
-    Transport(TransportMode),
+    Transport(NoiseCodec),
 }
+#[cfg(feature = "noise_sv2")]
+impl State {
+    pub fn step_0(&mut self) -> core::result::Result<HandShakeFrame, Error> {
+        match self {
+            Self::HandShake(h) => match h {
+                HandshakeRole::Initiator(i) => i.step_0().map_err(|e| e.into()).map(h2f),
+                HandshakeRole::Responder(_) => Err(Error::InvalidStepForResponder),
+            },
+            _ => Err(Error::NotInHandShakeState),
+        }
+    }
 
+    pub fn step_1(&mut self, re_pub: [u8; 32]) -> core::result::Result<HandShakeFrame, Error> {
+        match self {
+            Self::HandShake(h) => match h {
+                HandshakeRole::Responder(r) => r.step_1(re_pub).map_err(|e| e.into()).map(h2f),
+                HandshakeRole::Initiator(_) => Err(Error::InvalidStepForInitiator),
+            },
+            _ => Err(Error::NotInHandShakeState),
+        }
+    }
+
+    pub fn step_2(&mut self, message: [u8; 170]) -> core::result::Result<HandShakeFrame, Error> {
+        match self {
+            Self::HandShake(h) => match h {
+                HandshakeRole::Initiator(i) => i.step_2(message).map_err(|e| e.into()).map(h2f),
+                HandshakeRole::Responder(_) => Err(Error::InvalidStepForResponder),
+            },
+            _ => Err(Error::NotInHandShakeState),
+        }
+    }
+
+    pub fn step_3(
+        self,
+        cipher_list: Vec<u8>,
+    ) -> core::result::Result<(HandShakeFrame, Self), crate::error::Error> {
+        match self {
+            Self::HandShake(h) => match h {
+                HandshakeRole::Responder(r) => {
+                    let (message, codec) = r.step_3(cipher_list)?;
+                    Ok((h2f(message), Self::Transport(codec)))
+                }
+                HandshakeRole::Initiator(_) => Err(Error::InvalidStepForInitiator),
+            },
+            _ => Err(Error::NotInHandShakeState),
+        }
+    }
+
+    pub fn step_4(self, cipher_chosed: Vec<u8>) -> core::result::Result<Self, Error> {
+        match self {
+            Self::HandShake(h) => match h {
+                HandshakeRole::Initiator(r) => {
+                    let codec = r.step_4(cipher_chosed)?;
+                    Ok(Self::Transport(codec))
+                }
+                HandshakeRole::Responder(_) => Err(Error::InvalidStepForResponder),
+            },
+            _ => Err(Error::NotInHandShakeState),
+        }
+    }
+}
 #[allow(clippy::large_enum_variant)]
 #[cfg(feature = "noise_sv2")]
 #[derive(Debug)]
 pub enum HandshakeRole {
-    Initiator(noise_sv2::Initiator),
-    Responder(noise_sv2::Responder),
-}
-
-#[cfg(feature = "noise_sv2")]
-impl HandshakeRole {
-    pub fn step(&mut self, in_msg: Option<Vec<u8>>) -> Result<HandShakeFrame> {
-        match self {
-            Self::Initiator(stepper) => {
-                let message = stepper.step(in_msg)?.inner();
-                Ok(HandShakeFrame::from_message(message.into(), 0, 0, false)
-                    .ok_or(Error::CodecTodo)?)
-            }
-
-            Self::Responder(stepper) => {
-                let message = stepper.step(in_msg)?.inner();
-                Ok(HandShakeFrame::from_message(message.into(), 0, 0, false)
-                    .ok_or(())
-                    .map_err(|_| Error::CodecTodo)?)
-            }
-        }
-    }
-
-    pub fn into_transport(self) -> Result<TransportMode> {
-        match self {
-            Self::Initiator(stepper) => {
-                let tp = stepper.into_handshake_state().into_transport_mode()?;
-                Ok(TransportMode::new(tp))
-            }
-
-            Self::Responder(stepper) => {
-                let tp = stepper.into_handshake_state().into_transport_mode()?;
-                Ok(TransportMode::new(tp))
-            }
-        }
-    }
-}
-
-#[cfg(feature = "noise_sv2")]
-impl State {
-    #[inline(always)]
-    pub fn is_in_transport_mode(&self) -> bool {
-        match self {
-            Self::NotInitialized => false,
-            Self::HandShake(_) => false,
-            Self::Transport(_) => true,
-        }
-    }
-
-    #[inline(always)]
-    pub fn is_not_initialized(&self) -> bool {
-        match self {
-            Self::NotInitialized => true,
-            Self::HandShake(_) => false,
-            Self::Transport(_) => false,
-        }
-    }
-
-    #[inline(always)]
-    pub fn is_in_handshake(&self) -> bool {
-        match self {
-            Self::NotInitialized => false,
-            Self::HandShake(_) => true,
-            Self::Transport(_) => false,
-        }
-    }
+    Initiator(Box<noise_sv2::Initiator>),
+    Responder(Box<noise_sv2::Responder>),
 }
 
 #[cfg(feature = "noise_sv2")]
@@ -127,31 +125,11 @@ impl State {
     }
 
     pub fn initialize(inner: HandshakeRole) -> Self {
-        Self::HandShake(Box::new(inner))
+        Self::HandShake(inner)
     }
 
-    pub fn with_transport_mode(tm: TransportMode) -> Self {
+    pub fn with_transport_mode(tm: NoiseCodec) -> Self {
         Self::Transport(tm)
-    }
-
-    pub fn step(&mut self, in_msg: Option<Vec<u8>>) -> Result<HandShakeFrame> {
-        match self {
-            Self::NotInitialized => Err(Error::UnexpectedNoiseState),
-            Self::HandShake(stepper) => stepper.step(in_msg),
-            Self::Transport(_) => Err(Error::UnexpectedNoiseState),
-        }
-    }
-
-    pub fn into_transport_mode(self) -> Result<Self> {
-        match self {
-            Self::NotInitialized => Err(Error::UnexpectedNoiseState),
-            Self::HandShake(stepper) => {
-                let tp = stepper.into_transport()?;
-
-                Ok(Self::with_transport_mode(tp))
-            }
-            Self::Transport(_) => Ok(self),
-        }
     }
 }
 
@@ -163,32 +141,31 @@ impl Default for State {
 }
 
 #[cfg(test)]
+#[cfg(feature = "noise_sv2")]
 mod tests {
     use super::*;
 
     #[test]
     fn handshake_step_fails_if_state_is_not_initialized() {
         let mut state = State::new();
-        let msg = None;
-        let actual = state.step(msg).unwrap_err();
-        let expect = Error::UnexpectedNoiseState;
+        let actual = state.step_0().unwrap_err();
+        let expect = Error::NotInHandShakeState;
         assert_eq!(actual, expect);
     }
 
     #[test]
     fn handshake_step_fails_if_state_is_in_transport_mode() {
         let mut state = State::new();
-        let msg = None;
-        let actual = state.step(msg).unwrap_err();
-        let expect = Error::UnexpectedNoiseState;
+        let actual = state.step_0().unwrap_err();
+        let expect = Error::NotInHandShakeState;
         assert_eq!(actual, expect);
     }
 
     #[test]
     fn into_transport_mode_errs_if_state_is_not_initialized() {
         let state = State::new();
-        let actual = state.into_transport_mode().unwrap_err();
-        let expect = Error::UnexpectedNoiseState;
+        let actual = state.step_4(alloc::vec::Vec::new()).unwrap_err();
+        let expect = Error::NotInHandShakeState;
         assert_eq!(actual, expect);
     }
 }

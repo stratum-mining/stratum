@@ -29,13 +29,15 @@ impl ParseServerTemplateDistributionMessages for TemplateRx {
         &mut self,
         _m: RequestTransactionDataSuccess,
     ) -> Result<SendTo, Error> {
-        todo!()
+        // Just ignore tx data messages this are meant for the declaretors
+        Ok(SendTo::None(None))
     }
 
     fn handle_request_tx_data_error(
         &mut self,
         _m: RequestTransactionDataError,
     ) -> Result<SendTo, Error> {
-        todo!()
+        // Just ignore tx data messages this are meant for the declaretors
+        Ok(SendTo::None(None))
     }
 }
