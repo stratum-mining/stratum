@@ -21,8 +21,8 @@ The configuration file contains the following information:
 1. The Job Declarator information which includes the Pool JD connection address (`jd_address`) and the Template Provider connection address to which to connect (`tp_address`).
 
 ### Run
-1. Copy the `proxy-config-example.toml` into `conf/` directory.
-2. Edit it with custom desired configuration and rename it `proxy-config.toml`
+1. Copy the `jdc-config-example.toml` into `conf/` directory.
+2. Edit it with custom desired configuration and rename it `jdc-config.toml`
 3. Point the SV1 Downstream Mining Device(s) to the Translator Proxy IP address and port.
 4. Run the Translator Proxy:
 
@@ -30,5 +30,5 @@ The configuration file contains the following information:
    cd roles/translator
    ```
    ```
-   cargo run -p translator_sv2 -- -c conf/proxy-config.toml
+   cargo run -p translator_sv2 -- -c conf/jdc-config.toml
    ```

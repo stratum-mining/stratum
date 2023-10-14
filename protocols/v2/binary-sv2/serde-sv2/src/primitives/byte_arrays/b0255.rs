@@ -102,6 +102,12 @@ impl<'b> Serialize for B0255<'b> {
     }
 }
 
+impl<'a> AsRef<[u8]> for B0255<'a> {
+    fn as_ref(&self) -> &[u8] {
+        self.0.as_ref()
+    }
+}
+
 struct B0255Visitor;
 
 impl<'a> Visitor<'a> for B0255Visitor {
