@@ -14,6 +14,7 @@ use framing_sv2::{
     framing2::{EitherFrame, Frame as F_, Sv2Frame},
     header::Header,
 };
+#[cfg(feature = "noise_sv2")]
 use noise_sv2::NoiseCodec;
 
 #[cfg(not(feature = "with_buffer_pool"))]
