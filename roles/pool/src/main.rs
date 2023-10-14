@@ -1,17 +1,15 @@
 #![allow(special_module_name)]
 use async_channel::{bounded, unbounded};
-use codec_sv2::{
-    noise_sv2::formats::{EncodedEd25519PublicKey, EncodedEd25519SecretKey},
-    StandardEitherFrame, StandardSv2Frame,
-};
+use codec_sv2::{StandardEitherFrame, StandardSv2Frame};
+use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 //use error::OutputScriptError;
 use roles_logic_sv2::{
     errors::Error, parsers::PoolMessages, utils::CoinbaseOutput as CoinbaseOutput_,
 };
 use serde::Deserialize;
 use std::convert::{TryFrom, TryInto};
-
 use stratum_common::bitcoin::{Script, TxOut};
+
 use tracing::{error, info, warn};
 mod error;
 mod lib;
@@ -44,10 +42,12 @@ impl TryFrom<&CoinbaseOutput> for CoinbaseOutput_ {
 
     fn try_from(pool_output: &CoinbaseOutput) -> Result<Self, Self::Error> {
         match pool_output.output_script_type.as_str() {
-            "TEST" | "P2PK" | "P2PKH" | "P2WPKH" | "P2SH" | "P2WSH" | "P2TR" => Ok(CoinbaseOutput_ {
-                output_script_type: pool_output.clone().output_script_type,
-                output_script_value: pool_output.clone().output_script_value,
-            }),
+            "TEST" | "P2PK" | "P2PKH" | "P2WPKH" | "P2SH" | "P2WSH" | "P2TR" => {
+                Ok(CoinbaseOutput_ {
+                    output_script_type: pool_output.clone().output_script_type,
+                    output_script_value: pool_output.clone().output_script_value,
+                })
+            }
             _ => Err(Error::UnknownOutputScriptType),
         }
     }
@@ -67,8 +67,8 @@ pub struct CoinbaseOutput {
 pub struct Configuration {
     pub listen_address: String,
     pub tp_address: String,
-    pub authority_public_key: EncodedEd25519PublicKey,
-    pub authority_secret_key: EncodedEd25519SecretKey,
+    pub authority_public_key: Secp256k1PublicKey,
+    pub authority_secret_key: Secp256k1SecretKey,
     pub cert_validity_sec: u64,
     pub coinbase_outputs: Vec<CoinbaseOutput>,
     pub pool_signature: String,
@@ -176,6 +176,7 @@ async fn main() {
             return;
         }
     };
+    let authority_public_key = config.authority_public_key.clone();
     let template_rx_res = TemplateRx::connect(
         config.tp_address.parse().unwrap(),
         s_new_t,
@@ -184,6 +185,7 @@ async fn main() {
         r_message_recv_signal,
         status::Sender::Upstream(status_tx.clone()),
         coinbase_output_len,
+        authority_public_key,
     )
     .await;
 

@@ -3,6 +3,8 @@ use binary_sv2::Deserialize;
 #[cfg(feature = "noise_sv2")]
 use binary_sv2::GetSize;
 use binary_sv2::Serialize;
+use buffer_sv2::AeadBuffer;
+use const_sv2::{AEAD_MAC_LEN, SV2_FRAME_CHUNK_SIZE, SV2_FRAME_HEADER_SIZE};
 use core::marker::PhantomData;
 #[cfg(feature = "noise_sv2")]
 use framing_sv2::framing2::{HandShakeFrame, NoiseFrame};
@@ -12,6 +14,8 @@ use framing_sv2::{
     framing2::{EitherFrame, Frame as F_, Sv2Frame},
     header::Header,
 };
+#[cfg(feature = "noise_sv2")]
+use noise_sv2::NoiseCodec;
 
 #[cfg(not(feature = "with_buffer_pool"))]
 use buffer_sv2::{Buffer as IsBuffer, BufferFromSystemMemory as Buffer};
@@ -27,7 +31,7 @@ use crate::error::Result;
 
 use crate::Error::MissingBytes;
 #[cfg(feature = "noise_sv2")]
-use crate::{State, TransportMode};
+use crate::State;
 
 #[cfg(feature = "noise_sv2")]
 pub type StandardNoiseDecoder<T> = WithNoise<Buffer, T>;
@@ -41,99 +45,104 @@ pub struct WithNoise<B: IsBuffer, T: Serialize + binary_sv2::GetSize> {
     missing_noise_b: usize,
     noise_buffer: B,
     sv2_buffer: B,
-    sv2_frame_size: usize,
 }
 
 #[cfg(feature = "noise_sv2")]
-impl<'a, T: Serialize + GetSize + Deserialize<'a>, B: IsBuffer> WithNoise<B, T> {
+impl<'a, T: Serialize + GetSize + Deserialize<'a>, B: IsBuffer + AeadBuffer> WithNoise<B, T> {
     #[inline]
     pub fn next_frame(&mut self, state: &mut State) -> Result<EitherFrame<T, B::Slice>> {
-        let len = self.noise_buffer.len();
-        let src = self.noise_buffer.get_data_by_ref(len);
-        let hint = NoiseFrame::size_hint(src) as usize;
-
-        match hint {
-            0 => {
-                self.missing_noise_b = NoiseHeader::SIZE;
-                self.decode_noise_frame(state)
+        match state {
+            State::NotInitialized | State::HandShake(_) => {
+                let hint = NoiseFrame::size_hint(self.noise_buffer.as_ref()) as usize;
+                match hint {
+                    0 => {
+                        self.missing_noise_b = NoiseHeader::HANDSHAKE_HEADER_SIZE;
+                        Ok(self.while_handshaking())
+                    }
+                    _ => {
+                        self.missing_noise_b = hint;
+                        Err(Error::MissingBytes(hint))
+                    }
+                }
             }
-            _ => {
-                self.missing_noise_b = hint;
-                Err(Error::MissingBytes(hint))
+            State::Transport(noise_codec) => {
+                let hint = if IsBuffer::len(&self.sv2_buffer) < SV2_FRAME_HEADER_SIZE {
+                    let len = IsBuffer::len(&self.noise_buffer);
+                    let src = self.noise_buffer.get_data_by_ref(len);
+                    if src.len() < NoiseHeader::SIZE {
+                        NoiseHeader::SIZE - src.len()
+                    } else {
+                        0
+                    }
+                } else {
+                    let src = self.sv2_buffer.get_data_by_ref_(SV2_FRAME_HEADER_SIZE);
+                    let header = Header::from_bytes(src)?;
+                    header.encrypted_len() - IsBuffer::len(&self.noise_buffer)
+                };
+
+                match hint {
+                    0 => {
+                        self.missing_noise_b = NoiseHeader::SIZE;
+                        self.decode_noise_frame(noise_codec)
+                    }
+                    _ => {
+                        self.missing_noise_b = hint;
+                        Err(Error::MissingBytes(hint))
+                    }
+                }
             }
         }
     }
 
     #[inline]
-    fn decode_noise_frame(&mut self, state: &mut State) -> Result<EitherFrame<T, B::Slice>> {
-        match state {
-            State::Transport(transport_mode) => {
-                // STRIP THE HEADER FROM THE FRAME AND GET THE ENCRYPTED PAYLOAD
-                // everything here can not fail as the size has been already checked
-                #[cfg(feature = "with_buffer_pool")]
+    fn decode_noise_frame(
+        &mut self,
+        noise_codec: &mut NoiseCodec,
+    ) -> Result<EitherFrame<T, B::Slice>> {
+        match (
+            IsBuffer::len(&self.noise_buffer),
+            IsBuffer::len(&self.sv2_buffer),
+        ) {
+            // HERE THE SV2 HEADER IS READY TO BE DECRYPTED
+            (NoiseHeader::SIZE, 0) => {
                 let src = self.noise_buffer.get_data_owned();
-                #[cfg(not(feature = "with_buffer_pool"))]
-                let src = self.noise_buffer.get_data_owned().as_mut().to_vec();
-                let mut noise_frame = NoiseFrame::from_bytes_unchecked(src.into());
-                let src = noise_frame.payload();
-
-                // DECRYPT THE ENCRYPTED PAYLOAD
-                let len = TransportMode::size_hint_decrypt(src.len())?;
-                let decrypted = self.sv2_buffer.get_writable(len);
-                transport_mode.read(src, decrypted)?;
-
-                // IF THE DECODER IS RECEIVING A FRAGMENTED FRAME ADD THE DECRYPTED DATA TO THE
-                // PARTIAL FRAME AND CHECK IF READY
-                if self.sv2_frame_size > 0 {
-                    return self.handle_fragmented().ok_or(Error::CodecTodo);
-                };
-
-                let len = self.sv2_buffer.len();
-                let src = self.sv2_buffer.get_data_by_ref(len);
-                let hint = Sv2Frame::<T, B::Slice>::size_hint(src);
-
-                // IF HINT IS 0 A COMPLETE SV2 FRAME IS AVAIABLE THIS IS THE HOT PATH AS USUALLY
-                // THE SIZE OF AN SV2 MESSAGE IS SMALLER THE THE MAX SIZE OF A NOISE FRAME
-                if hint == 0 {
-                    let src = self.sv2_buffer.get_data_owned();
-                    let frame = Sv2Frame::<T, B::Slice>::from_bytes_unchecked(src);
-                    return Ok(frame.into());
-                }
-
-                // IF HINT IS NOT 0 AND MISSING BYTES IS 0 IT MEANs THAT THE FIRST FRAGMENT OF AN
-                // SV2 HAS BEEN RECEIVED
-                self.handle_fragmented().ok_or(Error::CodecTodo)?;
-                Err(Error::MissingBytes(self.missing_noise_b))
+                let decrypted_header = self.sv2_buffer.get_writable(NoiseHeader::SIZE);
+                decrypted_header.copy_from_slice(src.as_ref());
+                self.sv2_buffer.as_ref();
+                noise_codec.decrypt(&mut self.sv2_buffer)?;
+                let header =
+                    Header::from_bytes(self.sv2_buffer.get_data_by_ref_(SV2_FRAME_HEADER_SIZE))?;
+                self.missing_noise_b = header.encrypted_len();
+                Err(Error::MissingBytes(header.encrypted_len()))
             }
-            State::HandShake(_) => Ok(self.while_handshaking()),
-            State::NotInitialized => Ok(self.while_handshaking()),
-        }
-    }
+            // HERE THE SV2 PAYLOAD IS READY TO BE DECRYPTED
+            _ => {
+                // DECRYPT THE PAYLOAD IN CHUNKS
+                let encrypted_payload = self.noise_buffer.get_data_owned();
+                let encrypted_payload_len = encrypted_payload.as_ref().len();
+                let mut start = 0;
+                let mut end = if (encrypted_payload_len - AEAD_MAC_LEN) < SV2_FRAME_CHUNK_SIZE {
+                    encrypted_payload_len
+                } else {
+                    SV2_FRAME_CHUNK_SIZE + AEAD_MAC_LEN
+                };
+                // Do not try to decrypt the header cause it is already decrypted
+                let mut decrypted_len = SV2_FRAME_HEADER_SIZE;
 
-    #[inline(never)]
-    fn handle_fragmented(&mut self) -> Option<EitherFrame<T, B::Slice>> {
-        // If is NOT the first fragment: check if a complete frame is available. If it is, return
-        // the frame. If is NOT, set missing noise bytes to noise header size so the decoder can
-        // start to decode the next noise frame.
-        let len = self.sv2_buffer.len();
-        let src = self.sv2_buffer.get_data_by_ref(len);
-        let hint = Sv2Frame::<T, B::Slice>::size_hint(src);
-        if self.sv2_frame_size != 0 {
-            if hint == 0 {
+                while start < encrypted_payload_len {
+                    let decrypted_payload = self.sv2_buffer.get_writable(end - start);
+                    decrypted_payload.copy_from_slice(&encrypted_payload.as_ref()[start..end]);
+                    self.sv2_buffer.danger_set_start(decrypted_len);
+                    noise_codec.decrypt(&mut self.sv2_buffer).unwrap();
+                    start = end;
+                    end = (start + SV2_FRAME_CHUNK_SIZE + AEAD_MAC_LEN).min(encrypted_payload_len);
+                    decrypted_len += self.sv2_buffer.as_ref().len();
+                }
+                self.sv2_buffer.danger_set_start(0);
                 let src = self.sv2_buffer.get_data_owned();
                 let frame = Sv2Frame::<T, B::Slice>::from_bytes_unchecked(src);
-                Some(frame.into())
-            } else {
-                self.missing_noise_b = NoiseHeader::SIZE;
-                None
+                Ok(frame.into())
             }
-
-        // If is the first fragment just set the missing sv2 and noise bytes.
-        } else {
-            self.sv2_frame_size = hint as usize;
-            self.missing_noise_b = NoiseHeader::SIZE;
-
-            None
         }
     }
 
@@ -160,7 +169,6 @@ impl<T: Serialize + binary_sv2::GetSize> WithNoise<Buffer, T> {
             missing_noise_b: 0,
             noise_buffer: Buffer::new(2_usize.pow(16) * 5),
             sv2_buffer: Buffer::new(2_usize.pow(16) * 5),
-            sv2_frame_size: 0,
         }
     }
 }

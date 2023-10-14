@@ -37,7 +37,7 @@ use std::{collections::HashMap, fmt::Debug as D, marker::PhantomData, sync::Arc}
 /// The CommonRouter trait defines a router needed by
 /// [`crate::handlers::common::ParseUpstreamCommonMessages`] and
 /// [`crate::handlers::common::ParseDownstreamCommonMessages`]
-pub trait CommonRouter {
+pub trait CommonRouter: std::fmt::Debug {
     fn on_setup_connection(
         &mut self,
         message: &SetupConnection,

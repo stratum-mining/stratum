@@ -1,10 +1,8 @@
 use crate::{os_command, Command};
 use async_channel::{bounded, Receiver, Sender};
 use binary_sv2::{Deserialize, GetSize, Serialize};
-use codec_sv2::{
-    noise_sv2::formats::{EncodedEd25519PublicKey, EncodedEd25519SecretKey},
-    HandshakeRole, Initiator, Responder, StandardEitherFrame as EitherFrame,
-};
+use codec_sv2::{HandshakeRole, Initiator, Responder, StandardEitherFrame as EitherFrame};
+use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 use network_helpers::{
     noise_connection_tokio::Connection, plain_connection_tokio::PlainConnection,
 };
@@ -20,7 +18,7 @@ pub async fn setup_as_upstream<
     Message: Serialize + Deserialize<'a> + GetSize + Send + 'static,
 >(
     socket: SocketAddr,
-    keys: Option<(EncodedEd25519PublicKey, EncodedEd25519SecretKey)>,
+    keys: Option<(Secp256k1PublicKey, Secp256k1SecretKey)>,
     execution_commands: Vec<Command>,
     childs: &mut Vec<Option<tokio::process::Child>>,
 ) -> (Receiver<EitherFrame<Message>>, Sender<EitherFrame<Message>>) {
@@ -38,13 +36,13 @@ pub async fn setup_as_upstream<
     match keys {
         Some((publ, secret)) => {
             let responder = Responder::from_authority_kp(
-                publ.into_inner().as_bytes(),
-                secret.into_inner().as_bytes(),
+                &publ.into_bytes(),
+                &secret.into_bytes(),
                 std::time::Duration::from_secs(6000),
             )
             .unwrap();
             let (recv, sender, _, _) =
-                Connection::new(stream, HandshakeRole::Responder(responder)).await;
+                Connection::new(stream, HandshakeRole::Responder(responder)).await.unwrap();
             (recv, sender)
         }
         None => PlainConnection::new(stream).await,
@@ -56,14 +54,14 @@ pub async fn setup_as_downstream<
     Message: Serialize + Deserialize<'a> + GetSize + Send + 'static,
 >(
     socket: SocketAddr,
-    key: Option<EncodedEd25519PublicKey>,
+    key: Option<Secp256k1PublicKey>,
 ) -> (Receiver<EitherFrame<Message>>, Sender<EitherFrame<Message>>) {
     let stream = TcpStream::connect(socket).await.unwrap();
     match key {
         Some(publ) => {
-            let initiator = Initiator::from_raw_k(*publ.into_inner().as_bytes()).unwrap();
+            let initiator = Initiator::from_raw_k(publ.into_bytes()).unwrap();
             let (recv, sender, _, _) =
-                Connection::new(stream, HandshakeRole::Initiator(initiator)).await;
+                Connection::new(stream, HandshakeRole::Initiator(initiator)).await.unwrap();
             (recv, sender)
         }
         None => PlainConnection::new(stream).await,

@@ -1,0 +1,22 @@
+[package]
+name = "key-utils"
+version = "1.0.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+name = "key_utils"
+path = "src/lib.rs"
+
+[[bin]]
+name = "bin"
+path = "src/main.rs"
+
+[dependencies]
+bs58 = { version ="0.4.0", features = ["check"] }
+secp256k1 = { version = "0.27.0", default-features = false, features =["bitcoin_hashes","alloc","rand","rand-std"] }
+serde = { version = "1.0.89", features = ["derive","alloc"], default-features = false }
+
+[dev-dependencies]
+toml = { version = "*", git = "https://github.com/diondokter/toml-rs", default-features = false, rev = "c4161aa" }

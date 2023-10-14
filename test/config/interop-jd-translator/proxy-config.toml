@@ -1,12 +1,7 @@
-# Braiins Pool Upstream Connection
-# upstream_authority_pubkey = "u95GEReVMjK6k5YqiSFNqqTnKU4ypU2Wm8awa6tmbmDmk1bWt"
-# upstream_address = "18.196.32.109"
-# upstream_port = 3336
-
 # Local SRI Pool Upstream Connection
 upstream_address = "0.0.0.0"
 upstream_port = 34265
-upstream_authority_pubkey = "2di19GHYQnAZJmEpoUeP7C3Eg9TCcksHr23rZCC83dvUiZgiDL"
+upstream_authority_pubkey = "3VANfft6ei6jQq1At7d8nmiZzVhBFS4CiQujdgim1ign"
 
 # Local Mining Device Downstream Connection
 downstream_address = "0.0.0.0"

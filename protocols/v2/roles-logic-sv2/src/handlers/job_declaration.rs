@@ -6,6 +6,7 @@ use crate::errors::Error;
 use core::convert::TryInto;
 use job_declaration_sv2::*;
 use mining_sv2::{SubmitSharesError, SubmitSharesExtended, SubmitSharesSuccess};
+use tracing::{debug, error, info, trace};
 
 /// A trait implemented by a downstream to handle SV2 job declaration messages.
 pub trait ParseServerJobDeclarationMessages
@@ -19,27 +20,75 @@ where
         payload: &mut [u8],
     ) -> Result<SendTo, Error> {
         match (message_type, payload).try_into() {
-            Ok(JobDeclaration::AllocateMiningJobTokenSuccess(message)) => self_
-                .safe_lock(|x| x.handle_allocate_mining_job_token_success(message))
-                .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
-            Ok(JobDeclaration::DeclareMiningJobSuccess(message)) => self_
-                .safe_lock(|x| x.handle_declare_mining_job_success(message))
-                .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
-            Ok(JobDeclaration::DeclareMiningJobError(message)) => self_
-                .safe_lock(|x| x.handle_declare_mining_job_error(message))
-                .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
-            Ok(JobDeclaration::IdentifyTransactions(message)) => self_
-                .safe_lock(|x| x.handle_identify_transactions(message))
-                .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
-            Ok(JobDeclaration::ProvideMissingTransactions(message)) => self_
-                .safe_lock(|x| x.handle_provide_missing_transactions(message))
-                .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
-            Ok(JobDeclaration::SubmitSharesSuccess(message)) => self_
-                .safe_lock(|x| x.handle_submit_shares_success(message))
-                .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
-            Ok(JobDeclaration::SubmitSharesError(message)) => self_
-                .safe_lock(|x| x.handle_submit_shares_error(message))
-                .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
+            Ok(JobDeclaration::AllocateMiningJobTokenSuccess(message)) => {
+                debug!(
+                    "Received AllocateMiningJobTokenSuccess with id: {}",
+                    message.request_id
+                );
+                trace!("AllocateMiningJobTokenSuccess: {:?}", message.request_id);
+                self_
+                    .safe_lock(|x| x.handle_allocate_mining_job_token_success(message))
+                    .map_err(|e| crate::Error::PoisonLock(e.to_string()))?
+            }
+            Ok(JobDeclaration::DeclareMiningJobSuccess(message)) => {
+                info!(
+                    "Received DeclareMiningJobSuccess with id {}",
+                    message.request_id
+                );
+                debug!("DeclareMiningJobSuccess: {:?}", message);
+                self_
+                    .safe_lock(|x| x.handle_declare_mining_job_success(message))
+                    .map_err(|e| crate::Error::PoisonLock(e.to_string()))?
+            }
+            Ok(JobDeclaration::DeclareMiningJobError(message)) => {
+                error!(
+                    "Received DeclareMiningJobError, error code: {}",
+                    std::str::from_utf8(message.error_code.as_ref())
+                        .unwrap_or("unknown error code")
+                );
+                debug!("DeclareMiningJobSuccess: {:?}", message);
+                self_
+                    .safe_lock(|x| x.handle_declare_mining_job_error(message))
+                    .map_err(|e| crate::Error::PoisonLock(e.to_string()))?
+            }
+            Ok(JobDeclaration::IdentifyTransactions(message)) => {
+                info!(
+                    "Received IdentifyTransactions with id: {}",
+                    message.request_id
+                );
+                debug!("IdentifyTransactions: {:?}", message);
+                self_
+                    .safe_lock(|x| x.handle_identify_transactions(message))
+                    .map_err(|e| crate::Error::PoisonLock(e.to_string()))?
+            }
+            Ok(JobDeclaration::ProvideMissingTransactions(message)) => {
+                info!(
+                    "Received ProvideMissingTransactions with id: {}",
+                    message.request_id
+                );
+                debug!("ProvideMissingTransactions: {:?}", message);
+                self_
+                    .safe_lock(|x| x.handle_provide_missing_transactions(message))
+                    .map_err(|e| crate::Error::PoisonLock(e.to_string()))?
+            }
+            Ok(JobDeclaration::SubmitSharesSuccess(message)) => {
+                info!("Received SubmitSharesSuccess");
+                debug!("SubmitSharesSuccess: {:?}", message);
+                self_
+                    .safe_lock(|x| x.handle_submit_shares_success(message))
+                    .map_err(|e| crate::Error::PoisonLock(e.to_string()))?
+            }
+            Ok(JobDeclaration::SubmitSharesError(message)) => {
+                error!(
+                    "Received SubmitSharesError, error code: {}",
+                    std::str::from_utf8(message.error_code.as_ref())
+                        .unwrap_or("unknown error code")
+                );
+                debug!("SubmitSharesError: {:?}", message);
+                self_
+                    .safe_lock(|x| x.handle_submit_shares_error(message))
+                    .map_err(|e| crate::Error::PoisonLock(e.to_string()))?
+            }
 
             Ok(_) => todo!(),
             Err(e) => Err(e),
@@ -97,27 +146,50 @@ where
         payload: &mut [u8],
     ) -> Result<SendTo, Error> {
         match (message_type, payload).try_into() {
-            Ok(JobDeclaration::AllocateMiningJobToken(message)) => self_
-                .safe_lock(|x| x.handle_allocate_mining_job_token(message))
-                .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
-            Ok(JobDeclaration::DeclareMiningJob(message)) => self_
-                .safe_lock(|x| x.handle_declare_mining_job(message))
-                .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
-            Ok(JobDeclaration::IdentifyTransactionsSuccess(message)) => self_
-                .safe_lock(|x| x.handle_identify_transactions_success(message))
-                .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
-            Ok(JobDeclaration::ProvideMissingTransactionsSuccess(message)) => self_
-                .safe_lock(|x| x.handle_provide_missing_transactions_success(message))
-                .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
-            Ok(JobDeclaration::SubmitSharesExtended(message)) => self_
-                .safe_lock(|x| x.handle_submit_shares_extended(message))
-                .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
-            Ok(JobDeclaration::SubmitSharesSuccess(message)) => self_
-                .safe_lock(|x| x.handle_submit_shares_success(message))
-                .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
-            Ok(JobDeclaration::SubmitSharesError(message)) => self_
-                .safe_lock(|x| x.handle_submit_shares_error(message))
-                .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
+            Ok(JobDeclaration::AllocateMiningJobToken(message)) => {
+                debug!(
+                    "Received AllocateMiningJobToken with id: {}",
+                    message.request_id
+                );
+                trace!("AllocateMiningJobToken: {:?}", message.request_id);
+                self_
+                    .safe_lock(|x| x.handle_allocate_mining_job_token(message))
+                    .map_err(|e| crate::Error::PoisonLock(e.to_string()))?
+            }
+            Ok(JobDeclaration::DeclareMiningJob(message)) => {
+                info!("Received DeclareMiningJob with id: {}", message.request_id);
+                debug!("DeclareMiningJob: {:?}", message);
+                self_
+                    .safe_lock(|x| x.handle_declare_mining_job(message))
+                    .map_err(|e| crate::Error::PoisonLock(e.to_string()))?
+            }
+            Ok(JobDeclaration::IdentifyTransactionsSuccess(message)) => {
+                info!(
+                    "Received IdentifyTransactionsSuccess with id: {}",
+                    message.request_id
+                );
+                debug!("IdentifyTransactionsSuccess: {:?}", message);
+                self_
+                    .safe_lock(|x| x.handle_identify_transactions_success(message))
+                    .map_err(|e| crate::Error::PoisonLock(e.to_string()))?
+            }
+            Ok(JobDeclaration::ProvideMissingTransactionsSuccess(message)) => {
+                info!(
+                    "Received ProvideMissingTransactionsSuccess with id: {}",
+                    message.request_id
+                );
+                debug!("ProvideMissingTransactionsSuccess: {:?}", message);
+                self_
+                    .safe_lock(|x| x.handle_provide_missing_transactions_success(message))
+                    .map_err(|e| crate::Error::PoisonLock(e.to_string()))?
+            }
+            Ok(JobDeclaration::SubmitSharesExtended(message)) => {
+                info!("Received SubmitSharesExtended");
+                debug!("SubmitSharesExtended: {:?}", message);
+                self_
+                    .safe_lock(|x| x.handle_submit_shares_extended(message))
+                    .map_err(|e| crate::Error::PoisonLock(e.to_string()))?
+            }
             Ok(_) => todo!(),
             Err(e) => Err(e),
         }

@@ -20,12 +20,10 @@ use roles_logic_sv2::{
     template_distribution_sv2::{NewTemplate, SubmitSolution},
     utils::Mutex,
 };
-use tracing::info;
+use tracing::{debug, info, warn};
 
-use codec_sv2::{
-    noise_sv2::formats::{EncodedEd25519PublicKey, EncodedEd25519SecretKey},
-    Frame, HandshakeRole, Responder, StandardEitherFrame, StandardSv2Frame,
-};
+use codec_sv2::{Frame, HandshakeRole, Responder, StandardEitherFrame, StandardSv2Frame};
+use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 
 use stratum_common::bitcoin::{consensus::Decodable, TxOut};
 
@@ -295,7 +293,7 @@ impl DownstreamMiningNode {
                 let job_id =
                     UpstreamMiningNode::get_job_id(&upstream_mutex, last_template_id).await;
                 share.job_id = job_id;
-                info!(
+                debug!(
                     "Sending valid block solution upstream, with job_id {}",
                     job_id
                 );
@@ -444,7 +442,7 @@ impl
         _: OpenStandardMiningChannel,
         _: Option<Arc<Mutex<UpstreamMiningNode>>>,
     ) -> Result<SendTo<UpstreamMiningNode>, Error> {
-        info!("Ignoring OpenStandardMiningChannel");
+        warn!("Ignoring OpenStandardMiningChannel");
         Ok(SendTo::None(None))
     }
 
@@ -452,7 +450,6 @@ impl
         &mut self,
         m: OpenExtendedMiningChannel,
     ) -> Result<SendTo<UpstreamMiningNode>, Error> {
-        info!("Opening exteneded mining channel");
         if !self.status.is_solo_miner() {
             // Safe unwrap alreay checked if it cointains upstream with is_solo_miner
             Ok(SendTo::RelaySameMessageToRemote(
@@ -522,7 +519,7 @@ impl
         &mut self,
         _: SubmitSharesStandard,
     ) -> Result<SendTo<UpstreamMiningNode>, Error> {
-        info!("Ignoring SubmitSharesStandard");
+        warn!("Ignoring SubmitSharesStandard");
         Ok(SendTo::None(None))
     }
 
@@ -530,7 +527,6 @@ impl
         &mut self,
         m: SubmitSharesExtended,
     ) -> Result<SendTo<UpstreamMiningNode>, Error> {
-        info!("Receive share extended");
         match self
             .status
             .get_channel()
@@ -560,7 +556,6 @@ impl
             OnNewShare::ShareMeetBitcoinTarget((share, Some(template_id), coinbase)) => {
                 match share {
                     Share::Extended(share) => {
-                        info!("SHARE MEETS BITCOIN TARGET");
                         let solution_sender = self.solution_sender.clone();
                         let solution = SubmitSolution {
                             template_id,
@@ -606,7 +601,7 @@ impl
         &mut self,
         _: SetCustomMiningJob,
     ) -> Result<SendTo<UpstreamMiningNode>, Error> {
-        info!("Ignoring SetCustomMiningJob");
+        warn!("Ignoring SetCustomMiningJob");
         Ok(SendTo::None(None))
     }
 }
@@ -645,8 +640,8 @@ pub async fn listen_for_downstream_mining(
     upstream: Option<Arc<Mutex<UpstreamMiningNode>>>,
     solution_sender: Sender<SubmitSolution<'static>>,
     withhold: bool,
-    authority_public_key: EncodedEd25519PublicKey,
-    authority_secret_key: EncodedEd25519SecretKey,
+    authority_public_key: Secp256k1PublicKey,
+    authority_secret_key: Secp256k1SecretKey,
     cert_validity_sec: u64,
     task_collector: Arc<Mutex<Vec<AbortHandle>>>,
     tx_status: status::Sender,
@@ -658,13 +653,15 @@ pub async fn listen_for_downstream_mining(
 
     if let Ok((stream, _)) = listner.accept().await {
         let responder = Responder::from_authority_kp(
-            authority_public_key.clone().into_inner().as_bytes(),
-            authority_secret_key.clone().into_inner().as_bytes(),
+            &authority_public_key.clone().into_bytes(),
+            &authority_secret_key.clone().into_bytes(),
             std::time::Duration::from_secs(cert_validity_sec),
         )
         .unwrap();
         let (receiver, sender, recv_task_abort_handler, send_task_abort_handler) =
-            Connection::new(stream, HandshakeRole::Responder(responder)).await;
+            Connection::new(stream, HandshakeRole::Responder(responder))
+                .await
+                .expect("impossible to connect");
         let node = DownstreamMiningNode::new(
             receiver,
             sender,

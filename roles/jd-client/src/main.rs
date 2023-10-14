@@ -171,7 +171,7 @@ async fn main() {
             let task_collector = task_collector.clone();
             let tx_status = tx_status.clone();
 
-            if let Some(upstream) = dbg!(proxy_config.upstreams.get(dbg!(upstream_index))) {
+            if let Some(upstream) = proxy_config.upstreams.get(upstream_index) {
                 let initialize = initialize_jd(
                     tx_status.clone(),
                     task_collector,
@@ -305,6 +305,7 @@ async fn initialize_jd_as_solo_miner(
         task_collector,
         Arc::new(Mutex::new(PoolChangerTrigger::new(timeout))),
         miner_tx_out.clone(),
+        proxy_config.tp_authority_pub_key,
     )
     .await;
 }
@@ -391,12 +392,7 @@ async fn initialize_jd(
     let port_jd = parts.next().unwrap().parse::<u16>().unwrap();
     let jd = match JobDeclarator::new(
         SocketAddr::new(IpAddr::from_str(ip_jd.as_str()).unwrap(), port_jd),
-        upstream_config
-            .authority_pubkey
-            .clone()
-            .into_inner()
-            .as_bytes()
-            .to_owned(),
+        upstream_config.authority_pubkey.clone().into_bytes(),
         proxy_config.clone(),
         upstream.clone(),
         task_collector.clone(),
@@ -440,6 +436,7 @@ async fn initialize_jd(
         task_collector,
         Arc::new(Mutex::new(PoolChangerTrigger::new(timeout))),
         vec![],
+        proxy_config.tp_authority_pub_key,
     )
     .await;
 }

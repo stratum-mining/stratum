@@ -11,6 +11,7 @@ use async_std::{net::TcpStream, task};
 use binary_sv2::u256_from_int;
 use codec_sv2::{Frame, HandshakeRole, Initiator};
 use error_handling::handle_result;
+use key_utils::Secp256k1PublicKey;
 use network_helpers::Connection;
 use roles_logic_sv2::{
     common_messages_sv2::{Protocol, SetupConnection},
@@ -36,7 +37,7 @@ use std::{
     thread::sleep,
     time::Duration,
 };
-use tracing::{debug, error, info, warn};
+use tracing::{error, info, warn};
 
 use stratum_common::bitcoin::BlockHash;
 
@@ -112,7 +113,7 @@ impl Upstream {
     #[cfg_attr(feature = "cargo-clippy", allow(clippy::too_many_arguments))]
     pub async fn new(
         address: SocketAddr,
-        authority_public_key: codec_sv2::noise_sv2::formats::EncodedEd25519PublicKey,
+        authority_public_key: Secp256k1PublicKey,
         rx_sv2_submit_shares_ext: Receiver<SubmitSharesExtended<'static>>,
         tx_sv2_set_new_prev_hash: Sender<SetNewPrevHash<'static>>,
         tx_sv2_new_ext_mining_job: Sender<NewExtendedMiningJob<'static>>,
@@ -137,8 +138,8 @@ impl Upstream {
             }
         };
 
-        let pub_key: codec_sv2::noise_sv2::formats::EncodedEd25519PublicKey = authority_public_key;
-        let initiator = Initiator::from_raw_k(*pub_key.into_inner().as_bytes())?;
+        let pub_key: Secp256k1PublicKey = authority_public_key;
+        let initiator = Initiator::from_raw_k(pub_key.into_bytes())?;
 
         info!(
             "PROXY SERVER - ACCEPTING FROM UPSTREAM: {}",
@@ -146,8 +147,9 @@ impl Upstream {
         );
 
         // Channel to send and receive messages to the SV2 Upstream role
-        let (receiver, sender) =
-            Connection::new(socket, HandshakeRole::Initiator(initiator), 10).await;
+        let (receiver, sender) = Connection::new(socket, HandshakeRole::Initiator(initiator), 10)
+            .await
+            .unwrap();
         // Initialize `UpstreamConnection` with channel for SV2 Upstream role communication and
         // channel for downstream Translator Proxy communication
         let connection = UpstreamConnection { receiver, sender };
@@ -182,15 +184,12 @@ impl Upstream {
             .safe_lock(|s| s.connection.clone())
             .map_err(|_e| PoisonLock)?;
 
-        info!("Up: Sending: {:?}", &setup_connection);
-
         // Put the `SetupConnection` message in a `StdFrame` to be sent over the wire
         let sv2_frame: StdFrame = Message::Common(setup_connection.into()).try_into()?;
         // Send the `SetupConnection` frame to the SV2 Upstream role
         // Only one Upstream role is supported, panics if multiple connections are encountered
         connection.send(sv2_frame).await?;
 
-        debug!("Sent SetupConnection to Upstream, waiting for response");
         // Wait for the SV2 Upstream to respond with either a `SetupConnectionSuccess` or a
         // `SetupConnectionError` inside a SV2 binary message frame
         let mut incoming: StdFrame = match connection.receiver.recv().await {
@@ -203,7 +202,6 @@ impl Upstream {
             }
         };
 
-        info!("Up: Receiving: {:?}", &incoming);
         // Gets the binary frame message type from the message header
         let message_type = if let Some(header) = incoming.get_header() {
             header.msg_type()
@@ -238,8 +236,6 @@ impl Upstream {
             max_target: u256_from_int(u64::MAX), // TODO
             min_extranonce_size: 8, // 8 is the max extranonce2 size the braiins pool supports
         });
-
-        info!("Up: Sending: {:?}", &open_channel);
 
         // reset channel hashrate so downstreams can manage from now on out
         self_
@@ -317,7 +313,6 @@ impl Upstream {
                     // No translation required, simply respond to SV2 pool w a SV2 message
                     Ok(SendTo::Respond(message_for_upstream)) => {
                         let message = Message::Mining(message_for_upstream);
-                        info!("Up: Sending: {:?}", &message);
 
                         let frame: StdFrame = handle_result!(tx_status, message.try_into());
                         let frame: EitherFrame = handle_result!(tx_status, frame.try_into());
@@ -372,7 +367,6 @@ impl Upstream {
                                 );
                             }
                             Mining::NewExtendedMiningJob(m) => {
-                                debug!("parse_incoming Mining::NewExtendedMiningJob msg");
                                 let job_id = m.job_id;
                                 let res = self_
                                     .safe_lock(|s| {
@@ -383,7 +377,6 @@ impl Upstream {
                                 handle_result!(tx_status, tx_sv2_new_ext_mining_job.send(m).await);
                             }
                             Mining::SetNewPrevHash(m) => {
-                                debug!("parse_incoming Mining::SetNewPrevHash msg");
                                 handle_result!(tx_status, tx_sv2_set_new_prev_hash.send(m).await);
                             }
                             Mining::CloseChannel(_m) => {
@@ -480,15 +473,12 @@ impl Upstream {
                 let job_id = Self::get_job_id(&self_);
                 sv2_submit.job_id = handle_result!(tx_status, handle_result!(tx_status, job_id));
 
-                debug!("Up: Handling SubmitSharesExtended: {:?}", &sv2_submit);
-
                 let message = Message::Mining(
                     roles_logic_sv2::parsers::Mining::SubmitSharesExtended(sv2_submit),
                 );
 
                 let frame: StdFrame = handle_result!(tx_status, message.try_into());
                 // Doesnt actually send because of Braiins Pool issue that needs to be fixed
-                info!("Up: Sending: {:?}", &frame);
 
                 let frame: EitherFrame = handle_result!(tx_status, frame.try_into());
                 handle_result!(
@@ -593,7 +583,6 @@ impl ParseUpstreamCommonMessages<NoRouting> for Upstream {
         &mut self,
         _: roles_logic_sv2::common_messages_sv2::SetupConnectionSuccess,
     ) -> Result<SendToCommon, RolesLogicError> {
-        debug!("Up: Handling SetupConnectionSuccess");
         Ok(SendToCommon::None(None))
     }
 
@@ -661,7 +650,6 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
             .map_err(|e| RolesLogicError::PoisonLock(e.to_string()))?;
 
         info!("Up: Successfully Opened Extended Mining Channel");
-        debug!("Up: Handling OpenExtendedMiningChannelSuccess: {:?}", &m);
         self.channel_id = Some(m.channel_id);
         self.extranonce_prefix = Some(m.extranonce_prefix.to_vec());
         let m = Mining::OpenExtendedMiningChannelSuccess(m.into_static());
@@ -707,20 +695,16 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
     /// Handles the SV2 `SubmitSharesSuccess` message.
     fn handle_submit_shares_success(
         &mut self,
-        m: roles_logic_sv2::mining_sv2::SubmitSharesSuccess,
+        _m: roles_logic_sv2::mining_sv2::SubmitSharesSuccess,
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, RolesLogicError> {
-        info!("Up: Successfully Submitted Share");
-        debug!("Up: Handling SubmitSharesSuccess: {:?}", &m);
         Ok(SendTo::None(None))
     }
 
     /// Handles the SV2 `SubmitSharesError` message.
     fn handle_submit_shares_error(
         &mut self,
-        m: roles_logic_sv2::mining_sv2::SubmitSharesError,
+        _m: roles_logic_sv2::mining_sv2::SubmitSharesError,
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, RolesLogicError> {
-        info!("Up: Rejected Submitted Share");
-        debug!("Up: Handling SubmitSharesError: {:?}", &m);
         Ok(SendTo::None(None))
     }
 
@@ -741,7 +725,6 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
         &mut self,
         m: roles_logic_sv2::mining_sv2::NewExtendedMiningJob,
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, RolesLogicError> {
-        info!("Is future job: {}\n", &m.is_future());
         if self.is_work_selection_enabled() {
             Ok(SendTo::None(None))
         } else {
@@ -752,9 +735,6 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
             }
 
             let message = Mining::NewExtendedMiningJob(m.into_static());
-
-            info!("Up: New Extended Mining Job");
-            debug!("Up: Handling NewExtendedMiningJob: {:?}", &message);
 
             Ok(SendTo::None(Some(message)))
         }
@@ -767,8 +747,6 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
         &mut self,
         m: roles_logic_sv2::mining_sv2::SetNewPrevHash,
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, RolesLogicError> {
-        info!("Up: Set New Prev Hash");
-        debug!("Up: Handling SetNewPrevHash: {:?}", &m);
         if self.is_work_selection_enabled() {
             Ok(SendTo::None(None))
         } else {
@@ -801,9 +779,6 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
         m: roles_logic_sv2::mining_sv2::SetTarget,
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, RolesLogicError> {
         let m = m.into_static();
-
-        info!("Up: Updating Target to: {:?}", &m.maximum_target);
-        debug!("Up: Handling SetTarget: {:?}", &m);
 
         self.target
             .safe_lock(|t| *t = m.maximum_target.to_vec())

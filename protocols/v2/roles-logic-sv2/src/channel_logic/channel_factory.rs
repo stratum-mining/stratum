@@ -18,7 +18,7 @@ use nohash_hasher::BuildNoHashHasher;
 use std::{collections::HashMap, convert::TryInto, sync::Arc};
 use template_distribution_sv2::{NewTemplate, SetNewPrevHash as SetNewPrevHashFromTp};
 
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, trace};
 
 use stratum_common::{
     bitcoin,
@@ -724,6 +724,7 @@ impl ChannelFactory {
         prev_blockhash: bitcoin::hash_types::BlockHash,
         bits: u32,
     ) -> Result<OnNewShare, Error> {
+        debug!("Checking targert for share {:?}", m);
         let upstream_target = match &self.kind {
             ExtendedChannelKind::Pool => Target::new(0, 0),
             ExtendedChannelKind::Proxy {
@@ -745,6 +746,14 @@ impl ChannelFactory {
             }
             Share::Standard(_) => (),
         };
+        trace!(
+            "On checking target coinbase prefix is: {:?}",
+            coinbase_tx_prefix
+        );
+        trace!(
+            "On checking target coinbase suffix is: {:?}",
+            coinbase_tx_suffix
+        );
         // Safe unwrap a sha256 can always be converted into [u8;32]
         let merkle_root: [u8; 32] = crate::utils::merkle_root_from_path(
             coinbase_tx_prefix,
@@ -768,6 +777,7 @@ impl ChannelFactory {
             bits,
             nonce: m.get_nonce(),
         };
+        trace!("On checking target header is: {:?}", header);
         let hash_ = header.block_hash();
         let hash = hash_.as_hash().into_inner();
 
@@ -827,6 +837,7 @@ impl ChannelFactory {
         } else if hash <= downstream_target {
             Ok(OnNewShare::ShareMeetDownstreamTarget)
         } else {
+            error!("Share does not meet any target: {:?}", m);
             let error = SubmitSharesError {
                 channel_id: m.get_channel_id(),
                 sequence_number: m.get_sequence_number(),
