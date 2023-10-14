@@ -20,7 +20,7 @@ use roles_logic_sv2::{
     template_distribution_sv2::{NewTemplate, SubmitSolution},
     utils::Mutex,
 };
-use tracing::{info, warn};
+use tracing::{info, warn,debug};
 
 use codec_sv2::{Frame, HandshakeRole, Responder, StandardEitherFrame, StandardSv2Frame};
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
@@ -293,7 +293,7 @@ impl DownstreamMiningNode {
                 let job_id =
                     UpstreamMiningNode::get_job_id(&upstream_mutex, last_template_id).await;
                 share.job_id = job_id;
-                info!(
+                debug!(
                     "Sending valid block solution upstream, with job_id {}",
                     job_id
                 );
