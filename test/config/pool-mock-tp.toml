@@ -1,6 +1,6 @@
 # This is a config file for the pool that connects to a mocked Template Provider at 127.0.0.1
 listen_address = "127.0.0.1:34254"
-tp_address = "127.0.0.1:8442"
+tp_address = "127.0.0.1:44254"
 listen_jd_address = "127.0.0.1:34264"
 authority_public_key = "3VANfft6ei6jQq1At7d8nmiZzVhBFS4CiQujdgim1ign"
 authority_secret_key = "7qbpUjScc865jyX2kiB4NVJANoC7GA7TAJupdzXWkc62"

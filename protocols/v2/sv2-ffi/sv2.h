@@ -14,13 +14,13 @@ static const uintptr_t SV2_FRAME_HEADER_LEN_END = 3;
 
 static const uintptr_t SV2_FRAME_CHUNK_SIZE = 65519;
 
-static const uintptr_t AEAD_MAC_LEN = 16;
-
 static const uintptr_t ENCRYPTED_SV2_FRAME_HEADER_SIZE = (SV2_FRAME_HEADER_SIZE + AEAD_MAC_LEN);
 
 static const uintptr_t NOISE_FRAME_HEADER_SIZE = 2;
 
 static const uintptr_t NOISE_FRAME_HEADER_LEN_OFFSET = 0;
+
+static const uintptr_t AEAD_MAC_LEN = 16;
 
 static const uint8_t SV2_MINING_PROTOCOL_DISCRIMINANT = 0;
 
