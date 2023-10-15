@@ -36,6 +36,7 @@ pub struct JobDeclaratorDownstream {
     private_key: Secp256k1SecretKey,
     mempool: Arc<Mutex<JDsMempool>>,
     declared_mining_job: Vec<Option<stratum_common::bitcoin::Transaction>>,
+    tx_hash_list_hash: Option<U256<'static>>,
 }
 
 impl JobDeclaratorDownstream {
@@ -64,6 +65,7 @@ impl JobDeclaratorDownstream {
             private_key: config.authority_secret_key.clone(),
             mempool,
             declared_mining_job,
+            tx_hash_list_hash: None,
         }
     }
 
