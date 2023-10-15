@@ -11,7 +11,6 @@ pub const SV2_FRAME_CHUNK_SIZE: usize = 65519;
 // For now only CHACHA and AES are supported both have a MAC of 16 bytes
 pub const AEAD_MAC_LEN: usize = 16;
 
-
 pub const ENCRYPTED_SV2_FRAME_HEADER_SIZE: usize = SV2_FRAME_HEADER_SIZE + AEAD_MAC_LEN;
 pub const NOISE_FRAME_HEADER_SIZE: usize = 2;
 pub const NOISE_FRAME_HEADER_LEN_OFFSET: usize = 0;
