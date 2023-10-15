@@ -35,15 +35,7 @@ pub struct JobDeclaratorDownstream {
     public_key: Secp256k1PublicKey,
     private_key: Secp256k1SecretKey,
     mempool: Arc<Mutex<JDsMempool>>,
-    identified_txs: Option<
-        Vec<(
-            stratum_common::bitcoin::Txid,
-            stratum_common::bitcoin::Transaction,
-        )>,
-    >,
-    // indexes of unidentified transactions, with respect to the order in which they are sent from
-    // the downstream in DeclareMiningJob. This is used in ProvideMissingTransaction
-    unidentified_txs_indexes: Vec<u16>,
+    declared_mining_job: Vec<Option<stratum_common::bitcoin::Transaction>>,
 }
 
 impl JobDeclaratorDownstream {
@@ -57,6 +49,7 @@ impl JobDeclaratorDownstream {
         // TODO: use next variables
         let token_to_job_map = HashMap::with_hasher(BuildNoHashHasher::default());
         let tokens = Id::new();
+        let declared_mining_job = Vec::new();
         crate::get_coinbase_output(config).expect("Invalid coinbase output in config")[0]
             .consensus_encode(&mut coinbase_output)
             .expect("Invalid coinbase output in config");
@@ -70,8 +63,7 @@ impl JobDeclaratorDownstream {
             public_key: config.authority_public_key.clone(),
             private_key: config.authority_secret_key.clone(),
             mempool,
-            identified_txs: None,
-            unidentified_txs_indexes: Vec::new(),
+            declared_mining_job,
         }
     }
 
