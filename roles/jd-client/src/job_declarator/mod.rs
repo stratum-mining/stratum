@@ -5,7 +5,7 @@ use codec_sv2::{HandshakeRole, Initiator, StandardEitherFrame, StandardSv2Frame}
 use network_helpers::noise_connection_tokio::Connection;
 use roles_logic_sv2::{
     handlers::SendTo_,
-    job_declaration_sv2::AllocateMiningJobTokenSuccess,
+    job_declaration_sv2::{AllocateMiningJobTokenSuccess, SubmitSolutionJd},
     mining_sv2::SubmitSharesExtended,
     parsers::{JobDeclaration, PoolMessages},
     template_distribution_sv2::SetNewPrevHash,
@@ -345,8 +345,12 @@ impl JobDeclarator {
         self_mutex: &Arc<Mutex<Self>>,
         solution: SubmitSharesExtended<'static>,
     ) {
+        let solution = SubmitSolutionJd {
+            extranonce: solution.extranonce,
+            prev_hash: todo!(),
+        };
         let frame: StdFrame =
-            PoolMessages::JobDeclaration(JobDeclaration::SubmitSharesExtended(solution))
+            PoolMessages::JobDeclaration(JobDeclaration::SubmitSolution(solution))
                 .try_into()
                 .unwrap();
         let sender = self_mutex.safe_lock(|s| s.sender.clone()).unwrap();

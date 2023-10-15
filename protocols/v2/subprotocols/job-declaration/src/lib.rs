@@ -13,6 +13,7 @@ mod allocate_mining_job_token;
 mod declare_mining_job;
 mod identify_transactions;
 mod provide_missing_transactions;
+mod submit_solution;
 
 pub use allocate_mining_job_token::{AllocateMiningJobToken, AllocateMiningJobTokenSuccess};
 pub use declare_mining_job::{DeclareMiningJob, DeclareMiningJobError, DeclareMiningJobSuccess};
@@ -20,3 +21,4 @@ pub use identify_transactions::{IdentifyTransactions, IdentifyTransactionsSucces
 pub use provide_missing_transactions::{
     ProvideMissingTransactions, ProvideMissingTransactionsSuccess,
 };
+pub use submit_solution::SubmitSolutionJd;
