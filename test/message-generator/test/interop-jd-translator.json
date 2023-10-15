@@ -108,7 +108,7 @@
                 "WithConditions": {
                     "conditions": [
                         {
-                            "output_string": "Up: Set New Prev Hash",
+                            "output_string": "Received SetNewPrevHash",
                             "output_location": "StdOut",
                             "condition": true
                         }
