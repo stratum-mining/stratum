@@ -1,5 +1,5 @@
-use std::convert::TryInto;
-use stratum_common::bitcoin;
+use std::{convert::TryInto, io::Cursor};
+use stratum_common::bitcoin::Transaction;
 
 use binary_sv2::ShortTxId;
 use roles_logic_sv2::{
@@ -14,6 +14,7 @@ use roles_logic_sv2::{
 };
 pub type SendTo = SendTo_<JobDeclaration<'static>, ()>;
 use roles_logic_sv2::errors::Error;
+use stratum_common::bitcoin::consensus::Decodable;
 
 use crate::lib::job_declarator::signed_token;
 
@@ -70,30 +71,22 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
                 .map(|x| x.to_vec().try_into().unwrap())
                 .collect();
             let nonce = message.tx_short_hash_nonce;
-            let mempool = self.mempool.safe_lock(|x| x.clone()).unwrap();
+            // TODO return None when we have a collision handle that case as weel
+            let short_id_mempool = self.mempool.safe_lock(|x| x.to_short_ids(nonce)).unwrap().unwrap();
+            let mut txs_in_job = vec![];
+            let mut missing_txs = vec![];
 
-            let mut declared_mining_job: Vec<Option<stratum_common::bitcoin::Transaction>> =
-                Vec::new();
-            // indicator for when are missing transactions
-            let mut there_are_some_missing_transactions: bool = false;
-            //TODO use references insted cloning!!!!
-            let len_transaction_list = short_hash_list.len();
-            for i in 0..len_transaction_list {
-                let tx_short_id = short_hash_list.get(i).unwrap();
-                match mempool.verify_short_id(tx_short_id, nonce) {
-                    Some(tx_with_id) => declared_mining_job.push(Some(tx_with_id.1.clone())),
-                    None => {
-                        there_are_some_missing_transactions = true;
-                        declared_mining_job.push(None)
-                    }
+            for (i,sid) in short_hash_list.iter().enumerate() {
+                let sid_: [u8;6] = sid.to_vec().try_into().unwrap();
+                if let Some(tx_data) = short_id_mempool.get(&sid_) {
+                    txs_in_job.push(tx_data.clone());
+                } else {
+                    missing_txs.push(i as u16);
                 }
             }
-
-            // TODO important check that all the transactions in declare mining job have different
-            // id and there are no collisions
-            self.declared_mining_job = declared_mining_job.clone();
-            self.tx_hash_list_hash = Some(message.clone().tx_hash_list_hash.into_static());
-            if !there_are_some_missing_transactions {
+            self.declared_mining_job = Some((message.clone().into_static(),txs_in_job,missing_txs.clone()));
+            
+            if missing_txs.is_empty() {
                 let message_success = DeclareMiningJobSuccess {
                     request_id: message.request_id,
                     new_mining_job_token: signed_token(
@@ -105,16 +98,9 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
                 let message_enum_success = JobDeclaration::DeclareMiningJobSuccess(message_success);
                 Ok(SendTo::Respond(message_enum_success))
             } else {
-                let mut indexes_of_missing_transactions: Vec<u16> = Vec::new();
-                for i in 0..len_transaction_list {
-                    match declared_mining_job[i] {
-                        Some(_) => continue,
-                        None => indexes_of_missing_transactions.push(i.try_into().unwrap()),
-                    }
-                }
                 let message_provide_missing_transactions = ProvideMissingTransactions {
                     request_id: message.request_id,
-                    unknown_tx_position_list: indexes_of_missing_transactions.try_into().unwrap(),
+                    unknown_tx_position_list: missing_txs.try_into().unwrap(),
                 };
                 let message_enum_provide_missing_transactions =
                     JobDeclaration::ProvideMissingTransactions(
@@ -122,6 +108,7 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
                     );
                 Ok(SendTo_::Respond(message_enum_provide_missing_transactions))
             }
+
         } else {
             let message_error = DeclareMiningJobError {
                 request_id: message.request_id,
@@ -145,40 +132,28 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
         &mut self,
         message: ProvideMissingTransactionsSuccess,
     ) -> Result<SendTo, Error> {
-        let mut transactions: Vec<bitcoin::Transaction> = Vec::new();
-        //for transaction_undecoded in message.transaction_list.to_vec() {
-        //    // TODO decode transactions and push them into transaction varuiable
-        //    todo!()
-        //}
-
-        for declared_transaction in self.declared_mining_job.iter_mut() {
-            match declared_transaction {
-                Some(_) => {}
-                None => *declared_transaction = transactions.pop(),
-            }
-        }
-        let mut still_misses_some_transaction: bool = false;
-        for declared_transaction in &self.declared_mining_job {
-            match declared_transaction {
-                Some(_) => {}
-                None => still_misses_some_transaction = true,
-            }
-        }
-        if still_misses_some_transaction {
-            // why there are still some missing transactions? here should send some relevant error
-            todo!()
-        } else {
-            let tx_hash_list_hash = self.tx_hash_list_hash.clone().unwrap().into_static();
-            let message_success = DeclareMiningJobSuccess {
-                request_id: message.request_id,
-                new_mining_job_token: signed_token(
-                    tx_hash_list_hash,
-                    &self.public_key.clone(),
-                    &self.private_key.clone(),
-                ),
-            };
-            let message_enum_success = JobDeclaration::DeclareMiningJobSuccess(message_success);
-            Ok(SendTo::Respond(message_enum_success))
+        match &mut self.declared_mining_job {
+            Some((_, ref mut transactions, missing_indexes)) => {
+                for (i,tx) in message.transaction_list.inner_as_ref().iter().enumerate() {
+                    let mut cursor = Cursor::new(tx);
+                    let tx = Transaction::consensus_decode_from_finite_reader(&mut cursor).expect("Invalid tx data from downstream");
+                    transactions.insert((*missing_indexes.get(i).expect("Invalid tx index from downstream")) as usize, tx);
+                }
+                // TODO check it
+                let tx_hash_list_hash = self.tx_hash_list_hash.clone().unwrap().into_static();
+                let message_success = DeclareMiningJobSuccess {
+                    request_id: message.request_id,
+                    new_mining_job_token: signed_token(
+                        tx_hash_list_hash,
+                        &self.public_key.clone(),
+                        &self.private_key.clone(),
+                    ),
+                };
+                let message_enum_success = JobDeclaration::DeclareMiningJobSuccess(message_success);
+                Ok(SendTo::Respond(message_enum_success))
+            },
+            // TODO handle this case
+            None => todo!(),
         }
     }
 

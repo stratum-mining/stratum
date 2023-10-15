@@ -11,6 +11,7 @@ use stratum_common::{
     bitcoin,
     bitcoin::{consensus::encode::deserialize, hash_types::Txid, hashes::hex::FromHex},
 };
+use std::convert::TryInto;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Hash([u8; 32]);
@@ -80,6 +81,19 @@ impl JDsMempool {
             }
             Err(a) => Err(a),
         }
+    }
+
+    pub fn to_short_ids(&self,nonce: u64) -> Option<HashMap<[u8;6],Transaction>> {
+        let mut ret = HashMap::new();
+        for tx in &self.mempool {
+            let s_id = roles_logic_sv2::utils::get_short_hash(tx.id, nonce).to_vec().try_into().unwrap();
+            if ret.insert(s_id,tx.tx.clone()).is_none() {
+                continue;
+            } else {
+                return None
+            }
+        };
+        Some(ret)
     }
 
     pub fn verify_short_id(
