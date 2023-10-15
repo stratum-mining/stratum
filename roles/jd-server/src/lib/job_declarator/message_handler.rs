@@ -1,5 +1,5 @@
 use std::{convert::TryInto, io::Cursor};
-use stratum_common::bitcoin::Transaction;
+use stratum_common::bitcoin::{Transaction, BlockHeader};
 
 use binary_sv2::ShortTxId;
 use roles_logic_sv2::{
@@ -7,7 +7,7 @@ use roles_logic_sv2::{
     job_declaration_sv2::{
         AllocateMiningJobToken, AllocateMiningJobTokenSuccess, DeclareMiningJob,
         DeclareMiningJobError, DeclareMiningJobSuccess, IdentifyTransactionsSuccess,
-        ProvideMissingTransactions, ProvideMissingTransactionsSuccess,
+        ProvideMissingTransactions, ProvideMissingTransactionsSuccess, SubmitSolutionJd,
     },
     mining_sv2::{SubmitSharesError, SubmitSharesExtended, SubmitSharesSuccess},
     parsers::JobDeclaration,
@@ -157,40 +157,22 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
         }
     }
 
-    fn handle_submit_shares_extended(
+    fn handle_submit_solution(
         &mut self,
-        message: SubmitSharesExtended,
+        message: SubmitSolutionJd,
     ) -> Result<SendTo, Error> {
         //TODO: implement logic for success or error
-
-        let message_success = SubmitSharesSuccess {
-            channel_id: message.channel_id,
-            last_sequence_number: 0,
-            new_submits_accepted_count: 0,
-            new_shares_sum: 0,
+        let (last_declare,tx_list,_) = self.declared_mining_job.as_ref().expect("Received solution but no job available");
+        let header = stratum_common::bitcoin::blockdata::block::BlockHeader {
+            version: last_declare.version as i32,
+            prev_blockhash: todo!(),
+            merkle_root: todo!(),
+            time: todo!(),
+            bits: todo!(),
+            nonce: todo!(),
         };
-        let _message_enum = JobDeclaration::SubmitSharesSuccess(message_success);
 
-        let message_error = SubmitSharesError {
-            channel_id: message.channel_id,
-            sequence_number: 0,
-            error_code: Vec::new().try_into().unwrap(),
-        };
-        let message_enum = JobDeclaration::SubmitSharesError(message_error);
-        Ok(SendTo::Respond(message_enum))
+        Ok(SendTo::None(None))
     }
 
-    fn handle_submit_shares_success(
-        &mut self,
-        _message: SubmitSharesSuccess,
-    ) -> Result<roles_logic_sv2::handlers::job_declaration::SendTo, Error> {
-        todo!()
-    }
-
-    fn handle_submit_shares_error(
-        &mut self,
-        _message: SubmitSharesError,
-    ) -> Result<roles_logic_sv2::handlers::job_declaration::SendTo, Error> {
-        todo!()
-    }
 }

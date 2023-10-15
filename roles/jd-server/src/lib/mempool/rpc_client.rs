@@ -201,6 +201,12 @@ fn handle_defaults<'a>(
 }
 
 #[derive(Deserialize)]
+pub struct SubmitBlock {
+    hexdata: String,
+    dummy: String,
+}
+
+#[derive(Deserialize)]
 pub struct GetMempoolEntryResultFees {
     /// Transaction fee in BTC
     //#[serde(with = "bitcoin::amount::serde::as_btc")]
