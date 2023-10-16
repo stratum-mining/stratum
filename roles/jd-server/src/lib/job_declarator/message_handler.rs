@@ -1,5 +1,5 @@
 use std::{convert::TryInto, io::Cursor};
-use stratum_common::bitcoin::{hashes::Hash, Block, Transaction, TxMerkleNode};
+use stratum_common::bitcoin::{hashes::Hash, Block, Transaction, TxMerkleNode, psbt::serialize::Deserialize};
 
 use binary_sv2::ShortTxId;
 use roles_logic_sv2::{
@@ -16,7 +16,7 @@ pub type SendTo = SendTo_<JobDeclaration<'static>, ()>;
 use roles_logic_sv2::errors::Error;
 use stratum_common::bitcoin::consensus::Decodable;
 
-use crate::lib::{job_declarator::signed_token, mempool::rpc_client::SubmitBlock};
+use crate::lib::job_declarator::signed_token;
 use stratum_common::bitcoin::consensus::encode::serialize;
 
 use super::JobDeclaratorDownstream;
@@ -180,7 +180,7 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
             .expect("Received solution but no job available");
         let coinbase_pre = last_declare.coinbase_prefix.to_vec();
         let extranonce = message.extranonce.to_vec();
-        let coinbase_suf = last_declare.coinbase_tx_outputs.to_vec();
+        let coinbase_suf = last_declare.coinbase_suffix.to_vec();
         let mut path: Vec<Vec<u8>> = vec![];
         for tx in &tx_list {
             let id = tx.txid();
@@ -191,7 +191,6 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
             merkle_root_from_path(&coinbase_pre[..], &coinbase_suf[..], &extranonce[..], &path)
                 .expect("Invalid coinbase");
         let merkle_root = Hash::from_inner(merkle_root.try_into().unwrap());
-        let merkle_root = TxMerkleNode::from_hash(merkle_root);
 
         let prev_blockhash = u256_to_block_hash(message.prev_hash.into_static());
         let header = stratum_common::bitcoin::blockdata::block::BlockHeader {
@@ -199,30 +198,29 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
             prev_blockhash,
             merkle_root,
             time: message.ntime,
-            bits: message.version,
+            bits: message.nbits,
             nonce: message.nonce,
         };
+        dbg!(header);
+        dbg!(header.block_hash());
 
         let coinbase = [coinbase_pre, extranonce, coinbase_suf].concat();
         let coinbase =
-            Transaction::consensus_decode_from_finite_reader(&mut Cursor::new(coinbase)).unwrap();
+            Transaction::deserialize(&coinbase[..]).unwrap();
         tx_list.insert(0, coinbase);
 
         let block = Block {
             header,
             txdata: tx_list,
         };
+        dbg!(block.block_hash());
 
         let serialized_block = serialize(&block);
         let hexdata = hex::encode(serialized_block);
-        let submit_block = SubmitBlock {
-            hexdata,
-            dummy: String::new(),
-        };
 
         // TODO This line blok everything!!
         self.mempool
-            .safe_lock(|x| x.get_client().submit_block(submit_block).unwrap())
+            .safe_lock(|x| x.get_client().submit_block(hexdata).unwrap())
             .unwrap();
 
         Ok(SendTo::None(None))

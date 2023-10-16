@@ -752,7 +752,7 @@ impl TryFrom<u8> for JobDeclarationTypes {
             MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS_SUCCESS => {
                 Ok(JobDeclarationTypes::IdentifyTransactionsSuccess)
             }
-            MESSAGE_TYPE_SUBMIT_SOLUTION => Ok(JobDeclarationTypes::SubmitSolution),
+            MESSAGE_TYPE_SUBMIT_SOLUTION_JD => Ok(JobDeclarationTypes::SubmitSolution),
             _ => Err(Error::UnexpectedMessage(v)),
         }
     }

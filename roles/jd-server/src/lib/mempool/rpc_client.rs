@@ -49,10 +49,10 @@ impl RpcClient {
     }
     pub fn submit_block(
         &self,
-        submit_block: SubmitBlock,
-    ) -> Result<HashMap<String, SubmitBlock>, BitcoincoreRpcError> {
+        submit_block: String,
+    ) -> Result<Option<String>, BitcoincoreRpcError> {
         self.call(
-            "submitblcok",
+            "submitblock",
             &[serde_json::to_value(submit_block).unwrap()],
         )
     }
@@ -206,12 +206,6 @@ fn handle_defaults<'a>(
     } else {
         &args[..required_num]
     }
-}
-
-#[derive(Deserialize, Serialize)]
-pub struct SubmitBlock {
-    pub hexdata: String,
-    pub dummy: String,
 }
 
 #[derive(Deserialize)]

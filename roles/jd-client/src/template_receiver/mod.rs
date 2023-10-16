@@ -285,18 +285,18 @@ impl TemplateRx {
     }
 
     async fn on_new_solution(self_: Arc<Mutex<Self>>, rx: Receiver<SubmitSolution<'static>>) {
-        if self_
-            .safe_lock(|s| s.test_only_do_not_send_solution_to_tp)
-            .unwrap()
-        {
             while let Ok(solution) = rx.recv().await {
-                let sv2_frame: StdFrame = PoolMessages::TemplateDistribution(
-                    TemplateDistribution::SubmitSolution(solution),
-                )
-                .try_into()
-                .expect("Failed to convert solution to sv2 frame!");
-                Self::send(&self_, sv2_frame).await
+                if ! self_
+                    .safe_lock(|s| s.test_only_do_not_send_solution_to_tp)
+                    .unwrap()
+                    {
+                    let sv2_frame: StdFrame = PoolMessages::TemplateDistribution(
+                        TemplateDistribution::SubmitSolution(solution),
+                    )
+                    .try_into()
+                    .expect("Failed to convert solution to sv2 frame!");
+                    Self::send(&self_, sv2_frame).await
+                    }
             }
-        }
     }
 }

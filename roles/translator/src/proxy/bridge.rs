@@ -254,7 +254,7 @@ impl Bridge {
             // We are in an extended channel this variant is group channle only
             Ok(Ok(OnNewShare::RelaySubmitShareUpstream)) => unreachable!(),
             Ok(Ok(OnNewShare::ShareMeetDownstreamTarget)) => {
-                info!("SHARE MEETS DOWNSTREAM TARGET");
+                debug!("SHARE MEETS DOWNSTREAM TARGET");
             }
             // Proxy do not have JD capabilities
             Ok(Ok(OnNewShare::ShareMeetBitcoinTarget(..))) => unreachable!(),

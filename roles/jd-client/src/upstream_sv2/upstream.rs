@@ -216,6 +216,13 @@ impl Upstream {
         set_new_prev_hash: roles_logic_sv2::template_distribution_sv2::SetNewPrevHash<'static>,
         merkle_path: Seq0255<'static, U256<'static>>,
         signed_token: binary_sv2::B0255<'static>,
+        coinbase_tx_version: u32,
+        coinbase_prefix: binary_sv2::B0255<'static>,
+        coinbase_tx_input_n_sequence: u32,
+        coinbase_tx_value_remaining: u64,
+        coinbase_tx_outputs: binary_sv2::B064K<'static>,
+        coinbase_tx_locktime: u32,
+
     ) -> ProxyResult<'static, ()> {
         info!("Sending set custom mining job");
         let request_id = self_.safe_lock(|s| s.req_ids.next()).unwrap();
@@ -229,14 +236,14 @@ impl Upstream {
             prev_hash: set_new_prev_hash.prev_hash,
             min_ntime: set_new_prev_hash.header_timestamp,
             nbits: set_new_prev_hash.n_bits,
-            coinbase_tx_version: declare_mining_job.coinbase_tx_version,
-            coinbase_prefix: declare_mining_job.coinbase_prefix,
-            coinbase_tx_input_n_sequence: declare_mining_job.coinbase_tx_input_n_sequence,
-            coinbase_tx_value_remaining: declare_mining_job.coinbase_tx_value_remaining,
-            coinbase_tx_outputs: declare_mining_job.coinbase_tx_outputs,
-            coinbase_tx_locktime: declare_mining_job.coinbase_tx_locktime,
+            coinbase_tx_version,
+            coinbase_prefix,
+            coinbase_tx_input_n_sequence,
+            coinbase_tx_value_remaining,
+            coinbase_tx_outputs,
+            coinbase_tx_locktime,
             merkle_path,
-            extranonce_size: declare_mining_job.min_extranonce_size,
+            extranonce_size: 0,
         };
         let message = PoolMessages::Mining(Mining::SetCustomMiningJob(to_send));
         let frame: StdFrame = message.try_into().unwrap();

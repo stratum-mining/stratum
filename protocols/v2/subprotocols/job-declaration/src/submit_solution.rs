@@ -15,7 +15,7 @@ pub struct SubmitSolutionJd<'decoder> {
     pub prev_hash: U256<'decoder>,
     pub ntime: u32,
     pub nonce: u32,
-    pub version: u32,
+    pub nbits: u32,
 }
 
 #[cfg(feature = "with_serde")]
@@ -27,5 +27,6 @@ impl<'d> GetSize for SubmitSolutionJd<'d> {
             + self.prev_hash.get_size()
             + self.ntime.get_size()
             + self.nonce.get_size()
+            + self.nbits.get_size()
     }
 }
