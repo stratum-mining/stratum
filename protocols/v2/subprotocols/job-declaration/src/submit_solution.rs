@@ -29,12 +29,3 @@ impl<'d> GetSize for SubmitSolutionJd<'d> {
             + self.nonce.get_size()
     }
 }
-#[cfg(feature = "with_serde")]
-impl<'d> GetSize for SubmitSolutionJd<'d> {
-    fn get_size(&self) -> usize {
-        self.extranonce.get_size()
-            + self.prev_hash.get_size()
-            + self.ntime.get_size()
-            + self.nonce.get_size()
-    }
-}

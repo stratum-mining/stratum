@@ -481,20 +481,8 @@ impl Executor {
                                         check_each_field(msg, field_data);
                                     }
                                 }
-                                Ok(roles_logic_sv2::parsers::JobDeclaration::SubmitSharesError(m)) => {
-                                    if message_type.as_str() == "SubmitSharesError" {
-                                        let msg = serde_json::to_value(m).unwrap();
-                                        check_each_field(msg, field_data);
-                                    }
-                                },
-                                Ok(roles_logic_sv2::parsers::JobDeclaration::SubmitSharesSuccess(m)) => {
-                                    if message_type.as_str() == "SubmitSharesSuccess" {
-                                        let msg = serde_json::to_value(m).unwrap();
-                                        check_each_field(msg, field_data);
-                                    }
-                                },
-                                Ok(roles_logic_sv2::parsers::JobDeclaration::SubmitSharesExtended(m)) => {
-                                    if message_type.as_str() == "SubmitSharesExtended" {
+                                Ok(roles_logic_sv2::parsers::JobDeclaration::SubmitSolution(m)) => {
+                                    if message_type.as_str() == "SubmitSolution" {
                                         let msg = serde_json::to_value(m).unwrap();
                                         check_each_field(msg, field_data);
                                     }
@@ -714,15 +702,7 @@ impl Executor {
                                     let mess = serde_json::to_value(&m).unwrap();
                                     self.save = save_message_field(mess, self.save.clone(), fields);
                                 }
-                                Ok(parsers::JobDeclaration::SubmitSharesError(m)) => {
-                                    let mess = serde_json::to_value(&m).unwrap();
-                                    self.save = save_message_field(mess, self.save.clone(), fields);
-                                }
-                                Ok(parsers::JobDeclaration::SubmitSharesSuccess(m)) => {
-                                    let mess = serde_json::to_value(&m).unwrap();
-                                    self.save = save_message_field(mess, self.save.clone(), fields);
-                                }
-                                Ok(parsers::JobDeclaration::SubmitSharesExtended(m)) => {
+                                Ok(parsers::JobDeclaration::SubmitSolution(m)) => {
                                     let mess = serde_json::to_value(&m).unwrap();
                                     self.save = save_message_field(mess, self.save.clone(), fields);
                                 }
