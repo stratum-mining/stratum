@@ -137,7 +137,7 @@ impl Display for Error {
             NoTemplateForId => write!(f, "Impossible a template for the required job id"),
             PoisonLock(e) => write!(f, "Poison lock: {}", e),
             InvalidBip34Bytes(e) => write!(f, "Invalid Bip34 bytes {:?}", e),
-            JobNotUpdated(ds_job_id, us_job_id) => write!(f, "Channel Factory did not update job: Downstream job id = {}, Upstream job id = {}", ds_job_id, us_job_id)
+            JobNotUpdated(ds_job_id, us_job_id) => write!(f, "Channel Factory did not update job: Downstream job id = {}, Upstream job id = {}", ds_job_id, us_job_id),
         }
     }
 }

@@ -12,8 +12,9 @@ use nohash_hasher::BuildNoHashHasher;
 use roles_logic_sv2::{
     common_messages_sv2::SetupConnectionSuccess,
     handlers::job_declaration::{ParseClientJobDeclarationMessages, SendTo},
+    job_declaration_sv2::DeclareMiningJob,
     parsers::PoolMessages as JdsMessages,
-    utils::{Id, Mutex}, job_declaration_sv2::DeclareMiningJob,
+    utils::{Id, Mutex},
 };
 use secp256k1::{KeyPair, Message as SecpMessage, Secp256k1};
 use std::{collections::HashMap, convert::TryInto, sync::Arc};
@@ -35,7 +36,7 @@ pub struct JobDeclaratorDownstream {
     public_key: Secp256k1PublicKey,
     private_key: Secp256k1SecretKey,
     mempool: Arc<Mutex<JDsMempool>>,
-    declared_mining_job: Option<(DeclareMiningJob<'static>, Vec<Transaction>,Vec<u16>)>,
+    declared_mining_job: Option<(DeclareMiningJob<'static>, Vec<Transaction>, Vec<u16>)>,
     tx_hash_list_hash: Option<U256<'static>>,
 }
 
@@ -100,6 +101,7 @@ impl JobDeclaratorDownstream {
                             Ok(SendTo::Respond(message)) => {
                                 Self::send(self_mutex.clone(), message).await.unwrap();
                             }
+                            Ok(SendTo::None(_)) => (),
                             Err(e) => info!("Error: {:?}", e),
                             _ => unreachable!(),
                         }

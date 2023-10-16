@@ -1,17 +1,15 @@
 pub mod hex_iterator;
 pub mod rpc_client;
-use binary_sv2::ShortTxId;
 use bitcoin::blockdata::transaction::Transaction;
 use hashbrown::HashMap;
 use roles_logic_sv2::utils::Mutex;
 use rpc_client::{Auth, GetMempoolEntryResult, RpcApi, RpcClient};
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
+use std::{convert::TryInto, sync::Arc};
 use stratum_common::{
     bitcoin,
     bitcoin::{consensus::encode::deserialize, hash_types::Txid, hashes::hex::FromHex},
 };
-use std::convert::TryInto;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Hash([u8; 32]);
@@ -36,7 +34,7 @@ pub struct JDsMempool {
 }
 
 impl JDsMempool {
-    fn get_client(&self) -> RpcClient {
+    pub fn get_client(&self) -> RpcClient {
         let url = self.url.as_str();
         RpcClient::new(url, self.auth.clone()).unwrap()
     }
@@ -83,34 +81,20 @@ impl JDsMempool {
         }
     }
 
-    pub fn to_short_ids(&self,nonce: u64) -> Option<HashMap<[u8;6],Transaction>> {
+    pub fn to_short_ids(&self, nonce: u64) -> Option<HashMap<[u8; 6], Transaction>> {
         let mut ret = HashMap::new();
         for tx in &self.mempool {
-            let s_id = roles_logic_sv2::utils::get_short_hash(tx.id, nonce).to_vec().try_into().unwrap();
-            if ret.insert(s_id,tx.tx.clone()).is_none() {
+            let s_id = roles_logic_sv2::utils::get_short_hash(tx.id, nonce)
+                .to_vec()
+                .try_into()
+                .unwrap();
+            if ret.insert(s_id, tx.tx.clone()).is_none() {
                 continue;
             } else {
-                return None
-            }
-        };
-        Some(ret)
-    }
-
-    pub fn verify_short_id(
-        &self,
-        tx_short_id: &ShortTxId<'_>,
-        nonce: u64,
-    ) -> Option<(bitcoin::Txid, bitcoin::Transaction)> {
-        let mempool: Vec<TransacrtionWithHash> = self.clone().mempool;
-        for tx_with_hash in mempool {
-            let btc_txid = tx_with_hash.id;
-            if &roles_logic_sv2::utils::get_short_hash(btc_txid, nonce) == tx_short_id {
-                return Some((btc_txid, tx_with_hash.tx));
-            } else {
-                continue;
+                return None;
             }
         }
-        None
+        Some(ret)
     }
 }
 

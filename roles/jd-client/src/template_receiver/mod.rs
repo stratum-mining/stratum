@@ -41,6 +41,7 @@ pub struct TemplateRx {
     new_template_message: Option<NewTemplate<'static>>,
     pool_chaneger_trigger: Arc<Mutex<PoolChangerTrigger>>,
     miner_coinbase_output: Vec<u8>,
+    test_only_do_not_send_solution_to_tp: bool,
 }
 
 impl TemplateRx {
@@ -55,6 +56,7 @@ impl TemplateRx {
         pool_chaneger_trigger: Arc<Mutex<PoolChangerTrigger>>,
         miner_coinbase_outputs: Vec<TxOut>,
         authority_public_key: Secp256k1PublicKey,
+        test_only_do_not_send_solution_to_tp: bool,
     ) {
         let mut encoded_outputs = vec![];
         miner_coinbase_outputs
@@ -85,6 +87,7 @@ impl TemplateRx {
             new_template_message: None,
             pool_chaneger_trigger,
             miner_coinbase_output: encoded_outputs,
+            test_only_do_not_send_solution_to_tp,
         }));
 
         let task = tokio::task::spawn(Self::on_new_solution(self_mutex.clone(), solution_receiver));
@@ -282,12 +285,18 @@ impl TemplateRx {
     }
 
     async fn on_new_solution(self_: Arc<Mutex<Self>>, rx: Receiver<SubmitSolution<'static>>) {
-        while let Ok(solution) = rx.recv().await {
-            let sv2_frame: StdFrame =
-                PoolMessages::TemplateDistribution(TemplateDistribution::SubmitSolution(solution))
-                    .try_into()
-                    .expect("Failed to convert solution to sv2 frame!");
-            Self::send(&self_, sv2_frame).await
+        if self_
+            .safe_lock(|s| s.test_only_do_not_send_solution_to_tp)
+            .unwrap()
+        {
+            while let Ok(solution) = rx.recv().await {
+                let sv2_frame: StdFrame = PoolMessages::TemplateDistribution(
+                    TemplateDistribution::SubmitSolution(solution),
+                )
+                .try_into()
+                .expect("Failed to convert solution to sv2 frame!");
+                Self::send(&self_, sv2_frame).await
+            }
         }
     }
 }

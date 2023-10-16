@@ -42,6 +42,7 @@ pub struct ProxyConfig {
     #[serde(deserialize_with = "duration_from_toml")]
     pub timeout: Duration,
     pub coinbase_outputs: Vec<CoinbaseOutput>,
+    pub test_only_do_not_send_solution_to_tp: Option<bool>,
 }
 
 #[derive(Debug, Deserialize, Clone)]

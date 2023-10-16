@@ -1,5 +1,5 @@
 use std::{convert::TryInto, io::Cursor};
-use stratum_common::bitcoin::{Transaction, BlockHeader};
+use stratum_common::bitcoin::{hashes::Hash, Block, Transaction, TxMerkleNode};
 
 use binary_sv2::ShortTxId;
 use roles_logic_sv2::{
@@ -9,14 +9,15 @@ use roles_logic_sv2::{
         DeclareMiningJobError, DeclareMiningJobSuccess, IdentifyTransactionsSuccess,
         ProvideMissingTransactions, ProvideMissingTransactionsSuccess, SubmitSolutionJd,
     },
-    mining_sv2::{SubmitSharesError, SubmitSharesExtended, SubmitSharesSuccess},
     parsers::JobDeclaration,
+    utils::{merkle_root_from_path, u256_to_block_hash},
 };
 pub type SendTo = SendTo_<JobDeclaration<'static>, ()>;
 use roles_logic_sv2::errors::Error;
 use stratum_common::bitcoin::consensus::Decodable;
 
-use crate::lib::job_declarator::signed_token;
+use crate::lib::{job_declarator::signed_token, mempool::rpc_client::SubmitBlock};
+use stratum_common::bitcoin::consensus::encode::serialize;
 
 use super::JobDeclaratorDownstream;
 
@@ -72,20 +73,28 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
                 .collect();
             let nonce = message.tx_short_hash_nonce;
             // TODO return None when we have a collision handle that case as weel
-            let short_id_mempool = self.mempool.safe_lock(|x| x.to_short_ids(nonce)).unwrap().unwrap();
+            let short_id_mempool = self
+                .mempool
+                .safe_lock(|x| x.to_short_ids(nonce))
+                .unwrap()
+                .unwrap();
             let mut txs_in_job = vec![];
             let mut missing_txs = vec![];
 
-            for (i,sid) in short_hash_list.iter().enumerate() {
-                let sid_: [u8;6] = sid.to_vec().try_into().unwrap();
+            for (i, sid) in short_hash_list.iter().enumerate() {
+                let sid_: [u8; 6] = sid.to_vec().try_into().unwrap();
                 if let Some(tx_data) = short_id_mempool.get(&sid_) {
                     txs_in_job.push(tx_data.clone());
                 } else {
                     missing_txs.push(i as u16);
                 }
             }
-            self.declared_mining_job = Some((message.clone().into_static(),txs_in_job,missing_txs.clone()));
-            
+            self.declared_mining_job = Some((
+                message.clone().into_static(),
+                txs_in_job,
+                missing_txs.clone(),
+            ));
+
             if missing_txs.is_empty() {
                 let message_success = DeclareMiningJobSuccess {
                     request_id: message.request_id,
@@ -108,7 +117,6 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
                     );
                 Ok(SendTo_::Respond(message_enum_provide_missing_transactions))
             }
-
         } else {
             let message_error = DeclareMiningJobError {
                 request_id: message.request_id,
@@ -134,10 +142,17 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
     ) -> Result<SendTo, Error> {
         match &mut self.declared_mining_job {
             Some((_, ref mut transactions, missing_indexes)) => {
-                for (i,tx) in message.transaction_list.inner_as_ref().iter().enumerate() {
+                for (i, tx) in message.transaction_list.inner_as_ref().iter().enumerate() {
                     let mut cursor = Cursor::new(tx);
-                    let tx = Transaction::consensus_decode_from_finite_reader(&mut cursor).expect("Invalid tx data from downstream");
-                    transactions.insert((*missing_indexes.get(i).expect("Invalid tx index from downstream")) as usize, tx);
+                    let tx = Transaction::consensus_decode_from_finite_reader(&mut cursor)
+                        .expect("Invalid tx data from downstream");
+                    transactions.insert(
+                        (*missing_indexes
+                            .get(i)
+                            .expect("Invalid tx index from downstream"))
+                            as usize,
+                        tx,
+                    );
                 }
                 // TODO check it
                 let tx_hash_list_hash = self.tx_hash_list_hash.clone().unwrap().into_static();
@@ -151,28 +166,65 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
                 };
                 let message_enum_success = JobDeclaration::DeclareMiningJobSuccess(message_success);
                 Ok(SendTo::Respond(message_enum_success))
-            },
+            }
             // TODO handle this case
             None => todo!(),
         }
     }
 
-    fn handle_submit_solution(
-        &mut self,
-        message: SubmitSolutionJd,
-    ) -> Result<SendTo, Error> {
+    fn handle_submit_solution(&mut self, message: SubmitSolutionJd) -> Result<SendTo, Error> {
         //TODO: implement logic for success or error
-        let (last_declare,tx_list,_) = self.declared_mining_job.as_ref().expect("Received solution but no job available");
+        let (last_declare, mut tx_list, _) = self
+            .declared_mining_job
+            .take()
+            .expect("Received solution but no job available");
+        let coinbase_pre = last_declare.coinbase_prefix.to_vec();
+        let extranonce = message.extranonce.to_vec();
+        let coinbase_suf = last_declare.coinbase_tx_outputs.to_vec();
+        let mut path: Vec<Vec<u8>> = vec![];
+        for tx in &tx_list {
+            let id = tx.txid();
+            let id = id.as_ref().to_vec();
+            path.push(id);
+        }
+        let merkle_root =
+            merkle_root_from_path(&coinbase_pre[..], &coinbase_suf[..], &extranonce[..], &path)
+                .expect("Invalid coinbase");
+        let merkle_root = Hash::from_inner(merkle_root.try_into().unwrap());
+        let merkle_root = TxMerkleNode::from_hash(merkle_root);
+
+        let prev_blockhash = u256_to_block_hash(message.prev_hash.into_static());
         let header = stratum_common::bitcoin::blockdata::block::BlockHeader {
             version: last_declare.version as i32,
-            prev_blockhash: todo!(),
-            merkle_root: todo!(),
-            time: todo!(),
-            bits: todo!(),
-            nonce: todo!(),
+            prev_blockhash,
+            merkle_root,
+            time: message.ntime,
+            bits: message.version,
+            nonce: message.nonce,
         };
+
+        let coinbase = [coinbase_pre, extranonce, coinbase_suf].concat();
+        let coinbase =
+            Transaction::consensus_decode_from_finite_reader(&mut Cursor::new(coinbase)).unwrap();
+        tx_list.insert(0, coinbase);
+
+        let block = Block {
+            header,
+            txdata: tx_list,
+        };
+
+        let serialized_block = serialize(&block);
+        let hexdata = hex::encode(serialized_block);
+        let submit_block = SubmitBlock {
+            hexdata,
+            dummy: String::new(),
+        };
+
+        // TODO This line blok everything!!
+        self.mempool
+            .safe_lock(|x| x.get_client().submit_block(submit_block).unwrap())
+            .unwrap();
 
         Ok(SendTo::None(None))
     }
-
 }

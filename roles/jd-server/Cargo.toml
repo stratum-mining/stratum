@@ -30,6 +30,5 @@ hashbrown = { version = "0.11", default-features = false, features = ["ahash", "
 key-utils = { version = "^1.0.0", path = "../../utils/key-utils" }
 secp256k1 = { version = "0.27.0", default-features = false, features =["bitcoin_hashes","alloc","rand","rand-std"] }
 siphasher = "1"
-
-[dev-dependencies]
 hex = "0.4.3"
+
