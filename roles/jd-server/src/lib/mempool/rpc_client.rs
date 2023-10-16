@@ -2,7 +2,7 @@ use crate::lib::mempool::{hex_iterator::HexIterator, Amount, BlockHash};
 use bitcoin::{blockdata::transaction::Transaction, consensus::Decodable};
 use hashbrown::hash_map::HashMap;
 use jsonrpc::{error::Error as JsonRpcError, Client as JosnRpcClient};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use stratum_common::bitcoin;
 
 #[derive(Clone, Debug)]
@@ -47,6 +47,15 @@ impl RpcClient {
             .map(|client| RpcClient { client })
             .map_err(|e| BitcoincoreRpcError::JsonRpc(e.into()))
     }
+    pub fn submit_block(
+        &self,
+        submit_block: SubmitBlock,
+    ) -> Result<HashMap<String, SubmitBlock>, BitcoincoreRpcError> {
+        self.call(
+            "submitblcok",
+            &[serde_json::to_value(submit_block).unwrap()],
+        )
+    }
 }
 
 pub trait RpcApi: Sized {
@@ -57,7 +66,6 @@ pub trait RpcApi: Sized {
         args: &[serde_json::Value],
     ) -> Result<T, BitcoincoreRpcError>;
 
-    /// Get details for the transactions in a memory pool
     fn get_raw_mempool_verbose(
         &self,
     ) -> Result<HashMap<String, GetMempoolEntryResult>, BitcoincoreRpcError> {
@@ -200,10 +208,10 @@ fn handle_defaults<'a>(
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 pub struct SubmitBlock {
-    hexdata: String,
-    dummy: String,
+    pub hexdata: String,
+    pub dummy: String,
 }
 
 #[derive(Deserialize)]

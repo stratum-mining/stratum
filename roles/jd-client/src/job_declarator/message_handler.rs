@@ -61,5 +61,4 @@ impl ParseServerJobDeclarationMessages for JobDeclarator {
             JobDeclaration::ProvideMissingTransactionsSuccess(message_provide_missing_transactions);
         Ok(SendTo::Respond(message_enum))
     }
-
 }

@@ -282,6 +282,13 @@ impl JobDeclarator {
                             error!("Job is not verified: {:?}", m);
                         }
                         Ok(SendTo::None(None)) => (),
+                        Ok(SendTo_::Respond(m)) => {
+                            let sv2_frame: StdFrame =
+                                PoolMessages::JobDeclaration(m).try_into().unwrap();
+                            let sender =
+                                self_mutex.safe_lock(|self_| self_.sender.clone()).unwrap();
+                            sender.send(sv2_frame.into()).await.unwrap();
+                        }
                         Ok(_) => unreachable!(),
                         Err(_) => todo!(),
                     }
@@ -347,7 +354,14 @@ impl JobDeclarator {
     ) {
         let solution = SubmitSolutionJd {
             extranonce: solution.extranonce,
-            prev_hash: todo!(),
+            prev_hash: self_mutex
+                .safe_lock(|s| s.last_set_new_prev_hash.clone())
+                .unwrap()
+                .expect("")
+                .prev_hash,
+            ntime: solution.ntime,
+            nonce: solution.nonce,
+            version: solution.version,
         };
         let frame: StdFrame =
             PoolMessages::JobDeclaration(JobDeclaration::SubmitSolution(solution))

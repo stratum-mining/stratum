@@ -23,6 +23,7 @@ use tracing::{debug, error, info, trace};
 use stratum_common::{
     bitcoin,
     bitcoin::{
+        hash_types,
         hashes::{hex::ToHex, sha256d::Hash, Hash as Hash_},
         TxOut,
     },
@@ -205,7 +206,7 @@ struct ChannelFactory {
     future_jobs: Vec<(NewExtendedMiningJob<'static>, Vec<u32>)>,
     // (SetNewPrevHash,group ids that already received the set prev_hash)
     last_prev_hash: Option<(StagedPhash, Vec<u32>)>,
-    last_prev_hash_: Option<bitcoin::hash_types::BlockHash>,
+    last_prev_hash_: Option<hash_types::BlockHash>,
     // (NewExtendedMiningJob,group ids that already received the job)
     last_valid_job: Option<(NewExtendedMiningJob<'static>, Vec<u32>)>,
     kind: ExtendedChannelKind,
@@ -721,7 +722,7 @@ impl ChannelFactory {
         merkle_path: Vec<TxHash>,
         coinbase_tx_prefix: &[u8],
         coinbase_tx_suffix: &[u8],
-        prev_blockhash: bitcoin::hash_types::BlockHash,
+        prev_blockhash: hash_types::BlockHash,
         bits: u32,
     ) -> Result<OnNewShare, Error> {
         debug!("Checking targert for share {:?}", m);
@@ -1088,6 +1089,7 @@ impl PoolChannelFactory {
             }
         }
     }
+
     /// Called when a `SubmitSharesExtended` message is received from the downstream. We check the shares
     /// against the channel's respective target and return `OnNewShare` to let us know if and where the shares should
     /// be relayed

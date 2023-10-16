@@ -184,9 +184,5 @@ where
         &mut self,
         message: ProvideMissingTransactionsSuccess,
     ) -> Result<SendTo, Error>;
-    fn handle_submit_solution(
-        &mut self,
-        message: SubmitSolutionJd,
-    ) -> Result<SendTo, Error>;
-
+    fn handle_submit_solution(&mut self, message: SubmitSolutionJd) -> Result<SendTo, Error>;
 }
