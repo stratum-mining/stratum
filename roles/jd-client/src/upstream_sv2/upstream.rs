@@ -221,7 +221,7 @@ impl Upstream {
         coinbase_prefix: binary_sv2::B0255<'static>,
         coinbase_tx_input_n_sequence: u32,
         coinbase_tx_value_remaining: u64,
-        coinbase_tx_outputs: binary_sv2::B064K<'static>,
+        coinbase_tx_outs: Vec<u8>,
         coinbase_tx_locktime: u32,
     ) -> ProxyResult<'static, ()> {
         info!("Sending set custom mining job");
@@ -240,7 +240,7 @@ impl Upstream {
             coinbase_prefix,
             coinbase_tx_input_n_sequence,
             coinbase_tx_value_remaining,
-            coinbase_tx_outputs,
+            coinbase_tx_outputs: coinbase_tx_outs.try_into().unwrap(),
             coinbase_tx_locktime,
             merkle_path,
             extranonce_size: 0,

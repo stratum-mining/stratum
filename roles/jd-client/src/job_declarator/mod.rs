@@ -38,10 +38,11 @@ use setup_connection::SetupConnectionHandler;
 
 use crate::{error::Error, proxy_config::ProxyConfig, upstream_sv2::Upstream};
 
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 pub struct LastDeclareJob {
     declare_job: DeclareMiningJob<'static>,
     template: NewTemplate<'static>,
+    coinbase_pool_outpust: Vec<u8>,
 }
 
 #[derive(Debug)]
@@ -54,12 +55,15 @@ pub struct JobDeclarator {
     // (Sented DeclareMiningJob, is future, template id, merkle path)
     last_declare_mining_job_sent: Vec<LastDeclareJob>,
     last_set_new_prev_hash: Option<SetNewPrevHash<'static>>,
+    #[allow(clippy::type_complexity)]
     future_jobs: HashMap<
         u64,
         (
             DeclareMiningJob<'static>,
             Seq0255<'static, U256<'static>>,
             NewTemplate<'static>,
+            // pool's outputs
+            Vec<u8>,
         ),
         BuildNoHashHasher<u64>,
     >,
@@ -192,6 +196,7 @@ impl JobDeclarator {
         token: Vec<u8>,
         tx_list: Seq064K<'static, B016M<'static>>,
         excess_data: B064K<'static>,
+        coinbase_pool_outpust: Vec<u8>,
     ) {
         let (id, _, sender) = self_mutex
             .safe_lock(|s| (s.req_ids.next(), s.min_extranonce_size, s.sender.clone()))
@@ -216,6 +221,7 @@ impl JobDeclarator {
         let last_declare = LastDeclareJob {
             declare_job: declare_job.clone(),
             template,
+            coinbase_pool_outpust,
         };
         self_mutex
             .safe_lock(|s| s.last_declare_mining_job_sent.push(last_declare))
@@ -247,6 +253,9 @@ impl JobDeclarator {
                         Ok(SendTo::None(Some(JobDeclaration::DeclareMiningJobSuccess(m)))) => {
                             let new_token = m.new_mining_job_token;
                             let last_declare = Self::get_last_declare_job_sent(&self_mutex);
+                            self_mutex
+                                .safe_lock(|s| s.last_declare_mining_job_sent.push(last_declare.clone()))
+                                .unwrap();
                             let mut last_declare_mining_job_sent = last_declare.declare_job;
                             let is_future = last_declare.template.future_template;
                             let id = last_declare.template.template_id;
@@ -262,7 +271,12 @@ impl JobDeclarator {
                                     .safe_lock(|s| {
                                         s.future_jobs.insert(
                                             id,
-                                            (last_declare_mining_job_sent, merkle_path, template),
+                                            (
+                                                last_declare_mining_job_sent,
+                                                merkle_path,
+                                                template,
+                                                last_declare.coinbase_pool_outpust,
+                                            ),
                                         );
                                     })
                                     .unwrap();
@@ -270,6 +284,9 @@ impl JobDeclarator {
                                 let set_new_prev_hash = self_mutex
                                     .safe_lock(|s| s.last_set_new_prev_hash.clone())
                                     .unwrap();
+                                let mut template_outs = template.coinbase_tx_outputs.to_vec();
+                                let mut pool_outs = last_declare.coinbase_pool_outpust;
+                                pool_outs.append(&mut template_outs);
                                 match set_new_prev_hash {
                                     Some(p) => Upstream::set_custom_jobs(
                                         &up,
@@ -281,7 +298,7 @@ impl JobDeclarator {
                                         template.coinbase_prefix,
                                         template.coinbase_tx_input_sequence,
                                         template.coinbase_tx_value_remaining,
-                                        template.coinbase_tx_outputs,
+                                        pool_outs,
                                         template.coinbase_tx_locktime,
                                         ).await.unwrap(),
                                     None => panic!("Invalid state we received a NewTemplate not future, without having received a set new prev hash")
@@ -320,14 +337,14 @@ impl JobDeclarator {
     ) {
         tokio::task::spawn(async move {
             let id = set_new_prev_hash.template_id;
-            let (job, up, merkle_path, template) = loop {
+            let (job, up, merkle_path, template, mut pool_outs) = loop {
                 if let Some(future_job_tuple) = self_mutex
                     .safe_lock(|s| {
                         s.last_set_new_prev_hash = Some(set_new_prev_hash.clone());
                         match s.future_jobs.remove(&id) {
-                            Some((job, merkle_path, template)) => {
+                            Some((job, merkle_path, template, pool_outs)) => {
                                 s.future_jobs = HashMap::with_hasher(BuildNoHashHasher::default());
-                                Some((job, s.up.clone(), merkle_path, template))
+                                Some((job, s.up.clone(), merkle_path, template, pool_outs))
                             }
                             None => None,
                         }
@@ -339,6 +356,8 @@ impl JobDeclarator {
                 tokio::task::yield_now().await;
             };
             let signed_token = job.mining_job_token.clone();
+            let mut template_outs = template.coinbase_tx_outputs.to_vec();
+            pool_outs.append(&mut template_outs);
             Upstream::set_custom_jobs(
                 &up,
                 job,
@@ -349,7 +368,7 @@ impl JobDeclarator {
                 template.coinbase_prefix,
                 template.coinbase_tx_input_sequence,
                 template.coinbase_tx_value_remaining,
-                template.coinbase_tx_outputs,
+                pool_outs,
                 template.coinbase_tx_locktime,
             )
             .await

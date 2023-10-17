@@ -253,6 +253,7 @@ impl TemplateRx {
                                     let token = last_token.unwrap();
                                     last_token = None;
                                     let mining_token = token.mining_job_token.to_vec();
+                                    let pool_coinbase_out = token.coinbase_output.to_vec();
                                     if let Some(jd) = jd.as_ref() {
                                         crate::job_declarator::JobDeclarator::on_new_template(
                                             jd,
@@ -260,6 +261,7 @@ impl TemplateRx {
                                             mining_token,
                                             transactions_data,
                                             excess_data,
+                                            pool_coinbase_out,
                                         )
                                         .await;
                                     }
