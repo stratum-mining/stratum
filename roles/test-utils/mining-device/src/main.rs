@@ -24,7 +24,7 @@ async fn main() {
     //task::spawn(async move { connect(socket, 11070).await });
     //task::spawn(async move { connect(socket, 7040).await });
     println!("start");
-    connect(socket, 0).await
+    connect(socket, 1).await
 }
 
 use async_channel::{Receiver, Sender};

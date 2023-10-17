@@ -6,10 +6,7 @@ use roles_logic_sv2::utils::Mutex;
 use rpc_client::{Auth, GetMempoolEntryResult, RpcApi, RpcClient};
 use serde::{Deserialize, Serialize};
 use std::{convert::TryInto, sync::Arc};
-use stratum_common::{
-    bitcoin,
-    bitcoin::{consensus::encode::deserialize, hash_types::Txid, hashes::hex::FromHex},
-};
+use stratum_common::{bitcoin, bitcoin::hash_types::Txid};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Hash([u8; 32]);

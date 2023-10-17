@@ -210,6 +210,7 @@ impl Upstream {
         Ok(())
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub async fn set_custom_jobs(
         self_: &Arc<Mutex<Self>>,
         declare_mining_job: DeclareMiningJob<'static>,
@@ -222,7 +223,6 @@ impl Upstream {
         coinbase_tx_value_remaining: u64,
         coinbase_tx_outputs: binary_sv2::B064K<'static>,
         coinbase_tx_locktime: u32,
-
     ) -> ProxyResult<'static, ()> {
         info!("Sending set custom mining job");
         let request_id = self_.safe_lock(|s| s.req_ids.next()).unwrap();

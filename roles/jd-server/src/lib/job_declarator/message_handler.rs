@@ -1,5 +1,5 @@
 use std::{convert::TryInto, io::Cursor};
-use stratum_common::bitcoin::{hashes::Hash, Block, Transaction, TxMerkleNode, psbt::serialize::Deserialize, Txid};
+use stratum_common::bitcoin::{hashes::Hash, psbt::serialize::Deserialize, Block, Transaction};
 
 use binary_sv2::ShortTxId;
 use roles_logic_sv2::{
@@ -10,7 +10,7 @@ use roles_logic_sv2::{
         ProvideMissingTransactions, ProvideMissingTransactionsSuccess, SubmitSolutionJd,
     },
     parsers::JobDeclaration,
-    utils::{merkle_root_from_path, u256_to_block_hash, merkle_root_from_path_, merkle_root_from_path_2},
+    utils::{merkle_root_from_path, u256_to_block_hash},
 };
 pub type SendTo = SendTo_<JobDeclaration<'static>, ()>;
 use roles_logic_sv2::errors::Error;
@@ -202,15 +202,14 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
         };
 
         let coinbase = [coinbase_pre, extranonce, coinbase_suf].concat();
-        let coinbase =
-            Transaction::deserialize(&coinbase[..]).unwrap();
+        let coinbase = Transaction::deserialize(&coinbase[..]).unwrap();
         tx_list.insert(0, coinbase);
 
         let mut block = Block {
             header,
             txdata: tx_list.clone(),
         };
-        
+
         block.header.merkle_root = block.compute_merkle_root().unwrap();
 
         let serialized_block = serialize(&block);

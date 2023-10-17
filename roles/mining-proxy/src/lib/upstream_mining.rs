@@ -792,7 +792,7 @@ impl UpstreamMiningNode {
                     Share::Standard(_) => unreachable!(),
                 },
                 OnNewShare::RelaySubmitShareUpstream => todo!(),
-                OnNewShare::ShareMeetBitcoinTarget((share, Some(template_id), coinbase,_)) => {
+                OnNewShare::ShareMeetBitcoinTarget((share, Some(template_id), coinbase, _)) => {
                     match share {
                         Share::Extended(s) => {
                             let solution = SubmitSolution {

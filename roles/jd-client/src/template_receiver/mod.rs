@@ -253,13 +253,11 @@ impl TemplateRx {
                                     let token = last_token.unwrap();
                                     last_token = None;
                                     let mining_token = token.mining_job_token.to_vec();
-                                    let pool_output = token.coinbase_output.to_vec();
                                     if let Some(jd) = jd.as_ref() {
                                         crate::job_declarator::JobDeclarator::on_new_template(
                                             jd,
                                             m.clone(),
                                             mining_token,
-                                            pool_output.clone(),
                                             transactions_data,
                                             excess_data,
                                         )
@@ -285,18 +283,18 @@ impl TemplateRx {
     }
 
     async fn on_new_solution(self_: Arc<Mutex<Self>>, rx: Receiver<SubmitSolution<'static>>) {
-            while let Ok(solution) = rx.recv().await {
-                if ! self_
-                    .safe_lock(|s| s.test_only_do_not_send_solution_to_tp)
-                    .unwrap()
-                    {
-                    let sv2_frame: StdFrame = PoolMessages::TemplateDistribution(
-                        TemplateDistribution::SubmitSolution(solution),
-                    )
-                    .try_into()
-                    .expect("Failed to convert solution to sv2 frame!");
-                    Self::send(&self_, sv2_frame).await
-                    }
+        while let Ok(solution) = rx.recv().await {
+            if !self_
+                .safe_lock(|s| s.test_only_do_not_send_solution_to_tp)
+                .unwrap()
+            {
+                let sv2_frame: StdFrame = PoolMessages::TemplateDistribution(
+                    TemplateDistribution::SubmitSolution(solution),
+                )
+                .try_into()
+                .expect("Failed to convert solution to sv2 frame!");
+                Self::send(&self_, sv2_frame).await
             }
+        }
     }
 }

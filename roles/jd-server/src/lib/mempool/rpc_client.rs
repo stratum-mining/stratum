@@ -2,7 +2,7 @@ use crate::lib::mempool::{hex_iterator::HexIterator, Amount, BlockHash};
 use bitcoin::{blockdata::transaction::Transaction, consensus::Decodable};
 use hashbrown::hash_map::HashMap;
 use jsonrpc::{error::Error as JsonRpcError, Client as JosnRpcClient};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use stratum_common::bitcoin;
 
 #[derive(Clone, Debug)]

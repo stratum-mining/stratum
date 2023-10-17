@@ -16,7 +16,7 @@ use stratum_common::{
         hashes::{sha256, sha256d::Hash as DHash, Hash},
         secp256k1::{All, Secp256k1},
         util::{base58, psbt::serialize::Deserialize, uint::Uint256},
-        PublicKey, Script, Transaction, Txid,
+        PublicKey, Script, Transaction,
     },
 };
 use tracing::error;
@@ -164,13 +164,6 @@ pub fn merkle_root_from_path_<T: AsRef<[u8]>>(coinbase_id: [u8; 32], path: &[T])
         _ => reduce_path(coinbase_id, path),
     }
 }
-pub fn merkle_root_from_path_2(coinbase_id: Txid, path: &[Txid]) -> [u8; 32] {
-    match path.len() {
-        0 => coinbase_id.as_ref().to_vec().try_into().unwrap(),
-        _ => reduce_path(coinbase_id.to_vec().try_into().unwrap(), path),
-    }
-}
-
 // TODO remove when we have https://github.com/rust-bitcoin/rust-bitcoin/issues/1319
 fn reduce_path<T: AsRef<[u8]>>(coinbase_id: [u8; 32], path: &[T]) -> [u8; 32] {
     let mut root = coinbase_id;

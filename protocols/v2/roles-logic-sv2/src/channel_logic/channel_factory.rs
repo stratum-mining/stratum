@@ -66,7 +66,7 @@ pub enum OnNewShare {
     /// When a pool negotiate a job with downstream we do not have the template_id so we set it to
     /// None
     /// (share, template id, coinbase,complete extranonce)
-    ShareMeetBitcoinTarget((Share, Option<u64>, Vec<u8>,Vec<u8>)),
+    ShareMeetBitcoinTarget((Share, Option<u64>, Vec<u8>, Vec<u8>)),
     /// Indicate that the share meet downstream target, in the case we could send a success
     /// response dowmstream.
     ShareMeetDownstreamTarget,
@@ -93,7 +93,7 @@ impl OnNewShare {
                 }
             },
             OnNewShare::RelaySubmitShareUpstream => (),
-            OnNewShare::ShareMeetBitcoinTarget((share, t_id, coinbase,ext)) => match share {
+            OnNewShare::ShareMeetBitcoinTarget((share, t_id, coinbase, ext)) => match share {
                 Share::Extended(_) => (),
                 Share::Standard((share, _)) => {
                     let share = SubmitSharesExtended {
@@ -814,7 +814,12 @@ impl ChannelFactory {
                 ExtendedChannelKind::Proxy { .. } | ExtendedChannelKind::ProxyJd { .. } => {
                     let upstream_extranonce_space = self.extranonces.get_range0_len();
                     let extranonce_ = extranonce[upstream_extranonce_space..].to_vec();
-                    let mut res = OnNewShare::ShareMeetBitcoinTarget((m, template_id, coinbase,extranonce.to_vec()));
+                    let mut res = OnNewShare::ShareMeetBitcoinTarget((
+                        m,
+                        template_id,
+                        coinbase,
+                        extranonce.to_vec(),
+                    ));
                     res.into_extended(extranonce_, up_id);
                     Ok(res)
                 }

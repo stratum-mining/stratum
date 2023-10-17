@@ -372,9 +372,11 @@ impl DownstreamMiningNode {
         for message in to_send {
             let message = if let Mining::NewExtendedMiningJob(job) = message {
                 let jd = self_mutex.safe_lock(|s| s.jd.clone()).unwrap().unwrap();
-                jd.safe_lock(|jd| jd.coinbase_tx_prefix = job.coinbase_tx_prefix.clone()).unwrap();
-                jd.safe_lock(|jd| jd.coinbase_tx_suffix = job.coinbase_tx_suffix.clone()).unwrap();
-                
+                jd.safe_lock(|jd| jd.coinbase_tx_prefix = job.coinbase_tx_prefix.clone())
+                    .unwrap();
+                jd.safe_lock(|jd| jd.coinbase_tx_suffix = job.coinbase_tx_suffix.clone())
+                    .unwrap();
+
                 Mining::NewExtendedMiningJob(extended_job_to_non_segwit(job, 32)?)
             } else {
                 message
@@ -557,7 +559,12 @@ impl
                 }
             }
             OnNewShare::RelaySubmitShareUpstream => unreachable!(),
-            OnNewShare::ShareMeetBitcoinTarget((share, Some(template_id), coinbase,extranonce)) => {
+            OnNewShare::ShareMeetBitcoinTarget((
+                share,
+                Some(template_id),
+                coinbase,
+                extranonce,
+            )) => {
                 match share {
                     Share::Extended(share) => {
                         let solution_sender = self.solution_sender.clone();
@@ -583,7 +590,6 @@ impl
 
                         // Safe unwrap alreay checked if it cointains upstream with is_solo_miner
                         if !self.withhold && !self.status.is_solo_miner() {
-
                             self.last_template_id = template_id;
                             let for_upstream = Mining::SubmitSharesExtended(share);
                             Ok(SendTo::RelayNewMessage(for_upstream))
