@@ -57,8 +57,7 @@ impl JDsMempool {
                     client.get_raw_mempool_verbose().unwrap();
                 for id in mempool.keys() {
                     let tx: Transaction = client.get_raw_transaction(id, None).unwrap();
-                    let id = Vec::from_hex(id).expect("Invalid hex string");
-                    let id: Txid = deserialize(&id).expect("Failed to deserialize txid");
+                    let id = tx.txid();
                     mempool_ordered.push(TransacrtionWithHash { id, tx });
                 }
                 if mempool_ordered.is_empty() {

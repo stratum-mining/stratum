@@ -779,8 +779,6 @@ impl ChannelFactory {
             bits,
             nonce: m.get_nonce(),
         };
-        dbg!(header);
-        dbg!(header.block_hash());
 
         trace!("On checking target header is: {:?}", header);
         let hash_ = header.block_hash();

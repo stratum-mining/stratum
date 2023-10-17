@@ -16,7 +16,7 @@ use stratum_common::{
         hashes::{sha256, sha256d::Hash as DHash, Hash},
         secp256k1::{All, Secp256k1},
         util::{base58, psbt::serialize::Deserialize, uint::Uint256},
-        PublicKey, Script, Transaction,
+        PublicKey, Script, Transaction, Txid,
     },
 };
 use tracing::error;
@@ -162,6 +162,12 @@ pub fn merkle_root_from_path_<T: AsRef<[u8]>>(coinbase_id: [u8; 32], path: &[T])
     match path.len() {
         0 => coinbase_id,
         _ => reduce_path(coinbase_id, path),
+    }
+}
+pub fn merkle_root_from_path_2(coinbase_id: Txid, path: &[Txid]) -> [u8; 32] {
+    match path.len() {
+        0 => coinbase_id.as_ref().to_vec().try_into().unwrap(),
+        _ => reduce_path(coinbase_id.to_vec().try_into().unwrap(), path),
     }
 }
 
@@ -670,9 +676,9 @@ pub fn hash_lists_tuple(
     tx_short_hash_nonce: u64,
 ) -> (Seq064K<'static, ShortTxId<'static>>, U256<'static>) {
     let mut txid_list: Vec<bitcoin::Txid> = Vec::new();
-    // get every transaction, hash it, remove first two bytes and push the ShortTxId in a vector
     for tx in tx_data.to_vec() {
-        let txid = Transaction::txid(&(Transaction::deserialize(&tx).unwrap()));
+        //TODO remove unwrap
+        let txid = Transaction::deserialize(&tx).unwrap().txid();
         txid_list.push(txid);
     }
     let mut tx_short_hash_list_: Vec<ShortTxId> = Vec::new();
