@@ -174,11 +174,11 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
 
     fn handle_submit_solution(&mut self, message: SubmitSolutionJd) -> Result<SendTo, Error> {
         //TODO: implement logic for success or error
-        let (last_declare, mut tx_list, _) = match self .declared_mining_job.take() {
+        let (last_declare, mut tx_list, _) = match self.declared_mining_job.take() {
             Some((last_declare, tx_list, _x)) => (last_declare, tx_list, _x),
             None => {
                 warn!("Received solution but no job available");
-                return Ok(SendTo::None(None))
+                return Ok(SendTo::None(None));
             }
         };
         let coinbase_pre = last_declare.coinbase_prefix.to_vec();

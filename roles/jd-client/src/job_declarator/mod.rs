@@ -38,7 +38,7 @@ use setup_connection::SetupConnectionHandler;
 
 use crate::{error::Error, proxy_config::ProxyConfig, upstream_sv2::Upstream};
 
-#[derive(Debug,Clone)]
+#[derive(Debug, Clone)]
 pub struct LastDeclareJob {
     declare_job: DeclareMiningJob<'static>,
     template: NewTemplate<'static>,
@@ -128,12 +128,18 @@ impl JobDeclarator {
 
     fn get_last_declare_job_sent(self_mutex: &Arc<Mutex<Self>>) -> LastDeclareJob {
         self_mutex
-            .safe_lock(|s| s.last_declare_mining_job_sent.clone().expect("unreachable code")).unwrap()
+            .safe_lock(|s| {
+                s.last_declare_mining_job_sent
+                    .clone()
+                    .expect("unreachable code")
+            })
+            .unwrap()
     }
 
     fn update_last_declare_job_sent(self_mutex: &Arc<Mutex<Self>>, j: LastDeclareJob) {
         self_mutex
-            .safe_lock(|s| s.last_declare_mining_job_sent = Some(j)).unwrap()
+            .safe_lock(|s| s.last_declare_mining_job_sent = Some(j))
+            .unwrap()
     }
 
     #[async_recursion]

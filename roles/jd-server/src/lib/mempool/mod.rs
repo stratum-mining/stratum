@@ -3,7 +3,7 @@ pub mod rpc_client;
 use bitcoin::blockdata::transaction::Transaction;
 use hashbrown::HashMap;
 use roles_logic_sv2::utils::Mutex;
-use rpc_client::{Auth, GetMempoolEntryResult, RpcApi, RpcClient};
+use rpc_client::{Auth, RpcApi, RpcClient};
 use serde::{Deserialize, Serialize};
 use std::{convert::TryInto, sync::Arc};
 use stratum_common::{bitcoin, bitcoin::hash_types::Txid};
@@ -50,9 +50,8 @@ impl JDsMempool {
         let client = self_.safe_lock(|x| x.get_client()).unwrap();
         let new_mempool: Result<Vec<TransacrtionWithHash>, JdsMempoolError> =
             tokio::task::spawn(async move {
-                let mempool: HashMap<String, GetMempoolEntryResult> =
-                    client.get_raw_mempool_verbose().unwrap();
-                for id in mempool.keys() {
+                let mempool: Vec<String> = client.get_raw_mempool_verbose().unwrap();
+                for id in &mempool {
                     let tx: Transaction = client.get_raw_transaction(id, None).unwrap();
                     let id = tx.txid();
                     mempool_ordered.push(TransacrtionWithHash { id, tx });

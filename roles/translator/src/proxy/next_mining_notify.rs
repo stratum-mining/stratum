@@ -1,5 +1,7 @@
-use roles_logic_sv2::mining_sv2::{NewExtendedMiningJob, SetNewPrevHash};
-use roles_logic_sv2::job_creator::extended_job_to_non_segwit;
+use roles_logic_sv2::{
+    job_creator::extended_job_to_non_segwit,
+    mining_sv2::{NewExtendedMiningJob, SetNewPrevHash},
+};
 use tracing::debug;
 use v1::{
     server_to_client,
@@ -14,7 +16,8 @@ pub fn create_notify(
     new_job: NewExtendedMiningJob<'static>,
 ) -> server_to_client::Notify<'static> {
     // TODO 32 must be changed!
-    let new_job = extended_job_to_non_segwit(new_job,32).expect("failed to convert extended job to non segwit");
+    let new_job = extended_job_to_non_segwit(new_job, 32)
+        .expect("failed to convert extended job to non segwit");
     // Make sure that SetNewPrevHash + NewExtendedMiningJob is matching (not future)
     let job_id = new_job.job_id.to_string();
 

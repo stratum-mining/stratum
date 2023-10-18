@@ -13,8 +13,8 @@ min_supported_version = 2
 min_extranonce2_size = 8
 
 # Withhold
-withhold = false
-test_only_do_not_send_solution_to_tp = false
+withhold = true
+test_only_do_not_send_solution_to_tp = true
 
 # Auth keys for open encrypted connection downstream
 authority_public_key = "3VANfft6ei6jQq1At7d8nmiZzVhBFS4CiQujdgim1ign"
