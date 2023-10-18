@@ -8,6 +8,9 @@ pub const SV2_FRAME_HEADER_LEN_OFFSET: usize = 3;
 pub const SV2_FRAME_HEADER_LEN_END: usize = 3;
 pub const SV2_FRAME_CHUNK_SIZE: usize = 65519;
 
+// For now only CHACHA and AES are supported both have a MAC of 16 bytes
+pub const AEAD_MAC_LEN: usize = 16;
+
 pub const ENCRYPTED_SV2_FRAME_HEADER_SIZE: usize = SV2_FRAME_HEADER_SIZE + AEAD_MAC_LEN;
 pub const NOISE_FRAME_HEADER_SIZE: usize = 2;
 pub const NOISE_FRAME_HEADER_LEN_OFFSET: usize = 0;
@@ -24,9 +27,6 @@ pub const NOISE_HASHED_PROTOCOL_NAME_CHACHA: [u8; 32] = [
 // len = 1
 // 47,53,45,41 = AESG
 pub const NOISE_SUPPORTED_CIPHERS_MESSAGE: [u8; 5] = [1, 0x47, 0x53, 0x45, 0x41];
-
-// For now only CHACHA and AES are supported both have a MAC of 16 bytes
-pub const AEAD_MAC_LEN: usize = 16;
 
 pub const SV2_MINING_PROTOCOL_DISCRIMINANT: u8 = 0;
 pub const SV2_JOB_NEG_PROTOCOL_DISCRIMINANT: u8 = 1;
