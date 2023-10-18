@@ -1,0 +1,15 @@
+# This is a config file for the pool that connects to a mocked Template Provider at 127.0.0.1
+listen_address = "127.0.0.1:34254"
+tp_address = "127.0.0.1:44254"
+listen_jd_address = "127.0.0.1:34264"
+authority_public_key = "3VANfft6ei6jQq1At7d8nmiZzVhBFS4CiQujdgim1ign"
+authority_secret_key = "7qbpUjScc865jyX2kiB4NVJANoC7GA7TAJupdzXWkc62"
+cert_validity_sec = 3600
+test_only_listen_adress_plain =  "0.0.0.0:34250"
+# list of coinbase outputs used to build the coinbase tx
+# ! right now only one output is supported, so comment all the ones you don't need !
+coinbase_outputs = [
+    { output_script_type = "P2WPKH", output_script_value = "vpub5XzEwP9YWe4cKKZAmbiBUxC7eL5HaZhbquBYzP3vDSDJJegb7CSCRphAPmwpGHzAyH1as9MRnXFWDcZozXA1K3sQqyKdTagooPfCVDhiwnr" },
+]
+# Pool signature (string to be included in coinbase tx)
+pool_signature = "Stratum v2 SRI Pool"
