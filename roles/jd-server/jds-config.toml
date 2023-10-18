@@ -16,7 +16,7 @@ coinbase_outputs = [
 listen_jd_address = "127.0.0.1:34264"
 
 core_rpc_url =  "http://127.0.0.1"
-#core_rpc_port = 18443
-core_rpc_port = 18332
+core_rpc_port = 18443
+#core_rpc_port = 18332
 core_rpc_user =  "username"
 core_rpc_pass =  "password"

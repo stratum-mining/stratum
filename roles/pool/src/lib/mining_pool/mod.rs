@@ -13,7 +13,7 @@ use roles_logic_sv2::{
     common_properties::{CommonDownstreamData, IsDownstream, IsMiningDownstream},
     errors::Error,
     handlers::mining::{ParseDownstreamMiningMessages, SendTo},
-    job_creator::{extended_job_to_non_segwit, JobsCreators},
+    job_creator::JobsCreators,
     mining_sv2::{ExtendedExtranonce, SetNewPrevHash as SetNPH},
     parsers::{Mining, PoolMessages},
     routing_logic::MiningRoutingLogic,
@@ -193,11 +193,11 @@ impl Downstream {
         self_mutex: Arc<Mutex<Self>>,
         message: roles_logic_sv2::parsers::Mining<'static>,
     ) -> PoolResult<()> {
-        let message = if let Mining::NewExtendedMiningJob(job) = message {
-            Mining::NewExtendedMiningJob(extended_job_to_non_segwit(job, 32)?)
-        } else {
-            message
-        };
+        //let message = if let Mining::NewExtendedMiningJob(job) = message {
+        //    Mining::NewExtendedMiningJob(extended_job_to_non_segwit(job, 32)?)
+        //} else {
+        //    message
+        //};
         let sv2_frame: StdFrame = PoolMessages::Mining(message).try_into()?;
         let sender = self_mutex.safe_lock(|self_| self_.sender.clone())?;
         sender.send(sv2_frame.into()).await?;

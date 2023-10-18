@@ -14,7 +14,7 @@ use roles_logic_sv2::{
         common::{ParseDownstreamCommonMessages, SendTo as SendToCommon},
         mining::{ParseDownstreamMiningMessages, SendTo, SupportedChannelTypes},
     },
-    job_creator::{extended_job_to_non_segwit, JobsCreators},
+    job_creator::JobsCreators,
     mining_sv2::*,
     parsers::{Mining, MiningDeviceMessages, PoolMessages},
     template_distribution_sv2::{NewTemplate, SubmitSolution},
@@ -377,7 +377,7 @@ impl DownstreamMiningNode {
                 jd.safe_lock(|jd| jd.coinbase_tx_suffix = job.coinbase_tx_suffix.clone())
                     .unwrap();
 
-                Mining::NewExtendedMiningJob(extended_job_to_non_segwit(job, 32)?)
+                Mining::NewExtendedMiningJob(job)
             } else {
                 message
             };
