@@ -15,6 +15,7 @@ use roles_logic_sv2::{
 pub type SendTo = SendTo_<JobDeclaration<'static>, ()>;
 use roles_logic_sv2::errors::Error;
 use stratum_common::bitcoin::consensus::Decodable;
+use tracing::warn;
 
 use crate::lib::job_declarator::signed_token;
 use stratum_common::bitcoin::consensus::encode::serialize;
@@ -173,10 +174,13 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
 
     fn handle_submit_solution(&mut self, message: SubmitSolutionJd) -> Result<SendTo, Error> {
         //TODO: implement logic for success or error
-        let (last_declare, mut tx_list, _) = self
-            .declared_mining_job
-            .take()
-            .expect("Received solution but no job available");
+        let (last_declare, mut tx_list, _) = match self .declared_mining_job.take() {
+            Some((last_declare, tx_list, _x)) => (last_declare, tx_list, _x),
+            None => {
+                warn!("Received solution but no job available");
+                return Ok(SendTo::None(None))
+            }
+        };
         let coinbase_pre = last_declare.coinbase_prefix.to_vec();
         let extranonce = message.extranonce.to_vec();
         let coinbase_suf = last_declare.coinbase_suffix.to_vec();
