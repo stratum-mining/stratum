@@ -53,7 +53,7 @@ pub struct JobDeclarator {
     req_ids: Id,
     min_extranonce_size: u16,
     // (Sented DeclareMiningJob, is future, template id, merkle path)
-    last_declare_mining_job_sent: Vec<LastDeclareJob>,
+    last_declare_mining_job_sent: Option<LastDeclareJob>,
     last_set_new_prev_hash: Option<SetNewPrevHash<'static>>,
     #[allow(clippy::type_complexity)]
     future_jobs: HashMap<
@@ -112,7 +112,7 @@ impl JobDeclarator {
             allocated_tokens: vec![],
             req_ids: Id::new(),
             min_extranonce_size,
-            last_declare_mining_job_sent: vec![],
+            last_declare_mining_job_sent: None,
             last_set_new_prev_hash: None,
             future_jobs: HashMap::with_hasher(BuildNoHashHasher::default()),
             up,
@@ -126,13 +126,14 @@ impl JobDeclarator {
         Ok(self_)
     }
 
-    pub fn get_last_declare_job_sent(self_mutex: &Arc<Mutex<Self>>) -> LastDeclareJob {
+    fn get_last_declare_job_sent(self_mutex: &Arc<Mutex<Self>>) -> LastDeclareJob {
         self_mutex
-            .safe_lock(|s| match s.last_declare_mining_job_sent.len() {
-                1 => s.last_declare_mining_job_sent.pop().unwrap(),
-                _ => unreachable!(),
-            })
-            .unwrap()
+            .safe_lock(|s| s.last_declare_mining_job_sent.clone().expect("unreachable code")).unwrap()
+    }
+
+    fn update_last_declare_job_sent(self_mutex: &Arc<Mutex<Self>>, j: LastDeclareJob) {
+        self_mutex
+            .safe_lock(|s| s.last_declare_mining_job_sent = Some(j)).unwrap()
     }
 
     #[async_recursion]
@@ -223,9 +224,7 @@ impl JobDeclarator {
             template,
             coinbase_pool_outpust,
         };
-        self_mutex
-            .safe_lock(|s| s.last_declare_mining_job_sent.push(last_declare))
-            .unwrap();
+        Self::update_last_declare_job_sent(self_mutex, last_declare);
         let frame: StdFrame =
             PoolMessages::JobDeclaration(JobDeclaration::DeclareMiningJob(declare_job))
                 .try_into()
@@ -253,9 +252,6 @@ impl JobDeclarator {
                         Ok(SendTo::None(Some(JobDeclaration::DeclareMiningJobSuccess(m)))) => {
                             let new_token = m.new_mining_job_token;
                             let last_declare = Self::get_last_declare_job_sent(&self_mutex);
-                            self_mutex
-                                .safe_lock(|s| s.last_declare_mining_job_sent.push(last_declare.clone()))
-                                .unwrap();
                             let mut last_declare_mining_job_sent = last_declare.declare_job;
                             let is_future = last_declare.template.future_template;
                             let id = last_declare.template.template_id;
