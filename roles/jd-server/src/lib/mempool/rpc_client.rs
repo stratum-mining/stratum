@@ -68,9 +68,10 @@ pub trait RpcApi: Sized {
                 "getrawtransaction",
                 handle_defaults(&mut args, &[serde_json::Value::Null]),
             )
-            .unwrap();
-        let mut reader = HexIterator::new(&hex).unwrap();
-        let object = Decodable::consensus_decode(&mut reader).unwrap();
+            .map_err(|_| JsonRpcError::EmptyBatch)?;
+        let mut reader =
+            HexIterator::new(&hex).unwrap_or_else(|_| panic!("Can not decode hex  {}", hex));
+        let object = Decodable::consensus_decode(&mut reader).expect("Can not decode transaction");
         Ok(object)
     }
 }
