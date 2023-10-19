@@ -14,13 +14,10 @@ pub struct DeclareMiningJob<'decoder> {
     #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub mining_job_token: B0255<'decoder>,
     pub version: u32,
-    pub coinbase_tx_version: u32,
-    pub coinbase_prefix: B0255<'decoder>,
-    pub coinbase_tx_input_n_sequence: u32,
-    pub coinbase_tx_value_remaining: u64,
-    pub coinbase_tx_outputs: B064K<'decoder>,
-    pub coinbase_tx_locktime: u32,
-    pub min_extranonce_size: u16,
+    #[cfg_attr(feature = "with_serde", serde(borrow))]
+    pub coinbase_prefix: B064K<'decoder>,
+    #[cfg_attr(feature = "with_serde", serde(borrow))]
+    pub coinbase_suffix: B064K<'decoder>,
     pub tx_short_hash_nonce: u64,
     #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub tx_short_hash_list: Seq064K<'decoder, ShortTxId<'decoder>>,
@@ -58,13 +55,8 @@ impl<'d> GetSize for DeclareMiningJob<'d> {
         self.request_id.get_size()
             + self.mining_job_token.get_size()
             + self.version.get_size()
-            + self.coinbase_tx_version.get_size()
             + self.coinbase_prefix.get_size()
-            + self.coinbase_tx_input_n_sequence.get_size()
-            + self.coinbase_tx_value_remaining.get_size()
-            + self.coinbase_tx_outputs.get_size()
-            + self.coinbase_tx_locktime.get_size()
-            + self.min_extranonce_size.get_size()
+            + self.coinbase_suffix.get_size()
             + self.tx_short_hash_nonce.get_size()
             + self.tx_short_hash_list.get_size()
             + self.tx_hash_list_hash.get_size()

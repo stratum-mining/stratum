@@ -292,13 +292,8 @@ pub fn into_static<'a>(m: AnyMessage<'a>) -> AnyMessage<'static> {
                     request_id: m.request_id,
                     mining_job_token: m.mining_job_token.into_static(),
                     version: m.version,
-                    coinbase_tx_version: m.coinbase_tx_version,
                     coinbase_prefix: m.coinbase_prefix.into_static(),
-                    coinbase_tx_input_n_sequence: m.coinbase_tx_input_n_sequence,
-                    coinbase_tx_value_remaining: m.coinbase_tx_value_remaining,
-                    coinbase_tx_outputs: m.coinbase_tx_outputs.into_static(),
-                    coinbase_tx_locktime: m.coinbase_tx_locktime,
-                    min_extranonce_size: m.min_extranonce_size,
+                    coinbase_suffix: m.coinbase_suffix.into_static(),
                     tx_short_hash_nonce: m.tx_short_hash_nonce,
                     tx_short_hash_list: m.tx_short_hash_list.into_static(),
                     tx_hash_list_hash: m.tx_hash_list_hash.into_static(),
@@ -352,34 +347,8 @@ pub fn into_static<'a>(m: AnyMessage<'a>) -> AnyMessage<'static> {
                     parsers::JobDeclaration::ProvideMissingTransactionsSuccess(m),
                 )
             }
-            parsers::JobDeclaration::SubmitSharesError(m) => {
-                let m = SubmitSharesError {
-                    channel_id: m.channel_id,
-                    sequence_number: m.sequence_number,
-                    error_code: m.error_code.into_static(),
-                };
-                PoolMessages::JobDeclaration(parsers::JobDeclaration::SubmitSharesError(m))
-            }
-            parsers::JobDeclaration::SubmitSharesExtended(m) => {
-                let m = SubmitSharesExtended {
-                    channel_id: m.channel_id,
-                    sequence_number: m.sequence_number,
-                    job_id: m.job_id,
-                    nonce: m.nonce,
-                    ntime: m.ntime,
-                    version: m.version,
-                    extranonce: m.extranonce.into_static(),
-                };
-                PoolMessages::JobDeclaration(parsers::JobDeclaration::SubmitSharesExtended(m))
-            }
-            parsers::JobDeclaration::SubmitSharesSuccess(m) => {
-                let m = SubmitSharesSuccess {
-                    channel_id: m.channel_id,
-                    last_sequence_number: m.last_sequence_number,
-                    new_submits_accepted_count: m.new_submits_accepted_count,
-                    new_shares_sum: m.new_shares_sum,
-                };
-                PoolMessages::JobDeclaration(parsers::JobDeclaration::SubmitSharesSuccess(m))
+            parsers::JobDeclaration::SubmitSolution(m) => {
+                todo!()
             }
         },
         PoolMessages::TemplateDistribution(m) => match m {

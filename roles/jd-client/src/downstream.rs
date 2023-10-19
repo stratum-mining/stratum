@@ -14,7 +14,7 @@ use roles_logic_sv2::{
         common::{ParseDownstreamCommonMessages, SendTo as SendToCommon},
         mining::{ParseDownstreamMiningMessages, SendTo, SupportedChannelTypes},
     },
-    job_creator::{extended_job_to_non_segwit, JobsCreators},
+    job_creator::JobsCreators,
     mining_sv2::*,
     parsers::{Mining, MiningDeviceMessages, PoolMessages},
     template_distribution_sv2::{NewTemplate, SubmitSolution},
@@ -371,7 +371,13 @@ impl DownstreamMiningNode {
         let to_send = to_send.into_values();
         for message in to_send {
             let message = if let Mining::NewExtendedMiningJob(job) = message {
-                Mining::NewExtendedMiningJob(extended_job_to_non_segwit(job, 32)?)
+                let jd = self_mutex.safe_lock(|s| s.jd.clone()).unwrap().unwrap();
+                jd.safe_lock(|jd| jd.coinbase_tx_prefix = job.coinbase_tx_prefix.clone())
+                    .unwrap();
+                jd.safe_lock(|jd| jd.coinbase_tx_suffix = job.coinbase_tx_suffix.clone())
+                    .unwrap();
+
+                Mining::NewExtendedMiningJob(job)
             } else {
                 message
             };
@@ -553,7 +559,12 @@ impl
                 }
             }
             OnNewShare::RelaySubmitShareUpstream => unreachable!(),
-            OnNewShare::ShareMeetBitcoinTarget((share, Some(template_id), coinbase)) => {
+            OnNewShare::ShareMeetBitcoinTarget((
+                share,
+                Some(template_id),
+                coinbase,
+                extranonce,
+            )) => {
                 match share {
                     Share::Extended(share) => {
                         let solution_sender = self.solution_sender.clone();
@@ -566,17 +577,19 @@ impl
                         };
                         // The below channel should never be full is ok to block
                         solution_sender.send_blocking(solution).unwrap();
-
-                        // Safe unwrap alreay checked if it cointains upstream with is_solo_miner
-                        if !self.withhold && !self.status.is_solo_miner() {
+                        if !self.status.is_solo_miner() {
                             {
                                 let jd = self.jd.clone();
-                                let share = share.clone();
+                                let mut share = share.clone();
+                                share.extranonce = extranonce.try_into().unwrap();
                                 tokio::task::spawn(async move {
                                     JobDeclarator::on_solution(&jd.unwrap(), share).await
                                 });
                             }
+                        }
 
+                        // Safe unwrap alreay checked if it cointains upstream with is_solo_miner
+                        if !self.withhold && !self.status.is_solo_miner() {
                             self.last_template_id = template_id;
                             let for_upstream = Mining::SubmitSharesExtended(share);
                             Ok(SendTo::RelayNewMessage(for_upstream))

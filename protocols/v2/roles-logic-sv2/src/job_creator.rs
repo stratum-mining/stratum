@@ -164,6 +164,7 @@ pub fn extended_job_from_custom_job(
         extranonce_len,
     )
 }
+
 /// returns an extended job given the provided template from the Template Provider and other
 /// Pool role related fields.
 ///

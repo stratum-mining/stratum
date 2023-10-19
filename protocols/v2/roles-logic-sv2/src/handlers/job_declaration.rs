@@ -5,7 +5,6 @@ use super::SendTo_;
 use crate::errors::Error;
 use core::convert::TryInto;
 use job_declaration_sv2::*;
-use mining_sv2::{SubmitSharesError, SubmitSharesExtended, SubmitSharesSuccess};
 use tracing::{debug, error, info, trace};
 
 /// A trait implemented by a downstream to handle SV2 job declaration messages.
@@ -71,25 +70,6 @@ where
                     .safe_lock(|x| x.handle_provide_missing_transactions(message))
                     .map_err(|e| crate::Error::PoisonLock(e.to_string()))?
             }
-            Ok(JobDeclaration::SubmitSharesSuccess(message)) => {
-                info!("Received SubmitSharesSuccess");
-                debug!("SubmitSharesSuccess: {:?}", message);
-                self_
-                    .safe_lock(|x| x.handle_submit_shares_success(message))
-                    .map_err(|e| crate::Error::PoisonLock(e.to_string()))?
-            }
-            Ok(JobDeclaration::SubmitSharesError(message)) => {
-                error!(
-                    "Received SubmitSharesError, error code: {}",
-                    std::str::from_utf8(message.error_code.as_ref())
-                        .unwrap_or("unknown error code")
-                );
-                debug!("SubmitSharesError: {:?}", message);
-                self_
-                    .safe_lock(|x| x.handle_submit_shares_error(message))
-                    .map_err(|e| crate::Error::PoisonLock(e.to_string()))?
-            }
-
             Ok(_) => todo!(),
             Err(e) => Err(e),
         }
@@ -127,14 +107,6 @@ where
         &mut self,
         message: ProvideMissingTransactions,
     ) -> Result<SendTo, Error>;
-    // TODO: comment
-    fn handle_submit_shares_success(
-        &mut self,
-        message: SubmitSharesSuccess,
-    ) -> Result<SendTo, Error>;
-
-    // TODO: comment
-    fn handle_submit_shares_error(&mut self, message: SubmitSharesError) -> Result<SendTo, Error>;
 }
 pub trait ParseClientJobDeclarationMessages
 where
@@ -183,13 +155,14 @@ where
                     .safe_lock(|x| x.handle_provide_missing_transactions_success(message))
                     .map_err(|e| crate::Error::PoisonLock(e.to_string()))?
             }
-            Ok(JobDeclaration::SubmitSharesExtended(message)) => {
-                info!("Received SubmitSharesExtended");
-                debug!("SubmitSharesExtended: {:?}", message);
+            Ok(JobDeclaration::SubmitSolution(message)) => {
+                info!("Received SubmitSharesSuccess");
+                debug!("SubmitSharesSuccess: {:?}", message);
                 self_
-                    .safe_lock(|x| x.handle_submit_shares_extended(message))
+                    .safe_lock(|x| x.handle_submit_solution(message))
                     .map_err(|e| crate::Error::PoisonLock(e.to_string()))?
             }
+
             Ok(_) => todo!(),
             Err(e) => Err(e),
         }
@@ -211,16 +184,5 @@ where
         &mut self,
         message: ProvideMissingTransactionsSuccess,
     ) -> Result<SendTo, Error>;
-
-    fn handle_submit_shares_extended(
-        &mut self,
-        message: SubmitSharesExtended,
-    ) -> Result<SendTo, Error>;
-
-    fn handle_submit_shares_success(
-        &mut self,
-        message: SubmitSharesSuccess,
-    ) -> Result<SendTo, Error>;
-
-    fn handle_submit_shares_error(&mut self, message: SubmitSharesError) -> Result<SendTo, Error>;
+    fn handle_submit_solution(&mut self, message: SubmitSolutionJd) -> Result<SendTo, Error>;
 }

@@ -306,6 +306,7 @@ async fn initialize_jd_as_solo_miner(
         Arc::new(Mutex::new(PoolChangerTrigger::new(timeout))),
         miner_tx_out.clone(),
         proxy_config.tp_authority_pub_key,
+        false,
     )
     .await;
 }
@@ -317,6 +318,9 @@ async fn initialize_jd(
     timeout: Duration,
 ) {
     let proxy_config = process_cli_args().unwrap();
+    let test_only_do_not_send_solution_to_tp = proxy_config
+        .test_only_do_not_send_solution_to_tp
+        .unwrap_or(false);
 
     // Format `Upstream` connection address
     let mut parts = upstream_config.pool_address.split(':');
@@ -437,6 +441,7 @@ async fn initialize_jd(
         Arc::new(Mutex::new(PoolChangerTrigger::new(timeout))),
         vec![],
         proxy_config.tp_authority_pub_key,
+        test_only_do_not_send_solution_to_tp,
     )
     .await;
 }

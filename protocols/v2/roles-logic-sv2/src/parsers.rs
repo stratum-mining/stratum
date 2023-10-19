@@ -33,10 +33,9 @@ use const_sv2::{
     CHANNEL_BIT_SET_CUSTOM_MINING_JOB_ERROR, CHANNEL_BIT_SET_CUSTOM_MINING_JOB_SUCCESS,
     CHANNEL_BIT_SET_EXTRANONCE_PREFIX, CHANNEL_BIT_SET_GROUP_CHANNEL,
     CHANNEL_BIT_SET_NEW_PREV_HASH, CHANNEL_BIT_SET_TARGET, CHANNEL_BIT_SUBMIT_SHARES_ERROR,
-    CHANNEL_BIT_SUBMIT_SHARES_ERROR_JD, CHANNEL_BIT_SUBMIT_SHARES_EXTENDED,
-    CHANNEL_BIT_SUBMIT_SHARES_EXTENDED_JD, CHANNEL_BIT_SUBMIT_SHARES_STANDARD,
-    CHANNEL_BIT_SUBMIT_SHARES_SUCCESS, CHANNEL_BIT_SUBMIT_SHARES_SUCCESS_JD,
-    CHANNEL_BIT_SUBMIT_SOLUTION, CHANNEL_BIT_UPDATE_CHANNEL, CHANNEL_BIT_UPDATE_CHANNEL_ERROR,
+    CHANNEL_BIT_SUBMIT_SHARES_EXTENDED, CHANNEL_BIT_SUBMIT_SHARES_STANDARD,
+    CHANNEL_BIT_SUBMIT_SHARES_SUCCESS, CHANNEL_BIT_SUBMIT_SOLUTION, CHANNEL_BIT_SUBMIT_SOLUTION_JD,
+    CHANNEL_BIT_UPDATE_CHANNEL, CHANNEL_BIT_UPDATE_CHANNEL_ERROR,
     MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN, MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN_SUCCESS,
     MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED, MESSAGE_TYPE_CLOSE_CHANNEL,
     MESSAGE_TYPE_COINBASE_OUTPUT_DATA_SIZE, MESSAGE_TYPE_DECLARE_MINING_JOB,
@@ -54,11 +53,10 @@ use const_sv2::{
     MESSAGE_TYPE_SET_CUSTOM_MINING_JOB, MESSAGE_TYPE_SET_CUSTOM_MINING_JOB_ERROR,
     MESSAGE_TYPE_SET_CUSTOM_MINING_JOB_SUCCESS, MESSAGE_TYPE_SET_EXTRANONCE_PREFIX,
     MESSAGE_TYPE_SET_GROUP_CHANNEL, MESSAGE_TYPE_SET_NEW_PREV_HASH, MESSAGE_TYPE_SET_TARGET,
-    MESSAGE_TYPE_SUBMIT_SHARES_ERROR, MESSAGE_TYPE_SUBMIT_SHARES_ERROR_JD,
-    MESSAGE_TYPE_SUBMIT_SHARES_EXTENDED, MESSAGE_TYPE_SUBMIT_SHARES_EXTENDED_JD,
+    MESSAGE_TYPE_SUBMIT_SHARES_ERROR, MESSAGE_TYPE_SUBMIT_SHARES_EXTENDED,
     MESSAGE_TYPE_SUBMIT_SHARES_STANDARD, MESSAGE_TYPE_SUBMIT_SHARES_SUCCESS,
-    MESSAGE_TYPE_SUBMIT_SHARES_SUCCESS_JD, MESSAGE_TYPE_SUBMIT_SOLUTION,
-    MESSAGE_TYPE_UPDATE_CHANNEL, MESSAGE_TYPE_UPDATE_CHANNEL_ERROR,
+    MESSAGE_TYPE_SUBMIT_SOLUTION, MESSAGE_TYPE_SUBMIT_SOLUTION_JD, MESSAGE_TYPE_UPDATE_CHANNEL,
+    MESSAGE_TYPE_UPDATE_CHANNEL_ERROR,
 };
 
 use common_messages_sv2::{
@@ -73,7 +71,7 @@ use template_distribution_sv2::{
 use job_declaration_sv2::{
     AllocateMiningJobToken, AllocateMiningJobTokenSuccess, DeclareMiningJob, DeclareMiningJobError,
     DeclareMiningJobSuccess, IdentifyTransactions, IdentifyTransactionsSuccess,
-    ProvideMissingTransactions, ProvideMissingTransactionsSuccess,
+    ProvideMissingTransactions, ProvideMissingTransactionsSuccess, SubmitSolutionJd,
 };
 
 use mining_sv2::{
@@ -139,10 +137,7 @@ pub enum JobDeclaration<'a> {
     #[cfg_attr(feature = "with_serde", serde(borrow))]
     ProvideMissingTransactionsSuccess(ProvideMissingTransactionsSuccess<'a>),
     #[cfg_attr(feature = "with_serde", serde(borrow))]
-    SubmitSharesExtended(SubmitSharesExtended<'a>),
-    SubmitSharesSuccess(SubmitSharesSuccess),
-    #[cfg_attr(feature = "with_serde", serde(borrow))]
-    SubmitSharesError(SubmitSharesError<'a>),
+    SubmitSolution(SubmitSolutionJd<'a>),
 }
 
 #[derive(Clone, Debug)]
@@ -295,9 +290,7 @@ impl<'a> IsSv2Message for JobDeclaration<'a> {
             Self::ProvideMissingTransactionsSuccess(_) => {
                 MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS_SUCCESS
             }
-            Self::SubmitSharesExtended(_) => MESSAGE_TYPE_SUBMIT_SHARES_EXTENDED_JD,
-            Self::SubmitSharesSuccess(_) => MESSAGE_TYPE_SUBMIT_SHARES_SUCCESS_JD,
-            Self::SubmitSharesError(_) => MESSAGE_TYPE_SUBMIT_SHARES_ERROR_JD,
+            Self::SubmitSolution(_) => MESSAGE_TYPE_SUBMIT_SOLUTION_JD,
         }
     }
     fn channel_bit(&self) -> bool {
@@ -313,9 +306,7 @@ impl<'a> IsSv2Message for JobDeclaration<'a> {
             Self::ProvideMissingTransactionsSuccess(_) => {
                 CHANNEL_BIT_PROVIDE_MISSING_TRANSACTIONS_SUCCESS
             }
-            Self::SubmitSharesExtended(_) => CHANNEL_BIT_SUBMIT_SHARES_EXTENDED_JD,
-            Self::SubmitSharesSuccess(_) => CHANNEL_BIT_SUBMIT_SHARES_SUCCESS_JD,
-            Self::SubmitSharesError(_) => CHANNEL_BIT_SUBMIT_SHARES_ERROR_JD,
+            Self::SubmitSolution(_) => CHANNEL_BIT_SUBMIT_SOLUTION_JD,
         }
     }
 }
@@ -421,9 +412,7 @@ impl<'decoder> From<JobDeclaration<'decoder>> for EncodableField<'decoder> {
             JobDeclaration::IdentifyTransactionsSuccess(a) => a.into(),
             JobDeclaration::ProvideMissingTransactions(a) => a.into(),
             JobDeclaration::ProvideMissingTransactionsSuccess(a) => a.into(),
-            JobDeclaration::SubmitSharesExtended(a) => a.into(),
-            JobDeclaration::SubmitSharesSuccess(a) => a.into(),
-            JobDeclaration::SubmitSharesError(a) => a.into(),
+            JobDeclaration::SubmitSolution(a) => a.into(),
         }
     }
 }
@@ -493,9 +482,7 @@ impl<'a> GetSize for JobDeclaration<'a> {
             JobDeclaration::IdentifyTransactionsSuccess(a) => a.get_size(),
             JobDeclaration::ProvideMissingTransactions(a) => a.get_size(),
             JobDeclaration::ProvideMissingTransactionsSuccess(a) => a.get_size(),
-            JobDeclaration::SubmitSharesExtended(a) => a.get_size(),
-            JobDeclaration::SubmitSharesSuccess(a) => a.get_size(),
-            JobDeclaration::SubmitSharesError(a) => a.get_size(),
+            JobDeclaration::SubmitSolution(a) => a.get_size(),
         }
     }
 }
@@ -736,9 +723,7 @@ pub enum JobDeclarationTypes {
     IdentifyTransactionsSuccess = MESSAGE_TYPE_IDENTIFY_TRANSACTIONS_SUCCESS,
     ProvideMissingTransactions = MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS,
     ProvideMissingTransactionsSuccess = MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS_SUCCESS,
-    SubmitSharesExtended = MESSAGE_TYPE_SUBMIT_SHARES_EXTENDED_JD,
-    SubmitSharesSuccess = MESSAGE_TYPE_SUBMIT_SHARES_SUCCESS_JD,
-    SubmitSharesError = MESSAGE_TYPE_SUBMIT_SHARES_ERROR_JD,
+    SubmitSolution = MESSAGE_TYPE_SUBMIT_SOLUTION_JD,
 }
 
 impl TryFrom<u8> for JobDeclarationTypes {
@@ -767,9 +752,7 @@ impl TryFrom<u8> for JobDeclarationTypes {
             MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS_SUCCESS => {
                 Ok(JobDeclarationTypes::IdentifyTransactionsSuccess)
             }
-            MESSAGE_TYPE_SUBMIT_SHARES_EXTENDED_JD => Ok(JobDeclarationTypes::SubmitSharesExtended),
-            MESSAGE_TYPE_SUBMIT_SHARES_SUCCESS_JD => Ok(JobDeclarationTypes::SubmitSharesSuccess),
-            MESSAGE_TYPE_SUBMIT_SHARES_ERROR_JD => Ok(JobDeclarationTypes::SubmitSharesError),
+            MESSAGE_TYPE_SUBMIT_SOLUTION_JD => Ok(JobDeclarationTypes::SubmitSolution),
             _ => Err(Error::UnexpectedMessage(v)),
         }
     }
@@ -817,17 +800,9 @@ impl<'a> TryFrom<(u8, &'a mut [u8])> for JobDeclaration<'a> {
                 let message: ProvideMissingTransactionsSuccess = from_bytes(v.1)?;
                 Ok(JobDeclaration::ProvideMissingTransactionsSuccess(message))
             }
-            JobDeclarationTypes::SubmitSharesExtended => {
-                let message: SubmitSharesExtended = from_bytes(v.1)?;
-                Ok(JobDeclaration::SubmitSharesExtended(message))
-            }
-            JobDeclarationTypes::SubmitSharesSuccess => {
-                let message: SubmitSharesSuccess = from_bytes(v.1)?;
-                Ok(JobDeclaration::SubmitSharesSuccess(message))
-            }
-            JobDeclarationTypes::SubmitSharesError => {
-                let message: SubmitSharesError = from_bytes(v.1)?;
-                Ok(JobDeclaration::SubmitSharesError(message))
+            JobDeclarationTypes::SubmitSolution => {
+                let message: SubmitSolutionJd = from_bytes(v.1)?;
+                Ok(JobDeclaration::SubmitSolution(message))
             }
         }
     }

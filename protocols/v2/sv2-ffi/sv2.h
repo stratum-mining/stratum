@@ -70,11 +70,7 @@ static const uint8_t MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS = 85;
 
 static const uint8_t MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS_SUCCESS = 86;
 
-static const uint8_t MESSAGE_TYPE_SUBMIT_SHARES_EXTENDED_JD = 96;
-
-static const uint8_t MESSAGE_TYPE_SUBMIT_SHARES_SUCCESS_JD = 97;
-
-static const uint8_t MESSAGE_TYPE_SUBMIT_SHARES_ERROR_JD = 98;
+static const uint8_t MESSAGE_TYPE_SUBMIT_SOLUTION_JD = 96;
 
 static const uint8_t MESSAGE_TYPE_CLOSE_CHANNEL = 24;
 
@@ -162,11 +158,7 @@ static const bool CHANNEL_BIT_PROVIDE_MISSING_TRANSACTIONS = false;
 
 static const bool CHANNEL_BIT_PROVIDE_MISSING_TRANSACTIONS_SUCCESS = false;
 
-static const bool CHANNEL_BIT_SUBMIT_SHARES_ERROR_JD = true;
-
-static const bool CHANNEL_BIT_SUBMIT_SHARES_EXTENDED_JD = true;
-
-static const bool CHANNEL_BIT_SUBMIT_SHARES_SUCCESS_JD = true;
+static const bool CHANNEL_BIT_SUBMIT_SOLUTION_JD = true;
 
 static const bool CHANNEL_BIT_CLOSE_CHANNEL = true;
 

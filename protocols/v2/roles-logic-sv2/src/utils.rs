@@ -164,7 +164,6 @@ pub fn merkle_root_from_path_<T: AsRef<[u8]>>(coinbase_id: [u8; 32], path: &[T])
         _ => reduce_path(coinbase_id, path),
     }
 }
-
 // TODO remove when we have https://github.com/rust-bitcoin/rust-bitcoin/issues/1319
 fn reduce_path<T: AsRef<[u8]>>(coinbase_id: [u8; 32], path: &[T]) -> [u8; 32] {
     let mut root = coinbase_id;
@@ -670,9 +669,9 @@ pub fn hash_lists_tuple(
     tx_short_hash_nonce: u64,
 ) -> (Seq064K<'static, ShortTxId<'static>>, U256<'static>) {
     let mut txid_list: Vec<bitcoin::Txid> = Vec::new();
-    // get every transaction, hash it, remove first two bytes and push the ShortTxId in a vector
     for tx in tx_data.to_vec() {
-        let txid = Transaction::txid(&(Transaction::deserialize(&tx).unwrap()));
+        //TODO remove unwrap
+        let txid = Transaction::deserialize(&tx).unwrap().txid();
         txid_list.push(txid);
     }
     let mut tx_short_hash_list_: Vec<ShortTxId> = Vec::new();

@@ -242,7 +242,7 @@ impl Bridge {
                 error!("Make sure to set `min_individual_miner_hashrate` in the config file");
             }
             Ok(Ok(OnNewShare::SendSubmitShareUpstream((share, _)))) => {
-                info!("SHARE MEETS TARGET");
+                info!("SHARE MEETS UPSTREAM TARGET");
                 match share {
                     Share::Extended(share) => {
                         tx_sv2_submit_shares_ext.send(share).await?;
@@ -254,7 +254,7 @@ impl Bridge {
             // We are in an extended channel this variant is group channle only
             Ok(Ok(OnNewShare::RelaySubmitShareUpstream)) => unreachable!(),
             Ok(Ok(OnNewShare::ShareMeetDownstreamTarget)) => {
-                info!("SHARE MEETS DOWNSTREAM TARGET");
+                debug!("SHARE MEETS DOWNSTREAM TARGET");
             }
             // Proxy do not have JD capabilities
             Ok(Ok(OnNewShare::ShareMeetBitcoinTarget(..))) => unreachable!(),

@@ -6,7 +6,6 @@ use roles_logic_sv2::{
         IdentifyTransactions, IdentifyTransactionsSuccess, ProvideMissingTransactions,
         ProvideMissingTransactionsSuccess,
     },
-    mining_sv2::{SubmitSharesError, SubmitSharesSuccess},
     parsers::JobDeclaration,
 };
 pub type SendTo = SendTo_<JobDeclaration<'static>, ()>;
@@ -61,16 +60,5 @@ impl ParseServerJobDeclarationMessages for JobDeclarator {
         let message_enum =
             JobDeclaration::ProvideMissingTransactionsSuccess(message_provide_missing_transactions);
         Ok(SendTo::Respond(message_enum))
-    }
-
-    fn handle_submit_shares_success(
-        &mut self,
-        _message: SubmitSharesSuccess,
-    ) -> Result<SendTo, Error> {
-        Ok(SendTo::None(None))
-    }
-
-    fn handle_submit_shares_error(&mut self, _message: SubmitSharesError) -> Result<SendTo, Error> {
-        Ok(SendTo::None(None))
     }
 }

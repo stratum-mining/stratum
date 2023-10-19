@@ -12,6 +12,7 @@ use nohash_hasher::BuildNoHashHasher;
 use roles_logic_sv2::{
     common_messages_sv2::SetupConnectionSuccess,
     handlers::job_declaration::{ParseClientJobDeclarationMessages, SendTo},
+    job_declaration_sv2::DeclareMiningJob,
     parsers::PoolMessages as JdsMessages,
     utils::{Id, Mutex},
 };
@@ -20,7 +21,7 @@ use std::{collections::HashMap, convert::TryInto, sync::Arc};
 use tokio::net::TcpListener;
 use tracing::info;
 
-use stratum_common::bitcoin::consensus::Encodable;
+use stratum_common::bitcoin::{consensus::Encodable, Transaction};
 
 #[derive(Debug)]
 pub struct JobDeclaratorDownstream {
@@ -30,12 +31,12 @@ pub struct JobDeclaratorDownstream {
     #[allow(dead_code)]
     // TODO: use coinbase output
     coinbase_output: Vec<u8>,
-    token_to_job_map: HashMap<u32, std::option::Option<u8>, BuildNoHashHasher<u32>>,
+    token_to_job_map: HashMap<u32, Option<u8>, BuildNoHashHasher<u32>>,
     tokens: Id,
     public_key: Secp256k1PublicKey,
     private_key: Secp256k1SecretKey,
     mempool: Arc<Mutex<JDsMempool>>,
-    declared_mining_job: Vec<Option<stratum_common::bitcoin::Transaction>>,
+    declared_mining_job: Option<(DeclareMiningJob<'static>, Vec<Transaction>, Vec<u16>)>,
     tx_hash_list_hash: Option<U256<'static>>,
 }
 
@@ -50,7 +51,6 @@ impl JobDeclaratorDownstream {
         // TODO: use next variables
         let token_to_job_map = HashMap::with_hasher(BuildNoHashHasher::default());
         let tokens = Id::new();
-        let declared_mining_job = Vec::new();
         crate::get_coinbase_output(config).expect("Invalid coinbase output in config")[0]
             .consensus_encode(&mut coinbase_output)
             .expect("Invalid coinbase output in config");
@@ -64,7 +64,7 @@ impl JobDeclaratorDownstream {
             public_key: config.authority_public_key.clone(),
             private_key: config.authority_secret_key.clone(),
             mempool,
-            declared_mining_job,
+            declared_mining_job: None,
             tx_hash_list_hash: None,
         }
     }
@@ -101,6 +101,7 @@ impl JobDeclaratorDownstream {
                             Ok(SendTo::Respond(message)) => {
                                 Self::send(self_mutex.clone(), message).await.unwrap();
                             }
+                            Ok(SendTo::None(_)) => (),
                             Err(e) => info!("Error: {:?}", e),
                             _ => unreachable!(),
                         }

@@ -8,6 +8,9 @@ pub const SV2_FRAME_HEADER_LEN_OFFSET: usize = 3;
 pub const SV2_FRAME_HEADER_LEN_END: usize = 3;
 pub const SV2_FRAME_CHUNK_SIZE: usize = 65519;
 
+// For now only CHACHA and AES are supported both have a MAC of 16 bytes
+pub const AEAD_MAC_LEN: usize = 16;
+
 pub const ENCRYPTED_SV2_FRAME_HEADER_SIZE: usize = SV2_FRAME_HEADER_SIZE + AEAD_MAC_LEN;
 pub const NOISE_FRAME_HEADER_SIZE: usize = 2;
 pub const NOISE_FRAME_HEADER_LEN_OFFSET: usize = 0;
@@ -24,9 +27,6 @@ pub const NOISE_HASHED_PROTOCOL_NAME_CHACHA: [u8; 32] = [
 // len = 1
 // 47,53,45,41 = AESG
 pub const NOISE_SUPPORTED_CIPHERS_MESSAGE: [u8; 5] = [1, 0x47, 0x53, 0x45, 0x41];
-
-// For now only CHACHA and AES are supported both have a MAC of 16 bytes
-pub const AEAD_MAC_LEN: usize = 16;
 
 pub const SV2_MINING_PROTOCOL_DISCRIMINANT: u8 = 0;
 pub const SV2_JOB_NEG_PROTOCOL_DISCRIMINANT: u8 = 1;
@@ -56,9 +56,7 @@ pub const MESSAGE_TYPE_IDENTIFY_TRANSACTIONS: u8 = 0x53;
 pub const MESSAGE_TYPE_IDENTIFY_TRANSACTIONS_SUCCESS: u8 = 0x54;
 pub const MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS: u8 = 0x55;
 pub const MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS_SUCCESS: u8 = 0x56;
-pub const MESSAGE_TYPE_SUBMIT_SHARES_EXTENDED_JD: u8 = 0x60;
-pub const MESSAGE_TYPE_SUBMIT_SHARES_SUCCESS_JD: u8 = 0x61;
-pub const MESSAGE_TYPE_SUBMIT_SHARES_ERROR_JD: u8 = 0x62;
+pub const MESSAGE_TYPE_SUBMIT_SOLUTION_JD: u8 = 0x60;
 // MINING PROTOCOL MESSAGES TYPES
 pub const MESSAGE_TYPE_CLOSE_CHANNEL: u8 = 0x18;
 /// This has been cahnged before was 0x1e it can be that old Sv2 implementation still use the old
@@ -111,9 +109,7 @@ pub const CHANNEL_BIT_IDENTIFY_TRANSACTIONS: bool = false;
 pub const CHANNEL_BIT_IDENTIFY_TRANSACTIONS_SUCCESS: bool = false;
 pub const CHANNEL_BIT_PROVIDE_MISSING_TRANSACTIONS: bool = false;
 pub const CHANNEL_BIT_PROVIDE_MISSING_TRANSACTIONS_SUCCESS: bool = false;
-pub const CHANNEL_BIT_SUBMIT_SHARES_ERROR_JD: bool = true;
-pub const CHANNEL_BIT_SUBMIT_SHARES_EXTENDED_JD: bool = true;
-pub const CHANNEL_BIT_SUBMIT_SHARES_SUCCESS_JD: bool = true;
+pub const CHANNEL_BIT_SUBMIT_SOLUTION_JD: bool = true;
 // MINING PROTOCOL MESSAGES CHANNEL BIT
 pub const CHANNEL_BIT_CLOSE_CHANNEL: bool = true;
 pub const CHANNEL_BIT_NEW_EXTENDED_MINING_JOB: bool = true;

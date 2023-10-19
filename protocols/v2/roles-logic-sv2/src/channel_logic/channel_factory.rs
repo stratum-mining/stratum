@@ -23,6 +23,7 @@ use tracing::{debug, error, info, trace};
 use stratum_common::{
     bitcoin,
     bitcoin::{
+        hash_types,
         hashes::{hex::ToHex, sha256d::Hash, Hash as Hash_},
         TxOut,
     },
@@ -64,8 +65,8 @@ pub enum OnNewShare {
     /// the share upstream, whenever possible we should also notify the TP about it.
     /// When a pool negotiate a job with downstream we do not have the template_id so we set it to
     /// None
-    /// (share, template id, coinbase)
-    ShareMeetBitcoinTarget((Share, Option<u64>, Vec<u8>)),
+    /// (share, template id, coinbase,complete extranonce)
+    ShareMeetBitcoinTarget((Share, Option<u64>, Vec<u8>, Vec<u8>)),
     /// Indicate that the share meet downstream target, in the case we could send a success
     /// response dowmstream.
     ShareMeetDownstreamTarget,
@@ -92,7 +93,7 @@ impl OnNewShare {
                 }
             },
             OnNewShare::RelaySubmitShareUpstream => (),
-            OnNewShare::ShareMeetBitcoinTarget((share, t_id, coinbase)) => match share {
+            OnNewShare::ShareMeetBitcoinTarget((share, t_id, coinbase, ext)) => match share {
                 Share::Extended(_) => (),
                 Share::Standard((share, _)) => {
                     let share = SubmitSharesExtended {
@@ -108,6 +109,7 @@ impl OnNewShare {
                         Share::Extended(share),
                         *t_id,
                         coinbase.clone(),
+                        ext.to_vec(),
                     ));
                 }
             },
@@ -205,7 +207,7 @@ struct ChannelFactory {
     future_jobs: Vec<(NewExtendedMiningJob<'static>, Vec<u32>)>,
     // (SetNewPrevHash,group ids that already received the set prev_hash)
     last_prev_hash: Option<(StagedPhash, Vec<u32>)>,
-    last_prev_hash_: Option<bitcoin::hash_types::BlockHash>,
+    last_prev_hash_: Option<hash_types::BlockHash>,
     // (NewExtendedMiningJob,group ids that already received the job)
     last_valid_job: Option<(NewExtendedMiningJob<'static>, Vec<u32>)>,
     kind: ExtendedChannelKind,
@@ -721,7 +723,7 @@ impl ChannelFactory {
         merkle_path: Vec<TxHash>,
         coinbase_tx_prefix: &[u8],
         coinbase_tx_suffix: &[u8],
-        prev_blockhash: bitcoin::hash_types::BlockHash,
+        prev_blockhash: hash_types::BlockHash,
         bits: u32,
     ) -> Result<OnNewShare, Error> {
         debug!("Checking targert for share {:?}", m);
@@ -777,6 +779,7 @@ impl ChannelFactory {
             bits,
             nonce: m.get_nonce(),
         };
+
         trace!("On checking target header is: {:?}", header);
         let hash_ = header.block_hash();
         let hash = hash_.as_hash().into_inner();
@@ -810,15 +813,21 @@ impl ChannelFactory {
             match self.kind {
                 ExtendedChannelKind::Proxy { .. } | ExtendedChannelKind::ProxyJd { .. } => {
                     let upstream_extranonce_space = self.extranonces.get_range0_len();
-                    let extranonce = extranonce[upstream_extranonce_space..].to_vec();
-                    let mut res = OnNewShare::ShareMeetBitcoinTarget((m, template_id, coinbase));
-                    res.into_extended(extranonce, up_id);
+                    let extranonce_ = extranonce[upstream_extranonce_space..].to_vec();
+                    let mut res = OnNewShare::ShareMeetBitcoinTarget((
+                        m,
+                        template_id,
+                        coinbase,
+                        extranonce.to_vec(),
+                    ));
+                    res.into_extended(extranonce_, up_id);
                     Ok(res)
                 }
                 ExtendedChannelKind::Pool => Ok(OnNewShare::ShareMeetBitcoinTarget((
                     m,
                     template_id,
                     coinbase,
+                    extranonce.to_vec(),
                 ))),
             }
         } else if hash <= upstream_target {
@@ -1088,6 +1097,7 @@ impl PoolChannelFactory {
             }
         }
     }
+
     /// Called when a `SubmitSharesExtended` message is received from the downstream. We check the shares
     /// against the channel's respective target and return `OnNewShare` to let us know if and where the shares should
     /// be relayed
