@@ -1,6 +1,8 @@
 pub mod message_handler;
 use crate::{
-    error::JdsError, lib::mempool::JDsMempool, status, Configuration, EitherFrame, StdFrame,
+    error::JdsError,
+    lib::mempool::JDsMempool,
+    status, Configuration, EitherFrame, StdFrame,
 };
 use async_channel::{Receiver, Sender};
 use binary_sv2::{B0255, U256};
@@ -19,7 +21,7 @@ use roles_logic_sv2::{
 use secp256k1::{KeyPair, Message as SecpMessage, Secp256k1};
 use std::{collections::HashMap, convert::TryInto, sync::Arc};
 use tokio::net::TcpListener;
-use tracing::info;
+use tracing::{info, error};
 
 use stratum_common::bitcoin::{consensus::Encodable, Transaction};
 
@@ -170,41 +172,47 @@ impl JobDeclarator {
                 std::time::Duration::from_secs(config.cert_validity_sec),
             )
             .unwrap();
+            let addr = stream.peer_addr();
 
-            let (receiver, sender, _, _) =
-                Connection::new(stream, HandshakeRole::Responder(responder))
-                    .await
-                    .expect("impossible to connect");
-            let setup_message_from_proxy_jd = receiver.recv().await.unwrap();
-            info!(
-                "Setup connection message from proxy: {:?}",
-                setup_message_from_proxy_jd
-            );
+            if let Ok((receiver, sender, _, _)) =
+                Connection::new(stream, HandshakeRole::Responder(responder)).await
+            {
+                let setup_message_from_proxy_jd = receiver.recv().await.unwrap();
+                info!(
+                    "Setup connection message from proxy: {:?}",
+                    setup_message_from_proxy_jd
+                );
 
-            let setup_connection_success_to_proxy = SetupConnectionSuccess {
-                used_version: 2,
-                // Setup flags for async_mining_allowed
-                flags: 0b_0000_0000_0000_0000_0000_0000_0000_0001,
-            };
-            let sv2_frame: StdFrame = JdsMessages::Common(setup_connection_success_to_proxy.into())
-                .try_into()
-                .unwrap();
-            let sv2_frame = sv2_frame.into();
-            info!("Sending success message for proxy");
-            sender.send(sv2_frame).await.unwrap();
+                let setup_connection_success_to_proxy = SetupConnectionSuccess {
+                    used_version: 2,
+                    // Setup flags for async_mining_allowed
+                    flags: 0b_0000_0000_0000_0000_0000_0000_0000_0001,
+                };
+                let sv2_frame: StdFrame =
+                    JdsMessages::Common(setup_connection_success_to_proxy.into())
+                        .try_into()
+                        .unwrap();
+                let sv2_frame = sv2_frame.into();
+                info!("Sending success message for proxy");
+                sender.send(sv2_frame).await.unwrap();
 
-            let jddownstream = Arc::new(Mutex::new(JobDeclaratorDownstream::new(
-                receiver.clone(),
-                sender.clone(),
-                &config,
-                mempool.clone(),
-            )));
+                let jddownstream = Arc::new(Mutex::new(JobDeclaratorDownstream::new(
+                    receiver.clone(),
+                    sender.clone(),
+                    &config,
+                    mempool.clone(),
+                )));
 
-            self_
-                .safe_lock(|job_declarator| job_declarator.downstreams.push(jddownstream.clone()))
-                .unwrap();
+                self_
+                    .safe_lock(|job_declarator| {
+                        job_declarator.downstreams.push(jddownstream.clone())
+                    })
+                    .unwrap();
 
-            JobDeclaratorDownstream::start(jddownstream, status_tx.clone());
+                JobDeclaratorDownstream::start(jddownstream, status_tx.clone());
+            } else {
+                error!("Can not connect {:?}", addr);
+            }
         }
     }
 }
