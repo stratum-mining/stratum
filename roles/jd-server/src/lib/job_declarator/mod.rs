@@ -1,8 +1,6 @@
 pub mod message_handler;
 use crate::{
-    error::JdsError,
-    lib::mempool::JDsMempool,
-    status, Configuration, EitherFrame, StdFrame,
+    error::JdsError, lib::mempool::JDsMempool, status, Configuration, EitherFrame, StdFrame,
 };
 use async_channel::{Receiver, Sender};
 use binary_sv2::{B0255, U256};
@@ -21,7 +19,7 @@ use roles_logic_sv2::{
 use secp256k1::{KeyPair, Message as SecpMessage, Secp256k1};
 use std::{collections::HashMap, convert::TryInto, sync::Arc};
 use tokio::net::TcpListener;
-use tracing::{info, error};
+use tracing::{error, info};
 
 use stratum_common::bitcoin::{consensus::Encodable, Transaction};
 
