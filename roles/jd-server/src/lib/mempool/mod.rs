@@ -52,9 +52,11 @@ impl JDsMempool {
             tokio::task::spawn(async move {
                 let mempool: Vec<String> = client.get_raw_mempool_verbose().unwrap();
                 for id in &mempool {
-                    let tx: Transaction = client.get_raw_transaction(id, None).unwrap();
-                    let id = tx.txid();
-                    mempool_ordered.push(TransacrtionWithHash { id, tx });
+                    let tx: Result<Transaction,_> = client.get_raw_transaction(id, None);
+                    if let Ok(tx) = tx {
+                        let id = tx.txid();
+                        mempool_ordered.push(TransacrtionWithHash { id, tx });
+                    }
                 }
                 if mempool_ordered.is_empty() {
                     Err(JdsMempoolError::EmptyMempool)
