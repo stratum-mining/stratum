@@ -58,6 +58,7 @@ pub struct Downstream {
     extranonce2_len: usize,
     pub(super) difficulty_mgmt: DownstreamDifficultyConfig,
     pub(super) upstream_difficulty_config: Arc<Mutex<UpstreamDifficultyConfig>>,
+    pub target: Vec<u8>,
 }
 
 impl Downstream {
@@ -87,6 +88,7 @@ impl Downstream {
             extranonce2_len,
             difficulty_mgmt,
             upstream_difficulty_config,
+            target: vec![],
         }
     }
     /// Instantiate a new `Downstream`.
@@ -127,6 +129,7 @@ impl Downstream {
             extranonce2_len,
             difficulty_mgmt: difficulty_config,
             upstream_difficulty_config,
+            target: vec![],
         }));
         let self_ = downstream.clone();
 
@@ -233,6 +236,21 @@ impl Downstream {
 
         let tx_status_notify = tx_status;
         let self_ = downstream.clone();
+        {
+            let self_ = self_.clone();
+            let _updated_diff_task = task::spawn(async move {
+                loop {
+                    let target = self_.clone().safe_lock(|d| d.target.clone()).unwrap();
+                    if !target.is_empty() {
+                        let message = Self::get_set_difficulty(target.to_vec()).unwrap();
+                        Downstream::send_message_downstream(self_.clone(), message)
+                            .await
+                            .unwrap();
+                    }
+                    task::sleep(std::time::Duration::from_secs(1)).await;
+                }
+            });
+        }
         let _notify_task = task::spawn(async move {
             let timeout_timer = std::time::Instant::now();
             let mut first_sent = false;
@@ -249,6 +267,11 @@ impl Downstream {
                         tx_status_notify,
                         Self::hash_rate_to_target(downstream.clone())
                     );
+                    self_
+                        .safe_lock(|d| {
+                            d.target = target.to_vec();
+                        })
+                        .unwrap();
                     // make sure the mining start time is initialized and reset number of shares submitted
                     handle_result!(
                         tx_status_notify,
@@ -276,6 +299,7 @@ impl Downstream {
                     }
                     first_sent = true;
                 } else if is_a {
+                    // if hashrate has changed, update difficulty management, and send new mining.set_difficulty
                     select! {
                         res = rx_sv1_notify.recv().fuse() => {
                             // if hashrate has changed, update difficulty management, and send new mining.set_difficulty
