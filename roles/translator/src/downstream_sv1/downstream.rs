@@ -106,6 +106,7 @@ impl Downstream {
         difficulty_config: DownstreamDifficultyConfig,
         upstream_difficulty_config: Arc<Mutex<UpstreamDifficultyConfig>>,
     ) {
+        let update_interval = difficulty_config.update_interval.unwrap_or(10);
         let stream = std::sync::Arc::new(stream);
 
         // Reads and writes from Downstream SV1 Mining Device Client
@@ -247,7 +248,7 @@ impl Downstream {
                             .await
                             .unwrap();
                     }
-                    task::sleep(std::time::Duration::from_secs(1)).await;
+                    task::sleep(std::time::Duration::from_secs(update_interval)).await;
                 }
             });
         }
