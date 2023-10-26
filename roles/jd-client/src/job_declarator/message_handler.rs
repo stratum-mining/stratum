@@ -53,15 +53,24 @@ impl ParseServerJobDeclarationMessages for JobDeclarator {
         &mut self,
         message: ProvideMissingTransactions,
     ) -> Result<SendTo, Error> {
+        let tx_list = self
+            .last_declare_mining_job_sent
+            .clone()
+            .unwrap()
+            .tx_list
+            .into_inner();
         let unknown_tx_position_list: Vec<u16> = message.unknown_tx_position_list.into_inner();
+        let missing_transactions: Vec<binary_sv2::B016M> = unknown_tx_position_list
+            .iter()
+            .filter_map(|&pos| tx_list.get(pos as usize).cloned())
+            .collect();
         let request_id = message.request_id;
         let message_provide_missing_transactions = ProvideMissingTransactionsSuccess {
-            request_id: message.request_id,
-            transaction_list: Vec::new().try_into().unwrap(),
+            request_id,
+            transaction_list: binary_sv2::Seq064K::new(missing_transactions).unwrap(),
         };
         let message_enum =
             JobDeclaration::ProvideMissingTransactionsSuccess(message_provide_missing_transactions);
         Ok(SendTo::Respond(message_enum))
     }
-
 }

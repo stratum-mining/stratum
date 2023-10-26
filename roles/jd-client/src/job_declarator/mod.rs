@@ -11,9 +11,8 @@ use roles_logic_sv2::{
     template_distribution_sv2::SetNewPrevHash,
     utils::{hash_lists_tuple, Mutex},
 };
-use stratum_common::bitcoin::Transaction;
-use stratum_common::bitcoin::util::psbt::serialize::Deserialize;
 use std::{collections::HashMap, convert::TryInto, str::FromStr};
+use stratum_common::bitcoin::{util::psbt::serialize::Deserialize, Transaction};
 use tokio::task::AbortHandle;
 use tracing::{error, info};
 
@@ -45,7 +44,7 @@ pub struct LastDeclareJob {
     declare_job: DeclareMiningJob<'static>,
     template: NewTemplate<'static>,
     coinbase_pool_output: Vec<u8>,
-    tx_list: Vec<Transaction>,
+    tx_list: Seq064K<'static, B016M<'static>>,
 }
 
 #[derive(Debug)]
@@ -216,6 +215,7 @@ impl JobDeclarator {
         let mut tx_list: Vec<Transaction> = Vec::new();
         for tx in tx_list_sequence.to_vec() {
             //TODO remove unwrap
+            //TODO check if we want deserialize or consensus_decode
             let tx = Transaction::deserialize(&tx).unwrap();
             tx_list.push(tx);
         }
@@ -238,7 +238,7 @@ impl JobDeclarator {
             declare_job: declare_job.clone(),
             template,
             coinbase_pool_output,
-            tx_list,
+            tx_list: tx_list_sequence.clone(),
         };
         Self::update_last_declare_job_sent(self_mutex, last_declare);
         let frame: StdFrame =

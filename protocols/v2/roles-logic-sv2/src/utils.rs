@@ -5,7 +5,7 @@ use std::{
     sync::{Mutex as Mutex_, MutexGuard, PoisonError},
 };
 
-use binary_sv2::{Seq064K, ShortTxId, B016M, U256};
+use binary_sv2::{Seq064K, ShortTxId, U256};
 use siphasher::sip::SipHasher24;
 //compact_target_from_u256
 use stratum_common::{
@@ -669,10 +669,9 @@ pub fn hash_lists_tuple(
     tx_short_hash_nonce: u64,
 ) -> (Seq064K<'static, ShortTxId<'static>>, U256<'static>) {
     let mut txid_list: Vec<bitcoin::Txid> = Vec::new();
-    for tx in tx_data.to_vec() {
+    for tx in tx_data {
         //TODO remove unwrap
-        let txid = tx.txid();
-        txid_list.push(txid);
+        txid_list.push(tx.txid());
     }
     let mut tx_short_hash_list_: Vec<ShortTxId> = Vec::new();
     for txid in txid_list.clone() {
