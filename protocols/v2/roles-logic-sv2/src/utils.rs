@@ -665,13 +665,13 @@ pub fn get_target(
     hash
 }
 pub fn hash_lists_tuple(
-    tx_data: Seq064K<'static, B016M<'static>>,
+    tx_data: Vec<Transaction>,
     tx_short_hash_nonce: u64,
 ) -> (Seq064K<'static, ShortTxId<'static>>, U256<'static>) {
     let mut txid_list: Vec<bitcoin::Txid> = Vec::new();
     for tx in tx_data.to_vec() {
         //TODO remove unwrap
-        let txid = Transaction::deserialize(&tx).unwrap().txid();
+        let txid = tx.txid();
         txid_list.push(txid);
     }
     let mut tx_short_hash_list_: Vec<ShortTxId> = Vec::new();
