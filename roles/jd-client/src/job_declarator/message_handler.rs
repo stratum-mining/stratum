@@ -53,6 +53,8 @@ impl ParseServerJobDeclarationMessages for JobDeclarator {
         &mut self,
         message: ProvideMissingTransactions,
     ) -> Result<SendTo, Error> {
+        let unknown_tx_position_list: Vec<u16> = message.unknown_tx_position_list.into_inner();
+        let request_id = message.request_id;
         let message_provide_missing_transactions = ProvideMissingTransactionsSuccess {
             request_id: message.request_id,
             transaction_list: Vec::new().try_into().unwrap(),
@@ -61,4 +63,5 @@ impl ParseServerJobDeclarationMessages for JobDeclarator {
             JobDeclaration::ProvideMissingTransactionsSuccess(message_provide_missing_transactions);
         Ok(SendTo::Respond(message_enum))
     }
+
 }

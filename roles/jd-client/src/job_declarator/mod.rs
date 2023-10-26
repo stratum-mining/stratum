@@ -11,6 +11,7 @@ use roles_logic_sv2::{
     template_distribution_sv2::SetNewPrevHash,
     utils::{hash_lists_tuple, Mutex},
 };
+use stratum_common::bitcoin::Txid;
 use std::{collections::HashMap, convert::TryInto, str::FromStr};
 use tokio::task::AbortHandle;
 use tracing::{error, info};
@@ -42,7 +43,8 @@ use crate::{error::Error, proxy_config::ProxyConfig, upstream_sv2::Upstream};
 pub struct LastDeclareJob {
     declare_job: DeclareMiningJob<'static>,
     template: NewTemplate<'static>,
-    coinbase_pool_outpust: Vec<u8>,
+    coinbase_pool_output: Vec<u8>,
+    //transactions_list: Vec<Txid>,
 }
 
 #[derive(Debug)]
@@ -52,7 +54,7 @@ pub struct JobDeclarator {
     allocated_tokens: Vec<AllocateMiningJobTokenSuccess<'static>>,
     req_ids: Id,
     min_extranonce_size: u16,
-    // (Sented DeclareMiningJob, is future, template id, merkle path)
+    // (Sent DeclareMiningJob, is future, template id, merkle path)
     last_declare_mining_job_sent: Option<LastDeclareJob>,
     last_set_new_prev_hash: Option<SetNewPrevHash<'static>>,
     #[allow(clippy::type_complexity)]
@@ -203,7 +205,7 @@ impl JobDeclarator {
         token: Vec<u8>,
         tx_list: Seq064K<'static, B016M<'static>>,
         excess_data: B064K<'static>,
-        coinbase_pool_outpust: Vec<u8>,
+        coinbase_pool_output: Vec<u8>,
     ) {
         let (id, _, sender) = self_mutex
             .safe_lock(|s| (s.req_ids.next(), s.min_extranonce_size, s.sender.clone()))
@@ -228,7 +230,7 @@ impl JobDeclarator {
         let last_declare = LastDeclareJob {
             declare_job: declare_job.clone(),
             template,
-            coinbase_pool_outpust,
+            coinbase_pool_output,
         };
         Self::update_last_declare_job_sent(self_mutex, last_declare);
         let frame: StdFrame =
@@ -277,7 +279,7 @@ impl JobDeclarator {
                                                 last_declare_mining_job_sent,
                                                 merkle_path,
                                                 template,
-                                                last_declare.coinbase_pool_outpust,
+                                                last_declare.coinbase_pool_output,
                                             ),
                                         );
                                     })
@@ -287,7 +289,7 @@ impl JobDeclarator {
                                     .safe_lock(|s| s.last_set_new_prev_hash.clone())
                                     .unwrap();
                                 let mut template_outs = template.coinbase_tx_outputs.to_vec();
-                                let mut pool_outs = last_declare.coinbase_pool_outpust;
+                                let mut pool_outs = last_declare.coinbase_pool_output;
                                 pool_outs.append(&mut template_outs);
                                 match set_new_prev_hash {
                                     Some(p) => Upstream::set_custom_jobs(

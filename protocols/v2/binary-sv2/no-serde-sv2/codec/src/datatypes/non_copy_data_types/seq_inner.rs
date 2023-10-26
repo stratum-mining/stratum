@@ -118,6 +118,10 @@ impl<'a, T: 'a> Seq064K<'a, T> {
             Err(Error::SeqExceedsMaxSize)
         }
     }
+
+    pub fn into_inner(self) -> Vec<T> {
+        self.0
+    }
 }
 
 impl<'a, T: GetSize> GetSize for Seq064K<'a, T> {
