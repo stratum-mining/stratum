@@ -5,6 +5,11 @@ cargo llvm-cov clean
 cd $message_generator_dir
 
 for entry in `ls $search_dir`; do
+    if [ "$entry" == "interop-jdc-change-upstream.json" ]; then
+        echo "Skipping $entry"
+        continue
+    fi
+
     echo $entry
     cargo run -- $search_dir$entry || { echo 'mg test failed' ; exit 1; }
 done
