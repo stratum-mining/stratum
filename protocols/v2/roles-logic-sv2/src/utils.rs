@@ -670,7 +670,6 @@ pub fn hash_lists_tuple(
 ) -> (Seq064K<'static, ShortTxId<'static>>, U256<'static>) {
     let mut txid_list: Vec<bitcoin::Txid> = Vec::new();
     for tx in tx_data {
-        //TODO remove unwrap
         txid_list.push(tx.txid());
     }
     let mut tx_short_hash_list_: Vec<ShortTxId> = Vec::new();

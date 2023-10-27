@@ -203,7 +203,7 @@ impl JobDeclarator {
         self_mutex: &Arc<Mutex<Self>>,
         template: NewTemplate<'static>,
         token: Vec<u8>,
-        tx_list_sequence: Seq064K<'static, B016M<'static>>,
+        tx_list_: Seq064K<'static, B016M<'static>>,
         excess_data: B064K<'static>,
         coinbase_pool_output: Vec<u8>,
     ) {
@@ -213,9 +213,8 @@ impl JobDeclarator {
         // TODO: create right nonce
         let tx_short_hash_nonce = 0;
         let mut tx_list: Vec<Transaction> = Vec::new();
-        for tx in tx_list_sequence.to_vec() {
+        for tx in tx_list_.to_vec() {
             //TODO remove unwrap
-            //TODO check if we want deserialize or consensus_decode
             let tx = Transaction::deserialize(&tx).unwrap();
             tx_list.push(tx);
         }
@@ -238,7 +237,7 @@ impl JobDeclarator {
             declare_job: declare_job.clone(),
             template,
             coinbase_pool_output,
-            tx_list: tx_list_sequence.clone(),
+            tx_list: tx_list_.clone(),
         };
         Self::update_last_declare_job_sent(self_mutex, last_declare);
         let frame: StdFrame =
