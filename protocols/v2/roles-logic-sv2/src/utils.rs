@@ -15,7 +15,7 @@ use stratum_common::{
         hash_types::{BlockHash, TxMerkleNode},
         hashes::{sha256, sha256d::Hash as DHash, Hash},
         secp256k1::{All, Secp256k1},
-        util::{base58, psbt::serialize::Deserialize, uint::Uint256, bip32::ExtendedPubKey, bip32::DerivationPath},
+        util::{psbt::serialize::Deserialize, uint::Uint256, bip32::ExtendedPubKey},
         PublicKey, Script, Transaction,
     },
 };
