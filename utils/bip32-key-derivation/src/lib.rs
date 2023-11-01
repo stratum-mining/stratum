@@ -1,7 +1,7 @@
 use std::str::FromStr;
 use stratum_common::bitcoin::{
-        secp256k1::Secp256k1,
-        util::bip32::{DerivationPath, ExtendedPubKey, Error},
+    secp256k1::Secp256k1,
+    util::bip32::{DerivationPath, Error, ExtendedPubKey},
 };
 
 pub fn derive_child_public_key(xpub: &ExtendedPubKey, path: &str) -> Result<ExtendedPubKey, Error> {

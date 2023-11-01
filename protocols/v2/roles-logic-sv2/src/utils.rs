@@ -8,6 +8,8 @@ use std::{
 use binary_sv2::{Seq064K, ShortTxId, B016M, U256};
 use siphasher::sip::SipHasher24;
 //compact_target_from_u256
+use bip32_derivation;
+use slip132;
 use stratum_common::{
     bitcoin,
     bitcoin::{
@@ -15,12 +17,10 @@ use stratum_common::{
         hash_types::{BlockHash, TxMerkleNode},
         hashes::{sha256, sha256d::Hash as DHash, Hash},
         secp256k1::{All, Secp256k1},
-        util::{psbt::serialize::Deserialize, uint::Uint256, bip32::ExtendedPubKey},
+        util::{bip32::ExtendedPubKey, psbt::serialize::Deserialize, uint::Uint256},
         PublicKey, Script, Transaction,
     },
 };
-use slip132;
-use bip32_derivation;
 use tracing::error;
 
 use crate::errors::Error;
@@ -200,19 +200,31 @@ impl TryFrom<CoinbaseOutput> for Script {
                 Ok(Script::new_p2pkh(&pub_key_hash))
             }
             "P2PK" => {
-                let bip32_extended_pub_key: ExtendedPubKey = slip132::FromSlip132::from_slip132_str(value.output_script_value.as_str()).unwrap();
-                let child_pub_key = bip32_derivation::derive_child_public_key(&bip32_extended_pub_key, "m/0/0").unwrap();
+                let bip32_extended_pub_key: ExtendedPubKey =
+                    slip132::FromSlip132::from_slip132_str(value.output_script_value.as_str())
+                        .unwrap();
+                let child_pub_key =
+                    bip32_derivation::derive_child_public_key(&bip32_extended_pub_key, "m/0/0")
+                        .unwrap();
                 Ok(Script::new_p2pk(&child_pub_key.to_pub()))
             }
             "P2PKH" => {
-                let bip32_extended_pub_key: ExtendedPubKey = slip132::FromSlip132::from_slip132_str(value.output_script_value.as_str()).unwrap();
-                let child_pub_key = bip32_derivation::derive_child_public_key(&bip32_extended_pub_key, "m/0/0").unwrap();
+                let bip32_extended_pub_key: ExtendedPubKey =
+                    slip132::FromSlip132::from_slip132_str(value.output_script_value.as_str())
+                        .unwrap();
+                let child_pub_key =
+                    bip32_derivation::derive_child_public_key(&bip32_extended_pub_key, "m/0/0")
+                        .unwrap();
                 let pub_key_hash = child_pub_key.to_pub().pubkey_hash();
                 Ok(Script::new_p2pkh(&pub_key_hash))
             }
             "P2WPKH" => {
-                let bip32_extended_pub_key: ExtendedPubKey = slip132::FromSlip132::from_slip132_str(value.output_script_value.as_str()).unwrap();
-                let child_pub_key = bip32_derivation::derive_child_public_key(&bip32_extended_pub_key, "m/0/0").unwrap();
+                let bip32_extended_pub_key: ExtendedPubKey =
+                    slip132::FromSlip132::from_slip132_str(value.output_script_value.as_str())
+                        .unwrap();
+                let child_pub_key =
+                    bip32_derivation::derive_child_public_key(&bip32_extended_pub_key, "m/0/0")
+                        .unwrap();
                 let w_pub_key_hash = child_pub_key.to_pub().wpubkey_hash().unwrap();
                 Ok(Script::new_v0_p2wpkh(&w_pub_key_hash))
             }
@@ -234,8 +246,12 @@ impl TryFrom<CoinbaseOutput> for Script {
                 // Conceptually, every Taproot output corresponds to a combination of
                 // a single public key condition (the internal key),
                 // and zero or more general conditions encoded in scripts organized in a tree.
-                let bip32_extended_pub_key: ExtendedPubKey = slip132::FromSlip132::from_slip132_str(value.output_script_value.as_str()).unwrap();
-                let child_pub_key = bip32_derivation::derive_child_public_key(&bip32_extended_pub_key, "m/0/0").unwrap();
+                let bip32_extended_pub_key: ExtendedPubKey =
+                    slip132::FromSlip132::from_slip132_str(value.output_script_value.as_str())
+                        .unwrap();
+                let child_pub_key =
+                    bip32_derivation::derive_child_public_key(&bip32_extended_pub_key, "m/0/0")
+                        .unwrap();
                 Ok({
                     let (pubkey_only, _) = child_pub_key.to_pub().inner.x_only_public_key();
                     Script::new_v1_p2tr::<All>(&Secp256k1::<All>::new(), pubkey_only, None)
@@ -518,7 +534,6 @@ pub fn u256_to_block_hash(v: U256<'static>) -> BlockHash {
     let hash = Hash::from_inner(hash);
     BlockHash::from_hash(hash)
 }
-
 
 /// Returns a new `BlockHeader`.
 /// Expected endianness inputs:
