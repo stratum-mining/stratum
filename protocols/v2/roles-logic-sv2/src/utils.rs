@@ -15,11 +15,12 @@ use stratum_common::{
         hash_types::{BlockHash, TxMerkleNode},
         hashes::{sha256, sha256d::Hash as DHash, Hash},
         secp256k1::{All, Secp256k1},
-        util::{base58, psbt::serialize::Deserialize, uint::Uint256, bip32::ExtendedPubKey, bip32::{ChildNumber, DerivationPath}},
+        util::{base58, psbt::serialize::Deserialize, uint::Uint256, bip32::ExtendedPubKey, bip32::DerivationPath},
         PublicKey, Script, Transaction,
     },
 };
 use slip132;
+use bip32_derivation;
 use tracing::error;
 
 use crate::errors::Error;
@@ -199,40 +200,20 @@ impl TryFrom<CoinbaseOutput> for Script {
                 Ok(Script::new_p2pkh(&pub_key_hash))
             }
             "P2PK" => {
-                let bip32_pub_key: ExtendedPubKey = slip132::FromSlip132::from_slip132_str(value.output_script_value.as_str()).expect("error");
-                //let bip32_pub_key = ExtendedPubKey::from_str(value.output_script_value.as_str());
-                    //.map_err(|_| Error::InvalidOutputScript)?;
-                //let child_pub_key = bip32_pub_key.ckd_pub(&Secp256k1::<All>::new(), ChildNumber::Normal { index: 1 }).unwrap();
-                let child_pub_key = bip32_pub_key.derive_pub(&Secp256k1::<All>::new(), &"m/0/0".parse::<DerivationPath>()
-                .expect("Valid path")).unwrap();
-                /* let pub_key = PublicKey::from_str(compressed_pub_key.as_str())
-                    .map_err(|_| Error::InvalidOutputScript)?; */
+                let bip32_extended_pub_key: ExtendedPubKey = slip132::FromSlip132::from_slip132_str(value.output_script_value.as_str()).unwrap();
+                let child_pub_key = bip32_derivation::derive_child_public_key(&bip32_extended_pub_key, "m/0/0").unwrap();
                 Ok(Script::new_p2pk(&child_pub_key.to_pub()))
             }
             "P2PKH" => {
-                let bip32_pub_key: ExtendedPubKey = slip132::FromSlip132::from_slip132_str(value.output_script_value.as_str()).expect("error");
-                //let bip32_pub_key = ExtendedPubKey::from_str(value.output_script_value.as_str());
-                    //.map_err(|_| Error::InvalidOutputScript)?;
-                //let child_pub_key = bip32_pub_key.ckd_pub(&Secp256k1::<All>::new(), ChildNumber::Normal { index: 1 }).unwrap();
-                let child_pub_key = bip32_pub_key.derive_pub(&Secp256k1::<All>::new(), &"m/0/0".parse::<DerivationPath>()
-                .expect("Valid path")).unwrap();
-                println!("child pub_key --> {:?}", child_pub_key.to_pub());
-                let pub_key_hash = child_pub_key.to_pub()
-                    //.map_err(|_| Error::InvalidOutputScript)?
-                    .pubkey_hash();
+                let bip32_extended_pub_key: ExtendedPubKey = slip132::FromSlip132::from_slip132_str(value.output_script_value.as_str()).unwrap();
+                let child_pub_key = bip32_derivation::derive_child_public_key(&bip32_extended_pub_key, "m/0/0").unwrap();
+                let pub_key_hash = child_pub_key.to_pub().pubkey_hash();
                 Ok(Script::new_p2pkh(&pub_key_hash))
             }
             "P2WPKH" => {
-                let bip32_pub_key: ExtendedPubKey = slip132::FromSlip132::from_slip132_str(value.output_script_value.as_str()).expect("error");
-                //let bip32_pub_key = ExtendedPubKey::from_str(value.output_script_value.as_str());
-                    //.map_err(|_| Error::InvalidOutputScript)?;
-                //let child_pub_key = bip32_pub_key.ckd_pub(&Secp256k1::<All>::new(), ChildNumber::Normal { index: 1 }).unwrap();
-                let child_pub_key = bip32_pub_key.derive_pub(&Secp256k1::<All>::new(), &"m/0/0".parse::<DerivationPath>()
-                .expect("Valid path")).unwrap();
-                println!("child pub_key --> {:?}", child_pub_key.to_pub());
-                let w_pub_key_hash = child_pub_key.to_pub()
-                    .wpubkey_hash()
-                    .unwrap();
+                let bip32_extended_pub_key: ExtendedPubKey = slip132::FromSlip132::from_slip132_str(value.output_script_value.as_str()).unwrap();
+                let child_pub_key = bip32_derivation::derive_child_public_key(&bip32_extended_pub_key, "m/0/0").unwrap();
+                let w_pub_key_hash = child_pub_key.to_pub().wpubkey_hash().unwrap();
                 Ok(Script::new_v0_p2wpkh(&w_pub_key_hash))
             }
             "P2SH" => {
@@ -253,31 +234,16 @@ impl TryFrom<CoinbaseOutput> for Script {
                 // Conceptually, every Taproot output corresponds to a combination of
                 // a single public key condition (the internal key),
                 // and zero or more general conditions encoded in scripts organized in a tree.
-                let compressed_pub_key =
-                    bip32_extended_to_compressed(value.output_script_value.as_str())?;
-                let pub_key = PublicKey::from_str(compressed_pub_key.as_str())
-                    .map_err(|_| Error::InvalidOutputScript)?;
+                let bip32_extended_pub_key: ExtendedPubKey = slip132::FromSlip132::from_slip132_str(value.output_script_value.as_str()).unwrap();
+                let child_pub_key = bip32_derivation::derive_child_public_key(&bip32_extended_pub_key, "m/0/0").unwrap();
                 Ok({
-                    let (pubkey_only, _) = pub_key.inner.x_only_public_key();
+                    let (pubkey_only, _) = child_pub_key.to_pub().inner.x_only_public_key();
                     Script::new_v1_p2tr::<All>(&Secp256k1::<All>::new(), pubkey_only, None)
                 })
             }
             _ => Err(Error::UnknownOutputScriptType),
         }
     }
-}
-
-fn bip32_extended_to_compressed(bip32_extended_public_key: &str) -> Result<String, Error> {
-    let decoded_bytes =
-        base58::from_check(bip32_extended_public_key).map_err(|_| Error::InvalidOutputScript)?;
-        println!("decoded bytessss  -> {:?}", decoded_bytes);
-    
-    let compressed_public_key = &decoded_bytes[decoded_bytes.len() - 33..];
-    let result = compressed_public_key
-        .iter()
-        .map(|&byte| format!("{:02x}", byte))
-        .collect();
-    Ok(result)
 }
 
 /// The pool set a target for each miner. Each target is calibrated on the hashrate of the miner.
@@ -553,16 +519,6 @@ pub fn u256_to_block_hash(v: U256<'static>) -> BlockHash {
     BlockHash::from_hash(hash)
 }
 
-#[test]
-fn test_bip32_extended_to_compressed() {
-    let input = "vpub5XzEwP9YWe4cKKZAmbiBUxC7eL5HaZhbquBYzP3vDSDJJegb7CSCRphAPmwpGHzAyH1as9MRnXFWDcZozXA1K3sQqyKdTagooPfCVDhiwnr";
-    let expected_output = "02e3c73b75fa0949872c8479c3af2ec9f0d3631b1c606039035e8daf8ec6da9c34";
-    let result = bip32_extended_to_compressed(input).unwrap();
-    assert_eq!(result, expected_output);
-
-    let invalid_input = "invalid_extended_public_key";
-    assert!(bip32_extended_to_compressed(invalid_input).is_err());
-}
 
 /// Returns a new `BlockHeader`.
 /// Expected endianness inputs:
