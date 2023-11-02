@@ -12,7 +12,6 @@ use roles_logic_sv2::{
     utils::{hash_lists_tuple, Mutex},
 };
 use std::{collections::HashMap, convert::TryInto, str::FromStr};
-use stratum_common::bitcoin::{util::psbt::serialize::Deserialize, Transaction};
 use tokio::task::AbortHandle;
 use tracing::{error, info};
 
@@ -212,12 +211,6 @@ impl JobDeclarator {
             .unwrap();
         // TODO: create right nonce
         let tx_short_hash_nonce = 0;
-        let mut tx_list: Vec<Transaction> = Vec::new();
-        for tx in tx_list_.to_vec() {
-            //TODO remove unwrap
-            let tx = Transaction::deserialize(&tx).unwrap();
-            tx_list.push(tx);
-        }
         let declare_job = DeclareMiningJob {
             request_id: id,
             mining_job_token: token.try_into().unwrap(),
@@ -229,8 +222,8 @@ impl JobDeclarator {
                 .safe_lock(|s| s.coinbase_tx_suffix.clone())
                 .unwrap(),
             tx_short_hash_nonce,
-            tx_short_hash_list: hash_lists_tuple(tx_list.clone(), tx_short_hash_nonce).0,
-            tx_hash_list_hash: hash_lists_tuple(tx_list.clone(), tx_short_hash_nonce).1,
+            tx_short_hash_list: hash_lists_tuple(tx_list_.clone(), tx_short_hash_nonce).0,
+            tx_hash_list_hash: hash_lists_tuple(tx_list_.clone(), tx_short_hash_nonce).1,
             excess_data, // request transaction data
         };
         let last_declare = LastDeclareJob {

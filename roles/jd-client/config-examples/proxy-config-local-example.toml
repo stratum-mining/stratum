@@ -34,7 +34,6 @@ tp_authority_pub_key = "3VANfft6ei6jQq1At7d8nmiZzVhBFS4CiQujdgim1ign"
 
 # Solo Mining config
 # List of coinbase outputs used to build the coinbase tx in case of Solo Mining (as last-resort solution of the pools fallback system)
-# ! Put your Extended Public Key or Script as output_script_value !
 # ! Right now only one output is supported, so comment all the ones you don't need !
 # For P2PK, P2PKH, P2WPKH, P2TR a public key is needed. For P2SH and P2WSH, a redeem script is needed. 
 coinbase_outputs = [
