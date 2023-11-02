@@ -194,38 +194,27 @@ impl TryFrom<CoinbaseOutput> for Script {
     fn try_from(value: CoinbaseOutput) -> Result<Self, Self::Error> {
         match value.output_script_type.as_str() {
             "TEST" => {
-                let pub_key_hash = PublicKey::from_str(value.output_script_value.as_str())
+                let pub_key_hash = PublicKey::from_str(&value.output_script_value)
                     .map_err(|_| Error::InvalidOutputScript)?
                     .pubkey_hash();
                 Ok(Script::new_p2pkh(&pub_key_hash))
             }
             "P2PK" => {
-                let bip32_extended_pub_key: ExtendedPubKey =
-                    slip132::FromSlip132::from_slip132_str(value.output_script_value.as_str())
-                        .unwrap();
-                let child_pub_key =
-                    bip32_derivation::derive_child_public_key(&bip32_extended_pub_key, "m/0/0")
-                        .unwrap();
-                Ok(Script::new_p2pk(&child_pub_key.to_pub()))
+                let pub_key = PublicKey::from_str(&value.output_script_value)
+                    .map_err(|_| Error::InvalidOutputScript)?;
+                Ok(Script::new_p2pk(&pub_key))
             }
             "P2PKH" => {
-                let bip32_extended_pub_key: ExtendedPubKey =
-                    slip132::FromSlip132::from_slip132_str(value.output_script_value.as_str())
-                        .unwrap();
-                let child_pub_key =
-                    bip32_derivation::derive_child_public_key(&bip32_extended_pub_key, "m/0/0")
-                        .unwrap();
-                let pub_key_hash = child_pub_key.to_pub().pubkey_hash();
+                let pub_key_hash = PublicKey::from_str(&value.output_script_value)
+                    .map_err(|_| Error::InvalidOutputScript)?
+                    .pubkey_hash();
                 Ok(Script::new_p2pkh(&pub_key_hash))
             }
             "P2WPKH" => {
-                let bip32_extended_pub_key: ExtendedPubKey =
-                    slip132::FromSlip132::from_slip132_str(value.output_script_value.as_str())
-                        .unwrap();
-                let child_pub_key =
-                    bip32_derivation::derive_child_public_key(&bip32_extended_pub_key, "m/0/0")
-                        .unwrap();
-                let w_pub_key_hash = child_pub_key.to_pub().wpubkey_hash().unwrap();
+                let w_pub_key_hash = PublicKey::from_str(&value.output_script_value)
+                    .map_err(|_| Error::InvalidOutputScript)?
+                    .wpubkey_hash()
+                    .unwrap();
                 Ok(Script::new_v0_p2wpkh(&w_pub_key_hash))
             }
             "P2SH" => {
@@ -246,14 +235,10 @@ impl TryFrom<CoinbaseOutput> for Script {
                 // Conceptually, every Taproot output corresponds to a combination of
                 // a single public key condition (the internal key),
                 // and zero or more general conditions encoded in scripts organized in a tree.
-                let bip32_extended_pub_key: ExtendedPubKey =
-                    slip132::FromSlip132::from_slip132_str(value.output_script_value.as_str())
-                        .unwrap();
-                let child_pub_key =
-                    bip32_derivation::derive_child_public_key(&bip32_extended_pub_key, "m/0/0")
-                        .unwrap();
+                let pub_key = PublicKey::from_str(&value.output_script_value)
+                    .map_err(|_| Error::InvalidOutputScript)?;
                 Ok({
-                    let (pubkey_only, _) = child_pub_key.to_pub().inner.x_only_public_key();
+                    let (pubkey_only, _) = pub_key.inner.x_only_public_key();
                     Script::new_v1_p2tr::<All>(&Secp256k1::<All>::new(), pubkey_only, None)
                 })
             }
