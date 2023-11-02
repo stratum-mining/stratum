@@ -518,7 +518,6 @@ pub fn u256_to_block_hash(v: U256<'static>) -> BlockHash {
     BlockHash::from_hash(hash)
 }
 
-
 /// Returns a new `BlockHeader`.
 /// Expected endianness inputs:
 /// version     LE
