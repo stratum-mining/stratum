@@ -12,7 +12,6 @@ use roles_logic_sv2::{
     utils::{hash_lists_tuple, Mutex},
 };
 use std::{collections::HashMap, convert::TryInto, str::FromStr};
-use stratum_common::bitcoin::{util::psbt::serialize::Deserialize, Transaction};
 use tokio::task::AbortHandle;
 use tracing::{error, info};
 
