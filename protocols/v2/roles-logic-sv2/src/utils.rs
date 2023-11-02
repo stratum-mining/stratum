@@ -15,7 +15,7 @@ use stratum_common::{
         hash_types::{BlockHash, TxMerkleNode},
         hashes::{sha256, sha256d::Hash as DHash, Hash},
         secp256k1::{All, Secp256k1},
-        util::{base58, psbt::serialize::Deserialize, uint::Uint256},
+        util::{psbt::serialize::Deserialize, uint::Uint256},
         PublicKey, Script, Transaction,
     },
 };
@@ -243,17 +243,6 @@ impl TryFrom<CoinbaseOutput> for Script {
             _ => Err(Error::UnknownOutputScriptType),
         }
     }
-}
-
-fn bip32_extended_to_compressed(bip32_extended_public_key: &str) -> Result<String, Error> {
-    let decoded_bytes =
-        base58::from_check(bip32_extended_public_key).map_err(|_| Error::InvalidOutputScript)?;
-    let compressed_public_key = &decoded_bytes[decoded_bytes.len() - 33..];
-    let result = compressed_public_key
-        .iter()
-        .map(|&byte| format!("{:02x}", byte))
-        .collect();
-    Ok(result)
 }
 
 /// The pool set a target for each miner. Each target is calibrated on the hashrate of the miner.
