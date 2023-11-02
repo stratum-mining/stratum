@@ -8,8 +8,6 @@ use std::{
 use binary_sv2::{Seq064K, ShortTxId, B016M, U256};
 use siphasher::sip::SipHasher24;
 //compact_target_from_u256
-use bip32_derivation;
-use slip132;
 use stratum_common::{
     bitcoin,
     bitcoin::{
@@ -17,7 +15,7 @@ use stratum_common::{
         hash_types::{BlockHash, TxMerkleNode},
         hashes::{sha256, sha256d::Hash as DHash, Hash},
         secp256k1::{All, Secp256k1},
-        util::{bip32::ExtendedPubKey, psbt::serialize::Deserialize, uint::Uint256},
+        util::{psbt::serialize::Deserialize, uint::Uint256},
         PublicKey, Script, Transaction,
     },
 };
