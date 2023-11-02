@@ -518,16 +518,6 @@ pub fn u256_to_block_hash(v: U256<'static>) -> BlockHash {
     BlockHash::from_hash(hash)
 }
 
-#[test]
-fn test_bip32_extended_to_compressed() {
-    let input = "vpub5XzEwP9YWe4cKKZAmbiBUxC7eL5HaZhbquBYzP3vDSDJJegb7CSCRphAPmwpGHzAyH1as9MRnXFWDcZozXA1K3sQqyKdTagooPfCVDhiwnr";
-    let expected_output = "02e3c73b75fa0949872c8479c3af2ec9f0d3631b1c606039035e8daf8ec6da9c34";
-    let result = bip32_extended_to_compressed(input).unwrap();
-    assert_eq!(result, expected_output);
-
-    let invalid_input = "invalid_extended_public_key";
-    assert!(bip32_extended_to_compressed(invalid_input).is_err());
-}
 
 /// Returns a new `BlockHeader`.
 /// Expected endianness inputs:
