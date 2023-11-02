@@ -192,30 +192,24 @@ impl TryFrom<CoinbaseOutput> for Script {
     fn try_from(value: CoinbaseOutput) -> Result<Self, Self::Error> {
         match value.output_script_type.as_str() {
             "TEST" => {
-                let pub_key_hash = PublicKey::from_str(value.output_script_value.as_str())
+                let pub_key_hash = PublicKey::from_str(&value.output_script_value)
                     .map_err(|_| Error::InvalidOutputScript)?
                     .pubkey_hash();
                 Ok(Script::new_p2pkh(&pub_key_hash))
             }
             "P2PK" => {
-                let compressed_pub_key =
-                    bip32_extended_to_compressed(value.output_script_value.as_str())?;
-                let pub_key = PublicKey::from_str(compressed_pub_key.as_str())
+                let pub_key = PublicKey::from_str(&value.output_script_value)
                     .map_err(|_| Error::InvalidOutputScript)?;
                 Ok(Script::new_p2pk(&pub_key))
             }
             "P2PKH" => {
-                let compressed_pub_key =
-                    bip32_extended_to_compressed(value.output_script_value.as_str())?;
-                let pub_key_hash = PublicKey::from_str(compressed_pub_key.as_str())
+                let pub_key_hash = PublicKey::from_str(&value.output_script_value)
                     .map_err(|_| Error::InvalidOutputScript)?
                     .pubkey_hash();
                 Ok(Script::new_p2pkh(&pub_key_hash))
             }
             "P2WPKH" => {
-                let compressed_pub_key =
-                    bip32_extended_to_compressed(value.output_script_value.as_str())?;
-                let w_pub_key_hash = PublicKey::from_str(compressed_pub_key.as_str())
+                let w_pub_key_hash = PublicKey::from_str(&value.output_script_value)
                     .map_err(|_| Error::InvalidOutputScript)?
                     .wpubkey_hash()
                     .unwrap();
@@ -239,9 +233,7 @@ impl TryFrom<CoinbaseOutput> for Script {
                 // Conceptually, every Taproot output corresponds to a combination of
                 // a single public key condition (the internal key),
                 // and zero or more general conditions encoded in scripts organized in a tree.
-                let compressed_pub_key =
-                    bip32_extended_to_compressed(value.output_script_value.as_str())?;
-                let pub_key = PublicKey::from_str(compressed_pub_key.as_str())
+                let pub_key = PublicKey::from_str(&value.output_script_value)
                     .map_err(|_| Error::InvalidOutputScript)?;
                 Ok({
                     let (pubkey_only, _) = pub_key.inner.x_only_public_key();
