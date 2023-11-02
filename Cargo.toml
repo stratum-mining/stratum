@@ -41,6 +41,7 @@ members = [
     "utils/network-helpers",
     "utils/buffer",
     "utils/error-handling",
+    "utils/bip32-key-derivation",
     "examples/sv1-client-and-server",
     "examples/ping-pong-with-noise",
     "examples/ping-pong-without-noise",

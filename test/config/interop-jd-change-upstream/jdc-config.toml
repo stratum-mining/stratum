@@ -29,7 +29,7 @@ tp_authority_pub_key = "3VANfft6ei6jQq1At7d8nmiZzVhBFS4CiQujdgim1ign"
 
 
 coinbase_outputs = [
-     { output_script_type = "P2WPKH", output_script_value = "vpub5XzEwP9YWe4cKKZAmbiBUxC7eL5HaZhbquBYzP3vDSDJJegb7CSCRphAPmwpGHzAyH1as9MRnXFWDcZozXA1K3sQqyKdTagooPfCVDhiwnr" },
+     { output_script_type = "P2WPKH", output_script_value = "036adc3bdf21e6f9a0f0fb0066bf517e5b7909ed1563d6958a10993849a7554075" },
 ]
 
 [timeout]
