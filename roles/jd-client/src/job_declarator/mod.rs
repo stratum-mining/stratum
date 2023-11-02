@@ -212,12 +212,6 @@ impl JobDeclarator {
             .unwrap();
         // TODO: create right nonce
         let tx_short_hash_nonce = 0;
-        /* let mut tx_list: Vec<Transaction> = Vec::new();
-        for tx in tx_list_.to_vec() {
-            //TODO remove unwrap
-            let tx = Transaction::deserialize(&tx).unwrap();
-            tx_list.push(tx);
-        } */
         let declare_job = DeclareMiningJob {
             request_id: id,
             mining_job_token: token.try_into().unwrap(),
