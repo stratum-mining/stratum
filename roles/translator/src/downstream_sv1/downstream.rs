@@ -233,7 +233,7 @@ impl Downstream {
 
         let tx_status_notify = tx_status;
         let self_ = downstream.clone();
-        
+
         let _notify_task = task::spawn(async move {
             let timeout_timer = std::time::Instant::now();
             let mut first_sent = false;
