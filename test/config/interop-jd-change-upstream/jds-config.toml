@@ -5,7 +5,7 @@ cert_validity_sec = 3600
 
 # list of compressed or uncompressed pubkeys for coinbase payout (only supports 1 item in the array at this point)
 coinbase_outputs = [
-   { output_script_type = "P2WPKH", output_script_value = "vpub5XzEwP9YWe4cKKZAmbiBUxC7eL5HaZhbquBYzP3vDSDJJegb7CSCRphAPmwpGHzAyH1as9MRnXFWDcZozXA1K3sQqyKdTagooPfCVDhiwnr" },
+   { output_script_type = "P2WPKH", output_script_value = "036adc3bdf21e6f9a0f0fb0066bf517e5b7909ed1563d6958a10993849a7554075" },
 ]
 
 listen_jd_address = "127.0.0.1:34264"
