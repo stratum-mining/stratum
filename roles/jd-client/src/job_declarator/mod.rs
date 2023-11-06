@@ -311,6 +311,7 @@ impl JobDeclarator {
                                         template.coinbase_tx_value_remaining,
                                         pool_outs,
                                         template.coinbase_tx_locktime,
+                                        template.template_id
                                         ).await.unwrap(),
                                     None => panic!("Invalid state we received a NewTemplate not future, without having received a set new prev hash")
                                 }
@@ -381,6 +382,7 @@ impl JobDeclarator {
                 template.coinbase_tx_value_remaining,
                 pool_outs,
                 template.coinbase_tx_locktime,
+                template.template_id,
             )
             .await
             .unwrap();
