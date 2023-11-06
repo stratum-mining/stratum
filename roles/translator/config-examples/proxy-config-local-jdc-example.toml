@@ -31,8 +31,6 @@ min_individual_miner_hashrate=5_000_000.0
 miner_num_submits_before_update=5
 # target number of shares per minute the miner should be sending
 shares_per_minute = 6.0
-# optional value
-#update_interval = 10
 
 [upstream_difficulty_config]
 # interval in seconds to elapse before updating channel hashrate with the pool

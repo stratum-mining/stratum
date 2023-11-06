@@ -24,7 +24,6 @@ pub struct DownstreamDifficultyConfig {
     pub submits_since_last_update: u32,
     #[serde(default = "u64::default")]
     pub timestamp_of_last_update: u64,
-    pub update_interval: Option<u64>,
 }
 
 impl PartialEq for DownstreamDifficultyConfig {

@@ -126,12 +126,6 @@ impl Downstream {
                     new_hash_rate,
                     diff_mgmt.shares_per_minute,
                 );
-                tracing::info!("New target from hashrate: {:?}", new_target.inner_as_ref());
-                self_
-                    .safe_lock(|d| {
-                        d.target = new_target.to_vec();
-                    })
-                    .unwrap();
                 let message = Self::get_set_difficulty(new_target.to_vec())?;
                 // send mining.set_difficulty to miner
                 Downstream::send_message_downstream(self_.clone(), message).await?;
@@ -300,7 +294,6 @@ mod test {
             shares_per_minute: 1000.0,            // 1000 shares per minute
             submits_since_last_update: 0,
             timestamp_of_last_update: 0, // updated below
-            update_interval: None,
         };
         let upstream_config = UpstreamDifficultyConfig {
             channel_diff_update_interval: 60,
