@@ -126,6 +126,7 @@ impl Downstream {
                     new_hash_rate,
                     diff_mgmt.shares_per_minute,
                 );
+                tracing::debug!("New target from hashrate: {:?}", new_target.inner_as_ref());
                 let message = Self::get_set_difficulty(new_target.to_vec())?;
                 // send mining.set_difficulty to miner
                 Downstream::send_message_downstream(self_.clone(), message).await?;
