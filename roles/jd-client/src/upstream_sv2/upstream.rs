@@ -223,13 +223,19 @@ impl Upstream {
         coinbase_tx_value_remaining: u64,
         coinbase_tx_outs: Vec<u8>,
         coinbase_tx_locktime: u32,
+        template_id: u64,
     ) -> ProxyResult<'static, ()> {
         info!("Sending set custom mining job");
         let request_id = self_.safe_lock(|s| s.req_ids.next()).unwrap();
+        let channel_id = loop {
+            match self_.safe_lock(|s| s.channel_id.clone()).unwrap() {
+                Some(id) => break id,
+                None => (),
+            };
+            tokio::task::yield_now().await;
+        };
         let to_send = SetCustomMiningJob {
-            channel_id: self_
-                .safe_lock(|s| *s.channel_id.as_ref().unwrap())
-                .unwrap(),
+            channel_id,
             request_id,
             token: signed_token,
             version: declare_mining_job.version,
@@ -250,7 +256,7 @@ impl Upstream {
         self_
             .safe_lock(|s| {
                 s.template_to_job_id
-                    .register_template_id(set_new_prev_hash.template_id, request_id)
+                    .register_template_id(template_id, request_id)
             })
             .unwrap();
         Self::send(self_, frame).await
