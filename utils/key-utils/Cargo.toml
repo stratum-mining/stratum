@@ -10,7 +10,7 @@ name = "key_utils"
 path = "src/lib.rs"
 
 [[bin]]
-name = "bin"
+name = "key-utils-bin"
 path = "src/main.rs"
 
 [dependencies]

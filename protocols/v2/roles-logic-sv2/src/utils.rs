@@ -276,12 +276,22 @@ impl TryFrom<CoinbaseOutput> for Script {
 /// [3] https://en.wikipedia.org/wiki/Negative_hypergeometric_distribution
 /// bdiff: 0x00000000ffff0000000000000000000000000000000000000000000000000000
 /// https://en.bitcoin.it/wiki/Difficulty#How_soon_might_I_expect_to_generate_a_block.3F
-pub fn hash_rate_to_target(h: f32, share_per_min: f32) -> U256<'static> {
+
+pub fn hash_rate_to_target(h: f32, share_per_min: f32) -> Result<U256<'static>, crate::Error> {
+    // checks that we are not dividing by zero
+    if share_per_min == 0.0 {
+        return Err(Error::ImpossibleToGetTarget);
+    }
+
     // if we want 5 shares per minute, this means that s=60/5=12 seconds interval between shares
     let s: f32 = 60_f32 / share_per_min;
     let h_times_s = (h * s) as u128;
 
     let h_times_s_plus_one = h_times_s + 1;
+    // checks that we are not dividing by zero
+    if h_times_s_plus_one == 0 {
+        return Err(Error::ImpossibleToGetTarget);
+    }
     let h_times_s_plus_one: Uint256 = from_u128_to_uint256(h_times_s_plus_one);
 
     let h_times_s: Uint256 = from_u128_to_uint256(h_times_s);
@@ -291,15 +301,23 @@ pub fn hash_rate_to_target(h: f32, share_per_min: f32) -> U256<'static> {
 
     let numerator = two_to_256_minus_one - h_times_s;
     let denominator = h_times_s_plus_one;
-    let target = numerator / denominator;
+    if denominator == Uint256::from_u64(0_u64).unwrap() {
+        return Err(Error::ImpossibleToGetTarget);
+    }
+    let target = numerator.div(denominator);
     let mut target_be = target.to_be_bytes();
     target_be.reverse();
-    U256::<'static>::from(target_be)
+    Ok(U256::<'static>::from(target_be))
 }
 
 /// this function utilizes the equation used in [`hash_rate_to_target`], but
 /// translated to solve for hash_rate given a target: h = (2^256-t)/s(t+1)
-pub fn hash_rate_from_target(target: U256<'static>, share_per_min: f32) -> f32 {
+pub fn hash_rate_from_target(target: U256<'static>, share_per_min: f32) -> Result<f32, Error>  {
+    // checks that we are not dividing by zero
+    if share_per_min == 0.0 {
+        return Err(Error::ImpossibleToGetHashrate);
+    }
+    
     // *100 here to move the fractional bit up so we can make this an int later
     let s_times_100 = 60_f64 / (share_per_min as f64) * 100.0;
 
@@ -316,8 +334,11 @@ pub fn hash_rate_from_target(target: U256<'static>, share_per_min: f32) -> f32 {
     let share_times_target = u128_as_u256(s_times_100 as u128)
         .mul(target_plus_one)
         .div(Uint256::from_u64(100.0 as u64).unwrap()); //now divide the 100 back out
+    if share_times_target == Uint256::from_u64(0_u64).unwrap() {
+        return Err(Error::ImpossibleToGetHashrate);
+    }
 
-    ((max_target - target).div(share_times_target).low_u32()) as f32
+    Ok(((max_target - target).div(share_times_target).low_u32()) as f32)
 }
 
 pub fn from_u128_to_uint256(input: u128) -> Uint256 {

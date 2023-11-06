@@ -258,7 +258,10 @@ impl ChannelFactory {
                 .safe_lock(|ids| ids.new_channel_id(extended_channels_group))
                 .unwrap();
             self.channel_to_group_id.insert(channel_id, 0);
-            let target = crate::utils::hash_rate_to_target(hash_rate, self.share_per_min);
+            let target = match crate::utils::hash_rate_to_target(hash_rate, self.share_per_min) {
+                Ok(target) => target,
+                Err(_) => todo!(),
+            };
             let extranonce = self
                 .extranonces
                 .next_extended(max_extranonce_size as usize)?;
@@ -331,7 +334,10 @@ impl ChannelFactory {
         let hom_group_id = 0;
         let mut result = vec![];
         let channel_id = id;
-        let target = crate::utils::hash_rate_to_target(downstream_hash_rate, self.share_per_min);
+        let target = match crate::utils::hash_rate_to_target(downstream_hash_rate, self.share_per_min) {
+            Ok(target) => target,
+            Err(_) => todo!(),
+        };
         let extranonce = self
             .extranonces
             .next_standard()
@@ -374,7 +380,10 @@ impl ChannelFactory {
             .safe_lock(|ids| ids.new_channel_id(group_id))
             .unwrap();
         let complete_id = GroupId::into_complete_id(group_id, channel_id);
-        let target = crate::utils::hash_rate_to_target(downstream_hash_rate, self.share_per_min);
+        let target = match crate::utils::hash_rate_to_target(downstream_hash_rate, self.share_per_min) {
+            Ok(target_) => target_,
+            Err(_) => return Err(Error::ImpossibleToGetTarget),
+        };
         let extranonce = self
             .extranonces
             .next_standard()
