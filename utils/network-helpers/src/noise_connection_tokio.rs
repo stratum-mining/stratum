@@ -79,8 +79,10 @@ impl Connection {
                 match reader.read_exact(writable).await {
                     Ok(_) => {
                         let mut connection = cloned1.lock().await;
+                        let decoded = decoder.next_frame(&mut connection.state);
+                        drop(connection);
 
-                        if let Ok(x) = decoder.next_frame(&mut connection.state) {
+                        if let Ok(x) = decoded {
                             if sender_incoming.send(x).await.is_err() {
                                 task::yield_now().await;
                                 break;

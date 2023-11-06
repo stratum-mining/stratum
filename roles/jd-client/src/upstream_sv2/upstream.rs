@@ -228,7 +228,9 @@ impl Upstream {
         info!("Sending set custom mining job");
         let request_id = self_.safe_lock(|s| s.req_ids.next()).unwrap();
         let channel_id = loop {
-            if let Some(id) = self_.safe_lock(|s| s.channel_id).unwrap() { break id };
+            if let Some(id) = self_.safe_lock(|s| s.channel_id).unwrap() {
+                break id;
+            };
             tokio::task::yield_now().await;
         };
         let to_send = SetCustomMiningJob {
