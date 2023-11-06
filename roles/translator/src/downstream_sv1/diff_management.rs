@@ -114,18 +114,23 @@ impl Downstream {
             diff_mgmt.submits_since_last_update
         );
         if diff_mgmt.submits_since_last_update >= diff_mgmt.miner_num_submits_before_update {
-            let prev_target = roles_logic_sv2::utils::hash_rate_to_target(
+            let prev_target = match roles_logic_sv2::utils::hash_rate_to_target(
                 diff_mgmt.min_individual_miner_hashrate,
                 diff_mgmt.shares_per_minute,
-            )
-            .to_vec();
+            ){
+                Ok(target) => target.to_vec(),
+                Err(v) => return Err(Error::ImpossibleToGetTarget(v)),
+            };
             if let Some(new_hash_rate) =
                 Self::update_miner_hashrate(self_.clone(), prev_target.clone())?
             {
-                let new_target = roles_logic_sv2::utils::hash_rate_to_target(
+                let new_target = match roles_logic_sv2::utils::hash_rate_to_target(
                     new_hash_rate,
                     diff_mgmt.shares_per_minute,
-                );
+                ){
+                    Ok(target) => target,
+                    Err(v) => return Err(Error::ImpossibleToGetTarget(v)),
+                };
                 tracing::debug!("New target from hashrate: {:?}", new_target.inner_as_ref());
                 let message = Self::get_set_difficulty(new_target.to_vec())?;
                 // send mining.set_difficulty to miner
@@ -148,16 +153,17 @@ impl Downstream {
     /// calculates the target according to the current stored hashrate of the miner
     #[allow(clippy::result_large_err)]
     pub fn hash_rate_to_target(self_: Arc<Mutex<Self>>) -> ProxyResult<'static, Vec<u8>> {
-        let target = self_
+        self_
             .safe_lock(|d| {
-                roles_logic_sv2::utils::hash_rate_to_target(
+                match roles_logic_sv2::utils::hash_rate_to_target(
                     d.difficulty_mgmt.min_individual_miner_hashrate,
                     d.difficulty_mgmt.shares_per_minute,
-                )
-                .to_vec()
+                ) {
+                    Ok(target) => Ok(target.to_vec()),
+                    Err(e) => Err(Error::ImpossibleToGetTarget(e))
+                }
             })
-            .map_err(|_e| Error::PoisonLock)?;
-        Ok(target)
+            .map_err(|_e| Error::PoisonLock)?
     }
 
     /// increments the number of shares since the last difficulty update
@@ -245,10 +251,13 @@ impl Downstream {
                 let realized_share_per_min =
                     d.difficulty_mgmt.submits_since_last_update as f32 / (delta_time as f32 / 60.0);
                 tracing::debug!("\nREALIZED SHARES PER MINUTE {:?}", realized_share_per_min);
-                let new_miner_hashrate = roles_logic_sv2::utils::hash_rate_from_target(
+                let new_miner_hashrate = match roles_logic_sv2::utils::hash_rate_from_target(
                     miner_target.clone().try_into()?,
                     realized_share_per_min,
-                );
+                ){
+                    Ok(hashrate) => hashrate,
+                    Err(e) => return Err(Error::ImpossibleToGetHashrate(e))
+                };
                 let hashrate_delta =
                     new_miner_hashrate - d.difficulty_mgmt.min_individual_miner_hashrate;
                 tracing::debug!("\nMINER HASHRATE: {:?}", new_miner_hashrate);
