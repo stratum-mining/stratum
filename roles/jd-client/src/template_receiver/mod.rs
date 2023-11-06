@@ -203,7 +203,7 @@ impl TemplateRx {
                                     // See coment on the definition of the global for memory
                                     // ordering
                                     crate::IS_NEW_TEMPLATE_HANDLED
-                                        .store(false, std::sync::atomic::Ordering::Relaxed);
+                                        .store(false, std::sync::atomic::Ordering::Release);
                                     Self::send_tx_data_request(&self_mutex, m.clone()).await;
                                     self_mutex
                                         .safe_lock(|t| t.new_template_message = Some(m.clone()))
