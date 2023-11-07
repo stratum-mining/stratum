@@ -340,6 +340,7 @@ impl Bridge {
                 let notify = crate::proxy::next_mining_notify::create_notify(
                     sv2_set_new_prev_hash.clone(),
                     job,
+                    true,
                 );
 
                 // Get the sender to send the mining.notify to the Downstream
@@ -433,9 +434,11 @@ impl Bridge {
 
             let j_id = sv2_new_extended_mining_job.job_id;
             // Create the mining.notify to be sent to the Downstream.
+            // clean_jobs must be false because it's not a NewPrevHash template
             let notify = crate::proxy::next_mining_notify::create_notify(
                 last_p_hash,
                 sv2_new_extended_mining_job.clone(),
+                false,
             );
             // Get the sender to send the mining.notify to the Downstream
             tx_sv1_notify.send(notify.clone())?;
