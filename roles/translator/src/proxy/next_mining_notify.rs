@@ -39,8 +39,6 @@ pub fn create_notify(
     let bits = HexU32Be(new_prev_hash.nbits);
     let time = HexU32Be(new_prev_hash.min_ntime);
 
-    //let clean_jobs = true;
-
     let notify_response = server_to_client::Notify {
         job_id,
         prev_hash,
