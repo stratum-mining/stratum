@@ -11,9 +11,11 @@ use v1::{
 /// Creates a new SV1 `mining.notify` message if both SV2 `SetNewPrevHash` and
 /// `NewExtendedMiningJob` messages have been received. If one of these messages is still being
 /// waited on, the function returns `None`.
+/// If clean_jobs = false, it means a new job is created, with the same PrevHash
 pub fn create_notify(
     new_prev_hash: SetNewPrevHash<'static>,
     new_job: NewExtendedMiningJob<'static>,
+    clean_jobs: bool,
 ) -> server_to_client::Notify<'static> {
     // TODO 32 must be changed!
     let new_job = extended_job_to_non_segwit(new_job, 32)
@@ -36,8 +38,6 @@ pub fn create_notify(
     let version = HexU32Be(new_job.version);
     let bits = HexU32Be(new_prev_hash.nbits);
     let time = HexU32Be(new_prev_hash.min_ntime);
-
-    let clean_jobs = true;
 
     let notify_response = server_to_client::Notify {
         job_id,
