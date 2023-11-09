@@ -177,6 +177,7 @@ impl Downstream {
     #[allow(clippy::result_large_err)]
     pub(super) fn get_set_difficulty(target: Vec<u8>) -> ProxyResult<'static, json_rpc::Message> {
         let value = Downstream::difficulty_from_target(target)?;
+        tracing::debug!("Difficulty from target: {:?}", value);
         let set_target = v1::methods::server_to_client::SetDifficulty { value };
         let message: json_rpc::Message = set_target.into();
         Ok(message)
@@ -189,6 +190,7 @@ impl Downstream {
         // reverse because target is LE and this function relies on BE
         target.reverse();
         let target = target.as_slice();
+        tracing::debug!("Target: {:?}", target);
 
         // If received target is 0, return 0
         if Downstream::is_zero(target) {
@@ -209,6 +211,7 @@ impl Downstream {
             let diff = diff.low_u64() as f64;
             // TODO still results in a difficulty that is too low
             Ok(1.0 / diff)
+
         }
     }
 
@@ -233,6 +236,7 @@ impl Downstream {
                     d.difficulty_mgmt.submits_since_last_update = 0;
                     return Ok(None);
                 }
+                
                 let delta_time = timestamp_secs - d.difficulty_mgmt.timestamp_of_last_update;
                 if delta_time == 0 {
                     return Ok(None);
@@ -240,6 +244,7 @@ impl Downstream {
                 tracing::debug!("\nDELTA TIME: {:?}", delta_time);
                 let realized_share_per_min =
                     d.difficulty_mgmt.submits_since_last_update as f32 / (delta_time as f32 / 60.0);
+                tracing::debug!("\nREALIZED SHARES PER MINUTE {:?}", realized_share_per_min);
                 let new_miner_hashrate = roles_logic_sv2::utils::hash_rate_from_target(
                     miner_target.clone().try_into()?,
                     realized_share_per_min,
@@ -285,6 +290,57 @@ mod test {
     };
 
     use crate::downstream_sv1::Downstream;
+
+    #[test]
+    fn test_update_miner_hashrate() {
+        // this test verifies the correctedness of the function update_miner_hashrate.
+        // first we set an hashrate and a target. We expect 6 hashes per minute, so 1 every 10
+        // seconds. Below we sleep 10 seconds before launching the function
+        let hashrate = 1000000.0;
+        let target = roles_logic_sv2::utils::hash_rate_to_target(hashrate as f32, 6.0);
+        dbg!(&target);
+
+        //here we set a fake hashrate for the Downsatream struct
+        let fake_hashrate = hashrate/1000.0; 
+        let timestamp_secs = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("time went backwards")
+            .as_secs();
+        let downstream_conf = DownstreamDifficultyConfig {
+            min_individual_miner_hashrate: fake_hashrate as f32,
+            miner_num_submits_before_update: 150, // update after 150 submits
+            shares_per_minute: 6000.0,           // 1000 shares per minute
+            submits_since_last_update: 1,
+            timestamp_of_last_update: timestamp_secs, // updated below
+        };
+        let upstream_config = UpstreamDifficultyConfig {
+            channel_diff_update_interval: 60,
+            channel_nominal_hashrate: fake_hashrate as f32,
+            timestamp_of_last_update: 0,
+            should_aggregate: false,
+        };
+        let (tx_sv1_submit, _rx_sv1_submit) = unbounded();
+        let (tx_outgoing, _rx_outgoing) = unbounded();
+        // create Downstream instance
+        let downstream = Downstream::new(
+            1,
+            vec![],
+            vec![],
+            None,
+            None,
+            tx_sv1_submit,
+            tx_outgoing,
+            false,
+            0,
+            downstream_conf.clone(),
+            Arc::new(Mutex::new(upstream_config)),
+        );
+        let downstream_mutex = Arc::new(Mutex::new(downstream));
+        std::thread::sleep(Duration::from_secs(10));
+        let updated_hashrate = Downstream::update_miner_hashrate(downstream_mutex.clone(), target.to_vec()).unwrap().unwrap();
+        panic!();
+        assert!(updated_hashrate == hashrate);
+    }
 
     // test ability to approach target share per minute. Currently set to test against 20% error
     #[tokio::test]
