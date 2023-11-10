@@ -312,12 +312,12 @@ pub fn hash_rate_to_target(h: f32, share_per_min: f32) -> Result<U256<'static>, 
 
 /// this function utilizes the equation used in [`hash_rate_to_target`], but
 /// translated to solve for hash_rate given a target: h = (2^256-t)/s(t+1)
-pub fn hash_rate_from_target(target: U256<'static>, share_per_min: f32) -> Result<f32, Error>  {
+pub fn hash_rate_from_target(target: U256<'static>, share_per_min: f32) -> Result<f32, Error> {
     // checks that we are not dividing by zero
     if share_per_min == 0.0 {
         return Err(Error::ImpossibleToGetHashrate);
     }
-    
+
     // *100 here to move the fractional bit up so we can make this an int later
     let s_times_100 = 60_f64 / (share_per_min as f64) * 100.0;
 
@@ -915,7 +915,9 @@ mod tests {
 
         let hr = 10.0; // 10 h/s
         let hrs = hr * 60.0; // number of hashes in 1 minute
-        let mut target = hash_rate_to_target(hr, 1.0).to_vec();
+        let mut target = hash_rate_to_target(hr, 1.0)
+            .expect("impossible to obtain target")
+            .to_vec();
         target.reverse();
         let target = bitcoin::util::uint::Uint256::from_be_slice(&target[..]).unwrap();
 
@@ -948,9 +950,11 @@ mod tests {
     fn test_hash_rate_from_target() {
         let hr = 202470.828;
         let expected_share_per_min = 1.0;
-        let target = hash_rate_to_target(hr, expected_share_per_min);
+        let target =
+            hash_rate_to_target(hr, expected_share_per_min).expect("impossible to obtain target");
         let realized_share_per_min = expected_share_per_min * 10.0; // increase SPM by 10x
-        let hash_rate = hash_rate_from_target(target, realized_share_per_min);
+        let hash_rate = hash_rate_from_target(target, realized_share_per_min)
+            .expect("impossible to obtain hashrate");
         // assert the hash_rate is the is the same as the initial set to ensure `hash_rate_from_target` is the
         // inverse of `hash_rate_to_target`
         let new_hr = (hr * 10.0).trunc();
