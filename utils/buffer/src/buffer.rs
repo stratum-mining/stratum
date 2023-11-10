@@ -98,7 +98,7 @@ impl Buffer for TestBufferFromMemory {
     fn len(&self) -> usize {
         0
     }
-    fn danger_set_start(&mut self, index: usize) {
+    fn danger_set_start(&mut self, _index: usize) {
         todo!()
     }
 }

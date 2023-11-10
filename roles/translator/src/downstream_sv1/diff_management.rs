@@ -85,11 +85,13 @@ impl Downstream {
             diff_mgmt.submits_since_last_update
         );
         if diff_mgmt.submits_since_last_update >= diff_mgmt.miner_num_submits_before_update {
-            let prev_target = roles_logic_sv2::utils::hash_rate_to_target(
+            let prev_target = match roles_logic_sv2::utils::hash_rate_to_target(
                 diff_mgmt.min_individual_miner_hashrate,
                 diff_mgmt.shares_per_minute,
-            )
-            .to_vec();
+            ) {
+                Ok(target) => target.to_vec(),
+                Err(e) => return Err(Error::ImpossibleToGetTarget(e)),
+            };
             Self::update_miner_hashrate(self_.clone(), prev_target.clone())?;
         }
         Ok(())
@@ -117,7 +119,7 @@ impl Downstream {
             let prev_target = match roles_logic_sv2::utils::hash_rate_to_target(
                 diff_mgmt.min_individual_miner_hashrate,
                 diff_mgmt.shares_per_minute,
-            ){
+            ) {
                 Ok(target) => target.to_vec(),
                 Err(v) => return Err(Error::ImpossibleToGetTarget(v)),
             };
@@ -127,7 +129,7 @@ impl Downstream {
                 let new_target = match roles_logic_sv2::utils::hash_rate_to_target(
                     new_hash_rate,
                     diff_mgmt.shares_per_minute,
-                ){
+                ) {
                     Ok(target) => target,
                     Err(v) => return Err(Error::ImpossibleToGetTarget(v)),
                 };
@@ -160,7 +162,7 @@ impl Downstream {
                     d.difficulty_mgmt.shares_per_minute,
                 ) {
                     Ok(target) => Ok(target.to_vec()),
-                    Err(e) => Err(Error::ImpossibleToGetTarget(e))
+                    Err(e) => Err(Error::ImpossibleToGetTarget(e)),
                 }
             })
             .map_err(|_e| Error::PoisonLock)?
@@ -217,7 +219,6 @@ impl Downstream {
             let diff = diff.low_u64() as f64;
             // TODO still results in a difficulty that is too low
             Ok(1.0 / diff)
-
         }
     }
 
@@ -242,7 +243,7 @@ impl Downstream {
                     d.difficulty_mgmt.submits_since_last_update = 0;
                     return Ok(None);
                 }
-                
+
                 let delta_time = timestamp_secs - d.difficulty_mgmt.timestamp_of_last_update;
                 if delta_time == 0 {
                     return Ok(None);
@@ -254,9 +255,9 @@ impl Downstream {
                 let new_miner_hashrate = match roles_logic_sv2::utils::hash_rate_from_target(
                     miner_target.clone().try_into()?,
                     realized_share_per_min,
-                ){
+                ) {
                     Ok(hashrate) => hashrate,
-                    Err(e) => return Err(Error::ImpossibleToGetHashrate(e))
+                    Err(e) => return Err(Error::ImpossibleToGetHashrate(e)),
                 };
                 let hashrate_delta =
                     new_miner_hashrate - d.difficulty_mgmt.min_individual_miner_hashrate;
@@ -310,7 +311,7 @@ mod test {
         dbg!(&target);
 
         //here we set a fake hashrate for the Downsatream struct
-        let fake_hashrate = hashrate/1000.0; 
+        let fake_hashrate = hashrate / 1000.0;
         let timestamp_secs = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .expect("time went backwards")
@@ -318,7 +319,7 @@ mod test {
         let downstream_conf = DownstreamDifficultyConfig {
             min_individual_miner_hashrate: fake_hashrate as f32,
             miner_num_submits_before_update: 150, // update after 150 submits
-            shares_per_minute: 6000.0,           // 1000 shares per minute
+            shares_per_minute: 6000.0,            // 1000 shares per minute
             submits_since_last_update: 1,
             timestamp_of_last_update: timestamp_secs, // updated below
         };
@@ -346,8 +347,10 @@ mod test {
         );
         let downstream_mutex = Arc::new(Mutex::new(downstream));
         std::thread::sleep(Duration::from_secs(10));
-        let updated_hashrate = Downstream::update_miner_hashrate(downstream_mutex.clone(), target.to_vec()).unwrap().unwrap();
-        panic!();
+        let updated_hashrate =
+            Downstream::update_miner_hashrate(downstream_mutex.clone(), target.unwrap().to_vec())
+                .unwrap()
+                .unwrap();
         assert!(updated_hashrate == hashrate);
     }
 
@@ -389,10 +392,13 @@ mod test {
         // get initial hashrate
         let initial_nominal_hashrate = measure_hashrate(8);
         // get target from hashrate and shares_per_sec
-        let initial_target = roles_logic_sv2::utils::hash_rate_to_target(
+        let initial_target = match roles_logic_sv2::utils::hash_rate_to_target(
             initial_nominal_hashrate as f32,
             config_shares_per_minute,
-        );
+        ) {
+            Ok(target) => target,
+            Err(_) => panic!(),
+        };
 
         downstream.difficulty_mgmt.min_individual_miner_hashrate = initial_nominal_hashrate as f32;
 
@@ -416,10 +422,13 @@ mod test {
                 .unwrap();
             target = downstream
                 .safe_lock(|d| {
-                    roles_logic_sv2::utils::hash_rate_to_target(
+                    match roles_logic_sv2::utils::hash_rate_to_target(
                         d.difficulty_mgmt.min_individual_miner_hashrate,
                         config_shares_per_minute,
-                    )
+                    ) {
+                        Ok(target) => target,
+                        Err(_) => panic!(),
+                    }
                 })
                 .unwrap();
             elapsed = timer.elapsed();
