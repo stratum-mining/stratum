@@ -476,31 +476,25 @@ This script will install cbindgen and then generate the `sv2.h` header file. Thi
 
 ### 4.02 Test
 
+As a prerequisite, you must have [`cargo-tarpaulin`](https://github.com/xd009642/tarpaulin) installed globally:
+
+```
+$ cargo install cargo-tarpaulin
+```
+
 Generate test coverage percentage with cargo-tarpaulin:
-
-Generate test coverage percentage with cargo-tarpaulin:
 ```
-cargo +nightly tarpaulin --verbose --features disable_nopanic prop_test noise_sv2 fuzz with_buffer_pool async_std debug tokio with_tokio derive_codec_sv2 binary_codec_sv2 default core --lib --exclude-files examples/* --timeout 120 --fail-under 30 --out Xml
+$ cargo +nightly tarpaulin --verbose
 ```
 
-Must have [cargo-tarpaulin](https://github.com/xd009642/tarpaulin) installed globally:
-
-```
-cargo install cargo-tarpaulin
-```
-
-Performs test coverage of entire project's libraries using cargo-tarpaulin and generates results using codecov.io.
-The following flags are used when executing cargo-tarpaulin:
-`--features`
-Includes the code with the listed features.
-The following features result in a tarpaulin error and are NOT included:
-derive, alloc, arbitrary-derive, attributes, with_serde
-`--lib`
-Only tests the package's library unit tests. Includes protocols, and utils (without the exclude-files flag, it includes this example because it contains a lib.rs file)
-`--exclude-files examples/*`: Excludes all projects in examples directory (specifically added to ignore examples that that contain a lib.rs file like interop-cpp)
-`--timeout 120`: If unresponsive for 120 seconds, action will fail
-`--fail-under 40`: If code coverage is less than 40%, action will fail
-`--out Xml`: Required for codecov.io to generate coverage result
+Performs test coverage of project's libraries using `cargo-tarpaulin` and generates results using `codecov.io`.
+The following flags are set inside `tarpaulin.toml`:
+- `features = "..."`: Includes the code with the listed features. The following features result in a `tarpaulin` error and are NOT included: `derive`, `alloc`, `arbitrary-derive`, `attributes`, and `with_serde`
+- `run-types = [ "Lib" ]`: Only tests the package's library unit tests. Includes protocols, and utils (without the exclude-files flag, it includes this example because it contains a `lib.rs` file)
+- `exclude-files = [ "examples/*" ]`: Excludes all projects in examples directory (specifically added to ignore examples that that contain a `lib.rs` file like `interop-cpp`)
+- `timeout = "120s"`: If unresponsive for 120 seconds, action will fail
+- `fail-under = 20`: If code coverage is less than 20%, action will fail
+- `out = ["Xml"]`: Required for `codecov.io` to generate coverage result
 
 ### 4.03 Run
 
