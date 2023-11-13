@@ -321,7 +321,7 @@ impl JobDeclarator {
                             error!("Job is not verified: {:?}", m);
                         }
                         Ok(SendTo::None(None)) => (),
-                        Ok(SendTo_::Respond(m)) => {
+                        Ok(SendTo::Respond(m)) => {
                             let sv2_frame: StdFrame =
                                 PoolMessages::JobDeclaration(m).try_into().unwrap();
                             let sender =
