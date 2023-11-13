@@ -65,6 +65,7 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
     }
 
     fn handle_declare_mining_job(&mut self, message: DeclareMiningJob) -> Result<SendTo, Error> {
+        self.tx_hash_list_hash = Some(message.tx_hash_list_hash.clone().into_static());
         if self.verify_job(&message) {
             let short_hash_list: Vec<ShortTxId> = message
                 .tx_short_hash_list
