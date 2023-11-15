@@ -476,13 +476,13 @@ impl
             let coinbase_outputs = self.miner_coinbase_output.clone();
             let extranonces = ExtendedExtranonce::new(range_0, range_1, range_2);
             let creator = JobsCreators::new(extranonce_len as u8);
-            let share_per_min = 1.0;
+            let share_occurrance_frequency = 1_u32;
             let kind = roles_logic_sv2::channel_logic::channel_factory::ExtendedChannelKind::Pool;
             let channel_factory = PoolChannelFactory::new(
                 ids,
                 extranonces,
                 creator,
-                share_per_min,
+                share_occurrance_frequency,
                 kind,
                 coinbase_outputs,
                 "SOLO".to_string(),

@@ -202,7 +202,7 @@ struct ChannelFactory {
     extended_channels:
         HashMap<u32, OpenExtendedMiningChannelSuccess<'static>, BuildNoHashHasher<u32>>,
     extranonces: ExtendedExtranonce,
-    share_per_min: f32,
+    share_occurrance_frequency: u32,
     // (NewExtendedMiningJob,group ids that already received the future job)
     future_jobs: Vec<(NewExtendedMiningJob<'static>, Vec<u32>)>,
     // (SetNewPrevHash,group ids that already received the set prev_hash)
@@ -258,7 +258,7 @@ impl ChannelFactory {
                 .safe_lock(|ids| ids.new_channel_id(extended_channels_group))
                 .unwrap();
             self.channel_to_group_id.insert(channel_id, 0);
-            let target = match crate::utils::hash_rate_to_target(hash_rate, self.share_per_min) {
+            let target = match crate::utils::hash_rate_to_target(hash_rate, self.share_occurrance_frequency) {
                 Ok(target) => target,
                 Err(_) => todo!(),
             };
@@ -335,7 +335,7 @@ impl ChannelFactory {
         let mut result = vec![];
         let channel_id = id;
         let target =
-            match crate::utils::hash_rate_to_target(downstream_hash_rate, self.share_per_min) {
+            match crate::utils::hash_rate_to_target(downstream_hash_rate, self.share_occurrance_frequency) {
                 Ok(target) => target,
                 Err(_) => todo!(),
             };
@@ -382,7 +382,7 @@ impl ChannelFactory {
             .unwrap();
         let complete_id = GroupId::into_complete_id(group_id, channel_id);
         let target =
-            match crate::utils::hash_rate_to_target(downstream_hash_rate, self.share_per_min) {
+            match crate::utils::hash_rate_to_target(downstream_hash_rate, self.share_occurrance_frequency) {
                 Ok(target_) => target_,
                 Err(_) => return Err(Error::ImpossibleToGetTarget),
             };
@@ -958,7 +958,7 @@ impl PoolChannelFactory {
         ids: Arc<Mutex<GroupId>>,
         extranonces: ExtendedExtranonce,
         job_creator: JobsCreators,
-        share_per_min: f32,
+        share_occurrance_frequency: u32,
         kind: ExtendedChannelKind,
         pool_coinbase_outputs: Vec<TxOut>,
         pool_signature: String,
@@ -973,7 +973,7 @@ impl PoolChannelFactory {
             ),
             extended_channels: HashMap::with_hasher(BuildNoHashHasher::default()),
             extranonces,
-            share_per_min,
+            share_occurrance_frequency,
             future_jobs: Vec::new(),
             last_prev_hash: None,
             last_prev_hash_: None,
@@ -1267,7 +1267,7 @@ impl ProxyExtendedChannelFactory {
         ids: Arc<Mutex<GroupId>>,
         extranonces: ExtendedExtranonce,
         job_creator: Option<JobsCreators>,
-        share_per_min: f32,
+        share_occurrance_frequency: u32,
         kind: ExtendedChannelKind,
         pool_coinbase_outputs: Option<Vec<TxOut>>,
         pool_signature: String,
@@ -1296,7 +1296,7 @@ impl ProxyExtendedChannelFactory {
             ),
             extended_channels: HashMap::with_hasher(BuildNoHashHasher::default()),
             extranonces,
-            share_per_min,
+            share_occurrance_frequency,
             future_jobs: Vec::new(),
             last_prev_hash: None,
             last_prev_hash_: None,

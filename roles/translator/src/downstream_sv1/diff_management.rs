@@ -118,7 +118,7 @@ impl Downstream {
         if diff_mgmt.submits_since_last_update >= diff_mgmt.miner_num_submits_before_update {
             let prev_target = match roles_logic_sv2::utils::hash_rate_to_target(
                 diff_mgmt.min_individual_miner_hashrate,
-                diff_mgmt.shares_per_minute,
+                diff_mgmt.shares_occurrence_frequency,
             ) {
                 Ok(target) => target.to_vec(),
                 Err(v) => return Err(Error::ImpossibleToGetTarget(v)),
@@ -128,7 +128,7 @@ impl Downstream {
             {
                 let new_target = match roles_logic_sv2::utils::hash_rate_to_target(
                     new_hash_rate,
-                    diff_mgmt.shares_per_minute,
+                    diff_mgmt.shares_occurrence_frequency,
                 ) {
                     Ok(target) => target,
                     Err(v) => return Err(Error::ImpossibleToGetTarget(v)),
@@ -159,7 +159,7 @@ impl Downstream {
             .safe_lock(|d| {
                 match roles_logic_sv2::utils::hash_rate_to_target(
                     d.difficulty_mgmt.min_individual_miner_hashrate,
-                    d.difficulty_mgmt.shares_per_minute,
+                    d.difficulty_mgmt.shares_occurrence_frequency,
                 ) {
                     Ok(target) => Ok(target.to_vec()),
                     Err(e) => Err(Error::ImpossibleToGetTarget(e)),
@@ -244,13 +244,13 @@ impl Downstream {
                     return Ok(None);
                 }
 
-                let delta_time = timestamp_secs - d.difficulty_mgmt.timestamp_of_last_update;
+                let delta_time = (timestamp_secs - d.difficulty_mgmt.timestamp_of_last_update) as u32;
                 if delta_time == 0 {
                     return Ok(None);
                 }
                 tracing::debug!("\nDELTA TIME: {:?}", delta_time);
                 let realized_share_per_min =
-                    d.difficulty_mgmt.submits_since_last_update as f32 / (delta_time as f32 / 60.0);
+                    d.difficulty_mgmt.submits_since_last_update / delta_time;
                 tracing::debug!("\nREALIZED SHARES PER MINUTE {:?}", realized_share_per_min);
                 let new_miner_hashrate = match roles_logic_sv2::utils::hash_rate_from_target(
                     miner_target.clone().try_into()?,

@@ -78,7 +78,7 @@ impl Bridge {
         up_id: u32,
     ) -> Arc<Mutex<Self>> {
         let ids = Arc::new(Mutex::new(GroupId::new()));
-        let share_per_min = 1.0;
+        let share_occurrence_frequency = 1_u32;
         let upstream_target: [u8; 32] =
             target.safe_lock(|t| t.clone()).unwrap().try_into().unwrap();
         let upstream_target: Target = upstream_target.into();
@@ -94,7 +94,7 @@ impl Bridge {
                 ids,
                 extranonces,
                 None,
-                share_per_min,
+                share_occurrence_frequency,
                 ExtendedChannelKind::Proxy { upstream_target },
                 None,
                 String::from(""),

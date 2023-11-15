@@ -19,7 +19,7 @@ pub struct ProxyConfig {
 pub struct DownstreamDifficultyConfig {
     pub min_individual_miner_hashrate: f32,
     pub miner_num_submits_before_update: u32,
-    pub shares_per_minute: f32,
+    pub shares_occurrence_frequency: u32,
     #[serde(default = "u32::default")]
     pub submits_since_last_update: u32,
     #[serde(default = "u64::default")]
