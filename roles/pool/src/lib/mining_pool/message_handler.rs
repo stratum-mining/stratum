@@ -82,8 +82,11 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
         }
     }
 
-    fn handle_update_channel(&mut self, _m: UpdateChannel) -> Result<SendTo<()>, Error> {
-        todo!()
+    fn handle_update_channel(&mut self, m: UpdateChannel) -> Result<SendTo<()>, Error> {
+        self.channel_factory
+            .safe_lock(|cf| cf.update_channel(&m))
+            .map_err(|e| roles_logic_sv2::Error::PoisonLock(e.to_string()))?;
+        Ok(SendTo::None(None))
     }
 
     fn handle_submit_shares_standard(
