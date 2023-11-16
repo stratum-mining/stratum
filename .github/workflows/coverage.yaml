@@ -1,16 +1,16 @@
 # Performs test coverage of project's libraries using cargo-tarpaulin and the message-generator, 
 # and generates results using codecov.io.
-# The follow flags are used when executing cargo-tarpaulin:
-# -- features: Includes the code with the listed features. The following features result in a
-#    tarpaulin error and are NOT included: derive, alloc, arbitrary-derive, attributes, and
-#    with_serde
-# --lib: Only tests the package's library unit tests. Includes protocols, and utils (without the
-#   exclude-files flag, it includes this example because it contains a lib.rs file)
-# --exclude-files examples/*: Excludes all projects in examples directory (specifically added to
-#   ignore examples that that contain a lib.rs file like interop-cpp)
-# --timeout 120: If unresponsive for 120 seconds, action will fail
-# --fail-under 30: If code coverage is less than 30%, action will fail
-# --out Xml: Required for codecov.io to generate coverage result
+# The following flags are set inside `tarpaulin.toml`:
+# `features = "..."`: Includes the code with the listed features. The following features result in a
+#     tarpaulin error and are NOT included: derive, alloc, arbitrary-derive, attributes, and
+#     with_serde
+# `run-types = [ "Lib" ]`: Only tests the package's library unit tests. Includes protocols, and utils (without the
+#     exclude-files flag, it includes this example because it contains a lib.rs file)
+# `exclude-files = [ "examples/*" ]`: Excludes all projects in examples directory (specifically added to
+#     ignore examples that that contain a lib.rs file like interop-cpp)
+# `timeout = "120s"`: If unresponsive for 120 seconds, action will fail
+# `fail-under = 20`: If code coverage is less than 20%, action will fail
+# `out = ["Xml"]`: Required for codecov.io to generate coverage result
 # All message-generator test flags are in tests in test/message-generator/test
 # This test loops through every test in test/message-generator/test, and runs each one, collecting
 # code coverage data for anything in the roles/ directory that is relevant to SV2(pool, mining-proxy)
@@ -40,7 +40,7 @@ jobs:
 
       - name: Generate code coverage
         run: |
-          cargo +nightly version; cargo +nightly tarpaulin --verbose --features disable_nopanic prop_test noise_sv2 fuzz with_buffer_pool async_std debug tokio with_tokio derive_codec_sv2 binary_codec_sv2 default core --lib --exclude-files examples/*,utils/message-generator/* --timeout 120 --fail-under 20 --out Xml
+          cargo +nightly version; cargo +nightly tarpaulin --verbose
 
       - name: Archive Tarpaulin code coverage results
         uses: actions/upload-artifact@v3

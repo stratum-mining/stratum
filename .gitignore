@@ -11,3 +11,4 @@ lcov.info
 .vscode
 *.py
 **/conf/**
+cobertura.xml
