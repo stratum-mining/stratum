@@ -932,7 +932,12 @@ impl ChannelFactory {
     }
     fn update_channel(&mut self, m: &UpdateChannel) -> Option<()> {
         if let Some(channel) = self.extended_channels.get_mut(&m.channel_id) {
-            let target = crate::utils::hash_rate_to_target(m.nominal_hash_rate, self.share_per_min);
+            let target = if let Ok(target_) = crate::utils::hash_rate_to_target(m.nominal_hash_rate, self.share_occurrance_frequency){
+                target_
+            } else {
+                return None;
+            };
+            
             channel.target = target;
             return Some(());
         };

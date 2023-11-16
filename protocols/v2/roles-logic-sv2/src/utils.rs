@@ -297,7 +297,7 @@ pub fn hash_rate_to_target(hashrate: f32, shares_occurrency_frequence: u32) -> R
     let two_to_256_minus_one = bitcoin::util::uint::Uint256::from_be_bytes(two_to_256_minus_one);
 
     let mut  h_times_s_array = [0u8; 32];
-    h_times_s_array.copy_from_slice(&h_times_s.to_be_bytes());
+    h_times_s_array[16..32].copy_from_slice(&h_times_s.to_be_bytes());
     let numerator = two_to_256_minus_one - bitcoin::util::uint::Uint256::from_be_bytes(h_times_s_array);
 
     let mut target = numerator.div(denominator).to_be_bytes();

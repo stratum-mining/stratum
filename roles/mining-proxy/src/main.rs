@@ -121,7 +121,7 @@ pub struct Config {
     listen_mining_port: u16,
     max_supported_version: u16,
     min_supported_version: u16,
-    downstream_share_per_minute: f32,
+    downstream_share_occurrence_frequency: u32,
     expected_total_downstream_hr: f32,
     reconnect: bool,
 }
@@ -142,7 +142,7 @@ pub async fn initialize_r_logic(
             upstream_.channel_kind,
             group_id.clone(),
             channel_ids.clone(),
-            config.downstream_share_per_minute,
+            config.downstream_share_occurrence_frequency,
             None,
             None,
             config.expected_total_downstream_hr,

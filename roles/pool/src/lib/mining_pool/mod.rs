@@ -467,13 +467,13 @@ impl Pool {
         info!("PUB KEY: {:?}", pool_coinbase_outputs);
         let extranonces = ExtendedExtranonce::new(range_0, range_1, range_2);
         let creator = JobsCreators::new(extranonce_len as u8);
-        let share_per_min = 1.0;
+        let share_occurrence_frequency = 1_u32;
         let kind = roles_logic_sv2::channel_logic::channel_factory::ExtendedChannelKind::Pool;
         let channel_factory = Arc::new(Mutex::new(PoolChannelFactory::new(
             ids,
             extranonces,
             creator,
-            share_per_min,
+            share_occurrence_frequency,
             kind,
             pool_coinbase_outputs.expect("Invalid coinbase output in config"),
             config.pool_signature.clone(),

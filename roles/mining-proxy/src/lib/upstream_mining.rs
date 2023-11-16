@@ -66,7 +66,7 @@ impl ChannelKind {
         &mut self,
         group_id: Arc<Mutex<GroupId>>,
         extranonces: ExtendedExtranonce,
-        downstream_share_per_minute: f32,
+        downstream_share_occurrence_frequency: u32,
         upstream_target: Target,
         up_id: u32,
     ) {
@@ -79,7 +79,7 @@ impl ChannelKind {
                     group_id,
                     extranonces,
                     None,
-                    downstream_share_per_minute,
+                    downstream_share_occurrence_frequency,
                     kind,
                     Some(vec![]),
                     String::from(""),
@@ -169,7 +169,7 @@ pub struct UpstreamMiningNode {
     pub channel_kind: ChannelKind,
     group_id: Arc<Mutex<GroupId>>,
     pub channel_ids: Arc<Mutex<Id>>,
-    downstream_share_per_minute: f32,
+    downstream_share_occurrence_frequency: u32,
     pub solution_sender: Option<Sender<SubmitSolution<'static>>>,
     pub recv_coinbase_out: Option<Receiver<(Vec<TxOut>, Vec<u8>)>>,
     #[allow(dead_code)]
@@ -201,7 +201,7 @@ impl UpstreamMiningNode {
         channel_kind: crate::ChannelKind,
         group_id: Arc<Mutex<GroupId>>,
         channel_ids: Arc<Mutex<Id>>,
-        downstream_share_per_minute: f32,
+        downstream_share_occurrence_frequency: u32,
         solution_sender: Option<Sender<SubmitSolution<'static>>>,
         recv_coinbase_out: Option<Receiver<(Vec<TxOut>, Vec<u8>)>>,
         downstream_hash_rate: f32,
@@ -222,7 +222,7 @@ impl UpstreamMiningNode {
             channel_kind: channel_kind.into(),
             group_id,
             channel_ids,
-            downstream_share_per_minute,
+            downstream_share_occurrence_frequency,
             solution_sender,
             recv_coinbase_out,
             tx_outs: HashMap::new(),
@@ -949,7 +949,7 @@ impl
         self.channel_kind.initialize_factory(
             self.group_id.clone(),
             extranonces,
-            self.downstream_share_per_minute,
+            self.downstream_share_occurrence_frequency,
             m.target.clone().try_into().unwrap(),
             m.channel_id,
         );
