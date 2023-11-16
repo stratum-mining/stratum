@@ -277,7 +277,7 @@ impl TryFrom<CoinbaseOutput> for Script {
 /// bdiff: 0x00000000ffff0000000000000000000000000000000000000000000000000000
 /// https://en.bitcoin.it/wiki/Difficulty#How_soon_might_I_expect_to_generate_a_block.3F
 
-pub fn hash_rate_to_target_(hashrate: f32, share_per_min: f32) -> Result<U256<'static>, crate::Error> {
+pub fn hash_rate_to_target(hashrate: f32, share_per_min: f32) -> Result<U256<'static>, crate::Error> {
     // checks that we are not dividing by zero
     if share_per_min == 0.0 {
         return Err(Error::ImpossibleToGetTarget);
@@ -317,48 +317,10 @@ pub fn hash_rate_to_target_(hashrate: f32, share_per_min: f32) -> Result<U256<'s
     Ok(U256::<'static>::from(target))
 }
 
-pub fn hash_rate_to_target(h: f32, share_per_min: f32) -> Result<U256<'static>, crate::Error> {
-    // checks that we are not dividing by zero
-    if share_per_min == 0.0 {
-        return Err(Error::ImpossibleToGetTarget);
-    }
-
-    // if we want 5 shares per minute, this means that s=60/5=12 seconds interval between shares
-    let s: f32 = 60_f32 / share_per_min;
-    let h_times_s = (h * s) as u128;
-
-    let h_times_s_plus_one = h_times_s + 1;
-    // checks that we are not dividing by zero
-    if h_times_s_plus_one == 0 {
-        return Err(Error::ImpossibleToGetTarget);
-    }
-    let h_times_s_plus_one: Uint256 = from_u128_to_uint256(h_times_s_plus_one);
-
-    let h_times_s: Uint256 = from_u128_to_uint256(h_times_s);
-
-    let two_to_256_minus_one = [255_u8; 32];
-    let two_to_256_minus_one = bitcoin::util::uint::Uint256::from_be_bytes(two_to_256_minus_one);
-
-    let numerator = two_to_256_minus_one - h_times_s;
-    let denominator = h_times_s_plus_one;
-    if denominator == Uint256::from_u64(0_u64).unwrap() {
-        return Err(Error::ImpossibleToGetTarget);
-    }
-    let target = numerator.div(denominator);
-    let mut target_be = target.to_be_bytes();
-    target_be.reverse();
-    Ok(U256::<'static>::from(target_be))
-}
-
-
-
-
-
-
 /// this function utilizes the equation used in [`hash_rate_to_target`], but
 /// translated to solve for hash_rate given a target: h = (2^256-t)/s(t+1)
 /// where s is seconds_between_two_consecutive_shares and t is target
-pub fn hash_rate_from_target_(target: U256<'static>, share_per_min: f32) -> Result<f32, Error> {
+pub fn hash_rate_from_target(target: U256<'static>, share_per_min: f32) -> Result<f32, Error> {
 
     let mut target_arr: [u8; 32] = [0; 32];
     target_arr.as_mut().copy_from_slice(target.inner_as_ref());
@@ -390,45 +352,11 @@ pub fn hash_rate_from_target_(target: U256<'static>, share_per_min: f32) -> Resu
     // we multiply back by 100 so that it cancels with the same factor at the denominator
     Ok((result as f32) * 100_f32)
 }
-/// this function utilizes the equation used in [`hash_rate_to_target`], but
-/// translated to solve for hash_rate given a target: h = (2^256-t)/s(t+1)
-pub fn hash_rate_from_target(target: U256<'static>, share_per_min: f32) -> Result<f32, Error> {
-    // checks that we are not dividing by zero
-    if share_per_min == 0.0 {
-        return Err(Error::ImpossibleToGetHashrate);
-    }
-
-    // *100 here to move the fractional bit up so we can make this an int later
-    let s_times_100 = 60_f64 / (share_per_min as f64) * 100.0;
-
-    let mut target_arr: [u8; 32] = [0; 32];
-    target_arr.as_mut().copy_from_slice(target.inner_as_ref());
-    target_arr.reverse();
-
-    let target = Uint256::from_be_bytes(target_arr);
-    let mut target_plus_one = Uint256::from_be_bytes(target_arr);
-    target_plus_one.increment();
-
-    let max_target = [255_u8; 32];
-    let max_target = Uint256::from_be_bytes(max_target);
-    let share_times_target = u128_as_u256(s_times_100 as u128)
-        .mul(target_plus_one)
-        .div(Uint256::from_u64(100.0 as u64).unwrap()); //now divide the 100 back out
-    if share_times_target == Uint256::from_u64(0_u64).unwrap() {
-        return Err(Error::ImpossibleToGetHashrate);
-    }
-
-    Ok(((max_target - target).div(share_times_target).low_u32()) as f32)
-}
 
 fn from_uint128_to_u128(input: Uint128) -> u128 {
     let input = input.to_be_bytes();
     u128::from_be_bytes(input)
 }
-
-
-
-
 
 pub fn from_uint128_to_uint256(input: Uint128) -> Uint256 {
     let input: [u8; 16] = input.to_be_bytes();

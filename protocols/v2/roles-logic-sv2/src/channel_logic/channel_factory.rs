@@ -260,7 +260,10 @@ impl ChannelFactory {
             self.channel_to_group_id.insert(channel_id, 0);
             let target = match crate::utils::hash_rate_to_target(hash_rate, self.share_per_min) {
                 Ok(target) => target,
-                Err(_) => todo!(),
+                Err(_) => { 
+                    info!("Impossible to get target. Request id: {:?}", request_id);
+                    return None;
+                },
             };
             let extranonce = self
                 .extranonces
@@ -334,11 +337,13 @@ impl ChannelFactory {
         let hom_group_id = 0;
         let mut result = vec![];
         let channel_id = id;
-        let target =
-            match crate::utils::hash_rate_to_target(downstream_hash_rate, self.share_per_min) {
-                Ok(target) => target,
-                Err(_) => todo!(),
-            };
+        let target = match crate::utils::hash_rate_to_target(downstream_hash_rate, self.share_per_min) {
+            Ok(target) => target,
+            Err(_) => { 
+                info!("Impossible to get target. Request id: {:?}", request_id);
+                return Err(Error::ImpossibleToGetTarget);
+            },
+        };
         let extranonce = self
             .extranonces
             .next_standard()
@@ -384,7 +389,10 @@ impl ChannelFactory {
         let target =
             match crate::utils::hash_rate_to_target(downstream_hash_rate, self.share_per_min) {
                 Ok(target_) => target_,
-                Err(_) => return Err(Error::ImpossibleToGetTarget),
+                Err(_) => {
+                    info!("Impossible to get target. Request id: {:?}", request_id);
+                    return Err(Error::ImpossibleToGetTarget);
+                }
             };
         let extranonce = self
             .extranonces
