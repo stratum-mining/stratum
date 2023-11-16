@@ -296,7 +296,7 @@ impl Downstream {
                     });
                     Ok(Some(new_miner_hashrate))
                 } else {
-                    return Ok(None);
+                    Ok(None)
                 }
             })
             .map_err(|_e| Error::PoisonLock)?
