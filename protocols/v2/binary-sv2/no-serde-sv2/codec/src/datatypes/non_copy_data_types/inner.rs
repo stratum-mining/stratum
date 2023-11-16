@@ -237,10 +237,16 @@ impl<'a, const ISFIXED: bool, const HEADERSIZE: usize, const SIZE: usize, const 
     SizeHint for Inner<'a, ISFIXED, HEADERSIZE, SIZE, MAXSIZE>
 {
     fn size_hint(data: &[u8], offset: usize) -> Result<usize, Error> {
+        if offset >= data.len() {
+            return Err(Error::ReadError(data.len(), offset));
+        }
         Self::expected_length(&data[offset..])
     }
 
     fn size_hint_(&self, data: &[u8], offset: usize) -> Result<usize, Error> {
+        if offset >= data.len() {
+            return Err(Error::ReadError(data.len(), offset));
+        }
         Self::expected_length(&data[offset..])
     }
 }

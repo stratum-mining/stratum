@@ -11,7 +11,7 @@ use mining_sv2::{
     ExtendedExtranonce, NewExtendedMiningJob, NewMiningJob, OpenExtendedMiningChannelSuccess,
     OpenMiningChannelError, OpenStandardMiningChannelSuccess, SetCustomMiningJob,
     SetCustomMiningJobSuccess, SetNewPrevHash, SubmitSharesError, SubmitSharesExtended,
-    SubmitSharesStandard, Target,
+    SubmitSharesStandard, Target, UpdateChannel,
 };
 
 use nohash_hasher::BuildNoHashHasher;
@@ -919,6 +919,15 @@ impl ChannelFactory {
         channel.target = new_target.into();
         Some(true)
     }
+    fn update_channel(&mut self, m: &UpdateChannel) -> Option<()> {
+        if let Some(channel) = self.extended_channels.get_mut(&m.channel_id) {
+            let target = crate::utils::hash_rate_to_target(m.nominal_hash_rate, self.share_per_min);
+            channel.target = target;
+            return Some(());
+        };
+        // TODO add logic also for group ids
+        None
+    }
 }
 
 /// Used by a pool to in order to manage all downstream channel. It add job creation capabilities
@@ -1223,6 +1232,9 @@ impl PoolChannelFactory {
 
     pub fn update_pool_outputs(&mut self, outs: Vec<TxOut>) {
         self.pool_coinbase_outputs = outs;
+    }
+    pub fn update_channel(&mut self, m: &UpdateChannel) -> Option<()> {
+        self.inner.update_channel(m)
     }
 }
 

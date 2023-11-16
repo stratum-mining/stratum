@@ -32,9 +32,45 @@ use std::{collections::HashMap, net::SocketAddr, sync::Arc, thread::sleep, time:
 use tokio::{net::TcpStream, task, task::AbortHandle};
 use tracing::{error, info, warn};
 
+use std::collections::VecDeque;
+
+#[derive(Debug)]
+struct CircularBuffer {
+    buffer: VecDeque<(u64, u32)>,
+    capacity: usize,
+}
+
+impl CircularBuffer {
+    fn new(capacity: usize) -> Self {
+        CircularBuffer {
+            buffer: VecDeque::with_capacity(capacity),
+            capacity,
+        }
+    }
+
+    fn insert(&mut self, key: u64, value: u32) {
+        if self.buffer.len() == self.capacity {
+            self.buffer.pop_front();
+        }
+        self.buffer.push_back((key, value));
+    }
+
+    fn get(&self, id: u64) -> Option<u32> {
+        self.buffer
+            .iter()
+            .find_map(|&(key, value)| if key == id { Some(value) } else { None })
+    }
+}
+
+impl std::default::Default for CircularBuffer {
+    fn default() -> Self {
+        Self::new(10)
+    }
+}
+
 #[derive(Debug, Default)]
 struct TemplateToJobId {
-    template_id_to_job_id: HashMap<u64, u32>,
+    template_id_to_job_id: CircularBuffer,
     request_id_to_template_id: HashMap<u32, u64>,
 }
 
@@ -45,12 +81,11 @@ impl TemplateToJobId {
     }
 
     fn register_job_id(&mut self, template_id: u64, job_id: u32) {
-        self.template_id_to_job_id = HashMap::new();
         self.template_id_to_job_id.insert(template_id, job_id);
     }
 
-    fn get_job_id(&mut self, template_id: u64) -> Option<&u32> {
-        self.template_id_to_job_id.get(&template_id)
+    fn get_job_id(&mut self, template_id: u64) -> Option<u32> {
+        self.template_id_to_job_id.get(template_id)
     }
 
     fn take_template_id(&mut self, request_id: u32) -> Option<u64> {
@@ -395,7 +430,7 @@ impl Upstream {
     pub async fn get_job_id(self_: &Arc<Mutex<Self>>, template_id: u64) -> u32 {
         loop {
             if let Some(id) = self_
-                .safe_lock(|s| s.template_to_job_id.get_job_id(template_id).copied())
+                .safe_lock(|s| s.template_to_job_id.get_job_id(template_id))
                 .unwrap()
             {
                 return id;
