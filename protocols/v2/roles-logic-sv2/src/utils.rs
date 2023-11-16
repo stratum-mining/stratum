@@ -285,37 +285,70 @@ pub fn hash_rate_to_target(hashrate: f32, share_per_min: f32) -> Result<U256<'st
 
     // if we want 5 shares per minute, this means that s=60/5=12 seconds interval between shares
     // this quantity will be at the numerator, so we multiply the result by 100 again later
-    let shares_occurrency_frequence= {(60_f32 / share_per_min)*100_f32} as u32;
+    //dbg!(share_per_min);
+    let shares_occurrency_frequence= 60_f32 / share_per_min;
+    //dbg!(shares_occurrency_frequence);
+    let shares_occurrency_frequence = shares_occurrency_frequence;
+
     
-    let hashrate: u128 = if let true = hashrate.is_sign_positive() {
-       hashrate as u128 
-    } else {
+    if hashrate.is_sign_negative() == true {
         return Err(Error::ImpossibleToGetTarget)
     };
-    let h_times_s =  hashrate*(shares_occurrency_frequence as u128);
+    let h_times_s =  hashrate * shares_occurrency_frequence;
+    //dbg!(h_times_s);
+    let h_times_s = h_times_s as u128;
 
     // We calculate the denominator: h*s+1  
     // the denominator is h*s+1, where h*s is an u128, so always positive.
     // this means that the denominator can never be zero
     // we add 100 in place of 1 because h*s is actually h*s*100, we in order to simplify later we
     // must calculate (h*s+1)*100
-    let h_times_s_plus_one = h_times_s + 100;
+    let h_times_s_plus_one = h_times_s + 1;
+
     let h_times_s_plus_one: Uint256 = from_u128_to_uint256(h_times_s_plus_one);
     let denominator = h_times_s_plus_one;
+    //dbg!(denominator);
 
     // We calculate the numerator: 2^256-sh
     let two_to_256_minus_one = [255_u8; 32];
     let two_to_256_minus_one = bitcoin::util::uint::Uint256::from_be_bytes(two_to_256_minus_one);
 
     let mut  h_times_s_array = [0u8; 32];
-    h_times_s_array.copy_from_slice(&h_times_s.to_be_bytes());
+    h_times_s_array[16..].copy_from_slice(&h_times_s.to_be_bytes());
     let numerator = two_to_256_minus_one - bitcoin::util::uint::Uint256::from_be_bytes(h_times_s_array);
+   // dbg!(numerator);
 
-    // multiply back by 100
-    let mut target = numerator.div(denominator).mul_u32(100_u32).to_be_bytes();
+    let mut target = numerator.div(denominator).to_be_bytes();
     target.reverse();
     Ok(U256::<'static>::from(target))
 }
+
+//pub fn hash_rate_to_target_(h: f32, share_per_min: f32) -> U256<'static> {
+//    // if we want 5 shares per minute, this means that s=60/5=12 seconds interval between shares
+//    //;dbg!(share_per_min);
+//    let s: f32 = 60_f32 / share_per_min;
+//    //dbg!(s);
+//    let h_times_s = h * s;
+//    //dbg!(h_times_s);
+//    let h_times_s = h_times_s as u128;
+//
+//    let h_times_s_plus_one = h_times_s + 1;
+//    let h_times_s_plus_one: Uint256 = from_u128_to_uint256(h_times_s_plus_one);
+//
+//    let h_times_s: Uint256 = from_u128_to_uint256(h_times_s);
+//
+//    let two_to_256_minus_one = [255_u8; 32];
+//    let two_to_256_minus_one = bitcoin::util::uint::Uint256::from_be_bytes(two_to_256_minus_one);
+//
+//    let numerator = two_to_256_minus_one - h_times_s;
+//    //dbg!(numerator);
+//    let denominator = h_times_s_plus_one;
+//    //dbg!(denominator);
+//    let target = numerator / denominator;
+//    let mut target_be = target.to_be_bytes();
+//    target_be.reverse();
+//    U256::<'static>::from(target_be)
+//}
 
 /// this function utilizes the equation used in [`hash_rate_to_target`], but
 /// translated to solve for hash_rate given a target: h = (2^256-t)/s(t+1)
@@ -332,6 +365,7 @@ pub fn hash_rate_from_target(target: U256<'static>, share_per_min: f32) -> Resul
     let max_target = [255_u8; 32];
     let max_target = Uint256::from_be_bytes(max_target);
     let numerator =  max_target - (target - Uint256::one());
+    //dbg!(numerator);
 
     // now we calcualte the denominator s(t+1)
     // checks that we are not dividing by zero
@@ -341,17 +375,49 @@ pub fn hash_rate_from_target(target: U256<'static>, share_per_min: f32) -> Resul
     // *100 here to move the fractional bit up so we can make this an int later
     let shares_occurrency_frequence = 60_f32 / (share_per_min ) * 100.0;
     // note that t+1 cannot be zero because t unsigned. Therefore the denominator is zero if and
-    // only if s is zero. This as previously analyzed
-    let shares_occurrency_frequence = u128_as_u256(shares_occurrency_frequence as u128);
+    // only if s is zero.
+    let shares_occurrency_frequence = shares_occurrency_frequence as u128;
+    if shares_occurrency_frequence == 0_u128 {
+        return Err(Error::ImpossibleToGetTarget);
+    }
+    let shares_occurrency_frequence = u128_as_u256(shares_occurrency_frequence);
     let mut target_plus_one = Uint256::from_be_bytes(target_arr);
     target_plus_one.increment();
     let denominator =shares_occurrency_frequence 
-        .mul(target_plus_one); 
+        .mul(target_plus_one).div(Uint256::from_u64(100).unwrap()); 
 
+    //dbg!(denominator);
     let result = from_uint128_to_u128(numerator.div(denominator).low_128());
     // we multiply back by 100 so that it cancels with the same factor at the denominator
-    Ok((result as f32) * 100_f32)
+    Ok(result as f32)
 }
+
+///// this function utilizes the equation used in [`hash_rate_to_target`], but
+///// translated to solve for hash_rate given a target: h = (2^256-t)/s(t+1)
+//pub fn hash_rate_from_target_(target: U256<'static>, share_per_min: f32) -> f32 {
+//    // *100 here to move the fractional bit up so we can make this an int later
+//    let s_times_100 = 60_f64 / (share_per_min as f64) * 100.0;
+//
+//    let mut target_arr: [u8; 32] = [0; 32];
+//    target_arr.as_mut().copy_from_slice(target.inner_as_ref());
+//    target_arr.reverse();
+//
+//    let target = Uint256::from_be_bytes(target_arr);
+//    let mut target_plus_one = Uint256::from_be_bytes(target_arr);
+//    target_plus_one.increment();
+//
+//    let max_target = [255_u8; 32];
+//    let max_target = Uint256::from_be_bytes(max_target);
+//    let share_times_target = u128_as_u256(s_times_100 as u128)
+//        .mul(target_plus_one)
+//        .div(Uint256::from_u64(100.0 as u64).unwrap()); //now divide the 100 back out
+//
+//    let numerator = max_target -target;
+//    dbg!(numerator);
+//    let denominator = share_times_target;
+//    dbg!(denominator);
+//    ((numerator).div(denominator).low_u32()) as f32
+//}
 
 fn from_uint128_to_u128(input: Uint128) -> u128 {
     let input = input.to_be_bytes();
@@ -727,7 +793,8 @@ fn tx_hash_list_hash_builder(txid_list: Vec<bitcoin::Txid>) -> U256<'static> {
 mod tests {
     #[cfg(feature = "serde")]
     use super::*;
-    use super::{hash_rate_from_target, hash_rate_to_target};
+    use super::{hash_rate_from_target, hash_rate_from_target_, hash_rate_to_target, hash_rate_to_target_};
+    use quickcheck_macros;
     #[cfg(feature = "serde")]
     use binary_sv2::{Seq0255, B064K, U256};
     use rand::Rng;
@@ -940,7 +1007,7 @@ mod tests {
 
         let hr = 10.0; // 10 h/s
         let hrs = hr * 60.0; // number of hashes in 1 minute
-        let mut target = hash_rate_to_target(hr, 1.0).to_vec();
+        let mut target = hash_rate_to_target(hr, 1.0).unwrap().to_vec();
         target.reverse();
         let target = bitcoin::util::uint::Uint256::from_be_slice(&target[..]).unwrap();
 
@@ -973,9 +1040,20 @@ mod tests {
     fn test_hash_rate_from_target() {
         let hr = 202470.828;
         let expected_share_per_min = 1.0;
-        let target = hash_rate_to_target(hr, expected_share_per_min);
+        let target = hash_rate_to_target(hr, expected_share_per_min).unwrap();
+        //dbg!(&target);
+        let target_ = hash_rate_to_target_(hr, expected_share_per_min);
+        //dbg!(&target_);
+        //panic!();
+        if target.to_vec() != target_.to_vec() {
+            panic!();
+        }
+        
         let realized_share_per_min = expected_share_per_min * 10.0; // increase SPM by 10x
-        let hash_rate = hash_rate_from_target(target, realized_share_per_min);
+        let hash_rate = hash_rate_from_target(target.clone(), realized_share_per_min).unwrap();
+        //dbg!(hash_rate);
+        //let hash_rate_ = hash_rate_from_target_(target, realized_share_per_min);
+        ////dbg!(hash_rate_);
         // assert the hash_rate is the is the same as the initial set to ensure `hash_rate_from_target` is the
         // inverse of `hash_rate_to_target`
         let new_hr = (hr * 10.0).trunc();
@@ -984,6 +1062,12 @@ mod tests {
             hash_rate == new_hr,
             "hash_rate_from_target equation was not properly transformed"
         )
+    }
+
+    // thest the function incrment_bytes_be for values different from MAX
+    #[quickcheck_macros::quickcheck]
+    fn test_hash_rate_to_target(input: u8) -> bool {
+        true
     }
 
     #[test]

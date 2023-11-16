@@ -347,7 +347,7 @@ mod test {
         let downstream_mutex = Arc::new(Mutex::new(downstream));
         std::thread::sleep(Duration::from_secs(10));
         let updated_hashrate =
-            Downstream::update_miner_hashrate(downstream_mutex.clone(), target.unwrap().to_vec())
+            Downstream::update_miner_hashrate(downstream_mutex.clone(), target.to_vec())
                 .unwrap()
                 .unwrap();
         assert!(updated_hashrate == hashrate);
