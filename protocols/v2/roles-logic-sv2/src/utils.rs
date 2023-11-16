@@ -15,7 +15,7 @@ use stratum_common::{
         hash_types::{BlockHash, TxMerkleNode},
         hashes::{sha256, sha256d::Hash as DHash, Hash},
         secp256k1::{All, Secp256k1},
-        util::{psbt::serialize::Deserialize, uint::{Uint256, Uint128}},
+        util::{psbt::serialize::Deserialize, uint::{Uint256, Uint128}, BitArray},
         PublicKey, Script, Transaction,
     },
 };
@@ -277,7 +277,16 @@ impl TryFrom<CoinbaseOutput> for Script {
 /// bdiff: 0x00000000ffff0000000000000000000000000000000000000000000000000000
 /// https://en.bitcoin.it/wiki/Difficulty#How_soon_might_I_expect_to_generate_a_block.3F
 
-pub fn hash_rate_to_target_(hashrate: f32, shares_occurrency_frequence: u32) -> Result<U256<'static>, crate::Error> {
+pub fn hash_rate_to_target_(hashrate: f32, share_per_min: f32) -> Result<U256<'static>, crate::Error> {
+    // checks that we are not dividing by zero
+    if share_per_min == 0.0 {
+        return Err(Error::ImpossibleToGetTarget);
+    }
+
+    // if we want 5 shares per minute, this means that s=60/5=12 seconds interval between shares
+    // this quantity will be at the numerator, so we multiply the result by 100 again later
+    let shares_occurrency_frequence= {(60_f32 / share_per_min)*100_f32} as u32;
+    
     let hashrate: u128 = if let true = hashrate.is_sign_positive() {
        hashrate as u128 
     } else {
@@ -288,7 +297,9 @@ pub fn hash_rate_to_target_(hashrate: f32, shares_occurrency_frequence: u32) -> 
     // We calculate the denominator: h*s+1  
     // the denominator is h*s+1, where h*s is an u128, so always positive.
     // this means that the denominator can never be zero
-    let h_times_s_plus_one = h_times_s + 1;
+    // we add 100 in place of 1 because h*s is actually h*s*100, we in order to simplify later we
+    // must calculate (h*s+1)*100
+    let h_times_s_plus_one = h_times_s + 100;
     let h_times_s_plus_one: Uint256 = from_u128_to_uint256(h_times_s_plus_one);
     let denominator = h_times_s_plus_one;
 
@@ -300,7 +311,8 @@ pub fn hash_rate_to_target_(hashrate: f32, shares_occurrency_frequence: u32) -> 
     h_times_s_array.copy_from_slice(&h_times_s.to_be_bytes());
     let numerator = two_to_256_minus_one - bitcoin::util::uint::Uint256::from_be_bytes(h_times_s_array);
 
-    let mut target = numerator.div(denominator).to_be_bytes();
+    // multiply back by 100
+    let mut target = numerator.div(denominator).mul_u32(100_u32).to_be_bytes();
     target.reverse();
     Ok(U256::<'static>::from(target))
 }
@@ -346,24 +358,28 @@ pub fn hash_rate_to_target(h: f32, share_per_min: f32) -> Result<U256<'static>, 
 /// this function utilizes the equation used in [`hash_rate_to_target`], but
 /// translated to solve for hash_rate given a target: h = (2^256-t)/s(t+1)
 /// where s is seconds_between_two_consecutive_shares and t is target
-pub fn hash_rate_from_target_(target: U256<'static>, shares_occurrency_frequence: u32) -> Result<f32, Error> {
+pub fn hash_rate_from_target_(target: U256<'static>, share_per_min: f32) -> Result<f32, Error> {
+
     let mut target_arr: [u8; 32] = [0; 32];
     target_arr.as_mut().copy_from_slice(target.inner_as_ref());
     target_arr.reverse();
-
     let target = Uint256::from_be_bytes(target_arr);
 
     // we calculate the numerator 2^256-t
+    // note that [255_u8,;32] actually is 2^256 -1, but 2^256 -t = (2^256-1) - (t-1)
     let max_target = [255_u8; 32];
     let max_target = Uint256::from_be_bytes(max_target);
-    let numerator =  max_target - target;
+    let numerator =  max_target - (target - Uint256::one());
 
     // now we calcualte the denominator s(t+1)
-    // note that t+1 canno be zero because t unsigned. Therefore the denominator is zero if and
-    // only if s is zero. So, first of all we analyze this unhappy path
-    if shares_occurrency_frequence == 0 {
+    // checks that we are not dividing by zero
+    if share_per_min == 0.0 {
         return Err(Error::ImpossibleToGetHashrate);
     }
+    // *100 here to move the fractional bit up so we can make this an int later
+    let shares_occurrency_frequence = 60_f32 / (share_per_min ) * 100.0;
+    // note that t+1 cannot be zero because t unsigned. Therefore the denominator is zero if and
+    // only if s is zero. This as previously analyzed
     let shares_occurrency_frequence = u128_as_u256(shares_occurrency_frequence as u128);
     let mut target_plus_one = Uint256::from_be_bytes(target_arr);
     target_plus_one.increment();
@@ -371,7 +387,8 @@ pub fn hash_rate_from_target_(target: U256<'static>, shares_occurrency_frequence
         .mul(target_plus_one); 
 
     let result = from_uint128_to_u128(numerator.div(denominator).low_128());
-    Ok(result as f32)
+    // we multiply back by 100 so that it cancels with the same factor at the denominator
+    Ok((result as f32) * 100_f32)
 }
 /// this function utilizes the equation used in [`hash_rate_to_target`], but
 /// translated to solve for hash_rate given a target: h = (2^256-t)/s(t+1)

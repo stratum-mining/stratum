@@ -933,7 +933,10 @@ impl ChannelFactory {
     fn update_channel(&mut self, m: &UpdateChannel) -> Option<()> {
         if let Some(channel) = self.extended_channels.get_mut(&m.channel_id) {
             let target = crate::utils::hash_rate_to_target(m.nominal_hash_rate, self.share_per_min);
-            channel.target = target;
+            match target {
+                Ok(target_) => channel.target = target_,
+                Err(_) => info!("Impossible to get target"),
+            }
             return Some(());
         };
         // TODO add logic also for group ids
