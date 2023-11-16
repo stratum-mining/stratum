@@ -113,7 +113,6 @@ impl Downstream {
             "Number of shares submitted: {:?}",
             diff_mgmt.submits_since_last_update
         );
-        if diff_mgmt.submits_since_last_update >= diff_mgmt.miner_num_submits_before_update {
             let prev_target = roles_logic_sv2::utils::hash_rate_to_target(
                 diff_mgmt.min_individual_miner_hashrate,
                 diff_mgmt.shares_per_minute,
@@ -127,21 +126,25 @@ impl Downstream {
                     diff_mgmt.shares_per_minute,
                 );
                 tracing::debug!("New target from hashrate: {:?}", new_target.inner_as_ref());
-                let message = Self::get_set_difficulty(new_target.to_vec())?;
-                // send mining.set_difficulty to miner
-                Downstream::send_message_downstream(self_.clone(), message).await?;
-                let update_target_msg = SetDownstreamTarget {
-                    channel_id,
-                    new_target: new_target.into(),
-                };
-                // notify bridge of target update
-                Downstream::send_message_upstream(
-                    self_.clone(),
-                    DownstreamMessages::SetDownstreamTarget(update_target_msg),
-                )
-                .await?;
+                let delta_hashrate = (new_hash_rate - diff_mgmt.min_individual_miner_hashrate).abs();
+                let delta_percentage = (delta_hashrate/diff_mgmt.min_individual_miner_hashrate)*100.0;
+                println!("\nhashrate delta percentage --> {:?}\n", delta_percentage);
+                //if delta_percentage > 120.0 {
+                    let message = Self::get_set_difficulty(new_target.to_vec())?;
+                    // send mining.set_difficulty to miner
+                    Downstream::send_message_downstream(self_.clone(), message).await?;
+                    let update_target_msg = SetDownstreamTarget {
+                        channel_id,
+                        new_target: new_target.into(),
+                    };
+                    // notify bridge of target update
+                    Downstream::send_message_upstream(
+                        self_.clone(),
+                        DownstreamMessages::SetDownstreamTarget(update_target_msg),
+                    )
+                    .await?;
             }
-        }
+        //}
         Ok(())
     }
 
@@ -240,21 +243,42 @@ impl Downstream {
                 tracing::debug!("\nDELTA TIME: {:?}", delta_time);
                 let realized_share_per_min =
                     d.difficulty_mgmt.submits_since_last_update as f32 / (delta_time as f32 / 60.0);
-                let new_miner_hashrate = roles_logic_sv2::utils::hash_rate_from_target(
-                    miner_target.clone().try_into()?,
-                    realized_share_per_min,
-                );
-                let hashrate_delta =
+                println!("realized share per min --> {:?}", realized_share_per_min);
+                let mut new_miner_hashrate: f32 = roles_logic_sv2::utils::hash_rate_from_target(
+                        miner_target.clone().try_into()?,
+                        realized_share_per_min,
+                    );
+                println!("\nCOMPUTED NEW MINER HASHRATE: {:?}", new_miner_hashrate);
+                let mut hashrate_delta =
                     new_miner_hashrate - d.difficulty_mgmt.min_individual_miner_hashrate;
+                println!("\nHASHRATE DELTA: {:?}", hashrate_delta);
+                let hashrate_delta_percentage = (hashrate_delta.abs()/d.difficulty_mgmt.min_individual_miner_hashrate)*100.0;
+                println!("\nHASHRATE DELTA percentage --> {:?}\n", hashrate_delta_percentage);
                 tracing::debug!("\nMINER HASHRATE: {:?}", new_miner_hashrate);
-                d.difficulty_mgmt.min_individual_miner_hashrate = new_miner_hashrate;
-                d.difficulty_mgmt.timestamp_of_last_update = timestamp_secs;
-                d.difficulty_mgmt.submits_since_last_update = 0;
-                // update channel hashrate (read by upstream)
-                d.upstream_difficulty_config.super_safe_lock(|c| {
-                    c.channel_nominal_hashrate += hashrate_delta;
-                });
-                Ok(Some(new_miner_hashrate))
+                println!(" OLD channel hashrate => {:?}", d.upstream_difficulty_config.safe_lock(|c| c.channel_nominal_hashrate));
+                if (hashrate_delta_percentage >= 100.0) || (hashrate_delta_percentage >= 60.0) && (delta_time >= 30) || (hashrate_delta_percentage >= 50.0) && (delta_time >= 60) || (hashrate_delta_percentage >= 45.0) && (delta_time >= 120) || (hashrate_delta_percentage >= 30.0) && (delta_time >= 180) || (hashrate_delta_percentage >= 15.0) && (delta_time >= 240) {
+                    if realized_share_per_min < 0.01 {
+                        new_miner_hashrate = match delta_time {
+                            dt if dt < 30 => d.difficulty_mgmt.min_individual_miner_hashrate / 2.0,
+                            dt if dt < 60 => d.difficulty_mgmt.min_individual_miner_hashrate / 3.0,
+                            _ => d.difficulty_mgmt.min_individual_miner_hashrate / 5.0,
+                        };
+                        hashrate_delta = new_miner_hashrate - d.difficulty_mgmt.min_individual_miner_hashrate;
+                    } 
+                    d.difficulty_mgmt.min_individual_miner_hashrate = new_miner_hashrate;
+                    println!("\nnew downstream HASHRATE: {:?}", d.difficulty_mgmt.min_individual_miner_hashrate);
+                    d.difficulty_mgmt.timestamp_of_last_update = timestamp_secs;
+                    d.difficulty_mgmt.submits_since_last_update = 0;
+                    // update channel hashrate (read by upstream)
+                    d.upstream_difficulty_config.super_safe_lock(|c| {
+                        c.channel_nominal_hashrate += hashrate_delta;
+                        println!("NEW channel hashrate => {:?}", c.channel_nominal_hashrate);
+                    });
+                    Ok(Some(new_miner_hashrate))
+                } else {
+                    return Ok(None);
+                }
+                
             })
             .map_err(|_e| Error::PoisonLock)?
     }
