@@ -84,7 +84,7 @@ impl Downstream {
             "Number of shares submitted: {:?}",
             diff_mgmt.submits_since_last_update
         );
-        
+
         let prev_target = roles_logic_sv2::utils::hash_rate_to_target(
             diff_mgmt.min_individual_miner_hashrate,
             diff_mgmt.shares_per_minute,
@@ -245,12 +245,24 @@ impl Downstream {
                 let realized_share_per_min =
                     d.difficulty_mgmt.submits_since_last_update as f32 / (delta_time as f32 / 60.0);
                 println!("realized share per min --> {:?}", realized_share_per_min);
-                let mut new_miner_hashrate: f32 = roles_logic_sv2::utils::hash_rate_from_target(
-                    miner_target.clone().try_into()?,
-                    realized_share_per_min,
-                );
+
+                let delta_shares_percentage = ((realized_share_per_min - d.difficulty_mgmt.shares_per_minute).abs()) * 100.0 / d.difficulty_mgmt.shares_per_minute;
+                let mut new_miner_hashrate: f32;
+                let mut hashrate_delta: f32;
+                println!("detla sharessss {:?}", delta_shares_percentage);
+
+                if delta_shares_percentage > 10000.0 { // config set too low, huge amount of shares, which will led to infinite hashrate
+                    println!("Avoiding new hashrate computation (tends to inf)");
+                    new_miner_hashrate = d.difficulty_mgmt.min_individual_miner_hashrate * 1000.0;
+                } else {  
+                    new_miner_hashrate = roles_logic_sv2::utils::hash_rate_from_target(
+                        miner_target.clone().try_into()?,
+                        realized_share_per_min,
+                    );
+                }
+                
                 println!("\nCOMPUTED NEW MINER HASHRATE: {:?}", new_miner_hashrate);
-                let mut hashrate_delta =
+                hashrate_delta =
                     new_miner_hashrate - d.difficulty_mgmt.min_individual_miner_hashrate;
                 println!("\nHASHRATE DELTA: {:?}", hashrate_delta);
                 let hashrate_delta_percentage = (hashrate_delta.abs()
