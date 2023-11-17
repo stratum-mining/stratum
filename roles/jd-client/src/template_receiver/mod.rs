@@ -27,7 +27,7 @@ use crate::{job_declarator::JobDeclarator, status, PoolChangerTrigger};
 use error_handling::handle_result;
 use setup_connection::SetupConnectionHandler;
 use stratum_common::bitcoin::{consensus::Encodable, TxOut};
-use tracing::info;
+use tracing::{error, info};
 
 pub struct TemplateRx {
     receiver: Receiver<EitherFrame>,
@@ -266,11 +266,28 @@ impl TemplateRx {
                                         .await;
                                     }
                                 }
-                                _ => todo!(),
+                                _ => {
+                                    error!("{:?}", frame);
+                                    error!("{:?}", frame.payload());
+                                    error!("{:?}", frame.get_header());
+                                    std::process::exit(1);
+                                }
                             }
                         }
-                        Ok(_) => panic!(),
-                        Err(e) => panic!("{:?}", e),
+                        Ok(m) => {
+                            error!("{:?}", m);
+                            error!("{:?}", frame);
+                            error!("{:?}", frame.payload());
+                            error!("{:?}", frame.get_header());
+                            std::process::exit(1);
+                        }
+                        Err(e) => {
+                            error!("{:?}", e);
+                            error!("{:?}", frame);
+                            error!("{:?}", frame.payload());
+                            error!("{:?}", frame.get_header());
+                            std::process::exit(1);
+                        }
                     }
                 }
             })
