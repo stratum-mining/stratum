@@ -252,6 +252,7 @@ impl Downstream {
                     return Ok(None);
                 }
                 tracing::debug!("\nDELTA TIME: {:?}", delta_time);
+                println!("DELTA TIME: {:?}", delta_time);
                 let realized_share_per_min =
                     d.difficulty_mgmt.submits_since_last_update as f32 / (delta_time as f32 / 60.0);
                 tracing::debug!("\nREALIZED SHARES PER MINUTE {:?}", realized_share_per_min);
@@ -277,17 +278,18 @@ impl Downstream {
                 );
                 tracing::debug!("\nMINER HASHRATE: {:?}", new_miner_hashrate);
                 println!(
-                    " OLD channel hashrate => {:?}",
+                    "OLD channel hashrate => {:?}",
                     d.upstream_difficulty_config
                         .safe_lock(|c| c.channel_nominal_hashrate)
                 );
                 if (hashrate_delta_percentage >= 100.0)
-                    || (hashrate_delta_percentage >= 60.0) && (delta_time >= 30)
-                    || (hashrate_delta_percentage >= 50.0) && (delta_time >= 60)
-                    || (hashrate_delta_percentage >= 45.0) && (delta_time >= 120)
-                    || (hashrate_delta_percentage >= 30.0) && (delta_time >= 180)
-                    || (hashrate_delta_percentage >= 15.0) && (delta_time >= 240)
-                {
+                    || (hashrate_delta_percentage >= 60.0) && (delta_time >= 60)
+                    || (hashrate_delta_percentage >= 50.0) && (delta_time >= 120)
+                    || (hashrate_delta_percentage >= 45.0) && (delta_time >= 180)
+                    || (hashrate_delta_percentage >= 30.0) && (delta_time >= 240)
+                    || (hashrate_delta_percentage >= 15.0) && (delta_time >= 300)
+                { 
+                //if delta_time >= 30 || d.difficulty_mgmt.submits_since_last_update > 1000 {
                     if realized_share_per_min < 0.01 {
                         new_miner_hashrate = match delta_time {
                             dt if dt < 30 => d.difficulty_mgmt.min_individual_miner_hashrate / 2.0,

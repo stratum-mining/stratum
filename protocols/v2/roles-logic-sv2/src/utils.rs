@@ -996,7 +996,7 @@ mod tests {
         let new_hr = (hr * 10.0).trunc();
 
         assert!(
-            hash_rate == new_hr,
+            hash_rate.unwrap() == new_hr,
             "hash_rate_from_target equation was not properly transformed"
         )
     }
