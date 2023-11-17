@@ -84,16 +84,16 @@ impl Downstream {
             "Number of shares submitted: {:?}",
             diff_mgmt.submits_since_last_update
         );
-        if diff_mgmt.submits_since_last_update >= diff_mgmt.miner_num_submits_before_update {
-            let prev_target = match roles_logic_sv2::utils::hash_rate_to_target(
-                diff_mgmt.min_individual_miner_hashrate,
-                diff_mgmt.shares_per_minute,
-            ) {
-                Ok(target) => target.to_vec(),
+        
+        let prev_target = match roles_logic_sv2::utils::hash_rate_to_target(
+            diff_mgmt.min_individual_miner_hashrate,
+            diff_mgmt.shares_per_minute,
+        ) {
+            Ok(target) => target.to_vec(),
                 Err(e) => return Err(Error::HashrateError(e)),
             };
-            Self::update_miner_hashrate(self_.clone(), prev_target.clone())?;
-        }
+        Self::update_miner_hashrate(self_.clone(), prev_target.clone())?;
+        
         Ok(())
     }
 
@@ -360,7 +360,6 @@ mod test {
             .as_secs();
         let downstream_conf = DownstreamDifficultyConfig {
             min_individual_miner_hashrate: fake_hashrate as f32,
-            miner_num_submits_before_update: 150, // update after 150 submits
             shares_per_minute: 6000.0,            // 1000 shares per minute
             submits_since_last_update: 1,
             timestamp_of_last_update: timestamp_secs, // updated below
@@ -401,7 +400,6 @@ mod test {
     async fn test_diff_management() {
         let downstream_conf = DownstreamDifficultyConfig {
             min_individual_miner_hashrate: 0.0,   // updated below
-            miner_num_submits_before_update: 150, // update after 150 submits
             shares_per_minute: 1000.0,            // 1000 shares per minute
             submits_since_last_update: 0,
             timestamp_of_last_update: 0, // updated below
