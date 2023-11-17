@@ -299,10 +299,10 @@ pub fn hash_rate_to_target(h: f32, share_per_min: f32) -> U256<'static> {
 
 /// this function utilizes the equation used in [`hash_rate_to_target`], but
 /// translated to solve for hash_rate given a target: h = (2^256-t)/s(t+1)
-pub fn hash_rate_from_target(target: U256<'static>, share_per_min: f32) -> f32 {
+/* pub fn hash_rate_from_target(target: U256<'static>, share_per_min: f32) -> f32 {
     // *100 here to move the fractional bit up so we can make this an int later
     let s_times_100 = 60_f64 / (share_per_min as f64) * 100.0;
-
+    
     let mut target_arr: [u8; 32] = [0; 32];
     target_arr.as_mut().copy_from_slice(target.inner_as_ref());
     target_arr.reverse();
@@ -318,6 +318,32 @@ pub fn hash_rate_from_target(target: U256<'static>, share_per_min: f32) -> f32 {
         .div(Uint256::from_u64(100.0 as u64).unwrap()); //now divide the 100 back out
 
     ((max_target - target).div(share_times_target).low_u32()) as f32
+} */
+
+// Modifica la firma della funzione per restituire un Result
+pub fn hash_rate_from_target(target: U256<'static>, share_per_min: f32) -> Result<f32, Error> {
+    // *100 here to move the fractional bit up so we can make this an int later
+    //let s_times_100 = 60_f64 / (share_per_min as f64) * 100.0;
+    let s_times_100 = 60_f64 / (share_per_min as f64);
+    if s_times_100 >= 1.0 {
+        let mut target_arr: [u8; 32] = [0; 32];
+        target_arr.as_mut().copy_from_slice(target.inner_as_ref());
+        target_arr.reverse();
+
+        let target = Uint256::from_be_bytes(target_arr);
+        let mut target_plus_one = Uint256::from_be_bytes(target_arr);
+        target_plus_one.increment();
+
+        let max_target = [255_u8; 32];
+        let max_target = Uint256::from_be_bytes(max_target);
+        let share_times_target = u128_as_u256(s_times_100 as u128)
+            .mul(target_plus_one);
+        let result = ((max_target - target).div(share_times_target).low_u32()) as f32;
+        Ok(result)
+    } else {
+        Err(Error::DivisionByZeroError)
+    }
+    
 }
 
 pub fn from_u128_to_uint256(input: u128) -> Uint256 {
@@ -935,7 +961,7 @@ mod tests {
         let new_hr = (hr * 10.0).trunc();
 
         assert!(
-            hash_rate == new_hr,
+            hash_rate.unwrap() == new_hr,
             "hash_rate_from_target equation was not properly transformed"
         )
     }

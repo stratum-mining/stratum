@@ -138,6 +138,7 @@ impl Downstream {
                 channel_id,
                 new_target: new_target.into(),
             };
+            println!("Message SET_DIFFICULTY sent!");
             // notify bridge of target update
             Downstream::send_message_upstream(
                 self_.clone(),
@@ -242,24 +243,32 @@ impl Downstream {
                     return Ok(None);
                 }
                 tracing::debug!("\nDELTA TIME: {:?}", delta_time);
+                println!("DELTA TIME: {:?}", delta_time);
                 let realized_share_per_min =
                     d.difficulty_mgmt.submits_since_last_update as f32 / (delta_time as f32 / 60.0);
                 println!("realized share per min --> {:?}", realized_share_per_min);
-
-                let delta_shares_percentage = ((realized_share_per_min - d.difficulty_mgmt.shares_per_minute).abs()) * 100.0 / d.difficulty_mgmt.shares_per_minute;
-                let mut new_miner_hashrate: f32;
+                println!(
+                    "\nprevious HASHRATE: {:?}",
+                    d.difficulty_mgmt.min_individual_miner_hashrate
+                );
                 let mut hashrate_delta: f32;
-                println!("detla sharessss {:?}", delta_shares_percentage);
 
-                if delta_shares_percentage > 10000.0 { // config set too low, huge amount of shares, which will led to infinite hashrate
-                    println!("Avoiding new hashrate computation (tends to inf)");
-                    new_miner_hashrate = d.difficulty_mgmt.min_individual_miner_hashrate * 1000.0;
-                } else {  
-                    new_miner_hashrate = roles_logic_sv2::utils::hash_rate_from_target(
-                        miner_target.clone().try_into()?,
-                        realized_share_per_min,
-                    );
-                }
+                let mut new_miner_hashrate = match roles_logic_sv2::utils::hash_rate_from_target(
+                    miner_target.clone().try_into()?,
+                    realized_share_per_min,
+                ) {
+                    //Ok(result) => result,
+                    Ok(result) => {
+                        println!("result returned by the function: {:?}", result);
+                        let new_miner_hashrate = d.difficulty_mgmt.min_individual_miner_hashrate * realized_share_per_min / d.difficulty_mgmt.shares_per_minute;
+                        new_miner_hashrate
+                    }
+                    Err(_too_high_realized_share_per_min) => { // to manage excessive hashrate change (which would let into a computation error)
+                        let new_miner_hashrate = d.difficulty_mgmt.min_individual_miner_hashrate * realized_share_per_min / d.difficulty_mgmt.shares_per_minute;
+                        new_miner_hashrate
+                    }
+                };
+                
                 
                 println!("\nCOMPUTED NEW MINER HASHRATE: {:?}", new_miner_hashrate);
                 hashrate_delta =
@@ -274,17 +283,18 @@ impl Downstream {
                 );
                 tracing::debug!("\nMINER HASHRATE: {:?}", new_miner_hashrate);
                 println!(
-                    " OLD channel hashrate => {:?}",
+                    "OLD channel hashrate => {:?}",
                     d.upstream_difficulty_config
                         .safe_lock(|c| c.channel_nominal_hashrate)
                 );
                 if (hashrate_delta_percentage >= 100.0)
-                    || (hashrate_delta_percentage >= 60.0) && (delta_time >= 30)
-                    || (hashrate_delta_percentage >= 50.0) && (delta_time >= 60)
-                    || (hashrate_delta_percentage >= 45.0) && (delta_time >= 120)
-                    || (hashrate_delta_percentage >= 30.0) && (delta_time >= 180)
-                    || (hashrate_delta_percentage >= 15.0) && (delta_time >= 240)
-                {
+                    || (hashrate_delta_percentage >= 60.0) && (delta_time >= 60)
+                    || (hashrate_delta_percentage >= 50.0) && (delta_time >= 120)
+                    || (hashrate_delta_percentage >= 45.0) && (delta_time >= 180)
+                    || (hashrate_delta_percentage >= 30.0) && (delta_time >= 240)
+                    || (hashrate_delta_percentage >= 15.0) && (delta_time >= 300)
+                { 
+                //if delta_time >= 30 || d.difficulty_mgmt.submits_since_last_update > 1000 {
                     if realized_share_per_min < 0.01 {
                         new_miner_hashrate = match delta_time {
                             dt if dt < 30 => d.difficulty_mgmt.min_individual_miner_hashrate / 2.0,
