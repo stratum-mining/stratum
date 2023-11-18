@@ -175,7 +175,7 @@
                             "condition": true
                         }
                     ],
-                    "timer_secs": 260,
+                    "timer_secs": 60,
                     "warn_no_panic": false
                 }
             }
@@ -195,7 +195,7 @@
                             "condition": true
                         }
                     ],
-                    "timer_secs": 320,
+                    "timer_secs": 240,
                     "warn_no_panic": false
                 }
             }

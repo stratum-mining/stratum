@@ -85,7 +85,7 @@ impl Downstream {
             diff_mgmt.submits_since_last_update
         );
         if diff_mgmt.submits_since_last_update >= diff_mgmt.miner_num_submits_before_update {
-                let prev_target = match roles_logic_sv2::utils::hash_rate_to_target(
+            let prev_target = match roles_logic_sv2::utils::hash_rate_to_target(
                 diff_mgmt.min_individual_miner_hashrate,
                 diff_mgmt.shares_per_minute,
             ) {
