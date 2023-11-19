@@ -274,14 +274,12 @@ impl Downstream {
                         new_miner_hashrate */
                         result
                     }
-                    Err(e) => { 
-                        println!("{:?} -> Probably min_individual_miner_hashrate parameter was not set properly in config file. New hashrate will be automatically adjusted to match the real one.",e);
-                        let new_miner_hashrate = d.difficulty_mgmt.min_individual_miner_hashrate * realized_share_per_min / d.difficulty_mgmt.shares_per_minute;
-                        new_miner_hashrate
+                    Err(e) => {
+                        println!("{:?} -> Probably min_individual_miner_hashrate parameter was not set properly in config file. 
+                        New hashrate will be automatically adjusted to match the real one.", e);
+                        d.difficulty_mgmt.min_individual_miner_hashrate * realized_share_per_min / d.difficulty_mgmt.shares_per_minute
                     }
                 };
-                
-                
                 println!("\nCOMPUTED NEW MINER HASHRATE: {:?}", new_miner_hashrate);
                 hashrate_delta =
                     new_miner_hashrate - d.difficulty_mgmt.min_individual_miner_hashrate;
@@ -305,30 +303,30 @@ impl Downstream {
                     || (hashrate_delta_percentage >= 45.0) && (delta_time >= 180)
                     || (hashrate_delta_percentage >= 30.0) && (delta_time >= 240)
                     || (hashrate_delta_percentage >= 15.0) && (delta_time >= 300)
-                { 
+                {
                 //if delta_time >= 30 || d.difficulty_mgmt.submits_since_last_update > 1000 {
-                    if realized_share_per_min < 0.01 {
-                        new_miner_hashrate = match delta_time {
-                            dt if dt < 30 => d.difficulty_mgmt.min_individual_miner_hashrate / 2.0,
-                            dt if dt < 60 => d.difficulty_mgmt.min_individual_miner_hashrate / 3.0,
-                            _ => d.difficulty_mgmt.min_individual_miner_hashrate / 5.0,
-                        };
-                        hashrate_delta =
-                            new_miner_hashrate - d.difficulty_mgmt.min_individual_miner_hashrate;
-                    }
-                    d.difficulty_mgmt.min_individual_miner_hashrate = new_miner_hashrate;
-                    println!(
-                        "\nnew downstream HASHRATE: {:?}",
-                        d.difficulty_mgmt.min_individual_miner_hashrate
-                    );
-                    d.difficulty_mgmt.timestamp_of_last_update = timestamp_secs;
-                    d.difficulty_mgmt.submits_since_last_update = 0;
-                    // update channel hashrate (read by upstream)
-                    d.upstream_difficulty_config.super_safe_lock(|c| {
-                        c.channel_nominal_hashrate += hashrate_delta;
-                        println!("NEW channel hashrate => {:?}", c.channel_nominal_hashrate);
-                    });
-                    Ok(Some(new_miner_hashrate))
+                if realized_share_per_min < 0.01 {
+                    new_miner_hashrate = match delta_time {
+                        dt if dt < 30 => d.difficulty_mgmt.min_individual_miner_hashrate / 2.0,
+                        dt if dt < 60 => d.difficulty_mgmt.min_individual_miner_hashrate / 3.0,
+                        _ => d.difficulty_mgmt.min_individual_miner_hashrate / 5.0,
+                    };
+                    hashrate_delta =
+                        new_miner_hashrate - d.difficulty_mgmt.min_individual_miner_hashrate;
+                }
+                d.difficulty_mgmt.min_individual_miner_hashrate = new_miner_hashrate;
+                println!(
+                    "\nnew downstream HASHRATE: {:?}",
+                    d.difficulty_mgmt.min_individual_miner_hashrate
+                );
+                d.difficulty_mgmt.timestamp_of_last_update = timestamp_secs;
+                d.difficulty_mgmt.submits_since_last_update = 0;
+                // update channel hashrate (read by upstream)
+                d.upstream_difficulty_config.super_safe_lock(|c| {
+                    c.channel_nominal_hashrate += hashrate_delta;
+                    println!("NEW channel hashrate => {:?}", c.channel_nominal_hashrate);
+                });
+                Ok(Some(new_miner_hashrate))
                 } else {
                     Ok(None)
                 }
