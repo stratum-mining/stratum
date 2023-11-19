@@ -52,7 +52,8 @@ pub enum Error {
     InvalidBip34Bytes(Vec<u8>),
     // (downstream_job_id, upstream_job_id)
     JobNotUpdated(u32, u32),
-    DivisionByZeroError,
+    ImpossibleToGetHashrate,
+    ImpossibleToGetTarget,
 }
 
 impl From<BinarySv2Error> for Error {
@@ -139,7 +140,8 @@ impl Display for Error {
             PoisonLock(e) => write!(f, "Poison lock: {}", e),
             InvalidBip34Bytes(e) => write!(f, "Invalid Bip34 bytes {:?}", e),
             JobNotUpdated(ds_job_id, us_job_id) => write!(f, "Channel Factory did not update job: Downstream job id = {}, Upstream job id = {}", ds_job_id, us_job_id),
-            DivisionByZeroError => write!(f, "Division by zero error"),
+            ImpossibleToGetTarget => write!(f, "Impossible to get Target"),
+            ImpossibleToGetHashrate => write!(f, "Impossible to get Hashrate"),
         }
     }
 }
