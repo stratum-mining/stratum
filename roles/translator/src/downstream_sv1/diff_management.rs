@@ -270,10 +270,12 @@ impl Downstream {
                     //Ok(result) => result,
                     Ok(result) => {
                         println!("result returned by the function: {:?}", result);
-                        let new_miner_hashrate = d.difficulty_mgmt.min_individual_miner_hashrate * realized_share_per_min / d.difficulty_mgmt.shares_per_minute;
-                        new_miner_hashrate
+                        /* let new_miner_hashrate = d.difficulty_mgmt.min_individual_miner_hashrate * realized_share_per_min / d.difficulty_mgmt.shares_per_minute;
+                        new_miner_hashrate */
+                        result
                     }
-                    Err(_too_high_realized_share_per_min) => { // to manage excessive hashrate change (which would let into a computation error)
+                    Err(e) => { 
+                        println!("{:?} -> Probably min_individual_miner_hashrate parameter was not set properly in config file. New hashrate will be automatically adjusted to match the real one.",e);
                         let new_miner_hashrate = d.difficulty_mgmt.min_individual_miner_hashrate * realized_share_per_min / d.difficulty_mgmt.shares_per_minute;
                         new_miner_hashrate
                     }
