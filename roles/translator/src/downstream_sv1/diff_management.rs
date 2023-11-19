@@ -93,7 +93,7 @@ impl Downstream {
                 Err(e) => return Err(Error::HashrateError(e)),
             };
         Self::update_miner_hashrate(self_.clone(), prev_target.clone())?;
-        
+
         Ok(())
     }
 
