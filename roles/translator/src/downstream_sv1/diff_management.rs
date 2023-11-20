@@ -377,8 +377,7 @@ mod test {
             .as_secs();
         let downstream_conf = DownstreamDifficultyConfig {
             min_individual_miner_hashrate: fake_hashrate as f32,
-            //miner_num_submits_before_update: 150, // update after 150 submits
-            shares_per_minute: 6000.0, // 1000 shares per minute
+            shares_per_minute: 1000.0, // 1000 shares per minute
             submits_since_last_update: 1,
             timestamp_of_last_update: timestamp_secs, // updated below
         };
