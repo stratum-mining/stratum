@@ -41,7 +41,6 @@ pub fn create_notify(
         true => new_prev_hash.min_ntime,
         false => new_job.min_ntime.clone().into_inner().unwrap(),
     });
-    
 
     let notify_response = server_to_client::Notify {
         job_id,
