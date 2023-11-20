@@ -37,7 +37,11 @@ pub fn create_notify(
     // u32 -> HexBytes
     let version = HexU32Be(new_job.version);
     let bits = HexU32Be(new_prev_hash.nbits);
-    let time = HexU32Be(new_prev_hash.min_ntime);
+    let time = HexU32Be(match new_job.is_future() {
+        true => new_prev_hash.min_ntime,
+        false => new_job.min_ntime.clone().into_inner().unwrap(),
+    });
+    
 
     let notify_response = server_to_client::Notify {
         job_id,
