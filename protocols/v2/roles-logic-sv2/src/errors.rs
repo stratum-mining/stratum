@@ -1,11 +1,11 @@
 //! Errors specific to this crate
 
-use crate::common_properties::CommonDownstreamData;
+use crate::{common_properties::CommonDownstreamData, utils::InputError};
 use binary_sv2::Error as BinarySv2Error;
 use std::fmt::{self, Display, Formatter};
 
 #[derive(Debug)]
-/// No NoPairableUpstream((min_v, max_v, all falgs supported))
+/// No NoPairableUpstreamT(min_v, max_v, all falgs supported))
 pub enum Error {
     /// Errors if payload size is too big to fit into a frame.
     BadPayloadSize,
@@ -52,8 +52,8 @@ pub enum Error {
     InvalidBip34Bytes(Vec<u8>),
     // (downstream_job_id, upstream_job_id)
     JobNotUpdated(u32, u32),
-    ImpossibleToGetHashrate,
-    ImpossibleToGetTarget,
+    TargetError(InputError),
+    HashrateError(InputError),
 }
 
 impl From<BinarySv2Error> for Error {
@@ -140,8 +140,8 @@ impl Display for Error {
             PoisonLock(e) => write!(f, "Poison lock: {}", e),
             InvalidBip34Bytes(e) => write!(f, "Invalid Bip34 bytes {:?}", e),
             JobNotUpdated(ds_job_id, us_job_id) => write!(f, "Channel Factory did not update job: Downstream job id = {}, Upstream job id = {}", ds_job_id, us_job_id),
-            ImpossibleToGetTarget => write!(f, "Impossible to get Target"),
-            ImpossibleToGetHashrate => write!(f, "Impossible to get Hashrate"),
+            TargetError(e) => write!(f, "Impossible to get Target: {:?}", e),
+            HashrateError(e) => write!(f, "Impossible to get Hashrate: {:?}", e),
         }
     }
 }

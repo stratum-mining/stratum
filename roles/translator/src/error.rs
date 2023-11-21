@@ -81,8 +81,8 @@ pub enum Error<'a> {
     Infallible(std::convert::Infallible),
     // used to handle SV2 protocol error messages from pool
     Sv2ProtocolError(Mining<'a>),
-    ImpossibleToGetTarget(roles_logic_sv2::errors::Error),
-    ImpossibleToGetHashrate(roles_logic_sv2::errors::Error),
+    TargetError(roles_logic_sv2::errors::Error),
+    HashrateError(roles_logic_sv2::errors::Error),
 }
 
 impl<'a> fmt::Display for Error<'a> {
@@ -115,10 +115,10 @@ impl<'a> fmt::Display for Error<'a> {
             Sv2ProtocolError(ref e) => {
                 write!(f, "Received Sv2 Protocol Error from upstream: `{:?}`", e)
             }
-            ImpossibleToGetHashrate(ref e) => {
+            HashrateError(ref e) => {
                 write!(f, "Impossible to get hashrate from target: `{:?}`", e)
             }
-            ImpossibleToGetTarget(ref e) => {
+            TargetError(ref e) => {
                 write!(f, "Impossible to get target from hashrate: `{:?}`", e)
             }
         }

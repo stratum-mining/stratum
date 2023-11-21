@@ -281,23 +281,32 @@ impl TryFrom<CoinbaseOutput> for Script {
 /// bdiff: 0x00000000ffff0000000000000000000000000000000000000000000000000000
 /// https://en.bitcoin.it/wiki/Difficulty#How_soon_might_I_expect_to_generate_a_block.3F
 
+#[derive(Debug)]
+pub enum InputError {
+    NegativeInput,
+    DivisionByZero,
+}
+
 pub fn hash_rate_to_target(
     hashrate: f32,
     share_per_min: f32,
 ) -> Result<U256<'static>, crate::Error> {
     // checks that we are not dividing by zero
     if share_per_min == 0.0 {
-        return Err(Error::ImpossibleToGetTarget);
+        return Err(Error::TargetError(InputError::DivisionByZero));
     }
+    if share_per_min.is_sign_negative() {
+        return Err(Error::TargetError(InputError::NegativeInput));
+    };
+    if hashrate.is_sign_negative() {
+        return Err(Error::TargetError(InputError::NegativeInput));
+    };
 
     // if we want 5 shares per minute, this means that s=60/5=12 seconds interval between shares
     // this quantity will be at the numerator, so we multiply the result by 100 again later
     let shares_occurrency_frequence = 60_f32 / share_per_min;
     let shares_occurrency_frequence = shares_occurrency_frequence;
 
-    if hashrate.is_sign_negative() {
-        return Err(Error::ImpossibleToGetTarget);
-    };
     let h_times_s = hashrate * shares_occurrency_frequence;
     let h_times_s = h_times_s as u128;
 
@@ -329,6 +338,14 @@ pub fn hash_rate_to_target(
 /// translated to solve for hash_rate given a target: h = (2^256-t)/s(t+1)
 /// where s is seconds_between_two_consecutive_shares and t is target
 pub fn hash_rate_from_target(target: U256<'static>, share_per_min: f32) -> Result<f32, Error> {
+    // checks that we are not dividing by zero
+    if share_per_min == 0.0 {
+        return Err(Error::HashrateError(InputError::DivisionByZero));
+    }
+    if share_per_min.is_sign_negative() {
+        return Err(Error::HashrateError(InputError::NegativeInput));
+    }
+
     let mut target_arr: [u8; 32] = [0; 32];
     target_arr.as_mut().copy_from_slice(target.inner_as_ref());
     target_arr.reverse();
@@ -341,17 +358,13 @@ pub fn hash_rate_from_target(target: U256<'static>, share_per_min: f32) -> Resul
     let numerator = max_target - (target - Uint256::one());
 
     // now we calcualte the denominator s(t+1)
-    // checks that we are not dividing by zero
-    if share_per_min == 0.0 {
-        return Err(Error::ImpossibleToGetHashrate);
-    }
     // *100 here to move the fractional bit up so we can make this an int later
     let shares_occurrency_frequence = 60_f32 / (share_per_min) * 100.0;
     // note that t+1 cannot be zero because t unsigned. Therefore the denominator is zero if and
     // only if s is zero.
     let shares_occurrency_frequence = shares_occurrency_frequence as u128;
     if shares_occurrency_frequence == 0_u128 {
-        return Err(Error::ImpossibleToGetTarget);
+        return Err(Error::HashrateError(InputError::DivisionByZero));
     }
     let shares_occurrency_frequence = u128_as_u256(shares_occurrency_frequence);
     let mut target_plus_one = Uint256::from_be_bytes(target_arr);

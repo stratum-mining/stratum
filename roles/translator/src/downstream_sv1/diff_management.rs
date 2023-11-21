@@ -90,7 +90,7 @@ impl Downstream {
                 diff_mgmt.shares_per_minute,
             ) {
                 Ok(target) => target.to_vec(),
-                Err(e) => return Err(Error::ImpossibleToGetTarget(e)),
+                Err(e) => return Err(Error::HashrateError(e)),
             };
             Self::update_miner_hashrate(self_.clone(), prev_target.clone())?;
         }
@@ -121,7 +121,7 @@ impl Downstream {
                 diff_mgmt.shares_per_minute,
             ) {
                 Ok(target) => target.to_vec(),
-                Err(v) => return Err(Error::ImpossibleToGetTarget(v)),
+                Err(v) => return Err(Error::TargetError(v)),
             };
             if let Some(new_hash_rate) =
                 Self::update_miner_hashrate(self_.clone(), prev_target.clone())?
@@ -131,7 +131,7 @@ impl Downstream {
                     diff_mgmt.shares_per_minute,
                 ) {
                     Ok(target) => target,
-                    Err(v) => return Err(Error::ImpossibleToGetTarget(v)),
+                    Err(v) => return Err(Error::TargetError(v)),
                 };
                 tracing::debug!("New target from hashrate: {:?}", new_target.inner_as_ref());
                 let message = Self::get_set_difficulty(new_target.to_vec())?;
@@ -162,7 +162,7 @@ impl Downstream {
                     d.difficulty_mgmt.shares_per_minute,
                 ) {
                     Ok(target) => Ok(target.to_vec()),
-                    Err(e) => Err(Error::ImpossibleToGetTarget(e)),
+                    Err(e) => Err(Error::TargetError(e)),
                 }
             })
             .map_err(|_e| Error::PoisonLock)?
@@ -257,7 +257,10 @@ impl Downstream {
                     realized_share_per_min,
                 ) {
                     Ok(hashrate) => hashrate,
-                    Err(e) => return Err(Error::ImpossibleToGetHashrate(e)),
+                    Err(e) => {
+                        tracing::info!("\n Impossible to get hashrate: {:?}", e);
+                        return Err(Error::HashrateError(e));
+                    }
                 };
                 let hashrate_delta =
                     new_miner_hashrate - d.difficulty_mgmt.min_individual_miner_hashrate;

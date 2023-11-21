@@ -260,8 +260,11 @@ impl ChannelFactory {
             self.channel_to_group_id.insert(channel_id, 0);
             let target = match crate::utils::hash_rate_to_target(hash_rate, self.share_per_min) {
                 Ok(target) => target,
-                Err(_) => {
-                    info!("Impossible to get target. Request id: {:?}", request_id);
+                Err(e) => {
+                    info!(
+                        "Impossible to get target: {:?}. Request id: {:?}",
+                        e, request_id
+                    );
                     return None;
                 }
             };
@@ -340,9 +343,12 @@ impl ChannelFactory {
         let target =
             match crate::utils::hash_rate_to_target(downstream_hash_rate, self.share_per_min) {
                 Ok(target) => target,
-                Err(_) => {
-                    info!("Impossible to get target. Request id: {:?}", request_id);
-                    return Err(Error::ImpossibleToGetTarget);
+                Err(e) => {
+                    info!(
+                        "Impossible to get target: {:?}. Request id: {:?}",
+                        e, request_id
+                    );
+                    return Err(e);
                 }
             };
         let extranonce = self
@@ -390,9 +396,12 @@ impl ChannelFactory {
         let target =
             match crate::utils::hash_rate_to_target(downstream_hash_rate, self.share_per_min) {
                 Ok(target_) => target_,
-                Err(_) => {
-                    info!("Impossible to get target. Request id: {:?}", request_id);
-                    return Err(Error::ImpossibleToGetTarget);
+                Err(e) => {
+                    info!(
+                        "Impossible to get target: {:?}. Request id: {:?}",
+                        e, request_id
+                    );
+                    return Err(e);
                 }
             };
         let extranonce = self
@@ -944,7 +953,7 @@ impl ChannelFactory {
             let target = crate::utils::hash_rate_to_target(m.nominal_hash_rate, self.share_per_min);
             match target {
                 Ok(target_) => channel.target = target_,
-                Err(_) => info!("Impossible to get target"),
+                Err(e) => info!("Impossible to get target: {:?}", e),
             }
             return Some(());
         };

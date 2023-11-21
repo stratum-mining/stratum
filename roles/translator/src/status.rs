@@ -170,10 +170,10 @@ pub async fn handle_error(
                 _ => send_status(sender, e, error_handling::ErrorBranch::Break).await,
             }
         }
-        Error::ImpossibleToGetTarget(_) => {
+        Error::TargetError(_) => {
             send_status(sender, e, error_handling::ErrorBranch::Continue).await
         }
-        Error::ImpossibleToGetHashrate(_) => {
+        Error::HashrateError(_) => {
             send_status(sender, e, error_handling::ErrorBranch::Continue).await
         }
     }

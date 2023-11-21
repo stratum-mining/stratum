@@ -1,5 +1,5 @@
 # SV1 to SV2 Translator Proxy
-This proxy is designed to sit in between a SV1 Downstream role (most typically Mining Device(s)
+This proxy is designed to sit in between a SV1 Downstream role (most typically Mining Device(s) 
 running SV1 firmware) and a SV2 Upstream role (most typically a SV2 Pool Server with Extended
 Channel support).
 
