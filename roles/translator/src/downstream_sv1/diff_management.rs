@@ -135,8 +135,6 @@ impl Downstream {
             let delta_hashrate = (new_hash_rate - diff_mgmt.min_individual_miner_hashrate).abs();
             let delta_percentage =
                 (delta_hashrate / diff_mgmt.min_individual_miner_hashrate) * 100.0;
-            println!("\nhashrate delta percentage --> {:?}\n", delta_percentage);
-            //if delta_percentage > 120.0 {
             let message = Self::get_set_difficulty(new_target.to_vec())?;
             // send mining.set_difficulty to miner
             Downstream::send_message_downstream(self_.clone(), message).await?;
@@ -144,7 +142,6 @@ impl Downstream {
                 channel_id,
                 new_target: new_target.into(),
             };
-            println!("Message SET_DIFFICULTY sent!");
             // notify bridge of target update
             Downstream::send_message_upstream(
                 self_.clone(),
@@ -152,7 +149,6 @@ impl Downstream {
             )
             .await?;
         }
-        //}
         Ok(())
     }
 
@@ -253,50 +249,28 @@ impl Downstream {
                     return Ok(None);
                 }
                 tracing::debug!("\nDELTA TIME: {:?}", delta_time);
-                println!("DELTA TIME: {:?}", delta_time);
                 let realized_share_per_min =
                     d.difficulty_mgmt.submits_since_last_update as f32 / (delta_time as f32 / 60.0);
-                println!("realized share per min --> {:?}", realized_share_per_min);
-                println!(
-                    "\nprevious HASHRATE: {:?}",
-                    d.difficulty_mgmt.min_individual_miner_hashrate
-                );
                 let mut hashrate_delta: f32;
 
                 let mut new_miner_hashrate = match roles_logic_sv2::utils::hash_rate_from_target(
                     miner_target.clone().try_into()?,
                     realized_share_per_min,
                 ) {
-                    //Ok(result) => result,
-                    Ok(result) => {
-                        println!("result returned by the function: {:?}", result);
-                        /* let new_miner_hashrate = d.difficulty_mgmt.min_individual_miner_hashrate * realized_share_per_min / d.difficulty_mgmt.shares_per_minute;
-                        new_miner_hashrate */
-                        result
-                    }
+                    Ok(result) => result,
                     Err(e) => {
-                        println!("{:?} -> Probably min_individual_miner_hashrate parameter was not set properly in config file. 
-                        New hashrate will be automatically adjusted to match the real one.", e);
+                        println!("{:?} -> Probably min_individual_miner_hashrate parameter was not set properly in config file. New hashrate will be automatically adjusted to match the real one.", e);
                         d.difficulty_mgmt.min_individual_miner_hashrate * realized_share_per_min / d.difficulty_mgmt.shares_per_minute
                     }
                 };
-                println!("\nCOMPUTED NEW MINER HASHRATE: {:?}", new_miner_hashrate);
+
                 hashrate_delta =
                     new_miner_hashrate - d.difficulty_mgmt.min_individual_miner_hashrate;
-                println!("\nHASHRATE DELTA: {:?}", hashrate_delta);
                 let hashrate_delta_percentage = (hashrate_delta.abs()
                     / d.difficulty_mgmt.min_individual_miner_hashrate)
                     * 100.0;
-                println!(
-                    "\nHASHRATE DELTA percentage --> {:?}\n",
-                    hashrate_delta_percentage
-                );
                 tracing::debug!("\nMINER HASHRATE: {:?}", new_miner_hashrate);
-                println!(
-                    "OLD channel hashrate => {:?}",
-                    d.upstream_difficulty_config
-                        .safe_lock(|c| c.channel_nominal_hashrate)
-                );
+
                 if (hashrate_delta_percentage >= 100.0)
                     || (hashrate_delta_percentage >= 60.0) && (delta_time >= 60)
                     || (hashrate_delta_percentage >= 50.0) && (delta_time >= 120)
@@ -304,7 +278,6 @@ impl Downstream {
                     || (hashrate_delta_percentage >= 30.0) && (delta_time >= 240)
                     || (hashrate_delta_percentage >= 15.0) && (delta_time >= 300)
                 {
-                //if delta_time >= 30 || d.difficulty_mgmt.submits_since_last_update > 1000 {
                 if realized_share_per_min < 0.01 {
                     new_miner_hashrate = match delta_time {
                         dt if dt < 30 => d.difficulty_mgmt.min_individual_miner_hashrate / 2.0,
@@ -315,16 +288,11 @@ impl Downstream {
                         new_miner_hashrate - d.difficulty_mgmt.min_individual_miner_hashrate;
                 }
                 d.difficulty_mgmt.min_individual_miner_hashrate = new_miner_hashrate;
-                println!(
-                    "\nnew downstream HASHRATE: {:?}",
-                    d.difficulty_mgmt.min_individual_miner_hashrate
-                );
                 d.difficulty_mgmt.timestamp_of_last_update = timestamp_secs;
                 d.difficulty_mgmt.submits_since_last_update = 0;
                 // update channel hashrate (read by upstream)
                 d.upstream_difficulty_config.super_safe_lock(|c| {
                     c.channel_nominal_hashrate += hashrate_delta;
-                    println!("NEW channel hashrate => {:?}", c.channel_nominal_hashrate);
                 });
                 Ok(Some(new_miner_hashrate))
                 } else {
@@ -377,8 +345,7 @@ mod test {
             .as_secs();
         let downstream_conf = DownstreamDifficultyConfig {
             min_individual_miner_hashrate: fake_hashrate as f32,
-            //miner_num_submits_before_update: 150, // update after 150 submits
-            shares_per_minute: 6000.0, // 1000 shares per minute
+            shares_per_minute: 1000.0, // 1000 shares per minute
             submits_since_last_update: 1,
             timestamp_of_last_update: timestamp_secs, // updated below
         };
