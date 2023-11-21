@@ -132,9 +132,6 @@ impl Downstream {
                 Err(v) => return Err(Error::ImpossibleToGetTarget(v)),
             };
             tracing::debug!("New target from hashrate: {:?}", new_target.inner_as_ref());
-            let delta_hashrate = (new_hash_rate - diff_mgmt.min_individual_miner_hashrate).abs();
-            let delta_percentage =
-                (delta_hashrate / diff_mgmt.min_individual_miner_hashrate) * 100.0;
             let message = Self::get_set_difficulty(new_target.to_vec())?;
             // send mining.set_difficulty to miner
             Downstream::send_message_downstream(self_.clone(), message).await?;
