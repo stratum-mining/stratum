@@ -115,43 +115,38 @@ impl Downstream {
             "Number of shares submitted: {:?}",
             diff_mgmt.submits_since_last_update
         );
-            let prev_target = match roles_logic_sv2::utils::hash_rate_to_target(
-                diff_mgmt.min_individual_miner_hashrate,
+        let prev_target = match roles_logic_sv2::utils::hash_rate_to_target(
+            diff_mgmt.min_individual_miner_hashrate,
+            diff_mgmt.shares_per_minute,
+        ) {
+            Ok(target) => target.to_vec(),
+            Err(v) => return Err(Error::TargetError(v)),
+        };
+        if let Some(new_hash_rate) =
+            Self::update_miner_hashrate(self_.clone(), prev_target.clone())?
+        {
+            let new_target = match roles_logic_sv2::utils::hash_rate_to_target(
+                new_hash_rate,
                 diff_mgmt.shares_per_minute,
             ) {
-                Ok(target) => target.to_vec(),
-                Err(v) => return Err(Error::TargetError(v)),
+                Ok(target) => target,
+                Err(v) => return Err(Error::ImpossibleToGetTarget(v)),
             };
-            if let Some(new_hash_rate) =
-                Self::update_miner_hashrate(self_.clone(), prev_target.clone())?
-            {
-                let new_target = match roles_logic_sv2::utils::hash_rate_to_target(
-                    new_hash_rate,
-                    diff_mgmt.shares_per_minute,
-                ) {
-                    Ok(target) => target,
-                    Err(v) => return Err(Error::TargetError(v)),
-                };
-                tracing::debug!("New target from hashrate: {:?}", new_target.inner_as_ref());
-                let delta_hashrate = (new_hash_rate - diff_mgmt.min_individual_miner_hashrate).abs();
-                let delta_percentage = (delta_hashrate/diff_mgmt.min_individual_miner_hashrate)*100.0;
-                println!("\nhashrate delta percentage --> {:?}\n", delta_percentage);
-                //if delta_percentage > 120.0 {
-                    let message = Self::get_set_difficulty(new_target.to_vec())?;
-                    // send mining.set_difficulty to miner
-                    Downstream::send_message_downstream(self_.clone(), message).await?;
-                    let update_target_msg = SetDownstreamTarget {
-                        channel_id,
-                        new_target: new_target.into(),
-                    };
-                    // notify bridge of target update
-                    Downstream::send_message_upstream(
-                        self_.clone(),
-                        DownstreamMessages::SetDownstreamTarget(update_target_msg),
-                    )
-                    .await?;
-            }
-        //}
+            tracing::debug!("New target from hashrate: {:?}", new_target.inner_as_ref());
+            let message = Self::get_set_difficulty(new_target.to_vec())?;
+            // send mining.set_difficulty to miner
+            Downstream::send_message_downstream(self_.clone(), message).await?;
+            let update_target_msg = SetDownstreamTarget {
+                channel_id,
+                new_target: new_target.into(),
+            };
+            // notify bridge of target update
+            Downstream::send_message_upstream(
+                self_.clone(),
+                DownstreamMessages::SetDownstreamTarget(update_target_msg),
+            )
+            .await?;
+        }
         Ok(())
     }
 
@@ -252,7 +247,6 @@ impl Downstream {
                     return Ok(None);
                 }
                 tracing::debug!("\nDELTA TIME: {:?}", delta_time);
-                println!("DELTA TIME: {:?}", delta_time);
                 let realized_share_per_min =
                     d.difficulty_mgmt.submits_since_last_update as f32 / (delta_time as f32 / 60.0);
                 tracing::debug!("\nREALIZED SHARES PER MINUTE {:?}", realized_share_per_min);
