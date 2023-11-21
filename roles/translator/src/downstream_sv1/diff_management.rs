@@ -139,7 +139,6 @@ impl Downstream {
                 channel_id,
                 new_target: new_target.into(),
             };
-            println!("Message SET_DIFFICULTY sent!");
             // notify bridge of target update
             Downstream::send_message_upstream(
                 self_.clone(),
@@ -247,7 +246,6 @@ impl Downstream {
                     return Ok(None);
                 }
                 tracing::debug!("\nDELTA TIME: {:?}", delta_time);
-                println!("DELTA TIME: {:?}", delta_time);
                 let realized_share_per_min =
                     d.difficulty_mgmt.submits_since_last_update as f32 / (delta_time as f32 / 60.0);
                 let mut hashrate_delta: f32;
