@@ -412,7 +412,7 @@ mod test {
         let total_run_time = std::time::Duration::from_secs(10);
         let config_shares_per_minute = downstream_conf.shares_per_minute;
         // get initial hashrate
-        let initial_nominal_hashrate = measure_hashrate(8);
+        let initial_nominal_hashrate = measure_hashrate(30);
         // get target from hashrate and shares_per_sec
         let initial_target = match roles_logic_sv2::utils::hash_rate_to_target(
             initial_nominal_hashrate as f32,
