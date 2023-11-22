@@ -9,7 +9,7 @@
         "Launch a mining device",
         "Act like a pool",
         "Connect jdc to the first pool",
-        "Receive an submit share error from first pool",
+        "Receive a submit share error from first pool",
         "Close jdc connection with first pool",
         "Connect jdc the pool mocked by this test"
     ],
