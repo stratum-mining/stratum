@@ -2,14 +2,14 @@
     "version": "2",
     "doc": [
         "This test does",
-        "Launch jds",
         "Launch a pool mocks",
+        "Launch jds",
         "Launch jdc",
         "Launch mining-proxy",
         "Launch a mining device",
         "Act like a pool",
         "Connect jdc to the first pool",
-        "Receive a submit share error from first pool",
+        "Receive an submit share error from first pool",
         "Close jdc connection with first pool",
         "Connect jdc the pool mocked by this test"
     ],
@@ -47,6 +47,31 @@
         {
             "command": "cargo",
             "args": [
+                        "run",
+                        "../../test/message-generator/mock/pool-mock-invalid-share.json"
+            ],
+            "conditions": {
+                "WithConditions": {
+                    "conditions": [
+                        {
+                            "output_string": "Running `target/debug/message_generator_sv2 ../../test/message-generator/mock/pool-mock-invalid-share.json`",
+                            "output_location": "StdErr",
+                            "condition": true
+                        }
+                    ],
+                    "timer_secs": 240,
+                    "warn_no_panic": false
+                }
+            }
+        },
+        {
+            "command": "sleep",
+            "args": ["10000"],
+            "conditions": "None"
+        },
+        {
+            "command": "cargo",
+            "args": [
                         "llvm-cov",
                         "--no-report",
                         "run",
@@ -65,27 +90,7 @@
                             "condition": true
                         }
                     ],
-                    "timer_secs": 300,
-                    "warn_no_panic": false
-                }
-            }
-        },
-        {
-            "command": "cargo",
-            "args": [
-                        "run",
-                        "../../test/message-generator/mock/pool-mock-invalid-share.json"
-            ],
-            "conditions": {
-                "WithConditions": {
-                    "conditions": [
-                        {
-                            "output_string": "Running `target/debug/message_generator_sv2 ../../test/message-generator/mock/pool-mock-invalid-share.json`",
-                            "output_location": "StdErr",
-                            "condition": true
-                        }
-                    ],
-                    "timer_secs": 300,
+                    "timer_secs": 240,
                     "warn_no_panic": false
                 }
             }
@@ -111,7 +116,7 @@
                             "condition": true
                         }
                     ],
-                    "timer_secs": 300,
+                    "timer_secs": 240,
                     "warn_no_panic": false
                 }
             }
@@ -137,7 +142,7 @@
                             "condition": true
                         }
                     ],
-                    "timer_secs": 300,
+                    "timer_secs": 240,
                     "warn_no_panic": false
                 }
             }
@@ -158,7 +163,7 @@
                             "condition": true
                         }
                     ],
-                    "timer_secs": 300,
+                    "timer_secs": 240,
                     "warn_no_panic": false
                 }
             }
