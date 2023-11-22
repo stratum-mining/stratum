@@ -84,14 +84,14 @@ impl Downstream {
             "Number of shares submitted: {:?}",
             diff_mgmt.submits_since_last_update
         );
-        
+
         let prev_target = match roles_logic_sv2::utils::hash_rate_to_target(
             diff_mgmt.min_individual_miner_hashrate,
             diff_mgmt.shares_per_minute,
         ) {
             Ok(target) => target.to_vec(),
-                Err(e) => return Err(Error::HashrateError(e)),
-            };
+            Err(e) => return Err(Error::HashrateError(e)),
+        };
         Self::update_miner_hashrate(self_.clone(), prev_target.clone())?;
 
         Ok(())
@@ -130,7 +130,7 @@ impl Downstream {
                 diff_mgmt.shares_per_minute,
             ) {
                 Ok(target) => target,
-                Err(v) => return Err(Error::ImpossibleToGetTarget(v)),
+                Err(v) => return Err(Error::TargetError(v)),
             };
             tracing::debug!("New target from hashrate: {:?}", new_target.inner_as_ref());
             let message = Self::get_set_difficulty(new_target.to_vec())?;
@@ -261,7 +261,7 @@ impl Downstream {
                     }
                 };
 
-                hashrate_delta =
+                let mut hashrate_delta =
                     new_miner_hashrate - d.difficulty_mgmt.min_individual_miner_hashrate;
                 let hashrate_delta_percentage = (hashrate_delta.abs()
                     / d.difficulty_mgmt.min_individual_miner_hashrate)
@@ -381,8 +381,8 @@ mod test {
     #[tokio::test]
     async fn test_diff_management() {
         let downstream_conf = DownstreamDifficultyConfig {
-            min_individual_miner_hashrate: 0.0,   // updated below
-            shares_per_minute: 1000.0,            // 1000 shares per minute
+            min_individual_miner_hashrate: 0.0, // updated below
+            shares_per_minute: 1000.0,          // 1000 shares per minute
             submits_since_last_update: 0,
             timestamp_of_last_update: 0, // updated below
         };
@@ -409,7 +409,6 @@ mod test {
             Arc::new(Mutex::new(upstream_config)),
         );
 
-        let total_run_time = std::time::Duration::from_secs(10);
         let total_run_time = std::time::Duration::from_secs(10);
         let config_shares_per_minute = downstream_conf.shares_per_minute;
         // get initial hashrate
