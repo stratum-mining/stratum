@@ -410,6 +410,7 @@ mod test {
         );
 
         let total_run_time = std::time::Duration::from_secs(10);
+        let total_run_time = std::time::Duration::from_secs(10);
         let config_shares_per_minute = downstream_conf.shares_per_minute;
         // get initial hashrate
         let initial_nominal_hashrate = measure_hashrate(8);
