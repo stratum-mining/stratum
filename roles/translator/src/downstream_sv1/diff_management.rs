@@ -86,8 +86,8 @@ impl Downstream {
         );
 
         let prev_target = match roles_logic_sv2::utils::hash_rate_to_target(
-            diff_mgmt.min_individual_miner_hashrate,
-            diff_mgmt.shares_per_minute,
+            diff_mgmt.min_individual_miner_hashrate.into(),
+            diff_mgmt.shares_per_minute.into(),
         ) {
             Ok(target) => target.to_vec(),
             Err(e) => return Err(Error::HashrateError(e)),
@@ -116,8 +116,8 @@ impl Downstream {
             diff_mgmt.submits_since_last_update
         );
         let prev_target = match roles_logic_sv2::utils::hash_rate_to_target(
-            diff_mgmt.min_individual_miner_hashrate,
-            diff_mgmt.shares_per_minute,
+            diff_mgmt.min_individual_miner_hashrate.into(),
+            diff_mgmt.shares_per_minute.into(),
         ) {
             Ok(target) => target.to_vec(),
             Err(v) => return Err(Error::TargetError(v)),
@@ -126,8 +126,8 @@ impl Downstream {
             Self::update_miner_hashrate(self_.clone(), prev_target.clone())?
         {
             let new_target = match roles_logic_sv2::utils::hash_rate_to_target(
-                new_hash_rate,
-                diff_mgmt.shares_per_minute,
+                new_hash_rate.into(),
+                diff_mgmt.shares_per_minute.into(),
             ) {
                 Ok(target) => target,
                 Err(v) => return Err(Error::TargetError(v)),
@@ -156,8 +156,8 @@ impl Downstream {
         self_
             .safe_lock(|d| {
                 match roles_logic_sv2::utils::hash_rate_to_target(
-                    d.difficulty_mgmt.min_individual_miner_hashrate,
-                    d.difficulty_mgmt.shares_per_minute,
+                    d.difficulty_mgmt.min_individual_miner_hashrate.into(),
+                    d.difficulty_mgmt.shares_per_minute.into(),
                 ) {
                     Ok(target) => Ok(target.to_vec()),
                     Err(e) => Err(Error::TargetError(e)),
@@ -248,16 +248,16 @@ impl Downstream {
                 }
                 tracing::debug!("\nDELTA TIME: {:?}", delta_time);
                 let realized_share_per_min =
-                    d.difficulty_mgmt.submits_since_last_update as f32 / (delta_time as f32 / 60.0);
+                    d.difficulty_mgmt.submits_since_last_update as f64 / (delta_time as f64 / 60.0);
                 tracing::debug!("\nREALIZED SHARES PER MINUTE {:?}", realized_share_per_min);
                 let mut new_miner_hashrate = match roles_logic_sv2::utils::hash_rate_from_target(
                     miner_target.clone().try_into()?,
                     realized_share_per_min,
                 ) {
-                    Ok(hashrate) => hashrate,
+                    Ok(hashrate) => hashrate as f32,
                     Err(e) => {
                         println!("{:?} -> Probably min_individual_miner_hashrate parameter was not set properly in config file. New hashrate will be automatically adjusted to match the real one.", e);
-                        d.difficulty_mgmt.min_individual_miner_hashrate * realized_share_per_min / d.difficulty_mgmt.shares_per_minute
+                        d.difficulty_mgmt.min_individual_miner_hashrate * realized_share_per_min as f32 / d.difficulty_mgmt.shares_per_minute
                     }
                 };
 
@@ -332,7 +332,7 @@ mod test {
         // first we set an hashrate and a target. We expect 6 hashes per minute, so 1 every 10
         // seconds. Below we sleep 10 seconds before launching the function
         let hashrate = 1000000.0;
-        let target = roles_logic_sv2::utils::hash_rate_to_target(hashrate as f32, 6.0).unwrap();
+        let target = roles_logic_sv2::utils::hash_rate_to_target(hashrate as f64, 6.0).unwrap();
 
         //here we set a fake hashrate for the Downsatream struct
         let fake_hashrate = hashrate / 1000.0;
@@ -415,8 +415,8 @@ mod test {
         let initial_nominal_hashrate = measure_hashrate(30);
         // get target from hashrate and shares_per_sec
         let initial_target = match roles_logic_sv2::utils::hash_rate_to_target(
-            initial_nominal_hashrate as f32,
-            config_shares_per_minute,
+            initial_nominal_hashrate,
+            config_shares_per_minute.into(),
         ) {
             Ok(target) => target,
             Err(_) => panic!(),
@@ -445,8 +445,8 @@ mod test {
             target = downstream
                 .safe_lock(|d| {
                     match roles_logic_sv2::utils::hash_rate_to_target(
-                        d.difficulty_mgmt.min_individual_miner_hashrate,
-                        config_shares_per_minute,
+                        d.difficulty_mgmt.min_individual_miner_hashrate.into(),
+                        config_shares_per_minute.into(),
                     ) {
                         Ok(target) => target,
                         Err(_) => panic!(),

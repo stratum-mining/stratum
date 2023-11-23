@@ -113,7 +113,7 @@ impl Bridge {
         hash_rate: f32,
     ) -> ProxyResult<'static, OpenSv1Downstream> {
         match self.channel_factory.new_extended_channel(0, hash_rate, 0) {
-            Some(messages) => {
+            Ok(messages) => {
                 for message in messages {
                     match message {
                         Mining::OpenExtendedMiningChannelSuccess(success) => {
@@ -137,7 +137,7 @@ impl Bridge {
                     }
                 }
             }
-            None => {
+            Err(_) => {
                 return Err(Error::SubprotocolMining(
                     "Bridge: failed to open new extended channel".to_string(),
                 ))
