@@ -2,6 +2,7 @@ use super::{Downstream, DownstreamMessages, SetDownstreamTarget};
 
 use crate::{error::Error, ProxyResult};
 use roles_logic_sv2::utils::Mutex;
+use tracing::error;
 use std::{ops::Div, sync::Arc};
 use v1::json_rpc;
 
@@ -72,7 +73,7 @@ impl Downstream {
     pub async fn try_update_difficulty_settings(
         self_: Arc<Mutex<Self>>,
     ) -> ProxyResult<'static, ()> {
-        let (diff_mgmt, _channel_id) = self_
+        let (diff_mgmt, channel_id) = self_
             .clone()
             .safe_lock(|d| (d.difficulty_mgmt.clone(), d.connection_id))
             .map_err(|_e| Error::PoisonLock)?;
@@ -84,16 +85,38 @@ impl Downstream {
             "Number of shares submitted: {:?}",
             diff_mgmt.submits_since_last_update
         );
-
         let prev_target = match roles_logic_sv2::utils::hash_rate_to_target(
             diff_mgmt.min_individual_miner_hashrate.into(),
             diff_mgmt.shares_per_minute.into(),
         ) {
             Ok(target) => target.to_vec(),
-            Err(e) => return Err(Error::HashrateError(e)),
+            Err(v) => return Err(Error::TargetError(v)),
         };
-        Self::update_miner_hashrate(self_.clone(), prev_target.clone())?;
-
+        if let Some(new_hash_rate) =
+            Self::update_miner_hashrate(self_.clone(), prev_target.clone())?
+        {
+            let new_target = match roles_logic_sv2::utils::hash_rate_to_target(
+                new_hash_rate.into(),
+                diff_mgmt.shares_per_minute.into(),
+            ) {
+                Ok(target) => target,
+                Err(v) => return Err(Error::TargetError(v)),
+            };
+            tracing::debug!("New target from hashrate: {:?}", new_target.inner_as_ref());
+            let message = Self::get_set_difficulty(new_target.to_vec())?;
+            // send mining.set_difficulty to miner
+            Downstream::send_message_downstream(self_.clone(), message).await?;
+            let update_target_msg = SetDownstreamTarget {
+                channel_id,
+                new_target: new_target.into(),
+            };
+            // notify bridge of target update
+            Downstream::send_message_upstream(
+                self_.clone(),
+                DownstreamMessages::SetDownstreamTarget(update_target_msg),
+            )
+            .await?;
+        }
         Ok(())
     }
 
@@ -256,7 +279,7 @@ impl Downstream {
                 ) {
                     Ok(hashrate) => hashrate as f32,
                     Err(e) => {
-                        println!("{:?} -> Probably min_individual_miner_hashrate parameter was not set properly in config file. New hashrate will be automatically adjusted to match the real one.", e);
+                        error!("{:?} -> Probably min_individual_miner_hashrate parameter was not set properly in config file. New hashrate will be automatically adjusted to match the real one.", e);
                         d.difficulty_mgmt.min_individual_miner_hashrate * realized_share_per_min as f32 / d.difficulty_mgmt.shares_per_minute
                     }
                 };
@@ -409,10 +432,10 @@ mod test {
             Arc::new(Mutex::new(upstream_config)),
         );
 
-        let total_run_time = std::time::Duration::from_secs(30);
+        let total_run_time = std::time::Duration::from_secs(120);
         let config_shares_per_minute = downstream_conf.shares_per_minute;
         // get initial hashrate
-        let initial_nominal_hashrate = measure_hashrate(30);
+        let initial_nominal_hashrate = measure_hashrate(5);
         // get target from hashrate and shares_per_sec
         let initial_target = match roles_logic_sv2::utils::hash_rate_to_target(
             initial_nominal_hashrate,
