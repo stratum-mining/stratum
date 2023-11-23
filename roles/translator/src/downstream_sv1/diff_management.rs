@@ -382,7 +382,7 @@ mod test {
     async fn test_diff_management() {
         let downstream_conf = DownstreamDifficultyConfig {
             min_individual_miner_hashrate: 0.0, // updated below
-            shares_per_minute: 10.0,          // 10 shares per minute
+            shares_per_minute: 10.0,            // 10 shares per minute
             submits_since_last_update: 0,
             timestamp_of_last_update: 0, // updated below
         };
