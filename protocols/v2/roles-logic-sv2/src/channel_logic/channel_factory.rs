@@ -258,7 +258,10 @@ impl ChannelFactory {
                 .safe_lock(|ids| ids.new_channel_id(extended_channels_group))
                 .unwrap();
             self.channel_to_group_id.insert(channel_id, 0);
-            let target = match crate::utils::hash_rate_to_target(hash_rate.into(), self.share_per_min.into()) {
+            let target = match crate::utils::hash_rate_to_target(
+                hash_rate.into(),
+                self.share_per_min.into(),
+            ) {
                 Ok(target) => target,
                 Err(e) => {
                     error!(
@@ -270,8 +273,11 @@ impl ChannelFactory {
             };
             let extranonce = self
                 .extranonces
-                .next_extended(max_extranonce_size as usize).unwrap();
-            let extranonce_prefix = extranonce.into_prefix(self.extranonces.get_prefix_len()).unwrap();
+                .next_extended(max_extranonce_size as usize)
+                .unwrap();
+            let extranonce_prefix = extranonce
+                .into_prefix(self.extranonces.get_prefix_len())
+                .unwrap();
             let success = OpenExtendedMiningChannelSuccess {
                 request_id,
                 channel_id,
@@ -340,17 +346,19 @@ impl ChannelFactory {
         let hom_group_id = 0;
         let mut result = vec![];
         let channel_id = id;
-        let target =
-            match crate::utils::hash_rate_to_target(downstream_hash_rate.into(), self.share_per_min.into()) {
-                Ok(target) => target,
-                Err(e) => {
-                    error!(
-                        "Impossible to get target: {:?}. Request id: {:?}",
-                        e, request_id
-                    );
-                    return Err(e);
-                }
-            };
+        let target = match crate::utils::hash_rate_to_target(
+            downstream_hash_rate.into(),
+            self.share_per_min.into(),
+        ) {
+            Ok(target) => target,
+            Err(e) => {
+                error!(
+                    "Impossible to get target: {:?}. Request id: {:?}",
+                    e, request_id
+                );
+                return Err(e);
+            }
+        };
         let extranonce = self
             .extranonces
             .next_standard()
@@ -393,17 +401,19 @@ impl ChannelFactory {
             .safe_lock(|ids| ids.new_channel_id(group_id))
             .unwrap();
         let complete_id = GroupId::into_complete_id(group_id, channel_id);
-        let target =
-            match crate::utils::hash_rate_to_target(downstream_hash_rate.into(), self.share_per_min.into()) {
-                Ok(target_) => target_,
-                Err(e) => {
-                    info!(
-                        "Impossible to get target: {:?}. Request id: {:?}",
-                        e, request_id
-                    );
-                    return Err(e);
-                }
-            };
+        let target = match crate::utils::hash_rate_to_target(
+            downstream_hash_rate.into(),
+            self.share_per_min.into(),
+        ) {
+            Ok(target_) => target_,
+            Err(e) => {
+                info!(
+                    "Impossible to get target: {:?}. Request id: {:?}",
+                    e, request_id
+                );
+                return Err(e);
+            }
+        };
         let extranonce = self
             .extranonces
             .next_standard()
@@ -950,7 +960,10 @@ impl ChannelFactory {
     }
     fn update_channel(&mut self, m: &UpdateChannel) -> Result<(), Error> {
         if let Some(channel) = self.extended_channels.get_mut(&m.channel_id) {
-            let target = crate::utils::hash_rate_to_target(m.nominal_hash_rate.into(), self.share_per_min.into());
+            let target = crate::utils::hash_rate_to_target(
+                m.nominal_hash_rate.into(),
+                self.share_per_min.into(),
+            );
             match target {
                 Ok(target_) => channel.target = target_,
                 Err(e) => {
@@ -963,7 +976,6 @@ impl ChannelFactory {
             // TODO add logic also for group ids
             todo!()
         }
-        
     }
 }
 
