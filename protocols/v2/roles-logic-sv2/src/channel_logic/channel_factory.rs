@@ -258,7 +258,7 @@ impl ChannelFactory {
                 .safe_lock(|ids| ids.new_channel_id(extended_channels_group))
                 .unwrap();
             self.channel_to_group_id.insert(channel_id, 0);
-            let target = match crate::utils::hash_rate_to_target(hash_rate, self.share_per_min) {
+            let target = match crate::utils::hash_rate_to_target(hash_rate.into(), self.share_per_min.into()) {
                 Ok(target) => target,
                 Err(e) => {
                     error!(
@@ -341,7 +341,7 @@ impl ChannelFactory {
         let mut result = vec![];
         let channel_id = id;
         let target =
-            match crate::utils::hash_rate_to_target(downstream_hash_rate, self.share_per_min) {
+            match crate::utils::hash_rate_to_target(downstream_hash_rate.into(), self.share_per_min.into()) {
                 Ok(target) => target,
                 Err(e) => {
                     error!(
@@ -394,7 +394,7 @@ impl ChannelFactory {
             .unwrap();
         let complete_id = GroupId::into_complete_id(group_id, channel_id);
         let target =
-            match crate::utils::hash_rate_to_target(downstream_hash_rate, self.share_per_min) {
+            match crate::utils::hash_rate_to_target(downstream_hash_rate.into(), self.share_per_min.into()) {
                 Ok(target_) => target_,
                 Err(e) => {
                     info!(
@@ -950,7 +950,7 @@ impl ChannelFactory {
     }
     fn update_channel(&mut self, m: &UpdateChannel) -> Result<(), Error> {
         if let Some(channel) = self.extended_channels.get_mut(&m.channel_id) {
-            let target = crate::utils::hash_rate_to_target(m.nominal_hash_rate, self.share_per_min);
+            let target = crate::utils::hash_rate_to_target(m.nominal_hash_rate.into(), self.share_per_min.into());
             match target {
                 Ok(target_) => channel.target = target_,
                 Err(e) => {

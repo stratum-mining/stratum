@@ -288,8 +288,8 @@ pub enum InputError {
 }
 
 pub fn hash_rate_to_target(
-    hashrate: f32,
-    share_per_min: f32,
+    hashrate: f64,
+    share_per_min: f64,
 ) -> Result<U256<'static>, crate::Error> {
     // checks that we are not dividing by zero
     if share_per_min == 0.0 {
@@ -304,7 +304,7 @@ pub fn hash_rate_to_target(
 
     // if we want 5 shares per minute, this means that s=60/5=12 seconds interval between shares
     // this quantity will be at the numerator, so we multiply the result by 100 again later
-    let shares_occurrency_frequence = 60_f32 / share_per_min;
+    let shares_occurrency_frequence = 60_f64 / share_per_min;
     let shares_occurrency_frequence = shares_occurrency_frequence;
 
     let h_times_s = hashrate * shares_occurrency_frequence;
@@ -337,7 +337,7 @@ pub fn hash_rate_to_target(
 /// this function utilizes the equation used in [`hash_rate_to_target`], but
 /// translated to solve for hash_rate given a target: h = (2^256-t)/s(t+1)
 /// where s is seconds_between_two_consecutive_shares and t is target
-pub fn hash_rate_from_target(target: U256<'static>, share_per_min: f32) -> Result<f32, Error> {
+pub fn hash_rate_from_target(target: U256<'static>, share_per_min: f64) -> Result<f64, Error> {
     // checks that we are not dividing by zero
     if share_per_min == 0.0 {
         return Err(Error::HashrateError(InputError::DivisionByZero));
@@ -359,7 +359,7 @@ pub fn hash_rate_from_target(target: U256<'static>, share_per_min: f32) -> Resul
 
     // now we calcualte the denominator s(t+1)
     // *100 here to move the fractional bit up so we can make this an int later
-    let shares_occurrency_frequence = 60_f32 / (share_per_min) * 100.0;
+    let shares_occurrency_frequence = 60_f64 / (share_per_min) * 100.0;
     // note that t+1 cannot be zero because t unsigned. Therefore the denominator is zero if and
     // only if s is zero.
     let shares_occurrency_frequence = shares_occurrency_frequence as u128;
@@ -375,7 +375,7 @@ pub fn hash_rate_from_target(target: U256<'static>, share_per_min: f32) -> Resul
 
     let result = from_uint128_to_u128(numerator.div(denominator).low_128());
     // we multiply back by 100 so that it cancels with the same factor at the denominator
-    Ok(result as f32)
+    Ok(result as f64)
 }
 
 fn from_uint128_to_u128(input: Uint128) -> u128 {
@@ -978,9 +978,9 @@ mod tests {
             }
         }
 
-        let mut average: f32 = 0.0;
+        let mut average: f64 = 0.0;
         for i in &results {
-            average = average + (*i as f32) / attempts as f32;
+            average = average + (*i as f64) / attempts as f64;
         }
         let delta = (hrs - average) as i64;
         assert!(delta.abs() < 100);
