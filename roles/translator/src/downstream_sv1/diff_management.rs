@@ -374,6 +374,7 @@ mod test {
             Downstream::update_miner_hashrate(downstream_mutex.clone(), target.to_vec())
                 .unwrap()
                 .unwrap();
+        println!("update hashrate = {:?}", updated_hashrate);
         assert!(updated_hashrate == hashrate);
     }
 
