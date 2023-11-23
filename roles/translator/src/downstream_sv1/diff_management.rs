@@ -405,7 +405,7 @@ mod test {
     async fn test_diff_management() {
         let downstream_conf = DownstreamDifficultyConfig {
             min_individual_miner_hashrate: 0.0, // updated below
-            shares_per_minute: 100.0,           // 100 shares per minute
+            shares_per_minute: 1000.0,          // 1000 shares per minute
             submits_since_last_update: 0,
             timestamp_of_last_update: 0, // updated below
         };
@@ -432,10 +432,10 @@ mod test {
             Arc::new(Mutex::new(upstream_config)),
         );
 
-        let total_run_time = std::time::Duration::from_secs(120);
+        let total_run_time = std::time::Duration::from_secs(60);
         let config_shares_per_minute = downstream_conf.shares_per_minute;
         // get initial hashrate
-        let initial_nominal_hashrate = measure_hashrate(5);
+        let initial_nominal_hashrate = measure_hashrate(10);
         // get target from hashrate and shares_per_sec
         let initial_target = match roles_logic_sv2::utils::hash_rate_to_target(
             initial_nominal_hashrate,
