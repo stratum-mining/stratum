@@ -246,7 +246,7 @@ impl ChannelFactory {
         request_id: u32,
         hash_rate: f32,
         min_extranonce_size: u16,
-    ) -> Option<Vec<Mining<'static>>> {
+    ) -> Result<Vec<Mining<'static>>, Error> {
         let extended_channels_group = 0;
         let max_extranonce_size = self.extranonces.get_range2_len() as u16;
         if min_extranonce_size <= max_extranonce_size {
@@ -261,17 +261,17 @@ impl ChannelFactory {
             let target = match crate::utils::hash_rate_to_target(hash_rate, self.share_per_min) {
                 Ok(target) => target,
                 Err(e) => {
-                    info!(
+                    error!(
                         "Impossible to get target: {:?}. Request id: {:?}",
                         e, request_id
                     );
-                    return None;
+                    return Err(e);
                 }
             };
             let extranonce = self
                 .extranonces
-                .next_extended(max_extranonce_size as usize)?;
-            let extranonce_prefix = extranonce.into_prefix(self.extranonces.get_prefix_len())?;
+                .next_extended(max_extranonce_size as usize).unwrap();
+            let extranonce_prefix = extranonce.into_prefix(self.extranonces.get_prefix_len()).unwrap();
             let success = OpenExtendedMiningChannelSuccess {
                 request_id,
                 channel_id,
@@ -298,9 +298,9 @@ impl ChannelFactory {
             for (job, _) in &self.future_jobs {
                 result.push(Mining::NewExtendedMiningJob(job.clone()))
             }
-            Some(result)
+            Ok(result)
         } else {
-            Some(vec![Mining::OpenMiningChannelError(
+            Ok(vec![Mining::OpenMiningChannelError(
                 OpenMiningChannelError::unsupported_extranonce_size(request_id),
             )])
         }
@@ -344,7 +344,7 @@ impl ChannelFactory {
             match crate::utils::hash_rate_to_target(downstream_hash_rate, self.share_per_min) {
                 Ok(target) => target,
                 Err(e) => {
-                    info!(
+                    error!(
                         "Impossible to get target: {:?}. Request id: {:?}",
                         e, request_id
                     );
@@ -948,17 +948,22 @@ impl ChannelFactory {
         channel.target = new_target.into();
         Some(true)
     }
-    fn update_channel(&mut self, m: &UpdateChannel) -> Option<()> {
+    fn update_channel(&mut self, m: &UpdateChannel) -> Result<(), Error> {
         if let Some(channel) = self.extended_channels.get_mut(&m.channel_id) {
             let target = crate::utils::hash_rate_to_target(m.nominal_hash_rate, self.share_per_min);
             match target {
                 Ok(target_) => channel.target = target_,
-                Err(e) => info!("Impossible to get target: {:?}", e),
+                Err(e) => {
+                    error!("Impossible to get target: {:?}", e);
+                    return Err(e);
+                }
             }
-            return Some(());
-        };
-        // TODO add logic also for group ids
-        None
+            Ok(())
+        } else {
+            // TODO add logic also for group ids
+            todo!()
+        }
+        
     }
 }
 
@@ -1030,7 +1035,7 @@ impl PoolChannelFactory {
         request_id: u32,
         hash_rate: f32,
         min_extranonce_size: u16,
-    ) -> Option<Vec<Mining<'static>>> {
+    ) -> Result<Vec<Mining<'static>>, Error> {
         self.inner
             .new_extended_channel(request_id, hash_rate, min_extranonce_size)
     }
@@ -1265,7 +1270,7 @@ impl PoolChannelFactory {
     pub fn update_pool_outputs(&mut self, outs: Vec<TxOut>) {
         self.pool_coinbase_outputs = outs;
     }
-    pub fn update_channel(&mut self, m: &UpdateChannel) -> Option<()> {
+    pub fn update_channel(&mut self, m: &UpdateChannel) -> Result<(), Error> {
         self.inner.update_channel(m)
     }
 }
@@ -1352,7 +1357,7 @@ impl ProxyExtendedChannelFactory {
         request_id: u32,
         hash_rate: f32,
         min_extranonce_size: u16,
-    ) -> Option<Vec<Mining>> {
+    ) -> Result<Vec<Mining>, Error> {
         self.inner
             .new_extended_channel(request_id, hash_rate, min_extranonce_size)
     }
