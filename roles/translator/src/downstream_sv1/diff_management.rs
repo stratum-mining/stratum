@@ -2,8 +2,8 @@ use super::{Downstream, DownstreamMessages, SetDownstreamTarget};
 
 use crate::{error::Error, ProxyResult};
 use roles_logic_sv2::utils::Mutex;
-use tracing::error;
 use std::{ops::Div, sync::Arc};
+use tracing::error;
 use v1::json_rpc;
 
 use stratum_common::bitcoin::util::uint::Uint256;
