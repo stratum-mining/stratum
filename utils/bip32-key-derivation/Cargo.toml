@@ -10,7 +10,7 @@ name = "bip32_derivation"
 path = "src/lib.rs"
 
 [[bin]]
-name = "bin"
+name = "bip32_derivation-bin"
 path = "src/main.rs"
 
 [dependencies]

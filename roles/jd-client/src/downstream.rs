@@ -498,11 +498,11 @@ impl
                 min_extranonce_size,
             );
             match messages_res {
-                Some(messages) => {
+                Ok(messages) => {
                     let messages = messages.into_iter().map(SendTo::Respond).collect();
                     Ok(SendTo::Multiple(messages))
                 }
-                None => Err(roles_logic_sv2::Error::ChannelIsNeitherExtendedNeitherInAPool),
+                Err(_) => Err(roles_logic_sv2::Error::ChannelIsNeitherExtendedNeitherInAPool),
             }
         }
     }

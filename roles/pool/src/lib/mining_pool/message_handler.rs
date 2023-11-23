@@ -74,19 +74,22 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
             .safe_lock(|s| s.new_extended_channel(request_id, hash_rate, min_extranonce_size))
             .map_err(|e| roles_logic_sv2::Error::PoisonLock(e.to_string()))?;
         match messages_res {
-            Some(messages) => {
+            Ok(messages) => {
                 let messages = messages.into_iter().map(SendTo::Respond).collect();
                 Ok(SendTo::Multiple(messages))
             }
-            None => Err(roles_logic_sv2::Error::ChannelIsNeitherExtendedNeitherInAPool),
+            Err(_) => Err(roles_logic_sv2::Error::ChannelIsNeitherExtendedNeitherInAPool),
         }
     }
 
     fn handle_update_channel(&mut self, m: UpdateChannel) -> Result<SendTo<()>, Error> {
-        self.channel_factory
-            .safe_lock(|cf| cf.update_channel(&m))
-            .map_err(|e| roles_logic_sv2::Error::PoisonLock(e.to_string()))?;
-        Ok(SendTo::None(None))
+        match self.channel_factory.safe_lock(|cf| cf.update_channel(&m)) {
+            Ok(_) => Ok(SendTo::None(None)),
+            Err(e) => {
+                eprintln!("Error updating channel: {:?}", e);
+                Err(roles_logic_sv2::Error::PoisonLock(e.to_string()))
+            }
+        }
     }
 
     fn handle_submit_shares_standard(
