@@ -73,6 +73,7 @@ impl Downstream {
     pub async fn try_update_difficulty_settings(
         self_: Arc<Mutex<Self>>,
     ) -> ProxyResult<'static, ()> {
+        println!("ENTERED!!!!");
         let (diff_mgmt, channel_id) = self_
             .clone()
             .safe_lock(|d| (d.difficulty_mgmt.clone(), d.connection_id))
@@ -110,6 +111,7 @@ impl Downstream {
                 channel_id,
                 new_target: new_target.into(),
             };
+            println!("Message sent!");
             // notify bridge of target update
             Downstream::send_message_upstream(
                 self_.clone(),
@@ -273,6 +275,7 @@ impl Downstream {
                 let realized_share_per_min =
                     d.difficulty_mgmt.submits_since_last_update as f64 / (delta_time as f64 / 60.0);
                 tracing::debug!("\nREALIZED SHARES PER MINUTE {:?}", realized_share_per_min);
+                println!("\nREALIZED SHARES PER MINUTE {:?}", realized_share_per_min);
                 let mut new_miner_hashrate = match roles_logic_sv2::utils::hash_rate_from_target(
                     miner_target.clone().try_into()?,
                     realized_share_per_min,
@@ -290,6 +293,9 @@ impl Downstream {
                     / d.difficulty_mgmt.min_individual_miner_hashrate)
                     * 100.0;
                 tracing::debug!("\nMINER HASHRATE: {:?}", new_miner_hashrate);
+                println!("\nMINER HASHRATE: {:?}", new_miner_hashrate);
+                println!("\nHASHRATE DELTA %: {:?}", hashrate_delta_percentage);
+                println!("\nDELTA TIME: {:?}", delta_time);
 
                 if (hashrate_delta_percentage >= 100.0)
                     || (hashrate_delta_percentage >= 60.0) && (delta_time >= 60)
@@ -432,10 +438,10 @@ mod test {
             Arc::new(Mutex::new(upstream_config)),
         );
 
-        let total_run_time = std::time::Duration::from_secs(60);
+        let total_run_time = std::time::Duration::from_secs(30);
         let config_shares_per_minute = downstream_conf.shares_per_minute;
         // get initial hashrate
-        let initial_nominal_hashrate = measure_hashrate(10);
+        let initial_nominal_hashrate = measure_hashrate(5);
         // get target from hashrate and shares_per_sec
         let initial_target = match roles_logic_sv2::utils::hash_rate_to_target(
             initial_nominal_hashrate,
