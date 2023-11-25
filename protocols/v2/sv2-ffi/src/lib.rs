@@ -1,5 +1,6 @@
 #![cfg(not(feature = "with_serde"))]
 use std::{
+    ffi::{CString, c_char},
     fmt,
     fmt::{Display, Formatter},
 };
@@ -313,7 +314,7 @@ pub enum Sv2Error {
     EncoderBusy,
     InvalidSv2Frame,
     MissingBytes,
-    PayloadTooBig(String),
+    PayloadTooBig(*const c_char),
     Unknown,
 }
 
@@ -404,7 +405,11 @@ fn encode_(
         EXTENSION_TYPE_NO_EXTENSION,
         c_bit,
     )
-    .ok_or(Sv2Error::PayloadTooBig(format!("{}", message)))?;
+    .ok_or(Sv2Error::PayloadTooBig(
+        CString::new(format!("{}", message))
+            .expect("CString::new failed")
+            .into_raw(),
+    ))?;
     encoder
         .encoder
         .encode(frame)
