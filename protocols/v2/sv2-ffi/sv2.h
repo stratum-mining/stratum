@@ -561,7 +561,7 @@ struct Sv2Error {
   };
 
   struct PayloadTooBig_Body {
-    const char *_0;
+    CVec _0;
   };
 
   Tag tag;
