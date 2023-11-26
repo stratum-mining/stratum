@@ -1285,6 +1285,15 @@ impl PoolChannelFactory {
     pub fn update_channel(&mut self, m: &UpdateChannel) -> Result<(), Error> {
         self.inner.update_channel(m)
     }
+
+    /// calls [`ChannelFactory::update_target_for_channel`]
+    pub fn update_target_for_channel(
+        &mut self,
+        channel_id: u32,
+        new_target: Target,
+    ) -> Option<bool> {
+        self.inner.update_target_for_channel(channel_id, new_target)
+    }
 }
 
 /// Used by proxies that want to open extended channls with upstream. If the proxy has job
