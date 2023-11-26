@@ -144,7 +144,7 @@ pub extern "C" fn drop_sv2_error(s: Sv2Error) {
         Sv2Error::EncoderBusy => (),
         Sv2Error::InvalidSv2Frame => (),
         Sv2Error::MissingBytes => (),
-        Sv2Error::PayloadTooBig(a) => drop(a),
+        Sv2Error::PayloadTooBig(_) => (),
         Sv2Error::Unknown => (),
     }
 }
