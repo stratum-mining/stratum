@@ -12,3 +12,5 @@ lcov.info
 *.py
 **/conf/**
 cobertura.xml
+pkg
+tar

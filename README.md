@@ -47,6 +47,7 @@ the Bitcoin network.
       - [Building/Updating sv2-ffi](#buildingupdating-sv2-ffi)
     - [4.02 Test](#402-test)
     - [4.03 Run](#403-run)
+    - [4.04 Raspberry Pi OS](#404-raspberry-pi-os)
   - [5. Branches](#5-branches)
   - [6. Logging](#6-logging)
   - [7. proxy-config.toml file](#7-proxy-configtoml-file)
@@ -514,6 +515,43 @@ binary - for example from the table below to run the interop-cpp test you'd run 
 | template-provider-test  | examples/template-provider-test   | Deprecated                                        |
 | test-pool               | roles/v2/test-utils/pool          | Used in the sv2-proxy example as the sv2 pool     |
  
+### 4.04 Raspberry Pi OS
+
+`sv2-rpi.sh` automates generation of a tarball distribution for Raspberry Pi OS.
+As a prerequisite, you need [`cargo cross`](https://crates.io/crates/cross):
+```
+$ cargo install cross
+```
+
+It also requires that at least one of these dependencies is available:
+- [`docker`](https://www.docker.com/)
+- [`podman`](https://podman.io/)
+
+Here is how to use the script:
+```shell
+Usage:
+$ ./sv2-rpi.sh <role> <bits>
+
+Available options for <role> are:
+jd_client
+jd_server
+mining-device
+mining_proxy_sv2
+pool_sv2
+translator_v2
+
+Available options for <bits> are:
+32
+64
+
+For example:
+$ ./sv2-rpi.sh jd_server 64
+```
+
+After the package generation, you are ready to `scp` the tarball to the RPi:
+```shell
+$  scp tar/jd_server-aarch64-unknown-linux-gnu.tar.gz <rpiuser>@<your.rpi.ip.addr>:/home/<rpiuser>
+```
 
 ## 5. Branches
 
