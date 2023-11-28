@@ -78,7 +78,7 @@ impl Bridge {
         up_id: u32,
     ) -> Arc<Mutex<Self>> {
         let ids = Arc::new(Mutex::new(GroupId::new()));
-        let share_per_min = 1000.0;
+        let share_per_min = 1.0;
         let upstream_target: [u8; 32] =
             target.safe_lock(|t| t.clone()).unwrap().try_into().unwrap();
         let upstream_target: Target = upstream_target.into();
@@ -216,7 +216,7 @@ impl Bridge {
             .safe_lock(|t| t.clone())
             .map_err(|_| PoisonLock)?
             .try_into()?;
-        let mut upstream_target: Target = dbg!(upstream_target.into());
+        let mut upstream_target: Target = upstream_target.into();
         self_
             .safe_lock(|s| s.channel_factory.set_target(&mut upstream_target))
             .map_err(|_| PoisonLock)?;

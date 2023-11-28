@@ -19,8 +19,7 @@ use v1::{
 
 use crate::{job::Job, miner::Miner};
 
-//const ADDR: &str = "127.0.0.1:34255";
-const ADDR: &str = "192.168.49.2:32642";
+const ADDR: &str = "127.0.0.1:34255";
 
 /// Represents the Mining Device client which is connected to a Upstream node (either a SV1 Pool
 /// server or a SV1 <-> SV2 Translator Proxy server).
@@ -106,11 +105,12 @@ impl Client {
         // `receiver_incoming`
         task::spawn(async move {
             let mut messages = BufReader::new(&*reader).lines();
-            while let Some(message) = messages.next().await {
+            while let Some(message) = dbg!(messages.next().await) {
                 let message = message.unwrap();
                 sender_incoming.send(message).await.unwrap();
             }
         });
+
 
         // Waits to receive a message from `sender_outgoing` and writes it to the socket for the
         // Upstream to receive
@@ -204,7 +204,7 @@ impl Client {
             match client.clone().safe_lock(|c| c.status).unwrap() {
                 ClientStatus::Init => panic!("impossible state"),
                 ClientStatus::Configured => {
-                    let incoming = dbg!(recv_incoming.clone().recv()).await.unwrap();
+                    let incoming = recv_incoming.clone().recv().await.unwrap();
                     Self::parse_message(client.clone(), Ok(incoming)).await;
                 }
                 ClientStatus::Subscribed => {
@@ -279,7 +279,7 @@ impl Client {
             .as_secs();
         let authorize = self_
             .safe_lock(|s| {
-                s.authorize(id, "user".to_string(), "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa".to_string())
+                s.authorize(id, "user".to_string(), "password".to_string())
                     .unwrap()
             })
             .unwrap();
