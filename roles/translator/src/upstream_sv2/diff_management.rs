@@ -10,7 +10,6 @@ use roles_logic_sv2::{
     mining_sv2::UpdateChannel, parsers::Mining, utils::Mutex, Error as RolesLogicError,
 };
 use std::{sync::Arc, time::Duration};
-use tracing::debug;
 
 impl Upstream {
     /// this function checks if the elapsed time since the last update has surpassed the config
