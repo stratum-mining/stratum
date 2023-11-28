@@ -19,7 +19,8 @@ use v1::{
 
 use crate::{job::Job, miner::Miner};
 
-const ADDR: &str = "127.0.0.1:34255";
+//const ADDR: &str = "127.0.0.1:34255";
+const ADDR: &str = "192.168.49.2:32642";
 
 /// Represents the Mining Device client which is connected to a Upstream node (either a SV1 Pool
 /// server or a SV1 <-> SV2 Translator Proxy server).
@@ -203,7 +204,7 @@ impl Client {
             match client.clone().safe_lock(|c| c.status).unwrap() {
                 ClientStatus::Init => panic!("impossible state"),
                 ClientStatus::Configured => {
-                    let incoming = recv_incoming.clone().recv().await.unwrap();
+                    let incoming = dbg!(recv_incoming.clone().recv()).await.unwrap();
                     Self::parse_message(client.clone(), Ok(incoming)).await;
                 }
                 ClientStatus::Subscribed => {
@@ -278,7 +279,7 @@ impl Client {
             .as_secs();
         let authorize = self_
             .safe_lock(|s| {
-                s.authorize(id, "user".to_string(), "password".to_string())
+                s.authorize(id, "user".to_string(), "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa".to_string())
                     .unwrap()
             })
             .unwrap();
