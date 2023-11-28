@@ -27,7 +27,8 @@ impl Upstream {
         let channel_id = channel_id_option.ok_or(crate::Error::RolesSv2Logic(
             RolesLogicError::NotFoundChannelId,
         ))?;
-        let (timeout, new_hashrate) = diff_mgmt.safe_lock(|d|(d.channel_diff_update_interval,d.channel_nominal_hashrate))
+        let (timeout, new_hashrate) = diff_mgmt
+            .safe_lock(|d| (d.channel_diff_update_interval, d.channel_nominal_hashrate))
             .map_err(|_e| PoisonLock)?;
         // UPDATE CHANNEL
         let update_channel = UpdateChannel {
@@ -40,9 +41,7 @@ impl Upstream {
         let frame: EitherFrame = either_frame.try_into()?;
 
         tx_frame.send(frame).await.map_err(|e| {
-            crate::Error::ChannelErrorSender(crate::error::ChannelSendError::General(
-                e.to_string(),
-            ))
+            crate::Error::ChannelErrorSender(crate::error::ChannelSendError::General(e.to_string()))
         })?;
         async_std::task::sleep(Duration::from_secs(timeout as u64)).await;
         Ok(())

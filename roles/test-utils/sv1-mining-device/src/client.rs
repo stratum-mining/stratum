@@ -111,7 +111,6 @@ impl Client {
             }
         });
 
-
         // Waits to receive a message from `sender_outgoing` and writes it to the socket for the
         // Upstream to receive
         task::spawn(async move {

@@ -288,7 +288,6 @@ impl Upstream {
             });
         }
 
-
         task::spawn(async move {
             loop {
                 // Waiting to receive a message from the SV2 Upstream role
@@ -428,7 +427,6 @@ impl Upstream {
                         break;
                     }
                 }
-
             }
         });
 
