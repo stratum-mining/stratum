@@ -37,7 +37,7 @@ impl TryFrom<String> for Secp256k1SecretKey {
     type Error = Error;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
-        let decoded = decode(value).into_vec()?;
+        let decoded = decode(value).with_check(None).into_vec()?;
         let secret = SecretKey::from_slice(&decoded)?;
         Ok(Secp256k1SecretKey(secret))
     }
@@ -46,7 +46,7 @@ impl TryFrom<String> for Secp256k1SecretKey {
 impl From<Secp256k1SecretKey> for String {
     fn from(secret: Secp256k1SecretKey) -> Self {
         let bytes = secret.0.secret_bytes();
-        bs58::encode(bytes).into_string()
+        bs58::encode(bytes).with_check().into_string()
     }
 }
 
@@ -58,16 +58,31 @@ impl TryFrom<String> for Secp256k1PublicKey {
     type Error = Error;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
-        let decoded = decode(value).into_vec()?;
-        let public = XOnlyPublicKey::from_slice(&decoded).expect("Invalid public key");
+        let decoded = decode(value).with_check(None).into_vec()?;
+        if decoded.len() < 34 {
+            return Err(Error::Custom);
+        }
+        if decoded[..2] != [1, 0] {
+            return Err(Error::Custom);
+        }
+        let public = XOnlyPublicKey::from_slice(&decoded[2..]).expect("Invalid public key");
         Ok(Secp256k1PublicKey(public))
     }
 }
 
 impl From<Secp256k1PublicKey> for String {
     fn from(public: Secp256k1PublicKey) -> Self {
-        let bytes = public.0.serialize();
-        bs58::encode(bytes).into_string()
+        public.to_string()
+    }
+}
+
+impl Display for Secp256k1PublicKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut output = [0_u8; 34];
+        output[0] = 1;
+        let bytes = self.0.serialize();
+        output[2..].copy_from_slice(&bytes);
+        f.write_str(&bs58::encode(&output).with_check().into_string())
     }
 }
 
