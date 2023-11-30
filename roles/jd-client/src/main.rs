@@ -164,7 +164,10 @@ async fn main() {
 
     let task_collector = Arc::new(Mutex::new(vec![]));
 
-    let proxy_config = process_cli_args().unwrap();
+    let proxy_config = match process_cli_args() {
+        Ok(p) => p,
+        Err(_) => return,
+    };
 
     loop {
         {
