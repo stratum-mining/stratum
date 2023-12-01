@@ -1,27 +1,45 @@
 version: '3'
 services:
-  bitcoin-template-provider:
-    build:
-      context: ./bitcoin-template-provider
-      dockerfile: build.dockerfile  # Use the appropriate Dockerfile
-    volumes:
-      - ./conf:/app/conf  # Mount your configuration templates
-    # Other service configurations
+  # bitcoin_template_provider:
+  #   build:
+  #     context: ./bitcoin_template_provider
+  #   volumes:
+  #     - ./bitcoin_template_provider/conf:/app/conf
+  #   environment:
+  #     - RUN_COMMAND=pool
 
-  job-declarator-client:
+  job_declarator_server:
     build:
-      context: ./job-declarator-client
-      dockerfile: release.dockerfile  # Use the appropriate Dockerfile
+      context: ./job_declarator_server
     volumes:
-      - ./conf:/app/conf  # Mount your configuration templates
-    # Other service configurations
+      - ./job_declarator_server/conf:/app/conf
+    environment:
+      - RUN_COMMAND=jd-server
 
-  # Define other services in a similar way
+  job_declarator_client:
+    build:
+      context: ./job_declarator_client
+    volumes:
+      - ./job_declarator_client/conf:/app/conf
+    environment:
+      - RUN_COMMAND=jd-client
+
+  translator_proxy:
+    build:
+      context: ./translator_proxy
+    volumes:
+      - ./translator_proxy/conf:/app/conf
+    environment:
+      - RUN_COMMAND=translator
+
+  mining_pool_server:
+    build:
+      context: ./mining_pool_server
+    volumes:
+      - ./mining_pool_server/conf:/app/conf
+    environment:
+      - RUN_COMMAND=pool
 
 networks:
   miner:
-    driver: bridge
-  mining-pool:
-    driver: bridge
-  monitoring:
-    driver: bridge
+  mining_pool:
