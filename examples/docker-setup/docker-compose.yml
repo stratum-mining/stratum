@@ -1,0 +1,27 @@
+version: '3'
+services:
+  bitcoin-template-provider:
+    build:
+      context: ./bitcoin-template-provider
+      dockerfile: build.dockerfile  # Use the appropriate Dockerfile
+    volumes:
+      - ./conf:/app/conf  # Mount your configuration templates
+    # Other service configurations
+
+  job-declarator-client:
+    build:
+      context: ./job-declarator-client
+      dockerfile: release.dockerfile  # Use the appropriate Dockerfile
+    volumes:
+      - ./conf:/app/conf  # Mount your configuration templates
+    # Other service configurations
+
+  # Define other services in a similar way
+
+networks:
+  miner:
+    driver: bridge
+  mining-pool:
+    driver: bridge
+  monitoring:
+    driver: bridge
