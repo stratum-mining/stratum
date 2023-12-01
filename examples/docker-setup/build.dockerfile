@@ -1,14 +1,17 @@
-# Use a rust image as the base
-FROM rust:latest
+FROM rust:latest as builder
 
-# Create a working directory
-WORKDIR /app
+RUN git clone https://github.com/stratum-mining/stratum.git
 
-# Copy your project files to the container
-COPY . .
+WORKDIR /stratum
 
-# Build your Rust application
+RUN git switch dev
+
 RUN cargo build --release
 
-# Set the entry point
-CMD ["./target/release/your_app"]
+# FROM alpine:latest
+
+# WORKDIR /app
+
+# COPY --from=builder /stratum/target/release  .
+
+ENTRYPOINT ["/stratum/entrypoint.sh"]
