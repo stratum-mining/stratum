@@ -1,8 +1,10 @@
-# Overview
+# Stratum V2 Docker Files 
 
 This examples uses docker and docker-compose to bootstrap the server.
 
-!!! The files on conf/ needs to be updated with your on info.
+Update the config files on conf/ folder.
+
+## Overview
 
 The idea is to run the roles using docker and when neede group them by profile. eg:
 
