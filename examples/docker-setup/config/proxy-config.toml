@@ -1,0 +1,36 @@
+# Local SRI JDC Upstream Connection
+upstream_address = "127.0.0.1"
+upstream_port = 34265
+upstream_authority_pubkey = ""
+
+# Local Mining Device Downstream Connection
+downstream_address = "0.0.0.0"
+downstream_port = 34255
+
+# Version support
+max_supported_version = 2
+min_supported_version = 2
+
+# Minimum extranonce2 size for downstream
+# Max value: 16 (leaves 0 bytes for search space splitting of downstreams)
+# Max value for CGminer: 8
+# Min value: 2
+min_extranonce2_size = 8
+coinbase_reward_sat = 5_000_000_000
+
+# Difficulty params
+[downstream_difficulty_config]
+# hashes/s of the weakest miner that will be connecting
+min_individual_miner_hashrate=15_000_000_000_000.0
+# minimum number of shares needed before a mining.set_difficulty is sent for updating targets
+miner_num_submits_before_update=100000000
+# target number of shares per minute the miner should be sending
+shares_per_minute = 6.0
+# optional value
+#update_interval = 10
+
+[upstream_difficulty_config]
+# interval in seconds to elapse before updating channel hashrate with the pool
+channel_diff_update_interval = 60
+# estimated accumulated hashrate of all downstream miners
+channel_nominal_hashrate = 15_000_000_000_000.0
