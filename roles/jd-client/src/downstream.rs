@@ -110,7 +110,7 @@ impl DownstreamMiningNodeStatus {
         }
     }
 
-    fn get_channel(&mut self) -> &mut PoolChannelFactory {
+    pub fn get_channel(&mut self) -> &mut PoolChannelFactory {
         match self {
             DownstreamMiningNodeStatus::Initializing(_) => panic!(),
             DownstreamMiningNodeStatus::Paired(_) => panic!(),
