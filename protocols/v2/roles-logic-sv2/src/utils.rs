@@ -249,6 +249,12 @@ impl TryFrom<CoinbaseOutput> for Script {
     }
 }
 
+#[derive(Debug)]
+pub enum InputError {
+    NegativeInput,
+    DivisionByZero,
+}
+
 /// The pool set a target for each miner. Each target is calibrated on the hashrate of the miner.
 /// The following function takes as input a miner hashrate and the shares per minute requested by
 /// the pool. The output t is the target (in big endian) for the miner with that hashrate. The
@@ -280,13 +286,6 @@ impl TryFrom<CoinbaseOutput> for Script {
 /// [3] https://en.wikipedia.org/wiki/Negative_hypergeometric_distribution
 /// bdiff: 0x00000000ffff0000000000000000000000000000000000000000000000000000
 /// https://en.bitcoin.it/wiki/Difficulty#How_soon_might_I_expect_to_generate_a_block.3F
-
-#[derive(Debug)]
-pub enum InputError {
-    NegativeInput,
-    DivisionByZero,
-}
-
 pub fn hash_rate_to_target(
     hashrate: f64,
     share_per_min: f64,
