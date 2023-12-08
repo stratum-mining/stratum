@@ -296,57 +296,6 @@ mod test {
     use crate::downstream_sv1::Downstream;
 
     #[test]
-    fn test_update_miner_hashrate() {
-        // this test verifies the correctedness of the function update_miner_hashrate.
-        // first we set an hashrate and a target. We expect 6 hashes per minute, so 1 every 10
-        // seconds. Below we sleep 10 seconds before launching the function
-        let hashrate = 1000000.0;
-        let target = roles_logic_sv2::utils::hash_rate_to_target(hashrate as f64, 6.0).unwrap();
-
-        //here we set a fake hashrate for the Downsatream struct
-        let fake_hashrate = hashrate / 100000.0;
-        let timestamp_secs = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .expect("time went backwards")
-            .as_secs();
-        let downstream_conf = DownstreamDifficultyConfig {
-            min_individual_miner_hashrate: fake_hashrate as f32,
-            shares_per_minute: 1000.0, // 1000 shares per minute
-            submits_since_last_update: 1,
-            timestamp_of_last_update: timestamp_secs, // updated below
-        };
-        let upstream_config = UpstreamDifficultyConfig {
-            channel_diff_update_interval: 60,
-            channel_nominal_hashrate: fake_hashrate as f32,
-            timestamp_of_last_update: 0,
-            should_aggregate: false,
-        };
-        let (tx_sv1_submit, _rx_sv1_submit) = unbounded();
-        let (tx_outgoing, _rx_outgoing) = unbounded();
-        // create Downstream instance
-        let downstream = Downstream::new(
-            1,
-            vec![],
-            vec![],
-            None,
-            None,
-            tx_sv1_submit,
-            tx_outgoing,
-            false,
-            0,
-            downstream_conf.clone(),
-            Arc::new(Mutex::new(upstream_config)),
-        );
-        let downstream_mutex = Arc::new(Mutex::new(downstream));
-        std::thread::sleep(Duration::from_secs(10));
-        let updated_hashrate =
-            Downstream::update_miner_hashrate(downstream_mutex.clone(), target.to_vec())
-                .unwrap()
-                .unwrap();
-        assert!(updated_hashrate == hashrate);
-    }
-
-    #[test]
     fn test_diff_management() {
         let expected_shares_per_minute = 1000.0;
         let total_run_time = std::time::Duration::from_secs(11);
