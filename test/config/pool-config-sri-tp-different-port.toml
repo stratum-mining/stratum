@@ -1,5 +1,5 @@
 listen_address = "127.0.0.1:44254"
-tp_address = "89.116.25.191:8442"
+tp_address = "75.119.150.111:8442"
 listen_jd_address = "127.0.0.1:44264"
 authority_public_key = "3VANfft6ei6jQq1At7d8nmiZzVhBFS4CiQujdgim1ign"
 authority_secret_key = "7qbpUjScc865jyX2kiB4NVJANoC7GA7TAJupdzXWkc62"
