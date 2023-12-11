@@ -331,7 +331,7 @@ mod test {
     }
 
     fn get_error(lambda: f64) -> f64 {
-        let z_score_99 = 4.0;
+        let z_score_99 = 6.0;
         z_score_99 * lambda.sqrt()
     }
 

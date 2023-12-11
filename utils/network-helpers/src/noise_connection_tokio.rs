@@ -82,10 +82,22 @@ impl Connection {
                         let decoded = decoder.next_frame(&mut connection.state);
                         drop(connection);
 
-                        if let Ok(x) = decoded {
-                            if sender_incoming.send(x).await.is_err() {
-                                task::yield_now().await;
-                                break;
+                        match decoded {
+                            Ok(x) => {
+                                if sender_incoming.send(x).await.is_err() {
+                                    error!("Shutting down noise stream reader!");
+                                    task::yield_now().await;
+                                    break;
+                                }
+                            }
+                            Err(e) => {
+                                if let codec_sv2::Error::MissingBytes(_) = e {
+                                } else {
+                                    error!("Shutting down noise stream reader! {:#?}", e);
+                                    sender_incoming.close();
+                                    task::yield_now().await;
+                                    break;
+                                }
                             }
                         }
                     }
