@@ -276,6 +276,17 @@ impl Upstream {
                 )
             })
             .map_err(|_| PoisonLock)?;
+        {
+            let self_ = self_.clone();
+            let tx_status = tx_status.clone();
+            task::spawn(async move {
+                // No need to start diff management immediatly
+                async_std::task::sleep(Duration::from_secs(10)).await;
+                loop {
+                    handle_result!(tx_status, Self::try_update_hashrate(self_.clone()).await);
+                }
+            });
+        }
 
         task::spawn(async move {
             loop {
@@ -416,9 +427,6 @@ impl Upstream {
                         break;
                     }
                 }
-
-                // check if channel needs to be updated
-                handle_result!(tx_status, Self::try_update_hashrate(self_.clone()).await);
             }
         });
 
@@ -778,6 +786,7 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
         &mut self,
         m: roles_logic_sv2::mining_sv2::SetTarget,
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, RolesLogicError> {
+        info!("SetTarget: {:?}", m);
         let m = m.into_static();
 
         self.target
