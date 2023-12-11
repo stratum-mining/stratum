@@ -31,9 +31,13 @@ pub struct JDsMempool {
 }
 
 impl JDsMempool {
-    pub fn get_client(&self) -> RpcClient {
+    pub fn get_client(&self) -> Option<RpcClient> {
         let url = self.url.as_str();
-        RpcClient::new(url, self.auth.clone()).unwrap()
+        if url.contains("http") {
+            Some(RpcClient::new(url, self.auth.clone()).unwrap())
+        } else {
+            None
+        }
     }
     pub fn new(url: String, username: String, password: String) -> Self {
         let auth = Auth::UserPass(username, password);
@@ -47,7 +51,10 @@ impl JDsMempool {
 
     pub async fn update_mempool(self_: Arc<Mutex<Self>>) -> Result<(), JdsMempoolError> {
         let mut mempool_ordered: Vec<TransacrtionWithHash> = Vec::new();
-        let client = self_.safe_lock(|x| x.get_client()).unwrap();
+        let client = self_
+            .safe_lock(|x| x.get_client())
+            .unwrap()
+            .ok_or(JdsMempoolError::NoClient)?;
         let new_mempool: Result<Vec<TransacrtionWithHash>, JdsMempoolError> =
             tokio::task::spawn(async move {
                 let mempool: Vec<String> = client.get_raw_mempool_verbose().unwrap();
@@ -98,4 +105,5 @@ impl JDsMempool {
 #[derive(Debug)]
 pub enum JdsMempoolError {
     EmptyMempool,
+    NoClient,
 }

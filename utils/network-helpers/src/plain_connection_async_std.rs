@@ -6,6 +6,7 @@ use async_std::{
 };
 use binary_sv2::{Deserialize, Serialize};
 use core::convert::TryInto;
+use tracing::error;
 
 use binary_sv2::GetSize;
 use codec_sv2::{StandardDecoder, StandardEitherFrame};
@@ -40,11 +41,23 @@ impl PlainConnection {
             loop {
                 let writable = decoder.writable();
                 match reader.read_exact(writable).await {
-                    Ok(_) => {
-                        if let Ok(x) = decoder.next_frame() {
-                            sender_incoming.send(x.into()).await.unwrap();
+                    Ok(_) => match decoder.next_frame() {
+                        Ok(x) => {
+                            if sender_incoming.send(x.into()).await.is_err() {
+                                error!("Shutting down stream reader!");
+                                task::yield_now().await;
+                                break;
+                            }
                         }
-                    }
+                        Err(e) => {
+                            if let codec_sv2::Error::MissingBytes(_) = e {
+                            } else {
+                                error!("Shutting down stream reader! {:#?}", e);
+                                let _ = reader.shutdown(async_std::net::Shutdown::Both);
+                                break;
+                            }
+                        }
+                    },
                     Err(_) => {
                         let _ = reader.shutdown(async_std::net::Shutdown::Both);
                         break;

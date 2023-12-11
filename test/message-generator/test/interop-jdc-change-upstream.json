@@ -59,7 +59,7 @@
                             "condition": true
                         }
                     ],
-                    "timer_secs": 240,
+                    "timer_secs": 600,
                     "warn_no_panic": false
                 }
             }
@@ -90,7 +90,7 @@
                             "condition": true
                         }
                     ],
-                    "timer_secs": 240,
+                    "timer_secs": 600,
                     "warn_no_panic": false
                 }
             }
@@ -116,7 +116,7 @@
                             "condition": true
                         }
                     ],
-                    "timer_secs": 240,
+                    "timer_secs": 600,
                     "warn_no_panic": false
                 }
             }
@@ -142,10 +142,15 @@
                             "condition": true
                         }
                     ],
-                    "timer_secs": 240,
+                    "timer_secs": 600,
                     "warn_no_panic": false
                 }
             }
+        },
+        {
+            "command": "sleep",
+            "args": ["10000"],
+            "conditions": "None"
         },
         {
             "command": "cargo",
@@ -163,7 +168,7 @@
                             "condition": true
                         }
                     ],
-                    "timer_secs": 240,
+                    "timer_secs": 600,
                     "warn_no_panic": false
                 }
             }

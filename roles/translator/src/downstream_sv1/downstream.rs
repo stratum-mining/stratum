@@ -484,8 +484,8 @@ impl IsServer<'static> for Downstream {
     /// When miner find the job which meets requested difficulty, it can submit share to the server.
     /// Only [Submit](client_to_server::Submit) requests for authorized user names can be submitted.
     fn handle_submit(&self, request: &client_to_server::Submit<'static>) -> bool {
-        //info!("Down: Submitting Share");
-        //debug!("Down: Handling mining.submit: {:?}", &request);
+        info!("Down: Submitting Share");
+        debug!("Down: Handling mining.submit: {:?}", &request);
 
         // TODO: Check if receiving valid shares by adding diff field to Downstream
 

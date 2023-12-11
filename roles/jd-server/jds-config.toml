@@ -1,0 +1,20 @@
+# SRI Pool config
+authority_public_key = "3VANfft6ei6jQq1At7d8nmiZzVhBFS4CiQujdgim1ign"
+authority_secret_key = "7qbpUjScc865jyX2kiB4NVJANoC7GA7TAJupdzXWkc62"
+cert_validity_sec = 3600
+
+# List of coinbase outputs used to build the coinbase tx
+# ! Right now only one output is supported, so comment all the ones you don't need !
+# For P2PK, P2PKH, P2WPKH, P2TR a BIP32 extended public key is needed 
+coinbase_outputs = [
+    { output_script_type = "P2WPKH", output_script_value = "036adc3bdf21e6f9a0f0fb0066bf517e5b7909ed1563d6958a10993849a7554075" },
+]
+
+# SRI Pool JD config
+listen_jd_address = "0.0.0.0:34264"
+# RPC config for mempool (it can be also the same TP if correctly configured)
+core_rpc_url =  "http://127.0.0.1"
+#core_rpc_port = 18443
+core_rpc_port = 18332
+core_rpc_user =  "username"
+core_rpc_pass =  "password"

@@ -83,13 +83,18 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
     }
 
     fn handle_update_channel(&mut self, m: UpdateChannel) -> Result<SendTo<()>, Error> {
-        match self.channel_factory.safe_lock(|cf| cf.update_channel(&m)) {
-            Ok(_) => Ok(SendTo::None(None)),
-            Err(e) => {
-                eprintln!("Error updating channel: {:?}", e);
-                Err(roles_logic_sv2::Error::PoisonLock(e.to_string()))
-            }
-        }
+        let maximum_target =
+            roles_logic_sv2::utils::hash_rate_to_target(m.nominal_hash_rate.into(), 10.0)?;
+        self.channel_factory
+            .safe_lock(|s| s.update_target_for_channel(m.channel_id, maximum_target.clone().into()))
+            .unwrap_or_else(|_| {
+                std::process::exit(1);
+            });
+        let set_target = SetTarget {
+            channel_id: m.channel_id,
+            maximum_target,
+        };
+        Ok(SendTo::Respond(Mining::SetTarget(set_target)))
     }
 
     fn handle_submit_shares_standard(
