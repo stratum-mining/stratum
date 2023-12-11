@@ -560,10 +560,15 @@ struct Sv2Error {
     CError _0;
   };
 
+  struct PayloadTooBig_Body {
+    CVec _0;
+  };
+
   Tag tag;
   union {
     BinaryError_Body binary_error;
     CodecError_Body codec_error;
+    PayloadTooBig_Body payload_too_big;
   };
 };
 
