@@ -156,8 +156,8 @@ where
                     .map_err(|e| crate::Error::PoisonLock(e.to_string()))?
             }
             Ok(JobDeclaration::SubmitSolution(message)) => {
-                info!("Received SubmitSharesSuccess");
-                debug!("SubmitSharesSuccess: {:?}", message);
+                info!("Received SubmitSolution");
+                debug!("SubmitSolution: {:?}", message);
                 self_
                     .safe_lock(|x| x.handle_submit_solution(message))
                     .map_err(|e| crate::Error::PoisonLock(e.to_string()))?
