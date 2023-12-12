@@ -57,34 +57,11 @@ impl State {
         }
     }
 
-    pub fn step_1(&mut self, re_pub: [u8; 32]) -> core::result::Result<HandShakeFrame, Error> {
-        match self {
-            Self::HandShake(h) => match h {
-                HandshakeRole::Responder(r) => r.step_1(re_pub).map_err(|e| e.into()).map(h2f),
-                HandshakeRole::Initiator(_) => Err(Error::InvalidStepForInitiator),
-            },
-            _ => Err(Error::NotInHandShakeState),
-        }
-    }
-
-    pub fn step_2(&mut self, message: [u8; 170]) -> core::result::Result<HandShakeFrame, Error> {
-        match self {
-            Self::HandShake(h) => match h {
-                HandshakeRole::Initiator(i) => i.step_2(message).map_err(|e| e.into()).map(h2f),
-                HandshakeRole::Responder(_) => Err(Error::InvalidStepForResponder),
-            },
-            _ => Err(Error::NotInHandShakeState),
-        }
-    }
-
-    pub fn step_3(
-        self,
-        cipher_list: Vec<u8>,
-    ) -> core::result::Result<(HandShakeFrame, Self), crate::error::Error> {
+    pub fn step_1(&mut self, re_pub: [u8; 32]) -> core::result::Result<(HandShakeFrame,Self), Error> {
         match self {
             Self::HandShake(h) => match h {
                 HandshakeRole::Responder(r) => {
-                    let (message, codec) = r.step_3(cipher_list)?;
+                    let (message,codec) = r.step_1(re_pub)?;
                     Ok((h2f(message), Self::Transport(codec)))
                 }
                 HandshakeRole::Initiator(_) => Err(Error::InvalidStepForInitiator),
@@ -93,13 +70,10 @@ impl State {
         }
     }
 
-    pub fn step_4(self, cipher_chosed: Vec<u8>) -> core::result::Result<Self, Error> {
+    pub fn step_2(&mut self, message: [u8; 170]) -> core::result::Result<Self, Error> {
         match self {
             Self::HandShake(h) => match h {
-                HandshakeRole::Initiator(r) => {
-                    let codec = r.step_4(cipher_chosed)?;
-                    Ok(Self::Transport(codec))
-                }
+                HandshakeRole::Initiator(i) => i.step_2(message).map_err(|e| e.into()).map(Self::Transport),
                 HandshakeRole::Responder(_) => Err(Error::InvalidStepForResponder),
             },
             _ => Err(Error::NotInHandShakeState),
