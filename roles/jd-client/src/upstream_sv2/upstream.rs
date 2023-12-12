@@ -727,10 +727,12 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
                 m.channel_id,
                 m.maximum_target.clone().try_into().unwrap(),
             );
+            factory.set_target(&mut m.maximum_target.clone().try_into().unwrap());
         }
         if let Some(downstream) = &self.downstream {
             let _ = downstream.safe_lock(|d| {
                 let factory = d.status.get_channel();
+                factory.set_target(&mut m.maximum_target.clone().try_into().unwrap());
                 factory
                     .update_target_for_channel(m.channel_id, m.maximum_target.try_into().unwrap());
             });
