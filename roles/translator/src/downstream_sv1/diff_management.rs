@@ -258,7 +258,7 @@ impl Downstream {
                 d.difficulty_mgmt.submits_since_last_update = 0;
                 // update channel hashrate (read by upstream)
                 d.upstream_difficulty_config.super_safe_lock(|c| {
-                    dbg!(c.channel_nominal_hashrate += hashrate_delta);
+                    c.channel_nominal_hashrate += hashrate_delta;
                 });
                 Ok(Some(new_miner_hashrate))
                 } else {
