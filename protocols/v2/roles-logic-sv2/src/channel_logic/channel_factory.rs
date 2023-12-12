@@ -765,7 +765,7 @@ impl ChannelFactory {
         prev_blockhash: hash_types::BlockHash,
         bits: u32,
     ) -> Result<OnNewShare, Error> {
-        debug!("Checking targert for share {:?}", m);
+        debug!("Checking target for share {:?}", m);
         let upstream_target = match &self.kind {
             ExtendedChannelKind::Pool => Target::new(0, 0),
             ExtendedChannelKind::Proxy {
