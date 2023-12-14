@@ -63,7 +63,7 @@ impl Connection {
             Receiver<StandardEitherFrame<Message>>,
         ) = bounded(10); // TODO caller should provide this param
 
-        let state = codec_sv2::State::new();
+        let state = codec_sv2::State::not_initialized(&role);
 
         let connection = Arc::new(Mutex::new(Self { state }));
 

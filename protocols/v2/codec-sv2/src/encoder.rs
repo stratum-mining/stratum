@@ -90,7 +90,7 @@ impl<T: Serialize + GetSize> NoiseEncoder<T> {
                 self.noise_buffer.danger_set_start(0);
             }
             State::HandShake(_) => self.while_handshaking(item)?,
-            State::NotInitialized => self.while_handshaking(item)?,
+            State::NotInitialized(_) => self.while_handshaking(item)?,
         };
 
         // Clear sv2_buffer
@@ -101,14 +101,16 @@ impl<T: Serialize + GetSize> NoiseEncoder<T> {
 
     #[inline(never)]
     fn while_handshaking(&mut self, item: Item<T>) -> Result<()> {
-        let len = item.encoded_length();
         // ENCODE THE SV2 FRAME
         let i: HandShakeFrame = item.try_into().map_err(|e| {
             error!("Error while encoding 2 frame - while_handshaking: {:?}", e);
             Error::FramingError(e)
         })?;
-        i.serialize(self.noise_buffer.get_writable(len))?;
-
+        let payload = i.get_payload_when_handshaking();
+        let wrtbl = self.noise_buffer.get_writable(payload.len());
+        for (i,b) in payload.iter().enumerate() {
+            wrtbl[i] = *b;
+        }
         Ok(())
     }
 }

@@ -5,7 +5,7 @@ use crate::{
     error::Error,
     handshake::HandshakeOp,
     signature_message::SignatureNoiseMessage,
-    NoiseCodec, NOISE_SUPPORTED_CIPHERS_MESSAGE,
+    NoiseCodec,
 };
 use aes_gcm::KeyInit;
 use chacha20poly1305::ChaCha20Poly1305;

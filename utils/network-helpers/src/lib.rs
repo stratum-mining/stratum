@@ -15,7 +15,7 @@ pub mod plain_connection_tokio;
 
 use async_channel::{Receiver, RecvError, SendError, Sender};
 use async_trait::async_trait;
-use codec_sv2::{Error as CodecError, Frame, HandShakeFrame, HandshakeRole, StandardEitherFrame};
+use codec_sv2::{Error as CodecError, HandShakeFrame, HandshakeRole, StandardEitherFrame};
 use futures::lock::Mutex;
 use std::{
     convert::TryInto,
@@ -61,7 +61,7 @@ async fn initialize_as_downstream<
     sender_outgoing: Sender<StandardEitherFrame<Message>>,
     receiver_incoming: Receiver<StandardEitherFrame<Message>>,
 ) -> Result<(), Error> {
-    let mut state = codec_sv2::State::initialize(role);
+    let mut state = codec_sv2::State::initialized(role);
 
     // Create and send first handshake message
     let first_message = state.step_0()?;
@@ -69,12 +69,11 @@ async fn initialize_as_downstream<
 
     // Receive and deserialize second handshake message
     let second_message = receiver_incoming.recv().await?;
-    let mut second_message: HandShakeFrame = second_message
+    let second_message: HandShakeFrame = second_message
         .try_into()
         .map_err(|_| Error::HandshakeRemoteInvalidMessage)?;
-    dbg!(&second_message.payload().to_vec());
     let second_message: [u8; 170] = second_message
-        .payload()
+        .get_payload_when_handshaking()
         .try_into()
         .map_err(|_| Error::HandshakeRemoteInvalidMessage)?;
 
@@ -94,16 +93,16 @@ async fn initialize_as_upstream<'a, Message: Serialize + Deserialize<'a> + GetSi
     sender_outgoing: Sender<StandardEitherFrame<Message>>,
     receiver_incoming: Receiver<StandardEitherFrame<Message>>,
 ) -> Result<(), Error> {
-    let mut state = codec_sv2::State::initialize(role);
+    let mut state = codec_sv2::State::initialized(role);
 
     // Receive and deserialize first handshake message
-    let mut first_message: HandShakeFrame = receiver_incoming
+    let first_message: HandShakeFrame = receiver_incoming
         .recv()
         .await?
         .try_into()
         .map_err(|_| Error::HandshakeRemoteInvalidMessage)?;
     let first_message: [u8; 32] = first_message
-        .payload()
+        .get_payload_when_handshaking()
         .try_into()
         .map_err(|_| Error::HandshakeRemoteInvalidMessage)?;
 

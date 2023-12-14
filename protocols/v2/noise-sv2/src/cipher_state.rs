@@ -83,6 +83,7 @@ where
 #[allow(clippy::large_enum_variant)]
 pub enum GenericCipher {
     ChaCha20Poly1305(Cipher<ChaCha20Poly1305>),
+    #[allow(dead_code)]
     Aes256Gcm(Cipher<Aes256Gcm>),
 }
 
@@ -126,6 +127,7 @@ impl GenericCipher {
         }
     }
 
+    #[allow(dead_code)]
     pub fn into_aesg(mut self) -> GenericCipher {
         match &mut self {
             GenericCipher::ChaCha20Poly1305(c) => {
@@ -201,6 +203,7 @@ impl<C: AeadCipher> Cipher<C> {
     }
 
     /// At the end of the handshake we return a cipher with hidden key
+    #[allow(dead_code)]
     pub fn from_cipher(c: C) -> Self {
         Self {
             k: None,

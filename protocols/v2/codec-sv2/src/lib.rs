@@ -3,7 +3,7 @@
 extern crate alloc;
 
 #[cfg(feature = "noise_sv2")]
-use alloc::{boxed::Box, vec::Vec};
+use alloc::boxed::Box;
 
 mod decoder;
 mod encoder;
@@ -38,7 +38,7 @@ use framing_sv2::framing2::handshake_message_to_frame as h2f;
 #[allow(clippy::large_enum_variant)]
 pub enum State {
     /// Not yet initialized
-    NotInitialized,
+    NotInitialized(usize),
     /// Handshake mode where codec is negotiating keys
     HandShake(HandshakeRole),
     /// Transport mode where AEAD is fully operational. The `TransportMode` object in this variant
@@ -90,15 +90,14 @@ pub enum HandshakeRole {
 
 #[cfg(feature = "noise_sv2")]
 impl State {
-    pub fn take(&mut self) -> Self {
-        core::mem::replace(self, Self::NotInitialized)
+    pub fn not_initialized(role: &HandshakeRole) -> Self {
+        match role {
+            HandshakeRole::Initiator(_) => Self::NotInitialized(const_sv2::INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_LENGTH),
+            HandshakeRole::Responder(_) => Self::NotInitialized(const_sv2::RESPONDER_EXPECTED_HANDSHAKE_MESSAGE_LENGTH),
+        }
     }
 
-    pub fn new() -> Self {
-        Self::NotInitialized
-    }
-
-    pub fn initialize(inner: HandshakeRole) -> Self {
+    pub fn initialized(inner: HandshakeRole) -> Self {
         Self::HandShake(inner)
     }
 
@@ -107,12 +106,6 @@ impl State {
     }
 }
 
-#[cfg(feature = "noise_sv2")]
-impl Default for State {
-    fn default() -> Self {
-        Self::new()
-    }
-}
 
 #[cfg(test)]
 #[cfg(feature = "noise_sv2")]
@@ -121,7 +114,7 @@ mod tests {
 
     #[test]
     fn handshake_step_fails_if_state_is_not_initialized() {
-        let mut state = State::new();
+        let mut state = State::NotInitialized(32);
         let actual = state.step_0().unwrap_err();
         let expect = Error::NotInHandShakeState;
         assert_eq!(actual, expect);
@@ -129,17 +122,10 @@ mod tests {
 
     #[test]
     fn handshake_step_fails_if_state_is_in_transport_mode() {
-        let mut state = State::new();
+        let mut state = State::NotInitialized(32);
         let actual = state.step_0().unwrap_err();
         let expect = Error::NotInHandShakeState;
         assert_eq!(actual, expect);
     }
 
-    #[test]
-    fn into_transport_mode_errs_if_state_is_not_initialized() {
-        let state = State::new();
-        let actual = state.step_4(alloc::vec::Vec::new()).unwrap_err();
-        let expect = Error::NotInHandShakeState;
-        assert_eq!(actual, expect);
-    }
 }

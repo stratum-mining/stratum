@@ -7,7 +7,7 @@ use buffer_sv2::AeadBuffer;
 use const_sv2::{AEAD_MAC_LEN, SV2_FRAME_CHUNK_SIZE, SV2_FRAME_HEADER_SIZE};
 use core::marker::PhantomData;
 #[cfg(feature = "noise_sv2")]
-use framing_sv2::framing2::{HandShakeFrame, NoiseFrame};
+use framing_sv2::framing2::HandShakeFrame;
 #[cfg(feature = "noise_sv2")]
 use framing_sv2::header::NoiseHeader;
 use framing_sv2::{
@@ -52,11 +52,12 @@ impl<'a, T: Serialize + GetSize + Deserialize<'a>, B: IsBuffer + AeadBuffer> Wit
     #[inline]
     pub fn next_frame(&mut self, state: &mut State) -> Result<EitherFrame<T, B::Slice>> {
         match state {
-            State::NotInitialized | State::HandShake(_) => {
-                let hint = NoiseFrame::size_hint(self.noise_buffer.as_ref()) as usize;
+            State::HandShake(_) => unreachable!(),
+            State::NotInitialized(msg_len) => {
+                let hint = *msg_len - self.noise_buffer.as_ref().len();
                 match hint {
                     0 => {
-                        self.missing_noise_b = NoiseHeader::HANDSHAKE_HEADER_SIZE;
+                        self.missing_noise_b = NoiseHeader::HEADER_SIZE;
                         Ok(self.while_handshaking())
                     }
                     _ => {

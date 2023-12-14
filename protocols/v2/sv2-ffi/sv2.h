@@ -22,6 +22,10 @@ static const uintptr_t NOISE_FRAME_HEADER_SIZE = 2;
 
 static const uintptr_t NOISE_FRAME_HEADER_LEN_OFFSET = 0;
 
+static const uintptr_t INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_LENGTH = 170;
+
+static const uintptr_t RESPONDER_EXPECTED_HANDSHAKE_MESSAGE_LENGTH = 32;
+
 static const uint8_t SV2_MINING_PROTOCOL_DISCRIMINANT = 0;
 
 static const uint8_t SV2_JOB_NEG_PROTOCOL_DISCRIMINANT = 1;
