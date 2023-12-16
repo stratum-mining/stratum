@@ -12,7 +12,7 @@ static const uintptr_t SV2_FRAME_HEADER_LEN_OFFSET = 3;
 
 static const uintptr_t SV2_FRAME_HEADER_LEN_END = 3;
 
-static const uintptr_t SV2_FRAME_CHUNK_SIZE = 65519;
+static const uintptr_t SV2_FRAME_CHUNK_SIZE = 65535;
 
 static const uintptr_t AEAD_MAC_LEN = 16;
 

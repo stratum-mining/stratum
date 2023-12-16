@@ -154,7 +154,7 @@ impl Responder {
     /// | MAC                     | Message authentication code for SIGNATURE_NOISE_MESSAGE                                                                                                        |
     ///
     /// Message length: 170 bytes
-    pub fn step_1(&mut self, re_pub: [u8; 32]) -> Result<([u8;170], NoiseCodec), aes_gcm::Error> {
+    pub fn step_1(&mut self, re_pub: [u8; 32]) -> Result<([u8; 170], NoiseCodec), aes_gcm::Error> {
         // 4.5.1.2 Responder
         Self::mix_hash(self, &re_pub[..]);
         Self::decrypt_and_hash(self, &mut vec![])?;
@@ -219,7 +219,6 @@ impl Responder {
         };
         Ok((to_send, codec))
     }
-
 
     fn get_signature(&self, version: u16, valid_from: u32, not_valid_after: u32) -> [u8; 74] {
         let mut ret = [0; 74];

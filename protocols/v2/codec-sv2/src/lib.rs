@@ -57,11 +57,14 @@ impl State {
         }
     }
 
-    pub fn step_1(&mut self, re_pub: [u8; 32]) -> core::result::Result<(HandShakeFrame,Self), Error> {
+    pub fn step_1(
+        &mut self,
+        re_pub: [u8; 32],
+    ) -> core::result::Result<(HandShakeFrame, Self), Error> {
         match self {
             Self::HandShake(h) => match h {
                 HandshakeRole::Responder(r) => {
-                    let (message,codec) = r.step_1(re_pub)?;
+                    let (message, codec) = r.step_1(re_pub)?;
                     Ok((h2f(message), Self::Transport(codec)))
                 }
                 HandshakeRole::Initiator(_) => Err(Error::InvalidStepForInitiator),
@@ -73,7 +76,9 @@ impl State {
     pub fn step_2(&mut self, message: [u8; 170]) -> core::result::Result<Self, Error> {
         match self {
             Self::HandShake(h) => match h {
-                HandshakeRole::Initiator(i) => i.step_2(message).map_err(|e| e.into()).map(Self::Transport),
+                HandshakeRole::Initiator(i) => {
+                    i.step_2(message).map_err(|e| e.into()).map(Self::Transport)
+                }
                 HandshakeRole::Responder(_) => Err(Error::InvalidStepForResponder),
             },
             _ => Err(Error::NotInHandShakeState),
@@ -92,8 +97,12 @@ pub enum HandshakeRole {
 impl State {
     pub fn not_initialized(role: &HandshakeRole) -> Self {
         match role {
-            HandshakeRole::Initiator(_) => Self::NotInitialized(const_sv2::INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_LENGTH),
-            HandshakeRole::Responder(_) => Self::NotInitialized(const_sv2::RESPONDER_EXPECTED_HANDSHAKE_MESSAGE_LENGTH),
+            HandshakeRole::Initiator(_) => {
+                Self::NotInitialized(const_sv2::INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_LENGTH)
+            }
+            HandshakeRole::Responder(_) => {
+                Self::NotInitialized(const_sv2::RESPONDER_EXPECTED_HANDSHAKE_MESSAGE_LENGTH)
+            }
         }
     }
 
@@ -105,7 +114,6 @@ impl State {
         Self::Transport(tm)
     }
 }
-
 
 #[cfg(test)]
 #[cfg(feature = "noise_sv2")]
@@ -127,5 +135,4 @@ mod tests {
         let expect = Error::NotInHandShakeState;
         assert_eq!(actual, expect);
     }
-
 }

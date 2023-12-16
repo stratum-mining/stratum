@@ -4,7 +4,7 @@ use binary_sv2::Deserialize;
 use binary_sv2::GetSize;
 use binary_sv2::Serialize;
 use buffer_sv2::AeadBuffer;
-use const_sv2::{AEAD_MAC_LEN, SV2_FRAME_CHUNK_SIZE, SV2_FRAME_HEADER_SIZE};
+use const_sv2::{SV2_FRAME_CHUNK_SIZE, SV2_FRAME_HEADER_SIZE};
 use core::marker::PhantomData;
 #[cfg(feature = "noise_sv2")]
 use framing_sv2::framing2::HandShakeFrame;
@@ -122,10 +122,10 @@ impl<'a, T: Serialize + GetSize + Deserialize<'a>, B: IsBuffer + AeadBuffer> Wit
                 let encrypted_payload = self.noise_buffer.get_data_owned();
                 let encrypted_payload_len = encrypted_payload.as_ref().len();
                 let mut start = 0;
-                let mut end = if (encrypted_payload_len - AEAD_MAC_LEN) < SV2_FRAME_CHUNK_SIZE {
+                let mut end = if encrypted_payload_len < SV2_FRAME_CHUNK_SIZE {
                     encrypted_payload_len
                 } else {
-                    SV2_FRAME_CHUNK_SIZE + AEAD_MAC_LEN
+                    SV2_FRAME_CHUNK_SIZE
                 };
                 // Do not try to decrypt the header cause it is already decrypted
                 let mut decrypted_len = SV2_FRAME_HEADER_SIZE;
@@ -136,7 +136,7 @@ impl<'a, T: Serialize + GetSize + Deserialize<'a>, B: IsBuffer + AeadBuffer> Wit
                     self.sv2_buffer.danger_set_start(decrypted_len);
                     noise_codec.decrypt(&mut self.sv2_buffer).unwrap();
                     start = end;
-                    end = (start + SV2_FRAME_CHUNK_SIZE + AEAD_MAC_LEN).min(encrypted_payload_len);
+                    end = (start + SV2_FRAME_CHUNK_SIZE).min(encrypted_payload_len);
                     decrypted_len += self.sv2_buffer.as_ref().len();
                 }
                 self.sv2_buffer.danger_set_start(0);

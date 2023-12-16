@@ -6,7 +6,7 @@ pub const EXTENSION_TYPE_NO_EXTENSION: u16 = 0;
 pub const SV2_FRAME_HEADER_SIZE: usize = 6;
 pub const SV2_FRAME_HEADER_LEN_OFFSET: usize = 3;
 pub const SV2_FRAME_HEADER_LEN_END: usize = 3;
-pub const SV2_FRAME_CHUNK_SIZE: usize = 65519;
+pub const SV2_FRAME_CHUNK_SIZE: usize = 65535;
 
 // For now only CHACHA and AES are supported both have a MAC of 16 bytes
 pub const AEAD_MAC_LEN: usize = 16;

@@ -257,9 +257,7 @@ impl<'a> Frame<'a, Slice> for NoiseFrame {
 
     #[inline]
     fn from_bytes_unchecked(bytes: Self::Buffer) -> Self {
-        Self {
-            payload: bytes,
-        }
+        Self { payload: bytes }
     }
 
     #[inline]
