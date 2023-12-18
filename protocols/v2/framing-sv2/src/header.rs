@@ -83,7 +83,11 @@ impl Header {
 
     pub fn encrypted_len(&self) -> usize {
         let len = self.len();
-        let mac_len = ((len / SV2_FRAME_CHUNK_SIZE) + 1) * AEAD_MAC_LEN;
+        let mut chunks = len / (SV2_FRAME_CHUNK_SIZE - AEAD_MAC_LEN);
+        if len % (SV2_FRAME_CHUNK_SIZE - AEAD_MAC_LEN) != 0 {
+            chunks += 1;
+        }
+        let mac_len = chunks * AEAD_MAC_LEN;
         len + mac_len
     }
 }
@@ -93,5 +97,5 @@ pub struct NoiseHeader {}
 impl NoiseHeader {
     pub const SIZE: usize = const_sv2::ENCRYPTED_SV2_FRAME_HEADER_SIZE;
     pub const LEN_OFFSET: usize = const_sv2::NOISE_FRAME_HEADER_LEN_OFFSET;
-    pub const HANDSHAKE_HEADER_SIZE: usize = const_sv2::NOISE_FRAME_HEADER_SIZE;
+    pub const HEADER_SIZE: usize = const_sv2::NOISE_FRAME_HEADER_SIZE;
 }
