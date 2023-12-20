@@ -106,55 +106,64 @@ The library is modular to address different use-cases and desired functionality.
 ```
 stratum
   └─ examples
-  │   └─ interop-cpp
-  │   └─ interop-cpp-no-cargo
-  │   └─ ping-pong-with-noise
-  │   └─ ping-pong-without-noise
-  │   └─ sv1-client-and-server
-  │   └─ sv2-proxy
+  │   ├─ interop-cpp
+  │   ├─ interop-cpp-no-cargo
+  │   ├─ ping-pong-with-noise
+  │   ├─ ping-pong-without-noise
+  │   ├─ sv1-client-and-server
+  │   ├─ sv2-proxy
   │   └─ template-provider-test
-  └─ protocols
-  │   └─ v1
+  ├─ protocols
+  │   ├─ fuzz-tests
+  │   ├─ v1
   │   └─ v2
-  │       └─ binary-sv2
-  │       │   └─ binary-sv2
-  │       │   └─ no-serde-sv2
-  │       │   │   └─ codec
+  │       ├─ binary-sv2
+  │       │   ├─ binary-sv2
+  │       │   ├─ no-serde-sv2
+  │       │   │   ├─ codec
   │       │   │   └─ derive_codec
   │       │   └─ serde-sv2
-  │       └─ codec-sv2
-  │       └─ const-sv2
-  │       └─ framing-sv2
-  │       └─ noise-sv2
-  │       └─ roles-logic-sv2
-  │       └─ subprotocols
-  │       │   └─ common-messages
-  │       │   └─ job-declaration
-  │       │   └─ mining
+  │       ├─ codec-sv2
+  │       ├─ const-sv2
+  │       ├─ framing-sv2
+  │       ├─ noise-sv2
+  │       ├─ roles-logic-sv2
+  │       ├─ subprotocols
+  │       │   ├─ common-messages
+  │       │   ├─ job-declaration
+  │       │   ├─ mining
   │       │   └─ template-distribution
   │       └─ sv2-ffi
-  └─ roles/v2
-  │   └─ mining-proxy
-  │   └─ pool
-  │   └─ test-utils
-  │   │   └─ mining-device
-  │   │   └─ pool
-  └─ test
+  ├── roles
+  │   ├── jd-client
+  │   ├── jd-server
+  │   ├── mining-proxy
+  │   ├── pool
+  │   ├── test-utils
+  │   └── translator
+  ├── test
+  │   ├── config
+  │   ├── message-generator
+  │   └── scale
   └─ utils
-      └─ buffer
-      └─ network-helpers
+      ├── bip32-key-derivation
+      ├── buffer
+      ├── error-handling
+      ├── key-utils
+      ├── message-generator
+      ├── network-helpers
+      └── target
 ```
 
-This workspace's 6 macro-areas:
+The project consists of 3 different workspaces:
+- `protocols`: Stratum V2 and V1 core libraries.
+- `roles`: SV2 roles libraries and reference implementation binaries.
+- `utils`: Miscelaneous utilities, like a more efficient (but less safe) alternative buffer and network helpers.
 
-1. `protocols`: Stratum V2 and V1 libraries.
-2. `roles`: The Sv2 roles logic.
-3. `utils`: Offers a more efficient alternative buffer. Less safe than the default buffers used.
-   Includes network helpers.
-4. `examples`: Several example implementations of various use cases.
-5. `test`: Integration tests.
-6. `experimental`: Experimental logic not yet specified as part of the protocol or
-   extensions.
+Additionally, there are also the following directories:
+- `benches`: Performance benchmarks. 
+- `examples`: Several example implementations of various use cases.
+- `test`: Integration tests.
 
 All dependencies related to the testing and benchmarking of these workspace crates are optional
 and are included in the binary ONLY during testing and benchmarking. For that reason,
