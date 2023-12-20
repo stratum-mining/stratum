@@ -107,8 +107,6 @@ stratum
   │   └─ sv1-client-and-server
   │   └─ sv2-proxy
   │   └─ template-provider-test
-  └─ experimental
-  │   └─ coinbase-negotiator
   └─ protocols
   │   └─ v1
   │   └─ v2
