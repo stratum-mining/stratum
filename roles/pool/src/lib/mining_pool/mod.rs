@@ -1,10 +1,12 @@
-use crate::{
+use super::{
     error::{PoolError, PoolResult},
-    status, Configuration, EitherFrame, StdFrame,
+    status,
 };
+use serde::Deserialize;
 use async_channel::{Receiver, Sender};
 use binary_sv2::U256;
-use codec_sv2::{Frame, HandshakeRole, Responder};
+use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
+use codec_sv2::{Frame, HandshakeRole, Responder, StandardEitherFrame, StandardSv2Frame};
 use error_handling::handle_result;
 use network_helpers::noise_connection_tokio::Connection;
 use nohash_hasher::BuildNoHashHasher;
@@ -18,16 +20,73 @@ use roles_logic_sv2::{
     parsers::{Mining, PoolMessages},
     routing_logic::MiningRoutingLogic,
     template_distribution_sv2::{NewTemplate, SetNewPrevHash, SubmitSolution},
-    utils::Mutex,
+    utils::{Mutex, CoinbaseOutput as CoinbaseOutput_},
 };
-use std::{collections::HashMap, convert::TryInto, net::SocketAddr, sync::Arc};
+use std::{collections::HashMap, net::SocketAddr, sync::Arc};
+use std::convert::{TryFrom, TryInto};
 use tokio::{net::TcpListener, task};
 use tracing::{debug, error, info, warn};
+use stratum_common::bitcoin::{Script, TxOut};
 
 pub mod setup_connection;
 use setup_connection::SetupConnectionHandler;
 
 pub mod message_handler;
+
+pub type Message = PoolMessages<'static>;
+pub type StdFrame = StandardSv2Frame<Message>;
+pub type EitherFrame = StandardEitherFrame<Message>;
+
+pub fn get_coinbase_output(config: &Configuration) -> Result<Vec<TxOut>, Error> {
+    let mut result = Vec::new();
+    for coinbase_output_pool in &config.coinbase_outputs {
+        let coinbase_output: CoinbaseOutput_ = coinbase_output_pool.try_into()?;
+        let output_script: Script = coinbase_output.try_into()?;
+        result.push(TxOut {
+            value: 0,
+            script_pubkey: output_script,
+        });
+    }
+    match result.is_empty() {
+        true => Err(Error::EmptyCoinbaseOutputs),
+        _ => Ok(result),
+    }
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct CoinbaseOutput {
+    output_script_type: String,
+    output_script_value: String,
+}
+
+impl TryFrom<&CoinbaseOutput> for CoinbaseOutput_ {
+    type Error = Error;
+
+    fn try_from(pool_output: &CoinbaseOutput) -> Result<Self, Self::Error> {
+        match pool_output.output_script_type.as_str() {
+            "TEST" | "P2PK" | "P2PKH" | "P2WPKH" | "P2SH" | "P2WSH" | "P2TR" => {
+                Ok(CoinbaseOutput_ {
+                    output_script_type: pool_output.clone().output_script_type,
+                    output_script_value: pool_output.clone().output_script_value,
+                })
+            }
+            _ => Err(Error::UnknownOutputScriptType),
+        }
+    }
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct Configuration {
+    pub listen_address: String,
+    pub tp_address: String,
+    pub authority_public_key: Secp256k1PublicKey,
+    pub authority_secret_key: Secp256k1SecretKey,
+    pub cert_validity_sec: u64,
+    pub coinbase_outputs: Vec<CoinbaseOutput>,
+    pub pool_signature: String,
+    #[cfg(feature = "test_only_allow_unencrypted")]
+    pub test_only_listen_adress_plain: String,
+}
 
 #[derive(Debug)]
 pub struct Downstream {
@@ -463,7 +522,7 @@ impl Pool {
             end: extranonce_len,
         };
         let ids = Arc::new(Mutex::new(roles_logic_sv2::utils::GroupId::new()));
-        let pool_coinbase_outputs = crate::get_coinbase_output(&config);
+        let pool_coinbase_outputs = get_coinbase_output(&config);
         info!("PUB KEY: {:?}", pool_coinbase_outputs);
         let extranonces = ExtendedExtranonce::new(range_0, range_1, range_2);
         let creator = JobsCreators::new(extranonce_len as u8);
@@ -603,7 +662,7 @@ mod test {
     #[test]
     fn test_coinbase_outputs_from_config() {
         // Load config
-        let config: crate::Configuration = toml::from_str(
+        let config: super::Configuration = toml::from_str(
             &std::fs::read_to_string("./config-examples/pool-config-local-tp-example.toml")
                 .unwrap(),
         )
@@ -617,7 +676,7 @@ mod test {
         let _coinbase_tx_value_remaining: u64 = 625000000;
         let _coinbase_tx_outputs_count = 0;
         let coinbase_tx_locktime = 0;
-        let coinbase_tx_outputs: Vec<bitcoin::TxOut> = crate::get_coinbase_output(&config).unwrap();
+        let coinbase_tx_outputs: Vec<bitcoin::TxOut> = super::get_coinbase_output(&config).unwrap();
         // extranonce len set to max_extranonce_size in `ChannelFactory::new_extended_channel()`
         let extranonce_len = 32;
 

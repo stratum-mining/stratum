@@ -1,4 +1,4 @@
-use crate::lib::mining_pool::Downstream;
+use super::super::mining_pool::Downstream;
 use roles_logic_sv2::{
     errors::Error,
     handlers::mining::{ParseDownstreamMiningMessages, SendTo, SupportedChannelTypes},
