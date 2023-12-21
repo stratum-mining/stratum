@@ -6,6 +6,10 @@ description = "TODO"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/stratum-mining/stratum"
 
+[lib]
+name = "jd_client"
+path = "src/lib/mod.rs"
+
 [dependencies]
 stratum-common = { path = "../../common" }
 async-channel = "1.5.1"

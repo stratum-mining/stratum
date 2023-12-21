@@ -1,5 +1,4 @@
-use crate::{
-    error,
+use super::{
     job_declarator::JobDeclarator,
     status::{self, State},
     upstream_sv2::Upstream as UpstreamMiningNode,
@@ -20,7 +19,7 @@ use roles_logic_sv2::{
     template_distribution_sv2::{NewTemplate, SubmitSolution},
     utils::Mutex,
 };
-use tracing::{debug, info, warn};
+use tracing::{debug, info, warn, error};
 
 use codec_sv2::{Frame, HandshakeRole, Responder, StandardEitherFrame, StandardSv2Frame};
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
@@ -352,7 +351,7 @@ impl DownstreamMiningNode {
         pool_output: &[u8],
     ) -> Result<(), Error> {
         if !self_mutex.safe_lock(|s| s.status.have_channel()).unwrap() {
-            crate::IS_NEW_TEMPLATE_HANDLED.store(true, std::sync::atomic::Ordering::Release);
+            super::IS_NEW_TEMPLATE_HANDLED.store(true, std::sync::atomic::Ordering::Release);
             return Ok(());
         }
         let mut pool_out = &pool_output[0..];
@@ -387,7 +386,7 @@ impl DownstreamMiningNode {
         }
         // See coment on the definition of the global for memory
         // ordering
-        crate::IS_NEW_TEMPLATE_HANDLED.store(true, std::sync::atomic::Ordering::Release);
+        super::IS_NEW_TEMPLATE_HANDLED.store(true, std::sync::atomic::Ordering::Release);
         Ok(())
     }
 

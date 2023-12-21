@@ -1,10 +1,13 @@
-use crate::downstream::DownstreamMiningNode as Downstream;
+use super::super::downstream::DownstreamMiningNode as Downstream;
 
-use crate::{
-    error::Error::{CodecNoise, PoisonLock, UpstreamIncoming},
+use super::super::{
+    error::{
+        Error::{CodecNoise, PoisonLock, UpstreamIncoming},
+        ProxyResult
+    },
     status,
     upstream_sv2::{EitherFrame, Message, StdFrame},
-    PoolChangerTrigger, ProxyResult,
+    PoolChangerTrigger,
 };
 use async_channel::{Receiver, Sender};
 use binary_sv2::{Seq0255, U256};
@@ -130,7 +133,7 @@ impl Upstream {
             .map_err(|_| PoisonLock)?;
         let either_frame = sv2_frame.into();
         sender.send(either_frame).await.map_err(|e| {
-            crate::Error::ChannelErrorSender(crate::error::ChannelSendError::General(e.to_string()))
+            super::super::error::Error::ChannelErrorSender(super::super::error::ChannelSendError::General(e.to_string()))
         })?;
         Ok(())
     }
@@ -320,7 +323,7 @@ impl Upstream {
                     // On message receive, get the message type from the message header and get the
                     // message payload
                     let message_type = incoming.get_header().ok_or(
-                        crate::error::Error::FramingSv2(framing_sv2::Error::ExpectedSv2Frame),
+                        super::super::error::Error::FramingSv2(framing_sv2::Error::ExpectedSv2Frame),
                     );
 
                     let message_type = handle_result!(tx_status, message_type).msg_type();

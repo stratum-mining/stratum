@@ -1,3 +1,8 @@
+use super::{
+    job_declarator::JobDeclarator,
+    status,
+    PoolChangerTrigger
+};
 use codec_sv2::{HandshakeRole, Initiator, StandardEitherFrame, StandardSv2Frame};
 use key_utils::Secp256k1PublicKey;
 use roles_logic_sv2::{
@@ -5,29 +10,28 @@ use roles_logic_sv2::{
     template_distribution_sv2::{NewTemplate, RequestTransactionData},
     utils::Mutex,
 };
-
 use codec_sv2::Frame;
 use roles_logic_sv2::{
     handlers::{template_distribution::ParseServerTemplateDistributionMessages, SendTo_},
     parsers::{PoolMessages, TemplateDistribution},
     template_distribution_sv2::{CoinbaseOutputDataSize, SubmitSolution},
 };
-pub type SendTo = SendTo_<roles_logic_sv2::parsers::TemplateDistribution<'static>, ()>;
-//use messages_sv2::parsers::JobDeclaration;
-pub type Message = PoolMessages<'static>;
-pub type StdFrame = StandardSv2Frame<Message>;
-pub type EitherFrame = StandardEitherFrame<Message>;
 use async_channel::{Receiver, Sender};
 use network_helpers::noise_connection_tokio::Connection;
 use std::{convert::TryInto, net::SocketAddr, sync::Arc};
 use tokio::task::AbortHandle;
-mod message_handler;
-mod setup_connection;
-use crate::{job_declarator::JobDeclarator, status, PoolChangerTrigger};
 use error_handling::handle_result;
 use setup_connection::SetupConnectionHandler;
 use stratum_common::bitcoin::{consensus::Encodable, TxOut};
 use tracing::{error, info};
+
+mod message_handler;
+mod setup_connection;
+
+pub type SendTo = SendTo_<roles_logic_sv2::parsers::TemplateDistribution<'static>, ()>;
+pub type Message = PoolMessages<'static>;
+pub type StdFrame = StandardSv2Frame<Message>;
+pub type EitherFrame = StandardEitherFrame<Message>;
 
 pub struct TemplateRx {
     receiver: Receiver<EitherFrame>,
@@ -35,8 +39,8 @@ pub struct TemplateRx {
     /// Allows the tp recv to communicate back to the main thread any status updates
     /// that would interest the main thread for error handling
     tx_status: status::Sender,
-    jd: Option<Arc<Mutex<crate::job_declarator::JobDeclarator>>>,
-    down: Arc<Mutex<crate::downstream::DownstreamMiningNode>>,
+    jd: Option<Arc<Mutex<super::job_declarator::JobDeclarator>>>,
+    down: Arc<Mutex<super::downstream::DownstreamMiningNode>>,
     task_collector: Arc<Mutex<Vec<AbortHandle>>>,
     new_template_message: Option<NewTemplate<'static>>,
     pool_chaneger_trigger: Arc<Mutex<PoolChangerTrigger>>,
@@ -50,8 +54,8 @@ impl TemplateRx {
         address: SocketAddr,
         solution_receiver: Receiver<SubmitSolution<'static>>,
         tx_status: status::Sender,
-        jd: Option<Arc<Mutex<crate::job_declarator::JobDeclarator>>>,
-        down: Arc<Mutex<crate::downstream::DownstreamMiningNode>>,
+        jd: Option<Arc<Mutex<super::job_declarator::JobDeclarator>>>,
+        down: Arc<Mutex<super::downstream::DownstreamMiningNode>>,
         task_collector: Arc<Mutex<Vec<AbortHandle>>>,
         pool_chaneger_trigger: Arc<Mutex<PoolChangerTrigger>>,
         miner_coinbase_outputs: Vec<TxOut>,
@@ -134,7 +138,7 @@ impl TemplateRx {
         miner_coinbase_output: &[u8],
     ) -> AllocateMiningJobTokenSuccess<'static> {
         if let Some(jd) = jd {
-            crate::job_declarator::JobDeclarator::get_last_token(&jd).await
+            super::job_declarator::JobDeclarator::get_last_token(&jd).await
         } else {
             AllocateMiningJobTokenSuccess {
                 request_id: 0,
@@ -202,7 +206,7 @@ impl TemplateRx {
                                 Some(TemplateDistribution::NewTemplate(m)) => {
                                     // See coment on the definition of the global for memory
                                     // ordering
-                                    crate::IS_NEW_TEMPLATE_HANDLED
+                                    super::IS_NEW_TEMPLATE_HANDLED
                                         .store(false, std::sync::atomic::Ordering::Release);
                                     Self::send_tx_data_request(&self_mutex, m.clone()).await;
                                     self_mutex
@@ -210,7 +214,7 @@ impl TemplateRx {
                                         .unwrap();
                                     let token = last_token.clone().unwrap();
                                     let pool_output = token.coinbase_output.to_vec();
-                                    crate::downstream::DownstreamMiningNode::on_new_template(
+                                    super::downstream::DownstreamMiningNode::on_new_template(
                                         &down,
                                         m.clone(),
                                         &pool_output[..],
@@ -222,19 +226,19 @@ impl TemplateRx {
                                     info!("Received SetNewPrevHash, waiting for IS_NEW_TEMPLATE_HANDLED");
                                     // See coment on the definition of the global for memory
                                     // ordering
-                                    while !crate::IS_NEW_TEMPLATE_HANDLED
+                                    while !super::IS_NEW_TEMPLATE_HANDLED
                                         .load(std::sync::atomic::Ordering::Acquire)
                                     {
                                         tokio::task::yield_now().await;
                                     }
                                     info!("IS_NEW_TEMPLATE_HANDLED ok");
                                     if let Some(jd) = jd.as_ref() {
-                                        crate::job_declarator::JobDeclarator::on_set_new_prev_hash(
+                                        super::job_declarator::JobDeclarator::on_set_new_prev_hash(
                                             jd.clone(),
                                             m.clone(),
                                         );
                                     }
-                                    crate::downstream::DownstreamMiningNode::on_set_new_prev_hash(
+                                    super::downstream::DownstreamMiningNode::on_set_new_prev_hash(
                                         &down, m,
                                     )
                                     .await
@@ -255,7 +259,7 @@ impl TemplateRx {
                                     let mining_token = token.mining_job_token.to_vec();
                                     let pool_coinbase_out = token.coinbase_output.to_vec();
                                     if let Some(jd) = jd.as_ref() {
-                                        crate::job_declarator::JobDeclarator::on_new_template(
+                                        super::job_declarator::JobDeclarator::on_new_template(
                                             jd,
                                             m.clone(),
                                             mining_token,
