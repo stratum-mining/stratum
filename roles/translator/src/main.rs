@@ -1,11 +1,8 @@
+#![allow(special_module_name)]
 mod args;
-mod downstream_sv1;
-mod error;
-mod proxy;
-mod proxy_config;
-mod status;
-mod upstream_sv2;
-mod utils;
+mod lib;
+
+use lib::{error, status, downstream_sv1, proxy, proxy_config, upstream_sv2};
 use args::Args;
 use error::{Error, ProxyResult};
 use proxy_config::ProxyConfig;

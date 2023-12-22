@@ -1,6 +1,6 @@
 use super::{Downstream, DownstreamMessages, SetDownstreamTarget};
 
-use crate::{error::Error, ProxyResult};
+use super::super::error::{Error, ProxyResult};
 use roles_logic_sv2::utils::Mutex;
 use std::{ops::Div, sync::Arc};
 use tracing::error;
