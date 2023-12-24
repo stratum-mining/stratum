@@ -1,28 +1,24 @@
-use super::{
-    job_declarator::JobDeclarator,
-    status,
-    PoolChangerTrigger
-};
-use codec_sv2::{HandshakeRole, Initiator, StandardEitherFrame, StandardSv2Frame};
-use key_utils::Secp256k1PublicKey;
-use roles_logic_sv2::{
-    job_declaration_sv2::AllocateMiningJobTokenSuccess,
-    template_distribution_sv2::{NewTemplate, RequestTransactionData},
-    utils::Mutex,
-};
+use super::{job_declarator::JobDeclarator, status, PoolChangerTrigger};
+use async_channel::{Receiver, Sender};
 use codec_sv2::Frame;
+use codec_sv2::{HandshakeRole, Initiator, StandardEitherFrame, StandardSv2Frame};
+use error_handling::handle_result;
+use key_utils::Secp256k1PublicKey;
+use network_helpers::noise_connection_tokio::Connection;
 use roles_logic_sv2::{
     handlers::{template_distribution::ParseServerTemplateDistributionMessages, SendTo_},
     parsers::{PoolMessages, TemplateDistribution},
     template_distribution_sv2::{CoinbaseOutputDataSize, SubmitSolution},
 };
-use async_channel::{Receiver, Sender};
-use network_helpers::noise_connection_tokio::Connection;
-use std::{convert::TryInto, net::SocketAddr, sync::Arc};
-use tokio::task::AbortHandle;
-use error_handling::handle_result;
+use roles_logic_sv2::{
+    job_declaration_sv2::AllocateMiningJobTokenSuccess,
+    template_distribution_sv2::{NewTemplate, RequestTransactionData},
+    utils::Mutex,
+};
 use setup_connection::SetupConnectionHandler;
+use std::{convert::TryInto, net::SocketAddr, sync::Arc};
 use stratum_common::bitcoin::{consensus::Encodable, TxOut};
+use tokio::task::AbortHandle;
 use tracing::{error, info};
 
 mod message_handler;

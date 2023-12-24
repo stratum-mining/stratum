@@ -4,9 +4,9 @@ use async_channel::{bounded, unbounded};
 use tracing::{error, info, warn};
 mod lib;
 use lib::{
-    mining_pool::{Pool, Configuration, get_coinbase_output},
+    mining_pool::{get_coinbase_output, Configuration, Pool},
+    status,
     template_receiver::TemplateRx,
-    status
 };
 
 use tokio::select;

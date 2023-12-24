@@ -19,7 +19,7 @@ use roles_logic_sv2::{
     template_distribution_sv2::{NewTemplate, SubmitSolution},
     utils::Mutex,
 };
-use tracing::{debug, info, warn, error};
+use tracing::{debug, error, info, warn};
 
 use codec_sv2::{Frame, HandshakeRole, Responder, StandardEitherFrame, StandardSv2Frame};
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};

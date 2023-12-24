@@ -2,12 +2,11 @@ use super::{
     error::{PoolError, PoolResult},
     status,
 };
-use serde::Deserialize;
 use async_channel::{Receiver, Sender};
 use binary_sv2::U256;
-use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 use codec_sv2::{Frame, HandshakeRole, Responder, StandardEitherFrame, StandardSv2Frame};
 use error_handling::handle_result;
+use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 use network_helpers::noise_connection_tokio::Connection;
 use nohash_hasher::BuildNoHashHasher;
 use roles_logic_sv2::{
@@ -20,13 +19,14 @@ use roles_logic_sv2::{
     parsers::{Mining, PoolMessages},
     routing_logic::MiningRoutingLogic,
     template_distribution_sv2::{NewTemplate, SetNewPrevHash, SubmitSolution},
-    utils::{Mutex, CoinbaseOutput as CoinbaseOutput_},
+    utils::{CoinbaseOutput as CoinbaseOutput_, Mutex},
 };
-use std::{collections::HashMap, net::SocketAddr, sync::Arc};
+use serde::Deserialize;
 use std::convert::{TryFrom, TryInto};
+use std::{collections::HashMap, net::SocketAddr, sync::Arc};
+use stratum_common::bitcoin::{Script, TxOut};
 use tokio::{net::TcpListener, task};
 use tracing::{debug, error, info, warn};
-use stratum_common::bitcoin::{Script, TxOut};
 
 pub mod setup_connection;
 use setup_connection::SetupConnectionHandler;

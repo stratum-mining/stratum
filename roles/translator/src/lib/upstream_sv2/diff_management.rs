@@ -39,7 +39,9 @@ impl Upstream {
         let frame: EitherFrame = either_frame.try_into()?;
 
         tx_frame.send(frame).await.map_err(|e| {
-            super::super::error::Error::ChannelErrorSender(super::super::error::ChannelSendError::General(e.to_string()))
+            super::super::error::Error::ChannelErrorSender(
+                super::super::error::ChannelSendError::General(e.to_string()),
+            )
         })?;
         async_std::task::sleep(Duration::from_secs(timeout as u64)).await;
         Ok(())

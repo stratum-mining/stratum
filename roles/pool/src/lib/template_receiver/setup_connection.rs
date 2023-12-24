@@ -1,6 +1,6 @@
 use super::super::{
     error::{PoolError, PoolResult},
-    mining_pool::{EitherFrame, StdFrame}
+    mining_pool::{EitherFrame, StdFrame},
 };
 use async_channel::{Receiver, Sender};
 use codec_sv2::Frame;

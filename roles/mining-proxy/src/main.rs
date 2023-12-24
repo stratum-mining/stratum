@@ -20,12 +20,10 @@
 #![allow(special_module_name)]
 mod lib;
 
-use std::{net::SocketAddr, sync::Arc};
 use lib::Config;
+use roles_logic_sv2::utils::{GroupId, Mutex};
+use std::{net::SocketAddr, sync::Arc};
 use tracing::{error, info};
-use roles_logic_sv2::{
-    utils::{GroupId, Mutex},
-};
 
 mod args {
     use std::path::PathBuf;

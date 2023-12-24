@@ -7,15 +7,15 @@ use lib::{
     error::{Error, ProxyResult},
     job_declarator::JobDeclarator,
     proxy_config::ProxyConfig,
-    template_receiver::TemplateRx,
     status,
-    PoolChangerTrigger
+    template_receiver::TemplateRx,
+    PoolChangerTrigger,
 };
 
 use args::Args;
-use roles_logic_sv2::utils::Mutex;
 use async_channel::{bounded, unbounded};
 use futures::{select, FutureExt};
+use roles_logic_sv2::utils::Mutex;
 use std::{
     net::{IpAddr, SocketAddr},
     str::FromStr,

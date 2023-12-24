@@ -650,9 +650,7 @@ impl UpstreamMiningNode {
                     let error_message = std::str::from_utf8(m.error_code.inner_as_ref())
                         .unwrap()
                         .to_string();
-                    Err(super::error::Error::SetupConnectionError(
-                        error_message,
-                    ))
+                    Err(super::error::Error::SetupConnectionError(error_message))
                 }
             }
             Ok(_) => todo!(),

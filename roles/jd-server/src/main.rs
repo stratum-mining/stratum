@@ -1,10 +1,10 @@
 #![allow(special_module_name)]
+use crate::lib::{mempool, status, Configuration};
 use async_channel::unbounded;
-use tracing::{error, info, warn};
-use crate::lib::{mempool, Configuration, status};
 use roles_logic_sv2::utils::Mutex;
 use std::{sync::Arc, time::Duration};
 use tokio::{select, task};
+use tracing::{error, info, warn};
 mod lib;
 
 use lib::job_declarator::JobDeclarator;

@@ -2,15 +2,15 @@ pub mod downstream_mining;
 pub mod error;
 pub mod upstream_mining;
 
-use serde::Deserialize;
-use std::{net::SocketAddr, sync::Arc};
 use once_cell::sync::OnceCell;
-use upstream_mining::UpstreamMiningNode;
 use roles_logic_sv2::{
     routing_logic::{CommonRoutingLogic, MiningProxyRoutingLogic, MiningRoutingLogic},
     selectors::GeneralMiningSelector,
     utils::{GroupId, Id, Mutex},
 };
+use serde::Deserialize;
+use std::{net::SocketAddr, sync::Arc};
+use upstream_mining::UpstreamMiningNode;
 
 type RLogic = MiningProxyRoutingLogic<
     downstream_mining::DownstreamMiningNode,
@@ -35,8 +35,7 @@ pub async fn initialize_upstreams(min_version: u16, max_version: u16) {
         .expect("BUG: ROUTING_LOGIC has not been set yet")
         .safe_lock(|r_logic| r_logic.upstream_selector.upstreams.clone())
         .unwrap();
-    let available_upstreams =
-        upstream_mining::scan(upstreams, min_version, max_version).await;
+    let available_upstreams = upstream_mining::scan(upstreams, min_version, max_version).await;
     ROUTING_LOGIC
         .get()
         .unwrap()

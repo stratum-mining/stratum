@@ -14,7 +14,10 @@ use v1::{client_to_server::Submit, server_to_client, utils::HexU32Be};
 
 use super::super::{
     downstream_sv1::{DownstreamMessages, SetDownstreamTarget, SubmitShareWithChannelId},
-    error::{Error::{self, PoisonLock}, ProxyResult},
+    error::{
+        Error::{self, PoisonLock},
+        ProxyResult,
+    },
     status,
 };
 use error_handling::handle_result;

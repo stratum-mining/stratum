@@ -1,16 +1,16 @@
+pub mod error;
 pub mod job_declarator;
 pub mod mempool;
-pub mod error;
 pub mod status;
 
+use codec_sv2::{StandardEitherFrame, StandardSv2Frame};
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 use roles_logic_sv2::{
     errors::Error, parsers::PoolMessages as JdsMessages, utils::CoinbaseOutput as CoinbaseOutput_,
 };
+use serde::Deserialize;
 use std::convert::{TryFrom, TryInto};
 use stratum_common::bitcoin::{Script, TxOut};
-use codec_sv2::{StandardEitherFrame, StandardSv2Frame};
-use serde::Deserialize;
 
 pub type Message = JdsMessages<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;
