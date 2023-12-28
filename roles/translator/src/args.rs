@@ -18,7 +18,7 @@ enum ArgsResult {
 }
 
 impl Args {
-    const DEFAULT_CONFIG_PATH: &'static str = "proxy-config.toml";
+    const DEFAULT_CONFIG_PATH: &'static str = "translator-config.toml";
 
     pub fn from_args() -> Result<Self, String> {
         let cli_args = std::env::args();
