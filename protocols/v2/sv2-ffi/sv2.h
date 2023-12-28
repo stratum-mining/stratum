@@ -12,7 +12,7 @@ static const uintptr_t SV2_FRAME_HEADER_LEN_OFFSET = 3;
 
 static const uintptr_t SV2_FRAME_HEADER_LEN_END = 3;
 
-static const uintptr_t SV2_FRAME_CHUNK_SIZE = 65519;
+static const uintptr_t SV2_FRAME_CHUNK_SIZE = 65535;
 
 static const uintptr_t AEAD_MAC_LEN = 16;
 
@@ -21,6 +21,10 @@ static const uintptr_t ENCRYPTED_SV2_FRAME_HEADER_SIZE = (SV2_FRAME_HEADER_SIZE 
 static const uintptr_t NOISE_FRAME_HEADER_SIZE = 2;
 
 static const uintptr_t NOISE_FRAME_HEADER_LEN_OFFSET = 0;
+
+static const uintptr_t INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_LENGTH = 170;
+
+static const uintptr_t RESPONDER_EXPECTED_HANDSHAKE_MESSAGE_LENGTH = 32;
 
 static const uint8_t SV2_MINING_PROTOCOL_DISCRIMINANT = 0;
 
@@ -560,10 +564,15 @@ struct Sv2Error {
     CError _0;
   };
 
+  struct PayloadTooBig_Body {
+    CVec _0;
+  };
+
   Tag tag;
   union {
     BinaryError_Body binary_error;
     CodecError_Body codec_error;
+    PayloadTooBig_Body payload_too_big;
   };
 };
 

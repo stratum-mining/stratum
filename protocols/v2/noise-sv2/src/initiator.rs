@@ -5,7 +5,7 @@ use crate::{
     error::Error,
     handshake::HandshakeOp,
     signature_message::SignatureNoiseMessage,
-    NoiseCodec, NOISE_SUPPORTED_CIPHERS_MESSAGE,
+    NoiseCodec,
 };
 use aes_gcm::KeyInit;
 use chacha20poly1305::ChaCha20Poly1305;
@@ -151,23 +151,7 @@ impl Initiator {
     ///
     ///
     ///
-    /// ### 4.5.4 Cipher upgrade part 1: `-> AEAD_CIPHERS`
-    ///
-    /// Initiator provides list of AEAD ciphers other than ChaChaPoly that it supports
-    ///
-    /// | Field name | Description |
-    /// | ---------- | ----------- |
-    /// | SEQ0_32[u32] | List of AEAD cipher functions other than ChaChaPoly that the client supports |
-    ///
-    /// Message length: 1 + _n_ \* 4 bytes, where n is the length byte of the SEQ0_32 field, at most 129
-    ///
-    /// possible cipher codes:
-    ///
-    /// | cipher code | Cipher description |
-    /// | ----------- | ------------------ |
-    /// | 0x47534541 (b"AESG") | AES-256 with with GCM from [7] |
-    ///
-    pub fn step_2(&mut self, message: [u8; 170]) -> Result<[u8; 5], Error> {
+    pub fn step_2(&mut self, message: [u8; 170]) -> Result<NoiseCodec, Error> {
         // 2. interprets first 32 bytes as `re.public_key`
         // 3. calls `MixHash(re.public_key)`
         let remote_pub_key = &message[0..32];
@@ -197,63 +181,19 @@ impl Initiator {
             let c2 = ChaCha20Poly1305::new(&temp_k2.into());
             let c1: Cipher<ChaCha20Poly1305> = Cipher::from_key_and_cipher(temp_k1, c1);
             let c2: Cipher<ChaCha20Poly1305> = Cipher::from_key_and_cipher(temp_k2, c2);
-            self.c1 = Some(GenericCipher::ChaCha20Poly1305(c1));
-            self.c2 = Some(GenericCipher::ChaCha20Poly1305(c2));
-            Ok(NOISE_SUPPORTED_CIPHERS_MESSAGE)
+            self.c1 = None;
+            self.c2 = None;
+            let mut encryptor = GenericCipher::ChaCha20Poly1305(c1);
+            let mut decryptor = GenericCipher::ChaCha20Poly1305(c2);
+            encryptor.erase_k();
+            decryptor.erase_k();
+            let codec = crate::NoiseCodec {
+                encryptor,
+                decryptor,
+            };
+            Ok(codec)
         } else {
             Err(Error::InvalidCertificate(plaintext))
-        }
-    }
-
-    /// #### 4.5.5.1 Upgrade to a new AEAD-cipher
-    ///
-    /// If the server provides a non-empty `CIPHER_CHOICE`:
-    ///
-    /// 1. Both initiator and responder create a new pair of CipherState objects with the negotiated cipher for encrypting transport messages from initiator to responder and in the other direction respectively
-    /// 2. New keys `key_new` are derived from the original CipherState keys `key_orig` by taking the first 32 bytes from `ENCRYPT(key_orig, maxnonce, zero_len, zeros)` using the negotiated cipher function where `maxnonce` is 2<sup>64</sup> - 1, `zerolen` is a zero-length byte sequence, and `zeros` is a sequence of 32 bytes filled with zeros. (see `Rekey(k)` function<sup>[8](#reference-8)</sup>)
-    /// 3. New CipherState objects are reinitialized: `InitializeKey(key_new)`.
-    pub fn step_4(mut self, cipher_chosed: Vec<u8>) -> Result<NoiseCodec, Error> {
-        match cipher_chosed.len() {
-            0 => Err(Error::InvalidCipherList(cipher_chosed)),
-            1 => {
-                if cipher_chosed[0] == 0 {
-                    let mut encryptor = None;
-                    std::mem::swap(&mut encryptor, &mut self.c1);
-                    let mut decryptor = None;
-                    std::mem::swap(&mut decryptor, &mut self.c2);
-                    let mut encryptor = encryptor.unwrap();
-                    let mut decryptor = decryptor.unwrap();
-                    encryptor.erase_k();
-                    decryptor.erase_k();
-                    // Responder want to use ChaCha
-                    let codec = crate::NoiseCodec {
-                        encryptor,
-                        decryptor,
-                    };
-                    Ok(codec)
-                } else {
-                    Err(Error::InvalidCipherList(cipher_chosed))
-                }
-            }
-            5 => {
-                // Responder want to use AesGcm
-                if cipher_chosed == [1, 0x47, 0x53, 0x45, 0x41] {
-                    let mut encryptor = None;
-                    std::mem::swap(&mut encryptor, &mut self.c1);
-                    let mut decryptor = None;
-                    std::mem::swap(&mut decryptor, &mut self.c2);
-                    let encryptor = encryptor.unwrap().into_aesg();
-                    let decryptor = decryptor.unwrap().into_aesg();
-                    let codec = crate::NoiseCodec {
-                        encryptor,
-                        decryptor,
-                    };
-                    Ok(codec)
-                } else {
-                    Err(Error::InvalidCipherList(cipher_chosed))
-                }
-            }
-            _ => Err(Error::InvalidCipherList(cipher_chosed)),
         }
     }
 

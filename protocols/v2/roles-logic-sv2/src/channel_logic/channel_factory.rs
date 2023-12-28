@@ -11,14 +11,14 @@ use mining_sv2::{
     ExtendedExtranonce, NewExtendedMiningJob, NewMiningJob, OpenExtendedMiningChannelSuccess,
     OpenMiningChannelError, OpenStandardMiningChannelSuccess, SetCustomMiningJob,
     SetCustomMiningJobSuccess, SetNewPrevHash, SubmitSharesError, SubmitSharesExtended,
-    SubmitSharesStandard, Target, UpdateChannel,
+    SubmitSharesStandard, Target,
 };
 
 use nohash_hasher::BuildNoHashHasher;
 use std::{collections::HashMap, convert::TryInto, sync::Arc};
 use template_distribution_sv2::{NewTemplate, SetNewPrevHash as SetNewPrevHashFromTp};
 
-use tracing::{debug, error, info, trace};
+use tracing::{debug, error, info, trace, warn};
 
 use stratum_common::{
     bitcoin,
@@ -958,25 +958,6 @@ impl ChannelFactory {
         channel.target = new_target.into();
         Some(true)
     }
-    fn update_channel(&mut self, m: &UpdateChannel) -> Result<(), Error> {
-        if let Some(channel) = self.extended_channels.get_mut(&m.channel_id) {
-            let target = crate::utils::hash_rate_to_target(
-                m.nominal_hash_rate.into(),
-                self.share_per_min.into(),
-            );
-            match target {
-                Ok(target_) => channel.target = target_,
-                Err(e) => {
-                    error!("Impossible to get target: {:?}", e);
-                    return Err(e);
-                }
-            }
-            Ok(())
-        } else {
-            // TODO add logic also for group ids
-            todo!()
-        }
-    }
 }
 
 /// Used by a pool to in order to manage all downstream channel. It add job creation capabilities
@@ -1282,8 +1263,19 @@ impl PoolChannelFactory {
     pub fn update_pool_outputs(&mut self, outs: Vec<TxOut>) {
         self.pool_coinbase_outputs = outs;
     }
-    pub fn update_channel(&mut self, m: &UpdateChannel) -> Result<(), Error> {
-        self.inner.update_channel(m)
+
+    /// calls [`ChannelFactory::update_target_for_channel`]
+    /// Set a partucular downstream channel target.
+    pub fn update_target_for_channel(
+        &mut self,
+        channel_id: u32,
+        new_target: Target,
+    ) -> Option<bool> {
+        self.inner.update_target_for_channel(channel_id, new_target)
+    }
+    // Set the target for this channel. This is the upstream target.
+    pub fn set_target(&mut self, new_target: &mut Target) {
+        self.inner.kind.set_target(new_target);
     }
 }
 
@@ -1742,7 +1734,7 @@ impl ExtendedChannelKind {
             | ExtendedChannelKind::ProxyJd { upstream_target } => {
                 std::mem::swap(upstream_target, new_target)
             }
-            ExtendedChannelKind::Pool => panic!("Try to set upstream target for a pool"),
+            ExtendedChannelKind::Pool => warn!("Try to set upstream target for a pool"),
         }
     }
 }

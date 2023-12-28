@@ -98,9 +98,16 @@ mod args {
 
     impl Args {
         const DEFAULT_CONFIG_PATH: &'static str = "pool-config.toml";
+        const HELP_MSG: &'static str =
+            "Usage: -h/--help, -c/--config <path|default pool-config.toml>";
 
         pub fn from_args() -> Result<Self, String> {
             let cli_args = std::env::args();
+
+            if cli_args.len() == 1 {
+                println!("Using default config path: {}", Self::DEFAULT_CONFIG_PATH);
+                println!("{}\n", Self::HELP_MSG);
+            }
 
             let config_path = cli_args
                 .scan(ArgsState::Next, |state, item| {
@@ -110,10 +117,7 @@ mod args {
                                 *state = ArgsState::ExpectPath;
                                 Some(ArgsResult::None)
                             }
-                            "-h" | "--help" => Some(ArgsResult::Help(format!(
-                                "Usage: -h/--help, -c/--config <path|default {}>",
-                                Self::DEFAULT_CONFIG_PATH
-                            ))),
+                            "-h" | "--help" => Some(ArgsResult::Help(Self::HELP_MSG.to_string())),
                             _ => {
                                 *state = ArgsState::Next;
 

@@ -84,8 +84,6 @@ impl<T, B> Default for Sv2Frame<T, B> {
 
 #[derive(Debug)]
 pub struct NoiseFrame {
-    #[allow(dead_code)]
-    header: u16,
     payload: Slice,
 }
 
@@ -95,6 +93,11 @@ pub type HandShakeFrame = NoiseFrame;
 impl<A> From<EitherFrame<A, Vec<u8>>> for Sv2Frame<A, buffer_sv2::Slice> {
     fn from(_: EitherFrame<A, Vec<u8>>) -> Self {
         unreachable!()
+    }
+}
+impl NoiseFrame {
+    pub fn get_payload_when_handshaking(&self) -> Vec<u8> {
+        self.payload[0..].to_vec()
     }
 }
 
@@ -239,7 +242,7 @@ impl<'a> Frame<'a, Slice> for NoiseFrame {
 
     #[inline]
     fn payload(&'a mut self) -> &'a mut [u8] {
-        &mut self.payload[NoiseHeader::HANDSHAKE_HEADER_SIZE..]
+        &mut self.payload[NoiseHeader::HEADER_SIZE..]
     }
 
     /// If is an Sv2 frame return the Some(header) if it is a noise frame return None
@@ -254,28 +257,22 @@ impl<'a> Frame<'a, Slice> for NoiseFrame {
 
     #[inline]
     fn from_bytes_unchecked(bytes: Self::Buffer) -> Self {
-        let len_b = &bytes[NoiseHeader::LEN_OFFSET..NoiseHeader::HANDSHAKE_HEADER_SIZE];
-        let expected_len = u16::from_le_bytes([len_b[0], len_b[1]]) as usize;
-
-        Self {
-            header: expected_len as u16,
-            payload: bytes,
-        }
+        Self { payload: bytes }
     }
 
     #[inline]
     fn size_hint(bytes: &[u8]) -> isize {
-        if bytes.len() < NoiseHeader::HANDSHAKE_HEADER_SIZE {
-            return (NoiseHeader::HANDSHAKE_HEADER_SIZE - bytes.len()) as isize;
+        if bytes.len() < NoiseHeader::HEADER_SIZE {
+            return (NoiseHeader::HEADER_SIZE - bytes.len()) as isize;
         };
 
-        let len_b = &bytes[NoiseHeader::LEN_OFFSET..NoiseHeader::HANDSHAKE_HEADER_SIZE];
+        let len_b = &bytes[NoiseHeader::LEN_OFFSET..NoiseHeader::HEADER_SIZE];
         let expected_len = u16::from_le_bytes([len_b[0], len_b[1]]) as usize;
 
-        if bytes.len() - NoiseHeader::HANDSHAKE_HEADER_SIZE == expected_len {
+        if bytes.len() - NoiseHeader::HEADER_SIZE == expected_len {
             0
         } else {
-            expected_len as isize - (bytes.len() - NoiseHeader::HANDSHAKE_HEADER_SIZE) as isize
+            expected_len as isize - (bytes.len() - NoiseHeader::HEADER_SIZE) as isize
         }
     }
 
@@ -288,6 +285,7 @@ impl<'a> Frame<'a, Slice> for NoiseFrame {
     /// It returns a Frame if the size of the payload fits in the frame, if not it returns None
     /// Inneficient should be used only to build `HandShakeFrames`
     /// TODO check if is used only to build `HandShakeFrames`
+    #[allow(clippy::useless_conversion)]
     fn from_message(
         message: Slice,
         _message_type: u8,
@@ -295,13 +293,8 @@ impl<'a> Frame<'a, Slice> for NoiseFrame {
         _channel_msg: bool,
     ) -> Option<Self> {
         if message.len() <= NOISE_MAX_LEN {
-            let header = message.len() as u16;
-            // TODO this shold not allocate a vector
-            let payload = [&header.to_le_bytes()[..], &message[..]].concat();
             Some(Self {
-                header,
-                #[allow(clippy::useless_conversion)]
-                payload: payload.into(),
+                payload: message.into(),
             })
         } else {
             None
@@ -311,12 +304,8 @@ impl<'a> Frame<'a, Slice> for NoiseFrame {
 
 pub fn handshake_message_to_frame<T: AsRef<[u8]>>(message: T) -> HandShakeFrame {
     let mut payload = Vec::new();
-    let len = message.as_ref().len().to_le_bytes();
-    payload.push(len[0]);
-    payload.push(len[1]);
     payload.extend_from_slice(message.as_ref());
     HandShakeFrame {
-        header: message.as_ref().len() as u16,
         payload: payload.into(),
     }
 }

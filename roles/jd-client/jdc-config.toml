@@ -14,6 +14,7 @@ min_extranonce2_size = 8
 
 # Withhold
 withhold = false
+test_only_do_not_send_solution_to_tp = false
 
 # Auth keys for open encrypted connection downstream
 authority_public_key = "3VANfft6ei6jQq1At7d8nmiZzVhBFS4CiQujdgim1ign"
@@ -25,10 +26,12 @@ retry = 10
 
 # Template Provider config
 # Local TP (this is pointing to localhost so you must run a TP locally for this configuration to work)
-# tp_address = "127.0.0.1:8442"
+tp_address = "127.0.0.1:8442"
 # Hosted testnet TP 
-tp_address = "75.119.150.111:8442"
+#tp_address = "89.116.25.191:8442"
 tp_authority_pub_key = "3VANfft6ei6jQq1At7d8nmiZzVhBFS4CiQujdgim1ign"
+# Hosted regtest TP 
+# tp_address = "75.119.150.111:8442"
 
 # Solo Mining config
 # List of coinbase outputs used to build the coinbase tx in case of Solo Mining (as last-resort solution of the pools fallback system)
@@ -36,12 +39,7 @@ tp_authority_pub_key = "3VANfft6ei6jQq1At7d8nmiZzVhBFS4CiQujdgim1ign"
 # ! Right now only one output is supported, so comment all the ones you don't need !
 # For P2PK, P2PKH, P2WPKH, P2TR a BIP32 extended public key is needed 
 coinbase_outputs = [
-    #{ output_script_type = "P2PK", output_script_value = "vpub5XzEwP9YWe4cKKZAmbiBUxC7eL5HaZhbquBYzP3vDSDJJegb7CSCRphAPmwpGHzAyH1as9MRnXFWDcZozXA1K3sQqyKdTagooPfCVDhiwnr" },
-    #{ output_script_type = "P2PKH", output_script_value = "vpub5XzEwP9YWe4cKKZAmbiBUxC7eL5HaZhbquBYzP3vDSDJJegb7CSCRphAPmwpGHzAyH1as9MRnXFWDcZozXA1K3sQqyKdTagooPfCVDhiwnr" },
-    #{ output_script_type = "P2SH", output_script_value = "..." },
-    #{ output_script_type = "P2WSH", output_script_value = "..." },
     { output_script_type = "P2WPKH", output_script_value = "036adc3bdf21e6f9a0f0fb0066bf517e5b7909ed1563d6958a10993849a7554075" },
-    #{ output_script_type = "P2TR", output_script_value = "vpub5XzEwP9YWe4cKKZAmbiBUxC7eL5HaZhbquBYzP3vDSDJJegb7CSCRphAPmwpGHzAyH1as9MRnXFWDcZozXA1K3sQqyKdTagooPfCVDhiwnr" },
 ]
 
 [timeout]

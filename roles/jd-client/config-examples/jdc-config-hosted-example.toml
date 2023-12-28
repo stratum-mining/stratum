@@ -27,10 +27,8 @@ retry = 10
 # Local TP (this is pointing to localhost so you must run a TP locally for this configuration to work)
 # tp_address = "127.0.0.1:8442"
 # Hosted testnet TP 
-tp_address = "89.116.25.191:8442"
+tp_address = "75.119.150.111:8442"
 tp_authority_pub_key = "3VANfft6ei6jQq1At7d8nmiZzVhBFS4CiQujdgim1ign"
-# Hosted regtest TP 
-# tp_address = "75.119.150.111:8442"
 
 # Solo Mining config
 # List of coinbase outputs used to build the coinbase tx in case of Solo Mining (as last-resort solution of the pools fallback system)
@@ -54,8 +52,8 @@ value = 1
 # In case of shares refused by the JDS, the fallback system will propose the same job to the next upstream in this list
 [[upstreams]]
 authority_pubkey = "3VANfft6ei6jQq1At7d8nmiZzVhBFS4CiQujdgim1ign"
-pool_address = "89.116.25.191:34254"
-jd_address = "89.116.25.191:34264"
+pool_address = "75.119.150.111:34254"
+jd_address = "75.119.150.111:34264"
 # Pool signature (string to be included in coinbase tx)
 pool_signature = "Stratum v2 SRI Pool"
  

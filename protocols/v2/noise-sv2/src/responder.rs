@@ -5,7 +5,7 @@ use crate::{
     error::Error,
     handshake::HandshakeOp,
     signature_message::SignatureNoiseMessage,
-    NoiseCodec, NOISE_SUPPORTED_CIPHERS_MESSAGE,
+    NoiseCodec,
 };
 use aes_gcm::KeyInit;
 use chacha20poly1305::ChaCha20Poly1305;
@@ -154,7 +154,7 @@ impl Responder {
     /// | MAC                     | Message authentication code for SIGNATURE_NOISE_MESSAGE                                                                                                        |
     ///
     /// Message length: 170 bytes
-    pub fn step_1(&mut self, re_pub: [u8; 32]) -> Result<[u8; 170], aes_gcm::Error> {
+    pub fn step_1(&mut self, re_pub: [u8; 32]) -> Result<([u8; 170], NoiseCodec), aes_gcm::Error> {
         // 4.5.1.2 Responder
         Self::mix_hash(self, &re_pub[..]);
         Self::decrypt_and_hash(self, &mut vec![])?;
@@ -206,80 +206,18 @@ impl Responder {
         let c2 = ChaCha20Poly1305::new(&temp_k2.into());
         let c1: Cipher<ChaCha20Poly1305> = Cipher::from_key_and_cipher(temp_k1, c1);
         let c2: Cipher<ChaCha20Poly1305> = Cipher::from_key_and_cipher(temp_k2, c2);
-        self.c1 = Some(GenericCipher::ChaCha20Poly1305(c1));
-        self.c2 = Some(GenericCipher::ChaCha20Poly1305(c2));
         let to_send = out;
-        Ok(to_send)
-    }
-
-    /// ### 4.5.5 Cipher upgrade part 2: `<- CIPHER_CHOICE`
-    ///
-    /// Responder acknowledges receiving `AEAD_CIPHERS` message with `CIPHER_CHOICE`. There are two possible cases
-    ///
-    /// 1. `CIPHER_CHOICE` is empty: In this case continue using current established encrypted session
-    /// 2. `CIPHER_CHOICE` is non-empty - Restart encrypted session using the new AEAD-cipher
-    ///
-    /// ##### CIPHER_CHOICE
-    ///
-    /// | Field name | Description |
-    /// | ---------- | ----------- |
-    /// | OPTION[u32] | Request to upgrade to a given AEAD-cipher |
-    ///
-    /// Message length: 1 or 5 bytes
-    pub fn step_3(
-        mut self,
-        cipher_list: Vec<u8>,
-    ) -> Result<(Vec<u8>, NoiseCodec), crate::error::Error> {
-        match cipher_list.len() {
-            0 => Err(Error::InvalidCipherList(cipher_list)),
-            1 => {
-                if cipher_list[0] == 0 {
-                    let mut encryptor = None;
-                    std::mem::swap(&mut encryptor, &mut self.c2);
-                    let mut decryptor = None;
-                    std::mem::swap(&mut decryptor, &mut self.c1);
-                    let mut encryptor = encryptor.unwrap();
-                    let mut decryptor = decryptor.unwrap();
-                    encryptor.erase_k();
-                    decryptor.erase_k();
-                    // Initiator is ok to use ChaCha
-                    let codec = crate::NoiseCodec {
-                        encryptor,
-                        decryptor,
-                    };
-                    Ok((vec![0], codec))
-                } else {
-                    Err(Error::InvalidCipherList(cipher_list))
-                }
-            }
-            _ => {
-                if cipher_list[0] as usize * 4 + 1 != cipher_list.len() {
-                    Err(Error::InvalidCipherList(cipher_list))
-                } else {
-                    let mut index = 1;
-                    while index < cipher_list.len() {
-                        let cipher = &cipher_list[index..index + 4];
-                        // Initiator ask to use AesGcm
-                        // remove the first byte that is the meesage len
-                        if cipher == &NOISE_SUPPORTED_CIPHERS_MESSAGE[1..] {
-                            let mut encryptor = None;
-                            std::mem::swap(&mut encryptor, &mut self.c2);
-                            let mut decryptor = None;
-                            std::mem::swap(&mut decryptor, &mut self.c1);
-                            let encryptor = encryptor.unwrap().into_aesg();
-                            let decryptor = decryptor.unwrap().into_aesg();
-                            let codec = crate::NoiseCodec {
-                                encryptor,
-                                decryptor,
-                            };
-                            return Ok((NOISE_SUPPORTED_CIPHERS_MESSAGE.to_vec(), codec));
-                        }
-                        index += 4;
-                    }
-                    Err(Error::UnsupportedCiphers(cipher_list))
-                }
-            }
-        }
+        self.c1 = None;
+        self.c2 = None;
+        let mut encryptor = GenericCipher::ChaCha20Poly1305(c2);
+        let mut decryptor = GenericCipher::ChaCha20Poly1305(c1);
+        encryptor.erase_k();
+        decryptor.erase_k();
+        let codec = crate::NoiseCodec {
+            encryptor,
+            decryptor,
+        };
+        Ok((to_send, codec))
     }
 
     fn get_signature(&self, version: u16, valid_from: u32, not_valid_after: u32) -> [u8; 74] {

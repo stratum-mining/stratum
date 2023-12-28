@@ -69,60 +69,6 @@ impl Downstream {
 
     /// if enough shares have been submitted according to the config, this function updates the difficulty for the connection and sends the new
     /// difficulty to the miner
-    #[cfg(test)]
-    pub async fn try_update_difficulty_settings(
-        self_: Arc<Mutex<Self>>,
-    ) -> ProxyResult<'static, ()> {
-        let (diff_mgmt, channel_id) = self_
-            .clone()
-            .safe_lock(|d| (d.difficulty_mgmt.clone(), d.connection_id))
-            .map_err(|_e| Error::PoisonLock)?;
-        tracing::debug!(
-            "Time of last diff update: {:?}",
-            diff_mgmt.timestamp_of_last_update
-        );
-        tracing::debug!(
-            "Number of shares submitted: {:?}",
-            diff_mgmt.submits_since_last_update
-        );
-        let prev_target = match roles_logic_sv2::utils::hash_rate_to_target(
-            diff_mgmt.min_individual_miner_hashrate.into(),
-            diff_mgmt.shares_per_minute.into(),
-        ) {
-            Ok(target) => target.to_vec(),
-            Err(v) => return Err(Error::TargetError(v)),
-        };
-        if let Some(new_hash_rate) =
-            Self::update_miner_hashrate(self_.clone(), prev_target.clone())?
-        {
-            let new_target = match roles_logic_sv2::utils::hash_rate_to_target(
-                new_hash_rate.into(),
-                diff_mgmt.shares_per_minute.into(),
-            ) {
-                Ok(target) => target,
-                Err(v) => return Err(Error::TargetError(v)),
-            };
-            tracing::debug!("New target from hashrate: {:?}", new_target.inner_as_ref());
-            let message = Self::get_set_difficulty(new_target.to_vec())?;
-            // send mining.set_difficulty to miner
-            Downstream::send_message_downstream(self_.clone(), message).await?;
-            let update_target_msg = SetDownstreamTarget {
-                channel_id,
-                new_target: new_target.into(),
-            };
-            // notify bridge of target update
-            Downstream::send_message_upstream(
-                self_.clone(),
-                DownstreamMessages::SetDownstreamTarget(update_target_msg),
-            )
-            .await?;
-        }
-        Ok(())
-    }
-
-    /// if enough shares have been submitted according to the config, this function updates the difficulty for the connection and sends the new
-    /// difficulty to the miner
-    #[cfg(not(test))]
     pub async fn try_update_difficulty_settings(
         self_: Arc<Mutex<Self>>,
     ) -> ProxyResult<'static, ()> {
@@ -350,59 +296,100 @@ mod test {
     use crate::downstream_sv1::Downstream;
 
     #[test]
-    fn test_update_miner_hashrate() {
-        // this test verifies the correctedness of the function update_miner_hashrate.
-        // first we set an hashrate and a target. We expect 6 hashes per minute, so 1 every 10
-        // seconds. Below we sleep 10 seconds before launching the function
-        let hashrate = 1000000.0;
-        let target = roles_logic_sv2::utils::hash_rate_to_target(hashrate as f64, 6.0).unwrap();
+    fn test_diff_management() {
+        let expected_shares_per_minute = 1000.0;
+        let total_run_time = std::time::Duration::from_secs(11);
+        let initial_nominal_hashrate = measure_hashrate(5);
+        let target = match roles_logic_sv2::utils::hash_rate_to_target(
+            dbg!(initial_nominal_hashrate),
+            expected_shares_per_minute.into(),
+        ) {
+            Ok(target) => target,
+            Err(_) => panic!(),
+        };
 
-        //here we set a fake hashrate for the Downsatream struct
-        let fake_hashrate = hashrate / 1000.0;
-        let timestamp_secs = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .expect("time went backwards")
-            .as_secs();
-        let downstream_conf = DownstreamDifficultyConfig {
-            min_individual_miner_hashrate: fake_hashrate as f32,
-            shares_per_minute: 1000.0, // 1000 shares per minute
-            submits_since_last_update: 1,
-            timestamp_of_last_update: timestamp_secs, // updated below
-        };
-        let upstream_config = UpstreamDifficultyConfig {
-            channel_diff_update_interval: 60,
-            channel_nominal_hashrate: fake_hashrate as f32,
-            timestamp_of_last_update: 0,
-            should_aggregate: false,
-        };
-        let (tx_sv1_submit, _rx_sv1_submit) = unbounded();
-        let (tx_outgoing, _rx_outgoing) = unbounded();
-        // create Downstream instance
-        let downstream = Downstream::new(
-            1,
-            vec![],
-            vec![],
-            None,
-            None,
-            tx_sv1_submit,
-            tx_outgoing,
-            false,
-            0,
-            downstream_conf.clone(),
-            Arc::new(Mutex::new(upstream_config)),
+        let mut share = generate_random_80_byte_array();
+        let timer = std::time::Instant::now();
+        let mut elapsed = std::time::Duration::from_secs(0);
+        let mut count = 0;
+        while elapsed <= total_run_time {
+            // start hashing util a target is met and submit to
+            mock_mine(target.clone().into(), &mut share);
+            elapsed = timer.elapsed();
+            count += 1;
+        }
+
+        let calculated_share_per_min = count as f32 / (elapsed.as_secs_f32() / 60.0);
+        // This is the error margin for a confidence of 99% given the expect number of shares per
+        // minute TODO the review the math under it
+        let error_margin = dbg!(get_error(expected_shares_per_minute.into()));
+        let error = (calculated_share_per_min - expected_shares_per_minute as f32).abs();
+        assert!(
+            error <= error_margin as f32,
+            "Calculated shares per minute are outside the 99% confidence interval. Error: {:?}, Error margin: {:?}, {:?}", error, error_margin,calculated_share_per_min
         );
-        let downstream_mutex = Arc::new(Mutex::new(downstream));
-        std::thread::sleep(Duration::from_secs(10));
-        let updated_hashrate =
-            Downstream::update_miner_hashrate(downstream_mutex.clone(), target.to_vec())
-                .unwrap()
-                .unwrap();
-        assert!(updated_hashrate == hashrate);
     }
 
-    // test ability to approach target share per minute. Currently set to test against 20% error
+    fn get_error(lambda: f64) -> f64 {
+        let z_score_99 = 6.0;
+        z_score_99 * lambda.sqrt()
+    }
+
+    fn mock_mine(target: Target, share: &mut [u8; 80]) {
+        let mut hashed: Target = [255_u8; 32].into();
+        while hashed > target {
+            hashed = hash(share);
+        }
+    }
+
+    // returns hashrate based on how fast the device hashes over the given duration
+    fn measure_hashrate(duration_secs: u64) -> f64 {
+        let mut share = generate_random_80_byte_array();
+        let start_time = Instant::now();
+        let mut hashes: u64 = 0;
+        let duration = Duration::from_secs(duration_secs);
+
+        while start_time.elapsed() < duration {
+            for _ in 0..10000 {
+                hash(&mut share);
+                hashes += 1;
+            }
+        }
+
+        let elapsed_secs = start_time.elapsed().as_secs_f64();
+        let hashrate = hashes as f64 / elapsed_secs;
+        let nominal_hash_rate = hashrate;
+        nominal_hash_rate
+    }
+
+    fn hash(share: &mut [u8; 80]) -> Target {
+        let nonce: [u8; 8] = share[0..8].try_into().unwrap();
+        let mut nonce = u64::from_le_bytes(nonce);
+        nonce += 1;
+        share[0..8].copy_from_slice(&nonce.to_le_bytes());
+        let hash = Sha256::digest(&share).to_vec();
+        let hash: U256<'static> = hash.try_into().unwrap();
+        hash.into()
+    }
+
+    fn generate_random_80_byte_array() -> [u8; 80] {
+        let mut rng = thread_rng();
+        let mut arr = [0u8; 80];
+        rng.fill(&mut arr[..]);
+        arr
+    }
+
     #[tokio::test]
-    async fn test_diff_management() {
+    async fn test_converge_to_spm_from_low() {
+        test_converge_to_spm(1.0).await
+    }
+    //TODO
+    //#[tokio::test]
+    //async fn test_converge_to_spm_from_high() {
+    //    test_converge_to_spm(1_000_000_000_000).await
+    //}
+
+    async fn test_converge_to_spm(start_hashrate: f64) {
         let downstream_conf = DownstreamDifficultyConfig {
             min_individual_miner_hashrate: 0.0, // updated below
             shares_per_minute: 1000.0,          // 1000 shares per minute
@@ -417,7 +404,6 @@ mod test {
         };
         let (tx_sv1_submit, _rx_sv1_submit) = unbounded();
         let (tx_outgoing, _rx_outgoing) = unbounded();
-        // create Downstream instance
         let mut downstream = Downstream::new(
             1,
             vec![],
@@ -431,41 +417,42 @@ mod test {
             downstream_conf.clone(),
             Arc::new(Mutex::new(upstream_config)),
         );
+        downstream.difficulty_mgmt.min_individual_miner_hashrate = start_hashrate as f32;
 
-        let total_run_time = std::time::Duration::from_secs(120);
+        let total_run_time = std::time::Duration::from_secs(10);
         let config_shares_per_minute = downstream_conf.shares_per_minute;
-        // get initial hashrate
-        let initial_nominal_hashrate = measure_hashrate(10);
-        // get target from hashrate and shares_per_sec
-        let initial_target = match roles_logic_sv2::utils::hash_rate_to_target(
-            initial_nominal_hashrate,
+        let timer = std::time::Instant::now();
+        let mut elapsed = std::time::Duration::from_secs(0);
+
+        let expected_nominal_hashrate = measure_hashrate(5);
+        let expected_target = match roles_logic_sv2::utils::hash_rate_to_target(
+            dbg!(expected_nominal_hashrate),
             config_shares_per_minute.into(),
         ) {
             Ok(target) => target,
             Err(_) => panic!(),
         };
 
-        downstream.difficulty_mgmt.min_individual_miner_hashrate = initial_nominal_hashrate as f32;
-
-        // run for run time
-        let timer = std::time::Instant::now();
-        let mut elapsed = std::time::Duration::from_secs(0);
+        let initial_nominal_hashrate = start_hashrate;
+        let mut initial_target = match roles_logic_sv2::utils::hash_rate_to_target(
+            initial_nominal_hashrate,
+            config_shares_per_minute.into(),
+        ) {
+            Ok(target) => target,
+            Err(_) => panic!(),
+        };
         let downstream = Arc::new(Mutex::new(downstream));
         Downstream::init_difficulty_management(downstream.clone(), initial_target.inner_as_ref())
             .await
             .unwrap();
-        let mut target = initial_target.to_vec();
-        target.reverse();
-        let mut target: U256 = target.try_into().unwrap();
-        let mut count = 0;
+        let mut share = generate_random_80_byte_array();
         while elapsed <= total_run_time {
-            // start hashing util a target is met and submit to
-            mock_mine(target.clone().into());
+            mock_mine(initial_target.clone().into(), &mut share);
             Downstream::save_share(downstream.clone()).unwrap();
             Downstream::try_update_difficulty_settings(downstream.clone())
                 .await
                 .unwrap();
-            target = downstream
+            initial_target = downstream
                 .safe_lock(|d| {
                     match roles_logic_sv2::utils::hash_rate_to_target(
                         d.difficulty_mgmt.min_individual_miner_hashrate.into(),
@@ -477,74 +464,16 @@ mod test {
                 })
                 .unwrap();
             elapsed = timer.elapsed();
-            count += 1;
-            println!("Submitted {:?} share in {:?} seconds", count, elapsed);
-            let calculated_share_per_min = count as f32 / (elapsed.as_secs_f32() / 60.0);
-            println!("Actual Share/Min {:?}", calculated_share_per_min);
         }
-
-        let calculated_share_per_min = count as f32 / (elapsed.as_secs_f32() / 60.0);
-
-        println!(
-            "CALCULATED HASHRATE: {:?}",
-            downstream
-                .clone()
-                .safe_lock(|d| d.difficulty_mgmt.min_individual_miner_hashrate)
-                .unwrap()
-        );
-        println!("Actual Share/Min {:?}", calculated_share_per_min);
-        let calculated_share_per_min = count as f32 / (elapsed.as_secs_f32() / 60.0);
-        let err = ((config_shares_per_minute - calculated_share_per_min)
-            / config_shares_per_minute)
-            .abs();
-        println!("ERROR: {:?}", err);
-        assert!(
-            err < 0.2,
-            "Calculated share_per_min does not meet 20% error"
-        );
+        let expected_0s = trailing_0s(expected_target.inner_as_ref().to_vec());
+        let actual_0s = trailing_0s(initial_target.inner_as_ref().to_vec());
+        assert!(expected_0s.abs_diff(actual_0s) <= 1);
     }
-
-    fn mock_mine(target: Target) -> U256<'static> {
-        let mut share: Target = [255_u8; 32].into();
-        while share > target {
-            share = gen_share();
+    fn trailing_0s(mut v: Vec<u8>) -> usize {
+        let mut ret = 0;
+        while v.pop() == Some(0) {
+            ret += 1;
         }
-        share.into()
-    }
-
-    // returns hashrate based on how fast the device hashes over the given duration
-    fn measure_hashrate(duration_secs: u64) -> f64 {
-        let start_time = Instant::now();
-        let mut hashes: u64 = 0;
-        let duration = Duration::from_secs(duration_secs);
-
-        while start_time.elapsed() < duration {
-            gen_share();
-            hashes += 1;
-        }
-
-        let elapsed_secs = start_time.elapsed().as_secs_f64();
-        let hashrate = hashes as f64 / elapsed_secs;
-        let nominal_hash_rate = hashrate;
-        println!("Hashrate: {:.2} H/s", nominal_hash_rate);
-        nominal_hash_rate
-    }
-
-    fn u256_to_target(u: U256) -> Target {
-        let v = u.to_vec();
-        // below unwraps never panics
-        let head = u128::from_be_bytes(v[0..16].try_into().unwrap());
-        let tail = u128::from_be_bytes(v[16..32].try_into().unwrap());
-        Target::new(head, tail)
-    }
-
-    fn gen_share() -> Target {
-        let mut rng = thread_rng();
-        let number = rng.gen::<u64>();
-        let hash: U256 = Sha256::digest(&number.to_le_bytes())
-            .to_vec()
-            .try_into()
-            .unwrap();
-        u256_to_target(hash)
+        ret
     }
 }

@@ -1,3 +1,4 @@
+
 # SRI Pool config
 authority_public_key = "3VANfft6ei6jQq1At7d8nmiZzVhBFS4CiQujdgim1ign"
 authority_secret_key = "7qbpUjScc865jyX2kiB4NVJANoC7GA7TAJupdzXWkc62"
@@ -24,4 +25,6 @@ pool_signature = "Stratum v2 SRI Pool"
 # Local TP (this is pointing to localhost so you must run a TP locally for this configuration to work)
 tp_address = "127.0.0.1:8442"
 # Hosted testnet TP 
+#tp_address = "89.116.25.191:8442"
+# Hosted regtest TP 
 # tp_address = "75.119.150.111:8442"

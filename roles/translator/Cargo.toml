@@ -29,6 +29,7 @@ v1 = { version = "^0.1.1", path = "../../protocols/v1", package="sv1_api" }
 error_handling = { version = "0.1", path = "../../utils/error-handling" }
 key-utils = { version = "^1.0.0", path = "../../utils/key-utils" }
 
+
 [dev-dependencies]
 rand = "0.8.4"
 sha2 = "0.10.6"

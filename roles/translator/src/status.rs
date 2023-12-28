@@ -173,8 +173,5 @@ pub async fn handle_error(
         Error::TargetError(_) => {
             send_status(sender, e, error_handling::ErrorBranch::Continue).await
         }
-        Error::HashrateError(_) => {
-            send_status(sender, e, error_handling::ErrorBranch::Continue).await
-        }
     }
 }

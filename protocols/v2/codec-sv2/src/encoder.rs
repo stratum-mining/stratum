@@ -1,5 +1,6 @@
 use alloc::vec::Vec;
 use binary_sv2::{GetSize, Serialize};
+use const_sv2::AEAD_MAC_LEN;
 #[cfg(feature = "noise_sv2")]
 use const_sv2::{SV2_FRAME_CHUNK_SIZE, SV2_FRAME_HEADER_SIZE};
 #[cfg(feature = "noise_sv2")]
@@ -71,10 +72,10 @@ impl<T: Serialize + GetSize> NoiseEncoder<T> {
 
                 // ENCRYPT THE PAYLOAD IN CHUNKS
                 let mut start = SV2_FRAME_HEADER_SIZE;
-                let mut end = if sv2.len() - start < SV2_FRAME_CHUNK_SIZE {
+                let mut end = if sv2.len() - start < (SV2_FRAME_CHUNK_SIZE - AEAD_MAC_LEN) {
                     sv2.len()
                 } else {
-                    SV2_FRAME_CHUNK_SIZE + start
+                    SV2_FRAME_CHUNK_SIZE + start - AEAD_MAC_LEN
                 };
                 let mut encrypted_len = NoiseHeader::SIZE;
 
@@ -85,12 +86,12 @@ impl<T: Serialize + GetSize> NoiseEncoder<T> {
                     noise_codec.encrypt(&mut self.noise_buffer)?;
                     encrypted_len += self.noise_buffer.as_ref().len();
                     start = end;
-                    end = (start + SV2_FRAME_CHUNK_SIZE).min(sv2.len());
+                    end = (start + SV2_FRAME_CHUNK_SIZE - AEAD_MAC_LEN).min(sv2.len());
                 }
                 self.noise_buffer.danger_set_start(0);
             }
             State::HandShake(_) => self.while_handshaking(item)?,
-            State::NotInitialized => self.while_handshaking(item)?,
+            State::NotInitialized(_) => self.while_handshaking(item)?,
         };
 
         // Clear sv2_buffer
@@ -101,14 +102,16 @@ impl<T: Serialize + GetSize> NoiseEncoder<T> {
 
     #[inline(never)]
     fn while_handshaking(&mut self, item: Item<T>) -> Result<()> {
-        let len = item.encoded_length();
         // ENCODE THE SV2 FRAME
         let i: HandShakeFrame = item.try_into().map_err(|e| {
             error!("Error while encoding 2 frame - while_handshaking: {:?}", e);
             Error::FramingError(e)
         })?;
-        i.serialize(self.noise_buffer.get_writable(len))?;
-
+        let payload = i.get_payload_when_handshaking();
+        let wrtbl = self.noise_buffer.get_writable(payload.len());
+        for (i, b) in payload.iter().enumerate() {
+            wrtbl[i] = *b;
+        }
         Ok(())
     }
 }

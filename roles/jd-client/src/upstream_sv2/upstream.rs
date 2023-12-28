@@ -720,8 +720,23 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
     /// difficulty via the SV1 `mining.set_difficulty` message.
     fn handle_set_target(
         &mut self,
-        _: roles_logic_sv2::mining_sv2::SetTarget,
+        m: roles_logic_sv2::mining_sv2::SetTarget,
     ) -> Result<roles_logic_sv2::handlers::mining::SendTo<Downstream>, RolesLogicError> {
+        if let Some(factory) = self.channel_factory.as_mut() {
+            factory.update_target_for_channel(
+                m.channel_id,
+                m.maximum_target.clone().try_into().unwrap(),
+            );
+            factory.set_target(&mut m.maximum_target.clone().try_into().unwrap());
+        }
+        if let Some(downstream) = &self.downstream {
+            let _ = downstream.safe_lock(|d| {
+                let factory = d.status.get_channel();
+                factory.set_target(&mut m.maximum_target.clone().try_into().unwrap());
+                factory
+                    .update_target_for_channel(m.channel_id, m.maximum_target.try_into().unwrap());
+            });
+        }
         Ok(SendTo::RelaySameMessageToRemote(
             self.downstream.as_ref().unwrap().clone(),
         ))

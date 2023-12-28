@@ -222,7 +222,11 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
 
         // TODO This line blok everything!!
         self.mempool
-            .safe_lock(|x| x.get_client().submit_block(hexdata).unwrap())
+            .safe_lock(|x| {
+                if let Some(client) = x.get_client() {
+                    client.submit_block(hexdata).unwrap();
+                }
+            })
             .unwrap();
 
         Ok(SendTo::None(None))
