@@ -1,6 +1,9 @@
 //! Errors specific to this crate
 
-use crate::{common_properties::CommonDownstreamData, utils::InputError};
+use crate::{
+    common_properties::CommonDownstreamData, parsers::PoolMessages as AllMessages,
+    utils::InputError,
+};
 use binary_sv2::Error as BinarySv2Error;
 use std::fmt::{self, Display, Formatter};
 
@@ -54,6 +57,7 @@ pub enum Error {
     JobNotUpdated(u32, u32),
     TargetError(InputError),
     HashrateError(InputError),
+    LogicErrorMessage(std::boxed::Box<AllMessages<'static>>),
 }
 
 impl From<BinarySv2Error> for Error {
@@ -142,6 +146,7 @@ impl Display for Error {
             JobNotUpdated(ds_job_id, us_job_id) => write!(f, "Channel Factory did not update job: Downstream job id = {}, Upstream job id = {}", ds_job_id, us_job_id),
             TargetError(e) => write!(f, "Impossible to get Target: {:?}", e),
             HashrateError(e) => write!(f, "Impossible to get Hashrate: {:?}", e),
+            LogicErrorMessage(e) => write!(f, "Message is well formateed but can not be handled: {:?}", e),
         }
     }
 }
