@@ -14,7 +14,6 @@ pub mod noise_connection_tokio;
 pub mod plain_connection_tokio;
 
 use async_channel::{Receiver, RecvError, SendError, Sender};
-use async_trait::async_trait;
 use codec_sv2::{Error as CodecError, HandShakeFrame, HandshakeRole, StandardEitherFrame};
 use futures::lock::Mutex;
 use std::{
@@ -46,7 +45,6 @@ impl<T> From<SendError<T>> for Error {
     }
 }
 
-#[async_trait]
 trait SetState {
     async fn set_state(self_: Arc<Mutex<Self>>, state: codec_sv2::State);
 }

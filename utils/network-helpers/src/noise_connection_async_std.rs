@@ -9,7 +9,6 @@ use futures::lock::Mutex;
 use std::{sync::Arc, time::Duration};
 use tracing::{debug, error};
 
-use async_trait::async_trait;
 use binary_sv2::GetSize;
 use codec_sv2::{HandshakeRole, Initiator, Responder, StandardEitherFrame, StandardNoiseDecoder};
 
@@ -20,7 +19,6 @@ pub struct Connection {
     pub state: codec_sv2::State,
 }
 
-#[async_trait]
 impl crate::SetState for Connection {
     async fn set_state(self_: Arc<Mutex<Self>>, state: codec_sv2::State) {
         loop {
