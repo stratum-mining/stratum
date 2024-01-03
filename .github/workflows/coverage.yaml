@@ -40,13 +40,16 @@ jobs:
 
       - name: Generate code coverage
         run: |
-          cargo +nightly version; cargo +nightly tarpaulin --verbose
+          ./tarpaulin.sh
 
       - name: Archive Tarpaulin code coverage results
         uses: actions/upload-artifact@v3
         with:
           name: tarpaulin-report
-          path: cobertura.xml
+          path: |
+            protocols/cobertura.xml
+            roles/cobertura.xml
+            utils/cobertura.xml
 
   message-generator-test:
     needs: tarpaulin-test
