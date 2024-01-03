@@ -3,8 +3,8 @@ use binary_sv2::Deserialize;
 #[cfg(feature = "noise_sv2")]
 use binary_sv2::GetSize;
 use binary_sv2::Serialize;
-use buffer_sv2::AeadBuffer;
-use const_sv2::{SV2_FRAME_CHUNK_SIZE, SV2_FRAME_HEADER_SIZE};
+pub use buffer_sv2::AeadBuffer;
+pub use const_sv2::{SV2_FRAME_CHUNK_SIZE, SV2_FRAME_HEADER_SIZE};
 use core::marker::PhantomData;
 #[cfg(feature = "noise_sv2")]
 use framing_sv2::framing2::HandShakeFrame;

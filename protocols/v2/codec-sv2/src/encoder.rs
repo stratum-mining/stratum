@@ -1,8 +1,7 @@
 use alloc::vec::Vec;
 use binary_sv2::{GetSize, Serialize};
-use const_sv2::AEAD_MAC_LEN;
-#[cfg(feature = "noise_sv2")]
-use const_sv2::{SV2_FRAME_CHUNK_SIZE, SV2_FRAME_HEADER_SIZE};
+pub use const_sv2::AEAD_MAC_LEN;
+pub use const_sv2::{SV2_FRAME_CHUNK_SIZE, SV2_FRAME_HEADER_SIZE};
 #[cfg(feature = "noise_sv2")]
 use core::convert::TryInto;
 use core::marker::PhantomData;
@@ -10,8 +9,9 @@ use core::marker::PhantomData;
 use framing_sv2::framing2::{EitherFrame, HandShakeFrame};
 use framing_sv2::{
     framing2::{Frame as F_, Sv2Frame},
-    header::NoiseHeader,
 };
+pub use framing_sv2::header::NoiseHeader;
+
 #[cfg(feature = "noise_sv2")]
 use tracing::error;
 

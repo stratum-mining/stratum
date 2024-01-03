@@ -35,7 +35,10 @@ jobs:
           toolchain: 1.75.0
           override: true
           components: clippy
-      - uses: actions-rs/cargo@v1
-        with:
-          command: clippy
-          args: -- -D warnings -A dead-code
+      - name: Run Clippy in specific directories
+        run: |
+          cargo clippy --manifest-path=benches/Cargo.toml -- -D warnings -A dead-code
+          cargo clippy --manifest-path=common/Cargo.toml -- -D warnings -A dead-code
+          cargo clippy --manifest-path=protocols/Cargo.toml -- -D warnings -A dead-code
+          cargo clippy --manifest-path=roles/Cargo.toml -- -D warnings -A dead-code
+          cargo clippy --manifest-path=utils/Cargo.toml -- -D warnings -A dead-code
