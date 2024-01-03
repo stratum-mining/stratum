@@ -147,13 +147,16 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
                     let mut cursor = Cursor::new(tx);
                     let tx = Transaction::consensus_decode_from_finite_reader(&mut cursor)
                         .expect("Invalid tx data from downstream");
-                    let index = *missing_indexes.get(i).ok_or(Error::LogicErrorMessage(
-                        Box::new(AllMessages::JobDeclaration(
-                            JobDeclaration::ProvideMissingTransactionsSuccess(
-                                message.clone().into_static(),
-                            ),
-                        )),
-                    ))? as usize;
+                    let index =
+                        *missing_indexes
+                            .get(i)
+                            .ok_or(Error::LogicErrorMessage(Box::new(
+                                AllMessages::JobDeclaration(
+                                    JobDeclaration::ProvideMissingTransactionsSuccess(
+                                        message.clone().into_static(),
+                                    ),
+                                ),
+                            )))? as usize;
                     transactions.insert(index, tx);
                 }
                 // TODO check it
@@ -169,9 +172,11 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
                 let message_enum_success = JobDeclaration::DeclareMiningJobSuccess(message_success);
                 Ok(SendTo::Respond(message_enum_success))
             }
-            None => Err(Error::LogicErrorMessage(Box::new(AllMessages::JobDeclaration(
-                JobDeclaration::ProvideMissingTransactionsSuccess(message.clone().into_static()),
-            )))),
+            None => Err(Error::LogicErrorMessage(Box::new(
+                AllMessages::JobDeclaration(JobDeclaration::ProvideMissingTransactionsSuccess(
+                    message.clone().into_static(),
+                )),
+            ))),
         }
     }
 
