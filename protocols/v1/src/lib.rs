@@ -215,11 +215,11 @@ pub trait IsServer<'a> {
         self.set_extranonce1(Some(extra_nonce1.clone()));
         self.set_extranonce2_size(Some(extra_nonce2_size));
 
-        server_to_client::SetExtranonce {
+        Ok(server_to_client::SetExtranonce {
             extra_nonce1,
             extra_nonce2_size,
         }
-        .try_into()
+        .into())
     }
     // {"params":["00003000"], "id":null, "method": "mining.set_version_mask"}
     // fn update_version_rolling_mask
@@ -228,7 +228,7 @@ pub trait IsServer<'a> {
 
     fn handle_set_difficulty(&mut self, value: f64) -> Result<json_rpc::Message, Error> {
         let set_difficulty = server_to_client::SetDifficulty { value };
-        Ok(set_difficulty.try_into()?)
+        Ok(set_difficulty.into())
     }
 }
 

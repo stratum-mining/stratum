@@ -111,7 +111,7 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
             } else {
                 let message_provide_missing_transactions = ProvideMissingTransactions {
                     request_id: message.request_id,
-                    unknown_tx_position_list: missing_txs.try_into().unwrap(),
+                    unknown_tx_position_list: missing_txs.into(),
                 };
                 let message_enum_provide_missing_transactions =
                     JobDeclaration::ProvideMissingTransactions(

@@ -42,7 +42,7 @@ impl ParseServerJobDeclarationMessages for JobDeclarator {
     ) -> Result<SendTo, Error> {
         let message_identify_transactions = IdentifyTransactionsSuccess {
             request_id: message.request_id,
-            tx_data_hashes: Vec::new().try_into().unwrap(),
+            tx_data_hashes: Vec::new().into(),
         };
         let message_enum =
             JobDeclaration::IdentifyTransactionsSuccess(message_identify_transactions);
