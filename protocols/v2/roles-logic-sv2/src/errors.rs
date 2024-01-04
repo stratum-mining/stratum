@@ -146,7 +146,7 @@ impl Display for Error {
             JobNotUpdated(ds_job_id, us_job_id) => write!(f, "Channel Factory did not update job: Downstream job id = {}, Upstream job id = {}", ds_job_id, us_job_id),
             TargetError(e) => write!(f, "Impossible to get Target: {:?}", e),
             HashrateError(e) => write!(f, "Impossible to get Hashrate: {:?}", e),
-            LogicErrorMessage(e) => write!(f, "Message is well formateed but can not be handled: {:?}", e),
+            LogicErrorMessage(e) => write!(f, "Message is well formatted but can not be handled: {:?}", e),
         }
     }
 }
