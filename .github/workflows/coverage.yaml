@@ -32,7 +32,7 @@ jobs:
     name: Tarpaulin Test
     runs-on: ubuntu-latest
     container:
-      image: xd009642/tarpaulin:0.25.0-nightly
+      image: xd009642/tarpaulin:0.27.1-nightly
       options: --security-opt seccomp=unconfined
     steps:
       - name: Checkout repository
@@ -60,7 +60,7 @@ jobs:
       
       - uses: actions-rs/toolchain@v1
         with:
-          toolchain: 1.70.0
+          toolchain: 1.75.0
           override: true
           components: llvm-tools-preview
 

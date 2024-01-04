@@ -304,7 +304,6 @@ pub fn hash_rate_to_target(
     // if we want 5 shares per minute, this means that s=60/5=12 seconds interval between shares
     // this quantity will be at the numerator, so we multiply the result by 100 again later
     let shares_occurrency_frequence = 60_f64 / share_per_min;
-    let shares_occurrency_frequence = shares_occurrency_frequence;
 
     let h_times_s = hashrate * shares_occurrency_frequence;
     let h_times_s = h_times_s as u128;

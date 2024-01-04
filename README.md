@@ -2,9 +2,15 @@
 
 [![codecov](https://codecov.io/gh/stratum-mining/stratum/branch/main/graph/badge.svg)](https://codecov.io/gh/stratum-mining/stratum)
 
+**DEVELOPMENT IS DONE IN THE DEV BRANCH**
+**LATEST WORKING CODE IS IN THE DEV BRANCH**
+**MAIN BRANCH IS LATEST RELEASED SOURCES**
+
 The Stratum protocol defines how miners, proxies, and pools communicate to contribute hashrate to
 the Bitcoin network.
 
+## MSRV
+Minimum Supported Rust Version: 1.75.0
 
 ## Table of Contents
 

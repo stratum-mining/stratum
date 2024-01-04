@@ -322,7 +322,7 @@ impl ChannelFactory {
         extranonce_size: u16,
     ) -> Option<()> {
         self.channel_to_group_id.insert(channel_id, 0);
-        let extranonce_prefix = extranonce.try_into().unwrap();
+        let extranonce_prefix = extranonce.into();
         let success = OpenExtendedMiningChannelSuccess {
             request_id: 0,
             channel_id,
@@ -827,7 +827,7 @@ impl ChannelFactory {
             || tracing::level_enabled!(tracing::Level::TRACE)
         {
             debug!("Bitcoin target: {:?}", bitcoin_target);
-            let upstream_target: binary_sv2::U256 = upstream_target.clone().try_into().unwrap();
+            let upstream_target: binary_sv2::U256 = upstream_target.clone().into();
             let mut upstream_target = upstream_target.to_vec();
             upstream_target.reverse();
             debug!("Upstream target: {:?}", upstream_target.to_vec().to_hex());

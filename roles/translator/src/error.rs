@@ -80,7 +80,9 @@ pub enum Error<'a> {
     SetDifficultyToMessage(SetDifficulty),
     Infallible(std::convert::Infallible),
     // used to handle SV2 protocol error messages from pool
+    #[allow(clippy::enum_variant_names)]
     Sv2ProtocolError(Mining<'a>),
+    #[allow(clippy::enum_variant_names)]
     TargetError(roles_logic_sv2::errors::Error),
 }
 

@@ -182,9 +182,15 @@ impl Downstream {
                 }
             }
             Ok(SendTo::None(_)) => {}
-            Ok(_) => panic!(),
+            Ok(m) => {
+                error!("Unexpected SendTo: {:?}", m);
+                panic!();
+            }
             Err(Error::UnexpectedMessage(_message_type)) => todo!(),
-            Err(_) => todo!(),
+            Err(e) => {
+                error!("Error: {:?}", e);
+                todo!()
+            }
         }
         Ok(())
     }
