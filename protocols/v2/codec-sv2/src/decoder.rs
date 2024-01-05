@@ -4,6 +4,7 @@ use binary_sv2::Deserialize;
 use binary_sv2::GetSize;
 use binary_sv2::Serialize;
 pub use buffer_sv2::AeadBuffer;
+#[allow(unused_imports)]
 pub use const_sv2::{SV2_FRAME_CHUNK_SIZE, SV2_FRAME_HEADER_SIZE};
 use core::marker::PhantomData;
 #[cfg(feature = "noise_sv2")]
