@@ -59,8 +59,8 @@ jd_client(){
   pkg
 
   install target/$TARGET/release/jd_client pkg/$PKG/bin
-  # install roles/jd-client/config-examples/jdc-config-hosted-example.toml pkg/$PKG/etc/sri
-  # install roles/jd-client/config-examples/jdc-config-local-example.toml pkg/$PKG/etc/sri
+  install roles/jd-client/config-examples/jdc-config-hosted-example.toml pkg/$PKG/etc/sri
+  install roles/jd-client/config-examples/jdc-config-local-example.toml pkg/$PKG/etc/sri
 
   echo "finished bootstrapping package $PKG... creating tarball now..."
   tarball
@@ -105,8 +105,8 @@ translator_sv2(){
   pkg
 
   install target/$TARGET/release/translator_sv2 pkg/$PKG/bin
-#  install roles/translator/config-examples/translator-config-local-jdc-example.toml pkg/$PKG/etc/sri
-#  install roles/translator/config-examples/translator-config-local-pool-example.toml pkg/$PKG/etc/sri
+  install roles/translator/config-examples/translator-config-local-jdc-example.toml pkg/$PKG/etc/sri
+  install roles/translator/config-examples/translator-config-local-pool-example.toml pkg/$PKG/etc/sri
 
   echo "finished bootstrapping package $PKG... creating tarball now..."
   tarball
