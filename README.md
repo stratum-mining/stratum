@@ -537,7 +537,7 @@ jd_client
 jd_server
 mining_proxy_sv2
 pool_sv2
-translator_v2
+translator_sv2
 
 Available options for <bits> are:
 32
