@@ -1,0 +1,91 @@
+name: Cross Compile Check
+
+on:
+  push:
+    branches:
+      - dev
+
+jobs:
+  cross_compile_64:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v2
+
+      - name: Set up Rust
+        uses: actions/setup-rust@v1
+
+      - name: Install Dependencies
+        run: |
+          cargo install cross
+
+      - name: Cross Compile 64-bit
+        run: |
+          ./sv2-rpi.sh jd_client 64
+          ./sv2-rpi.sh jd_server 64
+          ./sv2-rpi.sh mining_proxy_sv2 64
+          ./sv2-rpi.sh pool_sv2 64
+          ./sv2-rpi.sh translator_sv2 64
+
+      - name: Check artifacts
+        run: |
+          arch="aarch64-unknown-linux-gnu"
+          bin_dir="target/$arch/release"
+          tar_dir="tar"
+          artifacts=("jd_client" "jd_server" "mining_proxy_sv2" "pool_sv2" "translator_sv2")
+
+          for file in "${artifacts[@]}"; do
+            bin_path="$bin_dir/$file"
+            if [ ! -e "$bin_path" ]; then
+              echo "Binary file $bin_path does not exist."
+              exit 1
+            fi
+            tar_path="$tar_dir/$file-$arch.tar.gz"
+            if [ ! -e "$tar_path" ]; then
+              echo "File $tar_path does not exist."
+              exit 1
+            fi
+          done
+
+  cross_compile_32:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v2
+
+      - name: Set up Rust
+        uses: actions/setup-rust@v1
+
+      - name: Install Dependencies
+        run: |
+          cargo install cross
+
+      - name: Cross Compile 32-bit
+        run: |
+          ./sv2-rpi.sh jd_client 32
+          ./sv2-rpi.sh jd_server 32
+          ./sv2-rpi.sh mining_proxy_sv2 32
+          ./sv2-rpi.sh pool_sv2 32
+          ./sv2-rpi.sh translator_sv2 32
+
+      - name: Check artifacts
+        run: |
+          arch="arm-unknown-linux-gnueabi"
+          bin_dir="target/$arch/release"
+          tar_dir="tar"
+          artifacts=("jd_client" "jd_server" "mining_proxy_sv2" "pool_sv2" "translator_sv2")
+
+          for file in "${artifacts[@]}"; do
+            bin_path="$bin_dir/$file"
+            if [ ! -e "$bin_path" ]; then
+              echo "Binary file $bin_path does not exist."
+              exit 1
+            fi
+            tar_path="$tar_dir/$file-$arch.tar.gz"
+            if [ ! -e "$tar_path" ]; then
+              echo "File $tar_path does not exist."
+              exit 1
+            fi
+          done
