@@ -1,4 +1,4 @@
-name: Cross Compile Check
+name: Check Raspberry Pi Cross Compilation
 
 on:
   push:
