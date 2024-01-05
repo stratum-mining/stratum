@@ -78,16 +78,6 @@ jd_server(){
   tarball
 }
 
-mining_device(){
-  build
-  pkg
-
-  install target/$TARGET/release/mining_device pkg/$PKG/bin
-
-  echo "finished bootstrapping package $PKG... creating tarball now..."
-  tarball
-}
-
 mining_proxy_sv2(){
   build
   pkg

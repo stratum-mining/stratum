@@ -535,7 +535,6 @@ $ ./sv2-rpi.sh <role> <bits>
 Available options for <role> are:
 jd_client
 jd_server
-mining-device
 mining_proxy_sv2
 pool_sv2
 translator_v2
