@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # This program utilizes cargo-cross to automate the generation of a tarball package distribution of
 # SRI releases targeting the Rasperry Pi OS (32 and 64 bits).
