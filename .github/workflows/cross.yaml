@@ -18,15 +18,15 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v2
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: 1.70.0
+          override: true
 
-      - name: Set up Rust
-        uses: actions/setup-rust@v1
-
-      - name: Install Dependencies
-        run: |
-          cargo install cross
+      - name: Install cargo-cross
+        run: cargo install cross
 
       - name: Cross Compile 64-bit
         run: |
@@ -60,15 +60,15 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v2
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: 1.70.0
+          override: true
 
-      - name: Set up Rust
-        uses: actions/setup-rust@v1
-
-      - name: Install Dependencies
-        run: |
-          cargo install cross
+      - name: Install cargo-cross
+        run: cargo install cross
 
       - name: Cross Compile 32-bit
         run: |
