@@ -3,7 +3,15 @@ name: Cross Compile Check
 on:
   push:
     branches:
+      - main
       - dev
+  pull_request:
+    branches:
+      - main
+      - dev
+  pull_request_review:
+    types: [submitted]
+    branches: [bot/versioning]
 
 jobs:
   cross_compile_64:
