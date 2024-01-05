@@ -22,7 +22,7 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: 1.70.0
+          toolchain: 1.75.0
           override: true
 
       - name: Install cargo-cross
@@ -30,11 +30,11 @@ jobs:
 
       - name: Cross Compile 64-bit
         run: |
-          ./sv2-rpi.sh jd_client 64
-          ./sv2-rpi.sh jd_server 64
-          ./sv2-rpi.sh mining_proxy_sv2 64
-          ./sv2-rpi.sh pool_sv2 64
-          ./sv2-rpi.sh translator_sv2 64
+          bash sv2-rpi.sh jd_client 64
+          bash sv2-rpi.sh jd_server 64
+          bash sv2-rpi.sh mining_proxy_sv2 64
+          bash sv2-rpi.sh pool_sv2 64
+          bash sv2-rpi.sh translator_sv2 64
 
       - name: Check artifacts
         run: |
@@ -64,7 +64,7 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: 1.70.0
+          toolchain: 1.75.0
           override: true
 
       - name: Install cargo-cross
@@ -72,11 +72,11 @@ jobs:
 
       - name: Cross Compile 32-bit
         run: |
-          ./sv2-rpi.sh jd_client 32
-          ./sv2-rpi.sh jd_server 32
-          ./sv2-rpi.sh mining_proxy_sv2 32
-          ./sv2-rpi.sh pool_sv2 32
-          ./sv2-rpi.sh translator_sv2 32
+          bash sv2-rpi.sh jd_client 32
+          bash sv2-rpi.sh jd_server 32
+          bash sv2-rpi.sh mining_proxy_sv2 32
+          bash sv2-rpi.sh pool_sv2 32
+          bash sv2-rpi.sh translator_sv2 32
 
       - name: Check artifacts
         run: |
