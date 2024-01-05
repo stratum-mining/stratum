@@ -46,7 +46,7 @@
                         "pool_sv2",
                         "--",
                         "-c",
-                        "./test/config/pool-mock-tp-bad-coinbase.toml"
+                        "../test/config/pool-mock-tp-bad-coinbase.toml"
             ],
             "conditions": {
                 "WithConditions": {
@@ -72,7 +72,7 @@
                         "--",
                         "-h",
                         "-c",
-                        "./test/config/pool-mock-tp.toml"
+                        "../test/config/pool-mock-tp.toml"
             ],
             "conditions": {
                 "WithConditions": {
@@ -97,7 +97,7 @@
                         "pool_sv2",
                         "--",
                         "-c",
-                        "./test/config/pool-mock-tp-bad-config.toml"
+                        "../test/config/pool-mock-tp-bad-config.toml"
             ],
             "conditions": {
                 "WithConditions": {
@@ -122,7 +122,7 @@
                         "pool_sv2",
                         "--",
                         "-c",
-                        "./test/config/no-config-at-this-path.toml"
+                        "../test/config/no-config-at-this-path.toml"
             ],
             "conditions": {
                 "WithConditions": {
@@ -147,7 +147,7 @@
                         "pool_sv2",
                         "--",
                         "-c",
-                        "./test/config/pool-mock-tp.toml"
+                        "../test/config/pool-mock-tp.toml"
             ],
             "conditions": {
                 "WithConditions": {

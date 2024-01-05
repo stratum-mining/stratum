@@ -24,7 +24,7 @@
                         "pool_sv2",
                         "--",
                         "-c",
-                        "./test/config/interop-jd-translator/pool-config.toml"
+                        "../test/config/interop-jd-translator/pool-config.toml"
             ],
             "conditions": {
                 "WithConditions": {
@@ -50,7 +50,7 @@
                         "jd_server",
                         "--",
                         "-c",
-                        "./test/config/interop-jd-translator/jds-config.toml"
+                        "../test/config/interop-jd-translator/jds-config.toml"
             ],
             "conditions": {
                 "WithConditions": {
@@ -76,7 +76,7 @@
                         "jd_client",
                         "--",
                         "-c",
-                        "./test/config/interop-jd-translator/jdc-config.toml"
+                        "../test/config/interop-jd-translator/jdc-config.toml"
             ],
             "conditions": {
                 "WithConditions": {
@@ -102,7 +102,7 @@
                         "translator_sv2",
                         "--",
                         "-c",
-                        "./test/config/interop-jd-translator/proxy-config.toml"
+                        "../test/config/interop-jd-translator/proxy-config.toml"
             ],
             "conditions": {
                 "WithConditions": {

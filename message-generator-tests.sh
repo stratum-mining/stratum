@@ -15,5 +15,5 @@ for entry in `ls $search_dir`; do
     cargo run -- $search_dir$entry || { echo 'mg test failed' ; exit 1; }
 done
 
-cd ../../
+cd ../../roles
 cargo llvm-cov --ignore-filename-regex "utils/message-generator/|experimental/|protocols/" --cobertura --output-path "target/mg_coverage.xml" report

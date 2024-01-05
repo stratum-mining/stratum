@@ -27,7 +27,7 @@
                         "pool_sv2",
                         "--",
                         "-c",
-                        "./test/config/pool-config-sri-tp.toml"
+                        "../test/config/pool-config-sri-tp.toml"
             ],
             "conditions": {
                 "WithConditions": {
@@ -53,7 +53,7 @@
                         "pool_sv2",
                         "--",
                         "-c",
-                        "./test/config/pool-config-sri-tp-different-port.toml"
+                        "../test/config/pool-config-sri-tp-different-port.toml"
             ],
             "conditions": {
                 "WithConditions": {
@@ -79,7 +79,7 @@
                         "mining_proxy_sv2",
                         "--",
                         "-c",
-                        "./test/config/proxy-config-test-multiple-upstreams-extended.toml"
+                        "../test/config/proxy-config-test-multiple-upstreams-extended.toml"
             ],
             "conditions": {
                 "WithConditions": {
