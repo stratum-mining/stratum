@@ -35,7 +35,7 @@ jobs:
           toolchain: 1.75.0
           override: true
           components: clippy
-      - name: Run Clippy in specific directories
+      - name: Run Clippy on different workspaces and crates
         run: |
           cargo clippy --manifest-path=benches/Cargo.toml -- -D warnings -A dead-code
           cargo clippy --manifest-path=common/Cargo.toml -- -D warnings -A dead-code
