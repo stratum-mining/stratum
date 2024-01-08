@@ -1,11 +1,11 @@
-pub mod hex_iterator;
 pub mod mini_rpc_client;
-pub mod rpc_client;
+//pub mod rpc_client;
+//pub mod hex_iterator;
 use async_channel::Receiver;
 use bitcoin::blockdata::transaction::Transaction;
 use hashbrown::HashMap;
 use roles_logic_sv2::utils::Mutex;
-use rpc_client::{Auth, RpcApi, RpcClient};
+//use rpc_client::{Auth, RpcApi, RpcClient};
 use serde::{Deserialize, Serialize};
 use std::{convert::TryInto, sync::Arc};
 use stratum_common::{bitcoin, bitcoin::hash_types::Txid};

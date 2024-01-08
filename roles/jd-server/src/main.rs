@@ -200,7 +200,9 @@ async fn main() {
     let cloned = config.clone();
     let sender = status::Sender::Downstream(status_tx.clone());
     let mempool_cloned = mempool.clone();
-    task::spawn(async move { JobDeclarator::start(cloned, sender, mempool_cloned).await });
+    task::spawn(async move {
+        JobDeclarator::start(cloned, sender, mempool_cloned, submit_block_tx).await
+    });
 
     // Start the error handling loop
     // See `./status.rs` and `utils/error_handling` for information on how this operates

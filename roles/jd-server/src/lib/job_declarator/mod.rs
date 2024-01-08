@@ -1,6 +1,7 @@
 pub mod message_handler;
 use crate::{
-    error::JdsError, lib::mempool::JDsMempool, status, Configuration, EitherFrame, StdFrame,
+    error::JdsError, lib::mempool::JDsMempool, status, Configuration, EitherFrame, Message,
+    StdFrame,
 };
 use async_channel::{Receiver, Sender};
 use binary_sv2::{B0255, U256};
@@ -78,7 +79,7 @@ impl JobDeclaratorDownstream {
         sender.send(sv2_frame.into()).await.map_err(|_| ())?;
         Ok(())
     }
-    pub fn start(self_mutex: Arc<Mutex<Self>>, tx_status: status::Sender) {
+    pub fn start(self_mutex: Arc<Mutex<Self>>, tx_status: status::Sender, sender: Sender<Message>) {
         let recv = self_mutex.safe_lock(|s| s.receiver.clone()).unwrap();
         tokio::spawn(async move {
             loop {
@@ -103,7 +104,10 @@ impl JobDeclaratorDownstream {
                             }
                             Ok(SendTo::None(_)) => (),
                             Ok(SendTo::RelayNewMessage(JobDeclaration::SubmitSolution(m))) => {
-                                todo!()
+                                let message = JobDeclaration::SubmitSolution(m.clone());
+                                let message_ =
+                                    roles_logic_sv2::parsers::PoolMessages::JobDeclaration(message);
+                                let _ = sender.send(message_);
                             }
                             Err(e) => {
                                 error!("{:?}", e);
@@ -158,16 +162,18 @@ impl JobDeclarator {
         config: Configuration,
         status_tx: crate::status::Sender,
         mempool: Arc<Mutex<JDsMempool>>,
+        sender: Sender<Message>,
     ) {
         let self_ = Arc::new(Mutex::new(Self {}));
         info!("JD INITIALIZED");
-        Self::accept_incoming_connection(self_, config, status_tx, mempool).await;
+        Self::accept_incoming_connection(self_, config, status_tx, mempool, sender).await;
     }
     async fn accept_incoming_connection(
         _self_: Arc<Mutex<JobDeclarator>>,
         config: Configuration,
         status_tx: crate::status::Sender,
         mempool: Arc<Mutex<JDsMempool>>,
+        sender_submit_sol: Sender<Message>,
     ) {
         let listner = TcpListener::bind(&config.listen_jd_address).await.unwrap();
         while let Ok((stream, _)) = listner.accept().await {
@@ -208,7 +214,11 @@ impl JobDeclarator {
                     mempool.clone(),
                 )));
 
-                JobDeclaratorDownstream::start(jddownstream, status_tx.clone());
+                JobDeclaratorDownstream::start(
+                    jddownstream,
+                    status_tx.clone(),
+                    sender_submit_sol.clone(),
+                );
             } else {
                 error!("Can not connect {:?}", addr);
             }
