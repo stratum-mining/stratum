@@ -33,11 +33,11 @@ pub struct MiniRpcClient {
     url: String,
     auth: Auth,
     //recv_submit: AsyncReceiver<Message>,
-    recv_submit: Receiver<Message>,
+    recv_submit: Receiver<String>,
 }
 
 impl MiniRpcClient {
-    pub fn new(url: String, auth: Auth, receiver: Receiver<Message>) -> MiniRpcClient {
+    pub fn new(url: String, auth: Auth, receiver: Receiver<String>) -> MiniRpcClient {
         let client: Client<_, Full<Bytes>> = Client::builder(TokioExecutor::new()).build_http();
         MiniRpcClient {
             client,
@@ -47,7 +47,7 @@ impl MiniRpcClient {
         }
     }
 
-    pub fn get_receiver(self) -> Receiver<Message> {
+    pub fn get_receiver(self) -> Receiver<String> {
         self.recv_submit
     }
 

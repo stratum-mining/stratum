@@ -170,12 +170,12 @@ async fn main() {
     let url = config.core_rpc_url.clone() + ":" + &config.core_rpc_port.clone().to_string();
     let username = config.core_rpc_user.clone();
     let password = config.core_rpc_pass.clone();
-    let (submit_block_tx, submit_block_rx) = unbounded();
+    let (submit_solution_sender, submit_solution_receiver): (Sender<String>, Receiver<String>) = unbounded();
     let mempool = Arc::new(Mutex::new(mempool::JDsMempool::new(
         url.clone(),
         username,
         password,
-        submit_block_rx,
+        submit_solution_receiver,
     )));
     let mempool_cloned_ = mempool.clone();
     if url.contains("http") {
@@ -201,7 +201,7 @@ async fn main() {
     let sender = status::Sender::Downstream(status_tx.clone());
     let mempool_cloned = mempool.clone();
     task::spawn(async move {
-        JobDeclarator::start(cloned, sender, mempool_cloned, submit_block_tx).await
+        JobDeclarator::start(cloned, sender, mempool_cloned, submit_solution_sender).await
     });
 
     // Start the error handling loop
