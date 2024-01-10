@@ -1,6 +1,6 @@
 use std::{convert::TryInto, io::Cursor, sync::Arc};
 
-use stratum_common::bitcoin::{hashes::Hash, psbt::serialize::Deserialize, Block, Transaction};
+use stratum_common::bitcoin::Transaction;
 
 use binary_sv2::ShortTxId;
 use roles_logic_sv2::{
@@ -11,15 +11,14 @@ use roles_logic_sv2::{
         ProvideMissingTransactions, ProvideMissingTransactionsSuccess, SubmitSolutionJd,
     },
     parsers::JobDeclaration,
-    utils::{merkle_root_from_path, u256_to_block_hash, Mutex},
+    utils::Mutex,
 };
 pub type SendTo = SendTo_<JobDeclaration<'static>, ()>;
 use roles_logic_sv2::{errors::Error, parsers::PoolMessages as AllMessages};
 use stratum_common::bitcoin::consensus::Decodable;
-use tracing::warn;
+//use tracing::warn;
 
 use crate::lib::job_declarator::signed_token;
-use stratum_common::bitcoin::consensus::encode::serialize;
 
 use super::JobDeclaratorDownstream;
 
@@ -182,7 +181,7 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
     }
 
     fn handle_submit_solution(
-        self_: Arc<Mutex<Self>>,
+        _self: Arc<Mutex<Self>>,
         message: SubmitSolutionJd<'_>,
     ) -> Result<SendTo, Error> {
         //TODO: implement logic for success or error

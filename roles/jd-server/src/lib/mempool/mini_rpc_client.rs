@@ -3,7 +3,7 @@
 //    Struct hyper_util::client::legacy::Client
 //  - use https for security reasons
 //  - manage id in RpcResult messages
-use async_channel::{Receiver, Sender};
+use async_channel::Receiver;
 use base64::Engine;
 use bytes::Bytes;
 use hex::decode;
@@ -16,13 +16,10 @@ use hyper_util::{
     client::legacy::{connect::HttpConnector, Client},
     rt::TokioExecutor,
 };
-use roles_logic_sv2::{parsers::JobDeclaration, utils::Mutex};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use std::sync::Arc;
 use stratum_common::bitcoin::{consensus::encode::deserialize as consensus_decode, Transaction};
 
-use crate::Message;
 
 use super::BlockHash;
 
@@ -32,7 +29,6 @@ pub struct MiniRpcClient {
     //url: &'a str,
     url: String,
     auth: Auth,
-    //recv_submit: AsyncReceiver<Message>,
     recv_submit: Receiver<String>,
 }
 

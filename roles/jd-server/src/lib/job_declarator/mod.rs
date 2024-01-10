@@ -1,6 +1,6 @@
 pub mod message_handler;
 use crate::{
-    error::JdsError, lib::mempool::JDsMempool, status, Configuration, EitherFrame, Message,
+    error::JdsError, lib::mempool::JDsMempool, status, Configuration, EitherFrame,
     StdFrame,
 };
 use async_channel::{Receiver, Sender};
@@ -104,9 +104,6 @@ impl JobDeclaratorDownstream {
                             }
                             Ok(SendTo::None(_)) => (),
                             Ok(SendTo::RelayNewMessage(JobDeclaration::SubmitSolution(message))) => {
-                                let m = JobDeclaration::SubmitSolution(message.clone());
-                                let m_ =
-                                    roles_logic_sv2::parsers::PoolMessages::JobDeclaration(m);
 
                                 //TODO: implement logic for success or error
                                 let (last_declare, mut tx_list, _) = match self_mutex.safe_lock(|x| x.declared_mining_job.take()).unwrap() {

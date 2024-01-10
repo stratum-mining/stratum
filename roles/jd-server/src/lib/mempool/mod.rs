@@ -10,7 +10,6 @@ use serde::{Deserialize, Serialize};
 use std::{convert::TryInto, sync::Arc};
 use stratum_common::{bitcoin, bitcoin::hash_types::Txid};
 
-use crate::Message;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Hash([u8; 32]);

@@ -1,5 +1,4 @@
 #![allow(special_module_name)]
-use crate::mempool::mini_rpc_client;
 use async_channel::{unbounded, Receiver, Sender};
 use codec_sv2::{StandardEitherFrame, StandardSv2Frame};
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
