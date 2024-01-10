@@ -169,7 +169,8 @@ async fn main() {
     let url = config.core_rpc_url.clone() + ":" + &config.core_rpc_port.clone().to_string();
     let username = config.core_rpc_user.clone();
     let password = config.core_rpc_pass.clone();
-    let (submit_solution_sender, submit_solution_receiver): (Sender<String>, Receiver<String>) = unbounded();
+    let (submit_solution_sender, submit_solution_receiver): (Sender<String>, Receiver<String>) =
+        unbounded();
     let mempool = Arc::new(Mutex::new(mempool::JDsMempool::new(
         url.clone(),
         username,

@@ -3,7 +3,6 @@
 //    Struct hyper_util::client::legacy::Client
 //  - use https for security reasons
 //  - manage id in RpcResult messages
-use async_channel::Receiver;
 use base64::Engine;
 use bytes::Bytes;
 use hex::decode;
@@ -20,7 +19,6 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use stratum_common::bitcoin::{consensus::encode::deserialize as consensus_decode, Transaction};
 
-
 use super::BlockHash;
 
 #[derive(Clone, Debug)]
@@ -29,22 +27,12 @@ pub struct MiniRpcClient {
     //url: &'a str,
     url: String,
     auth: Auth,
-    recv_submit: Receiver<String>,
 }
 
 impl MiniRpcClient {
-    pub fn new(url: String, auth: Auth, receiver: Receiver<String>) -> MiniRpcClient {
+    pub fn new(url: String, auth: Auth) -> MiniRpcClient {
         let client: Client<_, Full<Bytes>> = Client::builder(TokioExecutor::new()).build_http();
-        MiniRpcClient {
-            client,
-            url,
-            auth,
-            recv_submit: receiver,
-        }
-    }
-
-    pub fn get_receiver(self) -> Receiver<String> {
-        self.recv_submit
+        MiniRpcClient { client, url, auth }
     }
 
     pub async fn get_raw_transaction(

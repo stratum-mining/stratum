@@ -1,7 +1,6 @@
 pub mod message_handler;
 use crate::{
-    error::JdsError, lib::mempool::JDsMempool, status, Configuration, EitherFrame,
-    StdFrame,
+    error::JdsError, lib::mempool::JDsMempool, status, Configuration, EitherFrame, StdFrame,
 };
 use async_channel::{Receiver, Sender};
 use binary_sv2::{B0255, U256};
@@ -15,14 +14,19 @@ use roles_logic_sv2::{
     handlers::job_declaration::{ParseClientJobDeclarationMessages, SendTo},
     job_declaration_sv2::DeclareMiningJob,
     parsers::{JobDeclaration, PoolMessages as JdsMessages},
-    utils::{Id, merkle_root_from_path, u256_to_block_hash, Mutex},
+    utils::{merkle_root_from_path, u256_to_block_hash, Id, Mutex},
 };
 use secp256k1::{KeyPair, Message as SecpMessage, Secp256k1};
 use std::{collections::HashMap, convert::TryInto, sync::Arc};
 use tokio::net::TcpListener;
 use tracing::{error, info};
 
-use stratum_common::bitcoin::{Block, consensus::Encodable, consensus::encode::serialize, Transaction, hashes::Hash, psbt::serialize::Deserialize};
+use stratum_common::bitcoin::{
+    consensus::{encode::serialize, Encodable},
+    hashes::Hash,
+    psbt::serialize::Deserialize,
+    Block, Transaction,
+};
 
 #[derive(Debug)]
 pub struct JobDeclaratorDownstream {
@@ -79,7 +83,11 @@ impl JobDeclaratorDownstream {
         sender.send(sv2_frame.into()).await.map_err(|_| ())?;
         Ok(())
     }
-    pub fn start(self_mutex: Arc<Mutex<Self>>, tx_status: status::Sender, submit_solution_sender: Sender<String>) {
+    pub fn start(
+        self_mutex: Arc<Mutex<Self>>,
+        tx_status: status::Sender,
+        submit_solution_sender: Sender<String>,
+    ) {
         let recv = self_mutex.safe_lock(|s| s.receiver.clone()).unwrap();
         tokio::spawn(async move {
             loop {
@@ -103,11 +111,17 @@ impl JobDeclaratorDownstream {
                                 Self::send(self_mutex.clone(), message).await.unwrap();
                             }
                             Ok(SendTo::None(_)) => (),
-                            Ok(SendTo::RelayNewMessage(JobDeclaration::SubmitSolution(message))) => {
-
+                            Ok(SendTo::RelayNewMessage(JobDeclaration::SubmitSolution(
+                                message,
+                            ))) => {
                                 //TODO: implement logic for success or error
-                                let (last_declare, mut tx_list, _) = match self_mutex.safe_lock(|x| x.declared_mining_job.take()).unwrap() {
-                                    Some((last_declare, tx_list, _x)) => (last_declare, tx_list, _x),
+                                let (last_declare, mut tx_list, _) = match self_mutex
+                                    .safe_lock(|x| x.declared_mining_job.take())
+                                    .unwrap()
+                                {
+                                    Some((last_declare, tx_list, _x)) => {
+                                        (last_declare, tx_list, _x)
+                                    }
                                     None => {
                                         //warn!("Received solution but no job available");
                                         todo!()
@@ -122,20 +136,26 @@ impl JobDeclaratorDownstream {
                                     let id = id.as_ref().to_vec();
                                     path.push(id);
                                 }
-                                let merkle_root =
-                                    merkle_root_from_path(&coinbase_pre[..], &coinbase_suf[..], &extranonce[..], &path)
-                                        .expect("Invalid coinbase");
+                                let merkle_root = merkle_root_from_path(
+                                    &coinbase_pre[..],
+                                    &coinbase_suf[..],
+                                    &extranonce[..],
+                                    &path,
+                                )
+                                .expect("Invalid coinbase");
                                 let merkle_root = Hash::from_inner(merkle_root.try_into().unwrap());
 
-                                let prev_blockhash = u256_to_block_hash(message.prev_hash.into_static());
-                                let header = stratum_common::bitcoin::blockdata::block::BlockHeader {
-                                    version: last_declare.version as i32,
-                                    prev_blockhash,
-                                    merkle_root,
-                                    time: message.ntime,
-                                    bits: message.nbits,
-                                    nonce: message.nonce,
-                                };
+                                let prev_blockhash =
+                                    u256_to_block_hash(message.prev_hash.into_static());
+                                let header =
+                                    stratum_common::bitcoin::blockdata::block::BlockHeader {
+                                        version: last_declare.version as i32,
+                                        prev_blockhash,
+                                        merkle_root,
+                                        time: message.ntime,
+                                        bits: message.nbits,
+                                        nonce: message.nonce,
+                                    };
 
                                 let coinbase = [coinbase_pre, extranonce, coinbase_suf].concat();
                                 let coinbase = Transaction::deserialize(&coinbase[..]).unwrap();
@@ -151,11 +171,7 @@ impl JobDeclaratorDownstream {
                                 let serialized_block = serialize(&block);
                                 let hexdata = hex::encode(serialized_block);
 
-
-
-
-
-                                let _ = submit_solution_sender.send(hexdata);
+                                let _ = submit_solution_sender.send(hexdata).await;
                             }
                             Err(e) => {
                                 error!("{:?}", e);

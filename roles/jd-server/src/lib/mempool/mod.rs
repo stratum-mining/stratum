@@ -1,15 +1,14 @@
 pub mod mini_rpc_client;
-//pub mod rpc_client;
-//pub mod hex_iterator;
 use async_channel::Receiver;
 use bitcoin::blockdata::transaction::Transaction;
 use hashbrown::HashMap;
 use roles_logic_sv2::utils::Mutex;
 //use rpc_client::{Auth, RpcApi, RpcClient};
+use mini_rpc_client::RpcError;
 use serde::{Deserialize, Serialize};
 use std::{convert::TryInto, sync::Arc};
 use stratum_common::{bitcoin, bitcoin::hash_types::Txid};
-
+use tokio::task::JoinError;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Hash([u8; 32]);
@@ -38,12 +37,7 @@ impl JDsMempool {
     pub fn get_client(&self) -> Option<mini_rpc_client::MiniRpcClient> {
         let url = self.url.as_str();
         if url.contains("http") {
-            let client = mini_rpc_client::MiniRpcClient::new(
-                url.to_string(),
-                self.auth.clone(),
-                self.receiver.clone(),
-            );
-            //Some(RpcClient::new(url, self.auth.clone()).unwrap())
+            let client = mini_rpc_client::MiniRpcClient::new(url.to_string(), self.auth.clone());
             Some(client)
         } else {
             None
@@ -69,11 +63,14 @@ impl JDsMempool {
         let mut mempool_ordered: Vec<TransacrtionWithHash> = Vec::new();
         let client = self_
             .safe_lock(|x| x.get_client())
-            .unwrap()
+            .map_err(|e| JdsMempoolError::PoisonLock(e.to_string()))?
             .ok_or(JdsMempoolError::NoClient)?;
         let new_mempool: Result<Vec<TransacrtionWithHash>, JdsMempoolError> =
             tokio::task::spawn(async move {
-                let mempool: Vec<String> = client.get_raw_mempool_verbose().await.unwrap();
+                let mempool: Vec<String> = client
+                    .get_raw_mempool_verbose()
+                    .await
+                    .map_err(JdsMempoolError::Rpc)?;
                 for id in &mempool {
                     let tx: Result<Transaction, _> = client.get_raw_transaction(id, None).await;
                     if let Ok(tx) = tx {
@@ -88,7 +85,7 @@ impl JDsMempool {
                 }
             })
             .await
-            .unwrap();
+            .map_err(JdsMempoolError::TokioJoinError)?;
 
         match new_mempool {
             Ok(new_mempool_) => {
@@ -101,78 +98,22 @@ impl JDsMempool {
         }
     }
 
-    //
-    //pub async fn on_submit(self_: Arc<Mutex<Self>>) {
-    //    let recv = self_.safe_lock(|x| x.recv_submit);
-    pub async fn on_submit(self_: Arc<Mutex<Self>>) {
-        let receiver = self_.safe_lock(|x| x.get_client().unwrap()).unwrap().get_receiver();
-        let client = self_.safe_lock(|x| x.get_client()).unwrap().unwrap();
+    pub async fn on_submit(self_: Arc<Mutex<Self>>) -> Result<(), JdsMempoolError> {
+        let receiver: Receiver<String> = self_
+            .safe_lock(|x| x.receiver.clone())
+            .map_err(|e| JdsMempoolError::PoisonLock(e.to_string()))?;
+        let client = self_
+            .safe_lock(|x| x.get_client())
+            .map_err(|e| JdsMempoolError::PoisonLock(e.to_string()))?
+            .ok_or(JdsMempoolError::NoClient)?;
 
         while let Ok(block_hex) = receiver.recv().await {
-            mini_rpc_client::MiniRpcClient::submit_block(&client, block_hex).await;
-            
-             
-
-            //TODO: implement logic for success or error
-            //let (last_declare, mut tx_list, _) = match self_.safe_lock(|x| x.declared_mining_job.take()).unwrap() {
-            //    Some((last_declare, tx_list, _x)) => (last_declare, tx_list, _x),
-            //    None => {
-            //        warn!("Received solution but no job available");
-            //        return Ok(SendTo::None(None));
-            //    }
-            //};
-            //let coinbase_pre = last_declare.coinbase_prefix.to_vec();
-            //let extranonce = message.extranonce.to_vec();
-            //let coinbase_suf = last_declare.coinbase_suffix.to_vec();
-            //let mut path: Vec<Vec<u8>> = vec![];
-            //for tx in &tx_list {
-            //    let id = tx.txid();
-            //    let id = id.as_ref().to_vec();
-            //    path.push(id);
-            //}
-            //let merkle_root =
-            //    merkle_root_from_path(&coinbase_pre[..], &coinbase_suf[..], &extranonce[..], &path)
-            //        .expect("Invalid coinbase");
-            //let merkle_root = Hash::from_inner(merkle_root.try_into().unwrap());
-
-            //let prev_blockhash = u256_to_block_hash(message.prev_hash.into_static());
-            //let header = stratum_common::bitcoin::blockdata::block::BlockHeader {
-            //    version: last_declare.version as i32,
-            //    prev_blockhash,
-            //    merkle_root,
-            //    time: message.ntime,
-            //    bits: message.nbits,
-            //    nonce: message.nonce,
-            //};
-
-            //let coinbase = [coinbase_pre, extranonce, coinbase_suf].concat();
-            //let coinbase = Transaction::deserialize(&coinbase[..]).unwrap();
-            //tx_list.insert(0, coinbase);
-
-            //let mut block = Block {
-            //    header,
-            //    txdata: tx_list.clone(),
-            //};
-
-            //block.header.merkle_root = block.compute_merkle_root().unwrap();
-
-            //let serialized_block = serialize(&block);
-            //let hexdata = hex::encode(serialized_block);
-
-            //// TODO This line blok everything!!
-            //let client = self_.safe_lock(|y|
-            //    y
-            //    .mempool
-            //    .safe_lock(|x| {
-            //        if let Some(client) = x.get_client() {
-            //            client//.submit_block(hexdata).await;
-            //        } else {
-            //            todo!()
-            //        }
-            //    })
-            //    .unwrap()).unwrap();
-            //client.submit_block(hexdata).await;
+            match mini_rpc_client::MiniRpcClient::submit_block(&client, block_hex).await {
+                Ok(_) => return Ok(()),
+                Err(e) => JdsMempoolError::Rpc(e),
+            };
         }
+        Ok(())
     }
 
     pub fn to_short_ids(&self, nonce: u64) -> Option<HashMap<[u8; 6], Transaction>> {
@@ -196,4 +137,7 @@ impl JDsMempool {
 pub enum JdsMempoolError {
     EmptyMempool,
     NoClient,
+    Rpc(RpcError),
+    PoisonLock(String),
+    TokioJoinError(JoinError),
 }
