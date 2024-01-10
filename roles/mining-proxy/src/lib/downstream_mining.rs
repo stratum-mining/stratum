@@ -476,7 +476,7 @@ impl
         self.status.pair(data);
         Ok(SendToCommon::RelayNewMessageToRemote(
             Arc::new(Mutex::new(())),
-            message.try_into().unwrap(),
+            message.into(),
         ))
     }
 }

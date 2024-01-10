@@ -13,7 +13,7 @@ use roles_logic_sv2::{
     utils::{merkle_root_from_path, u256_to_block_hash},
 };
 pub type SendTo = SendTo_<JobDeclaration<'static>, ()>;
-use roles_logic_sv2::errors::Error;
+use roles_logic_sv2::{errors::Error, parsers::PoolMessages as AllMessages};
 use stratum_common::bitcoin::consensus::Decodable;
 use tracing::warn;
 
@@ -111,7 +111,7 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
             } else {
                 let message_provide_missing_transactions = ProvideMissingTransactions {
                     request_id: message.request_id,
-                    unknown_tx_position_list: missing_txs.try_into().unwrap(),
+                    unknown_tx_position_list: missing_txs.into(),
                 };
                 let message_enum_provide_missing_transactions =
                     JobDeclaration::ProvideMissingTransactions(
@@ -147,13 +147,17 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
                     let mut cursor = Cursor::new(tx);
                     let tx = Transaction::consensus_decode_from_finite_reader(&mut cursor)
                         .expect("Invalid tx data from downstream");
-                    transactions.insert(
-                        (*missing_indexes
+                    let index =
+                        *missing_indexes
                             .get(i)
-                            .expect("Invalid tx index from downstream"))
-                            as usize,
-                        tx,
-                    );
+                            .ok_or(Error::LogicErrorMessage(Box::new(
+                                AllMessages::JobDeclaration(
+                                    JobDeclaration::ProvideMissingTransactionsSuccess(
+                                        message.clone().into_static(),
+                                    ),
+                                ),
+                            )))? as usize;
+                    transactions.insert(index, tx);
                 }
                 // TODO check it
                 let tx_hash_list_hash = self.tx_hash_list_hash.clone().unwrap().into_static();
@@ -168,8 +172,11 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
                 let message_enum_success = JobDeclaration::DeclareMiningJobSuccess(message_success);
                 Ok(SendTo::Respond(message_enum_success))
             }
-            // TODO handle this case
-            None => todo!(),
+            None => Err(Error::LogicErrorMessage(Box::new(
+                AllMessages::JobDeclaration(JobDeclaration::ProvideMissingTransactionsSuccess(
+                    message.clone().into_static(),
+                )),
+            ))),
         }
     }
 

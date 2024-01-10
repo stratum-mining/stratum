@@ -223,9 +223,14 @@ impl Executor {
                 // If the connection should drop at this point then let's just break the loop
                 // Can't do anything else after the connection drops.
                 if *result == ActionResult::CloseConnection {
+                    println!(
+                        "Waiting 1 sec to make sure that remote have time to close the connection"
+                    );
+                    tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
                     recv.recv()
                         .await
                         .expect_err("Expecting the connection to be closed: wasn't");
+                    success = true;
                     break;
                 }
 
