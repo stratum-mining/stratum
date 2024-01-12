@@ -9,7 +9,7 @@ use crate::{
 };
 use aes_gcm::KeyInit;
 use chacha20poly1305::ChaCha20Poly1305;
-use secp256k1::{KeyPair, Secp256k1, SecretKey};
+use secp256k1::{Keypair, Secp256k1, SecretKey};
 
 const VERSION: u16 = 0;
 
@@ -22,9 +22,9 @@ pub struct Responder {
     // Handshake hash
     h: [u8; 32],
     // ephemeral keypair
-    e: KeyPair,
+    e: Keypair,
     // Static pub keypair
-    s: KeyPair,
+    s: Keypair,
     c1: Option<GenericCipher>,
     c2: Option<GenericCipher>,
     cert_validity: u32,
@@ -94,7 +94,7 @@ impl Responder {
     ) -> Result<Box<Self>, Error> {
         let secp = Secp256k1::new();
         let secret = SecretKey::from_slice(private).map_err(|_| Error::InvalidRawPrivateKey)?;
-        let kp = KeyPair::from_secret_key(&secp, &secret);
+        let kp = Keypair::from_secret_key(&secp, &secret);
         let pub_ = kp.x_only_public_key().0.serialize();
         if public == &pub_[..] {
             Ok(Self::new(kp, cert_validity.as_secs() as u32))
@@ -103,7 +103,7 @@ impl Responder {
         }
     }
 
-    pub fn new(s: KeyPair, cert_validity: u32) -> Box<Self> {
+    pub fn new(s: Keypair, cert_validity: u32) -> Box<Self> {
         let mut self_ = Self {
             handshake_cipher: None,
             k: None,
