@@ -71,7 +71,7 @@
                         "MG_reject_auth",
                         "--",
                         "-c",
-                        "./test/config/pool-config-sri-tp.toml"
+                        "../test/config/pool-config-sri-tp.toml"
             ],
             "conditions": {
                 "WithConditions": {

@@ -21,7 +21,7 @@
                         "jd_server",
                         "--",
                         "-c",
-                        "./test/config/jds-do-not-fail-on-wrong-txdatasucc/jds-config.toml"
+                        "../test/config/jds-do-not-fail-on-wrong-txdatasucc/jds-config.toml"
             ],
             "conditions": {
                 "WithConditions": {

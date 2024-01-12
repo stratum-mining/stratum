@@ -20,6 +20,7 @@ tracing = { version = "0.1" }
 futures = "0.3.28"
 
 [features]
+default = ["async-channel", "binary_sv2", "codec_sv2"]
 async_std = ["async-std", "async-channel", "binary_sv2", "codec_sv2"]
 with_tokio = ["tokio", "async-channel", "binary_sv2", "codec_sv2"]
 with_serde = ["binary_sv2/with_serde", "serde", "codec_sv2/with_serde"]

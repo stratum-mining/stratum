@@ -23,7 +23,7 @@
                         "jd_server",
                         "--",
                         "-c",
-                        "./test/config/jds-do-not-panic-if-jdc-close-connection/jds-config.toml"
+                        "../test/config/jds-do-not-panic-if-jdc-close-connection/jds-config.toml"
             ],
             "conditions": {
                 "WithConditions": {
