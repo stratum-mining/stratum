@@ -1,0 +1,8 @@
+[default]
+features = "fuzz with_buffer_pool async_std debug tokio with_tokio default"
+run-types = [ "Lib" ]
+timeout = "120s"
+fail-under = 7
+
+[report]
+out = ["Xml"]

@@ -290,7 +290,7 @@ pub async fn os_command(
     let mut child = if args.len() == 2 && command_ == "cargo" {
         command.spawn().unwrap()
     } else {
-        command.current_dir("../../").spawn().unwrap()
+        command.current_dir("../../roles").spawn().unwrap()
     };
     debug_assert!(child.stdout.is_some());
     debug_assert!(child.stderr.is_some());
