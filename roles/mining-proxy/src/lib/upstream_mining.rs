@@ -669,7 +669,7 @@ impl UpstreamMiningNode {
                     255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
                 ]
                 .into(),
-                min_extranonce_size: crate::MIN_EXTRANONCE_SIZE,
+                min_extranonce_size: super::MIN_EXTRANONCE_SIZE,
             },
         ));
         Self::send(self_mutex.clone(), message.try_into().unwrap())
