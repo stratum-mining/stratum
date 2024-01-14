@@ -302,6 +302,7 @@ impl<'a> Frame<'a, Slice> for NoiseFrame {
     }
 }
 
+#[allow(clippy::useless_conversion)]
 pub fn handshake_message_to_frame<T: AsRef<[u8]>>(message: T) -> HandShakeFrame {
     let mut payload = Vec::new();
     payload.extend_from_slice(message.as_ref());

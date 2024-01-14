@@ -92,7 +92,7 @@
                         "pool_sv2",
                         "--",
                         "-c",
-                        "./test/config/interop-jd-translator/pool-config.toml"
+                        "../test/config/interop-jd-translator/pool-config.toml"
             ],
             "conditions": {
                 "WithConditions": {
@@ -116,7 +116,7 @@
                         "translator_sv2",
                         "--",
                         "-c",
-                        "./test/config/tproxy-config-no-jd-sv1-cpu-md.toml"
+                        "../test/config/tproxy-config-no-jd-sv1-cpu-md.toml"
             ],
             "conditions": {
                 "WithConditions": {

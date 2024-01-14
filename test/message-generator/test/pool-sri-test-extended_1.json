@@ -115,7 +115,7 @@
                         "pool_sv2",
                         "--",
                         "-c",
-                        "./test/config/pool-mock-tp.toml"
+                        "../test/config/pool-mock-tp.toml"
              ],
              "conditions": {
                  "WithConditions": {

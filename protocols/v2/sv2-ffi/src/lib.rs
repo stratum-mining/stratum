@@ -417,9 +417,8 @@ fn encode_(
 #[no_mangle]
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 pub extern "C" fn free_decoder(decoder: *mut DecoderWrapper) {
-    // let mut decoder = unsafe { Box::from_raw(decoder) };
-    unsafe { Box::from_raw(decoder) };
-    // Box::into_raw(decoder);
+    let decoder = unsafe { Box::from_raw(decoder) };
+    drop(decoder);
 }
 
 /// # Safety

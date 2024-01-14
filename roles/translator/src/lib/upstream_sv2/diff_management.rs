@@ -36,7 +36,7 @@ impl Upstream {
         };
         let message = Message::Mining(Mining::UpdateChannel(update_channel));
         let either_frame: StdFrame = message.try_into()?;
-        let frame: EitherFrame = either_frame.try_into()?;
+        let frame: EitherFrame = either_frame.into();
 
         tx_frame.send(frame).await.map_err(|e| {
             super::super::error::Error::ChannelErrorSender(

@@ -637,7 +637,7 @@ impl ParseDownstreamCommonMessages<roles_logic_sv2::routing_logic::NoRouting>
             version_rolling: true,
         };
         self.status.pair(data);
-        Ok(SendToCommon::Respond(response.try_into().unwrap()))
+        Ok(SendToCommon::Respond(response.into()))
     }
 }
 

@@ -100,7 +100,15 @@ impl JobDeclaratorDownstream {
                                 Self::send(self_mutex.clone(), message).await.unwrap();
                             }
                             Ok(SendTo::None(_)) => (),
-                            Err(e) => info!("Error: {:?}", e),
+                            Err(e) => {
+                                error!("{:?}", e);
+                                handle_result!(
+                                    tx_status,
+                                    Err(JdsError::Custom("Invalid message received".to_string()))
+                                );
+                                recv.close();
+                                break;
+                            }
                             _ => unreachable!(),
                         }
                     }
@@ -138,9 +146,7 @@ fn _get_random_token() -> B0255<'static> {
     inner.to_vec().try_into().unwrap()
 }
 
-pub struct JobDeclarator {
-    downstreams: Vec<Arc<Mutex<JobDeclaratorDownstream>>>,
-}
+pub struct JobDeclarator {}
 
 impl JobDeclarator {
     pub async fn start(
@@ -148,14 +154,12 @@ impl JobDeclarator {
         status_tx: crate::status::Sender,
         mempool: Arc<Mutex<JDsMempool>>,
     ) {
-        let self_ = Arc::new(Mutex::new(Self {
-            downstreams: Vec::new(),
-        }));
+        let self_ = Arc::new(Mutex::new(Self {}));
         info!("JD INITIALIZED");
         Self::accept_incoming_connection(self_, config, status_tx, mempool).await;
     }
     async fn accept_incoming_connection(
-        self_: Arc<Mutex<JobDeclarator>>,
+        _self_: Arc<Mutex<JobDeclarator>>,
         config: Configuration,
         status_tx: crate::status::Sender,
         mempool: Arc<Mutex<JDsMempool>>,
@@ -198,12 +202,6 @@ impl JobDeclarator {
                     &config,
                     mempool.clone(),
                 )));
-
-                self_
-                    .safe_lock(|job_declarator| {
-                        job_declarator.downstreams.push(jddownstream.clone())
-                    })
-                    .unwrap();
 
                 JobDeclaratorDownstream::start(jddownstream, status_tx.clone());
             } else {

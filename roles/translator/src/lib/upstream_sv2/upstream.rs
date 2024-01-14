@@ -331,7 +331,7 @@ impl Upstream {
                         let message = Message::Mining(message_for_upstream);
 
                         let frame: StdFrame = handle_result!(tx_status, message.try_into());
-                        let frame: EitherFrame = handle_result!(tx_status, frame.try_into());
+                        let frame: EitherFrame = frame.into();
 
                         // Relay the response message to the Upstream role
                         handle_result!(
@@ -357,8 +357,7 @@ impl Upstream {
                                     .map_err(|_e| PoisonLock);
                                 let miner_extranonce2_size =
                                     handle_result!(tx_status, miner_extranonce2_size);
-                                let extranonce_prefix: Extranonce =
-                                    handle_result!(tx_status, m.extranonce_prefix.try_into());
+                                let extranonce_prefix: Extranonce = m.extranonce_prefix.into();
                                 // Create the extended extranonce that will be saved in bridge and
                                 // it will be used to open downstream (sv1) channels
                                 // range 0 is the extranonce1 from upstream
@@ -496,7 +495,7 @@ impl Upstream {
                 let frame: StdFrame = handle_result!(tx_status, message.try_into());
                 // Doesnt actually send because of Braiins Pool issue that needs to be fixed
 
-                let frame: EitherFrame = handle_result!(tx_status, frame.try_into());
+                let frame: EitherFrame = frame.into();
                 handle_result!(
                     tx_status,
                     tx_frame.send(frame).await.map_err(|e| {

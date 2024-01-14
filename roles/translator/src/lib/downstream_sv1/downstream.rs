@@ -263,8 +263,7 @@ impl Downstream {
                     );
 
                     let sv1_mining_notify_msg = last_notify.clone().unwrap();
-                    let message: json_rpc::Message =
-                        handle_result!(tx_status_notify, sv1_mining_notify_msg.try_into());
+                    let message: json_rpc::Message = sv1_mining_notify_msg.into();
                     handle_result!(
                         tx_status_notify,
                         Downstream::send_message_downstream(downstream.clone(), message).await
@@ -285,7 +284,7 @@ impl Downstream {
 
 
                             let sv1_mining_notify_msg = handle_result!(tx_status_notify, res);
-                            let message: json_rpc::Message = handle_result!(tx_status_notify, sv1_mining_notify_msg.try_into());
+                            let message: json_rpc::Message = sv1_mining_notify_msg.into();
                             handle_result!(tx_status_notify, Downstream::send_message_downstream(downstream.clone(), message).await);
                         },
                         _ = rx_shutdown.recv().fuse() => {

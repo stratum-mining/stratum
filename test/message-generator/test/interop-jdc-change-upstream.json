@@ -79,7 +79,7 @@
                         "jd_server",
                         "--",
                         "-c",
-                        "./test/config/interop-jd-change-upstream/jds-config.toml"
+                        "../test/config/interop-jd-change-upstream/jds-config.toml"
             ],
             "conditions": {
                 "WithConditions": {
@@ -105,7 +105,7 @@
                         "jd_client",
                         "--",
                         "-c",
-                        "./test/config/interop-jd-change-upstream/jdc-config.toml"
+                        "../test/config/interop-jd-change-upstream/jdc-config.toml"
             ],
             "conditions": {
                 "WithConditions": {
@@ -131,7 +131,7 @@
                         "mining_proxy_sv2",
                         "--",
                         "-c",
-                        "./test/config/interop-jd-change-upstream/proxy-config.toml"
+                        "../test/config/interop-jd-change-upstream/proxy-config.toml"
             ],
             "conditions": {
                 "WithConditions": {

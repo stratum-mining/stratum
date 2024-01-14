@@ -293,7 +293,7 @@ impl<'a> IsServer<'a> for Server<'a> {
 
     fn notify(&mut self) -> Result<json_rpc::Message, Error<'a>> {
         let hex = "ffff";
-        server_to_client::Notify {
+        Ok(server_to_client::Notify {
             job_id: "ciao".to_string(),
             prev_hash: prevhash_from_hex(hex),
             coin_base1: hex.try_into()?,
@@ -304,7 +304,7 @@ impl<'a> IsServer<'a> for Server<'a> {
             time: HexU32Be(5609),
             clean_jobs: true,
         }
-        .try_into()
+        .into())
     }
 }
 

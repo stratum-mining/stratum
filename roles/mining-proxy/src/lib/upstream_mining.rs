@@ -668,9 +668,8 @@ impl UpstreamMiningNode {
                     255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
                     255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
                 ]
-                .try_into()
-                .unwrap(),
-                min_extranonce_size: super::MIN_EXTRANONCE_SIZE,
+                .into(),
+                min_extranonce_size: crate::MIN_EXTRANONCE_SIZE,
             },
         ));
         Self::send(self_mutex.clone(), message.try_into().unwrap())
@@ -934,7 +933,7 @@ impl
         &mut self,
         m: OpenExtendedMiningChannelSuccess,
     ) -> Result<SendTo<DownstreamMiningNode>, Error> {
-        let extranonce_prefix: Extranonce = m.extranonce_prefix.clone().try_into().unwrap();
+        let extranonce_prefix: Extranonce = m.extranonce_prefix.clone().into();
         let range_0 = 0..m.extranonce_prefix.clone().to_vec().len();
         let range_1 = range_0.end..(range_0.end + EXTRANONCE_RANGE_1_LENGTH);
         let range_2 = range_1.end..(range_0.end + m.extranonce_size as usize);
@@ -950,7 +949,7 @@ impl
             self.group_id.clone(),
             extranonces,
             self.downstream_share_per_minute,
-            m.target.clone().try_into().unwrap(),
+            m.target.clone().into(),
             m.channel_id,
         );
         Ok(SendTo::None(None))
