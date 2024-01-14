@@ -23,6 +23,12 @@ pub struct SetupConnectionHandler {
     header_only: Option<bool>,
 }
 
+impl Default for SetupConnectionHandler {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SetupConnectionHandler {
     pub fn new() -> Self {
         Self { header_only: None }
