@@ -22,8 +22,12 @@ use roles_logic_sv2::{
     utils::{CoinbaseOutput as CoinbaseOutput_, Mutex},
 };
 use serde::Deserialize;
-use std::convert::{TryFrom, TryInto};
-use std::{collections::HashMap, net::SocketAddr, sync::Arc};
+use std::{
+    collections::HashMap,
+    convert::{TryFrom, TryInto},
+    net::SocketAddr,
+    sync::Arc,
+};
 use stratum_common::bitcoin::{Script, TxOut};
 use tokio::{net::TcpListener, task};
 use tracing::{debug, error, info, warn};

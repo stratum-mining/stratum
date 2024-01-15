@@ -1,5 +1,4 @@
-use super::super::error::ProxyResult;
-use super::{EitherFrame, StdFrame};
+use super::{super::error::ProxyResult, EitherFrame, StdFrame};
 use async_channel::{Receiver, Sender};
 
 /// Handles the sending and receiving of messages to and from an SV2 Upstream role (most typically

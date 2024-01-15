@@ -6,8 +6,7 @@ pub mod status;
 pub mod template_receiver;
 pub mod upstream_sv2;
 
-use std::sync::atomic::AtomicBool;
-use std::time::Duration;
+use std::{sync::atomic::AtomicBool, time::Duration};
 
 /// Is used by the template receiver and the downstream. When a NewTemplate is received the context
 /// that is running the template receiver set this value to false and then the message is sent to

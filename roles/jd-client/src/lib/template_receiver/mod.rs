@@ -1,18 +1,16 @@
 use super::{job_declarator::JobDeclarator, status, PoolChangerTrigger};
 use async_channel::{Receiver, Sender};
-use codec_sv2::Frame;
-use codec_sv2::{HandshakeRole, Initiator, StandardEitherFrame, StandardSv2Frame};
+use codec_sv2::{Frame, HandshakeRole, Initiator, StandardEitherFrame, StandardSv2Frame};
 use error_handling::handle_result;
 use key_utils::Secp256k1PublicKey;
 use network_helpers::noise_connection_tokio::Connection;
 use roles_logic_sv2::{
     handlers::{template_distribution::ParseServerTemplateDistributionMessages, SendTo_},
-    parsers::{PoolMessages, TemplateDistribution},
-    template_distribution_sv2::{CoinbaseOutputDataSize, SubmitSolution},
-};
-use roles_logic_sv2::{
     job_declaration_sv2::AllocateMiningJobTokenSuccess,
-    template_distribution_sv2::{NewTemplate, RequestTransactionData},
+    parsers::{PoolMessages, TemplateDistribution},
+    template_distribution_sv2::{
+        CoinbaseOutputDataSize, NewTemplate, RequestTransactionData, SubmitSolution,
+    },
     utils::Mutex,
 };
 use setup_connection::SetupConnectionHandler;
