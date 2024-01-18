@@ -166,7 +166,14 @@ impl JobDeclarator {
                         })
                         .unwrap();
                 }
-                tokio::task::yield_now().await;
+
+                // we block on the receiver to avoid infinite recursion
+                let receiver = self_mutex.safe_lock(|s| s.receiver.clone()).unwrap();
+                while receiver.is_empty() {
+                    tokio::time::sleep(tokio::time::Duration::from_millis(1)).await;
+                    tokio::task::yield_now().await;
+                }
+
                 Self::get_last_token(self_mutex).await
             }
             1 => {
