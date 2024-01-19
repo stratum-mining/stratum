@@ -109,8 +109,13 @@ pub trait HandshakeOp<Cipher: AeadCipher>: CipherState<Cipher> {
     fn ecdh(private: &[u8], public: &[u8]) -> [u8; 32] {
         let private = SecretKey::from_slice(private).expect("Wrong key");
         let x_public = XOnlyPublicKey::from_slice(public).expect("Wrong key");
-        let res = SharedSecret::new(&x_public.public_key(crate::PARITY), &private);
-        res.secret_bytes()
+        let ec_point_x_y = secp256k1::ecdh::shared_secret_point(
+            &x_public.public_key(secp256k1::Parity::Even),
+            &private,
+        );
+        let mut ec_point_x = [0; 32];
+        ec_point_x.copy_from_slice(&ec_point_x_y[0..32]);
+        ec_point_x
     }
 
     /// Prior to starting first round of NX-handshake, both initiator and responder initializes
