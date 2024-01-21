@@ -256,12 +256,6 @@ dependencies = [
 
 [[package]]
 name = "base64"
-version = "0.13.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9e1b586273c5702936fe7b7d6896644d8be71e6314cfe09d3167c95f712589e8"
-
-[[package]]
-name = "base64"
 version = "0.21.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "35636a1494ede3b646cc98f74f8e62c773a38a659ebc777a2cf26b9b74171df9"
@@ -581,8 +575,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a26ae43d7bcc3b814de94796a5e736d4029efb0ee900c12e2d54c993ad1a1e07"
 
 [[package]]
-<<<<<<< HEAD:utils/Cargo.lock
-=======
 name = "env_logger"
 version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -612,7 +604,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5443807d6dff69373d433ab9ef5378ad8df50ca6298caf15de6e52e24aaf54d5"
 
 [[package]]
->>>>>>> e9896856 (Add mini_rcp_client):Cargo.lock
 name = "errno"
 version = "0.3.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1117,7 +1108,7 @@ version = "0.1.0"
 dependencies = [
  "async-channel 1.9.0",
  "async-recursion 1.0.5",
- "base64 0.21.5",
+ "base64",
  "binary_sv2",
  "buffer_sv2",
  "bytes",
@@ -1129,7 +1120,6 @@ dependencies = [
  "http-body-util",
  "hyper",
  "hyper-util",
- "jsonrpc",
  "key-utils",
  "network_helpers",
  "nohash-hasher",
@@ -1168,6 +1158,7 @@ dependencies = [
 
 [[package]]
 <<<<<<< HEAD:utils/Cargo.lock
+<<<<<<< HEAD:utils/Cargo.lock
 =======
 name = "jsonrpc"
 version = "0.16.0"
@@ -1178,6 +1169,8 @@ dependencies = [
 ]
 
 [[package]]
+=======
+>>>>>>> 3d7888e0 (remove json-rpc dependencies):Cargo.lock
 name = "key-utils"
 version = "1.0.0"
 dependencies = [
