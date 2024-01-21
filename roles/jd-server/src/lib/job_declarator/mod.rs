@@ -13,7 +13,7 @@ use roles_logic_sv2::{
     common_messages_sv2::SetupConnectionSuccess,
     handlers::job_declaration::{ParseClientJobDeclarationMessages, SendTo},
     job_declaration_sv2::DeclareMiningJob,
-    parsers::PoolMessages as JdsMessages,
+    parsers::{JobDeclaration, PoolMessages as JdsMessages},
     utils::{Id, Mutex},
 };
 use secp256k1::{KeyPair, Message as SecpMessage, Secp256k1};
@@ -102,6 +102,9 @@ impl JobDeclaratorDownstream {
                                 Self::send(self_mutex.clone(), message).await.unwrap();
                             }
                             Ok(SendTo::None(_)) => (),
+                            Ok(SendTo::RelayNewMessage(JobDeclaration::SubmitSolution(m))) => {
+                                todo!()
+                            }
                             Err(e) => {
                                 error!("{:?}", e);
                                 handle_result!(

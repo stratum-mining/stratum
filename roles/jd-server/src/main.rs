@@ -1,5 +1,6 @@
 #![allow(special_module_name)]
-use async_channel::unbounded;
+use crate::mempool::mini_rpc_client;
+use async_channel::{unbounded, Receiver, Sender};
 use codec_sv2::{StandardEitherFrame, StandardSv2Frame};
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 use roles_logic_sv2::{
@@ -169,10 +170,12 @@ async fn main() {
     let url = config.core_rpc_url.clone() + ":" + &config.core_rpc_port.clone().to_string();
     let username = config.core_rpc_user.clone();
     let password = config.core_rpc_pass.clone();
+    let (submit_block_tx, submit_block_rx) = unbounded();
     let mempool = Arc::new(Mutex::new(mempool::JDsMempool::new(
         url.clone(),
         username,
         password,
+        submit_block_rx,
     )));
     let mempool_cloned_ = mempool.clone();
     if url.contains("http") {
@@ -184,6 +187,12 @@ async fn main() {
             }
         });
     };
+    let mempool_cloned__ = mempool.clone();
+    task::spawn(async move {
+        loop {
+            let _ = mempool::JDsMempool::on_submit(mempool_cloned__.clone()).await;
+        }
+    });
 
     let (status_tx, status_rx) = unbounded();
     info!("Jds INITIALIZING with config: {:?}", &args.config_path);

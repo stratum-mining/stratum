@@ -31,4 +31,9 @@ key-utils = { version = "^1.0.0", path = "../../utils/key-utils" }
 secp256k1 = { version = "0.27.0", default-features = false, features =["bitcoin_hashes","alloc","rand","rand-std"] }
 siphasher = "1"
 hex = "0.4.3"
-
+#hyper = { version = "0.14.28", default-features = false, features = ["client"]}
+base64 = "0.21.5"
+hyper = { version = "1.1.0", features = ["full"] }
+hyper-util = { version = "0.1", features = ["full"] }
+http-body-util = "0.1"
+bytes = "1"
