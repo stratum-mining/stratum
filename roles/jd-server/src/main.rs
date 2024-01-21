@@ -181,7 +181,14 @@ async fn main() {
     if url.contains("http") {
         task::spawn(async move {
             loop {
-                let _ = mempool::JDsMempool::update_mempool(mempool_cloned_.clone()).await;
+                let result: Result<(), mempool::error::JdsMempoolError> =
+                    mempool::JDsMempool::update_mempool(mempool_cloned_.clone()).await;
+                if let Err(a) = result {
+                    mempool::error::handle_error(a);
+                };
+                let transactions =
+                    mempool::JDsMempool::get_transaction_list(mempool_cloned_.clone());
+                dbg!(transactions);
                 // TODO this should be configurable by the user
                 tokio::time::sleep(Duration::from_millis(10000)).await;
             }
@@ -190,7 +197,10 @@ async fn main() {
     let mempool_cloned__ = mempool.clone();
     task::spawn(async move {
         loop {
-            let _ = mempool::JDsMempool::on_submit(mempool_cloned__.clone()).await;
+            let result = mempool::JDsMempool::on_submit(mempool_cloned__.clone()).await;
+            if let Err(a) = result {
+                mempool::error::handle_error(a);
+            };
         }
     });
 

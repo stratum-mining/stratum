@@ -179,18 +179,20 @@ struct JsonRpcRequest {
 #[derive(Debug, Deserialize)]
 pub struct JsonRpcResult<T> {
     result: Option<T>,
-    error: Option<JsonRpcError>,
-    id: u64,
+    pub error: Option<JsonRpcError>,
+    pub id: u64,
 }
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct JsonRpcError {
-    code: i32,
-    message: String,
+    pub code: i32,
+    pub message: String,
 }
 
 #[derive(Debug, Deserialize)]
 pub enum RpcError {
+    // TODO this type is slightly incorrect, as the JsonRpcError evaluates a generic that is meant
+    // for the result field of JsonRpcResult struct. This should be corrected
     JsonRpc(JsonRpcResult<JsonRpcError>),
     Deserialization(String),
     Serialization(String),
