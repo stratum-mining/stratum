@@ -108,6 +108,9 @@ impl<'a> SubmitSharesError<'a> {
     pub fn difficulty_too_low_error_code() -> &'static str {
         "difficulty-too-low"
     }
+    pub fn invalid_job_id_error_code() -> &'static str {
+        "invalid-job-id"
+    }
 }
 #[cfg(feature = "with_serde")]
 use binary_sv2::GetSize;

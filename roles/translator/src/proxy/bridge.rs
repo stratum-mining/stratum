@@ -239,7 +239,6 @@ impl Bridge {
                     "Submit share error {:?}",
                     std::str::from_utf8(&e.error_code.to_vec()[..])
                 );
-                error!("Make sure to set `min_individual_miner_hashrate` in the config file");
             }
             Ok(Ok(OnNewShare::SendSubmitShareUpstream((share, _)))) => {
                 info!("SHARE MEETS UPSTREAM TARGET");
