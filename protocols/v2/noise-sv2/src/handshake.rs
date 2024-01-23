@@ -3,7 +3,7 @@ use chacha20poly1305::ChaCha20Poly1305;
 use secp256k1::{
     ecdh::SharedSecret,
     hashes::{sha256::Hash as Sha256Hash, Hash},
-    rand, KeyPair, Secp256k1, SecretKey, XOnlyPublicKey,
+    rand, Keypair, Secp256k1, SecretKey, XOnlyPublicKey,
 };
 
 pub trait HandshakeOp<Cipher: AeadCipher>: CipherState<Cipher> {
@@ -24,10 +24,10 @@ pub trait HandshakeOp<Cipher: AeadCipher>: CipherState<Cipher> {
         *h = Sha256Hash::hash(&to_hash).to_byte_array();
     }
 
-    fn generate_key() -> KeyPair {
+    fn generate_key() -> Keypair {
         let secp = Secp256k1::new();
         let (secret_key, _) = secp.generate_keypair(&mut rand::thread_rng());
-        let kp = KeyPair::from_secret_key(&secp, &secret_key);
+        let kp = Keypair::from_secret_key(&secp, &secret_key);
         if kp.x_only_public_key().1 == crate::PARITY {
             kp
         } else {
@@ -348,9 +348,9 @@ mod test {
     }
 
     #[derive(Clone, Debug)]
-    struct KeyPairWrapper(pub Option<KeyPair>);
+    struct KeypairWrapper(pub Option<Keypair>);
 
-    impl Arbitrary for KeyPairWrapper {
+    impl Arbitrary for KeypairWrapper {
         fn arbitrary(g: &mut quickcheck::Gen) -> Self {
             let secp = Secp256k1::new();
             let mut secret = Vec::<u8>::arbitrary(g);
@@ -365,14 +365,14 @@ mod test {
             assert!(secret.len() == 32);
             let secret: [u8; 32] = secret.try_into().unwrap();
             match SecretKey::from_slice(&secret) {
-                Ok(secret) => KeyPairWrapper(Some(KeyPair::from_secret_key(&secp, &secret))),
-                Err(_) => KeyPairWrapper(None),
+                Ok(secret) => KeypairWrapper(Some(Keypair::from_secret_key(&secp, &secret))),
+                Err(_) => KeypairWrapper(None),
             }
         }
     }
 
     #[quickcheck_macros::quickcheck]
-    fn test_ecdh_1(kp1: KeyPairWrapper, kp2: KeyPairWrapper) -> TestResult {
+    fn test_ecdh_1(kp1: KeypairWrapper, kp2: KeypairWrapper) -> TestResult {
         let (kp1, kp2) = match (kp1.0, kp2.0) {
             (Some(kp1), Some(kp2)) => (kp1, kp2),
             _ => return TestResult::discard(),

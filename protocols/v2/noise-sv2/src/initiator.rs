@@ -9,7 +9,7 @@ use crate::{
 };
 use aes_gcm::KeyInit;
 use chacha20poly1305::ChaCha20Poly1305;
-use secp256k1::{KeyPair, XOnlyPublicKey};
+use secp256k1::{Keypair, XOnlyPublicKey};
 
 pub struct Initiator {
     handshake_cipher: Option<ChaCha20Poly1305>,
@@ -20,7 +20,7 @@ pub struct Initiator {
     // Handshake hash
     h: [u8; 32],
     // ephemeral keypair
-    e: KeyPair,
+    e: Keypair,
     // upstream pub key
     #[allow(unused)]
     pk: XOnlyPublicKey,
