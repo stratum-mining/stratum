@@ -210,7 +210,10 @@ async fn main() {
     if url.contains("http") {
         task::spawn(async move {
             loop {
-                let _ = mempool::JDsMempool::update_mempool(mempool_cloned_.clone()).await;
+                let updated_mempool = mempool::JDsMempool::update_mempool(mempool_cloned_.clone()).await;
+                if let Err(err) = updated_mempool {
+                    panic!("{:?}\nUnable to connect to Template Provider (possible reasons: not fully synced, down)", err)
+                }
                 tokio::time::sleep(mempool_update_timeout).await;
             }
         });
