@@ -20,7 +20,7 @@ use stratum_common::{
             uint::{Uint128, Uint256},
             BitArray,
         },
-        PublicKey, Script, Transaction,
+        PublicKey, Script, Transaction, XOnlyPublicKey,
     },
 };
 use tracing::error;
@@ -237,12 +237,13 @@ impl TryFrom<CoinbaseOutput> for Script {
                 // Conceptually, every Taproot output corresponds to a combination of
                 // a single public key condition (the internal key),
                 // and zero or more general conditions encoded in scripts organized in a tree.
-                let pub_key = PublicKey::from_str(&value.output_script_value)
+                let pub_key = XOnlyPublicKey::from_str(&value.output_script_value)
                     .map_err(|_| Error::InvalidOutputScript)?;
-                Ok({
-                    let (pubkey_only, _) = pub_key.inner.x_only_public_key();
-                    Script::new_v1_p2tr::<All>(&Secp256k1::<All>::new(), pubkey_only, None)
-                })
+                Ok(Script::new_v1_p2tr::<All>(
+                    &Secp256k1::<All>::new(),
+                    pub_key,
+                    None,
+                ))
             }
             _ => Err(Error::UnknownOutputScriptType),
         }
