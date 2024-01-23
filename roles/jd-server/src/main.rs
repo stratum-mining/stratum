@@ -205,7 +205,7 @@ async fn main() {
         username,
         password,
     )));
-    let mempool_update_timeout = config.mempool_update_timeout.clone();
+    let mempool_update_timeout = config.mempool_update_timeout;
     let mempool_cloned_ = mempool.clone();
     if url.contains("http") {
         task::spawn(async move {
