@@ -3,9 +3,9 @@
 # upstream_address = "18.196.32.109"
 # upstream_port = 3336
 
-# Local SRI Pool Upstream Connection
+# Local SRI JDC Upstream Connection
 upstream_address = "127.0.0.1"
-upstream_port = 34254
+upstream_port = 34265
 upstream_authority_pubkey = "3VANfft6ei6jQq1At7d8nmiZzVhBFS4CiQujdgim1ign"
 
 # Local Mining Device Downstream Connection
@@ -25,15 +25,13 @@ coinbase_reward_sat = 5_000_000_000
 
 # Difficulty params
 [downstream_difficulty_config]
-# hashes/s of the weakest miner that will be connecting
-min_individual_miner_hashrate=500_000.0
-# minimum number of shares needed before a mining.set_difficulty is sent for updating targets
-miner_num_submits_before_update=5
+# hashes/s of the weakest miner that will be connecting (e.g.: 10 Th/s = 10_000_000_000_000.0)
+min_individual_miner_hashrate=10_000_000_000_000.0
 # target number of shares per minute the miner should be sending
 shares_per_minute = 6.0
 
 [upstream_difficulty_config]
 # interval in seconds to elapse before updating channel hashrate with the pool
-channel_diff_update_interval = 10
-# estimated accumulated hashrate of all downstream miners
-channel_nominal_hashrate = 50_000.0
+channel_diff_update_interval = 60
+# estimated accumulated hashrate of all downstream miners (e.g.: 10 Th/s = 10_000_000_000_000.0)
+channel_nominal_hashrate = 10_000_000_000_000.0

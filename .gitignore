@@ -12,3 +12,4 @@ lcov.info
 *.py
 **/conf/**
 cobertura.xml
+/roles/*/*-config.toml
