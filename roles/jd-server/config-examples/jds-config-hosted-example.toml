@@ -22,3 +22,7 @@ core_rpc_url =  "http://127.0.0.1"
 core_rpc_port = 18332
 core_rpc_user =  "username"
 core_rpc_pass =  "password"
+# Timeout used for JDS mempool update 
+[mempool_update_timeout]
+unit = "secs"
+value = 1
