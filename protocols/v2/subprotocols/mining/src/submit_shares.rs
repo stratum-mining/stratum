@@ -90,6 +90,7 @@ pub struct SubmitSharesSuccess {
 /// * ‘invalid-channel-id’
 /// * ‘stale-share’
 /// * ‘difficulty-too-low’
+/// * 'invalid-job-id'
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SubmitSharesError<'decoder> {
     pub channel_id: u32,
