@@ -1,6 +1,6 @@
-use crate::{
+use super::super::{
     error::{PoolError, PoolResult},
-    EitherFrame, StdFrame,
+    mining_pool::{EitherFrame, StdFrame},
 };
 use async_channel::{Receiver, Sender};
 use codec_sv2::Frame;
@@ -21,6 +21,12 @@ use tracing::{debug, error};
 
 pub struct SetupConnectionHandler {
     header_only: Option<bool>,
+}
+
+impl Default for SetupConnectionHandler {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl SetupConnectionHandler {

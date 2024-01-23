@@ -1,20 +1,21 @@
-mod args;
-mod downstream;
-mod error;
-mod job_declarator;
-mod proxy_config;
-mod status;
-mod template_receiver;
-mod upstream_sv2;
-use args::Args;
-use error::{Error, ProxyResult};
-use job_declarator::JobDeclarator;
-use proxy_config::ProxyConfig;
-use roles_logic_sv2::utils::Mutex;
-use template_receiver::TemplateRx;
+#![allow(special_module_name)]
 
+mod args;
+mod lib;
+
+use lib::{
+    error::{Error, ProxyResult},
+    job_declarator::JobDeclarator,
+    proxy_config::ProxyConfig,
+    status,
+    template_receiver::TemplateRx,
+    PoolChangerTrigger,
+};
+
+use args::Args;
 use async_channel::{bounded, unbounded};
 use futures::{select, FutureExt};
+use roles_logic_sv2::utils::Mutex;
 use std::{
     net::{IpAddr, SocketAddr},
     str::FromStr,
@@ -23,67 +24,7 @@ use std::{
 };
 use tokio::task::AbortHandle;
 
-use crate::status::{State, Status};
-use std::sync::atomic::AtomicBool;
 use tracing::{error, info};
-
-///
-/// Is used by the template receiver and the downstream. When a NewTemplate is received the context
-/// that is running the template receiver set this value to false and then the message is sent to
-/// the context that is running the Downstream that do something and then set it back to true.
-///
-/// In the meantime if the context that is running the template receiver receives a SetNewPrevHash
-/// it wait until the value of this global is true before doing anything.
-///
-/// Acuire and Release memory ordering is used.
-///
-/// Memory Ordering Explanation:
-/// We use Acquire-Release ordering instead of SeqCst or Relaxed for the following reasons:
-/// 1. Acquire in template receiver context ensures we see all operations before the Release store
-///    the downstream.
-/// 2. Within the same execution context (template receiver), a Relaxed store followed by an Acquire
-///    load is sufficient. This is because operations within the same context execute in the order
-///    they appear in the code.
-/// 3. The combination of Release in downstream and Acquire in template receiver contexts establishes
-///    a happens-before relationship, guaranteeing that we handle the SetNewPrevHash message after
-///    that downstream have finished handling the NewTemplate.
-/// 3. SeqCst is overkill we only need to synchronize two contexts, a globally agreed-upon order
-///    between all the contexts is not necessary.
-pub static IS_NEW_TEMPLATE_HANDLED: AtomicBool = AtomicBool::new(true);
-
-#[derive(Debug)]
-pub struct PoolChangerTrigger {
-    timeout: Duration,
-    task: Option<tokio::task::JoinHandle<()>>,
-}
-
-impl PoolChangerTrigger {
-    pub fn new(timeout: Duration) -> Self {
-        Self {
-            timeout,
-            task: None,
-        }
-    }
-
-    pub fn start(&mut self, sender: status::Sender) {
-        let timeout = self.timeout;
-        let task = tokio::task::spawn(async move {
-            tokio::time::sleep(timeout).await;
-            let _ = sender
-                .send(status::Status {
-                    state: status::State::UpstreamRogue,
-                })
-                .await;
-        });
-        self.task = Some(task);
-    }
-
-    pub fn stop(&mut self) {
-        if let Some(task) = self.task.take() {
-            task.abort();
-        }
-    }
-}
 
 /// Process CLI args, if any.
 #[allow(clippy::result_large_err)]
@@ -208,11 +149,11 @@ async fn main() {
                     std::process::exit(0);
                 }
             };
-            let task_status: Status = task_status.unwrap();
+            let task_status: status::Status = task_status.unwrap();
 
             match task_status.state {
                 // Should only be sent by the downstream listener
-                State::DownstreamShutdown(err) => {
+                status::State::DownstreamShutdown(err) => {
                     error!("SHUTDOWN from: {}", err);
                     tokio::time::sleep(std::time::Duration::from_secs(1)).await;
                     task_collector
@@ -225,7 +166,7 @@ async fn main() {
                     tokio::time::sleep(std::time::Duration::from_secs(1)).await;
                     break;
                 }
-                State::UpstreamShutdown(err) => {
+                status::State::UpstreamShutdown(err) => {
                     error!("SHUTDOWN from: {}", err);
                     tokio::time::sleep(std::time::Duration::from_secs(1)).await;
                     task_collector
@@ -238,7 +179,7 @@ async fn main() {
                     tokio::time::sleep(std::time::Duration::from_secs(1)).await;
                     break;
                 }
-                State::UpstreamRogue => {
+                status::State::UpstreamRogue => {
                     error!("Changin Pool");
                     tokio::time::sleep(std::time::Duration::from_secs(1)).await;
                     task_collector
@@ -252,7 +193,7 @@ async fn main() {
                     tokio::time::sleep(std::time::Duration::from_secs(1)).await;
                     break;
                 }
-                State::Healthy(msg) => {
+                status::State::Healthy(msg) => {
                     info!("HEALTHY message: {}", msg);
                 }
             }
@@ -260,12 +201,12 @@ async fn main() {
     }
 }
 async fn initialize_jd_as_solo_miner(
-    tx_status: async_channel::Sender<Status<'static>>,
+    tx_status: async_channel::Sender<status::Status<'static>>,
     task_collector: Arc<Mutex<Vec<AbortHandle>>>,
     timeout: Duration,
 ) {
     let proxy_config = process_cli_args().unwrap();
-    let miner_tx_out = crate::proxy_config::get_coinbase_output(&proxy_config).unwrap();
+    let miner_tx_out = lib::proxy_config::get_coinbase_output(&proxy_config).unwrap();
 
     // When Downstream receive a share that meets bitcoin target it transformit in a
     // SubmitSolution and send it to the TemplateReceiver
@@ -278,7 +219,7 @@ async fn initialize_jd_as_solo_miner(
     );
 
     // Wait for downstream to connect
-    let downstream = downstream::listen_for_downstream_mining(
+    let downstream = lib::downstream::listen_for_downstream_mining(
         downstream_addr,
         None,
         send_solution,
@@ -315,9 +256,9 @@ async fn initialize_jd_as_solo_miner(
 }
 
 async fn initialize_jd(
-    tx_status: async_channel::Sender<Status<'static>>,
+    tx_status: async_channel::Sender<status::Status<'static>>,
     task_collector: Arc<Mutex<Vec<AbortHandle>>>,
-    upstream_config: proxy_config::Upstream,
+    upstream_config: lib::proxy_config::Upstream,
     timeout: Duration,
 ) {
     let proxy_config = process_cli_args().unwrap();
@@ -345,7 +286,7 @@ async fn initialize_jd(
     let (send_solution, recv_solution) = bounded(10);
 
     // Instantiate a new `Upstream` (SV2 Pool)
-    let upstream = match upstream_sv2::Upstream::new(
+    let upstream = match lib::upstream_sv2::Upstream::new(
         upstream_addr,
         upstream_config.authority_pubkey.clone(),
         0, // TODO
@@ -364,12 +305,12 @@ async fn initialize_jd(
     };
 
     // Start receiving messages from the SV2 Upstream role
-    if let Err(e) = upstream_sv2::Upstream::parse_incoming(upstream.clone()) {
+    if let Err(e) = lib::upstream_sv2::Upstream::parse_incoming(upstream.clone()) {
         error!("failed to create sv2 parser: {}", e);
         panic!()
     }
 
-    match upstream_sv2::Upstream::setup_connection(
+    match lib::upstream_sv2::Upstream::setup_connection(
         upstream.clone(),
         proxy_config.min_supported_version,
         proxy_config.max_supported_version,
@@ -409,8 +350,8 @@ async fn initialize_jd(
         Ok(c) => c,
         Err(e) => {
             let _ = tx_status
-                .send(Status {
-                    state: State::UpstreamShutdown(e),
+                .send(status::Status {
+                    state: status::State::UpstreamShutdown(e),
                 })
                 .await;
             return;
@@ -418,7 +359,7 @@ async fn initialize_jd(
     };
 
     // Wait for downstream to connect
-    let downstream = downstream::listen_for_downstream_mining(
+    let downstream = lib::downstream::listen_for_downstream_mining(
         downstream_addr,
         Some(upstream),
         send_solution,

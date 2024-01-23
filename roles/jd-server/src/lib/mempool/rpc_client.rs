@@ -1,4 +1,4 @@
-use crate::lib::mempool::{hex_iterator::HexIterator, Amount, BlockHash};
+use super::{hex_iterator::HexIterator, Amount, BlockHash};
 use bitcoin::{blockdata::transaction::Transaction, consensus::Decodable};
 use jsonrpc::{error::Error as JsonRpcError, Client as JosnRpcClient};
 use serde::Deserialize;

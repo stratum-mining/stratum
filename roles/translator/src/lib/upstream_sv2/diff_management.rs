@@ -1,9 +1,8 @@
 use super::Upstream;
 
-use crate::{
-    error::Error::PoisonLock,
+use super::super::{
+    error::{Error::PoisonLock, ProxyResult},
     upstream_sv2::{EitherFrame, Message, StdFrame},
-    ProxyResult,
 };
 use binary_sv2::u256_from_int;
 use roles_logic_sv2::{
@@ -23,7 +22,7 @@ impl Upstream {
                 )
             })
             .map_err(|_e| PoisonLock)?;
-        let channel_id = channel_id_option.ok_or(crate::Error::RolesSv2Logic(
+        let channel_id = channel_id_option.ok_or(super::super::error::Error::RolesSv2Logic(
             RolesLogicError::NotFoundChannelId,
         ))?;
         let (timeout, new_hashrate) = diff_mgmt
@@ -40,7 +39,9 @@ impl Upstream {
         let frame: EitherFrame = either_frame.into();
 
         tx_frame.send(frame).await.map_err(|e| {
-            crate::Error::ChannelErrorSender(crate::error::ChannelSendError::General(e.to_string()))
+            super::super::error::Error::ChannelErrorSender(
+                super::super::error::ChannelSendError::General(e.to_string()),
+            )
         })?;
         async_std::task::sleep(Duration::from_secs(timeout as u64)).await;
         Ok(())

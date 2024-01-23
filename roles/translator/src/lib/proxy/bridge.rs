@@ -12,10 +12,13 @@ use std::sync::Arc;
 use tokio::sync::broadcast;
 use v1::{client_to_server::Submit, server_to_client, utils::HexU32Be};
 
-use crate::{
+use super::super::{
     downstream_sv1::{DownstreamMessages, SetDownstreamTarget, SubmitShareWithChannelId},
-    error::Error::{self, PoisonLock},
-    status, ProxyResult,
+    error::{
+        Error::{self, PoisonLock},
+        ProxyResult,
+    },
+    status,
 };
 use error_handling::handle_result;
 use roles_logic_sv2::{channel_logic::channel_factory::OnNewShare, Error as RolesLogicError};

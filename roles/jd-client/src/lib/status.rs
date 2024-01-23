@@ -1,4 +1,4 @@
-use crate::error::{self, Error};
+use super::error::{self, Error};
 
 #[derive(Debug)]
 pub enum Sender {

@@ -1,6 +1,7 @@
-use crate::{
+use super::{
     error::{PoolError, PoolResult},
-    status, EitherFrame, StdFrame,
+    mining_pool::{EitherFrame, StdFrame},
+    status,
 };
 use async_channel::{Receiver, Sender};
 use codec_sv2::{Frame, HandshakeRole, Initiator};

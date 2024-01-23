@@ -1,6 +1,6 @@
 use roles_logic_sv2::parsers::Mining;
 
-use crate::error::PoolError;
+use super::error::JdsError;
 
 /// Each sending side of the status channel
 /// should be wrapped with this enum to allow
@@ -10,26 +10,6 @@ pub enum Sender {
     Downstream(async_channel::Sender<Status>),
     DownstreamListener(async_channel::Sender<Status>),
     Upstream(async_channel::Sender<Status>),
-}
-
-impl Sender {
-    /// used to clone the sending side of the status channel used by the TCP Listener
-    /// into individual Sender's for each Downstream instance
-    pub fn listener_to_connection(&self) -> Self {
-        match self {
-            // should only be used to clone the DownstreamListener(Sender) into Downstream(Sender)s
-            Self::DownstreamListener(inner) => Self::Downstream(inner.clone()),
-            _ => unreachable!(),
-        }
-    }
-
-    pub async fn send(&self, status: Status) -> Result<(), async_channel::SendError<Status>> {
-        match self {
-            Self::Downstream(inner) => inner.send(status).await,
-            Self::DownstreamListener(inner) => inner.send(status).await,
-            Self::Upstream(inner) => inner.send(status).await,
-        }
-    }
 }
 
 impl Clone for Sender {
@@ -44,8 +24,8 @@ impl Clone for Sender {
 
 #[derive(Debug)]
 pub enum State {
-    DownstreamShutdown(PoolError),
-    TemplateProviderShutdown(PoolError),
+    DownstreamShutdown(JdsError),
+    TemplateProviderShutdown(JdsError),
     DownstreamInstanceDropped(u32),
     Healthy(String),
 }
@@ -61,14 +41,21 @@ pub struct Status {
 /// the main status loop can decide what should happen
 async fn send_status(
     sender: &Sender,
-    e: PoolError,
+    e: JdsError,
     outcome: error_handling::ErrorBranch,
 ) -> error_handling::ErrorBranch {
     match sender {
         Sender::Downstream(tx) => match e {
-            PoolError::Sv2ProtocolError((id, Mining::OpenMiningChannelError(_))) => {
+            JdsError::Sv2ProtocolError((id, Mining::OpenMiningChannelError(_))) => {
                 tx.send(Status {
                     state: State::DownstreamInstanceDropped(id),
+                })
+                .await
+                .unwrap_or(());
+            }
+            JdsError::ChannelRecv(_) => {
+                tx.send(Status {
+                    state: State::DownstreamShutdown(e),
                 })
                 .await
                 .unwrap_or(());
@@ -101,34 +88,27 @@ async fn send_status(
 }
 
 // this is called by `error_handling::handle_result!`
-pub async fn handle_error(sender: &Sender, e: PoolError) -> error_handling::ErrorBranch {
+pub async fn handle_error(sender: &Sender, e: JdsError) -> error_handling::ErrorBranch {
     tracing::debug!("Error: {:?}", &e);
     match e {
-        PoolError::Io(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
-        PoolError::ChannelSend(_) => {
+        JdsError::Io(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
+        JdsError::ChannelSend(_) => {
             //This should be a continue because if we fail to send to 1 downstream we should continue
             //processing the other downstreams in the loop we are in. Otherwise if a downstream fails
             //to send to then subsequent downstreams in the map won't get send called on them
             send_status(sender, e, error_handling::ErrorBranch::Continue).await
         }
-        PoolError::ChannelRecv(_) => {
+        JdsError::ChannelRecv(_) => {
             send_status(sender, e, error_handling::ErrorBranch::Break).await
         }
-        PoolError::BinarySv2(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
-        PoolError::Codec(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
-        PoolError::Noise(_) => send_status(sender, e, error_handling::ErrorBranch::Continue).await,
-        PoolError::RolesLogic(_) => {
-            send_status(sender, e, error_handling::ErrorBranch::Break).await
-        }
-        PoolError::Custom(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
-        PoolError::Framing(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
-        PoolError::PoisonLock(_) => {
-            send_status(sender, e, error_handling::ErrorBranch::Break).await
-        }
-        PoolError::ComponentShutdown(_) => {
-            send_status(sender, e, error_handling::ErrorBranch::Break).await
-        }
-        PoolError::Sv2ProtocolError(_) => {
+        JdsError::BinarySv2(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
+        JdsError::Codec(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
+        JdsError::Noise(_) => send_status(sender, e, error_handling::ErrorBranch::Continue).await,
+        JdsError::RolesLogic(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
+        JdsError::Custom(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
+        JdsError::Framing(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
+        JdsError::PoisonLock(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
+        JdsError::Sv2ProtocolError(_) => {
             send_status(sender, e, error_handling::ErrorBranch::Break).await
         }
     }

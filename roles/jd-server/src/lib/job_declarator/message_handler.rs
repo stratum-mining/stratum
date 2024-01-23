@@ -17,7 +17,7 @@ use roles_logic_sv2::{errors::Error, parsers::PoolMessages as AllMessages};
 use stratum_common::bitcoin::consensus::Decodable;
 use tracing::warn;
 
-use crate::lib::job_declarator::signed_token;
+use super::signed_token;
 use stratum_common::bitcoin::consensus::encode::serialize;
 
 use super::JobDeclaratorDownstream;

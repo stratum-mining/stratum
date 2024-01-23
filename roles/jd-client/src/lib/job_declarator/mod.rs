@@ -37,7 +37,7 @@ pub type StdFrame = StandardSv2Frame<Message>;
 mod setup_connection;
 use setup_connection::SetupConnectionHandler;
 
-use crate::{error::Error, proxy_config::ProxyConfig, upstream_sv2::Upstream};
+use super::{error::Error, proxy_config::ProxyConfig, upstream_sv2::Upstream};
 
 #[derive(Debug, Clone)]
 pub struct LastDeclareJob {

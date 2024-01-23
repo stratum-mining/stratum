@@ -1,7 +1,5 @@
 pub mod message_handler;
-use crate::{
-    error::JdsError, lib::mempool::JDsMempool, status, Configuration, EitherFrame, StdFrame,
-};
+use super::{error::JdsError, mempool::JDsMempool, status, Configuration, EitherFrame, StdFrame};
 use async_channel::{Receiver, Sender};
 use binary_sv2::{B0255, U256};
 use codec_sv2::{Frame, HandshakeRole, Responder};
@@ -51,7 +49,7 @@ impl JobDeclaratorDownstream {
         // TODO: use next variables
         let token_to_job_map = HashMap::with_hasher(BuildNoHashHasher::default());
         let tokens = Id::new();
-        crate::get_coinbase_output(config).expect("Invalid coinbase output in config")[0]
+        super::get_coinbase_output(config).expect("Invalid coinbase output in config")[0]
             .consensus_encode(&mut coinbase_output)
             .expect("Invalid coinbase output in config");
 
