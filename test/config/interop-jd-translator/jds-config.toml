@@ -14,3 +14,7 @@ core_rpc_url =  ""
 core_rpc_port = 18332
 core_rpc_user =  ""
 core_rpc_pass =  ""
+# Timeout used for JDS mempool update 
+[mempool_update_timeout]
+unit = "secs"
+value = 1
