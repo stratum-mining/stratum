@@ -61,7 +61,6 @@ impl JDsMempool {
             tokio::task::spawn(async move {
                 let mempool: Result<Vec<String>, BitcoincoreRpcError> = client.get_raw_mempool_verbose();
                 let mempool = mempool.map_err(|e| {
-                    println!("Error fetching mempool: {:?}\nUnable to connect to Template Provider (possible reasons: not fully synced, down)", e);
                     JdsMempoolError::BitcoinCoreRpcError(e)
                 })?;
                 for id in &mempool {
