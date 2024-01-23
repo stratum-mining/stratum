@@ -59,10 +59,9 @@ impl JDsMempool {
             .ok_or(JdsMempoolError::NoClient)?;
         let new_mempool: Result<Vec<TransacrtionWithHash>, JdsMempoolError> =
             tokio::task::spawn(async move {
-                let mempool: Result<Vec<String>, BitcoincoreRpcError> = client.get_raw_mempool_verbose();
-                let mempool = mempool.map_err(|e| {
-                    JdsMempoolError::BitcoinCoreRpcError(e)
-                })?;
+                let mempool: Result<Vec<String>, BitcoincoreRpcError> =
+                    client.get_raw_mempool_verbose();
+                let mempool = mempool.map_err(|e| JdsMempoolError::BitcoinCoreRpcError(e))?;
                 for id in &mempool {
                     let tx: Result<Transaction, _> = client.get_raw_transaction(id, None);
                     if let Ok(tx) = tx {
