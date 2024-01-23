@@ -8,6 +8,8 @@ use serde::{Deserialize, Serialize};
 use std::{convert::TryInto, sync::Arc};
 use stratum_common::{bitcoin, bitcoin::hash_types::Txid};
 
+use self::rpc_client::BitcoincoreRpcError;
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Hash([u8; 32]);
 
@@ -57,7 +59,11 @@ impl JDsMempool {
             .ok_or(JdsMempoolError::NoClient)?;
         let new_mempool: Result<Vec<TransacrtionWithHash>, JdsMempoolError> =
             tokio::task::spawn(async move {
-                let mempool: Vec<String> = client.get_raw_mempool_verbose().unwrap();
+                let mempool: Result<Vec<String>, BitcoincoreRpcError> = client.get_raw_mempool_verbose();
+                let mempool = mempool.map_err(|e| {
+                    println!("Error fetching mempool: {:?}\nUnable to connect to Template Provider (possible reasons: not fully synced, down)", e);
+                    JdsMempoolError::BitcoinCoreRpcError(e)
+                })?;
                 for id in &mempool {
                     let tx: Result<Transaction, _> = client.get_raw_transaction(id, None);
                     if let Ok(tx) = tx {
@@ -106,4 +112,11 @@ impl JDsMempool {
 pub enum JdsMempoolError {
     EmptyMempool,
     NoClient,
+    BitcoinCoreRpcError(BitcoincoreRpcError),
+}
+
+impl From<BitcoincoreRpcError> for JdsMempoolError {
+    fn from(error: BitcoincoreRpcError) -> Self {
+        JdsMempoolError::BitcoinCoreRpcError(error)
+    }
 }
