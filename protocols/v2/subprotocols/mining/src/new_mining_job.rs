@@ -3,6 +3,7 @@ use alloc::vec::Vec;
 #[cfg(not(feature = "with_serde"))]
 use binary_sv2::binary_codec_sv2;
 use binary_sv2::{Deserialize, Seq0255, Serialize, Sv2Option, B032, B064K, U256};
+#[cfg(not(feature = "with_serde"))]
 use core::convert::TryInto;
 
 /// # NewMiningJob (Server -> Client)

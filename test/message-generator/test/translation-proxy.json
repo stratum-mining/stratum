@@ -172,6 +172,7 @@
                         {
                             "output_string": "PROXY SERVER - ACCEPTING FROM UPSTREAM:",
                             "output_location": "StdOut",
+                            "late_condition": false,
                             "condition": true
                         }
                     ],

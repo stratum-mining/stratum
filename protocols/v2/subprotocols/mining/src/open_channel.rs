@@ -70,7 +70,7 @@ impl<'decoder> OpenStandardMiningChannel<'decoder> {
     }
 
     #[cfg(feature = "with_serde")]
-    pub fn update_id(&mut self, new_id: u32) {
+    pub fn update_id(&mut self, _new_id: u32) {
         // DO NOT USE MEM SWAP HERE AS IT DO NOT UPDATE THE UNDERLING PAYLOAD
         // INSTEAD IMPLEMENT U32ASREF FOR SERDE
         todo!()
@@ -127,7 +127,7 @@ impl<'decoder> OpenStandardMiningChannelSuccess<'decoder> {
     }
 
     #[cfg(feature = "with_serde")]
-    pub fn update_id(&mut self, new_id: u32) {
+    pub fn update_id(&mut self, _new_id: u32) {
         // DO NOT USE MEM SWAP HERE AS IT DO NOT UPDATE THE UNDERLING PAYLOAD
         // INSTEAD IMPLEMENT U32ASREF FOR SERDE
         todo!()
