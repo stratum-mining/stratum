@@ -35,6 +35,7 @@
                         {
                             "output_string": "start",
                             "output_location": "StdOut",
+                            "late_condition": false,
                             "condition": true
                         }
                     ],

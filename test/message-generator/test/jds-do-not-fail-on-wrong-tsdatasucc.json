@@ -29,6 +29,7 @@
                         {
                             "output_string": "JD INITIALIZED",
                             "output_location": "StdOut",
+                            "late_condition": false,
                             "condition": true
                         }
                     ],
@@ -69,6 +70,7 @@
                         {
                             "output_string": "MATCHED MESSAGE TYPE 1",
                             "output_location": "StdOut",
+                            "late_condition": false,
                             "condition": true
                         }
                     ],

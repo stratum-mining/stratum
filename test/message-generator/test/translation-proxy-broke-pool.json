@@ -78,6 +78,7 @@
                         {
                             "output_string": "2mtranslator_sv2",
                             "output_location": "StdOut",
+                            "late_condition": false,
                             "condition": true
                         }
                     ],
