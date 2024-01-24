@@ -15,6 +15,7 @@ use tokio::{
     fs::File,
     io::{copy, BufReader, BufWriter},
 };
+use tracing::{debug, error, info};
 
 pub struct Executor {
     name: Arc<String>,
@@ -136,7 +137,7 @@ impl Executor {
         let mut success = true;
         for action in self.actions {
             if let Some(doc) = action.actiondoc {
-                println!("actiondoc: {}", doc);
+                info!("actiondoc: {}", doc);
             }
             let (sender, recv) = match action.role {
                 Role::Upstream => (
@@ -183,7 +184,7 @@ impl Executor {
                     message
                 };
                 let frame = EitherFrame::Sv2(message.clone().try_into().unwrap());
-                println!("SEND {:#?}", message);
+                debug!("SEND {:#?}", message);
                 match sender.send(frame).await {
                     Ok(_) => (),
                     Err(_) => panic!(),
@@ -192,7 +193,7 @@ impl Executor {
             let mut rs = 0;
             for result in &action.result {
                 rs += 1;
-                println!(
+                info!(
                     "Working on result {}/{}: {}",
                     rs,
                     action.result.len(),
@@ -202,7 +203,7 @@ impl Executor {
                 // If the connection should drop at this point then let's just break the loop
                 // Can't do anything else after the connection drops.
                 if *result == ActionResult::CloseConnection {
-                    println!(
+                    info!(
                         "Waiting 1 sec to make sure that remote have time to close the connection"
                     );
                     tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
@@ -217,19 +218,19 @@ impl Executor {
                     Ok(message) => message,
                     Err(_) => {
                         success = false;
-                        println!("Connection closed before receiving the message");
+                        error!("Connection closed before receiving the message");
                         break;
                     }
                 };
 
                 let mut message: Sv2Frame<AnyMessage<'static>, _> = message.try_into().unwrap();
-                println!("RECV {:#?}", message);
+                debug!("RECV {:#?}", message);
                 let header = message.get_header().unwrap();
                 let payload = message.payload();
                 match result {
                     ActionResult::MatchMessageType(message_type) => {
                         if header.msg_type() != *message_type {
-                            println!(
+                            error!(
                                 "WRONG MESSAGE TYPE expected: {} received: {}",
                                 message_type,
                                 header.msg_type()
@@ -237,7 +238,7 @@ impl Executor {
                             success = false;
                             break;
                         } else {
-                            println!("MATCHED MESSAGE TYPE {}", message_type);
+                            info!("MATCHED MESSAGE TYPE {}", message_type);
                         }
                     }
                     ActionResult::MatchMessageField((
@@ -520,7 +521,7 @@ impl Executor {
                                 Err(e) => panic!("err {:?}", e),
                             }
                         } else {
-                            println!(
+                            info!(
                                 "match_message_field subprotocol not valid - received: {}",
                                 subprotocol
                             );
@@ -725,13 +726,13 @@ impl Executor {
                                 Err(e) => panic!("err {:?}", e),
                             }
                         } else {
-                            println!("GetMessageField not implemented for this protocol",);
+                            error!("GetMessageField not implemented for this protocol",);
                             panic!()
                         };
                     }
                     ActionResult::MatchMessageLen(message_len) => {
                         if payload.len() != *message_len {
-                            println!(
+                            error!(
                                 "WRONG MESSAGE len expected: {} received: {}",
                                 message_len,
                                 payload.len()
@@ -742,7 +743,7 @@ impl Executor {
                     }
                     ActionResult::MatchExtensionType(ext_type) => {
                         if header.ext_type() != *ext_type {
-                            println!(
+                            error!(
                                 "WRONG EXTENSION TYPE expected: {} received: {}",
                                 ext_type,
                                 header.ext_type()

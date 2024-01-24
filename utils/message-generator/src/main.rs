@@ -18,6 +18,7 @@ use roles_logic_sv2::parsers::AnyMessage;
 use secp256k1::{Secp256k1, SecretKey};
 use std::{
     convert::TryInto,
+    fmt,
     net::SocketAddr,
     sync::{
         atomic::{AtomicBool, Ordering},
@@ -25,7 +26,18 @@ use std::{
     },
     vec::Vec,
 };
+use tracing::info;
+use tracing_core::{Event, Subscriber};
+use tracing_subscriber::{
+    filter::EnvFilter,
+    fmt::{
+        format::{self, FormatEvent, FormatFields},
+        FmtContext, FormattedFields,
+    },
+    registry::LookupSpan,
+};
 use v1::json_rpc::StandardRequest;
+struct Formatter;
 
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 enum Sv2Type {
@@ -329,13 +341,47 @@ async fn clean_up(commands: Vec<Command>) {
         .expect("TEST AND CLEANUP FAILED");
     }
 }
+
+impl<S, N> FormatEvent<S, N> for Formatter
+where
+    S: Subscriber + for<'a> LookupSpan<'a>,
+    N: for<'a> FormatFields<'a> + 'static,
+{
+    fn format_event(
+        &self,
+        ctx: &FmtContext<'_, S, N>,
+        mut writer: format::Writer<'_>,
+        event: &Event<'_>,
+    ) -> fmt::Result {
+        if let Some(scope) = ctx.event_scope() {
+            for span in scope.from_root() {
+                write!(writer, "{}", span.name())?;
+                let ext = span.extensions();
+                let fields = &ext
+                    .get::<FormattedFields<N>>()
+                    .expect("will never be `None`");
+                if !fields.is_empty() {
+                    write!(writer, "{{{}}}", fields)?;
+                }
+                write!(writer, ": ")?;
+            }
+        }
+        ctx.field_format().format_fields(writer.by_ref(), event)?;
+        writeln!(writer)
+    }
+}
+
 #[tokio::main]
 async fn main() {
+    tracing_subscriber::fmt()
+        .with_env_filter(EnvFilter::from_default_env())
+        .event_format(Formatter)
+        .init();
     let args: Vec<String> = std::env::args().collect();
     let test_path = &args[1];
-    println!();
-    println!("EXECUTING {}", test_path);
-    println!();
+    info!("");
+    info!("EXECUTING {}", test_path);
+    info!("");
     let mut _test_path = args[1].clone();
     _test_path.insert_str(0, "../");
     let test_path_ = &_test_path;
@@ -383,7 +429,7 @@ async fn main() {
             panic!("TEST FAILED");
         }
         if pass.load(Ordering::Relaxed) {
-            println!("TEST OK");
+            info!("TEST OK");
             std::process::exit(0);
         }
     }

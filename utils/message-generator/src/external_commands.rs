@@ -5,6 +5,7 @@ use tokio::{
     process::{ChildStderr, ChildStdout, Command},
     time::timeout,
 };
+use tracing::info;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum OutputLocation {
@@ -232,10 +233,10 @@ impl ExternalCommandConditions {
         loop {
             let line = match reader.next_line().await.unwrap() {
                 Some(line) => {
-                    println!("STD OUT: {}", line);
+                    info!("STD OUT: {}", line);
                     line
                 }
-                None => panic!("Stdout err"),
+                None => return,
             };
             if self.check_condition(line, OutputLocation::StdOut, is_late) {
                 return;
@@ -261,12 +262,12 @@ impl ExternalCommandConditions {
         loop {
             let line = match reader.next_line().await.unwrap() {
                 Some(line) => {
-                    if ! line.contains("unused manifest key") {
-                        println!("STD ERR: {}", line);
+                    if !line.contains("unused manifest key") {
+                        info!("STD ERR: {}", line);
                     }
                     line
                 }
-                None => panic!("Stderr err"),
+                None => return,
             };
             if self.check_condition(line, OutputLocation::StdErr, is_late) {
                 return;

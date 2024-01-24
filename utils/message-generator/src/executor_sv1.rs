@@ -10,6 +10,7 @@ use tokio::{
     fs::File,
     io::{copy, BufReader, BufWriter},
 };
+use tracing::{debug, error, info};
 
 pub struct Sv1Executor {
     name: Arc<String>,
@@ -77,7 +78,7 @@ impl Sv1Executor {
         let mut success = true;
         for action in self.actions {
             if let Some(doc) = action.actiondoc {
-                println!("actiondoc: {}", doc);
+                info!("actiondoc: {}", doc);
             }
             let (sender, recv) = (
                 self.send_to_up
@@ -92,7 +93,7 @@ impl Sv1Executor {
                 let message = serde_json::to_string(&message_.0).unwrap();
                 let message = message + "\n";
                 if replace_fields.is_empty() {
-                    println!("SEND {:#?}", message);
+                    debug!("SEND {:#?}", message);
                     match sender.send(message).await {
                         Ok(_) => (),
                         Err(_) => panic!(),
@@ -104,7 +105,7 @@ impl Sv1Executor {
             let mut rs = 0;
             for result in &action.result {
                 rs += 1;
-                println!(
+                info!(
                     "Working on result {}/{}: {}",
                     rs,
                     action.result.len(),
@@ -124,25 +125,25 @@ impl Sv1Executor {
                     Ok(message) => message,
                     Err(_) => {
                         success = false;
-                        println!("Connection closed before receiving the message");
+                        error!("Connection closed before receiving the message");
                         break;
                     }
                 };
                 let message: Message = serde_json::from_str(&message).unwrap();
-                println!("RECV {:#?}", message);
+                debug!("RECV {:#?}", message);
                 match message {
                     Message::OkResponse(response) | Message::ErrorResponse(response) => {
                         match result {
                             Sv1ActionResult::MatchMessageId(message_id) => {
                                 if response.id != *message_id {
-                                    println!(
+                                    error!(
                                         "WRONG MESSAGE ID expected: {} received: {}",
                                         message_id, response.id
                                     );
                                     success = false;
                                     break;
                                 } else {
-                                    println!("MATCHED MESSAGE ID {}", message_id);
+                                    info!("MATCHED MESSAGE ID {}", message_id);
                                 }
                             }
                             Sv1ActionResult::MatchMessageField {
@@ -155,7 +156,7 @@ impl Sv1Executor {
                             _ => todo!(),
                         }
                     }
-                    _ => println!("WRONG MESSAGE TYPE RECEIVED: expected Response"),
+                    _ => error!("WRONG MESSAGE TYPE RECEIVED: expected Response"),
                 }
             }
         }
