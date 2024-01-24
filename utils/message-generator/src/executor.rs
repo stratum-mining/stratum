@@ -11,13 +11,10 @@ use codec_sv2::{Frame, StandardEitherFrame as EitherFrame, Sv2Frame};
 use roles_logic_sv2::parsers::{self, AnyMessage};
 use std::{collections::HashMap, convert::TryInto, sync::Arc};
 
-use tokio::{
-    fs::File,
-    io::{copy, BufReader, BufWriter},
-};
 use tracing::{debug, error, info};
 
 pub struct Executor {
+    #[allow(dead_code)]
     name: Arc<String>,
     send_to_down: Option<Sender<EitherFrame<AnyMessage<'static>>>>,
     recv_from_down: Option<Receiver<EitherFrame<AnyMessage<'static>>>>,
