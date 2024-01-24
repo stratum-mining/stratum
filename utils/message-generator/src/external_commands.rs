@@ -261,7 +261,9 @@ impl ExternalCommandConditions {
         loop {
             let line = match reader.next_line().await.unwrap() {
                 Some(line) => {
-                    println!("STD ERR: {}", line);
+                    if ! line.contains("unused manifest key") {
+                        println!("STD ERR: {}", line);
+                    }
                     line
                 }
                 None => panic!("Stderr err"),
