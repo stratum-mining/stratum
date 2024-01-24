@@ -18,6 +18,7 @@ pub struct Sv1Executor {
     actions: Vec<Sv1Action>,
     cleanup_commmands: Vec<Command>,
     process: Vec<Option<tokio::process::Child>>,
+    #[allow(dead_code)] // TODO why we have it?
     save: HashMap<String, serde_json::Value>,
 }
 
@@ -31,15 +32,15 @@ impl Sv1Executor {
                 let p = process[index].as_mut();
                 let mut pid = p.as_ref().unwrap().id();
                 // Kill process
-                p.unwrap().kill().await;
+                p.unwrap().kill().await.expect("Failed to kill process");
                 // Wait until the process is killed to move on
-                while let Some(i) = pid {
+                while pid.is_some() {
                     let p = process[index].as_mut();
                     pid = p.as_ref().unwrap().id();
-                    p.unwrap().kill().await;
+                    p.unwrap().kill().await.expect("Failed to kill process");
                     tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
                 }
-                let p = process[index].as_mut();
+                let _p = process[index].as_mut(); // TODO why we have it?
             } else if command.command == "sleep" {
                 let ms: u64 = command.args[0].parse().unwrap();
                 tokio::time::sleep(std::time::Duration::from_millis(ms)).await;
@@ -145,7 +146,7 @@ impl Sv1Executor {
                                 }
                             }
                             Sv1ActionResult::MatchMessageField {
-                                message_type,
+                                message_type: _,
                                 fields,
                             } => {
                                 let msg = serde_json::to_value(response).unwrap();
@@ -174,12 +175,13 @@ impl Sv1Executor {
         }
         let mut child_no = 0;
 
+        #[allow(clippy::manual_flatten)]
         for child in self.process {
             if let Some(mut child) = child {
                 // Spawn a task to read the child process's stdout and write it to the file
                 let stdout = child.stdout.take().unwrap();
                 let mut stdout_reader = BufReader::new(stdout);
-                child_no = child_no + 1;
+                child_no += 1;
                 let test_name = self.name.clone();
                 tokio::spawn(async move {
                     let test_name = &*test_name;
@@ -191,9 +193,9 @@ impl Sv1Executor {
                     copy(&mut stdout_reader, &mut stdout_writer).await.unwrap();
                 });
 
-                while let Some(i) = &child.id() {
+                while child.id().is_some() {
                     // Sends kill signal and waits 1 second before checking to ensure child was killed
-                    child.kill().await;
+                    child.kill().await.expect("Failed to kill process");
                     tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
                 }
             }

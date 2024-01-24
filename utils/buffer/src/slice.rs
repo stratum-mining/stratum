@@ -21,11 +21,11 @@ pub struct Slice {
 }
 
 #[cfg(feature = "with_serde")]
-use serde::ser::{Serialize, SerializeStruct, Serializer};
+use serde::ser::{Serialize, Serializer};
 
 #[cfg(feature = "with_serde")]
 impl Serialize for Slice {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    fn serialize<S>(&self, _serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {

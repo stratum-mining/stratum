@@ -24,7 +24,7 @@ impl Sv2ActionParser {
             let role = match action.get("role").unwrap().as_str().unwrap() {
                 "client" => Role::Downstream,
                 "server" => Role::Upstream,
-                role @ _ => panic!("Unknown role: {}", role),
+                role => panic!("Unknown role: {}", role),
             };
             let mut action_frames = vec![];
             let ids = action.get("message_ids").unwrap().as_array().unwrap();
@@ -83,7 +83,7 @@ impl Sv2ActionParser {
                             .unwrap()
                             .as_str()
                             .unwrap()
-                            .replace("_", "")
+                            .replace('_', "")
                             .parse::<u16>()
                             .unwrap();
                         action_results.push(ActionResult::MatchExtensionType(extension_type));
@@ -94,7 +94,7 @@ impl Sv2ActionParser {
                     "none" => {
                         action_results.push(ActionResult::None);
                     }
-                    type_ @ _ => panic!("Unknown result type {}", type_),
+                    type_ => panic!("Unknown result type {}", type_),
                 }
             }
 
@@ -111,8 +111,8 @@ impl Sv2ActionParser {
 }
 
 impl Sv1ActionParser {
-    pub fn from_step_2<'b>(
-        test: &'b str,
+    pub fn from_step_2(
+        test: &'_ str,
         messages: HashMap<String, (StandardRequest, Vec<ReplaceField>)>,
     ) -> Vec<Sv1Action> {
         let test: Map<String, Value> = serde_json::from_str(test).unwrap();
@@ -157,7 +157,7 @@ impl Sv1ActionParser {
                     "none" => {
                         action_results.push(Sv1ActionResult::None);
                     }
-                    type_ @ _ => panic!("Unknown result type {}", type_),
+                    type_ => panic!("Unknown result type {}", type_),
                 }
             }
 

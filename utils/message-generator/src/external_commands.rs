@@ -1,5 +1,5 @@
 use binary_sv2::{Deserialize, Serialize};
-use std::{ops::RangeBounds, process::Stdio, time::Duration};
+use std::{process::Stdio, time::Duration};
 use tokio::{
     io::{AsyncBufReadExt, BufReader},
     process::{ChildStderr, ChildStdout, Command},
@@ -37,6 +37,7 @@ pub enum ExternalCommandConditions {
 }
 
 impl ExternalCommandConditions {
+    #[allow(dead_code)]
     pub fn new_with_timer_secs(secs: u64) -> Self {
         Self::WithConditions {
             conditions: vec![],
@@ -45,6 +46,7 @@ impl ExternalCommandConditions {
         }
     }
 
+    #[allow(dead_code)]
     pub fn warn_no_panic(self) -> Self {
         match self {
             ExternalCommandConditions::WithConditions {
@@ -60,6 +62,7 @@ impl ExternalCommandConditions {
         }
     }
 
+    #[allow(dead_code)]
     pub fn continue_if_std_out_have(self, to_check: &str) -> Self {
         let condition = ExternalCommandCondition {
             output_string: to_check.to_string(),
@@ -84,6 +87,7 @@ impl ExternalCommandConditions {
         }
     }
 
+    #[allow(dead_code)]
     pub fn fail_if_std_out_have(self, to_check: &str) -> Self {
         let condition = ExternalCommandCondition {
             output_string: to_check.to_string(),
@@ -108,6 +112,7 @@ impl ExternalCommandConditions {
         }
     }
 
+    #[allow(dead_code)]
     pub fn continue_if_std_err_have(self, to_check: &str) -> Self {
         let condition = ExternalCommandCondition {
             output_string: to_check.to_string(),
@@ -132,6 +137,7 @@ impl ExternalCommandConditions {
         }
     }
 
+    #[allow(dead_code)]
     pub fn fail_if_std_err_have(self, to_check: &str) -> Self {
         let condition = ExternalCommandCondition {
             output_string: to_check.to_string(),
@@ -156,6 +162,7 @@ impl ExternalCommandConditions {
         }
     }
 
+    #[allow(dead_code)]
     pub fn fail_if_anything_on_std_err(self) -> Self {
         let condition = ExternalCommandCondition {
             output_string: "".to_string(),
@@ -243,9 +250,7 @@ impl ExternalCommandConditions {
         timeout(seconds, self.check_std_out_(std_out, is_late))
             .await
             .map_err(|_| {
-                if self.get_warn_no_panic() {
-                    Err::<(), ()>(())
-                } else {
+                if !self.get_warn_no_panic() {
                     panic!()
                 };
             })
@@ -274,9 +279,7 @@ impl ExternalCommandConditions {
         timeout(seconds, self.check_std_err_(std_err, is_late))
             .await
             .map_err(|_| {
-                if self.get_warn_no_panic() {
-                    Err::<(), ()>(())
-                } else {
+                if !self.get_warn_no_panic() {
                     panic!()
                 };
             })

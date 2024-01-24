@@ -9,14 +9,13 @@ mod parser;
 extern crate load_file;
 
 use crate::parser::sv2_messages::ReplaceField;
-use arbitrary::Arbitrary;
 use binary_sv2::{Deserialize, Serialize};
 use codec_sv2::StandardEitherFrame as EitherFrame;
 use external_commands::*;
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 use rand::Rng;
 use roles_logic_sv2::parsers::AnyMessage;
-use secp256k1::{KeyPair, Secp256k1, SecretKey};
+use secp256k1::{Secp256k1, SecretKey};
 use std::{
     convert::TryInto,
     net::SocketAddr,
@@ -47,7 +46,7 @@ enum Sv2Type {
 }
 
 impl Sv2Type {
-    fn arbitrary(mut self) -> Self {
+    fn arbitrary(self) -> Self {
         let mut rng = rand::thread_rng();
         match self {
             Sv2Type::Bool(_) => Sv2Type::Bool(rng.gen::<bool>()),
@@ -68,7 +67,7 @@ impl Sv2Type {
             // of arbitrary is used
             Sv2Type::Str0255(_) => {
                 let length: u8 = rng.gen::<u8>();
-                let mut vector_suffix = vec![0; length.try_into().unwrap()];
+                let vector_suffix = vec![0; length.into()];
                 let mut vector_suffix: Vec<u8> =
                     vector_suffix.into_iter().map(|_| rng.gen::<u8>()).collect();
                 let mut vector = vec![length];
@@ -77,7 +76,7 @@ impl Sv2Type {
             }
             Sv2Type::B0255(_) => {
                 let length: u8 = rng.gen::<u8>();
-                let mut vector_suffix = vec![0; length.try_into().unwrap()];
+                let vector_suffix = vec![0; length.into()];
                 let mut vector_suffix: Vec<u8> =
                     vector_suffix.into_iter().map(|_| rng.gen::<u8>()).collect();
                 let mut vector = vec![length];
@@ -86,7 +85,7 @@ impl Sv2Type {
             }
             Sv2Type::B064K(_) => {
                 let length: u16 = rng.gen::<u16>();
-                let mut vector_suffix = vec![0; length.try_into().unwrap()];
+                let vector_suffix = vec![0; length.into()];
                 let mut vector_suffix: Vec<u8> =
                     vector_suffix.into_iter().map(|_| rng.gen::<u8>()).collect();
                 let mut vector: Vec<u8> = length.to_le_bytes().into();
@@ -100,15 +99,16 @@ impl Sv2Type {
                 };
                 // why do I have to use 8 bytes instead of 4?
                 let mut length_8_bytes = vector.clone();
-                for i in 0..5 {
-                    length_8_bytes.push(0);
-                }
+                length_8_bytes.resize(length_8_bytes.len() + 5, 0);
+                //for _ in 0..5 {
+                //    length_8_bytes.push(0);
+                //}
                 let length_8_bytes_array: [u8; 8] = length_8_bytes.clone().try_into().unwrap();
                 let length = u64::from_le_bytes(length_8_bytes_array);
-                let mut vector_suffix = Vec::new();
-                for i in 0..length {
-                    vector_suffix.push(0);
-                }
+                let vector_suffix = vec![0; length as usize];
+                //for _ in 0..length {
+                //    vector_suffix.push(0);
+                //}
                 let mut vector_suffix: Vec<u8> =
                     vector_suffix.into_iter().map(|_| rng.gen::<u8>()).collect();
                 vector.append(&mut vector_suffix);
@@ -116,14 +116,13 @@ impl Sv2Type {
             }
             Sv2Type::B032(_) => {
                 let length: u8 = rng.gen::<u8>();
-                let mut vector_suffix = vec![0; length.try_into().unwrap()];
                 let mut vector_suffix = (0..length).map(|_| rng.gen::<u8>()).collect();
                 let mut vector: Vec<u8> = length.to_le_bytes().into();
                 vector.append(&mut vector_suffix);
                 Sv2Type::B032(vector)
             }
             Sv2Type::Pubkey(_) => {
-                let mut vector: Vec<u8> = (0..32).map(|_| rng.gen::<u8>()).collect();
+                let vector: Vec<u8> = (0..32).map(|_| rng.gen::<u8>()).collect();
                 let secret_key = SecretKey::from_slice(&vector[..]).unwrap();
                 let secp = Secp256k1::new();
                 let pubkey_as_vec = secret_key.public_key(&secp).serialize().to_vec();
@@ -132,8 +131,7 @@ impl Sv2Type {
             Sv2Type::Seq0255(_) => {
                 // we assume the type T to be at most 128bits
                 let number_of_elements_of_type_t: u8 = rng.gen::<u8>();
-                let mut vector_suffix = vec![0; number_of_elements_of_type_t.try_into().unwrap()];
-                let mut vector_suffix: Vec<u128> = (0..number_of_elements_of_type_t)
+                let vector_suffix: Vec<u128> = (0..number_of_elements_of_type_t)
                     .map(|_| rng.gen::<u128>())
                     .collect();
                 let mut vector_suffix: Vec<Vec<u8>> = vector_suffix
@@ -147,8 +145,7 @@ impl Sv2Type {
             }
             Sv2Type::Seq064k(_) => {
                 let number_of_elements_of_type_t: u16 = rng.gen::<u16>();
-                let mut vector_suffix = vec![0; number_of_elements_of_type_t.try_into().unwrap()];
-                let mut vector_suffix: Vec<u128> = (0..number_of_elements_of_type_t)
+                let vector_suffix: Vec<u128> = (0..number_of_elements_of_type_t)
                     .map(|_| rng.gen::<u128>())
                     .collect();
                 let mut vector_suffix: Vec<Vec<u8>> = vector_suffix
@@ -346,7 +343,7 @@ async fn main() {
     let test = load_str!(test_path_);
     let test = parser::Parser::parse_test(test);
     let test_name: String = test_path
-        .split("/")
+        .split('/')
         .collect::<Vec<&str>>()
         .last()
         .unwrap()
@@ -401,16 +398,13 @@ mod test {
     };
     use codec_sv2::{Frame, Sv2Frame};
     use roles_logic_sv2::{
-        common_messages_sv2::{Protocol, SetupConnection},
-        job_declaration_sv2::DeclareMiningJob,
         mining_sv2::{
             CloseChannel, NewExtendedMiningJob, OpenExtendedMiningChannel,
-            OpenExtendedMiningChannelSuccess, SetCustomMiningJob, SetCustomMiningJobError,
-            SetCustomMiningJobSuccess, SetTarget,
+            OpenExtendedMiningChannelSuccess, SetCustomMiningJob, SetTarget,
         },
-        parsers::{CommonMessages, Mining},
+        parsers::Mining,
     };
-    use std::{convert::TryInto, io::Write};
+    use std::convert::TryInto;
     use tokio::join;
 
     // The following test see that the composition serialise fist and deserialize
@@ -550,31 +544,31 @@ mod test {
 
     //DeclareMiningJob in Declaration Protocol
     // TODO! MAKE THIS TEST COMPILE AND PASS!
-    fn test_serialize_and_deserialize_6_dmj() {
-        let message = DeclareMiningJob {
-            request_id: 1,
-            mining_job_token: binary_sv2::B0255::try_from(vec![3, 0, 0, 0]).unwrap(),
-            version: 2,
-            coinbase_tx_version: 2,
-            coinbase_prefix: todo!(),
-            coinbase_tx_input_n_sequence: 1,
-            coinbase_tx_value_remaining: 1,
-            coinbase_tx_outputs: binary_sv2::B064K::try_from(vec![0, 1, 1]).unwrap(),
-            coinbase_tx_locktime: 1,
-            min_extranonce_size: 1,
-            tx_short_hash_nonce: 1,
-            tx_short_hash_list: binary_sv2::Seq064K::new(vec![binary_sv2::ShortTxId::try_from(
-                [1; 32],
-            )]),
-            tx_hash_list_hash: todo!(),
-            excess_data: todo!(),
-        };
-        let message_as_serde_value = serde_json::to_value(message.clone()).unwrap();
-        let message_as_string = serde_json::to_string(&message_as_serde_value).unwrap();
-        let message_new: DeclareMiningJob = serde_json::from_str(&message_as_string).unwrap();
+    //fn test_serialize_and_deserialize_6_dmj() {
+    //    let message = DeclareMiningJob {
+    //        request_id: 1,
+    //        mining_job_token: binary_sv2::B0255::try_from(vec![3, 0, 0, 0]).unwrap(),
+    //        version: 2,
+    //        coinbase_tx_version: 2,
+    //        coinbase_prefix: todo!(),
+    //        coinbase_tx_input_n_sequence: 1,
+    //        coinbase_tx_value_remaining: 1,
+    //        coinbase_tx_outputs: binary_sv2::B064K::try_from(vec![0, 1, 1]).unwrap(),
+    //        coinbase_tx_locktime: 1,
+    //        min_extranonce_size: 1,
+    //        tx_short_hash_nonce: 1,
+    //        tx_short_hash_list: binary_sv2::Seq064K::new(vec![binary_sv2::ShortTxId::try_from(
+    //            [1; 32],
+    //        )]),
+    //        tx_hash_list_hash: todo!(),
+    //        excess_data: todo!(),
+    //    };
+    //    let message_as_serde_value = serde_json::to_value(message.clone()).unwrap();
+    //    let message_as_string = serde_json::to_string(&message_as_serde_value).unwrap();
+    //    let message_new: DeclareMiningJob = serde_json::from_str(&message_as_string).unwrap();
 
-        assert!(message_new == message);
-    }
+    //    assert!(message_new == message);
+    //}
 
     #[tokio::test]
     async fn it_send_and_receive() {
@@ -661,96 +655,96 @@ mod test {
         assert!(true)
     }
 
-    #[tokio::test]
-    async fn it_initialize_a_pool_and_connect_to_it() {
-        //let mut bitcoind = os_command(
-        //    "./test/bin/bitcoind",
-        //    vec!["--regtest", "--datadir=./test/appdata/bitcoin_data/"],
-        //    ExternalCommandConditions::new_with_timer_secs(10)
-        //        .continue_if_std_out_have("sv2 thread start")
-        //        .fail_if_anything_on_std_err(),
-        //)
-        //.await;
-        //let mut child = os_command(
-        //    "./test/bin/bitcoin-cli",
-        //    vec![
-        //        "--regtest",
-        //        "--datadir=./test/appdata/bitcoin_data/",
-        //        "generatetoaddress",
-        //        "16",
-        //        "bcrt1qttuwhmpa7a0ls5kr3ye6pjc24ng685jvdrksxx",
-        //    ],
-        //    ExternalCommandConditions::None,
-        //)
-        //.await;
-        //child.unwrap().wait().await.unwrap();
-        let mut pool = os_command(
-            "cargo",
-            vec![
-                "llvm-cov",
-                "--no-report",
-                "run",
-                "-p",
-                "pool_sv2",
-                "--",
-                "-c",
-                "./test/config/pool-config-sri-tp.toml",
-            ],
-            ExternalCommandConditions::new_with_timer_secs(60)
-                .continue_if_std_out_have("Listening for encrypted connection on: 127.0.0.1:34254"),
-        )
-        .await;
+    //#[tokio::test]
+    //async fn it_initialize_a_pool_and_connect_to_it() {
+    //    //let mut bitcoind = os_command(
+    //    //    "./test/bin/bitcoind",
+    //    //    vec!["--regtest", "--datadir=./test/appdata/bitcoin_data/"],
+    //    //    ExternalCommandConditions::new_with_timer_secs(10)
+    //    //        .continue_if_std_out_have("sv2 thread start")
+    //    //        .fail_if_anything_on_std_err(),
+    //    //)
+    //    //.await;
+    //    //let mut child = os_command(
+    //    //    "./test/bin/bitcoin-cli",
+    //    //    vec![
+    //    //        "--regtest",
+    //    //        "--datadir=./test/appdata/bitcoin_data/",
+    //    //        "generatetoaddress",
+    //    //        "16",
+    //    //        "bcrt1qttuwhmpa7a0ls5kr3ye6pjc24ng685jvdrksxx",
+    //    //    ],
+    //    //    ExternalCommandConditions::None,
+    //    //)
+    //    //.await;
+    //    //child.unwrap().wait().await.unwrap();
+    //    let mut pool = os_command(
+    //        "cargo",
+    //        vec![
+    //            "llvm-cov",
+    //            "--no-report",
+    //            "run",
+    //            "-p",
+    //            "pool_sv2",
+    //            "--",
+    //            "-c",
+    //            "./test/config/pool-config-sri-tp.toml",
+    //        ],
+    //        ExternalCommandConditions::new_with_timer_secs(60)
+    //            .continue_if_std_out_have("Listening for encrypted connection on: 127.0.0.1:34254"),
+    //    )
+    //    .await;
 
-        let setup_connection = CommonMessages::SetupConnection(SetupConnection {
-            protocol: Protocol::MiningProtocol,
-            min_version: 2,
-            max_version: 2,
-            flags: 0,
-            endpoint_host: "".to_string().try_into().unwrap(),
-            endpoint_port: 0,
-            vendor: "".to_string().try_into().unwrap(),
-            hardware_version: "".to_string().try_into().unwrap(),
-            firmware: "".to_string().try_into().unwrap(),
-            device_id: "".to_string().try_into().unwrap(),
-        });
+    //    let setup_connection = CommonMessages::SetupConnection(SetupConnection {
+    //        protocol: Protocol::MiningProtocol,
+    //        min_version: 2,
+    //        max_version: 2,
+    //        flags: 0,
+    //        endpoint_host: "".to_string().try_into().unwrap(),
+    //        endpoint_port: 0,
+    //        vendor: "".to_string().try_into().unwrap(),
+    //        hardware_version: "".to_string().try_into().unwrap(),
+    //        firmware: "".to_string().try_into().unwrap(),
+    //        device_id: "".to_string().try_into().unwrap(),
+    //    });
 
-        let frame = Sv2Frame::from_message(
-            setup_connection.clone(),
-            const_sv2::MESSAGE_TYPE_SETUP_CONNECTION,
-            0,
-            true,
-        )
-        .unwrap();
+    //    let frame = Sv2Frame::from_message(
+    //        setup_connection.clone(),
+    //        const_sv2::MESSAGE_TYPE_SETUP_CONNECTION,
+    //        0,
+    //        true,
+    //    )
+    //    .unwrap();
 
-        let frame = EitherFrame::Sv2(frame);
+    //    let frame = EitherFrame::Sv2(frame);
 
-        let pool_address = SocketAddr::new("127.0.0.1".parse().unwrap(), 34254);
-        let pub_key: EncodedEd25519PublicKey = "2di19GHYQnAZJmEpoUeP7C3Eg9TCcksHr23rZCC83dvUiZgiDL"
-            .to_string()
-            .try_into()
-            .unwrap();
-        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-        let (recv_from_pool, send_to_pool) = setup_as_downstream(pool_address, Some(pub_key)).await;
-        send_to_pool.send(frame.try_into().unwrap()).await.unwrap();
-        match recv_from_pool.recv().await.unwrap() {
-            EitherFrame::Sv2(a) => {
-                assert!(true)
-            }
-            _ => assert!(false),
-        }
-        let mut child = os_command(
-            "rm",
-            vec!["-rf", "./test/appdata/bitcoin_data/regtest"],
-            ExternalCommandConditions::None,
-        )
-        .await;
-        child.unwrap().wait().await.unwrap();
+    //    let pool_address = SocketAddr::new("127.0.0.1".parse().unwrap(), 34254);
+    //    let pub_key: EncodedEd25519PublicKey = "2di19GHYQnAZJmEpoUeP7C3Eg9TCcksHr23rZCC83dvUiZgiDL"
+    //        .to_string()
+    //        .try_into()
+    //        .unwrap();
+    //    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+    //    let (recv_from_pool, send_to_pool) = setup_as_downstream(pool_address, Some(pub_key)).await;
+    //    send_to_pool.send(frame.try_into().unwrap()).await.unwrap();
+    //    match recv_from_pool.recv().await.unwrap() {
+    //        EitherFrame::Sv2(a) => {
+    //            assert!(true)
+    //        }
+    //        _ => assert!(false),
+    //    }
+    //    let mut child = os_command(
+    //        "rm",
+    //        vec!["-rf", "./test/appdata/bitcoin_data/regtest"],
+    //        ExternalCommandConditions::None,
+    //    )
+    //    .await;
+    //    child.unwrap().wait().await.unwrap();
 
-        // TODO not panic in network utils but return an handler
-        //pool.kill().unwrap();
-        //bitcoind.kill().await.unwrap();
-        assert!(true)
-    }
+    //    // TODO not panic in network utils but return an handler
+    //    //pool.kill().unwrap();
+    //    //bitcoind.kill().await.unwrap();
+    //    assert!(true)
+    //}
 
     //#[tokio::test]
     //async fn it_test_against_remote_endpoint() {

@@ -22,7 +22,7 @@ use roles_logic_sv2::{
     },
 };
 
-pub fn into_static<'a>(m: AnyMessage<'a>) -> AnyMessage<'static> {
+pub fn into_static(m: AnyMessage<'_>) -> AnyMessage<'static> {
     match m {
         PoolMessages::Common(m) => match m {
             CommonMessages::ChannelEndpointChanged(m) => PoolMessages::Common(
@@ -347,7 +347,7 @@ pub fn into_static<'a>(m: AnyMessage<'a>) -> AnyMessage<'static> {
                     parsers::JobDeclaration::ProvideMissingTransactionsSuccess(m),
                 )
             }
-            parsers::JobDeclaration::SubmitSolution(m) => {
+            parsers::JobDeclaration::SubmitSolution(_m) => {
                 todo!()
             }
         },

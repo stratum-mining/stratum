@@ -3,6 +3,7 @@ use alloc::vec::Vec;
 #[cfg(not(feature = "with_serde"))]
 use binary_sv2::binary_codec_sv2;
 use binary_sv2::{Deserialize, Seq064K, Serialize, B016M};
+#[cfg(not(feature = "with_serde"))]
 use core::convert::TryInto;
 
 // In order to do block propagation, the JDserver must know all the transactions within the current
