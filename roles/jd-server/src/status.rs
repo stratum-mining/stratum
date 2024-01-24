@@ -60,6 +60,13 @@ async fn send_status(
                 .await
                 .unwrap_or(());
             }
+            JdsError::MempoolError(_) => {
+                tx.send(Status {
+                    state: State::TemplateProviderShutdown(e),
+                })
+                .await
+                .unwrap_or(());
+            }
             _ => {
                 let string_err = e.to_string();
                 tx.send(Status {
@@ -109,6 +116,9 @@ pub async fn handle_error(sender: &Sender, e: JdsError) -> error_handling::Error
         JdsError::Framing(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
         JdsError::PoisonLock(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
         JdsError::Sv2ProtocolError(_) => {
+            send_status(sender, e, error_handling::ErrorBranch::Break).await
+        }
+        JdsError::MempoolError(_) => {
             send_status(sender, e, error_handling::ErrorBranch::Break).await
         }
     }
