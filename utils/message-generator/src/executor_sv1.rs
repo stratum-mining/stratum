@@ -6,13 +6,10 @@ use async_channel::{Receiver, Sender};
 use std::{collections::HashMap, sync::Arc};
 use v1::Message;
 
-use tokio::{
-    fs::File,
-    io::{copy, BufReader, BufWriter},
-};
 use tracing::{debug, error, info};
 
 pub struct Sv1Executor {
+    #[allow(dead_code)]
     name: Arc<String>,
     send_to_up: Option<Sender<String>>,
     recv_from_up: Option<Receiver<String>>,
@@ -174,26 +171,10 @@ impl Sv1Executor {
             .await
             .unwrap();
         }
-        let mut child_no = 0;
 
         #[allow(clippy::manual_flatten)]
         for child in self.process {
             if let Some(mut child) = child {
-                // Spawn a task to read the child process's stdout and write it to the file
-                let stdout = child.stdout.take().unwrap();
-                let mut stdout_reader = BufReader::new(stdout);
-                child_no += 1;
-                let test_name = self.name.clone();
-                tokio::spawn(async move {
-                    let test_name = &*test_name;
-                    let mut file = File::create(format!("{}.child-{}.log", test_name, child_no))
-                        .await
-                        .unwrap();
-                    let mut stdout_writer = BufWriter::new(&mut file);
-
-                    copy(&mut stdout_reader, &mut stdout_writer).await.unwrap();
-                });
-
                 while child.id().is_some() {
                     // Sends kill signal and waits 1 second before checking to ensure child was killed
                     child.kill().await.expect("Failed to kill process");

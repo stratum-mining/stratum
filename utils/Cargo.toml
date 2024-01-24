@@ -13,6 +13,7 @@ license-file = "LICENSE.md"
 keywords = ["stratum", "mining", "bitcoin", "protocol"]
 
 [workspace]
+resolver="2"
 
 members = [
     "network-helpers",

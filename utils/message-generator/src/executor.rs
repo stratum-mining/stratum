@@ -41,7 +41,9 @@ impl Executor {
                 while pid.is_some() {
                     let p = process[index].as_mut();
                     pid = p.as_ref().unwrap().id();
-                    p.unwrap().kill().await.expect("Failed to kill process");
+                    if p.unwrap().kill().await.is_err() {
+                        error!("Process already dead");
+                    };
                     tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
                 }
                 let _p = process[index].as_mut();

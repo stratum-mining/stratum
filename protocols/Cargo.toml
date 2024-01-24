@@ -14,6 +14,8 @@ keywords = ["stratum", "mining", "bitcoin", "protocol"]
 
 [workspace]
 
+resolver="2"
+
 members = [
     "v1",
     "v2/binary-sv2/serde-sv2",
