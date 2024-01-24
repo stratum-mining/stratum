@@ -17,7 +17,7 @@ use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 use rand::Rng;
 use roles_logic_sv2::parsers::AnyMessage;
 use secp256k1::{KeyPair, Secp256k1, SecretKey};
-use std::{convert::TryInto, net::SocketAddr, vec::Vec};
+use std::{convert::TryInto, net::SocketAddr, vec::Vec, sync::{atomic::{AtomicBool, Ordering}, Arc}};
 use v1::json_rpc::StandardRequest;
 
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
@@ -286,7 +286,7 @@ pub struct Sv1Action {
 
 /// Represents a shell command to be executed on setup, after a connection is opened, or on
 /// cleanup.
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Serialize, Deserialize,Clone)]
 pub struct Command {
     command: String,
     args: Vec<String>,
@@ -309,6 +309,21 @@ pub struct Test<'a> {
     cleanup_commmands: Vec<Command>,
 }
 
+async fn clean_up(commands: Vec<Command>) {
+            for command in commands {
+                os_command(
+                    &command.command,
+                    command.args.iter().map(String::as_str).collect(),
+                    command.conditions,
+                )
+                // Give time to the last cleanup command to return before exit from the process
+                .await
+                .expect("TEST AND CLEANUP FAILED")
+                .wait()
+                .await
+                .expect("TEST AND CLEANUP FAILED");
+            }
+}
 #[tokio::main]
 async fn main() {
     let args: Vec<String> = std::env::args().collect();
@@ -328,20 +343,45 @@ async fn main() {
         .last()
         .unwrap()
         .to_string();
+    let cleanup = test.cleanup_commmands.clone();
     // Executes everything (the shell commands and actions)
     // If the `executor` returns false, the test fails
-    match test.version {
-        TestVersion::V1 => {
-            let executor = executor_sv1::Sv1Executor::new(test, test_name).await;
-            executor.execute().await;
+    let fail = Arc::new(AtomicBool::new(false));
+    let pass = Arc::new(AtomicBool::new(false));
+    {
+        let fail = fail.clone();
+        std::panic::set_hook(Box::new(move |_| {
+            fail.store(true, Ordering::Relaxed);
+        }));
+    }
+    {
+        let pass = pass.clone();
+        tokio::spawn(async move {
+            match test.version {
+                TestVersion::V1 => {
+                    let executor = executor_sv1::Sv1Executor::new(test, test_name).await;
+                    executor.execute().await;
+                    pass.store(true, Ordering::Relaxed);
+                }
+                TestVersion::V2 => {
+                    let executor = executor::Executor::new(test, test_name).await;
+                    executor.execute().await;
+                    pass.store(true, Ordering::Relaxed);
+                }
+            }
+        });
+    }
+    loop {
+        if fail.load(Ordering::Relaxed) {
+            clean_up(cleanup).await;
+            let _ = std::panic::take_hook();
+            panic!("TEST FAILED");
         }
-        TestVersion::V2 => {
-            let executor = executor::Executor::new(test, test_name).await;
-            executor.execute().await;
+        if pass.load(Ordering::Relaxed) {
+            println!("TEST OK");
+            std::process::exit(0);
         }
     }
-    println!("TEST OK");
-    std::process::exit(0);
 }
 
 #[cfg(test)]

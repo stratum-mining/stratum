@@ -18,8 +18,10 @@ pub struct ExternalCommandCondition {
     pub output_string: String,
     /// Where the string should be (stderr, stdout)
     pub output_location: OutputLocation,
-    /// If true and out contain string continue the test
+    /// if true and out contain string continue the test
     pub condition: bool,
+    /// if true the condition is checked after initialization
+    pub late_condition: bool,
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
@@ -63,6 +65,7 @@ impl ExternalCommandConditions {
             output_string: to_check.to_string(),
             output_location: OutputLocation::StdOut,
             condition: true,
+            late_condition: false,
         };
         match self {
             ExternalCommandConditions::WithConditions {
@@ -86,6 +89,7 @@ impl ExternalCommandConditions {
             output_string: to_check.to_string(),
             output_location: OutputLocation::StdOut,
             condition: false,
+            late_condition: false,
         };
         match self {
             ExternalCommandConditions::WithConditions {
@@ -109,6 +113,7 @@ impl ExternalCommandConditions {
             output_string: to_check.to_string(),
             output_location: OutputLocation::StdErr,
             condition: true,
+            late_condition: false,
         };
         match self {
             ExternalCommandConditions::WithConditions {
@@ -132,6 +137,7 @@ impl ExternalCommandConditions {
             output_string: to_check.to_string(),
             output_location: OutputLocation::StdErr,
             condition: false,
+            late_condition: false,
         };
         match self {
             ExternalCommandConditions::WithConditions {
@@ -155,6 +161,7 @@ impl ExternalCommandConditions {
             output_string: "".to_string(),
             output_location: OutputLocation::StdErr,
             condition: false,
+            late_condition: false,
         };
         match self {
             ExternalCommandConditions::WithConditions {
@@ -173,7 +180,7 @@ impl ExternalCommandConditions {
         }
     }
 
-    fn check_condition(&self, output: String, location: OutputLocation) -> bool {
+    fn check_condition(&self, output: String, location: OutputLocation, is_late: bool) -> bool {
         match self {
             ExternalCommandConditions::WithConditions {
                 conditions,
@@ -181,8 +188,9 @@ impl ExternalCommandConditions {
                 ..
             } => {
                 for condition in conditions {
-                    if output.contains(&condition.output_string)
+                    if output.contains(&condition.output_string) 
                         && condition.output_location == location
+                        && condition.late_condition == is_late
                     {
                         match condition.condition {
                             true => return true,
@@ -212,7 +220,7 @@ impl ExternalCommandConditions {
         }
     }
 
-    async fn check_std_out_(&self, std_out: &mut ChildStdout) {
+    async fn check_std_out_(&self, std_out: &mut ChildStdout, is_late: bool) {
         let mut reader = BufReader::new(std_out).lines();
         loop {
             let line = match reader.next_line().await.unwrap() {
@@ -222,13 +230,17 @@ impl ExternalCommandConditions {
                 }
                 None => panic!("Stdout err"),
             };
-            if self.check_condition(line, OutputLocation::StdOut) {
+            if self.check_condition(line, OutputLocation::StdOut, is_late) {
                 return;
             }
         }
     }
-    pub async fn check_std_out(&self, std_out: &mut ChildStdout) -> Result<(), ()> {
-        timeout(self.get_timer(), self.check_std_out_(std_out))
+    pub async fn check_std_out(&self, std_out: &mut ChildStdout, is_late: bool) -> Result<(), ()> {
+        let seconds = match is_late {
+            true => self.get_timer(),
+            false => Duration::from_secs(u64::MAX),
+        };
+        timeout(seconds, self.check_std_out_(std_out, is_late))
             .await
             .map_err(|_| {
                 if self.get_warn_no_panic() {
@@ -239,7 +251,7 @@ impl ExternalCommandConditions {
             })
     }
 
-    async fn check_std_err_(&self, std_err: &mut ChildStderr) {
+    async fn check_std_err_(&self, std_err: &mut ChildStderr,is_late: bool) {
         let mut reader = BufReader::new(std_err).lines();
         loop {
             let line = match reader.next_line().await.unwrap() {
@@ -249,13 +261,17 @@ impl ExternalCommandConditions {
                 }
                 None => panic!("Stderr err"),
             };
-            if self.check_condition(line, OutputLocation::StdErr) {
+            if self.check_condition(line, OutputLocation::StdErr, is_late) {
                 return;
             }
         }
     }
-    pub async fn check_std_err(&self, std_err: &mut ChildStderr) -> Result<(), ()> {
-        timeout(self.get_timer(), self.check_std_err_(std_err))
+    pub async fn check_std_err(&self, std_err: &mut ChildStderr,is_late: bool) -> Result<(), ()> {
+        let seconds = match is_late {
+            true => self.get_timer(),
+            false => Duration::from_secs(u64::MAX),
+        };
+        timeout(seconds, self.check_std_err_(std_err,is_late))
             .await
             .map_err(|_| {
                 if self.get_warn_no_panic() {
@@ -300,12 +316,16 @@ pub async fn os_command(
             let mut stderr = child.stderr.take().unwrap();
 
             match tokio::select! {
-                  r = conditions_.check_std_out(&mut stdout) => r,
-                  r = conditions_.check_std_err(&mut stderr) => r,
+                  r = conditions_.check_std_out(&mut stdout,false) => r,
+                  r = conditions_.check_std_err(&mut stderr,false) => r,
             } {
                 Ok(_) => {
-                    child.stderr = Some(stderr);
-                    child.stdout = Some(stdout);
+                    tokio::task::spawn(async move {
+                        tokio::select! {
+                              r = conditions_.check_std_out(&mut stdout,true) => r,
+                              r = conditions_.check_std_err(&mut stderr,true) => r,
+                        }
+                    });
                     Some(child)
                 }
                 Err(_) => None,
