@@ -17,7 +17,15 @@ use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 use rand::Rng;
 use roles_logic_sv2::parsers::AnyMessage;
 use secp256k1::{KeyPair, Secp256k1, SecretKey};
-use std::{convert::TryInto, net::SocketAddr, vec::Vec, sync::{atomic::{AtomicBool, Ordering}, Arc}};
+use std::{
+    convert::TryInto,
+    net::SocketAddr,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+    vec::Vec,
+};
 use v1::json_rpc::StandardRequest;
 
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
@@ -286,7 +294,7 @@ pub struct Sv1Action {
 
 /// Represents a shell command to be executed on setup, after a connection is opened, or on
 /// cleanup.
-#[derive(Debug, PartialEq, Serialize, Deserialize,Clone)]
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 pub struct Command {
     command: String,
     args: Vec<String>,
@@ -310,19 +318,19 @@ pub struct Test<'a> {
 }
 
 async fn clean_up(commands: Vec<Command>) {
-            for command in commands {
-                os_command(
-                    &command.command,
-                    command.args.iter().map(String::as_str).collect(),
-                    command.conditions,
-                )
-                // Give time to the last cleanup command to return before exit from the process
-                .await
-                .expect("TEST AND CLEANUP FAILED")
-                .wait()
-                .await
-                .expect("TEST AND CLEANUP FAILED");
-            }
+    for command in commands {
+        os_command(
+            &command.command,
+            command.args.iter().map(String::as_str).collect(),
+            command.conditions,
+        )
+        // Give time to the last cleanup command to return before exit from the process
+        .await
+        .expect("TEST AND CLEANUP FAILED")
+        .wait()
+        .await
+        .expect("TEST AND CLEANUP FAILED");
+    }
 }
 #[tokio::main]
 async fn main() {

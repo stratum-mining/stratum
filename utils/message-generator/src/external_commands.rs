@@ -188,7 +188,7 @@ impl ExternalCommandConditions {
                 ..
             } => {
                 for condition in conditions {
-                    if output.contains(&condition.output_string) 
+                    if output.contains(&condition.output_string)
                         && condition.output_location == location
                         && condition.late_condition == is_late
                     {
@@ -251,7 +251,7 @@ impl ExternalCommandConditions {
             })
     }
 
-    async fn check_std_err_(&self, std_err: &mut ChildStderr,is_late: bool) {
+    async fn check_std_err_(&self, std_err: &mut ChildStderr, is_late: bool) {
         let mut reader = BufReader::new(std_err).lines();
         loop {
             let line = match reader.next_line().await.unwrap() {
@@ -266,12 +266,12 @@ impl ExternalCommandConditions {
             }
         }
     }
-    pub async fn check_std_err(&self, std_err: &mut ChildStderr,is_late: bool) -> Result<(), ()> {
+    pub async fn check_std_err(&self, std_err: &mut ChildStderr, is_late: bool) -> Result<(), ()> {
         let seconds = match is_late {
             true => self.get_timer(),
             false => Duration::from_secs(u64::MAX),
         };
-        timeout(seconds, self.check_std_err_(std_err,is_late))
+        timeout(seconds, self.check_std_err_(std_err, is_late))
             .await
             .map_err(|_| {
                 if self.get_warn_no_panic() {
