@@ -1,6 +1,19 @@
 #![allow(special_module_name)]
 use crate::lib::{mempool, status, Configuration};
 use async_channel::unbounded;
+use codec_sv2::{StandardEitherFrame, StandardSv2Frame};
+use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
+use roles_logic_sv2::{
+    errors::Error, parsers::PoolMessages as JdsMessages, utils::CoinbaseOutput as CoinbaseOutput_,
+};
+use serde::Deserialize;
+use std::convert::{TryFrom, TryInto};
+
+use error_handling::handle_result;
+use stratum_common::bitcoin::{Script, TxOut};
+use tracing::{error, info, warn};
+
+use crate::lib::mempool;
 use roles_logic_sv2::utils::Mutex;
 use std::{sync::Arc, time::Duration};
 use tokio::{select, task};
@@ -156,24 +169,29 @@ async fn main() {
     )));
     let mempool_update_timeout = config.mempool_update_timeout;
     let mempool_cloned_ = mempool.clone();
+    let (status_tx, status_rx) = unbounded();
+    let sender = status::Sender::Downstream(status_tx.clone());
     if url.contains("http") {
+        let sender_clone = sender.clone();
         task::spawn(async move {
             loop {
                 let updated_mempool =
                     mempool::JDsMempool::update_mempool(mempool_cloned_.clone()).await;
                 if let Err(err) = updated_mempool {
-                    panic!("{:?}\nUnable to connect to Template Provider (possible reasons: not fully synced, down)", err)
+                    error!("{:?}", err);
+                    error!("Unable to connect to Template Provider (possible reasons: not fully synced, down)");
+                    handle_result!(sender_clone, Err(err));
                 }
                 tokio::time::sleep(mempool_update_timeout).await;
             }
         });
     };
 
-    let (status_tx, status_rx) = unbounded();
+    //let (status_tx, status_rx) = unbounded();
     info!("Jds INITIALIZING with config: {:?}", &args.config_path);
 
     let cloned = config.clone();
-    let sender = status::Sender::Downstream(status_tx.clone());
+
     let mempool_cloned = mempool.clone();
     task::spawn(async move { JobDeclarator::start(cloned, sender, mempool_cloned).await });
 
