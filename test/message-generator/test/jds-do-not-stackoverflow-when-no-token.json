@@ -1,0 +1,158 @@
+{
+    "version": "2",
+    "doc": [
+        "This test does",
+        "Launch a jds mock on 34264",
+        "Launch a pool on 34254",
+        "Launch jdc on 34265",
+        "Launch a mining proxy",
+        "Run a mining device",
+        "Wait 10 seconds and verify that jdc do not panic"
+    ],
+    "frame_builders": [
+    ],
+    "actions": [
+    ],
+    "setup_commands": [
+        {
+            "command": "cargo",
+            "args": [
+                        "run",
+                        "../../test/message-generator/mock/jds-mock-no-token.json"
+            ],
+
+            "conditions": {
+                "WithConditions": {
+                    "conditions": [
+                        {
+                            "output_string": "Running `target/debug/message_generator_sv2 ../../test/message-generator/mock/jds-mock-no-token.json`",
+                            "output_location": "StdErr",
+                            "condition": true,
+                            "late_condition": false
+                        }
+                    ],
+                    "timer_secs": 600,
+                    "warn_no_panic": false
+                }
+            }
+        },
+        {
+            "command": "cargo",
+            "args": [
+                        "llvm-cov",
+                        "--no-report",
+                        "run",
+                        "-p",
+                        "pool_sv2",
+                        "--",
+                        "-c",
+                        "../test/config/jds-stack-overflow/pool-config.toml"
+            ],
+            "conditions": {
+                "WithConditions": {
+                    "conditions": [
+                        {
+                            "output_string": "Listening for encrypted connection on:",
+                            "output_location": "StdOut",
+                            "condition": true,
+                            "late_condition": false
+                        }
+                    ],
+                    "timer_secs": 600,
+                    "warn_no_panic": false
+                }
+            }
+        },
+        {
+            "command": "cargo",
+            "args": [
+                        "llvm-cov",
+                        "--no-report",
+                        "run",
+                        "-p",
+                        "jd_client",
+                        "--",
+                        "-c",
+                        "../test/config/jds-stack-overflow/jdc-config.toml"
+            ],
+            "conditions": {
+                "WithConditions": {
+                    "conditions": [
+                        {
+                            "output_string": "Listening for downstream mining connections on",
+                            "output_location": "StdOut",
+                            "condition": true,
+                            "late_condition": false
+                        },
+                        {
+                            "output_string": "thread 'tokio-runtime-worker' has overflowed its stack",
+                            "output_location": "StdErr",
+                            "condition": false,
+                            "late_condition": true
+                        }
+                    ],
+                    "timer_secs": 600,
+                    "warn_no_panic": false
+                }
+            }
+        },
+        {
+            "command": "cargo",
+            "args": [
+                        "llvm-cov",
+                        "--no-report",
+                        "run",
+                        "-p",
+                        "mining_proxy_sv2",
+                        "--",
+                        "-c",
+                        "../test/config/jds-stack-overflow/mining-proxy-config.toml"
+            ],
+            "conditions": {
+                "WithConditions": {
+                    "conditions": [
+                        {
+                            "output_string": "Listening for downstream mining connections on 127.0.0.1:34255",
+                            "output_location": "StdOut",
+                            "condition": true,
+                            "late_condition": false
+                        }
+                    ],
+                    "timer_secs": 30,
+                    "warn_no_panic": false
+                }
+            }
+        },
+        {
+            "command": "sleep",
+            "args": ["10000"],
+            "conditions": "None"
+        }
+
+    ],
+    "execution_commands": [
+    ],
+    "cleanup_commands": [
+        {
+            "command": "pkill",
+            "args":  ["-f", "pool_sv2", "-SIGINT"],
+            "conditions": "None"
+        },
+        {
+            "command": "pkill",
+            "args":  ["-f", "jd_server", "-SIGINT"],
+            "conditions": "None"
+        },
+        {
+            "command": "pkill",
+            "args":  ["-f", "jd_client", "-SIGINT"],
+            "conditions": "None"
+        },
+        {
+            "command": "pkill",
+            "args":  ["-f", "mining_proxy_sv2", "-SIGINT"],
+            "conditions": "None"
+        }
+    ],
+    "role": "none"
+}
