@@ -6,7 +6,7 @@ use std::{
 
 use roles_logic_sv2::parsers::Mining;
 
-use crate::lib::mempool::JdsMempoolError;
+use crate::mempool::JdsMempoolError;
 
 #[derive(std::fmt::Debug)]
 pub enum JdsError {
