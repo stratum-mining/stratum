@@ -148,7 +148,7 @@ impl JobDeclarator {
     pub async fn get_last_token(
         self_mutex: &Arc<Mutex<Self>>,
     ) -> AllocateMiningJobTokenSuccess<'static> {
-        let token_len = self_mutex.safe_lock(|s| s.allocated_tokens.len()).unwrap();
+        let mut token_len = self_mutex.safe_lock(|s| s.allocated_tokens.len()).unwrap();
         match token_len {
             0 => {
                 {
@@ -166,7 +166,13 @@ impl JobDeclarator {
                         })
                         .unwrap();
                 }
-                tokio::task::yield_now().await;
+
+                // we wait for token allocation to avoid infinite recursion
+                while token_len == 0 {
+                    tokio::task::yield_now().await;
+                    token_len = self_mutex.safe_lock(|s| s.allocated_tokens.len()).unwrap();
+                }
+
                 Self::get_last_token(self_mutex).await
             }
             1 => {
