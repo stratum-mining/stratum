@@ -3,6 +3,7 @@ use alloc::vec::Vec;
 #[cfg(not(feature = "with_serde"))]
 use binary_sv2::binary_codec_sv2;
 use binary_sv2::{Deserialize, Serialize};
+#[cfg(not(feature = "with_serde"))]
 use core::convert::TryInto;
 
 /// ## CoinbaseOutputDataSize (Client -> Server)
@@ -12,7 +13,7 @@ use core::convert::TryInto;
 /// Thus, this message is used to indicate that some additional space in the block/coinbase
 /// transaction be reserved for the pool’s use (while always assuming the pool will use the entirety
 /// of available coinbase space).
-/// The Job Negotiator MUST discover the maximum serialized size of the additional outputs which
+/// The Job Declarator MUST discover the maximum serialized size of the additional outputs which
 /// will be added by the pool(s) it intends to use this work. It then MUST communicate the
 /// maximum such size to the Template Provider via this message. The Template Provider MUST
 /// NOT provide NewWork messages which would represent consensus-invalid blocks once this

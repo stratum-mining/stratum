@@ -3,6 +3,7 @@ use alloc::vec::Vec;
 #[cfg(not(feature = "with_serde"))]
 use binary_sv2::binary_codec_sv2;
 use binary_sv2::{Deserialize, Seq0255, Serialize, Sv2Option, B032, B064K, U256};
+#[cfg(not(feature = "with_serde"))]
 use core::convert::TryInto;
 
 /// # NewMiningJob (Server -> Client)
@@ -11,7 +12,7 @@ use core::convert::TryInto;
 /// If the `min_ntime` field is set, the client MUST start to mine on the new job immediately after receiving this message, and use the value for the initial nTime.
 
 #[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct NewMiningJob<'decoder> {
     /// Channel identifier, this must be a standard channel.
     pub channel_id: u32,
@@ -64,7 +65,7 @@ impl<'d> NewMiningJob<'d> {
 /// that they accept extended mining jobs in the SetupConnection message (intended and
 /// expected behaviour for end mining devices).
 ///
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct NewExtendedMiningJob<'decoder> {
     /// For a group channel, the message is broadcasted to all standard
     /// channels belonging to the group. Otherwise, it is addressed to

@@ -1,4 +1,5 @@
 {
+    "version": "2",
     "doc": [
         "This test does",
         "Soft mocking of template provider",
@@ -16,7 +17,7 @@
                 "coinbase_tx_version": 2,
                 "coinbase_prefix": [1,16,0],
                 "coinbase_tx_input_sequence": 4294967295,
-                "coinbase_tx_value_remaining": 5000000000,
+                "coinbase_tx_value_remaining": 625000000,
                 "coinbase_tx_outputs_count": 0,
                 "coinbase_tx_outputs": [],
                 "coinbase_tx_locktime": 0,
@@ -97,7 +98,9 @@
     ],
     "role": "server",
     "upstream": {
-        "ip": "0.0.0.0",
-        "port": 8442
+        "ip": "127.0.0.1",
+        "port": 8442,
+        "pub_key": "3VANfft6ei6jQq1At7d8nmiZzVhBFS4CiQujdgim1ign",
+        "secret_key": "7qbpUjScc865jyX2kiB4NVJANoC7GA7TAJupdzXWkc62"
     }
 }

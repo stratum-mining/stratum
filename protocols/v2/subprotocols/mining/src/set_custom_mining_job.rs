@@ -3,17 +3,18 @@ use alloc::vec::Vec;
 #[cfg(not(feature = "with_serde"))]
 use binary_sv2::binary_codec_sv2;
 use binary_sv2::{Deserialize, Seq0255, Serialize, Str0255, B0255, B064K, U256};
+#[cfg(not(feature = "with_serde"))]
 use core::convert::TryInto;
 
 /// # SetCustomMiningJob (Client -> Server)
 ///
 /// Can be sent only on extended channel. SetupConnection.flags MUST contain
 /// *REQUIRES_WORK_SELECTION* flag (work selection feature successfully negotiated).
-/// The downstream node has a custom job negotiated by a trusted external Job Negotiator. The
+/// The downstream node has a custom job negotiated by a trusted external Job Declarator. The
 /// mining_job_token provides the information for the pool to authorize the custom job that has
-/// been or will be negotiated between the Job Negotiator and Pool.
+/// been or will be negotiated between the Job Declarator and Pool.
 ///
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct SetCustomMiningJob<'decoder> {
     /// Extended channel identifier.
     pub channel_id: u32,
@@ -44,8 +45,7 @@ pub struct SetCustomMiningJob<'decoder> {
     /// coinbase outputs added by the client. Includes both
     /// transaction fees and block subsidy.
     pub coinbase_tx_value_remaining: u64,
-    /// Bitcoin transaction outputs to be included as the last
-    /// outputs in the coinbase transaction.
+    /// All the outputs that will be included in the coinbase txs
     #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub coinbase_tx_outputs: B064K<'decoder>,
     /// The locktime field in the coinbase transaction.
@@ -56,8 +56,6 @@ pub struct SetCustomMiningJob<'decoder> {
     /// Size of extranonce in bytes that will be provided by the
     /// downstream node.
     pub extranonce_size: u16,
-    /// TBD: Can be custom job ever future?
-    pub future_job: bool,
 }
 
 /// # SetCustomMiningJob.Success (Server -> Client)
@@ -114,7 +112,6 @@ impl<'d> GetSize for SetCustomMiningJob<'d> {
             + self.coinbase_tx_locktime.get_size()
             + self.merkle_path.get_size()
             + self.extranonce_size.get_size()
-            + self.future_job.get_size()
     }
 }
 #[cfg(feature = "with_serde")]

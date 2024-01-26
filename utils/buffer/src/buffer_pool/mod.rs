@@ -11,6 +11,8 @@ use crate::{
 #[cfg(feature = "debug")]
 use std::time::SystemTime;
 
+use aes_gcm::aead::Buffer as AeadBuffer;
+
 pub const POOL_CAPACITY: usize = 8;
 mod pool_back;
 pub use pool_back::PoolBack;
@@ -326,6 +328,9 @@ pub struct BufferPool<T: Buffer> {
     shared_state: SharedState,
     inner_memory: InnerMemory,
     system_memory: T,
+    // Used only when we need as_ref or as_mut, set the first element to the one with index equal
+    // to start
+    start: usize,
 }
 
 impl BufferPool<BufferFromSystemMemory> {
@@ -336,6 +341,7 @@ impl BufferPool<BufferFromSystemMemory> {
             shared_state: SharedState::new(),
             inner_memory: InnerMemory::new(capacity),
             system_memory: BufferFromSystemMemory::default(),
+            start: 0,
         }
     }
 }
@@ -350,6 +356,7 @@ impl BufferPool<TestBufferFromMemory> {
             shared_state: SharedState::new(),
             inner_memory: InnerMemory::new(capacity),
             system_memory: TestBufferFromMemory(Vec::new()),
+            start: 0,
         }
     }
 }
@@ -645,6 +652,16 @@ impl<T: Buffer> Buffer for BufferPool<T> {
         }
     }
 
+    fn get_data_by_ref_(&self, len: usize) -> &[u8] {
+        match self.mode {
+            PoolMode::Alloc => self.system_memory.get_data_by_ref_(len),
+            _ => {
+                &self.inner_memory.pool[self.inner_memory.raw_offset
+                    ..self.inner_memory.raw_offset + self.inner_memory.raw_len]
+            }
+        }
+    }
+
     fn len(&self) -> usize {
         match self.mode {
             PoolMode::Back => self.inner_memory.raw_len,
@@ -652,11 +669,42 @@ impl<T: Buffer> Buffer for BufferPool<T> {
             PoolMode::Alloc => self.system_memory.len(),
         }
     }
+
+    fn danger_set_start(&mut self, index: usize) {
+        self.start = index;
+    }
 }
 
 #[cfg(not(test))]
 impl<T: Buffer> Drop for BufferPool<T> {
     fn drop(&mut self) {
         while self.shared_state.load(Ordering::Relaxed) != 0 {}
+    }
+}
+
+impl<T: Buffer> AsRef<[u8]> for BufferPool<T> {
+    fn as_ref(&self) -> &[u8] {
+        &self.get_data_by_ref_(Buffer::len(self))[self.start..]
+    }
+}
+impl<T: Buffer> AsMut<[u8]> for BufferPool<T> {
+    fn as_mut(&mut self) -> &mut [u8] {
+        let start = self.start;
+        self.get_data_by_ref(Buffer::len(self))[start..].as_mut()
+    }
+}
+impl<T: Buffer + AeadBuffer> AeadBuffer for BufferPool<T> {
+    fn extend_from_slice(&mut self, other: &[u8]) -> aes_gcm::aead::Result<()> {
+        self.get_writable(other.len()).copy_from_slice(other);
+        Ok(())
+    }
+
+    fn truncate(&mut self, len: usize) {
+        let len = len + self.start;
+        match self.mode {
+            PoolMode::Back => self.inner_memory.raw_len = len,
+            PoolMode::Front(_) => self.inner_memory.raw_len = len,
+            PoolMode::Alloc => self.system_memory.truncate(len),
+        }
     }
 }

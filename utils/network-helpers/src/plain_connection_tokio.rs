@@ -67,8 +67,11 @@ impl PlainConnection {
                                     trace!("MissingBytes({}) on incoming message - ignoring", size);
                                 }
                             }
-                            Err(_) => {
-                                trace!("Failed to parse incoming message - ignoring");
+                            Err(e) => {
+                                error!("Failed to read from stream: {}", e);
+                                sender_incoming.close();
+                                task::yield_now().await;
+                                break;
                             }
                         }
                     }

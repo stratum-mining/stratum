@@ -2,9 +2,11 @@ on:
   push:
     branches:
       - main
+      - dev
   pull_request:
     branches:
       - main
+      - dev
   pull_request_review:
     types: [submitted]
     branches: [bot/versioning]
@@ -37,6 +39,12 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: build
+        run: |
+          cargo build --manifest-path=benches/Cargo.toml
+          cargo build --manifest-path=common/Cargo.toml
+          cargo build --manifest-path=protocols/Cargo.toml
+          cargo build --manifest-path=roles/Cargo.toml
+          cargo build --manifest-path=utils/Cargo.toml
 
       - name: Run sv1-client-and-server example
         uses: actions-rs/cargo@v1
@@ -53,14 +61,15 @@ jobs:
           fi
         working-directory: examples/interop-cpp/
 
-      - name: interop-no-cargo-test
-        run: |
-          if [ ${{ matrix.os }} == "ubuntu-latest" ]; then
-            ./run.sh 30
-          else
-            echo "Skipping interop-test on ${{ matrix.os }} - not supported"
-          fi
-        working-directory: examples/interop-cpp-no-cargo/
+          # TODO this is only usefull if we want to build c bindings with guix
+          #- name: interop-no-cargo-test
+          #  run: |
+          #    if [ ${{ matrix.os }} == "ubuntu-latest" ]; then
+          #      ./run.sh 30
+          #    else
+          #      echo "Skipping interop-test on ${{ matrix.os }} - not supported"
+          #    fi
+          #  working-directory: examples/interop-cpp-no-cargo/
 
       - name: fuzz tests
         run: |

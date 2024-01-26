@@ -1,6 +1,0 @@
-upstreams = [{ address = "161.117.187.159", port = 3333, pub_key = "ANTPL8wtKgDkhPKNgKdR4crLvQ1zBvdj9jeQCAQvnhi9sEy8N", channel_kind = "Extended"}]
-upstreams_jn = []
-listen_address = "127.0.0.1"
-listen_mining_port = 34255
-max_supported_version = 2
-min_supported_version = 2

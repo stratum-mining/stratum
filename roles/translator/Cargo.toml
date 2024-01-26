@@ -6,13 +6,18 @@ description = "Server used to bridge SV1 miners to SV2 pools"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/stratum-mining/stratum"
 
+[lib]
+name = "translator_sv2"
+path = "src/lib/mod.rs"
+
 [dependencies]
+stratum-common = { path = "../../common" }
 async-channel = "1.5.1"
 async-recursion = "0.3.2"
 async-std = { version = "1.12.0", features = ["attributes"] }
 binary_sv2 = { version = "^0.1.6", path = "../../protocols/v2/binary-sv2/binary-sv2" }
 buffer_sv2 = { version = "^0.1.2", path = "../../utils/buffer" }
-codec_sv2 = { version = "0.1", path = "../../protocols/v2/codec-sv2", features = ["noise_sv2", "with_buffer_pool"] }
+codec_sv2 = { version = "1.0", path = "../../protocols/v2/codec-sv2", features = ["noise_sv2", "with_buffer_pool"] }
 framing_sv2 = { version = "^0.1.5", path = "../../protocols/v2/framing-sv2" }
 network_helpers = { version = "0.1", path = "../../utils/network-helpers", features=["async_std", "with_buffer_pool"] }
 once_cell = "1.12.0"
@@ -26,6 +31,8 @@ tracing = { version = "0.1" }
 tracing-subscriber = { version = "0.3" }
 v1 = { version = "^0.1.1", path = "../../protocols/v1", package="sv1_api" }
 error_handling = { version = "0.1", path = "../../utils/error-handling" }
+key-utils = { version = "^1.0.0", path = "../../utils/key-utils" }
+
 
 [dev-dependencies]
 rand = "0.8.4"

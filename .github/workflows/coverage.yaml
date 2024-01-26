@@ -1,16 +1,16 @@
 # Performs test coverage of project's libraries using cargo-tarpaulin and the message-generator, 
 # and generates results using codecov.io.
-# The follow flags are used when executing cargo-tarpaulin:
-# -- features: Includes the code with the listed features. The following features result in a
-#    tarpaulin error and are NOT included: derive, alloc, arbitrary-derive, attributes, and
-#    with_serde
-# --lib: Only tests the package's library unit tests. Includes protocols, and utils (without the
-#   exclude-files flag, it includes this example because it contains a lib.rs file)
-# --exclude-files examples/*: Excludes all projects in examples directory (specifically added to
-#   ignore examples that that contain a lib.rs file like interop-cpp)
-# --timeout 120: If unresponsive for 120 seconds, action will fail
-# --fail-under 30: If code coverage is less than 30%, action will fail
-# --out Xml: Required for codecov.io to generate coverage result
+# The following flags are set inside `tarpaulin.toml`:
+# `features = "..."`: Includes the code with the listed features. The following features result in a
+#     tarpaulin error and are NOT included: derive, alloc, arbitrary-derive, attributes, and
+#     with_serde
+# `run-types = [ "Lib" ]`: Only tests the package's library unit tests. Includes protocols, and utils (without the
+#     exclude-files flag, it includes this example because it contains a lib.rs file)
+# `exclude-files = [ "examples/*" ]`: Excludes all projects in examples directory (specifically added to
+#     ignore examples that that contain a lib.rs file like interop-cpp)
+# `timeout = "120s"`: If unresponsive for 120 seconds, action will fail
+# `fail-under = 20`: If code coverage is less than 20%, action will fail
+# `out = ["Xml"]`: Required for codecov.io to generate coverage result
 # All message-generator test flags are in tests in test/message-generator/test
 # This test loops through every test in test/message-generator/test, and runs each one, collecting
 # code coverage data for anything in the roles/ directory that is relevant to SV2(pool, mining-proxy)
@@ -19,9 +19,9 @@ name: Test Coverage
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, dev ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, dev ]
   pull_request_review:
     types: [submitted]
     branches: [bot/versioning]
@@ -32,7 +32,7 @@ jobs:
     name: Tarpaulin Test
     runs-on: ubuntu-latest
     container:
-      image: xd009642/tarpaulin:0.25.0-nightly
+      image: xd009642/tarpaulin:0.27.1-nightly
       options: --security-opt seccomp=unconfined
     steps:
       - name: Checkout repository
@@ -40,13 +40,16 @@ jobs:
 
       - name: Generate code coverage
         run: |
-          cargo +nightly version; cargo +nightly tarpaulin --verbose --features disable_nopanic prop_test noise_sv2 fuzz with_buffer_pool async_std debug tokio with_tokio derive_codec_sv2 binary_codec_sv2 default core --lib --exclude-files examples/*,utils/message-generator/* --timeout 120 --fail-under 20 --out Xml
+          ./tarpaulin.sh
 
       - name: Archive Tarpaulin code coverage results
         uses: actions/upload-artifact@v3
         with:
           name: tarpaulin-report
-          path: cobertura.xml
+          path: |
+            protocols/cobertura.xml
+            roles/cobertura.xml
+            utils/cobertura.xml
 
   message-generator-test:
     needs: tarpaulin-test
@@ -60,7 +63,7 @@ jobs:
       
       - uses: actions-rs/toolchain@v1
         with:
-          toolchain: 1.60.0
+          toolchain: 1.75.0
           override: true
           components: llvm-tools-preview
 
@@ -71,7 +74,12 @@ jobs:
         uses: taiki-e/install-action@cargo-llvm-cov
 
       - name: Pre build everything
-        uses: cargo build
+        run: |
+          cargo build --manifest-path=benches/Cargo.toml
+          cargo build --manifest-path=common/Cargo.toml
+          cargo build --manifest-path=protocols/Cargo.toml
+          cargo build --manifest-path=roles/Cargo.toml
+          cargo build --manifest-path=utils/Cargo.toml
 
       - name: Run message generator tests
         run: sh ./message-generator-tests.sh
@@ -89,26 +97,26 @@ jobs:
           name: logs
           path: './utils/message-generator/*.log'
 
-  codecov:
-    needs: message-generator-test
+            # codecov:
+            #   needs: message-generator-test
 
-    name: Codecov Upload
-    runs-on: ubuntu-latest
+            #   name: Codecov Upload
+            #   runs-on: ubuntu-latest
 
-    steps:
+            #   steps:
 
-      - name: Checkout repository
-        uses: actions/checkout@v3
+            #     - name: Checkout repository
+            #       uses: actions/checkout@v3
 
-      - name: Download all workflow run artifacts
-        uses: actions/download-artifact@v3
+            #     - name: Download all workflow run artifacts
+            #       uses: actions/download-artifact@v3
 
-      - name: Display structure of downloaded files
-        run: ls -R
+            #     - name: Display structure of downloaded files
+            #       run: ls -R
 
-      - name: Upload to codecov.io
-        uses: codecov/codecov-action@v3
-        with:
-          files: coverage-report/*.xml, tarpaulin-report/*.xml
-          fail_ci_if_error: true
-          token: ${{ secrets.CODECOV_TOKEN }}
+            #     - name: Upload to codecov.io
+            #       uses: codecov/codecov-action@v3
+            #       with:
+            #         files: coverage-report/*.xml, tarpaulin-report/*.xml
+            #         fail_ci_if_error: true
+            #         token: ${{ secrets.CODECOV_TOKEN }}

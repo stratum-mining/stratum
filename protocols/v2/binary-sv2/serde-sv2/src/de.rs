@@ -69,14 +69,14 @@ impl<'de> Deserializer<'de> {
     fn parse_seq0255(&mut self, element_size: u8) -> Result<&'de [u8]> {
         let len = self.parse_u8()?;
         let len = len as usize * element_size as usize;
-        self.get_slice(len as usize)
+        self.get_slice(len)
     }
 
     #[inline]
     fn parse_seq064k(&mut self, element_size: u8) -> Result<&'de [u8]> {
         let len = self.parse_u16()?;
         let len = len as usize * element_size as usize;
-        self.get_slice(len as usize)
+        self.get_slice(len)
     }
 
     #[inline]
@@ -129,6 +129,14 @@ impl<'de> Deserializer<'de> {
     fn parse_u32(&mut self) -> Result<u32> {
         let u32_ = self.get_slice(4)?;
         Ok(u32::from_le_bytes([u32_[0], u32_[1], u32_[2], u32_[3]]))
+    }
+
+    #[inline]
+    fn parse_u64(&mut self) -> Result<u64> {
+        let u32_ = self.get_slice(8)?;
+        Ok(u64::from_le_bytes([
+            u32_[0], u32_[1], u32_[2], u32_[3], u32_[0], u32_[1], u32_[2], u32_[3],
+        ]))
     }
 
     #[inline]
@@ -294,6 +302,13 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         visitor.visit_bool(self.parse_bool()?)
     }
 
+    fn deserialize_u64<V>(self, visitor: V) -> Result<V::Value>
+    where
+        V: Visitor<'de>,
+    {
+        visitor.visit_u64(self.parse_u64()?)
+    }
+
     ///// UNIMPLEMENTED /////
 
     fn deserialize_option<V>(self, _visitor: V) -> Result<V::Value>
@@ -346,13 +361,6 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     }
 
     fn deserialize_i64<V>(self, _visitor: V) -> Result<V::Value>
-    where
-        V: Visitor<'de>,
-    {
-        unimplemented!()
-    }
-
-    fn deserialize_u64<V>(self, _visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {

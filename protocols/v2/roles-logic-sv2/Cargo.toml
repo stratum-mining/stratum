@@ -9,16 +9,19 @@ repository = "https://github.com/stratum-mining/stratum"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+stratum-common = { path = "../../../common" }
 serde = { version = "1.0.89", features = ["derive", "alloc"], default-features = false, optional = true}
 binary_sv2 = {version = "^0.1.6", path = "../../../protocols/v2/binary-sv2/binary-sv2", default-features = true }
 common_messages_sv2 = { path = "../../../protocols/v2/subprotocols/common-messages", version = "^0.1.5" }
 mining_sv2 = { path = "../../../protocols/v2/subprotocols/mining", version = "^0.1.0" }
 template_distribution_sv2 = { path = "../../../protocols/v2/subprotocols/template-distribution", version = "^0.1.5" }
-job_negotiation_sv2 = { path = "../../../protocols/v2/subprotocols/job-negotiation", version = "^0.1.0" }
+job_declaration_sv2 = { path = "../../../protocols/v2/subprotocols/job-declaration", version = "^0.1.0" }
 const_sv2 = { version = "^0.1.2", path = "../../../protocols/v2/const-sv2"}
 framing_sv2 = { version = "^0.1.5", path = "../../../protocols/v2/framing-sv2" }
-bitcoin = "0.27.1"
 tracing = { version = "0.1"}
+chacha20poly1305 = { version = "0.10.1"}
+nohash-hasher = "0.2.0"
+siphasher = "1"
 
 [dev-dependencies]
 quickcheck = "1.0.3"
@@ -31,7 +34,7 @@ with_serde = [ "serde",
 "binary_sv2/with_serde",
 "common_messages_sv2/with_serde",
 "template_distribution_sv2/with_serde",
-"job_negotiation_sv2/with_serde",
+"job_declaration_sv2/with_serde",
 "mining_sv2/with_serde"]
 prop_test = ["template_distribution_sv2/prop_test"]
 # Code coverage tools may conflict with the nopanic logic, so we can disable it when needed

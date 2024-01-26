@@ -1,22 +1,15 @@
+#![allow(special_module_name)]
 mod args;
-mod downstream_sv1;
-mod error;
-mod job_negotiator;
-mod proxy;
-mod proxy_config;
-mod status;
-mod template_receiver;
-mod upstream_sv2;
-mod utils;
+mod lib;
+
 use args::Args;
 use error::{Error, ProxyResult};
-use job_negotiator::JobNegotiator;
+use lib::{downstream_sv1, error, proxy, proxy_config, status, upstream_sv2};
 use proxy_config::ProxyConfig;
 use roles_logic_sv2::utils::Mutex;
-use template_receiver::TemplateRx;
 
 use async_channel::{bounded, unbounded};
-use futures::{join, select, FutureExt};
+use futures::{select, FutureExt};
 use std::{
     net::{IpAddr, SocketAddr},
     str::FromStr,
@@ -28,8 +21,8 @@ use v1::server_to_client;
 
 use crate::status::{State, Status};
 use tracing::{debug, error, info};
-
 /// Process CLI args, if any.
+#[allow(clippy::result_large_err)]
 fn process_cli_args<'a>() -> ProxyResult<'a, ProxyConfig> {
     let args = match Args::from_args() {
         Ok(cfg) => cfg,
@@ -46,7 +39,10 @@ fn process_cli_args<'a>() -> ProxyResult<'a, ProxyConfig> {
 async fn main() {
     tracing_subscriber::fmt::init();
 
-    let proxy_config = process_cli_args().unwrap();
+    let proxy_config = match process_cli_args() {
+        Ok(p) => p,
+        Err(_) => return,
+    };
     info!("PC: {:?}", &proxy_config);
 
     let (tx_status, rx_status) = unbounded();
@@ -88,34 +84,6 @@ async fn main() {
         proxy_config.upstream_port,
     );
 
-    // channel for template
-    let (send_tp, recv_tp) = bounded(10);
-    // channel for prev hash
-    let (send_ph, recv_ph) = bounded(10);
-
-    let (send_mining_job, recv_mining_job) = bounded(10);
-
-    let (send_coinbase_out, recv_coinbase_out) = bounded(10);
-    let (send_solution, recv_solution) = bounded(10);
-
-    // If there is a jn_config in proxy_config creates a reciver for template and prev hash.
-    // They will be used by the JN once is initialized
-    let (bridge_upstream_kind, upstream_upstream_kind) = match proxy_config.jn_config.clone() {
-        None => (
-            proxy::bridge::UpstreamKind::Standard,
-            upstream_sv2::UpstreamKind::Standard,
-        ),
-        Some(_jn_config) => (
-            proxy::bridge::UpstreamKind::WithNegotiator {
-                recv_tp,
-                recv_ph,
-                send_mining_job,
-                recv_coinbase_out,
-                send_solution,
-            },
-            upstream_sv2::UpstreamKind::WithNegotiator { recv_mining_job },
-        ),
-    };
     let diff_config = Arc::new(Mutex::new(proxy_config.upstream_difficulty_config.clone()));
 
     // Instantiate a new `Upstream` (SV2 Pool)
@@ -129,7 +97,6 @@ async fn main() {
         tx_sv2_extranonce,
         status::Sender::Upstream(tx_status.clone()),
         target.clone(),
-        upstream_upstream_kind,
         diff_config.clone(),
     )
     .await
@@ -158,42 +125,6 @@ async fn main() {
             Err(e) => {
                 error!("Failed to connect to Upstream EXITING! : {}", e);
                 return;
-            }
-        }
-
-        // If jn_config start JN and TempalteRx
-        match proxy_config.jn_config.clone() {
-            None => (),
-            Some(jn_config) => {
-                let (send_comas, recv_comas) = bounded(10);
-                let mut parts = jn_config.tp_address.split(':');
-                let ip_tp = parts.next().unwrap().to_string();
-                let port_tp = parts.next().unwrap().parse::<u16>().unwrap();
-                let mut parts = jn_config.jn_address.split(':');
-                let ip_jn = parts.next().unwrap().to_string();
-                let port_jn = parts.next().unwrap().parse::<u16>().unwrap();
-                join!(
-                    JobNegotiator::new(
-                        SocketAddr::new(IpAddr::from_str(ip_jn.as_str()).unwrap(), port_jn,),
-                        proxy_config
-                            .upstream_authority_pubkey
-                            .clone()
-                            .into_inner()
-                            .as_bytes()
-                            .to_owned(),
-                        send_comas,
-                        send_coinbase_out,
-                        proxy_config.clone(),
-                    ),
-                    TemplateRx::connect(
-                        SocketAddr::new(IpAddr::from_str(ip_tp.as_str()).unwrap(), port_tp,),
-                        send_tp,
-                        send_ph,
-                        recv_comas,
-                        recv_solution,
-                        status::Sender::TemplateReceiver(tx_status.clone()),
-                    ),
-                );
             }
         }
 
@@ -232,8 +163,6 @@ async fn main() {
             extended_extranonce,
             target,
             up_id,
-            bridge_upstream_kind,
-            proxy_config.test_only_share_withhold,
         );
         proxy::Bridge::start(b.clone());
 

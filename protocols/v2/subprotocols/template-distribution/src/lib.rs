@@ -8,7 +8,7 @@
 //! mined on quickly for the block-after-next. While not recommended, the template update
 //! protocol can be a remote server, and is thus authenticated and signed in the same way as all
 //! other protocols ([using the same SetupConnection handshake]).
-//! Like the [Job Negotiation] and [Job Distribution] (sub)protocols, all Template Distribution messages
+//! Like the [Job Declaration] and [Job Distribution] (sub)protocols, all Template Distribution messages
 //! have the channel_msg bit unset, and there is no concept of channels. After the initial common
 //! handshake, the client MUST immediately send a [`CoinbaseOutputDataSize`] message to indicate
 //! the space it requires for coinbase output addition, to which the server MUST immediately reply

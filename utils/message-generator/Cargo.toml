@@ -13,6 +13,14 @@ const_sv2 = { path = "../../protocols/v2/const-sv2" }
 load_file = "1.0.1"
 network_helpers = { path = "../../utils/network-helpers", features = ["with_tokio","with_serde"] }
 roles_logic_sv2 = { path = "../../protocols/v2/roles-logic-sv2", features = ["with_serde"] }
+v1 = { version = "^0.1.1", path = "../../protocols/v1", package="sv1_api" }
 serde = { version = "*", features = ["derive", "alloc"], default-features = false }
 serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
 tokio = { version = "1", features = ["full"] }
+arbitrary = { version = "1", features = ["derive"] }
+rand = "0.8.5"
+secp256k1 = "0.27.0"
+key-utils = { path = "../key-utils" }
+tracing = { version = "0.1" }
+tracing-subscriber = {version = "0.3", features = ["env-filter"]}
+tracing-core = "*"

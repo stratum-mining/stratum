@@ -1,4 +1,5 @@
 {
+    "version": "2",
     "doc": [
         "This test does",
         "Launch 2 pool on differnet address",
@@ -26,7 +27,7 @@
                         "pool_sv2",
                         "--",
                         "-c",
-                        "./test/config/pool-config-sri-tp.toml"
+                        "../test/config/pool-config-sri-tp.toml"
             ],
             "conditions": {
                 "WithConditions": {
@@ -34,10 +35,11 @@
                         {
                             "output_string": "Listening for encrypted connection on: 127.0.0.1:34254",
                             "output_location": "StdOut",
+                            "late_condition": false,
                             "condition": true
                         }
                     ],
-                    "timer_secs": 240,
+                    "timer_secs": 300,
                     "warn_no_panic": false
                 }
             }
@@ -52,7 +54,7 @@
                         "pool_sv2",
                         "--",
                         "-c",
-                        "./test/config/pool-config-sri-tp-different-port.toml"
+                        "../test/config/pool-config-sri-tp-different-port.toml"
             ],
             "conditions": {
                 "WithConditions": {
@@ -60,10 +62,11 @@
                         {
                             "output_string": "Listening for encrypted connection on: 127.0.0.1:44254",
                             "output_location": "StdOut",
+                            "late_condition": false,
                             "condition": true
                         }
                     ],
-                    "timer_secs": 240,
+                    "timer_secs": 300,
                     "warn_no_panic": false
                 }
             }
@@ -78,7 +81,7 @@
                         "mining_proxy_sv2",
                         "--",
                         "-c",
-                        "./test/config/proxy-config-test-multiple-upstreams.toml"
+                        "../test/config/proxy-config-test-multiple-upstreams.toml"
             ],
             "conditions": {
                 "WithConditions": {
@@ -86,10 +89,11 @@
                         {
                             "output_string": "Listening for downstream mining connections on 127.0.0.1:34255",
                             "output_location": "StdOut",
+                            "late_condition": false,
                             "condition": true
                         }
                     ],
-                    "timer_secs": 240,
+                    "timer_secs": 300,
                     "warn_no_panic": false
                 }
             }
@@ -107,10 +111,11 @@
                         {
                             "output_string": "SUCCESS SubmitSharesSuccess",
                             "output_location": "StdOut",
+                            "late_condition": false,
                             "condition": true
                         }
                     ],
-                    "timer_secs": 240,
+                    "timer_secs": 300,
                     "warn_no_panic": false
                 }
             }
@@ -138,10 +143,11 @@
                         {
                             "output_string": "SUCCESS SubmitSharesSuccess",
                             "output_location": "StdOut",
+                            "late_condition": false,
                             "condition": true
                         }
                     ],
-                    "timer_secs": 240,
+                    "timer_secs": 300,
                     "warn_no_panic": false
                 }
             }

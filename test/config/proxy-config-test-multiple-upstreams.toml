@@ -1,11 +1,9 @@
 
 upstreams = [
-    { channel_kind = "Group",  address = "127.0.0.1", port = 34254, pub_key = "2di19GHYQnAZJmEpoUeP7C3Eg9TCcksHr23rZCC83dvUiZgiDL"},
-    { channel_kind = "Group",  address = "127.0.0.1", port = 44254, pub_key = "2di19GHYQnAZJmEpoUeP7C3Eg9TCcksHr23rZCC83dvUiZgiDL"},
-    { channel_kind = "Group",  address = "127.0.0.1", port = 54254, pub_key = "2di19GHYQnAZJmEpoUeP7C3Eg9TCcksHr23rZCC83dvUiZgiDL"}
+    { channel_kind = "Group",  address = "127.0.0.1", port = 34254, pub_key = "3VANfft6ei6jQq1At7d8nmiZzVhBFS4CiQujdgim1ign"},
+    { channel_kind = "Group",  address = "127.0.0.1", port = 44254, pub_key = "3VANfft6ei6jQq1At7d8nmiZzVhBFS4CiQujdgim1ign"},
+    { channel_kind = "Group",  address = "127.0.0.1", port = 54254, pub_key = "3VANfft6ei6jQq1At7d8nmiZzVhBFS4CiQujdgim1ign"}
 ]
-upstreams_jn = [{ address = "127.0.0.1", port = 34264, pub_key = "2di19GHYQnAZJmEpoUeP7C3Eg9TCcksHr23rZCC83dvUiZgiDL"}]
-tp_address = "75.119.150.111:8442"
 listen_address = "127.0.0.1"
 listen_mining_port = 34255
 max_supported_version = 2
@@ -13,3 +11,4 @@ min_supported_version = 2
 downstream_share_per_minute = 100
 coinbase_reward_sat = 5_000_000_000
 expected_total_downstream_hr = 10_000
+reconnect = false

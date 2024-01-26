@@ -267,7 +267,7 @@ fn submit_from_to_json_rpc(submit: Submit<'static>) -> bool {
 /// [a]: crate::methods::server_to_client::Notify
 ///
 ///
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Subscribe<'a> {
     pub id: u64,
     pub agent_signature: String,
@@ -287,12 +287,9 @@ impl<'a> Subscribe<'a> {
             extra_nonce2_size,
             id: self.id,
         };
-        match Message::try_from(response) {
-            Ok(r) => match r {
-                Message::OkResponse(r) => r,
-                _ => todo!(),
-            },
-            Err(_) => todo!(),
+        match Message::from(response) {
+            Message::OkResponse(r) => r,
+            _ => unreachable!(),
         }
     }
 }
@@ -377,12 +374,9 @@ impl Configure {
             version_rolling,
             minimum_difficulty,
         };
-        match Message::try_from(response) {
-            Ok(r) => match r {
-                Message::OkResponse(r) => r,
-                _ => todo!(),
-            },
-            Err(_) => todo!(),
+        match Message::from(response) {
+            Message::OkResponse(r) => r,
+            _ => unreachable!(),
         }
     }
 

@@ -1,5 +1,5 @@
 .idea
-/target
+*/target
 /protocols/guix-example/guix-example.h
 /ignore
 /vendor/ed25519-dalek/target
@@ -7,6 +7,9 @@
 /sv2.h
 /test/bitcoin_data/regtest
 lcov.info
+/target
 .vscode
 *.py
 **/conf/**
+cobertura.xml
+/roles/*/*-config.toml

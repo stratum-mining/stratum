@@ -1,5 +1,8 @@
 #![cfg(not(feature = "with_serde"))]
-use std::fmt;
+use std::{
+    fmt,
+    fmt::{Display, Formatter},
+};
 
 use codec_sv2::{Encoder, Frame, StandardDecoder, StandardSv2Frame};
 use common_messages_sv2::{
@@ -92,6 +95,12 @@ impl<'a> Sv2Message<'a> {
     }
 }
 
+impl<'a> Display for Sv2Message<'a> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", *self)
+    }
+}
+
 #[repr(C)]
 pub enum CSv2Message {
     CoinbaseOutputDataSize(CoinbaseOutputDataSize),
@@ -135,7 +144,7 @@ pub extern "C" fn drop_sv2_error(s: Sv2Error) {
         Sv2Error::EncoderBusy => (),
         Sv2Error::InvalidSv2Frame => (),
         Sv2Error::MissingBytes => (),
-        Sv2Error::PayloadTooBig => (),
+        Sv2Error::PayloadTooBig(_) => (),
         Sv2Error::Unknown => (),
     }
 }
@@ -304,7 +313,7 @@ pub enum Sv2Error {
     EncoderBusy,
     InvalidSv2Frame,
     MissingBytes,
-    PayloadTooBig,
+    PayloadTooBig(CVec),
     Unknown,
 }
 
@@ -314,7 +323,7 @@ impl fmt::Display for Sv2Error {
         match self {
             BinaryError(ref e) => write!(f, "{:?}", e),
             CodecError(ref e) => write!(f, "{:?}", e),
-            PayloadTooBig => write!(f, "Payload is too big"),
+            PayloadTooBig(ref e) => write!(f, "Payload is too big: {:?}", e),
             InvalidSv2Frame => write!(f, "Invalid Sv2 frame"),
             MissingBytes => write!(f, "Missing expected bytes"),
             EncoderBusy => write!(f, "Encoder is busy"),
@@ -390,12 +399,14 @@ fn encode_(
     let m_type = message.message_type();
     let c_bit = message.channel_bit();
     let frame = StandardSv2Frame::<Sv2Message<'static>>::from_message(
-        message,
+        message.clone(),
         m_type,
         EXTENSION_TYPE_NO_EXTENSION,
         c_bit,
     )
-    .ok_or(Sv2Error::PayloadTooBig)?;
+    .ok_or(Sv2Error::PayloadTooBig(
+        format!("{}", message).as_bytes().into(),
+    ))?;
     encoder
         .encoder
         .encode(frame)
@@ -406,9 +417,8 @@ fn encode_(
 #[no_mangle]
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 pub extern "C" fn free_decoder(decoder: *mut DecoderWrapper) {
-    // let mut decoder = unsafe { Box::from_raw(decoder) };
-    unsafe { Box::from_raw(decoder) };
-    // Box::into_raw(decoder);
+    let decoder = unsafe { Box::from_raw(decoder) };
+    drop(decoder);
 }
 
 /// # Safety

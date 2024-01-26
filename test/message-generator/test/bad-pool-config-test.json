@@ -1,11 +1,12 @@
 {
+    "version": "2",
     "doc": [
         "What this test does:",
         "1) launch SRI pool with llvm-cov (Fails with bad coinbase config)",
         "2) launch SRI pool with llvm-cov and -h flag (Displays `help` options)",
         "3) launch SRI pool with llvm-cov (Fails because of invalid config)",
         "4) launch SRI pool with llvm-cov (Fails because of no config file at path)",
-        "4) launch SRI pool with llvm-cov (Successfully runs pool)"
+        "5) launch SRI pool with llvm-cov (Successfully runs pool)"
     ],
     "common_messages": [
     ],
@@ -28,10 +29,11 @@
                         {
                             "output_string": "Running `target/debug/message_generator_sv2 ../../test/message-generator/mock/template-provider-mock0.json`",
                             "output_location": "StdErr",
+                            "late_condition": false,
                             "condition": true
                         }
                     ],
-                    "timer_secs": 60,
+                    "timer_secs": 120,
                     "warn_no_panic": false
                 }
             }
@@ -45,14 +47,15 @@
                         "pool_sv2",
                         "--",
                         "-c",
-                        "./test/config/pool-mock-tp-bad-coinbase.toml"
+                        "../test/config/pool-mock-tp-bad-coinbase.toml"
             ],
             "conditions": {
                 "WithConditions": {
                     "conditions": [
                         {
-                            "output_string": "Invalid coinbase output config public key:",
+                            "output_string": "Failed to get coinbase output:",
                             "output_location": "StdOut",
+                            "late_condition": false,
                             "condition": true
                         }
                     ],
@@ -71,7 +74,7 @@
                         "--",
                         "-h",
                         "-c",
-                        "./test/config/pool-mock-tp.toml"
+                        "../test/config/pool-mock-tp.toml"
             ],
             "conditions": {
                 "WithConditions": {
@@ -79,10 +82,11 @@
                         {
                             "output_string": "Usage: -h/--help, -c/--config <path|default pool-config.toml>",
                             "output_location": "StdOut",
+                            "late_condition": false,
                             "condition": true
                         }
                     ],
-                    "timer_secs": 240,
+                    "timer_secs": 320,
                     "warn_no_panic": false
                 }
             }
@@ -96,7 +100,7 @@
                         "pool_sv2",
                         "--",
                         "-c",
-                        "./test/config/pool-mock-tp-bad-config.toml"
+                        "../test/config/pool-mock-tp-bad-config.toml"
             ],
             "conditions": {
                 "WithConditions": {
@@ -104,10 +108,11 @@
                         {
                             "output_string": "Failed to parse config:",
                             "output_location": "StdOut",
+                            "late_condition": false,
                             "condition": true
                         }
                     ],
-                    "timer_secs": 240,
+                    "timer_secs": 320,
                     "warn_no_panic": false
                 }
             }
@@ -121,7 +126,7 @@
                         "pool_sv2",
                         "--",
                         "-c",
-                        "./test/config/no-config-at-this-path.toml"
+                        "../test/config/no-config-at-this-path.toml"
             ],
             "conditions": {
                 "WithConditions": {
@@ -129,10 +134,11 @@
                         {
                             "output_string": "Failed to read config:",
                             "output_location": "StdOut",
+                            "late_condition": false,
                             "condition": true
                         }
                     ],
-                    "timer_secs": 240,
+                    "timer_secs": 320,
                     "warn_no_panic": false
                 }
             }
@@ -146,7 +152,7 @@
                         "pool_sv2",
                         "--",
                         "-c",
-                        "./test/config/pool-mock-tp.toml"
+                        "../test/config/pool-mock-tp.toml"
             ],
             "conditions": {
                 "WithConditions": {
@@ -154,10 +160,11 @@
                         {
                             "output_string": "Listening for encrypted connection on: 127.0.0.1:34254",
                             "output_location": "StdOut",
+                            "late_condition": false,
                             "condition": true
                         }
                     ],
-                    "timer_secs": 240,
+                    "timer_secs": 320,
                     "warn_no_panic": false
                 }
             }
@@ -176,6 +183,6 @@
     "downstream": {
         "ip": "0.0.0.0",
         "port": 34254,
-        "pub_key": "2di19GHYQnAZJmEpoUeP7C3Eg9TCcksHr23rZCC83dvUiZgiDL"
+        "pub_key": "3VANfft6ei6jQq1At7d8nmiZzVhBFS4CiQujdgim1ign"
     }
 }

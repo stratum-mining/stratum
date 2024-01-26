@@ -1,4 +1,5 @@
 {
+    "version": "2",
     "doc": [
         "This test does",
         "Opens extended channel with the pool",
@@ -13,8 +14,9 @@
                 "user_identity": "",
                 "nominal_hash_rate": 10,
                 "max_target": [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-                "min_extranonce_size": 3
+                "min_extranonce_size": 16
             },
+            "replace_fields": [["request_id", "ARBITRARY"]],
             "id": "open_extended_mining_channel"
         }
     ],
@@ -51,8 +53,8 @@
                         "OpenExtendedMiningChannelSuccess",
                         [
                             [
-                                "request_id",
-                                {"U32": 90}
+                                "extranonce_size",
+                                {"U16": 16}
                             ]
                         ]
                     ]
@@ -80,7 +82,7 @@
                         "pool_sv2",
                         "--",
                         "-c",
-                        "./test/config/pool-config-sri-tp.toml"
+                        "../test/config/pool-config-sri-tp.toml"
             ],
             "conditions": {
                 "WithConditions": {
@@ -88,10 +90,11 @@
                         {
                             "output_string": "Listening for encrypted connection on: 127.0.0.1:34254",
                             "output_location": "StdOut",
+                            "late_condition": false,
                             "condition": true
                         }
                     ],
-                    "timer_secs": 240,
+                    "timer_secs": 320,
                     "warn_no_panic": false
                 }
             }
@@ -110,6 +113,6 @@
     "downstream": {
         "ip": "127.0.0.1",
         "port": 34254,
-        "pub_key": "2di19GHYQnAZJmEpoUeP7C3Eg9TCcksHr23rZCC83dvUiZgiDL"
+        "pub_key": "3VANfft6ei6jQq1At7d8nmiZzVhBFS4CiQujdgim1ign"
     }
 }

@@ -12,15 +12,19 @@ static const uintptr_t SV2_FRAME_HEADER_LEN_OFFSET = 3;
 
 static const uintptr_t SV2_FRAME_HEADER_LEN_END = 3;
 
+static const uintptr_t SV2_FRAME_CHUNK_SIZE = 65535;
+
+static const uintptr_t AEAD_MAC_LEN = 16;
+
+static const uintptr_t ENCRYPTED_SV2_FRAME_HEADER_SIZE = (SV2_FRAME_HEADER_SIZE + AEAD_MAC_LEN);
+
 static const uintptr_t NOISE_FRAME_HEADER_SIZE = 2;
 
 static const uintptr_t NOISE_FRAME_HEADER_LEN_OFFSET = 0;
 
-static const uintptr_t NOISE_FRAME_HEADER_LEN_END = 2;
+static const uintptr_t INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_LENGTH = 170;
 
-static const uintptr_t SNOW_PSKLEN = 32;
-
-static const uintptr_t SNOW_TAGLEN = 16;
+static const uintptr_t RESPONDER_EXPECTED_HANDSHAKE_MESSAGE_LENGTH = 32;
 
 static const uint8_t SV2_MINING_PROTOCOL_DISCRIMINANT = 0;
 
@@ -52,13 +56,25 @@ static const uint8_t MESSAGE_TYPE_REQUEST_TRANSACTION_DATA_ERROR = 117;
 
 static const uint8_t MESSAGE_TYPE_SUBMIT_SOLUTION = 118;
 
-static const uint8_t MESSAGE_TYPE_ALLOCATE_MINING_TOKEN = 80;
+static const uint8_t MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN = 80;
 
-static const uint8_t MESSAGE_TYPE_ALLOCATE_MINING_TOKEN_SUCCESS = 81;
+static const uint8_t MESSAGE_TYPE_ALLOCATE_MINING_JOB_TOKEN_SUCCESS = 81;
 
-static const uint8_t MESSAGE_TYPE_COMMIT_MINING_JOB = 87;
+static const uint8_t MESSAGE_TYPE_DECLARE_MINING_JOB = 87;
 
-static const uint8_t MESSAGE_TYPE_COMMIT_MINING_JOB_SUCCESS = 88;
+static const uint8_t MESSAGE_TYPE_DECLARE_MINING_JOB_SUCCESS = 88;
+
+static const uint8_t MESSAGE_TYPE_DECLARE_MINING_JOB_ERROR = 89;
+
+static const uint8_t MESSAGE_TYPE_IDENTIFY_TRANSACTIONS = 83;
+
+static const uint8_t MESSAGE_TYPE_IDENTIFY_TRANSACTIONS_SUCCESS = 84;
+
+static const uint8_t MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS = 85;
+
+static const uint8_t MESSAGE_TYPE_PROVIDE_MISSING_TRANSACTIONS_SUCCESS = 86;
+
+static const uint8_t MESSAGE_TYPE_SUBMIT_SOLUTION_JD = 96;
 
 static const uint8_t MESSAGE_TYPE_CLOSE_CHANNEL = 24;
 
@@ -128,13 +144,25 @@ static const bool CHANNEL_BIT_REQUEST_TRANSACTION_DATA_ERROR = false;
 
 static const bool CHANNEL_BIT_SUBMIT_SOLUTION = false;
 
-static const bool CHANNEL_BIT_ALLOCATE_MINING_TOKEN = false;
+static const bool CHANNEL_BIT_ALLOCATE_MINING_JOB_TOKEN = false;
 
-static const bool CHANNEL_BIT_ALLOCATE_MINING_TOKEN_SUCCESS = false;
+static const bool CHANNEL_BIT_ALLOCATE_MINING_JOB_TOKEN_SUCCESS = false;
 
-static const bool CHANNEL_BIT_COMMIT_MINING_JOB = false;
+static const bool CHANNEL_BIT_DECLARE_MINING_JOB = false;
 
-static const bool CHANNEL_BIT_COMMIT_MINING_JOB_SUCCESS = false;
+static const bool CHANNEL_BIT_DECLARE_MINING_JOB_SUCCESS = false;
+
+static const bool CHANNEL_BIT_DECLARE_MINING_JOB_ERROR = false;
+
+static const bool CHANNEL_BIT_IDENTIFY_TRANSACTIONS = false;
+
+static const bool CHANNEL_BIT_IDENTIFY_TRANSACTIONS_SUCCESS = false;
+
+static const bool CHANNEL_BIT_PROVIDE_MISSING_TRANSACTIONS = false;
+
+static const bool CHANNEL_BIT_PROVIDE_MISSING_TRANSACTIONS_SUCCESS = false;
+
+static const bool CHANNEL_BIT_SUBMIT_SOLUTION_JD = true;
 
 static const bool CHANNEL_BIT_CLOSE_CHANNEL = true;
 
@@ -233,12 +261,12 @@ void _c_export_cvec2(CVec2 _a);
 #include <new>
 
 /// MiningProtocol = [`SV2_MINING_PROTOCOL_DISCRIMINANT`],
-/// JobNegotiationProtocol = [`SV2_JOB_NEG_PROTOCOL_DISCRIMINANT`],
+/// JobDeclarationProtocol = [`SV2_JOB_NEG_PROTOCOL_DISCRIMINANT`],
 /// TemplateDistributionProtocol = [`SV2_TEMPLATE_DISTR_PROTOCOL_DISCRIMINANT`],
 /// JobDistributionProtocol = [`SV2_JOB_DISTR_PROTOCOL_DISCRIMINANT`],
 enum class Protocol : uint8_t {
   MiningProtocol = SV2_MINING_PROTOCOL_DISCRIMINANT,
-  JobNegotiationProtocol = SV2_JOB_NEG_PROTOCOL_DISCRIMINANT,
+  JobDeclarationProtocol = SV2_JOB_NEG_PROTOCOL_DISCRIMINANT,
   TemplateDistributionProtocol = SV2_TEMPLATE_DISTR_PROTOCOL_DISCRIMINANT,
   JobDistributionProtocol = SV2_JOB_DISTR_PROTOCOL_DISCRIMINANT,
 };
@@ -310,7 +338,7 @@ void free_setup_connection_error(CSetupConnectionError s);
 /// Thus, this message is used to indicate that some additional space in the block/coinbase
 /// transaction be reserved for the pool’s use (while always assuming the pool will use the entirety
 /// of available coinbase space).
-/// The Job Negotiator MUST discover the maximum serialized size of the additional outputs which
+/// The Job Declarator MUST discover the maximum serialized size of the additional outputs which
 /// will be added by the pool(s) it intends to use this work. It then MUST communicate the
 /// maximum such size to the Template Provider via this message. The Template Provider MUST
 /// NOT provide NewWork messages which would represent consensus-invalid blocks once this
@@ -324,7 +352,7 @@ struct CoinbaseOutputDataSize {
 };
 
 /// ## RequestTransactionData (Client -> Server)
-/// A request sent by the Job Negotiator to the Template Provider which requests the set of
+/// A request sent by the Job Declarator to the Template Provider which requests the set of
 /// transaction data for all transactions (excluding the coinbase transaction) included in a block, as
 /// well as any additional data which may be required by the Pool to validate the work.
 struct RequestTransactionData {
@@ -407,10 +435,13 @@ struct CError {
     /// Errors from the `noise_sv2` crate
     NoiseSv2Error,
     /// `snow` errors
-    SnowError,
+    AeadError,
     /// Error if Noise protocol state is not as expected
     UnexpectedNoiseState,
-    CodecTodo,
+    InvalidStepForResponder,
+    InvalidStepForInitiator,
+    NotInHandShakeState,
+    FramingError,
   };
 
   struct MissingBytes_Body {
@@ -533,10 +564,15 @@ struct Sv2Error {
     CError _0;
   };
 
+  struct PayloadTooBig_Body {
+    CVec _0;
+  };
+
   Tag tag;
   union {
     BinaryError_Body binary_error;
     CodecError_Body codec_error;
+    PayloadTooBig_Body payload_too_big;
   };
 };
 

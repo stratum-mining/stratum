@@ -2,9 +2,15 @@
 
 [![codecov](https://codecov.io/gh/stratum-mining/stratum/branch/main/graph/badge.svg)](https://codecov.io/gh/stratum-mining/stratum)
 
+**DEVELOPMENT IS DONE IN THE DEV BRANCH**
+**LATEST WORKING CODE IS IN THE DEV BRANCH**
+**MAIN BRANCH IS LATEST RELEASED SOURCES**
+
 The Stratum protocol defines how miners, proxies, and pools communicate to contribute hashrate to
 the Bitcoin network.
 
+## MSRV
+Minimum Supported Rust Version: 1.75.0
 
 ## Table of Contents
 
@@ -100,57 +106,64 @@ The library is modular to address different use-cases and desired functionality.
 ```
 stratum
   └─ examples
-  │   └─ interop-cpp
-  │   └─ interop-cpp-no-cargo
-  │   └─ ping-pong-with-noise
-  │   └─ ping-pong-without-noise
-  │   └─ sv1-client-and-server
-  │   └─ sv2-proxy
+  │   ├─ interop-cpp
+  │   ├─ interop-cpp-no-cargo
+  │   ├─ ping-pong-with-noise
+  │   ├─ ping-pong-without-noise
+  │   ├─ sv1-client-and-server
+  │   ├─ sv2-proxy
   │   └─ template-provider-test
-  └─ experimental
-  │   └─ coinbase-negotiator
-  └─ protocols
-  │   └─ v1
+  ├─ protocols
+  │   ├─ fuzz-tests
+  │   ├─ v1
   │   └─ v2
-  │       └─ binary-sv2
-  │       │   └─ binary-sv2
-  │       │   └─ no-serde-sv2
-  │       │   │   └─ codec
+  │       ├─ binary-sv2
+  │       │   ├─ binary-sv2
+  │       │   ├─ no-serde-sv2
+  │       │   │   ├─ codec
   │       │   │   └─ derive_codec
   │       │   └─ serde-sv2
-  │       └─ codec-sv2
-  │       └─ const-sv2
-  │       └─ framing-sv2
-  │       └─ noise-sv2
-  │       └─ roles-logic-sv2
-  │       └─ subprotocols
-  │       │   └─ common-messages
-  │       │   └─ job-negotiation
-  │       │   └─ mining
+  │       ├─ codec-sv2
+  │       ├─ const-sv2
+  │       ├─ framing-sv2
+  │       ├─ noise-sv2
+  │       ├─ roles-logic-sv2
+  │       ├─ subprotocols
+  │       │   ├─ common-messages
+  │       │   ├─ job-declaration
+  │       │   ├─ mining
   │       │   └─ template-distribution
   │       └─ sv2-ffi
-  └─ roles/v2
-  │   └─ mining-proxy
-  │   └─ pool
-  │   └─ test-utils
-  │   │   └─ mining-device
-  │   │   └─ pool
-  └─ test
+  ├── roles
+  │   ├── jd-client
+  │   ├── jd-server
+  │   ├── mining-proxy
+  │   ├── pool
+  │   ├── test-utils
+  │   └── translator
+  ├── test
+  │   ├── config
+  │   ├── message-generator
+  │   └── scale
   └─ utils
-      └─ buffer
-      └─ network-helpers
+      ├── bip32-key-derivation
+      ├── buffer
+      ├── error-handling
+      ├── key-utils
+      ├── message-generator
+      ├── network-helpers
+      └── target
 ```
 
-This workspace's 6 macro-areas:
+The project consists of 3 different workspaces:
+- `protocols`: Stratum V2 and V1 core libraries.
+- `roles`: SV2 roles libraries and reference implementation binaries.
+- `utils`: Miscelaneous utilities, like a more efficient (but less safe) alternative buffer and network helpers.
 
-1. `protocols`: Stratum V2 and V1 libraries.
-2. `roles`: The Sv2 roles logic.
-3. `utils`: Offers a more efficient alternative buffer. Less safe than the default buffers used.
-   Includes network helpers.
-4. `examples`: Several example implementations of various use cases.
-5. `test`: Integration tests.
-6. `experimental`: Experimental logic not yet specified as part of the protocol or
-   extensions.
+Additionally, there are also the following directories:
+- `benches`: Performance benchmarks. 
+- `examples`: Several example implementations of various use cases.
+- `test`: Integration tests.
 
 All dependencies related to the testing and benchmarking of these workspace crates are optional
 and are included in the binary ONLY during testing and benchmarking. For that reason,
@@ -252,7 +265,7 @@ For a noise decoder, it returns a `Sv2Frame`, which can be composed of several `
 
 ### 3.08 protocols/v2/subprotocols
 
-`subprotocols` has four crates (`common-messages`, `job-negotiation`, `mining`, and
+`subprotocols` has four crates (`common-messages`, `job-declaration`, `mining`, and
 `template-distribution`) which are the Rust translation of the messages defined by each Sv2
 (sub)protocol. They all have the same internal/external dependencies.
 
@@ -324,7 +337,7 @@ The user is required to use a safe `Mutex` defined in `messages_sv2::utils::Mute
 - `subprotocols/common_messages_sv2`
 - `subprotocols/mining_sv2`
 - `subprotocols/template_distribution_sv2`
-- `subprotocols/job_negotiation_sv2`
+- `subprotocols/job_declaration_sv2`
 
 ### 3.12 utils/buffer
 
@@ -476,31 +489,25 @@ This script will install cbindgen and then generate the `sv2.h` header file. Thi
 
 ### 4.02 Test
 
+As a prerequisite, you must have [`cargo-tarpaulin`](https://github.com/xd009642/tarpaulin) installed globally:
+
+```
+$ cargo install cargo-tarpaulin
+```
+
 Generate test coverage percentage with cargo-tarpaulin:
-
-Generate test coverage percentage with cargo-tarpaulin:
 ```
-cargo +nightly tarpaulin --verbose --features disable_nopanic prop_test noise_sv2 fuzz with_buffer_pool async_std debug tokio with_tokio derive_codec_sv2 binary_codec_sv2 default core --lib --exclude-files examples/* --timeout 120 --fail-under 30 --out Xml
+$ cargo +nightly tarpaulin --verbose
 ```
 
-Must have [cargo-tarpaulin](https://github.com/xd009642/tarpaulin) installed globally:
-
-```
-cargo install cargo-tarpaulin
-```
-
-Performs test coverage of entire project's libraries using cargo-tarpaulin and generates results using codecov.io.
-The following flags are used when executing cargo-tarpaulin:
-`--features`
-Includes the code with the listed features.
-The following features result in a tarpaulin error and are NOT included:
-derive, alloc, arbitrary-derive, attributes, with_serde
-`--lib`
-Only tests the package's library unit tests. Includes protocols, and utils (without the exclude-files flag, it includes this example because it contains a lib.rs file)
-`--exclude-files examples/*`: Excludes all projects in examples directory (specifically added to ignore examples that that contain a lib.rs file like interop-cpp)
-`--timeout 120`: If unresponsive for 120 seconds, action will fail
-`--fail-under 40`: If code coverage is less than 40%, action will fail
-`--out Xml`: Required for codecov.io to generate coverage result
+Performs test coverage of project's libraries using `cargo-tarpaulin` and generates results using `codecov.io`.
+The following flags are set inside `tarpaulin.toml`:
+- `features = "..."`: Includes the code with the listed features. The following features result in a `tarpaulin` error and are NOT included: `derive`, `alloc`, `arbitrary-derive`, `attributes`, and `with_serde`
+- `run-types = [ "Lib" ]`: Only tests the package's library unit tests. Includes protocols, and utils (without the exclude-files flag, it includes this example because it contains a `lib.rs` file)
+- `exclude-files = [ "examples/*" ]`: Excludes all projects in examples directory (specifically added to ignore examples that that contain a `lib.rs` file like `interop-cpp`)
+- `timeout = "120s"`: If unresponsive for 120 seconds, action will fail
+- `fail-under = 20`: If code coverage is less than 20%, action will fail
+- `out = ["Xml"]`: Required for `codecov.io` to generate coverage result
 
 ### 4.03 Run
 

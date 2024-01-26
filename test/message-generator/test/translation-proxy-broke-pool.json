@@ -1,4 +1,5 @@
 {
+    "version": "2",
     "doc": [
         "This test runs a tproxy and a mock pool. The mock pool responds with SetupConnectionSuccess",
         "And then a OpenExtendedMiningChannelSuccess but this message has a bad extranonce size which is way too big.",
@@ -68,7 +69,7 @@
                         "translator_sv2",
                         "--",
                         "-c",
-                        "./test/config/tproxy-config-no-jn-sv1-cpu-md.toml"
+                        "../test/config/tproxy-config-no-jd-sv1-cpu-md.toml"
 
             ],
             "conditions": {
@@ -77,10 +78,11 @@
                         {
                             "output_string": "2mtranslator_sv2",
                             "output_location": "StdOut",
+                            "late_condition": false,
                             "condition": true
                         }
                     ],
-                    "timer_secs": 60,
+                    "timer_secs": 260,
                     "warn_no_panic": false
                 }
             }
@@ -94,7 +96,7 @@
     "upstream": {
         "ip": "127.0.0.1",
         "port": 34254,
-        "pub_key": "2di19GHYQnAZJmEpoUeP7C3Eg9TCcksHr23rZCC83dvUiZgiDL",
-        "secret_key": "2Z1FZug7mZNyM63ggkm37r4oKQ29khLjAvEx43rGkFN47RcJ2t"
+        "pub_key": "3VANfft6ei6jQq1At7d8nmiZzVhBFS4CiQujdgim1ign",
+        "secret_key": "7qbpUjScc865jyX2kiB4NVJANoC7GA7TAJupdzXWkc62"
     }
 }

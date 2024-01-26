@@ -4,6 +4,7 @@ use alloc::vec::Vec;
 #[cfg(not(feature = "with_serde"))]
 use binary_sv2::binary_codec_sv2;
 use binary_sv2::{Deserialize, Serialize, U24};
+use const_sv2::{AEAD_MAC_LEN, SV2_FRAME_CHUNK_SIZE};
 use core::convert::TryInto;
 
 #[derive(Debug, Serialize, Deserialize, Copy, Clone)]
@@ -79,12 +80,22 @@ impl Header {
         let mask = 0b0000_0000_0000_0001;
         self.extension_type & mask == self.extension_type
     }
+
+    pub fn encrypted_len(&self) -> usize {
+        let len = self.len();
+        let mut chunks = len / (SV2_FRAME_CHUNK_SIZE - AEAD_MAC_LEN);
+        if len % (SV2_FRAME_CHUNK_SIZE - AEAD_MAC_LEN) != 0 {
+            chunks += 1;
+        }
+        let mac_len = chunks * AEAD_MAC_LEN;
+        len + mac_len
+    }
 }
 
 pub struct NoiseHeader {}
 
 impl NoiseHeader {
-    pub const SIZE: usize = const_sv2::NOISE_FRAME_HEADER_SIZE;
+    pub const SIZE: usize = const_sv2::ENCRYPTED_SV2_FRAME_HEADER_SIZE;
     pub const LEN_OFFSET: usize = const_sv2::NOISE_FRAME_HEADER_LEN_OFFSET;
-    pub const LEN_END: usize = const_sv2::NOISE_FRAME_HEADER_LEN_END;
+    pub const HEADER_SIZE: usize = const_sv2::NOISE_FRAME_HEADER_SIZE;
 }

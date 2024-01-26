@@ -1,4 +1,5 @@
 {
+    "version": "2",
     "doc": [
         "This test does",
         "Opens extended channel with the pool",
@@ -65,16 +66,12 @@
                         [
                             [
                                 "coinbase_tx_prefix",
-                                {"Seq064k": [[45, 0], [2, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 35, 1, 16, 0]]}
+                                {"B064K": [2, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 56, 3, 76, 163, 38, 0, 83, 116, 114, 97, 116, 117, 109, 32, 118, 50, 32, 83, 82, 73, 32, 80, 111, 111, 108]}
                             ],
+
                             [
                                 "coinbase_tx_suffix",
-
-                                {"Seq064k": [[43, 0], [255, 255, 255, 255, 1, 0, 242, 5, 42, 1, 0,
-                                    0, 0, 25, 118, 169, 20, 178, 86, 8, 43, 147, 79, 231, 130, 173,
-                                    186, 202, 175, 234, 223, 202, 100, 197, 42, 83, 132, 136, 172,
-                                    0, 0, 0, 0]]}
+                                {"B064K": [255, 255, 255, 255, 1, 64, 190, 64, 37, 0, 0, 0, 0, 22, 0, 20, 235, 225, 183, 220, 194, 147, 204, 170, 14, 231, 67, 168, 111, 137, 223, 130, 88, 194, 8, 252, 1, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]}
                             ]
                         ]
                     ]
@@ -100,10 +97,11 @@
                         {
                             "output_string": "Running `target/debug/message_generator_sv2 ../../test/message-generator/mock/template-provider-mock0.json`",
                             "output_location": "StdErr",
+                            "late_condition": false,
                             "condition": true
                         }
                     ],
-                    "timer_secs": 240,
+                    "timer_secs": 320,
                     "warn_no_panic": false
                 }
             }
@@ -118,7 +116,7 @@
                         "pool_sv2",
                         "--",
                         "-c",
-                        "./test/config/pool-mock-tp.toml"
+                        "../test/config/pool-mock-tp.toml"
              ],
              "conditions": {
                  "WithConditions": {
@@ -126,10 +124,11 @@
                          {
                              "output_string": "Listening for encrypted connection on: 127.0.0.1:34254",
                              "output_location": "StdOut",
+                             "late_condition": false,
                              "condition": true
                          }
                      ],
-                     "timer_secs": 240,
+                     "timer_secs": 320,
                      "warn_no_panic": false
                  }
              }
@@ -141,6 +140,7 @@
         {
             "command": "pkill",
             "args":  ["-f", "pool_sv2", "-SIGINT"],
+            "late_condition": false,
             "conditions": "None"
         }
     ],
@@ -148,6 +148,6 @@
     "downstream": {
         "ip": "127.0.0.1",
         "port": 34254,
-        "pub_key": "2di19GHYQnAZJmEpoUeP7C3Eg9TCcksHr23rZCC83dvUiZgiDL"
+        "pub_key": "3VANfft6ei6jQq1At7d8nmiZzVhBFS4CiQujdgim1ign"
     }
 }

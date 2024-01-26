@@ -2,9 +2,11 @@ on:
   push:
     branches:
       - main
+      - dev
   pull_request:
     branches:
       - main
+      - dev
   pull_request_review:
     types: [submitted]
     branches: [bot/versioning]
@@ -30,10 +32,14 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: 1.65.0
+          toolchain: 1.75.0
           override: true
           components: clippy
-      - uses: actions-rs/cargo@v1
-        with:
-          command: clippy
-          args: -- -D warnings -A dead-code
+      - name: Run Clippy on different workspaces and crates
+        run: |
+          cargo clippy --manifest-path=benches/Cargo.toml -- -D warnings -A dead-code
+          cargo clippy --manifest-path=common/Cargo.toml -- -D warnings -A dead-code
+          cargo clippy --manifest-path=protocols/Cargo.toml -- -D warnings -A dead-code
+          cargo clippy --manifest-path=roles/Cargo.toml -- -D warnings -A dead-code
+          cargo clippy --manifest-path=utils/Cargo.toml -- -D warnings -A dead-code
+          cargo clippy --manifest-path=utils/message-generator/Cargo.toml -- -D warnings -A dead-code

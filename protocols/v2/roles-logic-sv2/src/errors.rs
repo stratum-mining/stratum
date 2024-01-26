@@ -1,18 +1,20 @@
 //! Errors specific to this crate
 
-use crate::common_properties::CommonDownstreamData;
+use crate::{
+    common_properties::CommonDownstreamData, parsers::PoolMessages as AllMessages,
+    utils::InputError,
+};
 use binary_sv2::Error as BinarySv2Error;
 use std::fmt::{self, Display, Formatter};
 
 #[derive(Debug)]
-/// No NoPairableUpstream((min_v, max_v, all falgs supported))
+/// No NoPairableUpstreamT(min_v, max_v, all falgs supported))
 pub enum Error {
     /// Errors if payload size is too big to fit into a frame.
     BadPayloadSize,
     ExpectedLen32(usize),
     BinarySv2Error(BinarySv2Error),
-    /// Errors if a `SendTo::RelaySameMessageSv1` request is made on a SV2-only application.
-    CannotRelaySv1Message,
+    DownstreamDown,
     NoGroupsFound,
     UnexpectedMessage(u8),
     NoGroupIdOnExtendedChannel,
@@ -37,6 +39,10 @@ pub enum Error {
     ShareDoNotMatchAnyJob,
     ShareDoNotMatchAnyChannel,
     InvalidCoinbase,
+    ValueRemainingNotUpdated,
+    UnknownOutputScriptType,
+    InvalidOutputScript,
+    EmptyCoinbaseOutputs,
     VersionTooBig,
     TxVersionTooBig,
     TxVersionTooLow,
@@ -49,6 +55,9 @@ pub enum Error {
     InvalidBip34Bytes(Vec<u8>),
     // (downstream_job_id, upstream_job_id)
     JobNotUpdated(u32, u32),
+    TargetError(InputError),
+    HashrateError(InputError),
+    LogicErrorMessage(std::boxed::Box<AllMessages<'static>>),
 }
 
 impl From<BinarySv2Error> for Error {
@@ -67,10 +76,10 @@ impl Display for Error {
                 "BinarySv2Error: error in serializing/deserilizing binary format {:?}",
                 v
             ),
-            CannotRelaySv1Message => {
+            DownstreamDown => {
                 write!(
                     f,
-                    "Cannot process request: Received SV1 relay request on a SV2-only application"
+                    "Downstream is not connected anymore"
                 )
             }
             ExpectedLen32(l) => write!(f, "Expected length of 32, but received length of {}", l),
@@ -121,6 +130,10 @@ impl Display for Error {
             ShareDoNotMatchAnyJob => write!(f, "A share has been recived but no job for it exist"),
             ShareDoNotMatchAnyChannel => write!(f, "A share has been recived but no channel for it exist"),
             InvalidCoinbase => write!(f, "Coinbase prefix + extranonce + coinbase suffix is not a valid coinbase"),
+            ValueRemainingNotUpdated => write!(f, "Value remaining in coinbase output was not correctly updated (it's equal to 0)"),
+            UnknownOutputScriptType => write!(f, "Unknown script type in config"),
+            InvalidOutputScript => write!(f, "Invalid output_script_value for your script type. It must be a valid public key/script"),
+            EmptyCoinbaseOutputs => write!(f, "Empty coinbase outputs in config"),
             VersionTooBig => write!(f, "We are trying to construct a block header with version bigger than i32::MAX"),
             TxVersionTooBig => write!(f, "Tx version can not be greater than i32::MAX"),
             TxVersionTooLow => write!(f, "Tx version can not be lower than 1"),
@@ -130,7 +143,10 @@ impl Display for Error {
             NoTemplateForId => write!(f, "Impossible a template for the required job id"),
             PoisonLock(e) => write!(f, "Poison lock: {}", e),
             InvalidBip34Bytes(e) => write!(f, "Invalid Bip34 bytes {:?}", e),
-            JobNotUpdated(ds_job_id, us_job_id) => write!(f, "Channel Factory did not update job: Downstream job id = {}, Upstream job id = {}", ds_job_id, us_job_id)
+            JobNotUpdated(ds_job_id, us_job_id) => write!(f, "Channel Factory did not update job: Downstream job id = {}, Upstream job id = {}", ds_job_id, us_job_id),
+            TargetError(e) => write!(f, "Impossible to get Target: {:?}", e),
+            HashrateError(e) => write!(f, "Impossible to get Hashrate: {:?}", e),
+            LogicErrorMessage(e) => write!(f, "Message is well formatted but can not be handled: {:?}", e),
         }
     }
 }

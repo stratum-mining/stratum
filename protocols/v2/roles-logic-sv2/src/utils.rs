@@ -1,19 +1,28 @@
 use std::{
-    convert::TryInto,
+    convert::{TryFrom, TryInto},
     ops::{Div, Mul},
+    str::FromStr,
     sync::{Mutex as Mutex_, MutexGuard, PoisonError},
 };
 
-use bitcoin::{
-    blockdata::block::BlockHeader,
-    hash_types::{BlockHash, TxMerkleNode},
-    hashes::{sha256d::Hash as DHash, Hash},
-    util::{psbt::serialize::Deserialize, uint::Uint256},
-    Transaction,
-};
-
-use binary_sv2::U256;
+use binary_sv2::{Seq064K, ShortTxId, U256};
+use siphasher::sip::SipHasher24;
 //compact_target_from_u256
+use stratum_common::{
+    bitcoin,
+    bitcoin::{
+        blockdata::block::BlockHeader,
+        hash_types::{BlockHash, TxMerkleNode},
+        hashes::{sha256, sha256d::Hash as DHash, Hash},
+        secp256k1::{All, Secp256k1},
+        util::{
+            psbt::serialize::Deserialize,
+            uint::{Uint128, Uint256},
+            BitArray,
+        },
+        PublicKey, Script, Transaction, XOnlyPublicKey,
+    },
+};
 use tracing::error;
 
 use crate::errors::Error;
@@ -72,32 +81,32 @@ impl<T> Mutex<T> {
     where
         F: FnOnce(&mut T) -> Ret,
     {
-        #[cfg(feature = "disable_nopanic")]
+        //#[cfg(feature = "disable_nopanic")]
         {
             self.safe_lock(thunk).unwrap()
         }
-        #[cfg(not(feature = "disable_nopanic"))]
-        {
-            // based on https://github.com/dtolnay/no-panic
-            struct __NoPanic;
-            extern "C" {
-                #[link_name = "super_safe_lock called on a function that may panic"]
-                fn trigger() -> !;
-            }
-            impl core::ops::Drop for __NoPanic {
-                fn drop(&mut self) {
-                    unsafe {
-                        trigger();
-                    }
-                }
-            }
-            let mut lock = self.0.lock().expect("threads to never panic");
-            let __guard = __NoPanic;
-            let return_value = thunk(&mut *lock);
-            core::mem::forget(__guard);
-            drop(lock);
-            return_value
-        }
+        //#[cfg(not(feature = "disable_nopanic"))]
+        //{
+        //    // based on https://github.com/dtolnay/no-panic
+        //    struct __NoPanic;
+        //    extern "C" {
+        //        #[link_name = "super_safe_lock called on a function that may panic"]
+        //        fn trigger() -> !;
+        //    }
+        //    impl core::ops::Drop for __NoPanic {
+        //        fn drop(&mut self) {
+        //            unsafe {
+        //                trigger();
+        //            }
+        //        }
+        //    }
+        //    let mut lock = self.0.lock().expect("threads to never panic");
+        //    let __guard = __NoPanic;
+        //    let return_value = thunk(&mut *lock);
+        //    core::mem::forget(__guard);
+        //    drop(lock);
+        //    return_value
+        //}
     }
 
     pub fn new(v: T) -> Self {
@@ -153,13 +162,12 @@ pub fn merkle_root_from_path<T: AsRef<[u8]>>(
 }
 
 // TODO remove when we have https://github.com/rust-bitcoin/rust-bitcoin/issues/1319
-fn merkle_root_from_path_<T: AsRef<[u8]>>(coinbase_id: [u8; 32], path: &[T]) -> [u8; 32] {
+pub fn merkle_root_from_path_<T: AsRef<[u8]>>(coinbase_id: [u8; 32], path: &[T]) -> [u8; 32] {
     match path.len() {
         0 => coinbase_id,
         _ => reduce_path(coinbase_id, path),
     }
 }
-
 // TODO remove when we have https://github.com/rust-bitcoin/rust-bitcoin/issues/1319
 fn reduce_path<T: AsRef<[u8]>>(coinbase_id: [u8; 32], path: &[T]) -> [u8; 32] {
     let mut root = coinbase_id;
@@ -171,6 +179,81 @@ fn reduce_path<T: AsRef<[u8]>>(coinbase_id: [u8; 32], path: &[T]) -> [u8; 32] {
             .unwrap();
     }
     root
+}
+
+//
+// Coinbase output construction utils
+//
+#[derive(Debug, Clone)]
+pub struct CoinbaseOutput {
+    pub output_script_type: String,
+    pub output_script_value: String,
+}
+
+impl TryFrom<CoinbaseOutput> for Script {
+    type Error = Error;
+
+    fn try_from(value: CoinbaseOutput) -> Result<Self, Self::Error> {
+        match value.output_script_type.as_str() {
+            "TEST" => {
+                let pub_key_hash = PublicKey::from_str(&value.output_script_value)
+                    .map_err(|_| Error::InvalidOutputScript)?
+                    .pubkey_hash();
+                Ok(Script::new_p2pkh(&pub_key_hash))
+            }
+            "P2PK" => {
+                let pub_key = PublicKey::from_str(&value.output_script_value)
+                    .map_err(|_| Error::InvalidOutputScript)?;
+                Ok(Script::new_p2pk(&pub_key))
+            }
+            "P2PKH" => {
+                let pub_key_hash = PublicKey::from_str(&value.output_script_value)
+                    .map_err(|_| Error::InvalidOutputScript)?
+                    .pubkey_hash();
+                Ok(Script::new_p2pkh(&pub_key_hash))
+            }
+            "P2WPKH" => {
+                let w_pub_key_hash = PublicKey::from_str(&value.output_script_value)
+                    .map_err(|_| Error::InvalidOutputScript)?
+                    .wpubkey_hash()
+                    .unwrap();
+                Ok(Script::new_v0_p2wpkh(&w_pub_key_hash))
+            }
+            "P2SH" => {
+                let script_hashed = Script::from_str(&value.output_script_value)
+                    .map_err(|_| Error::InvalidOutputScript)?
+                    .script_hash();
+                Ok(Script::new_p2sh(&script_hashed))
+            }
+            "P2WSH" => {
+                let w_script_hashed = Script::from_str(&value.output_script_value)
+                    .map_err(|_| Error::InvalidOutputScript)?
+                    .wscript_hash();
+                Ok(Script::new_v0_p2wsh(&w_script_hashed))
+            }
+            "P2TR" => {
+                // From the bip
+                //
+                // Conceptually, every Taproot output corresponds to a combination of
+                // a single public key condition (the internal key),
+                // and zero or more general conditions encoded in scripts organized in a tree.
+                let pub_key = XOnlyPublicKey::from_str(&value.output_script_value)
+                    .map_err(|_| Error::InvalidOutputScript)?;
+                Ok(Script::new_v1_p2tr::<All>(
+                    &Secp256k1::<All>::new(),
+                    pub_key,
+                    None,
+                ))
+            }
+            _ => Err(Error::UnknownOutputScriptType),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum InputError {
+    NegativeInput,
+    DivisionByZero,
 }
 
 /// The pool set a target for each miner. Each target is calibrated on the hashrate of the miner.
@@ -204,48 +287,99 @@ fn reduce_path<T: AsRef<[u8]>>(coinbase_id: [u8; 32], path: &[T]) -> [u8; 32] {
 /// [3] https://en.wikipedia.org/wiki/Negative_hypergeometric_distribution
 /// bdiff: 0x00000000ffff0000000000000000000000000000000000000000000000000000
 /// https://en.bitcoin.it/wiki/Difficulty#How_soon_might_I_expect_to_generate_a_block.3F
-pub fn hash_rate_to_target(h: f32, share_per_min: f32) -> U256<'static> {
+pub fn hash_rate_to_target(
+    hashrate: f64,
+    share_per_min: f64,
+) -> Result<U256<'static>, crate::Error> {
+    // checks that we are not dividing by zero
+    if share_per_min == 0.0 {
+        return Err(Error::TargetError(InputError::DivisionByZero));
+    }
+    if share_per_min.is_sign_negative() {
+        return Err(Error::TargetError(InputError::NegativeInput));
+    };
+    if hashrate.is_sign_negative() {
+        return Err(Error::TargetError(InputError::NegativeInput));
+    };
+
     // if we want 5 shares per minute, this means that s=60/5=12 seconds interval between shares
-    let s: f32 = 60_f32 / share_per_min;
-    let h_times_s = (h * s) as u128;
+    // this quantity will be at the numerator, so we multiply the result by 100 again later
+    let shares_occurrency_frequence = 60_f64 / share_per_min;
 
+    let h_times_s = hashrate * shares_occurrency_frequence;
+    let h_times_s = h_times_s as u128;
+
+    // We calculate the denominator: h*s+1
+    // the denominator is h*s+1, where h*s is an u128, so always positive.
+    // this means that the denominator can never be zero
+    // we add 100 in place of 1 because h*s is actually h*s*100, we in order to simplify later we
+    // must calculate (h*s+1)*100
     let h_times_s_plus_one = h_times_s + 1;
+
     let h_times_s_plus_one: Uint256 = from_u128_to_uint256(h_times_s_plus_one);
+    let denominator = h_times_s_plus_one;
 
-    let h_times_s: Uint256 = from_u128_to_uint256(h_times_s);
-
+    // We calculate the numerator: 2^256-sh
     let two_to_256_minus_one = [255_u8; 32];
     let two_to_256_minus_one = bitcoin::util::uint::Uint256::from_be_bytes(two_to_256_minus_one);
 
-    let numerator = two_to_256_minus_one - h_times_s;
-    let denominator = h_times_s_plus_one;
-    let target = numerator / denominator;
-    let mut target_be = target.to_be_bytes();
-    target_be.reverse();
-    U256::<'static>::from(target_be)
+    let mut h_times_s_array = [0u8; 32];
+    h_times_s_array[16..].copy_from_slice(&h_times_s.to_be_bytes());
+    let numerator =
+        two_to_256_minus_one - bitcoin::util::uint::Uint256::from_be_bytes(h_times_s_array);
+
+    let mut target = numerator.div(denominator).to_be_bytes();
+    target.reverse();
+    Ok(U256::<'static>::from(target))
 }
 
 /// this function utilizes the equation used in [`hash_rate_to_target`], but
 /// translated to solve for hash_rate given a target: h = (2^256-t)/s(t+1)
-pub fn hash_rate_from_target(target: U256<'static>, share_per_min: f32) -> f32 {
-    // *100 here to move the fractional bit up so we can make this an int later
-    let s_times_100 = 60_f64 / (share_per_min as f64) * 100.0;
+/// where s is seconds_between_two_consecutive_shares and t is target
+pub fn hash_rate_from_target(target: U256<'static>, share_per_min: f64) -> Result<f64, Error> {
+    // checks that we are not dividing by zero
+    if share_per_min == 0.0 {
+        return Err(Error::HashrateError(InputError::DivisionByZero));
+    }
+    if share_per_min.is_sign_negative() {
+        return Err(Error::HashrateError(InputError::NegativeInput));
+    }
 
     let mut target_arr: [u8; 32] = [0; 32];
     target_arr.as_mut().copy_from_slice(target.inner_as_ref());
     target_arr.reverse();
-
     let target = Uint256::from_be_bytes(target_arr);
-    let mut target_plus_one = Uint256::from_be_bytes(target_arr);
-    target_plus_one.increment();
 
+    // we calculate the numerator 2^256-t
+    // note that [255_u8,;32] actually is 2^256 -1, but 2^256 -t = (2^256-1) - (t-1)
     let max_target = [255_u8; 32];
     let max_target = Uint256::from_be_bytes(max_target);
-    let share_times_target = u128_as_u256(s_times_100 as u128)
-        .mul(target_plus_one)
-        .div(Uint256::from_u64(100.0 as u64).unwrap()); //now divide the 100 back out
+    let numerator = max_target - (target - Uint256::one());
 
-    ((max_target - target).div(share_times_target).low_u32()) as f32
+    // now we calcualte the denominator s(t+1)
+    // *100 here to move the fractional bit up so we can make this an int later
+    let shares_occurrency_frequence = 60_f64 / (share_per_min) * 100.0;
+    // note that t+1 cannot be zero because t unsigned. Therefore the denominator is zero if and
+    // only if s is zero.
+    let shares_occurrency_frequence = shares_occurrency_frequence as u128;
+    if shares_occurrency_frequence == 0_u128 {
+        return Err(Error::HashrateError(InputError::DivisionByZero));
+    }
+    let shares_occurrency_frequence = u128_as_u256(shares_occurrency_frequence);
+    let mut target_plus_one = Uint256::from_be_bytes(target_arr);
+    target_plus_one.increment();
+    let denominator = shares_occurrency_frequence
+        .mul(target_plus_one)
+        .div(Uint256::from_u64(100).unwrap());
+
+    let result = from_uint128_to_u128(numerator.div(denominator).low_128());
+    // we multiply back by 100 so that it cancels with the same factor at the denominator
+    Ok(result as f64)
+}
+
+fn from_uint128_to_u128(input: Uint128) -> u128 {
+    let input = input.to_be_bytes();
+    u128::from_be_bytes(input)
 }
 
 pub fn from_u128_to_uint256(input: u128) -> Uint256 {
@@ -562,11 +696,51 @@ pub fn get_target(
     hash.reverse();
     hash
 }
+pub fn hash_lists_tuple(
+    tx_data: Vec<Transaction>,
+    tx_short_hash_nonce: u64,
+) -> (Seq064K<'static, ShortTxId<'static>>, U256<'static>) {
+    let mut txid_list: Vec<bitcoin::Txid> = Vec::new();
+    for tx in tx_data {
+        txid_list.push(tx.txid());
+    }
+    let mut tx_short_hash_list_: Vec<ShortTxId> = Vec::new();
+    for txid in txid_list.clone() {
+        tx_short_hash_list_.push(get_short_hash(txid, tx_short_hash_nonce));
+    }
+    let tx_short_hash_list: Seq064K<'static, ShortTxId> = Seq064K::from(tx_short_hash_list_);
+    let tx_hash_list_hash = tx_hash_list_hash_builder(txid_list);
+    (tx_short_hash_list, tx_hash_list_hash)
+}
+
+pub fn get_short_hash(txid: bitcoin::Txid, tx_short_hash_nonce: u64) -> ShortTxId<'static> {
+    // hash the short hash nonce
+    let nonce_hash = sha256::Hash::hash(&tx_short_hash_nonce.to_le_bytes());
+    // take first two integers from the hash
+    let k0 = u64::from_le_bytes(nonce_hash[0..8].try_into().unwrap());
+    let k1 = u64::from_le_bytes(nonce_hash[8..16].try_into().unwrap());
+    // get every transaction, hash it, remove first two bytes and push the ShortTxId in a vector
+    let hasher = SipHasher24::new_with_keys(k0, k1);
+    let tx_hashed = hasher.hash(&txid);
+    let tx_hashed_bytes: Vec<u8> = tx_hashed.to_le_bytes()[2..].to_vec();
+    let short_tx_id: ShortTxId = tx_hashed_bytes.try_into().unwrap();
+    short_tx_id
+}
+
+fn tx_hash_list_hash_builder(txid_list: Vec<bitcoin::Txid>) -> U256<'static> {
+    // TODO: understand if this field is redunant and to be deleted since
+    // the full coinbase is known
+    let mut vec_u8 = vec![];
+    for txid in txid_list {
+        let txid_as_byte_array: &[u8; 32] = &txid.as_inner().clone();
+        vec_u8.extend_from_slice(txid_as_byte_array);
+    }
+    let hash = sha256::Hash::hash(&vec_u8).as_inner().to_owned();
+    hash.to_vec().try_into().unwrap()
+}
 
 #[cfg(test)]
 mod tests {
-    use binary_sv2::U256;
-
     #[cfg(feature = "serde")]
     use super::*;
     use super::{hash_rate_from_target, hash_rate_to_target};
@@ -580,6 +754,8 @@ mod tests {
     use std::convert::TryInto;
     #[cfg(feature = "serde")]
     use std::num::ParseIntError;
+
+    use stratum_common::bitcoin;
 
     #[cfg(feature = "serde")]
     fn decode_hex(s: &str) -> Result<Vec<u8>, ParseIntError> {
@@ -780,7 +956,7 @@ mod tests {
 
         let hr = 10.0; // 10 h/s
         let hrs = hr * 60.0; // number of hashes in 1 minute
-        let mut target = hash_rate_to_target(hr, 1.0).to_vec();
+        let mut target = hash_rate_to_target(hr, 1.0).unwrap().to_vec();
         target.reverse();
         let target = bitcoin::util::uint::Uint256::from_be_slice(&target[..]).unwrap();
 
@@ -801,9 +977,9 @@ mod tests {
             }
         }
 
-        let mut average: f32 = 0.0;
+        let mut average: f64 = 0.0;
         for i in &results {
-            average = average + (*i as f32) / attempts as f32;
+            average = average + (*i as f64) / attempts as f64;
         }
         let delta = (hrs - average) as i64;
         assert!(delta.abs() < 100);
@@ -813,11 +989,9 @@ mod tests {
     fn test_hash_rate_from_target() {
         let hr = 202470.828;
         let expected_share_per_min = 1.0;
-        let target = hash_rate_to_target(hr, expected_share_per_min);
+        let target = hash_rate_to_target(hr, expected_share_per_min).unwrap();
         let realized_share_per_min = expected_share_per_min * 10.0; // increase SPM by 10x
-        let hash_rate = hash_rate_from_target(target, realized_share_per_min);
-        // assert the hash_rate is the is the same as the initial set to ensure `hash_rate_from_target` is the
-        // inverse of `hash_rate_to_target`
+        let hash_rate = hash_rate_from_target(target.clone(), realized_share_per_min).unwrap();
         let new_hr = (hr * 10.0).trunc();
 
         assert!(

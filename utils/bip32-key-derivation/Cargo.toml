@@ -1,0 +1,21 @@
+[package]
+name = "bip32_derivation"
+version = "1.0.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/stratum-mining/stratum"
+
+[lib]
+name = "bip32_derivation"
+path = "src/lib.rs"
+
+[[bin]]
+name = "bip32_derivation-bin"
+path = "src/main.rs"
+
+[dependencies]
+stratum-common = { path = "../../common" }
+slip132 = "0.10"
+
+[dev-dependencies]
+toml = { version = "*", git = "https://github.com/diondokter/toml-rs", default-features = false, rev = "c4161aa" }

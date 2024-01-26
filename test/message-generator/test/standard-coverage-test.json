@@ -1,4 +1,5 @@
 {
+    "version": "2",
     "doc": [
         "What this test does:",
         "1) launch SRI pool with llvm-cov arguments(no report - see cargo-llvm-cov for options)",
@@ -54,8 +55,8 @@
                 "channel_id": 1,
                 "sequence_number": 0,
                 "job_id": 0,
-                "nonce": 174,
-                "ntime": 1671116742,
+                "nonce": 927894720,
+                "ntime": 1671039088,
                 "version": 536870912
             },
             "id": "submit_shares"
@@ -66,7 +67,7 @@
                 "channel_id": 1,
                 "sequence_number": 0,
                 "job_id": 0,
-                "nonce": 17511,
+                "nonce": 1751,
                 "ntime": 1671116742,
                 "version": 536870912
             },
@@ -171,10 +172,32 @@
                         {
                             "output_string": "Running `target/debug/message_generator_sv2 ../../test/message-generator/mock/template-provider-mock1.json`",
                             "output_location": "StdErr",
+                            "late_condition": false,
                             "condition": true
                         }
                     ],
-                    "timer_secs": 240,
+                    "timer_secs": 260,
+                    "warn_no_panic": false
+                }
+            }
+        },
+        {
+            "command": "cargo",
+            "args": [
+                        "run",
+                        "../../../test/message-generator/mock/template-provider-mock1.json"
+            ],
+            "conditions": {
+                "WithConditions": {
+                    "conditions": [
+                        {
+                            "output_string": "Running `target/debug/message_generator_sv2 ../../../test/message-generator/mock/template-provider-mock1.json`",
+                            "output_location": "StdErr",
+                            "late_condition": false,
+                            "condition": true
+                        }
+                    ],
+                    "timer_secs": 320,
                     "warn_no_panic": false
                 }
             }
@@ -188,7 +211,7 @@
                         "pool_sv2",
                         "--",
                         "-c",
-                        "./test/config/pool-mock-tp.toml"
+                        "../test/config/pool-mock-tp-standard-coverage.toml"
             ],
             "conditions": {
                 "WithConditions": {
@@ -196,6 +219,7 @@
                         {
                             "output_string": "Listening for encrypted connection on: 127.0.0.1:34254",
                             "output_location": "StdOut",
+                            "late_condition": false,
                             "condition": true
                         }
                     ],
@@ -218,6 +242,6 @@
     "downstream": {
         "ip": "0.0.0.0",
         "port": 34254,
-        "pub_key": "2di19GHYQnAZJmEpoUeP7C3Eg9TCcksHr23rZCC83dvUiZgiDL"
+        "pub_key": "3VANfft6ei6jQq1At7d8nmiZzVhBFS4CiQujdgim1ign"
     }
 }
