@@ -1499,6 +1499,8 @@ impl ProxyExtendedChannelFactory {
             let error = SubmitSharesError {
                 channel_id: m.channel_id,
                 sequence_number: m.sequence_number,
+                // Infallible unwrap we already know the len of the error code (is a
+                // static string)
                 error_code: SubmitSharesError::invalid_job_id_error_code()
                     .to_string()
                     .try_into()

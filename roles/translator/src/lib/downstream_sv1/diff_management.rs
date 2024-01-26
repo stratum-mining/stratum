@@ -243,6 +243,8 @@ impl Downstream {
                     || (hashrate_delta_percentage >= 30.0) && (delta_time >= 240)
                     || (hashrate_delta_percentage >= 15.0) && (delta_time >= 300)
                 {
+                // realized_share_per_min is 0.0 when d.difficulty_mgmt.submits_since_last_update is 0
+                // so it's safe to compare realized_share_per_min with == 0.0
                 if realized_share_per_min == 0.0 {
                     new_miner_hashrate = match delta_time {
                         dt if dt <= 30 => d.difficulty_mgmt.min_individual_miner_hashrate / 1.5,
