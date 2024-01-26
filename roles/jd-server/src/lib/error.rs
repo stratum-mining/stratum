@@ -6,6 +6,8 @@ use std::{
 
 use roles_logic_sv2::parsers::Mining;
 
+use crate::mempool::JdsMempoolError;
+
 #[derive(std::fmt::Debug)]
 pub enum JdsError {
     Io(std::io::Error),
@@ -19,6 +21,7 @@ pub enum JdsError {
     PoisonLock(String),
     Custom(String),
     Sv2ProtocolError((u32, Mining<'static>)),
+    MempoolError(JdsMempoolError),
 }
 
 impl std::fmt::Display for JdsError {
@@ -38,6 +41,7 @@ impl std::fmt::Display for JdsError {
             Sv2ProtocolError(ref e) => {
                 write!(f, "Received Sv2 Protocol Error from upstream: `{:?}`", e)
             }
+            MempoolError(ref e) => write!(f, "Mempool error: `{:?}`", e),
         }
     }
 }
@@ -104,5 +108,11 @@ impl<T> From<PoisonError<MutexGuard<'_, T>>> for JdsError {
 impl From<(u32, Mining<'static>)> for JdsError {
     fn from(e: (u32, Mining<'static>)) -> Self {
         JdsError::Sv2ProtocolError(e)
+    }
+}
+
+impl From<JdsMempoolError> for JdsError {
+    fn from(error: JdsMempoolError) -> Self {
+        JdsError::MempoolError(error)
     }
 }

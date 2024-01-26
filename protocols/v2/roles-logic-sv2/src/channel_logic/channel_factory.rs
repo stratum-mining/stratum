@@ -1494,6 +1494,21 @@ impl ProxyExtendedChannelFactory {
             .clone()
             .ok_or(Error::ShareDoNotMatchAnyJob)?
             .0;
+
+        if referenced_job.job_id != m.job_id {
+            let error = SubmitSharesError {
+                channel_id: m.channel_id,
+                sequence_number: m.sequence_number,
+                // Infallible unwrap we already know the len of the error code (is a
+                // static string)
+                error_code: SubmitSharesError::invalid_job_id_error_code()
+                    .to_string()
+                    .try_into()
+                    .unwrap(),
+            };
+            return Ok(OnNewShare::SendErrorDownstream(error));
+        }
+
         if let Some(job_creator) = self.job_creator.as_mut() {
             let template_id = job_creator
                 .get_template_id_from_job(referenced_job.job_id)

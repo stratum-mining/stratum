@@ -3,7 +3,6 @@ use super::{Downstream, DownstreamMessages, SetDownstreamTarget};
 use super::super::error::{Error, ProxyResult};
 use roles_logic_sv2::utils::Mutex;
 use std::{ops::Div, sync::Arc};
-use tracing::error;
 use v1::json_rpc;
 
 use stratum_common::bitcoin::util::uint::Uint256;
@@ -212,7 +211,7 @@ impl Downstream {
                 }
 
                 let delta_time = timestamp_secs - d.difficulty_mgmt.timestamp_of_last_update;
-                if delta_time == 0 {
+                if delta_time <= 15 {
                     return Ok(None);
                 }
                 tracing::debug!("\nDELTA TIME: {:?}", delta_time);
@@ -225,7 +224,7 @@ impl Downstream {
                 ) {
                     Ok(hashrate) => hashrate as f32,
                     Err(e) => {
-                        error!("{:?} -> Probably min_individual_miner_hashrate parameter was not set properly in config file. New hashrate will be automatically adjusted to match the real one.", e);
+                        tracing::debug!("{:?} -> Probably min_individual_miner_hashrate parameter was not set properly in config file. New hashrate will be automatically adjusted to match the real one.", e);
                         d.difficulty_mgmt.min_individual_miner_hashrate * realized_share_per_min as f32 / d.difficulty_mgmt.shares_per_minute
                     }
                 };
@@ -244,11 +243,22 @@ impl Downstream {
                     || (hashrate_delta_percentage >= 30.0) && (delta_time >= 240)
                     || (hashrate_delta_percentage >= 15.0) && (delta_time >= 300)
                 {
-                if realized_share_per_min < 0.01 {
+                // realized_share_per_min is 0.0 when d.difficulty_mgmt.submits_since_last_update is 0
+                // so it's safe to compare realized_share_per_min with == 0.0
+                if realized_share_per_min == 0.0 {
                     new_miner_hashrate = match delta_time {
-                        dt if dt < 30 => d.difficulty_mgmt.min_individual_miner_hashrate / 2.0,
-                        dt if dt < 60 => d.difficulty_mgmt.min_individual_miner_hashrate / 3.0,
-                        _ => d.difficulty_mgmt.min_individual_miner_hashrate / 5.0,
+                        dt if dt <= 30 => d.difficulty_mgmt.min_individual_miner_hashrate / 1.5,
+                        dt if dt < 60 => d.difficulty_mgmt.min_individual_miner_hashrate / 2.0,
+                        _ => d.difficulty_mgmt.min_individual_miner_hashrate / 3.0,
+                    };
+                    hashrate_delta =
+                        new_miner_hashrate - d.difficulty_mgmt.min_individual_miner_hashrate;
+                }
+                if (realized_share_per_min > 0.0) && (hashrate_delta_percentage > 1000.0) {
+                    new_miner_hashrate = match delta_time {
+                        dt if dt <= 30 => d.difficulty_mgmt.min_individual_miner_hashrate * 10.0,
+                        dt if dt < 60 => d.difficulty_mgmt.min_individual_miner_hashrate * 5.0,
+                        _ => d.difficulty_mgmt.min_individual_miner_hashrate * 3.0,
                     };
                     hashrate_delta =
                         new_miner_hashrate - d.difficulty_mgmt.min_individual_miner_hashrate;
@@ -256,9 +266,12 @@ impl Downstream {
                 d.difficulty_mgmt.min_individual_miner_hashrate = new_miner_hashrate;
                 d.difficulty_mgmt.timestamp_of_last_update = timestamp_secs;
                 d.difficulty_mgmt.submits_since_last_update = 0;
-                // update channel hashrate (read by upstream)
                 d.upstream_difficulty_config.super_safe_lock(|c| {
+                if c.channel_nominal_hashrate + hashrate_delta > 0.0 {
                     c.channel_nominal_hashrate += hashrate_delta;
+                } else {
+                    c.channel_nominal_hashrate = 0.0;
+                }
                 });
                 Ok(Some(new_miner_hashrate))
                 } else {

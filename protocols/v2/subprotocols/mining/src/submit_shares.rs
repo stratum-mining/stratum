@@ -91,6 +91,7 @@ pub struct SubmitSharesSuccess {
 /// * ‘invalid-channel-id’
 /// * ‘stale-share’
 /// * ‘difficulty-too-low’
+/// * 'invalid-job-id'
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SubmitSharesError<'decoder> {
     pub channel_id: u32,
@@ -108,6 +109,9 @@ impl<'a> SubmitSharesError<'a> {
     }
     pub fn difficulty_too_low_error_code() -> &'static str {
         "difficulty-too-low"
+    }
+    pub fn invalid_job_id_error_code() -> &'static str {
+        "invalid-job-id"
     }
 }
 #[cfg(feature = "with_serde")]

@@ -1,8 +1,51 @@
+/* #![allow(special_module_name)]
+use crate::lib::{mempool, status, Configuration};
+use async_channel::unbounded;
+use codec_sv2::{StandardEitherFrame, StandardSv2Frame};
+use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
+use roles_logic_sv2::{
+    errors::Error, parsers::PoolMessages as JdsMessages, utils::CoinbaseOutput as CoinbaseOutput_,
+};
+use serde::Deserialize;
+use std::convert::{TryFrom, TryInto};
+
+use error_handling::handle_result;
+use stratum_common::bitcoin::{Script, TxOut};
+use tracing::{error, info, warn};
+
+//use crate::lib::mempool;
+use roles_logic_sv2::utils::Mutex;
+use std::{sync::Arc, time::Duration};
+use tokio::{select, task};
+
+use crate::{lib::job_declarator::JobDeclarator, status::Status};
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct CoinbaseOutput {
+    output_script_type: String,
+    output_script_value: String,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct Configuration {
+    pub listen_jd_address: String,
+    pub authority_public_key: Secp256k1PublicKey,
+    pub authority_secret_key: Secp256k1SecretKey,
+    pub cert_validity_sec: u64,
+    pub coinbase_outputs: Vec<CoinbaseOutput>,
+    pub core_rpc_url: String,
+    pub core_rpc_port: u16,
+    pub core_rpc_user: String,
+    pub core_rpc_pass: String,
+    #[serde(deserialize_with = "duration_from_toml")]
+    pub mempool_update_timeout: Duration,
+} */
 #![allow(special_module_name)]
 use crate::lib::{mempool, status, Configuration};
 use async_channel::unbounded;
+use error_handling::handle_result;
 use roles_logic_sv2::utils::Mutex;
-use std::{sync::Arc, time::Duration};
+use std::sync::Arc;
 use tokio::{select, task};
 use tracing::{error, info, warn};
 mod lib;
@@ -106,22 +149,31 @@ async fn main() {
         username,
         password,
     )));
+    let mempool_update_timeout = config.mempool_update_timeout;
     let mempool_cloned_ = mempool.clone();
+    let (status_tx, status_rx) = unbounded();
+    let sender = status::Sender::Downstream(status_tx.clone());
     if url.contains("http") {
+        let sender_clone = sender.clone();
         task::spawn(async move {
             loop {
-                let _ = mempool::JDsMempool::update_mempool(mempool_cloned_.clone()).await;
-                // TODO this should be configurable by the user
-                tokio::time::sleep(Duration::from_millis(10000)).await;
+                let updated_mempool =
+                    mempool::JDsMempool::update_mempool(mempool_cloned_.clone()).await;
+                if let Err(err) = updated_mempool {
+                    error!("{:?}", err);
+                    error!("Unable to connect to Template Provider (possible reasons: not fully synced, down)");
+                    handle_result!(sender_clone, Err(err));
+                }
+                tokio::time::sleep(mempool_update_timeout).await;
             }
         });
     };
 
-    let (status_tx, status_rx) = unbounded();
+    //let (status_tx, status_rx) = unbounded();
     info!("Jds INITIALIZING with config: {:?}", &args.config_path);
 
     let cloned = config.clone();
-    let sender = status::Sender::Downstream(status_tx.clone());
+
     let mempool_cloned = mempool.clone();
     task::spawn(async move { JobDeclarator::start(cloned, sender, mempool_cloned).await });
 
