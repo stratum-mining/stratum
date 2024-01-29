@@ -13,6 +13,7 @@ pub enum Error {
     InvalidRawPublicKey,
     InvalidRawPrivateKey,
     ExpectedIncomingHandshakeMessage,
+    InvalidMessageLength,
 }
 
 impl From<AesGcm> for Error {

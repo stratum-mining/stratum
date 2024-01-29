@@ -227,6 +227,9 @@ dependencies = [
 [[package]]
 name = "const_sv2"
 version = "0.1.2"
+dependencies = [
+ "secp256k1 0.28.2",
+]
 
 [[package]]
 name = "cpufeatures"
