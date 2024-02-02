@@ -42,8 +42,8 @@ where
         ad: &[u8],
         data: &mut T,
     ) -> Result<(), aes_gcm::Error> {
-        self.set_n(self.get_n() + 1);
         let n = self.nonce_to_bytes();
+        self.set_n(self.get_n() + 1);
         if let Some(c) = self.get_cipher() {
             match c.encrypt(&n, ad, data) {
                 Ok(_) => Ok(()),
@@ -63,8 +63,8 @@ where
         ad: &[u8],
         data: &mut T,
     ) -> Result<(), aes_gcm::Error> {
-        self.set_n(self.get_n() + 1);
         let n = self.nonce_to_bytes();
+        self.set_n(self.get_n() + 1);
         if let Some(c) = self.get_cipher() {
             match c.decrypt(&n, ad, data) {
                 Ok(_) => Ok(()),
