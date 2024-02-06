@@ -224,8 +224,8 @@ async fn initialize_jd_as_solo_miner(
         None,
         send_solution,
         proxy_config.withhold,
-        proxy_config.authority_public_key.clone(),
-        proxy_config.authority_secret_key.clone(),
+        proxy_config.authority_public_key,
+        proxy_config.authority_secret_key,
         proxy_config.cert_validity_sec,
         task_collector.clone(),
         status::Sender::Downstream(tx_status.clone()),
@@ -288,7 +288,7 @@ async fn initialize_jd(
     // Instantiate a new `Upstream` (SV2 Pool)
     let upstream = match lib::upstream_sv2::Upstream::new(
         upstream_addr,
-        upstream_config.authority_pubkey.clone(),
+        upstream_config.authority_pubkey,
         0, // TODO
         upstream_config.pool_signature.clone(),
         status::Sender::Upstream(tx_status.clone()),
@@ -340,7 +340,7 @@ async fn initialize_jd(
     let port_jd = parts.next().unwrap().parse::<u16>().unwrap();
     let jd = match JobDeclarator::new(
         SocketAddr::new(IpAddr::from_str(ip_jd.as_str()).unwrap(), port_jd),
-        upstream_config.authority_pubkey.clone().into_bytes(),
+        upstream_config.authority_pubkey.into_bytes(),
         proxy_config.clone(),
         upstream.clone(),
         task_collector.clone(),
@@ -364,8 +364,8 @@ async fn initialize_jd(
         Some(upstream),
         send_solution,
         proxy_config.withhold,
-        proxy_config.authority_public_key.clone(),
-        proxy_config.authority_secret_key.clone(),
+        proxy_config.authority_public_key,
+        proxy_config.authority_secret_key,
         proxy_config.cert_validity_sec,
         task_collector.clone(),
         status::Sender::Downstream(tx_status.clone()),
