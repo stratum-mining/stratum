@@ -1,6 +1,10 @@
 name: Run and Cache Benchmarks
 
-on: pull_request
+on: 
+  pull_request:
+    branches:
+      - main
+      - dev
 
 jobs:
   benchmark_sv1_criterion:
@@ -15,17 +19,19 @@ jobs:
           override: true
 
       - name: Checkout repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
           
-      - name: Benchmark 
+      - name: Run Benchmarks
         run: |
           cd benches 
           cargo bench --bench criterion_sv1_benchmark > criterion_sv1_benchmarks.txt
 
-      - uses: actions/upload-artifact@v3
+      - name: Upload Benchmark Results
+        uses: actions/upload-artifact@v4
         with:
           name: criterion_sv1_benchmarks.txt
           path: ./benches/criterion_sv1_benchmarks.txt
+      
 
   benchmark_sv2_criterion:
     name: Run and cache criterion sv2 benchmarks 
@@ -39,14 +45,15 @@ jobs:
           override: true
 
       - name: Checkout repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
           
-      - name: Benchmark 
+      - name: Run Benchmarks
         run: |
           cd benches 
           cargo bench --bench criterion_sv2_benchmark > criterion_sv2_benchmarks.txt
       
-      - uses: actions/upload-artifact@v3
+      - name: Upload Benchmark Results
+        uses: actions/upload-artifact@v4
         with:
           name: criterion_sv2_benchmarks.txt
           path: ./benches/criterion_sv2_benchmarks.txt
@@ -63,19 +70,20 @@ jobs:
           override: true
 
       - name: Checkout repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Install Valgrind
         run: |
           sudo apt-get update
           sudo apt-get install -y valgrind=1:3.18.1-1ubuntu2 
           
-      - name: Benchmark 
+      - name: Run Benchmarks
         run: |
           cd benches 
           cargo bench --bench iai_sv1_benchmark > iai_sv1_benchmarks.txt
       
-      - uses: actions/upload-artifact@v3
+      - name: Upload Benchmark Results
+        uses: actions/upload-artifact@v4
         with:
           name: iai_sv1_benchmarks.txt
           path: ./benches/iai_sv1_benchmarks.txt
@@ -92,19 +100,26 @@ jobs:
           override: true
 
       - name: Checkout repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Install Valgrind
         run: |
           sudo apt-get update
           sudo apt-get install -y valgrind=1:3.18.1-1ubuntu2 
           
-      - name: Benchmark 
+      - name: Run Benchmarks
         run: |
           cd benches 
           cargo bench --bench iai_sv2_benchmark > iai_sv2_benchmarks.txt
       
-      - uses: actions/upload-artifact@v3
+      - name: Upload Benchmark Results
+        uses: actions/upload-artifact@v4
         with:
           name: iai_sv2_benchmarks.txt
           path: ./benches/iai_sv2_benchmarks.txt
+
+      - name: Upload GitHub Pull Request Event
+        uses: actions/upload-artifact@v4
+        with:
+          name: event.json
+          path: ${{ github.event_path }}
