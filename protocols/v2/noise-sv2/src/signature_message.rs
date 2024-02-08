@@ -24,7 +24,7 @@ impl From<[u8; 74]> for SignatureNoiseMessage {
 }
 
 impl SignatureNoiseMessage {
-    pub fn verify(self, pk: &XOnlyPublicKey) -> bool {
+    pub fn verify(self, pk: &XOnlyPublicKey, authority_pk: &XOnlyPublicKey) -> bool {
         let now = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
             .unwrap()
@@ -32,11 +32,13 @@ impl SignatureNoiseMessage {
         if self.valid_from <= now && self.not_valid_after >= now {
             let secp = Secp256k1::verification_only();
             let (m, s) = self.split();
-            let m = Message::from_hashed_data::<sha256::Hash>(&m[0..10]);
+            let m = [&m[0..10], &pk.serialize()].concat();
+            let m = Message::from_hashed_data::<sha256::Hash>(&m);
             let s = match Signature::from_slice(&s) {
                 Ok(s) => s,
                 _ => return false,
             };
+            // secp.verify_schnorr(&s, &m, authority_pk).is_ok()
             secp.verify_schnorr(&s, &m, pk).is_ok()
         } else {
             false

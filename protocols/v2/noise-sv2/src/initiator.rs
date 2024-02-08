@@ -226,7 +226,7 @@ impl Initiator {
             .0
             .serialize();
         let rs_pk_xonly = XOnlyPublicKey::from_slice(&rs_pub_key).unwrap();
-        if signature_message.verify(&rs_pk_xonly) {
+        if signature_message.verify(&rs_pk_xonly, &self.pk) {
             let (temp_k1, temp_k2) = Self::hkdf_2(self.get_ck(), &[]);
             let c1 = ChaCha20Poly1305::new(&temp_k1.into());
             let c2 = ChaCha20Poly1305::new(&temp_k2.into());
