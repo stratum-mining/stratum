@@ -39,8 +39,7 @@ impl SignatureNoiseMessage {
                 Ok(s) => s,
                 _ => return false,
             };
-            // secp.verify_schnorr(&s, &m, authority_pk).is_ok()
-            secp.verify_schnorr(&s, &m, pk).is_ok()
+            secp.verify_schnorr(&s, &m, authority_pk).is_ok()
         } else {
             false
         }
