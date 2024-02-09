@@ -31,7 +31,7 @@ pub struct Initiator {
     e: Keypair,
     // upstream pub key
     #[allow(unused)]
-    expected_responder_pk: XOnlyPublicKey,
+    responder_authority_pk: XOnlyPublicKey,
     c1: Option<GenericCipher>,
     c2: Option<GenericCipher>,
 }
@@ -107,7 +107,7 @@ impl Initiator {
             ck: [0; 32],
             h: [0; 32],
             e: Self::generate_key(),
-            expected_responder_pk: pk,
+            responder_authority_pk: pk,
             c1: None,
             c2: None,
         };
@@ -226,7 +226,7 @@ impl Initiator {
             .0
             .serialize();
         let rs_pk_xonly = XOnlyPublicKey::from_slice(&rs_pub_key).unwrap();
-        if signature_message.verify(&rs_pk_xonly, &self.expected_responder_pk) {
+        if signature_message.verify(&rs_pk_xonly, &self.responder_authority_pk) {
             let (temp_k1, temp_k2) = Self::hkdf_2(self.get_ck(), &[]);
             let c1 = ChaCha20Poly1305::new(&temp_k1.into());
             let c2 = ChaCha20Poly1305::new(&temp_k2.into());
