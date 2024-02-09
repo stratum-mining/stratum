@@ -32,6 +32,7 @@ impl SignatureNoiseMessage {
         if self.valid_from <= now && self.not_valid_after >= now {
             let secp = Secp256k1::verification_only();
             let (m, s) = self.split();
+            // m = SHA-256(version || valid_from || not_valid_after || server_public_key)
             let m = [&m[0..10], &pk.serialize()].concat();
             let m = Message::from_hashed_data::<sha256::Hash>(&m);
             let s = match Signature::from_slice(&s) {
