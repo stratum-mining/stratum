@@ -44,9 +44,10 @@ impl SignatureNoiseMessage {
             false
         }
     }
-    pub fn sign(msg: &mut [u8; 74], kp: &Keypair) {
+    pub fn sign(msg: &mut [u8; 74], static_pk: &XOnlyPublicKey, kp: &Keypair) {
         let secp = Secp256k1::signing_only();
-        let m = Message::from_hashed_data::<sha256::Hash>(&msg[0..10]);
+        let m = [&msg[0..10], &static_pk.serialize()].concat();
+        let m = Message::from_hashed_data::<sha256::Hash>(&m);
         let signature = secp.sign_schnorr(&m, kp);
         for (i, b) in signature.as_ref().iter().enumerate() {
             msg[10 + i] = *b;
