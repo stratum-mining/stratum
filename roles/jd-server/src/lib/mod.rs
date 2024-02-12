@@ -67,7 +67,7 @@ pub struct Configuration {
     pub core_rpc_user: String,
     pub core_rpc_pass: String,
     #[serde(deserialize_with = "duration_from_toml")]
-    pub mempool_update_timeout: Duration,
+    pub mempool_update_interval: Duration,
 }
 
 fn duration_from_toml<'de, D>(deserializer: D) -> Result<Duration, D::Error>
