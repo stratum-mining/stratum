@@ -118,9 +118,20 @@ async fn main() {
                 let updated_mempool =
                     mempool::JDsMempool::update_mempool(mempool_cloned_.clone()).await;
                 if let Err(err) = updated_mempool {
-                    error!("{:?}", err);
-                    error!("Unable to connect to Template Provider (possible reasons: not fully synced, down)");
-                    handle_result!(sender_clone, Err(err));
+                    warn!("{:?}", err);
+                    match err {
+                        mempool::JdsMempoolError::EmptyMempool => {
+                            warn!("Template Provider is running, but its mempool is empty (possible reasons: you're testing in testnet, signet, or regtest)")
+                        }
+                        mempool::JdsMempoolError::NoClient => {
+                            error!("Unable to connect to Template Provider (possible reasons: not fully synced, down)");
+                            handle_result!(sender_clone, Err(err));
+                        }
+                        mempool::JdsMempoolError::BitcoinCoreRpcError(_) => {
+                            error!("Unable to connect to Template Provider (possible reasons: not fully synced, down)");
+                            handle_result!(sender_clone, Err(err));
+                        }
+                    }                    
                 }
                 tokio::time::sleep(mempool_update_timeout).await;
             }
