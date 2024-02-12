@@ -11,14 +11,14 @@ use mining_sv2::{
     ExtendedExtranonce, NewExtendedMiningJob, NewMiningJob, OpenExtendedMiningChannelSuccess,
     OpenMiningChannelError, OpenStandardMiningChannelSuccess, SetCustomMiningJob,
     SetCustomMiningJobSuccess, SetNewPrevHash, SubmitSharesError, SubmitSharesExtended,
-    SubmitSharesStandard, Target, UpdateChannel,
+    SubmitSharesStandard, Target,
 };
 
 use nohash_hasher::BuildNoHashHasher;
 use std::{collections::HashMap, convert::TryInto, sync::Arc};
 use template_distribution_sv2::{NewTemplate, SetNewPrevHash as SetNewPrevHashFromTp};
 
-use tracing::{debug, error, info, trace};
+use tracing::{debug, error, info, trace, warn};
 
 use stratum_common::{
     bitcoin,
@@ -322,7 +322,7 @@ impl ChannelFactory {
         extranonce_size: u16,
     ) -> Option<()> {
         self.channel_to_group_id.insert(channel_id, 0);
-        let extranonce_prefix = extranonce.try_into().unwrap();
+        let extranonce_prefix = extranonce.into();
         let success = OpenExtendedMiningChannelSuccess {
             request_id: 0,
             channel_id,
@@ -765,7 +765,7 @@ impl ChannelFactory {
         prev_blockhash: hash_types::BlockHash,
         bits: u32,
     ) -> Result<OnNewShare, Error> {
-        debug!("Checking targert for share {:?}", m);
+        debug!("Checking target for share {:?}", m);
         let upstream_target = match &self.kind {
             ExtendedChannelKind::Pool => Target::new(0, 0),
             ExtendedChannelKind::Proxy {
@@ -827,7 +827,7 @@ impl ChannelFactory {
             || tracing::level_enabled!(tracing::Level::TRACE)
         {
             debug!("Bitcoin target: {:?}", bitcoin_target);
-            let upstream_target: binary_sv2::U256 = upstream_target.clone().try_into().unwrap();
+            let upstream_target: binary_sv2::U256 = upstream_target.clone().into();
             let mut upstream_target = upstream_target.to_vec();
             upstream_target.reverse();
             debug!("Upstream target: {:?}", upstream_target.to_vec().to_hex());
@@ -957,25 +957,6 @@ impl ChannelFactory {
         let channel = self.extended_channels.get_mut(&channel_id)?;
         channel.target = new_target.into();
         Some(true)
-    }
-    fn update_channel(&mut self, m: &UpdateChannel) -> Result<(), Error> {
-        if let Some(channel) = self.extended_channels.get_mut(&m.channel_id) {
-            let target = crate::utils::hash_rate_to_target(
-                m.nominal_hash_rate.into(),
-                self.share_per_min.into(),
-            );
-            match target {
-                Ok(target_) => channel.target = target_,
-                Err(e) => {
-                    error!("Impossible to get target: {:?}", e);
-                    return Err(e);
-                }
-            }
-            Ok(())
-        } else {
-            // TODO add logic also for group ids
-            todo!()
-        }
     }
 }
 
@@ -1282,17 +1263,19 @@ impl PoolChannelFactory {
     pub fn update_pool_outputs(&mut self, outs: Vec<TxOut>) {
         self.pool_coinbase_outputs = outs;
     }
-    pub fn update_channel(&mut self, m: &UpdateChannel) -> Result<(), Error> {
-        self.inner.update_channel(m)
-    }
 
     /// calls [`ChannelFactory::update_target_for_channel`]
+    /// Set a partucular downstream channel target.
     pub fn update_target_for_channel(
         &mut self,
         channel_id: u32,
         new_target: Target,
     ) -> Option<bool> {
         self.inner.update_target_for_channel(channel_id, new_target)
+    }
+    // Set the target for this channel. This is the upstream target.
+    pub fn set_target(&mut self, new_target: &mut Target) {
+        self.inner.kind.set_target(new_target);
     }
 }
 
@@ -1511,6 +1494,21 @@ impl ProxyExtendedChannelFactory {
             .clone()
             .ok_or(Error::ShareDoNotMatchAnyJob)?
             .0;
+
+        if referenced_job.job_id != m.job_id {
+            let error = SubmitSharesError {
+                channel_id: m.channel_id,
+                sequence_number: m.sequence_number,
+                // Infallible unwrap we already know the len of the error code (is a
+                // static string)
+                error_code: SubmitSharesError::invalid_job_id_error_code()
+                    .to_string()
+                    .try_into()
+                    .unwrap(),
+            };
+            return Ok(OnNewShare::SendErrorDownstream(error));
+        }
+
         if let Some(job_creator) = self.job_creator.as_mut() {
             let template_id = job_creator
                 .get_template_id_from_job(referenced_job.job_id)
@@ -1751,7 +1749,7 @@ impl ExtendedChannelKind {
             | ExtendedChannelKind::ProxyJd { upstream_target } => {
                 std::mem::swap(upstream_target, new_target)
             }
-            ExtendedChannelKind::Pool => panic!("Try to set upstream target for a pool"),
+            ExtendedChannelKind::Pool => warn!("Try to set upstream target for a pool"),
         }
     }
 }

@@ -135,6 +135,7 @@
                        {
                            "output_string": "Running `target/debug/message_generator_sv2 ../../test/message-generator/mock/template-provider-mock0.json`",
                            "output_location": "StdErr",
+                            "late_condition": false,
                            "condition": true
                        }
                    ],
@@ -155,6 +156,7 @@
                         {
                             "output_string": "Running `target/debug/message_generator_sv2 ../../../test/message-generator/mock/template-provider-mock0.json`",
                             "output_location": "StdErr",
+                            "late_condition": false,
                             "condition": true
                         }
                     ],
@@ -173,7 +175,7 @@
                         "pool_sv2",
                         "--",
                         "-c",
-                        "./test/config/pool-mock-tp.toml"
+                        "../test/config/pool-mock-tp.toml"
             ],
             "conditions": {
                 "WithConditions": {
@@ -181,6 +183,7 @@
                         {
                             "output_string": "Listening for encrypted connection on: 127.0.0.1:34254",
                             "output_location": "StdOut",
+                            "late_condition": false,
                             "condition": true
                         }
                     ],
@@ -201,6 +204,7 @@
                        {
                            "output_string": "Running `target/debug/message_generator_sv2 ../../test/message-generator/mock/job-declarator-mock.json`",
                            "output_location": "StdErr",
+                            "late_condition": false,
                            "condition": true
                        }
                    ],

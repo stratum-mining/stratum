@@ -49,23 +49,21 @@ pub struct Notify<'a> {
     pub clean_jobs: bool,
 }
 
-impl<'a> TryFrom<Notify<'a>> for Message {
-    type Error = Error<'a>;
-
-    fn try_from(notify: Notify) -> Result<Self, Error> {
-        let prev_hash: Value = notify.prev_hash.try_into()?;
-        let coin_base1: Value = notify.coin_base1.try_into()?;
-        let coin_base2: Value = notify.coin_base2.try_into()?;
+impl<'a> From<Notify<'a>> for Message {
+    fn from(notify: Notify) -> Self {
+        let prev_hash: Value = notify.prev_hash.into();
+        let coin_base1: Value = notify.coin_base1.into();
+        let coin_base2: Value = notify.coin_base2.into();
         let mut merkle_branch: Vec<Value> = vec![];
         for mb in notify.merkle_branch {
-            let mb: Value = mb.try_into()?;
+            let mb: Value = mb.into();
             merkle_branch.push(mb);
         }
         let merkle_branch = JArrary(merkle_branch);
-        let version: Value = notify.version.try_into()?;
-        let bits: Value = notify.bits.try_into()?;
-        let time: Value = notify.time.try_into()?;
-        Ok(Message::Notification(Notification {
+        let version: Value = notify.version.into();
+        let bits: Value = notify.bits.into();
+        let time: Value = notify.time.into();
+        Message::Notification(Notification {
             method: "mining.notify".to_string(),
             params: (&[
                 notify.job_id.into(),
@@ -79,7 +77,7 @@ impl<'a> TryFrom<Notify<'a>> for Message {
                 notify.clean_jobs.into(),
             ][..])
                 .into(),
-        }))
+        })
     }
 }
 
@@ -202,16 +200,14 @@ pub struct SetExtranonce<'a> {
     pub extra_nonce2_size: usize,
 }
 
-impl<'a> TryFrom<SetExtranonce<'a>> for Message {
-    type Error = Error<'a>;
-
-    fn try_from(se: SetExtranonce) -> Result<Self, Error> {
-        let extra_nonce1: Value = se.extra_nonce1.try_into()?;
+impl<'a> From<SetExtranonce<'a>> for Message {
+    fn from(se: SetExtranonce) -> Self {
+        let extra_nonce1: Value = se.extra_nonce1.into();
         let extra_nonce2_size: Value = se.extra_nonce2_size.into();
-        Ok(Message::Notification(Notification {
+        Message::Notification(Notification {
             method: "mining.set_extranonce".to_string(),
             params: (&[extra_nonce1, extra_nonce2_size][..]).into(),
-        }))
+        })
     }
 }
 
@@ -245,15 +241,13 @@ pub struct SetVersionMask {
     version_mask: HexU32Be,
 }
 
-impl TryFrom<SetVersionMask> for Message {
-    type Error = Error<'static>;
-
-    fn try_from(sv: SetVersionMask) -> Result<Self, Error<'static>> {
-        let version_mask: Value = sv.version_mask.try_into()?;
-        Ok(Message::Notification(Notification {
+impl From<SetVersionMask> for Message {
+    fn from(sv: SetVersionMask) -> Self {
+        let version_mask: Value = sv.version_mask.into();
+        Message::Notification(Notification {
             method: "mining.set_version".to_string(),
             params: (&[version_mask][..]).into(),
-        }))
+        })
     }
 }
 
@@ -467,9 +461,7 @@ impl From<Configure> for Message {
     fn from(co: Configure) -> Self {
         let mut params = serde_json::Map::new();
         if let Some(version_rolling_) = co.version_rolling {
-            let mut version_rolling: serde_json::Map<String, Value> =
-                // infallible
-                version_rolling_.try_into().unwrap();
+            let mut version_rolling: serde_json::Map<String, Value> = version_rolling_.into();
             params.append(&mut version_rolling);
         };
         if let Some(min_diff) = co.minimum_difficulty {
@@ -628,13 +620,11 @@ impl VersionRollingParams {
     }
 }
 
-impl TryFrom<VersionRollingParams> for serde_json::Map<String, Value> {
-    type Error = Error<'static>;
-
-    fn try_from(vp: VersionRollingParams) -> Result<Self, Error<'static>> {
+impl From<VersionRollingParams> for serde_json::Map<String, Value> {
+    fn from(vp: VersionRollingParams) -> Self {
         let version_rolling: Value = vp.version_rolling.into();
-        let version_rolling_mask: Value = vp.version_rolling_mask.try_into()?;
-        let version_rolling_min_bit_count: Value = vp.version_rolling_min_bit_count.try_into()?;
+        let version_rolling_mask: Value = vp.version_rolling_mask.into();
+        let version_rolling_min_bit_count: Value = vp.version_rolling_min_bit_count.into();
         let mut params = serde_json::Map::new();
         params.insert("version-rolling".to_string(), version_rolling);
         params.insert("version-rolling.mask".to_string(), version_rolling_mask);
@@ -642,6 +632,6 @@ impl TryFrom<VersionRollingParams> for serde_json::Map<String, Value> {
             "version-rolling.min-bit-count".to_string(),
             version_rolling_min_bit_count,
         );
-        Ok(params)
+        params
     }
 }

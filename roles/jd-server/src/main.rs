@@ -1,4 +1,5 @@
-#![allow(special_module_name)]
+/* #![allow(special_module_name)]
+use crate::lib::{mempool, status, Configuration};
 use async_channel::unbounded;
 use codec_sv2::{StandardEitherFrame, StandardSv2Frame};
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
@@ -8,52 +9,13 @@ use roles_logic_sv2::{
 use serde::Deserialize;
 use std::convert::{TryFrom, TryInto};
 
+use error_handling::handle_result;
+use stratum_common::bitcoin::{Script, TxOut};
 use tracing::{error, info, warn};
 
-use stratum_common::bitcoin::{Script, TxOut};
-
-use crate::lib::mempool;
+//use crate::lib::mempool;
 use roles_logic_sv2::utils::Mutex;
 use std::{sync::Arc, time::Duration};
-
-mod error;
-mod lib;
-mod status;
-
-pub type Message = JdsMessages<'static>;
-pub type StdFrame = StandardSv2Frame<Message>;
-pub type EitherFrame = StandardEitherFrame<Message>;
-
-pub fn get_coinbase_output(config: &Configuration) -> Result<Vec<TxOut>, Error> {
-    let mut result = Vec::new();
-    for coinbase_output_pool in &config.coinbase_outputs {
-        let coinbase_output: CoinbaseOutput_ = coinbase_output_pool.try_into()?;
-        let output_script: Script = coinbase_output.try_into()?;
-        result.push(TxOut {
-            value: 0,
-            script_pubkey: output_script,
-        });
-    }
-    match result.is_empty() {
-        true => Err(Error::EmptyCoinbaseOutputs),
-        _ => Ok(result),
-    }
-}
-
-impl TryFrom<&CoinbaseOutput> for CoinbaseOutput_ {
-    type Error = Error;
-
-    fn try_from(pool_output: &CoinbaseOutput) -> Result<Self, Self::Error> {
-        match pool_output.output_script_type.as_str() {
-            "P2PK" | "P2PKH" | "P2WPKH" | "P2SH" | "P2WSH" | "P2TR" => Ok(CoinbaseOutput_ {
-                output_script_type: pool_output.clone().output_script_type,
-                output_script_value: pool_output.clone().output_script_value,
-            }),
-            _ => Err(Error::UnknownOutputScriptType),
-        }
-    }
-}
-
 use tokio::{select, task};
 
 use crate::{lib::job_declarator::JobDeclarator, status::Status};
@@ -75,7 +37,20 @@ pub struct Configuration {
     pub core_rpc_port: u16,
     pub core_rpc_user: String,
     pub core_rpc_pass: String,
-}
+    #[serde(deserialize_with = "duration_from_toml")]
+    pub mempool_update_timeout: Duration,
+} */
+#![allow(special_module_name)]
+use crate::lib::{mempool, status, Configuration};
+use async_channel::unbounded;
+use error_handling::handle_result;
+use roles_logic_sv2::utils::Mutex;
+use std::sync::Arc;
+use tokio::{select, task};
+use tracing::{error, info, warn};
+mod lib;
+
+use lib::job_declarator::JobDeclarator;
 
 mod args {
     use std::path::PathBuf;
@@ -99,9 +74,16 @@ mod args {
 
     impl Args {
         const DEFAULT_CONFIG_PATH: &'static str = "jds-config.toml";
+        const HELP_MSG: &'static str =
+            "Usage: -h/--help, -c/--config <path|default jds-config.toml>";
 
         pub fn from_args() -> Result<Self, String> {
             let cli_args = std::env::args();
+
+            if cli_args.len() == 1 {
+                println!("Using default config path: {}", Self::DEFAULT_CONFIG_PATH);
+                println!("{}\n", Self::HELP_MSG);
+            }
 
             let config_path = cli_args
                 .scan(ArgsState::Next, |state, item| {
@@ -111,10 +93,7 @@ mod args {
                                 *state = ArgsState::ExpectPath;
                                 Some(ArgsResult::None)
                             }
-                            "-h" | "--help" => Some(ArgsResult::Help(format!(
-                                "Usage: -h/--help, -c/--config <path|default {}>",
-                                Self::DEFAULT_CONFIG_PATH
-                            ))),
+                            "-h" | "--help" => Some(ArgsResult::Help(Self::HELP_MSG.to_string())),
                             _ => {
                                 *state = ArgsState::Next;
 
@@ -170,22 +149,31 @@ async fn main() {
         username,
         password,
     )));
+    let mempool_update_timeout = config.mempool_update_timeout;
     let mempool_cloned_ = mempool.clone();
+    let (status_tx, status_rx) = unbounded();
+    let sender = status::Sender::Downstream(status_tx.clone());
     if url.contains("http") {
+        let sender_clone = sender.clone();
         task::spawn(async move {
             loop {
-                let _ = mempool::JDsMempool::update_mempool(mempool_cloned_.clone()).await;
-                // TODO this should be configurable by the user
-                tokio::time::sleep(Duration::from_millis(10000)).await;
+                let updated_mempool =
+                    mempool::JDsMempool::update_mempool(mempool_cloned_.clone()).await;
+                if let Err(err) = updated_mempool {
+                    error!("{:?}", err);
+                    error!("Unable to connect to Template Provider (possible reasons: not fully synced, down)");
+                    handle_result!(sender_clone, Err(err));
+                }
+                tokio::time::sleep(mempool_update_timeout).await;
             }
         });
     };
 
-    let (status_tx, status_rx) = unbounded();
+    //let (status_tx, status_rx) = unbounded();
     info!("Jds INITIALIZING with config: {:?}", &args.config_path);
 
     let cloned = config.clone();
-    let sender = status::Sender::Downstream(status_tx.clone());
+
     let mempool_cloned = mempool.clone();
     task::spawn(async move { JobDeclarator::start(cloned, sender, mempool_cloned).await });
 
@@ -207,7 +195,7 @@ async fn main() {
                 break;
             }
         };
-        let task_status: Status = task_status.unwrap();
+        let task_status: status::Status = task_status.unwrap();
 
         match task_status.state {
             // Should only be sent by the downstream listener

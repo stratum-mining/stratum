@@ -1,0 +1,8 @@
+[default]
+features = "default"
+run-types = [ "Lib" ]
+timeout = "120s"
+fail-under = 20
+
+[report]
+out = ["Xml"]

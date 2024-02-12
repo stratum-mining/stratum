@@ -47,7 +47,7 @@ impl<'a> Frames<'a> {
                     // input
                     let mut path = id[0].clone();
                     std::string::String::insert_str(&mut path, 0, "../../../../");
-                    let message = message_from_path(&vec![path, id[1].clone()]);
+                    let message = message_from_path(&[path, id[1].clone()]);
                     // TODO: if a message is taken from a module, should it be allowed to have a
                     // replace_fields? perhaps not. In this case, check that no replace_field appears in message
                     messages.insert(id[1].clone(), (message.clone(), vec![]));
@@ -68,7 +68,7 @@ impl<'a> Frames<'a> {
                         .unwrap()
                         .as_str()
                         .unwrap()
-                        .replace("_", "")
+                        .replace('_', "")
                         .parse::<u16>()
                         .unwrap();
                     let channel_msg = frame.get("channel_msg").unwrap().as_bool().unwrap();

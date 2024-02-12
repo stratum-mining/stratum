@@ -105,7 +105,7 @@ impl Client {
         // `receiver_incoming`
         task::spawn(async move {
             let mut messages = BufReader::new(&*reader).lines();
-            while let Some(message) = messages.next().await {
+            while let Some(message) = dbg!(messages.next().await) {
                 let message = message.unwrap();
                 sender_incoming.send(message).await.unwrap();
             }

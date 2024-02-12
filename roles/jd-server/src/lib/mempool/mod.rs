@@ -8,6 +8,8 @@ use serde::{Deserialize, Serialize};
 use std::{convert::TryInto, sync::Arc};
 use stratum_common::{bitcoin, bitcoin::hash_types::Txid};
 
+use self::rpc_client::BitcoincoreRpcError;
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Hash([u8; 32]);
 
@@ -31,9 +33,13 @@ pub struct JDsMempool {
 }
 
 impl JDsMempool {
-    pub fn get_client(&self) -> RpcClient {
+    pub fn get_client(&self) -> Option<RpcClient> {
         let url = self.url.as_str();
-        RpcClient::new(url, self.auth.clone()).unwrap()
+        if url.contains("http") {
+            Some(RpcClient::new(url, self.auth.clone()).unwrap())
+        } else {
+            None
+        }
     }
     pub fn new(url: String, username: String, password: String) -> Self {
         let auth = Auth::UserPass(username, password);
@@ -47,10 +53,15 @@ impl JDsMempool {
 
     pub async fn update_mempool(self_: Arc<Mutex<Self>>) -> Result<(), JdsMempoolError> {
         let mut mempool_ordered: Vec<TransacrtionWithHash> = Vec::new();
-        let client = self_.safe_lock(|x| x.get_client()).unwrap();
+        let client = self_
+            .safe_lock(|x| x.get_client())
+            .unwrap()
+            .ok_or(JdsMempoolError::NoClient)?;
         let new_mempool: Result<Vec<TransacrtionWithHash>, JdsMempoolError> =
             tokio::task::spawn(async move {
-                let mempool: Vec<String> = client.get_raw_mempool_verbose().unwrap();
+                let mempool: Result<Vec<String>, BitcoincoreRpcError> =
+                    client.get_raw_mempool_verbose();
+                let mempool = mempool.map_err(JdsMempoolError::BitcoinCoreRpcError)?;
                 for id in &mempool {
                     let tx: Result<Transaction, _> = client.get_raw_transaction(id, None);
                     if let Ok(tx) = tx {
@@ -98,4 +109,12 @@ impl JDsMempool {
 #[derive(Debug)]
 pub enum JdsMempoolError {
     EmptyMempool,
+    NoClient,
+    BitcoinCoreRpcError(BitcoincoreRpcError),
+}
+
+impl From<BitcoincoreRpcError> for JdsMempoolError {
+    fn from(error: BitcoincoreRpcError) -> Self {
+        JdsMempoolError::BitcoinCoreRpcError(error)
+    }
 }

@@ -86,7 +86,7 @@
                 "translator_sv2",
                 "--",
                 "-c",
-                "./test/config/tproxy-config-no-jd-sv1-cpu-md.toml"
+                "../test/config/tproxy-config-no-jd-sv1-cpu-md.toml"
             ],
             "conditions": {
                 "WithConditions": {
@@ -94,6 +94,7 @@
                         {
                             "output_string": "PROXY SERVER - ACCEPTING FROM UPSTREAM:",
                             "output_location": "StdOut",
+                            "late_condition": false,
                             "condition": true
                         }
                     ],

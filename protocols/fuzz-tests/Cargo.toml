@@ -13,7 +13,7 @@ libfuzzer-sys = { version = "0.4.0", features = ["arbitrary-derive"] }
 arbitrary = { version = "1", features = ["derive"] }
 rand = "0.8.3"
 binary_codec_sv2 = {version = "0.1", path = "../v2/binary-sv2/no-serde-sv2/codec"}
-codec_sv2 = {version = "0.1", path = "../v2/codec-sv2", features = ["noise_sv2"]}
+codec_sv2 = {version = "1.0.0", path = "../v2/codec-sv2", features = ["noise_sv2"]}
 roles_logic_sv2 = {version = "0.1", path = "../v2/roles-logic-sv2"}
 affinity = "0.1.1"
 threadpool = "1.8.1"

@@ -20,7 +20,7 @@ use stratum_common::{
             uint::{Uint128, Uint256},
             BitArray,
         },
-        PublicKey, Script, Transaction,
+        PublicKey, Script, Transaction, XOnlyPublicKey,
     },
 };
 use tracing::error;
@@ -237,16 +237,23 @@ impl TryFrom<CoinbaseOutput> for Script {
                 // Conceptually, every Taproot output corresponds to a combination of
                 // a single public key condition (the internal key),
                 // and zero or more general conditions encoded in scripts organized in a tree.
-                let pub_key = PublicKey::from_str(&value.output_script_value)
+                let pub_key = XOnlyPublicKey::from_str(&value.output_script_value)
                     .map_err(|_| Error::InvalidOutputScript)?;
-                Ok({
-                    let (pubkey_only, _) = pub_key.inner.x_only_public_key();
-                    Script::new_v1_p2tr::<All>(&Secp256k1::<All>::new(), pubkey_only, None)
-                })
+                Ok(Script::new_v1_p2tr::<All>(
+                    &Secp256k1::<All>::new(),
+                    pub_key,
+                    None,
+                ))
             }
             _ => Err(Error::UnknownOutputScriptType),
         }
     }
+}
+
+#[derive(Debug)]
+pub enum InputError {
+    NegativeInput,
+    DivisionByZero,
 }
 
 /// The pool set a target for each miner. Each target is calibrated on the hashrate of the miner.
@@ -280,13 +287,6 @@ impl TryFrom<CoinbaseOutput> for Script {
 /// [3] https://en.wikipedia.org/wiki/Negative_hypergeometric_distribution
 /// bdiff: 0x00000000ffff0000000000000000000000000000000000000000000000000000
 /// https://en.bitcoin.it/wiki/Difficulty#How_soon_might_I_expect_to_generate_a_block.3F
-
-#[derive(Debug)]
-pub enum InputError {
-    NegativeInput,
-    DivisionByZero,
-}
-
 pub fn hash_rate_to_target(
     hashrate: f64,
     share_per_min: f64,
@@ -305,7 +305,6 @@ pub fn hash_rate_to_target(
     // if we want 5 shares per minute, this means that s=60/5=12 seconds interval between shares
     // this quantity will be at the numerator, so we multiply the result by 100 again later
     let shares_occurrency_frequence = 60_f64 / share_per_min;
-    let shares_occurrency_frequence = shares_occurrency_frequence;
 
     let h_times_s = hashrate * shares_occurrency_frequence;
     let h_times_s = h_times_s as u128;

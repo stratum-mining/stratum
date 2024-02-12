@@ -32,7 +32,7 @@ jobs:
     name: Tarpaulin Test
     runs-on: ubuntu-latest
     container:
-      image: xd009642/tarpaulin:0.25.0-nightly
+      image: xd009642/tarpaulin:0.27.1-nightly
       options: --security-opt seccomp=unconfined
     steps:
       - name: Checkout repository
@@ -40,13 +40,16 @@ jobs:
 
       - name: Generate code coverage
         run: |
-          cargo +nightly version; cargo +nightly tarpaulin --verbose
+          ./tarpaulin.sh
 
       - name: Archive Tarpaulin code coverage results
         uses: actions/upload-artifact@v3
         with:
           name: tarpaulin-report
-          path: cobertura.xml
+          path: |
+            protocols/cobertura.xml
+            roles/cobertura.xml
+            utils/cobertura.xml
 
   message-generator-test:
     needs: tarpaulin-test
@@ -60,7 +63,7 @@ jobs:
       
       - uses: actions-rs/toolchain@v1
         with:
-          toolchain: 1.70.0
+          toolchain: 1.75.0
           override: true
           components: llvm-tools-preview
 
@@ -71,7 +74,12 @@ jobs:
         uses: taiki-e/install-action@cargo-llvm-cov
 
       - name: Pre build everything
-        run: cargo build
+        run: |
+          cargo build --manifest-path=benches/Cargo.toml
+          cargo build --manifest-path=common/Cargo.toml
+          cargo build --manifest-path=protocols/Cargo.toml
+          cargo build --manifest-path=roles/Cargo.toml
+          cargo build --manifest-path=utils/Cargo.toml
 
       - name: Run message generator tests
         run: sh ./message-generator-tests.sh

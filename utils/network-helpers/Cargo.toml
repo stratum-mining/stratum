@@ -17,10 +17,10 @@ binary_sv2 = { version = "^0.1.5", path = "../../protocols/v2/binary-sv2/binary-
 codec_sv2 = { version = "1.0", path = "../../protocols/v2/codec-sv2", features=["noise_sv2"], optional = true }
 serde = { version = "1.0.89", features = ["derive"], default-features = false, optional = true }
 tracing = { version = "0.1" }
-async-trait = "0.1.72"
 futures = "0.3.28"
 
 [features]
+default = ["async-channel", "binary_sv2", "codec_sv2"]
 async_std = ["async-std", "async-channel", "binary_sv2", "codec_sv2"]
 with_tokio = ["tokio", "async-channel", "binary_sv2", "codec_sv2"]
 with_serde = ["binary_sv2/with_serde", "serde", "codec_sv2/with_serde"]

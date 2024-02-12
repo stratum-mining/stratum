@@ -3,6 +3,7 @@ use alloc::vec::Vec;
 #[cfg(not(feature = "with_serde"))]
 use binary_sv2::binary_codec_sv2;
 use binary_sv2::{Deserialize, Seq064K, Serialize};
+#[cfg(not(feature = "with_serde"))]
 use core::convert::TryInto;
 
 /// # SetGroupChannel (Server -> Client)

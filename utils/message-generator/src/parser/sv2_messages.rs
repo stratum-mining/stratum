@@ -9,7 +9,7 @@ use std::collections::HashMap;
 /// transform it in `TestmessageParser`. Therefore, with into_map, trasforms the
 /// `TestMessageParser` in HashMap (id -> AnyMessage) and tries to take the value that corresponds
 /// to id
-pub fn message_from_path(path: &Vec<String>) -> AnyMessage<'static> {
+pub fn message_from_path(path: &[String]) -> AnyMessage<'static> {
     let id = path[1].clone();
     let path = path[0].clone();
     let messages = load_str!(&path);
@@ -17,7 +17,7 @@ pub fn message_from_path(path: &Vec<String>) -> AnyMessage<'static> {
     parsed
         .into_map()
         .get(&id)
-        .expect(format!("There is no value matching the id {:?}", id).as_str())
+        .unwrap_or_else(|| panic!("There is no value matching the id {:?}", id))
         .0
         .clone()
 }
@@ -83,6 +83,7 @@ pub struct ReplaceField {
     pub keyword: String,
 }
 impl ReplaceField {
+    #[allow(dead_code)]
     fn from_vec_string_string(input: (String, String)) -> ReplaceField {
         ReplaceField {
             field_name: input.0,

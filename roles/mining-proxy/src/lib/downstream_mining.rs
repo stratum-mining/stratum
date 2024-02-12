@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use super::upstream_mining::{StdFrame as UpstreamFrame, UpstreamMiningNode};
 use async_channel::{Receiver, SendError, Sender};
 use roles_logic_sv2::{
@@ -229,7 +231,7 @@ impl DownstreamMiningNode {
         let message_type = incoming.get_header().unwrap().msg_type();
         let payload = incoming.payload();
 
-        let routing_logic = crate::get_routing_logic();
+        let routing_logic = super::get_routing_logic();
 
         let next_message_to_send = ParseDownstreamMiningMessages::handle_message_mining(
             self_mutex.clone(),
@@ -463,7 +465,7 @@ impl
         result: Option<Result<(CommonDownstreamData, SetupConnectionSuccess), Error>>,
     ) -> Result<roles_logic_sv2::handlers::common::SendTo, Error> {
         let (data, message) = result.unwrap().unwrap();
-        let upstream = match crate::get_routing_logic() {
+        let upstream = match super::get_routing_logic() {
             roles_logic_sv2::routing_logic::MiningRoutingLogic::Proxy(proxy_routing) => {
                 proxy_routing
                     .safe_lock(|r| r.downstream_to_upstream_map.get(&data).unwrap()[0].clone())
@@ -476,7 +478,7 @@ impl
         self.status.pair(data);
         Ok(SendToCommon::RelayNewMessageToRemote(
             Arc::new(Mutex::new(())),
-            message.try_into().unwrap(),
+            message.into(),
         ))
     }
 }
@@ -499,7 +501,7 @@ pub async fn listen_for_downstream_mining(address: SocketAddr) {
             let mut incoming: StdFrame = node.receiver.recv().await.unwrap().try_into().unwrap();
             let message_type = incoming.get_header().unwrap().msg_type();
             let payload = incoming.payload();
-            let routing_logic = crate::get_common_routing_logic();
+            let routing_logic = super::get_common_routing_logic();
             let node = Arc::new(Mutex::new(node));
 
             // Call handle_setup_connection or fail

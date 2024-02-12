@@ -1,4 +1,6 @@
-use crate::EXTRANONCE_RANGE_1_LENGTH;
+#![allow(dead_code)]
+
+use super::EXTRANONCE_RANGE_1_LENGTH;
 use roles_logic_sv2::utils::Id;
 
 use super::downstream_mining::{Channel, DownstreamMiningNode, StdFrame as DownstreamFrame};
@@ -102,11 +104,11 @@ impl ChannelKind {
     }
 }
 
-impl From<crate::ChannelKind> for ChannelKind {
-    fn from(v: crate::ChannelKind) -> Self {
+impl From<super::ChannelKind> for ChannelKind {
+    fn from(v: super::ChannelKind) -> Self {
         match v {
-            crate::ChannelKind::Group => Self::Group(GroupChannels::new()),
-            crate::ChannelKind::Extended => Self::Extended(None),
+            super::ChannelKind::Group => Self::Group(GroupChannels::new()),
+            super::ChannelKind::Extended => Self::Extended(None),
         }
     }
 }
@@ -198,7 +200,7 @@ impl UpstreamMiningNode {
         id: u32,
         address: SocketAddr,
         authority_public_key: [u8; 32],
-        channel_kind: crate::ChannelKind,
+        channel_kind: super::ChannelKind,
         group_id: Arc<Mutex<GroupId>>,
         channel_ids: Arc<Mutex<Id>>,
         downstream_share_per_minute: f32,
@@ -272,7 +274,7 @@ impl UpstreamMiningNode {
     pub async fn send(
         self_mutex: Arc<Mutex<Self>>,
         sv2_frame: StdFrame,
-    ) -> Result<(), crate::lib::error::Error> {
+    ) -> Result<(), super::error::Error> {
         let (has_sv2_connection, mut connection, address) = self_mutex
             .safe_lock(|self_| {
                 (
@@ -331,7 +333,7 @@ impl UpstreamMiningNode {
         }
     }
 
-    async fn receive(self_mutex: Arc<Mutex<Self>>) -> Result<StdFrame, crate::lib::error::Error> {
+    async fn receive(self_mutex: Arc<Mutex<Self>>) -> Result<StdFrame, super::error::Error> {
         let mut connection = self_mutex
             .safe_lock(|self_| self_.connection.clone())
             .unwrap();
@@ -341,7 +343,7 @@ impl UpstreamMiningNode {
                 Err(_) => {
                     let address = self_mutex.safe_lock(|s| s.address).unwrap();
                     error!("Upstream node {} is not available", address);
-                    Err(crate::lib::error::Error::UpstreamNotAvailabe(address))
+                    Err(super::error::Error::UpstreamNotAvailabe(address))
                 }
             },
             None => {
@@ -351,7 +353,7 @@ impl UpstreamMiningNode {
         }
     }
 
-    async fn connect(self_mutex: Arc<Mutex<Self>>) -> Result<(), crate::lib::error::Error> {
+    async fn connect(self_mutex: Arc<Mutex<Self>>) -> Result<(), super::error::Error> {
         let has_connection = self_mutex
             .safe_lock(|self_| self_.connection.is_some())
             .unwrap();
@@ -363,7 +365,7 @@ impl UpstreamMiningNode {
                     .unwrap();
                 let socket = TcpStream::connect(address).await.map_err(|_| {
                     error!("Upstream node {} is not available", address);
-                    crate::lib::error::Error::UpstreamNotAvailabe(address)
+                    super::error::Error::UpstreamNotAvailabe(address)
                 })?;
                 info!(
                     "Connected to upstream node {}: now handling noise handshake",
@@ -455,7 +457,7 @@ impl UpstreamMiningNode {
 
     fn exit(self_: Arc<Mutex<Self>>) {
         if !self_.safe_lock(|s| s.reconnect).unwrap() {
-            crate::remove_upstream(self_.safe_lock(|s| s.id).unwrap());
+            super::remove_upstream(self_.safe_lock(|s| s.id).unwrap());
         }
         let downstreams = self_
             .safe_lock(|s| s.downstream_selector.get_all_downstreams())
@@ -578,7 +580,7 @@ impl UpstreamMiningNode {
         let message_type = incoming.get_header().unwrap().msg_type();
         let payload = incoming.payload();
 
-        let routing_logic = crate::get_routing_logic();
+        let routing_logic = super::get_routing_logic();
 
         let next_message_to_send = UpstreamMiningNode::handle_message_mining(
             self_mutex.clone(),
@@ -595,7 +597,7 @@ impl UpstreamMiningNode {
         flags: Option<u32>,
         min_version: u16,
         max_version: u16,
-    ) -> Result<(), crate::lib::error::Error> {
+    ) -> Result<(), super::error::Error> {
         let flags = flags.unwrap_or(0b0000_0000_0000_0000_0000_0000_0000_0110);
         let (frame, downstream_hr) = self_mutex
             .safe_lock(|self_| {
@@ -648,9 +650,7 @@ impl UpstreamMiningNode {
                     let error_message = std::str::from_utf8(m.error_code.inner_as_ref())
                         .unwrap()
                         .to_string();
-                    Err(crate::lib::error::Error::SetupConnectionError(
-                        error_message,
-                    ))
+                    Err(super::error::Error::SetupConnectionError(error_message))
                 }
             }
             Ok(_) => todo!(),
@@ -668,9 +668,8 @@ impl UpstreamMiningNode {
                     255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
                     255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
                 ]
-                .try_into()
-                .unwrap(),
-                min_extranonce_size: crate::MIN_EXTRANONCE_SIZE,
+                .into(),
+                min_extranonce_size: super::MIN_EXTRANONCE_SIZE,
             },
         ));
         Self::send(self_mutex.clone(), message.try_into().unwrap())
@@ -934,7 +933,7 @@ impl
         &mut self,
         m: OpenExtendedMiningChannelSuccess,
     ) -> Result<SendTo<DownstreamMiningNode>, Error> {
-        let extranonce_prefix: Extranonce = m.extranonce_prefix.clone().try_into().unwrap();
+        let extranonce_prefix: Extranonce = m.extranonce_prefix.clone().into();
         let range_0 = 0..m.extranonce_prefix.clone().to_vec().len();
         let range_1 = range_0.end..(range_0.end + EXTRANONCE_RANGE_1_LENGTH);
         let range_2 = range_1.end..(range_0.end + m.extranonce_size as usize);
@@ -950,7 +949,7 @@ impl
             self.group_id.clone(),
             extranonces,
             self.downstream_share_per_minute,
-            m.target.clone().try_into().unwrap(),
+            m.target.clone().into(),
             m.channel_id,
         );
         Ok(SendTo::None(None))
@@ -1275,7 +1274,7 @@ mod tests {
             id,
             address,
             authority_public_key,
-            crate::ChannelKind::Group,
+            super::super::ChannelKind::Group,
             ids,
             channel_ids,
             10.0,

@@ -1,80 +1,15 @@
 #![allow(special_module_name)]
 use async_channel::{bounded, unbounded};
-use codec_sv2::{StandardEitherFrame, StandardSv2Frame};
-use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
-//use error::OutputScriptError;
-use roles_logic_sv2::{
-    errors::Error, parsers::PoolMessages, utils::CoinbaseOutput as CoinbaseOutput_,
-};
-use serde::Deserialize;
-use std::convert::{TryFrom, TryInto};
-use stratum_common::bitcoin::{Script, TxOut};
 
 use tracing::{error, info, warn};
-mod error;
 mod lib;
-mod status;
-
-use lib::{mining_pool::Pool, template_receiver::TemplateRx};
-
-pub type Message = PoolMessages<'static>;
-pub type StdFrame = StandardSv2Frame<Message>;
-pub type EitherFrame = StandardEitherFrame<Message>;
-
-pub fn get_coinbase_output(config: &Configuration) -> Result<Vec<TxOut>, Error> {
-    let mut result = Vec::new();
-    for coinbase_output_pool in &config.coinbase_outputs {
-        let coinbase_output: CoinbaseOutput_ = coinbase_output_pool.try_into()?;
-        let output_script: Script = coinbase_output.try_into()?;
-        result.push(TxOut {
-            value: 0,
-            script_pubkey: output_script,
-        });
-    }
-    match result.is_empty() {
-        true => Err(Error::EmptyCoinbaseOutputs),
-        _ => Ok(result),
-    }
-}
-
-impl TryFrom<&CoinbaseOutput> for CoinbaseOutput_ {
-    type Error = Error;
-
-    fn try_from(pool_output: &CoinbaseOutput) -> Result<Self, Self::Error> {
-        match pool_output.output_script_type.as_str() {
-            "TEST" | "P2PK" | "P2PKH" | "P2WPKH" | "P2SH" | "P2WSH" | "P2TR" => {
-                Ok(CoinbaseOutput_ {
-                    output_script_type: pool_output.clone().output_script_type,
-                    output_script_value: pool_output.clone().output_script_value,
-                })
-            }
-            _ => Err(Error::UnknownOutputScriptType),
-        }
-    }
-}
+use lib::{
+    mining_pool::{get_coinbase_output, Configuration, Pool},
+    status,
+    template_receiver::TemplateRx,
+};
 
 use tokio::select;
-
-use crate::status::Status;
-
-#[derive(Debug, Deserialize, Clone)]
-pub struct CoinbaseOutput {
-    output_script_type: String,
-    output_script_value: String,
-}
-
-#[derive(Debug, Deserialize, Clone)]
-pub struct Configuration {
-    pub listen_address: String,
-    pub tp_address: String,
-    pub authority_public_key: Secp256k1PublicKey,
-    pub authority_secret_key: Secp256k1SecretKey,
-    pub cert_validity_sec: u64,
-    pub coinbase_outputs: Vec<CoinbaseOutput>,
-    pub pool_signature: String,
-    #[cfg(feature = "test_only_allow_unencrypted")]
-    pub test_only_listen_adress_plain: String,
-}
 
 mod args {
     use std::path::PathBuf;
@@ -98,9 +33,16 @@ mod args {
 
     impl Args {
         const DEFAULT_CONFIG_PATH: &'static str = "pool-config.toml";
+        const HELP_MSG: &'static str =
+            "Usage: -h/--help, -c/--config <path|default pool-config.toml>";
 
         pub fn from_args() -> Result<Self, String> {
             let cli_args = std::env::args();
+
+            if cli_args.len() == 1 {
+                println!("Using default config path: {}", Self::DEFAULT_CONFIG_PATH);
+                println!("{}\n", Self::HELP_MSG);
+            }
 
             let config_path = cli_args
                 .scan(ArgsState::Next, |state, item| {
@@ -110,10 +52,7 @@ mod args {
                                 *state = ArgsState::ExpectPath;
                                 Some(ArgsResult::None)
                             }
-                            "-h" | "--help" => Some(ArgsResult::Help(format!(
-                                "Usage: -h/--help, -c/--config <path|default {}>",
-                                Self::DEFAULT_CONFIG_PATH
-                            ))),
+                            "-h" | "--help" => Some(ArgsResult::Help(Self::HELP_MSG.to_string())),
                             _ => {
                                 *state = ArgsState::Next;
 
@@ -221,7 +160,7 @@ async fn main() {
                 break;
             }
         };
-        let task_status: Status = task_status.unwrap();
+        let task_status: status::Status = task_status.unwrap();
 
         match task_status.state {
             // Should only be sent by the downstream listener

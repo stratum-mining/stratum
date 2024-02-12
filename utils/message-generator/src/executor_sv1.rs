@@ -6,18 +6,17 @@ use async_channel::{Receiver, Sender};
 use std::{collections::HashMap, sync::Arc};
 use v1::Message;
 
-use tokio::{
-    fs::File,
-    io::{copy, BufReader, BufWriter},
-};
+use tracing::{debug, error, info};
 
 pub struct Sv1Executor {
+    #[allow(dead_code)]
     name: Arc<String>,
     send_to_up: Option<Sender<String>>,
     recv_from_up: Option<Receiver<String>>,
     actions: Vec<Sv1Action>,
     cleanup_commmands: Vec<Command>,
     process: Vec<Option<tokio::process::Child>>,
+    #[allow(dead_code)] // TODO why we have it?
     save: HashMap<String, serde_json::Value>,
 }
 
@@ -31,15 +30,15 @@ impl Sv1Executor {
                 let p = process[index].as_mut();
                 let mut pid = p.as_ref().unwrap().id();
                 // Kill process
-                p.unwrap().kill().await;
+                p.unwrap().kill().await.expect("Failed to kill process");
                 // Wait until the process is killed to move on
-                while let Some(i) = pid {
+                while pid.is_some() {
                     let p = process[index].as_mut();
                     pid = p.as_ref().unwrap().id();
-                    p.unwrap().kill().await;
+                    p.unwrap().kill().await.expect("Failed to kill process");
                     tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
                 }
-                let p = process[index].as_mut();
+                let _p = process[index].as_mut(); // TODO why we have it?
             } else if command.command == "sleep" {
                 let ms: u64 = command.args[0].parse().unwrap();
                 tokio::time::sleep(std::time::Duration::from_millis(ms)).await;
@@ -76,7 +75,7 @@ impl Sv1Executor {
         let mut success = true;
         for action in self.actions {
             if let Some(doc) = action.actiondoc {
-                println!("actiondoc: {}", doc);
+                info!("actiondoc: {}", doc);
             }
             let (sender, recv) = (
                 self.send_to_up
@@ -91,7 +90,7 @@ impl Sv1Executor {
                 let message = serde_json::to_string(&message_.0).unwrap();
                 let message = message + "\n";
                 if replace_fields.is_empty() {
-                    println!("SEND {:#?}", message);
+                    debug!("SEND {:#?}", message);
                     match sender.send(message).await {
                         Ok(_) => (),
                         Err(_) => panic!(),
@@ -103,7 +102,7 @@ impl Sv1Executor {
             let mut rs = 0;
             for result in &action.result {
                 rs += 1;
-                println!(
+                info!(
                     "Working on result {}/{}: {}",
                     rs,
                     action.result.len(),
@@ -123,29 +122,29 @@ impl Sv1Executor {
                     Ok(message) => message,
                     Err(_) => {
                         success = false;
-                        println!("Connection closed before receiving the message");
+                        error!("Connection closed before receiving the message");
                         break;
                     }
                 };
                 let message: Message = serde_json::from_str(&message).unwrap();
-                println!("RECV {:#?}", message);
+                debug!("RECV {:#?}", message);
                 match message {
                     Message::OkResponse(response) | Message::ErrorResponse(response) => {
                         match result {
                             Sv1ActionResult::MatchMessageId(message_id) => {
                                 if response.id != *message_id {
-                                    println!(
+                                    error!(
                                         "WRONG MESSAGE ID expected: {} received: {}",
                                         message_id, response.id
                                     );
                                     success = false;
                                     break;
                                 } else {
-                                    println!("MATCHED MESSAGE ID {}", message_id);
+                                    info!("MATCHED MESSAGE ID {}", message_id);
                                 }
                             }
                             Sv1ActionResult::MatchMessageField {
-                                message_type,
+                                message_type: _,
                                 fields,
                             } => {
                                 let msg = serde_json::to_value(response).unwrap();
@@ -154,7 +153,7 @@ impl Sv1Executor {
                             _ => todo!(),
                         }
                     }
-                    _ => println!("WRONG MESSAGE TYPE RECEIVED: expected Response"),
+                    _ => error!("WRONG MESSAGE TYPE RECEIVED: expected Response"),
                 }
             }
         }
@@ -172,28 +171,13 @@ impl Sv1Executor {
             .await
             .unwrap();
         }
-        let mut child_no = 0;
 
+        #[allow(clippy::manual_flatten)]
         for child in self.process {
             if let Some(mut child) = child {
-                // Spawn a task to read the child process's stdout and write it to the file
-                let stdout = child.stdout.take().unwrap();
-                let mut stdout_reader = BufReader::new(stdout);
-                child_no = child_no + 1;
-                let test_name = self.name.clone();
-                tokio::spawn(async move {
-                    let test_name = &*test_name;
-                    let mut file = File::create(format!("{}.child-{}.log", test_name, child_no))
-                        .await
-                        .unwrap();
-                    let mut stdout_writer = BufWriter::new(&mut file);
-
-                    copy(&mut stdout_reader, &mut stdout_writer).await.unwrap();
-                });
-
-                while let Some(i) = &child.id() {
+                while child.id().is_some() {
                     // Sends kill signal and waits 1 second before checking to ensure child was killed
-                    child.kill().await;
+                    child.kill().await.expect("Failed to kill process");
                     tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
                 }
             }

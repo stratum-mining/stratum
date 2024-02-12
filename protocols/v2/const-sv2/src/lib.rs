@@ -6,7 +6,7 @@ pub const EXTENSION_TYPE_NO_EXTENSION: u16 = 0;
 pub const SV2_FRAME_HEADER_SIZE: usize = 6;
 pub const SV2_FRAME_HEADER_LEN_OFFSET: usize = 3;
 pub const SV2_FRAME_HEADER_LEN_END: usize = 3;
-pub const SV2_FRAME_CHUNK_SIZE: usize = 65519;
+pub const SV2_FRAME_CHUNK_SIZE: usize = 65535;
 
 // For now only CHACHA and AES are supported both have a MAC of 16 bytes
 pub const AEAD_MAC_LEN: usize = 16;
@@ -15,6 +15,9 @@ pub const ENCRYPTED_SV2_FRAME_HEADER_SIZE: usize = SV2_FRAME_HEADER_SIZE + AEAD_
 pub const NOISE_FRAME_HEADER_SIZE: usize = 2;
 pub const NOISE_FRAME_HEADER_LEN_OFFSET: usize = 0;
 pub const NOISE_FRAME_MAX_SIZE: usize = u16::MAX as usize;
+
+pub const INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_LENGTH: usize = 170;
+pub const RESPONDER_EXPECTED_HANDSHAKE_MESSAGE_LENGTH: usize = 32;
 
 /// If protocolName is less than or equal to 32 bytes in length, use protocolName with zero bytes
 /// appended to make 32 bytes. Otherwise, apply HASH to it. For name =

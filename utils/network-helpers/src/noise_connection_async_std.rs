@@ -9,7 +9,6 @@ use futures::lock::Mutex;
 use std::{sync::Arc, time::Duration};
 use tracing::{debug, error};
 
-use async_trait::async_trait;
 use binary_sv2::GetSize;
 use codec_sv2::{HandshakeRole, Initiator, Responder, StandardEitherFrame, StandardNoiseDecoder};
 
@@ -20,7 +19,6 @@ pub struct Connection {
     pub state: codec_sv2::State,
 }
 
-#[async_trait]
 impl crate::SetState for Connection {
     async fn set_state(self_: Arc<Mutex<Self>>, state: codec_sv2::State) {
         loop {
@@ -61,7 +59,7 @@ impl Connection {
             Receiver<StandardEitherFrame<Message>>,
         ) = bounded(capacity);
 
-        let state = codec_sv2::State::new();
+        let state = codec_sv2::State::not_initialized(&role);
 
         let connection = Arc::new(Mutex::new(Self { state }));
 
@@ -79,11 +77,21 @@ impl Connection {
                         let mut connection = cloned1.lock().await;
                         let decoded = decoder.next_frame(&mut connection.state);
                         drop(connection);
-
-                        if let Ok(x) = decoded {
-                            if sender_incoming.send(x).await.is_err() {
-                                task::yield_now().await;
-                                break;
+                        match decoded {
+                            Ok(x) => {
+                                if sender_incoming.send(x).await.is_err() {
+                                    error!("Shutting down noise stream reader!");
+                                    task::yield_now().await;
+                                    break;
+                                }
+                            }
+                            Err(e) => {
+                                if let codec_sv2::Error::MissingBytes(_) = e {
+                                } else {
+                                    error!("Shutting down noise stream reader! {:#?}", e);
+                                    let _ = reader.shutdown(async_std::net::Shutdown::Both);
+                                    break;
+                                }
                             }
                         }
                     }

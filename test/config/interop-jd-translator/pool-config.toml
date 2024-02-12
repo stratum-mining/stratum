@@ -19,9 +19,5 @@ coinbase_outputs = [
 pool_signature = "Stratum v2 SRI Pool - gitgab19"
 
 # Template Provider config
-# local TP (this is pointing to localhost so you must run a TP locally for this configuration to work)
-#tp_address = "75.119.150.111:8442"
 # hosted testnet TP 
-tp_address = "89.116.25.191:8442"
-# hosted regtest TP 
-# tp_address = "75.119.150.111:8442"
+tp_address = "75.119.150.111:8442"

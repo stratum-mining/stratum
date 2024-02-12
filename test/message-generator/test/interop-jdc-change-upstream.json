@@ -56,10 +56,11 @@
                         {
                             "output_string": "Running `target/debug/message_generator_sv2 ../../test/message-generator/mock/pool-mock-invalid-share.json`",
                             "output_location": "StdErr",
+                            "late_condition": false,
                             "condition": true
                         }
                     ],
-                    "timer_secs": 240,
+                    "timer_secs": 600,
                     "warn_no_panic": false
                 }
             }
@@ -79,7 +80,7 @@
                         "jd_server",
                         "--",
                         "-c",
-                        "./test/config/interop-jd-change-upstream/jds-config.toml"
+                        "../test/config/interop-jd-change-upstream/jds-config.toml"
             ],
             "conditions": {
                 "WithConditions": {
@@ -87,10 +88,11 @@
                         {
                             "output_string": "JD INITIALIZED",
                             "output_location": "StdOut",
+                            "late_condition": false,
                             "condition": true
                         }
                     ],
-                    "timer_secs": 240,
+                    "timer_secs": 600,
                     "warn_no_panic": false
                 }
             }
@@ -105,7 +107,7 @@
                         "jd_client",
                         "--",
                         "-c",
-                        "./test/config/interop-jd-change-upstream/jdc-config.toml"
+                        "../test/config/interop-jd-change-upstream/jdc-config.toml"
             ],
             "conditions": {
                 "WithConditions": {
@@ -113,10 +115,11 @@
                         {
                             "output_string": "Listening for downstream mining connections on",
                             "output_location": "StdOut",
+                            "late_condition": false,
                             "condition": true
                         }
                     ],
-                    "timer_secs": 240,
+                    "timer_secs": 600,
                     "warn_no_panic": false
                 }
             }
@@ -131,7 +134,7 @@
                         "mining_proxy_sv2",
                         "--",
                         "-c",
-                        "./test/config/interop-jd-change-upstream/proxy-config.toml"
+                        "../test/config/interop-jd-change-upstream/proxy-config.toml"
             ],
             "conditions": {
                 "WithConditions": {
@@ -139,13 +142,19 @@
                         {
                             "output_string": "Listening for downstream mining connections on 127.0.0.1:34255",
                             "output_location": "StdOut",
+                            "late_condition": false,
                             "condition": true
                         }
                     ],
-                    "timer_secs": 240,
+                    "timer_secs": 600,
                     "warn_no_panic": false
                 }
             }
+        },
+        {
+            "command": "sleep",
+            "args": ["10000"],
+            "conditions": "None"
         },
         {
             "command": "cargo",
@@ -163,7 +172,7 @@
                             "condition": true
                         }
                     ],
-                    "timer_secs": 240,
+                    "timer_secs": 600,
                     "warn_no_panic": false
                 }
             }

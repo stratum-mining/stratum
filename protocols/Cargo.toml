@@ -1,0 +1,43 @@
+name = "stratum_v2_protocols"
+version = "0.0.0"
+authors = ["The Stratum v2 Developers"]
+edition = "2021"
+rust-version = "1.65.0"
+description = "The Stratum protocol defines how miners, proxies, and pools communicate to contribute hashrate to the Bitcoin network. Stratum v2 is a robust set of primitives which anyone can use to expand the protocol or implement a role."
+documentation = "https://github.com/stratum-mining/stratum"
+readme = "README.md"
+homepage = "https://stratumprotocol.org"
+repository = "https://github.com/stratum-mining/stratum"
+license = "MIT + Apache-2.0"
+license-file = "LICENSE.md"
+keywords = ["stratum", "mining", "bitcoin", "protocol"]
+
+[workspace]
+
+resolver="2"
+
+members = [
+    "v1",
+    "v2/binary-sv2/serde-sv2",
+    "v2/binary-sv2/no-serde-sv2/codec",
+    "v2/binary-sv2/no-serde-sv2/derive_codec",
+    "v2/binary-sv2/binary-sv2",
+    "v2/noise-sv2",
+    "v2/framing-sv2",
+    "v2/codec-sv2",
+    "v2/const-sv2",
+    "v2/subprotocols/common-messages",
+    "v2/subprotocols/template-distribution",
+    "v2/subprotocols/mining",
+    "v2/subprotocols/job-declaration",
+    "v2/sv2-ffi",
+    "v2/roles-logic-sv2",
+]
+
+[profile.dev]
+# Required by super_safe_lock
+opt-level = 1
+
+[profile.test]
+# Required by super_safe_lock
+opt-level = 1

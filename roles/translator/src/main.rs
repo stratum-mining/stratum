@@ -1,13 +1,10 @@
+#![allow(special_module_name)]
 mod args;
-mod downstream_sv1;
-mod error;
-mod proxy;
-mod proxy_config;
-mod status;
-mod upstream_sv2;
-mod utils;
+mod lib;
+
 use args::Args;
 use error::{Error, ProxyResult};
+use lib::{downstream_sv1, error, proxy, proxy_config, status, upstream_sv2};
 use proxy_config::ProxyConfig;
 use roles_logic_sv2::utils::Mutex;
 
@@ -42,7 +39,10 @@ fn process_cli_args<'a>() -> ProxyResult<'a, ProxyConfig> {
 async fn main() {
     tracing_subscriber::fmt::init();
 
-    let proxy_config = process_cli_args().unwrap();
+    let proxy_config = match process_cli_args() {
+        Ok(p) => p,
+        Err(_) => return,
+    };
     info!("PC: {:?}", &proxy_config);
 
     let (tx_status, rx_status) = unbounded();

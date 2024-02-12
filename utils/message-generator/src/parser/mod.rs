@@ -80,8 +80,7 @@ impl<'a> Parser<'a> {
             }
         };
 
-        let step1 = Self::Step1 { version, messages };
-        step1
+        Self::Step1 { version, messages }
     }
 
     fn next_step<'b: 'a>(self, test: &'b str) -> Self {
@@ -233,7 +232,7 @@ impl<'a> Parser<'a> {
                         (Some(upstream), Some(downstream))
                     }
                     "none" => (None, None),
-                    role @ _ => panic!("Unknown role: {}", role),
+                    role => panic!("Unknown role: {}", role),
                 };
 
                 let test = match actions {

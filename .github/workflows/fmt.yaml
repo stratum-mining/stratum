@@ -35,7 +35,11 @@ jobs:
           toolchain: nightly
           override: true
           components: rustfmt
-      - uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all -- --check
+      - name: Run fmt in different workspaces and crates
+        run: |
+          cargo fmt --all --manifest-path=benches/Cargo.toml -- --check
+          cargo fmt --all --manifest-path=common/Cargo.toml -- --check
+          cargo fmt --all --manifest-path=protocols/Cargo.toml -- --check
+          cargo fmt --all --manifest-path=roles/Cargo.toml -- --check
+          cargo fmt --all --manifest-path=utils/Cargo.toml -- --check
+          cargo fmt --all --manifest-path=utils/message-generator/Cargo.toml -- --check
