@@ -3,7 +3,7 @@ use crate::lib::{mempool, status, Configuration};
 use async_channel::unbounded;
 use error_handling::handle_result;
 use roles_logic_sv2::utils::Mutex;
-use std::sync::Arc;
+use std::{ops::Sub, sync::Arc};
 use tokio::{select, task};
 use tracing::{error, info, warn};
 mod lib;
@@ -107,10 +107,13 @@ async fn main() {
         username,
         password,
     )));
-    let mempool_update_timeout = config.mempool_update_timeout;
+    let mempool_update_interval = config.mempool_update_interval;
     let mempool_cloned_ = mempool.clone();
     let (status_tx, status_rx) = unbounded();
     let sender = status::Sender::Downstream(status_tx.clone());
+    let mut last_empty_mempool_warning =
+        std::time::Instant::now().sub(std::time::Duration::from_secs(60));
+
     if url.contains("http") {
         let sender_clone = sender.clone();
         task::spawn(async move {
@@ -118,22 +121,27 @@ async fn main() {
                 let updated_mempool =
                     mempool::JDsMempool::update_mempool(mempool_cloned_.clone()).await;
                 if let Err(err) = updated_mempool {
-                    warn!("{:?}", err);
                     match err {
                         mempool::JdsMempoolError::EmptyMempool => {
-                            warn!("Template Provider is running, but its mempool is empty (possible reasons: you're testing in testnet, signet, or regtest)")
+                            if last_empty_mempool_warning.elapsed().as_secs() >= 60 {
+                                warn!("{:?}", err);
+                                warn!("Template Provider is running, but its mempool is empty (possible reasons: you're testing in testnet, signet, or regtest)");
+                                last_empty_mempool_warning = std::time::Instant::now();
+                            }
                         }
                         mempool::JdsMempoolError::NoClient => {
-                            error!("Unable to connect to Template Provider (possible reasons: not fully synced, down)");
+                            error!("{:?}", err);
+                            error!("Unable to establish RPC connection with Template Provider (possible reasons: not fully synced, down)");
                             handle_result!(sender_clone, Err(err));
                         }
                         mempool::JdsMempoolError::BitcoinCoreRpcError(_) => {
-                            error!("Unable to connect to Template Provider (possible reasons: not fully synced, down)");
+                            error!("{:?}", err);
+                            error!("Unable to establish RPC connection with Template Provider (possible reasons: not fully synced, down)");
                             handle_result!(sender_clone, Err(err));
                         }
                     }
                 }
-                tokio::time::sleep(mempool_update_timeout).await;
+                tokio::time::sleep(mempool_update_interval).await;
             }
         });
     };
