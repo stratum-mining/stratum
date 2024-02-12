@@ -131,14 +131,13 @@ async fn main() {
                             error!("Unable to connect to Template Provider (possible reasons: not fully synced, down)");
                             handle_result!(sender_clone, Err(err));
                         }
-                    }                    
+                    }
                 }
                 tokio::time::sleep(mempool_update_timeout).await;
             }
         });
     };
 
-    //let (status_tx, status_rx) = unbounded();
     info!("Jds INITIALIZING with config: {:?}", &args.config_path);
 
     let cloned = config.clone();
