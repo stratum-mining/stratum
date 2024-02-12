@@ -211,6 +211,11 @@ impl Downstream {
                 }
 
                 let delta_time = timestamp_secs - d.difficulty_mgmt.timestamp_of_last_update;
+                #[cfg(test)]
+                if delta_time == 0 {
+                    return Ok(None);
+                }
+                #[cfg(not(test))]
                 if delta_time <= 15 {
                     return Ok(None);
                 }

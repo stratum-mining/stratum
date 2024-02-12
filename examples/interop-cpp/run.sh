@@ -8,8 +8,13 @@ rm -f libsv2_ffi.a
 rm -f a.out
 rm -f sv2.h
 
-cargo build --release -p sv2_ffi && cp ../../target/release/libsv2_ffi.a ./
-../../build_header.sh
+cargo build \
+    --manifest-path=../../protocols/Cargo.toml \
+    --release \
+    -p sv2_ffi && \
+    cp ../../protocols/target/release/libsv2_ffi.a ./
+
+../../build_header.sh ../../protocols && mv ../../sv2.h .
 
 g++ -I ./ ./template-provider/template-provider.cpp  libsv2_ffi.a  -lpthread -ldl
 
