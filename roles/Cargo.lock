@@ -975,7 +975,6 @@ dependencies = [
  "network_helpers",
  "nohash-hasher",
  "roles_logic_sv2",
- "secp256k1 0.28.2",
  "serde",
  "stratum-common",
  "tokio",
