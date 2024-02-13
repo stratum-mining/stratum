@@ -173,5 +173,8 @@ pub async fn handle_error(
         Error::TargetError(_) => {
             send_status(sender, e, error_handling::ErrorBranch::Continue).await
         }
+        Error::Sv1MessageTooLong => {
+            send_status(sender, e, error_handling::ErrorBranch::Break).await
+        }
     }
 }
