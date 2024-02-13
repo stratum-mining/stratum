@@ -12,9 +12,9 @@ use std::{convert::TryInto, env, net::SocketAddr, time};
 //Pick any unused port
 const ADDR: &str = "127.0.0.1:0";
 
-pub const AUTHORITY_PUBLIC_K: &str = "3VANfft6ei6jQq1At7d8nmiZzVhBFS4CiQujdgim1ign";
+pub const AUTHORITY_PUBLIC_K: &str = "9auqWEzQDVyd2oe1JVGFLMLHZtCo2FFqZwtKA5gd9xbuEu7PH72";
 
-pub const AUTHORITY_PRIVATE_K: &str = "7qbpUjScc865jyX2kiB4NVJANoC7GA7TAJupdzXWkc62";
+pub const AUTHORITY_PRIVATE_K: &str = "mkDLTBBRxdBv998612qipDYoTK3YUrqLe8uWw7gu3iXbSrn2n";
 
 const CERT_VALIDITY: time::Duration = time::Duration::from_secs(3600);
 

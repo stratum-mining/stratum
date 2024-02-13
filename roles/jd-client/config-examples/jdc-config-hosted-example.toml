@@ -16,8 +16,8 @@ min_extranonce2_size = 8
 withhold = false
 
 # Auth keys for open encrypted connection downstream
-authority_public_key = "3VANfft6ei6jQq1At7d8nmiZzVhBFS4CiQujdgim1ign"
-authority_secret_key = "7qbpUjScc865jyX2kiB4NVJANoC7GA7TAJupdzXWkc62"
+authority_public_key = "9auqWEzQDVyd2oe1JVGFLMLHZtCo2FFqZwtKA5gd9xbuEu7PH72"
+authority_secret_key = "mkDLTBBRxdBv998612qipDYoTK3YUrqLe8uWw7gu3iXbSrn2n"
 cert_validity_sec = 3600
 
 # How many time the JDC try to reinitialize itself after a failure 
@@ -28,7 +28,7 @@ retry = 10
 # tp_address = "127.0.0.1:8442"
 # Hosted testnet TP 
 tp_address = "75.119.150.111:8442"
-tp_authority_pub_key = "3VANfft6ei6jQq1At7d8nmiZzVhBFS4CiQujdgim1ign"
+tp_authority_pub_key = "9auqWEzQDVyd2oe1JVGFLMLHZtCo2FFqZwtKA5gd9xbuEu7PH72"
 
 # Solo Mining config
 # List of coinbase outputs used to build the coinbase tx in case of Solo Mining (as last-resort solution of the pools fallback system)
@@ -51,7 +51,7 @@ value = 1
 # List of upstreams (JDS) used as backup endpoints
 # In case of shares refused by the JDS, the fallback system will propose the same job to the next upstream in this list
 [[upstreams]]
-authority_pubkey = "3VANfft6ei6jQq1At7d8nmiZzVhBFS4CiQujdgim1ign"
+authority_pubkey = "9auqWEzQDVyd2oe1JVGFLMLHZtCo2FFqZwtKA5gd9xbuEu7PH72"
 pool_address = "75.119.150.111:34254"
 jd_address = "75.119.150.111:34264"
 # Pool signature (string to be included in coinbase tx)

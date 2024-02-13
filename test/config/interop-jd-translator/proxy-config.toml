@@ -1,7 +1,7 @@
 # Local SRI Pool Upstream Connection
 upstream_address = "0.0.0.0"
 upstream_port = 34265
-upstream_authority_pubkey = "3VANfft6ei6jQq1At7d8nmiZzVhBFS4CiQujdgim1ign"
+upstream_authority_pubkey = "9auqWEzQDVyd2oe1JVGFLMLHZtCo2FFqZwtKA5gd9xbuEu7PH72"
 
 # Local Mining Device Downstream Connection
 downstream_address = "127.0.0.1"
