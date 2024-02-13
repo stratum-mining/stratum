@@ -120,7 +120,7 @@ pub async fn initialize_r_logic(
         let upstream = Arc::new(Mutex::new(UpstreamMiningNode::new(
             index as u32,
             socket,
-            upstream_.pub_key.clone().into_bytes(),
+            upstream_.pub_key.into_bytes(),
             upstream_.channel_kind,
             group_id.clone(),
             channel_ids.clone(),

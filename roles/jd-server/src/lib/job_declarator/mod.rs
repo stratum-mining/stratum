@@ -59,8 +59,8 @@ impl JobDeclaratorDownstream {
             coinbase_output,
             token_to_job_map,
             tokens,
-            public_key: config.authority_public_key.clone(),
-            private_key: config.authority_secret_key.clone(),
+            public_key: config.authority_public_key,
+            private_key: config.authority_secret_key,
             mempool,
             declared_mining_job: None,
             tx_hash_list_hash: None,
@@ -167,8 +167,8 @@ impl JobDeclarator {
         let listner = TcpListener::bind(&config.listen_jd_address).await.unwrap();
         while let Ok((stream, _)) = listner.accept().await {
             let responder = Responder::from_authority_kp(
-                &config.authority_public_key.clone().into_bytes(),
-                &config.authority_secret_key.clone().into_bytes(),
+                &config.authority_public_key.into_bytes(),
+                &config.authority_secret_key.into_bytes(),
                 std::time::Duration::from_secs(config.cert_validity_sec),
             )
             .unwrap();

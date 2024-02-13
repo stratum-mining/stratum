@@ -665,8 +665,8 @@ pub async fn listen_for_downstream_mining(
 
     if let Ok((stream, _)) = listner.accept().await {
         let responder = Responder::from_authority_kp(
-            &authority_public_key.clone().into_bytes(),
-            &authority_secret_key.clone().into_bytes(),
+            &authority_public_key.into_bytes(),
+            &authority_secret_key.into_bytes(),
             std::time::Duration::from_secs(cert_validity_sec),
         )
         .unwrap();

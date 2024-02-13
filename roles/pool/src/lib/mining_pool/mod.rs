@@ -357,8 +357,8 @@ impl Pool {
             );
 
             let responder = Responder::from_authority_kp(
-                &config.authority_public_key.clone().into_bytes(),
-                &config.authority_secret_key.clone().into_bytes(),
+                &config.authority_public_key.into_bytes(),
+                &config.authority_secret_key.into_bytes(),
                 std::time::Duration::from_secs(config.cert_validity_sec),
             );
             match responder {
