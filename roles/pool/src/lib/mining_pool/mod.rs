@@ -291,7 +291,7 @@ pub fn verify_token(
     // Verify signature
     let is_verified = secp.verify_schnorr(
         &signature,
-        &secp256k1::Message::from_slice(&message)?,
+        &secp256k1::Message::from_digest_slice(&message)?,
         &x_only_public_key,
     );
 

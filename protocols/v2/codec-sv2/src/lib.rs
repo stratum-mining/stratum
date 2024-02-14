@@ -58,7 +58,7 @@ impl State {
 
     pub fn step_1(
         &mut self,
-        re_pub: [u8; 32],
+        re_pub: [u8; const_sv2::RESPONDER_EXPECTED_HANDSHAKE_MESSAGE_SIZE],
     ) -> core::result::Result<(HandShakeFrame, Self), Error> {
         match self {
             Self::HandShake(h) => match h {
@@ -72,7 +72,10 @@ impl State {
         }
     }
 
-    pub fn step_2(&mut self, message: [u8; 170]) -> core::result::Result<Self, Error> {
+    pub fn step_2(
+        &mut self,
+        message: [u8; const_sv2::INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE],
+    ) -> core::result::Result<Self, Error> {
         match self {
             Self::HandShake(h) => match h {
                 HandshakeRole::Initiator(i) => {
@@ -97,10 +100,10 @@ impl State {
     pub fn not_initialized(role: &HandshakeRole) -> Self {
         match role {
             HandshakeRole::Initiator(_) => {
-                Self::NotInitialized(const_sv2::INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_LENGTH)
+                Self::NotInitialized(const_sv2::INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE)
             }
             HandshakeRole::Responder(_) => {
-                Self::NotInitialized(const_sv2::RESPONDER_EXPECTED_HANDSHAKE_MESSAGE_LENGTH)
+                Self::NotInitialized(const_sv2::RESPONDER_EXPECTED_HANDSHAKE_MESSAGE_SIZE)
             }
         }
     }

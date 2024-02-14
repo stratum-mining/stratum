@@ -15,7 +15,7 @@ path = "src/main.rs"
 
 [dependencies]
 bs58 = { version ="0.4.0", features = ["check"] }
-secp256k1 = { version = "0.27.0", default-features = false, features =["bitcoin_hashes","alloc","rand","rand-std"] }
+secp256k1 = { version = "0.28.2", default-features = false, features =["alloc","rand","rand-std"] }
 serde = { version = "1.0.89", features = ["derive","alloc"], default-features = false }
 
 [dev-dependencies]

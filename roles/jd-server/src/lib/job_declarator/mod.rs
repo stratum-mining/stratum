@@ -14,7 +14,7 @@ use roles_logic_sv2::{
     parsers::PoolMessages as JdsMessages,
     utils::{Id, Mutex},
 };
-use secp256k1::{KeyPair, Message as SecpMessage, Secp256k1};
+use secp256k1::{Keypair, Message as SecpMessage, Secp256k1};
 use std::{collections::HashMap, convert::TryInto, sync::Arc};
 use tokio::net::TcpListener;
 use tracing::{error, info};
@@ -131,11 +131,11 @@ pub fn signed_token(
 
     // Create the SecretKey and PublicKey instances
     let secret_key = prv_key.0;
-    let kp = KeyPair::from_secret_key(&secp, &secret_key);
+    let kp = Keypair::from_secret_key(&secp, &secret_key);
 
     let message: Vec<u8> = tx_hash_list_hash.to_vec();
 
-    let signature = secp.sign_schnorr(&SecpMessage::from_slice(&message).unwrap(), &kp);
+    let signature = secp.sign_schnorr(&SecpMessage::from_digest_slice(&message).unwrap(), &kp);
 
     // Sign message
     signature.as_ref().to_vec().try_into().unwrap()

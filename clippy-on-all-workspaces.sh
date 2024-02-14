@@ -26,5 +26,3 @@ for workspace in $WORKSPACES; do
 done
 
 echo "Clippy success, all tests passed!"
-
-
