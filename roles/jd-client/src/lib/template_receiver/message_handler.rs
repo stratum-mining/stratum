@@ -51,5 +51,4 @@ impl ParseServerTemplateDistributionMessages for TemplateRx {
             _ => Err(Error::NoValidTemplate),
         }
     }
-
 }
