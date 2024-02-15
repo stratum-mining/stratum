@@ -13,3 +13,4 @@ coinbase_outputs = [
 ]
 # Pool signature (string to be included in coinbase tx)
 pool_signature = "Stratum v2 SRI Pool"
+tp_authority_public_key = "3VANfft6ei6jQq1At7d8nmiZzVhBFS4CiQujdgim1ign"
