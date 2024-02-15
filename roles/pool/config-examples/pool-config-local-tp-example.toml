@@ -26,6 +26,6 @@ pool_signature = "Stratum v2 SRI Pool"
 tp_address = "127.0.0.1:8442"
 # You'll need to get tp_authority_public_key from the logs of your TP, for example:
 # 2024-02-13T14:59:24Z Template Provider authority key: EguTM8URcZDQVeEBsM4B5vg9weqEUnufA8pm85fG4bZd
-tp_authority_public_key = ""
+# tp_authority_public_key = ""
 # Hosted testnet TP 
 # tp_address = "75.119.150.111:8442"
