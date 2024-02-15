@@ -18,6 +18,22 @@ jobs:
       - name: Login
         run: cargo login ${{ secrets.CRATES_IO_DEPLOY_KEY }}
       - name: Publish crates common
+        continue-on-error: true
         run: |
           cd common
+          cargo publish
+      - name: Publish crates v1
+        continue-on-error: true
+        run: |
+          cd protocols/v1
+          cargo publish
+      - name: Publish crates no_serde_sv2_derive_codec
+        continue-on-error: true
+        run: |
+          cd protocols/v2/no-serde-sv2/derive_codec
+          cargo publish
+      - name: Publish crates no_serde_sv2_codec
+        continue-on-error: true
+        run: |
+          cd protocols/v2/no-serde-sv2/codec
           cargo publish
