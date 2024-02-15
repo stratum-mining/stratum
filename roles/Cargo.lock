@@ -320,14 +320,14 @@ checksum = "d86b93f97252c47b41663388e6d155714a9d0c398b99f1005cbc5f978b29f445"
 
 [[package]]
 name = "binary_codec_sv2"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "buffer_sv2",
 ]
 
 [[package]]
 name = "binary_sv2"
-version = "0.1.6"
+version = "0.1.7"
 dependencies = [
  "binary_codec_sv2",
  "derive_codec_sv2",
@@ -433,7 +433,7 @@ dependencies = [
 
 [[package]]
 name = "buffer_sv2"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "aes-gcm",
 ]
@@ -520,7 +520,7 @@ dependencies = [
 
 [[package]]
 name = "common_messages_sv2"
-version = "0.1.5"
+version = "0.1.7"
 dependencies = [
  "binary_sv2",
  "const_sv2",
@@ -537,7 +537,7 @@ dependencies = [
 
 [[package]]
 name = "const_sv2"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "secp256k1 0.28.2",
 ]
@@ -579,7 +579,7 @@ dependencies = [
 
 [[package]]
 name = "derive_codec_sv2"
-version = "0.1.3"
+version = "0.1.5"
 dependencies = [
  "binary_codec_sv2",
 ]
@@ -628,7 +628,7 @@ dependencies = [
 
 [[package]]
 name = "error_handling"
-version = "0.1.0"
+version = "0.1.1"
 
 [[package]]
 name = "event-listener"
@@ -695,7 +695,7 @@ checksum = "25cbce373ec4653f1a01a31e8a5e5ec0c622dc27ff9c4e6606eefef5cbbed4a5"
 
 [[package]]
 name = "framing_sv2"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "binary_sv2",
  "buffer_sv2",
@@ -1151,7 +1151,7 @@ dependencies = [
 
 [[package]]
 name = "mining_sv2"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "binary_sv2",
  "const_sv2",
@@ -1179,7 +1179,7 @@ dependencies = [
 
 [[package]]
 name = "network_helpers"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "async-channel 1.9.0",
  "async-std",
@@ -1527,7 +1527,7 @@ checksum = "c08c74e62047bb2de4ff487b251e4a92e24f48745648451635cec7d591162d9f"
 
 [[package]]
 name = "roles_logic_sv2"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "binary_sv2",
  "chacha20poly1305",
@@ -1771,7 +1771,7 @@ dependencies = [
 
 [[package]]
 name = "sv1_api"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "binary_sv2",
  "bitcoin_hashes 0.3.2",
@@ -1808,7 +1808,7 @@ dependencies = [
 
 [[package]]
 name = "template_distribution_sv2"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "binary_sv2",
  "const_sv2",

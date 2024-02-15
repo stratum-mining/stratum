@@ -1,6 +1,6 @@
 [package]
 name = "roles_logic_sv2"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2018"
 description = "Common handlers for use within SV2 roles"
 license = "MIT OR Apache-2.0"
@@ -9,7 +9,7 @@ repository = "https://github.com/stratum-mining/stratum"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-stratum-common = { path = "../../../common" }
+stratum-common = { version="0.1.0", path = "../../../common", features=["bitcoin"]}
 serde = { version = "1.0.89", features = ["derive", "alloc"], default-features = false, optional = true}
 binary_sv2 = {version = "^0.1.6", path = "../../../protocols/v2/binary-sv2/binary-sv2", default-features = true }
 common_messages_sv2 = { path = "../../../protocols/v2/subprotocols/common-messages", version = "^0.1.5" }

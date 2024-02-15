@@ -1,6 +1,6 @@
 [package]
 name = "derive_codec_sv2"
-version = "0.1.3"
+version = "0.1.5"
 authors = ["fi3 <email@email.org>"]
 edition = "2018"
 description = "Derive macro for Sv2 binary format serializer and deserializer"
