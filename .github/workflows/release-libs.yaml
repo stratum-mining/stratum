@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        workspace: [protocols, utils,common]
+        workspace: [common,utils,protcols]
     steps:
       - uses: actions/checkout@v3
       - uses: actions-rs/toolchain@v1
