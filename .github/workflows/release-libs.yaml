@@ -22,6 +22,11 @@ jobs:
         run: |
           cd common
           cargo publish
+      - name: Publish crates buffer_sv2
+        continue-on-error: true
+        run: |
+          cd utils/buffer
+          cargo publish
       - name: Publish crates no_serde_sv2_derive_codec
         continue-on-error: true
         run: |
