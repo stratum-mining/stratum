@@ -115,7 +115,7 @@ async fn main() {
             return;
         }
     };
-    let tp_authority_public_key = config.tp_authority_public_key.clone();
+    let tp_authority_public_key = config.tp_authority_public_key;
     let template_rx_res = TemplateRx::connect(
         config.tp_address.parse().unwrap(),
         s_new_t,
