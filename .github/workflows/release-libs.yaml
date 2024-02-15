@@ -20,4 +20,4 @@ jobs:
       - name: Publish crates common
         run: |
           cd common
-          cargo publish --no-confirm
+          cargo publish
