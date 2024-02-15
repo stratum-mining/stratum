@@ -11,32 +11,18 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        workspace: [protocols, utils]
+        workspace: [protocols, utils,common]
     steps:
       - uses: actions/checkout@v3
       - uses: actions-rs/toolchain@v1
         with:
             toolchain: stable
             override: true
-            
       - name: Login
         run: cargo login ${{ secrets.CRATES_IO_DEPLOY_KEY }}
-      
       - name: Install cargo-release
         run: cargo install cargo-release
       - name: Publish crates from ${{ matrix.workspace }}
         run: |
           cd ${{ matrix.workspace }}
-          cargo release -x
-  common_publish:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
-      - name: Publish standalone crate
-        run: |
-          cd ./common
-          cargo release -x
+          cargo release -x --all-features --no-confirm
