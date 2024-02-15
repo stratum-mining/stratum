@@ -22,18 +22,28 @@ jobs:
         run: |
           cd common
           cargo publish
-      - name: Publish crates v1
-        continue-on-error: true
-        run: |
-          cd protocols/v1
-          cargo publish
       - name: Publish crates no_serde_sv2_derive_codec
         continue-on-error: true
         run: |
-          cd protocols/v2/no-serde-sv2/derive_codec
+          cd protocols/v2/binary-sv2/no-serde-sv2/derive_codec
           cargo publish
       - name: Publish crates no_serde_sv2_codec
         continue-on-error: true
         run: |
-          cd protocols/v2/no-serde-sv2/codec
+          cd protocols/v2/binary-sv2/no-serde-sv2/codec
+          cargo publish
+      - name: Publish crates serde_sv2
+        continue-on-error: true
+        run: |
+          cd protocols/v2/binary-sv2/serde-sv2
+          cargo publish
+      - name: Publish crates binary_sv2
+        continue-on-error: true
+        run: |
+          cd protocols/v2/binary-sv2/binary-sv2
+          cargo publish
+      - name: Publish crates v1
+        continue-on-error: true
+        run: |
+          cd protocols/v1
           cargo publish
