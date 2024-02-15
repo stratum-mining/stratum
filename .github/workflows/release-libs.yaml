@@ -9,9 +9,6 @@ on:
 jobs:
   libs_publish:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        workspace: [common,utils,protcols]
     steps:
       - uses: actions/checkout@v3
       - uses: actions-rs/toolchain@v1
@@ -20,9 +17,7 @@ jobs:
             override: true
       - name: Login
         run: cargo login ${{ secrets.CRATES_IO_DEPLOY_KEY }}
-      - name: Install cargo-release
-        run: cargo install cargo-release
-      - name: Publish crates from ${{ matrix.workspace }}
+      - name: Publish crates common
         run: |
-          cd ${{ matrix.workspace }}
-          cargo release -x --all-features --no-confirm
+          cd common
+          cargo publish --no-confirm
