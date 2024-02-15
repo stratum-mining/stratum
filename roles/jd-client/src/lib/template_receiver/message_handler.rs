@@ -47,7 +47,8 @@ impl ParseServerTemplateDistributionMessages for TemplateRx {
             template_id: _m.template_id,
             error_code: _m.error_code.into_static(),
         };
-        let error_code_string = std::str::from_utf8(m.error_code.as_ref()).unwrap_or("unknown error code"); 
+        let error_code_string =
+            std::str::from_utf8(m.error_code.as_ref()).unwrap_or("unknown error code");
         match error_code_string {
             "template-id-not-found" => Err(Error::NoValidTemplate(error_code_string.to_string())),
             "stale-template-id" => Ok(SendTo::None(Some(
