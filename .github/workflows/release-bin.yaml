@@ -1,53 +1,18 @@
-# This workflow is used to publish SV2 crates to cratesio as well as releasing binaries of the roles
-# (translator, pool, mining_proxy) to github. The github releases will fail if there are no tags available
-# so the `autoversion` workflow must be ran and the resulting PR must be merged at least once before this will 
-# release the binaries to github. 
-
+# as well as releasing binaries of the roles
+# (translator, pool, mining_proxy) to github.
 # If the binary releases do fail to due to not having tags, force run the `autoversion` workflow
 # on the main branch and merge the resulting PR to create the tags and move them to the main branch.
 
-# This should be disabled for forks
-
-name: Release
-
+name: Release Binaries
 on: 
   # Manually run by going to "Actions/Release" in Github and running the workflow
   workflow_dispatch:
 
 jobs:
-  crates_publish:
-    name: Release
+    github_release_translator:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: 
-          - ubuntu-latest
-        include:
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-musl
-
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions-rs/toolchain@v1
-        with:
-            toolchain: stable
-            override: true
-            
-      - name: Login
-        run: cargo login ${{ secrets.CRATES_IO_DEPLOY_KEY }}
-      
-      - name: Install cargo-release
-        run: cargo install cargo-release
-
-      # Need to exclude sv2_ffi to bypass else the 5 new crate limit. After this first publish, this can be removed
-      - name: Publish
-        run: cargo release publish -x --exclude mining_proxy_sv2 --exclude pool_sv2 --exclude translator_sv2 --all-features --no-confirm
-
-  github_release_translator:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        # This defines what environments we will build on
         include:
           - os: ubuntu-latest
             artifact_name: translator_sv2
@@ -231,8 +196,3 @@ jobs:
           asset_name: ${{ matrix.asset_name }}
           tag: ${{ env.MINING_PROXY_TAG }}
 
-
-    
-
-
-        
