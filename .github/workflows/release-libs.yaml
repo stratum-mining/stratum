@@ -82,10 +82,10 @@ jobs:
         run: |
           cd protocols/v2/subprotocols/common-messages
           cargo publish
-      - name: Publish crates job-declaration
+      - name: Publish crates job_declaration
         continue-on-error: true
         run: |
-          cd protocols/v2/subprotocols/job_declaration
+          cd protocols/v2/subprotocols/job-declaration
           cargo publish
       - name: Publish crates mining
         continue-on-error: true
