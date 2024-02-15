@@ -2,6 +2,7 @@
 name = "bip32_derivation"
 version = "1.0.0"
 edition = "2021"
+description = "bip32_derivation"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/stratum-mining/stratum"
 
