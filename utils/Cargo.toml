@@ -19,7 +19,8 @@ members = [
     "network-helpers",
     "buffer",
     "error-handling",
-    "key-utils"
+    "key-utils",
+    "bip32-key-derivation"
 ]
 
 exclude = [
