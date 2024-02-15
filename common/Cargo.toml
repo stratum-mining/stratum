@@ -7,4 +7,4 @@ license = "MIT OR Apache-2.0"
 repository = "https://github.com/stratum-mining/stratum"
 
 [dependencies]
-bitcoin = "0.29.1"
+bitcoin = {version="0.29.1",optional=true}
