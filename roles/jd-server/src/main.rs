@@ -141,11 +141,10 @@ async fn main() {
                         }
                     }
                 }
-                // GET TRANSACTION LIST, FOR DEBUG
-                let _transactions =
-                    mempool::JDsMempool::get_transaction_list(mempool_cloned_.clone());
-                //dbg!(transactions);
                 tokio::time::sleep(mempool_update_interval).await;
+                // GET TRANSACTION LIST, FOR DEBUG PURPOSES
+                //let _transactions =
+                //    mempool::JDsMempool::_get_transaction_list(mempool_cloned_.clone());
             }
         });
     };

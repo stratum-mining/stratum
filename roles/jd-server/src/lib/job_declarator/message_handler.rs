@@ -1,7 +1,3 @@
-use std::{convert::TryInto, io::Cursor, sync::Arc};
-
-use stratum_common::bitcoin::Transaction;
-
 use binary_sv2::ShortTxId;
 use roles_logic_sv2::{
     handlers::{job_declaration::ParseClientJobDeclarationMessages, SendTo_},
@@ -13,6 +9,8 @@ use roles_logic_sv2::{
     parsers::JobDeclaration,
     utils::Mutex,
 };
+use std::{convert::TryInto, io::Cursor, sync::Arc};
+use stratum_common::bitcoin::Transaction;
 pub type SendTo = SendTo_<JobDeclaration<'static>, ()>;
 use roles_logic_sv2::{errors::Error, parsers::PoolMessages as AllMessages};
 use stratum_common::bitcoin::consensus::Decodable;

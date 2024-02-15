@@ -224,11 +224,12 @@ impl JobDeclarator {
         config: Configuration,
         status_tx: crate::status::Sender,
         mempool: Arc<Mutex<JDsMempool>>,
-        sender: Sender<String>,
+        submit_solution_sender: Sender<String>,
     ) {
         let self_ = Arc::new(Mutex::new(Self {}));
         info!("JD INITIALIZED");
-        Self::accept_incoming_connection(self_, config, status_tx, mempool, sender).await;
+        Self::accept_incoming_connection(self_, config, status_tx, mempool, submit_solution_sender)
+            .await;
     }
     async fn accept_incoming_connection(
         _self_: Arc<Mutex<JobDeclarator>>,

@@ -48,12 +48,11 @@ impl JDsMempool {
         }
     }
 
-    pub fn get_transaction_list(self_: Arc<Mutex<Self>>) -> Vec<Txid> {
+    // This function is used only for debug purposes
+    pub fn _get_transaction_list(self_: Arc<Mutex<Self>>) -> Vec<Txid> {
         let tx_list = self_.safe_lock(|x| x.mempool.clone()).unwrap();
         let tx_list_: Vec<Txid> = tx_list.iter().map(|n| n.id).collect();
         tx_list_
-        //.map_err(|e| JdsMempoolError::PoisonLock(e.to_string()))?
-        //.ok_or(JdsMempoolError::NoClient)?;
     }
     pub fn new(
         url: String,
