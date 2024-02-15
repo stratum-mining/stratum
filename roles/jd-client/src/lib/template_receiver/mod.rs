@@ -17,7 +17,7 @@ use setup_connection::SetupConnectionHandler;
 use std::{convert::TryInto, net::SocketAddr, sync::Arc};
 use stratum_common::bitcoin::{consensus::Encodable, TxOut};
 use tokio::task::AbortHandle;
-use tracing::{error, info};
+use tracing::{error, info, warn};
 
 mod message_handler;
 mod setup_connection;
@@ -263,6 +263,9 @@ impl TemplateRx {
                                         )
                                         .await;
                                     }
+                                }
+                                Some(TemplateDistribution::RequestTransactionDataError(_)) => {
+                                    warn!("The prev_hash of the template requested to Template Provider no longer points to the latest tip. Continuing work on the updated template.")
                                 }
                                 _ => {
                                     error!("{:?}", frame);

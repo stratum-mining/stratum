@@ -43,11 +43,14 @@ impl ParseServerTemplateDistributionMessages for TemplateRx {
         &mut self,
         _m: RequestTransactionDataError,
     ) -> Result<SendTo, Error> {
-        let error_code =
-            std::str::from_utf8(_m.error_code.as_ref()).unwrap_or("unknown error code");
-        match error_code {
+        let m = RequestTransactionDataError {
+            template_id: _m.template_id,
+            error_code: _m.error_code.into_static(),
+        };
+
+        match std::str::from_utf8(m.error_code.as_ref()).unwrap_or("unknown error code") {
             "template-id-not-found" => Err(Error::NoValidTemplate),
-            "stale-template-id" => Ok(SendTo::None(None)),
+            "stale-template-id" => Ok(SendTo::None(Some(TemplateDistribution::RequestTransactionDataError(m)))),
             _ => Err(Error::NoValidTemplate),
         }
     }
