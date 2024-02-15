@@ -6,10 +6,6 @@ edition = "2018"
 description = "Sv2 noise"
 license = "MIT"
 repository = "https://github.com/stratum-mining/stratum"
-# remove when git repo based dependencies are removed
-publish = false
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 secp256k1 = { version = "0.28.2", default-features = false, features =["hashes", "alloc","rand","rand-std"] }
