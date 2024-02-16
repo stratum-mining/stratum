@@ -3,9 +3,6 @@ on:
     branches: [ main, dev ]
   pull_request:
     branches: [ main, dev ]
-  pull_request_review:
-    types: [submitted]
-    branches: [bot/versioning]
 
 # Check sv2.h file is up to date with commit
 name: sv2.h Header Check
@@ -15,7 +12,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: 
+        os:
           - ubuntu-latest
         include:
           - os: ubuntu-latest
