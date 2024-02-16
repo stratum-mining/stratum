@@ -29,6 +29,8 @@ pub struct Responder {
     e: Keypair,
     // Static pub keypair
     s: Keypair,
+    // Authority pub keypair
+    a: Keypair,
     c1: Option<GenericCipher>,
     c2: Option<GenericCipher>,
     cert_validity: u32,
@@ -107,7 +109,7 @@ impl Responder {
         }
     }
 
-    pub fn new(s: Keypair, cert_validity: u32) -> Box<Self> {
+    pub fn new(a: Keypair, cert_validity: u32) -> Box<Self> {
         let mut self_ = Self {
             handshake_cipher: None,
             k: None,
@@ -115,7 +117,8 @@ impl Responder {
             ck: [0; 32],
             h: [0; 32],
             e: Self::generate_key(),
-            s,
+            s: Self::generate_key(),
+            a,
             c1: None,
             c2: None,
             cert_validity,
@@ -270,7 +273,7 @@ impl Responder {
         ret[7] = not_valid_after[1];
         ret[8] = not_valid_after[2];
         ret[9] = not_valid_after[3];
-        SignatureNoiseMessage::sign(&mut ret, &self.s);
+        SignatureNoiseMessage::sign(&mut ret, &self.s.x_only_public_key().0, &self.a);
         ret
     }
 
@@ -294,6 +297,7 @@ impl Responder {
         }
         self.e.non_secure_erase();
         self.s.non_secure_erase();
+        self.a.non_secure_erase();
     }
 }
 

@@ -115,7 +115,7 @@ async fn main() {
             return;
         }
     };
-    let authority_public_key = config.authority_public_key;
+    let tp_authority_public_key = config.tp_authority_public_key;
     let template_rx_res = TemplateRx::connect(
         config.tp_address.parse().unwrap(),
         s_new_t,
@@ -124,7 +124,7 @@ async fn main() {
         r_message_recv_signal,
         status::Sender::Upstream(status_tx.clone()),
         coinbase_output_len,
-        authority_public_key,
+        tp_authority_public_key,
     )
     .await;
 

@@ -4,6 +4,9 @@
 # Since each step can fail the output ot the action must be manually check to macke sure that all
 # the library intended to be published are published.
 # Runing cargo release in the various workspace help to prepare the version number and everything.
+# ATTENTION
+# Is very important to check the output manually cause when too many crates are updated crates.io could fail
+# and ask to rerun the action later
 
 name: Release Libs
 
@@ -82,10 +85,10 @@ jobs:
         run: |
           cd protocols/v2/subprotocols/common-messages
           cargo publish
-      - name: Publish crates job-declaration
+      - name: Publish crates job_declaration
         continue-on-error: true
         run: |
-          cd protocols/v2/subprotocols/job_declaration
+          cd protocols/v2/subprotocols/job-declaration
           cargo publish
       - name: Publish crates mining
         continue-on-error: true
