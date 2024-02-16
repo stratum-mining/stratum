@@ -24,24 +24,29 @@ impl From<[u8; 74]> for SignatureNoiseMessage {
 }
 
 impl SignatureNoiseMessage {
-    pub fn verify(self, pk: &XOnlyPublicKey, authority_pk: &XOnlyPublicKey) -> bool {
-        let now = SystemTime::now()
-            .duration_since(SystemTime::UNIX_EPOCH)
-            .unwrap()
-            .as_secs() as u32;
-        if self.valid_from <= now && self.not_valid_after >= now {
-            let secp = Secp256k1::verification_only();
-            let (m, s) = self.split();
-            // m = SHA-256(version || valid_from || not_valid_after || server_static_key)
-            let m = [&m[0..10], &pk.serialize()].concat();
-            let m = Message::from_hashed_data::<sha256::Hash>(&m);
-            let s = match Signature::from_slice(&s) {
-                Ok(s) => s,
-                _ => return false,
-            };
-            secp.verify_schnorr(&s, &m, authority_pk).is_ok()
-        } else {
-            false
+    pub fn verify(self, pk: &XOnlyPublicKey, authority_pk: &Option<XOnlyPublicKey>) -> bool {
+        match authority_pk {
+            Some(authority_pk) => {
+                let now = SystemTime::now()
+                    .duration_since(SystemTime::UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs() as u32;
+                if self.valid_from <= now && self.not_valid_after >= now {
+                    let secp = Secp256k1::verification_only();
+                    let (m, s) = self.split();
+                    // m = SHA-256(version || valid_from || not_valid_after || server_static_key)
+                    let m = [&m[0..10], &pk.serialize()].concat();
+                    let m = Message::from_hashed_data::<sha256::Hash>(&m);
+                    let s = match Signature::from_slice(&s) {
+                        Ok(s) => s,
+                        _ => return false,
+                    };
+                    secp.verify_schnorr(&s, &m, authority_pk).is_ok()
+                } else {
+                    false
+                }
+            }
+            None => true,
         }
     }
     pub fn sign(msg: &mut [u8; 74], static_pk: &XOnlyPublicKey, kp: &Keypair) {

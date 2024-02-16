@@ -230,47 +230,25 @@ impl Initiator {
             .0
             .serialize();
         let rs_pk_xonly = XOnlyPublicKey::from_slice(&rs_pub_key).unwrap();
-        match &self.responder_authority_pk {
-            Some(responder_authority_pk) => {
-                if signature_message.verify(&rs_pk_xonly, responder_authority_pk) {
-                    let (temp_k1, temp_k2) = Self::hkdf_2(self.get_ck(), &[]);
-                    let c1 = ChaCha20Poly1305::new(&temp_k1.into());
-                    let c2 = ChaCha20Poly1305::new(&temp_k2.into());
-                    let c1: Cipher<ChaCha20Poly1305> = Cipher::from_key_and_cipher(temp_k1, c1);
-                    let c2: Cipher<ChaCha20Poly1305> = Cipher::from_key_and_cipher(temp_k2, c2);
-                    self.c1 = None;
-                    self.c2 = None;
-                    let mut encryptor = GenericCipher::ChaCha20Poly1305(c1);
-                    let mut decryptor = GenericCipher::ChaCha20Poly1305(c2);
-                    encryptor.erase_k();
-                    decryptor.erase_k();
-                    let codec = crate::NoiseCodec {
-                        encryptor,
-                        decryptor,
-                    };
-                    Ok(codec)
-                } else {
-                    Err(Error::InvalidCertificate(plaintext))
-                }
-            }
-            None => {
-                let (temp_k1, temp_k2) = Self::hkdf_2(self.get_ck(), &[]);
-                let c1 = ChaCha20Poly1305::new(&temp_k1.into());
-                let c2 = ChaCha20Poly1305::new(&temp_k2.into());
-                let c1: Cipher<ChaCha20Poly1305> = Cipher::from_key_and_cipher(temp_k1, c1);
-                let c2: Cipher<ChaCha20Poly1305> = Cipher::from_key_and_cipher(temp_k2, c2);
-                self.c1 = None;
-                self.c2 = None;
-                let mut encryptor = GenericCipher::ChaCha20Poly1305(c1);
-                let mut decryptor = GenericCipher::ChaCha20Poly1305(c2);
-                encryptor.erase_k();
-                decryptor.erase_k();
-                let codec = crate::NoiseCodec {
-                    encryptor,
-                    decryptor,
-                };
-                Ok(codec)
-            }
+        if signature_message.verify(&rs_pk_xonly, &self.responder_authority_pk) {
+            let (temp_k1, temp_k2) = Self::hkdf_2(self.get_ck(), &[]);
+            let c1 = ChaCha20Poly1305::new(&temp_k1.into());
+            let c2 = ChaCha20Poly1305::new(&temp_k2.into());
+            let c1: Cipher<ChaCha20Poly1305> = Cipher::from_key_and_cipher(temp_k1, c1);
+            let c2: Cipher<ChaCha20Poly1305> = Cipher::from_key_and_cipher(temp_k2, c2);
+            self.c1 = None;
+            self.c2 = None;
+            let mut encryptor = GenericCipher::ChaCha20Poly1305(c1);
+            let mut decryptor = GenericCipher::ChaCha20Poly1305(c2);
+            encryptor.erase_k();
+            decryptor.erase_k();
+            let codec = crate::NoiseCodec {
+                encryptor,
+                decryptor,
+            };
+            Ok(codec)
+        } else {
+            Err(Error::InvalidCertificate(plaintext))
         }
     }
 
