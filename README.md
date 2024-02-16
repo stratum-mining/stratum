@@ -7,7 +7,7 @@ Stratum V2 Reference Implementation (SRI)
   <br>
 </h1>
 
-<h4 align="center">SRI is a refference implementation of the Stratum V2 protocol written in Rust 🦀.</h4>
+<h4 align="center">SRI is a reference implementation of the Stratum V2 protocol written in Rust 🦀.</h4>
 
 <p align="center">
   <a href="https://codecov.io/gh/stratum-mining/stratum">
@@ -87,11 +87,11 @@ The goals of this project are to provide:
 
 If you are a developer looking to help, but you're not sure where to begin, check the [good first issue label](https://github.com/stratum-mining/stratum/labels/good%20first%20issue), which contains small pieces of work that have been specifically flagged as being friendly to new contributors.
 
-Contributors looking to do something a bit more challenging, before opening a pull request, please join [our community chat](ttps://discord.gg/fsEW23wFYs) or [start a GitHub issue](https://github.com/stratum-mining/stratum/issues) to get early feedback, discuss the best ways to tackle the problem, and ensure there is no work duplication and consensus.
+Contributors looking to do something a bit more challenging, before opening a pull request, please join [our community chat](https://discord.gg/fsEW23wFYs) or [start a GitHub issue](https://github.com/stratum-mining/stratum/issues) to get early feedback, discuss the best ways to tackle the problem, and ensure there is no work duplication and consensus.
 
 ## 🤝Support
 
-Join our Discord community to get help, share your ideas, or discuss anything related to Stratum V2 and its refference implementation. 
+Join our Discord community to get help, share your ideas, or discuss anything related to Stratum V2 and its reference implementation. 
 
 Whether you're looking for technical support, want to contribute, or are just interested in learning more about the project, our community is the place to be.
 
