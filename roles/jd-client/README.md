@@ -17,8 +17,12 @@ The configuration file contains the following information:
 1. The Upstream connection information which includes the SV2 Pool authority public key 
    (`upstream_authority_pubkey`) and the SV2 Pool connection address (`upstream_address`) and port
    (`upstream_port`).
-1. The maximum and minimum SV2 versions (`max_supported_version` and `min_supported_version`)
-1. The Job Declarator information which includes the Pool JD connection address (`jd_address`) and the Template Provider connection address to which to connect (`tp_address`).
+2. The maximum and minimum SV2 versions (`max_supported_version` and `min_supported_version`)
+3. The Job Declarator information which includes the Pool JD connection address (`jd_address`) and the Template Provider connection address to which to connect (`tp_address`).
+4. Optionally, you may want to verify that your TP connection is authentic. You may get `tp_authority_public_key` from the logs of your TP, for example:
+```
+# 2024-02-13T14:59:24Z Template Provider authority key: EguTM8URcZDQVeEBsM4B5vg9weqEUnufA8pm85fG4bZd
+```
 
 ### Run
 1. Copy the `jdc-config-example.toml` into `conf/` directory.

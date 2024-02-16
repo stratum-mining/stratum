@@ -31,7 +31,7 @@ pub struct Initiator {
     e: Keypair,
     // upstream pub key
     #[allow(unused)]
-    pk: XOnlyPublicKey,
+    responder_authority_pk: Option<XOnlyPublicKey>,
     c1: Option<GenericCipher>,
     c2: Option<GenericCipher>,
 }
@@ -96,10 +96,14 @@ impl Initiator {
     pub fn from_raw_k(key: [u8; 32]) -> Result<Box<Self>, Error> {
         let pk =
             secp256k1::XOnlyPublicKey::from_slice(&key).map_err(|_| Error::InvalidRawPublicKey)?;
-        Ok(Self::new(pk))
+        Ok(Self::new(Some(pk)))
     }
 
-    pub fn new(pk: XOnlyPublicKey) -> Box<Self> {
+    pub fn without_pk() -> Result<Box<Self>, Error> {
+        Ok(Self::new(None))
+    }
+
+    pub fn new(pk: Option<XOnlyPublicKey>) -> Box<Self> {
         let mut self_ = Self {
             handshake_cipher: None,
             k: None,
@@ -107,7 +111,7 @@ impl Initiator {
             ck: [0; 32],
             h: [0; 32],
             e: Self::generate_key(),
-            pk,
+            responder_authority_pk: pk,
             c1: None,
             c2: None,
         };
@@ -226,7 +230,7 @@ impl Initiator {
             .0
             .serialize();
         let rs_pk_xonly = XOnlyPublicKey::from_slice(&rs_pub_key).unwrap();
-        if signature_message.verify(&rs_pk_xonly) {
+        if signature_message.verify(&rs_pk_xonly, &self.responder_authority_pk) {
             let (temp_k1, temp_k2) = Self::hkdf_2(self.get_ck(), &[]);
             let c1 = ChaCha20Poly1305::new(&temp_k1.into());
             let c2 = ChaCha20Poly1305::new(&temp_k2.into());

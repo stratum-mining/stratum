@@ -83,6 +83,7 @@ impl TryFrom<&CoinbaseOutput> for CoinbaseOutput_ {
 pub struct Configuration {
     pub listen_address: String,
     pub tp_address: String,
+    pub tp_authority_public_key: Option<Secp256k1PublicKey>,
     pub authority_public_key: Secp256k1PublicKey,
     pub authority_secret_key: Secp256k1SecretKey,
     pub cert_validity_sec: u64,
