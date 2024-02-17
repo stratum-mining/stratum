@@ -1,6 +1,6 @@
 [package]
 name = "common_messages_sv2"
-version = "0.1.5"
+version = "0.1.7"
 authors = ["fi3 <email@email.org>"]
 edition = "2018"
 description = "Sv2 subprotocol common messages"

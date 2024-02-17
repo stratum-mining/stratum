@@ -17,7 +17,7 @@ use setup_connection::SetupConnectionHandler;
 use std::{convert::TryInto, net::SocketAddr, sync::Arc};
 use stratum_common::bitcoin::{consensus::Encodable, TxOut};
 use tokio::task::AbortHandle;
-use tracing::{error, info};
+use tracing::{error, info, warn};
 
 mod message_handler;
 mod setup_connection;
@@ -53,7 +53,7 @@ impl TemplateRx {
         task_collector: Arc<Mutex<Vec<AbortHandle>>>,
         pool_chaneger_trigger: Arc<Mutex<PoolChangerTrigger>>,
         miner_coinbase_outputs: Vec<TxOut>,
-        authority_public_key: Secp256k1PublicKey,
+        authority_public_key: Option<Secp256k1PublicKey>,
         test_only_do_not_send_solution_to_tp: bool,
     ) {
         let mut encoded_outputs = vec![];
@@ -62,8 +62,11 @@ impl TemplateRx {
             .expect("Invalid coinbase output in config");
         let stream = tokio::net::TcpStream::connect(address).await.unwrap();
 
-        let pub_key: Secp256k1PublicKey = authority_public_key;
-        let initiator = Initiator::from_raw_k(pub_key.into_bytes()).unwrap();
+        let initiator = match authority_public_key {
+            Some(pub_key) => Initiator::from_raw_k(pub_key.into_bytes()),
+            None => Initiator::without_pk(),
+        }
+        .unwrap();
         let (mut receiver, mut sender, _, _) =
             Connection::new(stream, HandshakeRole::Initiator(initiator))
                 .await
@@ -263,6 +266,9 @@ impl TemplateRx {
                                         )
                                         .await;
                                     }
+                                }
+                                Some(TemplateDistribution::RequestTransactionDataError(_)) => {
+                                    warn!("The prev_hash of the template requested to Template Provider no longer points to the latest tip. Continuing work on the updated template.")
                                 }
                                 _ => {
                                     error!("{:?}", frame);

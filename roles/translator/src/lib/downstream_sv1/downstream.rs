@@ -22,7 +22,9 @@ use roles_logic_sv2::{
     utils::Mutex,
 };
 
+use crate::error::Error;
 use futures::select;
+use tokio_util::codec::{FramedRead, LinesCodec};
 
 use std::{net::SocketAddr, sync::Arc};
 use tracing::{debug, info, warn};
@@ -32,6 +34,8 @@ use v1::{
     utils::{Extranonce, HexU32Be},
     IsServer,
 };
+
+const MAX_LINE_LENGTH: usize = 2_usize.pow(16);
 
 /// Handles the sending and receiving of messages to and from an SV2 Upstream role (most typically
 /// a SV2 Pool server).
@@ -147,7 +151,11 @@ impl Downstream {
         // role, or the message is sent upwards to the Bridge for translation into a SV2 message
         // and then sent to the SV2 Upstream role.
         let _socket_reader_task = task::spawn(async move {
-            let mut messages = BufReader::new(&*socket_reader).lines();
+            let reader = BufReader::new(&*socket_reader);
+            let mut messages = FramedRead::new(
+                async_compat::Compat::new(reader),
+                LinesCodec::new_with_max_length(MAX_LINE_LENGTH),
+            );
             loop {
                 // Read message from SV1 Mining Device Client socket
                 // On message receive, parse to `json_rpc:Message` and send to Upstream
@@ -172,8 +180,8 @@ impl Downstream {
                                 let res = Self::handle_incoming_sv1(self_.clone(), incoming).await;
                                 handle_result!(tx_status_reader, res);
                             }
-                            Some(Err(error)) => {
-                                handle_result!(tx_status_reader, Err(error));
+                            Some(Err(_)) => {
+                                handle_result!(tx_status_reader, Err(Error::Sv1MessageTooLong));
                             }
                             None => {
                                 handle_result!(tx_status_reader, Err(

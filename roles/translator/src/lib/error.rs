@@ -1,23 +1,13 @@
-use crate::proxy;
 use roles_logic_sv2::{
     mining_sv2::{ExtendedExtranonce, NewExtendedMiningJob, SetCustomMiningJob},
     parsers::Mining,
 };
-use std::{
-    fmt,
-    sync::{MutexGuard, PoisonError},
-};
+use std::{fmt, sync::PoisonError};
 use v1::server_to_client::{Notify, SetDifficulty};
 
 use stratum_common::bitcoin::util::uint::ParseLengthError;
 
 pub type ProxyResult<'a, T> = core::result::Result<T, Error<'a>>;
-
-#[allow(dead_code)]
-#[derive(Debug)]
-pub enum LockError<'a> {
-    Bridge(PoisonError<MutexGuard<'a, proxy::Bridge>>),
-}
 
 #[derive(Debug)]
 pub enum ChannelSendError<'a> {
@@ -84,6 +74,7 @@ pub enum Error<'a> {
     Sv2ProtocolError(Mining<'a>),
     #[allow(clippy::enum_variant_names)]
     TargetError(roles_logic_sv2::errors::Error),
+    Sv1MessageTooLong,
 }
 
 impl<'a> fmt::Display for Error<'a> {
@@ -118,6 +109,9 @@ impl<'a> fmt::Display for Error<'a> {
             }
             TargetError(ref e) => {
                 write!(f, "Impossible to get target from hashrate: `{:?}`", e)
+            }
+            Sv1MessageTooLong => {
+                write!(f, "Received an sv1 message that is longer than max len")
             }
         }
     }
@@ -189,22 +183,12 @@ impl<'a> From<tokio::sync::broadcast::error::RecvError> for Error<'a> {
     }
 }
 
-// *** LOCK ERRORS ***
-// impl<'a> From<PoisonError<MutexGuard<'a, proxy::Bridge>>> for Error<'a> {
-//     fn from(e: PoisonError<MutexGuard<'a, proxy::Bridge>>) -> Self {
-//         Error::PoisonLock(
-//             LockError::Bridge(e)
-//         )
-//     }
-// }
-
-// impl<'a> From<PoisonError<MutexGuard<'a, NextMiningNotify>>> for Error<'a> {
-//     fn from(e: PoisonError<MutexGuard<'a, NextMiningNotify>>) -> Self {
-//         Error::PoisonLock(
-//             LockError::NextMiningNotify(e)
-//         )
-//     }
-// }
+//*** LOCK ERRORS ***
+impl<'a, T> From<PoisonError<T>> for Error<'a> {
+    fn from(_e: PoisonError<T>) -> Self {
+        Error::PoisonLock
+    }
+}
 
 // *** CHANNEL SENDER ERRORS ***
 impl<'a> From<async_channel::SendError<roles_logic_sv2::mining_sv2::SubmitSharesExtended<'a>>>

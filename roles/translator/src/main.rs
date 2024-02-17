@@ -89,7 +89,7 @@ async fn main() {
     // Instantiate a new `Upstream` (SV2 Pool)
     let upstream = match upstream_sv2::Upstream::new(
         upstream_addr,
-        proxy_config.upstream_authority_pubkey.clone(),
+        proxy_config.upstream_authority_pubkey,
         rx_sv2_submit_shares_ext,
         tx_sv2_set_new_prev_hash,
         tx_sv2_new_ext_mining_job,

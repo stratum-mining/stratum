@@ -15,6 +15,9 @@ pub mod plain_connection_tokio;
 
 use async_channel::{Receiver, RecvError, SendError, Sender};
 use codec_sv2::{Error as CodecError, HandShakeFrame, HandshakeRole, StandardEitherFrame};
+use const_sv2::{
+    INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE, RESPONDER_EXPECTED_HANDSHAKE_MESSAGE_SIZE,
+};
 use futures::lock::Mutex;
 use std::{
     convert::TryInto,
@@ -70,7 +73,7 @@ async fn initialize_as_downstream<
     let second_message: HandShakeFrame = second_message
         .try_into()
         .map_err(|_| Error::HandshakeRemoteInvalidMessage)?;
-    let second_message: [u8; 170] = second_message
+    let second_message: [u8; INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE] = second_message
         .get_payload_when_handshaking()
         .try_into()
         .map_err(|_| Error::HandshakeRemoteInvalidMessage)?;
@@ -99,7 +102,7 @@ async fn initialize_as_upstream<'a, Message: Serialize + Deserialize<'a> + GetSi
         .await?
         .try_into()
         .map_err(|_| Error::HandshakeRemoteInvalidMessage)?;
-    let first_message: [u8; 32] = first_message
+    let first_message: [u8; RESPONDER_EXPECTED_HANDSHAKE_MESSAGE_SIZE] = first_message
         .get_payload_when_handshaking()
         .try_into()
         .map_err(|_| Error::HandshakeRemoteInvalidMessage)?;

@@ -1,0 +1,137 @@
+# This workflow is used to publish SV2 crates to cratesio
+# The workflow try to update all the library crates so if a crate is not to updated, the step will fail
+# for that each step have continue-on-error set to true.
+# Since each step can fail the output ot the action must be manually check to macke sure that all
+# the library intended to be published are published.
+# Runing cargo release in the various workspace help to prepare the version number and everything.
+# ATTENTION
+# Is very important to check the output manually cause when too many crates are updated crates.io could fail
+# and ask to rerun the action later
+
+name: Release Libs
+
+on: 
+  # Manually run by going to "Actions/Release" in Github and running the workflow
+  workflow_dispatch:
+
+jobs:
+  libs_publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions-rs/toolchain@v1
+        with:
+            toolchain: stable
+            override: true
+      - name: Login
+        run: cargo login ${{ secrets.CRATES_IO_DEPLOY_KEY }}
+      - name: Publish crates common
+        continue-on-error: true
+        run: |
+          cd common
+          cargo publish
+      - name: Publish crates buffer_sv2
+        continue-on-error: true
+        run: |
+          cd utils/buffer
+          cargo publish
+      - name: Publish crates no_serde_sv2_derive_codec
+        continue-on-error: true
+        run: |
+          cd protocols/v2/binary-sv2/no-serde-sv2/derive_codec
+          cargo publish
+      - name: Publish crates no_serde_sv2_codec
+        continue-on-error: true
+        run: |
+          cd protocols/v2/binary-sv2/no-serde-sv2/codec
+          cargo publish
+      - name: Publish crates serde_sv2
+        continue-on-error: true
+        run: |
+          cd protocols/v2/binary-sv2/serde-sv2
+          cargo publish
+      - name: Publish crates binary_sv2
+        continue-on-error: true
+        run: |
+          cd protocols/v2/binary-sv2/binary-sv2
+          cargo publish
+      - name: Publish crates binary_sv2
+        continue-on-error: true
+        run: |
+          cd protocols/v2/binary-sv2/binary-sv2
+          cargo publish
+      - name: Publish crates const_sv2
+        continue-on-error: true
+        run: |
+          cd protocols/v2/const-sv2
+          cargo publish
+      - name: Publish crates framing_sv2
+        continue-on-error: true
+        run: |
+          cd protocols/v2/framing-sv2
+          cargo publish
+      - name: Publish crates noise_sv2
+        continue-on-error: true
+        run: |
+          cd protocols/v2/noise-sv2
+          cargo publish
+      - name: Publish crates codec_sv2
+        continue-on-error: true
+        run: |
+          cd protocols/v2/codec-sv2
+          cargo publish
+      - name: Publish crates common_messages
+        continue-on-error: true
+        run: |
+          cd protocols/v2/subprotocols/common-messages
+          cargo publish
+      - name: Publish crates job_declaration
+        continue-on-error: true
+        run: |
+          cd protocols/v2/subprotocols/job-declaration
+          cargo publish
+      - name: Publish crates mining
+        continue-on-error: true
+        run: |
+          cd protocols/v2/subprotocols/mining
+          cargo publish
+      - name: Publish crates template_distribution
+        continue-on-error: true
+        run: |
+          cd protocols/v2/subprotocols/template-distribution
+          cargo publish
+      - name: Publish crates sv2_ffi
+        continue-on-error: true
+        run: |
+          cd protocols/v2/sv2-ffi
+          cargo publish
+      - name: Publish crates roles_logic_sv2
+        continue-on-error: true
+        run: |
+          cd protocols/v2/roles-logic-sv2
+          cargo publish
+      - name: Publish crates v1
+        continue-on-error: true
+        run: |
+          cd protocols/v1
+          cargo publish
+      - name: Publish crates bip32-key-derivation
+        continue-on-error: true
+        run: |
+          cd utils/bip32-key-derivation
+          cargo publish
+      - name: Publish crates error-handling
+        continue-on-error: true
+        run: |
+          cd utils/error-handling
+          cargo publish
+      - name: Publish crates key-utils
+        continue-on-error: true
+        run: |
+          cd utils/key-utils
+          cargo publish
+      - name: Publish crates network-helpers
+        continue-on-error: true
+        run: |
+          cd utils/network-helpers
+          cargo publish

@@ -43,13 +43,17 @@ impl TemplateRx {
         message_received_signal: Receiver<()>,
         status_tx: status::Sender,
         coinbase_out_len: u32,
-        authority_public_key: Secp256k1PublicKey,
+        expected_tp_authority_public_key: Option<Secp256k1PublicKey>,
     ) -> PoolResult<()> {
         let stream = TcpStream::connect(address).await?;
         info!("Connected to template distribution server at {}", address);
 
-        let pub_key: Secp256k1PublicKey = authority_public_key;
-        let initiator = Initiator::from_raw_k(pub_key.into_bytes())?;
+        let initiator = match expected_tp_authority_public_key {
+            Some(expected_tp_authority_public_key) => {
+                Initiator::from_raw_k(expected_tp_authority_public_key.into_bytes())
+            }
+            None => Initiator::without_pk(),
+        }?;
         let (mut receiver, mut sender, _, _) =
             Connection::new(stream, HandshakeRole::Initiator(initiator))
                 .await

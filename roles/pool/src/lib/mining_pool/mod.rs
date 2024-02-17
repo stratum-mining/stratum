@@ -83,6 +83,7 @@ impl TryFrom<&CoinbaseOutput> for CoinbaseOutput_ {
 pub struct Configuration {
     pub listen_address: String,
     pub tp_address: String,
+    pub tp_authority_public_key: Option<Secp256k1PublicKey>,
     pub authority_public_key: Secp256k1PublicKey,
     pub authority_secret_key: Secp256k1SecretKey,
     pub cert_validity_sec: u64,
@@ -291,7 +292,7 @@ pub fn verify_token(
     // Verify signature
     let is_verified = secp.verify_schnorr(
         &signature,
-        &secp256k1::Message::from_slice(&message)?,
+        &secp256k1::Message::from_digest_slice(&message)?,
         &x_only_public_key,
     );
 
@@ -357,8 +358,8 @@ impl Pool {
             );
 
             let responder = Responder::from_authority_kp(
-                &config.authority_public_key.clone().into_bytes(),
-                &config.authority_secret_key.clone().into_bytes(),
+                &config.authority_public_key.into_bytes(),
+                &config.authority_secret_key.into_bytes(),
                 std::time::Duration::from_secs(config.cert_validity_sec),
             );
             match responder {

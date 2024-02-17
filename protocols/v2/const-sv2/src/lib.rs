@@ -16,15 +16,22 @@ pub const NOISE_FRAME_HEADER_SIZE: usize = 2;
 pub const NOISE_FRAME_HEADER_LEN_OFFSET: usize = 0;
 pub const NOISE_FRAME_MAX_SIZE: usize = u16::MAX as usize;
 
-pub const INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_LENGTH: usize = 170;
-pub const RESPONDER_EXPECTED_HANDSHAKE_MESSAGE_LENGTH: usize = 32;
+pub const ELLSWIFT_ENCODING_SIZE: usize = 64;
+pub const RESPONDER_EXPECTED_HANDSHAKE_MESSAGE_SIZE: usize = ELLSWIFT_ENCODING_SIZE;
+pub const MAC: usize = 16;
+pub const ENCRYPTED_ELLSWIFT_ENCODING_SIZE: usize = ELLSWIFT_ENCODING_SIZE + MAC;
+pub const SIGNATURE_NOISE_MESSAGE_SIZE: usize = 74;
+pub const ENCRYPTED_SIGNATURE_NOISE_MESSAGE_SIZE: usize = SIGNATURE_NOISE_MESSAGE_SIZE + MAC;
+pub const INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE: usize = ELLSWIFT_ENCODING_SIZE
+    + ENCRYPTED_ELLSWIFT_ENCODING_SIZE
+    + ENCRYPTED_SIGNATURE_NOISE_MESSAGE_SIZE;
 
 /// If protocolName is less than or equal to 32 bytes in length, use protocolName with zero bytes
 /// appended to make 32 bytes. Otherwise, apply HASH to it. For name =
-/// "Noise_NX_secp256k1_ChaChaPoly_SHA256", we need the hash.
+/// "Noise_NX_Secp256k1+EllSwift_ChaChaPoly_SHA256", we need the hash.
 pub const NOISE_HASHED_PROTOCOL_NAME_CHACHA: [u8; 32] = [
-    168, 246, 65, 106, 218, 197, 235, 205, 62, 183, 118, 131, 234, 247, 6, 174, 180, 164, 162, 125,
-    30, 121, 156, 182, 95, 117, 218, 138, 122, 135, 4, 65,
+    46, 180, 120, 129, 32, 142, 158, 238, 31, 102, 159, 103, 198, 110, 231, 14, 169, 234, 136, 9,
+    13, 80, 63, 232, 48, 220, 75, 200, 62, 41, 191, 16,
 ];
 
 // len = 1

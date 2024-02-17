@@ -30,7 +30,7 @@ async-recursion = "1.0.0"
 error_handling = { version = "0.1", path = "../../utils/error-handling" }
 nohash-hasher = "0.2.0"
 key-utils = { version = "^1.0.0", path = "../../utils/key-utils" }
-secp256k1 = { version = "0.27.0", default-features = false, features =["bitcoin_hashes","alloc","rand","rand-std"] }
+secp256k1 = { version = "0.28.2", default-features = false, features =["alloc","rand","rand-std"] }
 
 [dev-dependencies]
 hex = "0.4.3"
