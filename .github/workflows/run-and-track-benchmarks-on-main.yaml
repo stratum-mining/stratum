@@ -1,7 +1,7 @@
 name: Run and Track Benchmarks On Main
 
 on:
-  pull_request:
+  push:
     branches:
       - main
 
