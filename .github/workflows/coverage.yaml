@@ -1,4 +1,4 @@
-# Performs test coverage of project's libraries using cargo-tarpaulin and the message-generator, 
+# Performs test coverage of project's libraries using cargo-tarpaulin and the message-generator,
 # and generates results using codecov.io.
 # The following flags are set inside `tarpaulin.toml`:
 # `features = "..."`: Includes the code with the listed features. The following features result in a
@@ -22,9 +22,6 @@ on:
     branches: [ main, dev ]
   pull_request:
     branches: [ main, dev ]
-  pull_request_review:
-    types: [submitted]
-    branches: [bot/versioning]
 
 jobs:
   tarpaulin-test:
@@ -60,7 +57,7 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
-      
+
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: 1.75.0
