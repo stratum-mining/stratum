@@ -3,7 +3,7 @@ use crate::lib::{
     mempool::{self, error::JdsMempoolError},
     status, Configuration,
 };
-use async_channel::{unbounded, Receiver, Sender};
+use async_channel::{bounded, unbounded, Receiver, Sender};
 use error_handling::handle_result;
 use roles_logic_sv2::utils::Mutex;
 use std::{ops::Sub, sync::Arc};
@@ -105,8 +105,9 @@ async fn main() {
     let url = config.core_rpc_url.clone() + ":" + &config.core_rpc_port.clone().to_string();
     let username = config.core_rpc_user.clone();
     let password = config.core_rpc_pass.clone();
+    // TODO should we manage what to do when the limit is reaced?
     let (submit_solution_sender, submit_solution_receiver): (Sender<String>, Receiver<String>) =
-        unbounded();
+        bounded(10);
     let mempool = Arc::new(Mutex::new(mempool::JDsMempool::new(
         url.clone(),
         username,
@@ -124,9 +125,9 @@ async fn main() {
         let sender_update_mempool = sender.clone();
         task::spawn(async move {
             loop {
-                let result: Result<(), mempool::error::JdsMempoolError> =
+                let update_mempool_result: Result<(), mempool::error::JdsMempoolError> =
                     mempool::JDsMempool::update_mempool(mempool_cloned_.clone()).await;
-                if let Err(err) = result {
+                if let Err(err) = update_mempool_result {
                     match err {
                         JdsMempoolError::EmptyMempool => {
                             if last_empty_mempool_warning.elapsed().as_secs() >= 60 {
@@ -135,16 +136,25 @@ async fn main() {
                                 last_empty_mempool_warning = std::time::Instant::now();
                             }
                         }
-                        _ => {
+                        JdsMempoolError::NoClient => {
+                            mempool::error::handle_error(&err);
+                            handle_result!(sender_update_mempool, Err(err));
+                        }
+                        JdsMempoolError::Rpc(_) => {
+                            mempool::error::handle_error(&err);
+                            handle_result!(sender_update_mempool, Err(err));
+                        }
+                        JdsMempoolError::TokioJoin(_) => {
+                            mempool::error::handle_error(&err);
+                            handle_result!(sender_update_mempool, Err(err));
+                        }
+                        JdsMempoolError::PoisonLock(_) => {
                             mempool::error::handle_error(&err);
                             handle_result!(sender_update_mempool, Err(err));
                         }
                     }
                 }
                 tokio::time::sleep(mempool_update_interval).await;
-                // GET TRANSACTION LIST, FOR DEBUG PURPOSES
-                //let _transactions =
-                //    mempool::JDsMempool::_get_transaction_list(mempool_cloned_.clone());
             }
         });
     };

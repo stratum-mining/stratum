@@ -6,8 +6,10 @@ use std::{
 };
 
 use binary_sv2::{Seq064K, ShortTxId, U256};
+use job_declaration_sv2::{DeclareMiningJob, SubmitSolutionJd};
 use siphasher::sip::SipHasher24;
 //compact_target_from_u256
+use bitcoin::Block;
 use stratum_common::{
     bitcoin,
     bitcoin::{
@@ -737,6 +739,48 @@ fn tx_hash_list_hash_builder(txid_list: Vec<bitcoin::Txid>) -> U256<'static> {
     }
     let hash = sha256::Hash::hash(&vec_u8).as_inner().to_owned();
     hash.to_vec().try_into().unwrap()
+}
+
+pub fn submit_solution_to_block(
+    last_declare: DeclareMiningJob,
+    mut tx_list: Vec<bitcoin::Transaction>,
+    message: SubmitSolutionJd,
+) -> bitcoin::Block {
+    let coinbase_pre = last_declare.coinbase_prefix.to_vec();
+    let extranonce = message.extranonce.to_vec();
+    let coinbase_suf = last_declare.coinbase_suffix.to_vec();
+    let mut path: Vec<Vec<u8>> = vec![];
+    for tx in &tx_list {
+        let id = tx.txid();
+        let id = id.as_ref().to_vec();
+        path.push(id);
+    }
+    let merkle_root =
+        merkle_root_from_path(&coinbase_pre[..], &coinbase_suf[..], &extranonce[..], &path)
+            .expect("Invalid coinbase");
+    let merkle_root = Hash::from_inner(merkle_root.try_into().unwrap());
+
+    let prev_blockhash = u256_to_block_hash(message.prev_hash.into_static());
+    let header = stratum_common::bitcoin::blockdata::block::BlockHeader {
+        version: last_declare.version as i32,
+        prev_blockhash,
+        merkle_root,
+        time: message.ntime,
+        bits: message.nbits,
+        nonce: message.nonce,
+    };
+
+    let coinbase = [coinbase_pre, extranonce, coinbase_suf].concat();
+    let coinbase = Transaction::deserialize(&coinbase[..]).unwrap();
+    tx_list.insert(0, coinbase);
+
+    let mut block = Block {
+        header,
+        txdata: tx_list.clone(),
+    };
+
+    block.header.merkle_root = block.compute_merkle_root().unwrap();
+    block
 }
 
 #[cfg(test)]

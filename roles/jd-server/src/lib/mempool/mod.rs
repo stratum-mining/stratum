@@ -1,27 +1,12 @@
 pub mod error;
-//pub mod hex_iterator;
-pub mod mini_rpc_client;
-//pub mod rpc_client;
 use crate::mempool::error::JdsMempoolError;
 use async_channel::Receiver;
 use bitcoin::blockdata::transaction::Transaction;
 use hashbrown::HashMap;
-use mini_rpc_client::RpcError;
 use roles_logic_sv2::utils::Mutex;
-use serde::{Deserialize, Serialize};
+use rpc::mini_rpc_client;
 use std::{convert::TryInto, sync::Arc};
 use stratum_common::{bitcoin, bitcoin::hash_types::Txid};
-
-//use self::rpc_client::BitcoincoreRpcError;
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct Hash([u8; 32]);
-
-#[derive(Clone, Deserialize)]
-pub struct Amount(f64);
-
-#[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct BlockHash(Hash);
 
 #[derive(Clone, Debug)]
 pub struct TransacrtionWithHash {
@@ -48,7 +33,8 @@ impl JDsMempool {
         }
     }
 
-    // This function is used only for debug purposes
+    /// This function is used only for debug purposes and should not be used
+    /// in production code.
     pub fn _get_transaction_list(self_: Arc<Mutex<Self>>) -> Vec<Txid> {
         let tx_list = self_.safe_lock(|x| x.mempool.clone()).unwrap();
         let tx_list_: Vec<Txid> = tx_list.iter().map(|n| n.id).collect();

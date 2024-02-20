@@ -10,9 +10,9 @@ use nohash_hasher::BuildNoHashHasher;
 use roles_logic_sv2::{
     common_messages_sv2::SetupConnectionSuccess,
     handlers::job_declaration::{ParseClientJobDeclarationMessages, SendTo},
-    job_declaration_sv2::DeclareMiningJob,
+    job_declaration_sv2::{DeclareMiningJob, SubmitSolutionJd},
     parsers::{JobDeclaration, PoolMessages as JdsMessages},
-    utils::{merkle_root_from_path, u256_to_block_hash, Id, Mutex},
+    utils::{Id, Mutex},
 };
 use secp256k1::{Keypair, Message as SecpMessage, Secp256k1};
 use std::{collections::HashMap, convert::TryInto, sync::Arc};
@@ -21,8 +21,6 @@ use tracing::{error, info, warn};
 
 use stratum_common::bitcoin::{
     consensus::{encode::serialize, Encodable},
-    hashes::Hash,
-    psbt::serialize::Deserialize,
     Block, Transaction,
 };
 
@@ -72,6 +70,24 @@ impl JobDeclaratorDownstream {
         }
     }
 
+    fn get_block_hex(self_mutex: Arc<Mutex<Self>>, message: SubmitSolutionJd) -> String {
+        //TODO: implement logic for success or error
+        let (last_declare, tx_list, _) = match self_mutex
+            .safe_lock(|x| x.declared_mining_job.take())
+            .unwrap()
+        {
+            Some((last_declare, tx_list, _x)) => (last_declare, tx_list, _x),
+            None => {
+                warn!("Received solution but no job available");
+                todo!()
+            }
+        };
+        let block: Block =
+            roles_logic_sv2::utils::submit_solution_to_block(last_declare, tx_list, message);
+        let serialized_block = serialize(&block);
+        hex::encode(serialized_block)
+    }
+
     pub async fn send(
         self_mutex: Arc<Mutex<Self>>,
         message: roles_logic_sv2::parsers::JobDeclaration<'static>,
@@ -112,62 +128,10 @@ impl JobDeclaratorDownstream {
                             Ok(SendTo::RelayNewMessage(JobDeclaration::SubmitSolution(
                                 message,
                             ))) => {
-                                //TODO: implement logic for success or error
-                                let (last_declare, mut tx_list, _) = match self_mutex
-                                    .safe_lock(|x| x.declared_mining_job.take())
-                                    .unwrap()
-                                {
-                                    Some((last_declare, tx_list, _x)) => {
-                                        (last_declare, tx_list, _x)
-                                    }
-                                    None => {
-                                        warn!("Received solution but no job available");
-                                        todo!()
-                                    }
-                                };
-                                let coinbase_pre = last_declare.coinbase_prefix.to_vec();
-                                let extranonce = message.extranonce.to_vec();
-                                let coinbase_suf = last_declare.coinbase_suffix.to_vec();
-                                let mut path: Vec<Vec<u8>> = vec![];
-                                for tx in &tx_list {
-                                    let id = tx.txid();
-                                    let id = id.as_ref().to_vec();
-                                    path.push(id);
-                                }
-                                let merkle_root = merkle_root_from_path(
-                                    &coinbase_pre[..],
-                                    &coinbase_suf[..],
-                                    &extranonce[..],
-                                    &path,
-                                )
-                                .expect("Invalid coinbase");
-                                let merkle_root = Hash::from_inner(merkle_root.try_into().unwrap());
-
-                                let prev_blockhash =
-                                    u256_to_block_hash(message.prev_hash.into_static());
-                                let header =
-                                    stratum_common::bitcoin::blockdata::block::BlockHeader {
-                                        version: last_declare.version as i32,
-                                        prev_blockhash,
-                                        merkle_root,
-                                        time: message.ntime,
-                                        bits: message.nbits,
-                                        nonce: message.nonce,
-                                    };
-
-                                let coinbase = [coinbase_pre, extranonce, coinbase_suf].concat();
-                                let coinbase = Transaction::deserialize(&coinbase[..]).unwrap();
-                                tx_list.insert(0, coinbase);
-
-                                let mut block = Block {
-                                    header,
-                                    txdata: tx_list.clone(),
-                                };
-
-                                block.header.merkle_root = block.compute_merkle_root().unwrap();
-
-                                let serialized_block = serialize(&block);
-                                let hexdata = hex::encode(serialized_block);
+                                let hexdata = JobDeclaratorDownstream::get_block_hex(
+                                    self_mutex.clone(),
+                                    message,
+                                );
 
                                 let _ = submit_solution_sender.send(hexdata).await;
                             }

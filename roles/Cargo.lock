@@ -1121,29 +1121,23 @@ name = "jd_server"
 version = "0.1.0"
 dependencies = [
  "async-channel 1.9.0",
- "async-recursion 1.0.5",
- "base64",
  "binary_sv2",
  "buffer_sv2",
- "bytes",
  "codec_sv2",
  "const_sv2",
  "error_handling",
  "hashbrown 0.11.2",
  "hex",
- "http-body-util",
- "hyper",
- "hyper-util",
  "key-utils",
  "network_helpers",
  "nohash-hasher",
  "noise_sv2",
  "rand",
  "roles_logic_sv2",
+ "rpc",
  "secp256k1 0.28.2",
  "serde",
  "serde_json",
- "siphasher",
  "stratum-common",
  "tokio",
  "toml",
@@ -1689,6 +1683,21 @@ dependencies = [
  "stratum-common",
  "template_distribution_sv2",
  "tracing",
+]
+
+[[package]]
+name = "rpc"
+version = "0.1.0"
+dependencies = [
+ "base64",
+ "bytes",
+ "hex",
+ "http-body-util",
+ "hyper",
+ "hyper-util",
+ "serde",
+ "serde_json",
+ "stratum-common",
 ]
 
 [[package]]
