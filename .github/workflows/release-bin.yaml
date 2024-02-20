@@ -1,198 +1,260 @@
-# as well as releasing binaries of the roles
-# (translator, pool, mining_proxy) to github.
-# If the binary releases do fail to due to not having tags, force run the `autoversion` workflow
+# This workflow is used to create a new release with a binary distribution or SRI roles
+# If the binary releases fails due to not having tags, force run the `autoversion` workflow
 # on the main branch and merge the resulting PR to create the tags and move them to the main branch.
 
 name: Release Binaries
-on: 
+
+on:
   # Manually run by going to "Actions/Release" in Github and running the workflow
   workflow_dispatch:
 
 jobs:
-    github_release_translator:
+  release_pool:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        include:
-          - os: ubuntu-latest
-            artifact_name: translator_sv2
-            asset_name: translator_sv2-linux-amd64
-          # - os: windows-latest
-          #   artifact_name: translator_sv2.exe
-          #   asset_name: translator_sv2-windows-amd64
-          - os: macos-latest
-            artifact_name: translator_sv2
-            asset_name: translator_sv2-macos-amd64
-              
-    
+        os: [ubuntu-latest, macos-latest]
     steps:
       - uses: actions/checkout@v3
-      # The tags are not in scope until we fetch them from main
-      # This will fail if there are no tags available
-      - name: fetch tags
-        run: git fetch origin --tags
-      
-      # Find the latest translator tag by listing folders in `.git/refs/tags` with pattern `translator_sv2`,
-      # taking the last one, and setting to `TRANSLATOR_TAG` env variable. This will be used as the "tag" in the 
-      # Build step
-      - name: set env unix
-        if: matrix.os == 'ubuntu-latest' || matrix.os == 'macos-latest'
-        run: echo "TRANSLATOR_TAG=$(echo refs/tags/$(ls .git/refs/tags | grep 'translator_sv2' | tail -n 1))" >> $GITHUB_ENV
-      
-      # This does not work
-      - name: set env windows
-        if: matrix.os == 'windows-latest'
-        run: echo "$(dir .git/refs/tags | findstr "translator_sv2")"
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
 
-      # This will fail on a Windows build. Must use if statement to check if running on Windows and use `dir` instead)
-      # `dir` will fail on mac builds
-      - name: check refs
-        run: ls .git/refs/tags
-      
-      # Debugging step to ensure tag is correct
-      - name: check env
-        if: matrix.os == 'ubuntu-latest' || matrix.os == 'macos-latest'
-        run: echo ${{ env.TRANSLATOR_TAG }}
+      - name: Compile Native
+        run: cargo build --release --locked --manifest-path=roles/pool/Cargo.toml
 
-      # Debugging step to ensure tag is correct
-      - name: check env
-        if: matrix.os == 'windows-latest'
-        run: echo "${{ env.TRANSLATOR_TAG }}"
+      - name: Install aarch64-apple-darwin target
+        if: matrix.os == 'macos-latest'
+        run: rustup target add aarch64-apple-darwin
 
-      # Action to release build by given tag
-      - name: Build
-        run: cargo build --release --locked --package translator_sv2
-      - name: Upload binaries to release
+      - name: Compile MacOS ARM64
+        if: matrix.os == 'macos-latest'
+        run: cargo build --release --locked --manifest-path=roles/pool/Cargo.toml --target=aarch64-apple-darwin
+
+      - name: Upload Linux x86-64 binaries to release
+        if: matrix.os == 'ubuntu-latest'
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: target/release/${{ matrix.artifact_name }}
-          asset_name: ${{ matrix.asset_name }}
-          tag: ${{ env.TRANSLATOR_TAG }}
+          file: roles/target/release/pool_sv2
+          asset_name: pool_sv2-x86_64-linux-gnu
+          tag: ${{ github.ref }}
 
-  github_release_pool:
+      - name: Upload MacOS x86-64 binaries to release
+        if: matrix.os == 'macos-latest'
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: roles/target/release/pool_sv2
+          asset_name: pool_sv2-x86_64-apple-darwin
+          tag: ${{ github.ref }}
+
+      - name: Upload MacOS ARM64 binaries to release
+        if: matrix.os == 'macos-latest'
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: roles/target/aarch64-apple-darwin/release/pool_sv2
+          asset_name: pool_sv2-aarch64-apple-darwin
+          tag: ${{ github.ref }}
+
+  release_jdc:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-      # This defines what environments we will build on
-        include:
-          - os: ubuntu-latest
-            artifact_name: pool_sv2
-            asset_name: pool_sv2-linux-amd64
-          # - os: windows-latest
-          #   artifact_name: pool_sv2.exe
-          #   asset_name: pool_sv2-windows-amd64
-          - os: macos-latest
-            artifact_name: pool_sv2
-            asset_name: pool_sv2-macos-amd64
-              
-    
+        os: [ ubuntu-latest, macos-latest ]
     steps:
       - uses: actions/checkout@v3
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
 
-      # The tags are not in scope until we fetch them from main
-      # This will fail if there are no tags available
-      - name: fetch tags
-        run: git fetch origin --tags
-      
-      # Find the latest pool tag by listing folders in `.git/refs/tags` with pattern `pool_sv2`,
-      # taking the last one, and setting to `POOL_TAG` env variable. This will be used as the "tag" in the 
-      # Build step
-      - name: set env unix
-        if: matrix.os == 'ubuntu-latest' || matrix.os == 'macos-latest'
-        run: echo "POOL_TAG=$(echo refs/tags/$(ls .git/refs/tags | grep 'pool_sv2' | tail -n 1))" >> $GITHUB_ENV
-      
-      # This does not work
-      - name: set env windows
-        if: matrix.os == 'windows-latest'
-        run: echo "$(dir .git/refs/tags | findstr "pool_sv2")"
+      - name: Compile Native
+        run: cargo build --release --locked --manifest-path=roles/jd-client/Cargo.toml
 
-      # This will fail on a Windows build. Must use if statement to check if running on Windows and use `dir` instead)
-      # `dir` will fail on mac builds
-      - name: check refs
-        run: ls .git/refs/tags
+      - name: Install aarch64-apple-darwin target
+        if: matrix.os == 'macos-latest'
+        run: rustup target add aarch64-apple-darwin
 
-      # Debugging step to ensure tag is correct
-      - name: check env
-        if: matrix.os == 'ubuntu-latest' || matrix.os == 'macos-latest'
-        run: echo ${{ env.POOL_TAG }}
+      - name: Compile MacOS ARM64
+        if: matrix.os == 'macos-latest'
+        run: cargo build --release --locked --manifest-path=roles/jd-client/Cargo.toml --target=aarch64-apple-darwin
 
-      # Debugging step to ensure tag is correct
-      - name: check env
-        if: matrix.os == 'windows-latest'
-        run: echo "${{ env.POOL_TAG }}"
-
-      # Action to release build by given tag
-      - name: Build
-        run: cargo build --release --locked --package pool_sv2
-      - name: Upload binaries to release
+      - name: Upload Linux x86-64 binaries to release
+        if: matrix.os == 'ubuntu-latest'
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: target/release/${{ matrix.artifact_name }}
-          asset_name: ${{ matrix.asset_name }}
-          tag: ${{ env.POOL_TAG }}
+          file: roles/target/release/jd_client
+          asset_name: jd_client-x86_64-linux-gnu
+          tag: ${{ github.ref }}
 
-  github_release_mining_proxy:
+      - name: Upload MacOS x86-64 binaries to release
+        if: matrix.os == 'macos-latest'
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: roles/target/release/jd_client
+          asset_name: jd_client-x86_64-apple-darwin
+          tag: ${{ github.ref }}
+
+      - name: Upload MacOS ARM64 binaries to release
+        if: matrix.os == 'macos-latest'
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: roles/target/aarch64-apple-darwin/release/jd_client
+          asset_name: jd_client-aarch64-apple-darwin
+          tag: ${{ github.ref }}
+
+  release_jds:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-      # This defines what environments we will build on
-        include:
-          - os: ubuntu-latest
-            artifact_name: mining_proxy_sv2
-            asset_name: mining_proxy_sv2-linux-amd64
-          # - os: windows-latest
-          #   artifact_name: mining_proxy_sv2.exe
-          #   asset_name: mining_proxy_sv2-windows-amd64
-          - os: macos-latest
-            artifact_name: mining_proxy_sv2
-            asset_name: mining_proxy_sv2-macos-amd64
-              
-    
+        os: [ ubuntu-latest, macos-latest ]
     steps:
       - uses: actions/checkout@v3
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
 
-      # The tags are not in scope until we fetch them from main
-      # This will fail if there are no tags available
-      - name: fetch tags
-        run: git fetch origin --tags
-      
-      # Find the latest mining proxy tag by listing folders in `.git/refs/tags` with pattern `mining_proxy_sv2`,
-      # taking the last one, and setting to `MINING_PROXY_TAG` env variable. This will be used as the "tag" in the 
-      # Build step
-      - name: set env unix
-        if: matrix.os == 'ubuntu-latest' || matrix.os == 'macos-latest'
-        run: echo "MINING_PROXY_TAG=$(echo refs/tags/$(ls .git/refs/tags | grep 'mining_proxy_sv2' | tail -n 1))" >> $GITHUB_ENV
-      
-      # This does not work
-      - name: set env windows
-        if: matrix.os == 'windows-latest'
-        run: echo "$(dir .git/refs/tags | findstr "mining_proxy_sv2")"
+      - name: Compile Native
+        run: cargo build --release --locked --manifest-path=roles/jd-server/Cargo.toml
 
-      # This will fail on a Windows build. Must use if statement to check if running on Windows and use `dir` instead)
-      # `dir` will fail on mac builds
-      - name: check refs
-        run: ls .git/refs/tags
+      - name: Install aarch64-apple-darwin target
+        if: matrix.os == 'macos-latest'
+        run: rustup target add aarch64-apple-darwin
 
-      # Debugging step to ensure tag is correct
-      - name: check env
-        if: matrix.os == 'ubuntu-latest' || matrix.os == 'macos-latest'
-        run: echo ${{ env.MINING_PROXY_TAG }}
+      - name: Compile MacOS ARM64
+        if: matrix.os == 'macos-latest'
+        run: cargo build --release --locked --manifest-path=roles/jd-server/Cargo.toml --target=aarch64-apple-darwin
 
-      # Debugging step to ensure tag is correct
-      - name: check env
-        if: matrix.os == 'windows-latest'
-        run: echo "${{ env.MINING_PROXY_TAG }}"
-
-      # Action to release build by given tag
-      - name: Build
-        run: cargo build --release --locked --package mining_proxy_sv2
-      - name: Upload binaries to release
+      - name: Upload Linux x86-64 binaries to release
+        if: matrix.os == 'ubuntu-latest'
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: target/release/${{ matrix.artifact_name }}
-          asset_name: ${{ matrix.asset_name }}
-          tag: ${{ env.MINING_PROXY_TAG }}
+          file: roles/target/release/jd_server
+          asset_name: jd_server-x86_64-linux-gnu
+          tag: ${{ github.ref }}
 
+      - name: Upload MacOS x86-64 binaries to release
+        if: matrix.os == 'macos-latest'
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: roles/target/release/jd_server
+          asset_name: jd_server-x86_64-apple-darwin
+          tag: ${{ github.ref }}
+
+      - name: Upload MacOS ARM64 binaries to release
+        if: matrix.os == 'macos-latest'
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: roles/target/aarch64-apple-darwin/release/jd_server
+          asset_name: jd_server-aarch64-apple-darwin
+          tag: ${{ github.ref }}
+
+  release_proxy:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ ubuntu-latest, macos-latest ]
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Compile Native
+        run: cargo build --release --locked --manifest-path=roles/mining-proxy/Cargo.toml
+
+      - name: Install aarch64-apple-darwin target
+        if: matrix.os == 'macos-latest'
+        run: rustup target add aarch64-apple-darwin
+
+      - name: Compile MacOS ARM64
+        if: matrix.os == 'macos-latest'
+        run: cargo build --release --locked --manifest-path=roles/mining-proxy/Cargo.toml --target=aarch64-apple-darwin
+
+      - name: Upload Linux x86-64 binaries to release
+        if: matrix.os == 'ubuntu-latest'
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: roles/target/release/mining_proxy_sv2
+          asset_name: mining_proxy_sv2-x86_64-linux-gnu
+          tag: ${{ github.ref }}
+
+      - name: Upload MacOS x86-64 binaries to release
+        if: matrix.os == 'macos-latest'
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: roles/target/release/mining_proxy_sv2
+          asset_name: mining_proxy_sv2-x86_64-apple-darwin
+          tag: ${{ github.ref }}
+
+      - name: Upload MacOS ARM64 binaries to release
+        if: matrix.os == 'macos-latest'
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: roles/target/aarch64-apple-darwin/release/mining_proxy_sv2
+          asset_name: mining_proxy_sv2-aarch64-apple-darwin
+          tag: ${{ github.ref }}
+
+  release_translator:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ ubuntu-latest, macos-latest ]
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Compile Native
+        run: cargo build --release --locked --manifest-path=roles/translator/Cargo.toml
+
+      - name: Install aarch64-apple-darwin target
+        if: matrix.os == 'macos-latest'
+        run: rustup target add aarch64-apple-darwin
+
+      - name: Compile MacOS ARM64
+        if: matrix.os == 'macos-latest'
+        run: cargo build --release --locked --manifest-path=roles/translator/Cargo.toml --target=aarch64-apple-darwin
+
+      - name: Upload Linux x86-64 binaries to release
+        if: matrix.os == 'ubuntu-latest'
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: roles/target/release/translator_sv2
+          asset_name: translator_sv2-x86_64-linux-gnu
+          tag: ${{ github.ref }}
+
+      - name: Upload MacOS x86-64 binaries to release
+        if: matrix.os == 'macos-latest'
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: roles/target/release/translator_sv2
+          asset_name: translator_sv2-x86_64-apple-darwin
+          tag: ${{ github.ref }}
+
+      - name: Upload MacOS ARM64 binaries to release
+        if: matrix.os == 'macos-latest'
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: roles/target/aarch64-apple-darwin/release/translator_sv2
+          asset_name: translator_sv2-aarch64-apple-darwin
+          tag: ${{ github.ref }}
