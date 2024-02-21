@@ -155,6 +155,8 @@ async fn main() {
                     }
                 }
                 tokio::time::sleep(mempool_update_interval).await;
+                // DO NOT REMOVE THIS LINE
+                //let _transactions = mempool::JDsMempool::_get_transaction_list(mempool_cloned_.clone());
             }
         });
     };

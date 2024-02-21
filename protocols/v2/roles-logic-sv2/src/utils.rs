@@ -741,46 +741,67 @@ fn tx_hash_list_hash_builder(txid_list: Vec<bitcoin::Txid>) -> U256<'static> {
     hash.to_vec().try_into().unwrap()
 }
 
-pub fn submit_solution_to_block(
-    last_declare: DeclareMiningJob,
-    mut tx_list: Vec<bitcoin::Transaction>,
-    message: SubmitSolutionJd,
-) -> bitcoin::Block {
-    let coinbase_pre = last_declare.coinbase_prefix.to_vec();
-    let extranonce = message.extranonce.to_vec();
-    let coinbase_suf = last_declare.coinbase_suffix.to_vec();
-    let mut path: Vec<Vec<u8>> = vec![];
-    for tx in &tx_list {
-        let id = tx.txid();
-        let id = id.as_ref().to_vec();
-        path.push(id);
+pub struct BlockCreator<'a> {
+    last_declare: DeclareMiningJob<'a>,
+    tx_list: Vec<bitcoin::Transaction>,
+    message: SubmitSolutionJd<'a>,
+}
+impl<'a> BlockCreator<'a> {
+    pub fn new(
+        last_declare: DeclareMiningJob<'a>,
+        tx_list: Vec<bitcoin::Transaction>,
+        message: SubmitSolutionJd<'a>,
+    ) -> BlockCreator<'a> {
+        BlockCreator {
+            last_declare,
+            tx_list,
+            message,
+        }
     }
-    let merkle_root =
-        merkle_root_from_path(&coinbase_pre[..], &coinbase_suf[..], &extranonce[..], &path)
-            .expect("Invalid coinbase");
-    let merkle_root = Hash::from_inner(merkle_root.try_into().unwrap());
+}
 
-    let prev_blockhash = u256_to_block_hash(message.prev_hash.into_static());
-    let header = stratum_common::bitcoin::blockdata::block::BlockHeader {
-        version: last_declare.version as i32,
-        prev_blockhash,
-        merkle_root,
-        time: message.ntime,
-        bits: message.nbits,
-        nonce: message.nonce,
-    };
+impl<'a> From<BlockCreator<'a>> for bitcoin::Block {
+    fn from(block_creator: BlockCreator<'a>) -> bitcoin::Block {
+        let last_declare = block_creator.last_declare;
+        let mut tx_list = block_creator.tx_list;
+        let message = block_creator.message;
 
-    let coinbase = [coinbase_pre, extranonce, coinbase_suf].concat();
-    let coinbase = Transaction::deserialize(&coinbase[..]).unwrap();
-    tx_list.insert(0, coinbase);
+        let coinbase_pre = last_declare.coinbase_prefix.to_vec();
+        let extranonce = message.extranonce.to_vec();
+        let coinbase_suf = last_declare.coinbase_suffix.to_vec();
+        let mut path: Vec<Vec<u8>> = vec![];
+        for tx in &tx_list {
+            let id = tx.txid();
+            let id = id.as_ref().to_vec();
+            path.push(id);
+        }
+        let merkle_root =
+            merkle_root_from_path(&coinbase_pre[..], &coinbase_suf[..], &extranonce[..], &path)
+                .expect("Invalid coinbase");
+        let merkle_root = Hash::from_inner(merkle_root.try_into().unwrap());
 
-    let mut block = Block {
-        header,
-        txdata: tx_list.clone(),
-    };
+        let prev_blockhash = u256_to_block_hash(message.prev_hash.into_static());
+        let header = stratum_common::bitcoin::blockdata::block::BlockHeader {
+            version: last_declare.version as i32,
+            prev_blockhash,
+            merkle_root,
+            time: message.ntime,
+            bits: message.nbits,
+            nonce: message.nonce,
+        };
 
-    block.header.merkle_root = block.compute_merkle_root().unwrap();
-    block
+        let coinbase = [coinbase_pre, extranonce, coinbase_suf].concat();
+        let coinbase = Transaction::deserialize(&coinbase[..]).unwrap();
+        tx_list.insert(0, coinbase);
+
+        let mut block = Block {
+            header,
+            txdata: tx_list.clone(),
+        };
+
+        block.header.merkle_root = block.compute_merkle_root().unwrap();
+        block
+    }
 }
 
 #[cfg(test)]

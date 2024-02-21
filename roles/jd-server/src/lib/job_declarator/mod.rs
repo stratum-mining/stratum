@@ -17,7 +17,7 @@ use roles_logic_sv2::{
 use secp256k1::{Keypair, Message as SecpMessage, Secp256k1};
 use std::{collections::HashMap, convert::TryInto, sync::Arc};
 use tokio::net::TcpListener;
-use tracing::{error, info, warn};
+use tracing::{error, info};
 
 use stratum_common::bitcoin::{
     consensus::{encode::serialize, Encodable},
@@ -70,22 +70,18 @@ impl JobDeclaratorDownstream {
         }
     }
 
-    fn get_block_hex(self_mutex: Arc<Mutex<Self>>, message: SubmitSolutionJd) -> String {
+    fn get_block_hex(self_mutex: Arc<Mutex<Self>>, message: SubmitSolutionJd) -> Option<String> {
         //TODO: implement logic for success or error
         let (last_declare, tx_list, _) = match self_mutex
             .safe_lock(|x| x.declared_mining_job.take())
             .unwrap()
         {
             Some((last_declare, tx_list, _x)) => (last_declare, tx_list, _x),
-            None => {
-                warn!("Received solution but no job available");
-                todo!()
-            }
+            None => return None,
         };
         let block: Block =
-            roles_logic_sv2::utils::submit_solution_to_block(last_declare, tx_list, message);
-        let serialized_block = serialize(&block);
-        hex::encode(serialized_block)
+            roles_logic_sv2::utils::BlockCreator::new(last_declare, tx_list, message).into();
+        Some(hex::encode(serialize(&block)))
     }
 
     pub async fn send(
@@ -124,17 +120,63 @@ impl JobDeclaratorDownstream {
                             Ok(SendTo::Respond(message)) => {
                                 Self::send(self_mutex.clone(), message).await.unwrap();
                             }
-                            Ok(SendTo::None(_)) => (),
-                            Ok(SendTo::RelayNewMessage(JobDeclaration::SubmitSolution(
-                                message,
-                            ))) => {
-                                let hexdata = JobDeclaratorDownstream::get_block_hex(
-                                    self_mutex.clone(),
-                                    message,
-                                );
-
-                                let _ = submit_solution_sender.send(hexdata).await;
+                            Ok(SendTo::RelayNewMessage(message)) => {
+                                error!("JD Server: unexpected relay new message {:?}", message);
                             }
+                            Ok(SendTo::RelayNewMessageToRemote(remote, message)) => {
+                                error!("JD Server: unexpected relay new message to remote. Remote: {:?}, Message: {:?}", remote, message);
+                            }
+                            Ok(SendTo::RelaySameMessageToRemote(remote)) => {
+                                error!("JD Server: unexpected relay same message to remote. Remote: {:?}", remote);
+                            }
+                            Ok(SendTo::Multiple(multiple)) => {
+                                error!("JD Server: unexpected multiple messages: {:?}", multiple);
+                            }
+                            Ok(SendTo::None(m)) => match m {
+                                Some(JobDeclaration::SubmitSolution(message)) => {
+                                    let hexdata = match JobDeclaratorDownstream::get_block_hex(
+                                        self_mutex.clone(),
+                                        message,
+                                    ) {
+                                        Some(inner) => inner,
+                                        None => {
+                                            error!("Received solution but no job available");
+                                            recv.close();
+                                            break;
+                                        }
+                                    };
+
+                                    let _ = submit_solution_sender.send(hexdata).await;
+                                }
+                                Some(JobDeclaration::DeclareMiningJob(_)) => {
+                                    error!("JD Server received an unexpected message {:?}", m);
+                                }
+                                Some(JobDeclaration::DeclareMiningJobSuccess(_)) => {
+                                    error!("JD Server received an unexpected message {:?}", m);
+                                }
+                                Some(JobDeclaration::DeclareMiningJobError(_)) => {
+                                    error!("JD Server received an unexpected message {:?}", m);
+                                }
+                                Some(JobDeclaration::IdentifyTransactions(_)) => {
+                                    error!("JD Server received an unexpected message {:?}", m);
+                                }
+                                Some(JobDeclaration::IdentifyTransactionsSuccess(_)) => {
+                                    error!("JD Server received an unexpected message {:?}", m);
+                                }
+                                Some(JobDeclaration::AllocateMiningJobToken(_)) => {
+                                    error!("JD Server received an unexpected message {:?}", m);
+                                }
+                                Some(JobDeclaration::AllocateMiningJobTokenSuccess(_)) => {
+                                    error!("JD Server received an unexpected message {:?}", m);
+                                }
+                                Some(JobDeclaration::ProvideMissingTransactions(_)) => {
+                                    error!("JD Server received an unexpected message {:?}", m);
+                                }
+                                Some(JobDeclaration::ProvideMissingTransactionsSuccess(_)) => {
+                                    error!("JD Server received an unexpected message {:?}", m);
+                                }
+                                None => (),
+                            },
                             Err(e) => {
                                 error!("{:?}", e);
                                 handle_result!(
@@ -144,7 +186,6 @@ impl JobDeclaratorDownstream {
                                 recv.close();
                                 break;
                             }
-                            _ => unreachable!(),
                         }
                     }
                     Err(err) => {

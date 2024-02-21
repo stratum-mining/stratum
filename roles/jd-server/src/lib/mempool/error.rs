@@ -2,8 +2,6 @@ use rpc::mini_rpc_client::RpcError;
 use tokio::task::JoinError;
 use tracing::{error, warn};
 
-// TODO this should be includede in JdsError
-
 #[derive(Debug)]
 pub enum JdsMempoolError {
     EmptyMempool,

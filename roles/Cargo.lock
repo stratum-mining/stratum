@@ -1690,7 +1690,6 @@ name = "rpc"
 version = "0.1.0"
 dependencies = [
  "base64",
- "bytes",
  "hex",
  "http-body-util",
  "hyper",

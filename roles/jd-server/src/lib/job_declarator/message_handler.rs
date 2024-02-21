@@ -7,9 +7,8 @@ use roles_logic_sv2::{
         ProvideMissingTransactions, ProvideMissingTransactionsSuccess, SubmitSolutionJd,
     },
     parsers::JobDeclaration,
-    utils::Mutex,
 };
-use std::{convert::TryInto, io::Cursor, sync::Arc};
+use std::{convert::TryInto, io::Cursor};
 use stratum_common::bitcoin::Transaction;
 pub type SendTo = SendTo_<JobDeclaration<'static>, ()>;
 use roles_logic_sv2::{errors::Error, parsers::PoolMessages as AllMessages};
@@ -177,12 +176,9 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
         }
     }
 
-    fn handle_submit_solution(
-        _self: Arc<Mutex<Self>>,
-        message: SubmitSolutionJd<'_>,
-    ) -> Result<SendTo, Error> {
+    fn handle_submit_solution(&mut self, message: SubmitSolutionJd<'_>) -> Result<SendTo, Error> {
         let m = JobDeclaration::SubmitSolution(message.clone().into_static());
 
-        Ok(SendTo::RelayNewMessage(m))
+        Ok(SendTo::None(Some(m)))
     }
 }

@@ -4,10 +4,10 @@
 //  - use https for security reasons
 //  - manage id in RpcResult messages
 use base64::Engine;
-use bytes::Bytes;
 use hex::decode;
 use http_body_util::{BodyExt, Full};
 use hyper::{
+    body::Bytes,
     header::{AUTHORIZATION, CONTENT_TYPE},
     Request,
 };
@@ -24,7 +24,6 @@ use super::BlockHash;
 #[derive(Clone, Debug)]
 pub struct MiniRpcClient {
     client: Client<HttpConnector, Full<Bytes>>,
-    //url: &'a str,
     url: String,
     auth: Auth,
 }
