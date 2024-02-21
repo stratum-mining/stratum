@@ -10,7 +10,7 @@ jobs:
     name: Track sv1 criterion benchmarks with Bencher
     runs-on: ubuntu-latest
     env:
-        BENCHER_PROJECT: stratum
+        BENCHER_PROJECT: stratum-v2-sri
         BENCHER_API_TOKEN: ${{ secrets.BENCHER_API_TOKEN }}
         BENCHER_ADAPTER: rust_criterion
         BENCHER_TESTBED: sv1
@@ -19,7 +19,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: 1.70.0
+          toolchain: 1.75.0
           override: true
       - name: Checkout repository
         uses: actions/checkout@v2
@@ -37,7 +37,7 @@ jobs:
     name: Track sv2 criterion benchmarks with Bencher
     runs-on: ubuntu-latest
     env:
-        BENCHER_PROJECT: stratum
+        BENCHER_PROJECT: stratum-v2-sri
         BENCHER_API_TOKEN: ${{ secrets.BENCHER_API_TOKEN }}
         BENCHER_ADAPTER: rust_criterion
         BENCHER_TESTBED: sv2
@@ -46,7 +46,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: 1.70.0
+          toolchain: 1.75.0
           override: true
       - name: Checkout repository
         uses: actions/checkout@v2
@@ -64,7 +64,7 @@ jobs:
     name: Track sv1 iai benchmarks with Bencher
     runs-on: ubuntu-latest
     env:
-        BENCHER_PROJECT: stratum
+        BENCHER_PROJECT: stratum-v2-sri
         BENCHER_API_TOKEN: ${{ secrets.BENCHER_API_TOKEN }}
         BENCHER_ADAPTER: rust_iai
         BENCHER_TESTBED: sv1
@@ -73,7 +73,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: 1.70.0
+          toolchain: 1.75.0
           override: true
       - name: Checkout repository
         uses: actions/checkout@v2
@@ -95,7 +95,7 @@ jobs:
     name: Track sv2 iai benchmarks with Bencher
     runs-on: ubuntu-latest
     env:
-        BENCHER_PROJECT: stratum
+        BENCHER_PROJECT: stratum-v2-sri
         BENCHER_API_TOKEN: ${{ secrets.BENCHER_API_TOKEN }}
         BENCHER_ADAPTER: rust_iai
         BENCHER_TESTBED: sv2
@@ -104,7 +104,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: 1.70.0
+          toolchain: 1.75.0
           override: true
       - name: Checkout repository
         uses: actions/checkout@v2
