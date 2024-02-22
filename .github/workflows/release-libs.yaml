@@ -135,3 +135,23 @@ jobs:
         run: |
           cd utils/network-helpers
           cargo publish
+      - name: Publish crates jd_client
+        continue-on-error: true
+        run: |
+          cargo publish --manifest-path=roles/jd-client/Cargo.toml
+      - name: Publish crates jd_server
+        continue-on-error: true
+        run: |
+          cargo publish --manifest-path=roles/jd-server/Cargo.toml
+      - name: Publish crates mining_proxy_sv2
+        continue-on-error: true
+        run: |
+          cargo publish --manifest-path=roles/mining-proxy/Cargo.toml
+      - name: Publish crates pool_sv2
+        continue-on-error: true
+        run: |
+          cargo publish --manifest-path=roles/pool/Cargo.toml
+      - name: Publish crates translator_sv2
+        continue-on-error: true
+        run: |
+          cargo publish --manifest-path=roles/translator/Cargo.toml
