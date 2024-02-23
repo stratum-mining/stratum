@@ -75,7 +75,6 @@ impl JDsMempool {
                     let tx = self_.safe_lock(|x| {
                         match x.mempool.get(&key_id) {
                             Some(entry) => {
-                                //println!("KEY FOUND --> {:?}", entry);
                                 entry.clone()
                             }
                             None => None,
