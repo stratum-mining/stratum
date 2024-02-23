@@ -13,6 +13,7 @@ use stratum_common::bitcoin::Transaction;
 pub type SendTo = SendTo_<JobDeclaration<'static>, ()>;
 use roles_logic_sv2::{errors::Error, parsers::PoolMessages as AllMessages};
 use stratum_common::bitcoin::consensus::Decodable;
+use tracing::{info, warn};
 
 use crate::mempool::{self, rpc_client::RpcApi};
 
@@ -55,7 +56,7 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
             coinbase_output: self.coinbase_output.clone().try_into().unwrap(),
         };
         let message_enum = JobDeclaration::AllocateMiningJobTokenSuccess(message_success);
-        println!(
+        info!(
             "Sending AllocateMiningJobTokenSuccess to proxy {:?}",
             message_enum
         );
