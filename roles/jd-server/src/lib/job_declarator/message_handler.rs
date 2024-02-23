@@ -172,7 +172,12 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
                                     ),
                                 ),
                             )))? as usize;
-                    transactions.insert(index, tx);
+                    transactions.insert(index, tx.clone());
+                    mempool::JDsMempool::add_tx_data_to_mempool(
+                        self.mempool.clone(),
+                        tx.txid(),
+                        Some(tx),
+                    );
                 }
                 // TODO check it
                 let tx_hash_list_hash = self.tx_hash_list_hash.clone().unwrap().into_static();
