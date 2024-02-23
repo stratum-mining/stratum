@@ -13,7 +13,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-20.04, macos-latest]
     steps:
       - uses: actions/checkout@v3
       - uses: actions-rs/toolchain@v1
@@ -33,7 +33,7 @@ jobs:
         run: cargo build --release --locked --manifest-path=roles/pool/Cargo.toml --target=aarch64-apple-darwin
 
       - name: Upload Linux x86-64 binaries to release
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu-20.04'
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
@@ -63,7 +63,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ ubuntu-latest, macos-latest ]
+        os: [ ubuntu-20.04, macos-latest ]
     steps:
       - uses: actions/checkout@v3
       - uses: actions-rs/toolchain@v1
@@ -83,7 +83,7 @@ jobs:
         run: cargo build --release --locked --manifest-path=roles/jd-client/Cargo.toml --target=aarch64-apple-darwin
 
       - name: Upload Linux x86-64 binaries to release
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu-20.04'
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
@@ -113,7 +113,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ ubuntu-latest, macos-latest ]
+        os: [ ubuntu-20.04, macos-latest ]
     steps:
       - uses: actions/checkout@v3
       - uses: actions-rs/toolchain@v1
@@ -133,7 +133,7 @@ jobs:
         run: cargo build --release --locked --manifest-path=roles/jd-server/Cargo.toml --target=aarch64-apple-darwin
 
       - name: Upload Linux x86-64 binaries to release
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu-20.04'
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
@@ -163,7 +163,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ ubuntu-latest, macos-latest ]
+        os: [ ubuntu-20.04, macos-latest ]
     steps:
       - uses: actions/checkout@v3
       - uses: actions-rs/toolchain@v1
@@ -183,7 +183,7 @@ jobs:
         run: cargo build --release --locked --manifest-path=roles/mining-proxy/Cargo.toml --target=aarch64-apple-darwin
 
       - name: Upload Linux x86-64 binaries to release
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu-20.04'
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
@@ -213,7 +213,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ ubuntu-latest, macos-latest ]
+        os: [ ubuntu-20.04, macos-latest ]
     steps:
       - uses: actions/checkout@v3
       - uses: actions-rs/toolchain@v1
@@ -233,7 +233,7 @@ jobs:
         run: cargo build --release --locked --manifest-path=roles/translator/Cargo.toml --target=aarch64-apple-darwin
 
       - name: Upload Linux x86-64 binaries to release
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu-20.04'
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
