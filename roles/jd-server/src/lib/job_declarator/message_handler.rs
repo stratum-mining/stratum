@@ -14,7 +14,7 @@ pub type SendTo = SendTo_<JobDeclaration<'static>, ()>;
 use roles_logic_sv2::{errors::Error, parsers::PoolMessages as AllMessages};
 use stratum_common::bitcoin::consensus::Decodable;
 
-use crate::mempool::{self, rpc_client::RpcApi, JDsMempool};
+use crate::mempool::{self, rpc_client::RpcApi};
 
 use super::signed_token;
 
@@ -84,25 +84,26 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
             for (i, sid) in short_hash_list.iter().enumerate() {
                 let sid_: [u8; 6] = sid.to_vec().try_into().unwrap();
                 match short_id_mempool.get(&sid_) {
-                    Some(tx_data) => {
-                        match &tx_data.tx {
-                            Some(tx) => txs_in_job.push(tx.clone()), 
-                            None => {
-                                let new_tx_data = self
+                    Some(tx_data) => match &tx_data.tx {
+                        Some(tx) => txs_in_job.push(tx.clone()),
+                        None => {
+                            let new_tx_data = self
                                 .mempool
-                                .safe_lock(|x| x.get_client()) 
+                                .safe_lock(|x| x.get_client())
                                 .unwrap()
                                 .unwrap()
                                 .get_raw_transaction(&tx_data.id.to_string(), None);
-                                if let Ok(new_tx) = new_tx_data {
-                                    mempool::JDsMempool::add_tx_data_to_mempool(self.mempool.clone(), tx_data.clone().id, Some(new_tx.clone()));
-                                    txs_in_job.push(new_tx);
-                                }
+                            if let Ok(new_tx) = new_tx_data {
+                                mempool::JDsMempool::add_tx_data_to_mempool(
+                                    self.mempool.clone(),
+                                    tx_data.clone().id,
+                                    Some(new_tx.clone()),
+                                );
+                                txs_in_job.push(new_tx);
                             }
-                                
                         }
-                    }
-                    None => missing_txs.push(i as u16), 
+                    },
+                    None => missing_txs.push(i as u16),
                 }
             }
             self.declared_mining_job = Some((

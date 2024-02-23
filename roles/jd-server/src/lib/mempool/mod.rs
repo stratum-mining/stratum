@@ -22,7 +22,6 @@ pub struct JDsMempool {
     new_block_receiver: Receiver<String>,
 }
 
-
 impl JDsMempool {
     pub fn get_client(&self) -> Option<mini_rpc_client::MiniRpcClient> {
         let url = self.url.as_str();
@@ -58,7 +57,9 @@ impl JDsMempool {
         }
     }
 
-    pub async fn get_updated_mempool(self_: Arc<Mutex<Self>>) -> Result<HashMap<Txid, Option<Transaction>>, JdsMempoolError> {
+    pub async fn get_updated_mempool(
+        self_: Arc<Mutex<Self>>,
+    ) -> Result<HashMap<Txid, Option<Transaction>>, JdsMempoolError> {
         let mut mempool_ordered: HashMap<Txid, Option<Transaction>> = HashMap::new();
         let client = self_
             .safe_lock(|x| x.get_client())
@@ -77,7 +78,7 @@ impl JDsMempool {
                                 //println!("KEY FOUND --> {:?}", entry);
                                 entry.clone()
                             }
-                            None => None  
+                            None => None,
                         }
                     });
                     let id = Txid::from_str(&id).unwrap();
