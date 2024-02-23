@@ -72,13 +72,9 @@ impl JDsMempool {
                 let mempool = mempool.map_err(JdsMempoolError::BitcoinCoreRpcError)?;
                 for id in mempool {
                     let key_id = Txid::from_str(&id).unwrap();
-                    let tx = self_.safe_lock(|x| {
-                        match x.mempool.get(&key_id) {
-                            Some(entry) => {
-                                entry.clone()
-                            }
-                            None => None,
-                        }
+                    let tx = self_.safe_lock(|x| match x.mempool.get(&key_id) {
+                        Some(entry) => entry.clone(),
+                        None => None,
                     });
                     let id = Txid::from_str(&id).unwrap();
                     mempool_ordered.insert(id, tx.unwrap());
