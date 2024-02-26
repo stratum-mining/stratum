@@ -57,9 +57,7 @@ impl JDsMempool {
         }
     }
 
-    pub async fn get_updated_mempool(
-        self_: Arc<Mutex<Self>>,
-    ) -> Result<HashMap<Txid, Option<Transaction>>, JdsMempoolError> {
+    pub async fn update_mempool(self_: Arc<Mutex<Self>>) -> Result<(), JdsMempoolError> {
         let mut mempool_ordered: HashMap<Txid, Option<Transaction>> = HashMap::new();
         let client = self_
             .safe_lock(|x| x.get_client())

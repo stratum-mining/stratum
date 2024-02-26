@@ -94,13 +94,18 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
                                 .unwrap()
                                 .unwrap()
                                 .get_raw_transaction(&tx_data.id.to_string(), None);
-                            if let Ok(new_tx) = new_tx_data {
-                                mempool::JDsMempool::add_tx_data_to_mempool(
-                                    self.mempool.clone(),
-                                    tx_data.clone().id,
-                                    Some(new_tx.clone()),
-                                );
-                                txs_in_job.push(new_tx);
+                            match new_tx_data {
+                                Ok(new_tx) => {
+                                    mempool::JDsMempool::add_tx_data_to_mempool(
+                                        self.mempool.clone(),
+                                        tx_data.clone().id,
+                                        Some(new_tx.clone()),
+                                    );
+                                    txs_in_job.push(new_tx);
+                                }
+                                Err(_) => {
+                                    missing_txs.push(i as u16);
+                                }
                             }
                         }
                     },
