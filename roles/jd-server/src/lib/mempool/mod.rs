@@ -57,22 +57,21 @@ impl JDsMempool {
         }
     }
 
-    pub async fn get_updated_mempool(
-        self_: Arc<Mutex<Self>>,
-    ) -> Result<HashMap<Txid, Option<Transaction>>, JdsMempoolError> {
+    pub async fn update_mempool(self_: Arc<Mutex<Self>>) -> Result<(), JdsMempoolError> {
         let mut mempool_ordered: HashMap<Txid, Option<Transaction>> = HashMap::new();
         let client = self_
             .safe_lock(|x| x.get_client())
             .map_err(|e| JdsMempoolError::PoisonLock(e.to_string()))?
             .ok_or(JdsMempoolError::NoClient)?;
+        let self_clone = self_.clone();
         let new_mempool: Result<HashMap<Txid, Option<Transaction>>, JdsMempoolError> =
             tokio::task::spawn(async move {
                 let mempool: Result<Vec<String>, BitcoincoreRpcError> =
                     client.get_raw_mempool_verbose();
                 let mempool = mempool.map_err(JdsMempoolError::BitcoinCoreRpcError)?;
-                for id in mempool {
-                    let key_id = Txid::from_str(&id).unwrap();
-                    let tx = self_.safe_lock(|x| match x.mempool.get(&key_id) {
+                for id in &mempool {
+                    let key_id = Txid::from_str(id).unwrap();
+                    let tx = self_clone.safe_lock(|x| match x.mempool.get(&key_id) {
                         Some(entry) => entry.clone(),
                         None => None,
                     });
