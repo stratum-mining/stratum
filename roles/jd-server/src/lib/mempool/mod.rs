@@ -75,7 +75,7 @@ impl JDsMempool {
                         Some(entry) => entry.clone(),
                         None => None,
                     });
-                    let id = Txid::from_str(&id).unwrap();
+                    let id = Txid::from_str(id).unwrap();
                     mempool_ordered.insert(id, tx.unwrap());
                 let mempool: Vec<String> = client
                     .get_raw_mempool_verbose()
