@@ -42,19 +42,23 @@ impl SetupConnectionHandler {
         // read stdFrame from receiver
 
         let mut incoming: StdFrame = match receiver.recv().await {
-            Ok(EitherFrame::Sv2(s)) => {
-                debug!("Got sv2 message: {:?}", s);
-                s
-            }
-            Ok(EitherFrame::HandShake(s)) => {
-                error!(
-                    "Got unexpected handshake message from upstream: {:?} at {}",
-                    s, address
-                );
-                panic!()
-            }
-            Err(e) => {
-                error!("Error receiving message: {:?}", e);
+            // todo: these lines will be re-introduced once this PR is done.
+            // the goal here is to force a NoDownstreamsConnected error
+
+            // Ok(EitherFrame::Sv2(s)) => {
+            //     debug!("Got sv2 message: {:?}", s);
+            //     s
+            // }
+            // Ok(EitherFrame::HandShake(s)) => {
+            //     error!(
+            //         "Got unexpected handshake message from upstream: {:?} at {}",
+            //         s, address
+            //     );
+            //     panic!()
+            // }
+            // Err(e) => {
+            //     error!("Error receiving message: {:?}", e);
+            _ => {
                 return Err(Error::NoDownstreamsConnected.into());
             }
         };
@@ -71,7 +75,7 @@ impl SetupConnectionHandler {
             CommonRoutingLogic::None,
         )?;
 
-        let message = response.into_message().ok_or(PoolError::RolesLogic(
+        let message = response.into_message().ok_or(PoolError::NoDownstreamsConnected(
             roles_logic_sv2::Error::UnexpectedMessage(message_type),
         ))?;
 
