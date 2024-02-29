@@ -57,8 +57,12 @@ impl Downstream {
             .safe_lock(|d| {
                 d.upstream_difficulty_config
                     .safe_lock(|u| {
-                        u.channel_nominal_hashrate -=
-                            d.difficulty_mgmt.min_individual_miner_hashrate
+                        let hashrate_to_subtract = d.difficulty_mgmt.min_individual_miner_hashrate;
+                        if u.channel_nominal_hashrate >= hashrate_to_subtract {
+                            u.channel_nominal_hashrate -= hashrate_to_subtract;
+                        } else {
+                            u.channel_nominal_hashrate = 0.0;
+                        }
                     })
                     .map_err(|_e| Error::PoisonLock)
             })
@@ -272,11 +276,11 @@ impl Downstream {
                 d.difficulty_mgmt.timestamp_of_last_update = timestamp_secs;
                 d.difficulty_mgmt.submits_since_last_update = 0;
                 d.upstream_difficulty_config.super_safe_lock(|c| {
-                if c.channel_nominal_hashrate + hashrate_delta > 0.0 {
-                    c.channel_nominal_hashrate += hashrate_delta;
-                } else {
-                    c.channel_nominal_hashrate = 0.0;
-                }
+                    if c.channel_nominal_hashrate + hashrate_delta > 0.0 {
+                        c.channel_nominal_hashrate += hashrate_delta;
+                    } else {
+                        c.channel_nominal_hashrate = 0.0;
+                    }
                 });
                 Ok(Some(new_miner_hashrate))
                 } else {
