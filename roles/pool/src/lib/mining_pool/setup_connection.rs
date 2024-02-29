@@ -75,7 +75,9 @@ impl SetupConnectionHandler {
             CommonRoutingLogic::None,
         )?;
 
-        let message = response.into_message().ok_or(roles_logic_sv2::Error::NoDownstreamsConnected)?;
+        let message = response.into_message().ok_or(PoolError::RolesLogic(
+            roles_logic_sv2::Error::NoDownstreamsConnected,
+        ))?;
 
         let sv2_frame: StdFrame = PoolMessages::Common(message.clone()).try_into()?;
         let sv2_frame = sv2_frame.into();
