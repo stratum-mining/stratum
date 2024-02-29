@@ -230,10 +230,7 @@ impl Bridge {
             })
             .map_err(|_| PoisonLock)??;
         let res = self_
-            .safe_lock(|s| {
-                s.channel_factory.set_target(&mut upstream_target);
-                s.channel_factory.on_submit_shares_extended(sv2_submit)
-            })
+            .safe_lock(|s| s.channel_factory.on_submit_shares_extended(sv2_submit))
             .map_err(|_| PoisonLock);
 
         match res {
