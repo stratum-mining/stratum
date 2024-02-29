@@ -82,13 +82,22 @@ async fn send_status(
                 .unwrap_or(());
             }
         },
-        Sender::DownstreamListener(tx) => {
-            tx.send(Status {
-                state: State::DownstreamShutdown(e),
-            })
-            .await
-            .unwrap_or(());
-        }
+        Sender::DownstreamListener(tx) => match e {
+            PoolError::RolesLogic(roles_logic_sv2::Error::NoDownstreamsConnected) => {
+                tx.send(Status {
+                    state: State::Healthy("No Downstreams Connected".to_string()),
+                })
+                .await
+                .unwrap_or(());
+            }
+            _ => {
+                tx.send(Status {
+                    state: State::DownstreamShutdown(e),
+                })
+                .await
+                .unwrap_or(());
+            }
+        },
         Sender::Upstream(tx) => {
             tx.send(Status {
                 state: State::TemplateProviderShutdown(e),
@@ -117,6 +126,9 @@ pub async fn handle_error(sender: &Sender, e: PoolError) -> error_handling::Erro
         PoolError::BinarySv2(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
         PoolError::Codec(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
         PoolError::Noise(_) => send_status(sender, e, error_handling::ErrorBranch::Continue).await,
+        PoolError::RolesLogic(roles_logic_sv2::Error::NoDownstreamsConnected) => {
+            send_status(sender, e, error_handling::ErrorBranch::Continue).await
+        }
         PoolError::RolesLogic(_) => {
             send_status(sender, e, error_handling::ErrorBranch::Break).await
         }
