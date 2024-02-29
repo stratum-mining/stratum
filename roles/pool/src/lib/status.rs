@@ -110,6 +110,7 @@ async fn send_status(
 }
 
 // this is called by `error_handling::handle_result!`
+// todo: as described in issue #777, we should replace every generic *(_) with specific errors and cover every possible combination
 pub async fn handle_error(sender: &Sender, e: PoolError) -> error_handling::ErrorBranch {
     tracing::debug!("Error: {:?}", &e);
     match e {
