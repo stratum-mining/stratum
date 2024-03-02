@@ -41,6 +41,7 @@ New features are developed into separate branches that only live in the contribu
 
 - branch off from: `dev`
 - merge back into: `dev`
+- naming convention: `feat-x`, where `x` describes the feature
 
 ## Patch Branches
 
@@ -48,6 +49,7 @@ Bugs are patched into separate branches that only live in the contributor's fork
 
 - branch off from: `main`
 - merge back into: `main` + `dev`
+- naming convention: `patch-x`, where `x` describes the bug/patch
 
 # Releasing Roles Binaries
 
