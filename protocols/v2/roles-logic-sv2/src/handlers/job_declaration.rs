@@ -18,7 +18,14 @@ where
         message_type: u8,
         payload: &mut [u8],
     ) -> Result<SendTo, Error> {
-        match (message_type, payload).try_into() {
+        Self::handle_message_job_declaration_deserialized(self_, (message_type, payload).try_into())
+    }
+
+    fn handle_message_job_declaration_deserialized(
+        self_: Arc<Mutex<Self>>,
+        message: Result<JobDeclaration<'_>, Error>,
+    ) -> Result<SendTo, Error> {
+        match message {
             Ok(JobDeclaration::AllocateMiningJobTokenSuccess(message)) => {
                 debug!(
                     "Received AllocateMiningJobTokenSuccess with id: {}",
@@ -117,7 +124,14 @@ where
         message_type: u8,
         payload: &mut [u8],
     ) -> Result<SendTo, Error> {
-        match (message_type, payload).try_into() {
+        Self::handle_message_job_declaration_deserialized(self_, (message_type, payload).try_into())
+    }
+
+    fn handle_message_job_declaration_deserialized(
+        self_: Arc<Mutex<Self>>,
+        message: Result<JobDeclaration<'_>, Error>,
+    ) -> Result<SendTo, Error> {
+        match message {
             Ok(JobDeclaration::AllocateMiningJobToken(message)) => {
                 debug!(
                     "Received AllocateMiningJobToken with id: {}",

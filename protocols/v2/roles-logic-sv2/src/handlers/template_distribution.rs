@@ -6,6 +6,7 @@ use template_distribution_sv2::{
 };
 
 pub type SendTo = SendTo_<TemplateDistribution<'static>, ()>;
+use const_sv2::*;
 use core::convert::TryInto;
 use std::sync::Arc;
 use tracing::{debug, error, info, trace};
@@ -19,8 +20,17 @@ where
         message_type: u8,
         payload: &mut [u8],
     ) -> Result<SendTo, Error> {
+        Self::handle_message_template_distribution_desrialized(
+            self_,
+            (message_type, payload).try_into(),
+        )
+    }
+    fn handle_message_template_distribution_desrialized(
+        self_: Arc<Mutex<Self>>,
+        message: Result<TemplateDistribution<'_>, Error>,
+    ) -> Result<SendTo, Error> {
         // Is ok to unwrap a safe_lock result
-        match (message_type, payload).try_into() {
+        match message {
             Ok(TemplateDistribution::NewTemplate(m)) => {
                 info!(
                     "Received NewTemplate with id: {}, is future: {}",
@@ -58,14 +68,14 @@ where
                     .safe_lock(|x| x.handle_request_tx_data_error(m))
                     .map_err(|e| crate::Error::PoisonLock(e.to_string()))?
             }
-            Ok(TemplateDistribution::CoinbaseOutputDataSize(_)) => {
-                Err(Error::UnexpectedMessage(message_type))
-            }
-            Ok(TemplateDistribution::RequestTransactionData(_)) => {
-                Err(Error::UnexpectedMessage(message_type))
-            }
+            Ok(TemplateDistribution::CoinbaseOutputDataSize(_)) => Err(Error::UnexpectedMessage(
+                MESSAGE_TYPE_COINBASE_OUTPUT_DATA_SIZE,
+            )),
+            Ok(TemplateDistribution::RequestTransactionData(_)) => Err(Error::UnexpectedMessage(
+                MESSAGE_TYPE_REQUEST_TRANSACTION_DATA,
+            )),
             Ok(TemplateDistribution::SubmitSolution(_)) => {
-                Err(Error::UnexpectedMessage(message_type))
+                Err(Error::UnexpectedMessage(MESSAGE_TYPE_SUBMIT_SOLUTION))
             }
             Err(e) => Err(e),
         }
@@ -91,8 +101,18 @@ where
         message_type: u8,
         payload: &mut [u8],
     ) -> Result<SendTo, Error> {
+        Self::handle_message_template_distribution_desrialized(
+            self_,
+            (message_type, payload).try_into(),
+        )
+    }
+
+    fn handle_message_template_distribution_desrialized(
+        self_: Arc<Mutex<Self>>,
+        message: Result<TemplateDistribution<'_>, Error>,
+    ) -> Result<SendTo, Error> {
         // Is ok to unwrap a safe_lock result
-        match (message_type, payload).try_into() {
+        match message {
             Ok(TemplateDistribution::CoinbaseOutputDataSize(m)) => self_
                 .safe_lock(|x| x.handle_coinbase_out_data_size(m))
                 .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
@@ -102,16 +122,18 @@ where
             Ok(TemplateDistribution::SubmitSolution(m)) => self_
                 .safe_lock(|x| x.handle_request_submit_solution(m))
                 .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
-            Ok(TemplateDistribution::NewTemplate(_)) => Err(Error::UnexpectedMessage(message_type)),
+            Ok(TemplateDistribution::NewTemplate(_)) => {
+                Err(Error::UnexpectedMessage(MESSAGE_TYPE_NEW_TEMPLATE))
+            }
             Ok(TemplateDistribution::SetNewPrevHash(_)) => {
-                Err(Error::UnexpectedMessage(message_type))
+                Err(Error::UnexpectedMessage(MESSAGE_TYPE_SET_NEW_PREV_HASH))
             }
-            Ok(TemplateDistribution::RequestTransactionDataSuccess(_)) => {
-                Err(Error::UnexpectedMessage(message_type))
-            }
-            Ok(TemplateDistribution::RequestTransactionDataError(_)) => {
-                Err(Error::UnexpectedMessage(message_type))
-            }
+            Ok(TemplateDistribution::RequestTransactionDataSuccess(_)) => Err(
+                Error::UnexpectedMessage(MESSAGE_TYPE_REQUEST_TRANSACTION_DATA_SUCCESS),
+            ),
+            Ok(TemplateDistribution::RequestTransactionDataError(_)) => Err(
+                Error::UnexpectedMessage(MESSAGE_TYPE_REQUEST_TRANSACTION_DATA_ERROR),
+            ),
             Err(e) => Err(e),
         }
     }

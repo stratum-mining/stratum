@@ -1199,7 +1199,7 @@ checksum = "2bf50223579dc7cdcfb3bfcacf7069ff68243f8c363f62ffa99cf000a6b9c451"
 
 [[package]]
 name = "noise_sv2"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "aes-gcm",
  "chacha20poly1305",
@@ -1527,7 +1527,7 @@ checksum = "c08c74e62047bb2de4ff487b251e4a92e24f48745648451635cec7d591162d9f"
 
 [[package]]
 name = "roles_logic_sv2"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "binary_sv2",
  "chacha20poly1305",

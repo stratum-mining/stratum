@@ -9,6 +9,7 @@ use crate::{
 use common_messages_sv2::{
     ChannelEndpointChanged, SetupConnection, SetupConnectionError, SetupConnectionSuccess,
 };
+use const_sv2::*;
 use core::convert::TryInto;
 use std::sync::Arc;
 use tracing::{debug, error, info, trace};
@@ -33,9 +34,26 @@ where
         self_: Arc<Mutex<Self>>,
         message_type: u8,
         payload: &mut [u8],
+        routing_logic: CommonRoutingLogic<Router>,
+    ) -> Result<SendTo, Error> {
+        Self::handle_message_common_deserilized(
+            self_,
+            (message_type, payload).try_into(),
+            routing_logic,
+        )
+    }
+    /// Takes a message and it calls the appropriate handler function
+    ///
+    /// Arguments:
+    ///
+    /// * `message_type`: See [`const_sv2`].
+    ///
+    fn handle_message_common_deserilized(
+        self_: Arc<Mutex<Self>>,
+        message: Result<CommonMessages<'_>, Error>,
         _routing_logic: CommonRoutingLogic<Router>,
     ) -> Result<SendTo, Error> {
-        match (message_type, payload).try_into() {
+        match message {
             Ok(CommonMessages::SetupConnectionSuccess(m)) => {
                 info!(
                     "Received SetupConnectionSuccess: version={}, flags={:b}",
@@ -63,7 +81,9 @@ where
                     .safe_lock(|x| x.handle_channel_endpoint_changed(m))
                     .map_err(|e| crate::Error::PoisonLock(e.to_string()))?
             }
-            Ok(CommonMessages::SetupConnection(_)) => Err(Error::UnexpectedMessage(message_type)),
+            Ok(CommonMessages::SetupConnection(_)) => {
+                Err(Error::UnexpectedMessage(MESSAGE_TYPE_SETUP_CONNECTION))
+            }
             Err(e) => Err(e),
         }
     }
@@ -106,7 +126,6 @@ where
             Err(e) => Err(e),
         }
     }
-
     /// It takes a message type and a payload, and if the message is a serialized setup connection
     /// message, it calls the `on_setup_connection` function on the routing logic, and then calls the
     /// `handle_setup_connection` function on the router
@@ -121,7 +140,23 @@ where
         payload: &mut [u8],
         routing_logic: CommonRoutingLogic<Router>,
     ) -> Result<SendTo, Error> {
-        match (message_type, payload).try_into() {
+        Self::handle_message_common_deserilized(
+            self_,
+            (message_type, payload).try_into(),
+            routing_logic,
+        )
+    }
+
+    /// It takes a message do setup connection message, it calls
+    /// the `on_setup_connection` function on the routing logic, and then calls the
+    /// `handle_setup_connection` function on the router
+    ///
+    fn handle_message_common_deserilized(
+        self_: Arc<Mutex<Self>>,
+        message: Result<CommonMessages<'_>, Error>,
+        routing_logic: CommonRoutingLogic<Router>,
+    ) -> Result<SendTo, Error> {
+        match message {
             Ok(CommonMessages::SetupConnection(m)) => {
                 info!(
                     "Received SetupConnection: version={}, flags={:b}",
