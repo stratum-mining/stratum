@@ -12,6 +12,8 @@ SRI has a global version, which uses git tags and keeps track of how the codebas
 All the other internal SRI crates also follow SemVer 2.0.0, but each crate version is independent of the global release version.
 
 Whenever a `PATCH` is introduced, it is applied to all the latest `MAJOR` releases.
+For example: imagine there's releases `v1.0.0`, `v1.1.0`, and `v2.0.0`. A bug is found, dating back all the way to `v1.0.0`.
+A patch is applied such that the following new tags are introduced: `v1.1.1` and `v2.0.1`.
 
 # Git Branching Strategy
 
