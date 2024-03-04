@@ -9,7 +9,8 @@ Given a version number `MAJOR.MINOR.PATCH`, we increment the:
 
 SRI has a global version, which uses git tags and keeps track of how the codebase evolves across time as a whole.
 
-All the other internal SRI crates also follow SemVer 2.0.0, but each crate version is independent of the global release version.
+Every internal SRI crate also follows SemVer 2.0.0, but each crate version is only set on the respective `Cargo.toml`,
+(no git tags), and it evolves independently of the global release version.
 
 Whenever a `PATCH` is introduced, it is applied to all the latest `MAJOR` releases.
 For example: imagine there's releases `v1.0.0`, `v1.1.0`, and `v2.0.0`. A bug is found, dating back all the way to `v1.0.0`.
