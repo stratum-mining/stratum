@@ -1,6 +1,9 @@
 #![allow(special_module_name)]
-use crate::lib::{mempool, status, Configuration};
-use async_channel::unbounded;
+use crate::lib::{
+    mempool::{self, error::JdsMempoolError},
+    status, Configuration,
+};
+use async_channel::{bounded, unbounded, Receiver, Sender};
 use error_handling::handle_result;
 use roles_logic_sv2::utils::Mutex;
 use std::{ops::Sub, sync::Arc};
@@ -102,10 +105,13 @@ async fn main() {
     let url = config.core_rpc_url.clone() + ":" + &config.core_rpc_port.clone().to_string();
     let username = config.core_rpc_user.clone();
     let password = config.core_rpc_pass.clone();
+    // TODO should we manage what to do when the limit is reaced?
+    let (new_block_sender, new_block_receiver): (Sender<String>, Receiver<String>) = bounded(10);
     let mempool = Arc::new(Mutex::new(mempool::JDsMempool::new(
         url.clone(),
         username,
         password,
+        new_block_receiver,
     )));
     let mempool_update_interval = config.mempool_update_interval;
     let mempool_cloned_ = mempool.clone();
@@ -114,34 +120,68 @@ async fn main() {
     let mut last_empty_mempool_warning =
         std::time::Instant::now().sub(std::time::Duration::from_secs(60));
 
+    // TODO if the jd-server is launched with core_rpc_url empty, the following flow is never
+    // taken. Consequentally new_block_receiver in JDsMempool::on_submit is never read, possibly
+    // reaching the channel bound. The new_block_sender is given as input to JobDeclarator::start()
     if url.contains("http") {
-        let sender_clone = sender.clone();
+        let sender_update_mempool = sender.clone();
         task::spawn(async move {
             loop {
-                let updated_mempool =
+                let update_mempool_result: Result<(), mempool::error::JdsMempoolError> =
                     mempool::JDsMempool::update_mempool(mempool_cloned_.clone()).await;
-                if let Err(err) = updated_mempool {
+                if let Err(err) = update_mempool_result {
                     match err {
-                        mempool::JdsMempoolError::EmptyMempool => {
+                        JdsMempoolError::EmptyMempool => {
                             if last_empty_mempool_warning.elapsed().as_secs() >= 60 {
                                 warn!("{:?}", err);
                                 warn!("Template Provider is running, but its mempool is empty (possible reasons: you're testing in testnet, signet, or regtest)");
                                 last_empty_mempool_warning = std::time::Instant::now();
                             }
                         }
-                        mempool::JdsMempoolError::NoClient => {
-                            error!("{:?}", err);
-                            error!("Unable to establish RPC connection with Template Provider (possible reasons: not fully synced, down)");
-                            handle_result!(sender_clone, Err(err));
+                        JdsMempoolError::NoClient => {
+                            mempool::error::handle_error(&err);
+                            handle_result!(sender_update_mempool, Err(err));
                         }
-                        mempool::JdsMempoolError::BitcoinCoreRpcError(_) => {
-                            error!("{:?}", err);
-                            error!("Unable to establish RPC connection with Template Provider (possible reasons: not fully synced, down)");
-                            handle_result!(sender_clone, Err(err));
+                        JdsMempoolError::Rpc(_) => {
+                            mempool::error::handle_error(&err);
+                            handle_result!(sender_update_mempool, Err(err));
+                        }
+                        JdsMempoolError::TokioJoin(_) => {
+                            mempool::error::handle_error(&err);
+                            handle_result!(sender_update_mempool, Err(err));
+                        }
+                        JdsMempoolError::PoisonLock(_) => {
+                            mempool::error::handle_error(&err);
+                            handle_result!(sender_update_mempool, Err(err));
                         }
                     }
                 }
                 tokio::time::sleep(mempool_update_interval).await;
+                // DO NOT REMOVE THIS LINE
+                //let _transactions = mempool::JDsMempool::_get_transaction_list(mempool_cloned_.clone());
+            }
+        });
+
+        let mempool_cloned = mempool.clone();
+        let sender_submit_solution = sender.clone();
+        task::spawn(async move {
+            loop {
+                let result = mempool::JDsMempool::on_submit(mempool_cloned.clone()).await;
+                if let Err(err) = result {
+                    match err {
+                        JdsMempoolError::EmptyMempool => {
+                            if last_empty_mempool_warning.elapsed().as_secs() >= 60 {
+                                warn!("{:?}", err);
+                                warn!("Template Provider is running, but its mempool is empty (possible reasons: you're testing in testnet, signet, or regtest)");
+                                last_empty_mempool_warning = std::time::Instant::now();
+                            }
+                        }
+                        _ => {
+                            mempool::error::handle_error(&err);
+                            handle_result!(sender_submit_solution, Err(err));
+                        }
+                    }
+                }
             }
         });
     };
@@ -149,9 +189,10 @@ async fn main() {
     info!("Jds INITIALIZING with config: {:?}", &args.config_path);
 
     let cloned = config.clone();
-
     let mempool_cloned = mempool.clone();
-    task::spawn(async move { JobDeclarator::start(cloned, sender, mempool_cloned).await });
+    task::spawn(async move {
+        JobDeclarator::start(cloned, sender, mempool_cloned, new_block_sender).await
+    });
 
     // Start the error handling loop
     // See `./status.rs` and `utils/error_handling` for information on how this operates

@@ -58,6 +58,6 @@ async fn test_1() {
     let frame: StdFrame =
         Sv2Frame::from_message(submit_solution, message_type, extension_type, channel_bit).unwrap();
     let frame: EitherFrame = frame.into();
-    dbg!(sender.send(frame).await.unwrap());
+    sender.send(frame).await.unwrap();
     async_std::task::sleep(std::time::Duration::from_secs(10)).await;
 }
