@@ -73,6 +73,6 @@ be published are published.
 
 Running `cargo release` in the various workspace help to prepare the version number and everything.
 
-Every PR needs to increase the version of whatever crate it is touching. Otherwise, we will mess up the dependency chain of whoever is fetching from crates.io
+Every PR to `main` (either coming from `dev`, or a patch) needs to increase the version of whatever crate it is touching. Otherwise, we will mess up the dependency chain of whoever is fetching from crates.io
 
-Every time we bump some crate's version, `release-libs.yaml` is automatically triggered in order to update crates.io
+Every time we bump some crate's version, `release-libs.yaml` needs to be manually triggered in order to update crates.io.
