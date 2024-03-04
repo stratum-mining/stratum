@@ -96,7 +96,7 @@ impl JobDeclaratorDownstream {
     pub fn start(
         self_mutex: Arc<Mutex<Self>>,
         tx_status: status::Sender,
-        submit_solution_sender: Sender<String>,
+        new_block_sender: Sender<String>,
     ) {
         let recv = self_mutex.safe_lock(|s| s.receiver.clone()).unwrap();
         tokio::spawn(async move {
@@ -146,7 +146,7 @@ impl JobDeclaratorDownstream {
                                         }
                                     };
 
-                                    let _ = submit_solution_sender.send(hexdata).await;
+                                    let _ = new_block_sender.send(hexdata).await;
                                 }
                                 Some(JobDeclaration::DeclareMiningJob(_)) => {
                                     error!("JD Server received an unexpected message {:?}", m);
@@ -229,19 +229,18 @@ impl JobDeclarator {
         config: Configuration,
         status_tx: crate::status::Sender,
         mempool: Arc<Mutex<JDsMempool>>,
-        submit_solution_sender: Sender<String>,
+        new_block_sender: Sender<String>,
     ) {
         let self_ = Arc::new(Mutex::new(Self {}));
         info!("JD INITIALIZED");
-        Self::accept_incoming_connection(self_, config, status_tx, mempool, submit_solution_sender)
-            .await;
+        Self::accept_incoming_connection(self_, config, status_tx, mempool, new_block_sender).await;
     }
     async fn accept_incoming_connection(
         _self_: Arc<Mutex<JobDeclarator>>,
         config: Configuration,
         status_tx: crate::status::Sender,
         mempool: Arc<Mutex<JDsMempool>>,
-        submit_solution_sender: Sender<String>,
+        new_block_sender: Sender<String>,
     ) {
         let listner = TcpListener::bind(&config.listen_jd_address).await.unwrap();
         while let Ok((stream, _)) = listner.accept().await {
@@ -285,7 +284,7 @@ impl JobDeclarator {
                 JobDeclaratorDownstream::start(
                     jddownstream,
                     status_tx.clone(),
-                    submit_solution_sender.clone(),
+                    new_block_sender.clone(),
                 );
             } else {
                 error!("Can not connect {:?}", addr);

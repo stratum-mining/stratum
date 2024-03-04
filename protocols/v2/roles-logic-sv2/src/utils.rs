@@ -760,6 +760,9 @@ impl<'a> BlockCreator<'a> {
     }
 }
 
+/// TODO write a test for this function that takes an already mined block, and test if the new
+/// block created with the hash of the new block created with the block creator coincides with the
+/// hash of the mined block
 impl<'a> From<BlockCreator<'a>> for bitcoin::Block {
     fn from(block_creator: BlockCreator<'a>) -> bitcoin::Block {
         let last_declare = block_creator.last_declare;

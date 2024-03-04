@@ -19,7 +19,7 @@ pub struct JDsMempool {
     pub mempool: Vec<TransacrtionWithHash>,
     auth: mini_rpc_client::Auth,
     url: String,
-    receiver: Receiver<String>,
+    new_block_receiver: Receiver<String>,
 }
 
 impl JDsMempool {
@@ -45,7 +45,7 @@ impl JDsMempool {
         url: String,
         username: String,
         password: String,
-        receiver: Receiver<String>,
+        new_block_receiver: Receiver<String>,
     ) -> Self {
         let auth = mini_rpc_client::Auth::new(username, password);
         let empty_mempool: Vec<TransacrtionWithHash> = Vec::new();
@@ -53,7 +53,7 @@ impl JDsMempool {
             mempool: empty_mempool,
             auth,
             url,
-            receiver,
+            new_block_receiver,
         }
     }
 
@@ -97,15 +97,15 @@ impl JDsMempool {
     }
 
     pub async fn on_submit(self_: Arc<Mutex<Self>>) -> Result<(), JdsMempoolError> {
-        let receiver: Receiver<String> = self_
-            .safe_lock(|x| x.receiver.clone())
+        let new_block_receiver: Receiver<String> = self_
+            .safe_lock(|x| x.new_block_receiver.clone())
             .map_err(|e| JdsMempoolError::PoisonLock(e.to_string()))?;
         let client = self_
             .safe_lock(|x| x.get_client())
             .map_err(|e| JdsMempoolError::PoisonLock(e.to_string()))?
             .ok_or(JdsMempoolError::NoClient)?;
 
-        while let Ok(block_hex) = receiver.recv().await {
+        while let Ok(block_hex) = new_block_receiver.recv().await {
             match mini_rpc_client::MiniRpcClient::submit_block(&client, block_hex).await {
                 Ok(_) => return Ok(()),
                 Err(e) => JdsMempoolError::Rpc(e),
