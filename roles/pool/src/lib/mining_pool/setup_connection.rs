@@ -42,23 +42,19 @@ impl SetupConnectionHandler {
         // read stdFrame from receiver
 
         let mut incoming: StdFrame = match receiver.recv().await {
-            // todo: these lines will be re-introduced once this PR is done.
-            // the goal here is to force a NoDownstreamsConnected error
-
-            // Ok(EitherFrame::Sv2(s)) => {
-            //     debug!("Got sv2 message: {:?}", s);
-            //     s
-            // }
-            // Ok(EitherFrame::HandShake(s)) => {
-            //     error!(
-            //         "Got unexpected handshake message from upstream: {:?} at {}",
-            //         s, address
-            //     );
-            //     panic!()
-            // }
-            // Err(e) => {
-            //     error!("Error receiving message: {:?}", e);
-            _ => {
+            Ok(EitherFrame::Sv2(s)) => {
+                debug!("Got sv2 message: {:?}", s);
+                s
+            }
+            Ok(EitherFrame::HandShake(s)) => {
+                error!(
+                    "Got unexpected handshake message from upstream: {:?} at {}",
+                    s, address
+                );
+                panic!()
+            }
+            Err(e) => {
+                error!("Error receiving message: {:?}", e);
                 return Err(Error::NoDownstreamsConnected.into());
             }
         };
