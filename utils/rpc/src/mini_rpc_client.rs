@@ -1,7 +1,4 @@
 // TODO
-//  - WHEN UPGRADING TO 1.0.1 Client is in hyper-utils:
-//    Struct hyper_util::client::legacy::Client
-//  - use https for security reasons
 //  - manage id in RpcResult messages
 use base64::Engine;
 use hex::decode;
