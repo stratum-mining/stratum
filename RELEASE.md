@@ -33,7 +33,7 @@ We consider `main` to be the branch where the source code of `HEAD` always refle
 
 We consider `dev` to be the branch where the source code of `HEAD` always reflects a state with the latest delivered development changes for the next release.
 
-When the source code in the `dev` branch reaches a stable point and is ready to be released, all the changes are merged back into `main` and then tagged with a release number while bumping `MAJOR` and/or `MINOR`.
+Every two weeks all the changes to `dev` are merged back into `main` and then tagged with a release number while bumping `MAJOR` and/or `MINOR`.
 
 ## Feature Branches
 
