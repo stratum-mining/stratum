@@ -785,7 +785,7 @@ impl<'a> From<BlockCreator<'a>> for bitcoin::Block {
 
         let prev_blockhash = u256_to_block_hash(message.prev_hash.into_static());
         let header = stratum_common::bitcoin::blockdata::block::BlockHeader {
-            version: last_declare.version as i32,
+            version: message.version as i32,
             prev_blockhash,
             merkle_root,
             time: message.ntime,
