@@ -4,7 +4,7 @@
 
 # Introduction
 
-Roles in Stratum are knowns as Job Declarators (JDs), JDs are roles which can be Pool-side and Miner-side, but they can also be run by any third parties. They are connected to a Template Provider, in this way they are able to receive and validate custom block templates. They are the roles needed to implement the so called Job Declaration Protocol. They can further distribute jobs to a Mining Proxy (or Proxies) via the Job Distribution Protocol.
+We define roles for entities in the Stratum v2 Protocol Suite, which can be classified as either downstream or upstream in relation to each other.
 
 # List of Roles
 
