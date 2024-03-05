@@ -56,7 +56,7 @@ Bugs are patched into separate branches that only live in the contributor's fork
 
 The [release page of SRI repo](https://github.com/stratum-mining/stratum/releases) provides executable binaries for all SRI roles, targeting popular hardware architectures.
 
-The github binary releases of the roles are handled in the `release-bin.yaml` workflow.
+The GitHub binary releases of the roles are handled in the `release-bin.yaml` workflow.
 
 This workflow is manually started by navigating to the "Actions" tab in the SRI repo, then navigating to the Release workflow section, and clicking "Run Workflow".
 
