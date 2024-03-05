@@ -38,7 +38,7 @@ impl JDsMempool {
     #[cfg(debug_assertions)]
     pub fn _get_transaction_list(self_: Arc<Mutex<Self>>) -> Vec<Txid> {
         let tx_list = self_.safe_lock(|x| x.mempool.clone()).unwrap();
-        let tx_list_: Vec<Txid> = tx_list.iter().map(|n| n.id).collect();
+        let tx_list_: Vec<Txid> = tx_list.iter().map(|n| *n.0).collect();
         tx_list_
     }
     pub fn new(
@@ -95,8 +95,8 @@ impl JDsMempool {
                 }
             })
             .await
-            .map_err(JdsMempoolError::TokioJoin)?;
-
+            .map_err(JdsMempoolError::TokioJoin)?
+        };
         match new_mempool {
             Ok(new_mempool_) => {
                 let _ = self_.safe_lock(|x| {
