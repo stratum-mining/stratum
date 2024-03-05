@@ -210,7 +210,7 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
 fn add_tx_data_to_job_and_mempool(
     tx_id_list: Vec<(String, usize)>,
     jdd: &mut JobDeclaratorDownstream,
-) -> () {
+) {
     let mempool = jdd.mempool.clone();
     let mut declared_mining_job = jdd.declared_mining_job.clone();
     tokio::task::spawn(async move {
