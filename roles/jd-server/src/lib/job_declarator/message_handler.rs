@@ -88,27 +88,23 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
                 match short_id_mempool.get(&sid_) {
                     Some(tx_data) => match &tx_data.tx {
                         Some(tx) => {
-                            //info!("txs_in_job --> {:?}\nindex --> {:?}", txs_in_job.len(), i);
                             if i >= txs_in_job.len() {
                                 txs_in_job.resize(i + 1, tx.clone());
                             }
                             txs_in_job.insert(i, tx.clone())
                         },
                         None => {
-                            //info!("txs to retrieve --> {:?}", txs_to_retrieve);
                             txs_to_retrieve.push(((tx_data.id.to_string()), i));
                         }
                     },
                     None => missing_txs.push(i as u16),
                 }
             }
-            info!("txs_in_job --> {:?}", txs_in_job.len());
             self.declared_mining_job = Some((
                 message.clone().into_static(),
                 txs_in_job,
                 missing_txs.clone(),
             ));
-            //info!("DeclareMiningJob --> {:?}", self.declared_mining_job);
 
             if !txs_to_retrieve.is_empty() {
                 add_tx_data_to_job(txs_to_retrieve, self);
@@ -228,7 +224,6 @@ fn add_tx_data_to_job(
                     .map_err(JdsMempoolError::Rpc);
             if let Ok(tx) = new_tx_data {
                 if let Some((_, transactions, _)) = &mut declared_mining_job {
-                    info!("TX retrieved -> {:?}", index);
                     if index >= transactions.len() {
                         transactions.resize(index + 1, tx.clone());
                     }
