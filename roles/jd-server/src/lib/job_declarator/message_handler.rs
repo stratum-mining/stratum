@@ -80,33 +80,21 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
                 .unwrap()
                 .unwrap();
             let mut txs_in_job = vec![];
+            let mut txs_to_retrieve: Vec<(String, usize)> = vec![];
             let mut missing_txs = vec![];
 
             for (i, sid) in short_hash_list.iter().enumerate() {
                 let sid_: [u8; 6] = sid.to_vec().try_into().unwrap();
                 match short_id_mempool.get(&sid_) {
                     Some(tx_data) => match &tx_data.tx {
-                        Some(tx) => txs_in_job.push(tx.clone()),
-                        None => {
-                            let new_tx_data = self
-                                .mempool
-                                .safe_lock(|x| x.get_client())
-                                .unwrap()
-                                .unwrap()
-                                .get_raw_transaction(&tx_data.id.to_string(), None);
-                            match new_tx_data {
-                                Ok(new_tx) => {
-                                    mempool::JDsMempool::add_tx_data_to_mempool(
-                                        self.mempool.clone(),
-                                        tx_data.clone().id,
-                                        Some(new_tx.clone()),
-                                    );
-                                    txs_in_job.push(new_tx);
-                                }
-                                Err(_) => {
-                                    missing_txs.push(i as u16);
-                                }
+                        Some(tx) => {
+                            if i >= txs_in_job.len() {
+                                txs_in_job.resize(i + 1, tx.clone());
                             }
+                            txs_in_job.insert(i, tx.clone())
+                        },
+                        None => {
+                            txs_to_retrieve.push(((tx_data.id.to_string()), i));
                         }
                     },
                     None => missing_txs.push(i as u16),
@@ -117,6 +105,10 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
                 txs_in_job,
                 missing_txs.clone(),
             ));
+
+            if !txs_to_retrieve.is_empty() {
+                add_tx_data_to_job_and_mempool(txs_to_retrieve, self);
+            }
 
             if missing_txs.is_empty() {
                 let message_success = DeclareMiningJobSuccess {
@@ -211,4 +203,35 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
 
         Ok(SendTo::None(Some(m)))
     }
+}
+
+fn add_tx_data_to_job_and_mempool(
+    tx_id_list: Vec<(String, usize)>,  
+    jdd: &mut JobDeclaratorDownstream,
+) -> () {
+    let mempool = jdd.mempool.clone();
+    let mut declared_mining_job = jdd.declared_mining_job.clone();
+    tokio::task::spawn(async move {
+        for tx in tx_id_list.iter().enumerate() {
+            let index = tx.1.1;
+            let new_tx_data: Result<Transaction, JdsMempoolError> =
+                mempool
+                    .safe_lock(|x| x.get_client())
+                    .unwrap()
+                    .unwrap()
+                    .get_raw_transaction(&tx.1.0, None)
+                    .await
+                    .map_err(JdsMempoolError::Rpc);
+            if let Ok(tx) = new_tx_data {
+                if let Some((_, transactions, _)) = &mut declared_mining_job {
+                    transactions.insert(index, tx.clone());
+                }
+                mempool::JDsMempool::add_tx_data_to_mempool(
+                    mempool.clone(),
+                    tx.clone().txid(),
+                    Some(tx.clone()),
+                );
+            }
+        } 
+    });
 }
