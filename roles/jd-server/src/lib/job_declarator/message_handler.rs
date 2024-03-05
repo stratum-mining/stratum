@@ -170,6 +170,9 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
                                     ),
                                 ),
                             )))? as usize;
+                    if index >= transactions.len() {
+                        transactions.resize(index + 1, tx.clone());
+                    }
                     transactions.insert(index, tx.clone());
                     mempool::JDsMempool::add_tx_data_to_mempool(
                         self.mempool.clone(),
