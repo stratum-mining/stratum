@@ -11,8 +11,6 @@ use roles_logic_sv2::{
 use std::{convert::TryInto, io::Cursor};
 use stratum_common::bitcoin::Transaction;
 pub type SendTo = SendTo_<JobDeclaration<'static>, ()>;
-use super::signed_token;
-use crate::mempool::{self, error::JdsMempoolError};
 use roles_logic_sv2::{errors::Error, parsers::PoolMessages as AllMessages};
 use stratum_common::bitcoin::consensus::Decodable;
 use tracing::{info, warn};
@@ -90,26 +88,30 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
                 match short_id_mempool.get(&sid_) {
                     Some(tx_data) => match &tx_data.tx {
                         Some(tx) => {
+                            //info!("txs_in_job --> {:?}\nindex --> {:?}", txs_in_job.len(), i);
                             if i >= txs_in_job.len() {
                                 txs_in_job.resize(i + 1, tx.clone());
                             }
                             txs_in_job.insert(i, tx.clone())
-                        }
+                        },
                         None => {
+                            //info!("txs to retrieve --> {:?}", txs_to_retrieve);
                             txs_to_retrieve.push(((tx_data.id.to_string()), i));
                         }
                     },
                     None => missing_txs.push(i as u16),
                 }
             }
+            info!("txs_in_job --> {:?}", txs_in_job.len());
             self.declared_mining_job = Some((
                 message.clone().into_static(),
                 txs_in_job,
                 missing_txs.clone(),
             ));
+            //info!("DeclareMiningJob --> {:?}", self.declared_mining_job);
 
             if !txs_to_retrieve.is_empty() {
-                add_tx_data_to_job_and_mempool(txs_to_retrieve, self);
+                add_tx_data_to_job(txs_to_retrieve, self);
             }
 
             if missing_txs.is_empty() {
@@ -207,24 +209,29 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
     }
 }
 
-fn add_tx_data_to_job_and_mempool(
-    tx_id_list: Vec<(String, usize)>,
+fn add_tx_data_to_job(
+    tx_id_list: Vec<(String, usize)>,  
     jdd: &mut JobDeclaratorDownstream,
-) {
+) -> () {
     let mempool = jdd.mempool.clone();
     let mut declared_mining_job = jdd.declared_mining_job.clone();
     tokio::task::spawn(async move {
         for tx in tx_id_list.iter().enumerate() {
-            let index = tx.1 .1;
-            let new_tx_data: Result<Transaction, JdsMempoolError> = mempool
-                .safe_lock(|x| x.get_client())
-                .unwrap()
-                .unwrap()
-                .get_raw_transaction(&tx.1 .0, None)
-                .await
-                .map_err(JdsMempoolError::Rpc);
+            let index = tx.1.1;
+            let new_tx_data: Result<Transaction, JdsMempoolError> =
+                mempool
+                    .safe_lock(|x| x.get_client())
+                    .unwrap()
+                    .unwrap()
+                    .get_raw_transaction(&tx.1.0, None)
+                    .await
+                    .map_err(JdsMempoolError::Rpc);
             if let Ok(tx) = new_tx_data {
                 if let Some((_, transactions, _)) = &mut declared_mining_job {
+                    info!("TX retrieved -> {:?}", index);
+                    if index >= transactions.len() {
+                        transactions.resize(index + 1, tx.clone());
+                    }
                     transactions.insert(index, tx.clone());
                 }
                 mempool::JDsMempool::add_tx_data_to_mempool(
@@ -233,6 +240,6 @@ fn add_tx_data_to_job_and_mempool(
                     Some(tx.clone()),
                 );
             }
-        }
+        } 
     });
 }
