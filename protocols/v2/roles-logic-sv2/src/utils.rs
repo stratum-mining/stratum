@@ -6,8 +6,10 @@ use std::{
 };
 
 use binary_sv2::{Seq064K, ShortTxId, U256};
+use job_declaration_sv2::{DeclareMiningJob, SubmitSolutionJd};
 use siphasher::sip::SipHasher24;
 //compact_target_from_u256
+use bitcoin::Block;
 use stratum_common::{
     bitcoin,
     bitcoin::{
@@ -737,6 +739,72 @@ fn tx_hash_list_hash_builder(txid_list: Vec<bitcoin::Txid>) -> U256<'static> {
     }
     let hash = sha256::Hash::hash(&vec_u8).as_inner().to_owned();
     hash.to_vec().try_into().unwrap()
+}
+
+pub struct BlockCreator<'a> {
+    last_declare: DeclareMiningJob<'a>,
+    tx_list: Vec<bitcoin::Transaction>,
+    message: SubmitSolutionJd<'a>,
+}
+impl<'a> BlockCreator<'a> {
+    pub fn new(
+        last_declare: DeclareMiningJob<'a>,
+        tx_list: Vec<bitcoin::Transaction>,
+        message: SubmitSolutionJd<'a>,
+    ) -> BlockCreator<'a> {
+        BlockCreator {
+            last_declare,
+            tx_list,
+            message,
+        }
+    }
+}
+
+/// TODO write a test for this function that takes an already mined block, and test if the new
+/// block created with the hash of the new block created with the block creator coincides with the
+/// hash of the mined block
+impl<'a> From<BlockCreator<'a>> for bitcoin::Block {
+    fn from(block_creator: BlockCreator<'a>) -> bitcoin::Block {
+        let last_declare = block_creator.last_declare;
+        let mut tx_list = block_creator.tx_list;
+        let message = block_creator.message;
+
+        let coinbase_pre = last_declare.coinbase_prefix.to_vec();
+        let extranonce = message.extranonce.to_vec();
+        let coinbase_suf = last_declare.coinbase_suffix.to_vec();
+        let mut path: Vec<Vec<u8>> = vec![];
+        for tx in &tx_list {
+            let id = tx.txid();
+            let id = id.as_ref().to_vec();
+            path.push(id);
+        }
+        let merkle_root =
+            merkle_root_from_path(&coinbase_pre[..], &coinbase_suf[..], &extranonce[..], &path)
+                .expect("Invalid coinbase");
+        let merkle_root = Hash::from_inner(merkle_root.try_into().unwrap());
+
+        let prev_blockhash = u256_to_block_hash(message.prev_hash.into_static());
+        let header = stratum_common::bitcoin::blockdata::block::BlockHeader {
+            version: message.version as i32,
+            prev_blockhash,
+            merkle_root,
+            time: message.ntime,
+            bits: message.nbits,
+            nonce: message.nonce,
+        };
+
+        let coinbase = [coinbase_pre, extranonce, coinbase_suf].concat();
+        let coinbase = Transaction::deserialize(&coinbase[..]).unwrap();
+        tx_list.insert(0, coinbase);
+
+        let mut block = Block {
+            header,
+            txdata: tx_list.clone(),
+        };
+
+        block.header.merkle_root = block.compute_merkle_root().unwrap();
+        block
+    }
 }
 
 #[cfg(test)]
