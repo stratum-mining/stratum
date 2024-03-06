@@ -1,6 +1,6 @@
 [package]
 name = "mining_proxy_sv2"
-version = "0.1.0"
+version = "1.0.0"
 authors = ["user"]
 edition = "2018"
 description = "SV2 mining proxy role"
