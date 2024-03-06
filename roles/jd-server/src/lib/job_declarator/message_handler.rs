@@ -15,11 +15,7 @@ use super::signed_token;
 use crate::mempool::{self, error::JdsMempoolError};
 use roles_logic_sv2::{errors::Error, parsers::PoolMessages as AllMessages};
 use stratum_common::bitcoin::consensus::Decodable;
-use tracing::{info, warn};
-
-use crate::mempool::{self, rpc_client::RpcApi};
-
-use super::signed_token;
+use tracing::info;
 
 use super::JobDeclaratorDownstream;
 
