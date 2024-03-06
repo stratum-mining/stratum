@@ -43,10 +43,8 @@ Job Declarators (JDs) are roles which can be Pool-side and Miner-side, but they 
 
 a. Job Declarator Server:
 
-	Job Declarator Server (or JDS) is the role which is Pool-side, in charge of allocating the mining job tokens needed by Job Declarator Client to create custom jobs to work on. It is also the entity responsible for Pool-side block propagation in case of valid blocks found by miners connected to the pool (who are using the Job Declaration Protocol).
-	
-	b. Job Declarator Client (JDC):
+Job Declarator Server (or JDS) is the role which is Pool-side, in charge of allocating the mining job tokens needed by Job Declarator Client to create custom jobs to work on. It is also the entity responsible for Pool-side block propagation in case of valid blocks found by miners connected to the pool (who are using the Job Declaration Protocol).
 
-	Job Declarator Client (or JDC) is the role which is Miner-side, in charge of creating new mining jobs from the templates received by the Template Provider to which it is connected. It declares custom jobs to the JDS, in order to start working on them. JDC is also responsible for putting in action the Pool-fallback mechanism, automatically switching to backup Pools in case of declared custom jobs refused by JDS (which is Pool side). As a solution of last-resort, it is able to switch to Solo Mining until new safe Pools appear in the market.
+b. Job Declarator Client (JDC):
 
-
+Job Declarator Client (or JDC) is the role which is Miner-side, in charge of creating new mining jobs from the templates received by the Template Provider to which it is connected. It declares custom jobs to the JDS, in order to start working on them. JDC is also responsible for putting in action the Pool-fallback mechanism, automatically switching to backup Pools in case of declared custom jobs refused by JDS (which is Pool side). As a solution of last-resort, it is able to switch to Solo Mining until new safe Pools appear in the market.
