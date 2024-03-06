@@ -59,7 +59,7 @@ impl MiniRpcClient {
         }
     }
 
-    pub async fn get_raw_mempool_verbose(&self) -> Result<Vec<String>, RpcError> {
+    pub async fn get_raw_mempool(&self) -> Result<Vec<String>, RpcError> {
         let response = self.send_json_rpc_request("getrawmempool", json!([])).await;
         match response {
             Ok(result_hex) => {

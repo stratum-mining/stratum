@@ -78,7 +78,7 @@ impl JDsMempool {
             let self_ = self_.clone();
             tokio::task::spawn(async move {
                 let mempool: Vec<String> = client
-                    .get_raw_mempool_verbose()
+                    .get_raw_mempool()
                     .await
                     .map_err(JdsMempoolError::Rpc)?;
                 for id in &mempool {
