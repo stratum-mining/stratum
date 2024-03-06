@@ -73,7 +73,7 @@ dependencies = [
 
 [[package]]
 name = "buffer_sv2"
-version = "0.1.2"
+version = "1.0.0"
 dependencies = [
  "aes-gcm",
 ]
