@@ -41,6 +41,7 @@ impl JDsMempool {
         let tx_list_: Vec<Txid> = tx_list.iter().map(|n| *n.0).collect();
         tx_list_
     }
+
     pub fn new(
         url: String,
         username: String,
@@ -57,6 +58,16 @@ impl JDsMempool {
         }
     }
 
+    pub fn add_tx_data_to_mempool(
+        self_: Arc<Mutex<Self>>,
+        txid: Txid,
+        transaction: Option<Transaction>,
+    ) {
+        let _ = self_.safe_lock(|x| {
+            x.mempool.insert(txid, transaction);
+        });
+    }
+
     pub async fn update_mempool(self_: Arc<Mutex<Self>>) -> Result<(), JdsMempoolError> {
         let mut mempool_ordered: HashMap<Txid, Option<Transaction>> = HashMap::new();
         let client = self_
@@ -66,9 +77,10 @@ impl JDsMempool {
         let new_mempool: Result<HashMap<Txid, Option<Transaction>>, JdsMempoolError> = {
             let self_ = self_.clone();
             tokio::task::spawn(async move {
-                let mempool: Result<Vec<String>, BitcoincoreRpcError> =
-                    client.get_raw_mempool_verbose();
-                let mempool = mempool.map_err(JdsMempoolError::BitcoinCoreRpcError)?;
+                let mempool: Vec<String> = client
+                    .get_raw_mempool_verbose()
+                    .await
+                    .map_err(JdsMempoolError::Rpc)?;
                 for id in &mempool {
                     let key_id = Txid::from_str(id).unwrap();
                     let tx = self_.safe_lock(|x| match x.mempool.get(&key_id) {
@@ -77,16 +89,6 @@ impl JDsMempool {
                     });
                     let id = Txid::from_str(id).unwrap();
                     mempool_ordered.insert(id, tx.unwrap());
-                let mempool: Vec<String> = client
-                    .get_raw_mempool_verbose()
-                    .await
-                    .map_err(JdsMempoolError::Rpc)?;
-                for id in &mempool {
-                    let tx: Result<Transaction, _> = client.get_raw_transaction(id, None).await;
-                    if let Ok(tx) = tx {
-                        let id = tx.txid();
-                        mempool_ordered.push(TransacrtionWithHash { id, tx });
-                    }
                 }
                 if mempool_ordered.is_empty() {
                     Err(JdsMempoolError::EmptyMempool)
@@ -108,7 +110,25 @@ impl JDsMempool {
         }
     }
 
-    pub fn to_short_ids(&self, nonce: u64) -> Option<HashMap<[u8; 6], Transaction>> {
+    pub async fn on_submit(self_: Arc<Mutex<Self>>) -> Result<(), JdsMempoolError> {
+        let new_block_receiver: Receiver<String> = self_
+            .safe_lock(|x| x.new_block_receiver.clone())
+            .map_err(|e| JdsMempoolError::PoisonLock(e.to_string()))?;
+        let client = self_
+            .safe_lock(|x| x.get_client())
+            .map_err(|e| JdsMempoolError::PoisonLock(e.to_string()))?
+            .ok_or(JdsMempoolError::NoClient)?;
+
+        while let Ok(block_hex) = new_block_receiver.recv().await {
+            match mini_rpc_client::MiniRpcClient::submit_block(&client, block_hex).await {
+                Ok(_) => return Ok(()),
+                Err(e) => JdsMempoolError::Rpc(e),
+            };
+        }
+        Ok(())
+    }
+
+    pub fn to_short_ids(&self, nonce: u64) -> Option<HashMap<[u8; 6], TransactionWithHash>> {
         let mut ret = HashMap::new();
         for tx in &self.mempool {
             let s_id = roles_logic_sv2::utils::get_short_hash(*tx.0, nonce)
