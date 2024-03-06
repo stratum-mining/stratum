@@ -214,8 +214,8 @@ fn add_tx_data_to_job(tx_id_list: Vec<(String, usize)>, jdd: &mut JobDeclaratorD
             let index = tx.1 .1;
             let new_tx_data: Result<Transaction, JdsMempoolError> = mempool
                 .safe_lock(|x| x.get_client())
-                .unwrap()
-                .unwrap()
+                .map_err(|e| JdsMempoolError::PoisonLock(e.to_string()))?
+                .ok_or(JdsMempoolError::NoClient)?
                 .get_raw_transaction(&tx.1 .0, None)
                 .await
                 .map_err(JdsMempoolError::Rpc);
@@ -233,5 +233,6 @@ fn add_tx_data_to_job(tx_id_list: Vec<(String, usize)>, jdd: &mut JobDeclaratorD
                 );
             }
         }
+        Ok::<(), JdsMempoolError>(())
     });
 }
