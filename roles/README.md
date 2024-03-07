@@ -2,10 +2,6 @@
   Stratum Roles
 </h1>
 
-# Introduction
-
- JDs are roles which can be Pool-side and Miner-side, but they can also be run by any third parties. They are connected to a Template Provider, in this way they are able to receive and validate custom block templates. They are the roles needed to implement the so called Job Declaration Protocol. They can further distribute jobs to a Mining Proxy (or Proxies) via the Job Distribution Protocol.
-
 # List of Roles
 
 1. Mining Devices or Miners
@@ -31,11 +27,11 @@ Proxies are intermediaries between Miners and Pools that aggregate connections a
 
 a. Mining Proxy
 
-  The Sv2 Mining Proxy functions as a bridge connecting mining devices and the Sv2 Pool. It gathers mining requests from various devices, combines them, and sends them to the Sv2 Pool. It can establish group/extended channels with the upstream (Sv2 Pool) and standard channels with the downstream (Sv2 Mining Devices).
+The Sv2 Mining Proxy functions as a bridge connecting mining devices and the Sv2 Pool. It gathers mining requests from various devices, combines them, and sends them to the Sv2 Pool. It can establish group/extended channels with the upstream (Sv2 Pool) and standard channels with the downstream (Sv2 Mining Devices).
 
 b. Translation Proxy
 
-  The Translator Proxy facilitates communication between Sv1 Mining Devices and an Sv2 Pool or Mining Proxy. It allows Sv1 devices to interface with Sv2-based mining infrastructure, bridging the protocol gap between Sv1 and Sv2. The Translator Proxy can establish extended channels with the upstream (Sv2 Pool or Mining Proxy). For instance, a Pool may employ a Translator Proxy as its initial connection service to accommodate both Sv1 and Sv2 connections. This involves establishing direct standard channels with Sv2 miners and using the proxy to translate messages with Sv1 miners.
+The Translator Proxy facilitates communication between Sv1 Mining Devices and an Sv2 Pool or Mining Proxy. It allows Sv1 devices to interface with Sv2-based mining infrastructure, bridging the protocol gap between Sv1 and Sv2. The Translator Proxy can establish extended channels with the upstream (Sv2 Pool or Mining Proxy). For instance, a Pool may employ a Translator Proxy as its initial connection service to accommodate both Sv1 and Sv2 connections. This involves establishing direct standard channels with Sv2 miners and using the proxy to translate messages with Sv1 miners.
 
 ## Job Declarators
 
