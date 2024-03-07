@@ -67,13 +67,13 @@ Note: in order to be able to manually trigger the "Run Workflow" button, the use
 Although SRI has a global release cycle, which is attached to the binaries, each internal crate also has its own versioning history.
 
 Lib crates are published to crates.io in the `release-lib.yaml` workflow. The workflow tries to update all the library crates. 
-If a crate is not to updated, the step will fail for that each step have continue-on-error set to true.
 
-Since each step can fail, the output ot the action must be manually check to macke sure that all the library intended to
-be published are published.
+If a crate is not updated successfully, the step will fail, but since all steps have `continue-on-error` set to true, the workflow will continue.
 
-Running `cargo release` in the various workspace help to prepare the version number and everything.
+Since steps can fail, the output of the action must be manually checked.
 
 Every PR to `main` (either coming from `dev`, or a patch) needs to increase the version of whatever crate it is touching. Otherwise, we will mess up the dependency chain of whoever is fetching from crates.io
+
+Manually running `cargo release` in the various workspaces helps to prepare the version number before the releases are published.
 
 Every time we bump some crate's version, `release-libs.yaml` needs to be manually triggered in order to update crates.io.
