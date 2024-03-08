@@ -34,7 +34,7 @@ We consider `main` to be the branch where the source code of `HEAD` always refle
 
 We consider `dev` to be the branch where the source code of `HEAD` always reflects a state with the latest delivered development changes for the next release.
 
-Every 4 weeks all the changes to `dev` are merged back into `main` and then tagged with a release number while bumping `MAJOR` and/or `MINOR`.
+The SRI team will decide the appropriate time when the changes to `dev` are merged back into `main` and then tagged with a release number while bumping `MAJOR` and/or `MINOR`.
 
 ## Feature Branches
 
