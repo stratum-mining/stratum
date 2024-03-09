@@ -10,7 +10,7 @@ downstream, so that everything that is dowstream do not need to know that job is
 
 ## Setup
 ### Configuration File
-The `proxy-config-example.toml` is a configuration example.
+The `jdc-config-local-example.toml` is a configuration example.
 
 The configuration file contains the following information:
 
@@ -25,14 +25,12 @@ The configuration file contains the following information:
 ```
 
 ### Run
-1. Copy the `jdc-config-example.toml` into `conf/` directory.
-2. Edit it with custom desired configuration and rename it `jdc-config.toml`
-3. Point the SV1 Downstream Mining Device(s) to the Translator Proxy IP address and port.
-4. Run the Translator Proxy:
+
+Run the Job Declarator Client (JDC):
 
    ```
-   cd roles/translator
+   cd roles/jd-client/config-examples/
    ```
    ```
-   cargo run -p translator_sv2 -- -c conf/jdc-config.toml
+   cargo run -- -c jdc-config-local-example.toml
    ```
