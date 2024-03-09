@@ -21,8 +21,26 @@ use tracing::{error, info};
 
 use stratum_common::bitcoin::{
     consensus::{encode::serialize, Encodable},
-    Block, Transaction,
+    Block, Transaction, Txid,
 };
+
+
+// this structure wraps each transaction with the index of the position in the job declared by the
+// JD-Client. the tx field can be None if the transaction is missing. In this case, the index is
+// used to retrieve the transaction from the message ProvideMissingTransactionsSuccess
+//#[derive(Debug)]
+//struct TransactionWithIndex {
+//    tx: Option<Transaction>,
+//    index: u16,
+//}
+
+#[derive(Clone, Debug)]
+enum TransactionState {
+    Present(Transaction),
+    ToBeRetrievedFromMempool(Txid),
+    Missing,
+}
+
 
 #[derive(Debug)]
 pub struct JobDeclaratorDownstream {
@@ -37,7 +55,11 @@ pub struct JobDeclaratorDownstream {
     public_key: Secp256k1PublicKey,
     private_key: Secp256k1SecretKey,
     mempool: Arc<Mutex<JDsMempool>>,
-    declared_mining_job: Option<(DeclareMiningJob<'static>, Vec<Transaction>, Vec<u16>)>,
+    // Vec<u16> is the vector of missing transactions
+    // this should be (Option<DeclareMiningJob<'static>>, Vec<TransactionState>)
+    // TODO call the vector with TransactionState in with the same name everywhere, also in the
+    // block creator in utils
+    declared_mining_job: Option<(DeclareMiningJob<'static>, Vec<TransactionState>)>,
     tx_hash_list_hash: Option<U256<'static>>,
 }
 
@@ -70,18 +92,78 @@ impl JobDeclaratorDownstream {
         }
     }
 
-    fn get_block_hex(self_mutex: Arc<Mutex<Self>>, message: SubmitSolutionJd) -> Option<String> {
-        //TODO: implement logic for success or error
-        let (last_declare, tx_list, _) = match self_mutex
-            .safe_lock(|x| x.declared_mining_job.take())
-            .unwrap()
-        {
-            Some((last_declare, tx_list, _x)) => (last_declare, tx_list, _x),
-            None => return None,
+    async fn get_job_transactions_from_mempool(self_mutex: Arc<Mutex<JobDeclaratorDownstream>>) {
+        let mut transactions_to_be_retrieved: Vec<Txid> = Vec::new();
+        let mut new_transactions: Vec<Transaction> = Vec::new();
+        self_mutex.clone().safe_lock(|a| for tx_with_state in a.declared_mining_job.clone().unwrap().1 {
+            match tx_with_state {
+                TransactionState::Present(_) => continue,
+                TransactionState::ToBeRetrievedFromMempool(tx) => transactions_to_be_retrieved.push(tx),
+                TransactionState::Missing => continue,
+            }
+        });
+        let mempool_ = self_mutex.safe_lock(|a| a.mempool.clone()).unwrap();
+        let client = mempool_.safe_lock(|a| a.get_client()).unwrap().unwrap();
+        for txid in transactions_to_be_retrieved {
+            let transaction = client.get_raw_transaction(&txid.to_string(), None).await.unwrap();
+            new_transactions.push(transaction);
+//            let new_tx_data: Result<Transaction, JdsMempoolError> = mempool
+//                .safe_lock(|x| x.get_client())
+//                .map_err(|e| JdsMempoolError::PoisonLock(e.to_string()))?
+//                .ok_or(JdsMempoolError::NoClient)?
+//                .get_raw_transaction(&txid.to_string(), None)
+//                .await
+//                .map_err(JdsMempoolError::Rpc);
+//            if let Ok(transaction) = new_tx_data {
+//                new_transactions.push(transaction);
+//            //this unwrap is safe
+//            } else {
+//                // TODO propagate error
+//                todo!()
+//            };
+
         };
+        for transaction in new_transactions {
+            self_mutex.clone().safe_lock(|a| for transaction_with_state in &mut a.declared_mining_job.as_mut().unwrap().1 {
+                match transaction_with_state {
+                    TransactionState::Present(_) => continue,
+                    TransactionState::ToBeRetrievedFromMempool(_) => {
+                        *transaction_with_state = TransactionState::Present(transaction);
+                        break;
+                    },
+                    TransactionState::Missing => continue,
+                }
+            }).unwrap()
+        };
+        //self_mutex.clone().safe_lock(|a| for transaction_with_state in a.declared_mining_job.unwrap().1 {
+        //    match transaction_with_state {
+        //        TransactionState::Present(_) => continue,
+        //        TransactionState::ToBeRetrievedFromMempool(_) => {transaction_with_state = TransactionState::Present(new_transactions.clone()[1])},
+        //        TransactionState::Missing => continue,
+        //    }
+        //});
+        
+        todo!()
+        
+    }
+
+    fn get_block_hex(self_mutex: Arc<Mutex<Self>>, message: SubmitSolutionJd) -> Result<String, JdsError> {
+        //TODO: implement logic for success or error
+        let (last_declare, transactions_with_state) = self_mutex
+            .safe_lock(|x| x.declared_mining_job.take())
+            // TODO manage these errors
+            .unwrap().unwrap();
+        let mut transactions_list: Vec<Transaction> = Vec::new();
+        for tx_with_state in transactions_with_state.iter().enumerate() {
+            if let TransactionState::Present(tx) = tx_with_state.1 {
+                transactions_list.push(tx.clone());
+            } else {
+                return Err(JdsError::ImpossibleToReconstructBlock("Missing transactions".to_string())); 
+            };
+        }
         let block: Block =
-            roles_logic_sv2::utils::BlockCreator::new(last_declare, tx_list, message).into();
-        Some(hex::encode(serialize(&block)))
+            roles_logic_sv2::utils::BlockCreator::new(last_declare, transactions_list, message).into();
+        Ok(hex::encode(serialize(&block)))
     }
 
     pub async fn send(
@@ -138,10 +220,11 @@ impl JobDeclaratorDownstream {
                                         self_mutex.clone(),
                                         message,
                                     ) {
-                                        Some(inner) => inner,
-                                        None => {
-                                            error!("Received solution but no job available");
+                                        Ok(inner) => inner,
+                                        Err(e) => {
+                                            error!("Received solution but encountered error: {:?}", e);
                                             recv.close();
+                                            //TODO should we brake it?
                                             break;
                                         }
                                     };
@@ -193,6 +276,7 @@ impl JobDeclaratorDownstream {
                         break;
                     }
                 }
+                JobDeclaratorDownstream::get_job_transactions_from_mempool(self_mutex.clone()).await;  
             }
         });
     }
