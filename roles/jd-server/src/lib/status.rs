@@ -94,6 +94,7 @@ async fn send_status(
     outcome
 }
 
+// TODO do we really want to brake at MempoolError and ImpossibleToReconstructBlock?
 // this is called by `error_handling::handle_result!`
 pub async fn handle_error(sender: &Sender, e: JdsError) -> error_handling::ErrorBranch {
     tracing::debug!("Error: {:?}", &e);
@@ -119,6 +120,9 @@ pub async fn handle_error(sender: &Sender, e: JdsError) -> error_handling::Error
             send_status(sender, e, error_handling::ErrorBranch::Break).await
         }
         JdsError::MempoolError(_) => {
+            send_status(sender, e, error_handling::ErrorBranch::Break).await
+        }
+        JdsError::ImpossibleToReconstructBlock(_) => {
             send_status(sender, e, error_handling::ErrorBranch::Break).await
         }
     }

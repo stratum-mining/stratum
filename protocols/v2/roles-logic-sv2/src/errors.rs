@@ -59,6 +59,7 @@ pub enum Error {
     TargetError(InputError),
     HashrateError(InputError),
     LogicErrorMessage(std::boxed::Box<AllMessages<'static>>),
+    JDSMissingTransactions,
 }
 
 impl From<BinarySv2Error> for Error {
@@ -149,6 +150,7 @@ impl Display for Error {
             TargetError(e) => write!(f, "Impossible to get Target: {:?}", e),
             HashrateError(e) => write!(f, "Impossible to get Hashrate: {:?}", e),
             LogicErrorMessage(e) => write!(f, "Message is well formatted but can not be handled: {:?}", e),
+            JDSMissingTransactions => write!(f, "JD server cannot propagate the block: missing transactions"),
         }
     }
 }

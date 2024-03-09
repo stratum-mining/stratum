@@ -22,6 +22,7 @@ pub enum JdsError {
     Custom(String),
     Sv2ProtocolError((u32, Mining<'static>)),
     MempoolError(JdsMempoolError),
+    ImpossibleToReconstructBlock(String),
 }
 
 impl std::fmt::Display for JdsError {
@@ -42,6 +43,7 @@ impl std::fmt::Display for JdsError {
                 write!(f, "Received Sv2 Protocol Error from upstream: `{:?}`", e)
             }
             MempoolError(ref e) => write!(f, "Mempool error: `{:?}`", e),
+            ImpossibleToReconstructBlock(e) => write!(f, "Error in reconstructing the block: {:?}", e),
         }
     }
 }
