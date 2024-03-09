@@ -1,5 +1,5 @@
 <h1 align="center">
-  Stratum Roles
+  SRI Roles
 </h1>
 
 # List of Roles
