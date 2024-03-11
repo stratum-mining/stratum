@@ -105,7 +105,6 @@ impl JDsMempool {
             .get_raw_mempool()
             .await
             .map_err(JdsMempoolError::Rpc)?;
-
         for id in &mempool {
             let tx: Result<Transaction, _> = client.get_raw_transaction(id, None).await;
             if let Ok(tx) = tx {
@@ -123,10 +122,9 @@ impl JDsMempool {
                 x.mempool = mempool_ordered;
             })
             .map_err(|e| JdsMempoolError::PoisonLock(e.to_string()))?;
-
         Ok(())
     }
-
+    
     pub async fn on_submit(self_: Arc<Mutex<Self>>) -> Result<(), JdsMempoolError> {
         let new_block_receiver: Receiver<String> = self_
             .safe_lock(|x| x.new_block_receiver.clone())
