@@ -1,9 +1,9 @@
-# This workflow is used to publish SV2 crates to cratesio
-# The workflow try to update all the library crates so if a crate is not to updated, the step will fail
+# This workflow is used to publish SV2 crates to crates.io
+# The workflow tries to update all the library crates, so if a crate is not to updated, the step will fail
 # for that each step have continue-on-error set to true.
-# Since each step can fail the output ot the action must be manually check to macke sure that all
+# Since each step can fail, the output ot the action must be manually checked to make sure that all
 # the library intended to be published are published.
-# Runing cargo release in the various workspace help to prepare the version number and everything.
+# Running cargo release in the various workspace help to prepare the version number and everything.
 # ATTENTION
 # Is very important to check the output manually cause when too many crates are updated crates.io could fail
 # and ask to rerun the action later
