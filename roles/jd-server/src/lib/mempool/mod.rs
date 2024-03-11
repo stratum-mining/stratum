@@ -66,7 +66,7 @@ impl JDsMempool {
         let new_mempool: Result<Vec<TransacrtionWithHash>, JdsMempoolError> =
             tokio::task::spawn(async move {
                 let mempool: Vec<String> = client
-                    .get_raw_mempool_verbose()
+                    .get_raw_mempool()
                     .await
                     .map_err(JdsMempoolError::Rpc)?;
                 for id in &mempool {
@@ -82,7 +82,6 @@ impl JDsMempool {
                     Ok(mempool_ordered)
                 }
             })
-            .await
             .map_err(JdsMempoolError::TokioJoin)?;
 
         match new_mempool {
