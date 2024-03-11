@@ -1094,7 +1094,7 @@ checksum = "b1a46d1a171d865aa5f83f92695765caa047a9b4cbae2cbf37dbd613a793fd4c"
 
 [[package]]
 name = "jd_client"
-version = "1.0.0"
+version = "0.1.0"
 dependencies = [
  "async-channel 1.9.0",
  "async-recursion 0.3.2",
@@ -1118,7 +1118,7 @@ dependencies = [
 
 [[package]]
 name = "jd_server"
-version = "1.0.0"
+version = "0.1.0"
 dependencies = [
  "async-channel 1.9.0",
  "binary_sv2",
@@ -1231,7 +1231,7 @@ checksum = "523dc4f511e55ab87b694dc30d0f820d60906ef06413f93d4d7a1385599cc149"
 
 [[package]]
 name = "mining-device"
-version = "1.0.0"
+version = "0.1.0"
 dependencies = [
  "async-channel 1.9.0",
  "async-recursion 0.3.2",
@@ -1249,7 +1249,7 @@ dependencies = [
 
 [[package]]
 name = "mining_proxy_sv2"
-version = "1.0.0"
+version = "0.1.0"
 dependencies = [
  "async-channel 1.9.0",
  "async-recursion 0.3.2",
@@ -1534,7 +1534,7 @@ dependencies = [
 
 [[package]]
 name = "pool_sv2"
-version = "1.0.0"
+version = "0.1.0"
 dependencies = [
  "async-channel 1.9.0",
  "async-recursion 1.0.5",
@@ -1912,7 +1912,7 @@ checksum = "81cdd64d312baedb58e21336b31bc043b77e01cc99033ce76ef539f78e965ebc"
 
 [[package]]
 name = "sv1-mining-device"
-version = "1.0.0"
+version = "0.1.0"
 dependencies = [
  "async-channel 1.9.0",
  "async-std",
@@ -2130,7 +2130,7 @@ dependencies = [
 
 [[package]]
 name = "translator_sv2"
-version = "1.0.0"
+version = "0.1.0"
 dependencies = [
  "async-channel 1.9.0",
  "async-compat",
