@@ -63,13 +63,11 @@ impl JDsMempool {
             .safe_lock(|x| x.get_client())
             .map_err(|e| JdsMempoolError::PoisonLock(e.to_string()))?
             .ok_or(JdsMempoolError::NoClient)?;
-    
-        // Directly fetching and processing the mempool
         let mempool: Vec<String> = client
             .get_raw_mempool()
             .await
             .map_err(JdsMempoolError::Rpc)?;
-    
+
         for id in &mempool {
             let tx: Result<Transaction, _> = client.get_raw_transaction(id, None).await;
             if let Ok(tx) = tx {
@@ -77,21 +75,20 @@ impl JDsMempool {
                 mempool_ordered.push(TransacrtionWithHash { id, tx });
             }
         }
-    
+
         if mempool_ordered.is_empty() {
             return Err(JdsMempoolError::EmptyMempool);
         }
-    
-        // No need for a separate match since we return early in case of error
+
         let _ = self_
             .safe_lock(|x| {
                 x.mempool = mempool_ordered;
             })
             .map_err(|e| JdsMempoolError::PoisonLock(e.to_string()))?;
-            
+
         Ok(())
     }
-    
+
     pub async fn on_submit(self_: Arc<Mutex<Self>>) -> Result<(), JdsMempoolError> {
         let new_block_receiver: Receiver<String> = self_
             .safe_lock(|x| x.new_block_receiver.clone())
