@@ -80,7 +80,7 @@ impl JDsMempool {
             return Err(JdsMempoolError::EmptyMempool);
         }
 
-        let _ = self_
+        self_
             .safe_lock(|x| {
                 x.mempool = mempool_ordered;
             })
