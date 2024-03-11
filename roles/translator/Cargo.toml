@@ -1,6 +1,6 @@
 [package]
 name = "translator_sv2"
-version = "1.0.0"
+version = "0.1.0"
 edition = "2021"
 description = "Server used to bridge SV1 miners to SV2 pools"
 license = "MIT OR Apache-2.0"
