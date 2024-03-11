@@ -124,7 +124,7 @@ impl JDsMempool {
             .map_err(|e| JdsMempoolError::PoisonLock(e.to_string()))?;
         Ok(())
     }
-    
+
     pub async fn on_submit(self_: Arc<Mutex<Self>>) -> Result<(), JdsMempoolError> {
         let new_block_receiver: Receiver<String> = self_
             .safe_lock(|x| x.new_block_receiver.clone())
