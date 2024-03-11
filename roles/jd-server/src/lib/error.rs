@@ -23,6 +23,7 @@ pub enum JdsError {
     Sv2ProtocolError((u32, Mining<'static>)),
     MempoolError(JdsMempoolError),
     ImpossibleToReconstructBlock(String),
+    NoLastDeclaredJob,
 }
 
 impl std::fmt::Display for JdsError {
@@ -43,7 +44,10 @@ impl std::fmt::Display for JdsError {
                 write!(f, "Received Sv2 Protocol Error from upstream: `{:?}`", e)
             }
             MempoolError(ref e) => write!(f, "Mempool error: `{:?}`", e),
-            ImpossibleToReconstructBlock(e) => write!(f, "Error in reconstructing the block: {:?}", e),
+            ImpossibleToReconstructBlock(e) => {
+                write!(f, "Error in reconstructing the block: {:?}", e)
+            }
+            NoLastDeclaredJob => write!(f, "Last declared job not found"),
         }
     }
 }
