@@ -37,7 +37,7 @@ The Translator Proxy facilitates communication between Sv1 Mining Devices and a 
 
 Job Declarators (JDs) are roles that can be Pool-side and Miner-side, but they can also be run by any third parties. They are connected to a Template Provider, in this way they can receive and validate custom block templates. They are the roles needed to implement the so-called Job Declaration Protocol. They can further distribute jobs to a Mining Proxy (or Proxies) via the Job Distribution Protocol. The Job declaration role can be seen in two shapes:
 
-a. Job Declarator Server (JDS):
+a. Job Declarator Server (JDS)
 
 Job Declarator Server (or JDS) is the role that is Pool-side, in charge of allocating the mining job tokens needed by Job Declarator Client to create custom jobs to work on. It is also the entity responsible for Pool-side block propagation in case of valid blocks found by miners connected to the pool (who are using the Job Declaration Protocol).
 
