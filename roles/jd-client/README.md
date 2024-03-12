@@ -29,8 +29,8 @@ The configuration file contains the following information:
 Run the Job Declarator Client (JDC):
 There are two files when you cd into roles/jd-client/config-examples/
 
-1. jdc-config-hosted-example.toml runs the Community-hosted roles.
-2. jdc-config-local-example.toml serves as Self-hosted roles to run: Job Declarator Client (JDC) and Translator Proxy
+1. `jdc-config-hosted-example.toml` connects to the community-hosted roles.
+2. `jdc-config-local-example.toml` connects to self-hosted Job Declarator Client (JDC) and Translator Proxy
 
 ``` bash
 cd roles/jd-client/config-examples/
