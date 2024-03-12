@@ -72,7 +72,7 @@ impl SetupConnectionHandler {
         )?;
 
         let message = response.into_message().ok_or(PoolError::RolesLogic(
-            roles_logic_sv2::Error::UnexpectedMessage(message_type),
+            roles_logic_sv2::Error::NoDownstreamsConnected,
         ))?;
 
         let sv2_frame: StdFrame = PoolMessages::Common(message.clone()).try_into()?;
