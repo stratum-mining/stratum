@@ -153,8 +153,8 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
         message: ProvideMissingTransactionsSuccess,
     ) -> Result<SendTo, Error> {
         let (_, ref mut transactions_with_state) = &mut self.declared_mining_job;
-        for (i, tx) in message.transaction_list.inner_as_ref().iter().enumerate() {
-            for tx_with_state in transactions_with_state.clone() {
+        for (_index, tx) in message.transaction_list.inner_as_ref().iter().enumerate() {
+            for (i, tx_with_state) in transactions_with_state.clone().iter().enumerate() {
                 match tx_with_state {
                     TransactionState::Present(_) => continue,
                     TransactionState::ToBeRetrievedFromMempool(_) => continue,
