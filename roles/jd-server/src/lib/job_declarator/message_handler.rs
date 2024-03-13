@@ -152,9 +152,8 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
         let (_, ref mut transactions_with_state, missing_indexes) = &mut self.declared_mining_job;
         for (i, tx) in message.transaction_list.inner_as_ref().iter().enumerate() {
             let mut cursor = Cursor::new(tx);
-            // TODO remove this unwrap
-            let transaction =
-                Transaction::consensus_decode_from_finite_reader(&mut cursor).unwrap();
+            let transaction = Transaction::consensus_decode_from_finite_reader(&mut cursor)
+                .map_err(|e| Error::TxDecodingError(e.to_string()))?;
             let index = *missing_indexes
                 .get(i)
                 .ok_or(Error::LogicErrorMessage(Box::new(
