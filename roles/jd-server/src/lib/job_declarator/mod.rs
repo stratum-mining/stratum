@@ -56,10 +56,7 @@ pub struct JobDeclaratorDownstream {
     private_key: Secp256k1SecretKey,
     mempool: Arc<Mutex<JDsMempool>>,
     // Vec<u16> is the vector of missing transactions
-    // this should be (Option<DeclareMiningJob<'static>>, Vec<TransactionState>)
-    // TODO call the vector with TransactionState in with the same name everywhere, also in the
-    // block creator in utils
-    declared_mining_job: (Option<DeclareMiningJob<'static>>, Vec<TransactionState>),
+    declared_mining_job: (Option<DeclareMiningJob<'static>>, Vec<TransactionState>, Vec<u16>),
     tx_hash_list_hash: Option<U256<'static>>,
 }
 
@@ -87,7 +84,7 @@ impl JobDeclaratorDownstream {
             public_key: config.authority_public_key,
             private_key: config.authority_secret_key,
             mempool,
-            declared_mining_job: (None, Vec::new()),
+            declared_mining_job: (None, Vec::new(), Vec::new()),
             tx_hash_list_hash: None,
         }
     }
@@ -164,7 +161,7 @@ impl JobDeclaratorDownstream {
         self_mutex: Arc<Mutex<Self>>,
         message: SubmitSolutionJd,
     ) -> Result<String, JdsError> {
-        let (last_declare_, transactions_with_state) = self_mutex
+        let (last_declare_, transactions_with_state, _) = self_mutex
             .safe_lock(|x| x.declared_mining_job.clone())
             .map_err(|e| JdsError::PoisonLock(e.to_string()))?;
         let last_declare = last_declare_.ok_or(JdsError::NoLastDeclaredJob)?;
