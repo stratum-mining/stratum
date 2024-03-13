@@ -159,12 +159,10 @@ impl JobDeclaratorDownstream {
         Ok(())
     }
 
-    // TODO try to remove this configuration
-    #[allow(clippy::result_large_err)]
     fn get_block_hex(
         self_mutex: Arc<Mutex<Self>>,
         message: SubmitSolutionJd,
-    ) -> Result<String, JdsError> {
+    ) -> Result<String, Box<JdsError>> {
         let (last_declare_, transactions_with_state, _) = self_mutex
             .safe_lock(|x| x.declared_mining_job.clone())
             .map_err(|e| JdsError::PoisonLock(e.to_string()))?;
@@ -174,9 +172,9 @@ impl JobDeclaratorDownstream {
             if let TransactionState::Present(tx) = tx_with_state.1 {
                 transactions_list.push(tx.clone());
             } else {
-                return Err(JdsError::ImpossibleToReconstructBlock(
+                return Err(Box::new(JdsError::ImpossibleToReconstructBlock(
                     "Missing transactions".to_string(),
-                ));
+                )));
             };
         }
         let block: Block =
@@ -298,10 +296,10 @@ impl JobDeclaratorDownstream {
                         break;
                     }
                 }
-                let retrive_transactions =
+                let retrieve_transactions =
                     JobDeclaratorDownstream::retrieve_transactions_via_rpc(self_mutex.clone())
                         .await;
-                match retrive_transactions {
+                match retrieve_transactions {
                     Ok(_) => (),
                     Err(error) => {
                         handle_result!(tx_status, Err(error));
