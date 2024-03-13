@@ -11,9 +11,9 @@ use roles_logic_sv2::{
 use std::{convert::TryInto, io::Cursor};
 use stratum_common::bitcoin::Transaction;
 pub type SendTo = SendTo_<JobDeclaration<'static>, ()>;
+use roles_logic_sv2::{errors::Error, parsers::PoolMessages as AllMessages};
 use super::{signed_token, TransactionState};
 use crate::mempool;
-use roles_logic_sv2::errors::Error;
 use stratum_common::bitcoin::consensus::Decodable;
 use tracing::info;
 
@@ -101,7 +101,7 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
                 }
             }
             self.declared_mining_job =
-                (Some(message.clone().into_static()), transactions_with_state);
+                (Some(message.clone().into_static()), transactions_with_state, missing_txs.clone());
 
             //let self_mutex = Arc::new(Mutex::new(self));
             //add_tx_data_to_job(self_mutex);
@@ -152,27 +152,27 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
         &mut self,
         message: ProvideMissingTransactionsSuccess,
     ) -> Result<SendTo, Error> {
-        let (_, ref mut transactions_with_state) = &mut self.declared_mining_job;
-        for (_index, tx) in message.transaction_list.inner_as_ref().iter().enumerate() {
-            for (i, tx_with_state) in transactions_with_state.clone().iter().enumerate() {
-                match tx_with_state {
-                    TransactionState::Present(_) => continue,
-                    TransactionState::ToBeRetrievedFromMempool(_) => continue,
-                    TransactionState::Missing => {
-                        let mut cursor = Cursor::new(tx);
-                        // TODO remove this unwrap
-                        let transaction =
-                            Transaction::consensus_decode_from_finite_reader(&mut cursor).unwrap();
-                        transactions_with_state[i] = TransactionState::Present(transaction.clone());
-                        mempool::JDsMempool::add_tx_data_to_mempool(
-                            self.mempool.clone(),
-                            transaction.txid(),
-                            Some(transaction),
-                        );
-                        break;
-                    }
-                }
-            }
+        let (_, ref mut transactions_with_state, missing_indexes) = &mut self.declared_mining_job;
+        for (i, tx) in message.transaction_list.inner_as_ref().iter().enumerate() {
+            let mut cursor = Cursor::new(tx);
+            // TODO remove this unwrap
+            let transaction= Transaction::consensus_decode_from_finite_reader(&mut cursor).unwrap();
+            let index =
+                *missing_indexes
+                    .get(i)
+                    .ok_or(Error::LogicErrorMessage(Box::new(
+                        AllMessages::JobDeclaration(
+                            JobDeclaration::ProvideMissingTransactionsSuccess(
+                                message.clone().into_static(),
+                            ),
+                        ),
+                    )))? as usize;
+            transactions_with_state[index] = TransactionState::Present(transaction.clone());
+            mempool::JDsMempool::add_tx_data_to_mempool(
+                self.mempool.clone(),
+                transaction.txid(),
+                Some(transaction),
+            );
         }
         // if there still a missing transaction return an error
         for tx_with_state in transactions_with_state {
