@@ -11,9 +11,9 @@ use roles_logic_sv2::{
 use std::{convert::TryInto, io::Cursor};
 use stratum_common::bitcoin::Transaction;
 pub type SendTo = SendTo_<JobDeclaration<'static>, ()>;
-use roles_logic_sv2::{errors::Error, parsers::PoolMessages as AllMessages};
 use super::{signed_token, TransactionState};
 use crate::mempool;
+use roles_logic_sv2::{errors::Error, parsers::PoolMessages as AllMessages};
 use stratum_common::bitcoin::consensus::Decodable;
 use tracing::info;
 
@@ -95,16 +95,15 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
                     },
                     None => {
                         transactions_with_state[i] = TransactionState::Missing;
-                        // TODO remove this, the the ids of missing transactions from the vector
                         missing_txs.push(i as u16);
                     }
                 }
             }
-            self.declared_mining_job =
-                (Some(message.clone().into_static()), transactions_with_state, missing_txs.clone());
-
-            //let self_mutex = Arc::new(Mutex::new(self));
-            //add_tx_data_to_job(self_mutex);
+            self.declared_mining_job = (
+                Some(message.clone().into_static()),
+                transactions_with_state,
+                missing_txs.clone(),
+            );
 
             if missing_txs.is_empty() {
                 let message_success = DeclareMiningJobSuccess {
@@ -120,8 +119,6 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
             } else {
                 let message_provide_missing_transactions = ProvideMissingTransactions {
                     request_id: message.request_id,
-                    // TODO here get the missing IDS from the entries of txs_in_job which are
-                    // TransactionState::Missing
                     unknown_tx_position_list: missing_txs.into(),
                 };
                 let message_enum_provide_missing_transactions =
@@ -156,17 +153,15 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
         for (i, tx) in message.transaction_list.inner_as_ref().iter().enumerate() {
             let mut cursor = Cursor::new(tx);
             // TODO remove this unwrap
-            let transaction= Transaction::consensus_decode_from_finite_reader(&mut cursor).unwrap();
-            let index =
-                *missing_indexes
-                    .get(i)
-                    .ok_or(Error::LogicErrorMessage(Box::new(
-                        AllMessages::JobDeclaration(
-                            JobDeclaration::ProvideMissingTransactionsSuccess(
-                                message.clone().into_static(),
-                            ),
-                        ),
-                    )))? as usize;
+            let transaction =
+                Transaction::consensus_decode_from_finite_reader(&mut cursor).unwrap();
+            let index = *missing_indexes
+                .get(i)
+                .ok_or(Error::LogicErrorMessage(Box::new(
+                    AllMessages::JobDeclaration(JobDeclaration::ProvideMissingTransactionsSuccess(
+                        message.clone().into_static(),
+                    )),
+                )))? as usize;
             transactions_with_state[index] = TransactionState::Present(transaction.clone());
             mempool::JDsMempool::add_tx_data_to_mempool(
                 self.mempool.clone(),

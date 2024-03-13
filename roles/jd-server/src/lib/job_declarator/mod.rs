@@ -56,7 +56,11 @@ pub struct JobDeclaratorDownstream {
     private_key: Secp256k1SecretKey,
     mempool: Arc<Mutex<JDsMempool>>,
     // Vec<u16> is the vector of missing transactions
-    declared_mining_job: (Option<DeclareMiningJob<'static>>, Vec<TransactionState>, Vec<u16>),
+    declared_mining_job: (
+        Option<DeclareMiningJob<'static>>,
+        Vec<TransactionState>,
+        Vec<u16>,
+    ),
     tx_hash_list_hash: Option<U256<'static>>,
 }
 
