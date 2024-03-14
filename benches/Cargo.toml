@@ -7,7 +7,7 @@ edition = "2021"
 async-std={version = "1.10.0", features = ["attributes"]}
 criterion = "0.5.1"
 async-channel = "1.4.0"
-v1={path="../protocols/v1", package="sv1_api"}
+v1 = { path="../protocols/v1", package="sv1_api", version = "^1.0.0" }
 serde_json = { version = "1.0.64", default-features = false, features = ["alloc"] }
 iai="0.1"
 mining_sv2 = { path = "../protocols/v2/subprotocols/mining", version = "^1.0.0" }
