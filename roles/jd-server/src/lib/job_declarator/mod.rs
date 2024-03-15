@@ -146,7 +146,8 @@ impl JobDeclaratorDownstream {
                         match transaction_with_state {
                             TransactionState::Present(_) => continue,
                             TransactionState::ToBeRetrievedFromNodeMempool(_) => {
-                                *transaction_with_state = TransactionState::Present(transaction.txid());
+                                *transaction_with_state =
+                                    TransactionState::Present(transaction.txid());
                                 break;
                             }
                             TransactionState::Missing => continue,
@@ -176,11 +177,15 @@ impl JobDeclaratorDownstream {
                     Ok(tx) => tx,
                     Err(e) => return Err(Box::new(JdsError::PoisonLock(e.to_string()))),
                 };
-                let tx = tx_.ok_or(JdsError::ImpossibleToReconstructBlock("Missing transactions".to_string()));
+                let tx = tx_.ok_or(JdsError::ImpossibleToReconstructBlock(
+                    "Missing transactions".to_string(),
+                ));
                 if let Ok(Some(tx)) = tx {
                     transactions_list.push(tx);
                 } else {
-                    return Err(Box::new(JdsError::ImpossibleToReconstructBlock("Missing transactions".to_string())));
+                    return Err(Box::new(JdsError::ImpossibleToReconstructBlock(
+                        "Missing transactions".to_string(),
+                    )));
                 }
             } else {
                 return Err(Box::new(JdsError::ImpossibleToReconstructBlock(
