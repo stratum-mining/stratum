@@ -86,11 +86,11 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
                 match short_id_mempool.get(&sid_) {
                     Some(tx_data) => match &tx_data.tx {
                         Some(tx) => {
-                            transactions_with_state[i] = TransactionState::Present(tx.clone());
+                            transactions_with_state[i] = TransactionState::Present(tx.txid());
                         }
                         None => {
                             transactions_with_state[i] =
-                                TransactionState::ToBeRetrievedFromMempool(tx_data.id);
+                                TransactionState::ToBeRetrievedFromNodeMempool(tx_data.id);
                         }
                     },
                     None => {
@@ -161,7 +161,7 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
                         message.clone().into_static(),
                     )),
                 )))? as usize;
-            transactions_with_state[index] = TransactionState::Present(transaction.clone());
+            transactions_with_state[index] = TransactionState::Present(transaction.txid());
             mempool::JDsMempool::add_tx_data_to_mempool(
                 self.mempool.clone(),
                 transaction.txid(),
@@ -172,7 +172,7 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
         for tx_with_state in transactions_with_state {
             match tx_with_state {
                 TransactionState::Present(_) => continue,
-                TransactionState::ToBeRetrievedFromMempool(_) => continue,
+                TransactionState::ToBeRetrievedFromNodeMempool(_) => continue,
                 TransactionState::Missing => return Err(Error::JDSMissingTransactions),
             }
         }
