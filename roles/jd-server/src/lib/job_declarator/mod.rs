@@ -1,6 +1,4 @@
 pub mod message_handler;
-use crate::mempool;
-
 use super::{error::JdsError, mempool::JDsMempool, status, Configuration, EitherFrame, StdFrame};
 use async_channel::{Receiver, Sender};
 use binary_sv2::{B0255, U256};
@@ -26,20 +24,27 @@ use stratum_common::bitcoin::{
     Block, Transaction, Txid,
 };
 
-// this structure wraps each transaction with the index of the position in the job declared by the
-// JD-Client. the tx field can be None if the transaction is missing. In this case, the index is
-// used to retrieve the transaction from the message ProvideMissingTransactionsSuccess
-//#[derive(Debug)]
-//struct TransactionWithIndex {
-//    tx: Option<Transaction>,
-//    index: u16,
-//}
-
 #[derive(Clone, Debug)]
 enum TransactionState {
-    Present(Txid),
-    ToBeRetrievedFromNodeMempool(Txid),
+    PresentInMempool(Txid),
     Missing,
+}
+
+pub fn get_ids_of_known_transactions(transactions: &Vec<TransactionState>) -> Vec<Txid> {
+    let mut known_transactions: Vec<Txid> = Vec::new();
+    for transaction in transactions {
+        match *transaction {
+            TransactionState::PresentInMempool(txid) => known_transactions.push(txid.clone()),
+            TransactionState::Missing => continue,
+        }
+    };
+    known_transactions
+}
+
+#[derive(Clone, Debug)]
+pub struct AddTrasactionsToMempool {
+    pub known_transactions: Vec<Txid>,
+    pub unknown_transactions: Vec<Transaction>,
 }
 
 #[derive(Debug)]
@@ -62,6 +67,7 @@ pub struct JobDeclaratorDownstream {
         Vec<u16>,
     ),
     tx_hash_list_hash: Option<U256<'static>>,
+    sender_add_txs_to_mempool: Sender<AddTrasactionsToMempool>,
 }
 
 impl JobDeclaratorDownstream {
@@ -70,6 +76,7 @@ impl JobDeclaratorDownstream {
         sender: Sender<EitherFrame>,
         config: &Configuration,
         mempool: Arc<Mutex<JDsMempool>>,
+        sender_add_txs_to_mempool: Sender<AddTrasactionsToMempool>
     ) -> Self {
         let mut coinbase_output = vec![];
         // TODO: use next variables
@@ -90,74 +97,73 @@ impl JobDeclaratorDownstream {
             mempool,
             declared_mining_job: (None, Vec::new(), Vec::new()),
             tx_hash_list_hash: None,
+            sender_add_txs_to_mempool,
         }
     }
 
-    // This only errors that are returned are PoisonLock, Custom, MempoolError
-    // this function is called in JobDeclaratorDowenstream::start(), if different errors are
-    // returned, change also the error management there
-    async fn retrieve_transactions_via_rpc(
-        self_mutex: Arc<Mutex<JobDeclaratorDownstream>>,
-    ) -> Result<(), JdsError> {
-        let mut transactions_to_be_retrieved: Vec<Txid> = Vec::new();
-        let mut new_transactions: Vec<Transaction> = Vec::new();
-        let transactions_with_state = self_mutex
-            .clone()
-            .safe_lock(|a| a.declared_mining_job.clone())
-            .map_err(|e| JdsError::PoisonLock(e.to_string()))?
-            .1;
-        for tx_with_state in transactions_with_state {
-            match tx_with_state {
-                TransactionState::Present(_) => continue,
-                TransactionState::ToBeRetrievedFromNodeMempool(tx) => {
-                    transactions_to_be_retrieved.push(tx)
-                }
-                TransactionState::Missing => continue,
-            }
-        }
-        let mempool_ = self_mutex
-            .safe_lock(|a| a.mempool.clone())
-            .map_err(|e| JdsError::PoisonLock(e.to_string()))?;
-        let client = mempool_
-            .clone()
-            .safe_lock(|a| a.get_client())
-            .map_err(|e| JdsError::PoisonLock(e.to_string()))?
-            .ok_or(JdsError::MempoolError(
-                mempool::error::JdsMempoolError::NoClient,
-            ))?;
-        for txid in transactions_to_be_retrieved {
-            let transaction = client
-                .get_raw_transaction(&txid.to_string(), None)
-                .await
-                .map_err(|e| JdsError::MempoolError(mempool::error::JdsMempoolError::Rpc(e)))?;
-            let txid = transaction.txid();
-            mempool::JDsMempool::add_tx_data_to_mempool(
-                mempool_.clone(),
-                txid,
-                Some(transaction.clone()),
-            );
-            new_transactions.push(transaction);
-        }
-        for transaction in new_transactions {
-            self_mutex
-                .clone()
-                .safe_lock(|a| {
-                    for transaction_with_state in &mut a.declared_mining_job.1 {
-                        match transaction_with_state {
-                            TransactionState::Present(_) => continue,
-                            TransactionState::ToBeRetrievedFromNodeMempool(_) => {
-                                *transaction_with_state =
-                                    TransactionState::Present(transaction.txid());
-                                break;
-                            }
-                            TransactionState::Missing => continue,
-                        }
-                    }
-                })
-                .map_err(|e| JdsError::PoisonLock(e.to_string()))?
-        }
-        Ok(())
-    }
+    //// This only errors that are returned are PoisonLock, Custom, MempoolError
+    //// this function is called in JobDeclaratorDowenstream::start(), if different errors are
+    //// returned, change also the error management there
+    //async fn send_transactions_needed_in_mempool(
+    //    self_mutex: Arc<Mutex<JobDeclaratorDownstream>>,
+    //) -> Result<(), JdsError> {
+    //    let sender_add_txs_to_mempool = self_mutex.safe_lock(|a| a.sender_add_txs_to_mempool.clone()).unwrap();
+    //    let mut transactions_to_be_retrieved: Vec<Txid> = Vec::new();
+    //    let transactions_with_state = self_mutex
+    //        .clone()
+    //        .safe_lock(|a| a.declared_mining_job.clone())
+    //        .map_err(|e| JdsError::PoisonLock(e.to_string()))?
+    //        .1;
+    //    for tx_with_state in transactions_with_state {
+    //        match tx_with_state {
+    //            TransactionState::PresentInMempool(txid) => transactions_to_be_retrieved.push(txid),
+    //            TransactionState::Missing => continue,
+    //        }
+    //    };
+    //    let _ = sender_add_txs_to_mempool.send(transactions_to_be_retrieved);
+    //    //let mempool_ = self_mutex
+    //    //    .safe_lock(|a| a.mempool.clone())
+    //    //    .map_err(|e| JdsError::PoisonLock(e.to_string()))?;
+    //    //let client = mempool_
+    //    //    .clone()
+    //    //    .safe_lock(|a| a.get_client())
+    //    //    .map_err(|e| JdsError::PoisonLock(e.to_string()))?
+    //    //    .ok_or(JdsError::MempoolError(
+    //    //        mempool::error::JdsMempoolError::NoClient,
+    //    //    ))?;
+    //    //for txid in transactions_to_be_retrieved {
+    //    //    let transaction = client
+    //    //        .get_raw_transaction(&txid.to_string(), None)
+    //    //        .await
+    //    //        .map_err(|e| JdsError::MempoolError(mempool::error::JdsMempoolError::Rpc(e)))?;
+    //    //    let txid = transaction.txid();
+    //    //    mempool::JDsMempool::add_tx_data_to_mempool(
+    //    //        mempool_.clone(),
+    //    //        txid,
+    //    //        Some(transaction.clone()),
+    //    //    );
+    //    //    new_transactions.push(transaction);
+    //    //}
+    //    //for transaction in new_transactions {
+    //    //    self_mutex
+    //    //        .clone()
+    //    //        .safe_lock(|a| {
+    //    //            for transaction_with_state in &mut a.declared_mining_job.1 {
+    //    //                match transaction_with_state {
+    //    //                    TransactionState::Present(_) => continue,
+    //    //                    TransactionState::ToBeRetrievedFromNodeMempool(_) => {
+    //    //                        *transaction_with_state =
+    //    //                            TransactionState::Present(transaction.txid());
+    //    //                        break;
+    //    //                    }
+    //    //                    TransactionState::Missing => continue,
+    //    //                }
+    //    //            }
+    //    //        })
+    //    //        .map_err(|e| JdsError::PoisonLock(e.to_string()))?
+    //    //}
+    //    Ok(())
+    //}
 
     fn get_block_hex(
         self_mutex: Arc<Mutex<Self>>,
@@ -172,7 +178,7 @@ impl JobDeclaratorDownstream {
         let last_declare = last_declare_.ok_or(JdsError::NoLastDeclaredJob)?;
         let mut transactions_list: Vec<Transaction> = Vec::new();
         for tx_with_state in transactions_with_state.iter().enumerate() {
-            if let TransactionState::Present(txid) = tx_with_state.1 {
+            if let TransactionState::PresentInMempool(txid) = tx_with_state.1 {
                 let tx_ = match mempool_.safe_lock(|x| x.mempool.get(txid).cloned()) {
                     Ok(tx) => tx,
                     Err(e) => return Err(Box::new(JdsError::PoisonLock(e.to_string()))),
@@ -312,16 +318,16 @@ impl JobDeclaratorDownstream {
                         break;
                     }
                 }
-                let retrieve_transactions =
-                    JobDeclaratorDownstream::retrieve_transactions_via_rpc(self_mutex.clone())
-                        .await;
-                match retrieve_transactions {
-                    Ok(_) => (),
-                    Err(error) => {
-                        handle_result!(tx_status, Err(error));
-                        break;
-                    }
-                }
+                //let retrieve_transactions =
+                //    JobDeclaratorDownstream::retrieve_transactions_via_rpc(self_mutex.clone())
+                //        .await;
+                //match retrieve_transactions {
+                //    Ok(_) => (),
+                //    Err(error) => {
+                //        handle_result!(tx_status, Err(error));
+                //        break;
+                //    }
+                //}
             }
         });
     }
@@ -359,10 +365,11 @@ impl JobDeclarator {
         status_tx: crate::status::Sender,
         mempool: Arc<Mutex<JDsMempool>>,
         new_block_sender: Sender<String>,
+        sender_add_txs_to_mempool: Sender<AddTrasactionsToMempool>,
     ) {
         let self_ = Arc::new(Mutex::new(Self {}));
         info!("JD INITIALIZED");
-        Self::accept_incoming_connection(self_, config, status_tx, mempool, new_block_sender).await;
+        Self::accept_incoming_connection(self_, config, status_tx, mempool, new_block_sender, sender_add_txs_to_mempool).await;
     }
     async fn accept_incoming_connection(
         _self_: Arc<Mutex<JobDeclarator>>,
@@ -370,6 +377,7 @@ impl JobDeclarator {
         status_tx: crate::status::Sender,
         mempool: Arc<Mutex<JDsMempool>>,
         new_block_sender: Sender<String>,
+        sender_add_txs_to_mempool: Sender<AddTrasactionsToMempool>,
     ) {
         let listner = TcpListener::bind(&config.listen_jd_address).await.unwrap();
         while let Ok((stream, _)) = listner.accept().await {
@@ -408,6 +416,8 @@ impl JobDeclarator {
                     sender.clone(),
                     &config,
                     mempool.clone(),
+                    // each downstream has its own sender (multi producer single consumer)
+                    sender_add_txs_to_mempool.clone(),
                 )));
 
                 JobDeclaratorDownstream::start(
