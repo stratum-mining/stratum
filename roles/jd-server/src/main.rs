@@ -177,6 +177,7 @@ async fn main() {
                             }
                         }
                         _ => {
+                            // TODO here there should be a better error managmenet
                             mempool::error::handle_error(&err);
                             handle_result!(sender_submit_solution, Err(err));
                         }
@@ -190,8 +191,26 @@ async fn main() {
 
     let cloned = config.clone();
     let mempool_cloned = mempool.clone();
+    let (sender_jdd_for_mempool_update, receiver_jdd_for_mempool_update) = unbounded();
     task::spawn(async move {
-        JobDeclarator::start(cloned, sender, mempool_cloned, new_block_sender).await
+            JobDeclarator::start(cloned, sender, mempool_cloned, new_block_sender, sender_jdd_for_mempool_update).await
+    });
+    task::spawn(async move {
+        loop {
+            if let Ok(add_transactions_to_mempool) = receiver_jdd_for_mempool_update.recv().await {
+                let mempool_cloned = mempool.clone();
+                task::spawn(async move {
+                    match lib::mempool::JDsMempool::add_tx_data_to_mempool(mempool_cloned, add_transactions_to_mempool).await {
+                        Ok(_) => (),
+                        Err(err) => {
+                            // TODO
+                            // here there should be a better error management
+                            mempool::error::handle_error(&err);
+                        },
+                    }
+                });
+            }
+        }
     });
 
     // Start the error handling loop
