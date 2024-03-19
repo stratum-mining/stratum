@@ -25,20 +25,9 @@ use stratum_common::bitcoin::{
 };
 
 #[derive(Clone, Debug)]
-enum TransactionState {
+pub enum TransactionState {
     PresentInMempool(Txid),
     Missing,
-}
-
-pub fn get_ids_of_known_transactions(transactions: &Vec<TransactionState>) -> Vec<Txid> {
-    let mut known_transactions: Vec<Txid> = Vec::new();
-    for transaction in transactions {
-        match *transaction {
-            TransactionState::PresentInMempool(txid) => known_transactions.push(txid.clone()),
-            TransactionState::Missing => continue,
-        }
-    };
-    known_transactions
 }
 
 #[derive(Clone, Debug)]
@@ -101,70 +90,6 @@ impl JobDeclaratorDownstream {
         }
     }
 
-    //// This only errors that are returned are PoisonLock, Custom, MempoolError
-    //// this function is called in JobDeclaratorDowenstream::start(), if different errors are
-    //// returned, change also the error management there
-    //async fn send_transactions_needed_in_mempool(
-    //    self_mutex: Arc<Mutex<JobDeclaratorDownstream>>,
-    //) -> Result<(), JdsError> {
-    //    let sender_add_txs_to_mempool = self_mutex.safe_lock(|a| a.sender_add_txs_to_mempool.clone()).unwrap();
-    //    let mut transactions_to_be_retrieved: Vec<Txid> = Vec::new();
-    //    let transactions_with_state = self_mutex
-    //        .clone()
-    //        .safe_lock(|a| a.declared_mining_job.clone())
-    //        .map_err(|e| JdsError::PoisonLock(e.to_string()))?
-    //        .1;
-    //    for tx_with_state in transactions_with_state {
-    //        match tx_with_state {
-    //            TransactionState::PresentInMempool(txid) => transactions_to_be_retrieved.push(txid),
-    //            TransactionState::Missing => continue,
-    //        }
-    //    };
-    //    let _ = sender_add_txs_to_mempool.send(transactions_to_be_retrieved);
-    //    //let mempool_ = self_mutex
-    //    //    .safe_lock(|a| a.mempool.clone())
-    //    //    .map_err(|e| JdsError::PoisonLock(e.to_string()))?;
-    //    //let client = mempool_
-    //    //    .clone()
-    //    //    .safe_lock(|a| a.get_client())
-    //    //    .map_err(|e| JdsError::PoisonLock(e.to_string()))?
-    //    //    .ok_or(JdsError::MempoolError(
-    //    //        mempool::error::JdsMempoolError::NoClient,
-    //    //    ))?;
-    //    //for txid in transactions_to_be_retrieved {
-    //    //    let transaction = client
-    //    //        .get_raw_transaction(&txid.to_string(), None)
-    //    //        .await
-    //    //        .map_err(|e| JdsError::MempoolError(mempool::error::JdsMempoolError::Rpc(e)))?;
-    //    //    let txid = transaction.txid();
-    //    //    mempool::JDsMempool::add_tx_data_to_mempool(
-    //    //        mempool_.clone(),
-    //    //        txid,
-    //    //        Some(transaction.clone()),
-    //    //    );
-    //    //    new_transactions.push(transaction);
-    //    //}
-    //    //for transaction in new_transactions {
-    //    //    self_mutex
-    //    //        .clone()
-    //    //        .safe_lock(|a| {
-    //    //            for transaction_with_state in &mut a.declared_mining_job.1 {
-    //    //                match transaction_with_state {
-    //    //                    TransactionState::Present(_) => continue,
-    //    //                    TransactionState::ToBeRetrievedFromNodeMempool(_) => {
-    //    //                        *transaction_with_state =
-    //    //                            TransactionState::Present(transaction.txid());
-    //    //                        break;
-    //    //                    }
-    //    //                    TransactionState::Missing => continue,
-    //    //                }
-    //    //            }
-    //    //        })
-    //    //        .map_err(|e| JdsError::PoisonLock(e.to_string()))?
-    //    //}
-    //    Ok(())
-    //}
-
     fn get_block_hex(
         self_mutex: Arc<Mutex<Self>>,
         message: SubmitSolutionJd,
@@ -203,6 +128,20 @@ impl JobDeclaratorDownstream {
             roles_logic_sv2::utils::BlockCreator::new(last_declare, transactions_list, message)
                 .into();
         Ok(hex::encode(serialize(&block)))
+    }
+
+    fn are_all_job_transactions_present(self_mutex:Arc<Mutex<Self>>) -> Result<bool, JdsError> {
+        let transactions_ = self_mutex.safe_lock(|a| a.declared_mining_job.1.clone()).map_err(|e| JdsError::PoisonLock(e.to_string()));
+        let transactions = match transactions_ {
+            Ok(transactions_inner) => transactions_inner,
+            Err(error) => return Err(error),
+        };
+        for transaction in transactions {
+            if let TransactionState::Missing = transaction {
+                return Ok(false);
+            }
+        };
+        return Ok(true);
     }
 
     pub async fn send(
@@ -255,6 +194,15 @@ impl JobDeclaratorDownstream {
                             }
                             Ok(SendTo::None(m)) => match m {
                                 Some(JobDeclaration::SubmitSolution(message)) => {
+                                    match JobDeclaratorDownstream::are_all_job_transactions_present(self_mutex.clone()) {
+                                        Ok(true_or_false) => if true_or_false {
+                                            info!("All transactions in downstream job are recognized correctly by the JD Server");
+                                        } else {
+                                            // TODO print here the ip of the downstream
+                                            error!("Missing transactions at submit solution!");
+                                        },
+                                        Err(error) => handle_result!(tx_status, Err(error)),
+                                    }
                                     let hexdata = match JobDeclaratorDownstream::get_block_hex(
                                         self_mutex.clone(),
                                         message,
@@ -318,16 +266,6 @@ impl JobDeclaratorDownstream {
                         break;
                     }
                 }
-                //let retrieve_transactions =
-                //    JobDeclaratorDownstream::retrieve_transactions_via_rpc(self_mutex.clone())
-                //        .await;
-                //match retrieve_transactions {
-                //    Ok(_) => (),
-                //    Err(error) => {
-                //        handle_result!(tx_status, Err(error));
-                //        break;
-                //    }
-                //}
             }
         });
     }
