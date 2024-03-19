@@ -323,7 +323,7 @@ mod test {
         let total_run_time = std::time::Duration::from_secs(11);
         let initial_nominal_hashrate = measure_hashrate(5);
         let target = match roles_logic_sv2::utils::hash_rate_to_target(
-            dbg!(initial_nominal_hashrate),
+            initial_nominal_hashrate,
             expected_shares_per_minute.into(),
         ) {
             Ok(target) => target,
@@ -344,7 +344,7 @@ mod test {
         let calculated_share_per_min = count as f32 / (elapsed.as_secs_f32() / 60.0);
         // This is the error margin for a confidence of 99% given the expect number of shares per
         // minute TODO the review the math under it
-        let error_margin = dbg!(get_error(expected_shares_per_minute.into()));
+        let error_margin = get_error(expected_shares_per_minute.into());
         let error = (calculated_share_per_min - expected_shares_per_minute as f32).abs();
         assert!(
             error <= error_margin as f32,
@@ -448,7 +448,7 @@ mod test {
 
         let expected_nominal_hashrate = measure_hashrate(5);
         let expected_target = match roles_logic_sv2::utils::hash_rate_to_target(
-            dbg!(expected_nominal_hashrate),
+            expected_nominal_hashrate,
             config_shares_per_minute.into(),
         ) {
             Ok(target) => target,

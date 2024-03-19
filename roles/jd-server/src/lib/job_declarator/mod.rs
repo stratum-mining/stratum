@@ -10,8 +10,8 @@ use nohash_hasher::BuildNoHashHasher;
 use roles_logic_sv2::{
     common_messages_sv2::SetupConnectionSuccess,
     handlers::job_declaration::{ParseClientJobDeclarationMessages, SendTo},
-    job_declaration_sv2::DeclareMiningJob,
-    parsers::PoolMessages as JdsMessages,
+    job_declaration_sv2::{DeclareMiningJob, SubmitSolutionJd},
+    parsers::{JobDeclaration, PoolMessages as JdsMessages},
     utils::{Id, Mutex},
 };
 use secp256k1::{Keypair, Message as SecpMessage, Secp256k1};
@@ -19,7 +19,10 @@ use std::{collections::HashMap, convert::TryInto, sync::Arc};
 use tokio::net::TcpListener;
 use tracing::{error, info};
 
-use stratum_common::bitcoin::{consensus::Encodable, Transaction};
+use stratum_common::bitcoin::{
+    consensus::{encode::serialize, Encodable},
+    Block, Transaction,
+};
 
 #[derive(Debug)]
 pub struct JobDeclaratorDownstream {
@@ -67,6 +70,20 @@ impl JobDeclaratorDownstream {
         }
     }
 
+    fn get_block_hex(self_mutex: Arc<Mutex<Self>>, message: SubmitSolutionJd) -> Option<String> {
+        //TODO: implement logic for success or error
+        let (last_declare, tx_list, _) = match self_mutex
+            .safe_lock(|x| x.declared_mining_job.take())
+            .unwrap()
+        {
+            Some((last_declare, tx_list, _x)) => (last_declare, tx_list, _x),
+            None => return None,
+        };
+        let block: Block =
+            roles_logic_sv2::utils::BlockCreator::new(last_declare, tx_list, message).into();
+        Some(hex::encode(serialize(&block)))
+    }
+
     pub async fn send(
         self_mutex: Arc<Mutex<Self>>,
         message: roles_logic_sv2::parsers::JobDeclaration<'static>,
@@ -76,7 +93,11 @@ impl JobDeclaratorDownstream {
         sender.send(sv2_frame.into()).await.map_err(|_| ())?;
         Ok(())
     }
-    pub fn start(self_mutex: Arc<Mutex<Self>>, tx_status: status::Sender) {
+    pub fn start(
+        self_mutex: Arc<Mutex<Self>>,
+        tx_status: status::Sender,
+        new_block_sender: Sender<String>,
+    ) {
         let recv = self_mutex.safe_lock(|s| s.receiver.clone()).unwrap();
         tokio::spawn(async move {
             loop {
@@ -99,7 +120,63 @@ impl JobDeclaratorDownstream {
                             Ok(SendTo::Respond(message)) => {
                                 Self::send(self_mutex.clone(), message).await.unwrap();
                             }
-                            Ok(SendTo::None(_)) => (),
+                            Ok(SendTo::RelayNewMessage(message)) => {
+                                error!("JD Server: unexpected relay new message {:?}", message);
+                            }
+                            Ok(SendTo::RelayNewMessageToRemote(remote, message)) => {
+                                error!("JD Server: unexpected relay new message to remote. Remote: {:?}, Message: {:?}", remote, message);
+                            }
+                            Ok(SendTo::RelaySameMessageToRemote(remote)) => {
+                                error!("JD Server: unexpected relay same message to remote. Remote: {:?}", remote);
+                            }
+                            Ok(SendTo::Multiple(multiple)) => {
+                                error!("JD Server: unexpected multiple messages: {:?}", multiple);
+                            }
+                            Ok(SendTo::None(m)) => match m {
+                                Some(JobDeclaration::SubmitSolution(message)) => {
+                                    let hexdata = match JobDeclaratorDownstream::get_block_hex(
+                                        self_mutex.clone(),
+                                        message,
+                                    ) {
+                                        Some(inner) => inner,
+                                        None => {
+                                            error!("Received solution but no job available");
+                                            recv.close();
+                                            break;
+                                        }
+                                    };
+
+                                    let _ = new_block_sender.send(hexdata).await;
+                                }
+                                Some(JobDeclaration::DeclareMiningJob(_)) => {
+                                    error!("JD Server received an unexpected message {:?}", m);
+                                }
+                                Some(JobDeclaration::DeclareMiningJobSuccess(_)) => {
+                                    error!("JD Server received an unexpected message {:?}", m);
+                                }
+                                Some(JobDeclaration::DeclareMiningJobError(_)) => {
+                                    error!("JD Server received an unexpected message {:?}", m);
+                                }
+                                Some(JobDeclaration::IdentifyTransactions(_)) => {
+                                    error!("JD Server received an unexpected message {:?}", m);
+                                }
+                                Some(JobDeclaration::IdentifyTransactionsSuccess(_)) => {
+                                    error!("JD Server received an unexpected message {:?}", m);
+                                }
+                                Some(JobDeclaration::AllocateMiningJobToken(_)) => {
+                                    error!("JD Server received an unexpected message {:?}", m);
+                                }
+                                Some(JobDeclaration::AllocateMiningJobTokenSuccess(_)) => {
+                                    error!("JD Server received an unexpected message {:?}", m);
+                                }
+                                Some(JobDeclaration::ProvideMissingTransactions(_)) => {
+                                    error!("JD Server received an unexpected message {:?}", m);
+                                }
+                                Some(JobDeclaration::ProvideMissingTransactionsSuccess(_)) => {
+                                    error!("JD Server received an unexpected message {:?}", m);
+                                }
+                                None => (),
+                            },
                             Err(e) => {
                                 error!("{:?}", e);
                                 handle_result!(
@@ -109,7 +186,6 @@ impl JobDeclaratorDownstream {
                                 recv.close();
                                 break;
                             }
-                            _ => unreachable!(),
                         }
                     }
                     Err(err) => {
@@ -153,16 +229,18 @@ impl JobDeclarator {
         config: Configuration,
         status_tx: crate::status::Sender,
         mempool: Arc<Mutex<JDsMempool>>,
+        new_block_sender: Sender<String>,
     ) {
         let self_ = Arc::new(Mutex::new(Self {}));
         info!("JD INITIALIZED");
-        Self::accept_incoming_connection(self_, config, status_tx, mempool).await;
+        Self::accept_incoming_connection(self_, config, status_tx, mempool, new_block_sender).await;
     }
     async fn accept_incoming_connection(
         _self_: Arc<Mutex<JobDeclarator>>,
         config: Configuration,
         status_tx: crate::status::Sender,
         mempool: Arc<Mutex<JDsMempool>>,
+        new_block_sender: Sender<String>,
     ) {
         let listner = TcpListener::bind(&config.listen_jd_address).await.unwrap();
         while let Ok((stream, _)) = listner.accept().await {
@@ -203,7 +281,11 @@ impl JobDeclarator {
                     mempool.clone(),
                 )));
 
-                JobDeclaratorDownstream::start(jddownstream, status_tx.clone());
+                JobDeclaratorDownstream::start(
+                    jddownstream,
+                    status_tx.clone(),
+                    new_block_sender.clone(),
+                );
             } else {
                 error!("Can not connect {:?}", addr);
             }

@@ -422,6 +422,7 @@ impl JobDeclarator {
             ntime: solution.ntime,
             nonce: solution.nonce,
             nbits: prev_hash.n_bits,
+            version: solution.version,
         };
         let frame: StdFrame =
             PoolMessages::JobDeclaration(JobDeclaration::SubmitSolution(solution))

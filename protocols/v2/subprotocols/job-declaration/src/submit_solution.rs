@@ -17,6 +17,7 @@ pub struct SubmitSolutionJd<'decoder> {
     pub ntime: u32,
     pub nonce: u32,
     pub nbits: u32,
+    pub version: u32,
 }
 
 #[cfg(feature = "with_serde")]
