@@ -1,6 +1,6 @@
 pub mod error;
+use super::job_declarator::AddTrasactionsToMempoolInner;
 use crate::mempool::error::JdsMempoolError;
-use super::job_declarator::AddTrasactionsToMempool;
 use async_channel::Receiver;
 use bitcoin::blockdata::transaction::Transaction;
 use hashbrown::HashMap;
@@ -62,20 +62,23 @@ impl JDsMempool {
     // this functions fill in the mempool the transactions with the given txid and insert the given
     // transactions. The ids are for the transactions that are already known to the node, the
     // unknown transactions are provided directly as a vector
-    pub async fn add_tx_data_to_mempool(self_: Arc<Mutex<Self>>, add_transactions_to_mempool: AddTrasactionsToMempool) -> Result<(), JdsMempoolError>{
-        let txids = add_transactions_to_mempool.known_transactions;
-        let transactions = add_transactions_to_mempool.unknown_transactions;
+    pub async fn add_tx_data_to_mempool(
+        self_: Arc<Mutex<Self>>,
+        add_txs_to_mempool_inner: AddTrasactionsToMempoolInner,
+    ) -> Result<(), JdsMempoolError> {
+        let txids = add_txs_to_mempool_inner.known_transactions;
+        let transactions = add_txs_to_mempool_inner.unknown_transactions;
         let client = self_
             .safe_lock(|a| a.get_client())
             .map_err(|e| JdsMempoolError::PoisonLock(e.to_string()))?
             .ok_or(JdsMempoolError::NoClient)?;
-        // fill in the mempool the transactions id in the mempool with the full transactions 
+        // fill in the mempool the transactions id in the mempool with the full transactions
         // retrieved from the jd client
         for txid in txids {
             let transaction = client
                 .get_raw_transaction(&txid.to_string(), None)
                 .await
-                .map_err(|e| JdsMempoolError::Rpc(e))?;
+                .map_err(JdsMempoolError::Rpc)?;
             let _ = self_.safe_lock(|a| a.mempool.insert(transaction.txid(), Some(transaction)));
         }
 

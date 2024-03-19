@@ -65,8 +65,7 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
         // mempool which use the rpc client to retrieve the whole data for each transactions.
         // The unknown transactions is a vector that contains the transactions that are not in the
         // jds mempool, and will be non-empty in the ProvideMissingTransactionsSuccess message
-        let mut known_transactions: Vec<Txid> = Vec::new();
-        let unknown_transactions: Vec<Transaction> = Vec::new();
+        let mut known_transactions: Vec<Txid> = vec![];
         self.tx_hash_list_hash = Some(message.tx_hash_list_hash.clone().into_static());
         if self.verify_job(&message) {
             let short_hash_list: Vec<ShortTxId> = message
@@ -92,7 +91,7 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
                     Some(tx_data) => {
                         transactions_with_state[i] = TransactionState::PresentInMempool(tx_data.id);
                         known_transactions.push(tx_data.id);
-                    },
+                    }
                     None => {
                         transactions_with_state[i] = TransactionState::Missing;
                         missing_txs.push(i as u16);
@@ -105,7 +104,11 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
                 missing_txs.clone(),
             );
             // here we send the transactions that we want to be stored in jds mempool with full data
-            self.sender_add_txs_to_mempool.send(super::AddTrasactionsToMempool { known_transactions, unknown_transactions});
+
+            self.add_txs_to_mempool
+                .add_txs_to_mempool_inner
+                .known_transactions
+                .append(&mut known_transactions);
 
             if missing_txs.is_empty() {
                 let message_success = DeclareMiningJobSuccess {
@@ -152,13 +155,12 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
         message: ProvideMissingTransactionsSuccess,
     ) -> Result<SendTo, Error> {
         let (_, ref mut transactions_with_state, missing_indexes) = &mut self.declared_mining_job;
-        let mut unknown_transactions: Vec<Transaction> = Vec::new();
-        let known_transactions: Vec<Txid> = Vec::new();
+        let mut unknown_transactions: Vec<Transaction> = vec![];
         for (i, tx) in message.transaction_list.inner_as_ref().iter().enumerate() {
             let mut cursor = Cursor::new(tx);
             let transaction = Transaction::consensus_decode_from_finite_reader(&mut cursor)
                 .map_err(|e| Error::TxDecodingError(e.to_string()))?;
-            &unknown_transactions.push(transaction.clone());
+            Vec::push(&mut unknown_transactions, transaction.clone());
             let index = *missing_indexes
                 .get(i)
                 .ok_or(Error::LogicErrorMessage(Box::new(
@@ -169,7 +171,10 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
             // insert the missing transactions in the mempool
             transactions_with_state[index] = TransactionState::PresentInMempool(transaction.txid());
         }
-        self.sender_add_txs_to_mempool.send(super::AddTrasactionsToMempool { known_transactions, unknown_transactions: unknown_transactions.clone()});
+        self.add_txs_to_mempool
+            .add_txs_to_mempool_inner
+            .unknown_transactions
+            .append(&mut unknown_transactions);
         // if there still a missing transaction return an error
         for tx_with_state in transactions_with_state {
             match tx_with_state {
