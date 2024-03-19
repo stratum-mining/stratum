@@ -1,6 +1,6 @@
 [package]
 name = "roles_logic_sv2"
-version = "0.1.2"
+version = "1.0.0"
 edition = "2018"
 description = "Common handlers for use within SV2 roles"
 license = "MIT OR Apache-2.0"
@@ -9,15 +9,15 @@ repository = "https://github.com/stratum-mining/stratum"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-stratum-common = { version="0.1.0", path = "../../../common", features=["bitcoin"]}
+stratum-common = { version="1.0.0", path = "../../../common", features=["bitcoin"]}
 serde = { version = "1.0.89", features = ["derive", "alloc"], default-features = false, optional = true}
-binary_sv2 = {version = "^0.1.6", path = "../../../protocols/v2/binary-sv2/binary-sv2", default-features = true }
-common_messages_sv2 = { path = "../../../protocols/v2/subprotocols/common-messages", version = "^0.1.5" }
-mining_sv2 = { path = "../../../protocols/v2/subprotocols/mining", version = "^0.1.0" }
-template_distribution_sv2 = { path = "../../../protocols/v2/subprotocols/template-distribution", version = "^0.1.5" }
-job_declaration_sv2 = { path = "../../../protocols/v2/subprotocols/job-declaration", version = "^0.1.0" }
-const_sv2 = { version = "^0.1.2", path = "../../../protocols/v2/const-sv2"}
-framing_sv2 = { version = "^0.1.5", path = "../../../protocols/v2/framing-sv2" }
+binary_sv2 = {version = "^1.0.0", path = "../../../protocols/v2/binary-sv2/binary-sv2", default-features = true }
+common_messages_sv2 = { path = "../../../protocols/v2/subprotocols/common-messages", version = "^1.0.0" }
+mining_sv2 = { path = "../../../protocols/v2/subprotocols/mining", version = "^1.0.0" }
+template_distribution_sv2 = { path = "../../../protocols/v2/subprotocols/template-distribution", version = "^1.0.0" }
+job_declaration_sv2 = { path = "../../../protocols/v2/subprotocols/job-declaration", version = "^1.0.0" }
+const_sv2 = { version = "^1.0.0", path = "../../../protocols/v2/const-sv2"}
+framing_sv2 = { version = "^1.0.0", path = "../../../protocols/v2/framing-sv2" }
 tracing = { version = "0.1"}
 chacha20poly1305 = { version = "0.10.1"}
 nohash-hasher = "0.2.0"
