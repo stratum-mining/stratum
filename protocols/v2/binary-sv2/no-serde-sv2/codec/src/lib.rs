@@ -64,7 +64,7 @@ pub mod encodable {
 #[macro_use]
 extern crate alloc;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Error {
     OutOfBound,
     NotABool(u8),
