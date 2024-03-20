@@ -235,7 +235,7 @@ impl<'a> TryFrom<Notification> for SetExtranonce<'a> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 /// Server may arbitrarily adjust version mask
 pub struct SetVersionMask {
     version_mask: HexU32Be,
@@ -423,7 +423,7 @@ impl<'a> TryFrom<&Response> for Subscribe<'a> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Configure {
     pub id: u64,
     pub version_rolling: Option<VersionRollingParams>,
@@ -548,7 +548,7 @@ impl TryFrom<&Response> for Configure {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct VersionRollingParams {
     pub version_rolling: bool,
     pub version_rolling_mask: HexU32Be,

@@ -97,7 +97,7 @@ fn from_to_json_rpc(auth: Authorize) -> bool {
 /// _mining.extranonce.subscribe()_
 /// Indicates to the server that the client supports the mining.set_extranonce method.
 /// https://en.bitcoin.it/wiki/BIP_0310
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct ExtranonceSubscribe();
 
 // mining.get_transactions
@@ -339,7 +339,7 @@ impl<'a> TryFrom<StandardRequest> for Subscribe<'a> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Configure {
     extensions: Vec<ConfigureExtension>,
     id: u64,
@@ -432,7 +432,7 @@ impl TryFrom<StandardRequest> for Configure {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ConfigureExtension {
     VersionRolling(VersionRollingParams),
     MinimumDifficulty(u64),
@@ -599,7 +599,7 @@ impl From<ConfigureExtension> for serde_json::Map<String, Value> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct VersionRollingParams {
     mask: Option<HexU32Be>,
     min_bit_count: Option<HexU32Be>,
@@ -629,7 +629,7 @@ impl From<VersionRollingParams> for serde_json::Map<String, Value> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct InfoParams {
     connection_url: Option<String>,
     #[allow(dead_code)]
