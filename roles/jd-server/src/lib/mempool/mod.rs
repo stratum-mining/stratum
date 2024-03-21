@@ -1,22 +1,23 @@
 pub mod error;
+use super::job_declarator::AddTrasactionsToMempoolInner;
 use crate::mempool::error::JdsMempoolError;
 use async_channel::Receiver;
 use bitcoin::blockdata::transaction::Transaction;
 use hashbrown::HashMap;
 use roles_logic_sv2::utils::Mutex;
 use rpc::mini_rpc_client;
-use std::{convert::TryInto, sync::Arc};
+use std::{convert::TryInto, str::FromStr, sync::Arc};
 use stratum_common::{bitcoin, bitcoin::hash_types::Txid};
 
 #[derive(Clone, Debug)]
-pub struct TransacrtionWithHash {
-    id: Txid,
-    tx: Transaction,
+pub struct TransactionWithHash {
+    pub id: Txid,
+    pub tx: Option<Transaction>,
 }
 
 #[derive(Clone, Debug)]
 pub struct JDsMempool {
-    pub mempool: Vec<TransacrtionWithHash>,
+    pub mempool: HashMap<Txid, Option<Transaction>>,
     auth: mini_rpc_client::Auth,
     url: String,
     new_block_receiver: Receiver<String>,
@@ -38,9 +39,10 @@ impl JDsMempool {
     #[cfg(debug_assertions)]
     pub fn _get_transaction_list(self_: Arc<Mutex<Self>>) -> Vec<Txid> {
         let tx_list = self_.safe_lock(|x| x.mempool.clone()).unwrap();
-        let tx_list_: Vec<Txid> = tx_list.iter().map(|n| n.id).collect();
+        let tx_list_: Vec<Txid> = tx_list.iter().map(|n| *n.0).collect();
         tx_list_
     }
+
     pub fn new(
         url: String,
         username: String,
@@ -48,7 +50,7 @@ impl JDsMempool {
         new_block_receiver: Receiver<String>,
     ) -> Self {
         let auth = mini_rpc_client::Auth::new(username, password);
-        let empty_mempool: Vec<TransacrtionWithHash> = Vec::new();
+        let empty_mempool: HashMap<Txid, Option<Transaction>> = HashMap::new();
         JDsMempool {
             mempool: empty_mempool,
             auth,
@@ -57,24 +59,63 @@ impl JDsMempool {
         }
     }
 
+    // this functions fill in the mempool the transactions with the given txid and insert the given
+    // transactions. The ids are for the transactions that are already known to the node, the
+    // unknown transactions are provided directly as a vector
+    pub async fn add_tx_data_to_mempool(
+        self_: Arc<Mutex<Self>>,
+        add_txs_to_mempool_inner: AddTrasactionsToMempoolInner,
+    ) -> Result<(), JdsMempoolError> {
+        let txids = add_txs_to_mempool_inner.known_transactions;
+        let transactions = add_txs_to_mempool_inner.unknown_transactions;
+        let client = self_
+            .safe_lock(|a| a.get_client())
+            .map_err(|e| JdsMempoolError::PoisonLock(e.to_string()))?
+            .ok_or(JdsMempoolError::NoClient)?;
+        // fill in the mempool the transactions id in the mempool with the full transactions
+        // retrieved from the jd client
+        for txid in txids {
+            if let Some(None) = self_
+                .safe_lock(|a| a.mempool.get(&txid).cloned())
+                .map_err(|e| JdsMempoolError::PoisonLock(e.to_string()))?
+            {
+                let transaction = client
+                    .get_raw_transaction(&txid.to_string(), None)
+                    .await
+                    .map_err(JdsMempoolError::Rpc)?;
+                let _ =
+                    self_.safe_lock(|a| a.mempool.insert(transaction.txid(), Some(transaction)));
+            }
+        }
+
+        // fill in the mempool the transactions given in input
+        for transaction in transactions {
+            let _ = self_.safe_lock(|a| a.mempool.insert(transaction.txid(), Some(transaction)));
+        }
+        Ok(())
+    }
+
     pub async fn update_mempool(self_: Arc<Mutex<Self>>) -> Result<(), JdsMempoolError> {
-        let mut mempool_ordered: Vec<TransacrtionWithHash> = Vec::new();
+        let mut mempool_ordered: HashMap<Txid, Option<Transaction>> = HashMap::new();
         let client = self_
             .safe_lock(|x| x.get_client())
             .map_err(|e| JdsMempoolError::PoisonLock(e.to_string()))?
             .ok_or(JdsMempoolError::NoClient)?;
-        let new_mempool: Result<Vec<TransacrtionWithHash>, JdsMempoolError> =
+        let new_mempool: Result<HashMap<Txid, Option<Transaction>>, JdsMempoolError> = {
+            let self_ = self_.clone();
             tokio::task::spawn(async move {
                 let mempool: Vec<String> = client
-                    .get_raw_mempool_verbose()
+                    .get_raw_mempool()
                     .await
                     .map_err(JdsMempoolError::Rpc)?;
                 for id in &mempool {
-                    let tx: Result<Transaction, _> = client.get_raw_transaction(id, None).await;
-                    if let Ok(tx) = tx {
-                        let id = tx.txid();
-                        mempool_ordered.push(TransacrtionWithHash { id, tx });
-                    }
+                    let key_id = Txid::from_str(id).unwrap();
+                    let tx = self_.safe_lock(|x| match x.mempool.get(&key_id) {
+                        Some(entry) => entry.clone(),
+                        None => None,
+                    });
+                    let id = Txid::from_str(id).unwrap();
+                    mempool_ordered.insert(id, tx.unwrap());
                 }
                 if mempool_ordered.is_empty() {
                     Err(JdsMempoolError::EmptyMempool)
@@ -83,8 +124,8 @@ impl JDsMempool {
                 }
             })
             .await
-            .map_err(JdsMempoolError::TokioJoin)?;
-
+            .map_err(JdsMempoolError::TokioJoin)?
+        };
         match new_mempool {
             Ok(new_mempool_) => {
                 let _ = self_.safe_lock(|x| {
@@ -114,14 +155,18 @@ impl JDsMempool {
         Ok(())
     }
 
-    pub fn to_short_ids(&self, nonce: u64) -> Option<HashMap<[u8; 6], Transaction>> {
+    pub fn to_short_ids(&self, nonce: u64) -> Option<HashMap<[u8; 6], TransactionWithHash>> {
         let mut ret = HashMap::new();
         for tx in &self.mempool {
-            let s_id = roles_logic_sv2::utils::get_short_hash(tx.id, nonce)
+            let s_id = roles_logic_sv2::utils::get_short_hash(*tx.0, nonce)
                 .to_vec()
                 .try_into()
                 .unwrap();
-            if ret.insert(s_id, tx.tx.clone()).is_none() {
+            let tx_data = TransactionWithHash {
+                id: *tx.0,
+                tx: tx.1.clone(),
+            };
+            if ret.insert(s_id, tx_data.clone()).is_none() {
                 continue;
             } else {
                 return None;

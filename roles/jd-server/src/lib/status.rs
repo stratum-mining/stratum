@@ -121,5 +121,11 @@ pub async fn handle_error(sender: &Sender, e: JdsError) -> error_handling::Error
         JdsError::MempoolError(_) => {
             send_status(sender, e, error_handling::ErrorBranch::Break).await
         }
+        JdsError::ImpossibleToReconstructBlock(_) => {
+            send_status(sender, e, error_handling::ErrorBranch::Continue).await
+        }
+        JdsError::NoLastDeclaredJob => {
+            send_status(sender, e, error_handling::ErrorBranch::Continue).await
+        }
     }
 }
