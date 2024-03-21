@@ -113,16 +113,14 @@ impl JobDeclaratorDownstream {
             .safe_lock(|x| x.declared_mining_job.clone())
             .map_err(|e| Box::new(JdsError::PoisonLock(e.to_string())))?;
         let last_declare = last_declare_.ok_or(Box::new(JdsError::NoLastDeclaredJob))?;
-        let transactions_list = Self::are_all_job_transactions_present(self_mutex)?;
+        let transactions_list = Self::collect_txs_in_job(self_mutex)?;
         let block: Block =
             roles_logic_sv2::utils::BlockCreator::new(last_declare, transactions_list, message)
                 .into();
         Ok(hex::encode(serialize(&block)))
     }
 
-    fn are_all_job_transactions_present(
-        self_mutex: Arc<Mutex<Self>>,
-    ) -> Result<Vec<Transaction>, Box<JdsError>> {
+    fn collect_txs_in_job(self_mutex: Arc<Mutex<Self>>) -> Result<Vec<Transaction>, Box<JdsError>> {
         let (_, transactions_with_state, _) = self_mutex
             .clone()
             .safe_lock(|x| x.declared_mining_job.clone())
@@ -136,16 +134,13 @@ impl JobDeclaratorDownstream {
                 let tx = mempool
                     .safe_lock(|x| x.mempool.get(txid).cloned())
                     .map_err(|e| JdsError::PoisonLock(e.to_string()))?
-                    .ok_or(JdsError::ImpossibleToReconstructBlock(
+                    .ok_or(Box::new(JdsError::ImpossibleToReconstructBlock(
                         "Txid not found in jds mempool".to_string(),
-                    ))?;
-                if let Some(tx) = tx {
-                    transactions_list.push(tx);
-                } else {
-                    return Err(Box::new(JdsError::ImpossibleToReconstructBlock(
+                    )))?
+                    .ok_or(Box::new(JdsError::ImpossibleToReconstructBlock(
                         "Txid found in jds mempool but transactions not present".to_string(),
-                    )));
-                }
+                    )))?;
+                transactions_list.push(tx);
             } else {
                 return Err(Box::new(JdsError::ImpossibleToReconstructBlock(
                     "Unknown transaction".to_string(),
@@ -283,9 +278,7 @@ impl JobDeclaratorDownstream {
                             Ok(SendTo::None(m)) => {
                                 match m {
                                     Some(JobDeclaration::SubmitSolution(message)) => {
-                                        match Self::are_all_job_transactions_present(
-                                            self_mutex.clone(),
-                                        ) {
+                                        match Self::collect_txs_in_job(self_mutex.clone()) {
                                             Ok(_) => {
                                                 info!("All transactions in downstream job are recognized correctly by the JD Server");
                                                 let hexdata =
