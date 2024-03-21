@@ -130,7 +130,7 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
                     JobDeclaration::ProvideMissingTransactions(
                         message_provide_missing_transactions,
                     );
-                Ok(SendTo_::Respond(message_enum_provide_missing_transactions))
+                Ok(SendTo::Respond(message_enum_provide_missing_transactions))
             }
         } else {
             let message_error = DeclareMiningJobError {
