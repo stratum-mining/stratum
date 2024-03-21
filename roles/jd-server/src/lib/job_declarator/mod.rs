@@ -141,8 +141,8 @@ impl JobDeclaratorDownstream {
                     .map_err(|e| JdsError::PoisonLock(e.to_string()))?
                     .ok_or(JdsError::ImpossibleToReconstructBlock(
                         "Txid not found in jds mempool".to_string(),
-                    ));
-                if let Ok(Some(tx)) = tx {
+                    ))?;
+                if let Some(tx) = tx {
                     transactions_list.push(tx);
                 } else {
                     return Err(Box::new(JdsError::ImpossibleToReconstructBlock(
