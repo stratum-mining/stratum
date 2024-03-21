@@ -75,12 +75,16 @@ impl JDsMempool {
         // fill in the mempool the transactions id in the mempool with the full transactions
         // retrieved from the jd client
         for txid in txids {
-            if let Some(None) = self_.safe_lock(|a| a.mempool.get(&txid).cloned()).map_err(|e| JdsMempoolError::PoisonLock(e.to_string()))? {
+            if let Some(None) = self_
+                .safe_lock(|a| a.mempool.get(&txid).cloned())
+                .map_err(|e| JdsMempoolError::PoisonLock(e.to_string()))?
+            {
                 let transaction = client
                     .get_raw_transaction(&txid.to_string(), None)
                     .await
                     .map_err(JdsMempoolError::Rpc)?;
-                let _ = self_.safe_lock(|a| a.mempool.insert(transaction.txid(), Some(transaction)));
+                let _ =
+                    self_.safe_lock(|a| a.mempool.insert(transaction.txid(), Some(transaction)));
             }
         }
 

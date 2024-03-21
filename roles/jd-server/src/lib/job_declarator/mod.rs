@@ -16,10 +16,7 @@ use roles_logic_sv2::{
 };
 use secp256k1::{Keypair, Message as SecpMessage, Secp256k1};
 use std::{collections::HashMap, convert::TryInto, sync::Arc};
-use tokio::{
-    net::TcpListener,
-    time::Duration,
-};
+use tokio::{net::TcpListener, time::Duration};
 use tracing::{error, info};
 
 use stratum_common::bitcoin::{
@@ -222,7 +219,7 @@ impl JobDeclaratorDownstream {
                                 message_type,
                                 payload,
                             );
-                        // How works the txs recognition and txs storing in JDS mempool 
+                        // How works the txs recognition and txs storing in JDS mempool
                         // when a DMJ arrives, the JDS compares the received transactions with the
                         // ids in the the JDS mempool. Then there are two scenarios
                         // 1. the JDS recognizes all the transactions. Then, just before a DMJS is
