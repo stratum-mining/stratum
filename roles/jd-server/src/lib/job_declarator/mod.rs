@@ -222,37 +222,50 @@ impl JobDeclaratorDownstream {
                                 message_type,
                                 payload,
                             );
+                        // How works the txs recognition and txs storing in JDS mempool 
+                        // when a DMJ arrives, the JDS compares the received transactions with the
+                        // ids in the the JDS mempool. Then there are two scenarios
+                        // 1. the JDS recognizes all the transactions. Then, just before a DMJS is
+                        //    sent, the JDS mempool is triggered to fill in the JDS mempool the id
+                        //    of declared job with the full transaction (with send_tx_to_mempool
+                        //    method(), that eventually will ask the transactions to a bitcoin node
+                        //    via RPC)
+                        // 2. there are some unknown txids. Just before sending PMT, the JDS
+                        //    mempool is triggered to fill the known txids with the full
+                        //    transactions. When a PMTS arrives, just before sending a DMJS, the
+                        //    unknown full transactions provided by the downstream are added to the
+                        //    JDS mempool
                         match next_message_to_send {
                             Ok(SendTo::Respond(m)) => {
                                 match m {
                                     JobDeclaration::AllocateMiningJobToken(_) => {
-                                        info!("Received AMJT")
+                                        error!("Send unexpected message: AMJT")
                                     }
                                     JobDeclaration::AllocateMiningJobTokenSuccess(_) => {
-                                        error!("Unexpected message: AMJTS")
+                                        info!("Send message: AMJTS")
                                     }
                                     JobDeclaration::DeclareMiningJob(_) => {
-                                        info!("Received DMJ");
-                                        Self::send_txs_to_mempool(self_mutex.clone()).await;
+                                        error!("Send unexpected message: DMJ");
                                     }
                                     JobDeclaration::DeclareMiningJobError(_) => {
-                                        error!("Unexpected message: DMJE")
+                                        info!("Send nmessage: DMJE")
                                     }
                                     JobDeclaration::DeclareMiningJobSuccess(_) => {
-                                        error!("Unexpected message: DMJS")
+                                        info!("Send message: DMJS. Updating the JDS mempool.");
+                                        Self::send_txs_to_mempool(self_mutex.clone()).await;
                                     }
                                     JobDeclaration::IdentifyTransactions(_) => {
-                                        error!("Unexpected message: IT")
+                                        info!("Send  message: IT")
                                     }
                                     JobDeclaration::IdentifyTransactionsSuccess(_) => {
-                                        error!("Unexpected message: ITS")
+                                        error!("Send unexpected message: ITS")
                                     }
                                     JobDeclaration::ProvideMissingTransactions(_) => {
-                                        error!("Unexpected message: PMT")
+                                        info!("Send message: PMT. Updating the JDS mempool.");
+                                        Self::send_txs_to_mempool(self_mutex.clone()).await;
                                     }
                                     JobDeclaration::ProvideMissingTransactionsSuccess(_) => {
-                                        info!("Received PMTS");
-                                        Self::send_txs_to_mempool(self_mutex.clone()).await;
+                                        error!("Send unexpected PMTS");
                                     }
                                     JobDeclaration::SubmitSolution(_) => todo!(),
                                 }
