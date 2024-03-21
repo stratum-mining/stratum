@@ -62,7 +62,7 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
 
     fn handle_declare_mining_job(&mut self, message: DeclareMiningJob) -> Result<SendTo, Error> {
         // the transactions that are present in the mempool are stored here, that is sent to the
-        // mempool which use the rpc client to retrieve the whole data for each transactions.
+        // mempool which use the rpc client to retrieve the whole data for each transaction.
         // The unknown transactions is a vector that contains the transactions that are not in the
         // jds mempool, and will be non-empty in the ProvideMissingTransactionsSuccess message
         let mut known_transactions: Vec<Txid> = vec![];
