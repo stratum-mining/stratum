@@ -17,7 +17,7 @@ use roles_logic_sv2::{
 use secp256k1::{Keypair, Message as SecpMessage, Secp256k1};
 use std::{collections::HashMap, convert::TryInto, sync::Arc};
 use tokio::{net::TcpListener, time::Duration};
-use tracing::{error, info, debug};
+use tracing::{debug, error, info};
 
 use stratum_common::bitcoin::{
     consensus::{encode::serialize, Encodable},
