@@ -17,7 +17,7 @@ use roles_logic_sv2::{
 use secp256k1::{Keypair, Message as SecpMessage, Secp256k1};
 use std::{collections::HashMap, convert::TryInto, sync::Arc};
 use tokio::{net::TcpListener, time::Duration};
-use tracing::{error, info};
+use tracing::{error, info, debug};
 
 use stratum_common::bitcoin::{
     consensus::{encode::serialize, Encodable},
@@ -239,26 +239,26 @@ impl JobDeclaratorDownstream {
                                         error!("Send unexpected message: AMJT")
                                     }
                                     JobDeclaration::AllocateMiningJobTokenSuccess(_) => {
-                                        info!("Send message: AMJTS")
+                                        debug!("Send message: AMJTS")
                                     }
                                     JobDeclaration::DeclareMiningJob(_) => {
                                         error!("Send unexpected message: DMJ");
                                     }
                                     JobDeclaration::DeclareMiningJobError(_) => {
-                                        info!("Send nmessage: DMJE")
+                                        debug!("Send nmessage: DMJE")
                                     }
                                     JobDeclaration::DeclareMiningJobSuccess(_) => {
-                                        info!("Send message: DMJS. Updating the JDS mempool.");
+                                        debug!("Send message: DMJS. Updating the JDS mempool.");
                                         Self::send_txs_to_mempool(self_mutex.clone()).await;
                                     }
                                     JobDeclaration::IdentifyTransactions(_) => {
-                                        info!("Send  message: IT")
+                                        debug!("Send  message: IT")
                                     }
                                     JobDeclaration::IdentifyTransactionsSuccess(_) => {
                                         error!("Send unexpected message: ITS")
                                     }
                                     JobDeclaration::ProvideMissingTransactions(_) => {
-                                        info!("Send message: PMT. Updating the JDS mempool.");
+                                        debug!("Send message: PMT. Updating the JDS mempool.");
                                         Self::send_txs_to_mempool(self_mutex.clone()).await;
                                     }
                                     JobDeclaration::ProvideMissingTransactionsSuccess(_) => {
