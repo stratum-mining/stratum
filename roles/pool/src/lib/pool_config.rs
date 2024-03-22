@@ -1,11 +1,8 @@
-use std::convert::{TryFrom, TryInto};
-use serde::Deserialize;
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
+use roles_logic_sv2::{errors::Error, utils::CoinbaseOutput as CoinbaseOutput_};
+use serde::Deserialize;
+use std::convert::{TryFrom, TryInto};
 use stratum_common::bitcoin::{Script, TxOut};
-use roles_logic_sv2::{
-    errors::Error,
-    utils::CoinbaseOutput as CoinbaseOutput_
-};
 
 pub fn get_coinbase_output(config: &PoolConfig) -> Result<Vec<TxOut>, Error> {
     let mut result = Vec::new();

@@ -1,6 +1,6 @@
 use crate::lib::{
     error::{PoolError, PoolResult},
-    pool_config::PoolConfig
+    pool_config::PoolConfig,
 };
 use std::path::PathBuf;
 use tracing::error;
@@ -24,8 +24,7 @@ enum ArgsResult {
 
 impl Args {
     const DEFAULT_CONFIG_PATH: &'static str = "pool-config.toml";
-    const HELP_MSG: &'static str =
-        "Usage: -h/--help, -c/--config <path|default pool-config.toml>";
+    const HELP_MSG: &'static str = "Usage: -h/--help, -c/--config <path|default pool-config.toml>";
 
     pub fn from_args() -> Result<Self, String> {
         let cli_args = std::env::args();
