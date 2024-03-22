@@ -9,9 +9,14 @@ for f in "${filter[@]}"; do
     crates=$(echo "$crates" | grep -v "$f")
 done
 
-# Loop through each crate, while avoiding root workspace Cargo.toml
+# Loop through each crate, while avoiding root workspace Cargo.toml and files under `target` directory
 for crate in $crates; do
-    if [ "$crate" != "./protocols" ] && [ "$crate" != "./common" ] && [ "$crate" != "./roles" ] && [ "$crate" != "./utils" ]; then
+    if [ "$crate" != "./protocols" ] && \
+       [ "$crate" != "./common" ] && \
+       [ "$crate" != "./roles" ] && \
+       [ "$crate" != "./utils" ] && \
+       ! echo "$crate" | grep -q "target"; then
+
         cd "$crate"
 
         # Check if there were any changes between dev and main
