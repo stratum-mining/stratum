@@ -11,7 +11,7 @@ name = "pool_sv2"
 path = "src/lib/mod.rs"
 
 [dependencies]
-stratum-common = { path = "../../common" }
+stratum-common = { version = "1.0.0", path = "../../common" }
 async-channel = "1.5.1"
 binary_sv2 = { version = "^1.0.0", path = "../../protocols/v2/binary-sv2/binary-sv2" }
 buffer_sv2 = { version = "^1.0.0", path = "../../utils/buffer" }
@@ -23,7 +23,7 @@ rand = "0.8.4"
 roles_logic_sv2 = { version = "^1.0.0", path = "../../protocols/v2/roles-logic-sv2" }
 serde = { version = "1.0.89", features = ["derive", "alloc"], default-features = false }
 tokio = { version = "1", features = ["full"] }
-toml = { version = "*", git = "https://github.com/diondokter/toml-rs", default-features = false, rev = "c4161aa" }
+toml = { version = "0.5.6", git = "https://github.com/diondokter/toml-rs", default-features = false, rev = "c4161aa" }
 tracing = { version = "0.1" }
 tracing-subscriber = "0.3"
 async-recursion = "1.0.0"
