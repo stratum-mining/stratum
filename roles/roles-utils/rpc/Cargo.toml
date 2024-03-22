@@ -1,5 +1,5 @@
 [package]
-name = "rpc"
+name = "rpc_sv2"
 version = "1.0.0"
 edition = "2021"
 

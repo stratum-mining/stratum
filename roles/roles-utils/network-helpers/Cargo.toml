@@ -1,5 +1,5 @@
 [package]
-name = "network_helpers"
+name = "network_helpers_sv2"
 version = "1.0.0"
 authors = ["fi3 <email@email.org>"]
 edition = "2018"

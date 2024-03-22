@@ -16,7 +16,7 @@ binary_sv2 = { version = "^1.0.0", path = "../../protocols/v2/binary-sv2/binary-
 buffer_sv2 = { version = "^1.0.0", path = "../../utils/buffer" }
 codec_sv2 = { version = "*", path = "../../protocols/v2/codec-sv2", features = ["noise_sv2"] }
 const_sv2 = { version = "^1.0.0", path = "../../protocols/v2/const-sv2" }
-network_helpers = { version = "1.0.0", path = "../../utils/network-helpers", features = ["with_tokio"] }
+network_helpers_sv2 = { version = "1.0.0", path = "../roles-utils/network-helpers", features = ["with_tokio"] }
 noise_sv2 = { version = "*", path = "../../protocols/v2/noise-sv2" }
 rand = "0.8.4"
 roles_logic_sv2 = { version = "^1.0.0", path = "../../protocols/v2/roles-logic-sv2" }
@@ -31,5 +31,5 @@ serde = { version = "1.0.89", features = ["derive", "alloc"], default-features =
 hashbrown = { version = "0.11", default-features = false, features = ["ahash", "serde"] }
 key-utils = { version = "^1.0.0", path = "../../utils/key-utils" }
 secp256k1 = { version = "0.28.2", default-features = false, features =["alloc","rand","rand-std"] }
-rpc = { version = "1.0.0", path = "../../utils/rpc"}
+rpc_sv2 = { version = "1.0.0", path = "../roles-utils/rpc" }
 hex = "0.4.3"
