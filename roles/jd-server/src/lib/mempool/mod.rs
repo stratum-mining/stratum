@@ -62,7 +62,7 @@ impl JDsMempool {
     // this functions fill in the mempool the transactions with the given txid and insert the given
     // transactions. The ids are for the transactions that are already known to the node, the
     // unknown transactions are provided directly as a vector
-    pub async fn add_tx_data_to_mempool(
+     pub async fn add_tx_data_to_mempool(
         self_: Arc<Mutex<Self>>,
         add_txs_to_mempool_inner: AddTrasactionsToMempoolInner,
     ) -> Result<(), JdsMempoolError> {
