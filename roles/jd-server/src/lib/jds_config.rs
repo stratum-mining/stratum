@@ -1,7 +1,5 @@
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
-use roles_logic_sv2::{
-    errors::Error, utils::CoinbaseOutput as CoinbaseOutput_,
-};
+use roles_logic_sv2::{errors::Error, utils::CoinbaseOutput as CoinbaseOutput_};
 use serde::Deserialize;
 use std::{
     convert::{TryFrom, TryInto},
@@ -61,8 +59,8 @@ pub struct JdsConfig {
 }
 
 fn duration_from_toml<'de, D>(deserializer: D) -> Result<Duration, D::Error>
-    where
-        D: serde::Deserializer<'de>,
+where
+    D: serde::Deserializer<'de>,
 {
     #[derive(Deserialize)]
     struct Helper {

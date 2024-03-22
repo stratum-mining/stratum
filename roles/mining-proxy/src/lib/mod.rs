@@ -3,8 +3,8 @@ pub mod error;
 pub mod proxy_config;
 pub mod upstream_mining;
 
-use proxy_config::ProxyConfig;
 use once_cell::sync::OnceCell;
+use proxy_config::ProxyConfig;
 use roles_logic_sv2::{
     routing_logic::{CommonRoutingLogic, MiningProxyRoutingLogic, MiningRoutingLogic},
     selectors::GeneralMiningSelector,

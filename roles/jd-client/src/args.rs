@@ -1,7 +1,9 @@
+use crate::lib::{
+    error::{JdcError, JdcResult},
+    jdc_config::JdcConfig,
+};
 use std::path::PathBuf;
 use tracing::error;
-use crate::lib::error::{JdcError, JdcResult};
-use crate::lib::jdc_config::JdcConfig;
 
 #[derive(Debug)]
 pub struct Args {

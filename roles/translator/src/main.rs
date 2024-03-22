@@ -20,7 +20,6 @@ use v1::server_to_client;
 use crate::status::{State, Status};
 use tracing::{debug, error, info};
 
-
 #[tokio::main]
 async fn main() {
     tracing_subscriber::fmt::init();

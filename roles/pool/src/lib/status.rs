@@ -117,7 +117,7 @@ pub async fn handle_error(sender: &Sender, e: PoolError) -> error_handling::Erro
         PoolError::BadCliArgs => send_status(sender, e, error_handling::ErrorBranch::Break).await,
         PoolError::BadTomlDeserialize(_) => {
             send_status(sender, e, error_handling::ErrorBranch::Break).await
-        },
+        }
         PoolError::Io(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
         PoolError::ChannelSend(_) => {
             //This should be a continue because if we fail to send to 1 downstream we should continue

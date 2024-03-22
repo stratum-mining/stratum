@@ -18,8 +18,8 @@
 //! A Downstream that signal the incapacity to handle group channels can open only one channel.
 //!
 #![allow(special_module_name)]
-mod lib;
 mod args;
+mod lib;
 
 use roles_logic_sv2::utils::{GroupId, Mutex};
 use std::{net::SocketAddr, sync::Arc};
@@ -44,7 +44,6 @@ async fn main() {
         Err(_) => return,
     };
 
-
     let group_id = Arc::new(Mutex::new(GroupId::new()));
     lib::ROUTING_LOGIC
         .set(Mutex::new(
@@ -52,7 +51,11 @@ async fn main() {
         ))
         .expect("BUG: Failed to set ROUTING_LOGIC");
     info!("PROXY INITIALIZING");
-    lib::initialize_upstreams(proxy_config.min_supported_version, proxy_config.max_supported_version).await;
+    lib::initialize_upstreams(
+        proxy_config.min_supported_version,
+        proxy_config.max_supported_version,
+    )
+    .await;
     info!("PROXY INITIALIZED");
 
     // Wait for downstream connection

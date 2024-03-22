@@ -2,14 +2,11 @@
 use async_channel::{bounded, unbounded};
 
 use tracing::{error, info, warn};
-mod lib;
 mod args;
+mod lib;
 
 use lib::{
-    mining_pool::Pool,
-    pool_config::get_coinbase_output,
-    status,
-    template_receiver::TemplateRx,
+    mining_pool::Pool, pool_config::get_coinbase_output, status, template_receiver::TemplateRx,
 };
 
 use tokio::select;

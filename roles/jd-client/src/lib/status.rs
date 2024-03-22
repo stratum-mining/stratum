@@ -91,7 +91,9 @@ pub async fn handle_error(
 ) -> error_handling::ErrorBranch {
     tracing::error!("Error: {:?}", &e);
     match e {
-        JdcError::VecToSlice32(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
+        JdcError::VecToSlice32(_) => {
+            send_status(sender, e, error_handling::ErrorBranch::Break).await
+        }
         // Errors on bad CLI argument input.
         JdcError::BadCliArgs => send_status(sender, e, error_handling::ErrorBranch::Break).await,
         // Errors on bad `toml` deserialize.
@@ -109,7 +111,9 @@ pub async fn handle_error(
         // Errors on bad `String` to `int` conversion.
         JdcError::ParseInt(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
         // Errors from `roles_logic_sv2` crate.
-        JdcError::RolesSv2Logic(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
+        JdcError::RolesSv2Logic(_) => {
+            send_status(sender, e, error_handling::ErrorBranch::Break).await
+        }
         JdcError::UpstreamIncoming(_) => {
             send_status(sender, e, error_handling::ErrorBranch::Break).await
         }
