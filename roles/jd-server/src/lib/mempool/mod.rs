@@ -102,10 +102,10 @@ impl JDsMempool {
             .map_err(|e| JdsMempoolError::PoisonLock(e.to_string()))?
             .ok_or(JdsMempoolError::NoClient)?;
         let new_mempool = client
-            .get_raw_mempool() 
+            .get_raw_mempool()
             .await
             .map_err(JdsMempoolError::Rpc)?;
-    
+
         for id in &new_mempool {
             let key_id = Txid::from_str(id).unwrap();
             let tx = self_.safe_lock(|x| match x.mempool.get(&key_id) {
@@ -115,7 +115,7 @@ impl JDsMempool {
             let id = Txid::from_str(id).unwrap();
             mempool_ordered.insert(id, tx.unwrap());
         }
-    
+
         if mempool_ordered.is_empty() {
             Err(JdsMempoolError::EmptyMempool)
         } else {
@@ -125,8 +125,6 @@ impl JDsMempool {
             Ok(())
         }
     }
-    
-
 
     pub async fn on_submit(self_: Arc<Mutex<Self>>) -> Result<(), JdsMempoolError> {
         let new_block_receiver: Receiver<String> = self_
