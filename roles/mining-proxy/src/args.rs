@@ -1,6 +1,6 @@
 use crate::lib::{
+    error::{ProxyError, ProxyResult},
     proxy_config::ProxyConfig,
-    error::{ProxyResult, ProxyError}
 };
 
 use std::path::PathBuf;
@@ -25,8 +25,7 @@ enum ArgsResult {
 
 impl Args {
     const DEFAULT_CONFIG_PATH: &'static str = "proxy-config.toml";
-    const HELP_MSG: &'static str =
-        "Usage: -h/--help, -c/--config <path|default proxy-config.toml>";
+    const HELP_MSG: &'static str = "Usage: -h/--help, -c/--config <path|default proxy-config.toml>";
 
     pub fn from_args() -> Result<Self, String> {
         let cli_args = std::env::args();

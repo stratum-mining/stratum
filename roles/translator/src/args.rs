@@ -1,7 +1,9 @@
+use crate::lib::{
+    error::{Error, ProxyResult},
+    proxy_config::ProxyConfig,
+};
 use std::path::PathBuf;
 use tracing::error;
-use crate::lib::error::{Error, ProxyResult};
-use crate::lib::proxy_config::ProxyConfig;
 
 #[derive(Debug)]
 pub struct Args {

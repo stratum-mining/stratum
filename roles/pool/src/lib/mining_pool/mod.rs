@@ -1,7 +1,7 @@
 use super::{
     error::{PoolError, PoolResult},
+    pool_config::{get_coinbase_output, PoolConfig},
     status,
-    pool_config::{PoolConfig, get_coinbase_output}
 };
 use async_channel::{Receiver, Sender};
 use binary_sv2::U256;
@@ -23,12 +23,7 @@ use roles_logic_sv2::{
     template_distribution_sv2::{NewTemplate, SetNewPrevHash, SubmitSolution},
     utils::Mutex,
 };
-use std::{
-    collections::HashMap,
-    convert::TryInto,
-    net::SocketAddr,
-    sync::Arc,
-};
+use std::{collections::HashMap, convert::TryInto, net::SocketAddr, sync::Arc};
 use tokio::{net::TcpListener, task};
 use tracing::{debug, error, info, warn};
 
