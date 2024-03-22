@@ -2,8 +2,8 @@ use super::super::downstream::DownstreamMiningNode as Downstream;
 
 use super::super::{
     error::{
-        Error::{CodecNoise, PoisonLock, UpstreamIncoming},
-        ProxyResult,
+        JdcError::{CodecNoise, PoisonLock, UpstreamIncoming},
+        JdcResult,
     },
     status,
     upstream_sv2::{EitherFrame, Message, StdFrame},
@@ -127,13 +127,13 @@ pub struct Upstream {
 }
 
 impl Upstream {
-    pub async fn send(self_: &Arc<Mutex<Self>>, sv2_frame: StdFrame) -> ProxyResult<'static, ()> {
+    pub async fn send(self_: &Arc<Mutex<Self>>, sv2_frame: StdFrame) -> JdcResult<'static, ()> {
         let sender = self_
             .safe_lock(|s| s.sender.clone())
             .map_err(|_| PoisonLock)?;
         let either_frame = sv2_frame.into();
         sender.send(either_frame).await.map_err(|e| {
-            super::super::error::Error::ChannelErrorSender(
+            super::super::error::JdcError::ChannelErrorSender(
                 super::super::error::ChannelSendError::General(e.to_string()),
             )
         })?;
@@ -153,7 +153,7 @@ impl Upstream {
         tx_status: status::Sender,
         task_collector: Arc<Mutex<Vec<AbortHandle>>>,
         pool_chaneger_trigger: Arc<Mutex<PoolChangerTrigger>>,
-    ) -> ProxyResult<'static, Arc<Mutex<Self>>> {
+    ) -> JdcResult<'static, Arc<Mutex<Self>>> {
         // Connect to the SV2 Upstream role retry connection every 5 seconds.
         let socket = loop {
             match TcpStream::connect(address).await {
@@ -204,7 +204,7 @@ impl Upstream {
         self_: Arc<Mutex<Self>>,
         min_version: u16,
         max_version: u16,
-    ) -> ProxyResult<'static, ()> {
+    ) -> JdcResult<'static, ()> {
         // Get the `SetupConnection` message with Mining Device information (currently hard coded)
         let setup_connection = Self::get_setup_connection_message(min_version, max_version, true)?;
 
@@ -264,7 +264,7 @@ impl Upstream {
         coinbase_tx_outs: Vec<u8>,
         coinbase_tx_locktime: u32,
         template_id: u64,
-    ) -> ProxyResult<'static, ()> {
+    ) -> JdcResult<'static, ()> {
         info!("Sending set custom mining job");
         let request_id = self_.safe_lock(|s| s.req_ids.next()).unwrap();
         let channel_id = loop {
@@ -310,7 +310,7 @@ impl Upstream {
     /// Parses the incoming SV2 message from the Upstream role and routes the message to the
     /// appropriate handler.
     #[allow(clippy::result_large_err)]
-    pub fn parse_incoming(self_: Arc<Mutex<Self>>) -> ProxyResult<'static, ()> {
+    pub fn parse_incoming(self_: Arc<Mutex<Self>>) -> JdcResult<'static, ()> {
         let (recv, tx_status) = self_
             .safe_lock(|s| (s.receiver.clone(), s.tx_status.clone()))
             .map_err(|_| PoisonLock)?;
@@ -327,7 +327,7 @@ impl Upstream {
                     let message_type =
                         incoming
                             .get_header()
-                            .ok_or(super::super::error::Error::FramingSv2(
+                            .ok_or(super::super::error::JdcError::FramingSv2(
                                 framing_sv2::Error::ExpectedSv2Frame,
                             ));
 
@@ -404,7 +404,7 @@ impl Upstream {
         min_version: u16,
         max_version: u16,
         is_work_selection_enabled: bool,
-    ) -> ProxyResult<'static, SetupConnection<'static>> {
+    ) -> JdcResult<'static, SetupConnection<'static>> {
         let endpoint_host = "0.0.0.0".to_string().into_bytes().try_into()?;
         let vendor = String::new().try_into()?;
         let hardware_version = String::new().try_into()?;
