@@ -3,102 +3,24 @@ use async_channel::{bounded, unbounded};
 
 use tracing::{error, info, warn};
 mod lib;
+mod args;
+
 use lib::{
-    mining_pool::{get_coinbase_output, Configuration, Pool},
+    mining_pool::Pool,
+    pool_config::get_coinbase_output,
     status,
     template_receiver::TemplateRx,
 };
 
 use tokio::select;
 
-mod args {
-    use std::path::PathBuf;
-
-    #[derive(Debug)]
-    pub struct Args {
-        pub config_path: PathBuf,
-    }
-
-    enum ArgsState {
-        Next,
-        ExpectPath,
-        Done,
-    }
-
-    enum ArgsResult {
-        Config(PathBuf),
-        None,
-        Help(String),
-    }
-
-    impl Args {
-        const DEFAULT_CONFIG_PATH: &'static str = "pool-config.toml";
-        const HELP_MSG: &'static str =
-            "Usage: -h/--help, -c/--config <path|default pool-config.toml>";
-
-        pub fn from_args() -> Result<Self, String> {
-            let cli_args = std::env::args();
-
-            if cli_args.len() == 1 {
-                println!("Using default config path: {}", Self::DEFAULT_CONFIG_PATH);
-                println!("{}\n", Self::HELP_MSG);
-            }
-
-            let config_path = cli_args
-                .scan(ArgsState::Next, |state, item| {
-                    match std::mem::replace(state, ArgsState::Done) {
-                        ArgsState::Next => match item.as_str() {
-                            "-c" | "--config" => {
-                                *state = ArgsState::ExpectPath;
-                                Some(ArgsResult::None)
-                            }
-                            "-h" | "--help" => Some(ArgsResult::Help(Self::HELP_MSG.to_string())),
-                            _ => {
-                                *state = ArgsState::Next;
-
-                                Some(ArgsResult::None)
-                            }
-                        },
-                        ArgsState::ExpectPath => Some(ArgsResult::Config(PathBuf::from(item))),
-                        ArgsState::Done => None,
-                    }
-                })
-                .last();
-            let config_path = match config_path {
-                Some(ArgsResult::Config(p)) => p,
-                Some(ArgsResult::Help(h)) => return Err(h),
-                _ => PathBuf::from(Self::DEFAULT_CONFIG_PATH),
-            };
-            Ok(Self { config_path })
-        }
-    }
-}
-
 #[tokio::main]
 async fn main() {
     tracing_subscriber::fmt::init();
 
-    let args = match args::Args::from_args() {
-        Ok(cfg) => cfg,
-        Err(help) => {
-            error!("{}", help);
-            return;
-        }
-    };
-
-    // Load config
-    let config: Configuration = match std::fs::read_to_string(&args.config_path) {
-        Ok(c) => match toml::from_str(&c) {
-            Ok(c) => c,
-            Err(e) => {
-                error!("Failed to parse config: {}", e);
-                return;
-            }
-        },
-        Err(e) => {
-            error!("Failed to read config: {}", e);
-            return;
-        }
+    let pool_config = match args::process_cli_args() {
+        Ok(p) => p,
+        Err(_) => return,
     };
 
     let (status_tx, status_rx) = unbounded();
@@ -106,8 +28,8 @@ async fn main() {
     let (s_prev_hash, r_prev_hash) = bounded(10);
     let (s_solution, r_solution) = bounded(10);
     let (s_message_recv_signal, r_message_recv_signal) = bounded(10);
-    info!("Pool INITIALIZING with config: {:?}", &args.config_path);
-    let coinbase_output_result = get_coinbase_output(&config);
+    info!("Pool INITIALIZING...");
+    let coinbase_output_result = get_coinbase_output(&pool_config);
     let coinbase_output_len = match coinbase_output_result {
         Ok(coinbase_output) => coinbase_output.len() as u32,
         Err(err) => {
@@ -115,9 +37,9 @@ async fn main() {
             return;
         }
     };
-    let tp_authority_public_key = config.tp_authority_public_key;
+    let tp_authority_public_key = pool_config.tp_authority_public_key;
     let template_rx_res = TemplateRx::connect(
-        config.tp_address.parse().unwrap(),
+        pool_config.tp_address.parse().unwrap(),
         s_new_t,
         s_prev_hash,
         r_solution,
@@ -134,7 +56,7 @@ async fn main() {
     }
 
     let pool = Pool::start(
-        config.clone(),
+        pool_config.clone(),
         r_new_t,
         r_prev_hash,
         s_solution,

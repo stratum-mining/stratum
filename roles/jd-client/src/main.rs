@@ -4,15 +4,12 @@ mod args;
 mod lib;
 
 use lib::{
-    error::{Error, ProxyResult},
     job_declarator::JobDeclarator,
-    proxy_config::ProxyConfig,
     status,
     template_receiver::TemplateRx,
     PoolChangerTrigger,
 };
 
-use args::Args;
 use async_channel::{bounded, unbounded};
 use futures::{select, FutureExt};
 use roles_logic_sv2::utils::Mutex;
@@ -25,20 +22,6 @@ use std::{
 use tokio::task::AbortHandle;
 
 use tracing::{error, info};
-
-/// Process CLI args, if any.
-#[allow(clippy::result_large_err)]
-fn process_cli_args<'a>() -> ProxyResult<'a, ProxyConfig> {
-    let args = match Args::from_args() {
-        Ok(cfg) => cfg,
-        Err(help) => {
-            error!("{}", help);
-            return Err(Error::BadCliArgs);
-        }
-    };
-    let config_file = std::fs::read_to_string(args.config_path)?;
-    Ok(toml::from_str::<ProxyConfig>(&config_file)?)
-}
 
 /// TODO on the setup phase JDC must send a random nonce to bitcoind and JDS used for the tx
 /// hashlist
@@ -105,7 +88,7 @@ async fn main() {
 
     let task_collector = Arc::new(Mutex::new(vec![]));
 
-    let proxy_config = match process_cli_args() {
+    let jdc_config = match args::process_cli_args() {
         Ok(p) => p,
         Err(_) => return,
     };
@@ -115,19 +98,19 @@ async fn main() {
             let task_collector = task_collector.clone();
             let tx_status = tx_status.clone();
 
-            if let Some(upstream) = proxy_config.upstreams.get(upstream_index) {
+            if let Some(upstream) = jdc_config.upstreams.get(upstream_index) {
                 let initialize = initialize_jd(
                     tx_status.clone(),
                     task_collector,
                     upstream.clone(),
-                    proxy_config.timeout,
+                    jdc_config.timeout,
                 );
                 tokio::task::spawn(initialize);
             } else {
                 let initialize = initialize_jd_as_solo_miner(
                     tx_status.clone(),
                     task_collector,
-                    proxy_config.timeout,
+                    jdc_config.timeout,
                 );
                 tokio::task::spawn(initialize);
             }
@@ -205,8 +188,8 @@ async fn initialize_jd_as_solo_miner(
     task_collector: Arc<Mutex<Vec<AbortHandle>>>,
     timeout: Duration,
 ) {
-    let proxy_config = process_cli_args().unwrap();
-    let miner_tx_out = lib::proxy_config::get_coinbase_output(&proxy_config).unwrap();
+    let proxy_config = args::process_cli_args().unwrap();
+    let miner_tx_out = lib::jdc_config::get_coinbase_output(&proxy_config).unwrap();
 
     // When Downstream receive a share that meets bitcoin target it transformit in a
     // SubmitSolution and send it to the TemplateReceiver
@@ -258,11 +241,11 @@ async fn initialize_jd_as_solo_miner(
 async fn initialize_jd(
     tx_status: async_channel::Sender<status::Status<'static>>,
     task_collector: Arc<Mutex<Vec<AbortHandle>>>,
-    upstream_config: lib::proxy_config::Upstream,
+    upstream_config: lib::jdc_config::Upstream,
     timeout: Duration,
 ) {
-    let proxy_config = process_cli_args().unwrap();
-    let test_only_do_not_send_solution_to_tp = proxy_config
+    let jdc_config = args::process_cli_args().unwrap();
+    let test_only_do_not_send_solution_to_tp = jdc_config
         .test_only_do_not_send_solution_to_tp
         .unwrap_or(false);
 
@@ -312,8 +295,8 @@ async fn initialize_jd(
 
     match lib::upstream_sv2::Upstream::setup_connection(
         upstream.clone(),
-        proxy_config.min_supported_version,
-        proxy_config.max_supported_version,
+        jdc_config.min_supported_version,
+        jdc_config.max_supported_version,
     )
     .await
     {
@@ -326,12 +309,12 @@ async fn initialize_jd(
 
     // Format `Downstream` connection address
     let downstream_addr = SocketAddr::new(
-        IpAddr::from_str(&proxy_config.downstream_address).unwrap(),
-        proxy_config.downstream_port,
+        IpAddr::from_str(&jdc_config.downstream_address).unwrap(),
+        jdc_config.downstream_port,
     );
 
     // Initialize JD part
-    let mut parts = proxy_config.tp_address.split(':');
+    let mut parts = jdc_config.tp_address.split(':');
     let ip_tp = parts.next().unwrap().to_string();
     let port_tp = parts.next().unwrap().parse::<u16>().unwrap();
 
@@ -341,7 +324,7 @@ async fn initialize_jd(
     let jd = match JobDeclarator::new(
         SocketAddr::new(IpAddr::from_str(ip_jd.as_str()).unwrap(), port_jd),
         upstream_config.authority_pubkey.into_bytes(),
-        proxy_config.clone(),
+        jdc_config.clone(),
         upstream.clone(),
         task_collector.clone(),
     )
@@ -363,10 +346,10 @@ async fn initialize_jd(
         downstream_addr,
         Some(upstream),
         send_solution,
-        proxy_config.withhold,
-        proxy_config.authority_public_key,
-        proxy_config.authority_secret_key,
-        proxy_config.cert_validity_sec,
+        jdc_config.withhold,
+        jdc_config.authority_public_key,
+        jdc_config.authority_secret_key,
+        jdc_config.cert_validity_sec,
         task_collector.clone(),
         status::Sender::Downstream(tx_status.clone()),
         vec![],
@@ -384,7 +367,7 @@ async fn initialize_jd(
         task_collector,
         Arc::new(Mutex::new(PoolChangerTrigger::new(timeout))),
         vec![],
-        proxy_config.tp_authority_public_key,
+        jdc_config.tp_authority_public_key,
         test_only_do_not_send_solution_to_tp,
     )
     .await;

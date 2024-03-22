@@ -274,7 +274,7 @@ impl UpstreamMiningNode {
     pub async fn send(
         self_mutex: Arc<Mutex<Self>>,
         sv2_frame: StdFrame,
-    ) -> Result<(), super::error::Error> {
+    ) -> Result<(), super::error::ProxyError> {
         let (has_sv2_connection, mut connection, address) = self_mutex
             .safe_lock(|self_| {
                 (
@@ -333,7 +333,7 @@ impl UpstreamMiningNode {
         }
     }
 
-    async fn receive(self_mutex: Arc<Mutex<Self>>) -> Result<StdFrame, super::error::Error> {
+    async fn receive(self_mutex: Arc<Mutex<Self>>) -> Result<StdFrame, super::error::ProxyError> {
         let mut connection = self_mutex
             .safe_lock(|self_| self_.connection.clone())
             .unwrap();
@@ -343,7 +343,7 @@ impl UpstreamMiningNode {
                 Err(_) => {
                     let address = self_mutex.safe_lock(|s| s.address).unwrap();
                     error!("Upstream node {} is not available", address);
-                    Err(super::error::Error::UpstreamNotAvailabe(address))
+                    Err(super::error::ProxyError::UpstreamNotAvailabe(address))
                 }
             },
             None => {
@@ -353,7 +353,7 @@ impl UpstreamMiningNode {
         }
     }
 
-    async fn connect(self_mutex: Arc<Mutex<Self>>) -> Result<(), super::error::Error> {
+    async fn connect(self_mutex: Arc<Mutex<Self>>) -> Result<(), super::error::ProxyError> {
         let has_connection = self_mutex
             .safe_lock(|self_| self_.connection.is_some())
             .unwrap();
@@ -365,7 +365,7 @@ impl UpstreamMiningNode {
                     .unwrap();
                 let socket = TcpStream::connect(address).await.map_err(|_| {
                     error!("Upstream node {} is not available", address);
-                    super::error::Error::UpstreamNotAvailabe(address)
+                    super::error::ProxyError::UpstreamNotAvailabe(address)
                 })?;
                 info!(
                     "Connected to upstream node {}: now handling noise handshake",
@@ -597,7 +597,7 @@ impl UpstreamMiningNode {
         flags: Option<u32>,
         min_version: u16,
         max_version: u16,
-    ) -> Result<(), super::error::Error> {
+    ) -> Result<(), super::error::ProxyError> {
         let flags = flags.unwrap_or(0b0000_0000_0000_0000_0000_0000_0000_0110);
         let (frame, downstream_hr) = self_mutex
             .safe_lock(|self_| {
@@ -650,7 +650,7 @@ impl UpstreamMiningNode {
                     let error_message = std::str::from_utf8(m.error_code.inner_as_ref())
                         .unwrap()
                         .to_string();
-                    Err(super::error::Error::SetupConnectionError(error_message))
+                    Err(super::error::ProxyError::SetupConnectionError(error_message))
                 }
             }
             Ok(_) => todo!(),

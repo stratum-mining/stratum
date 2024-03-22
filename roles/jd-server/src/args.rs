@@ -1,7 +1,9 @@
+use crate::lib::{
+    error::{JdsResult, JdsError},
+    jds_config::JdsConfig
+};
 use std::path::PathBuf;
 use tracing::error;
-use crate::lib::error::{Error, ProxyResult};
-use crate::lib::proxy_config::ProxyConfig;
 
 #[derive(Debug)]
 pub struct Args {
@@ -21,8 +23,9 @@ enum ArgsResult {
 }
 
 impl Args {
-    const DEFAULT_CONFIG_PATH: &'static str = "proxy-config.toml";
-    const HELP_MSG: &'static str = "Usage: -h/--help, -c/--config <path|default proxy-config.toml>";
+    const DEFAULT_CONFIG_PATH: &'static str = "jds-config.toml";
+    const HELP_MSG: &'static str =
+        "Usage: -h/--help, -c/--config <path|default jds-config.toml>";
 
     pub fn from_args() -> Result<Self, String> {
         let cli_args = std::env::args();
@@ -63,14 +66,14 @@ impl Args {
 
 /// Process CLI args, if any.
 #[allow(clippy::result_large_err)]
-pub fn process_cli_args<'a>() -> ProxyResult<'a, ProxyConfig> {
+pub fn process_cli_args<'a>() -> JdsResult<JdsConfig> {
     let args = match Args::from_args() {
         Ok(cfg) => cfg,
         Err(help) => {
             error!("{}", help);
-            return Err(Error::BadCliArgs);
+            return Err(JdsError::BadCliArgs);
         }
     };
     let config_file = std::fs::read_to_string(args.config_path)?;
-    Ok(toml::from_str::<ProxyConfig>(&config_file)?)
+    Ok(toml::from_str::<JdsConfig>(&config_file)?)
 }

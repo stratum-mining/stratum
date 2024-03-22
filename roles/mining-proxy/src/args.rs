@@ -1,7 +1,10 @@
+use crate::lib::{
+    proxy_config::ProxyConfig,
+    error::{ProxyResult, ProxyError}
+};
+
 use std::path::PathBuf;
 use tracing::error;
-use crate::lib::error::{Error, ProxyResult};
-use crate::lib::proxy_config::ProxyConfig;
 
 #[derive(Debug)]
 pub struct Args {
@@ -22,7 +25,8 @@ enum ArgsResult {
 
 impl Args {
     const DEFAULT_CONFIG_PATH: &'static str = "proxy-config.toml";
-    const HELP_MSG: &'static str = "Usage: -h/--help, -c/--config <path|default proxy-config.toml>";
+    const HELP_MSG: &'static str =
+        "Usage: -h/--help, -c/--config <path|default proxy-config.toml>";
 
     pub fn from_args() -> Result<Self, String> {
         let cli_args = std::env::args();
@@ -63,12 +67,12 @@ impl Args {
 
 /// Process CLI args, if any.
 #[allow(clippy::result_large_err)]
-pub fn process_cli_args<'a>() -> ProxyResult<'a, ProxyConfig> {
+pub fn process_cli_args<'a>() -> ProxyResult<ProxyConfig> {
     let args = match Args::from_args() {
         Ok(cfg) => cfg,
         Err(help) => {
             error!("{}", help);
-            return Err(Error::BadCliArgs);
+            return Err(ProxyError::BadCliArgs);
         }
     };
     let config_file = std::fs::read_to_string(args.config_path)?;

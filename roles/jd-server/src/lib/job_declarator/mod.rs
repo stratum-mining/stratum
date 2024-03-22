@@ -1,5 +1,5 @@
 pub mod message_handler;
-use super::{error::JdsError, mempool::JDsMempool, status, Configuration, EitherFrame, StdFrame};
+use super::{error::JdsError, mempool::JDsMempool, status, jds_config::JdsConfig, EitherFrame, StdFrame};
 use async_channel::{Receiver, Sender};
 use binary_sv2::{B0255, U256};
 use codec_sv2::{Frame, HandshakeRole, Responder};
@@ -70,7 +70,7 @@ impl JobDeclaratorDownstream {
     pub fn new(
         receiver: Receiver<EitherFrame>,
         sender: Sender<EitherFrame>,
-        config: &Configuration,
+        config: &JdsConfig,
         mempool: Arc<Mutex<JDsMempool>>,
         sender_add_txs_to_mempool: Sender<AddTrasactionsToMempoolInner>,
     ) -> Self {
@@ -418,7 +418,7 @@ pub struct JobDeclarator {}
 
 impl JobDeclarator {
     pub async fn start(
-        config: Configuration,
+        config: JdsConfig,
         status_tx: crate::status::Sender,
         mempool: Arc<Mutex<JDsMempool>>,
         new_block_sender: Sender<String>,
@@ -438,7 +438,7 @@ impl JobDeclarator {
     }
     async fn accept_incoming_connection(
         _self_: Arc<Mutex<JobDeclarator>>,
-        config: Configuration,
+        config: JdsConfig,
         status_tx: crate::status::Sender,
         mempool: Arc<Mutex<JDsMempool>>,
         new_block_sender: Sender<String>,
