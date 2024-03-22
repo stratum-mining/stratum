@@ -101,29 +101,32 @@ impl JDsMempool {
             .safe_lock(|x| x.get_client())
             .map_err(|e| JdsMempoolError::PoisonLock(e.to_string()))?
             .ok_or(JdsMempoolError::NoClient)?;
-        let mempool: Vec<String> = client
-            .get_raw_mempool()
+        let new_mempool = client
+            .get_raw_mempool() 
             .await
             .map_err(JdsMempoolError::Rpc)?;
-        for id in &mempool {
-            let tx: Result<Transaction, _> = client.get_raw_transaction(id, None).await;
-            if let Ok(tx) = tx {
-                let id = tx.txid();
-                mempool_ordered.push(TransacrtionWithHash { id, tx });
-            }
+    
+        for id in &new_mempool {
+            let key_id = Txid::from_str(id).unwrap();
+            let tx = self_.safe_lock(|x| match x.mempool.get(&key_id) {
+                Some(entry) => entry.clone(),
+                None => None,
+            });
+            let id = Txid::from_str(id).unwrap();
+            mempool_ordered.insert(id, tx.unwrap());
         }
-
+    
         if mempool_ordered.is_empty() {
-            return Err(JdsMempoolError::EmptyMempool);
-        }
-
-        self_
-            .safe_lock(|x| {
+            Err(JdsMempoolError::EmptyMempool)
+        } else {
+            let _ = self_.safe_lock(|x| {
                 x.mempool = mempool_ordered;
-            })
-            .map_err(|e| JdsMempoolError::PoisonLock(e.to_string()))?;
-        Ok(())
+            });
+            Ok(())
+        }
     }
+    
+
 
     pub async fn on_submit(self_: Arc<Mutex<Self>>) -> Result<(), JdsMempoolError> {
         let new_block_receiver: Receiver<String> = self_
