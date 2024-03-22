@@ -16,12 +16,11 @@ keywords = ["stratum", "mining", "bitcoin", "protocol"]
 resolver="2"
 
 members = [
-    "../roles/roles-utils/network-helpers",
     "buffer",
     "error-handling",
     "key-utils",
     "bip32-key-derivation",
-    "../roles/roles-utils/rpc"]
+]
 
 exclude = [
     "message-generator",
