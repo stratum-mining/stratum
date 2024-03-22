@@ -3,7 +3,7 @@ use async_channel::{bounded, Receiver, Sender};
 use binary_sv2::{Deserialize, GetSize, Serialize};
 use codec_sv2::{HandshakeRole, Initiator, Responder, StandardEitherFrame as EitherFrame};
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
-use network_helpers::{
+use network_helpers_sv2::{
     noise_connection_tokio::Connection, plain_connection_tokio::PlainConnection,
 };
 use std::{net::SocketAddr, time::Duration};

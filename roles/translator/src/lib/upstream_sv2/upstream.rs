@@ -14,7 +14,7 @@ use binary_sv2::u256_from_int;
 use codec_sv2::{Frame, HandshakeRole, Initiator};
 use error_handling::handle_result;
 use key_utils::Secp256k1PublicKey;
-use network_helpers::Connection;
+use network_helpers_sv2::Connection;
 use roles_logic_sv2::{
     common_messages_sv2::{Protocol, SetupConnection},
     common_properties::{IsMiningUpstream, IsUpstream},

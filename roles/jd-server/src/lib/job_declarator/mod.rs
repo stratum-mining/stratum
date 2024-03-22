@@ -5,7 +5,7 @@ use binary_sv2::{B0255, U256};
 use codec_sv2::{Frame, HandshakeRole, Responder};
 use error_handling::handle_result;
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
-use network_helpers::noise_connection_tokio::Connection;
+use network_helpers_sv2::noise_connection_tokio::Connection;
 use nohash_hasher::BuildNoHashHasher;
 use roles_logic_sv2::{
     common_messages_sv2::SetupConnectionSuccess,
