@@ -82,7 +82,7 @@ impl JobDeclaratorDownstream {
             known_transactions: vec![],
             unknown_transactions: vec![],
         };
-        super::get_coinbase_output(config).expect("Invalid coinbase output in config")[0]
+        super::jds_config::get_coinbase_output(config).expect("Invalid coinbase output in config")[0]
             .consensus_encode(&mut coinbase_output)
             .expect("Invalid coinbase output in config");
 

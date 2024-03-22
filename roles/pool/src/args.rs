@@ -66,7 +66,7 @@ impl Args {
 
 /// Process CLI args, if any.
 #[allow(clippy::result_large_err)]
-pub fn process_cli_args<'a>() -> PoolResult<PoolConfig> {
+pub fn process_cli_args() -> PoolResult<PoolConfig> {
     let args = match Args::from_args() {
         Ok(cfg) => cfg,
         Err(help) => {
