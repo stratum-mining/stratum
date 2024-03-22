@@ -66,7 +66,7 @@ impl Args {
 
 /// Process CLI args, if any.
 #[allow(clippy::result_large_err)]
-pub fn process_cli_args<'a>() -> JdsResult<JdsConfig> {
+pub fn process_cli_args() -> JdsResult<JdsConfig> {
     let args = match Args::from_args() {
         Ok(cfg) => cfg,
         Err(help) => {
