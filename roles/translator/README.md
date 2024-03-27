@@ -34,7 +34,7 @@ The configuration file contains the following information:
    (`upstream_port`).
 2. The SV1 Downstream socket information which includes the listening IP address
    (`downstream_address`) and port (`downstream_port`).
-3. The maximum and minimum SV2 versions (`max_supported_version` and `min_supported_version`) that
+3. The maximum and minimum SRI versions (`max_supported_version` and `min_supported_version`) that
    the Translator Proxy implementer wants to support. Currently the only available version is `2`.
 4. The desired minimum `extranonce2` size that the Translator Proxy implementer wants to use
    (`min_extranonce2_size`). The `extranonce2` size is ultimately decided by the SV2 Upstream role,
