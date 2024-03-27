@@ -99,7 +99,7 @@ jobs:
         continue-on-error: true
         run: |
           cd protocols/v2/sv2-ffi
-          cargo publish
+          cargo publish --all-features
       - name: Publish crate roles_logic_sv2
         continue-on-error: true
         run: |
