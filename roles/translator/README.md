@@ -25,8 +25,7 @@ The most typical high level configuration is:
 
 ### Configuration File
 
-The `tproxy-config-local-jdc-example.toml` is a configuration example  directory by the party that is running the Translator Proxy (most
-typically the mining farm/miner hobbyist) to address the most preferred customization.
+`tproxy-config-local-jdc-example.toml` and `tproxy-config-local-pool-example.toml` are examples of configuration files for the Translator Proxy
 
 The configuration file contains the following information:
 
