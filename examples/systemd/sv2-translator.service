@@ -1,0 +1,19 @@
+[Unit]
+Description=Stratum v2 Translator
+After=sv2-translator.service
+
+[Service]
+# Assumes a user stratum with Rust installed and the repository cloned into ~/src
+# cargo build -p translator --release
+WorkingDirectory=/home/stratum/src/stratum/roles/translator
+ExecStart=/home/stratum/src/stratum/target/release/translator
+User=stratum
+Group=stratum
+Type=simple
+KillMode=process
+TimeoutSec=60
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
