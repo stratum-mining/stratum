@@ -32,7 +32,7 @@ The configuration file contains the following information:
 2. The address which it will use to listen to new connection from downstream roles (`listen_address`)
 3. The list of uncompressed pubkeys for coinbase payout (`coinbase_outputs`)
 4. A string that serves as signature on the coinbase tx (`pool_signature`).
-2. The SRI Pool Job Negatiator information which includes the Template Provider address (`tp_address`) and the address it uses to listen new request from the downstream JDs (`jd_address`).
+5. The Template Provider address (`tp_address`).
 3. Optionally, you may want to verify that your TP connection is authentic. You may get `tp_authority_public_key` from the logs of your TP, for example:
 
 ```
