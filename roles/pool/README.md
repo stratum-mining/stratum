@@ -23,8 +23,7 @@ The most typical high level configuration is:
 
 ### Configuration File
 
-The `pool-config-hosted-tp-example.toml` is a configuration example directory by the party that is running the SV2 Pool (most
-typically the pool service provider) to address the most preferred customization.
+`pool-config-hosted-tp-example.toml` and `pool-config-local-tp-example.toml` are examples of configuration files.
 
 The configuration file contains the following information:
 
