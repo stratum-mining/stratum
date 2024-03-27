@@ -11,7 +11,7 @@ The JD Client receives custom block templates from a Template Provider and decla
 
 The configuration file contains the following information:
 
-1. The downstream connection information includes  connection address (`downstream_address`) and port (`downstream_port`).
+1. The downstream socket information, which includes the listening IP address (`downstream_address`) and port (`downstream_port`).
 2. The maximum and minimum SRI versions (`max_supported_version` and `min_supported_version`) with size as (`min_extranonce2_size`)
 3. In this file there is a withhold (`withhold`) with a boolean value.
 4. The authentication keys for open encrypted connection for the downstream (`authority_public_key`, `authority_secret_key` and `cert_validity_sec`)
