@@ -101,39 +101,28 @@ impl JDsMempool {
             .safe_lock(|x| x.get_client())
             .map_err(|e| JdsMempoolError::PoisonLock(e.to_string()))?
             .ok_or(JdsMempoolError::NoClient)?;
-        let new_mempool: Result<HashMap<Txid, Option<Transaction>>, JdsMempoolError> = {
-            let self_ = self_.clone();
-            tokio::task::spawn(async move {
-                let mempool: Vec<String> = client
-                    .get_raw_mempool()
-                    .await
-                    .map_err(JdsMempoolError::Rpc)?;
-                for id in &mempool {
-                    let key_id = Txid::from_str(id).unwrap();
-                    let tx = self_.safe_lock(|x| match x.mempool.get(&key_id) {
-                        Some(entry) => entry.clone(),
-                        None => None,
-                    });
-                    let id = Txid::from_str(id).unwrap();
-                    mempool_ordered.insert(id, tx.unwrap());
-                }
-                if mempool_ordered.is_empty() {
-                    Err(JdsMempoolError::EmptyMempool)
-                } else {
-                    Ok(mempool_ordered)
-                }
-            })
+        let new_mempool = client
+            .get_raw_mempool()
             .await
-            .map_err(JdsMempoolError::TokioJoin)?
-        };
-        match new_mempool {
-            Ok(new_mempool_) => {
-                let _ = self_.safe_lock(|x| {
-                    x.mempool = new_mempool_;
-                });
-                Ok(())
-            }
-            Err(a) => Err(a),
+            .map_err(JdsMempoolError::Rpc)?;
+
+        for id in &new_mempool {
+            let key_id = Txid::from_str(id).unwrap();
+            let tx = self_.safe_lock(|x| match x.mempool.get(&key_id) {
+                Some(entry) => entry.clone(),
+                None => None,
+            });
+            let id = Txid::from_str(id).unwrap();
+            mempool_ordered.insert(id, tx.unwrap());
+        }
+
+        if mempool_ordered.is_empty() {
+            Err(JdsMempoolError::EmptyMempool)
+        } else {
+            let _ = self_.safe_lock(|x| {
+                x.mempool = mempool_ordered;
+            });
+            Ok(())
         }
     }
 
