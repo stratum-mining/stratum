@@ -2,7 +2,7 @@
 
 * connect to the jd-server
 * connect to the template-provider
-* listen for an `OpenExtendedChannel` from downstream
+The JD Client receives custom block templates from a Template Provider and declares use of the template with the pool using the Job Declaration Protocol. Further distributes the jobs to Mining Proxy (or Proxies) using the Job Distribution Protocol. ```
 * transparently relay the `OpenExtendedChannel` to upstream 
 After the setup phase, it will start to negotiate jobs upstream and send the negotiated job
 downstream, so that everything downstream does not need to know that the job is negotiated.
