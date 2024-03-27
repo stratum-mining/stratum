@@ -17,6 +17,9 @@ The configuration file contains the following information:
 4. A `retry` parameter which tells JDC the number of times to reinitialize itself after a failure.
 6. The Template Provider address (`tp_address`).
 7. Optionally, you may want to verify that your TP connection is authentic. You may get `tp_authority_public_key` from the logs of your TP, for example:
+
+# 2024-02-13T14:59:24Z Template Provider authority key: EguTM8URcZDQVeEBsM4B5vg9weqEUnufA8pm85fG4bZd
+
 ### Run
 
 Run the Job Declarator Client (JDC):
