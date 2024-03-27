@@ -261,7 +261,7 @@ dependencies = [
  "framing_sv2",
  "iai",
  "mining_sv2",
- "network_helpers",
+ "network_helpers_sv2",
  "num-bigint",
  "num-traits",
  "rand",
@@ -1069,7 +1069,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "network_helpers"
+name = "network_helpers_sv2"
 version = "1.0.0"
 dependencies = [
  "async-channel 1.9.0",

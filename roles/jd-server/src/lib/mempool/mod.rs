@@ -5,7 +5,7 @@ use async_channel::Receiver;
 use bitcoin::blockdata::transaction::Transaction;
 use hashbrown::HashMap;
 use roles_logic_sv2::utils::Mutex;
-use rpc::mini_rpc_client;
+use rpc_sv2::mini_rpc_client;
 use std::{convert::TryInto, str::FromStr, sync::Arc};
 use stratum_common::{bitcoin, bitcoin::hash_types::Txid};
 

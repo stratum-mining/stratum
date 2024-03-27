@@ -125,10 +125,15 @@ jobs:
         run: |
           cd utils/key-utils
           cargo publish
-      - name: Publish crate network-helpers
+      - name: Publish crate network_helpers_sv2
         continue-on-error: true
         run: |
-          cd utils/network-helpers
+          cd roles/roles-utils/network-helpers
+          cargo publish
+      - name: Publish crate rpc_sv2
+        continue-on-error: true
+        run: |
+          cd roles/roles-utils/rpc
           cargo publish
       - name: Publish crate jd_client
         continue-on-error: true

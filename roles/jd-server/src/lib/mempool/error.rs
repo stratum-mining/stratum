@@ -1,4 +1,4 @@
-use rpc::mini_rpc_client::RpcError;
+use rpc_sv2::mini_rpc_client::RpcError;
 use tokio::task::JoinError;
 use tracing::{error, warn};
 

@@ -331,6 +331,8 @@ version = "1.0.0"
 dependencies = [
  "binary_codec_sv2",
  "derive_codec_sv2",
+ "serde",
+ "serde_sv2",
  "tracing",
 ]
 
@@ -436,6 +438,7 @@ name = "buffer_sv2"
 version = "1.0.0"
 dependencies = [
  "aes-gcm",
+ "serde",
 ]
 
 [[package]]
@@ -515,6 +518,7 @@ dependencies = [
  "const_sv2",
  "framing_sv2",
  "noise_sv2",
+ "serde",
  "tracing",
 ]
 
@@ -712,6 +716,7 @@ dependencies = [
  "binary_sv2",
  "buffer_sv2",
  "const_sv2",
+ "serde",
 ]
 
 [[package]]
@@ -1105,7 +1110,7 @@ dependencies = [
  "framing_sv2",
  "futures",
  "key-utils",
- "network_helpers",
+ "network_helpers_sv2",
  "nohash-hasher",
  "roles_logic_sv2",
  "serde",
@@ -1129,12 +1134,12 @@ dependencies = [
  "hashbrown 0.11.2",
  "hex",
  "key-utils",
- "network_helpers",
+ "network_helpers_sv2",
  "nohash-hasher",
  "noise_sv2",
  "rand",
  "roles_logic_sv2",
- "rpc",
+ "rpc_sv2",
  "secp256k1 0.28.2",
  "serde",
  "serde_json",
@@ -1241,7 +1246,7 @@ dependencies = [
  "codec_sv2",
  "const_sv2",
  "futures",
- "network_helpers",
+ "network_helpers_sv2",
  "rand",
  "roles_logic_sv2",
  "stratum-common",
@@ -1259,7 +1264,7 @@ dependencies = [
  "const_sv2",
  "futures",
  "key-utils",
- "network_helpers",
+ "network_helpers_sv2",
  "nohash-hasher",
  "once_cell",
  "roles_logic_sv2",
@@ -1300,7 +1305,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "network_helpers"
+name = "network_helpers_sv2"
 version = "1.0.0"
 dependencies = [
  "async-channel 1.9.0",
@@ -1309,6 +1314,7 @@ dependencies = [
  "codec_sv2",
  "const_sv2",
  "futures",
+ "serde",
  "tokio",
  "tracing",
 ]
@@ -1545,7 +1551,7 @@ dependencies = [
  "error_handling",
  "hex",
  "key-utils",
- "network_helpers",
+ "network_helpers_sv2",
  "nohash-hasher",
  "noise_sv2",
  "rand",
@@ -1686,7 +1692,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "rpc"
+name = "rpc_sv2"
 version = "1.0.0"
 dependencies = [
  "base64",
@@ -1811,6 +1817,14 @@ checksum = "69801b70b1c3dac963ecb03a364ba0ceda9cf60c71cfe475e99864759c8b8a79"
 dependencies = [
  "itoa",
  "ryu",
+ "serde",
+]
+
+[[package]]
+name = "serde_sv2"
+version = "1.0.0"
+dependencies = [
+ "buffer_sv2",
  "serde",
 ]
 
@@ -2143,7 +2157,7 @@ dependencies = [
  "framing_sv2",
  "futures",
  "key-utils",
- "network_helpers",
+ "network_helpers_sv2",
  "once_cell",
  "rand",
  "roles_logic_sv2",

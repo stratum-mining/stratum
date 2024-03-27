@@ -1,12 +1,12 @@
 [package]
-name = "rpc"
+name = "rpc_sv2"
 version = "1.0.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-stratum-common = { path = "../../common" }
+stratum-common = { path = "../../../common" }
 serde = { version = "1.0.89", features = ["derive", "alloc"], default-features = false }
 serde_json = { version = "1.0", default-features = false, features = ["alloc","raw_value"] }
 hex = "0.4.3"
