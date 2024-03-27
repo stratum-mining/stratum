@@ -41,10 +41,10 @@ The configuration file contains the following information:
 
 ### Run
 
-There are two files found in cd roles/pool/config-examples
+There are two files found in `roles/pool/config-examples`
 
-1. pool-config-hosted-tp-example.toml runs on our community hosted server.
-2. pool-config-example-tp-example.toml runs with your local config.
+1. `pool-config-hosted-tp-example.toml` runs on our community hosted server.
+2. `pool-config-example-tp-example.toml` runs with your local config.
 
 Run the Pool:
 
