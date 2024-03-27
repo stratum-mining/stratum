@@ -15,8 +15,8 @@ The configuration file contains the following information:
 2. The maximum and minimum SRI versions (`max_supported_version` and `min_supported_version`) with size as (`min_extranonce2_size`)
 3. The authentication keys for the downstream connection (`authority_public_key`, `authority_secret_key`)
 4. A `retry` parameter which tells JDC the number of times to reinitialize itself after a failure.
-6. The Job Declarator information includes the Template Provider connection address to which to connect (`tp_address`).
-7. You may want to verify that your TP connection is authentic. You may get `tp_authority_public_key` from the logs of your.
+6. The Template Provider address (`tp_address`).
+7. Optionally, you may want to verify that your TP connection is authentic. You may get `tp_authority_public_key` from the logs of your TP, for example:
 
 ### Run
 
