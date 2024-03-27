@@ -13,7 +13,6 @@ The configuration file contains the following information:
 
 1. The downstream socket information, which includes the listening IP address (`downstream_address`) and port (`downstream_port`).
 2. The maximum and minimum SRI versions (`max_supported_version` and `min_supported_version`) with size as (`min_extranonce2_size`)
-3. In this file there is a withhold (`withhold`) with a boolean value.
 4. The authentication keys for open encrypted connection for the downstream (`authority_public_key`, `authority_secret_key` and `cert_validity_sec`)
 5. The retry that tells JDC the number of times to retry itself after a failure.
 6. The Job Declarator information includes the Template Provider connection address to which to connect (`tp_address`).
