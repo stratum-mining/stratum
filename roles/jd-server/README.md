@@ -11,7 +11,7 @@ The configuration file contains the following information:
 1. The SRI Pool information which includes the SRI Pool authority public key (`authority_public_key`), the SRI Pool authority secret key (`authority_secret_key`). 
 2. The list of uncompressed pubkeys for coinbase payout (`coinbase_outputs`)
 3. The address which it will use to listen to new connection from downstream roles (`listen_jd_address`)
-2. The RPC config for mempool config where are (`core_rpc_url`, `core_rpc_port`, `core_rpc_user`, `core_rpc_pass`), and the time interval for the JDS mempool update in form of (`unit`,`value`)
+4. The Bitcoin Core RPC parameters for mempool config (`core_rpc_url`, `core_rpc_port`, `core_rpc_user`, `core_rpc_pass`), and the time interval for the JDS mempool update (`unit`,`value`)
 
 ### Run
 
