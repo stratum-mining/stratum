@@ -54,4 +54,6 @@ Run the Translator Proxy:
 ```bash
 cd roles/translator/config-examples/
 cargo run -- -c tproxy-config-local-jdc-example.toml
+# or
+cargo run -- -c tproxy-config-local-pool-example.toml
 ```
