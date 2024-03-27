@@ -43,7 +43,9 @@ The configuration file contains the following information:
 5. The downstream difficulty params such as:
 - the hashrate (hashes/s) of the weakest Mining Device that will be connecting to the Translator Proxy (`min_individual_miner_hashrate`)
 - the number of shares per minute that Mining Devices should be sending to the Translator Proxy (`shares_per_minute`). 
-   Devices) (`channel_nominal_hashrate`), which is communicated to the SV2 Upstream to help it decide a proper difficulty target.
+6. The upstream difficulty params such as:
+- the interval in seconds to elapse before updating channel hashrate with the pool (`channel_diff_update_interval`)
+- the estimated aggregate hashrate of all SV1 Downstream roles (`channel_nominal_hashrate`)
 
 ### Run
 
