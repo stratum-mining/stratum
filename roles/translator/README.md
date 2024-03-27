@@ -49,11 +49,10 @@ The configuration file contains the following information:
 
 ### Run
 
-Run the Translator Proxy:
+There are two files in `roles/translator/config-examples`:
+- `tproxy-config-local-jdc-example.toml` which assumes the Job Declaration protocol is used and a JD Client is deployed locally
+- `tproxy-config-local-pool-example.toml` which assumes Job Declaration protocol is NOT used, and a Pool is deployed locally
 
 ```bash
 cd roles/translator/config-examples/
 cargo run -- -c tproxy-config-local-jdc-example.toml
-# or
-cargo run -- -c tproxy-config-local-pool-example.toml
-```
