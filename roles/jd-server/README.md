@@ -23,7 +23,7 @@ There are two files when you cd into roles/jd-server/config-examples/
 Run the Job Declarator Server (JDS):
 
 ```bash
-   cd roles/jd-server/config-examples
-  cargo run -- -c jds-config-hosted-example.toml
+cd roles/jd-server/config-examples
+cargo run -- -c jds-config-hosted-example.toml
 ```
 
