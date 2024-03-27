@@ -49,6 +49,6 @@ There are two files found in `roles/pool/config-examples`
 Run the Pool:
 
 ```bash
-  cd roles/pool/config-examples
-  cargo run -- -c pool-config-hosted-tp-example.toml
+cd roles/pool/config-examples
+cargo run -- -c pool-config-hosted-tp-example.toml
 ``` 
