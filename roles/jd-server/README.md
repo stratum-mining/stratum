@@ -8,7 +8,9 @@ The JD Server is a Sv2 proxy, It is also the entity responsible for Pool-side bl
 
 The configuration file contains the following information:
 
-1. The SRI Pool information which includes the SRI Pool authority public key (`authority_public_key`), the SRI Pool authority secret key (`authority_secret_key`), along with its certificate validity (`cert_validity_sec`). In addition to this, it contains the address which it will use to listen to new connection from downstream roles (`listen_jd_address`) and the list of uncompressed pubkeys for coinbase payout (`coinbase_outputs`).
+1. The SRI Pool information which includes the SRI Pool authority public key (`authority_public_key`), the SRI Pool authority secret key (`authority_secret_key`). 
+2. The list of uncompressed pubkeys for coinbase payout (`coinbase_outputs`)
+3. The address which it will use to listen to new connection from downstream roles (`listen_jd_address`)
 2. The RPC config for mempool config where are (`core_rpc_url`, `core_rpc_port`, `core_rpc_user`, `core_rpc_pass`), and the time interval for the JDS mempool update in form of (`unit`,`value`)
 
 ### Run
