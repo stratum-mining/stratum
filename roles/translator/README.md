@@ -32,7 +32,7 @@ The configuration file contains the following information:
 1. The SV2 Upstream connection information which includes the SV2 Pool authority public key 
    (`upstream_authority_pubkey`) and the SV2 Pool connection address (`upstream_address`) and port
    (`upstream_port`).
-2. The SV1 Downstream connection information which includes the SV1 Mining Device address
+2. The SV1 Downstream socket information which includes the listening IP address
    (`downstream_address`) and port (`downstream_port`).
 3. The maximum and minimum SV2 versions (`max_supported_version` and `min_supported_version`) that
    the Translator Proxy implementer wants to support. Currently the only available version is `2`.
