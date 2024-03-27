@@ -10,9 +10,10 @@
 
 name: Release Libs
 
-on: 
-  # Manually run by going to "Actions/Release" in Github and running the workflow
-  workflow_dispatch:
+on:
+  push:
+    branches:
+      - main
 
 jobs:
   libs_publish:
