@@ -25,7 +25,7 @@ The most typical high level configuration is:
 
 ### Configuration File
 
-`tproxy-config-local-jdc-example.toml` and `tproxy-config-local-pool-example.toml` are examples of configuration files for the Translator Proxy
+`tproxy-config-local-jdc-example.toml` and `tproxy-config-local-pool-example.toml` are examples of configuration files for the Translator Proxy.
 
 The configuration file contains the following information:
 
