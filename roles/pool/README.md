@@ -33,7 +33,7 @@ The configuration file contains the following information:
 3. The list of uncompressed pubkeys for coinbase payout (`coinbase_outputs`)
 4. A string that serves as signature on the coinbase tx (`pool_signature`).
 5. The Template Provider address (`tp_address`).
-3. Optionally, you may want to verify that your TP connection is authentic. You may get `tp_authority_public_key` from the logs of your TP, for example:
+6. Optionally, you may want to verify that your TP connection is authentic. You may get `tp_authority_public_key` from the logs of your TP, for example:
 
 ```
 # 2024-02-13T14:59:24Z Template Provider authority key: EguTM8URcZDQVeEBsM4B5vg9weqEUnufA8pm85fG4bZd
