@@ -23,4 +23,3 @@ key-utils = { version = "^1.0.0", path = "../../../utils/key-utils" }
 clap = { version = "^4.5.4", features = ["derive"] }
 tracing = { version = "0.1" }
 tracing-subscriber = "0.3"
-sha2 = "0.10.6"
