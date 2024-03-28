@@ -15,137 +15,93 @@ All types of contributions are encouraged and valued. See the [Table of Contents
 ## Table of Contents
 
 - [I Have a Question](#i-have-a-question)
+- [What Should I Know Before I Get Started](#what-should-i-know-before-i-get-started)
+  - [Important Resources About SRI](#important-resources-about-sri)
+  - [Project Communications](#project-communications)
 - [I Want To Contribute](#i-want-to-contribute)
-  - [Reporting Bugs](#reporting-bugs)
-  - [Suggesting Enhancements](#suggesting-enhancements)
+  - [Project Structure](#project-structure)
+  - [Contribution workflow](#contribution-workflow)
   - [Your First Code Contribution](#your-first-code-contribution)
-  - [Improving The Documentation](#improving-the-documentation)
-- [Styleguides](#styleguides)
-  - [Commit Messages](#commit-messages)
-- [Join The Project Team](#join-the-project-team)
-
-
+  
 
 ## I Have a Question
 
-> If you want to ask a question, we assume that you have read the available [Documentation](https://github.com/stratum-mining/sv2-spec).
+> If you want to ask a question, we assume that you have read the documentation available at [stratumprotocol.org/docs](https://stratumprotocol.org).
 
-Before you ask a question, it is best to search for existing [Issues](https://github.com/stratum-mining/stratum/issues) that might help you. In case you have found a suitable issue and still need clarification, you can write your question in this issue. It is also advisable to search the internet for answers first.
+Before you ask a question, it is best to search for existing [Issues](https://github.com/stratum-mining/stratum/issues) that might help you. In case you have found a suitable issue and still need clarification, you can write your question in this issue.
 
 If you then still feel the need to ask a question and need clarification, we recommend the following:
 
 - Open an [Issue](https://github.com/stratum-mining/stratum/issues/new).
 - Provide as much context as you can about what you're running into.
-- Provide project and platform versions (nodejs, npm, etc), depending on what seems relevant.
+  
+OR / AND
 
-We will then take care of the issue as soon as possible.
+- Enter our [Discord](https://discord.gg/fsEW23wFYs) server.
+- Find the most appropriate channel for your question (typically it would be [#newbies-qs](https://discord.com/channels/950687892169195530/1012371967992672321)).
+- Provide as much context as you can and submit your question there.
 
-<!--
-You might want to create a separate issue tag for questions and include it in this description. People should then tag their issues accordingly.
+We will then take care of the issue and answer to your question as soon as possible.
 
-Depending on how large the project is, you may want to outsource the questioning, e.g. to Stack Overflow or Gitter. You may add additional contact and information possibilities:
-- IRC
-- Slack
-- Gitter
-- Stack Overflow tag
-- Blog
-- FAQ
-- Roadmap
-- E-Mail List
-- Forum
--->
+## What Should I Know Before I Get Started
+
+### Important Resources About SRI
+
+In order to have a better overview about what SRI covers, it's really suggested to have a look at the following resources before getting started with contributions.
+
+  - Stratum V2 Protocol [Specifications](https://github.com/stratum-mining/sv2-spec). 
+    - Studying SV2 specs can take some time and requires effort, but it's the best way to properly understand what SV2 is about and how it's composed.
+  - SRI [Getting-started](https://stratumprotocol.org/getting-started/) guide.
+    - This can be explored in the meantime of SV2 protocol study, so that it can help getting a general overview about SV2. Moreover, it's the best way to really understand how SRI project is built on. 
+  - Stratum V2 [Master Degree Thesis](https://github.com/GitGab19/Stratum-V2-Master-Degree-Thesis) (by [@gitgab19](https://github.com/GitGab19/)).
+    - This resource can be useful to get some knowledge about Bitcoin mining, pooled mining protocols history, and Stratum V2.  
+  - Stratum V2 Explained - [Videos Playlist](https://www.youtube.com/playlist?list=PLZXAi8dsUIn0GmElOcmqUtgA5psfFIZoO) (by [@plebhash](https://github.com/plebhash)). 
+    - This is a series of videos explaining Stratum V2 in depth, which cover the aforementioned topics.
+
+### Project Communications
+
+Most project communications happen in our [Discord](https://discord.gg/fsEW23wFYs) server. Communications related to general development typically happen under [dev](https://discord.com/channels/950687892169195530/958814900770205739) channel.
+
+Discussion about specific codebase work happens in GitHub [issues](https://github.com/stratum-mining/stratum/issues/) and on [pull requests](https://github.com/stratum-mining/stratum/pulls/).
+
+Our dev calls are scheduled every Tuesday at 18.00 CET. You can see them in the sidebar under Events on Discord and subscribe to them to be notified.
 
 ## I Want To Contribute
-
-> ### Legal Notice <!-- omit in toc -->
 > When contributing to this project, you must agree that you have authored 100% of the content, that you have the necessary rights to the content and that the content you contribute may be provided under the project license.
 
-### Reporting Bugs
+### Project Structure
+It's possible to contribute to SRI opening PRs on three different repositories:
+  - [Stratum V2 Reference Implementation](https://github.com/stratum-mining/stratum)
+    - This repo contains our implementation of the SV2 specs, written in Rust.
+  - [Stratum V2 Specifications](https://github.com/stratum-mining/sv2-specs)
+    - This repo contains the entire SV2 protocol specifications.
+  - [SRI website - stratumprotocol.org](https://github.com/stratum-mining/stratumprotocol.org)
+    - This repo manages our website, containing docs, specs, and getting-started guides.
 
-<!-- omit in toc -->
-#### Before Submitting a Bug Report
+### Contribution workflow
 
-A good bug report shouldn't leave others needing to chase you up for more information. Therefore, we ask you to investigate carefully, collect information and describe the issue in detail in your report. Please complete the following steps in advance to help us fix any potential bug as fast as possible.
+The SRI project follows an open contributor model, where anyone is welcome to contribute through reviews, documentation, testing, and patches. Follow these steps to contribute:
 
-- Make sure that you are using the latest version.
-- Determine if your bug is really a bug and not an error on your side e.g. using incompatible environment components/versions (Make sure that you have read the [documentation](https://github.com/stratum-mining/sv2-spec). If you are looking for support, you might want to check [this section](#i-have-a-question)).
-- To see if other users have experienced (and potentially already solved) the same issue you are having, check if there is not already a bug report existing for your bug or error in the [bug tracker](https://github.com/stratum-mining/stratumissues?q=label%3Abug).
-- Also make sure to search the internet (including Stack Overflow) to see if users outside of the GitHub community have discussed the issue.
-- Collect information about the bug:
-  - Stack trace (Traceback)
-  - OS, Platform and Version (Windows, Linux, macOS, x86, ARM)
-  - Version of the interpreter, compiler, SDK, runtime environment, package manager, depending on what seems relevant.
-  - Possibly your input and the output
-  - Can you reliably reproduce the issue? And can you also reproduce it with older versions?
+1. **Fork the Repository:** Start by forking the SRI repository to your GitHub account. This will create a copy of the project under your username.
 
-<!-- omit in toc -->
-#### How Do I Submit a Good Bug Report?
+2. **Create a Branch:** Before making any changes, create a new branch for your contribution. This helps keep the main branch clean and allows for easier management of changes.
 
-> You must never report security related issues, vulnerabilities or bugs including sensitive information to the issue tracker, or elsewhere in public. Instead sensitive bugs must be sent by email to <>.
-<!-- You may add a PGP key to allow the messages to be sent encrypted as well. -->
+3. **Commit Your Changes:** Make your changes within the newly created branch. Ensure that your commits are atomic and focused. Each commit should address a single issue or introduce a specific feature.
 
-We use GitHub issues to track bugs and errors. If you run into an issue with the project:
+4. **Submit a Pull Request:** Once you're satisfied with your changes, submit a pull request to the original SRI repository. Provide a clear and concise description of the changes you've made. If your pull request addresses an existing issue, reference the issue number in the description. In order to contribute to the protocol implementation, every PR must be opened against `dev` branch. To better understand which is the SRI branches structure, please have a look [here](https://github.com/stratum-mining/stratum/blob/main/RELEASE.md#principal-branches).
 
-- Open an [Issue](https://github.com/stratum-mining/stratum/issues/new). (Since we can't be sure at this point whether it is a bug or not, we ask you not to talk about a bug yet and not to label the issue.)
-- Explain the behavior you would expect and the actual behavior.
-- Please provide as much context as possible and describe the *reproduction steps* that someone else can follow to recreate the issue on their own. This usually includes your code. For good bug reports you should isolate the problem and create a reduced test case.
-- Provide the information you collected in the previous section.
+5. **Review and Iterate:** Other contributors and maintainers will review your pull request. Be responsive to feedback and address any requested changes promptly. Continuous iteration may be necessary to ensure that your contribution meets the project's standards.
 
-Once it's filed:
+6. **Merge and Close:** Once your pull request has been approved and all discussions have been resolved, a project maintainer will merge your changes into the `dev` branch. Your contribution will then be officially part of the project. The pull request will be closed, marking the completion of your contribution.
 
-- The project team will label the issue accordingly.
-- A team member will try to reproduce the issue with your provided steps. If there are no reproduction steps or no obvious way to reproduce the issue, the team will ask you for those steps and mark the issue as `needs-repro`. Bugs with the `needs-repro` tag will not be addressed until they are reproduced.
-- If the team is able to reproduce the issue, it will be marked `needs-fix`, as well as possibly other tags (such as `critical`), and the issue will be left to be [implemented by someone](#your-first-code-contribution).
-
-<!-- You might want to create an issue template for bugs and errors that can be used as a guide and that defines the structure of the information to be included. If you do so, reference it here in the description. -->
-
-
-### Suggesting Enhancements
-
-This section guides you through submitting an enhancement suggestion for SRI (Stratum V2 Reference Implementation), **including completely new features and minor improvements to existing functionality**. Following these guidelines will help maintainers and the community to understand your suggestion and find related suggestions.
-
-<!-- omit in toc -->
-#### Before Submitting an Enhancement
-
-- Make sure that you are using the latest version.
-- Read the [documentation](https://github.com/stratum-mining/sv2-spec) carefully and find out if the functionality is already covered, maybe by an individual configuration.
-- Perform a [search](https://github.com/stratum-mining/stratum/issues) to see if the enhancement has already been suggested. If it has, add a comment to the existing issue instead of opening a new one.
-- Find out whether your idea fits with the scope and aims of the project. It's up to you to make a strong case to convince the project's developers of the merits of this feature. Keep in mind that we want features that will be useful to the majority of our users and not just a small subset. If you're just targeting a minority of users, consider writing an add-on/plugin library.
-
-<!-- omit in toc -->
-#### How Do I Submit a Good Enhancement Suggestion?
-
-Enhancement suggestions are tracked as [GitHub issues](https://github.com/stratum-mining/stratum/issues).
-
-- Use a **clear and descriptive title** for the issue to identify the suggestion.
-- Provide a **step-by-step description of the suggested enhancement** in as many details as possible.
-- **Describe the current behavior** and **explain which behavior you expected to see instead** and why. At this point you can also tell which alternatives do not work for you.
-- You may want to **include screenshots and animated GIFs** which help you demonstrate the steps or point out the part which the suggestion is related to. You can use [this tool](https://www.cockos.com/licecap/) to record GIFs on macOS and Windows, and [this tool](https://github.com/colinkeenan/silentcast) or [this tool](https://github.com/GNOME/byzanz) on Linux. <!-- this should only be included if the project has a GUI -->
-- **Explain why this enhancement would be useful** to most SRI (Stratum V2 Reference Implementation) users. You may also want to point out the other projects that solved it better and which could serve as inspiration.
-
-<!-- You might want to create an issue template for enhancement suggestions that can be used as a guide and that defines the structure of the information to be included. If you do so, reference it here in the description. -->
+7. **Celebrate and Contribute Again:** Congratulations on your contribution to SRI! Feel free to celebrate your achievement, and don't hesitate to contribute again in the future. The success of the project relies on the collective effort of its contributors.
 
 ### Your First Code Contribution
-<!-- TODO
-include Setup of env, IDE and typical getting started instructions?
+>In order to contribute, a basic learning about git and github is needed. If you're not familiar with them, have a look at https://docs.github.com/en/get-started/start-your-journey/git-and-github-learning-resources to dig into and learn how to use them.
 
--->
+Unsure where to begin contributing to SRI? You can start by looking through `good first issue` and `help wanted` issues:
 
-### Improving The Documentation
-<!-- TODO
-Updating, improving and correcting the documentation
+* [Good first issue](https://github.com/stratum-mining/stratum/issues?q=is%3Aopen+is%3Aissue+label%3A%22good+first+issue%22) are issues which should only require a few lines of code, and a test or two.
+* [Help wanted](https://github.com/stratum-mining/stratum/issues?q=is%3Aopen+is%3Aissue+label%3A%22help+wanted%22) - issues which should be a bit more involved than `good first issue` issues.
 
--->
-
-## Styleguides
-### Commit Messages
-<!-- TODO
-
--->
-
-## Join The Project Team
-<!-- TODO -->
-
-<!-- omit in toc -->
-## Attribution
-This guide is based on the **contributing-gen**. [Make your own](https://github.com/bttger/contributing-gen)!
+Another way to better understand where to focus your contribution is by looking at our roadmap: https://github.com/orgs/stratum-mining/projects/5
