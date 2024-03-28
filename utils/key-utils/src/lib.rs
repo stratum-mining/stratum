@@ -27,6 +27,8 @@ impl Display for Error {
     }
 }
 
+impl std::error::Error for Error {}
+
 impl From<Bs58DecodeError> for Error {
     fn from(e: Bs58DecodeError) -> Self {
         Error::Bs58Decode(e)
