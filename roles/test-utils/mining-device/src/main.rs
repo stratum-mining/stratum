@@ -1,35 +1,107 @@
 use async_std::net::TcpStream;
-use network_helpers_sv2::PlainConnection;
+use key_utils::Secp256k1PublicKey;
+use network_helpers_sv2::Connection;
 use roles_logic_sv2::utils::Id;
-use std::{
-    net::{IpAddr, Ipv4Addr, SocketAddr},
-    sync::Arc,
-};
+use std::{net::SocketAddr, sync::Arc, thread::sleep, time::Duration};
 
+use async_std::net::ToSocketAddrs;
+use clap::Parser;
 use stratum_common::bitcoin::{
     blockdata::block::BlockHeader, hash_types::BlockHash, hashes::Hash, util::uint::Uint256,
 };
+use tracing::{error, info};
 
-async fn connect(address: SocketAddr, handicap: u32) {
-    let stream = TcpStream::connect(address).await.unwrap();
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+struct Args {
+    #[arg(
+        short,
+        long,
+        help = "Pool pub key, when left empty the pool certificate is not checked"
+    )]
+    pubkey_pool: Option<Secp256k1PublicKey>,
+    #[arg(
+        short,
+        long,
+        help = "Sometimes used by the pool to identify the device"
+    )]
+    id_device: Option<String>,
+    #[arg(
+        short,
+        long,
+        help = "Address of the pool in this format ip:port or domain:port"
+    )]
+    address_pool: String,
+    #[arg(
+        long,
+        help = "This value is used to slow down the cpu miner, it rapresents the number of micro-seconds that are awaited between one hashes, default is 0",
+        default_value = "0"
+    )]
+    handicap: u32,
+}
+
+async fn connect(
+    address: String,
+    pub_key: Option<Secp256k1PublicKey>,
+    device_id: Option<String>,
+    handicap: u32,
+) {
+    let address = address
+        .clone()
+        .to_socket_addrs()
+        .await
+        .expect("Invalid pool address, use one of this formats: ip:port, domain:port")
+        .next()
+        .expect("Invalid pool address, use one of this formats: ip:port, domain:port");
+    info!("Connecting to pool at {}", address);
+    let socket = loop {
+        let pool =
+            async_std::future::timeout(Duration::from_secs(5), TcpStream::connect(address)).await;
+        match pool {
+            Ok(result) => match result {
+                Ok(socket) => break socket,
+                Err(e) => {
+                    error!(
+                        "Failed to connect to Upstream role at {}, retrying in 5s: {}",
+                        address, e
+                    );
+                    sleep(Duration::from_secs(5));
+                }
+            },
+            Err(_) => {
+                error!("Pool is unresponsive, terminating");
+                std::process::exit(1);
+            }
+        }
+    };
+    info!("Pool tcp connection established at {}", address);
+    let address = socket.peer_addr().unwrap();
+    let initiator = Initiator::new(pub_key.map(|e| e.0));
     let (receiver, sender): (Receiver<EitherFrame>, Sender<EitherFrame>) =
-        PlainConnection::new(stream, 10).await;
-    Device::start(receiver, sender, address, handicap).await
+        Connection::new(socket, codec_sv2::HandshakeRole::Initiator(initiator), 10)
+            .await
+            .unwrap();
+    info!("Pool noise connection established at {}", address);
+    Device::start(receiver, sender, address, device_id, handicap).await
 }
 
 #[async_std::main]
 async fn main() {
-    let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 34255);
-    //task::spawn(async move { connect(socket, 10000).await });
-    //task::spawn(async move { connect(socket, 11070).await });
-    //task::spawn(async move { connect(socket, 7040).await });
-    println!("start");
-    connect(socket, 0).await
+    let args = Args::parse();
+    tracing_subscriber::fmt::init();
+    info!("start");
+    connect(
+        args.address_pool,
+        args.pubkey_pool,
+        args.id_device,
+        args.handicap,
+    )
+    .await
 }
 
 use async_channel::{Receiver, Sender};
 use binary_sv2::u256_from_int;
-use codec_sv2::{Frame, StandardEitherFrame, StandardSv2Frame};
+use codec_sv2::{Frame, Initiator, StandardEitherFrame, StandardSv2Frame};
 use roles_logic_sv2::{
     common_messages_sv2::{Protocol, SetupConnection, SetupConnectionSuccess},
     common_properties::{IsMiningUpstream, IsUpstream},
@@ -56,12 +128,19 @@ impl SetupConnectionHandler {
     pub fn new() -> Self {
         SetupConnectionHandler {}
     }
-    fn get_setup_connection_message(address: SocketAddr) -> SetupConnection<'static> {
+    fn get_setup_connection_message(
+        address: SocketAddr,
+        device_id: Option<String>,
+    ) -> SetupConnection<'static> {
         let endpoint_host = address.ip().to_string().into_bytes().try_into().unwrap();
         let vendor = String::new().try_into().unwrap();
         let hardware_version = String::new().try_into().unwrap();
         let firmware = String::new().try_into().unwrap();
-        let device_id = String::new().try_into().unwrap();
+        let device_id = device_id.unwrap_or_default();
+        info!(
+            "Creating SetupConnection message with device id: {:?}",
+            device_id
+        );
         SetupConnection {
             protocol: Protocol::MiningProtocol,
             min_version: 2,
@@ -72,22 +151,24 @@ impl SetupConnectionHandler {
             vendor,
             hardware_version,
             firmware,
-            device_id,
+            device_id: device_id.try_into().unwrap(),
         }
     }
     pub async fn setup(
         self_: Arc<Mutex<Self>>,
         receiver: &mut Receiver<EitherFrame>,
         sender: &mut Sender<EitherFrame>,
+        device_id: Option<String>,
         address: SocketAddr,
     ) {
-        let setup_connection = Self::get_setup_connection_message(address);
+        let setup_connection = Self::get_setup_connection_message(address, device_id);
 
         let sv2_frame: StdFrame = MiningDeviceMessages::Common(setup_connection.into())
             .try_into()
             .unwrap();
         let sv2_frame = sv2_frame.into();
         sender.send(sv2_frame).await.unwrap();
+        info!("Setup connection sent to {}", address);
 
         let mut incoming: StdFrame = receiver.recv().await.unwrap().try_into().unwrap();
         let message_type = incoming.get_header().unwrap().msg_type();
@@ -108,6 +189,7 @@ impl ParseUpstreamCommonMessages<NoRouting> for SetupConnectionHandler {
         _: SetupConnectionSuccess,
     ) -> Result<roles_logic_sv2::handlers::common::SendTo, roles_logic_sv2::errors::Error> {
         use roles_logic_sv2::handlers::common::SendTo;
+        info!("Setup connection success");
         Ok(SendTo::None(None))
     }
 
@@ -115,6 +197,7 @@ impl ParseUpstreamCommonMessages<NoRouting> for SetupConnectionHandler {
         &mut self,
         _: roles_logic_sv2::common_messages_sv2::SetupConnectionError,
     ) -> Result<roles_logic_sv2::handlers::common::SendTo, roles_logic_sv2::errors::Error> {
+        error!("Setup connection error");
         todo!()
     }
 
@@ -143,7 +226,7 @@ pub struct Device {
 fn open_channel() -> OpenStandardMiningChannel<'static> {
     let user_identity = "ABC".to_string().try_into().unwrap();
     let id: u32 = 10;
-    println!("MINING DEVICE: send open channel with request id {}", id);
+    info!("MINING DEVICE: send open channel with request id {}", id);
     OpenStandardMiningChannel {
         request_id: id.into(),
         user_identity,
@@ -157,11 +240,19 @@ impl Device {
         mut receiver: Receiver<EitherFrame>,
         mut sender: Sender<EitherFrame>,
         addr: SocketAddr,
+        device_id: Option<String>,
         handicap: u32,
     ) {
         let setup_connection_handler = Arc::new(Mutex::new(SetupConnectionHandler::new()));
-        SetupConnectionHandler::setup(setup_connection_handler, &mut receiver, &mut sender, addr)
-            .await;
+        SetupConnectionHandler::setup(
+            setup_connection_handler,
+            &mut receiver,
+            &mut sender,
+            device_id,
+            addr,
+        )
+        .await;
+        info!("Pool sv2 connection established at {}", addr);
         let miner = Arc::new(Mutex::new(Miner::new(handicap)));
         let self_ = Self {
             channel_opened: false,
@@ -209,7 +300,7 @@ impl Device {
 
         loop {
             let mut incoming: StdFrame = receiver.recv().await.unwrap().try_into().unwrap();
-            let message_type = incoming.get_header().unwrap().msg_type();
+            let message_type = dbg!(incoming.get_header().unwrap().msg_type());
             let payload = incoming.payload();
             let next = Device::handle_message_mining(
                 self_mutex.clone(),
@@ -314,7 +405,7 @@ impl ParseUpstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> fo
         self.channel_opened = true;
         self.channel_id = Some(m.channel_id);
         let req_id = m.get_request_id_as_u32();
-        println!(
+        info!(
             "MINING DEVICE: channel opened with: group id {}, channel id {}, request id {}",
             m.group_channel_id, m.channel_id, req_id
         );
@@ -357,12 +448,12 @@ impl ParseUpstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> fo
         &mut self,
         m: SubmitSharesSuccess,
     ) -> Result<SendTo<()>, Error> {
-        println!("SUCCESS {:?}", m);
+        info!("SUCCESS {:?}", m);
         Ok(SendTo::None(None))
     }
 
     fn handle_submit_shares_error(&mut self, _: SubmitSharesError) -> Result<SendTo<()>, Error> {
-        println!("Submit shares error");
+        info!("Submit shares error");
         Ok(SendTo::None(None))
     }
 
@@ -425,8 +516,11 @@ impl ParseUpstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> fo
         todo!()
     }
 
-    fn handle_set_target(&mut self, _: SetTarget) -> Result<SendTo<()>, Error> {
-        todo!()
+    fn handle_set_target(&mut self, m: SetTarget) -> Result<SendTo<()>, Error> {
+        self.miner
+            .safe_lock(|miner| miner.new_target(m.maximum_target.to_vec()))
+            .unwrap();
+        Ok(SendTo::None(None))
     }
 
     fn handle_reconnect(&mut self, _: Reconnect) -> Result<SendTo<()>, Error> {
@@ -457,6 +551,10 @@ impl Miner {
     fn new_target(&mut self, mut target: Vec<u8>) {
         // target is sent in LE and comparisons in this file are done in BE
         target.reverse();
+        let hex_string = target
+            .iter()
+            .fold("".to_string(), |acc, b| acc + format!("{:02x}", b).as_str());
+        info!("Set target to {}", hex_string);
         self.target = Some(Uint256::from_be_bytes(target.try_into().unwrap()));
     }
 
@@ -489,7 +587,7 @@ impl Miner {
         hash.reverse();
         let hash = Uint256::from_be_bytes(hash);
         if hash < *self.target.as_ref().ok_or(())? {
-            println!(
+            info!(
                 "Found share with nonce: {}, for target: {:?}, with hash: {:?}",
                 header.nonce, self.target, hash,
             );
