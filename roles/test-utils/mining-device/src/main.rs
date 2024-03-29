@@ -34,16 +34,22 @@ struct Args {
     address_pool: String,
     #[arg(
         long,
-        help = "This value is used to slow down the cpu miner, it rapresents the number of micro-seconds that are awaited between one hashes, default is 0",
+        help = "This value is used to slow down the cpu miner, it rapresents the number of micro-seconds that are awaited between hashes",
         default_value = "0"
     )]
     handicap: u32,
+    #[arg(
+        long,
+        help = "User id, used when a new channel is opened, it can be used by the pool to identify the miner"
+    )]
+    id_user: Option<String>,
 }
 
 async fn connect(
     address: String,
     pub_key: Option<Secp256k1PublicKey>,
     device_id: Option<String>,
+    user_id: Option<String>,
     handicap: u32,
 ) {
     let address = address
@@ -82,7 +88,7 @@ async fn connect(
             .await
             .unwrap();
     info!("Pool noise connection established at {}", address);
-    Device::start(receiver, sender, address, device_id, handicap).await
+    Device::start(receiver, sender, address, device_id, user_id, handicap).await
 }
 
 #[async_std::main]
@@ -94,6 +100,7 @@ async fn main() {
         args.address_pool,
         args.pubkey_pool,
         args.id_device,
+        args.id_user,
         args.handicap,
     )
     .await
@@ -223,8 +230,8 @@ pub struct Device {
     sequence_numbers: Id,
 }
 
-fn open_channel() -> OpenStandardMiningChannel<'static> {
-    let user_identity = "ABC".to_string().try_into().unwrap();
+fn open_channel(device_id: Option<String>) -> OpenStandardMiningChannel<'static> {
+    let user_identity = device_id.unwrap_or_default().try_into().unwrap();
     let id: u32 = 10;
     info!("MINING DEVICE: send open channel with request id {}", id);
     OpenStandardMiningChannel {
@@ -241,6 +248,7 @@ impl Device {
         mut sender: Sender<EitherFrame>,
         addr: SocketAddr,
         device_id: Option<String>,
+        user_id: Option<String>,
         handicap: u32,
     ) {
         let setup_connection_handler = Arc::new(Mutex::new(SetupConnectionHandler::new()));
@@ -265,7 +273,7 @@ impl Device {
             sequence_numbers: Id::new(),
         };
         let open_channel =
-            MiningDeviceMessages::Mining(Mining::OpenStandardMiningChannel(open_channel()));
+            MiningDeviceMessages::Mining(Mining::OpenStandardMiningChannel(open_channel(user_id)));
         let frame: StdFrame = open_channel.try_into().unwrap();
         self_.sender.send(frame.into()).await.unwrap();
         let self_mutex = std::sync::Arc::new(Mutex::new(self_));
