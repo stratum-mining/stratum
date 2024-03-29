@@ -82,19 +82,17 @@ It's possible to contribute to SRI opening PRs on three different repositories:
 
 The SRI project follows an open contributor model, where anyone is welcome to contribute through reviews, documentation, testing, and patches. Follow these steps to contribute:
 
-1. **Fork the Repository:** Start by forking the SRI repository to your GitHub account. This will create a copy of the project under your username.
+1. **Fork the Repository**
 
-2. **Create a Branch:** Before making any changes, create a new branch for your contribution. This helps keep the main branch clean and allows for easier management of changes.
+2. **Create a Branch** 
 
-3. **Commit Your Changes:** Make your changes within the newly created branch. Ensure that your commits are atomic and focused. Each commit should address a single issue or introduce a specific feature.
+3. **Commit Your Changes** 
 
-4. **Submit a Pull Request:** Once you're satisfied with your changes, submit a pull request to the original SRI repository. Provide a clear and concise description of the changes you've made. If your pull request addresses an existing issue, reference the issue number in the description. In order to contribute to the protocol implementation, every PR must be opened against `dev` branch. To better understand which is the SRI branches structure, please have a look [here](https://github.com/stratum-mining/stratum/blob/main/RELEASE.md#principal-branches).
+4. **Submit a Pull Request:** once you're satisfied with your changes, submit a pull request to the original SRI repository. Provide a clear and concise description of the changes you've made. If your pull request addresses an existing issue, reference the issue number in the description. In order to contribute to the protocol implementation, every PR must be opened against `dev` branch. To better understand which is the SRI branches structure, please have a look [here](https://github.com/stratum-mining/stratum/blob/main/RELEASE.md#principal-branches).
 
-5. **Review and Iterate:** Other contributors and maintainers will review your pull request. Be responsive to feedback and address any requested changes promptly. Continuous iteration may be necessary to ensure that your contribution meets the project's standards.
+5. **Review and Iterate** 
 
 6. **Merge and Close:** Once your pull request has been approved and all discussions have been resolved, a project maintainer will merge your changes into the `dev` branch. Your contribution will then be officially part of the project. The pull request will be closed, marking the completion of your contribution.
-
-7. **Celebrate and Contribute Again:** Congratulations on your contribution to SRI! Feel free to celebrate your achievement, and don't hesitate to contribute again in the future. The success of the project relies on the collective effort of its contributors.
 
 ### Your First Code Contribution
 >In order to contribute, a basic learning about git and github is needed. If you're not familiar with them, have a look at https://docs.github.com/en/get-started/start-your-journey/git-and-github-learning-resources to dig into and learn how to use them.
