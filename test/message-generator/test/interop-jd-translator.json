@@ -48,7 +48,7 @@
                         "--no-report",
                         "run",
                         "-p",
-                        "jd_server",
+                        "jd_server_sv2_bin",
                         "--",
                         "-c",
                         "../test/config/interop-jd-translator/jds-config.toml"
@@ -165,7 +165,7 @@
         },
         {
             "command": "pkill",
-            "args":  ["-f", "jd_server", "-SIGINT"],
+            "args":  ["-f", "jd_server_sv2_bin", "-SIGINT"],
             "conditions": "None"
         },
         {

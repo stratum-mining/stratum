@@ -77,7 +77,7 @@
                         "--no-report",
                         "run",
                         "-p",
-                        "jd_server",
+                        "jd_server_sv2_bin",
                         "--",
                         "-c",
                         "../test/config/interop-jd-change-upstream/jds-config.toml"
@@ -183,7 +183,7 @@
     "cleanup_commands": [
         {
             "command": "pkill",
-            "args":  ["-f", "jd_server", "-SIGINT"],
+            "args":  ["-f", "jd_server_sv2_bin", "-SIGINT"],
             "conditions": "None"
         },
         {

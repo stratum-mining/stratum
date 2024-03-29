@@ -1120,7 +1120,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "jd_server"
+name = "jd_server_sv2_bin"
 version = "0.1.0"
 dependencies = [
  "async-channel 1.9.0",
