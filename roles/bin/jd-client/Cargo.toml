@@ -1,5 +1,5 @@
 [package]
-name = "jd_client"
+name = "jd_client_sv2_bin"
 version = "0.1.0"
 edition = "2021"
 description = "TODO"

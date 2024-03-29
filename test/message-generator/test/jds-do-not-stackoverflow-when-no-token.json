@@ -70,7 +70,7 @@
                         "--no-report",
                         "run",
                         "-p",
-                        "jd_client",
+                        "jd_client_sv2_bin",
                         "--",
                         "-c",
                         "../test/config/jds-stack-overflow/jdc-config.toml"
@@ -145,7 +145,7 @@
         },
         {
             "command": "pkill",
-            "args":  ["-f", "jd_client", "-SIGINT"],
+            "args":  ["-f", "jd_client_sv2_bin", "-SIGINT"],
             "conditions": "None"
         },
         {
