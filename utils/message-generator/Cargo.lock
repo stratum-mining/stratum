@@ -272,7 +272,7 @@ dependencies = [
 
 [[package]]
 name = "codec_sv2"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "binary_sv2",
  "buffer_sv2",
@@ -655,7 +655,7 @@ dependencies = [
  "const_sv2",
  "key-utils",
  "load_file",
- "network_helpers",
+ "network_helpers_sv2",
  "rand",
  "roles_logic_sv2",
  "secp256k1 0.28.2",
@@ -698,8 +698,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "network_helpers"
-version = "1.0.0"
+name = "network_helpers_sv2"
+version = "1.0.1"
 dependencies = [
  "async-channel",
  "binary_sv2",
