@@ -17,11 +17,11 @@ keywords = ["stratum", "mining", "bitcoin", "protocol"]
 resolver="2"
 
 members = [
-    "bin/mining-proxy",
+    "bin/proxy",
     "bin/pool",
     "bin/test-utils/mining-device",
     "bin/test-utils/sv1-mining-device",
-    "bin/translator",
+    "bin/translator-proxy",
     "bin/jd-client",
     "bin/jd-server",
 ]
