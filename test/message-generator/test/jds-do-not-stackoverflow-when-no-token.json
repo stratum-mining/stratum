@@ -103,7 +103,7 @@
                         "--no-report",
                         "run",
                         "-p",
-                        "mining_proxy_sv2",
+                        "proxy_sv2_bin",
                         "--",
                         "-c",
                         "../test/config/jds-stack-overflow/mining-proxy-config.toml"
@@ -150,7 +150,7 @@
         },
         {
             "command": "pkill",
-            "args":  ["-f", "mining_proxy_sv2", "-SIGINT"],
+            "args":  ["-f", "proxy_sv2_bin", "-SIGINT"],
             "conditions": "None"
         }
     ],

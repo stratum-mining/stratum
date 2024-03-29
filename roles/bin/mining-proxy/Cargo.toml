@@ -1,5 +1,5 @@
 [package]
-name = "mining_proxy_sv2"
+name = "proxy_sv2_bin"
 version = "0.1.0"
 authors = ["user"]
 edition = "2018"

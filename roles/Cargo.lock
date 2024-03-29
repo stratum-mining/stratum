@@ -1251,30 +1251,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "mining_proxy_sv2"
-version = "0.1.0"
-dependencies = [
- "async-channel 1.9.0",
- "async-recursion 0.3.2",
- "binary_sv2",
- "buffer_sv2",
- "codec_sv2",
- "const_sv2",
- "futures",
- "key-utils",
- "network_helpers_sv2",
- "nohash-hasher",
- "once_cell",
- "roles_logic_sv2",
- "serde",
- "stratum-common",
- "tokio",
- "toml",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
 name = "mining_sv2"
 version = "1.0.0"
 dependencies = [
@@ -1587,6 +1563,30 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e835ff2298f5721608eb1a980ecaee1aef2c132bf95ecc026a11b7bf3c01c02e"
 dependencies = [
  "unicode-ident",
+]
+
+[[package]]
+name = "proxy_sv2_bin"
+version = "0.1.0"
+dependencies = [
+ "async-channel 1.9.0",
+ "async-recursion 0.3.2",
+ "binary_sv2",
+ "buffer_sv2",
+ "codec_sv2",
+ "const_sv2",
+ "futures",
+ "key-utils",
+ "network_helpers_sv2",
+ "nohash-hasher",
+ "once_cell",
+ "roles_logic_sv2",
+ "serde",
+ "stratum-common",
+ "tokio",
+ "toml",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
