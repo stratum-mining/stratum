@@ -102,7 +102,7 @@
                         "--no-report",
                         "run",
                         "-p",
-                        "translator_sv2",
+                        "translator_proxy_sv2_bin",
                         "--",
                         "-c",
                         "../test/config/interop-jd-translator/proxy-config.toml"
@@ -155,7 +155,7 @@
         },
         {
             "command": "pkill",
-            "args":  ["-f", "translator_sv2", "-SIGINT"],
+            "args":  ["-f", "translator_proxy_sv2_bin", "-SIGINT"],
             "conditions": "None"
         },
         {

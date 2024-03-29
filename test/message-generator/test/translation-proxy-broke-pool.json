@@ -66,7 +66,7 @@
             "args": [
                         "run",
                         "-p",
-                        "translator_sv2",
+                        "translator_proxy_sv2_bin",
                         "--",
                         "-c",
                         "../test/config/tproxy-config-no-jd-sv1-cpu-md.toml"
@@ -76,7 +76,7 @@
                 "WithConditions": {
                     "conditions": [
                         {
-                            "output_string": "2mtranslator_sv2",
+                            "output_string": "2mtranslator_proxy_sv2_bin",
                             "output_location": "StdOut",
                             "late_condition": false,
                             "condition": true

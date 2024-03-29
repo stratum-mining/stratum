@@ -83,7 +83,7 @@
             "args": [
                 "run",
                 "-p",
-                "translator_sv2",
+                "translator_proxy_sv2_bin",
                 "--",
                 "-c",
                 "../test/config/tproxy-config-no-jd-sv1-cpu-md.toml"

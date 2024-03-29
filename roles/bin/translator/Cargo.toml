@@ -1,5 +1,5 @@
 [package]
-name = "translator_sv2"
+name = "translator_proxy_sv2_bin"
 version = "0.1.0"
 edition = "2021"
 description = "Server used to bridge SV1 miners to SV2 pools"
