@@ -44,7 +44,7 @@
                         "--no-report",
                         "run",
                         "-p",
-                        "pool_sv2",
+                        "pool_sv2_bin",
                         "--",
                         "-c",
                         "../test/config/pool-mock-tp-bad-coinbase.toml"
@@ -70,7 +70,7 @@
                         "--no-report",
                         "run",
                         "-p",
-                        "pool_sv2",
+                        "pool_sv2_bin",
                         "--",
                         "-h",
                         "-c",
@@ -97,7 +97,7 @@
                         "--no-report",
                         "run",
                         "-p",
-                        "pool_sv2",
+                        "pool_sv2_bin",
                         "--",
                         "-c",
                         "../test/config/pool-mock-tp-bad-config.toml"
@@ -123,7 +123,7 @@
                         "--no-report",
                         "run",
                         "-p",
-                        "pool_sv2",
+                        "pool_sv2_bin",
                         "--",
                         "-c",
                         "../test/config/no-config-at-this-path.toml"
@@ -149,7 +149,7 @@
                         "--no-report",
                         "run",
                         "-p",
-                        "pool_sv2",
+                        "pool_sv2_bin",
                         "--",
                         "-c",
                         "../test/config/pool-mock-tp.toml"

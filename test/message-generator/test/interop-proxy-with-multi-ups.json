@@ -24,7 +24,7 @@
                         "--no-report",
                         "run",
                         "-p",
-                        "pool_sv2",
+                        "pool_sv2_bin",
                         "--",
                         "-c",
                         "../test/config/pool-config-sri-tp.toml"
@@ -51,7 +51,7 @@
                         "--no-report",
                         "run",
                         "-p",
-                        "pool_sv2",
+                        "pool_sv2_bin",
                         "--",
                         "-c",
                         "../test/config/pool-config-sri-tp-different-port.toml"
@@ -168,7 +168,7 @@
     "cleanup_commands": [
         {
             "command": "pkill",
-            "args":  ["-f", "pool_sv2", "-SIGINT"],
+            "args":  ["-f", "pool_sv2_bin", "-SIGINT"],
             "conditions": "None"
         },
         {

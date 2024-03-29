@@ -43,7 +43,7 @@
                         "--no-report",
                         "run",
                         "-p",
-                        "pool_sv2",
+                        "pool_sv2_bin",
                         "--",
                         "-c",
                         "../test/config/jds-stack-overflow/pool-config.toml"
@@ -135,7 +135,7 @@
     "cleanup_commands": [
         {
             "command": "pkill",
-            "args":  ["-f", "pool_sv2", "-SIGINT"],
+            "args":  ["-f", "pool_sv2_bin", "-SIGINT"],
             "conditions": "None"
         },
         {

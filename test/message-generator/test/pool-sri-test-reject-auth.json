@@ -66,7 +66,7 @@
                         "--no-report",
                         "run",
                         "-p",
-                        "pool_sv2",
+                        "pool_sv2_bin",
                         "--features",
                         "MG_reject_auth",
                         "--",
@@ -94,7 +94,7 @@
     "cleanup_commands": [
         {
             "command": "pkill",
-            "args":  ["-f", "pool_sv2", "-SIGINT"],
+            "args":  ["-f", "pool_sv2_bin", "-SIGINT"],
             "conditions": "None"
         },
         {

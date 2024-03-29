@@ -21,7 +21,7 @@
                         "--no-report",
                         "run",
                         "-p",
-                        "pool_sv2",
+                        "pool_sv2_bin",
                         "--",
                         "-c",
                         "../test/config/interop-jd-translator/pool-config.toml"
@@ -170,7 +170,7 @@
         },
         {
             "command": "pkill",
-            "args":  ["-f", "pool_sv2", "-SIGINT"],
+            "args":  ["-f", "pool_sv2_bin", "-SIGINT"],
             "conditions": "None"
         }
     ],

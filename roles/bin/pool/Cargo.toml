@@ -1,5 +1,5 @@
 [package]
-name = "pool_sv2"
+name = "pool_sv2_bin"
 version = "0.1.0"
 edition = "2018"
 description = "SV2 pool role"

@@ -113,7 +113,7 @@
                         "--no-report",
                         "run",
                         "-p", 
-                        "pool_sv2",
+                        "pool_sv2_bin",
                         "--",
                         "-c",
                         "../test/config/pool-mock-tp.toml"
@@ -139,7 +139,7 @@
     "cleanup_commands": [
         {
             "command": "pkill",
-            "args":  ["-f", "pool_sv2", "-SIGINT"],
+            "args":  ["-f", "pool_sv2_bin", "-SIGINT"],
             "late_condition": false,
             "conditions": "None"
         }
