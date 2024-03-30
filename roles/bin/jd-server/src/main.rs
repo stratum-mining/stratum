@@ -1,5 +1,5 @@
 #![allow(special_module_name)]
-use crate::lib::{
+use jd_server_sv2::{
     mempool::{self, error::JdsMempoolError},
     status, Configuration,
 };
@@ -9,9 +9,8 @@ use roles_logic_sv2::utils::Mutex;
 use std::{ops::Sub, sync::Arc};
 use tokio::{select, task};
 use tracing::{error, info, warn};
-mod lib;
 
-use lib::job_declarator::JobDeclarator;
+use jd_server_sv2::job_declarator::JobDeclarator;
 
 mod args {
     use std::path::PathBuf;
@@ -207,7 +206,7 @@ async fn main() {
             if let Ok(add_transactions_to_mempool) = receiver_add_txs_to_mempool.recv().await {
                 let mempool_cloned = mempool.clone();
                 task::spawn(async move {
-                    match lib::mempool::JDsMempool::add_tx_data_to_mempool(
+                    match jd_server_sv2::mempool::JDsMempool::add_tx_data_to_mempool(
                         mempool_cloned,
                         add_transactions_to_mempool,
                     )

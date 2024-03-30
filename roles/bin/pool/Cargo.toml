@@ -6,11 +6,8 @@ description = "SV2 pool role"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/stratum-mining/stratum"
 
-[lib]
-name = "pool_sv2"
-path = "src/lib/mod.rs"
-
 [dependencies]
+pool_sv2 = { path = "../../lib/pool" }
 stratum-common = { version = "1.0.0", path = "../../../common" }
 async-channel = "1.5.1"
 binary_sv2 = { version = "^1.0.0", path = "../../../protocols/v2/binary-sv2/binary-sv2" }

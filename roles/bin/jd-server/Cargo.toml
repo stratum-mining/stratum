@@ -5,11 +5,8 @@ edition = "2018"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/stratum-mining/stratum"
 
-[lib]
-name = "jd_server"
-path = "src/lib/mod.rs"
-
 [dependencies]
+jd_server_sv2 = { path = "../../lib/jd-server" }
 stratum-common = { version = "1.0.0", path = "../../../common" }
 async-channel = "1.5.1"
 binary_sv2 = { version = "^1.0.0", path = "../../../protocols/v2/binary-sv2/binary-sv2" }

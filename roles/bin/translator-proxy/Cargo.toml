@@ -6,11 +6,8 @@ description = "Server used to bridge SV1 miners to SV2 pools"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/stratum-mining/stratum"
 
-[lib]
-name = "translator_sv2"
-path = "src/lib/mod.rs"
-
 [dependencies]
+translator_proxy_sv2 = { path = "../../lib/translator-proxy" }
 stratum-common = { version = "1.0.0", path = "../../../common" }
 async-channel = "1.5.1"
 async-recursion = "0.3.2"

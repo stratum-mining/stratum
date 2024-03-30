@@ -1131,6 +1131,7 @@ dependencies = [
  "error_handling",
  "framing_sv2",
  "futures",
+ "jd_client_sv2",
  "key-utils",
  "network_helpers_sv2",
  "nohash-hasher",
@@ -1184,6 +1185,7 @@ dependencies = [
  "error_handling",
  "hashbrown 0.11.2",
  "hex",
+ "jd_server_sv2",
  "key-utils",
  "network_helpers_sv2",
  "nohash-hasher",
@@ -1609,6 +1611,7 @@ dependencies = [
  "network_helpers_sv2",
  "nohash-hasher",
  "noise_sv2",
+ "pool_sv2",
  "rand",
  "roles_logic_sv2",
  "secp256k1 0.28.2",
@@ -1684,6 +1687,7 @@ dependencies = [
  "network_helpers_sv2",
  "nohash-hasher",
  "once_cell",
+ "proxy_sv2",
  "roles_logic_sv2",
  "serde",
  "stratum-common",
@@ -2305,6 +2309,7 @@ dependencies = [
  "toml",
  "tracing",
  "tracing-subscriber",
+ "translator_proxy_sv2",
 ]
 
 [[package]]

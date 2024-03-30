@@ -7,11 +7,8 @@ description = "SV2 mining proxy role"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/stratum-mining/stratum"
 
-[lib]
-name = "mining_proxy_sv2"
-path = "src/lib/mod.rs"
-
 [dependencies]
+proxy_sv2 = { path = "../../lib/proxy" }
 stratum-common = { version = "1.0.0", path = "../../../common" }
 async-channel = "1.8.0"
 async-recursion = "0.3.2"
