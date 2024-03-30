@@ -6,6 +6,11 @@ use std::{
 
 use roles_logic_sv2::parsers::Mining;
 
+pub enum PoolErrorBranch {
+    Break,
+    Continue,
+}
+
 #[derive(std::fmt::Debug)]
 pub enum PoolError {
     Io(std::io::Error),

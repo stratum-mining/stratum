@@ -1,11 +1,10 @@
 use super::{
-    error::{PoolError, PoolResult},
+    error::{PoolError, PoolErrorBranch, PoolResult},
     status,
 };
 use async_channel::{Receiver, Sender};
 use binary_sv2::U256;
 use codec_sv2::{Frame, HandshakeRole, Responder, StandardEitherFrame, StandardSv2Frame};
-use error_handling::handle_result;
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 use network_helpers_sv2::noise_connection_tokio::Connection;
 use nohash_hasher::BuildNoHashHasher;
@@ -175,17 +174,41 @@ impl Downstream {
                         let received: Result<StdFrame, _> = received
                             .try_into()
                             .map_err(|e| PoolError::Codec(codec_sv2::Error::FramingSv2Error(e)));
-                        let std_frame = handle_result!(status_tx, received);
-                        handle_result!(
-                            status_tx,
-                            Downstream::next(cloned.clone(), std_frame).await
-                        );
+                        let std_frame = match received {
+                            Ok(value) => value,
+                            Err(e) => {
+                                let res = crate::status::handle_error(&status_tx, e).await;
+                                match res {
+                                    PoolErrorBranch::Break => break,
+                                    PoolErrorBranch::Continue => continue,
+                                }
+                            }
+                        };
+                        match Downstream::next(cloned.clone(), std_frame).await {
+                            Ok(_) => {}
+                            Err(e) => {
+                                let res = crate::status::handle_error(&status_tx, e).await;
+                                match res {
+                                    PoolErrorBranch::Break => break,
+                                    PoolErrorBranch::Continue => continue,
+                                }
+                            }
+                        };
                     }
                     _ => {
                         let res = pool
                             .safe_lock(|p| p.downstreams.remove(&id))
                             .map_err(|e| PoolError::PoisonLock(e.to_string()));
-                        handle_result!(status_tx, res);
+                        match res {
+                            Ok(_) => {}
+                            Err(e) => {
+                                let handle_result = status::handle_error(&status_tx, e).await;
+                                match handle_result {
+                                    PoolErrorBranch::Break => break,
+                                    PoolErrorBranch::Continue => continue,
+                                }
+                            }
+                        };
                         error!("Downstream {} disconnected", id);
                         break;
                     }
@@ -332,10 +355,18 @@ impl Pool {
             let (receiver, sender): (Receiver<EitherFrame>, Sender<EitherFrame>) =
                 network_helpers::plain_connection_tokio::PlainConnection::new(stream).await;
 
-            handle_result!(
-                status_tx,
-                Self::accept_incoming_connection_(self_.clone(), receiver, sender, address).await
-            );
+            match Self::accept_incoming_connection_(self_.clone(), receiver, sender, address).await
+            {
+                Ok(_) => {}
+                Err(e) => {
+                    let error_handling_result =
+                        crate::status::handle_error(&status_tx, e.into()).await;
+                    match error_handling_result {
+                        PoolErrorBranch::Break => break,
+                        PoolErrorBranch::Continue => continue,
+                    }
+                }
+            };
         }
         Ok(())
     }
@@ -367,16 +398,24 @@ impl Pool {
                     if let Ok((receiver, sender, _, _)) =
                         Connection::new(stream, HandshakeRole::Responder(resp)).await
                     {
-                        handle_result!(
-                            status_tx,
-                            Self::accept_incoming_connection_(
-                                self_.clone(),
-                                receiver,
-                                sender,
-                                address
-                            )
-                            .await
-                        );
+                        match Self::accept_incoming_connection_(
+                            self_.clone(),
+                            receiver,
+                            sender,
+                            address,
+                        )
+                        .await
+                        {
+                            Ok(_) => {}
+                            Err(e) => {
+                                let error_handling_result =
+                                    crate::status::handle_error(&status_tx, e).await;
+                                match error_handling_result {
+                                    PoolErrorBranch::Break => break,
+                                    PoolErrorBranch::Continue => continue,
+                                }
+                            }
+                        };
                     }
                 }
                 Err(_e) => {
@@ -432,23 +471,61 @@ impl Pool {
                     s.last_prev_hash_template_id = new_prev_hash.template_id;
                 })
                 .map_err(|e| PoolError::PoisonLock(e.to_string()));
-            handle_result!(status_tx, res);
+            match res {
+                Ok(_) => {}
+                Err(e) => {
+                    let error_branch = crate::status::handle_error(&status_tx, e).await;
+                    match error_branch {
+                        PoolErrorBranch::Break => break,
+                        PoolErrorBranch::Continue => continue,
+                    }
+                }
+            };
 
-            let job_id_res = self_
+            let job_id_res_res = self_
                 .safe_lock(|s| {
                     s.channel_factory
                         .safe_lock(|f| f.on_new_prev_hash_from_tp(&new_prev_hash))
                         .map_err(|e| PoolError::PoisonLock(e.to_string()))
                 })
                 .map_err(|e| PoolError::PoisonLock(e.to_string()));
-            let job_id = handle_result!(status_tx, handle_result!(status_tx, job_id_res));
+            let job_id_res = match job_id_res_res {
+                Ok(value) => value,
+                Err(e) => {
+                    let error_handling_result = status::handle_error(&status_tx, e).await;
+                    match error_handling_result {
+                        PoolErrorBranch::Break => break,
+                        PoolErrorBranch::Continue => continue,
+                    }
+                }
+            };
+
+            let job_id = match job_id_res {
+                Ok(j) => j,
+                Err(e) => {
+                    let error_handling_result = status::handle_error(&status_tx, e).await;
+                    match error_handling_result {
+                        PoolErrorBranch::Break => break,
+                        PoolErrorBranch::Continue => continue,
+                    }
+                }
+            };
 
             match job_id {
                 Ok(job_id) => {
                     let downstreams = self_
                         .safe_lock(|s| s.downstreams.clone())
                         .map_err(|e| PoolError::PoisonLock(e.to_string()));
-                    let downstreams = handle_result!(status_tx, downstreams);
+                    let downstreams = match downstreams {
+                        Ok(value) => value,
+                        Err(e) => {
+                            let error_branch = crate::status::handle_error(&status_tx, e).await;
+                            match error_branch {
+                                PoolErrorBranch::Break => break,
+                                PoolErrorBranch::Continue => continue,
+                            }
+                        }
+                    };
 
                     for (channel_id, downtream) in downstreams {
                         let message = Mining::SetNewPrevHash(SetNPH {
@@ -463,9 +540,28 @@ impl Pool {
                             Ok(SendTo::Respond(message)),
                         )
                         .await;
-                        handle_result!(status_tx, res);
+                        match res {
+                            Ok(_) => {}
+                            Err(e) => {
+                                let error_handling_result =
+                                    crate::status::handle_error(&status_tx, e).await;
+                                match error_handling_result {
+                                    PoolErrorBranch::Break => break,
+                                    PoolErrorBranch::Continue => continue,
+                                }
+                            }
+                        };
                     }
-                    handle_result!(status_tx, sender_message_received_signal.send(()).await);
+                    match sender_message_received_signal.send(()).await {
+                        Ok(_) => {}
+                        Err(e) => {
+                            let res = status::handle_error(&status_tx, e.into()).await;
+                            match res {
+                                PoolErrorBranch::Break => break,
+                                PoolErrorBranch::Continue => continue,
+                            }
+                        }
+                    };
                 }
                 Err(_) => todo!(),
             }
@@ -489,13 +585,40 @@ impl Pool {
             let messages = channel_factory
                 .safe_lock(|cf| cf.on_new_template(&mut new_template))
                 .map_err(|e| PoolError::PoisonLock(e.to_string()));
-            let messages = handle_result!(status_tx, messages);
-            let mut messages = handle_result!(status_tx, messages);
+            let messages = match messages {
+                Ok(value) => value,
+                Err(e) => {
+                    let res = crate::status::handle_error(&status_tx, e).await;
+                    match res {
+                        PoolErrorBranch::Break => break,
+                        PoolErrorBranch::Continue => continue,
+                    }
+                }
+            };
+            let mut messages = match messages {
+                Ok(value) => value,
+                Err(e) => {
+                    let res = crate::status::handle_error(&status_tx, e.into()).await;
+                    match res {
+                        PoolErrorBranch::Break => break,
+                        PoolErrorBranch::Continue => continue,
+                    }
+                }
+            };
 
             let downstreams = self_
                 .safe_lock(|s| s.downstreams.clone())
                 .map_err(|e| PoolError::PoisonLock(e.to_string()));
-            let downstreams = handle_result!(status_tx, downstreams);
+            let downstreams = match downstreams {
+                Ok(value) => value,
+                Err(e) => {
+                    let res = status::handle_error(&status_tx, e).await;
+                    match res {
+                        PoolErrorBranch::Break => break,
+                        PoolErrorBranch::Continue => continue,
+                    }
+                }
+            };
 
             for (channel_id, downtream) in downstreams {
                 if let Some(to_send) = messages.remove(&channel_id) {
@@ -510,9 +633,27 @@ impl Pool {
             let res = self_
                 .safe_lock(|s| s.new_template_processed = true)
                 .map_err(|e| PoolError::PoisonLock(e.to_string()));
-            handle_result!(status_tx, res);
+            match res {
+                Ok(_) => {}
+                Err(e) => {
+                    let handle_result = crate::status::handle_error(&status_tx, e).await;
+                    match handle_result {
+                        PoolErrorBranch::Break => break,
+                        PoolErrorBranch::Continue => continue,
+                    }
+                }
+            };
 
-            handle_result!(status_tx, sender_message_received_signal.send(()).await);
+            match sender_message_received_signal.send(()).await {
+                Ok(_) => {}
+                Err(e) => {
+                    let res = status::handle_error(&status_tx, e.into()).await;
+                    match res {
+                        PoolErrorBranch::Break => break,
+                        PoolErrorBranch::Continue => continue,
+                    }
+                }
+            };
         }
         Ok(())
     }

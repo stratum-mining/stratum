@@ -320,41 +320,19 @@ checksum = "d86b93f97252c47b41663388e6d155714a9d0c398b99f1005cbc5f978b29f445"
 
 [[package]]
 name = "binary_codec_sv2"
-version = "0.1.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c3d2635651b7acd536bdf016919e5ce3d973cd53d7ac81c6f1d2523faf688a78"
-dependencies = [
- "buffer_sv2 0.1.3",
-]
-
-[[package]]
-name = "binary_codec_sv2"
 version = "1.0.0"
 dependencies = [
- "buffer_sv2 1.0.0",
-]
-
-[[package]]
-name = "binary_sv2"
-version = "0.1.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8d073857c17f94784a1bf3477b7d000b4242766788bb67d83081828d966027cb"
-dependencies = [
- "binary_codec_sv2 0.1.5",
- "derive_codec_sv2 0.1.5",
- "serde",
- "serde_sv2 0.1.3",
- "tracing",
+ "buffer_sv2",
 ]
 
 [[package]]
 name = "binary_sv2"
 version = "1.0.0"
 dependencies = [
- "binary_codec_sv2 1.0.0",
- "derive_codec_sv2 1.0.0",
+ "binary_codec_sv2",
+ "derive_codec_sv2",
  "serde",
- "serde_sv2 1.0.0",
+ "serde_sv2",
  "tracing",
 ]
 
@@ -457,19 +435,10 @@ dependencies = [
 
 [[package]]
 name = "buffer_sv2"
-version = "0.1.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "14ad62c33affff6687aa53d2e8124ebf96fa8b92a38fdd0c46fa93f0175a5e94"
-dependencies = [
- "aes-gcm",
- "serde",
-]
-
-[[package]]
-name = "buffer_sv2"
 version = "1.0.0"
 dependencies = [
  "aes-gcm",
+ "serde",
 ]
 
 [[package]]
@@ -539,27 +508,13 @@ dependencies = [
 
 [[package]]
 name = "codec_sv2"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
- "binary_sv2 1.0.0",
- "buffer_sv2 1.0.0",
- "const_sv2 1.0.0",
- "framing_sv2 1.0.0",
- "noise_sv2 1.1.0",
- "tracing",
-]
-
-[[package]]
-name = "codec_sv2"
-version = "1.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c306ce9b6e1a23cc2a8decadc6547b5b5240200a285ed826b15f1129c0bb9b5c"
-dependencies = [
- "binary_sv2 0.1.7",
- "buffer_sv2 0.1.3",
- "const_sv2 0.1.3",
- "framing_sv2 0.1.6",
- "noise_sv2 1.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "binary_sv2",
+ "buffer_sv2",
+ "const_sv2",
+ "framing_sv2",
+ "noise_sv2",
  "serde",
  "tracing",
 ]
@@ -568,8 +523,8 @@ dependencies = [
 name = "common_messages_sv2"
 version = "1.0.0"
 dependencies = [
- "binary_sv2 1.0.0",
- "const_sv2 1.0.0",
+ "binary_sv2",
+ "const_sv2",
 ]
 
 [[package]]
@@ -579,15 +534,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d16048cd947b08fa32c24458a22f5dc5e835264f689f4f5653210c69fd107363"
 dependencies = [
  "crossbeam-utils",
-]
-
-[[package]]
-name = "const_sv2"
-version = "0.1.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "52e86c77da33604c86f89f4ce7c7ae585f7cea0ee6e11388439ced40cd599c32"
-dependencies = [
- "secp256k1 0.28.2",
 ]
 
 [[package]]
@@ -634,18 +580,9 @@ dependencies = [
 
 [[package]]
 name = "derive_codec_sv2"
-version = "0.1.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8ac6d35ced783f37b45a6315379aa81e01b444f64d90d49c7bb7f43f06dff356"
-dependencies = [
- "binary_codec_sv2 0.1.5",
-]
-
-[[package]]
-name = "derive_codec_sv2"
 version = "1.0.0"
 dependencies = [
- "binary_codec_sv2 1.0.0",
+ "binary_codec_sv2",
 ]
 
 [[package]]
@@ -771,23 +708,12 @@ checksum = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
 
 [[package]]
 name = "framing_sv2"
-version = "0.1.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4a545e927300897731132ade9109a4150f1b30680ed7b942bb22c36894103334"
-dependencies = [
- "binary_sv2 0.1.7",
- "buffer_sv2 0.1.3",
- "const_sv2 0.1.3",
- "serde",
-]
-
-[[package]]
-name = "framing_sv2"
 version = "1.0.0"
 dependencies = [
- "binary_sv2 1.0.0",
- "buffer_sv2 1.0.0",
- "const_sv2 1.0.0",
+ "binary_sv2",
+ "buffer_sv2",
+ "const_sv2",
+ "serde",
 ]
 
 [[package]]
@@ -1175,11 +1101,11 @@ version = "0.1.0"
 dependencies = [
  "async-channel 1.9.0",
  "async-recursion 0.3.2",
- "binary_sv2 1.0.0",
- "buffer_sv2 1.0.0",
- "codec_sv2 1.0.0",
+ "binary_sv2",
+ "buffer_sv2",
+ "codec_sv2",
  "error_handling",
- "framing_sv2 1.0.0",
+ "framing_sv2",
  "futures",
  "key-utils",
  "network_helpers_sv2",
@@ -1198,17 +1124,17 @@ name = "jd_server"
 version = "0.1.0"
 dependencies = [
  "async-channel 1.9.0",
- "binary_sv2 1.0.0",
- "buffer_sv2 1.0.0",
- "codec_sv2 1.0.0",
- "const_sv2 1.0.0",
+ "binary_sv2",
+ "buffer_sv2",
+ "codec_sv2",
+ "const_sv2",
  "error_handling",
  "hashbrown 0.11.2",
  "hex",
  "key-utils",
  "network_helpers_sv2",
  "nohash-hasher",
- "noise_sv2 1.1.0",
+ "noise_sv2",
  "rand",
  "roles_logic_sv2",
  "rpc_sv2",
@@ -1226,8 +1152,8 @@ dependencies = [
 name = "job_declaration_sv2"
 version = "1.0.0"
 dependencies = [
- "binary_sv2 1.0.0",
- "const_sv2 1.0.0",
+ "binary_sv2",
+ "const_sv2",
 ]
 
 [[package]]
@@ -1313,10 +1239,10 @@ dependencies = [
  "async-channel 1.9.0",
  "async-recursion 0.3.2",
  "async-std",
- "binary_sv2 1.0.0",
- "buffer_sv2 1.0.0",
- "codec_sv2 1.0.0",
- "const_sv2 1.0.0",
+ "binary_sv2",
+ "buffer_sv2",
+ "codec_sv2",
+ "const_sv2",
  "futures",
  "network_helpers_sv2",
  "rand",
@@ -1330,10 +1256,10 @@ version = "0.1.0"
 dependencies = [
  "async-channel 1.9.0",
  "async-recursion 0.3.2",
- "binary_sv2 1.0.0",
- "buffer_sv2 1.0.0",
- "codec_sv2 1.0.0",
- "const_sv2 1.0.0",
+ "binary_sv2",
+ "buffer_sv2",
+ "codec_sv2",
+ "const_sv2",
  "futures",
  "key-utils",
  "network_helpers_sv2",
@@ -1352,8 +1278,8 @@ dependencies = [
 name = "mining_sv2"
 version = "1.0.0"
 dependencies = [
- "binary_sv2 1.0.0",
- "const_sv2 1.0.0",
+ "binary_sv2",
+ "const_sv2",
 ]
 
 [[package]]
@@ -1378,13 +1304,13 @@ dependencies = [
 
 [[package]]
 name = "network_helpers_sv2"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "async-channel 1.9.0",
  "async-std",
- "binary_sv2 1.0.0",
- "codec_sv2 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "const_sv2 1.0.0",
+ "binary_sv2",
+ "codec_sv2",
+ "const_sv2",
  "futures",
  "serde",
  "tokio",
@@ -1403,21 +1329,7 @@ version = "1.1.0"
 dependencies = [
  "aes-gcm",
  "chacha20poly1305",
- "const_sv2 1.0.0",
- "rand",
- "rand_chacha",
- "secp256k1 0.28.2",
-]
-
-[[package]]
-name = "noise_sv2"
-version = "1.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9be5decbcc8c7487c91277675df156c472a025c1a5d83d9a6a3da5ff458c4d3f"
-dependencies = [
- "aes-gcm",
- "chacha20poly1305",
- "const_sv2 0.1.3",
+ "const_sv2",
  "rand",
  "rand_chacha",
  "secp256k1 0.28.2",
@@ -1631,16 +1543,15 @@ version = "0.1.0"
 dependencies = [
  "async-channel 1.9.0",
  "async-recursion 1.1.0",
- "binary_sv2 1.0.0",
- "buffer_sv2 1.0.0",
- "codec_sv2 1.0.0",
- "const_sv2 1.0.0",
- "error_handling",
+ "binary_sv2",
+ "buffer_sv2",
+ "codec_sv2",
+ "const_sv2",
  "hex",
  "key-utils",
  "network_helpers_sv2",
  "nohash-hasher",
- "noise_sv2 1.1.0",
+ "noise_sv2",
  "rand",
  "roles_logic_sv2",
  "secp256k1 0.28.2",
@@ -1764,11 +1675,11 @@ checksum = "adad44e29e4c806119491a7f06f03de4d1af22c3a680dd47f1e6e179439d1f56"
 name = "roles_logic_sv2"
 version = "1.0.0"
 dependencies = [
- "binary_sv2 1.0.0",
+ "binary_sv2",
  "chacha20poly1305",
  "common_messages_sv2",
- "const_sv2 1.0.0",
- "framing_sv2 1.0.0",
+ "const_sv2",
+ "framing_sv2",
  "job_declaration_sv2",
  "mining_sv2",
  "nohash-hasher",
@@ -1909,19 +1820,9 @@ dependencies = [
 
 [[package]]
 name = "serde_sv2"
-version = "0.1.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "149f67cef8328b644f1e48d3d420f07dc57505424f6c399d66b3b10a658cc0d4"
-dependencies = [
- "buffer_sv2 0.1.3",
- "serde",
-]
-
-[[package]]
-name = "serde_sv2"
 version = "1.0.0"
 dependencies = [
- "buffer_sv2 1.0.0",
+ "buffer_sv2",
  "serde",
 ]
 
@@ -2040,7 +1941,7 @@ dependencies = [
 name = "sv1_api"
 version = "1.0.0"
 dependencies = [
- "binary_sv2 1.0.0",
+ "binary_sv2",
  "bitcoin_hashes 0.3.2",
  "byteorder",
  "hex",
@@ -2077,8 +1978,8 @@ dependencies = [
 name = "template_distribution_sv2"
 version = "1.0.0"
 dependencies = [
- "binary_sv2 1.0.0",
- "const_sv2 1.0.0",
+ "binary_sv2",
+ "const_sv2",
 ]
 
 [[package]]
@@ -2247,11 +2148,11 @@ dependencies = [
  "async-compat",
  "async-recursion 0.3.2",
  "async-std",
- "binary_sv2 1.0.0",
- "buffer_sv2 1.0.0",
- "codec_sv2 1.0.0",
+ "binary_sv2",
+ "buffer_sv2",
+ "codec_sv2",
  "error_handling",
- "framing_sv2 1.0.0",
+ "framing_sv2",
  "futures",
  "key-utils",
  "network_helpers_sv2",

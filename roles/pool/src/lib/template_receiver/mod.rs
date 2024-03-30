@@ -1,11 +1,10 @@
 use super::{
-    error::{PoolError, PoolResult},
+    error::{PoolError, PoolErrorBranch, PoolResult},
     mining_pool::{EitherFrame, StdFrame},
     status,
 };
 use async_channel::{Receiver, Sender};
 use codec_sv2::{Frame, HandshakeRole, Initiator};
-use error_handling::handle_result;
 use key_utils::Secp256k1PublicKey;
 use network_helpers_sv2::noise_connection_tokio::Connection;
 use roles_logic_sv2::{
@@ -101,41 +100,111 @@ impl TemplateRx {
                 })
                 .unwrap();
         loop {
-            let message_from_tp = handle_result!(status_tx, receiver.recv().await);
-            let mut message_from_tp: StdFrame = handle_result!(
-                status_tx,
-                message_from_tp
-                    .try_into()
-                    .map_err(|e| PoolError::Codec(codec_sv2::Error::FramingSv2Error(e)))
-            );
+            let message_from_tp = match receiver.recv().await {
+                Ok(val) => val,
+                Err(e) => {
+                    let res = status::handle_error(&status_tx, e.into()).await;
+                    match res {
+                        PoolErrorBranch::Break => break,
+                        PoolErrorBranch::Continue => continue,
+                    }
+                }
+            };
+
+            let mut message_from_tp: StdFrame = match message_from_tp
+                .try_into()
+                .map_err(|e| PoolError::Codec(codec_sv2::Error::FramingSv2Error(e)))
+            {
+                Ok(frame) => frame,
+                Err(e) => {
+                    let res = crate::status::handle_error(&status_tx, e).await;
+                    match res {
+                        PoolErrorBranch::Break => break,
+                        PoolErrorBranch::Continue => continue,
+                    }
+                }
+            };
+
             let message_type_res = message_from_tp
                 .get_header()
                 .ok_or_else(|| PoolError::Custom(String::from("No header set")));
-            let message_type = handle_result!(status_tx, message_type_res).msg_type();
+            let message_type = match message_type_res {
+                Ok(val) => val.msg_type(),
+                Err(e) => {
+                    let res = crate::status::handle_error(&status_tx, e).await;
+                    match res {
+                        PoolErrorBranch::Break => break,
+                        PoolErrorBranch::Continue => continue,
+                    }
+                }
+            };
             let payload = message_from_tp.payload();
-            let msg = handle_result!(
-                status_tx,
-                ParseServerTemplateDistributionMessages::handle_message_template_distribution(
+            let msg =
+                match ParseServerTemplateDistributionMessages::handle_message_template_distribution(
                     self_.clone(),
                     message_type,
                     payload,
-                )
-            );
+                ) {
+                    Ok(value) => value,
+                    Err(e) => {
+                        let res = status::handle_error(&status_tx, e.into()).await;
+                        match res {
+                            PoolErrorBranch::Break => break,
+                            PoolErrorBranch::Continue => continue,
+                        }
+                    }
+                };
             match msg {
                 roles_logic_sv2::handlers::SendTo_::RelayNewMessageToRemote(_, m) => match m {
                     TemplateDistribution::CoinbaseOutputDataSize(_) => todo!(),
                     TemplateDistribution::NewTemplate(m) => {
                         let res = new_template_sender.send(m).await;
-                        handle_result!(status_tx, res);
-                        handle_result!(status_tx, recv_msg_signal.recv().await);
+                        match res {
+                            Ok(_) => {}
+                            Err(e) => {
+                                let res = crate::status::handle_error(&status_tx, e.into()).await;
+                                match res {
+                                    PoolErrorBranch::Break => break,
+                                    PoolErrorBranch::Continue => continue,
+                                }
+                            }
+                        };
+                        match recv_msg_signal.recv().await {
+                            Ok(_) => {}
+                            Err(e) => {
+                                let res = crate::status::handle_error(&status_tx, e.into()).await;
+                                match res {
+                                    PoolErrorBranch::Break => break,
+                                    PoolErrorBranch::Continue => continue,
+                                }
+                            }
+                        };
                     }
                     TemplateDistribution::RequestTransactionData(_) => todo!(),
                     TemplateDistribution::RequestTransactionDataError(_) => todo!(),
                     TemplateDistribution::RequestTransactionDataSuccess(_) => todo!(),
                     TemplateDistribution::SetNewPrevHash(m) => {
                         let res = new_prev_hash_sender.send(m).await;
-                        handle_result!(status_tx, res);
-                        handle_result!(status_tx, recv_msg_signal.recv().await);
+                        match res {
+                            Ok(_) => {}
+                            Err(e) => {
+                                let res = crate::status::handle_error(&status_tx, e.into()).await;
+                                match res {
+                                    PoolErrorBranch::Break => break,
+                                    PoolErrorBranch::Continue => continue,
+                                }
+                            }
+                        };
+                        match recv_msg_signal.recv().await {
+                            Ok(_) => {}
+                            Err(e) => {
+                                let res = crate::status::handle_error(&status_tx, e.into()).await;
+                                match res {
+                                    PoolErrorBranch::Break => break,
+                                    PoolErrorBranch::Continue => continue,
+                                }
+                            }
+                        };
                     }
                     TemplateDistribution::SubmitSolution(_) => todo!(),
                 },
@@ -166,7 +235,16 @@ impl TemplateRx {
                     .try_into();
             match sv2_frame_res {
                 Ok(frame) => {
-                    handle_result!(status_tx, Self::send(self_.clone(), frame).await);
+                    match Self::send(self_.clone(), frame).await {
+                        Ok(_) => {}
+                        Err(e) => {
+                            let res = crate::status::handle_error(&status_tx, e).await;
+                            match res {
+                                PoolErrorBranch::Break => break,
+                                PoolErrorBranch::Continue => continue,
+                            }
+                        }
+                    };
                 }
                 Err(_e) => {
                     // return submit error
