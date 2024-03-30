@@ -3,9 +3,9 @@ mod args;
 
 use args::Args;
 use error::{Error, ProxyResult};
-use translator_proxy_sv2::{downstream_sv1, error, proxy, proxy_config, status, upstream_sv2};
 use proxy_config::ProxyConfig;
 use roles_logic_sv2::utils::Mutex;
+use translator_proxy_sv2::{downstream_sv1, error, proxy, proxy_config, status, upstream_sv2};
 
 use async_channel::{bounded, unbounded};
 use futures::{select, FutureExt};

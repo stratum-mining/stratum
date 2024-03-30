@@ -1,12 +1,12 @@
 #![allow(special_module_name)]
 use async_channel::{bounded, unbounded};
 
-use tracing::{error, info, warn};
 use pool_sv2::{
     mining_pool::{get_coinbase_output, Configuration, Pool},
     status,
     template_receiver::TemplateRx,
 };
+use tracing::{error, info, warn};
 
 use tokio::select;
 

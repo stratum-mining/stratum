@@ -126,7 +126,8 @@ async fn main() {
         ))
         .expect("BUG: Failed to set ROUTING_LOGIC");
     info!("PROXY INITIALIZING");
-    proxy_sv2::initialize_upstreams(config.min_supported_version, config.max_supported_version).await;
+    proxy_sv2::initialize_upstreams(config.min_supported_version, config.max_supported_version)
+        .await;
     info!("PROXY INITIALIZED");
 
     // Wait for downstream connection

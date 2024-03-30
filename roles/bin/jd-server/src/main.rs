@@ -1,10 +1,10 @@
 #![allow(special_module_name)]
+use async_channel::{bounded, unbounded, Receiver, Sender};
+use error_handling::handle_result;
 use jd_server_sv2::{
     mempool::{self, error::JdsMempoolError},
     status, Configuration,
 };
-use async_channel::{bounded, unbounded, Receiver, Sender};
-use error_handling::handle_result;
 use roles_logic_sv2::utils::Mutex;
 use std::{ops::Sub, sync::Arc};
 use tokio::{select, task};
