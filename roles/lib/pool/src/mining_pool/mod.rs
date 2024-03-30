@@ -674,8 +674,10 @@ mod test {
     fn test_coinbase_outputs_from_config() {
         // Load config
         let config: super::Configuration = toml::from_str(
-            &std::fs::read_to_string("./config-examples/pool-config-local-tp-example.toml")
-                .unwrap(),
+            &std::fs::read_to_string(
+                "../../bin/pool/config-examples/pool-config-local-tp-example.toml",
+            )
+            .unwrap(),
         )
         .unwrap();
         // template from message generator test (mock TP template)
