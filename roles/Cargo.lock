@@ -1096,6 +1096,30 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "49f1f14873335454500d59611f1cf4a4b0f786f9ac11f4312a78e4cf2566695b"
 
 [[package]]
+name = "jd_client_sv2"
+version = "0.1.0"
+dependencies = [
+ "async-channel 1.9.0",
+ "async-recursion 0.3.2",
+ "binary_sv2",
+ "buffer_sv2",
+ "codec_sv2",
+ "error_handling",
+ "framing_sv2",
+ "futures",
+ "key-utils",
+ "network_helpers_sv2",
+ "nohash-hasher",
+ "roles_logic_sv2",
+ "serde",
+ "stratum-common",
+ "tokio",
+ "toml",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "jd_client_sv2_bin"
 version = "0.1.0"
 dependencies = [
@@ -1112,6 +1136,35 @@ dependencies = [
  "nohash-hasher",
  "roles_logic_sv2",
  "serde",
+ "stratum-common",
+ "tokio",
+ "toml",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "jd_server_sv2"
+version = "0.1.0"
+dependencies = [
+ "async-channel 1.9.0",
+ "binary_sv2",
+ "buffer_sv2",
+ "codec_sv2",
+ "const_sv2",
+ "error_handling",
+ "hashbrown 0.11.2",
+ "hex",
+ "key-utils",
+ "network_helpers_sv2",
+ "nohash-hasher",
+ "noise_sv2",
+ "rand",
+ "roles_logic_sv2",
+ "rpc_sv2",
+ "secp256k1 0.28.2",
+ "serde",
+ "serde_json",
  "stratum-common",
  "tokio",
  "toml",
@@ -1514,6 +1567,33 @@ dependencies = [
 ]
 
 [[package]]
+name = "pool_sv2"
+version = "0.1.0"
+dependencies = [
+ "async-channel 1.9.0",
+ "async-recursion 1.1.0",
+ "binary_sv2",
+ "buffer_sv2",
+ "codec_sv2",
+ "const_sv2",
+ "error_handling",
+ "hex",
+ "key-utils",
+ "network_helpers_sv2",
+ "nohash-hasher",
+ "noise_sv2",
+ "rand",
+ "roles_logic_sv2",
+ "secp256k1 0.28.2",
+ "serde",
+ "stratum-common",
+ "tokio",
+ "toml",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "pool_sv2_bin"
 version = "0.1.0"
 dependencies = [
@@ -1563,6 +1643,30 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e835ff2298f5721608eb1a980ecaee1aef2c132bf95ecc026a11b7bf3c01c02e"
 dependencies = [
  "unicode-ident",
+]
+
+[[package]]
+name = "proxy_sv2"
+version = "0.1.0"
+dependencies = [
+ "async-channel 1.9.0",
+ "async-recursion 0.3.2",
+ "binary_sv2",
+ "buffer_sv2",
+ "codec_sv2",
+ "const_sv2",
+ "futures",
+ "key-utils",
+ "network_helpers_sv2",
+ "nohash-hasher",
+ "once_cell",
+ "roles_logic_sv2",
+ "serde",
+ "stratum-common",
+ "tokio",
+ "toml",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -2139,6 +2243,37 @@ dependencies = [
  "thread_local",
  "tracing-core",
  "tracing-log",
+]
+
+[[package]]
+name = "translator_proxy_sv2"
+version = "0.1.0"
+dependencies = [
+ "async-channel 1.9.0",
+ "async-compat",
+ "async-recursion 0.3.2",
+ "async-std",
+ "binary_sv2",
+ "buffer_sv2",
+ "codec_sv2",
+ "error_handling",
+ "framing_sv2",
+ "futures",
+ "key-utils",
+ "network_helpers_sv2",
+ "once_cell",
+ "rand",
+ "roles_logic_sv2",
+ "serde",
+ "serde_json",
+ "sha2 0.10.8",
+ "stratum-common",
+ "sv1_api",
+ "tokio",
+ "tokio-util",
+ "toml",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]

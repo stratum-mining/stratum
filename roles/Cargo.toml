@@ -24,6 +24,13 @@ members = [
     "bin/translator-proxy",
     "bin/jd-client",
     "bin/jd-server",
+    "lib/proxy",
+    "lib/pool",
+    "lib/translator-proxy",
+    "lib/jd-client",
+    "lib/jd-server",
+    "lib/rpc",
+    "lib/network-helpers",
 ]
 
 [profile.dev]
