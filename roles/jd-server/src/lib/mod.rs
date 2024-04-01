@@ -1,3 +1,4 @@
+pub mod downstream;
 pub mod error;
 pub mod job_declarator;
 pub mod mempool;
