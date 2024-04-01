@@ -1,23 +1,22 @@
 use super::{
+    downstream::Downstream,
     error::{PoolError, PoolResult},
     status,
 };
 use async_channel::{Receiver, Sender};
 use binary_sv2::U256;
-use codec_sv2::{Frame, HandshakeRole, Responder, StandardEitherFrame, StandardSv2Frame};
+use codec_sv2::{HandshakeRole, Responder, StandardEitherFrame, StandardSv2Frame};
 use error_handling::handle_result;
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 use network_helpers_sv2::noise_connection_tokio::Connection;
 use nohash_hasher::BuildNoHashHasher;
 use roles_logic_sv2::{
     channel_logic::channel_factory::PoolChannelFactory,
-    common_properties::{CommonDownstreamData, IsDownstream, IsMiningDownstream},
     errors::Error,
-    handlers::mining::{ParseDownstreamMiningMessages, SendTo},
+    handlers::mining::SendTo,
     job_creator::JobsCreators,
     mining_sv2::{ExtendedExtranonce, SetNewPrevHash as SetNPH},
     parsers::{Mining, PoolMessages},
-    routing_logic::MiningRoutingLogic,
     template_distribution_sv2::{NewTemplate, SetNewPrevHash, SubmitSolution},
     utils::{CoinbaseOutput as CoinbaseOutput_, Mutex},
 };
@@ -30,12 +29,9 @@ use std::{
 };
 use stratum_common::bitcoin::{Script, TxOut};
 use tokio::{net::TcpListener, task};
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info};
 
 pub mod setup_connection;
-use setup_connection::SetupConnectionHandler;
-
-pub mod message_handler;
 
 pub type Message = PoolMessages<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;
@@ -93,186 +89,14 @@ pub struct Configuration {
     pub test_only_listen_adress_plain: String,
 }
 
-#[derive(Debug)]
-pub struct Downstream {
-    // Either group or channel id
-    id: u32,
-    receiver: Receiver<EitherFrame>,
-    sender: Sender<EitherFrame>,
-    downstream_data: CommonDownstreamData,
-    solution_sender: Sender<SubmitSolution<'static>>,
-    channel_factory: Arc<Mutex<PoolChannelFactory>>,
-}
-
 /// Accept downstream connection
 pub struct Pool {
-    downstreams: HashMap<u32, Arc<Mutex<Downstream>>, BuildNoHashHasher<u32>>,
+    pub downstreams: HashMap<u32, Arc<Mutex<Downstream>>, BuildNoHashHasher<u32>>,
     solution_sender: Sender<SubmitSolution<'static>>,
     new_template_processed: bool,
     channel_factory: Arc<Mutex<PoolChannelFactory>>,
     last_prev_hash_template_id: u64,
     status_tx: status::Sender,
-}
-
-impl Downstream {
-    #[allow(clippy::too_many_arguments)]
-    pub async fn new(
-        mut receiver: Receiver<EitherFrame>,
-        mut sender: Sender<EitherFrame>,
-        solution_sender: Sender<SubmitSolution<'static>>,
-        pool: Arc<Mutex<Pool>>,
-        channel_factory: Arc<Mutex<PoolChannelFactory>>,
-        status_tx: status::Sender,
-        address: SocketAddr,
-    ) -> PoolResult<Arc<Mutex<Self>>> {
-        let setup_connection = Arc::new(Mutex::new(SetupConnectionHandler::new()));
-        let downstream_data =
-            SetupConnectionHandler::setup(setup_connection, &mut receiver, &mut sender, address)
-                .await?;
-
-        let id = match downstream_data.header_only {
-            false => channel_factory.safe_lock(|c| c.new_group_id())?,
-            true => channel_factory.safe_lock(|c| c.new_standard_id_for_hom())?,
-        };
-
-        let self_ = Arc::new(Mutex::new(Downstream {
-            id,
-            receiver,
-            sender,
-            downstream_data,
-            solution_sender,
-            channel_factory,
-        }));
-
-        let cloned = self_.clone();
-
-        task::spawn(async move {
-            debug!("Starting up downstream receiver");
-            let receiver_res = cloned
-                .safe_lock(|d| d.receiver.clone())
-                .map_err(|e| PoolError::PoisonLock(e.to_string()));
-            let receiver = match receiver_res {
-                Ok(recv) => recv,
-                Err(e) => {
-                    if let Err(e) = status_tx
-                        .send(status::Status {
-                            state: status::State::Healthy(format!(
-                                "Downstream connection dropped: {}",
-                                e
-                            )),
-                        })
-                        .await
-                    {
-                        error!("Encountered Error but status channel is down: {}", e);
-                    }
-
-                    return;
-                }
-            };
-            loop {
-                match receiver.recv().await {
-                    Ok(received) => {
-                        let received: Result<StdFrame, _> = received
-                            .try_into()
-                            .map_err(|e| PoolError::Codec(codec_sv2::Error::FramingSv2Error(e)));
-                        let std_frame = handle_result!(status_tx, received);
-                        handle_result!(
-                            status_tx,
-                            Downstream::next(cloned.clone(), std_frame).await
-                        );
-                    }
-                    _ => {
-                        let res = pool
-                            .safe_lock(|p| p.downstreams.remove(&id))
-                            .map_err(|e| PoolError::PoisonLock(e.to_string()));
-                        handle_result!(status_tx, res);
-                        error!("Downstream {} disconnected", id);
-                        break;
-                    }
-                }
-            }
-            warn!("Downstream connection dropped");
-        });
-        Ok(self_)
-    }
-
-    pub async fn next(self_mutex: Arc<Mutex<Self>>, mut incoming: StdFrame) -> PoolResult<()> {
-        let message_type = incoming
-            .get_header()
-            .ok_or_else(|| PoolError::Custom(String::from("No header set")))?
-            .msg_type();
-        let payload = incoming.payload();
-        debug!(
-            "Received downstream message type: {:?}, payload: {:?}",
-            message_type, payload
-        );
-        let next_message_to_send = ParseDownstreamMiningMessages::handle_message_mining(
-            self_mutex.clone(),
-            message_type,
-            payload,
-            MiningRoutingLogic::None,
-        );
-        Self::match_send_to(self_mutex, next_message_to_send).await
-    }
-
-    #[async_recursion::async_recursion]
-    async fn match_send_to(
-        self_: Arc<Mutex<Self>>,
-        send_to: Result<SendTo<()>, Error>,
-    ) -> PoolResult<()> {
-        match send_to {
-            Ok(SendTo::Respond(message)) => {
-                debug!("Sending to downstream: {:?}", message);
-                // returning an error will send the error to the main thread,
-                // and the main thread will drop the downstream from the pool
-                if let &Mining::OpenMiningChannelError(_) = &message {
-                    Self::send(self_.clone(), message.clone()).await?;
-                    let downstream_id = self_
-                        .safe_lock(|d| d.id)
-                        .map_err(|e| Error::PoisonLock(e.to_string()))?;
-                    return Err(PoolError::Sv2ProtocolError((
-                        downstream_id,
-                        message.clone(),
-                    )));
-                } else {
-                    Self::send(self_, message.clone()).await?;
-                }
-            }
-            Ok(SendTo::Multiple(messages)) => {
-                debug!("Sending multiple messages to downstream");
-                for message in messages {
-                    debug!("Sending downstream message: {:?}", message);
-                    Self::match_send_to(self_.clone(), Ok(message)).await?;
-                }
-            }
-            Ok(SendTo::None(_)) => {}
-            Ok(m) => {
-                error!("Unexpected SendTo: {:?}", m);
-                panic!();
-            }
-            Err(Error::UnexpectedMessage(_message_type)) => todo!(),
-            Err(e) => {
-                error!("Error: {:?}", e);
-                todo!()
-            }
-        }
-        Ok(())
-    }
-
-    async fn send(
-        self_mutex: Arc<Mutex<Self>>,
-        message: roles_logic_sv2::parsers::Mining<'static>,
-    ) -> PoolResult<()> {
-        //let message = if let Mining::NewExtendedMiningJob(job) = message {
-        //    Mining::NewExtendedMiningJob(extended_job_to_non_segwit(job, 32)?)
-        //} else {
-        //    message
-        //};
-        let sv2_frame: StdFrame = PoolMessages::Mining(message).try_into()?;
-        let sender = self_mutex.safe_lock(|self_| self_.sender.clone())?;
-        sender.send(sv2_frame.into()).await?;
-        Ok(())
-    }
 }
 
 // Verifies token for a custom job which is the signed tx_hash_list_hash by Job Declarator Server
@@ -301,14 +125,6 @@ pub fn verify_token(
     debug!("Verified signature {:?}", is_verified);
     is_verified
 }
-
-impl IsDownstream for Downstream {
-    fn get_downstream_mining_data(&self) -> CommonDownstreamData {
-        self.downstream_data
-    }
-}
-
-impl IsMiningDownstream for Downstream {}
 
 impl Pool {
     #[cfg(feature = "test_only_allow_unencrypted")]
