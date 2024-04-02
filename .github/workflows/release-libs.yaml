@@ -19,8 +19,10 @@ jobs:
   check_versioning_lib_release:
     runs-on: ubuntu-latest
     steps:
-      - name: run check-versioning-lib-release.sh
-      - uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Run check-versioning-lib-release.sh
         run: |
           ./check-versioning-lib-release.sh
           if [ $? -eq 1 ]; then
