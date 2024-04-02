@@ -16,7 +16,7 @@ on:
       - main
 
 jobs:
-  check_versioning_lib_release:
+  libs_publish:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -30,14 +30,11 @@ jobs:
             exit 1
           fi
 
-  libs_publish:
-    runs-on: ubuntu-latest
-    steps:
       - uses: actions/checkout@v3
       - uses: actions-rs/toolchain@v1
         with:
-            toolchain: stable
-            override: true
+          toolchain: stable
+          override: true
       - name: Login
         run: cargo login ${{ secrets.CRATES_IO_DEPLOY_KEY }}
       - name: Publish crate common
