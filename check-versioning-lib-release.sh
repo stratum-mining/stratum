@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # Get the list of paths to `Cargo.toml` files
 crates=$(find . -name Cargo.toml -exec dirname {} \; | sort)
