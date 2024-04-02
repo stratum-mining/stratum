@@ -10,6 +10,9 @@ use stratum_common::bitcoin::{
     blockdata::block::BlockHeader, hash_types::BlockHash, hashes::Hash, util::uint::Uint256,
 };
 use tracing::{error, info};
+use std::time::Instant;
+use rand::{Rng,thread_rng};
+use sha2::{Digest, Sha256};
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -107,7 +110,7 @@ async fn main() {
 }
 
 use async_channel::{Receiver, Sender};
-use binary_sv2::u256_from_int;
+use binary_sv2::{u256_from_int, U256};
 use codec_sv2::{Frame, Initiator, StandardEitherFrame, StandardSv2Frame};
 use roles_logic_sv2::{
     common_messages_sv2::{Protocol, SetupConnection, SetupConnectionSuccess},
@@ -233,11 +236,14 @@ pub struct Device {
 fn open_channel(device_id: Option<String>) -> OpenStandardMiningChannel<'static> {
     let user_identity = device_id.unwrap_or_default().try_into().unwrap();
     let id: u32 = 10;
+    info!("Misuring pc hashrate");
+    let nominal_hash_rate = measure_hashrate(5) as f32;
+    info!("Pc hashrate is {}", nominal_hash_rate);
     info!("MINING DEVICE: send open channel with request id {}", id);
     OpenStandardMiningChannel {
         request_id: id.into(),
         user_identity,
-        nominal_hash_rate: 1000.0, // use 1000 or 10000 to test group channels
+        nominal_hash_rate,
         max_target: u256_from_int(567_u64),
     }
 }
@@ -284,7 +290,9 @@ impl Device {
         let handicap = miner.safe_lock(|m| m.handicap).unwrap();
         std::thread::spawn(move || loop {
             std::thread::sleep(std::time::Duration::from_micros(handicap.into()));
-            if miner.safe_lock(|m| m.next_share()).unwrap().is_ok() {
+            if miner.safe_lock(|m|  {
+                               m.next_share()
+            }).unwrap().is_ok() {
                 let nonce = miner.safe_lock(|m| m.header.unwrap().nonce).unwrap();
                 let time = miner.safe_lock(|m| m.header.unwrap().time).unwrap();
                 let job_id = miner.safe_lock(|m| m.job_id).unwrap();
@@ -308,7 +316,7 @@ impl Device {
 
         loop {
             let mut incoming: StdFrame = receiver.recv().await.unwrap().try_into().unwrap();
-            let message_type = dbg!(incoming.get_header().unwrap().msg_type());
+            let message_type = incoming.get_header().unwrap().msg_type();
             let payload = incoming.payload();
             let next = Device::handle_message_mining(
                 self_mutex.clone(),
@@ -604,4 +612,39 @@ impl Miner {
             Err(())
         }
     }
+}
+
+// returns hashrate based on how fast the device hashes over the given duration
+fn measure_hashrate(duration_secs: u64) -> f64 {
+    let mut share = generate_random_80_byte_array();
+    let start_time = Instant::now();
+    let mut hashes: u64 = 0;
+    let duration = Duration::from_secs(duration_secs);
+
+    while start_time.elapsed() < duration {
+        for _ in 0..10000 {
+            hash(&mut share);
+            hashes += 1;
+        }
+    }
+
+    let elapsed_secs = start_time.elapsed().as_secs_f64();
+    let hashrate = hashes as f64 / elapsed_secs;
+    let nominal_hash_rate = hashrate;
+    nominal_hash_rate
+}
+fn generate_random_80_byte_array() -> [u8; 80] {
+    let mut rng = thread_rng();
+    let mut arr = [0u8; 80];
+    rng.fill(&mut arr[..]);
+    arr
+}
+fn hash(share: &mut [u8; 80]) -> Target {
+    let nonce: [u8; 8] = share[0..8].try_into().unwrap();
+    let mut nonce = u64::from_le_bytes(nonce);
+    nonce += 1;
+    share[0..8].copy_from_slice(&nonce.to_le_bytes());
+    let hash = Sha256::digest(&share).to_vec();
+    let hash: U256<'static> = hash.try_into().unwrap();
+    hash.into()
 }
