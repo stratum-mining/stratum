@@ -136,23 +136,3 @@ jobs:
         run: |
           cd roles/roles-utils/rpc
           cargo publish
-      - name: Publish crate jd_client
-        continue-on-error: true
-        run: |
-          cargo publish --manifest-path=roles/jd-client/Cargo.toml
-      - name: Publish crate jd_server
-        continue-on-error: true
-        run: |
-          cargo publish --manifest-path=roles/jd-server/Cargo.toml
-      - name: Publish crate mining_proxy_sv2
-        continue-on-error: true
-        run: |
-          cargo publish --manifest-path=roles/mining-proxy/Cargo.toml
-      - name: Publish crate pool_sv2
-        continue-on-error: true
-        run: |
-          cargo publish --manifest-path=roles/pool/Cargo.toml
-      - name: Publish crate translator_sv2
-        continue-on-error: true
-        run: |
-          cargo publish --manifest-path=roles/translator/Cargo.toml

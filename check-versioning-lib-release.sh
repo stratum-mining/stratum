@@ -4,7 +4,7 @@
 crates=$(find . -name Cargo.toml -exec dirname {} \; | sort)
 
 # Filter out crates that are not published to crates.io
-filter=("benches" "examples" "test")
+filter=("benches" "examples" "test" "roles")
 for f in "${filter[@]}"; do
     crates=$(echo "$crates" | grep -v "$f")
 done
