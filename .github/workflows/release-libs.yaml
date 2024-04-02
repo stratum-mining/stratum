@@ -16,6 +16,18 @@ on:
       - main
 
 jobs:
+  check_versioning_lib_release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: run check-versioning-lib-release.sh
+      - uses: actions/checkout@v3
+        run: |
+          ./check-versioning-lib-release.sh
+          if [ $? -eq 1 ]; then
+            echo "Script returned exit code 1, halting the workflow"
+            exit 1
+          fi
+
   libs_publish:
     runs-on: ubuntu-latest
     steps:
