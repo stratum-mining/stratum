@@ -3,9 +3,6 @@
 git fetch origin main
 git fetch origin dev
 
-# this list was taken from `.github/workflows/release-libs.yaml`.
-# if anything changes there (crates added/removed to publishing pipeline)
-# those changes should be reflected here
 crates=(
 "utils/buffer"
 "protocols/v2/binary-sv2/no-serde-sv2/derive_codec"
@@ -28,6 +25,11 @@ crates=(
 "utils/key-utils"
 "roles/roles-utils/network-helpers"
 "roles/roles-utils/rpc"
+"roles/jd-client"
+"roles/jd-server"
+"roles/mining-proxy"
+"roles/pool"
+"roles/translator"
 )
 
 # Loop through each crate
