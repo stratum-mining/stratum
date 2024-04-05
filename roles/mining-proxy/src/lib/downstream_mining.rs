@@ -483,7 +483,7 @@ impl
     }
 }
 
-use network_helpers::plain_connection_tokio::PlainConnection;
+use network_helpers_sv2::plain_connection_tokio::PlainConnection;
 use std::net::SocketAddr;
 use tokio::net::TcpListener;
 

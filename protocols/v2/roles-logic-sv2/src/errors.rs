@@ -46,6 +46,7 @@ pub enum Error {
     VersionTooBig,
     TxVersionTooBig,
     TxVersionTooLow,
+    TxDecodingError(String),
     NotFoundChannelId,
     NoValidJob,
     NoValidTranslatorJob,
@@ -59,6 +60,7 @@ pub enum Error {
     TargetError(InputError),
     HashrateError(InputError),
     LogicErrorMessage(std::boxed::Box<AllMessages<'static>>),
+    JDSMissingTransactions,
 }
 
 impl From<BinarySv2Error> for Error {
@@ -138,6 +140,7 @@ impl Display for Error {
             VersionTooBig => write!(f, "We are trying to construct a block header with version bigger than i32::MAX"),
             TxVersionTooBig => write!(f, "Tx version can not be greater than i32::MAX"),
             TxVersionTooLow => write!(f, "Tx version can not be lower than 1"),
+            TxDecodingError(e) => write!(f, "Impossible to decode tx: {:?}", e),
             NotFoundChannelId => write!(f, "No downstream has been registred for this channel id"),
             NoValidJob => write!(f, "Impossible to create a standard job for channelA cause no valid job has been received from upstream yet"),
             NoValidTranslatorJob => write!(f, "Impossible to create a extended job for channel cause no valid job has been received from upstream yet"),
@@ -149,6 +152,7 @@ impl Display for Error {
             TargetError(e) => write!(f, "Impossible to get Target: {:?}", e),
             HashrateError(e) => write!(f, "Impossible to get Hashrate: {:?}", e),
             LogicErrorMessage(e) => write!(f, "Message is well formatted but can not be handled: {:?}", e),
+            JDSMissingTransactions => write!(f, "JD server cannot propagate the block: missing transactions"),
         }
     }
 }

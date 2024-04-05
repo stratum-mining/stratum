@@ -15,7 +15,7 @@ use codec_sv2::{Frame, HandshakeRole, StandardEitherFrame, StandardSv2Frame};
 
 use std::time;
 
-use network_helpers::Connection;
+use network_helpers_sv2::Connection;
 
 #[derive(Debug)]
 enum Expected {

@@ -1,5 +1,5 @@
 use async_std::net::TcpStream;
-use network_helpers::PlainConnection;
+use network_helpers_sv2::PlainConnection;
 use roles_logic_sv2::utils::Id;
 use std::{
     net::{IpAddr, Ipv4Addr, SocketAddr},

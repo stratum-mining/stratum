@@ -9,7 +9,7 @@ pub mod server_to_client;
 use crate::json_rpc::{Message, Response};
 
 /// Errors encountered during conversion between valid json_rpc messages and Sv1 messages.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum MethodError<'a> {
     /// If the json_rpc message call a method not defined by Sv1. It contains the called method
     MethodNotFound(String),
@@ -48,7 +48,7 @@ impl From<binary_sv2::Error> for ParsingMethodError {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ParsingMethodError {
     BadU256Convert(Box<binary_sv2::Error>),
     HexError(Box<FromHexError>),
@@ -115,7 +115,7 @@ impl ParsingMethodError {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Method<'a> {
     Client2Server(Client2Server<'a>),
     Server2Client(Server2Client<'a>),
@@ -123,7 +123,7 @@ pub enum Method<'a> {
     ErrorMessage(Message),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Client2Server<'a> {
     SuggestDifficulty(),
     Subscribe(client_to_server::Subscribe<'a>),
@@ -153,7 +153,7 @@ impl<'a> TryFrom<Message> for Client2Server<'a> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Server2Client<'a> {
     Notify(server_to_client::Notify<'a>),
     SetDifficulty(server_to_client::SetDifficulty),
@@ -181,7 +181,7 @@ impl<'a> TryFrom<Message> for Server2Client<'a> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Server2ClientResponse<'a> {
     Configure(server_to_client::Configure),
     Subscribe(server_to_client::Subscribe<'a>),
