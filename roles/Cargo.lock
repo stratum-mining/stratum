@@ -1349,6 +1349,7 @@ dependencies = [
  "network_helpers_sv2",
  "rand",
  "roles_logic_sv2",
+ "sha2 0.10.8",
  "stratum-common",
  "tracing",
  "tracing-subscriber",
