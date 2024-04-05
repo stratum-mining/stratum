@@ -37,13 +37,7 @@ If you then still feel the need to ask a question and need clarification, we rec
 - Open an [Issue](https://github.com/stratum-mining/stratum/issues/new).
 - Provide as much context as you can about what you're running into.
   
-OR / AND
-
-- Enter our [Discord](https://discord.gg/fsEW23wFYs) server.
-- Find the most appropriate channel for your question (typically it would be [#newbies-qs](https://discord.com/channels/950687892169195530/1012371967992672321)).
-- For higher chances of getting a quick reply to your questions, it's recommended to provide as much details as possible about the topic you're trying to learn more on.
-
-We will then take care of the issue and answer to your question as soon as possible.
+We will then take care of the issue as soon as possible.
 
 ## What Should I Know Before I Get Started
 
