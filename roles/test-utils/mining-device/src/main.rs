@@ -6,13 +6,13 @@ use std::{net::SocketAddr, sync::Arc, thread::sleep, time::Duration};
 
 use async_std::net::ToSocketAddrs;
 use clap::Parser;
+use rand::{thread_rng, Rng};
+use sha2::{Digest, Sha256};
+use std::time::Instant;
 use stratum_common::bitcoin::{
     blockdata::block::BlockHeader, hash_types::BlockHash, hashes::Hash, util::uint::Uint256,
 };
 use tracing::{error, info};
-use std::time::Instant;
-use rand::{Rng,thread_rng};
-use sha2::{Digest, Sha256};
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -290,9 +290,7 @@ impl Device {
         let handicap = miner.safe_lock(|m| m.handicap).unwrap();
         std::thread::spawn(move || loop {
             std::thread::sleep(std::time::Duration::from_micros(handicap.into()));
-            if miner.safe_lock(|m|  {
-                               m.next_share()
-            }).unwrap().is_ok() {
+            if miner.safe_lock(|m| m.next_share()).unwrap().is_ok() {
                 let nonce = miner.safe_lock(|m| m.header.unwrap().nonce).unwrap();
                 let time = miner.safe_lock(|m| m.header.unwrap().time).unwrap();
                 let job_id = miner.safe_lock(|m| m.job_id).unwrap();
@@ -629,9 +627,7 @@ fn measure_hashrate(duration_secs: u64) -> f64 {
     }
 
     let elapsed_secs = start_time.elapsed().as_secs_f64();
-    let hashrate = hashes as f64 / elapsed_secs;
-    let nominal_hash_rate = hashrate;
-    nominal_hash_rate
+    hashes as f64 / elapsed_secs
 }
 fn generate_random_80_byte_array() -> [u8; 80] {
     let mut rng = thread_rng();
