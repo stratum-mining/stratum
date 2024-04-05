@@ -82,13 +82,21 @@ The SRI project follows an open contributor model, where anyone is welcome to co
 
 2. **Create a Branch** 
 
-3. **Commit Your Changes** 
+3. **Commit Your Changes**
 
-4. **Submit a Pull Request:** once you're satisfied with your changes, submit a pull request to the original SRI repository. Provide a clear and concise description of the changes you've made. If your pull request addresses an existing issue, reference the issue number in the description. In order to contribute to the protocol implementation, every PR must be opened against `dev` branch. To better understand which is the SRI branches structure, please have a look [here](https://github.com/stratum-mining/stratum/blob/main/RELEASE.md#principal-branches).
+4. **Run Tests, Clippy, and Formatter:** 
 
-5. **Review and Iterate** 
+    `cargo test`: this command runs the project's test suite. Ensure that all tests pass without errors.
 
-6. **Merge and Close:** Once your pull request has been approved and all discussions have been resolved, a project maintainer will merge your changes into the `dev` branch. Your contribution will then be officially part of the project. The pull request will be closed, marking the completion of your contribution.
+    `cargo clippy`: Clippy is a linter tool for detecting common mistakes and style issues. Address any warnings or errors reported by Clippy.
+
+    `cargo fmt`: this command formats your code according to the project's style guidelines. Make sure to run this command to ensure consistency in code formatting.
+
+5. **Submit a Pull Request:** once you're satisfied with your changes, submit a pull request to the original SRI repository. Provide a clear and concise description of the changes you've made. If your pull request addresses an existing issue, reference the issue number in the description. In order to contribute to the protocol implementation, every PR must be opened against `dev` branch. To better understand which is the SRI branches structure, please have a look [here](https://github.com/stratum-mining/stratum/blob/main/RELEASE.md#principal-branches).
+
+6. **Review and Iterate** 
+
+7. **Merge and Close:** Once your pull request has been approved and all discussions have been resolved, a project maintainer will merge your changes into the `dev` branch. Your contribution will then be officially part of the project. The pull request will be closed, marking the completion of your contribution.
 
 ### Your First Code Contribution
 >In order to contribute, a basic learning about git and github is needed. If you're not familiar with them, have a look at https://docs.github.com/en/get-started/start-your-journey/git-and-github-learning-resources to dig into and learn how to use them.
