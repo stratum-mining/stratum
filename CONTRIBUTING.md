@@ -28,7 +28,9 @@ All types of contributions are encouraged and valued. See the [Table of Contents
 
 > If you want to ask a question, we assume that you have read the documentation available at [stratumprotocol.org/docs](https://stratumprotocol.org).
 
-Before you ask a question, it is best to search for existing [Issues](https://github.com/stratum-mining/stratum/issues) that might help you. In case you have found a suitable issue and still need clarification, you can write your question in this issue.
+Best way to ask a question is to hop onto our community [Discord](https://discord.com/invite/fsEW23wFYs). Two most suitable places to post a question are:
+- #newbies-qs and
+- #dev, for technical questions, suitable for developers building on top of SRI, or contributing to it.
 
 If you then still feel the need to ask a question and need clarification, we recommend the following:
 
@@ -39,7 +41,7 @@ OR / AND
 
 - Enter our [Discord](https://discord.gg/fsEW23wFYs) server.
 - Find the most appropriate channel for your question (typically it would be [#newbies-qs](https://discord.com/channels/950687892169195530/1012371967992672321)).
-- Provide as much context as you can and submit your question there.
+- For higher chances of getting a quick reply to your questions, it's recommended to provide as much details as possible about the topic you're trying to learn more on.
 
 We will then take care of the issue and answer to your question as soon as possible.
 
@@ -47,7 +49,7 @@ We will then take care of the issue and answer to your question as soon as possi
 
 ### Important Resources About SRI
 
-In order to have a better overview about what SRI covers, it's really suggested to have a look at the following resources before getting started with contributions.
+In order to have a better overview about what SRI covers, have a look at the following resources before getting started with contributions.
 
   - Stratum V2 Protocol [Specifications](https://github.com/stratum-mining/sv2-spec). 
     - Studying SV2 specs can take some time and requires effort, but it's the best way to properly understand what SV2 is about and how it's composed.
