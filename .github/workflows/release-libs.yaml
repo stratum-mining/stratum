@@ -10,14 +10,26 @@
 
 name: Release Libs
 
-on: 
-  # Manually run by going to "Actions/Release" in Github and running the workflow
-  workflow_dispatch:
+on:
+  pull_request:
+    branches:
+      - main
 
 jobs:
   libs_publish:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Run check-versioning-lib-release.sh
+        run: |
+          ./check-versioning-lib-release.sh
+          if [ $? -eq 1 ]; then
+            echo "Script returned exit code 1, halting the workflow"
+            exit 1
+          fi
+
       - uses: actions/checkout@v3
       - uses: actions-rs/toolchain@v1
         with:
@@ -138,20 +150,25 @@ jobs:
       - name: Publish crate jd_client
         continue-on-error: true
         run: |
-          cargo publish --manifest-path=roles/jd-client/Cargo.toml
+          cd roles/jd-client
+          cargo publish
       - name: Publish crate jd_server
         continue-on-error: true
         run: |
-          cargo publish --manifest-path=roles/jd-server/Cargo.toml
+          cd roles/jd-server
+          cargo publish
       - name: Publish crate mining_proxy_sv2
         continue-on-error: true
         run: |
-          cargo publish --manifest-path=roles/mining-proxy/Cargo.toml
+          cd roles/mining-proxy
+          cargo publish
       - name: Publish crate pool_sv2
         continue-on-error: true
         run: |
-          cargo publish --manifest-path=roles/pool/Cargo.toml
+          cd roles/pool
+          cargo publish
       - name: Publish crate translator_sv2
         continue-on-error: true
         run: |
-          cargo publish --manifest-path=roles/translator/Cargo.toml
+          cd roles/translator
+          cargo publish
