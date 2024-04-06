@@ -74,11 +74,11 @@ pub enum OnNewShare {
 
 impl OnNewShare {
     /// convert standard share into extended share
-    pub fn into_extended(&mut self, extranonce: Vec<u8>, up_id: u32) {
+    pub fn into_extended(&mut self, extranonce: Vec<u8>, up_id: u32) -> Result<(), Error> {
         match self {
-            OnNewShare::SendErrorDownstream(_) => (),
+            OnNewShare::SendErrorDownstream(_) => Ok(()),
             OnNewShare::SendSubmitShareUpstream((share, template_id)) => match share {
-                Share::Extended(_) => (),
+                Share::Extended(_) => Ok(()),
                 Share::Standard((share, _)) => {
                     let share = SubmitSharesExtended {
                         channel_id: up_id,
@@ -90,11 +90,12 @@ impl OnNewShare {
                         extranonce: extranonce.try_into().unwrap(),
                     };
                     *self = Self::SendSubmitShareUpstream((Share::Extended(share), *template_id));
+                    Ok(())
                 }
             },
-            OnNewShare::RelaySubmitShareUpstream => (),
+            OnNewShare::RelaySubmitShareUpstream => Ok(()),
             OnNewShare::ShareMeetBitcoinTarget((share, t_id, coinbase, ext)) => match share {
-                Share::Extended(_) => (),
+                Share::Extended(_) => Ok(()),
                 Share::Standard((share, _)) => {
                     let share = SubmitSharesExtended {
                         channel_id: up_id,
@@ -111,9 +112,10 @@ impl OnNewShare {
                         coinbase.clone(),
                         ext.to_vec(),
                     ));
+                    Ok(())
                 }
             },
-            OnNewShare::ShareMeetDownstreamTarget => todo!(),
+            OnNewShare::ShareMeetDownstreamTarget => Err(Error::ShareDownstreamTargetNowAllowed),
         }
     }
 }
@@ -859,8 +861,10 @@ impl ChannelFactory {
                         coinbase,
                         extranonce.to_vec(),
                     ));
-                    res.into_extended(extranonce_, up_id);
-                    Ok(res)
+                    match res.into_extended(extranonce_, up_id) {
+                        Ok(()) => Ok(res),
+                        Err(e) => Err(e),
+                    }
                 }
                 ExtendedChannelKind::Pool => Ok(OnNewShare::ShareMeetBitcoinTarget((
                     m,
@@ -875,8 +879,10 @@ impl ChannelFactory {
                     let upstream_extranonce_space = self.extranonces.get_range0_len();
                     let extranonce = extranonce[upstream_extranonce_space..].to_vec();
                     let mut res = OnNewShare::SendSubmitShareUpstream((m, template_id));
-                    res.into_extended(extranonce, up_id);
-                    Ok(res)
+                    match res.into_extended(extranonce, up_id) {
+                        Ok(()) => Ok(res),
+                        Err(e) => Err(e),
+                    }
                 }
                 ExtendedChannelKind::Pool => {
                     Ok(OnNewShare::SendSubmitShareUpstream((m, template_id)))
