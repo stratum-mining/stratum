@@ -14,7 +14,7 @@ bitcoin_hashes = "0.3.2"
 byteorder = "1.2.7"
 pretty_env_logger = "0.4.0"
 log = "0.4.0"
-hex-conservative = "0.4.3"
+hex = "0.4.3"
 serde = { version = "1.0.89", default-features = false, features = ["derive", "alloc"] }
 serde_json = { version = "1.0.64", default-features = false, features = ["alloc"] }
 tracing = {version = "0.1"}
