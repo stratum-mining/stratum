@@ -236,7 +236,7 @@ pub struct Device {
 fn open_channel(device_id: Option<String>) -> OpenStandardMiningChannel<'static> {
     let user_identity = device_id.unwrap_or_default().try_into().unwrap();
     let id: u32 = 10;
-    info!("Misuring pc hashrate");
+    info!("Measuring pc hashrate");
     let nominal_hash_rate = measure_hashrate(5) as f32;
     info!("Pc hashrate is {}", nominal_hash_rate);
     info!("MINING DEVICE: send open channel with request id {}", id);
