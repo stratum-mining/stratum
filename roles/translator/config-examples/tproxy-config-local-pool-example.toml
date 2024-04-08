@@ -21,7 +21,6 @@ min_supported_version = 2
 # Max value for CGminer: 8
 # Min value: 2
 min_extranonce2_size = 8
-coinbase_reward_sat = 5_000_000_000
 
 # Difficulty params
 [downstream_difficulty_config]
