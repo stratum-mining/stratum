@@ -77,7 +77,12 @@ where
                     .safe_lock(|x| x.handle_provide_missing_transactions(message))
                     .map_err(|e| crate::Error::PoisonLock(e.to_string()))?
             }
-            Ok(_) => todo!(),
+            // the following messsages are not supposed to be received from the server
+            Ok(JobDeclaration::AllocateMiningJobToken(_)) => panic!(),
+            Ok(JobDeclaration::DeclareMiningJob(_)) => panic!(),
+            Ok(JobDeclaration::IdentifyTransactionsSuccess(_)) => panic!(),
+            Ok(JobDeclaration::ProvideMissingTransactionsSuccess(_)) => panic!(),
+            Ok(JobDeclaration::SubmitSolution(_)) => panic!(),
             Err(e) => Err(e),
         }
     }
@@ -176,8 +181,12 @@ where
                     .safe_lock(|x| x.handle_submit_solution(message))
                     .map_err(|e| crate::Error::PoisonLock(e.to_string()))?
             }
-
-            Ok(_) => todo!(),
+            // the following messsages are not supposed to be received from the client
+            Ok(JobDeclaration::DeclareMiningJobError(_)) => panic!(),
+            Ok(JobDeclaration::DeclareMiningJobSuccess(_)) => panic!(),
+            Ok(JobDeclaration::AllocateMiningJobTokenSuccess(_)) => panic!(),
+            Ok(JobDeclaration::IdentifyTransactions(_)) => panic!(),
+            Ok(JobDeclaration::ProvideMissingTransactions(_)) => panic!(),
             Err(e) => Err(e),
         }
     }
