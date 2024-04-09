@@ -57,7 +57,9 @@ impl std::fmt::Display for JdsError {
 }
 
 impl From<config::ConfigError> for JdsError {
-    fn from(e: config::ConfigError) -> JdsError { JdsError::ConfigError(e) }
+    fn from(e: config::ConfigError) -> JdsError {
+        JdsError::ConfigError(e)
+    }
 }
 
 impl From<std::io::Error> for JdsError {

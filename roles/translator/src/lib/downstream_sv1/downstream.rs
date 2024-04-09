@@ -1,8 +1,8 @@
 use crate::{
     downstream_sv1,
     error::TProxyResult,
-    tproxy_config::{DownstreamDifficultyConfig, UpstreamDifficultyConfig},
     status,
+    tproxy_config::{DownstreamDifficultyConfig, UpstreamDifficultyConfig},
 };
 use async_channel::{bounded, Receiver, Sender};
 use async_std::{

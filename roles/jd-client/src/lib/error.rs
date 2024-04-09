@@ -80,7 +80,9 @@ impl<'a> fmt::Display for JdcError<'a> {
 }
 
 impl<'a> From<config::ConfigError> for JdcError<'a> {
-    fn from(e: config::ConfigError) -> JdcError<'a> { JdcError::ConfigError(e) }
+    fn from(e: config::ConfigError) -> JdcError<'a> {
+        JdcError::ConfigError(e)
+    }
 }
 
 impl<'a> From<binary_sv2::Error> for JdcError<'a> {

@@ -4,8 +4,8 @@ use crate::{
         TProxyError::{CodecNoise, InvalidExtranonce, PoisonLock, UpstreamIncoming},
         TProxyResult,
     },
-    tproxy_config::UpstreamDifficultyConfig,
     status,
+    tproxy_config::UpstreamDifficultyConfig,
     upstream_sv2::{EitherFrame, Message, StdFrame, UpstreamConnection},
 };
 use async_channel::{Receiver, Sender};
@@ -439,8 +439,10 @@ impl Upstream {
     #[allow(clippy::result_large_err)]
     fn get_job_id(
         self_: &Arc<Mutex<Self>>,
-    ) -> Result<Result<u32, super::super::error::TProxyError<'static>>, super::super::error::TProxyError<'static>>
-    {
+    ) -> Result<
+        Result<u32, super::super::error::TProxyError<'static>>,
+        super::super::error::TProxyError<'static>,
+    > {
         self_
             .safe_lock(|s| {
                 if s.is_work_selection_enabled() {
@@ -449,9 +451,10 @@ impl Upstream {
                             RolesLogicError::NoValidTranslatorJob,
                         ))
                 } else {
-                    s.job_id.ok_or(super::super::error::TProxyError::RolesSv2Logic(
-                        RolesLogicError::NoValidJob,
-                    ))
+                    s.job_id
+                        .ok_or(super::super::error::TProxyError::RolesSv2Logic(
+                            RolesLogicError::NoValidJob,
+                        ))
                 }
             })
             .map_err(|_e| PoisonLock)

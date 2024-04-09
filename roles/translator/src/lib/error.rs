@@ -114,7 +114,9 @@ impl<'a> fmt::Display for TProxyError<'a> {
 }
 
 impl<'a> From<config::ConfigError> for TProxyError<'a> {
-    fn from(e: config::ConfigError) -> TProxyError<'a> { TProxyError::ConfigError(e) }
+    fn from(e: config::ConfigError) -> TProxyError<'a> {
+        TProxyError::ConfigError(e)
+    }
 }
 
 impl<'a> From<binary_sv2::Error> for TProxyError<'a> {
