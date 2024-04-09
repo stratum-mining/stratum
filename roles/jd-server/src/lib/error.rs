@@ -12,8 +12,7 @@ pub type JdsResult<T> = core::result::Result<T, JdsError>;
 
 #[derive(std::fmt::Debug)]
 pub enum JdsError {
-    BadCliArgs,
-    BadTomlDeserialize(toml::de::Error),
+    ConfigError(config::ConfigError),
     Io(std::io::Error),
     ChannelSend(Box<dyn std::marker::Send + Debug>),
     ChannelRecv(async_channel::RecvError),
@@ -34,8 +33,7 @@ impl std::fmt::Display for JdsError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         use JdsError::*;
         match self {
-            BadCliArgs => write!(f, "Bad CLI arg input"),
-            BadTomlDeserialize(ref e) => write!(f, "Bad `toml` deserialize: `{:?}`", e),
+            ConfigError(e) => write!(f, "Config error: {:?}", e),
             Io(ref e) => write!(f, "I/O error: `{:?}", e),
             ChannelSend(ref e) => write!(f, "Channel send failed: `{:?}`", e),
             ChannelRecv(ref e) => write!(f, "Channel recv failed: `{:?}`", e),
@@ -56,6 +54,10 @@ impl std::fmt::Display for JdsError {
             NoLastDeclaredJob => write!(f, "Last declared job not found"),
         }
     }
+}
+
+impl From<config::ConfigError> for JdsError {
+    fn from(e: config::ConfigError) -> JdsError { JdsError::ConfigError(e) }
 }
 
 impl From<std::io::Error> for JdsError {
@@ -91,12 +93,6 @@ impl From<noise_sv2::Error> for JdsError {
 impl From<roles_logic_sv2::Error> for JdsError {
     fn from(e: roles_logic_sv2::Error) -> JdsError {
         JdsError::RolesLogic(e)
-    }
-}
-
-impl From<toml::de::Error> for JdsError {
-    fn from(e: toml::de::Error) -> Self {
-        JdsError::BadTomlDeserialize(e)
     }
 }
 

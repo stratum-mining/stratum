@@ -12,23 +12,20 @@ pub type ProxyResult<T> = core::result::Result<T, ProxyError>;
 #[allow(clippy::large_enum_variant)]
 #[allow(clippy::enum_variant_names)]
 pub enum ProxyError {
-    BadCliArgs,
-    BadTomlDeserialize(toml::de::Error),
+    ConfigError(config::ConfigError),
     Io(std::io::Error),
     SendError(SendError<EitherFrame>),
     UpstreamNotAvailabe(SocketAddr),
     SetupConnectionError(String),
 }
 
+impl From<config::ConfigError> for ProxyError {
+    fn from(e: config::ConfigError) -> ProxyError { ProxyError::ConfigError(e) }
+}
+
 impl From<std::io::Error> for ProxyError {
     fn from(e: std::io::Error) -> ProxyError {
         ProxyError::Io(e)
-    }
-}
-
-impl From<toml::de::Error> for ProxyError {
-    fn from(e: toml::de::Error) -> Self {
-        ProxyError::BadTomlDeserialize(e)
     }
 }
 

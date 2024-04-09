@@ -8,8 +8,7 @@ use roles_logic_sv2::parsers::Mining;
 
 #[derive(std::fmt::Debug)]
 pub enum PoolError {
-    BadCliArgs,
-    BadTomlDeserialize(toml::de::Error),
+    ConfigError(config::ConfigError),
     Io(std::io::Error),
     ChannelSend(Box<dyn std::marker::Send + Debug>),
     ChannelRecv(async_channel::RecvError),
@@ -28,8 +27,7 @@ impl std::fmt::Display for PoolError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         use PoolError::*;
         match self {
-            BadCliArgs => write!(f, "Bad CLI arg input"),
-            BadTomlDeserialize(ref e) => write!(f, "Bad `toml` deserialize: `{:?}`", e),
+            ConfigError(e) => write!(f, "Config error: {:?}", e),
             Io(ref e) => write!(f, "I/O error: `{:?}", e),
             ChannelSend(ref e) => write!(f, "Channel send failed: `{:?}`", e),
             ChannelRecv(ref e) => write!(f, "Channel recv failed: `{:?}`", e),
@@ -49,6 +47,11 @@ impl std::fmt::Display for PoolError {
 }
 
 pub type PoolResult<T> = Result<T, PoolError>;
+
+impl From<config::ConfigError> for PoolError {
+    fn from(e: config::ConfigError) -> PoolError { PoolError::ConfigError(e) }
+}
+
 
 impl From<std::io::Error> for PoolError {
     fn from(e: std::io::Error) -> PoolError {
@@ -77,12 +80,6 @@ impl From<codec_sv2::Error> for PoolError {
 impl From<noise_sv2::Error> for PoolError {
     fn from(e: noise_sv2::Error) -> PoolError {
         PoolError::Noise(e)
-    }
-}
-
-impl From<toml::de::Error> for PoolError {
-    fn from(e: toml::de::Error) -> Self {
-        PoolError::BadTomlDeserialize(e)
     }
 }
 
