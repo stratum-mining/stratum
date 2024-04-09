@@ -1,4 +1,7 @@
 use std::path::PathBuf;
+use tracing::error;
+use crate::lib::error::{Error, ProxyResult};
+use crate::lib::proxy_config::ProxyConfig;
 
 #[derive(Debug)]
 pub struct Args {
@@ -56,4 +59,18 @@ impl Args {
         };
         Ok(Self { config_path })
     }
+}
+
+/// Process CLI args, if any.
+#[allow(clippy::result_large_err)]
+pub fn process_cli_args<'a>() -> ProxyResult<'a, ProxyConfig> {
+    let args = match Args::from_args() {
+        Ok(cfg) => cfg,
+        Err(help) => {
+            error!("{}", help);
+            return Err(Error::BadCliArgs);
+        }
+    };
+    let config_file = std::fs::read_to_string(args.config_path)?;
+    Ok(toml::from_str::<ProxyConfig>(&config_file)?)
 }

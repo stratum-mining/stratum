@@ -1,7 +1,9 @@
+use crate::lib::{
+    error::{JdsResult, JdsError},
+    jds_config::JdsConfig
+};
 use std::path::PathBuf;
 use tracing::error;
-use crate::lib::error::{JdcError, JdcResult};
-use crate::lib::jdc_config::JdcConfig;
 
 #[derive(Debug)]
 pub struct Args {
@@ -21,8 +23,9 @@ enum ArgsResult {
 }
 
 impl Args {
-    const DEFAULT_CONFIG_PATH: &'static str = "jdc-config.toml";
-    const HELP_MSG: &'static str = "Usage: -h/--help, -c/--config <path|default jdc-config.toml>";
+    const DEFAULT_CONFIG_PATH: &'static str = "jds-config.toml";
+    const HELP_MSG: &'static str =
+        "Usage: -h/--help, -c/--config <path|default jds-config.toml>";
 
     pub fn from_args() -> Result<Self, String> {
         let cli_args = std::env::args();
@@ -47,16 +50,7 @@ impl Args {
                             Some(ArgsResult::None)
                         }
                     },
-                    ArgsState::ExpectPath => {
-                        let path = PathBuf::from(item.clone());
-                        if !path.exists() {
-                            return Some(ArgsResult::Help(format!(
-                                "Error: File '{}' does not exist!",
-                                path.display()
-                            )));
-                        }
-                        Some(ArgsResult::Config(path))
-                    },
+                    ArgsState::ExpectPath => Some(ArgsResult::Config(PathBuf::from(item))),
                     ArgsState::Done => None,
                 }
             })
@@ -72,14 +66,14 @@ impl Args {
 
 /// Process CLI args, if any.
 #[allow(clippy::result_large_err)]
-pub fn process_cli_args<'a>() -> JdcResult<'a, JdcConfig> {
+pub fn process_cli_args<'a>() -> JdsResult<JdsConfig> {
     let args = match Args::from_args() {
         Ok(cfg) => cfg,
         Err(help) => {
             error!("{}", help);
-            return Err(JdcError::BadCliArgs);
+            return Err(JdsError::BadCliArgs);
         }
     };
     let config_file = std::fs::read_to_string(args.config_path)?;
-    Ok(toml::from_str::<JdcConfig>(&config_file)?)
+    Ok(toml::from_str::<JdsConfig>(&config_file)?)
 }

@@ -1,7 +1,9 @@
 pub mod downstream_mining;
 pub mod error;
+pub mod proxy_config;
 pub mod upstream_mining;
 
+use proxy_config::ProxyConfig;
 use once_cell::sync::OnceCell;
 use roles_logic_sv2::{
     routing_logic::{CommonRoutingLogic, MiningProxyRoutingLogic, MiningRoutingLogic},
@@ -96,21 +98,10 @@ pub enum ChannelKind {
     Extended,
 }
 
-#[derive(Debug, Deserialize, Clone)]
-pub struct Config {
-    pub upstreams: Vec<UpstreamMiningValues>,
-    pub listen_address: String,
-    pub listen_mining_port: u16,
-    pub max_supported_version: u16,
-    pub min_supported_version: u16,
-    downstream_share_per_minute: f32,
-    expected_total_downstream_hr: f32,
-    reconnect: bool,
-}
 pub async fn initialize_r_logic(
     upstreams: &[UpstreamMiningValues],
     group_id: Arc<Mutex<GroupId>>,
-    config: Config,
+    config: ProxyConfig,
 ) -> RLogic {
     let channel_ids = Arc::new(Mutex::new(Id::new()));
     let mut upstream_mining_nodes = Vec::with_capacity(upstreams.len());
