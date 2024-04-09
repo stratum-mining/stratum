@@ -1,13 +1,15 @@
 use super::{
     error::{PoolError, PoolResult},
     status,
+    pool_config::{PoolConfig, get_coinbase_output}
 };
 use async_channel::{Receiver, Sender};
 use binary_sv2::U256;
 use codec_sv2::{Frame, HandshakeRole, Responder, StandardEitherFrame, StandardSv2Frame};
 use error_handling::handle_result;
-use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
+
 use network_helpers_sv2::noise_connection_tokio::Connection;
+
 use nohash_hasher::BuildNoHashHasher;
 use roles_logic_sv2::{
     channel_logic::channel_factory::PoolChannelFactory,
@@ -19,16 +21,14 @@ use roles_logic_sv2::{
     parsers::{Mining, PoolMessages},
     routing_logic::MiningRoutingLogic,
     template_distribution_sv2::{NewTemplate, SetNewPrevHash, SubmitSolution},
-    utils::{CoinbaseOutput as CoinbaseOutput_, Mutex},
+    utils::Mutex,
 };
-use serde::Deserialize;
 use std::{
     collections::HashMap,
-    convert::{TryFrom, TryInto},
+    convert::TryInto,
     net::SocketAddr,
     sync::Arc,
 };
-use stratum_common::bitcoin::{Script, TxOut};
 use tokio::{net::TcpListener, task};
 use tracing::{debug, error, info, warn};
 
@@ -40,58 +40,6 @@ pub mod message_handler;
 pub type Message = PoolMessages<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;
 pub type EitherFrame = StandardEitherFrame<Message>;
-
-pub fn get_coinbase_output(config: &Configuration) -> Result<Vec<TxOut>, Error> {
-    let mut result = Vec::new();
-    for coinbase_output_pool in &config.coinbase_outputs {
-        let coinbase_output: CoinbaseOutput_ = coinbase_output_pool.try_into()?;
-        let output_script: Script = coinbase_output.try_into()?;
-        result.push(TxOut {
-            value: 0,
-            script_pubkey: output_script,
-        });
-    }
-    match result.is_empty() {
-        true => Err(Error::EmptyCoinbaseOutputs),
-        _ => Ok(result),
-    }
-}
-
-#[derive(Debug, Deserialize, Clone)]
-pub struct CoinbaseOutput {
-    output_script_type: String,
-    output_script_value: String,
-}
-
-impl TryFrom<&CoinbaseOutput> for CoinbaseOutput_ {
-    type Error = Error;
-
-    fn try_from(pool_output: &CoinbaseOutput) -> Result<Self, Self::Error> {
-        match pool_output.output_script_type.as_str() {
-            "TEST" | "P2PK" | "P2PKH" | "P2WPKH" | "P2SH" | "P2WSH" | "P2TR" => {
-                Ok(CoinbaseOutput_ {
-                    output_script_type: pool_output.clone().output_script_type,
-                    output_script_value: pool_output.clone().output_script_value,
-                })
-            }
-            _ => Err(Error::UnknownOutputScriptType),
-        }
-    }
-}
-
-#[derive(Debug, Deserialize, Clone)]
-pub struct Configuration {
-    pub listen_address: String,
-    pub tp_address: String,
-    pub tp_authority_public_key: Option<Secp256k1PublicKey>,
-    pub authority_public_key: Secp256k1PublicKey,
-    pub authority_secret_key: Secp256k1SecretKey,
-    pub cert_validity_sec: u64,
-    pub coinbase_outputs: Vec<CoinbaseOutput>,
-    pub pool_signature: String,
-    #[cfg(feature = "test_only_allow_unencrypted")]
-    pub test_only_listen_adress_plain: String,
-}
 
 #[derive(Debug)]
 pub struct Downstream {
@@ -314,7 +262,7 @@ impl Pool {
     #[cfg(feature = "test_only_allow_unencrypted")]
     async fn accept_incoming_plain_connection(
         self_: Arc<Mutex<Pool>>,
-        config: Configuration,
+        config: PoolConfig,
     ) -> PoolResult<()> {
         let listner = TcpListener::bind(&config.test_only_listen_adress_plain)
             .await
@@ -342,7 +290,7 @@ impl Pool {
 
     async fn accept_incoming_connection(
         self_: Arc<Mutex<Pool>>,
-        config: Configuration,
+        config: PoolConfig,
     ) -> PoolResult<()> {
         let status_tx = self_.safe_lock(|s| s.status_tx.clone())?;
         let listener = TcpListener::bind(&config.listen_address).await?;
@@ -518,7 +466,7 @@ impl Pool {
     }
 
     pub fn start(
-        config: Configuration,
+        config: PoolConfig,
         new_template_rx: Receiver<NewTemplate<'static>>,
         new_prev_hash_rx: Receiver<SetNewPrevHash<'static>>,
         solution_sender: Sender<SubmitSolution<'static>>,
@@ -673,7 +621,7 @@ mod test {
     #[test]
     fn test_coinbase_outputs_from_config() {
         // Load config
-        let config: super::Configuration = toml::from_str(
+        let config: super::PoolConfig = toml::from_str(
             &std::fs::read_to_string("./config-examples/pool-config-local-tp-example.toml")
                 .unwrap(),
         )
