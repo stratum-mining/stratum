@@ -108,16 +108,28 @@ pub async fn handle_error(
 ) -> error_handling::ErrorBranch {
     tracing::error!("Error: {:?}", &e);
     match e {
-        TProxyError::VecToSlice32(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
-        TProxyError::ConfigError(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
+        TProxyError::VecToSlice32(_) => {
+            send_status(sender, e, error_handling::ErrorBranch::Break).await
+        }
+        TProxyError::ConfigError(_) => {
+            send_status(sender, e, error_handling::ErrorBranch::Break).await
+        }
         // Errors on bad `serde_json` serialize/deserialize.
-        TProxyError::BadSerdeJson(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
+        TProxyError::BadSerdeJson(_) => {
+            send_status(sender, e, error_handling::ErrorBranch::Break).await
+        }
         // Errors from `binary_sv2` crate.
-        TProxyError::BinarySv2(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
+        TProxyError::BinarySv2(_) => {
+            send_status(sender, e, error_handling::ErrorBranch::Break).await
+        }
         // Errors on bad noise handshake.
-        TProxyError::CodecNoise(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
+        TProxyError::CodecNoise(_) => {
+            send_status(sender, e, error_handling::ErrorBranch::Break).await
+        }
         // Errors from `framing_sv2` crate.
-        TProxyError::FramingSv2(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
+        TProxyError::FramingSv2(_) => {
+            send_status(sender, e, error_handling::ErrorBranch::Break).await
+        }
         //If the pool sends the tproxy an invalid extranonce
         TProxyError::InvalidExtranonce(_) => {
             send_status(sender, e, error_handling::ErrorBranch::Break).await
@@ -125,14 +137,20 @@ pub async fn handle_error(
         // Errors on bad `TcpStream` connection.
         TProxyError::Io(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
         // Errors on bad `String` to `int` conversion.
-        TProxyError::ParseInt(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
+        TProxyError::ParseInt(_) => {
+            send_status(sender, e, error_handling::ErrorBranch::Break).await
+        }
         // Errors from `roles_logic_sv2` crate.
-        TProxyError::RolesSv2Logic(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
+        TProxyError::RolesSv2Logic(_) => {
+            send_status(sender, e, error_handling::ErrorBranch::Break).await
+        }
         TProxyError::UpstreamIncoming(_) => {
             send_status(sender, e, error_handling::ErrorBranch::Break).await
         }
         // SV1 protocol library error
-        TProxyError::V1Protocol(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
+        TProxyError::V1Protocol(_) => {
+            send_status(sender, e, error_handling::ErrorBranch::Break).await
+        }
         TProxyError::SubprotocolMining(_) => {
             send_status(sender, e, error_handling::ErrorBranch::Break).await
         }
@@ -155,7 +173,9 @@ pub async fn handle_error(
         TProxyError::SetDifficultyToMessage(_) => {
             send_status(sender, e, error_handling::ErrorBranch::Break).await
         }
-        TProxyError::Infallible(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
+        TProxyError::Infallible(_) => {
+            send_status(sender, e, error_handling::ErrorBranch::Break).await
+        }
         TProxyError::Sv2ProtocolError(ref inner) => {
             match inner {
                 // dont notify main thread just continue

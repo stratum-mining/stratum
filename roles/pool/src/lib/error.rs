@@ -49,9 +49,10 @@ impl std::fmt::Display for PoolError {
 pub type PoolResult<T> = Result<T, PoolError>;
 
 impl From<config::ConfigError> for PoolError {
-    fn from(e: config::ConfigError) -> PoolError { PoolError::ConfigError(e) }
+    fn from(e: config::ConfigError) -> PoolError {
+        PoolError::ConfigError(e)
+    }
 }
-
 
 impl From<std::io::Error> for PoolError {
     fn from(e: std::io::Error) -> PoolError {

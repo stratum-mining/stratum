@@ -20,7 +20,9 @@ pub enum ProxyError {
 }
 
 impl From<config::ConfigError> for ProxyError {
-    fn from(e: config::ConfigError) -> ProxyError { ProxyError::ConfigError(e) }
+    fn from(e: config::ConfigError) -> ProxyError {
+        ProxyError::ConfigError(e)
+    }
 }
 
 impl From<std::io::Error> for ProxyError {

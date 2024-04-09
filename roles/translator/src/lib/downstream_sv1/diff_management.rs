@@ -52,7 +52,9 @@ impl Downstream {
 
     /// Called before a miner disconnects so we can remove the miner's hashrate from the aggregated channel hashrate
     #[allow(clippy::result_large_err)]
-    pub fn remove_miner_hashrate_from_channel(self_: Arc<Mutex<Self>>) -> TProxyResult<'static, ()> {
+    pub fn remove_miner_hashrate_from_channel(
+        self_: Arc<Mutex<Self>>,
+    ) -> TProxyResult<'static, ()> {
         self_
             .safe_lock(|d| {
                 d.upstream_difficulty_config
