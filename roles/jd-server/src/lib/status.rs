@@ -98,10 +98,7 @@ async fn send_status(
 pub async fn handle_error(sender: &Sender, e: JdsError) -> error_handling::ErrorBranch {
     tracing::debug!("Error: {:?}", &e);
     match e {
-        JdsError::BadCliArgs => send_status(sender, e, error_handling::ErrorBranch::Break).await,
-        JdsError::BadTomlDeserialize(_) => {
-            send_status(sender, e, error_handling::ErrorBranch::Break).await
-        }
+        JdsError::ConfigError(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
         JdsError::Io(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
         JdsError::ChannelSend(_) => {
             //This should be a continue because if we fail to send to 1 downstream we should continue

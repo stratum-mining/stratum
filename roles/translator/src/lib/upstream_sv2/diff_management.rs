@@ -1,7 +1,7 @@
 use super::Upstream;
 
 use super::super::{
-    error::{Error::PoisonLock, ProxyResult},
+    error::{TProxyError::PoisonLock, TProxyResult},
     upstream_sv2::{EitherFrame, Message, StdFrame},
 };
 use binary_sv2::u256_from_int;
@@ -12,7 +12,7 @@ use std::{sync::Arc, time::Duration};
 
 impl Upstream {
     /// this function checks if the elapsed time since the last update has surpassed the config
-    pub(super) async fn try_update_hashrate(self_: Arc<Mutex<Self>>) -> ProxyResult<'static, ()> {
+    pub(super) async fn try_update_hashrate(self_: Arc<Mutex<Self>>) -> TProxyResult<'static, ()> {
         let (channel_id_option, diff_mgmt, tx_frame) = self_
             .safe_lock(|u| {
                 (
@@ -22,7 +22,7 @@ impl Upstream {
                 )
             })
             .map_err(|_e| PoisonLock)?;
-        let channel_id = channel_id_option.ok_or(super::super::error::Error::RolesSv2Logic(
+        let channel_id = channel_id_option.ok_or(super::super::error::TProxyError::RolesSv2Logic(
             RolesLogicError::NotFoundChannelId,
         ))?;
         let (timeout, new_hashrate) = diff_mgmt
@@ -39,7 +39,7 @@ impl Upstream {
         let frame: EitherFrame = either_frame.into();
 
         tx_frame.send(frame).await.map_err(|e| {
-            super::super::error::Error::ChannelErrorSender(
+            super::super::error::TProxyError::ChannelErrorSender(
                 super::super::error::ChannelSendError::General(e.to_string()),
             )
         })?;

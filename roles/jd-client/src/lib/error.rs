@@ -28,10 +28,7 @@ pub enum ChannelSendError<'a> {
 #[derive(Debug)]
 pub enum JdcError<'a> {
     VecToSlice32(Vec<u8>),
-    /// Errors on bad CLI argument input.
-    BadCliArgs,
-    /// Errors on bad `toml` deserialize.
-    BadTomlDeserialize(toml::de::Error),
+    ConfigError(config::ConfigError),
     /// Errors from `binary_sv2` crate.
     BinarySv2(binary_sv2::Error),
     /// Errors on bad noise handshake.
@@ -62,8 +59,7 @@ impl<'a> fmt::Display for JdcError<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use JdcError::*;
         match self {
-            BadCliArgs => write!(f, "Bad CLI arg input"),
-            BadTomlDeserialize(ref e) => write!(f, "Bad `toml` deserialize: `{:?}`", e),
+            ConfigError(e) => write!(f, "Config error: {:?}", e),
             BinarySv2(ref e) => write!(f, "Binary SV2 error: `{:?}`", e),
             CodecNoise(ref e) => write!(f, "Noise error: `{:?}", e),
             FramingSv2(ref e) => write!(f, "Framing SV2 error: `{:?}`", e),
@@ -81,6 +77,10 @@ impl<'a> fmt::Display for JdcError<'a> {
             Infallible(ref e) => write!(f, "Infallible Error:`{:?}`", e),
         }
     }
+}
+
+impl<'a> From<config::ConfigError> for JdcError<'a> {
+    fn from(e: config::ConfigError) -> JdcError<'a> { JdcError::ConfigError(e) }
 }
 
 impl<'a> From<binary_sv2::Error> for JdcError<'a> {
@@ -116,12 +116,6 @@ impl<'a> From<std::num::ParseIntError> for JdcError<'a> {
 impl<'a> From<roles_logic_sv2::errors::Error> for JdcError<'a> {
     fn from(e: roles_logic_sv2::errors::Error) -> Self {
         JdcError::RolesSv2Logic(e)
-    }
-}
-
-impl<'a> From<toml::de::Error> for JdcError<'a> {
-    fn from(e: toml::de::Error) -> Self {
-        JdcError::BadTomlDeserialize(e)
     }
 }
 

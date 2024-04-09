@@ -93,13 +93,8 @@ pub async fn handle_error(
     match e {
         JdcError::VecToSlice32(_) => {
             send_status(sender, e, error_handling::ErrorBranch::Break).await
-        }
-        // Errors on bad CLI argument input.
-        JdcError::BadCliArgs => send_status(sender, e, error_handling::ErrorBranch::Break).await,
-        // Errors on bad `toml` deserialize.
-        JdcError::BadTomlDeserialize(_) => {
-            send_status(sender, e, error_handling::ErrorBranch::Break).await
-        }
+        },
+        JdcError::ConfigError(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
         // Errors from `binary_sv2` crate.
         JdcError::BinarySv2(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
         // Errors on bad noise handshake.

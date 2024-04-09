@@ -3,7 +3,7 @@ mod args;
 mod lib;
 
 use args::process_cli_args;
-use lib::{downstream_sv1, error, proxy, proxy_config, status, upstream_sv2};
+use lib::{downstream_sv1, error, proxy, tproxy_config, status, upstream_sv2};
 use roles_logic_sv2::utils::Mutex;
 
 use async_channel::{bounded, unbounded};
