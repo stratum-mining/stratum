@@ -1,6 +1,6 @@
 # SRI Pool config
-authority_public_key = "9auqWEzQDVyd2oe1JVGFLMLHZtCo2FFqZwtKA5gd9xbuEu7PH72"
-authority_secret_key = "mkDLTBBRxdBv998612qipDYoTK3YUrqLe8uWw7gu3iXbSrn2n"
+authority_public_key = "9axRCHAi8WS7GVMnip5d4bFZt4Wy5yRRbvxsnDPAoVCQGGhUSyY"
+authority_secret_key = "mAFYsxPyjhvXqJfgtHTWN1JALzEXRixnA9j25kxqLwHKyq4QM"
 cert_validity_sec = 3600
 
 # List of coinbase outputs used to build the coinbase tx
@@ -19,9 +19,9 @@ coinbase_outputs = [
 listen_jd_address = "127.0.0.1:34264"
 # RPC config for mempool (it can be also the same TP if correctly configured)
 core_rpc_url =  "http://127.0.0.1"
-core_rpc_port = 18332
-core_rpc_user =  "username"
-core_rpc_pass =  "password"
+core_rpc_port = 38332
+core_rpc_user =  "bitcoin"
+core_rpc_pass =  "bitcoin"
 # Time interval used for JDS mempool update 
 [mempool_update_interval]
 unit = "secs"

@@ -845,6 +845,8 @@ impl ChannelFactory {
                 "Share hash meet bitcoin target: {:?}",
                 print_hash.to_vec().to_hex()
             );
+            info!("Bitcoin target: {:?}", bitcoin_target);
+            info!("share details {:?}", m);
 
             let coinbase = [coinbase_tx_prefix, &extranonce[..], coinbase_tx_suffix]
                 .concat()

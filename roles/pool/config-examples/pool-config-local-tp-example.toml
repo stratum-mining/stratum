@@ -1,6 +1,6 @@
 # SRI Pool config
-authority_public_key = "9auqWEzQDVyd2oe1JVGFLMLHZtCo2FFqZwtKA5gd9xbuEu7PH72"
-authority_secret_key = "mkDLTBBRxdBv998612qipDYoTK3YUrqLe8uWw7gu3iXbSrn2n"
+authority_public_key = "9axRCHAi8WS7GVMnip5d4bFZt4Wy5yRRbvxsnDPAoVCQGGhUSyY"
+authority_secret_key = "mAFYsxPyjhvXqJfgtHTWN1JALzEXRixnA9j25kxqLwHKyq4QM"
 cert_validity_sec = 3600
 test_only_listen_adress_plain =  "0.0.0.0:34250"
 listen_address = "0.0.0.0:34254"
@@ -18,7 +18,7 @@ coinbase_outputs = [
 ]
 
 # Pool signature (string to be included in coinbase tx)
-pool_signature = "Stratum v2 SRI Pool"
+pool_signature = "Pool"
 
 # Template Provider config
 # Local TP (this is pointing to localhost so you must run a TP locally for this configuration to work)
