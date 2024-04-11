@@ -85,6 +85,8 @@ impl<'decoder> SetupConnection<'decoder> {
                 work_selection && version_rolling
             }
             // TODO
+            // this todo requires a bit of restructuring and it is reported as an issue
+            // https://github.com/stratum-mining/stratum/issues/853
             _ => todo!(),
         }
     }

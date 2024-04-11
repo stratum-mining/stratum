@@ -125,6 +125,8 @@ impl JobsCreators {
                     .copied()
             }
             // TODO how many templates can we have at max
+            // reported as issue on github
+            // https://github.com/stratum-mining/stratum/issues/842
             _ => todo!("{:#?}", template.len()),
         }
     }
