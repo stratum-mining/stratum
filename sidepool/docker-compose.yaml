@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  pool:
+    build: ../  # Path to the Dockerfile directory
+    volumes:
+      - ./config:/usr/src/config  
+    command: /usr/src/app/roles/target/release/pool_sv2 -c /usr/src/config/pool.toml
+    ports:
+      - "34254:34254"
+  jds:
+    build: ../  # Path to the Dockerfile directory
+    volumes:
+      - ./config:/usr/src/config  
+    command: /usr/src/app/roles/target/release/jd_server -c /usr/src/config/jds.toml
+    ports:
+      - "34264:34264"
+  jdc:
+    build: ../  # Path to the Dockerfile directory
+    volumes:
+      - ./config:/usr/src/config  
+    command: /usr/src/app/roles/target/release/jd_client -c /usr/src/config/jdc.toml
+    ports:
+      - "34265:34265"      
+  tproxy:
+    build: ../  # Path to the Dockerfile directory
+    volumes:
+      - ./config:/usr/src/config  
+    command: /usr/src/app/roles/target/release/translator_sv2 -c /usr/src/config/tproxy.toml
+    ports:
+      - "34255:34255"

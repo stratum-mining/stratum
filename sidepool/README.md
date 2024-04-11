@@ -1,36 +1,7 @@
-<!-- TOC start (generated with https://github.com/derlin/bitdowntoc) -->
-
-- [Thunder Pool ](#thunder-pool)
-   * [Overview](#overview)
-      + [Database ](#database)
-         - [Accounts ](#accounts)
-         - [Workers and Shares ](#workers-and-shares)
-         - [Payment Scheme](#payment-scheme)
-            * [How do we relate the account with the PaymentIntervals ?](#how-do-we-relate-the-account-with-the-paymentintervals-)
-            * [How do we check the payment eligibility for an account ?](#how-do-we-check-the-payment-eligibility-for-an-account-)
-               + [Using the Payment Scheme](#using-the-payment-scheme)
-               + [Not using the Payment Scheme:](#not-using-the-payment-scheme)
-   * [Architecture Overview ](#architecture-overview)
-      + [Stratum Protocol Implementation v1/v2](#stratum-protocol-implementation-v1v2)
-      + [Template Provider](#template-provider)
-      + [Mining Pool and Translator Proxy](#mining-pool-and-translator-proxy)
-      + [Job Declarator server/client](#job-declarator-serverclient)
-   * [Idea box](#idea-box)
-      + [Making Merkle Trees Work for Us:](#making-merkle-trees-work-for-us)
-         - [Building the Tree:](#building-the-tree)
-         - [Validating Contributions:](#validating-contributions)
-         - [Direct Blockchain Integration for Balance Management](#direct-blockchain-integration-for-balance-management)
-            * [Advantages of Direct Blockchain Balance Management](#advantages-of-direct-blockchain-balance-management)
-            * [Using a Blockchain for Account and Balance Management](#using-a-blockchain-for-account-and-balance-management)
-
-<!-- TOC end -->
-
-<!-- TOC --><a name="thunder-pool"></a>
-# Thunder Pool 
+# sidepool
 
 A open source reference implementation of a mining pool using SRI and enabling multiple payment schemes and payouts such as L2 and L1.
 
-<!-- TOC --><a name="overview"></a>
 ## Overview
 
 In the face of creating a whole billing and payout database to maintain balances and etc, we thought that should be easy to use something like a ledger, in the persuit to design and architect a resiliant and verifiable mining pool.
@@ -38,12 +9,36 @@ In the face of creating a whole billing and payout database to maintain balances
 Considering we are using the Stratum V2 SRI implementation as a scaffold for our mining pool.
 
 
-<!-- TOC --><a name="database"></a>
-### Database 
+## setting up sidepool
+
+1. Build all the roles: build_roles.sh
+2. Run Bitcoin Signet if intented to test: run_bitcoin_signet.sh
+3. Run docker-compose.yml
+
+docker-compose build --build-arg REPO_URL=https://github.com/rsantacroce/stratum.git
+docker-compose up
+
+### cpu miner 
+download your platform specific version from: https://github.com/pooler/cpuminer
+
+    ./minerd -a sha256d -o stratum+tcp://localhost:34255 -u satoshi -p satoshi -q -D -P
+
+### running the tp
+
+Use the following script to download the latest bitcoin_signet docker files, build and run the network on local env:
+    
+    run_bitcoin_signet.sh
+
+There is a few hand scripts that can be used to spam tx to the network and also mine signet coins using the bitcoin-cli, usually you just need to get the bash from the container and execute it:
+
+    docker exec -it bitcoin-signet-instance /bin/bash
+    send_tx.sh number-of-txs duration
+    mine.sh 
+
+### DRAFT db  
 
 Starting from the database considering this our v1.
 
-<!-- TOC --><a name="accounts"></a>
 #### Accounts 
 
 ```sql
@@ -181,75 +176,3 @@ fn check_payment_eligibility(account_id: i32, current_block: i32, current_time: 
     false
 }
 ```
-
-<!-- TOC --><a name="architecture-overview"></a>
-## Architecture Overview 
-
-<!-- TOC --><a name="stratum-protocol-implementation-v1v2"></a>
-### Stratum Protocol Implementation v1/v2
-
-<!-- TOC --><a name="template-provider"></a>
-### Template Provider
-
-<!-- TOC --><a name="mining-pool-and-translator-proxy"></a>
-### Mining Pool and Translator Proxy
-
-<!-- TOC --><a name="job-declarator-serverclient"></a>
-### Job Declarator server/client
-
-<!-- TOC --><a name="idea-box"></a>
-## Idea box
-
-<!-- TOC --><a name="making-merkle-trees-work-for-us"></a>
-### Making Merkle Trees Work for Us:
-
-Auditability: The inherent structure of Merkle trees facilitates the straightforward auditability of all contributions. Historical data can be verified against the Merkle root anytime, ensuring transparency and trustworthiness.
-
-<!-- TOC --><a name="building-the-tree"></a>
-#### Building the Tree:
-
-- **New Contributions**: With each new contribution, we serialize essential details (like contributor ID, job ID, share amount, and timestamp) and add them as a leaf node to the Merkle tree. Following the addition of new contributions, the Merkle root is recalculated to reflect the updated data.
-- **Proof Storage**: Alongside each contribution record in the database, we store its corresponding Merkle proof—the series of hashes necessary to trace the path back to the root. This setup enables individual contribution verifications without the need to reconstruct the entire tree.
-
-- **Contribution Verification**: To verify a contribution, we retrieve its Merkle proof from the database and validate it against the stored Merkle root using the contribution's data. Successful verification confirms the contribution's presence in the dataset at the root's last calculation.
-
-- **Using a blockchain**: 
-
-<!-- TOC --><a name="validating-contributions"></a>
-#### Validating Contributions:
-
-- **Proof in the Pudding**: To confirm a contribution's legit, we pull its Merkle proof and use it to retrace its steps to the root. If things line up, we're golden—the contribution was part of our dataset when the root was last calculated.
-
-<!-- TOC --><a name="direct-blockchain-integration-for-balance-management"></a>
-#### Direct Blockchain Integration for Balance Management
-
-Under this approach, each miner's account balance and transactions are recorded directly on the blockchain. This could involve the creation of individual blockchain addresses for miners or smart contracts to manage account balances within the mining pool.
-
-<!-- TOC --><a name="advantages-of-direct-blockchain-balance-management"></a>
-##### Advantages of Direct Blockchain Balance Management
-
-- **Simplified Implementation**: Without the complexity of minting "bitassets" and managing a separate DEX, this approach might offer a more straightforward path to leveraging blockchain for balance management.
-
-- **Direct Blockchain Security**: Utilizing blockchain directly for balance tracking harnesses the inherent security and immutability of blockchain technology, ensuring that account balances are resistant to tampering and fraud.
-
-- **Transparent Transactions**: Every transaction, including rewards distribution and withdrawals, can be verified on the blockchain, providing miners with unparalleled transparency regarding their earnings.
-
-- **Smart Contract Automation**: Smart contracts can automate the distribution of mining rewards based on the shares submitted, directly updating each miner's blockchain-based account balance. This automation reduces the need for manual processing and potential errors.
-
-<!-- TOC --><a name="using-a-blockchain-for-account-and-balance-management"></a>
-##### Using a Blockchain for Account and Balance Management
-
-Integrating blockchain technology into our mining pool operation for handling "accounts and balance" logic offers a transformative shift from traditional databases to a ledger-based approach. Specifically, the use of "bitassets" on a drivechain allows us to mint assets representing epochs of mining contributions. These assets can then be utilized in a decentralized exchange (DEX) through a Dutch auction mechanism, with "BTC or Thunder BTC" serving as collateral. This strategy brings forth several advantages:
-
-Advantages of Blockchain Integration
-- **Decentralization and Security**: Leveraging blockchain technology decentralizes account and balance management, distributing data across multiple nodes. This not only enhances security against data tampering but also promotes transparency in the mining process.
-
-- **Tokenization of Shares**: By minting "bitassets" that represent epochs of mining contributions, we tokenize mining efforts, enabling miners to own, trade, or leverage their contributions as digital assets. This tokenization opens new avenues for miners to capitalize on their work beyond traditional reward systems.
-
-- **Innovative Trading Mechanisms**: The creation of a DEX for these "bitassets" introduces a dynamic market where mining contributions have liquidity. The use of a Dutch auction system for trading these assets with BTC or Thunder BTC as collateral ensures fair market pricing and provides miners with immediate value for their contributions.
-
-Enhanced Liquidity and Access to Capital: Tokenizing mining contributions and facilitating their trade on a DEX significantly increases liquidity, providing miners with quicker access to capital. This is particularly advantageous during market fluctuations, as miners can choose to hold or sell their assets based on market conditions.
-
-Automated and Transparent Payouts: With smart contracts governing the distribution of rewards and handling of auctions, payouts and transactions become more transparent, timely, and resistant to manipulation. Miners can trust in an unbiased system to receive their due rewards.
-
-- **Legal and Regulatory Compliance**: Tokenizing mining contributions and facilitating their trade might subject the operation to financial regulations. Navigating this landscape requires careful planning and potentially legal consultation to ensure compliance.
