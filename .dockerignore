@@ -1,0 +1,8 @@
+.git/
+target/
+**/target/
+**/*.log
+**/*.tmp
+Dockerfile
+.dockerignore
+

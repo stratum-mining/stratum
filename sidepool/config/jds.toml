@@ -16,9 +16,9 @@ coinbase_outputs = [
 ]
 
 # SRI Pool JD config
-listen_jd_address = "127.0.0.1:34264"
+listen_jd_address = "host.docker.internal:34264"
 # RPC config for mempool (it can be also the same TP if correctly configured)
-core_rpc_url =  "http://127.0.0.1"
+core_rpc_url =  "http://host.docker.internal"
 core_rpc_port = 38332
 core_rpc_user =  "bitcoin"
 core_rpc_pass =  "bitcoin"

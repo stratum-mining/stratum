@@ -1,5 +1,5 @@
 # SRI JDC config
-downstream_address = "127.0.0.1"
+downstream_address = "host.docker.internal"
 downstream_port = 34265
 
 # Version support
@@ -25,7 +25,7 @@ retry = 10
 
 # Template Provider config
 # Local TP (this is pointing to localhost so you must run a TP locally for this configuration to work)
-tp_address = "127.0.0.1:8442"
+tp_address = "host.docker.internal:8442"
 # Hosted testnet TP 
 # tp_address = "75.119.150.111:8442"
 
@@ -51,7 +51,7 @@ value = 1
 # In case of shares refused by the JDS, the fallback system will propose the same job to the next upstream in this list
 [[upstreams]]
 authority_pubkey = "9axRCHAi8WS7GVMnip5d4bFZt4Wy5yRRbvxsnDPAoVCQGGhUSyY"
-pool_address = "127.0.0.1:34254"
-jd_address = "127.0.0.1:34264"
+pool_address = "host.docker.internal:34254"
+jd_address = "host.docker.internal:34264"
 # Pool signature (string to be included in coinbase tx)
 pool_signature = "Pool"

@@ -22,4 +22,4 @@ pool_signature = "Pool"
 
 # Template Provider config
 # Local TP (this is pointing to localhost so you must run a TP locally for this configuration to work)
-tp_address = "127.0.0.1:8442"
+tp_address = "host.docker.internal:8442"
