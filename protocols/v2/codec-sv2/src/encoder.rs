@@ -6,8 +6,8 @@ pub use const_sv2::{AEAD_MAC_LEN, SV2_FRAME_CHUNK_SIZE, SV2_FRAME_HEADER_SIZE};
 use core::convert::TryInto;
 use core::marker::PhantomData;
 #[cfg(feature = "noise_sv2")]
-use framing_sv2::framing2::{EitherFrame, HandShakeFrame};
-use framing_sv2::framing2::{Frame as F_, Sv2Frame};
+use framing_sv2::framing::either_frame::{EitherFrame, HandShakeFrame};
+use framing_sv2::framing::{frame::Frame as F_, sv2_frame::Sv2Frame};
 #[allow(unused_imports)]
 pub use framing_sv2::header::NoiseHeader;
 
