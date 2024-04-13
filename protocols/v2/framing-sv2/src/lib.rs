@@ -18,7 +18,7 @@ extern crate alloc;
 /// ```
 ///
 ///
-pub mod framing2;
+pub mod framing;
 
 pub mod error;
 pub mod header;
