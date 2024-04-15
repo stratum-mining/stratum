@@ -199,8 +199,7 @@ impl IsClient<'static> for Client {
     }
 }
 pub fn extranonce_from_hex(hex: &str) -> Extranonce<'static> {
-    let data = utils::decode_hex(hex).unwrap();
-    Extranonce::try_from(data).expect("Failed to convert hex to U256")
+    Extranonce::try_from(hex).expect("Failed to convert hex to U256")
 }
 pub fn prevhash_from_hex<'a>(hex: &str) -> PrevHash<'a> {
     let data = utils::decode_hex(hex).unwrap();
