@@ -98,14 +98,6 @@ pub struct NoiseFrame {
 /// todo
 pub type HandShakeFrame = NoiseFrame;
 
-/// todo (why unreachable?)
-#[cfg(feature = "with_buffer_pool")]
-impl<A> From<EitherFrame<A, Vec<u8>>> for Sv2Frame<A, buffer_sv2::Slice> {
-    fn from(_: EitherFrame<A, Vec<u8>>) -> Self {
-        unreachable!()
-    }
-}
-
 impl NoiseFrame {
     /// Returns payload of `NoiseFrame` as a `Vec<u8>`
     pub fn get_payload_when_handshaking(&self) -> Vec<u8> {
@@ -240,12 +232,6 @@ impl<'a, T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> Frame<'a, T> for 
             serialized: None,
         })
     }
-}
-
-#[inline]
-pub fn build_noise_frame_header(frame: &mut [u8], len: u16) {
-    frame[0] = len.to_le_bytes()[0];
-    frame[1] = len.to_le_bytes()[1];
 }
 
 impl<'a> Frame<'a, Slice> for NoiseFrame {
