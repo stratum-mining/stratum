@@ -44,7 +44,16 @@ impl Args {
                             Some(ArgsResult::None)
                         }
                     },
-                    ArgsState::ExpectPath => Some(ArgsResult::Config(PathBuf::from(item))),
+                    ArgsState::ExpectPath => {
+                        let path = PathBuf::from(item.clone());
+                        if !path.exists() {
+                            return Some(ArgsResult::Help(format!(
+                                "Error: File '{}' does not exist!",
+                                path.display()
+                            )));
+                        }
+                        Some(ArgsResult::Config(path))
+                    }
                     ArgsState::Done => None,
                 }
             })
