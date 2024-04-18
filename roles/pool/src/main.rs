@@ -1,6 +1,7 @@
 #![allow(special_module_name)]
 use async_channel::{bounded, unbounded};
 
+use std::net::ToSocketAddrs;
 use tracing::{error, info, warn};
 mod lib;
 use lib::{
@@ -123,7 +124,7 @@ async fn main() {
     };
     let tp_authority_public_key = config.tp_authority_public_key;
     let template_rx_res = TemplateRx::connect(
-        config.tp_address.parse().unwrap(),
+        config.tp_address.to_socket_addrs().unwrap().next().unwrap(),
         s_new_t,
         s_prev_hash,
         r_solution,
