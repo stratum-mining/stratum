@@ -6,7 +6,7 @@ pub mod status;
 pub mod template_receiver;
 pub mod upstream_sv2;
 
-use std::{sync::atomic::AtomicBool, time::Duration};
+use std::{net::ToSocketAddrs, sync::atomic::AtomicBool, time::Duration};
 
 use job_declarator::JobDeclarator;
 use proxy_config::ProxyConfig;
@@ -223,20 +223,9 @@ impl JobDeclaratorClient {
             .unwrap_or(false);
 
         // Format `Upstream` connection address
-        let mut parts = upstream_config.pool_address.split(':');
-        let address = parts
-            .next()
-            .unwrap_or_else(|| panic!("Invalid pool address {}", upstream_config.pool_address));
-        let port = parts
-            .next()
-            .and_then(|p| p.parse::<u16>().ok())
-            .unwrap_or_else(|| panic!("Invalid pool address {}", upstream_config.pool_address));
-        let upstream_addr = SocketAddr::new(
-            IpAddr::from_str(address).unwrap_or_else(|_| {
-                panic!("Invalid pool address {}", upstream_config.pool_address)
-            }),
-            port,
-        );
+        let upstream_addr = upstream_config.pool_address.to_socket_addrs()
+            .unwrap_or_else(|_| panic!("Invalid pool address {}", upstream_config.pool_address))
+            .next().unwrap();
 
         // When Downstream receive a share that meets bitcoin target it transformit in a
         // SubmitSolution and send it to the TemplateReceiver
