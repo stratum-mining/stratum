@@ -191,12 +191,12 @@ impl JobDeclaratorClient {
         .unwrap();
 
         // Initialize JD part
-        let mut parts = proxy_config.tp_address.split(':');
-        let ip_tp = parts.next().unwrap().to_string();
-        let port_tp = parts.next().unwrap().parse::<u16>().unwrap();
+        let tp_addr = proxy_config.tp_address.to_socket_addrs()
+            .unwrap_or_else(|e| panic!("Invalid tproxy address {}: {}", proxy_config.tp_address, e))
+            .next().unwrap();
 
         TemplateRx::connect(
-            SocketAddr::new(IpAddr::from_str(ip_tp.as_str()).unwrap(), port_tp),
+            tp_addr,
             recv_solution,
             status::Sender::TemplateReceiver(tx_status.clone()),
             None,
@@ -277,15 +277,16 @@ impl JobDeclaratorClient {
         );
 
         // Initialize JD part
-        let mut parts = proxy_config.tp_address.split(':');
-        let ip_tp = parts.next().unwrap().to_string();
-        let port_tp = parts.next().unwrap().parse::<u16>().unwrap();
+        let tp_addr = proxy_config.tp_address.to_socket_addrs()
+            .unwrap_or_else(|e| panic!("Invalid tproxy address {}: {}", proxy_config.tp_address, e))
+            .next().unwrap();
 
-        let mut parts = upstream_config.jd_address.split(':');
-        let ip_jd = parts.next().unwrap().to_string();
-        let port_jd = parts.next().unwrap().parse::<u16>().unwrap();
+        let jd_addr = upstream_config.jd_address.to_socket_addrs()
+            .unwrap_or_else(|e| panic!("Invalid jds address {}: {}", upstream_config.jd_address, e))
+            .next().unwrap();
+
         let jd = match JobDeclarator::new(
-            SocketAddr::new(IpAddr::from_str(ip_jd.as_str()).unwrap(), port_jd),
+            jd_addr,
             upstream_config.authority_pubkey.into_bytes(),
             proxy_config.clone(),
             upstream.clone(),
@@ -322,7 +323,7 @@ impl JobDeclaratorClient {
         .unwrap();
 
         TemplateRx::connect(
-            SocketAddr::new(IpAddr::from_str(ip_tp.as_str()).unwrap(), port_tp),
+            tp_addr,
             recv_solution,
             status::Sender::TemplateReceiver(tx_status.clone()),
             Some(jd.clone()),
