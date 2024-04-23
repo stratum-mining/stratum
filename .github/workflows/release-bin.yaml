@@ -114,17 +114,6 @@ jobs:
         if: matrix.os == 'ubuntu-20.04'
         run: cross build --release --locked --manifest-path=roles/jd-client/Cargo.toml --target arm-unknown-linux-gnueabi
 
-      - name: Install cross
-        run: cargo install cross
-
-      - name: Compile Binaries for aarch64-unknown-linux-gnu
-        if: matrix.os == 'ubuntu-20.04'
-        run: cross build --release --locked --manifest-path=roles/jd-client/Cargo.toml --target aarch64-unknown-linux-gnu
-  
-      - name: Compile Binaries for arm-unknown-linux-gnueabi
-        if: matrix.os == 'ubuntu-20.04'
-        run: cross build --release --locked --manifest-path=roles/jd-client/Cargo.toml --target arm-unknown-linux-gnueabi
-
       - name: Install aarch64-apple-darwin target
         if: matrix.os == 'macos-latest'
         run: rustup target add aarch64-apple-darwin
