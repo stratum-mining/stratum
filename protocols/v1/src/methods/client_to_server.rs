@@ -714,3 +714,36 @@ fn test_version_extension_with_no_bit_count() {
         _ => panic!(),
     };
 }
+
+#[test]
+fn test_mining_subscribe_even_sized_extranonce() {
+    let client_message = r#"{"id":0,
+            "method": "mining.subscribe",
+            "params": ["user agent/version", "aaeeffdd"]
+        }"#;
+    let client_message: StandardRequest = serde_json::from_str(&client_message).unwrap();
+    Subscribe::try_from(client_message).unwrap();
+}
+
+#[test]
+fn test_mining_subscribe_odd_sized_extranonce() {
+    let client_message = r#"{"id":0,
+            "method": "mining.subscribe",
+            "params": ["user agent/version", "aeeffdd"]
+        }"#;
+    let client_message: StandardRequest = serde_json::from_str(&client_message).unwrap();
+    Subscribe::try_from(client_message).unwrap();
+}
+
+#[test]
+#[should_panic(
+    expected = "called `Result::unwrap()` on an `Err` value: HexError(InvalidHexCharacter { c: 'z', index: 0 })"
+)]
+fn test_mining_subscribe_invalid_extranonce() {
+    let client_message = r#"{"id":0,
+            "method": "mining.subscribe",
+            "params": ["user agent/version", "zxczxc"]
+        }"#;
+    let client_message: StandardRequest = serde_json::from_str(&client_message).unwrap();
+    Subscribe::try_from(client_message).unwrap();
+}
