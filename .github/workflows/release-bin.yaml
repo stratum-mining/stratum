@@ -20,9 +20,20 @@ jobs:
         with:
           toolchain: stable
           override: true
-
+  
       - name: Compile Native
         run: cargo build --release --locked --manifest-path=roles/pool/Cargo.toml
+
+      - name: Install cross
+        run: cargo install cross
+
+      - name: Compile Binaries for aarch64-unknown-linux-gnu
+        if: matrix.os == 'ubuntu-20.04'
+        run: cross build --release --locked --manifest-path=roles/pool/Cargo.toml --target aarch64-unknown-linux-gnu
+
+      - name: Compile Binaries for arm-unknown-linux-gnueabi
+        if: matrix.os == 'ubuntu-20.04'
+        run: cross build --release --locked --manifest-path=roles/pool/Cargo.toml --target arm-unknown-linux-gnueabi
 
       - name: Install aarch64-apple-darwin target
         if: matrix.os == 'macos-latest'
@@ -49,6 +60,24 @@ jobs:
           file: roles/target/release/pool_sv2
           asset_name: pool_sv2-x86_64-apple-darwin
           tag: ${{ github.ref }}
+          
+      - name: Upload Linux aarch64 binaries to release
+        if: matrix.os == 'ubuntu-20.04'
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: roles/target/aarch64-unknown-linux-gnu/release/pool_sv2
+          asset_name: pool_sv2-aarch64-linux-gnu
+          tag: ${{ github.ref }}
+          
+      - name: Upload Linux ARM binaries to release
+        if: matrix.os == 'ubuntu-20.04'
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: roles/target/arm-unknown-linux-gnueabi/release/pool_sv2
+          asset_name: pool_sv2-arm-linux-gnueabi
+          tag: ${{ github.ref }}
 
       - name: Upload MacOS ARM64 binaries to release
         if: matrix.os == 'macos-latest'
@@ -73,6 +102,17 @@ jobs:
 
       - name: Compile Native
         run: cargo build --release --locked --manifest-path=roles/jd-client/Cargo.toml
+      
+      - name: Install cross
+        run: cargo install cross
+
+      - name: Compile Binaries for aarch64-unknown-linux-gnu
+        if: matrix.os == 'ubuntu-20.04'
+        run: cross build --release --locked --manifest-path=roles/jd-client/Cargo.toml --target aarch64-unknown-linux-gnu
+  
+      - name: Compile Binaries for arm-unknown-linux-gnueabi
+        if: matrix.os == 'ubuntu-20.04'
+        run: cross build --release --locked --manifest-path=roles/jd-client/Cargo.toml --target arm-unknown-linux-gnueabi
 
       - name: Install aarch64-apple-darwin target
         if: matrix.os == 'macos-latest'
@@ -89,6 +129,24 @@ jobs:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: roles/target/release/jd_client
           asset_name: jd_client-x86_64-linux-gnu
+          tag: ${{ github.ref }}
+          
+      - name: Upload Linux aarch64 binaries to release
+        if: matrix.os == 'ubuntu-20.04'
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: roles/target/aarch64-unknown-linux-gnu/release/jd_client
+          asset_name: jd_client-aarch64-linux-gnu
+          tag: ${{ github.ref }}
+          
+      - name: Upload Linux ARM binaries to release
+        if: matrix.os == 'ubuntu-20.04'
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: roles/target/arm-unknown-linux-gnueabi/release/jd_client
+          asset_name: jd_client-arm-linux-gnueabi
           tag: ${{ github.ref }}
 
       - name: Upload MacOS x86-64 binaries to release
@@ -123,6 +181,17 @@ jobs:
 
       - name: Compile Native
         run: cargo build --release --locked --manifest-path=roles/jd-server/Cargo.toml
+        
+      - name: Install cross
+        run: cargo install cross
+
+      - name: Compile Binaries for aarch64-unknown-linux-gnu
+        if: matrix.os == 'ubuntu-20.04'
+        run: cross build --release --locked --manifest-path=roles/jd-server/Cargo.toml --target aarch64-unknown-linux-gnu
+  
+      - name: Compile Binaries for arm-unknown-linux-gnueabi
+        if: matrix.os == 'ubuntu-20.04'
+        run: cross build --release --locked --manifest-path=roles/jd-server/Cargo.toml --target arm-unknown-linux-gnueabi
 
       - name: Install aarch64-apple-darwin target
         if: matrix.os == 'macos-latest'
@@ -139,6 +208,24 @@ jobs:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: roles/target/release/jd_server
           asset_name: jd_server-x86_64-linux-gnu
+          tag: ${{ github.ref }}
+          
+      - name: Upload Linux aarch64 binaries to release
+        if: matrix.os == 'ubuntu-20.04'
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: roles/target/aarch64-unknown-linux-gnu/release/jd_server
+          asset_name: jd_server-aarch64-linux-gnu
+          tag: ${{ github.ref }}
+
+      - name: Upload Linux ARM binaries to release
+        if: matrix.os == 'ubuntu-20.04'
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: roles/target/arm-unknown-linux-gnueabi/release/jd_server
+          asset_name: jd_server-arm-linux-gnueabi
           tag: ${{ github.ref }}
 
       - name: Upload MacOS x86-64 binaries to release
@@ -173,6 +260,17 @@ jobs:
 
       - name: Compile Native
         run: cargo build --release --locked --manifest-path=roles/mining-proxy/Cargo.toml
+              
+      - name: Install cross
+        run: cargo install cross
+
+      - name: Compile Binaries for aarch64-unknown-linux-gnu
+        if: matrix.os == 'ubuntu-20.04'
+        run: cross build --release --locked --manifest-path=roles/mining-proxy/Cargo.toml --target aarch64-unknown-linux-gnu
+  
+      - name: Compile Binaries for arm-unknown-linux-gnueabi
+        if: matrix.os == 'ubuntu-20.04'
+        run: cross build --release --locked --manifest-path=roles/mining-proxy/Cargo.toml --target arm-unknown-linux-gnueabi
 
       - name: Install aarch64-apple-darwin target
         if: matrix.os == 'macos-latest'
@@ -189,6 +287,24 @@ jobs:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: roles/target/release/mining_proxy_sv2
           asset_name: mining_proxy_sv2-x86_64-linux-gnu
+          tag: ${{ github.ref }}
+          
+      - name: Upload Linux aarch64 binaries to release
+        if: matrix.os == 'ubuntu-20.04'
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: roles/target/aarch64-unknown-linux-gnu/release/mining_proxy_sv2
+          asset_name: mining_proxy_sv2-aarch64-linux-gnu
+          tag: ${{ github.ref }}
+          
+      - name: Upload Linux ARM binaries to release
+        if: matrix.os == 'ubuntu-20.04'
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: roles/target/arm-unknown-linux-gnueabi/release/mining_proxy_sv2
+          asset_name: mining_proxy_sv2-arm-linux-gnueabi
           tag: ${{ github.ref }}
 
       - name: Upload MacOS x86-64 binaries to release
@@ -223,6 +339,17 @@ jobs:
 
       - name: Compile Native
         run: cargo build --release --locked --manifest-path=roles/translator/Cargo.toml
+              
+      - name: Install cross
+        run: cargo install cross
+
+      - name: Compile Binaries for aarch64-unknown-linux-gnu
+        if: matrix.os == 'ubuntu-20.04'
+        run: cross build --release --locked --manifest-path=roles/translator/Cargo.toml --target aarch64-unknown-linux-gnu
+  
+      - name: Compile Binaries for arm-unknown-linux-gnueabi
+        if: matrix.os == 'ubuntu-20.04'
+        run: cross build --release --locked --manifest-path=roles/translator/Cargo.toml --target arm-unknown-linux-gnueabi
 
       - name: Install aarch64-apple-darwin target
         if: matrix.os == 'macos-latest'
@@ -239,6 +366,24 @@ jobs:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: roles/target/release/translator_sv2
           asset_name: translator_sv2-x86_64-linux-gnu
+          tag: ${{ github.ref }}
+             
+      - name: Upload Linux aarch64 binaries to release
+        if: matrix.os == 'ubuntu-20.04'
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: roles/target/aarch64-unknown-linux-gnu/release/translator_sv2
+          asset_name: translator_sv2-aarch64-linux-gnu
+          tag: ${{ github.ref }}
+          
+      - name: Upload Linux ARM binaries to release
+        if: matrix.os == 'ubuntu-20.04'
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: roles/target/arm-unknown-linux-gnueabi/release/translator_sv2
+          asset_name: translator_sv2-arm-linux-gnueabi
           tag: ${{ github.ref }}
 
       - name: Upload MacOS x86-64 binaries to release
