@@ -90,12 +90,14 @@ impl<T, B> Default for Sv2Frame<T, B> {
 }
 
 /// Abstraction for a Noise Frame
+/// In practice, it is only used as the alias `HandShakeFrame`
+/// Contains only a `Slice` payload
 #[derive(Debug)]
 pub struct NoiseFrame {
     payload: Slice,
 }
 
-/// todo
+/// The only practical usage of `NoiseFrame`
 pub type HandShakeFrame = NoiseFrame;
 
 impl NoiseFrame {
@@ -340,7 +342,8 @@ fn update_extension_type(extension_type: u16, channel_msg: bool) -> u16 {
     }
 }
 
-/// todo
+/// A wrapper to be used in a context we need a generic reference to a frame
+/// but it doesn't matter which kind of frame it is (`Sv2Frame` or `HandShakeFrame`)
 #[derive(Debug)]
 pub enum EitherFrame<T, B> {
     HandShake(HandShakeFrame),

@@ -3,7 +3,7 @@
 //!
 //! This crate provides primitives for framing of SV2 binary messages.
 //!
-//! The message framing is outlined below:
+//! The message framing is outlined below ([according to SV2 specs](https://stratumprotocol.org/specification/03-Protocol-Overview/#32-framing)):
 //!
 //! | Protocol Type  | Byte Length | Description |
 //! |----------------|-------------|-------------|
