@@ -26,7 +26,7 @@ use std::{
     },
     vec::Vec,
 };
-use tracing::info;
+use tracing::{error, info};
 use tracing_core::{Event, Subscriber};
 use tracing_subscriber::{
     filter::EnvFilter,
@@ -401,7 +401,8 @@ async fn main() {
     let pass = Arc::new(AtomicBool::new(false));
     {
         let fail = fail.clone();
-        std::panic::set_hook(Box::new(move |_| {
+        std::panic::set_hook(Box::new(move |info| {
+            error!("{:#?}", info);
             fail.store(true, Ordering::Relaxed);
         }));
     }
@@ -423,6 +424,7 @@ async fn main() {
         });
     }
     loop {
+        tokio::task::yield_now().await;
         if fail.load(Ordering::Relaxed) {
             clean_up(cleanup).await;
             let _ = std::panic::take_hook();
