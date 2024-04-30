@@ -1,0 +1,36 @@
+# Braiins Pool Upstream Connection
+# upstream_authority_pubkey = "u95GEReVMjK6k5YqiSFNqqTnKU4ypU2Wm8awa6tmbmDmk1bWt"
+# upstream_address = "18.196.32.109"
+# upstream_port = 3336
+
+# Hosted SRI Pool Upstream Connection
+upstream_address = "75.119.150.111"
+upstream_port = 34254
+upstream_authority_pubkey = "9auqWEzQDVyd2oe1JVGFLMLHZtCo2FFqZwtKA5gd9xbuEu7PH72"
+
+# Local Mining Device Downstream Connection
+downstream_address = "0.0.0.0"
+downstream_port = 34255
+
+# Version support
+max_supported_version = 2
+min_supported_version = 2
+
+# Minimum extranonce2 size for downstream
+# Max value: 16 (leaves 0 bytes for search space splitting of downstreams)
+# Max value for CGminer: 8
+# Min value: 2
+min_extranonce2_size = 8
+
+# Difficulty params
+[downstream_difficulty_config]
+# hashes/s of the weakest miner that will be connecting (e.g.: 10 Th/s = 10_000_000_000_000.0)
+min_individual_miner_hashrate=10_000_000_000_000.0
+# target number of shares per minute the miner should be sending
+shares_per_minute = 6.0
+
+[upstream_difficulty_config]
+# interval in seconds to elapse before updating channel hashrate with the pool
+channel_diff_update_interval = 60
+# estimated accumulated hashrate of all downstream miners (e.g.: 10 Th/s = 10_000_000_000_000.0)
+channel_nominal_hashrate = 10_000_000_000_000.0
