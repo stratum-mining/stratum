@@ -25,7 +25,7 @@ pkgs.mkShell {
     I am not liable for damages to your hardware 🙏\n\
     \n\
     As a diligent and alert miner, you SHOULD also be thinking:\n\
-    “Hey, where are those templates? 😡 If I’m contributing hashpower, I want to have a say into what goes into the block!”\n
+    “Hey Sir, how dare you impose those templates onto my hashpower? 😡 If I’m contributing PoW, I want to have a say into what goes into the block!”\n
     Come to my SV2 workshop at BTC++, where you will also deploy your own template provider and cooperate with our pool over the Job Declaration protocol 🤝\n
     "
   '';
