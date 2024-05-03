@@ -41,7 +41,7 @@ async fn main() {
 
     let proxy_config = match process_cli_args() {
         Ok(p) => p,
-        Err(_) => return,
+        Err(e) => panic!("failed to load config: {}", e),
     };
     info!("PC: {:?}", &proxy_config);
 
