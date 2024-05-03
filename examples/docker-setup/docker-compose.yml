@@ -1,0 +1,45 @@
+version: '3'
+services:
+  # bitcoin_template_provider:
+  #   build:
+  #     context: ./bitcoin_template_provider
+  #   volumes:
+  #     - ./bitcoin_template_provider/conf:/app/conf
+  #   environment:
+  #     - RUN_COMMAND=pool
+
+  job_declarator_server:
+    build:
+      context: ./job_declarator_server
+    volumes:
+      - ./job_declarator_server/conf:/app/conf
+    environment:
+      - RUN_COMMAND=jd-server
+
+  job_declarator_client:
+    build:
+      context: ./job_declarator_client
+    volumes:
+      - ./job_declarator_client/conf:/app/conf
+    environment:
+      - RUN_COMMAND=jd-client
+
+  translator_proxy:
+    build:
+      context: ./translator_proxy
+    volumes:
+      - ./translator_proxy/conf:/app/conf
+    environment:
+      - RUN_COMMAND=translator
+
+  mining_pool_server:
+    build:
+      context: ./mining_pool_server
+    volumes:
+      - ./mining_pool_server/conf:/app/conf
+    environment:
+      - RUN_COMMAND=pool
+
+networks:
+  miner:
+  mining_pool:
