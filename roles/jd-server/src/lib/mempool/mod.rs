@@ -5,7 +5,7 @@ use async_channel::Receiver;
 use bitcoin::blockdata::transaction::Transaction;
 use hashbrown::HashMap;
 use roles_logic_sv2::utils::Mutex;
-use rpc_sv2::mini_rpc_client;
+use rpc_sv2::{mini_rpc_client, mini_rpc_client::RpcError};
 use std::{convert::TryInto, str::FromStr, sync::Arc};
 use stratum_common::{bitcoin, bitcoin::hash_types::Txid};
 
@@ -97,43 +97,37 @@ impl JDsMempool {
 
     pub async fn update_mempool(self_: Arc<Mutex<Self>>) -> Result<(), JdsMempoolError> {
         let mut mempool_ordered: HashMap<Txid, Option<Transaction>> = HashMap::new();
+
         let client = self_
             .safe_lock(|x| x.get_client())
             .map_err(|e| JdsMempoolError::PoisonLock(e.to_string()))?
             .ok_or(JdsMempoolError::NoClient)?;
-        let new_mempool: Result<HashMap<Txid, Option<Transaction>>, JdsMempoolError> = {
-            let self_ = self_.clone();
-            tokio::task::spawn(async move {
-                let mempool: Vec<String> = client
-                    .get_raw_mempool()
-                    .await
-                    .map_err(JdsMempoolError::Rpc)?;
-                for id in &mempool {
-                    let key_id = Txid::from_str(id).unwrap();
-                    let tx = self_.safe_lock(|x| match x.mempool.get(&key_id) {
-                        Some(entry) => entry.clone(),
-                        None => None,
-                    });
-                    let id = Txid::from_str(id).unwrap();
-                    mempool_ordered.insert(id, tx.unwrap());
-                }
-                if mempool_ordered.is_empty() {
-                    Err(JdsMempoolError::EmptyMempool)
-                } else {
-                    Ok(mempool_ordered)
-                }
-            })
-            .await
-            .map_err(JdsMempoolError::TokioJoin)?
-        };
-        match new_mempool {
-            Ok(new_mempool_) => {
-                let _ = self_.safe_lock(|x| {
-                    x.mempool = new_mempool_;
-                });
-                Ok(())
-            }
-            Err(a) => Err(a),
+
+        let mempool: Vec<String> = client.get_raw_mempool().await.map_err(|err| {
+            let err_msg = format!("Error occurred during deserialization: {:?}", err);
+            JdsMempoolError::Rpc(RpcError::Deserialization(err_msg))
+        })?;
+        for id in &mempool {
+            let key_id = Txid::from_str(id).map_err(|err| {
+                let err_msg = format!("Error occurred during deserialization: {:?}", err);
+                JdsMempoolError::Rpc(RpcError::Deserialization(err_msg))
+            })?;
+
+            let tx = self_
+                .safe_lock(|x| match x.mempool.get(&key_id) {
+                    Some(entry) => entry.clone(),
+                    None => None,
+                })
+                .map_err(|e| JdsMempoolError::PoisonLock(e.to_string()))?;
+
+            mempool_ordered.insert(key_id, tx);
+        }
+
+        if mempool_ordered.is_empty() {
+            Err(JdsMempoolError::EmptyMempool)
+        } else {
+            let _ = self_.safe_lock(|x| x.mempool = mempool_ordered);
+            Ok(())
         }
     }
 
