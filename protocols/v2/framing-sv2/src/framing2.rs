@@ -205,7 +205,7 @@ impl<'a, T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> Frame<'a, T> for 
     }
 
     /// If `Sv2Frame` is serialized, returns the length of `self.serialized`,
-    /// otherwise, returns the length of `self.pauload`.
+    /// otherwise, returns the length of `self.payload`.
     #[inline]
     fn encoded_length(&self) -> usize {
         if let Some(serialized) = self.serialized.as_ref() {
