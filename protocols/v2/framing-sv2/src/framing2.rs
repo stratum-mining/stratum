@@ -43,10 +43,14 @@ pub trait Frame<'a, T: Serialize + GetSize>: Sized {
     fn get_header(&self) -> Option<crate::header::Header>;
 
     /// Try to build a `Frame` from raw bytes.
+    /// Checks if the payload has the correct size (as stated in the `Header`).
     /// Returns `Self` on success, or the number of the bytes needed to complete the frame
     /// as an error. Nothing is assumed or checked about the correctness of the payload.
     fn from_bytes(bytes: Self::Buffer) -> Result<Self, isize>;
 
+    /// Builds a `Frame` from raw bytes.
+    /// Does not check if the payload has the correct size (as stated in the `Header`).
+    /// Nothing is assumed or checked about the correctness of the payload.
     fn from_bytes_unchecked(bytes: Self::Buffer) -> Self;
 
     /// Helps to determine if the frame size encoded in a byte array correctly representing the size of the frame.
