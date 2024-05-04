@@ -54,7 +54,7 @@ impl Header {
         })
     }
 
-    /// Get the message length
+    /// Get the payload length
     #[allow(clippy::len_without_is_empty)]
     #[inline]
     pub fn len(&self) -> usize {
@@ -62,7 +62,7 @@ impl Header {
         inner as usize
     }
 
-    /// Construct a `Header` from message length, type and extension type.
+    /// Construct a `Header` from payload length, type and extension type.
     #[inline]
     pub fn from_len(len: u32, message_type: u8, extension_type: u16) -> Option<Header> {
         Some(Self {
