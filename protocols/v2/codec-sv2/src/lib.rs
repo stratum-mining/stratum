@@ -23,7 +23,7 @@ pub use encoder::NoiseEncoder;
 
 pub use framing_sv2::framing2::{Frame, Sv2Frame};
 #[cfg(feature = "noise_sv2")]
-pub use framing_sv2::framing2::{HandShakeFrame, NoiseFrame};
+pub use framing_sv2::framing2::HandShakeFrame;
 
 #[cfg(feature = "noise_sv2")]
 pub use noise_sv2::{self, Initiator, NoiseCodec, Responder};

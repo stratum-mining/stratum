@@ -39,7 +39,7 @@ pub trait Frame<'a, T: Serialize + GetSize>: Sized {
     /// Get the payload
     fn payload(&'a mut self) -> &'a mut [u8];
 
-    /// `Sv2Frame` returns `Some(self.header)`, `NoiseFrame` return `None`.
+    /// Returns `Some(self.header)` when the frame has a header (`Sv2Frame`), returns `None` where it doesn't (`HandShakeFrame`).
     fn get_header(&self) -> Option<crate::header::Header>;
 
     /// Try to build a `Frame` from raw bytes.
@@ -93,19 +93,16 @@ impl<T, B> Default for Sv2Frame<T, B> {
     }
 }
 
-/// Abstraction for a Noise Frame
-/// In practice, it is only used as the alias `HandShakeFrame`
-/// Contains only a `Slice` payload
+/// Abstraction for a Noise Handshake Frame
+/// Contains only a `Slice` payload with a fixed length
+/// Only used during Noise Handshake process
 #[derive(Debug)]
-pub struct NoiseFrame {
+pub struct HandShakeFrame {
     payload: Slice,
 }
 
-/// The only practical usage of `NoiseFrame`
-pub type HandShakeFrame = NoiseFrame;
-
-impl NoiseFrame {
-    /// Returns payload of `NoiseFrame` as a `Vec<u8>`
+impl HandShakeFrame {
+    /// Returns payload of `HandShakeFrame` as a `Vec<u8>`
     pub fn get_payload_when_handshaking(&self) -> Vec<u8> {
         self.payload[0..].to_vec()
     }
@@ -240,7 +237,7 @@ impl<'a, T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> Frame<'a, T> for 
     }
 }
 
-impl<'a> Frame<'a, Slice> for NoiseFrame {
+impl<'a> Frame<'a, Slice> for HandShakeFrame {
     type Buffer = Slice;
     type Deserialized = &'a mut [u8];
 
@@ -257,12 +254,12 @@ impl<'a> Frame<'a, Slice> for NoiseFrame {
         &mut self.payload[NoiseHeader::HEADER_SIZE..]
     }
 
-    /// `NoiseFrame` always returns `None`.
+    /// `HandShakeFrame` always returns `None`.
     fn get_header(&self) -> Option<crate::header::Header> {
         None
     }
 
-    /// Builds a `NoiseFrame` from raw bytes. Nothing is assumed or checked about the correctness of the payload.
+    /// Builds a `HandShakeFrame` from raw bytes. Nothing is assumed or checked about the correctness of the payload.
     fn from_bytes(bytes: Self::Buffer) -> Result<Self, isize> {
         Ok(Self::from_bytes_unchecked(bytes))
     }
@@ -272,7 +269,7 @@ impl<'a> Frame<'a, Slice> for NoiseFrame {
         Self { payload: bytes }
     }
 
-    /// After parsing the expected `NoiseFrame` size from `bytes`, this function helps to determine if this value
+    /// After parsing the expected `HandShakeFrame` size from `bytes`, this function helps to determine if this value
     /// correctly representing the size of the frame.
     /// - Returns `0` if the byte slice is of the expected size according to the header.
     /// - Returns a negative value if the byte slice is smaller than a Noise Frame header; this value
@@ -295,14 +292,14 @@ impl<'a> Frame<'a, Slice> for NoiseFrame {
         }
     }
 
-    /// Returns the size of the `NoiseFrame` payload.
+    /// Returns the size of the `HandShakeFrame` payload.
     #[inline]
     fn encoded_length(&self) -> usize {
         self.payload.len()
     }
 
-    /// Tries to build a `NoiseFrame` frame from a byte slice.
-    /// Returns a `NoiseFrame` if the size of the payload fits in the frame, `None` otherwise.
+    /// Tries to build a `HandShakeFrame` frame from a byte slice.
+    /// Returns a `HandShakeFrame` if the size of the payload fits in the frame, `None` otherwise.
     /// This is quite inefficient, and should be used only to build `HandShakeFrames`
     // TODO check if is used only to build `HandShakeFrames`
     #[allow(clippy::useless_conversion)]
