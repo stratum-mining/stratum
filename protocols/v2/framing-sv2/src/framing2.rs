@@ -113,6 +113,8 @@ impl<'a, T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> Frame<'a, T> for 
     type Deserialized = B;
 
     /// Write the serialized `Sv2Frame` into `dst`.
+    /// This operation when called on an already serialized frame is very cheap.
+    /// When called on a non serialized frame, it is not so cheap (because it serializes it).
     #[inline]
     fn serialize(self, dst: &mut [u8]) -> Result<(), Error> {
         if let Some(mut serialized) = self.serialized {
