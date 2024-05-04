@@ -16,6 +16,8 @@
 //! This crate can be built with the following features:
 //! - `with_serde`: builds `binary_sv2` and `buffer_sv2` crates with `serde`-based encoding and decoding.
 //! - `with_buffer_pool`: uses `buffer_sv2` to provide a more efficient allocation method for `non_std` environments. Please refer to `buffer_sv2` crate docs for more context.
+//!
+//! The `with_serde` feature flag is only used for the Message Generator, and deprecated for any other kind of usage. It will likely be fully deprecated in the future.
 
 #![no_std]
 extern crate alloc;
