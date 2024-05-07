@@ -48,7 +48,7 @@ impl Connection {
         ),
         Error,
     > {
-        let address = stream.peer_addr().unwrap();
+        let address = stream.peer_addr().map_err(|_| Error::SocketClosed)?;
 
         let (mut reader, mut writer) = stream.into_split();
 
