@@ -1,5 +1,5 @@
 use rpc_sv2::mini_rpc_client::RpcError;
-use tokio::task::JoinError;
+use std::{convert::From, sync::PoisonError};
 use tracing::{error, warn};
 
 #[derive(Debug)]
@@ -8,7 +8,18 @@ pub enum JdsMempoolError {
     NoClient,
     Rpc(RpcError),
     PoisonLock(String),
-    TokioJoin(JoinError),
+}
+
+impl From<RpcError> for JdsMempoolError {
+    fn from(value: RpcError) -> Self {
+        JdsMempoolError::Rpc(value)
+    }
+}
+
+impl<T> From<PoisonError<T>> for JdsMempoolError {
+    fn from(value: PoisonError<T>) -> Self {
+        JdsMempoolError::PoisonLock(value.to_string())
+    }
 }
 
 pub fn handle_error(err: &JdsMempoolError) {
@@ -26,10 +37,6 @@ pub fn handle_error(err: &JdsMempoolError) {
             error!("Unable to establish RPC connection with Template Provider (possible reasons: not fully synced, down)");
         }
         JdsMempoolError::PoisonLock(_) => {
-            error!("{:?}", err);
-            error!("Poison lock error)");
-        }
-        JdsMempoolError::TokioJoin(_) => {
             error!("{:?}", err);
             error!("Poison lock error)");
         }

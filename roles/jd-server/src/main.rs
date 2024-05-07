@@ -146,10 +146,6 @@ async fn main() {
                             mempool::error::handle_error(&err);
                             handle_result!(sender_update_mempool, Err(err));
                         }
-                        JdsMempoolError::TokioJoin(_) => {
-                            mempool::error::handle_error(&err);
-                            handle_result!(sender_update_mempool, Err(err));
-                        }
                         JdsMempoolError::PoisonLock(_) => {
                             mempool::error::handle_error(&err);
                             handle_result!(sender_update_mempool, Err(err));

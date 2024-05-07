@@ -497,7 +497,7 @@ checksum = "98cc8fbded0c607b7ba9dd60cd98df59af97e84d24e49c8557331cfc26d301ce"
 
 [[package]]
 name = "codec_sv2"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "binary_sv2",
  "buffer_sv2",
@@ -1070,7 +1070,7 @@ dependencies = [
 
 [[package]]
 name = "network_helpers_sv2"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "async-channel 1.9.0",
  "async-std",
