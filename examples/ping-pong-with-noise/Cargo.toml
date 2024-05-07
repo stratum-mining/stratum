@@ -15,7 +15,7 @@ async-std="1.8.0"
 bytes = "1.0.1"
 binary_sv2 = { version = "^1.0.0", path = "../../protocols/v2/binary-sv2/binary-sv2" }
 codec_sv2 = { version = "^1.0.0", path = "../../protocols/v2/codec-sv2", features=["noise_sv2"] }
-network_helpers_sv2 = { version = "^1.0.0", path = "../../roles/roles-utils/network-helpers", features=["async_std"] }
+network_helpers_sv2 = { version = "^2.0.0", path = "../../roles/roles-utils/network-helpers", features=["async_std"] }
 key-utils = { version = "^1.0.0", path = "../../utils/key-utils" }
 
 [features]
