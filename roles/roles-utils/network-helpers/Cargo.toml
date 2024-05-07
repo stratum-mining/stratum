@@ -1,6 +1,6 @@
 [package]
 name = "network_helpers_sv2"
-version = "1.0.1"
+version = "2.0.0"
 authors = ["fi3 <email@email.org>"]
 edition = "2018"
 description = "Networking utils for SV2 roles"

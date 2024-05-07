@@ -1,6 +1,6 @@
 [package]
 name = "message_generator_sv2"
-version = "1.0.0"
+version = "1.0.1"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -11,7 +11,7 @@ binary_sv2 = { version = "1.0.0", path = "../../protocols/v2/binary-sv2/binary-s
 codec_sv2 = { version = "1.0.0", path = "../../protocols/v2/codec-sv2", features = ["noise_sv2","with_buffer_pool","with_serde"] }
 const_sv2 = { version = "1.0.0", path = "../../protocols/v2/const-sv2" }
 load_file = "1.0.1"
-network_helpers_sv2 = { version = "1.0.0", path = "../../roles/roles-utils/network-helpers", features = ["with_tokio","with_serde"] }
+network_helpers_sv2 = { version = "2.0.0", path = "../../roles/roles-utils/network-helpers", features = ["with_tokio","with_serde"] }
 roles_logic_sv2 = { version = "1.0.0", path = "../../protocols/v2/roles-logic-sv2", features = ["with_serde"] }
 v1 = { version = "^1.0.0", path = "../../protocols/v1", package="sv1_api" }
 serde = { version = "*", features = ["derive", "alloc"], default-features = false }
