@@ -33,14 +33,14 @@ jobs:
       options: --security-opt seccomp=unconfined
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Generate code coverage
         run: |
           ./tarpaulin.sh
 
       - name: Archive Tarpaulin code coverage results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: tarpaulin-report
           path: |
@@ -56,7 +56,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - uses: actions-rs/toolchain@v1
         with:
@@ -82,14 +82,14 @@ jobs:
         run: sh ./message-generator-tests.sh
 
       - name: Archive MG code coverage results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: coverage-report
           path: 'target/*.xml'
 
       - name: Archive log files
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: logs
           path: './utils/message-generator/*.log'
@@ -103,10 +103,10 @@ jobs:
             #   steps:
 
             #     - name: Checkout repository
-            #       uses: actions/checkout@v3
+            #       uses: actions/checkout@v4
 
             #     - name: Download all workflow run artifacts
-            #       uses: actions/download-artifact@v3
+            #       uses: actions/download-artifact@v4
 
             #     - name: Display structure of downloaded files
             #       run: ls -R
