@@ -819,7 +819,7 @@ impl ChannelFactory {
             nonce: m.get_nonce(),
         };
 
-        trace!("On checking target header is: {:?}", header);
+        info!("On checking target header is: {:?}", header);
         let hash_ = header.block_hash();
         let hash = hash_.as_hash().into_inner();
 
