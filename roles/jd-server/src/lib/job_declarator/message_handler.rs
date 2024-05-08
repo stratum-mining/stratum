@@ -14,7 +14,7 @@ pub type SendTo = SendTo_<JobDeclaration<'static>, ()>;
 use super::{signed_token, TransactionState};
 use roles_logic_sv2::{errors::Error, parsers::PoolMessages as AllMessages};
 use stratum_common::bitcoin::consensus::Decodable;
-use tracing::{error, info};
+use tracing::info;
 
 use super::JobDeclaratorDownstream;
 
@@ -154,7 +154,8 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
         &mut self,
         message: ProvideMissingTransactionsSuccess,
     ) -> Result<SendTo, Error> {
-        let (declared_mining_job, ref mut transactions_with_state, missing_indexes) = &mut self.declared_mining_job;
+        let (declared_mining_job, ref mut transactions_with_state, missing_indexes) =
+            &mut self.declared_mining_job;
         let mut unknown_transactions: Vec<Transaction> = vec![];
         match declared_mining_job {
             Some(declared_job) => {
@@ -163,18 +164,23 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
                 if id == message.request_id {
                     for (i, tx) in message.transaction_list.inner_as_ref().iter().enumerate() {
                         let mut cursor = Cursor::new(tx);
-                        let transaction = Transaction::consensus_decode_from_finite_reader(&mut cursor)
-                            .map_err(|e| Error::TxDecodingError(e.to_string()))?;
+                        let transaction =
+                            Transaction::consensus_decode_from_finite_reader(&mut cursor)
+                                .map_err(|e| Error::TxDecodingError(e.to_string()))?;
                         Vec::push(&mut unknown_transactions, transaction.clone());
-                        let index = *missing_indexes
-                            .get(i)
-                            .ok_or(Error::LogicErrorMessage(Box::new(
-                                AllMessages::JobDeclaration(JobDeclaration::ProvideMissingTransactionsSuccess(
-                                    message.clone().into_static(),
-                                )),
-                            )))? as usize;
+                        let index =
+                            *missing_indexes
+                                .get(i)
+                                .ok_or(Error::LogicErrorMessage(Box::new(
+                                    AllMessages::JobDeclaration(
+                                        JobDeclaration::ProvideMissingTransactionsSuccess(
+                                            message.clone().into_static(),
+                                        ),
+                                    ),
+                                )))? as usize;
                         // insert the missing transactions in the mempool
-                        transactions_with_state[index] = TransactionState::PresentInMempool(transaction.txid());
+                        transactions_with_state[index] =
+                            TransactionState::PresentInMempool(transaction.txid());
                     }
                     self.add_txs_to_mempool
                         .add_txs_to_mempool_inner
@@ -189,7 +195,7 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
                     }
                 }
             }
-            None => return Err(Error::NoValidJob)
+            None => return Err(Error::NoValidJob),
         }
         // TODO check it
         let tx_hash_list_hash = self.tx_hash_list_hash.clone().unwrap().into_static();
