@@ -7,7 +7,6 @@ use std::{net::SocketAddr, sync::Arc, thread::sleep, time::Duration};
 use async_std::net::ToSocketAddrs;
 use clap::Parser;
 use rand::{thread_rng, Rng};
-use sha2::{Digest, Sha256};
 use std::time::Instant;
 use stratum_common::bitcoin::{
     blockdata::block::BlockHeader, hash_types::BlockHash, hashes::Hash, util::uint::Uint256,
@@ -110,7 +109,7 @@ async fn main() {
 }
 
 use async_channel::{Receiver, Sender};
-use binary_sv2::{u256_from_int, U256};
+use binary_sv2::u256_from_int;
 use codec_sv2::{Frame, Initiator, StandardEitherFrame, StandardSv2Frame};
 use roles_logic_sv2::{
     common_messages_sv2::{Protocol, SetupConnection, SetupConnectionSuccess},
@@ -236,7 +235,7 @@ pub struct Device {
 fn open_channel(device_id: Option<String>) -> OpenStandardMiningChannel<'static> {
     let user_identity = device_id.unwrap_or_default().try_into().unwrap();
     let id: u32 = 10;
-    info!("Measuring pc hashrate");
+    info!("Measuring CPU hashrate");
     let nominal_hash_rate = measure_hashrate(5) as f32;
     info!("Pc hashrate is {}", nominal_hash_rate);
     info!("MINING DEVICE: send open channel with request id {}", id);
@@ -290,7 +289,7 @@ impl Device {
         let handicap = miner.safe_lock(|m| m.handicap).unwrap();
         std::thread::spawn(move || loop {
             std::thread::sleep(std::time::Duration::from_micros(handicap.into()));
-            if miner.safe_lock(|m| m.next_share()).unwrap().is_ok() {
+            if miner.safe_lock(|m| m.next_share()).unwrap().is_valid() {
                 let nonce = miner.safe_lock(|m| m.header.unwrap().nonce).unwrap();
                 let time = miner.safe_lock(|m| m.header.unwrap().time).unwrap();
                 let job_id = miner.safe_lock(|m| m.job_id).unwrap();
@@ -595,52 +594,74 @@ impl Miner {
         };
         self.header = Some(header);
     }
-    pub fn next_share(&mut self) -> Result<(), ()> {
-        let header = self.header.as_ref().ok_or(())?;
+    pub fn next_share(&mut self) -> NextShareOutcome {
+        let header = self.header.as_ref().unwrap();
         let mut hash = header.block_hash().as_hash().into_inner();
         hash.reverse();
         let hash = Uint256::from_be_bytes(hash);
-        if hash < *self.target.as_ref().ok_or(())? {
+        if hash < *self.target.as_ref().unwrap() {
             info!(
                 "Found share with nonce: {}, for target: {:?}, with hash: {:?}",
                 header.nonce, self.target, hash,
             );
-            Ok(())
+            NextShareOutcome::ValidShare
         } else {
-            Err(())
+            NextShareOutcome::InvalidShare
         }
+    }
+}
+
+enum NextShareOutcome {
+    ValidShare,
+    InvalidShare,
+}
+
+impl NextShareOutcome {
+    pub fn is_valid(&self) -> bool {
+        matches!(self, NextShareOutcome::ValidShare)
     }
 }
 
 // returns hashrate based on how fast the device hashes over the given duration
 fn measure_hashrate(duration_secs: u64) -> f64 {
-    let mut share = generate_random_80_byte_array();
+    let mut rng = thread_rng();
+    let prev_hash: [u8; 32] = generate_random_32_byte_array().to_vec().try_into().unwrap();
+    let prev_hash = Hash::from_inner(prev_hash);
+    // We create a random block that we can hash, we are only interested in knowing how many hashes
+    // per unit of time we can do
+    let merkle_root: [u8; 32] = generate_random_32_byte_array().to_vec().try_into().unwrap();
+    let merkle_root = Hash::from_inner(merkle_root);
+    let header = BlockHeader {
+        version: rng.gen(),
+        prev_blockhash: BlockHash::from_hash(prev_hash),
+        merkle_root,
+        time: std::time::SystemTime::now()
+            .duration_since(std::time::SystemTime::UNIX_EPOCH - std::time::Duration::from_secs(60))
+            .unwrap()
+            .as_secs() as u32,
+        bits: rng.gen(),
+        nonce: 0,
+    };
     let start_time = Instant::now();
     let mut hashes: u64 = 0;
     let duration = Duration::from_secs(duration_secs);
+    let mut miner = Miner::new(0);
+    // We put the target to 0 we are only interested in how many hashes per unit of time we can do
+    // and do not want to be botherd by messages about valid shares found.
+    miner.new_target(vec![0_u8; 32]);
+    miner.header = Some(header);
 
     while start_time.elapsed() < duration {
-        for _ in 0..10000 {
-            hash(&mut share);
-            hashes += 1;
-        }
+        miner.next_share();
+        hashes += 1;
     }
 
     let elapsed_secs = start_time.elapsed().as_secs_f64();
     hashes as f64 / elapsed_secs
 }
-fn generate_random_80_byte_array() -> [u8; 80] {
+fn generate_random_32_byte_array() -> [u8; 32] {
     let mut rng = thread_rng();
-    let mut arr = [0u8; 80];
+    let mut arr = [0u8; 32];
     rng.fill(&mut arr[..]);
     arr
-}
-fn hash(share: &mut [u8; 80]) -> Target {
-    let nonce: [u8; 8] = share[0..8].try_into().unwrap();
-    let mut nonce = u64::from_le_bytes(nonce);
-    nonce += 1;
-    share[0..8].copy_from_slice(&nonce.to_le_bytes());
-    let hash = Sha256::digest(&share).to_vec();
-    let hash: U256<'static> = hash.try_into().unwrap();
-    hash.into()
 }
