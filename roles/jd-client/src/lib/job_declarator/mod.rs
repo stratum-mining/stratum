@@ -140,7 +140,11 @@ impl JobDeclarator {
             .unwrap()
     }
 
-    fn update_last_declare_job_sent(self_mutex: &Arc<Mutex<Self>>, request_id: u32, j: LastDeclareJob) {
+    fn update_last_declare_job_sent(
+        self_mutex: &Arc<Mutex<Self>>,
+        request_id: u32,
+        j: LastDeclareJob,
+    ) {
         self_mutex
             .safe_lock(|s| s.last_declare_mining_jobs_sent.insert(request_id, Some(j)))
             .unwrap();
@@ -274,7 +278,8 @@ impl JobDeclarator {
                     match next_message_to_send {
                         Ok(SendTo::None(Some(JobDeclaration::DeclareMiningJobSuccess(m)))) => {
                             let new_token = m.new_mining_job_token;
-                            let last_declare = Self::get_last_declare_job_sent(&self_mutex, m.request_id);
+                            let last_declare =
+                                Self::get_last_declare_job_sent(&self_mutex, m.request_id);
                             let mut last_declare_mining_job_sent = last_declare.declare_job;
                             let is_future = last_declare.template.future_template;
                             let id = last_declare.template.template_id;
