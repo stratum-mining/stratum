@@ -15,6 +15,8 @@ type Slice = Vec<u8>;
 type Slice = buffer_sv2::Slice;
 
 impl<A, B> Sv2Frame<A, B> {
+    /// Maps a `Sv2Frame<A, B>` to `Sv2Frame<C, B>` by applying `fun`,
+    /// which is assumed to be a closure that converts `A` to `C`
     pub fn map<C>(self, fun: fn(A) -> C) -> Sv2Frame<C, B> {
         let serialized = self.serialized;
         let header = self.header;
@@ -31,31 +33,39 @@ pub trait Frame<'a, T: Serialize + GetSize>: Sized {
     type Buffer: AsMut<[u8]>;
     type Deserialized;
 
-    /// Serialize the frame into dst if the frame is already serialized it just swap dst with
-    /// itself
+    /// Write the serialized `Frame` into `dst`.
     fn serialize(self, dst: &mut [u8]) -> Result<(), Error>;
 
-    //fn deserialize(&'a mut self) -> Result<Self::Deserialized, serde_sv2::Error>;
-
+    /// Get the payload
     fn payload(&'a mut self) -> &'a mut [u8];
 
-    /// If is an Sv2 frame return the Some(header) if it is a noise frame return None
+    /// Returns `Some(self.header)` when the frame has a header (`Sv2Frame`), returns `None` where it doesn't (`HandShakeFrame`).
     fn get_header(&self) -> Option<crate::header::Header>;
 
-    /// Try to build an Frame frame from raw bytes.
-    /// It return the frame or the number of the bytes needed to complete the frame
-    /// The resulting frame is just a header plus a payload with the right number of bytes nothing
-    /// is said about the correctness of the payload
+    /// Try to build a `Frame` from raw bytes.
+    /// Checks if the payload has the correct size (as stated in the `Header`).
+    /// Returns `Self` on success, or the number of the bytes needed to complete the frame
+    /// as an error. Nothing is assumed or checked about the correctness of the payload.
     fn from_bytes(bytes: Self::Buffer) -> Result<Self, isize>;
 
+    /// Builds a `Frame` from raw bytes.
+    /// Does not check if the payload has the correct size (as stated in the `Header`).
+    /// Nothing is assumed or checked about the correctness of the payload.
     fn from_bytes_unchecked(bytes: Self::Buffer) -> Self;
 
+    /// Helps to determine if the frame size encoded in a byte array correctly representing the size of the frame.
+    /// - Returns `0` if the byte slice is of the expected size according to the header.
+    /// - Returns a negative value if the byte slice is smaller than a Noise Frame header; this value
+    ///   represents how many bytes are missing.
+    /// - Returns a positive value if the byte slice is longer than expected; this value
+    ///   indicates the surplus of bytes beyond the expected size.
     fn size_hint(bytes: &[u8]) -> isize;
 
+    /// Returns the size of the `Frame` payload.
     fn encoded_length(&self) -> usize;
 
-    /// Try to build an Frame frame from a serializable payload.
-    /// It return a Frame if the size of the payload fit in the frame, if not it return None
+    /// Try to build a `Frame` from a serializable payload.
+    /// Returns `Some(Self)` if the size of the payload fits in the frame, `None` otherwise.
     fn from_message(
         message: T,
         message_type: u8,
@@ -64,11 +74,12 @@ pub trait Frame<'a, T: Serialize + GetSize>: Sized {
     ) -> Option<Self>;
 }
 
+/// Abstraction for a SV2 Frame.
 #[derive(Debug, Clone)]
 pub struct Sv2Frame<T, B> {
     header: Header,
     payload: Option<T>,
-    /// Serializsed header + payload
+    /// Serialized header + payload
     serialized: Option<B>,
 }
 
@@ -82,20 +93,16 @@ impl<T, B> Default for Sv2Frame<T, B> {
     }
 }
 
+/// Abstraction for a Noise Handshake Frame
+/// Contains only a `Slice` payload with a fixed length
+/// Only used during Noise Handshake process
 #[derive(Debug)]
-pub struct NoiseFrame {
+pub struct HandShakeFrame {
     payload: Slice,
 }
 
-pub type HandShakeFrame = NoiseFrame;
-
-#[cfg(feature = "with_buffer_pool")]
-impl<A> From<EitherFrame<A, Vec<u8>>> for Sv2Frame<A, buffer_sv2::Slice> {
-    fn from(_: EitherFrame<A, Vec<u8>>) -> Self {
-        unreachable!()
-    }
-}
-impl NoiseFrame {
+impl HandShakeFrame {
+    /// Returns payload of `HandShakeFrame` as a `Vec<u8>`
     pub fn get_payload_when_handshaking(&self) -> Vec<u8> {
         self.payload[0..].to_vec()
     }
@@ -105,8 +112,9 @@ impl<'a, T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> Frame<'a, T> for 
     type Buffer = B;
     type Deserialized = B;
 
-    /// Serialize the frame into dst if the frame is already serialized it just swap dst with
-    /// itself
+    /// Write the serialized `Sv2Frame` into `dst`.
+    /// This operation when called on an already serialized frame is very cheap.
+    /// When called on a non serialized frame, it is not so cheap (because it serializes it).
     #[inline]
     fn serialize(self, dst: &mut [u8]) -> Result<(), Error> {
         if let Some(mut serialized) = self.serialized {
@@ -129,30 +137,28 @@ impl<'a, T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> Frame<'a, T> for 
         }
     }
 
-    // self can be either serialized (it cointain an AsMut<[u8]> with the serialized data or
-    // deserialized it contain the rust type that represant the Sv2 message. If the type is
-    // deserialized self.paylos.is_some() is true. To get the serialized payload the inner type
-    // should be serialized and this function should never be used, cause is intended as a fast
-    // function that return a reference to an already serialized payload. For that the function
-    // panic.
+    /// `self` can be either serialized (`self.serialized` is `Some()`) or
+    /// deserialized (`self.serialized` is `None`, `self.payload` is `Some()`).
+    /// This function is only intended as a fast way to get a reference to an
+    /// already serialized payload. If the frame has not yet been
+    /// serialized, this function should never be used (it will panic).
     fn payload(&'a mut self) -> &'a mut [u8] {
         if let Some(serialized) = self.serialized.as_mut() {
             &mut serialized.as_mut()[Header::SIZE..]
         } else {
             // panic here is the expected behaviour
-            panic!()
+            panic!("Sv2Frame is not yet serialized.")
         }
     }
 
-    /// If is an Sv2 frame return the Some(header) if it is a noise frame return None
+    /// `Sv2Frame` always returns `Some(self.header)`.
     fn get_header(&self) -> Option<crate::header::Header> {
         Some(self.header)
     }
 
-    /// Try to build a Frame frame from raw bytes.
-    /// It return the frame or the number of the bytes needed to complete the frame
-    /// The resulting frame is just a header plus a payload with the right number of bytes nothing
-    /// is said about the correctness of the payload
+    /// Tries to build a `Sv2Frame` from raw bytes, assuming they represent a serialized `Sv2Frame` frame (`Self.serialized`).
+    /// Returns a `Sv2Frame` on success, or the number of the bytes needed to complete the frame
+    /// as an error. `Self.serialized` is `Some`, but nothing is assumed or checked about the correctness of the payload.
     #[inline]
     fn from_bytes(mut bytes: Self::Buffer) -> Result<Self, isize> {
         let hint = Self::size_hint(bytes.as_mut());
@@ -175,23 +181,34 @@ impl<'a, T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> Frame<'a, T> for 
         }
     }
 
+    /// After parsing `bytes` into a `Header`, this function helps to determine if the `msg_length`
+    /// field is correctly representing the size of the frame.
+    /// - Returns `0` if the byte slice is of the expected size according to the header.
+    /// - Returns a negative value if the byte slice is shorter than expected; this value
+    ///   represents how many bytes are missing.
+    /// - Returns a positive value if the byte slice is longer than expected; this value
+    ///   indicates the surplus of bytes beyond the expected size.
     #[inline]
     fn size_hint(bytes: &[u8]) -> isize {
         match Header::from_bytes(bytes) {
             Err(_) => {
-                // Return incorrect header length
+                // Returns how many bytes are missing from the expected frame size
                 (Header::SIZE - bytes.len()) as isize
             }
             Ok(header) => {
                 if bytes.len() - Header::SIZE == header.len() {
+                    // expected frame size confirmed
                     0
                 } else {
+                    // Returns how many excess bytes are beyond the expected frame size
                     (bytes.len() - Header::SIZE) as isize + header.len() as isize
                 }
             }
         }
     }
 
+    /// If `Sv2Frame` is serialized, returns the length of `self.serialized`,
+    /// otherwise, returns the length of `self.payload`.
     #[inline]
     fn encoded_length(&self) -> usize {
         if let Some(serialized) = self.serialized.as_ref() {
@@ -204,8 +221,8 @@ impl<'a, T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> Frame<'a, T> for 
         }
     }
 
-    /// Try to build an Frame frame from a serializable payload.
-    /// It returns a Frame if the size of the payload fits in the frame, if not it returns None
+    /// Tries to build a `Sv2Frame` from a non-serialized payload.
+    /// Returns a `Sv2Frame` if the size of the payload fits in the frame, `None` otherwise.
     fn from_message(
         message: T,
         message_type: u8,
@@ -222,35 +239,29 @@ impl<'a, T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> Frame<'a, T> for 
     }
 }
 
-#[inline]
-pub fn build_noise_frame_header(frame: &mut [u8], len: u16) {
-    frame[0] = len.to_le_bytes()[0];
-    frame[1] = len.to_le_bytes()[1];
-}
-
-impl<'a> Frame<'a, Slice> for NoiseFrame {
+impl<'a> Frame<'a, Slice> for HandShakeFrame {
     type Buffer = Slice;
     type Deserialized = &'a mut [u8];
 
-    /// Serialize the frame into dst if the frame is already serialized it just swap dst with
-    /// itself
+    /// Put the Noise Frame payload into `dst`
     #[inline]
     fn serialize(mut self, dst: &mut [u8]) -> Result<(), Error> {
         dst.swap_with_slice(self.payload.as_mut());
         Ok(())
     }
 
+    /// Get the Noise Frame payload
     #[inline]
     fn payload(&'a mut self) -> &'a mut [u8] {
         &mut self.payload[NoiseHeader::HEADER_SIZE..]
     }
 
-    /// If is an Sv2 frame return the Some(header) if it is a noise frame return None
+    /// `HandShakeFrame` always returns `None`.
     fn get_header(&self) -> Option<crate::header::Header> {
         None
     }
 
-    // For a NoiseFrame from_bytes is the same of from_bytes_unchecked
+    /// Builds a `HandShakeFrame` from raw bytes. Nothing is assumed or checked about the correctness of the payload.
     fn from_bytes(bytes: Self::Buffer) -> Result<Self, isize> {
         Ok(Self::from_bytes_unchecked(bytes))
     }
@@ -260,6 +271,13 @@ impl<'a> Frame<'a, Slice> for NoiseFrame {
         Self { payload: bytes }
     }
 
+    /// After parsing the expected `HandShakeFrame` size from `bytes`, this function helps to determine if this value
+    /// correctly representing the size of the frame.
+    /// - Returns `0` if the byte slice is of the expected size according to the header.
+    /// - Returns a negative value if the byte slice is smaller than a Noise Frame header; this value
+    ///   represents how many bytes are missing.
+    /// - Returns a positive value if the byte slice is longer than expected; this value
+    ///   indicates the surplus of bytes beyond the expected size.
     #[inline]
     fn size_hint(bytes: &[u8]) -> isize {
         if bytes.len() < NoiseHeader::HEADER_SIZE {
@@ -276,15 +294,16 @@ impl<'a> Frame<'a, Slice> for NoiseFrame {
         }
     }
 
+    /// Returns the size of the `HandShakeFrame` payload.
     #[inline]
     fn encoded_length(&self) -> usize {
         self.payload.len()
     }
 
-    /// Try to build a `Frame` frame from a serializable payload.
-    /// It returns a Frame if the size of the payload fits in the frame, if not it returns None
-    /// Inneficient should be used only to build `HandShakeFrames`
-    /// TODO check if is used only to build `HandShakeFrames`
+    /// Tries to build a `HandShakeFrame` frame from a byte slice.
+    /// Returns a `HandShakeFrame` if the size of the payload fits in the frame, `None` otherwise.
+    /// This is quite inefficient, and should be used only to build `HandShakeFrames`
+    // TODO check if is used only to build `HandShakeFrames`
     #[allow(clippy::useless_conversion)]
     fn from_message(
         message: Slice,
@@ -302,6 +321,7 @@ impl<'a> Frame<'a, Slice> for NoiseFrame {
     }
 }
 
+/// Returns a `HandShakeFrame` from a generic byte array
 #[allow(clippy::useless_conversion)]
 pub fn handshake_message_to_frame<T: AsRef<[u8]>>(message: T) -> HandShakeFrame {
     let mut payload = Vec::new();
@@ -311,6 +331,10 @@ pub fn handshake_message_to_frame<T: AsRef<[u8]>>(message: T) -> HandShakeFrame 
     }
 }
 
+/// Basically a boolean bit filter for `extension_type`.
+/// Takes an `extension_type` represented as a `u16` and a boolean flag (`channel_msg`).
+/// If `channel_msg` is true, it sets the most significant bit of `extension_type` to 1,
+/// otherwise, it clears the most significant bit to 0.
 fn update_extension_type(extension_type: u16, channel_msg: bool) -> u16 {
     if channel_msg {
         let mask = 0b1000_0000_0000_0000;
@@ -321,11 +345,8 @@ fn update_extension_type(extension_type: u16, channel_msg: bool) -> u16 {
     }
 }
 
-/// A frame can be either
-/// 1: Sv2Frame
-/// 2: NoiseFrame
-/// 3: HandashakeFrame
-///
+/// A wrapper to be used in a context we need a generic reference to a frame
+/// but it doesn't matter which kind of frame it is (`Sv2Frame` or `HandShakeFrame`)
 #[derive(Debug)]
 pub enum EitherFrame<T, B> {
     HandShake(HandShakeFrame),

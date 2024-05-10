@@ -7,6 +7,7 @@ use binary_sv2::{Deserialize, Serialize, U24};
 use const_sv2::{AEAD_MAC_LEN, SV2_FRAME_CHUNK_SIZE};
 use core::convert::TryInto;
 
+/// Abstraction for a SV2 Frame Header.
 #[derive(Debug, Serialize, Deserialize, Copy, Clone)]
 pub struct Header {
     extension_type: u16, // TODO use specific type?
@@ -32,6 +33,7 @@ impl Header {
 
     pub const SIZE: usize = const_sv2::SV2_FRAME_HEADER_SIZE;
 
+    /// Construct a `Header` from ray bytes
     #[inline]
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
         if bytes.len() < Self::SIZE {
@@ -52,6 +54,7 @@ impl Header {
         })
     }
 
+    /// Get the payload length
     #[allow(clippy::len_without_is_empty)]
     #[inline]
     pub fn len(&self) -> usize {
@@ -59,6 +62,7 @@ impl Header {
         inner as usize
     }
 
+    /// Construct a `Header` from payload length, type and extension type.
     #[inline]
     pub fn from_len(len: u32, message_type: u8, extension_type: u16) -> Option<Header> {
         Some(Self {
@@ -68,19 +72,23 @@ impl Header {
         })
     }
 
+    /// Get the `Header` message type.
     pub fn msg_type(&self) -> u8 {
         self.msg_type
     }
 
+    /// Get the `Header` extension type.
     pub fn ext_type(&self) -> u16 {
         self.extension_type
     }
 
+    /// Check if `Header` represents a channel message
     pub fn channel_msg(&self) -> bool {
         let mask = 0b0000_0000_0000_0001;
         self.extension_type & mask == self.extension_type
     }
 
+    /// Calculate the length of the encrypted `Header`
     pub fn encrypted_len(&self) -> usize {
         let len = self.len();
         let mut chunks = len / (SV2_FRAME_CHUNK_SIZE - AEAD_MAC_LEN);
