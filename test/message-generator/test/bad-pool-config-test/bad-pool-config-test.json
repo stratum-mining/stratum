@@ -17,8 +17,7 @@
     "actions": [
     ],
     "setup_commands": [
-        {
-            "command": "cargo",
+        { "command": "cargo",
             "args": [
                         "run",
                         "../../test/message-generator/mock/template-provider-mock0.json"

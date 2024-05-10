@@ -169,6 +169,7 @@
                         {
                             "output_string": "SUCCESS SubmitSharesSuccess",
                             "output_location": "StdOut",
+                            "late_condition": false,
                             "condition": true
                         }
                     ],

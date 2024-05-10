@@ -371,6 +371,13 @@ where
     }
 }
 
+fn load_file(path: &str) -> String {
+    std::fs::read_to_string(path).unwrap()
+}
+fn string_to_static_str(s: String) -> &'static str {
+    Box::leak(s.into_boxed_str())
+}
+
 #[tokio::main]
 async fn main() {
     tracing_subscriber::fmt()
@@ -383,11 +390,11 @@ async fn main() {
     info!("EXECUTING {}", test_path);
     info!("");
     let mut _test_path = args[1].clone();
-    _test_path.insert_str(0, "../");
+    //_test_path.insert_str(0, "../");
     let test_path_ = &_test_path;
     // Load contents of `test.json`, then parse
-    let test = load_str!(test_path_);
-    let test = parser::Parser::parse_test(test);
+    let test_static = string_to_static_str(load_file(test_path_));
+    let test = parser::Parser::parse_test(test_static);
     let test_name: String = test_path
         .split('/')
         .collect::<Vec<&str>>()
