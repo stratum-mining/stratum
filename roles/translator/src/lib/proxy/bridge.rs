@@ -22,7 +22,7 @@ use super::super::{
 };
 use error_handling::handle_result;
 use roles_logic_sv2::{channel_logic::channel_factory::OnNewShare, Error as RolesLogicError};
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, warn};
 
 /// Bridge between the SV2 `Upstream` and SV1 `Downstream` responsible for the following messaging
 /// translation:
@@ -235,7 +235,7 @@ impl Bridge {
 
         match res {
             Ok(Ok(OnNewShare::SendErrorDownstream(e))) => {
-                error!(
+                warn!(
                     "Submit share error {:?}",
                     std::str::from_utf8(&e.error_code.to_vec()[..])
                 );
@@ -595,7 +595,7 @@ mod test {
                     previous_output: p_out,
                     script_sig: vec![89_u8; 16].into(),
                     sequence: bitcoin::Sequence(0),
-                    witness: Witness::from_vec(vec![]).into(),
+                    witness: Witness::from_vec(vec![]),
                 };
                 let tx = bitcoin::Transaction {
                     version: 1,
