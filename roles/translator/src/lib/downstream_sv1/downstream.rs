@@ -62,6 +62,7 @@ pub struct Downstream {
     extranonce2_len: usize,
     pub(super) difficulty_mgmt: DownstreamDifficultyConfig,
     pub(super) upstream_difficulty_config: Arc<Mutex<UpstreamDifficultyConfig>>,
+    last_job_id: String, // we usually receive a String on SV1 messages, no need to cast to u32
 }
 
 impl Downstream {
@@ -78,6 +79,7 @@ impl Downstream {
         extranonce2_len: usize,
         difficulty_mgmt: DownstreamDifficultyConfig,
         upstream_difficulty_config: Arc<Mutex<UpstreamDifficultyConfig>>,
+        last_job_id: String,
     ) -> Self {
         Downstream {
             connection_id,
@@ -91,6 +93,7 @@ impl Downstream {
             extranonce2_len,
             difficulty_mgmt,
             upstream_difficulty_config,
+            last_job_id,
         }
     }
     /// Instantiate a new `Downstream`.
@@ -131,6 +134,7 @@ impl Downstream {
             extranonce2_len,
             difficulty_mgmt: difficulty_config,
             upstream_difficulty_config,
+            last_job_id: "".to_string(),
         }));
         let self_ = downstream.clone();
 
@@ -290,9 +294,11 @@ impl Downstream {
                             // if hashrate has changed, update difficulty management, and send new mining.set_difficulty
                             handle_result!(tx_status_notify, Self::try_update_difficulty_settings(downstream.clone()).await);
 
-
                             let sv1_mining_notify_msg = handle_result!(tx_status_notify, res);
-                            let message: json_rpc::Message = sv1_mining_notify_msg.into();
+                            let message: json_rpc::Message = sv1_mining_notify_msg.clone().into();
+
+                            self_.safe_lock(|s| s.last_job_id = sv1_mining_notify_msg.job_id).unwrap();
+
                             handle_result!(tx_status_notify, Downstream::send_message_downstream(downstream.clone(), message).await);
                         },
                         _ = rx_shutdown.recv().fuse() => {
@@ -491,24 +497,23 @@ impl IsServer<'static> for Downstream {
     /// When miner find the job which meets requested difficulty, it can submit share to the server.
     /// Only [Submit](client_to_server::Submit) requests for authorized user names can be submitted.
     fn handle_submit(&self, request: &client_to_server::Submit<'static>) -> bool {
-        info!("Down: Submitting Share");
+        info!("Down: Submitting Share {:?}", request);
         debug!("Down: Handling mining.submit: {:?}", &request);
 
         // TODO: Check if receiving valid shares by adding diff field to Downstream
 
-        if self.first_job_received {
-            let to_send = SubmitShareWithChannelId {
-                channel_id: self.connection_id,
-                share: request.clone(),
-                extranonce: self.extranonce1.clone(),
-                extranonce2_len: self.extranonce2_len,
-                version_rolling_mask: self.version_rolling_mask.clone(),
-            };
-            self.tx_sv1_bridge
-                .try_send(DownstreamMessages::SubmitShares(to_send))
-                .unwrap();
+        let to_send = SubmitShareWithChannelId {
+            channel_id: self.connection_id,
+            share: request.clone(),
+            extranonce: self.extranonce1.clone(),
+            extranonce2_len: self.extranonce2_len,
+            version_rolling_mask: self.version_rolling_mask.clone(),
         };
-        true
+        self.tx_sv1_bridge
+            .try_send(DownstreamMessages::SubmitShares(to_send))
+            .unwrap();
+
+        request.job_id == self.last_job_id
     }
 
     /// Indicates to the server that the client supports the mining.set_extranonce method.

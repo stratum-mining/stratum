@@ -144,7 +144,7 @@ impl Upstream {
     /// `UpstreamConnection` with a channel to send and receive messages from the SV2 Upstream
     /// role and uses channels provided in the function arguments to send and receive messages
     /// from the `Downstream`.
-    #[cfg_attr(feature = "cargo-clippy", allow(clippy::too_many_arguments))]
+    #[allow(clippy::too_many_arguments)]
     pub async fn new(
         address: SocketAddr,
         authority_public_key: Secp256k1PublicKey,
