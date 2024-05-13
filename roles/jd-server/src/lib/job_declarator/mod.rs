@@ -4,7 +4,7 @@ use async_channel::{Receiver, Sender};
 use binary_sv2::{B0255, U256};
 use codec_sv2::{Frame, HandshakeRole, Responder};
 use error_handling::handle_result;
-use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
+use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey, SignatureService};
 use network_helpers_sv2::noise_connection_tokio::Connection;
 use nohash_hasher::BuildNoHashHasher;
 use roles_logic_sv2::{
@@ -14,7 +14,6 @@ use roles_logic_sv2::{
     parsers::{JobDeclaration, PoolMessages as JdsMessages},
     utils::{Id, Mutex},
 };
-use secp256k1::{Keypair, Message as SecpMessage, Secp256k1};
 use std::{collections::HashMap, convert::TryInto, sync::Arc};
 use tokio::{net::TcpListener, time::Duration};
 use tracing::{debug, error, info};
@@ -395,15 +394,9 @@ pub fn signed_token(
     _pub_key: &Secp256k1PublicKey,
     prv_key: &Secp256k1SecretKey,
 ) -> B0255<'static> {
-    let secp = Secp256k1::signing_only();
+    let secp = SignatureService::default();
 
-    // Create the SecretKey and PublicKey instances
-    let secret_key = prv_key.0;
-    let kp = Keypair::from_secret_key(&secp, &secret_key);
-
-    let message: Vec<u8> = tx_hash_list_hash.to_vec();
-
-    let signature = secp.sign_schnorr(&SecpMessage::from_digest_slice(&message).unwrap(), &kp);
+    let signature = secp.sign(tx_hash_list_hash.to_vec(), prv_key.0);
 
     // Sign message
     signature.as_ref().to_vec().try_into().unwrap()

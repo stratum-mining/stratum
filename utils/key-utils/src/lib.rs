@@ -1,6 +1,9 @@
 use bs58::{decode, decode::Error as Bs58DecodeError};
 use core::convert::TryFrom;
-use secp256k1::{SecretKey, XOnlyPublicKey};
+use secp256k1::{
+    schnorr::Signature, Keypair, Message as SecpMessage, Secp256k1, SecretKey, SignOnly,
+    VerifyOnly, XOnlyPublicKey,
+};
 use serde::{Deserialize, Serialize};
 use std::{fmt::Display, str::FromStr};
 
@@ -138,6 +141,50 @@ impl From<Secp256k1SecretKey> for Secp256k1PublicKey {
         let context = secp256k1::Secp256k1::new();
         let (x_coordinate, _) = value.0.public_key(&context).x_only_public_key();
         Self(x_coordinate)
+    }
+}
+
+pub struct SignatureService {
+    secp_sign: Secp256k1<SignOnly>,
+    secp_verify: Secp256k1<VerifyOnly>,
+}
+
+impl SignatureService {
+    pub fn new() -> Self {
+        SignatureService {
+            secp_sign: Secp256k1::signing_only(),
+            secp_verify: Secp256k1::verification_only(),
+        }
+    }
+
+    pub fn sign(&self, message: Vec<u8>, private_key: SecretKey) -> Signature {
+        let secret_key = private_key;
+        let kp = Keypair::from_secret_key(&self.secp_sign, &secret_key);
+
+        self.secp_sign
+            .sign_schnorr(&SecpMessage::from_digest_slice(&message).unwrap(), &kp)
+    }
+
+    pub fn verify(
+        &self,
+        message: Vec<u8>,
+        signature: secp256k1::schnorr::Signature,
+        public_key: XOnlyPublicKey,
+    ) -> Result<(), secp256k1::Error> {
+        let x_only_public_key = public_key;
+
+        // Verify signature
+        self.secp_verify.verify_schnorr(
+            &signature,
+            &secp256k1::Message::from_digest_slice(&message)?,
+            &x_only_public_key,
+        )
+    }
+}
+
+impl Default for SignatureService {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

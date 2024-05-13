@@ -6,7 +6,7 @@ use async_channel::{Receiver, Sender};
 use binary_sv2::U256;
 use codec_sv2::{Frame, HandshakeRole, Responder, StandardEitherFrame, StandardSv2Frame};
 use error_handling::handle_result;
-use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
+use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey, SignatureService};
 use network_helpers_sv2::noise_connection_tokio::Connection;
 use nohash_hasher::BuildNoHashHasher;
 use roles_logic_sv2::{
@@ -28,7 +28,10 @@ use std::{
     net::SocketAddr,
     sync::Arc,
 };
-use stratum_common::bitcoin::{Script, TxOut};
+use stratum_common::{
+    bitcoin::{Script, TxOut},
+    secp256k1,
+};
 use tokio::{net::TcpListener, task};
 use tracing::{debug, error, info, warn};
 
@@ -283,18 +286,11 @@ pub fn verify_token(
     signature: secp256k1::schnorr::Signature,
     pub_key: key_utils::Secp256k1PublicKey,
 ) -> Result<(), secp256k1::Error> {
-    let secp = secp256k1::Secp256k1::verification_only();
-    // Create PublicKey instance
-    let x_only_public_key = pub_key.0;
-
     let message: Vec<u8> = tx_hash_list_hash.to_vec();
 
-    // Verify signature
-    let is_verified = secp.verify_schnorr(
-        &signature,
-        &secp256k1::Message::from_digest_slice(&message)?,
-        &x_only_public_key,
-    );
+    let secp = SignatureService::default();
+
+    let is_verified = secp.verify(tx_hash_list_hash.to_vec(), signature, pub_key.0);
 
     // debug
     debug!("Message: {}", std::str::from_utf8(&message).unwrap());
