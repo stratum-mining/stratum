@@ -1070,7 +1070,7 @@ dependencies = [
 
 [[package]]
 name = "network_helpers_sv2"
-version = "1.0.1"
+version = "2.0.0"
 dependencies = [
  "async-channel 1.9.0",
  "async-std",
@@ -1553,6 +1553,7 @@ name = "stratum-common"
 version = "1.0.0"
 dependencies = [
  "bitcoin 0.29.2",
+ "secp256k1 0.28.2",
 ]
 
 [[package]]
