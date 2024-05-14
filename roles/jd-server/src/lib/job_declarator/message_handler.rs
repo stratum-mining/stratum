@@ -193,22 +193,24 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
                             TransactionState::Missing => return Err(Error::JDSMissingTransactions),
                         }
                     }
+                    // TODO check it
+                    let tx_hash_list_hash = self.tx_hash_list_hash.clone().unwrap().into_static();
+                    let message_success = DeclareMiningJobSuccess {
+                        request_id: message.request_id,
+                        new_mining_job_token: signed_token(
+                            tx_hash_list_hash,
+                            &self.public_key.clone(),
+                            &self.private_key.clone(),
+                        ),
+                    };
+                    let message_enum_success =
+                        JobDeclaration::DeclareMiningJobSuccess(message_success);
+                    return Ok(SendTo::Respond(message_enum_success));
                 }
             }
             None => return Err(Error::NoValidJob),
         }
-        // TODO check it
-        let tx_hash_list_hash = self.tx_hash_list_hash.clone().unwrap().into_static();
-        let message_success = DeclareMiningJobSuccess {
-            request_id: message.request_id,
-            new_mining_job_token: signed_token(
-                tx_hash_list_hash,
-                &self.public_key.clone(),
-                &self.private_key.clone(),
-            ),
-        };
-        let message_enum_success = JobDeclaration::DeclareMiningJobSuccess(message_success);
-        Ok(SendTo::Respond(message_enum_success))
+        Ok(SendTo::None(None))
     }
 
     fn handle_submit_solution(&mut self, message: SubmitSolutionJd<'_>) -> Result<SendTo, Error> {
