@@ -174,7 +174,7 @@
     "cleanup_commands": [
         {
             "command": "pkill",
-            "args":  ["pool", "-SIGINT"],
+            "args":  ["-f", "pool_sv2", "-SIGINT"],
             "conditions": "None"
         }
     ],

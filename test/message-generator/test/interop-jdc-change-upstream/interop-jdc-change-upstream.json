@@ -184,6 +184,11 @@
     "cleanup_commands": [
         {
             "command": "pkill",
+            "args":  ["-f", "mining_device", "-SIGINT"],
+            "conditions": "None"
+        },
+        {
+            "command": "pkill",
             "args":  ["-f", "jd_server", "-SIGINT"],
             "conditions": "None"
         },
