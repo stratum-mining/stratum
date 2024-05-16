@@ -152,9 +152,10 @@ impl JobDeclarator {
                 //check hashmap size in order to not let it grow indefinetely
                 if s.last_declare_mining_jobs_sent.len() < 10 {
                     s.last_declare_mining_jobs_sent.insert(request_id, Some(j));
-                } else if let Some(min_key) = s.last_declare_mining_jobs_sent.keys().min().cloned() {
-                        s.last_declare_mining_jobs_sent.remove(&min_key);
-                        s.last_declare_mining_jobs_sent.insert(request_id, Some(j));
+                } else if let Some(min_key) = s.last_declare_mining_jobs_sent.keys().min().cloned()
+                {
+                    s.last_declare_mining_jobs_sent.remove(&min_key);
+                    s.last_declare_mining_jobs_sent.insert(request_id, Some(j));
                 }
             })
             .unwrap();
