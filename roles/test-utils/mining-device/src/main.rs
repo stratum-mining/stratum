@@ -595,17 +595,21 @@ impl Miner {
         self.header = Some(header);
     }
     pub fn next_share(&mut self) -> NextShareOutcome {
-        let header = self.header.as_ref().unwrap();
-        let mut hash = header.block_hash().as_hash().into_inner();
-        hash.reverse();
-        let hash = Uint256::from_be_bytes(hash);
-        if hash < *self.target.as_ref().unwrap() {
-            info!(
-                "Found share with nonce: {}, for target: {:?}, with hash: {:?}",
-                header.nonce, self.target, hash,
-            );
-            NextShareOutcome::ValidShare
+        if let Some(header) = self.header.as_ref() {
+            let mut hash = header.block_hash().as_hash().into_inner();
+            hash.reverse();
+            let hash = Uint256::from_be_bytes(hash);
+            if hash < *self.target.as_ref().unwrap() {
+                info!(
+                    "Found share with nonce: {}, for target: {:?}, with hash: {:?}",
+                    header.nonce, self.target, hash,
+                );
+                NextShareOutcome::ValidShare
+            } else {
+                NextShareOutcome::InvalidShare
+            }
         } else {
+            std::thread::yield_now();
             NextShareOutcome::InvalidShare
         }
     }
