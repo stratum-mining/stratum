@@ -152,13 +152,11 @@ impl JobDeclarator {
                 //check hashmap size in order to not let it grow indefinetely
                 if s.last_declare_mining_jobs_sent.len() < 10 {
                     s.last_declare_mining_jobs_sent.insert(request_id, Some(j));
-                } else {
-                    if let Some(min_key) = s.last_declare_mining_jobs_sent.keys().min().cloned() {
+                } else if let Some(min_key) = s.last_declare_mining_jobs_sent.keys().min().cloned() {
                         s.last_declare_mining_jobs_sent.remove(&min_key);
                         s.last_declare_mining_jobs_sent.insert(request_id, Some(j));
-                    }
                 }
-            }) 
+            })
             .unwrap();
     }
 
@@ -383,9 +381,10 @@ impl JobDeclarator {
                     .safe_lock(|s| {
                         if s.set_new_prev_hash_counter > 1
                             && s.last_set_new_prev_hash != Some(set_new_prev_hash.clone())
+                        //it means that a new prev_hash is arrived while the previous hasn't exited the loop yet
                         {
                             s.set_new_prev_hash_counter -= 1;
-                            return Some(None);
+                            Some(None)
                         } else {
                             s.future_jobs.remove(&id).map(
                                 |(job, merkle_path, template, pool_outs)| {
