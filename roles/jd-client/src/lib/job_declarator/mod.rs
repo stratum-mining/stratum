@@ -57,6 +57,7 @@ pub struct JobDeclarator {
     // (Sent DeclareMiningJob, is future, template id, merkle path)
     last_declare_mining_jobs_sent: HashMap<u32, Option<LastDeclareJob>>,
     last_set_new_prev_hash: Option<SetNewPrevHash<'static>>,
+    set_new_prev_hash_counter: u8,
     #[allow(clippy::type_complexity)]
     future_jobs: HashMap<
         u64,
@@ -121,6 +122,7 @@ impl JobDeclarator {
             task_collector,
             coinbase_tx_prefix: vec![].try_into().unwrap(),
             coinbase_tx_suffix: vec![].try_into().unwrap(),
+            set_new_prev_hash_counter: 0,
         }));
 
         Self::allocate_tokens(&self_, 2).await;
@@ -362,21 +364,34 @@ impl JobDeclarator {
     ) {
         tokio::task::spawn(async move {
             let id = set_new_prev_hash.template_id;
+            let _ = self_mutex.safe_lock(|s| {
+                s.last_set_new_prev_hash = Some(set_new_prev_hash.clone());
+                s.set_new_prev_hash_counter += 1;
+            });
             let (job, up, merkle_path, template, mut pool_outs) = loop {
-                if let Some(future_job_tuple) = self_mutex
+                match self_mutex
                     .safe_lock(|s| {
-                        s.last_set_new_prev_hash = Some(set_new_prev_hash.clone());
-                        match s.future_jobs.remove(&id) {
-                            Some((job, merkle_path, template, pool_outs)) => {
-                                s.future_jobs = HashMap::with_hasher(BuildNoHashHasher::default());
-                                Some((job, s.up.clone(), merkle_path, template, pool_outs))
-                            }
-                            None => None,
+                        if s.set_new_prev_hash_counter > 1
+                            && s.last_set_new_prev_hash != Some(set_new_prev_hash.clone())
+                        {
+                            s.set_new_prev_hash_counter -= 1;
+                            return Some(None);
+                        } else {
+                            s.future_jobs.remove(&id).map(
+                                |(job, merkle_path, template, pool_outs)| {
+                                    s.future_jobs =
+                                        HashMap::with_hasher(BuildNoHashHasher::default());
+                                    s.set_new_prev_hash_counter -= 1;
+                                    Some((job, s.up.clone(), merkle_path, template, pool_outs))
+                                },
+                            )
                         }
                     })
                     .unwrap()
                 {
-                    break future_job_tuple;
+                    Some(Some(future_job_tuple)) => break future_job_tuple,
+                    Some(None) => return,
+                    None => {}
                 };
                 tokio::task::yield_now().await;
             };
