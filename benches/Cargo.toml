@@ -12,7 +12,7 @@ serde_json = { version = "1.0.64", default-features = false, features = ["alloc"
 iai="0.1"
 mining_sv2 = { path = "../protocols/v2/subprotocols/mining", version = "^1.0.0" }
 roles_logic_sv2 = { path = "../protocols/v2/roles-logic-sv2", version = "^1.0.0" }
-framing_sv2 = { version = "1.0.0", path = "../protocols/v2/framing-sv2" }
+framing_sv2 = { version = "1.1.0", path = "../protocols/v2/framing-sv2" }
 serde = { version = "1.0.89", default-features = false, features = ["derive", "alloc"] }
 num-bigint = "0.4.3"
 num-traits = "0.2.15"
