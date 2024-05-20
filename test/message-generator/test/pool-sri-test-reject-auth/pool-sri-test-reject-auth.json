@@ -105,7 +105,7 @@
                     "utils/|experimental/|protocols/",
                     "--cobertura",
                     "--output-path",
-                    "target/pool-sri-test-1-standard.xml",
+                    "target/pool-sri-test-reject-auth.xml",
                     "report"
             ],
             "conditions": {

@@ -183,27 +183,6 @@
         },
         {
             "command": "cargo",
-            "args": [
-                        "run",
-                        "../../../test/message-generator/mock/template-provider-mock1.json"
-            ],
-            "conditions": {
-                "WithConditions": {
-                    "conditions": [
-                        {
-                            "output_string": "Running `target/debug/message_generator_sv2 ../../../test/message-generator/mock/template-provider-mock1.json`",
-                            "output_location": "StdErr",
-                            "late_condition": false,
-                            "condition": true
-                        }
-                    ],
-                    "timer_secs": 320,
-                    "warn_no_panic": false
-                }
-            }
-        },
-        {
-            "command": "cargo",
             "args": [   "llvm-cov",
                         "--no-report",
                         "run",

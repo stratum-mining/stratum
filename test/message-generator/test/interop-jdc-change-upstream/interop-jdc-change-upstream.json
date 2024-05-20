@@ -169,6 +169,7 @@
                         {
                             "output_string": "SUCCESS SubmitSharesSuccess",
                             "output_location": "StdOut",
+                            "late_condition": false,
                             "condition": true
                         }
                     ],
@@ -181,6 +182,11 @@
     "execution_commands": [
     ],
     "cleanup_commands": [
+        {
+            "command": "pkill",
+            "args":  ["-f", "mining_device", "-SIGINT"],
+            "conditions": "None"
+        },
         {
             "command": "pkill",
             "args":  ["-f", "jd_server", "-SIGINT"],

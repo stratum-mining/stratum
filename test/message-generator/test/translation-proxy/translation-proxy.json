@@ -192,6 +192,16 @@
        }
     ],
     "cleanup_commands": [
+        {
+            "command": "pkill",
+            "args":  ["-f", "sv1-mining-device", "-SIGINT"],
+            "conditions": "None"
+        },
+        {
+            "command": "pkill",
+            "args":  ["-f", "translator_sv2", "-SIGINT"],
+            "conditions": "None"
+        }
     ],
     "role": "server",
     "upstream": {
