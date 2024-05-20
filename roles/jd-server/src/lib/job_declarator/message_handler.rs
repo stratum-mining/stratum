@@ -154,46 +154,63 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
         &mut self,
         message: ProvideMissingTransactionsSuccess,
     ) -> Result<SendTo, Error> {
-        let (_, ref mut transactions_with_state, missing_indexes) = &mut self.declared_mining_job;
+        let (declared_mining_job, ref mut transactions_with_state, missing_indexes) =
+            &mut self.declared_mining_job;
         let mut unknown_transactions: Vec<Transaction> = vec![];
-        for (i, tx) in message.transaction_list.inner_as_ref().iter().enumerate() {
-            let mut cursor = Cursor::new(tx);
-            let transaction = Transaction::consensus_decode_from_finite_reader(&mut cursor)
-                .map_err(|e| Error::TxDecodingError(e.to_string()))?;
-            Vec::push(&mut unknown_transactions, transaction.clone());
-            let index = *missing_indexes
-                .get(i)
-                .ok_or(Error::LogicErrorMessage(Box::new(
-                    AllMessages::JobDeclaration(JobDeclaration::ProvideMissingTransactionsSuccess(
-                        message.clone().into_static(),
-                    )),
-                )))? as usize;
-            // insert the missing transactions in the mempool
-            transactions_with_state[index] = TransactionState::PresentInMempool(transaction.txid());
-        }
-        self.add_txs_to_mempool
-            .add_txs_to_mempool_inner
-            .unknown_transactions
-            .append(&mut unknown_transactions);
-        // if there still a missing transaction return an error
-        for tx_with_state in transactions_with_state {
-            match tx_with_state {
-                TransactionState::PresentInMempool(_) => continue,
-                TransactionState::Missing => return Err(Error::JDSMissingTransactions),
+        match declared_mining_job {
+            Some(declared_job) => {
+                let id = declared_job.request_id;
+                // check request_id in order to ignore old ProvideMissingTransactionsSuccess (see issue #860)
+                if id == message.request_id {
+                    for (i, tx) in message.transaction_list.inner_as_ref().iter().enumerate() {
+                        let mut cursor = Cursor::new(tx);
+                        let transaction =
+                            Transaction::consensus_decode_from_finite_reader(&mut cursor)
+                                .map_err(|e| Error::TxDecodingError(e.to_string()))?;
+                        Vec::push(&mut unknown_transactions, transaction.clone());
+                        let index =
+                            *missing_indexes
+                                .get(i)
+                                .ok_or(Error::LogicErrorMessage(Box::new(
+                                    AllMessages::JobDeclaration(
+                                        JobDeclaration::ProvideMissingTransactionsSuccess(
+                                            message.clone().into_static(),
+                                        ),
+                                    ),
+                                )))? as usize;
+                        // insert the missing transactions in the mempool
+                        transactions_with_state[index] =
+                            TransactionState::PresentInMempool(transaction.txid());
+                    }
+                    self.add_txs_to_mempool
+                        .add_txs_to_mempool_inner
+                        .unknown_transactions
+                        .append(&mut unknown_transactions);
+                    // if there still a missing transaction return an error
+                    for tx_with_state in transactions_with_state {
+                        match tx_with_state {
+                            TransactionState::PresentInMempool(_) => continue,
+                            TransactionState::Missing => return Err(Error::JDSMissingTransactions),
+                        }
+                    }
+                    // TODO check it
+                    let tx_hash_list_hash = self.tx_hash_list_hash.clone().unwrap().into_static();
+                    let message_success = DeclareMiningJobSuccess {
+                        request_id: message.request_id,
+                        new_mining_job_token: signed_token(
+                            tx_hash_list_hash,
+                            &self.public_key.clone(),
+                            &self.private_key.clone(),
+                        ),
+                    };
+                    let message_enum_success =
+                        JobDeclaration::DeclareMiningJobSuccess(message_success);
+                    return Ok(SendTo::Respond(message_enum_success));
+                }
             }
+            None => return Err(Error::NoValidJob),
         }
-        // TODO check it
-        let tx_hash_list_hash = self.tx_hash_list_hash.clone().unwrap().into_static();
-        let message_success = DeclareMiningJobSuccess {
-            request_id: message.request_id,
-            new_mining_job_token: signed_token(
-                tx_hash_list_hash,
-                &self.public_key.clone(),
-                &self.private_key.clone(),
-            ),
-        };
-        let message_enum_success = JobDeclaration::DeclareMiningJobSuccess(message_success);
-        Ok(SendTo::Respond(message_enum_success))
+        Ok(SendTo::None(None))
     }
 
     fn handle_submit_solution(&mut self, message: SubmitSolutionJd<'_>) -> Result<SendTo, Error> {
