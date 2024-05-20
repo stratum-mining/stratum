@@ -1,0 +1,7 @@
+# these formatting rules only apply to misc TOML files (not user-facing configs nor Cargo.toml)
+exclude = [
+  "roles/**/*config*.toml",
+  "test/config/**/*.toml",
+  "examples/**/*config*.toml",
+  "*/**/Cargo.toml",
+]

@@ -8,7 +8,7 @@ on:
       - main
       - dev
 
-name: Rustfmt
+name: Rustfmt + Taplo
 
 jobs:
   fmt:
@@ -32,6 +32,7 @@ jobs:
           toolchain: nightly
           override: true
           components: rustfmt
+
       - name: Run fmt in different workspaces and crates
         run: |
           cargo fmt --all --manifest-path=benches/Cargo.toml -- --check
@@ -40,3 +41,18 @@ jobs:
           cargo fmt --all --manifest-path=roles/Cargo.toml -- --check
           cargo fmt --all --manifest-path=utils/Cargo.toml -- --check
           cargo fmt --all --manifest-path=utils/message-generator/Cargo.toml -- --check
+
+      - name: Install Taplo
+        run: cargo install taplo-cli
+
+      - name: Run Taplo to check formatting on Cargo.toml files
+        id: taplo-check
+        run: taplo fmt --check -c .taplo-cargo.toml
+
+      - name: Run Taplo to check formatting on user-facing TOML files
+        id: taplo-check
+        run: taplo fmt --check -c .taplo-user-config.toml
+
+      - name: Run Taplo to check formatting on misc TOML files (not user-facing configs nor Cargo.toml)
+        id: taplo-check
+        run: taplo fmt --check -c .taplo-misc.toml

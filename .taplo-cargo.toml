@@ -1,0 +1,2 @@
+# these formatting rules only apply to Cargo.toml files
+include = ["*/**/Cargo.toml"]

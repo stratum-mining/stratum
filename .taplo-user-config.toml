@@ -1,0 +1,6 @@
+# these formatting rules only apply to user-facing TOML files
+include = [
+  "roles/**/*config*.toml",
+  "test/config/**/*.toml",
+  "examples/**/*config*.toml",
+]
