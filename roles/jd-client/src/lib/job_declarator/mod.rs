@@ -377,12 +377,14 @@ impl JobDeclarator {
                 s.last_set_new_prev_hash = Some(set_new_prev_hash.clone());
                 s.set_new_prev_hash_counter += 1;
             });
-            let (job, up, merkle_path, template, mut pool_outs) = loop {
+
+            let mut future_job_tuple_opt = None;
+
+            loop {
                 match self_mutex
                     .safe_lock(|s| {
                         if s.set_new_prev_hash_counter > 1
                             && s.last_set_new_prev_hash != Some(set_new_prev_hash.clone())
-                        //it means that a new prev_hash is arrived while the previous hasn't exited the loop yet
                         {
                             s.set_new_prev_hash_counter -= 1;
                             Some(None)
@@ -399,31 +401,39 @@ impl JobDeclarator {
                     })
                     .unwrap()
                 {
-                    Some(Some(future_job_tuple)) => break future_job_tuple,
-                    Some(None) => return,
+                    Some(Some(future_job_tuple)) => {
+                        future_job_tuple_opt = Some(future_job_tuple);
+                        break;
+                    }
+                    Some(None) => {
+                        break;
+                    }
                     None => {}
                 };
                 tokio::task::yield_now().await;
-            };
-            let signed_token = job.mining_job_token.clone();
-            let mut template_outs = template.coinbase_tx_outputs.to_vec();
-            pool_outs.append(&mut template_outs);
-            Upstream::set_custom_jobs(
-                &up,
-                job,
-                set_new_prev_hash,
-                merkle_path,
-                signed_token,
-                template.coinbase_tx_version,
-                template.coinbase_prefix,
-                template.coinbase_tx_input_sequence,
-                template.coinbase_tx_value_remaining,
-                pool_outs,
-                template.coinbase_tx_locktime,
-                template.template_id,
-            )
-            .await
-            .unwrap();
+            }
+
+            if let Some((job, up, merkle_path, template, mut pool_outs)) = future_job_tuple_opt {
+                let signed_token = job.mining_job_token.clone();
+                let mut template_outs = template.coinbase_tx_outputs.to_vec();
+                pool_outs.append(&mut template_outs);
+                Upstream::set_custom_jobs(
+                    &up,
+                    job,
+                    set_new_prev_hash,
+                    merkle_path,
+                    signed_token,
+                    template.coinbase_tx_version,
+                    template.coinbase_prefix,
+                    template.coinbase_tx_input_sequence,
+                    template.coinbase_tx_value_remaining,
+                    pool_outs,
+                    template.coinbase_tx_locktime,
+                    template.template_id,
+                )
+                .await
+                .unwrap();
+            }
         });
     }
 
