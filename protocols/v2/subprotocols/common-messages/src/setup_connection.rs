@@ -83,9 +83,20 @@ impl<'decoder> SetupConnection<'decoder> {
                     !requires_version_rolling_self || requires_version_rolling_passed;
 
                 work_selection && version_rolling
+            },
+            Protocol::JobDeclarationProtocol => {
+                let available = available_flags.reverse_bits();
+                let required = required_flags.reverse_bits();
+
+                let requires_async_job_mining_passed = (required >> 31) > 0;
+                let requires_async_job_mining_self = (available >> 31) > 0;
+
+                !requires_async_job_mining_self || requires_async_job_mining_passed
+            },
+            Protocol::TemplateDistributionProtocol | Protocol::JobDistributionProtocol => {
+                // Assuming these protocols do not define flags
+                false
             }
-            // TODO
-            _ => todo!(),
         }
     }
 
@@ -389,15 +400,16 @@ mod test {
     use core::convert::TryInto;
 
     #[test]
-    fn test_check_flag() {
-        let protocol = crate::Protocol::MiningProtocol;
-        let flag_avaiable = 0b_0000_0000_0000_0000_0000_0000_0000_0000;
+    fn test_check_flags() {
+        let protocol = Protocol::MiningProtocol;
+        let flag_available = 0b_0000_0000_0000_0000_0000_0000_0000_0001;
         let flag_required = 0b_0000_0000_0000_0000_0000_0000_0000_0001;
-        assert!(SetupConnection::check_flags(
-            protocol,
-            flag_avaiable,
-            flag_required
-        ));
+        assert!(SetupConnection::check_flags(protocol, flag_available, flag_required));
+
+        let protocol = Protocol::JobDeclarationProtocol;
+        let flag_available = 0b_1000_0000_0000_0000_0000_0000_0000_0000;
+        let flag_required = 0b_1000_0000_0000_0000_0000_0000_0000_0000;
+        assert!(SetupConnection::check_flags(protocol, flag_available, flag_required));
     }
 
     #[test]
