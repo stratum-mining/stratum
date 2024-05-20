@@ -26,7 +26,7 @@ use std::{
     },
     vec::Vec,
 };
-use tracing::info;
+use tracing::{error, info};
 use tracing_core::{Event, Subscriber};
 use tracing_subscriber::{
     filter::EnvFilter,
@@ -371,6 +371,13 @@ where
     }
 }
 
+fn load_file(path: &str) -> String {
+    std::fs::read_to_string(path).unwrap()
+}
+fn string_to_static_str(s: String) -> &'static str {
+    Box::leak(s.into_boxed_str())
+}
+
 #[tokio::main]
 async fn main() {
     tracing_subscriber::fmt()
@@ -383,11 +390,11 @@ async fn main() {
     info!("EXECUTING {}", test_path);
     info!("");
     let mut _test_path = args[1].clone();
-    _test_path.insert_str(0, "../");
+    //_test_path.insert_str(0, "../");
     let test_path_ = &_test_path;
     // Load contents of `test.json`, then parse
-    let test = load_str!(test_path_);
-    let test = parser::Parser::parse_test(test);
+    let test_static = string_to_static_str(load_file(test_path_));
+    let test = parser::Parser::parse_test(test_static);
     let test_name: String = test_path
         .split('/')
         .collect::<Vec<&str>>()
@@ -401,7 +408,8 @@ async fn main() {
     let pass = Arc::new(AtomicBool::new(false));
     {
         let fail = fail.clone();
-        std::panic::set_hook(Box::new(move |_| {
+        std::panic::set_hook(Box::new(move |info| {
+            error!("{:#?}", info);
             fail.store(true, Ordering::Relaxed);
         }));
     }
@@ -423,6 +431,7 @@ async fn main() {
         });
     }
     loop {
+        tokio::task::yield_now().await;
         if fail.load(Ordering::Relaxed) {
             clean_up(cleanup).await;
             let _ = std::panic::take_hook();
