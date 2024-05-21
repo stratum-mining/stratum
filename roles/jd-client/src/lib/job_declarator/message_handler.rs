@@ -54,7 +54,9 @@ impl ParseServerJobDeclarationMessages for JobDeclarator {
         message: ProvideMissingTransactions,
     ) -> Result<SendTo, Error> {
         let tx_list = self
-            .last_declare_mining_job_sent
+            .last_declare_mining_jobs_sent
+            .get(&message.request_id)
+            .unwrap()
             .clone()
             .unwrap()
             .tx_list
