@@ -289,8 +289,14 @@ impl DownstreamMiningNode {
                 // pool's job_id. The below return as soon as we have a pairable job id for the
                 // template_id associated with this share.
                 let last_template_id = self_mutex.safe_lock(|s| s.last_template_id).unwrap();
-                let job_id =
-                    UpstreamMiningNode::get_job_id(&upstream_mutex, last_template_id).await;
+                let job_id_future =
+                    UpstreamMiningNode::get_job_id(&upstream_mutex, last_template_id);
+                let job_id = match timeout(Duration::from_secs(10), job_id_future).await {
+                    Ok(job_id) => job_id,
+                    Err(_) => {
+                        return;
+                    }
+                };
                 share.job_id = job_id;
                 debug!(
                     "Sending valid block solution upstream, with job_id {}",
@@ -643,7 +649,11 @@ impl ParseDownstreamCommonMessages<roles_logic_sv2::routing_logic::NoRouting>
 
 use network_helpers_sv2::noise_connection_tokio::Connection;
 use std::net::SocketAddr;
-use tokio::{net::TcpListener, task::AbortHandle};
+use tokio::{
+    net::TcpListener,
+    task::AbortHandle,
+    time::{timeout, Duration},
+};
 
 /// Strat listen for downstream mining node. Return as soon as one downstream connect.
 #[allow(clippy::too_many_arguments)]
