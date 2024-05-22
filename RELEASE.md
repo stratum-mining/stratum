@@ -30,11 +30,11 @@ The SRI repo holds two principal branches with an infinite lifetime:
 - `main`
 - `dev`
 
-We consider `main` to be the branch where the source code of `HEAD` always reflects a production-ready state.
+We consider `main` to be the branch where the source code of `HEAD` always reflects the latest release.
 
-We consider `dev` to be the branch where the source code of `HEAD` always reflects a state with the latest delivered development changes for the next release.
+We consider `dev` to be the branch where the source code of `HEAD` always reflects the latest changes in the development cycle.
 
-The SRI team will decide the appropriate time when the changes to `dev` are merged back into `main` and then tagged with a release number while bumping `MAJOR` and/or `MINOR`.
+The SRI team will decide the appropriate time when the changes to `dev` are merged back into `main` and then tagged with a release number while bumping `MAJOR`, `MINOR`, or `PATCH`.
 
 ## Feature Branches
 
@@ -48,8 +48,8 @@ New features are developed into separate branches that only live in the contribu
 
 Bugs are patched into separate branches that only live in the contributor's forks.
 
-- branch off from: `main`
-- merge back into: `main` + `dev`
+- branch off from: `dev`
+- merge back into: `dev`
 - naming convention: `patch-x`, where `x` describes the bug/patch
 
 # Releasing Roles Binaries
@@ -72,7 +72,7 @@ If a crate is not updated successfully, the step will fail, but since all steps 
 
 Since steps can fail, the output of the action must be manually checked.
 
-Every PR to `main` (either coming from `dev`, or a patch) needs to increase the version of whatever crate it is touching. Otherwise, we will mess up the dependency chain of whoever is fetching from crates.io
+Every PR to `main` needs to increase the version of whatever crate it is touching. Otherwise, we will mess up the dependency chain of whoever is fetching from crates.io
 
 Manually running `cargo release` in the various workspaces helps to prepare the version number before the releases are published.
 
