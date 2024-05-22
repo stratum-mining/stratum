@@ -85,13 +85,12 @@ impl<'decoder> SetupConnection<'decoder> {
                 work_selection && version_rolling
             }
             Protocol::JobDeclarationProtocol => {
-                let available = available_flags.reverse_bits();
-                let required = required_flags.reverse_bits();
-
-                let requires_async_job_mining_passed = (required >> 31) > 0;
-                let requires_async_job_mining_self = (available >> 31) > 0;
-
-                !requires_async_job_mining_self || requires_async_job_mining_passed
+                let requires_async_job_mining_passed = (required_flags & (1 << 31)) != 0;
+                let requires_async_job_mining_self = (available_flags & (1 << 31)) != 0;
+    
+                // Ensure both specific flag check and general flag check pass
+                (!requires_async_job_mining_self || requires_async_job_mining_passed)
+                    && (available_flags & required_flags) == required_flags
             }
             Protocol::TemplateDistributionProtocol | Protocol::JobDistributionProtocol => {
                 // Assuming these protocols do not define flags
@@ -99,7 +98,7 @@ impl<'decoder> SetupConnection<'decoder> {
             }
         }
     }
-
+    
     /// Check if passed versions support self versions if yes return the biggest version available
     pub fn get_version(&self, min_version: u16, max_version: u16) -> Option<u16> {
         if self.min_version > max_version || min_version > self.max_version {
@@ -400,24 +399,30 @@ mod test {
     use core::convert::TryInto;
 
     #[test]
-    fn test_check_flags() {
-        let protocol = Protocol::MiningProtocol;
-        let flag_available = 0b_0000_0000_0000_0000_0000_0000_0000_0001;
+    fn test_check_flag() {
+        let protocol = crate::Protocol::MiningProtocol;
+        let flag_available = 0b_0000_0000_0000_0000_0000_0000_0000_0000;
         let flag_required = 0b_0000_0000_0000_0000_0000_0000_0000_0001;
-        assert!(SetupConnection::check_flags(
-            protocol,
-            flag_available,
-            flag_required
-        ));
+        let result = SetupConnection::check_flags(protocol, flag_available, flag_required);
+        debug_assert!(result, "protocol: {:?}, flag_available: {:?}, flag_required: {:?}, result: {:?}", protocol, flag_available, flag_required, result);
+        assert!(result);
+    }
 
-        let protocol = Protocol::JobDeclarationProtocol;
-        let flag_available = 0b_1000_0000_0000_0000_0000_0000_0000_0000;
-        let flag_required = 0b_1000_0000_0000_0000_0000_0000_0000_0000;
-        assert!(SetupConnection::check_flags(
-            protocol,
-            flag_available,
-            flag_required
-        ));
+    #[test]
+    fn test_check_flags_job_declaration_protocol() {
+        let protocol = crate::Protocol::JobDeclarationProtocol;
+    
+        // Test case where all required flags are available
+        let mut available_flags = 0b_1000_0000_0000_0000_0000_0000_0000_0000; // The 31st bit is set
+        let mut required_flags = 0b_1000_0000_0000_0000_0000_0000_0000_0000; // The 31st bit is set
+        let mut result = SetupConnection::check_flags(protocol, available_flags, required_flags);
+        assert!(result, "All required flags are available, but check_flags returned false");
+    
+        // Test case where not all required flags are available
+        available_flags = 0b_0000_0000_0000_0000_0000_0000_0000_0000; // No flags are set
+        required_flags = 0b_1000_0000_0000_0000_0000_0000_0000_0000; // The 31st bit is set
+        result = SetupConnection::check_flags(protocol, available_flags, required_flags);
+        assert!(!result, "Not all required flags are available, but check_flags returned true");
     }
 
     #[test]
