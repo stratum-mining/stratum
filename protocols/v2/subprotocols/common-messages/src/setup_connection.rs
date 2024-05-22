@@ -412,23 +412,16 @@ mod test {
             flag_avaiable,
             flag_required
         ));
-    }
 
-    #[test]
-    fn test_check_flags_job_declaration_protocol() {
         let protocol = crate::Protocol::JobDeclarationProtocol;
-    
-        // Test case where all required flags are available
-        let mut available_flags = 0b_1000_0000_0000_0000_0000_0000_0000_0000; // The 31st bit is set
-        let mut required_flags = 0b_1000_0000_0000_0000_0000_0000_0000_0000; // The 31st bit is set
-        let mut result = SetupConnection::check_flags(protocol, available_flags, required_flags);
-        assert!(result, "All required flags are available, but check_flags returned false");
-    
-        // Test case where not all required flags are available
-        available_flags = 0b_0000_0000_0000_0000_0000_0000_0000_0000; // No flags are set
-        required_flags = 0b_1000_0000_0000_0000_0000_0000_0000_0000; // The 31st bit is set
-        result = SetupConnection::check_flags(protocol, available_flags, required_flags);
-        assert!(!result, "Not all required flags are available, but check_flags returned true");
+
+        let available_flags = 0b_1000_0000_0000_0000_0000_0000_0000_0000; 
+        let required_flags = 0b_1000_0000_0000_0000_0000_0000_0000_0000; 
+        assert!(SetupConnection::check_flags(protocol, available_flags, required_flags));
+
+        let available_flags = 0b_0000_0000_0000_0000_0000_0000_0000_0000; 
+        let required_flags = 0b_1000_0000_0000_0000_0000_0000_0000_0000; 
+        assert!(!SetupConnection::check_flags(protocol, available_flags, required_flags));
     }
 
     #[test]
