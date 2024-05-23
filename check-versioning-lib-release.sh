@@ -1,7 +1,6 @@
 #!/bin/bash
 
-git fetch origin main
-git fetch origin dev
+git fetch --all
 
 crates=(
 "utils/buffer"
@@ -35,6 +34,10 @@ crates=(
 # Loop through each crate
 for crate in "${crates[@]}"; do
   cd "$crate"
+
+  # Check if the branches exist locally, if not, create them
+  git show-ref --verify --quiet refs/remotes/origin/main || { echo "Branch 'main' not found."; exit 1; }
+  git show-ref --verify --quiet refs/remotes/origin/dev || { echo "Branch 'dev' not found."; exit 1; }
 
   # Check if there were any changes between dev and main
   git diff --quiet "origin/dev" "origin/main" -- .
