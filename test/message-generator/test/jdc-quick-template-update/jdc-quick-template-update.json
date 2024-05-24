@@ -1,0 +1,187 @@
+{
+    "version": "2",
+    "doc": [
+        "This test does",
+        "Launch real pool",
+        "Launch real JDC",
+        "Mock TP",
+        "Mock JDS",
+        "todo: describe message sequence"
+    ],
+    "frame_builders": [
+        {
+            "type": "automatic",
+            "message_id": "test/message-generator/messages/common_messages.json::setup_connection_success_tproxy"
+        },
+        {
+            "type": "automatic",
+            "message_id": "test/message-generator/messages/common_messages.json::setup_connection_success_tproxy"
+        }
+    ],
+    "actions": [
+       {
+            "message_ids": [],
+            "role": "server",
+            "results": [
+                {
+                    "type": "match_message_type",
+                    "value": "0x00"
+                }
+            ],
+            "actiondoc": "This action checks that a Setupconnection message is received"
+        },
+        {
+            "message_ids": ["setup_connection_success_tproxy"],
+            "role": "server",
+            "results": [
+                {
+                    "type": "match_message_type",
+                    "value": "0x13"
+                }
+            ],
+          "actiondoc": "This action sends SetupConnection.Success and check that a open_extended_mining_channel is received"
+        }
+    ],
+    "setup_commands": [
+        {
+            "command": "cargo",
+            "args": [
+                "run",
+                "../../test/message-generator/mock/tp-mock-quick-template.json"
+            ],
+
+            "conditions": {
+                "WithConditions": {
+                    "conditions": [
+                        {
+                            "output_string": "",
+                            "output_location": "StdErr",
+                            "condition": true,
+                            "late_condition": false
+                        }
+                    ],
+                    "timer_secs": 600,
+                    "warn_no_panic": false
+                }
+            }
+        },
+        {
+            "command": "cargo",
+            "args": [
+                "llvm-cov",
+                "--no-report",
+                "run",
+                "-p",
+                "pool_sv2",
+                "--",
+                "-c",
+                "../test/config/pool-config-local-tp.toml"
+            ],
+            "conditions": {
+                "WithConditions": {
+                    "conditions": [
+                        {
+                            "output_string": "Pool INITIALIZING",
+                            "output_location": "StdOut",
+                            "late_condition": false,
+                            "condition": true
+                        }
+                    ],
+                    "timer_secs": 1000,
+                    "warn_no_panic": false
+                }
+            }
+        },
+        {
+            "command": "cargo",
+            "args": [
+                "run",
+                "../../test/message-generator/mock/jds-mock-quick-templates.json"
+            ],
+
+            "conditions": {
+                "WithConditions": {
+                    "conditions": [
+                        {
+                            "output_string": "",
+                            "output_location": "StdErr",
+                            "condition": true,
+                            "late_condition": false
+                        }
+                    ],
+                    "timer_secs": 600,
+                    "warn_no_panic": false
+                }
+            }
+        },
+        {
+            "command": "sleep",
+            "args": ["7000"],
+            "conditions": "None"
+        },
+        {
+            "command": "cargo",
+            "args": [
+                "llvm-cov",
+                "--no-report",
+                "run",
+                "-p",
+                "jd_client",
+                "--",
+                "-c",
+                "../test/config/jdc-quick-template-update/jdc-config.toml"
+            ],
+            "conditions": {
+                "WithConditions": {
+                    "conditions": [
+                        {
+                            "output_string": "JD INITIALIZED",
+                            "output_location": "StdOut",
+                            "late_condition": false,
+                            "condition": true
+                        }
+                    ],
+                    "timer_secs": 600,
+                    "warn_no_panic": false
+                }
+            }
+        },
+        {
+            "command": "sleep",
+            "args": ["10000"],
+            "conditions": "None"
+        }
+    ],
+    "execution_commands": [
+    ],
+    "cleanup_commands": [
+        {
+            "command": "pkill",
+            "args":  ["-f", "mining_device", "-SIGINT"],
+            "conditions": "None"
+        },
+        {
+            "command": "pkill",
+            "args":  ["-f", "jd_server", "-SIGINT"],
+            "conditions": "None"
+        },
+        {
+            "command": "pkill",
+            "args":  ["-f", "jd_client", "-SIGINT"],
+            "conditions": "None"
+        },
+        {
+            "command": "pkill",
+            "args":  ["-f", "mining_proxy_sv2", "-SIGINT"],
+            "conditions": "None"
+        }
+    ],
+    "role": "none",
+    "role": "server",
+    "upstream": {
+        "ip": "127.0.0.1",
+        "port": 44255,
+        "pub_key": "9auqWEzQDVyd2oe1JVGFLMLHZtCo2FFqZwtKA5gd9xbuEu7PH72",
+        "secret_key": "mkDLTBBRxdBv998612qipDYoTK3YUrqLe8uWw7gu3iXbSrn2n"
+    }
+}
