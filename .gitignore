@@ -1,5 +1,5 @@
 .idea
-*/target
+*/**/target
 /protocols/guix-example/guix-example.h
 /ignore
 /vendor/ed25519-dalek/target
