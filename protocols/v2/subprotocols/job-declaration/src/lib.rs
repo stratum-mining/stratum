@@ -1,4 +1,4 @@
-#![no_std]
+#![cfg_attr(feature = "no_std", no_std)]
 
 //! # Job Declaration Protocol
 //!

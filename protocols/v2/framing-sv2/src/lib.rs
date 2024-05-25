@@ -19,7 +19,7 @@
 //!
 //! The `with_serde` feature flag is only used for the Message Generator, and deprecated for any other kind of usage. It will likely be fully deprecated in the future.
 
-#![no_std]
+#![cfg_attr(feature = "no_std", no_std)]
 extern crate alloc;
 
 /// SV2 framing types
