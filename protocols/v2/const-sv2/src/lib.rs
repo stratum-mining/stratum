@@ -1,5 +1,5 @@
 //! Central repository for all the sv2 constants
-#![no_std]
+#![cfg_attr(feature = "no_std", no_std)]
 
 pub const EXTENSION_TYPE_NO_EXTENSION: u16 = 0;
 
