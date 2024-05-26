@@ -7,7 +7,7 @@ use v1::server_to_client::{Notify, SetDifficulty};
 
 use stratum_common::bitcoin::util::uint::ParseLengthError;
 
-pub type ProxyResult<'a, T> = core::result::Result<T, Error<'a>>;
+pub type TProxyResult<'a, T> = core::result::Result<T, TProxyError<'a>>;
 
 #[derive(Debug)]
 pub enum ChannelSendError<'a> {
@@ -32,14 +32,14 @@ pub enum ChannelSendError<'a> {
 }
 
 #[derive(Debug)]
-pub enum Error<'a> {
+pub enum TProxyError<'a> {
     VecToSlice32(Vec<u8>),
+    ConfigError(config::ConfigError),
     /// Errors on bad CLI argument input.
+    #[allow(dead_code)]
     BadCliArgs,
     /// Errors on bad `serde_json` serialize/deserialize.
     BadSerdeJson(serde_json::Error),
-    /// Errors on bad `toml` deserialize.
-    BadTomlDeserialize(toml::de::Error),
     /// Errors from `binary_sv2` crate.
     BinarySv2(binary_sv2::Error),
     /// Errors on bad noise handshake.
@@ -77,13 +77,13 @@ pub enum Error<'a> {
     Sv1MessageTooLong,
 }
 
-impl<'a> fmt::Display for Error<'a> {
+impl<'a> fmt::Display for TProxyError<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use Error::*;
+        use TProxyError::*;
         match self {
+            ConfigError(e) => write!(f, "Config error: {:?}", e),
             BadCliArgs => write!(f, "Bad CLI arg input"),
             BadSerdeJson(ref e) => write!(f, "Bad serde json: `{:?}`", e),
-            BadTomlDeserialize(ref e) => write!(f, "Bad `toml` deserialize: `{:?}`", e),
             BinarySv2(ref e) => write!(f, "Binary SV2 error: `{:?}`", e),
             CodecNoise(ref e) => write!(f, "Noise error: `{:?}", e),
             FramingSv2(ref e) => write!(f, "Framing SV2 error: `{:?}`", e),
@@ -117,125 +117,125 @@ impl<'a> fmt::Display for Error<'a> {
     }
 }
 
-impl<'a> From<binary_sv2::Error> for Error<'a> {
+impl<'a> From<config::ConfigError> for TProxyError<'a> {
+    fn from(e: config::ConfigError) -> TProxyError<'a> {
+        TProxyError::ConfigError(e)
+    }
+}
+
+impl<'a> From<binary_sv2::Error> for TProxyError<'a> {
     fn from(e: binary_sv2::Error) -> Self {
-        Error::BinarySv2(e)
+        TProxyError::BinarySv2(e)
     }
 }
 
-impl<'a> From<codec_sv2::noise_sv2::Error> for Error<'a> {
+impl<'a> From<codec_sv2::noise_sv2::Error> for TProxyError<'a> {
     fn from(e: codec_sv2::noise_sv2::Error) -> Self {
-        Error::CodecNoise(e)
+        TProxyError::CodecNoise(e)
     }
 }
 
-impl<'a> From<framing_sv2::Error> for Error<'a> {
+impl<'a> From<framing_sv2::Error> for TProxyError<'a> {
     fn from(e: framing_sv2::Error) -> Self {
-        Error::FramingSv2(e)
+        TProxyError::FramingSv2(e)
     }
 }
 
-impl<'a> From<std::io::Error> for Error<'a> {
+impl<'a> From<std::io::Error> for TProxyError<'a> {
     fn from(e: std::io::Error) -> Self {
-        Error::Io(e)
+        TProxyError::Io(e)
     }
 }
 
-impl<'a> From<std::num::ParseIntError> for Error<'a> {
+impl<'a> From<std::num::ParseIntError> for TProxyError<'a> {
     fn from(e: std::num::ParseIntError) -> Self {
-        Error::ParseInt(e)
+        TProxyError::ParseInt(e)
     }
 }
 
-impl<'a> From<roles_logic_sv2::errors::Error> for Error<'a> {
+impl<'a> From<roles_logic_sv2::errors::Error> for TProxyError<'a> {
     fn from(e: roles_logic_sv2::errors::Error) -> Self {
-        Error::RolesSv2Logic(e)
+        TProxyError::RolesSv2Logic(e)
     }
 }
 
-impl<'a> From<serde_json::Error> for Error<'a> {
+impl<'a> From<serde_json::Error> for TProxyError<'a> {
     fn from(e: serde_json::Error) -> Self {
-        Error::BadSerdeJson(e)
+        TProxyError::BadSerdeJson(e)
     }
 }
 
-impl<'a> From<toml::de::Error> for Error<'a> {
-    fn from(e: toml::de::Error) -> Self {
-        Error::BadTomlDeserialize(e)
-    }
-}
-
-impl<'a> From<v1::error::Error<'a>> for Error<'a> {
+impl<'a> From<v1::error::Error<'a>> for TProxyError<'a> {
     fn from(e: v1::error::Error<'a>) -> Self {
-        Error::V1Protocol(e)
+        TProxyError::V1Protocol(e)
     }
 }
 
-impl<'a> From<async_channel::RecvError> for Error<'a> {
+impl<'a> From<async_channel::RecvError> for TProxyError<'a> {
     fn from(e: async_channel::RecvError) -> Self {
-        Error::ChannelErrorReceiver(e)
+        TProxyError::ChannelErrorReceiver(e)
     }
 }
 
-impl<'a> From<tokio::sync::broadcast::error::RecvError> for Error<'a> {
+impl<'a> From<tokio::sync::broadcast::error::RecvError> for TProxyError<'a> {
     fn from(e: tokio::sync::broadcast::error::RecvError) -> Self {
-        Error::TokioChannelErrorRecv(e)
+        TProxyError::TokioChannelErrorRecv(e)
     }
 }
 
 //*** LOCK ERRORS ***
-impl<'a, T> From<PoisonError<T>> for Error<'a> {
+impl<'a, T> From<PoisonError<T>> for TProxyError<'a> {
     fn from(_e: PoisonError<T>) -> Self {
-        Error::PoisonLock
+        TProxyError::PoisonLock
     }
 }
 
 // *** CHANNEL SENDER ERRORS ***
 impl<'a> From<async_channel::SendError<roles_logic_sv2::mining_sv2::SubmitSharesExtended<'a>>>
-    for Error<'a>
+    for TProxyError<'a>
 {
     fn from(
         e: async_channel::SendError<roles_logic_sv2::mining_sv2::SubmitSharesExtended<'a>>,
     ) -> Self {
-        Error::ChannelErrorSender(ChannelSendError::SubmitSharesExtended(e))
+        TProxyError::ChannelErrorSender(ChannelSendError::SubmitSharesExtended(e))
     }
 }
 
 impl<'a> From<async_channel::SendError<roles_logic_sv2::mining_sv2::SetNewPrevHash<'a>>>
-    for Error<'a>
+    for TProxyError<'a>
 {
     fn from(e: async_channel::SendError<roles_logic_sv2::mining_sv2::SetNewPrevHash<'a>>) -> Self {
-        Error::ChannelErrorSender(ChannelSendError::SetNewPrevHash(e))
+        TProxyError::ChannelErrorSender(ChannelSendError::SetNewPrevHash(e))
     }
 }
 
-impl<'a> From<tokio::sync::broadcast::error::SendError<Notify<'a>>> for Error<'a> {
+impl<'a> From<tokio::sync::broadcast::error::SendError<Notify<'a>>> for TProxyError<'a> {
     fn from(e: tokio::sync::broadcast::error::SendError<Notify<'a>>) -> Self {
-        Error::ChannelErrorSender(ChannelSendError::Notify(e))
+        TProxyError::ChannelErrorSender(ChannelSendError::Notify(e))
     }
 }
 
-impl<'a> From<async_channel::SendError<v1::Message>> for Error<'a> {
+impl<'a> From<async_channel::SendError<v1::Message>> for TProxyError<'a> {
     fn from(e: async_channel::SendError<v1::Message>) -> Self {
-        Error::ChannelErrorSender(ChannelSendError::V1Message(e))
+        TProxyError::ChannelErrorSender(ChannelSendError::V1Message(e))
     }
 }
 
-impl<'a> From<async_channel::SendError<(ExtendedExtranonce, u32)>> for Error<'a> {
+impl<'a> From<async_channel::SendError<(ExtendedExtranonce, u32)>> for TProxyError<'a> {
     fn from(e: async_channel::SendError<(ExtendedExtranonce, u32)>) -> Self {
-        Error::ChannelErrorSender(ChannelSendError::Extranonce(e))
+        TProxyError::ChannelErrorSender(ChannelSendError::Extranonce(e))
     }
 }
 
-impl<'a> From<async_channel::SendError<NewExtendedMiningJob<'a>>> for Error<'a> {
+impl<'a> From<async_channel::SendError<NewExtendedMiningJob<'a>>> for TProxyError<'a> {
     fn from(e: async_channel::SendError<NewExtendedMiningJob<'a>>) -> Self {
-        Error::ChannelErrorSender(ChannelSendError::NewExtendedMiningJob(e))
+        TProxyError::ChannelErrorSender(ChannelSendError::NewExtendedMiningJob(e))
     }
 }
 
-impl<'a> From<async_channel::SendError<SetCustomMiningJob<'a>>> for Error<'a> {
+impl<'a> From<async_channel::SendError<SetCustomMiningJob<'a>>> for TProxyError<'a> {
     fn from(e: async_channel::SendError<SetCustomMiningJob<'a>>) -> Self {
-        Error::ChannelErrorSender(ChannelSendError::SetCustomMiningJob(e))
+        TProxyError::ChannelErrorSender(ChannelSendError::SetCustomMiningJob(e))
     }
 }
 
@@ -245,7 +245,7 @@ impl<'a>
             roles_logic_sv2::template_distribution_sv2::SetNewPrevHash<'a>,
             Vec<u8>,
         )>,
-    > for Error<'a>
+    > for TProxyError<'a>
 {
     fn from(
         e: async_channel::SendError<(
@@ -253,36 +253,36 @@ impl<'a>
             Vec<u8>,
         )>,
     ) -> Self {
-        Error::ChannelErrorSender(ChannelSendError::NewTemplate(e))
+        TProxyError::ChannelErrorSender(ChannelSendError::NewTemplate(e))
     }
 }
 
-impl<'a> From<Vec<u8>> for Error<'a> {
+impl<'a> From<Vec<u8>> for TProxyError<'a> {
     fn from(e: Vec<u8>) -> Self {
-        Error::VecToSlice32(e)
+        TProxyError::VecToSlice32(e)
     }
 }
 
-impl<'a> From<ParseLengthError> for Error<'a> {
+impl<'a> From<ParseLengthError> for TProxyError<'a> {
     fn from(e: ParseLengthError) -> Self {
-        Error::Uint256Conversion(e)
+        TProxyError::Uint256Conversion(e)
     }
 }
 
-impl<'a> From<SetDifficulty> for Error<'a> {
+impl<'a> From<SetDifficulty> for TProxyError<'a> {
     fn from(e: SetDifficulty) -> Self {
-        Error::SetDifficultyToMessage(e)
+        TProxyError::SetDifficultyToMessage(e)
     }
 }
 
-impl<'a> From<std::convert::Infallible> for Error<'a> {
+impl<'a> From<std::convert::Infallible> for TProxyError<'a> {
     fn from(e: std::convert::Infallible) -> Self {
-        Error::Infallible(e)
+        TProxyError::Infallible(e)
     }
 }
 
-impl<'a> From<Mining<'a>> for Error<'a> {
+impl<'a> From<Mining<'a>> for TProxyError<'a> {
     fn from(e: Mining<'a>) -> Self {
-        Error::Sv2ProtocolError(e)
+        TProxyError::Sv2ProtocolError(e)
     }
 }

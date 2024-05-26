@@ -1,7 +1,7 @@
 #![allow(special_module_name)]
 use crate::lib::{
     mempool::{self, error::JdsMempoolError},
-    status, Configuration,
+    status,
 };
 use async_channel::{bounded, unbounded, Receiver, Sender};
 use error_handling::handle_result;
@@ -9,102 +9,22 @@ use roles_logic_sv2::utils::Mutex;
 use std::{ops::Sub, sync::Arc};
 use tokio::{select, task};
 use tracing::{error, info, warn};
+mod args;
 mod lib;
 
 use lib::job_declarator::JobDeclarator;
 
-mod args {
-    use std::path::PathBuf;
-
-    #[derive(Debug)]
-    pub struct Args {
-        pub config_path: PathBuf,
-    }
-
-    enum ArgsState {
-        Next,
-        ExpectPath,
-        Done,
-    }
-
-    enum ArgsResult {
-        Config(PathBuf),
-        None,
-        Help(String),
-    }
-
-    impl Args {
-        const DEFAULT_CONFIG_PATH: &'static str = "jds-config.toml";
-        const HELP_MSG: &'static str =
-            "Usage: -h/--help, -c/--config <path|default jds-config.toml>";
-
-        pub fn from_args() -> Result<Self, String> {
-            let cli_args = std::env::args();
-
-            if cli_args.len() == 1 {
-                println!("Using default config path: {}", Self::DEFAULT_CONFIG_PATH);
-                println!("{}\n", Self::HELP_MSG);
-            }
-
-            let config_path = cli_args
-                .scan(ArgsState::Next, |state, item| {
-                    match std::mem::replace(state, ArgsState::Done) {
-                        ArgsState::Next => match item.as_str() {
-                            "-c" | "--config" => {
-                                *state = ArgsState::ExpectPath;
-                                Some(ArgsResult::None)
-                            }
-                            "-h" | "--help" => Some(ArgsResult::Help(Self::HELP_MSG.to_string())),
-                            _ => {
-                                *state = ArgsState::Next;
-
-                                Some(ArgsResult::None)
-                            }
-                        },
-                        ArgsState::ExpectPath => Some(ArgsResult::Config(PathBuf::from(item))),
-                        ArgsState::Done => None,
-                    }
-                })
-                .last();
-            let config_path = match config_path {
-                Some(ArgsResult::Config(p)) => p,
-                Some(ArgsResult::Help(h)) => return Err(h),
-                _ => PathBuf::from(Self::DEFAULT_CONFIG_PATH),
-            };
-            Ok(Self { config_path })
-        }
-    }
-}
-
 #[tokio::main]
 async fn main() {
     tracing_subscriber::fmt::init();
-    let args = match args::Args::from_args() {
-        Ok(cfg) => cfg,
-        Err(help) => {
-            error!("{}", help);
-            return;
-        }
+    let jds_config = match args::process_cli_args() {
+        Ok(p) => p,
+        Err(_) => return,
     };
 
-    // Load config
-    let config: Configuration = match std::fs::read_to_string(&args.config_path) {
-        Ok(c) => match toml::from_str(&c) {
-            Ok(c) => c,
-            Err(e) => {
-                error!("Failed to parse config: {}", e);
-                return;
-            }
-        },
-        Err(e) => {
-            error!("Failed to read config: {}", e);
-            return;
-        }
-    };
-
-    let url = config.core_rpc_url.clone() + ":" + &config.core_rpc_port.clone().to_string();
-    let username = config.core_rpc_user.clone();
-    let password = config.core_rpc_pass.clone();
+    let url = jds_config.core_rpc_url.clone() + ":" + &jds_config.core_rpc_port.clone().to_string();
+    let username = jds_config.core_rpc_user.clone();
+    let password = jds_config.core_rpc_pass.clone();
     // TODO should we manage what to do when the limit is reaced?
     let (new_block_sender, new_block_receiver): (Sender<String>, Receiver<String>) = bounded(10);
     let mempool = Arc::new(Mutex::new(mempool::JDsMempool::new(
@@ -113,7 +33,7 @@ async fn main() {
         password,
         new_block_receiver,
     )));
-    let mempool_update_interval = config.mempool_update_interval;
+    let mempool_update_interval = jds_config.mempool_update_interval;
     let mempool_cloned_ = mempool.clone();
     let (status_tx, status_rx) = unbounded();
     let sender = status::Sender::Downstream(status_tx.clone());
@@ -183,9 +103,9 @@ async fn main() {
         });
     };
 
-    info!("Jds INITIALIZING with config: {:?}", &args.config_path);
+    info!("Jds INITIALIZING");
 
-    let cloned = config.clone();
+    let cloned = jds_config.clone();
     let mempool_cloned = mempool.clone();
     let (sender_add_txs_to_mempool, receiver_add_txs_to_mempool) = unbounded();
     task::spawn(async move {

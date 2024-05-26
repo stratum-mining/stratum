@@ -3,7 +3,7 @@ use std::fmt;
 use roles_logic_sv2::mining_sv2::{ExtendedExtranonce, NewExtendedMiningJob, SetCustomMiningJob};
 use stratum_common::bitcoin::util::uint::ParseLengthError;
 
-pub type ProxyResult<'a, T> = core::result::Result<T, Error<'a>>;
+pub type JdcResult<'a, T> = core::result::Result<T, JdcError<'a>>;
 
 #[derive(Debug)]
 pub enum ChannelSendError<'a> {
@@ -26,12 +26,9 @@ pub enum ChannelSendError<'a> {
 }
 
 #[derive(Debug)]
-pub enum Error<'a> {
+pub enum JdcError<'a> {
     VecToSlice32(Vec<u8>),
-    /// Errors on bad CLI argument input.
-    BadCliArgs,
-    /// Errors on bad `toml` deserialize.
-    BadTomlDeserialize(toml::de::Error),
+    ConfigError(config::ConfigError),
     /// Errors from `binary_sv2` crate.
     BinarySv2(binary_sv2::Error),
     /// Errors on bad noise handshake.
@@ -58,12 +55,11 @@ pub enum Error<'a> {
     Infallible(std::convert::Infallible),
 }
 
-impl<'a> fmt::Display for Error<'a> {
+impl<'a> fmt::Display for JdcError<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use Error::*;
+        use JdcError::*;
         match self {
-            BadCliArgs => write!(f, "Bad CLI arg input"),
-            BadTomlDeserialize(ref e) => write!(f, "Bad `toml` deserialize: `{:?}`", e),
+            ConfigError(e) => write!(f, "Config error: {:?}", e),
             BinarySv2(ref e) => write!(f, "Binary SV2 error: `{:?}`", e),
             CodecNoise(ref e) => write!(f, "Noise error: `{:?}", e),
             FramingSv2(ref e) => write!(f, "Framing SV2 error: `{:?}`", e),
@@ -83,57 +79,57 @@ impl<'a> fmt::Display for Error<'a> {
     }
 }
 
-impl<'a> From<binary_sv2::Error> for Error<'a> {
+impl<'a> From<config::ConfigError> for JdcError<'a> {
+    fn from(e: config::ConfigError) -> JdcError<'a> {
+        JdcError::ConfigError(e)
+    }
+}
+
+impl<'a> From<binary_sv2::Error> for JdcError<'a> {
     fn from(e: binary_sv2::Error) -> Self {
-        Error::BinarySv2(e)
+        JdcError::BinarySv2(e)
     }
 }
 
-impl<'a> From<codec_sv2::noise_sv2::Error> for Error<'a> {
+impl<'a> From<codec_sv2::noise_sv2::Error> for JdcError<'a> {
     fn from(e: codec_sv2::noise_sv2::Error) -> Self {
-        Error::CodecNoise(e)
+        JdcError::CodecNoise(e)
     }
 }
 
-impl<'a> From<framing_sv2::Error> for Error<'a> {
+impl<'a> From<framing_sv2::Error> for JdcError<'a> {
     fn from(e: framing_sv2::Error) -> Self {
-        Error::FramingSv2(e)
+        JdcError::FramingSv2(e)
     }
 }
 
-impl<'a> From<std::io::Error> for Error<'a> {
+impl<'a> From<std::io::Error> for JdcError<'a> {
     fn from(e: std::io::Error) -> Self {
-        Error::Io(e)
+        JdcError::Io(e)
     }
 }
 
-impl<'a> From<std::num::ParseIntError> for Error<'a> {
+impl<'a> From<std::num::ParseIntError> for JdcError<'a> {
     fn from(e: std::num::ParseIntError) -> Self {
-        Error::ParseInt(e)
+        JdcError::ParseInt(e)
     }
 }
 
-impl<'a> From<roles_logic_sv2::errors::Error> for Error<'a> {
+impl<'a> From<roles_logic_sv2::errors::Error> for JdcError<'a> {
     fn from(e: roles_logic_sv2::errors::Error) -> Self {
-        Error::RolesSv2Logic(e)
+        JdcError::RolesSv2Logic(e)
     }
 }
 
-impl<'a> From<toml::de::Error> for Error<'a> {
-    fn from(e: toml::de::Error) -> Self {
-        Error::BadTomlDeserialize(e)
-    }
-}
-
-impl<'a> From<async_channel::RecvError> for Error<'a> {
+impl<'a> From<async_channel::RecvError> for JdcError<'a> {
     fn from(e: async_channel::RecvError) -> Self {
-        Error::ChannelErrorReceiver(e)
+        JdcError::ChannelErrorReceiver(e)
     }
 }
 
-impl<'a> From<tokio::sync::broadcast::error::RecvError> for Error<'a> {
+impl<'a> From<tokio::sync::broadcast::error::RecvError> for JdcError<'a> {
     fn from(e: tokio::sync::broadcast::error::RecvError) -> Self {
-        Error::TokioChannelErrorRecv(e)
+        JdcError::TokioChannelErrorRecv(e)
     }
 }
 
@@ -156,38 +152,38 @@ impl<'a> From<tokio::sync::broadcast::error::RecvError> for Error<'a> {
 
 // *** CHANNEL SENDER ERRORS ***
 impl<'a> From<async_channel::SendError<roles_logic_sv2::mining_sv2::SubmitSharesExtended<'a>>>
-    for Error<'a>
+    for JdcError<'a>
 {
     fn from(
         e: async_channel::SendError<roles_logic_sv2::mining_sv2::SubmitSharesExtended<'a>>,
     ) -> Self {
-        Error::ChannelErrorSender(ChannelSendError::SubmitSharesExtended(e))
+        JdcError::ChannelErrorSender(ChannelSendError::SubmitSharesExtended(e))
     }
 }
 
 impl<'a> From<async_channel::SendError<roles_logic_sv2::mining_sv2::SetNewPrevHash<'a>>>
-    for Error<'a>
+    for JdcError<'a>
 {
     fn from(e: async_channel::SendError<roles_logic_sv2::mining_sv2::SetNewPrevHash<'a>>) -> Self {
-        Error::ChannelErrorSender(ChannelSendError::SetNewPrevHash(e))
+        JdcError::ChannelErrorSender(ChannelSendError::SetNewPrevHash(e))
     }
 }
 
-impl<'a> From<async_channel::SendError<(ExtendedExtranonce, u32)>> for Error<'a> {
+impl<'a> From<async_channel::SendError<(ExtendedExtranonce, u32)>> for JdcError<'a> {
     fn from(e: async_channel::SendError<(ExtendedExtranonce, u32)>) -> Self {
-        Error::ChannelErrorSender(ChannelSendError::Extranonce(e))
+        JdcError::ChannelErrorSender(ChannelSendError::Extranonce(e))
     }
 }
 
-impl<'a> From<async_channel::SendError<NewExtendedMiningJob<'a>>> for Error<'a> {
+impl<'a> From<async_channel::SendError<NewExtendedMiningJob<'a>>> for JdcError<'a> {
     fn from(e: async_channel::SendError<NewExtendedMiningJob<'a>>) -> Self {
-        Error::ChannelErrorSender(ChannelSendError::NewExtendedMiningJob(e))
+        JdcError::ChannelErrorSender(ChannelSendError::NewExtendedMiningJob(e))
     }
 }
 
-impl<'a> From<async_channel::SendError<SetCustomMiningJob<'a>>> for Error<'a> {
+impl<'a> From<async_channel::SendError<SetCustomMiningJob<'a>>> for JdcError<'a> {
     fn from(e: async_channel::SendError<SetCustomMiningJob<'a>>) -> Self {
-        Error::ChannelErrorSender(ChannelSendError::SetCustomMiningJob(e))
+        JdcError::ChannelErrorSender(ChannelSendError::SetCustomMiningJob(e))
     }
 }
 
@@ -197,7 +193,7 @@ impl<'a>
             roles_logic_sv2::template_distribution_sv2::SetNewPrevHash<'a>,
             Vec<u8>,
         )>,
-    > for Error<'a>
+    > for JdcError<'a>
 {
     fn from(
         e: async_channel::SendError<(
@@ -205,24 +201,24 @@ impl<'a>
             Vec<u8>,
         )>,
     ) -> Self {
-        Error::ChannelErrorSender(ChannelSendError::NewTemplate(e))
+        JdcError::ChannelErrorSender(ChannelSendError::NewTemplate(e))
     }
 }
 
-impl<'a> From<Vec<u8>> for Error<'a> {
+impl<'a> From<Vec<u8>> for JdcError<'a> {
     fn from(e: Vec<u8>) -> Self {
-        Error::VecToSlice32(e)
+        JdcError::VecToSlice32(e)
     }
 }
 
-impl<'a> From<ParseLengthError> for Error<'a> {
+impl<'a> From<ParseLengthError> for JdcError<'a> {
     fn from(e: ParseLengthError) -> Self {
-        Error::Uint256Conversion(e)
+        JdcError::Uint256Conversion(e)
     }
 }
 
-impl<'a> From<std::convert::Infallible> for Error<'a> {
+impl<'a> From<std::convert::Infallible> for JdcError<'a> {
     fn from(e: std::convert::Infallible) -> Self {
-        Error::Infallible(e)
+        JdcError::Infallible(e)
     }
 }

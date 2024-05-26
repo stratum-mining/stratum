@@ -1,7 +1,7 @@
 pub mod downstream;
 pub mod error;
+pub mod jdc_config;
 pub mod job_declarator;
-pub mod proxy_config;
 pub mod status;
 pub mod template_receiver;
 pub mod upstream_sv2;

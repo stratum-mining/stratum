@@ -1,11 +1,11 @@
 use crate::{
     downstream_sv1::Downstream,
     error::{
-        Error::{CodecNoise, InvalidExtranonce, PoisonLock, UpstreamIncoming},
-        ProxyResult,
+        TProxyError::{CodecNoise, InvalidExtranonce, PoisonLock, UpstreamIncoming},
+        TProxyResult,
     },
-    proxy_config::UpstreamDifficultyConfig,
     status,
+    tproxy_config::UpstreamDifficultyConfig,
     upstream_sv2::{EitherFrame, Message, StdFrame, UpstreamConnection},
 };
 use async_channel::{Receiver, Sender};
@@ -124,7 +124,7 @@ impl Upstream {
         tx_status: status::Sender,
         target: Arc<Mutex<Vec<u8>>>,
         difficulty_config: Arc<Mutex<UpstreamDifficultyConfig>>,
-    ) -> ProxyResult<'static, Arc<Mutex<Self>>> {
+    ) -> TProxyResult<'static, Arc<Mutex<Self>>> {
         // Connect to the SV2 Upstream role retry connection every 5 seconds.
         let socket = loop {
             match TcpStream::connect(address).await {
@@ -179,7 +179,7 @@ impl Upstream {
         self_: Arc<Mutex<Self>>,
         min_version: u16,
         max_version: u16,
-    ) -> ProxyResult<'static, ()> {
+    ) -> TProxyResult<'static, ()> {
         // Get the `SetupConnection` message with Mining Device information (currently hard coded)
         let setup_connection = Self::get_setup_connection_message(min_version, max_version, false)?;
         let mut connection = self_
@@ -257,7 +257,7 @@ impl Upstream {
     /// Parses the incoming SV2 message from the Upstream role and routes the message to the
     /// appropriate handler.
     #[allow(clippy::result_large_err)]
-    pub fn parse_incoming(self_: Arc<Mutex<Self>>) -> ProxyResult<'static, ()> {
+    pub fn parse_incoming(self_: Arc<Mutex<Self>>) -> TProxyResult<'static, ()> {
         let clone = self_.clone();
         let (
             tx_frame,
@@ -300,7 +300,7 @@ impl Upstream {
                 let message_type =
                     incoming
                         .get_header()
-                        .ok_or(super::super::error::Error::FramingSv2(
+                        .ok_or(super::super::error::TProxyError::FramingSv2(
                             framing_sv2::Error::ExpectedSv2Frame,
                         ));
 
@@ -337,7 +337,7 @@ impl Upstream {
                         handle_result!(
                             tx_status,
                             tx_frame.send(frame).await.map_err(|e| {
-                                super::super::error::Error::ChannelErrorSender(
+                                super::super::error::TProxyError::ChannelErrorSender(
                                     super::super::error::ChannelSendError::General(e.to_string()),
                                 )
                             })
@@ -439,26 +439,29 @@ impl Upstream {
     #[allow(clippy::result_large_err)]
     fn get_job_id(
         self_: &Arc<Mutex<Self>>,
-    ) -> Result<Result<u32, super::super::error::Error<'static>>, super::super::error::Error<'static>>
-    {
+    ) -> Result<
+        Result<u32, super::super::error::TProxyError<'static>>,
+        super::super::error::TProxyError<'static>,
+    > {
         self_
             .safe_lock(|s| {
                 if s.is_work_selection_enabled() {
                     s.last_job_id
-                        .ok_or(super::super::error::Error::RolesSv2Logic(
+                        .ok_or(super::super::error::TProxyError::RolesSv2Logic(
                             RolesLogicError::NoValidTranslatorJob,
                         ))
                 } else {
-                    s.job_id.ok_or(super::super::error::Error::RolesSv2Logic(
-                        RolesLogicError::NoValidJob,
-                    ))
+                    s.job_id
+                        .ok_or(super::super::error::TProxyError::RolesSv2Logic(
+                            RolesLogicError::NoValidJob,
+                        ))
                 }
             })
             .map_err(|_e| PoisonLock)
     }
 
     #[allow(clippy::result_large_err)]
-    pub fn handle_submit(self_: Arc<Mutex<Self>>) -> ProxyResult<'static, ()> {
+    pub fn handle_submit(self_: Arc<Mutex<Self>>) -> TProxyResult<'static, ()> {
         let clone = self_.clone();
         let (tx_frame, receiver, tx_status) = clone
             .safe_lock(|s| {
@@ -478,7 +481,7 @@ impl Upstream {
                 let channel_id = self_
                     .safe_lock(|s| {
                         s.channel_id
-                            .ok_or(super::super::error::Error::RolesSv2Logic(
+                            .ok_or(super::super::error::TProxyError::RolesSv2Logic(
                                 RolesLogicError::NotFoundChannelId,
                             ))
                     })
@@ -499,7 +502,7 @@ impl Upstream {
                 handle_result!(
                     tx_status,
                     tx_frame.send(frame).await.map_err(|e| {
-                        super::super::error::Error::ChannelErrorSender(
+                        super::super::error::TProxyError::ChannelErrorSender(
                             super::super::error::ChannelSendError::General(e.to_string()),
                         )
                     })
@@ -521,7 +524,7 @@ impl Upstream {
         min_version: u16,
         max_version: u16,
         is_work_selection_enabled: bool,
-    ) -> ProxyResult<'static, SetupConnection<'static>> {
+    ) -> TProxyResult<'static, SetupConnection<'static>> {
         let endpoint_host = "0.0.0.0".to_string().into_bytes().try_into()?;
         let vendor = String::new().try_into()?;
         let hardware_version = String::new().try_into()?;

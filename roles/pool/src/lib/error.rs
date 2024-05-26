@@ -8,6 +8,7 @@ use roles_logic_sv2::parsers::Mining;
 
 #[derive(std::fmt::Debug)]
 pub enum PoolError {
+    ConfigError(config::ConfigError),
     Io(std::io::Error),
     ChannelSend(Box<dyn std::marker::Send + Debug>),
     ChannelRecv(async_channel::RecvError),
@@ -22,10 +23,17 @@ pub enum PoolError {
     Sv2ProtocolError((u32, Mining<'static>)),
 }
 
+impl From<config::ConfigError> for PoolError {
+    fn from(e: config::ConfigError) -> PoolError {
+        PoolError::ConfigError(e)
+    }
+}
+
 impl std::fmt::Display for PoolError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         use PoolError::*;
         match self {
+            ConfigError(e) => write!(f, "Config error: {:?}", e),
             Io(ref e) => write!(f, "I/O error: `{:?}", e),
             ChannelSend(ref e) => write!(f, "Channel send failed: `{:?}`", e),
             ChannelRecv(ref e) => write!(f, "Channel recv failed: `{:?}`", e),

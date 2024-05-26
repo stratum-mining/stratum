@@ -2,7 +2,7 @@ use key_utils::Secp256k1PublicKey;
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize, Clone)]
-pub struct ProxyConfig {
+pub struct TProxyConfig {
     pub upstream_address: String,
     pub upstream_port: u16,
     pub upstream_authority_pubkey: Secp256k1PublicKey,
