@@ -1,20 +1,27 @@
-pub mod error;
-pub mod jds_config;
-pub mod job_declarator;
-pub mod mempool;
-pub mod status;
-
-use codec_sv2::{StandardEitherFrame, StandardSv2Frame};
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
-use roles_logic_sv2::{
-    errors::Error, parsers::PoolMessages as JdsMessages, utils::CoinbaseOutput as CoinbaseOutput_,
-};
+use roles_logic_sv2::{errors::Error, utils::CoinbaseOutput as CoinbaseOutput_};
 use serde::Deserialize;
-use std::{convert::TryFrom, time::Duration};
+use std::{
+    convert::{TryFrom, TryInto},
+    time::Duration,
+};
+use stratum_common::bitcoin::{Script, TxOut};
 
-pub type Message = JdsMessages<'static>;
-pub type StdFrame = StandardSv2Frame<Message>;
-pub type EitherFrame = StandardEitherFrame<Message>;
+pub fn get_coinbase_output(config: &JdsConfig) -> Result<Vec<TxOut>, Error> {
+    let mut result = Vec::new();
+    for coinbase_output_pool in &config.coinbase_outputs {
+        let coinbase_output: CoinbaseOutput_ = coinbase_output_pool.try_into()?;
+        let output_script: Script = coinbase_output.try_into()?;
+        result.push(TxOut {
+            value: 0,
+            script_pubkey: output_script,
+        });
+    }
+    match result.is_empty() {
+        true => Err(Error::EmptyCoinbaseOutputs),
+        _ => Ok(result),
+    }
+}
 
 impl TryFrom<&CoinbaseOutput> for CoinbaseOutput_ {
     type Error = Error;
@@ -37,7 +44,7 @@ pub struct CoinbaseOutput {
 }
 
 #[derive(Debug, Deserialize, Clone)]
-pub struct Configuration {
+pub struct JdsConfig {
     pub listen_jd_address: String,
     pub authority_public_key: Secp256k1PublicKey,
     pub authority_secret_key: Secp256k1SecretKey,

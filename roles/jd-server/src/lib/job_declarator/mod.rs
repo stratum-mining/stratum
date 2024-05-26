@@ -1,5 +1,7 @@
 pub mod message_handler;
-use super::{error::JdsError, mempool::JDsMempool, status, Configuration, EitherFrame, StdFrame};
+use super::{
+    error::JdsError, jds_config::JdsConfig, mempool::JDsMempool, status, EitherFrame, StdFrame,
+};
 use async_channel::{Receiver, Sender};
 use binary_sv2::{B0255, U256};
 use codec_sv2::{Frame, HandshakeRole, Responder};
@@ -69,7 +71,7 @@ impl JobDeclaratorDownstream {
     pub fn new(
         receiver: Receiver<EitherFrame>,
         sender: Sender<EitherFrame>,
-        config: &Configuration,
+        config: &JdsConfig,
         mempool: Arc<Mutex<JDsMempool>>,
         sender_add_txs_to_mempool: Sender<AddTrasactionsToMempoolInner>,
     ) -> Self {
@@ -81,9 +83,10 @@ impl JobDeclaratorDownstream {
             known_transactions: vec![],
             unknown_transactions: vec![],
         };
-        super::get_coinbase_output(config).expect("Invalid coinbase output in config")[0]
-            .consensus_encode(&mut coinbase_output)
-            .expect("Invalid coinbase output in config");
+        super::jds_config::get_coinbase_output(config).expect("Invalid coinbase output in config")
+            [0]
+        .consensus_encode(&mut coinbase_output)
+        .expect("Invalid coinbase output in config");
 
         Self {
             receiver,
@@ -411,7 +414,7 @@ pub struct JobDeclarator {}
 
 impl JobDeclarator {
     pub async fn start(
-        config: Configuration,
+        config: JdsConfig,
         status_tx: crate::status::Sender,
         mempool: Arc<Mutex<JDsMempool>>,
         new_block_sender: Sender<String>,
@@ -431,7 +434,7 @@ impl JobDeclarator {
     }
     async fn accept_incoming_connection(
         _self_: Arc<Mutex<JobDeclarator>>,
-        config: Configuration,
+        config: JdsConfig,
         status_tx: crate::status::Sender,
         mempool: Arc<Mutex<JDsMempool>>,
         new_block_sender: Sender<String>,

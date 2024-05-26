@@ -25,7 +25,7 @@ impl TryFrom<&CoinbaseOutput> for CoinbaseOutput_ {
 }
 
 #[derive(Debug, Deserialize, Clone)]
-pub struct ProxyConfig {
+pub struct JdcConfig {
     pub downstream_address: String,
     pub downstream_port: u16,
     pub max_supported_version: u16,
@@ -82,7 +82,7 @@ where
     }
 }
 
-pub fn get_coinbase_output(config: &ProxyConfig) -> Result<Vec<TxOut>, Error> {
+pub fn get_coinbase_output(config: &JdcConfig) -> Result<Vec<TxOut>, Error> {
     let mut result = Vec::new();
     for coinbase_output_pool in &config.coinbase_outputs {
         let coinbase_output: CoinbaseOutput_ = coinbase_output_pool.try_into()?;

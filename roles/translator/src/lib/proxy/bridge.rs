@@ -15,8 +15,8 @@ use v1::{client_to_server::Submit, server_to_client, utils::HexU32Be};
 use super::super::{
     downstream_sv1::{DownstreamMessages, SetDownstreamTarget, SubmitShareWithChannelId},
     error::{
-        Error::{self, PoisonLock},
-        ProxyResult,
+        TProxyError::{self, PoisonLock},
+        TProxyResult,
     },
     status,
 };
@@ -114,7 +114,7 @@ impl Bridge {
     pub fn on_new_sv1_connection(
         &mut self,
         hash_rate: f32,
-    ) -> ProxyResult<'static, OpenSv1Downstream> {
+    ) -> TProxyResult<'static, OpenSv1Downstream> {
         match self.channel_factory.new_extended_channel(0, hash_rate, 0) {
             Ok(messages) => {
                 for message in messages {
@@ -141,12 +141,12 @@ impl Bridge {
                 }
             }
             Err(_) => {
-                return Err(Error::SubprotocolMining(
+                return Err(TProxyError::SubprotocolMining(
                     "Bridge: failed to open new extended channel".to_string(),
                 ))
             }
         };
-        Err(Error::SubprotocolMining(
+        Err(TProxyError::SubprotocolMining(
             "Bridge: Invalid mining message when opening downstream connection".to_string(),
         ))
     }
@@ -191,7 +191,7 @@ impl Bridge {
     fn handle_update_downstream_target(
         self_: Arc<Mutex<Self>>,
         new_target: SetDownstreamTarget,
-    ) -> ProxyResult<'static, ()> {
+    ) -> TProxyResult<'static, ()> {
         self_
             .safe_lock(|b| {
                 b.channel_factory
@@ -205,7 +205,7 @@ impl Bridge {
     async fn handle_submit_shares(
         self_: Arc<Mutex<Self>>,
         share: SubmitShareWithChannelId,
-    ) -> ProxyResult<'static, ()> {
+    ) -> TProxyResult<'static, ()> {
         let (tx_sv2_submit_shares_ext, target_mutex, tx_status) = self_
             .safe_lock(|s| {
                 (
@@ -276,16 +276,16 @@ impl Bridge {
         channel_id: u32,
         sv1_submit: Submit,
         version_rolling_mask: Option<HexU32Be>,
-    ) -> ProxyResult<'static, SubmitSharesExtended<'static>> {
+    ) -> TProxyResult<'static, SubmitSharesExtended<'static>> {
         let last_version = self
             .channel_factory
             .last_valid_job_version()
-            .ok_or(Error::RolesSv2Logic(RolesLogicError::NoValidJob))?;
+            .ok_or(TProxyError::RolesSv2Logic(RolesLogicError::NoValidJob))?;
         let version = match (sv1_submit.version_bits, version_rolling_mask) {
             // regarding version masking see https://github.com/slushpool/stratumprotocol/blob/master/stratum-extensions.mediawiki#changes-in-request-miningsubmit
             (Some(vb), Some(mask)) => (last_version & !mask.0) | (vb.0 & mask.0),
             (None, None) => last_version,
-            _ => return Err(Error::V1Protocol(v1::error::Error::InvalidSubmission)),
+            _ => return Err(TProxyError::V1Protocol(v1::error::Error::InvalidSubmission)),
         };
         let mining_device_extranonce: Vec<u8> = sv1_submit.extra_nonce2.into();
         let extranonce2 = mining_device_extranonce;
@@ -305,7 +305,7 @@ impl Bridge {
         self_: Arc<Mutex<Self>>,
         sv2_set_new_prev_hash: SetNewPrevHash<'static>,
         tx_sv1_notify: broadcast::Sender<server_to_client::Notify<'static>>,
-    ) -> Result<(), Error<'static>> {
+    ) -> TProxyResult<'static, ()> {
         while !crate::upstream_sv2::upstream::IS_NEW_JOB_HANDLED
             .load(std::sync::atomic::Ordering::SeqCst)
         {
@@ -403,7 +403,7 @@ impl Bridge {
         self_: Arc<Mutex<Self>>,
         sv2_new_extended_mining_job: NewExtendedMiningJob<'static>,
         tx_sv1_notify: broadcast::Sender<server_to_client::Notify<'static>>,
-    ) -> Result<(), Error<'static>> {
+    ) -> Result<(), TProxyError<'static>> {
         // convert to non segwit jobs so we dont have to depend if miner's support segwit or not
         self_
             .safe_lock(|s| {
@@ -427,7 +427,7 @@ impl Bridge {
                 .map_err(|_| PoisonLock)?;
 
             // last_p_hash is an Option<SetNewPrevHash> so we need to map to the correct error type to be handled
-            let last_p_hash = last_p_hash_option.ok_or(Error::RolesSv2Logic(
+            let last_p_hash = last_p_hash_option.ok_or(TProxyError::RolesSv2Logic(
                 RolesLogicError::JobIsNotFutureButPrevHashNotPresent,
             ))?;
 
