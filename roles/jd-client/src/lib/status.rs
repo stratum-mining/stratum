@@ -1,4 +1,4 @@
-use super::error::{self, Error};
+use super::error::{self, JdcError};
 
 #[derive(Debug)]
 pub enum Sender {
@@ -35,8 +35,8 @@ impl Clone for Sender {
 
 #[derive(Debug)]
 pub enum State<'a> {
-    DownstreamShutdown(Error<'a>),
-    UpstreamShutdown(Error<'a>),
+    DownstreamShutdown(JdcError<'a>),
+    UpstreamShutdown(JdcError<'a>),
     UpstreamRogue,
     Healthy(String),
 }
@@ -48,7 +48,7 @@ pub struct Status<'a> {
 
 async fn send_status(
     sender: &Sender,
-    e: error::Error<'static>,
+    e: error::JdcError<'static>,
     outcome: error_handling::ErrorBranch,
 ) -> error_handling::ErrorBranch {
     match sender {
@@ -87,51 +87,52 @@ async fn send_status(
 // this is called by `error_handling::handle_result!`
 pub async fn handle_error(
     sender: &Sender,
-    e: error::Error<'static>,
+    e: error::JdcError<'static>,
 ) -> error_handling::ErrorBranch {
     tracing::error!("Error: {:?}", &e);
     match e {
-        Error::VecToSlice32(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
-        // Errors on bad CLI argument input.
-        Error::BadCliArgs => send_status(sender, e, error_handling::ErrorBranch::Break).await,
-        // Errors on bad `toml` deserialize.
-        Error::BadTomlDeserialize(_) => {
+        JdcError::VecToSlice32(_) => {
+            send_status(sender, e, error_handling::ErrorBranch::Break).await
+        }
+        JdcError::ConfigError(_) => {
             send_status(sender, e, error_handling::ErrorBranch::Break).await
         }
         // Errors from `binary_sv2` crate.
-        Error::BinarySv2(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
+        JdcError::BinarySv2(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
         // Errors on bad noise handshake.
-        Error::CodecNoise(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
+        JdcError::CodecNoise(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
         // Errors from `framing_sv2` crate.
-        Error::FramingSv2(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
+        JdcError::FramingSv2(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
         // Errors on bad `TcpStream` connection.
-        Error::Io(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
+        JdcError::Io(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
         // Errors on bad `String` to `int` conversion.
-        Error::ParseInt(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
+        JdcError::ParseInt(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
         // Errors from `roles_logic_sv2` crate.
-        Error::RolesSv2Logic(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
-        Error::UpstreamIncoming(_) => {
+        JdcError::RolesSv2Logic(_) => {
             send_status(sender, e, error_handling::ErrorBranch::Break).await
         }
-        Error::SubprotocolMining(_) => {
+        JdcError::UpstreamIncoming(_) => {
+            send_status(sender, e, error_handling::ErrorBranch::Break).await
+        }
+        JdcError::SubprotocolMining(_) => {
             send_status(sender, e, error_handling::ErrorBranch::Break).await
         }
         // Locking Errors
-        Error::PoisonLock => send_status(sender, e, error_handling::ErrorBranch::Break).await,
+        JdcError::PoisonLock => send_status(sender, e, error_handling::ErrorBranch::Break).await,
         // Channel Receiver Error
-        Error::ChannelErrorReceiver(_) => {
+        JdcError::ChannelErrorReceiver(_) => {
             send_status(sender, e, error_handling::ErrorBranch::Break).await
         }
-        Error::TokioChannelErrorRecv(_) => {
+        JdcError::TokioChannelErrorRecv(_) => {
             send_status(sender, e, error_handling::ErrorBranch::Break).await
         }
         // Channel Sender Errors
-        Error::ChannelErrorSender(_) => {
+        JdcError::ChannelErrorSender(_) => {
             send_status(sender, e, error_handling::ErrorBranch::Break).await
         }
-        Error::Uint256Conversion(_) => {
+        JdcError::Uint256Conversion(_) => {
             send_status(sender, e, error_handling::ErrorBranch::Break).await
         }
-        Error::Infallible(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
+        JdcError::Infallible(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
     }
 }
