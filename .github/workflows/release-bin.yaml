@@ -49,7 +49,7 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: roles/target/release/pool_sv2
-          asset_name: pool_sv2-x86_64-linux-gnu
+          asset_name: pool-sri-v${{ env.GIT_TAG }}-x86_64-linux-gnu
           tag: ${{ github.ref }}
 
       - name: Upload MacOS x86-64 binaries to release
@@ -58,7 +58,7 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: roles/target/release/pool_sv2
-          asset_name: pool_sv2-x86_64-apple-darwin
+          asset_name: pool-sri-v${{ env.GIT_TAG }}-x86_64-apple-darwin
           tag: ${{ github.ref }}
           
       - name: Upload Linux aarch64 binaries to release
@@ -67,7 +67,7 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: roles/target/aarch64-unknown-linux-gnu/release/pool_sv2
-          asset_name: pool_sv2-aarch64-linux-gnu
+          asset_name: pool-sri-v${{ env.GIT_TAG }}-aarch64-linux-gnu
           tag: ${{ github.ref }}
           
       - name: Upload Linux ARM binaries to release
@@ -76,7 +76,7 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: roles/target/arm-unknown-linux-gnueabi/release/pool_sv2
-          asset_name: pool_sv2-arm-linux-gnueabi
+          asset_name: pool-sri-v${{ env.GIT_TAG }}-arm-linux-gnueabi
           tag: ${{ github.ref }}
 
       - name: Upload MacOS ARM64 binaries to release
@@ -85,7 +85,7 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: roles/target/aarch64-apple-darwin/release/pool_sv2
-          asset_name: pool_sv2-aarch64-apple-darwin
+          asset_name: pool-sri-v${{ env.GIT_TAG }}-aarch64-apple-darwin
           tag: ${{ github.ref }}
 
   release_jdc:
@@ -128,7 +128,7 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: roles/target/release/jd_client
-          asset_name: jd_client-x86_64-linux-gnu
+          asset_name: jd-client-sri-v${{ env.GIT_TAG }}-x86_64-linux-gnu
           tag: ${{ github.ref }}
           
       - name: Upload Linux aarch64 binaries to release
@@ -137,7 +137,7 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: roles/target/aarch64-unknown-linux-gnu/release/jd_client
-          asset_name: jd_client-aarch64-linux-gnu
+          asset_name: jd-client-sri-v${{ env.GIT_TAG }}-aarch64-linux-gnu
           tag: ${{ github.ref }}
           
       - name: Upload Linux ARM binaries to release
@@ -146,7 +146,7 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: roles/target/arm-unknown-linux-gnueabi/release/jd_client
-          asset_name: jd_client-arm-linux-gnueabi
+          asset_name: jd-client-sri-v${{ env.GIT_TAG }}-arm-linux-gnueabi
           tag: ${{ github.ref }}
 
       - name: Upload MacOS x86-64 binaries to release
@@ -155,7 +155,7 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: roles/target/release/jd_client
-          asset_name: jd_client-x86_64-apple-darwin
+          asset_name: jd-client-sri-v${{ env.GIT_TAG }}-x86_64-apple-darwin
           tag: ${{ github.ref }}
 
       - name: Upload MacOS ARM64 binaries to release
@@ -164,7 +164,7 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: roles/target/aarch64-apple-darwin/release/jd_client
-          asset_name: jd_client-aarch64-apple-darwin
+          asset_name: jd-client-sri-v${{ env.GIT_TAG }}-aarch64-apple-darwin
           tag: ${{ github.ref }}
 
   release_jds:
@@ -207,7 +207,7 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: roles/target/release/jd_server
-          asset_name: jd_server-x86_64-linux-gnu
+          asset_name: jd-server-sri-v${{ env.GIT_TAG }}-x86_64-linux-gnu
           tag: ${{ github.ref }}
           
       - name: Upload Linux aarch64 binaries to release
@@ -216,7 +216,7 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: roles/target/aarch64-unknown-linux-gnu/release/jd_server
-          asset_name: jd_server-aarch64-linux-gnu
+          asset_name: jd-server-sri-v${{ env.GIT_TAG }}-aarch64-linux-gnu
           tag: ${{ github.ref }}
 
       - name: Upload Linux ARM binaries to release
@@ -225,7 +225,7 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: roles/target/arm-unknown-linux-gnueabi/release/jd_server
-          asset_name: jd_server-arm-linux-gnueabi
+          asset_name: jd-server-sri-v${{ env.GIT_TAG }}-arm-linux-gnueabi
           tag: ${{ github.ref }}
 
       - name: Upload MacOS x86-64 binaries to release
@@ -234,7 +234,7 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: roles/target/release/jd_server
-          asset_name: jd_server-x86_64-apple-darwin
+          asset_name: jd-server-sri-v${{ env.GIT_TAG }}-x86_64-apple-darwin
           tag: ${{ github.ref }}
 
       - name: Upload MacOS ARM64 binaries to release
@@ -243,7 +243,7 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: roles/target/aarch64-apple-darwin/release/jd_server
-          asset_name: jd_server-aarch64-apple-darwin
+          asset_name: jd-server-sri-v${{ env.GIT_TAG }}-aarch64-apple-darwin
           tag: ${{ github.ref }}
 
   release_proxy:
@@ -295,7 +295,7 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: roles/target/aarch64-unknown-linux-gnu/release/mining_proxy_sv2
-          asset_name: mining_proxy_sv2-aarch64-linux-gnu
+          asset_name: mining-proxy-sri-v${{ env.GIT_TAG }}-aarch64-linux-gnu
           tag: ${{ github.ref }}
           
       - name: Upload Linux ARM binaries to release
@@ -304,7 +304,7 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: roles/target/arm-unknown-linux-gnueabi/release/mining_proxy_sv2
-          asset_name: mining_proxy_sv2-arm-linux-gnueabi
+          asset_name: mining-proxy-sri-v${{ env.GIT_TAG }}-arm-linux-gnueabi
           tag: ${{ github.ref }}
 
       - name: Upload MacOS x86-64 binaries to release
@@ -313,7 +313,7 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: roles/target/release/mining_proxy_sv2
-          asset_name: mining_proxy_sv2-x86_64-apple-darwin
+          asset_name: mining-proxy-sri-v${{ env.GIT_TAG }}-x86_64-apple-darwin
           tag: ${{ github.ref }}
 
       - name: Upload MacOS ARM64 binaries to release
@@ -322,7 +322,7 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: roles/target/aarch64-apple-darwin/release/mining_proxy_sv2
-          asset_name: mining_proxy_sv2-aarch64-apple-darwin
+          asset_name: mining-proxy-sri-v${{ env.GIT_TAG }}-aarch64-apple-darwin
           tag: ${{ github.ref }}
 
   release_translator:
@@ -365,7 +365,7 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: roles/target/release/translator_sv2
-          asset_name: translator_sv2-x86_64-linux-gnu
+          asset_name: translator-sri-v${{ env.GIT_TAG }}-x86_64-linux-gnu
           tag: ${{ github.ref }}
              
       - name: Upload Linux aarch64 binaries to release
@@ -374,7 +374,7 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: roles/target/aarch64-unknown-linux-gnu/release/translator_sv2
-          asset_name: translator_sv2-aarch64-linux-gnu
+          asset_name: translator-sri-v${{ env.GIT_TAG }}-aarch64-linux-gnu
           tag: ${{ github.ref }}
           
       - name: Upload Linux ARM binaries to release
@@ -383,7 +383,7 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: roles/target/arm-unknown-linux-gnueabi/release/translator_sv2
-          asset_name: translator_sv2-arm-linux-gnueabi
+          asset_name: translator-sri-v${{ env.GIT_TAG }}-arm-linux-gnueabi
           tag: ${{ github.ref }}
 
       - name: Upload MacOS x86-64 binaries to release
@@ -392,7 +392,7 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: roles/target/release/translator_sv2
-          asset_name: translator_sv2-x86_64-apple-darwin
+          asset_name: translator-sri-v${{ env.GIT_TAG }}-x86_64-apple-darwin
           tag: ${{ github.ref }}
 
       - name: Upload MacOS ARM64 binaries to release
@@ -401,5 +401,5 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: roles/target/aarch64-apple-darwin/release/translator_sv2
-          asset_name: translator_sv2-aarch64-apple-darwin
+          asset_name: translator-sri-v${{ env.GIT_TAG }}-aarch64-apple-darwin
           tag: ${{ github.ref }}
