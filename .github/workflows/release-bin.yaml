@@ -20,7 +20,10 @@ jobs:
         with:
           toolchain: stable
           override: true
-  
+
+      - name: Set env
+        run: echo "RELEASE_VERSION=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
+
       - name: Compile Native
         run: cargo build --release --locked --manifest-path=roles/pool/Cargo.toml
 
@@ -49,8 +52,8 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: roles/target/release/pool_sv2
-          asset_name: pool_sv2-x86_64-linux-gnu
-          tag: ${{ github.ref }}
+          asset_name: pool-sv2-${{ env.RELEASE_VERSION }}-x86_64-linux-gnu
+          tag: ${{ env.RELEASE_VERSION }}
 
       - name: Upload MacOS x86-64 binaries to release
         if: matrix.os == 'macos-latest'
@@ -58,8 +61,8 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: roles/target/release/pool_sv2
-          asset_name: pool_sv2-x86_64-apple-darwin
-          tag: ${{ github.ref }}
+          asset_name: pool-sv2-${{ env.RELEASE_VERSION }}-x86_64-apple-darwin
+          tag: ${{ env.RELEASE_VERSION }}
           
       - name: Upload Linux aarch64 binaries to release
         if: matrix.os == 'ubuntu-20.04'
@@ -67,8 +70,8 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: roles/target/aarch64-unknown-linux-gnu/release/pool_sv2
-          asset_name: pool_sv2-aarch64-linux-gnu
-          tag: ${{ github.ref }}
+          asset_name: pool-sv2-${{ env.RELEASE_VERSION }}-aarch64-linux-gnu
+          tag: ${{ env.RELEASE_VERSION }}
           
       - name: Upload Linux ARM binaries to release
         if: matrix.os == 'ubuntu-20.04'
@@ -76,8 +79,8 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: roles/target/arm-unknown-linux-gnueabi/release/pool_sv2
-          asset_name: pool_sv2-arm-linux-gnueabi
-          tag: ${{ github.ref }}
+          asset_name: pool-sv2-${{ env.RELEASE_VERSION }}-arm-linux-gnueabi
+          tag: ${{ env.RELEASE_VERSION }}
 
       - name: Upload MacOS ARM64 binaries to release
         if: matrix.os == 'macos-latest'
@@ -85,8 +88,8 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: roles/target/aarch64-apple-darwin/release/pool_sv2
-          asset_name: pool_sv2-aarch64-apple-darwin
-          tag: ${{ github.ref }}
+          asset_name: pool-sv2-${{ env.RELEASE_VERSION }}-aarch64-apple-darwin
+          tag: ${{ env.RELEASE_VERSION }}
 
   release_jdc:
     runs-on: ${{ matrix.os }}
@@ -99,9 +102,11 @@ jobs:
         with:
           toolchain: stable
           override: true
-
       - name: Compile Native
         run: cargo build --release --locked --manifest-path=roles/jd-client/Cargo.toml
+
+      - name: Set env
+        run: echo "RELEASE_VERSION=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
       
       - name: Install cross
         run: cargo install cross
@@ -128,8 +133,8 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: roles/target/release/jd_client
-          asset_name: jd_client-x86_64-linux-gnu
-          tag: ${{ github.ref }}
+          asset_name: jd-client-sv2-${{ env.RELEASE_VERSION }}-x86_64-linux-gnu
+          tag: ${{ env.RELEASE_VERSION }}
           
       - name: Upload Linux aarch64 binaries to release
         if: matrix.os == 'ubuntu-20.04'
@@ -137,8 +142,8 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: roles/target/aarch64-unknown-linux-gnu/release/jd_client
-          asset_name: jd_client-aarch64-linux-gnu
-          tag: ${{ github.ref }}
+          asset_name: jd-client-sv2-${{ env.RELEASE_VERSION }}-aarch64-linux-gnu
+          tag: ${{ env.RELEASE_VERSION }}
           
       - name: Upload Linux ARM binaries to release
         if: matrix.os == 'ubuntu-20.04'
@@ -146,8 +151,8 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: roles/target/arm-unknown-linux-gnueabi/release/jd_client
-          asset_name: jd_client-arm-linux-gnueabi
-          tag: ${{ github.ref }}
+          asset_name: jd-client-sv2-${{ env.RELEASE_VERSION }}-arm-linux-gnueabi
+          tag: ${{ env.RELEASE_VERSION }}
 
       - name: Upload MacOS x86-64 binaries to release
         if: matrix.os == 'macos-latest'
@@ -155,8 +160,8 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: roles/target/release/jd_client
-          asset_name: jd_client-x86_64-apple-darwin
-          tag: ${{ github.ref }}
+          asset_name: jd-client-sv2-${{ env.RELEASE_VERSION }}-x86_64-apple-darwin
+          tag: ${{ env.RELEASE_VERSION }}
 
       - name: Upload MacOS ARM64 binaries to release
         if: matrix.os == 'macos-latest'
@@ -164,8 +169,8 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: roles/target/aarch64-apple-darwin/release/jd_client
-          asset_name: jd_client-aarch64-apple-darwin
-          tag: ${{ github.ref }}
+          asset_name: jd-client-sv2-${{ env.RELEASE_VERSION }}-aarch64-apple-darwin
+          tag: ${{ env.RELEASE_VERSION }}
 
   release_jds:
     runs-on: ${{ matrix.os }}
@@ -178,6 +183,9 @@ jobs:
         with:
           toolchain: stable
           override: true
+
+      - name: Set env
+        run: echo "RELEASE_VERSION=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
 
       - name: Compile Native
         run: cargo build --release --locked --manifest-path=roles/jd-server/Cargo.toml
@@ -207,8 +215,8 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: roles/target/release/jd_server
-          asset_name: jd_server-x86_64-linux-gnu
-          tag: ${{ github.ref }}
+          asset_name: jd-server-sv2-${{ env.RELEASE_VERSION }}-x86_64-linux-gnu
+          tag: ${{ env.RELEASE_VERSION }}
           
       - name: Upload Linux aarch64 binaries to release
         if: matrix.os == 'ubuntu-20.04'
@@ -216,8 +224,8 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: roles/target/aarch64-unknown-linux-gnu/release/jd_server
-          asset_name: jd_server-aarch64-linux-gnu
-          tag: ${{ github.ref }}
+          asset_name: jd-server-sv2-${{ env.RELEASE_VERSION }}-aarch64-linux-gnu
+          tag: ${{ env.RELEASE_VERSION }}
 
       - name: Upload Linux ARM binaries to release
         if: matrix.os == 'ubuntu-20.04'
@@ -225,8 +233,8 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: roles/target/arm-unknown-linux-gnueabi/release/jd_server
-          asset_name: jd_server-arm-linux-gnueabi
-          tag: ${{ github.ref }}
+          asset_name: jd-server-sv2-${{ env.RELEASE_VERSION }}-arm-linux-gnueabi
+          tag: ${{ env.RELEASE_VERSION }}
 
       - name: Upload MacOS x86-64 binaries to release
         if: matrix.os == 'macos-latest'
@@ -234,8 +242,8 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: roles/target/release/jd_server
-          asset_name: jd_server-x86_64-apple-darwin
-          tag: ${{ github.ref }}
+          asset_name: jd-server-sv2-${{ env.RELEASE_VERSION }}-x86_64-apple-darwin
+          tag: ${{ env.RELEASE_VERSION }}
 
       - name: Upload MacOS ARM64 binaries to release
         if: matrix.os == 'macos-latest'
@@ -243,8 +251,8 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: roles/target/aarch64-apple-darwin/release/jd_server
-          asset_name: jd_server-aarch64-apple-darwin
-          tag: ${{ github.ref }}
+          asset_name: jd-server-sv2-${{ env.RELEASE_VERSION }}-aarch64-apple-darwin
+          tag: ${{ env.RELEASE_VERSION }}
 
   release_proxy:
     runs-on: ${{ matrix.os }}
@@ -257,6 +265,9 @@ jobs:
         with:
           toolchain: stable
           override: true
+
+      - name: Set env
+        run: echo "RELEASE_VERSION=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
 
       - name: Compile Native
         run: cargo build --release --locked --manifest-path=roles/mining-proxy/Cargo.toml
@@ -286,8 +297,8 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: roles/target/release/mining_proxy_sv2
-          asset_name: mining_proxy_sv2-x86_64-linux-gnu
-          tag: ${{ github.ref }}
+          asset_name: mining-proxy-sv2-${{ env.RELEASE_VERSION }}-x86_64-linux-gnu
+          tag: ${{ env.RELEASE_VERSION }}
           
       - name: Upload Linux aarch64 binaries to release
         if: matrix.os == 'ubuntu-20.04'
@@ -295,8 +306,8 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: roles/target/aarch64-unknown-linux-gnu/release/mining_proxy_sv2
-          asset_name: mining_proxy_sv2-aarch64-linux-gnu
-          tag: ${{ github.ref }}
+          asset_name: mining-proxy-sv2-${{ env.RELEASE_VERSION }}-aarch64-linux-gnu
+          tag: ${{ env.RELEASE_VERSION }}
           
       - name: Upload Linux ARM binaries to release
         if: matrix.os == 'ubuntu-20.04'
@@ -304,8 +315,8 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: roles/target/arm-unknown-linux-gnueabi/release/mining_proxy_sv2
-          asset_name: mining_proxy_sv2-arm-linux-gnueabi
-          tag: ${{ github.ref }}
+          asset_name: mining-proxy-sv2-${{ env.RELEASE_VERSION }}-arm-linux-gnueabi
+          tag: ${{ env.RELEASE_VERSION }}
 
       - name: Upload MacOS x86-64 binaries to release
         if: matrix.os == 'macos-latest'
@@ -313,8 +324,8 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: roles/target/release/mining_proxy_sv2
-          asset_name: mining_proxy_sv2-x86_64-apple-darwin
-          tag: ${{ github.ref }}
+          asset_name: mining-proxy-sv2-${{ env.RELEASE_VERSION }}-x86_64-apple-darwin
+          tag: ${{ env.RELEASE_VERSION }}
 
       - name: Upload MacOS ARM64 binaries to release
         if: matrix.os == 'macos-latest'
@@ -322,8 +333,8 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: roles/target/aarch64-apple-darwin/release/mining_proxy_sv2
-          asset_name: mining_proxy_sv2-aarch64-apple-darwin
-          tag: ${{ github.ref }}
+          asset_name: mining-proxy-sv2-${{ env.RELEASE_VERSION }}-aarch64-apple-darwin
+          tag: ${{ env.RELEASE_VERSION }}
 
   release_translator:
     runs-on: ${{ matrix.os }}
@@ -336,6 +347,9 @@ jobs:
         with:
           toolchain: stable
           override: true
+
+      - name: Set env
+        run: echo "RELEASE_VERSION=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
 
       - name: Compile Native
         run: cargo build --release --locked --manifest-path=roles/translator/Cargo.toml
@@ -365,8 +379,8 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: roles/target/release/translator_sv2
-          asset_name: translator_sv2-x86_64-linux-gnu
-          tag: ${{ github.ref }}
+          asset_name: translator-sv2-${{ env.RELEASE_VERSION }}-x86_64-linux-gnu
+          tag: ${{ env.RELEASE_VERSION }}
              
       - name: Upload Linux aarch64 binaries to release
         if: matrix.os == 'ubuntu-20.04'
@@ -374,8 +388,8 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: roles/target/aarch64-unknown-linux-gnu/release/translator_sv2
-          asset_name: translator_sv2-aarch64-linux-gnu
-          tag: ${{ github.ref }}
+          asset_name: translator-sv2-${{ env.RELEASE_VERSION }}-aarch64-linux-gnu
+          tag: ${{ env.RELEASE_VERSION }}
           
       - name: Upload Linux ARM binaries to release
         if: matrix.os == 'ubuntu-20.04'
@@ -383,8 +397,8 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: roles/target/arm-unknown-linux-gnueabi/release/translator_sv2
-          asset_name: translator_sv2-arm-linux-gnueabi
-          tag: ${{ github.ref }}
+          asset_name: translator-sv2-${{ env.RELEASE_VERSION }}-arm-linux-gnueabi
+          tag: ${{ env.RELEASE_VERSION }}
 
       - name: Upload MacOS x86-64 binaries to release
         if: matrix.os == 'macos-latest'
@@ -392,8 +406,8 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: roles/target/release/translator_sv2
-          asset_name: translator_sv2-x86_64-apple-darwin
-          tag: ${{ github.ref }}
+          asset_name: translator-sv2-${{ env.RELEASE_VERSION }}-x86_64-apple-darwin
+          tag: ${{ env.RELEASE_VERSION }}
 
       - name: Upload MacOS ARM64 binaries to release
         if: matrix.os == 'macos-latest'
@@ -401,5 +415,5 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: roles/target/aarch64-apple-darwin/release/translator_sv2
-          asset_name: translator_sv2-aarch64-apple-darwin
-          tag: ${{ github.ref }}
+          asset_name: translator-sv2-${{ env.RELEASE_VERSION }}-aarch64-apple-darwin
+          tag: ${{ env.RELEASE_VERSION }}
