@@ -1,9 +1,10 @@
 .idea
-*/target
+*/**/target
 /protocols/guix-example/guix-example.h
 /ignore
 /vendor/ed25519-dalek/target
 /utils/buffer/target
+/utils/message-generator/Cargo.lock
 /sv2.h
 /test/bitcoin_data/regtest
 lcov.info
@@ -13,3 +14,4 @@ lcov.info
 **/conf/**
 cobertura.xml
 /roles/*/*-config.toml
+/examples/*/Cargo.lock
