@@ -594,7 +594,7 @@ checksum = "98cc8fbded0c607b7ba9dd60cd98df59af97e84d24e49c8557331cfc26d301ce"
 
 [[package]]
 name = "codec_sv2"
-version = "1.0.1"
+version = "1.1.0"
 dependencies = [
  "binary_sv2",
  "buffer_sv2",
@@ -800,7 +800,7 @@ checksum = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
 
 [[package]]
 name = "framing_sv2"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "binary_sv2",
  "buffer_sv2",
@@ -1270,7 +1270,7 @@ dependencies = [
 
 [[package]]
 name = "key-utils"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "bs58",
  "secp256k1 0.28.2",
@@ -1780,7 +1780,7 @@ checksum = "adad44e29e4c806119491a7f06f03de4d1af22c3a680dd47f1e6e179439d1f56"
 
 [[package]]
 name = "roles_logic_sv2"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "binary_sv2",
  "chacha20poly1305",

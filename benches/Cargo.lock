@@ -497,7 +497,7 @@ checksum = "98cc8fbded0c607b7ba9dd60cd98df59af97e84d24e49c8557331cfc26d301ce"
 
 [[package]]
 name = "codec_sv2"
-version = "1.0.1"
+version = "1.1.0"
 dependencies = [
  "binary_sv2",
  "buffer_sv2",
@@ -728,7 +728,7 @@ checksum = "25cbce373ec4653f1a01a31e8a5e5ec0c622dc27ff9c4e6606eefef5cbbed4a5"
 
 [[package]]
 name = "framing_sv2"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "binary_sv2",
  "const_sv2",
@@ -1377,7 +1377,7 @@ checksum = "c08c74e62047bb2de4ff487b251e4a92e24f48745648451635cec7d591162d9f"
 
 [[package]]
 name = "roles_logic_sv2"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "binary_sv2",
  "chacha20poly1305",
