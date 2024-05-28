@@ -2,20 +2,13 @@
     "version": "2",
     "doc": [
         "This test runs a tproxy and a mock pool. The mock pool responds with SetupConnectionSuccess",
-        "And then a OpenExtendedMiningChannelSuccess. The pool then sends a CloseChannel message",
-        "This will cause the tproxy to exit. This test just validates that the tproxy closes"
+        "And then a OpenExtendedMiningChannelSuccess but this message has a bad extranonce size which is way too big.",
+        "This will cause the tproxy to exit with a good message. This test just validates that the tproxy closes",
+        "the communication channel with the pool."
     ],
     "common_messages": [
     ],
     "mining_messages": [
-        {
-            "message": {
-                "type": "CloseChannel",
-                "channel_id": 1,
-                "reason_code": "You are a bad friend!"
-            },
-            "id": "close_channel"
-        }
     ],
     "frame_builders": [
         {
@@ -24,11 +17,7 @@
         },
         {
             "type": "automatic",
-            "message_id": "test/message-generator/messages/mining_messages.json::open_extended_mining_channel_success"
-        },
-        {
-            "type": "automatic",
-            "message_id": "close_channel"
+            "message_id": "test/message-generator/messages/mining_messages.json::openEMC_success_tproxy_bad_extranonce"
         }
     ],
     "actions": [
@@ -58,53 +47,56 @@
                     "value": "0x13"
                 }
             ],
-            "actiondoc": "Checks that OpenExtendedMiningChannel is received"
+            "actiondoc": "Checks that OpenExtendedMiningChannel is received" 
         },
         {
-            "message_ids": ["open_extended_mining_channel_success"],
-            "role": "server",
-            "results": [],
-            "actiondoc": "This action responds with OpenExtendedMiningChannelSuccess"
-        },
-        {
-            "message_ids": ["close_channel"],
+            "message_ids": ["openEMC_success_tproxy_bad_extranonce"],
             "role": "server",
             "results": [
-                {"type": "close_connection"}
+                {
+                    "type": "close_connection"
+                }
             ],
-            "actiondoc": "This action sends a CloseChannel message and validates that the connection is closed"
+            "actiondoc": "Checks that the bad extranonce OEMC.Success fails"
         }
-
     ],
-    "setup_commands": [],
-    "execution_commands": [
-        {
+    "setup_commands": [
+       {
             "command": "cargo",
             "args": [
-                "run",
-                "-p",
-                "translator_sv2",
-                "--",
-                "-c",
-                "../test/config/tproxy-config-no-jd-sv1-cpu-md.toml"
+                        "run",
+                        "-p",
+                        "translator_sv2",
+                        "--",
+                        "-c",
+                        "../test/config/tproxy-config-no-jd-sv1-cpu-md.toml"
+
             ],
             "conditions": {
                 "WithConditions": {
                     "conditions": [
                         {
-                            "output_string": "PROXY SERVER - ACCEPTING FROM UPSTREAM:",
+                            "output_string": "2mtranslator_sv2",
                             "output_location": "StdOut",
                             "late_condition": false,
                             "condition": true
                         }
                     ],
-                    "timer_secs": 420,
+                    "timer_secs": 260,
                     "warn_no_panic": false
                 }
             }
-        }
+       }
+    ],
+    "execution_commands": [
     ],
     "cleanup_commands": [
+        {
+            "command": "pkill",
+            "args":  ["-f", "translator_sv2", "-SIGINT"],
+            "conditions": "None"
+        }
+
     ],
     "role": "server",
     "upstream": {

@@ -1,7 +1,6 @@
 #!/bin/bash
 
-git fetch origin main
-git fetch origin dev
+git fetch --all
 
 crates=(
 "utils/buffer"
@@ -36,6 +35,10 @@ crates=(
 for crate in "${crates[@]}"; do
   cd "$crate"
 
+  # Check if the branches exist locally, if not, create them
+  git show-ref --verify --quiet refs/remotes/origin/main || { echo "Branch 'main' not found."; exit 1; }
+  git show-ref --verify --quiet refs/remotes/origin/dev || { echo "Branch 'dev' not found."; exit 1; }
+
   # Check if there were any changes between dev and main
   git diff --quiet "origin/dev" "origin/main" -- .
   if [ $? -ne 0 ]; then
@@ -44,8 +47,12 @@ for crate in "${crates[@]}"; do
       version_dev=$(git show origin/dev:./Cargo.toml | awk -F' = ' '$1 == "version" {gsub(/[ "]+/, "", $2); print $2}')
       version_main=$(git show origin/main:./Cargo.toml | awk -F' = ' '$1 == "version" {gsub(/[ "]+/, "", $2); print $2}')
       if [ "$version_dev" = "$version_main" ]; then
+         # this prevents the release PR from being merged, since we do `exit 1`, effectively stopping the Github CI
          echo "Changes detected in crate $crate between dev and main branches! Versions on dev and main branches are identical ($version_dev), so you should bump the crate version on dev before merging into main."
          exit 1
+      else
+         # this creates a log of version changes, useful for release logs
+         echo "Changes detected in crate $crate between dev and main branches! Version in dev is: ($version_dev), while version in main is ($version_main)."
       fi
   fi
 

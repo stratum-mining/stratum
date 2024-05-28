@@ -70,16 +70,59 @@ jobs:
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
 
-      - name: Pre build everything
-        run: |
-          cargo build --manifest-path=benches/Cargo.toml
-          cargo build --manifest-path=common/Cargo.toml
-          cargo build --manifest-path=protocols/Cargo.toml
-          cargo build --manifest-path=roles/Cargo.toml
-          cargo build --manifest-path=utils/Cargo.toml
+      - name: Run bad-pool-config-test
+        run: sh ./test/message-generator/test/bad-pool-config-test/bad-pool-config-test.sh
 
-      - name: Run message generator tests
-        run: sh ./message-generator-tests.sh
+      - name: Run interop-jd-translator
+        run: sh ./test/message-generator/test/interop-jd-translator/interop-jd-translator.sh
+
+          #- name: Run interop-jdc-change-upstream
+          #  run: sh ./test/message-generator/test/interop-jdc-change-upstream/interop-jdc-change-upstream.sh
+
+      - name: Run interop-proxy-with-multi-ups
+        run: sh ./test/message-generator/test/interop-proxy-with-multi-ups/interop-proxy-with-multi-ups.sh
+
+      - name: Run interop-proxy-with-multi-ups-extended
+        run: sh ./test/message-generator/test/interop-proxy-with-multi-ups-extended/interop-proxy-with-multi-ups-extended.sh
+
+      - name: Run jds-do-not-fail-on-wrong-tsdatasucc
+        run: sh ./test/message-generator/test/jds-do-not-fail-on-wrong-tsdatasucc/jds-do-not-fail-on-wrong-tsdatasucc.sh
+
+      - name: Run jds-do-not-panic-if-jdc-close-connection
+        run: sh ./test/message-generator/test/jds-do-not-panic-if-jdc-close-connection/jds-do-not-panic-if-jdc-close-connection.sh
+
+      - name: Run jds-do-not-stackoverflow-when-no-token
+        run: sh ./test/message-generator/test/jds-do-not-stackoverflow-when-no-token/jds-do-not-stackoverflow-when-no-token.sh
+
+      - name: Run pool-sri-test-1-standard
+        run: sh ./test/message-generator/test/pool-sri-test-1-standard/pool-sri-test-1-standard.sh
+
+      - name: Run pool-sri-test-close-channel
+        run: sh ./test/message-generator/test/pool-sri-test-close-channel/pool-sri-test-close-channel.sh
+
+      - name: Run pool-sri-test-extended_0
+        run: sh ./test/message-generator/test/pool-sri-test-extended_0/pool-sri-test-extended_0.sh
+
+      - name: Run pool-sri-test-extended_1
+        run: sh ./test/message-generator/test/pool-sri-test-extended_1/pool-sri-test-extended_1.sh
+
+      - name: Run pool-sri-test-reject-auth
+        run: sh ./test/message-generator/test/pool-sri-test-reject-auth/pool-sri-test-reject-auth.sh
+
+      - name: Run standard-coverage
+        run: sh ./test/message-generator/test/standard-coverage-test/standard-coverage-test.sh
+
+      - name: Run sv1-test
+        run: sh ./test/message-generator/test/sv1-test/sv1-test.sh
+
+      - name: Run translation-proxy-broke-pool
+        run: sh ./test/message-generator/test/translation-proxy-broke-pool/translation-proxy-broke-pool.sh
+
+      - name: Run translation-proxy
+        run: sh ./test/message-generator/test/translation-proxy/translation-proxy.sh
+
+      - name: Coverage report
+        run: sh ./code-coverage-report.sh
 
       - name: Archive MG code coverage results
         uses: actions/upload-artifact@v4

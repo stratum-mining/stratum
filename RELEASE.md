@@ -30,11 +30,11 @@ The SRI repo holds two principal branches with an infinite lifetime:
 - `main`
 - `dev`
 
-We consider `main` to be the branch where the source code of `HEAD` always reflects a production-ready state.
+We consider `main` to be the branch where the source code of `HEAD` always reflects the latest release.
 
-We consider `dev` to be the branch where the source code of `HEAD` always reflects a state with the latest delivered development changes for the next release.
+We consider `dev` to be the branch where the source code of `HEAD` always reflects the latest changes in the development cycle.
 
-The SRI team will decide the appropriate time when the changes to `dev` are merged back into `main` and then tagged with a release number while bumping `MAJOR` and/or `MINOR`.
+The SRI team will decide the appropriate time when the changes to `dev` are merged back into `main` and then tagged with a release number while bumping `MAJOR`, `MINOR`, or `PATCH`.
 
 ## Feature Branches
 
@@ -48,9 +48,16 @@ New features are developed into separate branches that only live in the contribu
 
 Bugs are patched into separate branches that only live in the contributor's forks.
 
-- branch off from: `main`
-- merge back into: `main` + `dev`
+- branch off from: `dev`
+- merge back into: `dev`
 - naming convention: `patch-x`, where `x` describes the bug/patch
+
+## Release Branches
+
+Every new release, a branch is created.
+
+- branch off from: `main`
+- naming convention: `vMAJOR.MINOR.PATCH`
 
 # Releasing Roles Binaries
 
@@ -59,6 +66,8 @@ The [release page of SRI repo](https://github.com/stratum-mining/stratum/release
 The GitHub binary releases of the roles are handled in the `release-bin.yaml` workflow.
 
 This workflow is manually started by navigating to the "Actions" tab in the SRI repo, then navigating to the Release workflow section, and clicking "Run Workflow".
+
+Every time the workflow is manually triggered, the correct release branch must be chosen.
 
 Note: in order to be able to manually trigger the "Run Workflow" button, the user needs to have "Write" permissions on the repository, otherwise the button will not show up on the UI.
 
@@ -72,7 +81,7 @@ If a crate is not updated successfully, the step will fail, but since all steps 
 
 Since steps can fail, the output of the action must be manually checked.
 
-Every PR to `main` (either coming from `dev`, or a patch) needs to increase the version of whatever crate it is touching. Otherwise, we will mess up the dependency chain of whoever is fetching from crates.io
+Every PR to `main` needs to increase the version of whatever crate it is touching. Otherwise, we will mess up the dependency chain of whoever is fetching from crates.io
 
 Manually running `cargo release` in the various workspaces helps to prepare the version number before the releases are published.
 

@@ -136,6 +136,17 @@
        }
     ],
     "execution_commands": [
+        {
+            "command": "pkill",
+            "args":  ["-f", "translator_sv2", "-SIGINT"],
+            "conditions": "None"
+        },
+        {
+            "command": "pkill",
+            "args":  ["-f", "pool_sv2", "-SIGINT"],
+            "conditions": "None"
+        }
+
     ],
     "cleanup_commands": [
     ],
