@@ -87,13 +87,14 @@ impl<'decoder> SetupConnection<'decoder> {
             Protocol::JobDeclarationProtocol => {
                 let available = available_flags.reverse_bits();
                 let required = required_flags.reverse_bits();
-    
+
                 let requires_async_job_mining_passed = (required >> 31) & 1 > 0;
                 let requires_async_job_mining_self = (available >> 31) & 1 > 0;
-    
-                let specific_flags_check = !requires_async_job_mining_self || requires_async_job_mining_passed;
+
+                let specific_flags_check =
+                    !requires_async_job_mining_self || requires_async_job_mining_passed;
                 let general_flags_check = (available & required) == required;
-    
+
                 specific_flags_check && general_flags_check
             }
             Protocol::TemplateDistributionProtocol | Protocol::JobDistributionProtocol => {
@@ -102,7 +103,7 @@ impl<'decoder> SetupConnection<'decoder> {
             }
         }
     }
-    
+
     /// Check if passed versions support self versions if yes return the biggest version available
     pub fn get_version(&self, min_version: u16, max_version: u16) -> Option<u16> {
         if self.min_version > max_version || min_version > self.max_version {
@@ -415,13 +416,21 @@ mod test {
 
         let protocol = crate::Protocol::JobDeclarationProtocol;
 
-        let available_flags = 0b_1000_0000_0000_0000_0000_0000_0000_0000; 
-        let required_flags = 0b_1000_0000_0000_0000_0000_0000_0000_0000; 
-        assert!(SetupConnection::check_flags(protocol, available_flags, required_flags));
+        let available_flags = 0b_1000_0000_0000_0000_0000_0000_0000_0000;
+        let required_flags = 0b_1000_0000_0000_0000_0000_0000_0000_0000;
+        assert!(SetupConnection::check_flags(
+            protocol,
+            available_flags,
+            required_flags
+        ));
 
-        let available_flags = 0b_0000_0000_0000_0000_0000_0000_0000_0000; 
-        let required_flags = 0b_1000_0000_0000_0000_0000_0000_0000_0000; 
-        assert!(!SetupConnection::check_flags(protocol, available_flags, required_flags));
+        let available_flags = 0b_0000_0000_0000_0000_0000_0000_0000_0000;
+        let required_flags = 0b_1000_0000_0000_0000_0000_0000_0000_0000;
+        assert!(!SetupConnection::check_flags(
+            protocol,
+            available_flags,
+            required_flags
+        ));
     }
 
     #[test]
