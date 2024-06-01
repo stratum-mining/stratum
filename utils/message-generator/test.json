@@ -91,18 +91,18 @@
                             ],
                             [   
                                 "extranonce_prefix",
-                                {"B032": [[32], [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1]]}
+                                {"B032": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1]}
                             ]
                         ]
                     ]
                 },
                 {
                     "type": "match_message_type",
-                    "value": "0x20"
+                    "value": "0x1f"
                 },
                 {
                     "type": "match_message_type",
-                    "value": "0x1f"
+                    "value": "0x20"
                 }
             ],
             "actiondoc": ""
@@ -115,17 +115,18 @@
             "args": [
                         "run",
                         "-p",
-                        "pool",
+                        "pool_sv2",
                         "--",
                         "-c",
-                        "./test/config/pool-config-sri-tp.toml"
+                        "../test/config/pool-config-sri-tp.toml"
             ],
             "conditions": {
                 "WithConditions": {
                     "conditions": [
                         {
-                            "output_string": "Listening for encrypted connection on: 0.0.0.0:34254",
+                            "output_string": "Listening for encrypted connection on: 127.0.0.1:34254",
                             "output_location": "StdOut",
+                            "late_condition": false,
                             "condition": true
                         }
                     ],
@@ -136,6 +137,11 @@
         }
     ],
     "execution_commands": [
+        {
+            "command": "pkill",
+            "args":  ["-f", "pool_sv2", "-SIGINT"],
+            "conditions": "None"
+        }
     ],
     "cleanup_commands": [
     ],
@@ -143,6 +149,6 @@
     "downstream": {
         "ip": "0.0.0.0",
         "port": 34254,
-        "pub_key": "2di19GHYQnAZJmEpoUeP7C3Eg9TCcksHr23rZCC83dvUiZgiDL"
+        "pub_key": "9auqWEzQDVyd2oe1JVGFLMLHZtCo2FFqZwtKA5gd9xbuEu7PH72"
     }
 }

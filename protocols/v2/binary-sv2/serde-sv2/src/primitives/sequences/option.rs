@@ -4,7 +4,11 @@ use super::{
 };
 use crate::primitives::{FixedSize, GetSize};
 use alloc::vec::Vec;
-use serde::{ser, ser::SerializeTuple, Deserialize, Deserializer, Serialize};
+use debug_assert;
+use serde::{
+    ser::{self, SerializeSeq, SerializeTuple},
+    Deserialize, Deserializer, Serialize,
+};
 
 #[derive(Debug, Clone)]
 pub struct Sv2Option<'s, T: Serialize + TryFromBSlice<'s> + Clone> {
@@ -65,13 +69,28 @@ impl<'s, T: Clone + Serialize + TryFromBSlice<'s>> Serialize for Sv2Option<'s, T
                 seq.end()
             }
             (None, Some(data)) => {
-                let tuple = (data.len() as u8, &data[..]);
-                let mut seq = serializer.serialize_tuple(2)?;
-                seq.serialize_element(&tuple.0)?;
-                seq.serialize_element(tuple.1)?;
-                seq.end()
+                if serializer.is_human_readable() {
+                    let data_ = data.clone();
+                    let mut seq = serializer.serialize_seq(Some(data_.len()))?;
+                    for item in data_ {
+                        seq.serialize_element(&item)?;
+                    }
+                    seq.end()
+                } else {
+                    let tuple = (data.len() as u8, &data[..]);
+                    let mut seq = serializer.serialize_tuple(2)?;
+                    seq.serialize_element(&tuple.0)?;
+                    seq.serialize_element(tuple.1)?;
+                    seq.end()
+                }
             }
-            _ => panic!(),
+            _ => {
+                debug_assert!(
+                    false,
+                    "sv2option can never have boh fields of the same type"
+                );
+                panic!()
+            }
         }
     }
 }
@@ -219,15 +238,30 @@ impl<'a, T: Clone + FixedSize + Serialize + TryFromBSlice<'a>> GetSize for Sv2Op
 }
 impl<'s> Sv2Option<'s, U256<'s>> {
     pub fn into_static(self) -> Sv2Option<'static, U256<'static>> {
-        if let Some(inner) = self.data {
-            let inner = inner.clone();
-            let data = inner.into_iter().map(|i| i.into_static()).collect();
-            Sv2Option {
-                seq: None,
-                data: Some(data),
+        match (self.data, self.seq) {
+            (None, Some(seq)) => {
+                let data = seq.parse().unwrap();
+                let data = data.into_iter().map(|i| i.into_static()).collect();
+                Sv2Option {
+                    seq: None,
+                    data: Some(data),
+                }
             }
-        } else {
-            panic!()
+            (Some(inner), None) => {
+                let inner = inner.clone();
+                let data = inner.into_iter().map(|i| i.into_static()).collect();
+                Sv2Option {
+                    seq: None,
+                    data: Some(data),
+                }
+            }
+            _ => {
+                debug_assert!(
+                    false,
+                    "sv2option can never have boh fields of the same type"
+                );
+                panic!()
+            }
         }
     }
     pub fn inner_as_ref(&self) -> &[&[u8]] {
@@ -236,13 +270,28 @@ impl<'s> Sv2Option<'s, U256<'s>> {
 }
 impl<'s> Sv2Option<'s, u32> {
     pub fn into_static(self) -> Sv2Option<'static, u32> {
-        if let Some(inner) = self.data {
-            Sv2Option {
+        match (self.data, self.seq) {
+            (None, Some(seq)) => {
+                // this is an already valid seq should be safe to call the unwraps.
+                // also this library shouldn't be used for priduction envs so is ok do thigs like this
+                // one
+                let data = seq.parse().unwrap();
+                Sv2Option {
+                    seq: None,
+                    data: Some(data),
+                }
+            }
+            (Some(inner), None) => Sv2Option {
                 seq: None,
                 data: Some(inner),
+            },
+            _ => {
+                debug_assert!(
+                    false,
+                    "sv2option can never have boh fields of the same type"
+                );
+                panic!()
             }
-        } else {
-            panic!()
         }
     }
 }

@@ -67,6 +67,7 @@ mod test {
                 params: json!(["username", "password"]),
             },
             id: "authorize".to_string(),
+            replace_fields: Some(vec![]),
         };
 
         assert_eq!(m1.message.params, m2.message.params);

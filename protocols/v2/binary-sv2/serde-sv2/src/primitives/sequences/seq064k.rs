@@ -7,7 +7,11 @@ use crate::{
     Error, ShortTxId,
 };
 use alloc::vec::Vec;
-use serde::{ser, ser::SerializeTuple, Deserialize, Deserializer, Serialize};
+use serde::{
+    ser,
+    ser::{SerializeSeq, SerializeTuple},
+    Deserialize, Deserializer, Serialize,
+};
 
 #[derive(Debug, Clone)]
 pub struct Seq064K<'s, T: Clone + Serialize + TryFromBSlice<'s>> {
@@ -101,11 +105,20 @@ impl<'s, T: Clone + FixedSize + Serialize + TryFromBSlice<'s>> Serialize for Seq
                 seq.end()
             }
             (None, Some(data)) => {
-                let tuple = (data.len() as u16, &data[..]);
-                let mut seq = serializer.serialize_tuple(2)?;
-                seq.serialize_element(&tuple.0)?;
-                seq.serialize_element(tuple.1)?;
-                seq.end()
+                if serializer.is_human_readable() {
+                    let data_ = self.data.clone().unwrap();
+                    let mut seq = serializer.serialize_seq(Some(data_.len()))?;
+                    for item in data_ {
+                        seq.serialize_element(&item)?;
+                    }
+                    seq.end()
+                } else {
+                    let tuple = (data.len() as u16, &data[..]);
+                    let mut seq = serializer.serialize_tuple(2)?;
+                    seq.serialize_element(&tuple.0)?;
+                    seq.serialize_element(tuple.1)?;
+                    seq.end()
+                }
             }
             _ => panic!(),
         }
@@ -431,29 +444,67 @@ impl<'a> GetSize for Seq064K<'a, B064K<'a>> {
 }
 impl<'s> Seq064K<'s, B064K<'s>> {
     pub fn into_static(self) -> Seq064K<'static, B064K<'static>> {
-        if let Some(inner) = self.data {
-            let inner = inner.clone();
-            let data: Vec<B064K<'static>> = inner.into_iter().map(|i| i.into_static()).collect();
-            Seq064K {
-                seq: None,
-                data: Some(data),
+        match (self.data, self.seq) {
+            (None, Some(seq)) => {
+                // this is an already valid seq should be safe to call the unwraps.
+                // also this library shouldn't be used for priduction envs so is ok do thigs like this
+                // one
+                let data = seq.parse().unwrap();
+                let data = data.into_iter().map(|i| i.into_static()).collect();
+                Seq064K {
+                    seq: None,
+                    data: Some(data),
+                }
             }
-        } else {
-            panic!()
+            (Some(inner), None) => {
+                let inner = inner.clone();
+                let data: Vec<B064K<'static>> =
+                    inner.into_iter().map(|i| i.into_static()).collect();
+                Seq064K {
+                    seq: None,
+                    data: Some(data),
+                }
+            }
+            _ => {
+                debug_assert!(
+                    false,
+                    "sequences can never have boh fields of the same type"
+                );
+                panic!()
+            }
         }
     }
 }
 impl<'s> Seq064K<'s, B016M<'s>> {
     pub fn into_static(self) -> Seq064K<'static, B016M<'static>> {
-        if let Some(inner) = self.data {
-            let inner = inner.clone();
-            let data: Vec<B016M<'static>> = inner.into_iter().map(|i| i.into_static()).collect();
-            Seq064K {
-                seq: None,
-                data: Some(data),
+        match (self.data, self.seq) {
+            (None, Some(seq)) => {
+                // this is an already valid seq should be safe to call the unwraps.
+                // also this library shouldn't be used for priduction envs so is ok do thigs like this
+                // one
+                let data = seq.parse().unwrap();
+                let data = data.into_iter().map(|i| i.into_static()).collect();
+                Seq064K {
+                    seq: None,
+                    data: Some(data),
+                }
             }
-        } else {
-            panic!()
+            (Some(inner), None) => {
+                let inner = inner.clone();
+                let data: Vec<B016M<'static>> =
+                    inner.into_iter().map(|i| i.into_static()).collect();
+                Seq064K {
+                    seq: None,
+                    data: Some(data),
+                }
+            }
+            _ => {
+                debug_assert!(
+                    false,
+                    "sequences can never have boh fields of the same type"
+                );
+                panic!()
+            }
         }
     }
     pub fn to_vec(&self) -> Vec<Vec<u8>> {
@@ -467,40 +518,89 @@ impl<'s> Seq064K<'s, B016M<'s>> {
 }
 impl<'s> Seq064K<'s, u32> {
     pub fn into_static(self) -> Seq064K<'static, u32> {
-        if let Some(inner) = self.data {
-            Seq064K {
+        match (self.data, self.seq) {
+            (None, Some(seq)) => {
+                // this is an already valid seq should be safe to call the unwraps.
+                // also this library shouldn't be used for priduction envs so is ok do thigs like this
+                // one
+                let data = seq.parse().unwrap();
+                Seq064K {
+                    seq: None,
+                    data: Some(data),
+                }
+            }
+            (Some(inner), None) => Seq064K {
                 seq: None,
                 data: Some(inner),
+            },
+            _ => {
+                debug_assert!(
+                    false,
+                    "sequences can never have boh fields of the same type"
+                );
+                panic!()
             }
-        } else {
-            panic!()
         }
     }
 }
 impl<'s> Seq064K<'s, u16> {
     pub fn into_static(self) -> Seq064K<'static, u16> {
-        if let Some(inner) = self.data {
-            Seq064K {
+        match (self.data, self.seq) {
+            (None, Some(seq)) => {
+                // this is an already valid seq should be safe to call the unwraps.
+                // also this library shouldn't be used for priduction envs so is ok do thigs like this
+                // one
+                let data = seq.parse().unwrap();
+                Seq064K {
+                    seq: None,
+                    data: Some(data),
+                }
+            }
+            (Some(inner), None) => Seq064K {
                 seq: None,
                 data: Some(inner),
+            },
+            _ => {
+                debug_assert!(
+                    false,
+                    "sequences can never have boh fields of the same type"
+                );
+                panic!()
             }
-        } else {
-            panic!()
         }
     }
 }
+// AAAAAA da qui
 impl<'s> Seq064K<'s, ShortTxId<'s>> {
     pub fn into_static(self) -> Seq064K<'static, ShortTxId<'static>> {
-        if let Some(inner) = self.data {
-            let inner = inner.clone();
-            let data: Vec<ShortTxId<'static>> =
-                inner.into_iter().map(|i| i.into_static()).collect();
-            Seq064K {
-                seq: None,
-                data: Some(data),
+        match (self.data, self.seq) {
+            (None, Some(seq)) => {
+                // this is an already valid seq should be safe to call the unwraps.
+                // also this library shouldn't be used for priduction envs so is ok do thigs like this
+                // one
+                let data = seq.parse().unwrap();
+                let data = data.into_iter().map(|i| i.into_static()).collect();
+                Seq064K {
+                    seq: None,
+                    data: Some(data),
+                }
             }
-        } else {
-            panic!()
+            (Some(inner), None) => {
+                let inner = inner.clone();
+                let data: Vec<ShortTxId<'static>> =
+                    inner.into_iter().map(|i| i.into_static()).collect();
+                Seq064K {
+                    seq: None,
+                    data: Some(data),
+                }
+            }
+            _ => {
+                debug_assert!(
+                    false,
+                    "sequences can never have boh fields of the same type"
+                );
+                panic!()
+            }
         }
     }
     pub fn to_vec(&self) -> Vec<Vec<u8>> {
@@ -514,15 +614,33 @@ impl<'s> Seq064K<'s, ShortTxId<'s>> {
 }
 impl<'s> Seq064K<'s, U256<'s>> {
     pub fn into_static(self) -> Seq064K<'static, U256<'static>> {
-        if let Some(inner) = self.data {
-            let inner = inner.clone();
-            let data: Vec<U256<'static>> = inner.into_iter().map(|i| i.into_static()).collect();
-            Seq064K {
-                seq: None,
-                data: Some(data),
+        match (self.data, self.seq) {
+            (None, Some(seq)) => {
+                // this is an already valid seq should be safe to call the unwraps.
+                // also this library shouldn't be used for priduction envs so is ok do thigs like this
+                // one
+                let data = seq.parse().unwrap();
+                let data = data.into_iter().map(|i| i.into_static()).collect();
+                Seq064K {
+                    seq: None,
+                    data: Some(data),
+                }
             }
-        } else {
-            panic!()
+            (Some(inner), None) => {
+                let inner = inner.clone();
+                let data: Vec<U256<'static>> = inner.into_iter().map(|i| i.into_static()).collect();
+                Seq064K {
+                    seq: None,
+                    data: Some(data),
+                }
+            }
+            _ => {
+                debug_assert!(
+                    false,
+                    "sequences can never have boh fields of the same type"
+                );
+                panic!()
+            }
         }
     }
 }

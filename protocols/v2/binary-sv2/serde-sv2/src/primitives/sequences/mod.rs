@@ -1,5 +1,6 @@
 use super::{ShortTxId, Signature, B016M, B0255, B064K, U24, U256};
 use crate::Error;
+use alloc::vec::Vec;
 use core::convert::TryInto;
 use serde::{de::Visitor, Serialize};
 
@@ -20,6 +21,23 @@ struct Seq<'s, T: Clone + Serialize + TryFromBSlice<'s>> {
     size: u8,
     max_len: SeqMaxLen,
     _a: core::marker::PhantomData<T>,
+}
+
+impl<'s, T: Clone + Serialize + TryFromBSlice<'s>> Seq<'s, T> {
+    pub fn parse(self) -> Result<Vec<T>, ()> {
+        let mut ret = Vec::with_capacity(self.size as usize);
+        let elem_len = self.size as usize;
+        let mut first = 0;
+        let mut last = elem_len;
+        while last <= self.data.len() {
+            let slice = &self.data[first..last];
+            let elem = T::try_from_slice(slice).map_err(|_| ())?;
+            ret.push(elem);
+            first += elem_len;
+            last += elem_len;
+        }
+        Ok(ret)
+    }
 }
 
 struct SeqVisitor<T> {
@@ -78,6 +96,18 @@ impl<'a> TryFromBSlice<'a> for bool {
             1 => Ok(true),
             _ => Err(Error::InvalidBool(val[0])),
         }
+    }
+}
+
+impl<'a> TryFromBSlice<'a> for u8 {
+    type Error = Error;
+
+    #[inline]
+    fn try_from_slice(val: &'a [u8]) -> Result<Self, Error> {
+        if val.len() != 1 {
+            return Err(Error::InvalidU16Size(val.len()));
+        }
+        Ok(u8::from_le_bytes([val[0]]))
     }
 }
 
