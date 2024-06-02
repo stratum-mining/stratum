@@ -173,7 +173,7 @@ impl<'a> TryFrom<StandardRequest> for Submit<'a> {
                     [JString(a), JString(b), JString(c), JNumber(d), JNumber(e), JString(f)] => (
                         a.into(),
                         b.into(),
-                        Extranonce::try_from(c.as_str())?,
+                        Extranonce::try_from(hex::decode(c)?)?,
                         HexU32Be(d.as_u64().unwrap() as u32),
                         HexU32Be(e.as_u64().unwrap() as u32),
                         Some((f.as_str()).try_into()?),
@@ -181,7 +181,7 @@ impl<'a> TryFrom<StandardRequest> for Submit<'a> {
                     [JString(a), JString(b), JString(c), JString(d), JString(e), JString(f)] => (
                         a.into(),
                         b.into(),
-                        Extranonce::try_from(c.as_str())?,
+                        Extranonce::try_from(hex::decode(c)?)?,
                         (d.as_str()).try_into()?,
                         (e.as_str()).try_into()?,
                         Some((f.as_str()).try_into()?),
@@ -189,7 +189,7 @@ impl<'a> TryFrom<StandardRequest> for Submit<'a> {
                     [JString(a), JString(b), JString(c), JNumber(d), JNumber(e)] => (
                         a.into(),
                         b.into(),
-                        Extranonce::try_from(c.as_str())?,
+                        Extranonce::try_from(hex::decode(c)?)?,
                         HexU32Be(d.as_u64().unwrap() as u32),
                         HexU32Be(e.as_u64().unwrap() as u32),
                         None,
@@ -197,7 +197,7 @@ impl<'a> TryFrom<StandardRequest> for Submit<'a> {
                     [JString(a), JString(b), JString(c), JString(d), JString(e)] => (
                         a.into(),
                         b.into(),
-                        Extranonce::try_from(c.as_str())?,
+                        Extranonce::try_from(hex::decode(c)?)?,
                         (d.as_str()).try_into()?,
                         (e.as_str()).try_into()?,
                         None,
@@ -229,7 +229,7 @@ impl Arbitrary for Submit<'static> {
         println!("\nEXTRA: {:?}\n", extra);
         let bits = Option::<u32>::arbitrary(g);
         println!("\nBITS: {:?}\n", bits);
-        let extra: Extranonce = hex::encode(extra).as_str().try_into().unwrap();
+        let extra: Extranonce = extra.try_into().unwrap();
         let bits = bits.map(|x| HexU32Be(x));
         println!("\nBITS: {:?}\n", bits);
         Submit {
@@ -319,7 +319,9 @@ impl<'a> TryFrom<StandardRequest> for Subscribe<'a> {
                 let (agent_signature, extranonce1) = match &params[..] {
                     // bosminer subscribe message
                     [JString(a), Null, JString(_), Null] => (a.into(), None),
-                    [JString(a), JString(b)] => (a.into(), Some(Extranonce::try_from(b.as_str())?)),
+                    [JString(a), JString(b)] => {
+                        (a.into(), Some(Extranonce::try_from(hex::decode(b)?)?))
+                    }
                     [JString(a)] => (a.into(), None),
                     [] => ("".to_string(), None),
                     _ => return Err(ParsingMethodError::wrong_args_from_value(msg.params)),
