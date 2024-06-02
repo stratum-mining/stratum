@@ -121,6 +121,9 @@ jobs:
       - name: Run translation-proxy
         run: sh ./test/message-generator/test/translation-proxy/translation-proxy.sh
 
+      - name: Run translation-proxy-old-share
+        run: sh ./test/message-generator/test/translation-proxy-old-share/translation-proxy-old-share.sh
+
       - name: Coverage report
         run: sh ./code-coverage-report.sh
 
