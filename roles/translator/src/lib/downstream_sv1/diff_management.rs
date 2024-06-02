@@ -379,8 +379,7 @@ mod test {
         }
 
         let elapsed_secs = start_time.elapsed().as_secs_f64();
-        
-        
+
         hashes as f64 / elapsed_secs
     }
 
