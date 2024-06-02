@@ -5,7 +5,7 @@
         "Mock an Upstream",
         "Run tProxy",
         "tProxy receives NewExtendedMiningJob (with job_id = 1)",
-        "tProxy receives mining.configure, mining.subscribe, mining.authorize",
+        "tProxy receives mining.authorize",
         "tProxy sends mining.notify",
         "tProxy receives mining.submit (old/invalid share with job_id=0)"
     ],
