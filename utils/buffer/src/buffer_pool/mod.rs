@@ -673,12 +673,25 @@ impl<T: Buffer> Buffer for BufferPool<T> {
     fn danger_set_start(&mut self, index: usize) {
         self.start = index;
     }
+
+    #[inline(always)]
+    fn is_droppable(&self) -> bool {
+        self.shared_state.load(Ordering::Relaxed) == 0
+    }
 }
 
 #[cfg(not(test))]
 impl<T: Buffer> Drop for BufferPool<T> {
     fn drop(&mut self) {
-        while self.shared_state.load(Ordering::Relaxed) != 0 {}
+        while self.shared_state.load(Ordering::Relaxed) != 0 {
+            std::hint::spin_loop();
+        }
+    }
+}
+
+impl<T: Buffer> BufferPool<T> {
+    pub fn droppable(&self) -> bool {
+        self.shared_state.load(Ordering::Relaxed) == 0
     }
 }
 
