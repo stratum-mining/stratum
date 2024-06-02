@@ -221,7 +221,7 @@ impl<'a> TryFrom<Notification> for SetExtranonce<'a> {
             .ok_or_else(|| ParsingMethodError::not_array_from_value(msg.params.clone()))?;
         let (extra_nonce1, extra_nonce2_size) = match &params[..] {
             [JString(a), JNumber(b)] => (
-                Extranonce::try_from(a.as_str())?,
+                Extranonce::try_from(hex::decode(a)?)?,
                 b.as_u64()
                     .ok_or_else(|| ParsingMethodError::not_unsigned_from_value(b.clone()))?
                     as usize,

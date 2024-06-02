@@ -333,7 +333,10 @@ pub trait IsClient<'a> {
                 // so it doesnt really matter what the server sets the extranonce to in the mining.configure handler
                 debug!("NOTICE: Subscribe extranonce is hardcoded by server");
                 let subscribe = self
-                    .subscribe(configure.id, Some(Extranonce::try_from("08000002")?))
+                    .subscribe(
+                        configure.id,
+                        Some(Extranonce::try_from(hex::decode("08000002")?)?),
+                    )
                     .ok();
                 Ok(subscribe)
             }
