@@ -135,7 +135,7 @@ impl<'a, T: Serialize + GetSize + Deserialize<'a>, B: IsBuffer + AeadBuffer> Wit
                     let decrypted_payload = self.sv2_buffer.get_writable(end - start);
                     decrypted_payload.copy_from_slice(&encrypted_payload.as_ref()[start..end]);
                     self.sv2_buffer.danger_set_start(decrypted_len);
-                    noise_codec.decrypt(&mut self.sv2_buffer).unwrap();
+                    noise_codec.decrypt(&mut self.sv2_buffer)?;
                     start = end;
                     end = (start + SV2_FRAME_CHUNK_SIZE).min(encrypted_payload_len);
                     decrypted_len += self.sv2_buffer.as_ref().len();
@@ -160,6 +160,9 @@ impl<'a, T: Serialize + GetSize + Deserialize<'a>, B: IsBuffer + AeadBuffer> Wit
     #[inline]
     pub fn writable(&mut self) -> &mut [u8] {
         self.noise_buffer.get_writable(self.missing_noise_b)
+    }
+    pub fn droppable(&self) -> bool {
+        self.noise_buffer.is_droppable() && self.sv2_buffer.is_droppable()
     }
 }
 

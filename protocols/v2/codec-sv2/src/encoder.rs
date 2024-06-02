@@ -113,6 +113,10 @@ impl<T: Serialize + GetSize> NoiseEncoder<T> {
         }
         Ok(())
     }
+
+    pub fn droppable(&self) -> bool {
+        self.noise_buffer.is_droppable() && self.sv2_buffer.is_droppable()
+    }
 }
 
 #[cfg(feature = "noise_sv2")]
