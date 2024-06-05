@@ -502,18 +502,23 @@ impl IsServer<'static> for Downstream {
 
         // TODO: Check if receiving valid shares by adding diff field to Downstream
 
-        let to_send = SubmitShareWithChannelId {
-            channel_id: self.connection_id,
-            share: request.clone(),
-            extranonce: self.extranonce1.clone(),
-            extranonce2_len: self.extranonce2_len,
-            version_rolling_mask: self.version_rolling_mask.clone(),
-        };
-        self.tx_sv1_bridge
-            .try_send(DownstreamMessages::SubmitShares(to_send))
-            .unwrap();
+        if request.job_id == self.last_job_id {
+            let to_send = SubmitShareWithChannelId {
+                channel_id: self.connection_id,
+                share: request.clone(),
+                extranonce: self.extranonce1.clone(),
+                extranonce2_len: self.extranonce2_len,
+                version_rolling_mask: self.version_rolling_mask.clone(),
+            };
 
-        request.job_id == self.last_job_id
+            self.tx_sv1_bridge
+                .try_send(DownstreamMessages::SubmitShares(to_send))
+                .unwrap();
+
+            return true
+        } else {
+            return false
+        }
     }
 
     /// Indicates to the server that the client supports the mining.set_extranonce method.
