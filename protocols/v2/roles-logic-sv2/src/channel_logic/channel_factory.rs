@@ -826,14 +826,17 @@ impl ChannelFactory {
         if tracing::level_enabled!(tracing::Level::DEBUG)
             || tracing::level_enabled!(tracing::Level::TRACE)
         {
-            debug!("Bitcoin target: {:?}", bitcoin_target);
+            let bitcoin_target_log: binary_sv2::U256 = bitcoin_target.clone().into();
+            let mut bitcoin_target_log = bitcoin_target_log.to_vec();
+            bitcoin_target_log.reverse();
+            debug!("Bitcoin target : {:?}", bitcoin_target_log.to_hex());
             let upstream_target: binary_sv2::U256 = upstream_target.clone().into();
             let mut upstream_target = upstream_target.to_vec();
             upstream_target.reverse();
             debug!("Upstream target: {:?}", upstream_target.to_vec().to_hex());
             let mut hash = hash;
             hash.reverse();
-            debug!("Hash: {:?}", hash.to_vec().to_hex());
+            debug!("Hash           : {:?}", hash.to_vec().to_hex());
         }
         let hash: Target = hash.into();
 
