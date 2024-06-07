@@ -1,0 +1,38 @@
+# SRI JDC config
+listening_address = "127.0.0.1:34265"
+
+# Version support
+max_supported_version = 2
+min_supported_version = 2
+
+# Withhold
+withhold = false
+
+# Auth keys for open encrypted connection downstream
+authority_public_key = "9auqWEzQDVyd2oe1JVGFLMLHZtCo2FFqZwtKA5gd9xbuEu7PH72"
+authority_secret_key = "mkDLTBBRxdBv998612qipDYoTK3YUrqLe8uWw7gu3iXbSrn2n"
+cert_validity_sec = 3600
+
+# Template Provider config
+# Local TP (this is pointing to localhost so you must run a TP locally for this configuration to work)
+tp_address = "127.0.0.1:8442"
+
+jdc_signature = ""
+
+# Solo Mining config
+# List of coinbase outputs used to build the coinbase tx in case of Solo Mining (as last-resort solution of the pools fallback system)
+# ! Put your Extended Public Key or Script as output_script_value !
+# ! Right now only one output is supported, so comment all the ones you don't need !
+# For P2PK, P2PKH, P2WPKH, P2TR a public key is needed. For P2SH and P2WSH, a redeem script is needed.
+coinbase_outputs = [
+    { output_script_type = "P2PK", output_script_value = "036adc3bdf21e6f9a0f0fb0066bf517e5b7909ed1563d6958a10993849a7554075" },
+]
+
+[timeout]
+unit = "secs"
+value = 1
+
+[[upstreams]]
+authority_pubkey = "9auqWEzQDVyd2oe1JVGFLMLHZtCo2FFqZwtKA5gd9xbuEu7PH72"
+pool_address = "fixme:34254"
+jd_address = "fixme:34264"
