@@ -391,11 +391,11 @@ mod test {
     #[test]
     fn test_check_flag() {
         let protocol = crate::Protocol::MiningProtocol;
-        let flag_avaiable = 0b_0000_0000_0000_0000_0000_0000_0000_0000;
+        let flag_available = 0b_0000_0000_0000_0000_0000_0000_0000_0000;
         let flag_required = 0b_0000_0000_0000_0000_0000_0000_0000_0001;
         assert!(SetupConnection::check_flags(
             protocol,
-            flag_avaiable,
+            flag_available,
             flag_required
         ));
     }
