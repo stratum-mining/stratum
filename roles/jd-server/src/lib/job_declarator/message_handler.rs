@@ -7,14 +7,17 @@ use roles_logic_sv2::{
         ProvideMissingTransactions, ProvideMissingTransactionsSuccess, SubmitSolutionJd,
     },
     parsers::JobDeclaration,
+    utils::Mutex,
 };
-use std::{convert::TryInto, io::Cursor};
+use std::{convert::TryInto, io::Cursor, sync::Arc};
 use stratum_common::bitcoin::{Transaction, Txid};
 pub type SendTo = SendTo_<JobDeclaration<'static>, ()>;
+use crate::mempool::JDsMempool;
+
 use super::{signed_token, TransactionState};
 use roles_logic_sv2::{errors::Error, parsers::PoolMessages as AllMessages};
 use stratum_common::bitcoin::consensus::Decodable;
-use tracing::info;
+use tracing::{info, debug};
 
 use super::JobDeclaratorDownstream;
 
@@ -35,6 +38,31 @@ impl JobDeclaratorDownstream {
         // 3. right prev-hash
         // 4. right nbits
         self.token_to_job_map.contains_key(&(token_u32))
+    }
+}
+
+pub fn clear_declared_mining_job(
+    mining_job: DeclareMiningJob,
+    mempool: Arc<Mutex<JDsMempool>>,
+) -> Result<(), Error> {
+    // If there is an old declared mining job, remove its transactions from the mempool
+    // Retrieve necessary data from the old job
+    let transactions_to_remove = mining_job.tx_short_hash_list.inner_as_ref();
+    if transactions_to_remove.is_empty() {
+        info!("No transactions to remove from mempool");
+        return Ok(());
+    }
+    let clear_transactions = |jds_mempool: &mut JDsMempool| {
+        for txid in transactions_to_remove {
+            match jds_mempool.mempool.remove(txid) {
+                Some(_) => info!("Transaction {:?} removed from mempool", txid),
+                None => debug!("Transaction {:?} not found in mempool", txid),
+            };
+        }
+    };
+    match mempool.safe_lock(clear_transactions) {
+        Ok(_) => Ok(()),
+        Err(e) => Err(Error::PoisonLock(e.to_string())),
     }
 }
 
@@ -61,6 +89,13 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
     }
 
     fn handle_declare_mining_job(&mut self, message: DeclareMiningJob) -> Result<SendTo, Error> {
+        {
+            // Clone the old declared mining job to retain its data
+            if let Some(old_declare_mining_job_) = self.declared_mining_job.0.clone() {
+                clear_declared_mining_job(old_declare_mining_job_, self.mempool.clone())?;
+            }
+        }
+
         // the transactions that are present in the mempool are stored here, that is sent to the
         // mempool which use the rpc client to retrieve the whole data for each transaction.
         // The unknown transactions is a vector that contains the transactions that are not in the

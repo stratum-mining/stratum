@@ -7,7 +7,7 @@ use hashbrown::HashMap;
 use roles_logic_sv2::utils::Mutex;
 use rpc_sv2::{mini_rpc_client, mini_rpc_client::RpcError};
 use std::{convert::TryInto, str::FromStr, sync::Arc};
-use stratum_common::{bitcoin, bitcoin::hash_types::Txid};
+use stratum_common::bitcoin::{self, hash_types::Txid};
 
 #[derive(Clone, Debug)]
 pub struct TransactionWithHash {
@@ -95,29 +95,29 @@ impl JDsMempool {
     }
 
     pub async fn update_mempool(self_: Arc<Mutex<Self>>) -> Result<(), JdsMempoolError> {
-        let mut mempool_ordered: HashMap<Txid, Option<Transaction>> = HashMap::new();
+
+        let mut new_jds_mempool: HashMap<Txid, Option<Transaction>> = self_.safe_lock(|x| x.mempool.clone())?;
+        // the fat transactions in the jds-mempool are those declared by some downstream and we
+        // don't want to remove them, but we can get rid of the others
+        new_jds_mempool.retain(|_, val| val.is_some());
+
 
         let client = self_
             .safe_lock(|x| x.get_client())?
             .ok_or(JdsMempoolError::NoClient)?;
-
-        let mempool: Vec<String> = client.get_raw_mempool().await?;
-        for id in &mempool {
+        let node_mempool: Vec<String> = client.get_raw_mempool().await?;
+        // here we add all the new transactions
+        for id in &node_mempool {
             let key_id = Txid::from_str(id)
                 .map_err(|err| JdsMempoolError::Rpc(RpcError::Deserialization(err.to_string())))?;
-
-            let tx = self_.safe_lock(|x| match x.mempool.get(&key_id) {
-                Some(entry) => entry.clone(),
-                None => None,
-            })?;
-
-            mempool_ordered.insert(key_id, tx);
+            // not sure if correct, check it!
+            new_jds_mempool.entry(key_id).or_insert(None);
         }
 
-        if mempool_ordered.is_empty() {
+        if new_jds_mempool.is_empty() {
             Err(JdsMempoolError::EmptyMempool)
         } else {
-            let _ = self_.safe_lock(|x| x.mempool = mempool_ordered);
+            let _ = self_.safe_lock(|x| x.mempool = new_jds_mempool);
             Ok(())
         }
     }
