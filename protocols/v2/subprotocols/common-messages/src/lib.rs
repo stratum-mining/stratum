@@ -33,7 +33,7 @@ pub extern "C" fn _c_export_setup_conn_succ(_a: SetupConnectionSuccess) {}
 impl ChannelEndpointChanged {
     pub fn from_gen(g: &mut Gen) -> Self {
         ChannelEndpointChanged {
-            channel_id: u32::arbitrary(g).try_into().unwrap(),
+            channel_id: u32::arbitrary(g),
         }
     }
 }
@@ -70,11 +70,11 @@ impl SetupConnection<'static> {
 
         SetupConnection {
             protocol,
-            min_version: u16::arbitrary(g).try_into().unwrap(),
-            max_version: u16::arbitrary(g).try_into().unwrap(),
-            flags: u32::arbitrary(g).try_into().unwrap(),
+            min_version: u16::arbitrary(g),
+            max_version: u16::arbitrary(g),
+            flags: u32::arbitrary(g),
             endpoint_host,
-            endpoint_port: u16::arbitrary(g).try_into().unwrap(),
+            endpoint_port: u16::arbitrary(g),
             vendor,
             hardware_version,
             firmware,
@@ -92,7 +92,7 @@ impl SetupConnectionError<'static> {
         let error_code: binary_sv2::Str0255 = error_code.try_into().unwrap();
 
         SetupConnectionError {
-            flags: u32::arbitrary(g).try_into().unwrap(),
+            flags: u32::arbitrary(g),
             error_code,
         }
     }
@@ -102,8 +102,8 @@ impl SetupConnectionError<'static> {
 impl SetupConnectionSuccess {
     pub fn from_gen(g: &mut Gen) -> Self {
         SetupConnectionSuccess {
-            used_version: u16::arbitrary(g).try_into().unwrap(),
-            flags: u32::arbitrary(g).try_into().unwrap(),
+            used_version: u16::arbitrary(g),
+            flags: u32::arbitrary(g),
         }
     }
 }
