@@ -37,9 +37,9 @@ impl<'d> GetSize for SetTarget<'d> {
 #[cfg(feature = "with_serde")]
 impl<'a> SetTarget<'a> {
     pub fn into_static(self) -> SetTarget<'static> {
-        panic!("This function shouldn't be called by the Messaege Generator");
+        panic!("This function shouldn't be called by the Message Generator");
     }
     pub fn as_static(&self) -> SetTarget<'static> {
-        panic!("This function shouldn't be called by the Messaege Generator");
+        panic!("This function shouldn't be called by the Message Generator");
     }
 }

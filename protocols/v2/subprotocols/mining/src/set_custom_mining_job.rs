@@ -129,27 +129,27 @@ impl<'d> GetSize for SetCustomMiningJobError<'d> {
 #[cfg(feature = "with_serde")]
 impl<'a> SetCustomMiningJob<'a> {
     pub fn into_static(self) -> SetCustomMiningJob<'static> {
-        panic!("This function shouldn't be called by the Messaege Generator");
+        panic!("This function shouldn't be called by the Message Generator");
     }
     pub fn as_static(&self) -> SetCustomMiningJob<'static> {
-        panic!("This function shouldn't be called by the Messaege Generator");
+        panic!("This function shouldn't be called by the Message Generator");
     }
 }
 #[cfg(feature = "with_serde")]
 impl<'a> SetCustomMiningJobError<'a> {
     pub fn into_static(self) -> SetCustomMiningJobError<'static> {
-        panic!("This function shouldn't be called by the Messaege Generator");
+        panic!("This function shouldn't be called by the Message Generator");
     }
     pub fn as_static(&self) -> SetCustomMiningJobError<'static> {
-        panic!("This function shouldn't be called by the Messaege Generator");
+        panic!("This function shouldn't be called by the Message Generator");
     }
 }
 #[cfg(feature = "with_serde")]
 impl SetCustomMiningJobSuccess {
     pub fn into_static(self) -> SetCustomMiningJobSuccess {
-        panic!("This function shouldn't be called by the Messaege Generator");
+        panic!("This function shouldn't be called by the Message Generator");
     }
     pub fn as_static(&self) -> SetCustomMiningJobSuccess {
-        panic!("This function shouldn't be called by the Messaege Generator");
+        panic!("This function shouldn't be called by the Message Generator");
     }
 }
