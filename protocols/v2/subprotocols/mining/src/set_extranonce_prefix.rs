@@ -31,9 +31,9 @@ impl<'d> GetSize for SetExtranoncePrefix<'d> {
 #[cfg(feature = "with_serde")]
 impl<'a> SetExtranoncePrefix<'a> {
     pub fn into_static(self) -> SetExtranoncePrefix<'static> {
-        panic!("This function shouldn't be called by the Messaege Generator");
+        panic!("This function shouldn't be called by the Message Generator");
     }
     pub fn as_static(&self) -> SetExtranoncePrefix<'static> {
-        panic!("This function shouldn't be called by the Messaege Generator");
+        panic!("This function shouldn't be called by the Message Generator");
     }
 }

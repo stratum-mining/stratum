@@ -156,10 +156,10 @@ impl<'d> GetSize for NewTemplate<'d> {
 #[cfg(feature = "with_serde")]
 impl<'a> NewTemplate<'a> {
     pub fn into_static(self) -> NewTemplate<'static> {
-        panic!("This function shouldn't be called by the Messaege Generator");
+        panic!("This function shouldn't be called by the Message Generator");
     }
     pub fn as_static(&self) -> NewTemplate<'static> {
-        panic!("This function shouldn't be called by the Messaege Generator");
+        panic!("This function shouldn't be called by the Message Generator");
     }
 }
 

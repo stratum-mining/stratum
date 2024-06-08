@@ -375,45 +375,45 @@ mod tests {
 #[cfg(feature = "with_serde")]
 impl<'a> OpenExtendedMiningChannel<'a> {
     pub fn into_static(self) -> OpenExtendedMiningChannel<'static> {
-        panic!("This function shouldn't be called by the Messaege Generator");
+        panic!("This function shouldn't be called by the Message Generator");
     }
     pub fn as_static(&self) -> OpenExtendedMiningChannel<'static> {
-        panic!("This function shouldn't be called by the Messaege Generator");
+        panic!("This function shouldn't be called by the Message Generator");
     }
 }
 #[cfg(feature = "with_serde")]
 impl<'a> OpenExtendedMiningChannelSuccess<'a> {
     pub fn into_static(self) -> OpenExtendedMiningChannelSuccess<'static> {
-        panic!("This function shouldn't be called by the Messaege Generator");
+        panic!("This function shouldn't be called by the Message Generator");
     }
     pub fn as_static(&self) -> OpenExtendedMiningChannelSuccess<'static> {
-        panic!("This function shouldn't be called by the Messaege Generator");
+        panic!("This function shouldn't be called by the Message Generator");
     }
 }
 #[cfg(feature = "with_serde")]
 impl<'a> OpenMiningChannelError<'a> {
     pub fn into_static(self) -> OpenMiningChannelError<'static> {
-        panic!("This function shouldn't be called by the Messaege Generator");
+        panic!("This function shouldn't be called by the Message Generator");
     }
     pub fn as_static(&self) -> OpenMiningChannelError<'static> {
-        panic!("This function shouldn't be called by the Messaege Generator");
+        panic!("This function shouldn't be called by the Message Generator");
     }
 }
 #[cfg(feature = "with_serde")]
 impl<'a> OpenStandardMiningChannel<'a> {
     pub fn into_static(self) -> OpenStandardMiningChannel<'static> {
-        panic!("This function shouldn't be called by the Messaege Generator");
+        panic!("This function shouldn't be called by the Message Generator");
     }
     pub fn as_static(&self) -> OpenStandardMiningChannel<'static> {
-        panic!("This function shouldn't be called by the Messaege Generator");
+        panic!("This function shouldn't be called by the Message Generator");
     }
 }
 #[cfg(feature = "with_serde")]
 impl<'a> OpenStandardMiningChannelSuccess<'a> {
     pub fn into_static(self) -> OpenStandardMiningChannelSuccess<'static> {
-        panic!("This function shouldn't be called by the Messaege Generator");
+        panic!("This function shouldn't be called by the Message Generator");
     }
     pub fn as_static(&self) -> OpenStandardMiningChannelSuccess<'static> {
-        panic!("This function shouldn't be called by the Messaege Generator");
+        panic!("This function shouldn't be called by the Message Generator");
     }
 }
