@@ -6,14 +6,14 @@ use binary_sv2::{Deserialize, Seq0255, Serialize, Str0255, B0255, B064K, U256};
 #[cfg(not(feature = "with_serde"))]
 use core::convert::TryInto;
 
-/// # SetCustomMiningJob (Client -> Server)
-///
-/// Can be sent only on extended channel. SetupConnection.flags MUST contain
+#[cfg(doc)]
+use common_messages_sv2::SetupConnection;
+
+/// Can be sent only on extended channel. [`SetupConnection`].flags MUST contain
 /// *REQUIRES_WORK_SELECTION* flag (work selection feature successfully negotiated).
 /// The downstream node has a custom job negotiated by a trusted external Job Declarator. The
-/// mining_job_token provides the information for the pool to authorize the custom job that has
+/// `mining_job_token` provides the information for the pool to authorize the custom job that has
 /// been or will be negotiated between the Job Declarator and Pool.
-///
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct SetCustomMiningJob<'decoder> {
     /// Extended channel identifier.
@@ -58,11 +58,8 @@ pub struct SetCustomMiningJob<'decoder> {
     pub extranonce_size: u16,
 }
 
-/// # SetCustomMiningJob.Success (Server -> Client)
-///
 /// Response from the server when it accepts the custom mining job. Client can start to mine on
-/// the job immediately (by using the job_id provided within this response).
-///
+/// the job immediately (by using the `job_id` provided within this response).
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SetCustomMiningJobSuccess {
     /// Extended channel identifier.
@@ -74,13 +71,10 @@ pub struct SetCustomMiningJobSuccess {
     pub job_id: u32,
 }
 
-/// # SetCustomMiningJob.Error (Server -> Client)
-///
 /// Possible errors:
 /// * ‘invalid-channel-id’
 /// * ‘invalid-mining-job-token’
-/// * ‘invalid-job-param-value-{}’ - {} is replaced by a particular field name from SetCustomMiningJob message
-///
+/// * ‘invalid-job-param-value-{}’ - {} is replaced by a particular field name from [`SetCustomMiningJob`] message
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SetCustomMiningJobError<'decoder> {
     /// Extended channel identifier.

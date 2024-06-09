@@ -12,6 +12,9 @@ repository = "https://github.com/stratum-mining/stratum"
 serde = { version = "1.0.89", default-features = false, optional= true }
 binary_sv2 = {version = "^1.0.0", path = "../../../../protocols/v2/binary-sv2/binary-sv2" }
 const_sv2 = {version = "^1.0.0", path = "../../../../protocols/v2/const-sv2"}
+mining_sv2 = {version = "^1.0.0", path = "../../../../protocols/v2/subprotocols/mining"}
+common_messages_sv2 = { version = "^1.0.0", path = "../../../../protocols/v2/subprotocols/common-messages"}
+template_distribution_sv2 = { version = "^1.0.0", path = "../../../../protocols/v2/subprotocols/template-distribution"}
 
 [features]
 with_serde = ["binary_sv2/with_serde", "serde"]

@@ -6,8 +6,9 @@ use binary_sv2::{Deserialize, Serialize, Str0255, U256};
 #[cfg(not(feature = "with_serde"))]
 use core::convert::TryInto;
 
-/// # UpdateChannel (Client -> Server)
-///
+#[cfg(doc)]
+use crate::{OpenExtendedMiningChannel, OpenStandardMiningChannel, SetTarget};
+
 /// Client notifies the server about changes on the specified channel. If a client performs
 /// device/connection aggregation (i.e. it is a proxy), it MUST send this message when downstream
 /// channels change. This update can be debounced so that it is not sent more often than once in a
@@ -19,20 +20,19 @@ use core::convert::TryInto;
 pub struct UpdateChannel<'decoder> {
     /// Channel identification.
     pub channel_id: u32,
-    /// See Open*Channel for details.
+    /// See [`OpenStandardMiningChannel`] & [`OpenExtendedMiningChannel`] for details.
     pub nominal_hash_rate: f32,
-    /// Maximum target is changed by server by sending SetTarget. This
+    /// Maximum target is changed by server by sending [`SetTarget`]. This
     /// field is understood as device’s request. There can be some delay
-    /// between UpdateChannel and corresponding SetTarget messages,
+    /// between [`UpdateChannel`] and corresponding [`SetTarget`] messages,
     /// based on new job readiness on the server.
     ///
-    /// When maximum_target is smaller than currently used maximum target for the channel,
-    /// upstream node MUST reflect the client’s request (and send appropriate SetTarget message).
+    /// When `maximum_target` is smaller than currently used maximum target for the channel,
+    /// upstream node MUST reflect the client’s request (and send appropriate [`SetTarget`] message).
     #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub maximum_target: U256<'decoder>,
 }
 
-/// # Update.Error (Server -> Client)
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct UpdateChannelError<'decoder> {
     /// Channel identification.

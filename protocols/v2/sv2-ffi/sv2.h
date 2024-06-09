@@ -281,19 +281,16 @@ enum class Protocol : uint8_t {
   JobDistributionProtocol = SV2_JOB_DISTR_PROTOCOL_DISCRIMINANT,
 };
 
-/// ## ChannelEndpointChanged (Server -> Client)
 /// When a channel’s upstream or downstream endpoint changes and that channel had previously
 /// sent messages with [channel_msg] bitset of unknown extension_type, the intermediate proxy
 /// MUST send a [`ChannelEndpointChanged`] message. Upon receipt thereof, any extension state
 /// (including version negotiation and the presence of support for a given extension) MUST be
 /// reset and version/presence negotiation must begin again.
-///
 struct ChannelEndpointChanged {
   /// The channel which has changed endpoint.
   uint32_t channel_id;
 };
 
-/// ## SetupConnection.Success (Server -> Client)
 /// Response to [`SetupConnection`] message if the server accepts the connection. The client is
 /// required to verify the set of feature flags that the server supports and act accordingly.
 struct SetupConnectionSuccess {
@@ -341,7 +338,6 @@ void free_setup_connection_error(CSetupConnectionError s);
 #include <ostream>
 #include <new>
 
-/// ## CoinbaseOutputDataSize (Client -> Server)
 /// Ultimately, the pool is responsible for adding coinbase transaction outputs for payouts and
 /// other uses, and thus the Template Provider will need to consider this additional block size
 /// when selecting transactions for inclusion in a block (to not create an invalid, oversized block).
@@ -361,12 +357,11 @@ struct CoinbaseOutputDataSize {
   uint32_t coinbase_output_max_additional_size;
 };
 
-/// ## RequestTransactionData (Client -> Server)
 /// A request sent by the Job Declarator to the Template Provider which requests the set of
 /// transaction data for all transactions (excluding the coinbase transaction) included in a block, as
 /// well as any additional data which may be required by the Pool to validate the work.
 struct RequestTransactionData {
-  /// The template_id corresponding to a NewTemplate message.
+  /// The template_id corresponding to a [`NewTemplate`] message.
   uint64_t template_id;
 };
 

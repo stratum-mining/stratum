@@ -6,18 +6,25 @@ use binary_sv2::{Deserialize, Seq064K, Serialize, U256};
 #[cfg(not(feature = "with_serde"))]
 use core::convert::TryInto;
 
-/// TODO: comment
+#[cfg(doc)]
+use crate::DeclareMiningJob;
+
+/// Sent by the Server in response to a [`DeclareMiningJob`] message indicating it detected a
+/// collision in the `tx_short_hash_list`, or was unable to reconstruct the `tx_hash_list_hash`.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[repr(C)]
 pub struct IdentifyTransactions {
+    /// Unique identifier for the pairing response to the [`DeclareMiningJob`] message
     pub request_id: u32,
 }
 
-/// TODO: comment
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[repr(C)]
 pub struct IdentifyTransactionsSuccess<'decoder> {
+    /// Unique identifier for the pairing response to the [`DeclareMiningJob`]/[`IdentifyTransactions`] message
     pub request_id: u32,
+    /// The full list of transaction data hashes used to build the mining job in the
+    /// corresponding [`DeclareMiningJob`] message
     #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub tx_data_hashes: Seq064K<'decoder, U256<'decoder>>,
 }

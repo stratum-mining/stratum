@@ -6,8 +6,6 @@ use binary_sv2::{Deserialize, Serialize, Str0255};
 #[cfg(not(feature = "with_serde"))]
 use core::convert::TryInto;
 
-/// # Reconnect (Server -> Client)
-///
 /// This message allows clients to be redirected to a new upstream node.
 ///
 /// This message is connection-related so that it should not be propagated downstream by
@@ -22,8 +20,7 @@ use core::convert::TryInto;
 /// instructed to send reconnects to a new location.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Reconnect<'decoder> {
-    /// When empty, downstream node attempts to reconnect to its present
-    /// host.
+    /// When empty, downstream node attempts to reconnect to its present host.
     #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub new_host: Str0255<'decoder>,
     /// When 0, downstream node attempts to reconnect to its present port.

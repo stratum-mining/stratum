@@ -6,8 +6,6 @@ use binary_sv2::{Deserialize, Serialize, U256};
 #[cfg(not(feature = "with_serde"))]
 use core::convert::TryInto;
 
-/// # SetNewPrevHash (Server -> Client, broadcast)
-///
 /// Prevhash is distributed whenever a new block is detected in the network by an upstream node.
 /// This message MAY be shared by all downstream nodes (sent only once to each channel group).
 /// Clients MUST immediately start to mine on the provided prevhash. When a client receives this

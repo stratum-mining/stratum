@@ -16,7 +16,6 @@ use core::convert::TryInto;
 #[cfg(feature = "with_serde")]
 use serde_repr::*;
 
-/// ## SetupConnection (Client -> Server)
 /// Initiates the connection. This MUST be the first message sent by the client on the newly
 /// opened connection. Server MUST respond with either a [`SetupConnectionSuccess`] or
 /// [`SetupConnectionError`] message. Clients that are not configured to provide telemetry data to
@@ -24,7 +23,6 @@ use serde_repr::*;
 /// vendor to a string describing the manufacturer/developer and firmware version and SHOULD
 /// always set hardware_version to a string describing, at least, the particular hardware/software
 /// package in use.
-///
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct SetupConnection<'decoder> {
     /// [`Protocol`]
@@ -198,7 +196,6 @@ impl<'a> From<SetupConnection<'a>> for CSetupConnection {
     }
 }
 
-/// ## SetupConnection.Success (Server -> Client)
 /// Response to [`SetupConnection`] message if the server accepts the connection. The client is
 /// required to verify the set of feature flags that the server supports and act accordingly.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Copy)]
@@ -213,7 +210,6 @@ pub struct SetupConnectionSuccess {
     pub flags: u32,
 }
 
-/// ## SetupConnection.Error (Server -> Client)
 /// When protocol version negotiation fails (or there is another reason why the upstream node
 /// cannot setup the connection) the server sends this message with a particular error code prior
 /// to closing the connection.

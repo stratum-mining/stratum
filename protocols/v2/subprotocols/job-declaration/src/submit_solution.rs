@@ -6,17 +6,23 @@ use binary_sv2::{Deserialize, Serialize, B032, U256};
 #[cfg(not(feature = "with_serde"))]
 use core::convert::TryInto;
 
-/// TODO: comment
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[repr(C)]
 pub struct SubmitSolutionJd<'decoder> {
+    /// Extranonce bytes which need to be added to coinbase to form a fully valid submission.
+    /// (This is the full extranonce)
     #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub extranonce: B032<'decoder>,
+    /// Hash of the last block
     #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub prev_hash: U256<'decoder>,
+    /// The nTime field in the block header.
     pub ntime: u32,
+    /// Nonce leading to the hash being submitted
     pub nonce: u32,
+    /// Block header field
     pub nbits: u32,
+    /// Header version field      
     pub version: u32,
 }
 

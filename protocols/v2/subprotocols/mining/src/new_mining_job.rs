@@ -6,11 +6,18 @@ use binary_sv2::{Deserialize, Seq0255, Serialize, Sv2Option, B032, B064K, U256};
 #[cfg(not(feature = "with_serde"))]
 use core::convert::TryInto;
 
-/// # NewMiningJob (Server -> Client)
-///
-/// The server provides an updated mining job to the client through a standard channel. This MUST be the first message after the channel has been successfully opened. This first message will have min_ntime unset (future job).
-/// If the `min_ntime` field is set, the client MUST start to mine on the new job immediately after receiving this message, and use the value for the initial nTime.
+#[cfg(doc)]
+use crate::OpenExtendedMiningChannelSuccess;
+#[cfg(doc)]
+use crate::SetNewPrevHash;
+#[cfg(doc)]
+use common_messages_sv2::SetupConnection;
 
+/// The server provides an updated mining job to the client through a standard channel.
+/// This MUST be the first message after the channel has been successfully opened.
+/// This first message will have [`min_ntime`](#structfield.min_ntime) unset (future job).
+/// If the [`min_ntime`](#structfield.min_ntime) field is set, the client MUST start to mine
+/// on the new job immediately after receiving this message, and use the value for the initial nTime.
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct NewMiningJob<'decoder> {
@@ -20,10 +27,10 @@ pub struct NewMiningJob<'decoder> {
     /// to the server when shares are submitted later in the mining process.
     pub job_id: u32,
     /// Smallest nTime value available for hashing for the new mining job. An empty value indicates
-    /// this is a future job to be activated once a SetNewPrevHash message is received with a
-    /// matching job_id. This SetNewPrevHash message provides the new prev_hash and min_ntime.
-    /// If the min_ntime value is set, this mining job is active and miner must start mining on it
-    /// immediately. In this case, the new mining job uses the prev_hash from the last received SetNewPrevHash message.
+    /// this is a future job to be activated once a [`SetNewPrevHash`] message is received with a
+    /// matching job_id. This [`SetNewPrevHash`] message provides the new `prev_hash` and [`min_ntime`](#structfield.min_ntime).
+    /// If the [`min_ntime`](#structfield.min_ntime) value is set, this mining job is active and miner must start mining on it
+    /// immediately. In this case, the new mining job uses the `prev_hash` from the last received [`SetNewPrevHash`] message.
     #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub min_ntime: Sv2Option<'decoder, u32>,
     /// Valid version field that reflects the current network consensus. The
@@ -48,21 +55,19 @@ impl<'d> NewMiningJob<'d> {
     }
 }
 
-/// NewExtendedMiningJob (Server -> Client)
-///
 /// (Extended and group channels only)
 /// For an *extended channel*: The whole search space of the job is owned by the specified
-/// channel. If the future_job field is set to *False,* the client MUST start to mine on the new job as
+/// channel. If the `future_job` field is set to *False,* the client MUST start to mine on the new job as
 /// soon as possible after receiving this message.
-/// For a *group channel*: This is a broadcast variant of NewMiningJob message with the
-/// merkle_root field replaced by merkle_path and coinbase TX prefix and suffix, for further traffic
+/// For a *group channel*: This is a broadcast variant of [`NewMiningJob`] message with the
+/// `merkle_root` field replaced by `merkle_path` and coinbase TX prefix and suffix, for further traffic
 /// optimization. The Merkle root is then defined deterministically for each channel by the
-/// common merkle_path and unique extranonce_prefix serialized into the coinbase. The full
-/// coinbase is then constructed as follows: *coinbase_tx_prefix* + *extranonce_prefix* + *coinbase_tx_suffix*.
+/// common `merkle_path` and unique `extranonce_prefix` serialized into the coinbase. The full
+/// coinbase is then constructed as follows: `coinbase_tx_prefix` + `extranonce_prefix` + `coinbase_tx_suffix`.
 /// The proxy MAY transform this multicast variant for downstream standard channels into
-/// NewMiningJob messages by computing the derived Merkle root for them. A proxy MUST
+/// [`NewMiningJob`] messages by computing the derived Merkle root for them. A proxy MUST
 /// translate the message for all downstream channels belonging to the group which don’t signal
-/// that they accept extended mining jobs in the SetupConnection message (intended and
+/// that they accept extended mining jobs in the [`SetupConnection`] message (intended and
 /// expected behaviour for end mining devices).
 ///
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
@@ -74,10 +79,11 @@ pub struct NewExtendedMiningJob<'decoder> {
     /// Server’s identification of the mining job.
     pub job_id: u32,
     /// Smallest nTime value available for hashing for the new mining job. An empty value indicates
-    /// this is a future job to be activated once a SetNewPrevHash message is received with a
-    /// matching job_id. This SetNewPrevHash message provides the new prev_hash and min_ntime.
-    /// If the min_ntime value is set, this mining job is active and miner must start mining on it
-    /// immediately. In this case, the new mining job uses the prev_hash from the last received SetNewPrevHash message.
+    /// this is a future job to be activated once a [`SetNewPrevHash`] message is received with a
+    /// matching `job_id`. This [`SetNewPrevHash`] message provides the new `prev_hash` and `min_ntime`.
+    /// If the `min_ntime` value is set, this mining job is active and miner must start mining on it
+    /// immediately. In this case, the new mining job uses the `prev_hash` from the last received
+    /// [`SetNewPrevHash`] message.
     #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub min_ntime: Sv2Option<'decoder, u32>,
     /// Valid version field that reflects the current network consensus.
@@ -94,9 +100,9 @@ pub struct NewExtendedMiningJob<'decoder> {
     pub merkle_path: Seq0255<'decoder, U256<'decoder>>,
     /// Prefix part of the coinbase transaction.
     /// The full coinbase is constructed by inserting one of the following:
-    /// * For a *standard channel*: extranonce_prefix
-    /// * For an *extended channel*: extranonce_prefix + extranonce (=N bytes), where N is the
-    ///   negotiated extranonce space for the channel (OpenMiningChannel.Success.extranonce_size)
+    /// * For a *standard channel*: `extranonce_prefix`
+    /// * For an *extended channel*: `extranonce_prefix` + `extranonce`j (=N bytes), where N is the
+    ///   negotiated extranonce space for the channel [`OpenExtendedMiningChannelSuccess`].extranonce_size)
     #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub coinbase_tx_prefix: B064K<'decoder>,
     #[cfg_attr(feature = "with_serde", serde(borrow))]
