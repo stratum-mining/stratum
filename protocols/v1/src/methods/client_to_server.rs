@@ -319,6 +319,8 @@ impl<'a> TryFrom<StandardRequest> for Subscribe<'a> {
                 let (agent_signature, extranonce1) = match &params[..] {
                     // bosminer subscribe message
                     [JString(a), Null, JString(_), Null] => (a.into(), None),
+                    // bosminer subscribe message
+                    [JString(a), Null] => (a.into(), None),
                     [JString(a), JString(b)] => {
                         (a.into(), Some(Extranonce::try_from(hex::decode(b)?)?))
                     }
