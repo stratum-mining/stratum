@@ -7,7 +7,7 @@ cert_validity_sec = 3600
 # ! Right now only one output is supported, so comment all the ones you don't need !
 # For P2PK, P2PKH, P2WPKH, P2TR a public key is needed. For P2SH and P2WSH, a redeem script is needed.
 coinbase_outputs = [
-    { output_script_type = "P2PK", output_script_value = "fixme" },
+    { output_script_type = "P2WPKH", output_script_value = "fixme" },
 ]
 
 # SRI Pool JD config
