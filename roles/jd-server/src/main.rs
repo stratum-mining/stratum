@@ -183,14 +183,12 @@ async fn main() {
         });
     };
 
-    info!("Jds INITIALIZING with config: {:?}", &args.config_path);
-
-    let cloned = config.clone();
+    let config_cloned = config.clone();
     let mempool_cloned = mempool.clone();
     let (sender_add_txs_to_mempool, receiver_add_txs_to_mempool) = unbounded();
     task::spawn(async move {
         JobDeclarator::start(
-            cloned,
+            config_cloned,
             sender,
             mempool_cloned,
             new_block_sender,
