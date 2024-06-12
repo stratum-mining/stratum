@@ -102,17 +102,21 @@ impl TemplateRx {
                 .unwrap();
         loop {
             let message_from_tp = handle_result!(status_tx, receiver.recv().await);
-            let mut message_from_tp: StdFrame = handle_result!(
+            let message_from_tp: StdFrame = handle_result!(
                 status_tx,
                 message_from_tp
                     .try_into()
                     .map_err(|e| PoolError::Codec(codec_sv2::Error::FramingSv2Error(e)))
             );
-            let message_type_res = message_from_tp
-                .get_header()
-                .ok_or_else(|| PoolError::Custom(String::from("No header set")));
-            let message_type = handle_result!(status_tx, message_type_res).msg_type();
-            let payload = message_from_tp.payload();
+            let message_type = message_from_tp.header().msg_type();
+            let payload = match message_from_tp.payload() {
+                Some(payload) => payload,
+                None => {
+                    continue;
+                }
+            };
+            let mut payload = payload.to_owned();
+            let payload = payload.as_mut();
             let msg = handle_result!(
                 status_tx,
                 ParseServerTemplateDistributionMessages::handle_message_template_distribution(

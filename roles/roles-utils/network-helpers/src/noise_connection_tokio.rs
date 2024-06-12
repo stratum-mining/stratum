@@ -10,7 +10,7 @@ use tokio::{
 };
 
 use binary_sv2::GetSize;
-use codec_sv2::{HandshakeRole, Initiator, Responder, StandardEitherFrame, StandardNoiseDecoder};
+use codec_sv2::{HandshakeRole, Initiator, Responder, StandardFrame, StandardNoiseDecoder};
 
 use tracing::{debug, error};
 
@@ -41,8 +41,8 @@ impl Connection {
         role: HandshakeRole,
     ) -> Result<
         (
-            Receiver<StandardEitherFrame<Message>>,
-            Sender<StandardEitherFrame<Message>>,
+            Receiver<StandardFrame<Message>>,
+            Sender<StandardFrame<Message>>,
             AbortHandle,
             AbortHandle,
         ),
@@ -53,12 +53,12 @@ impl Connection {
         let (mut reader, mut writer) = stream.into_split();
 
         let (sender_incoming, receiver_incoming): (
-            Sender<StandardEitherFrame<Message>>,
-            Receiver<StandardEitherFrame<Message>>,
+            Sender<StandardFrame<Message>>,
+            Receiver<StandardFrame<Message>>,
         ) = bounded(10); // TODO caller should provide this param
         let (sender_outgoing, receiver_outgoing): (
-            Sender<StandardEitherFrame<Message>>,
-            Receiver<StandardEitherFrame<Message>>,
+            Sender<StandardFrame<Message>>,
+            Receiver<StandardFrame<Message>>,
         ) = bounded(10); // TODO caller should provide this param
 
         let state = codec_sv2::State::not_initialized(&role);

@@ -9,7 +9,7 @@ use core::convert::TryInto;
 use tracing::error;
 
 use binary_sv2::GetSize;
-use codec_sv2::{StandardDecoder, StandardEitherFrame};
+use codec_sv2::{StandardDecoder, StandardFrame};
 
 #[derive(Debug)]
 pub struct PlainConnection {}
@@ -20,18 +20,18 @@ impl PlainConnection {
         stream: TcpStream,
         capacity: usize,
     ) -> (
-        Receiver<StandardEitherFrame<Message>>,
-        Sender<StandardEitherFrame<Message>>,
+        Receiver<StandardFrame<Message>>,
+        Sender<StandardFrame<Message>>,
     ) {
         let (mut reader, writer) = (stream.clone(), stream);
 
         let (sender_incoming, receiver_incoming): (
-            Sender<StandardEitherFrame<Message>>,
-            Receiver<StandardEitherFrame<Message>>,
+            Sender<StandardFrame<Message>>,
+            Receiver<StandardFrame<Message>>,
         ) = bounded(capacity);
         let (sender_outgoing, receiver_outgoing): (
-            Sender<StandardEitherFrame<Message>>,
-            Receiver<StandardEitherFrame<Message>>,
+            Sender<StandardFrame<Message>>,
+            Receiver<StandardFrame<Message>>,
         ) = bounded(capacity);
 
         // RECEIVE AND PARSE INCOMING MESSAGES FROM TCP STREAM

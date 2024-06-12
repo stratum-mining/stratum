@@ -10,7 +10,7 @@ use std::{sync::Arc, time::Duration};
 use tracing::{debug, error};
 
 use binary_sv2::GetSize;
-use codec_sv2::{HandshakeRole, Initiator, Responder, StandardEitherFrame, StandardNoiseDecoder};
+use codec_sv2::{HandshakeRole, Initiator, Responder, StandardFrame, StandardNoiseDecoder};
 
 use crate::Error;
 
@@ -42,8 +42,8 @@ impl Connection {
         capacity: usize,
     ) -> Result<
         (
-            Receiver<StandardEitherFrame<Message>>,
-            Sender<StandardEitherFrame<Message>>,
+            Receiver<StandardFrame<Message>>,
+            Sender<StandardFrame<Message>>,
         ),
         Error,
     > {
@@ -51,12 +51,12 @@ impl Connection {
         let (mut reader, writer) = (stream.clone(), stream.clone());
 
         let (sender_incoming, receiver_incoming): (
-            Sender<StandardEitherFrame<Message>>,
-            Receiver<StandardEitherFrame<Message>>,
+            Sender<StandardFrame<Message>>,
+            Receiver<StandardFrame<Message>>,
         ) = bounded(capacity);
         let (sender_outgoing, receiver_outgoing): (
-            Sender<StandardEitherFrame<Message>>,
-            Receiver<StandardEitherFrame<Message>>,
+            Sender<StandardFrame<Message>>,
+            Receiver<StandardFrame<Message>>,
         ) = bounded(capacity);
 
         let state = codec_sv2::State::not_initialized(&role);

@@ -12,7 +12,7 @@ mod main_ {
 
 #[cfg(not(feature = "with_serde"))]
 mod main_ {
-    use codec_sv2::{Encoder, Frame, StandardDecoder, StandardSv2Frame};
+    use codec_sv2::{Encoder, StandardDecoder, StandardSv2Frame};
     use common_messages_sv2::{Protocol, SetupConnection, SetupConnectionError};
     use const_sv2::{
         CHANNEL_BIT_SETUP_CONNECTION, MESSAGE_TYPE_SETUP_CONNECTION,
@@ -124,10 +124,15 @@ mod main_ {
 
             loop {
                 let buffer = decoder.writable();
-                stream.read_exact(buffer).unwrap();
-                if let Ok(mut f) = decoder.next_frame() {
-                    let msg_type = f.get_header().unwrap().msg_type();
-                    let payload = f.payload();
+                match stream.read_exact(buffer) {
+                    Ok(_) => {}
+                    Err(_) => continue,
+                };
+                if let Ok(f) = decoder.next_frame() {
+                    let msg_type = f.header().msg_type();
+                    let payload = f.payload().unwrap();
+                    let mut payload = payload.to_owned();
+                    let payload = payload.as_mut();
                     let message: Sv2Message = (msg_type, payload).try_into().unwrap();
                     match message {
                         Sv2Message::SetupConnection(_) => panic!(),

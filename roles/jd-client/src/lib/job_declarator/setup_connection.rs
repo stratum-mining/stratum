@@ -10,7 +10,6 @@ use roles_logic_sv2::{
 use std::{convert::TryInto, net::SocketAddr, sync::Arc};
 pub type Message = PoolMessages<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;
-pub type EitherFrame = StandardEitherFrame<Message>;
 pub struct SetupConnectionHandler {}
 
 impl SetupConnectionHandler {
@@ -42,8 +41,8 @@ impl SetupConnectionHandler {
     }
 
     pub async fn setup(
-        receiver: &mut Receiver<EitherFrame>,
-        sender: &mut Sender<EitherFrame>,
+        receiver: &mut Receiver<StandardEitherFrame<Message>>,
+        sender: &mut Sender<StandardEitherFrame<Message>>,
         proxy_address: SocketAddr,
     ) -> Result<(), ()> {
         let setup_connection = Self::get_setup_connection_message(proxy_address);
@@ -55,10 +54,15 @@ impl SetupConnectionHandler {
 
         sender.send(sv2_frame).await.map_err(|_| ())?;
 
-        let mut incoming: StdFrame = receiver.recv().await.unwrap().try_into().unwrap();
+        let incoming: StdFrame = receiver.recv().await.unwrap().try_into().unwrap();
 
-        let message_type = incoming.get_header().unwrap().msg_type();
-        let payload = incoming.payload();
+        let message_type = incoming.header().msg_type();
+        let payload = match incoming.payload() {
+            Some(payload) => payload,
+            None => return Err(()),
+        };
+        let mut payload = payload.to_owned();
+        let payload = payload.as_mut();
         ParseUpstreamCommonMessages::handle_message_common(
             Arc::new(Mutex::new(SetupConnectionHandler {})),
             message_type,

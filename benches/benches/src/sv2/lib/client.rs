@@ -5,7 +5,7 @@ use bitcoin::{
 use async_channel::{Receiver, Sender};
 use async_std::channel::unbounded;
 use binary_sv2::u256_from_int;
-use codec_sv2::{buffer_sv2::Slice, StandardEitherFrame, StandardSv2Frame};
+use codec_sv2::{buffer_sv2::Slice, StandardFrame, StandardSv2Frame};
 use roles_logic_sv2::{
     common_messages_sv2::{Protocol, SetupConnection, SetupConnectionSuccess},
     common_properties::{IsMiningUpstream, IsUpstream},
@@ -23,7 +23,7 @@ use roles_logic_sv2::{
 use std::{net::SocketAddr, sync::Arc};
 pub type Message = MiningDeviceMessages<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;
-pub type EitherFrame = StandardEitherFrame<Message>;
+pub type EitherFrame = StandardFrame<Message>;
 
 pub fn create_client() -> Device {
     let (sender, receiver) = unbounded();

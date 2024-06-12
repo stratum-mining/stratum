@@ -10,7 +10,7 @@ use async_std::{
     task,
 };
 
-use codec_sv2::{Frame, StandardDecoder, StandardSv2Frame};
+use codec_sv2::{StandardDecoder, StandardSv2Frame};
 
 #[derive(Debug)]
 enum Expected {
@@ -83,11 +83,14 @@ impl Node {
 
     fn handle_message(
         &mut self,
-        mut frame: StandardSv2Frame<Message<'static>>,
+        frame: StandardSv2Frame<Message<'static>>,
     ) -> Message<'static> {
         match self.expected {
             Expected::Ping => {
-                let ping: Result<Ping, _> = from_bytes(frame.payload());
+                let payload = frame.payload().unwrap();
+                let mut payload = payload.to_owned();
+                let payload = payload.as_mut();
+                let ping: Result<Ping, _> = from_bytes(payload);
                 match ping {
                     Ok(ping) => {
                         println!("Node {} received:", self.name);
@@ -107,7 +110,10 @@ impl Node {
                 }
             }
             Expected::Pong => {
-                let pong: Result<Pong, _> = from_bytes(frame.payload());
+                let payload = frame.payload().unwrap();
+                let mut payload = payload.to_owned();
+                let payload = payload.as_mut();
+                let pong: Result<Pong, _> = from_bytes(payload);
                 match pong {
                     Ok(pong) => {
                         println!("Node {} received:", self.name);

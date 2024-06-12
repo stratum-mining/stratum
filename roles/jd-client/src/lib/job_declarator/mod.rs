@@ -1,7 +1,7 @@
 pub mod message_handler;
 use async_channel::{Receiver, Sender};
 use binary_sv2::{Seq0255, Seq064K, B016M, B064K, U256};
-use codec_sv2::{HandshakeRole, Initiator, StandardEitherFrame, StandardSv2Frame};
+use codec_sv2::{HandshakeRole, Initiator, StandardFrame, StandardSv2Frame};
 use network_helpers_sv2::noise_connection_tokio::Connection;
 use roles_logic_sv2::{
     handlers::SendTo_,
@@ -48,8 +48,8 @@ pub struct LastDeclareJob {
 
 #[derive(Debug)]
 pub struct JobDeclarator {
-    receiver: Receiver<StandardEitherFrame<PoolMessages<'static>>>,
-    sender: Sender<StandardEitherFrame<PoolMessages<'static>>>,
+    receiver: Receiver<StandardFrame<PoolMessages<'static>>>,
+    sender: Sender<StandardFrame<PoolMessages<'static>>>,
     allocated_tokens: Vec<AllocateMiningJobTokenSuccess<'static>>,
     req_ids: Id,
     min_extranonce_size: u16,
@@ -276,9 +276,15 @@ impl JobDeclarator {
             tokio::task::spawn(async move {
                 let receiver = self_mutex.safe_lock(|d| d.receiver.clone()).unwrap();
                 loop {
-                    let mut incoming: StdFrame = receiver.recv().await.unwrap().try_into().unwrap();
-                    let message_type = incoming.get_header().unwrap().msg_type();
+                    let incoming: StdFrame = receiver.recv().await.unwrap().try_into().unwrap();
+                    let message_type = incoming.header().msg_type();
                     let payload = incoming.payload();
+                    let payload = match payload {
+                        Some(p) => p,
+                        None => return,
+                    };
+                    let mut payload = payload.to_owned();
+                    let payload = payload.as_mut();
                     let next_message_to_send =
                         ParseServerJobDeclarationMessages::handle_message_job_declaration(
                             self_mutex.clone(),

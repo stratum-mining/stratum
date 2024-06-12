@@ -11,7 +11,7 @@ pub mod error;
 
 pub use error::{CError, Error, Result};
 
-pub use decoder::{StandardEitherFrame, StandardSv2Frame};
+pub use decoder::{StandardFrame, StandardSv2Frame};
 
 pub use decoder::StandardDecoder;
 #[cfg(feature = "noise_sv2")]

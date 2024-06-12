@@ -25,11 +25,10 @@ mod setup_connection;
 pub type SendTo = SendTo_<roles_logic_sv2::parsers::TemplateDistribution<'static>, ()>;
 pub type Message = PoolMessages<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;
-pub type EitherFrame = StandardEitherFrame<Message>;
 
 pub struct TemplateRx {
-    receiver: Receiver<EitherFrame>,
-    sender: Sender<EitherFrame>,
+    receiver: Receiver<StandardEitherFrame<Message>>,
+    sender: Sender<StandardEitherFrame<Message>>,
     /// Allows the tp recv to communicate back to the main thread any status updates
     /// that would interest the main thread for error handling
     tx_status: status::Sender,
@@ -184,10 +183,12 @@ impl TemplateRx {
                         .safe_lock(|s| s.receiver.clone())
                         .unwrap();
                     let received = handle_result!(tx_status.clone(), receiver.recv().await);
-                    let mut frame: StdFrame =
-                        handle_result!(tx_status.clone(), received.try_into());
-                    let message_type = frame.get_header().unwrap().msg_type();
-                    let payload = frame.payload();
+                    let frame: StdFrame = handle_result!(tx_status.clone(), received.try_into());
+                    let message_type = frame.header().msg_type();
+                    // Need to add error handling across this file to fix unwraps
+                    let payload = frame.payload().unwrap();
+                    let mut payload = payload.to_owned();
+                    let payload = payload.as_mut();
 
                     let next_message_to_send =
                         ParseServerTemplateDistributionMessages::handle_message_template_distribution(
@@ -273,7 +274,7 @@ impl TemplateRx {
                                 _ => {
                                     error!("{:?}", frame);
                                     error!("{:?}", frame.payload());
-                                    error!("{:?}", frame.get_header());
+                                    error!("{:?}", frame.header());
                                     std::process::exit(1);
                                 }
                             }
@@ -282,14 +283,14 @@ impl TemplateRx {
                             error!("{:?}", m);
                             error!("{:?}", frame);
                             error!("{:?}", frame.payload());
-                            error!("{:?}", frame.get_header());
+                            error!("{:?}", frame.header());
                             std::process::exit(1);
                         }
                         Err(e) => {
                             error!("{:?}", e);
                             error!("{:?}", frame);
                             error!("{:?}", frame.payload());
-                            error!("{:?}", frame.get_header());
+                            error!("{:?}", frame.header());
                             std::process::exit(1);
                         }
                     }

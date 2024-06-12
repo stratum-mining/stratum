@@ -40,7 +40,7 @@ impl SetupConnectionHandler {
     ) -> PoolResult<CommonDownstreamData> {
         // read stdFrame from receiver
 
-        let mut incoming: StdFrame = match receiver.recv().await {
+        let incoming: StdFrame = match receiver.recv().await {
             Ok(EitherFrame::Sv2(s)) => {
                 debug!("Got sv2 message: {:?}", s);
                 s
@@ -58,11 +58,12 @@ impl SetupConnectionHandler {
             }
         };
 
-        let message_type = incoming
-            .get_header()
-            .ok_or_else(|| PoolError::Custom(String::from("No header set")))?
-            .msg_type();
-        let payload = incoming.payload();
+        let message_type = incoming.header().msg_type();
+        let payload = incoming
+            .payload()
+            .ok_or(PoolError::Custom(String::from("No payload set")))?;
+        let mut payload = payload.to_owned();
+        let payload = payload.as_mut();
         let response = ParseDownstreamCommonMessages::handle_message_common(
             self_.clone(),
             message_type,

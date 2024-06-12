@@ -7,7 +7,7 @@ use tokio::{
 use async_channel::{bounded, Receiver, Sender};
 
 use clap::{App, Arg};
-use codec_sv2::{HandshakeRole, Initiator, Responder, StandardEitherFrame, StandardSv2Frame};
+use codec_sv2::{HandshakeRole, Initiator, Responder, StandardFrame, StandardSv2Frame};
 use std::time::Duration;
 
 use network_helpers::{
@@ -20,7 +20,7 @@ use roles_logic_sv2::{
     parsers::{Mining, MiningDeviceMessages},
 };
 
-pub type EitherFrame = StandardEitherFrame<Message>;
+pub type EitherFrame = StandardFrame<Message>;
 pub const AUTHORITY_PUBLIC_K: &str = "9auqWEzQDVyd2oe1JVGFLMLHZtCo2FFqZwtKA5gd9xbuEu7PH72";
 
 pub const AUTHORITY_PRIVATE_K: &str = "mkDLTBBRxdBv998612qipDYoTK3YUrqLe8uWw7gu3iXbSrn2n";

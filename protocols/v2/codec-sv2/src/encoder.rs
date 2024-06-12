@@ -5,9 +5,9 @@ pub use const_sv2::{AEAD_MAC_LEN, SV2_FRAME_CHUNK_SIZE, SV2_FRAME_HEADER_SIZE};
 #[cfg(feature = "noise_sv2")]
 use core::convert::TryInto;
 use core::marker::PhantomData;
+use framing_sv2::framing2::Sv2Frame;
 #[cfg(feature = "noise_sv2")]
 use framing_sv2::framing2::{EitherFrame, HandShakeFrame};
-use framing_sv2::framing2::Sv2Frame;
 #[allow(unused_imports)]
 pub use framing_sv2::header::NOISE_HEADER_ENCRYPTED_SIZE;
 
@@ -106,7 +106,7 @@ impl<T: Serialize + GetSize> NoiseEncoder<T> {
             error!("Error while encoding 2 frame - while_handshaking: {:?}", e);
             Error::FramingError(e)
         })?;
-        let payload = i.get_payload_when_handshaking();
+        let payload = i.payload().to_vec();
         let wrtbl = self.noise_buffer.get_writable(payload.len());
         for (i, b) in payload.iter().enumerate() {
             wrtbl[i] = *b;

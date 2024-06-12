@@ -11,7 +11,7 @@ use async_std::{
 };
 use core::convert::TryInto;
 
-use codec_sv2::{Frame, HandshakeRole, StandardEitherFrame, StandardSv2Frame};
+use codec_sv2::{HandshakeRole, StandardFrame, StandardSv2Frame};
 
 use std::time;
 
@@ -28,8 +28,8 @@ pub struct Node {
     name: String,
     last_id: u32,
     expected: Expected,
-    receiver: Receiver<StandardEitherFrame<Message<'static>>>,
-    sender: Sender<StandardEitherFrame<Message<'static>>>,
+    receiver: Receiver<StandardFrame<Message<'static>>>,
+    sender: Sender<StandardFrame<Message<'static>>>,
 }
 
 impl Node {
@@ -95,11 +95,14 @@ impl Node {
 
     fn handle_message(
         &mut self,
-        mut frame: StandardSv2Frame<Message<'static>>,
+        frame: StandardSv2Frame<Message<'static>>,
     ) -> Message<'static> {
         match self.expected {
             Expected::Ping => {
-                let ping: Result<Ping, _> = from_bytes(frame.payload());
+                let payload = frame.payload().unwrap();
+                let mut payload = payload.to_owned();
+                let payload = payload.as_mut();
+                let ping: Result<Ping, _> = from_bytes(payload);
                 match ping {
                     Ok(ping) => {
                         println!("Node {} received:", self.name);
@@ -118,7 +121,10 @@ impl Node {
                 }
             }
             Expected::Pong => {
-                let pong: Result<Pong, _> = from_bytes(frame.payload());
+                let payload = frame.payload().unwrap();
+                let mut payload = payload.to_owned();
+                let payload = payload.as_mut();
+                let pong: Result<Pong, _> = from_bytes(payload);
                 match pong {
                     Ok(pong) => {
                         println!("Node {} received:", self.name);

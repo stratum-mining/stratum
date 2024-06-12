@@ -179,16 +179,20 @@ impl SetupConnectionHandler {
         sender.send(sv2_frame).await.unwrap();
         info!("Setup connection sent to {}", address);
 
-        let mut incoming: StdFrame = receiver.recv().await.unwrap().try_into().unwrap();
-        let message_type = incoming.get_header().unwrap().msg_type();
+        let incoming: StdFrame = receiver.recv().await.unwrap().try_into().unwrap();
+        let message_type = incoming.header().msg_type();
         let payload = incoming.payload();
-        ParseUpstreamCommonMessages::handle_message_common(
-            self_,
-            message_type,
-            payload,
-            CommonRoutingLogic::None,
-        )
-        .unwrap();
+        if let Some(payload) = payload {
+            let mut payload = payload.to_owned();
+            let payload = payload.as_mut();
+            ParseUpstreamCommonMessages::handle_message_common(
+                self_,
+                message_type,
+                payload,
+                CommonRoutingLogic::None,
+            )
+            .unwrap();
+        }
     }
 }
 
@@ -312,9 +316,17 @@ impl Device {
         });
 
         loop {
-            let mut incoming: StdFrame = receiver.recv().await.unwrap().try_into().unwrap();
-            let message_type = incoming.get_header().unwrap().msg_type();
+            let incoming: StdFrame = receiver.recv().await.unwrap().try_into().unwrap();
+            let message_type = incoming.header().msg_type();
             let payload = incoming.payload();
+            let payload = match payload {
+                Some(p) => p,
+                None => {
+                    continue;
+                }
+            };
+            let mut payload = payload.to_owned();
+            let payload = payload.as_mut();
             let next = Device::handle_message_mining(
                 self_mutex.clone(),
                 message_type,

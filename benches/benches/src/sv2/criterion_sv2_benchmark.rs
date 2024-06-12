@@ -1,4 +1,4 @@
-use codec_sv2::{Frame, StandardEitherFrame, StandardSv2Frame};
+use codec_sv2::{StandardFrame, StandardSv2Frame};
 use criterion::{black_box, Criterion};
 use roles_logic_sv2::{
     handlers::{common::ParseUpstreamCommonMessages, mining::ParseUpstreamMiningMessages},
@@ -20,7 +20,7 @@ use crate::client::{
 
 pub type Message = MiningDeviceMessages<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;
-pub type EitherFrame = StandardEitherFrame<Message>;
+pub type EitherFrame = StandardFrame<Message>;
 
 fn client_sv2_setup_connection(c: &mut Criterion) {
     c.bench_function("client_sv2_setup_connection", |b| {
@@ -53,9 +53,11 @@ fn client_sv2_setup_connection_serialize_deserialize(c: &mut Criterion) {
         let mut dst = vec![0; size];
         let _serialized = frame.serialize(&mut dst);
         b.iter(|| {
-            let mut frame = StdFrame::from_bytes(black_box(dst.clone().into())).unwrap();
-            let type_ = frame.get_header().unwrap().msg_type().clone();
-            let payload = frame.payload();
+            let frame = StdFrame::from_bytes(black_box(dst.clone().into())).unwrap();
+            let type_ = frame.header().msg_type();
+            let payload = frame.payload().unwrap();
+            let mut payload = payload.to_owned();
+            let payload = payload.as_mut();
             let _ = AnyMessage::try_from((type_, payload)).unwrap();
         });
     });
@@ -95,8 +97,10 @@ fn client_sv2_open_channel_serialize_deserialize(c: &mut Criterion) {
         frame.serialize(&mut dst);
         b.iter(|| {
             let mut frame = StdFrame::from_bytes(black_box(dst.clone().into())).unwrap();
-            let type_ = frame.get_header().unwrap().msg_type().clone();
-            let payload = frame.payload();
+            let type_ = frame.header().msg_type();
+            let payload = frame.payload().unwrap();
+            let mut payload = payload.to_owned();
+            let payload = payload.as_mut();
             black_box(AnyMessage::try_from((type_, payload)).unwrap());
         });
     });
@@ -151,8 +155,10 @@ fn client_sv2_mining_message_submit_standard_serialize_deserialize(c: &mut Crite
         |b| {
             b.iter(|| {
                 let mut frame = StdFrame::from_bytes(black_box(dst.clone().into())).unwrap();
-                let type_ = frame.get_header().unwrap().msg_type().clone();
-                let payload = frame.payload();
+                let type_ = frame.header().msg_type();
+                let payload = frame.payload().unwrap();
+                let mut payload = payload.to_owned();
+                let payload = payload.as_mut();
                 black_box(AnyMessage::try_from((type_, payload)).unwrap());
             });
         },

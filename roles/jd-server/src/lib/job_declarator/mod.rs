@@ -200,13 +200,16 @@ impl JobDeclaratorDownstream {
             loop {
                 match recv.recv().await {
                     Ok(message) => {
-                        let mut frame: StdFrame = handle_result!(tx_status, message.try_into());
-                        let header = frame
-                            .get_header()
-                            .ok_or_else(|| JdsError::Custom(String::from("No header set")));
-                        let header = handle_result!(tx_status, header);
-                        let message_type = header.msg_type();
-                        let payload = frame.payload();
+                        let frame: StdFrame = handle_result!(tx_status, message.try_into());
+                        let message_type = frame.header().msg_type();
+                        let payload = match frame.payload() {
+                            Some(payload) => payload,
+                            None => {
+                                continue;
+                            }
+                        };
+                        let mut payload = payload.to_owned();
+                        let payload = payload.as_mut();
                         let next_message_to_send =
                             ParseClientJobDeclarationMessages::handle_message_job_declaration(
                                 self_mutex.clone(),

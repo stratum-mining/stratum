@@ -100,8 +100,8 @@ pub struct Configuration {
 pub struct Downstream {
     // Either group or channel id
     id: u32,
-    receiver: Receiver<EitherFrame>,
-    sender: Sender<EitherFrame>,
+    receiver: Receiver<StandardEitherFrame<Message>>,
+    sender: Sender<StandardEitherFrame<Message>>,
     downstream_data: CommonDownstreamData,
     solution_sender: Sender<SubmitSolution<'static>>,
     channel_factory: Arc<Mutex<PoolChannelFactory>>,
@@ -120,8 +120,8 @@ pub struct Pool {
 impl Downstream {
     #[allow(clippy::too_many_arguments)]
     pub async fn new(
-        mut receiver: Receiver<EitherFrame>,
-        mut sender: Sender<EitherFrame>,
+        mut receiver: Receiver<StandardEitherFrame<Message>>,
+        mut sender: Sender<StandardEitherFrame<Message>>,
         solution_sender: Sender<SubmitSolution<'static>>,
         pool: Arc<Mutex<Pool>>,
         channel_factory: Arc<Mutex<PoolChannelFactory>>,
@@ -199,12 +199,13 @@ impl Downstream {
         Ok(self_)
     }
 
-    pub async fn next(self_mutex: Arc<Mutex<Self>>, mut incoming: StdFrame) -> PoolResult<()> {
-        let message_type = incoming
-            .get_header()
-            .ok_or_else(|| PoolError::Custom(String::from("No header set")))?
-            .msg_type();
-        let payload = incoming.payload();
+    pub async fn next(self_mutex: Arc<Mutex<Self>>, incoming: StdFrame) -> PoolResult<()> {
+        let message_type = incoming.header().msg_type();
+        let payload = incoming
+            .payload()
+            .ok_or(PoolError::Custom(String::from("No payload set")))?;
+        let mut payload = payload.to_owned();
+        let payload = payload.as_mut();
         debug!(
             "Received downstream message type: {:?}, payload: {:?}",
             message_type, payload
@@ -325,8 +326,10 @@ impl Pool {
             let address = stream.peer_addr().unwrap();
             debug!("New connection from {}", address);
 
-            let (receiver, sender): (Receiver<EitherFrame>, Sender<EitherFrame>) =
-                network_helpers::plain_connection_tokio::PlainConnection::new(stream).await;
+            let (receiver, sender): (
+                Receiver<StandardEitherFrame<Message>>,
+                Sender<StandardEitherFrame<Message>>,
+            ) = network_helpers::plain_connection_tokio::PlainConnection::new(stream).await;
 
             handle_result!(
                 status_tx,
@@ -385,8 +388,8 @@ impl Pool {
 
     async fn accept_incoming_connection_(
         self_: Arc<Mutex<Pool>>,
-        receiver: Receiver<EitherFrame>,
-        sender: Sender<EitherFrame>,
+        receiver: Receiver<StandardEitherFrame<Message>>,
+        sender: Sender<StandardEitherFrame<Message>>,
         address: SocketAddr,
     ) -> PoolResult<()> {
         let solution_sender = self_.safe_lock(|p| p.solution_sender.clone())?;

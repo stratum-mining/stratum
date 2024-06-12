@@ -21,7 +21,6 @@ use codec_sv2::{StandardEitherFrame, StandardSv2Frame};
 
 pub type Message = MiningDeviceMessages<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;
-pub type EitherFrame = StandardEitherFrame<Message>;
 
 /// 1 to 1 connection with a downstream node that implement the mining (sub)protocol can be either
 /// a mining device or a downstream proxy.
@@ -30,8 +29,8 @@ pub type EitherFrame = StandardEitherFrame<Message>;
 #[derive(Debug)]
 pub struct DownstreamMiningNode {
     id: u32,
-    receiver: Receiver<EitherFrame>,
-    sender: Sender<EitherFrame>,
+    receiver: Receiver<StandardEitherFrame<Message>>,
+    sender: Sender<StandardEitherFrame<Message>>,
     pub status: DownstreamMiningNodeStatus,
     pub prev_job_id: Option<u32>,
     upstream: Option<Arc<Mutex<UpstreamMiningNode>>>,
@@ -181,7 +180,11 @@ impl DownstreamMiningNode {
         self.status.add_extended_from_non_hom_for_up_extended(id);
     }
 
-    pub fn new(receiver: Receiver<EitherFrame>, sender: Sender<EitherFrame>, id: u32) -> Self {
+    pub fn new(
+        receiver: Receiver<StandardEitherFrame<Message>>,
+        sender: Sender<StandardEitherFrame<Message>>,
+        id: u32,
+    ) -> Self {
         Self {
             receiver,
             sender,
@@ -227,10 +230,15 @@ impl DownstreamMiningNode {
     }
 
     /// Parse the received message and relay it to the right upstream
-    pub async fn next(self_mutex: Arc<Mutex<Self>>, mut incoming: StdFrame) {
-        let message_type = incoming.get_header().unwrap().msg_type();
+    pub async fn next(self_mutex: Arc<Mutex<Self>>, incoming: StdFrame) {
+        let message_type = incoming.header().msg_type();
         let payload = incoming.payload();
-
+        let payload = match payload {
+            Some(p) => p,
+            None => panic!(),
+        };
+        let mut payload = payload.to_owned();
+        let payload = payload.as_mut();
         let routing_logic = super::get_routing_logic();
 
         let next_message_to_send = ParseDownstreamMiningMessages::handle_message_mining(
@@ -493,32 +501,40 @@ pub async fn listen_for_downstream_mining(address: SocketAddr) {
     let mut ids = roles_logic_sv2::utils::Id::new();
 
     while let Ok((stream, _)) = listner.accept().await {
-        let (receiver, sender): (Receiver<EitherFrame>, Sender<EitherFrame>) =
-            PlainConnection::new(stream).await;
+        let (receiver, sender): (
+            Receiver<StandardEitherFrame<Message>>,
+            Sender<StandardEitherFrame<Message>>,
+        ) = PlainConnection::new(stream).await;
         let node = DownstreamMiningNode::new(receiver, sender, ids.next());
 
         task::spawn(async move {
-            let mut incoming: StdFrame = node.receiver.recv().await.unwrap().try_into().unwrap();
-            let message_type = incoming.get_header().unwrap().msg_type();
+            let incoming: StdFrame = node.receiver.recv().await.unwrap().try_into().unwrap();
+            let message_type = incoming.header().msg_type();
             let payload = incoming.payload();
-            let routing_logic = super::get_common_routing_logic();
-            let node = Arc::new(Mutex::new(node));
+            if let Some(payload) = payload {
+                let mut payload = payload.to_owned();
+                let payload = payload.as_mut();
+                let routing_logic = super::get_common_routing_logic();
+                let node = Arc::new(Mutex::new(node));
 
-            // Call handle_setup_connection or fail
-            match DownstreamMiningNode::handle_message_common(
-                node.clone(),
-                message_type,
-                payload,
-                routing_logic,
-            ) {
-                Ok(SendToCommon::RelayNewMessageToRemote(_, message)) => {
-                    let message = match message {
-                        roles_logic_sv2::parsers::CommonMessages::SetupConnectionSuccess(m) => m,
-                        _ => panic!(),
-                    };
-                    DownstreamMiningNode::start(node, message).await
+                // Call handle_setup_connection or fail
+                match DownstreamMiningNode::handle_message_common(
+                    node.clone(),
+                    message_type,
+                    payload,
+                    routing_logic,
+                ) {
+                    Ok(SendToCommon::RelayNewMessageToRemote(_, message)) => {
+                        let message = match message {
+                            roles_logic_sv2::parsers::CommonMessages::SetupConnectionSuccess(m) => {
+                                m
+                            }
+                            _ => panic!(),
+                        };
+                        DownstreamMiningNode::start(node, message).await
+                    }
+                    _ => panic!(),
                 }
-                _ => panic!(),
             }
         });
     }

@@ -36,7 +36,6 @@ use stratum_common::bitcoin::TxOut;
 
 pub type Message = PoolMessages<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;
-pub type EitherFrame = StandardEitherFrame<Message>;
 pub type ProxyRemoteSelector = Prs<DownstreamMiningNode>;
 
 #[derive(Debug)]
@@ -119,12 +118,12 @@ impl From<super::ChannelKind> for ChannelKind {
 /// upstream proxy.
 #[derive(Debug, Clone)]
 struct UpstreamMiningConnection {
-    receiver: Receiver<EitherFrame>,
-    sender: Sender<EitherFrame>,
+    receiver: Receiver<StandardEitherFrame<Message>>,
+    sender: Sender<StandardEitherFrame<Message>>,
 }
 
 impl UpstreamMiningConnection {
-    async fn send(&mut self, sv2_frame: StdFrame) -> Result<(), SendError<EitherFrame>> {
+    async fn send(&mut self, sv2_frame: StdFrame) -> Result<(), SendError<StandardEitherFrame<Message>>> {
         info!("SEND");
         let either_frame = sv2_frame.into();
         match self.sender.send(either_frame).await {
@@ -406,13 +405,21 @@ impl UpstreamMiningNode {
                     .map_err(|e| (error!("Failed to send {:?}", e)))?;
 
                 let cloned = self_mutex.clone();
-                let mut response = task::spawn(async { Self::receive(cloned).await })
+                let response = task::spawn(async { Self::receive(cloned).await })
                     .await
                     .unwrap()
                     .unwrap();
 
-                let message_type = response.get_header().unwrap().msg_type();
-                let payload = response.payload();
+                let message_type = response.header().msg_type();
+                let payload = match response.payload() {
+                    Some(p) => p,
+                    None => {
+                        error!("No payload found in response");
+                        return Err(());
+                    }
+                };
+                let mut payload = payload.to_owned();
+                let payload = payload.as_mut();
                 match (message_type, payload).try_into() {
                     Ok(CommonMessages::SetupConnectionSuccess(_)) => {
                         let receiver = self_mutex
@@ -430,7 +437,7 @@ impl UpstreamMiningNode {
     fn relay_incoming_messages(
         self_: Arc<Mutex<Self>>,
         //_downstreams: HashMap<u32, Downstream>,
-        receiver: Receiver<EitherFrame>,
+        receiver: Receiver<StandardEitherFrame<Message>>,
     ) {
         task::spawn(async move {
             loop {
@@ -576,9 +583,17 @@ impl UpstreamMiningNode {
         }
     }
 
-    pub async fn next(self_mutex: Arc<Mutex<Self>>, mut incoming: StdFrame) {
-        let message_type = incoming.get_header().unwrap().msg_type();
-        let payload = incoming.payload();
+    pub async fn next(self_mutex: Arc<Mutex<Self>>, incoming: StdFrame) {
+        let message_type = incoming.header().msg_type();
+        let payload = match incoming.payload() {
+            Some(p) => p,
+            None => {
+                error!("No payload found in response");
+                return;
+            }
+        };
+        let mut payload = payload.to_owned();
+        let payload = payload.as_mut();
 
         let routing_logic = super::get_routing_logic();
 
@@ -607,16 +622,27 @@ impl UpstreamMiningNode {
                 )
             })
             .unwrap();
-        Self::send(self_mutex.clone(), frame).await?;
+        match Self::send(self_mutex.clone(), frame).await {
+            Ok(_) => {}
+            Err(e) => return Err(e),
+        };
 
         let cloned = self_mutex.clone();
-        let mut response = task::spawn(async { Self::receive(cloned).await })
+        let response = task::spawn(async { Self::receive(cloned).await })
             .await
             .unwrap()
             .unwrap();
 
-        let message_type = response.get_header().unwrap().msg_type();
-        let payload = response.payload();
+        let message_type = response.header().msg_type();
+        let payload = match response.payload() {
+            Some(p) => p,
+            None => {
+                error!("No payload found in response");
+                return Err(super::error::Error::NoPayloadFound);
+            }
+        };
+        let mut payload = payload.to_owned();
+        let payload = payload.as_mut();
         match (message_type, payload).try_into() {
             Ok(CommonMessages::SetupConnectionSuccess(m)) => {
                 let receiver = self_mutex
@@ -861,7 +887,7 @@ impl UpstreamMiningNode {
     // #[cfg(test)]
     // #[allow(unused)]
     // pub async fn next_faster(&mut self, mut incoming: StdFrame) {
-    //     let message_type = incoming.get_header().unwrap().msg_type();
+    //     let message_type = incoming.header().msg_type();
 
     //     // When a channel is opened we need to setup the channel id in order to relay next messages
     //     // to the right Downstream

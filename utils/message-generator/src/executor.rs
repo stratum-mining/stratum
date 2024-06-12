@@ -7,7 +7,7 @@ use crate::{
 };
 use async_channel::{Receiver, Sender};
 use binary_sv2::Serialize;
-use codec_sv2::{Frame, StandardEitherFrame as EitherFrame, Sv2Frame};
+use codec_sv2::{StandardFrame as EitherFrame, Sv2Frame};
 use roles_logic_sv2::parsers::{self, AnyMessage};
 use std::{collections::HashMap, convert::TryInto, sync::Arc};
 
@@ -222,10 +222,12 @@ impl Executor {
                     }
                 };
 
-                let mut message: Sv2Frame<AnyMessage<'static>, _> = message.try_into().unwrap();
+                let message: Sv2Frame<AnyMessage<'static>, _> = message.try_into().unwrap();
                 debug!("RECV {:#?}", message);
-                let header = message.get_header().unwrap();
-                let payload = message.payload();
+                let header = message.header();
+                let payload = message.payload().unwrap();
+                let mut payload = payload.to_owned();
+                let payload = payload.as_mut();
                 match result {
                     ActionResult::MatchMessageType(message_type) => {
                         if header.msg_type() != *message_type {

@@ -48,16 +48,17 @@ impl SetupConnectionHandler {
         let sv2_frame = sv2_frame.into();
         sender.send(sv2_frame).await?;
 
-        let mut incoming: StdFrame = receiver
+        let incoming: StdFrame = receiver
             .recv()
             .await?
             .try_into()
             .map_err(|e| PoolError::Codec(codec_sv2::Error::FramingSv2Error(e)))?;
-        let message_type = incoming
-            .get_header()
-            .ok_or_else(|| PoolError::Custom(String::from("No header set")))?
-            .msg_type();
-        let payload = incoming.payload();
+        let message_type = incoming.header().msg_type();
+        let payload = incoming
+            .payload()
+            .ok_or(PoolError::Custom(String::from("No payload set")))?;
+        let mut payload = payload.to_owned();
+        let payload = payload.as_mut();
 
         ParseUpstreamCommonMessages::handle_message_common(
             Arc::new(Mutex::new(SetupConnectionHandler {})),

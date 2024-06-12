@@ -28,7 +28,6 @@ use stratum_common::bitcoin::{consensus::Decodable, TxOut};
 
 pub type Message = MiningDeviceMessages<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;
-pub type EitherFrame = StandardEitherFrame<Message>;
 
 /// 1 to 1 connection with a downstream node that implement the mining (sub)protocol can be either
 /// a mining device or a downstream proxy.
@@ -36,8 +35,8 @@ pub type EitherFrame = StandardEitherFrame<Message>;
 /// downstream do no make much sense.
 #[derive(Debug)]
 pub struct DownstreamMiningNode {
-    receiver: Receiver<EitherFrame>,
-    sender: Sender<EitherFrame>,
+    receiver: Receiver<StandardEitherFrame<Message>>,
+    sender: Sender<StandardEitherFrame<Message>>,
     pub status: DownstreamMiningNodeStatus,
     pub prev_job_id: Option<u32>,
     solution_sender: Sender<SubmitSolution<'static>>,
@@ -153,8 +152,8 @@ use std::sync::Arc;
 impl DownstreamMiningNode {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        receiver: Receiver<EitherFrame>,
-        sender: Sender<EitherFrame>,
+        receiver: Receiver<StandardEitherFrame<Message>>,
+        sender: Sender<StandardEitherFrame<Message>>,
         upstream: Option<Arc<Mutex<UpstreamMiningNode>>>,
         solution_sender: Sender<SubmitSolution<'static>>,
         withhold: bool,
@@ -251,19 +250,21 @@ impl DownstreamMiningNode {
     }
 
     /// Parse the received message and relay it to the right upstream
-    pub async fn next(self_mutex: &Arc<Mutex<Self>>, mut incoming: StdFrame) {
-        let message_type = incoming.get_header().unwrap().msg_type();
+    pub async fn next(self_mutex: &Arc<Mutex<Self>>, incoming: StdFrame) {
+        let message_type = incoming.header().msg_type();
         let payload = incoming.payload();
-
-        let routing_logic = roles_logic_sv2::routing_logic::MiningRoutingLogic::None;
-
-        let next_message_to_send = ParseDownstreamMiningMessages::handle_message_mining(
-            self_mutex.clone(),
-            message_type,
-            payload,
-            routing_logic,
-        );
-        Self::match_send_to(self_mutex.clone(), next_message_to_send, Some(incoming)).await;
+        if let Some(payload) = payload {
+            let mut payload = payload.to_owned();
+            let payload = payload.as_mut();
+            let routing_logic = roles_logic_sv2::routing_logic::MiningRoutingLogic::None;
+            let next_message_to_send = ParseDownstreamMiningMessages::handle_message_mining(
+                self_mutex.clone(),
+                message_type,
+                payload,
+                routing_logic,
+            );
+            Self::match_send_to(self_mutex.clone(), next_message_to_send, Some(incoming)).await;
+        }
     }
 
     #[async_recursion::async_recursion]
@@ -696,9 +697,11 @@ pub async fn listen_for_downstream_mining(
             jd,
         );
 
-        let mut incoming: StdFrame = node.receiver.recv().await.unwrap().try_into().unwrap();
-        let message_type = incoming.get_header().unwrap().msg_type();
-        let payload = incoming.payload();
+        let incoming: StdFrame = node.receiver.recv().await.unwrap().try_into().unwrap();
+        let message_type = incoming.header().msg_type();
+        let payload = incoming.payload().expect("No payload");
+        let mut payload = payload.to_owned();
+        let payload = payload.as_mut();
         let routing_logic = roles_logic_sv2::routing_logic::CommonRoutingLogic::None;
         let node = Arc::new(Mutex::new(node));
         if let Some(upstream) = upstream {

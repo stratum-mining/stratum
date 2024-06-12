@@ -10,7 +10,7 @@ extern crate load_file;
 
 use crate::parser::sv2_messages::ReplaceField;
 use binary_sv2::{Deserialize, Serialize};
-use codec_sv2::StandardEitherFrame as EitherFrame;
+use codec_sv2::StandardFrame as EitherFrame;
 use external_commands::*;
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 use rand::Rng;
@@ -451,7 +451,7 @@ mod test {
         into_static::into_static,
         net::{setup_as_downstream, setup_as_upstream},
     };
-    use codec_sv2::{Frame, Sv2Frame};
+    use codec_sv2::Sv2Frame;
     use roles_logic_sv2::{
         mining_sv2::{
             CloseChannel, NewExtendedMiningJob, OpenExtendedMiningChannel,
@@ -657,10 +657,14 @@ mod test {
         let client_received = client_recv.recv().await.unwrap();
         match (server_received, client_received) {
             (EitherFrame::Sv2(mut frame1), EitherFrame::Sv2(mut frame2)) => {
-                let mt1 = frame1.get_header().unwrap().msg_type();
-                let mt2 = frame2.get_header().unwrap().msg_type();
-                let p1 = frame1.payload();
-                let p2 = frame2.payload();
+                let mt1 = frame1.header().msg_type();
+                let mt2 = frame2.header().msg_type();
+                let p1 = frame1.payload().unwrap();
+                let mut p1 = p1.to_owned();
+                let p1 = p1.as_mut();
+                let p2 = frame2.payload().unwrap();
+                let mut p2 = p2.to_owned();
+                let p2 = p2.as_mut();
                 let message1: Mining = (mt1, p1).try_into().unwrap();
                 let message2: Mining = (mt2, p2).try_into().unwrap();
                 match (message1, message2) {

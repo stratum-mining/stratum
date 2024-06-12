@@ -1,7 +1,4 @@
-// use crate::framing2::EitherFrame;
 use core::fmt;
-
-// pub type FramingResult<T> = core::result::Result<T, Error>;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Error {

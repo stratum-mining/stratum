@@ -14,7 +14,7 @@ pub mod noise_connection_tokio;
 pub mod plain_connection_tokio;
 
 use async_channel::{Receiver, RecvError, SendError, Sender};
-use codec_sv2::{Error as CodecError, HandShakeFrame, HandshakeRole, StandardEitherFrame};
+use codec_sv2::{Error as CodecError, HandShakeFrame, HandshakeRole, StandardFrame};
 use const_sv2::{
     INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE, RESPONDER_EXPECTED_HANDSHAKE_MESSAGE_SIZE,
 };
@@ -61,8 +61,8 @@ async fn initialize_as_downstream<
 >(
     self_: Arc<Mutex<T>>,
     role: HandshakeRole,
-    sender_outgoing: Sender<StandardEitherFrame<Message>>,
-    receiver_incoming: Receiver<StandardEitherFrame<Message>>,
+    sender_outgoing: Sender<StandardFrame<Message>>,
+    receiver_incoming: Receiver<StandardFrame<Message>>,
 ) -> Result<(), Error> {
     let mut state = codec_sv2::State::initialized(role);
 
@@ -76,7 +76,7 @@ async fn initialize_as_downstream<
         .try_into()
         .map_err(|_| Error::HandshakeRemoteInvalidMessage)?;
     let second_message: [u8; INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE] = second_message
-        .get_payload_when_handshaking()
+        .payload()
         .try_into()
         .map_err(|_| Error::HandshakeRemoteInvalidMessage)?;
 
@@ -93,8 +93,8 @@ async fn initialize_as_downstream<
 async fn initialize_as_upstream<'a, Message: Serialize + Deserialize<'a> + GetSize, T: SetState>(
     self_: Arc<Mutex<T>>,
     role: HandshakeRole,
-    sender_outgoing: Sender<StandardEitherFrame<Message>>,
-    receiver_incoming: Receiver<StandardEitherFrame<Message>>,
+    sender_outgoing: Sender<StandardFrame<Message>>,
+    receiver_incoming: Receiver<StandardFrame<Message>>,
 ) -> Result<(), Error> {
     let mut state = codec_sv2::State::initialized(role);
 
@@ -105,7 +105,7 @@ async fn initialize_as_upstream<'a, Message: Serialize + Deserialize<'a> + GetSi
         .try_into()
         .map_err(|_| Error::HandshakeRemoteInvalidMessage)?;
     let first_message: [u8; RESPONDER_EXPECTED_HANDSHAKE_MESSAGE_SIZE] = first_message
-        .get_payload_when_handshaking()
+        .payload()
         .try_into()
         .map_err(|_| Error::HandshakeRemoteInvalidMessage)?;
 

@@ -1,6 +1,6 @@
 use async_channel::{Receiver, Sender};
 use async_std::net::TcpStream;
-use codec_sv2::{Frame, StandardEitherFrame, StandardSv2Frame, Sv2Frame};
+use codec_sv2::{StandardFrame, StandardSv2Frame, Sv2Frame};
 use network_helpers::PlainConnection;
 use roles_logic_sv2::{
     parsers::{IsSv2Message, TemplateDistribution},
@@ -13,7 +13,7 @@ use std::{
 
 pub type Message = TemplateDistribution<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;
-pub type EitherFrame = StandardEitherFrame<Message>;
+pub type EitherFrame = StandardFrame<Message>;
 
 #[async_std::main]
 async fn main() {

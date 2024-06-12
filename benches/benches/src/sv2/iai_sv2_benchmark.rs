@@ -1,4 +1,4 @@
-use codec_sv2::{Frame, StandardEitherFrame, StandardSv2Frame};
+use codec_sv2::{StandardFrame, StandardSv2Frame};
 use iai::{black_box, main};
 use roles_logic_sv2::{
     handlers::{common::ParseUpstreamCommonMessages, mining::ParseUpstreamMiningMessages, SendTo_},
@@ -18,7 +18,7 @@ use crate::client::{create_client, open_channel, Device, SetupConnectionHandler}
 
 pub type Message = MiningDeviceMessages<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;
-pub type EitherFrame = StandardEitherFrame<Message>;
+pub type EitherFrame = StandardFrame<Message>;
 
 fn client_sv2_setup_connection() {
     let address: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 34254);
@@ -46,8 +46,10 @@ fn client_sv2_setup_connection_serialize_deserialize() {
     let mut dst = vec![0; size];
     frame.serialize(&mut dst);
     let mut frame = StdFrame::from_bytes(black_box(dst.clone().into())).unwrap();
-    let type_ = frame.get_header().unwrap().msg_type().clone();
-    let payload = frame.payload();
+    let type_ = frame.header().msg_type();
+    let payload = frame.payload().unwrap();
+    let mut payload = payload.to_owned();
+    let payload = payload.as_mut();
     black_box(AnyMessage::try_from((type_, payload)));
 }
 
@@ -77,8 +79,10 @@ fn client_sv2_open_channel_serialize_deserialize() {
     let mut dst = vec![0; size];
     frame.serialize(&mut dst);
     let mut frame = StdFrame::from_bytes(black_box(dst.clone().into())).unwrap();
-    let type_ = frame.get_header().unwrap().msg_type().clone();
-    let payload = frame.payload();
+    let type_ = frame.header().msg_type();
+    let payload = frame.payload().unwrap();
+    let mut payload = payload.to_owned();
+    let payload = payload.as_mut();
     black_box(AnyMessage::try_from((type_, payload)));
 }
 
@@ -127,8 +131,10 @@ fn client_sv2_mining_message_submit_standard_serialize_deserialize() {
     let mut dst = vec![0; size];
     frame.serialize(&mut dst);
     let mut frame = StdFrame::from_bytes(black_box(dst.clone().into())).unwrap();
-    let type_ = frame.get_header().unwrap().msg_type().clone();
-    let payload = frame.payload();
+    let type_ = frame.header().msg_type();
+    let payload = frame.payload().unwrap();
+    let mut payload = payload.to_owned();
+    let payload = payload.as_mut();
     black_box(AnyMessage::try_from((type_, payload)));
 }
 

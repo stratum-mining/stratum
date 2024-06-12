@@ -1,5 +1,5 @@
 use crate::{Action, ActionResult, Role, SaveField, Sv1Action, Sv1ActionResult, Sv2Type};
-use codec_sv2::{buffer_sv2::Slice, StandardEitherFrame, Sv2Frame};
+use codec_sv2::{buffer_sv2::Slice, StandardFrame, Sv2Frame};
 use roles_logic_sv2::parsers::AnyMessage;
 use serde_json::{Map, Value};
 use std::collections::HashMap;
@@ -35,7 +35,7 @@ impl Sv2ActionParser {
                         panic!("Frame id not found: {} Impossible to parse action", id)
                     })
                     .clone();
-                let frame = StandardEitherFrame::Sv2(frame);
+                let frame = StandardFrame::Sv2(frame);
                 let message = messages.get(id.as_str().unwrap());
                 let message = message
                     .unwrap_or_else(|| {

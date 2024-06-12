@@ -194,7 +194,7 @@ impl Upstream {
 
         // Wait for the SV2 Upstream to respond with either a `SetupConnectionSuccess` or a
         // `SetupConnectionError` inside a SV2 binary message frame
-        let mut incoming: StdFrame = match connection.receiver.recv().await {
+        let incoming: StdFrame = match connection.receiver.recv().await {
             Ok(frame) => frame.try_into()?,
             Err(e) => {
                 error!("Upstream connection closed: {}", e);
@@ -205,13 +205,13 @@ impl Upstream {
         };
 
         // Gets the binary frame message type from the message header
-        let message_type = if let Some(header) = incoming.get_header() {
-            header.msg_type()
-        } else {
-            return Err(framing_sv2::Error::ExpectedHandshakeFrame.into());
-        };
+        let message_type = incoming.header().msg_type();
         // Gets the message payload
-        let payload = incoming.payload();
+        let payload = incoming
+            .payload()
+            .ok_or(framing_sv2::Error::ExpectedHandshakeFrame)?;
+        let mut payload = payload.to_owned();
+        let payload = payload.as_mut();
 
         // Handle the incoming message (should be either `SetupConnectionSuccess` or
         // `SetupConnectionError`)
@@ -294,19 +294,27 @@ impl Upstream {
             loop {
                 // Waiting to receive a message from the SV2 Upstream role
                 let incoming = handle_result!(tx_status, recv.recv().await);
-                let mut incoming: StdFrame = handle_result!(tx_status, incoming.try_into());
+                let incoming: StdFrame = handle_result!(tx_status, incoming.try_into());
                 // On message receive, get the message type from the message header and get the
                 // message payload
-                let message_type =
-                    incoming
-                        .get_header()
-                        .ok_or(super::super::error::Error::FramingSv2(
-                            framing_sv2::Error::ExpectedSv2Frame,
-                        ));
-
-                let message_type = handle_result!(tx_status, message_type).msg_type();
+                let message_type = incoming.header().msg_type();
 
                 let payload = incoming.payload();
+                let payload = match payload {
+                    Some(p) => p,
+                    None => {
+                        error!("Received empty payload from upstream!");
+                        handle_result!(
+                            tx_status,
+                            Err(CodecNoise(
+                                codec_sv2::noise_sv2::Error::ExpectedIncomingHandshakeMessage
+                            ))
+                        )
+                    }
+                };
+                let mut payload = payload.to_owned();
+                let payload = payload.as_mut();
+                // let payload = handle_result!(tx_status, payload).as_mut();
 
                 // Since this is not communicating with an SV2 proxy, but instead a custom SV1
                 // proxy where the routing logic is handled via the `Upstream`'s communication

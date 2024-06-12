@@ -3,7 +3,7 @@ pub mod job_declarator;
 pub mod mempool;
 pub mod status;
 
-use codec_sv2::{StandardEitherFrame, StandardSv2Frame};
+use codec_sv2::{StandardFrame, StandardSv2Frame};
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 use roles_logic_sv2::{
     errors::Error, parsers::PoolMessages as JdsMessages, utils::CoinbaseOutput as CoinbaseOutput_,
@@ -17,7 +17,7 @@ use stratum_common::bitcoin::{Script, TxOut};
 
 pub type Message = JdsMessages<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;
-pub type EitherFrame = StandardEitherFrame<Message>;
+pub type EitherFrame = StandardFrame<Message>;
 
 pub fn get_coinbase_output(config: &Configuration) -> Result<Vec<TxOut>, Error> {
     let mut result = Vec::new();

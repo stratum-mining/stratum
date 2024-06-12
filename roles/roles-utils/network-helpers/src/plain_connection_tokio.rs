@@ -8,7 +8,7 @@ use tokio::{
 };
 
 use binary_sv2::GetSize;
-use codec_sv2::{Error::MissingBytes, StandardDecoder, StandardEitherFrame};
+use codec_sv2::{Error::MissingBytes, StandardDecoder, StandardFrame};
 use tracing::{error, trace};
 
 #[derive(Debug)]
@@ -25,20 +25,20 @@ impl PlainConnection {
     pub async fn new<'a, Message: Serialize + Deserialize<'a> + GetSize + Send + 'static>(
         stream: TcpStream,
     ) -> (
-        Receiver<StandardEitherFrame<Message>>,
-        Sender<StandardEitherFrame<Message>>,
+        Receiver<StandardFrame<Message>>,
+        Sender<StandardFrame<Message>>,
     ) {
         const NOISE_HANDSHAKE_SIZE_HINT: usize = 3363412;
 
         let (mut reader, mut writer) = stream.into_split();
 
         let (sender_incoming, receiver_incoming): (
-            Sender<StandardEitherFrame<Message>>,
-            Receiver<StandardEitherFrame<Message>>,
+            Sender<StandardFrame<Message>>,
+            Receiver<StandardFrame<Message>>,
         ) = bounded(10); // TODO caller should provide this param
         let (sender_outgoing, receiver_outgoing): (
-            Sender<StandardEitherFrame<Message>>,
-            Receiver<StandardEitherFrame<Message>>,
+            Sender<StandardFrame<Message>>,
+            Receiver<StandardFrame<Message>>,
         ) = bounded(10); // TODO caller should provide this param
 
         // RECEIVE AND PARSE INCOMING MESSAGES FROM TCP STREAM
