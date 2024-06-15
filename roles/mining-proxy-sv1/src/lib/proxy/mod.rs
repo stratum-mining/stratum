@@ -10,7 +10,7 @@ use roles_logic_sv2::{
 };
 use std::sync::Arc;
 use tokio::sync::broadcast;
-use v1::{client_to_server::Submit, server_to_client, utils::HexU32Be};
+use v1::{client_to_server, server_to_client, utils::HexU32Be};
 
 use super::super::{
     downstream::{DownstreamMessages, SetDownstreamTarget, SubmitShareWithChannelId},
@@ -28,9 +28,9 @@ use tracing::{debug, error, info};
 pub struct Proxy {
     /// Receives a SV1 `mining.submit` message from the Downstream role.
     rx_sv1_downstream: Receiver<DownstreamMessages>,
-    // /// Sends SV2 `SubmitSharesExtended` messages translated from SV1 `mining.submit` messages to
-    // /// the `Upstream`.
-    // tx_sv2_submit_shares_ext: Sender<SubmitSharesExtended<'static>>,
+    /// Sends SV1 `mining.submit` messages to the SV1 `Upstream`.
+    // tx_sv2_submit_shares_ext: Sender<client_to_server::Submit<'static>>,
+    tx_sv1_submit: Sender<client_to_server::Submit<'static>>,
     // /// Receives a SV2 `SetNewPrevHash` message from the `Upstream` to be translated (along with a
     // /// SV2 `NewExtendedMiningJob` message) to a SV1 `mining.submit` for the `Downstream`.
     // rx_sv2_set_new_prev_hash: Receiver<SetNewPrevHash<'static>>,
