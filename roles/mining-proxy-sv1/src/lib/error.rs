@@ -6,6 +6,13 @@ use stratum_common::bitcoin::util::uint::ParseLengthError;
 pub type Result<'a, T> = core::result::Result<T, Error<'a>>;
 
 #[derive(Debug)]
+pub enum ChannelSendError<'a> {
+    Notify(tokio::sync::broadcast::error::SendError<Notify<'a>>),
+    V1Message(async_channel::SendError<v1::Message>),
+    General(String),
+}
+
+#[derive(Debug)]
 pub enum Error<'a> {
     VecToSlice32(Vec<u8>),
     ConfigError(config::ConfigError),
@@ -14,6 +21,7 @@ pub enum Error<'a> {
     BadCliArgs,
     /// Errors on bad `serde_json` serialize/deserialize.
     BadSerdeJson(serde_json::Error),
+    ChannelErrorSender(ChannelSendError<'a>),
     /// Errors on bad `TcpStream` connection.
     Io(std::io::Error),
     /// Errors due to invalid extranonce from upstream
@@ -39,6 +47,7 @@ impl<'a> fmt::Display for Error<'a> {
             ConfigError(e) => write!(f, "Config error: {:?}", e),
             BadCliArgs => write!(f, "Bad CLI arg input"),
             BadSerdeJson(ref e) => write!(f, "Bad serde json: `{:?}`", e),
+            ChannelErrorSender(ref e) => write!(f, "Channel send error: `{:?}`", e),
             InvalidExtranonce(ref e) => write!(f, "Invalid Extranonce error: `{:?}", e),
             Io(ref e) => write!(f, "I/O error: `{:?}", e),
             ParseInt(ref e) => write!(f, "Bad convert from `String` to `int`: `{:?}`", e),
@@ -55,6 +64,18 @@ impl<'a> fmt::Display for Error<'a> {
                 write!(f, "Received an sv1 message that is longer than max len")
             }
         }
+    }
+}
+
+impl<'a> From<tokio::sync::broadcast::error::SendError<Notify<'a>>> for Error<'a> {
+    fn from(e: tokio::sync::broadcast::error::SendError<Notify<'a>>) -> Self {
+        Error::ChannelErrorSender(ChannelSendError::Notify(e))
+    }
+}
+
+impl<'a> From<async_channel::SendError<v1::Message>> for Error<'a> {
+    fn from(e: async_channel::SendError<v1::Message>) -> Self {
+        Error::ChannelErrorSender(ChannelSendError::V1Message(e))
     }
 }
 

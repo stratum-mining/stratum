@@ -66,36 +66,36 @@ async fn send_status(
             tx.send(Status {
                 state: State::Healthy(e.to_string()),
             })
-                .await
-                .unwrap_or(());
+            .await
+            .unwrap_or(());
         }
         Sender::DownstreamListener(tx) => {
             tx.send(Status {
                 state: State::DownstreamShutdown(e),
             })
-                .await
-                .unwrap_or(());
+            .await
+            .unwrap_or(());
         }
         Sender::Bridge(tx) => {
             tx.send(Status {
                 state: State::BridgeShutdown(e),
             })
-                .await
-                .unwrap_or(());
+            .await
+            .unwrap_or(());
         }
         Sender::Upstream(tx) => {
             tx.send(Status {
                 state: State::UpstreamShutdown(e),
             })
-                .await
-                .unwrap_or(());
+            .await
+            .unwrap_or(());
         }
         Sender::TemplateReceiver(tx) => {
             tx.send(Status {
                 state: State::UpstreamShutdown(e),
             })
-                .await
-                .unwrap_or(());
+            .await
+            .unwrap_or(());
         }
     }
     outcome
@@ -108,18 +108,15 @@ pub async fn handle_error(
 ) -> error_handling::ErrorBranch {
     tracing::error!("Error: {:?}", &e);
     match e {
-        Error::ConfigError(_) => {
-            send_status(sender, e, error_handling::ErrorBranch::Break).await
+        Error::ConfigError(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
+        Error::ChannelErrorSender(_) => {
+            todo!()
         }
-        Error::VecToSlice32(_) => {
-            send_status(sender, e, error_handling::ErrorBranch::Break).await
-        }
+        Error::VecToSlice32(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
         // Errors on bad CLI argument input.
         Error::BadCliArgs => send_status(sender, e, error_handling::ErrorBranch::Break).await,
         // Errors on bad `serde_json` serialize/deserialize.
-        Error::BadSerdeJson(_) => {
-            send_status(sender, e, error_handling::ErrorBranch::Break).await
-        }
+        Error::BadSerdeJson(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
         //If the pool sends the tproxy an invalid extranonce
         Error::InvalidExtranonce(_) => {
             send_status(sender, e, error_handling::ErrorBranch::Break).await
@@ -127,13 +124,9 @@ pub async fn handle_error(
         // Errors on bad `TcpStream` connection.
         Error::Io(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
         // Errors on bad `String` to `int` conversion.
-        Error::ParseInt(_) => {
-            send_status(sender, e, error_handling::ErrorBranch::Break).await
-        }
+        Error::ParseInt(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
         // SV1 protocol library error
-        Error::V1Protocol(_) => {
-            send_status(sender, e, error_handling::ErrorBranch::Break).await
-        }
+        Error::V1Protocol(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
         // Locking Errors
         Error::PoisonLock => send_status(sender, e, error_handling::ErrorBranch::Break).await,
         Error::TokioChannelErrorRecv(_) => {
@@ -145,9 +138,7 @@ pub async fn handle_error(
         Error::SetDifficultyToMessage(_) => {
             send_status(sender, e, error_handling::ErrorBranch::Break).await
         }
-        Error::Infallible(_) => {
-            send_status(sender, e, error_handling::ErrorBranch::Break).await
-        }
+        Error::Infallible(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
         Error::Sv1MessageTooLong => {
             send_status(sender, e, error_handling::ErrorBranch::Break).await
         }
