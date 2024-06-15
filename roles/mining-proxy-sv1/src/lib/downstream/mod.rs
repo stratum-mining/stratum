@@ -2,7 +2,7 @@ use roles_logic_sv2::mining_sv2::Target;
 use v1::{client_to_server::Submit, utils::HexU32Be};
 // pub mod diff_management;
 pub mod downstream;
-// pub use downstream::Downstream;
+pub use downstream::Downstream;
 
 /// This constant is used as a check to ensure clients
 /// do not send a mining.subscribe and never a mining.authorize
