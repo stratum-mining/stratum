@@ -193,104 +193,104 @@ impl Downstream {
             Ok(1.0 / diff)
         }
     }
-    //
-    //     /// This function updates the miner hashrate and resets difficulty management params. To calculate hashrate it calculates the realized shares per minute from the number of shares submitted
-    //     /// and the delta time since last update. It then uses the realized shares per minute and the target those shares where mined on to calculate an estimated hashrate during that period with the
-    //     /// function [`roles_logic_sv2::utils::hash_rate_from_target`]. Lastly, it adjusts the `channel_nominal_hashrate` according to the change in estimated miner hashrate
-    //     #[allow(clippy::result_large_err)]
-    //     pub fn update_miner_hashrate(
-    //         self_: Arc<Mutex<Self>>,
-    //         miner_target: Vec<u8>,
-    //     ) -> Result<'static, Option<f32>> {
-    //         self_
-    //             .safe_lock(|d| {
-    //                 let timestamp_secs = std::time::SystemTime::now()
-    //                     .duration_since(std::time::UNIX_EPOCH)
-    //                     .expect("time went backwards")
-    //                     .as_secs();
-    //
-    //                 // reset if timestamp is at 0
-    //                 if d.difficulty_mgmt.timestamp_of_last_update == 0 {
-    //                     d.difficulty_mgmt.timestamp_of_last_update = timestamp_secs;
-    //                     d.difficulty_mgmt.submits_since_last_update = 0;
-    //                     return Ok(None);
-    //                 }
-    //
-    //                 let delta_time = timestamp_secs - d.difficulty_mgmt.timestamp_of_last_update;
-    //                 #[cfg(test)]
-    //                 if delta_time == 0 {
-    //                     return Ok(None);
-    //                 }
-    //                 #[cfg(not(test))]
-    //                 if delta_time <= 15 {
-    //                     return Ok(None);
-    //                 }
-    //                 tracing::debug!("\nDELTA TIME: {:?}", delta_time);
-    //                 let realized_share_per_min =
-    //                     d.difficulty_mgmt.submits_since_last_update as f64 / (delta_time as f64 / 60.0);
-    //                 tracing::debug!("\nREALIZED SHARES PER MINUTE {:?}", realized_share_per_min);
-    //                 let mut new_miner_hashrate = match roles_logic_sv2::utils::hash_rate_from_target(
-    //                     miner_target.clone().try_into()?,
-    //                     realized_share_per_min,
-    //                 ) {
-    //                     Ok(hashrate) => hashrate as f32,
-    //                     Err(e) => {
-    //                         tracing::debug!("{:?} -> Probably min_individual_miner_hashrate parameter was not set properly in config file. New hashrate will be automatically adjusted to match the real one.", e);
-    //                         d.difficulty_mgmt.min_individual_miner_hashrate * realized_share_per_min as f32 / d.difficulty_mgmt.shares_per_minute
-    //                     }
-    //                 };
-    //
-    //                 let mut hashrate_delta =
-    //                     new_miner_hashrate - d.difficulty_mgmt.min_individual_miner_hashrate;
-    //                 let hashrate_delta_percentage = (hashrate_delta.abs()
-    //                     / d.difficulty_mgmt.min_individual_miner_hashrate)
-    //                     * 100.0;
-    //                 tracing::debug!("\nMINER HASHRATE: {:?}", new_miner_hashrate);
-    //
-    //                 if (hashrate_delta_percentage >= 100.0)
-    //                     || (hashrate_delta_percentage >= 60.0) && (delta_time >= 60)
-    //                     || (hashrate_delta_percentage >= 50.0) && (delta_time >= 120)
-    //                     || (hashrate_delta_percentage >= 45.0) && (delta_time >= 180)
-    //                     || (hashrate_delta_percentage >= 30.0) && (delta_time >= 240)
-    //                     || (hashrate_delta_percentage >= 15.0) && (delta_time >= 300)
-    //                 {
-    //                 // realized_share_per_min is 0.0 when d.difficulty_mgmt.submits_since_last_update is 0
-    //                 // so it's safe to compare realized_share_per_min with == 0.0
-    //                 if realized_share_per_min == 0.0 {
-    //                     new_miner_hashrate = match delta_time {
-    //                         dt if dt <= 30 => d.difficulty_mgmt.min_individual_miner_hashrate / 1.5,
-    //                         dt if dt < 60 => d.difficulty_mgmt.min_individual_miner_hashrate / 2.0,
-    //                         _ => d.difficulty_mgmt.min_individual_miner_hashrate / 3.0,
-    //                     };
-    //                     hashrate_delta =
-    //                         new_miner_hashrate - d.difficulty_mgmt.min_individual_miner_hashrate;
-    //                 }
-    //                 if (realized_share_per_min > 0.0) && (hashrate_delta_percentage > 1000.0) {
-    //                     new_miner_hashrate = match delta_time {
-    //                         dt if dt <= 30 => d.difficulty_mgmt.min_individual_miner_hashrate * 10.0,
-    //                         dt if dt < 60 => d.difficulty_mgmt.min_individual_miner_hashrate * 5.0,
-    //                         _ => d.difficulty_mgmt.min_individual_miner_hashrate * 3.0,
-    //                     };
-    //                     hashrate_delta =
-    //                         new_miner_hashrate - d.difficulty_mgmt.min_individual_miner_hashrate;
-    //                 }
-    //                 d.difficulty_mgmt.min_individual_miner_hashrate = new_miner_hashrate;
-    //                 d.difficulty_mgmt.timestamp_of_last_update = timestamp_secs;
-    //                 d.difficulty_mgmt.submits_since_last_update = 0;
-    //                 d.upstream_difficulty_config.super_safe_lock(|c| {
-    //                     if c.channel_nominal_hashrate + hashrate_delta > 0.0 {
-    //                         c.channel_nominal_hashrate += hashrate_delta;
-    //                     } else {
-    //                         c.channel_nominal_hashrate = 0.0;
-    //                     }
-    //                 });
-    //                 Ok(Some(new_miner_hashrate))
-    //                 } else {
-    //                     Ok(None)
-    //                 }
-    //             })
-    //             .map_err(|_e| Error::PoisonLock)?
-    //     }
+
+    /// This function updates the miner hashrate and resets difficulty management params. To calculate hashrate it calculates the realized shares per minute from the number of shares submitted
+    /// and the delta time since last update. It then uses the realized shares per minute and the target those shares where mined on to calculate an estimated hashrate during that period with the
+    /// function [`roles_logic_sv2::utils::hash_rate_from_target`]. Lastly, it adjusts the `channel_nominal_hashrate` according to the change in estimated miner hashrate
+    #[allow(clippy::result_large_err)]
+    pub fn update_miner_hashrate(
+        self_: Arc<Mutex<Self>>,
+        miner_target: Vec<u8>,
+    ) -> Result<'static, Option<f32>> {
+        self_
+                .safe_lock(|d| {
+                    let timestamp_secs = std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .expect("time went backwards")
+                        .as_secs();
+
+                    // reset if timestamp is at 0
+                    if d.difficulty_mgmt.timestamp_of_last_update == 0 {
+                        d.difficulty_mgmt.timestamp_of_last_update = timestamp_secs;
+                        d.difficulty_mgmt.submits_since_last_update = 0;
+                        return Ok(None);
+                    }
+
+                    let delta_time = timestamp_secs - d.difficulty_mgmt.timestamp_of_last_update;
+                    #[cfg(test)]
+                    if delta_time == 0 {
+                        return Ok(None);
+                    }
+                    #[cfg(not(test))]
+                    if delta_time <= 15 {
+                        return Ok(None);
+                    }
+                    tracing::debug!("\nDELTA TIME: {:?}", delta_time);
+                    let realized_share_per_min =
+                        d.difficulty_mgmt.submits_since_last_update as f64 / (delta_time as f64 / 60.0);
+                    tracing::debug!("\nREALIZED SHARES PER MINUTE {:?}", realized_share_per_min);
+                    let mut new_miner_hashrate = match roles_logic_sv2::utils::hash_rate_from_target(
+                        miner_target.clone().try_into()?,
+                        realized_share_per_min,
+                    ) {
+                        Ok(hashrate) => hashrate as f32,
+                        Err(e) => {
+                            tracing::debug!("{:?} -> Probably min_individual_miner_hashrate parameter was not set properly in config file. New hashrate will be automatically adjusted to match the real one.", e);
+                            d.difficulty_mgmt.min_individual_miner_hashrate * realized_share_per_min as f32 / d.difficulty_mgmt.shares_per_minute
+                        }
+                    };
+
+                    let mut hashrate_delta =
+                        new_miner_hashrate - d.difficulty_mgmt.min_individual_miner_hashrate;
+                    let hashrate_delta_percentage = (hashrate_delta.abs()
+                        / d.difficulty_mgmt.min_individual_miner_hashrate)
+                        * 100.0;
+                    tracing::debug!("\nMINER HASHRATE: {:?}", new_miner_hashrate);
+
+                    if (hashrate_delta_percentage >= 100.0)
+                        || (hashrate_delta_percentage >= 60.0) && (delta_time >= 60)
+                        || (hashrate_delta_percentage >= 50.0) && (delta_time >= 120)
+                        || (hashrate_delta_percentage >= 45.0) && (delta_time >= 180)
+                        || (hashrate_delta_percentage >= 30.0) && (delta_time >= 240)
+                        || (hashrate_delta_percentage >= 15.0) && (delta_time >= 300)
+                    {
+                    // realized_share_per_min is 0.0 when d.difficulty_mgmt.submits_since_last_update is 0
+                    // so it's safe to compare realized_share_per_min with == 0.0
+                    if realized_share_per_min == 0.0 {
+                        new_miner_hashrate = match delta_time {
+                            dt if dt <= 30 => d.difficulty_mgmt.min_individual_miner_hashrate / 1.5,
+                            dt if dt < 60 => d.difficulty_mgmt.min_individual_miner_hashrate / 2.0,
+                            _ => d.difficulty_mgmt.min_individual_miner_hashrate / 3.0,
+                        };
+                        hashrate_delta =
+                            new_miner_hashrate - d.difficulty_mgmt.min_individual_miner_hashrate;
+                    }
+                    if (realized_share_per_min > 0.0) && (hashrate_delta_percentage > 1000.0) {
+                        new_miner_hashrate = match delta_time {
+                            dt if dt <= 30 => d.difficulty_mgmt.min_individual_miner_hashrate * 10.0,
+                            dt if dt < 60 => d.difficulty_mgmt.min_individual_miner_hashrate * 5.0,
+                            _ => d.difficulty_mgmt.min_individual_miner_hashrate * 3.0,
+                        };
+                        hashrate_delta =
+                            new_miner_hashrate - d.difficulty_mgmt.min_individual_miner_hashrate;
+                    }
+                    d.difficulty_mgmt.min_individual_miner_hashrate = new_miner_hashrate;
+                    d.difficulty_mgmt.timestamp_of_last_update = timestamp_secs;
+                    d.difficulty_mgmt.submits_since_last_update = 0;
+                    d.upstream_difficulty_config.super_safe_lock(|c| {
+                        if c.channel_nominal_hashrate + hashrate_delta > 0.0 {
+                            c.channel_nominal_hashrate += hashrate_delta;
+                        } else {
+                            c.channel_nominal_hashrate = 0.0;
+                        }
+                    });
+                    Ok(Some(new_miner_hashrate))
+                    } else {
+                        Ok(None)
+                    }
+                })
+                .map_err(|_e| Error::PoisonLock)?
+    }
 
     /// Helper function to check if target is set to zero for some reason (typically happens when
     /// Downstream role first connects).
