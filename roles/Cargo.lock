@@ -1470,6 +1470,7 @@ name = "mining_proxy_sv1"
 version = "0.1.0"
 dependencies = [
  "async-channel 1.9.0",
+ "async-std",
  "clap",
  "config",
  "error_handling",
@@ -1481,6 +1482,7 @@ dependencies = [
  "stratum-common",
  "sv1_api",
  "tokio",
+ "tokio-util",
  "tracing",
  "tracing-subscriber",
 ]
