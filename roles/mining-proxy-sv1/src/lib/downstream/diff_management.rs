@@ -73,73 +73,73 @@ impl Downstream {
             .map_err(|_e| Error::PoisonLock)??;
         Ok(())
     }
-    //
-    //     /// if enough shares have been submitted according to the config, this function updates the difficulty for the connection and sends the new
-    //     /// difficulty to the miner
-    //     pub async fn try_update_difficulty_settings(self_: Arc<Mutex<Self>>) -> Result<'static, ()> {
-    //         let (diff_mgmt, channel_id) = self_
-    //             .clone()
-    //             .safe_lock(|d| (d.difficulty_mgmt.clone(), d.connection_id))
-    //             .map_err(|_e| Error::PoisonLock)?;
-    //         tracing::debug!(
-    //             "Time of last diff update: {:?}",
-    //             diff_mgmt.timestamp_of_last_update
-    //         );
-    //         tracing::debug!(
-    //             "Number of shares submitted: {:?}",
-    //             diff_mgmt.submits_since_last_update
-    //         );
-    //         let prev_target = match roles_logic_sv2::utils::hash_rate_to_target(
-    //             diff_mgmt.min_individual_miner_hashrate.into(),
-    //             diff_mgmt.shares_per_minute.into(),
-    //         ) {
-    //             Ok(target) => target.to_vec(),
-    //             Err(v) => return Err(Error::TargetError(v)),
-    //         };
-    //         if let Some(new_hash_rate) =
-    //             Self::update_miner_hashrate(self_.clone(), prev_target.clone())?
-    //         {
-    //             let new_target = match roles_logic_sv2::utils::hash_rate_to_target(
-    //                 new_hash_rate.into(),
-    //                 diff_mgmt.shares_per_minute.into(),
-    //             ) {
-    //                 Ok(target) => target,
-    //                 Err(v) => return Err(Error::TargetError(v)),
-    //             };
-    //             tracing::debug!("New target from hashrate: {:?}", new_target.inner_as_ref());
-    //             let message = Self::get_set_difficulty(new_target.to_vec())?;
-    //             // send mining.set_difficulty to miner
-    //             Downstream::send_message_downstream(self_.clone(), message).await?;
-    //             let update_target_msg = SetDownstreamTarget {
-    //                 channel_id,
-    //                 new_target: new_target.into(),
-    //             };
-    //             // notify bridge of target update
-    //             Downstream::send_message_upstream(
-    //                 self_.clone(),
-    //                 DownstreamMessages::SetDownstreamTarget(update_target_msg),
-    //             )
-    //             .await?;
-    //         }
-    //         Ok(())
-    //     }
-    //
-    //     /// calculates the target according to the current stored hashrate of the miner
-    //     #[allow(clippy::result_large_err)]
-    //     pub fn hash_rate_to_target(self_: Arc<Mutex<Self>>) -> Result<'static, Vec<u8>> {
-    //         self_
-    //             .safe_lock(|d| {
-    //                 match roles_logic_sv2::utils::hash_rate_to_target(
-    //                     d.difficulty_mgmt.min_individual_miner_hashrate.into(),
-    //                     d.difficulty_mgmt.shares_per_minute.into(),
-    //                 ) {
-    //                     Ok(target) => Ok(target.to_vec()),
-    //                     Err(e) => Err(Error::TargetError(e)),
-    //                 }
-    //             })
-    //             .map_err(|_e| Error::PoisonLock)?
-    //     }
-    //
+
+    /// if enough shares have been submitted according to the config, this function updates the difficulty for the connection and sends the new
+    /// difficulty to the miner
+    pub async fn try_update_difficulty_settings(self_: Arc<Mutex<Self>>) -> Result<'static, ()> {
+        let (diff_mgmt, channel_id) = self_
+            .clone()
+            .safe_lock(|d| (d.difficulty_mgmt.clone(), d.connection_id))
+            .map_err(|_e| Error::PoisonLock)?;
+        tracing::debug!(
+            "Time of last diff update: {:?}",
+            diff_mgmt.timestamp_of_last_update
+        );
+        tracing::debug!(
+            "Number of shares submitted: {:?}",
+            diff_mgmt.submits_since_last_update
+        );
+        let prev_target = match roles_logic_sv2::utils::hash_rate_to_target(
+            diff_mgmt.min_individual_miner_hashrate.into(),
+            diff_mgmt.shares_per_minute.into(),
+        ) {
+            Ok(target) => target.to_vec(),
+            Err(v) => return Err(Error::TargetError(v)),
+        };
+        if let Some(new_hash_rate) =
+            Self::update_miner_hashrate(self_.clone(), prev_target.clone())?
+        {
+            let new_target = match roles_logic_sv2::utils::hash_rate_to_target(
+                new_hash_rate.into(),
+                diff_mgmt.shares_per_minute.into(),
+            ) {
+                Ok(target) => target,
+                Err(v) => return Err(Error::TargetError(v)),
+            };
+            tracing::debug!("New target from hashrate: {:?}", new_target.inner_as_ref());
+            let message = Self::get_set_difficulty(new_target.to_vec())?;
+            // send mining.set_difficulty to miner
+            Downstream::send_message_downstream(self_.clone(), message).await?;
+            let update_target_msg = SetDownstreamTarget {
+                channel_id,
+                new_target: new_target.into(),
+            };
+            // notify bridge of target update
+            Downstream::send_message_upstream(
+                self_.clone(),
+                DownstreamMessages::SetDownstreamTarget(update_target_msg),
+            )
+            .await?;
+        }
+        Ok(())
+    }
+
+    /// calculates the target according to the current stored hashrate of the miner
+    #[allow(clippy::result_large_err)]
+    pub fn hash_rate_to_target(self_: Arc<Mutex<Self>>) -> Result<'static, Vec<u8>> {
+        self_
+            .safe_lock(|d| {
+                match roles_logic_sv2::utils::hash_rate_to_target(
+                    d.difficulty_mgmt.min_individual_miner_hashrate.into(),
+                    d.difficulty_mgmt.shares_per_minute.into(),
+                ) {
+                    Ok(target) => Ok(target.to_vec()),
+                    Err(e) => Err(Error::TargetError(e)),
+                }
+            })
+            .map_err(|_e| Error::PoisonLock)?
+    }
+
     /// increments the number of shares since the last difficulty update
     #[allow(clippy::result_large_err)]
     pub(super) fn save_share(self_: Arc<Mutex<Self>>) -> Result<'static, ()> {
