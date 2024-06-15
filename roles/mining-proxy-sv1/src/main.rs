@@ -3,7 +3,7 @@ mod args;
 mod lib;
 
 use args::process_cli_args;
-use lib::{downstream, error, proxy, status, config, upstream};
+use lib::{config, downstream, error, proxy, status, upstream};
 
 use async_channel::{bounded, unbounded};
 use futures::{select, FutureExt};
@@ -38,7 +38,7 @@ async fn main() {
     //
     // // Sender/Receiver to send a SV2 `SubmitSharesExtended` from the `Bridge` to the `Upstream`
     // // (Sender<SubmitSharesExtended<'static>>, Receiver<SubmitSharesExtended<'static>>)
-    // let (tx_sv2_submit_shares_ext, rx_sv2_submit_shares_ext) = bounded(10);
+    // let (tx_sv1_submit, rx_sv2_submit_shares_ext) = bounded(10);
     //
     // // Sender/Receiver to send a SV2 `SetNewPrevHash` message from the `Upstream` to the `Bridge`
     // // (Sender<SetNewPrevHash<'static>>, Receiver<SetNewPrevHash<'static>>)
@@ -139,7 +139,7 @@ async fn main() {
     //     // Instantiate a new `Bridge` and begins handling incoming messages
     //     let b = proxy::Bridge::new(
     //         rx_sv1_downstream,
-    //         tx_sv2_submit_shares_ext,
+    //         tx_sv1_submit,
     //         rx_sv2_set_new_prev_hash,
     //         rx_sv2_new_ext_mining_job,
     //         tx_sv1_notify.clone(),

@@ -24,10 +24,27 @@ use error_handling::handle_result;
 use roles_logic_sv2::{channel_logic::channel_factory::OnNewShare, Error as RolesLogicError};
 use tracing::{debug, error, info};
 
+/// Downstream -> Upstream: mining.subscribe
+/// Upstream -> Downstream: mining.set_difficulty
+///
+/// Downstream -> Upstream: mining.authorize
+/// Upstream -> Downstream: success/err
+///
+/// Upstream -> Downstream: mining.notify
+/// Downstream -> Upstream: mining.submit
+/// Upstream -> Downstream: success/err
+///
 #[derive(Debug)]
 pub struct Proxy {
     /// Receives a SV1 `mining.submit` message from the Downstream role.
     rx_sv1_downstream: Receiver<DownstreamMessages>,
+
+    // TODO: Authorize
+    // TODO: Subscribe
+    // TODO: Configure
+    // TODO: Configure Extension?
+    // TODO: VersionRollingExtension
+    // TODO: InfoParams?
     /// Sends SV1 `mining.submit` messages to the SV1 `Upstream`.
     // tx_sv2_submit_shares_ext: Sender<client_to_server::Submit<'static>>,
     tx_sv1_submit: Sender<client_to_server::Submit<'static>>,
