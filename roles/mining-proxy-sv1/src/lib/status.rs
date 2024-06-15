@@ -108,10 +108,12 @@ pub async fn handle_error(
 ) -> error_handling::ErrorBranch {
     tracing::error!("Error: {:?}", &e);
     match e {
-        Error::ConfigError(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
+        // Errors from `binary_sv2` crate.
+        Error::BinarySv2(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
         Error::ChannelErrorSender(_) => {
             todo!()
         }
+        Error::ConfigError(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
         Error::VecToSlice32(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
         // Errors on bad CLI argument input.
         Error::BadCliArgs => send_status(sender, e, error_handling::ErrorBranch::Break).await,

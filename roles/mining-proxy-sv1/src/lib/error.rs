@@ -14,6 +14,8 @@ pub enum ChannelSendError<'a> {
 
 #[derive(Debug)]
 pub enum Error<'a> {
+    /// Errors from `binary_sv2` crate.
+    BinarySv2(binary_sv2::Error),
     VecToSlice32(Vec<u8>),
     ConfigError(config::ConfigError),
     /// Errors on bad CLI argument input.
@@ -44,9 +46,10 @@ impl<'a> fmt::Display for Error<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use Error::*;
         match self {
-            ConfigError(e) => write!(f, "Config error: {:?}", e),
+            BinarySv2(ref e) => write!(f, "Binary SV2 error: `{:?}`", e),
             BadCliArgs => write!(f, "Bad CLI arg input"),
             BadSerdeJson(ref e) => write!(f, "Bad serde json: `{:?}`", e),
+            ConfigError(e) => write!(f, "Config error: {:?}", e),
             ChannelErrorSender(ref e) => write!(f, "Channel send error: `{:?}`", e),
             InvalidExtranonce(ref e) => write!(f, "Invalid Extranonce error: `{:?}", e),
             Io(ref e) => write!(f, "I/O error: `{:?}", e),
@@ -64,6 +67,12 @@ impl<'a> fmt::Display for Error<'a> {
                 write!(f, "Received an sv1 message that is longer than max len")
             }
         }
+    }
+}
+
+impl<'a> From<binary_sv2::Error> for Error<'a> {
+    fn from(e: binary_sv2::Error) -> Self {
+        Error::BinarySv2(e)
     }
 }
 
