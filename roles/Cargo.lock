@@ -1471,6 +1471,7 @@ version = "0.1.0"
 dependencies = [
  "async-channel 1.9.0",
  "async-std",
+ "binary_sv2",
  "clap",
  "config",
  "error_handling",
