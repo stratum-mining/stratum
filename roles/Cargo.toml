@@ -24,6 +24,7 @@ members = [
     "translator",
     "jd-client",
     "jd-server",
+    "mining-proxy-sv1",
 ]
 
 [profile.dev]
