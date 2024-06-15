@@ -34,6 +34,8 @@ pub enum Error<'a> {
     V1Protocol(v1::error::Error<'a>),
     // Locking Errors
     PoisonLock,
+    #[allow(clippy::enum_variant_names)]
+    TargetError(roles_logic_sv2::errors::Error),
     TokioChannelErrorRecv(tokio::sync::broadcast::error::RecvError),
     // Channel Sender Errors
     Uint256Conversion(ParseLengthError),
@@ -56,6 +58,9 @@ impl<'a> fmt::Display for Error<'a> {
             ParseInt(ref e) => write!(f, "Bad convert from `String` to `int`: `{:?}`", e),
             V1Protocol(ref e) => write!(f, "V1 Protocol Error: `{:?}`", e),
             PoisonLock => write!(f, "Poison Lock error"),
+            TargetError(ref e) => {
+                write!(f, "Impossible to get target from hashrate: `{:?}`", e)
+            }
             TokioChannelErrorRecv(ref e) => write!(f, "Channel receive error: `{:?}`", e),
             Uint256Conversion(ref e) => write!(f, "U256 Conversion Error: `{:?}`", e),
             SetDifficultyToMessage(ref e) => {
