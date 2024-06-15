@@ -1,7 +1,7 @@
 use roles_logic_sv2::mining_sv2::Target;
 use v1::{client_to_server::Submit, utils::HexU32Be};
 // pub mod diff_management;
-// pub mod downstream;
+pub mod downstream;
 // pub use downstream::Downstream;
 
 /// This constant is used as a check to ensure clients
@@ -11,12 +11,12 @@ use v1::{client_to_server::Submit, utils::HexU32Be};
 /// `mining.subscribe` messages that init connections and take up compute
 const SUBSCRIBE_TIMEOUT_SECS: u64 = 10;
 
-// /// enum of messages sent to the Bridge
-// #[derive(Debug)]
-// pub enum DownstreamMessages {
-//     SubmitShares(SubmitShareWithChannelId),
-//     SetDownstreamTarget(SetDownstreamTarget),
-// }
+/// enum of messages sent to the Bridge
+#[derive(Debug)]
+pub enum DownstreamMessages {
+    SubmitShares(SubmitShareWithChannelId),
+    SetDownstreamTarget(SetDownstreamTarget),
+}
 
 /// wrapper around a `mining.submit` with extra channel informationfor the Bridge to
 /// process
