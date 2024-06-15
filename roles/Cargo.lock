@@ -1475,6 +1475,7 @@ dependencies = [
  "error_handling",
  "futures",
  "key-utils",
+ "roles_logic_sv2",
  "serde",
  "serde_json",
  "stratum-common",

@@ -22,4 +22,5 @@ clap = { version = "^4.5.4", features = ["derive"] }
 futures = "0.3.25"
 key-utils = { version = "^1.0.0", path = "../../utils/key-utils" }
 stratum-common = { version = "1.0.0", path = "../../common", features = ["bitcoin"] }
+roles_logic_sv2 = { version = "^1.0.0", path = "../../protocols/v2/roles-logic-sv2" }
 
