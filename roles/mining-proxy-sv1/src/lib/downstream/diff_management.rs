@@ -2,54 +2,58 @@ use super::{Downstream, DownstreamMessages, SetDownstreamTarget};
 
 use super::super::error::{Error, Result};
 use roles_logic_sv2::utils::Mutex;
-use std::{convert::TryInto, ops::Div, sync::Arc};
+use std::{
+    convert::{TryFrom, TryInto},
+    ops::Div,
+    sync::Arc,
+};
 use v1::json_rpc;
 
 use stratum_common::bitcoin::util::uint::Uint256;
 
 impl Downstream {
-    //     /// initializes the timestamp and resets the number of submits for a connection.
-    //     /// Should only be called once for the lifetime of a connection since `try_update_difficulty_settings()`
-    //     /// also does this during this update
-    //     pub async fn init_difficulty_management(
-    //         self_: Arc<Mutex<Self>>,
-    //         init_target: &[u8],
-    //     ) -> Result<'static, ()> {
-    //         let (connection_id, upstream_difficulty_config, miner_hashrate) = self_
-    //             .safe_lock(|d| {
-    //                 let timestamp_secs = std::time::SystemTime::now()
-    //                     .duration_since(std::time::UNIX_EPOCH)
-    //                     .expect("time went backwards")
-    //                     .as_secs();
-    //                 d.difficulty_mgmt.timestamp_of_last_update = timestamp_secs;
-    //                 d.difficulty_mgmt.submits_since_last_update = 0;
-    //                 (
-    //                     d.connection_id,
-    //                     d.upstream_difficulty_config.clone(),
-    //                     d.difficulty_mgmt.min_individual_miner_hashrate,
-    //                 )
-    //             })
-    //             .map_err(|_e| Error::PoisonLock)?;
-    //         // add new connection hashrate to channel hashrate
-    //         upstream_difficulty_config
-    //             .safe_lock(|u| {
-    //                 u.channel_nominal_hashrate += miner_hashrate;
-    //             })
-    //             .map_err(|_e| Error::PoisonLock)?;
-    //         // update downstream target with bridge
-    //         let init_target = binary_sv2::U256::try_from(init_target.to_vec())?;
-    //         Self::send_message_upstream(
-    //             self_,
-    //             DownstreamMessages::SetDownstreamTarget(SetDownstreamTarget {
-    //                 channel_id: connection_id,
-    //                 new_target: init_target.into(),
-    //             }),
-    //         )
-    //         .await?;
-    //
-    //         Ok(())
-    //     }
-    //
+    /// initializes the timestamp and resets the number of submits for a connection.
+    /// Should only be called once for the lifetime of a connection since `try_update_difficulty_settings()`
+    /// also does this during this update
+    pub async fn init_difficulty_management(
+        self_: Arc<Mutex<Self>>,
+        init_target: &[u8],
+    ) -> Result<'static, ()> {
+        let (connection_id, upstream_difficulty_config, miner_hashrate) = self_
+            .safe_lock(|d| {
+                let timestamp_secs = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .expect("time went backwards")
+                    .as_secs();
+                d.difficulty_mgmt.timestamp_of_last_update = timestamp_secs;
+                d.difficulty_mgmt.submits_since_last_update = 0;
+                (
+                    d.connection_id,
+                    d.upstream_difficulty_config.clone(),
+                    d.difficulty_mgmt.min_individual_miner_hashrate,
+                )
+            })
+            .map_err(|_e| Error::PoisonLock)?;
+        // add new connection hashrate to channel hashrate
+        upstream_difficulty_config
+            .safe_lock(|u| {
+                u.channel_nominal_hashrate += miner_hashrate;
+            })
+            .map_err(|_e| Error::PoisonLock)?;
+        // update downstream target with bridge
+        let init_target = binary_sv2::U256::try_from(init_target.to_vec())?;
+        Self::send_message_upstream(
+            self_,
+            DownstreamMessages::SetDownstreamTarget(SetDownstreamTarget {
+                channel_id: connection_id,
+                new_target: init_target.into(),
+            }),
+        )
+        .await?;
+
+        Ok(())
+    }
+
     /// Called before a miner disconnects so we can remove the miner's hashrate from the aggregated channel hashrate
     #[allow(clippy::result_large_err)]
     pub fn remove_miner_hashrate_from_channel(self_: Arc<Mutex<Self>>) -> Result<'static, ()> {
