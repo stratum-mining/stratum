@@ -1,5 +1,5 @@
 use crate::{
-    header::{Header, NoiseHeader},
+    header::{Header, NOISE_HEADER_LEN_OFFSET, NOISE_HEADER_SIZE},
     Error,
 };
 use alloc::vec::Vec;
@@ -81,16 +81,6 @@ pub struct Sv2Frame<T, B> {
     payload: Option<T>,
     /// Serialized header + payload
     serialized: Option<B>,
-}
-
-impl<T, B> Default for Sv2Frame<T, B> {
-    fn default() -> Self {
-        Sv2Frame {
-            header: Header::default(),
-            payload: None,
-            serialized: None,
-        }
-    }
 }
 
 /// Abstraction for a Noise Handshake Frame
@@ -253,7 +243,7 @@ impl<'a> Frame<'a, Slice> for HandShakeFrame {
     /// Get the Noise Frame payload
     #[inline]
     fn payload(&'a mut self) -> &'a mut [u8] {
-        &mut self.payload[NoiseHeader::HEADER_SIZE..]
+        &mut self.payload[NOISE_HEADER_SIZE..]
     }
 
     /// `HandShakeFrame` always returns `None`.
@@ -280,17 +270,17 @@ impl<'a> Frame<'a, Slice> for HandShakeFrame {
     ///   indicates the surplus of bytes beyond the expected size.
     #[inline]
     fn size_hint(bytes: &[u8]) -> isize {
-        if bytes.len() < NoiseHeader::HEADER_SIZE {
-            return (NoiseHeader::HEADER_SIZE - bytes.len()) as isize;
+        if bytes.len() < NOISE_HEADER_SIZE {
+            return (NOISE_HEADER_SIZE - bytes.len()) as isize;
         };
 
-        let len_b = &bytes[NoiseHeader::LEN_OFFSET..NoiseHeader::HEADER_SIZE];
+        let len_b = &bytes[NOISE_HEADER_LEN_OFFSET..NOISE_HEADER_SIZE];
         let expected_len = u16::from_le_bytes([len_b[0], len_b[1]]) as usize;
 
-        if bytes.len() - NoiseHeader::HEADER_SIZE == expected_len {
+        if bytes.len() - NOISE_HEADER_SIZE == expected_len {
             0
         } else {
-            expected_len as isize - (bytes.len() - NoiseHeader::HEADER_SIZE) as isize
+            expected_len as isize - (bytes.len() - NOISE_HEADER_SIZE) as isize
         }
     }
 
