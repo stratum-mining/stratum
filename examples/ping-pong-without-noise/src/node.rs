@@ -10,7 +10,7 @@ use async_std::{
     task,
 };
 
-use codec_sv2::{Frame, StandardDecoder, StandardSv2Frame};
+use codec_sv2::{StandardDecoder, StandardSv2Frame};
 
 #[derive(Debug)]
 enum Expected {

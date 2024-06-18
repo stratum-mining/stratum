@@ -12,7 +12,7 @@ mod main_ {
 
 #[cfg(not(feature = "with_serde"))]
 mod main_ {
-    use codec_sv2::{Encoder, Frame, StandardDecoder, StandardSv2Frame};
+    use codec_sv2::{Encoder, StandardDecoder, StandardSv2Frame};
     use common_messages_sv2::{Protocol, SetupConnection, SetupConnectionError};
     use const_sv2::{
         CHANNEL_BIT_SETUP_CONNECTION, MESSAGE_TYPE_SETUP_CONNECTION,
