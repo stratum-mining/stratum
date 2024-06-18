@@ -12,7 +12,7 @@ use framing_sv2::framing2::HandShakeFrame;
 #[cfg(feature = "noise_sv2")]
 use framing_sv2::header::{NOISE_HEADER_ENCRYPTED_SIZE, NOISE_HEADER_SIZE};
 use framing_sv2::{
-    framing2::{EitherFrame, Frame as F_, Sv2Frame},
+    framing2::{EitherFrame, Sv2Frame},
     header::Header,
 };
 #[cfg(feature = "noise_sv2")]

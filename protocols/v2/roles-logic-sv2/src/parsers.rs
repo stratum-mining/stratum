@@ -13,7 +13,7 @@ use binary_sv2::GetSize;
 
 use binary_sv2::{from_bytes, Deserialize};
 
-use framing_sv2::framing2::{Frame, Sv2Frame};
+use framing_sv2::framing2::Sv2Frame;
 
 use const_sv2::{
     CHANNEL_BIT_ALLOCATE_MINING_JOB_TOKEN, CHANNEL_BIT_ALLOCATE_MINING_JOB_TOKEN_SUCCESS,
