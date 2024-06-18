@@ -9,7 +9,7 @@ use core::marker::PhantomData;
 use framing_sv2::framing2::{EitherFrame, HandShakeFrame};
 use framing_sv2::framing2::{Frame as F_, Sv2Frame};
 #[allow(unused_imports)]
-pub use framing_sv2::header::NoiseHeader;
+pub use framing_sv2::header::NOISE_HEADER_ENCRYPTED_SIZE;
 
 #[cfg(feature = "noise_sv2")]
 use tracing::error;
@@ -76,7 +76,7 @@ impl<T: Serialize + GetSize> NoiseEncoder<T> {
                 } else {
                     SV2_FRAME_CHUNK_SIZE + start - AEAD_MAC_LEN
                 };
-                let mut encrypted_len = NoiseHeader::SIZE;
+                let mut encrypted_len = NOISE_HEADER_ENCRYPTED_SIZE;
 
                 while start < sv2.len() {
                     let to_encrypt = self.noise_buffer.get_writable(end - start);
