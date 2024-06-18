@@ -10,7 +10,7 @@ use core::marker::PhantomData;
 #[cfg(feature = "noise_sv2")]
 use framing_sv2::framing2::HandShakeFrame;
 #[cfg(feature = "noise_sv2")]
-use framing_sv2::header::NoiseHeader;
+use framing_sv2::header::{NOISE_HEADER_ENCRYPTED_SIZE, NOISE_HEADER_SIZE};
 use framing_sv2::{
     framing2::{EitherFrame, Frame as F_, Sv2Frame},
     header::Header,
@@ -58,7 +58,7 @@ impl<'a, T: Serialize + GetSize + Deserialize<'a>, B: IsBuffer + AeadBuffer> Wit
                 let hint = *msg_len - self.noise_buffer.as_ref().len();
                 match hint {
                     0 => {
-                        self.missing_noise_b = NoiseHeader::HEADER_SIZE;
+                        self.missing_noise_b = NOISE_HEADER_SIZE;
                         Ok(self.while_handshaking())
                     }
                     _ => {
@@ -71,20 +71,20 @@ impl<'a, T: Serialize + GetSize + Deserialize<'a>, B: IsBuffer + AeadBuffer> Wit
                 let hint = if IsBuffer::len(&self.sv2_buffer) < SV2_FRAME_HEADER_SIZE {
                     let len = IsBuffer::len(&self.noise_buffer);
                     let src = self.noise_buffer.get_data_by_ref(len);
-                    if src.len() < NoiseHeader::SIZE {
-                        NoiseHeader::SIZE - src.len()
+                    if src.len() < NOISE_HEADER_ENCRYPTED_SIZE {
+                        NOISE_HEADER_ENCRYPTED_SIZE - src.len()
                     } else {
                         0
                     }
                 } else {
-                    let src = self.sv2_buffer.get_data_by_ref_(SV2_FRAME_HEADER_SIZE);
+                    let src = self.sv2_buffer.get_data_by_ref(SV2_FRAME_HEADER_SIZE);
                     let header = Header::from_bytes(src)?;
                     header.encrypted_len() - IsBuffer::len(&self.noise_buffer)
                 };
 
                 match hint {
                     0 => {
-                        self.missing_noise_b = NoiseHeader::SIZE;
+                        self.missing_noise_b = NOISE_HEADER_ENCRYPTED_SIZE;
                         self.decode_noise_frame(noise_codec)
                     }
                     _ => {
@@ -106,14 +106,14 @@ impl<'a, T: Serialize + GetSize + Deserialize<'a>, B: IsBuffer + AeadBuffer> Wit
             IsBuffer::len(&self.sv2_buffer),
         ) {
             // HERE THE SV2 HEADER IS READY TO BE DECRYPTED
-            (NoiseHeader::SIZE, 0) => {
+            (NOISE_HEADER_ENCRYPTED_SIZE, 0) => {
                 let src = self.noise_buffer.get_data_owned();
-                let decrypted_header = self.sv2_buffer.get_writable(NoiseHeader::SIZE);
+                let decrypted_header = self.sv2_buffer.get_writable(NOISE_HEADER_ENCRYPTED_SIZE);
                 decrypted_header.copy_from_slice(src.as_ref());
                 self.sv2_buffer.as_ref();
                 noise_codec.decrypt(&mut self.sv2_buffer)?;
                 let header =
-                    Header::from_bytes(self.sv2_buffer.get_data_by_ref_(SV2_FRAME_HEADER_SIZE))?;
+                    Header::from_bytes(self.sv2_buffer.get_data_by_ref(SV2_FRAME_HEADER_SIZE))?;
                 self.missing_noise_b = header.encrypted_len();
                 Err(Error::MissingBytes(header.encrypted_len()))
             }
