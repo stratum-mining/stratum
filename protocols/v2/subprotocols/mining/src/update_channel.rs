@@ -1,9 +1,9 @@
+use alloc::string::ToString;
 #[cfg(not(feature = "with_serde"))]
 use alloc::vec::Vec;
 #[cfg(not(feature = "with_serde"))]
 use binary_sv2::binary_codec_sv2;
 use binary_sv2::{Deserialize, Serialize, Str0255, U256};
-#[cfg(not(feature = "with_serde"))]
 use core::convert::TryInto;
 
 /// # UpdateChannel (Client -> Server)
@@ -67,11 +67,25 @@ impl<'a> UpdateChannel<'a> {
         panic!("This function shouldn't be called by the Message Generator");
     }
 }
-#[cfg(feature = "with_serde")]
+
 impl<'a> UpdateChannelError<'a> {
+    pub fn new_max_target_out_of_range(channel_id: u32) -> Self {
+        Self {
+            channel_id,
+            error_code: "max-target-out-of-range".to_string().try_into().unwrap(),
+        }
+    }
+    pub fn invalid_channel_id(channel_id: u32) -> Self {
+        Self {
+            channel_id,
+            error_code: "invalid-channel-id".to_string().try_into().unwrap(),
+        }
+    }
+    #[cfg(feature = "with_serde")]
     pub fn into_static(self) -> UpdateChannelError<'static> {
         panic!("This function shouldn't be called by the Message Generator");
     }
+    #[cfg(feature = "with_serde")]
     pub fn as_static(&self) -> UpdateChannelError<'static> {
         panic!("This function shouldn't be called by the Message Generator");
     }

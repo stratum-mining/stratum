@@ -1,3 +1,4 @@
+use alloc::string::ToString;
 #[cfg(not(feature = "with_serde"))]
 use alloc::vec::Vec;
 #[cfg(not(feature = "with_serde"))]
@@ -5,7 +6,6 @@ use binary_sv2::binary_codec_sv2::{self, free_vec, free_vec_2, CVec, CVec2};
 #[cfg(not(feature = "with_serde"))]
 use binary_sv2::Error;
 use binary_sv2::{Deserialize, Seq064K, Serialize, Str0255, B016M, B064K};
-#[cfg(not(feature = "with_serde"))]
 use core::convert::TryInto;
 
 /// ## RequestTransactionData (Client -> Server)
@@ -120,6 +120,21 @@ pub struct RequestTransactionDataError<'decoder> {
     /// * template-id-not-found
     #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub error_code: Str0255<'decoder>,
+}
+
+impl<'a> RequestTransactionDataError<'a> {
+    pub fn new_template_id_not_found(template_id: u64) -> Self {
+        Self {
+            template_id,
+            error_code: "template-id-not-found".to_string().try_into().unwrap(),
+        }
+    }
+    pub fn new_stale_template_id(template_id: u64) -> Self {
+        Self {
+            template_id,
+            error_code: "stale-template-id".to_string().try_into().unwrap(),
+        }
+    }
 }
 
 #[repr(C)]

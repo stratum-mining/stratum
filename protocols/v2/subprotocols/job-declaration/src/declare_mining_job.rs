@@ -1,10 +1,8 @@
-#[cfg(not(feature = "with_serde"))]
-use alloc::vec::Vec;
+use alloc::{format, string::ToString, vec::Vec};
 #[cfg(not(feature = "with_serde"))]
 use binary_sv2::binary_codec_sv2;
 use binary_sv2::{Deserialize, Seq064K, Serialize, ShortTxId, Str0255, B0255, B064K, U256};
-#[cfg(not(feature = "with_serde"))]
-use core::convert::TryInto;
+use core::convert::{TryFrom, TryInto};
 
 /// ## DeclareMiningJob (Client -> Server)
 /// A request sent by the Job Declarator that proposes a selected set of transactions to the upstream (pool) node.
@@ -48,6 +46,25 @@ pub struct DeclareMiningJobError<'decoder> {
     pub error_details: B064K<'decoder>,
 }
 
+impl<'a> DeclareMiningJobError<'a> {
+    pub fn new_invalid_mining_job_token(request_id: u32) -> Self {
+        Self {
+            request_id,
+            error_code: "invalid-mining-job-token".to_string().try_into().unwrap(),
+            error_details: B064K::try_from(Vec::<u8>::new()).unwrap(),
+        }
+    }
+    pub fn new_invalid_job_param_value(request_id: u32, field_name: &str) -> Self {
+        Self {
+            request_id,
+            error_code: format!("invalid-job-param-value-{}", field_name)
+                .try_into()
+                .unwrap(),
+            error_details: B064K::try_from(Vec::<u8>::new()).unwrap(),
+        }
+    }
+}
+
 #[cfg(feature = "with_serde")]
 use binary_sv2::GetSize;
 #[cfg(feature = "with_serde")]
@@ -70,6 +87,7 @@ impl<'d> GetSize for DeclareMiningJobSuccess<'d> {
         self.request_id.get_size() + self.new_mining_job_token.get_size()
     }
 }
+
 #[cfg(feature = "with_serde")]
 impl<'d> GetSize for DeclareMiningJobError<'d> {
     fn get_size(&self) -> usize {

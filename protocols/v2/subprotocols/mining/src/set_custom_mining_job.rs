@@ -1,9 +1,9 @@
+use alloc::string::ToString;
 #[cfg(not(feature = "with_serde"))]
 use alloc::vec::Vec;
 #[cfg(not(feature = "with_serde"))]
 use binary_sv2::binary_codec_sv2;
 use binary_sv2::{Deserialize, Seq0255, Serialize, Str0255, B0255, B064K, U256};
-#[cfg(not(feature = "with_serde"))]
 use core::convert::TryInto;
 
 /// # SetCustomMiningJob (Client -> Server)
@@ -135,11 +135,35 @@ impl<'a> SetCustomMiningJob<'a> {
         panic!("This function shouldn't be called by the Message Generator");
     }
 }
-#[cfg(feature = "with_serde")]
 impl<'a> SetCustomMiningJobError<'a> {
+    pub fn new_invalid_channel_id(channel_id: u32, request_id: u32) -> Self {
+        Self {
+            channel_id,
+            request_id,
+            error_code: "invalid-channel-id".to_string().try_into().unwrap(),
+        }
+    }
+    pub fn new_invalid_mining_job_token(channel_id: u32, request_id: u32) -> Self {
+        Self {
+            channel_id,
+            request_id,
+            error_code: "invalid-mining-job-token".to_string().try_into().unwrap(),
+        }
+    }
+    pub fn new_invalid_job_param_value(channel_id: u32, request_id: u32, field_name: &str) -> Self {
+        Self {
+            channel_id,
+            request_id,
+            error_code: format!("invalid-job-param-value-{}", field_name)
+                .try_into()
+                .unwrap(),
+        }
+    }
+    #[cfg(feature = "with_serde")]
     pub fn into_static(self) -> SetCustomMiningJobError<'static> {
         panic!("This function shouldn't be called by the Message Generator");
     }
+    #[cfg(feature = "with_serde")]
     pub fn as_static(&self) -> SetCustomMiningJobError<'static> {
         panic!("This function shouldn't be called by the Message Generator");
     }
