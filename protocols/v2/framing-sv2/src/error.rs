@@ -24,8 +24,13 @@ impl fmt::Display for Error {
             ExpectedSv2Frame => {
                 write!(f, "Expected `Sv2Frame`, received `HandshakeFrame`")
             }
-            UnexpectedHeaderLength(i) => {
-                write!(f, "Unexpected `Header` length: `{}`", i)
+            UnexpectedHeaderLength(actual_size) => {
+                write!(
+                    f,
+                    "Unexpected `Header` length: `{}`, should be equal or more to {}",
+                    actual_size,
+                    const_sv2::SV2_FRAME_HEADER_SIZE
+                )
             }
         }
     }
