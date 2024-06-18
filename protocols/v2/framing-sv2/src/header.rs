@@ -7,68 +7,65 @@ use binary_sv2::{Deserialize, Serialize, U24};
 use const_sv2::{AEAD_MAC_LEN, SV2_FRAME_CHUNK_SIZE};
 use core::convert::TryInto;
 
+// Previously `NoiseHeader::SIZE`
+pub const NOISE_HEADER_ENCRYPTED_SIZE: usize = const_sv2::ENCRYPTED_SV2_FRAME_HEADER_SIZE;
+// Previously `NoiseHeader::LEN_OFFSET`
+pub const NOISE_HEADER_LEN_OFFSET: usize = const_sv2::NOISE_FRAME_HEADER_LEN_OFFSET;
+// Previously `NoiseHeader::HEADER_SIZE`
+pub const NOISE_HEADER_SIZE: usize = const_sv2::NOISE_FRAME_HEADER_SIZE;
+
 /// Abstraction for a SV2 Frame Header.
 #[derive(Debug, Serialize, Deserialize, Copy, Clone)]
 pub struct Header {
-    extension_type: u16, // TODO use specific type?
-    msg_type: u8,        // TODO use specific type?
+    /// Unique identifier of the extension describing this protocol message.  Most significant bit
+    /// (i.e.bit 15, 0-indexed, aka channel_msg) indicates a message which is specific to a channel,
+    /// whereas if the most significant bit is unset, the message is to be interpreted by the
+    /// immediate receiving device.  Note that the channel_msg bit is ignored in the extension
+    /// lookup, i.e.an extension_type of 0x8ABC is for the same "extension" as 0x0ABC.  If the
+    /// channel_msg bit is set, the first four bytes of the payload field is a U32 representing the
+    /// channel_id this message is destined for. Note that for the Job Declaration and Template
+    /// Distribution Protocols the channel_msg bit is always unset.
+    extension_type: u16, // fix: use U16 type
+    /// Unique identifier of the extension describing this protocol message
+    msg_type: u8, // fix: use specific type?
+    /// Length of the protocol message, not including this header
     msg_length: U24,
 }
 
-impl Default for Header {
-    fn default() -> Self {
-        Header {
-            extension_type: 0,
-            msg_type: 0,
-            // converting 0_32 into a U24 never panic
-            msg_length: 0_u32.try_into().unwrap(),
-        }
-    }
-}
-
 impl Header {
-    pub const LEN_OFFSET: usize = const_sv2::SV2_FRAME_HEADER_LEN_OFFSET;
-    pub const LEN_SIZE: usize = const_sv2::SV2_FRAME_HEADER_LEN_END;
-    pub const LEN_END: usize = Self::LEN_OFFSET + Self::LEN_SIZE;
-
     pub const SIZE: usize = const_sv2::SV2_FRAME_HEADER_SIZE;
 
-    /// Construct a `Header` from ray bytes
+    /// Construct a `Header` from raw bytes
     #[inline]
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
+    pub(crate) fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
         if bytes.len() < Self::SIZE {
-            return Err(Error::UnexpectedHeaderLength(
-                (Self::SIZE - bytes.len()) as isize,
-            ));
+            return Err(Error::UnexpectedHeaderLength(bytes.len() as isize));
         };
-
         let extension_type = u16::from_le_bytes([bytes[0], bytes[1]]);
         let msg_type = bytes[2];
-        let msg_length = u32::from_le_bytes([bytes[3], bytes[4], bytes[5], 0]);
-
+        let msg_length: U24 = u32::from_le_bytes([bytes[3], bytes[4], bytes[5], 0]).try_into()?;
         Ok(Self {
             extension_type,
             msg_type,
-            // Converting and u32 with the most significant byte set to 0 to and U24 never panic
-            msg_length: msg_length.try_into().unwrap(),
+            msg_length,
         })
     }
 
     /// Get the payload length
     #[allow(clippy::len_without_is_empty)]
     #[inline]
-    pub fn len(&self) -> usize {
+    pub(crate) fn len(&self) -> usize {
         let inner: u32 = self.msg_length.into();
         inner as usize
     }
 
     /// Construct a `Header` from payload length, type and extension type.
     #[inline]
-    pub fn from_len(len: u32, message_type: u8, extension_type: u16) -> Option<Header> {
+    pub(crate) fn from_len(msg_length: u32, msg_type: u8, extension_type: u16) -> Option<Header> {
         Some(Self {
             extension_type,
-            msg_type: message_type,
-            msg_length: len.try_into().ok()?,
+            msg_type,
+            msg_length: msg_length.try_into().ok()?,
         })
     }
 
@@ -83,9 +80,11 @@ impl Header {
     }
 
     /// Check if `Header` represents a channel message
+    ///
+    /// A header can represent a channel message if the MSB(Most Significant Bit) is set.
     pub fn channel_msg(&self) -> bool {
-        let mask = 0b0000_0000_0000_0001;
-        self.extension_type & mask == self.extension_type
+        const CHANNEL_MSG_MASK: u16 = 0b0000_0000_0000_0001;
+        self.extension_type & CHANNEL_MSG_MASK == self.extension_type
     }
 
     /// Calculate the length of the encrypted `Header`
@@ -100,10 +99,33 @@ impl Header {
     }
 }
 
-pub struct NoiseHeader {}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloc::vec;
 
-impl NoiseHeader {
-    pub const SIZE: usize = const_sv2::ENCRYPTED_SV2_FRAME_HEADER_SIZE;
-    pub const LEN_OFFSET: usize = const_sv2::NOISE_FRAME_HEADER_LEN_OFFSET;
-    pub const HEADER_SIZE: usize = const_sv2::NOISE_FRAME_HEADER_SIZE;
+    #[test]
+    fn test_header_from_bytes() {
+        let bytes = vec![0x01, 0x02, 0x03, 0x04, 0x05, 0x06];
+        let header = Header::from_bytes(&bytes).unwrap();
+        assert_eq!(header.extension_type, 0x0201);
+        assert_eq!(header.msg_type, 0x03);
+        assert_eq!(header.msg_length, 0x060504_u32.try_into().unwrap());
+    }
+
+    #[test]
+    fn test_header_from_len() {
+        let header = Header::from_len(0x1234, 0x56, 0x789a).unwrap();
+        assert_eq!(header.extension_type, 0x789a);
+        assert_eq!(header.msg_type, 0x56);
+        assert_eq!(header.msg_length, 0x1234_u32.try_into().unwrap());
+
+        let extension_type = 0;
+        let msg_type = 0x1;
+        let msg_length = 0x1234_u32;
+        let header = Header::from_len(msg_length, msg_type, extension_type).unwrap();
+        assert_eq!(header.extension_type, 0);
+        assert_eq!(header.msg_type, 0x1);
+        assert_eq!(header.msg_length, 0x1234_u32.try_into().unwrap());
+    }
 }
