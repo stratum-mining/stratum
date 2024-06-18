@@ -11,7 +11,7 @@ use async_std::{
 };
 use core::convert::TryInto;
 
-use codec_sv2::{Frame, HandshakeRole, StandardEitherFrame, StandardSv2Frame};
+use codec_sv2::{HandshakeRole, StandardEitherFrame, StandardSv2Frame};
 
 use std::time;
 

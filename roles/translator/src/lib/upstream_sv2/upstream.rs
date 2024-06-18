@@ -11,7 +11,7 @@ use crate::{
 use async_channel::{Receiver, Sender};
 use async_std::{net::TcpStream, task};
 use binary_sv2::u256_from_int;
-use codec_sv2::{Frame, HandshakeRole, Initiator};
+use codec_sv2::{HandshakeRole, Initiator};
 use error_handling::handle_result;
 use key_utils::Secp256k1PublicKey;
 use network_helpers_sv2::Connection;

@@ -3,7 +3,6 @@ use super::super::{
     mining_pool::{EitherFrame, StdFrame},
 };
 use async_channel::{Receiver, Sender};
-use codec_sv2::Frame;
 use roles_logic_sv2::{
     common_messages_sv2::{
         has_requires_std_job, has_version_rolling, has_work_selection, SetupConnection,
