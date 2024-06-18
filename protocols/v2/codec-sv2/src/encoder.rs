@@ -7,7 +7,7 @@ use core::convert::TryInto;
 use core::marker::PhantomData;
 #[cfg(feature = "noise_sv2")]
 use framing_sv2::framing2::{EitherFrame, HandShakeFrame};
-use framing_sv2::framing2::{Frame as F_, Sv2Frame};
+use framing_sv2::framing2::Sv2Frame;
 #[allow(unused_imports)]
 pub use framing_sv2::header::NOISE_HEADER_ENCRYPTED_SIZE;
 
