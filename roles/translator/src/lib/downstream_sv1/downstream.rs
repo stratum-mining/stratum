@@ -275,6 +275,9 @@ impl Downstream {
                     );
 
                     let sv1_mining_notify_msg = last_notify.clone().unwrap();
+
+                    self_.safe_lock(|s| s.last_job_id = sv1_mining_notify_msg.clone().job_id).unwrap();
+
                     let message: json_rpc::Message = sv1_mining_notify_msg.into();
                     handle_result!(
                         tx_status_notify,
