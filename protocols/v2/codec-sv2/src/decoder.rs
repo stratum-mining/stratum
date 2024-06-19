@@ -8,11 +8,11 @@ pub use buffer_sv2::AeadBuffer;
 pub use const_sv2::{SV2_FRAME_CHUNK_SIZE, SV2_FRAME_HEADER_SIZE};
 use core::marker::PhantomData;
 #[cfg(feature = "noise_sv2")]
-use framing_sv2::framing2::HandShakeFrame;
+use framing_sv2::framing::HandShakeFrame;
 #[cfg(feature = "noise_sv2")]
 use framing_sv2::header::{NOISE_HEADER_ENCRYPTED_SIZE, NOISE_HEADER_SIZE};
 use framing_sv2::{
-    framing2::{EitherFrame, Sv2Frame},
+    framing::{EitherFrame, Sv2Frame},
     header::Header,
 };
 #[cfg(feature = "noise_sv2")]
