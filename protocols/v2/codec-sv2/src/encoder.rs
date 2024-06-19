@@ -7,7 +7,7 @@ use core::convert::TryInto;
 use core::marker::PhantomData;
 use framing_sv2::framing::Sv2Frame;
 #[cfg(feature = "noise_sv2")]
-use framing_sv2::framing::{EitherFrame, HandShakeFrame};
+use framing_sv2::framing::{Frame, HandShakeFrame};
 #[allow(unused_imports)]
 pub use framing_sv2::header::NOISE_HEADER_ENCRYPTED_SIZE;
 
@@ -43,7 +43,7 @@ pub struct NoiseEncoder<T: Serialize + binary_sv2::GetSize> {
 }
 
 #[cfg(feature = "noise_sv2")]
-type Item<T> = EitherFrame<T, Slice>;
+type Item<T> = Frame<T, Slice>;
 
 #[cfg(feature = "noise_sv2")]
 impl<T: Serialize + GetSize> NoiseEncoder<T> {

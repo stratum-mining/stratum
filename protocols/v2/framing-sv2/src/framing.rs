@@ -12,12 +12,12 @@ type Slice = buffer_sv2::Slice;
 /// A wrapper to be used in a context we need a generic reference to a frame
 /// but it doesn't matter which kind of frame it is (`Sv2Frame` or `HandShakeFrame`)
 #[derive(Debug)]
-pub enum EitherFrame<T, B> {
+pub enum Frame<T, B> {
     HandShake(HandShakeFrame),
     Sv2(Sv2Frame<T, B>),
 }
 
-impl<T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> EitherFrame<T, B> {
+impl<T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> Frame<T, B> {
     pub fn encoded_length(&self) -> usize {
         match &self {
             Self::HandShake(frame) => frame.encoded_length(),
@@ -26,13 +26,13 @@ impl<T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> EitherFrame<T, B> {
     }
 }
 
-impl<T, B> From<HandShakeFrame> for EitherFrame<T, B> {
+impl<T, B> From<HandShakeFrame> for Frame<T, B> {
     fn from(v: HandShakeFrame) -> Self {
         Self::HandShake(v)
     }
 }
 
-impl<T, B> From<Sv2Frame<T, B>> for EitherFrame<T, B> {
+impl<T, B> From<Sv2Frame<T, B>> for Frame<T, B> {
     fn from(v: Sv2Frame<T, B>) -> Self {
         Self::Sv2(v)
     }
@@ -190,17 +190,16 @@ impl<A, B> Sv2Frame<A, B> {
     }
 }
 
-impl<T, B> TryFrom<EitherFrame<T, B>> for Sv2Frame<T, B> {
+impl<T, B> TryFrom<Frame<T, B>> for Sv2Frame<T, B> {
     type Error = Error;
 
-    fn try_from(v: EitherFrame<T, B>) -> Result<Self, Error> {
+    fn try_from(v: Frame<T, B>) -> Result<Self, Error> {
         match v {
-            EitherFrame::Sv2(frame) => Ok(frame),
-            EitherFrame::HandShake(_) => Err(Error::ExpectedSv2Frame),
+            Frame::Sv2(frame) => Ok(frame),
+            Frame::HandShake(_) => Err(Error::ExpectedSv2Frame),
         }
     }
 }
-
 
 /// Abstraction for a Noise Handshake Frame
 /// Contains only a `Slice` payload with a fixed length
@@ -233,17 +232,16 @@ impl HandShakeFrame {
     }
 }
 
-impl<T, B> TryFrom<EitherFrame<T, B>> for HandShakeFrame {
+impl<T, B> TryFrom<Frame<T, B>> for HandShakeFrame {
     type Error = Error;
 
-    fn try_from(v: EitherFrame<T, B>) -> Result<Self, Error> {
+    fn try_from(v: Frame<T, B>) -> Result<Self, Error> {
         match v {
-            EitherFrame::HandShake(frame) => Ok(frame),
-            EitherFrame::Sv2(_) => Err(Error::ExpectedHandshakeFrame),
+            Frame::HandShake(frame) => Ok(frame),
+            Frame::Sv2(_) => Err(Error::ExpectedHandshakeFrame),
         }
     }
 }
-
 
 /// Returns a `HandShakeFrame` from a generic byte array
 #[allow(clippy::useless_conversion)]
