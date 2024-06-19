@@ -1,13 +1,7 @@
-#![allow(dead_code)]
-use crate::{
-    header::{Header, NOISE_HEADER_LEN_OFFSET, NOISE_HEADER_SIZE},
-    Error,
-};
+use crate::{header::Header, Error};
 use alloc::vec::Vec;
 use binary_sv2::{to_writer, GetSize, Serialize};
 use core::convert::TryFrom;
-
-const NOISE_MAX_LEN: usize = const_sv2::NOISE_FRAME_MAX_SIZE;
 
 #[cfg(not(feature = "with_buffer_pool"))]
 type Slice = Vec<u8>;
@@ -217,27 +211,9 @@ pub struct HandShakeFrame {
 }
 
 impl HandShakeFrame {
-    /// Put the Noise Frame payload into `dst`
-    #[inline]
-    fn serialize(mut self, dst: &mut [u8]) -> Result<(), Error> {
-        dst.swap_with_slice(self.payload.as_mut());
-        Ok(())
-    }
-
-    /// Get the Noise Frame payload
-    #[inline]
-    fn payload(&mut self) -> &mut [u8] {
-        &mut self.payload[NOISE_HEADER_SIZE..]
-    }
-
     /// Returns payload of `HandShakeFrame` as a `Vec<u8>`
     pub fn get_payload_when_handshaking(&self) -> Vec<u8> {
         self.payload[0..].to_vec()
-    }
-
-    /// `HandShakeFrame` always returns `None`.
-    fn get_header(&self) -> Option<crate::header::Header> {
-        None
     }
 
     /// Builds a `HandShakeFrame` from raw bytes. Nothing is assumed or checked about the correctness of the payload.
@@ -250,53 +226,10 @@ impl HandShakeFrame {
         Self { payload: bytes }
     }
 
-    /// After parsing the expected `HandShakeFrame` size from `bytes`, this function helps to determine if this value
-    /// correctly representing the size of the frame.
-    /// - Returns `0` if the byte slice is of the expected size according to the header.
-    /// - Returns a negative value if the byte slice is smaller than a Noise Frame header; this value
-    ///   represents how many bytes are missing.
-    /// - Returns a positive value if the byte slice is longer than expected; this value
-    ///   indicates the surplus of bytes beyond the expected size.
-    #[inline]
-    fn size_hint(bytes: &[u8]) -> isize {
-        if bytes.len() < NOISE_HEADER_SIZE {
-            return (NOISE_HEADER_SIZE - bytes.len()) as isize;
-        };
-
-        let len_b = &bytes[NOISE_HEADER_LEN_OFFSET..NOISE_HEADER_SIZE];
-        let expected_len = u16::from_le_bytes([len_b[0], len_b[1]]) as usize;
-
-        if bytes.len() - NOISE_HEADER_SIZE == expected_len {
-            0
-        } else {
-            expected_len as isize - (bytes.len() - NOISE_HEADER_SIZE) as isize
-        }
-    }
-
     /// Returns the size of the `HandShakeFrame` payload.
     #[inline]
     fn encoded_length(&self) -> usize {
         self.payload.len()
-    }
-
-    /// Tries to build a `HandShakeFrame` frame from a byte slice.
-    /// Returns a `HandShakeFrame` if the size of the payload fits in the frame, `None` otherwise.
-    /// This is quite inefficient, and should be used only to build `HandShakeFrames`
-    // TODO check if is used only to build `HandShakeFrames`
-    #[allow(clippy::useless_conversion)]
-    fn from_message(
-        message: Slice,
-        _message_type: u8,
-        _extension_type: u16,
-        _channel_msg: bool,
-    ) -> Option<Self> {
-        if message.len() <= NOISE_MAX_LEN {
-            Some(Self {
-                payload: message.into(),
-            })
-        } else {
-            None
-        }
     }
 }
 
