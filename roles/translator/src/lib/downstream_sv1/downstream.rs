@@ -518,9 +518,9 @@ impl IsServer<'static> for Downstream {
                 .try_send(DownstreamMessages::SubmitShares(to_send))
                 .unwrap();
 
-            return true;
+            true
         } else {
-            return false;
+            false
         }
     }
 
