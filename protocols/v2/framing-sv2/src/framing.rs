@@ -15,18 +15,32 @@ type Slice = Vec<u8>;
 #[cfg(feature = "with_buffer_pool")]
 type Slice = buffer_sv2::Slice;
 
-impl<A, B> Sv2Frame<A, B> {
-    /// Maps a `Sv2Frame<A, B>` to `Sv2Frame<C, B>` by applying `fun`,
-    /// which is assumed to be a closure that converts `A` to `C`
-    pub fn map<C>(self, fun: fn(A) -> C) -> Sv2Frame<C, B> {
-        let serialized = self.serialized;
-        let header = self.header;
-        let payload = self.payload.map(fun);
-        Sv2Frame {
-            header,
-            payload,
-            serialized,
+/// A wrapper to be used in a context we need a generic reference to a frame
+/// but it doesn't matter which kind of frame it is (`Sv2Frame` or `HandShakeFrame`)
+#[derive(Debug)]
+pub enum EitherFrame<T, B> {
+    HandShake(HandShakeFrame),
+    Sv2(Sv2Frame<T, B>),
+}
+
+impl<T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> EitherFrame<T, B> {
+    pub fn encoded_length(&self) -> usize {
+        match &self {
+            Self::HandShake(frame) => frame.encoded_length(),
+            Self::Sv2(frame) => frame.encoded_length(),
         }
+    }
+}
+
+impl<T, B> From<HandShakeFrame> for EitherFrame<T, B> {
+    fn from(v: HandShakeFrame) -> Self {
+        Self::HandShake(v)
+    }
+}
+
+impl<T, B> From<Sv2Frame<T, B>> for EitherFrame<T, B> {
+    fn from(v: Sv2Frame<T, B>) -> Self {
+        Self::Sv2(v)
     }
 }
 
@@ -37,21 +51,6 @@ pub struct Sv2Frame<T, B> {
     payload: Option<T>,
     /// Serialized header + payload
     serialized: Option<B>,
-}
-
-/// Abstraction for a Noise Handshake Frame
-/// Contains only a `Slice` payload with a fixed length
-/// Only used during Noise Handshake process
-#[derive(Debug)]
-pub struct HandShakeFrame {
-    payload: Slice,
-}
-
-impl HandShakeFrame {
-    /// Returns payload of `HandShakeFrame` as a `Vec<u8>`
-    pub fn get_payload_when_handshaking(&self) -> Vec<u8> {
-        self.payload[0..].to_vec()
-    }
 }
 
 impl<T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> Sv2Frame<T, B> {
@@ -182,6 +181,41 @@ impl<T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> Sv2Frame<T, B> {
     }
 }
 
+impl<A, B> Sv2Frame<A, B> {
+    /// Maps a `Sv2Frame<A, B>` to `Sv2Frame<C, B>` by applying `fun`,
+    /// which is assumed to be a closure that converts `A` to `C`
+    pub fn map<C>(self, fun: fn(A) -> C) -> Sv2Frame<C, B> {
+        let serialized = self.serialized;
+        let header = self.header;
+        let payload = self.payload.map(fun);
+        Sv2Frame {
+            header,
+            payload,
+            serialized,
+        }
+    }
+}
+
+impl<T, B> TryFrom<EitherFrame<T, B>> for Sv2Frame<T, B> {
+    type Error = Error;
+
+    fn try_from(v: EitherFrame<T, B>) -> Result<Self, Error> {
+        match v {
+            EitherFrame::Sv2(frame) => Ok(frame),
+            EitherFrame::HandShake(_) => Err(Error::ExpectedSv2Frame),
+        }
+    }
+}
+
+
+/// Abstraction for a Noise Handshake Frame
+/// Contains only a `Slice` payload with a fixed length
+/// Only used during Noise Handshake process
+#[derive(Debug)]
+pub struct HandShakeFrame {
+    payload: Slice,
+}
+
 impl HandShakeFrame {
     /// Put the Noise Frame payload into `dst`
     #[inline]
@@ -194,6 +228,11 @@ impl HandShakeFrame {
     #[inline]
     fn payload(&mut self) -> &mut [u8] {
         &mut self.payload[NOISE_HEADER_SIZE..]
+    }
+
+    /// Returns payload of `HandShakeFrame` as a `Vec<u8>`
+    pub fn get_payload_when_handshaking(&self) -> Vec<u8> {
+        self.payload[0..].to_vec()
     }
 
     /// `HandShakeFrame` always returns `None`.
@@ -261,6 +300,18 @@ impl HandShakeFrame {
     }
 }
 
+impl<T, B> TryFrom<EitherFrame<T, B>> for HandShakeFrame {
+    type Error = Error;
+
+    fn try_from(v: EitherFrame<T, B>) -> Result<Self, Error> {
+        match v {
+            EitherFrame::HandShake(frame) => Ok(frame),
+            EitherFrame::Sv2(_) => Err(Error::ExpectedHandshakeFrame),
+        }
+    }
+}
+
+
 /// Returns a `HandShakeFrame` from a generic byte array
 #[allow(clippy::useless_conversion)]
 pub fn handshake_message_to_frame<T: AsRef<[u8]>>(message: T) -> HandShakeFrame {
@@ -282,57 +333,6 @@ fn update_extension_type(extension_type: u16, channel_msg: bool) -> u16 {
     } else {
         let mask = 0b0111_1111_1111_1111;
         extension_type & mask
-    }
-}
-
-/// A wrapper to be used in a context we need a generic reference to a frame
-/// but it doesn't matter which kind of frame it is (`Sv2Frame` or `HandShakeFrame`)
-#[derive(Debug)]
-pub enum EitherFrame<T, B> {
-    HandShake(HandShakeFrame),
-    Sv2(Sv2Frame<T, B>),
-}
-
-impl<T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> EitherFrame<T, B> {
-    pub fn encoded_length(&self) -> usize {
-        match &self {
-            Self::HandShake(frame) => frame.encoded_length(),
-            Self::Sv2(frame) => frame.encoded_length(),
-        }
-    }
-}
-
-impl<T, B> TryFrom<EitherFrame<T, B>> for HandShakeFrame {
-    type Error = Error;
-
-    fn try_from(v: EitherFrame<T, B>) -> Result<Self, Error> {
-        match v {
-            EitherFrame::HandShake(frame) => Ok(frame),
-            EitherFrame::Sv2(_) => Err(Error::ExpectedHandshakeFrame),
-        }
-    }
-}
-
-impl<T, B> TryFrom<EitherFrame<T, B>> for Sv2Frame<T, B> {
-    type Error = Error;
-
-    fn try_from(v: EitherFrame<T, B>) -> Result<Self, Error> {
-        match v {
-            EitherFrame::Sv2(frame) => Ok(frame),
-            EitherFrame::HandShake(_) => Err(Error::ExpectedSv2Frame),
-        }
-    }
-}
-
-impl<T, B> From<HandShakeFrame> for EitherFrame<T, B> {
-    fn from(v: HandShakeFrame) -> Self {
-        Self::HandShake(v)
-    }
-}
-
-impl<T, B> From<Sv2Frame<T, B>> for EitherFrame<T, B> {
-    fn from(v: Sv2Frame<T, B>) -> Self {
-        Self::Sv2(v)
     }
 }
 
