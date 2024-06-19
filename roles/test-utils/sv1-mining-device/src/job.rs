@@ -25,7 +25,10 @@ pub(crate) struct Job {
 
 impl Job {
     pub fn from_notify(notify_msg: server_to_client::Notify<'_>, extranonce: Vec<u8>) -> Self {
-        let job_id = notify_msg.job_id.parse::<u32>().expect("expect valid job_id on String");
+        let job_id = notify_msg
+            .job_id
+            .parse::<u32>()
+            .expect("expect valid job_id on String");
 
         // Convert prev hash from Vec<u8> into expected [u32; 8]
         let prev_hash_vec: Vec<u8> = notify_msg.prev_hash.into();
