@@ -1341,7 +1341,6 @@ version = "0.1.1"
 dependencies = [
  "async-channel 1.9.0",
  "async-recursion 0.3.2",
- "async-std",
  "binary_sv2",
  "buffer_sv2",
  "clap",
@@ -1354,6 +1353,7 @@ dependencies = [
  "roles_logic_sv2",
  "sha2 0.10.8",
  "stratum-common",
+ "tokio",
  "tracing",
  "tracing-subscriber",
 ]
@@ -2053,7 +2053,7 @@ dependencies = [
 
 [[package]]
 name = "sv1_api"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "binary_sv2",
  "bitcoin_hashes 0.3.2",

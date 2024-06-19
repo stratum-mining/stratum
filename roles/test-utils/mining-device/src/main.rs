@@ -1,10 +1,14 @@
-use async_std::net::TcpStream;
 use key_utils::Secp256k1PublicKey;
-use network_helpers_sv2::Connection;
+use network_helpers_sv2::noise_connection_tokio::Connection;
 use roles_logic_sv2::utils::Id;
-use std::{net::SocketAddr, sync::Arc, thread::sleep, time::Duration};
+use std::{
+    net::{SocketAddr, ToSocketAddrs},
+    sync::Arc,
+    thread::sleep,
+    time::Duration,
+};
+use tokio::net::TcpStream;
 
-use async_std::net::ToSocketAddrs;
 use clap::Parser;
 use rand::{thread_rng, Rng};
 use std::time::Instant;
@@ -57,14 +61,12 @@ async fn connect(
     let address = address
         .clone()
         .to_socket_addrs()
-        .await
         .expect("Invalid pool address, use one of this formats: ip:port, domain:port")
         .next()
         .expect("Invalid pool address, use one of this formats: ip:port, domain:port");
     info!("Connecting to pool at {}", address);
     let socket = loop {
-        let pool =
-            async_std::future::timeout(Duration::from_secs(5), TcpStream::connect(address)).await;
+        let pool = tokio::time::timeout(Duration::from_secs(5), TcpStream::connect(address)).await;
         match pool {
             Ok(result) => match result {
                 Ok(socket) => break socket,
@@ -85,15 +87,15 @@ async fn connect(
     info!("Pool tcp connection established at {}", address);
     let address = socket.peer_addr().unwrap();
     let initiator = Initiator::new(pub_key.map(|e| e.0));
-    let (receiver, sender): (Receiver<EitherFrame>, Sender<EitherFrame>) =
-        Connection::new(socket, codec_sv2::HandshakeRole::Initiator(initiator), 10)
+    let (receiver, sender, _, _): (Receiver<EitherFrame>, Sender<EitherFrame>, _, _) =
+        Connection::new(socket, codec_sv2::HandshakeRole::Initiator(initiator))
             .await
             .unwrap();
     info!("Pool noise connection established at {}", address);
     Device::start(receiver, sender, address, device_id, user_id, handicap).await
 }
 
-#[async_std::main]
+#[tokio::main]
 async fn main() {
     let args = Args::parse();
     tracing_subscriber::fmt::init();
@@ -303,7 +305,7 @@ impl Device {
                 .unwrap();
         });
 
-        async_std::task::spawn(async move {
+        tokio::task::spawn(async move {
             let recv = share_recv.clone();
             loop {
                 let (nonce, job_id, version, ntime) = recv.recv().await.unwrap();
