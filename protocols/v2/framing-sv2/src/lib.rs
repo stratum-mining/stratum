@@ -23,7 +23,7 @@
 extern crate alloc;
 
 /// SV2 framing types
-pub mod framing2;
+pub mod framing;
 
 /// SV2 framing errors
 pub mod error;
