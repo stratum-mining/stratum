@@ -1,0 +1,44 @@
+name: Semver Check
+
+on:
+  push:
+    branches: ["main", "dev"]
+  pull_request:
+    branches: ["main", "dev"]
+
+jobs:
+  semver-check:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - crate: "utils"
+            command: "cargo semver-checks"
+          - crate: "roles"
+            command: "cargo semver-checks --baseline-root ."
+          - crate: "common"
+            command: "cargo semver-checks"
+          - crate: "protocols"
+            command: "cargo semver-checks --default-features"
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Install Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        override: true
+    
+    - name: Install dependencies
+      run: sudo apt-get update && sudo apt-get install -y cmake
+
+    - name: Install cargo-semver-checks
+      run: cargo install cargo-semver-checks
+
+    - name: Run semver checks
+      run: |
+        cd ${{ matrix.crate }}
+        ${{ matrix.command }}
+
