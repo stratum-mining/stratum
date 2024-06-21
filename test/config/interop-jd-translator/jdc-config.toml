@@ -56,7 +56,7 @@ pool_address = "127.0.0.1:34254"
 jd_address = "127.0.0.1:34264"
 # Pool signature (string to be included in coinbase tx)
 pool_signature = "Stratum v2 SRI Pool"
- 
+
 # [[upstreams]]
 # authority_pubkey = "2di19GHYQnAZJmEpoUeP7C3Eg9TCcksHr23rZCC83dvUiZgiDL"
 # pool_address = "127.0.0.1:34254"
