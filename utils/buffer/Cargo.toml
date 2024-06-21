@@ -8,14 +8,16 @@ license = "MIT"
 repository = "https://github.com/stratum-mining/stratum"
 
 [dependencies]
-criterion = {version = "0.3", optional = true}
-serde = { version = "1.0.89", features = ["derive", "alloc"], default-features = false, optional = true }
+criterion = { version = "0.3", optional = true }
+serde = { version = "1.0.89", features = [
+  "derive",
+  "alloc",
+], default-features = false, optional = true }
 aes-gcm = "0.10.2"
 
 [dev-dependencies]
 rand = "0.8.3"
 iai = "0.1"
-
 
 [[bench]]
 name = "pool_benchmark"

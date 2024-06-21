@@ -10,7 +10,12 @@ repository = "https://github.com/stratum-mining/stratum"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-secp256k1 = { version = "0.28.2", default-features = false, features =["hashes", "alloc","rand","rand-std"] }
+secp256k1 = { version = "0.28.2", default-features = false, features = [
+  "hashes",
+  "alloc",
+  "rand",
+  "rand-std",
+] }
 
 #[dev-dependencies]
 #cbindgen = "0.16.0"

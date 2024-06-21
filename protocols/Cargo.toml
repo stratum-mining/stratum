@@ -13,24 +13,24 @@ keywords = ["stratum", "mining", "bitcoin", "protocol"]
 
 [workspace]
 
-resolver="2"
+resolver = "2"
 
 members = [
-    "v1",
-    "v2/binary-sv2/serde-sv2",
-    "v2/binary-sv2/no-serde-sv2/codec",
-    "v2/binary-sv2/no-serde-sv2/derive_codec",
-    "v2/binary-sv2/binary-sv2",
-    "v2/noise-sv2",
-    "v2/framing-sv2",
-    "v2/codec-sv2",
-    "v2/const-sv2",
-    "v2/subprotocols/common-messages",
-    "v2/subprotocols/template-distribution",
-    "v2/subprotocols/mining",
-    "v2/subprotocols/job-declaration",
-    "v2/sv2-ffi",
-    "v2/roles-logic-sv2",
+  "v1",
+  "v2/binary-sv2/serde-sv2",
+  "v2/binary-sv2/no-serde-sv2/codec",
+  "v2/binary-sv2/no-serde-sv2/derive_codec",
+  "v2/binary-sv2/binary-sv2",
+  "v2/noise-sv2",
+  "v2/framing-sv2",
+  "v2/codec-sv2",
+  "v2/const-sv2",
+  "v2/subprotocols/common-messages",
+  "v2/subprotocols/template-distribution",
+  "v2/subprotocols/mining",
+  "v2/subprotocols/job-declaration",
+  "v2/sv2-ffi",
+  "v2/roles-logic-sv2",
 ]
 
 [profile.dev]

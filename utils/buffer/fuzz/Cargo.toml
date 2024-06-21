@@ -12,7 +12,7 @@ cargo-fuzz = true
 libfuzzer-sys = { version = "0.4.0", features = ["arbitrary-derive"] }
 arbitrary = { version = "1", features = ["derive"] }
 rand = "0.8.3"
-buffer_sv2 = {version = "1.0.0", path = "..", features = ["fuzz"]}
+buffer_sv2 = { version = "1.0.0", path = "..", features = ["fuzz"] }
 affinity = "0.1.1"
 threadpool = "1.8.1"
 lazy_static = "1.4.0"

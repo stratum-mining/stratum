@@ -1,5 +1,5 @@
 [default]
-run-types = [ "Lib" ]
+run-types = ["Lib"]
 timeout = "120s"
 fail-under = 7
 

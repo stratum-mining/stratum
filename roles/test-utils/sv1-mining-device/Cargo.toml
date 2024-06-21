@@ -11,8 +11,13 @@ stratum-common = { path = "../../../common" }
 async-channel = "1.5.1"
 async-std = { version = "1.8.0", features = ["attributes"] }
 roles_logic_sv2 = { path = "../../../protocols/v2/roles-logic-sv2" }
-serde = { version = "1.0.89", default-features = false, features = ["derive", "alloc"] }
-serde_json = { version = "1.0.64", default-features = false, features = ["alloc"] }
-v1 = { path="../../../protocols/v1", package="sv1_api" }
+serde = { version = "1.0.89", default-features = false, features = [
+  "derive",
+  "alloc",
+] }
+serde_json = { version = "1.0.64", default-features = false, features = [
+  "alloc",
+] }
+v1 = { path = "../../../protocols/v1", package = "sv1_api" }
 num-bigint = "0.4.3"
 num-traits = "0.2.15"

@@ -36,12 +36,12 @@ tp_authority_pub_key = "9auqWEzQDVyd2oe1JVGFLMLHZtCo2FFqZwtKA5gd9xbuEu7PH72"
 # ! Right now only one output is supported, so comment all the ones you don't need !
 # For P2PK, P2PKH, P2WPKH, P2TR a BIP32 extended public key is needed 
 coinbase_outputs = [
-    #{ output_script_type = "P2PK", output_script_value = "vpub5XzEwP9YWe4cKKZAmbiBUxC7eL5HaZhbquBYzP3vDSDJJegb7CSCRphAPmwpGHzAyH1as9MRnXFWDcZozXA1K3sQqyKdTagooPfCVDhiwnr" },
-    #{ output_script_type = "P2PKH", output_script_value = "vpub5XzEwP9YWe4cKKZAmbiBUxC7eL5HaZhbquBYzP3vDSDJJegb7CSCRphAPmwpGHzAyH1as9MRnXFWDcZozXA1K3sQqyKdTagooPfCVDhiwnr" },
-    #{ output_script_type = "P2SH", output_script_value = "..." },
-    #{ output_script_type = "P2WSH", output_script_value = "..." },
-    { output_script_type = "P2WPKH", output_script_value = "036adc3bdf21e6f9a0f0fb0066bf517e5b7909ed1563d6958a10993849a7554075" },
-    #{ output_script_type = "P2TR", output_script_value = "vpub5XzEwP9YWe4cKKZAmbiBUxC7eL5HaZhbquBYzP3vDSDJJegb7CSCRphAPmwpGHzAyH1as9MRnXFWDcZozXA1K3sQqyKdTagooPfCVDhiwnr" },
+  #{ output_script_type = "P2PK", output_script_value = "vpub5XzEwP9YWe4cKKZAmbiBUxC7eL5HaZhbquBYzP3vDSDJJegb7CSCRphAPmwpGHzAyH1as9MRnXFWDcZozXA1K3sQqyKdTagooPfCVDhiwnr" },
+  #{ output_script_type = "P2PKH", output_script_value = "vpub5XzEwP9YWe4cKKZAmbiBUxC7eL5HaZhbquBYzP3vDSDJJegb7CSCRphAPmwpGHzAyH1as9MRnXFWDcZozXA1K3sQqyKdTagooPfCVDhiwnr" },
+  #{ output_script_type = "P2SH", output_script_value = "..." },
+  #{ output_script_type = "P2WSH", output_script_value = "..." },
+  { output_script_type = "P2WPKH", output_script_value = "036adc3bdf21e6f9a0f0fb0066bf517e5b7909ed1563d6958a10993849a7554075" },
+  #{ output_script_type = "P2TR", output_script_value = "vpub5XzEwP9YWe4cKKZAmbiBUxC7eL5HaZhbquBYzP3vDSDJJegb7CSCRphAPmwpGHzAyH1as9MRnXFWDcZozXA1K3sQqyKdTagooPfCVDhiwnr" },
 ]
 
 [timeout]
@@ -56,7 +56,7 @@ pool_address = "127.0.0.1:34254"
 jd_address = "127.0.0.1:34264"
 # Pool signature (string to be included in coinbase tx)
 pool_signature = "Stratum v2 SRI Pool"
- 
+
 # [[upstreams]]
 # authority_pubkey = "2di19GHYQnAZJmEpoUeP7C3Eg9TCcksHr23rZCC83dvUiZgiDL"
 # pool_address = "127.0.0.1:34254"

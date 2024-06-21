@@ -21,9 +21,9 @@ coinbase_reward_sat = 5_000_000_000
 # Difficulty params
 [downstream_difficulty_config]
 # hashes/s of the weakest miner that will be connecting
-min_individual_miner_hashrate=500_000.0
+min_individual_miner_hashrate = 500_000.0
 # minimum number of shares needed before a mining.set_difficulty is sent for updating targets
-miner_num_submits_before_update=5
+miner_num_submits_before_update = 5
 # target number of shares per minute the miner should be sending
 shares_per_minute = 60.0
 

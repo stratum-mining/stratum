@@ -15,10 +15,15 @@ byteorder = "1.2.7"
 pretty_env_logger = "0.4.0"
 log = "0.4.0"
 hex = "0.4.3"
-serde = { version = "1.0.89", default-features = false, features = ["derive", "alloc"] }
-serde_json = { version = "1.0.64", default-features = false, features = ["alloc"] }
-tracing = {version = "0.1"}
-binary_sv2 = { version = "^1.0.0", path = "../v2/binary-sv2/binary-sv2"}
+serde = { version = "1.0.89", default-features = false, features = [
+  "derive",
+  "alloc",
+] }
+serde_json = { version = "1.0.64", default-features = false, features = [
+  "alloc",
+] }
+tracing = { version = "0.1" }
+binary_sv2 = { version = "^1.0.0", path = "../v2/binary-sv2/binary-sv2" }
 
 [dev-dependencies]
 quickcheck = "1"

@@ -14,7 +14,7 @@ downstream_port = 34255
 
 # When testing we need to make sure that the tproxy is able to send valid solution to the TP, so we
 # force the tproxy to not set the solution to the pool so that only the tproxy can send it to the TP
-test_only_share_withhold=true
+test_only_share_withhold = true
 
 # Version support
 max_supported_version = 2
@@ -35,9 +35,9 @@ coinbase_reward_sat = 5_000_000_000
 # Difficulty params
 [downstream_difficulty_config]
 # hashes/s of the weakest miner that will be connecting
-min_individual_miner_hashrate=100.0
+min_individual_miner_hashrate = 100.0
 # minimum number of shares needed before a mining.set_difficulty is sent for updating targets
-miner_num_submits_before_update=5
+miner_num_submits_before_update = 5
 # target number of shares per minute the miner should be sending
 shares_per_minute = 100.0
 

@@ -1,6 +1,6 @@
 [default]
 features = "with_buffer_pool async_std tokio with_tokio default"
-run-types = [ "Lib" ]
+run-types = ["Lib"]
 timeout = "120s"
 fail-under = 20
 

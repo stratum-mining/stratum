@@ -8,9 +8,17 @@ license = "MIT OR Apache-2.0"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-stratum-common = { version = "1.0.0", path = "../../../common", features=["bitcoin"] }
-serde = { version = "1.0.89", features = ["derive", "alloc"], default-features = false }
-serde_json = { version = "1.0", default-features = false, features = ["alloc","raw_value"] }
+stratum-common = { version = "1.0.0", path = "../../../common", features = [
+  "bitcoin",
+] }
+serde = { version = "1.0.89", features = [
+  "derive",
+  "alloc",
+], default-features = false }
+serde_json = { version = "1.0", default-features = false, features = [
+  "alloc",
+  "raw_value",
+] }
 hex = "0.4.3"
 base64 = "0.21.5"
 hyper = { version = "1.1.0", features = ["full"] }

@@ -10,8 +10,8 @@ repository = "https://github.com/stratum-mining/stratum"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-quickcheck = {version = "1.0.0", optional = true}
-buffer_sv2 = { version = "^1.0.0", path = "../../../../../utils/buffer", optional=true}
+quickcheck = { version = "1.0.0", optional = true }
+buffer_sv2 = { version = "^1.0.0", path = "../../../../../utils/buffer", optional = true }
 
 [features]
 no_std = []

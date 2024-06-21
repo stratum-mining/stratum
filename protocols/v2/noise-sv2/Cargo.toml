@@ -8,12 +8,20 @@ license = "MIT"
 repository = "https://github.com/stratum-mining/stratum"
 
 [dependencies]
-secp256k1 = { version = "0.28.2", default-features = false, features =["hashes", "alloc","rand","rand-std"] }
-rand = {version = "0.8.5", default-features = false, features = ["std","std_rng"] }
+secp256k1 = { version = "0.28.2", default-features = false, features = [
+  "hashes",
+  "alloc",
+  "rand",
+  "rand-std",
+] }
+rand = { version = "0.8.5", default-features = false, features = [
+  "std",
+  "std_rng",
+] }
 aes-gcm = "0.10.2"
 chacha20poly1305 = "0.10.1"
 rand_chacha = "0.3.1"
-const_sv2 = { version = "^1.0.0", path = "../../../protocols/v2/const-sv2"}
+const_sv2 = { version = "^1.0.0", path = "../../../protocols/v2/const-sv2" }
 
 [dev-dependencies]
 quickcheck = "1.0.3"

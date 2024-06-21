@@ -8,14 +8,18 @@ publish = false
 
 [dependencies]
 stratum-common = { version = "1.0.0", path = "../../../common" }
-codec_sv2 = { version = "^1.0.1", path = "../../../protocols/v2/codec-sv2", features=["noise_sv2"] }
+codec_sv2 = { version = "^1.0.1", path = "../../../protocols/v2/codec-sv2", features = [
+  "noise_sv2",
+] }
 roles_logic_sv2 = { version = "1.0.0", path = "../../../protocols/v2/roles-logic-sv2" }
 const_sv2 = { version = "1.0.0", path = "../../../protocols/v2/const-sv2" }
 async-channel = "1.5.1"
-async-std={version = "1.8.0", features = ["attributes"]}
+async-std = { version = "1.8.0", features = ["attributes"] }
 binary_sv2 = { version = "1.0.0", path = "../../../protocols/v2/binary-sv2/binary-sv2" }
-network_helpers_sv2 = { version = "2.0.0", path = "../../roles-utils/network-helpers", features=["async_std"] }
-buffer_sv2 = { version = "1.0.0", path = "../../../utils/buffer"}
+network_helpers_sv2 = { version = "2.0.0", path = "../../roles-utils/network-helpers", features = [
+  "async_std",
+] }
+buffer_sv2 = { version = "1.0.0", path = "../../../utils/buffer" }
 async-recursion = "0.3.2"
 rand = "0.8.4"
 futures = "0.3.5"

@@ -15,13 +15,21 @@ stratum-common = { version = "1.0.0", path = "../../common" }
 async-channel = "1.5.1"
 binary_sv2 = { version = "^1.0.0", path = "../../protocols/v2/binary-sv2/binary-sv2" }
 buffer_sv2 = { version = "^1.0.0", path = "../../utils/buffer" }
-codec_sv2 = { version = "^1.0.1", path = "../../protocols/v2/codec-sv2", features = ["noise_sv2"] }
+codec_sv2 = { version = "^1.0.1", path = "../../protocols/v2/codec-sv2", features = [
+  "noise_sv2",
+] }
 const_sv2 = { version = "^1.0.0", path = "../../protocols/v2/const-sv2" }
-network_helpers_sv2 = { version = "2.0.0", path = "../roles-utils/network-helpers", features =["with_tokio","with_buffer_pool"] }
+network_helpers_sv2 = { version = "2.0.0", path = "../roles-utils/network-helpers", features = [
+  "with_tokio",
+  "with_buffer_pool",
+] }
 noise_sv2 = { version = "1.1.0", path = "../../protocols/v2/noise-sv2" }
 rand = "0.8.4"
 roles_logic_sv2 = { version = "^1.0.0", path = "../../protocols/v2/roles-logic-sv2" }
-serde = { version = "1.0.89", features = ["derive", "alloc"], default-features = false }
+serde = { version = "1.0.89", features = [
+  "derive",
+  "alloc",
+], default-features = false }
 tokio = { version = "1", features = ["full"] }
 toml = { version = "0.5.6", git = "https://github.com/diondokter/toml-rs", default-features = false, rev = "c4161aa" }
 tracing = { version = "0.1" }

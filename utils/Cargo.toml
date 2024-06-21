@@ -12,15 +12,8 @@ license-file = "LICENSE.md"
 keywords = ["stratum", "mining", "bitcoin", "protocol"]
 
 [workspace]
-resolver="2"
+resolver = "2"
 
-members = [
-    "buffer",
-    "error-handling",
-    "key-utils",
-    "bip32-key-derivation",
-]
+members = ["buffer", "error-handling", "key-utils", "bip32-key-derivation"]
 
-exclude = [
-    "message-generator",
-]
+exclude = ["message-generator"]

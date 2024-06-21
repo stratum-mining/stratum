@@ -4,11 +4,11 @@ listen_jd_address = "127.0.0.1:44264"
 authority_public_key = "9auqWEzQDVyd2oe1JVGFLMLHZtCo2FFqZwtKA5gd9xbuEu7PH72"
 authority_secret_key = "mkDLTBBRxdBv998612qipDYoTK3YUrqLe8uWw7gu3iXbSrn2n"
 cert_validity_sec = 3600
-test_only_listen_adress_plain =  "0.0.0.0:34250"
+test_only_listen_adress_plain = "0.0.0.0:34250"
 # list of coinbase outputs used to build the coinbase tx
 # ! right now only one output is supported, so comment all the ones you don't need !
 coinbase_outputs = [
-    { output_script_type = "P2WPKH", output_script_value = "036adc3bdf21e6f9a0f0fb0066bf517e5b7909ed1563d6958a10993849a7554075" },
+  { output_script_type = "P2WPKH", output_script_value = "036adc3bdf21e6f9a0f0fb0066bf517e5b7909ed1563d6958a10993849a7554075" },
 ]
 # Pool signature (string to be included in coinbase tx)
 pool_signature = "Stratum v2 SRI Pool"

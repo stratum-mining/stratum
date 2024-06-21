@@ -10,11 +10,14 @@ repository = "https://github.com/stratum-mining/stratum"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-serde_sv2 = {version = "^1.0.0", path = "../serde-sv2", optional = true}
-serde = { version = "1.0.89", features = ["derive", "alloc"], default-features = false, optional = true }
-binary_codec_sv2 = {version = "^1.0.0", path = "../no-serde-sv2/codec", optional = true}
-derive_codec_sv2 = {version = "^1.0.0", path = "../no-serde-sv2/derive_codec", optional = true}
-tracing = {version = "0.1"}
+serde_sv2 = { version = "^1.0.0", path = "../serde-sv2", optional = true }
+serde = { version = "1.0.89", features = [
+  "derive",
+  "alloc",
+], default-features = false, optional = true }
+binary_codec_sv2 = { version = "^1.0.0", path = "../no-serde-sv2/codec", optional = true }
+derive_codec_sv2 = { version = "^1.0.0", path = "../no-serde-sv2/derive_codec", optional = true }
+tracing = { version = "0.1" }
 
 [features]
 default = ["core"]

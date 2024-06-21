@@ -23,5 +23,8 @@ quickcheck_macros = "1"
 
 [features]
 with_serde = []
-prop_test = ["binary_sv2/prop_test", "common_messages_sv2/prop_test", "template_distribution_sv2/prop_test"]
-
+prop_test = [
+  "binary_sv2/prop_test",
+  "common_messages_sv2/prop_test",
+  "template_distribution_sv2/prop_test",
+]

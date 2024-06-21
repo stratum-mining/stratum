@@ -1,6 +1,6 @@
 [default]
 features = "disable_nopanic prop_test noise_sv2 with_buffer_pool derive_codec_sv2 binary_codec_sv2 default core"
-run-types = [ "Lib" ]
+run-types = ["Lib"]
 timeout = "120s"
 fail-under = 20
 

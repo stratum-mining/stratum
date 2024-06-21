@@ -15,7 +15,9 @@ name = "bip32_derivation-bin"
 path = "src/main.rs"
 
 [dependencies]
-stratum-common = { version="1.0.0", path = "../../common", features=["bitcoin"]}
+stratum-common = { version = "1.0.0", path = "../../common", features = [
+  "bitcoin",
+] }
 slip132 = "0.10"
 
 [dev-dependencies]
