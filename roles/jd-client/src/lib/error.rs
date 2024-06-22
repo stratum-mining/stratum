@@ -40,8 +40,8 @@ pub enum JdcError<'a> {
     /// Errors on bad `String` to `int` conversion.
     ParseInt(std::num::ParseIntError),
     /// Errors from `roles_logic_sv2` crate.
-    RolesSv2Logic(roles_logic_sv2::errors::Error),
-    UpstreamIncoming(roles_logic_sv2::errors::Error),
+    RolesLogicSv2(roles_logic_sv2::Error),
+    UpstreamIncoming(roles_logic_sv2::Error),
     #[allow(dead_code)]
     SubprotocolMining(String),
     // Locking Errors
@@ -65,7 +65,7 @@ impl<'a> fmt::Display for JdcError<'a> {
             FramingSv2(ref e) => write!(f, "Framing SV2 error: `{:?}`", e),
             Io(ref e) => write!(f, "I/O error: `{:?}", e),
             ParseInt(ref e) => write!(f, "Bad convert from `String` to `int`: `{:?}`", e),
-            RolesSv2Logic(ref e) => write!(f, "Roles SV2 Logic Error: `{:?}`", e),
+            RolesLogicSv2(ref e) => write!(f, "Roles SV2 Logic Error: `{:?}`", e),
             SubprotocolMining(ref e) => write!(f, "Subprotocol Mining Error: `{:?}`", e),
             UpstreamIncoming(ref e) => write!(f, "Upstream parse incoming error: `{:?}`", e),
             PoisonLock => write!(f, "Poison Lock error"),
@@ -115,9 +115,9 @@ impl<'a> From<std::num::ParseIntError> for JdcError<'a> {
     }
 }
 
-impl<'a> From<roles_logic_sv2::errors::Error> for JdcError<'a> {
-    fn from(e: roles_logic_sv2::errors::Error) -> Self {
-        JdcError::RolesSv2Logic(e)
+impl<'a> From<roles_logic_sv2::Error> for JdcError<'a> {
+    fn from(e: roles_logic_sv2::Error) -> Self {
+        JdcError::RolesLogicSv2(e)
     }
 }
 

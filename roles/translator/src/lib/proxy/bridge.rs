@@ -17,7 +17,7 @@ use crate::{
     proxy, status, upstream_sv2, TProxyError, TProxyResult,
 };
 use error_handling::handle_result;
-use roles_logic_sv2::{channel_logic::channel_factory::OnNewShare, Error as RolesLogicError};
+use roles_logic_sv2::{channel_logic::channel_factory::OnNewShare, Error as RolesLogicSv2Error};
 use tracing::{debug, error, info};
 
 /// Bridge between the SV2 `Upstream` and SV1 `Downstream` responsible for the following messaging
@@ -276,7 +276,7 @@ impl Bridge {
         let last_version = self
             .channel_factory
             .last_valid_job_version()
-            .ok_or(TProxyError::RolesSv2Logic(RolesLogicError::NoValidJob))?;
+            .ok_or(TProxyError::RolesLogicSv2(RolesLogicSv2Error::NoValidJob))?;
         let version = match (sv1_submit.version_bits, version_rolling_mask) {
             // regarding version masking see https://github.com/slushpool/stratumprotocol/blob/master/stratum-extensions.mediawiki#changes-in-request-miningsubmit
             (Some(vb), Some(mask)) => (last_version & !mask.0) | (vb.0 & mask.0),
@@ -422,8 +422,8 @@ impl Bridge {
                 .map_err(|_| TProxyError::PoisonLock)?;
 
             // last_p_hash is an Option<SetNewPrevHash> so we need to map to the correct error type to be handled
-            let last_p_hash = last_p_hash_option.ok_or(TProxyError::RolesSv2Logic(
-                RolesLogicError::JobIsNotFutureButPrevHashNotPresent,
+            let last_p_hash = last_p_hash_option.ok_or(TProxyError::RolesLogicSv2(
+                RolesLogicSv2Error::JobIsNotFutureButPrevHashNotPresent,
             ))?;
 
             let j_id = sv2_new_extended_mining_job.job_id;

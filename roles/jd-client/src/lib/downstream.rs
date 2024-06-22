@@ -7,7 +7,6 @@ use roles_logic_sv2::{
     channel_logic::channel_factory::{OnNewShare, PoolChannelFactory, Share},
     common_messages_sv2::{SetupConnection, SetupConnectionSuccess},
     common_properties::{CommonDownstreamData, IsDownstream, IsMiningDownstream},
-    errors::Error,
     handlers::{
         common::{ParseDownstreamCommonMessages, SendTo as SendToCommon},
         mining::{ParseDownstreamMiningMessages, SendTo, SupportedChannelTypes},
@@ -17,6 +16,7 @@ use roles_logic_sv2::{
     parsers::{Mining, MiningDeviceMessages, PoolMessages},
     template_distribution_sv2::{NewTemplate, SubmitSolution},
     utils::Mutex,
+    Error as RolesLogicSv2Error,
 };
 use tracing::{debug, error, info, warn};
 
@@ -210,7 +210,7 @@ impl DownstreamMiningNode {
                 Self::next(self_mutex, incoming).await;
             }
             let tx_status = self_mutex.safe_lock(|s| s.tx_status.clone()).unwrap();
-            let err = Error::DownstreamDown;
+            let err = RolesLogicSv2Error::DownstreamDown;
             let status = status::Status {
                 state: status::State::DownstreamShutdown(err.into()),
             };
@@ -268,7 +268,7 @@ impl DownstreamMiningNode {
     #[async_recursion::async_recursion]
     async fn match_send_to(
         self_mutex: Arc<Mutex<Self>>,
-        next_message_to_send: Result<SendTo<UpstreamMiningNode>, Error>,
+        next_message_to_send: Result<SendTo<UpstreamMiningNode>, RolesLogicSv2Error>,
         incoming: Option<StdFrame>,
     ) {
         match next_message_to_send {
@@ -354,7 +354,7 @@ impl DownstreamMiningNode {
         self_mutex: &Arc<Mutex<Self>>,
         mut new_template: NewTemplate<'static>,
         pool_output: &[u8],
-    ) -> Result<(), Error> {
+    ) -> Result<(), RolesLogicSv2Error> {
         if !self_mutex.safe_lock(|s| s.status.have_channel()).unwrap() {
             IS_NEW_TEMPLATE_HANDLED.store(true, std::sync::atomic::Ordering::Release);
             return Ok(());
@@ -398,7 +398,7 @@ impl DownstreamMiningNode {
     pub async fn on_set_new_prev_hash(
         self_mutex: &Arc<Mutex<Self>>,
         new_prev_hash: roles_logic_sv2::template_distribution_sv2::SetNewPrevHash<'static>,
-    ) -> Result<(), Error> {
+    ) -> Result<(), RolesLogicSv2Error> {
         if !self_mutex.safe_lock(|s| s.status.have_channel()).unwrap() {
             return Ok(());
         }
@@ -451,7 +451,7 @@ impl
         &mut self,
         _: OpenStandardMiningChannel,
         _: Option<Arc<Mutex<UpstreamMiningNode>>>,
-    ) -> Result<SendTo<UpstreamMiningNode>, Error> {
+    ) -> Result<SendTo<UpstreamMiningNode>, RolesLogicSv2Error> {
         warn!("Ignoring OpenStandardMiningChannel");
         Ok(SendTo::None(None))
     }
@@ -459,7 +459,7 @@ impl
     fn handle_open_extended_mining_channel(
         &mut self,
         m: OpenExtendedMiningChannel,
-    ) -> Result<SendTo<UpstreamMiningNode>, Error> {
+    ) -> Result<SendTo<UpstreamMiningNode>, RolesLogicSv2Error> {
         if !self.status.is_solo_miner() {
             // Safe unwrap alreay checked if it cointains upstream with is_solo_miner
             Ok(SendTo::RelaySameMessageToRemote(
@@ -506,7 +506,7 @@ impl
                     let messages = messages.into_iter().map(SendTo::Respond).collect();
                     Ok(SendTo::Multiple(messages))
                 }
-                Err(_) => Err(roles_logic_sv2::Error::ChannelIsNeitherExtendedNeitherInAPool),
+                Err(_) => Err(RolesLogicSv2Error::ChannelIsNeitherExtendedNeitherInAPool),
             }
         }
     }
@@ -514,7 +514,7 @@ impl
     fn handle_update_channel(
         &mut self,
         _: UpdateChannel,
-    ) -> Result<SendTo<UpstreamMiningNode>, Error> {
+    ) -> Result<SendTo<UpstreamMiningNode>, RolesLogicSv2Error> {
         if !self.status.is_solo_miner() {
             // Safe unwrap alreay checked if it cointains upstream with is_solo_miner
             Ok(SendTo::RelaySameMessageToRemote(
@@ -528,7 +528,7 @@ impl
     fn handle_submit_shares_standard(
         &mut self,
         _: SubmitSharesStandard,
-    ) -> Result<SendTo<UpstreamMiningNode>, Error> {
+    ) -> Result<SendTo<UpstreamMiningNode>, RolesLogicSv2Error> {
         warn!("Ignoring SubmitSharesStandard");
         Ok(SendTo::None(None))
     }
@@ -536,7 +536,7 @@ impl
     fn handle_submit_shares_extended(
         &mut self,
         m: SubmitSharesExtended,
-    ) -> Result<SendTo<UpstreamMiningNode>, Error> {
+    ) -> Result<SendTo<UpstreamMiningNode>, RolesLogicSv2Error> {
         match self
             .status
             .get_channel()
@@ -617,7 +617,7 @@ impl
     fn handle_set_custom_mining_job(
         &mut self,
         _: SetCustomMiningJob,
-    ) -> Result<SendTo<UpstreamMiningNode>, Error> {
+    ) -> Result<SendTo<UpstreamMiningNode>, RolesLogicSv2Error> {
         warn!("Ignoring SetCustomMiningJob");
         Ok(SendTo::None(None))
     }
@@ -629,8 +629,8 @@ impl ParseDownstreamCommonMessages<roles_logic_sv2::routing_logic::NoRouting>
     fn handle_setup_connection(
         &mut self,
         _: SetupConnection,
-        _: Option<Result<(CommonDownstreamData, SetupConnectionSuccess), Error>>,
-    ) -> Result<roles_logic_sv2::handlers::common::SendTo, Error> {
+        _: Option<Result<(CommonDownstreamData, SetupConnectionSuccess), RolesLogicSv2Error>>,
+    ) -> Result<roles_logic_sv2::handlers::common::SendTo, RolesLogicSv2Error> {
         let response = SetupConnectionSuccess {
             used_version: 2,
             // require extended channels
@@ -668,7 +668,7 @@ pub async fn listen_for_downstream_mining(
     tx_status: status::Sender,
     miner_coinbase_output: Vec<TxOut>,
     jd: Option<Arc<Mutex<JobDeclarator>>>,
-) -> Result<Arc<Mutex<DownstreamMiningNode>>, Error> {
+) -> Result<Arc<Mutex<DownstreamMiningNode>>, RolesLogicSv2Error> {
     info!("Listening for downstream mining connections on {}", address);
     let listner = TcpListener::bind(address).await.unwrap();
 

@@ -9,7 +9,6 @@ use nohash_hasher::BuildNoHashHasher;
 use roles_logic_sv2::{
     channel_logic::channel_factory::PoolChannelFactory,
     common_properties::{CommonDownstreamData, IsDownstream, IsMiningDownstream},
-    errors::Error,
     handlers::mining::{ParseDownstreamMiningMessages, SendTo},
     job_creator::JobsCreators,
     mining_sv2::{ExtendedExtranonce, SetNewPrevHash as SetNPH},
@@ -17,6 +16,7 @@ use roles_logic_sv2::{
     routing_logic::MiningRoutingLogic,
     template_distribution_sv2::{NewTemplate, SetNewPrevHash, SubmitSolution},
     utils::{CoinbaseOutput as CoinbaseOutput_, Mutex},
+    Error as RolesLogicSv2Error,
 };
 use serde::Deserialize;
 use std::{
@@ -44,7 +44,7 @@ pub struct CoinbaseOutput {
 }
 
 impl TryFrom<&CoinbaseOutput> for CoinbaseOutput_ {
-    type Error = Error;
+    type Error = RolesLogicSv2Error;
 
     fn try_from(pool_output: &CoinbaseOutput) -> Result<Self, Self::Error> {
         match pool_output.output_script_type.as_str() {
@@ -54,7 +54,7 @@ impl TryFrom<&CoinbaseOutput> for CoinbaseOutput_ {
                     output_script_value: pool_output.clone().output_script_value,
                 })
             }
-            _ => Err(Error::UnknownOutputScriptType),
+            _ => Err(RolesLogicSv2Error::UnknownOutputScriptType),
         }
     }
 }
@@ -198,7 +198,7 @@ impl Downstream {
     #[async_recursion::async_recursion]
     async fn match_send_to(
         self_: Arc<Mutex<Self>>,
-        send_to: Result<SendTo<()>, Error>,
+        send_to: Result<SendTo<()>, RolesLogicSv2Error>,
     ) -> PoolResult<()> {
         match send_to {
             Ok(SendTo::Respond(message)) => {
@@ -209,7 +209,7 @@ impl Downstream {
                     Self::send(self_.clone(), message.clone()).await?;
                     let downstream_id = self_
                         .safe_lock(|d| d.id)
-                        .map_err(|e| Error::PoisonLock(e.to_string()))?;
+                        .map_err(|e| RolesLogicSv2Error::PoisonLock(e.to_string()))?;
                     return Err(PoolError::Sv2ProtocolError((
                         downstream_id,
                         message.clone(),
@@ -230,7 +230,7 @@ impl Downstream {
                 error!("Unexpected SendTo: {:?}", m);
                 panic!();
             }
-            Err(Error::UnexpectedMessage(_message_type)) => todo!(),
+            Err(RolesLogicSv2Error::UnexpectedMessage(_message_type)) => todo!(),
             Err(e) => {
                 error!("Error: {:?}", e);
                 todo!()

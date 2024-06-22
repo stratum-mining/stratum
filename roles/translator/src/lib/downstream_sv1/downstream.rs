@@ -375,7 +375,7 @@ impl Downstream {
     async fn handle_incoming_sv1(
         self_: Arc<Mutex<Self>>,
         message_sv1: json_rpc::Message,
-    ) -> Result<(), TProxyError<'static>> {
+    ) -> TProxyResult<'static, ()> {
         // `handle_message` in `IsServer` trait + calls `handle_request`
         // TODO: Map err from V1Error to Error::V1Error
         let response = self_.safe_lock(|s| s.handle_message(message_sv1)).unwrap();

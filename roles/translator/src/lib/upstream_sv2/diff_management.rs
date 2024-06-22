@@ -4,7 +4,7 @@ use crate::{
 };
 use binary_sv2::u256_from_int;
 use roles_logic_sv2::{
-    mining_sv2::UpdateChannel, parsers::Mining, utils::Mutex, Error as RolesLogicError,
+    mining_sv2::UpdateChannel, parsers::Mining, utils::Mutex, Error as RolesLogicSv2Error,
 };
 use std::{sync::Arc, time::Duration};
 
@@ -20,8 +20,8 @@ impl Upstream {
                 )
             })
             .map_err(|_e| TProxyError::PoisonLock)?;
-        let channel_id = channel_id_option.ok_or(TProxyError::RolesSv2Logic(
-            RolesLogicError::NotFoundChannelId,
+        let channel_id = channel_id_option.ok_or(TProxyError::RolesLogicSv2(
+            RolesLogicSv2Error::NotFoundChannelId,
         ))?;
         let (timeout, new_hashrate) = diff_mgmt
             .safe_lock(|d| (d.channel_diff_update_interval, d.channel_nominal_hashrate))

@@ -140,7 +140,7 @@ pub async fn handle_error(sender: &Sender, e: TProxyError<'static>) -> error_han
             send_status(sender, e, error_handling::ErrorBranch::Break).await
         }
         // Errors from `roles_logic_sv2` crate.
-        TProxyError::RolesSv2Logic(_) => {
+        TProxyError::RolesLogicSv2(_) => {
             send_status(sender, e, error_handling::ErrorBranch::Break).await
         }
         TProxyError::UpstreamIncoming(_) => {

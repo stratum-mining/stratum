@@ -105,7 +105,7 @@ pub async fn handle_error(sender: &Sender, e: JdcError<'static>) -> error_handli
         // Errors on bad `String` to `int` conversion.
         JdcError::ParseInt(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
         // Errors from `roles_logic_sv2` crate.
-        JdcError::RolesSv2Logic(_) => {
+        JdcError::RolesLogicSv2(_) => {
             send_status(sender, e, error_handling::ErrorBranch::Break).await
         }
         JdcError::UpstreamIncoming(_) => {
