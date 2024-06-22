@@ -1,4 +1,4 @@
-use crate::lib::{error::PoolResult, pool_config::PoolConfig};
+use crate::{PoolConfig, PoolResult};
 
 use clap::Parser;
 

@@ -1,6 +1,5 @@
+use crate::PoolError;
 use roles_logic_sv2::parsers::Mining;
-
-use super::error::PoolError;
 
 /// Each sending side of the status channel
 /// should be wrapped with this enum to allow

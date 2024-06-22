@@ -6,6 +6,7 @@ mod args;
 mod lib;
 use lib::{
     mining_pool::Pool, pool_config::get_coinbase_output, status, template_receiver::TemplateRx,
+    PoolConfig, PoolError, PoolResult,
 };
 
 use tokio::select;
