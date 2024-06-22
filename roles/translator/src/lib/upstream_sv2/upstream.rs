@@ -1,9 +1,6 @@
+use super::super::{TProxyChannelSendError, TProxyError, TProxyResult};
 use crate::{
     downstream_sv1::Downstream,
-    error::{
-        TProxyError::{CodecNoise, InvalidExtranonce, PoisonLock, UpstreamIncoming},
-        TProxyResult,
-    },
     status,
     tproxy_config::UpstreamDifficultyConfig,
     upstream_sv2::{EitherFrame, Message, StdFrame, UpstreamConnection},
@@ -184,7 +181,7 @@ impl Upstream {
         let setup_connection = Self::get_setup_connection_message(min_version, max_version, false)?;
         let mut connection = self_
             .safe_lock(|s| s.connection.clone())
-            .map_err(|_e| PoisonLock)?;
+            .map_err(|_e| TProxyError::PoisonLock)?;
 
         // Put the `SetupConnection` message in a `StdFrame` to be sent over the wire
         let sv2_frame: StdFrame = Message::Common(setup_connection.into()).try_into()?;
@@ -198,7 +195,7 @@ impl Upstream {
             Ok(frame) => frame.try_into()?,
             Err(e) => {
                 error!("Upstream connection closed: {}", e);
-                return Err(CodecNoise(
+                return Err(TProxyError::CodecNoise(
                     codec_sv2::noise_sv2::Error::ExpectedIncomingHandshakeMessage,
                 ));
             }
@@ -227,9 +224,9 @@ impl Upstream {
             .safe_lock(|u| {
                 u.difficulty_config
                     .safe_lock(|c| c.channel_nominal_hashrate)
-                    .map_err(|_e| PoisonLock)
+                    .map_err(|_e| TProxyError::PoisonLock)
             })
-            .map_err(|_e| PoisonLock)??;
+            .map_err(|_e| TProxyError::PoisonLock)??;
         let user_identity = "ABC".to_string().try_into()?;
         let open_channel = Mining::OpenExtendedMiningChannel(OpenExtendedMiningChannel {
             request_id: 0, // TODO
@@ -244,9 +241,9 @@ impl Upstream {
             .safe_lock(|u| {
                 u.difficulty_config
                     .safe_lock(|d| d.channel_nominal_hashrate = 0.0)
-                    .map_err(|_e| PoisonLock)
+                    .map_err(|_e| TProxyError::PoisonLock)
             })
-            .map_err(|_e| PoisonLock)??;
+            .map_err(|_e| TProxyError::PoisonLock)??;
 
         let sv2_frame: StdFrame = Message::Mining(open_channel).try_into()?;
         connection.send(sv2_frame).await?;
@@ -277,7 +274,7 @@ impl Upstream {
                     s.tx_status.clone(),
                 )
             })
-            .map_err(|_| PoisonLock)?;
+            .map_err(|_| TProxyError::PoisonLock)?;
         {
             let self_ = self_.clone();
             let tx_status = tx_status.clone();
@@ -297,12 +294,9 @@ impl Upstream {
                 let mut incoming: StdFrame = handle_result!(tx_status, incoming.try_into());
                 // On message receive, get the message type from the message header and get the
                 // message payload
-                let message_type =
-                    incoming
-                        .get_header()
-                        .ok_or(super::super::error::TProxyError::FramingSv2(
-                            framing_sv2::Error::ExpectedSv2Frame,
-                        ));
+                let message_type = incoming.get_header().ok_or(TProxyError::FramingSv2(
+                    framing_sv2::Error::ExpectedSv2Frame,
+                ));
 
                 let message_type = handle_result!(tx_status, message_type).msg_type();
 
@@ -337,9 +331,9 @@ impl Upstream {
                         handle_result!(
                             tx_status,
                             tx_frame.send(frame).await.map_err(|e| {
-                                super::super::error::TProxyError::ChannelErrorSender(
-                                    super::super::error::ChannelSendError::General(e.to_string()),
-                                )
+                                TProxyError::ChannelErrorSender(TProxyChannelSendError::General(
+                                    e.to_string(),
+                                ))
                             })
                         );
                     }
@@ -354,7 +348,7 @@ impl Upstream {
                                         u.upstream_extranonce1_size = prefix_len;
                                         u.min_extranonce_size as usize
                                     })
-                                    .map_err(|_e| PoisonLock);
+                                    .map_err(|_e| TProxyError::PoisonLock);
                                 let miner_extranonce2_size =
                                     handle_result!(tx_status, miner_extranonce2_size);
                                 let extranonce_prefix: Extranonce = m.extranonce_prefix.into();
@@ -374,7 +368,7 @@ impl Upstream {
                                     ..prefix_len + m.extranonce_size as usize; // extranonce2
                                 let extended = handle_result!(tx_status, ExtendedExtranonce::from_upstream_extranonce(
                                     extranonce_prefix.clone(), range_0.clone(), range_1.clone(), range_2.clone(),
-                                ).ok_or_else(|| InvalidExtranonce(format!("Impossible to create a valid extended extranonce from {:?} {:?} {:?} {:?}",
+                                ).ok_or_else(|| TProxyError::InvalidExtranonce(format!("Impossible to create a valid extended extranonce from {:?} {:?} {:?} {:?}",
                                     extranonce_prefix,range_0,range_1,range_2))));
                                 handle_result!(
                                     tx_status,
@@ -387,7 +381,7 @@ impl Upstream {
                                     .safe_lock(|s| {
                                         let _ = s.job_id.insert(job_id);
                                     })
-                                    .map_err(|_e| PoisonLock);
+                                    .map_err(|_e| TProxyError::PoisonLock);
                                 handle_result!(tx_status, res);
                                 handle_result!(tx_status, tx_sv2_new_ext_mining_job.send(m).await);
                             }
@@ -418,7 +412,9 @@ impl Upstream {
                     Ok(_) => panic!(),
                     Err(e) => {
                         let status = status::Status {
-                            state: status::State::UpstreamShutdown(UpstreamIncoming(e)),
+                            state: status::State::UpstreamShutdown(TProxyError::UpstreamIncoming(
+                                e,
+                            )),
                         };
                         error!(
                             "TERMINATING: Error handling pool role message: {:?}",
@@ -439,25 +435,19 @@ impl Upstream {
     #[allow(clippy::result_large_err)]
     fn get_job_id(
         self_: &Arc<Mutex<Self>>,
-    ) -> Result<
-        Result<u32, super::super::error::TProxyError<'static>>,
-        super::super::error::TProxyError<'static>,
-    > {
+    ) -> Result<Result<u32, TProxyError<'static>>, TProxyError<'static>> {
         self_
             .safe_lock(|s| {
                 if s.is_work_selection_enabled() {
-                    s.last_job_id
-                        .ok_or(super::super::error::TProxyError::RolesSv2Logic(
-                            RolesLogicError::NoValidTranslatorJob,
-                        ))
+                    s.last_job_id.ok_or(TProxyError::RolesSv2Logic(
+                        RolesLogicError::NoValidTranslatorJob,
+                    ))
                 } else {
                     s.job_id
-                        .ok_or(super::super::error::TProxyError::RolesSv2Logic(
-                            RolesLogicError::NoValidJob,
-                        ))
+                        .ok_or(TProxyError::RolesSv2Logic(RolesLogicError::NoValidJob))
                 }
             })
-            .map_err(|_e| PoisonLock)
+            .map_err(|_e| TProxyError::PoisonLock)
     }
 
     #[allow(clippy::result_large_err)]
@@ -471,7 +461,7 @@ impl Upstream {
                     s.tx_status.clone(),
                 )
             })
-            .map_err(|_| PoisonLock)?;
+            .map_err(|_| TProxyError::PoisonLock)?;
 
         task::spawn(async move {
             loop {
@@ -480,12 +470,11 @@ impl Upstream {
 
                 let channel_id = self_
                     .safe_lock(|s| {
-                        s.channel_id
-                            .ok_or(super::super::error::TProxyError::RolesSv2Logic(
-                                RolesLogicError::NotFoundChannelId,
-                            ))
+                        s.channel_id.ok_or(TProxyError::RolesSv2Logic(
+                            RolesLogicError::NotFoundChannelId,
+                        ))
                     })
-                    .map_err(|_e| PoisonLock);
+                    .map_err(|_e| TProxyError::PoisonLock);
                 sv2_submit.channel_id =
                     handle_result!(tx_status, handle_result!(tx_status, channel_id));
                 let job_id = Self::get_job_id(&self_);
@@ -502,9 +491,9 @@ impl Upstream {
                 handle_result!(
                     tx_status,
                     tx_frame.send(frame).await.map_err(|e| {
-                        super::super::error::TProxyError::ChannelErrorSender(
-                            super::super::error::ChannelSendError::General(e.to_string()),
-                        )
+                        TProxyError::ChannelErrorSender(TProxyChannelSendError::General(
+                            e.to_string(),
+                        ))
                     })
                 );
             }

@@ -1,7 +1,6 @@
+use super::super::{TProxyError, TProxyResult};
 use crate::{
-    downstream_sv1,
-    error::TProxyResult,
-    status,
+    downstream_sv1, status,
     tproxy_config::{DownstreamDifficultyConfig, UpstreamDifficultyConfig},
 };
 use async_channel::{bounded, Receiver, Sender};
@@ -22,7 +21,6 @@ use roles_logic_sv2::{
     utils::Mutex,
 };
 
-use crate::error::TProxyError;
 use futures::select;
 use tokio_util::codec::{FramedRead, LinesCodec};
 
@@ -375,7 +373,7 @@ impl Downstream {
     async fn handle_incoming_sv1(
         self_: Arc<Mutex<Self>>,
         message_sv1: json_rpc::Message,
-    ) -> Result<(), super::super::error::TProxyError<'static>> {
+    ) -> Result<(), TProxyError<'static>> {
         // `handle_message` in `IsServer` trait + calls `handle_request`
         // TODO: Map err from V1Error to Error::V1Error
         let response = self_.safe_lock(|s| s.handle_message(message_sv1)).unwrap();

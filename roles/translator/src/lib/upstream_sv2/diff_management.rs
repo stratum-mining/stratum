@@ -1,8 +1,8 @@
 use super::Upstream;
 
 use super::super::{
-    error::{TProxyError::PoisonLock, TProxyResult},
     upstream_sv2::{EitherFrame, Message, StdFrame},
+    TProxyChannelSendError, TProxyError, TProxyResult,
 };
 use binary_sv2::u256_from_int;
 use roles_logic_sv2::{
@@ -21,13 +21,13 @@ impl Upstream {
                     u.connection.sender.clone(),
                 )
             })
-            .map_err(|_e| PoisonLock)?;
-        let channel_id = channel_id_option.ok_or(
-            super::super::error::TProxyError::RolesSv2Logic(RolesLogicError::NotFoundChannelId),
-        )?;
+            .map_err(|_e| TProxyError::PoisonLock)?;
+        let channel_id = channel_id_option.ok_or(TProxyError::RolesSv2Logic(
+            RolesLogicError::NotFoundChannelId,
+        ))?;
         let (timeout, new_hashrate) = diff_mgmt
             .safe_lock(|d| (d.channel_diff_update_interval, d.channel_nominal_hashrate))
-            .map_err(|_e| PoisonLock)?;
+            .map_err(|_e| TProxyError::PoisonLock)?;
         // UPDATE CHANNEL
         let update_channel = UpdateChannel {
             channel_id,
@@ -39,9 +39,7 @@ impl Upstream {
         let frame: EitherFrame = either_frame.into();
 
         tx_frame.send(frame).await.map_err(|e| {
-            super::super::error::TProxyError::ChannelErrorSender(
-                super::super::error::ChannelSendError::General(e.to_string()),
-            )
+            TProxyError::ChannelErrorSender(TProxyChannelSendError::General(e.to_string()))
         })?;
         async_std::task::sleep(Duration::from_secs(timeout as u64)).await;
         Ok(())

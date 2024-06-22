@@ -14,11 +14,7 @@ use v1::{client_to_server::Submit, server_to_client, utils::HexU32Be};
 
 use super::super::{
     downstream_sv1::{DownstreamMessages, SetDownstreamTarget, SubmitShareWithChannelId},
-    error::{
-        TProxyError::{self, PoisonLock},
-        TProxyResult,
-    },
-    status,
+    status, TProxyError, TProxyResult,
 };
 use error_handling::handle_result;
 use roles_logic_sv2::{channel_logic::channel_factory::OnNewShare, Error as RolesLogicError};
@@ -124,7 +120,7 @@ impl Bridge {
                             let extranonce2_len = success.extranonce_size;
                             self.target
                                 .safe_lock(|t| *t = success.target.to_vec())
-                                .map_err(|_e| PoisonLock)?;
+                                .map_err(|_e| TProxyError::PoisonLock)?;
                             return Ok(OpenSv1Downstream {
                                 channel_id: success.channel_id,
                                 last_notify: self.last_notify.clone(),
@@ -197,7 +193,7 @@ impl Bridge {
                 b.channel_factory
                     .update_target_for_channel(new_target.channel_id, new_target.new_target);
             })
-            .map_err(|_| PoisonLock)?;
+            .map_err(|_| TProxyError::PoisonLock)?;
         Ok(())
     }
     /// receives a `SubmitShareWithChannelId` and validates the shares and sends to `Upstream` if
@@ -214,24 +210,24 @@ impl Bridge {
                     s.tx_status.clone(),
                 )
             })
-            .map_err(|_| PoisonLock)?;
+            .map_err(|_| TProxyError::PoisonLock)?;
         let upstream_target: [u8; 32] = target_mutex
             .safe_lock(|t| t.clone())
-            .map_err(|_| PoisonLock)?
+            .map_err(|_| TProxyError::PoisonLock)?
             .try_into()?;
         let mut upstream_target: Target = upstream_target.into();
         self_
             .safe_lock(|s| s.channel_factory.set_target(&mut upstream_target))
-            .map_err(|_| PoisonLock)?;
+            .map_err(|_| TProxyError::PoisonLock)?;
 
         let sv2_submit = self_
             .safe_lock(|s| {
                 s.translate_submit(share.channel_id, share.share, share.version_rolling_mask)
             })
-            .map_err(|_| PoisonLock)??;
+            .map_err(|_| TProxyError::PoisonLock)??;
         let res = self_
             .safe_lock(|s| s.channel_factory.on_submit_shares_extended(sv2_submit))
-            .map_err(|_| PoisonLock);
+            .map_err(|_| TProxyError::PoisonLock);
 
         match res {
             Ok(Ok(OnNewShare::SendErrorDownstream(e))) => {
@@ -313,14 +309,14 @@ impl Bridge {
         }
         self_
             .safe_lock(|s| s.last_p_hash = Some(sv2_set_new_prev_hash.clone()))
-            .map_err(|_| PoisonLock)?;
+            .map_err(|_| TProxyError::PoisonLock)?;
 
         let on_new_prev_hash_res = self_
             .safe_lock(|s| {
                 s.channel_factory
                     .on_new_prev_hash(sv2_set_new_prev_hash.clone())
             })
-            .map_err(|_| PoisonLock)?;
+            .map_err(|_| TProxyError::PoisonLock)?;
         on_new_prev_hash_res?;
 
         let mut future_jobs = self_
@@ -329,7 +325,7 @@ impl Bridge {
                 s.future_jobs = vec![];
                 future_jobs
             })
-            .map_err(|_| PoisonLock)?;
+            .map_err(|_| TProxyError::PoisonLock)?;
 
         let mut match_a_future_job = false;
         while let Some(job) = future_jobs.pop() {
@@ -350,7 +346,7 @@ impl Bridge {
                         s.last_notify = Some(notify);
                         s.last_job_id = j_id;
                     })
-                    .map_err(|_| PoisonLock)?;
+                    .map_err(|_| TProxyError::PoisonLock)?;
                 break;
             }
         }
@@ -410,21 +406,21 @@ impl Bridge {
                 s.channel_factory
                     .on_new_extended_mining_job(sv2_new_extended_mining_job.as_static().clone())
             })
-            .map_err(|_| PoisonLock)??;
+            .map_err(|_| TProxyError::PoisonLock)??;
 
         // If future_job=true, this job is meant for a future SetNewPrevHash that the proxy
         // has yet to receive. Insert this new job into the job_mapper .
         if sv2_new_extended_mining_job.is_future() {
             self_
                 .safe_lock(|s| s.future_jobs.push(sv2_new_extended_mining_job.clone()))
-                .map_err(|_| PoisonLock)?;
+                .map_err(|_| TProxyError::PoisonLock)?;
             Ok(())
 
         // If future_job=false, this job is meant for the current SetNewPrevHash.
         } else {
             let last_p_hash_option = self_
                 .safe_lock(|s| s.last_p_hash.clone())
-                .map_err(|_| PoisonLock)?;
+                .map_err(|_| TProxyError::PoisonLock)?;
 
             // last_p_hash is an Option<SetNewPrevHash> so we need to map to the correct error type to be handled
             let last_p_hash = last_p_hash_option.ok_or(TProxyError::RolesSv2Logic(
@@ -446,7 +442,7 @@ impl Bridge {
                     s.last_notify = Some(notify);
                     s.last_job_id = j_id;
                 })
-                .map_err(|_| PoisonLock)?;
+                .map_err(|_| TProxyError::PoisonLock)?;
             Ok(())
         }
     }

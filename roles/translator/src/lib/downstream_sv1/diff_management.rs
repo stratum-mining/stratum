@@ -1,6 +1,6 @@
 use super::{Downstream, DownstreamMessages, SetDownstreamTarget};
 
-use super::super::error::{TProxyError, TProxyResult};
+use super::super::{TProxyError, TProxyResult};
 use roles_logic_sv2::utils::Mutex;
 use std::{ops::Div, sync::Arc};
 use v1::json_rpc;

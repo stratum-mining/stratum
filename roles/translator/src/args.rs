@@ -1,4 +1,4 @@
-use crate::lib::{error::TProxyResult, tproxy_config::TProxyConfig};
+use crate::{TProxyConfig, TProxyResult};
 
 use clap::Parser;
 
