@@ -21,7 +21,11 @@
 mod args;
 mod lib;
 
-use lib::{ProxyConfig, ProxyError, ProxyResult};
+use lib::{
+    downstream_mining, get_common_routing_logic, get_routing_logic, remove_upstream,
+    upstream_mining, ChannelKind, ProxyConfig, ProxyError, ProxyResult, UpstreamMiningValues,
+    EXTRANONCE_RANGE_1_LENGTH, MIN_EXTRANONCE_SIZE,
+};
 use roles_logic_sv2::utils::{GroupId, Mutex};
 use std::{net::SocketAddr, sync::Arc};
 use tracing::info;

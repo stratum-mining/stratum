@@ -37,7 +37,7 @@ pub type StdFrame = StandardSv2Frame<Message>;
 mod setup_connection;
 use setup_connection::SetupConnectionHandler;
 
-use super::{error::JdcError, jdc_config::JdcConfig, upstream_sv2::Upstream};
+use crate::{upstream_sv2::Upstream, JdcConfig, JdcError};
 
 #[derive(Debug, Clone)]
 pub struct LastDeclareJob {

@@ -1,5 +1,7 @@
-use super::super::{TProxyChannelSendError, TProxyError, TProxyResult};
-use super::{EitherFrame, StdFrame};
+use crate::{
+    upstream_sv2::{EitherFrame, StdFrame},
+    TProxyChannelSendError, TProxyError, TProxyResult,
+};
 use async_channel::{Receiver, Sender};
 
 /// Handles the sending and receiving of messages to and from an SV2 Upstream role (most typically

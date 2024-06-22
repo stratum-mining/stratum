@@ -1,10 +1,10 @@
-use super::super::{TProxyChannelSendError, TProxyError, TProxyResult};
 use crate::{
     downstream_sv1::Downstream,
     status,
     tproxy_config::UpstreamDifficultyConfig,
     upstream_sv2::{EitherFrame, Message, StdFrame, UpstreamConnection},
 };
+use crate::{utils, TProxyChannelSendError, TProxyError, TProxyResult};
 use async_channel::{Receiver, Sender};
 use async_std::{net::TcpStream, task};
 use binary_sv2::u256_from_int;
@@ -358,7 +358,7 @@ impl Upstream {
                                 // range 1 is the extranonce1 added by the tproxy
                                 // range 2 is the extranonce2 used by the miner for rolling
                                 // range 0 + range 1 is the extranonce1 sent to the miner
-                                let tproxy_e1_len = super::super::utils::proxy_extranonce1_len(
+                                let tproxy_e1_len = utils::proxy_extranonce1_len(
                                     m.extranonce_size as usize,
                                     miner_extranonce2_size,
                                 );
@@ -641,7 +641,7 @@ impl ParseUpstreamMiningMessages<Downstream, NullDownstreamMiningSelector, NoRou
         &mut self,
         m: roles_logic_sv2::mining_sv2::OpenExtendedMiningChannelSuccess,
     ) -> Result<SendTo<Downstream>, RolesLogicError> {
-        let tproxy_e1_len = super::super::utils::proxy_extranonce1_len(
+        let tproxy_e1_len = utils::proxy_extranonce1_len(
             m.extranonce_size as usize,
             self.min_extranonce_size.into(),
         ) as u16;

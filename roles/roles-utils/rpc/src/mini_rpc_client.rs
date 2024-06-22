@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use stratum_common::bitcoin::{consensus::encode::deserialize as consensus_decode, Transaction};
 
-use super::BlockHash;
+use crate::BlockHash;
 
 #[derive(Clone, Debug)]
 pub struct MiniRpcClient {

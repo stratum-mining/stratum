@@ -1,7 +1,5 @@
-use super::Upstream;
-
-use super::super::{
-    upstream_sv2::{EitherFrame, Message, StdFrame},
+use crate::{
+    upstream_sv2::{EitherFrame, Message, StdFrame, Upstream},
     TProxyChannelSendError, TProxyError, TProxyResult,
 };
 use binary_sv2::u256_from_int;

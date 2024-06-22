@@ -1,4 +1,4 @@
-use super::super::{
+use crate::{
     mining_pool::{EitherFrame, StdFrame},
     PoolError, PoolResult,
 };

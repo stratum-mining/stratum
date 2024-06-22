@@ -8,6 +8,7 @@ use codec_sv2::{StandardEitherFrame, StandardSv2Frame};
 pub use error::{JdsError, JdsResult};
 pub use jds_config::JdsConfig;
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
+pub use mempool::error::JdsMempoolError;
 use roles_logic_sv2::{
     errors::Error, parsers::PoolMessages as JdsMessages, utils::CoinbaseOutput as CoinbaseOutput_,
 };

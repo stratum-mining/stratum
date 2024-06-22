@@ -1,4 +1,4 @@
-use super::UpstreamMiningValues;
+use crate::UpstreamMiningValues;
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize, Clone)]

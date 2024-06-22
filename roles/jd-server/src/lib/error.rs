@@ -6,8 +6,6 @@ use std::{
 
 use roles_logic_sv2::parsers::Mining;
 
-use crate::mempool::error::JdsMempoolError;
-
 pub type JdsResult<T> = core::result::Result<T, JdsError>;
 
 #[derive(std::fmt::Debug)]
@@ -24,7 +22,7 @@ pub enum JdsError {
     PoisonLock(String),
     Custom(String),
     Sv2ProtocolError((u32, Mining<'static>)),
-    MempoolError(JdsMempoolError),
+    MempoolError(crate::JdsMempoolError),
     ImpossibleToReconstructBlock(String),
     NoLastDeclaredJob,
 }
@@ -127,8 +125,8 @@ impl From<(u32, Mining<'static>)> for JdsError {
     }
 }
 
-impl From<JdsMempoolError> for JdsError {
-    fn from(error: JdsMempoolError) -> Self {
+impl From<crate::JdsMempoolError> for JdsError {
+    fn from(error: crate::JdsMempoolError) -> Self {
         JdsError::MempoolError(error)
     }
 }

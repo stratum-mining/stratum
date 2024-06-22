@@ -1,7 +1,6 @@
-use super::{
-    job_declarator::JobDeclarator,
-    status::{self, State},
-    upstream_sv2::Upstream as UpstreamMiningNode,
+use crate::{
+    job_declarator::JobDeclarator, status, upstream_sv2::Upstream as UpstreamMiningNode,
+    IS_NEW_TEMPLATE_HANDLED,
 };
 use async_channel::{Receiver, SendError, Sender};
 use roles_logic_sv2::{
@@ -213,7 +212,7 @@ impl DownstreamMiningNode {
             let tx_status = self_mutex.safe_lock(|s| s.tx_status.clone()).unwrap();
             let err = Error::DownstreamDown;
             let status = status::Status {
-                state: State::DownstreamShutdown(err.into()),
+                state: status::State::DownstreamShutdown(err.into()),
             };
             tx_status.send(status).await.unwrap();
         } else {
@@ -357,7 +356,7 @@ impl DownstreamMiningNode {
         pool_output: &[u8],
     ) -> Result<(), Error> {
         if !self_mutex.safe_lock(|s| s.status.have_channel()).unwrap() {
-            super::IS_NEW_TEMPLATE_HANDLED.store(true, std::sync::atomic::Ordering::Release);
+            IS_NEW_TEMPLATE_HANDLED.store(true, std::sync::atomic::Ordering::Release);
             return Ok(());
         }
         let mut pool_out = &pool_output[0..];
@@ -392,7 +391,7 @@ impl DownstreamMiningNode {
         }
         // See coment on the definition of the global for memory
         // ordering
-        super::IS_NEW_TEMPLATE_HANDLED.store(true, std::sync::atomic::Ordering::Release);
+        IS_NEW_TEMPLATE_HANDLED.store(true, std::sync::atomic::Ordering::Release);
         Ok(())
     }
 

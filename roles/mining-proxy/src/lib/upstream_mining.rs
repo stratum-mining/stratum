@@ -1,10 +1,13 @@
 #![allow(dead_code)]
 
-use super::EXTRANONCE_RANGE_1_LENGTH;
-use crate::ProxyError;
+use crate::{
+    downstream_mining::{
+        Channel, DownstreamMiningNode, DownstreamMiningNodeStatus, StdFrame as DownstreamFrame,
+    },
+    remove_upstream, ProxyError, EXTRANONCE_RANGE_1_LENGTH, MIN_EXTRANONCE_SIZE,
+};
 use roles_logic_sv2::utils::Id;
 
-use super::downstream_mining::{Channel, DownstreamMiningNode, StdFrame as DownstreamFrame};
 use async_channel::{Receiver, SendError, Sender};
 use async_recursion::async_recursion;
 use codec_sv2::{Frame, HandshakeRole, Initiator, StandardEitherFrame, StandardSv2Frame};
@@ -105,11 +108,11 @@ impl ChannelKind {
     }
 }
 
-impl From<super::ChannelKind> for ChannelKind {
-    fn from(v: super::ChannelKind) -> Self {
+impl From<crate::ChannelKind> for ChannelKind {
+    fn from(v: crate::ChannelKind) -> Self {
         match v {
-            super::ChannelKind::Group => Self::Group(GroupChannels::new()),
-            super::ChannelKind::Extended => Self::Extended(None),
+            crate::ChannelKind::Group => Self::Group(GroupChannels::new()),
+            crate::ChannelKind::Extended => Self::Extended(None),
         }
     }
 }
@@ -201,7 +204,7 @@ impl UpstreamMiningNode {
         id: u32,
         address: SocketAddr,
         authority_public_key: [u8; 32],
-        channel_kind: super::ChannelKind,
+        channel_kind: crate::ChannelKind,
         group_id: Arc<Mutex<GroupId>>,
         channel_ids: Arc<Mutex<Id>>,
         downstream_share_per_minute: f32,
@@ -455,7 +458,7 @@ impl UpstreamMiningNode {
 
     fn exit(self_: Arc<Mutex<Self>>) {
         if !self_.safe_lock(|s| s.reconnect).unwrap() {
-            super::remove_upstream(self_.safe_lock(|s| s.id).unwrap());
+            remove_upstream(self_.safe_lock(|s| s.id).unwrap());
         }
         let downstreams = self_
             .safe_lock(|s| s.downstream_selector.get_all_downstreams())
@@ -464,11 +467,9 @@ impl UpstreamMiningNode {
         for d in downstreams {
             if let Some(id) = d
                 .safe_lock(|d| match &d.status {
-                    super::downstream_mining::DownstreamMiningNodeStatus::Initializing => None,
-                    super::downstream_mining::DownstreamMiningNodeStatus::Paired(_) => None,
-                    super::downstream_mining::DownstreamMiningNodeStatus::ChannelOpened(
-                        channel,
-                    ) => match channel {
+                    DownstreamMiningNodeStatus::Initializing => None,
+                    DownstreamMiningNodeStatus::Paired(_) => None,
+                    DownstreamMiningNodeStatus::ChannelOpened(channel) => match channel {
                         Channel::DowntreamHomUpstreamGroup { channel_id, .. } => Some(*channel_id),
                         Channel::DowntreamHomUpstreamExtended { channel_id, .. } => {
                             Some(*channel_id)
@@ -578,7 +579,7 @@ impl UpstreamMiningNode {
         let message_type = incoming.get_header().unwrap().msg_type();
         let payload = incoming.payload();
 
-        let routing_logic = super::get_routing_logic();
+        let routing_logic = crate::get_routing_logic();
 
         let next_message_to_send = UpstreamMiningNode::handle_message_mining(
             self_mutex.clone(),
@@ -667,7 +668,7 @@ impl UpstreamMiningNode {
                     255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
                 ]
                 .into(),
-                min_extranonce_size: super::MIN_EXTRANONCE_SIZE,
+                min_extranonce_size: MIN_EXTRANONCE_SIZE,
             },
         ));
         Self::send(self_mutex.clone(), message.try_into().unwrap())
@@ -1272,7 +1273,7 @@ mod tests {
             id,
             address,
             authority_public_key,
-            super::super::ChannelKind::Group,
+            crate::ChannelKind::Group,
             ids,
             channel_ids,
             10.0,

@@ -1,6 +1,5 @@
-use super::super::downstream::DownstreamMiningNode as Downstream;
-
-use super::super::{
+use crate::{
+    downstream::DownstreamMiningNode as Downstream,
     status,
     upstream_sv2::{EitherFrame, Message, StdFrame},
     JdcChannelSendError, JdcError, JdcResult, PoolChangerTrigger,

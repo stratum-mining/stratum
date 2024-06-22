@@ -4,8 +4,8 @@ mod args;
 mod lib;
 
 use lib::{
-    job_declarator::JobDeclarator, status, template_receiver::TemplateRx, JdcConfig, JdcError,
-    JdcResult, PoolChangerTrigger,
+    downstream, job_declarator, status, template_receiver, upstream_sv2, JdcChannelSendError,
+    JdcConfig, JdcError, JdcResult, PoolChangerTrigger, IS_NEW_TEMPLATE_HANDLED,
 };
 
 use async_channel::{bounded, unbounded};
@@ -221,7 +221,7 @@ async fn initialize_jd_as_solo_miner(
     let ip_tp = parts.next().unwrap().to_string();
     let port_tp = parts.next().unwrap().parse::<u16>().unwrap();
 
-    TemplateRx::connect(
+    template_receiver::TemplateRx::connect(
         SocketAddr::new(IpAddr::from_str(ip_tp.as_str()).unwrap(), port_tp),
         recv_solution,
         status::Sender::TemplateReceiver(tx_status.clone()),
@@ -319,7 +319,7 @@ async fn initialize_jd(
     let mut parts = upstream_config.jd_address.split(':');
     let ip_jd = parts.next().unwrap().to_string();
     let port_jd = parts.next().unwrap().parse::<u16>().unwrap();
-    let jd = match JobDeclarator::new(
+    let jd = match job_declarator::JobDeclarator::new(
         SocketAddr::new(IpAddr::from_str(ip_jd.as_str()).unwrap(), port_jd),
         upstream_config.authority_pubkey.into_bytes(),
         jdc_config.clone(),
@@ -356,7 +356,7 @@ async fn initialize_jd(
     .await
     .unwrap();
 
-    TemplateRx::connect(
+    template_receiver::TemplateRx::connect(
         SocketAddr::new(IpAddr::from_str(ip_tp.as_str()).unwrap(), port_tp),
         recv_solution,
         status::Sender::TemplateReceiver(tx_status.clone()),

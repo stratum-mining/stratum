@@ -12,9 +12,9 @@ use std::sync::Arc;
 use tokio::sync::broadcast;
 use v1::{client_to_server::Submit, server_to_client, utils::HexU32Be};
 
-use super::super::{
+use crate::{
     downstream_sv1::{DownstreamMessages, SetDownstreamTarget, SubmitShareWithChannelId},
-    status, TProxyError, TProxyResult,
+    proxy, status, upstream_sv2, TProxyError, TProxyResult,
 };
 use error_handling::handle_result;
 use roles_logic_sv2::{channel_logic::channel_factory::OnNewShare, Error as RolesLogicError};
@@ -302,8 +302,7 @@ impl Bridge {
         sv2_set_new_prev_hash: SetNewPrevHash<'static>,
         tx_sv1_notify: broadcast::Sender<server_to_client::Notify<'static>>,
     ) -> TProxyResult<'static, ()> {
-        while !crate::upstream_sv2::upstream::IS_NEW_JOB_HANDLED
-            .load(std::sync::atomic::Ordering::SeqCst)
+        while !upstream_sv2::upstream::IS_NEW_JOB_HANDLED.load(std::sync::atomic::Ordering::SeqCst)
         {
             tokio::task::yield_now().await;
         }
@@ -332,7 +331,7 @@ impl Bridge {
             if job.job_id == sv2_set_new_prev_hash.job_id {
                 let j_id = job.job_id;
                 // Create the mining.notify to be sent to the Downstream.
-                let notify = crate::proxy::next_mining_notify::create_notify(
+                let notify = proxy::next_mining_notify::create_notify(
                     sv2_set_new_prev_hash.clone(),
                     job,
                     true,
@@ -430,7 +429,7 @@ impl Bridge {
             let j_id = sv2_new_extended_mining_job.job_id;
             // Create the mining.notify to be sent to the Downstream.
             // clean_jobs must be false because it's not a NewPrevHash template
-            let notify = crate::proxy::next_mining_notify::create_notify(
+            let notify = proxy::next_mining_notify::create_notify(
                 last_p_hash,
                 sv2_new_extended_mining_job.clone(),
                 false,
@@ -486,7 +485,7 @@ impl Bridge {
                     )
                     .await
                 );
-                crate::upstream_sv2::upstream::IS_NEW_JOB_HANDLED
+                upstream_sv2::upstream::IS_NEW_JOB_HANDLED
                     .store(true, std::sync::atomic::Ordering::SeqCst);
             }
         });
