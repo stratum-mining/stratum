@@ -122,7 +122,7 @@ async fn main() {
             if let Ok(add_transactions_to_mempool) = receiver_add_txs_to_mempool.recv().await {
                 let mempool_cloned = mempool.clone();
                 task::spawn(async move {
-                    match lib::mempool::JDsMempool::add_tx_data_to_mempool(
+                    match mempool::JDsMempool::add_tx_data_to_mempool(
                         mempool_cloned,
                         add_transactions_to_mempool,
                     )

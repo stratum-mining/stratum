@@ -4,8 +4,9 @@ mod args;
 mod lib;
 
 use lib::{
-    downstream, job_declarator, status, template_receiver, upstream_sv2, JdcChannelSendError,
-    JdcConfig, JdcError, JdcResult, PoolChangerTrigger, IS_NEW_TEMPLATE_HANDLED,
+    downstream, jdc_config, job_declarator, status, template_receiver, upstream_sv2,
+    JdcChannelSendError, JdcConfig, JdcError, JdcResult, PoolChangerTrigger,
+    IS_NEW_TEMPLATE_HANDLED,
 };
 
 use async_channel::{bounded, unbounded};
@@ -187,7 +188,7 @@ async fn initialize_jd_as_solo_miner(
     timeout: Duration,
 ) {
     let proxy_config = args::process_cli_args().unwrap();
-    let miner_tx_out = lib::jdc_config::get_coinbase_output(&proxy_config).unwrap();
+    let miner_tx_out = jdc_config::get_coinbase_output(&proxy_config).unwrap();
 
     // When Downstream receive a share that meets bitcoin target it transformit in a
     // SubmitSolution and send it to the TemplateReceiver
@@ -200,7 +201,7 @@ async fn initialize_jd_as_solo_miner(
     );
 
     // Wait for downstream to connect
-    let downstream = lib::downstream::listen_for_downstream_mining(
+    let downstream = downstream::listen_for_downstream_mining(
         downstream_addr,
         None,
         send_solution,
@@ -239,7 +240,7 @@ async fn initialize_jd_as_solo_miner(
 async fn initialize_jd(
     tx_status: async_channel::Sender<status::Status<'static>>,
     task_collector: Arc<Mutex<Vec<AbortHandle>>>,
-    upstream_config: lib::jdc_config::Upstream,
+    upstream_config: jdc_config::Upstream,
     timeout: Duration,
 ) {
     let jdc_config = args::process_cli_args().unwrap();
@@ -267,7 +268,7 @@ async fn initialize_jd(
     let (send_solution, recv_solution) = bounded(10);
 
     // Instantiate a new `Upstream` (SV2 Pool)
-    let upstream = match lib::upstream_sv2::Upstream::new(
+    let upstream = match upstream_sv2::Upstream::new(
         upstream_addr,
         upstream_config.authority_pubkey,
         0, // TODO
@@ -286,12 +287,12 @@ async fn initialize_jd(
     };
 
     // Start receiving messages from the SV2 Upstream role
-    if let Err(e) = lib::upstream_sv2::Upstream::parse_incoming(upstream.clone()) {
+    if let Err(e) = upstream_sv2::Upstream::parse_incoming(upstream.clone()) {
         error!("failed to create sv2 parser: {}", e);
         panic!()
     }
 
-    match lib::upstream_sv2::Upstream::setup_connection(
+    match upstream_sv2::Upstream::setup_connection(
         upstream.clone(),
         jdc_config.min_supported_version,
         jdc_config.max_supported_version,
@@ -340,7 +341,7 @@ async fn initialize_jd(
     };
 
     // Wait for downstream to connect
-    let downstream = lib::downstream::listen_for_downstream_mining(
+    let downstream = downstream::listen_for_downstream_mining(
         downstream_addr,
         Some(upstream),
         send_solution,
