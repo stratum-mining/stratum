@@ -1,9 +1,11 @@
 pub mod downstream_mining;
-pub mod error;
+mod error;
 pub mod proxy_config;
 pub mod upstream_mining;
 
+pub use error::{ProxyError, ProxyResult};
 use once_cell::sync::OnceCell;
+pub use proxy_config::ProxyConfig;
 use roles_logic_sv2::{
     routing_logic::{CommonRoutingLogic, MiningProxyRoutingLogic, MiningRoutingLogic},
     selectors::GeneralMiningSelector,

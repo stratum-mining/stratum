@@ -1,4 +1,4 @@
-use crate::lib::{error::ProxyResult, proxy_config::ProxyConfig};
+use crate::{ProxyConfig, ProxyResult};
 use clap::Parser;
 
 #[derive(Parser, Debug)]

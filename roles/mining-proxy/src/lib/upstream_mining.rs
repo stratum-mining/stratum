@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 
 use super::EXTRANONCE_RANGE_1_LENGTH;
+use crate::ProxyError;
 use roles_logic_sv2::utils::Id;
 
 use super::downstream_mining::{Channel, DownstreamMiningNode, StdFrame as DownstreamFrame};
@@ -271,10 +272,7 @@ impl UpstreamMiningNode {
     ///     returned and the upstream is marked as not connected.
     /// If the node is not connected it try to connect and send the message and everything is ok
     ///     the upstream is marked as connected and Ok(()) is returned if not an error is returned.
-    pub async fn send(
-        self_mutex: Arc<Mutex<Self>>,
-        sv2_frame: StdFrame,
-    ) -> Result<(), super::error::ProxyError> {
+    pub async fn send(self_mutex: Arc<Mutex<Self>>, sv2_frame: StdFrame) -> Result<(), ProxyError> {
         let (has_sv2_connection, mut connection, address) = self_mutex
             .safe_lock(|self_| {
                 (
@@ -333,7 +331,7 @@ impl UpstreamMiningNode {
         }
     }
 
-    async fn receive(self_mutex: Arc<Mutex<Self>>) -> Result<StdFrame, super::error::ProxyError> {
+    async fn receive(self_mutex: Arc<Mutex<Self>>) -> Result<StdFrame, ProxyError> {
         let mut connection = self_mutex
             .safe_lock(|self_| self_.connection.clone())
             .unwrap();
@@ -343,7 +341,7 @@ impl UpstreamMiningNode {
                 Err(_) => {
                     let address = self_mutex.safe_lock(|s| s.address).unwrap();
                     error!("Upstream node {} is not available", address);
-                    Err(super::error::ProxyError::UpstreamNotAvailabe(address))
+                    Err(ProxyError::UpstreamNotAvailabe(address))
                 }
             },
             None => {
@@ -353,7 +351,7 @@ impl UpstreamMiningNode {
         }
     }
 
-    async fn connect(self_mutex: Arc<Mutex<Self>>) -> Result<(), super::error::ProxyError> {
+    async fn connect(self_mutex: Arc<Mutex<Self>>) -> Result<(), ProxyError> {
         let has_connection = self_mutex
             .safe_lock(|self_| self_.connection.is_some())
             .unwrap();
@@ -365,7 +363,7 @@ impl UpstreamMiningNode {
                     .unwrap();
                 let socket = TcpStream::connect(address).await.map_err(|_| {
                     error!("Upstream node {} is not available", address);
-                    super::error::ProxyError::UpstreamNotAvailabe(address)
+                    ProxyError::UpstreamNotAvailabe(address)
                 })?;
                 info!(
                     "Connected to upstream node {}: now handling noise handshake",
@@ -597,7 +595,7 @@ impl UpstreamMiningNode {
         flags: Option<u32>,
         min_version: u16,
         max_version: u16,
-    ) -> Result<(), super::error::ProxyError> {
+    ) -> Result<(), ProxyError> {
         let flags = flags.unwrap_or(0b0000_0000_0000_0000_0000_0000_0000_0110);
         let (frame, downstream_hr) = self_mutex
             .safe_lock(|self_| {
@@ -650,9 +648,7 @@ impl UpstreamMiningNode {
                     let error_message = std::str::from_utf8(m.error_code.inner_as_ref())
                         .unwrap()
                         .to_string();
-                    Err(super::error::ProxyError::SetupConnectionError(
-                        error_message,
-                    ))
+                    Err(ProxyError::SetupConnectionError(error_message))
                 }
             }
             Ok(_) => todo!(),
