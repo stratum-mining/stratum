@@ -12,7 +12,7 @@ use tracing::{error, info, warn};
 mod args;
 mod lib;
 
-use lib::job_declarator::JobDeclarator;
+use lib::{job_declarator::JobDeclarator, JdsConfig, JdsError, JdsResult};
 
 #[tokio::main]
 async fn main() {

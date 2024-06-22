@@ -1,4 +1,4 @@
-use crate::lib::{error::JdsResult, jds_config::JdsConfig};
+use crate::{JdsConfig, JdsResult};
 use clap::Parser;
 
 #[derive(Parser, Debug)]
