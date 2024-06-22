@@ -12,8 +12,8 @@ struct Args {
 #[allow(clippy::result_large_err)]
 pub fn process_cli_args<'a>() -> TProxyResult<'a, TProxyConfig> {
     let args = Args::parse();
-    let config = match config::Config::builder()
-        .add_source(config::File::with_name(&args.config_path))
+    let config = match ext_config::Config::builder()
+        .add_source(ext_config::File::with_name(&args.config_path))
         .build()
     {
         Ok(cfg) => cfg,

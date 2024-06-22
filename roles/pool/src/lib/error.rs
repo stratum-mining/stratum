@@ -8,7 +8,7 @@ use roles_logic_sv2::parsers::Mining;
 
 #[derive(std::fmt::Debug)]
 pub enum PoolError {
-    ConfigError(config::ConfigError),
+    ConfigError(ext_config::ConfigError),
     Io(std::io::Error),
     ChannelSend(Box<dyn std::marker::Send + Debug>),
     ChannelRecv(async_channel::RecvError),
@@ -23,8 +23,8 @@ pub enum PoolError {
     Sv2ProtocolError((u32, Mining<'static>)),
 }
 
-impl From<config::ConfigError> for PoolError {
-    fn from(e: config::ConfigError) -> PoolError {
+impl From<ext_config::ConfigError> for PoolError {
+    fn from(e: ext_config::ConfigError) -> PoolError {
         PoolError::ConfigError(e)
     }
 }

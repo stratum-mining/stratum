@@ -28,7 +28,7 @@ pub enum ChannelSendError<'a> {
 #[derive(Debug)]
 pub enum JdcError<'a> {
     VecToSlice32(Vec<u8>),
-    ConfigError(config::ConfigError),
+    ConfigError(ext_config::ConfigError),
     /// Errors from `binary_sv2` crate.
     BinarySv2(binary_sv2::Error),
     /// Errors on bad noise handshake.
@@ -79,8 +79,8 @@ impl<'a> fmt::Display for JdcError<'a> {
     }
 }
 
-impl<'a> From<config::ConfigError> for JdcError<'a> {
-    fn from(e: config::ConfigError) -> JdcError<'a> {
+impl<'a> From<ext_config::ConfigError> for JdcError<'a> {
+    fn from(e: ext_config::ConfigError) -> JdcError<'a> {
         JdcError::ConfigError(e)
     }
 }

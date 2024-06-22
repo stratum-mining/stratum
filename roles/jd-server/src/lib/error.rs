@@ -12,7 +12,7 @@ pub type JdsResult<T> = core::result::Result<T, JdsError>;
 
 #[derive(std::fmt::Debug)]
 pub enum JdsError {
-    ConfigError(config::ConfigError),
+    ConfigError(ext_config::ConfigError),
     Io(std::io::Error),
     ChannelSend(Box<dyn std::marker::Send + Debug>),
     ChannelRecv(async_channel::RecvError),
@@ -56,8 +56,8 @@ impl std::fmt::Display for JdsError {
     }
 }
 
-impl From<config::ConfigError> for JdsError {
-    fn from(e: config::ConfigError) -> JdsError {
+impl From<ext_config::ConfigError> for JdsError {
+    fn from(e: ext_config::ConfigError) -> JdsError {
         JdsError::ConfigError(e)
     }
 }

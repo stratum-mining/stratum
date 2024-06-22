@@ -12,15 +12,15 @@ pub type ProxyResult<T> = core::result::Result<T, ProxyError>;
 #[allow(clippy::large_enum_variant)]
 #[allow(clippy::enum_variant_names)]
 pub enum ProxyError {
-    ConfigError(config::ConfigError),
+    ConfigError(ext_config::ConfigError),
     Io(std::io::Error),
     SendError(SendError<EitherFrame>),
     UpstreamNotAvailabe(SocketAddr),
     SetupConnectionError(String),
 }
 
-impl From<config::ConfigError> for ProxyError {
-    fn from(e: config::ConfigError) -> ProxyError {
+impl From<ext_config::ConfigError> for ProxyError {
+    fn from(e: ext_config::ConfigError) -> ProxyError {
         ProxyError::ConfigError(e)
     }
 }

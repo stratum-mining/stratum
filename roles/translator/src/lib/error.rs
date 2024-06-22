@@ -34,7 +34,7 @@ pub enum ChannelSendError<'a> {
 #[derive(Debug)]
 pub enum TProxyError<'a> {
     VecToSlice32(Vec<u8>),
-    ConfigError(config::ConfigError),
+    ConfigError(ext_config::ConfigError),
     /// Errors on bad CLI argument input.
     #[allow(dead_code)]
     BadCliArgs,
@@ -117,8 +117,8 @@ impl<'a> fmt::Display for TProxyError<'a> {
     }
 }
 
-impl<'a> From<config::ConfigError> for TProxyError<'a> {
-    fn from(e: config::ConfigError) -> TProxyError<'a> {
+impl<'a> From<ext_config::ConfigError> for TProxyError<'a> {
+    fn from(e: ext_config::ConfigError) -> TProxyError<'a> {
         TProxyError::ConfigError(e)
     }
 }
