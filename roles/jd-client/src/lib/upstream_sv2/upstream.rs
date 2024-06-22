@@ -1,13 +1,9 @@
 use super::super::downstream::DownstreamMiningNode as Downstream;
 
 use super::super::{
-    error::{
-        JdcError::{CodecNoise, PoisonLock, UpstreamIncoming},
-        JdcResult,
-    },
     status,
     upstream_sv2::{EitherFrame, Message, StdFrame},
-    PoolChangerTrigger,
+    JdcChannelSendError, JdcError, JdcResult, PoolChangerTrigger,
 };
 use async_channel::{Receiver, Sender};
 use binary_sv2::{Seq0255, U256};
@@ -130,12 +126,10 @@ impl Upstream {
     pub async fn send(self_: &Arc<Mutex<Self>>, sv2_frame: StdFrame) -> JdcResult<'static, ()> {
         let sender = self_
             .safe_lock(|s| s.sender.clone())
-            .map_err(|_| PoisonLock)?;
+            .map_err(|_| JdcError::PoisonLock)?;
         let either_frame = sv2_frame.into();
         sender.send(either_frame).await.map_err(|e| {
-            super::super::error::JdcError::ChannelErrorSender(
-                super::super::error::ChannelSendError::General(e.to_string()),
-            )
+            JdcError::ChannelErrorSender(JdcChannelSendError::General(e.to_string()))
         })?;
         Ok(())
     }
@@ -216,7 +210,7 @@ impl Upstream {
 
         let recv = self_
             .safe_lock(|s| s.receiver.clone())
-            .map_err(|_| PoisonLock)?;
+            .map_err(|_| JdcError::PoisonLock)?;
 
         // Wait for the SV2 Upstream to respond with either a `SetupConnectionSuccess` or a
         // `SetupConnectionError` inside a SV2 binary message frame
@@ -224,7 +218,7 @@ impl Upstream {
             Ok(frame) => frame.try_into()?,
             Err(e) => {
                 error!("Upstream connection closed: {}", e);
-                return Err(CodecNoise(
+                return Err(JdcError::CodecNoise(
                     codec_sv2::noise_sv2::Error::ExpectedIncomingHandshakeMessage,
                 ));
             }
@@ -313,7 +307,7 @@ impl Upstream {
     pub fn parse_incoming(self_: Arc<Mutex<Self>>) -> JdcResult<'static, ()> {
         let (recv, tx_status) = self_
             .safe_lock(|s| (s.receiver.clone(), s.tx_status.clone()))
-            .map_err(|_| PoisonLock)?;
+            .map_err(|_| JdcError::PoisonLock)?;
 
         let main_task = {
             let self_ = self_.clone();
@@ -324,12 +318,9 @@ impl Upstream {
                     let mut incoming: StdFrame = handle_result!(tx_status, incoming.try_into());
                     // On message receive, get the message type from the message header and get the
                     // message payload
-                    let message_type =
-                        incoming
-                            .get_header()
-                            .ok_or(super::super::error::JdcError::FramingSv2(
-                                framing_sv2::Error::ExpectedSv2Frame,
-                            ));
+                    let message_type = incoming
+                        .get_header()
+                        .ok_or(JdcError::FramingSv2(framing_sv2::Error::ExpectedSv2Frame));
 
                     let message_type = handle_result!(tx_status, message_type).msg_type();
 
@@ -371,7 +362,9 @@ impl Upstream {
                         Ok(_) => unreachable!(),
                         Err(e) => {
                             let status = status::Status {
-                                state: status::State::UpstreamShutdown(UpstreamIncoming(e)),
+                                state: status::State::UpstreamShutdown(JdcError::UpstreamIncoming(
+                                    e,
+                                )),
                             };
                             error!(
                                 "TERMINATING: Error handling pool role message: {:?}",

@@ -1,4 +1,4 @@
-use crate::lib::{error::JdcResult, jdc_config::JdcConfig};
+use crate::{JdcConfig, JdcResult};
 
 use clap::Parser;
 

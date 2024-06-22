@@ -4,7 +4,8 @@ mod args;
 mod lib;
 
 use lib::{
-    job_declarator::JobDeclarator, status, template_receiver::TemplateRx, PoolChangerTrigger,
+    job_declarator::JobDeclarator, status, template_receiver::TemplateRx, JdcConfig, JdcError,
+    JdcResult, PoolChangerTrigger,
 };
 
 use async_channel::{bounded, unbounded};
