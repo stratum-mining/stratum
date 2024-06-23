@@ -320,7 +320,7 @@ mod test {
     #[test]
     fn test_diff_management() {
         let expected_shares_per_minute = 1000.0;
-        let total_run_time = std::time::Duration::from_secs(11);
+        let total_run_time = std::time::Duration::from_secs(30);
         let initial_nominal_hashrate = measure_hashrate(5);
         let target = match roles_logic_sv2::utils::hash_rate_to_target(
             initial_nominal_hashrate,
@@ -342,13 +342,13 @@ mod test {
         }
 
         let calculated_share_per_min = count as f32 / (elapsed.as_secs_f32() / 60.0);
-        // This is the error margin for a confidence of 99% given the expect number of shares per
+        // This is the error margin for a confidence of 99.99...% given the expect number of shares per
         // minute TODO the review the math under it
         let error_margin = get_error(expected_shares_per_minute);
         let error = (calculated_share_per_min - expected_shares_per_minute as f32).abs();
         assert!(
             error <= error_margin as f32,
-            "Calculated shares per minute are outside the 99% confidence interval. Error: {:?}, Error margin: {:?}, {:?}", error, error_margin,calculated_share_per_min
+            "Calculated shares per minute are outside the 99.99...% confidence interval. Error: {:?}, Error margin: {:?}, {:?}", error, error_margin,calculated_share_per_min
         );
     }
 
