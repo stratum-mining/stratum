@@ -1,5 +1,8 @@
+use crate::{JdcError, JdcResult};
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
-use roles_logic_sv2::{errors::Error, utils::CoinbaseOutput as CoinbaseOutput_};
+use roles_logic_sv2::{
+    errors::Error as RolesLogicSv2Error, utils::CoinbaseOutput as CoinbaseOutput_,
+};
 use serde::Deserialize;
 use std::time::Duration;
 use stratum_common::bitcoin::TxOut;
@@ -11,15 +14,15 @@ pub struct CoinbaseOutput {
 }
 
 impl TryFrom<&CoinbaseOutput> for CoinbaseOutput_ {
-    type Error = Error;
+    type Error = RolesLogicSv2Error;
 
-    fn try_from(pool_output: &CoinbaseOutput) -> Result<Self, Self::Error> {
+    fn try_from(pool_output: &CoinbaseOutput) -> Result<Self, RolesLogicSv2Error> {
         match pool_output.output_script_type.as_str() {
             "P2PK" | "P2PKH" | "P2WPKH" | "P2SH" | "P2WSH" | "P2TR" => Ok(CoinbaseOutput_ {
                 output_script_type: pool_output.clone().output_script_type,
                 output_script_value: pool_output.clone().output_script_value,
             }),
-            _ => Err(Error::UnknownOutputScriptType),
+            _ => Err(RolesLogicSv2Error::UnknownOutputScriptType),
         }
     }
 }
@@ -82,7 +85,7 @@ where
     }
 }
 
-pub fn get_coinbase_output(config: &JdcConfig) -> Result<Vec<TxOut>, Error> {
+pub fn get_coinbase_output(config: &JdcConfig) -> JdcResult<'static, Vec<TxOut>> {
     let mut result = Vec::new();
     for coinbase_output_pool in &config.coinbase_outputs {
         let coinbase_output: CoinbaseOutput_ = coinbase_output_pool.try_into()?;
@@ -93,7 +96,9 @@ pub fn get_coinbase_output(config: &JdcConfig) -> Result<Vec<TxOut>, Error> {
         });
     }
     match result.is_empty() {
-        true => Err(Error::EmptyCoinbaseOutputs),
+        true => Err(JdcError::RolesLogicSv2(
+            RolesLogicSv2Error::EmptyCoinbaseOutputs,
+        )),
         _ => Ok(result),
     }
 }
