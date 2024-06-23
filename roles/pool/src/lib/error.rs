@@ -6,6 +6,8 @@ use std::{
 
 use roles_logic_sv2::parsers::Mining;
 
+pub type PoolResult<T> = Result<T, PoolError>;
+
 #[derive(std::fmt::Debug)]
 pub enum PoolError {
     ConfigError(ext_config::ConfigError),
@@ -21,12 +23,6 @@ pub enum PoolError {
     ComponentShutdown(String),
     Custom(String),
     Sv2ProtocolError((u32, Mining<'static>)),
-}
-
-impl From<ext_config::ConfigError> for PoolError {
-    fn from(e: ext_config::ConfigError) -> PoolError {
-        PoolError::ConfigError(e)
-    }
 }
 
 impl std::fmt::Display for PoolError {
@@ -52,7 +48,11 @@ impl std::fmt::Display for PoolError {
     }
 }
 
-pub type PoolResult<T> = Result<T, PoolError>;
+impl From<ext_config::ConfigError> for PoolError {
+    fn from(e: ext_config::ConfigError) -> PoolError {
+        PoolError::ConfigError(e)
+    }
+}
 
 impl From<std::io::Error> for PoolError {
     fn from(e: std::io::Error) -> PoolError {
