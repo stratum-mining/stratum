@@ -14,7 +14,7 @@ cargo build \
     -p sv2_ffi && \
     cp ../../protocols/target/release/libsv2_ffi.a ./
 
-../../build_header.sh ../../protocols && mv ../../sv2.h .
+../../scripts/build_header.sh ../../protocols && mv ../../scripts/sv2.h .
 
 g++ -I ./ ./template-provider/template-provider.cpp  libsv2_ffi.a  -lpthread -ldl
 

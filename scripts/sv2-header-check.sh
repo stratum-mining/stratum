@@ -21,9 +21,10 @@ set -ex
 # cargo install cbindgen --force bts
 # cbindgen -V
 
-cd ./protocols/v2/sv2-ffi
+echo $PWD
+cd protocols/v2/sv2-ffi
 SHA1_1=$(sha1sum sv2.h)
-cd ../../..
+cd ../../../scripts
 
 BUILD_SCRIPT="./build_header.sh"
 sh ./"$BUILD_SCRIPT"
