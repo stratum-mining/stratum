@@ -641,15 +641,15 @@ mod test {
         bitcoin::{util::psbt::serialize::Serialize, Transaction, Witness},
     };
 
-    use crate::PoolConfig;
+    use super::*;
 
     // this test is used to verify the `coinbase_tx_prefix` and `coinbase_tx_suffix` values tested against in
     // message generator `stratum/test/message-generator/test/pool-sri-test-extended.json`
     #[test]
     fn test_coinbase_outputs_from_config() {
         // Load config
-        let config = match config::Config::builder()
-            .add_source(config::File::with_name(
+        let config = match ext_config::Config::builder()
+            .add_source(ext_config::File::with_name(
                 "./config-examples/pool-config-local-tp-example.toml",
             ))
             .build()
