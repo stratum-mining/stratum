@@ -372,6 +372,8 @@ pub enum JobDeclaration<'a> {
     ProvideMissingTransactions(ProvideMissingTransactions<'a>),
     #[serde(borrow)]
     ProvideMissingTransactionsSuccess(ProvideMissingTransactionsSuccess<'a>),
+    #[serde(borrow)]
+    SubmitSolution(SubmitSolutionJd<'a>),
 }
 
 impl<'a> From<JobDeclaration<'a>> for roles_logic_sv2::parsers::JobDeclaration<'a> {
@@ -390,6 +392,7 @@ impl<'a> From<JobDeclaration<'a>> for roles_logic_sv2::parsers::JobDeclaration<'
             JobDeclaration::ProvideMissingTransactionsSuccess(m) => {
                 Self::ProvideMissingTransactionsSuccess(m)
             }
+            JobDeclaration::SubmitSolution(m) => Self::SubmitSolution(m),
         }
     }
 }
