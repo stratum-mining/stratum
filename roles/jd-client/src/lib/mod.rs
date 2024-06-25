@@ -1,8 +1,7 @@
 pub mod downstream;
 mod error;
-pub mod config;
-pub(crate) use config::Config;
-pub use config::Config as JdcConfig;
+pub mod jdc_config;
+
 pub mod job_declarator;
 pub mod status;
 pub mod template_receiver;
