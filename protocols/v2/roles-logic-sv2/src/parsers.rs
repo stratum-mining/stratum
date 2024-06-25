@@ -1106,11 +1106,18 @@ impl<'a> TryFrom<(u8, &'a mut [u8])> for PoolMessages<'a> {
         let is_common: Result<CommonMessageTypes, Error> = v.0.try_into();
         let is_mining: Result<MiningTypes, Error> = v.0.try_into();
         let is_job_declaration: Result<JobDeclarationTypes, Error> = v.0.try_into();
-        match (is_common, is_mining, is_job_declaration) {
-            (Ok(_), Err(_), Err(_)) => Ok(Self::Common(v.try_into()?)),
-            (Err(_), Ok(_), Err(_)) => Ok(Self::Mining(v.try_into()?)),
-            (Err(_), Err(_), Ok(_)) => Ok(Self::JobDeclaration(v.try_into()?)),
-            (Err(e), Err(_), Err(_)) => Err(e),
+        let is_template_distribution: Result<TemplateDistributionTypes, Error> = v.0.try_into();
+        match (
+            is_common,
+            is_mining,
+            is_job_declaration,
+            is_template_distribution,
+        ) {
+            (Ok(_), Err(_), Err(_), Err(_)) => Ok(Self::Common(v.try_into()?)),
+            (Err(_), Ok(_), Err(_), Err(_)) => Ok(Self::Mining(v.try_into()?)),
+            (Err(_), Err(_), Ok(_), Err(_)) => Ok(Self::JobDeclaration(v.try_into()?)),
+            (Err(_), Err(_), Err(_), Ok(_)) => Ok(Self::TemplateDistribution(v.try_into()?)),
+            (Err(e), Err(_), Err(_), Err(_)) => Err(e),
             // This is an impossible state is safe to panic here
             _ => panic!(),
         }

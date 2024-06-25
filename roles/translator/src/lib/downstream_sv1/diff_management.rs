@@ -328,7 +328,7 @@ mod test {
         let initial_nominal_hashrate = measure_hashrate(5);
         let target = match roles_logic_sv2::utils::hash_rate_to_target(
             initial_nominal_hashrate,
-            expected_shares_per_minute.into(),
+            expected_shares_per_minute,
         ) {
             Ok(target) => target,
             Err(_) => panic!(),
@@ -348,7 +348,7 @@ mod test {
         let calculated_share_per_min = count as f32 / (elapsed.as_secs_f32() / 60.0);
         // This is the error margin for a confidence of 99% given the expect number of shares per
         // minute TODO the review the math under it
-        let error_margin = get_error(expected_shares_per_minute.into());
+        let error_margin = get_error(expected_shares_per_minute);
         let error = (calculated_share_per_min - expected_shares_per_minute as f32).abs();
         assert!(
             error <= error_margin as f32,
@@ -383,9 +383,8 @@ mod test {
         }
 
         let elapsed_secs = start_time.elapsed().as_secs_f64();
-        let hashrate = hashes as f64 / elapsed_secs;
-        let nominal_hash_rate = hashrate;
-        nominal_hash_rate
+
+        hashes as f64 / elapsed_secs
     }
 
     fn hash(share: &mut [u8; 80]) -> Target {
@@ -442,6 +441,7 @@ mod test {
             0,
             downstream_conf.clone(),
             Arc::new(Mutex::new(upstream_config)),
+            "0".to_string(),
         );
         downstream.difficulty_mgmt.min_individual_miner_hashrate = start_hashrate as f32;
 
