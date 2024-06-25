@@ -6,25 +6,23 @@ use std::{
 
 use roles_logic_sv2::parsers::Mining;
 
-use crate::mempool::error::JdsMempoolError;
-
 pub type JdsResult<T> = core::result::Result<T, JdsError>;
 
 #[derive(std::fmt::Debug)]
 pub enum JdsError {
-    ConfigError(config::ConfigError),
+    ConfigError(ext_config::ConfigError),
     Io(std::io::Error),
     ChannelSend(Box<dyn std::marker::Send + Debug>),
     ChannelRecv(async_channel::RecvError),
     BinarySv2(binary_sv2::Error),
     Codec(codec_sv2::Error),
     Noise(noise_sv2::Error),
-    RolesLogic(roles_logic_sv2::Error),
+    RolesLogicSv2(roles_logic_sv2::Error),
     Framing(codec_sv2::framing_sv2::Error),
     PoisonLock(String),
     Custom(String),
     Sv2ProtocolError((u32, Mining<'static>)),
-    MempoolError(JdsMempoolError),
+    MempoolError(crate::JdsMempoolError),
     ImpossibleToReconstructBlock(String),
     NoLastDeclaredJob,
 }
@@ -41,7 +39,7 @@ impl std::fmt::Display for JdsError {
             Codec(ref e) => write!(f, "Codec SV2 error: `{:?}", e),
             Framing(ref e) => write!(f, "Framing SV2 error: `{:?}`", e),
             Noise(ref e) => write!(f, "Noise SV2 error: `{:?}", e),
-            RolesLogic(ref e) => write!(f, "Roles Logic SV2 error: `{:?}`", e),
+            RolesLogicSv2(ref e) => write!(f, "Roles Logic SV2 error: `{:?}`", e),
             PoisonLock(ref e) => write!(f, "Poison lock: {:?}", e),
             Custom(ref e) => write!(f, "Custom SV2 error: `{:?}`", e),
             Sv2ProtocolError(ref e) => {
@@ -56,8 +54,8 @@ impl std::fmt::Display for JdsError {
     }
 }
 
-impl From<config::ConfigError> for JdsError {
-    fn from(e: config::ConfigError) -> JdsError {
+impl From<ext_config::ConfigError> for JdsError {
+    fn from(e: ext_config::ConfigError) -> JdsError {
         JdsError::ConfigError(e)
     }
 }
@@ -94,7 +92,7 @@ impl From<noise_sv2::Error> for JdsError {
 
 impl From<roles_logic_sv2::Error> for JdsError {
     fn from(e: roles_logic_sv2::Error) -> JdsError {
-        JdsError::RolesLogic(e)
+        JdsError::RolesLogicSv2(e)
     }
 }
 
@@ -127,8 +125,8 @@ impl From<(u32, Mining<'static>)> for JdsError {
     }
 }
 
-impl From<JdsMempoolError> for JdsError {
-    fn from(error: JdsMempoolError) -> Self {
+impl From<crate::JdsMempoolError> for JdsError {
+    fn from(error: crate::JdsMempoolError) -> Self {
         JdsError::MempoolError(error)
     }
 }

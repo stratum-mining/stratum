@@ -1,6 +1,7 @@
-use super::{Downstream, DownstreamMessages, SetDownstreamTarget};
-
-use super::super::error::{TProxyError, TProxyResult};
+use crate::{
+    downstream_sv1::{Downstream, DownstreamMessages, SetDownstreamTarget},
+    TProxyError, TProxyResult,
+};
 use roles_logic_sv2::utils::Mutex;
 use std::{ops::Div, sync::Arc};
 use v1::json_rpc;
@@ -306,7 +307,10 @@ impl Downstream {
 
 #[cfg(test)]
 mod test {
-    use crate::tproxy_config::{DownstreamDifficultyConfig, UpstreamDifficultyConfig};
+    use crate::{
+        downstream_sv1::Downstream,
+        tproxy_config::{DownstreamDifficultyConfig, UpstreamDifficultyConfig},
+    };
     use async_channel::unbounded;
     use binary_sv2::U256;
     use rand::{thread_rng, Rng};
@@ -316,8 +320,6 @@ mod test {
         sync::Arc,
         time::{Duration, Instant},
     };
-
-    use crate::downstream_sv1::Downstream;
 
     #[test]
     fn test_diff_management() {

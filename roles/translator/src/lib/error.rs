@@ -34,7 +34,7 @@ pub enum ChannelSendError<'a> {
 #[derive(Debug)]
 pub enum TProxyError<'a> {
     VecToSlice32(Vec<u8>),
-    ConfigError(config::ConfigError),
+    ConfigError(ext_config::ConfigError),
     /// Errors on bad CLI argument input.
     #[allow(dead_code)]
     BadCliArgs,
@@ -53,7 +53,7 @@ pub enum TProxyError<'a> {
     /// Errors on bad `String` to `int` conversion.
     ParseInt(std::num::ParseIntError),
     /// Errors from `roles_logic_sv2` crate.
-    RolesSv2Logic(roles_logic_sv2::errors::Error),
+    RolesLogicSv2(roles_logic_sv2::errors::Error),
     UpstreamIncoming(roles_logic_sv2::errors::Error),
     /// SV1 protocol library error
     V1Protocol(v1::error::Error<'a>),
@@ -90,7 +90,7 @@ impl<'a> fmt::Display for TProxyError<'a> {
             InvalidExtranonce(ref e) => write!(f, "Invalid Extranonce error: `{:?}", e),
             Io(ref e) => write!(f, "I/O error: `{:?}", e),
             ParseInt(ref e) => write!(f, "Bad convert from `String` to `int`: `{:?}`", e),
-            RolesSv2Logic(ref e) => write!(f, "Roles SV2 Logic Error: `{:?}`", e),
+            RolesLogicSv2(ref e) => write!(f, "Roles SV2 Logic Error: `{:?}`", e),
             V1Protocol(ref e) => write!(f, "V1 Protocol Error: `{:?}`", e),
             SubprotocolMining(ref e) => write!(f, "Subprotocol Mining Error: `{:?}`", e),
             UpstreamIncoming(ref e) => write!(f, "Upstream parse incoming error: `{:?}`", e),
@@ -117,8 +117,8 @@ impl<'a> fmt::Display for TProxyError<'a> {
     }
 }
 
-impl<'a> From<config::ConfigError> for TProxyError<'a> {
-    fn from(e: config::ConfigError) -> TProxyError<'a> {
+impl<'a> From<ext_config::ConfigError> for TProxyError<'a> {
+    fn from(e: ext_config::ConfigError) -> TProxyError<'a> {
         TProxyError::ConfigError(e)
     }
 }
@@ -155,7 +155,7 @@ impl<'a> From<std::num::ParseIntError> for TProxyError<'a> {
 
 impl<'a> From<roles_logic_sv2::errors::Error> for TProxyError<'a> {
     fn from(e: roles_logic_sv2::errors::Error) -> Self {
-        TProxyError::RolesSv2Logic(e)
+        TProxyError::RolesLogicSv2(e)
     }
 }
 

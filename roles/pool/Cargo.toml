@@ -30,7 +30,7 @@ error_handling = { version = "1.0.0", path = "../../utils/error-handling" }
 nohash-hasher = "0.2.0"
 key-utils = { version = "^1.0.0", path = "../../utils/key-utils" }
 clap = { version = "^4.5.4", features = ["derive"] }
-config = { version = "0.14.0", features = ["toml"] }
+ext-config = { version = "0.14.0", features = ["toml"], package = "config" }
 
 [dev-dependencies]
 hex = "0.4.3"

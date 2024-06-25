@@ -1,4 +1,4 @@
-use crate::lib::{error::JdcResult, jdc_config::JdcConfig};
+use crate::{JdcConfig, JdcResult};
 
 use clap::Parser;
 
@@ -12,18 +12,15 @@ struct Args {
 #[allow(clippy::result_large_err)]
 pub fn process_cli_args<'a>() -> JdcResult<'a, JdcConfig> {
     let args = Args::parse();
-    let config = match config::Config::builder()
-        .add_source(config::File::with_name(&args.config_path))
+    let config = ext_config::Config::builder()
+        .add_source(ext_config::File::with_name(&args.config_path))
         .build()
-    {
-        Ok(cfg) => cfg,
-        Err(e) => {
-            tracing::error!("{:?}", e);
-            std::process::exit(1)
-        }
-    };
+        .unwrap_or_else(|e| {
+            tracing::error!("{}", e);
+            std::process::exit(1);
+        });
 
-    let jdc_config: JdcConfig = config.try_deserialize()?;
+    let config = config.try_deserialize::<JdcConfig>()?;
 
-    Ok(jdc_config)
+    Ok(config)
 }

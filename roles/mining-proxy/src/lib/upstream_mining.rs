@@ -1,9 +1,13 @@
 #![allow(dead_code)]
 
-use super::EXTRANONCE_RANGE_1_LENGTH;
+use crate::{
+    downstream_mining::{
+        Channel, DownstreamMiningNode, DownstreamMiningNodeStatus, StdFrame as DownstreamFrame,
+    },
+    remove_upstream, ProxyError, EXTRANONCE_RANGE_1_LENGTH, MIN_EXTRANONCE_SIZE,
+};
 use roles_logic_sv2::utils::Id;
 
-use super::downstream_mining::{Channel, DownstreamMiningNode, StdFrame as DownstreamFrame};
 use async_channel::{Receiver, SendError, Sender};
 use async_recursion::async_recursion;
 use codec_sv2::{Frame, HandshakeRole, Initiator, StandardEitherFrame, StandardSv2Frame};
@@ -104,11 +108,11 @@ impl ChannelKind {
     }
 }
 
-impl From<super::ChannelKind> for ChannelKind {
-    fn from(v: super::ChannelKind) -> Self {
+impl From<crate::ChannelKind> for ChannelKind {
+    fn from(v: crate::ChannelKind) -> Self {
         match v {
-            super::ChannelKind::Group => Self::Group(GroupChannels::new()),
-            super::ChannelKind::Extended => Self::Extended(None),
+            crate::ChannelKind::Group => Self::Group(GroupChannels::new()),
+            crate::ChannelKind::Extended => Self::Extended(None),
         }
     }
 }
@@ -200,7 +204,7 @@ impl UpstreamMiningNode {
         id: u32,
         address: SocketAddr,
         authority_public_key: [u8; 32],
-        channel_kind: super::ChannelKind,
+        channel_kind: crate::ChannelKind,
         group_id: Arc<Mutex<GroupId>>,
         channel_ids: Arc<Mutex<Id>>,
         downstream_share_per_minute: f32,
@@ -271,10 +275,7 @@ impl UpstreamMiningNode {
     ///     returned and the upstream is marked as not connected.
     /// If the node is not connected it try to connect and send the message and everything is ok
     ///     the upstream is marked as connected and Ok(()) is returned if not an error is returned.
-    pub async fn send(
-        self_mutex: Arc<Mutex<Self>>,
-        sv2_frame: StdFrame,
-    ) -> Result<(), super::error::ProxyError> {
+    pub async fn send(self_mutex: Arc<Mutex<Self>>, sv2_frame: StdFrame) -> Result<(), ProxyError> {
         let (has_sv2_connection, mut connection, address) = self_mutex
             .safe_lock(|self_| {
                 (
@@ -333,7 +334,7 @@ impl UpstreamMiningNode {
         }
     }
 
-    async fn receive(self_mutex: Arc<Mutex<Self>>) -> Result<StdFrame, super::error::ProxyError> {
+    async fn receive(self_mutex: Arc<Mutex<Self>>) -> Result<StdFrame, ProxyError> {
         let mut connection = self_mutex
             .safe_lock(|self_| self_.connection.clone())
             .unwrap();
@@ -343,7 +344,7 @@ impl UpstreamMiningNode {
                 Err(_) => {
                     let address = self_mutex.safe_lock(|s| s.address).unwrap();
                     error!("Upstream node {} is not available", address);
-                    Err(super::error::ProxyError::UpstreamNotAvailabe(address))
+                    Err(ProxyError::UpstreamNotAvailabe(address))
                 }
             },
             None => {
@@ -353,7 +354,7 @@ impl UpstreamMiningNode {
         }
     }
 
-    async fn connect(self_mutex: Arc<Mutex<Self>>) -> Result<(), super::error::ProxyError> {
+    async fn connect(self_mutex: Arc<Mutex<Self>>) -> Result<(), ProxyError> {
         let has_connection = self_mutex
             .safe_lock(|self_| self_.connection.is_some())
             .unwrap();
@@ -365,7 +366,7 @@ impl UpstreamMiningNode {
                     .unwrap();
                 let socket = TcpStream::connect(address).await.map_err(|_| {
                     error!("Upstream node {} is not available", address);
-                    super::error::ProxyError::UpstreamNotAvailabe(address)
+                    ProxyError::UpstreamNotAvailabe(address)
                 })?;
                 info!(
                     "Connected to upstream node {}: now handling noise handshake",
@@ -457,7 +458,7 @@ impl UpstreamMiningNode {
 
     fn exit(self_: Arc<Mutex<Self>>) {
         if !self_.safe_lock(|s| s.reconnect).unwrap() {
-            super::remove_upstream(self_.safe_lock(|s| s.id).unwrap());
+            remove_upstream(self_.safe_lock(|s| s.id).unwrap());
         }
         let downstreams = self_
             .safe_lock(|s| s.downstream_selector.get_all_downstreams())
@@ -466,11 +467,9 @@ impl UpstreamMiningNode {
         for d in downstreams {
             if let Some(id) = d
                 .safe_lock(|d| match &d.status {
-                    super::downstream_mining::DownstreamMiningNodeStatus::Initializing => None,
-                    super::downstream_mining::DownstreamMiningNodeStatus::Paired(_) => None,
-                    super::downstream_mining::DownstreamMiningNodeStatus::ChannelOpened(
-                        channel,
-                    ) => match channel {
+                    DownstreamMiningNodeStatus::Initializing => None,
+                    DownstreamMiningNodeStatus::Paired(_) => None,
+                    DownstreamMiningNodeStatus::ChannelOpened(channel) => match channel {
                         Channel::DowntreamHomUpstreamGroup { channel_id, .. } => Some(*channel_id),
                         Channel::DowntreamHomUpstreamExtended { channel_id, .. } => {
                             Some(*channel_id)
@@ -580,7 +579,7 @@ impl UpstreamMiningNode {
         let message_type = incoming.get_header().unwrap().msg_type();
         let payload = incoming.payload();
 
-        let routing_logic = super::get_routing_logic();
+        let routing_logic = crate::get_routing_logic();
 
         let next_message_to_send = UpstreamMiningNode::handle_message_mining(
             self_mutex.clone(),
@@ -597,7 +596,7 @@ impl UpstreamMiningNode {
         flags: Option<u32>,
         min_version: u16,
         max_version: u16,
-    ) -> Result<(), super::error::ProxyError> {
+    ) -> Result<(), ProxyError> {
         let flags = flags.unwrap_or(0b0000_0000_0000_0000_0000_0000_0000_0110);
         let (frame, downstream_hr) = self_mutex
             .safe_lock(|self_| {
@@ -650,9 +649,7 @@ impl UpstreamMiningNode {
                     let error_message = std::str::from_utf8(m.error_code.inner_as_ref())
                         .unwrap()
                         .to_string();
-                    Err(super::error::ProxyError::SetupConnectionError(
-                        error_message,
-                    ))
+                    Err(ProxyError::SetupConnectionError(error_message))
                 }
             }
             Ok(_) => todo!(),
@@ -671,7 +668,7 @@ impl UpstreamMiningNode {
                     255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
                 ]
                 .into(),
-                min_extranonce_size: super::MIN_EXTRANONCE_SIZE,
+                min_extranonce_size: MIN_EXTRANONCE_SIZE,
             },
         ));
         Self::send(self_mutex.clone(), message.try_into().unwrap())
@@ -1276,7 +1273,7 @@ mod tests {
             id,
             address,
             authority_public_key,
-            super::super::ChannelKind::Group,
+            crate::ChannelKind::Group,
             ids,
             channel_ids,
             10.0,

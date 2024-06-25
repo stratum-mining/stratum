@@ -1,8 +1,4 @@
-use super::{
-    error::{PoolError, PoolResult},
-    pool_config::PoolConfig,
-    status,
-};
+use crate::{pool_config, status, PoolConfig, PoolError, PoolResult};
 use async_channel::{Receiver, Sender};
 use binary_sv2::U256;
 use codec_sv2::{Frame, HandshakeRole, Responder, StandardEitherFrame, StandardSv2Frame};
@@ -13,7 +9,6 @@ use nohash_hasher::BuildNoHashHasher;
 use roles_logic_sv2::{
     channel_logic::channel_factory::PoolChannelFactory,
     common_properties::{CommonDownstreamData, IsDownstream, IsMiningDownstream},
-    errors::Error,
     handlers::mining::{ParseDownstreamMiningMessages, SendTo},
     job_creator::JobsCreators,
     mining_sv2::{ExtendedExtranonce, SetNewPrevHash as SetNPH},
@@ -21,6 +16,7 @@ use roles_logic_sv2::{
     routing_logic::MiningRoutingLogic,
     template_distribution_sv2::{NewTemplate, SetNewPrevHash, SubmitSolution},
     utils::{CoinbaseOutput as CoinbaseOutput_, Mutex},
+    Error as RolesLogicSv2Error,
 };
 use serde::Deserialize;
 use std::{
@@ -48,7 +44,7 @@ pub struct CoinbaseOutput {
 }
 
 impl TryFrom<&CoinbaseOutput> for CoinbaseOutput_ {
-    type Error = Error;
+    type Error = RolesLogicSv2Error;
 
     fn try_from(pool_output: &CoinbaseOutput) -> Result<Self, Self::Error> {
         match pool_output.output_script_type.as_str() {
@@ -58,7 +54,7 @@ impl TryFrom<&CoinbaseOutput> for CoinbaseOutput_ {
                     output_script_value: pool_output.clone().output_script_value,
                 })
             }
-            _ => Err(Error::UnknownOutputScriptType),
+            _ => Err(RolesLogicSv2Error::UnknownOutputScriptType),
         }
     }
 }
@@ -202,7 +198,7 @@ impl Downstream {
     #[async_recursion::async_recursion]
     async fn match_send_to(
         self_: Arc<Mutex<Self>>,
-        send_to: Result<SendTo<()>, Error>,
+        send_to: Result<SendTo<()>, RolesLogicSv2Error>,
     ) -> PoolResult<()> {
         match send_to {
             Ok(SendTo::Respond(message)) => {
@@ -213,7 +209,7 @@ impl Downstream {
                     Self::send(self_.clone(), message.clone()).await?;
                     let downstream_id = self_
                         .safe_lock(|d| d.id)
-                        .map_err(|e| Error::PoisonLock(e.to_string()))?;
+                        .map_err(|e| RolesLogicSv2Error::PoisonLock(e.to_string()))?;
                     return Err(PoolError::Sv2ProtocolError((
                         downstream_id,
                         message.clone(),
@@ -234,7 +230,7 @@ impl Downstream {
                 error!("Unexpected SendTo: {:?}", m);
                 panic!();
             }
-            Err(Error::UnexpectedMessage(_message_type)) => todo!(),
+            Err(RolesLogicSv2Error::UnexpectedMessage(_message_type)) => todo!(),
             Err(e) => {
                 error!("Error: {:?}", e);
                 todo!()
@@ -510,7 +506,7 @@ impl Pool {
             end: extranonce_len,
         };
         let ids = Arc::new(Mutex::new(roles_logic_sv2::utils::GroupId::new()));
-        let pool_coinbase_outputs = super::pool_config::get_coinbase_output(&config);
+        let pool_coinbase_outputs = pool_config::get_coinbase_output(&config);
         info!("PUB KEY: {:?}", pool_coinbase_outputs);
         let extranonces = ExtendedExtranonce::new(range_0, range_1, range_2);
         let creator = JobsCreators::new(extranonce_len as u8);
@@ -645,15 +641,15 @@ mod test {
         bitcoin::{util::psbt::serialize::Serialize, Transaction, Witness},
     };
 
-    use super::super::pool_config::PoolConfig;
+    use super::*;
 
     // this test is used to verify the `coinbase_tx_prefix` and `coinbase_tx_suffix` values tested against in
     // message generator `stratum/test/message-generator/test/pool-sri-test-extended.json`
     #[test]
     fn test_coinbase_outputs_from_config() {
         // Load config
-        let config = match config::Config::builder()
-            .add_source(config::File::with_name(
+        let config = match ext_config::Config::builder()
+            .add_source(ext_config::File::with_name(
                 "./config-examples/pool-config-local-tp-example.toml",
             ))
             .build()
@@ -665,7 +661,7 @@ mod test {
             }
         };
 
-        let pool_config: PoolConfig = config.try_deserialize().unwrap();
+        let config: PoolConfig = config.try_deserialize().unwrap();
         // template from message generator test (mock TP template)
         let _extranonce_len = 3;
         let coinbase_prefix = vec![3, 76, 163, 38, 0];
@@ -676,15 +672,15 @@ mod test {
         let _coinbase_tx_outputs_count = 0;
         let coinbase_tx_locktime = 0;
         let coinbase_tx_outputs: Vec<bitcoin::TxOut> =
-            super::super::pool_config::get_coinbase_output(&pool_config).unwrap();
+            pool_config::get_coinbase_output(&config).unwrap();
         // extranonce len set to max_extranonce_size in `ChannelFactory::new_extended_channel()`
         let extranonce_len = 32;
 
         // build coinbase TX from 'job_creator::coinbase()'
 
         let mut bip34_bytes = get_bip_34_bytes(coinbase_prefix.try_into().unwrap());
-        let script_prefix_length = bip34_bytes.len() + pool_config.pool_signature.as_bytes().len();
-        bip34_bytes.extend_from_slice(pool_config.pool_signature.as_bytes());
+        let script_prefix_length = bip34_bytes.len() + config.pool_signature.as_bytes().len();
+        bip34_bytes.extend_from_slice(config.pool_signature.as_bytes());
         bip34_bytes.extend_from_slice(&vec![0; extranonce_len as usize]);
         let witness = match bip34_bytes.len() {
             0 => Witness::from_vec(vec![]),

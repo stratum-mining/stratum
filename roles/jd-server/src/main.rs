@@ -1,8 +1,4 @@
 #![allow(special_module_name)]
-use crate::lib::{
-    mempool::{self, error::JdsMempoolError},
-    status,
-};
 use async_channel::{bounded, unbounded, Receiver, Sender};
 use error_handling::handle_result;
 use roles_logic_sv2::utils::Mutex;
@@ -12,19 +8,22 @@ use tracing::{error, info, warn};
 mod args;
 mod lib;
 
-use lib::job_declarator::JobDeclarator;
+use lib::{
+    jds_config, job_declarator, mempool, status, EitherFrame, JdsConfig, JdsError, JdsMempoolError,
+    JdsResult, StdFrame,
+};
 
 #[tokio::main]
 async fn main() {
     tracing_subscriber::fmt::init();
-    let jds_config = match args::process_cli_args() {
+    let config = match args::process_cli_args() {
         Ok(p) => p,
         Err(_) => return,
     };
 
-    let url = jds_config.core_rpc_url.clone() + ":" + &jds_config.core_rpc_port.clone().to_string();
-    let username = jds_config.core_rpc_user.clone();
-    let password = jds_config.core_rpc_pass.clone();
+    let url = config.core_rpc_url.clone() + ":" + &config.core_rpc_port.clone().to_string();
+    let username = config.core_rpc_user.clone();
+    let password = config.core_rpc_pass.clone();
     // TODO should we manage what to do when the limit is reaced?
     let (new_block_sender, new_block_receiver): (Sender<String>, Receiver<String>) = bounded(10);
     let mempool = Arc::new(Mutex::new(mempool::JDsMempool::new(
@@ -33,7 +32,7 @@ async fn main() {
         password,
         new_block_receiver,
     )));
-    let mempool_update_interval = jds_config.mempool_update_interval;
+    let mempool_update_interval = config.mempool_update_interval;
     let mempool_cloned_ = mempool.clone();
     let (status_tx, status_rx) = unbounded();
     let sender = status::Sender::Downstream(status_tx.clone());
@@ -105,11 +104,11 @@ async fn main() {
 
     info!("Jds INITIALIZING");
 
-    let cloned = jds_config.clone();
+    let cloned = config.clone();
     let mempool_cloned = mempool.clone();
     let (sender_add_txs_to_mempool, receiver_add_txs_to_mempool) = unbounded();
     task::spawn(async move {
-        JobDeclarator::start(
+        job_declarator::JobDeclarator::start(
             cloned,
             sender,
             mempool_cloned,
@@ -123,7 +122,7 @@ async fn main() {
             if let Ok(add_transactions_to_mempool) = receiver_add_txs_to_mempool.recv().await {
                 let mempool_cloned = mempool.clone();
                 task::spawn(async move {
-                    match lib::mempool::JDsMempool::add_tx_data_to_mempool(
+                    match mempool::JDsMempool::add_tx_data_to_mempool(
                         mempool_cloned,
                         add_transactions_to_mempool,
                     )

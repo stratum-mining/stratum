@@ -1,4 +1,4 @@
-use super::JobDeclarator;
+use crate::job_declarator::JobDeclarator;
 use roles_logic_sv2::{
     handlers::{job_declaration::ParseServerJobDeclarationMessages, SendTo_},
     job_declaration_sv2::{
@@ -7,15 +7,15 @@ use roles_logic_sv2::{
         ProvideMissingTransactionsSuccess,
     },
     parsers::JobDeclaration,
+    Error as RolesLogicSv2Error,
 };
 pub type SendTo = SendTo_<JobDeclaration<'static>, ()>;
-use roles_logic_sv2::errors::Error;
 
 impl ParseServerJobDeclarationMessages for JobDeclarator {
     fn handle_allocate_mining_job_token_success(
         &mut self,
         message: AllocateMiningJobTokenSuccess,
-    ) -> Result<SendTo, Error> {
+    ) -> Result<SendTo, RolesLogicSv2Error> {
         self.allocated_tokens.push(message.into_static());
 
         Ok(SendTo::None(None))
@@ -24,7 +24,7 @@ impl ParseServerJobDeclarationMessages for JobDeclarator {
     fn handle_declare_mining_job_success(
         &mut self,
         message: DeclareMiningJobSuccess,
-    ) -> Result<SendTo, Error> {
+    ) -> Result<SendTo, RolesLogicSv2Error> {
         let message = JobDeclaration::DeclareMiningJobSuccess(message.into_static());
         Ok(SendTo::None(Some(message)))
     }
@@ -32,14 +32,14 @@ impl ParseServerJobDeclarationMessages for JobDeclarator {
     fn handle_declare_mining_job_error(
         &mut self,
         _message: DeclareMiningJobError,
-    ) -> Result<SendTo, Error> {
+    ) -> Result<SendTo, RolesLogicSv2Error> {
         Ok(SendTo::None(None))
     }
 
     fn handle_identify_transactions(
         &mut self,
         message: IdentifyTransactions,
-    ) -> Result<SendTo, Error> {
+    ) -> Result<SendTo, RolesLogicSv2Error> {
         let message_identify_transactions = IdentifyTransactionsSuccess {
             request_id: message.request_id,
             tx_data_hashes: Vec::new().into(),
@@ -52,7 +52,7 @@ impl ParseServerJobDeclarationMessages for JobDeclarator {
     fn handle_provide_missing_transactions(
         &mut self,
         message: ProvideMissingTransactions,
-    ) -> Result<SendTo, Error> {
+    ) -> Result<SendTo, RolesLogicSv2Error> {
         let tx_list = self
             .last_declare_mining_jobs_sent
             .get(&message.request_id)

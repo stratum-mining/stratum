@@ -1,4 +1,4 @@
-use crate::error::{self, TProxyError};
+use crate::TProxyError;
 
 #[derive(Debug)]
 pub enum Sender {
@@ -58,7 +58,7 @@ pub struct Status<'a> {
 
 async fn send_status(
     sender: &Sender,
-    e: error::TProxyError<'static>,
+    e: TProxyError<'static>,
     outcome: error_handling::ErrorBranch,
 ) -> error_handling::ErrorBranch {
     match sender {
@@ -102,10 +102,7 @@ async fn send_status(
 }
 
 // this is called by `error_handling::handle_result!`
-pub async fn handle_error(
-    sender: &Sender,
-    e: error::TProxyError<'static>,
-) -> error_handling::ErrorBranch {
+pub async fn handle_error(sender: &Sender, e: TProxyError<'static>) -> error_handling::ErrorBranch {
     tracing::error!("Error: {:?}", &e);
     match e {
         TProxyError::ConfigError(_) => {
@@ -143,7 +140,7 @@ pub async fn handle_error(
             send_status(sender, e, error_handling::ErrorBranch::Break).await
         }
         // Errors from `roles_logic_sv2` crate.
-        TProxyError::RolesSv2Logic(_) => {
+        TProxyError::RolesLogicSv2(_) => {
             send_status(sender, e, error_handling::ErrorBranch::Break).await
         }
         TProxyError::UpstreamIncoming(_) => {

@@ -37,7 +37,7 @@ pub type StdFrame = StandardSv2Frame<Message>;
 mod setup_connection;
 use setup_connection::SetupConnectionHandler;
 
-use super::{error::JdcError, jdc_config::JdcConfig, upstream_sv2::Upstream};
+use crate::{upstream_sv2::Upstream, JdcConfig, JdcResult};
 
 #[derive(Debug, Clone)]
 pub struct LastDeclareJob {
@@ -83,7 +83,7 @@ impl JobDeclarator {
         config: JdcConfig,
         up: Arc<Mutex<Upstream>>,
         task_collector: Arc<Mutex<Vec<AbortHandle>>>,
-    ) -> Result<Arc<Mutex<Self>>, JdcError<'static>> {
+    ) -> JdcResult<'static, Arc<Mutex<Self>>> {
         let stream = tokio::net::TcpStream::connect(address).await?;
         let initiator = Initiator::from_raw_k(authority_public_key)?;
         let (mut receiver, mut sender, _, _) =

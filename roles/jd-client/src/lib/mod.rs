@@ -1,11 +1,13 @@
 pub mod downstream;
-pub mod error;
+mod error;
 pub mod jdc_config;
 pub mod job_declarator;
 pub mod status;
 pub mod template_receiver;
 pub mod upstream_sv2;
 
+pub use error::{ChannelSendError as JdcChannelSendError, JdcError, JdcResult};
+pub use jdc_config::JdcConfig;
 use std::{sync::atomic::AtomicBool, time::Duration};
 
 /// Is used by the template receiver and the downstream. When a NewTemplate is received the context

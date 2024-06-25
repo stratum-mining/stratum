@@ -1,4 +1,7 @@
-use super::{super::error::TProxyResult, EitherFrame, StdFrame};
+use crate::{
+    upstream_sv2::{EitherFrame, StdFrame},
+    TProxyChannelSendError, TProxyError, TProxyResult,
+};
 use async_channel::{Receiver, Sender};
 
 /// Handles the sending and receiving of messages to and from an SV2 Upstream role (most typically
@@ -21,9 +24,7 @@ impl UpstreamConnection {
     pub async fn send(&mut self, sv2_frame: StdFrame) -> TProxyResult<'static, ()> {
         let either_frame = sv2_frame.into();
         self.sender.send(either_frame).await.map_err(|e| {
-            super::super::error::TProxyError::ChannelErrorSender(
-                super::super::error::ChannelSendError::General(e.to_string()),
-            )
+            TProxyError::ChannelErrorSender(TProxyChannelSendError::General(e.to_string()))
         })?;
         Ok(())
     }

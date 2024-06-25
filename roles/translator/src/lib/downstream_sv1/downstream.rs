@@ -1,8 +1,11 @@
 use crate::{
-    downstream_sv1,
-    error::TProxyResult,
+    downstream_sv1::{
+        self, kill, DownstreamMessages, SubmitShareWithChannelId, SUBSCRIBE_TIMEOUT_SECS,
+    },
+    proxy::Bridge,
     status,
     tproxy_config::{DownstreamDifficultyConfig, UpstreamDifficultyConfig},
+    TProxyError, TProxyResult,
 };
 use async_channel::{bounded, Receiver, Sender};
 use async_std::{
@@ -15,14 +18,11 @@ use error_handling::handle_result;
 use futures::FutureExt;
 use tokio::sync::broadcast;
 
-use super::{kill, DownstreamMessages, SubmitShareWithChannelId, SUBSCRIBE_TIMEOUT_SECS};
-
 use roles_logic_sv2::{
     common_properties::{IsDownstream, IsMiningDownstream},
     utils::Mutex,
 };
 
-use crate::error::TProxyError;
 use futures::select;
 use tokio_util::codec::{FramedRead, LinesCodec};
 
@@ -327,7 +327,7 @@ impl Downstream {
         tx_sv1_submit: Sender<DownstreamMessages>,
         tx_mining_notify: broadcast::Sender<server_to_client::Notify<'static>>,
         tx_status: status::Sender,
-        bridge: Arc<Mutex<crate::proxy::Bridge>>,
+        bridge: Arc<Mutex<Bridge>>,
         downstream_difficulty_config: DownstreamDifficultyConfig,
         upstream_difficulty_config: Arc<Mutex<UpstreamDifficultyConfig>>,
     ) {
@@ -375,7 +375,7 @@ impl Downstream {
     async fn handle_incoming_sv1(
         self_: Arc<Mutex<Self>>,
         message_sv1: json_rpc::Message,
-    ) -> Result<(), super::super::error::TProxyError<'static>> {
+    ) -> TProxyResult<'static, ()> {
         // `handle_message` in `IsServer` trait + calls `handle_request`
         // TODO: Map err from V1Error to Error::V1Error
         let response = self_.safe_lock(|s| s.handle_message(message_sv1)).unwrap();

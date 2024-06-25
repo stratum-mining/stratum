@@ -1,15 +1,15 @@
-use super::TemplateRx;
+use crate::template_receiver::TemplateRx;
 use roles_logic_sv2::{
-    errors::Error,
     handlers::template_distribution::{ParseServerTemplateDistributionMessages, SendTo},
     parsers::TemplateDistribution,
     template_distribution_sv2::*,
     utils::Mutex,
+    Error as RolesLogicSv2Error,
 };
 use std::sync::Arc;
 
 impl ParseServerTemplateDistributionMessages for TemplateRx {
-    fn handle_new_template(&mut self, m: NewTemplate) -> Result<SendTo, Error> {
+    fn handle_new_template(&mut self, m: NewTemplate) -> Result<SendTo, RolesLogicSv2Error> {
         let new_template = TemplateDistribution::NewTemplate(m.into_static());
         Ok(SendTo::RelayNewMessageToRemote(
             Arc::new(Mutex::new(())),
@@ -17,7 +17,10 @@ impl ParseServerTemplateDistributionMessages for TemplateRx {
         ))
     }
 
-    fn handle_set_new_prev_hash(&mut self, m: SetNewPrevHash) -> Result<SendTo, Error> {
+    fn handle_set_new_prev_hash(
+        &mut self,
+        m: SetNewPrevHash,
+    ) -> Result<SendTo, RolesLogicSv2Error> {
         let new_prev_hash = TemplateDistribution::SetNewPrevHash(m.into_static());
         Ok(SendTo::RelayNewMessageToRemote(
             Arc::new(Mutex::new(())),
@@ -28,7 +31,7 @@ impl ParseServerTemplateDistributionMessages for TemplateRx {
     fn handle_request_tx_data_success(
         &mut self,
         _m: RequestTransactionDataSuccess,
-    ) -> Result<SendTo, Error> {
+    ) -> Result<SendTo, RolesLogicSv2Error> {
         // Just ignore tx data messages this are meant for the declaretors
         Ok(SendTo::None(None))
     }
@@ -36,7 +39,7 @@ impl ParseServerTemplateDistributionMessages for TemplateRx {
     fn handle_request_tx_data_error(
         &mut self,
         _m: RequestTransactionDataError,
-    ) -> Result<SendTo, Error> {
+    ) -> Result<SendTo, RolesLogicSv2Error> {
         // Just ignore tx data messages this are meant for the declaretors
         Ok(SendTo::None(None))
     }

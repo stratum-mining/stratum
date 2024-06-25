@@ -21,6 +21,12 @@
 mod args;
 mod lib;
 
+use lib::{
+    downstream_mining, get_common_routing_logic, get_routing_logic, initialize_r_logic,
+    initialize_upstreams, remove_upstream, upstream_mining, ChannelKind, ProxyConfig, ProxyError,
+    ProxyResult, UpstreamMiningValues, EXTRANONCE_RANGE_1_LENGTH, MIN_EXTRANONCE_SIZE,
+    ROUTING_LOGIC,
+};
 use roles_logic_sv2::utils::{GroupId, Mutex};
 use std::{net::SocketAddr, sync::Arc};
 use tracing::info;
@@ -44,13 +50,13 @@ async fn main() {
     };
 
     let group_id = Arc::new(Mutex::new(GroupId::new()));
-    lib::ROUTING_LOGIC
+    ROUTING_LOGIC
         .set(Mutex::new(
-            lib::initialize_r_logic(&proxy_config.upstreams, group_id, proxy_config.clone()).await,
+            initialize_r_logic(&proxy_config.upstreams, group_id, proxy_config.clone()).await,
         ))
         .expect("BUG: Failed to set ROUTING_LOGIC");
     info!("PROXY INITIALIZING");
-    lib::initialize_upstreams(
+    initialize_upstreams(
         proxy_config.min_supported_version,
         proxy_config.max_supported_version,
     )
@@ -64,5 +70,5 @@ async fn main() {
     );
 
     info!("PROXY INITIALIZED");
-    crate::lib::downstream_mining::listen_for_downstream_mining(socket).await
+    downstream_mining::listen_for_downstream_mining(socket).await
 }

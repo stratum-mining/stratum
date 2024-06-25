@@ -1,4 +1,4 @@
-use super::error::{self, JdcError};
+use crate::JdcError;
 
 #[derive(Debug)]
 pub enum Sender {
@@ -48,7 +48,7 @@ pub struct Status<'a> {
 
 async fn send_status(
     sender: &Sender,
-    e: error::JdcError<'static>,
+    e: JdcError<'static>,
     outcome: error_handling::ErrorBranch,
 ) -> error_handling::ErrorBranch {
     match sender {
@@ -85,10 +85,7 @@ async fn send_status(
 }
 
 // this is called by `error_handling::handle_result!`
-pub async fn handle_error(
-    sender: &Sender,
-    e: error::JdcError<'static>,
-) -> error_handling::ErrorBranch {
+pub async fn handle_error(sender: &Sender, e: JdcError<'static>) -> error_handling::ErrorBranch {
     tracing::error!("Error: {:?}", &e);
     match e {
         JdcError::VecToSlice32(_) => {
@@ -108,7 +105,7 @@ pub async fn handle_error(
         // Errors on bad `String` to `int` conversion.
         JdcError::ParseInt(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
         // Errors from `roles_logic_sv2` crate.
-        JdcError::RolesSv2Logic(_) => {
+        JdcError::RolesLogicSv2(_) => {
             send_status(sender, e, error_handling::ErrorBranch::Break).await
         }
         JdcError::UpstreamIncoming(_) => {

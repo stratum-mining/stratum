@@ -5,7 +5,8 @@ use tracing::{error, info, warn};
 mod args;
 mod lib;
 use lib::{
-    mining_pool::Pool, pool_config::get_coinbase_output, status, template_receiver::TemplateRx,
+    mining_pool, mining_pool::Pool, pool_config, status, template_receiver, PoolConfig, PoolError,
+    PoolResult,
 };
 
 use tokio::select;
@@ -14,7 +15,7 @@ use tokio::select;
 async fn main() {
     tracing_subscriber::fmt::init();
 
-    let pool_config = match args::process_cli_args() {
+    let config = match args::process_cli_args() {
         Ok(p) => p,
         Err(_) => return,
     };
@@ -25,7 +26,7 @@ async fn main() {
     let (s_solution, r_solution) = bounded(10);
     let (s_message_recv_signal, r_message_recv_signal) = bounded(10);
     info!("Pool INITIALIZING");
-    let coinbase_output_result = get_coinbase_output(&pool_config);
+    let coinbase_output_result = pool_config::get_coinbase_output(&config);
     let coinbase_output_len = match coinbase_output_result {
         Ok(coinbase_output) => coinbase_output.len() as u32,
         Err(err) => {
@@ -33,9 +34,9 @@ async fn main() {
             return;
         }
     };
-    let tp_authority_public_key = pool_config.tp_authority_public_key;
-    let template_rx_res = TemplateRx::connect(
-        pool_config.tp_address.parse().unwrap(),
+    let tp_authority_public_key = config.tp_authority_public_key;
+    let template_rx_res = template_receiver::TemplateRx::connect(
+        config.tp_address.parse().unwrap(),
         s_new_t,
         s_prev_hash,
         r_solution,
@@ -52,7 +53,7 @@ async fn main() {
     }
 
     let pool = Pool::start(
-        pool_config.clone(),
+        config.clone(),
         r_new_t,
         r_prev_hash,
         s_solution,

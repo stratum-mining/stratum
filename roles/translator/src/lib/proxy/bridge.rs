@@ -12,16 +12,12 @@ use std::sync::Arc;
 use tokio::sync::broadcast;
 use v1::{client_to_server::Submit, server_to_client, utils::HexU32Be};
 
-use super::super::{
+use crate::{
     downstream_sv1::{DownstreamMessages, SetDownstreamTarget, SubmitShareWithChannelId},
-    error::{
-        TProxyError::{self, PoisonLock},
-        TProxyResult,
-    },
-    status,
+    proxy, status, upstream_sv2, TProxyError, TProxyResult,
 };
 use error_handling::handle_result;
-use roles_logic_sv2::{channel_logic::channel_factory::OnNewShare, Error as RolesLogicError};
+use roles_logic_sv2::{channel_logic::channel_factory::OnNewShare, Error as RolesLogicSv2Error};
 use tracing::{debug, error, info};
 
 /// Bridge between the SV2 `Upstream` and SV1 `Downstream` responsible for the following messaging
@@ -124,7 +120,7 @@ impl Bridge {
                             let extranonce2_len = success.extranonce_size;
                             self.target
                                 .safe_lock(|t| *t = success.target.to_vec())
-                                .map_err(|_e| PoisonLock)?;
+                                .map_err(|_e| TProxyError::PoisonLock)?;
                             return Ok(OpenSv1Downstream {
                                 channel_id: success.channel_id,
                                 last_notify: self.last_notify.clone(),
@@ -197,7 +193,7 @@ impl Bridge {
                 b.channel_factory
                     .update_target_for_channel(new_target.channel_id, new_target.new_target);
             })
-            .map_err(|_| PoisonLock)?;
+            .map_err(|_| TProxyError::PoisonLock)?;
         Ok(())
     }
     /// receives a `SubmitShareWithChannelId` and validates the shares and sends to `Upstream` if
@@ -214,24 +210,24 @@ impl Bridge {
                     s.tx_status.clone(),
                 )
             })
-            .map_err(|_| PoisonLock)?;
+            .map_err(|_| TProxyError::PoisonLock)?;
         let upstream_target: [u8; 32] = target_mutex
             .safe_lock(|t| t.clone())
-            .map_err(|_| PoisonLock)?
+            .map_err(|_| TProxyError::PoisonLock)?
             .try_into()?;
         let mut upstream_target: Target = upstream_target.into();
         self_
             .safe_lock(|s| s.channel_factory.set_target(&mut upstream_target))
-            .map_err(|_| PoisonLock)?;
+            .map_err(|_| TProxyError::PoisonLock)?;
 
         let sv2_submit = self_
             .safe_lock(|s| {
                 s.translate_submit(share.channel_id, share.share, share.version_rolling_mask)
             })
-            .map_err(|_| PoisonLock)??;
+            .map_err(|_| TProxyError::PoisonLock)??;
         let res = self_
             .safe_lock(|s| s.channel_factory.on_submit_shares_extended(sv2_submit))
-            .map_err(|_| PoisonLock);
+            .map_err(|_| TProxyError::PoisonLock);
 
         match res {
             Ok(Ok(OnNewShare::SendErrorDownstream(e))) => {
@@ -280,7 +276,7 @@ impl Bridge {
         let last_version = self
             .channel_factory
             .last_valid_job_version()
-            .ok_or(TProxyError::RolesSv2Logic(RolesLogicError::NoValidJob))?;
+            .ok_or(TProxyError::RolesLogicSv2(RolesLogicSv2Error::NoValidJob))?;
         let version = match (sv1_submit.version_bits, version_rolling_mask) {
             // regarding version masking see https://github.com/slushpool/stratumprotocol/blob/master/stratum-extensions.mediawiki#changes-in-request-miningsubmit
             (Some(vb), Some(mask)) => (last_version & !mask.0) | (vb.0 & mask.0),
@@ -306,21 +302,20 @@ impl Bridge {
         sv2_set_new_prev_hash: SetNewPrevHash<'static>,
         tx_sv1_notify: broadcast::Sender<server_to_client::Notify<'static>>,
     ) -> TProxyResult<'static, ()> {
-        while !crate::upstream_sv2::upstream::IS_NEW_JOB_HANDLED
-            .load(std::sync::atomic::Ordering::SeqCst)
+        while !upstream_sv2::upstream::IS_NEW_JOB_HANDLED.load(std::sync::atomic::Ordering::SeqCst)
         {
             tokio::task::yield_now().await;
         }
         self_
             .safe_lock(|s| s.last_p_hash = Some(sv2_set_new_prev_hash.clone()))
-            .map_err(|_| PoisonLock)?;
+            .map_err(|_| TProxyError::PoisonLock)?;
 
         let on_new_prev_hash_res = self_
             .safe_lock(|s| {
                 s.channel_factory
                     .on_new_prev_hash(sv2_set_new_prev_hash.clone())
             })
-            .map_err(|_| PoisonLock)?;
+            .map_err(|_| TProxyError::PoisonLock)?;
         on_new_prev_hash_res?;
 
         let mut future_jobs = self_
@@ -329,14 +324,14 @@ impl Bridge {
                 s.future_jobs = vec![];
                 future_jobs
             })
-            .map_err(|_| PoisonLock)?;
+            .map_err(|_| TProxyError::PoisonLock)?;
 
         let mut match_a_future_job = false;
         while let Some(job) = future_jobs.pop() {
             if job.job_id == sv2_set_new_prev_hash.job_id {
                 let j_id = job.job_id;
                 // Create the mining.notify to be sent to the Downstream.
-                let notify = crate::proxy::next_mining_notify::create_notify(
+                let notify = proxy::next_mining_notify::create_notify(
                     sv2_set_new_prev_hash.clone(),
                     job,
                     true,
@@ -350,7 +345,7 @@ impl Bridge {
                         s.last_notify = Some(notify);
                         s.last_job_id = j_id;
                     })
-                    .map_err(|_| PoisonLock)?;
+                    .map_err(|_| TProxyError::PoisonLock)?;
                 break;
             }
         }
@@ -410,31 +405,31 @@ impl Bridge {
                 s.channel_factory
                     .on_new_extended_mining_job(sv2_new_extended_mining_job.as_static().clone())
             })
-            .map_err(|_| PoisonLock)??;
+            .map_err(|_| TProxyError::PoisonLock)??;
 
         // If future_job=true, this job is meant for a future SetNewPrevHash that the proxy
         // has yet to receive. Insert this new job into the job_mapper .
         if sv2_new_extended_mining_job.is_future() {
             self_
                 .safe_lock(|s| s.future_jobs.push(sv2_new_extended_mining_job.clone()))
-                .map_err(|_| PoisonLock)?;
+                .map_err(|_| TProxyError::PoisonLock)?;
             Ok(())
 
         // If future_job=false, this job is meant for the current SetNewPrevHash.
         } else {
             let last_p_hash_option = self_
                 .safe_lock(|s| s.last_p_hash.clone())
-                .map_err(|_| PoisonLock)?;
+                .map_err(|_| TProxyError::PoisonLock)?;
 
             // last_p_hash is an Option<SetNewPrevHash> so we need to map to the correct error type to be handled
-            let last_p_hash = last_p_hash_option.ok_or(TProxyError::RolesSv2Logic(
-                RolesLogicError::JobIsNotFutureButPrevHashNotPresent,
+            let last_p_hash = last_p_hash_option.ok_or(TProxyError::RolesLogicSv2(
+                RolesLogicSv2Error::JobIsNotFutureButPrevHashNotPresent,
             ))?;
 
             let j_id = sv2_new_extended_mining_job.job_id;
             // Create the mining.notify to be sent to the Downstream.
             // clean_jobs must be false because it's not a NewPrevHash template
-            let notify = crate::proxy::next_mining_notify::create_notify(
+            let notify = proxy::next_mining_notify::create_notify(
                 last_p_hash,
                 sv2_new_extended_mining_job.clone(),
                 false,
@@ -446,7 +441,7 @@ impl Bridge {
                     s.last_notify = Some(notify);
                     s.last_job_id = j_id;
                 })
-                .map_err(|_| PoisonLock)?;
+                .map_err(|_| TProxyError::PoisonLock)?;
             Ok(())
         }
     }
@@ -490,7 +485,7 @@ impl Bridge {
                     )
                     .await
                 );
-                crate::upstream_sv2::upstream::IS_NEW_JOB_HANDLED
+                upstream_sv2::upstream::IS_NEW_JOB_HANDLED
                     .store(true, std::sync::atomic::Ordering::SeqCst);
             }
         });
