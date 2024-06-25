@@ -18,7 +18,7 @@ use crate::{
 };
 use error_handling::handle_result;
 use roles_logic_sv2::{channel_logic::channel_factory::OnNewShare, Error as RolesLogicSv2Error};
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, warn};
 
 /// Bridge between the SV2 `Upstream` and SV1 `Downstream` responsible for the following messaging
 /// translation:
