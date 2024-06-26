@@ -1,105 +1,24 @@
 #![allow(special_module_name)]
-use crate::lib::{
-    mempool::{self, error::JdsMempoolError},
-    status, Configuration,
-};
 use async_channel::{bounded, unbounded, Receiver, Sender};
 use error_handling::handle_result;
 use roles_logic_sv2::utils::Mutex;
 use std::{ops::Sub, sync::Arc};
 use tokio::{select, task};
 use tracing::{error, info, warn};
+mod args;
 mod lib;
 
-use lib::job_declarator::JobDeclarator;
-
-mod args {
-    use std::path::PathBuf;
-
-    #[derive(Debug)]
-    pub struct Args {
-        pub config_path: PathBuf,
-    }
-
-    enum ArgsState {
-        Next,
-        ExpectPath,
-        Done,
-    }
-
-    enum ArgsResult {
-        Config(PathBuf),
-        None,
-        Help(String),
-    }
-
-    impl Args {
-        const DEFAULT_CONFIG_PATH: &'static str = "jds-config.toml";
-        const HELP_MSG: &'static str =
-            "Usage: -h/--help, -c/--config <path|default jds-config.toml>";
-
-        pub fn from_args() -> Result<Self, String> {
-            let cli_args = std::env::args();
-
-            if cli_args.len() == 1 {
-                println!("Using default config path: {}", Self::DEFAULT_CONFIG_PATH);
-                println!("{}\n", Self::HELP_MSG);
-            }
-
-            let config_path = cli_args
-                .scan(ArgsState::Next, |state, item| {
-                    match std::mem::replace(state, ArgsState::Done) {
-                        ArgsState::Next => match item.as_str() {
-                            "-c" | "--config" => {
-                                *state = ArgsState::ExpectPath;
-                                Some(ArgsResult::None)
-                            }
-                            "-h" | "--help" => Some(ArgsResult::Help(Self::HELP_MSG.to_string())),
-                            _ => {
-                                *state = ArgsState::Next;
-
-                                Some(ArgsResult::None)
-                            }
-                        },
-                        ArgsState::ExpectPath => Some(ArgsResult::Config(PathBuf::from(item))),
-                        ArgsState::Done => None,
-                    }
-                })
-                .last();
-            let config_path = match config_path {
-                Some(ArgsResult::Config(p)) => p,
-                Some(ArgsResult::Help(h)) => return Err(h),
-                _ => PathBuf::from(Self::DEFAULT_CONFIG_PATH),
-            };
-            Ok(Self { config_path })
-        }
-    }
-}
+use lib::{
+    jds_config, job_declarator, mempool, status, EitherFrame, JdsConfig, JdsError, JdsMempoolError,
+    JdsResult, StdFrame,
+};
 
 #[tokio::main]
 async fn main() {
     tracing_subscriber::fmt::init();
-    let args = match args::Args::from_args() {
-        Ok(cfg) => cfg,
-        Err(help) => {
-            error!("{}", help);
-            return;
-        }
-    };
-
-    // Load config
-    let config: Configuration = match std::fs::read_to_string(&args.config_path) {
-        Ok(c) => match toml::from_str(&c) {
-            Ok(c) => c,
-            Err(e) => {
-                error!("Failed to parse config: {}", e);
-                return;
-            }
-        },
-        Err(e) => {
-            error!("Failed to read config: {}", e);
-            return;
-        }
+    let config = match args::process_cli_args() {
+        Ok(p) => p,
+        Err(_) => return,
     };
 
     let url = config.core_rpc_url.clone() + ":" + &config.core_rpc_port.clone().to_string();
@@ -183,13 +102,13 @@ async fn main() {
         });
     };
 
-    info!("Jds INITIALIZING with config: {:?}", &args.config_path);
+    info!("Jds INITIALIZING");
 
     let cloned = config.clone();
     let mempool_cloned = mempool.clone();
     let (sender_add_txs_to_mempool, receiver_add_txs_to_mempool) = unbounded();
     task::spawn(async move {
-        JobDeclarator::start(
+        job_declarator::JobDeclarator::start(
             cloned,
             sender,
             mempool_cloned,
@@ -203,7 +122,7 @@ async fn main() {
             if let Ok(add_transactions_to_mempool) = receiver_add_txs_to_mempool.recv().await {
                 let mempool_cloned = mempool.clone();
                 task::spawn(async move {
-                    match lib::mempool::JDsMempool::add_tx_data_to_mempool(
+                    match mempool::JDsMempool::add_tx_data_to_mempool(
                         mempool_cloned,
                         add_transactions_to_mempool,
                     )

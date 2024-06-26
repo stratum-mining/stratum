@@ -1,8 +1,11 @@
 pub mod downstream_mining;
-pub mod error;
+mod error;
+pub mod proxy_config;
 pub mod upstream_mining;
 
+pub use error::{ProxyError, ProxyResult};
 use once_cell::sync::OnceCell;
+pub use proxy_config::ProxyConfig;
 use roles_logic_sv2::{
     routing_logic::{CommonRoutingLogic, MiningProxyRoutingLogic, MiningRoutingLogic},
     selectors::GeneralMiningSelector,
@@ -26,8 +29,8 @@ type RLogic = MiningProxyRoutingLogic<
 /// So it make sense to use shared mutable memory to lower the complexity of the codebase and to
 /// have some performance gain.
 pub static ROUTING_LOGIC: OnceCell<Mutex<RLogic>> = OnceCell::new();
-static MIN_EXTRANONCE_SIZE: u16 = 6;
-static EXTRANONCE_RANGE_1_LENGTH: usize = 4;
+pub static MIN_EXTRANONCE_SIZE: u16 = 6;
+pub static EXTRANONCE_RANGE_1_LENGTH: usize = 4;
 
 pub async fn initialize_upstreams(min_version: u16, max_version: u16) {
     let upstreams = ROUTING_LOGIC
@@ -43,7 +46,7 @@ pub async fn initialize_upstreams(min_version: u16, max_version: u16) {
         .unwrap();
 }
 
-fn remove_upstream(id: u32) {
+pub fn remove_upstream(id: u32) {
     let upstreams = ROUTING_LOGIC
         .get()
         .expect("BUG: ROUTING_LOGIC has not been set yet")
@@ -96,21 +99,10 @@ pub enum ChannelKind {
     Extended,
 }
 
-#[derive(Debug, Deserialize, Clone)]
-pub struct Config {
-    pub upstreams: Vec<UpstreamMiningValues>,
-    pub listen_address: String,
-    pub listen_mining_port: u16,
-    pub max_supported_version: u16,
-    pub min_supported_version: u16,
-    downstream_share_per_minute: f32,
-    expected_total_downstream_hr: f32,
-    reconnect: bool,
-}
 pub async fn initialize_r_logic(
     upstreams: &[UpstreamMiningValues],
     group_id: Arc<Mutex<GroupId>>,
-    config: Config,
+    config: proxy_config::ProxyConfig,
 ) -> RLogic {
     let channel_ids = Arc::new(Mutex::new(Id::new()));
     let mut upstream_mining_nodes = Vec::with_capacity(upstreams.len());

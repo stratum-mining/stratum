@@ -1,68 +1,26 @@
-use std::path::PathBuf;
+use crate::{TProxyConfig, TProxyResult};
 
-#[derive(Debug)]
-pub struct Args {
-    pub config_path: PathBuf,
+use clap::Parser;
+
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+struct Args {
+    #[arg(short, long, help = "Path to TOML configuration file")]
+    config_path: String,
 }
 
-enum ArgsState {
-    Next,
-    ExpectPath,
-    Done,
-}
+#[allow(clippy::result_large_err)]
+pub fn process_cli_args<'a>() -> TProxyResult<'a, TProxyConfig> {
+    let args = Args::parse();
+    let config = ext_config::Config::builder()
+        .add_source(ext_config::File::with_name(&args.config_path))
+        .build()
+        .unwrap_or_else(|e| {
+            tracing::error!("{}", e);
+            std::process::exit(1);
+        });
 
-enum ArgsResult {
-    Config(PathBuf),
-    None,
-    Help(String),
-}
+    let config = config.try_deserialize::<TProxyConfig>()?;
 
-impl Args {
-    const DEFAULT_CONFIG_PATH: &'static str = "proxy-config.toml";
-    const HELP_MSG: &'static str = "Usage: -h/--help, -c/--config <path|default proxy-config.toml>";
-
-    pub fn from_args() -> Result<Self, String> {
-        let cli_args = std::env::args();
-
-        if cli_args.len() == 1 {
-            println!("Using default config path: {}", Self::DEFAULT_CONFIG_PATH);
-            println!("{}\n", Self::HELP_MSG);
-        }
-
-        let config_path = cli_args
-            .scan(ArgsState::Next, |state, item| {
-                match std::mem::replace(state, ArgsState::Done) {
-                    ArgsState::Next => match item.as_str() {
-                        "-c" | "--config" => {
-                            *state = ArgsState::ExpectPath;
-                            Some(ArgsResult::None)
-                        }
-                        "-h" | "--help" => Some(ArgsResult::Help(Self::HELP_MSG.to_string())),
-                        _ => {
-                            *state = ArgsState::Next;
-
-                            Some(ArgsResult::None)
-                        }
-                    },
-                    ArgsState::ExpectPath => {
-                        let path = PathBuf::from(item.clone());
-                        if !path.exists() {
-                            return Some(ArgsResult::Help(format!(
-                                "Error: File '{}' does not exist!",
-                                path.display()
-                            )));
-                        }
-                        Some(ArgsResult::Config(path))
-                    }
-                    ArgsState::Done => None,
-                }
-            })
-            .last();
-        let config_path = match config_path {
-            Some(ArgsResult::Config(p)) => p,
-            Some(ArgsResult::Help(h)) => return Err(h),
-            _ => PathBuf::from(Self::DEFAULT_CONFIG_PATH),
-        };
-        Ok(Self { config_path })
-    }
+    Ok(config)
 }

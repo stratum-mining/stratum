@@ -6,6 +6,7 @@ use roles_logic_sv2::{
     parsers::PoolMessages,
     routing_logic::{CommonRoutingLogic, NoRouting},
     utils::Mutex,
+    Error as RolesLogicSv2Error,
 };
 use std::{convert::TryInto, net::SocketAddr, sync::Arc};
 pub type Message = PoolMessages<'static>;
@@ -74,21 +75,21 @@ impl ParseUpstreamCommonMessages<NoRouting> for SetupConnectionHandler {
     fn handle_setup_connection_success(
         &mut self,
         _: roles_logic_sv2::common_messages_sv2::SetupConnectionSuccess,
-    ) -> Result<roles_logic_sv2::handlers::common::SendTo, roles_logic_sv2::errors::Error> {
+    ) -> Result<roles_logic_sv2::handlers::common::SendTo, RolesLogicSv2Error> {
         Ok(SendTo::None(None))
     }
 
     fn handle_setup_connection_error(
         &mut self,
         _: roles_logic_sv2::common_messages_sv2::SetupConnectionError,
-    ) -> Result<roles_logic_sv2::handlers::common::SendTo, roles_logic_sv2::errors::Error> {
+    ) -> Result<roles_logic_sv2::handlers::common::SendTo, RolesLogicSv2Error> {
         todo!()
     }
 
     fn handle_channel_endpoint_changed(
         &mut self,
         _: roles_logic_sv2::common_messages_sv2::ChannelEndpointChanged,
-    ) -> Result<roles_logic_sv2::handlers::common::SendTo, roles_logic_sv2::errors::Error> {
+    ) -> Result<roles_logic_sv2::handlers::common::SendTo, RolesLogicSv2Error> {
         todo!()
     }
 }

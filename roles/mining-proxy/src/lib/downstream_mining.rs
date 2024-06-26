@@ -1,6 +1,9 @@
 #![allow(dead_code)]
 
-use super::upstream_mining::{StdFrame as UpstreamFrame, UpstreamMiningNode};
+use crate::{
+    get_common_routing_logic, get_routing_logic,
+    upstream_mining::{ProxyRemoteSelector, StdFrame as UpstreamFrame, UpstreamMiningNode},
+};
 use async_channel::{Receiver, SendError, Sender};
 use roles_logic_sv2::{
     common_messages_sv2::{SetupConnection, SetupConnectionSuccess},
@@ -231,7 +234,7 @@ impl DownstreamMiningNode {
         let message_type = incoming.get_header().unwrap().msg_type();
         let payload = incoming.payload();
 
-        let routing_logic = super::get_routing_logic();
+        let routing_logic = get_routing_logic();
 
         let next_message_to_send = ParseDownstreamMiningMessages::handle_message_mining(
             self_mutex.clone(),
@@ -316,7 +319,7 @@ impl DownstreamMiningNode {
 
     pub fn exit(self_: Arc<Mutex<Self>>) {
         if let Some(up) = self_.safe_lock(|s| s.upstream.clone()).unwrap() {
-            super::upstream_mining::UpstreamMiningNode::remove_dowstream(up, &self_);
+            UpstreamMiningNode::remove_dowstream(up, &self_);
         };
         self_
             .safe_lock(|s| {
@@ -325,8 +328,6 @@ impl DownstreamMiningNode {
             .unwrap();
     }
 }
-
-use super::upstream_mining::ProxyRemoteSelector;
 
 /// It impl UpstreamMining cause the proxy act as an upstream node for the DownstreamMiningNode
 impl
@@ -465,7 +466,7 @@ impl
         result: Option<Result<(CommonDownstreamData, SetupConnectionSuccess), Error>>,
     ) -> Result<roles_logic_sv2::handlers::common::SendTo, Error> {
         let (data, message) = result.unwrap().unwrap();
-        let upstream = match super::get_routing_logic() {
+        let upstream = match get_routing_logic() {
             roles_logic_sv2::routing_logic::MiningRoutingLogic::Proxy(proxy_routing) => {
                 proxy_routing
                     .safe_lock(|r| r.downstream_to_upstream_map.get(&data).unwrap()[0].clone())
@@ -501,7 +502,7 @@ pub async fn listen_for_downstream_mining(address: SocketAddr) {
             let mut incoming: StdFrame = node.receiver.recv().await.unwrap().try_into().unwrap();
             let message_type = incoming.get_header().unwrap().msg_type();
             let payload = incoming.payload();
-            let routing_logic = super::get_common_routing_logic();
+            let routing_logic = get_common_routing_logic();
             let node = Arc::new(Mutex::new(node));
 
             // Call handle_setup_connection or fail

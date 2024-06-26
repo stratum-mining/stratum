@@ -1,6 +1,6 @@
 use roles_logic_sv2::parsers::Mining;
 
-use super::error::JdsError;
+use crate::JdsError;
 
 /// Each sending side of the status channel
 /// should be wrapped with this enum to allow
@@ -98,6 +98,9 @@ async fn send_status(
 pub async fn handle_error(sender: &Sender, e: JdsError) -> error_handling::ErrorBranch {
     tracing::debug!("Error: {:?}", &e);
     match e {
+        JdsError::ConfigError(_) => {
+            send_status(sender, e, error_handling::ErrorBranch::Break).await
+        }
         JdsError::Io(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
         JdsError::ChannelSend(_) => {
             //This should be a continue because if we fail to send to 1 downstream we should continue
@@ -111,7 +114,9 @@ pub async fn handle_error(sender: &Sender, e: JdsError) -> error_handling::Error
         JdsError::BinarySv2(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
         JdsError::Codec(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
         JdsError::Noise(_) => send_status(sender, e, error_handling::ErrorBranch::Continue).await,
-        JdsError::RolesLogic(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
+        JdsError::RolesLogicSv2(_) => {
+            send_status(sender, e, error_handling::ErrorBranch::Break).await
+        }
         JdsError::Custom(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
         JdsError::Framing(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
         JdsError::PoisonLock(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,

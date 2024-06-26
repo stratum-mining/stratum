@@ -1,6 +1,5 @@
 pub mod error;
-use super::job_declarator::AddTrasactionsToMempoolInner;
-use crate::mempool::error::JdsMempoolError;
+use crate::{job_declarator::AddTrasactionsToMempoolInner, JdsMempoolError};
 use async_channel::Receiver;
 use bitcoin::blockdata::transaction::Transaction;
 use hashbrown::HashMap;

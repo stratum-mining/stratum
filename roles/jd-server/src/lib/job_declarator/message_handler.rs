@@ -11,12 +11,10 @@ use roles_logic_sv2::{
 use std::{convert::TryInto, io::Cursor};
 use stratum_common::bitcoin::{Transaction, Txid};
 pub type SendTo = SendTo_<JobDeclaration<'static>, ()>;
-use super::{signed_token, TransactionState};
+use crate::job_declarator::{signed_token, JobDeclaratorDownstream, TransactionState};
 use roles_logic_sv2::{errors::Error, parsers::PoolMessages as AllMessages};
 use stratum_common::bitcoin::consensus::Decodable;
 use tracing::info;
-
-use super::JobDeclaratorDownstream;
 
 impl JobDeclaratorDownstream {
     fn verify_job(&mut self, message: &DeclareMiningJob) -> bool {

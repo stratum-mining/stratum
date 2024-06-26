@@ -1,6 +1,5 @@
-use super::super::mining_pool::Downstream;
+use crate::mining_pool::Downstream;
 use roles_logic_sv2::{
-    errors::Error,
     handlers::mining::{ParseDownstreamMiningMessages, SendTo, SupportedChannelTypes},
     mining_sv2::*,
     parsers::Mining,
@@ -8,6 +7,7 @@ use roles_logic_sv2::{
     selectors::NullDownstreamMiningSelector,
     template_distribution_sv2::SubmitSolution,
     utils::Mutex,
+    Error as RolesLogicSv2Error,
 };
 use std::{convert::TryInto, sync::Arc};
 use tracing::error;
@@ -25,7 +25,7 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
     fn is_downstream_authorized(
         _self_mutex: Arc<Mutex<Self>>,
         _user_identity: &binary_sv2::Str0255,
-    ) -> Result<bool, Error> {
+    ) -> Result<bool, RolesLogicSv2Error> {
         Ok(false)
     }
 
@@ -33,7 +33,7 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
         &mut self,
         incoming: OpenStandardMiningChannel,
         _m: Option<Arc<Mutex<()>>>,
-    ) -> Result<SendTo<()>, Error> {
+    ) -> Result<SendTo<()>, RolesLogicSv2Error> {
         let header_only = self.downstream_data.header_only;
         let reposnses = self
             .channel_factory
@@ -54,7 +54,7 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
                     Err(e) => Err(e),
                 }
             })
-            .map_err(|e| roles_logic_sv2::Error::PoisonLock(e.to_string()))??;
+            .map_err(|e| RolesLogicSv2Error::PoisonLock(e.to_string()))??;
         let mut result = vec![];
         for response in reposnses {
             result.push(SendTo::Respond(response.into_static()))
@@ -65,24 +65,27 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
     fn handle_open_extended_mining_channel(
         &mut self,
         m: OpenExtendedMiningChannel,
-    ) -> Result<SendTo<()>, Error> {
+    ) -> Result<SendTo<()>, RolesLogicSv2Error> {
         let request_id = m.request_id;
         let hash_rate = m.nominal_hash_rate;
         let min_extranonce_size = m.min_extranonce_size;
         let messages_res = self
             .channel_factory
             .safe_lock(|s| s.new_extended_channel(request_id, hash_rate, min_extranonce_size))
-            .map_err(|e| roles_logic_sv2::Error::PoisonLock(e.to_string()))?;
+            .map_err(|e| RolesLogicSv2Error::PoisonLock(e.to_string()))?;
         match messages_res {
             Ok(messages) => {
                 let messages = messages.into_iter().map(SendTo::Respond).collect();
                 Ok(SendTo::Multiple(messages))
             }
-            Err(_) => Err(roles_logic_sv2::Error::ChannelIsNeitherExtendedNeitherInAPool),
+            Err(_) => Err(RolesLogicSv2Error::ChannelIsNeitherExtendedNeitherInAPool),
         }
     }
 
-    fn handle_update_channel(&mut self, m: UpdateChannel) -> Result<SendTo<()>, Error> {
+    fn handle_update_channel(
+        &mut self,
+        m: UpdateChannel,
+    ) -> Result<SendTo<()>, RolesLogicSv2Error> {
         let maximum_target =
             roles_logic_sv2::utils::hash_rate_to_target(m.nominal_hash_rate.into(), 10.0)?;
         self.channel_factory
@@ -100,11 +103,11 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
     fn handle_submit_shares_standard(
         &mut self,
         m: SubmitSharesStandard,
-    ) -> Result<SendTo<()>, Error> {
+    ) -> Result<SendTo<()>, RolesLogicSv2Error> {
         let res = self
             .channel_factory
             .safe_lock(|cf| cf.on_submit_shares_standard(m.clone()))
-            .map_err(|e| roles_logic_sv2::Error::PoisonLock(e.to_string()))?;
+            .map_err(|e| RolesLogicSv2Error::PoisonLock(e.to_string()))?;
         match res {
             Ok(res) => match res  {
                 roles_logic_sv2::channel_logic::channel_factory::OnNewShare::SendErrorDownstream(m) => {
@@ -151,11 +154,11 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
     fn handle_submit_shares_extended(
         &mut self,
         m: SubmitSharesExtended,
-    ) -> Result<SendTo<()>, Error> {
+    ) -> Result<SendTo<()>, RolesLogicSv2Error> {
         let res = self
             .channel_factory
             .safe_lock(|cf| cf.on_submit_shares_extended(m.clone()))
-            .map_err(|e| roles_logic_sv2::Error::PoisonLock(e.to_string()))?;
+            .map_err(|e| RolesLogicSv2Error::PoisonLock(e.to_string()))?;
         match res {
             Ok(res) => match res  {
                 roles_logic_sv2::channel_logic::channel_factory::OnNewShare::SendErrorDownstream(m) => {
@@ -202,7 +205,10 @@ impl ParseDownstreamMiningMessages<(), NullDownstreamMiningSelector, NoRouting> 
         }
     }
 
-    fn handle_set_custom_mining_job(&mut self, m: SetCustomMiningJob) -> Result<SendTo<()>, Error> {
+    fn handle_set_custom_mining_job(
+        &mut self,
+        m: SetCustomMiningJob,
+    ) -> Result<SendTo<()>, RolesLogicSv2Error> {
         let m = SetCustomMiningJobSuccess {
             channel_id: m.channel_id,
             request_id: m.request_id,

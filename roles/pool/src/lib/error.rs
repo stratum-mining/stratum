@@ -6,15 +6,18 @@ use std::{
 
 use roles_logic_sv2::parsers::Mining;
 
+pub type PoolResult<T> = Result<T, PoolError>;
+
 #[derive(std::fmt::Debug)]
 pub enum PoolError {
+    ConfigError(ext_config::ConfigError),
     Io(std::io::Error),
     ChannelSend(Box<dyn std::marker::Send + Debug>),
     ChannelRecv(async_channel::RecvError),
     BinarySv2(binary_sv2::Error),
     Codec(codec_sv2::Error),
     Noise(noise_sv2::Error),
-    RolesLogic(roles_logic_sv2::Error),
+    RolesLogicSv2(roles_logic_sv2::Error),
     Framing(codec_sv2::framing_sv2::Error),
     PoisonLock(String),
     ComponentShutdown(String),
@@ -26,6 +29,7 @@ impl std::fmt::Display for PoolError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         use PoolError::*;
         match self {
+            ConfigError(e) => write!(f, "Config error: {:?}", e),
             Io(ref e) => write!(f, "I/O error: `{:?}", e),
             ChannelSend(ref e) => write!(f, "Channel send failed: `{:?}`", e),
             ChannelRecv(ref e) => write!(f, "Channel recv failed: `{:?}`", e),
@@ -33,7 +37,7 @@ impl std::fmt::Display for PoolError {
             Codec(ref e) => write!(f, "Codec SV2 error: `{:?}", e),
             Framing(ref e) => write!(f, "Framing SV2 error: `{:?}`", e),
             Noise(ref e) => write!(f, "Noise SV2 error: `{:?}", e),
-            RolesLogic(ref e) => write!(f, "Roles Logic SV2 error: `{:?}`", e),
+            RolesLogicSv2(ref e) => write!(f, "Roles Logic SV2 error: `{:?}`", e),
             PoisonLock(ref e) => write!(f, "Poison lock: {:?}", e),
             ComponentShutdown(ref e) => write!(f, "Component shutdown: {:?}", e),
             Custom(ref e) => write!(f, "Custom SV2 error: `{:?}`", e),
@@ -44,7 +48,11 @@ impl std::fmt::Display for PoolError {
     }
 }
 
-pub type PoolResult<T> = Result<T, PoolError>;
+impl From<ext_config::ConfigError> for PoolError {
+    fn from(e: ext_config::ConfigError) -> PoolError {
+        PoolError::ConfigError(e)
+    }
+}
 
 impl From<std::io::Error> for PoolError {
     fn from(e: std::io::Error) -> PoolError {
@@ -78,7 +86,7 @@ impl From<noise_sv2::Error> for PoolError {
 
 impl From<roles_logic_sv2::Error> for PoolError {
     fn from(e: roles_logic_sv2::Error) -> PoolError {
-        PoolError::RolesLogic(e)
+        PoolError::RolesLogicSv2(e)
     }
 }
 

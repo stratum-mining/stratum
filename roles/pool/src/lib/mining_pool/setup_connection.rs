@@ -1,6 +1,6 @@
-use super::super::{
-    error::{PoolError, PoolResult},
+use crate::{
     mining_pool::{EitherFrame, StdFrame},
+    PoolError, PoolResult,
 };
 use async_channel::{Receiver, Sender};
 use codec_sv2::Frame;
@@ -10,11 +10,11 @@ use roles_logic_sv2::{
         SetupConnectionSuccess,
     },
     common_properties::CommonDownstreamData,
-    errors::Error,
     handlers::common::ParseDownstreamCommonMessages,
     parsers::{CommonMessages, PoolMessages},
     routing_logic::{CommonRoutingLogic, NoRouting},
     utils::Mutex,
+    Error as RolesLogicSv2Error,
 };
 use std::{convert::TryInto, net::SocketAddr, sync::Arc};
 use tracing::{debug, error};
@@ -55,7 +55,9 @@ impl SetupConnectionHandler {
             }
             Err(e) => {
                 error!("Error receiving message: {:?}", e);
-                return Err(Error::NoDownstreamsConnected.into());
+                return Err(PoolError::RolesLogicSv2(
+                    RolesLogicSv2Error::NoDownstreamsConnected.into(),
+                ));
             }
         };
 
@@ -71,8 +73,8 @@ impl SetupConnectionHandler {
             CommonRoutingLogic::None,
         )?;
 
-        let message = response.into_message().ok_or(PoolError::RolesLogic(
-            roles_logic_sv2::Error::NoDownstreamsConnected,
+        let message = response.into_message().ok_or(PoolError::RolesLogicSv2(
+            RolesLogicSv2Error::NoDownstreamsConnected,
         ))?;
 
         let sv2_frame: StdFrame = PoolMessages::Common(message.clone()).try_into()?;
@@ -98,8 +100,8 @@ impl ParseDownstreamCommonMessages<NoRouting> for SetupConnectionHandler {
     fn handle_setup_connection(
         &mut self,
         incoming: SetupConnection,
-        _: Option<Result<(CommonDownstreamData, SetupConnectionSuccess), Error>>,
-    ) -> Result<roles_logic_sv2::handlers::common::SendTo, Error> {
+        _: Option<Result<(CommonDownstreamData, SetupConnectionSuccess), RolesLogicSv2Error>>,
+    ) -> Result<roles_logic_sv2::handlers::common::SendTo, RolesLogicSv2Error> {
         use roles_logic_sv2::handlers::common::SendTo;
         let header_only = incoming.requires_standard_job();
         debug!("Handling setup connection: header_only: {}", header_only);

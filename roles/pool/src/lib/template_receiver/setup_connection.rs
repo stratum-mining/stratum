@@ -1,16 +1,16 @@
-use super::super::{
-    error::{PoolError, PoolResult},
+use crate::{
     mining_pool::{EitherFrame, StdFrame},
+    PoolError, PoolResult,
 };
 use async_channel::{Receiver, Sender};
 use codec_sv2::Frame;
 use roles_logic_sv2::{
     common_messages_sv2::{Protocol, SetupConnection},
-    errors::Error,
     handlers::common::{ParseUpstreamCommonMessages, SendTo},
     parsers::PoolMessages,
     routing_logic::{CommonRoutingLogic, NoRouting},
     utils::Mutex,
+    Error as RolesLogicSv2Error,
 };
 use std::{convert::TryInto, net::SocketAddr, sync::Arc};
 
@@ -74,14 +74,14 @@ impl ParseUpstreamCommonMessages<NoRouting> for SetupConnectionHandler {
     fn handle_setup_connection_success(
         &mut self,
         _: roles_logic_sv2::common_messages_sv2::SetupConnectionSuccess,
-    ) -> Result<roles_logic_sv2::handlers::common::SendTo, Error> {
+    ) -> Result<roles_logic_sv2::handlers::common::SendTo, RolesLogicSv2Error> {
         Ok(SendTo::None(None))
     }
 
     fn handle_setup_connection_error(
         &mut self,
         _: roles_logic_sv2::common_messages_sv2::SetupConnectionError,
-    ) -> Result<roles_logic_sv2::handlers::common::SendTo, Error> {
+    ) -> Result<roles_logic_sv2::handlers::common::SendTo, RolesLogicSv2Error> {
         //return error result
         todo!()
     }
@@ -89,8 +89,8 @@ impl ParseUpstreamCommonMessages<NoRouting> for SetupConnectionHandler {
     fn handle_channel_endpoint_changed(
         &mut self,
         _: roles_logic_sv2::common_messages_sv2::ChannelEndpointChanged,
-    ) -> Result<roles_logic_sv2::handlers::common::SendTo, Error> {
-        Err(Error::UnexpectedMessage(
+    ) -> Result<roles_logic_sv2::handlers::common::SendTo, RolesLogicSv2Error> {
+        Err(RolesLogicSv2Error::UnexpectedMessage(
             const_sv2::MESSAGE_TYPE_CHANNEL_ENDPOINT_CHANGED,
         ))
     }
