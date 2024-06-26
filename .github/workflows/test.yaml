@@ -84,9 +84,9 @@ jobs:
         run: |
           cargo test --manifest-path=protocols/Cargo.toml --features prop_test
 
-      - name: Run ping-pong-with-noise example
+      - name: Run ping-pong-encrypted example
         run: |
-          cargo run --manifest-path=examples/ping-pong-with-noise/Cargo.toml --bin ping_pong_with_noise -- 10
+          cargo run --manifest-path=examples/ping-pong-encrypted/Cargo.toml
 
       - name: Run ping-pong-without-noise example
         run: |
