@@ -89,7 +89,10 @@ async fn main() {
 
     let jdc_config = match args::process_cli_args() {
         Ok(p) => p,
-        Err(_) => return,
+        Err(e) => {
+            error!("Failed to read config file: {}", e);
+            return;
+        }
     };
 
     loop {
@@ -187,8 +190,14 @@ async fn initialize_jd_as_solo_miner(
     task_collector: Arc<Mutex<Vec<AbortHandle>>>,
     timeout: Duration,
 ) {
-    let proxy_config = args::process_cli_args().unwrap();
-    let miner_tx_out = jdc_config::get_coinbase_output(&proxy_config).unwrap();
+    let proxy_config = match process_cli_args() {
+        Ok(p) => p,
+        Err(e) => {
+            error!("Failed to read config file: {}", e);
+            return;
+        }
+    };
+    let miner_tx_out = lib::proxy_config::get_coinbase_output(&proxy_config).unwrap();
 
     // When Downstream receive a share that meets bitcoin target it transformit in a
     // SubmitSolution and send it to the TemplateReceiver
