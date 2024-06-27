@@ -36,7 +36,7 @@ pub struct Status {
     pub state: State,
 }
 
-/// this function is used to discern which componnent experienced the event.
+/// this function is used to discern which component experienced the event.
 /// With this knowledge we can wrap the status message with information (`State` variants) so
 /// the main status loop can decide what should happen
 async fn send_status(
@@ -126,6 +126,285 @@ pub async fn handle_error(sender: &Sender, e: JdsError) -> error_handling::Error
         }
         JdsError::NoLastDeclaredJob => {
             send_status(sender, e, error_handling::ErrorBranch::Continue).await
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{convert::TryInto, io::Error};
+
+    use super::*;
+    use async_channel::{bounded, RecvError};
+    use roles_logic_sv2::mining_sv2::OpenMiningChannelError;
+
+    #[tokio::test]
+    async fn test_send_status_downstream_listener_shutdown() {
+        let (tx, rx) = bounded(1);
+        let sender = Sender::DownstreamListener(tx);
+        let error = JdsError::ChannelRecv(async_channel::RecvError);
+
+        send_status(&sender, error, error_handling::ErrorBranch::Continue).await;
+        match rx.recv().await {
+            Ok(status) => match status.state {
+                State::DownstreamShutdown(e) => {
+                    assert_eq!(e.to_string(), "Channel recv failed: `RecvError`")
+                }
+                _ => panic!("Unexpected state received"),
+            },
+            Err(_) => panic!("Failed to receive status"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_send_status_upstream_shutdown() {
+        let (tx, rx) = bounded(1);
+        let sender = Sender::Upstream(tx);
+        let error = JdsError::MempoolError(crate::mempool::error::JdsMempoolError::EmptyMempool);
+        let error_string = error.to_string();
+        send_status(&sender, error, error_handling::ErrorBranch::Continue).await;
+
+        match rx.recv().await {
+            Ok(status) => match status.state {
+                State::TemplateProviderShutdown(e) => assert_eq!(e.to_string(), error_string),
+                _ => panic!("Unexpected state received"),
+            },
+            Err(_) => panic!("Failed to receive status"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_handle_error_io_error() {
+        let (tx, rx) = bounded(1);
+        let sender = Sender::Downstream(tx);
+        let error = JdsError::Io(Error::new(std::io::ErrorKind::Interrupted, "IO error"));
+        let error_string = error.to_string();
+
+        handle_error(&sender, error).await;
+        match rx.recv().await {
+            Ok(status) => match status.state {
+                State::Healthy(e) => assert_eq!(e, error_string),
+                _ => panic!("Unexpected state received"),
+            },
+            Err(_) => panic!("Failed to receive status"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_handle_error_channel_send_error() {
+        let (tx, rx) = bounded(1);
+        let sender = Sender::Downstream(tx);
+        let error = JdsError::ChannelSend(Box::new("error"));
+        let error_string = error.to_string();
+
+        handle_error(&sender, error).await;
+        match rx.recv().await {
+            Ok(status) => match status.state {
+                State::Healthy(e) => assert_eq!(e, error_string),
+                _ => panic!("Unexpected state received"),
+            },
+            Err(_) => panic!("Failed to receive status"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_handle_error_channel_receive_error() {
+        let (tx, rx) = bounded(1);
+        let sender = Sender::Downstream(tx);
+        let error = JdsError::ChannelRecv(RecvError);
+        let error_string = error.to_string();
+
+        handle_error(&sender, error).await;
+        match rx.recv().await {
+            Ok(status) => match status.state {
+                State::DownstreamShutdown(e) => assert_eq!(e.to_string(), error_string),
+                _ => panic!("Unexpected state received"),
+            },
+            Err(_) => panic!("Failed to receive status"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_handle_error_binary_sv2_error() {
+        let (tx, rx) = bounded(1);
+        let sender = Sender::Downstream(tx);
+        let error = JdsError::BinarySv2(binary_sv2::Error::IoError);
+        let error_string = error.to_string();
+        handle_error(&sender, error).await;
+        match rx.recv().await {
+            Ok(status) => match status.state {
+                State::Healthy(e) => assert_eq!(e, error_string),
+                _ => panic!("Unexpected state received"),
+            },
+            Err(_) => panic!("Failed to receive status"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_handle_error_codec_error() {
+        let (tx, rx) = bounded(1);
+        let sender = Sender::Downstream(tx);
+        let error = JdsError::Codec(codec_sv2::Error::InvalidStepForInitiator);
+        let error_string = error.to_string();
+        handle_error(&sender, error).await;
+        match rx.recv().await {
+            Ok(status) => match status.state {
+                State::Healthy(e) => assert_eq!(e, error_string),
+                _ => panic!("Unexpected state received"),
+            },
+            Err(_) => panic!("Failed to receive status"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_handle_error_noise_error() {
+        let (tx, rx) = bounded(1);
+        let sender = Sender::Downstream(tx);
+        let error = JdsError::Noise(noise_sv2::Error::HandshakeNotFinalized);
+        let error_string = error.to_string();
+        handle_error(&sender, error).await;
+        match rx.recv().await {
+            Ok(status) => match status.state {
+                State::Healthy(e) => assert_eq!(e, error_string),
+                _ => panic!("Unexpected state received"),
+            },
+            Err(_) => panic!("Failed to receive status"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_handle_error_roles_logic_error() {
+        let (tx, rx) = bounded(1);
+        let sender = Sender::Downstream(tx);
+        let error = JdsError::RolesLogic(roles_logic_sv2::Error::BadPayloadSize);
+        let error_string = error.to_string();
+        handle_error(&sender, error).await;
+        match rx.recv().await {
+            Ok(status) => match status.state {
+                State::Healthy(e) => assert_eq!(e, error_string),
+                _ => panic!("Unexpected state received"),
+            },
+            Err(_) => panic!("Failed to receive status"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_handle_error_custom_error() {
+        let (tx, rx) = bounded(1);
+        let sender = Sender::Downstream(tx);
+        let error = JdsError::Custom("error".to_string());
+        let error_string = error.to_string();
+        handle_error(&sender, error).await;
+        match rx.recv().await {
+            Ok(status) => match status.state {
+                State::Healthy(e) => assert_eq!(e, error_string),
+                _ => panic!("Unexpected state received"),
+            },
+            Err(_) => panic!("Failed to receive status"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_handle_error_framing_error() {
+        let (tx, rx) = bounded(1);
+        let sender = Sender::Downstream(tx);
+        let error = JdsError::Framing(codec_sv2::framing_sv2::Error::ExpectedHandshakeFrame);
+        let error_string = error.to_string();
+        handle_error(&sender, error).await;
+        match rx.recv().await {
+            Ok(status) => match status.state {
+                State::Healthy(e) => assert_eq!(e, error_string),
+                _ => panic!("Unexpected state received"),
+            },
+            Err(_) => panic!("Failed to receive status"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_handle_error_poison_lock_error() {
+        let (tx, rx) = bounded(1);
+        let sender = Sender::Downstream(tx);
+        let error = JdsError::PoisonLock("error".to_string());
+        let error_string = error.to_string();
+        handle_error(&sender, error).await;
+        match rx.recv().await {
+            Ok(status) => match status.state {
+                State::Healthy(e) => assert_eq!(e, error_string),
+                _ => panic!("Unexpected state received"),
+            },
+            Err(_) => panic!("Failed to receive status"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_handle_error_impossible_to_reconstruct_block_error() {
+        let (tx, rx) = bounded(1);
+        let sender = Sender::Downstream(tx);
+        let error = JdsError::ImpossibleToReconstructBlock("Impossible".to_string());
+        let error_string = error.to_string();
+        handle_error(&sender, error).await;
+        match rx.recv().await {
+            Ok(status) => match status.state {
+                State::Healthy(e) => assert_eq!(e, error_string),
+                _ => panic!("Unexpected state received"),
+            },
+            Err(_) => panic!("Failed to receive status"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_handle_error_no_last_declared_job_error() {
+        let (tx, rx) = bounded(1);
+        let sender = Sender::Downstream(tx);
+        let error = JdsError::NoLastDeclaredJob;
+        let error_string = error.to_string();
+        handle_error(&sender, error).await;
+        match rx.recv().await {
+            Ok(status) => match status.state {
+                State::Healthy(e) => assert_eq!(e, error_string),
+                _ => panic!("Unexpected state received"),
+            },
+            Err(_) => panic!("Failed to receive status"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_handle_error_last_mempool_error() {
+        let (tx, rx) = bounded(1);
+        let sender = Sender::Downstream(tx);
+        let error = JdsError::MempoolError(crate::mempool::error::JdsMempoolError::EmptyMempool);
+        let error_string = error.to_string();
+        handle_error(&sender, error).await;
+        match rx.recv().await {
+            Ok(status) => match status.state {
+                State::TemplateProviderShutdown(e) => assert_eq!(e.to_string(), error_string),
+                _ => panic!("Unexpected state received"),
+            },
+            Err(_) => panic!("Failed to receive status"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_handle_error_sv2_protocol_error() {
+        let (tx, rx) = bounded(1);
+        let sender = Sender::Downstream(tx);
+        let inner: [u8; 32] = rand::random();
+        let value = inner.to_vec().try_into().unwrap();
+        let error = JdsError::Sv2ProtocolError((
+            12,
+            Mining::OpenMiningChannelError(OpenMiningChannelError {
+                request_id: 1,
+                error_code: value,
+            }),
+        ));
+        let error_string = "12";
+        handle_error(&sender, error).await;
+        match rx.recv().await {
+            Ok(status) => match status.state {
+                State::DownstreamInstanceDropped(e) => assert_eq!(e.to_string(), error_string),
+                _ => panic!("Unexpected state received"),
+            },
+            Err(_) => panic!("Failed to receive status"),
         }
     }
 }

@@ -98,3 +98,76 @@ where
         _ => Err(serde::de::Error::custom("Unsupported duration unit")),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+
+    use super::*;
+
+    fn load_config(path: &str) -> Configuration {
+        let config_path = PathBuf::from(path);
+        assert!(
+            config_path.exists(),
+            "No config file found at {:?}",
+            config_path
+        );
+
+        let config_string =
+            std::fs::read_to_string(config_path).expect("Failed to read the config file");
+        toml::from_str(&config_string).expect("Failed to parse config")
+    }
+
+    #[test]
+    fn test_get_coinbase_output_non_empty() {
+        let config = load_config("config-examples/jds-config-hosted-example.toml");
+        let outputs = get_coinbase_output(&config).expect("Failed to get coinbase output");
+
+        let expected_output = CoinbaseOutput_ {
+            output_script_type: "P2WPKH".to_string(),
+            output_script_value:
+                "036adc3bdf21e6f9a0f0fb0066bf517e5b7909ed1563d6958a10993849a7554075".to_string(),
+        };
+        let expected_script: Script = expected_output.try_into().unwrap();
+        let expected_transaction_output = TxOut {
+            value: 0,
+            script_pubkey: expected_script,
+        };
+
+        assert_eq!(outputs[0], expected_transaction_output);
+    }
+
+    #[test]
+    fn test_get_coinbase_output_empty() {
+        let mut config = load_config("config-examples/jds-config-hosted-example.toml");
+        config.coinbase_outputs.clear();
+
+        let result = get_coinbase_output(&config);
+        assert!(
+            matches!(result, Err(Error::EmptyCoinbaseOutputs)),
+            "Expected an error for empty coinbase outputs"
+        );
+    }
+
+    #[test]
+    fn test_try_from_valid_input() {
+        let input = CoinbaseOutput {
+            output_script_type: "P2PKH".to_string(),
+            output_script_value:
+                "036adc3bdf21e6f9a0f0fb0066bf517e5b7909ed1563d6958a10993849a7554075".to_string(),
+        };
+        let result: Result<CoinbaseOutput_, _> = (&input).try_into();
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_try_from_invalid_input() {
+        let input = CoinbaseOutput {
+            output_script_type: "INVALID".to_string(),
+            output_script_value:
+                "036adc3bdf21e6f9a0f0fb0066bf517e5b7909ed1563d6958a10993849a7554075".to_string(),
+        };
+        let result: Result<CoinbaseOutput_, _> = (&input).try_into();
+        assert!(matches!(result, Err(Error::UnknownOutputScriptType)));
+    }
+}
