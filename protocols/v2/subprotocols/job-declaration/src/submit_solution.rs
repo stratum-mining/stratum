@@ -30,5 +30,6 @@ impl<'d> GetSize for SubmitSolutionJd<'d> {
             + self.ntime.get_size()
             + self.nonce.get_size()
             + self.nbits.get_size()
+            + self.version.get_size()
     }
 }
