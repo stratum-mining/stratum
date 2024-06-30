@@ -23,7 +23,7 @@ mod lib;
 use lib::Config;
 use roles_logic_sv2::utils::{GroupId, Mutex};
 use std::{net::SocketAddr, sync::Arc};
-use tracing::{error, info};
+use tracing::{error, info, warn};
 
 mod args {
     use std::path::PathBuf;
@@ -137,5 +137,9 @@ async fn main() {
     );
 
     info!("PROXY INITIALIZED");
-    crate::lib::downstream_mining::listen_for_downstream_mining(socket).await
+
+    tokio::select! {
+        _ = lib::downstream_mining::listen_for_downstream_mining(socket) => warn!("Downstream mining exited"),
+        _ = tokio::signal::ctrl_c() => info!("Interrupt received"),
+    }
 }
