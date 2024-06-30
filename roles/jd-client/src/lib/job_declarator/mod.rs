@@ -55,7 +55,7 @@ pub struct JobDeclarator {
     req_ids: Id,
     min_extranonce_size: u16,
     // (Sent DeclareMiningJob, is future, template id, merkle path)
-    last_declare_mining_jobs_sent: HashMap<u32, Option<LastDeclareJob>>,
+    last_declare_mining_jobs_sent: [Option<(u32, LastDeclareJob)>; 2],
     last_set_new_prev_hash: Option<SetNewPrevHash<'static>>,
     set_new_prev_hash_counter: u8,
     #[allow(clippy::type_complexity)]
@@ -115,7 +115,7 @@ impl JobDeclarator {
             allocated_tokens: vec![],
             req_ids: Id::new(),
             min_extranonce_size,
-            last_declare_mining_jobs_sent: HashMap::with_capacity(10),
+            last_declare_mining_jobs_sent: [None, None],
             last_set_new_prev_hash: None,
             future_jobs: HashMap::with_hasher(BuildNoHashHasher::default()),
             up,
@@ -130,14 +130,18 @@ impl JobDeclarator {
         Ok(self_)
     }
 
-    fn get_last_declare_job_sent(self_mutex: &Arc<Mutex<Self>>, request_id: u32) -> LastDeclareJob {
+    fn get_last_declare_job_sent(
+        self_mutex: &Arc<Mutex<Self>>,
+        request_id: u32,
+    ) -> Option<LastDeclareJob> {
         self_mutex
             .safe_lock(|s| {
-                s.last_declare_mining_jobs_sent
-                    .get(&request_id)
-                    .expect("LastDeclareJob not found")
-                    .clone()
-                    .expect("unreachable code")
+                for (id, job) in s.last_declare_mining_jobs_sent.iter().flatten() {
+                    if *id == request_id {
+                        return Some(job.to_owned());
+                    }
+                }
+                None
             })
             .unwrap()
     }
@@ -149,13 +153,20 @@ impl JobDeclarator {
     ) {
         self_mutex
             .safe_lock(|s| {
-                //check hashmap size in order to not let it grow indefinetely
-                if s.last_declare_mining_jobs_sent.len() < 10 {
-                    s.last_declare_mining_jobs_sent.insert(request_id, Some(j));
-                } else if let Some(min_key) = s.last_declare_mining_jobs_sent.keys().min().cloned()
+                if let Some(empty_index) = s
+                    .last_declare_mining_jobs_sent
+                    .iter()
+                    .position(|entry| entry.is_none())
                 {
-                    s.last_declare_mining_jobs_sent.remove(&min_key);
-                    s.last_declare_mining_jobs_sent.insert(request_id, Some(j));
+                    s.last_declare_mining_jobs_sent[empty_index] = Some((request_id, j));
+                } else if let Some((min_index, _)) = s
+                    .last_declare_mining_jobs_sent
+                    .iter()
+                    .enumerate()
+                    .filter_map(|(i, entry)| entry.as_ref().map(|(id, _)| (i, id)))
+                    .min_by_key(|&(_, id)| id)
+                {
+                    s.last_declare_mining_jobs_sent[min_index] = Some((request_id, j));
                 }
             })
             .unwrap();
@@ -289,8 +300,7 @@ impl JobDeclarator {
                     match next_message_to_send {
                         Ok(SendTo::None(Some(JobDeclaration::DeclareMiningJobSuccess(m)))) => {
                             let new_token = m.new_mining_job_token;
-                            let last_declare =
-                                Self::get_last_declare_job_sent(&self_mutex, m.request_id);
+                            let last_declare = Self::get_last_declare_job_sent(&self_mutex, m.request_id).unwrap_or_else(|| panic!("Failed to get last declare job: job not found, Request Id: {:?}.", m.request_id));
                             let mut last_declare_mining_job_sent = last_declare.declare_job;
                             let is_future = last_declare.template.future_template;
                             let id = last_declare.template.template_id;

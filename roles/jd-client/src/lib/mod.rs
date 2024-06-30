@@ -15,7 +15,7 @@ use std::{sync::atomic::AtomicBool, time::Duration};
 /// In the meantime if the context that is running the template receiver receives a SetNewPrevHash
 /// it wait until the value of this global is true before doing anything.
 ///
-/// Acuire and Release memory ordering is used.
+/// Acquire and Release memory ordering is used.
 ///
 /// Memory Ordering Explanation:
 /// We use Acquire-Release ordering instead of SeqCst or Relaxed for the following reasons:

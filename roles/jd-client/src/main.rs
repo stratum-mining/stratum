@@ -46,12 +46,12 @@ fn process_cli_args<'a>() -> ProxyResult<'a, ProxyConfig> {
 /// TODO on setupconnection with bitcoind (TP) JDC must signal that want a tx short hash list with
 /// the templates
 ///
-/// TODO JDC must handle TxShortHahhList message
+/// TODO JDC must handle TxShortHashList message
 ///
 /// This will start:
 /// 1. An Upstream, this will connect with the mining Pool
 /// 2. A listner that will wait for a mining downstream with ExtendedChannel capabilities (tproxy,
-///    minin-proxy)
+///    mining-proxy)
 /// 3. A JobDeclarator, this will connect with the job-declarator-server
 /// 4. A TemplateRx, this will connect with bitcoind
 ///
@@ -78,15 +78,15 @@ fn process_cli_args<'a>() -> ProxyResult<'a, ProxyConfig> {
 /// Then we receive CommitMiningJobSuccess and we use the new token to send SetCustomMiningJob to
 /// the pool.
 /// When we receive SetCustomMiningJobSuccess we set in Upstream job_id equal to the one received
-/// in SetCustomMiningJobSuccess so that we sill send shares upstream with the right job_id.
+/// in SetCustomMiningJobSuccess so that we still send shares upstream with the right job_id.
 ///
 /// The above procedure, let us send NewExtendedMiningJob downstream right after a NewTemplate has
 /// been received this will reduce the time that pass from a NewTemplate and the mining-device
 /// starting to mine on the new job.
 ///
 /// In the case a future NewTemplate the SetCustomMiningJob is sent only if the canditate become
-/// the actual NewTemplate so that we do not send a lot of usless future Job to the pool. That
-/// means that SetCustomMiningJob is sent only when a NewTemplate becom "active"
+/// the actual NewTemplate so that we do not send a lot of useless future Job to the pool. That
+/// means that SetCustomMiningJob is sent only when a NewTemplate become "active"
 ///
 /// The JobDeclarator always have 2 avaiable token, that means that whenever a token is used to
 /// commit a job with upstream we require a new one. Having always a token when needed means that
@@ -217,7 +217,7 @@ async fn initialize_jd_as_solo_miner(
     };
     let miner_tx_out = lib::proxy_config::get_coinbase_output(&proxy_config).unwrap();
 
-    // When Downstream receive a share that meets bitcoin target it transformit in a
+    // When Downstream receive a share that meets bitcoin target it transform it in a
     // SubmitSolution and send it to the TemplateReceiver
     let (send_solution, recv_solution) = bounded(10);
 
@@ -290,7 +290,7 @@ async fn initialize_jd(
         port,
     );
 
-    // When Downstream receive a share that meets bitcoin target it transformit in a
+    // When Downstream receive a share that meets bitcoin target it transform it in a
     // SubmitSolution and send it to the TemplateReceiver
     let (send_solution, recv_solution) = bounded(10);
 
