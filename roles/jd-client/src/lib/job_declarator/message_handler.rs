@@ -55,12 +55,20 @@ impl ParseServerJobDeclarationMessages for JobDeclarator {
     ) -> Result<SendTo, Error> {
         let tx_list = self
             .last_declare_mining_jobs_sent
-            .get(&message.request_id)
-            .unwrap()
-            .clone()
-            .unwrap()
-            .tx_list
-            .into_inner();
+            .iter()
+            .find_map(|entry| {
+                if let Some((id, last_declare_job)) = entry {
+                    if *id == message.request_id {
+                        Some(last_declare_job.clone().tx_list.into_inner())
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            })
+            .ok_or_else(|| Error::UnknownRequestId(message.request_id))?;
+
         let unknown_tx_position_list: Vec<u16> = message.unknown_tx_position_list.into_inner();
         let missing_transactions: Vec<binary_sv2::B016M> = unknown_tx_position_list
             .iter()
