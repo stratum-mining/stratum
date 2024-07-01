@@ -8,28 +8,30 @@ use binary_sv2::{Deserialize, Serialize, B064K};
 #[cfg(not(feature = "with_serde"))]
 use core::convert::TryInto;
 
-/// ## SubmitSolution (Client -> Server)
+#[cfg(doc)]
+use crate::{NewTemplate, SetNewPrevHash};
+
 /// Upon finding a coinbase transaction/nonce pair which double-SHA256 hashes at or below
-/// [`crate::SetNewPrevHash.target`], the client MUST immediately send this message, and the server
+/// [`SetNewPrevHash`].target, the client MUST immediately send this message, and the server
 /// MUST then immediately construct the corresponding full block and attempt to propagate it to
 /// the Bitcoin network.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct SubmitSolution<'decoder> {
-    /// The template_id field as it appeared in NewTemplate.
+    /// The template_id field as it appeared in [`NewTemplate`].
     pub template_id: u64,
     /// The version field in the block header. Bits not defined by [BIP320] as
-    /// additional nonce MUST be the same as they appear in the [NewWork]
+    /// additional nonce MUST be the same as they appear in the [NewWork?]
     /// message, other bits may be set to any value.
     pub version: u32,
     /// The nTime field in the block header. This MUST be greater than or equal
-    /// to the header_timestamp field in the latest [`crate::SetNewPrevHash`] message
-    /// and lower than or equal to that value plus the number of seconds since
-    /// the receipt of that message.
+    /// to the [`header_timestamp`](#structfield.header_timestamp) field in the latest
+    /// [`SetNewPrevHash`] message and lower than or equal to that value plus the number
+    /// of seconds since the receipt of that message.
     pub header_timestamp: u32,
     /// The nonce field in the header.
     pub header_nonce: u32,
     /// The full serialized coinbase transaction, meeting all the requirements of
-    /// the NewWork message, above.
+    /// the [NewWork?] message, above.
     #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub coinbase_tx: B064K<'decoder>,
 }

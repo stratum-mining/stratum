@@ -15,6 +15,7 @@ binary_sv2 = { version = "^1.0.0", path = "../../../../protocols/v2/binary-sv2/b
 const_sv2 = { version = "^1.0.0", path = "../../../../protocols/v2/const-sv2"}
 quickcheck = { version = "1.0.3", optional=true }
 quickcheck_macros = { version = "1", optional=true }
+mining_sv2 = {version = "^1.0.0", path = "../../../../protocols/v2/subprotocols/mining"}
 
 [features]
 with_serde = ["binary_sv2/with_serde", "serde"]

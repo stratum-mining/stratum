@@ -6,18 +6,19 @@ use binary_sv2::{Deserialize, Seq064K, Serialize};
 #[cfg(not(feature = "with_serde"))]
 use core::convert::TryInto;
 
-/// # SetGroupChannel (Server -> Client)
-///
+#[cfg(doc)]
+use crate::{NewExtendedMiningJob, NewMiningJob};
+
 /// Every standard channel is a member of a group of standard channels, addressed by the
 /// upstream server’s provided identifier. The group channel is used mainly for efficient job
 /// distribution to multiple standard channels at once.
 /// If we want to allow different jobs to be served to different standard channels (e.g. because of
 /// different BIP 8 version bits) and still be able to distribute the work by sending
-/// NewExtendendedMiningJob instead of a repeated NewMiningJob, we need a more
+/// [`NewExtendedMiningJob`] instead of a repeated [`NewMiningJob`], we need a more
 /// fine-grained grouping for standard channels.
 /// This message associates a set of standard channels with a group channel. A channel (identified
 /// by particular ID) becomes a group channel when it is used by this message as
-/// group_channel_id. The server MUST ensure that a group channel has a unique channel ID
+/// [`group_channel_id`](#structfield.group_channel_id). The server MUST ensure that a group channel has a unique channel ID
 /// within one connection. Channel reinterpretation is not allowed.
 /// This message can be sent only to connections that don’t have REQUIRES_STANDARD_JOBS
 /// flag in SetupConnection.

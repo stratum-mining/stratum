@@ -8,7 +8,9 @@ use binary_sv2::{Deserialize, Seq0255, Serialize, B0255, B064K, U256};
 #[cfg(not(feature = "with_serde"))]
 use core::convert::TryInto;
 
-/// ## NewTemplate (Server -> Client)
+#[cfg(doc)]
+use crate::SetNewPrevHash;
+
 /// The primary template-providing function. Note that the coinbase_tx_outputs bytes will appear
 /// as is at the end of the coinbase transaction.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
@@ -16,9 +18,9 @@ pub struct NewTemplate<'decoder> {
     /// Server’s identification of the template. Strictly increasing, the
     /// current UNIX time may be used in place of an ID.
     pub template_id: u64,
-    /// True if the template is intended for future [`crate::SetNewPrevHash`]
+    /// True if the template is intended for future [`SetNewPrevHash`]
     /// message sent on the channel. If False, the job relates to the last
-    /// sent [`crate::SetNewPrevHash`] message on the channel and the miner
+    /// sent [`SetNewPrevHash`] message on the channel and the miner
     /// should start to work on the job immediately.
     pub future_template: bool,
     /// Valid header version field that reflects the current network
@@ -40,7 +42,8 @@ pub struct NewTemplate<'decoder> {
     /// added by the client. Includes both transaction fees and block
     /// subsidy.
     pub coinbase_tx_value_remaining: u64,
-    /// The number of transaction outputs included in coinbase_tx_outputs.
+    /// The number of transaction outputs included in
+    /// [`coinbase_tx_outputs`](#structfield.coinbase_tx_outputs).
     pub coinbase_tx_outputs_count: u32,
     /// Bitcoin transaction outputs to be included as the last outputs in the
     /// coinbase transaction.

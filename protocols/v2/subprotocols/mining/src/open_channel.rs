@@ -9,9 +9,13 @@ use core::convert::TryInto;
 #[cfg(feature = "with_serde")]
 use core::convert::TryInto;
 
-/// # OpenStandardMiningChannel (Client -> Server)
+#[cfg(doc)]
+use crate::NewExtendedMiningJob;
+#[cfg(doc)]
+use common_messages_sv2::SetupConnectionSuccess;
+
 /// This message requests to open a standard channel to the upstream node.
-/// After receiving a SetupConnection.Success message, the client SHOULD respond by opening
+/// After receiving a [`SetupConnectionSuccess`] message, the client SHOULD respond by opening
 /// channels on the connection. If no channels are opened within a reasonable period the server
 /// SHOULD close the connection for inactivity.
 /// Every client SHOULD start its communication with an upstream node by opening a channel,
@@ -43,7 +47,7 @@ pub struct OpenStandardMiningChannel<'decoder> {
     pub nominal_hash_rate: f32,
     /// Maximum target which can be accepted by the connected device or
     /// devices. Server MUST accept the target or respond by sending
-    /// OpenMiningChannel.Error message.
+    /// [`OpenMiningChannelError`] message.
     #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub max_target: U256<'decoder>,
 }
@@ -77,20 +81,18 @@ impl<'decoder> OpenStandardMiningChannel<'decoder> {
     }
 }
 
-/// # OpenStandardMiningChannel.Success (Server -> Client)
 /// Sent as a response for opening a standard channel, if successful.
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct OpenStandardMiningChannelSuccess<'decoder> {
-    /// Client-specified request ID from OpenStandardMiningChannel message,
+    /// Client-specified request ID from [`OpenStandardMiningChannel`] message,
     /// so that the client can pair responses with open channel requests.
     #[cfg(not(feature = "with_serde"))]
     pub request_id: U32AsRef<'decoder>,
     #[cfg(feature = "with_serde")]
     pub request_id: u32,
     /// Newly assigned identifier of the channel, stable for the whole lifetime of
-    /// the connection. E.g. it is used for broadcasting new jobs by
-    /// NewExtendedMiningJob.
+    /// the connection. E.g. it is used for broadcasting new jobs by [`NewExtendedMiningJob`].
     pub channel_id: u32,
     /// Initial target for the mining channel.
     #[cfg_attr(feature = "with_serde", serde(borrow))]
@@ -134,9 +136,8 @@ impl<'decoder> OpenStandardMiningChannelSuccess<'decoder> {
     }
 }
 
-/// # OpenExtendedMiningChannel (Client -> Server)
-/// Similar to *OpenStandardMiningChannel* but requests to open an extended channel instead of
-/// standard channel.
+/// Similar to [`OpenStandardMiningChannel`] but requests to open an extended channel
+/// instead of standard channel.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct OpenExtendedMiningChannel<'decoder> {
     /// Client-specified identifier for matching responses from upstream server.
@@ -157,10 +158,10 @@ pub struct OpenExtendedMiningChannel<'decoder> {
     pub nominal_hash_rate: f32,
     /// Maximum target which can be accepted by the connected device or
     /// devices. Server MUST accept the target or respond by sending
-    /// OpenMiningChannel.Error message.
+    /// [`OpenMiningChannelError`] message.
     #[cfg_attr(feature = "with_serde", serde(borrow))]
     pub max_target: U256<'decoder>,
-    /// Minimum size of extranonce needed by the device/node.
+    /// Minimum size (in bytes) of extranonce needed by the device/node.
     pub min_extranonce_size: u16,
 }
 impl<'decoder> OpenExtendedMiningChannel<'decoder> {
@@ -169,16 +170,15 @@ impl<'decoder> OpenExtendedMiningChannel<'decoder> {
     }
 }
 
-/// # OpenExtendedMiningChannel.Success (Server -> Client)
 /// Sent as a response for opening an extended channel.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct OpenExtendedMiningChannelSuccess<'decoder> {
-    /// Client-specified request ID from OpenStandardMiningChannel message,
+    /// Client-specified request ID from [`OpenStandardMiningChannel`] message,
     /// so that the client can pair responses with open channel requests.
     pub request_id: u32,
     /// Newly assigned identifier of the channel, stable for the whole lifetime of
     /// the connection. E.g. it is used for broadcasting new jobs by
-    /// NewExtendedMiningJob.
+    /// [`NewExtendedMiningJob`].
     pub channel_id: u32,
     /// Initial target for the mining channel.
     #[cfg_attr(feature = "with_serde", serde(borrow))]
@@ -190,10 +190,9 @@ pub struct OpenExtendedMiningChannelSuccess<'decoder> {
     pub extranonce_prefix: B032<'decoder>,
 }
 
-/// # OpenMiningChannel.Error (Server -> Client)
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct OpenMiningChannelError<'decoder> {
-    /// Client-specified request ID from OpenMiningChannel message.
+    /// Client-specified request ID from [`OpenStandardMiningChannel`] or [`OpenExtendedMiningChannel`] message.
     pub request_id: u32,
     /// Human-readable error code(s).
     /// Possible error codes:

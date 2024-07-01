@@ -8,11 +8,15 @@ use binary_sv2::{Deserialize, Serialize, U256};
 #[cfg(not(feature = "with_serde"))]
 use core::convert::TryInto;
 
-/// ## SetNewPrevHash (Server -> Client)
+#[cfg(doc)]
+use crate::NewTemplate;
+#[cfg(doc)]
+use mining_sv2::NewMiningJob;
+
 /// Upon successful validation of a new best block, the server MUST immediately provide a
-/// SetNewPrevHash message. If a [NewWork] message has previously been sent with the
-/// [future_job] flag set, which is valid work based on the prev_hash contained in this message, the
-/// template_id field SHOULD be set to the job_id present in that NewTemplate message
+/// [`SetNewPrevHash`] message. If a [`NewMiningJob`] message has previously been sent with the
+/// `min_ntime` flag set, which is valid work based on the [prev_hash](#structfield.prev_hash) contained in this message, the
+/// template_id field SHOULD be set to the `job_id` present in that [`NewTemplate`] message
 /// indicating the client MUST begin mining on that template as soon as possible.
 /// TODO: Define how many previous works the client has to track (2? 3?), and require that the
 /// server reference one of those in SetNewPrevHash.

@@ -6,7 +6,6 @@ use binary_sv2::{Deserialize, Serialize};
 #[cfg(not(feature = "with_serde"))]
 use core::convert::TryInto;
 
-/// ## CoinbaseOutputDataSize (Client -> Server)
 /// Ultimately, the pool is responsible for adding coinbase transaction outputs for payouts and
 /// other uses, and thus the Template Provider will need to consider this additional block size
 /// when selecting transactions for inclusion in a block (to not create an invalid, oversized block).
