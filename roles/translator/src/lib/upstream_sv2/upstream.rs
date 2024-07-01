@@ -9,7 +9,7 @@ use crate::{
     upstream_sv2::{EitherFrame, Message, StdFrame, UpstreamConnection},
 };
 use async_channel::{Receiver, Sender};
-use async_std::{net::TcpStream, task};
+use async_std::net::TcpStream;
 use binary_sv2::u256_from_int;
 use codec_sv2::{Frame, HandshakeRole, Initiator};
 use error_handling::handle_result;
@@ -36,9 +36,9 @@ use roles_logic_sv2::{
 use std::{
     net::SocketAddr,
     sync::{atomic::AtomicBool, Arc},
-    thread::sleep,
-    time::Duration,
 };
+use tokio::time::{sleep, Duration};
+use tokio_util::sync::CancellationToken;
 use tracing::{error, info, warn};
 
 use stratum_common::bitcoin::BlockHash;
@@ -98,6 +98,7 @@ pub struct Upstream {
     // and the upstream just needs to occasionally check if it has changed more than
     // than the configured percentage
     pub(super) difficulty_config: Arc<Mutex<UpstreamDifficultyConfig>>,
+    cancellation_token: CancellationToken,
 }
 
 impl PartialEq for Upstream {
@@ -124,6 +125,7 @@ impl Upstream {
         tx_status: status::Sender,
         target: Arc<Mutex<Vec<u8>>>,
         difficulty_config: Arc<Mutex<UpstreamDifficultyConfig>>,
+        cancellation_token: CancellationToken,
     ) -> ProxyResult<'static, Arc<Mutex<Self>>> {
         // Connect to the SV2 Upstream role retry connection every 5 seconds.
         let socket = loop {
@@ -135,7 +137,7 @@ impl Upstream {
                         address, e
                     );
 
-                    sleep(Duration::from_secs(5));
+                    sleep(Duration::from_secs(5)).await;
                 }
             }
         };
@@ -171,6 +173,7 @@ impl Upstream {
             tx_status,
             target,
             difficulty_config,
+            cancellation_token,
         })))
     }
 
@@ -259,6 +262,9 @@ impl Upstream {
     #[allow(clippy::result_large_err)]
     pub fn parse_incoming(self_: Arc<Mutex<Self>>) -> ProxyResult<'static, ()> {
         let clone = self_.clone();
+        let cancellation_token = self_.safe_lock(|s| s.cancellation_token.clone()).unwrap();
+        let token1 = cancellation_token.clone();
+        let token2 = cancellation_token.clone();
         let (
             tx_frame,
             tx_sv2_extranonce,
@@ -281,16 +287,21 @@ impl Upstream {
         {
             let self_ = self_.clone();
             let tx_status = tx_status.clone();
-            task::spawn(async move {
+            let task = tokio::task::spawn(async move {
                 // No need to start diff management immediatly
-                async_std::task::sleep(Duration::from_secs(10)).await;
+                sleep(Duration::from_secs(10)).await;
                 loop {
                     handle_result!(tx_status, Self::try_update_hashrate(self_.clone()).await);
                 }
             });
+            tokio::task::spawn(async move {
+                token1.cancelled().await;
+                task.abort();
+                warn!("Shutting down handle result task");
+            });
         }
 
-        task::spawn(async move {
+        let task = tokio::task::spawn(async move {
             loop {
                 // Waiting to receive a message from the SV2 Upstream role
                 let incoming = handle_result!(tx_status, recv.recv().await);
@@ -433,6 +444,11 @@ impl Upstream {
                 }
             }
         });
+        tokio::task::spawn(async move {
+            token2.cancelled().await;
+            task.abort();
+            warn!("Shutting down parse incoming task");
+        });
 
         Ok(())
     }
@@ -459,6 +475,7 @@ impl Upstream {
 
     #[allow(clippy::result_large_err)]
     pub fn handle_submit(self_: Arc<Mutex<Self>>) -> ProxyResult<'static, ()> {
+        let cancellation_token = self_.safe_lock(|s| s.cancellation_token.clone()).unwrap();
         let clone = self_.clone();
         let (tx_frame, receiver, tx_status) = clone
             .safe_lock(|s| {
@@ -470,7 +487,7 @@ impl Upstream {
             })
             .map_err(|_| PoisonLock)?;
 
-        task::spawn(async move {
+        let task = tokio::task::spawn(async move {
             loop {
                 let mut sv2_submit: SubmitSharesExtended =
                     handle_result!(tx_status, receiver.recv().await);
@@ -506,6 +523,12 @@ impl Upstream {
                 );
             }
         });
+        tokio::task::spawn(async move {
+            cancellation_token.cancelled().await;
+            task.abort();
+            info!("Shutting down handle submit task");
+        });
+
         Ok(())
     }
 

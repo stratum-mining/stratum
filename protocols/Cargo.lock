@@ -744,7 +744,7 @@ checksum = "81cdd64d312baedb58e21336b31bc043b77e01cc99033ce76ef539f78e965ebc"
 
 [[package]]
 name = "sv1_api"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "binary_sv2",
  "bitcoin_hashes 0.3.2",

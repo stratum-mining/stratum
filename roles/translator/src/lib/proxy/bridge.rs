@@ -1,5 +1,4 @@
 use async_channel::{Receiver, Sender};
-use async_std::task;
 use roles_logic_sv2::{
     channel_logic::channel_factory::{ExtendedChannelKind, ProxyExtendedChannelFactory, Share},
     mining_sv2::{
@@ -22,6 +21,7 @@ use super::super::{
 };
 use error_handling::handle_result;
 use roles_logic_sv2::{channel_logic::channel_factory::OnNewShare, Error as RolesLogicError};
+use tokio_util::sync::CancellationToken;
 use tracing::{debug, error, info, warn};
 
 /// Bridge between the SV2 `Upstream` and SV1 `Downstream` responsible for the following messaging
@@ -64,6 +64,7 @@ pub struct Bridge {
     last_p_hash: Option<SetNewPrevHash<'static>>,
     target: Arc<Mutex<Vec<u8>>>,
     last_job_id: u32,
+    cancellation_token: CancellationToken,
 }
 
 impl Bridge {
@@ -79,6 +80,7 @@ impl Bridge {
         extranonces: ExtendedExtranonce,
         target: Arc<Mutex<Vec<u8>>>,
         up_id: u32,
+        cancellation_token: CancellationToken,
     ) -> Arc<Mutex<Self>> {
         let ids = Arc::new(Mutex::new(GroupId::new()));
         let share_per_min = 1.0;
@@ -107,6 +109,7 @@ impl Bridge {
             last_p_hash: None,
             target,
             last_job_id: 0,
+            cancellation_token,
         }))
     }
 
@@ -162,10 +165,12 @@ impl Bridge {
     /// Receives a `DownstreamMessages` message from the `Downstream`, handles based on the
     /// variant received.
     fn handle_downstream_messages(self_: Arc<Mutex<Self>>) {
+        let cancellation_token_handle_downstream =
+            self_.safe_lock(|b| b.cancellation_token.clone()).unwrap();
         let (rx_sv1_downstream, tx_status) = self_
             .safe_lock(|s| (s.rx_sv1_downstream.clone(), s.tx_status.clone()))
             .unwrap();
-        task::spawn(async move {
+        let task = tokio::task::spawn(async move {
             loop {
                 let msg = handle_result!(tx_status, rx_sv1_downstream.clone().recv().await);
 
@@ -184,6 +189,11 @@ impl Bridge {
                     }
                 };
             }
+        });
+        tokio::task::spawn(async move {
+            cancellation_token_handle_downstream.cancelled().await;
+            task.abort();
+            warn!("Shutting down handle_result task");
         });
     }
     /// receives a `SetDownstreamTarget` and updates the downstream target for the channel
@@ -367,6 +377,8 @@ impl Bridge {
     /// corresponding `job_id` has already been received. If this is not the case, an error has
     /// occurred on the Upstream pool role and the connection will close.
     fn handle_new_prev_hash(self_: Arc<Mutex<Self>>) {
+        let cancellation_token_handle_prev_hash =
+            self_.safe_lock(|b| b.cancellation_token.clone()).unwrap();
         let (tx_sv1_notify, rx_sv2_set_new_prev_hash, tx_status) = self_
             .safe_lock(|s| {
                 (
@@ -377,7 +389,7 @@ impl Bridge {
             })
             .unwrap();
         debug!("Starting handle_new_prev_hash task");
-        task::spawn(async move {
+        let task = tokio::task::spawn(async move {
             loop {
                 // Receive `SetNewPrevHash` from `Upstream`
                 let sv2_set_new_prev_hash: SetNewPrevHash =
@@ -396,6 +408,11 @@ impl Bridge {
                     .await
                 )
             }
+        });
+        tokio::task::spawn(async move {
+            cancellation_token_handle_prev_hash.cancelled().await;
+            task.abort();
+            warn!("Shutting down handle_new_prev_hash");
         });
     }
 
@@ -460,6 +477,8 @@ impl Bridge {
     /// `SetNewPrevHash` `job_id`, an error has occurred on the Upstream pool role and the
     /// connection will close.
     fn handle_new_extended_mining_job(self_: Arc<Mutex<Self>>) {
+        let cancellation_token_new_extended_mining_job =
+            self_.safe_lock(|b| b.cancellation_token.clone()).unwrap();
         let (tx_sv1_notify, rx_sv2_new_ext_mining_job, tx_status) = self_
             .safe_lock(|s| {
                 (
@@ -470,7 +489,7 @@ impl Bridge {
             })
             .unwrap();
         debug!("Starting handle_new_extended_mining_job task");
-        task::spawn(async move {
+        let task = tokio::task::spawn(async move {
             loop {
                 // Receive `NewExtendedMiningJob` from `Upstream`
                 let sv2_new_extended_mining_job: NewExtendedMiningJob = handle_result!(
@@ -493,6 +512,11 @@ impl Bridge {
                 crate::upstream_sv2::upstream::IS_NEW_JOB_HANDLED
                     .store(true, std::sync::atomic::Ordering::SeqCst);
             }
+        });
+        tokio::task::spawn(async move {
+            cancellation_token_new_extended_mining_job.cancelled().await;
+            task.abort();
+            warn!("Task handle_new_extended_mining_job cancelled");
         });
     }
 }
@@ -543,6 +567,7 @@ mod test {
                 rx_sv1_notify,
             };
 
+            let cancellation_token = CancellationToken::new();
             let b = Bridge::new(
                 rx_sv1_submit,
                 tx_sv2_submit_shares_ext,
@@ -553,6 +578,7 @@ mod test {
                 extranonces,
                 Arc::new(Mutex::new(upstream_target)),
                 1,
+                cancellation_token,
             );
             (b, interface)
         }
