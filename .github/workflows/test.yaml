@@ -88,6 +88,6 @@ jobs:
         run: |
           cargo run --manifest-path=examples/ping-pong-with-noise/Cargo.toml --bin ping_pong_with_noise -- 10
 
-      - name: Run ping-pong-without-noise example
+      - name: Run ping-pong example
         run: |
-          cargo run --manifest-path=examples/ping-pong-without-noise/Cargo.toml --bin ping_pong_without_noise -- 10
+          cargo run --manifest-path=examples/ping-pong/Cargo.toml
