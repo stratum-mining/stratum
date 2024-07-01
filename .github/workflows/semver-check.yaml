@@ -1,0 +1,121 @@
+name: Semver Check
+
+on:
+  push:
+    branches: 
+      - "main"
+  pull_request:
+    branches:  
+      - "main"
+
+jobs:
+  semver-check:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - crate: "utils/buffer"
+            command: "cargo semver-checks"
+          - crate: "protocols/v2/binary-sv2/no-serde-sv2/derive_codec"
+            command: "cargo semver-checks"
+          - crate: "protocols/v2/binary-sv2/no-serde-sv2/codec"
+            command: "cargo semver-checks"
+          - crate: "protocols/v2/binary-sv2/serde-sv2"
+            command: "cargo semver-checks"
+          - crate: "protocols/v2/binary-sv2/binary-sv2"
+            command: "cargo semver-checks"
+          - crate: "protocols/v2/const-sv2"
+            command: "cargo semver-checks"
+          - crate: "protocols/v2/framing-sv2"
+            command: "cargo semver-checks"
+          - crate: "protocols/v2/noise-sv2"
+            command: "cargo semver-checks"
+          - crate: "protocols/v2/codec-sv2"
+            command: "cargo semver-checks"
+          - crate: "protocols/v2/subprotocols/common-messages"
+            command: "cargo semver-checks"
+          - crate: "protocols/v2/subprotocols/job-declaration"
+            command: "cargo semver-checks"
+          - crate: "protocols/v2/subprotocols/mining"
+            command: "cargo semver-checks"
+          - crate: "protocols/v2/subprotocols/template-distribution"
+            command: "cargo semver-checks"
+          - crate: "protocols/v2/sv2-ffi"
+            command: "cargo semver-checks"
+          - crate: "protocols/v2/roles-logic-sv2"
+            command: "cargo semver-checks"
+          - crate: "protocols/v1"
+            command: "cargo semver-checks"
+          - crate: "utils/bip32-key-derivation"
+            command: "cargo semver-checks"
+          - crate: "utils/error-handling"
+            command: "cargo semver-checks"
+          - crate: "utils/key-utils"
+            command: "cargo semver-checks"
+          - crate: "roles/roles-utils/network-helpers"
+            command: "cargo semver-checks"
+          - crate: "roles/roles-utils/rpc"
+            command: "cargo semver-checks"
+          - crate: "roles/jd-client"
+            command: "cargo semver-checks"
+          - crate: "roles/jd-server"
+            command: "cargo semver-checks"
+          - crate: "roles/mining-proxy"
+            command: "cargo semver-checks"
+          - crate: "roles/pool"
+            command: "cargo semver-checks"
+          - crate: "roles/translator"
+            command: "cargo semver-checks"
+          - crate: "common"
+            command: "cargo semver-checks"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Cache Cargo registry
+        uses: actions/cache@v2
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-registry-
+
+      - name: Cache Cargo index
+        uses: actions/cache@v2
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-index-
+
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y cmake
+
+      - name: Install cargo-semver-checks
+        run: cargo install cargo-semver-checks --locked
+
+      - name: Identify changed crates
+        id: changes
+        run: |
+          echo "::set-output name=changed_crates::$(git diff --name-only HEAD^ HEAD | grep '^crates/' | cut -d'/' -f2 | sort | uniq)"
+
+      - name: Run semver checks
+        if: steps.changes.outputs.changed_crates
+        run: |
+          for crate in ${{ steps.changes.outputs.changed_crates }}; do
+            echo "Checking semver for crate: $crate"
+            cd $crate
+            ${{ matrix.command }}
+            cd ..
+          done
+
+      - name: Notify on failure
+        if: failure()
+        run: echo "Semver checks failed for one or more crates"
