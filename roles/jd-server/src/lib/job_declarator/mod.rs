@@ -42,6 +42,8 @@ pub struct AddTrasactionsToMempool {
     pub sender_add_txs_to_mempool: Sender<AddTrasactionsToMempoolInner>,
 }
 
+const ASYNC_MINING_ALLOWED: u32 = 0b_0000_0000_0000_0000_0000_0000_0000_0001;
+
 #[derive(Debug)]
 pub struct JobDeclaratorDownstream {
     sender: Sender<EitherFrame>,
@@ -417,8 +419,8 @@ impl JobDeclarator {
         new_block_sender: Sender<String>,
         sender_add_txs_to_mempool: Sender<AddTrasactionsToMempoolInner>,
     ) {
+        info!("Start JD Server with config: {:?}", &config);
         let self_ = Arc::new(Mutex::new(Self {}));
-        info!("JD INITIALIZED");
         Self::accept_incoming_connection(
             self_,
             config,
@@ -437,38 +439,79 @@ impl JobDeclarator {
         new_block_sender: Sender<String>,
         sender_add_txs_to_mempool: Sender<AddTrasactionsToMempoolInner>,
     ) {
-        let listner = TcpListener::bind(&config.listen_jd_address).await.unwrap();
+        let listner = match TcpListener::bind(&config.listen_jd_address).await {
+            Ok(listner) => {
+                info!(
+                    "Job Declarator Server listening to: {} ",
+                    &config.listen_jd_address
+                );
+                listner
+            }
+            Err(e) => {
+                error!(
+                    "Unable to bind Job Declarator Server to: {}, received error: {}",
+                    &config.listen_jd_address, e
+                );
+                return;
+            }
+        };
         while let Ok((stream, _)) = listner.accept().await {
-            let responder = Responder::from_authority_kp(
+            let responder = match Responder::from_authority_kp(
                 &config.authority_public_key.into_bytes(),
                 &config.authority_secret_key.into_bytes(),
                 std::time::Duration::from_secs(config.cert_validity_sec),
-            )
-            .unwrap();
+            ) {
+                Ok(r) => r,
+                Err(e) => {
+                    error!("Unable to acquire responder: {:?}", e);
+                    return;
+                }
+            };
             let addr = stream.peer_addr();
 
             if let Ok((receiver, sender, _, _)) =
                 Connection::new(stream, HandshakeRole::Responder(responder)).await
             {
-                let setup_message_from_proxy_jd = receiver.recv().await.unwrap();
+                let setup_message_from_proxy_jd = match receiver.recv().await {
+                    Ok(s) => s,
+                    Err(e) => {
+                        error!(
+                            "Unable to get setup message from Proxy Job Declarator: {}",
+                            e
+                        );
+                        return;
+                    }
+                };
                 info!(
                     "Setup connection message from proxy: {:?}",
                     setup_message_from_proxy_jd
                 );
-
                 let setup_connection_success_to_proxy = SetupConnectionSuccess {
                     used_version: 2,
-                    // Setup flags for async_mining_allowed
-                    flags: 0b_0000_0000_0000_0000_0000_0000_0000_0001,
+                    flags: ASYNC_MINING_ALLOWED,
                 };
-                let sv2_frame: StdFrame =
-                    JdsMessages::Common(setup_connection_success_to_proxy.into())
-                        .try_into()
-                        .unwrap();
+                let sv2_frame: StdFrame = match JdsMessages::Common(
+                    setup_connection_success_to_proxy.into(),
+                )
+                .try_into()
+                {
+                    Ok(s) => s,
+                    Err(e) => {
+                        error!("Unable to get SV2 Frame: {}", e);
+                        return;
+                    }
+                };
                 let sv2_frame = sv2_frame.into();
                 info!("Sending success message for proxy");
-                sender.send(sv2_frame).await.unwrap();
-
+                match sender.send(sv2_frame).await {
+                    Ok(_) => {
+                        info!("Sent 'success message' to proxy successfully");
+                    }
+                    Err(e) => {
+                        error!("Failed sending 'success message' to proxy: {}", e);
+                        return;
+                    }
+                };
                 let jddownstream = Arc::new(Mutex::new(JobDeclaratorDownstream::new(
                     receiver.clone(),
                     sender.clone(),
@@ -487,5 +530,6 @@ impl JobDeclarator {
                 error!("Can not connect {:?}", addr);
             }
         }
+        error!("Connection to Job Declerator Server Dropped!");
     }
 }
