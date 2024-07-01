@@ -11,7 +11,7 @@ use roles_logic_sv2::utils::Mutex;
 use async_channel::{bounded, unbounded};
 use futures::{select, FutureExt};
 use std::{
-    net::{IpAddr, SocketAddr},
+    net::{IpAddr, SocketAddr, ToSocketAddrs},
     str::FromStr,
     sync::Arc,
 };
@@ -78,11 +78,19 @@ async fn main() {
     ) = broadcast::channel(10);
 
     // Format `Upstream` connection address
-    let upstream_addr = SocketAddr::new(
-        IpAddr::from_str(&proxy_config.upstream_address)
-            .expect("Failed to parse upstream address!"),
+    let upstream_addr = (
+        proxy_config.upstream_address.as_str(),
         proxy_config.upstream_port,
-    );
+    )
+        .to_socket_addrs()
+        .unwrap_or_else(|e| {
+            panic!(
+                "Invalid upstream address {}:{}: {}",
+                proxy_config.upstream_address, proxy_config.upstream_port, e
+            )
+        })
+        .next()
+        .unwrap();
 
     let diff_config = Arc::new(Mutex::new(proxy_config.upstream_difficulty_config.clone()));
 
