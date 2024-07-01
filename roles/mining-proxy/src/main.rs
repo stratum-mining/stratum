@@ -23,7 +23,8 @@ mod lib;
 use lib::Config;
 use roles_logic_sv2::utils::{GroupId, Mutex};
 use std::{net::SocketAddr, sync::Arc};
-use tracing::{error, info};
+use tokio::sync::oneshot;
+use tracing::{error, info, warn};
 
 mod args {
     use std::path::PathBuf;
@@ -137,5 +138,18 @@ async fn main() {
     );
 
     info!("PROXY INITIALIZED");
-    crate::lib::downstream_mining::listen_for_downstream_mining(socket).await
+
+    let (shutdown_tx, shutdown_rx) = oneshot::channel();
+
+    tokio::select! {
+        _ = lib::downstream_mining::listen_for_downstream_mining(socket, shutdown_rx) => {
+            warn!("Downstream mining listener exited prematurely");
+        },
+        _ = tokio::signal::ctrl_c() => {
+            let _ = shutdown_tx.send(());
+            info!("Interrupt received");
+        }
+    }
+
+    info!("Shutdown done");
 }
