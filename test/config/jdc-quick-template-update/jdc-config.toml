@@ -27,7 +27,6 @@ tp_address = "127.0.0.1:8442"
 tp_authority_pub_key = "9auqWEzQDVyd2oe1JVGFLMLHZtCo2FFqZwtKA5gd9xbuEu7PH72"
 
 
-
 coinbase_outputs = [
      { output_script_type = "P2WPKH", output_script_value = "036adc3bdf21e6f9a0f0fb0066bf517e5b7909ed1563d6958a10993849a7554075" },
 ]
@@ -41,10 +40,3 @@ authority_pubkey = "9auqWEzQDVyd2oe1JVGFLMLHZtCo2FFqZwtKA5gd9xbuEu7PH72"
 pool_address = "127.0.0.1:34254"
 jd_address = "127.0.0.1:34264"
 pool_signature = "Stratum v2 SRI Pool"
-
-[[upstreams]]
-authority_pubkey = "9auqWEzQDVyd2oe1JVGFLMLHZtCo2FFqZwtKA5gd9xbuEu7PH72"
-pool_address = "127.0.0.1:44255"
-jd_address = "127.0.0.1:34264"
-pool_signature = "Stratum v2 SRI Pool"
-

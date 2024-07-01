@@ -50,6 +50,15 @@
         },
         {
             "message": {
+                "type": "RequestTransactionDataSuccess",
+                "template_id": 29,
+                "excess_data": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+                "transaction_list": []
+            },
+            "id": "request_transaction_data_success"
+        },
+        {
+            "message": {
                 "type": "NewTemplate",
                 "template_id": 30,
                 "future_template": true,
@@ -75,6 +84,15 @@
                 "target": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,255,255,127]
             },
             "id": "set_new_prev_hash2"
+        },
+        {
+            "message": {
+                "type": "RequestTransactionDataSuccess",
+                "template_id": 30,
+                "excess_data": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+                "transaction_list": []
+            },
+            "id": "request_transaction_data_success2"
         }
     ],
     "frame_builders": [
@@ -97,8 +115,15 @@
         {
             "type": "automatic",
             "message_id": "set_new_prev_hash2"
+        },
+        {
+            "type":"automatic",
+            "message_id": "request_transaction_data_success"
+        },
+        {
+            "type":"automatic",
+            "message_id": "request_transaction_data_success2"
         }
-
     ],
     "actions": [
         {
@@ -115,13 +140,19 @@
         {
             "message_ids": ["setup_connection_success_template_distribution"],
             "role": "server",
+            "results": [],
+          "actiondoc": "(pool) This action sends SetupConnection.Success with flag 2 (TD protocol)"
+        },
+        {
+            "message_ids": [],
+            "role": "server",
             "results": [
                 {
                     "type": "match_message_type",
                     "value": "0x70"
                 }
             ],
-          "actiondoc": "(pool) This action sends SetupConnection.Success with flag 2 (TD protocol) and checks that a message SetCoinbaseDataSize is received"
+          "actiondoc": "(pool) This action checks that a message SetCoinbaseDataSize is received"
         },
         {
             "message_ids": [],
@@ -137,13 +168,19 @@
         {
             "message_ids": ["setup_connection_success_template_distribution"],
             "role": "server",
+            "results": [],
+            "actiondoc": "(jdc) This action sends SetupConnection.Success with flag 2 (TD protocol)"
+        },
+        {
+            "message_ids": [], 
+            "role": "server",
             "results": [
                 {
                     "type": "match_message_type",
                     "value": "0x70"
                 }
             ],
-            "actiondoc": "(jdc) This action sends SetupConnection.Success with flag 2 (TD protocol) and checks that a message SetCoinbaseDataSize is received"
+            "actiondoc": "(jdc) This action checks that a message SetCoinbaseDataSize is received"
         },
         {
             "message_ids": ["new_template","set_new_prev_hash"],
@@ -152,15 +189,44 @@
             "actiondoc": "This action sends NewTemplate and SetNewPrevHash"
         },
         {
-            "message_ids": ["new_template2","set_new_prev_hash2"],
+            "message_ids": [],
             "role": "server",
             "results": [
                 {
                     "type": "match_message_type",
-                    "value": "0x76"
+                    "value": "0x73"
                 }
             ],
-            "actiondoc": "This action checks that new template2 and new prev hash2 is received"
+            "actiondoc": "This action checks RequestTransactionData received"
+        },
+        {
+            "message_ids":["request_transaction_data_success"],
+            "role":"server",
+            "results":[],
+            "actiondoc":"This action sends RequestTransactionDataSuccess"
+        },
+        {
+            "message_ids": ["new_template2","set_new_prev_hash2"],
+            "role": "server",
+            "results": [],
+            "actiondoc": "This action sends new template2 and new prev hash2"
+        },
+        {
+            "message_ids": [],
+            "role": "server",
+            "results": [
+                {
+                    "type": "match_message_type",
+                    "value": "0x73"
+                }
+            ],
+            "actiondoc": "This action checks RequestTransactionData received"
+        },
+        {
+            "message_ids":["request_transaction_data_success2"],
+            "role":"server",
+            "results":[],
+            "actiondoc":"This action sends RequestTransactionDataSuccess"
         }
     ],
     "setup_commands": [],
