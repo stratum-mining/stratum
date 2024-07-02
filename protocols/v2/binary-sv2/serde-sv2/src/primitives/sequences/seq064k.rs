@@ -7,7 +7,11 @@ use crate::{
     Error, ShortTxId,
 };
 use alloc::vec::Vec;
-use serde::{ser, ser::SerializeTuple, Deserialize, Deserializer, Serialize};
+use serde::{
+    ser,
+    ser::{SerializeSeq, SerializeTuple},
+    Deserialize, Deserializer, Serialize,
+};
 
 #[derive(Debug, Clone)]
 pub struct Seq064K<'s, T: Clone + Serialize + TryFromBSlice<'s>> {
@@ -101,11 +105,20 @@ impl<'s, T: Clone + FixedSize + Serialize + TryFromBSlice<'s>> Serialize for Seq
                 seq.end()
             }
             (None, Some(data)) => {
-                let tuple = (data.len() as u16, &data[..]);
-                let mut seq = serializer.serialize_tuple(2)?;
-                seq.serialize_element(&tuple.0)?;
-                seq.serialize_element(tuple.1)?;
-                seq.end()
+                if serializer.is_human_readable() {
+                    let data_ = self.data.clone().unwrap();
+                    let mut seq = serializer.serialize_seq(Some(data_.len()))?;
+                    for item in data_ {
+                        seq.serialize_element(&item)?;
+                    }
+                    seq.end()
+                } else {
+                    let tuple = (data.len() as u16, &data[..]);
+                    let mut seq = serializer.serialize_tuple(2)?;
+                    seq.serialize_element(&tuple.0)?;
+                    seq.serialize_element(tuple.1)?;
+                    seq.end()
+                }
             }
             _ => panic!(),
         }
@@ -439,7 +452,15 @@ impl<'s> Seq064K<'s, B064K<'s>> {
                 data: Some(data),
             }
         } else {
-            panic!()
+            // this is an already valid seq should be safe to call the unwraps.
+            // also this library shouldn't be used for priduction envs so is ok do thigs like this
+            // one
+            let data = self.seq.unwrap().parse().unwrap();
+            let data = data.into_iter().map(|i| i.into_static()).collect();
+            Seq064K {
+                seq: None,
+                data: Some(data),
+            }
         }
     }
 }
@@ -453,7 +474,15 @@ impl<'s> Seq064K<'s, B016M<'s>> {
                 data: Some(data),
             }
         } else {
-            panic!()
+            // this is an already valid seq should be safe to call the unwraps.
+            // also this library shouldn't be used for priduction envs so is ok do thigs like this
+            // one
+            let data = self.seq.unwrap().parse().unwrap();
+            let data = data.into_iter().map(|i| i.into_static()).collect();
+            Seq064K {
+                seq: None,
+                data: Some(data),
+            }
         }
     }
     pub fn to_vec(&self) -> Vec<Vec<u8>> {
@@ -473,7 +502,14 @@ impl<'s> Seq064K<'s, u32> {
                 data: Some(inner),
             }
         } else {
-            panic!()
+            // this is an already valid seq should be safe to call the unwraps.
+            // also this library shouldn't be used for priduction envs so is ok do thigs like this
+            // one
+            let data = self.seq.unwrap().parse().unwrap();
+            Seq064K {
+                seq: None,
+                data: Some(data),
+            }
         }
     }
 }
@@ -485,7 +521,14 @@ impl<'s> Seq064K<'s, u16> {
                 data: Some(inner),
             }
         } else {
-            panic!()
+            // this is an already valid seq should be safe to call the unwraps.
+            // also this library shouldn't be used for priduction envs so is ok do thigs like this
+            // one
+            let data = self.seq.unwrap().parse().unwrap();
+            Seq064K {
+                seq: None,
+                data: Some(data),
+            }
         }
     }
 }
@@ -500,7 +543,15 @@ impl<'s> Seq064K<'s, ShortTxId<'s>> {
                 data: Some(data),
             }
         } else {
-            panic!()
+            // this is an already valid seq should be safe to call the unwraps.
+            // also this library shouldn't be used for priduction envs so is ok do thigs like this
+            // one
+            let data = self.seq.unwrap().parse().unwrap();
+            let data = data.into_iter().map(|i| i.into_static()).collect();
+            Seq064K {
+                seq: None,
+                data: Some(data),
+            }
         }
     }
     pub fn to_vec(&self) -> Vec<Vec<u8>> {
@@ -522,7 +573,15 @@ impl<'s> Seq064K<'s, U256<'s>> {
                 data: Some(data),
             }
         } else {
-            panic!()
+            // this is an already valid seq should be safe to call the unwraps.
+            // also this library shouldn't be used for priduction envs so is ok do thigs like this
+            // one
+            let data = self.seq.unwrap().parse().unwrap();
+            let data = data.into_iter().map(|i| i.into_static()).collect();
+            Seq064K {
+                seq: None,
+                data: Some(data),
+            }
         }
     }
 }

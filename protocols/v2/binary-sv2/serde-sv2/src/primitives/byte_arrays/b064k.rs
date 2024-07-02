@@ -4,7 +4,7 @@ use core::convert::{TryFrom, TryInto};
 use serde::{de::Visitor, ser, ser::SerializeTuple, Deserialize, Deserializer, Serialize};
 
 #[derive(Debug, Clone, Eq)]
-enum Inner<'a> {
+pub enum Inner<'a> {
     Ref(&'a [u8]),
     Owned(Vec<u8>),
 }
