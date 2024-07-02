@@ -3,67 +3,32 @@
     "doc": [
         "This test does mimic translator proxy"
     ],
-    "common_messages": [
-        {
-            "message": {
-                "type": "SetupConnection",
-                "protocol": 0,
-                "min_version": 2,
-                "max_version": 2,
-                "flags": 1,
-                "endpoint_host": "",
-                "endpoint_port": 0,
-                "vendor": "",
-                "hardware_version": "",
-                "firmware": "",
-                "device_id": ""
-            },
-            "id": "setup_connection_mining_hom"
-        }
-    ],
     "mining_messages": [
         {
             "message": {
                 "type": "OpenExtendedMiningChannel",
-                "request_id": 89,
+                "request_id": 1,
                 "user_identity": "",
                 "nominal_hash_rate": 10,
                 "max_target": [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-                "min_extranonce_size": 0
+                "min_extranonce_size": 16
             },
             "id": "open_extended_mining_channel"
-        },
-        {
-            "message": {
-                "type": "SubmitSharesExtended",
-                "channel_id": 1,
-                "sequence_number": 0,
-                "job_id": 0,
-                "nonce": 4035255480,
-                "ntime": 1698941362,
-                "version": 536870912,
-                "extranonce": 0
-            },
-            "id": "submit_shares_extended"
         }
     ],
     "frame_builders": [
          {
             "type": "automatic",
-            "message_id": "setup_connection_mining_hom"
+            "message_id": "test/message-generator/messages/common_messages.json::setup_connection_tproxy"
         },
         {
             "type": "automatic",
             "message_id": "open_extended_mining_channel"
-        },
-        {
-            "type": "automatic",
-            "message_id": "submit_shares_extended"
         }
     ],
     "actions": [
         {
-            "message_ids": ["setup_connection_mining_hom"],
+            "message_ids": ["setup_connection_tproxy"],
             "role": "client",
             "results": [
                 {
@@ -85,39 +50,43 @@
                         [
                             [
                                 "request_id",
-                                {"U32": 89}
+                                {"U32": 1}
                             ]
                         ]
                     ]
-                },
-                {
-                    "type": "match_message_type",
-                    "value": "0x15"
-                },
-                {
-                    "type": "match_message_type",
-                    "value": "0x20"
                 }
             ],
-            "actiondoc": "This action sends OpenStandardMiningChannel to the pool and checks that the reply is OpenStandardMiningChannelSuccess, NewMiningJob, and SetNewPrevHash"
-        },
-        {
-            "message_ids": ["submit_shares_extended"],
-            "role": "client",
-            "results": [
-                {
-                    "type": "match_message_type",
-                    "value": "0x1c"
-                }
-            ],
-            "actiondoc": "This action sends the message SubmitSharesExtended to the pool and checks that the pool replies with SubmitSharesExtended.Success2"
+            "actiondoc": "This action sends OpenExtendedMiningChannel to the pool and checks that the reply is OpenExtendedMiningChannelSuccess"
         }
     ],
-    "setup_commands": [],
+    "setup_commands": [
+        {
+            "command": "cargo",
+            "args": [
+                "run",
+                "../../test/message-generator/mock/template-provider-mock-quick-template.json"
+            ],
+
+            "conditions": {
+                "WithConditions": {
+                    "conditions": [
+                        {
+                            "output_string": "",
+                            "output_location": "StdErr",
+                            "condition": true,
+                            "late_condition": false
+                        }
+                    ],
+                    "timer_secs": 1000,
+                    "warn_no_panic": false
+                }
+            }
+        }
+    ],
     "execution_commands": [],
     "cleanup_commands": [],
     "role": "client",
-    "upstream": {
+    "downstream": {
         "ip": "127.0.0.1",
         "port": 34265,
         "pub_key": "9auqWEzQDVyd2oe1JVGFLMLHZtCo2FFqZwtKA5gd9xbuEu7PH72",

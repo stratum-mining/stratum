@@ -123,28 +123,6 @@
         {
             "command": "cargo",
             "args": [
-                "run",
-                "../../test/message-generator/mock/tproxy-mock-quick-template.json"
-            ],
-
-            "conditions": {
-                "WithConditions": {
-                    "conditions": [
-                        {
-                            "output_string": "",
-                            "output_location": "StdErr",
-                            "condition": true,
-                            "late_condition": false
-                        }
-                    ],
-                    "timer_secs": 1000,
-                    "warn_no_panic": true
-                }
-            }
-        },
-        {
-            "command": "cargo",
-            "args": [
                 "llvm-cov",
                 "--no-report",
                 "run",
@@ -166,6 +144,28 @@
                     ],
                     "timer_secs": 600,
                     "warn_no_panic": false
+                }
+            }
+        },
+        {
+            "command": "cargo",
+            "args": [
+                "run",
+                "../../test/message-generator/mock/tproxy-mock-quick-template.json"
+            ],
+
+            "conditions": {
+                "WithConditions": {
+                    "conditions": [
+                        {
+                            "output_string": "",
+                            "output_location": "StdErr",
+                            "condition": true,
+                            "late_condition": false
+                        }
+                    ],
+                    "timer_secs": 1000,
+                    "warn_no_panic": true
                 }
             }
         }

@@ -22,6 +22,22 @@
                 "protocol": 0,
                 "min_version": 2,
                 "max_version": 2,
+                "flags": 4,
+                "endpoint_host": "",
+                "endpoint_port": 0,
+                "vendor": "",
+                "hardware_version": "",
+                "firmware": "",
+                "device_id": ""
+            },
+            "id": "setup_connection_tproxy"
+        },
+        {
+            "message": {
+                "type": "SetupConnection",
+                "protocol": 0,
+                "min_version": 2,
+                "max_version": 2,
                 "flags": 0,
                 "endpoint_host": "",
                 "endpoint_port": 0,
