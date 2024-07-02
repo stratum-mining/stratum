@@ -8,11 +8,11 @@ pub use buffer_sv2::AeadBuffer;
 pub use const_sv2::{SV2_FRAME_CHUNK_SIZE, SV2_FRAME_HEADER_SIZE};
 use core::marker::PhantomData;
 #[cfg(feature = "noise_sv2")]
-use framing_sv2::framing2::HandShakeFrame;
+use framing_sv2::framing::HandShakeFrame;
 #[cfg(feature = "noise_sv2")]
-use framing_sv2::header::NoiseHeader;
+use framing_sv2::header::{NOISE_HEADER_ENCRYPTED_SIZE, NOISE_HEADER_SIZE};
 use framing_sv2::{
-    framing2::{EitherFrame, Frame as F_, Sv2Frame},
+    framing::{Frame, Sv2Frame},
     header::Header,
 };
 #[cfg(feature = "noise_sv2")]
@@ -36,7 +36,7 @@ use crate::State;
 
 #[cfg(feature = "noise_sv2")]
 pub type StandardNoiseDecoder<T> = WithNoise<Buffer, T>;
-pub type StandardEitherFrame<T> = EitherFrame<T, <Buffer as IsBuffer>::Slice>;
+pub type StandardEitherFrame<T> = Frame<T, <Buffer as IsBuffer>::Slice>;
 pub type StandardSv2Frame<T> = Sv2Frame<T, <Buffer as IsBuffer>::Slice>;
 pub type StandardDecoder<T> = WithoutNoise<Buffer, T>;
 
@@ -51,14 +51,14 @@ pub struct WithNoise<B: IsBuffer, T: Serialize + binary_sv2::GetSize> {
 #[cfg(feature = "noise_sv2")]
 impl<'a, T: Serialize + GetSize + Deserialize<'a>, B: IsBuffer + AeadBuffer> WithNoise<B, T> {
     #[inline]
-    pub fn next_frame(&mut self, state: &mut State) -> Result<EitherFrame<T, B::Slice>> {
+    pub fn next_frame(&mut self, state: &mut State) -> Result<Frame<T, B::Slice>> {
         match state {
             State::HandShake(_) => unreachable!(),
             State::NotInitialized(msg_len) => {
                 let hint = *msg_len - self.noise_buffer.as_ref().len();
                 match hint {
                     0 => {
-                        self.missing_noise_b = NoiseHeader::HEADER_SIZE;
+                        self.missing_noise_b = NOISE_HEADER_SIZE;
                         Ok(self.while_handshaking())
                     }
                     _ => {
@@ -71,20 +71,20 @@ impl<'a, T: Serialize + GetSize + Deserialize<'a>, B: IsBuffer + AeadBuffer> Wit
                 let hint = if IsBuffer::len(&self.sv2_buffer) < SV2_FRAME_HEADER_SIZE {
                     let len = IsBuffer::len(&self.noise_buffer);
                     let src = self.noise_buffer.get_data_by_ref(len);
-                    if src.len() < NoiseHeader::SIZE {
-                        NoiseHeader::SIZE - src.len()
+                    if src.len() < NOISE_HEADER_ENCRYPTED_SIZE {
+                        NOISE_HEADER_ENCRYPTED_SIZE - src.len()
                     } else {
                         0
                     }
                 } else {
-                    let src = self.sv2_buffer.get_data_by_ref_(SV2_FRAME_HEADER_SIZE);
+                    let src = self.sv2_buffer.get_data_by_ref(SV2_FRAME_HEADER_SIZE);
                     let header = Header::from_bytes(src)?;
                     header.encrypted_len() - IsBuffer::len(&self.noise_buffer)
                 };
 
                 match hint {
                     0 => {
-                        self.missing_noise_b = NoiseHeader::SIZE;
+                        self.missing_noise_b = NOISE_HEADER_ENCRYPTED_SIZE;
                         self.decode_noise_frame(noise_codec)
                     }
                     _ => {
@@ -97,23 +97,20 @@ impl<'a, T: Serialize + GetSize + Deserialize<'a>, B: IsBuffer + AeadBuffer> Wit
     }
 
     #[inline]
-    fn decode_noise_frame(
-        &mut self,
-        noise_codec: &mut NoiseCodec,
-    ) -> Result<EitherFrame<T, B::Slice>> {
+    fn decode_noise_frame(&mut self, noise_codec: &mut NoiseCodec) -> Result<Frame<T, B::Slice>> {
         match (
             IsBuffer::len(&self.noise_buffer),
             IsBuffer::len(&self.sv2_buffer),
         ) {
             // HERE THE SV2 HEADER IS READY TO BE DECRYPTED
-            (NoiseHeader::SIZE, 0) => {
+            (NOISE_HEADER_ENCRYPTED_SIZE, 0) => {
                 let src = self.noise_buffer.get_data_owned();
-                let decrypted_header = self.sv2_buffer.get_writable(NoiseHeader::SIZE);
+                let decrypted_header = self.sv2_buffer.get_writable(NOISE_HEADER_ENCRYPTED_SIZE);
                 decrypted_header.copy_from_slice(src.as_ref());
                 self.sv2_buffer.as_ref();
                 noise_codec.decrypt(&mut self.sv2_buffer)?;
                 let header =
-                    Header::from_bytes(self.sv2_buffer.get_data_by_ref_(SV2_FRAME_HEADER_SIZE))?;
+                    Header::from_bytes(self.sv2_buffer.get_data_by_ref(SV2_FRAME_HEADER_SIZE))?;
                 self.missing_noise_b = header.encrypted_len();
                 Err(Error::MissingBytes(header.encrypted_len()))
             }
@@ -148,7 +145,7 @@ impl<'a, T: Serialize + GetSize + Deserialize<'a>, B: IsBuffer + AeadBuffer> Wit
         }
     }
 
-    fn while_handshaking(&mut self) -> EitherFrame<T, B::Slice> {
+    fn while_handshaking(&mut self) -> Frame<T, B::Slice> {
         let src = self.noise_buffer.get_data_owned().as_mut().to_vec();
 
         // below is inffalible as noise frame length has been already checked

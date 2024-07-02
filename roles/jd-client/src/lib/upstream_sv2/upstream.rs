@@ -11,7 +11,7 @@ use super::super::{
 };
 use async_channel::{Receiver, Sender};
 use binary_sv2::{Seq0255, U256};
-use codec_sv2::{Frame, HandshakeRole, Initiator};
+use codec_sv2::{HandshakeRole, Initiator};
 use error_handling::handle_result;
 use key_utils::Secp256k1PublicKey;
 use network_helpers_sv2::noise_connection_tokio::Connection;

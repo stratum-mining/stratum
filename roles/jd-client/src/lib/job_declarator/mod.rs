@@ -17,7 +17,6 @@ use tokio::task::AbortHandle;
 use tracing::{error, info};
 
 use async_recursion::async_recursion;
-use codec_sv2::Frame;
 use nohash_hasher::BuildNoHashHasher;
 use roles_logic_sv2::{
     handlers::job_declaration::ParseServerJobDeclarationMessages,

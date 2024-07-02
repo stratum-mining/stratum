@@ -1,4 +1,4 @@
-use codec_sv2::{Frame, StandardEitherFrame, StandardSv2Frame};
+use codec_sv2::{StandardEitherFrame, StandardSv2Frame};
 use criterion::{black_box, Criterion};
 use roles_logic_sv2::{
     handlers::{common::ParseUpstreamCommonMessages, mining::ParseUpstreamMiningMessages},
