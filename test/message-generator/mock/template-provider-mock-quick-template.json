@@ -141,7 +141,7 @@
             "message_ids": ["setup_connection_success_template_distribution"],
             "role": "server",
             "results": [],
-          "actiondoc": "(pool) This action sends SetupConnection.Success with flag 2 (TD protocol)"
+            "actiondoc": "(pool) This action sends SetupConnection.Success with flag 2 (TD protocol)"
         },
         {
             "message_ids": [],
@@ -152,7 +152,7 @@
                     "value": "0x70"
                 }
             ],
-          "actiondoc": "(pool) This action checks that a message SetCoinbaseDataSize is received"
+          "actiondoc": "This action checks that a message SetCoinbaseDataSize is received"
         },
         {
             "message_ids": [],
@@ -180,7 +180,7 @@
                     "value": "0x70"
                 }
             ],
-            "actiondoc": "(jdc) This action checks that a message SetCoinbaseDataSize is received"
+            "actiondoc": "This action checks that a message SetCoinbaseDataSize is received"
         },
         {
             "message_ids": ["new_template","set_new_prev_hash"],

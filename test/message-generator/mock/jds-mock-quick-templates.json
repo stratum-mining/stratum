@@ -74,6 +74,10 @@
         {
             "type": "automatic",
             "message_id": "test/message-generator/messages/common_messages.json::setup_connection_success_tproxy"
+        },
+        {
+            "type": "automatic",
+            "message_id": "test/message-generator/messages/common_messages.json::setup_connection_success_jds_to_jdc"
         }
     ],
     "actions": [
@@ -89,10 +93,10 @@
             "actiondoc": "This action checks that a SetupConnection message is received,"
         },
         {
-            "message_ids": ["setup_connection_success_tproxy"],
+            "message_ids": ["setup_connection_success_jds_to_jdc"],
             "role": "server",
             "results": [],
-            "actiondoc": "This action sends back a SetupConnection.Success (setup_connection_success_tproxy) "
+            "actiondoc": "This action sends back a SetupConnection.Success (setup_connection_success_jds_to_jdc) "
         },
         {
             "message_ids": [],
