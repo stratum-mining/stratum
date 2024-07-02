@@ -1,0 +1,146 @@
+{
+    "version": "2",
+    "doc": [
+        "This test does",
+        "Mock a JDS",
+        "Start listen to the port 34264",
+        "Receive SetupConnection and reply SetupConnection.Success",
+        "(template1) Await for AllocateMiningJobToken and reply AllocateMiningJobToken.Success",
+        "(template2) Await for AllocateMiningJobToken and reply AllocateMiningJobToken.Success",
+        "(template1) Await for DeclareMiningJob and reply DeclareMiningJob.Success",
+        "(template2) Await for DeclareMiningJob and reply DeclareMiningJob.Success"
+    ],
+    "jd_messages": [
+        {
+            "message": {
+                "type": "AllocateMiningJobTokenSuccess",
+                "mining_job_token": [0, 0, 0, 0, 0],
+                "coinbase_output_max_additional_size": 0,
+                "async_mining_allowed": false
+            },
+            "id": "allocate_mining_job_token_success_0"
+        },
+        {
+            "message": {
+                "type": "AllocateMiningJobTokenSuccess",
+                "mining_job_token": [0, 0, 0, 0, 1],
+                "coinbase_output_max_additional_size": 0,
+                "async_mining_allowed": false
+            },
+            "id": "allocate_mining_job_token_success_1"
+        },
+        {
+            "message": {
+                "type": "DeclareMiningJob.Success",
+                "request_id": 0,
+                "new_mining_job_token": [0, 0, 0, 0, 0]
+            },
+            "id": "declare_mining_job_success_0"
+        },
+        {
+            "message": {
+                "type": "DeclareMiningJob.Success",
+                "request_id": 1,
+                "new_mining_job_token": [0, 0, 0, 0, 0]
+            },
+            "id": "declare_mining_job_success_1"
+        }
+    ],
+    "frame_builders": [
+        {
+            "type": "automatic",
+            "message_id": "allocate_mining_job_token_success_0"
+        },
+        {
+            "type": "automatic",
+            "message_id": "allocate_mining_job_token_success_1"
+        },
+        {
+            "type": "automatic",
+            "message_id": "declare_mining_job_success_0"
+        },
+        {
+            "type": "automatic",
+            "message_id": "declare_mining_job_success_1"
+        },
+        {
+            "type": "automatic",
+            "message_id": "test/message-generator/messages/common_messages.json::setup_connection_success_tproxy"
+        }
+    ],
+    "actions": [
+       {
+            "message_ids": ["setup_connection_success_tproxy"],
+            "role": "server",
+            "results": [
+                {
+                    "type": "match_message_type",
+                    "value": "0x00"
+                }
+            ],
+            "actiondoc": "This action checks that a SetupConnection message is received, and sends back a SetupConnection.Success (setup_connection_success_tproxy)"
+        },
+        {
+            "message_ids": ["allocate_mining_job_token_success_0"],
+            "role": "server",
+            "results": [
+                {
+                    "type": "match_message_type",
+                    "value": "0x50"
+                }
+            ],
+            "actiondoc": "This action checks that a AllocateMiningJobToken message is received, and sends back a AllocateMiningJobToken.Success (allocate_mining_job_token_success_0)"
+        },
+        {
+            "message_ids": ["allocate_mining_job_token_success_1"],
+            "role": "server",
+            "results": [
+                {
+                    "type": "match_message_type",
+                    "value": "0x50"
+                }
+            ],
+            "actiondoc": "This action checks that a AllocateMiningJobToken message is received, and sends back a AllocateMiningJobToken.Success (allocate_mining_job_token_success_1)"
+        },
+        {
+            "message_ids": ["declare_mining_job_success_0"],
+            "role": "server",
+            "results": [
+                {
+                    "type": "match_message_type",
+                    "value": "0x57"
+                }
+            ],
+            "actiondoc": "This action checks that a DeclareMiningJob message is received, and sends back a DeclareMiningJob.Success (declare_mining_job_success_0)"
+        },
+        {
+            "message_ids": ["declare_mining_job_success_1"],
+            "role": "server",
+            "results": [
+                {
+                    "type": "match_message_type",
+                    "value": "0x57"
+                }
+            ],
+            "actiondoc": "This action checks that a DeclareMiningJob message is received, and sends back a DeclareMiningJob.Success (declare_mining_job_success_1)"
+        }
+    ],
+    "setup_commands": [
+    ],
+    "execution_commands": [
+    ],
+    "cleanup_commands": [
+        {
+            "command": "sleep",
+            "args": ["10000000"],
+            "conditions": "None"
+        }
+    ],
+    "role": "server",
+    "upstream": {
+        "ip": "127.0.0.1",
+        "port": 34264,
+        "pub_key": "9auqWEzQDVyd2oe1JVGFLMLHZtCo2FFqZwtKA5gd9xbuEu7PH72",
+        "secret_key": "mkDLTBBRxdBv998612qipDYoTK3YUrqLe8uWw7gu3iXbSrn2n"
+    }
+}
