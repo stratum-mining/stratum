@@ -1,0 +1,28 @@
+[formatting]
+# Align consecutive entries vertically.
+align_entries = false
+# Append trailing commas for multi-line arrays.
+array_trailing_comma = true
+# Expand arrays to multiple lines that exceed the maximum column width.
+array_auto_expand = true
+# Collapse arrays that do not exceed the maximum column width and do not contain comments.
+array_auto_collapse = false
+# Include white space padding in single-line arrays for better readability.
+compact_arrays = false
+# Omit white space padding from the start and end of inline tables.
+compact_inline_tables = false
+# Maximum column width in characters.
+column_width = 100
+# Indent based on tables and arrays of tables and their subtables, subtables out of order are not indented.
+indent_tables = false
+# Use four spaces for indentation.
+indent_string = '    '
+# Add trailing newline at the end of the file if not present.
+trailing_newline = true
+# Do not reorder keys within tables; keep the original order.
+reorder_keys = false
+# Limit the number of consecutive blank lines to 1 to reduce unnecessary whitespace. This does not
+# affect the whitespace at the end of the document, as it is always stripped.
+allowed_blank_lines = 1
+# Sort Cargo.toml dependencies in alphabetical order.
+sort = true

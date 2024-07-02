@@ -25,7 +25,7 @@ min_extranonce2_size = 8
 # Difficulty params
 [downstream_difficulty_config]
 # hashes/s of the weakest miner that will be connecting (e.g.: 10 Th/s = 10_000_000_000_000.0)
-min_individual_miner_hashrate=10_000_000_000_000.0
+min_individual_miner_hashrate = 10_000_000_000_000.0
 # target number of shares per minute the miner should be sending
 shares_per_minute = 6.0
 

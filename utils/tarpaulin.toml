@@ -4,4 +4,4 @@ timeout = "120s"
 fail-under = 7
 
 [report]
-out = ["Xml"]
+out = [ "Xml" ]

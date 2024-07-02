@@ -94,6 +94,8 @@ The SRI project follows an open contributor model, where anyone is welcome to co
 
     `cargo fmt`: this command formats your code according to the project's style guidelines. Make sure to run this command to ensure consistency in code formatting.
 
+    `taplo fmt`: this command formats TOML files according to the project's style guidelines. Make sure to run this command to ensure consistency in code formatting.
+
 5. **Submit a Pull Request:** once you're satisfied with your changes, submit a pull request to the original SRI repository. Provide a clear and concise description of the changes you've made. If your pull request addresses an existing issue, reference the issue number in the description. In order to contribute to the protocol implementation, every PR must be opened against `dev` branch. To better understand which is the SRI branches structure, please have a look [here](https://github.com/stratum-mining/stratum/blob/main/RELEASE.md#principal-branches).
 
 6. **Review and Iterate** 

@@ -1,14 +1,14 @@
 [package]
 name = "sv2_ffi"
 version = "1.0.0"
-authors = ["fi3 <email@email.org>"]
+authors = [ "fi3 <email@email.org>" ]
 edition = "2018"
 description = "SV2 FFI"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/stratum-mining/stratum"
 
 [lib]
-crate-type = ["staticlib"]
+crate-type = [ "staticlib" ]
 
 [dependencies]
 codec_sv2 = { path = "../../../protocols/v2/codec-sv2", version = "^1.0.0" }
@@ -22,6 +22,9 @@ quickcheck = "1.0.3"
 quickcheck_macros = "1"
 
 [features]
-with_serde = []
-prop_test = ["binary_sv2/prop_test", "common_messages_sv2/prop_test", "template_distribution_sv2/prop_test"]
-
+with_serde = [  ]
+prop_test = [
+    "binary_sv2/prop_test",
+    "common_messages_sv2/prop_test",
+    "template_distribution_sv2/prop_test",
+]
