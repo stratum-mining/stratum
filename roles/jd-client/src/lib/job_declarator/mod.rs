@@ -146,6 +146,10 @@ impl JobDeclarator {
             .unwrap()
     }
 
+    /// We maintain a window of 2 jobs. If more than 2 blocks are found,
+    /// the ordering will depend on the request ID. Only the 2 most recent request
+    /// IDs will be kept in memory, while the rest will be discarded.
+    /// More information can be found here: https://github.com/stratum-mining/stratum/pull/904#discussion_r1609469048
     fn update_last_declare_job_sent(
         self_mutex: &Arc<Mutex<Self>>,
         request_id: u32,
