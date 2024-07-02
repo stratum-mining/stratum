@@ -7,7 +7,7 @@ use crate::{
 };
 use async_channel::{Receiver, Sender};
 use binary_sv2::Serialize;
-use codec_sv2::{Frame, StandardEitherFrame as EitherFrame, Sv2Frame};
+use codec_sv2::{StandardEitherFrame as EitherFrame, Sv2Frame};
 use roles_logic_sv2::parsers::{self, AnyMessage};
 use std::{collections::HashMap, convert::TryInto, sync::Arc};
 

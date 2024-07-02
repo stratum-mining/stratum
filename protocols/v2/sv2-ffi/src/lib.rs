@@ -4,7 +4,7 @@ use std::{
     fmt::{Display, Formatter},
 };
 
-use codec_sv2::{Encoder, Frame, StandardDecoder, StandardSv2Frame};
+use codec_sv2::{Encoder, StandardDecoder, StandardSv2Frame};
 use common_messages_sv2::{
     CSetupConnection, CSetupConnectionError, ChannelEndpointChanged, SetupConnection,
     SetupConnectionError, SetupConnectionSuccess,

@@ -451,7 +451,7 @@ mod test {
         into_static::into_static,
         net::{setup_as_downstream, setup_as_upstream},
     };
-    use codec_sv2::{Frame, Sv2Frame};
+    use codec_sv2::Sv2Frame;
     use roles_logic_sv2::{
         mining_sv2::{
             CloseChannel, NewExtendedMiningJob, OpenExtendedMiningChannel,
