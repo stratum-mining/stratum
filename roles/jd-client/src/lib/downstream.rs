@@ -32,8 +32,8 @@ pub type EitherFrame = StandardEitherFrame<Message>;
 
 /// 1 to 1 connection with a downstream node that implement the mining (sub)protocol can be either
 /// a mining device or a downstream proxy.
-/// A downstream can only be linked with an upstream at a time. Support multi upstrems for
-/// downstream do no make much sense.
+/// A downstream can only be linked with an upstream at a time. Support multi upstreams for
+/// downstream do not make much sense.
 #[derive(Debug)]
 pub struct DownstreamMiningNode {
     receiver: Receiver<EitherFrame>,
@@ -181,7 +181,7 @@ impl DownstreamMiningNode {
         }
     }
 
-    /// Send SetupConnectionSuccess to donwstream and start processing new messages coming from
+    /// Send SetupConnectionSuccess to downstream and start processing new messages coming from
     /// downstream
     pub async fn start(
         self_mutex: &Arc<Mutex<Self>>,
@@ -225,7 +225,7 @@ impl DownstreamMiningNode {
     // mining channel success
     fn set_channel_factory(self_mutex: Arc<Mutex<Self>>) {
         if !self_mutex.safe_lock(|s| s.status.is_solo_miner()).unwrap() {
-            // Safe unwrap already checked if it contains an upstream withe `is_solo_miner`
+            // Safe unwrap already checked if it contains an upstream with `is_solo_miner`
             let upstream = self_mutex
                 .safe_lock(|s| s.status.get_upstream().unwrap())
                 .unwrap();
