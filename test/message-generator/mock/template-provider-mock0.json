@@ -139,7 +139,7 @@
     "cleanup_commands": [
         {
             "command": "sleep",
-            "args": ["10"],
+            "args": ["1000"],
             "conditions": "None"
         }
     ],

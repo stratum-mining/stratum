@@ -144,7 +144,7 @@
         },
         {
             "command": "sleep",
-            "args": ["10000"],
+            "args": ["5000"],
             "conditions": "None"
         },
         {
