@@ -72,7 +72,10 @@ jobs:
 
       - name: Run bad-pool-config-test
         run: sh ./test/message-generator/test/bad-pool-config-test/bad-pool-config-test.sh
-
+        
+      - name: Run translation-proxy
+        run: sh ./test/message-generator/test/translation-proxy/translation-proxy.sh
+        
       - name: Run interop-jd-translator
         run: sh ./test/message-generator/test/interop-jd-translator/interop-jd-translator.sh
 
@@ -118,8 +121,8 @@ jobs:
       - name: Run translation-proxy-broke-pool
         run: sh ./test/message-generator/test/translation-proxy-broke-pool/translation-proxy-broke-pool.sh
 
-      - name: Run translation-proxy
-        run: sh ./test/message-generator/test/translation-proxy/translation-proxy.sh
+      #- name: Run translation-proxy
+        #run: sh ./test/message-generator/test/translation-proxy/translation-proxy.sh
 
       - name: Run translation-proxy-old-share
         run: sh ./test/message-generator/test/translation-proxy-old-share/translation-proxy-old-share.sh
