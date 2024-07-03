@@ -43,6 +43,6 @@ shares_per_minute = 100.0
 
 [upstream_difficulty_config]
 # interval in seconds to elapse before updating channel hashrate with the pool
-channel_diff_update_interval = 60
+channel_diff_update_interval = 360
 # estimated accumulated hashrate of all downstream miners
-channel_nominal_hashrate = 500.0
+channel_nominal_hashrate = 100.0
