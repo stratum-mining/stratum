@@ -59,32 +59,15 @@
             "actiondoc": "This action sends OpenExtendedMiningChannel to the pool and checks that the reply is OpenExtendedMiningChannelSuccess"
         }
     ],
-    "setup_commands": [
+    "setup_commands": [],
+    "execution_commands": [],
+    "cleanup_commands": [
         {
-            "command": "cargo",
-            "args": [
-                "run",
-                "../../test/message-generator/mock/template-provider-mock-quick-template.json"
-            ],
-
-            "conditions": {
-                "WithConditions": {
-                    "conditions": [
-                        {
-                            "output_string": "",
-                            "output_location": "StdErr",
-                            "condition": true,
-                            "late_condition": false
-                        }
-                    ],
-                    "timer_secs": 1000,
-                    "warn_no_panic": false
-                }
-            }
+            "command": "sleep",
+            "args": ["10000"],
+            "conditions": "None"
         }
     ],
-    "execution_commands": [],
-    "cleanup_commands": [],
     "role": "client",
     "downstream": {
         "ip": "127.0.0.1",

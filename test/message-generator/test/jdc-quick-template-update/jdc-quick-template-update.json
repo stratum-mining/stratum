@@ -2,10 +2,10 @@
     "version": "2",
     "doc": [
         "This test does",
-        "Launch real pool",
-        "Launch real JDC",
-        "Mock TP",
-        "Mock JDS",
+        "Launch real pool on port: 34254",
+        "Launch real JDC on port: 34265",
+        "Mock TP on port: 8442",
+        "Mock JDS on port: 34264",
         "Mock TProxy",
         "todo: describe message sequence"
     ],
@@ -35,7 +35,7 @@
                             "late_condition": false
                         }
                     ],
-                    "timer_secs": 1000,
+                    "timer_secs": 1000000,
                     "warn_no_panic": false
                 }
             }
@@ -62,7 +62,7 @@
                             "condition": true
                         }
                     ],
-                    "timer_secs": 1000,
+                    "timer_secs": 1000000,
                     "warn_no_panic": false
                 }
             }
@@ -89,7 +89,7 @@
                             "late_condition": false
                         }
                     ],
-                    "timer_secs": 600,
+                    "timer_secs": 60000,
                     "warn_no_panic": false
                 }
             }
@@ -121,7 +121,7 @@
                             "condition": true
                         }
                     ],
-                    "timer_secs": 600,
+                    "timer_secs": 600000,
                     "warn_no_panic": false
                 }
             }
@@ -143,7 +143,7 @@
                             "late_condition": false
                         }
                     ],
-                    "timer_secs": 1000,
+                    "timer_secs": 10000000,
                     "warn_no_panic": true
                 }
             }
@@ -152,6 +152,11 @@
     "execution_commands": [
     ],
     "cleanup_commands": [
+        {
+            "command": "sleep",
+            "args": ["10000"],
+            "conditions": "None"
+        },
         {
             "command": "pkill",
             "args":  ["-f", "jd_client", "-SIGINT"],

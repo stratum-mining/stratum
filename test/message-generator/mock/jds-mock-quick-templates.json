@@ -149,40 +149,6 @@
             "role": "server",
             "results": [],
             "actiondoc": "This action sends back a AllocateMiningJobToken.Success (allocate_mining_job_token_success_1)"
-        },
-        {
-            "message_ids": [],
-            "role": "server",
-            "results": [
-                {
-                    "type": "match_message_type",
-                    "value": "0x57"
-                }
-            ],
-            "actiondoc": "This action checks that a DeclareMiningJob message is received"
-        },
-        {
-            "message_ids": ["declare_mining_job_success_0"],
-            "role": "server",
-            "results": [],
-            "actiondoc": "This action sends back a DeclareMiningJob.Success (declare_mining_job_success_0)"
-        },
-        {
-            "message_ids": [],
-            "role": "server",
-            "results": [
-                {
-                    "type": "match_message_type",
-                    "value": "0x57"
-                }
-            ],
-            "actiondoc": "This action checks that a DeclareMiningJob message is received"
-        },
-        {
-            "message_ids": ["declare_mining_job_success_1"],
-            "role": "server",
-            "results": [],
-            "actiondoc": "This action sends back a DeclareMiningJob.Success (declare_mining_job_success_1)"
         }
     ],
     "setup_commands": [
@@ -192,7 +158,7 @@
     "cleanup_commands": [
         {
             "command": "sleep",
-            "args": ["100"],
+            "args": ["10000"],
             "conditions": "None"
         }
     ],

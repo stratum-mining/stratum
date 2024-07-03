@@ -204,11 +204,6 @@
     "setup_commands": [],
     "execution_commands": [],
     "cleanup_commands": [
-        {
-            "command": "sleep",
-            "args": ["10"],
-            "conditions": "None"
-        }
     ],
     "role": "server",
     "upstream": {
