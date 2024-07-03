@@ -109,3 +109,9 @@ Unsure where to begin contributing to SRI? You can start by looking through `goo
 * [Help wanted](https://github.com/stratum-mining/stratum/issues?q=is%3Aopen+is%3Aissue+label%3A%22help+wanted%22) - issues which should be a bit more involved than `good first issue` issues.
 
 Another way to better understand where to focus your contribution is by looking at our roadmap: https://github.com/orgs/stratum-mining/projects/5
+
+#### Code Organization
+
+`impl` blocks should be written immediately after the declaration of the respective `struct` or `enum`.
+
+Avoid mixing `impl` blocks for different entities together. If they need to co-exist in the same file, they should be grouped logically in different regions of the file so the reader can easily find methods right next to the declaration of the `struct` or `enum` they belong to.
