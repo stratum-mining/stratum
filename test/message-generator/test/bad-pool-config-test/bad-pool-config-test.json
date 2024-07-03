@@ -125,7 +125,7 @@
         { "command": "cargo",
             "args": [
                         "run",
-                        "../../test/message-generator/mock/template-provider-mock0.json"
+                        "../../test/message-generator/mock/template-provider-mock1.json"
             ],
             "conditions": {
                 "WithConditions": {
@@ -144,7 +144,7 @@
         },
         {
             "command": "sleep",
-            "args": ["10000"],
+            "args": ["1000"],
             "conditions": "None"
         },
         {
