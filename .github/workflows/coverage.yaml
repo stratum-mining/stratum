@@ -70,17 +70,17 @@ jobs:
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
         
-      - name: Run translation-proxy
-        run: sh ./test/message-generator/test/translation-proxy/translation-proxy.sh
-      
-      - name: Run bad-pool-config-test
-        run: sh ./test/message-generator/test/bad-pool-config-test/bad-pool-config-test.sh  
-      
       - name: Run interop-jd-translator
         run: sh ./test/message-generator/test/interop-jd-translator/interop-jd-translator.sh
 
           #- name: Run interop-jdc-change-upstream
           #  run: sh ./test/message-generator/test/interop-jdc-change-upstream/interop-jdc-change-upstream.sh
+
+      - name: Run translation-proxy
+        run: sh ./test/message-generator/test/translation-proxy/translation-proxy.sh
+    
+      - name: Run bad-pool-config-test
+        run: sh ./test/message-generator/test/bad-pool-config-test/bad-pool-config-test.sh  
 
       - name: Run interop-proxy-with-multi-ups
         run: sh ./test/message-generator/test/interop-proxy-with-multi-ups/interop-proxy-with-multi-ups.sh
