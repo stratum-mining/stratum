@@ -91,6 +91,7 @@ impl Sv2ActionParser {
                     "close_connection" => {
                         action_results.push(ActionResult::CloseConnection);
                     }
+                    "sustain_connection" => action_results.push(ActionResult::SustainConnection),
                     "none" => {
                         action_results.push(ActionResult::None);
                     }
