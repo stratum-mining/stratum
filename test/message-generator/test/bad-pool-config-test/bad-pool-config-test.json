@@ -143,6 +143,11 @@
             }
         },
         {
+            "command": "sleep",
+            "args": ["1500"],
+            "conditions": "None"
+        },
+        {
             "command": "cargo",
             "args": [   "llvm-cov",
                         "--no-report",

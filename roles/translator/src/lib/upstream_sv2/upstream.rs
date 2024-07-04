@@ -283,7 +283,7 @@ impl Upstream {
             let tx_status = tx_status.clone();
             task::spawn(async move {
                 // No need to start diff management immediatly
-                async_std::task::sleep(Duration::from_secs(10)).await;
+                async_std::task::sleep(Duration::from_secs(60)).await;
                 loop {
                     handle_result!(tx_status, Self::try_update_hashrate(self_.clone()).await);
                 }
