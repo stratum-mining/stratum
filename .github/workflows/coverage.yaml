@@ -70,6 +70,19 @@ jobs:
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
 
+      - name: Cache dependencies
+        uses: Swatinem/rust-cache@v2.2.1
+
+      - name: Configure sccache
+        run: | 
+          echo "RUSTC_WRAPPER=sccache" >> $GITHUB_ENV
+          echo "SCCACHE_GHA_ENABLED=true" >> $GITHUB_ENV
+      
+      - name: Run sccache-cache
+        uses: mozilla-actions/sccache-action@v0.0.2
+        with:
+          version: "latest"  # Added required input for version
+
       - name: Run translation-proxy
         run: sh ./test/message-generator/test/translation-proxy/translation-proxy.sh
     
