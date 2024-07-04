@@ -411,7 +411,7 @@ impl UpstreamMiningNode {
                     .unwrap()
                     .unwrap();
 
-                let message_type = response.get_header().unwrap().msg_type();
+                let message_type = response.header().msg_type();
                 let payload = response.payload().unwrap();
                 match (message_type, payload).try_into() {
                     Ok(CommonMessages::SetupConnectionSuccess(_)) => {
@@ -577,7 +577,7 @@ impl UpstreamMiningNode {
     }
 
     pub async fn next(self_mutex: Arc<Mutex<Self>>, mut incoming: StdFrame) {
-        let message_type = incoming.get_header().unwrap().msg_type();
+        let message_type = incoming.header().msg_type();
         let payload = incoming.payload().unwrap();
 
         let routing_logic = super::get_routing_logic();
@@ -615,7 +615,7 @@ impl UpstreamMiningNode {
             .unwrap()
             .unwrap();
 
-        let message_type = response.get_header().unwrap().msg_type();
+        let message_type = response.header().msg_type();
         let payload = response.payload().unwrap();
         match (message_type, payload).try_into() {
             Ok(CommonMessages::SetupConnectionSuccess(m)) => {
@@ -861,7 +861,7 @@ impl UpstreamMiningNode {
     // #[cfg(test)]
     // #[allow(unused)]
     // pub async fn next_faster(&mut self, mut incoming: StdFrame) {
-    //     let message_type = incoming.get_header().unwrap().msg_type();
+    //     let message_type = incoming.header().msg_type();
 
     //     // When a channel is opened we need to setup the channel id in order to relay next messages
     //     // to the right Downstream

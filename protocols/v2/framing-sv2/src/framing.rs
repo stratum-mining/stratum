@@ -91,8 +91,8 @@ impl<T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> Sv2Frame<T, B> {
     }
 
     /// `Sv2Frame` always returns `Some(self.header)`.
-    pub fn get_header(&self) -> Option<crate::header::Header> {
-        Some(self.header)
+    pub fn header(&self) -> crate::header::Header {
+        self.header
     }
 
     /// Tries to build a `Sv2Frame` from raw bytes, assuming they represent a serialized `Sv2Frame` frame (`Self.serialized`).

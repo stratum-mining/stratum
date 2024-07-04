@@ -53,10 +53,7 @@ impl SetupConnectionHandler {
             .await?
             .try_into()
             .map_err(|e| PoolError::Codec(codec_sv2::Error::FramingSv2Error(e)))?;
-        let message_type = incoming
-            .get_header()
-            .ok_or_else(|| PoolError::Custom(String::from("No header set")))?
-            .msg_type();
+        let message_type = incoming.header().msg_type();
         let payload = match incoming.payload() {
             Some(p) => p,
             None => return Err(PoolError::Custom(String::from("No payload set"))),

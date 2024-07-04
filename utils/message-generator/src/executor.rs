@@ -211,7 +211,7 @@ impl Executor {
 
                         let message: Sv2Frame<AnyMessage<'static>, _> = message.try_into().unwrap();
                         debug!("RECV {:#?}", message);
-                        let header = message.get_header().unwrap();
+                        let header = message.header();
 
                         if header.msg_type() != *message_type {
                             error!(
@@ -242,8 +242,8 @@ impl Executor {
                         let mut message: Sv2Frame<AnyMessage<'static>, _> =
                             message.try_into().unwrap();
                         debug!("RECV {:#?}", message);
-                        let header = message.get_header().unwrap();
-                        let payload = message.payload();
+                        let header = message.header();
+                        let payload = message.payload().unwrap();
                         if subprotocol.as_str() == "CommonMessages" {
                             match (header.msg_type(), payload).try_into() {
                                 Ok(roles_logic_sv2::parsers::CommonMessages::SetupConnection(m)) => {
@@ -543,8 +543,8 @@ impl Executor {
                         let mut message: Sv2Frame<AnyMessage<'static>, _> =
                             message.try_into().unwrap();
                         debug!("RECV {:#?}", message);
-                        let header = message.get_header().unwrap();
-                        let payload = message.payload();
+                        let header = message.header();
+                        let payload = message.payload().unwrap();
                         if subprotocol.as_str() == "CommonMessages" {
                             match (header.msg_type(), payload).try_into() {
                                 Ok(parsers::CommonMessages::SetupConnection(m)) => {
@@ -755,7 +755,7 @@ impl Executor {
                         let mut message: Sv2Frame<AnyMessage<'static>, _> =
                             message.try_into().unwrap();
                         debug!("RECV {:#?}", message);
-                        let payload = message.payload();
+                        let payload = message.payload().unwrap();
                         if payload.len() != *message_len {
                             error!(
                                 "WRONG MESSAGE len expected: {} received: {}",
@@ -778,7 +778,7 @@ impl Executor {
 
                         let message: Sv2Frame<AnyMessage<'static>, _> = message.try_into().unwrap();
                         debug!("RECV {:#?}", message);
-                        let header = message.get_header().unwrap();
+                        let header = message.header();
                         if header.ext_type() != *ext_type {
                             error!(
                                 "WRONG EXTENSION TYPE expected: {} received: {}",

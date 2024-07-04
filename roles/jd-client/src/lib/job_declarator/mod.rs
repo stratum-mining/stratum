@@ -292,7 +292,7 @@ impl JobDeclarator {
                 let receiver = self_mutex.safe_lock(|d| d.receiver.clone()).unwrap();
                 loop {
                     let mut incoming: StdFrame = receiver.recv().await.unwrap().try_into().unwrap();
-                    let message_type = incoming.get_header().unwrap().msg_type();
+                    let message_type = incoming.header().msg_type();
                     let payload = incoming.payload().unwrap();
                     let next_message_to_send =
                         ParseServerJobDeclarationMessages::handle_message_job_declaration(

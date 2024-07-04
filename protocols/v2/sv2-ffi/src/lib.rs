@@ -465,10 +465,7 @@ pub extern "C" fn next_frame(decoder: *mut DecoderWrapper) -> CResult<CSv2Messag
 
     match decoder.0.next_frame() {
         Ok(mut f) => {
-            let msg_type = match f.get_header() {
-                Some(header) => header.msg_type(),
-                None => return CResult::Err(Sv2Error::InvalidSv2Frame),
-            };
+            let msg_type = f.header().msg_type();
             let payload = match f.payload() {
                 Some(payload) => payload,
                 None => return CResult::Err(Sv2Error::InvalidSv2Frame),
@@ -763,7 +760,7 @@ mod tests {
 
         let mut decoded = decoder.next_frame().unwrap();
 
-        let msg_type = decoded.get_header().unwrap().msg_type();
+        let msg_type = decoded.header().msg_type();
         let payload = decoded.payload().unwrap();
         let decoded_message: Sv2Message = (msg_type, payload).try_into().unwrap();
         let decoded_message = match decoded_message {
@@ -815,7 +812,7 @@ mod tests {
         let mut decoded = decoder.next_frame().unwrap();
 
         // Extract payload of the frame which is the NewTemplate message
-        let msg_type = decoded.get_header().unwrap().msg_type();
+        let msg_type = decoded.header().msg_type();
         let payload = decoded.payload().unwrap();
         let decoded_message: Sv2Message = (msg_type, payload).try_into().unwrap();
         let decoded_message = match decoded_message {
@@ -863,7 +860,7 @@ mod tests {
 
         let mut decoded = decoder.next_frame().unwrap();
 
-        let msg_type = decoded.get_header().unwrap().msg_type();
+        let msg_type = decoded.header().msg_type();
         let payload = decoded.payload().unwrap();
         let decoded_message: Sv2Message = (msg_type, payload).try_into().unwrap();
         let decoded_message = match decoded_message {
@@ -913,7 +910,7 @@ mod tests {
 
         let mut decoded = decoder.next_frame().unwrap();
 
-        let msg_type = decoded.get_header().unwrap().msg_type();
+        let msg_type = decoded.header().msg_type();
         let payload = decoded.payload().unwrap();
         let decoded_message: Sv2Message = (msg_type, payload).try_into().unwrap();
         let decoded_message = match decoded_message {
@@ -963,7 +960,7 @@ mod tests {
 
         let mut decoded = decoder.next_frame().unwrap();
 
-        let msg_type = decoded.get_header().unwrap().msg_type();
+        let msg_type = decoded.header().msg_type();
         let payload = decoded.payload().unwrap();
         let decoded_message: Sv2Message = (msg_type, payload).try_into().unwrap();
         let decoded_message = match decoded_message {
@@ -1008,7 +1005,7 @@ mod tests {
 
         let mut decoded = decoder.next_frame().unwrap();
 
-        let msg_type = decoded.get_header().unwrap().msg_type();
+        let msg_type = decoded.header().msg_type();
         let payload = decoded.payload().unwrap();
         let decoded_message: Sv2Message = (msg_type, payload).try_into().unwrap();
         let decoded_message = match decoded_message {
@@ -1053,7 +1050,7 @@ mod tests {
 
         let mut decoded = decoder.next_frame().unwrap();
 
-        let msg_type = decoded.get_header().unwrap().msg_type();
+        let msg_type = decoded.header().msg_type();
         let payload = decoded.payload().unwrap();
         let decoded_message: Sv2Message = (msg_type, payload).try_into().unwrap();
         let decoded_message = match decoded_message {
@@ -1111,7 +1108,7 @@ mod tests {
 
         let mut decoded = decoder.next_frame().unwrap();
 
-        let msg_type = decoded.get_header().unwrap().msg_type();
+        let msg_type = decoded.header().msg_type();
         let payload = decoded.payload().unwrap();
         let decoded_message: Sv2Message = (msg_type, payload).try_into().unwrap();
         let decoded_message = match decoded_message {
@@ -1147,7 +1144,7 @@ mod tests {
 
         let mut decoded = decoder.next_frame().unwrap();
 
-        let msg_type = decoded.get_header().unwrap().msg_type();
+        let msg_type = decoded.header().msg_type();
         let payload = decoded.payload().unwrap();
         let decoded_message: Sv2Message = (msg_type, payload).try_into().unwrap();
         let decoded_message = match decoded_message {
@@ -1196,7 +1193,7 @@ mod tests {
 
         let mut decoded = decoder.next_frame().unwrap();
 
-        let msg_type = decoded.get_header().unwrap().msg_type();
+        let msg_type = decoded.header().msg_type();
         let payload = decoded.payload().unwrap();
         let decoded_message: Sv2Message = (msg_type, payload).try_into().unwrap();
         let decoded_message = match decoded_message {
@@ -1245,7 +1242,7 @@ mod tests {
 
         let mut decoded = decoder.next_frame().unwrap();
 
-        let msg_type = decoded.get_header().unwrap().msg_type();
+        let msg_type = decoded.header().msg_type();
         let payload = decoded.payload().unwrap();
         let decoded_message: Sv2Message = (msg_type, payload).try_into().unwrap();
         let decoded_message = match decoded_message {
