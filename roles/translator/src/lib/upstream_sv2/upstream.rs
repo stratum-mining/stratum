@@ -216,7 +216,10 @@ impl Upstream {
             return Err(framing_sv2::Error::ExpectedHandshakeFrame.into());
         };
         // Gets the message payload
-        let payload = incoming.payload();
+        let payload = match incoming.payload() {
+            Some(payload) => payload,
+            None => return Err(framing_sv2::Error::ExpectedHandshakeFrame.into()),
+        };
 
         // Handle the incoming message (should be either `SetupConnectionSuccess` or
         // `SetupConnectionError`)
@@ -320,7 +323,7 @@ impl Upstream {
 
                 let message_type = handle_result!(tx_status, message_type).msg_type();
 
-                let payload = incoming.payload();
+                let payload = incoming.payload().expect("Payload is None");
 
                 // Since this is not communicating with an SV2 proxy, but instead a custom SV1
                 // proxy where the routing logic is handled via the `Upstream`'s communication

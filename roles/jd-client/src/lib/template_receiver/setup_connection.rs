@@ -54,7 +54,7 @@ impl SetupConnectionHandler {
             .try_into()
             .expect("Failed to parse incoming SetupConnectionResponse");
         let message_type = incoming.get_header().unwrap().msg_type();
-        let payload = incoming.payload();
+        let payload = incoming.payload().unwrap();
         ParseUpstreamCommonMessages::handle_message_common(
             Arc::new(Mutex::new(SetupConnectionHandler {})),
             message_type,

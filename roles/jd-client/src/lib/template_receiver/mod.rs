@@ -194,7 +194,7 @@ impl TemplateRx {
                     let mut frame: StdFrame =
                         handle_result!(tx_status.clone(), received.try_into());
                     let message_type = frame.get_header().unwrap().msg_type();
-                    let payload = frame.payload();
+                    let payload = frame.payload().expect("No payload set");
 
                     let next_message_to_send =
                         ParseServerTemplateDistributionMessages::handle_message_template_distribution(

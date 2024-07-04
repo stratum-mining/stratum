@@ -127,7 +127,7 @@ mod main_ {
                 stream.read_exact(buffer).unwrap();
                 if let Ok(mut f) = decoder.next_frame() {
                     let msg_type = f.get_header().unwrap().msg_type();
-                    let payload = f.payload();
+                    let payload = f.payload().unwrap();
                     let message: Sv2Message = (msg_type, payload).try_into().unwrap();
                     match message {
                         Sv2Message::SetupConnection(_) => panic!(),

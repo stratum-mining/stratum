@@ -82,12 +82,11 @@ impl<T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> Sv2Frame<T, B> {
     /// This function is only intended as a fast way to get a reference to an
     /// already serialized payload. If the frame has not yet been
     /// serialized, this function should never be used (it will panic).
-    pub fn payload(&mut self) -> &mut [u8] {
+    pub fn payload(&mut self) -> Option<&mut [u8]> {
         if let Some(serialized) = self.serialized.as_mut() {
-            &mut serialized.as_mut()[Header::SIZE..]
+            Some(&mut serialized.as_mut()[Header::SIZE..])
         } else {
-            // panic here is the expected behaviour
-            panic!("Sv2Frame is not yet serialized.")
+            None
         }
     }
 

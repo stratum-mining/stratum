@@ -469,7 +469,10 @@ pub extern "C" fn next_frame(decoder: *mut DecoderWrapper) -> CResult<CSv2Messag
                 Some(header) => header.msg_type(),
                 None => return CResult::Err(Sv2Error::InvalidSv2Frame),
             };
-            let payload = f.payload();
+            let payload = match f.payload() {
+                Some(payload) => payload,
+                None => return CResult::Err(Sv2Error::InvalidSv2Frame),
+            };
             let len = payload.len();
             let ptr = payload.as_mut_ptr();
             let payload = unsafe { std::slice::from_raw_parts_mut(ptr, len) };
@@ -761,7 +764,7 @@ mod tests {
         let mut decoded = decoder.next_frame().unwrap();
 
         let msg_type = decoded.get_header().unwrap().msg_type();
-        let payload = decoded.payload();
+        let payload = decoded.payload().unwrap();
         let decoded_message: Sv2Message = (msg_type, payload).try_into().unwrap();
         let decoded_message = match decoded_message {
             Sv2Message::CoinbaseOutputDataSize(m) => m,
@@ -813,7 +816,7 @@ mod tests {
 
         // Extract payload of the frame which is the NewTemplate message
         let msg_type = decoded.get_header().unwrap().msg_type();
-        let payload = decoded.payload();
+        let payload = decoded.payload().unwrap();
         let decoded_message: Sv2Message = (msg_type, payload).try_into().unwrap();
         let decoded_message = match decoded_message {
             Sv2Message::NewTemplate(m) => m,
@@ -861,7 +864,7 @@ mod tests {
         let mut decoded = decoder.next_frame().unwrap();
 
         let msg_type = decoded.get_header().unwrap().msg_type();
-        let payload = decoded.payload();
+        let payload = decoded.payload().unwrap();
         let decoded_message: Sv2Message = (msg_type, payload).try_into().unwrap();
         let decoded_message = match decoded_message {
             Sv2Message::RequestTransactionData(m) => m,
@@ -911,7 +914,7 @@ mod tests {
         let mut decoded = decoder.next_frame().unwrap();
 
         let msg_type = decoded.get_header().unwrap().msg_type();
-        let payload = decoded.payload();
+        let payload = decoded.payload().unwrap();
         let decoded_message: Sv2Message = (msg_type, payload).try_into().unwrap();
         let decoded_message = match decoded_message {
             Sv2Message::RequestTransactionDataError(m) => m,
@@ -961,7 +964,7 @@ mod tests {
         let mut decoded = decoder.next_frame().unwrap();
 
         let msg_type = decoded.get_header().unwrap().msg_type();
-        let payload = decoded.payload();
+        let payload = decoded.payload().unwrap();
         let decoded_message: Sv2Message = (msg_type, payload).try_into().unwrap();
         let decoded_message = match decoded_message {
             Sv2Message::RequestTransactionDataSuccess(m) => m,
@@ -1006,7 +1009,7 @@ mod tests {
         let mut decoded = decoder.next_frame().unwrap();
 
         let msg_type = decoded.get_header().unwrap().msg_type();
-        let payload = decoded.payload();
+        let payload = decoded.payload().unwrap();
         let decoded_message: Sv2Message = (msg_type, payload).try_into().unwrap();
         let decoded_message = match decoded_message {
             Sv2Message::SetNewPrevHash(m) => m,
@@ -1051,7 +1054,7 @@ mod tests {
         let mut decoded = decoder.next_frame().unwrap();
 
         let msg_type = decoded.get_header().unwrap().msg_type();
-        let payload = decoded.payload();
+        let payload = decoded.payload().unwrap();
         let decoded_message: Sv2Message = (msg_type, payload).try_into().unwrap();
         let decoded_message = match decoded_message {
             Sv2Message::SubmitSolution(m) => m,
@@ -1109,7 +1112,7 @@ mod tests {
         let mut decoded = decoder.next_frame().unwrap();
 
         let msg_type = decoded.get_header().unwrap().msg_type();
-        let payload = decoded.payload();
+        let payload = decoded.payload().unwrap();
         let decoded_message: Sv2Message = (msg_type, payload).try_into().unwrap();
         let decoded_message = match decoded_message {
             Sv2Message::ChannelEndpointChanged(m) => m,
@@ -1145,7 +1148,7 @@ mod tests {
         let mut decoded = decoder.next_frame().unwrap();
 
         let msg_type = decoded.get_header().unwrap().msg_type();
-        let payload = decoded.payload();
+        let payload = decoded.payload().unwrap();
         let decoded_message: Sv2Message = (msg_type, payload).try_into().unwrap();
         let decoded_message = match decoded_message {
             Sv2Message::SetupConnection(m) => m,
@@ -1194,7 +1197,7 @@ mod tests {
         let mut decoded = decoder.next_frame().unwrap();
 
         let msg_type = decoded.get_header().unwrap().msg_type();
-        let payload = decoded.payload();
+        let payload = decoded.payload().unwrap();
         let decoded_message: Sv2Message = (msg_type, payload).try_into().unwrap();
         let decoded_message = match decoded_message {
             Sv2Message::SetupConnectionError(m) => m,
@@ -1243,7 +1246,7 @@ mod tests {
         let mut decoded = decoder.next_frame().unwrap();
 
         let msg_type = decoded.get_header().unwrap().msg_type();
-        let payload = decoded.payload();
+        let payload = decoded.payload().unwrap();
         let decoded_message: Sv2Message = (msg_type, payload).try_into().unwrap();
         let decoded_message = match decoded_message {
             Sv2Message::SetupConnectionSuccess(m) => m,

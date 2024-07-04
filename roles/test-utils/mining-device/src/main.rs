@@ -186,7 +186,7 @@ impl SetupConnectionHandler {
 
         let mut incoming: StdFrame = receiver.recv().await.unwrap().try_into().unwrap();
         let message_type = incoming.get_header().unwrap().msg_type();
-        let payload = incoming.payload();
+        let payload = incoming.payload().unwrap();
         ParseUpstreamCommonMessages::handle_message_common(
             self_,
             message_type,
@@ -316,7 +316,7 @@ impl Device {
         loop {
             let mut incoming: StdFrame = receiver.recv().await.unwrap().try_into().unwrap();
             let message_type = incoming.get_header().unwrap().msg_type();
-            let payload = incoming.payload();
+            let payload = incoming.payload().unwrap();
             let next = Device::handle_message_mining(
                 self_mutex.clone(),
                 message_type,
