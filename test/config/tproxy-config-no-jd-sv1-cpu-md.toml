@@ -37,7 +37,7 @@ coinbase_reward_sat = 5_000_000_000
 # hashes/s of the weakest miner that will be connecting
 min_individual_miner_hashrate = 1_000_000.0
 # target number of shares per minute the miner should be sending
-shares_per_minute = 10.0
+shares_per_minute = 1000.0
 
 [upstream_difficulty_config]
 # interval in seconds to elapse before updating channel hashrate with the pool
