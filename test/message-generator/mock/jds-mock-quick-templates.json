@@ -153,17 +153,6 @@
             "results": [
                 {
                     "type": "match_message_type",
-                    "value": "0x50"
-                }
-            ],
-            "actiondoc": "This action receives allocate mining job"
-        },
-        {
-            "message_ids": [],
-            "role": "server",
-            "results": [
-                {
-                    "type": "match_message_type",
                     "value": "0x57"
                 }
             ],
@@ -174,17 +163,6 @@
             "role": "server",
             "results": [],
             "actiondoc": "This action sends back a DeclareMiningJob.Success (declare_mining_job_success_1)"
-        },
-        {
-            "message_ids": [],
-            "role": "server",
-            "results": [
-                {
-                    "type": "match_message_type",
-                    "value": "0x50"
-                }
-            ],
-            "actiondoc": "This action receives allocate mining job"
         }
     ],
     "setup_commands": [],

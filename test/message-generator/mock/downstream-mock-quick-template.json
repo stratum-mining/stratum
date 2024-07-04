@@ -8,27 +8,45 @@
             "message": {
                 "type": "OpenExtendedMiningChannel",
                 "request_id": 1,
-                "user_identity": "",
+                "user_identity": "ABC",
                 "nominal_hash_rate": 10,
                 "max_target": [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
                 "min_extranonce_size": 16
             },
+            "replace_fields": [["request_id", "ARBITRARY"]],
             "id": "open_extended_mining_channel"
+        },
+        {
+            "message": {
+                "type": "SubmitSharesExtended",
+                "channel_id": 1,
+                "sequence_number": 0,
+                "job_id": 0,
+                "nonce": 4035255480,
+                "ntime": 1698941362,
+                "version": 536870912,
+                "extranonce":[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]
+            },
+            "id": "submit_shares_extended"
         }
     ],
     "frame_builders": [
-         {
+        {
             "type": "automatic",
-            "message_id": "test/message-generator/messages/common_messages.json::setup_connection_tproxy"
+            "message_id": "test/message-generator/messages/common_messages.json::setup_connection_flag_0"
         },
         {
             "type": "automatic",
             "message_id": "open_extended_mining_channel"
+        },
+        {
+            "type": "automatic",
+            "message_id": "submit_shares_extended"
         }
     ],
     "actions": [
         {
-            "message_ids": ["setup_connection_tproxy"],
+            "message_ids": ["setup_connection_flag_0"],
             "role": "client",
             "results": [
                 {
@@ -43,20 +61,30 @@
             "role": "client",
             "results": [
                 {
-                    "type": "match_message_field",
-                    "value": [
-                        "MiningProtocol",
-                        "OpenExtendedMiningChannelSuccess",
-                        [
-                            [
-                                "request_id",
-                                {"U32": 1}
-                            ]
-                        ]
-                    ]
+                    "type": "match_message_type",
+                    "value": "0x14"
+                },
+                {
+                    "type": "match_message_type",
+                    "value": "0x1f"
+                },
+                {
+                    "type": "match_message_type",
+                    "value": "0x20"
                 }
             ],
             "actiondoc": "This action sends OpenExtendedMiningChannel to the pool and checks that the reply is OpenExtendedMiningChannelSuccess"
+        },
+        {
+            "message_ids": ["submit_shares_extended"],
+            "role": "client",
+            "results": [
+                {
+                    "type": "match_message_type",
+                    "value": "0x1d"
+                }
+            ],
+            "actiondoc": "This action sends the message SubmitSharesExtended and checks that itreplies with SubmitSharesExtended.Success"
         }
     ],
     "setup_commands": [],
@@ -64,7 +92,7 @@
     "cleanup_commands": [
         {
             "command": "sleep",
-            "args": ["10000"],
+            "args": ["1000"],
             "conditions": "None"
         }
     ],
