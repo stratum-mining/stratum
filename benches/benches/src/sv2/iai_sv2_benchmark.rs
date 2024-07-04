@@ -46,7 +46,7 @@ fn client_sv2_setup_connection_serialize_deserialize() {
     let mut dst = vec![0; size];
     frame.serialize(&mut dst);
     let mut frame = StdFrame::from_bytes(black_box(dst.clone().into())).unwrap();
-    let type_ = frame.get_header().unwrap().msg_type().clone();
+    let type_ = frame.header().msg_type().clone();
     let payload = frame.payload().unwrap();
     black_box(AnyMessage::try_from((type_, payload)));
 }
@@ -77,7 +77,7 @@ fn client_sv2_open_channel_serialize_deserialize() {
     let mut dst = vec![0; size];
     frame.serialize(&mut dst);
     let mut frame = StdFrame::from_bytes(black_box(dst.clone().into())).unwrap();
-    let type_ = frame.get_header().unwrap().msg_type().clone();
+    let type_ = frame.header().msg_type().clone();
     let payload = frame.payload().unwrap();
     black_box(AnyMessage::try_from((type_, payload)));
 }
@@ -127,7 +127,7 @@ fn client_sv2_mining_message_submit_standard_serialize_deserialize() {
     let mut dst = vec![0; size];
     frame.serialize(&mut dst);
     let mut frame = StdFrame::from_bytes(black_box(dst.clone().into())).unwrap();
-    let type_ = frame.get_header().unwrap().msg_type().clone();
+    let type_ = frame.header().msg_type().clone();
     let payload = frame.payload().unwrap();
     black_box(AnyMessage::try_from((type_, payload)));
 }

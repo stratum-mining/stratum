@@ -209,10 +209,7 @@ impl JobDeclaratorDownstream {
                 match recv.recv().await {
                     Ok(message) => {
                         let mut frame: StdFrame = handle_result!(tx_status, message.try_into());
-                        let header = frame
-                            .get_header()
-                            .ok_or_else(|| JdsError::Custom(String::from("No header set")));
-                        let header = handle_result!(tx_status, header);
+                        let header = frame.header();
                         let message_type = header.msg_type();
                         let payload = match frame.payload() {
                             Some(p) => p,
