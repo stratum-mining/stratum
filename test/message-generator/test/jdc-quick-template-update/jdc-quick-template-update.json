@@ -147,7 +147,7 @@
             "command": "cargo",
             "args": [
                 "run",
-                "../../test/message-generator/mock/tproxy-mock-quick-template.json"
+                "../../test/message-generator/mock/downstream-mock-quick-template.json"
             ],
 
             "conditions": {
