@@ -176,7 +176,7 @@
                             "condition": true
                         }
                     ],
-                    "timer_secs": 5,
+                    "timer_secs": 10,
                     "warn_no_panic": false
                 }
             }
