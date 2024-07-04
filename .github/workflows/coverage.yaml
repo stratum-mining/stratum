@@ -81,7 +81,7 @@ jobs:
       - name: Run sccache-cache
         uses: mozilla-actions/sccache-action@v0.0.2
         with:
-          version: "latest"  # Added required input for version
+          version: "v0.3.3"
 
       - name: Run translation-proxy
         run: sh ./test/message-generator/test/translation-proxy/translation-proxy.sh
