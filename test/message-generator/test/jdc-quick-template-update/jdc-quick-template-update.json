@@ -95,11 +95,6 @@
             }
         },
         {
-            "command": "sleep",
-            "args": ["1000"],
-            "conditions": "None"
-        },
-        {
             "command": "cargo",
             "args": [
                 "llvm-cov",
@@ -122,6 +117,28 @@
                         }
                     ],
                     "timer_secs": 600000,
+                    "warn_no_panic": false
+                }
+            }
+        },
+        {
+            "command": "cargo",
+            "args": [
+                "run",
+                "../../test/message-generator/mock/template-provider-mock-quick-template2.json"
+            ],
+
+            "conditions": {
+                "WithConditions": {
+                    "conditions": [
+                        {
+                            "output_string": "",
+                            "output_location": "StdErr",
+                            "condition": true,
+                            "late_condition": false
+                        }
+                    ],
+                    "timer_secs": 1000000,
                     "warn_no_panic": false
                 }
             }

@@ -23,7 +23,7 @@ cert_validity_sec = 3600
 # How many time the JDC try to reinitialize itself after a failure 
 retry = 10
 
-tp_address = "127.0.0.1:8442"
+tp_address = "127.0.0.1:8443"
 tp_authority_pub_key = "9auqWEzQDVyd2oe1JVGFLMLHZtCo2FFqZwtKA5gd9xbuEu7PH72"
 
 

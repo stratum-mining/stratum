@@ -21,7 +21,6 @@
                 "coinbase_output_max_additional_size": 100,
                 "async_mining_allowed": false
             },
-            "replace_fields": [["request_id","request_id_0"]],
             "id": "allocate_mining_job_token_success_0"
         },
         {
@@ -34,7 +33,6 @@
                 "coinbase_output_max_additional_size": 100,
                 "async_mining_allowed": false
             },
-            "replace_fields": [["request_id","request_id_1"]],
             "id": "allocate_mining_job_token_success_1"
         },
         {
@@ -129,17 +127,8 @@
             "role": "server",
             "results": [
                 {
-                    "type": "get_message_field",
-                    "value": [
-                        "JobDeclarationProtocol",
-                        "AllocateMiningJobToken",
-                        [
-                            [
-                                "request_id",
-                                "request_id_1"
-                            ]
-                        ]
-                    ]
+                    "type": "match_message_type",
+                    "value": "0x50"
                 }
             ],
             "actiondoc": "This action receives allocate mining job"
@@ -149,6 +138,40 @@
             "role": "server",
             "results": [],
             "actiondoc": "This action sends back a AllocateMiningJobToken.Success (allocate_mining_job_token_success_1)"
+        },
+         {
+            "message_ids": [],
+            "role": "server",
+            "results": [
+                {
+                    "type": "match_message_type",
+                    "value": "0x57"
+                }
+            ],
+            "actiondoc": "This action checks that a DeclareMiningJob message is received"
+        },
+        {
+            "message_ids": ["declare_mining_job_success_0"],
+            "role": "server",
+            "results": [],
+            "actiondoc": "This action sends back a DeclareMiningJob.Success (declare_mining_job_success_0)"
+        },
+        {
+            "message_ids": [],
+            "role": "server",
+            "results": [
+                {
+                    "type": "match_message_type",
+                    "value": "0x57"
+                }
+            ],
+            "actiondoc": "This action checks that a DeclareMiningJob message is received"
+        },
+        {
+            "message_ids": ["declare_mining_job_success_1"],
+            "role": "server",
+            "results": [],
+            "actiondoc": "This action sends back a DeclareMiningJob.Success (declare_mining_job_success_1)"
         }
     ],
     "setup_commands": [
