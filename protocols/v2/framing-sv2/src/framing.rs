@@ -12,7 +12,11 @@ type Slice = buffer_sv2::Slice;
 /// A wrapper to be used in a context we need a generic reference to a frame
 /// but it doesn't matter which kind of frame it is (`Sv2Frame` or `HandShakeFrame`)
 #[derive(Debug)]
-pub enum Frame<T, B> {
+pub enum Frame<T, B>
+where
+    T: Serialize + GetSize,
+    B: AsMut<[u8]> + AsRef<[u8]>,
+{
     HandShake(HandShakeFrame),
     Sv2(Sv2Frame<T, B>),
 }
@@ -26,13 +30,13 @@ impl<T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> Frame<T, B> {
     }
 }
 
-impl<T, B> From<HandShakeFrame> for Frame<T, B> {
+impl<T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> From<HandShakeFrame> for Frame<T, B> {
     fn from(v: HandShakeFrame) -> Self {
         Self::HandShake(v)
     }
 }
 
-impl<T, B> From<Sv2Frame<T, B>> for Frame<T, B> {
+impl<T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> From<Sv2Frame<T, B>> for Frame<T, B> {
     fn from(v: Sv2Frame<T, B>) -> Self {
         Self::Sv2(v)
     }
@@ -175,7 +179,7 @@ impl<T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> Sv2Frame<T, B> {
     }
 }
 
-impl<A, B> Sv2Frame<A, B> {
+impl<A: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> Sv2Frame<A, B> {
     /// Maps a `Sv2Frame<A, B>` to `Sv2Frame<C, B>` by applying `fun`,
     /// which is assumed to be a closure that converts `A` to `C`
     pub fn map<C>(self, fun: fn(A) -> C) -> Sv2Frame<C, B> {
@@ -190,7 +194,7 @@ impl<A, B> Sv2Frame<A, B> {
     }
 }
 
-impl<T, B> TryFrom<Frame<T, B>> for Sv2Frame<T, B> {
+impl<T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> TryFrom<Frame<T, B>> for Sv2Frame<T, B> {
     type Error = Error;
 
     fn try_from(v: Frame<T, B>) -> Result<Self, Error> {
@@ -232,7 +236,7 @@ impl HandShakeFrame {
     }
 }
 
-impl<T, B> TryFrom<Frame<T, B>> for HandShakeFrame {
+impl<T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> TryFrom<Frame<T, B>> for HandShakeFrame {
     type Error = Error;
 
     fn try_from(v: Frame<T, B>) -> Result<Self, Error> {
