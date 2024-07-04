@@ -3,10 +3,8 @@
     "doc": [
         "This test does",
         "Soft mocking of template provider that sends two templates (NewTemplate message) with very little time in between",
-        "Listen to port 8442",
+        "Listen to port 8443",
         "Awaits for other roles setup (5s)",
-        "Awaits for SetupConnection message (pool)",
-        "Responds with SetupConnection.Success (pool)",
         "Awaits for SetupConnection message (jdc)",
         "Responds with SetupConnection.Success (jdc)",
         "Sends NewTemplate (new_template)",

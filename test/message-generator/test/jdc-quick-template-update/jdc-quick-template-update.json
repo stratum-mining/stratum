@@ -2,21 +2,31 @@
     "version": "2",
     "doc": [
         "This test does",
+        "Mock TP1 on port: 8442",
         "Launch real pool on port: 34254",
-        "Launch real JDC on port: 34265",
-        "Mock TP on port: 8442",
         "Mock JDS on port: 34264",
-        "Mock TProxy",
-        "todo: describe message sequence"
+        "Launch real JDC on port: 34265",
+        "Mock TP2 on port: 8443",
+        "Mock Downstream",
+        "Mock TP1 spun up",
+        "Pool spun up",
+        "Pool sends setup connection request to TP1",
+        "TP1 responses back with setupConnection success",
+        "Pool sends CoinbaseOutputDataSize to TP1",
+        "Mock JDS spuns up",
+        "JDC spuns up",
+        "Mock TP2 spuns up",
+        "Mock Downstream spuns up",
+        "JDC sends setupConnection request to JDS",
+        "JDS responses back with setupConnection success to JDC",
+        "JDC sends setup connection request to TP2",
+        "TP2 responses back with setupConnection success",
+        "JDC sends CoinbaseOutputDataSize to TP2",
+        "Downstream sends setup connection request to JDC",
+        "JDC sends setup connection success request to downstream"
     ],
-    "frame_builders": [
-        {
-            "type": "automatic",
-            "message_id": "test/message-generator/messages/common_messages.json::setup_connection_success_tproxy"
-        }
-    ],
-    "actions": [
-    ],
+    "frame_builders": [],
+    "actions": [],
     "setup_commands": [
         {
             "command": "cargo",
@@ -69,7 +79,7 @@
         },
         {
             "command": "sleep",
-            "args": ["10000"],
+            "args": ["600"],
             "conditions": "None"
         },
         {
@@ -166,8 +176,7 @@
             }
         }
     ],
-    "execution_commands": [
-    ],
+    "execution_commands": [],
     "cleanup_commands": [
         {
             "command": "sleep",

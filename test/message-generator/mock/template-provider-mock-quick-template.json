@@ -6,123 +6,13 @@
         "Listen to port 8442",
         "Awaits for other roles setup (5s)",
         "Awaits for SetupConnection message (pool)",
-        "Responds with SetupConnection.Success (pool)",
-        "Awaits for SetupConnection message (jdc)",
-        "Responds with SetupConnection.Success (jdc)",
-        "Sends NewTemplate (new_template)",
-        "Sends SetNewPrevHash (set_new_prev_hash2)",
-        "Awaits for RequestTransactionData",
-        "Responds with RequestTransactionData.Success",
-        "Sleep for 100ms (very fast time between templates)",
-        "Sends NewTemplate (new_template2)",
-        "Sends SetNewPrevHash (set_new_prev_hash2)",
-        "Awaits for RequestTransactionData",
-        "Responds with RequestTransactionData.Success"
+        "Responds with SetupConnection.Success (pool)"
     ],
-    "template_distribution_messages": [
-        {
-            "message": {
-                "type": "NewTemplate",
-                "template_id": 29,
-                "future_template": true,
-                "version": 536870912,
-                "coinbase_tx_version": 2,
-                "coinbase_prefix": [3, 76, 163, 38, 0],
-                "coinbase_tx_input_sequence": 4294967295,
-                "coinbase_tx_value_remaining": 625000000,
-                "coinbase_tx_outputs_count": 0,
-                "coinbase_tx_outputs": [],
-                "coinbase_tx_locktime": 0,
-                "merkle_path": []
-            },
-            "id": "new_template"
-        },
-        {
-            "message": {
-                "type": "SetNewPrevHash",
-                "template_id": 29,
-                "prev_hash": [145, 77, 225, 26, 186, 5, 16, 125, 174, 40, 238, 200, 210, 191, 188, 87, 191, 246, 242, 221, 8, 20, 202, 200, 97, 139, 241, 73, 137, 201, 28, 0],
-                "header_timestamp": 1671039088,
-                "n_bits": 545259519,
-                "target": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,255,255,127]
-            },
-            "id": "set_new_prev_hash"
-        },
-        {
-            "message": {
-                "type": "RequestTransactionDataSuccess",
-                "template_id": 29,
-                "excess_data": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-                "transaction_list": []
-            },
-            "id": "request_transaction_data_success"
-        },
-        {
-            "message": {
-                "type": "NewTemplate",
-                "template_id": 30,
-                "future_template": true,
-                "version": 536870912,
-                "coinbase_tx_version": 2,
-                "coinbase_prefix": [3, 76, 163, 38, 0],
-                "coinbase_tx_input_sequence": 4294967295,
-                "coinbase_tx_value_remaining": 625000000,
-                "coinbase_tx_outputs_count": 0,
-                "coinbase_tx_outputs": [],
-                "coinbase_tx_locktime": 0,
-                "merkle_path": []
-            },
-            "id": "new_template2"
-        },
-        {
-            "message": {
-                "type": "SetNewPrevHash",
-                "template_id": 30,
-                "prev_hash": [145, 77, 225, 26, 186, 5, 16, 125, 174, 40, 238, 200, 210, 191, 188, 87, 191, 246, 242, 221, 8, 20, 202, 200, 97, 139, 241, 73, 137, 201, 28, 0],
-                "header_timestamp": 1671039088,
-                "n_bits": 545259519,
-                "target": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,255,255,127]
-            },
-            "id": "set_new_prev_hash2"
-        },
-        {
-            "message": {
-                "type": "RequestTransactionDataSuccess",
-                "template_id": 30,
-                "excess_data": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-                "transaction_list": []
-            },
-            "id": "request_transaction_data_success2"
-        }
-    ],
+    "template_distribution_messages": [],
     "frame_builders": [
         {
             "type": "automatic",
             "message_id": "test/message-generator/messages/common_messages.json::setup_connection_success_template_distribution"
-        },
-        {
-            "type": "automatic",
-            "message_id": "new_template"
-        },
-        {
-            "type": "automatic",
-            "message_id": "set_new_prev_hash"
-        },
-        {
-            "type": "automatic",
-            "message_id": "new_template2"
-        },
-        {
-            "type": "automatic",
-            "message_id": "set_new_prev_hash2"
-        },
-        {
-            "type":"automatic",
-            "message_id": "request_transaction_data_success"
-        },
-        {
-            "type":"automatic",
-            "message_id": "request_transaction_data_success2"
         }
     ],
     "actions": [
