@@ -58,7 +58,7 @@ impl SetupConnectionHandler {
         let mut incoming: StdFrame = receiver.recv().await.unwrap().try_into().unwrap();
 
         let message_type = incoming.get_header().unwrap().msg_type();
-        let payload = incoming.payload();
+        let payload = incoming.payload().unwrap();
         ParseUpstreamCommonMessages::handle_message_common(
             Arc::new(Mutex::new(SetupConnectionHandler {})),
             message_type,

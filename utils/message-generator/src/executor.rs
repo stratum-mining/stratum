@@ -198,7 +198,6 @@ impl Executor {
                     action.result.len(),
                     result
                 );
-
                 match result {
                     ActionResult::MatchMessageType(message_type) => {
                         let message = match recv.recv().await {

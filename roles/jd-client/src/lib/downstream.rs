@@ -253,7 +253,7 @@ impl DownstreamMiningNode {
     /// Parse the received message and relay it to the right upstream
     pub async fn next(self_mutex: &Arc<Mutex<Self>>, mut incoming: StdFrame) {
         let message_type = incoming.get_header().unwrap().msg_type();
-        let payload = incoming.payload();
+        let payload = incoming.payload().unwrap();
 
         let routing_logic = roles_logic_sv2::routing_logic::MiningRoutingLogic::None;
 
@@ -698,7 +698,7 @@ pub async fn listen_for_downstream_mining(
 
         let mut incoming: StdFrame = node.receiver.recv().await.unwrap().try_into().unwrap();
         let message_type = incoming.get_header().unwrap().msg_type();
-        let payload = incoming.payload();
+        let payload = incoming.payload().unwrap();
         let routing_logic = roles_logic_sv2::routing_logic::CommonRoutingLogic::None;
         let node = Arc::new(Mutex::new(node));
         if let Some(upstream) = upstream {

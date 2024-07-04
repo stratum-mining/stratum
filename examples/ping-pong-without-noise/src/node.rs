@@ -87,7 +87,7 @@ impl Node {
     ) -> Message<'static> {
         match self.expected {
             Expected::Ping => {
-                let ping: Result<Ping, _> = from_bytes(frame.payload());
+                let ping: Result<Ping, _> = from_bytes(frame.payload().unwrap());
                 match ping {
                     Ok(ping) => {
                         println!("Node {} received:", self.name);
@@ -107,7 +107,7 @@ impl Node {
                 }
             }
             Expected::Pong => {
-                let pong: Result<Pong, _> = from_bytes(frame.payload());
+                let pong: Result<Pong, _> = from_bytes(frame.payload().unwrap());
                 match pong {
                     Ok(pong) => {
                         println!("Node {} received:", self.name);

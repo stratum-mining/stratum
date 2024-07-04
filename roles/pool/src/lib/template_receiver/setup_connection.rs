@@ -57,7 +57,10 @@ impl SetupConnectionHandler {
             .get_header()
             .ok_or_else(|| PoolError::Custom(String::from("No header set")))?
             .msg_type();
-        let payload = incoming.payload();
+        let payload = match incoming.payload() {
+            Some(p) => p,
+            None => return Err(PoolError::Custom(String::from("No payload set"))),
+        };
 
         ParseUpstreamCommonMessages::handle_message_common(
             Arc::new(Mutex::new(SetupConnectionHandler {})),

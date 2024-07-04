@@ -412,7 +412,7 @@ impl UpstreamMiningNode {
                     .unwrap();
 
                 let message_type = response.get_header().unwrap().msg_type();
-                let payload = response.payload();
+                let payload = response.payload().unwrap();
                 match (message_type, payload).try_into() {
                     Ok(CommonMessages::SetupConnectionSuccess(_)) => {
                         let receiver = self_mutex
@@ -578,7 +578,7 @@ impl UpstreamMiningNode {
 
     pub async fn next(self_mutex: Arc<Mutex<Self>>, mut incoming: StdFrame) {
         let message_type = incoming.get_header().unwrap().msg_type();
-        let payload = incoming.payload();
+        let payload = incoming.payload().unwrap();
 
         let routing_logic = super::get_routing_logic();
 
@@ -616,7 +616,7 @@ impl UpstreamMiningNode {
             .unwrap();
 
         let message_type = response.get_header().unwrap().msg_type();
-        let payload = response.payload();
+        let payload = response.payload().unwrap();
         match (message_type, payload).try_into() {
             Ok(CommonMessages::SetupConnectionSuccess(m)) => {
                 let receiver = self_mutex
