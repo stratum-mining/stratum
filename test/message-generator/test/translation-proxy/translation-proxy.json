@@ -147,10 +147,10 @@
             "results": [
                 {
                     "type": "match_message_type",
-                    "value": "0x1a"
+                    "value": "0x1b"
                 }
             ],
-            "actiondoc": "Sends NewExtendedMiningJob and SetNewPrevHash and waits that a SubmitsShareStandard is submitted" 
+            "actiondoc": "Sends NewExtendedMiningJob and SetNewPrevHash and waits that a SubmitsShareExtended is submitted" 
         }
     ],
     "setup_commands": [
