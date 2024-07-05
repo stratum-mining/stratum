@@ -50,6 +50,22 @@
         },
         {
             "message": {
+                "type": "SetupConnection",
+                "protocol": 1,
+                "min_version": 2,
+                "max_version": 2,
+                "flags": 6,
+                "endpoint_host": "",
+                "endpoint_port": 0,
+                "vendor": "",
+                "hardware_version": "",
+                "firmware": "",
+                "device_id": ""
+            },
+            "id": "setup_connection_job_declarator_with_no_async_flag"
+        },
+        {
+            "message": {
                 "type": "SetupConnectionSuccess",
                 "flags": 0,
                 "used_version": 2

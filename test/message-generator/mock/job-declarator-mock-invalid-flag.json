@@ -1,0 +1,38 @@
+{
+    "version": "2",
+    "doc": [
+        "This test does",
+        "Soft mock of JD",
+        "Connect to JDS",
+        "Receive Setup Connection Error as incorrect bits are set"
+    ],
+    "frame_builders": [
+        {
+            "type": "automatic",
+            "message_id": "test/message-generator/messages/common_messages.json::setup_connection_job_declarator_with_no_async_flag"
+        }
+    ],
+    "actions": [
+       {
+            "message_ids": ["setup_connection_job_declarator_with_no_async_flag"],
+            "role": "client",
+            "results": [
+                {
+                    "type": "match_message_type",
+                    "value": "0x01"
+                }
+
+            ],
+            "actiondoc": "This action sends SetupConnection and checks that .Success"
+       }
+    ],
+    "setup_commands": [],
+    "execution_commands": [],
+    "cleanup_commands": [],
+    "role": "client",
+    "downstream": {
+        "ip": "127.0.0.1",
+        "port": 34264,
+        "pub_key": "9auqWEzQDVyd2oe1JVGFLMLHZtCo2FFqZwtKA5gd9xbuEu7PH72"
+    }
+}
