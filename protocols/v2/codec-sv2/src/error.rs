@@ -9,11 +9,26 @@ pub type Result<T> = core::result::Result<T, Error>;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Error {
+    /// AEAD (`snow`) error in the Noise protocol.
+    #[cfg(feature = "noise_sv2")]
+    AeadError(AeadError),
+
     /// Binary Sv2 data format error.
     BinarySv2Error(binary_sv2::Error),
 
-    /// Sv2 framing error.
+    /// Framing Sv2 error.
+    FramingError(FramingError),
+
+    /// Framing Sv2 error.
     FramingSv2Error(framing_sv2::Error),
+
+    /// Invalid step for initiator in the Noise protocol.
+    #[cfg(feature = "noise_sv2")]
+    InvalidStepForInitiator,
+
+    /// Invalid step for responder in the Noise protocol.
+    #[cfg(feature = "noise_sv2")]
+    InvalidStepForResponder,
 
     /// Missing bytes in the Noise protocol.
     MissingBytes(usize),
@@ -22,27 +37,12 @@ pub enum Error {
     #[cfg(feature = "noise_sv2")]
     NoiseSv2Error(NoiseError),
 
-    /// AEAD (`snow`) error in the Noise protocol.
-    #[cfg(feature = "noise_sv2")]
-    AeadError(AeadError),
-
-    /// Unexpected state in the Noise protocol.
-    UnexpectedNoiseState,
-
-    /// Invalid step for responder in the Noise protocol.
-    #[cfg(feature = "noise_sv2")]
-    InvalidStepForResponder,
-
-    /// Invalid step for initiator in the Noise protocol.
-    #[cfg(feature = "noise_sv2")]
-    InvalidStepForInitiator,
-
     /// Noise protocol is not in the expected handshake state.
     #[cfg(feature = "noise_sv2")]
     NotInHandShakeState,
 
-    /// Framing Sv2 error.
-    FramingError(FramingError),
+    /// Unexpected state in the Noise protocol.
+    UnexpectedNoiseState,
 }
 
 impl fmt::Display for Error {
@@ -79,6 +79,13 @@ impl fmt::Display for Error {
     }
 }
 
+#[cfg(feature = "noise_sv2")]
+impl From<AeadError> for Error {
+    fn from(e: AeadError) -> Self {
+        Error::AeadError(e)
+    }
+}
+
 impl From<binary_sv2::Error> for Error {
     fn from(e: binary_sv2::Error) -> Self {
         Error::BinarySv2Error(e)
@@ -92,13 +99,6 @@ impl From<framing_sv2::Error> for Error {
 }
 
 #[cfg(feature = "noise_sv2")]
-impl From<AeadError> for Error {
-    fn from(e: AeadError) -> Self {
-        Error::AeadError(e)
-    }
-}
-
-#[cfg(feature = "noise_sv2")]
 impl From<NoiseError> for Error {
     fn from(e: NoiseError) -> Self {
         Error::NoiseSv2Error(e)
@@ -108,11 +108,23 @@ impl From<NoiseError> for Error {
 #[repr(C)]
 #[derive(Debug)]
 pub enum CError {
+    /// AEAD (`snow`) error in the Noise protocol.
+    AeadError,
+
     /// Binary Sv2 data format error.
     BinarySv2Error,
 
     /// Framing Sv2 error.
+    FramingError,
+
+    /// Framing Sv2 error.
     FramingSv2Error,
+
+    /// Invalid step for initiator in the Noise protocol.
+    InvalidStepForInitiator,
+
+    /// Invalid step for responder in the Noise protocol.
+    InvalidStepForResponder,
 
     /// Missing bytes in the Noise protocol.
     MissingBytes(usize),
@@ -120,23 +132,11 @@ pub enum CError {
     /// Sv2 Noise protocol error.
     NoiseSv2Error,
 
-    /// AEAD (`snow`) error in the Noise protocol.
-    AeadError,
-
-    /// Unexpected state in the Noise protocol.
-    UnexpectedNoiseState,
-
-    /// Invalid step for responder in the Noise protocol.
-    InvalidStepForResponder,
-
-    /// Invalid step for initiator in the Noise protocol.
-    InvalidStepForInitiator,
-
     /// Noise protocol is not in the expected handshake state.
     NotInHandShakeState,
 
-    /// Framing Sv2 error.
-    FramingError,
+    /// Unexpected state in the Noise protocol.
+    UnexpectedNoiseState,
 }
 
 /// Here only to force cbindgen to create header for CError
