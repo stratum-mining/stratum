@@ -15,3 +15,4 @@ lcov.info
 cobertura.xml
 /roles/*/*-config.toml
 /examples/*/Cargo.lock
+/scripts/sv2.h
