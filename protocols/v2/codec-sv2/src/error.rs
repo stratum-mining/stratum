@@ -63,32 +63,32 @@ impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use Error::*;
         match self {
-            BinarySv2Error(e) => write!(f, "Binary Sv2 Error: `{:?}`", e),
-            FramingSv2Error(e) => write!(f, "Framing Sv2 Error: `{:?}`", e),
-            MissingBytes(u) => write!(f, "Missing `{}` Noise bytes", u),
-            #[cfg(feature = "noise_sv2")]
-            NoiseSv2Error(e) => write!(f, "Noise SV2 Error: `{:?}`", e),
             #[cfg(feature = "noise_sv2")]
             AeadError(e) => write!(f, "Aead Error: `{:?}`", e),
-            UnexpectedNoiseState => {
-                write!(f, "Noise state is incorrect")
-            }
-            #[cfg(feature = "noise_sv2")]
-            InvalidStepForResponder => write!(
-                f,
-                "This noise handshake step can not be executed by a responder"
-            ),
+            BinarySv2Error(e) => write!(f, "Binary Sv2 Error: `{:?}`", e),
+            FramingError(e) => write!(f, "Framing error in codec: `{:?}`", e),
+            FramingSv2Error(e) => write!(f, "Framing Sv2 Error: `{:?}`", e),
             #[cfg(feature = "noise_sv2")]
             InvalidStepForInitiator => write!(
                 f,
                 "This noise handshake step can not be executed by an initiato"
             ),
             #[cfg(feature = "noise_sv2")]
+            InvalidStepForResponder => write!(
+                f,
+                "This noise handshake step can not be executed by a responder"
+            ),
+            MissingBytes(u) => write!(f, "Missing `{}` Noise bytes", u),
+            #[cfg(feature = "noise_sv2")]
+            NoiseSv2Error(e) => write!(f, "Noise SV2 Error: `{:?}`", e),
+            #[cfg(feature = "noise_sv2")]
             NotInHandShakeState => write!(
                 f,
                 "This operation can be executed only during the noise handshake"
             ),
-            FramingError(e) => write!(f, "Framing error in codec: `{:?}`", e),
+            UnexpectedNoiseState => {
+                write!(f, "Noise state is incorrect")
+            }
         }
     }
 }
@@ -170,21 +170,21 @@ pub extern "C" fn export_cerror() -> CError {
 impl From<Error> for CError {
     fn from(e: Error) -> CError {
         match e {
+            #[cfg(feature = "noise_sv2")]
+            Error::AeadError(_) => CError::AeadError,
             Error::BinarySv2Error(_) => CError::BinarySv2Error,
             Error::FramingSv2Error(_) => CError::FramingSv2Error,
+            Error::FramingError(_) => CError::FramingError,
+            #[cfg(feature = "noise_sv2")]
+            Error::InvalidStepForInitiator => CError::InvalidStepForInitiator,
+            #[cfg(feature = "noise_sv2")]
+            Error::InvalidStepForResponder => CError::InvalidStepForResponder,
             Error::MissingBytes(u) => CError::MissingBytes(u),
             #[cfg(feature = "noise_sv2")]
             Error::NoiseSv2Error(_) => CError::NoiseSv2Error,
             #[cfg(feature = "noise_sv2")]
-            Error::AeadError(_) => CError::AeadError,
-            Error::UnexpectedNoiseState => CError::UnexpectedNoiseState,
-            #[cfg(feature = "noise_sv2")]
-            Error::InvalidStepForResponder => CError::InvalidStepForResponder,
-            #[cfg(feature = "noise_sv2")]
-            Error::InvalidStepForInitiator => CError::InvalidStepForInitiator,
-            #[cfg(feature = "noise_sv2")]
             Error::NotInHandShakeState => CError::NotInHandShakeState,
-            Error::FramingError(_) => CError::FramingError,
+            Error::UnexpectedNoiseState => CError::UnexpectedNoiseState,
         }
     }
 }
@@ -192,16 +192,16 @@ impl From<Error> for CError {
 impl Drop for CError {
     fn drop(&mut self) {
         match self {
+            CError::AeadError => (),
             CError::BinarySv2Error => (),
+            CError::FramingError => (),
             CError::FramingSv2Error => (),
+            CError::InvalidStepForInitiator => (),
+            CError::InvalidStepForResponder => (),
             CError::MissingBytes(_) => (),
             CError::NoiseSv2Error => (),
-            CError::AeadError => (),
-            CError::UnexpectedNoiseState => (),
-            CError::InvalidStepForResponder => (),
-            CError::InvalidStepForInitiator => (),
             CError::NotInHandShakeState => (),
-            CError::FramingError => (),
+            CError::UnexpectedNoiseState => (),
         };
     }
 }
