@@ -1,3 +1,9 @@
+//! # Error Handling and Result Types
+//!
+//! This module defines error types and utilities for handling errors in the `codec_sv2` module.
+//! It includes the `Error` enum for representing various errors, a C-compatible `CError` enum for
+//! FFI, and a `Result` type alias for convenience.
+
 #[cfg(test)]
 use core::cmp;
 use core::fmt;
