@@ -9,24 +9,39 @@ pub type Result<T> = core::result::Result<T, Error>;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Error {
-    /// Errors from the `binary_sv2` crate
+    /// Binary Sv2 data format error.
     BinarySv2Error(binary_sv2::Error),
+
+    /// Sv2 framing error.
     FramingSv2Error(framing_sv2::Error),
-    /// Errors if there are missing bytes in the Noise protocol
+
+    /// Missing bytes in the Noise protocol.
     MissingBytes(usize),
-    /// Errors from the `noise_sv2` crate
+
+    /// Sv2 Noise protocol error.
     #[cfg(feature = "noise_sv2")]
     NoiseSv2Error(NoiseError),
+
+    /// AEAD (`snow`) error in the Noise protocol.
     #[cfg(feature = "noise_sv2")]
     AeadError(AeadError),
-    /// Error if Noise protocol state is not as expected
+
+    /// Unexpected state in the Noise protocol.
     UnexpectedNoiseState,
+
+    /// Invalid step for responder in the Noise protocol.
     #[cfg(feature = "noise_sv2")]
     InvalidStepForResponder,
+
+    /// Invalid step for initiator in the Noise protocol.
     #[cfg(feature = "noise_sv2")]
     InvalidStepForInitiator,
+
+    /// Noise protocol is not in the expected handshake state.
     #[cfg(feature = "noise_sv2")]
     NotInHandShakeState,
+
+    /// Framing Sv2 error.
     FramingError(FramingError),
 }
 
@@ -93,21 +108,34 @@ impl From<NoiseError> for Error {
 #[repr(C)]
 #[derive(Debug)]
 pub enum CError {
-    /// Errors from the `binary_sv2` crate
+    /// Binary Sv2 data format error.
     BinarySv2Error,
-    /// Errors from the `framing_sv2` crate
+
+    /// Framing Sv2 error.
     FramingSv2Error,
-    /// Errors if there are missing bytes in the Noise protocol
+
+    /// Missing bytes in the Noise protocol.
     MissingBytes(usize),
-    /// Errors from the `noise_sv2` crate
+
+    /// Sv2 Noise protocol error.
     NoiseSv2Error,
-    /// `snow` errors
+
+    /// AEAD (`snow`) error in the Noise protocol.
     AeadError,
-    /// Error if Noise protocol state is not as expected
+
+    /// Unexpected state in the Noise protocol.
     UnexpectedNoiseState,
+
+    /// Invalid step for responder in the Noise protocol.
     InvalidStepForResponder,
+
+    /// Invalid step for initiator in the Noise protocol.
     InvalidStepForInitiator,
+
+    /// Noise protocol is not in the expected handshake state.
     NotInHandShakeState,
+
+    /// Framing Sv2 error.
     FramingError,
 }
 
