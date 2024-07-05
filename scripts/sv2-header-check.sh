@@ -22,6 +22,7 @@ set -ex
 # cbindgen -V
 
 echo $PWD
+rm -f scripts/sv2.h
 cd protocols/v2/sv2-ffi
 SHA1_1=$(sha1sum sv2.h)
 cd ../../../scripts
