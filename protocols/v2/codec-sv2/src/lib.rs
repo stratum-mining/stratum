@@ -32,20 +32,36 @@ pub use buffer_sv2;
 
 pub use framing_sv2::{self, framing2::handshake_message_to_frame as h2f};
 
+/// Represents the state of the codec, which can be in different phases such as initialization,
+/// handshake, or transport mode where encryption and decryption are fully operational.
 #[cfg(feature = "noise_sv2")]
 #[derive(Debug)]
 #[allow(clippy::large_enum_variant)]
 pub enum State {
-    /// Not yet initialized
+    /// The codec has not yet been initialized.
+    ///
+    /// This state is used when the codec is first created or reset, and before it has started the
+    /// handshake process. This state carries information about the expected size of the handshake
+    /// message, which can be different for initiators and responders.
     NotInitialized(usize),
-    /// Handshake mode where codec is negotiating keys
+
+    /// The codec is in handshake mode, where it is negotiating cryptographic keys.
     HandShake(HandshakeRole),
-    /// Transport mode where AEAD is fully operational. The `TransportMode` object in this variant
-    /// as able to perform encryption and decryption resp.
+
+    /// The codec is in transport mode, where AEAS encryption and decryption are fully operational.
+    /// The `NoiseCodec` object in this variant performs the encryption and decryption.
     Transport(NoiseCodec),
 }
+
 #[cfg(feature = "noise_sv2")]
 impl State {
+    /// Initiates the first step of the handshake process for the initiator.
+    ///
+    /// This step involves creating and sending the initial handshake message for the initiator.
+    /// Responders cannot perform this step.
+    ///
+    /// nb: This method returns a `HandShakeFrame` but does not update the current state (`self`).
+    /// The state remains `HandShake(Initiator)` until `step_1` is called.
     pub fn step_0(&mut self) -> core::result::Result<HandShakeFrame, Error> {
         match self {
             Self::HandShake(h) => match h {
@@ -56,6 +72,15 @@ impl State {
         }
     }
 
+    /// Processes the second step of the handshake process for the responder.
+    ///
+    /// This step involves receiving the public key from the initiator, generating a response
+    /// message containing the handshake frame, and creates the `NoiseCodec` for transitioning the
+    /// state to transport mode for the initiator in `step_2`.
+    ///
+    /// nb: This method returns a new state (`State::Transport`), but the caller is responsible for
+    /// updating the current state (`self`). This allows for more flexible control, as the caller
+    /// can decide what to do with the new state.
     pub fn step_1(
         &mut self,
         re_pub: [u8; const_sv2::RESPONDER_EXPECTED_HANDSHAKE_MESSAGE_SIZE],
@@ -72,6 +97,13 @@ impl State {
         }
     }
 
+    /// Processes the final step of the handshake process for initiator.
+    ///
+    /// This step involves receiving the response message containing the handshake frame from the
+    /// responder and transitions the state to transport mode.
+    ///
+    /// nb: This method directly updates the current state (`self`) to the new state
+    /// (`State::Transport`), finalizing the transition.
     pub fn step_2(
         &mut self,
         message: [u8; const_sv2::INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE],
