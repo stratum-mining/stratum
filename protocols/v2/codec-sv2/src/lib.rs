@@ -119,16 +119,23 @@ impl State {
         }
     }
 }
+
+/// The role in the Noise handshake process, either as an initiator or a responder.
 #[allow(clippy::large_enum_variant)]
 #[cfg(feature = "noise_sv2")]
 #[derive(Debug)]
 pub enum HandshakeRole {
+    /// The initiator role in the Noise handshake process.
     Initiator(Box<noise_sv2::Initiator>),
+
+    /// The responder role in the Noise handshake process.
     Responder(Box<noise_sv2::Responder>),
 }
 
 #[cfg(feature = "noise_sv2")]
 impl State {
+    /// Creates a new `NotInitialized` state with the expected handshake message size for the
+    /// given role.
     pub fn not_initialized(role: &HandshakeRole) -> Self {
         match role {
             HandshakeRole::Initiator(_) => {
@@ -140,10 +147,12 @@ impl State {
         }
     }
 
+    /// Initializes the codec state to `HandShake` mode with the given handshake role.
     pub fn initialized(inner: HandshakeRole) -> Self {
         Self::HandShake(inner)
     }
 
+    /// Transitions the codec state to `Transport` mode with the given `NoiseCodec`.
     pub fn with_transport_mode(tm: NoiseCodec) -> Self {
         Self::Transport(tm)
     }
