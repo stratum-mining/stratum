@@ -2,7 +2,7 @@
     "version": "2",
     "doc": [
         "This test does",
-        "Soft mock of JD",
+        "Soft mock of JDC",
         "Connect to JDS",
         "Receive Setup Connection Error as incorrect bits are set"
     ],
@@ -19,11 +19,10 @@
             "results": [
                 {
                     "type": "match_message_type",
-                    "value": "0x01"
+                    "value": "0x02"
                 }
-
             ],
-            "actiondoc": "This action sends SetupConnection and checks that .Success"
+            "actiondoc": "This action sends SetupConnection and checks that .Error"
        }
     ],
     "setup_commands": [],

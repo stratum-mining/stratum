@@ -54,7 +54,7 @@
                 "protocol": 1,
                 "min_version": 2,
                 "max_version": 2,
-                "flags": 6,
+                "flags": 0,
                 "endpoint_host": "",
                 "endpoint_port": 0,
                 "vendor": "",

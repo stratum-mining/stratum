@@ -54,11 +54,11 @@ pub struct SetupConnection<'decoder> {
 
 impl<'decoder> SetupConnection<'decoder> {
     pub fn set_requires_standard_job(&mut self) {
-        self.flags |= 0b_0000_0000_0000_0000_0000_0000_0000_0001
+        self.flags |= 0b_0000_0000_0000_0000_0000_0000_0000_0001;
     }
 
     pub fn set_async_job_nogotiation(&mut self) {
-        self.flags |= 0b_0000_0000_0000_0000_0000_0000_0000_0001
+        self.flags |= 0b_0000_0000_0000_0000_0000_0000_0000_0001;
     }
 
     /// Check if passed flags support self flag
@@ -71,11 +71,11 @@ impl<'decoder> SetupConnection<'decoder> {
             Protocol::MiningProtocol => {
                 let available = available_flags.reverse_bits();
                 let required_flags = required_flags.reverse_bits();
-                let requires_work_selection_passed = (required_flags >> 30) > 0;
-                let requires_version_rolling_passed = (required_flags >> 29) > 0;
+                let requires_work_selection_passed = required_flags >> 30 > 0;
+                let requires_version_rolling_passed = required_flags >> 29 > 0;
 
-                let requires_work_selection_self = (available >> 30) > 0;
-                let requires_version_rolling_self = (available >> 29) > 0;
+                let requires_work_selection_self = available >> 30 > 0;
+                let requires_version_rolling_self = available >> 29 > 0;
 
                 let work_selection =
                     !requires_work_selection_self || requires_work_selection_passed;
@@ -98,7 +98,7 @@ impl<'decoder> SetupConnection<'decoder> {
                 specific_flags_check && general_flags_check
             }
             Protocol::TemplateDistributionProtocol | Protocol::JobDistributionProtocol => {
-                // Assuming these protocols do not define flags
+                // These protocols do not define flags for setting up a connection.
                 false
             }
         }
@@ -325,7 +325,7 @@ impl<'decoder> binary_sv2::Decodable<'decoder> for Protocol {
     fn get_structure(
         _: &[u8],
     ) -> core::result::Result<alloc::vec::Vec<FieldMarker>, binary_sv2::Error> {
-        let field: FieldMarker = 0_u8.into();
+        let field: FieldMarker = (0_u8).into();
         Ok(alloc::vec![field])
     }
     fn from_decoded_fields(
@@ -406,11 +406,11 @@ mod test {
     #[test]
     fn test_check_flag() {
         let protocol = crate::Protocol::MiningProtocol;
-        let flag_avaiable = 0b_0000_0000_0000_0000_0000_0000_0000_0000;
+        let flag_available = 0b_0000_0000_0000_0000_0000_0000_0000_0000;
         let flag_required = 0b_0000_0000_0000_0000_0000_0000_0000_0001;
         assert!(SetupConnection::check_flags(
             protocol,
-            flag_avaiable,
+            flag_available,
             flag_required
         ));
 

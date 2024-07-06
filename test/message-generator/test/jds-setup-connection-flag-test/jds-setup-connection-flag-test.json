@@ -19,7 +19,7 @@
                         "jd_server",
                         "--",
                         "-c",
-                        "../test/config/jds-do-not-fail-on-wrong-txdatasucc/jds-config.toml"
+                        "../test/config/jds-setup-connection-flag-test/jds-config.toml"
             ],
             "conditions": {
                 "WithConditions": {
@@ -40,7 +40,7 @@
             "command": "cargo",
             "args": [
                         "run",
-                        "../../test/message-generator/mock/job-declarator-mock-invalid-flag.json"
+                        "../../test/message-generator/mock/jdc-mock-jds-setup-connection-mock-invalid-flag.json"
             ],
             "conditions": {
                 "WithConditions": {
