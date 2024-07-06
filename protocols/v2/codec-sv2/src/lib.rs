@@ -1,3 +1,56 @@
+//! # Stratum V2 Codec Library
+//!
+//! This crate provides the encoding and decoding functionality for the Stratum V2 protocol,
+//! handling secure communication between clients and servers.
+//!
+//! ## Features
+//!
+//! * **Encoding/Decoding**: Serialize and deserialize Stratum V2 messages.
+//! * **Noise Protocol**: Support for secure communication using the Noise protocol framework.
+//! * **Error Handling**: Comprehensive error handling for various stages of communication and
+//!   encryption.
+//!
+//! ## Modules
+//!
+//! * `decoder`: Provides functionality to decode Stratum V2 messages.
+//! * `encoder`: Provides functionality to encode Stratum V2 messages.
+//! * `error`: Defines error types and result aliases used throughout the crate.
+//!
+//! ## Usage
+//!
+//! This crate is designed to be used in mining software that needs to communicate securely
+//! using the Stratum V2 protocol. It supports optional Noise protocol features for encryption
+//! and ensures data integrity and confidentiality.
+//!
+//! ## Example
+//!
+//! ```ignore
+//! use codec_sv2::{State, HandshakeRole, NoiseCodec};
+//! use noise_sv2::Initiator;
+//!
+//! // Initialize the codec state
+//! let role = HandshakeRole::Initiator(Box::new(Initiator::new()));
+//! let mut state = State::not_initialized(&role);
+//! state = State::initialized(role);
+//!
+//! // Proceed with the handshake steps
+//! match state.step_0() {
+//!     Ok(frame) => {
+//!         // Send the initial handshake frame
+//!     }
+//!     Err(e) => {
+//!         // Handle error
+//!     }
+//! }
+//! ```
+//!
+//! ## Conditional Compilation
+//!
+//! * The crate uses conditional compilation to enable or disable features based on the `noise_sv2`
+//!   feature flag. When enabled, additional functionality related to the Noise protocol is
+//!   available.
+//!
+
 #![no_std]
 
 extern crate alloc;
