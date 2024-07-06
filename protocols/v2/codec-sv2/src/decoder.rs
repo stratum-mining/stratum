@@ -34,10 +34,17 @@ use crate::Error::MissingBytes;
 #[cfg(feature = "noise_sv2")]
 use crate::State;
 
+/// A decoded frame that could either be a regular or Noise-protected frame.
+pub type StandardEitherFrame<T> = EitherFrame<T, <Buffer as IsBuffer>::Slice>;
+
+/// A decoded Sv2 frame.
+pub type StandardSv2Frame<T> = Sv2Frame<T, <Buffer as IsBuffer>::Slice>;
+
+/// Standard decoder with Noise protocol support.
 #[cfg(feature = "noise_sv2")]
 pub type StandardNoiseDecoder<T> = WithNoise<Buffer, T>;
-pub type StandardEitherFrame<T> = EitherFrame<T, <Buffer as IsBuffer>::Slice>;
-pub type StandardSv2Frame<T> = Sv2Frame<T, <Buffer as IsBuffer>::Slice>;
+
+/// Standard Sv2 decoder without Noise protocol support.
 pub type StandardDecoder<T> = WithoutNoise<Buffer, T>;
 
 #[cfg(feature = "noise_sv2")]
