@@ -47,16 +47,38 @@ pub type StandardNoiseDecoder<T> = WithNoise<Buffer, T>;
 /// Standard Sv2 decoder without Noise protocol support.
 pub type StandardDecoder<T> = WithoutNoise<Buffer, T>;
 
+/// Decoder for Sv2 frames with Noise protocol support.
 #[cfg(feature = "noise_sv2")]
 pub struct WithNoise<B: IsBuffer, T: Serialize + binary_sv2::GetSize> {
+    /// Marker for the type of frame being decoded.
+    ///
+    /// Used to maintain type information for the generic parameter `T` which represents the type
+    /// of frames being decoded. `T` refers to a type that implements the necessary traits for
+    /// serialization (`binary_sv2::Serialize`), deserialization (`binary_sv2::Deserialize`), and
+    /// size calculation (`binary_sv2::GetSize`).
     frame: PhantomData<T>,
+
+    /// Number of missing bytes needed to complete the Noise header or payload.
+    ///
+    /// Keeps track of how many more bytes are required to fully decode the current Noise frame.
     missing_noise_b: usize,
+
+    /// Buffer for holding encrypted Noise data.
+    ///
+    /// Stores the incoming encrypted data until it is ready to be decrypted and processed.
     noise_buffer: B,
+
+    /// Buffer for holding decrypted Sv2 data.
+    ///
+    /// Stores the decrypted data from the Noise protocol until it is ready to be processed and
+    /// concerted into a Sv2 frame.
     sv2_buffer: B,
 }
 
 #[cfg(feature = "noise_sv2")]
 impl<'a, T: Serialize + GetSize + Deserialize<'a>, B: IsBuffer + AeadBuffer> WithNoise<B, T> {
+    /// Attempts to decode the next frame, returning either a frame or an error indicating how many
+    /// bytes are missing.
     #[inline]
     pub fn next_frame(&mut self, state: &mut State) -> Result<EitherFrame<T, B::Slice>> {
         match state {
@@ -103,6 +125,11 @@ impl<'a, T: Serialize + GetSize + Deserialize<'a>, B: IsBuffer + AeadBuffer> Wit
         }
     }
 
+    /// Decodes a Noise-encrypted frame.
+    ///
+    /// Handles the decryption of Noise-encrypted frames, including both the header and the
+    /// payload. It processes the frame in chunks if necessary, ensuring that all encrypted data is
+    /// properly decrypted and converted into a usable frame.
     #[inline]
     fn decode_noise_frame(
         &mut self,
@@ -155,6 +182,11 @@ impl<'a, T: Serialize + GetSize + Deserialize<'a>, B: IsBuffer + AeadBuffer> Wit
         }
     }
 
+    /// Processes frames during the handshake phase.
+    ///
+    /// Used while the codec is in the handshake phase of the Noise protocol. It processes and
+    /// returns a handshake frame that has been received and encapsulates it in an `EitherFrame`,
+    /// indicating the frame has been processed and is ready to be handled by the codec.
     fn while_handshaking(&mut self) -> EitherFrame<T, B::Slice> {
         let src = self.noise_buffer.get_data_owned().as_mut().to_vec();
 
@@ -164,10 +196,13 @@ impl<'a, T: Serialize + GetSize + Deserialize<'a>, B: IsBuffer + AeadBuffer> Wit
         frame.into()
     }
 
+    /// Provides a writable buffer for incoming data.
     #[inline]
     pub fn writable(&mut self) -> &mut [u8] {
         self.noise_buffer.get_writable(self.missing_noise_b)
     }
+
+    /// Checks if the buffers are droppable.
     pub fn droppable(&self) -> bool {
         self.noise_buffer.is_droppable() && self.sv2_buffer.is_droppable()
     }
@@ -175,6 +210,10 @@ impl<'a, T: Serialize + GetSize + Deserialize<'a>, B: IsBuffer + AeadBuffer> Wit
 
 #[cfg(feature = "noise_sv2")]
 impl<T: Serialize + binary_sv2::GetSize> WithNoise<Buffer, T> {
+    /// Crates a new `WithNoise` decoder with default buffer sizes.
+    ///
+    /// Initializes the decoder with default buffer sizes and sets the number of missing bytes to
+    /// 0.
     pub fn new() -> Self {
         Self {
             frame: PhantomData,
@@ -192,14 +231,31 @@ impl<T: Serialize + binary_sv2::GetSize> Default for WithNoise<Buffer, T> {
     }
 }
 
+/// Decoder for Sv2 frames without Noise protocol support.
 #[derive(Debug)]
 pub struct WithoutNoise<B: IsBuffer, T: Serialize + binary_sv2::GetSize> {
+    /// Marker for the type of frame being decoded.
+    ///
+    /// Used to maintain type information for the generic parameter `T` which represents the type
+    /// of frames being decoded. `T` refers to a type that implements the necessary traits for
+    /// serialization (`binary_sv2::Serialize`), deserialization (`binary_sv2::Deserialize`), and
+    /// size calculation (`binary_sv2::GetSize`).
     frame: PhantomData<T>,
+
+    /// Number of missing bytes needed to complete the frame.
+    ///
+    /// Keeps track of how many more bytes are required to fully decode the current frame.
     missing_b: usize,
+
+    /// Buffer for holding data to be decoded.
+    ///
+    /// Stores incoming data until it is ready to be processed and converted into a Sv2 frame.
     buffer: B,
 }
 
 impl<T: Serialize + binary_sv2::GetSize, B: IsBuffer> WithoutNoise<B, T> {
+    /// Attempts to decode the next frame, returning either a frame or an error indicating how many
+    /// bytes are missing.
     #[inline]
     pub fn next_frame(&mut self) -> Result<Sv2Frame<T, B::Slice>> {
         let len = self.buffer.len();
@@ -220,12 +276,17 @@ impl<T: Serialize + binary_sv2::GetSize, B: IsBuffer> WithoutNoise<B, T> {
         }
     }
 
+    /// Provides a writable buffer for incoming data.
     pub fn writable(&mut self) -> &mut [u8] {
         self.buffer.get_writable(self.missing_b)
     }
 }
 
 impl<T: Serialize + binary_sv2::GetSize> WithoutNoise<Buffer, T> {
+    /// Creates a new `WithoutNoise` decoder with default buffer sizes.
+    ///
+    /// Initializes the decoder with default buffer sizes and sets the number of missing bytes to
+    /// the size of the header.
     pub fn new() -> Self {
         Self {
             frame: PhantomData,
