@@ -1,3 +1,40 @@
+//! # Stratum V2 Codec Decoder
+//!
+//! This module provides functionality for decoding Stratum V2 messages, including support for
+//! the Noise protocol for secure communication.
+//!
+//! ## Features
+//!
+//! * **Standard Decoder**: Decodes Stratum V2 frames without encryption.
+//! * **Noise Decoder**: Decodes Stratum V2 frames with Noise protocol encryption.
+//!
+//! ## Types
+//!
+//! * `StandardEitherFrame`: Represents a decoded frame that could be either a regular or
+//!   Noise-protected frame.
+//! * `StandardSv2Frame`: Represents a decoded Stratum V2 frame.
+//! * `StandardNoiseDecoder`: Decoder for Stratum V2 frames with Noise protocol support.
+//! * `StandardDecoder`: Decoder for Stratum V2 frames without Noise protocol support.
+//!
+//! ## Usage
+//!
+//! This module is designed to be used to decode incoming Stratum V2 messages, potentially with
+//! Noise protocol encryption for secure communication.
+//!
+//! ## Example
+//!
+//! ```ignore
+//! use codec_sv2::decoder::{StandardDecoder, StandardNoiseDecoder};
+//!
+//! // Create a standard decoder
+//! let mut decoder: StandardDecoder<MyFrameType> = StandardDecoder::new();
+//!
+//! // Create a noise decoder (requires the `noise_sv2` feature)
+//! #[cfg(feature = "noise_sv2")]
+//! let mut noise_decoder: StandardNoiseDecoder<MyFrameType> = StandardNoiseDecoder::new();
+//! ```
+//!
+
 #[cfg(feature = "noise_sv2")]
 use binary_sv2::Deserialize;
 #[cfg(feature = "noise_sv2")]
