@@ -17,7 +17,7 @@ use crate::mempool::JDsMempool;
 use super::{signed_token, TransactionState};
 use roles_logic_sv2::{errors::Error, parsers::PoolMessages as AllMessages};
 use stratum_common::bitcoin::consensus::Decodable;
-use tracing::{info, debug};
+use tracing::{debug, info};
 
 use super::JobDeclaratorDownstream;
 

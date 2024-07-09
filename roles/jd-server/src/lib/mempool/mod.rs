@@ -95,12 +95,11 @@ impl JDsMempool {
     }
 
     pub async fn update_mempool(self_: Arc<Mutex<Self>>) -> Result<(), JdsMempoolError> {
-
-        let mut new_jds_mempool: HashMap<Txid, Option<Transaction>> = self_.safe_lock(|x| x.mempool.clone())?;
+        let mut new_jds_mempool: HashMap<Txid, Option<Transaction>> =
+            self_.safe_lock(|x| x.mempool.clone())?;
         // the fat transactions in the jds-mempool are those declared by some downstream and we
         // don't want to remove them, but we can get rid of the others
         new_jds_mempool.retain(|_, val| val.is_some());
-
 
         let client = self_
             .safe_lock(|x| x.get_client())?
