@@ -1,7 +1,4 @@
-#![allow(dead_code)]
-
-use core::convert::TryInto;
-use std::sync::Arc;
+use std::{convert::TryInto, sync::Arc};
 
 use async_channel::{Receiver, SendError, Sender};
 use tokio::{net::TcpListener, sync::oneshot::Receiver as TokioReceiver};
@@ -39,7 +36,6 @@ pub struct DownstreamMiningNode {
     receiver: Receiver<EitherFrame>,
     sender: Sender<EitherFrame>,
     pub status: DownstreamMiningNodeStatus,
-    pub prev_job_id: Option<u32>,
     upstream: Option<Arc<Mutex<UpstreamMiningNode>>>,
 }
 
@@ -61,14 +57,6 @@ pub enum Channel {
     DownstreamHomUpstreamExtended {
         data: CommonDownstreamData,
         channel_id: u32,
-        group_id: u32,
-    },
-    // Below variant is not supported cause do not have much sense
-    // DowntreamNonHomUpstreamGroup { data: CommonDownstreamData, group_ids: Vec<u32>, extended_ids: Vec<u32>},
-    DowntreamNonHomUpstreamExtended {
-        data: CommonDownstreamData,
-        group_ids: Vec<u32>,
-        extended_ids: Vec<u32>,
     },
 }
 
@@ -119,42 +107,18 @@ impl DownstreamMiningNodeStatus {
         }
     }
 
-    fn open_channel_for_down_hom_up_extended(&mut self, channel_id: u32, group_id: u32) {
+    fn open_channel_for_down_hom_up_extended(&mut self, channel_id: u32, _group_id: u32) {
         match self {
             DownstreamMiningNodeStatus::Initializing => panic!(),
             DownstreamMiningNodeStatus::Paired(data) => {
                 let channel = Channel::DownstreamHomUpstreamExtended {
                     data: *data,
                     channel_id,
-                    group_id,
                 };
                 let self_ = Self::ChannelOpened(channel);
                 let _ = std::mem::replace(self, self_);
             }
             DownstreamMiningNodeStatus::ChannelOpened(..) => panic!("Channel already opened"),
-        }
-    }
-
-    fn add_extended_from_non_hom_for_up_extended(&mut self, id: u32) {
-        match self {
-            DownstreamMiningNodeStatus::Initializing => panic!(),
-            DownstreamMiningNodeStatus::Paired(data) => {
-                let channel = Channel::DowntreamNonHomUpstreamExtended {
-                    data: *data,
-                    group_ids: vec![],
-                    extended_ids: vec![id],
-                };
-                let self_ = Self::ChannelOpened(channel);
-                let _ = std::mem::replace(self, self_);
-            }
-            DownstreamMiningNodeStatus::ChannelOpened(
-                Channel::DowntreamNonHomUpstreamExtended { extended_ids, .. },
-            ) => {
-                if !extended_ids.contains(&id) {
-                    extended_ids.push(id)
-                }
-            }
-            _ => panic!(),
         }
     }
 }
@@ -179,16 +143,12 @@ impl DownstreamMiningNode {
         self.status
             .open_channel_for_down_hom_up_extended(channel_id, group_id);
     }
-    pub fn add_extended_from_non_hom_for_up_extended(&mut self, id: u32) {
-        self.status.add_extended_from_non_hom_for_up_extended(id);
-    }
 
     pub fn new(receiver: Receiver<EitherFrame>, sender: Sender<EitherFrame>, id: u32) -> Self {
         Self {
             receiver,
             sender,
             status: DownstreamMiningNodeStatus::Initializing,
-            prev_job_id: None,
             upstream: None,
             id,
         }
@@ -430,12 +390,6 @@ impl
                 let res = UpstreamMiningNode::handle_std_shr(remote.clone(), m).unwrap();
                 Ok(SendTo::Respond(res))
             }
-            DownstreamMiningNodeStatus::ChannelOpened(
-                Channel::DowntreamNonHomUpstreamExtended { .. },
-            ) => {
-                // unreachable cause the proxy do not support this kind of channel
-                unreachable!();
-            }
         }
     }
 
@@ -537,9 +491,6 @@ impl IsDownstream for DownstreamMiningNode {
                 data,
                 ..
             }) => data,
-            DownstreamMiningNodeStatus::ChannelOpened(
-                Channel::DowntreamNonHomUpstreamExtended { data, .. },
-            ) => data,
             DownstreamMiningNodeStatus::ChannelOpened(Channel::DownstreamHomUpstreamExtended {
                 data,
                 ..
