@@ -15,3 +15,6 @@ lcov.info
 cobertura.xml
 /roles/*/*-config.toml
 /examples/*/Cargo.lock
+
+# ignore Cargo.lock files
+**/Cargo.lock
