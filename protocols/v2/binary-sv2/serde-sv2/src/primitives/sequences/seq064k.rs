@@ -9,6 +9,7 @@ use crate::{
 use alloc::vec::Vec;
 use serde::{ser, ser::SerializeTuple, Deserialize, Deserializer, Serialize};
 
+/// See `binary_sv2::Seq064k`
 #[derive(Debug, Clone)]
 pub struct Seq064K<'s, T: Clone + Serialize + TryFromBSlice<'s>> {
     seq: Option<Seq<'s, T>>,

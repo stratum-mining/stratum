@@ -95,6 +95,15 @@ impl<'a, T: GetSize> GetSize for Seq0255<'a, T> {
     }
 }
 
+/// Fixed size data sequence up to a length of 65535
+///
+/// Byte Length Calculation:
+/// - For fixed-size T: 2 + LENGTH * size_of::<T>()
+/// - For variable-length T: 2 + seq.map(|x| x.length()).sum()
+/// Decsription: 2-byte length L, unsigned little-endian integer 16-bits, followed by a sequence of L elements of type T. Allowed range of length is 0 to 65535.
+///
+/// Used for listing channel ids, tx short hashes, tx hashes, list indexes, and full transaction data.
+///
 /// The liftime is here only for type compatibility with serde-sv2
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Seq064K<'a, T>(pub(crate) Vec<T>, PhantomData<&'a T>);
