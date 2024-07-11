@@ -211,6 +211,16 @@ impl HandShakeFrame {
         Ok(Self::from_bytes_unchecked(bytes))
     }
 
+    /// Returns a `HandShakeFrame` from a generic byte array
+    #[allow(clippy::useless_conversion)]
+    pub fn from_message<T: AsRef<[u8]>>(message: T) -> HandShakeFrame {
+        let mut payload = Vec::new();
+        payload.extend_from_slice(message.as_ref());
+        HandShakeFrame {
+            payload: payload.into(),
+        }
+    }
+
     #[inline]
     pub fn from_bytes_unchecked(bytes: Slice) -> Self {
         Self { payload: bytes }
@@ -236,16 +246,6 @@ impl<T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> TryFrom<Frame<T, B>> 
             Frame::HandShake(frame) => Ok(frame),
             Frame::Sv2(_) => Err(Error::ExpectedHandshakeFrame),
         }
-    }
-}
-
-/// Returns a `HandShakeFrame` from a generic byte array
-#[allow(clippy::useless_conversion)]
-pub fn handshake_message_to_frame<T: AsRef<[u8]>>(message: T) -> HandShakeFrame {
-    let mut payload = Vec::new();
-    payload.extend_from_slice(message.as_ref());
-    HandShakeFrame {
-        payload: payload.into(),
     }
 }
 

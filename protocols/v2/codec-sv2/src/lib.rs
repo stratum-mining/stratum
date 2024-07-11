@@ -30,7 +30,7 @@ pub use noise_sv2::{self, Initiator, NoiseCodec, Responder};
 
 pub use buffer_sv2;
 
-pub use framing_sv2::{self, framing::handshake_message_to_frame as h2f};
+pub use framing_sv2::{self};
 
 #[cfg(feature = "noise_sv2")]
 #[derive(Debug)]
@@ -49,7 +49,10 @@ impl State {
     pub fn step_0(&mut self) -> core::result::Result<HandShakeFrame, Error> {
         match self {
             Self::HandShake(h) => match h {
-                HandshakeRole::Initiator(i) => i.step_0().map_err(|e| e.into()).map(h2f),
+                HandshakeRole::Initiator(i) => i
+                    .step_0()
+                    .map_err(|e| e.into())
+                    .map(HandShakeFrame::from_message),
                 HandshakeRole::Responder(_) => Err(Error::InvalidStepForResponder),
             },
             _ => Err(Error::NotInHandShakeState),
@@ -64,7 +67,10 @@ impl State {
             Self::HandShake(h) => match h {
                 HandshakeRole::Responder(r) => {
                     let (message, codec) = r.step_1(re_pub)?;
-                    Ok((h2f(message), Self::Transport(codec)))
+                    Ok((
+                        HandShakeFrame::from_message(message),
+                        Self::Transport(codec),
+                    ))
                 }
                 HandshakeRole::Initiator(_) => Err(Error::InvalidStepForInitiator),
             },
