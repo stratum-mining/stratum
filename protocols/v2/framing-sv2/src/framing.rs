@@ -50,6 +50,46 @@ pub enum Sv2Frame<T, B> {
 }
 
 impl<T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> Sv2Frame<T, B> {
+    /// Tries to build a `Sv2Frame` from raw bytes, assuming they represent a serialized `Sv2Frame` frame (`Self.serialized`).
+    /// Returns a `Sv2Frame` on success, or the number of the bytes needed to complete the frame
+    /// as an error. `Self.serialized` is `Some`, but nothing is assumed or checked about the correctness of the payload.
+    #[inline]
+    pub fn from_bytes(mut bytes: B) -> Result<Self, isize> {
+        let hint = Self::size_hint(bytes.as_mut());
+
+        if hint == 0 {
+            Ok(Self::from_bytes_unchecked(bytes))
+        } else {
+            Err(hint)
+        }
+    }
+
+    #[inline]
+    pub fn from_bytes_unchecked(mut bytes: B) -> Self {
+        // Unchecked function caller is supposed to already know that the passed bytes are valid
+        let header = Header::from_bytes(bytes.as_mut()).expect("Invalid header");
+        Sv2Frame::Raw {
+            header,
+            serialized: bytes,
+        }
+    }
+
+    /// Tries to build a `Sv2Frame` from a non-serialized payload.
+    /// Returns a `Sv2Frame` if the size of the payload fits in the frame, `None` otherwise.
+    pub fn from_message(
+        message: T,
+        message_type: u8,
+        extension_type: u16,
+        channel_msg: bool,
+    ) -> Option<Self> {
+        let extension_type = update_extension_type(extension_type, channel_msg);
+        let len = message.get_size() as u32;
+        Header::from_len(len, message_type, extension_type).map(|header| Self::Payload {
+            header,
+            payload: message,
+        })
+    }
+
     /// Write the serialized `Sv2Frame` into `dst`.
     /// This operation when called on an already serialized frame is very cheap.
     /// When called on a non serialized frame, it is not so cheap (because it serializes it).
@@ -75,11 +115,10 @@ impl<T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> Sv2Frame<T, B> {
         }
     }
 
-    /// `self` can be either serialized (`self.serialized` is `Some()`) or
-    /// deserialized (`self.serialized` is `None`, `self.payload` is `Some()`).
-    /// This function is only intended as a fast way to get a reference to an
-    /// already serialized payload. If the frame has not yet been
-    /// serialized, this function should never be used (it will panic).
+    /// `self` can be either serialized (`self.serialized` is `Some()`) or deserialized
+    /// (`self.serialized` is `None`, `self.payload` is `Some()`).  This function is only intended
+    /// as a fast way to get a reference to an already serialized payload. If the frame has not yet
+    /// been serialized, this function should never be used (it will panic).
     pub fn payload(&mut self) -> Option<&mut [u8]> {
         match self {
             Sv2Frame::Raw { serialized, .. } => Some(&mut serialized.as_mut()[Header::SIZE..]),
@@ -87,35 +126,10 @@ impl<T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> Sv2Frame<T, B> {
         }
     }
 
-    /// `Sv2Frame` always returns `Some(self.header)`.
-    pub fn header(&self) -> crate::header::Header {
+    pub fn header(&self) -> Header {
         match self {
             Self::Payload { header, .. } => *header,
             Self::Raw { header, .. } => *header,
-        }
-    }
-
-    /// Tries to build a `Sv2Frame` from raw bytes, assuming they represent a serialized `Sv2Frame` frame (`Self.serialized`).
-    /// Returns a `Sv2Frame` on success, or the number of the bytes needed to complete the frame
-    /// as an error. `Self.serialized` is `Some`, but nothing is assumed or checked about the correctness of the payload.
-    #[inline]
-    pub fn from_bytes(mut bytes: B) -> Result<Self, isize> {
-        let hint = Self::size_hint(bytes.as_mut());
-
-        if hint == 0 {
-            Ok(Self::from_bytes_unchecked(bytes))
-        } else {
-            Err(hint)
-        }
-    }
-
-    #[inline]
-    pub fn from_bytes_unchecked(mut bytes: B) -> Self {
-        // Unchecked function caller is supposed to already know that the passed bytes are valid
-        let header = Header::from_bytes(bytes.as_mut()).expect("Invalid header");
-        Self::Raw {
-            header,
-            serialized: bytes,
         }
     }
 
@@ -145,30 +159,14 @@ impl<T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> Sv2Frame<T, B> {
         }
     }
 
-    /// If `Sv2Frame` is serialized, returns the length of `self.serialized`,
-    /// otherwise, returns the length of `self.payload`.
+    /// If `Sv2Frame` is serialized, returns the length of `self.serialized`, otherwise, returns the
+    /// length of `self.payload`.
     #[inline]
     pub fn encoded_length(&self) -> usize {
         match self {
             Sv2Frame::Raw { serialized, .. } => serialized.as_ref().len(),
             Sv2Frame::Payload { payload, .. } => payload.get_size() + Header::SIZE,
         }
-    }
-
-    /// Tries to build a `Sv2Frame` from a non-serialized payload.
-    /// Returns a `Sv2Frame` if the size of the payload fits in the frame, `None` otherwise.
-    pub fn from_message(
-        message: T,
-        message_type: u8,
-        extension_type: u16,
-        channel_msg: bool,
-    ) -> Option<Self> {
-        let extension_type = update_extension_type(extension_type, channel_msg);
-        let len = message.get_size() as u32;
-        Header::from_len(len, message_type, extension_type).map(|header| Self::Payload {
-            header,
-            payload: message,
-        })
     }
 }
 
@@ -200,8 +198,7 @@ impl<T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> TryFrom<Frame<T, B>> 
     }
 }
 
-/// Abstraction for a Noise Handshake Frame
-/// Contains only a `Slice` payload with a fixed length
+/// Abstraction for a Noise Handshake Frame Contains only a `Slice` payload with a fixed length
 /// Only used during Noise Handshake process
 #[derive(Debug)]
 pub struct HandShakeFrame {
@@ -209,11 +206,6 @@ pub struct HandShakeFrame {
 }
 
 impl HandShakeFrame {
-    /// Returns payload of `HandShakeFrame` as a `Vec<u8>`
-    pub fn get_payload_when_handshaking(&self) -> Vec<u8> {
-        self.payload[0..].to_vec()
-    }
-
     /// Builds a `HandShakeFrame` from raw bytes. Nothing is assumed or checked about the correctness of the payload.
     pub fn from_bytes(bytes: Slice) -> Result<Self, isize> {
         Ok(Self::from_bytes_unchecked(bytes))
@@ -222,6 +214,11 @@ impl HandShakeFrame {
     #[inline]
     pub fn from_bytes_unchecked(bytes: Slice) -> Self {
         Self { payload: bytes }
+    }
+
+    /// Returns payload of `HandShakeFrame` as a `Vec<u8>`
+    pub fn get_payload_when_handshaking(&self) -> Vec<u8> {
+        self.payload[0..].to_vec()
     }
 
     /// Returns the size of the `HandShakeFrame` payload.
