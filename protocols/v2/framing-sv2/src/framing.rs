@@ -50,9 +50,10 @@ pub enum Sv2Frame<T, B> {
 }
 
 impl<T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> Sv2Frame<T, B> {
-    /// Tries to build a `Sv2Frame` from raw bytes, assuming they represent a serialized `Sv2Frame` frame (`Self.serialized`).
-    /// Returns a `Sv2Frame` on success, or the number of the bytes needed to complete the frame
-    /// as an error. `Self.serialized` is `Some`, but nothing is assumed or checked about the correctness of the payload.
+    /// Tries to build a `Sv2Frame` from raw bytes, assuming they represent a serialized `Sv2Frame`
+    /// frame (`Self.serialized`).  Returns a `Sv2Frame` on success, or the number of the bytes
+    /// needed to complete the frame as an error. `Self.serialized` is `Some`, but nothing is
+    /// assumed or checked about the correctness of the payload.
     #[inline]
     pub fn from_bytes(mut bytes: B) -> Result<Self, isize> {
         let hint = Self::size_hint(bytes.as_mut());
@@ -74,8 +75,8 @@ impl<T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> Sv2Frame<T, B> {
         }
     }
 
-    /// Tries to build a `Sv2Frame` from a non-serialized payload.
-    /// Returns a `Sv2Frame` if the size of the payload fits in the frame, `None` otherwise.
+    /// Tries to build a `Sv2Frame` from a non-serialized payload.  Returns a `Sv2Frame` if the size
+    /// of the payload fits in the frame, `None` otherwise.
     pub fn from_message(
         message: T,
         message_type: u8,
@@ -249,10 +250,9 @@ impl<T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> TryFrom<Frame<T, B>> 
     }
 }
 
-/// Basically a boolean bit filter for `extension_type`.
-/// Takes an `extension_type` represented as a `u16` and a boolean flag (`channel_msg`).
-/// If `channel_msg` is true, it sets the most significant bit of `extension_type` to 1,
-/// otherwise, it clears the most significant bit to 0.
+/// Basically a boolean bit filter for `extension_type`.  Takes an `extension_type` represented as
+/// a `u16` and a boolean flag (`channel_msg`).  If `channel_msg` is true, it sets the most
+/// significant bit of `extension_type` to 1, otherwise, it clears the most significant bit to 0.
 fn update_extension_type(extension_type: u16, channel_msg: bool) -> u16 {
     if channel_msg {
         let mask = 0b1000_0000_0000_0000;
@@ -260,5 +260,84 @@ fn update_extension_type(extension_type: u16, channel_msg: bool) -> u16 {
     } else {
         let mask = 0b0111_1111_1111_1111;
         extension_type & mask
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloc::vec;
+
+    #[test]
+    fn test_sv2_frame_from_bytes() {
+        let slice: Slice = vec![].into();
+        assert_eq!(
+            Sv2Frame::<u32, Slice>::from_bytes(slice.clone()).unwrap_err(),
+            6
+        );
+        let slice: Slice = vec![0; 6].into();
+        assert!(Sv2Frame::<u32, Slice>::from_bytes(slice.clone()).is_ok());
+        let slice: Slice = vec![0; 10].into();
+        assert_eq!(
+            Sv2Frame::<u32, Slice>::from_bytes(slice.clone()).unwrap_err(),
+            4
+        );
+        let slice: Slice = vec![0; 8].into();
+        assert_eq!(
+            Sv2Frame::<u32, Slice>::from_bytes(slice.clone()).unwrap_err(),
+            2
+        );
+        let slice: Slice = vec![0; 4].into();
+        assert_eq!(
+            Sv2Frame::<u32, Slice>::from_bytes(slice.clone()).unwrap_err(),
+            2
+        );
+        let slice: Slice = vec![0; 2].into();
+        assert_eq!(
+            Sv2Frame::<u32, Slice>::from_bytes(slice.clone()).unwrap_err(),
+            4
+        );
+    }
+
+    #[test]
+    fn test_sv2_frame_from_message() {
+        let message = 0u32;
+        let message_type = 0u8;
+        let extension_type = 0u16;
+        let ret =
+            Sv2Frame::<u32, Slice>::from_message(message, message_type, extension_type, false)
+                .unwrap();
+        assert_eq!(ret.encoded_length(), 10);
+    }
+
+    #[test]
+    fn test_sv2_frame_payload() {
+        let message = 2u32;
+        let message_type = 0u8;
+        let extension_type = 0u16;
+        let mut frame =
+            Sv2Frame::<u32, Slice>::from_message(message, message_type, extension_type, true)
+                .unwrap();
+        assert!(frame.payload().is_none());
+        let slice: Slice = vec![0; 6].into();
+        let mut frame = Sv2Frame::<u32, Slice>::from_bytes(slice.clone()).unwrap();
+        assert_eq!(frame.payload().unwrap().len(), 0);
+    }
+
+    #[test]
+    fn test_handsahke_from_bytes() {
+        let slice: Slice = vec![].into();
+        let frame = HandShakeFrame::from_bytes(slice.clone()).unwrap();
+        assert_eq!(frame.encoded_length(), 0);
+        let slice: Slice = vec![0; 6].into();
+        let frame = HandShakeFrame::from_bytes(slice.clone()).unwrap();
+        assert_eq!(frame.encoded_length(), 6);
+    }
+
+    #[test]
+    fn test_handshake_from_message() {
+        let message = vec![0u8; 6];
+        let frame = HandShakeFrame::from_message(message);
+        assert_eq!(frame.encoded_length(), 6);
     }
 }
