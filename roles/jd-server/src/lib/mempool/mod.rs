@@ -99,12 +99,13 @@ impl JDsMempool {
             .safe_lock(|x| x.get_client())?
             .ok_or(JdsMempoolError::NoClient)?;
         let node_mempool: Vec<String> = client.get_raw_mempool().await?;
-        let node_mempool_deserialized: Result<Vec<Txid>, JdsMempoolError> = node_mempool
-            .iter()
-            .map(|id| Txid::from_str(id).map_err(|err| JdsMempoolError::Rpc(RpcError::Deserialization(err.to_string()))))
-            .collect();
-        let node_mempool_deserialized = node_mempool_deserialized?;
-        
+        let mut node_mempool_deserialized: Vec<Txid> = vec![];
+        for id in &node_mempool {
+            let key_id = Txid::from_str(id)
+                .map_err(|err| JdsMempoolError::Rpc(RpcError::Deserialization(err.to_string())))?;
+            node_mempool_deserialized.push(key_id);
+        }
+
         self_.safe_lock(|x| {
             let jds_mempool = &mut x.mempool;
             // the fat transactions in the jds-mempool are those declared by some downstream and we
@@ -113,7 +114,7 @@ impl JDsMempool {
             // here we add all the new transactions
             for id in &node_mempool_deserialized {
                 jds_mempool.entry(*id).or_insert(None);
-            };
+            }
             if jds_mempool.is_empty() {
                 Err(JdsMempoolError::EmptyMempool)
             } else {

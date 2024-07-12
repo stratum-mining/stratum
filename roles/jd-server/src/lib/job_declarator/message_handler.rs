@@ -52,18 +52,40 @@ pub fn clear_declared_mining_job(
         info!("No transactions to remove from mempool");
         return Ok(());
     }
-    let clear_transactions = |jds_mempool: &mut JDsMempool| {
-        for txid in transactions_to_remove {
-            match jds_mempool.mempool.remove(txid) {
-                Some(_) => info!("Transaction {:?} removed from mempool", txid),
-                None => debug!("Transaction {:?} not found in mempool", txid),
-            };
+
+    let nonce = mining_job.tx_short_hash_nonce;
+
+    for short_id in transactions_to_remove {
+        let result = mempool.safe_lock(|mempool_| -> Result<(), Error> {
+            // Try to manage this unwrap, we use .ok_or() method to return the proper error
+            let short_ids_map = mempool_
+                .to_short_ids(nonce)
+                .ok_or(Error::JDSMissingTransactions)?;
+            let transaction_with_hash = short_ids_map
+                .get(short_id);
+
+            match transaction_with_hash {
+                Some(transaction_with_hash) => {
+                    let txid = transaction_with_hash.id;
+                    match mempool_.mempool.remove(&txid) {
+                        Some(transaction) => {
+                            debug!("Fat transaction {:?} in job with request id {:?} removed from mempool", transaction, mining_job.request_id);
+                            info!("Fat transaction {:?} in job with request id {:?} removed from mempool", txid, mining_job.request_id);
+                        },
+                        None => info!("Thin transaction {:?} in job with request id {:?} removed from mempool", txid, mining_job.request_id),
+                    }
+                },
+                None => debug!("Transaction with short id {:?} not found in mempool while clearing old jobs", short_id),
+            }
+            Ok(())  // Explicitly return Ok(()) inside the closure for proper flow control
+        });
+
+        // Propagate any error from the closure
+        if let Err(err) = result {
+            return Err(Error::PoisonLock(err.to_string()));
         }
-    };
-    match mempool.safe_lock(clear_transactions) {
-        Ok(_) => Ok(()),
-        Err(e) => Err(Error::PoisonLock(e.to_string())),
     }
+    Ok(())
 }
 
 impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
