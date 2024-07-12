@@ -1,4 +1,5 @@
 use super::JobDeclarator;
+use binary_sv2::{Seq064K, U256};
 use roles_logic_sv2::{
     handlers::{job_declaration::ParseServerJobDeclarationMessages, SendTo_},
     job_declaration_sv2::{
@@ -10,6 +11,9 @@ use roles_logic_sv2::{
 };
 pub type SendTo = SendTo_<JobDeclaration<'static>, ()>;
 use roles_logic_sv2::errors::Error;
+use stratum_common::bitcoin::{
+    psbt::serialize::Deserialize, secp256k1::ThirtyTwoByteHash, Transaction,
+};
 
 impl ParseServerJobDeclarationMessages for JobDeclarator {
     fn handle_allocate_mining_job_token_success(
@@ -40,9 +44,33 @@ impl ParseServerJobDeclarationMessages for JobDeclarator {
         &mut self,
         message: IdentifyTransactions,
     ) -> Result<SendTo, Error> {
+        let tx_list = self
+            .last_declare_mining_jobs_sent
+            .iter()
+            .find_map(|entry| {
+                if let Some((id, last_declare_job)) = entry {
+                    if *id == message.request_id {
+                        Some(last_declare_job.clone().tx_list.into_inner())
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            })
+            .ok_or_else(|| Error::UnknownRequestId(message.request_id))?;
+        let tx_data_hashes: Vec<binary_sv2::U256> = tx_list
+            .iter()
+            .map(|tx| {
+                let tx = Transaction::deserialize(tx.inner_as_ref()).unwrap();
+                let x: [u8; 32] = tx.txid().as_hash().into_32();
+                let x: U256 = x.try_into().unwrap();
+                x
+            })
+            .collect();
         let message_identify_transactions = IdentifyTransactionsSuccess {
             request_id: message.request_id,
-            tx_data_hashes: Vec::new().into(),
+            tx_data_hashes: Seq064K::new(tx_data_hashes).unwrap(),
         };
         let message_enum =
             JobDeclaration::IdentifyTransactionsSuccess(message_identify_transactions);
