@@ -67,6 +67,16 @@ jobs:
       - name: Run jds-do-not-stackoverflow-when-no-token
         run: sh ./test/message-generator/test/jds-do-not-stackoverflow-when-no-token/jds-do-not-stackoverflow-when-no-token.sh
 
+  jds-receive-solution-while-processing-declared-job:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Install cargo-llvm-cov
+        run: cargo install cargo-llvm-cov
+      - name: Run jds-receive-solution-while-processing-declared-job
+        run: sh ./test/message-generator/test/jds-receive-solution-while-processing-declared-job/jds-receive-solution-while-processing-declared-job.sh
+
   pool-sri-test-1-standard:
     runs-on: ubuntu-latest
     steps:
@@ -171,6 +181,7 @@ jobs:
       jds-do-not-fail-on-wrong-tsdatasucc,
       jds-do-not-panic-if-jdc-close-connection,
       jds-do-not-stackoverflow-when-no-token,
+      jds-receive-solution-while-processing-declared-job,
       pool-sri-test-1-standard,
       pool-sri-test-close-channel,
       pool-sri-test-extended_0,
@@ -192,6 +203,7 @@ jobs:
           [ "${{ needs.jds-do-not-fail-on-wrong-tsdatasucc.result }}" != "success" ] ||
           [ "${{ needs.jds-do-not-panic-if-jdc-close-connection.result }}" != "success" ] ||
           [ "${{ needs.jds-do-not-stackoverflow-when-no-token.result }}" != "success" ] ||
+          [ "${{ needs.jds-receive-solution-while-processing-declared-job.result }}" != "success" ] ||
           [ "${{ needs.pool-sri-test-1-standard.result }}" != "success" ] ||
           [ "${{ needs.pool-sri-test-close-channel.result }}" != "success" ] ||
           [ "${{ needs.pool-sri-test-extended_0.result }}" != "success" ] ||
