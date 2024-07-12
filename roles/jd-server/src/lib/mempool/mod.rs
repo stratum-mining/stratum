@@ -95,30 +95,31 @@ impl JDsMempool {
     }
 
     pub async fn update_mempool(self_: Arc<Mutex<Self>>) -> Result<(), JdsMempoolError> {
-        let mut new_jds_mempool: HashMap<Txid, Option<Transaction>> =
-            self_.safe_lock(|x| x.mempool.clone())?;
-        // the fat transactions in the jds-mempool are those declared by some downstream and we
-        // don't want to remove them, but we can get rid of the others
-        new_jds_mempool.retain(|_, val| val.is_some());
-
         let client = self_
             .safe_lock(|x| x.get_client())?
             .ok_or(JdsMempoolError::NoClient)?;
         let node_mempool: Vec<String> = client.get_raw_mempool().await?;
-        // here we add all the new transactions
-        for id in &node_mempool {
-            let key_id = Txid::from_str(id)
-                .map_err(|err| JdsMempoolError::Rpc(RpcError::Deserialization(err.to_string())))?;
-            // not sure if correct, check it!
-            new_jds_mempool.entry(key_id).or_insert(None);
-        }
-
-        if new_jds_mempool.is_empty() {
-            Err(JdsMempoolError::EmptyMempool)
-        } else {
-            let _ = self_.safe_lock(|x| x.mempool = new_jds_mempool);
-            Ok(())
-        }
+        let node_mempool_deserialized: Result<Vec<Txid>, JdsMempoolError> = node_mempool
+            .iter()
+            .map(|id| Txid::from_str(id).map_err(|err| JdsMempoolError::Rpc(RpcError::Deserialization(err.to_string()))))
+            .collect();
+        let node_mempool_deserialized = node_mempool_deserialized?;
+        
+        self_.safe_lock(|x| {
+            let jds_mempool = &mut x.mempool;
+            // the fat transactions in the jds-mempool are those declared by some downstream and we
+            // don't want to remove them, but we can get rid of the others
+            jds_mempool.retain(|_, val| val.is_some());
+            // here we add all the new transactions
+            for id in &node_mempool_deserialized {
+                jds_mempool.entry(*id).or_insert(None);
+            };
+            if jds_mempool.is_empty() {
+                Err(JdsMempoolError::EmptyMempool)
+            } else {
+                Ok(())
+            }
+        })?
     }
 
     pub async fn on_submit(self_: Arc<Mutex<Self>>) -> Result<(), JdsMempoolError> {
