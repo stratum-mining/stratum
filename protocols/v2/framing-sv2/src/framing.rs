@@ -44,11 +44,9 @@ impl<T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> From<Sv2Frame<T, B>> 
 
 /// Abstraction for a SV2 Frame.
 #[derive(Debug, Clone)]
-pub struct Sv2Frame<T, B> {
-    header: Header,
-    payload: Option<T>,
-    /// Serialized header + payload
-    serialized: Option<B>,
+pub enum Sv2Frame<T, B> {
+    Payload { header: Header, payload: T },
+    Raw { header: Header, serialized: B },
 }
 
 impl<T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> Sv2Frame<T, B> {
@@ -57,23 +55,23 @@ impl<T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> Sv2Frame<T, B> {
     /// When called on a non serialized frame, it is not so cheap (because it serializes it).
     #[inline]
     pub fn serialize(self, dst: &mut [u8]) -> Result<(), Error> {
-        if let Some(mut serialized) = self.serialized {
-            dst.swap_with_slice(serialized.as_mut());
-            Ok(())
-        } else if let Some(payload) = self.payload {
-            #[cfg(not(feature = "with_serde"))]
-            to_writer(self.header, dst).map_err(Error::BinarySv2Error)?;
-            #[cfg(not(feature = "with_serde"))]
-            to_writer(payload, &mut dst[Header::SIZE..]).map_err(Error::BinarySv2Error)?;
-            #[cfg(feature = "with_serde")]
-            to_writer(&self.header, dst.as_mut()).map_err(Error::BinarySv2Error)?;
-            #[cfg(feature = "with_serde")]
-            to_writer(&payload, &mut dst.as_mut()[Header::SIZE..])
-                .map_err(Error::BinarySv2Error)?;
-            Ok(())
-        } else {
-            // Sv2Frame always has a payload or a serialized payload
-            panic!("Impossible state")
+        match self {
+            Sv2Frame::Raw { mut serialized, .. } => {
+                dst.swap_with_slice(serialized.as_mut());
+                Ok(())
+            }
+            Sv2Frame::Payload { header, payload } => {
+                #[cfg(not(feature = "with_serde"))]
+                to_writer(header, dst).map_err(Error::BinarySv2Error)?;
+                #[cfg(not(feature = "with_serde"))]
+                to_writer(payload, &mut dst[Header::SIZE..]).map_err(Error::BinarySv2Error)?;
+                #[cfg(feature = "with_serde")]
+                to_writer(&header, dst.as_mut()).map_err(Error::BinarySv2Error)?;
+                #[cfg(feature = "with_serde")]
+                to_writer(&payload, &mut dst.as_mut()[Header::SIZE..])
+                    .map_err(Error::BinarySv2Error)?;
+                Ok(())
+            }
         }
     }
 
@@ -83,16 +81,18 @@ impl<T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> Sv2Frame<T, B> {
     /// already serialized payload. If the frame has not yet been
     /// serialized, this function should never be used (it will panic).
     pub fn payload(&mut self) -> Option<&mut [u8]> {
-        if let Some(serialized) = self.serialized.as_mut() {
-            Some(&mut serialized.as_mut()[Header::SIZE..])
-        } else {
-            None
+        match self {
+            Sv2Frame::Raw { serialized, .. } => Some(&mut serialized.as_mut()[Header::SIZE..]),
+            Sv2Frame::Payload { .. } => None,
         }
     }
 
     /// `Sv2Frame` always returns `Some(self.header)`.
     pub fn header(&self) -> crate::header::Header {
-        self.header
+        match self {
+            Self::Payload { header, .. } => *header,
+            Self::Raw { header, .. } => *header,
+        }
     }
 
     /// Tries to build a `Sv2Frame` from raw bytes, assuming they represent a serialized `Sv2Frame` frame (`Self.serialized`).
@@ -113,10 +113,9 @@ impl<T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> Sv2Frame<T, B> {
     pub fn from_bytes_unchecked(mut bytes: B) -> Self {
         // Unchecked function caller is supposed to already know that the passed bytes are valid
         let header = Header::from_bytes(bytes.as_mut()).expect("Invalid header");
-        Self {
+        Self::Raw {
             header,
-            payload: None,
-            serialized: Some(bytes),
+            serialized: bytes,
         }
     }
 
@@ -150,13 +149,9 @@ impl<T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> Sv2Frame<T, B> {
     /// otherwise, returns the length of `self.payload`.
     #[inline]
     pub fn encoded_length(&self) -> usize {
-        if let Some(serialized) = self.serialized.as_ref() {
-            serialized.as_ref().len()
-        } else if let Some(payload) = self.payload.as_ref() {
-            payload.get_size() + Header::SIZE
-        } else {
-            // Sv2Frame always has a payload or a serialized payload
-            panic!("Impossible state")
+        match self {
+            Sv2Frame::Raw { serialized, .. } => serialized.as_ref().len(),
+            Sv2Frame::Payload { payload, .. } => payload.get_size() + Header::SIZE,
         }
     }
 
@@ -170,10 +165,9 @@ impl<T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> Sv2Frame<T, B> {
     ) -> Option<Self> {
         let extension_type = update_extension_type(extension_type, channel_msg);
         let len = message.get_size() as u32;
-        Header::from_len(len, message_type, extension_type).map(|header| Self {
+        Header::from_len(len, message_type, extension_type).map(|header| Self::Payload {
             header,
-            payload: Some(message),
-            serialized: None,
+            payload: message,
         })
     }
 }
@@ -181,14 +175,16 @@ impl<T: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> Sv2Frame<T, B> {
 impl<A: Serialize + GetSize, B: AsMut<[u8]> + AsRef<[u8]>> Sv2Frame<A, B> {
     /// Maps a `Sv2Frame<A, B>` to `Sv2Frame<C, B>` by applying `fun`,
     /// which is assumed to be a closure that converts `A` to `C`
-    pub fn map<C>(self, fun: fn(A) -> C) -> Sv2Frame<C, B> {
-        let serialized = self.serialized;
-        let header = self.header;
-        let payload = self.payload.map(fun);
-        Sv2Frame {
-            header,
-            payload,
-            serialized,
+    pub fn map<C>(self, fun: fn(A) -> C) -> Sv2Frame<C, B>
+    where
+        C: Serialize + GetSize,
+    {
+        match self {
+            Sv2Frame::Raw { header, serialized } => Sv2Frame::Raw { header, serialized },
+            Sv2Frame::Payload { header, payload } => Sv2Frame::Payload {
+                header,
+                payload: fun(payload),
+            },
         }
     }
 }
