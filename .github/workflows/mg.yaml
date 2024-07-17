@@ -162,24 +162,48 @@ jobs:
   mg-aggregate-results:
     name: "Aggregate MG Test Results"
     runs-on: ubuntu-latest
-    needs:
-      - bad-pool-config-test
-      - interop-jd-translator
-      - interop-proxy-with-multi-ups
-      - interop-proxy-with-multi-ups-extended
-      - jds-do-not-fail-on-wrong-tsdatasucc
-      - jds-do-not-panic-if-jdc-close-connection
-      - jds-do-not-stackoverflow-when-no-token
-      - pool-sri-test-1-standard
-      - pool-sri-test-close-channel
-      - pool-sri-test-extended_0
-      - pool-sri-test-extended_1
-      - pool-sri-test-reject-auth
-      - standard-coverage
-      - sv1-test
-      - translation-proxy-broke-pool
-      - translation-proxy
-      - translation-proxy-old-share
+    if: always()
+    needs: [
+      bad-pool-config-test,
+      interop-jd-translator,
+      interop-proxy-with-multi-ups,
+      interop-proxy-with-multi-ups-extended,
+      jds-do-not-fail-on-wrong-tsdatasucc,
+      jds-do-not-panic-if-jdc-close-connection,
+      jds-do-not-stackoverflow-when-no-token,
+      pool-sri-test-1-standard,
+      pool-sri-test-close-channel,
+      pool-sri-test-extended_0,
+      pool-sri-test-extended_1,
+      pool-sri-test-reject-auth,
+      standard-coverage,
+      sv1-test,
+      translation-proxy-broke-pool,
+      translation-proxy,
+      translation-proxy-old-share
+    ]
     steps:
-      - name: Aggregate MG Test Results
-        run: echo "All MG tests completed successfully"
+      - name: Aggregate Results
+        run: |
+          if [ "${{ needs.bad-pool-config-test.result }}" != "success" ] ||
+          [ "${{ needs.interop-jd-translator.result }}" != "success" ] ||
+          [ "${{ needs.interop-proxy-with-multi-ups.result }}" != "success" ] ||
+          [ "${{ needs.interop-proxy-with-multi-ups-extended.result }}" != "success" ] ||
+          [ "${{ needs.jds-do-not-fail-on-wrong-tsdatasucc.result }}" != "success" ] ||
+          [ "${{ needs.jds-do-not-panic-if-jdc-close-connection.result }}" != "success" ] ||
+          [ "${{ needs.jds-do-not-stackoverflow-when-no-token.result }}" != "success" ] ||
+          [ "${{ needs.pool-sri-test-1-standard.result }}" != "success" ] ||
+          [ "${{ needs.pool-sri-test-close-channel.result }}" != "success" ] ||
+          [ "${{ needs.pool-sri-test-extended_0.result }}" != "success" ] ||
+          [ "${{ needs.pool-sri-test-extended_1.result }}" != "success" ] ||
+          [ "${{ needs.pool-sri-test-reject-auth.result }}" != "success" ] ||
+          [ "${{ needs.standard-coverage.result }}" != "success" ] ||
+          [ "${{ needs.sv1-test.result }}" != "success" ] ||
+          [ "${{ needs.translation-proxy-broke-pool.result }}" != "success" ] ||
+          [ "${{ needs.translation-proxy.result }}" != "success" ] ||
+          [ "${{ needs.translation-proxy-old-share.result }}" != "success" ]; then
+            echo "One or more jobs failed."
+            exit 1
+          else
+            echo "All MG tests completed successfully"
+          fi
