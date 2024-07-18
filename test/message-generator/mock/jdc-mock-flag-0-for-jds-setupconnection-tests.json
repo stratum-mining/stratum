@@ -3,8 +3,8 @@
     "doc": [
         "This test does",
         "Soft mock of JDC",
-        "Connect to JDS",
-        "Receive Setup Connection Error as incorrect bits are set"
+        "Connect to JDS (where it doesn't matter if it supports async jobs or not)",
+        "Send SetupConnection with flag 0 (no async jobs) and expect SetupConnection.Success with flag 0"
     ],
     "frame_builders": [
         {
@@ -25,13 +25,13 @@
                         [
                             [
                                 "flags",
-                                {"U32": 1}
+                                { "U32": 0 }
                             ]
                         ]
                     ]
                 }
             ],
-            "actiondoc": "This action sends SetupConnection and checks that .Error"
+            "actiondoc": "This action sends SetupConnection and expects SetupConnection.Success with flag 0"
        }
     ],
     "setup_commands": [],
