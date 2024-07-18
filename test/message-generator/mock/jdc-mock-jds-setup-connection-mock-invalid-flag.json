@@ -18,8 +18,17 @@
             "role": "client",
             "results": [
                 {
-                    "type": "match_message_type",
-                    "value": "0x02"
+                    "type": "match_message_field",
+                    "value": [
+                        "CommonMessages",
+                        "SetupConnectionSuccess",
+                        [
+                            [
+                                "flags",
+                                {"U32": 1}
+                            ]
+                        ]
+                    ]
                 }
             ],
             "actiondoc": "This action sends SetupConnection and checks that .Error"

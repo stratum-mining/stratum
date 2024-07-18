@@ -475,8 +475,8 @@ impl JobDeclarator {
                             let flag = setup_connection.flags;
                             let is_valid = SetupConnection::check_flags(
                                 Protocol::JobDeclarationProtocol,
-                                flag,
                                 1,
+                                flag,
                             );
 
                             if is_valid {

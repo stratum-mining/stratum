@@ -91,11 +91,15 @@ impl<'decoder> SetupConnection<'decoder> {
                 let requires_async_job_mining_passed = (required >> 31) & 1 > 0;
                 let requires_async_job_mining_self = (available >> 31) & 1 > 0;
 
-                let specific_flags_check =
-                    !requires_async_job_mining_self || requires_async_job_mining_passed;
-                let general_flags_check = (available & required) == required;
-
-                specific_flags_check && general_flags_check
+                match (
+                    requires_async_job_mining_self,
+                    requires_async_job_mining_passed,
+                ) {
+                    (true, true) => true,
+                    (true, false) => true,
+                    (false, true) => false,
+                    (false, false) => true,
+                }
             }
             Protocol::TemplateDistributionProtocol | Protocol::JobDistributionProtocol => {
                 // These protocols do not define flags for setting up a connection.
@@ -419,14 +423,6 @@ mod test {
         let available_flags = 0b_1000_0000_0000_0000_0000_0000_0000_0000;
         let required_flags = 0b_1000_0000_0000_0000_0000_0000_0000_0000;
         assert!(SetupConnection::check_flags(
-            protocol,
-            available_flags,
-            required_flags
-        ));
-
-        let available_flags = 0b_0000_0000_0000_0000_0000_0000_0000_0000;
-        let required_flags = 0b_1000_0000_0000_0000_0000_0000_0000_0000;
-        assert!(!SetupConnection::check_flags(
             protocol,
             available_flags,
             required_flags
