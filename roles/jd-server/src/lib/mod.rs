@@ -57,6 +57,8 @@ pub struct CoinbaseOutput {
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Configuration {
+    #[serde(default = "default_true")]
+    pub async_mining_allowed: bool,
     pub listen_jd_address: String,
     pub authority_public_key: Secp256k1PublicKey,
     pub authority_secret_key: Secp256k1SecretKey,
@@ -68,6 +70,10 @@ pub struct Configuration {
     pub core_rpc_pass: String,
     #[serde(deserialize_with = "duration_from_toml")]
     pub mempool_update_interval: Duration,
+}
+
+fn default_true() -> bool {
+    true
 }
 
 fn duration_from_toml<'de, D>(deserializer: D) -> Result<Duration, D::Error>

@@ -47,6 +47,7 @@ pub struct AddTrasactionsToMempool {
 
 #[derive(Debug)]
 pub struct JobDeclaratorDownstream {
+    async_mining_allowed: bool,
     sender: Sender<EitherFrame>,
     receiver: Receiver<EitherFrame>,
     // TODO this should be computed for each new template so that fees are included
@@ -70,6 +71,7 @@ pub struct JobDeclaratorDownstream {
 
 impl JobDeclaratorDownstream {
     pub fn new(
+        async_mining_allowed: bool,
         receiver: Receiver<EitherFrame>,
         sender: Sender<EitherFrame>,
         config: &Configuration,
@@ -89,6 +91,7 @@ impl JobDeclaratorDownstream {
             .expect("Invalid coinbase output in config");
 
         Self {
+            async_mining_allowed,
             receiver,
             sender,
             coinbase_output,
@@ -475,14 +478,14 @@ impl JobDeclarator {
                             let flag = setup_connection.flags;
                             let is_valid = SetupConnection::check_flags(
                                 Protocol::JobDeclarationProtocol,
-                                1,
+                                config.async_mining_allowed as u32,
                                 flag,
                             );
 
                             if is_valid {
                                 let success_message = SetupConnectionSuccess {
                                     used_version: 2,
-                                    flags: 0b_0000_0000_0000_0000_0000_0000_0000_0001,
+                                    flags: (setup_connection.flags & 1u32),
                                 };
                                 info!("Sending success message for proxy");
                                 let sv2_frame: StdFrame = JdsMessages::Common(success_message.into())
@@ -493,6 +496,7 @@ impl JobDeclarator {
 
                                 let jddownstream =
                                     Arc::new(Mutex::new(JobDeclaratorDownstream::new(
+                                        (setup_connection.flags & 1u32) != 0u32, // this takes a bool instead of u32
                                         receiver.clone(),
                                         sender.clone(),
                                         &config,
