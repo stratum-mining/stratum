@@ -1,4 +1,7 @@
-use crate::{Action, ActionResult, Role, SaveField, Sv1Action, Sv1ActionResult, Sv2Type};
+use crate::{
+    Action, ActionResult, Condition, Role, SaveField, Sv1Action, Sv1ActionResult, Sv2Type,
+    WaitUntilConfig,
+};
 use codec_sv2::{buffer_sv2::Slice, StandardEitherFrame, Sv2Frame};
 use roles_logic_sv2::parsers::AnyMessage;
 use serde_json::{Map, Value};
@@ -52,7 +55,35 @@ impl Sv2ActionParser {
                 match result.get("type").unwrap().as_str().unwrap() {
                     "match_message_type" => {
                         let message_type = u8::from_str_radix(&result.get("value").unwrap().as_str().unwrap()[2..], 16).expect("Result message_type should be an hex value starting with 0x and not bigger than 0xff");
-                        action_results.push(ActionResult::MatchMessageType(message_type));
+                        match result.get("condition") {
+                            Some(condition_inner) => {
+                                let condition_inner = condition_inner
+                                    .get("WaitUntil")
+                                    .unwrap()
+                                    .get("WaitUntilConfig")
+                                    .unwrap();
+                                let timeout = serde_json::from_value::<u32>(
+                                    condition_inner.get("timeout").unwrap().clone(),
+                                )
+                                .unwrap();
+                                let allowed_messages = condition_inner
+                                    .get("allowed_messages")
+                                    .unwrap()
+                                    .as_array()
+                                    .unwrap();
+                                let allowed_messages: Vec<u8> = allowed_messages.iter().map(|t| u8::from_str_radix(&t.as_str().unwrap()[2..], 16).expect("Result message_type should be an hex value starting with 0x and not bigger than 0xff")).collect();
+                                let wait_until_config = WaitUntilConfig {
+                                    timeout,
+                                    allowed_messages,
+                                };
+                                action_results.push(ActionResult::MatchMessageType(
+                                    message_type,
+                                    Some(Condition::WaitUntil(wait_until_config)),
+                                ));
+                            }
+                            None => action_results
+                                .push(ActionResult::MatchMessageType(message_type, None)),
+                        };
                     }
                     "get_message_field" => {
                         let sv2_type = result.get("value").unwrap().clone();

@@ -3,13 +3,14 @@ use crate::{
     into_static::into_static,
     net::{setup_as_downstream, setup_as_upstream},
     parser::sv2_messages::ReplaceField,
-    Action, ActionResult, Command, Role, SaveField, Sv2Type, Test,
+    Action, ActionResult, Command, Condition, Role, SaveField, Sv2Type, Test,
 };
 use async_channel::{Receiver, Sender};
 use binary_sv2::Serialize;
 use codec_sv2::{StandardEitherFrame as EitherFrame, Sv2Frame};
 use roles_logic_sv2::parsers::{self, AnyMessage};
 use std::{collections::HashMap, convert::TryInto, sync::Arc};
+use tokio::{pin, time::sleep};
 
 use tracing::{debug, error, info};
 
@@ -200,32 +201,105 @@ impl Executor {
                 );
 
                 match result {
-                    ActionResult::MatchMessageType(message_type) => {
-                        let message = match recv.recv().await {
-                            Ok(message) => message,
-                            Err(_) => {
+                    ActionResult::MatchMessageType(message_type, condition) => match condition {
+                        None => {
+                            let message = match recv.recv().await {
+                                Ok(message) => message,
+                                Err(_) => {
+                                    success = false;
+                                    error!("Connection closed before receiving the message");
+                                    break;
+                                }
+                            };
+
+                            let message: Sv2Frame<AnyMessage<'static>, _> =
+                                message.try_into().unwrap();
+                            debug!("RECV {:#?}", message);
+                            let header = message.get_header().unwrap();
+
+                            if header.msg_type() != *message_type {
+                                error!(
+                                    "WRONG MESSAGE TYPE expected: {} received: {}",
+                                    message_type,
+                                    header.msg_type()
+                                );
                                 success = false;
-                                error!("Connection closed before receiving the message");
                                 break;
+                            } else {
+                                info!("MATCHED MESSAGE TYPE {}", message_type);
                             }
-                        };
-
-                        let message: Sv2Frame<AnyMessage<'static>, _> = message.try_into().unwrap();
-                        debug!("RECV {:#?}", message);
-                        let header = message.get_header().unwrap();
-
-                        if header.msg_type() != *message_type {
-                            error!(
-                                "WRONG MESSAGE TYPE expected: {} received: {}",
-                                message_type,
-                                header.msg_type()
-                            );
-                            success = false;
-                            break;
-                        } else {
-                            info!("MATCHED MESSAGE TYPE {}", message_type);
                         }
-                    }
+                        Some(condition_inner) => {
+                            match condition_inner {
+                                Condition::WaitUntil(wait_until_config) => {
+                                    let duration = std::time::Duration::from_secs(
+                                        wait_until_config.timeout as u64,
+                                    );
+                                    let timer = sleep(duration);
+                                    pin!(timer);
+                                    let async_block = async {
+                                        loop {
+                                            let message = recv.recv().await;
+                                            let message = match message {
+                                                Ok(message) => message,
+                                                Err(_) => {
+                                                    success = false;
+                                                    error!("Connection closed before receiving the message");
+                                                    break;
+                                                }
+                                            };
+                                            let message: Sv2Frame<AnyMessage<'static>, _> =
+                                                message.try_into().unwrap();
+                                            debug!("RECV {:#?}", message);
+                                            let header = match message.get_header() {
+                                                Some(header_) => header_,
+                                                None => {
+                                                    error!("Failed to get message header");
+                                                    success = false;
+                                                    break;
+                                                }
+                                            };
+                                            let allowed_messages =
+                                                &wait_until_config.allowed_messages;
+                                            let received_message_type = header.msg_type();
+                                            if allowed_messages.contains(&received_message_type) {
+                                                if received_message_type == *message_type {
+                                                    info!(
+                                                        "MATCHED WAITED  MESSAGE TYPE {}",
+                                                        received_message_type
+                                                    );
+                                                    break;
+                                                } else {
+                                                    info!(
+                                                        "RECEIVED {}, WAITING MESSAGE TYPE {}",
+                                                        received_message_type, message_type
+                                                    );
+                                                    continue;
+                                                }
+                                            } else {
+                                                error!(
+                                                    "RECEIVED MESSAGE OF NOT ALLOWED TYPE {:?}",
+                                                    received_message_type
+                                                );
+                                                success = false;
+                                                break;
+                                            }
+                                        }
+                                    };
+                                    tokio::select! {
+                                        _ = &mut timer => {
+                                            error!("Timer has elapsed before wanted message has arrived");
+                                            success = false;
+                                            break;
+                                        },
+                                        _ = async_block => {
+                                            info!("MATCHED WAITED  MESSAGE TYPE {}", message_type);
+                                        }
+                                    }
+                                }
+                            };
+                        }
+                    },
                     ActionResult::MatchMessageField((
                         subprotocol,
                         message_type,

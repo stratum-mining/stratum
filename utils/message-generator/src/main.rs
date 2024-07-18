@@ -11,6 +11,7 @@ extern crate load_file;
 use crate::parser::sv2_messages::ReplaceField;
 use binary_sv2::{Deserialize, Serialize};
 use codec_sv2::StandardEitherFrame as EitherFrame;
+use core::fmt::Display;
 use external_commands::*;
 use key_utils::{Secp256k1PublicKey, Secp256k1SecretKey};
 use rand::Rng;
@@ -178,10 +179,31 @@ pub struct SaveField {
     field_name: String,
     keyword: String,
 }
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
+pub struct WaitUntilConfig {
+    timeout: u32, // in seconds
+    allowed_messages: Vec<u8>,
+}
+
+// enum as a placeholder for new potential conditions to be implemented in the future
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
+pub enum Condition {
+    WaitUntil(WaitUntilConfig),
+}
+
+impl Display for Condition {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Condition::WaitUntil(wait_until_config) => {
+                write!(f, "WaitUntil condition with config {:?}", wait_until_config)
+            }
+        }
+    }
+}
 
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 enum ActionResult {
-    MatchMessageType(u8),
+    MatchMessageType(u8, Option<Condition>),
     MatchMessageField((String, String, Vec<(String, Sv2Type)>)),
     GetMessageField {
         subprotocol: String,
@@ -209,13 +231,22 @@ enum Sv1ActionResult {
 impl std::fmt::Display for ActionResult {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
-            ActionResult::MatchMessageType(message_type) => {
-                write!(
-                    f,
-                    "MatchMessageType: {} ({:#x})",
-                    message_type, message_type
-                )
-            }
+            ActionResult::MatchMessageType(message_type, condition) => match condition {
+                None => {
+                    write!(
+                        f,
+                        "MatchMessageType: {} ({:#x})",
+                        message_type, message_type
+                    )
+                }
+                Some(condition_inner) => {
+                    write!(
+                        f,
+                        "MatchMessageType: {} ({:#x}) with condition {}",
+                        message_type, message_type, condition_inner
+                    )
+                }
+            },
             ActionResult::MatchMessageField(message_field) => {
                 write!(f, "MatchMessageField: {:?}", message_field)
             }

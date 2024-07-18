@@ -147,10 +147,11 @@
             "results": [
                 {
                     "type": "match_message_type",
-                    "value": "0x1b"
+                    "value": "0x1b",
+                    "condition": {"WaitUntil": {"WaitUntilConfig": {"timeout": 120, "allowed_messages": ["0x1b", "0x16"] } } }
                 }
             ],
-            "actiondoc": "Sends NewExtendedMiningJob and SetNewPrevHash and waits that a SubmitsShareExtended is submitted" 
+            "actiondoc": "Sends NewExtendedMiningJob and SetNewPrevHash and waits until a SubmitsShareExtended is submitted. Allowed messages: SubmitSharesExtended, UpdateChannel" 
         }
     ],
     "setup_commands": [

@@ -255,6 +255,26 @@ message will be the abbreviated with `setup_connection_success_template_distribu
     ]
 }
 ```
+For the result `MatchMessageType` there is the optional feature `WaitUntil`. The sintax is like this
+```json
+ "results": [
+     {
+         "type": "match_message_type",
+         "value": "0x1b",
+         "condition": {"WaitUntil": {"WaitUntilConfig": {"timeout": 120, "allowed_messages": ["0x1b", "0x16"] } } }
+     }
+ ],
+```
+This action will have the following behaviour:
+1. Checks all the messages that arrive.
+   The `allowed_messages` describe the message types that are allowed, i.e. `0x1b` and `0x16`.
+   If arrives one message that has a different type, the test will fail. This is needed for making
+   the MG a finite state machine.
+2. THe test will listen all the allowed messages until the target message is received. In the
+   previous case, the target message has type `0x1b`.
+3. A timeout that indicates when the test is considered to be failed. This is used in the case that
+   the MG received only messages of allowed type, but hasn't received the target message for a long
+   time, making the MG test stuck.
 
 If the test version is "1", each object is composed by:
 1. `messages_ids`: an array of strings, that are ids of sv1_messages previously defined.
