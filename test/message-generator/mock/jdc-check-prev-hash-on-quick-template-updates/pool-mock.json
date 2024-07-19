@@ -1,0 +1,167 @@
+{
+    "version": "2",
+    "doc": [
+        "This test does",
+        "Mock a pool",
+        "Start listen to the port 34254",
+        "Receive setup_connection",
+        "Sends setup_connection_success",
+        "Receive open extended channel",
+        "Send open extended channel success",
+        "Receive new custom mining job",
+        "Send set custom mining job success",
+        "Receive submit share",
+        "Send submit share error"
+    ],
+    "mining_messages":[
+         {
+            "message": {
+                "type": "SetCustomMiningJobSuccess",
+                "request_id":0,
+                "channel_id":0,
+                "job_id":0
+            },
+            "replace_fields": [["request_id", "custom_req_id_1"],["channel_id","custom_channel_id_1"]],
+            "id": "allocate_custom_mining_job_token_success_1"
+        },
+        {
+            "message": {
+                "type": "SetCustomMiningJobSuccess",
+                "request_id":0,
+                "channel_id":0,
+                "job_id":1
+            },
+            "replace_fields": [["request_id", "custom_req_id_2"],["channel_id","custom_channel_id_2"]],
+            "id": "allocate_custom_mining_job_token_success_2"
+        }
+    ],
+    "frame_builders": [
+        {
+            "type": "automatic",
+            "message_id": "test/message-generator/messages/common_messages.json::setup_connection_success_tproxy"
+        },
+        {
+            "type": "automatic",
+            "message_id": "allocate_custom_mining_job_token_success_1"
+        },
+        {
+            "type": "automatic",
+            "message_id": "allocate_custom_mining_job_token_success_2"
+        }
+    ],
+    "actions": [
+       {
+            "message_ids": [],
+            "role": "server",
+            "results": [
+                {
+                    "type": "match_message_type",
+                    "value": "0x00"
+                }
+            ],
+            "actiondoc": "This action checks that a Setupconnection message is received from JDC to pool"
+        },
+        {
+            "message_ids": ["setup_connection_success_tproxy"],
+            "role": "server",
+            "results": [],
+            "actiondoc": "This action checks that a Setupconnection message is received from JDC to pool"
+        },
+        {
+            "message_ids": [],
+            "role": "server",
+            "results": [
+                {
+                    "type": "get_message_field",
+                    "value": [
+                        "MiningProtocol",
+                        "SetCustomMiningJob",
+                        [
+                            [
+                                "request_id",
+                                "custom_req_id_1"
+                            ],
+                            [
+                                "channel_id",
+                                "custom_channel_id_1"
+                            ]
+                        ]
+                    ]
+                }
+            ],
+            "actiondoc": "This action checks for SetCustomMiningJob to pool"
+        },
+        {
+            "message_ids": ["allocate_custom_mining_job_token_success_1"],
+            "role": "server",
+            "results": [],
+            "actiondoc": "This action sends customMiningJobTokenSuccess to JDC "
+        },
+        {
+            "message_ids": [],
+            "role": "server",
+            "results": [
+                {
+                    "type": "get_message_field",
+                    "value": [
+                        "MiningProtocol",
+                        "SetCustomMiningJob",
+                        [
+                            [
+                                "request_id",
+                                "custom_req_id_2"
+                            ],
+                            [
+                                "channel_id",
+                                "custom_channel_id_2"
+                            ]
+                        ]
+                    ]
+                }
+            ],
+            "actiondoc": "This action checks for SetCustomMiningJob to pool"
+        },
+        {
+            "message_ids": ["allocate_custom_mining_job_token_success_2"],
+            "role": "server",
+            "results": [],
+            "actiondoc": "This action sends customMiningJobTokenSuccess to JDC"
+        },
+        {
+            "message_ids": [],
+            "role": "server",
+            "results": [
+                {
+                    "type": "match_message_field",
+                    "value": [
+                        "MiningProtocol",
+                        "SetCustomMiningJob",
+                        [
+                            [
+                                "prev_hash",
+                                {"U32": 89}
+                            ]
+                        ]
+                    ]
+                }
+            ],
+            "actiondoc": "This action checks for SetCustomMiningJob to pool"
+        }
+    ],
+    "setup_commands": [],
+    "execution_commands": [],
+    "cleanup_commands": [
+        {
+            "command": "sleep",
+            "args": ["10000"],
+            "conditions": "None"
+        }
+    ],
+    "role": "server",
+    "upstream": {
+        "ip": "127.0.0.1",
+        "port": 34254,
+        "pub_key": "9auqWEzQDVyd2oe1JVGFLMLHZtCo2FFqZwtKA5gd9xbuEu7PH72",
+        "secret_key": "mkDLTBBRxdBv998612qipDYoTK3YUrqLe8uWw7gu3iXbSrn2n"
+    }
+}

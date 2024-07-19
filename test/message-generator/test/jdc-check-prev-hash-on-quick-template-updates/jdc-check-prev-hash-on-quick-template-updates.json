@@ -23,7 +23,13 @@
         "TP2 responses back with setupConnection success",
         "JDC sends CoinbaseOutputDataSize to TP2",
         "Downstream sends setup connection request to JDC",
-        "JDC sends setup connection success request to downstream"
+        "JDC sends setup connection success request to downstream",
+        "",
+        "",
+        "",
+        "ascascas",
+        "This test does",
+        "Mock Pool on port: 34254"
     ],
     "frame_builders": [],
     "actions": [],
@@ -32,9 +38,8 @@
             "command": "cargo",
             "args": [
                 "run",
-                "../../test/message-generator/mock/template-provider-mock-quick-template.json"
+                "../../test/message-generator/mock/jdc-check-prev-hash-on-quick-template-updates/pool-mock.json"
             ],
-
             "conditions": {
                 "WithConditions": {
                     "conditions": [
@@ -53,40 +58,8 @@
         {
             "command": "cargo",
             "args": [
-                "llvm-cov",
-                "--no-report",
                 "run",
-                "-p",
-                "pool_sv2",
-                "--",
-                "-c",
-                "../test/config/pool-config-local-tp.toml"
-            ],
-            "conditions": {
-                "WithConditions": {
-                    "conditions": [
-                        {
-                            "output_string": "Pool INITIALIZING",
-                            "output_location": "StdOut",
-                            "late_condition": false,
-                            "condition": true
-                        }
-                    ],
-                    "timer_secs": 1000000,
-                    "warn_no_panic": false
-                }
-            }
-        },
-        {
-            "command": "sleep",
-            "args": ["600"],
-            "conditions": "None"
-        },
-        {
-            "command": "cargo",
-            "args": [
-                "run",
-                "../../test/message-generator/mock/jds-mock-quick-templates.json"
+                "../../test/message-generator/mock/jdc-check-prev-hash-on-quick-template-updates/jds-mock.json"
             ],
 
             "conditions": {
@@ -114,7 +87,7 @@
                 "jd_client",
                 "--",
                 "-c",
-                "../test/config/jdc-quick-template-update/jdc-config.toml"
+                "../test/config/jdc-check-prev-hash-on-quick-template-update/jdc-config.toml"
             ],
             "conditions": {
                 "WithConditions": {
@@ -135,7 +108,7 @@
             "command": "cargo",
             "args": [
                 "run",
-                "../../test/message-generator/mock/template-provider-mock-quick-template2.json"
+                "../../test/message-generator/mock/jdc-check-prev-hash-on-quick-template-updates/tp-mock.json"
             ],
 
             "conditions": {
@@ -157,7 +130,7 @@
             "command": "cargo",
             "args": [
                 "run",
-                "../../test/message-generator/mock/downstream-mock-quick-template.json"
+                "../../test/message-generator/mock/jdc-check-prev-hash-on-quick-template-updates/downstream-mock.json"
             ],
 
             "conditions": {
@@ -186,11 +159,6 @@
         {
             "command": "pkill",
             "args":  ["-f", "jd_client", "-SIGINT"],
-            "conditions": "None"
-        },
-        {
-            "command": "pkill",
-            "args":  ["-f", "pool_sv2", "-SIGINT"],
             "conditions": "None"
         }
     ],

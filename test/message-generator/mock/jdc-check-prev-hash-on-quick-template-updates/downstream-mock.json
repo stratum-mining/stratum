@@ -54,37 +54,7 @@
                     "value": "0x01"
                 }
             ],
-            "actiondoc": "This action sends a SetupConnection and check that receives a message type 0x01, that is SetupConnectionSuccess"
-        },
-        {
-            "message_ids": ["open_extended_mining_channel"],
-            "role": "client",
-            "results": [
-                {
-                    "type": "match_message_type",
-                    "value": "0x14"
-                },
-                {
-                    "type": "match_message_type",
-                    "value": "0x1f"
-                },
-                {
-                    "type": "match_message_type",
-                    "value": "0x20"
-                }
-            ],
-            "actiondoc": "This action sends OpenExtendedMiningChannel to the pool and checks that the reply is OpenExtendedMiningChannelSuccess"
-        },
-        {
-            "message_ids": ["submit_shares_extended"],
-            "role": "client",
-            "results": [
-                {
-                    "type": "match_message_type",
-                    "value": "0x1d"
-                }
-            ],
-            "actiondoc": "This action sends the message SubmitSharesExtended and checks that itreplies with SubmitSharesExtended.Success"
+            "actiondoc": "This action sends a SetupConnection to JDC and check that receives a message type 0x01 from JDC, that is SetupConnectionSuccess"
         }
     ],
     "setup_commands": [],
@@ -92,7 +62,7 @@
     "cleanup_commands": [
         {
             "command": "sleep",
-            "args": ["1000"],
+            "args": ["10000000"],
             "conditions": "None"
         }
     ],
