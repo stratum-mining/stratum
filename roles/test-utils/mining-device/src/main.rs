@@ -327,7 +327,11 @@ impl Device {
             let mut notify_changes_to_mining_thread = self_mutex
                 .safe_lock(|s| s.notify_changes_to_mining_thread.clone())
                 .unwrap();
-            if notify_changes_to_mining_thread.should_send {
+            if notify_changes_to_mining_thread.should_send
+                && (message_type == const_sv2::MESSAGE_TYPE_NEW_MINING_JOB
+                    || message_type == const_sv2::MESSAGE_TYPE_SET_NEW_PREV_HASH
+                    || message_type == const_sv2::MESSAGE_TYPE_SET_TARGET)
+            {
                 notify_changes_to_mining_thread
                     .sender
                     .send(())
