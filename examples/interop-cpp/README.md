@@ -207,7 +207,7 @@ installation phase of `sv2_ffi` is replaced and `sv2.h` and the newly built `lib
 in the container (they are installed in `/gnu/store/[hash]-Rust-sv2_ffi-[version]/`).
 
 The manifest it expect to find `sv2.h` in the `sv2_ffi` package. Since the `sv2.h` is created manually with
-`/build_header.sh`, it is very easy to commit code with an out of date header file. To ensure all commits include
+`scripts/build_header.sh`, it is very easy to commit code with an out of date header file. To ensure all commits include
 the most updated header file, a GitHub Actions check is planned to be added.
 
 ## Install cbindgen

@@ -1,4 +1,4 @@
-use codec_sv2::{Frame, StandardEitherFrame, StandardSv2Frame};
+use codec_sv2::{StandardEitherFrame, StandardSv2Frame};
 use iai::{black_box, main};
 use roles_logic_sv2::{
     handlers::{common::ParseUpstreamCommonMessages, mining::ParseUpstreamMiningMessages, SendTo_},

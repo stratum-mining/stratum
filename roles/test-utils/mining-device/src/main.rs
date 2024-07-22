@@ -115,7 +115,7 @@ async fn main() {
 
 use async_channel::{Receiver, Sender};
 use binary_sv2::u256_from_int;
-use codec_sv2::{Frame, Initiator, StandardEitherFrame, StandardSv2Frame};
+use codec_sv2::{Initiator, StandardEitherFrame, StandardSv2Frame};
 use roles_logic_sv2::{
     common_messages_sv2::{Protocol, SetupConnection, SetupConnectionSuccess},
     common_properties::{IsMiningUpstream, IsUpstream},
