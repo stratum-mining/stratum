@@ -7,8 +7,8 @@ use binary_sv2::{
 };
 use binary_sv2::{Deserialize, GetSize, Serialize, Str0255};
 use const_sv2::{
-    SV2_JOB_DISTR_PROTOCOL_DISCRIMINANT, SV2_JOB_NEG_PROTOCOL_DISCRIMINANT,
-    SV2_MINING_PROTOCOL_DISCRIMINANT, SV2_TEMPLATE_DISTR_PROTOCOL_DISCRIMINANT,
+    SV2_JOB_DECLARATION_PROTOCOL_DISCRIMINANT, SV2_MINING_PROTOCOL_DISCRIMINANT,
+    SV2_TEMPLATE_DISTR_PROTOCOL_DISCRIMINANT,
 };
 use core::convert::TryFrom;
 #[cfg(not(feature = "with_serde"))]
@@ -320,18 +320,16 @@ impl<'a> From<SetupConnectionError<'a>> for CSetupConnectionError {
 }
 
 /// MiningProtocol = [`SV2_MINING_PROTOCOL_DISCRIMINANT`],
-/// JobDeclarationProtocol = [`SV2_JOB_NEG_PROTOCOL_DISCRIMINANT`],
+/// JobDeclarationProtocol = [`SV2_JOB_DECLARATION_PROTOCOL_DISCRIMINANT`],
 /// TemplateDistributionProtocol = [`SV2_TEMPLATE_DISTR_PROTOCOL_DISCRIMINANT`],
-/// JobDistributionProtocol = [`SV2_JOB_DISTR_PROTOCOL_DISCRIMINANT`],
 #[cfg_attr(feature = "with_serde", derive(Serialize_repr, Deserialize_repr))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
 #[allow(clippy::enum_variant_names)]
 pub enum Protocol {
     MiningProtocol = SV2_MINING_PROTOCOL_DISCRIMINANT,
-    JobDeclarationProtocol = SV2_JOB_NEG_PROTOCOL_DISCRIMINANT,
+    JobDeclarationProtocol = SV2_JOB_DECLARATION_PROTOCOL_DISCRIMINANT,
     TemplateDistributionProtocol = SV2_TEMPLATE_DISTR_PROTOCOL_DISCRIMINANT,
-    JobDistributionProtocol = SV2_JOB_DISTR_PROTOCOL_DISCRIMINANT,
 }
 
 #[cfg(not(feature = "with_serde"))]
@@ -366,9 +364,8 @@ impl TryFrom<u8> for Protocol {
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         match value {
             SV2_MINING_PROTOCOL_DISCRIMINANT => Ok(Protocol::MiningProtocol),
-            SV2_JOB_NEG_PROTOCOL_DISCRIMINANT => Ok(Protocol::JobDeclarationProtocol),
+            SV2_JOB_DECLARATION_PROTOCOL_DISCRIMINANT => Ok(Protocol::JobDeclarationProtocol),
             SV2_TEMPLATE_DISTR_PROTOCOL_DISCRIMINANT => Ok(Protocol::TemplateDistributionProtocol),
-            SV2_JOB_DISTR_PROTOCOL_DISCRIMINANT => Ok(Protocol::JobDistributionProtocol),
             _ => Err(()),
         }
     }
@@ -385,9 +382,8 @@ impl From<Protocol> for u8 {
     fn from(val: Protocol) -> Self {
         match val {
             Protocol::MiningProtocol => SV2_MINING_PROTOCOL_DISCRIMINANT,
-            Protocol::JobDeclarationProtocol => SV2_JOB_NEG_PROTOCOL_DISCRIMINANT,
+            Protocol::JobDeclarationProtocol => SV2_JOB_DECLARATION_PROTOCOL_DISCRIMINANT,
             Protocol::TemplateDistributionProtocol => SV2_TEMPLATE_DISTR_PROTOCOL_DISCRIMINANT,
-            Protocol::JobDistributionProtocol => SV2_JOB_DISTR_PROTOCOL_DISCRIMINANT,
         }
     }
 }
