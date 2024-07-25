@@ -69,6 +69,17 @@ impl<'decoder> SetupConnection<'decoder> {
             // [1] [1] -> true
             // [0] [1] -> false
             Protocol::MiningProtocol => {
+                // Evaluates protocol requirements based on flag bits.
+                //
+                // Checks if the current protocol meets the required flags for work selection and version rolling
+                // by reversing the bits of `available_flags` and `required_flags`. It extracts the 30th and 29th
+                // bits to determine if work selection and version rolling are needed.
+                //
+                // Returns `true` if:
+                // - The work selection requirement is satisfied or not needed.
+                // - The version rolling requirement is satisfied or not needed.
+                //
+                // Otherwise, returns `false`.
                 let available = available_flags.reverse_bits();
                 let required_flags = required_flags.reverse_bits();
                 let requires_work_selection_passed = required_flags >> 30 > 0;
@@ -85,6 +96,13 @@ impl<'decoder> SetupConnection<'decoder> {
                 work_selection && version_rolling
             }
             Protocol::JobDeclarationProtocol => {
+                // Determines if asynchronous job mining is required based on flag bits.
+                //
+                // Reverses the bits of `available_flags` and `required_flags`, extracts the 31st bit from each,
+                // and evaluates if the condition is met using these bits. Returns `true` or `false` based on:
+                // - True if `requires_async_job_mining_self` is true, or both are true.
+                // - False if `requires_async_job_mining_self` is false and `requires_async_job_mining_passed` is true.
+                // - True otherwise.
                 let available = available_flags.reverse_bits();
                 let required = required_flags.reverse_bits();
 
