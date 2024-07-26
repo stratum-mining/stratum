@@ -280,23 +280,18 @@ impl JobDeclaratorDownstream {
                                         match Self::collect_txs_in_job(self_mutex.clone()) {
                                             Ok(_) => {
                                                 info!("All transactions in downstream job are recognized correctly by the JD Server");
-                                                let hexdata =
-                                                    match JobDeclaratorDownstream::get_block_hex(
-                                                        self_mutex.clone(),
-                                                        message,
-                                                    ) {
-                                                        Ok(inner) => inner,
-                                                        Err(e) => {
-                                                            error!(
-                                                                "Received solution but encountered error: {:?}",
-                                                                e
-                                                            );
-                                                            recv.close();
-                                                            //TODO should we brake it?
-                                                            break;
-                                                        }
-                                                    };
-                                                let _ = new_block_sender.send(hexdata).await;
+                                                match JobDeclaratorDownstream::get_block_hex(
+                                                    self_mutex.clone(),
+                                                    message,
+                                                ) {
+                                                    Ok(hexdata) => {
+                                                        let _ =
+                                                            new_block_sender.send(hexdata).await;
+                                                    }
+                                                    Err(e) => {
+                                                        handle_result!(tx_status, Err(*e))
+                                                    }
+                                                };
                                             }
                                             Err(error) => {
                                                 error!("Missing transactions: {:?}", error);
@@ -316,22 +311,20 @@ impl JobDeclaratorDownstream {
                                                     .unwrap();
                                                 tokio::select! {
                                                     _ = JDsMempool::add_tx_data_to_mempool(mempool, retrieve_transactions) => {
-                                                        let hexdata = match JobDeclaratorDownstream::get_block_hex(
+                                                        match JobDeclaratorDownstream::get_block_hex(
                                                             self_mutex.clone(),
                                                             message.clone(),
                                                         ) {
-                                                            Ok(inner) => inner,
+                                                            Ok(hexdata) => {
+                                                                let _ = new_block_sender.send(hexdata).await;
+                                                            },
                                                             Err(e) => {
-                                                                error!(
-                                                                    "Error retrieving transactions: {:?}",
-                                                                    e
+                                                                handle_result!(
+                                                                    tx_status,
+                                                                    Err(*e)
                                                                 );
-                                                                recv.close();
-                                                                //TODO should we brake it?
-                                                                break;
                                                             }
                                                         };
-                                                        let _ = new_block_sender.send(hexdata).await;
                                                     }
                                                     _ = tokio::time::sleep(Duration::from_secs(60)) => {}
                                                 };
