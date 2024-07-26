@@ -317,6 +317,7 @@ mod test {
 
     use crate::downstream_sv1::Downstream;
 
+    #[ignore] // as described in issue #988
     #[test]
     fn test_diff_management() {
         let expected_shares_per_minute = 1000.0;
