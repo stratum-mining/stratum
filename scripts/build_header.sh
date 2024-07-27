@@ -1,9 +1,8 @@
 #! /bin/sh
-
 cargo install --version 0.20.0 cbindgen
 
-rm -f ./scripts/sv2.h
-touch ./scripts/sv2.h
+rm -f ./sv2.h
+touch ./sv2.h
 
 dir=${1:-../protocols}
 
