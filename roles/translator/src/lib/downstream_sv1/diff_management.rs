@@ -320,7 +320,7 @@ mod test {
     #[test]
     fn test_diff_management() {
         let expected_shares_per_minute = 1000.0;
-        let total_run_time = std::time::Duration::from_secs(30);
+        let total_run_time = std::time::Duration::from_secs(60);
         let initial_nominal_hashrate = measure_hashrate(5);
         let target = match roles_logic_sv2::utils::hash_rate_to_target(
             initial_nominal_hashrate,
