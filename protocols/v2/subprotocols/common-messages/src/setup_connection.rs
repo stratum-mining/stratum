@@ -119,7 +119,7 @@ impl<'decoder> SetupConnection<'decoder> {
                     (false, false) => true,
                 }
             }
-            Protocol::TemplateDistributionProtocol | Protocol::JobDistributionProtocol => {
+            Protocol::TemplateDistributionProtocol => {
                 // These protocols do not define flags for setting up a connection.
                 false
             }
