@@ -261,12 +261,6 @@ impl JobDeclaratorClient {
             }
         };
 
-        // Start receiving messages from the SV2 Upstream role
-        if let Err(e) = upstream_sv2::Upstream::parse_incoming(upstream.clone()) {
-            error!("failed to create sv2 parser: {}", e);
-            panic!()
-        }
-
         match upstream_sv2::Upstream::setup_connection(
             upstream.clone(),
             proxy_config.min_supported_version,
@@ -279,6 +273,12 @@ impl JobDeclaratorClient {
                 error!("Failed to connect to Upstream EXITING! : {}", e);
                 panic!()
             }
+        }
+
+        // Start receiving messages from the SV2 Upstream role
+        if let Err(e) = upstream_sv2::Upstream::parse_incoming(upstream.clone()) {
+            error!("failed to create sv2 parser: {}", e);
+            panic!()
         }
 
         // Format `Downstream` connection address
