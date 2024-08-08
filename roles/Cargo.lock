@@ -800,7 +800,7 @@ checksum = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
 
 [[package]]
 name = "framing_sv2"
-version = "1.1.0"
+version = "2.0.0"
 dependencies = [
  "binary_sv2",
  "buffer_sv2",
@@ -2053,7 +2053,7 @@ dependencies = [
 
 [[package]]
 name = "sv1_api"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "binary_sv2",
  "bitcoin_hashes 0.3.2",
