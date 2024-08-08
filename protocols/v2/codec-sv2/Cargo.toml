@@ -1,6 +1,6 @@
 [package]
 name = "codec_sv2"
-version = "1.2.0"
+version = "1.2.1"
 authors = ["fi3 <email@email.org>"]
 edition = "2018"
 description = "Sv2 data format"

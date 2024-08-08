@@ -1,5 +1,7 @@
 #![cfg_attr(feature = "no_std", no_std)]
 
+pub use framing_sv2::framing::Frame;
+
 extern crate alloc;
 
 #[cfg(feature = "noise_sv2")]
