@@ -1,0 +1,131 @@
+name: Semver Check
+
+on:
+  push:
+    branches:
+      - "main"
+      - "dev"
+  pull_request:
+    branches:
+      - "main"
+      - "dev"
+
+jobs:
+  semver-check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Install Rust 1.75.0
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: 1.75.0
+          override: true
+
+      - name: Cache Cargo registry
+        uses: actions/cache@v2
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-registry-
+
+      - name: Cache Cargo index
+        uses: actions/cache@v2
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-index-
+
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y cmake
+
+      - name: Install cargo-semver-checks
+        run: cargo install cargo-semver-checks --locked
+
+      - name: Run semver checks for common
+        working-directory: common
+        run: cargo semver-checks
+
+      - name: Run semver checks for utils/buffer
+        working-directory: utils/buffer
+        run: cargo semver-checks
+
+      - name: Run semver checks for protocols/v2/binary-sv2/no-serde-sv2/codec
+        working-directory: protocols/v2/binary-sv2/no-serde-sv2/codec
+        run: cargo semver-checks
+
+      - name: Run semver checks for protocols/v2/binary-sv2/serde-sv2
+        working-directory: protocols/v2/binary-sv2/serde-sv2
+        run: cargo semver-checks
+
+      - name: Run semver checks for protocols/v2/binary-sv2/binary-sv2
+        working-directory: protocols/v2/binary-sv2/binary-sv2
+        run: cargo semver-checks
+
+      - name: Run semver checks for protocols/v2/const-sv2
+        working-directory: protocols/v2/const-sv2
+        run: cargo semver-checks
+
+      - name: Run semver checks for protocols/v2/framing-sv2
+        working-directory: protocols/v2/framing-sv2
+        run: cargo semver-checks
+
+      - name: Run semver checks for protocols/v2/noise-sv2
+        working-directory: protocols/v2/noise-sv2
+        run: cargo semver-checks
+
+      - name: Run semver checks for protocols/v2/codec-sv2
+        working-directory: protocols/v2/codec-sv2
+        run: cargo semver-checks
+
+      - name: Run semver checks for protocols/v2/subprotocols/common-messages
+        working-directory: protocols/v2/subprotocols/common-messages
+        run: cargo semver-checks
+
+      - name: Run semver checks for protocols/v2/subprotocols/job-declaration
+        working-directory: protocols/v2/subprotocols/job-declaration
+        run: cargo semver-checks
+
+      - name: Run semver checks for protocols/v2/subprotocols/mining
+        working-directory: protocols/v2/subprotocols/mining
+        run: cargo semver-checks
+
+      - name: Run semver checks for protocols/v2/subprotocols/template-distribution
+        working-directory: protocols/v2/subprotocols/template-distribution
+        run: cargo semver-checks
+
+      - name: Run semver checks for protocols/v2/sv2-ffi
+        working-directory: protocols/v2/sv2-ffi
+        run: cargo semver-checks
+
+      - name: Run semver checks for protocols/v2/roles-logic-sv2
+        working-directory: protocols/v2/roles-logic-sv2
+        run: cargo semver-checks
+
+      - name: Run semver checks for protocols/v1
+        working-directory: protocols/v1
+        run: cargo semver-checks
+
+      - name: Run semver checks for utils/bip32-key-derivation
+        working-directory: utils/bip32-key-derivation
+        run: cargo semver-checks
+
+      - name: Run semver checks for utils/error-handling
+        working-directory: utils/error-handling
+        run: cargo semver-checks
+
+      - name: Run semver checks for utils/key-utils
+        working-directory: utils/key-utils
+        run: cargo semver-checks
+
+      - name: Run semver checks for roles/roles-utils/network-helpers
+        working-directory: roles/roles-utils/network-helpers
+        run: cargo semver-checks
+
+      - name: Run semver checks for roles/roles-utils/rpc
+        working-directory: roles/roles-utils/rpc
+        run: cargo semver-checks
