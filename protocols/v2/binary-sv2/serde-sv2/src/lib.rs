@@ -72,7 +72,7 @@
 //! [rkyv1]: https://docs.rs/rkyv/0.4.3/rkyv
 //! [rkyv2]: https://davidkoloski.me/blog/rkyv-is-faster-than/
 
-#![no_std]
+#![cfg_attr(feature = "no_std", no_std)]
 
 #[macro_use]
 extern crate alloc;
