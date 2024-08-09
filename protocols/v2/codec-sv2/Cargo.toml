@@ -21,3 +21,4 @@ tracing = { version = "0.1"}
 [features]
 with_serde = ["binary_sv2/with_serde", "serde", "framing_sv2/with_serde", "buffer_sv2/with_serde"]
 with_buffer_pool = ["framing_sv2/with_buffer_pool"]
+no_std = []

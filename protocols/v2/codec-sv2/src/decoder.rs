@@ -8,11 +8,11 @@ pub use buffer_sv2::AeadBuffer;
 pub use const_sv2::{SV2_FRAME_CHUNK_SIZE, SV2_FRAME_HEADER_SIZE};
 use core::marker::PhantomData;
 #[cfg(feature = "noise_sv2")]
-use framing_sv2::framing2::HandShakeFrame;
+use framing_sv2::framing::HandShakeFrame;
 #[cfg(feature = "noise_sv2")]
 use framing_sv2::header::{NOISE_HEADER_ENCRYPTED_SIZE, NOISE_HEADER_SIZE};
 use framing_sv2::{
-    framing2::{EitherFrame, Sv2Frame},
+    framing::{Frame, Sv2Frame},
     header::Header,
 };
 #[cfg(feature = "noise_sv2")]
@@ -36,7 +36,7 @@ use crate::State;
 
 #[cfg(feature = "noise_sv2")]
 pub type StandardNoiseDecoder<T> = WithNoise<Buffer, T>;
-pub type StandardEitherFrame<T> = EitherFrame<T, <Buffer as IsBuffer>::Slice>;
+pub type StandardEitherFrame<T> = Frame<T, <Buffer as IsBuffer>::Slice>;
 pub type StandardSv2Frame<T> = Sv2Frame<T, <Buffer as IsBuffer>::Slice>;
 pub type StandardDecoder<T> = WithoutNoise<Buffer, T>;
 
@@ -51,7 +51,7 @@ pub struct WithNoise<B: IsBuffer, T: Serialize + binary_sv2::GetSize> {
 #[cfg(feature = "noise_sv2")]
 impl<'a, T: Serialize + GetSize + Deserialize<'a>, B: IsBuffer + AeadBuffer> WithNoise<B, T> {
     #[inline]
-    pub fn next_frame(&mut self, state: &mut State) -> Result<EitherFrame<T, B::Slice>> {
+    pub fn next_frame(&mut self, state: &mut State) -> Result<Frame<T, B::Slice>> {
         match state {
             State::HandShake(_) => unreachable!(),
             State::NotInitialized(msg_len) => {
@@ -97,10 +97,7 @@ impl<'a, T: Serialize + GetSize + Deserialize<'a>, B: IsBuffer + AeadBuffer> Wit
     }
 
     #[inline]
-    fn decode_noise_frame(
-        &mut self,
-        noise_codec: &mut NoiseCodec,
-    ) -> Result<EitherFrame<T, B::Slice>> {
+    fn decode_noise_frame(&mut self, noise_codec: &mut NoiseCodec) -> Result<Frame<T, B::Slice>> {
         match (
             IsBuffer::len(&self.noise_buffer),
             IsBuffer::len(&self.sv2_buffer),
@@ -148,7 +145,7 @@ impl<'a, T: Serialize + GetSize + Deserialize<'a>, B: IsBuffer + AeadBuffer> Wit
         }
     }
 
-    fn while_handshaking(&mut self) -> EitherFrame<T, B::Slice> {
+    fn while_handshaking(&mut self) -> Frame<T, B::Slice> {
         let src = self.noise_buffer.get_data_owned().as_mut().to_vec();
 
         // below is inffalible as noise frame length has been already checked

@@ -18,5 +18,6 @@ quickcheck_macros = { version = "1", optional=true }
 serde_repr = {version= "0.1.10", optional=true}
 
 [features]
+no_std = []
 with_serde = ["binary_sv2/with_serde", "serde", "serde_repr"]
 prop_test = ["quickcheck"]

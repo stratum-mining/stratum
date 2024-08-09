@@ -1,6 +1,6 @@
 [package]
 name = "serde_sv2"
-version = "1.0.0"
+version = "1.0.1"
 authors = ["fi3 <email@email.org>"]
 edition = "2018"
 description = "Serlializer and Deserializer for Stratum V2 data format"
@@ -13,3 +13,6 @@ repository = "https://github.com/stratum-mining/stratum"
 [dependencies]
 serde = { version = "1.0.89", features = ["derive", "alloc"], default-features = false }
 buffer_sv2 = {version = "^1.0.0",  path = "../../../../utils/buffer"}
+
+[features]
+no_std = []
