@@ -111,11 +111,9 @@ impl ParseClientJobDeclarationMessages for JobDeclaratorDownstream {
     }
 
     fn handle_declare_mining_job(&mut self, message: DeclareMiningJob) -> Result<SendTo, Error> {
-        {
-            // Clone the old declared mining job to retain its data
-            if let Some(old_declare_mining_job_) = self.declared_mining_job.0.clone() {
-                clear_declared_mining_job(old_declare_mining_job_, self.mempool.clone())?;
-            }
+        // Clone the old declared mining job to retain its data
+        if let Some(old_declare_mining_job_) = self.declared_mining_job.0.clone() {
+            clear_declared_mining_job(old_declare_mining_job_, self.mempool.clone())?;
         }
 
         // the transactions that are present in the mempool are stored here, that is sent to the
