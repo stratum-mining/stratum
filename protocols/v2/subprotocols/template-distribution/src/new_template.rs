@@ -7,6 +7,8 @@ use binary_sv2::Error;
 use binary_sv2::{Deserialize, Seq0255, Serialize, B0255, B064K, U256};
 #[cfg(not(feature = "with_serde"))]
 use core::convert::TryInto;
+#[cfg(all(feature = "with_serde", not(feature = "no_std")))]
+use std::convert::TryInto;
 
 /// ## NewTemplate (Server -> Client)
 /// The primary template-providing function. Note that the coinbase_tx_outputs bytes will appear
