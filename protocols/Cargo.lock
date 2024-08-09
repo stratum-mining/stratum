@@ -85,7 +85,7 @@ dependencies = [
 
 [[package]]
 name = "binary_sv2"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "binary_codec_sv2",
  "derive_codec_sv2",
@@ -796,7 +796,7 @@ dependencies = [
 
 [[package]]
 name = "template_distribution_sv2"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "binary_sv2",
  "const_sv2",

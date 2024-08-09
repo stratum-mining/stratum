@@ -380,7 +380,7 @@ dependencies = [
 
 [[package]]
 name = "binary_sv2"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "binary_codec_sv2",
  "derive_codec_sv2",
@@ -621,7 +621,7 @@ checksum = "0b6a852b24ab71dffc585bcb46eaf7959d175cb865a7152e35b348d1b2960422"
 
 [[package]]
 name = "common_messages_sv2"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "binary_sv2",
  "const_sv2",
@@ -1942,7 +1942,7 @@ checksum = "adad44e29e4c806119491a7f06f03de4d1af22c3a680dd47f1e6e179439d1f56"
 
 [[package]]
 name = "roles_logic_sv2"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "binary_sv2",
  "chacha20poly1305",
@@ -2283,7 +2283,7 @@ dependencies = [
 
 [[package]]
 name = "template_distribution_sv2"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "binary_sv2",
  "const_sv2",
