@@ -3,7 +3,7 @@
 //! Downstream means another proxy or a mining device
 //!
 //! UpstreamMining is the trait that a proxy must implement in order to
-//! understant Downstream mining messages.
+//! understand Downstream mining messages.
 //!
 //! DownstreamMining is the trait that a proxy must implement in order to
 //! understand Upstream mining messages
@@ -18,12 +18,16 @@
 //! A Downstream that signal the incapacity to handle group channels can open only one channel.
 //!
 #![allow(special_module_name)]
-mod lib;
-
-use lib::Config;
-use roles_logic_sv2::utils::{GroupId, Mutex};
 use std::{net::SocketAddr, sync::Arc};
+
+use tokio::{net::TcpListener, sync::oneshot};
 use tracing::{error, info};
+
+use ext_config::{Config, File, FileFormat};
+use lib::Configuration;
+use roles_logic_sv2::utils::{GroupId, Mutex};
+
+mod lib;
 
 mod args {
     use std::path::PathBuf;
@@ -89,12 +93,12 @@ mod args {
 }
 
 /// 1. the proxy scan all the upstreams and map them
-/// 2. donwstream open a connetcion with proxy
+/// 2. downstream open a connection with proxy
 /// 3. downstream send SetupConnection
-/// 4. a mining_channle::Upstream is created
+/// 4. a mining_channels::Upstream is created
 /// 5. upstream_mining::UpstreamMiningNodes is used to pair this downstream with the most suitable
 ///    upstream
-/// 6. mining_channle::Upstream create a new downstream_mining::DownstreamMiningNode embedding
+/// 6. mining_channels::Upstream create a new downstream_mining::DownstreamMiningNode embedding
 ///    itself in it
 /// 7. normal operation between the paired downstream_mining::DownstreamMiningNode and
 ///    upstream_mining::UpstreamMiningNode begin
@@ -109,13 +113,21 @@ async fn main() {
         }
     };
 
-    // Scan all the upstreams and map them
-    let config_file = std::fs::read_to_string(args.config_path.clone())
-        .unwrap_or_else(|_| panic!("Can not open {:?}", args.config_path));
-    let config = match toml::from_str::<Config>(&config_file) {
-        Ok(cfg) => cfg,
+    let config_path = args.config_path.to_str().expect("Invalid config path");
+
+    let config: Configuration = match Config::builder()
+        .add_source(File::new(config_path, FileFormat::Toml))
+        .build()
+    {
+        Ok(settings) => match settings.try_deserialize::<Configuration>() {
+            Ok(c) => c,
+            Err(e) => {
+                error!("Failed to deserialize config: {}", e);
+                return;
+            }
+        },
         Err(e) => {
-            error!("Failed to parse config file: {}", e);
+            error!("Failed to build config: {}", e);
             return;
         }
     };
@@ -126,16 +138,37 @@ async fn main() {
             lib::initialize_r_logic(&config.upstreams, group_id, config.clone()).await,
         ))
         .expect("BUG: Failed to set ROUTING_LOGIC");
-    info!("PROXY INITIALIZING");
-    lib::initialize_upstreams(config.min_supported_version, config.max_supported_version).await;
-    info!("PROXY INITIALIZED");
 
-    // Wait for downstream connection
+    info!("Initializing upstream scanner");
+    lib::initialize_upstreams(config.min_supported_version, config.max_supported_version).await;
+    info!("Initializing downstream listener");
+
     let socket = SocketAddr::new(
         config.listen_address.parse().unwrap(),
         config.listen_mining_port,
     );
+    let listener = TcpListener::bind(socket).await.unwrap();
 
-    info!("PROXY INITIALIZED");
-    crate::lib::downstream_mining::listen_for_downstream_mining(socket).await
+    info!("Listening for downstream mining connections on {}", socket);
+
+    let (shutdown_tx, shutdown_rx) = oneshot::channel();
+
+    let (_, res) = tokio::join!(
+        // Wait for downstream connection
+        lib::downstream_mining::listen_for_downstream_mining(listener, shutdown_rx),
+        // handle SIGTERM/QUIT / ctrl+c
+        tokio::spawn(async {
+            tokio::signal::ctrl_c()
+                .await
+                .expect("Failed to listen to signals");
+            let _ = shutdown_tx.send(());
+            info!("Interrupt received");
+        })
+    );
+
+    if let Err(e) = res {
+        panic!("Failed to wait for clean exit: {:?}", e);
+    }
+
+    info!("Shutdown done");
 }

@@ -11,6 +11,7 @@ use tokio::{select, task};
 use tracing::{error, info, warn};
 mod lib;
 
+use ext_config::{Config, File, FileFormat};
 use lib::job_declarator::JobDeclarator;
 
 mod args {
@@ -87,17 +88,22 @@ async fn main() {
         }
     };
 
+    let config_path = args.config_path.to_str().expect("Invalid config path");
+
     // Load config
-    let config: Configuration = match std::fs::read_to_string(&args.config_path) {
-        Ok(c) => match toml::from_str(&c) {
+    let config: Configuration = match Config::builder()
+        .add_source(File::new(config_path, FileFormat::Toml))
+        .build()
+    {
+        Ok(settings) => match settings.try_deserialize::<Configuration>() {
             Ok(c) => c,
             Err(e) => {
-                error!("Failed to parse config: {}", e);
+                error!("Failed to deserialize config: {}", e);
                 return;
             }
         },
         Err(e) => {
-            error!("Failed to read config: {}", e);
+            error!("Failed to build config: {}", e);
             return;
         }
     };

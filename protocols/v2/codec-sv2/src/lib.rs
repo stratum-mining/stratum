@@ -51,7 +51,7 @@
 //!   available.
 //!
 
-#![no_std]
+#![cfg_attr(feature = "no_std", no_std)]
 
 extern crate alloc;
 
@@ -75,15 +75,15 @@ pub use encoder::Encoder;
 pub use encoder::NoiseEncoder;
 
 #[cfg(feature = "noise_sv2")]
-pub use framing_sv2::framing2::HandShakeFrame;
-pub use framing_sv2::framing2::Sv2Frame;
+pub use framing_sv2::framing::HandShakeFrame;
+pub use framing_sv2::framing::Sv2Frame;
 
 #[cfg(feature = "noise_sv2")]
 pub use noise_sv2::{self, Initiator, NoiseCodec, Responder};
 
 pub use buffer_sv2;
 
-pub use framing_sv2::{self, framing2::handshake_message_to_frame as h2f};
+pub use framing_sv2::{self, framing::handshake_message_to_frame as h2f};
 
 /// Represents the state of the codec, which can be in different phases such as initialization,
 /// handshake, or transport mode where encryption and decryption are fully operational.

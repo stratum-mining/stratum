@@ -1,0 +1,221 @@
+# Runs all Message Generator tests in separate jobs
+
+name: MG Test
+
+on:
+  push:
+    branches: [ main, dev ]
+  pull_request:
+    branches: [ main, dev ]
+
+jobs:
+  bad-pool-config-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Install cargo-llvm-cov
+        run: cargo install cargo-llvm-cov
+      - name: Run bad-pool-config-test
+        run: sh ./test/message-generator/test/bad-pool-config-test/bad-pool-config-test.sh
+
+  interop-jd-translator:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Run interop-jd-translator
+        run: sh ./test/message-generator/test/interop-jd-translator/interop-jd-translator.sh
+
+  interop-proxy-with-multi-ups:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Run interop-proxy-with-multi-ups
+        run: sh ./test/message-generator/test/interop-proxy-with-multi-ups/interop-proxy-with-multi-ups.sh
+
+  interop-proxy-with-multi-ups-extended:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Run interop-proxy-with-multi-ups-extended
+        run: sh ./test/message-generator/test/interop-proxy-with-multi-ups-extended/interop-proxy-with-multi-ups-extended.sh
+
+  jds-do-not-fail-on-wrong-tsdatasucc:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Run jds-do-not-fail-on-wrong-tsdatasucc
+        run: sh ./test/message-generator/test/jds-do-not-fail-on-wrong-tsdatasucc/jds-do-not-fail-on-wrong-tsdatasucc.sh
+
+  jds-do-not-panic-if-jdc-close-connection:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Run jds-do-not-panic-if-jdc-close-connection
+        run: sh ./test/message-generator/test/jds-do-not-panic-if-jdc-close-connection/jds-do-not-panic-if-jdc-close-connection.sh
+
+  jds-do-not-stackoverflow-when-no-token:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Run jds-do-not-stackoverflow-when-no-token
+        run: sh ./test/message-generator/test/jds-do-not-stackoverflow-when-no-token/jds-do-not-stackoverflow-when-no-token.sh
+
+  jds-receive-solution-while-processing-declared-job:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Install cargo-llvm-cov
+        run: cargo install cargo-llvm-cov
+      - name: Run jds-receive-solution-while-processing-declared-job
+        run: sh ./test/message-generator/test/jds-receive-solution-while-processing-declared-job/jds-receive-solution-while-processing-declared-job.sh
+
+  pool-sri-test-1-standard:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Install cargo-llvm-cov
+        run: cargo install cargo-llvm-cov
+      - name: Run pool-sri-test-1-standard
+        run: sh ./test/message-generator/test/pool-sri-test-1-standard/pool-sri-test-1-standard.sh
+
+  pool-sri-test-close-channel:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Run pool-sri-test-close-channel
+        run: sh ./test/message-generator/test/pool-sri-test-close-channel/pool-sri-test-close-channel.sh
+
+  pool-sri-test-extended_0:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Install cargo-llvm-cov
+        run: cargo install cargo-llvm-cov
+      - name: Run pool-sri-test-extended_0
+        run: sh ./test/message-generator/test/pool-sri-test-extended_0/pool-sri-test-extended_0.sh
+
+  pool-sri-test-extended_1:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Install cargo-llvm-cov
+        run: cargo install cargo-llvm-cov
+      - name: Run pool-sri-test-extended_1
+        run: sh ./test/message-generator/test/pool-sri-test-extended_1/pool-sri-test-extended_1.sh
+
+  pool-sri-test-reject-auth:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Install cargo-llvm-cov
+        run: cargo install cargo-llvm-cov
+      - name: Run pool-sri-test-reject-auth
+        run: sh ./test/message-generator/test/pool-sri-test-reject-auth/pool-sri-test-reject-auth.sh
+
+  standard-coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Install cargo-llvm-cov
+        run: cargo install cargo-llvm-cov
+      - name: Run standard-coverage
+        run: sh ./test/message-generator/test/standard-coverage-test/standard-coverage-test.sh
+
+  sv1-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Run sv1-test
+        run: sh ./test/message-generator/test/sv1-test/sv1-test.sh
+
+  translation-proxy-broke-pool:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Run translation-proxy-broke-pool
+        run: sh ./test/message-generator/test/translation-proxy-broke-pool/translation-proxy-broke-pool.sh
+
+  translation-proxy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Install cargo-llvm-cov
+        run: cargo install cargo-llvm-cov
+      - name: Run translation-proxy
+        run: sh ./test/message-generator/test/translation-proxy/translation-proxy.sh
+
+  translation-proxy-old-share:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Run translation-proxy-old-share
+        run: sh ./test/message-generator/test/translation-proxy-old-share/translation-proxy-old-share.sh
+
+  mg-aggregate-results:
+    name: "Aggregate MG Test Results"
+    runs-on: ubuntu-latest
+    if: always()
+    needs: [
+      bad-pool-config-test,
+      interop-jd-translator,
+      interop-proxy-with-multi-ups,
+      interop-proxy-with-multi-ups-extended,
+      jds-do-not-fail-on-wrong-tsdatasucc,
+      jds-do-not-panic-if-jdc-close-connection,
+      jds-do-not-stackoverflow-when-no-token,
+      jds-receive-solution-while-processing-declared-job,
+      pool-sri-test-1-standard,
+      pool-sri-test-close-channel,
+      pool-sri-test-extended_0,
+      pool-sri-test-extended_1,
+      pool-sri-test-reject-auth,
+      standard-coverage,
+      sv1-test,
+      translation-proxy-broke-pool,
+      translation-proxy,
+      translation-proxy-old-share
+    ]
+    steps:
+      - name: Aggregate Results
+        run: |
+          if [ "${{ needs.bad-pool-config-test.result }}" != "success" ] ||
+          [ "${{ needs.interop-jd-translator.result }}" != "success" ] ||
+          [ "${{ needs.interop-proxy-with-multi-ups.result }}" != "success" ] ||
+          [ "${{ needs.interop-proxy-with-multi-ups-extended.result }}" != "success" ] ||
+          [ "${{ needs.jds-do-not-fail-on-wrong-tsdatasucc.result }}" != "success" ] ||
+          [ "${{ needs.jds-do-not-panic-if-jdc-close-connection.result }}" != "success" ] ||
+          [ "${{ needs.jds-do-not-stackoverflow-when-no-token.result }}" != "success" ] ||
+          [ "${{ needs.jds-receive-solution-while-processing-declared-job.result }}" != "success" ] ||
+          [ "${{ needs.pool-sri-test-1-standard.result }}" != "success" ] ||
+          [ "${{ needs.pool-sri-test-close-channel.result }}" != "success" ] ||
+          [ "${{ needs.pool-sri-test-extended_0.result }}" != "success" ] ||
+          [ "${{ needs.pool-sri-test-extended_1.result }}" != "success" ] ||
+          [ "${{ needs.pool-sri-test-reject-auth.result }}" != "success" ] ||
+          [ "${{ needs.standard-coverage.result }}" != "success" ] ||
+          [ "${{ needs.sv1-test.result }}" != "success" ] ||
+          [ "${{ needs.translation-proxy-broke-pool.result }}" != "success" ] ||
+          [ "${{ needs.translation-proxy.result }}" != "success" ] ||
+          [ "${{ needs.translation-proxy-old-share.result }}" != "success" ]; then
+            echo "One or more jobs failed."
+            exit 1
+          else
+            echo "All MG tests completed successfully"
+          fi

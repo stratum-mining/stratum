@@ -57,6 +57,8 @@ pub struct CoinbaseOutput {
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Configuration {
+    #[serde(default = "default_true")]
+    pub async_mining_allowed: bool,
     pub listen_jd_address: String,
     pub authority_public_key: Secp256k1PublicKey,
     pub authority_secret_key: Secp256k1SecretKey,
@@ -68,6 +70,10 @@ pub struct Configuration {
     pub core_rpc_pass: String,
     #[serde(deserialize_with = "duration_from_toml")]
     pub mempool_update_interval: Duration,
+}
+
+fn default_true() -> bool {
+    true
 }
 
 fn duration_from_toml<'de, D>(deserializer: D) -> Result<Duration, D::Error>
@@ -98,9 +104,9 @@ where
         _ => Err(serde::de::Error::custom("Unsupported duration unit")),
     }
 }
-
 #[cfg(test)]
 mod tests {
+    use ext_config::{Config, File, FileFormat};
     use std::path::PathBuf;
 
     use super::*;
@@ -113,9 +119,14 @@ mod tests {
             config_path
         );
 
-        let config_string =
-            std::fs::read_to_string(config_path).expect("Failed to read the config file");
-        toml::from_str(&config_string).expect("Failed to parse config")
+        let config_path = config_path.to_str().unwrap();
+
+        let settings = Config::builder()
+            .add_source(File::new(&config_path, FileFormat::Toml))
+            .build()
+            .expect("Failed to build config");
+
+        settings.try_deserialize().expect("Failed to parse config")
     }
 
     #[test]

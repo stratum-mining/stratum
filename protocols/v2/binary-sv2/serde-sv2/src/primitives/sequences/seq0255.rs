@@ -259,6 +259,15 @@ impl<'a> From<Vec<u32>> for Seq0255<'a, u32> {
     }
 }
 
+impl<'a> From<Vec<U256<'a>>> for Seq0255<'a, U256<'a>> {
+    fn from(v: Vec<U256<'a>>) -> Self {
+        Seq0255 {
+            seq: None,
+            data: Some(v),
+        }
+    }
+}
+
 impl<'a> From<Seq0255<'a, u32>> for Vec<u32> {
     fn from(v: Seq0255<u32>) -> Self {
         if let Some(inner) = v.data {

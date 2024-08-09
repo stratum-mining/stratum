@@ -7,8 +7,8 @@ use binary_sv2::{
 };
 use binary_sv2::{Deserialize, GetSize, Serialize, Str0255};
 use const_sv2::{
-    SV2_JOB_DISTR_PROTOCOL_DISCRIMINANT, SV2_JOB_NEG_PROTOCOL_DISCRIMINANT,
-    SV2_MINING_PROTOCOL_DISCRIMINANT, SV2_TEMPLATE_DISTR_PROTOCOL_DISCRIMINANT,
+    SV2_JOB_DECLARATION_PROTOCOL_DISCRIMINANT, SV2_MINING_PROTOCOL_DISCRIMINANT,
+    SV2_TEMPLATE_DISTR_PROTOCOL_DISCRIMINANT,
 };
 use core::convert::TryFrom;
 #[cfg(not(feature = "with_serde"))]
@@ -54,11 +54,11 @@ pub struct SetupConnection<'decoder> {
 
 impl<'decoder> SetupConnection<'decoder> {
     pub fn set_requires_standard_job(&mut self) {
-        self.flags |= 0b_0000_0000_0000_0000_0000_0000_0000_0001
+        self.flags |= 0b_0000_0000_0000_0000_0000_0000_0000_0001;
     }
 
     pub fn set_async_job_nogotiation(&mut self) {
-        self.flags |= 0b_0000_0000_0000_0000_0000_0000_0000_0001
+        self.flags |= 0b_0000_0000_0000_0000_0000_0000_0000_0001;
     }
 
     /// Check if passed flags support self flag
@@ -69,13 +69,24 @@ impl<'decoder> SetupConnection<'decoder> {
             // [1] [1] -> true
             // [0] [1] -> false
             Protocol::MiningProtocol => {
+                // Evaluates protocol requirements based on flag bits.
+                //
+                // Checks if the current protocol meets the required flags for work selection and version rolling
+                // by reversing the bits of `available_flags` and `required_flags`. It extracts the 30th and 29th
+                // bits to determine if work selection and version rolling are needed.
+                //
+                // Returns `true` if:
+                // - The work selection requirement is satisfied or not needed.
+                // - The version rolling requirement is satisfied or not needed.
+                //
+                // Otherwise, returns `false`.
                 let available = available_flags.reverse_bits();
                 let required_flags = required_flags.reverse_bits();
-                let requires_work_selection_passed = (required_flags >> 30) > 0;
-                let requires_version_rolling_passed = (required_flags >> 29) > 0;
+                let requires_work_selection_passed = required_flags >> 30 > 0;
+                let requires_version_rolling_passed = required_flags >> 29 > 0;
 
-                let requires_work_selection_self = (available >> 30) > 0;
-                let requires_version_rolling_self = (available >> 29) > 0;
+                let requires_work_selection_self = available >> 30 > 0;
+                let requires_version_rolling_self = available >> 29 > 0;
 
                 let work_selection =
                     !requires_work_selection_self || requires_work_selection_passed;
@@ -84,8 +95,34 @@ impl<'decoder> SetupConnection<'decoder> {
 
                 work_selection && version_rolling
             }
-            // TODO
-            _ => todo!(),
+            Protocol::JobDeclarationProtocol => {
+                // Determines if asynchronous job mining is required based on flag bits.
+                //
+                // Reverses the bits of `available_flags` and `required_flags`, extracts the 31st bit from each,
+                // and evaluates if the condition is met using these bits. Returns `true` or `false` based on:
+                // - True if `requires_async_job_mining_self` is true, or both are true.
+                // - False if `requires_async_job_mining_self` is false and `requires_async_job_mining_passed` is true.
+                // - True otherwise.
+                let available = available_flags.reverse_bits();
+                let required = required_flags.reverse_bits();
+
+                let requires_async_job_mining_passed = (required >> 31) & 1 > 0;
+                let requires_async_job_mining_self = (available >> 31) & 1 > 0;
+
+                match (
+                    requires_async_job_mining_self,
+                    requires_async_job_mining_passed,
+                ) {
+                    (true, true) => true,
+                    (true, false) => true,
+                    (false, true) => false,
+                    (false, false) => true,
+                }
+            }
+            Protocol::TemplateDistributionProtocol => {
+                // These protocols do not define flags for setting up a connection.
+                false
+            }
         }
     }
 
@@ -283,18 +320,16 @@ impl<'a> From<SetupConnectionError<'a>> for CSetupConnectionError {
 }
 
 /// MiningProtocol = [`SV2_MINING_PROTOCOL_DISCRIMINANT`],
-/// JobDeclarationProtocol = [`SV2_JOB_NEG_PROTOCOL_DISCRIMINANT`],
+/// JobDeclarationProtocol = [`SV2_JOB_DECLARATION_PROTOCOL_DISCRIMINANT`],
 /// TemplateDistributionProtocol = [`SV2_TEMPLATE_DISTR_PROTOCOL_DISCRIMINANT`],
-/// JobDistributionProtocol = [`SV2_JOB_DISTR_PROTOCOL_DISCRIMINANT`],
 #[cfg_attr(feature = "with_serde", derive(Serialize_repr, Deserialize_repr))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
 #[allow(clippy::enum_variant_names)]
 pub enum Protocol {
     MiningProtocol = SV2_MINING_PROTOCOL_DISCRIMINANT,
-    JobDeclarationProtocol = SV2_JOB_NEG_PROTOCOL_DISCRIMINANT,
+    JobDeclarationProtocol = SV2_JOB_DECLARATION_PROTOCOL_DISCRIMINANT,
     TemplateDistributionProtocol = SV2_TEMPLATE_DISTR_PROTOCOL_DISCRIMINANT,
-    JobDistributionProtocol = SV2_JOB_DISTR_PROTOCOL_DISCRIMINANT,
 }
 
 #[cfg(not(feature = "with_serde"))]
@@ -310,7 +345,7 @@ impl<'decoder> binary_sv2::Decodable<'decoder> for Protocol {
     fn get_structure(
         _: &[u8],
     ) -> core::result::Result<alloc::vec::Vec<FieldMarker>, binary_sv2::Error> {
-        let field: FieldMarker = 0_u8.into();
+        let field: FieldMarker = (0_u8).into();
         Ok(alloc::vec![field])
     }
     fn from_decoded_fields(
@@ -329,9 +364,8 @@ impl TryFrom<u8> for Protocol {
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         match value {
             SV2_MINING_PROTOCOL_DISCRIMINANT => Ok(Protocol::MiningProtocol),
-            SV2_JOB_NEG_PROTOCOL_DISCRIMINANT => Ok(Protocol::JobDeclarationProtocol),
+            SV2_JOB_DECLARATION_PROTOCOL_DISCRIMINANT => Ok(Protocol::JobDeclarationProtocol),
             SV2_TEMPLATE_DISTR_PROTOCOL_DISCRIMINANT => Ok(Protocol::TemplateDistributionProtocol),
-            SV2_JOB_DISTR_PROTOCOL_DISCRIMINANT => Ok(Protocol::JobDistributionProtocol),
             _ => Err(()),
         }
     }
@@ -348,9 +382,8 @@ impl From<Protocol> for u8 {
     fn from(val: Protocol) -> Self {
         match val {
             Protocol::MiningProtocol => SV2_MINING_PROTOCOL_DISCRIMINANT,
-            Protocol::JobDeclarationProtocol => SV2_JOB_NEG_PROTOCOL_DISCRIMINANT,
+            Protocol::JobDeclarationProtocol => SV2_JOB_DECLARATION_PROTOCOL_DISCRIMINANT,
             Protocol::TemplateDistributionProtocol => SV2_TEMPLATE_DISTR_PROTOCOL_DISCRIMINANT,
-            Protocol::JobDistributionProtocol => SV2_JOB_DISTR_PROTOCOL_DISCRIMINANT,
         }
     }
 }
@@ -397,6 +430,16 @@ mod test {
             protocol,
             flag_available,
             flag_required
+        ));
+
+        let protocol = crate::Protocol::JobDeclarationProtocol;
+
+        let available_flags = 0b_1000_0000_0000_0000_0000_0000_0000_0000;
+        let required_flags = 0b_1000_0000_0000_0000_0000_0000_0000_0000;
+        assert!(SetupConnection::check_flags(
+            protocol,
+            available_flags,
+            required_flags
         ));
     }
 

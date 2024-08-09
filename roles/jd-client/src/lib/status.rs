@@ -84,7 +84,7 @@ async fn send_status(
     outcome
 }
 
-// this is called by `error_handling::handle_result!`
+// This is called by `error_handling::handle_result!`
 pub async fn handle_error(
     sender: &Sender,
     e: error::Error<'static>,
@@ -94,8 +94,8 @@ pub async fn handle_error(
         Error::VecToSlice32(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
         // Errors on bad CLI argument input.
         Error::BadCliArgs => send_status(sender, e, error_handling::ErrorBranch::Break).await,
-        // Errors on bad `toml` deserialize.
-        Error::BadTomlDeserialize(_) => {
+        // Errors on bad `config` TOML deserialize.
+        Error::BadConfigDeserialize(_) => {
             send_status(sender, e, error_handling::ErrorBranch::Break).await
         }
         // Errors from `binary_sv2` crate.

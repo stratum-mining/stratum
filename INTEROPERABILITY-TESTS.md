@@ -2,6 +2,10 @@
 
 How to test Sv2 compliant software against the SRI implementation.
 
+## Requirements
+
+- [Cargo LLVM Cov](https://github.com/taiki-e/cargo-llvm-cov#installation)
+
 ## With Message Generator (MG)
 
 First thing you need to write a test that can be executed by the message generator. In order to do

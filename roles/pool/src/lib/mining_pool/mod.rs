@@ -657,23 +657,41 @@ impl Pool {
 #[cfg(test)]
 mod test {
     use binary_sv2::{B0255, B064K};
+    use ext_config::{Config, File, FileFormat};
     use std::convert::TryInto;
+    use tracing::error;
 
     use stratum_common::{
         bitcoin,
         bitcoin::{util::psbt::serialize::Serialize, Transaction, Witness},
     };
 
+    use super::Configuration;
+
     // this test is used to verify the `coinbase_tx_prefix` and `coinbase_tx_suffix` values tested against in
     // message generator `stratum/test/message-generator/test/pool-sri-test-extended.json`
     #[test]
     fn test_coinbase_outputs_from_config() {
+        let config_path = "./config-examples/pool-config-local-tp-example.toml";
+
         // Load config
-        let config: super::Configuration = toml::from_str(
-            &std::fs::read_to_string("./config-examples/pool-config-local-tp-example.toml")
-                .unwrap(),
-        )
-        .unwrap();
+        let config: Configuration = match Config::builder()
+            .add_source(File::new(&config_path, FileFormat::Toml))
+            .build()
+        {
+            Ok(settings) => match settings.try_deserialize::<Configuration>() {
+                Ok(c) => c,
+                Err(e) => {
+                    error!("Failed to deserialize config: {}", e);
+                    return;
+                }
+            },
+            Err(e) => {
+                error!("Failed to build config: {}", e);
+                return;
+            }
+        };
+
         // template from message generator test (mock TP template)
         let _extranonce_len = 3;
         let coinbase_prefix = vec![3, 76, 163, 38, 0];

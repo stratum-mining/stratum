@@ -191,6 +191,7 @@ enum ActionResult {
     MatchMessageLen(usize),
     MatchExtensionType(u16),
     CloseConnection,
+    SustainConnection,
     None,
 }
 
@@ -225,6 +226,7 @@ impl std::fmt::Display for ActionResult {
                 write!(f, "MatchExtensionType: {}", extension_type)
             }
             ActionResult::CloseConnection => write!(f, "Close connection"),
+            ActionResult::SustainConnection => write!(f, "Sustain connection"),
             ActionResult::GetMessageField {
                 subprotocol,
                 fields,

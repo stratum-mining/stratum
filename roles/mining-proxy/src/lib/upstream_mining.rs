@@ -1,14 +1,16 @@
 #![allow(dead_code)]
 
-use super::EXTRANONCE_RANGE_1_LENGTH;
-use roles_logic_sv2::utils::Id;
+use core::convert::TryInto;
+use std::{collections::HashMap, net::SocketAddr, sync::Arc, time::Duration};
 
-use super::downstream_mining::{Channel, DownstreamMiningNode, StdFrame as DownstreamFrame};
 use async_channel::{Receiver, SendError, Sender};
 use async_recursion::async_recursion;
+use nohash_hasher::BuildNoHashHasher;
+use tokio::{net::TcpStream, task};
+use tracing::{debug, error, info};
+
 use codec_sv2::{HandshakeRole, Initiator, StandardEitherFrame, StandardSv2Frame};
 use network_helpers_sv2::noise_connection_tokio::Connection;
-use nohash_hasher::BuildNoHashHasher;
 use roles_logic_sv2::{
     channel_logic::{
         channel_factory::{ExtendedChannelKind, OnNewShare, ProxyExtendedChannelFactory, Share},
@@ -26,13 +28,14 @@ use roles_logic_sv2::{
     routing_logic::MiningProxyRoutingLogic,
     selectors::{DownstreamMiningSelector, ProxyDownstreamMiningSelector as Prs},
     template_distribution_sv2::SubmitSolution,
-    utils::{GroupId, Mutex},
+    utils::{GroupId, Id, Mutex},
 };
-use std::{collections::HashMap, sync::Arc};
-use tokio::{net::TcpStream, task};
-use tracing::error;
-
 use stratum_common::bitcoin::TxOut;
+
+use super::{
+    downstream_mining::{Channel, DownstreamMiningNode, StdFrame as DownstreamFrame},
+    EXTRANONCE_RANGE_1_LENGTH,
+};
 
 pub type Message = PoolMessages<'static>;
 pub type StdFrame = StandardSv2Frame<Message>;
@@ -187,10 +190,6 @@ pub struct UpstreamMiningNode {
     downstream_hash_rate: f32,
     reconnect: bool,
 }
-
-use core::convert::TryInto;
-use std::{net::SocketAddr, time::Duration};
-use tracing::{debug, info};
 
 /// It assume that endpoint NEVER change flags and version!
 /// I can open both extended and group channel with upstream.
@@ -471,11 +470,10 @@ impl UpstreamMiningNode {
                     super::downstream_mining::DownstreamMiningNodeStatus::ChannelOpened(
                         channel,
                     ) => match channel {
-                        Channel::DowntreamHomUpstreamGroup { channel_id, .. } => Some(*channel_id),
-                        Channel::DowntreamHomUpstreamExtended { channel_id, .. } => {
+                        Channel::DownstreamHomUpstreamGroup { channel_id, .. } => Some(*channel_id),
+                        Channel::DownstreamHomUpstreamExtended { channel_id, .. } => {
                             Some(*channel_id)
                         }
-                        Channel::DowntreamNonHomUpstreamExtended { .. } => todo!(),
                     },
                 })
                 .unwrap()
@@ -1048,7 +1046,7 @@ impl
                     .ok_or(Error::NoDownstreamsConnected)?;
                 for downstream in downstreams {
                     match downstream.safe_lock(|r| r.get_channel().clone()).unwrap() {
-                        Channel::DowntreamHomUpstreamGroup {
+                        Channel::DownstreamHomUpstreamGroup {
                             channel_id,
                             group_id,
                             ..
@@ -1257,8 +1255,9 @@ impl IsMiningUpstream<DownstreamMiningNode, ProxyRemoteSelector> for UpstreamMin
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::net::{IpAddr, Ipv4Addr};
+
+    use super::*;
 
     #[test]
     fn new_upstream_minining_node() {

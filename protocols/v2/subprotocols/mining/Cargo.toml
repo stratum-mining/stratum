@@ -20,4 +20,5 @@ quickcheck = "1.0.3"
 quickcheck_macros = "1"
 
 [features]
+no_std = []
 with_serde = ["binary_sv2/with_serde", "serde"]

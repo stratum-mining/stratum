@@ -97,7 +97,7 @@ pub enum ChannelKind {
 }
 
 #[derive(Debug, Deserialize, Clone)]
-pub struct Config {
+pub struct Configuration {
     pub upstreams: Vec<UpstreamMiningValues>,
     pub listen_address: String,
     pub listen_mining_port: u16,
@@ -110,7 +110,7 @@ pub struct Config {
 pub async fn initialize_r_logic(
     upstreams: &[UpstreamMiningValues],
     group_id: Arc<Mutex<GroupId>>,
-    config: Config,
+    config: Configuration,
 ) -> RLogic {
     let channel_ids = Arc::new(Mutex::new(Id::new()));
     let mut upstream_mining_nodes = Vec::with_capacity(upstreams.len());

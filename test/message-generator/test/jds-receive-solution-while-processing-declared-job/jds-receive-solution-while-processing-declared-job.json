@@ -1,0 +1,79 @@
+{
+    "version": "2",
+    "doc": [
+        "This test does",
+        "Launch real JDS",
+        "Mock a JDC that sends SubmitSolution before ProvideMissingTransactionsSuccess"
+    ],
+    "frame_builders": [
+    ],
+    "actions": [
+    ],
+    "setup_commands": [
+        {
+            "command": "cargo",
+            "args": [
+                "llvm-cov",
+                "--no-report",
+                "run",
+                "-p",
+                "jd_server",
+                "--",
+                "-c",
+                "../test/config/jds-receive-solution-while-processing-declared-job/jds-config.toml"
+            ],
+            "conditions": {
+                "WithConditions": {
+                    "conditions": [
+                        {
+                            "output_string": "JD INITIALIZED",
+                            "output_location": "StdOut",
+                            "late_condition": false,
+                            "condition": true
+                        }
+                    ],
+                    "timer_secs": 300,
+                    "warn_no_panic": false
+                }
+            }
+        },
+        {
+            "command": "cargo",
+            "args": [
+                "run",
+                "../../test/message-generator/mock/jdc-mock-jds-receive-solution-while-processing-declared-job.json"
+            ],
+
+            "conditions": {
+                "WithConditions": {
+                    "conditions": [
+                        {
+                            "output_string": "TEST FAIL",
+                            "output_location": "StdErr",
+                            "condition": false,
+                            "late_condition": false
+                        }
+                    ],
+                    "timer_secs": 600,
+                    "warn_no_panic": true
+                }
+            }
+        },
+        {
+            "command": "sleep",
+            "args": ["1000"],
+            "conditions": "None"
+        }
+    ],
+    "execution_commands": [
+    ],
+    "cleanup_commands": [
+        {
+            "command": "pkill",
+            "args":  ["-f", "jd_server", "-SIGINT"],
+            "late_condition": false,
+            "conditions": "None"
+        }
+    ],
+    "role": "none"
+}

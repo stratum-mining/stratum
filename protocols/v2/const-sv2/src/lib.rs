@@ -1,5 +1,5 @@
 //! Central repository for all the sv2 constants
-#![no_std]
+#![cfg_attr(feature = "no_std", no_std)]
 
 pub const EXTENSION_TYPE_NO_EXTENSION: u16 = 0;
 
@@ -39,9 +39,8 @@ pub const NOISE_HASHED_PROTOCOL_NAME_CHACHA: [u8; 32] = [
 pub const NOISE_SUPPORTED_CIPHERS_MESSAGE: [u8; 5] = [1, 0x47, 0x53, 0x45, 0x41];
 
 pub const SV2_MINING_PROTOCOL_DISCRIMINANT: u8 = 0;
-pub const SV2_JOB_NEG_PROTOCOL_DISCRIMINANT: u8 = 1;
+pub const SV2_JOB_DECLARATION_PROTOCOL_DISCRIMINANT: u8 = 1;
 pub const SV2_TEMPLATE_DISTR_PROTOCOL_DISCRIMINANT: u8 = 2;
-pub const SV2_JOB_DISTR_PROTOCOL_DISCRIMINANT: u8 = 3;
 
 // COMMON MESSAGES TYPES
 pub const MESSAGE_TYPE_SETUP_CONNECTION: u8 = 0x0;
