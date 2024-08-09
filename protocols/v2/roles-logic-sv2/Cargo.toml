@@ -14,7 +14,7 @@ serde = { version = "1.0.89", features = ["derive", "alloc"], default-features =
 binary_sv2 = {version = "^1.0.0", path = "../../../protocols/v2/binary-sv2/binary-sv2", default-features = true }
 common_messages_sv2 = { path = "../../../protocols/v2/subprotocols/common-messages", version = "^1.0.0" }
 mining_sv2 = { path = "../../../protocols/v2/subprotocols/mining", version = "^1.0.0" }
-template_distribution_sv2 = { path = "../../../protocols/v2/subprotocols/template-distribution", version = "^1.0.0" }
+template_distribution_sv2 = { path = "../../../protocols/v2/subprotocols/template-distribution", version = "^1.0.1" }
 job_declaration_sv2 = { path = "../../../protocols/v2/subprotocols/job-declaration", version = "^1.0.0" }
 const_sv2 = { version = "^1.0.0", path = "../../../protocols/v2/const-sv2"}
 framing_sv2 = { version = "^1.1.0", path = "../../../protocols/v2/framing-sv2" }
@@ -35,7 +35,8 @@ with_serde = [ "serde",
 "common_messages_sv2/with_serde",
 "template_distribution_sv2/with_serde",
 "job_declaration_sv2/with_serde",
-"mining_sv2/with_serde"]
+"mining_sv2/with_serde",
+"framing_sv2/with_serde"]
 prop_test = ["template_distribution_sv2/prop_test"]
 # Code coverage tools may conflict with the nopanic logic, so we can disable it when needed
 disable_nopanic = []
