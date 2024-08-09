@@ -16,6 +16,7 @@ use std::{
     sync::Arc,
 };
 
+use ext_config::{Config, File, FileFormat};
 use tokio::{sync::broadcast, task};
 use v1::server_to_client;
 
@@ -24,15 +25,25 @@ use tracing::{debug, error, info};
 /// Process CLI args, if any.
 #[allow(clippy::result_large_err)]
 fn process_cli_args<'a>() -> ProxyResult<'a, ProxyConfig> {
-    let args = match Args::from_args() {
-        Ok(cfg) => cfg,
-        Err(help) => {
-            error!("{}", help);
-            return Err(Error::BadCliArgs);
-        }
-    };
-    let config_file = std::fs::read_to_string(args.config_path)?;
-    Ok(toml::from_str::<ProxyConfig>(&config_file)?)
+    // Parse CLI arguments
+    let args = Args::from_args().map_err(|help| {
+        error!("{}", help);
+        Error::BadCliArgs
+    })?;
+
+    // Build configuration from the provided file path
+    let config_path = args.config_path.to_str().ok_or_else(|| {
+        error!("Invalid configuration path.");
+        Error::BadCliArgs
+    })?;
+
+    let settings = Config::builder()
+        .add_source(File::new(config_path, FileFormat::Toml))
+        .build()?;
+
+    // Deserialize settings into ProxyConfig
+    let config = settings.try_deserialize::<ProxyConfig>()?;
+    Ok(config)
 }
 
 #[tokio::main]
