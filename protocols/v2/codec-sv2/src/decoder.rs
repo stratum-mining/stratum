@@ -10,8 +10,8 @@
 //!
 //! ## Types
 //!
-//! * `StandardEitherFrame`: Represents a decoded frame that could be either a regular or
-//!   Noise-protected frame.
+//! * `StandardEitherFrame`: Represents an encoded or decoded frame that could be either a regular
+//!   or Noise-protected frame.
 //! * `StandardSv2Frame`: Represents a decoded Stratum V2 frame.
 //! * `StandardNoiseDecoder`: Decoder for Stratum V2 frames with Noise protocol support.
 //! * `StandardDecoder`: Decoder for Stratum V2 frames without Noise protocol support.
@@ -71,7 +71,7 @@ use crate::Error::MissingBytes;
 #[cfg(feature = "noise_sv2")]
 use crate::State;
 
-/// A decoded frame that could either be a regular or Noise-protected frame.
+/// An encoded or decoded frame that could either be a regular or Noise-protected frame.
 pub type StandardEitherFrame<T> = Frame<T, <Buffer as IsBuffer>::Slice>;
 
 /// A decoded Sv2 frame.
