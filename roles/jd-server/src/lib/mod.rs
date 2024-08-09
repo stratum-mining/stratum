@@ -104,9 +104,9 @@ where
         _ => Err(serde::de::Error::custom("Unsupported duration unit")),
     }
 }
-
 #[cfg(test)]
 mod tests {
+    use ext_config::{Config, File, FileFormat};
     use std::path::PathBuf;
 
     use super::*;
@@ -119,9 +119,14 @@ mod tests {
             config_path
         );
 
-        let config_string =
-            std::fs::read_to_string(config_path).expect("Failed to read the config file");
-        toml::from_str(&config_string).expect("Failed to parse config")
+        let config_path = config_path.to_str().unwrap();
+
+        let settings = Config::builder()
+            .add_source(File::new(&config_path, FileFormat::Toml))
+            .build()
+            .expect("Failed to build config");
+
+        settings.try_deserialize().expect("Failed to parse config")
     }
 
     #[test]
