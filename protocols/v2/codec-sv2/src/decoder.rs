@@ -12,7 +12,7 @@
 //!
 //! * `StandardEitherFrame`: Represents an encoded or decoded frame that could be either a regular
 //!   or Noise-protected frame.
-//! * `StandardSv2Frame`: Represents a decoded Stratum V2 frame.
+//! * `StandardSv2Frame`: Represents an encoded or decoded Stratum V2 frame.
 //! * `StandardNoiseDecoder`: Decoder for Stratum V2 frames with Noise protocol support.
 //! * `StandardDecoder`: Decoder for Stratum V2 frames without Noise protocol support.
 //!
@@ -74,7 +74,7 @@ use crate::State;
 /// An encoded or decoded frame that could either be a regular or Noise-protected frame.
 pub type StandardEitherFrame<T> = Frame<T, <Buffer as IsBuffer>::Slice>;
 
-/// A decoded Sv2 frame.
+/// An encoded or decoded Sv2 frame.
 pub type StandardSv2Frame<T> = Sv2Frame<T, <Buffer as IsBuffer>::Slice>;
 
 /// Standard decoder with Noise protocol support.
