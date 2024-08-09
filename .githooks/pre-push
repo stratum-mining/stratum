@@ -12,7 +12,7 @@
 set -xe
 
 # Run clippy, test, and rustfmt on all workspaces
-sh ./scripts/clippy-on-all-workspaces.sh
+sh ./scripts/clippy-fmt-and-test.sh
 if [ $? -ne 0 ]; then
     echo "Clippy checks or tests failed."
     exit 1
