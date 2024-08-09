@@ -23,7 +23,8 @@ use std::{net::SocketAddr, sync::Arc};
 use tokio::{net::TcpListener, sync::oneshot};
 use tracing::{error, info};
 
-use lib::Config;
+use ext_config::{Config, File, FileFormat};
+use lib::Configuration;
 use roles_logic_sv2::utils::{GroupId, Mutex};
 
 mod lib;
@@ -112,13 +113,21 @@ async fn main() {
         }
     };
 
-    // Scan all the upstreams and map them
-    let config_file = std::fs::read_to_string(args.config_path.clone())
-        .unwrap_or_else(|_| panic!("Can not open {:?}", args.config_path));
-    let config = match toml::from_str::<Config>(&config_file) {
-        Ok(cfg) => cfg,
+    let config_path = args.config_path.to_str().expect("Invalid config path");
+
+    let config: Configuration = match Config::builder()
+        .add_source(File::new(config_path, FileFormat::Toml))
+        .build()
+    {
+        Ok(settings) => match settings.try_deserialize::<Configuration>() {
+            Ok(c) => c,
+            Err(e) => {
+                error!("Failed to deserialize config: {}", e);
+                return;
+            }
+        },
         Err(e) => {
-            error!("Failed to parse config file: {}", e);
+            error!("Failed to build config: {}", e);
             return;
         }
     };
