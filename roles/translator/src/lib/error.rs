@@ -1,3 +1,4 @@
+use ext_config::ConfigError;
 use roles_logic_sv2::{
     mining_sv2::{ExtendedExtranonce, NewExtendedMiningJob, SetCustomMiningJob},
     parsers::Mining,
@@ -38,8 +39,8 @@ pub enum Error<'a> {
     BadCliArgs,
     /// Errors on bad `serde_json` serialize/deserialize.
     BadSerdeJson(serde_json::Error),
-    /// Errors on bad `toml` deserialize.
-    BadTomlDeserialize(toml::de::Error),
+    /// Errors on bad `config` TOML deserialize.
+    BadConfigDeserialize(ConfigError),
     /// Errors from `binary_sv2` crate.
     BinarySv2(binary_sv2::Error),
     /// Errors on bad noise handshake.
@@ -83,7 +84,7 @@ impl<'a> fmt::Display for Error<'a> {
         match self {
             BadCliArgs => write!(f, "Bad CLI arg input"),
             BadSerdeJson(ref e) => write!(f, "Bad serde json: `{:?}`", e),
-            BadTomlDeserialize(ref e) => write!(f, "Bad `toml` deserialize: `{:?}`", e),
+            BadConfigDeserialize(ref e) => write!(f, "Bad `config` TOML deserialize: `{:?}`", e),
             BinarySv2(ref e) => write!(f, "Binary SV2 error: `{:?}`", e),
             CodecNoise(ref e) => write!(f, "Noise error: `{:?}", e),
             FramingSv2(ref e) => write!(f, "Framing SV2 error: `{:?}`", e),
@@ -159,9 +160,9 @@ impl<'a> From<serde_json::Error> for Error<'a> {
     }
 }
 
-impl<'a> From<toml::de::Error> for Error<'a> {
-    fn from(e: toml::de::Error) -> Self {
-        Error::BadTomlDeserialize(e)
+impl<'a> From<ConfigError> for Error<'a> {
+    fn from(e: ConfigError) -> Self {
+        Error::BadConfigDeserialize(e)
     }
 }
 
