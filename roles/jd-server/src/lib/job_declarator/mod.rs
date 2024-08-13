@@ -136,7 +136,7 @@ impl JobDeclaratorDownstream {
         let mut transactions_list: Vec<Transaction> = Vec::new();
         for tx_with_state in transactions_with_state.iter().enumerate() {
             if let TransactionState::PresentInMempool(txid) = tx_with_state.1 {
-                let tx = mempool
+                let (tx, _) = mempool
                     .safe_lock(|x| x.mempool.get(txid).cloned())
                     .map_err(|e| JdsError::PoisonLock(e.to_string()))?
                     .ok_or(Box::new(JdsError::ImpossibleToReconstructBlock(

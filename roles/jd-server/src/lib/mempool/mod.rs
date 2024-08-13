@@ -12,12 +12,12 @@ use stratum_common::bitcoin::{self, hash_types::Txid};
 #[derive(Clone, Debug)]
 pub struct TransactionWithHash {
     pub id: Txid,
-    pub tx: Option<Transaction>,
+    pub tx: Option<(Transaction, u64)>,
 }
 
 #[derive(Clone, Debug)]
 pub struct JDsMempool {
-    pub mempool: HashMap<Txid, Option<Transaction>>,
+    pub mempool: HashMap<Txid, Option<(Transaction, u64)>>,
     auth: mini_rpc_client::Auth,
     url: String,
     new_block_receiver: Receiver<String>,
@@ -50,7 +50,7 @@ impl JDsMempool {
         new_block_receiver: Receiver<String>,
     ) -> Self {
         let auth = mini_rpc_client::Auth::new(username, password);
-        let empty_mempool: HashMap<Txid, Option<Transaction>> = HashMap::new();
+        let empty_mempool: HashMap<Txid, Option<(Transaction, u64)>> = HashMap::new();
         JDsMempool {
             mempool: empty_mempool,
             auth,
@@ -82,14 +82,15 @@ impl JDsMempool {
                     .get_raw_transaction(&txid.to_string(), None)
                     .await
                     .map_err(JdsMempoolError::Rpc)?;
-                let _ =
-                    self_.safe_lock(|a| a.mempool.insert(transaction.txid(), Some(transaction)));
+                let _ = self_
+                    .safe_lock(|a| a.mempool.insert(transaction.txid(), Some((transaction, 1))));
             }
         }
 
         // fill in the mempool the transactions given in input
         for transaction in transactions {
-            let _ = self_.safe_lock(|a| a.mempool.insert(transaction.txid(), Some(transaction)));
+            let _ =
+                self_.safe_lock(|a| a.mempool.insert(transaction.txid(), Some((transaction, 1))));
         }
         Ok(())
     }
