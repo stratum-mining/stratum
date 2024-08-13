@@ -1,6 +1,6 @@
 [package]
 name = "roles_logic_sv2"
-version = "1.2.0"
+version = "1.2.1"
 edition = "2018"
 description = "Common handlers for use within SV2 roles"
 license = "MIT OR Apache-2.0"
@@ -35,8 +35,7 @@ with_serde = [ "serde",
 "common_messages_sv2/with_serde",
 "template_distribution_sv2/with_serde",
 "job_declaration_sv2/with_serde",
-"mining_sv2/with_serde",
-"framing_sv2/with_serde"]
+"mining_sv2/with_serde"]
 prop_test = ["template_distribution_sv2/prop_test"]
 # Code coverage tools may conflict with the nopanic logic, so we can disable it when needed
 disable_nopanic = []
