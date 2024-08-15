@@ -85,7 +85,7 @@ dependencies = [
 
 [[package]]
 name = "binary_sv2"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "binary_codec_sv2",
  "derive_codec_sv2",
@@ -199,7 +199,7 @@ dependencies = [
 
 [[package]]
 name = "codec_sv2"
-version = "1.2.0"
+version = "1.2.1"
 dependencies = [
  "binary_sv2",
  "buffer_sv2",
@@ -212,7 +212,7 @@ dependencies = [
 
 [[package]]
 name = "common_messages_sv2"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "binary_sv2",
  "const_sv2",
@@ -224,7 +224,7 @@ dependencies = [
 
 [[package]]
 name = "const_sv2"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "secp256k1 0.28.2",
 ]
@@ -290,7 +290,7 @@ dependencies = [
 
 [[package]]
 name = "framing_sv2"
-version = "1.1.0"
+version = "2.0.0"
 dependencies = [
  "binary_sv2",
  "buffer_sv2",
@@ -606,7 +606,7 @@ checksum = "adad44e29e4c806119491a7f06f03de4d1af22c3a680dd47f1e6e179439d1f56"
 
 [[package]]
 name = "roles_logic_sv2"
-version = "1.1.0"
+version = "1.2.1"
 dependencies = [
  "binary_sv2",
  "chacha20poly1305",
@@ -796,7 +796,7 @@ dependencies = [
 
 [[package]]
 name = "template_distribution_sv2"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "binary_sv2",
  "const_sv2",
