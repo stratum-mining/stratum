@@ -15,6 +15,12 @@
 # This script is called by `.github/workflows/sv2-header-check.yaml` on every PR onto the main
 # branch.
 
+# Check if sha1sum is available on the system
+if ! command -v sha1sum >/dev/null 2>&1; then
+  echo "Warning: sha1sum is not installed on this system."
+  exit 1
+fi
+
 cargo install  --version 0.20.0 cbindgen
 
 set -ex
