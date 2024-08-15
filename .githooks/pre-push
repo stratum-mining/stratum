@@ -12,12 +12,17 @@
 # executing it.
 set -xe
 
-# Enforce cargo version 1.75
+# Enforce minimum cargo version 1.75
 REQUIRED_CARGO_VERSION="1.75.0"
 INSTALLED_CARGO_VERSION=$(cargo --version | awk '{print $2}')
 
-if [ "$INSTALLED_CARGO_VERSION" != "$REQUIRED_CARGO_VERSION" ]; then
-    echo "Error: Cargo version $REQUIRED_CARGO_VERSION is required. Installed version is $INSTALLED_CARGO_VERSION."
+# Function to compare version numbers
+version_ge() {
+    [ "$(printf '%s\n' "$@" | sort -V | head -n 1)" = "$2" ]
+}
+
+if ! version_ge "$INSTALLED_CARGO_VERSION" "$REQUIRED_CARGO_VERSION"; then
+    echo "Error: Cargo version $REQUIRED_CARGO_VERSION or higher is required. Installed version is $INSTALLED_CARGO_VERSION."
     exit 1
 fi
 
