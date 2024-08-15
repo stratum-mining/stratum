@@ -27,11 +27,6 @@ if ! version_ge "$INSTALLED_CARGO_VERSION" "$REQUIRED_CARGO_VERSION"; then
 fi
 
 # Enforce lock files are not changed during clippy, test, and rustfmt
-if ! cargo build --manifest-path=benches/Cargo.toml --locked; then
-    echo "Error: Cargo.lock file in benches crate is out of date. Please run 'cargo update' in the benches crate."
-    exit 1
-fi
-
 if ! cargo build --manifest-path=roles/Cargo.toml --locked; then
     echo "Error: Cargo.lock file in roles crate is out of date. Please run 'cargo update' in the roles crate."
     exit 1
