@@ -57,9 +57,16 @@ impl TemplateRx {
         test_only_do_not_send_solution_to_tp: bool,
     ) {
         let mut encoded_outputs = vec![];
-        miner_coinbase_outputs
-            .consensus_encode(&mut encoded_outputs)
-            .expect("Invalid coinbase output in config");
+        // jd is set to None in initialize_jd_as_solo_miner (in this case we need to take the first output as done by JDS)
+        if jd.is_none() {
+            miner_coinbase_outputs[0]
+                .consensus_encode(&mut encoded_outputs)
+                .expect("Invalid coinbase output in config");
+        } else {
+            miner_coinbase_outputs
+                .consensus_encode(&mut encoded_outputs)
+                .expect("Invalid coinbase output in config");
+        }
         let stream = tokio::net::TcpStream::connect(address).await.unwrap();
 
         let initiator = match authority_public_key {
