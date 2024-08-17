@@ -18,10 +18,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v2
 
-      - name: Install Rust
+      - name: Install Rust 1.75.0
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: stable
+          toolchain: 1.75.0
           override: true
 
       - name: Cache Cargo registry
