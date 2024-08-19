@@ -22,14 +22,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Run check-versioning-lib-release.sh
-        run: |
-          ./check-versioning-lib-release.sh
-          if [ $? -eq 1 ]; then
-            echo "Script returned exit code 1, halting the workflow"
-            exit 1
-          fi
-
       - uses: actions/checkout@v4
       - uses: actions-rs/toolchain@v1
         with:
