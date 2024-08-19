@@ -1105,6 +1105,30 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "49f1f14873335454500d59611f1cf4a4b0f786f9ac11f4312a78e4cf2566695b"
 
 [[package]]
+name = "jd_client"
+version = "0.1.1"
+dependencies = [
+ "async-channel 1.9.0",
+ "async-recursion",
+ "binary_sv2",
+ "buffer_sv2",
+ "codec_sv2",
+ "config",
+ "error_handling",
+ "framing_sv2",
+ "futures",
+ "key-utils",
+ "network_helpers_sv2",
+ "nohash-hasher",
+ "roles_logic_sv2",
+ "serde",
+ "stratum-common",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "job_declaration_sv2"
 version = "1.0.0"
 dependencies = [
@@ -1250,6 +1274,7 @@ dependencies = [
  "codec_sv2",
  "const_sv2",
  "futures",
+ "tokio",
  "tracing",
 ]
 
@@ -1856,8 +1881,10 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "config",
+ "jd_client",
  "serde",
  "tokio",
+ "tracing-subscriber",
  "translator_sv2",
 ]
 

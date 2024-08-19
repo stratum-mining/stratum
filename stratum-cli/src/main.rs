@@ -15,6 +15,8 @@ struct Cli {
 enum Commands {
     /// Stratum V2 Translator
     Translator(RoleArgs),
+    /// Stratum V2 Job Declarator Client
+    JDClient(RoleArgs),
 }
 
 #[derive(Debug, Args)]
@@ -32,19 +34,14 @@ enum RoleCommands {
 }
 
 fn parse_file<'a, T: serde::Deserialize<'a>>(config_path: &str) -> Option<T> {
-    let settings = Config::builder()
+    Config::builder()
         .add_source(File::new(config_path, FileFormat::Toml))
-        .build().ok();
-    if let Some(settings) = settings {
-        settings.try_deserialize::<T>().ok()
-    } else {
-        None
-    };
-    None
+        .build().ok().and_then(|s| s.try_deserialize::<T>().ok())
 }
 
 #[tokio::main]
 async fn main() {
+    tracing_subscriber::fmt::init();
     let cli = Cli::parse();
     match &cli.command {
         Some(Commands::Translator (role_args)) => {
@@ -65,6 +62,27 @@ async fn main() {
                 }
                 None => {
                     println!("Translator No command");
+                }
+            }
+        }
+        Some(Commands::JDClient (role_args)) => {
+            match &role_args.command {
+                Some(RoleCommands::StartLocal) => {
+                    let path = "../roles/jd-client/config-examples/jdc-config-local-example.toml".to_string();
+                    let config: jd_client::proxy_config::ProxyConfig  = parse_file(&path).unwrap();
+                    jd_client::JobDeclaratorClient::new(config).start().await;
+                }
+                Some(RoleCommands::StartHosted) => {
+                    let path = "../roles/jd-client/config-examples/jdc-config-hosted-example.toml".to_string();
+                    let config: jd_client::proxy_config::ProxyConfig  = parse_file(&path).unwrap();
+                    jd_client::JobDeclaratorClient::new(config).start().await;
+                }
+                Some(RoleCommands::StartConfig { path }) => {
+                    let config: jd_client::proxy_config::ProxyConfig = parse_file(path).unwrap();
+                    jd_client::JobDeclaratorClient::new(config).start().await;
+                }
+                None => {
+                    println!("JDClient No command");
                 }
             }
         }

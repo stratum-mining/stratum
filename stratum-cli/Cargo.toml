@@ -8,5 +8,7 @@ clap = { version = "4.5.16", features = ["derive"] }
 ext-config = { version = "0.14.0", features = ["toml"], package = "config" }
 serde = { version = "1.0.89", default-features = false }
 tokio = { version = "1", features = ["full"] }
+tracing-subscriber = { version = "0.3" }
 
 translator_sv2 = { path = "../roles/translator" }
+jd_client = { path = "../roles/jd-client" }
