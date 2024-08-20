@@ -48,6 +48,7 @@ pub enum State<'a> {
     DownstreamShutdown(Error<'a>),
     BridgeShutdown(Error<'a>),
     UpstreamShutdown(Error<'a>),
+    UpstreamTryReconnect(Error<'a>),
     Healthy(String),
 }
 
@@ -83,13 +84,22 @@ async fn send_status(
             .await
             .unwrap_or(());
         }
-        Sender::Upstream(tx) => {
-            tx.send(Status {
-                state: State::UpstreamShutdown(e),
-            })
-            .await
-            .unwrap_or(());
-        }
+        Sender::Upstream(tx) => match e {
+            Error::ChannelErrorReceiver(_) => {
+                tx.send(Status {
+                    state: State::UpstreamTryReconnect(e),
+                })
+                .await
+                .unwrap_or(());
+            }
+            _ => {
+                tx.send(Status {
+                    state: State::UpstreamShutdown(e),
+                })
+                .await
+                .unwrap_or(());
+            }
+        },
         Sender::TemplateReceiver(tx) => {
             tx.send(Status {
                 state: State::UpstreamShutdown(e),
@@ -113,8 +123,8 @@ pub async fn handle_error(
         Error::BadCliArgs => send_status(sender, e, error_handling::ErrorBranch::Break).await,
         // Errors on bad `serde_json` serialize/deserialize.
         Error::BadSerdeJson(_) => send_status(sender, e, error_handling::ErrorBranch::Break).await,
-        // Errors on bad `toml` deserialize.
-        Error::BadTomlDeserialize(_) => {
+        // Errors on bad `config` TOML deserialize.
+        Error::BadConfigDeserialize(_) => {
             send_status(sender, e, error_handling::ErrorBranch::Break).await
         }
         // Errors from `binary_sv2` crate.

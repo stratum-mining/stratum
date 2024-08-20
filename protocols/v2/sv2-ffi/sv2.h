@@ -38,11 +38,9 @@ static const uintptr_t INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE = ((ELLSWIFT_EN
 
 static const uint8_t SV2_MINING_PROTOCOL_DISCRIMINANT = 0;
 
-static const uint8_t SV2_JOB_NEG_PROTOCOL_DISCRIMINANT = 1;
+static const uint8_t SV2_JOB_DECLARATION_PROTOCOL_DISCRIMINANT = 1;
 
 static const uint8_t SV2_TEMPLATE_DISTR_PROTOCOL_DISCRIMINANT = 2;
-
-static const uint8_t SV2_JOB_DISTR_PROTOCOL_DISCRIMINANT = 3;
 
 static const uint8_t MESSAGE_TYPE_SETUP_CONNECTION = 0;
 
@@ -271,14 +269,12 @@ void _c_export_cvec2(CVec2 _a);
 #include <new>
 
 /// MiningProtocol = [`SV2_MINING_PROTOCOL_DISCRIMINANT`],
-/// JobDeclarationProtocol = [`SV2_JOB_NEG_PROTOCOL_DISCRIMINANT`],
+/// JobDeclarationProtocol = [`SV2_JOB_DECLARATION_PROTOCOL_DISCRIMINANT`],
 /// TemplateDistributionProtocol = [`SV2_TEMPLATE_DISTR_PROTOCOL_DISCRIMINANT`],
-/// JobDistributionProtocol = [`SV2_JOB_DISTR_PROTOCOL_DISCRIMINANT`],
 enum class Protocol : uint8_t {
   MiningProtocol = SV2_MINING_PROTOCOL_DISCRIMINANT,
-  JobDeclarationProtocol = SV2_JOB_NEG_PROTOCOL_DISCRIMINANT,
+  JobDeclarationProtocol = SV2_JOB_DECLARATION_PROTOCOL_DISCRIMINANT,
   TemplateDistributionProtocol = SV2_TEMPLATE_DISTR_PROTOCOL_DISCRIMINANT,
-  JobDistributionProtocol = SV2_JOB_DISTR_PROTOCOL_DISCRIMINANT,
 };
 
 /// ## ChannelEndpointChanged (Server -> Client)

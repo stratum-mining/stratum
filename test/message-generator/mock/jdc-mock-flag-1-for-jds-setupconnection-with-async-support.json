@@ -1,0 +1,46 @@
+{
+    "version": "2",
+    "doc": [
+        "This test does",
+        "Soft mock of JDC",
+        "Connect to JDS (that supports async jobs)",
+        "Send SetupConnection with flag 1 (async jobs) and expect SetupConnection.Success with flag 1"
+    ],
+    "frame_builders": [
+        {
+            "type": "automatic",
+            "message_id": "test/message-generator/messages/common_messages.json::setup_connection_job_declarator"
+        }
+    ],
+    "actions": [
+        {
+            "message_ids": ["setup_connection_job_declarator"],
+            "role": "client",
+            "results": [
+                {
+                    "type": "match_message_field",
+                    "value": [
+                        "CommonMessages",
+                        "SetupConnectionSuccess",
+                        [
+                            [
+                                "flags",
+                                { "U32": 1 }
+                            ]
+                        ]
+                    ]
+                }
+            ],
+            "actiondoc": "This action sends SetupConnection and expects SetupConnection.Success with flag 1"
+        }
+    ],
+    "setup_commands": [],
+    "execution_commands": [],
+    "cleanup_commands": [],
+    "role": "client",
+    "downstream": {
+        "ip": "127.0.0.1",
+        "port": 34264,
+        "pub_key": "9auqWEzQDVyd2oe1JVGFLMLHZtCo2FFqZwtKA5gd9xbuEu7PH72"
+    }
+}

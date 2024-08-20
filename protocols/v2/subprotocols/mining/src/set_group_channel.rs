@@ -42,9 +42,9 @@ impl<'d> GetSize for SetGroupChannel<'d> {
 #[cfg(feature = "with_serde")]
 impl<'a> SetGroupChannel<'a> {
     pub fn into_static(self) -> SetGroupChannel<'static> {
-        panic!("This function shouldn't be called by the Messaege Generator");
+        panic!("This function shouldn't be called by the Message Generator");
     }
     pub fn as_static(&self) -> SetGroupChannel<'static> {
-        panic!("This function shouldn't be called by the Messaege Generator");
+        panic!("This function shouldn't be called by the Message Generator");
     }
 }

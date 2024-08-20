@@ -191,6 +191,7 @@ enum ActionResult {
     MatchMessageLen(usize),
     MatchExtensionType(u16),
     CloseConnection,
+    SustainConnection,
     None,
 }
 
@@ -225,6 +226,7 @@ impl std::fmt::Display for ActionResult {
                 write!(f, "MatchExtensionType: {}", extension_type)
             }
             ActionResult::CloseConnection => write!(f, "Close connection"),
+            ActionResult::SustainConnection => write!(f, "Sustain connection"),
             ActionResult::GetMessageField {
                 subprotocol,
                 fields,
@@ -451,7 +453,7 @@ mod test {
         into_static::into_static,
         net::{setup_as_downstream, setup_as_upstream},
     };
-    use codec_sv2::{Frame, Sv2Frame};
+    use codec_sv2::Sv2Frame;
     use roles_logic_sv2::{
         mining_sv2::{
             CloseChannel, NewExtendedMiningJob, OpenExtendedMiningChannel,

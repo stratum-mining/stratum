@@ -12,10 +12,10 @@ crate-type = ["staticlib"]
 
 [dependencies]
 codec_sv2 = { path = "../../../protocols/v2/codec-sv2", version = "^1.0.0" }
-const_sv2 = { path = "../../../protocols/v2/const-sv2", version = "^1.0.0" }
+const_sv2 = { path = "../../../protocols/v2/const-sv2", version = "^2.0.0" }
 binary_sv2 = { path = "../../../protocols/v2/binary-sv2/binary-sv2", version = "^1.0.0" }
-common_messages_sv2 = { path = "../../../protocols/v2/subprotocols/common-messages", version = "^1.0.0" }
-template_distribution_sv2 = { path = "../../../protocols/v2/subprotocols/template-distribution", version = "^1.0.0" }
+common_messages_sv2 = { path = "../../../protocols/v2/subprotocols/common-messages", version = "^2.0.0" }
+template_distribution_sv2 = { path = "../../../protocols/v2/subprotocols/template-distribution", version = "^1.0.1" }
 
 [dev-dependencies]
 quickcheck = "1.0.3"

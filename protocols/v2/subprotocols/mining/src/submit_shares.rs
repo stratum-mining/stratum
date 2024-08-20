@@ -157,18 +157,18 @@ impl<'d> GetSize for SubmitSharesError<'d> {
 #[cfg(feature = "with_serde")]
 impl<'a> SubmitSharesError<'a> {
     pub fn into_static(self) -> SubmitSharesError<'static> {
-        panic!("This function shouldn't be called by the Messaege Generator");
+        panic!("This function shouldn't be called by the Message Generator");
     }
     pub fn as_static(&self) -> SubmitSharesError<'static> {
-        panic!("This function shouldn't be called by the Messaege Generator");
+        panic!("This function shouldn't be called by the Message Generator");
     }
 }
 #[cfg(feature = "with_serde")]
 impl<'a> SubmitSharesExtended<'a> {
     pub fn into_static(self) -> SubmitSharesExtended<'static> {
-        panic!("This function shouldn't be called by the Messaege Generator");
+        panic!("This function shouldn't be called by the Message Generator");
     }
     pub fn as_static(&self) -> SubmitSharesExtended<'static> {
-        panic!("This function shouldn't be called by the Messaege Generator");
+        panic!("This function shouldn't be called by the Message Generator");
     }
 }

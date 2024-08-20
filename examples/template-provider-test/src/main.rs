@@ -1,6 +1,6 @@
 use async_channel::{Receiver, Sender};
 use async_std::net::TcpStream;
-use codec_sv2::{Frame, StandardEitherFrame, StandardSv2Frame, Sv2Frame};
+use codec_sv2::{StandardEitherFrame, StandardSv2Frame, Sv2Frame};
 use network_helpers::PlainConnection;
 use roles_logic_sv2::{
     parsers::{IsSv2Message, TemplateDistribution},

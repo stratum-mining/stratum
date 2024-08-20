@@ -70,6 +70,11 @@ impl Buffer for BufferFromSystemMemory {
     fn danger_set_start(&mut self, index: usize) {
         self.start = index;
     }
+
+    #[inline]
+    fn is_droppable(&self) -> bool {
+        true
+    }
 }
 
 #[cfg(test)]
@@ -100,6 +105,9 @@ impl Buffer for TestBufferFromMemory {
     }
     fn danger_set_start(&mut self, _index: usize) {
         todo!()
+    }
+    fn is_droppable(&self) -> bool {
+        true
     }
 }
 

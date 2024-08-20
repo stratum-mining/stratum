@@ -69,6 +69,12 @@ Our roadmap is publicly available, outlining current and future plans. Decisions
 
 [View the SRI Roadmap](https://github.com/orgs/stratum-mining/projects/5)
 
+### 🏅 Project Maturity
+
+Low-level crates (`protocols` directory) are considered **beta** software. Rust API Docs is a [work-in-progress](https://github.com/stratum-mining/stratum/issues/845), and the community should still expect small breaking API changes and patches.
+
+Application-level crates (`roles` directory) are considered **alpha** software, and bugs are expected. They should be used as a guide on how to consume the low-level crates as dependencies.
+
 ### 🎯 Goals
 
 The goals of this project are to provide:

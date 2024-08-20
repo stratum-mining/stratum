@@ -1,6 +1,6 @@
 [package]
 name = "const_sv2"
-version = "1.0.0"
+version = "2.0.0"
 authors = ["fi3 <email@email.org>"]
 edition = "2018"
 description = "Sv2  constatnts"
@@ -14,3 +14,6 @@ secp256k1 = { version = "0.28.2", default-features = false, features =["hashes",
 
 #[dev-dependencies]
 #cbindgen = "0.16.0"
+
+[features]
+no_std = []

@@ -83,6 +83,8 @@ The SRI project follows an open contributor model, where anyone is welcome to co
 2. **Create a Branch** 
 
 3. **Commit Your Changes**
+    
+    **Note:** Commits should cover both the issue fixed and the solution's rationale. These [guidelines](https://chris.beams.io/posts/git-commit/) should be kept in mind.
 
 4. **Run Tests, Clippy, and Formatter:** 
 

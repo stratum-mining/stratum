@@ -17,13 +17,13 @@ async-recursion = "0.3.2"
 binary_sv2 = { version = "^1.0.0", path = "../../protocols/v2/binary-sv2/binary-sv2" }
 buffer_sv2 = { version = "^1.0.0", path = "../../utils/buffer" }
 codec_sv2 = { version = "^1.0.1", path = "../../protocols/v2/codec-sv2", features = ["noise_sv2", "with_buffer_pool"] }
-framing_sv2 = { version = "^1.1.0", path = "../../protocols/v2/framing-sv2" }
+framing_sv2 = { version = "^2.0.0", path = "../../protocols/v2/framing-sv2" }
 network_helpers_sv2 = { version = "2.0.0", path = "../roles-utils/network-helpers", features=["with_tokio", "with_buffer_pool"] }
 roles_logic_sv2 = { version = "^1.0.0", path = "../../protocols/v2/roles-logic-sv2" }
 serde = { version = "1.0.89", default-features = false, features = ["derive", "alloc"] }
 futures = "0.3.25"
 tokio = { version = "1", features = ["full"] }
-toml = { version = "0.5.6", git = "https://github.com/diondokter/toml-rs", default-features = false, rev = "c4161aa" }
+ext-config = { version = "0.14.0", features = ["toml"], package = "config" }
 tracing = { version = "0.1" }
 tracing-subscriber = { version = "0.3" }
 error_handling = { version = "1.0.0", path = "../../utils/error-handling" }

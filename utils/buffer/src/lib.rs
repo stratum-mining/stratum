@@ -85,4 +85,5 @@ pub trait Buffer {
     fn is_empty(&self) -> bool {
         self.len() == 0
     }
+    fn is_droppable(&self) -> bool;
 }

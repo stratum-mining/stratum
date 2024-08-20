@@ -1,0 +1,146 @@
+{
+  "version": "2",
+  "doc": [
+    "This test does",
+    "Mock JDC",
+    "Send SetupConnection and await for SetupConnection.Success",
+    "Send AllocateMiningJobToken0 and await for AllocateMiningJobToken.Success0",
+    "Send AllocateMiningJobToken1 and await for AllocateMiningJobToken.Success1",
+    "Send DeclareMiningJob and await for ProvideMissingTransactions",
+    "Send SubmitSolution and assert that connection was sustained"
+  ],
+  "job_declaration_messages": [
+    {
+      "message": {
+        "type": "AllocateMiningJobToken",
+        "user_identifier": "",
+        "request_id": 0,
+        "coinbase_tx_outputs": []
+      },
+      "id": "allocate_mining_job_token0"
+    },
+    {
+      "message": {
+        "type": "AllocateMiningJobToken",
+        "user_identifier": "",
+        "request_id": 1,
+        "coinbase_tx_outputs": []
+      },
+      "id": "allocate_mining_job_token1"
+    },
+    {
+      "message": {
+        "type": "DeclareMiningJob",
+        "request_id": 0,
+        "mining_job_token": [1, 0, 0, 0],
+        "version": 0,
+        "coinbase_prefix": [2, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 55, 2, 128, 121, 0, 83, 116, 114, 97, 116, 117, 109, 32, 118, 50, 32, 83, 82, 73, 32, 80, 111, 111, 108],
+        "coinbase_suffix": [255, 255, 255, 255, 2, 168, 247, 5, 42, 1, 0, 0, 0, 22, 0, 20, 235, 225, 183, 220, 194, 147, 204, 170, 14, 231, 67, 168, 111, 137, 223, 130, 88, 194, 8, 252, 0, 0, 0, 0, 0, 0, 0, 0, 38, 106, 36, 170, 33, 169, 237, 226, 201, 13, 62, 213, 94, 164, 53, 216, 76, 246, 14, 110, 125, 255, 48, 66, 12, 220, 90, 217, 209, 75, 129, 37, 185, 117, 116, 254, 30, 81, 159, 1, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        "tx_short_hash_nonce": 0,
+        "tx_short_hash_list": [[95, 135, 113, 8, 147, 179]],
+        "tx_hash_list_hash": [133, 189, 184, 91, 252, 203, 225, 42, 233, 16, 77, 119, 76, 134, 93, 189, 192, 159, 221, 130, 150, 196, 18, 32, 54, 212, 138, 255, 57, 63, 118, 74],
+        "excess_data": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      },
+      "id": "declare_mining_job"
+    },
+    {
+      "message": {
+        "type": "SubmitSolution",
+        "extranonce": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0],
+        "prev_hash": [184, 103, 138, 88, 153, 105, 236, 29, 123, 246, 107, 203, 1, 33, 10, 122, 188, 139, 218, 141, 62, 177, 158, 101, 125, 92, 214, 150, 199, 220, 29, 8],
+        "ntime": 0,
+        "nonce": 0,
+        "nbits": 0,
+        "version": 0
+      },
+      "id": "submit_solution"
+    }
+  ],
+  "frame_builders": [
+    {
+      "type": "automatic",
+      "message_id": "test/message-generator/messages/common_messages.json::setup_connection_job_declarator"
+    },
+    {
+      "type": "automatic",
+      "message_id": "allocate_mining_job_token0"
+    },
+    {
+      "type": "automatic",
+      "message_id": "allocate_mining_job_token1"
+    },
+    {
+      "type": "automatic",
+      "message_id": "declare_mining_job"
+    },
+    {
+      "type": "automatic",
+      "message_id": "submit_solution"
+    }
+  ],
+  "actions": [
+    {
+      "message_ids": ["setup_connection_job_declarator"],
+      "role": "client",
+      "results": [
+        {
+          "type": "match_message_type",
+          "value": "0x01"
+        }
+      ],
+      "actiondoc": "This action sends SetupConnection and awaits for a SetupConnection.Success"
+    },
+    {
+      "message_ids": ["allocate_mining_job_token0"],
+      "role": "client",
+      "results": [
+        {
+          "type": "match_message_type",
+          "value": "0x51"
+        }
+      ],
+      "actiondoc": "This action sends AllocateMiningJobToken0 and awaits for a AllocateMiningJobToken.Success0"
+    },
+    {
+      "message_ids": ["allocate_mining_job_token1"],
+      "role": "client",
+      "results": [
+        {
+          "type": "match_message_type",
+          "value": "0x51"
+        }
+      ],
+      "actiondoc": "This action sends AllocateMiningJobToken1 and awaits for a AllocateMiningJobToken.Success1"
+    },
+    {
+      "message_ids": ["declare_mining_job"],
+      "role": "client",
+      "results": [
+        {
+          "type": "match_message_type",
+          "value": "0x55"
+        }
+      ],
+      "actiondoc": "This action sends DeclareMiningJob and awaits for a ProvideMissingTransactions"
+    },
+    {
+      "message_ids": ["submit_solution"],
+      "role": "client",
+      "results": [
+        {
+          "type": "sustain_connection"
+        }
+      ],
+      "actiondoc": "This action sends SubmitSolution and asserts that connection was sustained"
+    }
+  ],
+  "setup_commands": [],
+  "execution_commands": [],
+  "cleanup_commands": [],
+  "role": "client",
+  "downstream": {
+    "ip": "127.0.0.1",
+    "port": 34264,
+    "pub_key": "9auqWEzQDVyd2oe1JVGFLMLHZtCo2FFqZwtKA5gd9xbuEu7PH72"
+  }
+}

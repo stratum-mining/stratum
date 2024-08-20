@@ -77,7 +77,7 @@ checksum = "d86b93f97252c47b41663388e6d155714a9d0c398b99f1005cbc5f978b29f445"
 
 [[package]]
 name = "binary_codec_sv2"
-version = "1.0.0"
+version = "1.2.0"
 dependencies = [
  "buffer_sv2",
  "quickcheck",
@@ -85,7 +85,7 @@ dependencies = [
 
 [[package]]
 name = "binary_sv2"
-version = "1.0.0"
+version = "1.2.0"
 dependencies = [
  "binary_codec_sv2",
  "derive_codec_sv2",
@@ -138,7 +138,7 @@ dependencies = [
 
 [[package]]
 name = "buffer_sv2"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "aes-gcm",
  "serde",
@@ -152,9 +152,9 @@ checksum = "1fd0f2584146f6f2ef48085050886acf353beff7305ebd1ae69500e27c67f64b"
 
 [[package]]
 name = "cc"
-version = "1.0.97"
+version = "1.0.98"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "099a5357d84c4c61eb35fc8eafa9a79a902c2f76911e5747ced4e032edd8d9b4"
+checksum = "41c270e7540d725e65ac7f1b212ac8ce349719624d7bcff99f8e2e488e8cf03f"
 
 [[package]]
 name = "cfg-if"
@@ -199,7 +199,7 @@ dependencies = [
 
 [[package]]
 name = "codec_sv2"
-version = "1.1.0"
+version = "1.2.1"
 dependencies = [
  "binary_sv2",
  "buffer_sv2",
@@ -212,7 +212,7 @@ dependencies = [
 
 [[package]]
 name = "common_messages_sv2"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "binary_sv2",
  "const_sv2",
@@ -224,7 +224,7 @@ dependencies = [
 
 [[package]]
 name = "const_sv2"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "secp256k1 0.28.2",
 ]
@@ -260,7 +260,7 @@ dependencies = [
 
 [[package]]
 name = "derive_codec_sv2"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "binary_codec_sv2",
 ]
@@ -290,7 +290,7 @@ dependencies = [
 
 [[package]]
 name = "framing_sv2"
-version = "1.1.0"
+version = "2.0.0"
 dependencies = [
  "binary_sv2",
  "buffer_sv2",
@@ -356,9 +356,9 @@ checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
 
 [[package]]
 name = "hex-conservative"
-version = "0.1.1"
+version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "30ed443af458ccb6d81c1e7e661545f94d3176752fb1df2f543b902a1e0f51e2"
+checksum = "212ab92002354b4819390025006c897e8140934349e8635c9b077f47b4dcbd20"
 
 [[package]]
 name = "humantime"
@@ -395,9 +395,9 @@ dependencies = [
 
 [[package]]
 name = "libc"
-version = "0.2.154"
+version = "0.2.155"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ae743338b92ff9146ce83992f766a31066a91a8c84a45e0e9f21e7cf6de6d346"
+checksum = "97b3888a4aecf77e811145cadf6eef5901f4782c53886191b2f693f24761847c"
 
 [[package]]
 name = "log"
@@ -501,9 +501,9 @@ dependencies = [
 
 [[package]]
 name = "proc-macro2"
-version = "1.0.82"
+version = "1.0.85"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8ad3d49ab951a01fbaafe34f2ec74122942fe18a3f9814c3268f1bb72042131b"
+checksum = "22244ce15aa966053a896d1accb3a6e68469b97c7f33f284b99f0d576879fc23"
 dependencies = [
  "unicode-ident",
 ]
@@ -606,7 +606,7 @@ checksum = "adad44e29e4c806119491a7f06f03de4d1af22c3a680dd47f1e6e179439d1f56"
 
 [[package]]
 name = "roles_logic_sv2"
-version = "1.1.0"
+version = "1.2.1"
 dependencies = [
  "binary_sv2",
  "chacha20poly1305",
@@ -674,22 +674,22 @@ dependencies = [
 
 [[package]]
 name = "serde"
-version = "1.0.201"
+version = "1.0.203"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "780f1cebed1629e4753a1a38a3c72d30b97ec044f0aef68cb26650a3c5cf363c"
+checksum = "7253ab4de971e72fb7be983802300c30b5a7f0c2e56fab8abfc6a214307c0094"
 dependencies = [
  "serde_derive",
 ]
 
 [[package]]
 name = "serde_derive"
-version = "1.0.201"
+version = "1.0.203"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c5e405930b9796f1c00bee880d03fc7e0bb4b9a11afc776885ffe84320da2865"
+checksum = "500cbc0ebeb6f46627f50f3f5811ccf6bf00643be300b4c3eabc0ef55dc5b5ba"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.62",
+ "syn 2.0.66",
 ]
 
 [[package]]
@@ -711,12 +711,12 @@ checksum = "6c64451ba24fc7a6a2d60fc75dd9c83c90903b19028d4eff35e88fc1e86564e9"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.62",
+ "syn 2.0.66",
 ]
 
 [[package]]
 name = "serde_sv2"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "buffer_sv2",
  "serde",
@@ -744,7 +744,7 @@ checksum = "81cdd64d312baedb58e21336b31bc043b77e01cc99033ce76ef539f78e965ebc"
 
 [[package]]
 name = "sv1_api"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "binary_sv2",
  "bitcoin_hashes 0.3.2",
@@ -785,9 +785,9 @@ dependencies = [
 
 [[package]]
 name = "syn"
-version = "2.0.62"
+version = "2.0.66"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9f660c3bfcefb88c538776b6685a0c472e3128b51e74d48793dc2a488196e8eb"
+checksum = "c42f3f41a2de00b01c0aaad383c5a45241efc8b2d1eda5661812fda5f3cdcff5"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -796,7 +796,7 @@ dependencies = [
 
 [[package]]
 name = "template_distribution_sv2"
-version = "1.0.0"
+version = "1.0.2"
 dependencies = [
  "binary_sv2",
  "const_sv2",
@@ -842,7 +842,7 @@ checksum = "34704c8d6ebcbc939824180af020566b01a7c01f80641264eba0999f6c2b6be7"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.62",
+ "syn 2.0.66",
 ]
 
 [[package]]
@@ -994,6 +994,6 @@ checksum = "bec47e5bfd1bff0eeaf6d8b485cc1074891a197ab4225d504cb7a1ab88b02bf0"
 
 [[package]]
 name = "zeroize"
-version = "1.7.0"
+version = "1.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "525b4ec142c6b68a2d10f01f7bbf6755599ca3f81ea53b8431b7dd348f5fdb2d"
+checksum = "ced3678a2879b30306d323f4542626697a464a97c0a07c9aebf7ebca65cd4dde"

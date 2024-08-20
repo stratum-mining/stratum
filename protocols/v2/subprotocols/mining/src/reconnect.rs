@@ -40,9 +40,9 @@ impl<'d> GetSize for Reconnect<'d> {
 #[cfg(feature = "with_serde")]
 impl<'a> Reconnect<'a> {
     pub fn into_static(self) -> Reconnect<'static> {
-        panic!("This function shouldn't be called by the Messaege Generator");
+        panic!("This function shouldn't be called by the Message Generator");
     }
     pub fn as_static(&self) -> Reconnect<'static> {
-        panic!("This function shouldn't be called by the Messaege Generator");
+        panic!("This function shouldn't be called by the Message Generator");
     }
 }
